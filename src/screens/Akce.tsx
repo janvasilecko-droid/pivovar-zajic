@@ -402,17 +402,17 @@ export default function AkceScreen() {
                       </select>
 
                       <div className="flex items-center gap-1 shrink-0 w-full sm:w-auto justify-end">
-                        <button type="button" onClick={() => handleRowChange(i, 'qty', String(Math.max(0, (Number(r.qty) || 0) - 1)))} className="w-7 h-7 shrink-0 grid place-items-center rounded-lg bg-neutral-200 hover:bg-amber-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition" title="Odečíst 1">−</button>
+                        <button type="button" onClick={() => handleRowChange(i, 'qty', String(Math.max(0, (Number(r.qty) || 0) - 1)))} className="w-10 h-10 shrink-0 grid place-items-center rounded-xl bg-neutral-200 hover:bg-amber-200 text-neutral-800 font-bold text-lg select-none active:scale-95 transition" title="Odečíst 1">−</button>
                         <input
                           type="number"
                           min={0}
-                          className="input w-16 !py-1 text-xs font-mono font-black text-center bg-white"
+                          className="input w-20 !py-2 text-sm font-mono font-black text-center bg-white"
                           placeholder="ks"
                           value={r.qty}
                           onChange={(e) => handleRowChange(i, 'qty', e.target.value)}
                           inputMode="numeric"
                         />
-                        <button type="button" onClick={() => handleRowChange(i, 'qty', String((Number(r.qty) || 0) + 1))} className="w-7 h-7 shrink-0 grid place-items-center rounded-lg bg-amber-950 hover:bg-amber-900 text-white font-bold text-sm select-none active:scale-95 transition" title="Přidat 1">+</button>
+                        <button type="button" onClick={() => handleRowChange(i, 'qty', String((Number(r.qty) || 0) + 1))} className="w-10 h-10 shrink-0 grid place-items-center rounded-xl bg-amber-950 hover:bg-amber-900 text-white font-bold text-lg select-none active:scale-95 transition" title="Přidat 1">+</button>
                         <span className="text-xs font-bold text-neutral-600 shrink-0">ks</span>
                       </div>
                     </div>
