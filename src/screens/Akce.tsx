@@ -26,7 +26,6 @@ export type AkceRecord = {
   created_at?: string;
 };
 
-const MAX_ITEMS = 7;
 type FormRow = { beer_id: string; package_id: string; qty: string };
 
 export default function AkceScreen() {
@@ -46,7 +45,7 @@ export default function AkceScreen() {
   const [who, setWho] = useState('Petr Bednář & Tým');
   const [entryDate, setEntryDate] = useState(new Date().toISOString().slice(0, 10));
   const [itemRows, setItemRows] = useState<FormRow[]>(() =>
-    Array.from({ length: MAX_ITEMS }, () => ({ beer_id: '', package_id: '', qty: '' }))
+    [{ beer_id: '', package_id: '', qty: '' }]
   );
 
   // Evaluation "Po akci" Modal State
@@ -129,7 +128,7 @@ export default function AkceScreen() {
     saveRecords([newRecord, ...records]);
     setShowAddModal(false);
     setName('');
-    setItemRows(Array.from({ length: MAX_ITEMS }, () => ({ beer_id: '', package_id: '', qty: '' })));
+    setItemRows([{ beer_id: '', package_id: '', qty: '' }]);
     alert(`✅ Akce "${newRecord.name}" byla úspěšně uložena s ${validItems.length} položkami!`);
   }
 

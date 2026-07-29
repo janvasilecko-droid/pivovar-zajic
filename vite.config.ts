@@ -13,8 +13,9 @@ const versionContent = readFileSync(versionPath, 'utf-8');
 const versionMatch = versionContent.match(/APP_VERSION\s*=\s*'([^']+)'/);
 const appVersion = versionMatch ? versionMatch[1] : '0.0.0';
 
-const dateMatch = versionContent.match(/APP_VERSION_DATE\s*=\s*'([^']+)'/);
-const appDate = dateMatch ? dateMatch[1] : '';
+// Použij aktuální timestamp při buildu
+const now = new Date();
+const appDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
 // Vygeneruj version.json do public/ (zkopíruje se do dist/ při build)
 const versionJsonPath = resolve(__dirname, 'public/version.json');
