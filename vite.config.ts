@@ -1,7 +1,11 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { readFileSync, writeFileSync } from 'fs';
-import { resolve } from 'path';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Načti aktuální verzi z version.ts
 const versionPath = resolve(__dirname, 'src/lib/version.ts');
@@ -14,7 +18,11 @@ const appDate = dateMatch ? dateMatch[1] : '';
 
 // Vygeneruj version.json do public/ (zkopíruje se do dist/ při build)
 const versionJsonPath = resolve(__dirname, 'public/version.json');
-writeFileSync(versionJsonPath, JSON.stringify({ version: appVersion, date: appDate }, null, 2));
+try {
+  writeFileSync(versionJsonPath, JSON.stringify({ version: appVersion, date: appDate }, null, 2));
+} catch (e) {
+  // public/ nemusí existovat při clean checkout, nevadí
+}
 
 export default defineConfig({
   plugins: [react()],
