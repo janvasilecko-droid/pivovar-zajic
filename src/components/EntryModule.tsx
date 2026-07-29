@@ -55,6 +55,9 @@ export function EntryModule({ table, title, icon, exportFn, hasWho, hasReason, h
   const [aliasMap, setAliasMap] = useState<ParserAliasMap>(emptyAliasMap());
   useEffect(() => { loadAliasMap().then(setAliasMap).catch(() => {}); }, []);
 
+  const [showAllWeeks, setShowAllWeeks] = useState(false);
+  const currentWeekKey = isoWeekKey(new Date().toISOString().slice(0, 10));
+  const currentWeekCount = useMemo(() => rows.filter((r) => isoWeekKey(r.entry_date) === currentWeekKey).length, [rows, currentWeekKey]);
 
   // Multi-row mode: fixed number of empty rows, each with its own beer + package + qty
   const MULTI_ROW_COUNT = multiRowCount ?? 7;
@@ -394,7 +397,7 @@ export function EntryModule({ table, title, icon, exportFn, hasWho, hasReason, h
                 >
                   <span className="w-5 h-5 rounded-full bg-neutral-200 text-neutral-800 text-[11px] font-black flex items-center justify-center shrink-0">
                     {i + 1}
-                  </span>                  <div className="flex items-center gap-1.5 col-span-11 sm:col-span-4">
+                  </span>                  <div className="flex items-center gap-1.5 col-span-11 sm:col-span-3">
 
                     <div className="w-3.5 shrink-0 flex items-center justify-center">
                       {selectedBeer && (
@@ -429,7 +432,7 @@ export function EntryModule({ table, title, icon, exportFn, hasWho, hasReason, h
                     </select>
                   </div>
                   <div className="flex items-center gap-1 col-span-11 sm:col-span-3">
-                    <button type="button" onClick={() => setMultiField(i, 'qty', String(Math.max(0, (Number(r.qty) || 0) - 1)))} className="w-7 h-7 shrink-0 grid place-items-center rounded-lg bg-neutral-100 hover:bg-amber-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition" title="Odečíst 1">−</button>
+                    <button type="button" onClick={() => setMultiField(i, 'qty', String(Math.max(0, (Number(r.qty) || 0) - 1)))} className="w-9 h-9 shrink-0 grid place-items-center rounded-lg bg-neutral-100 hover:bg-amber-200 text-neutral-800 font-bold text-base select-none active:scale-95 transition" title="Odečíst 1">−</button>
                     <input
                       type="number"
                       min={0}
@@ -439,7 +442,7 @@ export function EntryModule({ table, title, icon, exportFn, hasWho, hasReason, h
                       onChange={(e) => setMultiField(i, 'qty', e.target.value)}
                       inputMode="numeric"
                     />
-                    <button type="button" onClick={() => setMultiField(i, 'qty', String((Number(r.qty) || 0) + 1))} className="w-7 h-7 shrink-0 grid place-items-center rounded-lg bg-amber-950 hover:bg-amber-900 text-white font-bold text-sm select-none active:scale-95 transition" title="Přidat 1">+</button>
+                    <button type="button" onClick={() => setMultiField(i, 'qty', String((Number(r.qty) || 0) + 1))} className="w-9 h-9 shrink-0 grid place-items-center rounded-lg bg-amber-950 hover:bg-amber-900 text-white font-bold text-base select-none active:scale-95 transition" title="Přidat 1">+</button>
                     <span className="text-xs font-extrabold text-neutral-600">ks</span>
                   </div>                  <div className="col-span-12 sm:col-span-1 flex justify-end">
                   {hasSourceVolume && (
@@ -590,7 +593,22 @@ export function EntryModule({ table, title, icon, exportFn, hasWho, hasReason, h
             <span>📋</span>
             <span>{mode === 'entry_only' ? `Přehled zadaných záznamů (${table === 'bottling' ? 'Lahve' : title})` : `Všechny záznamy (${table === 'bottling' ? 'Lahve' : title})`}</span>
           </div>
-          {rows.length > 0 && <span className="chip bg-amber-100 text-amber-900 text-xs font-bold">{rows.length} záznamů</span>}
+          <div className="flex items-center gap-2">
+            {rows.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowAllWeeks((v) => !v)}
+                className={`text-xs font-bold px-2.5 py-1 rounded-lg border transition ${
+                  showAllWeeks
+                    ? 'bg-amber-200 border-amber-300 text-amber-950'
+                    : 'bg-white border-neutral-200 text-neutral-600'
+                }`}
+              >
+                {showAllWeeks ? `📅 Všechny týdny (${rows.length})` : `📅 Tento týden (${currentWeekCount})`}
+              </button>
+            )}
+            {rows.length > 0 && <span className="chip bg-amber-100 text-amber-900 text-xs font-bold">{rows.length} záznamů</span>}
+          </div>
         </div>
 
         {loading ? <Spinner /> : rows.length === 0 ? <EmptyState text="Zatím žádné záznamy. Přidej první výše." icon="📝" /> : (

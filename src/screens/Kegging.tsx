@@ -34,6 +34,13 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   const [aliasMap, setAliasMap] = useState<ParserAliasMap>(emptyAliasMap());
   useEffect(() => { loadAliasMap().then(setAliasMap).catch(() => {}); }, []);
 
+  const [showAllWeeks, setShowAllWeeks] = useState(false);
+  const currentWeekKey = isoWeekKey(new Date().toISOString().slice(0, 10));
+  const currentWeekCount = useMemo(() => rows.filter((r) => isoWeekKey(r.entry_date) === currentWeekKey).length, [rows, currentWeekKey]);
+  const filteredRows = useMemo(() => {
+    if (showAllWeeks) return rows;
+    return rows.filter((r) => isoWeekKey(r.entry_date) === currentWeekKey);
+  }, [rows, showAllWeeks, currentWeekKey]);
 
   const [weekKey, setWeekKey] = useState(isoWeekKey(new Date().toISOString().slice(0, 10)));
   const [weekOrders, setWeekOrders] = useState<OrderRow[]>([]);
@@ -513,10 +520,10 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
         {/* Hlavička tabulky pro přesné zarovnání */}
         <div className="hidden sm:grid grid-cols-12 gap-2 px-3 py-2 text-[11px] font-black text-amber-950/70 uppercase tracking-wider border-b-2 border-amber-200/80 mb-2 bg-amber-500/5 rounded-t-xl">
           <div className="col-span-1 text-center">#</div>
-          <div className="col-span-4">Pivo</div>
-          <div className="col-span-4">Obal (KEG)</div>
-          <div className="col-span-2 text-center">Množství (ks)</div>
-          <div className="col-span-1 text-right">Smazat</div>
+          <div className="col-span-3">Pivo</div>
+          <div className="col-span-3">Obal (KEG)</div>
+          <div className="col-span-4 text-center">Množství (ks)</div>
+          <div className="col-span-1 text-right">Tank</div>
         </div>
 
         <div className="space-y-1 bg-white rounded-xl border border-neutral-200/90 divide-y divide-neutral-100 overflow-hidden shadow-2xs">
@@ -533,7 +540,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                       {i + 1}
                     </span>
                   </div>
-                  <div className="col-span-11 sm:col-span-4 flex items-center gap-1.5">
+                  <div className="col-span-11 sm:col-span-3 flex items-center gap-1.5">
                     <div className="w-3.5 shrink-0 flex items-center justify-center">
                       {rowBeer && (
                         <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full shrink-0 shadow-2xs border border-black/20" style={{ backgroundColor: beerBg(rowBeer) }} />
@@ -552,10 +559,10 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                   </div>
                   <div className="col-span-4 sm:col-span-2">
                     <div className="flex items-center justify-center gap-1">
-                      <button type="button" onClick={() => setRowField(i, 'qty', String(Math.max(0, (Number(r.qty) || 0) - 1)))} className="w-7 h-7 shrink-0 grid place-items-center rounded-lg bg-neutral-100 hover:bg-amber-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition" title="Odečíst 1">−</button>
+                      <button type="button" onClick={() => setRowField(i, 'qty', String(Math.max(0, (Number(r.qty) || 0) - 1)))} className="w-9 h-9 shrink-0 grid place-items-center rounded-lg bg-neutral-100 hover:bg-amber-200 text-neutral-800 font-bold text-base select-none active:scale-95 transition" title="Odečíst 1">−</button>
                       <input type="number" min={0} className="input !py-1.5 !px-1 text-xs sm:text-sm font-bold text-center min-w-0 flex-1" placeholder="ks" value={r.qty}
                         onChange={(e) => setRowField(i, 'qty', e.target.value)} inputMode="numeric" />
-                      <button type="button" onClick={() => setRowField(i, 'qty', String((Number(r.qty) || 0) + 1))} className="w-7 h-7 shrink-0 grid place-items-center rounded-lg bg-amber-950 hover:bg-amber-900 text-white font-bold text-sm select-none active:scale-95 transition" title="Přidat 1">+</button>
+                      <button type="button" onClick={() => setRowField(i, 'qty', String((Number(r.qty) || 0) + 1))} className="w-9 h-9 shrink-0 grid place-items-center rounded-lg bg-amber-950 hover:bg-amber-900 text-white font-bold text-base select-none active:scale-95 transition" title="Přidat 1">+</button>
                     </div>
                   </div>
                   <div className="col-span-1 flex justify-end">
@@ -619,7 +626,22 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
             <span>📋</span>
             <span>{mode === 'entry_only' ? 'Přehled zadaných záznamů stáčení KEG' : 'Všechny záznamy stáčení KEG'}</span>
           </div>
-          {rows.length > 0 && <span className="chip bg-amber-100 text-amber-900 text-xs font-bold">{rows.length} záznamů</span>}
+          <div className="flex items-center gap-2">
+            {rows.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowAllWeeks((v) => !v)}
+                className={`text-xs font-bold px-2.5 py-1 rounded-lg border transition ${
+                  showAllWeeks
+                    ? 'bg-amber-200 border-amber-300 text-amber-950'
+                    : 'bg-white border-neutral-200 text-neutral-600'
+                }`}
+              >
+                {showAllWeeks ? `📅 Všechny týdny (${rows.length})` : `📅 Tento týden (${currentWeekCount})`}
+              </button>
+            )}
+            {rows.length > 0 && <span className="chip bg-amber-100 text-amber-900 text-xs font-bold">{rows.length} záznamů</span>}
+          </div>
         </div>
 
         {loading ? (
@@ -636,7 +658,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r) => {
+                  {filteredRows.map((r) => {
                     const cellar = cellarTanks.find((t) => t.id === r.cellar_tank_id);
                     const pkgObj = packages.find((p) => p.id === r.package_id);
                     const pkgLabel = r.package_label ?? pkgObj?.label ?? '—';
