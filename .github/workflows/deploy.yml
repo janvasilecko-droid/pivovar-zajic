@@ -27,7 +27,7 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
       - name: Deploy to Cloudflare Pages
-        run: npx wrangler pages deploy dist --project-name=pivovar-zajic
+        run: npx wrangler pages deploy dist --project-name=pivovar-zajic --branch main
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
 
