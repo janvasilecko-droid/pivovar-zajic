@@ -9,6 +9,7 @@ import {
 import { useAuth } from '../lib/auth';
 import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
 import { Modal } from './ui';
+import { onNewVersion, startVersionCheck, stopVersionCheck, forceRefresh, type VersionInfo } from '../lib/versionCheck';
 import { supabase, Beer, Package, Place } from '../lib/supabase';
 import { EditOrderModal } from './EditOrderModal';
 import { requestNotificationPermission, getNotificationPermission, notifyNewOrder, NewOrderNotifyData } from '../lib/notifications';
@@ -116,6 +117,15 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   // Notification States
   const [notifPermission, setNotifPermission] = useState<'granted' | 'denied' | 'default' | 'unsupported'>(getNotificationPermission());
   const [activeNewOrderBanner, setActiveNewOrderBanner] = useState<NewOrderNotifyData | null>(null);
+
+  // New version check
+  const [newVersionInfo, setNewVersionInfo] = useState<VersionInfo | null>(null);
+
+  useEffect(() => {
+    startVersionCheck();
+    const unsub = onNewVersion((info) => setNewVersionInfo(info));
+    return () => { unsub(); stopVersionCheck(); };
+  }, []);
 
   const isAdmin = profile?.role === 'admin' || user?.email?.toLowerCase().trim() === 'vasilecko@seznam.cz';
 
@@ -481,6 +491,16 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           </div>
 
           <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+            {newVersionInfo && (
+              <button
+                onClick={forceRefresh}
+                className="px-4 py-2 rounded-xl text-xs font-black transition items-center gap-2 shadow-md border shrink-0 flex bg-sky-500 hover:bg-sky-400 text-white border-sky-400 animate-pulse"
+                title={`Nová verze v${newVersionInfo.version} (${newVersionInfo.date}) — klikni pro aktualizaci`}
+              >
+                <span>📱</span>
+                <span>NOVÁ VERZE v{newVersionInfo.version}</span>
+              </button>
+            )}
             {quickActions.map((a, i) => (
               <button
                 key={a.pageId}

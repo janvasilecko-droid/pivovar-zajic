@@ -1,8 +1,26 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { readFileSync, writeFileSync } from 'fs';
+import { resolve } from 'path';
+
+// Načti aktuální verzi z version.ts
+const versionPath = resolve(__dirname, 'src/lib/version.ts');
+const versionContent = readFileSync(versionPath, 'utf-8');
+const versionMatch = versionContent.match(/APP_VERSION\s*=\s*'([^']+)'/);
+const appVersion = versionMatch ? versionMatch[1] : '0.0.0';
+
+const dateMatch = versionContent.match(/APP_VERSION_DATE\s*=\s*'([^']+)'/);
+const appDate = dateMatch ? dateMatch[1] : '';
+
+// Vygeneruj version.json do public/ (zkopíruje se do dist/ při build)
+const versionJsonPath = resolve(__dirname, 'public/version.json');
+writeFileSync(versionJsonPath, JSON.stringify({ version: appVersion, date: appDate }, null, 2));
 
 export default defineConfig({
   plugins: [react()],
+  define: {
+    __APP_VERSION__: JSON.stringify(appVersion),
+  },
   resolve: {
     dedupe: ['react', 'react-dom'],
   },

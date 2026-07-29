@@ -1,7 +1,9 @@
 // Minimal offline-first service worker for the Minipivovar PWA.
-const CACHE = 'pivovar-v25';
+// Cache version is injected at build time via __APP_VERSION__.
+// If running without build (dev), fall back to a timestamp.
+const CACHE = 'pivovar-' + (typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : Date.now().toString(36));
 
-const PRECACHE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './logo copy.jpg'];
+const PRECACHE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './logo copy.jpg', './version.json'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(PRECACHE)).catch(() => {}));
