@@ -27,11 +27,10 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@v2
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           command: pages deploy dist --project-name=pivovar-zajic
-          wranglerVersion: "3.90.0"
 
   build-apk:
     runs-on: ubuntu-latest
