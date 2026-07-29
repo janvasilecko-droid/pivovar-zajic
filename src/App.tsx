@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from './lib/auth';
 import AppSettingsScreen from './screens/AppSettingsScreen';
+import AppVersionsScreen from './screens/AppVersionsScreen';
 
 import Layout, { Page } from './components/Layout';
 import AuthScreen from './screens/AuthScreen';
@@ -132,6 +133,7 @@ export default function App() {
       {page === 'vehicles' && <VehiclesScreen />}
       {page === 'users' && <Users />}
       {page === 'app_settings' && <AppSettingsScreen />}
+      {page === 'app_versions' && <AppVersionsScreen />}
     </Layout>
   );
 }

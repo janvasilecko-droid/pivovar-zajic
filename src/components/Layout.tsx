@@ -3,7 +3,7 @@ import {
   FilePlus, ClipboardList, Wine, Cylinder, Sparkles, TrendingDown, Store, PackageCheck, FileText,
   ClipboardCheck, BarChart3, History as HistoryIcon, Snowflake, Navigation,
   CalendarDays, StickyNote, Building, Beer as BeerIcon, Boxes, Car, Tag, ShieldCheck, Flame, PlusCircle, Settings, Calculator,
-  LogOut, Menu, Download, Wheat, CheckSquare, FlaskConical, Shield, Bell, BellOff, X, ArrowRight, Search, type LucideIcon,
+  LogOut, Menu, Download, Wheat, CheckSquare, FlaskConical, Shield, Bell, BellOff, X, ArrowRight, Search, Smartphone, type LucideIcon,
 } from 'lucide-react';
 
 import { useAuth } from '../lib/auth';
@@ -21,7 +21,7 @@ import { getQuickActions, QuickAction } from '../lib/quickActions';
 
 export type NavItem = { id: Page; label: string; icon: LucideIcon; group: string };
 
-export type Page = 'dashboard' | 'varni_listy' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'history' | 'orders_entry' | 'orders' | 'zavoz' | 'kniha_jizd' | 'stock' | 'bottling' | 'bottling_entry' | 'bottling_overview' | 'kegging' | 'kegging_entry' | 'kegging_overview' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings';
+export type Page = 'dashboard' | 'varni_listy' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'history' | 'orders_entry' | 'orders' | 'zavoz' | 'kniha_jizd' | 'stock' | 'bottling' | 'bottling_entry' | 'bottling_overview' | 'kegging' | 'kegging_entry' | 'kegging_overview' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions';
 
 export const NAV: NavItem[] = [
   // --- VÝROBA ---
@@ -64,6 +64,7 @@ export const NAV: NavItem[] = [
 
   // --- NASTAVENÍ ---
   { id: 'users', label: 'Uživatelé', icon: ShieldCheck, group: 'Nastavení' },
+  { id: 'app_versions', label: 'Verze aplikace', icon: Smartphone, group: 'Nastavení' },
   { id: 'app_settings', label: 'Aplikace & Nastavení', icon: Settings, group: 'Nastavení' },
 ];
 

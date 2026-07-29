@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase, Profile } from './supabase';
+import { reportAppVersion } from './appVersionTracker';
 
 type AuthCtx = {
   session: Session | null;
@@ -44,8 +45,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
       setSession(s);
-      if (s?.user) loadProfile(s.user);
-      else setProfile(null);
+      if (s?.user) {
+        loadProfile(s.user);
+        // Odeslat verzi aplikace při (znovu)přihlášení
+        setTimeout(() => reportAppVersion(), 500);
+      } else {
+        setProfile(null);
+      }
     });
     return () => sub.subscription.unsubscribe();
   }, []);

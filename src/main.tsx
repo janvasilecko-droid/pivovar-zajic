@@ -5,6 +5,7 @@ import './index.css';
 import { AuthProvider } from './lib/auth';
 import { initDensity } from './lib/density';
 import { initTheme } from './lib/theme';
+import { reportAppVersion } from './lib/appVersionTracker';
 
 initDensity();
 
@@ -83,6 +84,9 @@ window.addEventListener('unhandledrejection', (e) => {
 });
 
 initTheme();
+
+// Odeslat verzi aplikace při startu (pokud je uživatel přihlášený)
+setTimeout(() => reportAppVersion(), 2000);
 
 try {
   ReactDOM.createRoot(document.getElementById('root')!).render(
