@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+out.log
+
+# Temp files
+*.timestamp-*.mjs
+scratch/
+data/
+
+# TypeScript diagnostics
+tsc_*.txt
+tsc*.log
+tscout*.txt
+version_grep.txt
+testfile.txt
+data_dump.txt
+
+# Supabase temp
+supabase/.temp/
+
+# Capacitor
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+*.apk
+*.aab

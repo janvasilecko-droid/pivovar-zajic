@@ -1,0 +1,227 @@
+import { useState } from 'react';
+import { supabase } from '../lib/supabase';
+import {
+  UserPermissions,
+  MODULE_DEFINITIONS,
+  PRESET_ROLES,
+  DEFAULT_FULL_PERMISSIONS,
+  getUserPermissions,
+  saveUserPermissions,
+  ModuleKey,
+} from '../lib/permissions';
+import { Shield, CheckCircle2, Lock, Unlock, Zap, Save } from 'lucide-react';
+
+export function UserPermissionsModal({
+  user,
+  onClose,
+  onSaveSuccess,
+}: {
+  user: { id: string; email: string; display_name: string | null; role: string };
+  onClose: () => void;
+  onSaveSuccess: () => void;
+}) {
+  const [permissions, setPermissions] = useState<UserPermissions>(() => getUserPermissions(user.id));
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  function toggleView(modId: ModuleKey) {
+    setPermissions((prev) => {
+      const current = prev[modId] ?? { view: true, edit: true };
+      const nextView = !current.view;
+      // If view is turned off, edit must also be turned off
+      const nextEdit = nextView ? current.edit : false;
+
+      return {
+        ...prev,
+        [modId]: { view: nextView, edit: nextEdit },
+      };
+    });
+  }
+
+  function toggleEdit(modId: ModuleKey) {
+    setPermissions((prev) => {
+      const current = prev[modId] ?? { view: true, edit: true };
+      const nextEdit = !current.edit;
+      // If edit is turned on, view must also be turned on
+      const nextView = nextEdit ? true : current.view;
+
+      return {
+        ...prev,
+        [modId]: { view: nextView, edit: nextEdit },
+      };
+    });
+  }
+
+  function applyPreset(preset: typeof PRESET_ROLES[0]) {
+    setPermissions(preset.permissions);
+  }
+
+  async function handleSave() {
+    setBusy(true);
+    setMsg(null);
+
+    // Save to localStorage immediately
+    saveUserPermissions(user.id, permissions);
+
+    // Save to Supabase profiles table
+    try {
+      await supabase.from('profiles').update({ permissions: permissions as any }).eq('id', user.id);
+    } catch {
+      // ignore table column error fallback to localStorage
+    }
+
+    setBusy(false);
+    setMsg(`Práva pro uživatele ${user.display_name ?? user.email} byla úspěšně uložena!`);
+    setTimeout(() => {
+      setMsg(null);
+      onSaveSuccess();
+      onClose();
+    }, 1500);
+  }
+
+  return (
+    <div className="fixed inset-0 bg-neutral-950/75 backdrop-blur-xs flex items-center justify-center p-4 z-[999]">
+      <div className="bg-white rounded-3xl max-w-3xl w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-neutral-200 animate-in fade-in zoom-in duration-150 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500 text-neutral-950 flex items-center justify-center font-black text-2xl shadow-md">
+              🔐
+            </div>
+            <div>
+              <h3 className="font-display font-black text-xl text-neutral-950">
+                Nastavit oprávnění a přístupy
+              </h3>
+              <p className="text-xs text-neutral-500 font-bold">
+                Uživatel: <strong className="text-neutral-900">{user.display_name ?? user.email}</strong> ({user.email})
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600 font-black text-xl">✕</button>
+        </div>
+
+        {msg && (
+          <div className="p-3.5 rounded-2xl bg-emerald-100 border border-emerald-300 text-emerald-950 text-xs font-black flex items-center gap-2">
+            <CheckCircle2 size={18} className="text-emerald-700" />
+            <span>{msg}</span>
+          </div>
+        )}
+
+        {/* Quick Role Presets */}
+        <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 space-y-2">
+          <div className="text-xs font-black uppercase text-amber-950 flex items-center gap-1.5">
+            <Zap size={15} className="text-amber-600" />
+            <span>Rychlé předvolby rolí (1-Click Aplikovat):</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {PRESET_ROLES.map((preset) => (
+              <button
+                key={preset.name}
+                type="button"
+                onClick={() => applyPreset(preset)}
+                className="p-2.5 rounded-xl bg-white hover:bg-amber-100 text-neutral-900 font-bold text-xs border border-amber-300 transition shadow-2xs text-left"
+              >
+                {preset.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Granular Permissions Table */}
+        <div className="space-y-3">
+          <div className="font-black text-xs uppercase text-neutral-700 tracking-wider">
+            Podrobná práva na sekce a moduly aplikace:
+          </div>
+
+          <div className="space-y-2">
+            {MODULE_DEFINITIONS.map((mod) => {
+              const access = permissions[mod.id] ?? { view: true, edit: true };
+
+              return (
+                <div
+                  key={mod.id}
+                  className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-4 ${
+                    access.view
+                      ? access.edit
+                        ? 'bg-emerald-50/40 border-emerald-200'
+                        : 'bg-amber-50/40 border-amber-200'
+                      : 'bg-neutral-50 border-neutral-200 opacity-60'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{mod.icon}</span>
+                    <div>
+                      <div className="font-display font-black text-sm text-neutral-900">{mod.label}</div>
+                      <div className="text-[11px] text-neutral-500 font-medium">{mod.desc}</div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    {/* Toggle View */}
+                    <button
+                      type="button"
+                      onClick={() => toggleView(mod.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-black border transition flex items-center gap-1 ${
+                        access.view
+                          ? 'bg-emerald-100 text-emerald-950 border-emerald-300'
+                          : 'bg-neutral-200 text-neutral-600 border-neutral-300'
+                      }`}
+                    >
+                      {access.view ? <Unlock size={14} /> : <Lock size={14} />}
+                      <span>{access.view ? 'Vidět v menu' : 'Skryto'}</span>
+                    </button>
+
+                    {/* Toggle Edit */}
+                    <button
+                      type="button"
+                      onClick={() => toggleEdit(mod.id)}
+                      disabled={!access.view}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-black border transition flex items-center gap-1 ${
+                        !access.view
+                          ? 'opacity-40 cursor-not-allowed bg-neutral-100 text-neutral-400 border-neutral-200'
+                          : access.edit
+                          ? 'bg-amber-500 text-neutral-950 border-amber-400 shadow-2xs'
+                          : 'bg-neutral-100 text-neutral-600 border-neutral-200'
+                      }`}
+                    >
+                      <span>{access.edit ? '✏️ Může upravovat' : '👁️ Jen čtení'}</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Footer Actions */}
+        <div className="pt-4 flex items-center justify-between border-t border-neutral-100">
+          <button
+            type="button"
+            onClick={() => setPermissions(DEFAULT_FULL_PERMISSIONS)}
+            className="px-3.5 py-2 rounded-xl bg-neutral-100 text-neutral-700 font-extrabold text-xs"
+          >
+            Obnovit plná práva
+          </button>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl bg-neutral-100 text-neutral-700 font-extrabold text-xs"
+            >
+              Zrušit
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={handleSave}
+              className="px-5 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md transition flex items-center gap-2"
+            >
+              <Save size={16} />
+              <span>{busy ? 'Ukládám…' : 'Uložit nová práva uživatele'}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,222 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    @apply bg-neutral-50 text-neutral-900 antialiased font-sans;
+    font-feature-settings: 'cv11', 'ss01';
+    background-image:
+      radial-gradient(circle at 10% 0%, rgba(223, 61, 61, 0.04), transparent 35%),
+      radial-gradient(circle at 90% 100%, rgba(230, 168, 0, 0.04), transparent 35%),
+      radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.015), transparent 50%);
+    background-attachment: fixed;
+  }
+  html.dark body {
+    @apply bg-neutral-950 text-neutral-200;
+    background-image:
+      radial-gradient(circle at 10% 0%, rgba(223, 61, 61, 0.08), transparent 35%),
+      radial-gradient(circle at 90% 100%, rgba(230, 168, 0, 0.08), transparent 35%),
+      radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.015), transparent 50%);
+  }
+
+  * { -webkit-tap-highlight-color: transparent; }
+  ::selection { @apply bg-primary-200 text-primary-950; }
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-2xl shadow-card border border-neutral-200/80 transition-all duration-200;
+    @apply dark:bg-neutral-900 dark:border-neutral-800;
+  }
+  .card-glass {
+    @apply bg-white/80 backdrop-blur-md rounded-2xl shadow-card border border-white/60 transition-all duration-200;
+    @apply dark:bg-neutral-900/80 dark:border-neutral-800/60;
+  }
+  .card-hover {
+    @apply card hover:shadow-cardHover hover:-translate-y-1 hover:border-neutral-300/80;
+    @apply dark:hover:border-neutral-700;
+  }
+  .input {
+    @apply w-full rounded-xl border border-neutral-200 bg-white px-3.5 py-2.5 text-base sm:text-sm
+           text-neutral-900 placeholder:text-neutral-400
+           focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/15
+           transition-all duration-150 min-h-[44px] sm:min-h-[38px]
+           dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500
+           dark:focus:border-amber-500 dark:focus:ring-amber-500/20;
+  }
+  .label {
+    @apply block text-xs sm:text-xs font-bold text-neutral-700 mb-1.5 uppercase tracking-wider;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 sm:py-2.5 text-sm sm:text-sm font-bold
+           transition-all duration-200 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed select-none min-h-[44px] sm:min-h-[38px];
+  }
+  .btn-primary {
+    @apply btn bg-gradient-to-r from-primary-600 to-primary-700 text-white shadow-sm shadow-primary-600/30
+           hover:from-primary-500 hover:to-primary-600 hover:shadow-md hover:shadow-primary-600/40;
+  }
+  .btn-amber {
+    @apply btn bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-sm shadow-amber-500/30
+           hover:from-amber-400 hover:to-amber-500 hover:shadow-md hover:shadow-amber-500/40;
+  }
+  .btn-accent {
+    @apply btn bg-neutral-900 text-white shadow-sm hover:bg-neutral-800 hover:shadow-md;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-neutral-700 border border-neutral-200
+           hover:bg-neutral-100/70 hover:border-neutral-300 hover:text-neutral-900
+           dark:text-neutral-300 dark:border-neutral-700 dark:hover:bg-neutral-800 dark:hover:border-neutral-600 dark:hover:text-white;
+  }
+  .btn-danger {
+    @apply btn bg-danger-50 text-danger-700 border border-danger-200 hover:bg-danger-100 hover:border-danger-400;
+  }
+  .table { @apply w-full text-sm border-collapse; }
+  .table thead th {
+    @apply text-left text-xs font-bold text-neutral-500 uppercase tracking-wider
+           px-4 py-3 bg-neutral-100/70 border-b border-neutral-200/80 sticky top-0 backdrop-blur-sm
+           dark:bg-neutral-900/70 dark:text-neutral-400 dark:border-neutral-800;
+  }
+  .table tbody td { @apply px-4 py-3 border-b border-neutral-100 text-neutral-800 font-medium dark:border-neutral-800 dark:text-neutral-200; }
+  .table tbody tr:last-child td { @apply border-b-0; }
+  .table tbody tr:hover td {
+    @apply bg-neutral-50/90;
+    @apply dark:bg-neutral-800/50;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold tracking-wide border;
+  }
+  .badge-amber {
+    @apply bg-amber-50 text-amber-800 border-amber-200/80;
+  }
+  .badge-emerald {
+    @apply bg-emerald-50 text-emerald-800 border-emerald-200/80;
+  }
+  .badge-rose {
+    @apply bg-rose-50 text-rose-800 border-rose-200/80;
+  }
+  .badge-slate {
+    @apply bg-neutral-100 text-neutral-700 border-neutral-200;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin { scrollbar-width: thin; }
+  .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { @apply bg-neutral-300 rounded-full hover:bg-neutral-400; }
+  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-none { scrollbar-width: none; }
+  .scrollbar-none::-webkit-scrollbar { display: none; }
+  @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+}
+
+/* Mobile screen scaling & overflow fix */
+@media (max-width: 640px) {
+  html {
+    font-size: 14.5px;
+  }
+  .card {
+    @apply rounded-xl p-3.5;
+  }
+  .input {
+    @apply px-2.5 py-1.5 min-h-[38px] text-xs font-semibold;
+  }
+  .btn {
+    @apply px-3 py-2 text-xs min-h-[36px];
+  }
+  .chip {
+    @apply px-2 py-0.5 text-[11px];
+  }
+}
+
+/* User density setting */
+html.density-x-compact {
+  font-size: 12px !important;
+}
+html.density-x-compact .input,
+html.density-x-compact select,
+html.density-x-compact input {
+  padding-top: 0.15rem !important;
+  padding-bottom: 0.15rem !important;
+  padding-left: 0.3rem !important;
+  padding-right: 0.3rem !important;
+  min-height: 26px !important;
+  font-size: 0.7rem !important;
+}
+html.density-x-compact .btn {
+  padding-top: 0.15rem !important;
+  padding-bottom: 0.15rem !important;
+  padding-left: 0.3rem !important;
+  padding-right: 0.3rem !important;
+  min-height: 26px !important;
+  font-size: 0.7rem !important;
+}
+html.density-x-compact .chip {
+  padding: 2px 6px !important;
+  font-size: 9px !important;
+}
+
+html.density-compact {
+  font-size: 13px !important;
+}
+html.density-compact .input,
+html.density-compact select,
+html.density-compact input {
+  padding-top: 0.2rem !important;
+  padding-bottom: 0.2rem !important;
+  padding-left: 0.4rem !important;
+  padding-right: 0.4rem !important;
+  min-height: 30px !important;
+  font-size: 0.75rem !important;
+}
+html.density-compact .btn {
+  padding-top: 0.2rem !important;
+  padding-bottom: 0.2rem !important;
+  padding-left: 0.4rem !important;
+  padding-right: 0.4rem !important;
+  min-height: 30px !important;
+  font-size: 0.75rem !important;
+}
+
+html.density-large {
+  font-size: 16px !important;
+}
+html.density-large .input,
+html.density-large select,
+html.density-large input {
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+  min-height: 44px !important;
+  font-size: 0.95rem !important;
+}
+
+html.density-x-large {
+  font-size: 17px !important;
+}
+html.density-x-large .input,
+html.density-x-large select,
+html.density-x-large input {
+  padding-top: 0.6rem !important;
+  padding-bottom: 0.6rem !important;
+  min-height: 48px !important;
+  font-size: 1rem !important;
+}
+html.density-x-large .btn {
+  padding-top: 0.6rem !important;
+  padding-bottom: 0.6rem !important;
+  min-height: 48px !important;
+  font-size: 1rem !important;
+}
+html.density-x-large .chip {
+  padding: 6px 12px !important;
+  font-size: 14px !important;
+}
+html.density-large .btn {
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+  min-height: 44px !important;
+  font-size: 0.95rem !important;
+}
