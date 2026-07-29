@@ -33,7 +33,7 @@ export default defineConfig({
   resolve: {
     dedupe: ['react', 'react-dom'],
   },
-  base: '/pivovar-zajic/', // GitHub Pages
+  base: './', // relativní cesty
   server: { port: 5173, host: true, hmr: { overlay: false }, allowedHosts: true },
   build: {
     target: 'es2015',
