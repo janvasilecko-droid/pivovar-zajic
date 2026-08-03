@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase, Beer, Package, Akce, AkceItem, beerBg } from '../lib/supabase';
 import { Spinner, Field, EmptyState } from '../components/ui';
 
-const MAX_ITEMS = 7;
+const MAX_ITEMS = 6;
 
 type ItemForm = {
   id?: string;

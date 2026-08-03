@@ -8,7 +8,7 @@
 
 import { APP_VERSION } from './version';
 
-const CHECK_INTERVAL_MS = 5 * 60 * 1000; // 5 minut
+const CHECK_INTERVAL_MS = 60 * 1000; // 1 minuta — rychlejší detekce nové verze
 const VERSION_URL = './version.json';
 
 export type VersionInfo = {
@@ -33,7 +33,21 @@ function notify(info: VersionInfo) {
 
 export async function checkVersion(): Promise<VersionInfo | null> {
   try {
-    const resp = await fetch(VERSION_URL, {
+    // Necháme service worker zkontrolovat, jestli není dostupná nová verze SW.
+    // Bez toho by starý SW vracel z cache starý version.json a aplikace by
+    // nikdy nezjistila, že je dostupná nová verze (dokud uživatel nerefreshne).
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg) {
+        reg.update().catch(() => {});
+      }
+    }
+
+    // Cache-busting query param: i kdyby starý service worker vracel version.json
+    // z cache (cache-first), unikátní URL s časovým razítkem cache minout a
+    // vždy se stáhne čerstvá verze ze serveru.
+    const bust = `?t=${Date.now()}`;
+    const resp = await fetch(VERSION_URL + bust, {
       method: 'GET',
       cache: 'no-cache',
       headers: { 'Cache-Control': 'no-cache' },
@@ -60,6 +74,29 @@ export function startVersionCheck() {
 
   if (checkTimer) clearInterval(checkTimer);
   checkTimer = setInterval(() => checkVersion(), CHECK_INTERVAL_MS);
+}
+
+/**
+ * Automatická aktualizace: pokud je dostupná nová verze, aplikace se sama
+ * obnoví (bez nutnosti klikat na tlačítko). Aby uživatel nepřišel o rozpracovaný
+ * zápis, obnoví se jen tehdy, když zrovna nepíše do žádného pole.
+ *
+ * Vrací true, pokud se aktualizace spustila.
+ */
+export async function autoRefreshIfNewVersion(): Promise<boolean> {
+  const info = await checkVersion();
+  if (!info) return false;
+
+  // Pokud uživatel zrovna píše do formuláře, necháme ho dokončit zápis —
+  // aktualizace proběhne při příští kontrole (za 5 minut).
+  const active = document.activeElement;
+  if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) {
+    return false;
+  }
+
+  // Krátké zpoždění, aby se stihlo zobrazit upozornění
+  setTimeout(() => { forceRefresh(); }, 1500);
+  return true;
 }
 
 export function stopVersionCheck() {

@@ -6,6 +6,7 @@ import { supabase, Place } from '../lib/supabase';
  * - Napovídá existující odběratele (autocomplete)
  * - Umožňuje napsat nový název — při uložení se vytvoří záznam v `places`
  * - Hlídá duplicity (case-insensitive, bez diakritiky)
+ * - Rozbalovací menu zůstává otevřené, dokud uživatel nevybere nebo neuloží
  */
 export function PlaceCombobox({ value, onChange, places, onPlacesChanged, placeholder = 'Napiš nebo vyber odběratele…' }: {
   value: string;
@@ -18,6 +19,7 @@ export function PlaceCombobox({ value, onChange, places, onPlacesChanged, placeh
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const [creating, setCreating] = useState(false);
+  const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,31 +54,41 @@ export function PlaceCombobox({ value, onChange, places, onPlacesChanged, placeh
     onChange(p.id, p.name);
     setText(p.name);
     setOpen(false);
+    setMsg(null);
   }
 
   async function ensurePlace(): Promise<Place | null> {
     const name = text.trim();
     if (!name) return null;
     const existing = places.find((p) => norm(p.name) === norm(name));
-    if (existing) { onChange(existing.id, existing.name); return existing; }
+    if (existing) { onChange(existing.id, existing.name); setText(existing.name); setOpen(false); setMsg(null); return existing; }
     setCreating(true);
+    setMsg(null);
     const { data, error } = await supabase.from('places').insert({ name }).select().single();
     setCreating(false);
-    if (error || !data) return null;
+    if (error || !data) {
+      setMsg({ type: 'err', text: `❌ Nepodařilo se uložit odběratele: ${error?.message ?? 'neznámá chyba'}` });
+      return null;
+    }
     onPlacesChanged?.();
     onChange((data as Place).id, (data as Place).name);
+    setText((data as Place).name);
+    setOpen(false);
+    setMsg({ type: 'ok', text: `✓ Odběratel „${(data as Place).name}“ byl uložen.` });
     return data as Place;
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
     if (!open) setOpen(true);
-    if (e.key === 'ArrowDown') { e.preventDefault(); setActive((a) => Math.min(a + 1, matches.length - 1)); }
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActive((a) => Math.min(a + 1, matches.length)); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }
     else if (e.key === 'Enter') {
       e.preventDefault();
-      if (matches[active] && norm(text) !== norm(matches[active].name)) {
+      if (isNew && active === matches.length) {
+        ensurePlace();
+      } else if (matches[active] && norm(text) !== norm(matches[active].name)) {
         pick(matches[active]);
-      } else {
+      } else if (isNew) {
         ensurePlace();
       }
     } else if (e.key === 'Escape') setOpen(false);
@@ -89,7 +101,7 @@ export function PlaceCombobox({ value, onChange, places, onPlacesChanged, placeh
         className="input"
         placeholder={placeholder}
         value={text}
-        onChange={(e) => { setText(e.target.value); setOpen(true); setActive(0); onChange('', e.target.value); }}
+        onChange={(e) => { setText(e.target.value); setOpen(true); setActive(0); setMsg(null); onChange('', e.target.value); }}
         onFocus={() => setOpen(true)}
         onKeyDown={onKeyDown}
         autoComplete="off"
@@ -117,16 +129,33 @@ export function PlaceCombobox({ value, onChange, places, onPlacesChanged, placeh
               onMouseEnter={() => setActive(matches.length)}
               onClick={() => ensurePlace()}
             >
-              <span className="text-success-600">+ Nový odběratel:</span>
+              <span className="text-success-600 font-bold">+ Uložit nového odběratele:</span>
               <span className="text-primary-800 font-medium">{text.trim()}</span>
             </button>
           )}
         </div>
       )}
 
+      {isNew && (
+        <button
+          type="button"
+          className="mt-1.5 w-full px-3 py-2 rounded-xl bg-success-600 hover:bg-success-500 text-white font-black text-xs transition shadow-sm flex items-center justify-center gap-1.5"
+          onClick={() => ensurePlace()}
+          disabled={creating}
+        >
+          {creating ? 'Ukládám…' : `+ Uložit nového odběratele „${text.trim()}“`}
+        </button>
+      )}
+
       {exactDup && (
         <div className="text-[11px] text-warning-700 mt-1 flex items-center gap-1">
           <span>⚠</span> Odběratel „{exactDup.name}“ už existuje — bude použit stávající záznam.
+        </div>
+      )}
+
+      {msg && (
+        <div className={`text-[11px] mt-1 font-semibold ${msg.type === 'ok' ? 'text-success-700' : 'text-danger-600'}`}>
+          {msg.text}
         </div>
       )}
     </div>

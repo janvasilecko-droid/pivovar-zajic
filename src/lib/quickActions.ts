@@ -12,7 +12,7 @@ export type QuickAction = {
 };
 
 const DEFAULT_ACTIONS: QuickAction[] = [
-  { pageId: 'orders_entry', label: '+ OBJ', icon: '📝' },
+  { pageId: 'orders', label: '+ OBJ', icon: '📝' },
   { pageId: 'fasovani', label: 'Fasování', icon: '📦' },
 ];
 

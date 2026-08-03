@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Modal } from './ui';
 import { PlaceCombobox } from './PlaceCombobox';
 import { supabase, Beer, Package, Place } from '../lib/supabase';
-import { saveAlias } from '../lib/orderParser';
-import { autoReserveTapIfNeeded } from '../lib/tapReservations';
+import { saveAlias, savePlaceAlias } from '../lib/orderParser';
+import { autoReserveTapIfNeeded, isTapMentioned, detectTapType } from '../lib/tapReservations';
+import { TapReservationModal } from './TapReservationModal';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -40,6 +41,17 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
   );
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // 🚰 Rezervace výčepu — modal
+  const [showTapModal, setShowTapModal] = useState(false);
+  const [pendingSave, setPendingSave] = useState(false); // true when save() was triggered but waiting for tap modal
+  const [tapWasConfirmed, setTapWasConfirmed] = useState(false); // true if user confirmed reservation in modal
+
+  // 🏪 Propagace změny místa na ostatní objednávky
+  const oldPlaceId = order.place_id;
+  const oldPlaceName = order.place_name;
+  const placeChanged = (placeId || null) !== (oldPlaceId || null) || (placeName.trim() || null) !== (oldPlaceName || null);
+  const [propagatePlace, setPropagatePlace] = useState(false);
 
   function setRow(idx: number, field: 'beerId' | 'pkgId' | 'qty', value: string) {
     setRows((rs) => rs.map((r, i) => i === idx ? { ...r, [field]: value } : r));
@@ -138,16 +150,84 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
         }
       }
 
-      // 🚰 Automatická rezervace výčepu, pokud je v poznámce zmínka
-      autoReserveTapIfNeeded(resolvedName || placeName.trim(), date, note.trim(), order.id);
+      // 🏪 Propagace změny místa na ostatní objednávky se stejným starým místem
+      if (propagatePlace && resolvedPlaceId) {
+        const oldId = order.place_id;
+        const oldName = order.place_name;
+        if (oldId || oldName) {
+          let query = supabase.from('orders').update({
+            place_id: resolvedPlaceId,
+            place_name: resolvedName || null,
+          });
+          if (oldId) {
+            query = query.eq('place_id', oldId);
+          } else if (oldName) {
+            query = query.eq('place_name', oldName);
+          }
+          // Neaktualizujeme aktuální objednávku (už je hotovo)
+          query = query.neq('id', order.id);
+          const { error: propErr } = await query;
+          if (propErr) console.warn('Propagace místa selhala:', propErr);
+        }
+      }
 
+      // 🧠 Nauč se alias místa, pokud bylo změněno
+      if (placeChanged && resolvedPlaceId && (oldPlaceName || oldPlaceId)) {
+        const oldNameToLearn = oldPlaceName || places.find(p => p.id === oldPlaceId)?.name;
+        if (oldNameToLearn) {
+          await savePlaceAlias(oldNameToLearn, resolvedPlaceId).catch(() => {});
+        }
+      }
+
+      // 🚰 Automatická rezervace výčepu, pokud je v poznámce zmínka (včetně synonym)
+      const trimmedNote = note.trim();
+      if (isTapMentioned(trimmedNote)) {
+        // Show modal for tap selection instead of silent auto-reserve
+        setPendingSave(true);
+        setShowTapModal(true);
+        setSaving(false);
+        return; // Stop here — modal will call finalizeSave on confirm/skip
+      }
+
+      // No tap mentioned — finish normally
+      await finalizeSave(resolvedName || placeName.trim(), date, trimmedNote, order.id, false);
+    } catch (e: any) {
+      setErr(e?.message ?? String(e));
+    } finally {
+      if (!pendingSave) setSaving(false);
+    }
+  }
+
+  /** Called after tap modal is confirmed or skipped */
+  async function finalizeSave(customerName: string, dateStr: string, noteText: string, orderId: string, wasConfirmed: boolean) {
+    try {
+      // If user confirmed in modal, reservation was already saved by the modal itself
+      // If user skipped, fall back to silent auto-reserve (original behavior)
+      if (!wasConfirmed) {
+        autoReserveTapIfNeeded(customerName, dateStr, noteText, orderId);
+      }
       onSaved();
       onClose();
     } catch (e: any) {
       setErr(e?.message ?? String(e));
     } finally {
       setSaving(false);
+      setPendingSave(false);
     }
+  }
+
+  function handleTapConfirm() {
+    setShowTapModal(false);
+    setTapWasConfirmed(true);
+    // Reservation was saved by the modal itself
+    finalizeSave(placeName.trim() || order.place_name || '', date, note.trim(), order.id, true);
+  }
+
+  function handleTapSkip() {
+    setShowTapModal(false);
+    setTapWasConfirmed(false);
+    // Fall back to silent auto-reserve (original behavior)
+    finalizeSave(placeName.trim() || order.place_name || '', date, note.trim(), order.id, false);
   }
 
   return (
@@ -161,6 +241,19 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
           <div className="col-span-2 sm:col-span-2 lg:col-span-2">
             <label className="label">Odběratel</label>
             <PlaceCombobox value={placeId} onChange={(id, name) => { setPlaceId(id); setPlaceName(name); }} places={places} onPlacesChanged={onPlacesChanged} />
+            {placeChanged && (
+              <label className="flex items-center gap-2 mt-1.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={propagatePlace}
+                  onChange={(e) => setPropagatePlace(e.target.checked)}
+                  className="w-4 h-4 accent-amber-600"
+                />
+                <span className="text-[11px] font-bold text-amber-800">
+                  🏪 Propagovat změnu na všechny objednávky se stejným odběratelem
+                </span>
+              </label>
+            )}
           </div>
           <div className="col-span-1 sm:col-span-1">
             <label className="label">Den dodání</label>
@@ -241,6 +334,13 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
               >
                 🚰🚰🚰 + Výčep trojkohout
               </button>
+              <button
+                type="button"
+                onClick={() => setNote((n) => n ? `${n}, + výčep šestikohout` : '+ výčep šestikohout')}
+                className="px-2.5 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-[11px] border border-amber-300 transition"
+              >
+                🚰🚰🚰🚰🚰🚰 + Výčep šestikohout (akce)
+              </button>
             </div>
           </div>
         </div>
@@ -254,6 +354,18 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
           </button>
         </div>
       </div>
+
+      {/* 🚰 Modální okno pro výběr výčepu k rezervaci */}
+      {showTapModal && (
+        <TapReservationModal
+          orderDate={date}
+          customerName={placeName.trim() || order.place_name || ''}
+          orderId={order.id}
+          tapTypeHint={detectTapType(note)}
+          onConfirm={handleTapConfirm}
+          onSkip={handleTapSkip}
+        />
+      )}
     </Modal>
   );
 }

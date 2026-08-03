@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+
 import { supabase, useRealtime, Place, Beer, Package } from '../lib/supabase';
 import { Spinner, EmptyState } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
@@ -24,6 +25,15 @@ export type LabelPurchase = {
   note?: string;
 };
 
+export type LabelIssue = {
+  id: string;
+  beer_name: string;
+  entry_date: string;
+  quantity: number;
+  destination?: string;
+  note?: string;
+};
+
 export type BottlePurchase = {
   id: string;
   package_label: string;
@@ -35,6 +45,10 @@ export type BottlePurchase = {
 const DEFAULT_ITEMS = [
   { category: 'sklenice', name: 'Sklenice 0.5L (Pivovar Zajíček)' },
   { category: 'sklenice', name: 'Sklenice 0.3L (Pivovar Zajíček)' },
+  { category: 'sklenice', name: 'Sklo: Willy 0.5L' },
+  { category: 'sklenice', name: 'Sklo: Willy 0.3L' },
+  { category: 'sklenice', name: 'Sklo: Tübinger 0.5L' },
+  { category: 'sklenice', name: 'Sklo: Tübinger 0.33L' },
   { category: 'sklenice', name: 'Tučňák / Džbánek 1.0L' },
   { category: 'podtacky', name: 'Papírové podtácky Zajíček (balík)' },
   { category: 'kelimky',  name: 'Plastové vratné kelímky 0.5L' },
@@ -45,11 +59,27 @@ const DEFAULT_ITEMS = [
 ];
 
 const DEFAULT_BOTTLE_PACKAGES = [
-  '0.33 l Sklo',
-  '0.5 l Sklo',
-  '1.0 l PET',
-  '1.5 l PET',
+  '1.5L',
+  '1L',
+  '0.5L',
+  '0.33L',
+  'Víčka',
 ];
+
+// Normalizuje název obalu na standardní velikost lahve (nebo "Víčka").
+// Používá se, aby se v přehledu prázdných lahví zobrazovaly JEN velikosti 1.5L / 1L / 0.5L / 0.33L + víčka.
+function normalizeBottleLabel(label: string): string | null {
+  const l = label.toLowerCase();
+  if (l.includes('víčk') || l.includes('vick') || l.includes('uzávěr') || l.includes('uzaver') || l.includes('kork')) return 'Víčka';
+  const m = l.match(/(\d+(?:[.,]\d+)?)\s*(l|litr)/);
+  if (!m) return null;
+  const vol = parseFloat(m[1].replace(',', '.'));
+  if (vol >= 1.4) return '1.5L';
+  if (vol >= 0.9) return '1L';
+  if (vol >= 0.45) return '0.5L';
+  if (vol >= 0.25) return '0.33L';
+  return null;
+}
 
 export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => void }) {
   const [activeTab, setActiveTab] = useState<'sklo' | 'etikety' | 'lahve'>('sklo');
@@ -66,6 +96,14 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
   const [labelPurchases, setLabelPurchases] = useState<LabelPurchase[]>(() => {
     try {
       const saved = localStorage.getItem('labels_purchases');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+
+  // Label issues (výdej etiket - fasování)
+  const [labelIssues, setLabelIssues] = useState<LabelIssue[]>(() => {
+    try {
+      const saved = localStorage.getItem('labels_issues');
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   });
@@ -111,7 +149,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
   const [labelNote, setLabelNote] = useState('');
 
   // Form 4: Lahve Nákup
-  const [bottlePkgLabel, setBottlePkgLabel] = useState('0.5 l Sklo');
+  const [bottlePkgLabel, setBottlePkgLabel] = useState('0.5L');
   const [bottleDate, setBottleDate] = useState(new Date().toISOString().slice(0, 10));
   const [bottleQty, setBottleQty] = useState<string>('1200');
   const [bottleNote, setBottleNote] = useState('');
@@ -148,6 +186,11 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
   function saveLabelPurchases(newP: LabelPurchase[]) {
     setLabelPurchases(newP);
     localStorage.setItem('labels_purchases', JSON.stringify(newP));
+  }
+
+  function saveLabelIssues(newP: LabelIssue[]) {
+    setLabelIssues(newP);
+    localStorage.setItem('labels_issues', JSON.stringify(newP));
   }
 
   function saveBottlePurchases(newP: BottlePurchase[]) {
@@ -196,31 +239,45 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
         .filter((bd) => bd.beer_name && bd.beer_name.toLowerCase().trim() === bName.toLowerCase().trim())
         .reduce((acc, bd) => acc + Number(bd.quantity || 0), 0);
 
-      const balance = inLabels - usedLabels;
+      const issuedLabels = labelIssues
+        .filter((li) => li.beer_name.toLowerCase().trim() === bName.toLowerCase().trim())
+        .reduce((acc, li) => acc + Number(li.quantity || 0), 0);
+
+      const balance = inLabels - usedLabels - issuedLabels;
       const isLow = balance < 200;
 
-      return { beer_name: bName, inLabels, usedLabels, balance, isLow };
+      return { beer_name: bName, inLabels, usedLabels, issuedLabels, balance, isLow };
     }).sort((a, b) => a.balance - b.balance);
-  }, [beers, labelPurchases, bottlingData]);
+  }, [beers, labelPurchases, bottlingData, labelIssues]);
 
   const lowLabelsCount = useMemo(() => labelsSummary.filter((l) => l.isLow && l.inLabels > 0).length, [labelsSummary]);
 
   // --- CALCULATIONS FOR LAHVE (EMPTY BOTTLES) ---
+  // Zobrazují se JEN standardní velikosti 1.5L / 1L / 0.5L / 0.33L + Víčka.
+  // Všechny nákupy a stočené lahve se normalizují na tyto velikosti.
   const bottlesSummary = useMemo(() => {
     const pkgLabels = [...DEFAULT_BOTTLE_PACKAGES];
-    packages.filter((p) => p.kind !== 'keg').forEach((p) => {
-      if (!pkgLabels.includes(p.label)) pkgLabels.push(p.label);
-    });
-    bottlePurchases.forEach((bp) => { if (!pkgLabels.includes(bp.package_label)) pkgLabels.push(bp.package_label); });
-    bottlingData.forEach((bd) => { if (bd.package_label && !pkgLabels.includes(bd.package_label)) pkgLabels.push(bd.package_label); });
 
-    return [...new Set(pkgLabels)].map((pLabel) => {
+    // Normalizuj nákupy lahví na standardní velikost
+    bottlePurchases.forEach((bp) => {
+      const norm = normalizeBottleLabel(bp.package_label);
+      if (norm && !pkgLabels.includes(norm)) pkgLabels.push(norm);
+    });
+    // Normalizuj stočené lahve na standardní velikost
+    bottlingData.forEach((bd) => {
+      if (bd.package_label) {
+        const norm = normalizeBottleLabel(bd.package_label);
+        if (norm && !pkgLabels.includes(norm)) pkgLabels.push(norm);
+      }
+    });
+
+    return pkgLabels.map((pLabel) => {
       const inBottles = bottlePurchases
-        .filter((bp) => bp.package_label.toLowerCase().trim() === pLabel.toLowerCase().trim())
+        .filter((bp) => normalizeBottleLabel(bp.package_label) === pLabel)
         .reduce((acc, bp) => acc + Number(bp.quantity || 0), 0);
 
       const usedBottles = bottlingData
-        .filter((bd) => bd.package_label && bd.package_label.toLowerCase().trim() === pLabel.toLowerCase().trim())
+        .filter((bd) => bd.package_label && normalizeBottleLabel(bd.package_label) === pLabel)
         .reduce((acc, bd) => acc + Number(bd.quantity || 0), 0);
 
       const balance = inBottles - usedBottles;
@@ -228,7 +285,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
 
       return { package_label: pLabel, inBottles, usedBottles, balance, isLow };
     }).sort((a, b) => a.balance - b.balance);
-  }, [packages, bottlePurchases, bottlingData]);
+  }, [bottlePurchases, bottlingData]);
 
   const lowBottlesCount = useMemo(() => bottlesSummary.filter((b) => b.isLow && b.inBottles > 0).length, [bottlesSummary]);
 
@@ -408,7 +465,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
           }`}
         >
           <Boxes size={16} />
-          <span>Sledování prázdných lahví (0.33L - 1.5L)</span>
+          <span>Sledování prázdných lahví (1.5L / 1L / 0.5L / 0.33L + Víčka)</span>
           {lowBottlesCount > 0 && (
             <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white font-mono text-[10px]">
               ⚠️ {lowBottlesCount}
@@ -590,13 +647,13 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
               <EmptyState text="Žádné zapsané pohyby skla." icon="🍷" />
             ) : (
               <div className="overflow-x-auto">
-                <table className="table">
+                <table className="table text-xs">
                   <thead>
                     <tr>
                       <th>Datum</th>
                       <th>Pohyb</th>
                       <th>Předmět</th>
-                      <th className="text-right">Množství</th>
+                      <th className="text-right">Ks</th>
                       <th>Odběratel</th>
                       <th>Poznámka</th>
                       <th></th>
@@ -605,18 +662,18 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                   <tbody>
                     {filteredEntries.map((e) => (
                       <tr key={e.id}>
-                        <td className="font-bold text-xs">{new Date(e.entry_date).toLocaleDateString('cs-CZ')}</td>
+                        <td className="font-bold text-[11px]">{new Date(e.entry_date).toLocaleDateString('cs-CZ')}</td>
                         <td>
                           {e.entry_type === 'in' ? (
-                            <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 text-xs font-bold">📥 PŘÍJEM</span>
+                            <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 text-[11px] font-bold">📥 PŘÍJEM</span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-950 text-xs font-bold">📤 VÝDEJ</span>
+                            <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-950 text-[11px] font-bold">📤 VÝDEJ</span>
                           )}
                         </td>
-                        <td className="font-black text-xs">{e.item_name}</td>
-                        <td className="text-right font-mono font-black text-sm">{e.quantity} ks</td>
-                        <td className="font-bold text-xs">{e.destination || '—'}</td>
-                        <td className="text-xs text-neutral-600">{e.note || '—'}</td>
+                        <td className="font-black text-[11px]">{e.item_name}</td>
+                        <td className="text-right font-mono font-black text-[11px]">{e.quantity} ks</td>
+                        <td className="font-bold text-[11px]">{e.destination || '—'}</td>
+                        <td className="text-[11px] text-neutral-600">{e.note || '—'}</td>
                         <td>
                           <button onClick={() => handleDeletePromo(e.id)} className="text-rose-600 hover:text-rose-800 p-1"><Trash2 size={15} /></button>
                         </td>
@@ -638,7 +695,8 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
             <div className="p-5 rounded-3xl bg-rose-50 border-2 border-rose-300 shadow-md space-y-2">
               <div className="flex items-center gap-2 text-rose-900 font-display font-black text-base">
                 <AlertTriangle size={22} className="text-rose-600 animate-pulse" />
-                <span>VAROVÁNÍ: NÍZKÝ STAV ETIKET U {lowLabelsCount} DRUHŮ PIVA! (&lt; 200 ks)</span>
+                <span>VAROVÁNÍ: NÍZKÝ STAV ETIKET U {lowLabelsCount} DRUHŮ PIVA! ({'<'} 200 ks)</span>
+
               </div>
               <p className="text-xs text-rose-800 font-medium">
                 Při stáčení lahví bylo spotřebováno většinové množství etiket. U následujících piv zbývá méně než 200 ks etiket!
@@ -703,7 +761,8 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                     <span className="font-display font-black text-base text-neutral-950">{l.beer_name}</span>
                     {l.isLow ? (
                       <span className="px-2.5 py-0.5 rounded-full bg-rose-600 text-white font-mono font-black text-[10px] animate-pulse">
-                        ⚠️ POZOR &lt; 200 KS!
+                        ⚠️ POZOR {'<'} 200 KS!
+
                       </span>
                     ) : (
                       <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 font-bold text-[10px]">
@@ -737,12 +796,12 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
             {labelPurchases.length === 0 ? (
               <EmptyState text="Zatiaľ nebol zadaný žiadny nákup etiket." icon="🏷️" />
             ) : (
-              <table className="table">
+              <table className="table text-xs">
                 <thead>
                   <tr>
                     <th>Datum</th>
-                    <th>Druh piva</th>
-                    <th className="text-right">Počet etiket</th>
+                    <th>Pivo</th>
+                    <th className="text-right">Ks</th>
                     <th>Poznámka</th>
                     <th></th>
                   </tr>
@@ -750,10 +809,10 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                 <tbody>
                   {labelPurchases.map((lp) => (
                     <tr key={lp.id}>
-                      <td className="font-bold text-xs">{new Date(lp.entry_date).toLocaleDateString('cs-CZ')}</td>
-                      <td className="font-black text-xs">{lp.beer_name}</td>
-                      <td className="text-right font-mono font-black text-sm text-emerald-700">+{lp.quantity} ks</td>
-                      <td className="text-xs text-neutral-600">{lp.note || '—'}</td>
+                      <td className="font-bold text-[11px]">{new Date(lp.entry_date).toLocaleDateString('cs-CZ')}</td>
+                      <td className="font-black text-[11px]">{lp.beer_name}</td>
+                      <td className="text-right font-mono font-black text-[11px] text-emerald-700">+{lp.quantity} ks</td>
+                      <td className="text-[11px] text-neutral-600">{lp.note || '—'}</td>
                       <td className="text-right"><button onClick={() => handleDeleteLabelPurchase(lp.id)} className="text-rose-600 hover:text-rose-800 p-1"><Trash2 size={15} /></button></td>
                     </tr>
                   ))}
@@ -772,7 +831,8 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
             <div className="p-5 rounded-3xl bg-rose-50 border-2 border-rose-300 shadow-md space-y-2">
               <div className="flex items-center gap-2 text-rose-900 font-display font-black text-base">
                 <AlertTriangle size={22} className="text-rose-600 animate-pulse" />
-                <span>VAROVÁNÍ: NÍZKÝ STAV PRÁZDNÝCH LAHVÍ! (&lt; 200 ks)</span>
+                <span>VAROVÁNÍ: NÍZKÝ STAV PRÁZDNÝCH LAHVÍ! ({'<'} 200 ks)</span>
+
               </div>
               <p className="text-xs text-rose-800 font-medium">
                 Při stáčení lahví bylo spotřebováno většinové množství zadaných prázdných lahví. U následujících obalů zbývá méně než 200 ks!
@@ -800,9 +860,6 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                 <select value={bottlePkgLabel} onChange={(e) => setBottlePkgLabel(e.target.value)} className="input font-bold text-xs">
                   {DEFAULT_BOTTLE_PACKAGES.map((pkg) => (
                     <option key={pkg} value={pkg}>{pkg}</option>
-                  ))}
-                  {packages.filter((p) => p.kind !== 'keg' && !DEFAULT_BOTTLE_PACKAGES.includes(p.label)).map((p) => (
-                    <option key={p.id} value={p.label}>{p.label}</option>
                   ))}
                 </select>
               </div>
@@ -832,7 +889,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
 
           {/* Cards per bottle package */}
           <div className="space-y-3">
-            <h3 className="font-display font-black text-lg text-neutral-900">Stav prázdných lahví (0.33L - 1.5L)</h3>
+            <h3 className="font-display font-black text-lg text-neutral-900">Stav prázdných lahví (1.5L / 1L / 0.5L / 0.33L + Víčka)</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {bottlesSummary.map((b) => (
                 <div key={b.package_label} className={`p-5 rounded-3xl border-2 transition-all shadow-sm space-y-3 ${b.isLow ? 'bg-rose-50/70 border-rose-300' : 'bg-white border-neutral-200'}`}>
@@ -840,7 +897,8 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                     <span className="font-display font-black text-base text-neutral-950">{b.package_label}</span>
                     {b.isLow ? (
                       <span className="px-2.5 py-0.5 rounded-full bg-rose-600 text-white font-mono font-black text-[10px] animate-pulse">
-                        ⚠️ POZOR &lt; 200 KS!
+                        ⚠️ POZOR {'<'} 200 KS!
+
                       </span>
                     ) : (
                       <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 font-bold text-[10px]">
@@ -874,12 +932,12 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
             {bottlePurchases.length === 0 ? (
               <EmptyState text="Zatiaľ nebol zadaný žiadny nákup prázdných lahví." icon="🍾" />
             ) : (
-              <table className="table">
+              <table className="table text-xs">
                 <thead>
                   <tr>
                     <th>Datum</th>
-                    <th>Druh lahve / Obal</th>
-                    <th className="text-right">Počet lahví</th>
+                    <th>Obal</th>
+                    <th className="text-right">Ks</th>
                     <th>Poznámka</th>
                     <th></th>
                   </tr>
@@ -887,10 +945,10 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                 <tbody>
                   {bottlePurchases.map((bp) => (
                     <tr key={bp.id}>
-                      <td className="font-bold text-xs">{new Date(bp.entry_date).toLocaleDateString('cs-CZ')}</td>
-                      <td className="font-black text-xs">{bp.package_label}</td>
-                      <td className="text-right font-mono font-black text-sm text-emerald-700">+{bp.quantity} ks</td>
-                      <td className="text-xs text-neutral-600">{bp.note || '—'}</td>
+                      <td className="font-bold text-[11px]">{new Date(bp.entry_date).toLocaleDateString('cs-CZ')}</td>
+                      <td className="font-black text-[11px]">{bp.package_label}</td>
+                      <td className="text-right font-mono font-black text-[11px] text-emerald-700">+{bp.quantity} ks</td>
+                      <td className="text-[11px] text-neutral-600">{bp.note || '—'}</td>
                       <td className="text-right"><button onClick={() => handleDeleteBottlePurchase(bp.id)} className="text-rose-600 hover:text-rose-800 p-1"><Trash2 size={15} /></button></td>
                     </tr>
                   ))}

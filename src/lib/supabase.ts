@@ -41,7 +41,7 @@ export function useRealtime(tables: string[], onChange: () => void) {
 }
 
 export type Beer = {
-  id: string; name: string; degree: string | null; color: string | null;
+  id: string; name: string; short_name: string | null; degree: string | null; color: string | null;
   beer_color: string | null;
   price_per_liter: number | null;
   is_active: boolean; sort_order: number; created_at: string;
@@ -76,6 +76,15 @@ export function beerText(beer: { beer_color?: string | null } | null | undefined
 }
 export function beerBorder(beer: { beer_color?: string | null } | null | undefined): string {
   return beer?.beer_color ?? '#E5E7EB';
+}
+
+/**
+ * Vrátí zkratku piva (short_name), pokud existuje, jinak celý název.
+ * Použít všude v UI, kde se zobrazuje název piva.
+ */
+export function beerName(beer: { short_name?: string | null; name?: string | null } | null | undefined): string {
+  if (!beer) return '—';
+  return beer.short_name || beer.name || '—';
 }
 
 export function formatPackageLabel(label: string | null | undefined): string {
@@ -121,7 +130,9 @@ export type Place = {
   id: string; name: string; note: string | null; created_at: string;
   address: string | null; phone: string | null; opening_hours: string | null;
   contact_name?: string | null; email?: string | null;
+  delivery_group?: string | null;
 };
+
 export type Profile = {
   id: string;
   display_name: string | null;
@@ -150,7 +161,10 @@ export type EntryRow = {
   tank_id?: string | null;
   cellar_tank_id?: string | null;
   loss_l?: number | null;
+  kegs_used?: number | null;
+  kegs_used_package_id?: string | null;
 };
+
 
 export type KeggingTank = {
   id: string;
@@ -243,6 +257,10 @@ export type CellarTank = {
   beer_type: string | null;
   started_at: string | null;
   initial_volume_l: number | null;
+  // Aktivní stáčecí zdroj — ze kterého tanku se právě odečítá stáčení
+  kegging_active?: boolean | null;
+  kegging_started_at?: string | null;
+  kegging_ended_at?: string | null;
   created_at: string;
   updated_at: string;
 };

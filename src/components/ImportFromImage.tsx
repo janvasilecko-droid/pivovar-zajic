@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import{ useState, useRef, useEffect } from 'react';
 import { Modal, Spinner } from './ui';
 import { PlaceCombobox } from './PlaceCombobox';
 import { ImageEditor } from './ImageEditor';
@@ -10,20 +10,24 @@ import type { Beer, Package, Place } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
 import {
   parseOrderText, parseGeminiItems, dedupeAgainstExisting,
-  saveAlias, loadAliasMap, emptyAliasMap, detectOrderNotes, matchPlaceFromText,
+  saveAlias, savePlaceAlias, loadAliasMap, loadPlaceAliasMap, emptyAliasMap, detectOrderNotes, matchPlaceFromText,
   type ParsedLine, type ParserAliasMap, type GeminiItem,
 } from '../lib/orderParser';
-import { autoReserveTapIfNeeded } from '../lib/tapReservations';
+
 
 type ExistingItem = { beer_id: string | null; package_id: string | null; quantity: number };
 type PhotoEntry = { dataUrl: string; name: string };
 
-export function ImportFromImage({ beers, packages, places, existing, targetLabel, initialFiles, onClose, onImport }: {
+export function ImportFromImage({ beers, packages, places, existing, targetLabel, initialFiles, onClose, onImport, onPlacesChanged }: {
   beers: Beer[]; packages: Package[]; places: Place[]; existing: ExistingItem[]; targetLabel: string | null;
   initialFiles?: File[];
-  onClose: () => void; onImport: (items: { beer_id: string; package_id: string; quantity: number; place_name: string | null }[], meta: { placeId: string; placeName: string; date: string; note: string }) => void;
+  onClose: () => void; onImport: (items: { beer_id: string; package_id: string; quantity: number; place_name: string | null; date?: string | null }[], meta: { placeId: string; placeName: string; date: string; note: string }) => void;
+
+  onPlacesChanged?: () => void;
 }) {
+
   const today = new Date().toISOString().slice(0, 10);
+
   const [date, setDate] = useState(today);
   const [placeId, setPlaceId] = useState('');
   const [placeName, setPlaceName] = useState('');
@@ -33,21 +37,29 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
   const [progress, setProgress] = useState(0);
   const [err, setErr] = useState<string | null>(null);
   const [aliasMap, setAliasMap] = useState<ParserAliasMap>(emptyAliasMap());
+  const [placeAliasMap, setPlaceAliasMap] = useState<Map<string, string>>(new Map());
   const [photos, setPhotos] = useState<PhotoEntry[]>([]);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [editingImage, setEditingImage] = useState<string | null>(null);
-  const [editBeforeOcr, setEditBeforeOcr] = useState(true);
+  const [editBeforeOcr, setEditBeforeOcr] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [note, setNote] = useState('');
   const [confirmed, setConfirmed] = useState(false);
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
   const [focusedLine, setFocusedLine] = useState<number | null>(null);
+  const [queueTick, setQueueTick] = useState(0);
+  const [totalPhotos, setTotalPhotos] = useState(0);
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const processingRef = useRef(false);
 
 
-  useEffect(() => { loadAliasMap().then(setAliasMap).catch(() => {}); }, []);
+  useEffect(() => {
+    loadAliasMap().then(setAliasMap).catch(() => {});
+    loadPlaceAliasMap().then(setPlaceAliasMap).catch(() => {});
+  }, []);
 
   // Pre-load photos that were handed off via Web Share Target (e.g. shared
   // straight from WhatsApp/e-mail into the installed app) — feed them into
@@ -55,23 +67,31 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
   useEffect(() => {
     if (initialFiles && initialFiles.length) {
       setPendingFiles((q) => [...q, ...initialFiles]);
+      setTotalPhotos((t) => t + initialFiles.length);
+      setPaused(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialFiles]);
 
-  // Drive the queue: whenever there are pending files and we're not already
-  // processing or showing the editor, pick the next file and handle it.
+  // Drive the queue: process ONE photo at a time. After a photo is parsed
+  // (parsed !== null) we wait for the user to import it. After import we clear
+  // parsed, which lets this effect pick up the next photo automatically.
+  // queueTick is bumped after each photo finishes so the queue moves on.
   useEffect(() => {
     if (processingRef.current) return;
     if (editingImage) return;
+    if (paused) return;
     if (pendingFiles.length === 0) return;
+    if (parsed !== null) return; // wait for the user to import the current photo
     const next = pendingFiles[0];
     setPendingFiles((q) => q.slice(1));
-    handleFile(next);
+    const idx = currentPhotoIndex; // 0-based index of this photo
+    setCurrentPhotoIndex(idx + 1);
+    handleFile(next, idx);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingFiles, editingImage]);
+  }, [pendingFiles, editingImage, queueTick, parsed, paused]);
 
-  async function runOcrFromBase64(base64: string, mimeType: string, append: boolean) {
+  async function runOcrFromBase64(base64: string, mimeType: string, append: boolean, photoIndex: number) {
     setBusy(true); setProgress(append ? 40 : 10); setErr(null);
     if (!append) setParsed(null);
     try {
@@ -85,6 +105,16 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
           [...aliasMap.package.entries()].map(([alias_text, package_id]) => ({ alias_text, beer_name: null as string | null, package_label: packages.find((p) => p.id === package_id)?.label ?? null }))
         )
         .slice(0, 80);
+
+      // 🧠 NAUČENÉ ALIASY ODBĚRATELŮ: špatný název z fotky → správný název.
+      // Tyto aliasy posíláme AI, aby příště rozpoznala správného odběratele.
+      const placeAliasList = [...placeAliasMap.entries()]
+        .map(([wrongName, placeId]) => {
+          const place = places.find((pl) => pl.id === placeId);
+          return place ? { wrong_name: wrongName, correct_name: place.name } : null;
+        })
+        .filter((x): x is { wrong_name: string; correct_name: string } => x !== null)
+        .slice(0, 50);
 
       const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-order-image`;
 
@@ -101,6 +131,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
           packages: packages.map((p) => ({ id: p.id, label: p.label })),
           places: places.map((pl) => pl.name),
           aliases: aliasList,
+          placeAliases: placeAliasList,
         }),
 
       });
@@ -123,20 +154,52 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
       const detected = detectOrderNotes(rawTextFromGemini);
       if (detected) setNote(detected);
 
-      // Auto-detect customer/place from raw text or Gemini response if not already set
-      const detectedPlaceName = data?.place_name ?? data?.customer_name;
-      if (!placeId && !placeName) {
-        const found = matchPlaceFromText(detectedPlaceName || rawTextFromGemini, places);
-        if (found.placeId) {
-          setPlaceId(found.placeId);
-          setPlaceName(found.placeName ?? '');
-        } else if (detectedPlaceName) {
-          setPlaceName(detectedPlaceName);
-        }
+      // 🧠 DATUM OBJEDNÁVKY: Pokud AI rozpoznala datum z fotky (např. "na 7.8"),
+      // nastav ho jako datum objednávky. Uživatel ho může stále upravit.
+      if (data?.order_date) {
+        setDate(data.order_date);
       }
 
-      const currentPhotoIndex = photos.length; // photo about to be pushed for this batch
-      const newLines = parseGeminiItems(geminiItems, beers, packages, aliasMap, currentPhotoIndex);
+
+      // 🧠 AUTO-DETEKCE ODBĚRATELE z fotky.
+      // AI vrací top-level "place_name" (hlavní odběratel na fotce) i place_name
+      // u každé položky. Zkusíme je spárovat se známými odběrateli (places).
+      // Detekci spouštíme VŽDY (i když už je placeId nastavené), aby se při
+      // importu více fotek správně rozpoznal odběratel pro každou objednávku.
+      const detectedPlaceName = data?.place_name ?? data?.customer_name;
+      // Nejprve zkus top-level place_name z AI (nejspolehlivější)
+      let foundPlace = matchPlaceFromText(detectedPlaceName || '', places, placeAliasMap);
+      let firstItemPlaceName: string | null = null;
+      // Pokud top-level nic nedal, zkus place_name z jednotlivých položek
+      if (!foundPlace.placeId) {
+        for (const item of geminiItems) {
+          if (item.place_name) {
+            if (!firstItemPlaceName) firstItemPlaceName = item.place_name;
+            foundPlace = matchPlaceFromText(item.place_name, places, placeAliasMap);
+            if (foundPlace.placeId) break;
+          }
+        }
+      }
+      // Pokud stále nic, zkus najít odběratele v celém rozpoznaném textu
+      if (!foundPlace.placeId) {
+        foundPlace = matchPlaceFromText(rawTextFromGemini, places, placeAliasMap);
+      }
+      if (foundPlace.placeId) {
+        setPlaceId(foundPlace.placeId);
+        setPlaceName(foundPlace.placeName ?? '');
+      } else if (detectedPlaceName) {
+        // AI rozpoznala jméno, ale neodpovídá žádnému známému odběrateli
+        // → použij ho jako nového odběratele
+        setPlaceName(detectedPlaceName);
+      } else if (firstItemPlaceName) {
+        // AI rozpoznala jméno na položce, ale neodpovídá známému odběrateli
+        // → použij ho jako nového odběratele
+        setPlaceName(firstItemPlaceName);
+      }
+
+
+
+      const newLines = parseGeminiItems(geminiItems, beers, packages, aliasMap, photoIndex, places);
       setParsed((prev) => {
         const prevLines = prev?.map((p) => p.line) ?? [];
         const combined = append ? [...prevLines, ...newLines] : newLines;
@@ -149,10 +212,12 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
     } finally {
       setBusy(false);
       processingRef.current = false;
+      // Bump the tick so the queue effect picks up the next photo automatically.
+      setQueueTick((t) => t + 1);
     }
   }
 
-  function handleFile(file: File) {
+  function handleFile(file: File, photoIndex: number) {
     processingRef.current = true;
     const reader = new FileReader();
     reader.onload = () => {
@@ -160,33 +225,39 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
       if (editBeforeOcr) {
         setEditingImage(dataUrl);
       } else {
-        setPhotos((prev) => [...prev, { dataUrl, name: file.name }]);
+        setPhotos([{ dataUrl, name: file.name }]);
         const base64 = dataUrl.split(',')[1] ?? '';
-        runOcrFromBase64(base64, file.type || 'image/jpeg', photos.length > 0 || parsed != null);
+        runOcrFromBase64(base64, file.type || 'image/jpeg', false, photoIndex);
       }
     };
     reader.onerror = () => {
       setErr('Nelze načíst obrázek: ' + file.name);
       processingRef.current = false;
+      setQueueTick((t) => t + 1);
     };
     reader.readAsDataURL(file);
   }
 
   function onEditorConfirm(editedDataUrl: string) {
     setEditingImage(null);
-    setPhotos((prev) => [...prev, { dataUrl: editedDataUrl, name: 'foto' }]);
+    setPhotos([{ dataUrl: editedDataUrl, name: 'foto' }]);
     const base64 = editedDataUrl.split(',')[1] ?? '';
-    runOcrFromBase64(base64, 'image/jpeg', photos.length > 0 || parsed != null);
+    runOcrFromBase64(base64, 'image/jpeg', false, Math.max(0, currentPhotoIndex - 1));
   }
 
   function onEditorCancel() {
     setEditingImage(null);
     processingRef.current = false;
+    setQueueTick((t) => t + 1);
   }
 
   function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
-    if (files.length) setPendingFiles((q) => [...q, ...files]);
+    if (files.length) {
+      setPendingFiles((q) => [...q, ...files]);
+      setTotalPhotos((t) => t + files.length);
+      setPaused(false);
+    }
     e.target.value = '';
   }
 
@@ -216,38 +287,107 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
         }
       } catch {}
     }
+
+    // 🧠 ODBĚRATEL: Pokud uživatel ručně opravil odběratele (place_name),
+    // propaguj opravu na VŠECHNY položky, které měly JINÝ (špatný) název.
+    // Např. AI rozpoznala "Seeberg" u 5 položek, ale správně je "Seeberg 2" —
+    // uživatel opraví jednu položku a všechny ostatní se opraví automaticky.
+    // Také se uloží alias (špatný název → správný), aby se AI příště naučila.
+    if (patch.place_name !== undefined && patch.place_name !== old.place_name) {
+      const oldPlace = old.place_name?.trim();
+      const newPlace = patch.place_name?.trim() || null;
+      if (newPlace) {
+        // Propaguj na VŠECHNY položky, které mají JINÝ odběratele (nebo žádného),
+        // aby se ručně napsaný odběratel propisoval na celou objednávku.
+        const propagated = updated.map((x, idx) => {
+          if (idx !== i && x.line.place_name?.trim() !== newPlace) {
+            return { ...x, line: { ...x.line, place_name: newPlace } };
+          }
+          return x;
+        });
+        setParsed(propagated);
+
+        // 🧠 NAUČ SE ALIAS: ulož mapování (špatný název → správný název),
+        // aby příští AI rozpoznávání z fotky použilo správný název.
+        try {
+          // Najdi správné místo v seznamu places
+          const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+          const matchedPlace = places.find((pl) => norm(pl.name) === norm(newPlace));
+          if (matchedPlace) {
+            // Ulož alias pro každý špatný název, který se na položkách vyskytoval
+            const wrongNames = new Set<string>();
+            for (const x of updated) {
+              const pn = x.line.place_name?.trim();
+              if (pn && pn !== newPlace) wrongNames.add(pn);
+            }
+            for (const wrongName of wrongNames) {
+              await savePlaceAlias(wrongName, matchedPlace.id);
+            }
+            setPlaceAliasMap(await loadPlaceAliasMap());
+          }
+        } catch {}
+      }
+    }
+
   }
 
 
   async function importSelected() {
     if (!parsed) return;
+    // Každá položka si nese vlastního odběratele (place_name) rozpoznaného z fotky.
+    // Pokud ho AI neurčila, použijeme globálně vybraného odběratele (placeName).
+    // Díky tomu se objednávky z více WhatsApp oken na jedné fotce rozdělí správně.
     const items = parsed
       .filter((p) => !p.duplicate && !p.line._removed && p.line.beer_id && p.line.package_id && p.line.quantity)
-      .map((p) => ({ beer_id: p.line.beer_id!, package_id: p.line.package_id!, quantity: p.line.quantity!, place_name: p.line.place_name ?? null }));
+      .map((p) => ({ beer_id: p.line.beer_id!, package_id: p.line.package_id!, quantity: p.line.quantity!, place_name: p.line.place_name?.trim() || placeName.trim() || null, date: p.line.date ?? null }));
+
     if (!items.length) {
-      setErr('Nic k importu. Každá položka musí mít vyplněné pivo, obal i množství. Doplnit můžeš přímo v kartách níže, nebo klikni × pro odstranění řádku, který nechceš.');
+      // Všechny položky jsou odstraněné/duplicitní → přeskoč na další fotku
+      setErr(null);
+      advanceToNextPhoto();
       return;
-    }
-    if (!targetLabel) {
-      const anyNamed = items.some((i) => i.place_name && i.place_name.trim());
-      if (!anyNamed && !placeName.trim()) { setErr('Nejprve napiš nebo vyber odběratele v poli nahoře, nebo doplň odběratele u každé položky.'); return; }
     }
     setErr(null);
     setBusy(true);
     try {
-      autoReserveTapIfNeeded(placeName.trim(), date, note.trim());
+      // Rezervace výčepu se vytvoří až v Orders.tsx po vytvoření objednávky,
+      // aby byla správně spárovaná s objednávkou (order_id).
       await onImport(items, { placeId, placeName: placeName.trim(), date, note: note.trim() });
+
+      // After a successful import, advance to the next photo (or close when done).
+      if (targetLabel) {
+        // Importing into an existing order → single import, close.
+        onClose();
+      } else if (pendingFiles.length === 0) {
+        // No more photos in the queue → done.
+        onClose();
+      } else {
+        // More photos remain → clear the review and let the queue load the next one.
+        advanceToNextPhoto();
+      }
     } catch (e: any) {
       setErr('Import selhal: ' + (e?.message ?? String(e)));
       setBusy(false);
     }
   }
 
+  // Pomocná funkce: vyčistí stav a nechá frontu načíst další fotku.
+  function advanceToNextPhoto() {
+    setParsed(null);
+    setConfirmed(false);
+    setNote('');
+    setRawText('');
+    setActivePhotoIdx(0);
+    setFocusedLine(null);
+    setPaused(false);
+  }
+
+
   function addLine() {
     const newLine: ParsedLine = {
       raw: '', originalLine: '', quantity: 1, beer_id: '', beer_name: null,
       package_id: '', package_label: null, confidence: 'low', issues: ['pivo','obal'],
-      place_name: placeName || null,
+      place_name: null,
       _manual: true,
     };
     setParsed([...(parsed ?? []), { line: newLine, duplicate: false }]);
@@ -281,8 +421,31 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
               <div className="sm:col-span-2">
                 <label className="label">Odběratel</label>
-                <PlaceCombobox value={placeId} onChange={(id, name) => { setPlaceId(id); setPlaceName(name); }} places={places} />
+                <PlaceCombobox
+                  value={placeId}
+                  onChange={(id, name) => {
+                    setPlaceId(id);
+                    setPlaceName(name);
+                    // 🧠 Nauč se alias místa, pokud uživatel ručně vybral existující místo
+                    if (id && name) {
+                      savePlaceAlias(name, id).catch(() => {});
+                    }
+                    // 🧠 PROPAGACE ODBĚRATELE NA VŠECHNY POLOŽKY:
+                    // Když uživatel ručně vybere/napíše odběratele, propíšeme ho
+                    // na VŠECHNY rozparsované položky (nahradí špatné názvy z AI).
+                    // Díky tomu se objednávka správně přiřadí jednomu odběrateli.
+                    if (name && parsed) {
+                      setParsed((prev) => prev
+                        ? prev.map((p) => ({ ...p, line: { ...p.line, place_name: name } }))
+                        : prev);
+                    }
+                  }}
+                  places={places}
+                  onPlacesChanged={onPlacesChanged}
+                />
+
               </div>
+
               <div>
                 <label className="label">Datum</label>
                 <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -314,7 +477,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
             Upravit fotky před čtením (oříznutí / otočení)
           </label>
           {queueLeft > 0 && <span className="text-xs text-primary-400">Ve frontě: {queueLeft}</span>}
-          <span className="text-xs text-primary-400">Můžeš nahrát více fotek najednou — AI přečte každou a spojí výsledky</span>
+          <span className="text-xs text-primary-400">Můžeš nahrát více fotek najednou — AI přečte každou zvlášť a po importu přejde na další</span>
         </div>
 
         {editingImage && (
@@ -387,14 +550,23 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
 
         <div className="flex-1 min-h-0 flex flex-col">
           <div className="flex items-center justify-between px-4 py-3 border-b border-primary-100 shrink-0">
-            <div className="text-sm font-semibold text-primary-800">Rozparsované položky ({parsed.length})</div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-primary-800">Rozparsované položky ({parsed.length})</span>
+              {totalPhotos > 1 && (
+                <span className="chip bg-primary-100 text-primary-700 font-black">{currentPhotoIndex}/{totalPhotos}</span>
+              )}
+            </div>
             <div className="flex gap-2 text-xs items-center flex-wrap justify-end">
               {okCount > 0 && <span className="chip bg-success-100 text-success-700">{okCount} OK</span>}
               {lowCount > 0 && <span className="chip bg-warning-100 text-warning-700">{lowCount} doplnit</span>}
               {unknownCount > 0 && <span className="chip bg-danger-100 text-danger-700">{unknownCount} nerozpoznaných</span>}
               {dupCount > 0 && <span className="chip bg-primary-200 text-primary-700">{dupCount} duplikátů</span>}
               <button className="btn-ghost text-xs !py-1 !px-2" onClick={addLine}>+ Přidat řádek</button>
-              <button className="btn-ghost text-xs !py-1 !px-2" onClick={() => { setParsed(null); setConfirmed(false); }}>← Zpět na fotky</button>
+              {pendingFiles.length > 0 && (
+                <button className="btn-ghost text-xs !py-1 !px-2" onClick={() => { advanceToNextPhoto(); }}>⏭ Přeskočit fotku</button>
+              )}
+              <button className="btn-ghost text-xs !py-1 !px-2" onClick={() => { setParsed(null); setConfirmed(false); setPaused(true); }}>← Zpět na fotky</button>
+
             </div>
           </div>
 
@@ -430,7 +602,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                   <div className="flex items-center gap-3 mb-1.5">
                     <span className="text-[10px] uppercase tracking-wider text-primary-300 font-semibold shrink-0">Řádek {i + 1}</span>
                     <span className="text-[10px] uppercase tracking-wider text-primary-400 shrink-0">
-                      {p.line._manual ? 'ručně přidáno' : `z fotky ${typeof p.line.photo_index === 'number' ? p.line.photo_index + 1 : ''} — klikni pro zobrazení na fotce`}
+                      {p.line._manual ? 'ručně přidáno' : `z fotky ${typeof p.line.photo_index === 'number' ? p.line.photo_index + 1 : ''}`}
                     </span>
                     {!p.duplicate && (
                       <button
@@ -471,60 +643,74 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                 </div>
 
                 {!p.duplicate && (
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 p-4" onClick={(e) => e.stopPropagation()}>
-                    <div className="sm:col-span-1">
-                      <label className="label text-[10px]">Odběratel</label>
+                  <div className="p-3 sm:p-4 space-y-2" onClick={(e) => e.stopPropagation()}>
+                    {/* Odběratel — každá položka si nese vlastního odběratele (kvůli více objednávkám na jedné fotce) */}
+                    <div className="flex flex-col gap-0.5 min-w-0">
+                      <span className="text-[10px] uppercase tracking-wider text-primary-400 font-semibold">Odběratel</span>
                       <input
                         type="text"
-                        className="input !py-1.5 text-sm"
-                        placeholder="— podle zprávy —"
+                        list={`place-list-${i}`}
+                        className="input !py-1.5 text-xs w-full"
                         value={p.line.place_name ?? ''}
+                        placeholder="— (použít globálního odběratele) — nebo napiš nového"
                         onChange={(e) => updateLine(i, { place_name: e.target.value || null })}
-                        list="place-suggestions"
                       />
-                      <datalist id="place-suggestions">
+                      <datalist id={`place-list-${i}`}>
                         {places.map((pl) => <option key={pl.id} value={pl.name} />)}
                       </datalist>
                     </div>
-                    <div className="sm:col-span-1">
-                      <label className="label text-[10px]">Pivo</label>
-                      <select
-                        className="input !py-1.5 text-sm"
-                        value={p.line.beer_id ?? ''}
-                        onChange={(e) => updateLine(i, {
-                          beer_id: e.target.value || null,
-                          beer_name: beers.find((b) => b.id === e.target.value)?.name ?? null,
-                        })}
-                      >
-                        <option value="">—</option>
-                        {beers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-                      </select>
+                    <div className="grid grid-cols-[1fr_1fr_auto] sm:grid-cols-[1fr_1fr_1fr_auto] gap-x-3 gap-y-2">
+                      {/* Pivo */}
+                      <div className="flex flex-col gap-0.5 min-w-0">
+                        <span className="text-[10px] uppercase tracking-wider text-primary-400 font-semibold">Pivo</span>
+                        <select
+                          className="input !py-1.5 text-xs w-full"
+                          value={p.line.beer_id ?? ''}
+                          onChange={(e) => updateLine(i, {
+                            beer_id: e.target.value || null,
+                            beer_name: beers.find((b) => b.id === e.target.value)?.name ?? null,
+                          })}
+                        >
+                          <option value="">—</option>
+                          {beers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                        </select>
+                      </div>
+                      {/* Obal */}
+                      <div className="flex flex-col gap-0.5 min-w-0">
+                        <span className="text-[10px] uppercase tracking-wider text-primary-400 font-semibold">Obal</span>
+                        <select
+                          className="input !py-1.5 text-xs w-full"
+                          value={p.line.package_id ?? ''}
+                          onChange={(e) => updateLine(i, {
+                            package_id: e.target.value || null,
+                            package_label: packages.find((p2) => p2.id === e.target.value)?.label ?? null,
+                          })}
+                        >
+                          <option value="">—</option>
+                          {packages.map((p2) => <option key={p2.id} value={p2.id}>{p2.label}</option>)}
+                        </select>
+                      </div>
+                      {/* Množství */}
+                      <div className="flex flex-col gap-0.5 min-w-0">
+                        <span className="text-[10px] uppercase tracking-wider text-primary-400 font-semibold">Množ</span>
+                        <input
+                          type="number" min={0} className="input !py-1.5 text-sm font-black w-full"
+                          value={p.line.quantity ?? ''}
+                          onChange={(e) => updateLine(i, { quantity: e.target.value ? Number(e.target.value) : null })}
+                        />
+                      </div>
+                      {/* Tlačítko odstranit */}
+                      <div className="flex items-end pb-0.5">
+                        <button
+                          className="w-8 h-8 rounded-xl bg-danger-100 hover:bg-danger-200 text-danger-600 flex items-center justify-center transition text-sm font-bold"
+                          title="Odstranit řádek"
+                          onClick={(e) => { e.stopPropagation(); removeLine(i); }}
+                        >×</button>
+                      </div>
                     </div>
-                    <div className="sm:col-span-1">
-                      <label className="label text-[10px]">Obal</label>
-                      <select
-                        className="input !py-1.5 text-sm"
-                        value={p.line.package_id ?? ''}
-                        onChange={(e) => updateLine(i, {
-                          package_id: e.target.value || null,
-                          package_label: packages.find((p2) => p2.id === e.target.value)?.label ?? null,
-                        })}
-                      >
-                        <option value="">—</option>
-                        {packages.map((p2) => <option key={p2.id} value={p2.id}>{p2.label}</option>)}
-                      </select>
-                    </div>
-                    <div className="sm:col-span-1">
-                      <label className="label text-[10px]">Množství</label>
-                      <input
-                        type="number" min={0} className="input !py-1.5 text-sm"
-                        value={p.line.quantity ?? ''}
-                        onChange={(e) => updateLine(i, { quantity: e.target.value ? Number(e.target.value) : null })}
-                      />
-                    </div>
-
                   </div>
                 )}
+
               </div>
               )
             ))}
@@ -540,13 +726,51 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
               <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="w-4 h-4 accent-primary-600" />
               Zkontroloval jsem data podle fotky a souhlasí
             </label>
+            {err && (
+              <div className="text-sm text-danger-700 bg-danger-500/10 border border-danger-300 rounded-lg px-3 py-2 font-medium">
+                ⚠️ {err}
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <button className="btn-ghost" onClick={onClose}>Zrušit</button>
-              <button className="btn-primary" disabled={busy || readyCount === 0 || !confirmed} onClick={importSelected}>
+              <button
+                className="btn-primary"
+                disabled={busy}
+                onClick={() => {
+                  // 🧠 Pokud uživatel odstranil VŠECHNY položky → nic se neimportuje,
+                  // jen přeskočíme na další fotku (nebo zavřeme, když už žádná není).
+                  if (parsed && parsed.length > 0 && parsed.every((p) => p.line._removed)) {
+                    setErr(null);
+                    if (pendingFiles.length === 0) {
+                      onClose();
+                    } else {
+                      advanceToNextPhoto();
+                    }
+                    return;
+                  }
+                  if (readyCount === 0) {
+                    if (dupCount > 0 && parsed?.every((p) => p.duplicate || p.line._removed)) {
+                      setErr('Všechny položky z fotky už v této objednávce existují (duplikáty), takže není co importovat. Pokud chceš přesto přidat, uprav množství u duplikátu níže.');
+                    } else {
+                      setErr('Nic k importu. Každá položka musí mít vyplněné pivo, obal i množství. Doplnit můžeš přímo v kartách níže, nebo klikni × pro odstranění řádku, který nechceš.');
+                    }
+                    return;
+                  }
+                  if (!confirmed) {
+                    setErr('Zaškrtni prosím „Zkontroloval jsem data podle fotky a souhlasí“ a pak klikni znovu na Importovat.');
+                    return;
+                  }
+                  importSelected();
+                }}
+
+              >
                 {readyCount > 0 ? `Importovat ${readyCount} ${readyCount === 1 ? 'položku' : readyCount < 5 ? 'položky' : 'položek'}` : 'Nic k importu'}
               </button>
+
             </div>
+
           </div>
+
         </div>
       </div>
     )}
@@ -556,6 +780,9 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
   function doParse(text: string) {
     const lines = parseOrderText(text, beers, packages, aliasMap);
     const dedup = dedupeAgainstExisting(lines, existing);
+
     setParsed(dedup);
+
   }
+
 }

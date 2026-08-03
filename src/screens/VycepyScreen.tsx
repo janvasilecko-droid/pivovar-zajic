@@ -9,7 +9,7 @@ export type TapSanitationStatus = 'clean' | 'dirty_beer' | 'needs_louh';
 export type TapEquipment = {
   id: string;
   name: string;           // e.g. Výčep #1 - Pygmy 25
-  tap_type: 'jednokohout' | 'dvojkohout' | 'trojkohout' | string;
+  tap_type: 'jednokohout' | 'dvojkohout' | 'trojkohout' | 'sestikohout' | string;
   status: TapSanitationStatus;
   last_water_rinse?: string; // Datum/čas oplachu vodou
   last_louh_sanitation?: string; // Datum/čas sanitace louhem
@@ -36,6 +36,7 @@ export default function VycepyScreen() {
         { id: 't1', name: 'Výčep #1 — Lindr Pygmy 25', tap_type: 'jednokohout', status: 'clean', last_water_rinse: '2026-07-26 18:00', last_louh_sanitation: '2026-07-20 10:00', taps_disassembled: true },
         { id: 't2', name: 'Výčep #2 — Kontaktní Dvojkohout 50', tap_type: 'dvojkohout', status: 'dirty_beer', last_water_rinse: '2026-07-22 15:00', last_louh_sanitation: '2026-07-15 12:00', taps_disassembled: false },
         { id: 't3', name: 'Výčep #3 — Trojkohout Master', tap_type: 'trojkohout', status: 'needs_louh', last_water_rinse: '2026-07-18 09:00', last_louh_sanitation: '2026-07-01 11:00', taps_disassembled: false },
+        { id: 't4', name: 'Výčep #4 — Šestikohout na akce', tap_type: 'sestikohout', status: 'clean', last_water_rinse: '2026-07-28 12:00', last_louh_sanitation: '2026-07-22 16:00', taps_disassembled: true },
       ];
     } catch { return []; }
   });
@@ -52,7 +53,7 @@ export default function VycepyScreen() {
 
   // New Tap Form
   const [newTapName, setNewTapName] = useState('');
-  const [newTapType, setNewTapType] = useState<'jednokohout' | 'dvojkohout' | 'trojkohout'>('jednokohout');
+  const [newTapType, setNewTapType] = useState<'jednokohout' | 'dvojkohout' | 'trojkohout' | 'sestikohout'>('jednokohout');
   const [newTapNote, setNewTapNote] = useState('');
 
   // New Reservation Form
@@ -162,7 +163,7 @@ export default function VycepyScreen() {
             <span>🍺 Výčepy, Sanitace & Rezervační kalendář</span>
           </h1>
           <p className="text-xs text-neutral-400 font-medium mt-1">
-            Přehled čistoty výčepů (oplach vodou, sanitace louhem, rozebrané kohouty) a rezervace jednokohoutů, dvojkohoutů a trojkohoutů pro hospody a akce.
+            Přehled čistoty výčepů (oplach vodou, sanitace louhem, rozebrané kohouty) a rezervace jednokohoutů, dvojkohoutů, trojkohoutů a šestikohoutů pro hospody a akce.
           </p>
         </div>
 
@@ -219,7 +220,7 @@ export default function VycepyScreen() {
                       <div>
                         <span className="font-display font-black text-base text-neutral-950 block">{t.name}</span>
                         <span className="px-2.5 py-0.5 rounded-full bg-neutral-900 text-amber-300 font-extrabold text-[10px] uppercase tracking-wider inline-block mt-1">
-                          {t.tap_type === 'jednokohout' ? '🚰 Jednokohout' : t.tap_type === 'dvojkohout' ? '🚰🚰 Dvojkohout' : '🚰🚰🚰 Trojkohout'}
+                          {t.tap_type === 'jednokohout' ? '🚰 Jednokohout' : t.tap_type === 'dvojkohout' ? '🚰🚰 Dvojkohout' : t.tap_type === 'trojkohout' ? '🚰🚰🚰 Trojkohout' : '🚰🚰🚰🚰🚰🚰 Šestikohout'}
                         </span>
                       </div>
                       <button onClick={() => handleDeleteTap(t.id)} className="text-neutral-400 hover:text-rose-600 p-1" title="Smazat výčep">
@@ -311,13 +312,13 @@ export default function VycepyScreen() {
           <EmptyState text="Žádné aktivní rezervace výčepů." icon="📅" />
         ) : (
           <div className="overflow-x-auto scrollbar-thin">
-            <table className="table">
+            <table className="table text-xs">
               <thead>
                 <tr>
                   <th>Výčep</th>
-                  <th>Datum OD</th>
-                  <th>Datum DO</th>
-                  <th>Odběratel / Zákazník</th>
+                  <th>Od</th>
+                  <th>Do</th>
+                  <th>Odběratel</th>
                   <th>Poznámka</th>
                   <th className="w-10"></th>
                 </tr>
@@ -325,11 +326,11 @@ export default function VycepyScreen() {
               <tbody>
                 {reservations.map((r) => (
                   <tr key={r.id} className="hover:bg-neutral-50/80 transition-colors">
-                    <td className="font-black text-xs text-neutral-950">{r.tap_name}</td>
-                    <td className="font-mono font-bold text-xs text-amber-950 whitespace-nowrap">{new Date(r.date_from).toLocaleDateString('cs-CZ')}</td>
-                    <td className="font-mono font-bold text-xs text-amber-950 whitespace-nowrap">{new Date(r.date_to).toLocaleDateString('cs-CZ')}</td>
-                    <td className="font-black text-xs text-neutral-900">{r.customer_name}</td>
-                    <td className="text-xs text-neutral-600 font-medium">{r.note || '—'}</td>
+                    <td className="font-black text-[11px] text-neutral-950">{r.tap_name}</td>
+                    <td className="font-mono font-bold text-[11px] text-amber-950 whitespace-nowrap">{new Date(r.date_from).toLocaleDateString('cs-CZ')}</td>
+                    <td className="font-mono font-bold text-[11px] text-amber-950 whitespace-nowrap">{new Date(r.date_to).toLocaleDateString('cs-CZ')}</td>
+                    <td className="font-black text-[11px] text-neutral-900">{r.customer_name}</td>
+                    <td className="text-[11px] text-neutral-600 font-medium">{r.note || '—'}</td>
                     <td className="text-right">
                       <button onClick={() => handleDeleteReservation(r.id)} className="p-1.5 rounded-lg hover:bg-rose-100 text-rose-600 transition" title="Smazat rezervaci">
                         <Trash2 size={15} />
@@ -375,6 +376,7 @@ export default function VycepyScreen() {
                   <option value="jednokohout">🚰 Jednokohout</option>
                   <option value="dvojkohout">🚰🚰 Dvojkohout</option>
                   <option value="trojkohout">🚰🚰🚰 Trojkohout</option>
+                  <option value="sestikohout">🚰🚰🚰🚰🚰🚰 Šestikohout (akce)</option>
                 </select>
               </div>
 

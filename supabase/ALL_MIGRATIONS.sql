@@ -1254,4 +1254,36 @@ VALUES ('OPENAI_API_KEY', 'REPLACE_WITH_YOUR_OPENAI_API_KEY', now())
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now();
 
 
+-- ==== 20260802020000_add_places_contact_columns.sql ====
+-- Přidání chybějících sloupců do tabulky places
+-- (contact_name, email, delivery_group) — tyto sloupce aplikace používá,
+-- ale v databázi zatím neexistovaly, takže vkládání nového odběratele selhávalo.
+
+ALTER TABLE public.places
+  ADD COLUMN IF NOT EXISTS contact_name text,
+  ADD COLUMN IF NOT EXISTS email text,
+  ADD COLUMN IF NOT EXISTS delivery_group text;
+
+
+-- ==== 20260803020000_add_bottling_kegs_used.sql ====
+-- Přidání sloupců do tabulky bottling pro evidenci použitých sudů KEG
+-- (kolik sudů KEG bylo použito na stočení do lahví a jaký typ sudu)
+-- Při stáčení např. 2x50L do 1L lahví (~98 lahví) se odečtou 2 kegy ze skladu.
+
+ALTER TABLE public.bottling
+  ADD COLUMN IF NOT EXISTS kegs_used numeric,
+  ADD COLUMN IF NOT EXISTS kegs_used_package_id uuid;
+
+
+-- ==== 20260803030000_add_bottling_tank_source.sql ====
+-- Přidání sloupce do tabulky bottling pro zdrojový objem ze sudů.
+-- Při stáčení do lahví ze sudů (kegs_used) se uloží zdrojový objem
+-- (source_volume_l = počet sudů × objem sudu, např. 6×50L = 300L).
+-- Sudy se odečtou ze skladu (jako objednávka) a vytrata se počítá jako
+-- source_volume_l - (quantity * package.volume_l).
+
+ALTER TABLE public.bottling
+  ADD COLUMN IF NOT EXISTS source_volume_l numeric(10,2);
+
+
 

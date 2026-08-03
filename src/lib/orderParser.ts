@@ -1,4 +1,6 @@
-import type { Beer, Package, Place } from './supabase';
+import type { Beer, Package, Place, ParserAlias } from './supabase';
+
+
 
 export type ParsedVoiceOrder = {
   items: ParsedLine[];
@@ -21,8 +23,10 @@ export type ParsedLine = {
   _manual?: boolean;
   bbox?: { x0: number; y0: number; x1: number; y1: number };
   place_name?: string | null;
+  date?: string | null;
   photo_index?: number;
 };
+
 
 export type ParserAliasMap = {
   beer: Map<string, string>;
@@ -105,9 +109,11 @@ function volToPackage(volStr: string, packages: Package[], norm?: string): Packa
 // Rozšířené zkratky a vzory pro rozpoznávání piv
 const BEER_ALIASES: { pattern: RegExp; degree?: string; color?: string; namePart?: string }[] = [
   { pattern: /\bvosm(a|u|e|y|icka|ička)?\b|\bosm(a|u|e|y|icka|ička)?\b|\bcyklo\s*osm(a|u)?\b|\bcykloosm(a|u)?\b|\bcyklo\b|\b8\s*°?\b|\b8st\b|\bosma\b|\bvosma\b/, degree: '8°' },
-  { pattern: /\bdesitk(a|u|e|y)?\b|\bdesit(k)?\b|\bdesitku\b|\b10\s*°?\b|\b10\s*st\b|\b10sv\b|\bsvetle\s*vcepni\b|\bvycepni\s*svetle\b|\bdesitka\b/, degree: '10°', color: 'světlé' },
+  { pattern: /\bdesitk(a|u|e|y)?\b|\bdesit(k)?\b|\bdesitku\b|\b10\s*°?\b|\b10\s*st\b|\b10sv\b|\bsvetle\s*vcepni\b|\bvycepni\s*svetle\b|\bdesitka\b|\bvycep\b|\bvýčep\b|\bvycepni\b|\bvýčepní\b/, degree: '10°', color: 'světlé' },
   { pattern: /\b11\s*(sv|svet|svetl)\b|\b11sv\b|\bjedenact(k)?(a|u|y)?\b|\bjedenactku\b|\bjedenactka\b/, degree: '11°', color: 'světlé' },
   { pattern: /\b12\s*(sv|svet|swet|svetl|light)\b|\b12sv\b|\bdvanactk(a|u|e|y)?\b|\bdvanactka\b|\bsvetla 12\b|\bsvetly 12\b|\bsvetly\s*lezak\b|\blezak\s*svetly\b|\bzajic\b|\bzajíc\b|\blezak\b(?!.*\btmav)/, degree: '12°', color: 'světlé' },
+  { pattern: /\bsv\s*l\b|\bsvetl[ée]\s*l\b|\bsvetl[ýy]\s*l\b|\bsvetle\s*l\b/, degree: '12°', color: 'světlé' },
+
   { pattern: /\b12\s*(tm|tma|tmavy|tmava|dark|tmave)\b|\btl\b|\btmava\b|\btmave\b|\btmavy\b|\btmavy\s*lezak\b|\blezak\s*tmavy\b|\btm\b|\bcerne\b|\bcerna\b/, degree: '12°', color: 'tmavé' },
   { pattern: /\bjantar\b|\bjant\b|\bjantarek\b|\b13\s*°?\b|\b13st\b/, namePart: 'Jantar', degree: '13°' },
   { pattern: /\bsummer\b|\bsumr\b|\bsummer\s*ale\b|\bale\b/, namePart: 'Summer' },
@@ -142,8 +148,29 @@ function matchBeerFromHints(norm: string, beers: Beer[], aliasMap: ParserAliasMa
       directMatch = beer;
       directLen = nameNorm.length;
     }
+    // Zkusit i short_name
+    if (beer.short_name) {
+      const shortNorm = normalize(beer.short_name);
+      if (shortNorm.length >= 2 && norm.includes(shortNorm) && shortNorm.length > directLen) {
+        directMatch = beer;
+        directLen = shortNorm.length;
+      }
+    }
   }
   if (directMatch) return { beer: directMatch, score: 0.95, alias: null };
+
+  // Try OCR-corrected matching: common OCR misreads for beer names
+  const ocrCorrectedNorm = norm
+    .replace(/\bse[eé]berg\b/i, 'seeberg')
+    .replace(/\bseeger\b/i, 'seeberg');
+  if (ocrCorrectedNorm !== norm) {
+    for (const beer of beers) {
+      const nameNorm = normalize(beer.name);
+      if (nameNorm.length >= 3 && ocrCorrectedNorm.includes(nameNorm)) {
+        return { beer, score: 0.90, alias: null };
+      }
+    }
+  }
 
   const scores = new Map<string, number>();
 
@@ -263,9 +290,15 @@ function ocrNormalizeLine(line: string): string {
     .replace(/[×«]/g, 'x')
     .replace(/(\d)\s*[IL](?=\s|°|$)/g, '$1l')
     .replace(/(\d+\s*x\s*[\d,\.]+)\s*[IL](?=\s|°|$)/gi, '$1l')
+    // 🧠 OCR OPRAVA: "1l" (1 litr) se občas přečte jako "1,5" nebo "1.5"
+    // (OCR zamění "l" za "5"). Pokud je "1,5" nebo "1.5" NÁSLEDOVÁNO slovem
+    // "pet" nebo "petka" a NENÍ to skutečný 1.5l, oprav na "1l".
+    // Pozor: "1,5l" s explicitním "l" je skutečný 1.5l — neopravuj.
+    .replace(/\b1[.,]5\s*(?!l\b)(?=.*\bpet\b)/gi, '1l')
     .replace(/\s+/g, ' ')
     .trim();
 }
+
 
 function ocrCleanupQuantities(text: string): string {
   return text
@@ -300,6 +333,22 @@ function findBboxForContext(context: string, linesWithBbox?: { text: string; bbo
 
 type Token = { qty: number; volStr: string | null; degree: string | null; start: number; end: number };
 
+// 🧠 "VŠE [stupeň]" NA KONCI OBJEDNÁVKY:
+// Pokud text obsahuje "vše 11sv", "vse 11sv", "vše 11", "všechno 11sv" apod.,
+// znamená to, že VŠECHNY položky objednávky jsou TOHO STUPNĚ.
+// Vrací stupeň (např. "11") a barvu (např. "světlé") nebo null.
+function extractGlobalDegree(text: string): { degree: string | null; color: string | null } {
+  const m = text.match(/\b(v[šs]e|v[šs]echno|v[šs]echny|v[šs]echna)\s+(11|12|10|13|8|9|14)\s*(sv|svet|svetl|svetle|svetly|tm|tma|tmav|tmava|tmavy|tmave|dark)?\b/i);
+  if (!m) return { degree: null, color: null };
+  const degree = m[2];
+  const colorRaw = m[3]?.toLowerCase() ?? '';
+  let color: string | null = null;
+  if (colorRaw.startsWith('tm') || colorRaw.startsWith('dark')) color = 'tmavé';
+  else if (colorRaw.startsWith('sv')) color = 'světlé';
+  return { degree, color };
+}
+
+
 export function parseOrderText(
   rawText: string,
   beers: Beer[],
@@ -309,140 +358,175 @@ export function parseOrderText(
 ): ParsedLine[] {
   const aliases = aliasMap ?? emptyAliasMap();
 
+  // Zpracováváme každý řádek zvlášť, aby se kontext z jedné položky
+  // nepromítal do sousední (např. název piva z předchozího řádku).
   const flatLines = rawText.split(/\n/).map((l) => ocrNormalizeLine(l.trim())).filter((l) => l.length > 0);
-  let flat = flatLines.join(' ');
-  flat = ocrCleanupQuantities(flat);
-
-  const tokenRe = /(\d{1,4})\s*x\s*(\d{1,2}(?:[,.]\d)?)\s*(°|l|L)?|(\d{1,4})\s*(?:x|ks)\b/g;
-  const tokens: Token[] = [];
-  let m: RegExpExecArray | null;
-  while ((m = tokenRe.exec(flat)) !== null) {
-    if (m[1] !== undefined) {
-      const qty = parseInt(m[1], 10);
-      const numStr = m[2];
-      let suffix = m[3];
-      let end = m.index + m[0].length;
-
-      if (!suffix) {
-        const after = flat.slice(end, end + 2);
-        if (after.includes('°')) { suffix = '°'; end += after.indexOf('°') + 1; }
-        else if (/[lL]/.test(after)) { suffix = 'l'; end += after.search(/[lL]/) + 1; }
-      }
-
-      let volStr: string | null = null;
-      let degree: string | null = null;
-
-      if (suffix === 'l' || suffix === 'L') {
-        volStr = numStr;
-      } else if (suffix === '°') {
-        degree = numStr;
-      } else {
-        if (KEG_ONLY_VOLS.has(numStr)) {
-          volStr = numStr;
-        } else if (BEER_DEGREES.has(numStr)) {
-          degree = numStr;
-        }
-      }
-
-      tokens.push({ qty, volStr, degree, start: m.index, end });
-    } else {
-      tokens.push({ qty: parseInt(m[4], 10), volStr: null, degree: null, start: m.index, end: m.index + m[0].length });
-    }
-  }
-
-  for (const t of tokens) {
-    if (t.degree) continue;
-    const ctxStart = Math.max(0, t.start - 60);
-    const ctxEnd = Math.min(flat.length, t.end + 60);
-    const ctx = flat.slice(ctxStart, ctxEnd);
-    const degMatch = ctx.match(/\b(8|9|10|11|12|13|14)\s*°\b/);
-    if (degMatch) t.degree = degMatch[1];
-  }
-
-  for (const t of tokens) {
-    if (t.volStr) continue;
-    const ctxStart = Math.max(0, t.start - 80);
-    const ctxEnd = Math.min(flat.length, t.end + 80);
-    const ctx = flat.slice(ctxStart, ctxEnd);
-    // Try to find explicit volume with unit — catches "1,5l", "1 l", "0,5l" etc.
-    const volMatch = ctx.match(/\b(50|30|20|15|10|1[,.]5|1[,.]0|0[,.]5|0[,.]33)\s*[lL]\b|\b(1)\s*[lL]\b/);
-    if (volMatch) {
-      t.volStr = (volMatch[1] ?? volMatch[2]);
-    } else if (/\bkeg\b/i.test(ctx)) {
-      t.volStr = '30';
-    } else if (/\b1[,.]5\b/.test(ctx)) {
-      // "1,5" without explicit 'l' — assume PET 1.5l
-      t.volStr = '1.5';
-    } else if (/\b1\s*l\b|\b1[lL]\b/.test(ctx)) {
-      // "1l" or "1 l" — 1 litr
-      t.volStr = '1';
-    } else if (/\b(pet|petka)\b/i.test(ctx)) {
-      // PET without size — default to 1l (most common PET size)
-      t.volStr = '1';
-    } else if (/\b(lahv|sklo|flas|bottle)\b/i.test(ctx)) {
-      // Glass bottle without size — default to 0.5l
-      t.volStr = '0.5';
-    }
-  }
 
   const results: ParsedLine[] = [];
   const seen = new Set<string>();
 
-  for (let i = 0; i < tokens.length; i++) {
-    const t = tokens[i];
-    if (t.qty === 0) continue;
+  // 🧠 "VŠE [stupeň]" NA KONCI OBJEDNÁVKY — aplikuj na všechny položky
+  const globalDegree = extractGlobalDegree(rawText);
 
-    const dispStart = i === 0 ? 0 : tokens[i - 1].end;
-    const dispEnd = i === tokens.length - 1 ? flat.length : tokens[i + 1].start;
-    const dispContext = flat.slice(dispStart, dispEnd).trim();
+  for (const line of flatLines) {
+    const flat = ocrCleanupQuantities(line);
 
-    let { beer, alias } = matchBeerFromHints(normalize(dispContext), beers, aliases);
-    if (!beer && t.degree) {
-      ({ beer, alias } = matchBeerFromHints(normalize(t.degree + '°'), beers, aliases));
+
+    const tokenRe = /(\d{1,4})\s*x\s*(\d{1,2}(?:[,.]\d)?)\s*(°|l|L)?|(\d{1,4})\s*(?:x|ks)\b/g;
+    const tokens: Token[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = tokenRe.exec(flat)) !== null) {
+      if (m[1] !== undefined) {
+        const qty = parseInt(m[1], 10);
+        const numStr = m[2];
+        let suffix = m[3];
+        let end = m.index + m[0].length;
+
+        if (!suffix) {
+          const after = flat.slice(end, end + 2);
+          if (after.includes('°')) { suffix = '°'; end += after.indexOf('°') + 1; }
+          else if (/[lL]/.test(after)) { suffix = 'l'; end += after.search(/[lL]/) + 1; }
+        }
+
+        let volStr: string | null = null;
+        let degree: string | null = null;
+
+        if (suffix === 'l' || suffix === 'L') {
+          volStr = numStr;
+        } else if (suffix === '°') {
+          degree = numStr;
+        } else {
+          if (KEG_ONLY_VOLS.has(numStr)) {
+            volStr = numStr;
+          } else if (BEER_DEGREES.has(numStr)) {
+            degree = numStr;
+          }
+        }
+
+        tokens.push({ qty, volStr, degree, start: m.index, end });
+      } else {
+        tokens.push({ qty: parseInt(m[4], 10), volStr: null, degree: null, start: m.index, end: m.index + m[0].length });
+      }
     }
-    if (!beer) {
-      const wideStart = Math.max(0, t.start - 80);
-      const wideEnd = Math.min(flat.length, t.end + 80);
-      ({ beer, alias } = matchBeerFromHints(normalize(flat.slice(wideStart, wideEnd).trim()), beers, aliases));
+
+    // 🧠 STUPEŇ NA ZAČÁTKU ŘÁDKU SE APLIKUJE NA VŠECHNY POLOŽKY:
+    // Pokud řádek začíná stupněm (např. "11sv 3x30 3x20 15x1"), platí tento
+    // stupeň pro VŠECHNY položky na řádku, i když u nich není explicitně napsaný.
+    // Nejprve zkus najít stupeň na začátku řádku.
+    let lineDegree: string | null = null;
+    const lineStartMatch = flat.match(/^\s*(8|9|10|11|12|13|14)\s*(sv|svet|svetl|svetle|svetly|tm|tma|tmav|tmava|tmavy|tmave|dark|°)?\b/i);
+    if (lineStartMatch) {
+      lineDegree = lineStartMatch[1];
     }
 
-    const dispNorm = normalize(dispContext);
-    let pkg: Package | null = t.volStr ? volToPackage(t.volStr, packages, dispNorm) : null;
-    if (!pkg) pkg = matchPackage(dispNorm, packages, aliases);
+    for (const t of tokens) {
+      if (t.degree) continue;
+      // 1) Stupeň ze začátku řádku (platí pro všechny položky)
+      if (lineDegree) {
+        t.degree = lineDegree;
+        continue;
+      }
+      // 2) Stupeň v kontextu kolem tokenu (např. "12sv 3x30")
+      const ctxStart = Math.max(0, t.start - 60);
+      const ctxEnd = Math.min(flat.length, t.end + 60);
+      const ctx = flat.slice(ctxStart, ctxEnd);
+      const degMatch = ctx.match(/\b(8|9|10|11|12|13|14)\s*(°|sv|svet|svetl|svetle|svetly|tm|tma|tmav|tmava|tmavy|tmave|dark)?\b/i);
+      if (degMatch) t.degree = degMatch[1];
+    }
 
-    const issues: string[] = [];
-    if (!t.qty) issues.push('množství');
-    if (!beer) issues.push('pivo');
-    if (!pkg) issues.push('obal');
 
-    const hasAnything = t.qty || beer || pkg;
-    const confidence: ParsedLine['confidence'] = (t.qty && beer && pkg)
-      ? 'high'
-      : hasAnything ? 'low' : 'unknown';
+    for (const t of tokens) {
+      if (t.volStr) continue;
+      const ctxStart = Math.max(0, t.start - 80);
+      const ctxEnd = Math.min(flat.length, t.end + 80);
+      const ctx = flat.slice(ctxStart, ctxEnd);
+      // Try to find explicit volume with unit — catches "1,5l", "1 l", "0,5l" etc.
+      const volMatch = ctx.match(/\b(50|30|20|15|10|1[,.]5|1[,.]0|0[,.]5|0[,.]33)\s*[lL]\b|\b(1)\s*[lL]\b/);
+      if (volMatch) {
+        t.volStr = (volMatch[1] ?? volMatch[2]);
+      } else if (/\bkeg\b/i.test(ctx)) {
+        t.volStr = '30';
+      } else if (/\b1[,.]5\b/.test(ctx)) {
+        // "1,5" without explicit 'l' — assume PET 1.5l
+        t.volStr = '1.5';
+      } else if (/\b1\s*l\b|\b1[lL]\b/.test(ctx)) {
+        // "1l" or "1 l" — 1 litr
+        t.volStr = '1';
+      } else if (/\b(pet|petka)\b/i.test(ctx)) {
+        // PET without size — default to 1l (most common PET size)
+        t.volStr = '1';
+      } else if (/\b(lahv|sklo|flas|bottle)\b/i.test(ctx)) {
+        // Glass bottle without size — default to 0.5l
+        t.volStr = '0.5';
+      }
+    }
 
-    const key = `${beer?.id ?? ''}|${pkg?.id ?? ''}|${t.qty ?? ''}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
+    for (let i = 0; i < tokens.length; i++) {
+      const t = tokens[i];
+      if (t.qty === 0) continue;
 
-    const bbox = findBboxForContext(dispContext, linesWithBbox);
+      const dispStart = i === 0 ? 0 : tokens[i - 1].end;
+      const dispEnd = i === tokens.length - 1 ? flat.length : tokens[i + 1].start;
+      const dispContext = flat.slice(dispStart, dispEnd).trim();
 
-    results.push({
-      raw: dispContext,
-      originalLine: dispContext,
-      quantity: t.qty,
-      beer_id: beer?.id ?? null,
-      beer_name: beer?.name ?? null,
-      package_id: pkg?.id ?? null,
-      package_label: pkg?.label ?? null,
-      confidence,
-      issues,
-      matched_alias: alias,
-      bbox,
-    });
+      let { beer, alias } = matchBeerFromHints(normalize(dispContext), beers, aliases);
+      if (!beer && t.degree) {
+        ({ beer, alias } = matchBeerFromHints(normalize(t.degree + '°'), beers, aliases));
+      }
+      if (!beer) {
+        const wideStart = Math.max(0, t.start - 80);
+        const wideEnd = Math.min(flat.length, t.end + 80);
+        ({ beer, alias } = matchBeerFromHints(normalize(flat.slice(wideStart, wideEnd).trim()), beers, aliases));
+      }
+      // 🧠 "VŠE [stupeň]" NA KONCI OBJEDNÁVKY — pokud položka nemá pivo,
+      // zkus ho najít podle globálního stupně z konce objednávky
+      if (!beer && globalDegree.degree) {
+        const gd = globalDegree.degree + '°';
+        ({ beer, alias } = matchBeerFromHints(normalize(gd), beers, aliases));
+      }
+
+
+      const dispNorm = normalize(dispContext);
+      let pkg: Package | null = t.volStr ? volToPackage(t.volStr, packages, dispNorm) : null;
+      if (!pkg) pkg = matchPackage(dispNorm, packages, aliases);
+
+      const issues: string[] = [];
+      if (!t.qty) issues.push('množství');
+      if (!beer) issues.push('pivo');
+      if (!pkg) issues.push('obal');
+
+      const hasAnything = t.qty || beer || pkg;
+      const confidence: ParsedLine['confidence'] = (t.qty && beer && pkg)
+        ? 'high'
+        : hasAnything ? 'low' : 'unknown';
+
+      // 🧠 NEdeduplikujeme položky se stejným pivem/obalem/množstvím na jednom
+      // řádku — uživatel může objednat stejné pivo VÍCEKRÁT (např. "2x50 12sv
+      // a dalsi 2x50 12sv" = 4x50 12sv celkem). Duplicity se řeší až v
+      // dedupeAgainstExisting (proti existujícím položkám v objednávce).
+
+      const bbox = findBboxForContext(dispContext, linesWithBbox);
+
+
+      results.push({
+        raw: dispContext,
+        originalLine: dispContext,
+        quantity: t.qty,
+        beer_id: beer?.id ?? null,
+        beer_name: beer?.name ?? null,
+        package_id: pkg?.id ?? null,
+        package_label: pkg?.label ?? null,
+        confidence,
+        issues,
+        matched_alias: alias,
+        bbox,
+      });
+    }
   }
 
   return results;
 }
+
 
 export type GeminiItem = {
   quantity: number | null;
@@ -451,8 +535,45 @@ export type GeminiItem = {
   package_label: string | null;
   raw_line: string;
   place_name: string | null;
+  date?: string | null;
   bbox?: { x0: number; y0: number; x1: number; y1: number } | null;
 };
+
+
+// Rozdělí položku, která obsahuje VÍCE objednávek na jednom řádku oddělených
+// slovem "a" (např. "2x50 12sv a 2x50 vosma"). Vrací pole položek.
+// Toto je bezpečnostní síť pro případ, že AI nesplní pokyn k rozdělení.
+function splitGeminiItemOnA(item: GeminiItem): GeminiItem[] {
+  const raw = item.raw_line || '';
+  // Hledáme vzor "a" mezi dvěma objednávkovými vzory (čísla s x/ks)
+  const pattern = /(\d{1,4}\s*x\s*\d{1,2}(?:[,.]\d)?[^\n]*?)\s+a\s+(\d{1,4}\s*x\s*\d{1,2}(?:[,.]\d)?[^\n]*)/i;
+  const m = raw.match(pattern);
+  if (!m) return [item];
+
+  const firstPart = m[1].trim();
+  const secondPart = m[2].trim();
+  if (!firstPart || !secondPart) return [item];
+
+  // Zkopíruj item a rozděl raw_line.
+  // DŮLEŽITÉ: Vymažeme beer_name a degree, aby se pivo hledalo z NOVÉHO
+  // (rozděleného) raw_line — jinak by obě položky dostaly stejné pivo
+  // z původního (nesprávně sloučeného) itemu.
+  const first = { ...item, raw_line: firstPart, beer_name: null, degree: null };
+  const second = { ...item, raw_line: secondPart, beer_name: null, degree: null };
+
+  // Pokud má item quantity, ale raw_line obsahuje dvě množství, necháme
+  // quantity z AI (AI by měla vrátit správné quantity pro každou položku).
+  // Pokud AI vrátila jen jednu quantity, zkus ji odvodit z raw_line.
+  if (item.quantity === null) {
+    const q1 = firstPart.match(/^\s*(\d{1,4})\s*x/i);
+    const q2 = secondPart.match(/^\s*(\d{1,4})\s*x/i);
+    if (q1) first.quantity = parseInt(q1[1], 10);
+    if (q2) second.quantity = parseInt(q2[1], 10);
+  }
+
+  return [first, second];
+
+}
 
 export function parseGeminiItems(
   items: GeminiItem[],
@@ -460,10 +581,83 @@ export function parseGeminiItems(
   packages: Package[],
   aliasMap?: ParserAliasMap,
   photoIndex?: number,
+  places?: Place[],
 ): ParsedLine[] {
   const aliases = aliasMap ?? emptyAliasMap();
   const results: ParsedLine[] = [];
   const seen = new Set<string>();
+
+  // 🧠 ROZDĚLENÍ POLOŽEK SE SLOVEM "a":
+  // Pokud AI vrátila jednu položku s více objednávkami na jednom řádku
+  // (např. "2x50 12sv a 2x50 vosma"), rozděl ji na samostatné položky.
+  const expandedItems: GeminiItem[] = [];
+  for (const item of items) {
+    expandedItems.push(...splitGeminiItemOnA(item));
+  }
+  items = expandedItems;
+
+  // 🧠 OPRAVA PROHOZENÉHO OBJEMU A MNOŽSTVÍ:
+  // AI občas přečte "20l 1x" jako "1l 20x" (prohodí objem a množství).
+  // Z raw_line poznáme správný vzor: číslo s "l" = OBJEM, číslo s "x"/"ks" = MNOŽSTVÍ.
+  // Pokud AI vrátila quantity odpovídající objemu a package odpovídající množství,
+  // prohodíme je zpět.
+  for (const item of items) {
+    const raw = item.raw_line || '';
+    // Najdi objem s "l" (např. "20l", "30l", "50l", "1,5l") a množství s "x"/"ks"
+    const volMatch = raw.match(/\b(\d{1,2}(?:[,.]\d)?)\s*l\b/i);
+    const qtyMatch = raw.match(/\b(\d{1,4})\s*(?:x|ks)\b/i);
+    if (volMatch && qtyMatch) {
+      const volNum = parseFloat(volMatch[1].replace(',', '.'));
+      const qtyNum = parseInt(qtyMatch[1], 10);
+      // Pokud AI vrátila quantity = objem (např. 20) a package_label obsahuje
+      // číslo odpovídající množství (např. "PET 1l"), je to prohozené.
+      const pkgVolMatch = item.package_label?.match(/(\d+[.,]?\d*)\s*l/i);
+      const pkgVol = pkgVolMatch ? parseFloat(pkgVolMatch[1].replace(',', '.')) : null;
+      if (item.quantity === volNum && pkgVol === qtyNum && volNum !== qtyNum) {
+        // Prohoď: quantity = správné množství, package_label = správný objem
+        item.quantity = qtyNum;
+        // package_label necháme, ale upravíme objem na správný
+        if (item.package_label) {
+          item.package_label = item.package_label.replace(/(\d+[.,]?\d*)\s*l/i, `${volNum}l`);
+        }
+      }
+    }
+  }
+
+
+
+  // 🧠 NAUČENÉ ALIASY ODBĚRATELŮ: načti z localStorage a použij je k opravě
+  // place_name z AI. Pokud AI rozpoznala "Seeberg" ale uživatel dříve opravil
+  // na "Seeberg 2", automaticky použijeme správný název.
+  let placeAliasMap = new Map<string, string>();
+  try {
+    const localSaved = localStorage.getItem('user_learned_place_aliases');
+    if (localSaved) {
+      const parsed = JSON.parse(localSaved);
+      for (const [k, v] of Object.entries(parsed)) {
+        placeAliasMap.set(k, String(v));
+      }
+    }
+  } catch {}
+
+  // 🧠 ODBĚRATEL: Sleduj poslední známého odběratele, aby se place_name "dědil"
+  // odshora dolů — pokud AI nevrátila place_name pro některou položku, použij
+  // odběratele z předchozí položky (stejné okno/objednávka).
+  let lastPlaceName: string | null = null;
+
+  // 🧠 "VŠE [stupeň]" NA KONCI OBJEDNÁVKY — aplikuj na všechny položky
+  const globalDegree = extractGlobalDegree(items.map((i) => i.raw_line || '').join('\n'));
+
+  // 🧠 STUPEŇ NA ZAČÁTKU ŘÁDKU SE APLIKUJE NA VŠECHNY POLOŽKY:
+  // Pokud raw_line začíná stupněm (např. "11sv 3x30 3x20 15x1"), platí tento
+  // stupeň pro VŠECHNY položky na tom řádku. Pokud AI nevrátila stupeň pro
+  // položku, ale raw_line začíná stupněm, použij ho.
+  const lineDegreeMap = new Map<string, string>();
+  for (const item of items) {
+    const raw = item.raw_line || '';
+    const m = raw.match(/^\s*(8|9|10|11|12|13|14)\s*(sv|svet|svetl|svetle|svetly|tm|tma|tmav|tmava|tmavy|tmave|dark|°)?\b/i);
+    if (m) lineDegreeMap.set(raw, m[1]);
+  }
 
   for (const item of items) {
     const raw = item.raw_line || [item.quantity, item.degree, item.beer_name, item.package_label].filter(Boolean).join(' ');
@@ -479,10 +673,32 @@ export function parseGeminiItems(
     if (!beer) {
       ({ beer, alias } = matchBeerFromHints(normalize(raw), beers, aliases));
     }
+    // 🧠 "VŠE [stupeň]" NA KONCI OBJEDNÁVKY — pokud položka nemá pivo,
+    // zkus ho najít podle globálního stupně z konce objednávky
+    if (!beer && globalDegree.degree) {
+      const gd = globalDegree.degree + '°';
+      ({ beer, alias } = matchBeerFromHints(normalize(gd), beers, aliases));
+    }
+    // 🧠 STUPEŇ NA ZAČÁTKU ŘÁDKU — pokud položka nemá pivo a raw_line
+    // začíná stupněm, použij tento stupeň
+    if (!beer && lineDegreeMap.has(item.raw_line || '')) {
+      const ld = lineDegreeMap.get(item.raw_line || '')!;
+      ({ beer, alias } = matchBeerFromHints(normalize(ld + '°'), beers, aliases));
+    }
+
+
 
     const rawNorm = normalize(raw);
     let pkg: Package | null = null;
     if (item.package_label) {
+      // 🧠 OCR OPRAVA: AI občas přečte "1l" (1 litr) jako "1,5l" nebo "1.5l".
+      // Pokud raw_line obsahuje "1l" nebo "1 l" (bez čárky/tečky), ale
+      // package_label má "1,5" nebo "1.5", oprav na 1l.
+      const rawHas1l = /\b1\s*l\b/i.test(raw);
+      const pkgHas15 = /1[.,]5/.test(item.package_label);
+      if (rawHas1l && pkgHas15) {
+        item.package_label = item.package_label.replace(/1[.,]5/, '1');
+      }
       const normLabel = normalize(item.package_label);
       pkg = matchPackage(normLabel, packages, aliases);
       if (!pkg) {
@@ -490,15 +706,31 @@ export function parseGeminiItems(
         if (volMatch) pkg = volToPackage(volMatch[1], packages, normLabel + ' ' + rawNorm);
       }
     }
+
     if (!pkg) {
       pkg = matchPackage(rawNorm, packages, aliases);
+    }
+    if (!pkg) {
+      // Nejprve zkus specificky najít "0,5" / "0.5" / "0,33" / "0.33" (skleněné lahve)
+      const bottleMatch = raw.match(/\b0[.,](5|33)\b/);
+      if (bottleMatch) {
+        pkg = volToPackage(bottleMatch[1] === '5' ? '0.5' : '0.33', packages, rawNorm);
+      }
     }
     if (!pkg) {
       const volMatch = raw.match(/(\d+[.,]?\d*)\s*l?\b/);
       if (volMatch) pkg = volToPackage(volMatch[1], packages, rawNorm);
     }
+    // 🧠 VÝČEP / "sv l" / "tm l" BEZ OBJEMU → výchozí KEG 30l.
+    // Pokud text zmiňuje pivo (světlé/tmavé/výčep) s "l" (litr/sud) nebo jen
+    // "vycep", ale bez konkrétního objemu, použij výchozí KEG 30l.
+    if (!pkg && (/\bsv\s*l\b|\bsvetl[ée]\s*l\b|\btm\s*l\b|\btmav[ée]\s*l\b|\bvycep\b|\bvýčep\b|\bvycepni\b|\bvýčepní\b/i.test(raw))) {
+      pkg = volToPackage('30', packages, rawNorm);
+    }
+
 
     const qty = item.quantity ?? null;
+
     const issues: string[] = [];
     if (!qty) issues.push('množství');
     if (!beer) issues.push('pivo');
@@ -509,11 +741,56 @@ export function parseGeminiItems(
       ? 'high'
       : hasAnything ? 'low' : 'unknown';
 
-    const key = `${beer?.id ?? ''}|${pkg?.id ?? ''}|${qty ?? ''}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
+    // 🧠 ODBĚRATEL: Oprav place_name pomocí naučených aliasů a známých míst.
+    // 1) Nejprve zkus naučené aliasy (špatný název z fotky → správný název).
+    // 2) Pak zkus najít shodu se známými místy (přibližná/fonetická shoda).
+    // 3) Pokud AI nevrátila place_name, zkus ho odvodit z raw textu.
+    // 4) Pokud stále nic, "zděď" odběratele z předchozí položky.
+    let resolvedPlaceName = item.place_name ?? null;
+
+    // 3) Pokud AI nevrátila place_name, zkus ho najít v raw textu položky
+    if (!resolvedPlaceName && places && places.length > 0) {
+      const matched = matchPlaceFromText(raw, places, placeAliasMap);
+      if (matched.placeId && matched.placeName) {
+        resolvedPlaceName = matched.placeName;
+      }
+    }
+
+    // 1) Naučené aliasy
+    if (resolvedPlaceName && placeAliasMap.size > 0) {
+      const normPlace = normalizePlace(resolvedPlaceName);
+      const aliasPlaceId = placeAliasMap.get(normPlace);
+      if (aliasPlaceId && places) {
+        const place = places.find((p) => p.id === aliasPlaceId);
+        if (place) resolvedPlaceName = place.name;
+      }
+    }
+    // 2) Přibližná shoda se známými místy
+    if (resolvedPlaceName && places && places.length > 0) {
+      const matched = matchPlaceFromText(resolvedPlaceName, places, placeAliasMap);
+      if (matched.placeId && matched.placeName) {
+        resolvedPlaceName = matched.placeName;
+      }
+    }
+
+    // 4) Pokud stále nemáme odběratele, "zděď" ho z předchozí položky
+    if (!resolvedPlaceName && lastPlaceName) {
+      resolvedPlaceName = lastPlaceName;
+    }
+
+    // Aktualizuj posledního známého odběratele
+    if (resolvedPlaceName) {
+      lastPlaceName = resolvedPlaceName;
+    }
+
+    // 🧠 DEDUPLIKACE: NEodstraňujeme položky se stejným pivem/obalem/množstvím,
+    // protože uživatel může objednat stejné pivo VÍCEKRÁT (např. "2x50 12sv a
+    // dalsi 2x50 12sv" = 4x50 12sv celkem). Duplicity se řeší až v
+    // dedupeAgainstExisting (proti existujícím položkám v objednávce).
+    // Uživatel může duplicity odstranit ručně v kontrolním zobrazení.
 
     results.push({
+
       raw,
       originalLine: raw,
       quantity: qty,
@@ -524,11 +801,15 @@ export function parseGeminiItems(
       confidence,
       issues,
       matched_alias: alias,
-      place_name: item.place_name ?? null,
+      place_name: resolvedPlaceName,
+      date: item.date ?? null,
       bbox: item.bbox ?? undefined,
       photo_index: photoIndex,
     } as ParsedLine);
+
+
   }
+
 
   return results;
 }
@@ -576,6 +857,64 @@ export async function saveAlias(aliasText: string, beerId: string | null, packag
   } catch {}
 }
 
+// Uložení naučeného aliasu pro místo (place) do localStorage i Supabase
+export async function savePlaceAlias(aliasText: string, placeId: string): Promise<void> {
+  const norm = normalizePlace(aliasText);
+  if (!norm || norm.length < 2) return;
+
+  // 1. Okamžitá paměť do localStorage
+  try {
+    const localSaved = localStorage.getItem('user_learned_place_aliases');
+    const localMap = localSaved ? JSON.parse(localSaved) : {};
+    localMap[norm] = placeId;
+    localStorage.setItem('user_learned_place_aliases', JSON.stringify(localMap));
+  } catch {}
+
+  // 2. Trvalé uložení do Supabase (using parser_aliases table with place_id)
+  try {
+    const { supabase } = await import('./supabase');
+    const { data: existing } = await supabase.from('parser_aliases').select('id, hit_count').eq('alias_text', norm).eq('place_id', placeId).maybeSingle();
+    if (existing) {
+      await supabase.from('parser_aliases').update({
+        place_id: placeId,
+        hit_count: (existing.hit_count ?? 0) + 1,
+        updated_at: new Date().toISOString(),
+      }).eq('id', (existing as any).id);
+    } else {
+      await supabase.from('parser_aliases').insert({
+        alias_text: norm,
+        place_id: placeId,
+        hit_count: 1,
+      });
+    }
+  } catch {}
+}
+
+// Načtení naučených aliasů pro místa
+export async function loadPlaceAliasMap(): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+
+  // 1. Načtení z localStorage
+  try {
+    const localSaved = localStorage.getItem('user_learned_place_aliases');
+    if (localSaved) {
+      const parsed = JSON.parse(localSaved);
+      Object.entries(parsed).forEach(([k, v]) => map.set(k, v as string));
+    }
+  } catch {}
+
+  // 2. Načtení ze Supabase
+  try {
+    const { supabase } = await import('./supabase');
+    const { data } = await supabase.from('parser_aliases').select('*').not('place_id', 'is', null);
+    for (const a of (data ?? []) as any[]) {
+      if (a.place_id) map.set(a.alias_text, a.place_id);
+    }
+  } catch {}
+
+  return map;
+}
+
 export async function loadAliasMap(): Promise<ParserAliasMap> {
   const map = emptyAliasMap();
 
@@ -603,9 +942,81 @@ export async function loadAliasMap(): Promise<ParserAliasMap> {
 }
 
 // Vyhledá odběratele (hospodu/místo) z fotky nebo textu
-export function matchPlaceFromText(rawText: string, places: Place[]): { placeId: string | null; placeName: string | null } {
+// Hledá v CELÉM textu (nejen v parsovaných položkách)
+export function matchPlaceFromText(
+  rawText: string,
+  places: Place[],
+  placeAliasMap?: Map<string, string>,
+): { placeId: string | null; placeName: string | null } {
   if (!rawText || !places.length) return { placeId: null, placeName: null };
   const normText = normalizePlace(rawText);
+
+  // 0. Try to match against learned place aliases first
+  if (placeAliasMap && placeAliasMap.size > 0) {
+    for (const [alias, placeId] of placeAliasMap) {
+      if (normText.includes(alias)) {
+        const place = places.find((p) => p.id === placeId);
+        if (place) return { placeId: place.id, placeName: place.name };
+      }
+    }
+  }
+
+  // 0b. Try to match against known aliases / common OCR misreads first
+  //    Common OCR substitutions: c→e, a→e, b→h, etc.
+  const ocrSubstitutions: [RegExp, string][] = [
+    [/\bseeger\b/i, 'seeberg'],
+    [/\bseeg[eé]r\b/i, 'seeberg'],
+    [/\bzeeburg\b/i, 'seeberg'],
+    [/\bgabina\b/i, 'u labute'],
+    [/\bgabinka\b/i, 'u labute'],
+    [/\bucent\b/i, 'u labute'],
+    [/\blabut[ěe]\b/i, 'u labute'],
+    [/\bmalessice\b/i, 'malesice'],
+    [/\bmalenovice\b/i, 'malesice'],
+    [/\bzajic\b/i, 'u zajice'],
+    [/\bzajíc\b/i, 'u zajice'],
+    // Additional OCR correction patterns for common place name misreads
+    [/\bhostinec\b/i, 'hospoda'],
+    [/\bhostinec\s+u\b/i, 'hospoda u'],
+    [/\bposezeni\b/i, 'posezení'],
+    [/\brestaurace\b/i, 'restaurace'],
+    [/\bve[h]?k[eé]\s+namesti\b/i, 'velké náměstí'],
+    [/\bna\s+perku\b/i, 'na pérku'],
+    [/\bna\s+spilce\b/i, 'na špilce'],
+    [/\bu\s+jezirka\b/i, 'u jezírka'],
+    [/\bu\s+rybnicka\b/i, 'u rybníčka'],
+    [/\bpod\s+lipou\b/i, 'pod lipou'],
+    [/\bpod\s+lesem\b/i, 'pod lesem'],
+    [/\bna\s+vyhlidce\b/i, 'na vyhlídce'],
+    [/\bna\s+kopci\b/i, 'na kopci'],
+    [/\bu\s+hasicu\b/i, 'u hasičů'],
+    [/\bna\s+ruzku\b/i, 'na růžku'],
+    [/\bpod\s+skalkou\b/i, 'pod skalkou'],
+    [/\bna\s+skalce\b/i, 'na skalce'],
+    [/\bu\s+studny\b/i, 'u studny'],
+    [/\bna\s+vyhledu\b/i, 'na výhledu'],
+    [/\bve\s+sklepe\b/i, 've sklepě'],
+    [/\bu\s+jezera\b/i, 'u jezera'],
+    [/\bna\s+louce\b/i, 'na louce'],
+    [/\bpod\s+horou\b/i, 'pod horou'],
+    [/\bna\s+hrinci\b/i, 'na hrinci'],
+    [/\bu\s+potoka\b/i, 'u potoka'],
+    [/\bna\s+veseli\b/i, 'na veselí'],
+  ];
+  let correctedText = normText;
+  for (const [pattern, replacement] of ocrSubstitutions) {
+    correctedText = correctedText.replace(pattern, replacement);
+  }
+  if (correctedText !== normText) {
+    // Try matching with corrected text
+    for (const p of places) {
+      const np = normalizePlace(p.name);
+      if (np.length < 3) continue;
+      if (correctedText.includes(np)) {
+        return { placeId: p.id, placeName: p.name };
+      }
+    }
+  }
 
   // 1. Exact substring match — prefer longest match to avoid short false positives
   let bestMatch: { place: Place; len: number } | null = null;
@@ -617,6 +1028,28 @@ export function matchPlaceFromText(rawText: string, places: Place[]): { placeId:
     }
   }
   if (bestMatch) return { placeId: bestMatch.place.id, placeName: bestMatch.place.name };
+
+  // 1b. Try matching individual significant words from place name in text
+  //     (handles cases where OCR merges/splits words differently)
+  let wordBest: { place: Place; score: number } | null = null;
+  for (const p of places) {
+    const np = normalizePlace(p.name);
+    if (np.length < 4) continue;
+    const words = np.split(/\s+/).filter((w) => w.length >= 3);
+    if (words.length === 0) continue;
+    // Check if ANY significant word from place name appears in text
+    const anyWordMatch = words.some((w) => normText.includes(w));
+    if (anyWordMatch) {
+      const matched = words.filter((w) => normText.includes(w)).length;
+      const score = matched / words.length;
+      if (!wordBest || score > wordBest.score) {
+        wordBest = { place: p, score };
+      }
+    }
+  }
+  if (wordBest && wordBest.score >= 0.5) {
+    return { placeId: wordBest.place.id, placeName: wordBest.place.name };
+  }
 
   // 2. Word-level token match — each word of place name must appear in text
   let tokenBest: { place: Place; score: number } | null = null;
@@ -633,30 +1066,41 @@ export function matchPlaceFromText(rawText: string, places: Place[]): { placeId:
   }
   if (tokenBest) return { placeId: tokenBest.place.id, placeName: tokenBest.place.name };
 
-  // 3. Fuzzy fallback — raised threshold to 0.80 to avoid false matches
+  // 3. Fuzzy fallback — lowered threshold to 0.60 for OCR tolerance.
+  //    Povolujeme i kratší názvy (3+ znaky), aby se rozpoznali i odběratelé
+  //    s krátkým jménem (např. "Bar", "K2", "U Z"), které OCR často zkomolí.
   let bestFuzzy: Place | null = null;
   let bestScore = 0;
   for (const p of places) {
     const np = normalizePlace(p.name);
-    if (np.length < 4) continue;
+    if (np.length < 3) continue;
     const s = bestFuzzyScoreInText(np, normText);
     if (s > bestScore) { bestScore = s; bestFuzzy = p; }
   }
-  if (bestFuzzy && bestScore >= 0.80) {
+  if (bestFuzzy && bestScore >= 0.60) {
     return { placeId: bestFuzzy.id, placeName: bestFuzzy.name };
   }
+
 
   return { placeId: null, placeName: null };
 }
 
 const NOTE_PATTERNS: { re: RegExp; label: string | ((m: RegExpMatchArray) => string) }[] = [
   { re: /\b(\+\s*)?vycep\b|\bvycepy\b|\bvycepu\b|\bpujcit\s*vycep\b/i, label: '+ výčep' },
+  // 🚰 PIPA / KOHOUT — výčep se rezervuje i když je napsáno "pipa", "dvojkohout",
+  // "jednokohout", "trojkohout", "kohout" apod. (nejen slovo "výčep").
+  // Label vrací přesný rozpoznaný text, aby isTapMentioned() poznala typ výčepu.
+  { re: /\b(jedno|dvoj|troj|ctyr|sesti)?(pipa|pipy|pipu|kohout|kohouty)\b/i, label: (m) => m[0].trim() },
+
   { re: /\b(pridat\s*)?sklo\b|\bsklenic[e]?\b/i, label: 'sklo' },
   { re: /\bpodtack[y]?\b|\bpodtacek\b/i, label: 'podtácky' },
   { re: /\bzavoz\s+(v[e]?\s+)?(pondeli|utery|stredu|ctvrtek|patek|sobotu|nedeli|\d{1,2}\.\d{1,2}\.)(\s+v\s+\d{1,2}(:\d{2})?\s*(h|hod)?)?/i, label: (m) => m[0] },
   { re: /\bdodat\s+(v[e]?\s+)?(pondeli|utery|stredu|ctvrtek|patek|sobotu|nedeli|\d{1,2}\.\d{1,2}\.)(\s+v\s+\d{1,2}(:\d{2})?\s*(h|hod)?)?/i, label: (m) => m[0] },
   { re: /\b(cas|hodin[a]|v)\s+\d{1,2}(:\d{2})?\s*(h|hod)?\b/i, label: (m) => m[0] },
   { re: /\bbez\s*etiket/i, label: 'bez etikety' },
+  { re: /\bbez\s*etiket[a]?\b/i, label: 'bez etikety' },
+  { re: /\(\s*bez\s*etiket/i, label: 'bez etikety' },
+
   { re: /\betiket[a]?\s*mm\b/i, label: 'etiketa MM' },
   { re: /\betiket[a]?\s*m\b(?!\w)/i, label: 'etiketa M' },
   { re: /\betiket[a]?\s*xxl\b/i, label: 'etiketa XXL' },
@@ -688,54 +1132,96 @@ export function parseFreeTextEntries(
   const aliases = aliasMap ?? emptyAliasMap();
 
   let segments = rawText
-    .split(/[,;]|(?:\s+a\s+)(?=\d)/i)
+    .split(/[,;+]|(?:\s+a\s+)(?=\d)|(?:\s*=\s*)/i)
     .map((s) => ocrNormalizeLine(s.trim()))
     .filter((s) => s.length > 0);
 
+
   segments = segments.flatMap((seg) => splitByQtyBoundaries(seg));
 
-  return parseSegments(segments, beers, packages, aliases);
+  // 🧠 "VŠE [stupeň]" NA KONCI OBJEDNÁVKY — aplikuj na všechny položky
+  const globalDegree = extractGlobalDegree(rawText);
+
+  return parseSegments(segments, beers, packages, aliases, globalDegree);
 }
 
 function splitByQtyBoundaries(seg: string): string[] {
+
   const re = /\d{1,4}\s*(?:x|ks|×)\b/gi;
   const starts: number[] = [];
   let m: RegExpExecArray | null;
   while ((m = re.exec(seg)) !== null) starts.push(m.index);
   if (starts.length <= 1) return [seg];
+
+  // 🧠 STUPEŇ NA ZAČÁTKU ŘÁDKU SE APLIKUJE NA VŠECHNY POLOŽKY:
+  // Pokud segment začíná stupněm (např. "11sv 3x30 3x20 15x1"), zachovej
+  // tento stupeň a přidej ho ke KAŽDÉ rozdělené části.
+  const leadingDegreeMatch = seg.match(/^\s*(8|9|10|11|12|13|14)\s*(sv|svet|svetl|svetle|svetly|tm|tma|tmav|tmava|tmavy|tmave|dark|°)?\b/i);
+  const leadingDegree = leadingDegreeMatch ? leadingDegreeMatch[0].trim() : null;
+
   const parts: string[] = [];
   for (let i = 0; i < starts.length; i++) {
     const start = starts[i];
     const end = i + 1 < starts.length ? starts[i + 1] : seg.length;
-    const part = seg.slice(start, end).trim();
-    if (part) parts.push(part);
+    let part = seg.slice(start, end).trim();
+    if (part) {
+      // Přidej stupeň ze začátku ke každé části
+      if (leadingDegree && !part.toLowerCase().includes(leadingDegree.toLowerCase())) {
+        part = leadingDegree + ' ' + part;
+      }
+      parts.push(part);
+    }
   }
   return parts;
 }
+
 
 function parseSegments(
   segments: string[],
   beers: Beer[],
   packages: Package[],
   aliases: ParserAliasMap,
+  globalDegree?: { degree: string | null; color: string | null },
 ): ParsedLine[] {
+
   const results: ParsedLine[] = [];
   const seen = new Set<string>();
 
   for (const seg of segments) {
     const cleaned = ocrCleanupQuantities(seg);
     const qtyMatch = cleaned.match(/^\s*(\d{1,4})\s*(?:x|ks|×)?\s*/i) ?? cleaned.match(/(\d{1,4})\s*(?:x|ks|×)\s*/i);
-    const qty = qtyMatch ? parseInt(qtyMatch[1], 10) : null;
-    const rest = qtyMatch ? cleaned.slice((qtyMatch.index ?? 0) + qtyMatch[0].length) : cleaned;
+    let qty = qtyMatch ? parseInt(qtyMatch[1], 10) : null;
+    let rest = qtyMatch ? cleaned.slice((qtyMatch.index ?? 0) + qtyMatch[0].length) : cleaned;
+
+    // Slovní množství: "dva", "tri", "ctyri", "pet", "sest", "sedm", "osm", "devet", "deset"
+    if (qty === null) {
+      const wordQty = rest.match(/^\s*(dva|dve|tri|ctyri|pet|sest|sedm|osm|devet|deset)\b/i);
+      if (wordQty) {
+        const map: Record<string, number> = { dva: 2, dve: 2, tri: 3, ctyri: 4, pet: 5, sest: 6, sedm: 7, osm: 8, devet: 9, deset: 10 };
+        qty = map[wordQty[1].toLowerCase()] ?? null;
+        rest = rest.slice((wordQty.index ?? 0) + wordQty[0].length);
+
+      }
+    }
 
     const norm = normalize(rest || cleaned);
 
     let { beer, alias } = matchBeerFromHints(norm, beers, aliases);
 
+
+    // 🧠 "VŠE [stupeň]" NA KONCI OBJEDNÁVKY — pokud položka nemá pivo,
+    // zkus ho najít podle globálního stupně z konce objednávky
+    if (!beer && globalDegree?.degree) {
+      const gd = globalDegree.degree + '°';
+      ({ beer, alias } = matchBeerFromHints(normalize(gd), beers, aliases));
+    }
+
+
     let pkg: Package | null = null;
     // Volume match — ordered from most specific to least: 1,5 before 1 before 0,5
-    const volMatch = norm.match(/\b(50|30|20|15|10|1[,.]5|1[,.]0|0[,.]5|0[,.]33)\s*l?\b|(?<!\d)\b(1)\s*l\b/);
-    if (volMatch) pkg = volToPackage((volMatch[1] ?? volMatch[2]).replace(',', '.'), packages, norm);
+    // Také zachytí kompaktní formát "50l12sv" (objem + stupeň + barva bez mezer)
+    const volMatch = norm.match(/\b(50|30|20|15|10|1[,.]5|1[,.]0|0[,.]5|0[,.]33)\s*l?\b|(?<!\d)\b(1)\s*l\b|(\d{1,2})l(?=\d)/);
+    if (volMatch) pkg = volToPackage((volMatch[1] ?? volMatch[2] ?? volMatch[3]).replace(',', '.'), packages, norm);
     if (!pkg) pkg = matchPackage(norm, packages, aliases);
 
     if (!pkg && /\bkeg\b|\bsud\b|\bsudy\b/.test(norm)) {
@@ -750,6 +1236,20 @@ function parseSegments(
     if (!pkg && /\blahv|\bflas|\bsklo/.test(norm)) {
       pkg = volToPackage('0.5', packages, norm);
     }
+
+    // 🧠 BEDNY (PŘEPRAVKY) S LAHVEMI: "2 bedny tmavého" = 2 × 20 = 40 ks lahví 0.33l.
+    // JEDNA bedna = 20 ks lahví 0.33l. Stupeň/barva piva se určí z textu.
+    const crateMatch = cleaned.match(/(\d{1,4})\s*(?:x|ks|×)?\s*(bedn|prepravk|přepravk)/i);
+    if (crateMatch) {
+      const crates = parseInt(crateMatch[1], 10);
+      qty = crates * 20;
+      const cratePkg = volToPackage('0.33', packages, norm);
+      if (cratePkg) pkg = cratePkg;
+    }
+
+    // Pokud je objem (obal) ale žádné explicitní množství, předpokládej 1 ks
+    if (qty === null && pkg) qty = 1;
+
 
     const issues: string[] = [];
     if (!qty) issues.push('množství');
@@ -778,6 +1278,7 @@ function parseSegments(
     });
   }
 
+
   return results;
 }
 
@@ -791,24 +1292,46 @@ export function parseVoiceOrder(
   packages: Package[],
   places: Place[],
   aliasMap?: ParserAliasMap,
+  placeAliasMap?: Map<string, string>,
 ): ParsedVoiceOrder {
   let text = rawText.trim();
   let placeId: string | null = null;
   let placeName: string | null = null;
 
-  const explicitMatch = text.match(/\b(?:objedn[áa]vka\s+)?pro\s+([^,;]+?)(?=[,;]|\s+\d|$)/i);
-  if (explicitMatch) {
-    const candidate = explicitMatch[1].trim();
-    if (candidate.length >= 2) {
-      const normCand = normalizePlace(candidate);
-      const place = places.find((p) => normalizePlace(p.name) === normCand)
-        ?? places.find((p) => normalizePlace(p.name).includes(normCand) || normCand.includes(normalizePlace(p.name)));
-      placeId = place?.id ?? null;
-      placeName = place?.name ?? candidate;
-      text = text.slice(0, explicitMatch.index) + text.slice(explicitMatch.index! + explicitMatch[0].length);
+  // 0. Try learned place aliases on the ENTIRE text first
+  if (!placeName && placeAliasMap && placeAliasMap.size > 0 && places.length) {
+    const normText = normalizePlace(text);
+    for (const [alias, pid] of placeAliasMap) {
+      if (normText.includes(alias)) {
+        const place = places.find((p) => p.id === pid);
+        if (place) {
+          placeId = place.id;
+          placeName = place.name;
+          const re = new RegExp(place.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+          text = text.replace(re, ' ');
+          break;
+        }
+      }
     }
   }
 
+  // 1. Try explicit "pro [place]" pattern
+  if (!placeName) {
+    const explicitMatch = text.match(/\b(?:objedn[áa]vka\s+)?pro\s+([^,;]+?)(?=[,;]|\s+\d|$)/i);
+    if (explicitMatch) {
+      const candidate = explicitMatch[1].trim();
+      if (candidate.length >= 2) {
+        const normCand = normalizePlace(candidate);
+        const place = places.find((p) => normalizePlace(p.name) === normCand)
+          ?? places.find((p) => normalizePlace(p.name).includes(normCand) || normCand.includes(normalizePlace(p.name)));
+        placeId = place?.id ?? null;
+        placeName = place?.name ?? candidate;
+        text = text.slice(0, explicitMatch.index) + text.slice(explicitMatch.index! + explicitMatch[0].length);
+      }
+    }
+  }
+
+  // 2. Try matching place name in the ENTIRE remaining text
   if (!placeName && places.length) {
     const normText = normalizePlace(text);
     let bestMatch: { place: Place; len: number; idx: number } | null = null;
@@ -828,6 +1351,7 @@ export function parseVoiceOrder(
     }
   }
 
+  // 3. Fuzzy fallback
   if (!placeName && places.length) {
     const normText = normalizePlace(text);
     let bestPlace: Place | null = null;

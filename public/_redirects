@@ -1,6 +1,8 @@
-/*    /index.html   200
-/sw.js   /sw.js   200
-/manifest.webmanifest  /manifest.webmanifest  200
-/icon-192.png  /icon-192.png  200
-/icon-512.png  /icon-512.png  200
-/icon-maskable-512.png  /icon-maskable-512.png  200
+/*
+  Cloudflare Pages routing - SPA fallback
+  Všechny cesty kromě /assets/* přesměrovat na index.html
+*/
+/public/assets/*
+  ! 404.html
+
+/*  /index.html  200

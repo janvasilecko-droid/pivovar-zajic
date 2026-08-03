@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../lib/auth';
 
-import { supabase, Beer, CellarTank, CellarTransfer, CellarTankCycle, EntryRow, useRealtime, beerBg, beerBorder } from '../lib/supabase';
-import { Modal, Field, EmptyState, Spinner } from '../components/ui';
+import { supabase, Beer, CellarTank, CellarTransfer, CellarTankCycle, EntryRow, useRealtime, beerBg, beerBorder, beerName } from '../lib/supabase';
+import { Modal, Field, Spinner } from '../components/ui';
 import { TankOccupancyPlanner } from '../components/TankOccupancyPlanner';
 
 const STATUS_LABELS: Record<CellarTank['status'], string> = {
@@ -34,7 +34,7 @@ function fmtHours(h: number | null | undefined): string {
 }
 
 export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: string) => void } = {}) {
-  const [activeTab, setActiveTab] = useState<'lezacke' | 'spilka' | 'planovac'>('lezacke');
+  const [activeTab, setActiveTab] = useState<'lezacke' | 'spilka' | 'planovac' | 'statistiky'>('lezacke');
   const [tanks, setTanks] = useState<CellarTank[]>([]);
   const [transfers, setTransfers] = useState<CellarTransfer[]>([]);
   const [cycles, setCycles] = useState<CellarTankCycle[]>([]);
@@ -47,6 +47,12 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
   const [transferVolume, setTransferVolume] = useState('');
   const [showStart, setShowStart] = useState<CellarTank | null>(null);
   const [editTank, setEditTank] = useState<CellarTank | null>(null);
+
+  // Inline úprava piva a objemu přímo na kartě tanku (bez otevírání modalu)
+  const [inlineEditId, setInlineEditId] = useState<string | null>(null);
+  const [inlineBeerId, setInlineBeerId] = useState('');
+  const [inlineVolume, setInlineVolume] = useState('');
+  const [inlineBusy, setInlineBusy] = useState(false);
 
   // Objednávky (pro propojení: kolik kegů z aktuálního piva je objednáno)
   const [orders, setOrders] = useState<OrderRow[]>([]);
@@ -129,8 +135,8 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
       const targetCap = isSpilka ? 8000 : 7500;
       return {
         ...tk,
-        capacity_l: tk.capacity_l < targetCap ? targetCap : tk.capacity_l,
-        initial_volume_l: tk.initial_volume_l ? (tk.initial_volume_l < targetCap ? targetCap : tk.initial_volume_l) : targetCap,
+        capacity_l: targetCap,
+        initial_volume_l: tk.initial_volume_l ? targetCap : targetCap,
       };
     });
 
@@ -176,12 +182,12 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
       const id = r.cellar_tank_id ?? '_none';
       if (!m.has(id)) m.set(id, { kegCount: 0, sourceL: 0, lossL: 0, bySize: {} });
       const s = m.get(id)!;
-      s.kegCount += Number(r.quantity) ?? 0;
+      s.kegCount += Number(r.quantity ?? 0);
       s.sourceL += Number(r.source_volume_l ?? 0);
       s.lossL += Number(r.loss_l ?? 0);
       const sizeMatch = (r.package_label ?? '').match(/(\d+(?:[.,]\d+)?)\s*l/i);
       const size = sizeMatch ? Number(sizeMatch[1].replace(',', '.')) : 0;
-      if (size > 0) s.bySize[size] = (s.bySize[size] ?? 0) + (Number(r.quantity) ?? 0);
+      if (size > 0) s.bySize[size] = (s.bySize[size] ?? 0) + Number(r.quantity ?? 0);
     });
     return m;
   }, [kegging]);
@@ -197,34 +203,13 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
     return m;
   }, [cycles]);
 
-  // Souhrnná statistika za tento měsíc a rok napříč všemi tanky.
-  // Stočené hl počítáme přímo ze skutečných záznamů stáčení (kegging podle source_volume_l),
-  // takže funguje i bez ukončených cyklů tanku. Průměrná ztráta se počítá z dokončených cyklů (tam, kde je známá).
-  const summaryStats = useMemo(() => {
-    const now = new Date();
-    const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const thisYear = String(now.getFullYear());
-
-    const keggedHlFor = (predicate: (d: string) => boolean) =>
-      kegging.filter((r) => predicate(r.entry_date)).reduce((s, r) => s + Number(r.source_volume_l ?? 0), 0) / 100;
-
-
-    const monthCycles = cycles.filter((c) => c.ended_at?.slice(0, 7) === thisMonth);
-    const yearCycles = cycles.filter((c) => c.ended_at?.slice(0, 4) === thisYear);
-    const avgLoss = (list: CellarTankCycle[]) => list.length ? list.reduce((s, c) => s + Number(c.loss_pct), 0) / list.length : 0;
-
-    return {
-      month: { totalHl: keggedHlFor((d) => d.slice(0, 7) === thisMonth), avgLossPct: avgLoss(monthCycles), count: monthCycles.length },
-      year: { totalHl: keggedHlFor((d) => d.slice(0, 4) === thisYear), avgLossPct: avgLoss(yearCycles), count: yearCycles.length },
-    };
-  }, [cycles, kegging]);
-
-
   async function clearTank(t: CellarTank) {
     if (!confirm(`Vyprázdnit ${t.label} (nastavit objem na 0 a stav na prázdný)?`)) return;
     await supabase.from('cellar_tanks').update({
       current_volume_l: 0, current_beer_id: null, current_beer_name: null, status: 'empty',
-      started_at: null, initial_volume_l: null, updated_at: new Date().toISOString(),
+      started_at: null, initial_volume_l: null,
+      kegging_active: false, kegging_ended_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     }).eq('id', t.id);
     load();
   }
@@ -260,6 +245,8 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
     await supabase.from('cellar_tanks').update({
       status: 'sanitizing', // Po H2O
       current_volume_l: 0,
+      kegging_active: false,
+      kegging_ended_at: endedAt.toISOString(),
       updated_at: endedAt.toISOString(),
     }).eq('id', t.id);
     load();
@@ -330,6 +317,70 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
     load();
   }
 
+  // Inline uložení piva a počátečního objemu přímo z karty tanku
+  async function saveInlineTank(t: CellarTank) {
+    if (!inlineBeerId) { alert('Vyber pivo.'); return; }
+    const v = Number(inlineVolume);
+    if (!v || v <= 0) { alert('Zadej počáteční objem v litrech.'); return; }
+    setInlineBusy(true);
+    const beer = beers.find((b) => b.id === inlineBeerId);
+    const now = new Date();
+    await supabase.from('cellar_tanks').update({
+      current_beer_id: inlineBeerId,
+      current_beer_name: beer?.name ?? null,
+      current_volume_l: v,
+      initial_volume_l: v,
+      started_at: t.started_at ?? now.toISOString(),
+      status: 'active',
+      kegging_date: now.toISOString().slice(0, 10),
+      updated_at: now.toISOString(),
+    }).eq('id', t.id);
+    await supabase.from('cellar_transfers').insert({
+      transfer_date: now.toISOString().slice(0, 10),
+      to_tank_id: t.id,
+      beer_id: inlineBeerId,
+      beer_name: beer?.name ?? null,
+      volume_l: v,
+      loss_l: 0,
+      note: 'Nastavení piva a objemu z karty tanku',
+    });
+    setInlineBusy(false);
+    setInlineEditId(null);
+    load();
+  }
+
+  // Zahájit stáčení z tanku — vypne stáčení na všech ostatních tancích se stejným pivem
+  async function startKegging(t: CellarTank) {
+    if (!t.current_beer_id) { alert('Tank nemá přiřazené pivo — nejprve nastav pivo.'); return; }
+    const now = new Date().toISOString();
+    // Vypnout stáčení na ostatních tancích se stejným pivem (aby byl vždy jen jeden aktivní zdroj)
+    const others = tanks.filter((x) => x.id !== t.id && x.current_beer_id === t.current_beer_id);
+    if (others.length > 0) {
+      await supabase.from('cellar_tanks')
+        .update({ kegging_active: false, kegging_ended_at: now, updated_at: now })
+        .in('id', others.map((x) => x.id));
+    }
+    // Zapnout stáčení na tomto tanku
+    await supabase.from('cellar_tanks').update({
+      kegging_active: true,
+      kegging_started_at: now,
+      kegging_ended_at: null,
+      updated_at: now,
+    }).eq('id', t.id);
+    load();
+  }
+
+  // Ukončit stáčení z tanku
+  async function stopKegging(t: CellarTank) {
+    const now = new Date().toISOString();
+    await supabase.from('cellar_tanks').update({
+      kegging_active: false,
+      kegging_ended_at: now,
+      updated_at: now,
+    }).eq('id', t.id);
+    load();
+  }
+
 
   const displayedTanks = useMemo(() => {
     if (activeTab === 'spilka') {
@@ -346,32 +397,9 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
           <p className="text-sm text-primary-500 mt-1">Kvasné tanky na Spilce (Spilka 1–3) & Ležácké tanky (Tanky 1–8).</p>
         </div>
 
-        {/* HACCP & WhatsApp Banner */}
-        <div className="w-full bg-amber-500/10 border border-amber-500/30 p-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-xs my-2">
-          <div className="flex items-center gap-2.5">
-            <span className="text-xl">❄️</span>
-            <div>
-              <div className="font-extrabold text-amber-950 text-xs uppercase tracking-wider">Normy HACCP pre Spilku & Sklep</div>
-              <div className="text-[11px] text-neutral-600 font-medium">Spílání (Bod 4.1), Kvašení & Sběr kvasnic s CO2 (Bod 4.2), Dokvašování 2-4°C (Bod 4.3)</div>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {setPage && (
-              <>
-                <button onClick={() => setPage('haccp', 'sec-4-1')} className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-xs transition">
-                  📖 Spílání (4.1)
-                </button>
-                <button onClick={() => setPage('haccp', 'sec-4-2')} className="px-3 py-1.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white font-extrabold text-xs shadow-xs transition">
-                  🧪 Sběr kvasnic (4.2)
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full">
           {/* Tab Selector: Spilka vs Ležácké */}
-          <div className="bg-neutral-900 p-1 rounded-2xl flex items-center border border-neutral-800 shadow-sm">
+          <div className="bg-neutral-900 p-1 rounded-2xl flex flex-wrap items-center border border-neutral-800 shadow-sm">
             <button
               onClick={() => setActiveTab('lezacke')}
               className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all ${
@@ -402,36 +430,6 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
         </div>
       </div>
 
-      {/* Souhrnná statistika za měsíc/rok */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-        <div className="card p-4">
-          <div className="text-xs font-semibold uppercase tracking-wider text-primary-500 mb-2">Tento měsíc</div>
-          <div className="flex items-center gap-4">
-            <div>
-              <div className="font-display font-bold text-2xl text-primary-900">{summaryStats.month.totalHl.toFixed(1)} hl</div>
-              <div className="text-xs text-primary-500">vystočeno · {summaryStats.month.count} cyklů</div>
-            </div>
-            <div className="ml-auto text-right">
-              <div className={`font-display font-bold text-xl ${summaryStats.month.avgLossPct > 3 ? 'text-danger-600' : 'text-success-600'}`}>{summaryStats.month.avgLossPct.toFixed(1)}%</div>
-              <div className="text-xs text-primary-500">průměrná ztráta</div>
-            </div>
-          </div>
-        </div>
-        <div className="card p-4">
-          <div className="text-xs font-semibold uppercase tracking-wider text-primary-500 mb-2">Tento rok</div>
-          <div className="flex items-center gap-4">
-            <div>
-              <div className="font-display font-bold text-2xl text-primary-900">{summaryStats.year.totalHl.toFixed(1)} hl</div>
-              <div className="text-xs text-primary-500">vystočeno · {summaryStats.year.count} cyklů</div>
-            </div>
-            <div className="ml-auto text-right">
-              <div className={`font-display font-bold text-xl ${summaryStats.year.avgLossPct > 3 ? 'text-danger-600' : 'text-success-600'}`}>{summaryStats.year.avgLossPct.toFixed(1)}%</div>
-              <div className="text-xs text-primary-500">průměrná ztráta</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {loading ? <Spinner /> : activeTab === 'planovac' ? (
         <TankOccupancyPlanner tanks={tanks} beers={beers} cycles={cycles} />
       ) : (
@@ -441,8 +439,16 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
             {displayedTanks.map((t) => {
               const s = tankSummary.get(t.id) ?? { kegCount: 0, sourceL: 0, lossL: 0, bySize: {} };
               const initialVol = Number(t.initial_volume_l ?? t.capacity_l);
-              const remaining = Math.max(initialVol - s.sourceL, 0);
+              // Aktuální objem v tanku — snižuje se při stáčení keg (Kegging.tsx odečítá z current_volume_l).
+              // Fallback: pokud tank je aktivní/plní se a current_volume_l je 0, ale ještě se nic nestočilo,
+              // použijeme počáteční objem (tank ještě nebyl stáčen, current_volume_l nebyl nastaven).
+              const currentVol = Number(t.current_volume_l ?? 0);
+              const remaining = currentVol > 0 || s.sourceL > 0
+                ? Math.max(currentVol, 0)
+                : Math.max(initialVol, 0);
               const pct = initialVol > 0 ? Math.min((s.sourceL / initialVol) * 100, 100) : 0;
+              // Tank bez piva (prázdný nebo ve fázi sanitace) — grafika ukazuje 0 %
+              const isEmpty = t.status === 'empty' || t.status === 'sanitizing' || t.status === 'rinsing' || t.status === 'cleaning';
               const sizeKeys = Object.keys(s.bySize).map(Number).sort((a, b) => b - a);
               const isLow = t.status === 'active' && remaining > 0 && remaining < LOW_VOLUME_THRESHOLD;
               const orderedForBeer = t.current_beer_id ? (orderedByBeer.get(t.current_beer_id) ?? 0) : 0;
@@ -456,12 +462,80 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
                       <div className="font-display font-bold text-lg text-primary-900">{t.label}</div>
                       <div className="text-xs text-primary-500">Kapacita {t.capacity_l.toLocaleString('cs-CZ')} l</div>
                     </div>
-                    <span className={`chip text-[10px] ${STATUS_COLORS[t.status]}`}>{STATUS_LABELS[t.status]}</span>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className={`chip text-[10px] ${STATUS_COLORS[t.status]}`}>{STATUS_LABELS[t.status]}</span>
+                      {t.kegging_active && (
+                        <span className="chip text-[10px] bg-amber-100 text-amber-800 border border-amber-300">🛢️ Stáčení aktivní</span>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="mt-2 text-sm text-primary-700">
-                    {t.current_beer_name ? <span className="font-semibold">{t.current_beer_name}</span> : <span className="text-primary-400">— prázdno —</span>}
-                  </div>
+                  {/* Fáze sanitace tanku — zvýraznění aktuálního kroku */}
+                  {t.status === 'sanitizing' && (
+                    <div className="mt-2 text-xs font-bold text-danger-700 bg-danger-50 rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 animate-pulse border border-danger-200">
+                      ⚠️ Po uzavření tanku — MUSÍ SE OPLÁCHNOUT
+                    </div>
+                  )}
+                  {t.status === 'rinsing' && (
+                    <div className="mt-2 text-xs font-bold text-sky-800 bg-sky-50 rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 border border-sky-200">
+                      💧 Po oplachu — další krok: <span className="underline">Louh (NaOH)</span>
+                    </div>
+                  )}
+                  {t.status === 'cleaning' && (
+                    <div className="mt-2 text-xs font-bold text-amber-800 bg-amber-50 rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 border border-amber-200">
+                      🧼 Po louhu — další krok: <span className="underline">Kyselina dusičná</span>
+                    </div>
+                  )}
+
+                  {/* Pivo + počáteční objem + zbývající objem (HL) — s možností přímé editace */}
+                  {inlineEditId === t.id ? (
+                    <div className="mt-2 space-y-2">
+                      <div>
+                        <div className="text-[10px] font-extrabold uppercase tracking-wider text-primary-400 mb-1">Pivo</div>
+                        <select className="input" value={inlineBeerId} onChange={(e) => setInlineBeerId(e.target.value)}>
+                          <option value="">— vyber pivo —</option>
+                          {beers.map((b) => <option key={b.id} value={b.id}>{b.name}{b.degree ? ` (${b.degree})` : ''}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-extrabold uppercase tracking-wider text-primary-400 mb-1">Počáteční objem (l)</div>
+                        <input type="number" step="0.1" className="input" value={inlineVolume} onChange={(e) => setInlineVolume(e.target.value)} placeholder={`např. ${t.capacity_l}`} />
+                      </div>
+                      <div className="flex gap-1.5">
+                        <button className="text-xs px-2.5 py-1 rounded-lg bg-success-600 text-white font-bold hover:bg-success-500 disabled:opacity-50" disabled={inlineBusy} onClick={() => saveInlineTank(t)}>
+                          {inlineBusy ? 'Ukládám…' : '💾 Uložit pivo'}
+                        </button>
+                        <button className="text-xs px-2.5 py-1 rounded-lg bg-neutral-200 text-neutral-700 hover:bg-neutral-300 font-medium" onClick={() => setInlineEditId(null)}>Zrušit</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <div className="text-sm text-primary-700 min-w-0">
+                        {t.current_beer_name ? <span className="font-semibold">{t.current_beer_name}</span> : <span className="text-primary-400">— prázdno —</span>}
+                        {t.current_beer_name && (
+                          <div className="text-[11px] text-primary-500 mt-0.5">
+                            Počáteční objem: <span className="font-semibold text-primary-700">{(initialVol / 100).toFixed(2)} hl</span>
+                            {' · '}Zbývá: <span className={`font-semibold ${remaining <= 0 ? 'text-danger-600' : 'text-success-700'}`}>{(remaining / 100).toFixed(2)} hl</span>
+                          </div>
+                        )}
+                        {t.kegging_active && t.kegging_started_at && (
+                          <div className="text-[11px] text-amber-700 mt-0.5">
+                            🛢️ Stáčí se od {new Date(t.kegging_started_at).toLocaleDateString('cs-CZ')} {new Date(t.kegging_started_at).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        className="text-[11px] px-2 py-1 rounded-lg bg-primary-100 text-primary-800 hover:bg-primary-200 font-bold shrink-0"
+                        onClick={() => {
+                          setInlineEditId(t.id);
+                          setInlineBeerId(t.current_beer_id ?? '');
+                          setInlineVolume(String(t.initial_volume_l ?? t.capacity_l));
+                        }}
+                      >
+                        {t.current_beer_name ? '✏️ Změnit pivo' : '🍺 Nastavit pivo'}
+                      </button>
+                    </div>
+                  )}
 
                   {t.started_at && (
                     <div className="mt-1.5 text-xs text-primary-600 flex items-center gap-1.5">
@@ -487,15 +561,20 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
                     <div className="relative w-14 h-24 shrink-0 flex items-center justify-center">
                       <svg viewBox="0 0 60 100" className="w-full h-full drop-shadow-md">
                         {/* Outer Tank Steel Shell */}
-                        <path d="M 10 20 C 10 5, 50 5, 50 20 L 50 80 L 30 95 L 10 80 Z" fill={remaining === 0 || t.status === 'empty' ? '#1e293b' : '#334155'} stroke="#94a3b8" strokeWidth="2.5" />
+                        <path d="M 10 20 C 10 5, 50 5, 50 20 L 50 80 L 30 95 L 10 80 Z" fill={remaining === 0 || isEmpty ? '#1e293b' : '#334155'} stroke="#94a3b8" strokeWidth="2.5" />
                         {/* Top Cap Curved Lines */}
                         <path d="M 10 20 C 10 10, 50 10, 50 20" fill="none" stroke="#64748b" strokeWidth="1.5" />
                         
                         {/* Beer Liquid Level Clip Area (Pokud zbývá 0 l nebo je tank prázdný, zůstane vnitřek průhledný / bílo-šedý) */}
-                        {remaining > 0 && t.status !== 'empty' && (() => {
+                        {remaining > 0 && !isEmpty && (() => {
                           const liquidPct = Math.min(1, Math.max(0, remaining / initialVol));
                           const fillH = liquidPct * 65;
                           const fillY = 80 - fillH;
+                          // Barva piva podle typu — tmavé = hnědá, světlé = jantarová
+                          const isDark = t.current_beer_name?.toLowerCase().includes('tmav');
+                          const baseColor = isDark ? '#78350f' : '#f59e0b';
+                          // Intenzita barvy podle procenta naplnění — čím méně piva, tím světlejší
+                          const intensity = 0.35 + liquidPct * 0.6; // 0.35 (málo) až 0.95 (plný)
                           return (
                             <g clipPath={`url(#tank-clip-${t.id})`}>
                               <rect
@@ -503,8 +582,8 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
                                 y={fillY}
                                 width="36"
                                 height={fillH}
-                                fill={t.current_beer_name?.toLowerCase().includes('tmav') ? '#78350f' : '#f59e0b'}
-                                opacity="0.85"
+                                fill={baseColor}
+                                opacity={intensity}
                               />
                               {/* Liquid Surface Wave Shimmer */}
                               <line
@@ -529,8 +608,8 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
                       </svg>
 
                       {/* Percentage Badge */}
-                      <span className={`absolute text-[10px] font-black font-mono px-1.5 py-0.5 rounded border ${remaining === 0 || t.status === 'empty' ? 'bg-slate-800 text-slate-300 border-slate-600' : 'bg-slate-950/90 text-amber-300 border-slate-700'}`}>
-                        {t.status === 'empty' ? '0%' : `${Math.round((remaining / initialVol) * 100)}%`}
+                      <span className={`absolute text-[10px] font-black font-mono px-1.5 py-0.5 rounded border ${remaining === 0 || isEmpty ? 'bg-slate-800 text-slate-300 border-slate-600' : 'bg-slate-950/90 text-amber-300 border-slate-700'}`}>
+                        {isEmpty ? '0%' : `${Math.round((remaining / initialVol) * 100)}%`}
                       </span>
                     </div>
 
@@ -538,19 +617,18 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
                     <div className="flex-1 space-y-1">
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-slate-400 font-medium">Stav náplně:</span>
-                        <span className={`font-bold font-mono ${remaining === 0 || t.status === 'empty' ? 'text-slate-300' : 'text-amber-400'}`}>
-                          {t.status === 'empty' ? '0 l' : `${remaining.toLocaleString('cs-CZ')} l`}
+                        <span className={`font-bold font-mono ${remaining === 0 || isEmpty ? 'text-slate-300' : 'text-amber-400'}`}>
+                          {isEmpty ? '0 hl' : `${(remaining / 100).toFixed(2)} hl`}
                         </span>
                       </div>
                       <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden border border-slate-700">
                         <div
-                          className={`h-full rounded-full transition-all duration-500 ${t.status === 'empty' ? 'bg-slate-600' : isLow ? 'bg-amber-500' : 'bg-emerald-500'}`}
-                          style={{ width: t.status === 'empty' ? '0%' : `${Math.max(Math.round((remaining / initialVol) * 100), 2)}%` }}
+                          className={`h-full rounded-full transition-all duration-500 ${isEmpty ? 'bg-slate-600' : isLow ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                          style={{ width: isEmpty ? '0%' : `${Math.max(Math.round((remaining / initialVol) * 100), 2)}%` }}
                         />
                       </div>
                       <div className="flex items-center justify-between text-[11px] text-slate-300 font-medium pt-0.5">
                         <span>Z kapacity {t.capacity_l.toLocaleString('cs-CZ')} l</span>
-                        <span className="text-slate-400">🌡️ 1.8 °C</span>
                       </div>
                     </div>
                   </div>
@@ -610,6 +688,8 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
                         className="text-[11px] px-2 py-1 rounded-lg bg-sky-100 text-sky-900 font-bold hover:bg-sky-200 shadow-xs border border-sky-300"
                         onClick={async () => {
                           await recordSanitation('oplach_vodou', t, 'Rychlý oplach vodou z karty tanku');
+                          await supabase.from('cellar_tanks').update({ status: 'rinsing', updated_at: new Date().toISOString() }).eq('id', t.id);
+                          load();
                           alert(`💧 Oplach vodou pro ${t.label} byl zapsán (Provedl: ${userName})`);
                         }}
                       >
@@ -619,6 +699,8 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
                         className="text-[11px] px-2 py-1 rounded-lg bg-amber-100 text-amber-950 font-bold hover:bg-amber-200 shadow-xs border border-amber-300"
                         onClick={async () => {
                           await recordSanitation('louh', t, 'Sanitace louhem NaOH z karty tanku');
+                          await supabase.from('cellar_tanks').update({ status: 'cleaning', updated_at: new Date().toISOString() }).eq('id', t.id);
+                          load();
                           alert(`🧼 Sanitace louhem pro ${t.label} byla zapsána (Provedl: ${userName})`);
                         }}
                       >
@@ -628,6 +710,11 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
                         className="text-[11px] px-2 py-1 rounded-lg bg-rose-100 text-rose-950 font-bold hover:bg-rose-200 shadow-xs border border-rose-300"
                         onClick={async () => {
                           await recordSanitation('kyselina_dusicna', t, 'Sanitace kyselinou dusičnou z karty tanku');
+                          await supabase.from('cellar_tanks').update({
+                            status: 'empty', current_beer_id: null, current_beer_name: null,
+                            started_at: null, initial_volume_l: null, updated_at: new Date().toISOString(),
+                          }).eq('id', t.id);
+                          load();
                           alert(`🧪 Kyselina dusičná pro ${t.label} byla zapsána (Provedl: ${userName})`);
                         }}
                       >
@@ -658,72 +745,38 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
                       {(t.status === 'active' || t.status === 'emptying' || t.status === 'filling') && (
                         <button className="text-xs px-2 py-1 rounded-lg bg-danger-100 text-danger-700 hover:bg-danger-200 font-semibold" onClick={() => endTank(t)}>✓ Ukončit tank</button>
                       )}
-                      {t.status === 'sanitizing' && (
-                        <button className="text-xs px-2 py-1 rounded-lg bg-primary-900 text-white hover:bg-primary-800 font-semibold" onClick={() => toRinsing(t)}>🧪 Po Louhu</button>
-                      )}
-                      {t.status === 'rinsing' && (
-                        <button className="text-xs px-2 py-1 rounded-lg bg-primary-900 text-white hover:bg-primary-800 font-semibold" onClick={() => toCleaning(t)}>🧹 K vyčištění</button>
-                      )}
-                      {t.status === 'cleaning' && (
-                        <button className="text-xs px-2 py-1 rounded-lg bg-success-100 text-success-700 hover:bg-success-200 font-semibold" onClick={() => toEmpty(t)}>✅ Vyčištěno (prázdný)</button>
-                      )}
                     </div>
+
+                    {/* Ovládání stáčení — aktivní zdroj, ze kterého se odečítá stáčení keg */}
+                    {(t.status === 'active' || t.status === 'emptying' || t.status === 'filling') && t.current_beer_id && (
+                      <div className="pt-1.5">
+                        {t.kegging_active ? (
+                          <button
+                            className="w-full text-xs px-3 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-500 font-black border border-rose-700 shadow-md flex items-center justify-center gap-1.5 transition-all"
+                            onClick={() => stopKegging(t)}
+                            title="Zastaví odebírání piva z tohoto tanku při stáčení keg"
+                          >
+                            <span className="text-sm">⏹</span>
+                            <span>Ukončit stáčení</span>
+                          </button>
+                        ) : (
+                          <button
+                            className="w-full text-xs px-3 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 font-black border border-emerald-700 shadow-md flex items-center justify-center gap-1.5 transition-all"
+                            onClick={() => startKegging(t)}
+                            title="Aktivuje tento tank jako zdroj pro stáčení keg — pivo se bude odebírat z něj"
+                          >
+                            <span className="text-sm">▶️</span>
+                            <span>Zahájit stáčení</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
             })}
           </div>
 
-          {/* Přehled ztrát podle tanku (historie cyklů) */}
-          <div className="card p-4 mb-6">
-            <h3 className="font-display font-bold text-primary-900 mb-3">Historie cyklů — stáčení a ztráty podle tanku</h3>
-            {cycles.length === 0 ? <EmptyState text="Zatím žádné ukončené cykly." icon="🏚️" /> : (
-              <div className="overflow-x-auto scrollbar-thin">
-                <table className="table">
-                  <thead><tr><th>Tank</th><th>Pivo</th><th className="text-right">Počáteční</th><th className="text-right">Stočeno</th><th className="text-right">Ztráta</th><th className="text-right">Ztráta %</th><th className="text-right">Doba</th><th>Ukončeno</th></tr></thead>
-                  <tbody>
-                    {cycles.map((c) => (
-                      <tr key={c.id} className="hover:bg-primary-50/50">
-                        <td className="font-medium">{c.tank_label}</td>
-                        <td className="text-primary-700">{c.beer_name ?? '—'}</td>
-                        <td className="text-right">{(Number(c.initial_volume_l) / 100).toFixed(2)} hl</td>
-                        <td className="text-right">{(Number(c.kegged_volume_l) / 100).toFixed(2)} hl</td>
-                        <td className={`text-right font-semibold ${Number(c.loss_l) > 0 ? 'text-danger-600' : 'text-primary-700'}`}>{Number(c.loss_l).toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} l</td>
-                        <td className={`text-right ${Number(c.loss_pct) > 3 ? 'text-danger-600 font-semibold' : 'text-primary-600'}`}>{Number(c.loss_pct).toFixed(1)}%</td>
-                        <td className="text-right text-primary-600">{fmtHours(c.duration_hours)}</td>
-                        <td className="text-primary-600 whitespace-nowrap">{new Date(c.ended_at).toLocaleDateString('cs-CZ')}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {/* Historie přetáčení */}
-          <div className="card p-4">
-            <h3 className="font-display font-bold text-primary-900 mb-3">Historie přetáčení mezi tanky</h3>
-            {transfers.length === 0 ? <EmptyState text="Žádné záznamy." icon="⇄" /> : (
-              <div className="overflow-x-auto scrollbar-thin">
-                <table className="table">
-                  <thead><tr><th>Datum</th><th>Z tanku</th><th>Do tanku</th><th>Pivo</th><th className="text-right">Objem</th><th className="text-right">Ztráta</th><th>Poznámka</th></tr></thead>
-                  <tbody>
-                    {transfers.map((tr) => (
-                      <tr key={tr.id} className="hover:bg-primary-50/50">
-                        <td className="whitespace-nowrap">{tr.transfer_date}</td>
-                        <td>{tankLabel(tr.from_tank_id)}</td>
-                        <td>{tr.to_tank_id ? tankLabel(tr.to_tank_id) : <span className="text-primary-400">— stáčení —</span>}</td>
-                        <td className="text-primary-700">{tr.beer_name ?? beerName(tr.beer_id)}</td>
-                        <td className="text-right font-semibold">{Number(tr.volume_l).toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} l</td>
-                        <td className={`text-right ${Number(tr.loss_l) > 0 ? 'text-danger-600 font-semibold' : 'text-primary-600'}`}>{Number(tr.loss_l).toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} l</td>
-                        <td className="text-primary-600 max-w-[200px] truncate" title={tr.note ?? ''}>{tr.note ?? ''}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
         </>
       )}
 
@@ -896,13 +949,15 @@ function TransferForm({ tanks, beers, initialFromId, initialBeerId, initialVolum
     if (toId) {
       const toTank = tanks.find((t) => t.id === toId);
       const toNewVol = Number(toTank?.current_volume_l ?? 0) + (v - lossV);
+      // Počáteční objem cyklu zachováme, pokud už tank cyklus má; jinak nastavíme nový (začátek nového cyklu)
+      const toInitialVol = toTank?.initial_volume_l ?? toNewVol;
       await supabase.from('cellar_tanks').update({
         current_volume_l: toNewVol,
         current_beer_id: beerId || (fromTank?.current_beer_id ?? null),
         current_beer_name: beer?.name ?? fromTank?.current_beer_name ?? null,
         status: 'filling',
         started_at: toTank?.started_at ?? new Date().toISOString(),
-        initial_volume_l: toNewVol,
+        initial_volume_l: toInitialVol,
         updated_at: new Date().toISOString(),
       }).eq('id', toId);
     }

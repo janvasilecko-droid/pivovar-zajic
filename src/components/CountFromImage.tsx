@@ -1,9 +1,9 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { Modal, Spinner } from './ui';
 import { ImageEditor } from './ImageEditor';
 import type { Beer, Package } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
-import { Camera, Plus, Trash2, Package as PackageIcon, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Camera, Plus, Trash2, Package as PackageIcon, CheckCircle2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 
 type CountItem = {
   package_label: string | null;
@@ -24,12 +24,13 @@ type PhotoSlot = {
   editing: string | null; // data url being cropped
 };
 
-export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inventory' }: {
+export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inventory', mode = 'inventory' }: {
   beers: Beer[];
   packages: Package[];
   onClose: () => void;
   onSaved: () => void;
   table?: string;
+  mode?: 'inventory' | 'kegging';
 }) {
   const today = new Date().toISOString().slice(0, 10);
   const [date, setDate] = useState(today);
@@ -47,7 +48,14 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
       reader.onload = () => {
         const dataUrl = reader.result as string;
         const id = crypto.randomUUID();
-        setPhotos((ps) => [...ps, { id, preview: null, rawText: '', busy: false, progress: 0, err: null, editing: dataUrl }]);
+        const base64 = dataUrl.split(',')[1] ?? '';
+        if (mode === 'kegging') {
+          // V KEG režimu přeskočíme editor a rovnou pošleme na AI
+          setPhotos((ps) => [...ps, { id, preview: dataUrl, rawText: '', busy: true, progress: 30, err: null, editing: null }]);
+          runCount(id, base64, 'image/jpeg');
+        } else {
+          setPhotos((ps) => [...ps, { id, preview: null, rawText: '', busy: false, progress: 0, err: null, editing: dataUrl }]);
+        }
       };
       reader.readAsDataURL(f);
     });
@@ -65,6 +73,11 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
 
   async function runCount(photoId: string, base64: string, mimeType: string) {
     try {
+      const isKegMode = mode === 'kegging';
+      const promptHint = isKegMode
+        ? 'Count beer kegs (sudy). Identify each keg type by size (30L, 50L, 20L, 15L, 10L). Look for labels or markings on the kegs to determine the beer brand/type. Count how many kegs of each size and beer type are visible. Return each distinct beer+size combination as a separate item.'
+        : 'Count bottles inside beer crates (přepravka/bedna). A standard Czech beer crate holds 20 bottles (4x5 grid). Look at bottle caps or bottle necks. Count both full crates (20 bottles each) and individual bottles in partially filled crates.';
+
       const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/count-bottles`;
       const resp = await fetch(fnUrl, {
         method: 'POST',
@@ -76,7 +89,8 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
           imageBase64: base64,
           imageMimeType: mimeType,
           packages: packages.map((p) => ({ id: p.id, label: p.label, kind: p.kind })),
-          promptHint: 'Count bottles inside beer crates (přepravka/bedna). A standard Czech beer crate holds 20 bottles (4x5 grid). Look at bottle caps or bottle necks. Count both full crates (20 bottles each) and individual bottles in partially filled crates.',
+          promptHint,
+          mode: isKegMode ? 'kegging' : 'inventory',
         }),
       });
       const respText = await resp.text();
@@ -189,53 +203,57 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
     }
   }
 
+  const isKegMode = mode === 'kegging';
   const readyCount = results.filter((r) => r.beer_id && r.package_id && r.quantity && r.quantity > 0).length;
   const busyAny = photos.some((p) => p.busy);
 
   return (
-    <Modal open onClose={onClose} title="📷 Spočítat z fotek & přepravek (Inventura)" wide>
-      <div className="space-y-4">
-        <div className="card bg-amber-500/10 border border-amber-300 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <label className="block text-xs font-black text-neutral-800 mb-1">Datum inventury</label>
-            <input type="date" className="input font-mono font-bold text-xs max-w-[200px]" value={date} onChange={(e) => setDate(e.target.value)} />
+    <Modal open onClose={onClose} title={isKegMode ? "🛢️ Kegy z fotky" : "📷 Spočítat z fotek"} wide>
+      <div className="space-y-3">
+        {/* Datum + info v jednom kompaktním řádku */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 px-2.5 py-1.5 rounded-xl">
+            <label className="text-[10px] font-black text-neutral-700">📅</label>
+            <input type="date" className="input !py-0.5 !px-1.5 font-mono font-bold text-[11px] max-w-[130px]" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
-          <div className="text-xs font-medium text-neutral-600">
-            Nfoťte přepravky s lahvemi nebo bedny. AI spočítá zátky a zjištěné počty vloží přímo do fyzické inventury.
-          </div>
+          <span className="text-[10px] text-neutral-500 font-medium leading-tight">
+            {isKegMode ? 'Nfoť kegy na paletě' : 'Nfoť přepravky s lahvemi'}
+          </span>
         </div>
 
-        {/* 📦 RYCHLÝ PŘEPRAVKOVÝ KALKULÁTOR */}
-        <div className="card p-4 bg-amber-50 border border-amber-200 rounded-2xl space-y-2">
-          <div className="text-xs font-black text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
-            <PackageIcon size={16} className="text-amber-600" />
-            <span>Rychlý kalkulátor po přepravkách / kartonech (20 ks / 12 ks / 6 ks)</span>
+        {/* RYCHLÝ KALKULÁTOR — kompaktní */}
+        {!isKegMode && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-2.5 py-2 space-y-1.5">
+          <div className="text-[9px] font-black text-amber-950 uppercase tracking-wider flex items-center gap-1">
+            <PackageIcon size={12} className="text-amber-600" />
+            <span>Rychlý kalkulátor (přepravky/kartony)</span>
           </div>
-          <div className="flex flex-wrap gap-2 text-xs font-bold">
-            <button type="button" onClick={() => addPresetCrate(20, '1 plná přepravka (20 ks)')} className="px-3 py-1.5 rounded-xl bg-amber-200 hover:bg-amber-300 text-amber-950 transition border border-amber-300 font-black">
-              +20 ks (1 přepravka)
+          <div className="flex flex-wrap gap-1">
+            <button type="button" onClick={() => addPresetCrate(20, '1 přepravka (20 ks)')} className="px-2 py-1 rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 text-[10px] font-black border border-amber-300 transition">
+              +20
             </button>
-            <button type="button" onClick={() => addPresetCrate(40, '2 plné přepravky (40 ks)')} className="px-3 py-1.5 rounded-xl bg-amber-200 hover:bg-amber-300 text-amber-950 transition border border-amber-300 font-black">
-              +40 ks (2 přepravky)
+            <button type="button" onClick={() => addPresetCrate(40, '2 přepravky (40 ks)')} className="px-2 py-1 rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 text-[10px] font-black border border-amber-300 transition">
+              +40
             </button>
-            <button type="button" onClick={() => addPresetCrate(100, '5 plných přepravek (100 ks)')} className="px-3 py-1.5 rounded-xl bg-amber-200 hover:bg-amber-300 text-amber-950 transition border border-amber-300 font-black">
-              +100 ks (5 přepravek)
+            <button type="button" onClick={() => addPresetCrate(100, '5 přepravek (100 ks)')} className="px-2 py-1 rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 text-[10px] font-black border border-amber-300 transition">
+              +100
             </button>
-            <button type="button" onClick={() => addPresetCrate(12, '1 karton (12 ks)')} className="px-3 py-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 transition border border-amber-200 font-black">
-              +12 ks (1 karton)
+            <button type="button" onClick={() => addPresetCrate(12, '1 karton (12 ks)')} className="px-2 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 text-[10px] font-black border border-amber-200 transition">
+              +12
             </button>
-            <button type="button" onClick={() => addPresetCrate(6, '1 karton (6 ks)')} className="px-3 py-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 transition border border-amber-200 font-black">
-              +6 ks (1 karton)
+            <button type="button" onClick={() => addPresetCrate(6, '1 karton (6 ks)')} className="px-2 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 text-[10px] font-black border border-amber-200 transition">
+              +6
             </button>
           </div>
         </div>
+        )}
 
-        <div className="flex flex-wrap gap-3 items-center">
+        <div className="flex items-center gap-2">
           <input ref={fileRef} type="file" accept="image/*" multiple onChange={onFile} className="hidden" />
-          <button className="px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md flex items-center gap-2" onClick={() => fileRef.current?.click()} disabled={busyAny}>
-            <Camera size={18} /> Přidat fotky beden s lahvemi
+          <button className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[11px] transition shadow-xs flex items-center gap-1.5" onClick={() => fileRef.current?.click()} disabled={busyAny}>
+            <Camera size={14} /> {isKegMode ? 'Přidat fotky' : 'Přidat fotky'}
           </button>
-          <span className="text-xs text-neutral-500 font-medium">Můžete nahrát i více fotek najednou. AI detekuje lahve v roštu přepravky.</span>
+          <span className="text-[10px] text-neutral-500 font-medium">lze i více najednou</span>
         </div>
 
         {/* Editors for photos being cropped */}
@@ -249,95 +267,119 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
           </div>
         ))}
 
-        {/* Photo previews */}
+        {/* Photo previews — kompaktní mřížka */}
         {photos.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {photos.map((p) => (
-              <div key={p.id} className="rounded-2xl border-2 border-amber-200 bg-neutral-900 overflow-hidden relative shadow-sm">
-                <div className="px-3 py-1.5 bg-neutral-800 text-amber-300 text-xs font-black flex items-center justify-between">
-                  <span>Fotka bedny</span>
-                  <button className="text-neutral-400 hover:text-rose-400 text-sm font-bold" onClick={() => removePhoto(p.id)}>×</button>
+              <div key={p.id} className="rounded-xl border border-amber-200 bg-neutral-900 overflow-hidden relative shadow-xs">
+                <div className="px-2 py-1 bg-neutral-800 text-amber-300 text-[10px] font-black flex items-center justify-between">
+                  <span>📷</span>
+                  <button className="text-neutral-400 hover:text-rose-400 text-sm font-bold leading-none" onClick={() => removePhoto(p.id)}>×</button>
                 </div>
-                <div className="relative min-h-[120px] flex items-center justify-center bg-neutral-950">
+                <div className="relative min-h-[80px] flex items-center justify-center bg-neutral-950">
                   {p.preview ? (
-                    <img src={p.preview} alt="bedna" className="block max-w-full max-h-[30vh] object-contain" />
+                    <img src={p.preview} alt="fotka" className="block max-w-full max-h-[20vh] object-contain" />
                   ) : p.busy ? (
-                    <div className="text-amber-400 text-xs p-4 text-center">
-                      <Spinner />
-                    </div>
+                    <div className="text-amber-400 text-[10px] p-2 text-center"><Spinner /></div>
                   ) : (
-                    <div className="text-neutral-500 text-xs p-4 text-center">Žádný náhled</div>
+                    <div className="text-neutral-500 text-[10px] p-2 text-center">⏳</div>
                   )}
                   {p.busy && (
-                    <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-neutral-800">
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-neutral-800">
                       <div className="h-full bg-amber-500 transition-all" style={{ width: `${p.progress}%` }} />
                     </div>
                   )}
                 </div>
                 {p.rawText && (
-                  <div className="px-3 py-1.5 bg-amber-50 text-[10px] text-amber-950 font-bold">{p.rawText}</div>
+                  <div className="px-2 py-1 bg-amber-50 text-[9px] text-amber-950 font-bold leading-tight truncate">{p.rawText}</div>
                 )}
                 {p.err && (
-                  <div className="px-3 py-1.5 bg-rose-50 text-[10px] text-rose-700 font-bold">{p.err}</div>
+                  <div className="px-2 py-1 bg-rose-50 text-[9px] text-rose-700 font-bold leading-tight">{p.err}</div>
                 )}
                 {!p.busy && p.preview && (
-                  <button className="w-full text-xs py-1.5 bg-neutral-800 text-amber-300 hover:bg-neutral-700 font-bold transition" onClick={() => retakePhoto(p.id)}>Znovu nahrát</button>
+                  <button className="w-full text-[10px] py-1 bg-neutral-800 text-amber-300 hover:bg-neutral-700 font-bold transition" onClick={() => retakePhoto(p.id)}>🔄</button>
                 )}
               </div>
             ))}
           </div>
         )}
 
-        {err && <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2 font-bold">{err}</div>}
+        {err && <div className="text-[11px] text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-1.5 font-bold">{err}</div>}
 
+        {/* ✅ VÝSLEDKY — kompaktní zobrazení jako ruční zápis */}
         {results.length > 0 && (
-          <div className="space-y-3">
-            <div className="text-sm font-black text-neutral-900 flex items-center justify-between">
-              <span>Spočítané položky ({results.length})</span>
-              <span className="text-xs font-bold text-amber-800">Doplňte správné pivo a obal</span>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black text-neutral-900">📋 Rozpoznané položky ({results.length})</span>
+              <span className="text-[10px] font-bold text-amber-800">Doplň pivo a obal</span>
             </div>
-            <div className="space-y-3">
-              {results.map((r, i) => (
-                <div key={i} className="rounded-2xl border-2 border-amber-200 bg-amber-50/40 p-4 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="px-2.5 py-1 rounded-xl bg-amber-200 text-amber-950 font-black text-xs">{r.package_label ?? 'Lahve 0.5l'}</span>
-                    {r.note && <span className="text-xs text-neutral-600 font-bold">{r.note}</span>}
-                    <button className="text-rose-500 hover:text-rose-700 text-sm font-bold px-2" onClick={() => removeResult(i)}>× Smazat</button>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-[10px] font-black text-neutral-700 mb-1">Množství (ks)</label>
-                      <input type="number" min={0} className="input !py-1.5 text-sm font-mono font-black"
-                        value={r.quantity ?? ''} onChange={(e) => updateResult(i, { quantity: e.target.value ? Number(e.target.value) : null })} />
+            <div className="space-y-1.5">
+              {results.map((r, i) => {
+                const photo = photos.find((p) => p.id === r.photo_id);
+                return (
+                  <div key={i} className="rounded-xl border border-amber-200 bg-amber-50/40 p-2.5 space-y-1.5">
+                    {/* Řádek: co AI přečetlo + smazat */}
+                    <div className="flex items-center justify-between gap-1">
+                      {photo?.rawText ? (
+                        <span className="text-[9px] font-mono font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded truncate" title={photo.rawText}>
+                          🤖 {photo.rawText}
+                        </span>
+                      ) : (
+                        <span className="text-[9px] text-neutral-400 italic">AI nepřečetla text</span>
+                      )}
+                      <button className="text-rose-400 hover:text-rose-600 text-[11px] font-bold leading-none shrink-0 px-1" onClick={() => removeResult(i)}>✕</button>
                     </div>
-                    <div>
-                      <label className="block text-[10px] font-black text-neutral-700 mb-1">Pivo</label>
-                      <select className="input !py-1.5 text-xs font-bold" value={r.beer_id} onChange={(e) => updateResult(i, { beer_id: e.target.value })}>
-                        <option value="">— Vyber pivo —</option>
-                        {beers.map((b) => <option key={b.id} value={b.id}>{b.name}{b.degree ? ` (${b.degree})` : ''}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-black text-neutral-700 mb-1">Obal</label>
-                      <select className="input !py-1.5 text-xs font-bold" value={r.package_id} onChange={(e) => {
-                        const pkg = packages.find((p) => p.id === e.target.value);
-                        updateResult(i, { package_id: e.target.value, package_label: pkg?.label ?? null });
-                      }}>
-                        <option value="">— Vyber obal —</option>
+                    {/* Zápis jako ručně: název piva / obal / množství */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <input
+                        type="text"
+                        placeholder="Pivo"
+                        className="input !py-1 !px-2 text-[11px] font-black min-w-[80px] flex-1"
+                        value={r.beer_id ? beers.find((b) => b.id === r.beer_id)?.name ?? '' : ''}
+                        onChange={(e) => {
+                          const match = beers.find((b) => b.name.toLowerCase().startsWith(e.target.value.toLowerCase()));
+                          if (match) updateResult(i, { beer_id: match.id });
+                        }}
+                        list={`beer-list-${i}`}
+                      />
+                      <datalist id={`beer-list-${i}`}>
+                        {beers.map((b) => <option key={b.id} value={b.name} />)}
+                      </datalist>
+                      <input
+                        type="number"
+                        min={0}
+                        placeholder="ks"
+                        className="input !py-1 !px-1.5 text-[11px] font-mono font-black w-14 text-right"
+                        value={r.quantity ?? ''}
+                        onChange={(e) => updateResult(i, { quantity: e.target.value ? Number(e.target.value) : null })}
+                      />
+                      <select
+                        className="input !py-1 !px-1.5 text-[10px] font-bold min-w-[60px]"
+                        value={r.package_id}
+                        onChange={(e) => {
+                          const pkg = packages.find((p) => p.id === e.target.value);
+                          updateResult(i, { package_id: e.target.value, package_label: pkg?.label ?? null });
+                        }}
+                      >
+                        <option value="">obal</option>
                         {packages.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
                       </select>
                     </div>
+                    {/* Poznámka */}
+                    {r.note && (
+                      <div className="text-[9px] text-neutral-500 font-medium leading-tight">📝 {r.note}</div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
 
-        <div className="flex justify-end gap-2 pt-2 border-t border-neutral-100">
-          <button className="px-4 py-2 rounded-xl text-neutral-600 hover:bg-neutral-100 font-bold text-xs transition" onClick={onClose}>Zrušit</button>
-          <button className="px-5 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md" disabled={busyAny || saving || readyCount === 0} onClick={save}>
-            {saving ? 'Ukládám do inventury...' : `Přičíst ${readyCount} položek do fyzické inventury`}
+        <div className="flex justify-end gap-1.5 pt-1.5 border-t border-neutral-100">
+          <button className="px-3 py-1.5 rounded-lg text-neutral-500 hover:bg-neutral-100 font-bold text-[11px] transition" onClick={onClose}>Zrušit</button>
+          <button className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[11px] transition shadow-xs" disabled={busyAny || saving || readyCount === 0} onClick={save}>
+            {saving ? '⏳' : isKegMode ? `🛢️ Uložit (${readyCount})` : `📦 Přičíst (${readyCount})`}
           </button>
         </div>
       </div>

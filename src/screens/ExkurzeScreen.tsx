@@ -350,11 +350,11 @@ export default function ExkurzeScreen() {
             <EmptyState text={`Pro měsíc ${currentMonth} nejsou žádné aktivní nearchivované exkurze.`} icon="🏰" />
           ) : (
             <div className="overflow-x-auto scrollbar-thin">
-              <table className="table">
+              <table className="table text-xs">
                 <thead>
                   <tr>
                     <th>Datum & Čas</th>
-                    <th className="text-right">Počet lidí</th>
+                    <th className="text-right">Osob</th>
                     <th>Průvodce</th>
                     <th className="text-right">Tržba</th>
                     <th>Poznámka</th>
@@ -364,25 +364,25 @@ export default function ExkurzeScreen() {
                 <tbody>
                   {activeEntries.map((e) => (
                     <tr key={e.id} className="hover:bg-neutral-50/80 transition-colors">
-                      <td className="font-bold text-xs text-neutral-900 whitespace-nowrap">
+                      <td className="font-bold text-[11px] text-neutral-900 whitespace-nowrap">
                         <span className="flex items-center gap-1">
                           <Calendar size={14} className="text-amber-600" />
                           {new Date(e.tour_date).toLocaleDateString('cs-CZ')}
                           <span className="font-mono text-neutral-500 ml-1">({e.tour_time})</span>
                         </span>
                       </td>
-                      <td className="text-right font-mono font-black text-sm text-neutral-950">
+                      <td className="text-right font-mono font-black text-[11px] text-neutral-950">
                         {e.people_count} osob
                       </td>
-                      <td className="font-extrabold text-xs text-neutral-900">
+                      <td className="font-extrabold text-[11px] text-neutral-900">
                         <span className="flex items-center gap-1">
                           <UserCheck size={14} className="text-amber-600" /> {e.guide_name}
                         </span>
                       </td>
-                      <td className="text-right font-mono font-black text-xs text-emerald-800">
+                      <td className="text-right font-mono font-black text-[11px] text-emerald-800">
                         {e.revenue ? `${e.revenue.toLocaleString('cs-CZ')} Kč` : '—'}
                       </td>
-                      <td className="text-xs text-neutral-600 font-medium">{e.note || '—'}</td>
+                      <td className="text-[11px] text-neutral-600 font-medium">{e.note || '—'}</td>
                       <td className="text-right">
                         <button onClick={() => handleDelete(e.id)} className="p-1.5 rounded-lg hover:bg-rose-100 text-rose-600 transition" title="Smazat">
                           <Trash2 size={15} />

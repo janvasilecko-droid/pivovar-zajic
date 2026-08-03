@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Download, Eye, Palette, Smartphone, Sun, Moon, Monitor, Bell, BellOff, Volume2, VolumeX, MessageSquare, Timer, RefreshCw, CloudDownload, CheckCircle2, AlertCircle, GripVertical, Plus, Trash2 } from 'lucide-react';
+import { Download, Eye, Palette, Smartphone, Sun, Moon, Monitor, Bell, BellOff, Volume2, VolumeX, MessageSquare, Timer, RefreshCw, CloudDownload, CheckCircle2, AlertCircle, GripVertical, Plus, Trash2, Eraser } from 'lucide-react';
+
 import { DENSITY_OPTIONS, DensityMode, getDensity, setDensity } from '../lib/density';
 import { MenuCustomizeModal } from '../components/MenuCustomizeModal';
 import { useAuth } from '../lib/auth';
@@ -391,8 +392,62 @@ function AdminVersionSyncSection() {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState<string | null>(null);
   const [refreshOk, setRefreshOk] = useState<boolean | null>(null);
+  const [cleaning, setCleaning] = useState(false);
+  const [cleanMsg, setCleanMsg] = useState<string | null>(null);
+  const [cleanOk, setCleanOk] = useState<boolean | null>(null);
+
+  async function handleClearData() {
+    const confirmed = window.confirm(
+      '⚠️ VYČIŠTĚNÍ VŠECH DAT\n\n' +
+      'Tato akce SMAŽE VŠECHNA uživatelská data z databáze:\n' +
+      '• Objednávky, stáčení, inventury, odpisy, fasování\n' +
+      '• Akce, kalendář, připomínky, sanitace, vozidla\n' +
+      '• Odběratele, ceník, audit, feedback, rezervace výčepů\n\n' +
+      'Referenční číselníky (piva, obaly, tanky) se resetují na výchozí stav.\n\n' +
+      'Tuto akci nelze vrátit zpět!'
+    );
+    if (!confirmed) return;
+
+    setCleaning(true);
+    setCleanMsg(null);
+    setCleanOk(null);
+    try {
+      // 1) Vymažeme lokální data (vždy, i kdyby databáze selhala)
+      const { clearLocalUserData } = await import('../lib/clearLocalData');
+      const removedLocal = clearLocalUserData();
+
+      // 2) Vyčistíme offline frontu
+      try {
+        const { clearQueue } = await import('../lib/offline');
+        clearQueue();
+      } catch {}
+
+      // 3) Vymažeme data v databázi
+      const { clearDatabaseData } = await import('../lib/clearLocalData');
+      const result = await clearDatabaseData();
+
+      const failedCount = result.failed.length;
+      setCleanOk(failedCount === 0);
+      setCleanMsg(
+        failedCount === 0
+          ? `✅ Všechna data byla úspěšně vymazána (${result.ok.length} tabulek + ${removedLocal.length} lokálních klíčů). Stránka se nyní znovu načte…`
+          : `⚠️ Vymazáno ${result.ok.length} tabulek, ${failedCount} selhalo. Stránka se nyní znovu načte…`
+      );
+      setCleaning(false);
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } catch (err) {
+      setCleanOk(false);
+      setCleanMsg(`❌ Chyba při čištění: ${err instanceof Error ? err.message : 'neznámá chyba'}`);
+      setCleaning(false);
+    }
+  }
+
 
   async function handleRefreshData() {
+
     setRefreshing(true);
     setRefreshMsg(null);
     setRefreshOk(null);
@@ -527,6 +582,50 @@ function AdminVersionSyncSection() {
           </div>
         )}
       </div>
+
+      {/* 🧹 VYČIŠTĚNÍ DAT */}
+      <div className="mt-5 p-4 rounded-2xl bg-rose-50 border-2 border-rose-300 space-y-3">
+        <div className="flex items-start gap-3">
+          <Eraser size={20} className="text-rose-600 shrink-0 mt-0.5" />
+          <div>
+            <div className="text-sm font-black text-rose-900">🧹 Vyčistit všechna data (příprava na ostrý provoz)</div>
+            <p className="text-xs text-rose-800 font-medium mt-0.5">
+              Tato akce SMAŽE všechna uživatelská data z databáze i z prohlížeče
+              (objednávky, stáčení, inventury, akce, kalendář, odběratele, ceník, audit, rezervace výčepů…).
+              Referenční číselníky (piva, obaly, tanky) se resetují na výchozí stav.
+              <span className="font-black"> Akci nelze vrátit zpět!</span>
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={handleClearData}
+          disabled={cleaning}
+          className="w-full py-3 rounded-2xl bg-rose-600 hover:bg-rose-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-black text-sm shadow-md transition flex items-center justify-center gap-2"
+        >
+          {cleaning ? (
+            <>
+              <RefreshCw size={18} className="animate-spin" />
+              <span>Mažu data…</span>
+            </>
+          ) : (
+            <>
+              <Eraser size={18} />
+              <span>🗑️ Vymazat všechna data</span>
+            </>
+          )}
+        </button>
+
+        {cleanMsg && (
+          <div className={`p-3 rounded-xl text-xs font-bold flex items-center gap-2 ${
+            cleanOk ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' : 'bg-rose-100 text-rose-900 border border-rose-300'
+          }`}>
+            {cleanOk ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+            <span>{cleanMsg}</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
+

@@ -3,10 +3,10 @@ import { supabase, Package, Beer, Place, useRealtime, formatPackageLabel } from 
 import { Spinner, EmptyState } from '../components/ui';
 import { orderWeightKg, fmtKg } from '../lib/weight';
 import { DAYS } from '../lib/shared';
-import { Calendar, Truck, Package as PackageIcon, CheckCircle2, Scale, Search, History as HistoryIcon, Printer, Share2, ArrowRightCircle, Phone } from 'lucide-react';
+import { Calendar, Truck, Plus, FileText, Package as PackageIcon, CheckCircle2, Scale, Search, Printer, Share2, ArrowRightCircle, Phone, CalendarDays, MapPin, Pencil, StickyNote, Cylinder, Wine } from 'lucide-react';
 import { shareDeliveryListToWhatsApp } from '../lib/whatsapp';
+import { exportZavozToExcel } from '../lib/excel';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
-import { VoiceDictationButton } from '../components/VoiceDictationButton'; // Assuming this is needed
 import { EditOrderModal } from '../components/EditOrderModal';
 
 type Order = {
@@ -18,7 +18,7 @@ type Order = {
 };
 type OrderItem = { id: string; order_id: string; beer_id: string | null; beer_name: string | null; package_id: string | null; package_label: string | null; quantity: number; is_prepared: boolean };
 
-export default function Zavoz({ setPage }: { setPage?: (p: any, sec?: string) => void } = {}) {
+export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any, sec?: string) => void; embedded?: boolean } = {}) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [items, setItems] = useState<Record<string, OrderItem[]>>({});
   const [packages, setPackages] = useState<Package[]>([]);
@@ -26,7 +26,6 @@ export default function Zavoz({ setPage }: { setPage?: (p: any, sec?: string) =>
   const [places, setPlaces] = useState<Place[]>([]);
   const [loading, setLoading] = useState(true);
   const [editOrder, setEditOrder] = useState<Order | null>(null);
-  const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
   const [weekKey, setWeekKey] = useState(isoWeekKey(new Date().toISOString().slice(0, 10)));
   const [hideDelivered, setHideDelivered] = useState(false);
   const [selectedDayFilter, setSelectedDayFilter] = useState<string>('all');
@@ -100,22 +99,6 @@ export default function Zavoz({ setPage }: { setPage?: (p: any, sec?: string) =>
       return true;
     });
   }, [activeOrders, hideDelivered, selectedDayFilter, searchTerm, items]);
-
-  // Skupiny v historii závozů podle přesných kalendářních dnů
-  const historyByDate = useMemo(() => {
-    const map = new Map<string, { date: string; orders: Order[]; totalWeight: number; totalQty: number }>();
-    orders.forEach((o) => {
-      const dateKey = o.order_date;
-      const cur = map.get(dateKey) || { date: dateKey, orders: [], totalWeight: 0, totalQty: 0 };
-      cur.orders.push(o);
-      const oItems = items[o.id] ?? [];
-      cur.totalWeight += orderWeightKg(oItems, packages);
-      cur.totalQty += oItems.reduce((s, i) => s + Number(i.quantity), 0);
-      map.set(dateKey, cur);
-    });
-
-    return [...map.values()].sort((a, b) => b.date.localeCompare(a.date));
-  }, [orders, items, packages]);
 
   const loadingListBreakdown = useMemo(() => {
     const kegMap = new Map<string, { label: string; qty: number; preparedQty: number }>();
@@ -299,107 +282,70 @@ export default function Zavoz({ setPage }: { setPage?: (p: any, sec?: string) =>
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Top Banner Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-neutral-200 pb-2">
-        <button
-          onClick={() => setActiveTab('current')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 ${
-            activeTab === 'current'
-              ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
-          }`}
-        >
-          <Truck size={16} />
-          <span>🚚 Plánování & Nakládka závozu</span>
-        </button>
+      {/* Top Navigation Tabs — zobrazeno jen na samostatné stránce Závoz (ne když je vloženo v Objednávkách) */}
+      {!embedded && (
+        <div className="flex items-center gap-1.5 flex-nowrap border-b border-neutral-200 pb-2 w-full">
+          {setPage && (
+            <button
+              onClick={() => setPage('orders_entry')}
+              className="flex-1 px-2 py-1.5 rounded-lg font-black text-[11px] leading-tight transition flex items-center justify-center gap-1 bg-white hover:bg-neutral-100 text-neutral-700 border border-neutral-200 shadow-xs whitespace-nowrap"
+            >
+              <Plus size={14} />
+              <span>Nové</span>
+            </button>
+          )}
+          {setPage && (
+            <button
+              onClick={() => setPage('orders')}
+              className="flex-1 px-2 py-1.5 rounded-lg font-black text-[11px] leading-tight transition flex items-center justify-center gap-1 bg-white hover:bg-neutral-100 text-neutral-700 border border-neutral-200 shadow-xs whitespace-nowrap"
+            >
+              <FileText size={14} />
+              <span>Přehled</span>
+            </button>
+          )}
+          <button
+            className="flex-1 px-2 py-1.5 rounded-lg font-black text-[11px] leading-tight transition flex items-center justify-center gap-1 bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300 whitespace-nowrap"
+          >
+            <Truck size={14} />
+            <span>Závoz</span>
+          </button>
+        </div>
+      )}
 
-        <button
-          onClick={() => setActiveTab('history')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 ${
-            activeTab === 'history'
-              ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
-          }`}
-        >
-          <HistoryIcon size={16} />
-          <span>📅 Historie a přehled tras podle dnů</span>
-        </button>
-      </div>
-
-      {activeTab === 'history' ? (
-        /* HISTORIE TRAS PODLE DNŮ */
-        <div className="space-y-6">
-          <div className="bg-neutral-900 text-white p-5 rounded-3xl border border-neutral-800 space-y-1">
-            <h2 className="font-display font-black text-xl text-amber-400 flex items-center gap-2">
-              <HistoryIcon size={22} />
-              <span>Přehledová historie všech závozů podle dnů</span>
-            </h2>
-            <p className="text-xs text-neutral-400 font-medium">
-              Kompletní vyčíslení rozvezených tras: váha nákladu v kg, počet navštívených odběratelů a tisk trasovek
-            </p>
-          </div>
-
-          <div className="space-y-6">
-            {historyByDate.map((hGroup) => {
-              const formattedDate = new Date(hGroup.date).toLocaleDateString('cs-CZ', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-              return (
-                <div key={hGroup.date} className="card p-6 bg-white border border-neutral-200 rounded-3xl space-y-4 shadow-xs">
-                  <div className="flex items-center justify-between border-b border-neutral-200 pb-3 flex-wrap gap-2">
-                    <div>
-                      <h3 className="font-display font-black text-lg text-neutral-900 capitalize flex items-center gap-2">
-                        <span>🗓️ {formattedDate}</span>
-                      </h3>
-                      <p className="text-xs text-neutral-500 font-bold">
-                        {hGroup.orders.length} závozů · Celková váha tras: <strong className="text-amber-700 font-mono">{fmtKg(hGroup.totalWeight)} kg</strong>
-                      </p>
-                    </div>
-
-                    <button
-                      onClick={() => printDeliveryListForOrders(hGroup.orders, formattedDate)}
-                      className="px-3.5 py-2 rounded-2xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-xs transition flex items-center gap-1.5"
-                    >
-                      <Printer size={15} /> Tisk trasovky
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {hGroup.orders.map((o) => {
-                      const oItems = items[o.id] ?? [];
-                      const wKg = orderWeightKg(oItems, packages);
-                      return (
-                        <div key={o.id} className="p-3.5 rounded-2xl bg-neutral-50 border border-neutral-200/80 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="font-black text-sm text-neutral-900 truncate">{o.place_name}</span>
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${o.is_delivered ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' : 'bg-amber-100 text-amber-900'}`}>
-                              {o.is_delivered ? '✓ Zavezeno' : 'Čeká'}
-                            </span>
-                          </div>
-
-                          <div className="space-y-1 text-xs">
-                            {oItems.map((it) => (
-                              <div key={it.id} className="flex justify-between text-[11px] font-medium text-neutral-700">
-                                <span>{it.beer_name}</span>
-                                <span className="font-bold font-mono">{it.quantity}x {formatPackageLabel(it.package_label)}</span>
-                              </div>
-                            ))}
-                          </div>
-
-                          <div className="text-[10px] text-neutral-500 font-bold text-right pt-1 border-t border-neutral-200/60">
-                            Váha: {fmtKg(wKg)} kg
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
+      {/* Top Action Bar — styl jako Stáčení KEG / Lahve */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-3xl border border-neutral-200 shadow-2xs">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-display font-black text-amber-950 flex items-center gap-1.5">
+            <span>🚚</span>
+            <span>Závoz</span>
+          </span>
+          <div className="relative group">
+            <button className="btn-ghost !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs" disabled={!activeOrders.length}>📊 Export Excel ▾</button>
+            {activeOrders.length > 0 && (
+              <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-neutral-200 rounded-xl shadow-lg py-1 min-w-[180px] hidden group-hover:block">
+                <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
+                  const rows = weekOrders.flatMap((o) => (items[o.id] ?? []).map((i) => ({
+                    order_date: o.order_date, place_name: o.place_name, delivery_day: o.delivery_day,
+                    beer_name: i.beer_name, package_label: i.package_label, quantity: i.quantity, is_delivered: o.is_delivered,
+                  })));
+                  exportZavozToExcel(rows, `tyden-${weekKey}`);
+                }}>📅 Tento týden</button>
+                <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
+                  const rows = orders.filter((o) => o.status !== 'storno').flatMap((o) => (items[o.id] ?? []).map((i) => ({
+                    order_date: o.order_date, place_name: o.place_name, delivery_day: o.delivery_day,
+                    beer_name: i.beer_name, package_label: i.package_label, quantity: i.quantity, is_delivered: o.is_delivered,
+                  })));
+                  exportZavozToExcel(rows, 'vse');
+                }}>📅 Všechno</button>
+              </div>
+            )}
           </div>
         </div>
-      ) : (
-        /* AKTUÁLNÍ ZÁVOZOVÝ TÝDEN */
-        <>
-          {/* Action Controls */}
+      </div>
+
+      {/* AKTUÁLNÍ ZÁVOZOVÝ TÝDEN */}
+      <>
+        {/* Action Controls */}
           <div className="flex flex-wrap items-center justify-end gap-3 mb-2">
             <label className="flex items-center gap-2 text-xs font-extrabold text-amber-950 cursor-pointer px-3.5 py-2.5 rounded-2xl bg-white border border-amber-300/80 hover:bg-amber-50 transition shadow-xs">
               <input
@@ -416,7 +362,7 @@ export default function Zavoz({ setPage }: { setPage?: (p: any, sec?: string) =>
               disabled={!activeOrders.length}
               className="px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-black text-xs transition shadow-md flex items-center gap-2"
             >
-              <span>🖨️</span>
+              <Printer size={15} />
               <span>Tisk rozvozového listu</span>
             </button>
           </div>
@@ -425,14 +371,68 @@ export default function Zavoz({ setPage }: { setPage?: (p: any, sec?: string) =>
           <div className="card p-3 shadow-sm border-neutral-200/80 bg-white flex flex-wrap items-center justify-between gap-3">
             <button onClick={() => setWeekKey(shiftWeek(weekKey, -1))} className="btn-ghost !py-2 !px-3 font-black text-base" title="Předchozí týden">‹</button>
             <div className="text-center flex-1">
-              <div className="font-display font-black text-neutral-900 text-lg flex items-center justify-center gap-2">
-                <Calendar size={18} className="text-amber-600" />
+              <div className="font-display font-black text-neutral-900 text-sm flex items-center justify-center gap-1.5">
+                <Calendar size={14} className="text-amber-600" />
                 <span>Týden {weekKey.split('-')[1]} / {weekKey.split('-')[0]}</span>
               </div>
-              <div className="text-xs text-neutral-500 font-bold mt-0.5">{wr.label}</div>
+              <div className="text-[11px] text-neutral-500 font-bold mt-0.5">{wr.label}</div>
             </div>
             <button onClick={() => setWeekKey(shiftWeek(weekKey, 1))} className="btn-ghost !py-2 !px-3 font-black text-base" title="Následující týden">›</button>
             <button onClick={() => setWeekKey(isoWeekKey(new Date().toISOString().slice(0, 10)))} className="btn-ghost !py-2 !px-3 text-xs font-black text-amber-700">Dnes</button>
+          </div>
+
+          {/* Kompaktní přehled závozu — styl jako "Zbývá stočit keg" */}
+          <div className="card p-3 mb-4 border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/80 to-amber-100/30">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="font-display font-black text-amber-950 text-xs">🚚 Závoz na tento týden</span>
+                <span className="text-[10px] text-amber-800/70">{wr.label}</span>
+              </div>
+              <span className="chip bg-amber-500 text-slate-950 font-mono font-black text-xs">
+                {activeOrders.length} objednávek
+              </span>
+            </div>
+
+            {activeOrders.length === 0 ? (
+              <div className="text-xs text-emerald-800 bg-emerald-100/80 border border-emerald-200 rounded-xl px-3 py-2 font-bold flex items-center gap-1.5">
+                <span>✅</span>
+                <span>Žádné objednávky k závozu tento týden.</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 flex-wrap">
+                {DAYS.map((d) => {
+                  const stats = dayStats.get(d.v) ?? { count: 0, qty: 0 };
+                  if (stats.count === 0) return null;
+                  return (
+                    <button
+                      key={d.v}
+                      onClick={() => setSelectedDayFilter(selectedDayFilter === d.v ? 'all' : d.v)}
+                      className={`flex items-center gap-1 bg-amber-100/80 rounded-lg px-2.5 py-1.5 border shadow-2xs transition ${
+                        selectedDayFilter === d.v ? 'border-amber-500 bg-amber-200' : 'border-amber-300/60 hover:bg-amber-200'
+                      }`}
+                    >
+                      <span className="text-[11px] font-bold text-amber-950 whitespace-nowrap">{d.label}</span>
+                      <span className="text-xs font-black text-amber-800">{stats.count}</span>
+                    </button>
+                  );
+                })}
+                {(() => {
+                  const noneStats = dayStats.get('_none');
+                  if (!noneStats || noneStats.count === 0) return null;
+                  return (
+                    <button
+                      onClick={() => setSelectedDayFilter(selectedDayFilter === '_none' ? 'all' : '_none')}
+                      className={`flex items-center gap-1 bg-neutral-200/80 rounded-lg px-2.5 py-1.5 border shadow-2xs transition ${
+                        selectedDayFilter === '_none' ? 'border-neutral-500 bg-neutral-300' : 'border-neutral-300/60 hover:bg-neutral-300'
+                      }`}
+                    >
+                      <span className="text-[11px] font-bold text-neutral-800 whitespace-nowrap">Bez dne</span>
+                      <span className="text-xs font-black text-neutral-700">{noneStats.count}</span>
+                    </button>
+                  );
+                })()}
+              </div>
+            )}
           </div>
 
           {/* Interactive Day Filter Tabs */}
@@ -445,8 +445,8 @@ export default function Zavoz({ setPage }: { setPage?: (p: any, sec?: string) =>
                   : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200/90'
               }`}
             >
-              <span>🗓️ Všechny dny</span>
-              <span className="px-2 py-0.5 rounded-full bg-slate-950/20 text-xs font-mono font-black">{weekOrders.length}</span>
+              <CalendarDays size={14} />
+              <span>Všechny</span>
             </button>
 
             {DAYS.map((d) => {
@@ -465,12 +465,8 @@ export default function Zavoz({ setPage }: { setPage?: (p: any, sec?: string) =>
                       : 'bg-neutral-100 text-neutral-400 border border-neutral-200/60'
                   }`}
                 >
-                  <span>🚚 {d.label}</span>
-                  {stats.qty > 0 && (
-                    <span className={`px-2 py-0.5 rounded-full font-mono text-[11px] font-extrabold ${isSelected ? 'bg-slate-950 text-white' : 'bg-amber-100 text-amber-900'}`}>
-                      {stats.qty} ks
-                    </span>
-                  )}
+                  <Truck size={13} />
+                  <span>{d.label}</span>
                 </button>
               );
             })}
@@ -489,18 +485,17 @@ export default function Zavoz({ setPage }: { setPage?: (p: any, sec?: string) =>
                   className="w-full pl-10 pr-4 py-2 rounded-xl border border-neutral-200 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
                 />
               </div>
-              <VoiceDictationButton onTranscript={(txt) => setSearchTerm(txt)} />
             </div>
 
-            <div className="flex items-center gap-4 text-xs font-black text-neutral-700">
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-900">
-                <Scale size={16} className="text-amber-600" />
-                <span>Celková váha: <strong className="text-sm font-mono">{fmtKg(totalWeight)} kg</strong></span>
+            <div className="flex items-center gap-2 text-[11px] font-black text-neutral-700">
+              <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200/80 text-amber-900">
+                <Scale size={13} className="text-amber-600" />
+                <span>Váha: <strong className="font-mono">{fmtKg(totalWeight)} kg</strong></span>
               </div>
 
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-900">
-                <CheckCircle2 size={16} className="text-emerald-600" />
-                <span>Zavezeno: <strong className="text-sm font-mono">{deliveredCount} / {activeOrders.length}</strong></span>
+              <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200/80 text-emerald-900">
+                <CheckCircle2 size={13} className="text-emerald-600" />
+                <span>Zavezeno: <strong className="font-mono">{deliveredCount}/{activeOrders.length}</strong></span>
               </div>
             </div>
           </div>
@@ -542,11 +537,11 @@ export default function Zavoz({ setPage }: { setPage?: (p: any, sec?: string) =>
                 }`}>
                   <div className="flex items-center justify-between pb-3 border-b border-amber-200/80">
                     <div>
-                      <h2 className="font-display font-black text-lg text-amber-950 flex items-center gap-2">
+                      <h2 className="font-display font-black text-lg text-neutral-950 flex items-center gap-2">
                         <PackageIcon size={20} className="text-amber-600" />
                         <span>Co naložit do auta</span>
                       </h2>
-                      <p className="text-xs text-amber-900/80 mt-0.5 font-bold">
+                      <p className="text-xs text-neutral-700 mt-0.5 font-bold">
                         {selectedDayFilter === 'all' ? 'Součet pro všechny dny' : `Nakládka pro: ${DAYS.find((d) => d.v === selectedDayFilter)?.label ?? 'Vybraný den'}`}
                       </p>
                     </div>
@@ -574,9 +569,9 @@ export default function Zavoz({ setPage }: { setPage?: (p: any, sec?: string) =>
                   {/* Kegs Section */}
                   {loadingListBreakdown.kegs.length > 0 && (
                     <div>
-                      <div className="flex items-center justify-between text-xs font-black uppercase tracking-wider text-amber-900 mb-2.5 pb-1 border-b border-amber-200/80">
-                        <span className="flex items-center gap-1.5">🛢️ Sudy & Kegy</span>
-                        <span className="font-mono text-amber-950 bg-amber-200 px-2 py-0.5 rounded-md font-bold">{loadingListBreakdown.totalKegs} ks</span>
+                      <div className="flex items-center justify-between text-xs font-black uppercase tracking-wider text-neutral-900 mb-2.5 pb-1 border-b border-amber-200/80">
+                        <span className="flex items-center gap-1.5"><Cylinder size={14} className="text-amber-700" /> Sudy & Kegy</span>
+                        <span className="font-mono text-neutral-950 bg-amber-200 px-2 py-0.5 rounded-md font-bold">{loadingListBreakdown.totalKegs} ks</span>
                       </div>
 
                       <div className="space-y-1.5">
@@ -614,7 +609,7 @@ export default function Zavoz({ setPage }: { setPage?: (p: any, sec?: string) =>
                   {loadingListBreakdown.bottles.length > 0 && (
                     <div>
                       <div className="flex items-center justify-between text-xs font-black uppercase tracking-wider text-emerald-900 mb-2.5 pb-1 border-b border-emerald-200/80">
-                        <span className="flex items-center gap-1.5">🍾 Lahve</span>
+                        <span className="flex items-center gap-1.5"><Wine size={14} className="text-emerald-700" /> Lahve</span>
                         <span className="font-mono text-emerald-950 bg-emerald-200 px-2 py-0.5 rounded-md font-bold">{loadingListBreakdown.totalBottles} ks</span>
                       </div>
 
@@ -658,7 +653,7 @@ export default function Zavoz({ setPage }: { setPage?: (p: any, sec?: string) =>
                       <div className="flex items-center justify-between pb-3 border-b border-neutral-200/70">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-2xl bg-amber-500 text-slate-950 font-black text-lg flex items-center justify-center shadow-md">
-                            🚚
+                            <Truck size={20} />
                           </div>
                           <div>
                             <h3 className="font-display font-extrabold text-lg text-neutral-900">{group.label}</h3>
@@ -667,7 +662,7 @@ export default function Zavoz({ setPage }: { setPage?: (p: any, sec?: string) =>
                         </div>
 
                         <div className="flex items-center gap-3">
-                          <span className="chip bg-neutral-900 text-amber-300 font-mono font-black text-xs">
+                          <span className="chip bg-amber-500 text-slate-950 font-mono font-black text-xs">
                             {group.orders.reduce((s, o) => s + (items[o.id] ?? []).reduce((x, i) => x + Number(i.quantity), 0), 0)} ks celkem
                           </span>
                           {group.orders.length > 0 && (
@@ -678,7 +673,7 @@ export default function Zavoz({ setPage }: { setPage?: (p: any, sec?: string) =>
                               className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black text-xs transition shadow-xs flex items-center gap-1.5"
                               title="Otevřít celou trasu v Google Mapách"
                             >
-                              <span>🗺️</span>
+                              <MapPin size={14} />
                               <span>Trasa dne ({group.orders.length})</span>
                             </a>
                           )}
@@ -721,10 +716,10 @@ export default function Zavoz({ setPage }: { setPage?: (p: any, sec?: string) =>
                                         <div className="flex justify-between items-start">
                                           <div>
                                             <a onClick={() => setPage && setPage('orders', o.id)} className="font-bold text-sm text-neutral-900 hover:underline cursor-pointer">{o.place_name}</a>
-                                            {o.note && <div className="text-xs text-neutral-600 font-medium mt-1 bg-amber-100/60 px-2.5 py-1 rounded-lg italic">📝 {o.note}</div>}
+                                            {o.note && <div className="text-xs text-neutral-600 font-medium mt-1 bg-amber-100/60 px-2.5 py-1 rounded-lg italic flex items-start gap-1"><StickyNote size={12} className="mt-0.5 shrink-0" /> {o.note}</div>}
                                           </div>
-                                          <button onClick={() => toggleDelivered(o)} className={`px-3 py-1.5 rounded-xl font-black text-xs transition shadow-xs flex items-center gap-1.5 ${o.is_delivered ? 'bg-emerald-600 text-white' : 'bg-neutral-900 text-amber-300'}`}>
-                                            {o.is_delivered ? '✓ Zavezeno' : '🚚 Označit'}
+                                          <button onClick={() => toggleDelivered(o)} className={`px-3 py-1.5 rounded-xl font-black text-xs transition shadow-xs flex items-center gap-1.5 ${o.is_delivered ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-slate-950 hover:bg-amber-400'}`}>
+                                            {o.is_delivered ? '✓ Zavezeno' : 'Označit'}
                                           </button>
                                         </div>
                                         <div className="mt-2 space-y-1.5">
@@ -780,8 +775,8 @@ export default function Zavoz({ setPage }: { setPage?: (p: any, sec?: string) =>
                                     )}
                                   </a>
                                   {o.note && (
-                                    <div className="text-xs text-neutral-600 font-medium mt-1 bg-amber-100/60 px-2.5 py-1 rounded-lg italic">
-                                      📝 {o.note}
+                                    <div className="text-xs text-neutral-600 font-medium mt-1 bg-amber-100/60 px-2.5 py-1 rounded-lg italic flex items-start gap-1">
+                                      <StickyNote size={12} className="mt-0.5 shrink-0" /> {o.note}
                                     </div>
                                   )}
                                 </div>
@@ -817,19 +812,19 @@ export default function Zavoz({ setPage }: { setPage?: (p: any, sec?: string) =>
                                   <span>Váha: {fmtKg(weightKg)} kg</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <button onClick={() => setEditOrder(o)} className="btn-ghost !py-1.5 !px-3 text-xs font-black" title="Upravit objednávku">✏️ Upravit</button>
+                                  <button onClick={() => setEditOrder(o)} className="btn-ghost !py-1.5 !px-3 text-xs font-black flex items-center gap-1" title="Upravit objednávku"><Pencil size={13} /> Upravit</button>
                                   {o.place_name && (
-                                    <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(o.place_name)}`} target="_blank" rel="noreferrer" className="btn-ghost !py-1.5 !px-3 text-xs font-black" title="Otevřít v Google Mapách">🗺️ Mapy</a>
+                                    <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(o.place_name)}`} target="_blank" rel="noreferrer" className="btn-ghost !py-1.5 !px-3 text-xs font-black flex items-center gap-1" title="Otevřít v Google Mapách"><MapPin size={13} /> Mapy</a>
                                   )}
                                   <button
                                     onClick={() => toggleDelivered(o)}
                                     className={`px-3.5 py-1.5 rounded-xl font-black text-xs transition shadow-xs flex items-center gap-1.5 ${
                                       o.is_delivered
                                         ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                                        : 'bg-neutral-900 text-amber-300 hover:bg-slate-800'
+                                        : 'bg-amber-500 text-slate-950 hover:bg-amber-400'
                                     }`}
                                   >
-                                    <span>{o.is_delivered ? '✓ Zavezeno' : '🚚 Označit jako zavezené'}</span>
+                                    <span>{o.is_delivered ? '✓ Zavezeno' : 'Označit jako zavezené'}</span>
                                   </button>
                                 </div>
                               </div>
@@ -844,7 +839,6 @@ export default function Zavoz({ setPage }: { setPage?: (p: any, sec?: string) =>
             </>
           )}
         </>
-      )}
 
       {editOrder && (
         <EditOrderModal

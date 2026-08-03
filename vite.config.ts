@@ -7,17 +7,25 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Načti aktuální verzi z version.ts
+// Načti aktuální verzi a datum z version.ts
 const versionPath = resolve(__dirname, 'src/lib/version.ts');
 const versionContent = readFileSync(versionPath, 'utf-8');
 const versionMatch = versionContent.match(/APP_VERSION\s*=\s*'([^']+)'/);
 const appVersion = versionMatch ? versionMatch[1] : '0.0.0';
+const dateMatch = versionContent.match(/APP_VERSION_DATE\s*=\s*'([^']+)'/);
+const appDateRaw = dateMatch ? dateMatch[1] : '';
 
-// Použij aktuální timestamp při buildu
-const now = new Date();
-const appDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+// Převeď datum z formátu "DD.MM.YYYY HH:mm" do "YYYY-MM-DD HH:mm" pro version.json
+let appDate = '';
+if (appDateRaw) {
+  const parts = appDateRaw.match(/(\d+)\.(\d+)\.(\d+)\s+(\d+):(\d+)/);
+  if (parts) {
+    appDate = `${parts[3]}-${String(parts[2]).padStart(2, '0')}-${String(parts[1]).padStart(2, '0')} ${String(parts[4]).padStart(2, '0')}:${String(parts[5]).padStart(2, '0')}`;
+  }
+}
 
 // Vygeneruj version.json do public/ (zkopíruje se do dist/ při build)
+// Používáme datum z version.ts, aby bylo konzistentní — watch-deploy.mjs ho nastaví před buildem
 const versionJsonPath = resolve(__dirname, 'public/version.json');
 try {
   writeFileSync(versionJsonPath, JSON.stringify({ version: appVersion, date: appDate }, null, 2));
@@ -33,7 +41,7 @@ export default defineConfig({
   resolve: {
     dedupe: ['react', 'react-dom'],
   },
-  base: './', // relativní cesty
+  base: '/', // absolutní cesty pro Cloudflare Pages
   server: { port: 5173, host: true, hmr: { overlay: false }, allowedHosts: true },
   build: {
     target: 'es2015',

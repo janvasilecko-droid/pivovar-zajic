@@ -6,6 +6,7 @@ import { AuthProvider } from './lib/auth';
 import { initDensity } from './lib/density';
 import { initTheme } from './lib/theme';
 import { reportAppVersion } from './lib/appVersionTracker';
+import { startVersionCheck, onNewVersion } from './lib/versionCheck';
 
 initDensity();
 
@@ -87,6 +88,30 @@ initTheme();
 
 // Odeslat verzi aplikace při startu (pokud je uživatel přihlášený)
 setTimeout(() => reportAppVersion(), 2000);
+
+// Spustit pravidelné kontroly nové verze (každých 5 minut)
+startVersionCheck();
+
+// Poslouchat na zprávy od service workeru o nové verzi.
+// Když se aktivuje nový service worker (SW_ACTIVATED), okamžitě obnovíme
+// stránku, aby se načetla nejnovější verze aplikace bez nutnosti ručního
+// obnovení. NEW_VERSION_AVAILABLE jen logujeme — UI (Layout.tsx) zobrazí
+// modální okno s tlačítkem.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data?.type === 'SW_ACTIVATED') {
+      console.log('📱 Nový service worker aktivní — obnovuji stránku');
+      window.location.reload();
+    } else if (event.data?.type === 'NEW_VERSION_AVAILABLE') {
+      console.log('📱 Service worker hlásí novou verzi — UI zobrazí upozornění');
+    }
+  });
+}
+
+// Když versionCheck najde novou verzi, pouze zalogujeme — UI (Layout.tsx) zobrazí modální okno
+onNewVersion((info) => {
+  console.log(`📱 Nová verze ${info.version} dostupná — UI zobrazí upozornění`);
+});
 
 try {
   ReactDOM.createRoot(document.getElementById('root')!).render(

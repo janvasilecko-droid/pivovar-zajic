@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { supabase, Beer, Package, Place, useRealtime, beerBg, beerText, formatPackageLabel } from '../lib/supabase';
+import { supabase, Beer, Package, Place, useRealtime, beerBg, beerText, beerName, formatPackageLabel } from '../lib/supabase';
 import { Spinner, EmptyState } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { orderWeightKg, fmtKg } from '../lib/weight';
@@ -7,6 +7,8 @@ import { DAYS } from '../lib/shared';
 import { BarChart3, Search, Cylinder, Trophy, Calendar, Filter, Download, ArrowUpRight, ArrowDownRight, Zap, Printer, ShieldAlert, PieChart as PieChartIcon, TrendingUp, ShoppingCart, Beer as BeerIcon, Boxes, Building, Percent, Clock, AlertTriangle, CheckCircle2, DollarSign, TrendingDown, ArrowUp, ArrowDown, Eye, EyeOff, Maximize2, Minimize2, Smartphone, AlertOctagon, GitCompare, Truck, History as HistoryIcon } from 'lucide-react';
 import { WeeklyOrderSummaryCard, WeeklyOrderItem, isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { PieChart as RePieChart, Pie, Cell, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { EditOrderModal } from '../components/EditOrderModal';
+import ZavozHistory from '../components/ZavozHistory';
 
 type MonthData = {
   month: string;
@@ -176,14 +178,21 @@ export default function History() {
   const [delPackages, setDelPackages] = useState<Package[]>([]);
   const [delLoading, setDelLoading] = useState(true);
 
+  // ---- Editace objednávek z přehledu ----
+  const [editOrder, setEditOrder] = useState<DeliveryOrder | null>(null);
+  const [editItems, setEditItems] = useState<DeliveryItem[]>([]);
+  const [places, setPlaces] = useState<Place[]>([]);
+
   async function loadDeliveries() {
-    const [{ data: o }, { data: p }] = await Promise.all([
+    const [{ data: o }, { data: p }, { data: pl }] = await Promise.all([
       supabase.from('orders').select('*').neq('status', 'storno').order('order_date', { ascending: false }),
       supabase.from('packages').select('*'),
+      supabase.from('places').select('*').order('name'),
     ]);
     const ords = (o as DeliveryOrder[]) ?? [];
     setDelOrders(ords);
     setDelPackages((p as Package[]) ?? []);
+    setPlaces((pl as Place[]) ?? []);
     if (ords.length) {
       const { data: it } = await supabase.from('order_items').select('*').in('order_id', ords.map((x) => x.id));
       const map: Record<string, DeliveryItem[]> = {};
@@ -191,6 +200,14 @@ export default function History() {
       setDelItems(map);
     }
     setDelLoading(false);
+  }
+
+  async function openEditOrder(orderId: string) {
+    const order = delOrders.find((o) => o.id === orderId);
+    if (!order) return;
+    const items = delItems[orderId] ?? [];
+    setEditOrder(order);
+    setEditItems(items);
   }
 
   useEffect(() => { loadDeliveries(); }, []);
@@ -833,7 +850,7 @@ export default function History() {
             }`}
           >
             <Truck size={16} />
-            <span>🚚 Historie nákladek</span>
+            <span>🚚 Historie a přehled tras</span>
           </button>
         </div>
 
@@ -862,7 +879,7 @@ export default function History() {
               <label className="label">Obal</label>
               <select className="input" value={packageFilter} onChange={(e) => setPackageFilter(e.target.value)}>
                 <option value="">Všechny obaly</option>
-                {packages.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+                {packages.map((p) => <option key={p.id} value={p.id}>{p.volume_l} L</option>)}
               </select>
             </div>
             {(beerFilter || packageFilter) && (
@@ -981,6 +998,44 @@ export default function History() {
                             </span>
                           </div>
                         </div>
+                      </div>
+                    )}
+
+                    {/* Ztráty: Stočeno (KEG) vs Fasováno/Objednáno */}
+                    {d.kegged > 0 && (
+                      <div className="p-3.5 rounded-2xl bg-rose-50/80 border border-rose-200 space-y-2">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className="w-6 h-6 rounded-lg grid place-items-center text-xs font-bold border text-rose-900 bg-rose-100/80 border-rose-300">📊</span>
+                          <span className="text-[10px] font-black uppercase tracking-wider text-rose-800">Ztráty KEG</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="p-2 rounded-xl bg-white border border-rose-200">
+                            <span className="block text-[10px] font-bold text-neutral-500">Stočeno KEG (hl)</span>
+                            <span className="font-black text-neutral-900">{(d.kegHl).toFixed(2)} hl</span>
+                          </div>
+                          <div className="p-2 rounded-xl bg-white border border-rose-200">
+                            <span className="block text-[10px] font-bold text-neutral-500">Fasováno (ks)</span>
+                            <span className="font-black text-neutral-900">{d.fasovani} ks</span>
+                          </div>
+                          <div className="p-2 rounded-xl bg-white border border-rose-200">
+                            <span className="block text-[10px] font-bold text-neutral-500">Objednáno (ks)</span>
+                            <span className="font-black text-neutral-900">{d.ordered} ks</span>
+                          </div>
+                          <div className="p-2 rounded-xl bg-white border border-rose-200">
+                            <span className="block text-[10px] font-bold text-neutral-500">Odpisy (ks)</span>
+                            <span className="font-black text-rose-700">{d.writeoffs} ks</span>
+                          </div>
+                        </div>
+                        {(() => {
+                          const rozdil = d.kegged - d.fasovani - d.writeoffs;
+                          const rozdilPct = d.kegged > 0 ? ((rozdil / d.kegged) * 100) : 0;
+                          return (
+                            <div className={`p-2 rounded-xl border text-xs font-bold flex items-center justify-between ${rozdil > 0 ? 'bg-rose-100 border-rose-300 text-rose-800' : 'bg-emerald-100 border-emerald-300 text-emerald-800'}`}>
+                              <span>{rozdil > 0 ? '⚠️ Nerozpočteno (ztráta)' : '✅ Vše pokryto'}</span>
+                              <span className="font-mono font-black">{rozdil} ks ({rozdilPct.toFixed(1)}%)</span>
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
 
@@ -1409,7 +1464,7 @@ export default function History() {
               <div className="p-8 text-center text-xs font-bold text-neutral-500">Žádné výsledky pro zvolené filtry.</div>
             ) : (
               <div className="overflow-x-auto scrollbar-thin">
-                <table className="table">
+                <table className="table text-xs">
                   <thead>
                     <tr>
                       <th className="cursor-pointer select-none" onClick={() => onSortDetail('beer_name')}>Pivo<SortIcon active={detailSortKey === 'beer_name'} dir={detailSortDir} /></th>
@@ -1417,22 +1472,44 @@ export default function History() {
                       {ACTIVITY_SOURCES.filter((s) => selSources.has(s.key)).map((s) => (
                         <th key={s.key} className="text-right">{s.icon} {s.label}</th>
                       ))}
-                      <th className="text-right cursor-pointer select-none" onClick={() => onSortDetail('totalQty')}>Celkem ks<SortIcon active={detailSortKey === 'totalQty'} dir={detailSortDir} /></th>
-                      <th className="text-right cursor-pointer select-none" onClick={() => onSortDetail('totalLiters')}>Celkem litrů<SortIcon active={detailSortKey === 'totalLiters'} dir={detailSortDir} /></th>
+                      <th className="text-right cursor-pointer select-none" onClick={() => onSortDetail('totalQty')}>Celkem<SortIcon active={detailSortKey === 'totalQty'} dir={detailSortDir} /></th>
+                      <th className="text-right cursor-pointer select-none" onClick={() => onSortDetail('totalLiters')}>Litrů<SortIcon active={detailSortKey === 'totalLiters'} dir={detailSortDir} /></th>
                     </tr>
                   </thead>
                   <tbody>
                     {detailResultsSorted.map((r) => {
                       const beer = beers.find((b) => b.id === r.beer_id);
+                      // Najdeme objednávky obsahující toto pivo+obal
+                      const matchingOrderIds = new Set(
+                        delOrders
+                          .filter(o => o.status !== 'storno')
+                          .filter(o => {
+                            const oItems = delItems[o.id] ?? [];
+                            return oItems.some(i => i.beer_id === r.beer_id && i.package_id === r.package_id);
+                          })
+                          .map(o => o.id)
+                      );
+                      const hasOrders = matchingOrderIds.size > 0;
                       return (
-                        <tr key={`${r.beer_id}__${r.package_id}`} className="hover:brightness-95 transition-colors" style={beer ? { backgroundColor: beerBg(beer) } : undefined}>
-                          <td className={`font-black text-sm ${beer ? (beerText(beer) === 'text-white' ? 'text-white' : 'text-neutral-950') : 'text-neutral-950'}`}>{r.beer_name}</td>
-                          <td className="font-extrabold text-neutral-950 text-xs">{formatPackageLabel(r.package_label)}</td>
+                        <tr
+                          key={`${r.beer_id}__${r.package_id}`}
+                          className={`transition-colors ${hasOrders ? 'cursor-pointer hover:brightness-90' : 'hover:brightness-95'}`}
+                          style={beer ? { backgroundColor: beerBg(beer) } : undefined}
+                          onClick={() => {
+                            if (hasOrders) {
+                              const firstOrderId = [...matchingOrderIds][0];
+                              openEditOrder(firstOrderId);
+                            }
+                          }}
+                          title={hasOrders ? 'Kliknutím upravíte objednávku' : undefined}
+                        >
+                          <td className={`font-black text-[11px] ${beer ? (beerText(beer) === 'text-white' ? 'text-white' : 'text-neutral-950') : 'text-neutral-950'}`}>{r.beer_name}</td>
+                          <td className="font-extrabold text-neutral-950 text-[11px]">{formatPackageLabel(r.package_label)}</td>
                           {ACTIVITY_SOURCES.filter((s) => selSources.has(s.key)).map((s) => (
-                            <td key={s.key} className="text-right font-bold text-neutral-900">{r.qtyBySource[s.key] || '—'}</td>
+                            <td key={s.key} className="text-right font-bold text-neutral-900 text-[11px]">{r.qtyBySource[s.key] || '—'}</td>
                           ))}
-                          <td className="text-right font-mono font-black text-neutral-950 text-sm">{r.totalQty} ks</td>
-                          <td className="text-right font-black text-neutral-900">{r.totalLiters.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} l</td>
+                          <td className="text-right font-mono font-black text-neutral-950 text-[11px]">{r.totalQty} ks</td>
+                          <td className="text-right font-black text-neutral-900 text-[11px]">{r.totalLiters.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} l</td>
                         </tr>
                       );
                     })}
@@ -1515,18 +1592,18 @@ export default function History() {
               <div className="text-center text-xs font-bold text-neutral-500 py-8">Zatím žádné ukončené cykly tanků.</div>
             ) : (
               <div className="overflow-x-auto scrollbar-thin">
-                <table className="table">
+                <table className="table text-xs">
                   <thead>
                     <tr>
                       <th className="cursor-pointer select-none" onClick={() => onSortCycle('tank_label')}>Tank<SortIcon active={cycleSortKey === 'tank_label'} dir={cycleSortDir} /></th>
                       <th className="cursor-pointer select-none" onClick={() => onSortCycle('beer_name')}>Pivo<SortIcon active={cycleSortKey === 'beer_name'} dir={cycleSortDir} /></th>
-                      <th className="text-right cursor-pointer select-none" onClick={() => onSortCycle('initial_volume_l')}>Počáteční<SortIcon active={cycleSortKey === 'initial_volume_l'} dir={cycleSortDir} /></th>
-                      <th className="text-right cursor-pointer select-none" onClick={() => onSortCycle('kegged_volume_l')}>Stočeno<SortIcon active={cycleSortKey === 'kegged_volume_l'} dir={cycleSortDir} /></th>
+                      <th className="text-right cursor-pointer select-none" onClick={() => onSortCycle('initial_volume_l')}>Poč.<SortIcon active={cycleSortKey === 'initial_volume_l'} dir={cycleSortDir} /></th>
+                      <th className="text-right cursor-pointer select-none" onClick={() => onSortCycle('kegged_volume_l')}>Stoč.<SortIcon active={cycleSortKey === 'kegged_volume_l'} dir={cycleSortDir} /></th>
                       <th className="text-right cursor-pointer select-none" onClick={() => onSortCycle('keg_count')}>Sudů<SortIcon active={cycleSortKey === 'keg_count'} dir={cycleSortDir} /></th>
-                      <th className="text-right cursor-pointer select-none" onClick={() => onSortCycle('loss_l')}>Ztráta<SortIcon active={cycleSortKey === 'loss_l'} dir={cycleSortDir} /></th>
-                      <th className="text-right cursor-pointer select-none" onClick={() => onSortCycle('loss_pct')}>Ztráta %<SortIcon active={cycleSortKey === 'loss_pct'} dir={cycleSortDir} /></th>
+                      <th className="text-right cursor-pointer select-none" onClick={() => onSortCycle('loss_l')}>Ztr.<SortIcon active={cycleSortKey === 'loss_l'} dir={cycleSortDir} /></th>
+                      <th className="text-right cursor-pointer select-none" onClick={() => onSortCycle('loss_pct')}>Ztr.%<SortIcon active={cycleSortKey === 'loss_pct'} dir={cycleSortDir} /></th>
                       <th className="text-right cursor-pointer select-none" onClick={() => onSortCycle('duration_hours')}>Doba<SortIcon active={cycleSortKey === 'duration_hours'} dir={cycleSortDir} /></th>
-                      <th className="cursor-pointer select-none" onClick={() => onSortCycle('ended_at')}>Ukončeno<SortIcon active={cycleSortKey === 'ended_at'} dir={cycleSortDir} /></th>
+                      <th className="cursor-pointer select-none" onClick={() => onSortCycle('ended_at')}>Konec<SortIcon active={cycleSortKey === 'ended_at'} dir={cycleSortDir} /></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1534,15 +1611,15 @@ export default function History() {
                       const beer = c.beer_name ? beers.find((b) => b.name === c.beer_name) : null;
                       return (
                         <tr key={c.id} className="hover:brightness-95 transition-colors" style={beer ? { backgroundColor: beerBg(beer) } : undefined}>
-                          <td className="font-black text-neutral-950">{c.tank_label}</td>
-                          <td className={`font-black text-sm ${beer ? (beerText(beer) === 'text-white' ? 'text-white' : 'text-neutral-950') : 'text-neutral-950'}`}>{c.beer_name ?? '—'}</td>
-                          <td className="text-right font-bold text-neutral-900">{(Number(c.initial_volume_l) / 100).toFixed(2)} hl</td>
-                          <td className="text-right font-black text-neutral-950 text-sm">{(Number(c.kegged_volume_l) / 100).toFixed(2)} hl</td>
-                          <td className="text-right font-mono font-black text-neutral-950">{c.keg_count} ks</td>
-                          <td className={`text-right ${Number(c.loss_l) > 0 ? 'text-rose-700 font-black' : 'text-neutral-900 font-bold'}`}>{Number(c.loss_l).toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} l</td>
-                          <td className={`text-right ${Number(c.loss_pct) > 3 ? 'text-rose-700 font-black' : 'text-neutral-900 font-bold'}`}>{Number(c.loss_pct).toFixed(1)}%</td>
-                          <td className="text-right text-neutral-900 font-bold">{fmtHoursShort(c.duration_hours)}</td>
-                          <td className="text-neutral-900 font-bold whitespace-nowrap">{new Date(c.ended_at).toLocaleDateString('cs-CZ')}</td>
+                          <td className="font-black text-[11px] text-neutral-950">{c.tank_label}</td>
+                          <td className={`font-black text-[11px] ${beer ? (beerText(beer) === 'text-white' ? 'text-white' : 'text-neutral-950') : 'text-neutral-950'}`}>{c.beer_name ?? '—'}</td>
+                          <td className="text-right font-bold text-neutral-900 text-[11px]">{(Number(c.initial_volume_l) / 100).toFixed(2)} hl</td>
+                          <td className="text-right font-black text-neutral-950 text-[11px]">{(Number(c.kegged_volume_l) / 100).toFixed(2)} hl</td>
+                          <td className="text-right font-mono font-black text-neutral-950 text-[11px]">{c.keg_count} ks</td>
+                          <td className={`text-right text-[11px] ${Number(c.loss_l) > 0 ? 'text-rose-700 font-black' : 'text-neutral-900 font-bold'}`}>{Number(c.loss_l).toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} l</td>
+                          <td className={`text-right text-[11px] ${Number(c.loss_pct) > 3 ? 'text-rose-700 font-black' : 'text-neutral-900 font-bold'}`}>{Number(c.loss_pct).toFixed(1)}%</td>
+                          <td className="text-right text-neutral-900 font-bold text-[11px]">{fmtHoursShort(c.duration_hours)}</td>
+                          <td className="text-neutral-900 font-bold whitespace-nowrap text-[11px]">{new Date(c.ended_at).toLocaleDateString('cs-CZ')}</td>
                         </tr>
                       );
                     })}
@@ -1613,102 +1690,28 @@ export default function History() {
             onWeekChange={setOrdWeekKey}
             weekLabel={ordWr.label}
             title="Týdenní přehled objednávek"
-            subtitle="Součet kusů z objednávek (bez storna) v daném týdnu"
+            subtitle="Součet kusů z objednávek (bez storna) v daném týdnu — kliknutím na řádek upravíte objednávku"
+            onItemClick={(beerId, packageId) => {
+              // Najdeme objednávky v aktuálním týdnu, které obsahují toto pivo+obal
+              const { start, end } = ordWr;
+              const matchingOrders = delOrders
+                .filter(o => o.status !== 'storno')
+                .filter(o => { const d = new Date(o.order_date + 'T00:00:00Z'); return d >= start && d <= end; })
+                .filter(o => {
+                  const oItems = delItems[o.id] ?? [];
+                  return oItems.some(i => i.beer_id === beerId && i.package_id === packageId);
+                });
+              if (matchingOrders.length > 0) {
+                openEditOrder(matchingOrders[0].id);
+              }
+            }}
           />
         </div>
       )}
 
-      {/* TAB 6: HISTORIE NÁKLADEK (přesunuto z obrazovky Závoz) */}
+      {/* TAB 6: HISTORIE A PŘEHLED TRAS (přesunuto z obrazovky Závoz) */}
       {activeTab === 'deliveries' && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="font-display font-black text-xl text-neutral-900 flex items-center gap-2">
-              <Truck size={24} className="text-amber-600" />
-              <span>Historie nákladek</span>
-            </h2>
-            <span className="text-xs font-mono font-bold bg-neutral-100 px-3 py-1.5 rounded-xl text-neutral-700 border border-neutral-200">
-              {delHistoryByDate.length} dní
-            </span>
-          </div>
-
-          {delLoading ? (
-            <Spinner />
-          ) : delHistoryByDate.length === 0 ? (
-            <EmptyState text="Zatím žádné záznamy o nákladech." icon="🚚" />
-          ) : (
-            <div className="space-y-4">
-              {delHistoryByDate.map((day) => (
-                <div key={day.date} className="card p-5 bg-white border border-neutral-200 rounded-3xl space-y-3 shadow-xs">
-                  <div className="flex items-center justify-between pb-3 border-b border-neutral-200">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-2xl bg-amber-500 text-slate-950 font-black text-lg flex items-center justify-center shadow-md">
-                        🚚
-                      </div>
-                      <div>
-                        <h3 className="font-display font-extrabold text-lg text-neutral-900">
-                          {new Date(day.date + 'T00:00:00').toLocaleDateString('cs-CZ', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                        </h3>
-                        <p className="text-xs text-neutral-500 font-medium">{day.orders.length} objednávek</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="chip bg-neutral-900 text-amber-300 font-mono font-black text-xs">
-                        {day.totalQty} ks celkem
-                      </span>
-                      <span className="chip bg-amber-100 text-amber-900 font-mono font-black text-xs border border-amber-300">
-                        {fmtKg(day.totalWeight)}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    {day.orders.map((o) => {
-                      const oItems = delItems[o.id] ?? [];
-                      const weightKg = orderWeightKg(oItems, delPackages);
-                      const totalQty = oItems.reduce((s, i) => s + Number(i.quantity), 0);
-                      return (
-                        <div key={o.id} className={`p-3 rounded-2xl border transition-all ${
-                          o.is_delivered ? 'bg-emerald-50/60 border-emerald-300/80' : 'bg-white border-neutral-200'
-                        }`}>
-                          <div className="flex flex-wrap items-start justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <span className="font-black text-sm text-neutral-900">{o.place_name ?? 'Neznámý odběratel'}</span>
-                              {o.is_delivered && (
-                                <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white font-extrabold text-[10px]">✓ Zavezeno</span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 text-xs font-bold text-neutral-600">
-                              <span>{totalQty} ks</span>
-                              <span>{fmtKg(weightKg)}</span>
-                            </div>
-                          </div>
-                          {o.note && (
-                            <div className="mt-1 text-xs text-neutral-600 font-medium bg-amber-100/60 px-2.5 py-1 rounded-lg italic inline-block">
-                              📝 {o.note}
-                            </div>
-                          )}
-                          {oItems.length > 0 && (
-                            <div className="mt-2 space-y-1">
-                              {oItems.map((it) => (
-                                <div key={it.id} className="flex items-center justify-between text-xs py-1 px-2 rounded-lg bg-white/80 border border-neutral-100">
-                                  <span className="font-bold text-neutral-900">{it.beer_name ?? '—'}</span>
-                                  <div className="flex items-center gap-2 font-mono">
-                                    <span className="text-neutral-950 font-black text-[11px]">{formatPackageLabel(it.package_label)}</span>
-                                    <span className="font-black text-white bg-amber-600 px-2 py-0.5 rounded-md text-xs">{it.quantity} ks</span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <ZavozHistory />
       )}
 
       {/* 🖨️ MODAL PRO TISK MĚSÍČNÍ UZÁVĚRKY SLÁDKA */}
@@ -1798,6 +1801,20 @@ export default function History() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ✎ MODAL PRO EDITACI OBJEDNÁVKY */}
+      {editOrder && (
+        <EditOrderModal
+          order={editOrder}
+          items={editItems}
+          beers={beers}
+          packages={packages}
+          places={places}
+          onClose={() => { setEditOrder(null); setEditItems([]); }}
+          onSaved={() => { loadDeliveries(); }}
+          onPlacesChanged={() => { loadDeliveries(); }}
+        />
       )}
     </div>
   );

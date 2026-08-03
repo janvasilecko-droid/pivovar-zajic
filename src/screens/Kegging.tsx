@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
-import { supabase, Beer, Package, EntryRow, CellarTank, useRealtime, beerBg, beerText, pkgBg, pkgText, formatPackageLabel } from '../lib/supabase';
+import { useEffect, useMemo, useState, useRef } from 'react';
+import { supabase, Beer, Package, EntryRow, CellarTank, useRealtime, beerBg, beerText, beerName, pkgBg, pkgText, formatPackageLabel } from '../lib/supabase';
 import { EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { exportKeggingToExcel } from '../lib/excel';
 import { VoiceRecorder } from '../components/VoiceRecorder';
-import { CountFromImage } from '../components/CountFromImage';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
+import { Loader2 } from 'lucide-react';
 
 type OrderRow = { id: string; order_date: string; status: string };
 type OrderItemRow = { order_id: string; package_id: string | null; quantity: number; beer_id: string | null; beer_name: string | null };
@@ -25,7 +25,6 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [note, setNote] = useState('');
   const [cellarTankId, setCellarTankId] = useState('');
-  const [lossL, setLossL] = useState('');
   const [entryRows, setEntryRows] = useState<RowInput[]>(emptyRows());
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -33,14 +32,49 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   const [showCount, setShowCount] = useState(false);
   const [aliasMap, setAliasMap] = useState<ParserAliasMap>(emptyAliasMap());
   useEffect(() => { loadAliasMap().then(setAliasMap).catch(() => {}); }, []);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editQty, setEditQty] = useState('');
 
-  const [showAllWeeks, setShowAllWeeks] = useState(false);
-  const currentWeekKey = isoWeekKey(new Date().toISOString().slice(0, 10));
-  const currentWeekCount = useMemo(() => rows.filter((r) => isoWeekKey(r.entry_date) === currentWeekKey).length, [rows, currentWeekKey]);
+  // Zápis / Přehled záložky
+  const [tab, setTab] = useState<'zapis' | 'prehled'>('zapis');
+
+  // Přehled záznamů: filtr podle období (den/týden/měsíc) + filtr podle piva
+
+  const [recordsView, setRecordsView] = useState<'day' | 'week' | 'month'>('month');
+  const [recordsWeekKey, setRecordsWeekKey] = useState(() => isoWeekKey(new Date().toISOString().slice(0, 10)));
+  const [recordsMonthKey, setRecordsMonthKey] = useState(() => new Date().toISOString().slice(0, 7));
+  const [recordsDay, setRecordsDay] = useState(() => new Date().toISOString().slice(0, 10));
+  const [beerFilter, setBeerFilter] = useState('');
+
+  // Posun měsíce o delta měsíců (vrací YYYY-MM)
+  function shiftMonth(monthKey: string, delta: number): string {
+    const [y, m] = monthKey.split('-').map(Number);
+    const d = new Date(Date.UTC(y, m - 1 + delta, 1));
+    return d.toISOString().slice(0, 7);
+  }
+
+  // Posun dne o delta dní (vrací YYYY-MM-DD)
+  function shiftDay(day: string, delta: number): string {
+    const d = new Date(day + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + delta);
+    return d.toISOString().slice(0, 10);
+  }
+
   const filteredRows = useMemo(() => {
-    if (showAllWeeks) return rows;
-    return rows.filter((r) => isoWeekKey(r.entry_date) === currentWeekKey);
-  }, [rows, showAllWeeks, currentWeekKey]);
+    let result = rows;
+    if (recordsView === 'month') {
+      result = result.filter((r) => r.entry_date?.startsWith(recordsMonthKey));
+    } else if (recordsView === 'week') {
+      result = result.filter((r) => isoWeekKey(r.entry_date) === recordsWeekKey);
+    } else {
+      result = result.filter((r) => r.entry_date === recordsDay);
+    }
+    if (beerFilter) {
+      result = result.filter((r) => r.beer_id === beerFilter || r.beer_name === beerFilter);
+    }
+    return result;
+  }, [rows, recordsView, recordsMonthKey, recordsWeekKey, recordsDay, beerFilter]);
+
 
   const [weekKey, setWeekKey] = useState(isoWeekKey(new Date().toISOString().slice(0, 10)));
   const [weekOrders, setWeekOrders] = useState<OrderRow[]>([]);
@@ -52,14 +86,21 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   const activeCellarTanks = useMemo(() => cellarTanks.filter((t) => t.status === 'active' || t.status === 'emptying'), [cellarTanks]);
   const selectedCellarTank = cellarTanks.find((t) => t.id === cellarTankId);
 
-  // Pro dané pivo najde aktivní/stáčecí tank, ve kterém toto pivo skutečně je
-  // (pokud je jich víc, vezme se ten s větším aktuálním objemem). Toto je zdroj pravdy
-  // pro odečet objemu — nezávisí na tom, jaký tank je vybraný nahoře ve formuláři.
+  // Pro dané pivo najde aktivní/stáčecí tank, ve kterém toto pivo skutečně je.
+  // Přednost má tank s aktivním stáčením (kegging_active = true) — odečítá se JEN z něj,
+  // i kdyby měl jiný tank se stejným pivem větší objem. Pokud žádný tank nemá spuštěné
+  // stáčení, spadne na fallback (největší objem) — dnešní chování.
   function findTankForBeer(beerId: string): CellarTank | undefined {
     if (!beerId) return undefined;
     const candidates = activeCellarTanks.filter((t) => t.current_beer_id === beerId);
     if (candidates.length === 0) return undefined;
-    return candidates.reduce((best, t) => Number(t.current_volume_l) > Number(best.current_volume_l) ? t : best);
+    // JEN tank s aktivním stáčením (kegging_active = true) — pokud žádný není, neodečítá se z žádného tanku.
+    // "Ukončit stáčení" v Cellar.tsx nastaví kegging_active = false, čímž se tank přestane odebírat.
+    const activeSources = candidates.filter((t) => t.kegging_active === true);
+    if (activeSources.length > 0) {
+      return activeSources.reduce((best, t) => Number(t.current_volume_l) > Number(best.current_volume_l) ? t : best);
+    }
+    return undefined;
   }
 
   // Souhrn zapisovaných řádků: celkový počet ks a litrů podle vyplněných řádků formuláře
@@ -113,13 +154,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
     if (!cellarTankId && activeCellarTanks.length === 1) setCellarTankId(activeCellarTanks[0].id);
   }, [activeCellarTanks, cellarTankId]);
 
-  // Při výběru tanku nahoře predvyplní pivo jen na řádcích, kde ještě pivo nebylo ručně nastaveno
-  // (slouží jako pohodlný výchozí výběr — skutečný odečet objemu se ale vždy řídí tím, jaké pivo
-  // je na konkrétním řádku a jaký tank se k němu dohledá, viz findTankForBeer).
-  useEffect(() => {
-    if (!selectedCellarTank?.current_beer_id) return;
-    setEntryRows((rs) => rs.map((r) => r.beerId ? r : { ...r, beerId: selectedCellarTank.current_beer_id! }));
-  }, [selectedCellarTank?.current_beer_id]);
+  // (zrušeno — pivo se nevyplňuje automaticky z tanku)
 
 
   // nacti objednavky + polozky pro dany tyden (kvuli prehledu objednanych kegu)
@@ -207,19 +242,56 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   }
 
   // Hlasový zápis: přepis se rozparsuje a naplní se první volné prázdné řádky.
+  // Pro KEG režim preferujeme obaly druhu 'keg'
   function handleVoiceResult(text: string) {
-    const parsed = parseFreeTextEntries(text, beers, packages, aliasMap);
+    // Nejprv zkusíme normální parser
+    let parsed = parseFreeTextEntries(text, beers, packages, aliasMap);
 
-    if (!parsed.length) { setErr('Nerozpoznal jsem žádnou položku z hlasu. Zkus to znovu, např. "6x jantar keg30".'); return; }
+    // Pokud parser nenašel nic, zkusíme jednodušší přístup pro kegy
+    if (!parsed.length) {
+      // Zkusíme extrahovat vzory jako "6x jantar 30" nebo "5x 12sv 50"
+      const kegPatterns = text.match(/(\d{1,4})\s*x\s*([a-záčďéěíňóřšťúůýž]+[a-záčďéěíňóřšťúůýž\s]*?)\s*(\d{1,2})\b/gi);
+      if (kegPatterns) {
+        for (const match of kegPatterns) {
+          const parts = match.match(/(\d{1,4})\s*x\s*([a-záčďéěíňóřšťúůýž]+[a-záčďéěíňóřšťúůýž\s]*?)\s*(\d{1,2})\b/i);
+          if (parts) {
+            const qty = parseInt(parts[1], 10);
+            const beerName = parts[2].trim();
+            const volStr = parts[3];
+            // Najdi pivo podle názvu
+            const beer = beers.find((b) => b.name.toLowerCase().includes(beerName.toLowerCase()) || beerName.toLowerCase().includes(b.name.toLowerCase()));
+            // Najdi KEG obal podle objemu
+            const pkg = kegPackages.find((p) => Math.abs(p.volume_l - parseInt(volStr)) < 2);
+            if (beer && pkg && qty > 0) {
+              const idx = entryRows.findIndex((r) => !r.beerId && !r.pkgId && !r.qty);
+              if (idx >= 0) {
+                setEntryRows((rs) => rs.map((r, j) => j === idx ? { beerId: beer.id, pkgId: pkg.id, qty: String(qty) } : r));
+              }
+            }
+          }
+        }
+        setErr(null);
+        return;
+      }
+    }
+
+    if (!parsed.length) { setErr('Nerozpoznal jsem žádnou položku z hlasu. Zkus to znovu, např. "6x jantar 30" nebo "5x 12sv 50".'); return; }
     setEntryRows((rs) => {
       const next = [...rs];
       let cursor = 0;
       for (const p of parsed) {
         while (cursor < next.length && (next[cursor].beerId || next[cursor].pkgId || next[cursor].qty)) cursor++;
         if (cursor >= next.length) break;
+        // Pro KEG režim: pokud parser nenašel obal, ale je to keg, zkusíme dohledat
+        let pkgId = p.package_id ?? '';
+        if (!pkgId && p.quantity) {
+          // Zkusíme najít keg podle kontextu v hlasu
+          const kegPkg = kegPackages.find((kp) => text.toLowerCase().includes(String(kp.volume_l)));
+          if (kegPkg) pkgId = kegPkg.id;
+        }
         next[cursor] = {
           beerId: p.beer_id ?? '',
-          pkgId: p.package_id ?? '',
+          pkgId,
           qty: p.quantity != null ? String(p.quantity) : '',
         };
         cursor++;
@@ -252,7 +324,6 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
         note: note || null,
         cellar_tank_id: tank?.id ?? null,
         source_volume_l: sourceL || null,
-        loss_l: lossL ? Number(lossL) / filled.length : 0,
       };
     });
 
@@ -281,7 +352,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
       }).eq('id', tankId);
     }
 
-    setEntryRows(emptyRows()); setNote(''); setErr(null); setLossL('');
+    setEntryRows(emptyRows()); setNote(''); setErr(null);
     setFlash(true); setTimeout(() => setFlash(false), 800);
     load(true);
   }
@@ -300,6 +371,28 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
     if (error) { setErr(error.message); return; }
     setRows((rs) => rs.map((r) => r.id === id ? { ...r, quantity: newQty } : r));
   }
+
+  // Spustí editaci záznamu — naplní pole pro úpravu
+  function startEdit(id: string) {
+    const row = rows.find((r) => r.id === id);
+    if (!row) return;
+    setEditingId(id);
+    setEditQty(String(row.quantity));
+  }
+
+  // Uloží upravené množství záznamu
+  async function saveEdit() {
+    if (!editingId) return;
+    const newQty = Number(editQty);
+    if (!(newQty >= 0)) { setErr('Zadej platné množství.'); return; }
+    const { error } = await supabase.from('kegging').update({ quantity: newQty }).eq('id', editingId);
+    if (error) { setErr(error.message); return; }
+    setRows((rs) => rs.map((r) => r.id === editingId ? { ...r, quantity: newQty } : r));
+    setEditingId(null);
+    setEditQty('');
+    setErr(null);
+  }
+
 
   // Prehled podle velikosti kegu (50/30/20/15/10 l + ostatni)
   const KEG_SIZES = [50, 30, 20, 15, 10];
@@ -333,381 +426,636 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
             <span>🛢️</span>
             <span>{mode === 'entry_only' ? 'KEG (Stáčení)' : mode === 'overviews_only' ? 'KEG (Přehled)' : 'KEG (Stáčení & Přehled)'}</span>
           </span>
-        </div>
-        <div className="flex gap-2 items-center flex-wrap">
-          {mode === 'entry_only' && setPage && (
-            <button className="btn-primary text-xs font-black shadow-md" onClick={() => setPage('kegging_overview')}>
-              📋 KEG (Přehled) →
-            </button>
+          {/* Záložky: Zápis / Přehled */}
+          {mode === 'all' && (
+            <div className="flex items-center gap-1 bg-neutral-100 p-1 rounded-xl border border-neutral-200 w-fit">
+              <button
+                type="button"
+                onClick={() => setTab('zapis')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-black transition ${tab === 'zapis' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-600 hover:bg-amber-50'}`}
+              >
+                ✍️ Zápis
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab('prehled')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-black transition ${tab === 'prehled' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-600 hover:bg-amber-50'}`}
+              >
+                📊 Přehled
+              </button>
+            </div>
           )}
-          {mode === 'overviews_only' && setPage && (
-            <button className="btn-primary text-xs font-black shadow-md" onClick={() => setPage('kegging_entry')}>
-              ✏️ KEG (Stáčení) →
-            </button>
-          )}
-          <VoiceRecorder onResult={handleVoiceResult} compact beerNames={beers.map((b) => b.name)} />
-          <button className="btn-primary text-xs font-black shadow-md flex items-center gap-1.5" title="Spočítat z fotek" onClick={() => setShowCount(true)} disabled={!beers.length || !packages.length}>
-            <span>📷 Zadávání z fotky</span>
-          </button>
-          <button className="btn-ghost !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs" title="Export do Excelu" onClick={() => exportKeggingToExcel(rows)} disabled={!rows.length}>📊 Export Excel</button>
+          <div className="relative group">
+
+            <button className="btn-ghost !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs" disabled={!rows.length}>📊 Export Excel ▾</button>
+            {rows.length > 0 && (
+              <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-neutral-200 rounded-xl shadow-lg py-1 min-w-[180px] hidden group-hover:block">
+                <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
+                  const now = new Date();
+                  const m = now.toISOString().slice(0, 7);
+                  const filtered = rows.filter((r) => r.entry_date?.startsWith(m));
+                  exportKeggingToExcel(filtered.map((r) => ({ ...r, cellar_tank_label: cellarTanks.find((t) => t.id === r.cellar_tank_id)?.label ?? '', hl: ((Number(r.quantity) * (packages.find((p) => p.id === r.package_id)?.volume_l ?? 0)) / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 }) })), cellarTanks);
+                }}>📅 Tento měsíc</button>
+                <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
+                  const d = new Date(); d.setMonth(d.getMonth() - 1);
+                  const m = d.toISOString().slice(0, 7);
+                  const filtered = rows.filter((r) => r.entry_date?.startsWith(m));
+                  exportKeggingToExcel(filtered.map((r) => ({ ...r, cellar_tank_label: cellarTanks.find((t) => t.id === r.cellar_tank_id)?.label ?? '', hl: ((Number(r.quantity) * (packages.find((p) => p.id === r.package_id)?.volume_l ?? 0)) / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 }) })), cellarTanks);
+                }}>📅 Minulý měsíc</button>
+                <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
+                  const wk = recordsView === 'week' ? recordsWeekKey : weekKey;
+                  const filtered = rows.filter((r) => isoWeekKey(r.entry_date) === wk);
+                  exportKeggingToExcel(filtered.map((r) => ({ ...r, cellar_tank_label: cellarTanks.find((t) => t.id === r.cellar_tank_id)?.label ?? '', hl: ((Number(r.quantity) * (packages.find((p) => p.id === r.package_id)?.volume_l ?? 0)) / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 }) })), cellarTanks);
+                }}>📅 Tento týden</button>
+                <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
+                  exportKeggingToExcel(rows.map((r) => ({ ...r, cellar_tank_label: cellarTanks.find((t) => t.id === r.cellar_tank_id)?.label ?? '', hl: ((Number(r.quantity) * (packages.find((p) => p.id === r.package_id)?.volume_l ?? 0)) / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 }) })), cellarTanks);
+                }}>📅 Všechno</button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-
-      {/* Prehled: objednane kegy na dany tyden & tanky */}
-      {mode !== 'entry_only' && (
-        <>
-          {/* Zbývá stočit keg — souhrn */}
-          <div className="card p-4 mb-5 border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/80 to-amber-100/30">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h3 className="font-display font-black text-amber-950 text-sm">🛢️ Zbývá stočit keg</h3>
-                <p className="text-xs text-amber-800/70 mt-0.5">Objednané sudy v týdnu {wr.label} − již stočeno = zbývá</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-amber-900 bg-white/80 border border-amber-200 rounded-lg px-2.5 py-1">
-                  Týden: {weekKey}
-                </span>
-                <button onClick={() => setWeekKey(shiftWeek(weekKey, -1))} className="w-7 h-7 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-sm transition">‹</button>
-                <button onClick={() => setWeekKey(shiftWeek(weekKey, 1))} className="w-7 h-7 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-sm transition">›</button>
-              </div>
-            </div>
-
-            {orderedByBeerSize.remainingSizeList.length === 0 ? (
-              <div className="text-sm text-emerald-800 bg-emerald-100/80 border border-emerald-200 rounded-xl px-4 py-3 font-bold flex items-center gap-2">
-                <span>✅</span>
-                <span>Všechny objednané sudy jsou již stočeny!</span>
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {orderedByBeerSize.remainingSizeList.map((r) => (
-                  <div key={r.volume} className="rounded-xl bg-white border-2 border-amber-200/80 px-4 py-2.5 text-center shadow-xs">
-                    <div className="text-[10px] uppercase tracking-wider text-amber-800 font-black">KEG {r.volume} L</div>
-                    <div className="font-display font-black text-2xl text-amber-950">{r.remaining}</div>
-                    <div className="text-xs text-amber-700 font-bold">ks zbývá</div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {orderedByBeerSize.list.length > 0 && (
-              <details className="mt-3 group">
-                <summary className="text-xs font-bold text-amber-800 cursor-pointer hover:text-amber-950 select-none">
-                  📋 Rozpis podle piv ({orderedByBeerSize.list.length})
-                </summary>
-                <div className="mt-2 space-y-1">
-                  {orderedByBeerSize.list.map((r) => (
-                    <div key={`${r.beerKey}|${r.volume}`} className="flex items-center justify-between text-xs bg-white/70 rounded-lg px-3 py-1.5 border border-amber-200/60">
-                      <span className="font-semibold text-amber-950">{r.beerName}</span>
-                      <span className="text-amber-800">
-                        KEG {r.volume} L · objednáno: <strong>{r.ordered}</strong> ks
-                        {r.remaining > 0 ? (
-                          <span className="text-rose-700 ml-1">· zbývá: <strong>{r.remaining}</strong> ks</span>
-                        ) : (
-                          <span className="text-emerald-700 ml-1">· ✅ hotovo</span>
-                        )}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </details>
-            )}
-          </div>
-
-          {/* Aktivní sklepní tanky - přehled */}
-          {activeCellarTanks.length === 0 ? (
-            <div className="card p-4 mb-5 border-dashed border-2 border-warning-200 bg-warning-50/30 text-warning-800 text-sm">
-              ⚠️ Žádný sklepní tank není aktivní. Spusť tank v sekci <strong>Sklep</strong>, poté se tady objeví pro stáčení.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
-              {activeCellarTanks.map((t) => {
-                const initialVol = Number(t.initial_volume_l ?? t.capacity_l);
-                const s = tankSummary.get(t.id) ?? { kegCount: 0, sourceL: 0 };
-                const remaining = Math.max(initialVol - s.sourceL, 0);
-                const pct = initialVol > 0 ? Math.min((s.sourceL / initialVol) * 100, 100) : 0;
-                const selected = cellarTankId === t.id;
-                return (
-                  <button key={t.id} type="button" onClick={() => setCellarTankId(t.id)}
-                    className={`card p-4 text-left transition-all ${selected ? 'ring-2 ring-primary-600 bg-primary-50/60' : 'hover:bg-primary-50/30'}`}>
-                    <div className="flex items-center justify-between">
-                      <div className="font-display font-bold text-primary-900">{t.label}</div>
-                      {selected && <span className="chip bg-primary-900 text-white text-[10px]">Vybráno</span>}
-                    </div>
-                    <div className="text-sm text-primary-700 font-medium mt-0.5">{t.current_beer_name ?? '—'}</div>
-                    <div className="mt-2 h-2 bg-primary-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-success-500 rounded-full" style={{ width: `${Math.max(pct, 3)}%` }} />
-                    </div>
-                    <div className="flex justify-between text-xs text-primary-500 mt-1">
-                      <span>{pct.toFixed(0)}% stočeno</span>
-                      <span>{remaining.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} l zbývá</span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Přehled stáčení sudů podle velikosti */}
-          {rows.length > 0 && (
-            <div className="card p-4 mb-5">
-              <h3 className="font-display font-bold text-primary-900 mb-3">Přehled stáčení sudů podle velikosti</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                {sizeBuckets.map((b) => (
-                  <div key={b.size} className="rounded-2xl border-2 border-primary-200 bg-primary-50/40 p-3 text-center">
-                    <div className="text-[10px] uppercase tracking-wider text-primary-500 font-semibold">Keg {b.size} l</div>
-                    <div className="font-display font-bold text-2xl text-primary-900 mt-1">{b.count}</div>
-                    <div className="text-xs text-primary-600">{b.liters.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} l</div>
-                  </div>
-                ))}
-                {otherCount > 0 && (
-                  <div className="rounded-2xl border-2 border-dashed border-primary-200 bg-primary-50/20 p-3 text-center">
-                    <div className="text-[10px] uppercase tracking-wider text-primary-500 font-semibold">Ostatní</div>
-                    <div className="font-display font-bold text-2xl text-primary-900 mt-1">{otherCount}</div>
-                    <div className="text-xs text-primary-600">{otherLiters.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} l</div>
-                  </div>
-                )}
-              </div>
-              <div className="mt-3 pt-3 border-t border-primary-100 flex flex-wrap items-center justify-between gap-3">
-                <div className="text-sm text-primary-700">
-                  Celkem <strong className="text-primary-900">{totalCount} ks</strong> sudů ·
-                  <strong className="text-primary-900"> {totalLiters.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} l</strong>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {sizeBuckets.filter((b) => b.count > 0).map((b) => (
-                    <span key={b.size} className="chip bg-primary-100 text-primary-700 text-xs">{b.size} l: {b.count} ks</span>
-                  ))}
-                  {otherCount > 0 && <span className="chip bg-primary-100 text-primary-700 text-xs">ostatní: {otherCount} ks</span>}
-                </div>
-              </div>
-            </div>
-          )}
-        </>
-      )}
-
       {/* Zápis stáčení — multi-row (12 řádků pivo+obal+množství najednou) */}
-      {mode !== 'overviews_only' && (
-        <form onSubmit={add} className={`card p-4 mb-5 transition-all duration-200 ${flash ? 'ring-4 ring-success-500/20' : ''}`}>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 items-end mb-4">
+      {tab === 'zapis' && mode !== 'overviews_only' && (
+        <form onSubmit={add} className={`card px-1 py-3 mb-5 transition-all duration-200 ${flash ? 'ring-4 ring-success-500/20' : ''}`}>
+
+          <div className="grid grid-cols-2 gap-3 items-end mb-4">
           <div>
             <label className="label">Datum</label>
             <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
-          <div className="col-span-2 sm:col-span-2">
-            <label className="label">Výchozí pivo pro nové řádky (nepovinné)</label>
-            <select className="input" value={cellarTankId} onChange={(e) => setCellarTankId(e.target.value)}>
-              <option value="">— nevyplňovat automaticky —</option>
-              {activeCellarTanks.map((t) => <option key={t.id} value={t.id}>{t.label} — {t.current_beer_name ?? '—'} ({Number(t.current_volume_l).toLocaleString('cs-CZ')} l)</option>)}
-            </select>
-            <p className="text-[11px] text-primary-400 mt-1">Tank pro odečet se u každého řádku dohledá automaticky podle piva, tohle jen předvyplní prázdné řádky.</p>
-          </div>
           <div>
-            <label className="label">Ztráta celkem (l)</label>
-            <input type="number" step="0.1" className="input" placeholder="l" value={lossL} onChange={(e) => setLossL(e.target.value)} inputMode="decimal" />
+            <label className="label">Tank</label>
+            <select className="input text-xs" value={cellarTankId} onChange={(e) => setCellarTankId(e.target.value)}>
+              <option value="">— nevyplňovat —</option>
+              {activeCellarTanks.map((t) => (
+                <option key={t.id} value={t.id}>{t.label}{t.current_beer_name ? ` (${t.current_beer_name})` : ''}</option>
+              ))}
+            </select>
           </div>
-        </div>
-
-        <div className="flex items-center justify-between mb-2">
-          <div className="text-xs font-black uppercase tracking-wider text-amber-950">Řádky stáčení (pivo + obal + množství)</div>
-          <div className="flex items-center gap-2">
-            <VoiceRecorder onResult={handleVoiceResult} compact beerNames={beers.map((b) => b.name)} />
-            <button type="button" className="btn-primary text-xs !py-1 !px-2.5 shadow-xs flex items-center gap-1.5" title="Spočítat z fotek" onClick={() => setShowCount(true)} disabled={!beers.length || !packages.length}>
-              <span>📷 Zadávání z fotky</span>
-            </button>
           </div>
-        </div>
 
-        {/* Hlavička tabulky pro přesné zarovnání */}
-        <div className="hidden sm:grid grid-cols-12 gap-2 px-3 py-2 text-[11px] font-black text-amber-950/70 uppercase tracking-wider border-b-2 border-amber-200/80 mb-2 bg-amber-500/5 rounded-t-xl">
-          <div className="col-span-1 text-center">#</div>
-          <div className="col-span-3">Pivo</div>
-          <div className="col-span-3">Obal (KEG)</div>
-          <div className="col-span-4 text-center">Množství (ks)</div>
-          <div className="col-span-1 text-right">Tank</div>
-        </div>
-
-        <div className="space-y-1 bg-white rounded-xl border border-neutral-200/90 divide-y divide-neutral-100 overflow-hidden shadow-2xs">
-          {entryRows.map((r, i) => {
-            const rowBeer = beers.find((b) => b.id === r.beerId);
-            const filled = r.pkgId && r.qty && Number(r.qty) > 0;
-            const rowTank = r.beerId ? findTankForBeer(r.beerId) : undefined;
-            const noTankWarning = !!r.beerId && !rowTank;
-            return (
-              <div key={i} className={`p-1.5 sm:px-3 sm:py-2 transition-colors ${filled ? 'bg-amber-50/60' : 'hover:bg-neutral-50/60'}`}>
-                <div className="grid grid-cols-12 gap-1.5 sm:gap-2 items-center">
-                  <div className="col-span-1 flex justify-center">
-                    <span className={`w-5 h-5 sm:w-6 sm:h-6 rounded-lg text-[10px] sm:text-xs font-black grid place-items-center ${filled ? 'bg-amber-950 text-amber-100' : 'bg-neutral-100 text-neutral-600'}`}>
-                      {i + 1}
-                    </span>
-                  </div>
-                  <div className="col-span-11 sm:col-span-3 flex items-center gap-1.5">
-                    <div className="w-3.5 shrink-0 flex items-center justify-center">
-                      {rowBeer && (
-                        <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full shrink-0 shadow-2xs border border-black/20" style={{ backgroundColor: beerBg(rowBeer) }} />
-                      )}
-                    </div>
-                    <select className="input !py-1.5 !px-2 text-xs sm:text-sm font-semibold w-full" value={r.beerId} onChange={(e) => setRowField(i, 'beerId', e.target.value)}>
-                      <option value="">— pivo —</option>
-                      {beers.map((b) => <option key={b.id} value={b.id}>{b.name}{b.degree ? ` (${b.degree})` : ''}</option>)}
-                    </select>
-                  </div>
-                  <div className="col-span-6 sm:col-span-4">
-                    <select className="input !py-1.5 !px-2 text-xs sm:text-sm font-semibold w-full" value={r.pkgId} onChange={(e) => setRowField(i, 'pkgId', e.target.value)}>
-                      <option value="">— obal —</option>
-                      {kegPackages.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-                    </select>
-                  </div>
-                  <div className="col-span-4 sm:col-span-2">
-                    <div className="flex items-center justify-center gap-1">
-                      <button type="button" onClick={() => setRowField(i, 'qty', String(Math.max(0, (Number(r.qty) || 0) - 1)))} className="w-9 h-9 shrink-0 grid place-items-center rounded-lg bg-neutral-100 hover:bg-amber-200 text-neutral-800 font-bold text-base select-none active:scale-95 transition" title="Odečíst 1">−</button>
-                      <input type="number" min={0} className="input !py-1.5 !px-1 text-xs sm:text-sm font-bold text-center min-w-0 flex-1" placeholder="ks" value={r.qty}
-                        onChange={(e) => setRowField(i, 'qty', e.target.value)} inputMode="numeric" />
-                      <button type="button" onClick={() => setRowField(i, 'qty', String((Number(r.qty) || 0) + 1))} className="w-9 h-9 shrink-0 grid place-items-center rounded-lg bg-amber-950 hover:bg-amber-900 text-white font-bold text-base select-none active:scale-95 transition" title="Přidat 1">+</button>
-                    </div>
-                  </div>
-                  <div className="col-span-1 flex justify-end">
-                    {(r.pkgId || r.qty || r.beerId) && (
-                      <button type="button" onClick={() => setEntryRows((rs) => rs.map((row, idx) => idx === i ? { beerId: '', pkgId: '', qty: '' } : row))}
-                        className="w-6 h-6 grid place-items-center rounded-lg text-danger-400 hover:bg-danger-50 hover:text-danger-600 text-xs font-bold transition" title="Vymazat řádek">✕</button>
-                    )}
-                  </div>
-                </div>
-                {rowTank && filled && (
-                  <div className="ml-8 sm:ml-11 mt-1 text-[11px] text-success-700 font-medium">
-                    ✓ Bere se z tanku <strong>{rowTank.label}</strong> ({Number(rowTank.current_volume_l).toLocaleString('cs-CZ')} l)
-                  </div>
-                )}
-                {noTankWarning && (
-                  <div className="ml-8 sm:ml-11 mt-1 text-[11px] text-warning-700 font-medium">
-                    ⚠️ Pro toto pivo není aktivní tank — zapíše se bez odečtu objemu z tanku.
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-neutral-100">
+                  <th className="text-left py-1.5 px-1 font-black text-neutral-700">Pivo</th>
+                  <th className="text-left py-1.5 px-1 font-black text-neutral-700">Obal</th>
+                  <th className="text-center py-1.5 px-1 font-black text-neutral-700">Ks</th>
+                  <th className="w-24"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {entryRows.map((r, i) => {
+                  const pkg = packages.find((p) => p.id === r.pkgId);
+                  const liters = pkg ? (Number(r.qty || 0) * pkg.volume_l) : 0;
+                  const hl = pkg ? (liters / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 }) : '—';
+                  return (
+                    <tr key={i} className="border-b border-neutral-200/60">
+                      <td className="py-1 pr-0 w-[40%]">
+                        <select className="input text-[10px] w-full appearance-none pr-2" value={r.beerId} onChange={(e) => setEntryRows((rs) => rs.map((x, j) => j === i ? { ...x, beerId: e.target.value } : x))}>
+                          <option value="">—</option>
+                          {beers.filter((b) => b.is_active).map((b) => (
+                            <option key={b.id} value={b.id}>{b.name}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="py-1 pr-0 w-[35%]">
+                        <select className="input text-[10px] w-full appearance-none pr-2" value={r.pkgId} onChange={(e) => setEntryRows((rs) => rs.map((x, j) => j === i ? { ...x, pkgId: e.target.value } : x))}>
+                          <option value="">—</option>
+                          {kegPackages.map((p) => (
+                            <option key={p.id} value={p.id}>{p.volume_l} L</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="py-1 pr-0">
+                        <div className="flex items-center justify-center gap-0.5">
+                          <button
+                            type="button"
+                            className="w-6 h-6 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition disabled:opacity-30"
+                            disabled={!r.qty || Number(r.qty) <= 0}
+                            onClick={() => setEntryRows((rs) => rs.map((x, j) => j === i ? { ...x, qty: String(Math.max(0, Number(x.qty) - 1)) } : x))}
+                          >−</button>
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            className="input text-lg font-black w-20 text-center text-neutral-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            value={r.qty}
+                            onChange={(e) => setEntryRows((rs) => rs.map((x, j) => j === i ? { ...x, qty: e.target.value } : x))}
+                            placeholder="0"
+                          />
 
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
-          <Field2 label="Poznámka" value={note} onChange={setNote} />
-          <div className="flex items-end">
-            <button type="submit" className="btn-primary w-full !py-2.5" disabled={saving}>
-              {saving ? 'Ukládám…' : `+ Uložit (${rowsSummary.totalQty} ks)`}
-            </button>
+
+                          <button
+                            type="button"
+                            className="w-6 h-6 grid place-items-center rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-xs transition"
+                            onClick={() => setEntryRows((rs) => rs.map((x, j) => j === i ? { ...x, qty: String(Number(x.qty || 0) + 1) } : x))}
+                          >+</button>
+                        </div>
+                      </td>
+                      <td className="py-1 pr-0 text-right whitespace-nowrap">
+                        {pkg && Number(r.qty) > 0 ? (
+                          <span className="text-xs font-bold text-neutral-700">
+                            {liters.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} L
+                            <span className="text-[10px] text-neutral-400 ml-1">({hl} HL)</span>
+                          </span>
+                        ) : (
+                          <span className="text-xs text-neutral-400">—</span>
+                        )}
+                      </td>
+                      <td className="py-1">
+                        <div className="flex items-center gap-1">
+                          <button type="button" className="w-7 h-7 grid place-items-center rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-bold text-sm transition" onClick={add} title="Uložit vše">✓</button>
+                          <button type="button" className="w-7 h-7 grid place-items-center rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-sm transition" onClick={() => setEntryRows((rs) => rs.map((x, j) => j === i ? emptyItem() : x))} title="Zrušit řádek">✕</button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-        </div>
 
-        {(rowTankPreview.perTank.size > 0 || rowTankPreview.missingCount > 0) && (
-          <div className="text-xs mt-3 bg-accent-50 border border-accent-100 rounded-lg px-3 py-2 space-y-1.5">
-            {Array.from(rowTankPreview.perTank.entries()).map(([tankId, l]) => {
-              const t = cellarTanks.find((x) => x.id === tankId);
-              if (!t) return null;
-              const remaining = Math.max(Number(t.current_volume_l) - l, 0);
-              return (
-                <div key={tankId} className="flex justify-between">
-                  <span className="text-primary-600">Tank <strong>{t.label}</strong> ({t.current_beer_name ?? '—'}) — bude odečteno:</span>
-                  <span className="font-semibold text-danger-600">−{l.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} l <span className="text-primary-500 font-normal">(zbude {remaining.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} l)</span></span>
-                </div>
-              );
-            })}
-            {rowTankPreview.missingCount > 0 && (
-              <div className="text-warning-700">⚠️ {rowTankPreview.missingCount} řádek/řádky bez nalezeného tanku — uloží se bez odečtu objemu.</div>
-            )}
+          <div className="flex items-center justify-between mt-4">
+            <div className="flex items-center gap-2">
+              <button type="submit" disabled={saving} className="btn-primary text-xs font-black shadow-md">
+                {saving ? '⏳ Ukládám…' : '💾 Uložit stáčení'}
+              </button>
+              <button type="button" className="btn-ghost text-xs" onClick={() => setEntryRows([...entryRows, emptyItem()])}>➕ Přidat řádek</button>
+              <button type="button" className="btn-ghost text-xs" onClick={() => setEntryRows(emptyRows())}>🗑️ Vymazat vše</button>
+            </div>
+            {err && <span className="text-xs font-bold text-rose-700">{err}</span>}
           </div>
-        )}
-        {err && <div className="text-sm text-danger-600 mt-3 bg-danger-500/10 rounded-lg px-3 py-2">{err}</div>}
-      </form>
+
+        </form>
       )}
 
-      {/* Přehled zadaných záznamů */}
-      <div className="mt-6 space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="text-xs font-black uppercase tracking-wider text-amber-950 flex items-center gap-2">
-            <span>📋</span>
-            <span>{mode === 'entry_only' ? 'Přehled zadaných záznamů stáčení KEG' : 'Všechny záznamy stáčení KEG'}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            {rows.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setShowAllWeeks((v) => !v)}
-                className={`text-xs font-bold px-2.5 py-1 rounded-lg border transition ${
-                  showAllWeeks
-                    ? 'bg-amber-200 border-amber-300 text-amber-950'
-                    : 'bg-white border-neutral-200 text-neutral-600'
-                }`}
-              >
-                {showAllWeeks ? `📅 Všechny týdny (${rows.length})` : `📅 Tento týden (${currentWeekCount})`}
-              </button>
+      {/* Voice recorder mimo form */}
+      {tab === 'zapis' && mode !== 'overviews_only' && (
+        <div className="flex justify-end -mt-4 mb-2">
+          <VoiceRecorder onResult={handleVoiceResult} beerNames={beers.map((b) => b.name)} />
+        </div>
+      )}
+
+      {/* Prehled: objednane kegy na dany tyden & tanky */}
+      {tab === 'prehled' && mode !== 'entry_only' && (
+        <>
+
+          {/* Zbývá stočit keg — kompaktní */}
+          <div className="card p-3 mb-4 border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/80 to-amber-100/30">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="font-display font-black text-amber-950 text-xs">🛢️ Zbývá stočit keg</span>
+                <span className="text-[10px] text-amber-800/70">týden {wr.label}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setWeekKey(shiftWeek(weekKey, -1))} className="w-6 h-6 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition">‹</button>
+                <button onClick={() => setWeekKey(shiftWeek(weekKey, 1))} className="w-6 h-6 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition">›</button>
+              </div>
+            </div>
+
+            {orderedByBeerSize.remainingSizeList.length === 0 ? (
+              <div className="text-xs text-emerald-800 bg-emerald-100/80 border border-emerald-200 rounded-xl px-3 py-2 font-bold flex items-center gap-1.5">
+                <span>✅</span>
+                <span>Všechny objednané sudy jsou již stočeny!</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 flex-wrap">
+                {orderedByBeerSize.remainingSizeList.map((r) => (
+                  <div key={r.volume} className="flex items-center gap-1 bg-amber-100/80 rounded-lg px-2.5 py-1.5 border border-amber-300/60 shadow-2xs">
+                    <span className="text-[11px] font-bold text-amber-950 whitespace-nowrap">KEG {r.volume}L</span>
+                    <span className="text-xs font-black text-rose-800">{r.remaining}</span>
+                  </div>
+                ))}
+              </div>
             )}
-            {rows.length > 0 && <span className="chip bg-amber-100 text-amber-900 text-xs font-bold">{rows.length} záznamů</span>}
+
+            {/* Tabulka: přehled zbývá stočit podle piv a velikostí */}
+            {orderedByBeerSize.list.length > 0 && (
+              <div className="mt-3">
+                <div className="text-xs font-bold text-amber-800 mb-2">📋 Rozpis podle piv a velikostí</div>
+                <div className="rounded-xl border border-amber-300/80 bg-amber-50/90">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-amber-300/80 bg-amber-100/80">
+                        <th className="text-left py-1.5 px-2 font-black text-amber-950">Pivo</th>
+                        <th className="text-right py-1.5 px-2 font-black text-amber-950">KEG</th>
+                        <th className="text-right py-1.5 px-2 font-black text-amber-950">Obj.</th>
+                        <th className="text-right py-1.5 px-2 font-black text-amber-950">Stoč.</th>
+                        <th className="text-right py-1.5 px-2 font-black text-amber-950">Zbývá</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {orderedByBeerSize.list.map((r) => {
+                        const kegged = keggedHistoryMap.get(`${r.beerKey}|${r.volume}`) ?? 0;
+                        const beerObj = beers.find((b) => b.id === r.beerKey || b.name === r.beerName);
+                        return (
+                          <tr key={`${r.beerKey}|${r.volume}`} className="border-b border-amber-200/60 hover:bg-amber-100/70">
+                            <td className="py-1.5 px-2 font-bold text-amber-950 flex items-center gap-1.5">
+                              <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs border border-black/20" style={{ backgroundColor: beerBg(beerObj) }} />
+                              <span className="truncate max-w-[100px]">{r.beerName}</span>
+                            </td>
+                            <td className="py-1.5 px-2 text-right font-semibold text-amber-900 whitespace-nowrap">{r.volume}L</td>
+                            <td className="py-1.5 px-2 text-right font-bold text-amber-950">{r.ordered}</td>
+                            <td className="py-1.5 px-2 text-right font-bold text-emerald-800">{kegged}</td>
+                            <td className="py-1.5 px-2 text-right whitespace-nowrap">
+                              {r.remaining > 0 ? (
+                                <span className="font-black text-rose-800">{r.remaining}</span>
+                              ) : (
+                                <span className="font-black text-emerald-800">✅</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
+
+          {/* Stočeno KEG za týden — jednotlivé záznamy s +/−/✕ */}
+          {rows.length > 0 && (() => {
+            const weekRows = rows.filter((r) => isoWeekKey(r.entry_date) === weekKey);
+            if (weekRows.length === 0) return null;
+            const sorted = [...weekRows].sort((a, b) => {
+              const dateCmp = (b.entry_date ?? '').localeCompare(a.entry_date ?? '');
+              if (dateCmp !== 0) return dateCmp;
+              return (b.created_at ?? '').localeCompare(a.created_at ?? '');
+            });
+            const totalCount = sorted.reduce((s, r) => s + Number(r.quantity), 0);
+
+            return (
+              <div className="card p-4 mb-5 border-2 border-emerald-300/80 bg-gradient-to-br from-emerald-50/80 to-emerald-100/30">
+                <h3 className="font-display font-black text-emerald-950 text-sm mb-3">🍺 Stočeno KEG za týden {weekKey}</h3>
+                <div className="rounded-xl border border-emerald-300/80 bg-emerald-50/90 overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-emerald-300/80 bg-emerald-100/80">
+                        <th className="text-left py-1.5 px-2 font-black text-emerald-950">Datum</th>
+                        <th className="text-left py-1.5 px-2 font-black text-emerald-950">Pivo</th>
+                        <th className="text-right py-1.5 px-2 font-black text-emerald-950">KEG</th>
+                        <th className="text-right py-1.5 px-2 font-black text-emerald-950">Ks</th>
+                        <th className="text-right py-1.5 px-2 font-black text-emerald-950">Akce</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sorted.map((r) => {
+                        const beer = beers.find((b) => b.id === r.beer_id);
+                        const pkg = packages.find((p) => p.id === r.package_id);
+                        const vol = pkg ? Number(pkg.volume_l) : 0;
+                        return (
+                          <tr key={r.id} className="border-b border-emerald-200/60 hover:bg-emerald-100/70 transition-colors">
+                            <td className="py-1.5 px-2 font-mono font-bold text-emerald-950 whitespace-nowrap">
+                              {r.entry_date ? r.entry_date.slice(8, 10) + '.' + r.entry_date.slice(5, 7) + '.' : '—'}
+                            </td>
+                            <td className="py-1.5 px-2 font-bold text-emerald-950 flex items-center gap-1.5">
+                              <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
+                              <span className="truncate max-w-[120px]">{r.beer_name ?? beer?.name ?? '—'}</span>
+                            </td>
+                            <td className="py-1.5 px-2 text-right font-semibold text-emerald-900 whitespace-nowrap">{vol > 0 ? `${vol}L` : '—'}</td>
+                            <td className="py-1.5 px-2 text-right font-bold text-emerald-950">
+                              {editingId === r.id ? (
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  autoFocus
+                                  className="input text-base font-black w-16 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                  value={editQty}
+                                  onChange={(e) => setEditQty(e.target.value)}
+                                  onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') { setEditingId(null); setEditQty(''); } }}
+                                />
+                              ) : (
+                                r.quantity
+                              )}
+                            </td>
+                            <td className="py-1.5 px-2 text-right whitespace-nowrap">
+                              {editingId === r.id ? (
+                                <div className="flex items-center justify-end gap-1">
+                                  <button
+                                    type="button"
+                                    className="px-2 h-6 grid place-items-center rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-xs transition"
+                                    onClick={saveEdit}
+                                    title="Uložit"
+                                  >✓</button>
+                                  <button
+                                    type="button"
+                                    className="px-2 h-6 grid place-items-center rounded-lg bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-bold text-xs transition"
+                                    onClick={() => { setEditingId(null); setEditQty(''); }}
+                                    title="Zrušit"
+                                  >✕</button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-end gap-1">
+                                  <button
+                                    type="button"
+                                    className="px-2 h-6 grid place-items-center rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-800 font-bold text-xs transition"
+                                    onClick={() => startEdit(r.id)}
+                                    title="Upravit"
+                                  >✏️</button>
+                                  <button
+                                    type="button"
+                                    className="w-6 h-6 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-emerald-950 font-bold text-xs transition"
+                                    onClick={() => increment(r.id, -1)}
+                                    disabled={Number(r.quantity) <= 0}
+                                    title="Odebrat 1 ks"
+                                  >−</button>
+                                  <button
+                                    type="button"
+                                    className="w-6 h-6 grid place-items-center rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-xs transition"
+                                    onClick={() => increment(r.id, 1)}
+                                    title="Přidat 1 ks"
+                                  >+</button>
+                                  <button
+                                    type="button"
+                                    className="w-6 h-6 grid place-items-center rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition"
+                                    onClick={() => {
+                                      if (confirm(`Smazat záznam: ${r.beer_name ?? beer?.name ?? '—'} ${vol}L × ${r.quantity} ks?`)) {
+                                        del(r.id);
+                                      }
+                                    }}
+                                    title="Smazat záznam"
+                                  >✕</button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {/* Souhrnný řádek */}
+                      <tr className="bg-emerald-200/60 font-black">
+                        <td className="py-1.5 px-2 font-black text-emerald-950"></td>
+                        <td className="py-1.5 px-2 font-black text-emerald-950">📦 Celkem</td>
+                        <td className="py-1.5 px-2 text-right font-black text-emerald-950"></td>
+                        <td className="py-1.5 px-2 text-right font-black text-emerald-950">{totalCount}</td>
+                        <td className="py-1.5 px-2 text-right font-black text-emerald-950"></td>
+                      </tr>
+
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
+
+        </>
+      )}
+
+      {/* Všechny záznamy stáčení KEG — seskupená tabulka jako "Stočeno za týden" */}
+      {tab === 'prehled' && mode !== 'entry_only' && (
+      <div className="mt-0 space-y-3">
+
+        <div className="flex items-center justify-between">
+          <div className="text-xs font-black uppercase tracking-wider text-amber-950/60 flex items-center gap-2">
+            <span>📋</span>
+            <span>Všechny záznamy stáčení KEG</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {rows.length > 0 && (
+              <>
+                {/* Filtr podle piva */}
+                <select
+                  value={beerFilter}
+                  onChange={(e) => setBeerFilter(e.target.value)}
+                  className="input text-xs font-bold px-2 py-1 rounded-lg border border-neutral-200 bg-white text-neutral-700 max-w-[140px]"
+                >
+                  <option value="">🍺 Všechna piva</option>
+                  {beers.map((b) => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+
+                {/* Přepínač období: Den / Týden / Měsíc */}
+                <div className="flex items-center gap-1 bg-white border border-neutral-200 rounded-lg p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setRecordsView('day')}
+                    className={`text-xs font-bold px-2.5 py-1 rounded-md border transition ${
+                      recordsView === 'day'
+                        ? 'bg-amber-200 border-amber-300 text-amber-950'
+                        : 'bg-white border-transparent text-neutral-600'
+                    }`}
+                  >
+                    📅 Den
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRecordsView('week')}
+                    className={`text-xs font-bold px-2.5 py-1 rounded-md border transition ${
+                      recordsView === 'week'
+                        ? 'bg-amber-200 border-amber-300 text-amber-950'
+                        : 'bg-white border-transparent text-neutral-600'
+                    }`}
+                  >
+                    📅 Týden
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRecordsView('month')}
+                    className={`text-xs font-bold px-2.5 py-1 rounded-md border transition ${
+                      recordsView === 'month'
+                        ? 'bg-amber-200 border-amber-300 text-amber-950'
+                        : 'bg-white border-transparent text-neutral-600'
+                    }`}
+                  >
+                    📅 Měsíc
+                  </button>
+                </div>
+
+                {/* Navigace podle zvoleného období */}
+                {recordsView === 'day' && (
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => setRecordsDay(shiftDay(recordsDay, -1))} className="w-6 h-6 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition">‹</button>
+                    <input
+                      type="date"
+                      value={recordsDay}
+                      onChange={(e) => setRecordsDay(e.target.value)}
+                      className="input text-xs font-bold px-2 py-1 rounded-lg border border-neutral-200 bg-white text-neutral-700"
+                    />
+                    <button onClick={() => setRecordsDay(shiftDay(recordsDay, 1))} className="w-6 h-6 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition">›</button>
+                  </div>
+                )}
+                {recordsView === 'week' && (
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => setRecordsWeekKey(shiftWeek(recordsWeekKey, -1))} className="w-6 h-6 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition">‹</button>
+                    <span className="text-xs font-bold text-amber-950 px-1 whitespace-nowrap">{weekRange(recordsWeekKey).label}</span>
+                    <button onClick={() => setRecordsWeekKey(shiftWeek(recordsWeekKey, 1))} className="w-6 h-6 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition">›</button>
+                  </div>
+                )}
+                {recordsView === 'month' && (
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => setRecordsMonthKey(shiftMonth(recordsMonthKey, -1))} className="w-6 h-6 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition">‹</button>
+                    <span className="text-xs font-bold text-amber-950 px-1 whitespace-nowrap">{recordsMonthKey}</span>
+                    <button onClick={() => setRecordsMonthKey(shiftMonth(recordsMonthKey, 1))} className="w-6 h-6 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition">›</button>
+                  </div>
+                )}
+              </>
+            )}
+            {rows.length > 0 && <span className="chip bg-amber-100/60 text-amber-900/70 text-xs font-bold">{filteredRows.length} záznamů</span>}
+          </div>
+
         </div>
 
         {loading ? (
           <Spinner />
         ) : rows.length === 0 ? (
           <EmptyState text="Zatím žádné záznamy. Přidej první výše." icon="📝" />
-        ) : (
-          <div className="card overflow-hidden animate-fade-in border-2 border-neutral-200">
-            <div className="overflow-x-auto scrollbar-thin">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Datum</th><th>Pivo</th><th>Obal</th><th className="text-right">Množství</th><th>Sklep tank</th><th className="text-right">Stočeno</th><th className="text-right">Ztráta</th><th>Poznámka</th><th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredRows.map((r) => {
-                    const cellar = cellarTanks.find((t) => t.id === r.cellar_tank_id);
-                    const pkgObj = packages.find((p) => p.id === r.package_id);
-                    const pkgLabel = r.package_label ?? pkgObj?.label ?? '—';
-                    return (
-                      <tr key={r.id} className="hover:bg-primary-50/50 transition-colors">
-                        <td className="whitespace-nowrap text-primary-700">{r.entry_date}</td>
-                        <td className="font-medium"><span className="inline-block rounded-md px-2 py-0.5" style={{ backgroundColor: beerBg(beers.find((b) => b.id === r.beer_id)), color: beerText(beers.find((b) => b.id === r.beer_id)) === 'text-white' ? '#fff' : undefined }}>{r.beer_name ?? beers.find((b) => b.id === r.beer_id)?.name ?? '—'}</span></td>
-                        <td className="font-medium">
-                          <span className="inline-block rounded-md px-2 py-0.5 text-xs font-extrabold shadow-2xs" style={{ backgroundColor: pkgBg(pkgObj), color: pkgText(pkgObj) === 'text-white' ? '#fff' : '#111' }}>
-                            {pkgLabel}
-                          </span>
-                        </td>
-                        <td className="text-right font-semibold text-primary-900">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button type="button" onClick={() => increment(r.id, -1)} disabled={Number(r.quantity) <= 0}
-                              className="w-7 h-7 grid place-items-center rounded-lg bg-primary-100 text-primary-700 hover:bg-primary-200 disabled:opacity-40 transition text-sm font-bold" title="Odečíst 1">−</button>
-                            <span className="min-w-[2rem] text-center">{r.quantity}</span>
-                            <button type="button" onClick={() => increment(r.id, 1)}
-                              className="w-7 h-7 grid place-items-center rounded-lg bg-primary-900 text-white hover:bg-primary-800 transition text-sm font-bold" title="Přidat 1 keg">+</button>
-                          </div>
-                        </td>
-                        <td className="text-primary-700">{cellar ? cellar.label : '—'}</td>
-                        <td className="text-right text-primary-700">{r.source_volume_l ? Number(r.source_volume_l).toLocaleString('cs-CZ', { maximumFractionDigits: 1 }) : '—'}</td>
-                        <td className={`text-right ${Number(r.loss_l) > 0 ? 'text-danger-600 font-semibold' : 'text-primary-600'}`}>{r.loss_l != null && Number(r.loss_l) > 0 ? Number(r.loss_l).toLocaleString('cs-CZ', { maximumFractionDigits: 1 }) : '—'}</td>
-                        <td className="text-primary-600 max-w-[200px] truncate" title={r.note ?? ''}>{r.note ?? ''}</td>
-                        <td className="text-right">
-                          <button className="w-7 h-7 grid place-items-center rounded-lg text-danger-400 hover:bg-danger-50 hover:text-danger-600 transition" title="Smazat" onClick={() => del(r.id)}>×</button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+        ) : filteredRows.length === 0 ? (
+          <EmptyState text="Žádné záznamy pro toto období." icon="📅" />
+        ) : (() => {
+          // Jednotlivé záznamy s datem (den a měsíc)
+          const sortedRows = [...filteredRows].sort((a, b) => {
+            const dateCmp = (b.entry_date ?? '').localeCompare(a.entry_date ?? '');
+            if (dateCmp !== 0) return dateCmp;
+            return (b.created_at ?? '').localeCompare(a.created_at ?? '');
+          });
+          const totalCount = sortedRows.reduce((s, r) => s + Number(r.quantity), 0);
+          const totalLiters = sortedRows.reduce((s, r) => {
+            const pkg = packages.find((p) => p.id === r.package_id);
+            return s + (pkg ? Number(r.quantity) * Number(pkg.volume_l) : 0);
+          }, 0);
+
+          function formatDate(d: string | null | undefined) {
+            if (!d) return '—';
+            const parts = d.split('-');
+            if (parts.length < 3) return d;
+            return `${parts[2]}.${parts[1]}.`; // DD.MM.
+          }
+
+          return (
+            <div className="card p-4 border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/80 to-amber-100/30">
+              <h3 className="font-display font-black text-amber-950 text-sm mb-3">
+                🍺 {recordsView === 'month' ? `Měsíc ${recordsMonthKey}` : recordsView === 'week' ? `Týden ${recordsWeekKey}` : `Den ${recordsDay}`}
+              </h3>
+
+              <div className="rounded-xl border border-amber-300/80 bg-amber-50/90 overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-amber-300/80 bg-amber-100/80">
+                      <th className="text-left py-1.5 px-2 font-black text-amber-950">Datum</th>
+                      <th className="text-left py-1.5 px-2 font-black text-amber-950">Pivo</th>
+                      <th className="text-right py-1.5 px-2 font-black text-amber-950">KEG</th>
+                      <th className="text-right py-1.5 px-2 font-black text-amber-950">Ks</th>
+                      <th className="text-right py-1.5 px-2 font-black text-amber-950">Litry</th>
+                      <th className="text-right py-1.5 px-2 font-black text-amber-950">HL</th>
+                      <th className="text-right py-1.5 px-2 font-black text-amber-950">Akce</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedRows.map((r) => {
+                      const beer = beers.find((b) => b.id === r.beer_id);
+                      const pkg = packages.find((p) => p.id === r.package_id);
+                      const vol = pkg ? Number(pkg.volume_l) : 0;
+                      const liters = Number(r.quantity) * vol;
+                      return (
+                        <tr key={r.id} className="border-b border-amber-200/60 hover:bg-amber-100/70 transition-colors">
+                          <td className="py-1.5 px-2 font-mono font-bold text-amber-950 whitespace-nowrap">{formatDate(r.entry_date)}</td>
+                          <td className="py-1.5 px-2 font-bold text-amber-950 flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
+                            <span className="truncate max-w-[120px]">{r.beer_name ?? beer?.name ?? '—'}</span>
+                          </td>
+                          <td className="py-1.5 px-2 text-right font-semibold text-amber-900 whitespace-nowrap">{pkg ? `${vol}L` : '—'}</td>
+                          <td className="py-1.5 px-2 text-right font-bold text-amber-950">
+                            {editingId === r.id ? (
+                              <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                autoFocus
+                                className="input text-base font-black w-16 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                value={editQty}
+                                onChange={(e) => setEditQty(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') { setEditingId(null); setEditQty(''); } }}
+                              />
+                            ) : (
+                              r.quantity
+                            )}
+                          </td>
+                          <td className="py-1.5 px-2 text-right font-bold text-amber-950">{liters.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })}</td>
+                          <td className="py-1.5 px-2 text-right font-bold text-amber-950">{(liters / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 })}</td>
+                          <td className="py-1.5 px-2 text-right whitespace-nowrap">
+                            {editingId === r.id ? (
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  type="button"
+                                  className="px-2 h-6 grid place-items-center rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-xs transition"
+                                  onClick={saveEdit}
+                                  title="Uložit"
+                                >✓</button>
+                                <button
+                                  type="button"
+                                  className="px-2 h-6 grid place-items-center rounded-lg bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-bold text-xs transition"
+                                  onClick={() => { setEditingId(null); setEditQty(''); }}
+                                  title="Zrušit"
+                                >✕</button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  type="button"
+                                  className="px-2 h-6 grid place-items-center rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-800 font-bold text-xs transition"
+                                  onClick={() => startEdit(r.id)}
+                                  title="Upravit"
+                                >✏️</button>
+                                <button
+                                  type="button"
+                                  className="w-6 h-6 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition"
+                                  onClick={() => increment(r.id, -1)}
+                                  disabled={Number(r.quantity) <= 0}
+                                  title="Odebrat 1 ks"
+                                >−</button>
+                                <button
+                                  type="button"
+                                  className="w-6 h-6 grid place-items-center rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-xs transition"
+                                  onClick={() => increment(r.id, 1)}
+                                  title="Přidat 1 ks"
+                                >+</button>
+                                <button
+                                  type="button"
+                                  className="w-6 h-6 grid place-items-center rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition"
+                                  onClick={() => {
+                                    if (confirm(`Smazat záznam: ${r.beer_name ?? beer?.name ?? '—'} ${vol}L × ${r.quantity} ks?`)) {
+                                      del(r.id);
+                                    }
+                                  }}
+                                  title="Smazat záznam"
+                                >✕</button>
+                              </div>
+                            )}
+                          </td>
+
+                        </tr>
+                      );
+                    })}
+                    {/* Souhrnný řádek */}
+                    <tr className="bg-amber-200/60 font-black">
+                      <td className="py-1.5 px-2 font-black text-amber-950"></td>
+                      <td className="py-1.5 px-2 font-black text-amber-950">📦 Celkem</td>
+                      <td className="py-1.5 px-2 text-right font-black text-amber-950"></td>
+                      <td className="py-1.5 px-2 text-right font-black text-amber-950">{totalCount}</td>
+                      <td className="py-1.5 px-2 text-right font-black text-amber-950">{totalLiters.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })}</td>
+                      <td className="py-1.5 px-2 text-right font-black text-amber-950">{(totalLiters / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 })}</td>
+                      <td className="py-1.5 px-2 text-right font-black text-amber-950"></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
-      {showCount && (
-        <CountFromImage
-          table="kegging"
-          beers={beers}
-          packages={packages}
-          onClose={() => setShowCount(false)}
-          onSaved={load}
-        />
       )}
+
     </div>
   );
 }
+
 
 function Field2({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (

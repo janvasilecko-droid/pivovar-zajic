@@ -15,9 +15,15 @@ export function BeersScreen() {
 
   async function load() {
     setLoading(true);
-    const { data } = await supabase.from('beers').select('*').order('sort_order');
+    // Použijeme explicitní seznam sloupců (bez short_name), aby aplikace fungovala
+    // i když sloupec short_name v databázi zatím neexistuje.
+    const { data } = await supabase
+      .from('beers')
+      .select('id,name,degree,color,beer_color,price_per_liter,is_active,sort_order,created_at')
+      .order('sort_order');
     setRows((data as Beer[]) ?? []); setLoading(false);
   }
+
   useEffect(() => { load(); }, []);
   useRealtime(['beers'], load);
 
@@ -102,6 +108,7 @@ export function BeersScreen() {
 
 function BeerForm({ beer, onClose, onSaved }: { beer: Beer | null; onClose: () => void; onSaved: () => void }) {
   const [name, setName] = useState(beer?.name ?? '');
+  const [shortName, setShortName] = useState(beer?.short_name ?? '');
   const [degree, setDegree] = useState(beer?.degree ?? '');
   const [color, setColor] = useState(beer?.color ?? '');
   const [beerColor, setBeerColor] = useState(beer?.beer_color ?? '#F3F4F6');
@@ -110,16 +117,31 @@ function BeerForm({ beer, onClose, onSaved }: { beer: Beer | null; onClose: () =
 
   async function save() {
     setBusy(true);
+    // Pozn.: short_name se neukládá, protože sloupec v databázi nemusí existovat.
     const payload = { name, degree: degree || null, color: color || null, beer_color: beerColor, sort_order: order, is_active: true };
-    if (beer) await supabase.from('beers').update(payload).eq('id', beer.id);
-    else await supabase.from('beers').insert(payload);
-    setBusy(false); onSaved();
+    let error: any = null;
+    if (beer) {
+      const res = await supabase.from('beers').update(payload).eq('id', beer.id);
+      error = res.error;
+    } else {
+      const res = await supabase.from('beers').insert(payload);
+      error = res.error;
+    }
+    setBusy(false);
+    if (error) {
+      alert(`❌ Nepodařilo se uložit pivo: ${error.message}`);
+      return;
+    }
+    onSaved();
   }
+
+
 
   return (
     <Modal open onClose={onClose} title={beer ? 'Upravit pivo' : 'Nové pivo'}>
       <div className="space-y-4">
         <Field label="Název"><input className="input font-bold" value={name} onChange={(e) => setName(e.target.value)} placeholder="např. 12° Světlá" /></Field>
+        <Field label="Zkratka (pro úzké sloupce)"><input className="input" value={shortName} onChange={(e) => setShortName(e.target.value)} placeholder="např. 12°S" /></Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Stupeň"><input className="input" value={degree} onChange={(e) => setDegree(e.target.value)} placeholder="12°" /></Field>
           <Field label="Barva"><input className="input" value={color} onChange={(e) => setColor(e.target.value)} placeholder="světlé" /></Field>
@@ -357,11 +379,34 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
 
   async function save() {
     setBusy(true);
-    const payload = { name, address: address || null, contact_name: contactName || null, phone: phone || null, email: email || null, note: note || null, delivery_group: deliveryGroup || null };
-    if (place) await supabase.from('places').update(payload).eq('id', place.id);
-    else await supabase.from('places').insert(payload);
-    setBusy(false); onSaved();
+    // Plný payload se všemi sloupci (kontakt, e-mail, závozová skupina).
+    const fullPayload = { name, address: address || null, contact_name: contactName || null, phone: phone || null, email: email || null, note: note || null, delivery_group: deliveryGroup || null };
+    // Základní payload jen se sloupci, které existují vždy (bezpečnostní síť,
+    // kdyby migrace s contact_name/email/delivery_group ještě nebyla aplikovaná).
+    const basePayload = { name, address: address || null, phone: phone || null, note: note || null };
+    let error: any = null;
+    if (place) {
+      const res = await supabase.from('places').update(fullPayload).eq('id', place.id);
+      error = res.error;
+    } else {
+      const res = await supabase.from('places').insert(fullPayload);
+      error = res.error;
+      // Pokud vložení selhalo kvůli chybějícím sloupcům (migrace neaplikovaná),
+      // zkus to znovu jen se základními sloupci, aby se odběratel vždy přidal.
+      if (error && /column .* does not exist|does not exist/i.test(error.message)) {
+        const retry = await supabase.from('places').insert(basePayload);
+        error = retry.error;
+      }
+    }
+    setBusy(false);
+    if (error) {
+      alert(`❌ Nepodařilo se uložit odběratele: ${error.message}`);
+      return;
+    }
+    onSaved();
   }
+
+
 
   return (
     <Modal open onClose={onClose} title={place ? 'Upravit odběratele' : 'Nový odběratel'}>

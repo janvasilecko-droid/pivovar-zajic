@@ -1,7 +1,8 @@
 import { useEffect, useState, useMemo } from 'react';
 import { supabase, Beer, Package, useRealtime, beerBg, beerText, pkgBg, pkgText, formatPackageLabel } from '../lib/supabase';
 import { Spinner, EmptyState } from '../components/ui';
-import { Plus, Trash2, Check, Calendar, Sparkles, Star, DollarSign, CheckCircle2, RotateCcw, User, MapPin } from 'lucide-react';
+import { createReminder } from '../lib/reminders';
+import { Plus, Trash2, Check, Calendar, Sparkles, Star, DollarSign, CheckCircle2, RotateCcw, User, MapPin, ClipboardList, ThumbsUp, ThumbsDown, Bell } from 'lucide-react';
 
 export type AkceItem = {
   id?: string;
@@ -20,11 +21,31 @@ export type AkceRecord = {
   entry_date: string;       // Datum akce
   status: 'planned' | 'completed'; // Plánovaná vs Po akci (Dokončená)
   items: AkceItem[];        // Max 7 řádků piv a obalů
+  ready?: boolean;          // Připraveno na akci
+  equipment?: string[];     // Vybavení na akci (checklist)
   revenue?: number;         // Tržba v Kč
   rating?: number;          // Hodnocení 1-5 hvězd
   note?: string;            // Poznámka o akci
+  recommend?: 'yes' | 'no'; // Doporučení jet na akci i za rok
   created_at?: string;
 };
+
+// Výchozí seznam vybavení, které je potřeba na akci připravit
+const DEFAULT_EQUIPMENT = [
+  '🍺 Sudy s pivem (dle fasování)',
+  '🪣 Výčepní zařízení (pípa, hadice, CO2)',
+  '🥛 Sklo: Tübinger 0,5L',
+  '🥛 Sklo: Tübinger 0,3L',
+  '🥛 Sklo: Willy 0,5L',
+  '🥛 Sklo: Willy 0,3L',
+  '💰 Kasa / pokladna + drobné',
+  '🧾 Faktury a doklady',
+  '🪑 Stoly a židle',
+  '⛱️ Stánek / slunečník',
+  '🛒 Vozík na převoz',
+  '🧊 Lednice / led na chlazení',
+  '🗑️ Odpadkové koše',
+];
 
 type FormRow = { beer_id: string; package_id: string; qty: string };
 
@@ -45,15 +66,30 @@ export default function AkceScreen() {
   const [who, setWho] = useState('Petr Bednář & Tým');
   const [entryDate, setEntryDate] = useState(new Date().toISOString().slice(0, 10));
   const [itemRows, setItemRows] = useState<FormRow[]>(() =>
-    [{ beer_id: '', package_id: '', qty: '' }]
+    Array.from({ length: 7 }, () => ({ beer_id: '', package_id: '', qty: '' }))
   );
+
+  // Datum upomínky "řict Denisovi o kašu" = 3 dny před akcí
+  const reminderDate = useMemo(() => {
+    if (!entryDate) return null;
+    const d = new Date(entryDate + 'T09:00:00');
+    d.setDate(d.getDate() - 3);
+    return d;
+  }, [entryDate]);
 
   // Evaluation "Po akci" Modal State
   const [evalRecord, setEvalRecord] = useState<AkceRecord | null>(null);
-  const [evalReturnedMap, setEvalReturnedMap] = useState<Record<number, string>>({});
+  const [evalSoldMap, setEvalSoldMap] = useState<Record<number, string>>({});
   const [evalRevenue, setEvalRevenue] = useState<string>('');
   const [evalRating, setEvalRating] = useState<number>(5);
   const [evalNote, setEvalNote] = useState<string>('');
+  const [evalRecommend, setEvalRecommend] = useState<'yes' | 'no' | ''>('');
+
+  // Equipment checklist Modal State
+  const [equipRecord, setEquipRecord] = useState<AkceRecord | null>(null);
+  const [equipChecked, setEquipChecked] = useState<Record<string, boolean>>({});
+  const [equipCustom, setEquipCustom] = useState<string>('');
+  const [equipCustomItems, setEquipCustomItems] = useState<string[]>([]);
 
   async function loadData() {
     setLoading(true);
@@ -89,7 +125,11 @@ export default function AkceScreen() {
     setItemRows((rows) => rows.map((r, i) => i === index ? { ...r, [field]: val } : r));
   }
 
-  function handleCreateAkce(e: React.FormEvent) {
+  function clearRow(index: number) {
+    setItemRows((rows) => rows.map((r, i) => i === index ? { beer_id: '', package_id: '', qty: '' } : r));
+  }
+
+  async function handleCreateAkce(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) {
       alert('Zadejte název akce.');
@@ -123,13 +163,69 @@ export default function AkceScreen() {
       entry_date: entryDate,
       status: 'planned',
       items: validItems,
+      ready: false,
+      equipment: [],
     };
 
     saveRecords([newRecord, ...records]);
     setShowAddModal(false);
     setName('');
-    setItemRows([{ beer_id: '', package_id: '', qty: '' }]);
-    alert(`✅ Akce "${newRecord.name}" byla úspěšně uložena s ${validItems.length} položkami!`);
+    setItemRows(Array.from({ length: 7 }, () => ({ beer_id: '', package_id: '', qty: '' })));
+
+    // Naplánovat upomínku 3 dny před akcí pro osobu, která na akci jede
+    try {
+      const eventDate = new Date(entryDate + 'T09:00:00');
+      const remindDate = new Date(eventDate);
+      remindDate.setDate(remindDate.getDate() - 3);
+      const remindDateTime = `${remindDate.getFullYear()}-${String(remindDate.getMonth() + 1).padStart(2, '0')}-${String(remindDate.getDate()).padStart(2, '0')}T08:00`;
+
+      await createReminder({
+        title: `🎪 Akce: ${newRecord.name}`,
+        note: `Za 3 dny je akce "${newRecord.name}" (${new Date(entryDate).toLocaleDateString('cs-CZ')}). Nezapomeň: řict Denisovi o kašu!`,
+        date_time: remindDateTime,
+        target_role: newRecord.who.trim() || 'all',
+        display_mode: 'both',
+        created_by: 'Systém (Akce)',
+      });
+    } catch {}
+
+    alert(`✅ Akce "${newRecord.name}" byla úspěšně uložena s ${validItems.length} položkami! Upomínka pro ${newRecord.who} přijde 3 dny před akcí.`);
+  }
+
+  // Přepnutí stavu "Připraveno na akci"
+  function toggleReady(rec: AkceRecord) {
+    const updated = records.map((r) => r.id === rec.id ? { ...r, ready: !r.ready } : r);
+    saveRecords(updated);
+  }
+
+  // Otevření modálu vybavení na akci
+  function openEquipModal(rec: AkceRecord) {
+    setEquipRecord(rec);
+    const checked: Record<string, boolean> = {};
+    (rec.equipment || []).forEach((e) => { checked[e] = true; });
+    setEquipChecked(checked);
+    setEquipCustom('');
+    setEquipCustomItems([]);
+  }
+
+  // Uložení vybavení na akci
+  function saveEquipment() {
+    if (!equipRecord) return;
+    const selected = [
+      ...DEFAULT_EQUIPMENT.filter((e) => equipChecked[e]),
+      ...equipCustomItems,
+    ];
+    const updated = records.map((r) => r.id === equipRecord.id ? { ...r, equipment: selected } : r);
+    saveRecords(updated);
+    setEquipRecord(null);
+    alert(`✅ Vybavení na akci "${equipRecord.name}" uloženo (${selected.length} položek).`);
+  }
+
+  function addCustomEquipItem() {
+    const val = equipCustom.trim();
+    if (!val) return;
+    setEquipCustomItems((prev) => [...prev, val]);
+    setEquipCustom('');
   }
 
   // Open "Po akci" modal
@@ -137,12 +233,15 @@ export default function AkceScreen() {
     setEvalRecord(rec);
     const initialMap: Record<number, string> = {};
     rec.items.forEach((it, idx) => {
-      initialMap[idx] = String(it.quantity_returned ?? 0);
+      // Výchozí: prodáno = odvezeno - vráceno (pokud už bylo vyhodnoceno)
+      const sold = it.quantity_taken - (it.quantity_returned ?? 0);
+      initialMap[idx] = String(Math.max(0, sold));
     });
-    setEvalReturnedMap(initialMap);
+    setEvalSoldMap(initialMap);
     setEvalRevenue(rec.revenue ? String(rec.revenue) : '');
     setEvalRating(rec.rating ?? 5);
     setEvalNote(rec.note ?? '');
+    setEvalRecommend(rec.recommend ?? '');
   }
 
   // Save "Po akci" evaluation
@@ -151,7 +250,9 @@ export default function AkceScreen() {
     if (!evalRecord) return;
 
     const updatedItems = evalRecord.items.map((it, idx) => {
-      const retQty = Math.min(it.quantity_taken, Math.max(0, Number(evalReturnedMap[idx]) || 0));
+      // Uživatel zadává, kolik se VYTOČILO/PRODALO; zbytek se vrací na sklad
+      const soldQty = Math.min(it.quantity_taken, Math.max(0, Number(evalSoldMap[idx]) || 0));
+      const retQty = it.quantity_taken - soldQty;
       return { ...it, quantity_returned: retQty };
     });
 
@@ -164,6 +265,7 @@ export default function AkceScreen() {
       revenue: revNum,
       rating: evalRating,
       note: evalNote.trim() || undefined,
+      recommend: evalRecommend || undefined,
     };
 
     const nextRecords = records.map((r) => r.id === updatedRec.id ? updatedRec : r);
@@ -223,7 +325,8 @@ export default function AkceScreen() {
               return (
                 <div
                   key={r.id}
-                  className={`card p-5 rounded-3xl border-2 transition-all shadow-sm flex flex-col justify-between space-y-4 ${
+                  onClick={() => openEvalModal(r)}
+                  className={`card p-5 rounded-3xl border-2 transition-all shadow-sm flex flex-col justify-between space-y-4 cursor-pointer hover:shadow-lg hover:-translate-y-0.5 ${
                     isDone ? 'bg-emerald-50/50 border-emerald-300' : 'bg-white border-amber-300/80 ring-1 ring-amber-400/20'
                   }`}
                 >
@@ -237,6 +340,9 @@ export default function AkceScreen() {
                           ) : (
                             <span className="px-2.5 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-black text-xs shadow-2xs">🟡 Plánovaná / Probíhá</span>
                           )}
+                          {!isDone && r.ready && (
+                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500 text-white font-extrabold text-xs shadow-2xs">✅ Připraveno na akci</span>
+                          )}
                         </div>
                         <div className="flex items-center gap-3 text-xs text-neutral-600 font-bold mt-1">
                           <span className="flex items-center gap-1"><Calendar size={14} className="text-amber-600" /> {new Date(r.entry_date).toLocaleDateString('cs-CZ')}</span>
@@ -244,8 +350,32 @@ export default function AkceScreen() {
                         </div>
                       </div>
 
-                      <button onClick={() => handleDeleteAkce(r.id)} className="text-neutral-400 hover:text-rose-600 p-1 transition" title="Smazat akci">
+                      <button onClick={(e) => { e.stopPropagation(); handleDeleteAkce(r.id); }} className="text-neutral-400 hover:text-rose-600 p-1 transition" title="Smazat akci">
                         <Trash2 size={16} />
+                      </button>
+                    </div>
+
+                    {/* Připraveno + Vybavení buttons */}
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      {!isDone && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleReady(r); }}
+                          className={`px-3 py-1.5 rounded-xl font-black text-xs transition shadow-sm flex items-center gap-1.5 ${
+                            r.ready ? 'bg-emerald-600 text-white' : 'bg-neutral-100 text-neutral-700 hover:bg-emerald-100'
+                          }`}
+                        >
+                          <Check size={15} />
+                          {r.ready ? 'Připraveno na akci ✓' : 'Označit jako připraveno'}
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openEquipModal(r); }}
+                        className={`px-3 py-1.5 rounded-xl font-black text-xs transition shadow-sm flex items-center gap-1.5 ${
+                          (r.equipment || []).length ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-100 text-neutral-700 hover:bg-amber-100'
+                        }`}
+                      >
+                        <ClipboardList size={15} />
+                        Vybavení na akci {(r.equipment || []).length ? `(${(r.equipment || []).length})` : ''}
                       </button>
                     </div>
 
@@ -295,8 +425,32 @@ export default function AkceScreen() {
                               ))}
                             </div>
                           )}
+                          {r.recommend && (
+                            <span className={`px-3 py-1 rounded-xl font-black text-xs shadow-xs flex items-center gap-1 ${
+                              r.recommend === 'yes' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+                            }`}>
+                              {r.recommend === 'yes' ? <ThumbsUp size={13} /> : <ThumbsDown size={13} />}
+                              {r.recommend === 'yes' ? 'Doporučeno jet i za rok' : 'Nedoporučeno jet za rok'}
+                            </span>
+                          )}
                         </div>
                         {r.note && <p className="text-neutral-700 italic font-medium bg-white/80 p-2 rounded-xl border border-emerald-200">"{r.note}"</p>}
+                      </div>
+                    )}
+
+                    {/* Equipment checklist display */}
+                    {(r.equipment || []).length > 0 && (
+                      <div className="pt-1">
+                        <span className="text-[10px] font-black uppercase text-neutral-500 flex items-center gap-1">
+                          <ClipboardList size={12} className="text-amber-600" /> Vybavení na akci:
+                        </span>
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {(r.equipment || []).map((eq, idx) => (
+                            <span key={idx} className="px-2 py-0.5 rounded-lg bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-950">
+                              ✓ {eq}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -372,51 +526,93 @@ export default function AkceScreen() {
                 </div>
               </div>
 
-              {/* 7 ŘÁDKŮ PRO ZADÁNÍ PIVA A OBALŮ */}
+              {/* Upozornění s datem upomínky na kašu */}
+              {reminderDate && (
+                <div className="flex items-start gap-2 p-3 rounded-2xl bg-sky-50 border border-sky-200 text-xs text-sky-950 font-medium">
+                  <Bell size={16} className="text-sky-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold text-sky-900">🔔 Upozornění na kašu (Denis)</p>
+                    <p>
+                      Osoba <strong>{who || '…'}</strong> dostane upomínku <strong>„řict Denisovi o kašu“</strong> dne{' '}
+                      <strong className="font-mono">{reminderDate.toLocaleDateString('cs-CZ')}</strong> (3 dny před akcí) — na telefonu i při přihlášení.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* 7 ŘÁDKŮ PRO ZADÁNÍ PIVA A OBALŮ — stejný styl jako fasování */}
               <div className="space-y-2 pt-2 border-t border-neutral-200">
                 <label className="block text-xs font-black uppercase text-amber-900 tracking-wider">
-                  Zadání piv a obalů na akci (až 7 řádků):
+                  Zadání piv a obalů na akci (7 řádků):
                 </label>
 
-                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-                  {itemRows.map((r, i) => (
-                    <div key={i} className="flex flex-col sm:flex-row items-center gap-2 bg-neutral-50 p-2 rounded-2xl border border-neutral-200">
-                      <span className="text-xs font-black text-neutral-500 w-6 text-center">{i + 1}.</span>
-
-                      <select
-                        className="input flex-1 !py-1 text-xs font-bold bg-white"
-                        value={r.beer_id}
-                        onChange={(e) => handleRowChange(i, 'beer_id', e.target.value)}
-                      >
-                        <option value="">— vybrat pivo —</option>
-                        {beers.map((b) => <option key={b.id} value={b.id}>{b.name}{b.degree ? ` (${b.degree})` : ''}</option>)}
-                      </select>
-
-                      <select
-                        className="input flex-1 !py-1 text-xs font-medium bg-white"
-                        value={r.package_id}
-                        onChange={(e) => handleRowChange(i, 'package_id', e.target.value)}
-                      >
-                        <option value="">— vybrat obal (lahve / keg) —</option>
-                        {sortedPackages.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-                      </select>
-
-                      <div className="flex items-center gap-1 shrink-0 w-full sm:w-auto justify-end">
-                        <button type="button" onClick={() => handleRowChange(i, 'qty', String(Math.max(0, (Number(r.qty) || 0) - 1)))} className="w-14 h-14 shrink-0 grid place-items-center rounded-2xl bg-neutral-200 hover:bg-amber-200 text-neutral-800 font-bold text-2xl select-none active:scale-95 transition shadow-md" title="Odečíst 1">−</button>
-                        <input
-                          type="number"
-                          min={0}
-                          className="input w-24 !py-3 text-lg font-mono font-black text-center bg-white"
-                          placeholder="ks"
-                          value={r.qty}
-                          onChange={(e) => handleRowChange(i, 'qty', e.target.value)}
-                          inputMode="numeric"
-                        />
-                        <button type="button" onClick={() => handleRowChange(i, 'qty', String((Number(r.qty) || 0) + 1))} className="w-14 h-14 shrink-0 grid place-items-center rounded-2xl bg-amber-950 hover:bg-amber-900 text-white font-bold text-2xl select-none active:scale-95 transition shadow-md" title="Přidat 1">+</button>
-                        <span className="text-sm font-bold text-neutral-600 shrink-0">ks</span>
-                      </div>
-                    </div>
-                  ))}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs whitespace-nowrap">
+                    <thead>
+                      <tr className="bg-neutral-100">
+                        <th className="text-left py-1.5 px-1 font-black text-neutral-700">Pivo</th>
+                        <th className="text-left py-1.5 px-1 font-black text-neutral-700">Obal</th>
+                        <th className="text-center py-1.5 px-1 font-black text-neutral-700">KS</th>
+                        <th className="w-20"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {itemRows.map((r, i) => (
+                        <tr key={i} className="border-b border-neutral-200/60">
+                          <td className="py-1 pr-1">
+                            <select
+                              className="input text-[10px] w-full appearance-none pr-2"
+                              value={r.beer_id}
+                              onChange={(e) => handleRowChange(i, 'beer_id', e.target.value)}
+                            >
+                              <option value="">—</option>
+                              {beers.map((b) => <option key={b.id} value={b.id}>{b.name}{b.degree ? ` (${b.degree})` : ''}</option>)}
+                            </select>
+                          </td>
+                          <td className="py-1 pr-1">
+                            <select
+                              className="input text-[10px] w-full appearance-none pr-2"
+                              value={r.package_id}
+                              onChange={(e) => handleRowChange(i, 'package_id', e.target.value)}
+                            >
+                              <option value="">—</option>
+                              {sortedPackages.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+                            </select>
+                          </td>
+                          <td className="py-1 pr-1">
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                type="button"
+                                className="w-7 h-7 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-sm transition disabled:opacity-30"
+                                disabled={!r.qty || Number(r.qty) <= 0}
+                                onClick={() => handleRowChange(i, 'qty', String(Math.max(0, Number(r.qty) - 1)))}
+                              >−</button>
+                              <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                className="input text-xs w-14 text-center font-bold"
+                                value={r.qty}
+                                onChange={(e) => handleRowChange(i, 'qty', e.target.value)}
+                                placeholder="0"
+                              />
+                              <button
+                                type="button"
+                                className="w-7 h-7 grid place-items-center rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-sm transition"
+                                onClick={() => handleRowChange(i, 'qty', String(Number(r.qty || 0) + 1))}
+                              >+</button>
+                            </div>
+                          </td>
+                          <td className="py-1">
+                            <div className="flex items-center gap-1">
+                              <button type="submit" className="w-7 h-7 grid place-items-center rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-bold text-sm transition" title="Potvrdit / uložit vše">✓</button>
+                              <button type="button" className="w-7 h-7 grid place-items-center rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-sm transition" onClick={() => clearRow(i)} title="Zrušit řádek">✕</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
 
@@ -447,11 +643,11 @@ export default function AkceScreen() {
 
             <form onSubmit={handleSaveEval} className="space-y-4">
               <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-950 font-medium space-y-1">
-                <p className="font-bold text-amber-900">📦 Vrácení neprodaných sudů a lahví do skladu:</p>
-                <p>Zadej kolik ks sudů/lahví se z akce <strong>neprodalo a vrátilo zpět do pivovaru</strong>. Tyto kusy se automaticky přičtou zpět na sklad.</p>
+                <p className="font-bold text-amber-900">🍺 Vytočené/prodané kusy:</p>
+                <p>Zadej kolik ks sudů/lahví se z akce <strong>vytáčelo a prodalo</strong>. Zbytek (odvezeno − prodáno) se automaticky vrátí zpět na sklad.</p>
               </div>
 
-              {/* Seznam položek akce s zadáním vrácených kusů */}
+              {/* Seznam položek akce s zadáním prodaných kusů */}
               <div className="space-y-2">
                 {evalRecord.items.map((it, idx) => {
                   const bObj = beers.find((b) => b.id === it.beer_id);
@@ -467,14 +663,14 @@ export default function AkceScreen() {
                       </div>
 
                       <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-neutral-700">Vráceno zpět:</span>
+                        <span className="font-bold text-neutral-700">Vytočeno/Prodáno:</span>
                         <input
                           type="number"
                           min={0}
                           max={it.quantity_taken}
-                          value={evalReturnedMap[idx] ?? '0'}
-                          onChange={(e) => setEvalReturnedMap({ ...evalReturnedMap, [idx]: e.target.value })}
-                          className="input !py-1 !px-2 w-16 text-center font-mono font-black text-xs bg-white border-amber-300"
+                          value={evalSoldMap[idx] ?? '0'}
+                          onChange={(e) => setEvalSoldMap({ ...evalSoldMap, [idx]: e.target.value })}
+                          className="input !py-1 !px-2 w-16 text-center font-mono font-black text-xs bg-white text-neutral-900 border-amber-300"
                         />
                         <span className="font-bold text-neutral-600">ks</span>
                       </div>
@@ -486,17 +682,14 @@ export default function AkceScreen() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-neutral-200">
                 <div>
                   <label className="block text-xs font-black text-neutral-700 mb-1">Získaná tržba z akce (Kč)</label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      min={0}
-                      placeholder="Např. 45000"
-                      value={evalRevenue}
-                      onChange={(e) => setEvalRevenue(e.target.value)}
-                      className="input font-mono font-black text-sm pl-8"
-                    />
-                    <span className="absolute left-3 top-2.5 text-neutral-400 font-bold">Kč</span>
-                  </div>
+                  <input
+                    type="number"
+                    min={0}
+                    placeholder="Např. 45000"
+                    value={evalRevenue}
+                    onChange={(e) => setEvalRevenue(e.target.value)}
+                    className="input font-mono font-black text-sm"
+                  />
                 </div>
 
                 <div>
@@ -527,6 +720,30 @@ export default function AkceScreen() {
                 />
               </div>
 
+              <div className="pt-2 border-t border-neutral-200">
+                <label className="block text-xs font-black text-neutral-700 mb-2">Doporučení — jet na tuto akci i za rok?</label>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEvalRecommend('yes')}
+                    className={`flex-1 px-4 py-2.5 rounded-2xl font-black text-xs transition shadow-sm flex items-center justify-center gap-1.5 ${
+                      evalRecommend === 'yes' ? 'bg-emerald-600 text-white ring-2 ring-emerald-300' : 'bg-neutral-100 text-neutral-700 hover:bg-emerald-100'
+                    }`}
+                  >
+                    <ThumbsUp size={16} /> Ano, jet i za rok
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEvalRecommend('no')}
+                    className={`flex-1 px-4 py-2.5 rounded-2xl font-black text-xs transition shadow-sm flex items-center justify-center gap-1.5 ${
+                      evalRecommend === 'no' ? 'bg-rose-600 text-white ring-2 ring-rose-300' : 'bg-neutral-100 text-neutral-700 hover:bg-rose-100'
+                    }`}
+                  >
+                    <ThumbsDown size={16} /> Ne, nejet za rok
+                  </button>
+                </div>
+              </div>
+
               <div className="pt-3 flex justify-end gap-2 border-t border-neutral-100">
                 <button type="button" onClick={() => setEvalRecord(null)} className="px-4 py-2 rounded-xl bg-neutral-100 text-neutral-700 font-extrabold text-xs">
                   Zrušit
@@ -536,6 +753,88 @@ export default function AkceScreen() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODÁL 3: VYBAVENÍ NA AKCI (CHECKLIST) */}
+      {equipRecord && (
+        <div className="fixed inset-0 bg-neutral-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl border border-neutral-200 my-8">
+            <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+              <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
+                <ClipboardList className="text-amber-500" size={22} />
+                <span>Vybavení na akci — {equipRecord.name}</span>
+              </h3>
+              <button onClick={() => setEquipRecord(null)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg">✕</button>
+            </div>
+
+            <p className="text-xs text-neutral-600 font-medium bg-amber-50 border border-amber-200 p-3 rounded-2xl">
+              Zaškrtni, co vše je potřeba na akci připravit. Uložený seznam se zobrazí u akce.
+            </p>
+
+            <div className="space-y-1.5 max-h-[300px] overflow-y-auto pr-1">
+              {DEFAULT_EQUIPMENT.map((item) => (
+                <label
+                  key={item}
+                  className={`flex items-center gap-3 p-2.5 rounded-2xl border cursor-pointer transition select-none ${
+                    equipChecked[item] ? 'bg-emerald-50 border-emerald-300' : 'bg-neutral-50 border-neutral-200'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={!!equipChecked[item]}
+                    onChange={(e) => setEquipChecked({ ...equipChecked, [item]: e.target.checked })}
+                    className="w-5 h-5 accent-emerald-600 shrink-0"
+                  />
+                  <span className={`text-sm font-bold ${equipChecked[item] ? 'text-emerald-900 line-through' : 'text-neutral-800'}`}>
+                    {item}
+                  </span>
+                </label>
+              ))}
+
+              {/* Vlastní položky */}
+              {equipCustomItems.map((item, idx) => (
+                <div key={`custom-${idx}`} className="flex items-center gap-3 p-2.5 rounded-2xl border bg-amber-50 border-amber-300">
+                  <span className="text-sm font-bold text-amber-950 flex-1">✓ {item}</span>
+                  <button
+                    type="button"
+                    onClick={() => setEquipCustomItems((prev) => prev.filter((_, i) => i !== idx))}
+                    className="text-rose-500 hover:text-rose-700 font-bold"
+                    title="Odebrat"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={equipCustom}
+                onChange={(e) => setEquipCustom(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustomEquipItem(); } }}
+                placeholder="Přidat vlastní vybavení..."
+                className="input flex-1 font-bold text-xs"
+              />
+              <button
+                type="button"
+                onClick={addCustomEquipItem}
+                className="px-4 py-2.5 rounded-2xl bg-neutral-800 hover:bg-neutral-700 text-white font-black text-xs shadow-md flex items-center gap-1.5"
+              >
+                <Plus size={15} /> Přidat
+              </button>
+            </div>
+
+            <div className="pt-3 flex justify-end gap-2 border-t border-neutral-100">
+              <button type="button" onClick={() => setEquipRecord(null)} className="px-4 py-2 rounded-xl bg-neutral-100 text-neutral-700 font-extrabold text-xs">
+                Zrušit
+              </button>
+              <button type="button" onClick={saveEquipment} className="px-5 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md">
+                ✓ Uložit vybavení
+              </button>
+            </div>
           </div>
         </div>
       )}

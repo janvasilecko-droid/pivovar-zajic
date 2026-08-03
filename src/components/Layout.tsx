@@ -9,7 +9,7 @@ import {
 import { useAuth } from '../lib/auth';
 import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
 import { Modal } from './ui';
-import { onNewVersion, startVersionCheck, stopVersionCheck, forceRefresh, type VersionInfo } from '../lib/versionCheck';
+import { onNewVersion, startVersionCheck, stopVersionCheck, forceRefresh, autoRefreshIfNewVersion, type VersionInfo } from '../lib/versionCheck';
 import { supabase, Beer, Package, Place } from '../lib/supabase';
 import { EditOrderModal } from './EditOrderModal';
 import { requestNotificationPermission, getNotificationPermission, notifyNewOrder, NewOrderNotifyData } from '../lib/notifications';
@@ -21,16 +21,13 @@ import { getQuickActions, QuickAction } from '../lib/quickActions';
 
 export type NavItem = { id: Page; label: string; icon: LucideIcon; group: string };
 
-export type Page = 'dashboard' | 'varni_listy' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'history' | 'orders_entry' | 'orders' | 'zavoz' | 'kniha_jizd' | 'stock' | 'bottling' | 'bottling_entry' | 'bottling_overview' | 'kegging' | 'kegging_entry' | 'kegging_overview' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions';
+export type Page = 'dashboard' | 'varni_listy' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'history' | 'orders_entry' | 'orders' | 'zavoz' | 'kniha_jizd' | 'stock' | 'bottling' | 'kegging' | 'kegging_entry' | 'kegging_overview' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions';
 
 export const NAV: NavItem[] = [
   // --- VÝROBA ---
-  { id: 'kegging_entry', label: 'KEG (Stáčení)', icon: Cylinder, group: 'Výroba' },
-  { id: 'kegging_overview', label: 'KEG (Přehled)', icon: ClipboardList, group: 'Výroba' },
-  { id: 'bottling_entry', label: 'Lahve (Stáčení)', icon: Wine, group: 'Výroba' },
-  { id: 'bottling_overview', label: 'Lahve (Přehled)', icon: HistoryIcon, group: 'Výroba' },
-  { id: 'orders_entry', label: 'Zadávání objednávek', icon: FilePlus, group: 'Výroba' },
-  { id: 'orders', label: 'Objednávky (Přehled)', icon: ClipboardList, group: 'Výroba' },
+  { id: 'kegging', label: 'KEG', icon: Cylinder, group: 'Výroba' },
+  { id: 'bottling', label: 'Lahve (Stáčení)', icon: Wine, group: 'Výroba' },
+  { id: 'orders', label: 'Objednávky', icon: ClipboardList, group: 'Výroba' },
   { id: 'fasovani', label: 'Fasování', icon: PackageCheck, group: 'Výroba' },
   { id: 'prodejna', label: 'Prodejna', icon: Store, group: 'Výroba' },
   { id: 'writeoffs', label: 'Odpis', icon: TrendingDown, group: 'Výroba' },
@@ -124,7 +121,11 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
 
   useEffect(() => {
     startVersionCheck();
-    const unsub = onNewVersion((info) => setNewVersionInfo(info));
+    const unsub = onNewVersion((info) => {
+      setNewVersionInfo(info);
+      // Automatická aktualizace — pokud uživatel zrovna nepíše, aplikace se sama obnoví
+      autoRefreshIfNewVersion();
+    });
     return () => { unsub(); stopVersionCheck(); };
   }, []);
 
@@ -461,7 +462,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
 
       <main className="flex-1 min-w-0 flex flex-col h-screen overflow-hidden bg-neutral-100 text-neutral-900">
         {/* Top Header - Desktop & Mobile */}
-        <header className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between px-4 sm:px-8 py-3.5 bg-white/95 backdrop-blur-md border-b border-amber-200/70 shadow-2xs z-20 gap-3">
+        <header className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between px-4 sm:px-8 py-1.5 bg-white/95 backdrop-blur-md border-b border-amber-200/70 shadow-2xs z-20 gap-1">
           <div className="flex items-center justify-between sm:justify-start gap-3">
             <div className="flex items-center gap-3">
               <button
@@ -492,21 +493,11 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           </div>
 
           <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-            {newVersionInfo && (
-              <button
-                onClick={forceRefresh}
-                className="px-4 py-2 rounded-xl text-xs font-black transition items-center gap-2 shadow-md border shrink-0 flex bg-sky-500 hover:bg-sky-400 text-white border-sky-400 animate-pulse"
-                title={`Nová verze v${newVersionInfo.version} (${newVersionInfo.date}) — klikni pro aktualizaci`}
-              >
-                <span>📱</span>
-                <span>NOVÁ VERZE v{newVersionInfo.version}</span>
-              </button>
-            )}
             {quickActions.map((a, i) => (
               <button
                 key={a.pageId}
                 onClick={() => setPage(a.pageId as any)}
-                className={`hidden sm:flex px-4 py-2 rounded-xl text-xs font-black transition items-center gap-2 shadow-md border shrink-0 ${
+                className={`hidden sm:flex px-2.5 py-1.5 rounded-xl text-[11px] font-black transition items-center gap-1.5 shadow-sm border shrink-0 ${
                   i === 0
                     ? 'bg-amber-500 hover:bg-amber-400 text-neutral-950 border-amber-400'
                     : 'bg-neutral-800 hover:bg-neutral-700 text-white border-neutral-700'
@@ -616,6 +607,39 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           {children}
         </div>
       </main>
+
+      {/* Nová verze — modální okno */}
+      {newVersionInfo && (
+        <Modal open={true} onClose={() => setNewVersionInfo(null)} title="📱 Nová verze aplikace">
+          <div className="space-y-5 text-sm">
+            <div className="bg-sky-50 rounded-2xl border-2 border-sky-300 p-5 text-center">
+              <div className="text-4xl mb-3">📱</div>
+              <div className="font-black text-sky-950 text-lg mb-1">Nová verze v{newVersionInfo.version}</div>
+              <div className="text-sky-700 font-semibold text-xs">{newVersionInfo.date}</div>
+            </div>
+
+            <p className="text-neutral-700 font-medium text-xs leading-relaxed">
+              Je dostupná nová verze aplikace. Pro aktualizaci klikni na tlačítko níže.
+              Stránka se obnoví a načte nejnovější verzi.
+            </p>
+
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={forceRefresh}
+                className="w-full py-3 rounded-xl text-sm font-black transition shadow-lg bg-sky-500 hover:bg-sky-400 text-white border border-sky-400"
+              >
+                🔄 Aktualizovat na v{newVersionInfo.version}
+              </button>
+              <button
+                onClick={() => setNewVersionInfo(null)}
+                className="w-full py-2.5 rounded-xl text-xs font-bold transition bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border border-neutral-200"
+              >
+                ✕ Zavřít
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

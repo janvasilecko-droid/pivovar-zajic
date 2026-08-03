@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase, Beer, Package, useRealtime, beerBg, beerText, beerBorder } from '../lib/supabase';
 import { Spinner, EmptyState, Modal } from '../components/ui';
-import { Warehouse, Calendar, BarChart2, PackageCheck, AlertTriangle, Layers, ChevronLeft, ChevronRight, Download, ShoppingBag, Tent } from 'lucide-react';
+import { Warehouse, Calendar, BarChart2, PackageCheck, AlertTriangle, Layers, ChevronLeft, ChevronRight, Download, ShoppingBag, Tent, Beer as BeerIcon } from 'lucide-react';
 import { exportExciseTaxReportToExcel } from '../lib/excel';
 import { FestivalEquipmentTracker } from '../components/FestivalEquipmentTracker';
 import { MarketingMerchInventory } from '../components/MarketingMerchInventory';
@@ -19,7 +19,8 @@ type StockRow = {
   remaining: number;
 };
 
-type BrewRow = { entry_date: string; beer_id: string | null; package_id: string | null; quantity: number };
+type BrewRow = { entry_date: string; beer_id: string | null; package_id: string | null; quantity: number; kegs_used?: number | null; kegs_used_package_id?: string | null };
+
 type BrewStat = {
   beer: Beer;
   byPkg: { package_id: string; label: string; kind: string; volume_l: number; quantity: number; ordered: number }[];
@@ -97,19 +98,23 @@ export default function Stock() {
 
     const [{ data: invData }, { data: botData }, { data: kegData }, { data: ordItemsData }, { data: ordData }, { data: woData }, { data: akItemsData }] =
       await Promise.all([
-        supabase.from('monthly_inventory').select('*'),
-        supabase.from('bottling_entries').select('*'),
-        supabase.from('kegging_entries').select('*'),
+        supabase.from('inventory').select('*'),
+        supabase.from('bottling').select('*'),
+        supabase.from('kegging').select('*'),
         supabase.from('order_items').select('*'),
         supabase.from('orders').select('id, order_date, status'),
         supabase.from('writeoffs').select('*'),
         supabase.from('event_items').select('package_id, beer_id, quantity, returned_qty'),
       ]);
 
+
     const inv = (invData ?? []) as { entry_date: string; beer_id: string | null; package_id: string | null; quantity: number }[];
-    const invMonths = [...new Set(inv.map((r) => monthKey(r.entry_date)))].filter((m) => m < curMonth).sort().reverse();
+    // Počáteční stav pro aktuální měsíc se čte z inventory tabulky (entry_date v aktuálním měsíci).
+    // Pokud pro aktuální měsíc neexistuje, spadne na poslední dostupný měsíc před aktuálním.
+    const invMonths = [...new Set(inv.map((r) => monthKey(r.entry_date)))].filter((m) => m <= curMonth).sort().reverse();
     const lastInvMonth = invMonths[0];
     const lastInv = lastInvMonth ? inv.filter((r) => monthKey(r.entry_date) === lastInvMonth) : [];
+
 
     const bot = (botData ?? []) as BrewRow[];
     const keg = (kegData ?? []) as BrewRow[];
@@ -128,15 +133,29 @@ export default function Stock() {
         const woW = wo.filter((r) => r.beer_id === beer.id && r.package_id === pkg.id && isoWeekKey(r.entry_date) === weekKey).reduce((s, r) => s + Number(r.quantity), 0);
         const akT = akItems.filter((r) => r.beer_id === beer.id && r.package_id === pkg.id).reduce((s, r) => s + Number(r.quantity), 0);
         const akR = akItems.filter((r) => r.beer_id === beer.id && r.package_id === pkg.id).reduce((s, r) => s + Number(r.returned_qty ?? 0), 0);
+        // Sudy použité na stočení do lahví (kegs_used) — odečtou se ze skladu sudů (jako objednávka).
+        // Když se z jednoho sudu stáčí do více druhů obalů (Lahve 1 + Lahve 2), vznikne více záznamů
+        // se stejným zdrojem (kegs_used). Sudy odečteme jen jednou (deduplikace zdroje).
+        const seenKegSource = new Set<string>();
+        const kegsUsedW = bot
+          .filter((r) => r.beer_id === beer.id && r.kegs_used_package_id === pkg.id && isoWeekKey(r.entry_date) === weekKey)
+          .reduce((s, r) => {
+            const key = `${r.entry_date}|${r.beer_id}|${r.kegs_used}|${r.kegs_used_package_id}`;
+            if (seenKegSource.has(key)) return s;
+            seenKegSource.add(key);
+            return s + Number(r.kegs_used ?? 0);
+          }, 0);
+
 
         const currentStock = fromInv + brewedW;
-        const remaining = currentStock - orderedW - woW - (akT - akR);
+        const remaining = currentStock - orderedW - woW - (akT - akR) - kegsUsedW;
 
         return {
           package_id: pkg.id, label: pkg.label, volume_l: Number(pkg.volume_l), kind: pkg.kind,
           quantity: currentStock, fromInventory: fromInv, brewedWeek: brewedW, orderedWeek: orderedW, writeoffsWeek: woW, akTaken: akT, akReturned: akR, remaining,
         };
       });
+
 
       const stockBottles = stockByPkg.filter((p) => p.kind === 'bottle').reduce((s, p) => s + p.quantity, 0);
       const stockKegs = stockByPkg.filter((p) => p.kind === 'keg').reduce((s, p) => s + p.quantity, 0);
@@ -159,8 +178,9 @@ export default function Stock() {
     const [{ data: b }, { data: pk }, { data: botData }, { data: kegData }, { data: ordItemsData }, { data: ordData }] = await Promise.all([
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
-      supabase.from('bottling_entries').select('entry_date, beer_id, package_id, quantity').gte('entry_date', brewFrom).lte('entry_date', brewTo),
-      supabase.from('kegging_entries').select('entry_date, beer_id, package_id, quantity').gte('entry_date', brewFrom).lte('entry_date', brewTo),
+      supabase.from('bottling').select('entry_date, beer_id, package_id, quantity').gte('entry_date', brewFrom).lte('entry_date', brewTo),
+      supabase.from('kegging').select('entry_date, beer_id, package_id, quantity').gte('entry_date', brewFrom).lte('entry_date', brewTo),
+
       supabase.from('order_items').select('order_id, beer_id, package_id, quantity'),
       supabase.from('orders').select('id, order_date, status').gte('order_date', brewFrom).lte('order_date', brewTo),
     ]);
@@ -196,7 +216,8 @@ export default function Stock() {
 
   useEffect(() => { load(); }, [weekKey]);
   useEffect(() => { loadBrewed(); }, [brewFrom, brewTo]);
-  useRealtime(['bottling_entries','kegging_entries','monthly_inventory','order_items','orders','writeoffs'], () => { load(true); loadBrewed(true); });
+  useRealtime(['bottling','kegging','inventory','order_items','orders','writeoffs'], () => { load(true); loadBrewed(true); });
+
 
   function setQuickRange(type: 'week' | 'month' | 'year' | 'all') {
     const today = todayISO();
@@ -454,22 +475,22 @@ export default function Stock() {
               <table className="w-full text-xs">
                 <thead>
                   <tr className="bg-neutral-900 text-amber-300 uppercase tracking-wider text-[10px] font-black">
-                    <th className="py-3 px-3 text-left">Obal</th>
+                    <th className="py-3 px-3 text-left" title="Obal"><BeerIcon size={15} /></th>
+                    <th className="py-3 px-3 text-right" title="Skladem"><PackageCheck size={15} /></th>
                     <th className="py-3 px-3 text-right">Z inventury</th>
                     <th className="py-3 px-3 text-right">Stočeno týden</th>
-                    <th className="py-3 px-3 text-right">Na skladě</th>
-                    <th className="py-3 px-3 text-right">Objednáno</th>
+                    <th className="py-3 px-3 text-right" title="Odejde"><AlertTriangle size={15} /></th>
                     <th className="py-3 px-3 text-right">Odpisy</th>
-                    <th className="py-3 px-3 text-right">Zbude</th>
+                    <th className="py-3 px-3 text-right" title="Zbude"><Layers size={15} /></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-200">
                   {detail.stockByPkg.map((p) => (
                     <tr key={p.package_id} className="hover:bg-neutral-50">
                       <td className="py-2.5 px-3 font-black text-neutral-900">{p.label}</td>
+                      <td className="py-2.5 px-3 text-right font-mono font-black text-neutral-900">{p.quantity}</td>
                       <td className="py-2.5 px-3 text-right font-mono text-neutral-600">{p.fromInventory || '—'}</td>
                       <td className="py-2.5 px-3 text-right font-mono text-amber-700 font-bold">{p.brewedWeek || '—'}</td>
-                      <td className="py-2.5 px-3 text-right font-mono font-black text-neutral-900">{p.quantity}</td>
                       <td className="py-2.5 px-3 text-right font-mono text-rose-600 font-bold">{p.orderedWeek || '—'}</td>
                       <td className="py-2.5 px-3 text-right font-mono text-neutral-500">{p.writeoffsWeek || '—'}</td>
                       <td className={`py-2.5 px-3 text-right font-mono font-black ${p.remaining < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>

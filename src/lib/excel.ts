@@ -19,8 +19,8 @@ const cols = (rows: any[], headers: string[], keys: string[]) => {
 export const exportBottlingToExcel = (rows: EntryRow[]) =>
   download(cols(rows, ['Datum', 'Pivo', 'Obal', 'Množství', 'Poznámka'], ['entry_date', 'beer_name', 'package_label', 'quantity', 'note']), 'staceni-lahve.xlsx');
 
-export const exportKeggingToExcel = (rows: EntryRow[]) =>
-  download(cols(rows, ['Datum', 'Pivo', 'Obal', 'Množství', 'Poznámka'], ['entry_date', 'beer_name', 'package_label', 'quantity', 'note']), 'staceni-keg.xlsx');
+export const exportKeggingToExcel = (rows: EntryRow[], cellarTanks: { id: string; label: string }[]) =>
+  download(cols(rows, ['Datum', 'Pivo', 'Obal', 'Množství', 'Č. tanku', 'HL', 'Poznámka'], ['entry_date', 'beer_name', 'package_label', 'quantity', 'cellar_tank_label', 'hl', 'note']), 'staceni-keg.xlsx');
 
 export const exportWriteoffsToExcel = (rows: EntryRow[]) =>
   download(cols(rows, ['Datum', 'Kdo', 'Pivo', 'Obal', 'Množství', 'Důvod'], ['entry_date', 'who', 'beer_name', 'package_label', 'quantity', 'reason']), 'odpis.xlsx');
@@ -53,6 +53,15 @@ export const exportMonthlySalesReportToExcel = (rows: { date: string; place: str
     ['date', 'place', 'beer', 'package_label', 'qty', 'price_total']
   );
   download(ws, `vykaz-prodej-${monthLabel.replace(/\s+/g, '-')}.xlsx`);
+};
+
+export const exportZavozToExcel = (rows: { order_date: string; place_name: string | null; delivery_day: string | null; beer_name: string | null; package_label: string | null; quantity: number; is_delivered: boolean }[], weekLabel: string) => {
+  const ws = cols(
+    rows,
+    ['Datum', 'Odběratel', 'Den', 'Pivo', 'Obal', 'Množství', 'Zavezeno'],
+    ['order_date', 'place_name', 'delivery_day', 'beer_name', 'package_label', 'quantity', 'is_delivered']
+  );
+  download(ws, `zavoz-${weekLabel.replace(/\s+/g, '-')}.xlsx`);
 };
 
 

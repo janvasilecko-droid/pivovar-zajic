@@ -25,9 +25,44 @@ export function VoiceRecorder({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  const recognitionRef = useRef<any>(null);
 
   async function start() {
     setErr(null);
+    // Zkusíme nejdříve Web Speech API (vestavěný přepis v prohlížeči)
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      try {
+        const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'cs-CZ';
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.onresult = (event: any) => {
+          const text = event.results[0][0].transcript;
+          if (text.trim()) onResult(text.trim());
+          else setErr('Nerozpoznal jsem žádný text.');
+        };
+        recognition.onerror = (event: any) => {
+          setRecording(false);
+          if (event.error === 'not-allowed') {
+            setErr('⚠️ Mikrofon není povolen. Povol ho v prohlížeči (🔒 v adresním řádku) a zkus to znovu.');
+          } else if (event.error === 'no-speech') {
+            setErr('⚠️ Nebyl detekován žádný hlas. Zkus mluvit blíž k mikrofonu.');
+          } else if (event.error === 'aborted') {
+            // Uživatel zrušil — žádná chyba
+          } else {
+            setErr('Chyba mikrofonu: ' + event.error + '. Zkus to znovu nebo použij jiný prohlížeč.');
+          }
+        };
+        recognition.start();
+        setRecording(true);
+        recognition.onend = () => setRecording(false);
+        return;
+      } catch (e: any) {
+        // Web Speech API selhalo — zkusíme fallback na MediaRecorder + edge funkci
+        console.warn('Web Speech API selhalo, zkouším fallback:', e?.message);
+      }
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
@@ -45,8 +80,12 @@ export function VoiceRecorder({
   }
 
   function stop() {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
     mediaRecorderRef.current?.stop();
-    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current?.getTracks().forEach((t: MediaStreamTrack) => t.stop());
     setRecording(false);
   }
 

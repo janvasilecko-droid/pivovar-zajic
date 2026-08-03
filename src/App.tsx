@@ -9,10 +9,11 @@ import Dashboard from './screens/Dashboard';
 import Orders from './screens/Orders';
 import Zavoz from './screens/Zavoz';
 import Stock from './screens/Stock';
-import { EntryModule } from './components/EntryModule';
 import { BeersScreen, PackagesScreen, PlacesScreen, VehiclesScreen } from './screens/Catalogs';
 import Users from './screens/Users';
 import KeggingScreen from './screens/Kegging';
+import BottlingScreen from './screens/BottlingScreen';
+import ProdejnaScreen from './screens/ProdejnaScreen';
 import AkceScreen from './screens/Akce';
 import CalendarScreen from './screens/Calendar';
 import Feedback from './screens/Feedback';
@@ -29,7 +30,6 @@ import RemindersScreen from './screens/RemindersScreen';
 import { ReminderNotificationManager } from './components/ReminderNotificationManager';
 import { MandatoryAnnouncementModal } from './components/MandatoryAnnouncementModal';
 import { CriticalMaterialAlertModal } from './components/CriticalMaterialAlertModal';
-import { exportBottlingToExcel, exportFasovaniToExcel, exportProdejnaToExcel, exportWriteoffsToExcel, exportInventoryToExcel } from './lib/excel';
 import { Spinner } from './components/ui';
 
 const DEFAULT_PAGE: Page = 'dashboard';
@@ -100,22 +100,19 @@ export default function App() {
       {page === 'checklists' && <ChecklistsScreen />}
       {page === 'haccp' && <HaccpScreen initialSection={haccpSection} />}
       {page === 'sanitation_log' && <SanitationLogScreen setPage={setPage} />}
-      {page === 'orders_entry' && <Orders mode="entry_only" setPage={setPage} autoOpenShareImport={autoOpenShareImport} onShareImportHandled={() => setAutoOpenShareImport(false)} />}
-      {page === 'orders' && <Orders mode="overviews_only" setPage={setPage} autoOpenShareImport={autoOpenShareImport} onShareImportHandled={() => setAutoOpenShareImport(false)} />}
+      {page === 'orders_entry' && <Orders mode="all" setPage={setPage} autoOpenShareImport={autoOpenShareImport} onShareImportHandled={() => setAutoOpenShareImport(false)} />}
+      {page === 'orders' && <Orders mode="all" setPage={setPage} autoOpenShareImport={autoOpenShareImport} onShareImportHandled={() => setAutoOpenShareImport(false)} />}
 
       {page === 'zavoz' && <Zavoz setPage={setPage} />}
       {page === 'kniha_jizd' && <KnihaJizdScreen setPage={setPage} />}
       {page === 'stock' && <Stock />}
-      {page === 'bottling_entry' && <EntryModule table="bottling" mode="entry_only" title="Stáčení lahví" icon="🍾" packageKind="bottle" hasSourceVolume hasNote showOrderedWeek multiRow subtitle="Rychlý zápis — vyber pivo, obal a množství." exportFn={exportBottlingToExcel} setPage={setPage} />}
+      {page === 'bottling' && <BottlingScreen setPage={setPage} />}
       {page === 'srotovani' && <SrotovaniScreen setPage={setPage} />}
-      {page === 'bottling_overview' && <EntryModule table="bottling" mode="overviews_only" title="Stáčení lahví" icon="🍾" packageKind="bottle" hasSourceVolume hasNote showOrderedWeek multiRow subtitle="Přehledy stáčení lahví podle týdnů." exportFn={exportBottlingToExcel} setPage={setPage} />}
-      {page === 'bottling' && <EntryModule table="bottling" mode="entry_only" title="Stáčení lahví" icon="🍾" packageKind="bottle" hasSourceVolume hasNote showOrderedWeek multiRow subtitle="Rychlý zápis — vyber pivo, obal a množství." exportFn={exportBottlingToExcel} setPage={setPage} />}
 
-      {page === 'kegging_entry' && <KeggingScreen mode="entry_only" setPage={setPage} />}
-      {page === 'kegging_overview' && <KeggingScreen mode="overviews_only" setPage={setPage} />}
-      {page === 'kegging' && <KeggingScreen mode="entry_only" setPage={setPage} />}      {page === 'fasovani' && <EntryModule table="fasovani" title="Fasování" icon="📦" subtitle="Soukromé fasování piva — vyber pivo, obal a množství." exportFn={exportFasovaniToExcel} setPage={setPage} multiRow multiRowCount={5} />}
-      {page === 'writeoffs' && <EntryModule table="writeoffs" title="Odpis" icon="📉" subtitle="Odpis piva — vyber pivo, obal a množství." exportFn={exportWriteoffsToExcel} setPage={setPage} multiRow multiRowCount={5} />}
-      {page === 'prodejna' && <EntryModule table="fasovani_private" title="Prodejna" icon="🏪" subtitle="Fasování piva pro prodejnu — vyber pivo, obal a množství." exportFn={exportProdejnaToExcel} multiRow multiRowCount={20} setPage={setPage} />}
+      {page === 'kegging' && <KeggingScreen mode="all" setPage={setPage} />}
+      {page === 'fasovani' && <ProdejnaScreen setPage={setPage} table="fasovani" title="Fasování" icon="📦" showVycep />}
+      {page === 'writeoffs' && <ProdejnaScreen setPage={setPage} table="writeoffs" title="Odpis" icon="📉" />}
+      {page === 'prodejna' && <ProdejnaScreen setPage={setPage} />}
       {page === 'sklo_promo' && <SkloPromoScreen setPage={setPage} />}
       {page === 'vycepy' && <VycepyScreen />}
       {page === 'exkurze' && <ExkurzeScreen />}
