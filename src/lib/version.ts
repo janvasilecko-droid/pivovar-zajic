@@ -1,11 +1,34 @@
 // Verze aplikace — zvyšuje se při každé provedené úpravě, aby šlo v UI poznat,
 // jestli je načtená nejnovější nasazená verze (řeší problémy s cachí prohlížeče/PWA).
-export const APP_VERSION = '1.417';
-export const APP_VERSION_DATE = '3.8.2026 10:57';
+export const APP_VERSION = '1.427';
+export const APP_VERSION_DATE = '3.8.2026 17:27';
+
+
+
+
 
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 export const APP_CHANGELOG: string[] = [
+  '🍾 Stáčení lahví (Přehled): přidán sloupec „🛢️ Sudů“ — ukazuje, z kolika sudů byly lahve stočeny (z pole kegs_used); v souhrnu „Celkem“ je celkový počet použitých sudů (s deduplikací zdroje)',
+  '🍾 Stáčení lahví (Přehled): přidány záložky 🍾 Lahve / 🛢️ KEG / 📦 Vše pro oddělení záznamů lahví a KEG sudů',
+  '🍾 Stáčení lahví (Přehled): u zobrazení „Měsíc“ přidána navigace ‹ / › pro listování mezi měsíci (dříve šlo listovat jen u týdnů)',
+  '📋 Inventura: sloupec „Výd.“ (výdeje) ve Fyzické inventuře nyní zahrnuje VŠECHNY odchody ze skladu — Fasování + Prodejna + Odpis + Objednávky + Stáčení lahví + Akce (dříve jen Fasování + Prodejna + Odpis)',
+
+  '🛢️ KEG (Stáčení & Přehled): „Zbývá stočit keg“ se nyní počítá jako objednáno − (sklad na konci měsíce + stočeno tento měsíc) — porovnává se s inventurou a stáčením v aktuálním měsíci',
+  '📋 Inventura: přidán měsíční filtr (‹ / ›) přímo do záložky „Stav sudů na konci měsíce“ (Bilanční konto sudů) — lze si vyfiltrovat libovolný měsíc (např. červenec) a celé konto se přepočítá',
+
+
+  '� Sklad: na kartě piva přidán řádek „Celkem odchody“ (fasování + stáčení lahví + akce + objednávky + odpisy + prodejna) a reálný stav „K dispozici (po všech odchodech)“',
+  '🛢️ Inventura: opraveno „Stáčení lahví“ v bilančním kontu sudů — nyní se správně odečítají použité sudy ze skladu sudů (např. 2×50L na 94 ks 1L PET); lahve stočené bez sudů (dotáčení z akcí) se přičtou do skladu lahví, ale sudy se neodečítají',
+
+  '�🔄 Automatická aktualizace: aplikace se nyní sama aktualizuje po každém nasazení nové verze (kontrola každou minutu) — bez nutnosti ručně obnovovat stránku; pokud zrovna píšete do formuláře, aktualizace počká, až dokončíte zápis',
+  '📦 Sklad: „Skladem“ nyní = stav k začátku měsíce (inventura) + stočeno − VŠECHNY odchody (fasování/scený sud, odpisy, stáčení lahví, akce, objednávky). Po zadání sceného sudu se počet sudů v přehledu správně sníží',
+  '📦 Sklad: detail po obalech nyní ukazuje VŠECHNY odchody v samostatných sloupcích — Objednávky, Odpisy, Fasování, Akce, Stáčení lahví a Celkem odchody; objednávky se odečítají v týdnu závozu (delivery_date)',
+
+
+
   '🍾 Stáčení lahví: přidán druhý sloupec „Lahve 2“ — z jednoho sudu lze stočit více druhů obalů najednou (např. 0,5L i 1,5L); opravena nabídka lahví, kde chyběly 1,5L lahve',
+
   '🍾 Stáčení lahví: při stáčení do lahví ze sudů se zadává počet použitých sudů (např. 6×50L) vedle obalu; tyto sudy se odečtou ze skladu KEG (jako objednávka) a v přehledu vytraty je vidět zdroj ze sudů, stočeno do lahví a ztráta (litry i %)',
 
   '🛢️ Stáčení KEG: přehled je nyní na samostatné záložce „Přehled“ (odděleno od zápisu); nahoře je vidět „Zbývá stočit keg“ a pod ním přehled stočených sudů s filtrem podle dne/týdne/měsíce a podle piva',
