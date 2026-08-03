@@ -36,14 +36,36 @@ export default function BottlingScreen({ setPage, mode = 'all' }: { setPage?: (p
   const [flash, setFlash] = useState(false);
 
   const [recordsView, setRecordsView] = useState<'month' | 'week'>('month');
+  const [recordsMonthKey, setRecordsMonthKey] = useState(() => new Date().toISOString().slice(0, 7));
   const [recordsWeekKey, setRecordsWeekKey] = useState(() => isoWeekKey(new Date().toISOString().slice(0, 10)));
-  const currentMonthKey = useMemo(() => new Date().toISOString().slice(0, 7), []);
+  // Posun měsíce o delta měsíců (vrací YYYY-MM)
+  function shiftMonth(monthKey: string, delta: number): string {
+    const [y, m] = monthKey.split('-').map(Number);
+    const d = new Date(Date.UTC(y, m - 1 + delta, 1));
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+  }
+  // Záložka záznamů: lahve / KEG / vše
+  const [recordsTab, setRecordsTab] = useState<'lahve' | 'keg' | 'vse'>('lahve');
   const filteredRows = useMemo(() => {
+    let result = rows;
     if (recordsView === 'month') {
-      return rows.filter((r) => r.entry_date?.startsWith(currentMonthKey));
+      result = result.filter((r) => r.entry_date?.startsWith(recordsMonthKey));
+    } else {
+      result = result.filter((r) => isoWeekKey(r.entry_date) === recordsWeekKey);
     }
-    return rows.filter((r) => isoWeekKey(r.entry_date) === recordsWeekKey);
-  }, [rows, recordsView, currentMonthKey, recordsWeekKey]);
+    if (recordsTab === 'lahve') {
+      result = result.filter((r) => {
+        const pkg = packages.find((p) => p.id === r.package_id);
+        return !pkg || pkg.kind !== 'keg';
+      });
+    } else if (recordsTab === 'keg') {
+      result = result.filter((r) => {
+        const pkg = packages.find((p) => p.id === r.package_id);
+        return pkg && pkg.kind === 'keg';
+      });
+    }
+    return result;
+  }, [rows, recordsView, recordsMonthKey, recordsWeekKey, recordsTab, packages]);
 
   // Filtrované obaly: pouze lahve povolených velikostí
   const bottlePackages = useMemo(() =>
@@ -159,6 +181,16 @@ export default function BottlingScreen({ setPage, mode = 'all' }: { setPage?: (p
     setRows((rs) => rs.map((r) => r.id === id ? { ...r, quantity: newQty } : r));
   }
 
+  // Uloží počet stočených sudů (kegs_used) pro daný záznam
+  async function updateKegs(id: string, value: string) {
+    const newKegs = Number(value);
+    if (isNaN(newKegs) || newKegs < 0) return;
+    const kegs = newKegs > 0 ? newKegs : null;
+    const { error } = await supabase.from('bottling').update({ kegs_used: kegs }).eq('id', id);
+    if (error) { setErr(error.message); return; }
+    setRows((rs) => rs.map((r) => r.id === id ? { ...r, kegs_used: kegs } : r));
+  }
+
   // Přehled podle velikosti lahví
   const BOTTLE_SIZES = [1.5, 1, 0.5, 0.33];
 
@@ -236,6 +268,18 @@ export default function BottlingScreen({ setPage, mode = 'all' }: { setPage?: (p
   }, 0);
   const totalCount = sizeBuckets.reduce((s, b) => s + b.count, 0) + kegBuckets.reduce((s, b) => s + b.count, 0) + otherCount;
   const totalLiters = sizeBuckets.reduce((s, b) => s + b.liters, 0) + kegBuckets.reduce((s, b) => s + b.liters, 0) + otherLiters;
+  // Celkový počet použitých sudů (kegs_used) — deduplikace zdroje (jeden sud může plnit více druhů obalů)
+  const totalKegs = (() => {
+    const seen = new Set<string>();
+    return rows.reduce((s, r) => {
+      if (r.kegs_used && r.kegs_used > 0) {
+        const key = `${r.entry_date}|${r.beer_id}|${r.kegs_used}|${r.kegs_used_package_id}`;
+        if (!seen.has(key)) { seen.add(key); return s + Number(r.kegs_used); }
+      }
+      return s;
+    }, 0);
+  })();
+
 
   return (
     <div className="space-y-6 pb-12">
@@ -248,7 +292,7 @@ export default function BottlingScreen({ setPage, mode = 'all' }: { setPage?: (p
           </span>
           {/* Export do Excelu — vedle názvu */}
           <div className="relative group">
-            <button className="btn-ghost !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs" disabled={!rows.length}>📊 Export Excel ▾</button>
+            <button className="btn-ghost !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs" disabled={!rows.length}>� Export Excel ▾</button>
             {rows.length > 0 && (
               <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-neutral-200 rounded-xl shadow-lg py-1 min-w-[180px] hidden group-hover:block">
                 <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
@@ -256,7 +300,7 @@ export default function BottlingScreen({ setPage, mode = 'all' }: { setPage?: (p
                   const m = now.toISOString().slice(0, 7);
                   const filtered = rows.filter((r) => r.entry_date?.startsWith(m));
                   exportBottlingToExcel(filtered);
-                }}>📅 Tento měsíc</button>
+                }}>�� Tento měsíc</button>
                 <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
                   const d = new Date(); d.setMonth(d.getMonth() - 1);
                   const m = d.toISOString().slice(0, 7);
@@ -504,6 +548,39 @@ export default function BottlingScreen({ setPage, mode = 'all' }: { setPage?: (p
               <>
                 <button
                   type="button"
+                  onClick={() => setRecordsTab('lahve')}
+                  className={`text-xs font-bold px-2.5 py-1 rounded-lg border transition ${
+                    recordsTab === 'lahve'
+                      ? 'bg-emerald-200 border-emerald-300 text-emerald-950'
+                      : 'bg-white border-neutral-200 text-neutral-600'
+                  }`}
+                >
+                  🍾 Lahve
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRecordsTab('keg')}
+                  className={`text-xs font-bold px-2.5 py-1 rounded-lg border transition ${
+                    recordsTab === 'keg'
+                      ? 'bg-amber-200 border-amber-300 text-amber-950'
+                      : 'bg-white border-neutral-200 text-neutral-600'
+                  }`}
+                >
+                  🛢️ KEG
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRecordsTab('vse')}
+                  className={`text-xs font-bold px-2.5 py-1 rounded-lg border transition ${
+                    recordsTab === 'vse'
+                      ? 'bg-amber-200 border-amber-300 text-amber-950'
+                      : 'bg-white border-neutral-200 text-neutral-600'
+                  }`}
+                >
+                  📦 Vše
+                </button>
+                <button
+                  type="button"
                   onClick={() => setRecordsView('month')}
                   className={`text-xs font-bold px-2.5 py-1 rounded-lg border transition ${
                     recordsView === 'month'
@@ -525,10 +602,16 @@ export default function BottlingScreen({ setPage, mode = 'all' }: { setPage?: (p
                   >
                     📅 Týden
                   </button>
-                  {recordsView === 'week' && (
+                  {recordsView === 'week' ? (
                     <>
                       <button onClick={() => setRecordsWeekKey(shiftWeek(recordsWeekKey, -1))} className="w-6 h-6 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition">‹</button>
                       <button onClick={() => setRecordsWeekKey(shiftWeek(recordsWeekKey, 1))} className="w-6 h-6 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition">›</button>
+                    </>
+                  ) : (
+                    <>
+                      <button onClick={() => setRecordsMonthKey(shiftMonth(recordsMonthKey, -1))} className="w-6 h-6 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition">‹</button>
+                      <span className="text-xs font-bold text-amber-950 px-1 whitespace-nowrap">{recordsMonthKey}</span>
+                      <button onClick={() => setRecordsMonthKey(shiftMonth(recordsMonthKey, 1))} className="w-6 h-6 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition">›</button>
                     </>
                   )}
                 </div>
@@ -555,6 +638,15 @@ export default function BottlingScreen({ setPage, mode = 'all' }: { setPage?: (p
             const pkg = packages.find((p) => p.id === r.package_id);
             return s + (pkg ? Number(r.quantity) * Number(pkg.volume_l) : 0);
           }, 0);
+          // Celkový počet sudů — deduplikace zdroje (jeden sud může plnit více druhů obalů)
+          const seenKegs = new Set<string>();
+          const totalKegs = sortedRows.reduce((s, r) => {
+            if (r.kegs_used && r.kegs_used > 0) {
+              const key = `${r.entry_date}|${r.beer_id}|${r.kegs_used}|${r.kegs_used_package_id}`;
+              if (!seenKegs.has(key)) { seenKegs.add(key); return s + Number(r.kegs_used); }
+            }
+            return s;
+          }, 0);
 
           function formatDate(d: string | null | undefined) {
             if (!d) return '—';
@@ -566,7 +658,7 @@ export default function BottlingScreen({ setPage, mode = 'all' }: { setPage?: (p
           return (
             <div className="card p-4 border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/80 to-amber-100/30">
               <h3 className="font-display font-black text-amber-950 text-sm mb-3">
-                🍾 {recordsView === 'month' ? `Měsíc ${currentMonthKey}` : `Týden ${recordsWeekKey}`}
+                🍾 {recordsView === 'month' ? `Měsíc ${recordsMonthKey}` : `Týden ${recordsWeekKey}`}
               </h3>
               <div className="rounded-xl border border-amber-300/80 bg-amber-50/90 overflow-x-auto">
                 <table className="w-full text-xs">
@@ -576,6 +668,8 @@ export default function BottlingScreen({ setPage, mode = 'all' }: { setPage?: (p
                       <th className="text-left py-1.5 px-2 font-black text-amber-950">Pivo</th>
                       <th className="text-right py-1.5 px-2 font-black text-amber-950">Lahve</th>
                       <th className="text-right py-1.5 px-2 font-black text-amber-950">Ks</th>
+                      <th className="text-right py-1.5 px-2 font-black text-amber-950">KEG</th>
+                      <th className="text-right py-1.5 px-2 font-black text-amber-950">🛢️ Sudů</th>
                       <th className="text-right py-1.5 px-2 font-black text-amber-950">Litry</th>
                       <th className="text-right py-1.5 px-2 font-black text-amber-950"></th>
                     </tr>
@@ -584,6 +678,7 @@ export default function BottlingScreen({ setPage, mode = 'all' }: { setPage?: (p
                     {sortedRows.map((r) => {
                       const beer = beers.find((b) => b.id === r.beer_id);
                       const pkg = packages.find((p) => p.id === r.package_id);
+                      const kegPkg = r.kegs_used_package_id ? packages.find((p) => p.id === r.kegs_used_package_id) : null;
                       const vol = pkg ? Number(pkg.volume_l) : 0;
                       const liters = Number(r.quantity) * vol;
                       return (
@@ -595,6 +690,8 @@ export default function BottlingScreen({ setPage, mode = 'all' }: { setPage?: (p
                           </td>
                           <td className="py-1.5 px-2 text-right font-semibold text-amber-900 whitespace-nowrap">{pkg?.label ?? '—'}</td>
                           <td className="py-1.5 px-2 text-right font-bold text-amber-950">{r.quantity}</td>
+                          <td className="py-1.5 px-2 text-right font-semibold text-amber-900 whitespace-nowrap">{kegPkg ? `KEG ${kegPkg.volume_l}L` : '—'}</td>
+                          <td className="py-1.5 px-2 text-right font-bold text-amber-950">{r.kegs_used && r.kegs_used > 0 ? r.kegs_used : '—'}</td>
                           <td className="py-1.5 px-2 text-right font-bold text-amber-950">{liters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })}</td>
                           <td className="py-1.5 px-2 text-right">
                             <div className="flex items-center gap-1 justify-end">
@@ -612,6 +709,8 @@ export default function BottlingScreen({ setPage, mode = 'all' }: { setPage?: (p
                       <td className="py-1.5 px-2 font-black text-amber-950">📦 Celkem</td>
                       <td className="py-1.5 px-2 text-right font-black text-amber-950"></td>
                       <td className="py-1.5 px-2 text-right font-black text-amber-950">{totalCount}</td>
+                      <td className="py-1.5 px-2 text-right font-black text-amber-950"></td>
+                      <td className="py-1.5 px-2 text-right font-black text-amber-950">{totalKegs > 0 ? totalKegs : '—'}</td>
                       <td className="py-1.5 px-2 text-right font-black text-amber-950">{totalLiters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })}</td>
                       <td className="py-1.5 px-2 text-right"></td>
                     </tr>

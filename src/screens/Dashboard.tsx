@@ -443,7 +443,8 @@ export default function Dashboard({ setPage }: { setPage?: (p: any) => void }) {
                       <td className="text-right text-primary-700 px-0 py-0">{p.fromInventory || '—'}</td>
                       <td className="text-right text-primary-700 px-0 py-0">{p.brewedWeek || '—'}</td>
                       <td className="text-right text-accent-700 px-0 py-0">{p.orderedWeek || '—'}</td>
-                      <td className="text-right text-warning-700 px-0 py-0">{p.writeoffsWeek + p.akTaken || '—'}</td>
+                      <td className="text-right text-warning-700 px-0 py-0">{p.writeoffsWeek + p.fasovaniWeek + p.akTaken - p.akReturned || '—'}</td>
+
                       <td className="text-right font-semibold text-primary-900 px-0 py-0">{p.quantity}</td>
                       <td className={`text-right font-semibold px-0 py-0 ${p.remaining < 0 ? 'text-danger-600' : p.remaining === 0 ? 'text-warning-600' : 'text-success-600'}`}>{p.remaining}</td>
                     </tr>

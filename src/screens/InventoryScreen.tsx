@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
+
+
 import { supabase, Beer, Package, useRealtime, formatPackageLabel, beerBg, beerText, beerName } from '../lib/supabase';
 import { Spinner } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
@@ -6,6 +8,14 @@ import { ClipboardCheck, Plus, Save, Download, Lock, RefreshCw, AlertCircle, Che
 import { CountFromImage } from '../components/CountFromImage';
 
 type InitialStockMap = Record<string, number>; // key: `${beer_id}__${package_id}`, val: qty
+
+// Posun měsíce o delta (např. -1 = předchozí měsíc, +1 = následující)
+function shiftMonth(month: string, delta: number): string {
+  const [y, m] = month.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
 
 type InventoryRow = {
   beer_id: string;
@@ -15,7 +25,8 @@ type InventoryRow = {
   price_czk: number;
   initialQty: number; // Počáteční stav k 1. dni v měsíci
   stacenoQty: number; // Nově stočeno tento měsíc
-  vydejQty: number;   // Vytočeno (Fasování + Odpis + Prodejna)
+  vydejQty: number;   // Vytočeno (Fasování + Odpis + Prodejna + Objednávky + Stáčení lahví + Akce)
+
   expectedQty: number; // Vypočtená teoretická zásoba
   actualQty: number;   // Zadaná skutečná fyzická inventura
   diffQty: number;     // Odchylka (Skutečnost - Očekávání)
@@ -63,7 +74,8 @@ export default function InventoryScreen() {
     const [{ data: b }, { data: pk }, { data: bt }, { data: kg }, { data: fa }, { data: fp }, { data: wo }, { data: inv }, { data: ords }, { data: oi }] = await Promise.all([
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
-      supabase.from('bottling').select('beer_id,package_id,quantity,entry_date'),
+      supabase.from('bottling').select('beer_id,package_id,quantity,entry_date,kegs_used,kegs_used_package_id'),
+
       supabase.from('kegging').select('beer_id,package_id,quantity,entry_date'),
       supabase.from('fasovani').select('beer_id,package_id,quantity,entry_date'),
       supabase.from('fasovani_private').select('beer_id,package_id,quantity,entry_date'),
@@ -96,13 +108,46 @@ export default function InventoryScreen() {
     });
     setStacenoMap(stacenoAcc);
 
-    // Výdej (Fasování + Prodejna + Odpisy)
+    // Výdej (Fasování + Prodejna + Odpisy + Objednávky + Stáčení lahví + Akce)
+    // Kompletní výdeje = vše, co opustilo sklad: fasování, prodejna, odpis,
+    // objednané sudy, sudy použité na stáčení lahví a sudy odvezené na akce.
     const vydejAcc: Record<string, number> = {};
-    [...((fa as any[]) ?? []), ...((fp as any[]) ?? []), ...((wo as any[]) ?? [])].filter((r) => filterMonth(r.entry_date)).forEach((r) => {
+    const addVydej = (r: any) => {
+      if (!r.beer_id || !r.package_id) return;
       const k = `${r.beer_id}__${r.package_id}`;
       vydejAcc[k] = (vydejAcc[k] || 0) + Number(r.quantity || 0);
+    };
+    // Fasování + Prodejna + Odpisy
+    [...((fa as any[]) ?? []), ...((fp as any[]) ?? []), ...((wo as any[]) ?? [])].filter((r) => filterMonth(r.entry_date)).forEach(addVydej);
+    // Objednávky (kegy objednané v tomto měsíci, ne storno)
+    const orderIdsVydej = new Set(((ords as any[]) ?? []).filter((o) => filterMonth(o.order_date) && o.status !== 'storno').map((o) => o.id));
+    ((oi as any[]) ?? []).filter((r) => orderIdsVydej.has(r.order_id)).forEach(addVydej);
+    // Stáčení lahví (kegy použité na stáčení lahví) — deduplikace zdroje
+    const seenKegSourceVydej = new Set<string>();
+    ((bt as any[]) ?? []).filter((r) => filterMonth(r.entry_date)).forEach((r) => {
+      if (r.kegs_used && r.kegs_used_package_id) {
+        const key = `${r.entry_date}|${r.beer_id}|${r.kegs_used}|${r.kegs_used_package_id}`;
+        if (seenKegSourceVydej.has(key)) return;
+        seenKegSourceVydej.add(key);
+        const k = `${r.beer_id}__${r.kegs_used_package_id}`;
+        vydejAcc[k] = (vydejAcc[k] || 0) + Number(r.kegs_used || 0);
+      }
     });
+    // Akce (kegy odvezené na akce)
+    try {
+      const savedAkce = localStorage.getItem('akce_records_v2');
+      const akceRecords = savedAkce ? JSON.parse(savedAkce) : [];
+      (akceRecords as any[]).filter((r) => filterMonth(r.entry_date)).forEach((r) => {
+        (r.items ?? []).forEach((it: any) => {
+          if (it.beer_id && it.package_id) {
+            const k = `${it.beer_id}__${it.package_id}`;
+            vydejAcc[k] = (vydejAcc[k] || 0) + Number(it.quantity_taken || 0);
+          }
+        });
+      });
+    } catch {}
     setVydejMap(vydejAcc);
+
 
     // === Bilanční konto sudů (jen KEG obaly) ===
     const kegPkgIds = new Set((pk as Package[] ?? []).filter((p) => p.kind === 'keg').map((p) => p.id));
@@ -115,13 +160,24 @@ export default function InventoryScreen() {
     });
     setStacenoKegMap(kegAcc);
 
-    // Stáčení lahví (kegy použité na stáčení lahví)
+    // Stáčení lahví (kegy použité na stáčení lahví) — odečítají se ze skladu SUDŮ.
+    // Při stáčení např. 2x50L do 1L lahví se odečtou 2 kegy ze skladu sudů.
+    // kegs_used_package_id = typ sudu (zdroj), kegs_used = počet použitých sudů.
+    // Pokud se z jednoho sudu stáčí do více obalů, vznikne více záznamů se stejným
+    // zdrojem — sudy odečteme jen jednou (deduplikace zdroje).
     const lahveAcc: Record<string, number> = {};
+    const seenKegSource = new Set<string>();
     ((bt as any[]) ?? []).filter((r) => filterMonth(r.entry_date)).forEach((r) => {
-      const k = `${r.beer_id}__${r.package_id}`;
-      lahveAcc[k] = (lahveAcc[k] || 0) + Number(r.quantity || 0);
+      if (r.kegs_used && r.kegs_used_package_id) {
+        const key = `${r.entry_date}|${r.beer_id}|${r.kegs_used}|${r.kegs_used_package_id}`;
+        if (seenKegSource.has(key)) return;
+        seenKegSource.add(key);
+        const k = `${r.beer_id}__${r.kegs_used_package_id}`;
+        lahveAcc[k] = (lahveAcc[k] || 0) + Number(r.kegs_used || 0);
+      }
     });
     setStacenoLahveMap(lahveAcc);
+
 
     // Fasování
     const fasAcc: Record<string, number> = {};
@@ -334,6 +390,8 @@ export default function InventoryScreen() {
   }, [rows]);
 
   function exportInventoryExcel() {
+
+
     const dataToExport = rows.map((r) => ({
       Pivo: r.beer_name,
       Obal: formatPackageLabel(r.package_label),
@@ -374,16 +432,33 @@ export default function InventoryScreen() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1.5 bg-neutral-800 border border-neutral-700 px-3 py-1.5 rounded-2xl text-xs font-bold">
-            <Calendar size={15} className="text-amber-400" />
-            <span>Měsíc:</span>
-            <input
-              type="month"
-              value={currentMonth}
-              onChange={(e) => setCurrentMonth(e.target.value)}
-              className="bg-transparent text-amber-300 font-mono font-black border-none focus:outline-none"
-            />
+          <div className="flex items-center gap-1 bg-neutral-800 border border-neutral-700 px-2 py-1.5 rounded-2xl text-xs font-bold">
+            <button
+              onClick={() => setCurrentMonth(shiftMonth(currentMonth, -1))}
+              className="px-2 py-1 rounded-lg bg-neutral-700 hover:bg-amber-500 hover:text-neutral-950 text-white font-black transition"
+              title="Předchozí měsíc"
+            >
+              ‹
+            </button>
+            <div className="flex items-center gap-1.5 px-1">
+              <Calendar size={15} className="text-amber-400" />
+              <span>Měsíc:</span>
+              <input
+                type="month"
+                value={currentMonth}
+                onChange={(e) => setCurrentMonth(e.target.value)}
+                className="bg-transparent text-amber-300 font-mono font-black border-none focus:outline-none"
+              />
+            </div>
+            <button
+              onClick={() => setCurrentMonth(shiftMonth(currentMonth, 1))}
+              className="px-2 py-1 rounded-lg bg-neutral-700 hover:bg-amber-500 hover:text-neutral-950 text-white font-black transition"
+              title="Následující měsíc"
+            >
+              ›
+            </button>
           </div>
+
 
           <button
             onClick={() => setShowPhotoCounter(true)}
@@ -472,7 +547,8 @@ export default function InventoryScreen() {
             <div className="card p-4 bg-white border border-neutral-200 rounded-2xl space-y-1">
               <span className="text-[10px] font-black uppercase text-neutral-500">Vytočeno (- výdeje)</span>
               <div className="font-display font-black text-xl text-rose-600">{totals.vydej} ks</div>
-              <span className="text-[11px] text-neutral-600">Fasováno + Odpis + Prodejna</span>
+              <span className="text-[11px] text-neutral-600">Fasování + Prodejna + Odpis + Objednávky + Stáčení lahví + Akce</span>
+
             </div>
             <div className="card p-4 bg-neutral-900 text-white rounded-2xl space-y-1">
               <span className="text-[10px] font-black uppercase text-amber-400">Celková odchylka (Manko/Přebytek)</span>
@@ -631,6 +707,7 @@ export default function InventoryScreen() {
           beers={beers}
           packages={packages}
           currentMonth={currentMonth}
+          onMonthChange={setCurrentMonth}
           initialStock={initialStock}
           stacenoKegMap={stacenoKegMap}
           stacenoLahveMap={stacenoLahveMap}
@@ -640,6 +717,7 @@ export default function InventoryScreen() {
           objednavkyMap={objednavkyMap}
         />
       )}
+
 
       {showPhotoCounter && (
         <CountFromImage
@@ -682,6 +760,7 @@ function EndStockTab({
   beers,
   packages,
   currentMonth,
+  onMonthChange,
   initialStock,
   stacenoKegMap,
   stacenoLahveMap,
@@ -693,6 +772,7 @@ function EndStockTab({
   beers: Beer[];
   packages: Package[];
   currentMonth: string;
+  onMonthChange: (m: string) => void;
   initialStock: InitialStockMap;
   stacenoKegMap: Record<string, number>;
   stacenoLahveMap: Record<string, number>;
@@ -701,6 +781,7 @@ function EndStockTab({
   akceMap: Record<string, number>;
   objednavkyMap: Record<string, number>;
 }) {
+
   // Jen KEG obaly
   const kegPackages = packages.filter((p) => p.kind === 'keg');
 
@@ -765,7 +846,34 @@ function EndStockTab({
     <div className="space-y-6">
       {/* Vysvětlení bilance */}
       <div className="p-4 rounded-2xl bg-sky-50 border border-sky-200 text-xs text-sky-950 font-medium space-y-1">
-        <p className="font-black text-sky-900">🛢️ Bilanční konto sudů za {monthLabel}</p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="font-black text-sky-900">🛢️ Bilanční konto sudů za {monthLabel}</p>
+          <div className="flex items-center gap-1 bg-white border border-sky-300 px-2 py-1 rounded-xl text-xs font-bold">
+            <button
+              onClick={() => onMonthChange(shiftMonth(currentMonth, -1))}
+              className="px-2 py-0.5 rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-900 font-black transition"
+              title="Předchozí měsíc"
+            >
+              ‹
+            </button>
+            <div className="flex items-center gap-1 px-1">
+              <Calendar size={14} className="text-sky-700" />
+              <input
+                type="month"
+                value={currentMonth}
+                onChange={(e) => onMonthChange(e.target.value)}
+                className="bg-transparent text-sky-900 font-mono font-black border-none focus:outline-none"
+              />
+            </div>
+            <button
+              onClick={() => onMonthChange(shiftMonth(currentMonth, 1))}
+              className="px-2 py-0.5 rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-900 font-black transition"
+              title="Následující měsíc"
+            >
+              ›
+            </button>
+          </div>
+        </div>
         <p>
           <strong>Stav na konci měsíce</strong> = Počáteční stav + Stáčení KEG − (Objednávky + Stáčení lahví + Fasování + Prodejna + Akce)
         </p>
@@ -773,6 +881,7 @@ function EndStockTab({
           Pokud vyjde <strong className="text-rose-700">záporné číslo</strong>, znamená to, že bylo vydáno více sudů, než bylo stočeno a naskladněno — chybí sudy!
         </p>
       </div>
+
 
       {/* Souhrn */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

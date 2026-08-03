@@ -79,6 +79,12 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   const [weekKey, setWeekKey] = useState(isoWeekKey(new Date().toISOString().slice(0, 10)));
   const [weekOrders, setWeekOrders] = useState<OrderRow[]>([]);
   const [weekItems, setWeekItems] = useState<OrderItemRow[]>([]);
+  // Období pro "Zbývá stočit keg": týden nebo celý měsíc
+  const [kegPeriod, setKegPeriod] = useState<'week' | 'month'>('week');
+  const [kegMonthKey, setKegMonthKey] = useState(() => new Date().toISOString().slice(0, 7));
+  // Inventura (sklad sudů) pro vybraný měsíc — mapa `${beer_id}__${package_id}` → ks
+  const [inventoryMap, setInventoryMap] = useState<Record<string, number>>({});
+
 
   const kegPackages = useMemo(() => packages.filter((p) => p.kind === 'keg').sort((a, b) => b.volume_l - a.volume_l), [packages]);
 
@@ -157,17 +163,36 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   // (zrušeno — pivo se nevyplňuje automaticky z tanku)
 
 
-  // nacti objednavky + polozky pro dany tyden (kvuli prehledu objednanych kegu)
+  // nacti objednavky + polozky pro dany tyden/mesic (kvuli prehledu objednanych kegu)
   useEffect(() => {
     (async () => {
-      const { data: ords } = await supabase.from('orders').select('id,order_date,status').order('order_date', { ascending: false });
-      const wkOrders = (ords as OrderRow[] ?? []).filter((o) => isoWeekKey(o.order_date) === weekKey && o.status !== 'storno');
+      // Měsíc, ke kterému se vztahuje inventura (sklad sudů) — pro týden vezmeme měsíc začátku týdne
+      const invMonth = kegPeriod === 'month' ? kegMonthKey : weekRange(weekKey).start.toISOString().slice(0, 7);
+      const [{ data: ords }, { data: inv }] = await Promise.all([
+        supabase.from('orders').select('id,order_date,status').order('order_date', { ascending: false }),
+        supabase.from('inventory').select('beer_id,package_id,quantity,entry_date'),
+      ]);
+      const all = (ords as OrderRow[] ?? []).filter((o) => o.status !== 'storno');
+      const wkOrders = kegPeriod === 'month'
+        ? all.filter((o) => o.order_date?.startsWith(kegMonthKey))
+        : all.filter((o) => isoWeekKey(o.order_date) === weekKey);
       setWeekOrders(wkOrders);
+
+      // Inventura (sklad sudů) pro vybraný měsíc — mapa `${beer_id}__${package_id}` → ks
+      const invAcc: Record<string, number> = {};
+      ((inv as any[]) ?? []).filter((r) => r.entry_date?.startsWith(invMonth)).forEach((r) => {
+        if (!r.beer_id || !r.package_id) return;
+        const k = `${r.beer_id}__${r.package_id}`;
+        invAcc[k] = (invAcc[k] || 0) + Number(r.quantity || 0);
+      });
+      setInventoryMap(invAcc);
+
       if (!wkOrders.length) { setWeekItems([]); return; }
       const { data: its } = await supabase.from('order_items').select('order_id,package_id,quantity,beer_id,beer_name').in('order_id', wkOrders.map((o) => o.id));
       setWeekItems((its as OrderItemRow[]) ?? []);
     })();
-  }, [weekKey]);
+  }, [weekKey, kegPeriod, kegMonthKey]);
+
 
   const orderedKegCount = useMemo(() => {
     const kegPkgIds = new Set(packages.filter((p) => p.kind === 'keg').map((p) => p.id));
@@ -175,12 +200,18 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   }, [weekItems, packages]);
   const wr = weekRange(weekKey);
 
-  // Rozpis objednaných sudů podle piva × velikost (za vybraný týden) + kolik ještě zbývá stočit
-  // (zbývá = objednáno v tomto týdnu − stočeno kdykoliv v historii pro danou kombinaci pivo+velikost).
-  const keggedHistoryMap = useMemo(() => {
+  // Měsíc, ke kterému se vztahuje "Zbývá stočit keg" (pro inventuru i stáčení tento měsíc)
+  const kegInvMonth = useMemo(
+    () => (kegPeriod === 'month' ? kegMonthKey : weekRange(weekKey).start.toISOString().slice(0, 7)),
+    [kegPeriod, kegMonthKey, weekKey]
+  );
+
+  // Stočeno tento měsíc (kegging záznamy v daném měsíci) — mapa `${beerKey}|${volume}` → ks
+  const keggedMonthMap = useMemo(() => {
     type Key = string; // `${beerKey}|${volume}`
     const keggedMap = new Map<Key, number>();
-    rows.forEach((r) => { // rows are all kegging entries
+    rows.forEach((r) => {
+      if (!r.entry_date?.startsWith(kegInvMonth)) return; // jen tento měsíc
       const pkg = kegPackages.find((p) => p.id === r.package_id);
       if (!pkg) return;
       const beerKey = r.beer_id ?? r.beer_name ?? '—';
@@ -188,8 +219,12 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
       keggedMap.set(key, (keggedMap.get(key) ?? 0) + Number(r.quantity));
     });
     return keggedMap;
-  }, [rows, kegPackages]);
+  }, [rows, kegPackages, kegInvMonth]);
 
+  // Rozpis objednaných sudů podle piva × velikost (za vybraný týden/měsíc) + kolik ještě zbývá stočit.
+  // Zbývá = objednáno − (inventura/sklad na konci měsíce + stočeno tento měsíc).
+  // Tedy sudy, které zbyly na skladě na konci měsíce, plus ty, co se tento měsíc stočily,
+  // se započítají jako pokrytí objednávky.
   const orderedByBeerSize = useMemo(() => {
     type Key = string; // `${beerKey}|${volume}`
     const orderedMap = new Map<Key, { beerKey: string; beerName: string; volume: number; ordered: number }>();
@@ -205,9 +240,14 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
     });
 
     const list = [...orderedMap.entries()].map(([key, v]) => {
-      const kegged = keggedHistoryMap.get(key) ?? 0;
-      const remaining = Math.max(v.ordered - kegged, 0);
-      return { ...v, remaining };
+      const tapped = keggedMonthMap.get(key) ?? 0; // stočeno tento měsíc
+      // Inventura (sklad sudů) pro dané pivo+velikost — najdeme obal podle objemu
+      const pkg = kegPackages.find((p) => Number(p.volume_l) === v.volume);
+      const invKey = pkg ? `${v.beerKey}__${pkg.id}` : '';
+      const stock = invKey && inventoryMap[invKey] ? Number(inventoryMap[invKey]) : 0;
+      const covered = tapped + stock; // pokryto = stočeno tento měsíc + sklad na konci měsíce
+      const remaining = Math.max(v.ordered - covered, 0);
+      return { ...v, tapped, stock, remaining };
     });
     list.sort((a, b) => a.beerName.localeCompare(b.beerName, 'cs') || a.volume - b.volume);
 
@@ -220,7 +260,8 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
       .sort((a, b) => b.volume - a.volume);
 
     return { list, remainingSizeList };
-  }, [weekItems, keggedHistoryMap, kegPackages, beers]);
+  }, [weekItems, keggedMonthMap, kegPackages, beers, inventoryMap]);
+
 
 
   // Souhrn stáčení z tanku (kegging) — sjednoceno s Cellar.tsx: % stočeno se počítá
@@ -609,11 +650,15 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <span className="font-display font-black text-amber-950 text-xs">🛢️ Zbývá stočit keg</span>
-                <span className="text-[10px] text-amber-800/70">týden {wr.label}</span>
+                <span className="text-[10px] text-amber-800/70">{kegPeriod === 'week' ? `týden ${wr.label}` : `měsíc ${kegMonthKey}`}</span>
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={() => setWeekKey(shiftWeek(weekKey, -1))} className="w-6 h-6 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition">‹</button>
-                <button onClick={() => setWeekKey(shiftWeek(weekKey, 1))} className="w-6 h-6 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition">›</button>
+                <div className="flex items-center rounded-lg bg-amber-100 border border-amber-300/70 overflow-hidden mr-1">
+                  <button onClick={() => setKegPeriod('week')} className={`px-2 py-1 text-[10px] font-bold transition ${kegPeriod === 'week' ? 'bg-amber-400 text-amber-950' : 'text-amber-800'}`}>Týden</button>
+                  <button onClick={() => setKegPeriod('month')} className={`px-2 py-1 text-[10px] font-bold transition ${kegPeriod === 'month' ? 'bg-amber-400 text-amber-950' : 'text-amber-800'}`}>Měsíc</button>
+                </div>
+                <button onClick={() => kegPeriod === 'week' ? setWeekKey(shiftWeek(weekKey, -1)) : setKegMonthKey(shiftMonth(kegMonthKey, -1))} className="w-6 h-6 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition">‹</button>
+                <button onClick={() => kegPeriod === 'week' ? setWeekKey(shiftWeek(weekKey, 1)) : setKegMonthKey(shiftMonth(kegMonthKey, 1))} className="w-6 h-6 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition">›</button>
               </div>
             </div>
 
@@ -644,13 +689,13 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                         <th className="text-left py-1.5 px-2 font-black text-amber-950">Pivo</th>
                         <th className="text-right py-1.5 px-2 font-black text-amber-950">KEG</th>
                         <th className="text-right py-1.5 px-2 font-black text-amber-950">Obj.</th>
+                        <th className="text-right py-1.5 px-2 font-black text-amber-950">Sklad</th>
                         <th className="text-right py-1.5 px-2 font-black text-amber-950">Stoč.</th>
                         <th className="text-right py-1.5 px-2 font-black text-amber-950">Zbývá</th>
                       </tr>
                     </thead>
                     <tbody>
                       {orderedByBeerSize.list.map((r) => {
-                        const kegged = keggedHistoryMap.get(`${r.beerKey}|${r.volume}`) ?? 0;
                         const beerObj = beers.find((b) => b.id === r.beerKey || b.name === r.beerName);
                         return (
                           <tr key={`${r.beerKey}|${r.volume}`} className="border-b border-amber-200/60 hover:bg-amber-100/70">
@@ -660,7 +705,8 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                             </td>
                             <td className="py-1.5 px-2 text-right font-semibold text-amber-900 whitespace-nowrap">{r.volume}L</td>
                             <td className="py-1.5 px-2 text-right font-bold text-amber-950">{r.ordered}</td>
-                            <td className="py-1.5 px-2 text-right font-bold text-emerald-800">{kegged}</td>
+                            <td className="py-1.5 px-2 text-right font-bold text-sky-800">{r.stock}</td>
+                            <td className="py-1.5 px-2 text-right font-bold text-emerald-800">{r.tapped}</td>
                             <td className="py-1.5 px-2 text-right whitespace-nowrap">
                               {r.remaining > 0 ? (
                                 <span className="font-black text-rose-800">{r.remaining}</span>
@@ -671,6 +717,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                           </tr>
                         );
                       })}
+
                     </tbody>
                   </table>
                 </div>

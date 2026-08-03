@@ -6,7 +6,8 @@ import { AuthProvider } from './lib/auth';
 import { initDensity } from './lib/density';
 import { initTheme } from './lib/theme';
 import { reportAppVersion } from './lib/appVersionTracker';
-import { startVersionCheck, onNewVersion } from './lib/versionCheck';
+import { startVersionCheck, onNewVersion, autoRefreshIfNewVersion } from './lib/versionCheck';
+
 
 initDensity();
 
@@ -108,10 +109,15 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// Když versionCheck najde novou verzi, pouze zalogujeme — UI (Layout.tsx) zobrazí modální okno
+// Když versionCheck najde novou verzi, aplikace se AUTOMATICKY aktualizuje.
+// autoRefreshIfNewVersion() obnoví stránku (a vymaže cache), ale jen pokud
+// uživatel zrovna nepíše do formuláře — aby nepřišel o rozpracovaný zápis.
+// Pokud píše, aktualizace proběhne při příští kontrole (za 1 minutu).
 onNewVersion((info) => {
-  console.log(`📱 Nová verze ${info.version} dostupná — UI zobrazí upozornění`);
+  console.log(`📱 Nová verze ${info.version} dostupná — automaticky aktualizuji`);
+  autoRefreshIfNewVersion();
 });
+
 
 try {
   ReactDOM.createRoot(document.getElementById('root')!).render(

@@ -31,7 +31,7 @@ function notify(info: VersionInfo) {
   for (const cb of listeners) cb(info);
 }
 
-export async function checkVersion(): Promise<VersionInfo | null> {
+export async function checkVersion(silent = false): Promise<VersionInfo | null> {
   try {
     // Necháme service worker zkontrolovat, jestli není dostupná nová verze SW.
     // Bez toho by starý SW vracel z cache starý version.json a aplikace by
@@ -58,7 +58,9 @@ export async function checkVersion(): Promise<VersionInfo | null> {
 
     currentVersion = info.version;
 
-    if (info.version !== APP_VERSION) {
+    // silent = true se používá při automatické aktualizaci, aby se znovu
+    // nevyvolala notifikace (a nevznikl nekonečný cyklus).
+    if (!silent && info.version !== APP_VERSION) {
       notify(info);
     }
     return info;
@@ -67,6 +69,7 @@ export async function checkVersion(): Promise<VersionInfo | null> {
     return null;
   }
 }
+
 
 export function startVersionCheck() {
   // První kontrola za 3 sekundy po startu
@@ -84,8 +87,10 @@ export function startVersionCheck() {
  * Vrací true, pokud se aktualizace spustila.
  */
 export async function autoRefreshIfNewVersion(): Promise<boolean> {
-  const info = await checkVersion();
+  // silent = true, aby se znovu nevyvolala notifikace (a nevznikl nekonečný cyklus)
+  const info = await checkVersion(true);
   if (!info) return false;
+
 
   // Pokud uživatel zrovna píše do formuláře, necháme ho dokončit zápis —
   // aktualizace proběhne při příští kontrole (za 5 minut).
