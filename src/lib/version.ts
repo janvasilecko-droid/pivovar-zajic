@@ -10,6 +10,8 @@ export const APP_VERSION_DATE = '4.8.2026 22:40';
 
 export const APP_CHANGELOG: string[] = [
   '🍾 Stáčení lahví (Přehled): počet sudů „🛢️ Sudů“ i velikost „KEG“ jsou nyní EDITOVATELNÉ přímo v přehledu — počet sudů tlačítky − / + a velikost sudu rozbalovacím výběrem; změna se projeví pro celou šarži (všechny obaly stočené z daných sudů) a přepočítá se i zdrojový objem a ztráta',
+  '🍾 Stáčení lahví (Přehled): KEG a počet sudů lze nyní DOPLNIT i u záznamů, kde byl KEG zapomenut — u každé šarže bez zadaného sudu je aktivní výběr velikosti KEG a tlačítka − / + pro počet sudů (dříve se zobrazovala jen pomlčka)',
+
 
   '📷 Import z fotky (AI): oprava přiřazení OBJEMU u KEG sudů — pokud je v textu objednávky napsáno „2x50“ (přesně viditelné v textu), ale AI do obalu zapíše „2x30“ nebo „KEG 30l“, aplikace nyní správně použije objem z textu (50l) a nenechá chybný obal 30l. Týká se i fragmentů typu „2x30“, které AI omylem zapíše jako obal.',
 

@@ -1260,13 +1260,14 @@ export default function BottlingScreen({ setPage, mode = 'all' }: { setPage?: (p
                           <td className="py-1.5 px-2 text-right font-semibold text-amber-900 whitespace-nowrap">{pkg?.label ?? '—'}</td>
                           <td className="py-1.5 px-2 text-right font-bold text-amber-950">{r.quantity}</td>
                           <td className="py-1.5 px-2 text-right font-semibold text-amber-900 whitespace-nowrap">
-                            {isFirstInBatch && kegPkg ? (
+                            {isFirstInBatch ? (
                               <select
-                                value={kegPkg.id}
+                                value={kegPkg?.id ?? ''}
                                 onChange={(e) => updateKegPackage(r.id, e.target.value)}
                                 className="text-xs font-bold py-0.5 px-1 rounded-lg bg-white border border-amber-300 text-amber-950 focus:border-amber-500 shadow-2xs"
                                 title="Změnit velikost KEG sudu"
                               >
+                                <option value="">— Vyber KEG —</option>
                                 {kegPackages.map((p) => (
                                   <option key={p.id} value={p.id}>KEG {p.volume_l}L</option>
                                 ))}
@@ -1277,7 +1278,7 @@ export default function BottlingScreen({ setPage, mode = 'all' }: { setPage?: (p
                           </td>
 
                           <td className="py-1.5 px-2 text-right">
-                            {isFirstInBatch && kegPkg ? (
+                            {isFirstInBatch ? (
                               <div className="inline-flex items-center gap-0.5 justify-end">
                                 <button
                                   type="button"
@@ -1299,6 +1300,7 @@ export default function BottlingScreen({ setPage, mode = 'all' }: { setPage?: (p
                               <span className="text-neutral-300 font-normal">—</span>
                             )}
                           </td>
+
 
                           <td className="py-1.5 px-2 text-right font-bold text-amber-950">{liters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })}</td>
                           <td className="py-1.5 px-2 text-right">
