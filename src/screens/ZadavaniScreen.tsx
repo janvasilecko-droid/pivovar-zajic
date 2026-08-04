@@ -234,15 +234,9 @@ export default function ZadavaniScreen({ setPage, mode = 'all' }: { setPage?: (p
                             disabled={!r.qty || Number(r.qty) <= 0}
                             onClick={() => setEntryRows((rs) => rs.map((x, j) => j === i ? { ...x, qty: String(Math.max(0, Number(x.qty) - 1)) } : x))}
                           >−</button>
-                          <input
-                            type="number"
-                            min="0"
-                            step="1"
-                            className="input text-xs w-14 text-center font-bold"
-                            value={r.qty}
-                            onChange={(e) => setRowField(i, 'qty', e.target.value)}
-                            placeholder="0"
-                          />
+                                                    <span className="w-16 min-w-[3.5rem] text-xs text-center font-bold bg-white border border-neutral-200 rounded-lg py-2">
+                            {Number(r.qty) > 0 ? r.qty : '0'}
+                          </span>
                           <button
                             type="button"
                             className="w-7 h-7 grid place-items-center rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-sm transition"

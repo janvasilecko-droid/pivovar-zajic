@@ -6,6 +6,7 @@ import { PhotoReviewPane } from './PhotoReviewPane';
 
 
 
+import { isTapMentioned } from '../lib/tapReservations';
 import type { Beer, Package, Place } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
 import {
@@ -53,6 +54,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
   const [paused, setPaused] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
   const processingRef = useRef(false);
 
 
@@ -166,14 +168,20 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
       // u každé položky. Zkusíme je spárovat se známými odběrateli (places).
       // Detekci spouštíme VŽDY (i když už je placeId nastavené), aby se při
       // importu více fotek správně rozpoznal odběratel pro každou objednávku.
-      const detectedPlaceName = data?.place_name ?? data?.customer_name;
+      const isIgnoredSender = (name?: string | null) => {
+        if (!name) return true;
+        const norm = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        return ['bednar', 'petr', 'sladek', 'gabina', 'ucetni', 'pojmi', 'bendat'].some((s) => norm.includes(s));
+      };
+
+      const detectedPlaceName = isIgnoredSender(data?.place_name ?? data?.customer_name) ? null : (data?.place_name ?? data?.customer_name);
       // Nejprve zkus top-level place_name z AI (nejspolehlivější)
       let foundPlace = matchPlaceFromText(detectedPlaceName || '', places, placeAliasMap);
       let firstItemPlaceName: string | null = null;
       // Pokud top-level nic nedal, zkus place_name z jednotlivých položek
       if (!foundPlace.placeId) {
         for (const item of geminiItems) {
-          if (item.place_name) {
+          if (item.place_name && !isIgnoredSender(item.place_name)) {
             if (!firstItemPlaceName) firstItemPlaceName = item.place_name;
             foundPlace = matchPlaceFromText(item.place_name, places, placeAliasMap);
             if (foundPlace.placeId) break;
@@ -187,11 +195,11 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
       if (foundPlace.placeId) {
         setPlaceId(foundPlace.placeId);
         setPlaceName(foundPlace.placeName ?? '');
-      } else if (detectedPlaceName) {
+      } else if (detectedPlaceName && !isIgnoredSender(detectedPlaceName)) {
         // AI rozpoznala jméno, ale neodpovídá žádnému známému odběrateli
         // → použij ho jako nového odběratele
         setPlaceName(detectedPlaceName);
-      } else if (firstItemPlaceName) {
+      } else if (firstItemPlaceName && !isIgnoredSender(firstItemPlaceName)) {
         // AI rozpoznala jméno na položce, ale neodpovídá známému odběrateli
         // → použij ho jako nového odběratele
         setPlaceName(firstItemPlaceName);
@@ -288,46 +296,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
       } catch {}
     }
 
-    // 🧠 ODBĚRATEL: Pokud uživatel ručně opravil odběratele (place_name),
-    // propaguj opravu na VŠECHNY položky, které měly JINÝ (špatný) název.
-    // Např. AI rozpoznala "Seeberg" u 5 položek, ale správně je "Seeberg 2" —
-    // uživatel opraví jednu položku a všechny ostatní se opraví automaticky.
-    // Také se uloží alias (špatný název → správný), aby se AI příště naučila.
-    if (patch.place_name !== undefined && patch.place_name !== old.place_name) {
-      const oldPlace = old.place_name?.trim();
-      const newPlace = patch.place_name?.trim() || null;
-      if (newPlace) {
-        // Propaguj na VŠECHNY položky, které mají JINÝ odběratele (nebo žádného),
-        // aby se ručně napsaný odběratel propisoval na celou objednávku.
-        const propagated = updated.map((x, idx) => {
-          if (idx !== i && x.line.place_name?.trim() !== newPlace) {
-            return { ...x, line: { ...x.line, place_name: newPlace } };
-          }
-          return x;
-        });
-        setParsed(propagated);
 
-        // 🧠 NAUČ SE ALIAS: ulož mapování (špatný název → správný název),
-        // aby příští AI rozpoznávání z fotky použilo správný název.
-        try {
-          // Najdi správné místo v seznamu places
-          const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-          const matchedPlace = places.find((pl) => norm(pl.name) === norm(newPlace));
-          if (matchedPlace) {
-            // Ulož alias pro každý špatný název, který se na položkách vyskytoval
-            const wrongNames = new Set<string>();
-            for (const x of updated) {
-              const pn = x.line.place_name?.trim();
-              if (pn && pn !== newPlace) wrongNames.add(pn);
-            }
-            for (const wrongName of wrongNames) {
-              await savePlaceAlias(wrongName, matchedPlace.id);
-            }
-            setPlaceAliasMap(await loadPlaceAliasMap());
-          }
-        } catch {}
-      }
-    }
 
   }
 
@@ -464,20 +433,37 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
             <div className="text-xs font-semibold text-warning-800 mb-1">📝 Rozpoznaná poznámka k objednávce</div>
             <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="poznámka (např. bez etikety, podtacky…)" />
             <div className="text-[11px] text-warning-600 mt-1">Auto-detected z textu — můžeš upravit. Bude uloženo k objednávce.</div>
+            {isTapMentioned(note) && (
+              <div className="mt-2.5 text-xs font-bold text-amber-900 bg-amber-100 dark:bg-amber-950/80 dark:text-amber-200 p-2.5 rounded-xl border border-amber-300 dark:border-amber-700 flex items-center gap-2">
+                <span className="text-base">🚰</span>
+                <span>Detekován výčep / chlazení! Po importu se automaticky otevře okno pro rezervaci konkrétního výčepu.</span>
+              </div>
+            )}
           </div>
         )}
 
-        <div className="flex flex-wrap gap-3 items-center">
-          <input ref={fileRef} type="file" accept="image/*" multiple onChange={onFile} className="hidden" />
-          <button className="btn-primary" onClick={() => fileRef.current?.click()} disabled={busy}>
-            {busy ? `Čtu z fotky… ${progress}%` : 'Nahrát fotky (WhatsApp)'}
-          </button>
-          <label className="flex items-center gap-2 text-xs text-primary-600 cursor-pointer select-none">
-            <input type="checkbox" checked={editBeforeOcr} onChange={(e) => setEditBeforeOcr(e.target.checked)} className="accent-primary-600" />
-            Upravit fotky před čtením (oříznutí / otočení)
-          </label>
-          {queueLeft > 0 && <span className="text-xs text-primary-400">Ve frontě: {queueLeft}</span>}
-          <span className="text-xs text-primary-400">Můžeš nahrát více fotek najednou — AI přečte každou zvlášť a po importu přejde na další</span>
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap gap-3 items-center">
+            <input ref={fileRef} type="file" accept="image/*,application/pdf,.png,.jpg,.jpeg,.webp" multiple onChange={onFile} className="hidden" />
+            <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={onFile} className="hidden" />
+            
+            <button className="btn-primary" onClick={() => cameraRef.current?.click()} disabled={busy}>
+              {busy ? `Čtu z fotky… ${progress}%` : '📷 Spustit fotoaparát'}
+            </button>
+
+            <button className="btn-secondary border-neutral-300 text-neutral-800 bg-white hover:bg-neutral-50" onClick={() => fileRef.current?.click()} disabled={busy}>
+              📁 Vybrat fotku / soubor z galerie
+            </button>
+
+            <label className="flex items-center gap-2 text-xs text-primary-600 cursor-pointer select-none">
+              <input type="checkbox" checked={editBeforeOcr} onChange={(e) => setEditBeforeOcr(e.target.checked)} className="accent-primary-600" />
+              Upravit fotky před čtením (oříznutí / otočení)
+            </label>
+            {queueLeft > 0 && <span className="text-xs text-primary-400">Ve frontě: {queueLeft}</span>}
+          </div>
+          <span className="text-[11px] text-neutral-500">
+            💡 Můžeš nahrát více fotek najednou. Obrázek/snímek obrazovky lze také přímo vložit zkopírováním a stisknutím <strong>Ctrl+V</strong> (Vložit).
+          </span>
         </div>
 
         {editingImage && (

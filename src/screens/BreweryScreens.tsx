@@ -458,15 +458,9 @@ export function ConcentrationScreen() {
         >
           −
         </button>
-        <input
-          type="number"
-          step={step}
-          min={min}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className={`input font-mono font-black text-center ${className}`}
-        />
+        <span className={`w-20 min-w-[4rem] px-2 text-center font-mono font-black bg-white border border-neutral-200 rounded-xl py-2 shadow-2xs ${className ?? ''}`}>
+          {value || '0'}
+        </span>
         <button
           type="button"
           onClick={() => onChange(String(Number((numVal + step).toFixed(2))))}

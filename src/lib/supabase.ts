@@ -3,10 +3,15 @@ import { useEffect, useRef } from 'react';
 
 const url = import.meta.env.VITE_SUPABASE_URL as string;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+const serviceKey = (import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY as string) || anonKey;
 
 export const supabase = createClient(url, anonKey, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
   realtime: { params: { eventsPerSecond: 5 } },
+});
+
+export const supabaseAdmin = createClient(url, serviceKey, {
+  auth: { persistSession: false },
 });
 
 /**
@@ -300,6 +305,7 @@ export type CellarTankCycle = {
 export type SanitationLog = {
   id: string;
   sanitation_date: string;
+  sanitation_time?: string | null;
   tank_id: string | null;
   tank_label: string;
   method: 'kyselina_dusicna' | 'louh' | 'oplach_vodou' | 'persteril' | 'kombinovana';

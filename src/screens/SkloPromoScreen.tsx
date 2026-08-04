@@ -526,7 +526,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                     <label className="block text-xs font-black text-neutral-700 mb-1">Přivezeno kusů (ks)</label>
                     <div className="flex items-center gap-1">
                       <button type="button" onClick={() => setInQty(String(Math.max(0, (Number(inQty) || 0) - 50)))} className="w-8 h-8 shrink-0 grid place-items-center rounded-xl bg-neutral-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition">−</button>
-                      <input type="number" min={1} required value={inQty} onChange={(e) => setInQty(e.target.value)} placeholder="500" className="input font-mono font-black text-sm text-center" />
+                      <span className="w-20 px-2 text-center font-mono font-black text-sm bg-white border border-neutral-200 rounded-xl py-2 shadow-2xs">{inQty || '0'}</span>
                       <button type="button" onClick={() => setInQty(String((Number(inQty) || 0) + 50))} className="w-8 h-8 shrink-0 grid place-items-center rounded-xl bg-emerald-700 text-white font-bold text-sm select-none active:scale-95 transition">+</button>
                     </div>
                   </div>
@@ -595,7 +595,9 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                     <label className="block text-xs font-black text-neutral-700 mb-1">Vydáno kusů (ks)</label>
                     <div className="flex items-center gap-1">
                       <button type="button" onClick={() => setOutQty(String(Math.max(0, (Number(outQty) || 0) - 10)))} className="w-8 h-8 shrink-0 grid place-items-center rounded-xl bg-neutral-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition">−</button>
-                      <input type="number" min={1} required value={outQty} onChange={(e) => setOutQty(e.target.value)} placeholder="50" className="input font-mono font-black text-sm text-center" />
+                      <span className="w-16 min-w-[3.5rem] px-2 text-center font-mono font-black text-sm bg-white border border-neutral-200 rounded-xl py-2 shadow-2xs">
+                        {outQty || '0'}
+                      </span>
                       <button type="button" onClick={() => setOutQty(String((Number(outQty) || 0) + 10))} className="w-8 h-8 shrink-0 grid place-items-center rounded-xl bg-amber-950 text-white font-bold text-sm select-none active:scale-95 transition">+</button>
                     </div>
                   </div>
@@ -737,7 +739,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                 <label className="block text-xs font-black text-neutral-700 mb-1">Nakoupeno etiket (ks)</label>
                 <div className="flex items-center gap-1">
                   <button type="button" onClick={() => setLabelQty(String(Math.max(0, (Number(labelQty) || 0) - 500)))} className="w-8 h-8 shrink-0 grid place-items-center rounded-xl bg-neutral-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition">−</button>
-                  <input type="number" min={1} required value={labelQty} onChange={(e) => setLabelQty(e.target.value)} placeholder="1000" className="input font-mono font-black text-sm text-center" />
+                  <span className="w-20 px-2 text-center font-mono font-black text-sm bg-white border border-neutral-200 rounded-xl py-2 shadow-2xs">{labelQty || '0'}</span>
                   <button type="button" onClick={() => setLabelQty(String((Number(labelQty) || 0) + 500))} className="w-8 h-8 shrink-0 grid place-items-center rounded-xl bg-amber-950 text-white font-bold text-sm select-none active:scale-95 transition">+</button>
                 </div>
               </div>
@@ -873,7 +875,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                 <label className="block text-xs font-black text-neutral-700 mb-1">Nakoupeno lahví (ks)</label>
                 <div className="flex items-center gap-1">
                   <button type="button" onClick={() => setBottleQty(String(Math.max(0, (Number(bottleQty) || 0) - 600)))} className="w-8 h-8 shrink-0 grid place-items-center rounded-xl bg-neutral-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition">−</button>
-                  <input type="number" min={1} required value={bottleQty} onChange={(e) => setBottleQty(e.target.value)} placeholder="1200" className="input font-mono font-black text-sm text-center" />
+                  <span className="w-20 px-2 text-center font-mono font-black text-sm bg-white border border-neutral-200 rounded-xl py-2 shadow-2xs">{bottleQty || '0'}</span>
                   <button type="button" onClick={() => setBottleQty(String((Number(bottleQty) || 0) + 600))} className="w-8 h-8 shrink-0 grid place-items-center rounded-xl bg-emerald-700 text-white font-bold text-sm select-none active:scale-95 transition">+</button>
                 </div>
               </div>

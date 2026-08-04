@@ -183,7 +183,9 @@ export function WhatsAppImportModal({
             if (score > bestScore) { bestScore = score; bestMsg = msg; }
           }
           if (bestMsg && bestScore >= 0.3) {
-            line.place_name = bestMsg.sender || null;
+            // Odběratele urči z TEXTU zprávy (Malesice, Naseb…), ne z odesílatele (Pojmi, Bednář…).
+            const m = matchPlaceFromText(bestMsg.text || '', places, placeAliasMap);
+            line.place_name = m.placeName ?? null;
             line.date = bestMsg.date || null;
           }
         }
@@ -246,10 +248,12 @@ export function WhatsAppImportModal({
           const m = matchPlaceFromText(placeKey, places, placeAliasMap);
           if (m.placeId) { placeId = m.placeId; placeName = m.placeName ?? placeKey; }
         }
-        if (!placeId && !placeName && sender) {
-          const m = matchPlaceFromText(sender, places, placeAliasMap);
-          if (m.placeId) { placeId = m.placeId; placeName = m.placeName ?? sender; }
-          else placeName = sender;
+        if (!placeId && !placeName) {
+          // Odběratele hledej VŽDY v TEXTU objednávky (Malesice, Naseb, Seeberg…),
+          // NIKDY ve jméně odesílatele zprávy (Pojmi, Bednář, Účetní…).
+          const groupRaw = group.lines.map((l) => l.raw || '').join(' ');
+          const m = matchPlaceFromText(groupRaw || text, places, placeAliasMap);
+          if (m.placeId) { placeId = m.placeId; placeName = m.placeName ?? ''; }
         }
 
         const items: ItemRow[] = group.lines.map((it, idx) => ({
@@ -289,10 +293,10 @@ export function WhatsAppImportModal({
         const first = parsedMessages[0];
         let placeId: string | null = null;
         let placeName = '';
-        if (first?.sender) {
-          const m = matchPlaceFromText(first.sender, places, placeAliasMap);
-          if (m.placeId) { placeId = m.placeId; placeName = m.placeName ?? first.sender; }
-          else placeName = first.sender;
+        if (first) {
+          // Odběratele hledej v TEXTU zprávy, ne v odesílateli (Pojmi, Bednář…).
+          const m = matchPlaceFromText(first.text || '', places, placeAliasMap);
+          if (m.placeId || m.placeName) { placeId = m.placeId; placeName = m.placeName ?? ''; }
         }
         drafts.push({
           id: makeOrderId(),

@@ -235,14 +235,9 @@ export default function ExkurzeScreen() {
               <label className="block text-xs font-black text-neutral-700 mb-1">Počet lidí (osob)</label>
               <div className="flex items-center gap-1">
                 <button type="button" onClick={() => setPeopleCount(String(Math.max(1, (Number(peopleCount) || 0) - 1)))} className="w-9 h-9 shrink-0 grid place-items-center rounded-xl bg-neutral-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition" title="- 1 osoba">−</button>
-                <input
-                  type="number"
-                  min={1}
-                  required
-                  value={peopleCount}
-                  onChange={(e) => setPeopleCount(e.target.value)}
-                  className="input font-mono font-black text-sm text-center"
-                />
+                <span className="min-w-[3rem] px-3 text-center font-mono font-black text-lg bg-white border border-neutral-200 rounded-xl py-2 shadow-2xs">
+                  {peopleCount || '1'}
+                </span>
                 <button type="button" onClick={() => setPeopleCount(String((Number(peopleCount) || 0) + 1))} className="w-9 h-9 shrink-0 grid place-items-center rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-sm select-none active:scale-95 transition shadow-2xs" title="+ 1 osoba">+</button>
               </div>
               <div className="flex gap-1.5 mt-2">

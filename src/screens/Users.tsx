@@ -6,6 +6,7 @@ import { createFullBackup, downloadBackupJSON, downloadGoogleSheetsExcelBackup }
 import { Download, Shield, History, Table } from 'lucide-react';
 import { UserPermissionsModal } from '../components/UserPermissionsModal';
 import { AuditLogViewer } from '../components/AuditLogViewer';
+import { isAdminEmail } from '../lib/config';
 
 type UserRow = {
   id: string; email: string; display_name: string | null;
@@ -21,7 +22,7 @@ export default function Users() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<UserRow | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const isAdmin = profile?.role === 'admin' || user?.email?.toLowerCase().trim() === 'vasilecko@seznam.cz';
+  const isAdmin = profile?.role === 'admin' || isAdminEmail(user?.email);
 
   async function handleBackupJSON() {
     setBackingUp(true);

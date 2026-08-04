@@ -4,6 +4,7 @@ import { isNotificationSupported, requestNotificationPermission, playOrderChime 
 import { Bell, Plus, Trash2, CheckCircle2, Clock, User, Shield, PhoneCall, Monitor, Lock, AlertCircle, Filter, Calendar } from 'lucide-react';
 import { EmptyState, Spinner } from '../components/ui';
 import { useAuth } from '../lib/auth';
+import { getAdminEmail, DEFAULT_ROLE } from '../lib/config';
 
 export default function RemindersScreen() {
   const { user } = useAuth();
@@ -26,8 +27,8 @@ export default function RemindersScreen() {
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState<'all' | 'my' | 'pending'>('pending');
 
-  const currentUserEmail = user?.email || 'vasilecko@seznam.cz';
-  const currentUserRole = user?.role || 'admin';
+  const currentUserEmail = user?.email || getAdminEmail();
+  const currentUserRole = user?.role || DEFAULT_ROLE;
 
   async function loadData() {
     setLoading(true);

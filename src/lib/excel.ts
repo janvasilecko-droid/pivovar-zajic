@@ -29,10 +29,10 @@ export const exportInventoryToExcel = (rows: EntryRow[]) =>
   download(cols(rows, ['Datum', 'Pivo', 'Obal', 'Množství', 'Poznámka'], ['entry_date', 'beer_name', 'package_label', 'quantity', 'note']), 'inventura.xlsx');
 
 export const exportFasovaniToExcel = (rows: EntryRow[]) =>
-  download(cols(rows, ['Datum', 'Pivo', 'Obal', 'Množství', 'Poznámka'], ['entry_date', 'beer_name', 'package_label', 'quantity', 'note']), 'fasovani.xlsx');
+  download(cols(rows, ['Datum', 'Kdo', 'Pivo', 'Obal', 'Množství', 'Poznámka'], ['entry_date', 'who', 'beer_name', 'package_label', 'quantity', 'note']), 'fasovani.xlsx');
 
 export const exportProdejnaToExcel = (rows: EntryRow[]) =>
-  download(cols(rows, ['Datum', 'Pivo', 'Obal', 'Množství', 'Poznámka'], ['entry_date', 'beer_name', 'package_label', 'quantity', 'note']), 'prodejna.xlsx');
+  download(cols(rows, ['Datum', 'Kdo', 'Pivo', 'Obal', 'Množství', 'Poznámka'], ['entry_date', 'who', 'beer_name', 'package_label', 'quantity', 'note']), 'prodejna.xlsx');
 
 export const exportHistoryDetailToExcel = (rows: any[], headers: string[], keys: string[], filename: string) =>
   download(cols(rows, headers, keys), filename);

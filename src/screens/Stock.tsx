@@ -96,7 +96,7 @@ export default function Stock() {
 
     const curMonth = invMonth;
 
-    const [{ data: invData }, { data: botData }, { data: kegData }, { data: ordItemsData }, { data: ordData }, { data: woData }, { data: akItemsData }, { data: faData }, { data: fpData }] =
+    const [{ data: invData }, { data: botData }, { data: kegData }, { data: ordItemsData }, { data: ordData }, { data: woData }, { data: akData }, { data: faData }, { data: fpData }] =
       await Promise.all([
         supabase.from('inventory').select('*'),
         supabase.from('bottling').select('*'),
@@ -104,15 +104,47 @@ export default function Stock() {
         supabase.from('order_items').select('*'),
         supabase.from('orders').select('id, order_date, delivery_date, status'),
         supabase.from('writeoffs').select('*'),
-        supabase.from('event_items').select('package_id, beer_id, quantity, returned_qty'),
+        supabase.from('akce').select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
         supabase.from('fasovani').select('*'),
         supabase.from('fasovani_private').select('*'),
       ]);
 
-    const inv = (invData ?? []) as { entry_date: string; beer_id: string | null; package_id: string | null; quantity: number }[];
-    const invMonths = [...new Set(inv.map((r) => monthKey(r.entry_date)))].filter((m) => m <= curMonth).sort().reverse();
-    const lastInvMonth = invMonths[0];
-    const lastInv = lastInvMonth ? inv.filter((r) => monthKey(r.entry_date) === lastInvMonth) : [];
+    const inv = (invData ?? []) as { entry_date: string; beer_id: string | null; package_id: string | null; quantity: number; note?: string }[];
+    // Počáteční inventura pro zvolený měsíc (s navázáním na předchozí měsíc)
+    let lastInv = inv.filter((r) => monthKey(r.entry_date) === curMonth && (r.note?.includes('Počáteční') || !r.note));
+    if (lastInv.length === 0) {
+      const prevMonth = (() => {
+        const [y, m] = curMonth.split('-').map(Number);
+        const d = new Date(Date.UTC(y, m - 2, 1));
+        return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+      })();
+      const prevActual = inv.filter((r) => monthKey(r.entry_date) === prevMonth && (r.note?.includes('Fyzická') || r.note?.includes('Schválená')));
+      if (prevActual.length > 0) {
+        lastInv = prevActual;
+      } else {
+        lastInv = inv.filter((r) => monthKey(r.entry_date) === prevMonth);
+      }
+    }
+
+    const isMovementInPeriod = (entry_date?: string) => {
+      if (!entry_date) return false;
+      return monthKey(entry_date) === curMonth;
+    };
+
+    const getKegsUsed = (r: any) => {
+      const kegsUsed = Number(r.kegs_used || 0);
+      if (kegsUsed <= 0) return null;
+      if (r.kegs_used_package_id) return { kegPkgId: r.kegs_used_package_id, kegsUsed };
+      const sourceL = Number(r.source_volume_l || 0);
+      if (sourceL > 0) {
+        const singleVol = sourceL / kegsUsed;
+        const matched = pkgList.find((p) => p.kind === 'keg' && Number(p.volume_l) === singleVol);
+        if (matched) return { kegPkgId: matched.id, kegsUsed };
+      }
+      const pkg = pkgList.find((p) => p.id === r.package_id);
+      if (pkg && pkg.kind === 'keg') return { kegPkgId: pkg.id, kegsUsed };
+      return null;
+    };
 
     const bot = (botData ?? []) as BrewRow[];
     const keg = (kegData ?? []) as BrewRow[];
@@ -121,35 +153,48 @@ export default function Stock() {
     const fp = (fpData ?? []) as BrewRow[];
     const ords = (ordData ?? []) as { id: string; order_date: string; delivery_date: string | null; status: string }[];
     const ordItems = (ordItemsData ?? []) as { order_id: string; beer_id: string | null; package_id: string; quantity: number }[];
-    const akItems = (akItemsData ?? []) as { package_id: string; beer_id: string | null; quantity: number; returned_qty: number }[];
+    const akRows = (akData ?? []) as { entry_date: string; items: { beer_id: string | null; package_id: string | null; quantity_taken: number; quantity_returned: number }[] }[];
 
     const validOrdIdsWeek = new Set(ords.filter((o) => o.status !== 'storno' && isoWeekKey(o.delivery_date || o.order_date) === weekKey).map((o) => o.id));
 
     const stockRows: StockRow[] = beerList.map((beer) => {
       const stockByPkg: StockByPkg[] = pkgList.map((pkg) => {
         const fromInv = lastInv.filter((r) => r.beer_id === beer.id && r.package_id === pkg.id).reduce((s, r) => s + Number(r.quantity), 0);
-        const brewedW = [...bot, ...keg].filter((r) => r.beer_id === beer.id && r.package_id === pkg.id && r.entry_date <= todayISO()).reduce((s, r) => s + Number(r.quantity), 0);
-        const currentStock = fromInv + brewedW;
+        const brewedW = [...bot, ...keg]
+          .filter((r) => r.beer_id === beer.id && r.package_id === pkg.id && isMovementInPeriod(r.entry_date))
+          .reduce((s, r) => s + Number(r.quantity), 0);
 
-        const orderedW = ordItems.filter((i) => validOrdIdsWeek.has(i.order_id) && i.beer_id === beer.id && i.package_id === pkg.id).reduce((s, i) => s + Number(i.quantity), 0);
-        const woW = wo.filter((r) => r.beer_id === beer.id && r.package_id === pkg.id && r.entry_date <= todayISO()).reduce((s, r) => s + Number(r.quantity), 0);
-        const fasovaniW = fa.filter((r) => r.beer_id === beer.id && r.package_id === pkg.id && r.entry_date <= todayISO()).reduce((s, r) => s + Number(r.quantity), 0);
-        const prodejnaW = fp.filter((r) => r.beer_id === beer.id && r.package_id === pkg.id && r.entry_date <= todayISO()).reduce((s, r) => s + Number(r.quantity), 0);
-        const akT = akItems.filter((r) => r.beer_id === beer.id && r.package_id === pkg.id).reduce((s, r) => s + Number(r.quantity), 0);
-        const akR = akItems.filter((r) => r.beer_id === beer.id && r.package_id === pkg.id).reduce((s, r) => s + Number(r.returned_qty ?? 0), 0);
-        const akceWeek = akT - akR;
+        const woW = wo.filter((r) => r.beer_id === beer.id && r.package_id === pkg.id && isMovementInPeriod(r.entry_date)).reduce((s, r) => s + Number(r.quantity), 0);
+        const fasovaniW = fa.filter((r) => r.beer_id === beer.id && r.package_id === pkg.id && isMovementInPeriod(r.entry_date)).reduce((s, r) => s + Number(r.quantity), 0);
+        const prodejnaW = fp.filter((r) => r.beer_id === beer.id && r.package_id === pkg.id && isMovementInPeriod(r.entry_date)).reduce((s, r) => s + Number(r.quantity), 0);
+
+        let akceWeek = 0;
+        akRows.filter((r) => isMovementInPeriod(r.entry_date)).forEach((r) => {
+          (r.items ?? []).forEach((it: any) => {
+            if (it.beer_id === beer.id && it.package_id === pkg.id) {
+              akceWeek += Math.max(0, Number(it.quantity_taken || 0) - Number(it.quantity_returned || 0));
+            }
+          });
+        });
 
         const seenKegSource = new Set<string>();
-        const kegsUsedW = bot
-          .filter((r) => r.beer_id === beer.id && r.kegs_used_package_id === pkg.id && r.entry_date <= todayISO())
-          .reduce((s, r) => {
-            const key = `${r.entry_date}|${r.beer_id}|${r.kegs_used}|${r.kegs_used_package_id}`;
-            if (seenKegSource.has(key)) return s;
+        let kegsUsedW = 0;
+        bot.filter((r) => r.beer_id === beer.id && isMovementInPeriod(r.entry_date)).forEach((r) => {
+          const res = getKegsUsed(r);
+          if (res && res.kegPkgId === pkg.id) {
+            const key = `${r.entry_date}|${r.beer_id}|${res.kegsUsed}|${res.kegPkgId}|${(r as any).created_at || (r as any).note || ''}`;
+            if (seenKegSource.has(key)) return;
             seenKegSource.add(key);
-            return s + Number(r.kegs_used ?? 0);
-          }, 0);
+            kegsUsedW += res.kegsUsed;
+          }
+        });
 
-        const outgoing = fasovaniW + woW + orderedW + prodejnaW + akceWeek + kegsUsedW;
+        const outgoingMoved = fasovaniW + woW + prodejnaW + akceWeek + kegsUsedW;
+        // Aktuální reálný stav na skladě = Počáteční + Stočeno − již vydáno/odepsáno
+        const currentStock = Math.max(0, fromInv + brewedW - outgoingMoved);
+
+        const orderedW = ordItems.filter((i) => validOrdIdsWeek.has(i.order_id) && i.beer_id === beer.id && i.package_id === pkg.id).reduce((s, i) => s + Number(i.quantity), 0);
+        const outgoing = orderedW;
         const difference = currentStock - outgoing;
 
         return {

@@ -433,15 +433,9 @@ export function EntryModule({ table, title, icon, exportFn, hasWho, hasReason, h
                   </div>
                   <div className="flex items-center gap-1 col-span-11 sm:col-span-3">
                     <button type="button" onClick={() => setMultiField(i, 'qty', String(Math.max(0, (Number(r.qty) || 0) - 1)))} className="w-9 h-9 shrink-0 grid place-items-center rounded-lg bg-neutral-100 hover:bg-amber-200 text-neutral-800 font-bold text-base select-none active:scale-95 transition" title="Odečíst 1">−</button>
-                    <input
-                      type="number"
-                      min={0}
-                      className="input !py-1 !px-1 w-12 sm:w-14 text-center text-xs font-mono font-black bg-white shadow-2xs"
-                      placeholder="ks"
-                      value={r.qty}
-                      onChange={(e) => setMultiField(i, 'qty', e.target.value)}
-                      inputMode="numeric"
-                    />
+                    <span className="w-12 sm:w-14 min-w-[3rem] text-center text-xs font-mono font-black bg-white border border-neutral-200 rounded-lg py-1.5 shadow-2xs">
+                      {r.qty || '0'}
+                    </span>
                     <button type="button" onClick={() => setMultiField(i, 'qty', String((Number(r.qty) || 0) + 1))} className="w-9 h-9 shrink-0 grid place-items-center rounded-lg bg-amber-950 hover:bg-amber-900 text-white font-bold text-base select-none active:scale-95 transition" title="Přidat 1">+</button>
                     <span className="text-xs font-extrabold text-neutral-600">ks</span>
                   </div>                  <div className="col-span-12 sm:col-span-1 flex justify-end">
@@ -545,8 +539,9 @@ export function EntryModule({ table, title, icon, exportFn, hasWho, hasReason, h
               <label className="label">Množství</label>
               <div className="flex items-center gap-1">
                 <button type="button" onClick={() => setQty(String(Math.max(0, (Number(qty) || 0) - 1)))} className="w-8 h-8 shrink-0 grid place-items-center rounded-lg bg-neutral-100 hover:bg-amber-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition" title="Odečíst 1">−</button>
-                <input type="number" min={0} className="input text-center !px-1 min-w-0" placeholder="ks" value={qty}
-                  onChange={(e) => setQty(e.target.value)} inputMode="numeric" />
+                <span className="w-14 min-w-[3rem] text-center text-sm font-mono font-black bg-white border border-neutral-200 rounded-lg py-1.5 shadow-2xs">
+                  {qty || '0'}
+                </span>
                 <button type="button" onClick={() => setQty(String((Number(qty) || 0) + 1))} className="w-8 h-8 shrink-0 grid place-items-center rounded-lg bg-amber-950 hover:bg-amber-900 text-white font-bold text-sm select-none active:scale-95 transition" title="Přidat 1">+</button>
               </div>
             </div>
@@ -699,6 +694,7 @@ export function EntryModule({ table, title, icon, exportFn, hasWho, hasReason, h
       {hasCountFromImage && showCount && (
         <CountFromImage
           table={table}
+          mode={table === 'kegging' ? 'kegging' : 'inventory'}
           beers={beers}
           packages={packages}
           onClose={() => setShowCount(false)}

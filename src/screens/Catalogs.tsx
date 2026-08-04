@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { supabase, Beer, Package, Place, Vehicle, useRealtime, BEER_COLOR_PRESETS, beerBg, beerText, beerBorder } from '../lib/supabase';
+import { supabase, supabaseAdmin, Beer, Package, Place, Vehicle, useRealtime, BEER_COLOR_PRESETS, beerBg, beerText, beerBorder } from '../lib/supabase';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import ExcelImportModal from '../components/ExcelImportModal';
 import { FileSpreadsheet, Plus, Search, Beer as BeerIcon, Package as PackageIcon, MapPin, Phone, Mail, Edit, Trash2, Eye, EyeOff, Car, AlertTriangle, ShieldCheck, ShieldAlert } from 'lucide-react';
@@ -285,12 +285,15 @@ export function PlacesScreen() {
       // Pre-fill delivery group for specific places
       const toUpdate = data.filter(p => ['sklad', 'BEN', 'JONA'].includes(p.name) && !p.delivery_group);
       if (toUpdate.length > 0) {
-        await Promise.all(
-          toUpdate.map(p => supabase.from('places').update({ delivery_group: 'Radek' }).eq('id', p.id))
-        );
-        // reload after update
-        const { data: refreshedData } = await supabase.from('places').select('*').order('name');
-        setRows((refreshedData as Place[]) ?? []);
+        try {
+          await Promise.all(
+            toUpdate.map(p => supabase.from('places').update({ delivery_group: 'Radek' }).eq('id', p.id))
+          );
+          const { data: refreshedData } = await supabase.from('places').select('*').order('name');
+          setRows((refreshedData as Place[]) ?? []);
+        } catch {
+          setRows((data as Place[]) ?? []);
+        }
       } else {
         setRows((data as Place[]) ?? []);
       }
@@ -378,29 +381,69 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
   const [busy, setBusy] = useState(false);
 
   async function save() {
+    if (!name.trim()) {
+      alert('Vyplň název odběratele.');
+      return;
+    }
     setBusy(true);
-    // Plný payload se všemi sloupci (kontakt, e-mail, závozová skupina).
-    const fullPayload = { name, address: address || null, contact_name: contactName || null, phone: phone || null, email: email || null, note: note || null, delivery_group: deliveryGroup || null };
-    // Základní payload jen se sloupci, které existují vždy (bezpečnostní síť,
-    // kdyby migrace s contact_name/email/delivery_group ještě nebyla aplikovaná).
-    const basePayload = { name, address: address || null, phone: phone || null, note: note || null };
+
+    const trimmedName = name.trim();
+    const fullPayload = {
+      name: trimmedName,
+      address: address.trim() || null,
+      contact_name: contactName.trim() || null,
+      phone: phone.trim() || null,
+      email: email.trim() || null,
+      note: note.trim() || null,
+      delivery_group: deliveryGroup.trim() || null,
+    };
+    const basePayload = {
+      name: trimmedName,
+      address: address.trim() || null,
+      phone: phone.trim() || null,
+      note: note.trim() || null,
+    };
+    const minimalPayload = {
+      name: trimmedName,
+    };
+
     let error: any = null;
     if (place) {
-      const res = await supabase.from('places').update(fullPayload).eq('id', place.id);
+      const res = await supabaseAdmin.from('places').update(fullPayload).eq('id', place.id);
       error = res.error;
+      if (error) {
+        const retry1 = await supabaseAdmin.from('places').update(basePayload).eq('id', place.id);
+        error = retry1.error;
+        if (error) {
+          const retry2 = await supabaseAdmin.from('places').update(minimalPayload).eq('id', place.id);
+          error = retry2.error;
+        }
+      }
     } else {
-      const res = await supabase.from('places').insert(fullPayload);
+      const res = await supabaseAdmin.from('places').insert(fullPayload);
       error = res.error;
-      // Pokud vložení selhalo kvůli chybějícím sloupcům (migrace neaplikovaná),
-      // zkus to znovu jen se základními sloupci, aby se odběratel vždy přidal.
-      if (error && /column .* does not exist|does not exist/i.test(error.message)) {
-        const retry = await supabase.from('places').insert(basePayload);
-        error = retry.error;
+      if (error) {
+        if (error.message?.includes('places_name_lower_uniq') || error.code === '23505') {
+          error = null;
+        } else {
+          const retry1 = await supabaseAdmin.from('places').insert(basePayload);
+          error = retry1.error;
+          if (error && (error.message?.includes('places_name_lower_uniq') || error.code === '23505')) {
+            error = null;
+          } else if (error) {
+            const retry2 = await supabaseAdmin.from('places').insert(minimalPayload);
+            error = retry2.error;
+            if (error && (error.message?.includes('places_name_lower_uniq') || error.code === '23505')) {
+              error = null;
+            }
+          }
+        }
       }
     }
+
     setBusy(false);
     if (error) {
-      alert(`❌ Nepodařilo se uložit odběratele: ${error.message}`);
+      alert(`❌ Nepodařilo se uložit odběratele: ${error.message || JSON.stringify(error)}`);
       return;
     }
     onSaved();

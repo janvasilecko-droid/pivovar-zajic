@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { supabase, Place } from '../lib/supabase';
+import { supabase, supabaseAdmin, Place } from '../lib/supabase';
+import { getOrCreatePlace } from '../lib/orderParser';
 
 /**
  * Combobox pro výběr / zadání odběratele.
@@ -23,8 +24,8 @@ export function PlaceCombobox({ value, onChange, places, onPlacesChanged, placeh
   const boxRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const p = places.find((x) => x.id === value);
-    setText(p?.name ?? '');
+    const p = places.find((x) => x.id === value || x.name === value);
+    setText(p?.name ?? value ?? '');
   }, [value, places]);
 
   useEffect(() => {
@@ -60,22 +61,26 @@ export function PlaceCombobox({ value, onChange, places, onPlacesChanged, placeh
   async function ensurePlace(): Promise<Place | null> {
     const name = text.trim();
     if (!name) return null;
-    const existing = places.find((p) => norm(p.name) === norm(name));
-    if (existing) { onChange(existing.id, existing.name); setText(existing.name); setOpen(false); setMsg(null); return existing; }
     setCreating(true);
     setMsg(null);
-    const { data, error } = await supabase.from('places').insert({ name }).select().single();
-    setCreating(false);
-    if (error || !data) {
-      setMsg({ type: 'err', text: `❌ Nepodařilo se uložit odběratele: ${error?.message ?? 'neznámá chyba'}` });
+    try {
+      const place = await getOrCreatePlace(name, places);
+      setCreating(false);
+      if (!place) {
+        setMsg({ type: 'err', text: `❌ Nepodařilo se uložit ani vyhledat odběratele.` });
+        return null;
+      }
+      onPlacesChanged?.();
+      onChange(place.id, place.name);
+      setText(place.name);
+      setOpen(false);
+      setMsg({ type: 'ok', text: `✓ Odběratel „${place.name}“ byl uložen.` });
+      return place;
+    } catch (err: any) {
+      setCreating(false);
+      setMsg({ type: 'err', text: `❌ Chyba při ukládání: ${err?.message ?? String(err)}` });
       return null;
     }
-    onPlacesChanged?.();
-    onChange((data as Place).id, (data as Place).name);
-    setText((data as Place).name);
-    setOpen(false);
-    setMsg({ type: 'ok', text: `✓ Odběratel „${(data as Place).name}“ byl uložen.` });
-    return data as Place;
   }
 
   function onKeyDown(e: React.KeyboardEvent) {

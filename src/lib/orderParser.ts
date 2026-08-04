@@ -699,6 +699,28 @@ export function parseGeminiItems(
       if (rawHas1l && pkgHas15) {
         item.package_label = item.package_label.replace(/1[.,]5/, '1');
       }
+      // === OCR OPRAVA OBJEMU KEG ===
+      // Někdy AI správně přečte objem v raw textu (např. "5x50", "3x 50l"),
+      // ale do obalu zapíše chybný objem (např. "KEG 30l" místo "KEG 50l").
+      // raw text je přesný přepis toho, co je na obrázku, proto objem
+      // rozpoznaný z raw textu má přednost, pokud AI řekl jiný KEG objem.
+      const kegVolFromRaw = (() => {
+        const t = raw.trim();
+        // "50l", "30l", "20l", "15l", "10l"
+        let m = t.match(/\b(50|30|20|15|10)\s*l\b/i);
+        if (m) return m[1];
+        // "x50", "2x50", "5 x 30", "10x50"
+        m = t.match(/(?:\d{1,2}\s*x\s*|\bx\s*)(50|30|20|15|10)(?![.,]\s*\d)/i);
+        if (m) return m[1];
+        return null;
+      })();
+      if (kegVolFromRaw && item.package_label && /\bkeg\b|\bsud\b/i.test(item.package_label)) {
+        const rawVolNum = parseInt(kegVolFromRaw, 10);
+        const labelVolMatch = item.package_label.match(/(50|30|20|15|10)\s*l/i);
+        if (labelVolMatch && parseInt(labelVolMatch[1], 10) !== rawVolNum) {
+          item.package_label = item.package_label.replace(/(50|30|20|15|10)\s*l/i, kegVolFromRaw + 'l');
+        }
+      }
       const normLabel = normalize(item.package_label);
       pkg = matchPackage(normLabel, packages, aliases);
       if (!pkg) {
@@ -951,10 +973,17 @@ export function matchPlaceFromText(
   if (!rawText || !places.length) return { placeId: null, placeName: null };
   const normText = normalizePlace(rawText);
 
+  // Odstraníme jména odesílatelů z textu, aby nebránila vyhledání skutečného odběratele (Maneo, Malešice, atd.)
+  const ignoredSenders = ['pojmi', 'bednar', 'bendat', 'gabina', 'gabinka', 'gabina ucetni', 'ucetni', 'sladek', 'petr', 'sladecek'];
+  let cleanText = normText;
+  for (const s of ignoredSenders) {
+    cleanText = cleanText.replace(new RegExp('\\b' + s + '\\b', 'gi'), ' ').replace(/\s+/g, ' ');
+  }
+
   // 0. Try to match against learned place aliases first
   if (placeAliasMap && placeAliasMap.size > 0) {
     for (const [alias, placeId] of placeAliasMap) {
-      if (normText.includes(alias)) {
+      if (cleanText.includes(alias)) {
         const place = places.find((p) => p.id === placeId);
         if (place) return { placeId: place.id, placeName: place.name };
       }
@@ -962,20 +991,15 @@ export function matchPlaceFromText(
   }
 
   // 0b. Try to match against known aliases / common OCR misreads first
-  //    Common OCR substitutions: c→e, a→e, b→h, etc.
   const ocrSubstitutions: [RegExp, string][] = [
     [/\bseeger\b/i, 'seeberg'],
     [/\bseeg[eé]r\b/i, 'seeberg'],
     [/\bzeeburg\b/i, 'seeberg'],
-    [/\bgabina\b/i, 'u labute'],
-    [/\bgabinka\b/i, 'u labute'],
-    [/\bucent\b/i, 'u labute'],
     [/\blabut[ěe]\b/i, 'u labute'],
     [/\bmalessice\b/i, 'malesice'],
     [/\bmalenovice\b/i, 'malesice'],
     [/\bzajic\b/i, 'u zajice'],
     [/\bzajíc\b/i, 'u zajice'],
-    // Additional OCR correction patterns for common place name misreads
     [/\bhostinec\b/i, 'hospoda'],
     [/\bhostinec\s+u\b/i, 'hospoda u'],
     [/\bposezeni\b/i, 'posezení'],
@@ -1003,11 +1027,11 @@ export function matchPlaceFromText(
     [/\bu\s+potoka\b/i, 'u potoka'],
     [/\bna\s+veseli\b/i, 'na veselí'],
   ];
-  let correctedText = normText;
+  let correctedText = cleanText;
   for (const [pattern, replacement] of ocrSubstitutions) {
     correctedText = correctedText.replace(pattern, replacement);
   }
-  if (correctedText !== normText) {
+  if (correctedText !== cleanText) {
     // Try matching with corrected text
     for (const p of places) {
       const np = normalizePlace(p.name);
@@ -1022,8 +1046,8 @@ export function matchPlaceFromText(
   let bestMatch: { place: Place; len: number } | null = null;
   for (const p of places) {
     const np = normalizePlace(p.name);
-    if (np.length < 4) continue; // skip very short names (e.g. "Bar") — too generic
-    if (normText.includes(np) && (!bestMatch || np.length > bestMatch.len)) {
+    if (np.length < 3) continue;
+    if (cleanText.includes(np) && (!bestMatch || np.length > bestMatch.len)) {
       bestMatch = { place: p, len: np.length };
     }
   }
@@ -1086,10 +1110,9 @@ export function matchPlaceFromText(
 }
 
 const NOTE_PATTERNS: { re: RegExp; label: string | ((m: RegExpMatchArray) => string) }[] = [
-  { re: /\b(\+\s*)?vycep\b|\bvycepy\b|\bvycepu\b|\bpujcit\s*vycep\b/i, label: '+ výčep' },
+  { re: /\b(\+\s*)?vycep\b|\bvycepy\b|\bvycepu\b|\bvycepni\b|\bpujcit\s*vycep\b|\bchlazeni\b|\bchladak\b|\bhospoda\b|\bpivnice\b|\bbar\b|\bnarazec\b/i, label: (m) => m[0].trim() },
   // 🚰 PIPA / KOHOUT — výčep se rezervuje i když je napsáno "pipa", "dvojkohout",
   // "jednokohout", "trojkohout", "kohout" apod. (nejen slovo "výčep").
-  // Label vrací přesný rozpoznaný text, aby isTapMentioned() poznala typ výčepu.
   { re: /\b(jedno|dvoj|troj|ctyr|sesti)?(pipa|pipy|pipu|kohout|kohouty)\b/i, label: (m) => m[0].trim() },
 
   { re: /\b(pridat\s*)?sklo\b|\bsklenic[e]?\b/i, label: 'sklo' },
@@ -1372,4 +1395,39 @@ export function parseVoiceOrder(
 
   const items = parseFreeTextEntries(text, beers, packages, aliasMap);
   return { items, placeId, placeName };
+}
+
+/**
+ * Bezpečné získání nebo vytvoření odběratele (places)
+ * Vždy vrátí existujícího odběratele (i při shodě bez diakritiky nebo velkých písmen)
+ * a zabrání chybám databázového uníkátního klíče (places_name_lower_uniq).
+ */
+export async function getOrCreatePlace(name: string, places: Place[] = []): Promise<Place | null> {
+  const trimmed = name.trim();
+  if (!trimmed) return null;
+  const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  const qNorm = norm(trimmed);
+
+  // 1. Zkontroluj paměťové pole odběratelů
+  const existingInMemory = places.find((p) => norm(p.name) === qNorm);
+  if (existingInMemory) return existingInMemory;
+
+  // 2. Pokus se vložit přes admin klienta
+  try {
+    const { supabaseAdmin } = await import('./supabase');
+    const { data: newPlace, error } = await supabaseAdmin.from('places').insert({ name: trimmed }).select().single();
+    if (!error && newPlace) return newPlace as Place;
+  } catch {}
+
+  // 3. Záložní řešení: Načti všechny odběratele z DB a spáruj bez diakritiky
+  try {
+    const { supabaseAdmin } = await import('./supabase');
+    const { data: dbPlaces } = await supabaseAdmin.from('places').select('*');
+    if (dbPlaces && dbPlaces.length > 0) {
+      const dbMatch = dbPlaces.find((p) => norm(p.name) === qNorm) || dbPlaces.find((p) => p.name.toLowerCase() === trimmed.toLowerCase());
+      if (dbMatch) return dbMatch as Place;
+    }
+  } catch {}
+
+  return null;
 }

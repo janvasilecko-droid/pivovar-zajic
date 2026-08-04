@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { Camera, ListOrdered, Package as PackageIcon, Phone, Building2, Truck, Plus, FileText, MessageCircle, Printer, FileSpreadsheet, CheckSquare, PackageCheck, FilePlus, Calendar, Trash2, Pencil, Copy, Ban, RotateCcw, AlertTriangle, Check, CheckCircle2 } from 'lucide-react';
-import { supabase, Beer, Package, Place, EntryRow, useRealtime, beerBg, beerText, beerName, formatPackageLabel } from '../lib/supabase';
+import { supabase, supabaseAdmin, Beer, Package, Place, EntryRow, useRealtime, beerBg, beerText, beerName, formatPackageLabel } from '../lib/supabase';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { ImportFromImage } from '../components/ImportFromImage';
@@ -12,7 +12,7 @@ import { EditOrderModal } from '../components/EditOrderModal';
 import { PlaceCombobox } from '../components/PlaceCombobox'; // Assuming this is needed
 import { DAYS } from '../lib/shared';
 import { VoiceRecorder } from '../components/VoiceRecorder';
-import { parseVoiceOrder, parseOrderText, detectOrderNotes, loadAliasMap, loadPlaceAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
+import { parseVoiceOrder, parseOrderText, detectOrderNotes, loadAliasMap, loadPlaceAliasMap, emptyAliasMap, getOrCreatePlace, type ParserAliasMap } from '../lib/orderParser';
 
 import { shareOrderToWhatsApp } from '../lib/whatsapp';
 import { autoReserveTapIfNeeded, isTapMentioned, detectTapType } from '../lib/tapReservations';
@@ -270,14 +270,21 @@ export default function Orders({
   useEffect(() => { load(); }, []);
   useRealtime(['orders','order_items','beers','packages','places'], () => load(true));
 
-  // Datum, podle kterého se objednávka řadí do týdne:
-  //   - pokud je vyplněno delivery_date, použijeme to (objednávka se zobrazí v týdnu dodání)
-  //   - jinak použijeme order_date (den vytvoření objednávky)
+  const [timeScope, setTimeScope] = useState<'week' | 'month' | 'all'>('week');
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
+  const [packageKindFilter, setPackageKindFilter] = useState<'all' | 'keg' | 'bottle'>('all');
+
   function orderWeekKey(o: Order): string {
     return isoWeekKey(o.delivery_date || o.order_date);
   }
 
-  const filtered = useMemo(() => orders.filter((o) => orderWeekKey(o) === weekKey), [orders, weekKey]);
+  const filtered = useMemo(() => {
+    if (timeScope === 'all') return orders;
+    if (timeScope === 'month') {
+      return orders.filter((o) => (o.delivery_date || o.order_date).slice(0, 7) === selectedMonth);
+    }
+    return orders.filter((o) => orderWeekKey(o) === weekKey);
+  }, [orders, timeScope, selectedMonth, weekKey]);
   const wr = weekRange(weekKey);
 
   function monthKey(dateStr: string): string { return dateStr.slice(0, 7); }
@@ -394,8 +401,8 @@ export default function Orders({
       for (const group of groups.values()) {
         let pId = group.resolvedPlaceId;
         if (!pId && group.resolvedName) {
-          const { data: newPlace, error: pErr } = await supabase.from('places').insert({ name: group.resolvedName }).select().single();
-          if (!pErr && newPlace) pId = (newPlace as Place).id;
+          const place = await getOrCreatePlace(group.resolvedName, places);
+          if (place) pId = place.id;
         }
 
         const { data: order, error } = await supabase.from('orders').insert({
@@ -530,6 +537,18 @@ export default function Orders({
       // Item filters (AND) — order must contain items matching ALL selected filters
       if (itemFilterBeerId && !its.some(item => item.beer_id === itemFilterBeerId)) return false;
       if (itemFilterPackageId && !its.some(item => item.package_id === itemFilterPackageId)) return false;
+
+      // Filtr podle druhu obalu (Sudy KEG vs Lahve / Sklo / PET)
+      if (packageKindFilter && packageKindFilter !== 'all') {
+        const hasMatchingKind = its.some((item) => {
+          const pkg = packages.find((p) => p.id === item.package_id);
+          if (!pkg) return false;
+          const isKeg = pkg.kind === 'keg' || (pkg.label ?? '').toLowerCase().includes('keg') || (pkg.label ?? '').toLowerCase().includes('sud');
+          return packageKindFilter === 'keg' ? isKeg : !isKeg;
+        });
+        if (!hasMatchingKind) return false;
+      }
+
       if (q) {
         const placeMatch = norm(o.place_name ?? '').includes(q);
         const beerMatch = its.some((i) => norm(i.beer_name ?? '').includes(q));
@@ -538,7 +557,61 @@ export default function Orders({
       }
       return true;
     });
-  }, [filtered, zavozOnly, statusFilter, deliveryDayFilter, searchText, items, itemFilterBeerId, itemFilterPackageId]);
+  }, [filtered, zavozOnly, statusFilter, deliveryDayFilter, searchText, items, itemFilterBeerId, itemFilterPackageId, packageKindFilter, packages]);
+
+  const itemAuditStats = useMemo(() => {
+    if (!itemFilterBeerId && !itemFilterPackageId && packageKindFilter === 'all' && !searchText.trim()) {
+      return null;
+    }
+
+    const matchItem = (item: OrderItem) => {
+      if (itemFilterBeerId && item.beer_id !== itemFilterBeerId) return false;
+      if (itemFilterPackageId && item.package_id !== itemFilterPackageId) return false;
+      if (packageKindFilter !== 'all') {
+        const pkg = packages.find((p) => p.id === item.package_id);
+        if (!pkg) return false;
+        const isKeg = pkg.kind === 'keg' || (pkg.label ?? '').toLowerCase().includes('keg') || (pkg.label ?? '').toLowerCase().includes('sud');
+        if (packageKindFilter === 'keg' && !isKeg) return false;
+        if (packageKindFilter === 'bottle' && isKeg) return false;
+      }
+      if (searchText.trim()) {
+        const q = norm(searchText);
+        const bName = norm(item.beer_name ?? '');
+        if (!bName.includes(q)) return false;
+      }
+      return true;
+    };
+
+    let currentViewQty = 0;
+    let currentViewOrdersCount = 0;
+    searchedFiltered.forEach((o) => {
+      const its = items[o.id] ?? [];
+      const matchingIts = its.filter(matchItem);
+      if (matchingIts.length > 0) {
+        currentViewOrdersCount++;
+        matchingIts.forEach((i) => { currentViewQty += Number(i.quantity); });
+      }
+    });
+
+    let allOrdersQty = 0;
+    let allOrdersCount = 0;
+    orders.filter(o => o.status !== 'storno').forEach((o) => {
+      const its = items[o.id] ?? [];
+      const matchingIts = its.filter(matchItem);
+      if (matchingIts.length > 0) {
+        allOrdersCount++;
+        matchingIts.forEach((i) => { allOrdersQty += Number(i.quantity); });
+      }
+    });
+
+    return {
+      currentViewQty,
+      currentViewOrdersCount,
+      allOrdersQty,
+      allOrdersCount,
+      hasHiddenOrders: allOrdersQty > currentViewQty
+    };
+  }, [itemFilterBeerId, itemFilterPackageId, packageKindFilter, searchText, searchedFiltered, orders, items, packages]);
 
   const groupedByDay = useMemo(() => {
     if (!groupByDay) return null;
@@ -924,15 +997,9 @@ export default function Orders({
                             disabled={!r.qty || Number(r.qty) <= 0}
                             onClick={() => setBeerRow(i, 'qty', String(Math.max(0, Number(r.qty) - 1)))}
                           >−</button>
-                          <input
-                            type="number"
-                            min="0"
-                            step="1"
-                            className="input text-xs w-14 text-center font-bold"
-                            value={r.qty}
-                            onChange={(e) => setBeerRow(i, 'qty', e.target.value)}
-                            placeholder="0"
-                          />
+                                                    <span className="w-16 min-w-[3.5rem] text-xs text-center font-bold bg-white border border-neutral-200 rounded-lg py-2">
+                            {Number(r.qty) > 0 ? r.qty : '0'}
+                          </span>
                           <button
                             type="button"
                             className="w-7 h-7 grid place-items-center rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-sm transition"
@@ -1001,26 +1068,73 @@ export default function Orders({
       {/* V záložce „Nové“ se zobrazuje pouze formulář zadávání objednávek (výše).
           Seznam a detaily objednávek jsou vidět jen v záložce „Objednávky“. */}
 
-      {/* ⬅️➡️ Navigace týdny — Detaily */}
+      {/* ⬅️➡️ Navigace Týden / Celý měsíc / Všechny objednávky — Detaily */}
       {mode !== 'entry_only' && viewMode === 'detail' && (
-        <div className="flex items-center justify-between gap-3 mb-4 bg-white rounded-2xl border border-neutral-200 p-2 shadow-2xs">
-          <button
-            onClick={() => setWeekKey(shiftWeek(weekKey, -1))}
-            className="btn-ghost !py-2 !px-3 text-xs font-black flex items-center gap-1 hover:bg-amber-100 transition"
-          >
-            ←
-          </button>
-          <div className="text-center flex items-center gap-2">
-            <span className="text-xs font-bold text-amber-700">Týden</span>
-            <span className="font-display font-black text-base text-amber-950">{weekKey.split('-')[1]}</span>
-            <span className="text-xs text-neutral-500">({wr.label})</span>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4 bg-white rounded-2xl border border-neutral-200 p-2.5 shadow-2xs">
+          <div className="flex items-center gap-1.5 bg-neutral-100 p-1 rounded-xl flex-wrap">
+            <button
+              type="button"
+              onClick={() => setTimeScope('week')}
+              className={`px-3 py-1.5 rounded-lg font-black text-xs transition ${
+                timeScope === 'week' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'text-neutral-700 hover:bg-neutral-200'
+              }`}
+            >
+              📅 Týden
+            </button>
+            <button
+              type="button"
+              onClick={() => setTimeScope('month')}
+              className={`px-3 py-1.5 rounded-lg font-black text-xs transition ${
+                timeScope === 'month' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'text-neutral-700 hover:bg-neutral-200'
+              }`}
+            >
+              🗓️ Celý měsíc
+            </button>
+            <button
+              type="button"
+              onClick={() => setTimeScope('all')}
+              className={`px-3 py-1.5 rounded-lg font-black text-xs transition ${
+                timeScope === 'all' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'text-neutral-700 hover:bg-neutral-200'
+              }`}
+            >
+              🌐 Všechny
+            </button>
           </div>
-          <button
-            onClick={() => setWeekKey(shiftWeek(weekKey, 1))}
-            className="btn-ghost !py-2 !px-3 text-xs font-black flex items-center gap-1 hover:bg-amber-100 transition"
-          >
-            →
-          </button>
+
+          {timeScope === 'week' && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setWeekKey(shiftWeek(weekKey, -1))}
+                className="btn-ghost !py-1.5 !px-2.5 text-xs font-black hover:bg-amber-100 transition"
+              >
+                ←
+              </button>
+              <div className="text-center flex items-center gap-1.5">
+                <span className="text-xs font-bold text-amber-700">Týden</span>
+                <span className="font-display font-black text-base text-amber-950">{weekKey.split('-')[1]}</span>
+                <span className="text-xs text-neutral-500">({wr.label})</span>
+              </div>
+              <button
+                onClick={() => setWeekKey(shiftWeek(weekKey, 1))}
+                className="btn-ghost !py-1.5 !px-2.5 text-xs font-black hover:bg-amber-100 transition"
+              >
+                →
+              </button>
+            </div>
+          )}
+
+          {timeScope === 'month' && (
+            <div className="flex items-center gap-2 bg-amber-50 border border-amber-300 px-3 py-1.5 rounded-xl">
+              <Calendar size={15} className="text-amber-800" />
+              <span className="text-xs font-black text-amber-900">Měsíc:</span>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="bg-transparent text-amber-950 font-mono font-black border-none focus:outline-none text-sm"
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -1029,15 +1143,64 @@ export default function Orders({
         <>
         <div className="space-y-3 mb-4">
           {/* Active Item Filter Display */}
-          {(itemFilterBeerId || itemFilterPackageId) && (
-            <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 text-sm font-bold flex items-center justify-between">
-              <span>Aktivní filtr položek: {beers.find(b => b.id === itemFilterBeerId)?.name ?? ''} {packages.find(p => p.id === itemFilterPackageId)?.label ?? ''}</span>
-              <button onClick={() => { setItemFilterBeerId(null); setItemFilterPackageId(null); }} className="btn-ghost !py-1 !px-2 text-xs">✕ Zrušit filtr</button>
+          {(itemFilterBeerId || itemFilterPackageId || packageKindFilter !== 'all' || timeScope !== 'week' || searchText.trim()) && (
+            <div className="p-3.5 rounded-2xl bg-amber-100/90 border-2 border-amber-400 text-amber-950 text-xs font-bold shadow-xs flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-base">🔎</span>
+                <span>
+                  Aktivní filtry:{' '}
+                  {timeScope === 'month' ? `[Měsíc: ${selectedMonth}] ` : timeScope === 'all' ? '[Všechny objednávky] ' : ''}
+                  {packageKindFilter === 'keg' ? '[Pouze KEG sudy] ' : packageKindFilter === 'bottle' ? '[Pouze lahve] ' : ''}
+                  {itemFilterBeerId ? `[Pivo: ${beers.find(b => b.id === itemFilterBeerId)?.name}] ` : ''}
+                  {itemFilterPackageId ? `[Obal: ${packages.find(p => p.id === itemFilterPackageId)?.label}] ` : ''}
+                  {searchText.trim() ? `[Hledání: "${searchText}"] ` : ''}
+                </span>
+
+                {itemAuditStats && (
+                  <span className="ml-1 px-2.5 py-1 rounded-xl bg-amber-500 text-white font-black text-xs shadow-xs">
+                    Součet v tomto zobrazení: {itemAuditStats.currentViewQty} ks ({itemAuditStats.currentViewOrdersCount} obj.)
+                  </span>
+                )}
+
+                {itemAuditStats?.hasHiddenOrders && (
+                  <span className="text-amber-950 font-black bg-amber-200 border border-amber-400 px-2.5 py-1 rounded-xl">
+                    ⚠️ V jiných filtrech/týdnech je dalších {itemAuditStats.allOrdersQty - itemAuditStats.currentViewQty} ks (Celkem {itemAuditStats.allOrdersQty} ks ve {itemAuditStats.allOrdersCount} obj.)
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                {itemAuditStats?.hasHiddenOrders && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTimeScope('all');
+                      setStatusFilter('');
+                      setDeliveryDayFilter('all');
+                      setZavozOnly(false);
+                    }}
+                    className="btn-primary !py-1 !px-3 text-xs font-black shadow-md shrink-0 bg-amber-600 hover:bg-amber-700 text-white"
+                  >
+                    🌐 Zobrazit všech {itemAuditStats.allOrdersQty} ks
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTimeScope('week'); setPackageKindFilter('all');
+                    setItemFilterBeerId(null); setItemFilterPackageId(null);
+                    setSearchText(''); setStatusFilter(''); setDeliveryDayFilter('all');
+                  }}
+                  className="btn-ghost !py-1 !px-2.5 text-xs font-black text-rose-900 bg-rose-100 hover:bg-rose-200 border border-rose-300 rounded-xl"
+                >
+                  ✕ Zrušit filtry
+                </button>
+              </div>
             </div>
           )}
 
         {/* Delivery Day quick selector tabs */}
-        {/* This section was moved inside the conditional rendering for 'detail' view */}
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-thin pb-1">
           <button
             onClick={() => setDeliveryDayFilter('all')}
@@ -1091,16 +1254,21 @@ export default function Orders({
             className="input flex-1 min-w-[200px]" value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
           />
-          <select className="input w-auto" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <select className="input w-auto font-bold text-xs" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             <option value="">Všechny statusy</option>
             {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
-          <select className="input w-auto" value={itemFilterBeerId ?? ''} onChange={(e) => setItemFilterBeerId(e.target.value || null)}>
+          <select className="input w-auto font-bold text-xs" value={packageKindFilter} onChange={(e) => setPackageKindFilter(e.target.value as any)}>
+            <option value="all">📦 Všechny druhy obalů</option>
+            <option value="keg">🛢️ Pouze sudy (KEG)</option>
+            <option value="bottle">🍾 Pouze lahve / Sklo / PET</option>
+          </select>
+          <select className="input w-auto font-bold text-xs" value={itemFilterBeerId ?? ''} onChange={(e) => setItemFilterBeerId(e.target.value || null)}>
             <option value="">🍺 Všechna piva</option>
             {beers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
-          <select className="input w-auto" value={itemFilterPackageId ?? ''} onChange={(e) => setItemFilterPackageId(e.target.value || null)}>
-            <option value="">📦 Všechny obaly</option>
+          <select className="input w-auto font-bold text-xs" value={itemFilterPackageId ?? ''} onChange={(e) => setItemFilterPackageId(e.target.value || null)}>
+            <option value="">🏷️ Konkrétní obal</option>
             {packages.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
           </select>
           <label className="flex items-center gap-2 text-sm text-primary-700 cursor-pointer px-3 py-1.5 rounded-lg hover:bg-primary-50">
@@ -1153,7 +1321,8 @@ export default function Orders({
                     <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForWeek={stockRemainingForWeek}
                       selected={selectedIds.has(o.id)} onToggleSelect={() => toggleSelect(o.id)}
                       onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onUpdateDeliveryDay={updateDeliveryDay}
-                      onSetStatus={setStatus} onDelete={del} onDuplicate={duplicateOrder} onEdit={setEditOrder} beers={beers} packages={packages} places={places} />
+                      onSetStatus={setStatus} onDelete={del} onDuplicate={duplicateOrder} onEdit={setEditOrder} beers={beers} packages={packages} places={places}
+                      activeBeerId={itemFilterBeerId} activePackageId={itemFilterPackageId} />
                     {detail?.id === o.id && (
                       <div id="order-detail-card" className="scroll-mt-6 animate-scale-in pl-2 sm:pl-4 border-l-4 border-amber-500">
                         <OrderDetail
@@ -1190,7 +1359,8 @@ export default function Orders({
               <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForWeek={stockRemainingForWeek}
                 selected={selectedIds.has(o.id)} onToggleSelect={() => toggleSelect(o.id)}
                 onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onUpdateDeliveryDay={updateDeliveryDay}
-                onSetStatus={setStatus} onDelete={del} onDuplicate={duplicateOrder} onEdit={setEditOrder} beers={beers} packages={packages} places={places} />
+                onSetStatus={setStatus} onDelete={del} onDuplicate={duplicateOrder} onEdit={setEditOrder} beers={beers} packages={packages} places={places}
+                activeBeerId={itemFilterBeerId} activePackageId={itemFilterPackageId} />
               {detail?.id === o.id && (
                 <div id="order-detail-card" className="scroll-mt-6 animate-scale-in pl-2 sm:pl-4 border-l-4 border-amber-500">
                   <OrderDetail
@@ -1272,8 +1442,8 @@ export default function Orders({
                 let placeId = place?.id ?? null;
                 const placeName = recipient || meta.placeName || null;
                 if (!placeId && placeName) {
-                  const { data: newPlace, error: pErr } = await supabase.from('places').insert({ name: placeName }).select().single();
-                  if (!pErr && newPlace) placeId = newPlace.id;
+                  const place = await getOrCreatePlace(placeName, places);
+                  if (place) placeId = place.id;
                 }
                 // 🧠 DATUM OBJEDNÁVKY: Pokud AI rozpoznala datum u položek TÉTO
                 // objednávky (např. "na 7.8"), použij ho. Jinak spadni na globální
@@ -1298,8 +1468,14 @@ export default function Orders({
                 if (itemErr) throw new Error(itemErr.message);
                 created.push(order.id);
                 // 🚰 Rezervace výčepu — spáruj s vytvořenou objednávkou (order_id)
-                // a použij datum objednávky (orderDate), ne dnešní datum.
                 autoReserveTapIfNeeded(placeName || meta.placeName, orderDate, meta.note, order.id);
+                if (meta.note && isTapMentioned(meta.note)) {
+                  setTapModalOrderId(order.id);
+                  setTapModalCustomer(placeName || meta.placeName || '');
+                  setDate(orderDate);
+                  setNote(meta.note);
+                  setShowTapModal(true);
+                }
               }
 
               if (!created.length) throw new Error('Nepodařilo se vytvořit objednávku.');
@@ -1316,8 +1492,14 @@ export default function Orders({
               const { error: itemErr } = await supabase.from('order_items').insert(rows);
               if (itemErr) throw new Error(itemErr.message);
               // 🚰 Rezervace výčepu — spáruj s existující objednávkou (orderId)
-              // a použij datum objednávky (targetDate), ne dnešní datum.
               autoReserveTapIfNeeded(meta.placeName, targetDate, meta.note, orderId);
+              if (meta.note && isTapMentioned(meta.note)) {
+                setTapModalOrderId(orderId);
+                setTapModalCustomer(meta.placeName || '');
+                setDate(targetDate);
+                setNote(meta.note);
+                setShowTapModal(true);
+              }
             }
             setImportTarget(null);
             setFlash(true); setTimeout(() => setFlash(false), 800);
@@ -1343,7 +1525,7 @@ export default function Orders({
   );
 }
 
-function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, onClick, onToggleFlag, onUpdateDeliveryDay, onSetStatus, onDelete, onDuplicate, onEdit, beers, packages, places }: {
+function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, onClick, onToggleFlag, onUpdateDeliveryDay, onSetStatus, onDelete, onDuplicate, onEdit, beers, packages, places, activeBeerId, activePackageId }: {
   o: Order; items: OrderItem[];
   stockRemainingForWeek: (wk: string) => Map<string, number>;
   selected: boolean; onToggleSelect: () => void; onClick: () => void;
@@ -1356,6 +1538,8 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
   beers: Beer[];
   packages: Package[];
   places: Place[];
+  activeBeerId?: string | null;
+  activePackageId?: string | null;
 }) {
 
   const total = items.reduce((s, i) => s + Number(i.quantity), 0);
@@ -1433,10 +1617,15 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
             <>
               {sortedItems.map((i) => {
                 const beer = i.beer_id ? beers.find((b) => b.id === i.beer_id) : null;
+                const isFilteredMatch = (activeBeerId && i.beer_id === activeBeerId) || (activePackageId && i.package_id === activePackageId);
                 return (
                   <span
                     key={i.id}
-                    className="chip !py-0.5 !px-2 text-[11px] font-black bg-white text-neutral-950 border border-neutral-200 shadow-xs"
+                    className={`chip !py-0.5 !px-2 text-[11px] font-black border transition-all ${
+                      isFilteredMatch
+                        ? 'bg-amber-400 text-neutral-950 border-amber-600 ring-2 ring-amber-500 shadow-md scale-105'
+                        : 'bg-white text-neutral-950 border-neutral-200 shadow-xs'
+                    }`}
                   >
                     {beer && (
                       <span
@@ -1450,7 +1639,9 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
                         ({formatPackageLabel(i.package_label)})
                       </span>
                     )}
-                    <strong className="ml-1.5 px-1.5 py-0 rounded bg-amber-100 text-amber-950 font-black text-[11px]">{i.quantity} ks</strong>
+                    <strong className={`ml-1.5 px-1.5 py-0 rounded font-black text-[11px] ${isFilteredMatch ? 'bg-neutral-950 text-amber-300' : 'bg-amber-100 text-amber-950'}`}>
+                      {i.quantity} ks
+                    </strong>
                   </span>
                 );
               })}

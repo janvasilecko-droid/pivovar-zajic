@@ -3,14 +3,15 @@ import { ReminderItem, fetchReminders, isReminderForUser } from '../lib/reminder
 import { isNotificationSupported, playOrderChime } from '../lib/notifications';
 import { MandatoryReminderModal } from './MandatoryReminderModal';
 import { useAuth } from '../lib/auth';
+import { getAdminEmail, DEFAULT_ROLE } from '../lib/config';
 
 export function ReminderNotificationManager() {
   const { user } = useAuth();
   const [activeModalReminder, setActiveModalReminder] = useState<ReminderItem | null>(null);
   const pushedSetRef = useRef<Set<string>>(new Set());
 
-  const currentUserEmail = user?.email || 'vasilecko@seznam.cz';
-  const currentUserRole = user?.role || 'admin';
+  const currentUserEmail = user?.email || getAdminEmail();
+  const currentUserRole = user?.role || DEFAULT_ROLE;
 
   async function checkReminders() {
     if (!currentUserEmail) return;

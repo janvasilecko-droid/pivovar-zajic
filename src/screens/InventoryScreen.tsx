@@ -25,13 +25,45 @@ type InventoryRow = {
   price_czk: number;
   initialQty: number; // Počáteční stav k 1. dni v měsíci
   stacenoQty: number; // Nově stočeno tento měsíc
-  vydejQty: number;   // Vytočeno (Fasování + Odpis + Prodejna + Objednávky + Stáčení lahví + Akce)
+  odpisQty: number;   // Odpis (zápis v odpisech)
+  vydejQty: number;   // Vytočeno (Fasování + Prodejna + Objednávky + Stáčení lahví + Akce - BEZ odpisů)
 
   expectedQty: number; // Vypočtená teoretická zásoba
   actualQty: number;   // Zadaná skutečná fyzická inventura
   diffQty: number;     // Odchylka (Skutečnost - Očekávání)
   diffCzk: number;     // Finanční odchylka v Kč
 };
+
+function getPrevMonthKey(monthKey: string): string {
+  const [y, m] = monthKey.split('-').map(Number);
+  const d = new Date(Date.UTC(y, m - 2, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+function computeInitialStockForMonth(
+  monthKey: string,
+  invRowsAll: any[],
+  _btRows: any[],
+  _kgRows: any[],
+  _faRows: any[],
+  _fpRows: any[],
+  _woRows: any[],
+  _depth = 0
+): Record<string, number> {
+  // Počáteční stav měsíce = POUZE explicitně uložené "Počáteční" záznamy daného měsíce.
+  // NEpřevádí se automaticky z předchozího měsíce ani z minulé inventury —
+  // každý měsíc začíná od 0 a počáteční stav si sládek zadá ručně (na konci měsíce).
+  const explicitRows = invRowsAll.filter(
+    (r) => r.entry_date?.slice(0, 7) === monthKey && (r.note?.includes('Počáteční') || !r.note)
+  );
+  const map: Record<string, number> = {};
+  explicitRows.forEach((r) => {
+    if (!r.beer_id || !r.package_id) return;
+    const k = `${r.beer_id}__${r.package_id}`;
+    map[k] = (map[k] || 0) + Number(r.quantity || 0);
+  });
+  return map;
+}
 
 export default function InventoryScreen() {
   const [beers, setBeers] = useState<Beer[]>([]);
@@ -66,122 +98,172 @@ export default function InventoryScreen() {
   const [fasovaniMap, setFasovaniMap] = useState<Record<string, number>>({}); // Fasování
   const [prodejnaMap, setProdejnaMap] = useState<Record<string, number>>({}); // Prodejna
   const [akceMap, setAkceMap] = useState<Record<string, number>>({}); // Akce (odvezené kegy)
+  const [odpisyMap, setOdpisyMap] = useState<Record<string, number>>({}); // Odpisy (kegy)
   const [stacenoKegMap, setStacenoKegMap] = useState<Record<string, number>>({}); // Stáčení KEG
 
   async function loadData() {
     setLoading(true);
 
-    const [{ data: b }, { data: pk }, { data: bt }, { data: kg }, { data: fa }, { data: fp }, { data: wo }, { data: inv }, { data: ords }, { data: oi }] = await Promise.all([
+    const [{ data: b }, { data: pk }, { data: bt }, { data: kg }, { data: fa }, { data: fp }, { data: wo }, { data: inv }, { data: ords }, { data: oi }, { data: ak }] = await Promise.all([
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
-      supabase.from('bottling').select('beer_id,package_id,quantity,entry_date,kegs_used,kegs_used_package_id'),
-
+      supabase.from('bottling').select('beer_id,package_id,quantity,entry_date,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
       supabase.from('kegging').select('beer_id,package_id,quantity,entry_date'),
       supabase.from('fasovani').select('beer_id,package_id,quantity,entry_date'),
       supabase.from('fasovani_private').select('beer_id,package_id,quantity,entry_date'),
       supabase.from('writeoffs').select('beer_id,package_id,quantity,entry_date'),
-      supabase.from('inventory').select('beer_id,package_id,quantity,entry_date'),
-      supabase.from('orders').select('id,order_date,status'),
+      supabase.from('inventory').select('beer_id,package_id,quantity,entry_date,note'),
+      supabase.from('orders').select('id,order_date,delivery_date,status'),
       supabase.from('order_items').select('order_id,beer_id,package_id,quantity'),
+      supabase.from('akce').select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
     ]);
 
     setBeers((b as Beer[]) ?? []);
     setPackages((pk as Package[]) ?? []);
 
-    // Filtrovat pouze pro aktuálně vybraný měsíc (např. 2026-07)
-    const filterMonth = (entry_date: string) => entry_date && entry_date.startsWith(currentMonth);
+    setBeers((b as Beer[]) ?? []);
+    setPackages((pk as Package[]) ?? []);
 
-    // Počáteční stavy z inventory tabulky pro aktuální měsíc
-    const invAcc: InitialStockMap = {};
-    ((inv as any[]) ?? []).filter((r) => filterMonth(r.entry_date)).forEach((r) => {
-      const k = `${r.beer_id}__${r.package_id}`;
-      invAcc[k] = Number(r.quantity || 0);
-    });
+    const invRowsAll = ((inv as any[]) ?? []);
+
+    // 1. POČÁTEČNÍ STAVY pro aktuální měsíc (currentMonth) s automatickou kontinuitou z předchozího měsíce
+    const invAcc = computeInitialStockForMonth(
+      currentMonth,
+      invRowsAll,
+      (bt as any[]) ?? [],
+      (kg as any[]) ?? [],
+      (fa as any[]) ?? [],
+      (fp as any[]) ?? [],
+      (wo as any[]) ?? []
+    );
     setInitialStock(invAcc);
 
+    // 2. SKUTEČNÁ FYZICKÁ INVENTURA (pro sloupec Inventura)
+    // 2a. Základ = localStorage actual_inventory_YYYY-MM (pokud něco je)
+    let curActual: Record<string, string> = {};
+    try {
+      const savedActual = localStorage.getItem(`actual_inventory_${currentMonth}`);
+      if (savedActual) curActual = JSON.parse(savedActual) ?? {};
+    } catch {}
+    // 2b. Pokud je v DB uložená fyzická/schválená inventura, má přednost a uloží i do localStorage.
+    const actualRowsForCurMonth = invRowsAll.filter((r) => r.entry_date?.slice(0, 7) === currentMonth && (r.note?.includes('Fyzická') || r.note?.includes('Schválená')));
+    if (actualRowsForCurMonth.length > 0) {
+      const dbActualMap: Record<string, string> = {};
+      actualRowsForCurMonth.forEach((r) => {
+        if (!r.beer_id || !r.package_id) return;
+        const k = `${r.beer_id}__${r.package_id}`;
+        dbActualMap[k] = String(r.quantity || 0);
+      });
+      curActual = dbActualMap;
+      try { localStorage.setItem(`actual_inventory_${currentMonth}`, JSON.stringify(dbActualMap)); } catch {}
+    }
+    setActualStock(curActual);
 
-    // Příjem (Stáčení) — pro inventuru (lahve + kegy dohromady)
+    // Pohyby v AKTUÁLNÍM MĚSÍCI (currentMonth)
+    const filterMovement = (entry_date?: string) => {
+      if (!entry_date) return false;
+      return entry_date.slice(0, 7) === currentMonth;
+    };
+
+    // Příjem (Stáčení) — pro inventuru aktuálního měsíce (lahve + kegy dohromady)
     const stacenoAcc: Record<string, number> = {};
-    [...((bt as any[]) ?? []), ...((kg as any[]) ?? [])].filter((r) => filterMonth(r.entry_date)).forEach((r) => {
+    [...((bt as any[]) ?? []), ...((kg as any[]) ?? [])].filter((r) => filterMovement(r.entry_date)).forEach((r) => {
       const k = `${r.beer_id}__${r.package_id}`;
       stacenoAcc[k] = (stacenoAcc[k] || 0) + Number(r.quantity || 0);
     });
     setStacenoMap(stacenoAcc);
 
-    // Výdej (Fasování + Prodejna + Odpisy + Objednávky + Stáčení lahví + Akce)
-    // Kompletní výdeje = vše, co opustilo sklad: fasování, prodejna, odpis,
-    // objednané sudy, sudy použité na stáčení lahví a sudy odvezené na akce.
+    // === Bilanční konto a pomocné výpočty ===
+    const kegPkgIds = new Set((pk as Package[] ?? []).filter((p) => p.kind === 'keg').map((p) => p.id));
+
+    const getKegsUsed = (r: any) => {
+      const kegsUsed = Number(r.kegs_used || 0);
+      if (kegsUsed <= 0) return null;
+      if (r.kegs_used_package_id) return { kegPkgId: r.kegs_used_package_id, kegsUsed };
+      const sourceL = Number(r.source_volume_l || 0);
+      if (sourceL > 0) {
+        const singleVol = sourceL / kegsUsed;
+        const matched = (pk as Package[] ?? []).find((p) => p.kind === 'keg' && Number(p.volume_l) === singleVol);
+        if (matched) return { kegPkgId: matched.id, kegsUsed };
+      }
+      const pkg = (pk as Package[] ?? []).find((p) => p.id === r.package_id);
+      if (pkg && pkg.kind === 'keg') return { kegPkgId: pkg.id, kegsUsed };
+      return null;
+    };
+
+    // Odpisy (samostatný odpis piva a obalů)
+    const odpisAcc: Record<string, number> = {};
+    ((wo as any[]) ?? []).filter((r) => filterMovement(r.entry_date)).forEach((r) => {
+      if (!r.beer_id || !r.package_id) return;
+      const k = `${r.beer_id}__${r.package_id}`;
+      odpisAcc[k] = (odpisAcc[k] || 0) + Number(r.quantity || 0);
+    });
+    setOdpisyMap(odpisAcc);
+
+    // Výdej (Fasování + Prodejna + Objednávky + Stáčení lahví + Akce - BEZ odpisů)
     const vydejAcc: Record<string, number> = {};
     const addVydej = (r: any) => {
       if (!r.beer_id || !r.package_id) return;
       const k = `${r.beer_id}__${r.package_id}`;
       vydejAcc[k] = (vydejAcc[k] || 0) + Number(r.quantity || 0);
     };
-    // Fasování + Prodejna + Odpisy
-    [...((fa as any[]) ?? []), ...((fp as any[]) ?? []), ...((wo as any[]) ?? [])].filter((r) => filterMonth(r.entry_date)).forEach(addVydej);
-    // Objednávky (kegy objednané v tomto měsíci, ne storno)
-    const orderIdsVydej = new Set(((ords as any[]) ?? []).filter((o) => filterMonth(o.order_date) && o.status !== 'storno').map((o) => o.id));
+    // Fasování + Prodejna (BEZ odpisů wo)
+    [...((fa as any[]) ?? []), ...((fp as any[]) ?? [])].filter((r) => filterMovement(r.entry_date)).forEach(addVydej);
+    // Objednávky (kegy/lahve objednané v tomto měsíci, ne storno)
+    const orderIdsVydej = new Set(((ords as any[]) ?? []).filter((o) => filterMovement(o.delivery_date || o.order_date) && o.status !== 'storno').map((o) => o.id));
     ((oi as any[]) ?? []).filter((r) => orderIdsVydej.has(r.order_id)).forEach(addVydej);
     // Stáčení lahví (kegy použité na stáčení lahví) — deduplikace zdroje
     const seenKegSourceVydej = new Set<string>();
-    ((bt as any[]) ?? []).filter((r) => filterMonth(r.entry_date)).forEach((r) => {
-      if (r.kegs_used && r.kegs_used_package_id) {
-        const key = `${r.entry_date}|${r.beer_id}|${r.kegs_used}|${r.kegs_used_package_id}`;
+    ((bt as any[]) ?? []).filter((r) => filterMovement(r.entry_date)).forEach((r) => {
+      if (!r.beer_id) return;
+      const res = getKegsUsed(r);
+      if (res) {
+        const key = `${r.entry_date}|${r.beer_id}|${res.kegsUsed}|${res.kegPkgId}|${r.created_at || r.note || ''}`;
         if (seenKegSourceVydej.has(key)) return;
         seenKegSourceVydej.add(key);
-        const k = `${r.beer_id}__${r.kegs_used_package_id}`;
-        vydejAcc[k] = (vydejAcc[k] || 0) + Number(r.kegs_used || 0);
+        const k = `${r.beer_id}__${res.kegPkgId}`;
+        vydejAcc[k] = (vydejAcc[k] || 0) + res.kegsUsed;
       }
     });
     // Akce (kegy odvezené na akce)
-    try {
-      const savedAkce = localStorage.getItem('akce_records_v2');
-      const akceRecords = savedAkce ? JSON.parse(savedAkce) : [];
-      (akceRecords as any[]).filter((r) => filterMonth(r.entry_date)).forEach((r) => {
-        (r.items ?? []).forEach((it: any) => {
-          if (it.beer_id && it.package_id) {
-            const k = `${it.beer_id}__${it.package_id}`;
-            vydejAcc[k] = (vydejAcc[k] || 0) + Number(it.quantity_taken || 0);
-          }
-        });
+    ((ak as any[]) ?? []).filter((r) => filterMovement(r.entry_date)).forEach((r) => {
+      (r.items ?? []).forEach((it: any) => {
+        if (it.beer_id && it.package_id) {
+          const k = `${it.beer_id}__${it.package_id}`;
+          const netTaken = Math.max(0, Number(it.quantity_taken || 0) - Number(it.quantity_returned || 0));
+          vydejAcc[k] = (vydejAcc[k] || 0) + netTaken;
+        }
       });
-    } catch {}
+    });
     setVydejMap(vydejAcc);
-
-
-    // === Bilanční konto sudů (jen KEG obaly) ===
-    const kegPkgIds = new Set((pk as Package[] ?? []).filter((p) => p.kind === 'keg').map((p) => p.id));
 
     // Stáčení KEG (příjem sudů)
     const kegAcc: Record<string, number> = {};
-    ((kg as any[]) ?? []).filter((r) => filterMonth(r.entry_date)).forEach((r) => {
+    ((kg as any[]) ?? []).filter((r) => filterMovement(r.entry_date)).forEach((r) => {
       const k = `${r.beer_id}__${r.package_id}`;
       kegAcc[k] = (kegAcc[k] || 0) + Number(r.quantity || 0);
     });
     setStacenoKegMap(kegAcc);
 
     // Stáčení lahví (kegy použité na stáčení lahví) — odečítají se ze skladu SUDŮ.
-    // Při stáčení např. 2x50L do 1L lahví se odečtou 2 kegy ze skladu sudů.
-    // kegs_used_package_id = typ sudu (zdroj), kegs_used = počet použitých sudů.
-    // Pokud se z jednoho sudu stáčí do více obalů, vznikne více záznamů se stejným
-    // zdrojem — sudy odečteme jen jednou (deduplikace zdroje).
     const lahveAcc: Record<string, number> = {};
     const seenKegSource = new Set<string>();
-    ((bt as any[]) ?? []).filter((r) => filterMonth(r.entry_date)).forEach((r) => {
-      if (r.kegs_used && r.kegs_used_package_id) {
-        const key = `${r.entry_date}|${r.beer_id}|${r.kegs_used}|${r.kegs_used_package_id}`;
+    ((bt as any[]) ?? []).filter((r) => filterMovement(r.entry_date)).forEach((r) => {
+      if (!r.beer_id) return;
+      const res = getKegsUsed(r);
+      if (res) {
+        const key = `${r.entry_date}|${r.beer_id}|${res.kegsUsed}|${res.kegPkgId}|${r.created_at || r.note || ''}`;
         if (seenKegSource.has(key)) return;
         seenKegSource.add(key);
-        const k = `${r.beer_id}__${r.kegs_used_package_id}`;
-        lahveAcc[k] = (lahveAcc[k] || 0) + Number(r.kegs_used || 0);
+        const k = `${r.beer_id}__${res.kegPkgId}`;
+        lahveAcc[k] = (lahveAcc[k] || 0) + res.kegsUsed;
       }
     });
     setStacenoLahveMap(lahveAcc);
 
-
     // Fasování
     const fasAcc: Record<string, number> = {};
-    ((fa as any[]) ?? []).filter((r) => filterMonth(r.entry_date)).forEach((r) => {
+    ((fa as any[]) ?? []).filter((r) => filterMovement(r.entry_date)).forEach((r) => {
       const k = `${r.beer_id}__${r.package_id}`;
       fasAcc[k] = (fasAcc[k] || 0) + Number(r.quantity || 0);
     });
@@ -189,14 +271,22 @@ export default function InventoryScreen() {
 
     // Prodejna
     const prodejAcc: Record<string, number> = {};
-    ((fp as any[]) ?? []).filter((r) => filterMonth(r.entry_date)).forEach((r) => {
+    ((fp as any[]) ?? []).filter((r) => filterMovement(r.entry_date)).forEach((r) => {
       const k = `${r.beer_id}__${r.package_id}`;
       prodejAcc[k] = (prodejAcc[k] || 0) + Number(r.quantity || 0);
     });
     setProdejnaMap(prodejAcc);
 
-    // Objednávky — kegy objednané v tomto měsíci (jen aktivní objednávky, ne storno)
-    const orderIds = new Set(((ords as any[]) ?? []).filter((o) => filterMonth(o.order_date) && o.status !== 'storno').map((o) => o.id));
+    // Odpisy
+    const odpisyAcc: Record<string, number> = {};
+    ((wo as any[]) ?? []).filter((r) => filterMovement(r.entry_date)).forEach((r) => {
+      const k = `${r.beer_id}__${r.package_id}`;
+      odpisyAcc[k] = (odpisyAcc[k] || 0) + Number(r.quantity || 0);
+    });
+    setOdpisyMap(odpisyAcc);
+
+    // Objednávky — kegy objednané v tomto měsíci
+    const orderIds = new Set(((ords as any[]) ?? []).filter((o) => filterMovement(o.delivery_date || o.order_date) && o.status !== 'storno').map((o) => o.id));
     const objAcc: Record<string, number> = {};
     ((oi as any[]) ?? []).filter((r) => orderIds.has(r.order_id) && kegPkgIds.has(r.package_id)).forEach((r) => {
       const k = `${r.beer_id}__${r.package_id}`;
@@ -204,16 +294,28 @@ export default function InventoryScreen() {
     });
     setObjednavkyMap(objAcc);
 
-    // Akce — kegy odvezené na akce v tomto měsíci (z localStorage)
+    // Akce — kegy odvezené na akce v tomto měsíci
     const akceAcc: Record<string, number> = {};
+    ((ak as any[]) ?? []).filter((r) => filterMovement(r.entry_date)).forEach((r) => {
+      (r.items ?? []).forEach((it: any) => {
+        if (it.beer_id && it.package_id && kegPkgIds.has(it.package_id)) {
+          const k = `${it.beer_id}__${it.package_id}`;
+          const netTaken = Math.max(0, Number(it.quantity_taken || 0) - Number(it.quantity_returned || 0));
+          akceAcc[k] = (akceAcc[k] || 0) + netTaken;
+        }
+      });
+    });
     try {
       const saved = localStorage.getItem('akce_records_v2');
       const akceRecords = saved ? JSON.parse(saved) : [];
-      (akceRecords as any[]).filter((r) => filterMonth(r.entry_date)).forEach((r) => {
+      (akceRecords as any[]).filter((r) => filterMovement(r.entry_date)).forEach((r) => {
         (r.items ?? []).forEach((it: any) => {
-          if (kegPkgIds.has(it.package_id)) {
+          if (it.beer_id && it.package_id && kegPkgIds.has(it.package_id)) {
             const k = `${it.beer_id}__${it.package_id}`;
-            akceAcc[k] = (akceAcc[k] || 0) + Number(it.quantity_taken || 0);
+            if (!akceAcc[k]) {
+              const netTaken = Math.max(0, Number(it.quantity_taken || 0) - Number(it.quantity_returned || 0));
+              akceAcc[k] = netTaken;
+            }
           }
         });
       });
@@ -236,8 +338,8 @@ export default function InventoryScreen() {
     setBusy(true);
     try {
       const entryDate = currentMonth + '-01';
-      // Smažeme staré záznamy pro tento měsíc
-      await supabase.from('inventory').delete().eq('entry_date', entryDate);
+      // Smažeme staré počáteční stavy pro tento měsíc
+      await supabase.from('inventory').delete().eq('entry_date', entryDate).ilike('note', '%Počáteční%');
       // Vložíme nové počáteční stavy
       const rowsToInsert = Object.entries(initialStock)
         .filter(([, qty]) => Number(qty) > 0)
@@ -258,7 +360,14 @@ export default function InventoryScreen() {
       if (rowsToInsert.length > 0) {
         await supabase.from('inventory').insert(rowsToInsert);
       }
+      // Uložíme i do localStorage, aby návaznost měsíců fungovala i bez databáze.
+      try {
+        const lsMap: Record<string, number> = {};
+        Object.entries(initialStock).forEach(([key, qty]) => { if (Number(qty) > 0) lsMap[key] = Number(qty); });
+        localStorage.setItem(`initial_stock_${currentMonth}`, JSON.stringify(lsMap));
+      } catch {}
       setSaveMsg('Počáteční stavy skladu byly v pořádku uloženy!');
+      await loadData();
     } catch (e) {
       console.error(e);
       setSaveMsg('Chyba při ukládání počátečních stavů!');
@@ -268,56 +377,80 @@ export default function InventoryScreen() {
   }
 
 
-  // Uložení fyzické inventury
-  function handleSaveActualStock() {
+  // Uložení fyzické inventury do Supabase i localStorage
+  async function handleSaveActualStock() {
     setBusy(true);
-    localStorage.setItem(`actual_inventory_${currentMonth}`, JSON.stringify(actualStock));
-    setSaveMsg('Fyzická inventura byla uložena!');
+    try {
+      localStorage.setItem(`actual_inventory_${currentMonth}`, JSON.stringify(actualStock));
+      const entryDate = currentMonth + '-01';
+
+      await supabase.from('inventory').delete().eq('entry_date', entryDate).or('note.ilike.%Fyzická%,note.ilike.%Schválená%');
+      const rowsToInsert = rows.map((r) => ({
+        entry_date: entryDate,
+        beer_id: r.beer_id,
+        beer_name: r.beer_name,
+        package_id: r.package_id,
+        package_label: r.package_label,
+        quantity: r.actualQty,
+        note: 'Fyzická inventura',
+      })).filter((r) => r.quantity > 0);
+
+      if (rowsToInsert.length > 0) {
+        await supabase.from('inventory').insert(rowsToInsert);
+      }
+
+      setSaveMsg('Fyzická inventura byla v pořádku uložena do databáze!');
+      await loadData();
+    } catch (e) {
+      console.error(e);
+      setSaveMsg('Chyba při ukládání fyzické inventury!');
+    }
     setTimeout(() => setSaveMsg(null), 3000);
     setBusy(false);
   }
 
-  // Převod fyzického stavu jako počáteční stav nového měsíce (uloží do inventory tabulky)
+  // Schválení inventury a převod fyzického stavu jako počáteční stav nového měsíce
   async function handleLockAndTransferNextMonth() {
     if (!window.confirm(`Chceš schválit inventuru za ${currentMonth} a převést fyzické stavy jako počáteční stav do nového měsíce?`)) return;
 
-    const [y, m] = currentMonth.split('-');
-    const nextDate = new Date(Number(y), Number(m), 1);
-    const nextMonthKey = nextDate.toISOString().slice(0, 7);
+    const [y, m] = currentMonth.split('-').map(Number);
+    const nextDate = new Date(y, m, 1);
+    const nextMonthKey = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}`;
     const nextEntryDate = nextMonthKey + '-01';
-
-    // Převedeme skutečné fyzické ks jako počáteční stavy nového měsíce
-    const nextInitial: InitialStockMap = {};
-    rows.forEach((r) => {
-      const k = `${r.beer_id}__${r.package_id}`;
-      nextInitial[k] = r.actualQty;
-    });
+    const curEntryDate = currentMonth + '-01';
 
     setBusy(true);
     try {
-      // Smažeme staré záznamy pro nový měsíc
-      await supabase.from('inventory').delete().eq('entry_date', nextEntryDate);
-      // Vložíme nové počáteční stavy
-      const rowsToInsert = Object.entries(nextInitial)
-        .filter(([, qty]) => Number(qty) > 0)
-        .map(([key, qty]) => {
-          const [beer_id, package_id] = key.split('__');
-          const beer = beers.find((b) => b.id === beer_id);
-          const pkg = packages.find((p) => p.id === package_id);
-          return {
-            entry_date: nextEntryDate,
-            beer_id,
-            beer_name: beer?.name ?? null,
-            package_id,
-            package_label: pkg?.label ?? null,
-            quantity: Number(qty),
-            note: 'Počáteční stav (převod z inventury)',
-          };
-        });
-      if (rowsToInsert.length > 0) {
-        await supabase.from('inventory').insert(rowsToInsert);
+      // 1. Uložíme schválený stav pro aktuální měsíc
+      await supabase.from('inventory').delete().eq('entry_date', curEntryDate).or('note.ilike.%Fyzická%,note.ilike.%Schválená%');
+      const curRowsToInsert = rows.map((r) => ({
+        entry_date: curEntryDate,
+        beer_id: r.beer_id,
+        beer_name: r.beer_name,
+        package_id: r.package_id,
+        package_label: r.package_label,
+        quantity: r.actualQty,
+        note: 'Schválená inventura',
+      })).filter((r) => r.quantity > 0);
+
+      if (curRowsToInsert.length > 0) {
+        await supabase.from('inventory').insert(curRowsToInsert);
       }
-      alert(`Inventura ${currentMonth} byla úspěšně uzamčena! Počáteční stavy pro ${nextMonthKey} byly nastaveny.`);
+
+      // POZOR: Nepřevádíme automaticky inventuru do počátečního stavu nového měsíce.
+      // Každý měsíc začíná od 0 — počáteční stav si sládek zadá ručně (na konci měsíce).
+      // Uložíme jen schválený stav aktuálního měsíce do localStorage.
+      try {
+        const actualLs: Record<string, string> = {};
+        rows.forEach((r) => {
+          const k = `${r.beer_id}__${r.package_id}`;
+          const q = Number(r.actualQty) > 0 ? Number(r.actualQty) : 0;
+          actualLs[k] = String(q);
+        });
+        localStorage.setItem(`actual_inventory_${currentMonth}`, JSON.stringify(actualLs));
+      } catch {}
+
+      alert(`Inventura ${currentMonth} byla úspěšně uzamčena! Nový měsíc ${nextMonthKey} začíná s počátečním stavem 0.`);
       setCurrentMonth(nextMonthKey);
     } catch (e) {
       console.error(e);
@@ -337,40 +470,40 @@ export default function InventoryScreen() {
 
         const initialQty = Number(initialStock[k] || 0);
         const stacenoQty = Number(stacenoMap[k] || 0);
+        const odpisQty = Number(odpisyMap[k] || 0);
         const vydejQty = Number(vydejMap[k] || 0);
 
-        const expectedQty = initialQty + stacenoQty - vydejQty;
+        const expectedQty = initialQty + stacenoQty - odpisQty - vydejQty;
 
-        // Pokud je zadaný fyzický stav v políčku, použijeme ho, jinak bereme očkávání
+        // Pokud je zadaný fyzický stav v políčku, použijeme ho, jinak dědí hodnotu z počáteční zásoby
         const actualInputStr = actualStock[k];
-        const actualQty = actualInputStr !== undefined && actualInputStr !== '' ? Number(actualInputStr) : expectedQty;
+        const actualQty = actualInputStr !== undefined && actualInputStr !== '' ? Number(actualInputStr) : Number(initialStock[k] || 0);
 
         const diffQty = actualQty - expectedQty;
         const priceCzk = p.volume_l > 20 ? 1500 : p.volume_l > 0.6 ? 250 : 45; // Orientační hodnota
         const diffCzk = diffQty * priceCzk;
 
-        // Zobrazit pouze položky, které mají počáteční stav, pohyb, nebo zadanou inventuru
-        if (initialQty !== 0 || stacenoQty !== 0 || vydejQty !== 0 || actualInputStr !== undefined) {
-          list.push({
-            beer_id: b.id,
-            beer_name: b.name,
-            package_id: p.id,
-            package_label: p.label,
-            price_czk: priceCzk,
-            initialQty,
-            stacenoQty,
-            vydejQty,
-            expectedQty,
-            actualQty,
-            diffQty,
-            diffCzk,
-          });
-        }
+        // Zobrazit všechny aktivní položky (piva a obaly) v bilanční tabulce
+        list.push({
+          beer_id: b.id,
+          beer_name: b.name,
+          package_id: p.id,
+          package_label: p.label,
+          price_czk: priceCzk,
+          initialQty,
+          stacenoQty,
+          odpisQty,
+          vydejQty,
+          expectedQty,
+          actualQty,
+          diffQty,
+          diffCzk,
+        });
       });
     });
 
     return list;
-  }, [beers, packages, initialStock, actualStock, stacenoMap, vydejMap]);
+  }, [beers, packages, initialStock, actualStock, stacenoMap, odpisyMap, vydejMap]);
 
   // Totals
   const totals = useMemo(() => {
@@ -378,6 +511,7 @@ export default function InventoryScreen() {
       (acc, r) => {
         acc.initial += r.initialQty;
         acc.staceno += r.stacenoQty;
+        acc.odpis += r.odpisQty;
         acc.vydej += r.vydejQty;
         acc.expected += r.expectedQty;
         acc.actual += r.actualQty;
@@ -385,18 +519,17 @@ export default function InventoryScreen() {
         acc.diffCzk += r.diffCzk;
         return acc;
       },
-      { initial: 0, staceno: 0, vydej: 0, expected: 0, actual: 0, diffQty: 0, diffCzk: 0 }
+      { initial: 0, staceno: 0, odpis: 0, vydej: 0, expected: 0, actual: 0, diffQty: 0, diffCzk: 0 }
     );
   }, [rows]);
 
   function exportInventoryExcel() {
-
-
     const dataToExport = rows.map((r) => ({
-      Pivo: r.beer_name,
-      Obal: formatPackageLabel(r.package_label),
+      'Pivo': r.beer_name,
+      'Obal': r.package_label,
       'Počáteční stav (ks)': r.initialQty,
       'Stočeno v měsíci (+ks)': r.stacenoQty,
+      'Odpisy (-ks)': r.odpisQty,
       'Vytočeno/Fasováno (-ks)': r.vydejQty,
       'Systémové očekávání (ks)': r.expectedQty,
       'Skutečná inventura (ks)': r.actualQty,
@@ -406,8 +539,8 @@ export default function InventoryScreen() {
 
     exportHistoryDetailToExcel(
       dataToExport,
-      ['Pivo', 'Obal', 'Počáteční (ks)', 'Stočeno (+ks)', 'Vytočeno (-ks)', 'Očekávání (ks)', 'Fyzická inventura (ks)', 'Manko/Přebytek (ks)', 'Rozdíl (Kč)'],
-      ['Pivo', 'Obal', 'Počáteční stav (ks)', 'Stočeno v měsíci (+ks)', 'Vytočeno/Fasováno (-ks)', 'Systémové očekávání (ks)', 'Skutečná inventura (ks)', 'Odchylka (ks)', 'Odchylka (Kč)'],
+      ['Pivo', 'Obal', 'Počáteční (ks)', 'Stočeno (+ks)', 'Odpisy (-ks)', 'Vytočeno (-ks)', 'Očekávání (ks)', 'Fyzická inventura (ks)', 'Manko/Přebytek (ks)', 'Rozdíl (Kč)'],
+      ['Pivo', 'Obal', 'Počáteční stav (ks)', 'Stočeno v měsíci (+ks)', 'Odpisy (-ks)', 'Vytočeno/Fasováno (-ks)', 'Systémové očekávání (ks)', 'Skutečná inventura (ks)', 'Odchylka (ks)', 'Odchylka (Kč)'],
       `inventura_${currentMonth}.xlsx`
     );
   }
@@ -533,37 +666,50 @@ export default function InventoryScreen() {
       {/* TAB 1: FYZICKÁ INVENTURA & ROZDÍLY */}
       {activeTab === 'inventory' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-            <div className="card p-4 bg-white border border-neutral-200 rounded-2xl space-y-1">
+          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="card p-3.5 bg-white border border-neutral-200 rounded-2xl space-y-1">
               <span className="text-[10px] font-black uppercase text-neutral-500">Počáteční stav</span>
-              <div className="font-display font-black text-xl text-neutral-900">{totals.initial} ks</div>
-              <span className="text-[11px] text-neutral-600">Převedeno z minulého měsíce</span>
+              <div className="font-display font-black text-lg text-neutral-900">{totals.initial} ks</div>
+              <span className="text-[10px] text-neutral-500">Převedeno z minulého měsíce</span>
             </div>
-            <div className="card p-4 bg-white border border-neutral-200 rounded-2xl space-y-1">
-              <span className="text-[10px] font-black uppercase text-neutral-500">Nově stočeno (+ příjmy)</span>
-              <div className="font-display font-black text-xl text-amber-600">{totals.staceno} ks</div>
-              <span className="text-[11px] text-neutral-600">Zapsáno ve Stáčení</span>
+            <div className="card p-3.5 bg-white border border-neutral-200 rounded-2xl space-y-1">
+              <span className="text-[10px] font-black uppercase text-amber-700">Nově stočeno (+)</span>
+              <div className="font-display font-black text-lg text-amber-600">+{totals.staceno} ks</div>
+              <span className="text-[10px] text-neutral-500">Zapsáno ve Stáčení</span>
             </div>
-            <div className="card p-4 bg-white border border-neutral-200 rounded-2xl space-y-1">
-              <span className="text-[10px] font-black uppercase text-neutral-500">Vytočeno (- výdeje)</span>
-              <div className="font-display font-black text-xl text-rose-600">{totals.vydej} ks</div>
-              <span className="text-[11px] text-neutral-600">Fasování + Prodejna + Odpis + Objednávky + Stáčení lahví + Akce</span>
-
+            <div className="card p-3.5 bg-white border border-rose-200 rounded-2xl space-y-1">
+              <span className="text-[10px] font-black uppercase text-rose-600">Odpisy (− odpis)</span>
+              <div className="font-display font-black text-lg text-rose-700">-{totals.odpis} ks</div>
+              <span className="text-[10px] text-neutral-500">Zapsáno v Odpisech</span>
             </div>
-            <div className="card p-4 bg-neutral-900 text-white rounded-2xl space-y-1">
-              <span className="text-[10px] font-black uppercase text-amber-400">Celková odchylka (Manko/Přebytek)</span>
-              <div className={`font-display font-black text-xl ${totals.diffQty < 0 ? 'text-rose-400' : totals.diffQty > 0 ? 'text-emerald-400' : 'text-white'}`}>
+            <div className="card p-3.5 bg-white border border-neutral-200 rounded-2xl space-y-1">
+              <span className="text-[10px] font-black uppercase text-amber-800">Vytočeno/Výdej (−)</span>
+              <div className="font-display font-black text-lg text-amber-800">-{totals.vydej} ks</div>
+              <span className="text-[10px] text-neutral-500">Fasování + Prodejna + Objednávky</span>
+            </div>
+            <div className={`card p-3.5 rounded-2xl space-y-1 border shadow-md ${
+              totals.expected < 0
+                ? 'bg-rose-950 text-white border-rose-500/80 ring-2 ring-rose-500/30'
+                : 'bg-emerald-950 text-white border-emerald-500/50'
+            }`}>
+              <span className={`text-[10px] font-black uppercase ${totals.expected < 0 ? 'text-rose-300' : 'text-emerald-400'}`}>📦 ZBYDE SKLADEM (Oček.)</span>
+              <div className={`font-display font-black text-xl ${totals.expected < 0 ? 'text-rose-300' : 'text-emerald-300'}`}>{totals.expected} ks</div>
+              <span className={`text-[10px] ${totals.expected < 0 ? 'text-rose-200' : 'text-emerald-200'}`}>Teoretický zůstatek</span>
+            </div>
+            <div className="card p-3.5 bg-neutral-900 text-white rounded-2xl space-y-1 border border-neutral-800 shadow-md">
+              <span className="text-[10px] font-black uppercase text-amber-400">Celkové Manko/Přebytek</span>
+              <div className={`font-display font-black text-lg ${totals.diffQty < 0 ? 'text-rose-400' : totals.diffQty > 0 ? 'text-emerald-400' : 'text-white'}`}>
                 {totals.diffQty > 0 ? `+${totals.diffQty}` : totals.diffQty} ks ({totals.diffCzk.toLocaleString('cs-CZ')} Kč)
               </div>
-              <span className="text-[11px] text-neutral-300">Fyzický vs Systémový stav</span>
+              <span className="text-[10px] text-neutral-400">Fyzický vs Systémový stav</span>
             </div>
           </div>
 
-          <div className="card p-6 bg-white border border-neutral-200/90 rounded-3xl shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+          <div className="card p-5 bg-white border border-neutral-200/90 rounded-3xl shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-neutral-100 pb-3 flex-wrap gap-2">
               <div>
                 <h3 className="font-display font-black text-lg text-neutral-900">Bilanční tabulka piva & Obalů k datu</h3>
-                <p className="text-xs text-neutral-500 font-bold">Do sloupce Skutečná inventura zadej přesný počet kusů ve skladu</p>
+                <p className="text-xs text-neutral-500 font-bold">Do sloupce Inventura zadej ručně přesný spočítaný stav na konci měsíce (výchozí 0 ks)</p>
               </div>
               <button
                 onClick={handleSaveActualStock}
@@ -586,52 +732,93 @@ export default function InventoryScreen() {
               </div>
             ) : (
               <div className="overflow-x-auto scrollbar-thin">
-                <table className="table text-xs">
+                <table className="table text-xs w-full">
                   <thead>
-                    <tr>
-                      <th>Pivo</th>
-                      <th>Obal</th>
-                      <th className="text-right">Poč.</th>
-                      <th className="text-right">Stoč.</th>
-                      <th className="text-right">Výd.</th>
-                      <th className="text-right">Oček.</th>
-                      <th className="text-right bg-amber-50 border-x border-amber-200 text-amber-950 font-black">Skutečnost</th>
-                      <th className="text-right">Manko</th>
-                      <th className="text-right">Rozdíl</th>
+                    <tr className="bg-neutral-100 text-neutral-800 border-b border-neutral-200">
+                      <th className="py-2.5 px-3 text-left">Pivo</th>
+                      <th className="py-2.5 px-3 text-left">Obal</th>
+                      <th className="py-2.5 px-2 text-right">Počáteční (Poč.)</th>
+                      <th className="py-2.5 px-2 text-right text-amber-700">Stočeno (+)</th>
+                      <th className="py-2.5 px-2 text-right text-rose-700">Odpis (−)</th>
+                      <th className="py-2.5 px-2 text-right text-amber-800">Výdej (−)</th>
+                      <th className="py-2.5 px-3 text-right bg-emerald-600 text-white font-black rounded-t-lg">ZBYDE (Oček.)</th>
+                      <th className="py-2.5 px-3 text-right bg-amber-500 text-neutral-950 font-black rounded-t-lg">INVENTURA</th>
+                      <th className="py-2.5 px-2 text-right font-black">MANKO</th>
+                      <th className="py-2.5 px-3 text-right font-black">ROZDÍL (Kč)</th>
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((r) => {
                       const k = `${r.beer_id}__${r.package_id}`;
                       const beer = beers.find((b) => b.id === r.beer_id);
+                      const isDark = beer && beerText(beer) === 'text-white';
+                      const textColor = isDark ? 'text-white' : 'text-neutral-950';
 
                       return (
-                        <tr key={k} className="hover:brightness-95 transition-colors" style={beer ? { backgroundColor: beerBg(beer) } : undefined}>
-                          <td className={`font-black text-[11px] ${beer ? (beerText(beer) === 'text-white' ? 'text-white' : 'text-neutral-950') : 'text-neutral-950'}`}>{r.beer_name}</td>
-                          <td className="font-extrabold text-neutral-950 text-[11px]">{formatPackageLabel(r.package_label)}</td>
-                          <td className="text-right font-bold text-neutral-800 text-[11px]">{r.initialQty} ks</td>
-                          <td className="text-right font-black text-amber-700 text-[11px]">+{r.stacenoQty}</td>
-                          <td className="text-right font-black text-rose-700 text-[11px]">-{r.vydejQty}</td>
-                          <td className="text-right font-mono font-black text-neutral-900 text-[11px]">{r.expectedQty} ks</td>
-                          <td className="text-right bg-amber-50/80 border-x border-amber-200">
+                        <tr key={k} className="hover:brightness-95 transition-colors border-b border-neutral-200/60" style={beer ? { backgroundColor: beerBg(beer) } : undefined}>
+                          <td className={`font-black text-[11px] px-3 py-2 ${textColor}`}>{r.beer_name}</td>
+                          <td className={`font-extrabold text-[11px] px-3 py-2 ${textColor}`}>{formatPackageLabel(r.package_label)}</td>
+                          <td className={`text-right font-black text-[11px] px-2 py-2 ${textColor}`}>{r.initialQty} ks</td>
+                          <td className={`text-right font-black text-[11px] px-2 py-2 ${isDark ? 'text-amber-300' : 'text-amber-900'}`}>+{r.stacenoQty}</td>
+                          <td className={`text-right font-black text-[11px] px-2 py-2 ${isDark ? 'text-rose-300' : 'text-rose-800'}`}>{r.odpisQty > 0 ? `-${r.odpisQty}` : '-0'}</td>
+                          <td className={`text-right font-black text-[11px] px-2 py-2 ${isDark ? 'text-amber-300' : 'text-amber-900'}`}>-{r.vydejQty}</td>
+                          <td className={`text-right border-x font-mono font-black text-xs px-3 py-2 ${
+                            r.expectedQty < 0
+                              ? (isDark ? 'bg-rose-950/80 border-rose-700 text-rose-200' : 'bg-rose-100/90 border-rose-300 text-rose-950')
+                              : (isDark ? 'bg-emerald-950/80 border-emerald-700 text-emerald-200' : 'bg-emerald-100/90 border-emerald-300 text-emerald-950')
+                          }`}>
+                            <span className={`inline-block px-2 py-0.5 rounded-md border font-black shadow-2xs ${
+                              r.expectedQty < 0
+                                ? 'bg-rose-600 text-white border-rose-700 shadow-sm'
+                                : 'bg-emerald-300/80 text-emerald-950 border-emerald-500/60'
+                            }`}>
+                              {r.expectedQty} ks
+                            </span>
+                          </td>
+                          <td className="text-right bg-amber-50/90 border-x border-amber-300 px-3 py-2">
                             <input
                               type="number"
                               min="0"
-                              className="input !py-0.5 text-right font-mono font-black text-[11px] text-neutral-950 border-amber-300 w-20 ml-auto"
-                              value={actualStock[k] !== undefined ? actualStock[k] : r.expectedQty}
+                              className="input !py-1 text-right font-mono font-black text-xs text-neutral-950 border-amber-400 bg-amber-100/80 w-24 ml-auto rounded-xl shadow-inner focus:ring-2 focus:ring-amber-500"
+                              value={actualStock[k] !== undefined ? actualStock[k] : String(initialStock[k] ?? 0)}
                               onChange={(e) => setActualStock((prev) => ({ ...prev, [k]: e.target.value }))}
                             />
                           </td>
-                          <td className={`text-right font-mono font-black text-[11px] ${r.diffQty < 0 ? 'text-rose-700' : r.diffQty > 0 ? 'text-emerald-700' : 'text-neutral-600'}`}>
+                          <td className={`text-right font-mono font-black text-[11px] px-2 py-2 ${
+                            r.diffQty < 0 ? (isDark ? 'text-rose-300' : 'text-rose-800') : r.diffQty > 0 ? (isDark ? 'text-emerald-300' : 'text-emerald-800') : textColor
+                          }`}>
                             {r.diffQty > 0 ? `+${r.diffQty}` : r.diffQty} ks
                           </td>
-                          <td className={`text-right font-bold text-[11px] ${r.diffCzk < 0 ? 'text-rose-700' : r.diffCzk > 0 ? 'text-emerald-700' : 'text-neutral-600'}`}>
+                          <td className={`text-right font-black text-[11px] px-3 py-2 ${
+                            r.diffCzk < 0 ? (isDark ? 'text-rose-300' : 'text-rose-800') : r.diffCzk > 0 ? (isDark ? 'text-emerald-300' : 'text-emerald-800') : textColor
+                          }`}>
                             {r.diffCzk.toLocaleString('cs-CZ')} Kč
                           </td>
                         </tr>
                       );
                     })}
                   </tbody>
+                  <tfoot>
+                    <tr className="bg-neutral-900 text-white font-black text-xs border-t-2 border-neutral-800">
+                      <td colSpan={2} className="px-3 py-2.5 text-amber-400 font-display">CELKEM SOUHRN</td>
+                      <td className="text-right px-2 py-2.5 text-neutral-300">{totals.initial} ks</td>
+                      <td className="text-right px-2 py-2.5 text-amber-400">+{totals.staceno}</td>
+                      <td className="text-right px-2 py-2.5 text-rose-400">-{totals.odpis}</td>
+                      <td className="text-right px-2 py-2.5 text-amber-300">-{totals.vydej}</td>
+                      <td className={`text-right px-3 py-2.5 font-mono text-sm border-x ${
+                        totals.expected < 0
+                          ? 'bg-rose-950/90 text-rose-300 border-rose-700 font-black'
+                          : 'bg-emerald-950/80 text-emerald-300 border-emerald-700 font-black'
+                      }`}>{totals.expected} ks</td>
+                      <td className="text-right px-3 py-2.5 text-amber-300 font-mono text-sm bg-amber-950/80 border-x border-amber-700">{totals.actual} ks</td>
+                      <td className={`text-right px-2 py-2.5 font-mono text-sm ${totals.diffQty < 0 ? 'text-rose-400' : totals.diffQty > 0 ? 'text-emerald-400' : 'text-neutral-300'}`}>
+                        {totals.diffQty > 0 ? `+${totals.diffQty}` : totals.diffQty} ks
+                      </td>
+                      <td className={`text-right px-3 py-2.5 ${totals.diffCzk < 0 ? 'text-rose-400' : totals.diffCzk > 0 ? 'text-emerald-400' : 'text-neutral-300'}`}>
+                        {totals.diffCzk.toLocaleString('cs-CZ')} Kč
+                      </td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             )}
@@ -687,6 +874,7 @@ export default function InventoryScreen() {
                             onChange={(e) => {
                               const val = e.target.value === '' ? 0 : Number(e.target.value);
                               setInitialStock((prev) => ({ ...prev, [k]: val }));
+                              setActualStock((prev) => ({ ...prev, [k]: String(val) }));
                             }}
                           />
                           <span className="text-xs font-bold text-neutral-500 shrink-0">ks</span>
@@ -714,6 +902,7 @@ export default function InventoryScreen() {
           fasovaniMap={fasovaniMap}
           prodejnaMap={prodejnaMap}
           akceMap={akceMap}
+          odpisyMap={odpisyMap}
           objednavkyMap={objednavkyMap}
         />
       )}
@@ -753,6 +942,7 @@ type EndStockRow = {
   fasovaniQty: number;     // Fasování (-)
   prodejnaQty: number;     // Prodejna (-)
   akceQty: number;         // Akce (-)
+  odpisyQty: number;       // Odpisy (-)
   endStockQty: number;     // Stav na konci měsíce (vypočtený)
 };
 
@@ -767,6 +957,7 @@ function EndStockTab({
   fasovaniMap,
   prodejnaMap,
   akceMap,
+  odpisyMap,
   objednavkyMap,
 }: {
   beers: Beer[];
@@ -779,6 +970,7 @@ function EndStockTab({
   fasovaniMap: Record<string, number>;
   prodejnaMap: Record<string, number>;
   akceMap: Record<string, number>;
+  odpisyMap: Record<string, number>;
   objednavkyMap: Record<string, number>;
 }) {
 
@@ -797,11 +989,12 @@ function EndStockTab({
         const fasovaniQty = Number(fasovaniMap[k] || 0);
         const prodejnaQty = Number(prodejnaMap[k] || 0);
         const akceQty = Number(akceMap[k] || 0);
+        const odpisyQty = Number(odpisyMap[k] || 0);
 
-        // Stav na konci měsíce = Počáteční + Stáčení KEG − (Objednávky + Stáčení lahví + Fasování + Prodejna + Akce)
-        const endStockQty = initialQty + stacenoKegQty - (objednavkyQty + stacenoLahveQty + fasovaniQty + prodejnaQty + akceQty);
+        // Stav na konci měsíce = Počáteční + Stáčení KEG − (Objednávky + Stáčení lahví + Fasování + Prodejna + Akce + Odpisy)
+        const endStockQty = initialQty + stacenoKegQty - (objednavkyQty + stacenoLahveQty + fasovaniQty + prodejnaQty + akceQty + odpisyQty);
 
-        if (initialQty !== 0 || stacenoKegQty !== 0 || objednavkyQty !== 0 || stacenoLahveQty !== 0 || fasovaniQty !== 0 || prodejnaQty !== 0 || akceQty !== 0) {
+        if (initialQty !== 0 || stacenoKegQty !== 0 || objednavkyQty !== 0 || stacenoLahveQty !== 0 || fasovaniQty !== 0 || prodejnaQty !== 0 || akceQty !== 0 || odpisyQty !== 0) {
           list.push({
             beer_id: b.id,
             beer_name: b.name,
@@ -815,13 +1008,14 @@ function EndStockTab({
             fasovaniQty,
             prodejnaQty,
             akceQty,
+            odpisyQty,
             endStockQty,
           });
         }
       });
     });
     return list;
-  }, [beers, kegPackages, initialStock, stacenoKegMap, stacenoLahveMap, fasovaniMap, prodejnaMap, akceMap, objednavkyMap]);
+  }, [beers, kegPackages, initialStock, stacenoKegMap, stacenoLahveMap, fasovaniMap, prodejnaMap, akceMap, odpisyMap, objednavkyMap]);
 
   const totals = useMemo(() => {
     return rows.reduce(
@@ -833,10 +1027,11 @@ function EndStockTab({
         acc.fasovani += r.fasovaniQty;
         acc.prodejna += r.prodejnaQty;
         acc.akce += r.akceQty;
+        acc.odpisy += r.odpisyQty;
         acc.endStock += r.endStockQty;
         return acc;
       },
-      { initial: 0, stacenoKeg: 0, objednavky: 0, stacenoLahve: 0, fasovani: 0, prodejna: 0, akce: 0, endStock: 0 }
+      { initial: 0, stacenoKeg: 0, objednavky: 0, stacenoLahve: 0, fasovani: 0, prodejna: 0, akce: 0, odpisy: 0, endStock: 0 }
     );
   }, [rows]);
 
@@ -875,7 +1070,7 @@ function EndStockTab({
           </div>
         </div>
         <p>
-          <strong>Stav na konci měsíce</strong> = Počáteční stav + Stáčení KEG − (Objednávky + Stáčení lahví + Fasování + Prodejna + Akce)
+          <strong>Stav na konci měsíce</strong> = Počáteční stav + Stáčení KEG − (Objednávky + Stáčení lahví + Fasování + Prodejna + Akce + Odpisy)
         </p>
         <p className="text-sky-800">
           Pokud vyjde <strong className="text-rose-700">záporné číslo</strong>, znamená to, že bylo vydáno více sudů, než bylo stočeno a naskladněno — chybí sudy!
@@ -895,7 +1090,7 @@ function EndStockTab({
         </div>
         <div className="card p-4 bg-white border border-neutral-200 rounded-2xl space-y-1">
           <span className="text-[10px] font-black uppercase text-neutral-500">Výdeje (−)</span>
-          <div className="font-display font-black text-xl text-rose-600">−{totals.objednavky + totals.stacenoLahve + totals.fasovani + totals.prodejna + totals.akce} ks</div>
+          <div className="font-display font-black text-xl text-rose-600">−{totals.objednavky + totals.stacenoLahve + totals.fasovani + totals.prodejna + totals.akce + totals.odpisy} ks</div>
         </div>
         <div className={`card p-4 rounded-2xl space-y-1 ${totals.endStock < 0 ? 'bg-rose-600 text-white' : 'bg-neutral-900 text-white'}`}>
           <span className={`text-[10px] font-black uppercase ${totals.endStock < 0 ? 'text-rose-100' : 'text-amber-400'}`}>Stav na konci měsíce</span>
@@ -908,7 +1103,7 @@ function EndStockTab({
       <div className="card p-6 bg-white border border-neutral-200/90 rounded-3xl shadow-xs space-y-4">
         <div className="border-b border-neutral-100 pb-3">
           <h3 className="font-display font-black text-lg text-neutral-900">Přehled sudů podle piva a obalu</h3>
-          <p className="text-xs text-neutral-500 font-bold">Bilance: Počáteční + Stáčení KEG = Objednávky + Stáčení lahví + Fasování + Prodejna + Akce + Stav na konci měsíce</p>
+          <p className="text-xs text-neutral-500 font-bold">Bilance: Počáteční + Stáčení KEG = Objednávky + Stáčení lahví + Fasování + Prodejna + Akce + Odpisy + Stav na konci měsíce</p>
         </div>
 
         {rows.length === 0 ? (
@@ -929,27 +1124,31 @@ function EndStockTab({
                   <th className="text-right text-rose-700">Fasování</th>
                   <th className="text-right text-rose-700">Prodejna</th>
                   <th className="text-right text-rose-700">Akce</th>
+                  <th className="text-right text-rose-700">Odpisy</th>
                   <th className="text-right bg-amber-50 border-x border-amber-200 text-amber-950 font-black">Stav konec měsíce</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r) => {
                   const beer = beers.find((b) => b.id === r.beer_id);
-                  return (
+                  const isDark = beer && beerText(beer) === 'text-white';
+                  const textColor = isDark ? 'text-white' : 'text-neutral-950';
 
-                    <tr key={`${r.beer_id}__${r.package_id}`} className="hover:brightness-95 transition-colors" style={beer ? { backgroundColor: beerBg(beer) } : undefined}>
-                      <td className={`font-black text-[11px] ${beer ? (beerText(beer) === 'text-white' ? 'text-white' : 'text-neutral-950') : 'text-neutral-950'}`}>{r.beer_name}</td>
-                      <td className="font-extrabold text-neutral-950 text-[11px]">{formatPackageLabel(r.package_label)}</td>
-                      <td className="text-right font-bold text-neutral-800 text-[11px]">{r.initialQty}</td>
-                      <td className="text-right font-black text-emerald-700 text-[11px]">+{r.stacenoKegQty}</td>
-                      <td className="text-right font-bold text-rose-700 text-[11px]">−{r.objednavkyQty}</td>
-                      <td className="text-right font-bold text-rose-700 text-[11px]">−{r.stacenoLahveQty}</td>
-                      <td className="text-right font-bold text-rose-700 text-[11px]">−{r.fasovaniQty}</td>
-                      <td className="text-right font-bold text-rose-700 text-[11px]">−{r.prodejnaQty}</td>
-                      <td className="text-right font-bold text-rose-700 text-[11px]">−{r.akceQty}</td>
-                      <td className={`text-right font-mono font-black text-[11px] bg-amber-50/80 border-x border-amber-200 ${r.endStockQty < 0 ? 'text-rose-700' : 'text-neutral-900'}`}>
+                  return (
+                    <tr key={`${r.beer_id}__${r.package_id}`} className="hover:brightness-95 transition-colors border-b border-neutral-200/60" style={beer ? { backgroundColor: beerBg(beer) } : undefined}>
+                      <td className={`font-black text-[11px] ${textColor}`}>{r.beer_name}</td>
+                      <td className={`font-extrabold text-[11px] ${textColor}`}>{formatPackageLabel(r.package_label)}</td>
+                      <td className={`text-right font-black text-[11px] ${textColor}`}>{r.initialQty}</td>
+                      <td className={`text-right font-black text-[11px] ${isDark ? 'text-emerald-300' : 'text-emerald-800'}`}>+{r.stacenoKegQty}</td>
+                      <td className={`text-right font-black text-[11px] ${isDark ? 'text-rose-300' : 'text-rose-800'}`}>−{r.objednavkyQty}</td>
+                      <td className={`text-right font-black text-[11px] ${isDark ? 'text-rose-300' : 'text-rose-800'}`}>−{r.stacenoLahveQty}</td>
+                      <td className={`text-right font-black text-[11px] ${isDark ? 'text-rose-300' : 'text-rose-800'}`}>−{r.fasovaniQty}</td>
+                      <td className={`text-right font-black text-[11px] ${isDark ? 'text-rose-300' : 'text-rose-800'}`}>−{r.prodejnaQty}</td>
+                      <td className={`text-right font-black text-[11px] ${isDark ? 'text-rose-300' : 'text-rose-800'}`}>−{r.akceQty}</td>
+                      <td className={`text-right font-black text-[11px] ${isDark ? 'text-rose-300' : 'text-rose-800'}`}>−{r.odpisyQty}</td>
+                      <td className={`text-right font-mono font-black text-[11px] bg-amber-100/90 border-x border-amber-300 ${r.endStockQty < 0 ? 'text-rose-800' : 'text-neutral-950'}`}>
                         {r.endStockQty} ks
-                        {r.endStockQty < 0 && <span className="block text-[9px] text-rose-600 font-black">⚠️ chybí {Math.abs(r.endStockQty)}</span>}
+                        {r.endStockQty < 0 && <span className="block text-[9px] text-rose-700 font-black">⚠️ chybí {Math.abs(r.endStockQty)}</span>}
                       </td>
                     </tr>
                   );
@@ -965,6 +1164,7 @@ function EndStockTab({
                   <td className="text-right text-rose-700">−{totals.fasovani}</td>
                   <td className="text-right text-rose-700">−{totals.prodejna}</td>
                   <td className="text-right text-rose-700">−{totals.akce}</td>
+                  <td className="text-right text-rose-700">−{totals.odpisy}</td>
                   <td className={`text-right bg-amber-50 border-x border-amber-200 ${totals.endStock < 0 ? 'text-rose-700' : 'text-neutral-900'}`}>{totals.endStock} ks</td>
                 </tr>
               </tfoot>

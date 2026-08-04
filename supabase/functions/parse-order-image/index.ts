@@ -57,9 +57,13 @@ Deno.serve(async (req: Request) => {
     const imageMimeType: string | undefined = body.imageMimeType;
     const beers: { id: string; name: string; degree: string }[] = body.beers ?? [];
     const packages: { id: string; label: string }[] = body.packages ?? [];
-    const places: string[] = body.places ?? [];
+    const isSenderName = (s: string) => {
+      const norm = s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      return ['bednar', 'petr', 'sladek', 'gabina', 'ucetni', 'pojmi', 'bendat'].some((x) => norm.includes(x));
+    };
+    const places: string[] = (body.places ?? []).filter((p: string) => !isSenderName(p));
     const aliases: { alias_text: string; beer_name: string | null; package_label: string | null }[] = body.aliases ?? [];
-    const placeAliases: { wrong_name: string; correct_name: string }[] = body.placeAliases ?? [];
+    const placeAliases: { wrong_name: string; correct_name: string }[] = (body.placeAliases ?? []).filter((a: any) => !isSenderName(a.wrong_name) && !isSenderName(a.correct_name));
 
 
     if (!imageBase64 || !imageMimeType) {
@@ -94,7 +98,7 @@ KRITICKÉ POKYNY PRO ČTENÍ TEXTU Z OBRÁZKU:
 3. Pokud si nejsi jistý číslem, zkus ho odvodit z kontextu (např. "12sv 5x30" — 30 je objem kegu, 5 je počet).
 4. ČTI CELÝ TEXT, ne jen první řádky. Objednávky často pokračují na více řádcích.
 5. Pokud je text rozmazaný nebo špatně čitelný, zkus ho přečíst podle kontextu a běžných vzorů objednávek piva.
-6. Věnuj zvláštní pozornost JMÉNU ODBĚRATELE — obvykle je v hlavičce WhatsApp chatu (nahoře), v oslovení, nebo v podpisu zprávy.
+6. Věnuj zvláštní pozornost JMÉNU ODBĚRATELE — toto jméno je VŽDY napsané v TEXTU objednávky/zprávy (např. "Malesice", "Naseb", "Žižkov", "Seeberg"), často na začátku, v oslovení, nebo v podpisu. NIKDY ho nedoplňuj ze jména odesílatele v hlavičce WhatsApp chatu (to je jen "Pojmi", "Bednář", "Účetní" apod.).
 7. Pokud je na obrázku VÍCE WhatsApp oken (více chatů), každé okno má VLASTNÍ hlavičku se jménem — přečti každou hlavičku zvlášť.
 8. ČÍSLA OBJEMU (50, 30, 20, 15, 10, 1.5, 1, 0.5, 0.33) jsou KRITICKÁ — špatné přečtení objemu znamená špatný obal (KEG vs. lahev vs. PET).
  9. Pokud je číslo napsané jako "0,5" nebo "0.5", je to VŽDY skleněná lahev 0.5l — nikdy to nečti jako "05" nebo "5".
@@ -146,7 +150,7 @@ DŮLEŽITÉ: NA JEDNÉ FOTCE MŮŽE BÝT VÍCE OBJEDNÁVEK (VÍCE WHATSAPP OKEN)
 
 Screenshot z WhatsApp často obsahuje VÍCE chatovacích oken od RŮZNÝCH odběratelů naskládaných pod sebou. Každé okno = JEDNA samostatná objednávka od JINÉHO odběratele. Musíš:
 1. Rozpoznat hranice mezi jednotlivými WhatsApp okny (obvykle je odděluje hlavička se jménem kontaktu, časové razítko, nebo vizuální předěl).
-2. Každé okno přiřadit k JEHO VLASTNÍMU odběrateli (place_name) podle jména kontaktu v hlavičce toho okna.
+2. Každé okno přiřadit k JEHO VLASTNÍMU odběrateli (place_name) podle jména odběratele NAPSANÉHO V TEXTU toho okna (ne podle jména odesílatele v hlavičce).
 3. Položky z RŮZNÝCH oken MUSÍ mít RŮZNÉ place_name — nikdy neslučuj objednávky od různých odběratelů do jedné.
 4. place_name se "dědí" odshora dolů UVNITŘ jednoho okna — dokud nenarazíš na hlavičku nového okna s jiným odběratelem, všechny řádky patří k aktuálnímu odběrateli. Jakmile se objeví nové okno/jméno, přepni se na nového odběratele.
 
@@ -166,47 +170,26 @@ NIKDY neslučuj dvě různé položky do jedné, i když jsou na stejném řádk
 
 KRITICKÉ PRAVIDLO PRO ODBĚRATELE (place_name):
 Níže je seznam "ZNÁMÍ ODBĚRATELÉ" — to jsou VŠICHNI existující odběratelé. MUSÍŠ každý řádek objednávky přiřadit k některému z nich, pokud to je alespoň trochu možné. Postup:
-1. Podívej se na text v obrázku (hlavička, záhlaví, první řádek, jméno WhatsApp kontaktu nahoře, oslovení, podpis).
-2. Porovnej ho se seznamem ZNÁMÍ ODBĚRATELÉ — hledej PŘIBLIŽNOU shodu (podobná výslovnost, možné překlepy, OCR chyby).
-3. PŘÍKLADY očekávaného chování:
-   - Text "Seeberg" nebo "seeger" nebo "zeeburg" → odběratel "Seeberg" (pokud je v seznamu)
-   - Text "U Labute" nebo "u labute" nebo "labut" nebo "gabina ucent" → odběratel "U Labutě" (pokud je v seznamu)
-   - Text "Malesice" nebo "malessice" nebo "malenovice" → odběratel "Malesice" (pokud je v seznamu)
-   - Text "U Zajice" nebo "zajic" nebo "u zajice" → odběratel "U Zajíce" (pokud je v seznamu)
-4. Pokud text obsahuje slovo, které se podobá některému známému odběrateli (i když je zkomolené OCR), POUŽIJ PŘESNÝ název ze seznamu.
-5. place_name se "dědí" odshora dolů — pokud první řádek patří k odběrateli X, všechny následující řádky patří k X, dokud se neobjeví jiný odběratel.
-
-DŮLEŽITÉ UPŘESNĚNÍ PRO ROZPOZNÁNÍ ODBĚRATELE Z WHATSAPP SCREENSHOTU:
-WhatsApp screenshoty mají specifickou strukturu, kterou MUSÍŠ využít pro správné určení odběratele:
-1. JMÉNO KONTAKTU je obvykle NAPROSTO NAHOŘE screenshotu, v hlavičce chatu (velké tučné písmo, často s avatarou). Toto jméno je NEJSPOLEHLIVĚJŠÍ zdroj odběratele.
-2. Pokud je na screenshotu VÍCE chatů naskládaných pod sebou, každý má VLASTNÍ hlavičku se jménem kontaktu. Každý chat = JINÝ odběratel.
-3. Zprávy od odběratele (zelené bubliny) obsahují objednávku. Zprávy od tebe (bílé/šedé bubliny) jsou potvrzení.
-4. Pokud je jméno kontaktu v hlavičce podobné některému ze ZNÁMÍ ODBĚRATELÉ (i s překlepy/OCR chybami), POUŽIJ PŘESNÝ název ze seznamu.
-5. Pokud jméno kontaktu NENÍ v seznamu ZNÁMÍ ODBĚRATELÉ, použij jméno kontaktu TAK, JAK JE NAPSANÉ (může to být nový odběratel).
-6. NIKDY nepoužívej jako place_name: "WhatsApp", "Telefon", "Mobil", "Zprávy", "Chat", "Pivovar", "Pivovar Zajíc", "Zajíc" (pokud to není skutečný odběratel), "Objednávka", "Dnes", "Včera", "Pondělí" atd. — to nejsou názvy míst.
-7. Pokud je v textu zprávy napsáno "pro [název hospody]" nebo "do [název hospody]" nebo "na [název hospody]", použij tento název jako place_name.
-8. Pokud je v textu podpis jako "díky, [jméno]" nebo "za [jméno]", může to být jméno odběratele — zkus ho porovnat se ZNÁMÍ ODBĚRATELÉ.
-9. Pokud NELZE určit žádného odběratele, vrať null — NEPOUŽÍVEJ vymyšlené názvy.
-
-KRITICKÉ PRAVIDLO PRO JMÉNO ODBĚRATELE (OSOBNÍ JMÉNO vs. NÁZEV HOSPODY):
-DŮLEŽITÉ: Odběratel může být JAK NÁZEV HOSPODY/RESTAURACE, TAK I JMÉNO OSOBY (např. "Petr Bednář", "Jana Nováková"). Postup:
-1. Pokud je v hlavičce WhatsApp chatu nebo v textu objednávky JMÉNO OSOBY (křestní jméno + příjmení, nebo jen křestní jméno), použij ho jako place_name PŘESNĚ TAK, JAK JE NAPSANÉ.
-2. Pokud je v textu objednávky NÁZEV HOSPODY (např. "Lokálka Říčany", "U Zajíce", "Restaurace U Labutě"), použij ho jako place_name.
-3. Pokud je v textu JAK název hospody, TAK i jméno osoby (např. "Lokálka Říčany" v textu objednávky a "Petr Bednář" v hlavičce WhatsApp), POUŽIJ JMÉNO OSOBY z hlavičky WhatsApp jako place_name — to je odběratel, který objednávku posílá.
-3b. VÝJIMKA Z PRAVIDLA 3 (NEJDŮLEŽITĚJŠÍ): JMÉNO ODBĚRATELE JE VŽDY NAPSANÉ V TEXTU OBJEDNÁVKY. VŽDY ho v textu najdi a použij ho jako place_name — má PŘEDNOST před jménem z hlavičky WhatsApp. Jméno z hlavičky WhatsApp (např. "Petr Bednář") je jen ten, kdo zprávu posílá/kopíruje ze svého telefonu, ale objednávka je určena pro osobu/hospodu zmíněnou v textu. Hledej jméno odběratele v textu v těchto podobách (a podobných):
-   - "pro [jméno]" (např. "pro Lukase", "pro Petra")
-   - "na výdejku pro [jméno]" nebo "na výdejku [jméno]" (např. "tady mas pro lukase na vydejku", "na vydejku lukas")
-   - "do [jméno]" nebo "na [jméno]" (např. "do Seebergu", "na Lokálku")
-   - jméno napsané samostatně v záhlaví/podpisu objednávky (např. "Lukas", "Seeberg", "U Zajíce")
+1. Podívej se na text v obrázku (tělo a záhlav�KRITICKÉ PRAVIDLO PRO JMÉNO ODBĚRATELE (ODBĚRATEL JE VŽDY V TEXTU ZPRÁVY):
+1. JMÉNO ODBĚRATELE JE VŽDY NAPSÁNO PŘÍMO V TEXTU OBJEDNÁVKY / ZPRÁVY (např. "Naseb", "Malesice", "Žižkov", "Seeberg", "Lokálka", "U Zajíce", "U Labutě"). Je napsané stejnou barvou a písmenem jako zbytek objednávkové zprávy.
+2. ODESÍLATELÉ ZPRÁV V HLAVIČCE WHATSAPP jako "Pojmi", "Bednář", "Bendat", "Gábina účetní", "Gábina", "Účetní" JSOU POUZE ODESÍLATELÉ (předávají nebo posílají zprávy z telefonu), NIKOLIV ODBĚRATELE! NIKDY nepoužívej tato jména odesílatelů jako place_name!
+3. VŽDY hledej název odběratele / hospody V TEXTU ZPRÁVY (tělo zprávy):
+   - Může být na začátku řádku nebo před objednávkou (např. "Naseb 2x50", "Malesice 5x30 12sv", "Žižkov 3x50")
+   - Může být uveden jako "pro [odběratel]", "na [odběratel]", "do [odběratel]" (např. "pro Naseb", "do Malesic", "na Žižkov")
+   - Může být samostatně v textu zprávy stejným písmem
+4. Pokud je v textu zprávy napsáno "Lokálka 10x50", place_name = "Lokálka" (z textu). I kdyby byl v hlavičce WhatsApp odesílatel "Petr Bednář" nebo "Pojmi" nebo "Gábina", VŽDY má přednost název odběratele z textu zprávy!
+5. Seznam "ZNÁMÍ ODBĚRATELÉ" níže obsahuje existující odběratele. Pokud text v zprávy odpovídá byť i přibližně (překlep, OCR šum) některému z nich, POUŽIJ PŘESNÝ NÁZEV ze seznamu.
+6. NIKDY nepoužívej jako place_name: "Pojmi", "Bednář", "Bendat", "Gábina", "Gábina účetní", "Účetní", "WhatsApp", "Pivovar", "Zajíc", "Dnes", "Včera".
+7. Pokud NELZE z textu zprávy určit žádného odběratele ani po porovnání se ZNÁMÍ ODBĚRATELÉ, vrať null.
    PŘÍKLAD: i když je v hlavičce WhatsApp napsáno "Petr Bednář", ale v textu objednávky je "pro Lukase", place_name = "Lukas" (jméno z textu). VŽDY hledej jméno odběratele v textu NEJDŘÍV a dej mu přednost před hlavičkou WhatsApp.
 4. Pokud je v textu objednávky napsáno "pro [jméno]" nebo "do [jméno]" nebo "na [jméno]", použij toto jméno jako place_name (má přednost i před jménem z hlavičky WhatsApp — viz pravidlo 3b).
 
 
 5. NIKDY nepoužívej jako place_name název piva, objem kegu, nebo jiné údaje o objednávce (např. "10x50", "KEG 30l", "12sv").
 6. Pokud je v textu objednávky napsáno "Lokálka Říčany 10x50" — "Lokálka Říčany" je NÁZEV HOSPODY (odběratel), "10x50" je objednávka (10× KEG 50l). place_name = "Lokálka Říčany".
-7. Pokud je v hlavičce WhatsApp napsáno "Petr Bednář" a v textu objednávky "Lokálka Říčany 10x50", place_name = "Petr Bednář" (jméno z hlavičky je odběratel).
+7. JMÉNO ODESÍLATELE Z HLAVIČKY WHATSAPP (např. "Petr Bednář", "Pojmi", "Bednář", "Účetní") NIKDY nepoužívej jako place_name. VŽDY platí jen jméno odběratele z TEXTU OBJEDNÁVKY.
 8. Pokud je v textu objednávky napsáno "Lokálka Říčany" a NENÍ tam žádné jméno osoby, place_name = "Lokálka Říčany".
-9. VŽDY přiřaď place_name ke KAŽDÉ položce — nikdy nenechávej place_name null, pokud můžeš odvodit odběratele z hlavičky, textu, nebo kontextu.
+9. VŽDY přiřaď place_name ke KAŽDÉ položce — nikdy nenechávej place_name null, pokud můžeš odvodit odběratele z TEXTU OBJEDNÁVKY. Odběratele NIKDY neodvozuj z hlavičky WhatsApp (kdo zprávu poslal).
 
 
 
@@ -227,6 +210,7 @@ KAŽDÁ položka objednávky má:
   - "tmavý", "tmavy", "tmavý ležák", "tmavy lezak", "12tm", "tm" → stupeň 12°, tmavé
   - "13", "13°" → stupeň 13°
   - "Jantar", "Summer", "Hazy", "Bunny" a podobné vlastní názvy piv — pokud se objeví v textu, jde o KONKRÉTNÍ NÁZEV piva z katalogu, ne o stupeň — najdi v katalogu pivo s odpovídajícím názvem.
+  - KRITICKÉ — "JANTAR": Pokud se v textu objeví "jantar", "jant", "jantar 12", "12 jantar", "12jantar" atd., VŽDY to znamená pivo s názvem "Jantar" (konkrétní pivo z katalogu), NIKDY NE 12° světlý ležák. Číslo "12" před/za slovem "jantar" NEoznačuje 12° světlé pivo — patří k názvu "Jantar" (zákazníci tak běžně zapisují). VŽDY použij beer_name = přesný název "Jantar" z katalogu. Stejně tak "jantarek" = Jantar.
   - "sv l", "svetle l", "svetly l", "světlé l", "sv l" → SVĚTLÉ pivo (12° Světlá / Světlý ležák) v KEG 30l (výchozí obal, když je jen "l" = litr/sud). quantity=null (množství není napsané).
   - "vycep", "výčep", "výčepní", "vycepni", "svetle vycepni", "světlé výčepní" → 10° výčepní pivo (Desítka), světlé. quantity=null (množství není napsané).
   - "tmave l", "tmavy l", "tmavé l", "tm l" → TMAVÉ pivo (12° Tmavá) v KEG 30l. quantity=null.
@@ -247,7 +231,7 @@ KAŽDÁ položka objednávky má:
 
 
 - raw_line: přesný text řádku jak ho vidíš na obrázku
-- place_name: název odběratele / místa dodání. VELMI DŮLEŽITÉ — objednávky často uvádí odběratele JEN JEDNOU, u úplně prvního řádku nebo v záhlaví/podpisu zprávy, a další řádky pod ním už žádné jméno odběratele neopakují. V takovém případě MUSÍŠ stejného odběratele přiřadit i všem následujícím položkám, dokud se v textu neobjeví jiný/nový odběratel (pak se přepni na nového a opět ho "děduj" dolů). Jinými slovy: place_name se v datech "táhne" odshora dolů, dokud ho něco nepřepíše. Hledej jméno odběratele i v: hlavičce zprávy, jméně WhatsApp kontaktu (bývá úplně nahoře screenshotu, odděleně od těla zprávy), podpisu, oslovení, názvu restaurace/hospody v textu. Pokud znáš seznam UŽ EXISTUJÍCÍCH odběratelů (viz níže "ZNÁMÍ ODBĚRATELÉ") a text v obrázku jen přibližně/foneticky/s překlepem odpovídá jednomu z nich, POUŽIJ PŘESNĚ ten název ze seznamu (stejná diakritika, velká/malá písmena), ne vlastní přepis. Pokud opravdu nelze určit žádného odběratele, vrať null.
+- place_name: název odběratele / místa dodání. VELMI DŮLEŽITÉ — objednávky často uvádí odběratele JEN JEDNOU, u úplně prvního řádku nebo v záhlaví/podpisu zprávy, a další řádky pod ním už žádné jméno odběratele neopakují. V takovém případě MUSÍŠ stejného odběratele přiřadit i všem následujícím položkám, dokud se v textu neobjeví jiný/nový odběratel (pak se přepni na nového a opět ho "děduj" dolů). Jinými slovy: place_name se v datech "táhne" odshora dolů, dokud ho něco nepřepíše. JMÉNO ODBĚRATELE HLEDEJ VŽDY V TEXTU OBJEDNÁVKY (tělo zprávy): v oslovení, podpisu, názvu restaurace/hospody, jméně napsaném samostatně. Nikdy ho nehledej v hlavičce WhatsApp ani ve jméně kontaktu (ten je jen odesílatel). Pokud znáš seznam UŽ EXISTUJÍCÍCH odběratelů (viz níže "ZNÁMÍ ODBĚRATELÉ") a text v obrázku jen přibližně/foneticky/s překlepem odpovídá jednomu z nich, POUŽIJ PŘESNĚ ten název ze seznamu (stejná diakritika, velká/malá písmena), ne vlastní přepis. Pokud opravdu nelze určit žádného odběratele, vrať null.
 - bbox: ohraničující obdélník TOHOTO ŘÁDKU na obrázku, v PROCENTECH (0-100) vzhledem k CELKOVÉ šířce (x) a výšce (y) obrázku. Postupuj takto:
   1) Představ si na obrázku mřížku 0-100 po ose x (zleva doprava) a 0-100 po ose y (shora dolů).
   2) Najdi řádek s touto položkou objednávky a urči, na kolika procentech výšky obrázku (y) se nachází HORNÍ okraj textu tohoto řádku (y0) a na kolika procentech DOLNÍ okraj (y1).
@@ -289,7 +273,7 @@ PRAVIDLA:
 - Pokud quantity chybí, vrať null
 - Buď tolerantní k překlepům a OCR šumu (např. "Sox" = 5x, "tox" = 10x)
 - Nejprve zkontroluj NAUČENÉ ZKRATKY výše — pokud text řádku obsahuje některou z nich, použij namapovaný název piva/obalu přímo, i když by se ti bez ní zdál nejednoznačný.
-- place_name se dědí odshora dolů (viz vysvětlení výše u place_name) — nikdy nenechávej null jen proto, že řádek sám o sobě jméno neobsahuje, pokud ho lze odvodit z předchozích řádků nebo záhlaví zprávy.
+- place_name se dědí odshora dolů (viz vysvětlení výše u place_name) — nikdy nenechávej null jen proto, že řádek sám o sobě jméno neobsahuje, pokud ho lze odvodit z předchozích řádků textu zprávy. NIKDY neodvozuj place_name z jména odesílatele v hlavičce WhatsApp.
 - OBECNÉ PRAVIDLO PRO CELÝ VÝSTUP: u beer_name i place_name VŽDY nejprve zkus najít shodu v existujících datech (KATALOG PIV / NAUČENÉ ZKRATKY / ZNÁMÍ ODBĚRATELÉ) — i při nepřesné, fonetické nebo překlepové shodě. Teprve když opravdu nic z existujících dat neodpovídá, ber to jako nové/neznámé (u piva vrať null, u odběratele vrať text tak, jak jsi ho přečetl). Nikdy nepřepisuj/nenahrazuj existující známou položku vlastním vymyšleným textem, pokud shoda s katalogem/seznamem je rozumně možná.
 
 

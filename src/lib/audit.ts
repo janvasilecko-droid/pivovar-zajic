@@ -1,3 +1,5 @@
+import { getAdminEmail, getAdminName } from './config';
+
 export type AuditLogEntry = {
   id: string;
   timestamp: string;
@@ -25,8 +27,8 @@ export function logAuditEvent(userEmail: string, userName: string, module: strin
   const newEntry: AuditLogEntry = {
     id: `audit_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
     timestamp: new Date().toISOString(),
-    user_email: userEmail || 'vasilecko@seznam.cz',
-    user_name: userName || 'Vasil',
+    user_email: userEmail || getAdminEmail(),
+    user_name: userName || getAdminName(),
     module,
     action,
     details,
@@ -40,8 +42,8 @@ function getDefaultSeedLogs(): AuditLogEntry[] {
     {
       id: 'seed_1',
       timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
-      user_email: 'vasilecko@seznam.cz',
-      user_name: 'Vasil (Admin)',
+      user_email: getAdminEmail(),
+      user_name: getAdminName() + ' (Admin)',
       module: 'Uživatelé a Práva',
       action: 'Úprava přístupových práv',
       details: 'Změněna oprávnění pro uživatele (Sládek - Varna & Sklep)',
@@ -49,8 +51,8 @@ function getDefaultSeedLogs(): AuditLogEntry[] {
     {
       id: 'seed_2',
       timestamp: new Date(Date.now() - 3600000 * 5).toISOString(),
-      user_email: 'vasilecko@seznam.cz',
-      user_name: 'Vasil (Admin)',
+      user_email: getAdminEmail(),
+      user_name: getAdminName() + ' (Admin)',
       module: 'Stáčení KEG',
       action: 'Zápis stočených sudů',
       details: 'Stočen tank CCT 3: 20x KEG 50L (Světlý ležák 11°)',
@@ -58,8 +60,8 @@ function getDefaultSeedLogs(): AuditLogEntry[] {
     {
       id: 'seed_3',
       timestamp: new Date(Date.now() - 3600000 * 12).toISOString(),
-      user_email: 'vasilecko@seznam.cz',
-      user_name: 'Vasil (Admin)',
+      user_email: getAdminEmail(),
+      user_name: getAdminName() + ' (Admin)',
       module: 'Sanitační řád HACCP',
       action: 'Provedení sanitace CIP',
       details: 'Sanitace CCT 1 (2% NaOH 80°C + Persteril 0.5%) - Schváleno',

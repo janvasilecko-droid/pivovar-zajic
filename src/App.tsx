@@ -106,7 +106,9 @@ export default function App() {
       {page === 'zavoz' && <Zavoz setPage={setPage} />}
       {page === 'kniha_jizd' && <KnihaJizdScreen setPage={setPage} />}
       {page === 'stock' && <Stock />}
-      {page === 'bottling' && <BottlingScreen setPage={setPage} />}
+      {page === 'bottling' && <BottlingScreen mode="all" setPage={setPage} />}
+      {page === 'bottling_entry' && <BottlingScreen mode="entry_only" setPage={setPage} />}
+      {page === 'bottling_overview' && <BottlingScreen mode="overviews_only" setPage={setPage} />}
       {page === 'srotovani' && <SrotovaniScreen setPage={setPage} />}
 
       {page === 'kegging' && <KeggingScreen mode="all" setPage={setPage} />}

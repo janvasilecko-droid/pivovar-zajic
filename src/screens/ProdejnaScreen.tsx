@@ -11,8 +11,8 @@ import type { TapReservation } from './VycepyScreen';
 
 const ROW_COUNT = 12;
 const FASOVANI_ROW_COUNT = 6;
-type RowInput = { beerId: string; pkgId: string; qty: string; vycep: boolean };
-const emptyItem = (): RowInput => ({ beerId: '', pkgId: '', qty: '', vycep: false });
+type RowInput = { beerId: string; pkgId: string; qty: string; vycep: boolean; who?: string };
+const emptyItem = (): RowInput => ({ beerId: '', pkgId: '', qty: '', vycep: false, who: '' });
 const emptyRows = (count: number): RowInput[] => Array.from({ length: count }, emptyItem);
 
 export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovani_private', title = 'Prodejna — Fasování na prodejnu', icon = '🏪', showVycep = false }: { setPage?: (p: any, sec?: string) => void; mode?: 'entry_only' | 'overviews_only' | 'all'; table?: string; title?: string; icon?: string; showVycep?: boolean } = {}) {
@@ -22,6 +22,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   const [loading, setLoading] = useState(true);
 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [who, setWho] = useState('');
   const [note, setNote] = useState('');
   const [entryRows, setEntryRows] = useState<RowInput[]>(() => emptyRows(table === 'fasovani' ? FASOVANI_ROW_COUNT : ROW_COUNT));
   const [saving, setSaving] = useState(false);
@@ -36,6 +37,8 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   // 🚰 Rezervace výčepu — stav pro modální okno
   const [showTapModal, setShowTapModal] = useState(false);
   const [tapModalRowIndex, setTapModalRowIndex] = useState<number | undefined>(undefined);
+
+  const showWhoColumn = table === 'fasovani' || table === 'writeoffs';
 
   const filteredRows = useMemo(() => {
     return [...rows].sort((a, b) => {
@@ -85,6 +88,15 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
     setEntryRows((rs) => rs.map((r, idx) => idx === i ? { ...r, [field]: value } : r));
   }
 
+  function getRowWho(r: EntryRow) {
+    if (r.who) return r.who;
+    if (r.note) {
+      const match = r.note.match(/^\[(.*?)\]/);
+      if (match) return match[1];
+    }
+    return '—';
+  }
+
   async function add(e?: React.FormEvent) {
     e?.preventDefault();
     setErr(null);
@@ -96,18 +108,39 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
       const beer = beers.find((b) => b.id === r.beerId);
       const pkg = packages.find((p) => p.id === r.pkgId);
       const n = Number(r.qty);
+      const person = r.who?.trim() || who.trim();
       return {
-        entry_date: date, beer_id: r.beerId || null, beer_name: beer?.name ?? null,
+        entry_date: date,
+        who: person || null,
+        beer_id: r.beerId || null, beer_name: beer?.name ?? null,
         package_id: r.pkgId, package_label: pkg?.label ?? null, quantity: n,
         note: note || null,
       };
     });
 
-    const { error } = await supabase.from(table).insert(payloads);
+    let { error } = await supabase.from(table).insert(payloads);
+    if (error && (error.message?.includes("'who'") || error.message?.includes("who"))) {
+      const fallbackPayloads = filled.map((r) => {
+        const beer = beers.find((b) => b.id === r.beerId);
+        const pkg = packages.find((p) => p.id === r.pkgId);
+        const n = Number(r.qty);
+        const person = r.who?.trim() || who.trim();
+        const combinedNote = person ? (note ? `[${person}] ${note}` : `[${person}]`) : note;
+        return {
+          entry_date: date,
+          beer_id: r.beerId || null, beer_name: beer?.name ?? null,
+          package_id: r.pkgId, package_label: pkg?.label ?? null, quantity: n,
+          note: combinedNote || null,
+        };
+      });
+      const res = await supabase.from(table).insert(fallbackPayloads);
+      error = res.error;
+    }
+
     setSaving(false);
     if (error) { setErr(error.message); return; }
 
-    setEntryRows(emptyRows(table === 'fasovani' ? FASOVANI_ROW_COUNT : ROW_COUNT)); setNote(''); setErr(null);
+    setEntryRows(emptyRows(table === 'fasovani' ? FASOVANI_ROW_COUNT : ROW_COUNT)); setWho(''); setNote(''); setErr(null);
     setFlash(true); setTimeout(() => setFlash(false), 800);
     load(true);
   }
@@ -221,23 +254,38 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
       {/* ===== ZÁPIS ===== */}
       {tab === 'zapis' && mode !== 'overviews_only' && (
         <form onSubmit={add} className={`card px-2 py-3 mb-5 transition-all duration-200 ${flash ? 'ring-4 ring-success-500/20' : ''}`}>
-          <div className="grid grid-cols-2 gap-3 items-end mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end mb-4">
             <div>
               <label className="label">Datum</label>
               <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
-            <div className="flex items-end justify-end">
+            {showWhoColumn && (
+              <div>
+                <label className="label">{table === 'writeoffs' ? 'Důvod odpisu' : 'Kdo / Pro koho'}</label>
+                <input
+                  type="text"
+                  className="input text-xs"
+                  value={who}
+                  onChange={(e) => setWho(e.target.value)}
+                  placeholder={table === 'writeoffs' ? 'Zapiš důvod odpisu (např. Zkažené, Rozbitá lahev...)' : 'Kdo / pro koho (ruční zápis)'}
+                />
+              </div>
+            )}
+            <div className={`flex items-end justify-end ${!showWhoColumn ? 'sm:col-span-2' : ''}`}>
               <span className="text-xs font-bold text-neutral-500 bg-neutral-100 rounded-lg px-3 py-2">
                 📦 {rowsSummary.totalQty} ks · {rowsSummary.totalL.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L
               </span>
             </div>
           </div>
 
-          {/* Zápis fasování — tabulka jako stáčení lahve, vše na jednom řádku, jen lahve */}
+          {/* Tabulka položek */}
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-neutral-100">
+                  {showWhoColumn && (
+                    <th className="text-left py-1.5 px-1 font-black text-neutral-700">{table === 'writeoffs' ? 'Důvod odpisu' : 'Kdo / Pro koho'}</th>
+                  )}
                   <th className="text-left py-1.5 px-1 font-black text-neutral-700">Pivo</th>
                   <th className="text-left py-1.5 px-1 font-black text-neutral-700">Obal</th>
                   {showVycep && <th className="text-center py-1.5 px-1 font-black text-neutral-700">Výčep</th>}
@@ -249,7 +297,18 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                 {entryRows.map((r, i) => {
                   return (
                     <tr key={i} className="border-b border-neutral-200/60">
-                      <td className="py-1 pr-0.5 w-[55%]">
+                      {showWhoColumn && (
+                        <td className="py-1 pr-0.5 w-[25%]">
+                          <input
+                            type="text"
+                            className="input text-[10px] w-full px-1.5 py-1"
+                            value={r.who ?? ''}
+                            onChange={(e) => setRowField(i, 'who', e.target.value)}
+                            placeholder={who || (table === 'writeoffs' ? 'Důvod odpisu' : 'Kdo / pro koho')}
+                          />
+                        </td>
+                      )}
+                      <td className="py-1 pr-0.5 w-[35%]">
                         <select
                           className="input text-[10px] w-full appearance-none pr-2"
                           value={r.beerId}
@@ -299,15 +358,9 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                             disabled={!r.qty || Number(r.qty) <= 0}
                             onClick={() => setEntryRows((rs) => rs.map((x, j) => j === i ? { ...x, qty: String(Math.max(0, Number(x.qty) - 1)) } : x))}
                           >−</button>
-                          <input
-                            type="number"
-                            min="0"
-                            step="1"
-                            className="input text-xs w-14 text-center font-bold"
-                            value={r.qty}
-                            onChange={(e) => setRowField(i, 'qty', e.target.value)}
-                            placeholder="0"
-                          />
+                                                    <span className="w-16 min-w-[3.5rem] text-xs text-center font-bold bg-white border border-neutral-200 rounded-lg py-2">
+                            {Number(r.qty) > 0 ? r.qty : '0'}
+                          </span>
                           <button
                             type="button"
                             className="w-7 h-7 grid place-items-center rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-sm transition"
@@ -398,6 +451,11 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                       <thead>
                         <tr className="border-b border-amber-300/80 bg-amber-100/80">
                           <th className="text-left py-1.5 px-2 font-black text-amber-950">Datum</th>
+                          {showWhoColumn && (
+                            <th className="text-left py-1.5 px-2 font-black text-amber-950">
+                              {table === 'writeoffs' ? 'Důvod' : 'Kdo'}
+                            </th>
+                          )}
                           <th className="text-left py-1.5 px-2 font-black text-amber-950">Pivo</th>
                           <th className="text-right py-1.5 px-2 font-black text-amber-950">Obal</th>
                           <th className="text-right py-1.5 px-2 font-black text-amber-950">Ks</th>
@@ -412,6 +470,9 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                           return (
                             <tr key={r.id} className="border-b border-amber-200/60 hover:bg-amber-100/70 transition-colors">
                               <td className="py-1.5 px-2 font-mono font-bold text-amber-950 whitespace-nowrap">{formatDate(r.entry_date)}</td>
+                              {showWhoColumn && (
+                                <td className="py-1.5 px-2 font-semibold text-amber-950 whitespace-nowrap">{getRowWho(r)}</td>
+                              )}
                               <td className="py-1.5 px-2 font-bold text-amber-950 flex items-center gap-1.5">
                                 <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
                                 <span className="truncate max-w-[120px]">{r.beer_name ?? beer?.name ?? '—'}</span>
@@ -451,6 +512,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                         {/* Souhrnný řádek */}
                         <tr className="bg-amber-200/60 font-black">
                           <td className="py-1.5 px-2 font-black text-amber-950"></td>
+                          {showWhoColumn && <td className="py-1.5 px-2 font-black text-amber-950"></td>}
                           <td className="py-1.5 px-2 font-black text-amber-950">📦 Celkem</td>
                           <td className="py-1.5 px-2 text-right font-black text-amber-950"></td>
                           <td className="py-1.5 px-2 text-right font-black text-amber-950">{totalCount}</td>

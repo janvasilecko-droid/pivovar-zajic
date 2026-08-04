@@ -18,10 +18,11 @@ import { canUserView, getUserPermissions, ModuleKey } from '../lib/permissions';
 import { MenuCustomizeModal } from './MenuCustomizeModal';
 import { QuickSearchModal } from './QuickSearchModal';
 import { getQuickActions, QuickAction } from '../lib/quickActions';
+import { isAdminEmail } from '../lib/config';
 
 export type NavItem = { id: Page; label: string; icon: LucideIcon; group: string };
 
-export type Page = 'dashboard' | 'varni_listy' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'history' | 'orders_entry' | 'orders' | 'zavoz' | 'kniha_jizd' | 'stock' | 'bottling' | 'kegging' | 'kegging_entry' | 'kegging_overview' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions';
+export type Page = 'dashboard' | 'varni_listy' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'history' | 'orders_entry' | 'orders' | 'zavoz' | 'kniha_jizd' | 'stock' | 'bottling' | 'bottling_entry' | 'bottling_overview' | 'kegging' | 'kegging_entry' | 'kegging_overview' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions';
 
 export const NAV: NavItem[] = [
   // --- VÝROBA ---
@@ -129,7 +130,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
     return () => { unsub(); stopVersionCheck(); };
   }, []);
 
-  const isAdmin = profile?.role === 'admin' || user?.email?.toLowerCase().trim() === 'vasilecko@seznam.cz';
+  const isAdmin = profile?.role === 'admin' || isAdminEmail(user?.email);
 
   const pageToModuleMap: Record<string, ModuleKey> = {
     dashboard: 'dashboard',

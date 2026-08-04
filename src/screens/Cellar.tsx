@@ -7,7 +7,7 @@ import { TankOccupancyPlanner } from '../components/TankOccupancyPlanner';
 
 const STATUS_LABELS: Record<CellarTank['status'], string> = {
   empty: 'Prázdný', filling: 'Plní se', active: 'Aktivní', emptying: 'Stáčí se',
-  sanitizing: 'Po H2O', rinsing: 'Po Louhu', cleaning: 'K vyčištění',
+  sanitizing: 'Po H2O', rinsing: 'Po Oplachu', cleaning: 'Po Louhu',
 };
 const STATUS_COLORS: Record<CellarTank['status'], string> = {
   empty: 'bg-primary-100 text-primary-600',
@@ -255,8 +255,15 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
   const { profile, user } = useAuth();
   const userName = profile?.display_name || user?.email?.split('@')[0] || 'Obsluha';
 
+  const getCurrentTimeStr = () => {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  };
+
   const [sanitationModalTank, setSanitationModalTank] = useState<CellarTank | null>(null);
   const [sanitationMethod, setSanitationMethod] = useState<'louh' | 'kyselina_dusicna' | 'oplach_vodou' | 'persteril' | 'kombinovana'>('louh');
+  const [sanitationTime, setSanitationTime] = useState(getCurrentTimeStr);
+  const [sanitationDuration, setSanitationDuration] = useState<number | ''>(20);
   const [sanitationNote, setSanitationNote] = useState('');
   const [sanitationBusy, setSanitationBusy] = useState(false);
 
@@ -270,6 +277,8 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
     };
     const logItem = {
       sanitation_date: new Date().toISOString().slice(0, 10),
+      sanitation_time: sanitationTime || getCurrentTimeStr(),
+      duration_minutes: sanitationDuration !== '' ? Number(sanitationDuration) : 20,
       tank_id: targetTank.id,
       tank_label: targetTank.label,
       method: methodToSave,
@@ -291,30 +300,6 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
     } catch {
       // ignoruj chybu DB, v localStorage již zapsáno
     }
-  }
-
-  // Po H2O -> Po Louhu
-  async function toRinsing(t: CellarTank) {
-    await recordSanitation('louh', t, 'Sanitace louhem dokončena (přechod ze sanitace po H2O)');
-    await supabase.from('cellar_tanks').update({ status: 'rinsing', updated_at: new Date().toISOString() }).eq('id', t.id);
-    load();
-  }
-
-  // Po Louhu -> K vyčištění
-  async function toCleaning(t: CellarTank) {
-    await recordSanitation('kyselina_dusicna', t, 'Sanitace kyselinou dusičnou dokončena (přechod k vyčištění)');
-    await supabase.from('cellar_tanks').update({ status: 'cleaning', updated_at: new Date().toISOString() }).eq('id', t.id);
-    load();
-  }
-
-  // K vyčištění -> Prázdný (připraven na nové naplnění)
-  async function toEmpty(t: CellarTank) {
-    await recordSanitation('oplach_vodou', t, 'Finální oplach vodou na pH 7 (tank připraven jako prázdný)');
-    await supabase.from('cellar_tanks').update({
-      status: 'empty', current_beer_id: null, current_beer_name: null,
-      started_at: null, initial_volume_l: null, updated_at: new Date().toISOString(),
-    }).eq('id', t.id);
-    load();
   }
 
   // Inline uložení piva a počátečního objemu přímo z karty tanku
@@ -618,7 +603,8 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-slate-400 font-medium">Stav náplně:</span>
                         <span className={`font-bold font-mono ${remaining === 0 || isEmpty ? 'text-slate-300' : 'text-amber-400'}`}>
-                          {isEmpty ? '0 hl' : `${(remaining / 100).toFixed(2)} hl`}
+                          {isEmpty ? '0 %' : `${Math.round((remaining / initialVol) * 100)} %`}
+                          <span className="ml-1 text-slate-400">· {isEmpty ? '0 hl' : `${(remaining / 100).toFixed(2)} hl`}</span>
                         </span>
                       </div>
                       <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden border border-slate-700">
@@ -628,7 +614,7 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
                         />
                       </div>
                       <div className="flex items-center justify-between text-[11px] text-slate-300 font-medium pt-0.5">
-                        <span>Z kapacity {t.capacity_l.toLocaleString('cs-CZ')} l</span>
+                        <span>Výstav {t.current_beer_name ? `${(initialVol / 100).toFixed(1)} hl` : `z ${t.capacity_l.toLocaleString('cs-CZ')} l`}</span>
                       </div>
                     </div>
                   </div>
@@ -816,6 +802,15 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
                 <option value="kombinovana">🛡️ Kombinovaná sanitace</option>
               </select>
             </Field>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Čas sanitace">
+                <input type="time" className="input w-full font-bold" value={sanitationTime} onChange={(e) => setSanitationTime(e.target.value)} />
+              </Field>
+              <Field label="Doba trvání (minut)">
+                <input type="number" min={1} max={600} className="input w-full font-bold" value={sanitationDuration} onChange={(e) => setSanitationDuration(e.target.value === '' ? '' : Number(e.target.value))} />
+              </Field>
+            </div>
 
             <Field label="Poznámka / Detaily (nepovinné)">
               <input type="text" className="input w-full" placeholder="např. Oplach na pH 7.0 chráněn" value={sanitationNote} onChange={(e) => setSanitationNote(e.target.value)} />

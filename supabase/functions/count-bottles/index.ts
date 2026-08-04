@@ -8,6 +8,7 @@ const corsHeaders = {
 
 interface CountItem {
   package_label: string | null;
+  beer_name?: string | null;
   quantity: number | null;
   note: string | null;
 }
@@ -46,6 +47,8 @@ Deno.serve(async (req: Request) => {
     const imageBase64: string | undefined = body.imageBase64;
     const imageMimeType: string | undefined = body.imageMimeType;
     const packages: { id: string; label: string; kind: string }[] = body.packages ?? [];
+    const mode: string | undefined = body.mode; // 'inventory' (lahve) | 'kegging' (sudy)
+    const promptHint: string | undefined = body.promptHint;
 
     if (!imageBase64 || !imageMimeType) {
       return new Response(
@@ -54,23 +57,60 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const pkgList = packages.map((p) => `${p.label} (${p.kind})`).join(", ");
+    const isKegMode = mode === 'kegging';
 
-    const prompt = `Jsi asistent pro pivovar. Na obrázku je bedna nebo regál s lahvemi nebo kegy piva (inventura skladu).
-Spočítej, kolik kusů každého typu obalu je na obrázku vidět.
+    // Omezte katalog obalů na relevantní typ dle módu (lahve vs sudy).
+    // V KEG módu posíláme jen sudy, v lahvích jen lahve — AI se tak nedá splést.
+    const relevantKind = isKegMode ? 'keg' : 'bottle';
+    const filteredPackages = packages.filter((p) => {
+      const k = (p.kind ?? '').toLowerCase();
+      if (isKegMode) return k === 'keg' || p.label.toLowerCase().includes('keg') || p.label.toLowerCase().includes('sud');
+      return k === 'bottle' || p.label.toLowerCase().includes('lahv') || p.label.toLowerCase().includes('0.5') || p.label.toLowerCase().includes('0.33') || p.label.toLowerCase().includes('sklo');
+    });
+    const pkgList = (filteredPackages.length ? filteredPackages : packages).map((p) => `${p.label} (${p.kind})`).join(", ");
 
-DOSTUPNÉ OBALY V KATALOGU: ${pkgList}
+    let basePrompt: string;
+    if (isKegMode) {
+      basePrompt = `Jsi asistent pro pivovar. Na obrázku jsou pivo sud - KEG sudy (případně na paletě či na vozíku).
+Spočítej, kolik kusů každého typu sudu je na obrázku vidět.
+
+DOSTUPNÉ OBALY (SUDY) V KATALOGU: ${pkgList}
 
 PRAVIDLA:
-- Počítej skutečně viditelné lahve/kegy, ne štítky nebo stíny.
-- Pokud rozeznáš typ obalu (např. 0.5l lahve vs 0.33l lahve, KEG 30l vs KEG 50l), přiřaď package_label odpovídající katalogové zkratce.
-- Pokud typ obazu nelze bezpečně určit, vrať package_label null a do note napiš co vidíš (např. "lahve 0.5l?", "kegy").
+- Počítej skutečně viditelné sudy, ne štítky nebo stínice.
+- Terazuj typ sudu podle velikosti (KEG 10l, 15l, 20l, 30l, najkasteji 50l) a podle obsahu piva (štítek na sudu, barva víčka/koruny).
+- U každého rozeznatého sudu urči i pivo, pokud to jde do note (např. "Světlý ležák 11°").
+- Pokud typ sudu nelze bezpečně určit, dej package_label null a do note napiš rozpoznanou velikost a pivo ("kegy, asi 30l").
+- Pokud je na obrázku více typů sudů, vrať pro každý typ jednu položku.
+- quantity = počet sudů (celé číslo).
+`;
+    } else {
+      basePrompt = `Jsi asistent pro pivovar. Na obrázku je bedna, regál nebo stůl s pivními lahvemi (inventura skladu).
+Spočítej, kolik kusů každého typu obalu je na obrázku vidět.
+
+DOSTUPNÉ OBALY (LAHVE) V KATALOGU: ${pkgList}
+
+PRAVIDLA:
+- Počítej skutečně viditelné lahve, ne štítky nebo stíny.
+- Česká přepravka má typicky 20 lahví (4x5). Počítej plné i částečně vyprázdněné bedny.
+- Pokud rozeznáš typ obalu (např. 0.5l lahve vs 0.33l lahve), přiřaď package_label odpovídající katalogové zkratce.
+- Pokud typ obalu nelze bezpečně určit, vrať package_label null a do note napiš co vidíš (např. "lahve 0.5l?").
 - Pokud je na obrázku více typů obalů, vrať pro každý typ jednu položku.
 - quantity je počet kusů (celé číslo).
-- Pokud obrázek není jasný nebo není inventura, vrať prázdné items a do raw_text napiš co vidíš.
+`;
+    }
 
-Vrať ČISTĚ JSON (bez markdown, bez \`\`\`), přesně v tomto formátu, a nic jiného:
-{"items":[{"package_label":"Lahve 0.5l","quantity":24,"note":null}],"raw_text":"krátký popis co vidíš na obrázku"}`;
+    const customHint = promptHint?.trim();
+    if (customHint) {
+      basePrompt += `\nDOPLŇUJÍCÍ POKYN OD UŽIVATELE: ${customHint}\n`;
+    }
+
+    basePrompt += `\nVrať ČISTĚ JSON (bez markdown, bez \`\`\`), přesně v tomto formátu, a nic jiného:
+{"items":[{"package_label":"Lahve 0.5l","beer_name":"Světlý ležák 11°","quantity":24,"note":null}],"raw_text":"krátký popis co vidíš na obrázku"}
+
+beer_name je volitelné a slouží jako pomůcka — pokud z fotky (štítek, etiketa) rozpoznáš konkrétní pivo, vypiš jeho název. Pokud ne, nech beer_name: null (resp. ho vynech).`;
+
+    const prompt = basePrompt;
 
     const anthropicBody = {
       model: "claude-sonnet-4-5-20250929",

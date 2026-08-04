@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase, SanitationLog } from '../lib/supabase';
 import { Spinner, EmptyState } from '../components/ui';
-import { ShieldCheck, FileSpreadsheet, Plus, Calendar, User, Edit3, MessageSquare } from 'lucide-react';
+import { ShieldCheck, FileSpreadsheet, Plus, Calendar, User, Edit3, MessageSquare, Clock } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 import { useAuth } from '../lib/auth';
@@ -14,6 +14,17 @@ const METHOD_BADGES: Record<string, { label: string; bg: string; text: string; i
   kombinovana: { label: 'Kombinovaná sanitace', bg: 'bg-emerald-100 border-emerald-300', text: 'text-emerald-950', icon: '🛡️' },
 };
 
+const getCurrentTimeStr = () => {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+};
+
+const getDefaultConcentration = (m: string): number => {
+  if (m === 'louh' || m === 'kyselina_dusicna' || m === 'kombinovana') return 2.0;
+  if (m === 'persteril') return 0.5;
+  return 0;
+};
+
 export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) => void }) {
   const { profile, user } = useAuth();
   const defaultUserName = profile?.display_name || user?.email?.split('@')[0] || '';
@@ -24,15 +35,21 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
   const [filterMethod, setFilterMethod] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
 
-  // Note editing state for existing logs
+  // Note & time editing state for existing logs
   const [editingLog, setEditingLog] = useState<SanitationLog | null>(null);
   const [editNoteText, setEditNoteText] = useState('');
+  const [editTimeText, setEditTimeText] = useState('');
+  const [editDurationNum, setEditDurationNum] = useState<number | ''>(20);
+  const [editConcentrationPct, setEditConcentrationPct] = useState<number | ''>(2.0);
   const [updatingNote, setUpdatingNote] = useState(false);
 
   // Form states for manual add
   const [tankLabel, setTankLabel] = useState('Tank 1');
   const [method, setMethod] = useState<'kyselina_dusicna' | 'louh' | 'oplach_vodou' | 'persteril' | 'kombinovana'>('louh');
   const [sanitationDate, setSanitationDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [sanitationTime, setSanitationTime] = useState(getCurrentTimeStr);
+  const [durationMinutes, setDurationMinutes] = useState<number | ''>(20);
+  const [concentrationPct, setConcentrationPct] = useState<number | ''>(2.0);
   const [performedBy, setPerformedBy] = useState(defaultUserName);
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
@@ -90,6 +107,9 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
     setSaving(true);
     const newLog: Partial<SanitationLog> = {
       sanitation_date: sanitationDate,
+      sanitation_time: sanitationTime || getCurrentTimeStr(),
+      duration_minutes: durationMinutes !== '' ? Number(durationMinutes) : 20,
+      concentration_pct: concentrationPct !== '' ? Number(concentrationPct) : getDefaultConcentration(method),
       tank_label: tankLabel,
       method,
       method_label: METHOD_BADGES[method]?.label ?? method,
@@ -120,15 +140,25 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
     setNote('');
   }
 
-  async function handleSaveEditedNote() {
+  async function handleSaveEditedLog() {
     if (!editingLog) return;
     setUpdatingNote(true);
 
     const updatedNote = editNoteText.trim() || null;
+    const updatedTime = editTimeText.trim() || null;
+    const updatedDuration = editDurationNum !== '' ? Number(editDurationNum) : 20;
+    const updatedConcentration = editConcentrationPct !== '' ? Number(editConcentrationPct) : 2.0;
+
+    const payload = {
+      note: updatedNote,
+      sanitation_time: updatedTime,
+      duration_minutes: updatedDuration,
+      concentration_pct: updatedConcentration,
+    };
 
     // Update in state
     setLogs((prev) =>
-      prev.map((item) => (item.id === editingLog.id ? { ...item, note: updatedNote } : item))
+      prev.map((item) => (item.id === editingLog.id ? { ...item, ...payload } : item))
     );
 
     // Update in localStorage
@@ -137,7 +167,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
       try {
         const arr = JSON.parse(local);
         const updatedArr = arr.map((item: any) =>
-          item.id === editingLog.id ? { ...item, note: updatedNote } : item
+          item.id === editingLog.id ? { ...item, ...payload } : item
         );
         localStorage.setItem('sanitation_logs_data', JSON.stringify(updatedArr));
       } catch {}
@@ -148,7 +178,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
       try {
         await supabase
           .from('sanitation_logs')
-          .update({ note: updatedNote })
+          .update(payload)
           .eq('id', editingLog.id);
       } catch {}
     }
@@ -166,8 +196,11 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
   const exportExcel = () => {
     const rows = filtered.map((l) => ({
       'Datum sanitace': l.sanitation_date,
+      'Čas sanitace': l.sanitation_time ?? (l.created_at ? l.created_at.slice(11, 16) : '—'),
+      'Doba trvání (min)': l.duration_minutes ?? 20,
       'Nádoba / Tank': l.tank_label,
       'Metoda sanitace': METHOD_BADGES[l.method]?.label ?? l.method_label,
+      'Koncentrace (%)': l.concentration_pct ?? (l.method === 'louh' || l.method === 'kyselina_dusicna' ? 2 : 0),
       'Provedl': l.performed_by ?? '—',
       'Poznámka k sanitaci': l.note ?? '',
     }));
@@ -198,7 +231,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
             <span>🧼 Sanitační deník tanků & zařízení</span>
           </h1>
           <p className="text-xs text-neutral-400 font-medium mt-1">
-            Protokoly o sanitaci ležáckých tanků, Spilky, varny a stáčecích cest s poznámkami sládka
+            Protokoly o sanitaci ležáckých tanků, Spilky, varny a stáčecích cest s časem, trváním, koncentrací chemie a poznámkami sládka
           </p>
         </div>
 
@@ -218,7 +251,12 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
             <FileSpreadsheet size={16} /> Export do Excelu
           </button>
           <button
-            onClick={() => setShowAddModal(true)}
+            onClick={() => {
+              setSanitationTime(getCurrentTimeStr());
+              setDurationMinutes(20);
+              setConcentrationPct(2.0);
+              setShowAddModal(true);
+            }}
             className="px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md flex items-center gap-1.5"
           >
             <Plus size={16} /> + Zapsat sanitaci
@@ -248,8 +286,8 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
           className="input !py-1.5 !px-3 text-xs font-semibold"
         >
           <option value="">Všechny chemie / metody</option>
-          <option value="louh">Louh (NaOH)</option>
-          <option value="kyselina_dusicna">Kyselina dusičná</option>
+          <option value="louh">Louh (NaOH 2%)</option>
+          <option value="kyselina_dusicna">Kyselina dusičná (2%)</option>
           <option value="oplach_vodou">Oplach vodou</option>
           <option value="persteril">Persteril</option>
           <option value="kombinovana">Kombinovaná sanitace</option>
@@ -267,9 +305,10 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
             <table className="w-full text-left text-xs">
               <thead className="bg-neutral-100/80 border-b border-neutral-200/80 text-neutral-600 font-extrabold uppercase tracking-wider">
                 <tr>
-                  <th className="py-3 px-4">Datum sanitace</th>
+                  <th className="py-3 px-4">Datum a čas sanitace</th>
+                  <th className="py-3 px-4">Trvání</th>
                   <th className="py-3 px-4">Nádoba / Tank</th>
-                  <th className="py-3 px-4">Metoda sanitace</th>
+                  <th className="py-3 px-4">Metoda & Koncentrace</th>
                   <th className="py-3 px-4">Provedl</th>
                   <th className="py-3 px-4">Poznámka sládka / Detaily</th>
                   <th className="py-3 px-4 text-right">Akce</th>
@@ -283,12 +322,27 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
                     text: 'text-neutral-900',
                     icon: '🧴',
                   };
+                  const displayTime = log.sanitation_time || (log.created_at ? log.created_at.slice(11, 16) : null);
+                  const displayDuration = log.duration_minutes ?? 20;
+                  const displayConc = log.concentration_pct ?? (log.method === 'louh' || log.method === 'kyselina_dusicna' || log.method === 'kombinovana' ? 2.0 : null);
+
                   return (
                     <tr key={log.id} className="hover:bg-amber-50/40 transition-colors">
                       <td className="py-3.5 px-4 font-bold text-neutral-900 whitespace-nowrap">
                         <div className="flex items-center gap-1.5">
-                          <Calendar size={14} className="text-amber-600" />
+                          <Calendar size={14} className="text-amber-600 shrink-0" />
                           <span>{new Date(log.sanitation_date).toLocaleDateString('cs-CZ')}</span>
+                          {displayTime && (
+                            <span className="text-neutral-500 font-normal text-[11px] bg-neutral-100 px-1.5 py-0.5 rounded-md border border-neutral-200">
+                              {displayTime}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-amber-100/80 text-amber-900 border border-amber-300 font-bold text-[11px]">
+                          <Clock size={12} className="text-amber-700" />
+                          <span>{displayDuration} min</span>
                         </div>
                       </td>
                       <td className="py-3.5 px-4 font-extrabold text-neutral-950 font-display text-sm whitespace-nowrap">
@@ -300,6 +354,11 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
                         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl border font-bold text-xs shadow-xs ${badge.bg} ${badge.text}`}>
                           <span>{badge.icon}</span>
                           <span>{badge.label}</span>
+                          {displayConc !== null && (
+                            <span className="ml-1 font-black px-1.5 py-0.5 rounded-md bg-black/10 text-[11px]">
+                              {displayConc} %
+                            </span>
+                          )}
                         </span>
                       </td>
                       <td className="py-3.5 px-4 whitespace-nowrap">
@@ -327,11 +386,14 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
                           onClick={() => {
                             setEditingLog(log);
                             setEditNoteText(log.note || '');
+                            setEditTimeText(log.sanitation_time || (log.created_at ? log.created_at.slice(11, 16) : getCurrentTimeStr()));
+                            setEditDurationNum(log.duration_minutes ?? 20);
+                            setEditConcentrationPct(log.concentration_pct ?? getDefaultConcentration(log.method));
                           }}
                           className="px-2.5 py-1 rounded-xl bg-neutral-100 hover:bg-amber-100 text-neutral-700 hover:text-amber-900 text-[11px] font-bold border border-neutral-200 transition flex items-center gap-1 ml-auto"
                         >
                           <Edit3 size={13} />
-                          <span>{log.note ? 'Upravit poznámku' : '+ Poznamka'}</span>
+                          <span>Upravit</span>
                         </button>
                       </td>
                     </tr>
@@ -343,13 +405,13 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
         </div>
       )}
 
-      {/* Edit Note Modal */}
+      {/* Edit Log Modal (Note, Time, Duration, Concentration) */}
       {editingLog && (
         <div className="fixed inset-0 bg-neutral-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="card p-6 bg-white rounded-3xl max-w-md w-full border-2 border-amber-400 shadow-2xl space-y-4 animate-scale-in">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-                <span>📝 Upravit poznámku k sanitaci</span>
+                <span>✏️ Upravit záznam o sanitaci</span>
               </h3>
               <button type="button" onClick={() => setEditingLog(null)} className="text-neutral-400 hover:text-neutral-800 text-lg font-bold">✕</button>
             </div>
@@ -358,6 +420,41 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
               <div><strong className="text-neutral-900">Tank / Nádoba:</strong> {editingLog.tank_label}</div>
               <div><strong className="text-neutral-900">Metoda:</strong> {METHOD_BADGES[editingLog.method]?.label || editingLog.method_label}</div>
               <div><strong className="text-neutral-900">Datum:</strong> {editingLog.sanitation_date} • <strong>Provedl:</strong> {editingLog.performed_by || '—'}</div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="label">Čas sanitace</label>
+                <input
+                  type="time"
+                  value={editTimeText}
+                  onChange={(e) => setEditTimeText(e.target.value)}
+                  className="input w-full font-bold text-xs"
+                />
+              </div>
+              <div>
+                <label className="label">Trvání (min)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={600}
+                  value={editDurationNum}
+                  onChange={(e) => setEditDurationNum(e.target.value === '' ? '' : Number(e.target.value))}
+                  className="input w-full font-bold text-xs"
+                />
+              </div>
+              <div>
+                <label className="label">Koncentrace (%)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min={0}
+                  max={100}
+                  value={editConcentrationPct}
+                  onChange={(e) => setEditConcentrationPct(e.target.value === '' ? '' : Number(e.target.value))}
+                  className="input w-full font-bold text-xs"
+                />
+              </div>
             </div>
 
             <div>
@@ -375,11 +472,11 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
               <button type="button" onClick={() => setEditingLog(null)} className="btn-ghost text-xs font-bold">Zrušit</button>
               <button
                 type="button"
-                onClick={handleSaveEditedNote}
+                onClick={handleSaveEditedLog}
                 disabled={updatingNote}
                 className="btn-primary text-xs font-black shadow-md"
               >
-                {updatingNote ? 'Ukládám…' : '✅ Uložit poznámku'}
+                {updatingNote ? 'Ukládám…' : '✅ Uložit změny'}
               </button>
             </div>
           </div>
@@ -399,7 +496,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
 
             <div>
               <label className="label">Vyber Tank / Nádobu</label>
-              <select value={tankLabel} onChange={(e) => setTankLabel(e.target.value)} className="input w-full">
+              <select value={tankLabel} onChange={(e) => setTankLabel(e.target.value)} className="input w-full font-bold">
                 {tanksList.map((t) => (
                   <option key={t} value={t}>{t}</option>
                 ))}
@@ -408,23 +505,46 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
 
             <div>
               <label className="label">Metoda sanitace / Chemie</label>
-              <select value={method} onChange={(e: any) => setMethod(e.target.value)} className="input w-full">
-                <option value="louh">🧼 Louh (NaOH)</option>
-                <option value="kyselina_dusicna">🧪 Kyselina dusičná</option>
+              <select
+                value={method}
+                onChange={(e: any) => {
+                  const m = e.target.value;
+                  setMethod(m);
+                  setConcentrationPct(getDefaultConcentration(m));
+                }}
+                className="input w-full font-bold"
+              >
+                <option value="louh">🧼 Louh NaOH (výchozí 2%)</option>
+                <option value="kyselina_dusicna">🧪 Kyselina dusičná (výchozí 2%)</option>
                 <option value="oplach_vodou">💧 Oplach vodou</option>
-                <option value="persteril">✨ Persteril</option>
-                <option value="kombinovana">🛡️ Kombinovaná sanitace</option>
+                <option value="persteril">✨ Persteril (výchozí 0.5%)</option>
+                <option value="kombinovana">🛡️ Kombinovaná sanitace (2%)</option>
               </select>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="label">Datum sanitace</label>
-                <input type="date" value={sanitationDate} onChange={(e) => setSanitationDate(e.target.value)} className="input w-full" />
+                <input type="date" value={sanitationDate} onChange={(e) => setSanitationDate(e.target.value)} className="input w-full font-bold text-xs" />
+              </div>
+              <div>
+                <label className="label">Čas sanitace</label>
+                <input type="time" value={sanitationTime} onChange={(e) => setSanitationTime(e.target.value)} className="input w-full font-bold text-xs" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="label">Doba trvání (min)</label>
+                <input type="number" min={1} max={600} value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value === '' ? '' : Number(e.target.value))} className="input w-full font-bold text-xs" />
+              </div>
+              <div>
+                <label className="label">Koncentrace (%)</label>
+                <input type="number" step="0.1" min={0} max={100} value={concentrationPct} onChange={(e) => setConcentrationPct(e.target.value === '' ? '' : Number(e.target.value))} className="input w-full font-bold text-xs" />
               </div>
               <div>
                 <label className="label">Sanitaci provedl</label>
-                <input type="text" value={performedBy} onChange={(e) => setPerformedBy(e.target.value)} placeholder="Jméno sládka" className="input w-full" />
+                <input type="text" value={performedBy} onChange={(e) => setPerformedBy(e.target.value)} placeholder="Jméno sládka" className="input w-full text-xs" />
               </div>
             </div>
 

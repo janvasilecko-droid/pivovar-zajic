@@ -1,4 +1,4 @@
-﻿-- ==== 20260719105703_brewery_schema.sql ====
+-- ==== 20260719105703_brewery_schema.sql ====
 /*
 # SchĂ©ma databĂˇze minipivovaru
 
@@ -1284,6 +1284,13 @@ ALTER TABLE public.bottling
 
 ALTER TABLE public.bottling
   ADD COLUMN IF NOT EXISTS source_volume_l numeric(10,2);
+
+
+-- ==== 20260804100000_add_who_to_fasovani.sql ====
+-- Add who column to fasovani and fasovani_private tables
+ALTER TABLE public.fasovani ADD COLUMN IF NOT EXISTS who text;
+ALTER TABLE public.fasovani_private ADD COLUMN IF NOT EXISTS who text;
+
 
 
 

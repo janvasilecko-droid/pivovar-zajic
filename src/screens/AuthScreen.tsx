@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../lib/auth';
 import { Lock, Mail, Eye, EyeOff, Beer, ArrowRight, ShieldCheck } from 'lucide-react';
+import { getAdminEmail } from '../lib/config';
 
 export default function AuthScreen() {
   const { signIn } = useAuth();
@@ -70,7 +71,7 @@ export default function AuthScreen() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="vasilecko@seznam.cz"
+                    placeholder={getAdminEmail()}
                     autoComplete="username"
                   />
                 </div>

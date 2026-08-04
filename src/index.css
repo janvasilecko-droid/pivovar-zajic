@@ -74,18 +74,41 @@
   .btn-danger {
     @apply btn bg-danger-50 text-danger-700 border border-danger-200 hover:bg-danger-100 hover:border-danger-400;
   }
-  .table { @apply w-full text-sm border-collapse; }
-  .table thead th {
-    @apply text-left text-xs font-bold text-neutral-500 uppercase tracking-wider
-           px-4 py-3 bg-neutral-100/70 border-b border-neutral-200/80 sticky top-0 backdrop-blur-sm
-           dark:bg-neutral-900/70 dark:text-neutral-400 dark:border-neutral-800;
+  /* Unifikovaný kontejner pro všechny tabulky */
+  .table-container {
+    @apply w-full overflow-x-auto scrollbar-thin border border-neutral-200/90 rounded-2xl sm:rounded-3xl bg-white shadow-xs dark:border-neutral-800 dark:bg-neutral-900;
   }
-  .table tbody td { @apply px-4 py-3 border-b border-neutral-100 text-neutral-800 font-medium dark:border-neutral-800 dark:text-neutral-200; }
+
+  .table { @apply w-full text-xs sm:text-sm border-collapse text-left; }
+  .table thead tr {
+    @apply bg-neutral-100/90 border-b border-neutral-200 text-neutral-800 dark:bg-neutral-900 dark:border-neutral-800 dark:text-neutral-300;
+  }
+  .table thead th {
+    @apply text-left text-xs font-black text-neutral-600 uppercase tracking-wider
+           px-3 sm:px-4 py-2.5 sm:py-3 border-b border-neutral-200/90 sticky top-0 backdrop-blur-sm
+           dark:bg-neutral-900/90 dark:text-neutral-400 dark:border-neutral-800;
+  }
+  .table tbody td { @apply px-3 sm:px-4 py-2.5 sm:py-3 border-b border-neutral-100 text-neutral-800 font-medium dark:border-neutral-800 dark:text-neutral-200; }
   .table tbody tr:last-child td { @apply border-b-0; }
   .table tbody tr:hover td {
     @apply bg-neutral-50/90;
     @apply dark:bg-neutral-800/50;
   }
+  .table tfoot tr {
+    @apply bg-neutral-900 text-white font-black text-xs border-t-2 border-neutral-800 dark:bg-neutral-950;
+  }
+  .table tfoot td {
+    @apply px-3 sm:px-4 py-2.5 sm:py-3;
+  }
+
+  /* Unifikované navigační záložky pro oddělení Přehledů a Zápisů */
+  .nav-tab {
+    @apply px-4 py-2.5 rounded-2xl font-black text-xs sm:text-sm transition-all flex items-center gap-2 select-none min-h-[44px] sm:min-h-[38px] text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100/80 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800;
+  }
+  .nav-tab-active {
+    @apply bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300 scale-[1.02] dark:bg-amber-500 dark:text-neutral-950 dark:ring-amber-400;
+  }
+
   .chip {
     @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold tracking-wide border;
   }
@@ -113,22 +136,27 @@
   @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
 }
 
-/* Mobile screen scaling & overflow fix */
+/* Mobile screen scaling & touch optimization */
 @media (max-width: 640px) {
   html {
-    font-size: 14.5px;
+    font-size: 15px;
   }
   .card {
-    @apply rounded-xl p-3.5;
+    @apply rounded-2xl p-3.5 shadow-sm border-neutral-300/90;
   }
-  .input {
-    @apply px-2.5 py-1.5 min-h-[38px] text-xs font-semibold;
+  .input, select, input {
+    @apply px-3 py-2.5 text-sm font-bold min-h-[44px];
+    font-size: 15px !important; /* Prevents unwanted auto-zoom on iOS Safari & Chrome Mobile */
   }
   .btn {
-    @apply px-3 py-2 text-xs min-h-[36px];
+    @apply px-4 py-2.5 text-xs min-h-[44px] font-black active:scale-[0.97];
   }
   .chip {
-    @apply px-2 py-0.5 text-[11px];
+    @apply px-2.5 py-1 text-xs font-bold;
+  }
+  /* Touch action buttons */
+  button {
+    touch-action: manipulation;
   }
 }
 

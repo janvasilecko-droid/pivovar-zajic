@@ -10,6 +10,7 @@ import { Theme, getTheme, setTheme } from '../lib/theme';
 import { getNotificationPermission, requestNotificationPermission, getNotificationSettings, saveNotificationSettings, NotificationSettings } from '../lib/notifications';
 import { APP_VERSION, APP_VERSION_DATE, APP_CHANGELOG } from '../lib/version';
 import { getQuickActions, saveQuickActions, QuickAction } from '../lib/quickActions';
+import { isAdminEmail } from '../lib/config';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -76,7 +77,7 @@ export default function AppSettingsScreen() {
   };
 
   const userPerms = getUserPermissions(user?.id ?? '', (profile as any)?.permissions);
-  const isAdmin = profile?.role === 'admin' || user?.email?.toLowerCase().trim() === 'vasilecko@seznam.cz';
+  const isAdmin = profile?.role === 'admin' || isAdminEmail(user?.email);
 
   const permittedNav = NAV.filter((n) => {
     if (n.id === 'users') return isAdmin;

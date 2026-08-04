@@ -21,6 +21,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   const [beers, setBeers] = useState<Beer[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
+  const loadCountRef = useRef(0);
 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [note, setNote] = useState('');
@@ -35,8 +36,21 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editQty, setEditQty] = useState('');
 
-  // Zápis / Přehled záložky
-  const [tab, setTab] = useState<'zapis' | 'prehled'>('zapis');
+  // Zápis / Přehled / Potřeba stočit KEGy záložky
+  const [tab, setTab] = useState<'zapis' | 'prehled' | 'potreba'>('zapis');
+
+  // Datové sady pro výpočet potřeb KEG sudů (Objednávky vs. Sklad)
+  const [orders, setOrders] = useState<any[]>([]);
+  const [orderItems, setOrderItems] = useState<any[]>([]);
+  const [inventoryRows, setInventoryRows] = useState<any[]>([]);
+  const [fasovaniRows, setFasovaniRows] = useState<any[]>([]);
+  const [prodejnaRows, setProdejnaRows] = useState<any[]>([]);
+  const [writeoffsRows, setWriteoffsRows] = useState<any[]>([]);
+
+  // Filtry pro "Potřeba stočit KEGy"
+  const [reqKegBeerFilter, setReqKegBeerFilter] = useState('');
+  const [reqKegPkgFilter, setReqKegPkgFilter] = useState('');
+  const [reqKegOnlyMissing, setReqKegOnlyMissing] = useState(true);
 
   // Přehled záznamů: filtr podle období (den/týden/měsíc) + filtr podle piva
 
@@ -139,21 +153,148 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   }, [entryRows, packages, activeCellarTanks]);
 
   async function load(silent = false) {
+    const loadId = ++loadCountRef.current;
     if (!silent && !rows.length) setLoading(true);
-    const [kg, ct, b, p] = await Promise.all([
-      supabase.from('kegging').select('*').order('entry_date', { ascending: false }).order('created_at', { ascending: false }),
+    const [kg, ct, b, p, ords, oi, inv, fa, fp, wo] = await Promise.all([
+      supabase.from('kegging').select('*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
       supabase.from('cellar_tanks').select('*').order('label'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
+      supabase.from('orders').select('id,order_date,status'),
+      supabase.from('order_items').select('order_id,beer_id,package_id,quantity'),
+      supabase.from('inventory').select('entry_date,beer_id,package_id,quantity'),
+      supabase.from('fasovani').select('entry_date,beer_id,package_id,quantity'),
+      supabase.from('fasovani_private').select('entry_date,beer_id,package_id,quantity'),
+      supabase.from('writeoffs').select('entry_date,beer_id,package_id,quantity'),
     ]);
+    if (loadId !== loadCountRef.current) return;
     setRows((kg.data as EntryRow[]) ?? []);
     setCellarTanks((ct.data as CellarTank[]) ?? []);
     if (b.data) setBeers(b.data as Beer[]);
     if (p.data) setPackages(p.data as Package[]);
+    if (ords.data) setOrders(ords.data);
+    if (oi.data) setOrderItems(oi.data);
+    if (inv.data) setInventoryRows(inv.data);
+    if (fa.data) setFasovaniRows(fa.data);
+    if (fp.data) setProdejnaRows(fp.data);
+    if (wo.data) setWriteoffsRows(wo.data);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
-  useRealtime(['kegging', 'cellar_tanks', 'beers', 'packages'], () => load(true));
+  useRealtime(['kegging', 'cellar_tanks', 'beers', 'packages', 'orders', 'order_items', 'inventory', 'fasovani', 'fasovani_private', 'writeoffs'], () => load(true));
+
+  // Výpočet potřeby stočení KEG sudů (Objednáno - Skladem)
+  const kegRequirements = useMemo(() => {
+    const now = new Date();
+    const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    const kegPkgIds = new Set(packages.filter((p) => p.kind === 'keg').map((p) => p.id));
+    const activeOrderIds = new Set(
+      orders
+        .filter((o) => {
+          if (o.status === 'storno' || o.status === 'vyrizeno' || o.status === 'vyrizeno_zavoz') return false;
+          const targetDate = o.delivery_date || o.order_date;
+          return targetDate && targetDate.startsWith(curMonth);
+        })
+        .map((o) => o.id)
+    );
+
+    const orderedMap: Record<string, number> = {};
+    orderItems.filter((item) => item.package_id && kegPkgIds.has(item.package_id) && activeOrderIds.has(item.order_id)).forEach((item) => {
+      if (!item.beer_id || !item.package_id) return;
+      const k = `${item.beer_id}__${item.package_id}`;
+      orderedMap[k] = (orderedMap[k] || 0) + Number(item.quantity || 0);
+    });
+
+    // Počáteční inventura pouze pro aktuální měsíc (pokud neexistují záznamy pro curMonth, je počáteční stav 0 ks)
+    const invMap: Record<string, number> = {};
+    inventoryRows.filter((r) => r.entry_date?.startsWith(curMonth)).forEach((r) => {
+      if (!r.beer_id || !r.package_id) return;
+      const k = `${r.beer_id}__${r.package_id}`;
+      invMap[k] = (invMap[k] || 0) + Number(r.quantity || 0);
+    });
+
+    // Pohyby vyfiltrované pro aktuální měsíc
+    const bottledMap: Record<string, number> = {};
+    rows.filter((r) => r.entry_date?.startsWith(curMonth)).forEach((r) => {
+      if (!r.beer_id || !r.package_id) return;
+      const k = `${r.beer_id}__${r.package_id}`;
+      bottledMap[k] = (bottledMap[k] || 0) + Number(r.quantity || 0);
+    });
+
+    const outgoingMap: Record<string, number> = {};
+    [...fasovaniRows, ...prodejnaRows, ...writeoffsRows].filter((r) => r.entry_date?.startsWith(curMonth)).forEach((r) => {
+      if (!r.beer_id || !r.package_id) return;
+      const k = `${r.beer_id}__${r.package_id}`;
+      outgoingMap[k] = (outgoingMap[k] || 0) + Number(r.quantity || 0);
+    });
+
+    type ReqRow = {
+      beer_id: string;
+      beer_name: string;
+      package_id: string;
+      package_label: string;
+      volume_l: number;
+      invQty: number;
+      bottledQty: number;
+      outgoingQty: number;
+      stockQty: number;
+      orderedQty: number;
+      neededQty: number;
+    };
+
+    const list: ReqRow[] = [];
+    beers.forEach((b) => {
+      packages.filter((p) => kegPkgIds.has(p.id)).forEach((p) => {
+        const k = `${b.id}__${p.id}`;
+        const invQty = Number(invMap[k] || 0);
+        const bottledQty = Number(bottledMap[k] || 0);
+        const outgoingQty = Number(outgoingMap[k] || 0);
+        const stockQty = Math.max(0, invQty + bottledQty - outgoingQty);
+        const orderedQty = Number(orderedMap[k] || 0);
+        const neededQty = Math.max(0, orderedQty - stockQty);
+
+        if (orderedQty > 0 || stockQty > 0 || invQty > 0 || bottledQty > 0) {
+          list.push({
+            beer_id: b.id,
+            beer_name: b.name,
+            package_id: p.id,
+            package_label: p.label,
+            volume_l: Number(p.volume_l || 0),
+            invQty,
+            bottledQty,
+            outgoingQty,
+            stockQty,
+            orderedQty,
+            neededQty,
+          });
+        }
+      });
+    });
+
+    return list;
+  }, [beers, packages, orders, orderItems, inventoryRows, rows, fasovaniRows, prodejnaRows, writeoffsRows]);
+
+  const filteredKegRequirements = useMemo(() => {
+    let list = kegRequirements;
+    if (reqKegBeerFilter) list = list.filter((r) => r.beer_id === reqKegBeerFilter);
+    if (reqKegPkgFilter) list = list.filter((r) => r.package_id === reqKegPkgFilter);
+    if (reqKegOnlyMissing) list = list.filter((r) => r.neededQty > 0);
+    return list;
+  }, [kegRequirements, reqKegBeerFilter, reqKegPkgFilter, reqKegOnlyMissing]);
+
+  const reqKegTotals = useMemo(() => {
+    return filteredKegRequirements.reduce(
+      (acc, r) => {
+        acc.ordered += r.orderedQty;
+        acc.stock += r.stockQty;
+        acc.needed += r.neededQty;
+        acc.neededLiters += r.neededQty * r.volume_l;
+        return acc;
+      },
+      { ordered: 0, stock: 0, needed: 0, neededLiters: 0 }
+    );
+  }, [filteredKegRequirements]);
 
   // Pokud existuje přesně jeden aktivní tank, předvyplní se automaticky (jen jako výchozí pivo pro prázdné řádky)
   useEffect(() => {
@@ -461,31 +602,45 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   return (
     <div className="space-y-6 pb-12">
       {/* Top Action Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-3xl border border-neutral-200 shadow-2xs">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-display font-black text-amber-950 flex items-center gap-1.5">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl sm:rounded-3xl border border-neutral-200/90 shadow-2xs">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm sm:text-base font-display font-black text-amber-950 flex items-center gap-1.5 shrink-0">
             <span>🛢️</span>
             <span>{mode === 'entry_only' ? 'KEG (Stáčení)' : mode === 'overviews_only' ? 'KEG (Přehled)' : 'KEG (Stáčení & Přehled)'}</span>
           </span>
-          {/* Záložky: Zápis / Přehled */}
-          {mode === 'all' && (
-            <div className="flex items-center gap-1 bg-neutral-100 p-1 rounded-xl border border-neutral-200 w-fit">
-              <button
-                type="button"
-                onClick={() => setTab('zapis')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-black transition ${tab === 'zapis' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-600 hover:bg-amber-50'}`}
-              >
-                ✍️ Zápis
-              </button>
-              <button
-                type="button"
-                onClick={() => setTab('prehled')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-black transition ${tab === 'prehled' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-600 hover:bg-amber-50'}`}
-              >
-                📊 Přehled
-              </button>
-            </div>
-          )}
+        </div>
+
+        {/* Záložky: Zápis / Přehled / Potřeba stočit KEGy */}
+        {mode === 'all' && (
+          <div className="flex items-center gap-1.5 bg-neutral-100 p-1 rounded-xl border border-neutral-200 w-full sm:w-fit overflow-x-auto scrollbar-none flex-nowrap shrink-0">
+            <button
+              type="button"
+              onClick={() => setTab('zapis')}
+              className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'zapis' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-700 hover:bg-amber-50'}`}
+            >
+              ✍️ Zápis
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab('prehled')}
+              className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'prehled' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-700 hover:bg-amber-50'}`}
+            >
+              📊 Přehled
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab('potreba')}
+              className={`px-3.5 py-2 rounded-lg text-xs font-black transition flex items-center gap-1.5 shrink-0 min-h-[38px] ${tab === 'potreba' ? 'bg-rose-600 text-white shadow-xs' : 'text-neutral-700 hover:bg-rose-50'}`}
+            >
+              <span>🛢️ Potřeba stočit KEGy</span>
+              {kegRequirements.some((r) => r.neededQty > 0) && (
+                <span className="px-1.5 py-0.5 rounded-full bg-amber-300 text-amber-950 text-[10px] font-black animate-pulse">
+                  {kegRequirements.filter((r) => r.neededQty > 0).length}
+                </span>
+              )}
+            </button>
+          </div>
+        )}
           <div className="relative group">
 
             <button className="btn-ghost !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs" disabled={!rows.length}>📊 Export Excel ▾</button>
@@ -515,7 +670,6 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
             )}
           </div>
         </div>
-      </div>
 
       {/* Zápis stáčení — multi-row (12 řádků pivo+obal+množství najednou) */}
       {tab === 'zapis' && mode !== 'overviews_only' && (
@@ -578,15 +732,9 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                             disabled={!r.qty || Number(r.qty) <= 0}
                             onClick={() => setEntryRows((rs) => rs.map((x, j) => j === i ? { ...x, qty: String(Math.max(0, Number(x.qty) - 1)) } : x))}
                           >−</button>
-                          <input
-                            type="number"
-                            min="0"
-                            step="1"
-                            className="input text-lg font-black w-20 text-center text-neutral-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            value={r.qty}
-                            onChange={(e) => setEntryRows((rs) => rs.map((x, j) => j === i ? { ...x, qty: e.target.value } : x))}
-                            placeholder="0"
-                          />
+                                                    <span className="w-20 min-w-[4rem] text-lg font-black text-center text-neutral-900 bg-white border border-neutral-200 rounded-lg py-1.5">
+                            {Number(r.qty) > 0 ? r.qty : '0'}
+                          </span>
 
 
 
@@ -732,7 +880,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
             const sorted = [...weekRows].sort((a, b) => {
               const dateCmp = (b.entry_date ?? '').localeCompare(a.entry_date ?? '');
               if (dateCmp !== 0) return dateCmp;
-              return (b.created_at ?? '').localeCompare(a.created_at ?? '');
+              return (a.created_at ?? '').localeCompare(b.created_at ?? '') || a.id.localeCompare(b.id);
             });
             const totalCount = sorted.reduce((s, r) => s + Number(r.quantity), 0);
 
@@ -960,7 +1108,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
           const sortedRows = [...filteredRows].sort((a, b) => {
             const dateCmp = (b.entry_date ?? '').localeCompare(a.entry_date ?? '');
             if (dateCmp !== 0) return dateCmp;
-            return (b.created_at ?? '').localeCompare(a.created_at ?? '');
+            return (a.created_at ?? '').localeCompare(b.created_at ?? '') || a.id.localeCompare(b.id);
           });
           const totalCount = sortedRows.reduce((s, r) => s + Number(r.quantity), 0);
           const totalLiters = sortedRows.reduce((s, r) => {
@@ -1099,6 +1247,134 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
       </div>
       )}
 
+      {/* TAB 3: POTŘEBA STOČIT KEGY */}
+      {(mode === 'overviews_only' || (mode === 'all' && tab === 'potreba')) && (
+        <div className="space-y-4">
+          {/* Souhrnné karty */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="card p-4 bg-white border border-neutral-200 rounded-2xl space-y-1">
+              <span className="text-[10px] font-black uppercase text-neutral-500">Objednáno v KEG sudů</span>
+              <div className="font-display font-black text-xl text-sky-700">{reqKegTotals.ordered} ks sudů</div>
+              <span className="text-[11px] text-neutral-500">Aktivní neuplatněné KEG objednávky</span>
+            </div>
+            <div className="card p-4 bg-white border border-neutral-200 rounded-2xl space-y-1">
+              <span className="text-[10px] font-black uppercase text-neutral-500">Sudů na skladě</span>
+              <div className="font-display font-black text-xl text-emerald-700">{reqKegTotals.stock} ks sudů</div>
+              <span className="text-[11px] text-neutral-500">Disponibilní KEG zásoby</span>
+            </div>
+            <div className={`card p-4 rounded-2xl space-y-1 ${reqKegTotals.needed > 0 ? 'bg-amber-600 text-white' : 'bg-neutral-900 text-white'}`}>
+              <span className={`text-[10px] font-black uppercase ${reqKegTotals.needed > 0 ? 'text-amber-100' : 'text-amber-400'}`}>Potřeba stočit do KEGů (chybí)</span>
+              <div className="font-display font-black text-xl">{reqKegTotals.needed} ks sudů ({(reqKegTotals.neededLiters / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 })} hl / {reqKegTotals.neededLiters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L)</div>
+              <span className="text-[11px] opacity-90">{reqKegTotals.needed > 0 ? '⚠️ Objednáno více sudů než je na skladě' : '✓ Všechny KEG objednávky pokryty'}</span>
+            </div>
+          </div>
+
+          {/* Filtry & Tabulka */}
+          <div className="card p-4 bg-white border border-neutral-200 rounded-3xl space-y-3 shadow-xs">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="font-display font-black text-base text-neutral-900 flex items-center gap-2">
+                <span>🛢️</span>
+                <span>KEGy které je potřeba stočit (Sklad vs. Objednané KEG sudy)</span>
+              </h3>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Filtr Pivo */}
+                <select
+                  value={reqKegBeerFilter}
+                  onChange={(e) => setReqKegBeerFilter(e.target.value)}
+                  className="input text-xs font-bold px-2.5 py-1.5 rounded-xl border border-neutral-200 bg-white text-neutral-800"
+                >
+                  <option value="">🍺 Všechna piva</option>
+                  {beers.map((b) => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+
+                {/* Filtr KEG Obal */}
+                <select
+                  value={reqKegPkgFilter}
+                  onChange={(e) => setReqKegPkgFilter(e.target.value)}
+                  className="input text-xs font-bold px-2.5 py-1.5 rounded-xl border border-neutral-200 bg-white text-neutral-800"
+                >
+                  <option value="">🛢️ Všechny KEG obaly</option>
+                  {packages.filter((p) => p.kind === 'keg').map((p) => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
+                  ))}
+                </select>
+
+                {/* Přepínač: Jen chybějící */}
+                <button
+                  type="button"
+                  onClick={() => setReqKegOnlyMissing(!reqKegOnlyMissing)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black transition border ${
+                    reqKegOnlyMissing
+                      ? 'bg-amber-600 text-white border-amber-700 shadow-xs'
+                      : 'bg-neutral-100 text-neutral-700 border-neutral-200 hover:bg-neutral-200'
+                  }`}
+                >
+                  {reqKegOnlyMissing ? '⚠️ Jen chybějící (> 0)' : '📦 Všechny KEGy'}
+                </button>
+              </div>
+            </div>
+
+            {/* Tabulka */}
+            {filteredKegRequirements.length === 0 ? (
+              <EmptyState text={reqKegOnlyMissing ? 'Žádné chybějící KEGy! Všechny objednané KEG sudy jsou pokryté na skladě.' : 'Žádné položky k zobrazení.'} icon="🎉" />
+            ) : (
+              <div className="overflow-x-auto scrollbar-thin rounded-2xl border border-neutral-200">
+                <table className="table text-xs w-full">
+                  <thead>
+                    <tr className="bg-neutral-100 border-b border-neutral-200">
+                      <th className="p-2.5 text-left">Pivo</th>
+                      <th className="p-2.5 text-left">KEG Obal</th>
+                      <th className="p-2.5 text-right font-bold text-neutral-600">Poč. inv.</th>
+                      <th className="p-2.5 text-right font-bold text-emerald-800">Stočeno (+)</th>
+                      <th className="p-2.5 text-right font-bold text-amber-800">Výdeje (−)</th>
+                      <th className="p-2.5 text-right font-bold text-emerald-900 bg-emerald-50">Skladem (=)</th>
+                      <th className="p-2.5 text-right font-bold text-sky-800">Objednáno</th>
+                      <th className="p-2.5 text-right font-black text-amber-900 bg-amber-50">Potřeba stočit (chybí)</th>
+                      <th className="p-2.5 text-center font-bold">Stav</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredKegRequirements.map((r) => {
+                      const beer = beers.find((b) => b.id === r.beer_id);
+                      return (
+                        <tr key={`${r.beer_id}__${r.package_id}`} className="border-b border-neutral-100 hover:bg-neutral-50/80 transition-colors">
+                          <td className="p-2.5 font-black text-neutral-950 flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
+                            <span>{r.beer_name}</span>
+                          </td>
+                          <td className="p-2.5 font-bold text-neutral-800">{r.package_label}</td>
+                          <td className="p-2.5 text-right font-mono text-neutral-600">{r.invQty} ks</td>
+                          <td className="p-2.5 text-right font-mono font-bold text-emerald-700">+{r.bottledQty} ks</td>
+                          <td className="p-2.5 text-right font-mono font-bold text-amber-700">−{r.outgoingQty} ks</td>
+                          <td className="p-2.5 text-right font-mono font-black text-emerald-900 bg-emerald-50/50">{r.stockQty} ks</td>
+                          <td className="p-2.5 text-right font-mono font-bold text-sky-700">{r.orderedQty} ks</td>
+                          <td className={`p-2.5 text-right font-mono font-black bg-amber-50/50 ${r.neededQty > 0 ? 'text-amber-900 text-sm' : 'text-neutral-500'}`}>
+                            {r.neededQty > 0 ? `${r.neededQty} ks (${(r.neededQty * r.volume_l / 100).toFixed(2)} hl)` : '0 ks'}
+                          </td>
+                          <td className="p-2.5 text-center">
+                            {r.neededQty > 0 ? (
+                              <span className="px-2.5 py-1 rounded-xl bg-amber-100 text-amber-900 font-black text-[11px] border border-amber-300 whitespace-nowrap">
+                                ⚠️ Chybí {r.neededQty} ks sudů
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-1 rounded-xl bg-emerald-100 text-emerald-800 font-bold text-[11px] border border-emerald-300 whitespace-nowrap">
+                                ✓ Pokryto
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

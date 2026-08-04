@@ -8,7 +8,7 @@ export interface DatabaseBackup {
     beers: any[];
     packages: any[];
     places: any[];
-    pricelist: any[];
+    price_list: any[];
     orders: any[];
     order_items: any[];
     cellar_tanks: any[];
@@ -26,7 +26,7 @@ export interface DatabaseBackup {
 
 export async function createFullBackup(): Promise<DatabaseBackup> {
   const tables = [
-    'beers', 'packages', 'places', 'pricelist', 'orders', 'order_items',
+    'beers', 'packages', 'places', 'price_list', 'orders', 'order_items',
     'cellar_tanks', 'cellar_batches', 'bottling', 'kegging', 'fasovani',
     'fasovani_private', 'writeoffs', 'inventory', 'akce', 'akce_items'
   ];
@@ -91,7 +91,7 @@ export function downloadGoogleSheetsExcelBackup(backup: DatabaseBackup, monthLab
 
   addSheet('Piva_Obaly', backup.tables.beers || []);
   addSheet('Odberatele_Hospody', backup.tables.places || []);
-  addSheet('Cenik_Pivovaru', backup.tables.pricelist || []);
+  addSheet('Cenik_Pivovaru', backup.tables.price_list || []);
   addSheet('Objednavky', backup.tables.orders || []);
   addSheet('Polozky_Objednavek', backup.tables.order_items || []);
   addSheet('Staceni_KEG', backup.tables.kegging || []);

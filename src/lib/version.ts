@@ -1,14 +1,19 @@
 // Verze aplikace — zvyšuje se při každé provedené úpravě, aby šlo v UI poznat,
 // jestli je načtená nejnovější nasazená verze (řeší problémy s cachí prohlížeče/PWA).
-export const APP_VERSION = '1.427';
-export const APP_VERSION_DATE = '3.8.2026 17:27';
-
+export const APP_VERSION = '1.455';
+export const APP_VERSION_DATE = '4.8.2026 22:40';
 
 
 
 
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
+
 export const APP_CHANGELOG: string[] = [
+  '🍾 Stáčení lahví (Přehled): počet sudů „🛢️ Sudů“ i velikost „KEG“ jsou nyní EDITOVATELNÉ přímo v přehledu — počet sudů tlačítky − / + a velikost sudu rozbalovacím výběrem; změna se projeví pro celou šarži (všechny obaly stočené z daných sudů) a přepočítá se i zdrojový objem a ztráta',
+
+  '📷 Import z fotky (AI): oprava přiřazení OBJEMU u KEG sudů — pokud je v textu objednávky napsáno „2x50“ (přesně viditelné v textu), ale AI do obalu zapíše „2x30“ nebo „KEG 30l“, aplikace nyní správně použije objem z textu (50l) a nenechá chybný obal 30l. Týká se i fragmentů typu „2x30“, které AI omylem zapíše jako obal.',
+
+  '🍺 Jantar: pivo „Jantar“ má nyní jednoznačnou přednost — pokud v objednávce zazní/napíše „12 jantar“, „jant“ nebo „jantarek“, vždy se vybere pivo Jantar (ne 12° Světlá), i kdyby u něj stálo číslo 12. Opraveno pro ruční zadání textem, hlas i fotku.',
   '🍾 Stáčení lahví (Přehled): přidán sloupec „🛢️ Sudů“ — ukazuje, z kolika sudů byly lahve stočeny (z pole kegs_used); v souhrnu „Celkem“ je celkový počet použitých sudů (s deduplikací zdroje)',
   '🍾 Stáčení lahví (Přehled): přidány záložky 🍾 Lahve / 🛢️ KEG / 📦 Vše pro oddělení záznamů lahví a KEG sudů',
   '🍾 Stáčení lahví (Přehled): u zobrazení „Měsíc“ přidána navigace ‹ / › pro listování mezi měsíci (dříve šlo listovat jen u týdnů)',

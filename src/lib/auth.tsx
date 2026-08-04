@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase, Profile } from './supabase';
 import { reportAppVersion } from './appVersionTracker';
+import { isAdminEmail, getAdminName } from './config';
 
 type AuthCtx = {
   session: Session | null;
@@ -20,7 +21,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   async function loadProfile(user: User) {
-    const isSpecialAdmin = user.email?.toLowerCase().trim() === 'vasilecko@seznam.cz';
+    const isSpecialAdmin = isAdminEmail(user.email);
     const { data } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
     let prof = data as Profile | null;
 
@@ -29,7 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       prof = { ...prof, role: 'admin' };
     } else if (isSpecialAdmin && !prof) {
       await supabase.from('profiles').upsert({ id: user.id, role: 'admin' });
-      prof = { id: user.id, display_name: 'Vasil', role: 'admin', created_at: new Date().toISOString() };
+      prof = { id: user.id, display_name: getAdminName(), role: 'admin', created_at: new Date().toISOString() };
     }
 
     setProfile(prof);

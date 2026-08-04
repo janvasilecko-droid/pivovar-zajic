@@ -953,6 +953,68 @@ export default function History() {
                       <Stat label="Akce vráceno" value={d.akce_returned} icon="↩️" tone="success" />
                     </div>
 
+                    {/* 📦 KONKRÉTNÍ ROZPAS STOČENÝCH OBALŮ: 50, 30, 20, 15, 10, 1.5, 1, 0.5, 0.33 */}
+                    {(() => {
+                      const kegQtyMap: Record<number, number> = {};
+                      const bottleQtyMap: Record<number, number> = {};
+                      packages.forEach((pkg) => {
+                        const qty = d.byPackage[pkg.id] || 0;
+                        if (!qty) return;
+                        const vol = Number(pkg.volume_l);
+                        if (pkg.kind === 'keg') kegQtyMap[vol] = (kegQtyMap[vol] || 0) + qty;
+                        else bottleQtyMap[vol] = (bottleQtyMap[vol] || 0) + qty;
+                      });
+
+                      return (
+                        <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200 shadow-2xs space-y-3">
+                          <div className="text-xs font-black text-amber-950 flex items-center justify-between">
+                            <span className="flex items-center gap-1.5 font-display">📦 Konkrétní stočené obaly</span>
+                            <span className="text-xs font-mono font-black text-amber-800">Celkem: {d.brewed} ks</span>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            {/* KEG Sudy */}
+                            <div className="p-2.5 rounded-xl bg-white border border-amber-300 shadow-2xs space-y-1.5">
+                              <div className="text-[10px] font-black uppercase text-amber-900 flex items-center justify-between border-b border-amber-100 pb-1">
+                                <span>🛢️ KEG Sudy</span>
+                                <span className="font-mono text-amber-800">{d.kegged} ks</span>
+                              </div>
+                              <div className="grid grid-cols-5 gap-1 text-center">
+                                {[50, 30, 20, 15, 10].map((v) => {
+                                  const qty = kegQtyMap[v] || 0;
+                                  return (
+                                    <div key={v} className={`p-1 rounded-lg border transition-all ${qty > 0 ? 'bg-amber-100/90 border-amber-400 text-amber-950 font-black shadow-2xs' : 'bg-neutral-50/80 border-neutral-200 text-neutral-400'}`}>
+                                      <div className="text-[8px] font-black uppercase text-neutral-500">{v} L</div>
+                                      <div className="font-mono text-[11px] font-black">{qty}</div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            {/* Lahve */}
+                            <div className="p-2.5 rounded-xl bg-white border border-sky-300 shadow-2xs space-y-1.5">
+                              <div className="text-[10px] font-black uppercase text-sky-900 flex items-center justify-between border-b border-sky-100 pb-1">
+                                <span>🍾 Lahve / PET</span>
+                                <span className="font-mono text-sky-800">{d.bottled} ks</span>
+                              </div>
+                              <div className="grid grid-cols-4 gap-1 text-center">
+                                {[1.5, 1.0, 0.5, 0.33].map((v) => {
+                                  const qty = bottleQtyMap[v] || 0;
+                                  return (
+                                    <div key={v} className={`p-1 rounded-lg border transition-all ${qty > 0 ? 'bg-sky-100/90 border-sky-400 text-sky-950 font-black shadow-2xs' : 'bg-neutral-50/80 border-neutral-200 text-neutral-400'}`}>
+                                      <div className="text-[8px] font-black uppercase text-neutral-500">{v === 1 ? '1 L' : `${v} L`}</div>
+                                      <div className="font-mono text-[11px] font-black">{qty}</div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     {Object.keys(d.byBeerHl).length > 0 && (
                       <div className="p-3.5 rounded-2xl bg-neutral-50 border border-neutral-200 space-y-2">
                         <div className="text-xs font-black text-neutral-900">Rozpis stočených hl podle piva:</div>
@@ -1229,22 +1291,71 @@ export default function History() {
                       {totalBottlePct > 10 ? `${totalBottlePct.toFixed(0)}%` : ''}
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3 pt-2">
-                    <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200">
-                      <div className="text-[10px] font-black uppercase text-amber-900">🛢️ KEG</div>
-                      <div className="text-lg font-display font-black text-amber-950">{totalKegHl.toFixed(2)} hl</div>
-                      <div className="text-xs font-bold text-amber-800">
-                        {monthsInRange.reduce((s, d) => s + (d.byPackageKind['keg']?.ks ?? 0), 0)} ks
+                  {/* 📦 KONKRÉTNÍ ROZPAS VŠECH OBALŮ PRO ZVOLENÉ OBDOBÍ */}
+                  {(() => {
+                    const rangeKegQtyMap: Record<number, number> = {};
+                    const rangeBottleQtyMap: Record<number, number> = {};
+                    monthsInRange.forEach((d) => {
+                      packages.forEach((pkg) => {
+                        const qty = d.byPackage[pkg.id] || 0;
+                        if (!qty) return;
+                        const vol = Number(pkg.volume_l);
+                        if (pkg.kind === 'keg') rangeKegQtyMap[vol] = (rangeKegQtyMap[vol] || 0) + qty;
+                        else rangeBottleQtyMap[vol] = (rangeBottleQtyMap[vol] || 0) + qty;
+                      });
+                    });
+                    const totalKegCount = Object.values(rangeKegQtyMap).reduce((a, b) => a + b, 0);
+                    const totalBottleCount = Object.values(rangeBottleQtyMap).reduce((a, b) => a + b, 0);
+
+                    return (
+                      <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 space-y-3 pt-3">
+                        <div className="text-xs font-black text-amber-950 flex items-center justify-between border-b border-amber-200/60 pb-2">
+                          <span className="flex items-center gap-1.5 font-display text-sm">📦 Konkrétní stočené obaly za vybrané období</span>
+                          <span className="text-xs font-mono font-black text-amber-800">Celkem: {totalKegCount + totalBottleCount} ks</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {/* KEG Sudy */}
+                          <div className="p-3 rounded-xl bg-white border border-amber-300 shadow-2xs space-y-2">
+                            <div className="text-xs font-black uppercase text-amber-900 flex items-center justify-between border-b border-amber-100 pb-1">
+                              <span>🛢️ KEG Sudy (50, 30, 20, 15, 10 L)</span>
+                              <span className="font-mono text-amber-800">{totalKegCount} ks</span>
+                            </div>
+                            <div className="grid grid-cols-5 gap-1.5 text-center">
+                              {[50, 30, 20, 15, 10].map((v) => {
+                                const qty = rangeKegQtyMap[v] || 0;
+                                return (
+                                  <div key={v} className={`p-1.5 rounded-xl border transition-all ${qty > 0 ? 'bg-amber-100/90 border-amber-400 text-amber-950 font-black shadow-2xs' : 'bg-neutral-50/80 border-neutral-200 text-neutral-400'}`}>
+                                    <div className="text-[9px] font-black uppercase text-neutral-600">{v} L</div>
+                                    <div className="font-mono text-xs font-black">{qty}</div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Lahve */}
+                          <div className="p-3 rounded-xl bg-white border border-sky-300 shadow-2xs space-y-2">
+                            <div className="text-xs font-black uppercase text-sky-900 flex items-center justify-between border-b border-sky-100 pb-1">
+                              <span>🍾 Lahve (1,5 / 1 / 0,5 / 0,33 L)</span>
+                              <span className="font-mono text-sky-800">{totalBottleCount} ks</span>
+                            </div>
+                            <div className="grid grid-cols-4 gap-1.5 text-center">
+                              {[1.5, 1.0, 0.5, 0.33].map((v) => {
+                                const qty = rangeBottleQtyMap[v] || 0;
+                                return (
+                                  <div key={v} className={`p-1.5 rounded-xl border transition-all ${qty > 0 ? 'bg-sky-100/90 border-sky-400 text-sky-950 font-black shadow-2xs' : 'bg-neutral-50/80 border-neutral-200 text-neutral-400'}`}>
+                                    <div className="text-[9px] font-black uppercase text-neutral-600">{v === 1 ? '1 L' : `${v} L`}</div>
+                                    <div className="font-mono text-xs font-black">{qty}</div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="p-3 rounded-2xl bg-sky-50 border border-sky-200">
-                      <div className="text-[10px] font-black uppercase text-sky-900">🍾 Lahve / PET</div>
-                      <div className="text-lg font-display font-black text-sky-950">{totalBottleHl.toFixed(2)} hl</div>
-                      <div className="text-xs font-bold text-sky-800">
-                        {monthsInRange.reduce((s, d) => s + (d.byPackageKind['bottle']?.ks ?? 0), 0)} ks
-                      </div>
-                    </div>
-                  </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Rozpad podle piv - celkem */}

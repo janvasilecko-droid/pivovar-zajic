@@ -7,6 +7,8 @@ import { Camera, Plus, Trash2, Package as PackageIcon, CheckCircle2, AlertCircle
 
 type CountItem = {
   package_label: string | null;
+  package_label_resolved?: string | null;
+  beer_name?: string | null;
   quantity: number | null;
   note: string | null;
   beer_id: string;
@@ -23,6 +25,47 @@ type PhotoSlot = {
   err: string | null;
   editing: string | null; // data url being cropped
 };
+
+/** Normalizuje text pro porovnání (bez diakritiky, malými písmeny, bez mezer navíc). */
+function _norm(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '')
+    .trim();
+}
+
+/**
+ * Najde nejlepší shodu package_label z rozpoznání (AI) s reálným obalem v katalogu.
+ * Nejprve se zkusí přesná shoda, pak fuzzy (obsahuje / je obsaženo), a nakonec
+ * podle objemu v litrech (např. "keg 50" odpovídá obalu s volume_l 50).
+ */
+function fuzzyMatchPackage(packages: Package[], label: string | null): Package | null {
+  if (!label || !packages.length) return null;
+  const target = _norm(label);
+
+  // 1) Přesná shoda
+  const exact = packages.find((p) => _norm(p.label) === target);
+  if (exact) return exact;
+
+  // 2) Obsažení v jenom směru (např. "Lahve 0.5l" v "Lahve 0.5l sklo")
+  const contains = packages.find((p) => {
+    const a = _norm(p.label);
+    return a.includes(target) || target.includes(a);
+  });
+  if (contains) return contains;
+
+  // 3) Shoda podle objemu v litrech (užitečné hlavně pro KEG sudy)
+  const volMatch = label.match(/(\d+(?:[.,]\d+)?)\s*(l|litr|litru|ltr)/i);
+  if (volMatch) {
+    const vol = Number(volMatch[1].replace(',', '.'));
+    const byVolume = packages.find((p) => p.volume_l != null && Math.abs(Number(p.volume_l) - vol) < 1);
+    if (byVolume) return byVolume;
+  }
+
+  return null;
+}
 
 export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inventory', mode = 'inventory' }: {
   beers: Beer[];
@@ -104,12 +147,30 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
       if (data?.error) throw new Error(data.error);
 
       const items: CountItem[] = (data?.items ?? []).map((item: any) => {
-        const pkg = packages.find((p) => p.label === item.package_label) ?? null;
+        const pkg = fuzzyMatchPackage(packages, item.package_label ?? null);
+        // Pokud AI rozpoznala i pivo (z etikety/štítku sudu či lahve), zkus ho
+        // přiřadit k reálnému pivu v katalogu (fuzzy shoda podle názvu).
+        let beerId = item.beer_id ?? '';
+        let beerNameRaw = item.beer_name ?? null;
+        if (!beerId && beerNameRaw && beers.length) {
+          const t = _norm(String(beerNameRaw));
+          const match = beers.find((b) => _norm(b.name) === t)
+            ?? beers.find((b) => b.name && t && (t.includes(_norm(b.name)) || _norm(b.name).includes(t)))
+            ?? beers.find((b) => {
+              const bt = _norm(b.name);
+              return t && bt && (t.includes(bt) || bt.includes(t));
+            });
+          if (match) beerId = match.id;
+        }
         return {
           package_label: item.package_label,
           quantity: item.quantity,
           note: item.note,
-          beer_id: '',
+          beer_name: beerNameRaw ?? null,
+          // 🧠 Pokud AI vrátila přesný package_label, použij ho; jinak se použije
+          // fuzzy shoda s katalogem (podle názvu, obsahu textu nebo objemu v litrech).
+          package_label_resolved: pkg?.label ?? item.package_label,
+          beer_id: beerId,
           package_id: pkg?.id ?? '',
           photo_id: photoId,
         };

@@ -56,9 +56,13 @@ Deno.serve(async (req: Request) => {
     const rawText: string | undefined = body.rawText;
     const beers: { id: string; name: string; degree: string }[] = body.beers ?? [];
     const packages: { id: string; label: string }[] = body.packages ?? [];
-    const places: string[] = body.places ?? [];
+    const isSenderName = (s: string) => {
+      const norm = s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      return ['bednar', 'petr', 'sladek', 'gabina', 'ucetni', 'pojmi', 'bendat'].some((x) => norm.includes(x));
+    };
+    const places: string[] = (body.places ?? []).filter((p: string) => !isSenderName(p));
     const aliases: { alias_text: string; beer_name: string | null; package_label: string | null }[] = body.aliases ?? [];
-    const placeAliases: { wrong_name: string; correct_name: string }[] = body.placeAliases ?? [];
+    const placeAliases: { wrong_name: string; correct_name: string }[] = (body.placeAliases ?? []).filter((a: any) => !isSenderName(a.wrong_name) && !isSenderName(a.correct_name));
     const messages: WhatsAppMessageHint[] = body.messages ?? [];
 
     if (!rawText || !rawText.trim()) {
@@ -148,39 +152,17 @@ Pokud řádek obsahuje slovo "a" mezi dvěma objednávkovými vzory (např. "2x5
 NIKDY neslučuj dvě různé položky do jedné, i když jsou na stejném řádku. Každá položka s vlastním množstvím, pivem a obalem = SAMOSTATNÝ item.
 
 
-KRITICKÉ PRAVIDLO PRO ODBĚRATELE (place_name):
-Níže je seznam "ZNÁMÍ ODBĚRATELÉ" — to jsou VŠICHNI existující odběratelé. MUSÍŠ každou objednávku přiřadit k některému z nich, pokud to je alespoň trochu možné. Postup:
-1. Podívej se na text zprávy (jméno WhatsApp kontaktu, oslovení, podpis, název hospody/restaurace v textu).
-2. Porovnej ho se seznamem ZNÁMÍ ODBĚRATELÉ — hledej PŘIBLIŽNOU shodu (podobná výslovnost, možné překlepy).
-3. PŘÍKLADY očekávaného chování:
-   - Text "Seeberg" nebo "seeger" nebo "zeeburg" → odběratel "Seeberg" (pokud je v seznamu)
-   - Text "U Labute" nebo "u labute" nebo "labut" → odběratel "U Labutě" (pokud je v seznamu)
-   - Text "Malesice" nebo "malessice" → odběratel "Malesice" (pokud je v seznamu)
-   - Text "U Zajice" nebo "zajic" → odběratel "U Zajíce" (pokud je v seznamu)
-4. Pokud text obsahuje slovo, které se podobá některému známému odběrateli (i když je zkomolené), POUŽIJ PŘESNÝ název ze seznamu.
-5. place_name se "dědí" odshora dolů — pokud první řádek patří k odběrateli X, všechny následující řádky patří k X, dokud se neobjeví jiný odběratel.
-6. Pokud je v textu VÍCE odběratelů (celý měsíc konverzace), přiřaď každou položku správnému odběrateli podle toho, kdo ji poslal.
-
-KRITICKÉ PRAVIDLO PRO JMÉNO ODBĚRATELE (OSOBNÍ JMÉNO vs. NÁZEV HOSPODY):
-DŮLEŽITÉ: Odběratel může být JAK NÁZEV HOSPODY/RESTAURACE, TAK I JMÉNO OSOBY (např. "Petr Bednář", "Jana Nováková"). Postup:
-1. Pokud je v textu objednávky JMÉNO OSOBY (křestní jméno + příjmení, nebo jen křestní jméno), použij ho jako place_name PŘESNĚ TAK, JAK JE NAPSANÉ.
-2. Pokud je v textu objednávky NÁZEV HOSPODY (např. "Lokálka Říčany", "U Zajíce", "Restaurace U Labutě"), použij ho jako place_name.
-3. Pokud je v textu JAK název hospody, TAK i jméno osoby (např. "Lokálka Říčany" v textu objednávky a "Petr Bednář" jako odesílatel zprávy), POUŽIJ JMÉNO OSOBY jako place_name — to je odběratel, který objednávku posílá.
-4. Pokud je v textu objednávky napsáno "pro [jméno]" nebo "do [jméno]" nebo "na [jméno]", použij toto jméno jako place_name.
-5. NIKDY nepoužívej jako place_name název piva, objem kegu, nebo jiné údaje o objednávce (např. "10x50", "KEG 30l", "12sv").
-6. Pokud je v textu objednávky napsáno "Lokálka Říčany 10x50" — "Lokálka Říčany" je NÁZEV HOSPODY (odběratel), "10x50" je objednávka (10× KEG 50l). place_name = "Lokálka Říčany".
-7. Pokud je odesílatel zprávy "Petr Bednář" a v textu objednávky "Lokálka Říčany 10x50", place_name = "Petr Bednář" (jméno odesílatele je odběratel).
-8. Pokud je v textu objednávky napsáno "Lokálka Říčany" a NENÍ tam žádné jméno osoby, place_name = "Lokálka Říčany".
-9. VŽDY přiřaď place_name ke KAŽDÉ položce — nikdy nenechávej place_name null, pokud můžeš odvodit odběratele z textu, odesílatele, nebo kontextu.
-
-NEJDŮLEŽITĚJŠÍ VODÍTKO — ROZPOZNANÉ ZPRÁVY S ODESÍLATELEM:
-
-Níže je seznam "ROZPOZNANÉ ZPRÁVY" — každá zpráva z WhatsApp exportu má svého ODESÍLATELE (jméno kontaktu, které je obvykle název hospody/odbytiště) a DATUM. Toto je NEJSPOLEHLIVĚJŠÍ zdroj pro určení odběratele (place_name) a data každé položky:
-- Položky, které se nacházejí v obsahu zprávy č. X, patří ODESÍLATELI té zprávy.
-- Pokud odesílatel zprávy odpovídá (i přibližně/foneticky) některému ze ZNÁMÍ ODBĚRATELÉ, použij PŘESNÝ název ze seznamu.
-- Pokud odesílatel neodpovídá žádnému známému odběrateli, použij jako place_name jméno odesílatele tak, jak je napsané.
-- Datum položky vezmi z data té zprávy, ve které se položka nachází.
-- Pokud je v jedné zprávě více položek, všechny patří stejnému odběrateli (odesílateli) a stejnému datu.
+KRITICKÉ PRAVIDLO PRO ODBĚRATELE (ODBĚRATEL JE VŽDY V TEXTU ZPRÁVY):
+1. JMÉNO ODBĚRATELE JE VŽDY NAPSÁNO PŘÍMO V TEXTU OBJEDNÁVKY / ZPRÁVY (např. "Naseb", "Malesice", "Žižkov", "Seeberg", "Lokálka", "U Zajíce", "U Labutě").
+2. ODESÍLATELÉ ZPRÁV V HLAVIČCE WHATSAPP jako "Pojmi", "Bednář", "Bendat", "Gábina účetní", "Gábina", "Účetní" JSOU POUZE ODESÍLATELÉ (předávají nebo posílají zprávy z telefonu), NIKOLIV ODBĚRATELE! NIKDY nepoužívej tato jména odesílatelů jako place_name!
+3. VŽDY hledej název odběratele / hospody V TEXTU ZPRÁVY (tělo zprávy):
+   - Může být na začátku řádku nebo před objednávkou (např. "Naseb 2x50", "Malesice 5x30 12sv", "Žižkov 3x50")
+   - Může být uveden jako "pro [odběratel]", "na [odběratel]", "do [odběratel]" (např. "pro Naseb", "do Malesic", "na Žižkov")
+   - Může být samostatně v textu zprávy stejným písmem
+4. Pokud je v textu zprávy napsáno "Lokálka 10x50", place_name = "Lokálka" (z textu). I kdyby byl odesílatel zprávy "Petr Bednář" nebo "Pojmi" nebo "Gábina", VŽDY má přednost název odběratele z textu zprávy!
+5. Seznam "ZNÁMÍ ODBĚRATELÉ" níže obsahuje existující odběratele. Pokud text v zprávy odpovídá byť i přibližně (překlep, OCR šum) některému z nich, POUŽIJ PŘESNÝ NÁZEV ze seznamu.
+6. NIKDY nepoužívej jako place_name: "Pojmi", "Bednář", "Bendat", "Gábina", "Gábina účetní", "Účetní", "WhatsApp", "Pivovar", "Zajíc", "Dnes", "Včera".
+7. Pokud NELZE z textu zprávy určit žádného odběratele ani po porovnání se ZNÁMÍ ODBĚRATELÉ, vrať null.
 
 KAŽDÁ položka objednávky má:
 - quantity: počet kusů (číslo)

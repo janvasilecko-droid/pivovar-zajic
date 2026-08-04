@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Modal } from './ui';
 import { PlaceCombobox } from './PlaceCombobox';
-import { supabase, Beer, Package, Place } from '../lib/supabase';
-import { saveAlias, savePlaceAlias } from '../lib/orderParser';
+import { supabase, supabaseAdmin, Beer, Package, Place } from '../lib/supabase';
+import { saveAlias, savePlaceAlias, getOrCreatePlace } from '../lib/orderParser';
 import { autoReserveTapIfNeeded, isTapMentioned, detectTapType } from '../lib/tapReservations';
 import { TapReservationModal } from './TapReservationModal';
 
@@ -47,11 +47,8 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
   const [pendingSave, setPendingSave] = useState(false); // true when save() was triggered but waiting for tap modal
   const [tapWasConfirmed, setTapWasConfirmed] = useState(false); // true if user confirmed reservation in modal
 
-  // 🏪 Propagace změny místa na ostatní objednávky
   const oldPlaceId = order.place_id;
   const oldPlaceName = order.place_name;
-  const placeChanged = (placeId || null) !== (oldPlaceId || null) || (placeName.trim() || null) !== (oldPlaceName || null);
-  const [propagatePlace, setPropagatePlace] = useState(false);
 
   function setRow(idx: number, field: 'beerId' | 'pkgId' | 'qty', value: string) {
     setRows((rs) => rs.map((r, i) => i === idx ? { ...r, [field]: value } : r));
@@ -78,14 +75,12 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
     try {
       let resolvedPlaceId = placeId || null;
       let resolvedName = placeName.trim();
-      if (!placeId && resolvedName) {
-        const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-        const existing = places.find((p) => norm(p.name) === norm(resolvedName));
-        if (existing) {
-          resolvedPlaceId = existing.id; resolvedName = existing.name;
-        } else {
-          const { data: newPlace, error: pErr } = await supabase.from('places').insert({ name: resolvedName }).select().single();
-          if (!pErr && newPlace) { resolvedPlaceId = (newPlace as Place).id; onPlacesChanged?.(); }
+      if (!resolvedPlaceId && resolvedName) {
+        const place = await getOrCreatePlace(resolvedName, places);
+        if (place) {
+          resolvedPlaceId = place.id;
+          resolvedName = place.name;
+          onPlacesChanged?.();
         }
       }
 
@@ -150,34 +145,7 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
         }
       }
 
-      // 🏪 Propagace změny místa na ostatní objednávky se stejným starým místem
-      if (propagatePlace && resolvedPlaceId) {
-        const oldId = order.place_id;
-        const oldName = order.place_name;
-        if (oldId || oldName) {
-          let query = supabase.from('orders').update({
-            place_id: resolvedPlaceId,
-            place_name: resolvedName || null,
-          });
-          if (oldId) {
-            query = query.eq('place_id', oldId);
-          } else if (oldName) {
-            query = query.eq('place_name', oldName);
-          }
-          // Neaktualizujeme aktuální objednávku (už je hotovo)
-          query = query.neq('id', order.id);
-          const { error: propErr } = await query;
-          if (propErr) console.warn('Propagace místa selhala:', propErr);
-        }
-      }
 
-      // 🧠 Nauč se alias místa, pokud bylo změněno
-      if (placeChanged && resolvedPlaceId && (oldPlaceName || oldPlaceId)) {
-        const oldNameToLearn = oldPlaceName || places.find(p => p.id === oldPlaceId)?.name;
-        if (oldNameToLearn) {
-          await savePlaceAlias(oldNameToLearn, resolvedPlaceId).catch(() => {});
-        }
-      }
 
       // 🚰 Automatická rezervace výčepu, pokud je v poznámce zmínka (včetně synonym)
       const trimmedNote = note.trim();
@@ -241,19 +209,6 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
           <div className="col-span-2 sm:col-span-2 lg:col-span-2">
             <label className="label">Odběratel</label>
             <PlaceCombobox value={placeId} onChange={(id, name) => { setPlaceId(id); setPlaceName(name); }} places={places} onPlacesChanged={onPlacesChanged} />
-            {placeChanged && (
-              <label className="flex items-center gap-2 mt-1.5 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={propagatePlace}
-                  onChange={(e) => setPropagatePlace(e.target.checked)}
-                  className="w-4 h-4 accent-amber-600"
-                />
-                <span className="text-[11px] font-bold text-amber-800">
-                  🏪 Propagovat změnu na všechny objednávky se stejným odběratelem
-                </span>
-              </label>
-            )}
           </div>
           <div className="col-span-1 sm:col-span-1">
             <label className="label">Den dodání</label>
@@ -291,10 +246,11 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
                   </select>
                 </div>
                 <div className="col-span-4 sm:col-span-3">
-                  <div className="flex items-center gap-1">
+                                    <div className="flex items-center gap-1">
                     <button type="button" onClick={() => setRow(i, 'qty', String(Math.max(0, (Number(r.qty) || 0) - 1)))} className="w-7 h-7 shrink-0 grid place-items-center rounded-lg bg-neutral-100 hover:bg-amber-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition" title="Odečíst 1">−</button>
-                    <input type="number" min={0} className="input !py-2 text-sm font-bold text-center min-w-0 flex-1" placeholder="ks" value={r.qty}
-                      onChange={(e) => setRow(i, 'qty', e.target.value)} inputMode="numeric" />
+                    <span className="flex-1 min-w-0 text-center text-sm font-bold bg-white border border-neutral-200 rounded-lg py-2">
+                      {r.qty || '0'}
+                    </span>
                     <button type="button" onClick={() => setRow(i, 'qty', String((Number(r.qty) || 0) + 1))} className="w-7 h-7 shrink-0 grid place-items-center rounded-lg bg-amber-950 hover:bg-amber-900 text-white font-bold text-sm select-none active:scale-95 transition" title="Přidat 1">+</button>
                   </div>
                 </div>

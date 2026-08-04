@@ -7,11 +7,13 @@ import type { TapEquipment, TapReservation } from '../screens/VycepyScreen';
  * trojpipa, kohout, pípa, etc.
  */
 const TAP_SYNONYMS = [
-  'vycep', 'vycepy', 'vycepu', 'vycepem', 'vycepni',
+  'vycep', 'vycepy', 'vycepu', 'vycepem', 'vycepni', 'vycepu', 'vycepcima',
   'jednokohout', 'dvojkohout', 'trojkohout', 'ctyrkohout', 'sestikohout',
-  'pipa', 'pipu', 'pipy', 'pipy', 'pipa',
+  'pipa', 'pipu', 'pipy', 'pipom', 'pipam',
   'jednopipa', 'dvojpipa', 'trojpipa', 'sestipipa',
-  'kohout', 'kohouty', 'pipa', 'pipy',
+  'kohout', 'kohouty', 'kohoutek', 'kohoutku',
+  'chlazeni', 'chladak', 'stojan', 'pivnice', 'hospoda', 'bar',
+  'narazec', 'narazece',
 ];
 
 /**
@@ -21,7 +23,6 @@ export function isTapMentioned(noteText?: string): boolean {
   if (!noteText) return false;
   const text = noteText.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   return TAP_SYNONYMS.some((syn) => {
-    // Word-boundary match so we don't match "pipa" inside unrelated words
     return new RegExp(`(^|[^a-z0-9])${syn}([^a-z0-9]|$)`, 'i').test(text);
   });
 }
