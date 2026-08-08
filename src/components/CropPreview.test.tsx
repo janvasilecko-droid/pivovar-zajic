@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 import { CropPreview } from '../components/CropPreview'
 
 // Mock HTMLCanvasElement methods
@@ -8,14 +8,19 @@ global.HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
   imageSmoothingQuality: 'high'
 }))
 
-// Mock Image constructor
-global.Image = vi.fn().mockImplementation(() => ({
-  onload: vi.fn(),
-  onerror: vi.fn(),
-  src: '',
-  naturalWidth: 800,
-  naturalHeight: 600
-}))
+// Mock Image constructor — capture the instance the component creates,
+// so tests can fire onload/onerror on the real instance used by the component.
+let lastImage: { onload: () => void; onerror: () => void; src: string; naturalWidth: number; naturalHeight: number } | null = null
+global.Image = vi.fn().mockImplementation(() => {
+  lastImage = {
+    onload: vi.fn(),
+    onerror: vi.fn(),
+    src: '',
+    naturalWidth: 800,
+    naturalHeight: 600
+  }
+  return lastImage
+})
 
 describe('CropPreview Component', () => {
   it('should render canvas element', () => {
@@ -54,7 +59,7 @@ describe('CropPreview Component', () => {
     render(<CropPreview src="test-image.jpg" />)
     
     const canvas = screen.getByRole('img', { hidden: true })
-    expect(canvas).toHaveStyle('cursor: undefined')
+    expect(canvas).not.toHaveStyle('cursor: zoom-in')
   })
 
   describe('Image loading', () => {
@@ -70,12 +75,13 @@ describe('CropPreview Component', () => {
     })
 
     it('should handle image load error', () => {
-      const mockImage = new Image() as any
       const { container } = render(<CropPreview src="invalid-image.jpg" />)
-      
-      // Simulate image error
-      mockImage.onerror()
-      
+
+      // Simulate image error on the instance the component actually created
+      act(() => {
+        lastImage!.onerror()
+      })
+
       // Component should return null when failed
       expect(container.firstChild).toBeNull()
     })

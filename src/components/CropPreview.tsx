@@ -62,6 +62,8 @@ export function CropPreview({ src, bbox, className, paddingPct = 4, maxHeight = 
   return (
     <canvas
       ref={canvasRef}
+      role="img"
+      aria-label="Náhled objednávky"
       className={className}
       onClick={onClick}
       style={{ maxHeight, height: maxHeight, width: 'auto', display: 'block', cursor: onClick ? 'zoom-in' : undefined }}

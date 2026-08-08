@@ -127,20 +127,19 @@ describe('Density Utilities', () => {
   describe('initDensity', () => {
     it('should initialize density from localStorage', () => {
       window.localStorage.getItem.mockReturnValue('xl')
-      setDensity = vi.fn()
-      
+
       initDensity()
-      
-      expect(setDensity).toHaveBeenCalledWith('xl')
+
+      // setDensity(…) applies the density class to <html>
+      expect(document.documentElement.classList.add).toHaveBeenCalledWith('density-xl')
     })
 
     it('should use normal as default when localStorage is empty', () => {
       window.localStorage.getItem.mockReturnValue(null)
-      setDensity = vi.fn()
-      
+
       initDensity()
-      
-      expect(setDensity).toHaveBeenCalledWith('normal')
+
+      expect(document.documentElement.classList.add).toHaveBeenCalledWith('density-normal')
     })
   })
 })
