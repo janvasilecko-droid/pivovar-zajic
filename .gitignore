@@ -4,6 +4,9 @@ node_modules/
 # Build output
 dist/
 
+# Test coverage
+coverage/
+
 # Environment
 .env
 .env.local
@@ -45,3 +48,31 @@ android/build/
 android/local.properties
 *.apk
 *.aab
+
+# Test results and coverage
+coverage/
+*.coverage
+.nyc_output/
+*.lcov
+
+# Vitest
+.vitest/
+.vitest_cache/
+
+# Local tooling & temp outputs
+.rooignore
+.temp-*
+.temp_*.txt
+build_*.txt
+deploy_*.txt
+menu*.txt
+nav_full.txt
+parse_order_log.txt
+test_build.txt
+test_output.xlsx
+public/*.backup
+*.backup.tsx
+*.backup.mjs
+scripts/input/
+scripts/_*.mjs
+scripts/test-month-output.txt

@@ -1,21 +1,56 @@
-import { useState, useEffect } from 'react';
-import { Download, Eye, Palette, Smartphone, Sun, Moon, Monitor, Bell, BellOff, Volume2, VolumeX, MessageSquare, Timer, RefreshCw, CloudDownload, CheckCircle2, AlertCircle, GripVertical, Plus, Trash2, Eraser } from 'lucide-react';
+import { useState, useEffect, type FormEvent } from 'react';
+import { Download, Eye, Palette, Smartphone, Sun, Moon, Monitor, Bell, BellOff, Volume2, VolumeX, MessageSquare, Timer, RefreshCw, CloudDownload, CheckCircle2, AlertCircle, GripVertical, Plus, Trash2, Eraser, Lock } from 'lucide-react';
 
 import { DENSITY_OPTIONS, DensityMode, getDensity, setDensity } from '../lib/density';
 import { MenuCustomizeModal } from '../components/MenuCustomizeModal';
 import { useAuth } from '../lib/auth';
-import { NAV, NavItem } from '../components/Layout';
+import { supabase } from '../lib/supabase';
+import { NAV, NavItem, type Page } from '../components/Layout';
 import { canUserView, getUserPermissions, ModuleKey } from '../lib/permissions';
 import { Theme, getTheme, setTheme } from '../lib/theme';
 import { getNotificationPermission, requestNotificationPermission, getNotificationSettings, saveNotificationSettings, NotificationSettings } from '../lib/notifications';
 import { APP_VERSION, APP_VERSION_DATE, APP_CHANGELOG } from '../lib/version';
+import { forceRefresh } from '../lib/versionCheck';
 import { getQuickActions, saveQuickActions, QuickAction } from '../lib/quickActions';
 import { isAdminEmail } from '../lib/config';
+import { fetchWhatsAppSenders, addWhatsAppSender, removeWhatsAppSender, type WhatsAppSender } from '../lib/whatsappApi';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
+
+/**
+ * Všechny stránky / záložky aplikace, které nejsou v hlavním NAV menu,
+ * ale dají se použít jako rychlá tlačítka nahoře v hlavičce.
+ */
+const EXTRA_QUICK_ACTION_PAGES: { id: Page; label: string }[] = [
+  // --- VÝROBA ---
+  { id: 'zavoz', label: 'Závoz (rozvoz)' },
+  { id: 'orders_entry', label: 'Objednávky – zadávání' },
+  { id: 'bottling_entry', label: 'Lahve – zadávání' },
+  { id: 'bottling_overview', label: 'Lahve – přehled šarží' },
+  { id: 'sklo_promo', label: 'Sklo, Etikety, Podtáčky' },
+  { id: 'exkurze', label: 'Exkurze' },
+  { id: 'marketing', label: 'Marketing' },
+  // --- PIVOVAR ---
+  { id: 'stock', label: 'Stav zásob (Sklad)' },
+  { id: 'srotovani', label: 'Šrotování' },
+  // --- NÁSTROJE / HACCP ---
+  { id: 'sanitace', label: 'Sanitace' },
+  { id: 'sanitation_log', label: 'Sanitační deník' },
+  { id: 'checklists', label: 'Kontrolní seznamy (HACCP)' },
+  { id: 'planning', label: 'Plánování (Kalendář, Úkoly, Poznámky)' },
+  { id: 'kniha_jizd', label: 'Kniha jízd' },
+  { id: 'vycepy', label: 'Výčepy, Sanitace & Kalendář' },
+  // --- ČÍSELNÍKY ---
+  { id: 'places', label: 'Odběratelé' },
+  { id: 'beers', label: 'Piva' },
+  { id: 'packages', label: 'Obaly' },
+  { id: 'pricelist', label: 'Ceník' },
+  // --- NASTAVENÍ ---
+  { id: 'app_versions', label: 'Verze aplikace' },
+];
 
 export default function AppSettingsScreen() {
   const { profile, user } = useAuth();
@@ -24,6 +59,7 @@ export default function AppSettingsScreen() {
   const [notifPermission, setNotifPermission] = useState(getNotificationPermission());
   const [notifSettings, setNotifSettings] = useState<NotificationSettings>(getNotificationSettings());
   const [showMenuCustomize, setShowMenuCustomize] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isStandalone, setIsStandalone] = useState(false);
   const [hiddenModules, setHiddenModules] = useState<string[]>(() => {
@@ -33,6 +69,69 @@ export default function AppSettingsScreen() {
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   });
+
+  // WhatsApp — povolení odesílatelé (whitelist)
+  const [whatsappSenders, setWhatsappSenders] = useState<WhatsAppSender[]>([]);
+  const [newSenderName, setNewSenderName] = useState('');
+  const [newSenderNumber, setNewSenderNumber] = useState('');
+  const [senderMsg, setSenderMsg] = useState<string | null>(null);
+  const [senderErr, setSenderErr] = useState<string | null>(null);
+
+  // Změna hesla
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordMsg, setPasswordMsg] = useState<string | null>(null);
+  const [passwordErr, setPasswordErr] = useState<string | null>(null);
+  const [passwordBusy, setPasswordBusy] = useState(false);
+
+  async function handleChangePassword(e: FormEvent) {
+    e.preventDefault();
+    if (!newPassword || newPassword.length < 6) {
+      setPasswordErr('Heslo musí mít alespoň 6 znaků.');
+      setPasswordMsg(null);
+      return;
+    }
+    setPasswordErr(null);
+    setPasswordBusy(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setPasswordBusy(false);
+    if (error) {
+      setPasswordErr(error.message);
+      setPasswordMsg(null);
+    } else {
+      setPasswordMsg('Vaše heslo bylo úspěšně změněno!');
+      setPasswordErr(null);
+      setNewPassword('');
+    }
+  }
+
+  useEffect(() => {
+    fetchWhatsAppSenders().then(setWhatsappSenders).catch(() => {});
+  }, []);
+
+  async function handleAddSender() {
+    try {
+      await addWhatsAppSender(newSenderName, newSenderNumber);
+      setNewSenderName('');
+      setNewSenderNumber('');
+      setSenderErr(null);
+      setSenderMsg('Odesílatel byl přidán.');
+      setWhatsappSenders(await fetchWhatsAppSenders());
+    } catch (e) {
+      setSenderMsg(null);
+      setSenderErr(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async function handleRemoveSender(id: string) {
+    try {
+      await removeWhatsAppSender(id);
+      setSenderMsg(null);
+      setSenderErr(null);
+      setWhatsappSenders(await fetchWhatsAppSenders());
+    } catch (e) {
+      setSenderErr(e instanceof Error ? e.message : String(e));
+    }
+  }
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -65,11 +164,11 @@ export default function AppSettingsScreen() {
   }
 
   const pageToModuleMap: Record<string, ModuleKey> = {
-    dashboard: 'dashboard', kegging: 'entry', kegging_entry: 'entry', kegging_overview: 'entry',
+    dashboard: 'dashboard', kegging: 'entry',
     bottling: 'entry', bottling_entry: 'entry', bottling_overview: 'entry', orders_entry: 'entry',
     fasovani: 'entry', prodejna: 'entry', writeoffs: 'entry', orders: 'orders', zavoz: 'zavoz',
     kniha_jizd: 'kniha_jizd', stock: 'stock', inventory: 'inventory', srotovani: 'entry',
-    checklists: 'haccp', concentration: 'entry',
+    checklists: 'haccp', sanitace: 'haccp', concentration: 'entry',
     cellar: 'cellar', history: 'cellar', haccp: 'haccp', sanitation_log: 'haccp',
     places: 'catalogs', beers: 'catalogs', packages: 'catalogs', vehicles: 'catalogs',
     pricelist: 'pricelist', sklo_promo: 'sklo_promo', vycepy: 'vycepy', app_settings: 'app_settings',
@@ -85,6 +184,19 @@ export default function AppSettingsScreen() {
     if (!modKey) return true;
     return canUserView(profile?.role, user?.id, modKey, userPerms);
   });
+
+  // Extra stránky/záložky (mimo NAV) dostupné jako rychlá tlačítka — respektují oprávnění.
+  const permittedExtraQuickPages = EXTRA_QUICK_ACTION_PAGES.filter((p) => {
+    if (p.id === 'app_versions') return isAdmin;
+    const modKey = pageToModuleMap[p.id];
+    if (!modKey) return true;
+    return canUserView(profile?.role, user?.id, modKey, userPerms);
+  });
+
+  const quickActionOptions = [
+    ...permittedNav.map((n) => ({ id: n.id, label: n.label })),
+    ...permittedExtraQuickPages,
+  ];
 
   function saveHiddenModules(newHidden: string[]) {
     setHiddenModules(newHidden);
@@ -117,6 +229,70 @@ export default function AppSettingsScreen() {
         <p className="text-xs text-neutral-400 font-medium mt-1">Přizpůsobte si vzhled, chování a upozornění aplikace.</p>
       </div>
 
+      {/* Návod k použití */}
+      <div className="card p-6 border-2 border-amber-400/60 bg-gradient-to-br from-amber-50/50 to-white rounded-3xl shadow-sm">
+        <div className="flex items-center justify-between cursor-pointer" onClick={() => setShowGuide(!showGuide)}>
+          <h2 className="font-display font-black text-lg text-amber-950 flex items-center gap-2">
+            <span>📖</span> Návod k použití & Přehled funkcí
+          </h2>
+          <button className="text-xs font-bold text-amber-800 bg-amber-100 hover:bg-amber-200 px-3 py-1.5 rounded-xl transition">
+            {showGuide ? 'Skrýt návod ▲' : 'Zobrazit návod ▼'}
+          </button>
+        </div>
+
+        {showGuide && (
+          <div className="mt-5 space-y-6 text-sm text-neutral-700 leading-relaxed border-t border-amber-200 pt-5">
+            <div>
+              <h3 className="font-display font-extrabold text-neutral-900 flex items-center gap-1.5 text-sm uppercase tracking-wider mb-2">
+                <span>🏭</span> Výroba
+              </h3>
+              <ul className="list-disc list-inside space-y-1.5 pl-2">
+                <li><strong>KEG:</strong> Zápis stočených sudů. Stabilní řazení podle data stáčení a času vytvoření.</li>
+                <li><strong>Lahve (Stáčení):</strong> Zápis stočených lahví, bilance zásob piva a přehled <em>Potřeby stočit</em> (sklad vs. objednávky). Obsahuje také záložku <strong>Sklo, Etikety, Podtácky</strong> pro správu obalového materiálu.</li>
+                <li><strong>Objednávky:</strong> Evidence objednávek s možností nahrávání hlasem, kopírování textu z WhatsApp či importu z Excelu. Nyní obsahuje záložku <strong>Výčepy (Zápůjčky)</strong> pro zapůjčenou techniku.</li>
+                <li><strong>Fasování, Prodejna, Odpis:</strong> Záznamy prodejů na prodejně, fasování piva pro akce a zápisy poškozeného či prošlého piva k odpisu.</li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="font-display font-extrabold text-neutral-900 flex items-center gap-1.5 text-sm uppercase tracking-wider mb-2">
+                <span>🍺</span> Pivovar
+              </h3>
+              <ul className="list-disc list-inside space-y-1.5 pl-2">
+                <li><strong>Sklad:</strong> Rychlý přehled aktuálních disponibilních zásob sudů, lahví a reklamních předmětů.</li>
+                <li><strong>Sklep:</strong> Evidence ležáckých tanků, průběhu kvašení, vaření piva a kompletní varné listy.</li>
+                <li><strong>Inventura:</strong> Měsíční uzávěrka skladu. Na začátku měsíce je prázdná, zadává se na konci měsíce. Tlačítkem <em>Schválit & převést</em> se stavy uzamknou a přenesou do počátečního stavu dalšího měsíce.</li>
+                <li><strong>Sanitace:</strong> Sjednocené místo pro čistotu pivovaru. Obsahuje <em>Sanitační deník</em> pro zápis čištění, <em>Sanitační postupy & Řád</em> (HACCP) a <em>Check-listy & Návody</em> k obsluze strojů.</li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="font-display font-extrabold text-neutral-900 flex items-center gap-1.5 text-sm uppercase tracking-wider mb-2">
+                <span>⚙️</span> Nástroje
+              </h3>
+              <ul className="list-disc list-inside space-y-1.5 pl-2">
+                <li><strong>Kalkulačky:</strong> Rychlé výpočty koncentrací, alkoholu, ředění mladiny a obsahu cukru.</li>
+                <li><strong>Plánování:</strong> Sjednocený plánovací panel zobrazující na jedné obrazovce interaktivní <strong>Kalendář</strong>, <strong>Úkoly/Upomínky</strong> a <strong>Poznámkový blok</strong>.</li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="font-display font-extrabold text-neutral-900 flex items-center gap-1.5 text-sm uppercase tracking-wider mb-2">
+                <span>🗂️</span> Číselníky (Depozitář)
+              </h3>
+              <ul className="list-disc list-inside space-y-1.5 pl-2">
+                <li><strong>Depozitář:</strong> Správa <em>Odběratelů</em>, <em>Piv</em>, <em>Obalů</em> a hlavního <em>Ceníku</em> na jednom místě pod záložkami.</li>
+                <li><strong>Auta:</strong> Vozový park s platnostmi STK a dálničních známek, sloučený s přehlednou <strong>Knihou jízd</strong>.</li>
+              </ul>
+            </div>
+
+            <div className="bg-amber-100/50 p-3.5 rounded-2xl border border-amber-200 text-xs text-amber-900 font-bold">
+              💡 Tento návod budeme průběžně doplňovat a aktualizovat s každou novou funkcí, kterou do aplikace Zajíc přidáme.
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Instalace */}
       <div className="card p-6">
         <h2 className="font-display font-bold text-lg flex items-center gap-2"><Smartphone size={20} /> Instalace aplikace</h2>
@@ -140,7 +316,7 @@ export default function AppSettingsScreen() {
       </div>
 
       {/* Rychlá tlačítka nahoře */}
-      <QuickActionsSection userId={user?.id || 'guest'} permittedNav={permittedNav} />
+      <QuickActionsSection userId={user?.id || 'guest'} options={quickActionOptions} />
 
       {/* Hustota / Velikost */}
       <div className="card p-6">
@@ -287,6 +463,93 @@ export default function AppSettingsScreen() {
       </div>
 
       {/* 🔄 ADMIN: Verze & Synchronizace dat */}
+      {/* WhatsApp — povolení odesílatelé */}
+      <div className="card p-6">
+        <h2 className="font-display font-bold text-lg flex items-center gap-2"><MessageSquare size={20} /> WhatsApp — povolení odesílatelé</h2>
+        <p className="text-sm text-neutral-600 mt-2">
+          Zprávy se načítají automaticky jen od povolených kontaktů.
+          {whatsappSenders.length === 0
+            ? ' Seznam je prázdný — načítají se zprávy od VŠECH odesílatelů.'
+            : ' Zprávy od ostatních zůstanou v seznamu pro ruční zpracování.'}
+        </p>
+
+        <div className="mt-4 space-y-2">
+          {whatsappSenders.map((s) => (
+            <div key={s.id} className="flex items-center justify-between p-3 rounded-2xl bg-neutral-50 border border-neutral-200">
+              <div>
+                <div className="text-sm font-black text-neutral-800">{s.sender_name}</div>
+                {s.sender_number && <div className="text-xs text-neutral-500">{s.sender_number}</div>}
+              </div>
+              <button
+                onClick={() => handleRemoveSender(s.id)}
+                className="p-2 rounded-xl hover:bg-rose-100 text-rose-500 hover:text-rose-700 transition"
+                title="Odebrat odesílatele"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          ))}
+          {whatsappSenders.length === 0 && (
+            <div className="text-sm text-neutral-400 py-2 italic">Zatím žádný povolený odesílatel.</div>
+          )}
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-2 mt-3">
+          <input
+            type="text"
+            value={newSenderName}
+            onChange={(e) => setNewSenderName(e.target.value)}
+            placeholder="Jméno kontaktu (např. Hospoda U Zajíce)"
+            className="input flex-1"
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddSender(); } }}
+          />
+          <input
+            type="text"
+            value={newSenderNumber}
+            onChange={(e) => setNewSenderNumber(e.target.value)}
+            placeholder="Telefon (volitelné)"
+            className="input w-full sm:w-44"
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddSender(); } }}
+          />
+          <button
+            onClick={handleAddSender}
+            className="btn-primary text-sm font-black flex items-center justify-center gap-1.5 shrink-0"
+          >
+            <Plus size={16} /> Přidat
+          </button>
+        </div>
+
+        {senderErr && <div className="mt-2 p-2 rounded-xl bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200">{senderErr}</div>}
+        {senderMsg && <div className="mt-2 p-2 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">{senderMsg}</div>}
+      </div>
+
+      {/* 🔒 Změna hesla */}
+      <div className="card p-6">
+        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Lock size={20} /> Změna hesla</h2>
+        <p className="text-sm text-neutral-600 mt-2">Zadejte nové heslo pro přihlášení do aplikace (min. 6 znaků).</p>
+        <form onSubmit={handleChangePassword} className="mt-4 space-y-3">
+          <div>
+            <label className="label">Nové heslo</label>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Zadejte nové heslo (min. 6 znaků)"
+              className="input w-full"
+            />
+          </div>
+          {passwordMsg && <div className="p-3 bg-emerald-100 text-emerald-900 font-bold text-xs rounded-xl">{passwordMsg}</div>}
+          {passwordErr && <div className="p-3 bg-rose-100 text-rose-900 font-bold text-xs rounded-xl">{passwordErr}</div>}
+          <button
+            type="submit"
+            disabled={passwordBusy}
+            className="btn-primary text-sm font-black flex items-center justify-center gap-1.5 w-full sm:w-auto"
+          >
+            {passwordBusy ? 'Ukládám…' : '✅ Uložit nové heslo'}
+          </button>
+        </form>
+      </div>
+
       {isAdmin && (
         <AdminVersionSyncSection />
       )}
@@ -294,7 +557,7 @@ export default function AppSettingsScreen() {
   );
 }
 
-function QuickActionsSection({ userId, permittedNav }: { userId: string; permittedNav: NavItem[] }) {
+function QuickActionsSection({ userId, options }: { userId: string; options: { id: string; label: string }[] }) {
   const [actions, setActions] = useState<QuickAction[]>(() => getQuickActions(userId));
 
   function save(newActions: QuickAction[]) {
@@ -304,7 +567,7 @@ function QuickActionsSection({ userId, permittedNav }: { userId: string; permitt
 
   function addAction() {
     if (actions.length >= 4) return;
-    const firstUnused = permittedNav.find((n) => !actions.some((a) => a.pageId === n.id));
+    const firstUnused = options.find((n) => !actions.some((a) => a.pageId === n.id));
     if (!firstUnused) return;
     save([...actions, { pageId: firstUnused.id, label: firstUnused.label, icon: '🔗' }]);
   }
@@ -314,9 +577,9 @@ function QuickActionsSection({ userId, permittedNav }: { userId: string; permitt
   }
 
   function changeAction(idx: number, pageId: string) {
-    const navItem = permittedNav.find((n) => n.id === pageId);
-    if (!navItem) return;
-    const newActions = actions.map((a, i) => i === idx ? { ...a, pageId: navItem.id, label: navItem.label } : a);
+    const option = options.find((n) => n.id === pageId);
+    if (!option) return;
+    const newActions = actions.map((a, i) => i === idx ? { ...a, pageId: option.id, label: option.label } : a);
     save(newActions);
   }
 
@@ -339,7 +602,7 @@ function QuickActionsSection({ userId, permittedNav }: { userId: string; permitt
               value={a.pageId}
               onChange={(e) => changeAction(i, e.target.value)}
             >
-              {permittedNav.map((n) => (
+              {options.map((n) => (
                 <option key={n.id} value={n.id}>{n.label}</option>
               ))}
             </select>
@@ -523,6 +786,15 @@ function AdminVersionSyncSection() {
           <div className="text-[10px] font-black uppercase tracking-wider text-amber-400">Poslední změna kódu</div>
           <div className="text-lg font-display font-black mt-1">{APP_VERSION_DATE}</div>
         </div>
+      </div>
+
+      <div className="mt-3">
+        <button
+          onClick={forceRefresh}
+          className="w-full py-3 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 hover:text-amber-800 font-black text-xs border border-amber-300 transition flex items-center justify-center gap-1.5"
+        >
+          🔄 Vynutit stažení nejnovější verze aplikace (vyčistit cache)
+        </button>
       </div>
 
       {/* Co je nového v této verzi */}

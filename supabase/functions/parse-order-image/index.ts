@@ -25,6 +25,29 @@ interface AiResponse {
   error?: string;
 }
 
+// 🧹 Pokud AI přečetlo tu samou objednávku z fotky víckrát (duplicitní řádky
+// v odpovědi), ponecháme ji jen jednou. Deduplikace probíhá podle toho, co je
+// pro objednávku podstatné (odběratel, pivo, obal, stupeň, množství, datum).
+function dedupeItems(items: OrderItem[]): OrderItem[] {
+  const seen = new Set<string>();
+  const out: OrderItem[] = [];
+  for (const it of items) {
+    const key = [
+      it.place_name || "",
+      it.beer_name || "",
+      it.package_label || "",
+      it.degree || "",
+      it.quantity ?? "",
+      it.date || "",
+    ].join("|").toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(it);
+  }
+  return out;
+}
+
+
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -101,7 +124,7 @@ KRITICKÉ POKYNY PRO ČTENÍ TEXTU Z OBRÁZKU:
 6. Věnuj zvláštní pozornost JMÉNU ODBĚRATELE — toto jméno je VŽDY napsané v TEXTU objednávky/zprávy (např. "Malesice", "Naseb", "Žižkov", "Seeberg"), často na začátku, v oslovení, nebo v podpisu. NIKDY ho nedoplňuj ze jména odesílatele v hlavičce WhatsApp chatu (to je jen "Pojmi", "Bednář", "Účetní" apod.).
 7. Pokud je na obrázku VÍCE WhatsApp oken (více chatů), každé okno má VLASTNÍ hlavičku se jménem — přečti každou hlavičku zvlášť.
 8. ČÍSLA OBJEMU (50, 30, 20, 15, 10, 1.5, 1, 0.5, 0.33) jsou KRITICKÁ — špatné přečtení objemu znamená špatný obal (KEG vs. lahev vs. PET).
- 9. Pokud je číslo napsané jako "0,5" nebo "0.5", je to VŽDY skleněná lahev 0.5l — nikdy to nečti jako "05" nebo "5".
+ 9. Pokud je číslo napsané jako "0,5" nebo "0.5" nebo "lahve"/"flašky" bez udání objemu, je to VŽDY skleněná lahev 0.5l ("Lahve 0.5l"). NIKDY to nečti jako 0.33l ani jako "05" nebo "5". ROZLIŠUJ 0,5l A 0,33l! "Lahve 0.33l" vrať POUZE pokud je v textu výslovně napsáno "0,33" nebo "0.33" nebo "třetinka".
 10. Pokud je číslo napsané jako "1,5" nebo "1.5", je to VŽDY PET 1.5l.
 11. KRITICKÉ — NEPLÉTEJ SI OBJEM A MNOŽSTVÍ! Zápis "20l 1x" znamená OBJEM 20 litrů (KEG 20l) a MNOŽSTVÍ 1 kus. NIKDY to nečti jako "1l 20x" (PET 1l, 20 kusů). Stejně tak "30l 2x" = 2× KEG 30l, NE 30× PET 1l. Číslo s "l" (litr) je VŽDY OBJEM/obal, číslo s "x" nebo "ks" je VŽDY MNOŽSTVÍ. Pokud je na řádku "20l 1x", quantity=1 a package_label="KEG 20l".
 12. Pokud je na řádku objem s "l" (např. "20l", "30l", "50l", "1,5l") a zvlášť množství s "x" (např. "1x", "2x", "5x"), přiřaď je SPRÁVNĚ: objem → package_label, množství → quantity. NIKDY je neprohoď.
@@ -116,6 +139,54 @@ KRITICKÉ POKYNY PRO ČTENÍ TEXTU Z OBRÁZKU:
    - "2 bedny tmavého" = 2 × 20 = 40 ks lahví 0.33l tmavého piva (quantity=40, package_label="Lahve 0.33l")
    - "3 bedny 12sv" = 3 × 20 = 60 ks lahví 0.33l piva 12° světlého (quantity=60, package_label="Lahve 0.33l")
    VŽDY vynásob počet beden číslem 20 a výsledek zapiš jako quantity. Obal je VŽDY "Lahve 0.33l". Stupeň/barva piva se určí podle textu (např. "tmavého" = tmavé, "12sv" = 12° světlé).
+21. KRITICKÉ — IGNORUJ CITOVANÉ ZPRÁVY A REAKCE VE WHATSAPPU:
+   - Ve WhatsApp chatu se při odpovědi zobrazuje CITOVANÁ ZPRÁVA (v přišedlém/odlišeném rámečku nahoře v bublině zprávy, kde je zopakované jméno odesílatele a text původní zprávy).
+   - NIKDY neextrahuj položky z CITOVANÉ ZPRÁVY jako novou samostatnou objednávku! Je to jen zopakovaný text původní zprávy.
+   - Texty pod citací typu "3x30 čeho", "čeho?", "jaké pivo?", "ok", "platí", "příští týden", "díky" jsou CHATOVÉ DOTAZY/KOMENTÁŘE, NIKOLIV samostatné objednávky. Neextrahuj z nich nové položky.
+22. KRITICKÉ — DEDUPLIKACE STEJNÉ OBJEDNÁVKY NA JEDNOM SNÍMKU:
+   - Pokud je na fotce/snímku stejný odběratel a stejná položka zmíněna/zopakována vícekrát (např. v původní zprávě a následně v citaci nebo v otázce), VYTVOŘ TUTO POLOŽKU POUZE JEDNOU!
+
+
+28. KRITICKÉ — STUPEŇ PATŘÍ K TÉ OBJEDNÁVCE, U KTERÉ JE NA FOTCE NAPSANÝ:
+   Na fotografii objednávky je často napsáno jen MNOŽSTVÍ + OBAL (např. "2x50" = 2× KEG 50l) a STUPEŇ piva (např. 8, 8°, 8sv) je zapsán zvlášť — pod tím číslem, vedle něj, na stejném řádku/sloupečku, nebo v jeho blízkosti.
+   POSTUP:
+   1) KE KAŽDÉ položce přiřaď TEN stupeň, který je na obrázku v její BLÍZKÉM okolí (tentýž řádek, sloupec, pod číslem objednávky). Např. stojí-li u čísla "2x50" na stejném místě/sloupei stupňa "8" a níže na fotce je jiný řádek se stupněm "10", pak "2x50" = 2× KEG 50l piva 8° (ne 10°).
+   2) NIKDY neber stupeň z JINÉ objednávky/řádku na fotce, jen proto, že je v blízkosti na snímku. Jestliže u "2x50" je zapsáno 8 a jinde (nahoře/dole/vedle) je 10, použij 8 pro tu "2x50" objednávku.
+   3) Pokud je stupeň vizuálně u VÍCE položek najednou (tzv. skupinově v hlavičce sloupečku), platí pro všechny položky v tom sloupečku. Pokud je jasně jen u jedné konkrétní položky, platí jen pro ni.
+   4) Pokud si stupeň přiřazený ke konkrétní objednávce nevidíš (není ve stejném okolí), ponech degree=null a NEDOSAZUJ ho z jiné objednávky na snímku.
+
+29. KRITICKÉ — KDYŽ OBJEDNÁVKA NEMÁ STUPEŇ, HLEDEJ HO V KONTEXTU ODPOVĚDI; POKUD HO NENAJDEŠ, NECH HO PRÁZDNÝ:
+   Stává se, že objednávka je napsaná JEN jako objem: např. "Terasa 2x50" = 2× KEG 50l, ale STUPEŇ/DRUH PIVA v tom řádku není. Pod ní (ve výřezu/pokračování konverzace) může být dotaz a odpověď, která stupeň dodá — např. dotaz účetní "co to je?" a odpověď "8" (znamená 8°).
+   POSTUP:
+   1) Pokud položka NEMÁ stupeň/beer_name ve svém vlastním řádku, podívej se do KONTEXTU té konverzace (výřez pod zprávou, navazující odpověď/upřesnění). Pokud je v odpovědi jednoznačný stupeň (např. "8" = 8°, "10", "12sv", "11"), DOPLŇ ho k té objednávce → např. "Terasa 2x50" + odpověď "8" = 2× KEG 50l piva 8° (beer_name i degree upřesni podle katalogu).
+   2) Odpověď patří TÉ objednávce, ze které/s níž komunikace pokračuje (stejný odběratel, stejné vyslovení). Nesmíš použít stupeň z JINÉ objednávky v jiném okně na fotce.
+   3) Rozlišuj pojmy: dotaz/odpověď typu "8" je STUPEŇ piva (8°), ne objem a ne počet sudů. "co to je?"/“jaký druh" se ptá na pivo.
+   4) KRITICKÉ — POKUD KONTEXT NENAJDEŠ: když ani po prohledání konverzace kolem položky nenajdeš jednoznačný stupeň/druh piva, PONECHEJ degree=null a beer_name=null (vrať prázdné pole). Aplikace pak nechá druh piva NEVYPLNĚNÝ, aby si ho uživatel dohledal ručně. NIKDY nevymýšlej stupeň a NIKDY ho nedoplňuj z jiné objednávky.
+
+
+
+27. KRITICKÉ — ODPOVĚDI NA OBJEDNÁVKU = DOPLNĚNÍ STEJNÉ OBJEDNÁVKY:
+   Cháp KONTEXT CELÉHO SNÍMKU, nečti jen řádky tupe, jeden vedle druhého. Ve WhatsApp se na objednávku často ODPOVÍDÁ — pod původní zprávou (citací) je odpověď typu "ještě k tomu 2x 30l", "k tomu přidej 10x 12sv", "a 5x 50l", "budu brát i 20x 0,5", "ke kégům ještě 1x bednu tmavého" apod. Taková odpověď NAVAZUJE na tu PŮVODNÍ zprávu, na kterou reaguje, a není to nová samostatná objednávka!
+   POSTUP:
+   1) Pokud je na snímku citace/zopakování předchozí objednávky a pod ní odpověď, která jen doplňuje ("ještě", "k tomu", "dále", "a", "přidej", "budu", "chci i", "k těm", "kegům ještě"...), PŘIPOJ tuto odpověď k TÉ PŮVODNÍ objednávce (stejný odběratel + datum + stejné zaslání).
+   2) Přiřaď položkám z odpovědi SAMEJM ODBĚRATELE A PROSTŘEDÍ jako z citované/původní zprávy. NIKDY pro ně netvoř jiný place_name ani je nenechávej bez odběratele.
+   3) Chybějící informace (stupeň, barva, obal, odběratele) doplněné z původní/citované zprávy, ke které odpověď patří — např. "k tomu ještě 2x 30l" u 12° světlého piva = 2× KEG 30l 12° světlé, stejný odběratel.
+   4) Nevytvářej z citace znovu položky, které už v původní objednávce jsou (viz pravidlo 22 o deduplikaci). Ale položky, které odpověď DOPLŇUJE nově, přidej jako další řádky té SAMÉ objednávky (stejného odběratele).
+   5) NEPLÉTEJ si zprávy od RŮZNÝCH odběratelů: odpověď patří vždy k té citované/předchozí zprávě, ke které reaguje, ne k jiným chatům na snímku.
+   6) KRITICKÉ — ODPOVĚĎ MŮŽE PŮVODNÍ OBJEDNÁVKU I UPRAVIT (NEJEN DOPLNIT): Pokud odpověď na předchozí zprávu OPRAVUJE/UPRAVUJE původní data (např. "těch 2x50 neber, dej 3x50", "místo 12sv chci 11sv", "sudů místo 2 bude 5", "k tomu 2x30 NE, jen 1x20"), pak na základě odpovědi UPRAV počet/obal/stupeň TÉ PŮVODNÍ položky v původní objednávce — ne jen přidej nový řádek. Výsledná objednávka = původní záměr PO spotřebování úprav z odpovědi.
+   7) Rozlišení „doplň“ vs „oprav“: slova jako "ještě", "k tomu dod"/"přidej", "a ještě", "budu brát i" = DOPLNĚNÍ (přidej nové položky k téže objednávce). Slova jako "ne", "neber", "místo", "oprav", "změ", "bude 3x", "radši", "jen 1x" = OPRAVA (uprav/ubahon existující položku původní objednávky). Vypočítej výslednou objednávku PO všech úpravách a nevytvářej duplicitní/staré řádky.
+
+
+
+23. KRITICKÉ — 50L SUDY:
+   - POKUD JE NA FOTCE/OBRÁZKU 50L, 50 L, 50, "VELKÝ SUD", "SUD 50" NEBO "KEG 50", PAK JE OBAL VŽDY "KEG 50l"! NIKDY NEPIŠ "KEG 30l" ANI "30l"!
+   - Pokud je u položky uvedeno "50l", "50 l", "50", "velký sud", "sud 50", "keg 50", Obal/package_label MUSÍ BÝT "KEG 50l"! NIKDY to nepiš jako "KEG 30l" ani nenechávej obal prázdný!
+25. KRITICKÉ — VYHODNOCENÍ LAHVÍ 20x0,5 A 20x0,33:
+   - Pokud je v textu "20x0,5" nebo "20x0.5" nebo "20 ks 0,5l", jde o 20 ks lahví 0,5l (package_label: "Lahve 0.5l")! NIKDY to nepíš jako 0.33l!
+   - Pouze pokud je výslovně napsáno "0,33" nebo "0.33" (např. "20x0,33"), použij "Lahve 0.33l".
+24. KRITICKÉ — BEDNY / PŘEPRAVKY A KUSY LAHVÍ:
+   - 1 bedna (přepravka) = 20 ks lahví!
+   - Pokud zákazník objedná např. "6 beden", vypočítej celkový počet kusů lahví: 6 x 20 = 120 ks lahví! Vrať quantity: 120 a package_label: "Lahve 0.5l" (případně "Lahve 0.33l" pokud je v textu explicitně 0.33).
 20. KRITICKÉ — RUČNĚ PSANÉ OBJEDNÁVKY: Pokud je objednávka napsaná RUČNĚ (tužkou/perem, ne tiskem), čti ji MIMOŘÁDNĚ POZORNĚ. Ruční písmo je často nečitelné, čísla splývají a čárky/tečky jsou nejasné. Postup:
    - ČÍSLA čti podle TVARU a KONTEXTU: "1" a "7" se v ručním písmu pletou, "0" a "6", "3" a "8", "4" a "9". Pokud si nejsi jistý, zvol číslo, které dává smysl v kontextu objednávky piva (např. objem 30/50/20/15/10, počet 1-20).
    - ČÁRKY A TEČKY: V ručním písmu je čárka/tečka u desetinných čísel často nejasná. "0,5" může vypadat jako "05" nebo "5", "1,5" jako "15". VŽDY zvaž kontext: objem 0.5/0.33 = lahev, 1.5/1 = PET, 10/15/20/30/50 = KEG.
@@ -279,7 +350,7 @@ PRAVIDLA:
 
 
 Vrať ČISTĚ JSON (bez markdown, bez \`\`\`), přesně v tomto formátu, a nic jiného:
-{"items":[{"quantity":4,"degree":"12°","beer_name":"Světlý ležák","package_label":"KEG 30l","raw_line":"Seeberg 4x30 12sv a 2x30 12sv","place_name":"Seeberg","date":"2026-08-07","bbox":{"x0":5,"y0":12,"x1":80,"y1":18}},{"quantity":2,"degree":"12°","beer_name":"Světlý ležák","package_label":"KEG 30l","raw_line":"Seeberg 4x30 12sv a 2x30 12sv","place_name":"Seeberg","date":"2026-08-07","bbox":{"x0":5,"y0":18,"x1":80,"y1":24}}],"order_date":"2026-08-07","place_name":"Seeberg","raw_text":"celý rozpoznaný text"};
+{"items":[{"quantity":4,"degree":"12°","beer_name":"Světlý ležák","package_label":"KEG 50l","raw_line":"Seeberg 4x30 12sv a 2x30 12sv","place_name":"Seeberg","date":"2026-08-07","bbox":{"x0":5,"y0":12,"x1":80,"y1":18}},{"quantity":2,"degree":"12°","beer_name":"Světlý ležák","package_label":"KEG 30l","raw_line":"Seeberg 4x30 12sv a 2x30 12sv","place_name":"Seeberg","date":"2026-08-07","bbox":{"x0":5,"y0":18,"x1":80,"y1":24}}],"order_date":"2026-08-07","place_name":"Seeberg","raw_text":"celý rozpoznaný text"};
 
 
 DŮLEŽITÉ — TOP-LEVEL "place_name":
@@ -361,6 +432,11 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
     } catch {
       // If JSON parse fails, return the raw text so frontend can show it
       parsed = { items: [], raw_text: text };
+    }
+
+    // 🧹 Deduplikace odpovědi — každou objednávku přečtenou z fotky vrátit jen jednou.
+    if (Array.isArray(parsed.items)) {
+      parsed.items = dedupeItems(parsed.items);
     }
 
     return new Response(

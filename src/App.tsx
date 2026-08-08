@@ -20,7 +20,7 @@ import Feedback from './screens/Feedback';
 import Statistika from './screens/Statistika';
 import PriceListScreen from './screens/PriceList';
 import CellarScreen from './screens/Cellar';
-import { SrotovaniScreen, ChecklistsScreen, ConcentrationScreen, VarniListyScreen } from './screens/BreweryScreens';
+import { SrotovaniScreen, ChecklistsScreen, ConcentrationScreen } from './screens/BreweryScreens';
 import InventoryScreen from './screens/InventoryScreen';
 import KnihaJizdScreen from './screens/KnihaJizdScreen';
 import SkloPromoScreen from './screens/SkloPromoScreen';
@@ -44,6 +44,13 @@ function wasOpenedViaShare(): boolean {
 
 import HaccpScreen from './screens/HaccpScreen';
 import SanitationLogScreen from './screens/SanitationLogScreen';
+import VehiclesTabbed from './screens/VehiclesTabbed';
+import DepozitarTabbed from './screens/DepozitarTabbed';
+import SanitaceTabbed from './screens/SanitaceTabbed';
+import OdpisTabbed from './screens/OdpisTabbed';
+import PlanningTabbed from './screens/PlanningTabbed';
+import MarketingTabbed from './screens/MarketingTabbed';
+import OrdersTabbed from './screens/OrdersTabbed';
 
 export default function App() {
   const { session, loading } = useAuth();
@@ -97,14 +104,25 @@ export default function App() {
       <CriticalMaterialAlertModal />
       {page === 'dashboard' && <Dashboard setPage={setPage} />}
       {page === 'concentration' && <ConcentrationScreen />}
-      {page === 'checklists' && <ChecklistsScreen />}
-      {page === 'haccp' && <HaccpScreen initialSection={haccpSection} />}
-      {page === 'sanitation_log' && <SanitationLogScreen setPage={setPage} />}
-      {page === 'orders_entry' && <Orders mode="all" setPage={setPage} autoOpenShareImport={autoOpenShareImport} onShareImportHandled={() => setAutoOpenShareImport(false)} />}
-      {page === 'orders' && <Orders mode="all" setPage={setPage} autoOpenShareImport={autoOpenShareImport} onShareImportHandled={() => setAutoOpenShareImport(false)} />}
+      {(page === 'checklists' || page === 'haccp' || page === 'sanitation_log' || page === 'sanitace') && (
+        <SanitaceTabbed
+          initialTab={
+            page === 'haccp' ? 'haccp' : page === 'checklists' ? 'checklists' : 'sanitation_log'
+          }
+          initialSection={haccpSection}
+          setPage={setPage}
+        />
+      )}
+      {(page === 'orders' || page === 'orders_entry' || page === 'vycepy') && (
+        <OrdersTabbed
+          initialTab={page === 'vycepy' ? 'vycepy' : 'orders'}
+          autoOpenShareImport={autoOpenShareImport}
+          onShareImportHandled={() => setAutoOpenShareImport(false)}
+          setPage={setPage}
+        />
+      )}
 
       {page === 'zavoz' && <Zavoz setPage={setPage} />}
-      {page === 'kniha_jizd' && <KnihaJizdScreen setPage={setPage} />}
       {page === 'stock' && <Stock />}
       {page === 'bottling' && <BottlingScreen mode="all" setPage={setPage} />}
       {page === 'bottling_entry' && <BottlingScreen mode="entry_only" setPage={setPage} />}
@@ -112,24 +130,37 @@ export default function App() {
       {page === 'srotovani' && <SrotovaniScreen setPage={setPage} />}
 
       {page === 'kegging' && <KeggingScreen mode="all" setPage={setPage} />}
-      {page === 'fasovani' && <ProdejnaScreen setPage={setPage} table="fasovani" title="Fasování" icon="📦" showVycep />}
-      {page === 'writeoffs' && <ProdejnaScreen setPage={setPage} table="writeoffs" title="Odpis" icon="📉" />}
+      {page === 'fasovani' && <ProdejnaScreen setPage={setPage} table="fasovani" title="Personál" icon="📦" showVycep />}
+      {(page === 'writeoffs' || page === 'sklo_promo') && (
+        <OdpisTabbed initialTab={page === 'sklo_promo' ? 'sklo_promo' : 'odpis'} setPage={setPage} />
+      )}
       {page === 'prodejna' && <ProdejnaScreen setPage={setPage} />}
-      {page === 'sklo_promo' && <SkloPromoScreen setPage={setPage} />}
-      {page === 'vycepy' && <VycepyScreen />}
-      {page === 'exkurze' && <ExkurzeScreen />}
-      {page === 'reminders' && <RemindersScreen />}
-      {page === 'akce' && <AkceScreen />}
+      {(page === 'akce' || page === 'exkurze' || page === 'marketing') && (
+        <MarketingTabbed
+          initialTab={
+            page === 'exkurze' ? 'exkurze' : 'akce'
+          }
+        />
+      )}
       {page === 'inventory' && <InventoryScreen />}
-      {page === 'calendar' && <CalendarScreen />}
-      {page === 'feedback' && <Feedback />}
+      {(page === 'calendar' || page === 'reminders' || page === 'feedback' || page === 'planning') && (
+        <PlanningTabbed />
+      )}
       {page === 'history' && <Statistika />}
-      {page === 'pricelist' && <PriceListScreen />}
+      {(page === 'pricelist' || page === 'places' || page === 'beers' || page === 'packages' || page === 'depozitar') && (
+        <DepozitarTabbed
+          initialTab={
+            page === 'beers' ? 'beers' : page === 'packages' ? 'packages' : page === 'pricelist' ? 'pricelist' : 'places'
+          }
+        />
+      )}
       {page === 'cellar' && <CellarScreen setPage={setPage} />}
-      {page === 'places' && <PlacesScreen />}
-      {page === 'beers' && <BeersScreen />}
-      {page === 'packages' && <PackagesScreen />}
-      {page === 'vehicles' && <VehiclesScreen />}
+      {(page === 'vehicles' || page === 'kniha_jizd') && (
+        <VehiclesTabbed
+          initialTab={page === 'kniha_jizd' ? 'kniha_jizd' : 'vehicles'}
+          setPage={setPage}
+        />
+      )}
       {page === 'users' && <Users />}
       {page === 'app_settings' && <AppSettingsScreen />}
       {page === 'app_versions' && <AppVersionsScreen />}

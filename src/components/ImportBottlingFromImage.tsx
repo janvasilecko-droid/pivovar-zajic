@@ -26,10 +26,23 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
   const [err, setErr] = useState<string | null>(null);
 
   const [photos, setPhotos] = useState<PhotoEntry[]>([]);
+  // Auto-open gallery on mount
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (fileRef.current && photos.length === 0) {
+        fileRef.current.click();
+      }
+    }, 50);
+    return () => clearTimeout(timer);
+  }, []);
+
+
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [editingImage, setEditingImage] = useState<string | null>(null);
   const [editBeforeOcr, setEditBeforeOcr] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [rowsMap, setRowsMap] = useState<Record<number, RowInput[]>>({});
 
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -58,40 +71,43 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
   }, [isOpen, busy]);
 
   // Process queue of files
-  useEffect(() => {
-    if (processingRef.current) return;
-    if (editingImage) return;
-    if (pendingFiles.length === 0) return;
-    if (entryRows !== null) return; // Wait for user to review
+    useEffect(() => {
+    if (!photos.length || busy) return;
+    if (rowsMap[activeIndex] && entryRows !== null) return;
+    const currentPhoto = photos[activeIndex];
+    if (!currentPhoto) return;
+    if (rowsMap[activeIndex]) {
+      setEntryRows(rowsMap[activeIndex]);
+      return;
+    }
+    const base64 = currentPhoto.dataUrl.split(',')[1] ?? '';
+    runOcrFromBase64(base64, 'image/jpeg', activeIndex);
+  }, [photos, activeIndex]);
 
-    const next = pendingFiles[0];
-    setPendingFiles((q) => q.slice(1));
-    const idx = currentPhotoIndex;
-    setCurrentPhotoIndex(idx + 1);
-    handleFile(next);
-  }, [pendingFiles, editingImage, entryRows]);
-
-  const handleFile = (file: File) => {
-    processingRef.current = true;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      if (editBeforeOcr) {
-        setEditingImage(dataUrl);
-      } else {
-        setPhotos([{ dataUrl, name: file.name }]);
-        const base64 = dataUrl.split(',')[1] ?? '';
-        runOcrFromBase64(base64, file.type || 'image/jpeg');
-      }
-    };
-    reader.onerror = () => {
-      setErr('Nelze načíst obrázek: ' + file.name);
-      processingRef.current = false;
-    };
-    reader.readAsDataURL(file);
+  const loadMultipleFiles = (files: File[]) => {
+    if (!files.length) return;
+    setBusy(true);
+    let loaded: PhotoEntry[] = [];
+    let count = 0;
+    files.forEach((f, idx) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        loaded[idx] = { dataUrl: reader.result as string, name: f.name };
+        count++;
+        if (count === files.length) {
+          setPhotos((prev) => [...prev, ...loaded.filter(Boolean)]);
+          setBusy(false);
+        }
+      };
+      reader.readAsDataURL(f);
+    });
   };
 
-  const runOcrFromBase64 = async (base64: string, mimeType: string) => {
+  const handleFile = (file: File) => {
+    loadMultipleFiles([file]);
+  };
+
+  const runOcrFromBase64 = async (base64: string, mimeType: string, targetIdx = activeIndex) => {
     setBusy(true);
     setProgress(20);
     setErr(null);
@@ -226,6 +242,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
       }
 
       setEntryRows(consolidatedRows);
+      setRowsMap((prev) => ({ ...prev, [targetIdx]: consolidatedRows }));
       if (data?.raw_text) setNote(data.raw_text.slice(0, 100));
       setProgress(100);
     } catch (e: any) {
@@ -245,9 +262,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
-    if (files.length) {
-      setPendingFiles((q) => [...q, ...files]);
-    }
+    if (files.length) loadMultipleFiles(files);
     e.target.value = '';
   };
 
@@ -272,10 +287,34 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
     setEntryRows([...(entryRows ?? []), newLine]);
   };
 
-  const applyRows = () => {
-    if (!entryRows) return;
-    const activeRows = entryRows.filter((r) => !r._removed && r.beerId);
-    onImport(activeRows, date, note);
+  const saveCurrentAndNext = () => {
+    if (entryRows) {
+      setRowsMap((prev) => ({ ...prev, [activeIndex]: entryRows }));
+    }
+    if (activeIndex < photos.length - 1) {
+      const nextIdx = activeIndex + 1;
+      setActiveIndex(nextIdx);
+      if (rowsMap[nextIdx]) {
+        setEntryRows(rowsMap[nextIdx]);
+      } else {
+        setEntryRows(null);
+      }
+    } else {
+      applyAll();
+    }
+  };
+
+  const applyAll = () => {
+    const updatedMap = { ...rowsMap, [activeIndex]: entryRows ?? [] };
+    const allRows: RowInput[] = [];
+    Object.values(updatedMap).forEach((rList) => {
+      rList.forEach((r) => {
+        if (!r._removed && r.beerId) allRows.push(r);
+      });
+    });
+    if (allRows.length > 0) {
+      onImport(allRows, date, note);
+    }
     onClose();
   };
 
@@ -285,6 +324,39 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
     <>
       <Modal open onClose={onClose} title="Zadání stočení lahví z fotky / WhatsAppu" wide>
         <div className="space-y-4">
+{photos.length > 1 && (
+            <div className="flex items-center justify-between bg-amber-50 p-2.5 rounded-xl border border-amber-300 text-xs font-semibold text-amber-950 mb-3 shadow-xs">
+              <button
+                type="button"
+                className="btn-secondary !py-1 !px-2 text-xs"
+                onClick={() => {
+                  if (entryRows) setRowsMap((prev) => ({ ...prev, [activeIndex]: entryRows }));
+                  const prevIdx = Math.max(0, activeIndex - 1);
+                  setActiveIndex(prevIdx);
+                  setEntryRows(rowsMap[prevIdx] ?? null);
+                }}
+                disabled={activeIndex === 0 || busy}
+              >
+                ◀ Předchozí fotka
+              </button>
+              <span className="font-extrabold text-xs sm:text-sm">
+                📷 Fotka {activeIndex + 1} z {photos.length} {photos[activeIndex]?.name ? `(${photos[activeIndex].name})` : ''}
+              </span>
+              <button
+                type="button"
+                className="btn-secondary !py-1 !px-2 text-xs"
+                onClick={() => {
+                  if (entryRows) setRowsMap((prev) => ({ ...prev, [activeIndex]: entryRows }));
+                  const nextIdx = Math.min(photos.length - 1, activeIndex + 1);
+                  setActiveIndex(nextIdx);
+                  setEntryRows(rowsMap[nextIdx] ?? null);
+                }}
+                disabled={activeIndex === photos.length - 1 || busy}
+              >
+                Další fotka ▶
+              </button>
+            </div>
+          )}
           {/* Top panel with Date & Note */}
           <div className="card !bg-primary-50/50 p-4 space-y-3">
             <div className="text-sm font-semibold text-primary-800">Datum a poznámka stočení šarže</div>
@@ -397,7 +469,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                             <div>
                               <label className="text-[9px] font-black uppercase text-neutral-500">Pivo</label>
                               <select
-                                className="input text-xs font-bold w-full bg-white border border-neutral-200"
+                                className="input text-sm sm:text-xs font-bold w-full bg-white border border-neutral-200"
                                 value={r.beerId}
                                 onChange={(e) => updateLine(i, { beerId: e.target.value })}
                               >
@@ -412,7 +484,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                               <div>
                                 <label className="text-[9px] font-black uppercase text-amber-800">Zdrojový KEG</label>
                                 <select
-                                  className="input text-xs font-bold w-full bg-white border border-amber-200"
+                                  className="input text-sm sm:text-xs font-bold w-full bg-white border border-amber-200"
                                   value={r.kegPkgId}
                                   onChange={(e) => updateLine(i, { kegPkgId: e.target.value })}
                                 >
@@ -428,7 +500,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                                   type="text"
                                   inputMode="numeric"
                                   placeholder="např. 2"
-                                  className="input text-xs font-bold w-full border border-amber-200 text-center"
+                                  className="input text-sm sm:text-xs font-bold w-full border border-amber-200 text-center"
                                   value={r.kegQty}
                                   onChange={(e) => updateLine(i, { kegQty: e.target.value.replace(/[^0-9]/g, '') })}
                                 />
@@ -442,7 +514,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                             <div className="space-y-1">
                               <label className="text-[9px] font-black uppercase text-neutral-500">1. Lahve</label>
                               <select
-                                className="input text-[11px] font-bold w-full p-1.5 bg-neutral-50"
+                                className="input text-sm sm:text-[11px] font-bold w-full p-1.5 bg-neutral-50"
                                 value={r.pkgId}
                                 onChange={(e) => updateLine(i, { pkgId: e.target.value })}
                               >
@@ -454,7 +526,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                                 type="text"
                                 inputMode="numeric"
                                 placeholder="kusů"
-                                className="input text-xs text-right font-black"
+                                className="input text-sm sm:text-xs text-right font-black"
                                 value={r.qty}
                                 onChange={(e) => updateLine(i, { qty: e.target.value.replace(/[^0-9]/g, '') })}
                               />
@@ -463,7 +535,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                             <div className="space-y-1">
                               <label className="text-[9px] font-black uppercase text-neutral-500">2. Lahve</label>
                               <select
-                                className="input text-[11px] font-bold w-full p-1.5 bg-neutral-50"
+                                className="input text-sm sm:text-[11px] font-bold w-full p-1.5 bg-neutral-50"
                                 value={r.pkg2Id}
                                 onChange={(e) => updateLine(i, { pkg2Id: e.target.value })}
                               >
@@ -476,7 +548,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                                 type="text"
                                 inputMode="numeric"
                                 placeholder="kusů"
-                                className="input text-xs text-right font-black"
+                                className="input text-sm sm:text-xs text-right font-black"
                                 value={r.qty2}
                                 onChange={(e) => updateLine(i, { qty2: e.target.value.replace(/[^0-9]/g, '') })}
                               />
@@ -485,7 +557,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                             <div className="space-y-1">
                               <label className="text-[9px] font-black uppercase text-neutral-500">3. Lahve</label>
                               <select
-                                className="input text-[11px] font-bold w-full p-1.5 bg-neutral-50"
+                                className="input text-sm sm:text-[11px] font-bold w-full p-1.5 bg-neutral-50"
                                 value={r.pkg3Id}
                                 onChange={(e) => updateLine(i, { pkg3Id: e.target.value })}
                               >
@@ -498,7 +570,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                                 type="text"
                                 inputMode="numeric"
                                 placeholder="kusů"
-                                className="input text-xs text-right font-black"
+                                className="input text-sm sm:text-xs text-right font-black"
                                 value={r.qty3}
                                 onChange={(e) => updateLine(i, { qty3: e.target.value.replace(/[^0-9]/g, '') })}
                               />
@@ -516,12 +588,14 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                     Zrušit
                   </button>
                   <button
-                    type="button"
-                    className="btn-primary py-2.5 px-5 text-xs font-black shadow-md flex items-center gap-2"
-                    onClick={applyRows}
-                  >
-                    <Check size={14} /> Vložit vše do tabulky stočení
-                  </button>
+            className="btn-primary flex-1 !py-3 text-sm font-bold"
+            onClick={saveCurrentAndNext}
+            disabled={busy || !entryRows}
+          >
+            {activeIndex < photos.length - 1
+              ? `Vložit a další fotka (${activeIndex + 2}/${photos.length}) ▶`
+              : `Vložit VŠECHNO do tabulky stočení lahví (${photos.length} fotek) ✓`}
+          </button>
                 </div>
               </div>
             </div>

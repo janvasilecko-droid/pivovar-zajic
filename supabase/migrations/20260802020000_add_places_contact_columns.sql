@@ -1,4 +1,4 @@
--- Přidání chybějících sloupců do tabulky places
+kn u na nic k exportu nic -- Přidání chybějících sloupců do tabulky places
 -- (contact_name, email, delivery_group) — tyto sloupce aplikace používá,
 -- ale v databázi zatím neexistovaly, takže vkládání nového odběratele selhávalo.
 

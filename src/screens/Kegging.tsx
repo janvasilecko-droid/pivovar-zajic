@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { supabase, Beer, Package, EntryRow, CellarTank, useRealtime, beerBg, beerText, beerName, pkgBg, pkgText, formatPackageLabel } from '../lib/supabase';
-import { EmptyState, Spinner } from '../components/ui';
+import { EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { exportKeggingToExcel } from '../lib/excel';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
-import { Loader2 } from 'lucide-react';
+import { Camera, Loader2, Pencil } from 'lucide-react';
+import { ImportKeggingFromImage } from '../components/ImportKeggingFromImage';
 
 type OrderRow = { id: string; order_date: string; status: string };
 type OrderItemRow = { order_id: string; package_id: string | null; quantity: number; beer_id: string | null; beer_name: string | null };
@@ -21,6 +22,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   const [beers, setBeers] = useState<Beer[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingRow, setEditingRow] = useState<EntryRow | null>(null);
   const loadCountRef = useRef(0);
 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
@@ -31,6 +33,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   const [err, setErr] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
   const [showCount, setShowCount] = useState(false);
+  const [showImageImport, setShowImageImport] = useState(false);
   const [aliasMap, setAliasMap] = useState<ParserAliasMap>(emptyAliasMap());
   useEffect(() => { loadAliasMap().then(setAliasMap).catch(() => {}); }, []);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -59,6 +62,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   const [recordsMonthKey, setRecordsMonthKey] = useState(() => new Date().toISOString().slice(0, 7));
   const [recordsDay, setRecordsDay] = useState(() => new Date().toISOString().slice(0, 10));
   const [beerFilter, setBeerFilter] = useState('');
+  const [recordPkgFilter, setRecordPkgFilter] = useState('');
 
   // Posun měsíce o delta měsíců (vrací YYYY-MM)
   function shiftMonth(monthKey: string, delta: number): string {
@@ -86,8 +90,11 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
     if (beerFilter) {
       result = result.filter((r) => r.beer_id === beerFilter || r.beer_name === beerFilter);
     }
+    if (recordPkgFilter) {
+      result = result.filter((r) => r.package_id === recordPkgFilter || r.package_label === recordPkgFilter);
+    }
     return result;
-  }, [rows, recordsView, recordsMonthKey, recordsWeekKey, recordsDay, beerFilter]);
+  }, [rows, recordsView, recordsMonthKey, recordsWeekKey, recordsDay, beerFilter, recordPkgFilter]);
 
 
   const [weekKey, setWeekKey] = useState(isoWeekKey(new Date().toISOString().slice(0, 10)));
@@ -151,6 +158,36 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
     });
     return { perTank, missingCount };
   }, [entryRows, packages, activeCellarTanks]);
+
+  async function saveEditedRow(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingRow) return;
+    try {
+      const selectedBeer = beers.find(b => b.id === editingRow.beer_id);
+      const selectedPkg = packages.find(p => p.id === editingRow.package_id);
+
+      const { error } = await supabase
+        .from('kegging')
+        .update({
+          entry_date: editingRow.entry_date,
+          beer_id: editingRow.beer_id,
+          beer_name: selectedBeer?.name || null,
+          package_id: editingRow.package_id,
+          package_label: selectedPkg?.label || null,
+          quantity: Number(editingRow.quantity),
+          cellar_tank_id: editingRow.cellar_tank_id || null,
+          note: editingRow.note || null
+        })
+        .eq('id', editingRow.id);
+
+      if (error) throw error;
+      setEditingRow(null);
+      load(true);
+    } catch (err: any) {
+      console.error(err);
+      alert('Chyba při ukládání změn: ' + err.message);
+    }
+  }
 
   async function load(silent = false) {
     const loadId = ++loadCountRef.current;
@@ -484,6 +521,22 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   }
 
 
+  // Zpracování položek načtených z fotky — naplní prvních volných 12 řádků.
+  function handleApplyPhotoRows(photoRows: { beerId: string; pkgId: string; qty: string }[], dateVal?: string, photoNote?: string) {
+    setEntryRows((prev) => {
+      const next = [...prev];
+      photoRows.forEach((pRow, idx) => {
+        if (idx < next.length) {
+          next[idx] = { beerId: pRow.beerId, pkgId: pRow.pkgId, qty: pRow.qty };
+        } else {
+          next.push({ beerId: pRow.beerId, pkgId: pRow.pkgId, qty: pRow.qty });
+        }
+      });
+      return next;
+    });
+    if (dateVal) setDate(dateVal);
+    if (photoNote) setNote((prev) => (prev ? prev + ' | ' + photoNote : photoNote));
+  }
   async function add(e?: React.FormEvent) {
     e?.preventDefault();
     setErr(null);
@@ -650,21 +703,21 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                   const now = new Date();
                   const m = now.toISOString().slice(0, 7);
                   const filtered = rows.filter((r) => r.entry_date?.startsWith(m));
-                  exportKeggingToExcel(filtered.map((r) => ({ ...r, cellar_tank_label: cellarTanks.find((t) => t.id === r.cellar_tank_id)?.label ?? '', hl: ((Number(r.quantity) * (packages.find((p) => p.id === r.package_id)?.volume_l ?? 0)) / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 }) })), cellarTanks);
+                  exportKeggingToExcel(filtered.map((r) => ({ ...r, cellar_tank_label: cellarTanks.find((t) => t.id === r.cellar_tank_id)?.label ?? '', hl: ((Number(r.quantity) * (packages.find((p) => p.id === r.package_id)?.volume_l ?? 0)) / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 }) })), cellarTanks, beers);
                 }}>📅 Tento měsíc</button>
                 <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
                   const d = new Date(); d.setMonth(d.getMonth() - 1);
                   const m = d.toISOString().slice(0, 7);
                   const filtered = rows.filter((r) => r.entry_date?.startsWith(m));
-                  exportKeggingToExcel(filtered.map((r) => ({ ...r, cellar_tank_label: cellarTanks.find((t) => t.id === r.cellar_tank_id)?.label ?? '', hl: ((Number(r.quantity) * (packages.find((p) => p.id === r.package_id)?.volume_l ?? 0)) / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 }) })), cellarTanks);
+                  exportKeggingToExcel(filtered.map((r) => ({ ...r, cellar_tank_label: cellarTanks.find((t) => t.id === r.cellar_tank_id)?.label ?? '', hl: ((Number(r.quantity) * (packages.find((p) => p.id === r.package_id)?.volume_l ?? 0)) / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 }) })), cellarTanks, beers);
                 }}>📅 Minulý měsíc</button>
                 <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
                   const wk = recordsView === 'week' ? recordsWeekKey : weekKey;
                   const filtered = rows.filter((r) => isoWeekKey(r.entry_date) === wk);
-                  exportKeggingToExcel(filtered.map((r) => ({ ...r, cellar_tank_label: cellarTanks.find((t) => t.id === r.cellar_tank_id)?.label ?? '', hl: ((Number(r.quantity) * (packages.find((p) => p.id === r.package_id)?.volume_l ?? 0)) / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 }) })), cellarTanks);
+                  exportKeggingToExcel(filtered.map((r) => ({ ...r, cellar_tank_label: cellarTanks.find((t) => t.id === r.cellar_tank_id)?.label ?? '', hl: ((Number(r.quantity) * (packages.find((p) => p.id === r.package_id)?.volume_l ?? 0)) / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 }) })), cellarTanks, beers);
                 }}>📅 Tento týden</button>
                 <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
-                  exportKeggingToExcel(rows.map((r) => ({ ...r, cellar_tank_label: cellarTanks.find((t) => t.id === r.cellar_tank_id)?.label ?? '', hl: ((Number(r.quantity) * (packages.find((p) => p.id === r.package_id)?.volume_l ?? 0)) / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 }) })), cellarTanks);
+                  exportKeggingToExcel(rows.map((r) => ({ ...r, cellar_tank_label: cellarTanks.find((t) => t.id === r.cellar_tank_id)?.label ?? '', hl: ((Number(r.quantity) * (packages.find((p) => p.id === r.package_id)?.volume_l ?? 0)) / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 }) })), cellarTanks, beers);
                 }}>📅 Všechno</button>
               </div>
             )}
@@ -689,6 +742,16 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
               ))}
             </select>
           </div>
+          </div>
+
+          <div className="flex items-center justify-end mb-3">
+            <button
+              type="button"
+              onClick={() => setShowImageImport(true)}
+              className="btn-primary py-2.5 px-4 text-xs font-black shadow-md flex items-center justify-center gap-2"
+            >
+                  <Camera size={16} /> Číst stáčení z fotky
+            </button>
           </div>
 
           <div className="overflow-x-auto">
@@ -950,8 +1013,8 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                                   <button
                                     type="button"
                                     className="px-2 h-6 grid place-items-center rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-800 font-bold text-xs transition"
-                                    onClick={() => startEdit(r.id)}
-                                    title="Upravit"
+                                    onClick={() => setEditingRow(r)}
+                                    title="Upravit detail"
                                   >✏️</button>
                                   <button
                                     type="button"
@@ -1023,6 +1086,18 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                   <option value="">🍺 Všechna piva</option>
                   {beers.map((b) => (
                     <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+
+                {/* Filtr podle obalu */}
+                <select
+                  value={recordPkgFilter}
+                  onChange={(e) => setRecordPkgFilter(e.target.value)}
+                  className="input text-xs font-bold px-2 py-1 rounded-lg border border-neutral-200 bg-white text-neutral-700 max-w-[140px]"
+                >
+                  <option value="">📦 Všechny obaly</option>
+                  {kegPackages.map((p) => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
                   ))}
                 </select>
 
@@ -1195,7 +1270,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                                 <button
                                   type="button"
                                   className="px-2 h-6 grid place-items-center rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-800 font-bold text-xs transition"
-                                  onClick={() => startEdit(r.id)}
+                                  onClick={() => setEditingRow(r)}
                                   title="Upravit"
                                 >✏️</button>
                                 <button
@@ -1325,14 +1400,11 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                 <table className="table text-xs w-full">
                   <thead>
                     <tr className="bg-neutral-100 border-b border-neutral-200">
-                      <th className="p-2.5 text-left">Pivo</th>
-                      <th className="p-2.5 text-left">KEG Obal</th>
-                      <th className="p-2.5 text-right font-bold text-neutral-600">Poč. inv.</th>
-                      <th className="p-2.5 text-right font-bold text-emerald-800">Stočeno (+)</th>
-                      <th className="p-2.5 text-right font-bold text-amber-800">Výdeje (−)</th>
-                      <th className="p-2.5 text-right font-bold text-emerald-900 bg-emerald-50">Skladem (=)</th>
+                      <th className="p-2.5 text-left">Pivo (obal)</th>
+                      <th className="p-2.5 text-right font-bold text-emerald-800">Stočeno</th>
+                      <th className="p-2.5 text-right font-bold text-emerald-900 bg-emerald-50">Sklad</th>
                       <th className="p-2.5 text-right font-bold text-sky-800">Objednáno</th>
-                      <th className="p-2.5 text-right font-black text-amber-900 bg-amber-50">Potřeba stočit (chybí)</th>
+                      <th className="p-2.5 text-right font-black text-amber-900 bg-amber-50">Potřeba stočit</th>
                       <th className="p-2.5 text-center font-bold">Stav</th>
                     </tr>
                   </thead>
@@ -1341,14 +1413,14 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                       const beer = beers.find((b) => b.id === r.beer_id);
                       return (
                         <tr key={`${r.beer_id}__${r.package_id}`} className="border-b border-neutral-100 hover:bg-neutral-50/80 transition-colors">
-                          <td className="p-2.5 font-black text-neutral-950 flex items-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
-                            <span>{r.beer_name}</span>
+                          <td className="p-2.5 font-black text-neutral-950">
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
+                              <span>{r.beer_name}</span>
+                              <span className="font-bold text-neutral-600">({r.package_label})</span>
+                            </div>
                           </td>
-                          <td className="p-2.5 font-bold text-neutral-800">{r.package_label}</td>
-                          <td className="p-2.5 text-right font-mono text-neutral-600">{r.invQty} ks</td>
                           <td className="p-2.5 text-right font-mono font-bold text-emerald-700">+{r.bottledQty} ks</td>
-                          <td className="p-2.5 text-right font-mono font-bold text-amber-700">−{r.outgoingQty} ks</td>
                           <td className="p-2.5 text-right font-mono font-black text-emerald-900 bg-emerald-50/50">{r.stockQty} ks</td>
                           <td className="p-2.5 text-right font-mono font-bold text-sky-700">{r.orderedQty} ks</td>
                           <td className={`p-2.5 text-right font-mono font-black bg-amber-50/50 ${r.neededQty > 0 ? 'text-amber-900 text-sm' : 'text-neutral-500'}`}>
@@ -1374,6 +1446,96 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
             )}
           </div>
         </div>
+      )}
+      {editingRow && (
+        <Modal open={true} onClose={() => setEditingRow(null)} title="✏️ Upravit záznam stáčení KEG">
+          <form onSubmit={saveEditedRow} className="space-y-4">
+            <div>
+              <label className="label">Datum</label>
+              <input
+                type="date"
+                value={editingRow.entry_date}
+                onChange={(e) => setEditingRow({ ...editingRow, entry_date: e.target.value })}
+                className="input"
+                required
+              />
+            </div>
+            <div>
+              <label className="label">Pivo</label>
+              <select
+                value={editingRow.beer_id || ''}
+                onChange={(e) => setEditingRow({ ...editingRow, beer_id: e.target.value })}
+                className="input"
+                required
+              >
+                <option value="">— Vyber pivo —</option>
+                {beers.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label">Obal</label>
+              <select
+                value={editingRow.package_id || ''}
+                onChange={(e) => setEditingRow({ ...editingRow, package_id: e.target.value })}
+                className="input"
+                required
+              >
+                <option value="">— Vyber obal —</option>
+                {kegPackages.map((p) => (
+                  <option key={p.id} value={p.id}>{p.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label">Množství (ks)</label>
+              <input
+                type="number"
+                value={editingRow.quantity}
+                onChange={(e) => setEditingRow({ ...editingRow, quantity: Number(e.target.value) })}
+                className="input"
+                min="0"
+                required
+              />
+            </div>
+            <div>
+              <label className="label">Číslo tanku</label>
+              <select
+                value={editingRow.cellar_tank_id || ''}
+                onChange={(e) => setEditingRow({ ...editingRow, cellar_tank_id: e.target.value || null })}
+                className="input"
+              >
+                <option value="">— Vyber tank —</option>
+                {cellarTanks.map((t) => (
+                  <option key={t.id} value={t.id}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label">Poznámka</label>
+              <input
+                type="text"
+                value={editingRow.note || ''}
+                onChange={(e) => setEditingRow({ ...editingRow, note: e.target.value })}
+                className="input"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button type="button" onClick={() => setEditingRow(null)} className="btn-secondary">Zrušit</button>
+              <button type="submit" className="btn-primary">Uložit změny</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+      {showImageImport && (
+        <ImportKeggingFromImage
+          isOpen={showImageImport}
+          onClose={() => setShowImageImport(false)}
+          beers={beers}
+          packages={packages}
+          onImport={handleApplyPhotoRows}
+        />
       )}
     </div>
   );

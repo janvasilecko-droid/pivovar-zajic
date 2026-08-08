@@ -162,3 +162,74 @@ export function notifyNewOrder(order: NewOrderNotifyData) {
     window.dispatchEvent(new CustomEvent('new-order-arrived', { detail: { ...order, autoHideSeconds: settings.autoHideSeconds } }));
   }
 }
+
+// ---------------------------------------------------------------------------
+// Notifikace pro nově přijaté WhatsApp zprávy (objednávky k ověření).
+// Používá stejnou infrastrukturu jako notifyNewOrder — zvuk, vibrace,
+// systémová notifikace i in-app banner. Layout.tsx ji volá z globálního
+// realtime listeneru, takže funguje na VŠECH obrazovkách aplikace.
+// ---------------------------------------------------------------------------
+
+export interface WhatsAppMessageNotifyData {
+  id: string;
+  sender_name: string;
+  message_text: string;
+  status?: string | null;
+  created_at?: string | null;
+}
+
+export function notifyNewWhatsAppMessage(
+  message: WhatsAppMessageNotifyData,
+  opts?: { banner?: boolean }
+) {
+  const settings = getNotificationSettings();
+
+  // 1. Audio chime (if enabled)
+  if (settings.playSound) {
+    playOrderChime();
+  }
+
+  // 2. Mobile vibration pattern if supported
+  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+    try {
+      navigator.vibrate([200, 100, 200, 100, 400]);
+    } catch {}
+  }
+
+  const sender = message.sender_name || 'Neznámý odesílatel';
+  const preview = (message.message_text || '').replace(/\s+/g, ' ').trim();
+  const bodyText = preview.length > 140 ? preview.slice(0, 140) + '…' : preview;
+
+  // 3. System Push Notification
+  if (isNotificationSupported() && Notification.permission === 'granted') {
+    try {
+      const n = new Notification(`📥 NOVÁ WHATSAPP OBJEDNÁVKA K OVĚŘENÍ: ${sender}`, {
+        body: bodyText || 'Přijata nová zpráva z WhatsAppu — zkontrolujte ji v aplikaci.',
+        icon: '/favicon.ico',
+        tag: `whatsapp-${message.id}`,
+        requireInteraction: settings.requireInteraction,
+      });
+
+      n.onclick = () => {
+        window.focus();
+        window.location.hash = '#orders';
+        // Layout.tsx poslouchá a přepne na stránku Objednávky (React routing).
+        window.dispatchEvent(new CustomEvent('pivovar:go-orders'));
+      };
+
+      // Auto-close push notification if not requiring interaction
+      if (!settings.requireInteraction && settings.autoHideSeconds > 0) {
+        setTimeout(() => { try { n.close(); } catch {} }, settings.autoHideSeconds * 1000);
+      }
+    } catch (e) {
+      console.error('Failed to trigger WhatsApp notification:', e);
+    }
+  }
+
+  // 4. Dispatch custom DOM event for in-app floating banner popup
+  if (opts?.banner !== false && typeof window !== 'undefined' && settings.showInAppBanner) {
+    window.dispatchEvent(new CustomEvent('whatsapp-message-arrived', {
+      detail: { ...message, autoHideSeconds: settings.autoHideSeconds },
+    }));
+  }
+}

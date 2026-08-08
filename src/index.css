@@ -1,5 +1,16 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
+/* Native pinch zoom support: pinch zoom allowed, double-tap zoom disabled */
+html, body, #root {
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+}
+
+* {
+  touch-action: manipulation;
+}
+
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -16,11 +27,11 @@
     background-attachment: fixed;
   }
   html.dark body {
-    @apply bg-neutral-950 text-neutral-200;
+    @apply bg-neutral-50 text-neutral-900;
     background-image:
-      radial-gradient(circle at 10% 0%, rgba(223, 61, 61, 0.08), transparent 35%),
-      radial-gradient(circle at 90% 100%, rgba(230, 168, 0, 0.08), transparent 35%),
-      radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.015), transparent 50%);
+      radial-gradient(circle at 10% 0%, rgba(223, 61, 61, 0.04), transparent 35%),
+      radial-gradient(circle at 90% 100%, rgba(230, 168, 0, 0.04), transparent 35%),
+      radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.015), transparent 50%);
   }
 
   * { -webkit-tap-highlight-color: transparent; }
@@ -30,11 +41,11 @@
 @layer components {
   .card {
     @apply bg-white rounded-2xl shadow-card border border-neutral-200/80 transition-all duration-200;
-    @apply dark:bg-neutral-900 dark:border-neutral-800;
+    @apply dark:bg-white dark:border-neutral-200/80;
   }
   .card-glass {
     @apply bg-white/80 backdrop-blur-md rounded-2xl shadow-card border border-white/60 transition-all duration-200;
-    @apply dark:bg-neutral-900/80 dark:border-neutral-800/60;
+    @apply dark:bg-white/80 dark:border-neutral-200/60;
   }
   .card-hover {
     @apply card hover:shadow-cardHover hover:-translate-y-1 hover:border-neutral-300/80;
@@ -45,7 +56,7 @@
            text-neutral-900 placeholder:text-neutral-400
            focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/15
            transition-all duration-150 min-h-[44px] sm:min-h-[38px]
-           dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500
+           dark:bg-white dark:border-neutral-200 dark:text-neutral-900 dark:placeholder:text-neutral-400
            dark:focus:border-amber-500 dark:focus:ring-amber-500/20;
   }
   .label {
@@ -248,3 +259,68 @@ html.density-large .btn {
   min-height: 44px !important;
   font-size: 0.95rem !important;
 }
+
+/* HIGH CONTRAST TEXT FIXES - Prevent white-on-white text across the entire application */
+input, select, textarea, .input {
+  color: #0f172a !important; /* Dark Slate 900 for crisp text visibility */
+  background-color: #ffffff;
+}
+
+select option {
+  color: #0f172a !important;
+  background-color: #ffffff !important;
+}
+
+input::placeholder, textarea::placeholder {
+  color: #64748b !important;
+}
+
+.table tbody td, .table thead th {
+  color: #0f172a;
+}
+
+/* Specific Inventory & Orders input text overrides */
+.inventory-input, .order-input {
+  color: #0f172a !important;
+  background-color: #ffffff !important;
+  font-weight: 800 !important;
+}
+
+/* ===== CENTRÁLNÍ KONTRAST: tmavé pozadí vždy se světlým textem =====
+   Tmavé panely/štítky, které NEMAJÍ vlastní barvu textu (text-*), dostanou
+   bezpečně světlý text, aby nebyl nečitelný. Prvky, které už mají text-* třídu,
+   si zachovají svou barvu. */
+.bg-neutral-700:not([class*="text-"]),
+.bg-neutral-800:not([class*="text-"]),
+.bg-neutral-900:not([class*="text-"]),
+.bg-neutral-950:not([class*="text-"]),
+.bg-slate-700:not([class*="text-"]),
+.bg-slate-800:not([class*="text-"]),
+.bg-slate-900:not([class*="text-"]),
+.bg-gray-800:not([class*="text-"]),
+.bg-gray-900:not([class*="text-"]),
+.bg-zinc-800:not([class*="text-"]),
+.bg-zinc-900:not([class*="text-"]),
+.bg-stone-800:not([class*="text-"]),
+.bg-stone-900:not([class*="text-"]) {
+  color: #f5f5f5 !important; /* neutral-100 */
+}
+
+/* Světlé pozadí -> tmavý text (bezpečná pojistka; text-* má přednost) */
+.bg-white:not([class*="text-"]),
+.bg-neutral-50:not([class*="text-"]),
+.bg-neutral-100:not([class*="text-"]),
+.bg-neutral-200:not([class*="text-"]),
+.bg-amber-50:not([class*="text-"]),
+.bg-amber-100:not([class*="text-"]),
+.bg-sky-50:not([class*="text-"]),
+.bg-teal-50:not([class*="text-"]),
+.bg-emerald-50:not([class*="text-"]),
+.bg-rose-50:not([class*="text-"]),
+.bg-cyan-50:not([class*="text-"]),
+.bg-lime-50:not([class*="text-"]),
+.bg-orange-50:not([class*="text-"]),
+.bg-slate-50:not([class*="text-"]) {
+  color: #0f172a !important; /* slate-900 */
+}
+

@@ -26,7 +26,7 @@ export function CriticalMaterialAlertModal() {
     }
 
     Promise.all([
-      supabase.from('beers').select('name'),
+      supabase.from('beers').select('name').eq('is_active', true),
       supabase.from('packages').select('label,kind'),
       supabase.from('bottling').select('beer_name,package_label,quantity'),
     ]).then(([bRes, pRes, botRes]) => {

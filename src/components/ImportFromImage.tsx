@@ -17,7 +17,7 @@ import {
 
 
 type ExistingItem = { beer_id: string | null; package_id: string | null; quantity: number };
-type PhotoEntry = { dataUrl: string; name: string };
+type PhotoEntry = { dataUrl: string; name: string; fingerprint: string };
 
 export function ImportFromImage({ beers, packages, places, existing, targetLabel, initialFiles, onClose, onImport, onPlacesChanged }: {
   beers: Beer[]; packages: Package[]; places: Place[]; existing: ExistingItem[]; targetLabel: string | null;
@@ -41,22 +41,161 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
   const [placeAliasMap, setPlaceAliasMap] = useState<Map<string, string>>(new Map());
   const [photos, setPhotos] = useState<PhotoEntry[]>([]);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [dupFilesPending, setDupFilesPending] = useState<File[] | null>(null);
   const [editingImage, setEditingImage] = useState<string | null>(null);
   const [editBeforeOcr, setEditBeforeOcr] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [note, setNote] = useState('');
   const [confirmed, setConfirmed] = useState(false);
+  const [userAllowedDups, setUserAllowedDups] = useState<Set<number>>(new Set());
+  const [skipReason, setSkipReason] = useState<string | null>(null);
+
+  function toggleAllowDuplicate(i: number) {
+    setUserAllowedDups((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
+  }
+
+  // Funkce pro normalizaci textu pro porovnávání duplicit
+  function normalizeTextForCompare(text: string): string {
+    return text
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // odstraní diakritiku
+      .replace(/\s+/g, ' ') // normalizuje mezery
+      .replace(/[\.,;:!?]/g, '') // odstraní interpunkci
+      .trim();
+  }
+
+  // Detekce duplicitního textu z obrázku - když nový text obsahuje předchozí text celý
+  function isDuplicateRawText(newText: string, previousTexts: Set<string>): boolean {
+    const normalizedNew = normalizeTextForCompare(newText);
+    for (const prevText of previousTexts) {
+      const normalizedPrev = normalizeTextForCompare(prevText);
+      // Pokud nový text obsahuje celý starý text (nebo naopak) a je mnohem delší
+      // nebo podobný, jde pravděpodobně o kopii celé objednávky v odpovědi "ok"
+      if (normalizedNew.includes(normalizedPrev) && normalizedPrev.length > 20) {
+        // Starý text je dlouhý více než 20 znaků a nový text obsahuje celý starý text
+        return true;
+      }
+      if (normalizedPrev.includes(normalizedNew) && normalizedNew.length > 20) {
+        // Nebo pokud starý text obsahuje celý nový text
+        return true;
+      }
+      // Podobnost textů více než 80%
+      if (calculateTextSimilarity(normalizedNew, normalizedPrev) > 0.8) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Výpočet podobnosti textů (0-1)
+  function calculateTextSimilarity(text1: string, text2: string): number {
+    if (text1.length === 0 || text2.length === 0) return 0;
+    
+    // Jednoduchá Levenshtein vzdálenost pro podobnost
+    const shorter = text1.length < text2.length ? text1 : text2;
+    const longer = text1.length < text2.length ? text2 : text1;
+    
+    if (shorter.length === 0) return 1.0;
+    
+    const distance = levenshteinDistance(text1, text2);
+    return 1.0 - distance / longer.length;
+  }
+
+  // Levenshtein distance implementace
+  function levenshteinDistance(a: string, b: string): number {
+    const matrix = Array(a.length + 1).fill(null).map(() => Array(b.length + 1).fill(null));
+    
+    for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
+    for (let j = 0; j <= b.length; j++) matrix[0][j] = j;
+    
+    for (let i = 1; i <= a.length; i++) {
+      for (let j = 1; j <= b.length; j++) {
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j] + 1,      // deletion
+          matrix[i][j - 1] + 1,      // insertion
+          matrix[i - 1][j - 1] + cost // substitution
+        );
+      }
+    }
+    
+    return matrix[a.length][b.length];
+  }
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
   const [focusedLine, setFocusedLine] = useState<number | null>(null);
-  const [queueTick, setQueueTick] = useState(0);
   const [totalPhotos, setTotalPhotos] = useState(0);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
-  const [paused, setPaused] = useState(false);
+
+  const [paused, _setPaused] = useState(false);
+  const pausedRef = useRef(false);
+  function setPaused(val: boolean) {
+    _setPaused(val);
+    pausedRef.current = val;
+  }
 
   const fileRef = useRef<HTMLInputElement>(null);
+  const fileRefPdf = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
-  const processingRef = useRef(false);
+  const editorResolveRef = useRef<((dataUrl: string | null) => void) | null>(null);
 
+  // Klicove odra matkove: zmevove objednavky = odberatel + datum + pivo + obal + mnozstvi.
+  // These keys are remembered across all photos in this session so the same
+  // order is never imported twice (overlapping photo content => no duplicates).
+  const seenOrderKeysRef = useRef<Set<string>>(new Set());
+  // 🧹 Detekce duplicitního obsahu z fotek: když AI přečte z fotky odpověď "ok" a obsahuje
+  // celý původní text, tento text už obsahuje celou původní objednávku. Pamatujeme si
+  // rozpoznané texty a pokud nový text obsahuje starý celý, ignorujeme výsledky.
+  const seenRawTextsRef = useRef<Set<string>>(new Set());
+
+
+  // Detekce duplicitního nahrání toho samého snímku obrazovky / souboru.
+  // Otisk souboru = název + velikost + čas uložení. Dva stejné soubory mají
+  // stejný otisk, takže poznáme, že uživatel nahrál stejný screen 2x.
+  // Otisky uložených fotek si pamatujeme i v localStorage, abychom poznali,
+  // že fotku už načetl včera / dříve (ne jen teď v této relaci).
+  function fileFingerprint(f: File): string {
+    return `${f.name}|${f.size}|${f.lastModified}`;
+  }
+  const FREAD_FP_KEY = 'imported_photo_fps_v1';
+  function rememberFingerprint(fp: string) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(FREAD_FP_KEY) || '[]') as string[];
+      if (!saved.includes(fp)) {
+        saved.push(fp);
+        localStorage.setItem(FREAD_FP_KEY, JSON.stringify(saved.slice(-600)));
+      }
+    } catch {}
+  }
+  function fileSeen(f: File): boolean {
+    const fp = fileFingerprint(f);
+    if (photos.some((p) => p.fingerprint === fp)) return true;
+    if (pendingFiles.some((pf) => fileFingerprint(pf) === fp)) return true;
+    try {
+      const saved = JSON.parse(localStorage.getItem(FREAD_FP_KEY) || '[]') as string[];
+      return saved.includes(fp);
+    } catch { return false; }
+  }
+
+
+  // Resetovat historii rozpoznaných textů při otevření nové relace
+  useEffect(() => {
+    seenRawTextsRef.current.clear();
+    seenOrderKeysRef.current.clear();
+    setSkipReason(null);
+  }, []);
+
+  // Auto-open gallery on initial mount if no initialFiles and no photos present
+  useEffect(() => {
+    if (!initialFiles || initialFiles.length === 0) {
+      const timer = setTimeout(() => { if (fileRef.current && photos.length === 0 && pendingFiles.length === 0) { fileRef.current.click(); } }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   useEffect(() => {
     loadAliasMap().then(setAliasMap).catch(() => {});
@@ -69,32 +208,80 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
   useEffect(() => {
     if (initialFiles && initialFiles.length) {
       setPendingFiles((q) => [...q, ...initialFiles]);
-      setTotalPhotos((t) => t + initialFiles.length);
       setPaused(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialFiles]);
 
-  // Drive the queue: process ONE photo at a time. After a photo is parsed
-  // (parsed !== null) we wait for the user to import it. After import we clear
-  // parsed, which lets this effect pick up the next photo automatically.
-  // queueTick is bumped after each photo finishes so the queue moves on.
+  // Drive the queue: process files automatically one after another
   useEffect(() => {
-    if (processingRef.current) return;
-    if (editingImage) return;
+    if (busy) return;
     if (paused) return;
     if (pendingFiles.length === 0) return;
-    if (parsed !== null) return; // wait for the user to import the current photo
-    const next = pendingFiles[0];
-    setPendingFiles((q) => q.slice(1));
-    const idx = currentPhotoIndex; // 0-based index of this photo
-    setCurrentPhotoIndex(idx + 1);
-    handleFile(next, idx);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingFiles, editingImage, queueTick, parsed, paused]);
+
+    const queue = [...pendingFiles];
+    setPendingFiles([]); // clear queue so we don't trigger again
+    processFilesQueue(queue);
+  }, [pendingFiles, busy, paused]);
+
+  function readFileAsDataURL(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('Nelze načíst obrázek: ' + file.name));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function processFilesQueue(files: File[]) {
+    setBusy(true);
+    setErr(null);
+
+    const startIdx = photos.length;
+    setTotalPhotos((t) => t + files.length);
+
+    for (let i = 0; i < files.length; i++) {
+      if (pausedRef.current) {
+        // Put remaining files back in pendingFiles
+        setPendingFiles(files.slice(i));
+        setBusy(false);
+        return;
+      }
+
+      const file = files[i];
+      const photoIdx = startIdx + i;
+      setCurrentPhotoIndex(photoIdx + 1);
+
+      try {
+        const dataUrl = await readFileAsDataURL(file);
+        
+        let targetDataUrl = dataUrl;
+        if (editBeforeOcr) {
+          setEditingImage(dataUrl);
+          const editedUrl = await new Promise<string | null>((resolve) => {
+            editorResolveRef.current = resolve;
+          });
+          if (!editedUrl) {
+            // User cancelled editor, skip this file
+            continue;
+          }
+          targetDataUrl = editedUrl;
+        }
+
+        setPhotos((prev) => [...prev, { dataUrl: targetDataUrl, name: file.name, fingerprint: fileFingerprint(file) }]);
+        rememberFingerprint(fileFingerprint(file));
+        const base64 = targetDataUrl.split(',')[1] ?? '';
+        await runOcrFromBase64(base64, file.type || 'image/jpeg', photoIdx > 0, photoIdx);
+      } catch (e: any) {
+        setErr('Chyba při zpracování fotky: ' + (e?.message ?? String(e)));
+      }
+    }
+
+    setBusy(false);
+  }
 
   async function runOcrFromBase64(base64: string, mimeType: string, append: boolean, photoIndex: number) {
-    setBusy(true); setProgress(append ? 40 : 10); setErr(null);
+    setProgress(append ? 40 : 10);
+    setErr(null);
     if (!append) setParsed(null);
     try {
       setProgress(append ? 55 : 30);
@@ -148,10 +335,37 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
       try { data = JSON.parse(respText); } catch { throw new Error('Neplatná odpověď: ' + respText.slice(0, 200)); }
       if (data?.error) throw new Error(data.error);
 
-      setProgress(append ? 80 : 80);
+      setProgress(80);
 
       const geminiItems: GeminiItem[] = data?.items ?? [];
       const rawTextFromGemini: string = data?.raw_text ?? '';
+      
+      // 🧹 DETEKCE DUPLICITNÍHO TEXTU Z ODPOVĚDÍ "ok", "ano", "dobře" apod.
+      // Když někdo odpoví na objednávku, AI přečte celou původní zprávu znovu
+      // a vytvoří duplicitní položky. Kontrolujeme, jestli nový text obsahuje
+      // celý nějaký starý text (nebo naopak).
+      if (seenRawTextsRef.current.size > 0) {
+        const isDuplicate = isDuplicateRawText(rawTextFromGemini, seenRawTextsRef.current);
+        if (isDuplicate && rawTextFromGemini.trim().length > 30) {
+          // Text je příliš podobný předchozímu -> pravděpodobně odpověď s kopií objednávky
+          console.log('Duplicitní text detekován (pravděpodobně odpověď s kopií objednávky):', rawTextFromGemini.substring(0, 100));
+          setSkipReason(`⚠️ Fotka může obsahovat odpověď s kopií původní objednávky. Zkontrolujte, jestli neobsahuje víckrát stejné položky.`);
+          
+          // Pokud jde o přidání dalších fotek (append), quietly skip
+          if (append && geminiItems.length === 0) {
+            setProgress(100);
+            return; // Ticho přeskočíme, protože neobsahuje žádné nové položky
+          }
+          // Pokud přidáváme první fotku nebo fotka obsahuje položky, pokračujeme
+          // s varováním
+        }
+      }
+      
+      // Přidáme text do historie pro budoucí porovnávání
+      if (rawTextFromGemini.trim().length > 10) { // ukládáme jen smysluplně dlouhé texty
+        seenRawTextsRef.current.add(rawTextFromGemini);
+      }
+      
       setRawText((prev) => prev ? prev + '\n---\n' + rawTextFromGemini : rawTextFromGemini);
       const detected = detectOrderNotes(rawTextFromGemini);
       if (detected) setNote(detected);
@@ -200,7 +414,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
         // → použij ho jako nového odběratele
         setPlaceName(detectedPlaceName);
       } else if (firstItemPlaceName && !isIgnoredSender(firstItemPlaceName)) {
-        // AI rozpoznala jméno na položce, ale neodpovídá známému odběrateli
+        // AI rozpoznala jméno na položce, ale neodpovídá známému odběratele
         // → použij ho jako nového odběratele
         setPlaceName(firstItemPlaceName);
       }
@@ -211,60 +425,55 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
       setParsed((prev) => {
         const prevLines = prev?.map((p) => p.line) ?? [];
         const combined = append ? [...prevLines, ...newLines] : newLines;
-        return dedupeAgainstExisting(combined, existing);
+        return markDuplicates(combined, seenOrderKeysRef.current, existing, date, placeName);
       });
 
       setProgress(100);
     } catch (e: any) {
       setErr('Čtení z fotky selhalo: ' + (e?.message ?? String(e)));
-    } finally {
-      setBusy(false);
-      processingRef.current = false;
-      // Bump the tick so the queue effect picks up the next photo automatically.
-      setQueueTick((t) => t + 1);
     }
-  }
-
-  function handleFile(file: File, photoIndex: number) {
-    processingRef.current = true;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      if (editBeforeOcr) {
-        setEditingImage(dataUrl);
-      } else {
-        setPhotos([{ dataUrl, name: file.name }]);
-        const base64 = dataUrl.split(',')[1] ?? '';
-        runOcrFromBase64(base64, file.type || 'image/jpeg', false, photoIndex);
-      }
-    };
-    reader.onerror = () => {
-      setErr('Nelze načíst obrázek: ' + file.name);
-      processingRef.current = false;
-      setQueueTick((t) => t + 1);
-    };
-    reader.readAsDataURL(file);
   }
 
   function onEditorConfirm(editedDataUrl: string) {
     setEditingImage(null);
-    setPhotos([{ dataUrl: editedDataUrl, name: 'foto' }]);
-    const base64 = editedDataUrl.split(',')[1] ?? '';
-    runOcrFromBase64(base64, 'image/jpeg', false, Math.max(0, currentPhotoIndex - 1));
+    if (editorResolveRef.current) {
+      editorResolveRef.current(editedDataUrl);
+      editorResolveRef.current = null;
+    }
   }
 
   function onEditorCancel() {
     setEditingImage(null);
-    processingRef.current = false;
-    setQueueTick((t) => t + 1);
+    if (editorResolveRef.current) {
+      editorResolveRef.current(null);
+      editorResolveRef.current = null;
+    }
   }
 
   function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     if (files.length) {
-      setPendingFiles((q) => [...q, ...files]);
-      setTotalPhotos((t) => t + files.length);
-      setPaused(false);
+      if (!parsed && pendingFiles.length === 0 && !dupFilesPending) {
+        setPhotos([]);
+        setTotalPhotos(0);
+        setCurrentPhotoIndex(0);
+      }
+      // Rozděl vybrané soubory na nové a ty, které uživatel nahrál podruhé.
+      const fresh: File[] = [];
+      const dups: File[] = [];
+      for (const f of files) {
+        if (fileSeen(f)) dups.push(f);
+        else fresh.push(f);
+      }
+      if (fresh.length) {
+        setPendingFiles((q) => [...q, ...fresh]);
+        setPaused(false);
+        // Reset varování při novém nahrání fotek
+        setSkipReason(null);
+      }
+      if (dups.length) {
+        setDupFilesPending(dups);
+      }
     }
     e.target.value = '';
   }
@@ -307,7 +516,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
     // Pokud ho AI neurčila, použijeme globálně vybraného odběratele (placeName).
     // Díky tomu se objednávky z více WhatsApp oken na jedné fotce rozdělí správně.
     const items = parsed
-      .filter((p) => !p.duplicate && !p.line._removed && p.line.beer_id && p.line.package_id && p.line.quantity)
+      .filter((p, idx) => (!p.duplicate || userAllowedDups.has(idx)) && !p.line._removed && p.line.beer_id && p.line.package_id && p.line.quantity)
       .map((p) => ({ beer_id: p.line.beer_id!, package_id: p.line.package_id!, quantity: p.line.quantity!, place_name: p.line.place_name?.trim() || placeName.trim() || null, date: p.line.date ?? null }));
 
     if (!items.length) {
@@ -322,6 +531,14 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
       // Rezervace výčepu se vytvoří až v Orders.tsx po vytvoření objednávky,
       // aby byla správně spárovaná s objednávkou (order_id).
       await onImport(items, { placeId, placeName: placeName.trim(), date, note: note.trim() });
+
+      // Remember the imported items so an overlapping photo (same customer,
+      // date, pivo, obal, mnozstvi) is marked as duplicate and not re-imported.
+      items.forEach((it) => {
+        const pn = it.place_name?.trim() || placeName.trim();
+        const dt = it.date || date;
+        seenOrderKeysRef.current.add(mkKey(pn, dt, it.beer_id, it.package_id, it.quantity));
+      });
 
       // After a successful import, advance to the next photo (or close when done).
       if (targetLabel) {
@@ -349,6 +566,9 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
     setActivePhotoIdx(0);
     setFocusedLine(null);
     setPaused(false);
+    setSkipReason(null);
+    // Nesmazat seenRawTextsRef.current, protože obsahuje i rozpoznané texty z předchozích fotek
+    // pro detekci duplicit napříč celou relací
   }
 
 
@@ -359,7 +579,21 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
       place_name: null,
       _manual: true,
     };
-    setParsed([...(parsed ?? []), { line: newLine, duplicate: false }]);
+    setParsed((prev) => {
+      const arr = prev ?? [];
+      // Vložit nový řádek na místo, kde právě jsi (hned za aktuálně
+      // fokusovaný řádek), aby "Přidat řádek" vkládal tam, kde píšeš,
+      // a ne vždy dolů.
+      const idx = focusedLine;
+      if (idx != null && idx >= 0 && idx < arr.length) {
+        return [
+          ...arr.slice(0, idx + 1),
+          { line: newLine, duplicate: false },
+          ...arr.slice(idx + 1),
+        ];
+      }
+      return [...arr, { line: newLine, duplicate: false }];
+    });
   }
 
 
@@ -374,10 +608,21 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
 
   const lowCount = parsed?.filter((p) => p.line.confidence === 'low' && !p.duplicate && !p.line._removed).length ?? 0;
   const okCount = parsed?.filter((p) => p.line.confidence === 'high' && !p.duplicate && !p.line._removed).length ?? 0;
-  const dupCount = parsed?.filter((p) => p.duplicate).length ?? 0;
+  const dupCount = parsed?.filter((p, idx) => p.duplicate && !userAllowedDups.has(idx)).length ?? 0;
   const unknownCount = parsed?.filter((p) => p.line.confidence === 'unknown' && !p.duplicate && !p.line._removed).length ?? 0;
-  const readyCount = parsed?.filter((p) => !p.duplicate && !p.line._removed && p.line.beer_id && p.line.package_id && p.line.quantity).length ?? 0;
+  const readyCount = parsed?.filter((p, idx) => (!p.duplicate || userAllowedDups.has(idx)) && !p.line._removed && p.line.beer_id && p.line.package_id && p.line.quantity).length ?? 0;
   const queueLeft = pendingFiles.length;
+  const activeLineIdx = focusedLine ?? 0;
+  const activeLineWrapper = parsed ? parsed[activeLineIdx] : null;
+  const activeOriginalText = activeLineWrapper
+    ? (activeLineWrapper.line.originalLine || activeLineWrapper.line.raw)
+    : '';
+
+  function doParse(text: string) {
+    const lines = parseOrderText(text, beers, packages, aliasMap);
+    const dedup = dedupeAgainstExisting(lines, existing);
+    setParsed(dedup);
+  }
 
   return (
     <>
@@ -444,16 +689,40 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
 
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap gap-3 items-center">
-            <input ref={fileRef} type="file" accept="image/*,application/pdf,.png,.jpg,.jpeg,.webp" multiple onChange={onFile} className="hidden" />
+            <input ref={fileRef} type="file" accept="image/*" multiple onChange={onFile} className="hidden" />
+            <input ref={fileRefPdf} type="file" accept="application/pdf,.pdf" multiple onChange={onFile} className="hidden" />
             <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={onFile} className="hidden" />
             
-            <button className="btn-primary" onClick={() => cameraRef.current?.click()} disabled={busy}>
-              {busy ? `Čtu z fotky… ${progress}%` : '📷 Spustit fotoaparát'}
-            </button>
-
-            <button className="btn-secondary border-neutral-300 text-neutral-800 bg-white hover:bg-neutral-50" onClick={() => fileRef.current?.click()} disabled={busy}>
-              📁 Vybrat fotku / soubor z galerie
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => cameraRef.current?.click()}
+                disabled={busy}
+                title="Vyfotit objednávku fotoaparátem"
+                className="w-11 h-11 grid place-items-center rounded-2xl bg-amber-500 hover:bg-amber-600 text-white text-xl shadow-md transition active:scale-95 disabled:opacity-50"
+              >
+                📷
+              </button>
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                disabled={busy}
+                title="Vybrat objednávku z fotogalerie"
+                className="w-11 h-11 grid place-items-center rounded-2xl bg-neutral-800 hover:bg-neutral-700 text-white text-xl shadow-md transition active:scale-95 disabled:opacity-50"
+              >
+                🖼️
+              </button>
+              <button
+                type="button"
+                onClick={() => fileRefPdf.current?.click()}
+                disabled={busy}
+                title="Vybrat soubor (např. PDF objednávky)"
+                className="h-11 px-2.5 rounded-2xl bg-white border border-neutral-300 text-neutral-800 text-xs font-black shadow-sm transition active:scale-95 disabled:opacity-50"
+              >
+                📄 PDF
+              </button>
+            </div>
+            {busy && <span className="text-xs font-bold text-amber-700">Čtu z fotky… {progress}%</span>}
 
             <label className="flex items-center gap-2 text-xs text-primary-600 cursor-pointer select-none">
               <input type="checkbox" checked={editBeforeOcr} onChange={(e) => setEditBeforeOcr(e.target.checked)} className="accent-primary-600" />
@@ -475,6 +744,41 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
             />
           </div>
         )}
+
+        {dupFilesPending && dupFilesPending.length > 0 && (
+          <div className="card !bg-warning-50/60 border border-warning-300 p-4 space-y-2">
+            <div className="flex items-start gap-2">
+              <span className="text-2xl">⚠️</span>
+              <div className="flex-1">
+                <div className="font-bold text-warning-900">
+                  {dupFilesPending.length === 1 ? 'Tento snímek jsi už nahrál/a' : 'Tyto snímky jsi už nahrál/a'}
+                </div>
+                <p className="text-sm text-warning-700 mt-1">
+                  {dupFilesPending.length === 1
+                    ? 'Vypadá to, že je to podruhé ten stejný obrázek/screen. Chceš ho přesto přidat, nebo přeskočit?'
+                    : `${dupFilesPending.length} obrázky/snímky jsi už nahrál/a. Chceš je přesto přidat, nebo přeskočit?`}
+                </p>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={() => { setPendingFiles((q) => [...q, ...dupFilesPending]); setDupFilesPending(null); }}
+                  >
+                    Přesto přidat
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={() => setDupFilesPending(null)}
+                  >
+                    Přeskočit (doporučeno)
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
 
         {busy && !editingImage && (
           <div className="flex items-center gap-3">
@@ -535,11 +839,16 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
         </div>
 
         <div className="flex-1 min-h-0 flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-primary-100 shrink-0">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-primary-800">Rozparsované položky ({parsed.length})</span>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-primary-100 shrink-0 bg-primary-50/50">
+            <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
+              <span className="text-[10px] uppercase font-black px-1.5 py-0.5 rounded bg-primary-200 text-primary-800 shrink-0">
+                Položka {activeLineIdx + 1}/{parsed.length}
+              </span>
+              <span className="text-xs sm:text-sm font-mono font-bold text-primary-950 truncate" title={activeOriginalText}>
+                {activeOriginalText || '— (ručně přidaný řádek) —'}
+              </span>
               {totalPhotos > 1 && (
-                <span className="chip bg-primary-100 text-primary-700 font-black">{currentPhotoIndex}/{totalPhotos}</span>
+                <span className="chip bg-primary-100 text-primary-700 font-black shrink-0">{currentPhotoIndex}/{totalPhotos}</span>
               )}
             </div>
             <div className="flex gap-2 text-xs items-center flex-wrap justify-end">
@@ -558,7 +867,32 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
 
           <div className="flex-1 overflow-y-auto scrollbar-thin px-4 py-3 space-y-3">
             {err && <div className="text-sm text-danger-600 bg-danger-500/10 rounded-lg px-3 py-2">{err}</div>}
-            {parsed.map((p, i) => (
+
+            {busy && pendingFiles.length > 0 && (
+              <div className="bg-primary-900 text-primary-50 px-4 py-3 rounded-2xl flex items-center gap-3 shadow-md animate-pulse">
+                <Spinner className="!text-white shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-bold uppercase tracking-wider opacity-75">Rozpoznávání na pozadí</div>
+                  <div className="text-sm font-semibold truncate">
+                    Čtu a zpracovávám fotku {currentPhotoIndex} z {totalPhotos} (zbývá {pendingFiles.length})...
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {dupCount > 0 && (
+            <div className="card !bg-amber-50 border border-amber-300 p-3.5 text-xs text-amber-950 flex flex-col gap-1.5 shadow-xs rounded-2xl mb-3">
+              <div className="font-extrabold text-amber-950 flex items-center gap-2 text-sm">
+                <span className="text-base">⚠️</span>
+                <span>Detekována duplicitní položka / snímek obrazovky ({dupCount}×)</span>
+              </div>
+              <div className="text-amber-900 leading-relaxed">
+                Tato položka se v objednávce/relaci již vyskytuje (např. při 2× vyfocení stejné obrazovky). Automaticky jsme ji přeskočili, aby se nepřidala dvakrát.
+                Pokud ji přesto chceš importovat, klikni níže u dané karty na tlačítko <strong>„🔓 Povolit import duplikátu“</strong>.
+              </div>
+            </div>
+          )}
+          {parsed.map((p, i) => (
               p.line._removed ? (
                 <div key={i} className="rounded-2xl border-2 border-dashed border-primary-200 bg-primary-50/30 px-4 py-2 flex items-center justify-between text-xs text-primary-500">
                   <span>Řádek odstraněn (nebude se importovat)</span>
@@ -590,7 +924,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                     <span className="text-[10px] uppercase tracking-wider text-primary-400 shrink-0">
                       {p.line._manual ? 'ručně přidáno' : `z fotky ${typeof p.line.photo_index === 'number' ? p.line.photo_index + 1 : ''}`}
                     </span>
-                    {!p.duplicate && (
+                    {(!p.duplicate || userAllowedDups.has(i)) && (
                       <button
                         className="ml-auto text-primary-300 hover:text-danger-400 text-xs px-2 py-0.5 rounded hover:bg-primary-800 transition-colors"
                         title="Odstranit tento řádek z importu"
@@ -614,17 +948,34 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
 
 
                 <div className="px-4 pt-2 flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
-                  {p.duplicate ? (
-                    <span className="chip bg-primary-200 text-primary-700">Duplikát — už existuje</span>
-                  ) : p.line.confidence === 'high' ? (
+                  {(p.duplicate && !userAllowedDups.has(i)) ? (
+                      <div className="flex flex-wrap items-center justify-between gap-2 w-full">
+                        <span className="chip bg-amber-200 text-amber-950 font-bold">⚠️ Duplikát — zřejmě vyfoceno 2x (přeskočeno)</span>
+                        <button
+                          type="button"
+                          className="btn-secondary !py-1 !px-2.5 text-xs font-black text-amber-950 bg-amber-100 hover:bg-amber-200 border-amber-300 transition"
+                          onClick={(e) => { e.stopPropagation(); toggleAllowDuplicate(i); }}
+                        >
+                          🔓 Povolit import duplikátu
+                        </button>
+                      </div>
+                    ) : (p.duplicate && userAllowedDups.has(i)) ? (
+                      <div className="flex flex-wrap items-center justify-between gap-2 w-full">
+                        <span className="chip bg-success-100 text-success-800 font-bold">🔓 Duplikát povolen pro import</span>
+                        <button
+                          type="button"
+                          className="btn-ghost !py-1 !px-2 text-xs font-bold text-neutral-600 hover:text-neutral-900"
+                          onClick={(e) => { e.stopPropagation(); toggleAllowDuplicate(i); }}
+                        >
+                          🔒 Zpět ignorovat
+                        </button>
+                      </div>
+                    ) : p.line.confidence === 'high' ? (
                     <span className="chip bg-success-100 text-success-700">Rozpoznáno OK</span>
                   ) : p.line.confidence === 'unknown' ? (
                     <span className="chip bg-danger-100 text-danger-700">Nerozpoznaný řádek — doplň ručně</span>
                   ) : (
                     <span className="chip bg-warning-100 text-warning-700">Doplnit: {p.line.issues.join(', ')}</span>
-                  )}
-                  {p.line.matched_alias && !p.duplicate && (
-                    <span className="text-[10px] text-primary-400" title="Naučená zkratka z minulé opravy">⭐ naučeno</span>
                   )}
                 </div>
 
@@ -636,59 +987,76 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                       <input
                         type="text"
                         list={`place-list-${i}`}
-                        className="input !py-1.5 text-xs w-full"
+                        className="input !py-2.5 sm:!py-1.5 text-sm sm:text-xs w-full"
                         value={p.line.place_name ?? ''}
                         placeholder="— (použít globálního odběratele) — nebo napiš nového"
                         onChange={(e) => updateLine(i, { place_name: e.target.value || null })}
+                        onFocus={() => {
+                          setFocusedLine(i);
+                          if (typeof p.line.photo_index === 'number') setActivePhotoIdx(p.line.photo_index);
+                        }}
                       />
                       <datalist id={`place-list-${i}`}>
                         {places.map((pl) => <option key={pl.id} value={pl.name} />)}
                       </datalist>
                     </div>
-                    <div className="grid grid-cols-[1fr_1fr_auto] sm:grid-cols-[1fr_1fr_1fr_auto] gap-x-3 gap-y-2">
+                    <div className="grid grid-cols-[1fr_auto] sm:grid-cols-[1.5fr_1.2fr_80px_auto] gap-3 items-end">
                       {/* Pivo */}
-                      <div className="flex flex-col gap-0.5 min-w-0">
+                      <div className="flex flex-col gap-0.5 min-w-0 col-span-2 sm:col-span-1">
                         <span className="text-[10px] uppercase tracking-wider text-primary-400 font-semibold">Pivo</span>
                         <select
-                          className="input !py-1.5 text-xs w-full"
+                          className="input !py-2.5 sm:!py-1.5 text-sm sm:text-xs w-full font-bold"
                           value={p.line.beer_id ?? ''}
                           onChange={(e) => updateLine(i, {
                             beer_id: e.target.value || null,
                             beer_name: beers.find((b) => b.id === e.target.value)?.name ?? null,
                           })}
+                          onFocus={() => {
+                            setFocusedLine(i);
+                            if (typeof p.line.photo_index === 'number') setActivePhotoIdx(p.line.photo_index);
+                          }}
                         >
-                          <option value="">—</option>
+                          <option value="">— Vyber pivo —</option>
                           {beers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                         </select>
                       </div>
                       {/* Obal */}
-                      <div className="flex flex-col gap-0.5 min-w-0">
+                      <div className="flex flex-col gap-0.5 min-w-0 col-span-2 sm:col-span-1">
                         <span className="text-[10px] uppercase tracking-wider text-primary-400 font-semibold">Obal</span>
                         <select
-                          className="input !py-1.5 text-xs w-full"
+                          className="input !py-2.5 sm:!py-1.5 text-sm sm:text-xs w-full font-bold"
                           value={p.line.package_id ?? ''}
                           onChange={(e) => updateLine(i, {
                             package_id: e.target.value || null,
                             package_label: packages.find((p2) => p2.id === e.target.value)?.label ?? null,
                           })}
+                          onFocus={() => {
+                            setFocusedLine(i);
+                            if (typeof p.line.photo_index === 'number') setActivePhotoIdx(p.line.photo_index);
+                          }}
                         >
-                          <option value="">—</option>
+                          <option value="">— Vyber obal —</option>
                           {packages.map((p2) => <option key={p2.id} value={p2.id}>{p2.label}</option>)}
                         </select>
                       </div>
                       {/* Množství */}
-                      <div className="flex flex-col gap-0.5 min-w-0">
-                        <span className="text-[10px] uppercase tracking-wider text-primary-400 font-semibold">Množ</span>
+                      <div className="flex flex-col gap-0.5 min-w-0 col-span-1">
+                        <span className="text-[10px] uppercase tracking-wider text-primary-400 font-semibold">Množství</span>
                         <input
-                          type="number" min={0} className="input !py-1.5 text-sm font-black w-full"
+                          type="number" min={0} className="input !py-2.5 sm:!py-1.5 text-sm font-black w-full"
                           value={p.line.quantity ?? ''}
                           onChange={(e) => updateLine(i, { quantity: e.target.value ? Number(e.target.value) : null })}
+                          onFocus={() => {
+                            setFocusedLine(i);
+                            if (typeof p.line.photo_index === 'number') setActivePhotoIdx(p.line.photo_index);
+                          }}
                         />
                       </div>
                       {/* Tlačítko odstranit */}
-                      <div className="flex items-end pb-0.5">
+                      <div className="flex items-end col-span-1 justify-end">
                         <button
-                          className="w-8 h-8 rounded-xl bg-danger-100 hover:bg-danger-200 text-danger-600 flex items-center justify-center transition text-sm font-bold"
+                          type="button"
+                          className="w-10 h-10 rounded-xl bg-danger-100 hover:bg-danger-200 text-danger-600 flex items-center justify-center transition text-base font-bold"
                           title="Odstranit řádek"
                           onClick={(e) => { e.stopPropagation(); removeLine(i); }}
                         >×</button>
@@ -696,9 +1064,8 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                     </div>
                   </div>
                 )}
-
               </div>
-              )
+            )
             ))}
 
             <p className="text-xs text-primary-400 mt-3 leading-relaxed">
@@ -715,6 +1082,11 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
             {err && (
               <div className="text-sm text-danger-700 bg-danger-500/10 border border-danger-300 rounded-lg px-3 py-2 font-medium">
                 ⚠️ {err}
+              </div>
+            )}
+            {skipReason && !err && (
+              <div className="text-sm text-warning-700 bg-warning-500/10 border border-warning-300 rounded-lg px-3 py-2 font-medium">
+                ⚠️ {skipReason}
               </div>
             )}
             <div className="flex justify-end gap-2">
@@ -763,12 +1135,30 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
     </>
   );
 
-  function doParse(text: string) {
-    const lines = parseOrderText(text, beers, packages, aliasMap);
-    const dedup = dedupeAgainstExisting(lines, existing);
+}
 
-    setParsed(dedup);
+// Session dedup key: the same order = customer + date + pivo + obal + mnozstvi.
+function mkKey(place: string, d: string, beerId: string, pkgId: string, qty: number) {
+  return [place || '', d || '', beerId || '', pkgId || '', String(qty ?? '')].join('|');
+}
 
-  }
-
+// Marks duplicate lines against the order's existing items AND against
+// items already imported from previous photos in this session.
+function markDuplicates(
+  combined: ParsedLine[],
+  seenKeys: Set<string>,
+  existing: ExistingItem[],
+  globalDate: string,
+  globalPlace: string,
+): { line: ParsedLine; duplicate: boolean }[] {
+  const existingKeys = new Set(existing.map((e) => `${e.beer_id ?? ''}|${e.package_id ?? ''}|${e.quantity}`));
+  return combined.map((line) => {
+    const place = line.place_name?.trim() || globalPlace.trim() || '';
+    const d = line.date || globalDate || '';
+    const hasIds = line.beer_id != null && line.package_id != null && line.quantity != null;
+    const sessionKey = mkKey(place, d, line.beer_id ?? '', line.package_id ?? '', line.quantity ?? 0);
+    const inExisting = hasIds && existingKeys.has(`${line.beer_id}|${line.package_id}|${line.quantity}`);
+    const duplicate = hasIds && (inExisting || seenKeys.has(sessionKey));
+    return { line, duplicate };
+  });
 }

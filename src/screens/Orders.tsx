@@ -1,23 +1,27 @@
 
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 
-import { Camera, ListOrdered, Package as PackageIcon, Phone, Building2, Truck, Plus, FileText, MessageCircle, Printer, FileSpreadsheet, CheckSquare, PackageCheck, FilePlus, Calendar, Trash2, Pencil, Copy, Ban, RotateCcw, AlertTriangle, Check, CheckCircle2 } from 'lucide-react';
+import { Camera, ListOrdered, Package as PackageIcon, Phone, Building2, Truck, Plus, FileText, MessageCircle, Printer, FileSpreadsheet, CheckSquare, PackageCheck, FilePlus, Calendar, Trash2, Pencil, Copy, Ban, RotateCcw, AlertTriangle, Check, CheckCircle2, Zap } from 'lucide-react';
 import { supabase, supabaseAdmin, Beer, Package, Place, EntryRow, useRealtime, beerBg, beerText, beerName, formatPackageLabel } from '../lib/supabase';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { ImportFromImage } from '../components/ImportFromImage';
-import { WhatsAppImportModal } from '../components/WhatsAppImportModal';
+import { WhatsAppIncomingModal } from '../components/WhatsAppIncomingModal';
+import { WhatsAppOrderReviewModal } from '../components/WhatsAppOrderReviewModal';
+import { WhatsAppAutoProcessorModal } from '../components/WhatsAppAutoProcessorModal';
 import { EditOrderModal } from '../components/EditOrderModal';
 import { PlaceCombobox } from '../components/PlaceCombobox'; // Assuming this is needed
 import { DAYS } from '../lib/shared';
 import { VoiceRecorder } from '../components/VoiceRecorder';
-import { parseVoiceOrder, parseOrderText, detectOrderNotes, loadAliasMap, loadPlaceAliasMap, emptyAliasMap, getOrCreatePlace, type ParserAliasMap } from '../lib/orderParser';
+import { parseVoiceOrder, parseOrderText, detectOrderNotes, loadAliasMap, loadPlaceAliasMap, emptyAliasMap, getOrCreatePlace, matchBeerFromHints, matchPackage, normalize, type ParserAliasMap } from '../lib/orderParser';
 
 import { shareOrderToWhatsApp } from '../lib/whatsapp';
+import { subscribeToWhatsAppMessages, fetchPendingWhatsAppMessages, WhatsAppIncoming, fetchWhatsAppSenders, isSenderAllowed, type WhatsAppSender } from '../lib/whatsappApi';
 import { autoReserveTapIfNeeded, isTapMentioned, detectTapType } from '../lib/tapReservations';
+import { findDuplicateOrders, formatDuplicateMessage } from '../lib/orderDuplicates';
 import { TapReservationModal } from '../components/TapReservationModal';
-import { createReminder } from '../lib/reminders';
+import { createReminder, getLocalReminders } from '../lib/reminders';
 import Zavoz from './Zavoz';
 
 import * as XLSX from 'xlsx';
@@ -48,13 +52,19 @@ const STATUS: Record<string, { label: string; cls: string }> = {
 const DAY_COLORS: Record<string, { bg: string; bar: string; chip: string; text: string; dot: string }> = {
   po: { bg: 'bg-sky-50/70', bar: 'bg-sky-600', chip: 'bg-sky-700 text-white font-black shadow-2xs', text: 'text-sky-950 font-bold', dot: 'bg-sky-600' },
   ut: { bg: 'bg-emerald-50/70', bar: 'bg-emerald-600', chip: 'bg-emerald-700 text-white font-black shadow-2xs', text: 'text-emerald-950 font-bold', dot: 'bg-emerald-600' },
-  st: { bg: 'bg-amber-100/60', bar: 'bg-amber-600', chip: 'bg-amber-600 text-white font-black shadow-2xs', text: 'text-amber-950 font-bold', dot: 'bg-amber-600' },
+  st: { bg: 'bg-amber-100/60', bar: 'bg-amber-600', chip: 'bg-amber-600 text-white font-black shadow-2xs', text: 'text-amber-800 font-bold', dot: 'bg-amber-600' },
   ct: { bg: 'bg-rose-50/70', bar: 'bg-rose-600', chip: 'bg-rose-700 text-white font-black shadow-2xs', text: 'text-rose-950 font-bold', dot: 'bg-rose-600' },
   pa: { bg: 'bg-teal-50/70', bar: 'bg-teal-600', chip: 'bg-teal-700 text-white font-black shadow-2xs', text: 'text-teal-950 font-bold', dot: 'bg-teal-600' },
   so: { bg: 'bg-cyan-50/70', bar: 'bg-cyan-600', chip: 'bg-cyan-700 text-white font-black shadow-2xs', text: 'text-cyan-950 font-bold', dot: 'bg-cyan-600' },
-  ne: { bg: 'bg-neutral-100', bar: 'bg-neutral-600', chip: 'bg-neutral-700 text-white font-black shadow-2xs', text: 'text-neutral-950 font-bold', dot: 'bg-neutral-600' },
+  ne: { bg: 'bg-neutral-100', bar: 'bg-neutral-600', chip: 'bg-neutral-700 text-white font-black shadow-2xs', text: 'text-neutral-800 font-bold', dot: 'bg-neutral-600' },
 };
 function dayColor(d: string | null | undefined) { return d ? DAY_COLORS[d] : null; }
+// Posun měsíce o delta měsíců (YYYY-MM) — pro šipky ‹ › v přehledu objednávek
+function shiftMonth(month: string, delta: number): string {
+  const [y, m] = month.split('-').map(Number);
+  const d = new Date(Date.UTC(y, (m - 1) + delta, 1));
+  return d.toISOString().slice(0, 7);
+}
 
 export default function Orders({
   autoOpenShareImport,
@@ -124,7 +134,15 @@ export default function Orders({
   const [tapModalOrderId, setTapModalOrderId] = useState<string | undefined>(undefined);
   const [tapModalCustomer, setTapModalCustomer] = useState('');
   const [showImport, setShowImport] = useState(false);
-  const [showWhatsAppImport, setShowWhatsAppImport] = useState(false);
+  const [showWhatsAppIncoming, setShowWhatsAppIncoming] = useState(false);
+  const [showWhatsAppAutoProcessor, setShowWhatsAppAutoProcessor] = useState(false);
+  
+  // Automatické zobrazování nových WhatsApp objednávek
+  const [autoWhatsAppModal, setAutoWhatsAppModal] = useState(false);
+  const [autoWhatsAppMessage, setAutoWhatsAppMessage] = useState<WhatsAppIncoming | null>(null);
+  const [whatsappListRefresh, setWhatsappListRefresh] = useState(0); // Obnovení seznamu Auto-Import po potvrzení/zamítnutí
+  const [newWhatsAppCount, setNewWhatsAppCount] = useState(0);
+  
   const [importTarget, setImportTarget] = useState<Order | null>(null);
   const [shareInitialFiles, setShareInitialFiles] = useState<File[] | undefined>(undefined);
   const [editOrder, setEditOrder] = useState<Order | null>(null);
@@ -135,6 +153,150 @@ export default function Orders({
   const [itemFilterPackageId, setItemFilterPackageId] = useState<string | null>(null); // New state for item filter
   useEffect(() => { loadAliasMap().then(setAliasMap).catch(() => {}); }, []);
   useEffect(() => { loadPlaceAliasMap().then(setPlaceAliasMap).catch(() => {}); }, []);
+
+  // Povolení odesílatelé WhatsApp (whitelist) — prázdný seznam = povoleno vše.
+  // Realtime subscription čte z ref, aby nemusela měnit dependency.
+  const allowedSendersRef = useRef<WhatsAppSender[]>([]);
+  useEffect(() => {
+    fetchWhatsAppSenders().then((s) => { allowedSendersRef.current = s; }).catch(() => {});
+  }, []);
+
+  // Otevřít Auto-Import přímo z horní hlavičky aplikace (tlačítko „Auto-Import“).
+  useEffect(() => {
+    const handler = () => setShowWhatsAppAutoProcessor(true);
+    window.addEventListener('pivovar:open-auto-import', handler);
+    return () => window.removeEventListener('pivovar:open-auto-import', handler);
+  }, []);
+  
+  // Automatické sledování nových WhatsApp zpráv
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+    
+    try {
+      unsubscribe = subscribeToWhatsAppMessages((message) => {
+        // Zobraz pouze zprávy ve stavu 'parsed' (již rozparsované AI)
+        // nebo 'pending' (nové, ještě nezpracované)
+        if (message.status === 'parsed' || message.status === 'pending') {
+          // Whitelist odesílatelů — zprávy od nepovolených se automaticky nenačítají
+          // (zůstanou v seznamu pro ruční zpracování).
+          if (!isSenderAllowed(allowedSendersRef.current, message.sender_name)) {
+            console.log('🚫 Zpráva od nepovoleného odesílatele přeskočena:', message.sender_name);
+            return;
+          }
+          console.log('📱 Nová WhatsApp zpráva přijata:', message.id);
+          
+          // Aktualizovat počítadlo
+          setNewWhatsAppCount(prev => prev + 1);
+          
+          // Automaticky spustíme parsování, pokud je zpráva v pending stavu
+          if (message.status === 'pending') {
+            // Spustíme automatické parsování
+            fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-auto-parse`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+                'Content-Type': 'application/json',
+              },
+            }).catch(err => console.error('Chyba při automatickém parsování:', err));
+          }
+          
+          // Zobraz modální okno s novou zprávou
+          setAutoWhatsAppMessage(message);
+          setAutoWhatsAppModal(true);
+          
+          // Zvuk + systémovou notifikaci řeší globální listener v Layout.tsx
+          // (funguje na všech obrazovkách) — tady by byla duplicita.
+        }
+      });
+    } catch (error) {
+      console.error('Chyba při připojení k WhatsApp zprávám:', error);
+    }
+    
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, []);
+
+  // Dočtení zpráv, které přišly, když byla aplikace zavřená nebo na jiné
+  // obrazovce (realtime v tu chvíli neběžel). Bez toho by zůstaly navždy
+  // 'pending' a uživatel by je v appce neviděl.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        // Nejprve načteme whitelist, aby se zprávy filtrovaly správně (nezávisle
+        // na tom, kdy se načte ve vedlejším useEffectu).
+        const senders = await fetchWhatsAppSenders().catch(() => [] as WhatsAppSender[]);
+        if (cancelled) return;
+        allowedSendersRef.current = senders;
+
+        const pending = await fetchPendingWhatsAppMessages();
+        if (cancelled) return;
+
+        // Whitelist — zprávy od nepovolených odesílatelů zůstanou v seznamu
+        // pro ruční zpracování (stejně jako u realtime).
+        const allowed = pending.filter((m) => isSenderAllowed(allowedSendersRef.current, m.sender_name));
+        if (allowed.length === 0) return;
+
+        console.log('📱 Dočteno', allowed.length, 'čekajících WhatsApp zpráv');
+        setNewWhatsAppCount((prev) => prev + allowed.length);
+
+        // Pokud je mezi nimi nějaká 'pending', spustíme serverové parsování.
+        const hasPending = allowed.some((m) => m.status === 'pending');
+        if (hasPending) {
+          try {
+            const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-auto-parse`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+                'Content-Type': 'application/json',
+              },
+            });
+            if (!res.ok) console.error('Chyba při automatickém parsování (dočtení):', res.status);
+          } catch (err) {
+            console.error('Chyba při automatickém parsování (dočtení):', err);
+          }
+        }
+
+        // Počkáme, až server rozparsuje pending zprávy (2 s krok, max ~30 s),
+        // a otevřeme modál s nejnovější rozparsovanou zprávou.
+        for (let i = 0; i < 15 && !cancelled; i++) {
+          await new Promise((r) => setTimeout(r, 2000));
+          if (cancelled) return;
+          try {
+            const re = await fetchPendingWhatsAppMessages();
+            if (cancelled) return;
+            const reAllowed = re.filter((m) => isSenderAllowed(allowedSendersRef.current, m.sender_name));
+            const parsed = reAllowed.filter((m) => m.status === 'parsed');
+            if (parsed.length > 0) {
+              setAutoWhatsAppMessage(parsed[0]);
+              setAutoWhatsAppModal(true);
+              return;
+            }
+          } catch {
+            // Parsování ještě běží — zkusíme znovu.
+          }
+        }
+
+        // Parsování trvalo déle než 30 s — aspoň otevřeme modál s pending zprávou
+        // (tlačítko Schválit bude aktivní, jakmile realtime dorazí 'parsed').
+        if (!cancelled) {
+          const re = await fetchPendingWhatsAppMessages().catch(() => [] as WhatsAppIncoming[]);
+          if (cancelled) return;
+          const reAllowed = re.filter((m) => isSenderAllowed(allowedSendersRef.current, m.sender_name));
+          if (reAllowed.length > 0) {
+            setAutoWhatsAppMessage(reAllowed[0]);
+            setAutoWhatsAppModal(true);
+          }
+        }
+      } catch (error) {
+        console.error('Chyba při dočítání čekajících WhatsApp zpráv:', error);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   async function handleSaveWhatsAppOrder(ordersData: {
     placeId: string | null;
@@ -147,6 +309,21 @@ export default function Orders({
   }[]) {
     const today = new Date().toISOString().slice(0, 10);
     const createdIds: string[] = [];
+
+    // ⚠️ Kontrola duplicit PŘED vytvořením jakékoli objednávky — aby dva lidé
+    // nezadali ve stejnou chvíli stejnou objednávku.
+    for (const data of ordersData) {
+      const dup = await findDuplicateOrders({
+        placeId: data.placeId,
+        placeName: data.placeNameFree,
+        deliveryDate: data.deliveryDate || null,
+        deliveryDay: data.deliveryDay || null,
+        items: (data.items || []).map((i) => ({ beerId: i.beerId, pkgId: i.pkgId, qty: i.qty })),
+      });
+      if (dup && !window.confirm(formatDuplicateMessage(dup) + '\n\nPokračovat? (Ano = přesto vytvořit objednávku)')) {
+        throw new Error('Import zrušen — objednávka je duplicitní (' + (dup.placeName ?? 'odběratel') + ').');
+      }
+    }
 
     for (const data of ordersData) {
       // Datum objednávky: z časového razítka zprávy (kdy byla objednávka zadána),
@@ -209,9 +386,166 @@ export default function Orders({
     load();
   }
 
+  // Schválení WhatsApp objednávky - vytvoří objednávku z rozparsované zprávy
+  const handleApproveWhatsAppOrder = useCallback(async (message: WhatsAppIncoming) => {
+    try {
+      if (!message.parsed_items || message.parsed_items.length === 0) {
+        throw new Error('Objednávka nemá žádné rozparsované položky');
+      }
+
+      const today = new Date().toISOString().slice(0, 10);
+      const placeId = message.parsed_place_id || null;
+      const placeNameFree = message.parsed_place_name || 'Neznámý odběratel';
+
+      // ⚠️ Kontrola duplicity — aby dva lidé nezadali ve stejnou chvíli stejnou
+      // objednávku (např. oba kliknou na „Schválit“ u téže zprávy).
+      const dup = await findDuplicateOrders({
+        placeId,
+        placeName: placeNameFree,
+        deliveryDate: message.parsed_delivery_date || null,
+        deliveryDay: message.parsed_delivery_day || null,
+        items: (message.parsed_items || []).map((it) => ({
+          beerId: it.beer_id || null,
+          pkgId: it.pkg_id || null,
+          qty: it.qty ?? null,
+          beerName: it.beer_name || null,
+          packageLabel: it.package_label || null,
+        })),
+      });
+      if (dup && !window.confirm(formatDuplicateMessage(dup) + '\n\nPokračovat? (Ano = přesto vytvořit objednávku)')) {
+        throw new Error('Objednávka je duplicitní — nebyla vytvořena.');
+      }
+
+      const { data: newOrder, error } = await supabase
+        .from('orders')
+        .insert({
+          order_date: today,
+          place_id: placeId,
+          place_name: placeNameFree,
+          source: 'whatsapp',
+          status: 'nova',
+          delivery_day: message.parsed_delivery_day || null,
+          delivery_date: message.parsed_delivery_date || null,
+          is_prepared: false,
+          is_packaged: false,
+          note: message.parsed_note || null,
+        })
+        .select()
+        .single();
+
+      if (error || !newOrder) throw new Error(error?.message || 'Chyba při vytváření objednávky');
+
+      // Převést rozparsované položky na formát pro order_items. Pokud položka
+      // nemá ID piva/obalu, dohledáme je v katalogu podle názvu/stupně/balení.
+      const rows = message.parsed_items.map((item) => {
+        const beer =
+          beers.find((b) => b.id === item.beer_id) ??
+          // Přednost má původní text objednávky (raw_line) — název od AI může být špatný
+          matchBeerFromHints(
+            normalize([item.raw_line, item.degree].filter(Boolean).join(' ')),
+            beers,
+            aliasMap
+          ).beer ??
+          matchBeerFromHints(
+            normalize(item.beer_name || ''),
+            beers,
+            aliasMap
+          ).beer;
+        const pkg =
+          packages.find((p) => p.id === item.pkg_id) ??
+          matchPackage(
+            normalize([item.package_label, item.raw_line].filter(Boolean).join(' ')),
+            packages,
+            aliasMap
+          );
+        return {
+          order_id: newOrder.id,
+          beer_id: beer?.id ?? null,
+          beer_name: beer?.name || item.beer_name || null,
+          package_id: pkg?.id ?? null,
+          package_label: pkg?.label || item.package_label || null,
+          quantity: item.qty || 0,
+        };
+      });
+
+      const { error: itemsErr } = await supabase.from('order_items').insert(rows);
+      if (itemsErr) throw new Error(itemsErr.message);
+
+      // Označit zprávu jako importovanou
+      await supabase
+        .from('whatsapp_incoming')
+        .update({
+          status: 'imported',
+          imported_order_id: newOrder.id,
+          imported_at: new Date().toISOString(),
+        })
+        .eq('id', message.id);
+
+      // 🚰 Výčep v poznámce → otevřít rezervaci výčepu s ověřením dostupnosti
+      const trimmedNote = (message.parsed_note || '').trim();
+      if (isTapMentioned(trimmedNote)) {
+        setTapModalOrderId(newOrder.id);
+        setTapModalCustomer(placeNameFree);
+        setShowTapModal(true);
+      }
+
+      setFlash(true);
+      setTimeout(() => setFlash(false), 2000);
+      load();
+
+    } catch (error) {
+      console.error('Chyba při schvalování WhatsApp objednávky:', error);
+      throw error;
+    }
+  }, [beers, packages, aliasMap, load]);
+
+  // Zamítnutí WhatsApp objednávky - označí jako ignorovanou
+  const handleRejectWhatsAppOrder = useCallback(async (message: WhatsAppIncoming) => {
+    try {
+      await supabase
+        .from('whatsapp_incoming')
+        .update({
+          status: 'ignored',
+          error_message: 'Zamítnuto uživatelem',
+        })
+        .eq('id', message.id);
+    } catch (error) {
+      console.error('Chyba při zamítnutí WhatsApp objednávky:', error);
+      throw error;
+    }
+  }, []);
 
 
 
+
+
+  // Po potvrzení/zamítnutí/ignorování objednávky přeskočíme na další čekající
+  // zprávu — aby šlo kontrolovat zprávy jednu po druhé, bez ručního otvírání.
+  const advanceWhatsAppReview = useCallback(async () => {
+    try {
+      const pending = await fetchPendingWhatsAppMessages();
+      // Whitelist — prázdný seznam = povoleno vše.
+      const allowed = pending.filter((m) => isSenderAllowed(allowedSendersRef.current, m.sender_name));
+      // Přednost má rozparsovaná zpráva; jinak nejnovější čekající (parsování běží na pozadí).
+      const next = allowed.find((m) => m.status === 'parsed') ?? allowed[0];
+      setNewWhatsAppCount(0);
+      if (next) {
+        setAutoWhatsAppMessage(next);
+        setAutoWhatsAppModal(true);
+      } else {
+        setAutoWhatsAppModal(false);
+        setAutoWhatsAppMessage(null);
+      }
+      // Obnovit seznam v pozadí (WhatsAppAutoProcessorModal), aby potvrzená/
+      // zamítnutá zpráva zmizela ze seznamu.
+      setWhatsappListRefresh((k) => k + 1);
+    } catch (error) {
+      console.error('Chyba při přesunu na další WhatsApp zprávu:', error);
+      setAutoWhatsAppModal(false);
+      setAutoWhatsAppMessage(null);
+      setNewWhatsAppCount(0);
+    }
+  }, []);
 
   // Web Share Target hand-off: someone shared photo(s) from WhatsApp/e-mail
   // straight into the installed app. Grab them from IndexedDB and open the
@@ -453,6 +787,52 @@ export default function Orders({
           console.warn('Nepodařilo se vytvořit upomínku:', reminderErr);
         }
       }
+
+      // 📅 UPOZORNĚNÍ NA ZAČÁTKU TÝDNE — když je objednávka na termín v BUDOUCÍM
+      // týdnu (např. 25.8.), upozorníme na začátku toho týdne (pondělí 9:00),
+      // že v něm proběhne závoz. Objednávka se jinak řadí už podle delivery_date
+      // do správného týdne (25.8. = týden 25.8.), ne do aktuálního.
+      if (deliveryDate) {
+        try {
+          const dT = new Date(deliveryDate + 'T00:00:00Z');
+          if (!isNaN(dT.getTime())) {
+            // Pondělí = začátek ISO týdne
+            const dow = (dT.getUTCDay() + 6) % 7; // 0=pondělí
+            const mondayMs = dT.getTime() - dow * 86400000;
+            const startOfWeek = new Date(mondayMs);
+            const startOfWeekIso = startOfWeek.toISOString().slice(0, 10);
+            // Začátek týdne procesní nový (budoucí) vs dnes (místní den)
+            const todayLocal = new Date();
+            const todayStart = new Date(Date.UTC(todayLocal.getFullYear(), todayLocal.getMonth(), todayLocal.getDate()));
+            if (startOfWeekIso > todayStart.toISOString().slice(0, 10)) {
+              const existing = getLocalReminders();
+              const already = existing.some((r) =>
+                (r.title || '').includes('Závoz tento týden') && (r.note || '').includes(`týden ${startOfWeekIso}`)
+              );
+              if (!already) {
+                const placeNameWk = placeNameFree || places.find((p) => p.id === placeId)?.name || 'Neznámý odběratel';
+                const itemsSummaryWk = filledBeerRows.map((r) => {
+                  const beer = beers.find((b) => b.id === r.beerId);
+                  const pkg = packages.find((p) => p.id === r.pkgId);
+                  return `${beer?.name ?? '?'} ${pkg?.volume_l ?? '?'}L × ${r.qty}ks`;
+                }).join(', ');
+                await createReminder({
+                  title: `🚚 Závoz tento týden: ${placeNameWk}`,
+                  note: `Závoz proběhne v týdnu od ${startOfWeekIso} (datum: ${deliveryDate}).\n${itemsSummaryWk}${note ? `\nPoznámka: ${note}` : ''}`,
+                  date_time: `${startOfWeekIso}T09:00`,
+                  target_role: 'all',
+                  display_mode: 'both',
+                  created_by: 'Systém (Objednávky)',
+                });
+              }
+            }
+          }
+        } catch (weekReminderErr) {
+          // Tichá chyba — upomínka není kritická
+          console.warn('Nepodařilo se vytvořit týdenní upomínku:', weekReminderErr);
+        }
+      }
+
 
       // 🚰 Pokud poznámka zmiňuje výčep, zobraz modální okno pro rezervaci
       const trimmedNote = note.trim();
@@ -822,7 +1202,7 @@ export default function Orders({
       {/* Top Action Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-3xl border border-neutral-200 shadow-2xs">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-display font-black text-amber-950 flex items-center gap-1.5">
+          <span className="text-sm font-display font-black text-amber-800 flex items-center gap-1.5">
             <span>🛒</span>
             <span>Objednávky</span>
           </span>
@@ -838,7 +1218,7 @@ export default function Orders({
                   onClick={() => setViewMode('summary')}
                   className={`flex-1 sm:flex-none px-2 py-1.5 rounded-lg font-black text-[11px] leading-tight transition flex items-center justify-center gap-1 whitespace-nowrap ${
                     viewMode === 'summary'
-                      ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+                      ? 'bg-amber-500 text-neutral-800 shadow-md ring-2 ring-amber-300'
                       : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
                   }`}
                 >
@@ -848,7 +1228,7 @@ export default function Orders({
                   onClick={() => setViewMode('detail')}
                   className={`flex-1 sm:flex-none px-2 py-1.5 rounded-lg font-black text-[11px] leading-tight transition flex items-center justify-center gap-1 whitespace-nowrap ${
                     viewMode === 'detail'
-                      ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+                      ? 'bg-amber-500 text-neutral-800 shadow-md ring-2 ring-amber-300'
                       : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
                   }`}
                 >
@@ -858,7 +1238,7 @@ export default function Orders({
                   onClick={() => setViewMode('zavoz')}
                   className={`flex-1 sm:flex-none px-2 py-1.5 rounded-lg font-black text-[11px] leading-tight transition flex items-center justify-center gap-1 whitespace-nowrap ${
                     viewMode === 'zavoz'
-                      ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+                      ? 'bg-amber-500 text-neutral-800 shadow-md ring-2 ring-amber-300'
                       : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
                   }`}
                 >
@@ -876,9 +1256,10 @@ export default function Orders({
                 </button>
               </>
             )}
-          </div>
+          
+            </div>
 
-          {/* Řádek 2: Hlasové zadání / WhatsApp / Fotka / Tisk / Export */}
+          {/* Řádek 2: Hlasové zadání / Auto-Import / WhatsApp / Fotka / Tisk / Export */}
           <div className="flex gap-2 items-center flex-wrap justify-end">
             <VoiceRecorder
               compact
@@ -886,12 +1267,20 @@ export default function Orders({
               placeNames={places.map((p) => p.name)}
               onResult={handleVoiceResult}
             />
-            <button className="btn-ghost !bg-emerald-50 border border-emerald-300 text-emerald-950 font-black text-xs shadow-xs flex items-center gap-1.5" title="Vložit objednávku z textové zprávy WhatsApp" onClick={() => setShowWhatsAppImport(true)}><MessageCircle size={14} /> WhatsApp</button>
-            <button className="btn-ghost !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs flex items-center gap-1.5" title="Načíst z fotky/e-mailu" onClick={() => { setImportTarget(null); setShowImport(true); }}><Camera size={14} /> Fotka/AI</button>
+            <button className="btn-ghost !bg-blue-50 border border-blue-300 text-blue-950 font-black text-xs shadow-xs flex items-center gap-1.5 relative" title="Auto-Import — načte a zkontroluje příchozí WhatsApp objednávky" onClick={() => setShowWhatsAppIncoming(true)}>
+              <MessageCircle size={14} /> Auto-Import
+              {newWhatsAppCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black rounded-full w-4 h-4 flex items-center justify-center">
+                  {newWhatsAppCount}
+                </span>
+              )}
+            </button>
+            <button className="btn-ghost !bg-[#25D366] !border-[#25D366] !text-white font-black text-xs shadow-xs flex items-center gap-1.5 hover:!bg-[#1da851]" title="WhatsApp — hromadné zpracování příchozích zpráv" onClick={() => setShowWhatsAppAutoProcessor(true)}><MessageCircle size={14} /> WhatsApp</button>
+            <button className="btn-ghost !bg-white border-amber-300 text-amber-800 font-extrabold text-xs shadow-xs flex items-center gap-1.5" title="Načíst z fotky/e-mailu" onClick={() => { setImportTarget(null); setShowImport(true); }}><Camera size={14} /> Fotka/AI</button>
             {mode !== 'entry_only' && (
               <>
-                <button className="btn-ghost !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs flex items-center gap-1.5" title="Tisk zavážecího listu" onClick={printDeliveryList} disabled={!searchedFiltered.length}><Printer size={14} /> Tisk</button>
-                <button className="btn-ghost !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs flex items-center gap-1.5" title="Export týdne do Excelu" onClick={exportXlsx} disabled={!filtered.length}><FileSpreadsheet size={14} /> Export Excel</button>
+                <button className="btn-ghost !bg-white border-amber-300 text-amber-800 font-extrabold text-xs shadow-xs flex items-center gap-1.5" title="Tisk zavážecího listu" onClick={printDeliveryList} disabled={!searchedFiltered.length}><Printer size={14} /> Tisk</button>
+                <button className="btn-ghost !bg-white border-amber-300 text-amber-800 font-extrabold text-xs shadow-xs flex items-center gap-1.5" title="Export týdne do Excelu" onClick={exportXlsx} disabled={!filtered.length}><FileSpreadsheet size={14} /> Export Excel</button>
               </>
             )}
           </div>
@@ -904,7 +1293,7 @@ export default function Orders({
       {mode !== 'overviews_only' && viewMode === 'summary' && (
         <form onSubmit={addOrder} className={`card p-4 mb-5 transition-all duration-200 ${flash ? 'ring-4 ring-success-500/20' : ''}`}>
           <div className="text-xs font-black uppercase tracking-wider text-amber-900 dark:text-amber-300 mb-3 flex items-center justify-between">
-            <span className="flex items-center gap-2 text-sm font-display font-extrabold text-amber-950 dark:text-amber-200">
+            <span className="flex items-center gap-2 text-sm font-display font-extrabold text-amber-800 dark:text-amber-200">
               <FilePlus size={16} className="text-amber-700 dark:text-amber-400" />
               <span>Formulář nové objednávky</span>
             </span>
@@ -978,13 +1367,13 @@ export default function Orders({
                   return (
                     <tr key={i} className={`border-b border-neutral-200/60 ${filled ? 'bg-amber-50/40' : ''}`}>
                       <td className="py-1 pr-1">
-                        <select className="input text-xs w-full" value={r.beerId} onChange={(e) => setBeerRow(i, 'beerId', e.target.value)}>
+                        <select className="input order-input text-xs w-full text-slate-900 bg-white font-bold" value={r.beerId} onChange={(e) => setBeerRow(i, 'beerId', e.target.value)}>
                           <option value="">—</option>
                           {beers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                         </select>
                       </td>
                       <td className="py-1 pr-1">
-                        <select className="input text-xs w-full" value={r.pkgId} onChange={(e) => setBeerRow(i, 'pkgId', e.target.value)}>
+                        <select className="input order-input text-xs w-full text-slate-900 bg-white font-bold" value={r.pkgId} onChange={(e) => setBeerRow(i, 'pkgId', e.target.value)}>
                           <option value="">—</option>
                           {packages.map((p) => <option key={p.id} value={p.id}>{p.volume_l} L</option>)}
                         </select>
@@ -993,7 +1382,7 @@ export default function Orders({
                         <div className="flex items-center justify-center gap-1">
                           <button
                             type="button"
-                            className="w-7 h-7 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-sm transition disabled:opacity-30"
+                            className="w-7 h-7 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-800 font-bold text-sm transition disabled:opacity-30"
                             disabled={!r.qty || Number(r.qty) <= 0}
                             onClick={() => setBeerRow(i, 'qty', String(Math.max(0, Number(r.qty) - 1)))}
                           >−</button>
@@ -1076,7 +1465,7 @@ export default function Orders({
               type="button"
               onClick={() => setTimeScope('week')}
               className={`px-3 py-1.5 rounded-lg font-black text-xs transition ${
-                timeScope === 'week' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'text-neutral-700 hover:bg-neutral-200'
+                timeScope === 'week' ? 'bg-amber-500 text-neutral-800 shadow-xs' : 'text-neutral-700 hover:bg-neutral-200'
               }`}
             >
               📅 Týden
@@ -1085,7 +1474,7 @@ export default function Orders({
               type="button"
               onClick={() => setTimeScope('month')}
               className={`px-3 py-1.5 rounded-lg font-black text-xs transition ${
-                timeScope === 'month' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'text-neutral-700 hover:bg-neutral-200'
+                timeScope === 'month' ? 'bg-amber-500 text-neutral-800 shadow-xs' : 'text-neutral-700 hover:bg-neutral-200'
               }`}
             >
               🗓️ Celý měsíc
@@ -1094,7 +1483,7 @@ export default function Orders({
               type="button"
               onClick={() => setTimeScope('all')}
               className={`px-3 py-1.5 rounded-lg font-black text-xs transition ${
-                timeScope === 'all' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'text-neutral-700 hover:bg-neutral-200'
+                timeScope === 'all' ? 'bg-amber-500 text-neutral-800 shadow-xs' : 'text-neutral-700 hover:bg-neutral-200'
               }`}
             >
               🌐 Všechny
@@ -1111,7 +1500,7 @@ export default function Orders({
               </button>
               <div className="text-center flex items-center gap-1.5">
                 <span className="text-xs font-bold text-amber-700">Týden</span>
-                <span className="font-display font-black text-base text-amber-950">{weekKey.split('-')[1]}</span>
+                <span className="font-display font-black text-base text-amber-800">{weekKey.split('-')[1]}</span>
                 <span className="text-xs text-neutral-500">({wr.label})</span>
               </div>
               <button
@@ -1125,14 +1514,26 @@ export default function Orders({
 
           {timeScope === 'month' && (
             <div className="flex items-center gap-2 bg-amber-50 border border-amber-300 px-3 py-1.5 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setSelectedMonth(shiftMonth(selectedMonth, -1))}
+                className="btn-ghost !py-1 !px-2 text-xs font-black hover:bg-amber-100 transition"
+                title="Předchozí měsíc"
+              >←</button>
               <Calendar size={15} className="text-amber-800" />
               <span className="text-xs font-black text-amber-900">Měsíc:</span>
               <input
                 type="month"
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="bg-transparent text-amber-950 font-mono font-black border-none focus:outline-none text-sm"
+                className="bg-transparent text-amber-800 font-mono font-black border-none focus:outline-none text-sm"
               />
+              <button
+                type="button"
+                onClick={() => setSelectedMonth(shiftMonth(selectedMonth, 1))}
+                className="btn-ghost !py-1 !px-2 text-xs font-black hover:bg-amber-100 transition"
+                title="Další měsíc"
+              >→</button>
             </div>
           )}
         </div>
@@ -1144,7 +1545,7 @@ export default function Orders({
         <div className="space-y-3 mb-4">
           {/* Active Item Filter Display */}
           {(itemFilterBeerId || itemFilterPackageId || packageKindFilter !== 'all' || timeScope !== 'week' || searchText.trim()) && (
-            <div className="p-3.5 rounded-2xl bg-amber-100/90 border-2 border-amber-400 text-amber-950 text-xs font-bold shadow-xs flex flex-wrap items-center justify-between gap-3">
+            <div className="p-3.5 rounded-2xl bg-amber-100/90 border-2 border-amber-400 text-amber-800 text-xs font-bold shadow-xs flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-base">🔎</span>
                 <span>
@@ -1163,7 +1564,7 @@ export default function Orders({
                 )}
 
                 {itemAuditStats?.hasHiddenOrders && (
-                  <span className="text-amber-950 font-black bg-amber-200 border border-amber-400 px-2.5 py-1 rounded-xl">
+                  <span className="text-amber-800 font-black bg-amber-200 border border-amber-400 px-2.5 py-1 rounded-xl">
                     ⚠️ V jiných filtrech/týdnech je dalších {itemAuditStats.allOrdersQty - itemAuditStats.currentViewQty} ks (Celkem {itemAuditStats.allOrdersQty} ks ve {itemAuditStats.allOrdersCount} obj.)
                   </span>
                 )}
@@ -1223,7 +1624,7 @@ export default function Orders({
                   deliveryDayFilter === d.v
                     ? 'bg-amber-600 text-white ring-2 ring-amber-400'
                     : hasOrders
-                    ? 'bg-amber-100/90 text-amber-950 border-2 border-amber-400/80 hover:bg-amber-200'
+                    ? 'bg-amber-100/90 text-amber-800 border-2 border-amber-400/80 hover:bg-amber-200'
                     : 'bg-white text-neutral-900 border border-neutral-200 hover:bg-neutral-100'
                 }`}
               >
@@ -1404,15 +1805,52 @@ export default function Orders({
 
 
 
-      {showWhatsAppImport && (
-        <WhatsAppImportModal
-          isOpen={showWhatsAppImport}
-          onClose={() => setShowWhatsAppImport(false)}
+      {showWhatsAppIncoming && (
+        <WhatsAppIncomingModal
+          isOpen={showWhatsAppIncoming}
+          onClose={() => setShowWhatsAppIncoming(false)}
           beers={beers}
           packages={packages}
           places={places}
-          aliasMap={aliasMap}
-          onSave={handleSaveWhatsAppOrder}
+          onImport={handleSaveWhatsAppOrder}
+          onOpenMessage={(message) => {
+            setAutoWhatsAppMessage(message);
+            setAutoWhatsAppModal(true);
+          }}
+        />
+      )}
+
+      {showWhatsAppAutoProcessor && (
+        <WhatsAppAutoProcessorModal
+          isOpen={showWhatsAppAutoProcessor}
+          onClose={() => setShowWhatsAppAutoProcessor(false)}
+          beers={beers}
+          packages={packages}
+          places={places}
+          onImport={handleSaveWhatsAppOrder}
+          refreshKey={whatsappListRefresh}
+          onOpenMessage={(message) => {
+            setAutoWhatsAppMessage(message);
+            setAutoWhatsAppModal(true);
+          }}
+        />
+      )}
+
+      {autoWhatsAppModal && autoWhatsAppMessage && (
+        <WhatsAppOrderReviewModal
+          isOpen={autoWhatsAppModal}
+          onClose={() => {
+            setAutoWhatsAppModal(false);
+            setAutoWhatsAppMessage(null);
+            setNewWhatsAppCount(0); // Reset counter when modal closes
+          }}
+          message={autoWhatsAppMessage}
+          beers={beers}
+          packages={packages}
+          places={places}
+          onApprove={handleApproveWhatsAppOrder}
+          onReject={handleRejectWhatsAppOrder}
+          onDecision={advanceWhatsAppReview}
         />
       )}
 
@@ -1525,6 +1963,19 @@ export default function Orders({
   );
 }
 
+
+// 🍺 Ikona rezervovaného výčepu u objednávky: najde v lokálním úložišti rezervaci
+// výčepu navázanou na danou objednávku (order_id) a vrátí jméno výčepu (nebo null).
+function getTapNameForOrder(orderId: string): string | null {
+  try {
+    const saved = localStorage.getItem('vycepy_reservations_v1');
+    if (!saved) return null;
+    const list = JSON.parse(saved) as any[];
+    const r = list.find((it) => it.order_id === orderId);
+    return r?.tap_name && String(r.tap_name).trim() ? String(r.tap_name).trim() : null;
+  } catch { return null; }
+}
+
 function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, onClick, onToggleFlag, onUpdateDeliveryDay, onSetStatus, onDelete, onDuplicate, onEdit, beers, packages, places, activeBeerId, activePackageId }: {
   o: Order; items: OrderItem[];
   stockRemainingForWeek: (wk: string) => Map<string, number>;
@@ -1580,7 +2031,12 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
         <div className="flex items-center gap-1.5 min-w-0">
           <input type="checkbox" checked={selected} onClick={(e) => e.stopPropagation()} onChange={onToggleSelect}
             className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 accent-amber-500 shrink-0" />
-          <span className="font-display font-black text-sm sm:text-base text-neutral-950 break-words truncate">{o.place_name ?? '—'}</span>
+          <span className="font-display font-black text-sm sm:text-base text-neutral-800 break-words truncate">{o.place_name ?? '—'}</span>
+          {(() => { const tn = getTapNameForOrder(o.id); return tn ? (
+            <span title={`Rezervace výčepu: ${tn}`} className="chip bg-violet-600 text-white font-black shrink-0 flex items-center gap-1">
+              🍺 {tn}
+            </span>
+          ) : null; })()}
           <span className={`chip font-black ${STATUS[o.status]?.cls ?? ''}`}>{STATUS[o.status]?.label ?? o.status}</span>
           {o.delivery_date && (
             <span className="chip bg-amber-600 text-white font-black shadow-2xs shrink-0 flex items-center gap-1" title="Datum akce / závozu">
@@ -1623,8 +2079,8 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
                     key={i.id}
                     className={`chip !py-0.5 !px-2 text-[11px] font-black border transition-all ${
                       isFilteredMatch
-                        ? 'bg-amber-400 text-neutral-950 border-amber-600 ring-2 ring-amber-500 shadow-md scale-105'
-                        : 'bg-white text-neutral-950 border-neutral-200 shadow-xs'
+                        ? 'bg-amber-400 text-neutral-800 border-amber-600 ring-2 ring-amber-500 shadow-md scale-105'
+                        : 'bg-white text-neutral-800 border-neutral-200 shadow-xs'
                     }`}
                   >
                     {beer && (
@@ -1639,7 +2095,7 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
                         ({formatPackageLabel(i.package_label)})
                       </span>
                     )}
-                    <strong className={`ml-1.5 px-1.5 py-0 rounded font-black text-[11px] ${isFilteredMatch ? 'bg-neutral-950 text-amber-300' : 'bg-amber-100 text-amber-950'}`}>
+                    <strong className={`ml-1.5 px-1.5 py-0 rounded font-black text-[11px] ${isFilteredMatch ? 'bg-neutral-950 text-amber-300' : 'bg-amber-100 text-amber-800'}`}>
                       {i.quantity} ks
                     </strong>
                   </span>
@@ -1807,11 +2263,11 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
 
   const dc = dayColor(order.delivery_day);
   return (
-    <div className={`-m-4 sm:-m-8 min-h-[calc(100vh-0px)] ${dc?.bg ?? ''}`}>
+    <div className={`-m-4 sm:-m-8 min-h-[calc(100vh-0px)] ${dc?.bg ?? 'bg-neutral-100'}`}>
       <div className="max-w-3xl mx-auto p-4 sm:p-6">
         <button
           onClick={onClose}
-          className="flex items-center gap-2 text-sm font-semibold text-primary-700 hover:text-primary-900 mb-4 group -ml-2"
+          className="flex items-center gap-2 text-sm font-semibold text-primary-700 hover:text-primary-800 mb-4 group -ml-2"
         >
           <span className="w-9 h-9 grid place-items-center rounded-full bg-white shadow-sm border border-primary-100 group-hover:bg-primary-50 group-active:scale-95 transition">←</span>
           Zpět na objednávky
@@ -1827,7 +2283,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
           </button>
           <div className="text-center flex items-center gap-2">
             <span className="text-xs font-bold text-amber-700">Týden</span>
-            <span className="font-display font-black text-base text-amber-950">{weekKey.split('-')[1]}</span>
+            <span className="font-display font-black text-base text-amber-800">{weekKey.split('-')[1]}</span>
             <span className="text-xs text-neutral-500">({weekRange(weekKey).label})</span>
           </div>
           <button
@@ -1849,7 +2305,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
           </div>
           <a
             onClick={() => order.place_id && setPage && setPage('places', order.place_id)}
-            className={`font-display font-extrabold text-2xl text-primary-900 mb-3 text-left hover:underline flex items-center gap-2 cursor-pointer ${!order.place_id ? 'pointer-events-none opacity-70' : ''}`}
+            className={`font-display font-extrabold text-2xl text-primary-800 mb-3 text-left hover:underline flex items-center gap-2 cursor-pointer ${!order.place_id ? 'pointer-events-none opacity-70' : ''}`}
           >
             <Building2 size={22} className="text-amber-700" />
             <span>{order.place_name ?? '—'}</span>

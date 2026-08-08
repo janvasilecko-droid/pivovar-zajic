@@ -5,6 +5,7 @@ import { useAuth } from '../lib/auth';
 import { getVehicleExpiryStatus } from './Catalogs';
 import { AlertTriangle, ClipboardList, PackageCheck, Layers, Beer as BeerIcon } from 'lucide-react';
 import { AnnouncementManagerModal } from '../components/AnnouncementManagerModal';
+import { getStartingStockMap } from '../lib/inventoryHelper';
 
 type Row = {
   entry_date: string; beer_id: string | null; beer_name: string | null;
@@ -56,7 +57,7 @@ export default function Dashboard({ setPage }: { setPage?: (p: any) => void }) {
       supabase.from('bottling').select('entry_date,beer_id,package_id,quantity,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
       supabase.from('kegging').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('writeoffs').select('entry_date,beer_id,package_id,quantity'),
-      supabase.from('inventory').select('entry_date,beer_id,package_id,quantity'),
+      supabase.from('inventory').select('entry_date,beer_id,beer_name,package_id,package_label,quantity,note'),
       supabase.from('order_items').select('beer_id,package_id,quantity,order_id'),
       supabase.from('orders').select('id,order_date,status'),
       supabase.from('akce').select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
@@ -79,12 +80,11 @@ export default function Dashboard({ setPage }: { setPage?: (p: any) => void }) {
 
     const now = new Date();
     const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const invMonths = [...new Set(invRows.map((r) => monthKey(r.entry_date)))].filter((m) => m <= curMonth).sort().reverse();
-    const lastInvMonth = invMonths[0] ?? curMonth;
+    const lastInvMonth = curMonth;
 
-    const ordIdsThisWeek = new Set(
+    const ordIdsThisMonth = new Set(
       ordRows
-        .filter((o) => o.order_date <= todayISO() && o.status !== 'storno')
+        .filter((o) => monthKey(o.order_date) === curMonth && o.status !== 'storno')
         .map((o) => o.id)
     );
 
@@ -103,6 +103,16 @@ export default function Dashboard({ setPage }: { setPage?: (p: any) => void }) {
       return null;
     };
 
+    const invMap = getStartingStockMap(
+      lastInvMonth,
+      invRows,
+      btRows,
+      kgRows,
+      faRows,
+      fpRows,
+      woRows
+    );
+
     const result: StockStat[] = beerList.map((beer) => {
       const byPkg = new Map<string, StockByPkg>();
       const add = (rs: { beer_id: string | null; package_id: string | null; quantity: number }[], field: 'fromInventory' | 'brewedWeek' | 'orderedWeek' | 'writeoffsWeek' | 'fasovaniWeek' | 'prodejnaWeek' | 'akTaken' | 'akReturned') =>
@@ -114,19 +124,29 @@ export default function Dashboard({ setPage }: { setPage?: (p: any) => void }) {
           if (!e) { e = { package_id: r.package_id, label: pkg.label, quantity: 0, volume_l: pkg.volume_l, kind: pkg.kind, fromInventory: 0, brewedWeek: 0, orderedWeek: 0, writeoffsWeek: 0, fasovaniWeek: 0, prodejnaWeek: 0, akTaken: 0, akReturned: 0, kegsUsedWeek: 0, odpocet: 0, remaining: 0 }; byPkg.set(r.package_id, e); }
           (e[field] as number) += Number(r.quantity);
         });
-      add(invRows.filter((r) => r.beer_id === beer.id && !!lastInvMonth && monthKey(r.entry_date) === lastInvMonth), 'fromInventory');
-      add(btRows.filter((r) => r.beer_id === beer.id && r.entry_date <= todayISO()), 'brewedWeek');
-      add(kgRows.filter((r) => r.beer_id === beer.id && r.entry_date <= todayISO()), 'brewedWeek');
-      add(oiRows.filter((i) => i.beer_id === beer.id && ordIdsThisWeek.has(i.order_id)), 'orderedWeek');
-      add(woRows.filter((r) => r.beer_id === beer.id && r.entry_date <= todayISO()), 'writeoffsWeek');
-      add(faRows.filter((r) => r.beer_id === beer.id && r.entry_date <= todayISO()), 'fasovaniWeek');
-      add(fpRows.filter((r) => r.beer_id === beer.id && r.entry_date <= todayISO()), 'prodejnaWeek');
+      
+      pkgList.forEach((pkg) => {
+        const k = `${beer.id}__${pkg.id}`;
+        const qty = invMap[k] || 0;
+        if (qty > 0) {
+          let e = byPkg.get(pkg.id);
+          if (!e) { e = { package_id: pkg.id, label: pkg.label, quantity: 0, volume_l: pkg.volume_l, kind: pkg.kind, fromInventory: 0, brewedWeek: 0, orderedWeek: 0, writeoffsWeek: 0, fasovaniWeek: 0, prodejnaWeek: 0, akTaken: 0, akReturned: 0, kegsUsedWeek: 0, odpocet: 0, remaining: 0 }; byPkg.set(pkg.id, e); }
+          e.fromInventory = qty;
+        }
+      });
+
+      add(btRows.filter((r) => r.beer_id === beer.id && monthKey(r.entry_date) === curMonth && r.entry_date <= todayISO()), 'brewedWeek');
+      add(kgRows.filter((r) => r.beer_id === beer.id && monthKey(r.entry_date) === curMonth && r.entry_date <= todayISO()), 'brewedWeek');
+      add(oiRows.filter((i) => i.beer_id === beer.id && ordIdsThisMonth.has(i.order_id)), 'orderedWeek');
+      add(woRows.filter((r) => r.beer_id === beer.id && monthKey(r.entry_date) === curMonth && r.entry_date <= todayISO()), 'writeoffsWeek');
+      add(faRows.filter((r) => r.beer_id === beer.id && monthKey(r.entry_date) === curMonth && r.entry_date <= todayISO()), 'fasovaniWeek');
+      add(fpRows.filter((r) => r.beer_id === beer.id && monthKey(r.entry_date) === curMonth && r.entry_date <= todayISO()), 'prodejnaWeek');
       const akFlat = akRows.flatMap((r) => (r.items ?? []).map((i) => ({ ...i, entry_date: r.entry_date })));
-      add(akFlat.filter((i) => i.beer_id === beer.id && i.entry_date <= todayISO()).map((i) => ({ beer_id: i.beer_id, package_id: i.package_id, quantity: i.quantity_taken })), 'akTaken');
-      add(akFlat.filter((i) => i.beer_id === beer.id && i.entry_date <= todayISO()).map((i) => ({ beer_id: i.beer_id, package_id: i.package_id, quantity: i.quantity_returned })), 'akReturned');
+      add(akFlat.filter((i) => i.beer_id === beer.id && monthKey(i.entry_date) === curMonth && i.entry_date <= todayISO()).map((i) => ({ beer_id: i.beer_id, package_id: i.package_id, quantity: i.quantity_taken })), 'akTaken');
+      add(akFlat.filter((i) => i.beer_id === beer.id && monthKey(i.entry_date) === curMonth && i.entry_date <= todayISO()).map((i) => ({ beer_id: i.beer_id, package_id: i.package_id, quantity: i.quantity_returned })), 'akReturned');
 
       const seenKegSource = new Set<string>();
-      btRows.filter((r) => r.beer_id === beer.id && r.entry_date <= todayISO()).forEach((r) => {
+      btRows.filter((r) => r.beer_id === beer.id && monthKey(r.entry_date) === curMonth && r.entry_date <= todayISO()).forEach((r) => {
         const res = getKegsUsed(r);
         if (res) {
           const key = `${r.entry_date}|${r.beer_id}|${res.kegsUsed}|${res.kegPkgId}|${r.created_at || r.note || ''}`;
@@ -156,9 +176,9 @@ export default function Dashboard({ setPage }: { setPage?: (p: any) => void }) {
       const stockKegs = stockByPkg.filter((p) => p.kind === 'keg').reduce((s, p) => s + p.quantity, 0);
       const stockTotal = stockBottles + stockKegs;
       const stockLiters = stockByPkg.reduce((s, p) => s + p.quantity * p.volume_l, 0);
-      const brewedWeek = [...btRows, ...kgRows].filter((r) => r.beer_id === beer.id && r.entry_date <= todayISO()).reduce((s, r) => s + Number(r.quantity), 0);
-      const orderedWeek = oiRows.filter((i) => i.beer_id === beer.id && ordIdsThisWeek.has(i.order_id)).reduce((s, i) => s + Number(i.quantity), 0);
-      const writeoffsWeek = woRows.filter((r) => r.beer_id === beer.id && r.entry_date <= todayISO()).reduce((s, r) => s + Number(r.quantity), 0);
+      const brewedWeek = [...btRows, ...kgRows].filter((r) => r.beer_id === beer.id && monthKey(r.entry_date) === curMonth && r.entry_date <= todayISO()).reduce((s, r) => s + Number(r.quantity), 0);
+      const orderedWeek = oiRows.filter((i) => i.beer_id === beer.id && ordIdsThisMonth.has(i.order_id)).reduce((s, i) => s + Number(i.quantity), 0);
+      const writeoffsWeek = woRows.filter((r) => r.beer_id === beer.id && monthKey(r.entry_date) === curMonth && r.entry_date <= todayISO()).reduce((s, r) => s + Number(r.quantity), 0);
       const remaining = stockByPkg.reduce((s, p) => s + p.remaining, 0);
       return { beer, stockByPkg, stockBottles, stockKegs, stockTotal, stockLiters, brewedWeek, orderedWeek, writeoffsWeek, remaining };
     });
@@ -225,7 +245,7 @@ export default function Dashboard({ setPage }: { setPage?: (p: any) => void }) {
   const [materialAlerts, setMaterialAlerts] = useState<{ name: string; type: 'etiketa' | 'lahev'; balance: number }[]>([]);
   useEffect(() => {
     Promise.all([
-      supabase.from('beers').select('name'),
+      supabase.from('beers').select('name').eq('is_active', true),
       supabase.from('packages').select('label,kind'),
       supabase.from('bottling').select('beer_name,package_label,quantity'),
     ]).then(([bRes, pRes, botRes]) => {
@@ -359,7 +379,7 @@ export default function Dashboard({ setPage }: { setPage?: (p: any) => void }) {
       {/* Legend explaining the stock icons */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] font-semibold text-neutral-500 mb-4 px-1">
         <span className="flex items-center gap-1.5"><PackageCheck size={13} className="text-neutral-900" /> Stav = aktuální sklad</span>
-        <span className="flex items-center gap-1.5"><AlertTriangle size={13} className="text-neutral-900" /> Odejde = objednáno tento týden</span>
+        <span className="flex items-center gap-1.5"><AlertTriangle size={13} className="text-neutral-900" /> Odejde = objednáno tento měsíc</span>
         <span className="flex items-center gap-1.5"><Layers size={13} className="text-neutral-900" /> Zbude = zůstane po odebrání</span>
       </div>
 
@@ -465,9 +485,9 @@ export default function Dashboard({ setPage }: { setPage?: (p: any) => void }) {
                 <thead>
                   <tr className="bg-neutral-100 border-b border-neutral-200">
                     <th className="p-2 text-left">Obal</th>
-                    <th className="p-2 text-right text-sky-800" title="Počáteční stav inventury">Inv.</th>
+                    <th className="p-2 text-right text-sky-800" title="Počáteční stav k 1. dni v měsíci">Poč.</th>
                     <th className="p-2 text-right text-emerald-700" title="Stáčení (příjem)">Stoč.</th>
-                    <th className="p-2 text-right text-emerald-950 font-black" title="Aktuální stav na skladě (Inv. + Stoč.)">AKT</th>
+                    <th className="p-2 text-right text-emerald-950 font-black" title="Aktuální stav na skladě (Poč. + Stoč.)">AKT</th>
                     <th className="p-2 text-right text-rose-700 font-bold" title="Objednávky">OBJ</th>
                     <th className="p-2 text-right text-purple-700 font-bold" title="Sudy spotřebované na plnění lahví">Stáč. lahví</th>
                     <th className="p-2 text-right text-rose-600" title="Fasování zaměstnanců / privátní">Fasování</th>
@@ -505,16 +525,16 @@ export default function Dashboard({ setPage }: { setPage?: (p: any) => void }) {
             </div>
             <div className="p-3 rounded-xl bg-neutral-50 border border-neutral-200 text-[11px] text-neutral-600 space-y-1">
               <p className="font-bold text-neutral-800">📌 Vysvětlivky výpočtu:</p>
-              <p>• <strong>AKT (Sklad)</strong> = Počáteční stav z inventury (Inv.) + Stočeno v měsíci (Stoč.)</p>
+              <p>• <strong>AKT (Sklad)</strong> = Počáteční stav na začátku měsíce (Poč.) + Stočeno v měsíci (Stoč.)</p>
               <p>• <strong>Odp. celkem</strong> = Sudy spotřebované na stáčení lahví + Fasování + Prodejna + Akce + Odpisy</p>
               <p>• <strong>ZBYDE</strong> = AKT (Sklad) − OBJ (Objednávky) − Odp. celkem</p>
-            </div>
+              </div>
           </div>
         </Modal>
       )}
 
       <p className="text-xs text-primary-400 mt-4">
-        Sklad = poslední měsíční inventura + stočeno do dnešního dne. Zbude = sklad − objednávky (mimo storno) − odpočet (odpisy, akce, sudy na stáčení lahví, obchod) do dnešního dne.
+        Sklad = počáteční stav k 1. dni v měsíci + stočeno do dnešního dne. Zbude = sklad − objednávky (mimo storno) − odpočet (odpisy, akce, sudy na stáčení lahví, obchod) do dnešního dne.
       </p>
     </div>
   );

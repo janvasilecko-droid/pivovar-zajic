@@ -25,8 +25,32 @@ interface WhatsAppMessageHint {
 interface AiResponse {
   items?: OrderItem[];
   raw_text?: string;
+  place_name?: string | null;
   error?: string;
 }
+
+// 🧹 Pokud AI přečetlo tu samou objednávku víckrát (duplicitní řádky v odpovědi),
+// ponecháme ji jen jednou. Deduplikace probíhá podle toho, co je pro objednávku
+// podstatné (odběratel, pivo, obal, stupeň, množství, datum).
+function dedupeItems(items: OrderItem[]): OrderItem[] {
+  const seen = new Set<string>();
+  const out: OrderItem[] = [];
+  for (const it of items) {
+    const key = [
+      it.place_name || "",
+      it.beer_name || "",
+      it.package_label || "",
+      it.degree || "",
+      it.quantity ?? "",
+      it.date || "",
+    ].join("|").toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(it);
+  }
+  return out;
+}
+
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -88,16 +112,19 @@ Deno.serve(async (req: Request) => {
       ? placeAliases.map((a) => `"${a.wrong_name}" → ${a.correct_name}`).join("\n")
       : "(žádné naučené aliasy odběratelů zatím)";
 
-    // Sestav seznam rozpoznaných zpráv (odesílatel + datum) jako silný hint pro AI.
-    // Každá zpráva z WhatsApp exportu má svého odesílatele — to je nejspolehlivější
-    // zdroj pro určení odběratele (place_name) každé položky.
+    // Sestav seznam rozpoznaných zpráv (odesílatel + datum + PLNÝ TEXT) jako
+    // kontext pro AI. Plný text každé zprávy je důležitý, protože uživatel často
+    // na předchozí objednávku ODPOVÍDÁ — odpověď navazuje na předešlou zprávu a
+    // bez plného znění AI nemůže doplnit chybějící informace.
+    // Odesílatel slouží jen k rozlišení zpráv a dat — odběratel (place_name) se
+    // určuje VŽDY z textu zprávy, nikdy z jména odesílatele.
     const messagesList = messages.length
       ? messages
           .map((m, i) => {
-            const sender = m.sender ? `Odesílatel: "${m.sender}"` : "Odesílatel: (neznámý)";
+            const sender = m.sender ? `Odesílatel (jen posel, NIKDY odběratel): "${m.sender}"` : "Odesílatel: (neznámý)";
             const date = m.date ? `, datum: ${m.date}` : "";
-            const preview = m.text.replace(/\s+/g, " ").slice(0, 120);
-            return `Zpráva ${i + 1}: ${sender}${date}\n  Obsah: "${preview}"`;
+            const fullText = m.text.replace(/\s+/g, " ").trim();
+            return `Zpráva ${i + 1}: ${sender}${date}\n  Celý obsah zprávy: "${fullText}"`;
           })
           .join("\n")
       : "(žádné rozpoznané zprávy — text nebyl rozdělen na jednotlivé zprávy)";
@@ -122,6 +149,56 @@ KRITICKÉ POKYNY PRO ČTENÍ TEXTU:
 14. Pokud řádek začíná stupněm (např. "12sv 2x50 1x30"), aplikuj tento stupeň na VŠECHNY položky na tom řádku. NIKDY nenechávej položky bez stupně, pokud řádek začíná stupněm.
 15. KRITICKÉ — ROZLIŠUJ "1l" OD "1,5l": "1l" (1 litr) a "1,5l" (1,5 litru) jsou RŮZNÉ objemy. "1l" = PET 1l, "1,5l" = PET 1.5l. NIKDY nezaměňuj "1l" za "1,5l" a naopak. Pokud je napsáno "1l" (bez čárky/tečky), je to PET 1l. Pokud je napsáno "1,5l" nebo "1.5l", je to PET 1.5l.
 16. POZNÁMKY K OBJEDNÁVCE: Pokud je v objednávce napsáno "(bez etiket)", "bez etiket", "bez etikety" apod., zahrň tento text do raw_line příslušné položky, aby aplikace mohla poznámku automaticky přidat k objednávce. Stejně tak pro "sklo", "výčep", "podtácky", "vrácení lahví" a další poznámky.
+17. KRITICKÉ — ČÍSLO "1" A OBJEM: Pokud je u položky napsáno jen "1" (bez "l", bez "x"), může to znamenat buď MNOŽSTVÍ 1 kus, nebo OBJEM 1 litr (PET 1l). Rozhodni podle kontextu:
+    - "1x30" → quantity=1, package="KEG 30l" (1 je množství, 30 je objem)
+    - "12sv 1" → quantity=1, package="KEG 30l" (výchozí obal, 1 je množství)
+    - "1l" nebo "1 l" → quantity=1, package="PET 1l" (1 je objem)
+    - "PET 1" → quantity=1, package="PET 1l"
+    - Pokud je "1" u objemu kegu (30/50/20/15/10), je to MNOŽSTVÍ. Pokud je "1" samostatně u piva bez jiného objemu, je to MNOŽSTVÍ 1 kus s výchozím obalem KEG 30l.
+18. KRITICKÉ — BEDNY (PŘEPRAVKY) S LAHVEMI: Pokud je v objednávce napsáno "bedna", "bedny", "beden", "přepravka", "přepravky" apod., znamená to přepravku s lahvemi. JEDNA bedna = 20 ks lahví 0.33l. Postup:
+    - "1 bedna tmavého" = 20 ks lahví 0.33l tmavého piva (quantity=20, package_label="Lahve 0.33l")
+    - "2 bedny tmavého" = 2 × 20 = 40 ks lahví 0.33l tmavého piva (quantity=40, package_label="Lahve 0.33l")
+    - "3 bedny 12sv" = 3 × 20 = 60 ks lahví 0.33l piva 12° světlého (quantity=60, package_label="Lahve 0.33l")
+    VŽDY vynásob počet beden číslem 20 a výsledek zapiš jako quantity. Obal je VŽDY "Lahve 0.33l" (pokud je v textu výslovně napsáno 0,5l nebo "lahve 0,5", pak "Lahve 0.5l"). Stupeň/barva piva se určí podle textu (např. "tmavého" = tmavé, "12sv" = 12° světlé).
+19. KRITICKÉ — 50L SUDY: POKUD JE V OBJEDNÁVCE 50L, 50 L, 50, "VELKÝ SUD", "SUD 50" NEBO "KEG 50", PAK JE OBAL VŽDY "KEG 50l"! NIKDY NEPIŠ "KEG 30l" ANI "30l"! Pokud je u položky uvedeno "50l", "50 l", "50", "velký sud", "sud 50", "keg 50", Obal/package_label MUSÍ BÝT "KEG 50l"! NIKDY to nepiš jako "KEG 30l" ani nenechávej obal prázdný!
+20. KRITICKÉ — VYHODNOCENÍ LAHVÍ 20x0,5 A 20x0,33: Pokud je v textu "20x0,5" nebo "20x0.5" nebo "20 ks 0,5l", jde o 20 ks lahví 0,5l (package_label: "Lahve 0.5l")! NIKDY to nepiš jako 0.33l! Pouze pokud je výslovně napsáno "0,33" nebo "0.33" (např. "20x0,33"), použij "Lahve 0.33l".
+21. KRITICKÉ — STUPEŇ PATŘÍ K TÉ OBJEDNÁVCE, U KTERÉ JE NAPSANÝ: Stupeň/barva piva napsaná v konkrétní zprávě patří TÉ objednávce (položkám té zprávy), u které je napsaná. Pokud je u jiné objednávky (jiné zprávy/dne/odběratele) napsaný jiný stupeň, NEPŘENÁŠEJ ho mezi objednávkami. Pokud u objednávky stupeň napsaný není a nejde ho jednoznačně dovodit z kontextu odpovědi (viz pravidla u ODPOVĚDÍ), ponech degree=null a NEDOSAZUJ ho z jiné objednávky.
+
+ODPOVĚDI NA ZPRÁVY = KONTEXT (VELMI DŮLEŽITÉ):
+V WhatsApp se na objednávku často ODPOVÍDÁ — další zpráva je pokračováním/doplněním té PŘEDCHOZÍ (stejný odběratel, stejný den), NE nová samostatná objednávka. Typicky může jít o: citaci původní zprávy, slova jako "ještě", "k tomu", "dále", "a", "do objednávky přidej", "pak taky", "jo a ještě", nebo odpověď obsahuje jen čísla/piva bez jména odběratele.
+POSTUP při čtení vícenásobné/odpověďové zprávy:
+0. Pokud zpráva neobsahuje žádné konkrétní objednávkové údaje (množství, obal, pivo, stupeň) a obsahuje pouze obecná potvrzení („ok“, „ano“, „dobře“, „budem“, „jo“, „potvrzuji“, „+1“, „stejné“, emotikony ze sad 👍👌✅✔️), celou ji ignoruj, neextrahuj z ní žádné položky. Tím zabráníš přidávání duplicit nebo neúplných záznamů.
+
+
+1. NEČTI řádky tupe, jeden vedle druhého, jako izolované položky. VŽDY vezmi v úvahu KONTEXT CELÉ konverzace (seznam ROZPOZNANÝCH ZPRÁV níže s plnými texty).
+2. Když zpráva zjevně NAVAZUJE na předchozí zprávu od stejného odběratele ve stejný den (obsahuje "ještě", "k tomu", "přidej", "doplň", citaci, nebo jen doplňky), NESLUČUJ ji do samostatné částečné objednávky, ale DOPLŇ ji k původní objednávce toho odběratele a dne.
+3. Chybějící informace v odpovědi DOBER z původní zprávy: pokud se odpověď zmiňuje o pivu/obalu jen částečně (např. "k tomu ještě 2x 30l"), doplň stupeň/balení/odbyvatele z původní (citované/předchozí) objednávky, ke které odpověď patří.
+4. Pokud odpověď neobsahuje jméno odběratele, použij odběratele a datum z té předchozí/původní zprávy, na kterou odpovídá (stejné place_name i date).
+5. Nech raw_line každé položky odpovídat tomu textu, ze kterého reaguje, aby bylo jasné, že patří do stejné objednávky, a místo aby se každý řádek bral jako jiná objednávka.
+6. KRITICKÉ — IGNORUJ CITOVANÉ ZPRÁVY A REAKCE VE WHATSAPPU: Ve WhatsApp chatu se při odpovědi zobrazuje CITOVANÁ ZPRÁVA (v rámečku nahoře v bublině zprávy, kde je zopakované jméno odesílatele a text původní zprávy). NIKDY neextrahuj položky z CITOVANÉ ZPRÁVY jako novou samostatnou objednávku — je to jen zopakovaný text původní zprávy. Texty pod citací typu "3x30 čeho", "čeho?", "jaké pivo?", "ok", "platí", "příští týden", "díky" jsou CHATOVÉ DOTAZY/KOMENTÁŘE, NIKOLIV samostatné objednávky. Neextrahuj z nich nové položky.
+7. KRITICKÉ — IGNORUJ CHATOVÝ TEXT, KTERÝ NEPATŘÍ K OBJEDNÁVCE (ZBYTEK JINÉ KONVERZACE):
+   Do zprávy se občas připlete kousek textu, který s objednávkou NESOUVISÍ — zbytek
+   předchozí/jiné konverzace nebo odpověď na otázku jiného odesílatele (jiné téma).
+   Takový text NEPARSUJ jako položky a NEDOPLŇUJ k němu pivo/obal/stupeň z předchozích
+   řádků (dědění kontextu platí JEN pro skutečné řádky objednávky, ne pro tento text).
+   Poznáš ho takto:
+   - je to za ukončením objednávky („Děkuji moc.", „Díky moc.", „Díky.", „Moc děkuji")
+     a NEnavazuje na objednávku (chybí „ještě", „k tomu", „přidej", „doplň", „a taky"),
+   - nemá odrážku (•/‑/–), neobsahuje název odběratele a nezačíná konkrétní položkou
+     (množství + pivo/objem),
+   - typicky obsahuje chatové obraty typu „Ty máme", „my máme", „Tak ...", „tohle",
+     „to k tomu nepatří", „mimo objednávku".
+   PŘÍKLAD:
+   Text: „Malesice\n• SV 12 = 3x50l KEG + 24x1,5l PET (bez etikety) + 20x0,5l lahev (etiketa MM)\n• Jantar 12 = 3x30l KEG + 12x1,5l PET…..Děkuji moc.\nTy máme 3x\nTak 1x15 + 1x20l"
+   → VRAŤ JEN položky objednávky Malešice (SV 12: 3× KEG 50l + 24× PET 1.5l + 20× Lahve 0.5l, pivo 12° Světlá; Jantar: 3× KEG 30l + 12× PET 1.5l, pivo Jantar). Řádky „Ty máme 3x" a „Tak 1x15 + 1x20l" IGNORUJ — nepatří k objednávce, nepřidávej z nich žádné položky a nedoplňuj je pivem z předchozích řádků.
+
+8. KRITICKÉ — DEDUPLIKACE STEJNÉ OBJEDNÁVKY: Pokud je stejný odběratel a stejná položka zmíněna/zopakována vícekrát (např. v původní zprávě a následně v citaci nebo v otázce), VYTVOŘ TUTO POLOŽKU POUZE JEDNOU!
+9. KRITICKÉ — KDYŽ OBJEDNÁVKA NEMÁ STUPEŇ, HLEDEJ HO V KONTEXTU ODPOVĚDI; POKUD HO NENAJDEŠ, NECH HO PRÁZDNÝ: Stává se, že objednávka je napsaná JEN jako objem: např. "Terasa 2x50" = 2× KEG 50l, ale STUPEŇ/DRUH PIVA v tom řádku není. Pod ní může být dotaz a odpověď, která stupeň dodá — např. dotaz účetní "co to je?" a odpověď "8" (znamená 8°). POSTUP:
+   1) Pokud položka NEMÁ stupeň/beer_name ve svém vlastním řádku, podívej se do KONTEXTU té konverzace (navazující odpověď/upřesnění). Pokud je v odpovědi jednoznačný stupeň (např. "8" = 8°, "10", "12sv", "11"), DOPLŇ ho k té objednávce → např. "Terasa 2x50" + odpověď "8" = 2× KEG 50l piva 8° (beer_name i degree upřesni podle katalogu).
+   2) Odpověď patří TÉ objednávce, ze které/s níž komunikace pokračuje (stejný odběratel, stejný den). Nesmíš použít stupeň z jiné objednávky jiného odběratele/dne.
+10. KRITICKÉ — ODPOVĚĎ MŮŽE PŮVODNÍ OBJEDNÁVKU I UPRAVIT (NEJEN DOPLNIT): Pokud odpověď na předchozí zprávu OPRAVUJE/UPRAVUJE původní data (např. "těch 2x50 neber, dej 3x50", "místo 12sv chci 11sv", "sudů místo 2 bude 5", "k tomu 2x30 NE, jen 1x20"), pak na základě odpovědi UPRAV počet/obal/stupeň TÉ PŮVODNÍ položky v původní objednávce — ne jen přidej nový řádek. Výsledná objednávka = původní záměr PO spotřebování úprav z odpovědi.
+11. Rozlišení „doplň" vs „oprav": slova jako "ještě", "k tomu dod"/"přidej", "a ještě", "budu brát i" = DOPLNĚNÍ (přidej nové položky k téže objednávce). Slova jako "ne", "neber", "místo", "oprav", "změ", "bude 3x", "radši", "jen 1x" = OPRAVA (uprav existující položku původní objednávky). Vypočítej výslednou objednávku PO všech úpravách a nevytvářej duplicitní/staré řádky.
+
 
 
 
@@ -163,6 +240,10 @@ KRITICKÉ PRAVIDLO PRO ODBĚRATELE (ODBĚRATEL JE VŽDY V TEXTU ZPRÁVY):
 5. Seznam "ZNÁMÍ ODBĚRATELÉ" níže obsahuje existující odběratele. Pokud text v zprávy odpovídá byť i přibližně (překlep, OCR šum) některému z nich, POUŽIJ PŘESNÝ NÁZEV ze seznamu.
 6. NIKDY nepoužívej jako place_name: "Pojmi", "Bednář", "Bendat", "Gábina", "Gábina účetní", "Účetní", "WhatsApp", "Pivovar", "Zajíc", "Dnes", "Včera".
 7. Pokud NELZE z textu zprávy určit žádného odběratele ani po porovnání se ZNÁMÍ ODBĚRATELÉ, vrať null.
+8. Pokud je v textu objednávky napsáno "pro [jméno]" nebo "do [jméno]" nebo "na [jméno]", použij toto jméno jako place_name (má přednost i před jménem z hlavičky WhatsApp). PŘÍKLAD: i když je odesílatel zprávy "Petr Bednář", ale v textu objednávky je "pro Lukase", place_name = "Lukas" (jméno z textu). VŽDY hledej jméno odběratele v textu NEJDŘÍV a dej mu přednost před hlavičkou WhatsApp.
+9. NIKDY nepoužívej jako place_name název piva, objem kegu, nebo jiné údaje o objednávce (např. "10x50", "KEG 30l", "12sv"). Pokud je napsáno "Lokálka Říčany 10x50", place_name = "Lokálka Říčany" a "10x50" je objednávka (10× KEG 50l).
+10. ODESÍLATEL MŮŽE BÝT ODBĚRATEL — POUZE jako záloha, když text žádného odběratele neobsahuje: Pokud v textu zprávy NENÍ žádné jméno odběratele, můžeš jako place_name použít JMÉNO ODESÍLATELE (kontakt v WhatsApp), ALE POUZE pokud je to skutečný odběratel (hospoda/restaurace/osoba objednávající pivo), NE zaměstnanec pivovaru ("Pojmi", "Bednář", "Gábina", "Účetní", "Petr") a NE pivovar samotný ("Zajíc", "Hospoda U Zajíce", "Pivovar").
+11. PŘÍSNĚ ZAKÁZÁNO — NEVYMÝŠLEJ ODBĚRATELE: Nikdy nepoužívej jako place_name název ze seznamu ZNÁMÍ ODBĚRATELÉ, který se NEVYSKYTUJE v textu zprávy ani ve jméně odesílatele — to je vymýšlení a vede k objednávce u špatného zákazníka. Pokud nelze odběratele určit ani z textu ani z odesílatele, vrať null.
 
 KAŽDÁ položka objednávky má:
 - quantity: počet kusů (číslo)
@@ -180,6 +261,10 @@ KAŽDÁ položka objednávky má:
   - "tmavý", "tmavy", "tmavý ležák", "tmavy lezak", "12tm", "tm" → stupeň 12°, tmavé
   - "13", "13°" → stupeň 13°
   - "Jantar", "Summer", "Hazy", "Bunny" a podobné vlastní názvy piv — pokud se objeví v textu, jde o KONKRÉTNÍ NÁZEV piva z katalogu, ne o stupeň — najdi v katalogu pivo s odpovídajícím názvem.
+  - KRITICKÉ — "JANTAR": Pokud se v textu objeví "jantar", "jant", "jantar 12", "12 jantar", "12jantar" atd., VŽDY to znamená pivo s názvem "Jantar" (konkrétní pivo z katalogu), NIKDY NE 12° světlý ležák. Číslo "12" před/za slovem "jantar" NEoznačuje 12° světlé pivo — patří k názvu "Jantar" (zákazníci tak běžně zapisují). VŽDY použij beer_name = přesný název "Jantar" z katalogu. Stejně tak "jantarek" = Jantar.
+  - "sv l", "svetle l", "svetly l", "světlé l", "sv l" → SVĚTLÉ pivo (12° Světlá / Světlý ležák) v KEG 30l (výchozí obal, když je jen "l" = litr/sud). quantity=null (množství není napsané).
+  - "vycep", "výčep", "výčepní", "vycepni", "svetle vycepni", "světlé výčepní" → 10° výčepní pivo (Desítka), světlé. quantity=null (množství není napsané).
+  - "tmave l", "tmavy l", "tmavé l", "tm l" → TMAVÉ pivo (12° Tmavá) v KEG 30l. quantity=null.
   Pokud text jasně neodpovídá žádnému z výše uvedených vzorů ani položce v katalogu, NEHÁDEJ — vrať beer_name: null, ať si to uživatel doplní ručně.
 - package_label: obal — jeden z těchto: KEG 50l, KEG 30l, KEG 20l, KEG 15l, KEG 10l, Lahve 0.5l, Lahve 0.33l, PET 1.5l, PET 1l, sud 30l, sud 50l.
 
@@ -197,7 +282,7 @@ KAŽDÁ položka objednávky má:
 
 - raw_line: přesný text řádku jak ho vidíš
 - place_name: název odběratele / místa dodání. VELMI DŮLEŽITÉ — objednávky často uvádí odběratele JEN JEDNOU, u úplně prvního řádku nebo v záhlaví/podpisu zprávy, a další řádky pod ním už žádné jméno odběratele neopakují. V takovém případě MUSÍŠ stejného odběratele přiřadit i všem následujícím položkám, dokud se v textu neobjeví jiný/nový odběratel (pak se přepni na nového a opět ho "děduj" dolů). Jinými slovy: place_name se v datech "táhne" odshora dolů, dokud ho něco nepřepíše. Hledej jméno odběratele i v: jméně WhatsApp kontaktu, podpisu, oslovení, názvu restaurace/hospody v textu. Pokud znáš seznam UŽ EXISTUJÍCÍCH odběratelů (viz níže "ZNÁMÍ ODBĚRATELÉ") a text jen přibližně/foneticky/s překlepem odpovídá jednomu z nich, POUŽIJ PŘESNĚ ten název ze seznamu (stejná diakritika, velká/malá písmena), ne vlastní přepis. Pokud opravdu nelze určit žádného odběratele, vrať null.
-- date: DATUM objednávky ve formátu YYYY-MM-DD. Text je export z WhatsApp, kde každá zpráva má časové razítko jako "[12:00, 1.1.2026]" nebo "1.1.2026, 12:00 -". Přečti z časového razítka zprávy, ke které položka patří, a převeď ho na YYYY-MM-DD (např. "1.1.2026" → "2026-01-01"). Pokud zpráva žádné časové razítko nemá, vrať null. DŮLEŽITÉ: pokud je v textu VÍCE zpráv od stejného odběratele v RŮZNÝCH dnech, každá položka musí mít SVÉ datum z té zprávy, ve které se nachází — NESLUČUJ je do jednoho data. Tím se objednávky od stejného odběratele v různých dnech správně rozdělí na samostatné objednávky.
+- date: DATUM objednávky ve formátu YYYY-MM-DD. Text je export z WhatsApp, kde každá zpráva má časové razítko jako "[12:00, 1.1.2026]" nebo "1.1.2026, 12:00 -". Přečti z časového razítka zprávy, ke které položka patří, a převeď ho na YYYY-MM-DD (např. "1.1.2026" → "2026-01-01"). Pokud zpráva žádné časové razítko nemá, vrať null. DŮLEŽITÉ: pokud je v textu VÍCE zpráv od stejného odběratele v RŮZNÝCH dnech, každá položka musí mít SVÉ datum z té zprávy, ve které se nachází — NESLUČUJ je do jednoho data. Tím se objednávky od stejného odběratele v různých dnech správně rozdělí na samostatné objednávky. POZOR: zápis "7.8" nebo "7. 8." v textu objednávky NENÍ objem ani množství — je to datum (7. srpna). Nezaměňuj ho s "7x8" (množství) nebo "7l" (objem).
 
 
 DOSTUPNÁ PIVA V KATALOGU (id: název (stupeň)):
@@ -218,8 +303,16 @@ ${pkgAliasList}
 NAUČENÉ ALIASY ODBĚRATELŮ (špatný název → správný název; uživatel tyto opravy ručně potvrdil v minulosti, ber je jako VELMI spolehlivé — pokud text odpovídá "špatnému názvu" z tohoto seznamu, POUŽIJ PŘESNĚ "správný název"):
 ${placeAliasList}
 
-ROZPOZNANÉ ZPRÁVY (každá zpráva = jeden odesílatel + datum; použij je jako hlavní vodítko pro place_name a date):
+ROZPOZNANÉ ZPRÁVY (každá zpráva = jeden odesílatel + datum; odesílatel slouží JEN k rozlišení zpráv a k určení date — place_name určuj VŽDY z textu zprávy, nikdy z odesílatele):
 ${messagesList}
+
+DŮLEŽITÉ - ODESÍLATEL vs ODBĚRATEL:
+- ODESÍLATEL je JEN osoba/telefon, kdo zprávu poslal (např. "Bednář", "Gábina Účetní", "+420...", "Miláček"). Je to POUZE posel/doručovatel — NIKDY odběratel-hospoda. Jméno odesílatele v place_name VŽDY ignoruj.
+- ODBĚRATEL (place_name) je restaurace/hospoda/místo, PRO KTERÉ je objednávka určena. Hledej ho VŽDY VE VLASTNÍM TEXTU OBJEDNÁVKY — typicky u slov jako "pro U Dubu", "objednávka pro U Dubu", "poslat pro U Dubu", "U Dubu objednává", "na U Dubu", nebo v hlavičce/podpisu zprávy.
+- POZOR: jméno odesílatele se může objevit UVNITŘ textu jako pozdrav/podpis (např. "Ahoj, tady Miláček", "díky, Miláček"). To NENÍ odběratel — to je jen podpis posla. Odběratel je ten, PRO KOHO je objednávka určena a koho v textu najdeš jako místo určení.
+- Pokud text žádného odběratele neobsahuje, vrať place_name = null. NIKDY neodvozuj odběratele z JMÉNA ODESÍLATELE — ani tehdy, když je odesílatel mezi ZNÁMÍMI ODBĚRATELI, a ani tehdy, když to vypadá jako nejpravděpodobnější volba. Odesílatel je vždy jen posel. NIKDY nevybírej odběratele ze seznamu ZNÁMÍ ODBĚRATELÉ, který není v textu — to je vymýšlení, vrať raději null.
+- Každá položka patří zprávě, pod kterou v textu spadá. Položkám z jedné zprávy přiřaď STEJNÝ place_name (odběratele té zprávy) a STEJNÉ date (datum té zprávy). V každém items vyplň i date (datum zprávy, ke které položka patří).
+
 
 PRAVIDLA:
 - "10 x 10" znamená 10× pivo 10° (NE 10× KEG 10l)
@@ -236,11 +329,14 @@ PRAVIDLA:
 - Pokud quantity chybí, vrať null
 - Buď tolerantní k překlepům (např. "Sox" = 5x, "tox" = 10x)
 - Nejprve zkontroluj NAUČENÉ ZKRATKY výše — pokud text řádku obsahuje některou z nich, použij namapovaný název piva/obalu přímo, i když by se ti bez ní zdál nejednoznačný.
-- place_name se dědí odshora dolů (viz vysvětlení výše u place_name) — nikdy nenechávej null jen proto, že řádek sám o sobě jméno neobsahuje, pokud ho lze odvodit z předchozích řádků nebo záhlaví zprávy.
+- place_name se dědí odshora dolů — nikdy nenechávej null jen proto, že řádek sám o sobě jméno neobsahuje, pokud ho lze odvodit z PŘEDCHOZÍCH ŘÁDKŮ zprávy. Záhlaví zprávy / jméno odesílatele se pro odběratele NEPOUŽÍVÁ.
 - OBECNÉ PRAVIDLO PRO CELÝ VÝSTUP: u beer_name i place_name VŽDY nejprve zkus najít shodu v existujících datech (KATALOG PIV / NAUČENÉ ZKRATKY / ZNÁMÍ ODBĚRATELÉ) — i při nepřesné, fonetické nebo překlepové shodě. Teprve když opravdu nic z existujících dat neodpovídá, ber to jako nové/neznámé (u piva vrať null, u odběratele vrať text tak, jak jsi ho přečetl). Nikdy nepřepisuj/nenahrazuj existující známou položku vlastním vymyšleným textem, pokud shoda s katalogem/seznamem je rozumně možná.
 
 Vrať ČISTĚ JSON (bez markdown, bez \`\`\`), přesně v tomto formátu, a nic jiného:
-{"items":[{"quantity":4,"degree":"12°","beer_name":"Světlý ležák","package_label":"KEG 30l","raw_line":"Seeberg 4x30 12sv a 2x30 12sv","place_name":"Seeberg","date":"2026-01-01"},{"quantity":2,"degree":"12°","beer_name":"Světlý ležák","package_label":"KEG 30l","raw_line":"Seeberg 4x30 12sv a 2x30 12sv","place_name":"Seeberg","date":"2026-01-01"}],"raw_text":"celý rozpoznaný text"}`;
+{"items":[{"quantity":4,"degree":"12°","beer_name":"Světlý ležák","package_label":"KEG 50l","raw_line":"Seeberg 4x30 12sv a 2x30 12sv","place_name":"Seeberg","date":"2026-01-01"},{"quantity":2,"degree":"12°","beer_name":"Světlý ležák","package_label":"KEG 30l","raw_line":"Seeberg 4x30 12sv a 2x30 12sv","place_name":"Seeberg","date":"2026-01-01"}],"place_name":"Seeberg","raw_text":"celý rozpoznaný text"}
+
+DŮLEŽITÉ — TOP-LEVEL "place_name":
+Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpovědi, vedle "items" a "raw_text"). Toto pole = JMÉNO ODBĚRATELE, jehož objednávka je v textu NEJVÝRAZNĚJŠÍ / první / hlavní (obvykle první zpráva nahoře). Pokud je v textu více odběratelů, top-level place_name = ten první/nejvýraznější. Pokud nelze určit žádného (ať už proto, že v textu žádný není, nebo protože jediný kandidát je jméno odesílatele), vrať null. Příklad bez odběratele: {"items":[...],"place_name":null,"raw_text":"..."}. Toto pole je důležité, protože aplikace ho použije pro vytvoření nové objednávky.`;
 
 
     const anthropicBody = {
@@ -305,6 +401,11 @@ Vrať ČISTĚ JSON (bez markdown, bez \`\`\`), přesně v tomto formátu, a nic 
       parsed = JSON.parse(cleaned);
     } catch {
       parsed = { items: [], raw_text: text };
+    }
+
+    // 🧹 Deduplikace odpovědi — každou objednávku přečíst jen jednou.
+    if (Array.isArray(parsed.items)) {
+      parsed.items = dedupeItems(parsed.items);
     }
 
     return new Response(

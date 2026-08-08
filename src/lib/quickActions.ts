@@ -13,7 +13,7 @@ export type QuickAction = {
 
 const DEFAULT_ACTIONS: QuickAction[] = [
   { pageId: 'orders', label: '+ OBJ', icon: '📝' },
-  { pageId: 'fasovani', label: 'Fasování', icon: '📦' },
+  { pageId: 'fasovani', label: 'Personál', icon: '📦' },
 ];
 
 export function getQuickActions(userId: string): QuickAction[] {

@@ -1,7 +1,7 @@
 // Minimal offline-first service worker for the Minipivovar PWA.
 // Cache version is fetched from version.json at install time so that
 // every deploy automatically invalidates the old cache.
-// SW_VERSION: 1.201 — change this to force SW update in browser
+// SW_VERSION: 1.509 — change this to force SW update in browser
 const CACHE_PREFIX = 'pivovar-';
 
 const PRECACHE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './logo copy.jpg', './version.json'];
@@ -117,6 +117,7 @@ self.addEventListener('fetch', (e) => {
   const req = e.request;
   const url = new URL(req.url);
 
+  // Web Share Target
   if (req.method === 'POST' && url.pathname === '/share') {
     e.respondWith(
       (async () => {
@@ -142,31 +143,53 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   if (url.origin !== self.location.origin) return;
 
-  // For navigation requests, check if there's a new SW version
-  // and notify the client to reload
+  // Supabase data & auth requests are handled by the app itself (offlineFetch:
+  // cache + offline queue) — never let the SW intercept them, otherwise the
+  // network-first fallback would serve index.html instead of data when offline.
+  if (url.pathname.includes('/rest/v1/') || url.pathname.includes('/auth/v1/')) return;
+
+  // For navigation requests, use cache-first strategy for instant offline loading
   if (req.mode === 'navigate') {
     e.respondWith(
       (async () => {
+        // First, try cache
+        const cached = await caches.match(req.url);
+        if (cached) {
+          // Cache hit: serve immediately, then refresh in background
+          e.waitUntil(
+            (async () => {
+              try {
+                const networkRes = await fetch(req);
+                if (networkRes && networkRes.status === 200) {
+                  const CACHE = self.__pivovarCache || (await getCacheVersion());
+                  const clone = networkRes.clone();
+                  caches.open(CACHE).then(c => c.put(req, clone)).catch(() => {});
+                  // Check for SW update
+                  const hasUpdate = await checkForSWUpdate();
+                  if (hasUpdate) {
+                    const clients = await self.clients.matchAll();
+                    for (const client of clients) {
+                      client.postMessage({ type: 'NEW_VERSION_AVAILABLE' });
+                    }
+                  }
+                }
+              } catch {}
+            })()
+          );
+          return cached;
+        }
+
+        // No cache: try network
         try {
           const res = await fetch(req);
           if (res && res.status === 200) {
             const CACHE = self.__pivovarCache || (await getCacheVersion());
             const clone = res.clone();
-            caches.open(CACHE).then((c) => c.put(req, clone)).catch(() => {});
+            caches.open(CACHE).then(c => c.put(req, clone)).catch(() => {});
           }
-
-          // Check for SW update in the background (don't block the response)
-          const hasUpdate = await checkForSWUpdate();
-          if (hasUpdate) {
-            // Notify client that a new version is available
-            const clients = await self.clients.matchAll();
-            for (const client of clients) {
-              client.postMessage({ type: 'NEW_VERSION_AVAILABLE' });
-            }
-          }
-
           return res;
         } catch {
+          // If still no cache (first load offline) serve cached index.html as fallback
           const fallback = await caches.match('/index.html');
           return fallback || new Response('Offline', { status: 503, statusText: 'Offline' });
         }
@@ -205,23 +228,24 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // Cache-first for static assets
+  // Network-first strategy for static assets & JS bundles (always get latest code if online)
   e.respondWith(
     (async () => {
+      try {
+        const networkRes = await fetch(req, { cache: 'no-cache' });
+        if (networkRes && networkRes.status === 200) {
+          const CACHE = self.__pivovarCache || (await getCacheVersion());
+          const clone = networkRes.clone();
+          caches.open(CACHE).then((c) => c.put(req, clone)).catch(() => {});
+          return networkRes;
+        }
+      } catch {
+        // Fallback to cache if offline
+      }
       const cached = await caches.match(req);
       if (cached) return cached;
-      try {
-        const res = await fetch(req);
-        if (res && res.status === 200 && res.type === 'basic') {
-          const CACHE = self.__pivovarCache || (await getCacheVersion());
-          const clone = res.clone();
-          caches.open(CACHE).then((c) => c.put(req, clone)).catch(() => {});
-        }
-        return res;
-      } catch {
-        const fallback = await caches.match('/index.html');
-        return fallback || new Response('Offline', { status: 503, statusText: 'Offline' });
-      }
+      const fallback = await caches.match('/index.html');
+      return fallback || new Response('Offline', { status: 503, statusText: 'Offline' });
     })()
   );
 });

@@ -1,7 +1,7 @@
-import * as XLSX from 'xlsx';
-import { EntryRow } from './supabase';
+import XLSX from 'xlsx-js-style';
+import { EntryRow, Beer } from './supabase';
 
-function download(ws: XLSX.WorkSheet, name: string) {
+function download(ws: any, name: string) {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Data');
   XLSX.writeFile(wb, name);
@@ -19,8 +19,89 @@ const cols = (rows: any[], headers: string[], keys: string[]) => {
 export const exportBottlingToExcel = (rows: EntryRow[]) =>
   download(cols(rows, ['Datum', 'Pivo', 'Obal', 'Množství', 'Poznámka'], ['entry_date', 'beer_name', 'package_label', 'quantity', 'note']), 'staceni-lahve.xlsx');
 
-export const exportKeggingToExcel = (rows: EntryRow[], cellarTanks: { id: string; label: string }[]) =>
-  download(cols(rows, ['Datum', 'Pivo', 'Obal', 'Množství', 'Č. tanku', 'HL', 'Poznámka'], ['entry_date', 'beer_name', 'package_label', 'quantity', 'cellar_tank_label', 'hl', 'note']), 'staceni-keg.xlsx');
+export const exportKeggingToExcel = (
+  rows: EntryRow[],
+  cellarTanks: { id: string; label: string }[],
+  beers: Beer[]
+) => {
+  // Sort rows chronologically by date
+  const sortedRows = [...rows].sort((a, b) => (a.entry_date || '').localeCompare(b.entry_date || ''));
+
+  const headers = ['Datum', 'Pivo', 'Obal', 'Množství', 'Č. tanku', 'HL', 'Poznámka'];
+  const keys = ['entry_date', 'beer_name', 'package_label', 'quantity', 'cellar_tank_label', 'hl', 'note'];
+
+  const data = sortedRows.map((r) => {
+    const o: any = {};
+    headers.forEach((h, i) => { o[h] = (r as any)[keys[i]] ?? ''; });
+    return o;
+  });
+
+  const ws = XLSX.utils.json_to_sheet(data);
+
+  // Set up autofilter for columns A-G
+  ws['!autofilter'] = { ref: `A1:G${sortedRows.length + 1}` };
+
+  // Set custom column widths
+  ws['!cols'] = [
+    { wch: 12 }, // Datum
+    { wch: 18 }, // Pivo
+    { wch: 12 }, // Obal
+    { wch: 10 }, // Množství
+    { wch: 10 }, // Č. tanku
+    { wch: 8 },  // HL
+    { wch: 25 }, // Poznámka
+  ];
+
+  // Map beer name to color hex (without #)
+  const beerColors: Record<string, string> = {};
+  beers.forEach((b) => {
+    if (b.beer_color) {
+      beerColors[b.name] = b.beer_color.startsWith('#') ? b.beer_color.slice(1) : b.beer_color;
+    }
+  });
+
+  // Apply cell styles
+  for (const cellRef in ws) {
+    if (cellRef.startsWith('!')) continue;
+    const cell = ws[cellRef];
+    const rowNum = parseInt(cellRef.replace(/^[A-Z]+/, ''), 10);
+
+    if (rowNum === 1) {
+      // Header style
+      cell.s = {
+        font: { bold: true, color: { rgb: '000000' } },
+        fill: { fgColor: { rgb: 'E2E8F0' } },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        border: {
+          bottom: { style: 'thin', color: { rgb: '94A3B8' } },
+          top: { style: 'thin', color: { rgb: '94A3B8' } }
+        }
+      };
+    } else {
+      // Data row style
+      const beerVal = ws[`B${rowNum}`]?.v;
+      const colorHex = beerVal ? beerColors[beerVal] : null;
+
+      // Base style
+      cell.s = {
+        alignment: {
+          horizontal: cellRef.startsWith('D') || cellRef.startsWith('F') ? 'right' : 'left',
+          vertical: 'center'
+        },
+        border: {
+          bottom: { style: 'thin', color: { rgb: 'E2E8F0' } }
+        }
+      };
+
+      // Add background color for matching beer
+      if (colorHex) {
+        cell.s.fill = { fgColor: { rgb: colorHex } };
+      }
+    }
+  }
+
+  download(ws, 'staceni-keg.xlsx');
+};
 
 export const exportWriteoffsToExcel = (rows: EntryRow[]) =>
   download(cols(rows, ['Datum', 'Kdo', 'Pivo', 'Obal', 'Množství', 'Důvod'], ['entry_date', 'who', 'beer_name', 'package_label', 'quantity', 'reason']), 'odpis.xlsx');
@@ -63,5 +144,3 @@ export const exportZavozToExcel = (rows: { order_date: string; place_name: strin
   );
   download(ws, `zavoz-${weekLabel.replace(/\s+/g, '-')}.xlsx`);
 };
-
-

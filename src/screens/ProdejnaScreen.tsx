@@ -4,6 +4,8 @@ import { EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey } from '../components/WeeklyOrderSummaryCard';
 import { exportProdejnaToExcel } from '../lib/excel';
 import { VoiceRecorder } from '../components/VoiceRecorder';
+import { ProdejnaFromImage } from '../components/ProdejnaFromImage';
+import { Camera } from 'lucide-react';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { TapReservationModal } from '../components/TapReservationModal';
 import { detectTapType } from '../lib/tapReservations';
@@ -36,6 +38,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
 
   // 🚰 Rezervace výčepu — stav pro modální okno
   const [showTapModal, setShowTapModal] = useState(false);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [tapModalRowIndex, setTapModalRowIndex] = useState<number | undefined>(undefined);
 
   const showWhoColumn = table === 'fasovani' || table === 'writeoffs';
@@ -181,6 +184,11 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   }
 
   // 🚰 Po potvrzení / přeskočení rezervace výčepu
+  // Zpracuje text naceny z fotky pri stejnem parseru zkratek jako objednavky (12, 12sv, svetly, lezak => 12° Svetla).
+  function handlePhotoText(text: string) {
+    handleVoiceResult(text);
+  }
+
   function handleTapModalDone() {
     setShowTapModal(false);
     setTapModalRowIndex(undefined);
@@ -407,7 +415,14 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
 
       {/* Voice recorder mimo form */}
       {tab === 'zapis' && mode !== 'overviews_only' && (
-        <div className="flex justify-end -mt-4 mb-2">
+        <div className="flex justify-end -mt-4 mb-2 flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setShowPhotoModal(true)}
+            className="btn-secondary flex items-center gap-2 border-amber-300 text-amber-900 bg-white hover:bg-amber-50 shadow-xs py-2 px-3 text-xs font-black"
+          >
+            <Camera size={16} /> Číst z fotky
+          </button>
           <VoiceRecorder onResult={handleVoiceResult} beerNames={beers.map((b) => b.name)} />
         </div>
       )}
@@ -536,6 +551,16 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
           tapTypeHint={detectTapType(note)}
           onConfirm={handleTapModalDone}
           onSkip={handleTapModalDone}
+        />
+      )}
+
+      {showPhotoModal && (
+        <ProdejnaFromImage
+          isOpen={showPhotoModal}
+          onClose={() => setShowPhotoModal(false)}
+          beers={beers}
+          packages={packages}
+          onTextExtracted={handlePhotoText}
         />
       )}
     </div>

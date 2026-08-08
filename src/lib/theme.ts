@@ -12,14 +12,10 @@ export function getTheme(): Theme {
 
 function applyTheme(theme: Theme) {
   const root = document.documentElement;
-  let effective: 'light' | 'dark' = 'light';
-  if (theme === 'system') {
-    effective = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  } else {
-    effective = theme;
-  }
-  root.classList.toggle('dark', effective === 'dark');
-  root.dataset.theme = effective;
+  // Tmavý režim je v této aplikaci deaktivovaný: tmavé pozadí s tmavým textem
+  // je nečitelné (černé písmo). Vždy používáme světlý režim.
+  root.classList.remove('dark');
+  root.dataset.theme = 'light';
 }
 
 export function setTheme(theme: Theme) {

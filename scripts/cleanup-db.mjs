@@ -65,7 +65,7 @@ const USER_TABLES = [
   'sanitation_logs', 'srotovani', 'zadavani',
   'cellar_transfers', 'cellar_tank_cycles', 'kegging_tanks',
   'places', 'price_list', 'vehicles',
-  'parser_aliases', 'audit_log', 'user_app_versions', 'feedback_notes',
+  'parser_aliases', 'place_aliases', 'audit_log', 'user_app_versions', 'feedback_notes',
 ];
 
 // Referenční číselníky — reset na seed

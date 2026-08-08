@@ -1,17 +1,274 @@
 import { createClient } from '@supabase/supabase-js';
 import { useEffect, useRef } from 'react';
+import { cacheGetResponse, getCachedResponse, getTableRows, upsertTableRows } from './offlineCache';
+import { enqueue, getQueue } from './offline';
 
 const url = import.meta.env.VITE_SUPABASE_URL as string;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 const serviceKey = (import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY as string) || anonKey;
 
+
+// ---------------------------------------------------------------------------
+// Offline-aware fetch wrapper.
+//
+// Supabase-js v2 lets us inject a custom `fetch` (it is used for REST, auth and
+// storage alike). We intercept ONLY the PostgREST API (/rest/v1/):
+//
+//   GET    → network-first; successful responses are cached in IndexedDB and
+//            served back (exact URL, then whole-table fallback) when offline.
+//   write  → network-first; on network failure the operation is queued in
+//            localStorage and a synthetic success response is returned so the
+//            UI can continue. Queue is replayed by syncQueue() when online.
+//
+// The admin client (service role) is never intercepted.
+// ---------------------------------------------------------------------------
+
+const REST_PREFIX = '/rest/v1/';
+const FILTER_RE = /^(eq|neq|gt|gte|lt|lte|in|is|like|ilike|match|or|not|cs|cd|ov|sl|sr|nxr|nxl|adj|fts|plfts|phfts|wfts)\./;
+// Telemetrie, kterou nemá smysl řadit do offline fronty.
+const TELEMETRY_TABLES = new Set(['user_app_versions', 'app_versions']);
+
+type RestInfo = { table: string; eq: Record<string, any>; inMatch: Record<string, any[]>; onConflict: string | null };
+
+function getUrl(input: RequestInfo | URL): URL | null {
+  try {
+    if (input instanceof URL) return input;
+    if (input instanceof Request) return new URL(input.url);
+    return new URL(input);
+  } catch {
+    return null;
+  }
+}
+
+function getHeader(init: RequestInit | undefined, name: string): string | null {
+  const h = init?.headers;
+  if (!h) return null;
+  if (h instanceof Headers) return h.get(name);
+  if (Array.isArray(h)) {
+    for (const [k, v] of h) if (String(k).toLowerCase() === name.toLowerCase()) return String(v);
+    return null;
+  }
+  return (h as Record<string, string>)[name] ?? null;
+}
+
+function parseRest(url: URL): RestInfo | null {
+  const idx = url.pathname.indexOf(REST_PREFIX);
+  if (idx === -1) return null;
+  const rest = url.pathname.slice(idx + REST_PREFIX.length);
+  const table = rest.split('/')[0];
+  const eq: Record<string, any> = {};
+  const inMatch: Record<string, any[]> = {};
+  let onConflict: string | null = null;
+  for (const [k, v] of url.searchParams) {
+    if (k === 'on_conflict') { onConflict = v; continue; }
+    if (v.startsWith('eq.')) eq[k] = v.slice(3);
+    else if (v.startsWith('in.')) inMatch[k] = v.slice(3).split(',').map((s) => s.trim());
+  }
+  return { table, eq, inMatch, onConflict };
+}
+
+function hasRowFilters(url: URL): boolean {
+  for (const [, v] of url.searchParams) if (FILTER_RE.test(v)) return true;
+  return false;
+}
+
+function jsonResponse(body: any, status = 200, headers: Record<string, string> = {}): Response {
+  const h = new Headers({ 'Content-Type': 'application/json', ...headers });
+  return new Response(JSON.stringify(body), { status, headers: h });
+}
+
+function rowMatches(row: any, match?: Record<string, any>): boolean {
+  if (!match) return true;
+  return Object.entries(match).every(([k, v]) => row?.[k] === v || String(row?.[k]) === String(v));
+}
+
+/** Merge pending (queued) ops for a table into cached rows so offline lists reflect local changes. */
+function applyPendingOps(rows: any[], table: string): any[] {
+  const ops = getQueue().filter((o) => o.table === table);
+  if (ops.length === 0) return rows;
+  let result = rows.slice();
+  for (const op of ops) {
+    if (op.op === 'insert') {
+      const r = op.row;
+      if (!r) continue;
+      const idx = result.findIndex((x) => x?.id && r.id && x.id === r.id);
+      if (idx >= 0) result[idx] = { ...result[idx], ...r };
+      else result.push({ ...r });
+    } else if (op.op === 'update' || op.op === 'upsert') {
+      const r = op.row;
+      if (!r) continue;
+      let found = false;
+      result = result.map((x) => {
+        if (r.id && x?.id && x.id === r.id) { found = true; return { ...x, ...r }; }
+        if (!r.id && rowMatches(x, op.match)) { found = true; return { ...x, ...r }; }
+        return x;
+      });
+      if (!found && r.id && !op.match && !op.inMatch) result.push({ ...r });
+    } else if (op.op === 'delete') {
+      const inMatch = op.inMatch;
+      if (inMatch) {
+        result = result.filter((x) => {
+          for (const [k, vals] of Object.entries(inMatch)) {
+            if (x?.[k] !== undefined && (vals as any[]).includes(x[k])) return false;
+          }
+          return true;
+        });
+      } else if (op.match && Object.keys(op.match).length > 0) {
+        result = result.filter((x) => !rowMatches(x, op.match));
+      }
+    }
+  }
+  return result;
+}
+
+async function serveCached(url: URL, rest: RestInfo | null, wantCount: boolean): Promise<Response> {
+  let rows: any[] | null = null;
+  let contentRange: string | null = null;
+  const cached = await getCachedResponse(url.toString());
+  if (cached) { rows = cached.rows; contentRange = cached.contentRange; }
+  if (!rows && rest) {
+    const tblRows = await getTableRows(rest.table);
+    // Celý obsah tabulky vracíme jen pro dotazy bez filtrů (např. číselníky) —
+    // filtrovaný dotaz by jinak dostal nesprávná data.
+    if (tblRows && tblRows.length > 0 && !hasRowFilters(url)) rows = tblRows;
+  }
+  const finalRows = applyPendingOps(rows ?? [], rest?.table ?? '');
+  const headers: Record<string, string> = {};
+  if (wantCount) headers['Content-Range'] = `0-${Math.max(finalRows.length - 1, 0)}/${finalRows.length}`;
+  else if (contentRange) headers['Content-Range'] = contentRange;
+  return jsonResponse(finalRows, 200, headers);
+}
+
+async function handleGet(input: RequestInfo | URL, init: RequestInit | undefined, url: URL, rest: RestInfo | null): Promise<Response> {
+  const prefer = getHeader(init, 'prefer') ?? '';
+  const wantCount = prefer.includes('count=exact');
+  try {
+    const res = await fetch(input, init);
+    if (res && res.ok) {
+      const text = await res.clone().text();
+      if (text && rest) {
+        try {
+          const rows = JSON.parse(text);
+          const arr = Array.isArray(rows) ? rows : [rows];
+          const cr = res.headers.get('content-range');
+          if (arr.length > 0 || cr) cacheGetResponse(url.toString(), arr, cr);
+          if (arr.length > 0) upsertTableRows(rest.table, arr);
+        } catch { /* non-JSON body — nothing to cache */ }
+      }
+    }
+    return res;
+  } catch {
+    // Offline (nebo síťová chyba) → servírujeme z mezipaměti.
+    return serveCached(url, rest, wantCount);
+  }
+}
+
+function synthesizeWrite(init: RequestInit, rest: RestInfo, method: string): Response {
+  const prefer = getHeader(init, 'prefer') ?? '';
+  const returnsRepr = prefer.includes('return=representation');
+  const isUpsert = !!rest.onConflict && prefer.includes('resolution=merge-duplicates');
+  const skip = TELEMETRY_TABLES.has(rest.table);
+
+  let body: any = null;
+  try {
+    body = init.body && typeof init.body === 'string' ? JSON.parse(init.body) : null;
+  } catch { body = null; }
+  const rows = Array.isArray(body) ? body : body ? [body] : [];
+
+  if (method === 'POST') {
+    const op = isUpsert ? 'upsert' : 'insert';
+    const out: any[] = [];
+    for (const raw of rows) {
+      const row = { ...(raw ?? {}) };
+      if (!row.id) row.id = crypto.randomUUID();
+      if (!skip) enqueue({ table: rest.table, op, row, onConflict: rest.onConflict ?? undefined });
+      out.push(row);
+    }
+    return jsonResponse(returnsRepr ? out : [], 201);
+  }
+
+  if (method === 'PATCH') {
+    const row = rows[0] ?? {};
+    if (!skip) {
+      enqueue({
+        table: rest.table, op: 'update',
+        match: Object.keys(rest.eq).length ? rest.eq : undefined,
+        inMatch: Object.keys(rest.inMatch).length ? rest.inMatch : undefined,
+        row,
+      });
+    }
+    return jsonResponse(returnsRepr ? [row] : [], 200);
+  }
+
+  if (method === 'DELETE') {
+    if (!skip) {
+      enqueue({
+        table: rest.table, op: 'delete',
+        match: Object.keys(rest.eq).length ? rest.eq : undefined,
+        inMatch: Object.keys(rest.inMatch).length ? rest.inMatch : undefined,
+      });
+    }
+    return jsonResponse([], 200);
+  }
+
+  return new Response(null, { status: 405 });
+}
+
+async function handleWrite(input: RequestInfo | URL, init: RequestInit, rest: RestInfo): Promise<Response> {
+  const method = (init.method ?? 'GET').toUpperCase();
+
+  // Bezpečnostní pojistka: update/delete bez jakéhokoli filtru se nedá offline
+  // bezpečně zopakovat (hrozilo by smazání všech řádků) → nikdy neřadit.
+  if ((method === 'PATCH' || method === 'DELETE') && Object.keys(rest.eq).length === 0 && Object.keys(rest.inMatch).length === 0) {
+    return fetch(input, init);
+  }
+
+  // Nejdřív zkusíme síť (přeskočíme, když víme, že jsme offline).
+  if (navigator.onLine) {
+    try {
+      const res = await fetch(input, init);
+      if (res.ok && method === 'POST') {
+        const prefer = getHeader(init, 'prefer') ?? '';
+        if (prefer.includes('return=representation')) {
+          const text = await res.clone().text();
+          if (text) {
+            try {
+              const rows = JSON.parse(text);
+              const arr = Array.isArray(rows) ? rows : [rows];
+              if (arr.length > 0) upsertTableRows(rest.table, arr);
+            } catch { /* ignore */ }
+          }
+        }
+      }
+      return res;
+    } catch { /* síťová chyba → zařadit do fronty */ }
+  }
+
+  return synthesizeWrite(init, rest, method);
+}
+
+async function offlineFetch(input: RequestInfo | URL, init?: RequestInit, opts?: { admin?: boolean }): Promise<Response> {
+  const url = getUrl(input);
+  if (!url || !url.pathname.includes(REST_PREFIX) || opts?.admin) return fetch(input, init);
+  const rest = parseRest(url);
+  const method = (init?.method ?? 'GET').toUpperCase();
+
+  if (method === 'GET') return handleGet(input, init, url, rest);
+  if ((method === 'POST' || method === 'PATCH' || method === 'DELETE') && rest) return handleWrite(input, init ?? {}, rest);
+  return fetch(input, init);
+}
+
 export const supabase = createClient(url, anonKey, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
   realtime: { params: { eventsPerSecond: 5 } },
+  global: { fetch: (input, init) => offlineFetch(input, init, { admin: false }) },
 });
 
 export const supabaseAdmin = createClient(url, serviceKey, {
-  auth: { persistSession: false },
+  auth: {
+    persistSession: false
+  },
+  global: { fetch: (input, init) => offlineFetch(input, init, { admin: true }) },
 });
 
 /**

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Search, ArrowRight, CornerDownLeft, Sparkles, Building, Beer as BeerIcon, MapPin, Calendar, FileText } from 'lucide-react';
+import { Search, ArrowRight, CornerDownLeft, Sparkles, Building, Beer as BeerIcon, MapPin, Calendar, FileText, Tag, Car } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Page } from './Layout';
 
@@ -39,7 +39,7 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
     try {
       const [{ data: pData }, { data: bData }] = await Promise.all([
         supabase.from('places').select('id, name, city').order('name'),
-        supabase.from('beers').select('id, name, category').order('name'),
+        supabase.from('beers').select('id, name, category').eq('is_active', true).order('name'),
       ]);
       setPlaces(pData || []);
       setBeers(bData || []);
@@ -51,18 +51,17 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
   // Predefined System Pages
   const pagesList: { id: Page; title: string; subtitle: string; icon: any }[] = [
     { id: 'dashboard', title: 'Sklad a Přehled zásoby', subtitle: 'Stav piv v KEG sudech a lahvích', icon: Building },
-    { id: 'kegging_entry', title: 'KEG Stáčení (Zápis)', subtitle: 'Záznam stočeného piva z tanků do sudů', icon: FileText },
-    { id: 'kegging_overview', title: 'KEG Přehled stočených šarží', subtitle: 'Historie stočených KEG sudů podle šarží', icon: FileText },
     { id: 'bottling_entry', title: 'Lahve Stáčení (Zápis)', subtitle: 'Záznam stočení do lahví a PET', icon: FileText },
     { id: 'bottling_overview', title: 'Lahve Přehled stočených šarží', subtitle: 'Historie a přehled stočených lahví', icon: FileText },
     { id: 'orders', title: 'Objednávky', icon: Calendar, subtitle: 'Zadávání a přehled objednávek hospod a prodejen' },
     { id: 'zavoz', title: 'Závoz a Trasy řidičů', icon: MapPin, subtitle: 'Plánování závozu a rozvozu piva' },
     { id: 'prodejna', title: 'Prodejna pivovaru', icon: Building, subtitle: 'Zápis prodeje na prodejně' },
-    { id: 'sklo_promo', title: 'Sklo, Podtácky, Etikety a Lahve', icon: Sparkles, subtitle: 'Evidence pivního skla a obalů' },
+    { id: 'sklo_promo', title: 'Sklo, Etikety, Podtáčky (Odpis)', icon: Sparkles, subtitle: 'Evidence skla, podtáčků, etiket a prázdných lahví' },
     { id: 'vycepy', title: 'Výčepy a Rezervace', icon: Sparkles, subtitle: 'Sanitace výčepů a rezervace zařízení' },
     { id: 'exkurze', title: 'Exkurze pivovaru', icon: Building, subtitle: 'Rezervace prohlídek pivovaru' },
     { id: 'kniha_jizd', title: 'Kniha jízd vozidel', icon: MapPin, subtitle: 'Daňová evidence služebních cest' },
-    { id: 'varni_listy', title: 'Varní listy', icon: FileText, subtitle: 'Receptury a zápis vaření šarží' },
+    { id: 'vehicles', title: 'Auta (Vozidla pivovaru)', icon: Car, subtitle: 'Evidence vozidel, STK a stav tachometru' },
+    { id: 'depozitar', title: 'Číselníky (Odběratelé, Piva, Obaly, Ceník)', subtitle: 'Evidence odběratelů, piv, obalů a ceník', icon: Tag },
   ];
 
   const filteredPages: SearchItem[] = pagesList

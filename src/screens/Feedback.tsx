@@ -210,7 +210,29 @@ export default function Feedback() {
                         </div>
                         <span className={`chip text-[10px] ${cat.chip}`}>{cat.label}</span>
                       </div>
-                      {n.body && <p className="text-sm text-primary-700 whitespace-pre-wrap break-words">{n.body}</p>}
+                      {n.body && (() => {
+                        const match = n.body.match(/\[FOTO\]:(data:image\/[a-zA-Z0-9+.-]+;base64,[a-zA-Z0-9\+\/=]+)/);
+                        const cleanBody = match ? n.body.replace(match[0], '').trim() : n.body;
+                        return (
+                          <>
+                            {cleanBody && <p className="text-sm text-primary-700 whitespace-pre-wrap break-words">{cleanBody}</p>}
+                            {match && (
+                              <div
+                                className="mt-2 rounded-lg overflow-hidden border border-neutral-200/80 max-h-48 flex items-center justify-center bg-neutral-50 cursor-pointer hover:opacity-90 transition active:scale-[0.99]"
+                                onClick={() => {
+                                  const win = window.open();
+                                  if (win) {
+                                    win.document.write(`<iframe src="${match[1]}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
+                                  }
+                                }}
+                                title="Kliknutím otevřete v plné velikosti"
+                              >
+                                <img src={match[1]} alt="Příloha" className="object-contain max-h-48 w-full" />
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                       <div className="flex items-center justify-between gap-2 pt-1 mt-auto">
                         <select
                           className="input !py-1 !text-xs max-w-[160px]"

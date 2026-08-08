@@ -1,68 +1,60 @@
-import { ReactNode, useState, useEffect } from 'react';
+import { ReactNode, useState, useEffect, useRef } from 'react';
 import {
-  FilePlus, ClipboardList, Wine, Cylinder, Sparkles, TrendingDown, Store, PackageCheck, FileText,
-  ClipboardCheck, BarChart3, History as HistoryIcon, Snowflake, Navigation,
-  CalendarDays, StickyNote, Building, Beer as BeerIcon, Boxes, Car, Tag, ShieldCheck, Flame, PlusCircle, Settings, Calculator,
-  LogOut, Menu, Download, Wheat, CheckSquare, FlaskConical, Shield, Bell, BellOff, X, ArrowRight, Search, Smartphone, type LucideIcon,
+  FilePlus, ClipboardList, Wine, Cylinder, Sparkles, TrendingDown, Store, FileText,
+  ClipboardCheck, BarChart3, History as HistoryIcon, Snowflake,
+  CalendarDays, StickyNote, Car, Tag, ShieldCheck, PlusCircle, Settings, Calculator,
+  LogOut, Menu, Download, Wheat, FlaskConical, Shield, Bell, BellOff, X, ArrowRight, Search, Smartphone, MessageCircle, Users, type LucideIcon,
 } from 'lucide-react';
 
 import { useAuth } from '../lib/auth';
-import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
 import { Modal } from './ui';
 import { onNewVersion, startVersionCheck, stopVersionCheck, forceRefresh, autoRefreshIfNewVersion, type VersionInfo } from '../lib/versionCheck';
 import { supabase, Beer, Package, Place } from '../lib/supabase';
 import { EditOrderModal } from './EditOrderModal';
-import { requestNotificationPermission, getNotificationPermission, notifyNewOrder, NewOrderNotifyData } from '../lib/notifications';
+import { autoReserveTapIfNeeded } from '../lib/tapReservations';
+import { requestNotificationPermission, getNotificationPermission, notifyNewOrder, notifyNewWhatsAppMessage, NewOrderNotifyData } from '../lib/notifications';
+import { subscribeToWhatsAppMessages, fetchWhatsAppSenders, fetchPendingWhatsAppCount, isSenderAllowed, type WhatsAppSender, type WhatsAppIncoming } from '../lib/whatsappApi';
 import { getDensity, setDensity, DensityMode } from '../lib/density';
 import { canUserView, getUserPermissions, ModuleKey } from '../lib/permissions';
-import { MenuCustomizeModal } from './MenuCustomizeModal';
 import { QuickSearchModal } from './QuickSearchModal';
 import { getQuickActions, QuickAction } from '../lib/quickActions';
 import { isAdminEmail } from '../lib/config';
+import { BugReportModal } from './BugReportModal';
 
 export type NavItem = { id: Page; label: string; icon: LucideIcon; group: string };
 
-export type Page = 'dashboard' | 'varni_listy' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'history' | 'orders_entry' | 'orders' | 'zavoz' | 'kniha_jizd' | 'stock' | 'bottling' | 'bottling_entry' | 'bottling_overview' | 'kegging' | 'kegging_entry' | 'kegging_overview' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions';
+export type Page = 'sanitace' | 'marketing' | 'planning' | 'depozitar' | 'dashboard' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'history' | 'orders_entry' | 'orders' | 'zavoz' | 'kniha_jizd' | 'stock' | 'bottling' | 'bottling_entry' | 'bottling_overview' | 'kegging' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions';
 
 export const NAV: NavItem[] = [
   // --- VÝROBA ---
   { id: 'kegging', label: 'KEG', icon: Cylinder, group: 'Výroba' },
   { id: 'bottling', label: 'Lahve (Stáčení)', icon: Wine, group: 'Výroba' },
   { id: 'orders', label: 'Objednávky', icon: ClipboardList, group: 'Výroba' },
-  { id: 'fasovani', label: 'Fasování', icon: PackageCheck, group: 'Výroba' },
+  { id: 'fasovani', label: 'Personál', icon: Users, group: 'Výroba' },
   { id: 'prodejna', label: 'Prodejna', icon: Store, group: 'Výroba' },
-  { id: 'writeoffs', label: 'Odpis', icon: TrendingDown, group: 'Výroba' },
-  { id: 'akce', label: 'Akce', icon: Sparkles, group: 'Výroba' },
+  { id: 'writeoffs', label: 'Odpis, Promo, Sklo, Podtáčky', icon: TrendingDown, group: 'Výroba' },
+  { id: 'akce', label: 'Akce, Exkurze', icon: Sparkles, group: 'Výroba' },
 
   // --- PIVOVAR ---
   { id: 'dashboard', label: 'Sklad', icon: BarChart3, group: 'Pivovar' },
   { id: 'cellar', label: 'Sklep', icon: Snowflake, group: 'Pivovar' },
-  { id: 'vycepy', label: 'Výčepy', icon: Flame, group: 'Pivovar' },
   { id: 'inventory', label: 'Inventura', icon: ClipboardCheck, group: 'Pivovar' },
-  { id: 'exkurze', label: 'Exkurze', icon: Building, group: 'Pivovar' },
-  { id: 'sklo_promo', label: 'Lahve, Etikety, Podtácky', icon: Wine, group: 'Pivovar' },
   { id: 'history', label: 'Statistika', icon: HistoryIcon, group: 'Pivovar' },
 
   // --- NÁSTROJE ---
   { id: 'concentration', label: 'Kalkulačky', icon: FlaskConical, group: 'Nástroje' },
-  { id: 'calendar', label: 'Kalendář', icon: CalendarDays, group: 'Nástroje' },
-  { id: 'feedback', label: 'Poznámky', icon: StickyNote, group: 'Nástroje' },
+  { id: 'calendar', label: 'Kalendář', icon: CalendarDays, group: 'Kalendář & Poznámky' },
+  { id: 'feedback', label: 'Poznámky', icon: StickyNote, group: 'Kalendář & Poznámky' },
   { id: 'haccp', label: 'Sanitační postupy', icon: Shield, group: 'Nástroje' },
-  { id: 'sanitation_log', label: 'Sanitační deník', icon: FlaskConical, group: 'Nástroje' },
-  { id: 'checklists', label: 'Check-listy & Návody', icon: CheckSquare, group: 'Nástroje' },
-  { id: 'reminders', label: 'Upomínky', icon: Bell, group: 'Nástroje' },
+  { id: 'reminders', label: 'Upomínky', icon: Bell, group: 'Kalendář & Poznámky' },
+  { id: 'vehicles', label: 'Auta', icon: Car, group: 'Nástroje' },
 
   // --- ČÍSELNÍKY ---
-  { id: 'places', label: 'Odběratelé', icon: Building, group: 'Číselníky' },
-  { id: 'beers', label: 'Piva', icon: BeerIcon, group: 'Číselníky' },
-  { id: 'packages', label: 'Obaly (Lahve, Podtácky…)', icon: Boxes, group: 'Číselníky' },
-  { id: 'vehicles', label: 'Auta', icon: Car, group: 'Číselníky' },
-  { id: 'kniha_jizd', label: 'Kniha jízd', icon: Navigation, group: 'Číselníky' },
-  { id: 'pricelist', label: 'Ceník', icon: Tag, group: 'Číselníky' },
+  { id: 'depozitar', label: 'Odběratelé, Piva, Obaly, Ceník', icon: Tag, group: 'Číselníky' },
 
   // --- NASTAVENÍ ---
   { id: 'users', label: 'Uživatelé', icon: ShieldCheck, group: 'Nastavení' },
-  { id: 'app_versions', label: 'Verze aplikace', icon: Smartphone, group: 'Nastavení' },
+
   { id: 'app_settings', label: 'Aplikace & Nastavení', icon: Settings, group: 'Nastavení' },
 ];
 
@@ -80,17 +72,20 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(false);
   const [showInstallModal, setShowInstallModal] = useState(false);
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [newPassword, setNewPassword] = useState('');
-  const [passwordMsg, setPasswordMsg] = useState<string | null>(null);
-  const [passwordErr, setPasswordErr] = useState<string | null>(null);
-  const [passwordBusy, setPasswordBusy] = useState(false);
   const [online, setOnline] = useState(navigator.onLine);
   const [pending, setPending] = useState(0);
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showQuickAddOrder, setShowQuickAddOrder] = useState(false);
+  const [showBugModal, setShowBugModal] = useState(false);
+  const [pendingWhatsAppCount, setPendingWhatsAppCount] = useState(0);
+  // WhatsApp z horní hlavičky — přepne na Objednávky a otevře seznam
+  // příchozích WhatsApp objednávek (hromadné zpracování).
+  const openWhatsApp = () => {
+    setPage('orders');
+    window.dispatchEvent(new CustomEvent('pivovar:open-auto-import'));
+  };
   const [quickActions, setQuickActions] = useState<QuickAction[]>(() => getQuickActions(user?.id || 'guest'));
   const [beers, setBeers] = useState<Beer[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
@@ -115,7 +110,8 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
 
   // Notification States
   const [notifPermission, setNotifPermission] = useState<'granted' | 'denied' | 'default' | 'unsupported'>(getNotificationPermission());
-  const [activeNewOrderBanner, setActiveNewOrderBanner] = useState<NewOrderNotifyData | null>(null);
+  type BannerData = NewOrderNotifyData & { kind?: 'order' | 'whatsapp'; sender_name?: string; message_text?: string; autoHideSeconds?: number };
+  const [activeNewOrderBanner, setActiveNewOrderBanner] = useState<BannerData | null>(null);
 
   // New version check
   const [newVersionInfo, setNewVersionInfo] = useState<VersionInfo | null>(null);
@@ -135,8 +131,6 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   const pageToModuleMap: Record<string, ModuleKey> = {
     dashboard: 'dashboard',
     kegging: 'entry',
-    kegging_entry: 'entry',
-    kegging_overview: 'entry',
     bottling: 'entry',
     bottling_entry: 'entry',
     bottling_overview: 'entry',
@@ -149,7 +143,6 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
     kniha_jizd: 'kniha_jizd',
     stock: 'stock',
     inventory: 'inventory',
-    varni_listy: 'cellar',
     srotovani: 'srotovani',
     checklists: 'haccp',
     concentration: 'cellar',
@@ -161,6 +154,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
     beers: 'catalogs',
     packages: 'catalogs',
     vehicles: 'catalogs',
+    depozitar: 'catalogs',
     pricelist: 'pricelist',
     sklo_promo: 'sklo_promo',
     vycepy: 'vycepy',
@@ -180,8 +174,6 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   });
-  const [showMenuCustomizeModal, setShowMenuCustomizeModal] = useState(false);
-
   function saveHiddenModules(newHidden: string[]) {
     setHiddenModules(newHidden);
     try {
@@ -242,11 +234,72 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
 
     window.addEventListener('new-order-arrived', handleCustomEvent);
 
+    const handleWhatsAppEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<{ id: string; sender_name: string; message_text: string; status?: string; autoHideSeconds?: number }>;
+      if (customEvent.detail) {
+        setActiveNewOrderBanner({ ...customEvent.detail, kind: 'whatsapp' });
+        if (autoHideTimer) clearTimeout(autoHideTimer);
+        const secs = customEvent.detail.autoHideSeconds ?? 10;
+        if (secs > 0) {
+          autoHideTimer = setTimeout(() => setActiveNewOrderBanner(null), secs * 1000);
+        }
+      }
+    };
+
+    const handleGoOrders = () => setPage('orders');
+
+    window.addEventListener('whatsapp-message-arrived', handleWhatsAppEvent);
+    window.addEventListener('pivovar:go-orders', handleGoOrders);
+
     return () => {
       supabase.removeChannel(channel);
       window.removeEventListener('new-order-arrived', handleCustomEvent);
+      window.removeEventListener('whatsapp-message-arrived', handleWhatsAppEvent);
+      window.removeEventListener('pivovar:go-orders', handleGoOrders);
       if (autoHideTimer) clearTimeout(autoHideTimer);
     };
+  }, []);
+
+  // Real-time listener pro nové WhatsApp zprávy → globální notifikace k ověření.
+  // Dřív běžel jen v Orders.tsx (mountuje se jen na stránce Objednávky), takže
+  // na ostatních obrazovkách žádná notifikace neletěla.
+  const pageRef = useRef(page);
+  useEffect(() => { pageRef.current = page; }, [page]);
+  const allowedSendersRef = useRef<WhatsAppSender[]>([]);
+  useEffect(() => {
+    fetchWhatsAppSenders().then((s) => { allowedSendersRef.current = s; }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+    const notifiedIds = new Set<string>();
+    let countTimer: ReturnType<typeof setTimeout> | undefined;
+    // Počet zpráv čekajících na schválení — aktualizuje se při každé změně
+    // whatsapp_incoming (INSERT i UPDATE), s krátkým zpožděním (sráží víc událostí).
+    const refreshPendingCount = () => {
+      clearTimeout(countTimer);
+      countTimer = setTimeout(() => {
+        fetchPendingWhatsAppCount().then(setPendingWhatsAppCount).catch(() => {});
+      }, 300);
+    };
+    refreshPendingCount();
+    try {
+      unsubscribe = subscribeToWhatsAppMessages((message: WhatsAppIncoming) => {
+        refreshPendingCount();
+        if (message.status !== 'pending' && message.status !== 'processing' && message.status !== 'parsed') return;
+        if (notifiedIds.has(message.id)) return;
+        notifiedIds.add(message.id);
+        // Whitelist — prázdný seznam = vše; jinak jen zprávy od povolených odesílatelů.
+        if (!isSenderAllowed(allowedSendersRef.current, message.sender_name)) return;
+        // Na stránce Objednávky otevírá Orders.tsx sám kontrolní modál — banner potlačíme,
+        // ale zvuk a systémovou notifikaci necháme (funguje i když je aplikace na pozadí).
+        const onOrdersVisible = pageRef.current === 'orders' && typeof document !== 'undefined' && document.visibilityState === 'visible';
+        notifyNewWhatsAppMessage(message, { banner: !onOrdersVisible });
+      });
+    } catch (error) {
+      console.error('Chyba při připojení k WhatsApp notifikacím:', error);
+    }
+    return () => { if (unsubscribe) unsubscribe(); clearTimeout(countTimer); };
   }, []);
 
   // Offline queue + connectivity
@@ -305,19 +358,23 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   };
 
   return (
-    <div className="flex h-screen bg-neutral-950 text-neutral-100 font-sans antialiased overflow-hidden selection:bg-amber-500 selection:text-neutral-950">
+    <div className="flex h-screen bg-neutral-50 text-neutral-900 font-sans antialiased overflow-hidden selection:bg-amber-500 selection:text-neutral-950">
       {/* Floating Mobile/Desktop New Order Banner Alert */}
       {activeNewOrderBanner && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-lg bg-neutral-900 border-2 border-amber-400 text-white rounded-3xl p-4 sm:p-5 shadow-2xl shadow-amber-500/20 animate-bounce-short flex flex-col gap-3">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-amber-500 text-neutral-950 font-black text-2xl flex items-center justify-center animate-pulse">
-                🍺
+              <div className={`w-11 h-11 rounded-2xl text-neutral-950 font-black text-2xl flex items-center justify-center animate-pulse ${activeNewOrderBanner.kind === 'whatsapp' ? 'bg-[#25D366]' : 'bg-amber-500'}`}>
+                {activeNewOrderBanner.kind === 'whatsapp' ? '💬' : '🍺'}
               </div>
               <div>
-                <div className="text-[11px] font-black uppercase tracking-wider text-amber-400">NOVÁ OBJEDNÁVKA PŘIJATA!</div>
+                <div className="text-[11px] font-black uppercase tracking-wider text-amber-400">
+                  {activeNewOrderBanner.kind === 'whatsapp' ? 'NOVÁ WHATSAPP OBJEDNÁVKA K OVĚŘENÍ!' : 'NOVÁ OBJEDNÁVKA PŘIJATA!'}
+                </div>
                 <h4 className="text-base font-extrabold font-display text-white">
-                  {activeNewOrderBanner.place_name || 'Neznámý odběratel'}
+                  {activeNewOrderBanner.kind === 'whatsapp'
+                    ? (activeNewOrderBanner.sender_name || 'Neznámý odesílatel')
+                    : (activeNewOrderBanner.place_name || 'Neznámý odběratel')}
                 </h4>
               </div>
             </div>
@@ -329,10 +386,18 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             </button>
           </div>
 
-          {activeNewOrderBanner.note && (
-            <p className="text-xs text-neutral-300 bg-neutral-950 p-2.5 rounded-xl border border-neutral-800 italic">
-              "{activeNewOrderBanner.note}"
-            </p>
+          {activeNewOrderBanner.kind === 'whatsapp' ? (
+            activeNewOrderBanner.message_text ? (
+              <p className="text-xs text-neutral-300 bg-neutral-950 p-2.5 rounded-xl border border-neutral-800">
+                {activeNewOrderBanner.message_text.length > 200 ? activeNewOrderBanner.message_text.slice(0, 200) + '…' : activeNewOrderBanner.message_text}
+              </p>
+            ) : null
+          ) : (
+            activeNewOrderBanner.note && (
+              <p className="text-xs text-neutral-300 bg-neutral-950 p-2.5 rounded-xl border border-neutral-800 italic">
+                "{activeNewOrderBanner.note}"
+              </p>
+            )
           )}
 
           <div className="flex items-center justify-end gap-2 pt-1 border-t border-neutral-800/80">
@@ -362,25 +427,18 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex flex-col h-full overflow-hidden">
-          {/* Logo & Header - Prominent Logo Container */}
-          <div className="p-4 sm:p-5 border-b border-amber-200/80 flex items-center justify-between bg-white/60 backdrop-blur-xs">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 flex items-center justify-center shrink-0">
-                <img src="/logo.png" alt="Pivovar Zajíc" className="w-full h-full object-contain filter drop-shadow-sm" />
-              </div>
-              <div>
-                <h2 className="font-display font-black text-base tracking-tight text-amber-950 leading-none">Pivovar Zajíc</h2>
-                <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest mt-1 block">Kynšperk nad Ohří</span>
-              </div>
-            </div>
-            <button onClick={() => setOpen(false)} className="sm:hidden text-amber-800 hover:text-amber-950 p-1 font-bold">
-              ✕
-            </button>
-          </div>
+        <div className="relative flex flex-col h-full overflow-hidden">
+          {/* Plovoucí zavírací tlačítko — bez bílého pruhu, menu sahá až nahoru */}
+          <button
+            onClick={() => setOpen(false)}
+            aria-label="Zavřít menu"
+            className="sm:hidden absolute top-1.5 right-1.5 z-10 w-8 h-8 grid place-items-center rounded-full text-amber-900/60 hover:text-amber-950 hover:bg-amber-200/60 transition"
+          >
+            ✕
+          </button>
 
           {/* Navigation Links */}
-          <nav className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin">
+          <nav className="flex-1 overflow-y-auto p-4 pr-10 sm:pr-4 space-y-6 scrollbar-thin">
             {GROUPS.map((group) => {
               const groupItems = visibleNav.filter((n) => n.group === group);
               if (groupItems.length === 0) return null;
@@ -389,7 +447,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                   <div className="px-3 text-[10px] font-black uppercase tracking-widest text-amber-900/60 mb-1.5">{group}</div>
                   {groupItems.map((item) => {
                     const Icon = item.icon;
-                    const isActive = page === item.id;
+                    const isActive = page === item.id || (item.id === 'writeoffs' && page === 'sklo_promo');
                     return (
                       <button
                         key={item.id}
@@ -418,7 +476,6 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
         <div className="p-4 border-t border-amber-200/80 space-y-2 bg-white/70 backdrop-blur-xs">
           <div className="flex items-center justify-between text-xs text-neutral-700 px-1">
             <div className="flex items-center gap-1.5 min-w-0">
-              <span className={`w-2 h-2 rounded-full shrink-0 ${online ? 'bg-emerald-500' : 'bg-rose-500'}`} />
               <span className="font-bold truncate max-w-[110px] text-amber-950">{profile?.display_name || user?.email}</span>
             </div>
             <div className="flex items-center gap-1.5">
@@ -434,21 +491,8 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
               >
                 <Bell size={14} className={notifPermission === 'granted' ? 'text-amber-600 fill-amber-500' : 'text-neutral-500'} />
               </button>
-              <span className="text-[10px] font-mono font-black bg-amber-200/80 px-1.5 py-0.5 rounded-lg text-amber-950 border border-amber-300">v{APP_VERSION}</span>
             </div>
           </div>
-          <button
-            onClick={() => setShowMenuCustomizeModal(true)}
-            className="w-full py-2 px-3 rounded-xl bg-amber-100/90 hover:bg-amber-200 text-amber-950 text-xs font-black flex items-center justify-center gap-1.5 transition-all border border-amber-300 shadow-2xs"
-          >
-            👁️ Přizpůsobit mé menu
-          </button>
-          <button
-            onClick={() => setShowPasswordModal(true)}
-            className="w-full py-2 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-950 text-xs font-black flex items-center justify-center gap-1.5 transition-all border border-amber-200 shadow-2xs"
-          >
-            🔒 Změnit moje heslo
-          </button>
           <button
             onClick={signOut}
             className="w-full py-2 px-3 rounded-xl bg-white hover:bg-rose-50 text-neutral-700 hover:text-rose-700 text-xs font-black flex items-center justify-center gap-2 transition-all border border-neutral-200 hover:border-rose-300 shadow-2xs"
@@ -472,7 +516,20 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
               >
                 <Menu size={20} strokeWidth={2.5} />
               </button>
-              <span className="text-base font-black text-amber-950 sm:hidden truncate max-w-[120px]">{profile?.display_name?.split(' ')[0] || ''}</span>
+              <button
+                type="button"
+                onClick={openWhatsApp}
+                title="WhatsApp — načte a zkontroluje příchozí WhatsApp objednávky"
+                className="relative sm:hidden px-2.5 py-1.5 rounded-xl font-black text-[11px] shadow-md border flex items-center gap-1.5 active:scale-95 transition bg-[#25D366] hover:bg-[#1da851] text-white border-[#1da851]"
+              >
+                <MessageCircle size={13} />
+                <span>WhatsApp</span>
+                {pendingWhatsAppCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[9px] font-black rounded-full min-w-[16px] h-4 px-0.5 flex items-center justify-center shadow" title="Zpráv čeká na schválení">
+                    {pendingWhatsAppCount > 99 ? '99+' : pendingWhatsAppCount}
+                  </span>
+                )}
+              </button>
             </div>
 
             <div className="flex items-center gap-1.5 sm:hidden">
@@ -491,6 +548,15 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                 </button>
               ))}
             </div>
+              <button
+                type="button"
+                onClick={() => setShowBugModal(true)}
+                title="Nahlásit chybu nebo nápad"
+                className="flex-1 sm:hidden px-3 py-2 rounded-xl font-black text-xs shadow-md border flex items-center justify-center gap-1.5 active:scale-95 transition border-rose-300 bg-rose-600 text-white"
+              >
+                ⚠️ Chyby
+              </button>
+
           </div>
 
           <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
@@ -508,7 +574,32 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                 <span>{a.label}</span>
               </button>
             ))}
+
+            <button
+              type="button"
+              onClick={openWhatsApp}
+              title="WhatsApp — načte a zkontroluje příchozí WhatsApp objednávky"
+              className="relative hidden sm:flex px-2.5 py-1.5 rounded-xl text-[11px] font-black transition items-center gap-1.5 shadow-sm border shrink-0 bg-[#25D366] hover:bg-[#1da851] text-white border-[#1da851]"
+            >
+              <MessageCircle size={14} />
+              <span>WhatsApp</span>
+              {pendingWhatsAppCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[9px] font-black rounded-full min-w-[16px] h-4 px-0.5 flex items-center justify-center shadow" title="Zpráv čeká na schválení">
+                  {pendingWhatsAppCount > 99 ? '99+' : pendingWhatsAppCount}
+                </span>
+              )}
+            </button>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setShowBugModal(true)}
+            title="Nahlásit chybu nebo nápad"
+            className="hidden sm:flex px-3 py-1.5 rounded-xl text-[11px] font-black transition items-center gap-1.5 shadow-sm border border-rose-300 bg-rose-600 hover:bg-rose-500 text-white shrink-0"
+          >
+            ⚠️ Chyby
+          </button>
+
         </header>
 
         <QuickSearchModal
@@ -546,62 +637,11 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           />
         )}
 
-        {/* Change Password Modal */}
-        <Modal open={showPasswordModal} onClose={() => { setShowPasswordModal(false); setNewPassword(''); setPasswordMsg(null); setPasswordErr(null); }} title="🔒 Změna vašeho hesla">
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              if (!newPassword || newPassword.length < 6) {
-                setPasswordErr('Heslo musí mít alespoň 6 znaků.');
-                return;
-              }
-              setPasswordErr(null);
-              setPasswordBusy(true);
-              const { error } = await supabase.auth.updateUser({ password: newPassword });
-              setPasswordBusy(false);
-              if (error) {
-                setPasswordErr(error.message);
-              } else {
-                setPasswordMsg('Vaše heslo bylo úspěšně změněno!');
-                setNewPassword('');
-                setTimeout(() => {
-                  setShowPasswordModal(false);
-                  setPasswordMsg(null);
-                }, 2000);
-              }
-            }}
-            className="space-y-4"
-          >
-            {passwordMsg && <div className="p-3 bg-emerald-100 text-emerald-900 font-bold text-xs rounded-xl">{passwordMsg}</div>}
-            {passwordErr && <div className="p-3 bg-rose-100 text-rose-900 font-bold text-xs rounded-xl">{passwordErr}</div>}
-
-            <div>
-              <label className="label">Nové heslo</label>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Zadejte nové heslo (min. 6 znaků)"
-                className="input w-full"
-              />
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button type="button" onClick={() => setShowPasswordModal(false)} className="btn-ghost text-xs">Zrušit</button>
-              <button type="submit" disabled={passwordBusy} className="btn-primary text-xs font-black">
-                {passwordBusy ? 'Ukládám…' : '✅ Uložit nové heslo'}
-              </button>
-            </div>
-          </form>
-        </Modal>
-
-        <MenuCustomizeModal
-          open={showMenuCustomizeModal}
-          permittedNav={permittedNav}
-          hiddenModules={hiddenModules}
-          onSave={saveHiddenModules}
-          onClose={() => setShowMenuCustomizeModal(false)}
+        <BugReportModal
+          isOpen={showBugModal}
+          onClose={() => setShowBugModal(false)}
         />
+
 
         {/* Dynamic Page Content */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-8">
@@ -696,21 +736,11 @@ function OfflineStatus({ online, pending, syncing, syncMsg, onSync }: { online: 
           {syncMsg}
         </span>
       )}
-      {!online ? (
-        <button
-          onClick={() => setShowInfo(true)}
-          className="px-2.5 py-1 rounded-xl bg-amber-500 text-neutral-950 font-black text-[11px] border border-amber-400 shadow-xs flex items-center gap-1 hover:bg-amber-400 transition"
-        >
-          <span>⚠️ OFFLINE REŽIM</span>
-        </button>
-      ) : (
-        <button
-          onClick={() => setShowInfo(true)}
-          className="px-2 py-1 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-emerald-950 font-extrabold text-[10px] border border-emerald-300 transition flex items-center gap-1"
-        >
-          <span>🟢 ONLINE</span>
-        </button>
-      )}
+      <button
+        onClick={() => setShowInfo(true)}
+        title={online ? 'Jste online — klikněte pro stav synchronizace' : 'Jste offline — klikněte pro více informací'}
+        className={`w-3.5 h-3.5 rounded-full shrink-0 border-2 transition hover:scale-125 ${online ? 'bg-emerald-500 border-emerald-300' : 'bg-rose-500 border-rose-300'}`}
+      />
       {pending > 0 && (
         <button
           onClick={onSync}

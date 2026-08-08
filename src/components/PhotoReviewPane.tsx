@@ -23,14 +23,22 @@ export function PhotoReviewPane({ photos, activeIndex, onChangeIndex, activeBbox
     dragging: false, startX: 0, startY: 0, startPosX: 0, startPosY: 0,
   });
   const pinchRef = useRef<{ active: boolean; startDist: number; startScale: number }>({ active: false, startDist: 0, startScale: 1 });
+  const scaleRef = useRef(1);
+  const rafRef = useRef(0);
 
   const clampScale = (s: number) => Math.min(8, Math.max(1, s));
 
   const zoomBy = useCallback((factor: number) => {
-    setScale((prev) => clampScale(prev * factor));
+    setScale((prev) => {
+      const next = clampScale(prev * factor);
+      scaleRef.current = next;
+      return next;
+    });
   }, []);
 
   function resetView() {
+    cancelAnimationFrame(rafRef.current);
+    scaleRef.current = 1;
     setScale(1);
     setPos({ x: 0, y: 0 });
   }
@@ -46,14 +54,21 @@ export function PhotoReviewPane({ photos, activeIndex, onChangeIndex, activeBbox
     zoomBy(factor);
   }
   function onPointerDown(e: PointerEvent<HTMLDivElement>) {
+    if (pinchRef.current.active) return;
     (e.target as Element).setPointerCapture?.(e.pointerId);
     dragRef.current = { dragging: true, startX: e.clientX, startY: e.clientY, startPosX: pos.x, startPosY: pos.y };
   }
   function onPointerMove(e: PointerEvent<HTMLDivElement>) {
-    if (!dragRef.current.dragging) return;
+    if (!dragRef.current.dragging || pinchRef.current.active) return;
     const dx = e.clientX - dragRef.current.startX;
     const dy = e.clientY - dragRef.current.startY;
-    setPos({ x: dragRef.current.startPosX + dx, y: dragRef.current.startPosY + dy });
+    const nx = dragRef.current.startPosX + dx;
+    const ny = dragRef.current.startPosY + dy;
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = 0;
+      setPos({ x: nx, y: ny });
+    });
   }
   function onPointerUp() { dragRef.current.dragging = false; }
 
@@ -63,7 +78,8 @@ export function PhotoReviewPane({ photos, activeIndex, onChangeIndex, activeBbox
   }
   function onTouchStart(e: React.TouchEvent<HTMLDivElement>) {
     if (e.touches.length === 2) {
-      pinchRef.current = { active: true, startDist: dist(e.touches as unknown as TouchList), startScale: scale };
+      pinchRef.current = { active: true, startDist: dist(e.touches as unknown as TouchList), startScale: scaleRef.current };
+      dragRef.current.dragging = false; // pinch místo jednoprstového tahu
     }
   }
   function onTouchMove(e: React.TouchEvent<HTMLDivElement>) {
@@ -71,17 +87,26 @@ export function PhotoReviewPane({ photos, activeIndex, onChangeIndex, activeBbox
       e.preventDefault();
       const d = dist(e.touches as unknown as TouchList);
       const factor = d / (pinchRef.current.startDist || 1);
-      setScale(clampScale(pinchRef.current.startScale * factor));
+      const next = clampScale(pinchRef.current.startScale * factor);
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = 0;
+        scaleRef.current = next;
+        setScale(next);
+      });
     }
   }
   function onTouchEnd(e: React.TouchEvent<HTMLDivElement>) {
-    if (e.touches.length < 2) pinchRef.current.active = false;
+    if (e.touches.length < 2) {
+      pinchRef.current.active = false;
+      cancelAnimationFrame(rafRef.current);
+    }
   }
 
   const photo = photos[activeIndex];
 
   return (
-    <div className="relative h-full w-full bg-primary-950 flex flex-col">
+    <div data-own-zoom className="relative h-full w-full bg-primary-950 flex flex-col">
       <div className="flex items-center justify-between px-3 py-2 bg-primary-900/80 text-white text-xs shrink-0 z-10">
         <span className="text-white/60">Přibliž kolečkem myši / prsty, táhni pro posun</span>
         <div className="flex items-center gap-2">
@@ -109,7 +134,7 @@ export function PhotoReviewPane({ photos, activeIndex, onChangeIndex, activeBbox
             style={{
               transform: `translate(${pos.x}px, ${pos.y}px) scale(${scale})`,
               transformOrigin: 'center center',
-              transition: dragRef.current.dragging ? 'none' : 'transform 0.05s linear',
+              transition: 'none',
             }}
           >
             <div className="relative inline-block">

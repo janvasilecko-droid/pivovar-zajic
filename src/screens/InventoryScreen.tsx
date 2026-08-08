@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 
 
 import { supabase, Beer, Package, useRealtime, formatPackageLabel, beerBg, beerText, beerName } from '../lib/supabase';
@@ -6,6 +6,7 @@ import { Spinner } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { ClipboardCheck, Plus, Save, Download, Lock, RefreshCw, AlertCircle, CheckCircle2, RotateCcw, Calendar, Camera } from 'lucide-react';
 import { CountFromImage } from '../components/CountFromImage';
+import { getStartingStockMap } from '../lib/inventoryHelper';
 
 type InitialStockMap = Record<string, number>; // key: `${beer_id}__${package_id}`, val: qty
 
@@ -22,6 +23,8 @@ type InventoryRow = {
   beer_name: string;
   package_id: string;
   package_label: string;
+  package_kind?: string;
+  package_volume?: number;
   price_czk: number;
   initialQty: number; // Počáteční stav k 1. dni v měsíci
   stacenoQty: number; // Nově stočeno tento měsíc
@@ -43,26 +46,13 @@ function getPrevMonthKey(monthKey: string): string {
 function computeInitialStockForMonth(
   monthKey: string,
   invRowsAll: any[],
-  _btRows: any[],
-  _kgRows: any[],
-  _faRows: any[],
-  _fpRows: any[],
-  _woRows: any[],
-  _depth = 0
+  btRows: any[],
+  kgRows: any[],
+  faRows: any[],
+  fpRows: any[],
+  woRows: any[]
 ): Record<string, number> {
-  // Počáteční stav měsíce = POUZE explicitně uložené "Počáteční" záznamy daného měsíce.
-  // NEpřevádí se automaticky z předchozího měsíce ani z minulé inventury —
-  // každý měsíc začíná od 0 a počáteční stav si sládek zadá ručně (na konci měsíce).
-  const explicitRows = invRowsAll.filter(
-    (r) => r.entry_date?.slice(0, 7) === monthKey && (r.note?.includes('Počáteční') || !r.note)
-  );
-  const map: Record<string, number> = {};
-  explicitRows.forEach((r) => {
-    if (!r.beer_id || !r.package_id) return;
-    const k = `${r.beer_id}__${r.package_id}`;
-    map[k] = (map[k] || 0) + Number(r.quantity || 0);
-  });
-  return map;
+  return getStartingStockMap(monthKey, invRowsAll, btRows, kgRows, faRows, fpRows, woRows);
 }
 
 export default function InventoryScreen() {
@@ -70,6 +60,10 @@ export default function InventoryScreen() {
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'inventory' | 'initial_stock' | 'end_stock'>('inventory');
+  const loadCountRef = useRef(0);
+  const loadedMonthRef = useRef<string | null>(null);
+  const forceReloadRef = useRef(false);
+  const excelFileRef = useRef<HTMLInputElement>(null);
 
 
   const [currentMonth, setCurrentMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
@@ -102,6 +96,7 @@ export default function InventoryScreen() {
   const [stacenoKegMap, setStacenoKegMap] = useState<Record<string, number>>({}); // Stáčení KEG
 
   async function loadData() {
+    const loadId = ++loadCountRef.current;
     setLoading(true);
 
     const [{ data: b }, { data: pk }, { data: bt }, { data: kg }, { data: fa }, { data: fp }, { data: wo }, { data: inv }, { data: ords }, { data: oi }, { data: ak }] = await Promise.all([
@@ -118,13 +113,14 @@ export default function InventoryScreen() {
       supabase.from('akce').select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
     ]);
 
-    setBeers((b as Beer[]) ?? []);
-    setPackages((pk as Package[]) ?? []);
+    if (loadId !== loadCountRef.current) return;
 
     setBeers((b as Beer[]) ?? []);
     setPackages((pk as Package[]) ?? []);
 
     const invRowsAll = ((inv as any[]) ?? []);
+
+    const shouldReloadState = loadedMonthRef.current !== currentMonth || forceReloadRef.current;
 
     // 1. POČÁTEČNÍ STAVY pro aktuální měsíc (currentMonth) s automatickou kontinuitou z předchozího měsíce
     const invAcc = computeInitialStockForMonth(
@@ -136,7 +132,9 @@ export default function InventoryScreen() {
       (fp as any[]) ?? [],
       (wo as any[]) ?? []
     );
-    setInitialStock(invAcc);
+    if (shouldReloadState) {
+      setInitialStock(invAcc);
+    }
 
     // 2. SKUTEČNÁ FYZICKÁ INVENTURA (pro sloupec Inventura)
     // 2a. Základ = localStorage actual_inventory_YYYY-MM (pokud něco je)
@@ -157,7 +155,12 @@ export default function InventoryScreen() {
       curActual = dbActualMap;
       try { localStorage.setItem(`actual_inventory_${currentMonth}`, JSON.stringify(dbActualMap)); } catch {}
     }
-    setActualStock(curActual);
+    if (shouldReloadState) {
+      setActualStock(curActual);
+    }
+
+    loadedMonthRef.current = currentMonth;
+    forceReloadRef.current = false;
 
     // Pohyby v AKTUÁLNÍM MĚSÍCI (currentMonth)
     const filterMovement = (entry_date?: string) => {
@@ -367,6 +370,7 @@ export default function InventoryScreen() {
         localStorage.setItem(`initial_stock_${currentMonth}`, JSON.stringify(lsMap));
       } catch {}
       setSaveMsg('Počáteční stavy skladu byly v pořádku uloženy!');
+      forceReloadRef.current = true;
       await loadData();
     } catch (e) {
       console.error(e);
@@ -400,6 +404,7 @@ export default function InventoryScreen() {
       }
 
       setSaveMsg('Fyzická inventura byla v pořádku uložena do databáze!');
+      forceReloadRef.current = true;
       await loadData();
     } catch (e) {
       console.error(e);
@@ -437,20 +442,40 @@ export default function InventoryScreen() {
         await supabase.from('inventory').insert(curRowsToInsert);
       }
 
-      // POZOR: Nepřevádíme automaticky inventuru do počátečního stavu nového měsíce.
-      // Každý měsíc začíná od 0 — počáteční stav si sládek zadá ručně (na konci měsíce).
-      // Uložíme jen schválený stav aktuálního měsíce do localStorage.
+      // 2. Převádíme fyzické stavy jako počáteční stavy do nového měsíce
+      await supabase.from('inventory').delete().eq('entry_date', nextEntryDate).ilike('note', '%Počáteční%');
+      const nextRowsToInsert = rows.map((r) => ({
+        entry_date: nextEntryDate,
+        beer_id: r.beer_id,
+        beer_name: r.beer_name,
+        package_id: r.package_id,
+        package_label: r.package_label,
+        quantity: r.actualQty,
+        note: 'Počáteční stav',
+      })).filter((r) => r.quantity > 0);
+
+      if (nextRowsToInsert.length > 0) {
+        await supabase.from('inventory').insert(nextRowsToInsert);
+      }
+
+      // Uložíme do localStorage pro aktuální měsíc i pro následující měsíc
       try {
         const actualLs: Record<string, string> = {};
+        const nextInitialLs: Record<string, number> = {};
         rows.forEach((r) => {
           const k = `${r.beer_id}__${r.package_id}`;
           const q = Number(r.actualQty) > 0 ? Number(r.actualQty) : 0;
           actualLs[k] = String(q);
+          if (q > 0) nextInitialLs[k] = q;
         });
         localStorage.setItem(`actual_inventory_${currentMonth}`, JSON.stringify(actualLs));
+        localStorage.setItem(`initial_stock_${nextMonthKey}`, JSON.stringify(nextInitialLs));
       } catch {}
 
-      alert(`Inventura ${currentMonth} byla úspěšně uzamčena! Nový měsíc ${nextMonthKey} začíná s počátečním stavem 0.`);
+      alert(`Inventura za ${currentMonth} byla schválena a stavy byly převedeny jako počáteční stav (Poč.) do měsíce ${nextMonthKey}.`);
+      
+      // Nastavíme příznaky pro vynucené načtení nových stavů z DB
+      forceReloadRef.current = true;
       setCurrentMonth(nextMonthKey);
     } catch (e) {
       console.error(e);
@@ -477,7 +502,7 @@ export default function InventoryScreen() {
 
         // Pokud je zadaný fyzický stav v políčku, použijeme ho, jinak dědí hodnotu z počáteční zásoby
         const actualInputStr = actualStock[k];
-        const actualQty = actualInputStr !== undefined && actualInputStr !== '' ? Number(actualInputStr) : Number(initialStock[k] || 0);
+        const actualQty = actualInputStr !== undefined && actualInputStr !== '' ? Number(actualInputStr) : 0;
 
         const diffQty = actualQty - expectedQty;
         const priceCzk = p.volume_l > 20 ? 1500 : p.volume_l > 0.6 ? 250 : 45; // Orientační hodnota
@@ -489,6 +514,8 @@ export default function InventoryScreen() {
           beer_name: b.name,
           package_id: p.id,
           package_label: p.label,
+          package_kind: p.kind,
+          package_volume: p.volume_l,
           price_czk: priceCzk,
           initialQty,
           stacenoQty,
@@ -523,24 +550,86 @@ export default function InventoryScreen() {
     );
   }, [rows]);
 
-  function exportInventoryExcel() {
-    const dataToExport = rows.map((r) => ({
-      'Pivo': r.beer_name,
-      'Obal': r.package_label,
-      'Počáteční stav (ks)': r.initialQty,
-      'Stočeno v měsíci (+ks)': r.stacenoQty,
-      'Odpisy (-ks)': r.odpisQty,
-      'Vytočeno/Fasováno (-ks)': r.vydejQty,
-      'Systémové očekávání (ks)': r.expectedQty,
-      'Skutečná inventura (ks)': r.actualQty,
-      'Odchylka (ks)': r.diffQty,
-      'Odchylka (Kč)': r.diffCzk,
-    }));
+    // Import z Excelu / Google Tabulek
+  async function handleExcelImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBusy(true);
+    try {
+      const buffer = await file.arrayBuffer();
+      const XLSX = await import('xlsx');
+      const wb = XLSX.read(buffer, { type: 'array' });
+      const targetSheetName = wb.SheetNames.find((s) => /červenec|cervenec|inventura|lahve|sklo|stáčení|keg/i.test(s)) || wb.SheetNames[0];
+      const sheet = wb.Sheets[targetSheetName];
+      const jsonRows: any[] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+      let matchCount = 0;
+      const importedActual: Record<string, string> = { ...actualStock };
+
+      jsonRows.forEach((row) => {
+        if (!Array.isArray(row) || row.length < 2) return;
+        const rowText = row.join(' ').toLowerCase();
+
+        const matchedBeer = beers.find((b) =>
+          rowText.includes(b.name.toLowerCase()) ||
+          (b.degree && rowText.includes(b.degree.toLowerCase()))
+        );
+
+        const matchedPkg = packages.find((p) =>
+          rowText.includes(p.label.toLowerCase()) ||
+          (p.volume_l === 50 && /50/i.test(rowText)) ||
+          (p.volume_l === 30 && /30/i.test(rowText)) ||
+          (p.volume_l === 0.5 && /0[.,]5|lahv|sklo/i.test(rowText)) ||
+          (p.volume_l === 0.33 && /0[.,]33|tretink/i.test(rowText))
+        );
+
+        const numCells = row.map((c) => parseInt(String(c), 10)).filter((n) => !isNaN(n) && n >= 0);
+        const countVal = numCells.length ? numCells[numCells.length - 1] : null;
+
+        if (matchedBeer && matchedPkg && countVal !== null) {
+          const key = `${matchedBeer.id}__${matchedPkg.id}`;
+          importedActual[key] = String(countVal);
+          matchCount++;
+        }
+      });
+
+      if (matchCount > 0) {
+        setActualStock(importedActual);
+        localStorage.setItem(`actual_inventory_${currentMonth}`, JSON.stringify(importedActual));
+        alert(`Úspěšně naimportováno ${matchCount} položek z Excelu/Google Tabulky pro měsíc ${currentMonth}!`);
+      } else {
+        alert('V souboru nebyly nalezeny žádné odpovídající položky piva a obalu. Zkontrolujte strukturu tabulky.');
+      }
+    } catch (err: any) {
+      alert('Chyba při čtení Excel souboru: ' + (err?.message ?? String(err)));
+    } finally {
+      e.target.value = '';
+      setBusy(false);
+    }
+  }
+
+function exportInventoryExcel() {
+    const filteredRows = rows.filter((r) => {
+      const name = r.beer_name.toLowerCase();
+      const isLimo = name.includes('grep') || name.includes('citron') || name.includes('citro') || name.includes('limo');
+      return !isLimo;
+    });
+
+    const dataToExport = filteredRows.map((r) => {
+      const druh = r.package_kind === 'keg' ? 'KEG' : 'Lahve';
+      const obal = r.package_volume ? `${r.package_volume}l` : r.package_label;
+      return {
+        'Název piva': r.beer_name,
+        'Druh': druh,
+        'Obal': obal,
+        'Fyzická inventura (ks)': r.actualQty,
+      };
+    });
 
     exportHistoryDetailToExcel(
       dataToExport,
-      ['Pivo', 'Obal', 'Počáteční (ks)', 'Stočeno (+ks)', 'Odpisy (-ks)', 'Vytočeno (-ks)', 'Očekávání (ks)', 'Fyzická inventura (ks)', 'Manko/Přebytek (ks)', 'Rozdíl (Kč)'],
-      ['Pivo', 'Obal', 'Počáteční stav (ks)', 'Stočeno v měsíci (+ks)', 'Odpisy (-ks)', 'Vytočeno/Fasováno (-ks)', 'Systémové očekávání (ks)', 'Skutečná inventura (ks)', 'Odchylka (ks)', 'Odchylka (Kč)'],
+      ['Název piva', 'Druh', 'Obal', 'Fyzická inventura (ks)'],
+      ['Název piva', 'Druh', 'Obal', 'Fyzická inventura (ks)'],
       `inventura_${currentMonth}.xlsx`
     );
   }
@@ -580,7 +669,7 @@ export default function InventoryScreen() {
                 type="month"
                 value={currentMonth}
                 onChange={(e) => setCurrentMonth(e.target.value)}
-                className="bg-transparent text-amber-300 font-mono font-black border-none focus:outline-none"
+                className="bg-transparent text-amber-950 font-mono font-black border-none focus:outline-none"
               />
             </div>
             <button
@@ -600,6 +689,20 @@ export default function InventoryScreen() {
             <Camera size={16} /> Spočítat z fotek (Bedny & Lahve)
           </button>
 
+          <input
+            ref={excelFileRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            onChange={handleExcelImport}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => excelFileRef.current?.click()}
+            className="px-3.5 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-amber-950 font-black text-xs transition shadow-xs flex items-center gap-1.5"
+          >
+            <span>📥 Import Excel / Google Tabulky</span>
+          </button>
           <button
             onClick={exportInventoryExcel}
             className="px-3.5 py-2.5 rounded-2xl bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs transition shadow-xs flex items-center gap-1.5"
@@ -609,7 +712,7 @@ export default function InventoryScreen() {
 
           <button
             onClick={handleLockAndTransferNextMonth}
-            className="px-4 py-2.5 rounded-2xl bg-neutral-800 hover:bg-neutral-700 text-amber-300 border border-neutral-700 font-black text-xs transition shadow-md flex items-center gap-1.5"
+            className="px-4 py-2.5 rounded-2xl bg-neutral-800 hover:bg-neutral-700 text-amber-950 border border-neutral-700 font-black text-xs transition shadow-md flex items-center gap-1.5"
           >
             <Lock size={16} /> Schválit & Převést do nového měsíce
           </button>
@@ -692,13 +795,13 @@ export default function InventoryScreen() {
                 ? 'bg-rose-950 text-white border-rose-500/80 ring-2 ring-rose-500/30'
                 : 'bg-emerald-950 text-white border-emerald-500/50'
             }`}>
-              <span className={`text-[10px] font-black uppercase ${totals.expected < 0 ? 'text-rose-300' : 'text-emerald-400'}`}>📦 ZBYDE SKLADEM (Oček.)</span>
-              <div className={`font-display font-black text-xl ${totals.expected < 0 ? 'text-rose-300' : 'text-emerald-300'}`}>{totals.expected} ks</div>
+              <span className={`text-[10px] font-black uppercase ${totals.expected < 0 ? 'text-rose-900' : 'text-emerald-900'}`}>📦 ZBYDE SKLADEM (Oček.)</span>
+              <div className={`font-display font-black text-xl ${totals.expected < 0 ? 'text-rose-900' : 'text-emerald-900'}`}>{totals.expected} ks</div>
               <span className={`text-[10px] ${totals.expected < 0 ? 'text-rose-200' : 'text-emerald-200'}`}>Teoretický zůstatek</span>
             </div>
             <div className="card p-3.5 bg-neutral-900 text-white rounded-2xl space-y-1 border border-neutral-800 shadow-md">
               <span className="text-[10px] font-black uppercase text-amber-400">Celkové Manko/Přebytek</span>
-              <div className={`font-display font-black text-lg ${totals.diffQty < 0 ? 'text-rose-400' : totals.diffQty > 0 ? 'text-emerald-400' : 'text-white'}`}>
+              <div className={`font-display font-black text-lg ${totals.diffQty < 0 ? 'text-rose-900' : totals.diffQty > 0 ? 'text-emerald-900' : 'text-white'}`}>
                 {totals.diffQty > 0 ? `+${totals.diffQty}` : totals.diffQty} ks ({totals.diffCzk.toLocaleString('cs-CZ')} Kč)
               </div>
               <span className="text-[10px] text-neutral-400">Fyzický vs Systémový stav</span>
@@ -759,9 +862,9 @@ export default function InventoryScreen() {
                           <td className={`font-black text-[11px] px-3 py-2 ${textColor}`}>{r.beer_name}</td>
                           <td className={`font-extrabold text-[11px] px-3 py-2 ${textColor}`}>{formatPackageLabel(r.package_label)}</td>
                           <td className={`text-right font-black text-[11px] px-2 py-2 ${textColor}`}>{r.initialQty} ks</td>
-                          <td className={`text-right font-black text-[11px] px-2 py-2 ${isDark ? 'text-amber-300' : 'text-amber-900'}`}>+{r.stacenoQty}</td>
-                          <td className={`text-right font-black text-[11px] px-2 py-2 ${isDark ? 'text-rose-300' : 'text-rose-800'}`}>{r.odpisQty > 0 ? `-${r.odpisQty}` : '-0'}</td>
-                          <td className={`text-right font-black text-[11px] px-2 py-2 ${isDark ? 'text-amber-300' : 'text-amber-900'}`}>-{r.vydejQty}</td>
+                          <td className={`text-right font-black text-[11px] px-2 py-2 text-amber-900 font-black`}>+{r.stacenoQty}</td>
+                          <td className={`text-right font-black text-[11px] px-2 py-2 text-rose-850 font-black`}>{r.odpisQty > 0 ? `-${r.odpisQty}` : '-0'}</td>
+                          <td className={`text-right font-black text-[11px] px-2 py-2 text-amber-900 font-black`}>-{r.vydejQty}</td>
                           <td className={`text-right border-x font-mono font-black text-xs px-3 py-2 ${
                             r.expectedQty < 0
                               ? (isDark ? 'bg-rose-950/80 border-rose-700 text-rose-200' : 'bg-rose-100/90 border-rose-300 text-rose-950')
@@ -780,17 +883,17 @@ export default function InventoryScreen() {
                               type="number"
                               min="0"
                               className="input !py-1 text-right font-mono font-black text-xs text-neutral-950 border-amber-400 bg-amber-100/80 w-24 ml-auto rounded-xl shadow-inner focus:ring-2 focus:ring-amber-500"
-                              value={actualStock[k] !== undefined ? actualStock[k] : String(initialStock[k] ?? 0)}
+                              value={actualStock[k] !== undefined ? actualStock[k] : ''}
                               onChange={(e) => setActualStock((prev) => ({ ...prev, [k]: e.target.value }))}
                             />
                           </td>
                           <td className={`text-right font-mono font-black text-[11px] px-2 py-2 ${
-                            r.diffQty < 0 ? (isDark ? 'text-rose-300' : 'text-rose-800') : r.diffQty > 0 ? (isDark ? 'text-emerald-300' : 'text-emerald-800') : textColor
+                            r.diffQty < 0 ? (isDark ? 'text-rose-900' : 'text-rose-800') : r.diffQty > 0 ? (isDark ? 'text-emerald-900' : 'text-emerald-800') : textColor
                           }`}>
                             {r.diffQty > 0 ? `+${r.diffQty}` : r.diffQty} ks
                           </td>
                           <td className={`text-right font-black text-[11px] px-3 py-2 ${
-                            r.diffCzk < 0 ? (isDark ? 'text-rose-300' : 'text-rose-800') : r.diffCzk > 0 ? (isDark ? 'text-emerald-300' : 'text-emerald-800') : textColor
+                            r.diffCzk < 0 ? (isDark ? 'text-rose-900' : 'text-rose-800') : r.diffCzk > 0 ? (isDark ? 'text-emerald-900' : 'text-emerald-800') : textColor
                           }`}>
                             {r.diffCzk.toLocaleString('cs-CZ')} Kč
                           </td>
@@ -799,22 +902,22 @@ export default function InventoryScreen() {
                     })}
                   </tbody>
                   <tfoot>
-                    <tr className="bg-neutral-900 text-white font-black text-xs border-t-2 border-neutral-800">
+                    <tr className="bg-neutral-200 text-slate-950 font-black text-xs border-t-2 border-neutral-300">
                       <td colSpan={2} className="px-3 py-2.5 text-amber-400 font-display">CELKEM SOUHRN</td>
-                      <td className="text-right px-2 py-2.5 text-neutral-300">{totals.initial} ks</td>
+                      <td className="text-right px-2 py-2.5 text-slate-950">{totals.initial} ks</td>
                       <td className="text-right px-2 py-2.5 text-amber-400">+{totals.staceno}</td>
-                      <td className="text-right px-2 py-2.5 text-rose-400">-{totals.odpis}</td>
-                      <td className="text-right px-2 py-2.5 text-amber-300">-{totals.vydej}</td>
+                      <td className="text-right px-2 py-2.5 text-rose-900">-{totals.odpis}</td>
+                      <td className="text-right px-2 py-2.5 text-amber-950">-{totals.vydej}</td>
                       <td className={`text-right px-3 py-2.5 font-mono text-sm border-x ${
                         totals.expected < 0
-                          ? 'bg-rose-950/90 text-rose-300 border-rose-700 font-black'
-                          : 'bg-emerald-950/80 text-emerald-300 border-emerald-700 font-black'
+                          ? 'bg-rose-950/90 text-rose-900 border-rose-700 font-black'
+                          : 'bg-emerald-950/80 text-emerald-900 border-emerald-700 font-black'
                       }`}>{totals.expected} ks</td>
-                      <td className="text-right px-3 py-2.5 text-amber-300 font-mono text-sm bg-amber-950/80 border-x border-amber-700">{totals.actual} ks</td>
-                      <td className={`text-right px-2 py-2.5 font-mono text-sm ${totals.diffQty < 0 ? 'text-rose-400' : totals.diffQty > 0 ? 'text-emerald-400' : 'text-neutral-300'}`}>
+                      <td className="text-right px-3 py-2.5 text-amber-950 font-mono text-sm bg-amber-950/80 border-x border-amber-700">{totals.actual} ks</td>
+                      <td className={`text-right px-2 py-2.5 font-mono text-sm ${totals.diffQty < 0 ? 'text-rose-900' : totals.diffQty > 0 ? 'text-emerald-900' : 'text-slate-950'}`}>
                         {totals.diffQty > 0 ? `+${totals.diffQty}` : totals.diffQty} ks
                       </td>
-                      <td className={`text-right px-3 py-2.5 ${totals.diffCzk < 0 ? 'text-rose-400' : totals.diffCzk > 0 ? 'text-emerald-400' : 'text-neutral-300'}`}>
+                      <td className={`text-right px-3 py-2.5 ${totals.diffCzk < 0 ? 'text-rose-900' : totals.diffCzk > 0 ? 'text-emerald-900' : 'text-slate-950'}`}>
                         {totals.diffCzk.toLocaleString('cs-CZ')} Kč
                       </td>
                     </tr>
@@ -868,7 +971,7 @@ export default function InventoryScreen() {
                           <input
                             type="number"
                             min="0"
-                            className="input !py-1.5 font-mono font-black text-sm"
+                            className="input inventory-input !py-1.5 font-mono font-black text-sm text-slate-900 bg-white"
                             placeholder="0 ks"
                             value={initialStock[k] ?? ''}
                             onChange={(e) => {
@@ -1139,13 +1242,13 @@ function EndStockTab({
                       <td className={`font-black text-[11px] ${textColor}`}>{r.beer_name}</td>
                       <td className={`font-extrabold text-[11px] ${textColor}`}>{formatPackageLabel(r.package_label)}</td>
                       <td className={`text-right font-black text-[11px] ${textColor}`}>{r.initialQty}</td>
-                      <td className={`text-right font-black text-[11px] ${isDark ? 'text-emerald-300' : 'text-emerald-800'}`}>+{r.stacenoKegQty}</td>
-                      <td className={`text-right font-black text-[11px] ${isDark ? 'text-rose-300' : 'text-rose-800'}`}>−{r.objednavkyQty}</td>
-                      <td className={`text-right font-black text-[11px] ${isDark ? 'text-rose-300' : 'text-rose-800'}`}>−{r.stacenoLahveQty}</td>
-                      <td className={`text-right font-black text-[11px] ${isDark ? 'text-rose-300' : 'text-rose-800'}`}>−{r.fasovaniQty}</td>
-                      <td className={`text-right font-black text-[11px] ${isDark ? 'text-rose-300' : 'text-rose-800'}`}>−{r.prodejnaQty}</td>
-                      <td className={`text-right font-black text-[11px] ${isDark ? 'text-rose-300' : 'text-rose-800'}`}>−{r.akceQty}</td>
-                      <td className={`text-right font-black text-[11px] ${isDark ? 'text-rose-300' : 'text-rose-800'}`}>−{r.odpisyQty}</td>
+                      <td className={`text-right font-black text-[11px] text-emerald-850 font-black`}>+{r.stacenoKegQty}</td>
+                      <td className={`text-right font-black text-[11px] text-rose-850 font-black`}>−{r.objednavkyQty}</td>
+                      <td className={`text-right font-black text-[11px] text-rose-850 font-black`}>−{r.stacenoLahveQty}</td>
+                      <td className={`text-right font-black text-[11px] text-rose-850 font-black`}>−{r.fasovaniQty}</td>
+                      <td className={`text-right font-black text-[11px] text-rose-850 font-black`}>−{r.prodejnaQty}</td>
+                      <td className={`text-right font-black text-[11px] text-rose-850 font-black`}>−{r.akceQty}</td>
+                      <td className={`text-right font-black text-[11px] text-rose-850 font-black`}>−{r.odpisyQty}</td>
                       <td className={`text-right font-mono font-black text-[11px] bg-amber-100/90 border-x border-amber-300 ${r.endStockQty < 0 ? 'text-rose-800' : 'text-neutral-950'}`}>
                         {r.endStockQty} ks
                         {r.endStockQty < 0 && <span className="block text-[9px] text-rose-700 font-black">⚠️ chybí {Math.abs(r.endStockQty)}</span>}
@@ -1155,7 +1258,7 @@ function EndStockTab({
                 })}
               </tbody>
               <tfoot>
-                <tr className="bg-neutral-100 font-black">
+                <tr className="bg-neutral-200 text-slate-950 font-black text-xs border-t-2 border-neutral-300">
                   <td colSpan={2} className="text-neutral-900">CELKEM</td>
                   <td className="text-right text-neutral-900">{totals.initial}</td>
                   <td className="text-right text-emerald-700">+{totals.stacenoKeg}</td>

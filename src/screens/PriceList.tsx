@@ -16,7 +16,7 @@ export default function PriceListScreen() {
     setLoading(true);
     const [p, b, pk] = await Promise.all([
       supabase.from('price_list').select('*').order('created_at', { ascending: false }),
-      supabase.from('beers').select('*').order('sort_order'),
+      supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
     ]);
     setRows((p.data as PriceListItem[]) ?? []);

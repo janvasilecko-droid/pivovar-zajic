@@ -158,7 +158,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
     setLoading(true);
     const [pRes, bRes, pkgRes, botRes] = await Promise.all([
       supabase.from('places').select('*').order('name'),
-      supabase.from('beers').select('*').order('name'),
+      supabase.from('beers').select('*').eq('is_active', true).order('name'),
       supabase.from('packages').select('*').order('kind'),
       supabase.from('bottling').select('beer_name, package_label, quantity'),
     ]);

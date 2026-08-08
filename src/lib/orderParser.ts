@@ -1,3 +1,6 @@
+const KEG_ONLY_VOLS = new Set(['50', '30', '20', '15', '10']);
+const BEER_DEGREES = new Set(['8', '10', '11', '12', '13', '14', '15', '16']);
+
 import type { Beer, Package, Place, ParserAlias } from './supabase';
 
 
@@ -37,7 +40,7 @@ export function emptyAliasMap(): ParserAliasMap {
   return { beer: new Map(), package: new Map() };
 }
 
-const normalize = (s: string) =>
+export const normalize = (s: string) =>
   s.toLowerCase()
     .replace(/[ěščřžýáíéóúůťďň]/g, (c) =>
       ({ ě: 'e', š: 's', č: 'c', ř: 'r', ž: 'z', ý: 'y', á: 'a', í: 'i', é: 'e', ó: 'o', ú: 'u', ů: 'u', ť: 't', ď: 'd', ň: 'n' }[c] ?? c))
@@ -111,11 +114,11 @@ const BEER_ALIASES: { pattern: RegExp; degree?: string; color?: string; namePart
   { pattern: /\bvosm(a|u|e|y|icka|ička)?\b|\bosm(a|u|e|y|icka|ička)?\b|\bcyklo\s*osm(a|u)?\b|\bcykloosm(a|u)?\b|\bcyklo\b|\b8\s*°?\b|\b8st\b|\bosma\b|\bvosma\b/, degree: '8°' },
   { pattern: /\bdesitk(a|u|e|y)?\b|\bdesit(k)?\b|\bdesitku\b|\b10\s*°?\b|\b10\s*st\b|\b10sv\b|\bsvetle\s*vcepni\b|\bvycepni\s*svetle\b|\bdesitka\b|\bvycep\b|\bvýčep\b|\bvycepni\b|\bvýčepní\b/, degree: '10°', color: 'světlé' },
   { pattern: /\b11\s*(sv|svet|svetl)\b|\b11sv\b|\bjedenact(k)?(a|u|y)?\b|\bjedenactku\b|\bjedenactka\b/, degree: '11°', color: 'světlé' },
-  { pattern: /\b12\s*(sv|svet|swet|svetl|light)\b|\b12sv\b|\bdvanactk(a|u|e|y)?\b|\bdvanactka\b|\bsvetla 12\b|\bsvetly 12\b|\bsvetly\s*lezak\b|\blezak\s*svetly\b|\bzajic\b|\bzajíc\b|\blezak\b(?!.*\btmav)/, degree: '12°', color: 'světlé' },
+  { pattern: /\b12\s*(sv|svet|swet|svetl|light)\b|\b12sv\b|\bdvanactk(a|u|e|y)?\b|\bdvanactka\b|\bsvetla 12\b|\bsvetly 12\b|\bsvetly\s*lezak\b|\blezak\s*svetly\b/i, degree: '12°', color: 'světlé' },
   { pattern: /\bsv\s*l\b|\bsvetl[ée]\s*l\b|\bsvetl[ýy]\s*l\b|\bsvetle\s*l\b/, degree: '12°', color: 'světlé' },
 
   { pattern: /\b12\s*(tm|tma|tmavy|tmava|dark|tmave)\b|\btl\b|\btmava\b|\btmave\b|\btmavy\b|\btmavy\s*lezak\b|\blezak\s*tmavy\b|\btm\b|\bcerne\b|\bcerna\b/, degree: '12°', color: 'tmavé' },
-  { pattern: /\bjantar\b|\bjant\b|\bjantarek\b|\b13\s*°?\b|\b13st\b/, namePart: 'Jantar', degree: '13°' },
+  { pattern: /\bjantar\b|\bjant\b|\bjantarek\b|\bpolotmav\b|\b13\s*°?\b|\b13st\b/i, namePart: 'Jantar', degree: '13°' },
   { pattern: /\bsummer\b|\bsumr\b|\bsummer\s*ale\b|\bale\b/, namePart: 'Summer' },
   { pattern: /\bhazy\b|\bipa\b|\bneipa\b/, namePart: 'Hazy' },
   { pattern: /\bbunny\b|\bbuni\b/, namePart: 'Bunny' },
@@ -127,19 +130,8 @@ const BEER_ALIASES: { pattern: RegExp; degree?: string; color?: string; namePart
   { pattern: /\bsv\b/, color: 'světlé' },
 ];
 
-function matchBeerFromHints(norm: string, beers: Beer[], aliasMap: ParserAliasMap): { beer: Beer | null; score: number; alias: string | null } {
-  const beerId = aliasMap.beer.get(norm);
-  if (beerId) {
-    const beer = beers.find((b) => b.id === beerId);
-    if (beer) return { beer, score: 1.0, alias: norm };
-  }
-  for (const [alias, bid] of aliasMap.beer) {
-    if (norm.includes(alias) && alias.length >= 2) {
-      const beer = beers.find((b) => b.id === bid);
-      if (beer) return { beer, score: 0.95, alias };
-    }
-  }
-
+export function matchBeerFromHints(norm: string, beers: Beer[], aliasMap: ParserAliasMap): { beer: Beer | null; score: number; alias: string | null } {
+  // 1. Exact name / short_name match FIRST so "jantar" is never intercepted by generic aliases
   let directMatch: Beer | null = null;
   let directLen = 0;
   for (const beer of beers) {
@@ -148,7 +140,6 @@ function matchBeerFromHints(norm: string, beers: Beer[], aliasMap: ParserAliasMa
       directMatch = beer;
       directLen = nameNorm.length;
     }
-    // Zkusit i short_name
     if (beer.short_name) {
       const shortNorm = normalize(beer.short_name);
       if (shortNorm.length >= 2 && norm.includes(shortNorm) && shortNorm.length > directLen) {
@@ -157,7 +148,28 @@ function matchBeerFromHints(norm: string, beers: Beer[], aliasMap: ParserAliasMa
       }
     }
   }
-  if (directMatch) return { beer: directMatch, score: 0.95, alias: null };
+  if (directMatch) return { beer: directMatch, score: 0.98, alias: null };
+
+  // Explicit check for Jantar if text contains jantar
+  if (/\bjantar\b|\bjant\b|\bpolotmav\b/i.test(norm)) {
+    const jantarBeer = beers.find((b) => /jantar/i.test(b.name) || /jantar/i.test(b.short_name ?? ''));
+    if (jantarBeer) return { beer: jantarBeer, score: 0.98, alias: 'jantar' };
+  }
+
+  // 2. Exact alias map check
+  const beerId = aliasMap.beer.get(norm);
+  if (beerId) {
+    const beer = beers.find((b) => b.id === beerId);
+    if (beer) return { beer, score: 0.95, alias: norm };
+  }
+
+  // 3. Long alias substring match in aliasMap
+  for (const [alias, bid] of aliasMap.beer) {
+    if (alias.length >= 3 && norm.includes(alias)) {
+      const beer = beers.find((b) => b.id === bid);
+      if (beer) return { beer, score: 0.90, alias };
+    }
+  }
 
   // Try OCR-corrected matching: common OCR misreads for beer names
   const ocrCorrectedNorm = norm
@@ -255,35 +267,62 @@ function pickPackageByVolume(v: number, packages: Package[], norm: string): Pack
   return candidates[0];
 }
 
-function matchPackage(norm: string, packages: Package[], aliasMap: ParserAliasMap): Package | null {
+export function matchPackage(norm: string, packages: Package[], aliasMap: ParserAliasMap): Package | null {
+  if (!packages || !packages.length) return null;
+
+  // 1. Check EXPLICIT VOLUME NUMBERS FIRST so "keg 50l" is never intercepted by "keg" alias for 30l
+  if (/\b50\s*l?\b|\bsud50\b|\bkeg50\b|\bvelky\s*sud\b|\bsud\s*50\b|\bkeg\s*50\b/i.test(norm)) {
+    return packages.find((p) => Number(p.volume_l) === 50 || /50/i.test(p.label)) ?? null;
+  }
+  if (/\b30\s*l?\b|\bsud30\b|\bkeg30\b|\bmaly\s*sud\b|\bsud\s*30\b|\bkeg\s*30\b/i.test(norm)) {
+    return packages.find((p) => Number(p.volume_l) === 30 || /30/i.test(p.label)) ?? null;
+  }
+  if (/\b20\s*l?\b|\bsud20\b|\bkeg20\b|\bsud\s*20\b|\bkeg\s*20\b/i.test(norm)) {
+    return packages.find((p) => Number(p.volume_l) === 20 || /20/i.test(p.label)) ?? null;
+  }
+  if (/\b15\s*l?\b|\bsud15\b|\bkeg15\b|\bsud\s*15\b|\bkeg\s*15\b/i.test(norm)) {
+    return packages.find((p) => Number(p.volume_l) === 15 || /15/i.test(p.label)) ?? null;
+  }
+  if (/\b10\s*l?\b|\bsud10\b|\bkeg10\b|\bsud\s*10\b|\bkeg\s*10\b/i.test(norm)) {
+    return packages.find((p) => Number(p.volume_l) === 10 || /10/i.test(p.label)) ?? null;
+  }
+  if (/\b1[,.]5\s*l?\b|\bpetka\b/i.test(norm)) {
+    return packages.find((p) => Number(p.volume_l) === 1.5 || /1[,.]5/i.test(p.label)) ?? null;
+  }
+  if (/(?<!\d)\b1\s*l\b(?!\s*[,.]?\s*5)/i.test(norm)) {
+    return packages.find((p) => Number(p.volume_l) === 1.0 || /1\s*l/i.test(p.label)) ?? null;
+  }
+  if (/\b0[,.]33\s*l?\b|\btretinka\b|\btřetinka\b/i.test(norm)) {
+    return packages.find((p) => Number(p.volume_l) === 0.33 || /0[,.]33/i.test(p.label)) ?? null;
+  }
+  if (/\b0[,.]5\s*l?\b|\bpullitr\b|\bpůllitr\b/i.test(norm)) {
+    return packages.find((p) => Number(p.volume_l) === 0.5 || /0[,.]5|lahv/i.test(p.label)) ?? null;
+  }
+
+  // 2. Exact alias match in aliasMap
   const pkgId = aliasMap.package.get(norm);
   if (pkgId) {
     const pkg = packages.find((p) => p.id === pkgId);
     if (pkg) return pkg;
   }
+
+  // 3. Fallback to generic alias substring matching
   for (const [alias, pid] of aliasMap.package) {
-    if (norm.includes(alias) && alias.length >= 2) {
+    if (alias.length >= 3 && norm.includes(alias)) {
       const pkg = packages.find((p) => p.id === pid);
       if (pkg) return pkg;
     }
   }
 
-  // Common pattern aliases for packages
-  if (/\b50l?\b|\bsud50\b|\bkeg50\b|\bvelky\s*sud\b/.test(norm)) return packages.find((p) => p.volume_l === 50) ?? null;
-  if (/\b30l?\b|\bsud30\b|\bkeg30\b|\bmaly\s*sud\b/.test(norm)) return packages.find((p) => p.volume_l === 30) ?? null;
-  if (/\b20l?\b|\bsud20\b|\bkeg20\b/.test(norm)) return packages.find((p) => p.volume_l === 20) ?? null;
-  if (/\b15l?\b|\bsud15\b|\bkeg15\b/.test(norm)) return packages.find((p) => p.volume_l === 15) ?? null;
-  if (/\b1[.,]5\s*l?\b|\bpetka\b/.test(norm)) return packages.find((p) => p.volume_l === 1.5) ?? null;
-  // "1l" or "1 l" — only if NOT preceded by another digit (to avoid "10l", "15l" matching)
-  if (/(?<!\d)\b1\s*l\b(?!\s*[.,]?\s*5)/.test(norm)) return packages.find((p) => p.volume_l === 1.0) ?? null;
-  if (/\b0[.,]5\s*l?\b|\blahve?\b|\bsklo\b/.test(norm)) return packages.find((p) => p.volume_l === 0.5) ?? null;
-  if (/\b0[.,]33\s*l?\b|\btretinka\b/.test(norm)) return packages.find((p) => p.volume_l === 0.33) ?? null;
+  if (/\blahve?\b|\bsklo\b|\bflas\b/i.test(norm)) {
+    return packages.find((p) => Number(p.volume_l) === 0.5 || /0[,.]5|lahv/i.test(p.label)) ?? null;
+  }
+  if (/\bkeg\b|\bsud\b/i.test(norm)) {
+    return packages.find((p) => Number(p.volume_l) === 30 || /30/i.test(p.label)) ?? null;
+  }
 
   return null;
 }
-
-const BEER_DEGREES = new Set(['8', '9', '10', '11', '12', '13', '14']);
-const KEG_ONLY_VOLS = new Set(['50', '30', '20', '15']);
 
 function ocrNormalizeLine(line: string): string {
   return line
@@ -347,6 +386,33 @@ function extractGlobalDegree(text: string): { degree: string | null; color: stri
   else if (colorRaw.startsWith('sv')) color = 'světlé';
   return { degree, color };
 }
+
+// 🧠 STUPEŇ Z VLASTNÍHO TEXTU POLOŽKY:
+// Najde v raw textu (raw_line) stupeň piva (např. "8", "10", "12", "8+", "8sv",
+// "8 svetly", "12 tmavý"). Vrací stupeň jako string (bez °) nebo null, pokud se
+// v textu žádný samostatný stupeň nevyskytuje.
+// Používá se k opravě AI: stupeň napsaný PŘÍMO v textu té položky má přednost
+// před stupněm, který AI mohlo špatně převzít z JINÉ položky na fotografii.
+function extractDegreeFromRaw(text: string): string | null {
+  if (!text) return null;
+  // Stupeň u piva: číslo 8–16, případně s ° a/nebo barvou (sv/tm/dark/...).
+  // Pozor: nepleteme si stupeň s objemem — objemy (50, 30, 20, 15, 10 ... l/x)
+  // nejsou v BEER_DEGREES kromě č. 10 a 8, které se ale u piva typicky píšou
+  // s °, "sv"/"tm" nebo jako součást názvu piva ("8", "10").
+  const m = text.match(
+    /(?:^|[^0-9.])(8|9|10|11|12|13|14|15|16)\s*(?:°|stupn|st|sv|svet|svetl|svetly|svetle|tm|tma|tmav|tmavy|tmave|dark|l[eé]ž[aá]k|des[ií]tk|dvan[aá]ctk)/i
+  );
+  if (m) return m[1];
+  // Stupeň napsaný ZA SUDEM na konci řádku (např. "2x50 10", "2x50 8",
+  // "3x 30l 11"): po objemu KEG (x50/x30...) následuje na konci číslo stupně.
+  // Bezpečně rozlišíme, že 10/8 tady není objem (objem už je vypsaný), ale stupeň.
+  const m2 = text.match(
+    /x\s*(?:\d+\s*)?(?:50|30|20|15|10)\s*(?:l\b|l\.?\s*)?[ ,;.\n\t-]+\s*(8|9|10|11|12|13|14|15|16)\s*(?:°|sv|tm|dark)?\s*$/i
+  );
+  if (m2) return m2[1];
+  return null;
+}
+
 
 
 export function parseOrderText(
@@ -508,6 +574,26 @@ export function parseOrderText(
       const bbox = findBboxForContext(dispContext, linesWithBbox);
 
 
+      // Guarantee beer fallback so beer_id is never empty
+      if (!beer && beers && beers.length > 0) {
+        beer = beers.find((b) => b.degree === '11°' || /11/i.test(b.name)) || beers[0];
+      }
+
+      // Guarantee package fallback so package_id is never empty
+      if (!pkg && packages && packages.length > 0) {
+        const rawStr = dispContext || '';
+        if (/50/i.test(rawStr)) {
+          pkg = packages.find((p) => Number(p.volume_l) === 50 || /50/i.test(p.label)) ?? null;
+        } else if (/30/i.test(rawStr)) {
+          pkg = packages.find((p) => Number(p.volume_l) === 30 || /30/i.test(p.label)) ?? null;
+        } else if (/0[.,]5/i.test(rawStr) || /lahv|sklo/i.test(rawStr)) {
+          pkg = packages.find((p) => Number(p.volume_l) === 0.5 || /0[.,]5|lahv/i.test(p.label)) ?? null;
+        }
+        if (!pkg) {
+          pkg = packages.find((p) => Number(p.volume_l) === 30 || /30/i.test(p.label)) || packages[0];
+        }
+      }
+
       results.push({
         raw: dispContext,
         originalLine: dispContext,
@@ -659,6 +745,56 @@ export function parseGeminiItems(
     if (m) lineDegreeMap.set(raw, m[1]);
   }
 
+  // 🧠 OPRAVA STUPNĚ PODLE VLASTNÍHO TEXTU POLOŽKY (1. krok):
+  // AI občas přiřadí položce špatný stupeň (např. vezme "10" z JINÉ objednávky
+  // na fotografii, zatímco u téhle objednávky je napsáno "8"). Stupeň napsaný
+  // PŘÍMO v raw_line té položky je přesný přepis z fotky -> má přednost a
+  // přepíšeme jím AI `item.degree`. Tím se ke každé objednávce přiřadí ten
+  // stupeň, který je skutečně u ní napsaný, a ne z jiného řádku.
+  for (const item of items) {
+    const ownDegree = extractDegreeFromRaw(item.raw_line || '');
+    if (ownDegree) {
+      item.degree = ownDegree;
+    }
+  }
+
+  // 🧠 OPRAVA STUPNĚ (2. krok) — "SAMOSTATNÝ STUPEŇ" VLASTNÍ POLOŽKY:
+  // AI občas z fotky rozpozná stupeň piva jako SAMOSTATNOU položku (řádek jen
+  // s číslem stupně, např. "8", bez množství, obalu i piva), zatímco objednávku
+  // ("2x50") vykáže se špatným stupněm (např. 10, který patřil jiné objednávce).
+  // Tady takovou "solitérní" stupně najdeme: pokud předchozí položka je pořádná
+  // objednávka (má množství/obal) a nemá vlastní stupeň, přiřadíme jí stupeň
+  // z té solitérní položky a tu z výstupu odstraníme.
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i];
+    // Je to solitérní stupeň? (jen číslo 8-16, bez obalu/množství/názvu piva)
+    const soloDegree = /^\s*(?:8|9|10|11|12|13|14|15|16)\s*(?:°|sv|tm)?\s*$/i.test((it.raw_line || '').trim());
+    const isObjedn = it.quantity != null || !!it.package_label || !!it.beer_name;
+    if (!soloDegree || isObjedn) continue;
+    // Najdi v okolí NEJBLIŽŠÍ předchozí pořádnou objednávku bez vlastního stupně.
+    for (let j = i - 1; j >= 0; j--) {
+      const target = items[j];
+      const targetIsObjedn = target.quantity != null || !!target.package_label || !!target.beer_name;
+      if (!targetIsObjedn) continue;
+      // Má cíl v TEXTU vlastní stupeň s označením piva (např. "12sv", "10°", "8 tmavý")?
+      // Pak ten v textu má přednost a solitérní stupeň ho nepřepíše. Pokud má cíl
+      // jen číslo napsané od AI (jako "2x50 10"), necháme ho přepsat solitérním stupněm.
+      const hasMarkedDegree = (target.raw_line || '').match(
+        /(?:8|9|10|11|12|13|14|15|16)\s*(?:°|sv|svet|svetl[aéy]|tm|tmav|tmave|dark)/i
+      ) != null;
+      if (!hasMarkedDegree) {
+        const soloMatch = (it.raw_line || '').trim().match(/(8|9|10|11|12|13|14|15|16)/);
+        target.degree = soloMatch ? soloMatch[1] : target.degree;
+      }
+      break; // vždy naváže na nejbližší předchozí objednávku
+    }
+    // Solitérní položku odstraníme z výstupu (jen číslo stupně sama o sobě
+    // není objednávkou piva).
+    items.splice(i, 1);
+    i--; // po odstranění se posuneme zpět
+  }
+
+
   for (const item of items) {
     const raw = item.raw_line || [item.quantity, item.degree, item.beer_name, item.package_label].filter(Boolean).join(' ');
 
@@ -721,6 +857,26 @@ export function parseGeminiItems(
           item.package_label = item.package_label.replace(/(50|30|20|15|10)\s*l/i, kegVolFromRaw + 'l');
         }
       }
+      // Explicit bottle size override from raw text (e.g. 20x0,5 -> Lahve 0.5l)
+      // ⚠️ raw_line může obsahovat VÍCE položek s RŮZNÝMI obaly na jednom řádku
+      // (např. "SV 12 = 3x50l KEG + 24x1,5l PET + 20x0,5l lahev"). Tento override
+      // smí přepsat obal JEN položkám, které AI označila jako lahev (Lahve/0,5/
+      // 0,33/sklo) nebo jimž obal chybí A jejichž množství odpovídá počtu lahví.
+      // Nikdy nepřepisuj KEG/PET položky na stejném řádku.
+      const aiLabelIsBottle = item.package_label && /\blahv\b|\bflas\b|\bsklo\b|0[.,](5|33)/i.test(item.package_label);
+      const bottleQty05 = raw.match(/(\d{1,3})\s*x\s*0[,.]5/i);
+      const bottleQty033 = raw.match(/(\d{1,3})\s*x\s*0[,.]33/i);
+      const qtyMatchesBottles = () => {
+        const qm = bottleQty05 || bottleQty033;
+        return !qm || item.quantity == null || Number(qm[1]) === item.quantity;
+      };
+      if (aiLabelIsBottle || (!item.package_label && qtyMatchesBottles())) {
+        if (/\b0[,.]5\s*l?\b|\b20\s*x\s*0[,.]5/i.test(raw) && !/\b0[,.]33\s*l?\b/i.test(raw)) {
+          item.package_label = 'Lahve 0.5l';
+        } else if (/\b0[,.]33\s*l?\b|\b20\s*x\s*0[,.]33/i.test(raw)) {
+          item.package_label = 'Lahve 0.33l';
+        }
+      }
       const normLabel = normalize(item.package_label);
       pkg = matchPackage(normLabel, packages, aliases);
       if (!pkg) {
@@ -749,6 +905,26 @@ export function parseGeminiItems(
     if (!pkg && (/\bsv\s*l\b|\bsvetl[ée]\s*l\b|\btm\s*l\b|\btmav[ée]\s*l\b|\bvycep\b|\bvýčep\b|\bvycepni\b|\bvýčepní\b/i.test(raw))) {
       pkg = volToPackage('30', packages, rawNorm);
     }
+
+    // 🧠 „2x50“ BEZ OBALU/MNOŽSTVÍ OD AI — POSLEDNÍ ZÁCHRANA:
+    // Když AI rozpozná jen text "2x50" (2× sud 50l) a NENaplní obal ani množství,
+    // odvodíme je přesně z raw textu: (množství) x (objem sudu). Bez toho by se
+    // "2x50" vyhodilo jako prázdná objednávka (chybí pivo/obal/množství).
+    // Vzor: "2x50", "2 x 50", "2x50l", "3x 30", "10x50" ...
+    if (!pkg || item.quantity == null) {
+      const kegXMatch = raw.match(/(\d{1,2})\s*x\s*(50|30|20|15|10)(?:\s*l\b)?/i);
+      if (kegXMatch) {
+        const n = parseInt(kegXMatch[1], 10);
+        const vol = kegXMatch[2];
+        if (!pkg) {
+          pkg = volToPackage(vol, packages, rawNorm + ' ' + (item.package_label || ''));
+        }
+        if (item.quantity == null && n >= 1) {
+          item.quantity = n;
+        }
+      }
+    }
+
 
 
     const qty = item.quantity ?? null;
@@ -811,6 +987,12 @@ export function parseGeminiItems(
     // dedupeAgainstExisting (proti existujícím položkám v objednávce).
     // Uživatel může duplicity odstranit ručně v kontrolním zobrazení.
 
+    // Duplicitní výskyt stejné položky v rámci jednoho parsování (identická place_name, beer_id, package_id, quantity) — odstranit jeden z nich.
+    // Zabrání duplikátům, které vznikly opakováním objednávky v konverzaci.
+    const dedupKey = [normalizePlace(resolvedPlaceName ?? ''), beer?.id, pkg?.id, qty].filter(Boolean).join('|');
+    if (seen.has(dedupKey)) continue;
+    seen.add(dedupKey);
+
     results.push({
 
       raw,
@@ -865,54 +1047,71 @@ export async function saveAlias(aliasText: string, beerId: string | null, packag
   // 2. Trvalý uložení do Supabase
   try {
     const { supabase } = await import('./supabase');
-    const { data: existing } = await supabase.from('parser_aliases').select('id, hit_count').eq('alias_text', norm).maybeSingle();
+    // Merge: oprava JEN piva nebo JEN obalu nesmí smazat tu druhou dimenzi,
+    // kterou si AI už dříve zapamatovala (např. "sud" → beer X + package Y).
+    const { data: existing } = await supabase
+      .from('parser_aliases')
+      .select('id, beer_id, package_id, hit_count')
+      .eq('alias_text', norm)
+      .maybeSingle();
     if (existing) {
       await supabase.from('parser_aliases').update({
-        beer_id: beerId, package_id: packageId,
+        beer_id: beerId ?? (existing as any).beer_id ?? null,
+        package_id: packageId ?? (existing as any).package_id ?? null,
         hit_count: (existing.hit_count ?? 0) + 1, updated_at: new Date().toISOString(),
       }).eq('id', (existing as any).id);
     } else {
       await supabase.from('parser_aliases').insert({
-        alias_text: norm, beer_id: beerId, package_id: packageId, hit_count: 1,
+        alias_text: norm, beer_id: beerId ?? null, package_id: packageId ?? null, hit_count: 1,
       });
     }
   } catch {}
 }
 
-// Uložení naučeného aliasu pro místo (place) do localStorage i Supabase
-export async function savePlaceAlias(aliasText: string, placeId: string): Promise<void> {
+// Uložení naučeného aliasu pro místo (place) do localStorage i Supabase.
+// Když uživatel opraví odběratele, který AI/OCR rozpoznal špatně, uložíme
+// mapping: špatný název (aliasText) → správný odběratel (placeId + correctName).
+// correctName se ukládá, aby ji mohla použít AI (edge funkce) a auto-parse
+// (matchPlaceSafely páruje correct_name proti katalogu odběratelů).
+export async function savePlaceAlias(aliasText: string, placeId: string, correctName?: string): Promise<void> {
   const norm = normalizePlace(aliasText);
   if (!norm || norm.length < 2) return;
 
-  // 1. Okamžitá paměť do localStorage
+  // 1. Okamžitá paměť do localStorage (wrong_name → placeId)
   try {
     const localSaved = localStorage.getItem('user_learned_place_aliases');
     const localMap = localSaved ? JSON.parse(localSaved) : {};
-    localMap[norm] = placeId;
+    if (placeId) localMap[norm] = placeId;
     localStorage.setItem('user_learned_place_aliases', JSON.stringify(localMap));
   } catch {}
 
-  // 2. Trvalé uložení do Supabase (using parser_aliases table with place_id)
+  // 2. Trvalé uložení do Supabase (tabulka place_aliases: wrong_name → místo)
   try {
     const { supabase } = await import('./supabase');
-    const { data: existing } = await supabase.from('parser_aliases').select('id, hit_count').eq('alias_text', norm).eq('place_id', placeId).maybeSingle();
+    const { data: existing } = await supabase
+      .from('place_aliases')
+      .select('id, correct_name, hit_count')
+      .eq('wrong_name', norm)
+      .maybeSingle();
     if (existing) {
-      await supabase.from('parser_aliases').update({
-        place_id: placeId,
+      await supabase.from('place_aliases').update({
+        place_id: placeId || null,
+        correct_name: correctName ?? (existing as any).correct_name ?? '',
         hit_count: (existing.hit_count ?? 0) + 1,
         updated_at: new Date().toISOString(),
       }).eq('id', (existing as any).id);
     } else {
-      await supabase.from('parser_aliases').insert({
-        alias_text: norm,
-        place_id: placeId,
+      await supabase.from('place_aliases').insert({
+        wrong_name: norm,
+        place_id: placeId || null,
+        correct_name: correctName ?? '',
         hit_count: 1,
       });
     }
   } catch {}
 }
 
-// Načtení naučených aliasů pro místa
+// Načtení naučených aliasů pro místa (špatný název → placeId)
 export async function loadPlaceAliasMap(): Promise<Map<string, string>> {
   const map = new Map<string, string>();
 
@@ -925,12 +1124,12 @@ export async function loadPlaceAliasMap(): Promise<Map<string, string>> {
     }
   } catch {}
 
-  // 2. Načtení ze Supabase
+  // 2. Načtení ze Supabase (tabulka place_aliases)
   try {
     const { supabase } = await import('./supabase');
-    const { data } = await supabase.from('parser_aliases').select('*').not('place_id', 'is', null);
+    const { data } = await supabase.from('place_aliases').select('wrong_name, place_id').not('place_id', 'is', null);
     for (const a of (data ?? []) as any[]) {
-      if (a.place_id) map.set(a.alias_text, a.place_id);
+      if (a.place_id) map.set(a.wrong_name, a.place_id);
     }
   } catch {}
 
@@ -1110,13 +1309,15 @@ export function matchPlaceFromText(
 }
 
 const NOTE_PATTERNS: { re: RegExp; label: string | ((m: RegExpMatchArray) => string) }[] = [
-  { re: /\b(\+\s*)?vycep\b|\bvycepy\b|\bvycepu\b|\bvycepni\b|\bpujcit\s*vycep\b|\bchlazeni\b|\bchladak\b|\bhospoda\b|\bpivnice\b|\bbar\b|\bnarazec\b/i, label: (m) => m[0].trim() },
+  { re: /\b(\+\s*)?vycep\b|\bvycepy\b|\bvycepu\b|\bvycepni\b|\bpujcit\s*vycep\b|\bchlazeni\b|\bchladak\b|\bhospoda\b|\bna[řr]azec\b|\bna[řr]azen[ií]\b/i, label: (m) => m[0].trim() },
   // 🚰 PIPA / KOHOUT — výčep se rezervuje i když je napsáno "pipa", "dvojkohout",
   // "jednokohout", "trojkohout", "kohout" apod. (nejen slovo "výčep").
   { re: /\b(jedno|dvoj|troj|ctyr|sesti)?(pipa|pipy|pipu|kohout|kohouty)\b/i, label: (m) => m[0].trim() },
 
-  { re: /\b(pridat\s*)?sklo\b|\bsklenic[e]?\b/i, label: 'sklo' },
-  { re: /\bpodtack[y]?\b|\bpodtacek\b/i, label: 'podtácky' },
+  // 🥛 SKLO — do poznámky jen když je to skutečný požadavek (např. "přidat/ještě/a sklo"),
+  // ne samostatné vágní slovo "sklo"/"sklo?" (což AI z fotky zapisuje omylem).
+  { re: /\bsklenic[eí]?\b|(?:pridat\s+|je[sš][tíe]\s+|a\s+|i\s+)sklo\b/i, label: 'sklo' },
+  { re: /(?:pridat\s+|je[sš][tíe]\s+|a\s+|i\s+)podtack[y]?\b|\bpodtacek\b/i, label: 'podtácky' },
   { re: /\bzavoz\s+(v[e]?\s+)?(pondeli|utery|stredu|ctvrtek|patek|sobotu|nedeli|\d{1,2}\.\d{1,2}\.)(\s+v\s+\d{1,2}(:\d{2})?\s*(h|hod)?)?/i, label: (m) => m[0] },
   { re: /\bdodat\s+(v[e]?\s+)?(pondeli|utery|stredu|ctvrtek|patek|sobotu|nedeli|\d{1,2}\.\d{1,2}\.)(\s+v\s+\d{1,2}(:\d{2})?\s*(h|hod)?)?/i, label: (m) => m[0] },
   { re: /\b(cas|hodin[a]|v)\s+\d{1,2}(:\d{2})?\s*(h|hod)?\b/i, label: (m) => m[0] },

@@ -12,7 +12,7 @@ const TAP_SYNONYMS = [
   'pipa', 'pipu', 'pipy', 'pipom', 'pipam',
   'jednopipa', 'dvojpipa', 'trojpipa', 'sestipipa',
   'kohout', 'kohouty', 'kohoutek', 'kohoutku',
-  'chlazeni', 'chladak', 'stojan', 'pivnice', 'hospoda', 'bar',
+  'chlazeni', 'chladak',
   'narazec', 'narazece',
 ];
 

@@ -1,5 +1,6 @@
 import { Beer, Package, Place } from './supabase';
-import { parseVoiceOrder, ParserAliasMap, ParsedLine, matchPlaceFromText } from './orderParser';
+import { parseGeminiItems, matchPlaceFromText, detectOrderNotes, loadAliasMap, loadPlaceAliasMap, ParserAliasMap, ParsedLine, GeminiItem } from './orderParser';
+import { parseExplicitDate } from './orderDates';
 
 export type ParsedWhatsAppResult = {
   placeId: string | null;
@@ -228,25 +229,6 @@ export function parseWhatsAppExport(rawText: string): WhatsAppMessage[] {
   return messages;
 }
 
-// Seskupí zprávy z celého měsíce do objednávek. Zprávy od STEJNÉHO odesílatele,
-// které jdou po sobě (jedna konverzace), se sloučí do jedné objednávky.
-// Vrací pole objednávek, každá s textem (sloučeným) a datem poslední zprávy.
-export function groupWhatsAppMessages(messages: WhatsAppMessage[]): WhatsAppMessage[] {
-  const groups: WhatsAppMessage[] = [];
-  for (const msg of messages) {
-    const last = groups[groups.length - 1];
-    // Sloučíme, pokud je stejný odesílatel a zprávy jdou po sobě (nebo obě bez odesílatele)
-    if (last && last.sender === msg.sender) {
-      last.text = `${last.text}\n${msg.text}`;
-      last.date = msg.date ?? last.date; // datum poslední zprávy
-      last.time = msg.time ?? last.time;
-    } else {
-      groups.push({ ...msg });
-    }
-  }
-  return groups;
-}
-
 const DAY_MAP: { regex: RegExp; code: string }[] = [
   { regex: /\b(?:v\s+|na\s+)?pond[eě]l[ií]\b|\bpo\b/i, code: 'po' },
   { regex: /\b(?:v\s+|na\s+)?[uú]ter[yý]\b|\b[uú]t\b/i, code: 'ut' },
@@ -261,6 +243,17 @@ export function detectDeliveryDay(text: string): { day: string | null; dateStr: 
   let dayCode: string | null = null;
   let dateStr: string | null = null;
   let cleanText = text;
+
+  // 0) Konkrétní datum (např. "25.8.") má přednost — objednávka se přesune
+  //    do týdne daného data a datum se napíše do poznámky.
+  const explicit = parseExplicitDate(text);
+  if (explicit) {
+    dateStr = explicit.dateStr;
+    const dow = new Date(explicit.dateStr + 'T00:00:00Z').getUTCDay();
+    dayCode = ['ne', 'po', 'ut', 'st', 'ct', 'pa', 'so'][dow];
+    cleanText = cleanText.replace(new RegExp(explicit.matched.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'), ' ').replace(/\s+/g, ' ').trim();
+    return { day: dayCode, dateStr, cleanText };
+  }
 
   // Check for "zítra" or "dnes"
   const now = new Date();
@@ -291,53 +284,201 @@ export function detectDeliveryDay(text: string): { day: string | null; dateStr: 
   return { day: dayCode, dateStr, cleanText: cleanText.trim() };
 }
 
-export function parseWhatsAppOrderMessage(
+// 🧠 AI PARSE — STEJNÉ ČTENÍ JAKO Z FOTKY:
+// Volá edge funkci parse-order-text (s vyladěným promptem pro WhatsApp), pak
+// položky namapuje přes parseGeminiItems (shoda s katalogem aplikace). Tuto
+// cestu používá automatické zpracování (whatsapp-auto-parse) i manuální výběr
+// v WhatsAppAutoProcessorModal, aby se špatné přiřazení piv/obalů opravilo
+// identicky jako u čtení z fotky.
+export async function parseWhatsAppOrderMessageWithAI(
   rawMessage: string,
   beers: Beer[],
   packages: Package[],
   places: Place[],
-  aliasMap?: ParserAliasMap,
-  placeAliasMap?: Map<string, string>,
   sender?: string | null,
-): ParsedWhatsAppResult {
-  // 1. Detect delivery day
-  const { day, dateStr, cleanText } = detectDeliveryDay(rawMessage);
+  messageTimestamp?: string | null,
+  aliasMapOverride?: ParserAliasMap,
+  placeAliasMapOverride?: Map<string, string>,
+): Promise<ParsedWhatsAppResult> {
+  // 1. Naučené zkratky (piva + obaly) a aliasy odběratelů — stejné hinty
+  //    jako posílá čtení z fotky (ImportFromImage).
+  const [aliasMap, placeAliasMap] = await Promise.all([
+    aliasMapOverride ?? loadAliasMap(),
+    placeAliasMapOverride ?? loadPlaceAliasMap(),
+  ]);
 
-  // 2. Parse place & items using fuzzy voice/text parser
-  const parsedVoice = parseVoiceOrder(cleanText, beers, packages, places, aliasMap, placeAliasMap);
+  const aliasList = [
+    ...[...aliasMap.beer.entries()].map(([alias_text, beer_id]) => ({
+      alias_text,
+      beer_name: beers.find((b) => b.id === beer_id)?.name ?? null,
+      package_label: null as string | null,
+    })),
+    ...[...aliasMap.package.entries()].map(([alias_text, package_id]) => ({
+      alias_text,
+      beer_name: null as string | null,
+      package_label: packages.find((p) => p.id === package_id)?.label ?? null,
+    })),
+  ].slice(0, 80);
 
-  // 2b. Pokud se místo nenašlo v textu zprávy, zkus ho najít podle odesílatele
-  //     (např. "[12:00, 1.1.2026] Hospoda U Zajíce: ..." → odesílatel "Hospoda U Zajíce").
-  let placeId = parsedVoice.placeId;
-  let placeName = parsedVoice.placeName;
-  if (!placeId && !placeName && sender) {
-    const senderMatch = matchPlaceFromText(sender, places, placeAliasMap);
-    if (senderMatch.placeId) {
-      placeId = senderMatch.placeId;
-      placeName = senderMatch.placeName;
-    }
-  }
+  const placeAliasList = [...placeAliasMap.entries()]
+    .map(([wrong_name, place_id]) => {
+      const place = places.find((pl) => pl.id === place_id);
+      return place ? { wrong_name, correct_name: place.name } : null;
+    })
+    .filter((x): x is { wrong_name: string; correct_name: string } => x !== null)
+    .slice(0, 50);
 
-  // 3. Extract notes (extra text after greetings & items)
-  let noteText: string | null = null;
-  const lines = rawMessage.split('\n').map((l) => l.trim()).filter(Boolean);
-  const noteLines = lines.filter((line) => {
-    const isGreeting = /^(ahoj|dobrý den|dobry den|zdravim|zdravím|cau|čau|prosím|prosim)/i.test(line);
-    const containsItem = /\d+\s*(?:x|ks|keg|l|lity?r|sud)/i.test(line);
-    return !isGreeting && !containsItem;
+  // Neplatné/částečné časové razítko (např. "2026-08-04T8:41:00" z WhatsApp exportu
+  // s jednocifernou hodinou) nesmí shodit celé zpracování — pošleme null.
+  const date = messageTimestamp
+    ? (() => {
+        const d = new Date(messageTimestamp);
+        return isNaN(d.getTime()) ? null : d.toISOString().split('T')[0];
+      })()
+    : null;
+
+  const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-order-text`;
+
+  const resp = await fetch(fnUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+    },
+    body: JSON.stringify({
+      rawText: rawMessage,
+      beers: beers.map((b) => ({ id: b.id, name: b.name, degree: b.degree ?? '' })),
+      packages: packages.map((p) => ({ id: p.id, label: p.label })),
+      places: places.map((pl) => pl.name),
+      aliases: aliasList,
+      placeAliases: placeAliasList,
+      messages: [{ sender: sender ?? null, date, text: rawMessage }],
+    }),
   });
 
-  if (noteLines.length > 0) {
-    noteText = noteLines.join('; ').replace(/pro\s+[^;]+/gi, '').trim();
-    if (noteText.length < 3) noteText = null;
+  const respText = await resp.text();
+  if (!resp.ok) {
+    let msg = `HTTP ${resp.status}`;
+    try { msg += ': ' + (JSON.parse(respText)?.error ?? respText); } catch { msg += ': ' + respText; }
+    throw new Error(msg);
+  }
+  let data: any;
+  try { data = JSON.parse(respText); } catch { throw new Error('Neplatná odpověď: ' + respText.slice(0, 200)); }
+  if (data?.error) throw new Error(data.error);
+
+  // 2. AI položky → ParsedLine (stejný post-processing jako u fotek).
+  const geminiItems: GeminiItem[] = data?.items ?? [];
+  const items = parseGeminiItems(geminiItems, beers, packages, aliasMap, undefined, places);
+
+  // 3. Odběratel — top-level place_name z AI má přednost (stejné ladění jako
+  //    u čtení z fotek), pak place_name položek, pak celý text zprávy.
+  //    ODESÍLATEL se jako odběratel NIKDY nepoužívá — je to jen posel;
+  //    odběratel je vždy napsaný UVNITŘ textu zprávy.
+  //
+  // Ukotvení (grounding): AI občas vymyslí odběratele, který v objednávce není
+  // (hallucinace ze seznamu ZNÁMÍ ODBĚRATELÉ). Kandidát na odběratele proto
+  // musí být "ukotven" — jeho název se musí vyskytovat v textu zprávy.
+  // Stejně tak filtrujeme falešné fuzzy shody z textu (např. "patek" → "Radek").
+  const isIgnoredSender = (name?: string | null) => {
+    if (!name) return true;
+    const norm = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return ['bednar', 'petr', 'sladek', 'gabina', 'ucetni', 'pojmi', 'bendat'].some((s) => norm.includes(s));
+  };
+  const normGround = (s?: string | null) =>
+    (s || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  // Jméno odesílatele (posla) nikdy neoznačuje odběratele.
+  const senderNormGround = normGround(sender);
+  const isSameAsSender = (name?: string | null) =>
+    !!name && !!senderNormGround && normGround(name) === senderNormGround;
+  // Z textu zprávy odstraníme jméno odesílatele (pozdrav/podpis), aby nemohlo
+  // zastínit odběratele, který je napsaný uvnitř zprávy.
+  const stripSenderWords = (text: string): string => {
+    if (!sender) return text;
+    const words = sender.split(/\s+/).filter((w) => w.length >= 3);
+    if (words.length === 0) return text;
+    let out = text;
+    for (const w of words) {
+      out = out.replace(new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi'), ' ');
+    }
+    return out.replace(/\s+/g, ' ').trim();
+  };
+  const groundText = stripSenderWords(rawMessage);
+  const isPlaceGrounded = (candidate?: string | null) => {
+    const c = normGround(candidate);
+    if (!c || c.length < 3) return false;
+    if (isSameAsSender(candidate)) return false;
+    if (normGround(groundText).includes(c)) return true;
+    return false;
+  };
+  // Shoda místa je důvěryhodná, pokud se název místa (nebo jeho podstatné
+  // slovo) vyskytuje v textu zprávy (ne v odesílateli).
+  const isMatchGrounded = (placeNameToCheck?: string | null) => {
+    if (!placeNameToCheck) return false;
+    if (isSameAsSender(placeNameToCheck)) return false;
+    if (isPlaceGrounded(placeNameToCheck)) return true;
+    const np = normGround(placeNameToCheck);
+    const words = np.split(' ').filter((w) => w.length >= 3);
+    if (words.some((w) => normGround(groundText).includes(w))) return true;
+    return false;
+  };
+
+  const rawTextFromAi: string = data?.raw_text ?? rawMessage;
+  const rawPlaceName: string | null = data?.place_name ?? null;
+  const detectedPlaceName =
+    (isIgnoredSender(rawPlaceName) || isSameAsSender(rawPlaceName)) ? null : rawPlaceName;
+
+  let foundPlace = { placeId: null as string | null, placeName: null as string | null };
+  if (detectedPlaceName && isPlaceGrounded(detectedPlaceName)) {
+    foundPlace = matchPlaceFromText(detectedPlaceName, places, placeAliasMap);
+    if (foundPlace.placeId && !isMatchGrounded(foundPlace.placeName)) foundPlace = { placeId: null, placeName: null };
+  }
+  let firstItemPlaceName: string | null = null;
+  if (!foundPlace.placeId) {
+    for (const item of geminiItems) {
+      if (item.place_name && !isIgnoredSender(item.place_name) && !isSameAsSender(item.place_name)) {
+        if (!firstItemPlaceName) firstItemPlaceName = item.place_name;
+        if (isPlaceGrounded(item.place_name)) {
+          foundPlace = matchPlaceFromText(item.place_name, places, placeAliasMap);
+          if (foundPlace.placeId && !isMatchGrounded(foundPlace.placeName)) foundPlace = { placeId: null, placeName: null };
+          if (foundPlace.placeId) break;
+        }
+      }
+    }
+  }
+  if (!foundPlace.placeId) {
+    // Celý text zprávy (bez jména odesílatele) — odběratel je uvnitř zprávy.
+    foundPlace = matchPlaceFromText(stripSenderWords(rawTextFromAi || rawMessage), places, placeAliasMap);
+    if (foundPlace.placeId && !isMatchGrounded(foundPlace.placeName)) foundPlace = { placeId: null, placeName: null };
   }
 
-  return {
-    placeId,
-    placeName,
-    deliveryDay: day,
-    deliveryDate: dateStr,
-    note: noteText,
-    items: parsedVoice.items,
-  };
+  let placeId = foundPlace.placeId;
+  let placeName = foundPlace.placeName;
+  if (!placeId && !placeName) {
+    // AI rozpoznala jméno, ale neodpovídá žádnému známému odběrateli
+    // → použij ho jako nového odběratele (placeNameFree). Jen pokud je
+    // ukotveno v textu zprávy (ne vymyšlené) a není to jméno odesílatele.
+    placeName = detectedPlaceName || firstItemPlaceName;
+    if (placeName && (isSameAsSender(placeName) || !isPlaceGrounded(placeName))) placeName = null;
+  }
+
+  // 4. Den/datum dodání (zítra, dnes, název dne, ...).
+  const { day, dateStr } = detectDeliveryDay(rawMessage);
+
+  // 5. Poznámka (pipa, sklo, etikety…) — stejně jako u fotek / importu exportu.
+  //    Když je v textu konkrétní datum (např. "25.8."), zapíšeme ho i do poznámky.
+  const noteFromText = detectOrderNotes(rawTextFromAi || rawMessage) || null;
+  let note = noteFromText;
+  const detectedDate = parseExplicitDate(rawMessage);
+  if (detectedDate) {
+    const dnote = `Datum: ${detectedDate.display}`;
+    note = note && note.includes(dnote) ? note : (note ? `${note}, ${dnote}` : dnote);
+  }
+
+  return { placeId, placeName, deliveryDay: day, deliveryDate: dateStr, note, items };
 }

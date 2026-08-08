@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { supabase, Beer, useRealtime } from '../lib/supabase';
 import { Spinner, EmptyState, Field } from '../components/ui';
-import { Wheat, CheckSquare, Plus, Calendar, FileText, Save, CheckCircle2, FlaskConical, Calculator, Cylinder, Flame } from 'lucide-react';
+import { CheckSquare, Plus, FileText, FlaskConical, Calculator, Cylinder, Flame } from 'lucide-react';
 
 type SrotovaniRow = {
   id?: string;
@@ -10,19 +10,6 @@ type SrotovaniRow = {
   beer_name: string | null;
   weight_kg: number;
   note: string | null;
-};
-
-type VarnileftRow = {
-  id?: string;
-  batch_number: string;
-  entry_date: string;
-  beer_id: string | null;
-  beer_name: string | null;
-  volume_hl: number;
-  plato_deg: number;
-  brewer: string | null;
-  note: string | null;
-  created_at?: string;
 };
 
 type ChecklistItem = {
@@ -154,167 +141,6 @@ export function SrotovaniScreen({ setPage }: { setPage?: (p: any, sec?: string) 
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-// ==========================================
-// 2. VARNÍ LISTY (Objem hl, Stupňovitost °P, Poznámka)
-// ==========================================
-export function VarniListyScreen({ setPage }: { setPage?: (p: any, sec?: string) => void } = {}) {
-  const [beers, setBeers] = useState<Beer[]>([]);
-  const [logs, setLogs] = useState<VarnileftRow[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  // Formular
-  const [entryDate, setEntryDate] = useState(new Date().toISOString().slice(0, 10));
-  const [batchNumber, setBatchNumber] = useState(`V-${new Date().getFullYear()}-${String(Date.now()).slice(-3)}`);
-  const [beerId, setBeerId] = useState('');
-  const [volumeHl, setVolumeHl] = useState('15');
-  const [platoDeg, setPlatoDeg] = useState('11.5');
-  const [brewer, setBrewer] = useState('');
-  const [note, setNote] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  async function load() {
-    setLoading(true);
-    const [{ data: b }] = await Promise.all([
-      supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
-    ]);
-    setBeers((b as Beer[]) ?? []);
-
-    const localData = localStorage.getItem('brewing_logs_data');
-    if (localData) {
-      try { setLogs(JSON.parse(localData)); } catch {}
-    }
-    setLoading(false);
-  }
-
-  useEffect(() => { load(); }, []);
-
-  function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    if (!beerId || !volumeHl || !platoDeg) return;
-    setBusy(true);
-
-    const beer = beers.find((b) => b.id === beerId);
-    const newLog: VarnileftRow = {
-      id: String(Date.now()),
-      batch_number: batchNumber,
-      entry_date: entryDate,
-      beer_id: beerId,
-      beer_name: beer?.name ?? '—',
-      volume_hl: Number(volumeHl),
-      plato_deg: Number(platoDeg),
-      brewer: brewer.trim() || 'Sládek',
-      note: note.trim() || null,
-      created_at: new Date().toISOString(),
-    };
-
-    const updated = [newLog, ...logs];
-    setLogs(updated);
-    localStorage.setItem('brewing_logs_data', JSON.stringify(updated));
-
-    setBatchNumber(`V-${new Date().getFullYear()}-${Math.floor(Math.random() * 900 + 100)}`);
-    setNote('');
-    setBusy(false);
-  }
-
-  return (
-    <div className="space-y-6 pb-12">
-      <div className="bg-gradient-to-r from-amber-500/20 via-amber-100/40 to-white border border-amber-300 p-5 rounded-3xl flex items-center justify-between gap-3 shadow-xs">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">🔥</span>
-          <div>
-            <h2 className="font-display font-black text-lg text-neutral-900">Varní listy — Záznam várek piva</h2>
-            <p className="text-xs text-neutral-600 font-bold">Zápis objemu (hl), stupňovitosti (°P), sládka a poznámky k várce</p>
-          </div>
-        </div>
-        {setPage && (
-          <button onClick={() => setPage('haccp', 'sec-3-2')} className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md transition">
-            📖 HACCP Varna (3.2)
-          </button>
-        )}
-      </div>
-
-      <form onSubmit={handleSave} className="card p-6 bg-white border border-neutral-200/90 rounded-3xl space-y-4 shadow-sm">
-        <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-          <Plus size={18} className="text-amber-600" />
-          <span>Nová várka / Varní list</span>
-        </h3>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <Field label="Číslo várky (Šarže)">
-            <input className="input font-mono font-bold" value={batchNumber} onChange={(e) => setBatchNumber(e.target.value)} required />
-          </Field>
-          <Field label="Datum uvaření">
-            <input type="date" className="input font-bold" value={entryDate} onChange={(e) => setEntryDate(e.target.value)} required />
-          </Field>
-          <Field label="Druh piva">
-            <select required className="input font-bold" value={beerId} onChange={(e) => setBeerId(e.target.value)}>
-              <option value="">— Vyber pivo —</option>
-              {beers.map((b) => (
-                <option key={b.id} value={b.id}>{b.name}{b.degree ? ` (${b.degree})` : ''}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Sládek">
-            <input className="input font-semibold" value={brewer} onChange={(e) => setBrewer(e.target.value)} placeholder="např. Ing. Bednář / Sládek" />
-          </Field>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-          <Field label="Vystřený / Uvařený Objem (hl)">
-            <input type="number" step="0.1" min="0" required className="input font-mono font-black text-lg text-amber-950" value={volumeHl} onChange={(e) => setVolumeHl(e.target.value)} placeholder="15.0 hl" />
-          </Field>
-
-          <Field label="Stupňovitost / Extrakt (°P)">
-            <input type="number" step="0.1" min="0" required className="input font-mono font-black text-lg text-amber-950" value={platoDeg} onChange={(e) => setPlatoDeg(e.target.value)} placeholder="11.5 °P" />
-          </Field>
-        </div>
-
-        <Field label="Poznámka k várce / Receptura">
-          <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="např. Slady: Plzeňský 180kg, Mnichovský 20kg. Chmely: ŽPČ 2kg na 60min, Sládek 1kg na 15min." />
-        </Field>
-
-        <div className="flex justify-end pt-2">
-          <button type="submit" disabled={busy || !beerId} className="btn-primary !py-2.5 text-sm font-black shadow-md">
-            + Uložit varní list
-          </button>
-        </div>
-      </form>
-
-      {/* Přehled uvařených várek */}
-      <div className="card p-6 bg-white border border-neutral-200 rounded-3xl space-y-4 shadow-sm">
-        <h3 className="font-display font-black text-lg text-neutral-900">Přehled uložených várek ({logs.length})</h3>
-        {logs.length === 0 ? (
-          <div className="text-center text-xs font-bold text-neutral-500 py-6">Zatím žádné uvařené várky v evidenci.</div>
-        ) : (
-          <div className="space-y-2.5">
-            {logs.map((l) => (
-              <div key={l.id} className="p-4 rounded-2xl bg-neutral-50 border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="px-2.5 py-0.5 rounded-lg bg-neutral-900 text-amber-300 font-mono font-black text-xs">{l.batch_number}</span>
-                    <span className="font-display font-black text-base text-neutral-950">{l.beer_name}</span>
-                    <span className="text-xs font-mono font-bold text-neutral-500 bg-white border border-neutral-300 px-2 py-0.5 rounded-lg">{new Date(l.entry_date).toLocaleDateString('cs-CZ')}</span>
-                  </div>
-                  {l.note && <p className="text-xs text-neutral-600 font-medium">📝 {l.note}</p>}
-                  {l.brewer && <p className="text-[11px] text-neutral-500 font-bold">👤 Sládek: {l.brewer}</p>}
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="px-3 py-1.5 rounded-xl bg-amber-100 border border-amber-300 text-amber-950 font-mono font-black text-sm">
-                    {l.volume_hl} hl
-                  </span>
-                  <span className="px-3 py-1.5 rounded-xl bg-amber-500 text-neutral-950 font-mono font-black text-sm shadow-2xs">
-                    {l.plato_deg} °P
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }

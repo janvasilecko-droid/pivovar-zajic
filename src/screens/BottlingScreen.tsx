@@ -1,13 +1,12 @@
+import { BottlingChecklistModal } from '../components/BottlingChecklistModal';
 import { useEffect, useMemo, useState, useRef } from 'react';
-
-
-
 import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName } from '../lib/supabase';
-import { EmptyState, Spinner } from '../components/ui';
+import { EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { exportBottlingToExcel } from '../lib/excel';
 import { ImportBottlingFromImage } from '../components/ImportBottlingFromImage';
-import { Camera } from 'lucide-react';
+import { Camera, Pencil } from 'lucide-react';
+import { getStartingStockMap } from '../lib/inventoryHelper';
 
 const ROW_COUNT = 12;
 type RowInput = { beerId: string; pkgId: string; pkg2Id: string; pkg3Id: string; kegPkgId: string; kegQty: string; qty: string; qty2: string; qty3: string };
@@ -21,11 +20,20 @@ const ALLOWED_BOTTLE_VOLUMES = [1.5, 1, 0.5, 0.33];
 const KEG_SIZES = [50, 30, 20, 15, 10];
 
 
-export default function BottlingScreen({ setPage, mode = 'all' }: { setPage?: (p: any, sec?: string) => void; mode?: 'entry_only' | 'overviews_only' | 'all' } = {}) {
+export default function BottlingScreen({
+  setPage,
+  mode = 'all',
+  initialTab,
+}: {
+  setPage?: (p: any, sec?: string) => void;
+  mode?: 'entry_only' | 'overviews_only' | 'all';
+  initialTab?: 'zapis' | 'prehled' | 'potreba';
+} = {}) {
   const [rows, setRows] = useState<EntryRow[]>([]);
   const [beers, setBeers] = useState<Beer[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingRow, setEditingRow] = useState<EntryRow | null>(null);
   const loadCountRef = useRef(0);
 
 
@@ -38,9 +46,16 @@ export default function BottlingScreen({ setPage, mode = 'all' }: { setPage?: (p
   const [flash, setFlash] = useState(false);
 
   const [showImageImport, setShowImageImport] = useState(false);
+  const [showChecklistModal, setShowChecklistModal] = useState(false);
 
   // Záložky: Zápis / Přehled / Potřeba stočit lahve
-  const [tab, setTab] = useState<'zapis' | 'prehled' | 'potreba'>('zapis');
+  const [tab, setTab] = useState<'zapis' | 'prehled' | 'potreba'>(initialTab ?? 'zapis');
+
+  useEffect(() => {
+    if (initialTab) {
+      setTab(initialTab);
+    }
+  }, [initialTab]);
 
   const handleApplyPhotoRows = (parsedRows: RowInput[], dateVal?: string, photoNote?: string) => {
     setEntryRows((prev) => {
@@ -64,6 +79,7 @@ export default function BottlingScreen({ setPage, mode = 'all' }: { setPage?: (p
   const [orders, setOrders] = useState<any[]>([]);
   const [orderItems, setOrderItems] = useState<any[]>([]);
   const [inventoryRows, setInventoryRows] = useState<any[]>([]);
+  const [keggingRows, setKeggingRows] = useState<any[]>([]);
   const [fasovaniRows, setFasovaniRows] = useState<any[]>([]);
   const [prodejnaRows, setProdejnaRows] = useState<any[]>([]);
   const [writeoffsRows, setWriteoffsRows] = useState<any[]>([]);
@@ -151,13 +167,16 @@ export default function BottlingScreen({ setPage, mode = 'all' }: { setPage?: (p
       orderedMap[k] = (orderedMap[k] || 0) + Number(item.quantity || 0);
     });
 
-    // Počáteční inventura pouze pro aktuální měsíc (pokud neexistují záznamy pro curMonth, je počáteční stav 0 ks)
-    const invMap: Record<string, number> = {};
-    inventoryRows.filter((r) => r.entry_date?.startsWith(curMonth)).forEach((r) => {
-      if (!r.beer_id || !r.package_id) return;
-      const k = `${r.beer_id}__${r.package_id}`;
-      invMap[k] = (invMap[k] || 0) + Number(r.quantity || 0);
-    });
+    // Počáteční inventura s podporou automatického převodu z předchozího měsíce
+    const invMap = getStartingStockMap(
+      curMonth,
+      inventoryRows,
+      rows,
+      keggingRows,
+      fasovaniRows,
+      prodejnaRows,
+      writeoffsRows
+    );
 
     // Pohyby vyfiltrované pro aktuální měsíc
     const bottledMap: Record<string, number> = {};
@@ -218,7 +237,7 @@ export default function BottlingScreen({ setPage, mode = 'all' }: { setPage?: (p
     });
 
     return list;
-  }, [beers, packages, orders, orderItems, inventoryRows, rows, fasovaniRows, prodejnaRows, writeoffsRows]);
+  }, [beers, packages, orders, orderItems, inventoryRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, keggingRows]);
 
   const filteredRequirements = useMemo(() => {
     let list = bottleRequirements;
@@ -259,19 +278,51 @@ export default function BottlingScreen({ setPage, mode = 'all' }: { setPage?: (p
     return { totalQty, totalL };
   }, [entryRows, packages]);
 
+  async function saveEditedRow(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingRow) return;
+    try {
+      const selectedBeer = beers.find(b => b.id === editingRow.beer_id);
+      const selectedPkg = packages.find(p => p.id === editingRow.package_id);
+
+      const { error } = await supabase
+        .from('bottling')
+        .update({
+          entry_date: editingRow.entry_date,
+          beer_id: editingRow.beer_id,
+          beer_name: selectedBeer?.name || null,
+          package_id: editingRow.package_id,
+          package_label: selectedPkg?.label || null,
+          quantity: Number(editingRow.quantity),
+          kegs_used: editingRow.kegs_used ? Number(editingRow.kegs_used) : null,
+          kegs_used_package_id: editingRow.kegs_used_package_id || null,
+          note: editingRow.note || null
+        })
+        .eq('id', editingRow.id);
+
+      if (error) throw error;
+      setEditingRow(null);
+      load(true);
+    } catch (err: any) {
+      console.error(err);
+      alert('Chyba při ukládání změn: ' + err.message);
+    }
+  }
+
   async function load(silent = false) {
     const loadId = ++loadCountRef.current;
     if (!silent && !rows.length) setLoading(true);
-    const [bt, b, p, ords, oi, inv, fa, fp, wo] = await Promise.all([
+    const [bt, b, p, ords, oi, inv, fa, fp, wo, kg] = await Promise.all([
       supabase.from('bottling').select('*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
       supabase.from('orders').select('id,order_date,delivery_date,status'),
       supabase.from('order_items').select('order_id,beer_id,package_id,quantity'),
-      supabase.from('inventory').select('entry_date,beer_id,package_id,quantity'),
+      supabase.from('inventory').select('entry_date,beer_id,package_id,quantity,note'),
       supabase.from('fasovani').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('fasovani_private').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('writeoffs').select('entry_date,beer_id,package_id,quantity'),
+      supabase.from('kegging').select('entry_date,beer_id,package_id,quantity'),
     ]);
     if (loadId !== loadCountRef.current) return;
     setRows((bt.data as EntryRow[]) ?? []);
@@ -283,10 +334,11 @@ export default function BottlingScreen({ setPage, mode = 'all' }: { setPage?: (p
     if (fa.data) setFasovaniRows(fa.data);
     if (fp.data) setProdejnaRows(fp.data);
     if (wo.data) setWriteoffsRows(wo.data);
+    if (kg.data) setKeggingRows(kg.data);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
-  useRealtime(['bottling', 'beers', 'packages', 'orders', 'order_items', 'inventory', 'fasovani', 'fasovani_private', 'writeoffs'], () => load(true));
+  useRealtime(['bottling', 'beers', 'packages', 'orders', 'order_items', 'inventory', 'fasovani', 'fasovani_private', 'writeoffs', 'kegging'], () => load(true));
 
 
   function setRowField(i: number, field: keyof RowInput, value: string) {
@@ -566,6 +618,14 @@ export default function BottlingScreen({ setPage, mode = 'all' }: { setPage?: (p
                   {bottleRequirements.filter((r) => r.neededQty > 0).length}
                 </span>
               )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowChecklistModal(true)}
+              className="px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] bg-amber-200 hover:bg-amber-300 text-amber-950 flex items-center gap-1.5 shadow-2xs"
+            >
+              <span>📋</span>
+              <span>Kontrolní seznam (Checklist)</span>
             </button>
           </div>
         )}
@@ -1307,6 +1367,7 @@ export default function BottlingScreen({ setPage, mode = 'all' }: { setPage?: (p
                             <div className="flex items-center gap-1 justify-end">
                               <button type="button" onClick={() => increment(r.id, -1)} className="w-6 h-6 grid place-items-center rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold text-xs transition">−</button>
                               <button type="button" onClick={() => increment(r.id, 1)} className="w-6 h-6 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-900 font-bold text-xs transition">+</button>
+                              <button type="button" onClick={() => setEditingRow(r)} className="w-6 h-6 grid place-items-center rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold text-xs transition" title="Upravit detail"><Pencil size={11} /></button>
                               <button type="button" onClick={() => del(r.id)} className="w-6 h-6 grid place-items-center rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition">✕</button>
                             </div>
                           </td>
@@ -1413,7 +1474,7 @@ export default function BottlingScreen({ setPage, mode = 'all' }: { setPage?: (p
                     <tr className="bg-neutral-100 border-b border-neutral-200">
                       <th className="p-2.5 text-left">Pivo</th>
                       <th className="p-2.5 text-left">Obal</th>
-                      <th className="p-2.5 text-right font-bold text-neutral-600">Poč. inv.</th>
+                      <th className="p-2.5 text-right font-bold text-neutral-600">Poč. stav</th>
                       <th className="p-2.5 text-right font-bold text-emerald-800">Stočeno (+)</th>
                       <th className="p-2.5 text-right font-bold text-amber-800">Výdeje (−)</th>
                       <th className="p-2.5 text-right font-bold text-emerald-900 bg-emerald-50">Skladem (=)</th>
@@ -1461,14 +1522,114 @@ export default function BottlingScreen({ setPage, mode = 'all' }: { setPage?: (p
           </div>
         </div>
       )}
+      <BottlingChecklistModal
+        isOpen={showChecklistModal}
+        onClose={() => setShowChecklistModal(false)}
+        dateStr={date}
+        onApplyNote={(nText: string) => setNote((prev) => (prev ? prev + ' | ' + nText : nText))}
+      />
       {showImageImport && (
-        <ImportBottlingFromImage
+        
+      <ImportBottlingFromImage
           isOpen={showImageImport}
           onClose={() => setShowImageImport(false)}
           beers={beers}
           packages={packages}
           onImport={handleApplyPhotoRows}
         />
+      )}
+      {editingRow && (
+        <Modal open={true} onClose={() => setEditingRow(null)} title="✏️ Upravit záznam stáčení lahví">
+          <form onSubmit={saveEditedRow} className="space-y-4">
+            <div>
+              <label className="label">Datum</label>
+              <input
+                type="date"
+                value={editingRow.entry_date}
+                onChange={(e) => setEditingRow({ ...editingRow, entry_date: e.target.value })}
+                className="input"
+                required
+              />
+            </div>
+            <div>
+              <label className="label">Pivo</label>
+              <select
+                value={editingRow.beer_id || ''}
+                onChange={(e) => setEditingRow({ ...editingRow, beer_id: e.target.value })}
+                className="input"
+                required
+              >
+                <option value="">— Vyber pivo —</option>
+                {beers.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label">Obal</label>
+              <select
+                value={editingRow.package_id || ''}
+                onChange={(e) => setEditingRow({ ...editingRow, package_id: e.target.value })}
+                className="input"
+                required
+              >
+                <option value="">— Vyber obal —</option>
+                {packages.map((p) => (
+                  <option key={p.id} value={p.id}>{p.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label">Množství (ks)</label>
+              <input
+                type="number"
+                value={editingRow.quantity}
+                onChange={(e) => setEditingRow({ ...editingRow, quantity: Number(e.target.value) })}
+                className="input"
+                min="0"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="label">Odpis z tanku (KEG)</label>
+                <select
+                  value={editingRow.kegs_used_package_id || ''}
+                  onChange={(e) => setEditingRow({ ...editingRow, kegs_used_package_id: e.target.value || null })}
+                  className="input"
+                >
+                  <option value="">— Vyber KEG —</option>
+                  {packages.filter(p => p.kind === 'keg').map((p) => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="label">Počet sudů</label>
+                <input
+                  type="number"
+                  value={editingRow.kegs_used || ''}
+                  onChange={(e) => setEditingRow({ ...editingRow, kegs_used: e.target.value ? Number(e.target.value) : null })}
+                  className="input"
+                  min="0"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="label">Poznámka</label>
+              <input
+                type="text"
+                value={editingRow.note || ''}
+                onChange={(e) => setEditingRow({ ...editingRow, note: e.target.value })}
+                className="input"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button type="button" onClick={() => setEditingRow(null)} className="btn-secondary">Zrušit</button>
+              <button type="submit" className="btn-primary">Uložit změny</button>
+            </div>
+          </form>
+        </Modal>
       )}
     </div>
   );

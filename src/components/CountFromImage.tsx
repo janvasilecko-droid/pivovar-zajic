@@ -410,12 +410,12 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
                         type="number"
                         min={0}
                         placeholder="ks"
-                        className="input !py-1 !px-1.5 text-[11px] font-mono font-black w-14 text-right"
+                        className="input !py-1.5 !px-1.5 text-sm sm:text-[11px] font-mono font-black w-14 text-right"
                         value={r.quantity ?? ''}
                         onChange={(e) => updateResult(i, { quantity: e.target.value ? Number(e.target.value) : null })}
                       />
                       <select
-                        className="input !py-1 !px-1.5 text-[10px] font-bold min-w-[60px]"
+                        className="input !py-1.5 !px-1.5 text-sm sm:text-[10px] font-bold min-w-[70px]"
                         value={r.package_id}
                         onChange={(e) => {
                           const pkg = packages.find((p) => p.id === e.target.value);
