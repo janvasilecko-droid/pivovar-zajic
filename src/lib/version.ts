@@ -1,7 +1,7 @@
 ﻿// Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-export const APP_VERSION = '1.535';
-export const APP_VERSION_DATE = '9.8.2026 10:35';
+export const APP_VERSION = '1.536';
+export const APP_VERSION_DATE = '9.8.2026 10:48';
 
 
 
@@ -9,6 +9,8 @@ export const APP_VERSION_DATE = '9.8.2026 10:35';
 // StruÄŤnĂ˝ pĹ™ehled zmÄ›n v aktuĂˇlnĂ­ verzi (zobrazuje se v admin sekci NastavenĂ­)
 
 export const APP_CHANGELOG: string[] = [
+  '🏪 Prodejna: rozbalovací pole počtu (6/10/12/20 ks) je nově i ve formuláři Zápis vedle „−/+“ — jedním klikem nastaví počet a hned uloží; výchozí položka „+“. v1.536',
+
   '🍺 KEG: rychlá pole počtu sudů nově nabízejí i 18 a 36 ks (6/12/18/24/30/36); ve formuláři Zápis je výchozí položka „+". v1.535',
 
   '🍺 KEG: rozbalovací pole počtu sudů je nově i ve formuláři Zápis (vedle „−/+“) — jedním klikem nastaví 6 / 12 / 24 / 30 ks a hned uloží. v1.534',

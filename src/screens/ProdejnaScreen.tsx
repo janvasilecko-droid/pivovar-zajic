@@ -17,6 +17,9 @@ type RowInput = { beerId: string; pkgId: string; qty: string; vycep: boolean; wh
 const emptyItem = (): RowInput => ({ beerId: '', pkgId: '', qty: '', vycep: false, who: '' });
 const emptyRows = (count: number): RowInput[] => Array.from({ length: count }, emptyItem);
 
+// Rychlé hodnoty počtu pro rozbalovací pole v Prodejně (6/10/12/20 ks)
+const QUICK_SHOP_QTY = [6, 10, 12, 20];
+
 export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovani_private', title = 'Prodejna — Fasování na prodejnu', icon = '🏪', showVycep = false }: { setPage?: (p: any, sec?: string) => void; mode?: 'entry_only' | 'overviews_only' | 'all'; table?: string; title?: string; icon?: string; showVycep?: boolean } = {}) {
   const [rows, setRows] = useState<EntryRow[]>([]);
   const [beers, setBeers] = useState<Beer[]>([]);
@@ -374,6 +377,17 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                             className="w-7 h-7 grid place-items-center rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-sm transition"
                             onClick={() => setEntryRows((rs) => rs.map((x, j) => j === i ? { ...x, qty: String(Number(x.qty || 0) + 1) } : x))}
                           >+</button>
+                          <select
+                            className="h-6 rounded-lg bg-white border border-amber-300 text-emerald-950 font-bold text-[11px] px-1 cursor-pointer transition"
+                            value={QUICK_SHOP_QTY.includes(Number(r.qty)) ? Number(r.qty) : ''}
+                            onChange={(e) => { const v = e.target.value; if (v !== '') setEntryRows((rs) => rs.map((x, j) => j === i ? { ...x, qty: String(Number(v)) } : x)); }}
+                            title="Rychlé nastavení počtu (6/10/12/20)"
+                          >
+                            <option value="" disabled>+</option>
+                            {QUICK_SHOP_QTY.map((q) => (
+                              <option key={q} value={q}>{q} ks</option>
+                            ))}
+                          </select>
                         </div>
                       </td>
                       <td className="py-1">
