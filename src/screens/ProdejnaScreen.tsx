@@ -17,8 +17,8 @@ type RowInput = { beerId: string; pkgId: string; qty: string; vycep: boolean; wh
 const emptyItem = (): RowInput => ({ beerId: '', pkgId: '', qty: '', vycep: false, who: '' });
 const emptyRows = (count: number): RowInput[] => Array.from({ length: count }, emptyItem);
 
-// Rychlé hodnoty počtu pro rozbalovací pole v Prodejně (6/10/12/20 ks)
-const QUICK_SHOP_QTY = [6, 10, 12, 20];
+// Rychlé hodnoty počtu pro rozbalovací pole v Prodejně (6/10/12/20/24/40 ks)
+const QUICK_SHOP_QTY = [6, 10, 12, 20, 24, 40];
 
 export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovani_private', title = 'Prodejna — Fasování na prodejnu', icon = '🏪', showVycep = false }: { setPage?: (p: any, sec?: string) => void; mode?: 'entry_only' | 'overviews_only' | 'all'; table?: string; title?: string; icon?: string; showVycep?: boolean } = {}) {
   const [rows, setRows] = useState<EntryRow[]>([]);
@@ -381,7 +381,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                             className="h-6 rounded-lg bg-white border border-amber-300 text-emerald-950 font-bold text-[11px] px-1 cursor-pointer transition"
                             value={QUICK_SHOP_QTY.includes(Number(r.qty)) ? Number(r.qty) : ''}
                             onChange={(e) => { const v = e.target.value; if (v !== '') setEntryRows((rs) => rs.map((x, j) => j === i ? { ...x, qty: String(Number(v)) } : x)); }}
-                            title="Rychlé nastavení počtu (6/10/12/20)"
+                            title="Rychlé nastavení počtu (6/10/12/20/24/40)"
                           >
                             <option value="" disabled>+</option>
                             {QUICK_SHOP_QTY.map((q) => (
