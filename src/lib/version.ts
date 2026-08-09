@@ -1,7 +1,7 @@
 ﻿// Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-export const APP_VERSION = '1.533';
-export const APP_VERSION_DATE = '8.8.2026 23:05';
+export const APP_VERSION = '1.534';
+export const APP_VERSION_DATE = '9.8.2026 09:56';
 
 
 
@@ -9,6 +9,8 @@ export const APP_VERSION_DATE = '8.8.2026 23:05';
 // StruÄŤnĂ˝ pĹ™ehled zmÄ›n v aktuĂˇlnĂ­ verzi (zobrazuje se v admin sekci NastavenĂ­)
 
 export const APP_CHANGELOG: string[] = [
+  '🍺 KEG: rozbalovací pole počtu sudů je nově i ve formuláři Zápis (vedle „−/+“) — jedním klikem nastaví 6 / 12 / 24 / 30 ks a hned uloží. v1.534',
+
   '🍺 KEG (Přehled i týdenní stáčení): nové rozbalovací pole u počtu sudů — jedním klikem nastaví 6 / 12 / 18 / 24 ks a hned uloží. v1.533',
 
   '👆 Oprava zoomování dvěma prsty: odstraněn vlastní JS zoom, který bojoval s nativním zoomem prohlížeče a sekal se. Zoom teď plynule obstarává prohlížeč (přiblížení/oddálení prsty, kolečko myši s Ctrl, bez dvojitého zoomu při dvojitém ťuknutí). v1.532',
