@@ -16,8 +16,8 @@ type RowInput = { beerId: string; pkgId: string; qty: string };
 const emptyItem = (): RowInput => ({ beerId: '', pkgId: '', qty: '' });
 const emptyRows = (): RowInput[] => Array.from({ length: ROW_COUNT }, emptyItem);
 
-// Rychlé hodnoty počtu sudů v rozbalovacím poli (6/12/18/24 ks)
-const QUICK_KEG_QTY = [6, 12, 18, 24];
+// Rychlé hodnoty počtu sudů v rozbalovacím poli (6/12/24/30 ks)
+const QUICK_KEG_QTY = [6, 12, 24, 30];
 
 export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p: any, sec?: string) => void; mode?: 'entry_only' | 'overviews_only' | 'all' } = {}) {
   const [rows, setRows] = useState<EntryRow[]>([]);
@@ -819,6 +819,17 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                             className="w-6 h-6 grid place-items-center rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-xs transition"
                             onClick={() => setEntryRows((rs) => rs.map((x, j) => j === i ? { ...x, qty: String(Number(x.qty || 0) + 1) } : x))}
                           >+</button>
+                          <select
+                            className="h-6 rounded-lg bg-white border border-amber-300 text-emerald-950 font-bold text-[11px] px-1 cursor-pointer transition"
+                            value={QUICK_KEG_QTY.includes(Number(r.qty)) ? Number(r.qty) : ''}
+                            onChange={(e) => { const v = e.target.value; if (v !== '') setEntryRows((rs) => rs.map((x, j) => j === i ? { ...x, qty: String(Number(v)) } : x)); }}
+                            title="Rychlé nastavení počtu sudů (6/12/24/30)"
+                          >
+                            <option value="" disabled>⚡</option>
+                            {QUICK_KEG_QTY.map((q) => (
+                              <option key={q} value={q}>{q} ks</option>
+                            ))}
+                          </select>
                         </div>
                       </td>
                       <td className="py-1 pr-0 text-right whitespace-nowrap">
@@ -1046,7 +1057,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                                     className="h-6 rounded-lg bg-white border border-amber-300 text-emerald-950 font-bold text-[11px] px-1 cursor-pointer transition"
                                     value={QUICK_KEG_QTY.includes(Number(r.quantity)) ? Number(r.quantity) : ''}
                                     onChange={(e) => { const v = e.target.value; if (v !== '') setQty(r.id, Number(v)); }}
-                                    title="Rychlé nastavení počtu sudů (6/12/18/24)"
+                                    title="Rychlé nastavení počtu sudů (6/12/24/30)"
                                   >
                                     <option value="" disabled>⚡</option>
                                     {QUICK_KEG_QTY.map((q) => (
@@ -1314,7 +1325,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                                   className="h-6 rounded-lg bg-white border border-amber-300 text-emerald-950 font-bold text-[11px] px-1 cursor-pointer transition"
                                   value={QUICK_KEG_QTY.includes(Number(r.quantity)) ? Number(r.quantity) : ''}
                                   onChange={(e) => { const v = e.target.value; if (v !== '') setQty(r.id, Number(v)); }}
-                                  title="Rychlé nastavení počtu sudů (6/12/18/24)"
+                                  title="Rychlé nastavení počtu sudů (6/12/24/30)"
                                 >
                                   <option value="" disabled>⚡</option>
                                   {QUICK_KEG_QTY.map((q) => (
