@@ -23,6 +23,7 @@ import { findDuplicateOrders, formatDuplicateMessage } from '../lib/orderDuplica
 import { TapReservationModal } from '../components/TapReservationModal';
 import { createReminder, getLocalReminders } from '../lib/reminders';
 import Zavoz from './Zavoz';
+import { QuickQtySelect } from '../components/QuickQtySelect';
 
 import * as XLSX from 'xlsx';
 
@@ -1394,6 +1395,11 @@ export default function Orders({
                             className="w-7 h-7 grid place-items-center rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-sm transition"
                             onClick={() => setBeerRow(i, 'qty', String(Number(r.qty || 0) + 1))}
                           >+</button>
+                          <QuickQtySelect
+                            pkg={packages.find((p) => p.id === r.pkgId)}
+                            qty={r.qty}
+                            onSelect={(q) => setBeerRow(i, 'qty', String(q))}
+                          />
                         </div>
                       </td>
                       <td className="py-1">

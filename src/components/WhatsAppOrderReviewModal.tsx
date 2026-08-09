@@ -3,6 +3,7 @@ import { Beer, Package, Place } from '../lib/supabase';
 import { WhatsAppIncoming, ignoreWhatsAppMessage } from '../lib/whatsappApi';
 import { loadAliasMap, saveAlias, matchBeerFromHints, matchPackage, matchPlaceFromText, savePlaceAlias, normalize, type ParserAliasMap } from '../lib/orderParser';
 import { PlaceCombobox } from './PlaceCombobox';
+import { QuickQtySelect } from './QuickQtySelect';
 import { Modal } from './ui';
 import { Check, X, MessageSquare, Image as ImageIcon, AlertCircle, UserCheck } from 'lucide-react';
 
@@ -360,6 +361,11 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                               onChange={(e) => updateItemQty(index, e.target.value)}
                               className="input !py-1 !px-2 text-sm font-bold w-16 text-center"
                               title="Množství"
+                            />
+                            <QuickQtySelect
+                              pkg={props.packages.find((p) => p.id === item.pkgId)}
+                              qty={item.qty}
+                              onSelect={(q) => updateItemQty(index, String(q))}
                             />
                             <select
                               value={item.beerId}

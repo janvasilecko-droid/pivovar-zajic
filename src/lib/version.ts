@@ -1,7 +1,7 @@
 ﻿// Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-export const APP_VERSION = '1.537';
-export const APP_VERSION_DATE = '9.8.2026 10:58';
+export const APP_VERSION = '1.538';
+export const APP_VERSION_DATE = '9.8.2026 11:05';
 
 
 
@@ -9,6 +9,7 @@ export const APP_VERSION_DATE = '9.8.2026 10:58';
 // StruÄŤnĂ˝ pĹ™ehled zmÄ›n v aktuĂˇlnĂ­ verzi (zobrazuje se v admin sekci NastavenĂ­)
 
 export const APP_CHANGELOG: string[] = [
+  '📦 Objednávky: rozbalovací pole počtu je nově i při zadávání/úpravě objednávek a ve WhatsApp kontrole — podle obalu nabídne keg 4/6/10/12 ks, lahev 0,33/0,5 l 10/20/40/60/80/100 ks a lahev 1/1,5 l 5/6/12/20/24/36/40/50 ks; výchozí položka „+“. v1.538',
   '🏪 Prodejna: rychlé pole počtu v Zápisu nově nabízí i 24 a 40 ks (6/10/12/20/24/40); výchozí položka „+“. v1.537',
 
   '🏪 Prodejna: rozbalovací pole počtu (6/10/12/20 ks) je nově i ve formuláři Zápis vedle „−/+“ — jedním klikem nastaví počet a hned uloží; výchozí položka „+“. v1.536',

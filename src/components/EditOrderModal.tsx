@@ -5,6 +5,7 @@ import { supabase, supabaseAdmin, Beer, Package, Place } from '../lib/supabase';
 import { saveAlias, savePlaceAlias, getOrCreatePlace } from '../lib/orderParser';
 import { autoReserveTapIfNeeded, isTapMentioned, detectTapType } from '../lib/tapReservations';
 import { TapReservationModal } from './TapReservationModal';
+import { QuickQtySelect } from './QuickQtySelect';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -252,6 +253,11 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
                       {r.qty || '0'}
                     </span>
                     <button type="button" onClick={() => setRow(i, 'qty', String((Number(r.qty) || 0) + 1))} className="w-7 h-7 shrink-0 grid place-items-center rounded-lg bg-amber-950 hover:bg-amber-900 text-white font-bold text-sm select-none active:scale-95 transition" title="Přidat 1">+</button>
+                    <QuickQtySelect
+                      pkg={packages.find((p) => p.id === r.pkgId)}
+                      qty={r.qty}
+                      onSelect={(q) => setRow(i, 'qty', String(q))}
+                    />
                   </div>
                 </div>
                 <div className="col-span-2 sm:col-span-1 flex justify-end">
