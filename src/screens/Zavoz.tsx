@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase, Package, Beer, Place, useRealtime, formatPackageLabel } from '../lib/supabase';
-import { Spinner, EmptyState } from '../components/ui';
+import { Spinner, EmptyState, Modal } from '../components/ui';
 import { orderWeightKg, fmtKg } from '../lib/weight';
 import { DAYS } from '../lib/shared';
-import { Calendar, Truck, Plus, FileText, Package as PackageIcon, CheckCircle2, Scale, Search, Printer, Share2, ArrowRightCircle, Phone, CalendarDays, MapPin, Pencil, StickyNote, Cylinder, Wine } from 'lucide-react';
+import { Calendar, Truck, Plus, FileText, Package as PackageIcon, CheckCircle2, Scale, Search, Printer, Share2, ArrowRightCircle, Phone, CalendarDays, MapPin, Pencil, StickyNote, Cylinder, Wine, ArrowRightLeft, AlertTriangle } from 'lucide-react';
 import { shareDeliveryListToWhatsApp } from '../lib/whatsapp';
 import { exportZavozToExcel } from '../lib/excel';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
@@ -31,6 +31,9 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
   const [selectedDayFilter, setSelectedDayFilter] = useState<string>('all');
   const [mobileTab, setMobileTab] = useState<'routes' | 'loading'>('routes');
   const [searchTerm, setSearchTerm] = useState('');
+  const [moveDay, setMoveDay] = useState<{ source: string | null; label: string; orderIds: string[] } | null>(null);
+  const [moveTarget, setMoveTarget] = useState<string | null>(null);
+  const [moveBusy, setMoveBusy] = useState(false);
 
   async function load(silent = false) {
     if (!silent && !orders.length) setLoading(true);
@@ -245,6 +248,33 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
     if (orderItems.length === 0) return;
     await Promise.all(orderItems.filter(it => !it.is_prepared).map(it => toggleItemPrepared(o, it)));
   }
+
+  // Otevře dialog pro přesun celého dne závozu na jiný den (pouze objednávky aktuálního týdne)
+  function openMoveDay(dayKey: string) {
+    const source = dayKey === '_none' ? null : dayKey;
+    const label = dayKey === '_none' ? 'Bez určeného dne' : (DAYS.find((d) => d.v === dayKey)?.label ?? dayKey);
+    const orderIds = activeOrders
+      .filter((o) => (source ? o.delivery_day === source : !o.delivery_day))
+      .map((o) => o.id);
+    if (!orderIds.length) return;
+    setMoveTarget(null);
+    setMoveDay({ source, label, orderIds });
+  }
+
+  // Hromadně přepíše delivery_day všem objednávkám přesouvaného dne
+  async function confirmMoveDay() {
+    if (!moveDay || moveTarget === null || moveBusy) return;
+    setMoveBusy(true);
+    const newDay = moveTarget === '_none' ? null : moveTarget;
+    const { error } = await supabase.from('orders').update({ delivery_day: newDay }).in('id', moveDay.orderIds);
+    if (!error) {
+      const ids = new Set(moveDay.orderIds);
+      setOrders((arr) => arr.map((x) => (ids.has(x.id) ? ({ ...x, delivery_day: newDay } as Order) : x)));
+      setMoveDay(null);
+      setMoveTarget(null);
+    }
+    setMoveBusy(false);
+  }
   function printDeliveryListForOrders(toPrint: Order[], titleLabel: string) {
     const rows = toPrint.map((o) => {
       const its = items[o.id] ?? [];
@@ -454,20 +484,30 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
               const isSelected = selectedDayFilter === d.v;
 
               return (
-                <button
-                  key={d.v}
-                  onClick={() => setSelectedDayFilter(isSelected ? 'all' : d.v)}
-                  className={`px-3.5 py-2 rounded-2xl font-black text-xs shrink-0 transition-all flex items-center gap-1.5 shadow-xs ${
-                    isSelected
-                      ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-300 scale-105'
-                      : stats.count > 0
-                      ? 'bg-white text-neutral-900 hover:bg-amber-50 border border-amber-200'
-                      : 'bg-neutral-100 text-neutral-400 border border-neutral-200/60'
-                  }`}
-                >
-                  <Truck size={13} />
-                  <span>{d.label}</span>
-                </button>
+                <div key={d.v} className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => setSelectedDayFilter(isSelected ? 'all' : d.v)}
+                    className={`px-3.5 py-2 rounded-2xl font-black text-xs transition-all flex items-center gap-1.5 shadow-xs ${
+                      isSelected
+                        ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-300 scale-105'
+                        : stats.count > 0
+                        ? 'bg-white text-neutral-900 hover:bg-amber-50 border border-amber-200'
+                        : 'bg-neutral-100 text-neutral-400 border border-neutral-200/60'
+                    }`}
+                  >
+                    <Truck size={13} />
+                    <span>{d.label}</span>
+                  </button>
+                  {stats.count > 0 && (
+                    <button
+                      onClick={() => openMoveDay(d.v)}
+                      title={`Přesunout ${d.label} na jiný den`}
+                      className="w-8 h-8 grid place-items-center rounded-xl border border-neutral-200 bg-white text-neutral-400 hover:text-amber-700 hover:border-amber-300 hover:bg-amber-50 transition shadow-xs"
+                    >
+                      <ArrowRightLeft size={13} />
+                    </button>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -651,20 +691,35 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                     <div key={group.dayKey} className="card p-5 shadow-sm border-neutral-200/90 bg-white rounded-3xl space-y-4">
                       {/* Day Section Header */}
                       <div className="flex items-center justify-between pb-3 border-b border-neutral-200/70">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-2xl bg-amber-500 text-slate-950 font-black text-lg flex items-center justify-center shadow-md">
+                        <div
+                          onClick={() => openMoveDay(group.dayKey)}
+                          title={`Změnit den závozu — přesunout ${group.label} na jiný den`}
+                          className="flex items-center gap-3 cursor-pointer group select-none"
+                        >
+                          <div className="w-10 h-10 rounded-2xl bg-amber-500 text-slate-950 font-black text-lg flex items-center justify-center shadow-md group-hover:bg-amber-600 transition">
                             <Truck size={20} />
                           </div>
                           <div>
-                            <h3 className="font-display font-extrabold text-lg text-neutral-900">{group.label}</h3>
+                            <h3 className="font-display font-extrabold text-lg text-neutral-900 group-hover:text-amber-700 transition flex items-center gap-1.5">
+                              {group.label}
+                              <ArrowRightLeft size={15} className="text-amber-500 opacity-0 group-hover:opacity-100 transition" />
+                            </h3>
                             <p className="text-xs text-neutral-500 font-medium">{group.orders.length} objednávek v tento den</p>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2.5 flex-wrap justify-end">
                           <span className="chip bg-amber-500 text-slate-950 font-mono font-black text-xs">
                             {group.orders.reduce((s, o) => s + (items[o.id] ?? []).reduce((x, i) => x + Number(i.quantity), 0), 0)} ks celkem
                           </span>
+                          <button
+                            onClick={() => openMoveDay(group.dayKey)}
+                            className="px-3 py-1.5 rounded-xl bg-white border border-amber-300 hover:bg-amber-100 text-amber-800 font-black text-xs transition shadow-xs flex items-center gap-1.5"
+                            title="Přesunout tento den na jiný den"
+                          >
+                            <ArrowRightLeft size={14} />
+                            <span>Změnit den</span>
+                          </button>
                           {group.orders.length > 0 && (
                             <a
                               href={`https://www.google.com/maps/dir/${group.orders.map((o) => encodeURIComponent(o.place_name ?? '')).filter(Boolean).join('/')}`}
@@ -851,6 +906,76 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
           onSaved={() => { setEditOrder(null); load(); }}
           onPlacesChanged={load}
         />
+      )}
+
+      {moveDay && (
+        <Modal open onClose={() => setMoveDay(null)} title={`↔ Přesunout den závozu — ${moveDay.label}`}>
+          <div className="space-y-4">
+            <div className="text-xs font-bold text-neutral-700 bg-amber-50 border border-amber-200/80 rounded-xl px-3.5 py-2.5 flex items-start gap-2">
+              <AlertTriangle size={14} className="text-amber-600 mt-0.5 shrink-0" />
+              <span>
+                Přesune se <strong>{moveDay.orderIds.length} objednávek</strong> z <strong>{moveDay.label}</strong> na jiný den.
+                Změní se jen den v týdnu (Po–Ne); konkrétní datum dodání zůstává beze změny.
+              </span>
+            </div>
+
+            <div>
+              <label className="label">Nový den závozu</label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {DAYS.filter((d) => d.v !== moveDay.source).map((d) => {
+                  const cnt = dayStats.get(d.v)?.count ?? 0;
+                  const active = moveTarget === d.v;
+                  return (
+                    <button
+                      key={d.v}
+                      onClick={() => setMoveTarget(d.v)}
+                      className={`flex items-center justify-between gap-1 px-3 py-2.5 rounded-xl border font-black text-xs transition shadow-xs ${
+                        active
+                          ? 'bg-amber-500 text-slate-950 border-amber-600 ring-2 ring-amber-300'
+                          : 'bg-white text-neutral-800 hover:bg-amber-50 border-neutral-200'
+                      }`}
+                    >
+                      <span>{d.label}</span>
+                      {cnt > 0 && (
+                        <span className={`px-1.5 py-0.5 rounded-md font-mono text-[10px] ${active ? 'bg-white/30 text-slate-900' : 'bg-neutral-100 text-neutral-500'}`}>
+                          {cnt}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+                {moveDay.source !== null && (
+                  <button
+                    onClick={() => setMoveTarget('_none')}
+                    className={`flex items-center justify-between gap-1 px-3 py-2.5 rounded-xl border font-black text-xs transition shadow-xs ${
+                      moveTarget === '_none'
+                        ? 'bg-neutral-800 text-white border-neutral-900 ring-2 ring-neutral-400'
+                        : 'bg-white text-neutral-700 hover:bg-neutral-100 border-neutral-200'
+                    }`}
+                  >
+                    <span>Bez dne</span>
+                    {(() => { const cnt = dayStats.get('_none')?.count ?? 0; return cnt > 0 ? <span className="px-1.5 py-0.5 rounded-md font-mono text-[10px] bg-neutral-100 text-neutral-500">{cnt}</span> : null; })()}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <button onClick={() => setMoveDay(null)} className="btn-ghost !py-2.5 !px-4 text-sm font-black">Zrušit</button>
+              <button
+                onClick={confirmMoveDay}
+                disabled={moveTarget === null || moveBusy}
+                className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-sm transition shadow-md flex items-center justify-center gap-2"
+              >
+                {moveBusy ? (
+                  <>Přesouvám…</>
+                ) : (
+                  <><ArrowRightLeft size={15} /> Přesunout {moveDay.orderIds.length} objednávek</>
+                )}
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

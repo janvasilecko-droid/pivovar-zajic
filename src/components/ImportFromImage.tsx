@@ -12,7 +12,8 @@ import { supabase } from '../lib/supabase';
 import {
   parseOrderText, parseGeminiItems, dedupeAgainstExisting,
   saveAlias, savePlaceAlias, loadAliasMap, loadPlaceAliasMap, emptyAliasMap, detectOrderNotes, matchPlaceFromText,
-  type ParsedLine, type ParserAliasMap, type GeminiItem,
+  detectOrderDupWarnings,
+  type ParsedLine, type ParserAliasMap, type GeminiItem, type ImportedOrder, type OrderDupWarning,
 } from '../lib/orderParser';
 
 
@@ -49,6 +50,18 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
   const [confirmed, setConfirmed] = useState(false);
   const [userAllowedDups, setUserAllowedDups] = useState<Set<number>>(new Set());
   const [skipReason, setSkipReason] = useState<string | null>(null);
+
+  // 🚨 Detekce DUPLICITNÍ OBJEDNÁVKY napříč fotkami v jedné relaci:
+  // sledujeme úspěšně importované objednávky (odběratel + datum + položky).
+  // Když se na další fotce objeví stejný odběratel, upozorníme uživatele a
+  // ukážeme obě objednávky vedle sebe — musí je porovnat a potvrdit import.
+  const importedOrdersRef = useRef<ImportedOrder[]>([]);
+  const [dupOrders, setDupOrders] = useState<OrderDupWarning[]>([]);
+  const [dupOrdersConfirmed, setDupOrdersConfirmed] = useState(false);
+  // Zrcadlo aktuálního `parsed` pro bezpečné čtení v async kódu (funkční
+  // updater by se musel duplikovat) a porovnání předchozích varování.
+  const parsedRef = useRef<{ line: ParsedLine; duplicate: boolean }[] | null>(null);
+  const prevDupWarningsRef = useRef<OrderDupWarning[]>([]);
 
   function toggleAllowDuplicate(i: number) {
     setUserAllowedDups((prev) => {
@@ -151,6 +164,10 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
   // celý původní text, tento text už obsahuje celou původní objednávku. Pamatujeme si
   // rozpoznané texty a pokud nový text obsahuje starý celý, ignorujeme výsledky.
   const seenRawTextsRef = useRef<Set<string>>(new Set());
+  // Pamatujeme si, jestli je fullscreen kontrola prave otevrena (parsed !== null),
+  // abychom pri otevreni kontroly pro „dalsi" fotku prepnuli nahled na tu fotku,
+  // ze ktere rozpoznane polozky pochazeji, a zobrazili ji odshora.
+  const reviewWasOpenRef = useRef(false);
 
 
   // Detekce duplicitního nahrání toho samého snímku obrazovky / souboru.
@@ -201,6 +218,47 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
     loadAliasMap().then(setAliasMap).catch(() => {});
     loadPlaceAliasMap().then(setPlaceAliasMap).catch(() => {});
   }, []);
+
+  // Po otevreni/znovuotevreni kontroly (parsed prejde z null na hodnoty) nastavime
+  // nahled fotky na tu, ze ktere rozpoznane polozky pochazeji. PhotoReviewPane pri
+  // zmene indexu vzdy resetuje pohled, takze se fotka zobrazi odshora. Behem
+  // prubezneho zpracovani dalsich fotek na pozadi (kontrola jiz je otevrena) se
+  // do uzivatelova pohledu nezasahuje.
+  useEffect(() => {
+    if (parsed && !reviewWasOpenRef.current && parsed.length > 0) {
+      let maxPhotoIdx = -1;
+      for (const p of parsed) {
+        if (typeof p.line.photo_index === 'number' && p.line.photo_index > maxPhotoIdx) {
+          maxPhotoIdx = p.line.photo_index;
+        }
+      }
+      if (maxPhotoIdx >= 0) setActivePhotoIdx(maxPhotoIdx);
+    }
+    reviewWasOpenRef.current = parsed !== null;
+  }, [parsed]);
+
+  // Zrcadlo aktuálního seznamu rozparsovaných řádků pro async kód.
+  useEffect(() => {
+    parsedRef.current = parsed;
+  }, [parsed]);
+
+  // 🚨 Kdykoli se změní rozparsované řádky, spočítej, jestli se na aktuální
+  // fotce neobjevil odběratel, který už byl v této relaci importován.
+  // Potvrzení (dupOrdersConfirmed) se resetuje jen při VÝZNAMNÉ změně varování
+  // (nový duplicitní odběratel / nová fotka), ne při běžné editaci řádků.
+  useEffect(() => {
+    if (!parsed) return;
+    const warnings = detectOrderDupWarnings(parsed, importedOrdersRef.current, placeName);
+    setDupOrders(warnings);
+    const prev = prevDupWarningsRef.current;
+    const changed =
+      warnings.length !== prev.length ||
+      warnings.some((w, i) => w.place !== prev[i]?.place);
+    if (changed && warnings.length > 0) {
+      setDupOrdersConfirmed(false);
+    }
+    prevDupWarningsRef.current = warnings;
+  }, [parsed, placeName]);
 
   // Pre-load photos that were handed off via Web Share Target (e.g. shared
   // straight from WhatsApp/e-mail into the installed app) — feed them into
@@ -540,6 +598,23 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
         seenOrderKeysRef.current.add(mkKey(pn, dt, it.beer_id, it.package_id, it.quantity));
       });
 
+      // 🚨 Zapamatuj si importované OBJEDNÁVKY (odběratel + datum + položky),
+      // abychom při další fotce poznali, že se stejný odběratel importuje znovu.
+      const orderGroups = new Map<string, ImportedOrder>();
+      for (const it of items) {
+        const pn = it.place_name?.trim() || placeName.trim();
+        if (!pn) continue;
+        const dt = it.date || date;
+        const oKey = `${pn}||${dt}`;
+        if (!orderGroups.has(oKey)) {
+          orderGroups.set(oKey, { place: pn, date: dt, items: [] });
+        }
+        orderGroups.get(oKey)!.items.push({ beer_id: it.beer_id, package_id: it.package_id, quantity: it.quantity });
+      }
+      for (const ord of orderGroups.values()) {
+        importedOrdersRef.current.push(ord);
+      }
+
       // After a successful import, advance to the next photo (or close when done).
       if (targetLabel) {
         // Importing into an existing order → single import, close.
@@ -567,6 +642,9 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
     setFocusedLine(null);
     setPaused(false);
     setSkipReason(null);
+    setDupOrders([]);
+    setDupOrdersConfirmed(false);
+    prevDupWarningsRef.current = [];
     // Nesmazat seenRawTextsRef.current, protože obsahuje i rozpoznané texty z předchozích fotek
     // pro detekci duplicit napříč celou relací
   }
@@ -856,6 +934,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
               {lowCount > 0 && <span className="chip bg-warning-100 text-warning-700">{lowCount} doplnit</span>}
               {unknownCount > 0 && <span className="chip bg-danger-100 text-danger-700">{unknownCount} nerozpoznaných</span>}
               {dupCount > 0 && <span className="chip bg-primary-200 text-primary-700">{dupCount} duplikátů</span>}
+              {dupOrders.length > 0 && <span className="chip bg-danger-100 text-danger-700 font-black">⚠️ {dupOrders.length === 1 ? 'možný dupl. odběratel' : `${dupOrders.length} možní dupl. odběratelé`}</span>}
               <button className="btn-ghost text-xs !py-1 !px-2" onClick={addLine}>+ Přidat řádek</button>
               {pendingFiles.length > 0 && (
                 <button className="btn-ghost text-xs !py-1 !px-2" onClick={() => { advanceToNextPhoto(); }}>⏭ Přeskočit fotku</button>
@@ -879,6 +958,80 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                 </div>
               </div>
             )}
+
+            {dupOrders.length > 0 && (
+            <div className="card !bg-danger-50 border-2 border-danger-300 p-4 space-y-3 shadow-sm rounded-2xl mb-3">
+              <div className="flex items-start gap-3">
+                <span className="text-3xl leading-none">🚨</span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-black text-danger-700 text-sm sm:text-base">
+                    {dupOrders.length === 1
+                      ? <>Odběratel <span className="underline decoration-double underline-offset-2">{dupOrders[0].place}</span> se už v této relaci importoval!</>
+                      : 'Na fotce je odběratel, který se už v této relaci importoval!'}
+                  </div>
+                  <p className="text-xs text-danger-600 mt-1 leading-relaxed">
+                    Tahle fotka může obsahovat <strong>stejnou objednávku jako předchozí fotka</strong> (odběratel se shoduje).
+                    Porovnej obě objednávky níže a potvrď, že to není duplicita.
+                  </p>
+                </div>
+              </div>
+
+              {dupOrders.map((w, wi) => (
+                <div key={wi} className="rounded-xl overflow-hidden border border-danger-200 bg-white/70">
+                  <div className="px-3 py-1.5 bg-danger-100 text-danger-700 text-xs font-black flex items-center justify-between gap-2">
+                    <span className="truncate">Odběratel: {w.place}</span>
+                    <span className="font-normal opacity-70 shrink-0">datum: {w.curr.date || '—'}</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-danger-100">
+                    <div className="p-3">
+                      <div className="text-[10px] uppercase tracking-wider font-bold text-success-700 mb-1.5">✔ Již importováno (předchozí fotka)</div>
+                      {w.prev.items.length > 0 ? (
+                        <ul className="space-y-1.5">
+                          {w.prev.items.map((it, ii) => (
+                            <li key={ii} className="text-xs font-mono text-neutral-700 flex items-baseline gap-1.5">
+                              <span className="font-black text-success-700">{it.quantity}×</span>
+                              <span className="min-w-0">{beers.find((b) => b.id === it.beer_id)?.name ?? it.beer_id}</span>
+                              <span className="text-neutral-400">/</span>
+                              <span>{packages.find((p) => p.id === it.package_id)?.label ?? it.package_id}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : <div className="text-xs text-success-600 italic">—</div>}
+                    </div>
+                    <div className="p-3">
+                      <div className="text-[10px] uppercase tracking-wider font-bold text-danger-500 mb-1.5">📷 Aktuální fotka</div>
+                      {w.curr.items.length > 0 ? (
+                        <ul className="space-y-1.5">
+                          {w.curr.items.map((it, ii) => (
+                            <li key={ii} className="text-xs font-mono text-neutral-700 flex items-baseline gap-1.5">
+                              <span className="font-black text-danger-600">{it.quantity ?? '?'}×</span>
+                              <span className="min-w-0">{it.beer_id ? beers.find((b) => b.id === it.beer_id)?.name ?? it.beer_id : '?'}</span>
+                              <span className="text-neutral-400">/</span>
+                              <span>{it.package_id ? packages.find((p) => p.id === it.package_id)?.label ?? it.package_id : '?'}</span>
+                              {it.raw ? <span className="text-neutral-400 block truncate w-full" title={it.raw}>„{it.raw}“</span> : null}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : <div className="text-xs text-danger-500 italic">—</div>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              <label className="flex items-start gap-2.5 bg-white/80 border border-danger-200 rounded-xl px-3 py-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={dupOrdersConfirmed}
+                  onChange={(e) => setDupOrdersConfirmed(e.target.checked)}
+                  className="w-4 h-4 mt-0.5 accent-red-600"
+                />
+                <span className="text-xs font-bold text-danger-700 leading-snug">
+                  Potvrzuji, že jsem porovnal/a obě objednávky. Nejde-li o duplicitu (odběratel má novou objednávku),
+                  importuji ji vědomě. Pokud ano, opravím nebo odstraním řádky v kartách níže.
+                </span>
+              </label>
+            </div>
+          )}
 
             {dupCount > 0 && (
             <div className="card !bg-amber-50 border border-amber-300 p-3.5 text-xs text-amber-950 flex flex-col gap-1.5 shadow-xs rounded-2xl mb-3">
@@ -1112,6 +1265,10 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                     } else {
                       setErr('Nic k importu. Každá položka musí mít vyplněné pivo, obal i množství. Doplnit můžeš přímo v kartách níže, nebo klikni × pro odstranění řádku, který nechceš.');
                     }
+                    return;
+                  }
+                  if (dupOrders.length > 0 && !dupOrdersConfirmed) {
+                    setErr('⚠️ Upozornění na možnou duplicitní objednávku: stejný odběratel se už v této relaci importoval. Porovnej obě objednávky nahoře a potvrď zaškrtnutím, že chceš pokračovat.');
                     return;
                   }
                   if (!confirmed) {

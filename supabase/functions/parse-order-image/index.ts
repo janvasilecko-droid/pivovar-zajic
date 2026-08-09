@@ -115,6 +115,11 @@ Deno.serve(async (req: Request) => {
     const prompt = `Jsi asistent pro pivovar. Na obrázku je objednávka piva (WhatsApp zpráva, e-mail, nebo ručně psaný seznam).
 Přečti VŠECHNY řádky objednávky a vrať je jako strukturovaná data. NIKDY nevynechávej žádnou položku objednávky — i když si nejsi jistý, vrať ji s tím, co jsi rozpoznal, a nech neznámé hodnoty jako null.
 
+NADPŘEDNOSTNÍ PRAVIDLA PŘESNOSTI (důležitější než cokoli jiného):
+0a. ŘÁDKOVÁ INVENTURA: NEŽ ZAPÍŠEŠ ODPOVĚĎ, spočítej si v duchu, kolik řádků textu/objednávky je na fotce vidět (každá zpráva, každá položka, každé pokračování na novém řádku). Ke KAŽDÉMU viditelnému řádku, který obsahuje číslo nebo položku objednávky, MUSÍ v "items" existovat alespoň jedna položka. Po napsání odpovědi se znovu podívej na fotku a zkontroluj, že jsi žádný řádek nevynechal. Pokud nějaký řádek neumíš přečíst, NIKDY ho nevynechávej — přidej ho do items s null hodnotami a doslovně ho zkopíruj do raw_text.
+0b. RUČNĚ PSANÝ TEXT = DVOJITÉ ČTENÍ: každé ručně psané číslo přečti DVAKRÁT — (1) podle tvaru číslic a (2) podle kontextu objednávky (kolik kusů / jaký obal dává smysl). Časté záměny rukou psaných číslic: 1↔7↔2, 4↔9↔1, 3↔8↔5, 0↔6, 5↔6. Pokud se obě čtení liší, zvol to, které odpovídá běžnému vzoru (množství 1–30 ks; obal 10/15/20/30/50l = KEG, 1/1,5l = PET, 0,33/0,5l = lahev). Nikdy nevyhoď celý řádek jen proto, že je psaný rukou a hůře čitelný — raději vrať nejpravděpodobnější hodnotu.
+0c. raw_text = doslovný přepis CELÉHO textu z fotky, řádek po řádku, v pořadí jako na fotce, VČETNĚ řádků, kterým nerozumíš nebo jsou nečitelné. raw_text NIKDY nezkracuj, neparafrázuj a nevynechávej nečitelné části.
+
 KRITICKÉ POKYNY PRO ČTENÍ TEXTU Z OBRÁZKU:
 1. ČTI POZORNĚ každý řádek textu na obrázku — nespěchej, nevynechávej řádky.
 2. ČÍSLA čti VELMI POZORNĚ — "5x30" NENÍ "5x50", "10x50" NENÍ "10x30". Rozdíl mezi 3 a 5, 0 a 8, 1 a 7 je kritický.

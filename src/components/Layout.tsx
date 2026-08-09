@@ -2,7 +2,7 @@ import { ReactNode, useState, useEffect, useRef } from 'react';
 import {
   FilePlus, ClipboardList, Wine, Cylinder, Sparkles, TrendingDown, Store, FileText,
   ClipboardCheck, BarChart3, History as HistoryIcon, Snowflake,
-  CalendarDays, StickyNote, Car, Tag, ShieldCheck, PlusCircle, Settings, Calculator,
+  CalendarDays, Car, Tag, ShieldCheck, PlusCircle, Settings, Calculator,
   LogOut, Menu, Download, Wheat, FlaskConical, Shield, Bell, BellOff, X, ArrowRight, Search, Smartphone, MessageCircle, Users, type LucideIcon,
 } from 'lucide-react';
 
@@ -43,10 +43,8 @@ export const NAV: NavItem[] = [
 
   // --- NÁSTROJE ---
   { id: 'concentration', label: 'Kalkulačky', icon: FlaskConical, group: 'Nástroje' },
-  { id: 'calendar', label: 'Kalendář', icon: CalendarDays, group: 'Kalendář & Poznámky' },
-  { id: 'feedback', label: 'Poznámky', icon: StickyNote, group: 'Kalendář & Poznámky' },
+  { id: 'calendar', label: 'Kalendář & Poznámky', icon: CalendarDays, group: 'Kalendář & Poznámky' },
   { id: 'haccp', label: 'Sanitační postupy', icon: Shield, group: 'Nástroje' },
-  { id: 'reminders', label: 'Upomínky', icon: Bell, group: 'Kalendář & Poznámky' },
   { id: 'vehicles', label: 'Auta', icon: Car, group: 'Nástroje' },
 
   // --- ČÍSELNÍKY ---

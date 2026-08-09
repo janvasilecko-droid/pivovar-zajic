@@ -270,7 +270,7 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
           {entryRows !== null && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
               <div className="border border-neutral-200 rounded-2xl overflow-hidden bg-neutral-50 min-h-[350px] flex flex-col">
-                <PhotoReviewPane photos={photos} activeIndex={0} onChangeIndex={() => {}} />
+                <PhotoReviewPane photos={photos} activeIndex={Math.min(activeIndex, Math.max(0, photos.length - 1))} onChangeIndex={setActiveIndex} />
               </div>
 
               <div className="flex flex-col space-y-3 max-h-[500px] overflow-y-auto scrollbar-thin pr-1">

@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, type WheelEvent, type PointerEvent } from 'react';
+import { useEffect, useRef, useState, useCallback, type WheelEvent, type PointerEvent } from 'react';
 
 type Bbox = { x0: number; y0: number; x1: number; y1: number };
 type PhotoEntry = { dataUrl: string; name: string };
@@ -25,6 +25,11 @@ export function PhotoReviewPane({ photos, activeIndex, onChangeIndex, activeBbox
   const pinchRef = useRef<{ active: boolean; startDist: number; startScale: number }>({ active: false, startDist: 0, startScale: 1 });
   const scaleRef = useRef(1);
   const rafRef = useRef(0);
+  const stageRef = useRef<HTMLDivElement>(null);
+  // Rozměry plochy náhledu (kam se má fotka vejít), měřené přes ResizeObserver.
+  const [stage, setStage] = useState<{ w: number; h: number } | null>(null);
+  // Přírodní rozměry načtené fotky (naturalWidth / naturalHeight).
+  const [nat, setNat] = useState<{ w: number; h: number } | null>(null);
 
   const clampScale = (s: number) => Math.min(8, Math.max(1, s));
 
@@ -47,6 +52,29 @@ export function PhotoReviewPane({ photos, activeIndex, onChangeIndex, activeBbox
     resetView();
     onChangeIndex(Math.max(0, Math.min(photos.length - 1, i)));
   }
+
+  // Měříme skutečnou velikost plochy náhledu, abychom fotku vždy zobrazili
+  // celou (auto-fit), ať je velká jakkoli a v jakékoli orientaci.
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const r = entries[0]?.contentRect;
+      if (r && r.width > 0 && r.height > 0) {
+        setStage((prev) => (prev && prev.w === r.width && prev.h === r.height ? prev : { w: r.width, h: r.height }));
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Při změně fotky zapomeneme rozměry a vrátíme pohled do výchozího stavu,
+  // aby byla nová fotka vždy vidět celá.
+  useEffect(() => {
+    setNat(null);
+    resetView();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIndex, photos[activeIndex]?.dataUrl]);
 
   function onWheel(e: WheelEvent<HTMLDivElement>) {
     e.preventDefault();
@@ -105,6 +133,11 @@ export function PhotoReviewPane({ photos, activeIndex, onChangeIndex, activeBbox
 
   const photo = photos[activeIndex];
 
+  // Velikost, do které se fotka celá vejde do plochy náhledu (zachovává poměr stran).
+  const renderScale = stage && nat ? Math.min(stage.w / nat.w, stage.h / nat.h) : null;
+  const imgW = renderScale != null && nat ? Math.max(1, nat.w * renderScale) : null;
+  const imgH = renderScale != null && nat ? Math.max(1, nat.h * renderScale) : null;
+
   return (
     <div data-own-zoom className="relative h-full w-full bg-primary-950 flex flex-col">
       <div className="flex items-center justify-between px-3 py-2 bg-primary-900/80 text-white text-xs shrink-0 z-10">
@@ -117,6 +150,7 @@ export function PhotoReviewPane({ photos, activeIndex, onChangeIndex, activeBbox
       </div>
 
       <div
+        ref={stageRef}
         className="flex-1 overflow-hidden relative touch-none select-none"
         onWheel={onWheel}
         onPointerDown={onPointerDown}
@@ -137,8 +171,27 @@ export function PhotoReviewPane({ photos, activeIndex, onChangeIndex, activeBbox
               transition: 'none',
             }}
           >
-            <div className="relative inline-block">
-              <img src={photo.dataUrl} alt="Fotka objednávky" className="max-w-[94vw] max-h-full object-contain block" draggable={false} />
+            <div
+              className="relative"
+              style={{
+                width: imgW != null ? imgW : 'auto',
+                height: imgH != null ? imgH : 'auto',
+                maxWidth: '100%',
+                maxHeight: '100%',
+              }}
+            >
+              <img
+                src={photo.dataUrl}
+                alt="Fotka objednávky"
+                className={`block object-contain ${imgW != null && imgH != null ? 'w-full h-full' : 'max-w-[94vw] max-h-[60vh]'}`}
+                draggable={false}
+                onLoad={(e) => {
+                  const el = e.currentTarget;
+                  const nw = el.naturalWidth || el.width;
+                  const nh = el.naturalHeight || el.height;
+                  setNat((prev) => (prev && prev.w === nw && prev.h === nh ? prev : { w: nw, h: nh }));
+                }}
+              />
               {activeBbox && (
                 <div
                   className="absolute border-2 border-red-500/90 pointer-events-none"

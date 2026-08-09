@@ -840,21 +840,34 @@ export function parseGeminiItems(
       // ale do obalu zapíše chybný objem (např. "KEG 30l" místo "KEG 50l").
       // raw text je přesný přepis toho, co je na obrázku, proto objem
       // rozpoznaný z raw textu má přednost, pokud AI řekl jiný KEG objem.
-      const kegVolFromRaw = (() => {
-        const t = raw.trim();
-        // "50l", "30l", "20l", "15l", "10l"
-        let m = t.match(/\b(50|30|20|15|10)\s*l\b/i);
-        if (m) return m[1];
-        // "x50", "2x50", "5 x 30", "10x50"
-        m = t.match(/(?:\d{1,2}\s*x\s*|\bx\s*)(50|30|20|15|10)(?![.,]\s*\d)/i);
-        if (m) return m[1];
+      // ⚠️ VÍCE OBJEMŮ NA JEDNOM ŘÁDKU (např. "7x30 2x10 1x20"): objem položky
+      // párujeme podle JEJÍHO množství (quantity) — položka s quantity 2 patří
+      // k "2x10", ne k prvnímu "7x30". Jinak by všechny položky dostaly první
+      // objem z řádku (vše 30l místo 30l/10l/20l).
+      const kegVolByQty = (() => {
+        if (item.quantity == null || !raw) return null;
+        for (const m of raw.matchAll(/(\d{1,2})\s*x\s*(50|30|20|15|10)(?![.,]\s*\d)/gi)) {
+          if (parseInt(m[1], 10) === item.quantity) return m[2];
+        }
         return null;
       })();
-      if (kegVolFromRaw && item.package_label && /\bkeg\b|\bsud\b/i.test(item.package_label)) {
+      const rawKegVols = new Set<string>([
+        ...raw.matchAll(/\b(50|30|20|15|10)\s*l\b/gi),
+        ...raw.matchAll(/(?:\d{1,2}\s*x\s*|\bx\s*)(50|30|20|15|10)(?![.,]\s*\d)/gi),
+      ].map((m) => m[1]));
+      // Objem z raw textu smí přepsat obal od AI JEN pokud víme, že patří právě
+      // téhle položce: známe její quantity (párujeme podle ní), nebo je v raw
+      // textu JEDINÝ objem KEG (jednoznačné). Při více objemech a neznámém
+      // množství bychom správný obal (např. "KEG 10l") mohli přepsat špatně.
+      const kegVolFromRaw = kegVolByQty ?? (rawKegVols.size === 1 ? [...rawKegVols][0] : null);
+      // Opravujeme JEN KEG-ové obaly (slovo "keg"/"sud" NEBO objem s "l" jako
+      // "30l"), aby nedošlo k přepsání PET/lahví na stejném řádku.
+      const labelIsKegVol = item.package_label && (/\bkeg\b|\bsud\b/i.test(item.package_label) || /\b(50|30|20|15|10)\s*l\b/i.test(item.package_label));
+      if (kegVolFromRaw && labelIsKegVol) {
         const rawVolNum = parseInt(kegVolFromRaw, 10);
-        const labelVolMatch = item.package_label.match(/(50|30|20|15|10)\s*l/i);
+        const labelVolMatch = item.package_label.match(/(50|30|20|15|10)\s*l?/i);
         if (labelVolMatch && parseInt(labelVolMatch[1], 10) !== rawVolNum) {
-          item.package_label = item.package_label.replace(/(50|30|20|15|10)\s*l/i, kegVolFromRaw + 'l');
+          item.package_label = item.package_label.replace(/(50|30|20|15|10)\s*l?/i, kegVolFromRaw + 'l');
         }
       }
       // Explicit bottle size override from raw text (e.g. 20x0,5 -> Lahve 0.5l)
@@ -912,7 +925,13 @@ export function parseGeminiItems(
     // "2x50" vyhodilo jako prázdná objednávka (chybí pivo/obal/množství).
     // Vzor: "2x50", "2 x 50", "2x50l", "3x 30", "10x50" ...
     if (!pkg || item.quantity == null) {
-      const kegXMatch = raw.match(/(\d{1,2})\s*x\s*(50|30|20|15|10)(?:\s*l\b)?/i);
+      const kegXPairs = [...raw.matchAll(/(\d{1,2})\s*x\s*(50|30|20|15|10)(?:\s*l\b)?/gi)];
+      const pkgVol = pkg ? Math.round(pkg.volume_l) : null;
+      // Přednost má pár, jehož objem odpovídá obalu položky od AI (AI řekla
+      // obal, ale chybí množství) — např. "KEG 10l" + "7x30 2x10 1x20" → 2x10.
+      const kegXMatch =
+        (item.quantity == null && pkgVol != null ? kegXPairs.find((m) => parseInt(m[2], 10) === pkgVol) : undefined)
+        ?? kegXPairs[0];
       if (kegXMatch) {
         const n = parseInt(kegXMatch[1], 10);
         const vol = kegXMatch[2];
@@ -1226,17 +1245,28 @@ export function matchPlaceFromText(
     [/\bu\s+potoka\b/i, 'u potoka'],
     [/\bna\s+veseli\b/i, 'na veselí'],
   ];
+  // 0b. Ochrana reálných míst: pokud text UŽ obsahuje název místa z katalogu,
+  //     OCR substituce NESPOUŠTÍME. Jinak by přepsala i správný název — např.
+  //     "malenovice" je reálná obec (Malenovice u Zlína) a nesmí se automaticky
+  //     měnit na "malesice". Naučené aliasy a přibližná shoda níže to vyřeší.
+  const textAlreadyHasPlace = places.some((p) => {
+    const np = normalizePlace(p.name);
+    return np.length >= 3 && cleanText.includes(np);
+  });
+
   let correctedText = cleanText;
-  for (const [pattern, replacement] of ocrSubstitutions) {
-    correctedText = correctedText.replace(pattern, replacement);
-  }
-  if (correctedText !== cleanText) {
-    // Try matching with corrected text
-    for (const p of places) {
-      const np = normalizePlace(p.name);
-      if (np.length < 3) continue;
-      if (correctedText.includes(np)) {
-        return { placeId: p.id, placeName: p.name };
+  if (!textAlreadyHasPlace) {
+    for (const [pattern, replacement] of ocrSubstitutions) {
+      correctedText = correctedText.replace(pattern, replacement);
+    }
+    if (correctedText !== cleanText) {
+      // Try matching with corrected text
+      for (const p of places) {
+        const np = normalizePlace(p.name);
+        if (np.length < 3) continue;
+        if (correctedText.includes(np)) {
+          return { placeId: p.id, placeName: p.name };
+        }
       }
     }
   }
@@ -1631,4 +1661,93 @@ export async function getOrCreatePlace(name: string, places: Place[] = []): Prom
   } catch {}
 
   return null;
+}
+
+// ─── Detekce duplicitní objednávky (stejný odběratel na více fotkách) ──────
+// Používá se v ImportFromImage.tsx: po importu objednávky z fotky si pamatujeme
+// (odběratel + datum + položky) a při další fotce se stejným odběratelem
+// upozorníme uživatele a ukážeme obě objednávky vedle sebe k porovnání.
+
+export type ImportedOrderItem = { beer_id: string; package_id: string; quantity: number };
+export type ImportedOrder = { place: string; date: string; items: ImportedOrderItem[] };
+export type OrderDupWarning = {
+  place: string;
+  prev: ImportedOrder;
+  curr: { date: string; items: { raw: string; beer_id: string | null; package_id: string | null; quantity: number | null }[] };
+};
+
+export function normPlaceName(s: string): string {
+  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function levenshteinDup(a: string, b: string): number {
+  if (a === b) return 0;
+  const al = a.length, bl = b.length;
+  if (!al) return bl;
+  if (!bl) return al;
+  let prevRow = new Array(bl + 1);
+  let curRow = new Array(bl + 1);
+  for (let j = 0; j <= bl; j++) prevRow[j] = j;
+  for (let i = 1; i <= al; i++) {
+    curRow[0] = i;
+    for (let j = 1; j <= bl; j++) {
+      const cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
+      curRow[j] = Math.min(prevRow[j] + 1, curRow[j - 1] + 1, prevRow[j - 1] + cost);
+    }
+    [prevRow, curRow] = [curRow, prevRow];
+  }
+  return prevRow[bl];
+}
+
+// Přibližná shoda názvů odběratelů (překlepy / OCR šum z fotky).
+export function placesMatch(a: string, b: string): boolean {
+  const na = normPlaceName(a);
+  const nb = normPlaceName(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  if (na.length >= 3 && nb.length >= 3 && (na.includes(nb) || nb.includes(na))) return true;
+  const maxLen = Math.max(na.length, nb.length);
+  return 1 - levenshteinDup(na, nb) / maxLen > 0.72;
+}
+
+// Najde odběratele z aktuální fotky, který odpovídá nějaké dříve importované
+// objednávce. Varování se týká hlavně případů, kdy položky NEJSOU úplně stejné
+// (AI četla jinak / jde o novou objednávku téhož odběratele) — přesně stejné
+// položky už řeší per-řádková duplikace (p.duplicate).
+export function detectOrderDupWarnings(
+  lines: { line: ParsedLine; duplicate: boolean }[],
+  importedOrders: ImportedOrder[],
+  globalPlace: string,
+): OrderDupWarning[] {
+  if (importedOrders.length === 0) return [];
+  const groups = new Map<string, { place: string; date: string; items: OrderDupWarning['curr']['items']; anyNew: boolean }>();
+  for (const w of lines) {
+    if (w.line._removed) continue;
+    const place = (w.line.place_name || '').trim() || globalPlace.trim();
+    if (!place) continue;
+    const key = `${normPlaceName(place)}||${w.line.date || ''}`;
+    let g = groups.get(key);
+    if (!g) {
+      g = { place, date: w.line.date || '', items: [], anyNew: false };
+      groups.set(key, g);
+    }
+    g.items.push({
+      raw: w.line.originalLine || w.line.raw,
+      beer_id: w.line.beer_id,
+      package_id: w.line.package_id,
+      quantity: w.line.quantity,
+    });
+    if (!w.duplicate) g.anyNew = true;
+  }
+  const warnings: OrderDupWarning[] = [];
+  for (const g of groups.values()) {
+    if (!g.anyNew) continue; // přesně stejná objednávka → řeší per-item duplikace
+    for (const prev of importedOrders) {
+      if (placesMatch(g.place, prev.place)) {
+        warnings.push({ place: g.place, prev, curr: { date: g.date, items: g.items } });
+        break;
+      }
+    }
+  }
+  return warnings;
 }

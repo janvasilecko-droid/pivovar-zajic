@@ -384,27 +384,30 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
 
         <div className="flex flex-wrap items-center gap-2 w-full">
           {/* Tab Selector: Spilka vs Ležácké */}
-          <div className="bg-neutral-900 p-1 rounded-2xl flex flex-wrap items-center border border-neutral-800 shadow-sm">
+          <div className="flex items-center gap-1.5 bg-neutral-100 p-1 rounded-xl border border-neutral-200 w-full sm:w-fit overflow-x-auto scrollbar-none flex-nowrap shrink-0">
             <button
+              type="button"
               onClick={() => setActiveTab('lezacke')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all ${
-                activeTab === 'lezacke' ? 'bg-amber-500 text-neutral-950 shadow-md' : 'text-neutral-300 hover:text-white'
+              className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${
+                activeTab === 'lezacke' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-700 hover:bg-amber-50'
               }`}
             >
               🍺 Ležácké tanky (1–8)
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab('spilka')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all ${
-                activeTab === 'spilka' ? 'bg-amber-500 text-neutral-950 shadow-md' : 'text-neutral-300 hover:text-white'
+              className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${
+                activeTab === 'spilka' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-700 hover:bg-amber-50'
               }`}
             >
               🏭 Spilka (3 kvasné tanky)
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab('planovac')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all ${
-                activeTab === 'planovac' ? 'bg-amber-500 text-neutral-950 shadow-md' : 'text-neutral-300 hover:text-white'
+              className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${
+                activeTab === 'planovac' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-700 hover:bg-amber-50'
               }`}
             >
               📅 Plánovač obsazenosti & Zrání (Gantt)

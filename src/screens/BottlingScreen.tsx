@@ -596,14 +596,14 @@ export default function BottlingScreen({
             <button
               type="button"
               onClick={() => setTab('zapis')}
-              className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'zapis' ? 'bg-emerald-600 text-white shadow-xs' : 'text-neutral-700 hover:bg-emerald-50'}`}
+              className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'zapis' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-700 hover:bg-amber-50'}`}
             >
               ✍️ Stáčení
             </button>
             <button
               type="button"
               onClick={() => setTab('prehled')}
-              className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'prehled' ? 'bg-emerald-600 text-white shadow-xs' : 'text-neutral-700 hover:bg-emerald-50'}`}
+              className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'prehled' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-700 hover:bg-amber-50'}`}
             >
               📊 Přehled
             </button>

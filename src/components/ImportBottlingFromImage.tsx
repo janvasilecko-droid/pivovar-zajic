@@ -417,8 +417,8 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
               <div className="border border-neutral-200 rounded-2xl overflow-hidden bg-neutral-50 min-h-[350px] flex flex-col">
                 <PhotoReviewPane
                   photos={photos}
-                  activeIndex={0}
-                  onChangeIndex={() => {}}
+                  activeIndex={Math.min(activeIndex, Math.max(0, photos.length - 1))}
+                  onChangeIndex={setActiveIndex}
                 />
               </div>
 

@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase, Beer, useRealtime } from '../lib/supabase';
 import { Spinner, EmptyState, Field } from '../components/ui';
 import { CheckSquare, Plus, FileText, FlaskConical, Calculator, Cylinder, Flame } from 'lucide-react';
@@ -66,6 +66,22 @@ export function SrotovaniScreen({ setPage }: { setPage?: (p: any, sec?: string) 
 
   return (
     <div className="space-y-6 pb-12">
+      {/* Top Banner */}
+      <div className="bg-neutral-900 text-white p-5 sm:p-7 rounded-3xl border border-amber-500/30 shadow-xl flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 text-amber-400 font-extrabold text-xs uppercase tracking-widest mb-1">
+            <FileText size={18} />
+            <span>Šrotování & Slad</span>
+          </div>
+          <h1 className="text-xl sm:text-2xl font-display font-black tracking-tight text-white flex items-center gap-2">
+            <span>🌾 Šrotování sladu — HACCP norma 3.1</span>
+          </h1>
+          <p className="text-xs text-neutral-400 font-medium mt-1">
+            Zápis šrotování sladu pro jednotlivé várky piv dle HACCP bodu 3.1 (Smyslová kontrola sladu)
+          </p>
+        </div>
+      </div>
+
       {/* HACCP & WhatsApp Banner */}
       <div className="bg-amber-500/10 border border-amber-500/30 p-4 rounded-3xl flex flex-wrap items-center justify-between gap-3 shadow-xs">
         <div className="flex items-center gap-3">
@@ -238,24 +254,11 @@ export function ChecklistsScreen() {
 }
 
 // ==========================================
-// 4. CHYTRÉ KALKULAČKY PIVOVARU (KEGy, IBU, Chemie)
+// 4. CHYTRÉ KALKULAČKY PIVOVARU (KEGy, Chemie, Energie, Jednotky)
 // ==========================================
 
-export type HopItem = {
-  id: string;
-  name: string;      // e.g. Žatecký poloraný červeňák, Sládek, Kazbek, Citra...
-  weight_g: number;  // g
-  alpha_pct: number; // %
-};
-
-export type HopAddition = {
-  id: string;
-  boil_time_min: number; // minuty chmelovaru (např. 60, 30, 15, 0 Whirlpool)
-  hops: HopItem[];
-};
-
 export function ConcentrationScreen() {
-  const [activeTab, setActiveTab] = useState<'keg_calc' | 'ibu_calc' | 'chem_calc' | 'energy_calc' | 'units_calc'>('keg_calc');
+  const [activeTab, setActiveTab] = useState<'keg_calc' | 'chem_calc' | 'energy_calc' | 'units_calc'>('keg_calc');
 
   // --- Helper Stepper Input Component ---
   function NumberStepper({
@@ -353,105 +356,6 @@ export function ConcentrationScreen() {
   const remFinalFix50 = remainingFor30 - auto30Count * 30;
   const totalHlFix50 = ((custom50Count * 50 + auto30Count * 30) / 100).toFixed(2);
 
-  // --- 2. MULTI-DÁVKOVÁ Vylepšená IBU Kalkulačka s časy chmelovaru ---
-  const [batchVolumeL, setBatchVolumeL] = useState<string>('1000'); // 1000 l
-  const [wortPlato, setWortPlato] = useState<string>('11.5'); // 11.5 °P
-
-  const [hopAdditions, setHopAdditions] = useState<HopAddition[]>([
-    {
-      id: 'h1',
-      boil_time_min: 60,
-      hops: [
-        { id: '1', name: 'Žatecký poloraný červeňák (1. chmelení)', weight_g: 1200, alpha_pct: 4.2 },
-        { id: '2', name: 'Sládek (Hořkost)', weight_g: 500, alpha_pct: 7.5 },
-      ],
-    },
-    {
-      id: 'h2',
-      boil_time_min: 30,
-      hops: [
-        { id: '3', name: 'Žatecký poloraný červeňák (2. chmelení)', weight_g: 800, alpha_pct: 4.2 },
-      ],
-    },
-    {
-      id: 'h3',
-      boil_time_min: 10,
-      hops: [
-        { id: '4', name: 'Kazbek (Aroma)', weight_g: 600, alpha_pct: 6.0 },
-      ],
-    },
-  ]);
-
-  // Tinseth IBU calculation per hop & total
-  const ibuResults = useMemo(() => {
-    const vol = Number(batchVolumeL) || 1000;
-    const degP = Number(wortPlato) || 11.5;
-    // OG specific gravity approximation
-    const sg = degP > 0 ? 1 + (degP / (258.6 - (degP / 258.2) * 227.1)) : 1.046;
-    const biazGravityFactor = 1.65 * Math.pow(0.000125, sg - 1);
-
-    let totalIbu = 0;
-
-    const additionsCalculated = hopAdditions.map((add) => {
-      const timeFactor = (1 - Math.exp(-0.04 * add.boil_time_min)) / 4.15;
-      const utilization = biazGravityFactor * timeFactor;
-
-      const hopsCalculated = add.hops.map((h) => {
-        const mgAlpha = h.weight_g * (h.alpha_pct / 100) * 1000;
-        const hopIbu = vol > 0 ? (mgAlpha * utilization) / vol : 0;
-        totalIbu += hopIbu;
-        return { ...h, hopIbu: Math.round(hopIbu * 10) / 10 };
-      });
-
-      const additionIbu = hopsCalculated.reduce((s, h) => s + h.hopIbu, 0);
-
-      return {
-        ...add,
-        utilizationPct: Math.round(utilization * 1000) / 10,
-        additionIbu: Math.round(additionIbu * 10) / 10,
-        hopsCalculated,
-      };
-    });
-
-    return { totalIbu: Math.round(totalIbu), additionsCalculated };
-  }, [batchVolumeL, wortPlato, hopAdditions]);
-
-  function handleAddHopAddition() {
-    const newAdd: HopAddition = {
-      id: crypto.randomUUID(),
-      boil_time_min: 15,
-      hops: [{ id: crypto.randomUUID(), name: 'Nový chmel', weight_g: 500, alpha_pct: 5.0 }],
-    };
-    setHopAdditions([...hopAdditions, newAdd]);
-  }
-
-  function handleAddHopToAddition(additionId: string) {
-    setHopAdditions(hopAdditions.map((add) => {
-      if (add.id !== additionId) return add;
-      return {
-        ...add,
-        hops: [...add.hops, { id: crypto.randomUUID(), name: 'Další chmel v čase', weight_g: 300, alpha_pct: 5.0 }],
-      };
-    }));
-  }
-
-  function handleRemoveHop(additionId: string, hopId: string) {
-    setHopAdditions(hopAdditions.map((add) => {
-      if (add.id !== additionId) return add;
-      return { ...add, hops: add.hops.filter((h) => h.id !== hopId) };
-    }).filter((add) => add.hops.length > 0));
-  }
-
-  function handleUpdateHop(additionId: string, hopId: string, patch: Partial<HopItem>) {
-    setHopAdditions(hopAdditions.map((add) => {
-      if (add.id !== additionId) return add;
-      return {
-        ...add,
-        hops: add.hops.map((h) => h.id === hopId ? { ...h, ...patch } : h),
-      };
-    }));
-  }
-
   // --- 3. Sanitační chemie ---
   const [chemType, setChemType] = useState<'louh' | 'persteril' | 'dusicna' | 'chlornan'>('louh');
   const [targetVolumeL, setTargetVolumeL] = useState('100');
@@ -530,6 +434,22 @@ export function ConcentrationScreen() {
 
   return (
     <div className="space-y-6 pb-12">
+      {/* Top Banner */}
+      <div className="bg-neutral-900 text-white p-5 sm:p-7 rounded-3xl border border-amber-500/30 shadow-xl flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 text-amber-400 font-extrabold text-xs uppercase tracking-widest mb-1">
+            <FlaskConical size={18} />
+            <span>Pivovarské kalkulačky</span>
+          </div>
+          <h1 className="text-xl sm:text-2xl font-display font-black tracking-tight text-white flex items-center gap-2">
+            <span>🧮 Kalkulačky pro sládka & technologa</span>
+          </h1>
+          <p className="text-xs text-neutral-400 font-medium mt-1">
+            Dotáčení KEG sudů z tanků, ředění sanitační chemie, náklady na várku a přepočty jednotek
+          </p>
+        </div>
+      </div>
+
       {/* Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin pb-2 border-b border-neutral-200">
         <button
@@ -541,19 +461,7 @@ export function ConcentrationScreen() {
           }`}
         >
           <Cylinder size={16} />
-          <span>🛢️ Dotáčení KEG sudů</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('ibu_calc')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
-            activeTab === 'ibu_calc'
-              ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
-          }`}
-        >
-          <Flame size={16} />
-          <span>🌿 Výpočet IBU & Dávkování chmele</span>
+          <span>Dotáčení KEG sudů</span>
         </button>
 
         <button
@@ -565,7 +473,7 @@ export function ConcentrationScreen() {
           }`}
         >
           <FlaskConical size={16} />
-          <span>🧪 Sanitační chemie</span>
+          <span>Sanitační chemie</span>
         </button>
 
         <button
@@ -577,7 +485,7 @@ export function ConcentrationScreen() {
           }`}
         >
           <Flame size={16} />
-          <span>⚡ Náročnost várky</span>
+          <span>Náročnost várky</span>
         </button>
 
         <button
@@ -589,7 +497,7 @@ export function ConcentrationScreen() {
           }`}
         >
           <Calculator size={16} />
-          <span>🔄 Přepočet jednotek</span>
+          <span>Přepočet jednotek</span>
         </button>
       </div>
 
@@ -684,137 +592,6 @@ export function ConcentrationScreen() {
                 <div>• {mix2_50}× 50L + {mix2_30}× 30L</div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 2: MULTI-DÁVKOVÁ KALKULAČKA IBU S ČASY CHMELOVARU */}
-      {activeTab === 'ibu_calc' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 card p-6 bg-white border border-neutral-200 rounded-3xl space-y-5 shadow-sm">
-            <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
-              <div>
-                <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-                  <Flame className="text-amber-600" size={20} />
-                  <span>Pokročilá kalkulačka IBU hořkosti piva podle časů chmelovaru</span>
-                </h3>
-                <p className="text-xs text-neutral-500 font-medium mt-0.5">
-                  Zadejte čas chmelovaru pro každé chmelení. U každého chmelení můžete zadat i více chmelů!
-                </p>
-              </div>
-
-              <button
-                onClick={handleAddHopAddition}
-                className="px-3.5 py-2 rounded-2xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-xs flex items-center gap-1"
-              >
-                + Přidat čas chmelení
-              </button>
-            </div>
-
-            {/* Základní objem & Hustota */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-amber-50/70 border border-amber-200">
-              <Field label="Objem mladiny v kotli (litry)">
-                <NumberStepper value={batchVolumeL} onChange={setBatchVolumeL} step={100} min={10} />
-              </Field>
-
-              <Field label="Stupňovitost / Extrakt (°P)">
-                <NumberStepper value={wortPlato} onChange={setWortPlato} step={0.5} min={1} />
-              </Field>
-            </div>
-
-            {/* Dávkování chmelení podle časů */}
-            <div className="space-y-4">
-              {ibuResults.additionsCalculated.map((add: any) => (
-                <div key={add.id} className="p-4 rounded-2xl bg-neutral-50 border-2 border-neutral-200 space-y-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 pb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="px-3 py-1 rounded-xl bg-neutral-900 text-amber-300 font-mono font-black text-xs">
-                        ⏱️ Čas chmelovaru: {add.boil_time_min} min.
-                      </span>
-                      <span className="text-xs font-bold text-neutral-600">
-                        (Využití alfakyselin: {add.utilizationPct} %)
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-0.5 rounded-lg bg-amber-200 text-amber-950 font-mono font-black text-xs">
-                        Přínos dávky: +{add.additionIbu} IBU
-                      </span>
-                      <button
-                        onClick={() => handleAddHopToAddition(add.id)}
-                        className="px-2.5 py-1 rounded-lg bg-white border border-neutral-300 hover:bg-neutral-100 text-neutral-900 font-bold text-xs"
-                      >
-                        + Další chmel v čase
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Seznam chmelů v tomto čase */}
-                  <div className="space-y-2">
-                    {add.hopsCalculated.map((h: any) => (
-                      <div key={h.id} className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-center bg-white p-2.5 rounded-xl border border-neutral-200 text-xs">
-                        <input
-                          type="text"
-                          className="input !py-1 font-bold text-xs"
-                          value={h.name}
-                          onChange={(e) => handleUpdateHop(add.id, h.id, { name: e.target.value })}
-                          placeholder="Název chmele"
-                        />
-
-                        <div className="flex items-center gap-1">
-                          <span className="text-[10px] font-bold text-neutral-500 shrink-0">Hmotnost:</span>
-                          <NumberStepper value={h.weight_g} onChange={(v) => handleUpdateHop(add.id, h.id, { weight_g: Number(v) })} step={50} min={0} />
-                          <span className="font-bold text-neutral-600 shrink-0">g</span>
-                        </div>
-
-                        <div className="flex items-center gap-1">
-                          <span className="text-[10px] font-bold text-neutral-500 shrink-0">Alfa:</span>
-                          <NumberStepper value={h.alpha_pct} onChange={(v) => handleUpdateHop(add.id, h.id, { alpha_pct: Number(v) })} step={0.5} min={0} />
-                          <span className="font-bold text-neutral-600 shrink-0">%</span>
-                        </div>
-
-                        <div className="flex items-center justify-between sm:justify-end gap-2">
-                          <span className="font-mono font-black text-amber-950 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
-                            +{h.hopIbu} IBU
-                          </span>
-                          <button
-                            onClick={() => handleRemoveHop(add.id, h.id)}
-                            className="text-neutral-400 hover:text-rose-600 p-1"
-                            title="Odstranit tento chmel"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* IBU Výsledná karta */}
-          <div className="card p-6 bg-gradient-to-br from-amber-500/20 via-amber-400/10 to-white border-2 border-amber-300 rounded-3xl space-y-4 shadow-md flex flex-col justify-between text-center">
-            <div className="space-y-2">
-              <span className="text-xs font-black uppercase tracking-wider text-amber-950">Celková vypočítaná hořkost piva</span>
-              <div className="font-display font-black text-6xl text-neutral-950">
-                {ibuResults.totalIbu} <span className="text-xl font-bold text-amber-800">IBU</span>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-neutral-900 text-amber-300 text-xs font-mono text-left space-y-1.5 shadow-md">
-              <div className="font-black text-white uppercase text-[10px] border-b border-neutral-700 pb-1">Rozložení hořkosti podle časů:</div>
-              {ibuResults.additionsCalculated.map((a: any, i: number) => (
-                <div key={i} className="flex justify-between">
-                  <span>⏱️ {a.boil_time_min} min. ({a.hopsCalculated.length} chm.):</span>
-                  <strong className="text-amber-400">+{a.additionIbu} IBU</strong>
-                </div>
-              ))}
-            </div>
-
-            <p className="text-xs text-neutral-600 font-medium">
-              Světlý ležák: 25–35 IBU · IPA / APA: 45–70 IBU · Stout: 30–50 IBU
-            </p>
           </div>
         </div>
       )}
