@@ -232,14 +232,14 @@ async function start() {
       try {
         await handleMessage(sock, gate, msg);
       } catch (e) {
-        logger.error('[msg] chyba zpracování:', e);
+        logger.error({ err: e }, '[msg] chyba zpracování');
       }
     }
   });
 }
 
 start().catch((e) => {
-  logger.error('Fatal chyba při startu:', e);
+  logger.error({ err: e }, 'Fatal chyba při startu');
   process.exit(1);
 });
 
