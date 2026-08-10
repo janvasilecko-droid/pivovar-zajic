@@ -6,6 +6,9 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 
+# Install git (required for some npm dependencies)
+RUN apk add --no-cache git
+
 # Nejprve jen závislosti (využije cache vrstev Dockeru)
 COPY package.json ./
 RUN npm install --omit=dev
