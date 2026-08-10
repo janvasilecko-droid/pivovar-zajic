@@ -7,6 +7,11 @@ import { exportBottlingToExcel } from '../lib/excel';
 import { ImportBottlingFromImage } from '../components/ImportBottlingFromImage';
 import { Camera, Pencil } from 'lucide-react';
 import { getStartingStockMap } from '../lib/inventoryHelper';
+import { useAuth } from '../lib/auth';
+import { BottlingPlan, getPlanSeenAt, markPlanSeenAt, isPlanUnseen, isBottlingManager, setPlanStatus } from '../lib/bottlingPlans';
+import { BottlingPlanPlanner } from '../components/BottlingPlanPlanner';
+import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
+
 
 const ROW_COUNT = 12;
 type RowInput = { beerId: string; pkgId: string; pkg2Id: string; pkg3Id: string; kegPkgId: string; kegQty: string; qty: string; qty2: string; qty3: string };
@@ -48,14 +53,29 @@ export default function BottlingScreen({
   const [showImageImport, setShowImageImport] = useState(false);
   const [showChecklistModal, setShowChecklistModal] = useState(false);
 
-  // Záložky: Zápis / Přehled / Potřeba stočit lahve
-  const [tab, setTab] = useState<'zapis' | 'prehled' | 'potreba'>(initialTab ?? 'zapis');
+  // Záložky: Stáčení / Přehled / Potřeba stočit lahve
+  // Z menu se otevře nejprve Přehled stočených; tlačítko „Stáčení lahví" otevře zápis stáčení.
+  const [tab, setTab] = useState<'zapis' | 'prehled' | 'potreba' | 'plan'>(initialTab ?? (mode === 'all' ? 'prehled' : 'zapis'));
 
   useEffect(() => {
     if (initialTab) {
       setTab(initialTab);
     }
   }, [initialTab]);
+
+  const { profile } = useAuth();
+  const isManager = isBottlingManager(profile?.role);
+
+  // Plánování stáčení („co je potřeba stočit") — úkoly zadává admin/sládek/šéf
+  const [plans, setPlans] = useState<BottlingPlan[]>([]);
+  // Úkol naplněný do formuláře zápisu → po uložení se automaticky označí za hotový
+  const filledPlanRef = useRef<BottlingPlan | null>(null);
+
+  const [planSeenAt, setPlanSeenAt] = useState(getPlanSeenAt);
+  const unseenCount = useMemo(
+    () => plans.filter((p) => isPlanUnseen(p, planSeenAt)).length,
+    [plans, planSeenAt]
+  );
 
   const handleApplyPhotoRows = (parsedRows: RowInput[], dateVal?: string, photoNote?: string) => {
     setEntryRows((prev) => {
@@ -309,10 +329,40 @@ export default function BottlingScreen({
     }
   }
 
+  // Naplnění vybraného úkolu stáčení do formuláře zápisu
+  function fillFromPlan(plan: BottlingPlan) {
+    filledPlanRef.current = plan;
+    setDate(plan.planned_date);
+    setEntryRows((prev) => {
+      const next = [...prev];
+      // 1) první prázdný řádek, 2) řádek se stejným pivem bez obalů, 3) nový řádek na konec
+      let idx = next.findIndex((r) => !r.beerId);
+      if (idx === -1) idx = next.findIndex((r) => r.beerId === plan.beer_id && !(r.pkgId || r.pkg2Id || r.pkg3Id || r.kegPkgId));
+      if (idx === -1) idx = next.length;
+      const row = {
+        beerId: plan.beer_id || '',
+        kegPkgId: plan.keg_pkg_id || '',
+        kegQty: plan.keg_qty > 0 ? String(plan.keg_qty) : '',
+        pkgId: plan.pkg_id || '',
+        qty: plan.qty > 0 ? String(plan.qty) : '',
+        pkg2Id: plan.pkg2_id || '',
+        qty2: plan.qty2 > 0 ? String(plan.qty2) : '',
+        pkg3Id: plan.pkg3_id || '',
+        qty3: plan.qty3 > 0 ? String(plan.qty3) : '',
+      };
+      next[idx] = row;
+      return next;
+    });
+    markPlanSeenAt();
+    setPlanSeenAt(Date.now());
+    setTab('zapis');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   async function load(silent = false) {
     const loadId = ++loadCountRef.current;
     if (!silent && !rows.length) setLoading(true);
-    const [bt, b, p, ords, oi, inv, fa, fp, wo, kg] = await Promise.all([
+    const [bt, b, p, ords, oi, inv, fa, fp, wo, kg, pl] = await Promise.all([
       supabase.from('bottling').select('*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
@@ -323,6 +373,7 @@ export default function BottlingScreen({
       supabase.from('fasovani_private').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('writeoffs').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('kegging').select('entry_date,beer_id,package_id,quantity'),
+      supabase.from('bottling_plans').select('*').order('planned_date'),
     ]);
     if (loadId !== loadCountRef.current) return;
     setRows((bt.data as EntryRow[]) ?? []);
@@ -335,10 +386,11 @@ export default function BottlingScreen({
     if (fp.data) setProdejnaRows(fp.data);
     if (wo.data) setWriteoffsRows(wo.data);
     if (kg.data) setKeggingRows(kg.data);
+    if (pl.data) setPlans(pl.data);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
-  useRealtime(['bottling', 'beers', 'packages', 'orders', 'order_items', 'inventory', 'fasovani', 'fasovani_private', 'writeoffs', 'kegging'], () => load(true));
+  useRealtime(['bottling', 'beers', 'packages', 'orders', 'order_items', 'inventory', 'fasovani', 'fasovani_private', 'writeoffs', 'kegging', 'bottling_plans'], () => load(true));
 
 
   function setRowField(i: number, field: keyof RowInput, value: string) {
@@ -395,6 +447,28 @@ export default function BottlingScreen({
     const { error } = await supabase.from('bottling').insert(payloads);
     setSaving(false);
     if (error) { setErr(error.message); return; }
+
+    // Auto-označení naplněného úkolu za hotový (pokud se stočilo skutečně vše, co bylo naplánované)
+    const fp = filledPlanRef.current;
+    if (fp) {
+      filledPlanRef.current = null;
+      const lineOk = (pkgId: string | null, qty: number) =>
+        !pkgId || qty <= 0 ||
+        payloads.some((pl) => pl.beer_id === fp.beer_id && pl.package_id === pkgId && Number(pl.quantity) >= qty);
+      const kegOk =
+        !fp.keg_pkg_id || fp.keg_qty <= 0 ||
+        payloads.some((pl) =>
+          pl.beer_id === fp.beer_id &&
+          (pl.package_id === fp.keg_pkg_id
+            ? Number(pl.quantity) >= fp.keg_qty
+            : Number(pl.kegs_used || 0) >= fp.keg_qty)
+        );
+      if (lineOk(fp.pkg_id, fp.qty) && lineOk(fp.pkg2_id, fp.qty2) && lineOk(fp.pkg3_id, fp.qty3) && kegOk) {
+        setPlanStatus(fp.id, 'done').then(({ error }) => {
+          if (error) console.warn('Nepodařilo se automaticky označit úkol jako hotový:', error.message);
+        });
+      }
+    }
 
     setEntryRows(emptyRows()); setNote(''); setErr(null);
     setFlash(true); setTimeout(() => setFlash(false), 800);
@@ -598,7 +672,10 @@ export default function BottlingScreen({
               onClick={() => setTab('zapis')}
               className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'zapis' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-700 hover:bg-amber-50'}`}
             >
-              ✍️ Stáčení
+              🍾 Stáčení lahví
+              {unseenCount > 0 && (
+                <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black animate-pulse">{unseenCount}</span>
+              )}
             </button>
             <button
               type="button"
@@ -627,6 +704,15 @@ export default function BottlingScreen({
               <span>📋</span>
               <span>Kontrolní seznam (Checklist)</span>
             </button>
+            {isManager && (
+              <button
+                type="button"
+                onClick={() => setTab('plan')}
+                className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'plan' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-700 hover:bg-amber-50'}`}
+              >
+                🗓️ Zadat stáčení
+              </button>
+            )}
           </div>
         )}
 
@@ -662,6 +748,27 @@ export default function BottlingScreen({
 
       {/* Zápis stáčení — multi-row (12 řádků pivo+obal+množství najednou) */}
       {(mode === 'entry_only' || (mode === 'all' && tab === 'zapis')) && (
+        <>
+        <BottlingPlanBottler
+          plans={plans}
+          beers={beers}
+          packages={packages}
+          isManager={isManager}
+          onChanged={() => load(true)}
+          onFill={fillFromPlan}
+        />
+        {unseenCount > 0 && (
+          <div className="card p-3 mb-4 border-2 border-rose-300 bg-rose-50/90 flex items-center justify-between gap-3">
+            <span className="text-xs font-black text-rose-900">📣 {unseenCount} {unseenCount === 1 ? 'nový úkol' : 'nové úkoly'} ke stočení</span>
+            <button
+              type="button"
+              onClick={() => { markPlanSeenAt(); setPlanSeenAt(Date.now()); }}
+              className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black transition"
+            >
+              ✓ Vím
+            </button>
+          </div>
+        )}
         <form onSubmit={add} className={`card px-2 py-3 mb-5 transition-all duration-200 ${flash ? 'ring-4 ring-success-500/20' : ''}`}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 p-2 bg-primary-50/50 rounded-2xl border border-primary-100">
             <div className="grid grid-cols-2 gap-3 items-end flex-1">
@@ -1002,6 +1109,29 @@ export default function BottlingScreen({
             {err && <span className="text-xs font-bold text-rose-700 bg-rose-50 px-3 py-1.5 rounded-xl border border-rose-200">{err}</span>}
           </div>
         </form>
+        </>
+      )}
+
+      {/* Plánování stáčení — zadání úkolů „co je potřeba stočit" (admin/sládek/šéf) */}
+      {mode === 'all' && tab === 'plan' && (
+        isManager ? (
+          <BottlingPlanPlanner
+            plans={plans}
+            beers={beers}
+            packages={packages}
+            orders={orders}
+            orderItems={orderItems}
+            inventoryRows={inventoryRows}
+            rows={rows}
+            fasovaniRows={fasovaniRows}
+            prodejnaRows={prodejnaRows}
+            writeoffsRows={writeoffsRows}
+            keggingRows={keggingRows}
+            onChanged={() => load(true)}
+          />
+        ) : (
+          <div className="card p-4 text-sm text-neutral-600">Nemáte oprávnění k plánování stáčení.</div>
+        )
       )}
 
       {/* Přehled: Stočeno lahví — velikosti */}
