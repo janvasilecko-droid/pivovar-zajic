@@ -9,9 +9,15 @@ ENV PORT=3000
 # Install git (required for some npm dependencies)
 RUN apk add --no-cache git
 
-# Nejprve jen závislosti (využije cache vrstev Dockeru)
-COPY package.json ./
-RUN npm install --omit=dev
+# package-lock.json má 'libsignal' přes git+ssh://git@github.com/... — v buildu
+# nejsou SSH klíče, takže ssh adresu přepíšeme na https (veřejný repozitář).
+RUN git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+
+# Nejprve jen závislosti (využije cache vrstev Dockeru). npm ci s lockfilem =
+# přesně otestované verze; --ignore-scripts přeskočí baileys preinstall
+# (engine-requirements.js) — všechny závislosti jsou čistý JS, build nepotřebují.
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts
 
 # Pak zdrojový kód
 COPY . .
