@@ -3,7 +3,7 @@
 Návod k tomu, aby bridge (Baileys gateway) opravdu běžel 24/7 a přeposílal zprávy
 ze skupiny **„Objednávky pivovar"** a od kontaktu **„Ala Milacek Milacek"** na webhook.
 
-> Kód je hotový, otestovaný (9/9) a pushnutý na GitHub (commit `b597942e`).
+> Kód je hotový, otestovaný (9/9) a pushnutý na GitHub (commit `5fa44ba1`).
 > Zbývají 2 kroky, které **musíš udělat ty**: ① nasadit na Render, ② naskenovat QR telefonem.
 
 ---
