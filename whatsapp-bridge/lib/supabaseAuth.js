@@ -27,7 +27,7 @@ function reviveBuffers(value) {
   return out;
 }
 
-function getSupabase() {
+export function getSupabase() {
   const url = process.env.SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !serviceRoleKey) {

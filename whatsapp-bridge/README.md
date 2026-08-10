@@ -67,10 +67,37 @@ whatsapp-bridge/
 | `SUPABASE_SERVICE_ROLE_KEY` | ✅    | Service role klíč (z root `.env`: `VITE_SUPABASE_SERVICE_ROLE_KEY`) — zápis session do `whatsapp_session` |
 | `WEBHOOK_URL`             | volná   | Adresa edge funkce; defaultně se odvodí z `SUPABASE_URL` (`…/functions/v1/whatsapp-webhook`) |
 | `WEBHOOK_SECRET`          | ✅      | Sdílené tajemství webhooku (z root `.env`: `WEBHOOK_SECRET`); posílá se jako hlavička `x-webhook-token` |
-| `ALLOWED_GROUPS`          | volná   | Povolené skupiny (čárkou), default `Objednávky pivovar` |
-| `ALLOWED_CONTACTS`        | volná   | Povolení kontakty mimo skupiny, default `Ala Milacek Milacek` |
+| `ALLOWED_GROUPS`          | volná   | Povolené skupiny (čárkou), default `Objednávky pivovar`; sjednoceno s `whatsapp_senders` (viz Filtr čtení) |
+| `ALLOWED_CONTACTS`        | volná   | Povolení kontakty mimo skupiny (jméno nebo tel. číslo), default `Ala Milacek Milacek`; sjednoceno s `whatsapp_senders` |
 | `LOG_LEVEL`               | volná   | `info` (default), `debug` pro detail |
 | `PORT`                    | volná   | Port health endpointu, default `3000` (Render ho nastavuje sám) |
+
+
+## Filtr čtení (gate)
+
+Zprávy se čtou a přeposílají **jen od povolených odesílatelů** — pravidla jsou
+identická s bránou na webhooku (`whatsapp-webhook`), DB triggerem
+(`check_whatsapp_sender_allowed`) a `whatsapp-auto-parse`:
+
+- zpráva je povolená, když **normalizovaný název** (bez diakritiky a velikosti)
+  odpovídá whitelistu **NEBO** `chat_id` odpovídá zaregistrovanému `chat_id`;
+- **prázdný whitelist = povoleno vše** (zpětně kompatibilní);
+- vlastní zprávy (`from_me`) se nikdy nezpracovávají (prevence smyčky).
+
+**Zdroje whitelistu** (sjednocené):
+
+| Zdroj | Co přidává |
+|---|---|
+| `whatsapp_senders` (Supabase) | edituje se v aplikaci **Nastavení → WhatsApp odesílatelé**; bridge ji čte při startu a každých ~5 minut → změny platí bez restartu služby |
+| `ALLOWED_GROUPS` (env) | povolené skupiny navíc |
+| `ALLOWED_CONTACTS` (env) | povolení kontakty navíc (jméno nebo telefonní číslo) |
+
+Díky tomu **přejmenovaná skupina neztratí zprávy**: bridge povolí skupinu podle
+`chat_id` a webhook ji přebere stejným pravidlem. Bridge je tedy jen první vrstva
+(to, co se *přečte* z WhatsAppu), finální bránou je vždy webhook.
+
+> ⚠️ „Prázdný whitelist = povoleno vše“ platí, když jsou prázdné **obě** složky
+> (env proměnné i `whatsapp_senders`). Jinak se whitelisty sjednotí.
 
 
 ## Nasazení na Render.com (krok za krokem)

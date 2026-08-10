@@ -17,7 +17,8 @@ import { createServer } from 'node:http';
 import makeWASocket, { DisconnectReason } from '@whiskeysockets/baileys';
 import qrcodeTerminal from 'qrcode-terminal';
 import pino from 'pino';
-import { useSupabaseAuthState } from './lib/supabaseAuth.js';
+import { getSupabase, useSupabaseAuthState } from './lib/supabaseAuth.js';
+import { createMessageGate } from './lib/filter.js';
 import { forwardToWebhook } from './lib/webhook.js';
 
 // sync:true → logy se okamžitě zapíší (nespoléháme na flush bufferu při killu/exit)
@@ -41,10 +42,9 @@ function remember(id) {
   SEEN.add(id);
 }
 
-/** Sjednocené porovnání názvů (bez diakritiky a velikosti) — stejné jako webhook. */
-function norm(s) {
-  return (s || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-}
+/** Cache názvů skupin — groupMetadata je nákladné API volání; stačí obnovit občas. */
+const GROUP_SUBJECTS = new Map();
+const GROUP_SUBJECT_TTL_MS = 10 * 60 * 1000;
 
 // --- Health endpoint (Render Web Service / health check) -------------------
 function startHealthServer() {
@@ -70,9 +70,13 @@ function extractText(message) {
 }
 
 async function getGroupSubject(sock, jid) {
+  const cached = GROUP_SUBJECTS.get(jid);
+  if (cached && Date.now() - cached.ts < GROUP_SUBJECT_TTL_MS) return cached.subject;
   try {
     const meta = await sock.groupMetadata(jid);
-    return meta?.subject || jid;
+    const subject = meta?.subject || jid;
+    GROUP_SUBJECTS.set(jid, { subject, ts: Date.now() });
+    return subject;
   } catch (e) {
     logger.warn(`[groupMetadata] ${jid}: ${e.message}`);
     return jid;
@@ -80,7 +84,7 @@ async function getGroupSubject(sock, jid) {
 }
 
 // --- Zpracování jedné příchozí zprávy --------------------------------------
-async function handleMessage(sock, msg) {
+async function handleMessage(sock, gate, msg) {
   const key = msg.key || {};
   const remoteJid = key.remoteJid;
   if (!remoteJid || !msg.message) return;
@@ -93,7 +97,7 @@ async function handleMessage(sock, msg) {
 
   const text = extractText(msg);
   if (!text) {
-    logger.debug('[msg] zpráva bez textu (systémová/obrázek) — ignoruji');
+    logger.debug('[msg] zpráva bez textu (systémová/obrázek bez popisku) — ignoruji');
     return;
   }
 
@@ -102,22 +106,21 @@ async function handleMessage(sock, msg) {
   const senderNumber = (senderJid || '').split('@')[0] || '';
   const pushName = (msg.pushName || '').trim();
 
+  // 2) Filtr čtení — stejná pravidla jako brána webhooku (název NEBO chat_id).
+  //    Whitelist = whatsapp_senders (z aplikace) sjednocený s env proměnnými;
+  //    přejmenovaná skupina projde přes registrované chat_id (viz lib/filter.js).
   let sender;
   if (isGroup) {
     const groupName = await getGroupSubject(sock, remoteJid);
-    if (ALLOWED_GROUPS.length && !ALLOWED_GROUPS.some((g) => norm(g) === norm(groupName))) {
-      logger.info(`[msg] skupina „${groupName}“ není v ALLOWED_GROUPS — ignoruji`);
+    if (!gate.isGroupAllowed(groupName, remoteJid)) {
+      logger.info(`[msg] skupina „${groupName}“ (${remoteJid}) není povolená — ignoruji`);
       return;
     }
     sender = groupName;
   } else {
     sender = pushName || senderNumber || remoteJid;
-    const allowed =
-      !ALLOWED_CONTACTS.length ||
-      ALLOWED_CONTACTS.some((c) => norm(c) === norm(sender)) ||
-      ALLOWED_CONTACTS.some((c) => norm(c) === norm(senderNumber));
-    if (!allowed) {
-      logger.info(`[msg] kontakt „${sender}“ (${senderNumber}) není v ALLOWED_CONTACTS — ignoruji`);
+    if (!gate.isContactAllowed(sender, senderNumber)) {
+      logger.info(`[msg] kontakt „${sender}“ (${senderNumber}) není povolený — ignoruji`);
       return;
     }
   }
@@ -131,11 +134,25 @@ async function handleMessage(sock, msg) {
   const tsMs =
     typeof msg.messageTimestamp === 'number' ? msg.messageTimestamp * 1000 : Date.now();
 
+  // Typ zprávy pro webhook (image/video/document/audio/text) — rozbalí i ephemeral.
+  const m = msg.message || {};
+  const unwrapped = m.ephemeralMessage?.message || m.viewOnceMessage?.message || m;
+  const messageType = unwrapped.imageMessage
+    ? 'image'
+    : unwrapped.videoMessage
+      ? 'video'
+      : unwrapped.documentMessage
+        ? 'document'
+        : unwrapped.audioMessage
+          ? 'audio'
+          : 'text';
+
   const payload = {
     sender,
     message: text,
     timestamp: new Date(tsMs).toISOString(),
     senderNumber,
+    messageType,
     chatId: isGroup ? remoteJid : undefined,
     fromMe: false,
     webhookId: key.id ? `wa-${key.id}` : `wa-${Date.now()}-${senderNumber}`,
@@ -154,7 +171,19 @@ async function handleMessage(sock, msg) {
 async function start() {
   logger.info('=== WhatsApp Gateway (Baileys) ===');
 
+  const supabase = getSupabase();
   const { state, saveCreds } = await useSupabaseAuthState({ logger });
+
+  // Filtr čtení: whitelist z whatsapp_senders (aplikace) + env proměnné, pravidla
+  // shodná s bránou webhooku (název NEBO chat_id). Obnovuje se každých 5 minut.
+  const gate = createMessageGate({
+    supabase,
+    allowedGroups: ALLOWED_GROUPS,
+    allowedContacts: ALLOWED_CONTACTS,
+    logger,
+  });
+  await gate.load();
+  gate.startRefresh();
 
   const sock = makeWASocket({
     auth: state,
@@ -201,7 +230,7 @@ async function start() {
     if (type !== 'notify') return;
     for (const msg of messages) {
       try {
-        await handleMessage(sock, msg);
+        await handleMessage(sock, gate, msg);
       } catch (e) {
         logger.error('[msg] chyba zpracování:', e);
       }
