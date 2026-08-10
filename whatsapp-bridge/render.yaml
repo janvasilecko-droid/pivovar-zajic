@@ -1,0 +1,26 @@
+# Render Blueprint (volitelné — dá se to naklikat i ručně, viz README)
+# Použití: Render → New → Blueprint → vybrat repo (soubor whatsapp-bridge/render.yaml)
+# Pozn.: free plán podporuje jen Web Services (ne Background Workery) — proto type: web_service.
+#        Aby free instance neusnula po 15 min, pinguj ji zvenčí každých ~5 min na /health
+#        (např. cron-job.org / UptimeRobot zdarma) — viz README sekce „Bezplatný plán“.
+services:
+  - type: web_service
+    name: whatsapp-bridge
+    runtime: docker
+    rootDir: whatsapp-bridge
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: WEBHOOK_URL
+        sync: false
+      - key: WEBHOOK_SECRET
+        sync: false
+      - key: ALLOWED_GROUPS
+        value: Objednávky pivovar
+      - key: ALLOWED_CONTACTS
+        value: Ala Milacek Milacek
