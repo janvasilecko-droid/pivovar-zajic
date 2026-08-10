@@ -38,6 +38,28 @@ function normText(s: string): string {
     .trim();
 }
 
+// Normalizace názvu odesílatele/skupiny: malá písmena, ořezané mezery, bez
+// diakritiky. "objednavky pivovar" == "Objednávky pivovar".
+function normName(s: string): string {
+  return (s || "").toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+// Kontrola čtení (readback): spočítá položky, jejichž raw_line (to, co AI tvrdí,
+// že přečetla) se v originálním textu zprávy nenašel. Číslo se ukládá do
+// readback_unmatched_count a v UI slouží pro ⚠ odznaky a filtry.
+function readbackUnmatchedCount(
+  items: Array<{ raw_line?: string | null }>,
+  messageText: string
+): number {
+  const text = normText(messageText || "");
+  if (!text) return 0;
+  return (items || []).filter((item) => {
+    const raw = normText(item.raw_line || "");
+    if (!raw || raw.length < 2) return false;
+    return !text.includes(raw);
+  }).length;
+}
+
 // ── Pomocné funkce pro fuzzy párování s databází aplikace ──────────────────
 function levenshtein(a: string, b: string): number {
   if (a === b) return 0;
@@ -492,6 +514,39 @@ function matchPlaceSafely(
   return { id: null, name: null };
 }
 
+// Bezpečný update zprávy: když se plný update nepovede (např. chybějící sloupec
+// v DB), zkusí se alespoň minimální update jen na status + error_message. Cíl:
+// zpráva NIKDY nesmí uvíznout ve stavu 'processing' (původní bug — tichý fail
+// update nechal zprávu viset navždy). fallbackStatus říká, kam zprávu vrátit,
+// když se plný update nepovede: "error" (viditelné, bez automatického retry)
+// nebo "pending" (zpráva se zkusí zpracovat znova).
+async function safeUpdateMessage(
+  supabase: any,
+  id: string,
+  patch: Record<string, unknown>,
+  fallbackStatus: "error" | "pending" = "error"
+): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await supabase
+    .from("whatsapp_incoming")
+    .update(patch)
+    .eq("id", id);
+  if (!error) return { ok: true };
+
+  console.error(`Update whatsapp_incoming ${id} selhal:`, error);
+  const { error: fallbackError } = await supabase
+    .from("whatsapp_incoming")
+    .update({
+      status: fallbackStatus,
+      error_message: `store-failed: ${error.message || "update failed"}`,
+    })
+    .eq("id", id);
+  if (fallbackError) {
+    console.error(`Fallback update ${id} selhal taky:`, fallbackError);
+    return { ok: false, error: error.message };
+  }
+  return { ok: false, error: error.message };
+}
+
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -580,39 +635,75 @@ Deno.serve(async (req: Request) => {
     const placeAliases = placeAliasRows || [];
 
     // Povolení odesílatelé (whitelist): pokud je seznam neprázdný, zpracujeme
-    // jen zprávy od povolených odesílatelů. Ostatní necháme ve stavu 'pending',
-    // aby si je uživatel mohl ručně načíst ze seznamu.
+    // jen zprávy ze skupiny „Objednávky pivovar“ — podle chat_id (primárně)
+    // nebo názvu skupiny (přechodně, dokud chat_id není zaregistrováno).
+    // Ostatní (a VŠECHNY vlastní zprávy z jiných zařízení, from_me) se označí
+    // 'ignored', aby neležely v aplikaci jako 'pending'.
     const { data: senderRows } = await supabase
       .from("whatsapp_senders")
-      .select("sender_name");
-    const allowedSenders = (senderRows || [])
-      .map((s: any) => (s.sender_name || "").trim().toLowerCase())
+      .select("sender_name, chat_id");
+    const allowedNames = (senderRows || [])
+      .map((s: any) => normName(s.sender_name))
       .filter(Boolean);
-    const isSenderAllowed = (name: string | null | undefined): boolean => {
-      if (allowedSenders.length === 0) return true;
-      return allowedSenders.includes((name || "").trim().toLowerCase());
+    const allowedChatIds = (senderRows || [])
+      .map((s: any) => (s.chat_id || "").trim().toLowerCase())
+      .filter(Boolean);
+    const chatIdConfigured = allowedChatIds.length > 0;
+    const isSenderAllowed = (message: any): boolean => {
+      // Vlastní zpráva → nikdy k AI (pojistka; webhook je už neukládá).
+      if (message.from_me === true) return false;
+      const chat = (message.chat_id || "").trim().toLowerCase();
+      if (chatIdConfigured) {
+        return chat !== "" && allowedChatIds.includes(chat);
+      }
+      return allowedNames.length === 0 || allowedNames.includes(normName(message.sender_name));
     };
 
     // Process each pending message
     const results = [];
     for (const message of pendingMessages) {
       try {
-        // Whitelist odesílatelů — nepovolené přeskočíme (zůstanou 'pending',
-        // aby si je uživatel mohl ručně načíst ze seznamu).
-        if (!isSenderAllowed(message.sender_name)) {
+        // Whitelist odesílatelů — do aplikace smí projít jen zprávy ze skupiny
+        // „Objednávky pivovar" (webhook jiné zprávy už ani neuloží). Starší
+        // zprávy od nepovolených odesílatelů označíme 'ignored', aby neležely
+        // v aplikaci jako 'pending' a nezvětšovaly počítadlo.
+        if (!isSenderAllowed(message)) {
+          const isOwn = message.from_me === true;
+          await safeUpdateMessage(
+            supabase,
+            message.id,
+            {
+              status: "ignored",
+              error_message: isOwn
+                ? "Vlastní zpráva (from_me) — nikdy se nezpracovává (prevence smyčky)"
+                : "Odesílatel není povolený (povolena je jen skupina Objednávky pivovar)",
+            },
+            "pending"
+          );
           results.push({
             id: message.id,
-            status: "skipped",
-            reason: "sender not allowed",
+            status: "ignored",
+            reason: isOwn ? "from_me" : "sender not allowed",
           });
           continue;
         }
 
-        // Mark as processing
-        await supabase
-          .from("whatsapp_incoming")
-          .update({ status: "processing" })
-          .eq("id", message.id);
+        // Mark as processing — když se to nepodaří, zpráva zůstane 'pending'
+        // a v této iteraci ji přeskočíme (zpracuje ji někdo příště).
+        const { ok: markOk, error: markError } = await safeUpdateMessage(
+          supabase,
+          message.id,
+          { status: "processing" },
+          "pending"
+        );
+        if (!markOk) {
+          results.push({ id: message.id, status: "error", error: markError });
+          continue;
+        }
+
+        // Do AI jde JEN poslední zpráva (jméno + text), žádná celá konverzace.
+        // Předchozí zprávy od stejného odesílatele se neposílají — AI má číst
+        // jen text aktuální objednávky, ne celý chat.
 
         // Call the existing parse-order-text edge function
         const parseUrl = `${supabaseUrl}/functions/v1/parse-order-text`;
@@ -624,13 +715,15 @@ Deno.serve(async (req: Request) => {
           places: places.map(p => p.name),
           aliases,
           placeAliases,
-          messages: [{
-            sender: message.sender_name,
-            date: message.message_timestamp ?
-                  new Date(message.message_timestamp).toISOString().split('T')[0] :
-                  null,
-            text: message.message_text
-          }]
+          messages: [
+            {
+              sender: message.sender_name,
+              date: message.message_timestamp ?
+                    new Date(message.message_timestamp).toISOString().split('T')[0] :
+                    null,
+              text: message.message_text
+            }
+          ]
         };
 
         const parseResponse = await fetch(parseUrl, {
@@ -649,14 +742,14 @@ Deno.serve(async (req: Request) => {
         const parseResult = await parseResponse.json();
 
         if (parseResult.error) {
-          // If AI parsing fails, mark as error
-          await supabase
-            .from("whatsapp_incoming")
-            .update({
-              status: "error",
-              error_message: parseResult.error
-            })
-            .eq("id", message.id);
+          // If AI parsing fails, mark as error (fallback 'pending', ať zpráva
+          // neuvízne v 'processing', kdyby selhal i tenhle update).
+          await safeUpdateMessage(
+            supabase,
+            message.id,
+            { status: "error", error_message: parseResult.error },
+            "pending"
+          );
 
           results.push({
             id: message.id,
@@ -809,19 +902,43 @@ Deno.serve(async (req: Request) => {
           raw_line: item.raw_line || null,
         }));
 
-        // Update message with parsed data
-        await supabase
-          .from("whatsapp_incoming")
-          .update({
+        // ✅ Zdroj objednávek je jediná WhatsApp skupina „Objednávky pivovar"
+        // (whitelist odesílatelů — webhook jiné zprávy neuloží). Všechny zprávy
+        // z ní jsou objednávky, takže se uloží jako 'parsed' a v aplikaci se
+        // zobrazí ke schválení — i když AI z textu nepřečetla žádnou položku
+        // (chybějící položky se doplní ručně v kontrolním modálu).
+
+        // Update message with parsed data — když se uložení nepovede (např.
+        // chybějící sloupec v DB), zpráva skončí ve stavu 'error' s popisem
+        // chyby a NIKDY neuvízne v 'processing' (původní tichý bug).
+        const { ok: storeOk, error: storeError } = await safeUpdateMessage(
+          supabase,
+          message.id,
+          {
             status: "parsed",
+            error_message: null, // smaže případnou starou chybu z minulého pokusu
             parsed_place_id: parsedPlaceId,
             parsed_place_name: parsedPlaceName,
             parsed_delivery_day: deliveryDay,
             parsed_delivery_date: deliveryDate,
             parsed_note: note,
+            parsed_raw_text: parseResult.raw_text || null,
             parsed_items: itemsForStorage,
-          })
-          .eq("id", message.id);
+            readback_unmatched_count: readbackUnmatchedCount(
+              itemsForStorage,
+              message.message_text
+            ),
+          },
+          "error"
+        );
+        if (!storeOk) {
+          results.push({
+            id: message.id,
+            status: "error",
+            error: storeError,
+          });
+          continue;
+        }
 
         results.push({
           id: message.id,
@@ -834,13 +951,15 @@ Deno.serve(async (req: Request) => {
       } catch (error: any) {
         console.error(`Error processing message ${message.id}:`, error);
 
-        await supabase
-          .from("whatsapp_incoming")
-          .update({
+        await safeUpdateMessage(
+          supabase,
+          message.id,
+          {
             status: "error",
             error_message: error.message || "Unknown processing error"
-          })
-          .eq("id", message.id);
+          },
+          "pending"
+        );
 
         results.push({
           id: message.id,
@@ -858,6 +977,7 @@ Deno.serve(async (req: Request) => {
         results,
         summary: {
           parsed: results.filter(r => r.status === "parsed").length,
+          ignored: results.filter(r => r.status === "ignored").length,
           skipped: results.filter(r => r.status === "skipped").length,
           error: results.filter(r => r.status === "error").length,
           total: results.length

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Modal } from './ui';
 import { PlaceCombobox } from './PlaceCombobox';
-import { supabase, supabaseAdmin, Beer, Package, Place } from '../lib/supabase';
+import { supabase, Beer, Package, Place } from '../lib/supabase';
 import { saveAlias, savePlaceAlias, getOrCreatePlace } from '../lib/orderParser';
 import { autoReserveTapIfNeeded, isTapMentioned, detectTapType } from '../lib/tapReservations';
 import { TapReservationModal } from './TapReservationModal';

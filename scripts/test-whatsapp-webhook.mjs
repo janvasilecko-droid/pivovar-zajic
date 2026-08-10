@@ -1,113 +1,145 @@
 #!/usr/bin/env node
 
 /**
- * Test script for WhatsApp webhook integration
- * Usage: node scripts/test-whatsapp-webhook.mjs
+ * Test WhatsApp webhooku — brána chat_id + from_me.
+ *
+ * Scénáře:
+ *   1) Nepovolený odesílatel (mimo skupinu)  → odpověď skipped (NEuloží se).
+ *   2) Vlastní zpráva (fromMe: true)         → odpověď skipped + from_me (NEuloží se).
+ *   3) Vlastní zpráva (from_me: true alias)  → odpověď skipped + from_me (NEuloží se).
+ *   4) Skupina + chatId                      → uloží se jako pending (pokud chat_id
+ *      odpovídá zaregistrovanému / není zaregistrováno); jinak skipped (chat_id_unknown).
+ *   5) Skupina bez chatId                    → uloží se (dokud není chat_id
+ *      zaregistrováno); jinak skipped (chat_id_missing).
+ *
+ * Použití: node scripts/test-whatsapp-webhook.mjs
+ * Potřebuje VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY a WEBHOOK_SECRET (volitelně) v .env.
  */
 
-try {
-  await import('dotenv/config');
-} catch {
-  // dotenv is optional — env vars can be provided from the shell instead
+import { readFileSync } from 'node:fs';
+
+// Načti .env přímo (dotenv není závislost projektu).
+function getEnvVar(name) {
+  const val = process.env[name];
+  if (val) return val;
+  try {
+    const env = readFileSync(new URL('../.env', import.meta.url), 'utf8');
+    const m = env.match(new RegExp(`^\\s*${name}\\s*=\\s*["']?([^"'\\r\\n]+)`, 'm'));
+    return m ? m[1].trim() : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co';
-const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key';
+const SUPABASE_URL = getEnvVar('VITE_SUPABASE_URL') || 'https://your-project.supabase.co';
+const SUPABASE_ANON_KEY = getEnvVar('VITE_SUPABASE_ANON_KEY') || 'your-anon-key';
+const WEBHOOK_SECRET = getEnvVar('WEBHOOK_SECRET') || ''; // viz scripts/set-webhook-secret.mjs
 
 const WEBHOOK_URL = `${SUPABASE_URL}/functions/v1/whatsapp-webhook`;
+const GROUP = 'Objednávky pivovar';
+const TEST_CHAT_ID = '120363000000000000@g.us'; // placeholder — skutečný chat_id přijde z logu webhooku
 
-// Test data - realistic WhatsApp order messages
-const testMessages = [
+const testCases = [
   {
-    sender: "Hospoda U Zajíce",
-    senderNumber: "+420123456789",
-    message: "Ahoj sládku, na čtvrtek potřebujeme:\n2x 12° světlý ležák 50l\n1x 13° jantar 30l\nDíky!",
-    timestamp: new Date().toISOString(),
-    webhookId: `test-${Date.now()}-1`,
+    name: '1) Nepovolený odesílatel',
+    payload: {
+      sender: 'Kynšperská beerbanda',
+      message: 'Ahoj, jen se zdravím, žádná objednávka',
+      timestamp: new Date().toISOString(),
+      webhookId: `tw-${Date.now()}-1`,
+    },
+    expectSkipped: true,
   },
   {
-    sender: "Restaurace Na Růžku",
-    senderNumber: "+420987654321",
-    message: "Dobrý den, objednávám na pondělí:\n3x 11° světlý 30l\n1x 13° jantar 50l\nProsím o dodání do 14:00",
-    timestamp: new Date().toISOString(),
-    webhookId: `test-${Date.now()}-2`,
+    name: '2) Vlastní zpráva (fromMe: true)',
+    payload: {
+      sender: GROUP,
+      message: 'Dobrý den, potvrzuji objednávku',
+      timestamp: new Date().toISOString(),
+      webhookId: `tw-${Date.now()}-2`,
+      fromMe: true,
+    },
+    expectSkipped: true,
+    expectFromMe: true,
   },
   {
-    sender: "Pivnice U Dvou Sudů",
-    senderNumber: "+420555666777",
-    message: "Na středu:\n1x 12° světlý 50l\n2x 13° jantar 30l\nPříjezd do 15:00",
-    timestamp: new Date().toISOString(),
-    webhookId: `test-${Date.now()}-3`,
+    name: '3) Vlastní zpráva (from_me: true alias)',
+    payload: {
+      sender: GROUP,
+      message: 'Dobrý den, potvrzuji objednávku',
+      timestamp: new Date().toISOString(),
+      webhookId: `tw-${Date.now()}-3`,
+      from_me: true,
+    },
+    expectSkipped: true,
+    expectFromMe: true,
+  },
+  {
+    name: '4) Skupina + chatId',
+    payload: {
+      sender: GROUP,
+      message: 'Ahoj sládku, na čtvrtek potřebujeme:\n2x 12° světlý ležák 50l\n1x 13° jantar 30l\nDíky!',
+      timestamp: new Date().toISOString(),
+      webhookId: `tw-${Date.now()}-4`,
+      chatId: TEST_CHAT_ID,
+    },
+    // Buď se uloží (chat_id nezaregistrován → přechodně podle názvu), nebo se
+    // zahodí (chat_id zaregistrován a tento testovací nesouhlasí). Obojí je OK.
+    expectSkipped: null,
+  },
+  {
+    name: '5) Skupina bez chatId',
+    payload: {
+      sender: GROUP,
+      message: 'Na středu prosím 1x 12° světlý 30l',
+      timestamp: new Date().toISOString(),
+      webhookId: `tw-${Date.now()}-5`,
+    },
+    // Uloží se (dokud není chat_id zaregistrováno), jinak skipped (chat_id_missing).
+    expectSkipped: null,
   },
 ];
 
-async function testWebhook(messageData) {
-  console.log(`\n📤 Sending test message from: ${messageData.sender}`);
-  console.log(`Message: ${messageData.message.substring(0, 50)}...`);
-  
-  try {
-    const response = await fetch(WEBHOOK_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-      },
-      body: JSON.stringify(messageData),
-    });
-    
-    const data = await response.json();
-    
-    console.log(`Status: ${response.status} ${response.statusText}`);
-    console.log('Response:', JSON.stringify(data, null, 2));
-    
-    return { success: response.ok, data };
-  } catch (error) {
-    console.error('Error:', error.message);
-    return { success: false, error: error.message };
-  }
+async function run(payload) {
+  const res = await fetch(WEBHOOK_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      ...(WEBHOOK_SECRET ? { 'x-webhook-token': WEBHOOK_SECRET } : {}),
+    },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  return { status: res.status, data };
 }
 
-async function main() {
-  console.log('🚀 Testing WhatsApp Webhook Integration');
-  console.log('========================================');
-  console.log(`Webhook URL: ${WEBHOOK_URL}`);
-  console.log(`Supabase URL: ${SUPABASE_URL}`);
-  
-  const results = [];
-  
-  for (const message of testMessages) {
-    const result = await testWebhook(message);
-    results.push(result);
-    
-    // Small delay between requests
-    await new Promise(resolve => setTimeout(resolve, 500));
-  }
-  
-  console.log('\n📊 Test Summary');
-  console.log('==============');
-  
-  const successful = results.filter(r => r.success).length;
-  const failed = results.filter(r => !r.success).length;
-  
-  console.log(`Total tests: ${results.length}`);
-  console.log(`Successful: ${successful}`);
-  console.log(`Failed: ${failed}`);
-  
-  if (failed > 0) {
-    console.log('\n❌ Some tests failed. Check the error messages above.');
-    process.exit(1);
+let failures = 0;
+const ok = (cond, msg) => {
+  console.log(`${cond ? '✅' : '❌'} ${msg}`);
+  if (!cond) failures++;
+};
+
+for (const tc of testCases) {
+  console.log(`\n--- ${tc.name} ---`);
+  console.log(`Payload: ${JSON.stringify(tc.payload, null, 2).slice(0, 300)}`);
+  const { status, data } = await run(tc.payload);
+  console.log(`Status: ${status}`);
+  console.log(`Odpověď: ${JSON.stringify(data)}`);
+
+  if (tc.expectSkipped === true) {
+    ok(data.skipped === true, 'očekáváno skipped:true');
+    if (tc.expectFromMe) ok(data.from_me === true, 'očekáváno from_me:true');
   } else {
-    console.log('\n✅ All tests passed! WhatsApp webhook integration is working.');
-    console.log('\n📝 Next steps:');
-    console.log('1. Set up AutoNotification + Tasker on your Android phone');
-    console.log('2. Create a Make.com scenario with the webhook trigger');
-    console.log('3. Map AutoNotification data to the webhook payload');
-    console.log('4. Test with real WhatsApp messages');
+    // Skupinové zprávy: obě varianty jsou v pořádku (záleží na zaregistrovaném chat_id).
+    ok(
+      (data.skipped === true && (data.chat_id_unknown || data.chat_id_missing)) ||
+        (data.id && data.status === 'pending'),
+      'uloženo (pending) NEBO zahazeno s důvodem chat_id (závisí na zaregistrovaném chat_id)'
+    );
   }
+  await new Promise((r) => setTimeout(r, 300));
 }
 
-// Run the tests
-main().catch(error => {
-  console.error('Unhandled error:', error);
-  process.exit(1);
-});
+console.log(failures === 0 ? '\nHOTOVO ✓' : `\nSELHÁNÍ (${failures} chyb)`);
+process.exit(failures === 0 ? 0 : 1);

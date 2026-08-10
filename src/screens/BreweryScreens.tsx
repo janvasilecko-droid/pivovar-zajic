@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase, Beer, useRealtime } from '../lib/supabase';
 import { Spinner, EmptyState, Field } from '../components/ui';
-import { CheckSquare, Plus, FileText, FlaskConical, Calculator, Cylinder, Flame } from 'lucide-react';
+import { CheckSquare, Plus, FileText, FlaskConical, Calculator, Cylinder, Flame, Wheat } from 'lucide-react';
 
 type SrotovaniRow = {
   id?: string;
@@ -258,7 +258,7 @@ export function ChecklistsScreen() {
 // ==========================================
 
 export function ConcentrationScreen() {
-  const [activeTab, setActiveTab] = useState<'keg_calc' | 'chem_calc' | 'energy_calc' | 'units_calc'>('keg_calc');
+  const [activeTab, setActiveTab] = useState<'keg_calc' | 'srot_calc' | 'chem_calc' | 'energy_calc' | 'units_calc'>('keg_calc');
 
   // --- Helper Stepper Input Component ---
   function NumberStepper({
@@ -355,6 +355,26 @@ export function ConcentrationScreen() {
   const auto30Count = Math.floor(remainingFor30 / 30);
   const remFinalFix50 = remainingFor30 - auto30Count * 30;
   const totalHlFix50 = ((custom50Count * 50 + auto30Count * 30) / 100).toFixed(2);
+
+  // --- 2. ŠROTOVÁNÍ (plán šrotování: pivo → kg sladu → pytle 25 kg) ---
+  const [beers, setBeers] = useState<Beer[]>([]);
+  const [srotRows, setSrotRows] = useState<{ beerId: string; kg: string }[]>(
+    Array.from({ length: 4 }, () => ({ beerId: '', kg: '' }))
+  );
+
+  useEffect(() => {
+    supabase
+      .from('beers')
+      .select('*')
+      .eq('is_active', true)
+      .order('sort_order')
+      .then(({ data }) => setBeers((data as Beer[]) ?? []));
+  }, []);
+
+  const srotTotalKg = srotRows.reduce((sum, r) => sum + (Number(r.kg) || 0), 0);
+  const srotTotalBags = Math.ceil(srotTotalKg / 25);
+  const setSrotRow = (i: number, patch: Partial<{ beerId: string; kg: string }>) =>
+    setSrotRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
 
   // --- 3. Sanitační chemie ---
   const [chemType, setChemType] = useState<'louh' | 'persteril' | 'dusicna' | 'chlornan'>('louh');
@@ -462,6 +482,18 @@ export function ConcentrationScreen() {
         >
           <Cylinder size={16} />
           <span>Dotáčení KEG sudů</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('srot_calc')}
+          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
+            activeTab === 'srot_calc'
+              ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+          }`}
+        >
+          <Wheat size={16} />
+          <span>Šrotování sladu</span>
         </button>
 
         <button
@@ -592,6 +624,73 @@ export function ConcentrationScreen() {
                 <div>• {mix2_50}× 50L + {mix2_30}× 30L</div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: ŠROTOVÁNÍ SLADU */}
+      {activeTab === 'srot_calc' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 card p-6 bg-white border border-neutral-200 rounded-3xl space-y-4 shadow-sm">
+            <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
+              <Wheat className="text-amber-600" size={20} />
+              <span>Plán šrotování — kolik sladu se šrotuje</span>
+            </h3>
+
+            <div className="grid grid-cols-[1fr_auto_auto] items-center gap-3 px-1 text-[10px] font-black uppercase tracking-widest text-neutral-400">
+              <span>Pivo</span>
+              <span className="w-36 text-center">Slad (kg)</span>
+              <span className="w-24 text-center">Pytlů 25 kg</span>
+            </div>
+
+            {srotRows.map((row, i) => {
+              const kg = Number(row.kg) || 0;
+              const bags = kg > 0 ? Math.ceil(kg / 25) : 0;
+              return (
+                <div key={i} className="grid grid-cols-[1fr_auto_auto] items-center gap-3">
+                  <select
+                    className="input font-bold text-sm"
+                    value={row.beerId}
+                    onChange={(e) => setSrotRow(i, { beerId: e.target.value })}
+                  >
+                    <option value="">— vyber pivo —</option>
+                    {beers.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="w-36">
+                    <NumberStepper value={row.kg} onChange={(v) => setSrotRow(i, { kg: v })} step={5} min={0} />
+                  </div>
+                  <div className="w-24 text-center font-mono font-black text-sm bg-neutral-100 border border-neutral-200 rounded-xl py-2">
+                    {bags}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="card p-6 bg-gradient-to-br from-amber-500/15 to-white border-2 border-amber-300 rounded-3xl space-y-4 shadow-md h-fit">
+            <h3 className="font-display font-black text-lg text-amber-950 flex items-center gap-2">
+              <span>🌾 Celkem na šrotování</span>
+            </h3>
+
+            <div className="p-4 rounded-2xl bg-neutral-900 text-white">
+              <div className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Slad celkem</div>
+              <div className="text-3xl font-mono font-black text-amber-400 mt-1">{srotTotalKg.toFixed(0)} kg</div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-white border border-amber-200 font-mono text-xs">
+              <div className="flex justify-between">
+                <span className="font-bold text-neutral-500">Pytle 25 kg:</span>
+                <span className="font-black text-amber-950">{srotTotalBags} ks</span>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-neutral-500 font-medium leading-relaxed">
+              Kolik sladu se našrotuje pro danou várku. Počet pytlů 25 kg se zaokrouhluje nahoru.
+            </p>
           </div>
         </div>
       )}

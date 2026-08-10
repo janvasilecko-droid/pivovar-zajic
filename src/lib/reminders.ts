@@ -11,6 +11,7 @@ export type ReminderItem = {
   note?: string;
   date_time: string; // ISO string: YYYY-MM-DDTHH:mm
   target_role: ReminderTarget; // 'all' | 'admin' | 'sef' | 'sladek' | 'vyroba' | 'obchod' | email
+  target_emails?: string[]; // konkrétní e-maily příjemců (prázdné = cílí se podle target_role)
   display_mode: ReminderDisplayMode; // 'desktop_push' | 'login_modal' | 'both'
   created_by: string; // user email / name
   created_at: string;
@@ -47,6 +48,7 @@ export async function fetchReminders(): Promise<ReminderItem[]> {
       note: r.note || undefined,
       date_time: r.date_time,
       target_role: r.target_role || 'all',
+      target_emails: normalizeTargetEmails(r.target_emails),
       display_mode: r.display_mode || 'both',
       created_by: r.created_by || 'Systém',
       created_at: r.created_at,
@@ -79,6 +81,7 @@ export async function createReminder(reminder: Omit<ReminderItem, 'id' | 'create
       note: newR.note,
       date_time: newR.date_time,
       target_role: newR.target_role,
+      target_emails: newR.target_emails ?? [],
       display_mode: newR.display_mode,
       created_by: newR.created_by,
       created_at: newR.created_at,
@@ -120,11 +123,33 @@ export async function deleteReminder(reminderId: string): Promise<void> {
   } catch {}
 }
 
+/**
+ * Normalizuje target_emails na pole e-mailů (malými písmeny, bez mezer).
+ * Přijímá pole z DB i starší záznamy z localStorage (řetězec čárkami oddělený).
+ */
+export function normalizeTargetEmails(value: unknown): string[] {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value.map((e) => String(e).toLowerCase().trim()).filter(Boolean);
+  }
+  return String(value)
+    .split(/[,;\s]+/)
+    .map((e) => e.toLowerCase().trim())
+    .filter(Boolean);
+}
+
 export function isReminderForUser(reminder: ReminderItem, userEmail: string, userRole: string): boolean {
+  const emailNorm = userEmail.toLowerCase().trim();
+
+  // 1) Konkrétní e-maily mají přednost — zobrazí se jen vybraným uživatelům.
+  const emails = normalizeTargetEmails(reminder.target_emails);
+  if (emails.length > 0) {
+    return emails.includes(emailNorm);
+  }
+
   const target = (reminder.target_role || 'all').toLowerCase();
   if (target === 'all') return true;
 
-  const emailNorm = userEmail.toLowerCase().trim();
   const roleNorm = userRole.toLowerCase().trim();
 
   if (target === emailNorm) return true;

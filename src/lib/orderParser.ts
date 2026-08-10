@@ -1346,8 +1346,8 @@ const NOTE_PATTERNS: { re: RegExp; label: string | ((m: RegExpMatchArray) => str
 
   // 🥛 SKLO — do poznámky jen když je to skutečný požadavek (např. "přidat/ještě/a sklo"),
   // ne samostatné vágní slovo "sklo"/"sklo?" (což AI z fotky zapisuje omylem).
-  { re: /\bsklenic[eí]?\b|(?:pridat\s+|je[sš][tíe]\s+|a\s+|i\s+)sklo\b/i, label: 'sklo' },
-  { re: /(?:pridat\s+|je[sš][tíe]\s+|a\s+|i\s+)podtack[y]?\b|\bpodtacek\b/i, label: 'podtácky' },
+  { re: /\bsklenic[eí]?\b|(?:pridat\s+|je[sš]t[íěe]?\s+|a\s+|i\s+)sklo\b/i, label: 'sklo' },
+  { re: /(?:pridat\s+|je[sš]t[íěe]?\s+|a\s+|i\s+)podt[aá]ck[y]?\b|\bpodt[aá]c[eě]k\b/i, label: 'podtácky' },
   { re: /\bzavoz\s+(v[e]?\s+)?(pondeli|utery|stredu|ctvrtek|patek|sobotu|nedeli|\d{1,2}\.\d{1,2}\.)(\s+v\s+\d{1,2}(:\d{2})?\s*(h|hod)?)?/i, label: (m) => m[0] },
   { re: /\bdodat\s+(v[e]?\s+)?(pondeli|utery|stredu|ctvrtek|patek|sobotu|nedeli|\d{1,2}\.\d{1,2}\.)(\s+v\s+\d{1,2}(:\d{2})?\s*(h|hod)?)?/i, label: (m) => m[0] },
   { re: /\b(cas|hodin[a]|v)\s+\d{1,2}(:\d{2})?\s*(h|hod)?\b/i, label: (m) => m[0] },
@@ -1643,17 +1643,17 @@ export async function getOrCreatePlace(name: string, places: Place[] = []): Prom
   const existingInMemory = places.find((p) => norm(p.name) === qNorm);
   if (existingInMemory) return existingInMemory;
 
-  // 2. Pokus se vložit přes admin klienta
+  // 2. Pokus se vložit přes běžného klienta (RLS povoluje přihlášeným uživatelům)
   try {
-    const { supabaseAdmin } = await import('./supabase');
-    const { data: newPlace, error } = await supabaseAdmin.from('places').insert({ name: trimmed }).select().single();
+    const { supabase } = await import('./supabase');
+    const { data: newPlace, error } = await supabase.from('places').insert({ name: trimmed }).select().single();
     if (!error && newPlace) return newPlace as Place;
   } catch {}
 
   // 3. Záložní řešení: Načti všechny odběratele z DB a spáruj bez diakritiky
   try {
-    const { supabaseAdmin } = await import('./supabase');
-    const { data: dbPlaces } = await supabaseAdmin.from('places').select('*');
+    const { supabase } = await import('./supabase');
+    const { data: dbPlaces } = await supabase.from('places').select('*');
     if (dbPlaces && dbPlaces.length > 0) {
       const dbMatch = dbPlaces.find((p) => norm(p.name) === qNorm) || dbPlaces.find((p) => p.name.toLowerCase() === trimmed.toLowerCase());
       if (dbMatch) return dbMatch as Place;

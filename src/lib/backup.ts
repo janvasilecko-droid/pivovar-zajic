@@ -15,6 +15,7 @@ export interface DatabaseBackup {
     cellar_batches: any[];
     bottling: any[];
     kegging: any[];
+    keg_prefuk: any[];
     fasovani: any[];
     fasovani_private: any[];
     writeoffs: any[];
@@ -27,7 +28,7 @@ export interface DatabaseBackup {
 export async function createFullBackup(): Promise<DatabaseBackup> {
   const tables = [
     'beers', 'packages', 'places', 'price_list', 'orders', 'order_items',
-    'cellar_tanks', 'cellar_batches', 'bottling', 'kegging', 'fasovani',
+    'cellar_tanks', 'cellar_batches', 'bottling', 'kegging', 'keg_prefuk', 'fasovani',
     'fasovani_private', 'writeoffs', 'inventory', 'akce', 'akce_items'
   ];
 

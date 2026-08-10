@@ -24,12 +24,32 @@ Deno.serve(async (req: Request) => {
     });
     const { data: userData, error: userErr } = await userClient.auth.getUser();
     if (userErr || !userData.user) return json({ error: "Nejste přihlášen." }, 401);
-    const { data: profile } = await userClient.from("profiles").select("role").eq("id", userData.user.id).maybeSingle();
-    if (profile?.role !== "admin") return json({ error: "Pouze admin může spravovat uživatele." }, 403);
 
     const adminClient = createClient(supabaseUrl, serviceKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
+
+    // Adresář uživatelů (jen čtení) — dostupný VŠEM přihlášeným uživatelům.
+    // Používá se ve výběru příjemců upozornění („poslat zprávu konkrétním lidem").
+    if (req.method === "GET" && path === "directory") {
+      const { data, error } = await adminClient.auth.admin.listUsers();
+      if (error) return json({ error: error.message }, 500);
+      const { data: profiles } = await adminClient.from("profiles").select("id, display_name, role");
+      const profMap = new Map((profiles ?? []).map((p: any) => [p.id, p]));
+      const users = (data?.users ?? []).map((u: any) => {
+        const prof = profMap.get(u.id) || {};
+        return {
+          id: u.id,
+          email: u.email,
+          display_name: prof.display_name ?? null,
+          role: prof.role ?? "user",
+        };
+      });
+      return json({ users });
+    }
+
+    const { data: profile } = await userClient.from("profiles").select("role").eq("id", userData.user.id).maybeSingle();
+    if (profile?.role !== "admin") return json({ error: "Pouze admin může spravovat uživatele." }, 403);
 
     if (req.method === "GET" && path === "") {
       const { data, error } = await adminClient.auth.admin.listUsers();

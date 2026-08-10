@@ -3,7 +3,7 @@ import {
   FilePlus, ClipboardList, Wine, Cylinder, Sparkles, TrendingDown, Store, FileText,
   ClipboardCheck, BarChart3, History as HistoryIcon, Snowflake,
   CalendarDays, Car, Tag, ShieldCheck, PlusCircle, Settings, Calculator,
-  LogOut, Menu, Download, Wheat, FlaskConical, Shield, Bell, BellOff, X, ArrowRight, Search, Smartphone, MessageCircle, Users, type LucideIcon,
+  LogOut, Menu, Download, Wheat, FlaskConical, Shield, Bell, BellOff, X, ArrowRight, Search, Smartphone, MessageCircle, Users, GlassWater, type LucideIcon,
 } from 'lucide-react';
 
 import { useAuth } from '../lib/auth';
@@ -13,7 +13,7 @@ import { supabase, Beer, Package, Place } from '../lib/supabase';
 import { EditOrderModal } from './EditOrderModal';
 import { autoReserveTapIfNeeded } from '../lib/tapReservations';
 import { requestNotificationPermission, getNotificationPermission, notifyNewOrder, notifyNewWhatsAppMessage, NewOrderNotifyData } from '../lib/notifications';
-import { subscribeToWhatsAppMessages, fetchWhatsAppSenders, fetchPendingWhatsAppCount, isSenderAllowed, type WhatsAppSender, type WhatsAppIncoming } from '../lib/whatsappApi';
+import { subscribeToWhatsAppMessages, fetchWhatsAppSenders, fetchPendingWhatsAppCount, isSenderAllowed, triggerAutoParse, type WhatsAppSender, type WhatsAppIncoming } from '../lib/whatsappApi';
 import { getDensity, setDensity, DensityMode } from '../lib/density';
 import { canUserView, getUserPermissions, ModuleKey } from '../lib/permissions';
 import { QuickSearchModal } from './QuickSearchModal';
@@ -32,18 +32,19 @@ export const NAV: NavItem[] = [
   { id: 'orders', label: 'Objednávky', icon: ClipboardList, group: 'Výroba' },
   { id: 'fasovani', label: 'Personál', icon: Users, group: 'Výroba' },
   { id: 'prodejna', label: 'Prodejna', icon: Store, group: 'Výroba' },
-  { id: 'writeoffs', label: 'Odpis, Promo, Sklo, Podtáčky', icon: TrendingDown, group: 'Výroba' },
+  { id: 'writeoffs', label: 'Odpis', icon: TrendingDown, group: 'Výroba' },
   { id: 'akce', label: 'Akce, Exkurze', icon: Sparkles, group: 'Výroba' },
 
   // --- PIVOVAR ---
   { id: 'dashboard', label: 'Sklad', icon: BarChart3, group: 'Pivovar' },
+  { id: 'sklo_promo', label: 'Sklo, Etikety, Podtáčky', icon: GlassWater, group: 'Pivovar' },
   { id: 'cellar', label: 'Sklep', icon: Snowflake, group: 'Pivovar' },
   { id: 'inventory', label: 'Inventura', icon: ClipboardCheck, group: 'Pivovar' },
   { id: 'history', label: 'Statistika', icon: HistoryIcon, group: 'Pivovar' },
 
   // --- NÁSTROJE ---
   { id: 'concentration', label: 'Kalkulačky', icon: FlaskConical, group: 'Nástroje' },
-  { id: 'calendar', label: 'Kalendář & Poznámky', icon: CalendarDays, group: 'Kalendář & Poznámky' },
+  { id: 'calendar', label: 'Kalendář & Upozornění', icon: CalendarDays, group: 'Nástroje' },
   { id: 'haccp', label: 'Sanitační postupy', icon: Shield, group: 'Nástroje' },
   { id: 'vehicles', label: 'Auta', icon: Car, group: 'Nástroje' },
 
@@ -159,8 +160,9 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
     app_settings: 'app_settings',
     exkurze: 'exkurze',
     akce: 'akce',
-    calendar: 'catalogs',
+    calendar: 'reminders',
     feedback: 'catalogs',
+    reminders: 'reminders',
   };
 
   const userPerms = getUserPermissions(user?.id ?? '', (profile as any)?.permissions);
@@ -271,6 +273,8 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
     const notifiedIds = new Set<string>();
+    // ⚠ zprávy, na které už jednou přišla notifikace „pozor na čtení" (po rozparsování).
+    const mismatchAlerted = new Set<string>();
     let countTimer: ReturnType<typeof setTimeout> | undefined;
     // Počet zpráv čekajících na schválení — aktualizuje se při každé změně
     // whatsapp_incoming (INSERT i UPDATE), s krátkým zpožděním (sráží víc událostí).
@@ -285,14 +289,60 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
       unsubscribe = subscribeToWhatsAppMessages((message: WhatsAppIncoming) => {
         refreshPendingCount();
         if (message.status !== 'pending' && message.status !== 'processing' && message.status !== 'parsed') return;
-        if (notifiedIds.has(message.id)) return;
-        notifiedIds.add(message.id);
         // Whitelist — prázdný seznam = vše; jinak jen zprávy od povolených odesílatelů.
         if (!isSenderAllowed(allowedSendersRef.current, message.sender_name)) return;
+
+        // Čerstvě přijatá zpráva (pending/processing) — webhook ukládá JEN zprávy
+        // ze skupiny „Objednávky pivovar" (whitelist odesílatelů), takže každá
+        // uložená zpráva je potenciální objednávka. Necháme ji rozparsovat a
+        // notifikaci pošleme až ve stavu 'parsed'.
+        if (message.status === 'pending' || message.status === 'processing') {
+          triggerAutoParse().catch(() => {});
+          return;
+        }
+
+        // status === 'parsed' — AI zprávu přečetla. Všechny zprávy ze skupiny
+        // jsou objednávky, takže se notifikuje každá (včetně zpráv bez položek,
+        // které se doobjednají ručně v kontrolním modálu).
+
         // Na stránce Objednávky otevírá Orders.tsx sám kontrolní modál — banner potlačíme,
         // ale zvuk a systémovou notifikaci necháme (funguje i když je aplikace na pozadí).
         const onOrdersVisible = pageRef.current === 'orders' && typeof document !== 'undefined' && document.visibilityState === 'visible';
-        notifyNewWhatsAppMessage(message, { banner: !onOrdersVisible });
+        const mismatch = Number(message.readback_unmatched_count) || 0;
+
+        // ⚠ Druhá notifikace po rozparsování, když AI nemá jisté čtení.
+        if (mismatch > 0) {
+          if (mismatchAlerted.has(message.id)) return;
+          mismatchAlerted.add(message.id);
+          notifiedIds.add(message.id);
+          notifyNewWhatsAppMessage(
+            {
+              id: message.id,
+              sender_name: message.sender_name,
+              message_text: message.message_text,
+              status: message.status,
+              created_at: message.created_at,
+              readbackUnmatchedCount: mismatch,
+            },
+            { banner: !onOrdersVisible }
+          );
+          return;
+        }
+
+        // Standardní notifikace o nové objednávce (jen jednou na zprávu).
+        if (notifiedIds.has(message.id)) return;
+        notifiedIds.add(message.id);
+        notifyNewWhatsAppMessage(
+          {
+            id: message.id,
+            sender_name: message.sender_name,
+            message_text: message.message_text,
+            status: message.status,
+            created_at: message.created_at,
+            readbackUnmatchedCount: 0,
+          },
+          { banner: !onOrdersVisible }
+        );
       });
     } catch (error) {
       console.error('Chyba při připojení k WhatsApp notifikacím:', error);
@@ -445,7 +495,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                   <div className="px-3 text-[10px] font-black uppercase tracking-widest text-amber-900/60 mb-1.5">{group}</div>
                   {groupItems.map((item) => {
                     const Icon = item.icon;
-                    const isActive = page === item.id || (item.id === 'writeoffs' && page === 'sklo_promo');
+                    const isActive = page === item.id;
                     return (
                       <button
                         key={item.id}

@@ -1,5 +1,21 @@
 import { describe, it, expect } from 'vitest';
-import { parseGeminiItems, matchPlaceFromText, detectOrderDupWarnings, placesMatch, type GeminiItem, type ParsedLine, type ImportedOrder } from './orderParser';
+import {
+  normalize,
+  emptyAliasMap,
+  matchBeerFromHints,
+  matchPackage,
+  parseOrderText,
+  parseFreeTextEntries,
+  detectOrderNotes,
+  parseGeminiItems,
+  matchPlaceFromText,
+  detectOrderDupWarnings,
+  placesMatch,
+  type GeminiItem,
+  type ParsedLine,
+  type ImportedOrder,
+  type ParserAliasMap,
+} from './orderParser';
 import type { Beer, Package, Place } from './supabase';
 
 const beers: Beer[] = [
@@ -160,5 +176,187 @@ describe('detectOrderDupWarnings — duplicitní odběratel napříč fotkami', 
     const lines = [makeLine({ raw: '4x30 10sv', beer_id: 'b-desitka', package_id: 'keg30', quantity: 4 })];
     const warnings = detectOrderDupWarnings(lines, [prevOrder], 'Kiosek');
     expect(warnings.map((w) => w.place)).toEqual(['Kiosek']);
+  });
+});
+describe('normalize', () => {
+  it('převede na malá písmena a odstraní diakritiku', () => {
+    expect(normalize('Maléšice 12sv')).toBe('malesice 12sv');
+    expect(normalize('Výčepní Jantar 13°')).toBe('vycepni jantar 13°');
+  });
+
+  it('sjednotí více mezer a zbaví se nadbytečné interpunkce', () => {
+    expect(normalize('  2x50  KEG  12sv ')).toBe('2x50 keg 12sv');
+    expect(normalize('Desítka, 2x50!')).toBe('desitka, 2x50');
+  });
+
+  it('zachová číslo, čárku, tečku a stupeň potřebné pro objemy', () => {
+    expect(normalize('3x1,5l PET')).toBe('3x1,5l pet');
+    expect(normalize('0.33 lahve')).toBe('0.33 lahve');
+  });
+});
+
+describe('matchBeerFromHints', () => {
+  const aliases = (): ParserAliasMap => emptyAliasMap();
+
+  it('najde pivo podle přesného názvu i short_name', () => {
+    expect(matchBeerFromHints('desitka 3x30', beers, aliases()).beer?.id).toBe('b-desitka');
+    expect(matchBeerFromHints('jant 2x50', beers, aliases()).beer?.id).toBe('b-jantar');
+  });
+
+  it('najde pivo podle stupně a barvy', () => {
+    expect(matchBeerFromHints('10sv 3x30', beers, aliases()).beer?.id).toBe('b-desitka');
+    expect(matchBeerFromHints('13 3x30', beers, aliases()).beer?.id).toBe('b-jantar');
+    expect(matchBeerFromHints('tmave', beers, aliases()).beer?.id).toBe('b-jantar');
+  });
+
+  it('rozpozná načtený alias (učený z předchozích importů)', () => {
+    const a = aliases();
+    a.beer.set('fialova dvanactka', 'b-jantar');
+    expect(matchBeerFromHints('fialova dvanactka 2x30', beers, a).beer?.id).toBe('b-jantar');
+    expect(matchBeerFromHints('fialova dvanactka 2x30', beers, a).alias).toBe('fialova dvanactka');
+  });
+
+  it('přibližně spáruje překlep v názvu piva', () => {
+    const r = matchBeerFromHints('desitko 3x30', beers, aliases());
+    expect(r.beer?.id).toBe('b-desitka');
+  });
+
+  it('vrátí null, když text neodpovídá žádnému pivu', () => {
+    expect(matchBeerFromHints('neznama vec', beers, aliases()).beer).toBeNull();
+  });
+});
+
+describe('matchPackage', () => {
+  const aliases = (): ParserAliasMap => emptyAliasMap();
+
+  it('najde KEG podle objemu a slov „keg“ / „sud“', () => {
+    expect(matchPackage('keg 50l', packages, aliases())?.id).toBe('keg50');
+    expect(matchPackage('sud 30', packages, aliases())?.id).toBe('keg30');
+    expect(matchPackage('sud 20', packages, aliases())?.id).toBe('keg20');
+  });
+
+  it('najde PET a lahve podle objemu', () => {
+    expect(matchPackage('pet 1,5', packages, aliases())?.id).toBe('pet15');
+    expect(matchPackage('1l pet', packages, aliases())?.id).toBe('pet1');
+    expect(matchPackage('lahve 0.5', packages, aliases())?.id).toBe('lahve05');
+    expect(matchPackage('0,33 tretinka', packages, aliases())?.id).toBe('lahve033');
+  });
+
+  it('najde obal podle načteného aliasu', () => {
+    const a = aliases();
+    a.package.set('velka flasa', 'pet15');
+    expect(matchPackage('velka flasa 2x', packages, a)?.id).toBe('pet15');
+  });
+
+  it('vrátí null pro neznámý obal', () => {
+    expect(matchPackage('neznama vec', packages, aliases())).toBeNull();
+  });
+});
+
+
+describe('parseFreeTextEntries', () => {
+  it('rozparsuje „3x30 desitka“ na jednu položku s vysokou jistotou', () => {
+    const [line] = parseFreeTextEntries('3x30 desitka', beers, packages);
+    expect(line.quantity).toBe(3);
+    expect(line.beer_id).toBe('b-desitka');
+    expect(line.package_id).toBe('keg30');
+    expect(line.confidence).toBe('high');
+  });
+
+  it('spáruje stupeň a barvu piva s objemem sudu', () => {
+    const [line] = parseFreeTextEntries('2x50 10sv', beers, packages);
+    expect(line.quantity).toBe(2);
+    expect(line.beer_id).toBe('b-desitka');
+    expect(line.package_id).toBe('keg50');
+  });
+
+  it('oddělí položky na „ a “ mezi množstvími', () => {
+    const lines = parseFreeTextEntries('2x50 10sv a 3x30 13', beers, packages);
+    expect(lines).toHaveLength(2);
+    expect(lines[0].beer_id).toBe('b-desitka');
+    expect(lines[1].beer_id).toBe('b-jantar');
+    expect(lines[1].package_id).toBe('keg30');
+  });
+
+  it('slovně zapsané množství „pet desitek“ = 5 ks Desítky', () => {
+    const [line] = parseFreeTextEntries('pet desitek', beers, packages);
+    expect(line.quantity).toBe(5);
+    expect(line.beer_id).toBe('b-desitka');
+  });
+
+  it('bedny lahví přepočítá na kusy (1 bedna = 20 ks 0.33l)', () => {
+    const [line] = parseFreeTextEntries('2 bedny lahvi', beers, packages);
+    expect(line.quantity).toBe(40);
+    expect(line.package_id).toBe('lahve033');
+  });
+
+  it('PET bez objemu výchozí na 1 l', () => {
+    const [line] = parseFreeTextEntries('3x pet', beers, packages);
+    expect(line.package_id).toBe('pet1');
+    expect(line.quantity).toBe(3);
+  });
+
+  it('položka bez piva má jistotu low a issue pivo', () => {
+    const [line] = parseFreeTextEntries('5x1.5 pet', beers, packages);
+    expect(line.quantity).toBe(5);
+    expect(line.package_id).toBe('pet15');
+    expect(line.confidence).toBe('low');
+    expect(line.issues).toContain('pivo');
+  });
+});
+
+describe('parseOrderText', () => {
+  it('„vse 10“ na konci objednávky přiřadí stupeň všem položkám', () => {
+    const lines = parseOrderText('malenovice\n7x30 2x10 1x20\nvse 10', beers, packages);
+    expect(lines).toHaveLength(3);
+    expect(lines.map((l) => l.quantity)).toEqual([7, 2, 1]);
+    expect(lines.map((l) => l.package_id)).toEqual(['keg30', 'keg10', 'keg20']);
+    expect(lines.every((l) => l.beer_id === 'b-desitka')).toBe(true);
+    expect(lines.every((l) => l.confidence === 'high')).toBe(true);
+  });
+
+  it('stupeň na začátku řádku platí pro všechny položky na řádku', () => {
+    const lines = parseOrderText('10sv 3x30 2x20', beers, packages);
+    expect(lines).toHaveLength(2);
+    expect(lines.map((l) => l.beer_id)).toEqual(['b-desitka', 'b-desitka']);
+    expect(lines.map((l) => l.package_id)).toEqual(['keg30', 'keg20']);
+  });
+
+  it('nededuplikuje stejné položky na jednom řádku („3x30 3x30“)', () => {
+    const lines = parseOrderText('3x30 3x30', beers, packages);
+    expect(lines).toHaveLength(2);
+    expect(lines.map((l) => l.quantity)).toEqual([3, 3]);
+    expect(lines.map((l) => l.package_id)).toEqual(['keg30', 'keg30']);
+  });
+
+  it('řádek bez čísel (pouze název odběratele) nevyrobí položku', () => {
+    const lines = parseOrderText('Malenovice\n', beers, packages);
+    expect(lines).toHaveLength(0);
+  });
+});
+
+describe('detectOrderNotes', () => {
+  it('rozpozná požadavek na závozy', () => {
+    expect(detectOrderNotes('2x50 desitka, zavoz v patek')).toBe('zavoz v patek');
+    expect(detectOrderNotes('prosim zavoz v sobotu')).toBe('zavoz v sobotu');
+  });
+
+  it('rozpozná „bez etiket“, sklo a zaplaceno', () => {
+    expect(detectOrderNotes('prosim bez etiket')).toBe('bez etikety');
+    expect(detectOrderNotes('potrebuji jeste sklo')).toBe('sklo');
+    expect(detectOrderNotes('platba predem, zaplaceno')).toBe('zaplaceno');
+  });
+
+  it('rozpozná „sklo“/„podtácky“ i s diakritikou („ještě“)', () => {
+    expect(detectOrderNotes('ještě sklo')).toBe('sklo');
+    expect(detectOrderNotes('jestě podtácky')).toBe('podtácky');
+  });
+
+  it('spojí více poznámek čárkou', () => {
+    expect(detectOrderNotes('2x50 10sv, zavoz v utery, faktura')).toBe('zavoz v utery, faktura');
+  });
+
+  it('vrátí prázdný řetězec, když žádná poznámka není', () => {
+    expect(detectOrderNotes('2x50 12sv desitka')).toBe('');
   });
 });

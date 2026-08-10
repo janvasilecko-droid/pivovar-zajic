@@ -56,7 +56,7 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
     { id: 'orders', title: 'Objednávky', icon: Calendar, subtitle: 'Zadávání a přehled objednávek hospod a prodejen' },
     { id: 'zavoz', title: 'Závoz a Trasy řidičů', icon: MapPin, subtitle: 'Plánování závozu a rozvozu piva' },
     { id: 'prodejna', title: 'Prodejna pivovaru', icon: Building, subtitle: 'Zápis prodeje na prodejně' },
-    { id: 'sklo_promo', title: 'Sklo, Etikety, Podtáčky (Odpis)', icon: Sparkles, subtitle: 'Evidence skla, podtáčků, etiket a prázdných lahví' },
+    { id: 'sklo_promo', title: 'Sklo, Etikety, Podtáčky', icon: Sparkles, subtitle: 'Evidence skla, podtáčků, etiket a prázdných lahví' },
     { id: 'vycepy', title: 'Výčepy a Rezervace', icon: Sparkles, subtitle: 'Sanitace výčepů a rezervace zařízení' },
     { id: 'exkurze', title: 'Exkurze pivovaru', icon: Building, subtitle: 'Rezervace prohlídek pivovaru' },
     { id: 'kniha_jizd', title: 'Kniha jízd vozidel', icon: MapPin, subtitle: 'Daňová evidence služebních cest' },

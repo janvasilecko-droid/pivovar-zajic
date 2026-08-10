@@ -114,7 +114,7 @@ const USER_TABLES: string[] = [
   'akce_items', 'akce', 'event_items',
   'calendar_events', 'reminders',
   'sanitation_logs', 'srotovani', 'zadavani',
-  'cellar_transfers', 'cellar_tank_cycles', 'kegging_tanks',
+  'cellar_transfers', 'cellar_tank_cycles', 'kegging_tanks', 'keg_prefuk',
   'places', 'price_list', 'vehicles',
   'parser_aliases', 'audit_log', 'user_app_versions', 'feedback_notes',
 ];

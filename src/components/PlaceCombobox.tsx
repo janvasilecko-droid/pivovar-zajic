@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { supabase, supabaseAdmin, Place } from '../lib/supabase';
+import { supabase, Place } from '../lib/supabase';
 import { getOrCreatePlace } from '../lib/orderParser';
 
 /**

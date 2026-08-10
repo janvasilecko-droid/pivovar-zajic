@@ -5,7 +5,6 @@ import { enqueue, getQueue } from './offline';
 
 const url = import.meta.env.VITE_SUPABASE_URL as string;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-const serviceKey = (import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY as string) || anonKey;
 
 
 // ---------------------------------------------------------------------------
@@ -20,7 +19,8 @@ const serviceKey = (import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY as string) ||
 //            localStorage and a synthetic success response is returned so the
 //            UI can continue. Queue is replayed by syncQueue() when online.
 //
-// The admin client (service role) is never intercepted.
+// POZOR: Vite vkládá VITE_* proměnné do klientského bundle. Service-role klíč
+// sem proto NIKDY nepřidávat — obcházel by RLS a kdokoliv by ho měl v JS bundle.
 // ---------------------------------------------------------------------------
 
 const REST_PREFIX = '/rest/v1/';
@@ -264,13 +264,6 @@ export const supabase = createClient(url, anonKey, {
   global: { fetch: (input, init) => offlineFetch(input, init, { admin: false }) },
 });
 
-export const supabaseAdmin = createClient(url, serviceKey, {
-  auth: {
-    persistSession: false
-  },
-  global: { fetch: (input, init) => offlineFetch(input, init, { admin: true }) },
-});
-
 /**
  * Subscribe to realtime changes on one or more tables and trigger a reload.
  * Returns nothing; calls `onChange` (debounced via microtask) whenever any
@@ -493,6 +486,16 @@ export type CalendarEvent = {
   created_at: string;
 };
 
+export type Note = {
+  id: string;
+  title: string | null;
+  body: string;
+  color: string;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type PriceListItem = {
   id: string;
   beer_id: string | null;
@@ -537,6 +540,22 @@ export type CellarTransfer = {
   volume_l: number;
   loss_l: number;
   note: string | null;
+  created_at: string;
+};
+
+export type KegPrefuk = {
+  id: string;
+  entry_date: string;
+  beer_id: string | null;
+  beer_name: string | null;
+  from_package_id: string | null;
+  from_package_label: string | null;
+  from_count: number;
+  to_package_id: string | null;
+  to_package_label: string | null;
+  to_count: number;
+  note: string | null;
+  created_by: string | null;
   created_at: string;
 };
 

@@ -1,6 +1,6 @@
 # Stav nasazení WhatsApp backendu — RESUMÉ
 
-> **Poslední aktualizace**: 2026-08-08 (pokračování zítra)
+> **Poslední aktualizace**: 2026-08-09 (11. kolo — chat_id + from_me filtr, viz níže)
 > **Účel**: záchranný dokument — kam se navázalo, co je hotové, co zbývá.
 
 ## 📌 Klíčové údaje
@@ -23,7 +23,7 @@
 2. **RLS politiky** — migrace `20260808130000_add_whatsapp_incoming_rls_write_policies.sql` (HTTP 201).
    - `Users can view` (SELECT, authenticated), `Users can update` (UPDATE), `Users can delete` (DELETE), `Service role can manage` (ALL).
 3. **Edge funkce nasazené**:
-   - `whatsapp-webhook` (deploy s `--no-verify-jwt` — žádná autorizace z Make/Taskeru)
+   - `whatsapp-webhook` (deploy s `--no-verify-jwt` + **sdílené tajemství** `x-webhook-token`, viz 9. kolo níže)
    - `whatsapp-auto-parse` (AI parsing zpráv)
 4. **E2E test prošel naživo**: zpráva → webhook → DB → AI parsing → realtime → modál Schválit/Zamítnout → schválení → **vytvořená objednávka** (id `1cc5004a-4699-4f2c-8acc-6e68a396599e`, 3× 12° KEG 50l + 2× 13° KEG 30l, den so).
 5. **Testovací zprávy v DB** (lze smazat): Hospoda U Zajíce (čt), Restaurace Na Růžku (po), Pivnice U Dvou Sudů (st) — status `parsed`; Testovací odběratel (webhook) — status `imported`.
@@ -31,7 +31,8 @@
 
 ## 🛠 Skripty (v `scripts/`)
 
-- `test-whatsapp-webhook.mjs` — pošle 3 testovací zprávy na webhook (potřebuje `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` z `.env`).
+- `test-whatsapp-webhook.mjs` — pošle 3 testovací zprávy na webhook (potřebuje `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` a nově i `WEBHOOK_SECRET` z `.env`).
+- `set-webhook-secret.mjs [secret]` / `--remove` — nastaví/odebere sdílené tajemství webhooku (`WEBHOOK_SECRET`) a zapíše ho do `.env` (potřebuje `SB_TOKEN`).
 - `apply-whatsapp-migration.mjs [název_souboru.sql]` — aplikuje migraci přes Management API (potřebuje `SB_TOKEN` z `.env`; default = 20260807120000).
 - `check-whatsapp-policies.mjs` — výpis RLS politik `whatsapp_incoming` (potřebuje `SB_TOKEN`).
 
@@ -96,23 +97,25 @@
      výběr piva + obalu + množství, předem doplněné z katalogu. Uživatel případně opraví
      přiřazení a teprve pak schválí. Opravy se učí do `parser_aliases` (alias → pivo/obal).
 
-2. **Výběr zpráv, které se mají načítat** (oboje):
-   - **Whitelist odesílatelů**: nová tabulka `whatsapp_senders` (migrace
+2. **Výběr zpráv, které se mají načítat**:
+   - **Whitelist odesílatelů**: tabulka `whatsapp_senders` (migrace
      `20260808140000_add_whatsapp_senders.sql`, aplikováno HTTP 201).
+     - **Jediný zdroj objednávek = WhatsApp skupina „Objednávky pivovar"** — ta je v whitelistu.
      - Správa v **Nastavení → WhatsApp — povolení odesílatelé** (přidat/odebrat kontakt).
      - Prázdný seznam = načítají se zprávy od **všech** (zpětně kompatibilní).
-     - Když je v seznamu aspoň jeden kontakt → automaticky se načítají (realtime modál + AI
-       parsing) jen zprávy od povolených. Ostatní zůstávají `pending` v seznamu.
+     - Když je v seznamu aspoň jeden kontakt → webhook zprávy od nepovolených odesílatelů
+       **neuloží** (odpověď `skipped: true`) — do aplikace tak neprojdou vůbec.
+   - **Auto-parse**: všechny zprávy ze skupiny se uloží jako `parsed` (i bez rozpoznaných
+     položek — doplní se ručně v kontrolním modálu). Starší zprávy od nepovolených odesílatelů
+     označí jako `ignored` (zmizí z aplikace).
    - **Ruční výběr v seznamu**: `WhatsAppAutoProcessorModal` má checkboxy u každé zprávy
      + tlačítko „Načíst vybrané (N)". Nepovolené odesílatele označí oranžovým štítkem.
-   - Edge funkce `whatsapp-auto-parse` nepovolené odesílatele **přeskočí** (summary `skipped`),
-     zůstanou `pending` pro ruční zpracování.
 
 ### Ověřeno naživo
 - `2x 12° světlý ležák 50l` → **12° Světlá** + obal 50l ✓
 - `1x 13° jantar 30l` → **Jantar** + obal 30l ✓ (i když AI vrátila „13 Hazy Bunny")
 - `2x 12° tmavý ležák 30l` → **12° Tmavá** + 30l ✓
-- Whitelist: nepovolený odesílatel → `skipped` (zůstane `pending`), povolený → `parsed` ✓
+- Whitelist: nepovolený odesílatel → webhook zprávu **neuloží** (`skipped`), povolený (skupina) → `parsed` ✓
 - Lokální test matcheru: `scripts/test-whatsapp-matcher.mjs` (7 případů OK)
 - Frontend: `npm run build` OK
 
@@ -271,4 +274,284 @@ Cílem je, aby si AI zapamatovala opravy, které uživatel udělá v review mod�
 - DB: `place_aliases` má sloupce `id, wrong_name, place_id, correct_name,
   hit_count, created_at, updated_at` + RLS politiky SELECT/INSERT/UPDATE/DELETE.
 
+## 🔄 AKTUALIZACE 2026-08-09 (7. kolo): Kontrola čtení — rozšířená (A–F)
+
+### Co se nastavilo (celý seznam vylepšení)
+1. **Fuzzy shoda** v `whatsappReadback` — tolerance překlepů a prohozeného
+   pořadí slov („keg 50l" ≈ „50l KEG"), skóre shody 0–1.
+2. **Kontrola po částech** — množství / objem / stupeň se porovnávají zvlášť,
+   čipy u položky ukážou přesně, co nesedí.
+3. **„Přečíst znovu (AI)"** v review modálu — znovu spustí AI čtení, uloží
+   nový přepis, položky i `readback_unmatched_count`; starý přepis se uchová
+   pro srovnání („dvojí čtení" bez dvojí ceny).
+4. **Blokace schválení při ⚠** — přísný režim (checkbox, localStorage) zakáže
+   Schválit, dokud nejsou nesoulady opraveny; jinak varovné potvrzení.
+5. **Skóre důvěryhodnosti** 0–100 % + slovní hodnocení, barevný odznak.
+6. **Diff přepisu vs. originál** — slova, která AI přidala/přehlédla.
+7. **Side-by-side** zobrazení (desktop originál vlevo / přepis vpravo).
+8. **Filtr „jen ⚠"** a řazení podle počtu nesouladů v Auto-Importu.
+9. **Auto-posun na první ⚠ položku** + zvýraznění rámečkem.
+10. **Stav „zkontrolováno"** — `readback_checked_at/by` audit při schválení.
+11. **Náhled fotky** — `media_url` (webhook `mediaUrl`/attachments).
+12. **Učení z oprav** — už existovalo (`saveAlias`/`savePlaceAlias`); navíc
+    opakované chyby se nabízejí k opravě.
+13. **Statistika** — Auto-Import: čeká/rozparsováno/⚠ + přesnost čtení z 100 zpráv.
+14. **Opakované chyby** — raw_line, který se u odesílatele nepovedlo přečíst 2×.
+15. **Srovnání čtení** po re-parse (diff starý vs. nový přepis).
+16. **⚠ notifikace** — při rozparsování s nesouladem přijde zřetelná notifikace.
+17. **Wait-time** — odznak „čeká X min/h" (+ červený u starých ⚠).
+18. **Odkaz na originál** — `orders.whatsapp_message_id`, čip „WhatsApp" na
+    objednávce otevře zprávu (read-only režim modálu).
+19. **Backfill skript** — `scripts/backfill-whatsapp-readback.mjs` dopočítá
+    `readback_unmatched_count` starým zprávám (bez AI).
+20. **DB** — `readback_unmatched_count` ukládá auto-parse i re-parse.
+21. **Status `flagged`** — nahrazeno sloupcem `readback_unmatched_count`
+    (ekvivalentní funkcionalita bez nového statusu).
+22. **Média** — infrastruktura připravena (`media_url`, webhook, náhled);
+    skutečné nahrávání do Storage vyžaduje Make/Tasker stranu.
+23. **Čištění** — `scripts/cleanup-whatsapp.mjs` (staré imported/ignored zprávy).
+24. **Kontext odpovědí** — `whatsapp-auto-parse` posílá AI posledních 5 zpráv
+    od stejného odesílatele.
+25. **Duplicity** — `findSimilarMessages` (Jaccard ≥ 0.85) + odznak
+    „možná duplicita".
+26. **Rychlá odpověď zákazníkovi** — NENÍ (vyžaduje Make webhook zpět do WhatsApp).
+
+### Nasazeno / nutné nasadit
+- **Migrace** `20260810120000_add_whatsapp_readback_and_media.sql` — vytvořena,
+  aplikace do produkce vyžaduje platný `SB_TOKEN`:
+  `node scripts/apply-whatsapp-migration.mjs 20260810120000_add_whatsapp_readback_and_media.sql`.
+- **Edge funkce** `whatsapp-auto-parse` a `whatsapp-webhook` je nutné
+  redeploynout (`npm run watch-deploy`).
+- **Frontend (PWA)** — přebere po `npm run build` (hotovo, ✓ built).
+
+### Ověřeno
+- `tsc --noEmit` → OK
+- `npm run build` → ✓ built
+- `vitest` → 78/78 (z toho `whatsappReadback.test.ts` 25 testů: fuzzy shoda,
+  části qty/objem/stupeň, skóre, diff, opakované chyby, duplicity).
+- Skripty: `backfill-whatsapp-readback.mjs --dry-run` se připojil k DB
+  (sloupec zatím chybí, dokud se neaplikuje migrace).
+
+## ✅ AKTUALIZACE 2026-08-09 (8. kolo): NASAZENO + E2E OVĚŘENO
+
+### Co se dnes dokončilo
+1. **Migrace aplikovány do produkce (obě HTTP 201)**:
+   - `20260810120000_add_whatsapp_readback_and_media.sql` — sloupce
+     `readback_unmatched_count`, `readback_checked_at`, `readback_checked_by`,
+     `media_url`, `orders.whatsapp_message_id`.
+   - `20260809100000_add_whatsapp_parsed_raw_text.sql` — **sloupec `parsed_raw_text`
+     v produkci CHYBĚL** (migrace se nikdy neaplikovala). Kvůli němu tiše padal
+     update v `whatsapp-auto-parse` (kód chybu z update nečeká) a zprávy zůstávaly
+     navěky ve stavu `processing`. Po aplikaci migrace parsing funguje.
+2. **Backfill**: `scripts/backfill-whatsapp-readback.mjs` dopočítal
+   `readback_unmatched_count` pro **všech 31 starých zpráv** (všechny = 0, tj.
+   raw_line se v originálu nacházejí).
+3. **E2E test naživo** (webhook → DB → auto-parse → AI):
+   - Testovací zpráva od odesílatele **„Objednávky pivovar"** (UTF-8, diakritika)
+     uložena správně, whitelist ji povolil, AI rozparsovala 2 položky:
+     `2x 12° Světlá/KEG 50l` + `1x Jantar/KEG 30l` (správné `beer_id`/`pkg_id`).
+   - `readback_unmatched_count = 0`, `parsed_raw_text` uložen („dvojí čtení"
+     funguje), den `so`.
+   - Testovací zprávy smazány z DB, `scratch/test-utf8-webhook.mjs` smazán.
+4. **Frontend 1.542** sestaven a nasazen na Cloudflare Pages (`zajic-pivovar`).
+5. **Ztužení `whatsapp-auto-parse` proti tichému selhání update** (kořenová
+   příčina dnešního bugu): nová helper funkce `safeUpdateMessage` kontroluje
+   chybu z každého `supabase.update()`. Když se plný update nepovede (např.
+   chybějící sloupec), zkusí minimální update na `status`+`error_message`; podle
+   kontextu zpráva skončí jako `error` (viditelně, bez automatického retry) nebo
+   se vrátí do `pending`. Zpráva tak už **nikdy nemůže uvíznout v `processing`**.
+   Nasazeno (deploy funkce OK) a znovu ověřeno E2E: webhook → auto-parse →
+   `status=parsed`, `parsed_raw_text` uložen, položky rozparsované,
+   `readback_unmatched_count=0` (testovací zprávy uklizeny).
+
+### Poznámky / rizika
+- `.env` byl při editaci přepsán PowerShell `Set-Content -Encoding UTF8`, což
+  přidalo **BOM** a rozbilo parsování v Node skriptech — BOM odstraněn (pozor při
+  dalším zápisu `.env`). PowerShell `Invoke-WebRequest` s `-Body` navíc posílá
+  tělo v systémové kódové stránce (diakritika → `�`) — pro testy webhooku
+  používat Node skripty s UTF-8 soubory, ne PowerShell řetězce.
+- ~~`whatsapp-auto-parse` nekontroluje chyby z `supabase.update()`~~ → **opraveno**
+  (viz bod 5 výše): všechny update jdou přes `safeUpdateMessage`, který při
+  selhání uloží alespoň `status`+`error_message` (zpráva nikdy nezůstane v
+  `processing`).
+- **Oprava pole „Odběratel" v `WhatsAppOrderReviewModal`** — při vizuální kontrole
+  (demo zpráva „Test Sládek") se uživateli „nedal objednavatel do pole". Příčina:
+  inicializace odběratele probíhala až PO asynchronním `loadAliasMap()` (síťový
+  dotaz), takže když uživatel začal psát dřív, jeho vstup se přepsal
+  `parsed_place_name`. Nyní se odběratel předvyplňuje SYNCHRONNĚ (bez čekání na
+  aliasy), uživatelský vstup se nepřepisuje a opravený odběratel se při schválení
+  zapíše i zpět do `whatsapp_incoming` (přežije znovuotevření modálu). Regresní
+  testy: `WhatsAppOrderReviewModal.place-repro.test.tsx` (3) +
+  `place-race.test.tsx` (1).
+
+### Zbývá (není nutné pro funkčnost)
+1. **Vizuální kontrola UI** — v DB je demo zpráva od „Test Sládek (kontrola čtení)"
+   (id `2166ff96-29df-422e-ab3c-def62b95f444`, `readback_unmatched_count=2`):
+   Objednávky → WhatsApp → „Kontrola čtení — originál vs. přepis AI" + ⚠ odznak.
+   Smazat: `node scripts/verify-whatsapp-readback.mjs --cleanup`.
+2. **Uživatel nastaví Tasker** → přímé volání webhooku (viz `docs/tasker-direct-webhook.md`).
+3. **Uživatel pošle reálnou zprávu** a ověří modál + objednávku.
+4. **Volitelně**: smazat staré testovací zprávy (`scripts/cleanup-whatsapp.mjs`)
+   a odstranit Management API token z dashboardu, až bude vše stabilní.
+
+
+---
+
+## 🔐 AKTUALIZACE 2026-08-09 (9. kolo): bezpečnostní audit
+
+### Co se opravilo
+1. **Service-role klíč odstraněn z klientské aplikace** (kritická díra).
+   - `src/lib/supabase.ts` dříve exportovalo `supabaseAdmin` klienta s `service_role`
+     JWT z `VITE_SUPABASE_SERVICE_ROLE_KEY`. Vite takový klíč vkládá do JS bundle,
+     takže by si ho mohl z webu vytáhnout kdokoliv a číst/mazat úplně všechno
+     (včetně WhatsApp zpráv), bez přihlášení a s obejitím RLS.
+   - Veškerá volání `supabaseAdmin` v UI (`Catalogs.tsx`, `orderParser.ts`) přepsána
+     na běžného přihlášeného klienta `supabase` — tabulka `places` už má RLS politiky
+     pro `authenticated`, takže admin klient nebyl potřeba.
+   - Ověřeno: `tsc && vite build` OK; v `dist` bundle se klíč **nenachází**
+     (kontrola hledala řetězec `service_role` a otisk klíče).
+2. **Webhook má sdílené tajemství `x-webhook-token`**.
+   - `whatsapp-webhook` nově kontroluje hlavičku `x-webhook-token` proti proměnné
+     `WEBHOOK_SECRET` (nastavené přes Management API jako projektový secret).
+     Bez správné hlavičky vrací HTTP 401 a zprávu neuloží.
+   - Nastavení/změna/vypnutí: `node scripts/set-webhook-secret.mjs [secret]` /
+     `node scripts/set-webhook-secret.mjs --remove`. Tajemství je zapsáno v `.env`
+     (gitignorováno).
+   - **Tasker/Make musí posílat hlavičku** `x-webhook-token: <secret>` (viz
+     `docs/tasker-direct-webhook.md`).
+3. **Návod Tasker/Make aktualizován** (`docs/tasker-direct-webhook.md` v1.1).
+
+### ⚠️ DŮLEŽITÉ — rotace service-role klíče (ručně v dashboardu)
+Klíč mohl být v minulosti vystaven při lokálním buildu (`npm run build` s `.env`).
+Po nasazení této opravy je dobré klíč **otočit**:
+1. Jdi na https://supabase.com/dashboard/project/sasqexjadvlqyticxwja/settings/api
+2. U `service_role` klíče klikni **Rotate** (nebo nový klíč).
+3. Novou hodnotu zapiš do `.env` (klíč `VITE_SUPABASE_SERVICE_ROLE_KEY`) — používají
+   ho už jen dev skripty v `scripts/`; frontend ho nepotřebuje.
+
+
+
+
+
+---
+
+## 🔐 AKTUALIZACE 2026-08-09 (10. kolo): automatické mazání zpráv od nepovolených odesílatelů
+
+### Požadavek
+Do aplikace se mají dostat JEN zprávy ze skupiny **„Objednávky pivovar“**. Všechny
+ostatní zprávy (od jiných odesílatelů) se mají automaticky mazat z databáze.
+
+### Co se udělalo
+Migrace `supabase/migrations/20260818000000_auto_delete_non_whitelisted_whatsapp.sql`
+(aplikována na produkci) přidává tři úrovně ochrany:
+
+1. **BEFORE INSERT pojistka** — trigger `trg_whatsapp_check_sender_allowed` na
+   `whatsapp_incoming`: zpráva od odesílatele, který není ve `whatsapp_senders`
+   (a whitelist není prázdný), se do DB **vůbec neuloží** (řádek se nezaloží).
+   Prázdný whitelist = povoleno vše (zpětně kompatibilní chování).
+2. **Při odebrání odesílatele ze whitelistu** — trigger
+   `trg_whatsapp_delete_on_sender_removed` na `whatsapp_senders`: smaže všechny
+   uložené zprávy toho odesílatele (přestal být povolený → nemá v DB co dělat).
+3. **Očista stávajících zpráv** — součást migrace: smazány všechny dosavadní zprávy
+   od odesílatelů mimo whitelist (bylo jich 34 od 15 odesílatelů; záloha uložena).
+
+### Ověřeno (Management API)
+- Triggery aktivní (`trg_whatsapp_check_sender_allowed`, `trg_whatsapp_delete_on_sender_removed`).
+- Po očistě: `whatsapp_incoming` = 0 řádků.
+- INSERT zprávy od nepovoleného odesílatele → řádek se nevytvoří (počet zůstává 0).
+- INSERT zprávy od „Objednávky pivovar“ → uloží se.
+- Odebrání odesílatele z whitelistu → jeho zprávy se automaticky smažou; whitelist obnoven.
+
+### Záloha
+Před očistou byl obsah `whatsapp_incoming` (34 zpráv) uložen do
+`../whatsapp-incoming-backups/whatsapp_incoming_2026-08-09.json` (mimo git).
+Kdyby bylo potřeba cokoliv obnovit, skript `scripts/backup-whatsapp-incoming.mjs`
+vytvoří novou zálohu stejným způsobem.
+
+### Poznámky
+- Webhook (`whatsapp-webhook`) už od dřívějška zprávy od nepovolených odesílatelů
+  neukládal (odpovídá `skipped: true`); triggery jsou pojistka pro všechny ostatní
+  cesty (SQL konzole, seed, Make bez filtru).
+- Není potřeba nová verze frontendu ani redeploy funkce — jde o čistě databázovou změnu.
+
+
+---
+
+## 🔐 AKTUALIZACE 2026-08-09 (11. kolo): filtr podle chat_id + ignorování vlastních zpráv (from_me)
+
+### Požadavek
+Zpracovávat **JEN zprávy z jedné konkrétní skupiny „Objednávky pivovar“**,
+ideálně podle stabilního **chat_id** (ne názvu), a **ignorovat vlastní zprávy**
+(`from_me == false`) — aby nevznikla smyčka (AI → odpověď → Tasker → webhook).
+Do AI posílat **jen poslední zprávu** (jméno + text), ne celou konverzaci, a
+logovat zpracované zprávy včetně chat_id. Pokud chat_id není známé, vypsat ho do
+logu při první zprávě ze skupiny.
+
+### Podmínka zpracování (implementováno ve webhooku)
+```
+IF (chat_id == "ID_SKUPINY" AND from_me == false) → zpracuj
+ELSE → ignoruj
+```
+
+### Co se udělalo
+**1. Migrace `supabase/migrations/20260818120000_whatsapp_chat_id_from_me_filter.sql`**
+(aplikována na produkci, HTTP 201):
+- Sloupce: `whatsapp_senders.chat_id`, `whatsapp_incoming.chat_id`,
+  `whatsapp_incoming.from_me` (boolean, default false).
+- Funkce `whatsapp_norm()` — normalizace názvu (malá písmena + bez diakritiky →
+  „objednavky pivovar“ == „Objednávky pivovar“).
+- Trigger `trg_whatsapp_check_sender_allowed` rozšířen:
+  - `from_me = true` → řádek se **NIKDY** nevytvoří (prevence smyčky i na úrovni DB);
+  - jinak povoleno, když `sender_name` odpovídá whitelistu **NEBO** `chat_id`
+    odpovídá zaregistrovanému chat_id.
+- Trigger `trg_whatsapp_delete_on_sender_removed` + očista: maže/čistí podle
+  jména **NEBO** chat_id; navíc smazány všechny `from_me` zprávy.
+
+**2. Webhook `whatsapp-webhook` (redeploy):**
+- Payload nově přijímá `chatId`/`chat_id` a `fromMe`/`from_me` (aliasy).
+- `from_me` → vždy `skipped:true, from_me:true`, **nikdy se neuloží** (včetně
+  heuristiky „You:/Ty:/Vy:“ pro vlastní zprávy z jiného zařízení/Webu).
+- Pokud je chat_id zaregistrováno ve `whatsapp_senders` → **striktní filtr**
+  podle chat_id (cizí/chybějící chat_id se zahodí s logem).
+- Dokud chat_id zaregistrováno není → přechodný filtr podle názvu skupiny +
+  **log detekce**: `🆔 DETEKCE chat_id pro skupinu "Objednávky pivovar": chat_id="…"`.
+- Zpracovaná zpráva se loguje: `✅ ZPRACOVÁNO: sender=… chat_id=… webhook_id=… msg=…`.
+
+**3. AI parsing `whatsapp-auto-parse` (redeploy):**
+- **Odstraněn kontext předchozích zpráv** — do AI jde jen **poslední zpráva**
+  (jméno odesílatele + text), ne celá konverzace.
+- Pojistka: zpráva s `from_me = true` se v žádném případě neposílá k AI
+  (označí se `ignored`).
+
+**4. Skripty:**
+- `scripts/set-whatsapp-senders.mjs` — nové přepínače
+  `--chat-id "<id>"` (registrace stabilního chat_id) a `--clear-chat-id` (odebrání);
+  výpis whitelistu ukazuje i chat_id.
+- `scripts/test-whatsapp-webhook.mjs` — otestuje bránu (nepovolený odesílatel,
+  from_me, skupina s/bez chat_id).
+- `scripts/verify-whatsapp-group-gate.mjs` — E2E: nepovolený → skipped, from_me →
+  skipped, skupina → pending → parsed; včetně striktního režimu (špatné chat_id →
+  skipped) a kontroly v DB.
+
+### Ověřeno (Management API + naživo)
+- **Přechodný režim** (bez registrovaného chat_id): nepovolený odesílatel ani
+  from_me se neuloží; skupina „Objednávky pivovar“ → pending → AI parsed.
+- **Striktní režim** (s dočasně registrovaným chat_id): zpráva bez chat_id →
+  skipped (`chat_id_missing`), špatné chat_id → skipped (`chat_id_unknown`),
+  správné chat_id → pending → AI parsed. Placeholder byl po testu **odstraněn**.
+- DB: `whatsapp_incoming` = 0 řádků (testovací zprávy smazány), whitelist =
+  „Objednávky pivovar“ **bez** chat_id (připraven na doplnění skutečného ID).
+- Triggery, sloupce i funkce `whatsapp_norm` ověřeny dotazem.
+
+### Jak doplnit skutečné chat_id
+1. Pošli zprávu do skupiny — webhook ji zpracuje podle názvu a do logu funkce
+   vypíše: `🆔 DETEKCE chat_id pro skupinu "Objednávky pivovar": chat_id="…"`.
+2. Zaregistruj: `node scripts/set-whatsapp-senders.mjs --chat-id "<id>"`.
+3. Ověř: `node scripts/verify-whatsapp-group-gate.mjs`.
+
+### Poznámky
+- `fromMe` AutoNotification neumí → v Taskeru se posílá `false`; vlastní zprávy
+  z jiného zařízení/Webu webhook pozná sám (prefix „You:/Ty:/Vy:“) a zahodí.
+- Do AI se posílá jen poslední zpráva — zpráva se ukládá po jedné a auto-parse
+  zpracovává každou zvlášť (bez minulých zpráv v promptu).
 

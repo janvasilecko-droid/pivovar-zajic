@@ -9,6 +9,8 @@ export type ParsedWhatsAppResult = {
   deliveryDate: string | null;
   note: string | null;
   items: ParsedLine[];
+  /** Doslovný přepis textu od AI (raw_text) — pro kontrolu čtení. */
+  raw_text?: string | null;
 };
 
 // Rozdělí vložený text (může obsahovat VÍCE WhatsApp zpráv od různých
@@ -480,5 +482,5 @@ export async function parseWhatsAppOrderMessageWithAI(
     note = note && note.includes(dnote) ? note : (note ? `${note}, ${dnote}` : dnote);
   }
 
-  return { placeId, placeName, deliveryDay: day, deliveryDate: dateStr, note, items };
+  return { placeId, placeName, deliveryDay: day, deliveryDate: dateStr, note, items, raw_text: rawTextFromAi };
 }

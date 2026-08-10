@@ -30,7 +30,6 @@ const EXTRA_QUICK_ACTION_PAGES: { id: Page; label: string }[] = [
   { id: 'orders_entry', label: 'Objednávky – zadávání' },
   { id: 'bottling_entry', label: 'Lahve – zadávání' },
   { id: 'bottling_overview', label: 'Lahve – přehled šarží' },
-  { id: 'sklo_promo', label: 'Sklo, Etikety, Podtáčky' },
   { id: 'exkurze', label: 'Exkurze' },
   { id: 'marketing', label: 'Marketing' },
   // --- PIVOVAR ---
@@ -172,7 +171,8 @@ export default function AppSettingsScreen() {
     cellar: 'cellar', history: 'cellar', haccp: 'haccp', sanitation_log: 'haccp',
     places: 'catalogs', beers: 'catalogs', packages: 'catalogs', vehicles: 'catalogs',
     pricelist: 'pricelist', sklo_promo: 'sklo_promo', vycepy: 'vycepy', app_settings: 'app_settings',
-    exkurze: 'exkurze', akce: 'akce', calendar: 'catalogs', feedback: 'catalogs',
+    exkurze: 'exkurze', akce: 'akce', calendar: 'reminders', feedback: 'catalogs',
+    reminders: 'reminders',
   };
 
   const userPerms = getUserPermissions(user?.id ?? '', (profile as any)?.permissions);

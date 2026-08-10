@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 
 import { Camera, ListOrdered, Package as PackageIcon, Phone, Building2, Truck, Plus, FileText, MessageCircle, Printer, FileSpreadsheet, CheckSquare, PackageCheck, FilePlus, Calendar, Trash2, Pencil, Copy, Ban, RotateCcw, AlertTriangle, Check, CheckCircle2, Zap } from 'lucide-react';
-import { supabase, supabaseAdmin, Beer, Package, Place, EntryRow, useRealtime, beerBg, beerText, beerName, formatPackageLabel } from '../lib/supabase';
+import { supabase, Beer, Package, Place, EntryRow, useRealtime, beerBg, beerText, beerName, formatPackageLabel } from '../lib/supabase';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { ImportFromImage } from '../components/ImportFromImage';
@@ -17,7 +17,7 @@ import { VoiceRecorder } from '../components/VoiceRecorder';
 import { parseVoiceOrder, parseOrderText, detectOrderNotes, loadAliasMap, loadPlaceAliasMap, emptyAliasMap, getOrCreatePlace, matchBeerFromHints, matchPackage, normalize, type ParserAliasMap } from '../lib/orderParser';
 
 import { shareOrderToWhatsApp } from '../lib/whatsapp';
-import { subscribeToWhatsAppMessages, fetchPendingWhatsAppMessages, WhatsAppIncoming, fetchWhatsAppSenders, isSenderAllowed, type WhatsAppSender } from '../lib/whatsappApi';
+import { subscribeToWhatsAppMessages, fetchPendingWhatsAppMessages, fetchWhatsAppMessage, WhatsAppIncoming, fetchWhatsAppSenders, isSenderAllowed, type WhatsAppSender } from '../lib/whatsappApi';
 import { autoReserveTapIfNeeded, isTapMentioned, detectTapType } from '../lib/tapReservations';
 import { findDuplicateOrders, formatDuplicateMessage } from '../lib/orderDuplicates';
 import { TapReservationModal } from '../components/TapReservationModal';
@@ -34,6 +34,7 @@ type Order = {
   is_prepared: boolean; is_packaged: boolean;
   is_delivered: boolean; delivered_at: string | null; 
   place_phone?: string | null; // Add place_phone to Order type
+  whatsapp_message_id?: string | null; // WhatsApp zpráva, ze které objednávka vznikla (#18)
 };
 type OrderItem = {
   id: string; order_id: string; beer_id: string | null; beer_name: string | null;
@@ -306,6 +307,7 @@ export default function Orders({
     deliveryDay: string;
     deliveryDate: string;
     note: string;
+    whatsappMessageId?: string;
     items: { beerId: string; pkgId: string; qty: number }[];
   }[]) {
     const today = new Date().toISOString().slice(0, 10);
@@ -344,6 +346,7 @@ export default function Orders({
           is_prepared: false,
           is_packaged: false,
           note: data.note || null,
+          whatsapp_message_id: data.whatsappMessageId || null,
         })
         .select()
         .single();
@@ -430,6 +433,7 @@ export default function Orders({
           is_prepared: false,
           is_packaged: false,
           note: message.parsed_note || null,
+          whatsapp_message_id: message.id,
         })
         .select()
         .single();
@@ -472,13 +476,16 @@ export default function Orders({
       const { error: itemsErr } = await supabase.from('order_items').insert(rows);
       if (itemsErr) throw new Error(itemsErr.message);
 
-      // Označit zprávu jako importovanou
+      // Označit zprávu jako importovanou + audit kontroly čtení (#10)
+      const { data: authData } = await supabase.auth.getUser();
       await supabase
         .from('whatsapp_incoming')
         .update({
           status: 'imported',
           imported_order_id: newOrder.id,
           imported_at: new Date().toISOString(),
+          readback_checked_at: new Date().toISOString(),
+          readback_checked_by: authData?.user?.id || null,
         })
         .eq('id', message.id);
 
@@ -513,6 +520,22 @@ export default function Orders({
     } catch (error) {
       console.error('Chyba při zamítnutí WhatsApp objednávky:', error);
       throw error;
+    }
+  }, []);
+
+  // Otevře originální WhatsApp zprávu k objednávce (kontrola čtení, #18).
+  const handleOpenWhatsAppMessage = useCallback(async (messageId: string) => {
+    try {
+      const msg = await fetchWhatsAppMessage(messageId);
+      if (msg) {
+        setAutoWhatsAppMessage(msg);
+        setAutoWhatsAppModal(true);
+      } else {
+        alert('WhatsApp zpráva k této objednávce nebyla nalezena (byla smazána?).');
+      }
+    } catch (error) {
+      console.error('Chyba při otevírání WhatsApp zprávy:', error);
+      alert('Nepodařilo se načíst WhatsApp zprávu: ' + (error as Error).message);
     }
   }, []);
 
@@ -1670,14 +1693,28 @@ export default function Orders({
             <option value="keg">🛢️ Pouze sudy (KEG)</option>
             <option value="bottle">🍾 Pouze lahve / Sklo / PET</option>
           </select>
-          <select className="input w-auto font-bold text-xs" value={itemFilterBeerId ?? ''} onChange={(e) => setItemFilterBeerId(e.target.value || null)}>
+          <select className={`input w-auto font-bold text-xs ${itemFilterBeerId ? 'border-blue-500 ring-2 ring-blue-500/30 dark:border-blue-500' : 'border-blue-300 dark:border-blue-300'} focus:border-blue-500 focus:ring-blue-500/25 dark:focus:border-blue-500 dark:focus:ring-blue-500/25`} value={itemFilterBeerId ?? ''} onChange={(e) => setItemFilterBeerId(e.target.value || null)}>
             <option value="">🍺 Všechna piva</option>
             {beers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
-          <select className="input w-auto font-bold text-xs" value={itemFilterPackageId ?? ''} onChange={(e) => setItemFilterPackageId(e.target.value || null)}>
+          <select className={`input w-auto font-bold text-xs ${itemFilterPackageId ? 'border-emerald-500 ring-2 ring-emerald-500/30 dark:border-emerald-500' : 'border-emerald-300 dark:border-emerald-300'} focus:border-emerald-500 focus:ring-emerald-500/25 dark:focus:border-emerald-500 dark:focus:ring-emerald-500/25`} value={itemFilterPackageId ?? ''} onChange={(e) => setItemFilterPackageId(e.target.value || null)}>
             <option value="">🏷️ Konkrétní obal</option>
             {packages.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
           </select>
+          {(itemFilterBeerId || itemFilterPackageId) && (
+            <span className="flex items-center gap-2.5 text-[10px] font-black tracking-wide text-neutral-600">
+              {itemFilterBeerId && (
+                <span className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-400 ring-1 ring-blue-600" /> pivo
+                </span>
+              )}
+              {itemFilterPackageId && (
+                <span className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 ring-1 ring-emerald-600" /> obal
+                </span>
+              )}
+            </span>
+          )}
           <label className="flex items-center gap-2 text-sm text-primary-700 cursor-pointer px-3 py-1.5 rounded-lg hover:bg-primary-50">
             <input type="checkbox" checked={groupByDay} onChange={(e) => setGroupByDay(e.target.checked)} className="w-4 h-4 rounded text-primary-600" />
             📅 Seskupit dle dne
@@ -1728,7 +1765,7 @@ export default function Orders({
                     <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForWeek={stockRemainingForWeek}
                       selected={selectedIds.has(o.id)} onToggleSelect={() => toggleSelect(o.id)}
                       onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onUpdateDeliveryDay={updateDeliveryDay}
-                      onSetStatus={setStatus} onDelete={del} onDuplicate={duplicateOrder} onEdit={setEditOrder} beers={beers} packages={packages} places={places}
+                      onSetStatus={setStatus} onDelete={del} onDuplicate={duplicateOrder} onEdit={setEditOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
                       activeBeerId={itemFilterBeerId} activePackageId={itemFilterPackageId} />
                     {detail?.id === o.id && (
                       <div id="order-detail-card" className="scroll-mt-6 animate-scale-in pl-2 sm:pl-4 border-l-4 border-amber-500">
@@ -1766,7 +1803,7 @@ export default function Orders({
               <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForWeek={stockRemainingForWeek}
                 selected={selectedIds.has(o.id)} onToggleSelect={() => toggleSelect(o.id)}
                 onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onUpdateDeliveryDay={updateDeliveryDay}
-                onSetStatus={setStatus} onDelete={del} onDuplicate={duplicateOrder} onEdit={setEditOrder} beers={beers} packages={packages} places={places}
+                onSetStatus={setStatus} onDelete={del} onDuplicate={duplicateOrder} onEdit={setEditOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
                 activeBeerId={itemFilterBeerId} activePackageId={itemFilterPackageId} />
               {detail?.id === o.id && (
                 <div id="order-detail-card" className="scroll-mt-6 animate-scale-in pl-2 sm:pl-4 border-l-4 border-amber-500">
@@ -1982,7 +2019,7 @@ function getTapNameForOrder(orderId: string): string | null {
   } catch { return null; }
 }
 
-function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, onClick, onToggleFlag, onUpdateDeliveryDay, onSetStatus, onDelete, onDuplicate, onEdit, beers, packages, places, activeBeerId, activePackageId }: {
+function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, onClick, onToggleFlag, onUpdateDeliveryDay, onSetStatus, onDelete, onDuplicate, onEdit, onOpenWhatsApp, beers, packages, places, activeBeerId, activePackageId }: {
   o: Order; items: OrderItem[];
   stockRemainingForWeek: (wk: string) => Map<string, number>;
   selected: boolean; onToggleSelect: () => void; onClick: () => void;
@@ -1992,6 +2029,7 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
   onDelete: (id: string) => void;
   onDuplicate: (o: Order) => void;
   onEdit: (o: Order) => void;
+  onOpenWhatsApp?: (messageId: string) => void;
   beers: Beer[];
   packages: Package[];
   places: Place[];
@@ -2079,15 +2117,32 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
             <>
               {sortedItems.map((i) => {
                 const beer = i.beer_id ? beers.find((b) => b.id === i.beer_id) : null;
-                const isFilteredMatch = (activeBeerId && i.beer_id === activeBeerId) || (activePackageId && i.package_id === activePackageId);
+                // Shoda s aktivním filtrem — pivo a obal se zvýrazňují RŮZNOU barvou,
+                // aby bylo na první pohled vidět, podle čeho se daná položka shodla.
+                const isBeerMatch = !!(activeBeerId && i.beer_id === activeBeerId);
+                const isPkgMatch = !!(activePackageId && i.package_id === activePackageId);
+                const matchKind: 'beer' | 'pkg' | 'both' | null =
+                  isBeerMatch && isPkgMatch ? 'both' : isBeerMatch ? 'beer' : isPkgMatch ? 'pkg' : null;
+                const chipCls =
+                  matchKind === 'beer'
+                    ? 'bg-blue-400 text-neutral-900 border-blue-600 ring-2 ring-blue-500 shadow-md scale-105'
+                    : matchKind === 'pkg'
+                      ? 'bg-emerald-400 text-neutral-900 border-emerald-600 ring-2 ring-emerald-500 shadow-md scale-105'
+                      : matchKind === 'both'
+                        ? 'bg-violet-400 text-neutral-900 border-violet-600 ring-2 ring-violet-500 shadow-md scale-105'
+                        : 'bg-white text-neutral-800 border-neutral-200 shadow-xs';
+                const qtyCls =
+                  matchKind === 'beer'
+                    ? 'bg-neutral-950 text-blue-300'
+                    : matchKind === 'pkg'
+                      ? 'bg-neutral-950 text-emerald-300'
+                      : matchKind === 'both'
+                        ? 'bg-neutral-950 text-violet-300'
+                        : 'bg-amber-100 text-amber-800';
                 return (
                   <span
                     key={i.id}
-                    className={`chip !py-0.5 !px-2 text-[11px] font-black border transition-all ${
-                      isFilteredMatch
-                        ? 'bg-amber-400 text-neutral-800 border-amber-600 ring-2 ring-amber-500 shadow-md scale-105'
-                        : 'bg-white text-neutral-800 border-neutral-200 shadow-xs'
-                    }`}
+                    className={`chip !py-0.5 !px-2 text-[11px] font-black border transition-all ${chipCls}`}
                   >
                     {beer && (
                       <span
@@ -2101,7 +2156,7 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
                         ({formatPackageLabel(i.package_label)})
                       </span>
                     )}
-                    <strong className={`ml-1.5 px-1.5 py-0 rounded font-black text-[11px] ${isFilteredMatch ? 'bg-neutral-950 text-amber-300' : 'bg-amber-100 text-amber-800'}`}>
+                    <strong className={`ml-1.5 px-1.5 py-0 rounded font-black text-[11px] ${qtyCls}`}>
                       {i.quantity} ks
                     </strong>
                   </span>
@@ -2113,6 +2168,15 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
             {items.length} položek · {total} ks
           </span>
           {o.note && <span className="text-[11px] font-extrabold shrink-0 text-neutral-900 bg-amber-100 border border-amber-300 rounded-md px-1.5 py-0.5">📝 {o.note}</span>}
+          {o.whatsapp_message_id && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onOpenWhatsApp && onOpenWhatsApp(o.whatsapp_message_id!); }}
+              className="text-[11px] font-extrabold shrink-0 text-green-900 bg-green-100 border border-green-300 rounded-md px-1.5 py-0.5 hover:bg-green-200 flex items-center gap-1"
+              title="Otevřít originální WhatsApp zprávu a kontrolu čtení (#18)"
+            >
+              <MessageCircle size={11} /> WhatsApp
+            </button>
+          )}
           {(() => { const _ph = places.find(p => p.id === o.place_id)?.phone; return _ph ? (
             <a href={`tel:${_ph}`} className="text-[11px] text-blue-700 font-bold flex items-center gap-0.5 hover:underline shrink-0">
               <Phone size={11} /> <span>{_ph}</span>
@@ -2374,6 +2438,8 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
           </div>
         </div>
 
+        {order.whatsapp_message_id && <WhatsAppOriginalBlock messageId={order.whatsapp_message_id} />}
+
         {items.length === 0 ? <p className="text-sm text-primary-400">Žádné položky.</p> : (
           <div className="card overflow-hidden">
             <table className="table text-xs">
@@ -2514,3 +2580,94 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
     </div>
   );
 }
+
+/** 📄 Sbalitelný blok se zněním původní WhatsApp zprávy objednávky. */
+function formatWATime(iso?: string): string {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleString('cs-CZ', {
+      day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    });
+  } catch {
+    return iso;
+  }
+}
+
+function WhatsAppOriginalBlock({ messageId }: { messageId: string }) {
+  const [msg, setMsg] = useState<WhatsAppIncoming | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setMsg(null);
+    fetchWhatsAppMessage(messageId)
+      .then((m) => { if (!cancelled) setMsg(m); })
+      .catch((e) => { if (!cancelled) setError((e as Error).message ?? 'neznámá chyba'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [messageId]);
+
+  return (
+    <div className="card p-4 mb-4 border-2 border-green-200">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between gap-3 text-left"
+      >
+        <span className="flex items-center gap-2 font-display font-extrabold text-green-800 text-sm sm:text-base">
+          <MessageCircle size={18} className="text-green-600 shrink-0" />
+          Původní WhatsApp zpráva
+        </span>
+        <span className="text-[11px] font-bold text-neutral-400">{open ? 'Sbalit ▲' : 'Zobrazit ▼'}</span>
+      </button>
+
+      {open && (
+        <div className="mt-3 space-y-2">
+          {loading && (
+            <div className="py-5 flex justify-center"><Spinner /></div>
+          )}
+          {error && (
+            <p className="text-sm text-danger-600 font-semibold">
+              Nepodařilo se načíst WhatsApp zprávu: {error}
+            </p>
+          )}
+          {!loading && !error && !msg && (
+            <p className="text-sm text-neutral-500">
+              WhatsApp zpráva k této objednávce nebyla nalezena (byla pravděpodobně smazána).
+            </p>
+          )}
+          {msg && (
+            <>
+              <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-bold text-neutral-500">
+                <span className="flex items-center gap-1">👤 {msg.sender_name || 'Neznámý odesílatel'}</span>
+                <span>🕒 {formatWATime(msg.message_timestamp || msg.created_at)}</span>
+                {msg.readback_unmatched_count ? (
+                  <span className="text-amber-700">⚠ {msg.readback_unmatched_count} položek AI přečetlo jinak</span>
+                ) : null}
+              </div>
+              <div className="rounded-xl bg-neutral-50 border border-neutral-200 p-3.5 text-sm text-neutral-800 whitespace-pre-wrap leading-relaxed">
+                {msg.message_text || '(prázdná zpráva)'}
+              </div>
+              {msg.parsed_raw_text && (
+                <div className="rounded-xl bg-amber-50/70 border border-amber-200 p-3 text-xs text-neutral-600 whitespace-pre-wrap leading-relaxed">
+                  <span className="font-black text-amber-700 block mb-1">🤖 Přepis AI (raw_text) — kontrola čtení:</span>
+                  {msg.parsed_raw_text}
+                </div>
+              )}
+              {msg.media_url && (
+                <a href={msg.media_url} target="_blank" rel="noreferrer" className="inline-block">
+                  <img src={msg.media_url} alt="Příloha WhatsApp objednávky" className="max-h-44 rounded-xl border border-neutral-200" />
+                </a>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+

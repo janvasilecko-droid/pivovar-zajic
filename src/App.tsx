@@ -15,8 +15,6 @@ import KeggingScreen from './screens/Kegging';
 import BottlingScreen from './screens/BottlingScreen';
 import ProdejnaScreen from './screens/ProdejnaScreen';
 import AkceScreen from './screens/Akce';
-import CalendarScreen from './screens/Calendar';
-import Feedback from './screens/Feedback';
 import Statistika from './screens/Statistika';
 import PriceListScreen from './screens/PriceList';
 import CellarScreen from './screens/Cellar';
@@ -26,7 +24,6 @@ import KnihaJizdScreen from './screens/KnihaJizdScreen';
 import SkloPromoScreen from './screens/SkloPromoScreen';
 import VycepyScreen from './screens/VycepyScreen';
 import ExkurzeScreen from './screens/ExkurzeScreen';
-import RemindersScreen from './screens/RemindersScreen';
 import { ReminderNotificationManager } from './components/ReminderNotificationManager';
 import { MandatoryAnnouncementModal } from './components/MandatoryAnnouncementModal';
 import { CriticalMaterialAlertModal } from './components/CriticalMaterialAlertModal';
@@ -47,7 +44,6 @@ import SanitationLogScreen from './screens/SanitationLogScreen';
 import VehiclesTabbed from './screens/VehiclesTabbed';
 import DepozitarTabbed from './screens/DepozitarTabbed';
 import SanitaceTabbed from './screens/SanitaceTabbed';
-import OdpisTabbed from './screens/OdpisTabbed';
 import PlanningTabbed from './screens/PlanningTabbed';
 import MarketingTabbed from './screens/MarketingTabbed';
 import OrdersTabbed from './screens/OrdersTabbed';
@@ -102,7 +98,9 @@ export default function App() {
       <ReminderNotificationManager />
       <MandatoryAnnouncementModal />
       <CriticalMaterialAlertModal />
-      {page === 'dashboard' && <Dashboard setPage={setPage} />}
+      {(page === 'dashboard' || page === 'sklo_promo') && (
+        <Dashboard setPage={setPage} initialTab={page === 'sklo_promo' ? 'sklo_promo' : 'sklad'} />
+      )}
       {page === 'concentration' && <ConcentrationScreen />}
       {(page === 'checklists' || page === 'haccp' || page === 'sanitation_log' || page === 'sanitace') && (
         <SanitaceTabbed
@@ -131,8 +129,8 @@ export default function App() {
 
       {page === 'kegging' && <KeggingScreen mode="all" setPage={setPage} />}
       {page === 'fasovani' && <ProdejnaScreen setPage={setPage} table="fasovani" title="Personál" icon="📦" showVycep />}
-      {(page === 'writeoffs' || page === 'sklo_promo') && (
-        <OdpisTabbed initialTab={page === 'sklo_promo' ? 'sklo_promo' : 'odpis'} setPage={setPage} />
+      {page === 'writeoffs' && (
+        <ProdejnaScreen setPage={setPage} table="writeoffs" title="Odpis" icon="📉" />
       )}
       {page === 'prodejna' && <ProdejnaScreen setPage={setPage} />}
       {(page === 'akce' || page === 'exkurze' || page === 'marketing') && (
@@ -143,8 +141,10 @@ export default function App() {
         />
       )}
       {page === 'inventory' && <InventoryScreen />}
-      {(page === 'calendar' || page === 'reminders' || page === 'feedback' || page === 'planning') && (
-        <PlanningTabbed />
+      {(page === 'calendar' || page === 'feedback' || page === 'planning' || page === 'reminders') && (
+        <PlanningTabbed
+          initialTab={page === 'reminders' ? 'reminders' : page === 'feedback' ? 'feedback' : 'calendar'}
+        />
       )}
       {page === 'history' && <Statistika />}
       {(page === 'pricelist' || page === 'places' || page === 'beers' || page === 'packages' || page === 'depozitar') && (

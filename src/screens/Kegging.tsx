@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { supabase, Beer, Package, EntryRow, CellarTank, useRealtime, beerBg, beerText, beerName, pkgBg, pkgText, formatPackageLabel } from '../lib/supabase';
+import { supabase, Beer, Package, EntryRow, CellarTank, KegPrefuk, useRealtime, beerBg, beerText, beerName, pkgBg, pkgText, formatPackageLabel } from '../lib/supabase';
 import { EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { exportKeggingToExcel } from '../lib/excel';
@@ -8,8 +8,6 @@ import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap 
 import { Camera, Loader2, Pencil } from 'lucide-react';
 import { ImportKeggingFromImage } from '../components/ImportKeggingFromImage';
 
-type OrderRow = { id: string; order_date: string; status: string };
-type OrderItemRow = { order_id: string; package_id: string | null; quantity: number; beer_id: string | null; beer_name: string | null };
 
 const ROW_COUNT = 12;
 type RowInput = { beerId: string; pkgId: string; qty: string };
@@ -42,8 +40,8 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editQty, setEditQty] = useState('');
 
-  // Zápis / Přehled / Potřeba stočit KEGy záložky
-  const [tab, setTab] = useState<'zapis' | 'prehled' | 'potreba'>('zapis');
+  // Zápis / Přehled / Potřeba stočit KEGy / Přefuk KEG záložky
+  const [tab, setTab] = useState<'zapis' | 'prehled' | 'potreba' | 'prefuk'>('zapis');
 
   // Datové sady pro výpočet potřeb KEG sudů (Objednávky vs. Sklad)
   const [orders, setOrders] = useState<any[]>([]);
@@ -57,6 +55,18 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   const [reqKegBeerFilter, setReqKegBeerFilter] = useState('');
   const [reqKegPkgFilter, setReqKegPkgFilter] = useState('');
   const [reqKegOnlyMissing, setReqKegOnlyMissing] = useState(true);
+
+  // Přefuk KEG sudů (přelití ze sudů jedné velikosti do jiných)
+  const [prefukRows, setPrefukRows] = useState<KegPrefuk[]>([]);
+  const [pfDate, setPfDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [pfBeerId, setPfBeerId] = useState('');
+  const [pfFromPkgId, setPfFromPkgId] = useState('');
+  const [pfFromCount, setPfFromCount] = useState('');
+  const [pfToPkgId, setPfToPkgId] = useState('');
+  const [pfToCount, setPfToCount] = useState('');
+  const [pfNote, setPfNote] = useState('');
+  const [pfSaving, setPfSaving] = useState(false);
+  const [pfErr, setPfErr] = useState<string | null>(null);
 
   // Přehled záznamů: filtr podle období (den/týden/měsíc) + filtr podle piva
 
@@ -101,13 +111,6 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
 
 
   const [weekKey, setWeekKey] = useState(isoWeekKey(new Date().toISOString().slice(0, 10)));
-  const [weekOrders, setWeekOrders] = useState<OrderRow[]>([]);
-  const [weekItems, setWeekItems] = useState<OrderItemRow[]>([]);
-  // Období pro "Zbývá stočit keg": týden nebo celý měsíc
-  const [kegPeriod, setKegPeriod] = useState<'week' | 'month'>('week');
-  const [kegMonthKey, setKegMonthKey] = useState(() => new Date().toISOString().slice(0, 7));
-  // Inventura (sklad sudů) pro vybraný měsíc — mapa `${beer_id}__${package_id}` → ks
-  const [inventoryMap, setInventoryMap] = useState<Record<string, number>>({});
 
 
   const kegPackages = useMemo(() => packages.filter((p) => p.kind === 'keg').sort((a, b) => b.volume_l - a.volume_l), [packages]);
@@ -115,6 +118,10 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   // Aktivní sklepní tanky (stáčí se z nich) — status active nebo emptying
   const activeCellarTanks = useMemo(() => cellarTanks.filter((t) => t.status === 'active' || t.status === 'emptying'), [cellarTanks]);
   const selectedCellarTank = cellarTanks.find((t) => t.id === cellarTankId);
+
+  // Tanky, na kterých bylo zahájeno stáčení (kegging_active = true) — jediné,
+  // které se nabízejí v poli "Číslo tanku" (stáčení se odečítá JEN z nich).
+  const keggingActiveTanks = useMemo(() => cellarTanks.filter((t) => t.kegging_active === true), [cellarTanks]);
 
   // Pro dané pivo najde aktivní/stáčecí tank, ve kterém toto pivo skutečně je.
   // Přednost má tank s aktivním stáčením (kegging_active = true) — odečítá se JEN z něj,
@@ -195,7 +202,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   async function load(silent = false) {
     const loadId = ++loadCountRef.current;
     if (!silent && !rows.length) setLoading(true);
-    const [kg, ct, b, p, ords, oi, inv, fa, fp, wo] = await Promise.all([
+    const [kg, ct, b, p, ords, oi, inv, fa, fp, wo, pf] = await Promise.all([
       supabase.from('kegging').select('*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
       supabase.from('cellar_tanks').select('*').order('label'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
@@ -206,6 +213,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
       supabase.from('fasovani').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('fasovani_private').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('writeoffs').select('entry_date,beer_id,package_id,quantity'),
+      supabase.from('keg_prefuk').select('*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
     ]);
     if (loadId !== loadCountRef.current) return;
     setRows((kg.data as EntryRow[]) ?? []);
@@ -218,10 +226,11 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
     if (fa.data) setFasovaniRows(fa.data);
     if (fp.data) setProdejnaRows(fp.data);
     if (wo.data) setWriteoffsRows(wo.data);
+    if (pf.data) setPrefukRows(pf.data as KegPrefuk[]);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
-  useRealtime(['kegging', 'cellar_tanks', 'beers', 'packages', 'orders', 'order_items', 'inventory', 'fasovani', 'fasovani_private', 'writeoffs'], () => load(true));
+  useRealtime(['kegging', 'cellar_tanks', 'beers', 'packages', 'orders', 'order_items', 'inventory', 'fasovani', 'fasovani_private', 'writeoffs', 'keg_prefuk'], () => load(true));
 
   // Výpočet potřeby stočení KEG sudů (Objednáno - Skladem)
   const kegRequirements = useMemo(() => {
@@ -269,6 +278,21 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
       outgoingMap[k] = (outgoingMap[k] || 0) + Number(r.quantity || 0);
     });
 
+    // Přefuky: sudy ZE (from_package_id) se odečtou ze skladu, sudy DO (to_package_id) se přičtou
+    const prefukFromMap: Record<string, number> = {};
+    const prefukToMap: Record<string, number> = {};
+    prefukRows.filter((r) => r.entry_date?.startsWith(curMonth)).forEach((r) => {
+      if (!r.beer_id) return;
+      if (r.from_package_id) {
+        const fk = `${r.beer_id}__${r.from_package_id}`;
+        prefukFromMap[fk] = (prefukFromMap[fk] || 0) + Number(r.from_count || 0);
+      }
+      if (r.to_package_id) {
+        const tk = `${r.beer_id}__${r.to_package_id}`;
+        prefukToMap[tk] = (prefukToMap[tk] || 0) + Number(r.to_count || 0);
+      }
+    });
+
     type ReqRow = {
       beer_id: string;
       beer_name: string;
@@ -290,7 +314,9 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
         const invQty = Number(invMap[k] || 0);
         const bottledQty = Number(bottledMap[k] || 0);
         const outgoingQty = Number(outgoingMap[k] || 0);
-        const stockQty = Math.max(0, invQty + bottledQty - outgoingQty);
+        const prefukFromQty = Number(prefukFromMap[k] || 0);
+        const prefukToQty = Number(prefukToMap[k] || 0);
+        const stockQty = Math.max(0, invQty + bottledQty - outgoingQty - prefukFromQty + prefukToQty);
         const orderedQty = Number(orderedMap[k] || 0);
         const neededQty = Math.max(0, orderedQty - stockQty);
 
@@ -313,7 +339,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
     });
 
     return list;
-  }, [beers, packages, orders, orderItems, inventoryRows, rows, fasovaniRows, prodejnaRows, writeoffsRows]);
+  }, [beers, packages, orders, orderItems, inventoryRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, prefukRows]);
 
   const filteredKegRequirements = useMemo(() => {
     let list = kegRequirements;
@@ -336,112 +362,13 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
     );
   }, [filteredKegRequirements]);
 
-  // Pokud existuje přesně jeden aktivní tank, předvyplní se automaticky (jen jako výchozí pivo pro prázdné řádky)
+  // Pokud existuje přesně jeden tank se zahájeným stáčením, předvyplní se automaticky
   useEffect(() => {
-    if (!cellarTankId && activeCellarTanks.length === 1) setCellarTankId(activeCellarTanks[0].id);
-  }, [activeCellarTanks, cellarTankId]);
+    if (!cellarTankId && keggingActiveTanks.length === 1) setCellarTankId(keggingActiveTanks[0].id);
+  }, [keggingActiveTanks, cellarTankId]);
 
   // (zrušeno — pivo se nevyplňuje automaticky z tanku)
 
-
-  // nacti objednavky + polozky pro dany tyden/mesic (kvuli prehledu objednanych kegu)
-  useEffect(() => {
-    (async () => {
-      // Měsíc, ke kterému se vztahuje inventura (sklad sudů) — pro týden vezmeme měsíc začátku týdne
-      const invMonth = kegPeriod === 'month' ? kegMonthKey : weekRange(weekKey).start.toISOString().slice(0, 7);
-      const [{ data: ords }, { data: inv }] = await Promise.all([
-        supabase.from('orders').select('id,order_date,status').order('order_date', { ascending: false }),
-        supabase.from('inventory').select('beer_id,package_id,quantity,entry_date'),
-      ]);
-      const all = (ords as OrderRow[] ?? []).filter((o) => o.status !== 'storno');
-      const wkOrders = kegPeriod === 'month'
-        ? all.filter((o) => o.order_date?.startsWith(kegMonthKey))
-        : all.filter((o) => isoWeekKey(o.order_date) === weekKey);
-      setWeekOrders(wkOrders);
-
-      // Inventura (sklad sudů) pro vybraný měsíc — mapa `${beer_id}__${package_id}` → ks
-      const invAcc: Record<string, number> = {};
-      ((inv as any[]) ?? []).filter((r) => r.entry_date?.startsWith(invMonth)).forEach((r) => {
-        if (!r.beer_id || !r.package_id) return;
-        const k = `${r.beer_id}__${r.package_id}`;
-        invAcc[k] = (invAcc[k] || 0) + Number(r.quantity || 0);
-      });
-      setInventoryMap(invAcc);
-
-      if (!wkOrders.length) { setWeekItems([]); return; }
-      const { data: its } = await supabase.from('order_items').select('order_id,package_id,quantity,beer_id,beer_name').in('order_id', wkOrders.map((o) => o.id));
-      setWeekItems((its as OrderItemRow[]) ?? []);
-    })();
-  }, [weekKey, kegPeriod, kegMonthKey]);
-
-
-  const orderedKegCount = useMemo(() => {
-    const kegPkgIds = new Set(packages.filter((p) => p.kind === 'keg').map((p) => p.id));
-    return weekItems.filter((i) => i.package_id && kegPkgIds.has(i.package_id)).reduce((s, i) => s + Number(i.quantity), 0);
-  }, [weekItems, packages]);
-  const wr = weekRange(weekKey);
-
-  // Měsíc, ke kterému se vztahuje "Zbývá stočit keg" (pro inventuru i stáčení tento měsíc)
-  const kegInvMonth = useMemo(
-    () => (kegPeriod === 'month' ? kegMonthKey : weekRange(weekKey).start.toISOString().slice(0, 7)),
-    [kegPeriod, kegMonthKey, weekKey]
-  );
-
-  // Stočeno tento měsíc (kegging záznamy v daném měsíci) — mapa `${beerKey}|${volume}` → ks
-  const keggedMonthMap = useMemo(() => {
-    type Key = string; // `${beerKey}|${volume}`
-    const keggedMap = new Map<Key, number>();
-    rows.forEach((r) => {
-      if (!r.entry_date?.startsWith(kegInvMonth)) return; // jen tento měsíc
-      const pkg = kegPackages.find((p) => p.id === r.package_id);
-      if (!pkg) return;
-      const beerKey = r.beer_id ?? r.beer_name ?? '—';
-      const key = `${beerKey}|${pkg.volume_l}`;
-      keggedMap.set(key, (keggedMap.get(key) ?? 0) + Number(r.quantity));
-    });
-    return keggedMap;
-  }, [rows, kegPackages, kegInvMonth]);
-
-  // Rozpis objednaných sudů podle piva × velikost (za vybraný týden/měsíc) + kolik ještě zbývá stočit.
-  // Zbývá = objednáno − (inventura/sklad na konci měsíce + stočeno tento měsíc).
-  // Tedy sudy, které zbyly na skladě na konci měsíce, plus ty, co se tento měsíc stočily,
-  // se započítají jako pokrytí objednávky.
-  const orderedByBeerSize = useMemo(() => {
-    type Key = string; // `${beerKey}|${volume}`
-    const orderedMap = new Map<Key, { beerKey: string; beerName: string; volume: number; ordered: number }>();
-    weekItems.forEach((i) => { // weekItems are all order items
-      const pkg = kegPackages.find((p) => p.id === i.package_id);
-      if (!pkg) return;
-      const beerKey = i.beer_id ?? i.beer_name ?? '—';
-      const beerName = i.beer_name ?? beers.find((b) => b.id === i.beer_id)?.name ?? '—';
-      const key = `${beerKey}|${pkg.volume_l}`;
-      const cur = orderedMap.get(key) ?? { beerKey, beerName, volume: Number(pkg.volume_l), ordered: 0 };
-      cur.ordered += Number(i.quantity);
-      orderedMap.set(key, cur);
-    });
-
-    const list = [...orderedMap.entries()].map(([key, v]) => {
-      const tapped = keggedMonthMap.get(key) ?? 0; // stočeno tento měsíc
-      // Inventura (sklad sudů) pro dané pivo+velikost — najdeme obal podle objemu
-      const pkg = kegPackages.find((p) => Number(p.volume_l) === v.volume);
-      const invKey = pkg ? `${v.beerKey}__${pkg.id}` : '';
-      const stock = invKey && inventoryMap[invKey] ? Number(inventoryMap[invKey]) : 0;
-      const covered = tapped + stock; // pokryto = stočeno tento měsíc + sklad na konci měsíce
-      const remaining = Math.max(v.ordered - covered, 0);
-      return { ...v, tapped, stock, remaining };
-    });
-    list.sort((a, b) => a.beerName.localeCompare(b.beerName, 'cs') || a.volume - b.volume);
-
-    // Souhrn zbývá stočit celkem podle velikosti (bez ohledu na pivo)
-    const remainingBySize = new Map<number, number>();
-    list.forEach((r) => remainingBySize.set(r.volume, (remainingBySize.get(r.volume) ?? 0) + r.remaining));
-    const remainingSizeList = [...remainingBySize.entries()]
-      .map(([volume, remaining]) => ({ volume, remaining }))
-      .filter((r) => r.remaining > 0)
-      .sort((a, b) => b.volume - a.volume);
-
-    return { list, remainingSizeList };
-  }, [weekItems, keggedMonthMap, kegPackages, beers, inventoryMap]);
 
 
 
@@ -665,6 +592,54 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   const totalCount = sizeBuckets.reduce((s, b) => s + b.count, 0) + otherCount;
   const totalLiters = sizeBuckets.reduce((s, b) => s + b.liters, 0) + otherLiters;
 
+  // Uložení přefuku KEG sudů — sudy ZE se odečtou ze skladu, sudy DO se přičtou
+  async function addPrefuk(e: React.FormEvent) {
+    e.preventDefault();
+    if (!pfBeerId) { setPfErr('Vyber druh piva.'); return; }
+    if (!pfFromPkgId) { setPfErr('Vyber velikost sudu ZE (odečítá se ze skladu).'); return; }
+    if (!pfToPkgId) { setPfErr('Vyber velikost sudu DO (přičítá se na sklad).'); return; }
+    const fromCount = Number(pfFromCount);
+    const toCount = Number(pfToCount);
+    if (!Number.isFinite(fromCount) || fromCount <= 0) { setPfErr('Zadej počet sudů ZE (větší než 0).'); return; }
+    if (!Number.isFinite(toCount) || toCount <= 0) { setPfErr('Zadej počet sudů DO (větší než 0).'); return; }
+    if (pfFromPkgId === pfToPkgId) { setPfErr('Velikost sudu ZE a DO nemůže být stejná.'); return; }
+    const fromPkg = packages.find((p) => p.id === pfFromPkgId);
+    const toPkg = packages.find((p) => p.id === pfToPkgId);
+    const beer = beers.find((b) => b.id === pfBeerId);
+    setPfSaving(true);
+    setPfErr(null);
+    const { error } = await supabase.from('keg_prefuk').insert({
+      entry_date: pfDate,
+      beer_id: pfBeerId,
+      beer_name: beer?.name ?? null,
+      from_package_id: pfFromPkgId,
+      from_package_label: fromPkg?.label ?? null,
+      from_count: fromCount,
+      to_package_id: pfToPkgId,
+      to_package_label: toPkg?.label ?? null,
+      to_count: toCount,
+      note: pfNote || null,
+    });
+    setPfSaving(false);
+    if (error) { setPfErr('Chyba při ukládání: ' + error.message); return; }
+    setPfBeerId('');
+    setPfFromPkgId('');
+    setPfFromCount('');
+    setPfToPkgId('');
+    setPfToCount('');
+    setPfNote('');
+    setPfDate(new Date().toISOString().slice(0, 10));
+    load(true);
+  }
+
+  // Smazání přefuku — sklad se vrátí do stavu před přefukem
+  async function deletePrefuk(id: string) {
+    if (!window.confirm('Smazat tento přefuk? Sklad se vrátí do původního stavu.')) return;
+    const { error } = await supabase.from('keg_prefuk').delete().eq('id', id);
+    if (error) { alert('Chyba při mazání: ' + error.message); return; }
+    load(true);
+  }
+
   return (
     <div className="space-y-6 pb-12">
       {/* Top Action Bar */}
@@ -703,6 +678,16 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                 <span className="px-1.5 py-0.5 rounded-full bg-amber-300 text-amber-950 text-[10px] font-black animate-pulse">
                   {kegRequirements.filter((r) => r.neededQty > 0).length}
                 </span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab('prefuk')}
+              className={`px-3.5 py-2 rounded-lg text-xs font-black transition flex items-center gap-1.5 shrink-0 min-h-[38px] ${tab === 'prefuk' ? 'bg-sky-600 text-white shadow-xs' : 'text-neutral-700 hover:bg-sky-50'}`}
+            >
+              <span>🔄 Přefuk KEG</span>
+              {prefukRows.length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full bg-sky-200 text-sky-900 text-[10px] font-black">{prefukRows.length}</span>
               )}
             </button>
           </div>
@@ -750,7 +735,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
             <label className="label">Tank</label>
             <select className="input text-xs" value={cellarTankId} onChange={(e) => setCellarTankId(e.target.value)}>
               <option value="">— nevyplňovat —</option>
-              {activeCellarTanks.map((t) => (
+              {keggingActiveTanks.map((t) => (
                 <option key={t.id} value={t.id}>{t.label}{t.current_beer_name ? ` (${t.current_beer_name})` : ''}</option>
               ))}
             </select>
@@ -879,86 +864,6 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
       {/* Prehled: objednane kegy na dany tyden & tanky */}
       {tab === 'prehled' && mode !== 'entry_only' && (
         <>
-
-          {/* Zbývá stočit keg — kompaktní */}
-          <div className="card p-3 mb-4 border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/80 to-amber-100/30">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <span className="font-display font-black text-amber-950 text-xs">🛢️ Zbývá stočit keg</span>
-                <span className="text-[10px] text-amber-800/70">{kegPeriod === 'week' ? `týden ${wr.label}` : `měsíc ${kegMonthKey}`}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="flex items-center rounded-lg bg-amber-100 border border-amber-300/70 overflow-hidden mr-1">
-                  <button onClick={() => setKegPeriod('week')} className={`px-2 py-1 text-[10px] font-bold transition ${kegPeriod === 'week' ? 'bg-amber-400 text-amber-950' : 'text-amber-800'}`}>Týden</button>
-                  <button onClick={() => setKegPeriod('month')} className={`px-2 py-1 text-[10px] font-bold transition ${kegPeriod === 'month' ? 'bg-amber-400 text-amber-950' : 'text-amber-800'}`}>Měsíc</button>
-                </div>
-                <button onClick={() => kegPeriod === 'week' ? setWeekKey(shiftWeek(weekKey, -1)) : setKegMonthKey(shiftMonth(kegMonthKey, -1))} className="w-6 h-6 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition">‹</button>
-                <button onClick={() => kegPeriod === 'week' ? setWeekKey(shiftWeek(weekKey, 1)) : setKegMonthKey(shiftMonth(kegMonthKey, 1))} className="w-6 h-6 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition">›</button>
-              </div>
-            </div>
-
-            {orderedByBeerSize.remainingSizeList.length === 0 ? (
-              <div className="text-xs text-emerald-800 bg-emerald-100/80 border border-emerald-200 rounded-xl px-3 py-2 font-bold flex items-center gap-1.5">
-                <span>✅</span>
-                <span>Všechny objednané sudy jsou již stočeny!</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 flex-wrap">
-                {orderedByBeerSize.remainingSizeList.map((r) => (
-                  <div key={r.volume} className="flex items-center gap-1 bg-amber-100/80 rounded-lg px-2.5 py-1.5 border border-amber-300/60 shadow-2xs">
-                    <span className="text-[11px] font-bold text-amber-950 whitespace-nowrap">KEG {r.volume}L</span>
-                    <span className="text-xs font-black text-rose-800">{r.remaining}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Tabulka: přehled zbývá stočit podle piv a velikostí */}
-            {orderedByBeerSize.list.length > 0 && (
-              <div className="mt-3">
-                <div className="text-xs font-bold text-amber-800 mb-2">📋 Rozpis podle piv a velikostí</div>
-                <div className="rounded-xl border border-amber-300/80 bg-amber-50/90">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="border-b border-amber-300/80 bg-amber-100/80">
-                        <th className="text-left py-1.5 px-2 font-black text-amber-950">Pivo</th>
-                        <th className="text-right py-1.5 px-2 font-black text-amber-950">KEG</th>
-                        <th className="text-right py-1.5 px-2 font-black text-amber-950">Obj.</th>
-                        <th className="text-right py-1.5 px-2 font-black text-amber-950">Sklad</th>
-                        <th className="text-right py-1.5 px-2 font-black text-amber-950">Stoč.</th>
-                        <th className="text-right py-1.5 px-2 font-black text-amber-950">Zbývá</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {orderedByBeerSize.list.map((r) => {
-                        const beerObj = beers.find((b) => b.id === r.beerKey || b.name === r.beerName);
-                        return (
-                          <tr key={`${r.beerKey}|${r.volume}`} className="border-b border-amber-200/60 hover:bg-amber-100/70">
-                            <td className="py-1.5 px-2 font-bold text-amber-950 flex items-center gap-1.5">
-                              <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs border border-black/20" style={{ backgroundColor: beerBg(beerObj) }} />
-                              <span className="truncate max-w-[100px]">{r.beerName}</span>
-                            </td>
-                            <td className="py-1.5 px-2 text-right font-semibold text-amber-900 whitespace-nowrap">{r.volume}L</td>
-                            <td className="py-1.5 px-2 text-right font-bold text-amber-950">{r.ordered}</td>
-                            <td className="py-1.5 px-2 text-right font-bold text-sky-800">{r.stock}</td>
-                            <td className="py-1.5 px-2 text-right font-bold text-emerald-800">{r.tapped}</td>
-                            <td className="py-1.5 px-2 text-right whitespace-nowrap">
-                              {r.remaining > 0 ? (
-                                <span className="font-black text-rose-800">{r.remaining}</span>
-                              ) : (
-                                <span className="font-black text-emerald-800">✅</span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
 
           {/* Stočeno KEG za týden — jednotlivé záznamy s +/−/✕ */}
           {rows.length > 0 && (() => {
@@ -1493,6 +1398,203 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
           </div>
         </div>
       )}
+      {/* TAB 4: PŘEFUK KEG SUDŮ — přelití ze sudů jedné velikosti do jiných */}
+      {(mode === 'all' && tab === 'prefuk') && (
+        <div className="space-y-4">
+          {/* Formulář přefuku */}
+          <form onSubmit={addPrefuk} className="card p-4 sm:p-5">
+            <div className="text-sm font-display font-black text-amber-950 mb-1">🔄 Přefuk KEG sudů</div>
+            <p className="text-xs text-neutral-500 mb-4">
+              Přelití piva ze sudů jedné velikosti do jiných — ze skladu se <b>odečtou</b> sudy „ZE" a <b>přičtou</b> sudy „DO" (např. 3×50 l → 4×30 l).
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+              <div>
+                <label className="label">Datum</label>
+                <input
+                  type="date"
+                  className="input"
+                  value={pfDate}
+                  onChange={(e) => setPfDate(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="sm:col-span-1 lg:col-span-2">
+                <label className="label">Druh piva</label>
+                <select className="input" value={pfBeerId} onChange={(e) => setPfBeerId(e.target.value)} required>
+                  <option value="">— vyber pivo —</option>
+                  {beers.map((b) => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="label">Poznámka (nepovinné)</label>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="např. na akci, na výčep…"
+                  value={pfNote}
+                  onChange={(e) => setPfNote(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-4">
+              {/* ZE — odečet */}
+              <div className="rounded-2xl border-2 border-rose-200 bg-rose-50/50 p-3">
+                <div className="text-[11px] font-black text-rose-700 uppercase tracking-wider mb-2">
+                  ➖ ZE sudů <span className="normal-case font-bold">(odečte se ze skladu)</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 items-end">
+                  <div>
+                    <label className="label">Velikost sudu</label>
+                    <select className="input" value={pfFromPkgId} onChange={(e) => setPfFromPkgId(e.target.value)} required>
+                      <option value="">— vyber —</option>
+                      {kegPackages.map((p) => (
+                        <option key={p.id} value={p.id}>{p.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">Počet sudů</label>
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      inputMode="numeric"
+                      className="input"
+                      placeholder="ks"
+                      value={pfFromCount}
+                      onChange={(e) => setPfFromCount(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+              {/* DO — příčet */}
+              <div className="rounded-2xl border-2 border-emerald-200 bg-emerald-50/50 p-3">
+                <div className="text-[11px] font-black text-emerald-700 uppercase tracking-wider mb-2">
+                  ➕ DO sudů <span className="normal-case font-bold">(přičte se na sklad)</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 items-end">
+                  <div>
+                    <label className="label">Velikost sudu</label>
+                    <select className="input" value={pfToPkgId} onChange={(e) => setPfToPkgId(e.target.value)} required>
+                      <option value="">— vyber —</option>
+                      {kegPackages.map((p) => (
+                        <option key={p.id} value={p.id}>{p.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">Počet sudů</label>
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      inputMode="numeric"
+                      className="input"
+                      placeholder="ks"
+                      value={pfToCount}
+                      onChange={(e) => setPfToCount(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/* Náhled pohybu */}
+            {pfFromPkgId && pfToPkgId && Number(pfFromCount) > 0 && Number(pfToCount) > 0 && (
+              <div className="mt-4 rounded-xl bg-white border border-neutral-200 p-3 text-sm">
+                <div className="text-xs font-bold text-neutral-500 mb-1.5">📋 Přehled pohybu na skladě:</div>
+                <div className="flex flex-wrap items-center gap-2 font-black">
+                  <span className="text-rose-700">
+                    − {pfFromCount} × {kegPackages.find((p) => p.id === pfFromPkgId)?.label ?? '?'}
+                  </span>
+                  <span className="text-neutral-400">→</span>
+                  <span className="text-emerald-700">
+                    + {pfToCount} × {kegPackages.find((p) => p.id === pfToPkgId)?.label ?? '?'}
+                  </span>
+                  <span className="text-neutral-400 font-semibold text-xs">
+                    ({Number(pfFromCount) * Number(kegPackages.find((p) => p.id === pfFromPkgId)?.volume_l || 0)} l → {Number(pfToCount) * Number(kegPackages.find((p) => p.id === pfToPkgId)?.volume_l || 0)} l)
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {pfErr && <p className="text-xs text-danger-600 font-bold mt-3">{pfErr}</p>}
+
+            <div className="flex justify-end mt-4">
+              <button type="submit" className="btn-primary" disabled={pfSaving}>
+                {pfSaving ? '⏳ Ukládám…' : '💾 Uložit přefuk'}
+              </button>
+            </div>
+          </form>
+
+          {/* Historie přefuků */}
+          <div className="card p-4">
+            <div className="text-sm font-display font-black text-amber-950 mb-3">
+              📜 Historie přefuků ({prefukRows.length})
+            </div>
+            {prefukRows.length === 0 ? (
+              <EmptyState text="Zatím žádný přefuk. Přefukem se ze skladu odečtou sudy ZE a přičtou sudy DO." icon="🔄" />
+            ) : (
+              <div className="overflow-x-auto scrollbar-thin rounded-2xl border border-neutral-200">
+                <table className="table text-xs w-full">
+                  <thead>
+                    <tr className="bg-neutral-100 border-b border-neutral-200">
+                      <th className="p-2.5 text-left">Datum</th>
+                      <th className="p-2.5 text-left">Pivo</th>
+                      <th className="p-2.5 text-left">ZE sudů (odečet)</th>
+                      <th className="p-2.5 text-left">DO sudů (přičet)</th>
+                      <th className="p-2.5 text-left">Poznámka</th>
+                      <th className="p-2.5 text-center">Smazat</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {prefukRows.map((r) => {
+                      const beer = beers.find((b) => b.id === r.beer_id);
+                      return (
+                        <tr key={r.id} className="border-b border-neutral-100 hover:bg-neutral-50/80 transition-colors">
+                          <td className="p-2.5 font-bold text-neutral-700 whitespace-nowrap">{r.entry_date}</td>
+                          <td className="p-2.5 font-black text-neutral-950">
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
+                              <span>{r.beer_name ?? beer?.name ?? '—'}</span>
+                            </div>
+                          </td>
+                          <td className="p-2.5">
+                            <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 font-black text-[11px] border border-rose-200 whitespace-nowrap">
+                              − {r.from_count} × {r.from_package_label ?? '?'}
+                            </span>
+                          </td>
+                          <td className="p-2.5">
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-black text-[11px] border border-emerald-200 whitespace-nowrap">
+                              + {r.to_count} × {r.to_package_label ?? '?'}
+                            </span>
+                          </td>
+                          <td className="p-2.5 text-neutral-500">{r.note ?? ''}</td>
+                          <td className="p-2.5 text-center">
+                            <button
+                              type="button"
+                              onClick={() => deletePrefuk(r.id)}
+                              className="px-2 py-1 rounded-lg text-neutral-400 hover:text-danger-600 hover:bg-danger-50 transition"
+                              title="Smazat přefuk"
+                            >
+                              🗑️
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {editingRow && (
         <Modal open={true} onClose={() => setEditingRow(null)} title="✏️ Upravit záznam stáčení KEG">
           <form onSubmit={saveEditedRow} className="space-y-4">
@@ -1553,7 +1655,13 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                 className="input"
               >
                 <option value="">— Vyber tank —</option>
-                {cellarTanks.map((t) => (
+                {Array.from(
+                  new Map(
+                    [...keggingActiveTanks,
+                     ...(editingRow.cellar_tank_id ? cellarTanks.filter((t) => t.id === editingRow.cellar_tank_id) : [])]
+                      .map((t) => [t.id, t] as const)
+                  ).values()
+                ).map((t) => (
                   <option key={t.id} value={t.id}>{t.label}</option>
                 ))}
               </select>

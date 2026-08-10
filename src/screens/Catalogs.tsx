@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { supabase, supabaseAdmin, Beer, Package, Place, Vehicle, useRealtime, BEER_COLOR_PRESETS, beerBg, beerText, beerBorder } from '../lib/supabase';
+import { supabase, Beer, Package, Place, Vehicle, useRealtime, BEER_COLOR_PRESETS, beerBg, beerText, beerBorder } from '../lib/supabase';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import ExcelImportModal from '../components/ExcelImportModal';
 import { FileSpreadsheet, Plus, Search, Beer as BeerIcon, Package as PackageIcon, MapPin, Phone, Mail, Edit, Trash2, Eye, EyeOff, Car, AlertTriangle, ShieldCheck, ShieldAlert } from 'lucide-react';
@@ -409,29 +409,29 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
 
     let error: any = null;
     if (place) {
-      const res = await supabaseAdmin.from('places').update(fullPayload).eq('id', place.id);
+      const res = await supabase.from('places').update(fullPayload).eq('id', place.id);
       error = res.error;
       if (error) {
-        const retry1 = await supabaseAdmin.from('places').update(basePayload).eq('id', place.id);
+        const retry1 = await supabase.from('places').update(basePayload).eq('id', place.id);
         error = retry1.error;
         if (error) {
-          const retry2 = await supabaseAdmin.from('places').update(minimalPayload).eq('id', place.id);
+          const retry2 = await supabase.from('places').update(minimalPayload).eq('id', place.id);
           error = retry2.error;
         }
       }
     } else {
-      const res = await supabaseAdmin.from('places').insert(fullPayload);
+      const res = await supabase.from('places').insert(fullPayload);
       error = res.error;
       if (error) {
         if (error.message?.includes('places_name_lower_uniq') || error.code === '23505') {
           error = null;
         } else {
-          const retry1 = await supabaseAdmin.from('places').insert(basePayload);
+          const retry1 = await supabase.from('places').insert(basePayload);
           error = retry1.error;
           if (error && (error.message?.includes('places_name_lower_uniq') || error.code === '23505')) {
             error = null;
           } else if (error) {
-            const retry2 = await supabaseAdmin.from('places').insert(minimalPayload);
+            const retry2 = await supabase.from('places').insert(minimalPayload);
             error = retry2.error;
             if (error && (error.message?.includes('places_name_lower_uniq') || error.code === '23505')) {
               error = null;

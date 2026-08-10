@@ -1,7 +1,7 @@
 ﻿// Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-export const APP_VERSION = '1.538';
-export const APP_VERSION_DATE = '9.8.2026 11:05';
+export const APP_VERSION = '1.546';
+export const APP_VERSION_DATE = '10.8.2026 09:09';
 
 
 
@@ -9,6 +9,17 @@ export const APP_VERSION_DATE = '9.8.2026 11:05';
 // StruÄŤnĂ˝ pĹ™ehled zmÄ›n v aktuĂˇlnĂ­ verzi (zobrazuje se v admin sekci NastavenĂ­)
 
 export const APP_CHANGELOG: string[] = [
+  '🌾 Šrotování sladu: kalkulačka v „Kalkulačkách“ přepracovaná na plán šrotování — 4 řádky s rozklikávacím výběrem piva, kolik se šrotuje (kg sladu) a dopočtem pytlů 25 kg; odstraněna vystírka a výpočty °P/výtěžnosti. v1.546',
+
+  '🔐 Zabezpečení: z klientské aplikace odstraněn service-role klíč (RLS tak opravdu chrání data — bez přihlášení nikdo nemůže číst WhatsApp zprávy ani ostatní data) a webhook přijímá zprávy jen s hlavičkou x-webhook-token. v1.545',
+  '💬 WhatsApp: do aplikace se teď ukládají a importují JEN zprávy ze skupiny „Objednávky pivovar" — webhook zprávy od všech ostatních odesílatelů zahodí (žádný banner, seznam ani počítadlo). Všechny zprávy ze skupiny se rozparsují a zobrazí ke schválení. v1.544',
+
+  '💬 WhatsApp kontrola čtení: nový panel „Kontrola čtení — originál vs. přepis AI“ — originální zpráva se zeleně zvýrazněnými místy, odkud AI četla (s čísly položek), u každé položky ✓/⚠ štítek podle toho, jestli se AI čtený text v originálu opravdu nachází, a rozbalovací „Doslovný přepis AI“; zprávy s nesouhlasícím přepisem mají v Auto-Importu ⚠ odznak. v1.542',
+
+  '📦 Sklad: záložka „Sklo, Etikety, Podtáčky“ (evidence skla, etiket, podtáčků a prázdných lahví) se přesunula z „Odpis, Promo, Sklo, Podtáčky“ do Skladu — v Skladu je nově horní záložka vedle přehledu zásob; tlačítko „Přejít do evidence etiket & lahví“ přepne přímo na tuto záložku. Položka v menu se zkrátila na „Odpis“. v1.541',
+
+  '📝 WhatsApp/poznámky: oprava čtení „ještě sklo“ / „ještě podtácky“ (i s diakritikou) — dříve se taková poznámka nerozpoznala; rozšířeno na všechny tvary „ještě/ještě“ a „podtácky/podtáček“ s/bez diakritiky. v1.540',
+
   '📦 Objednávky: rozbalovací pole počtu je nově i při zadávání/úpravě objednávek a ve WhatsApp kontrole — podle obalu nabídne keg 4/6/10/12 ks, lahev 0,33/0,5 l 10/20/40/60/80/100 ks a lahev 1/1,5 l 5/6/12/20/24/36/40/50 ks; výchozí položka „+“. v1.538',
   '🏪 Prodejna: rychlé pole počtu v Zápisu nově nabízí i 24 a 40 ks (6/10/12/20/24/40); výchozí položka „+“. v1.537',
 

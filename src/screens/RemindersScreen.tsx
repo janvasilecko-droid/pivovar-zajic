@@ -1,10 +1,20 @@
 import { useState, useEffect, useMemo } from 'react';
-import { ReminderItem, ReminderTarget, ReminderDisplayMode, fetchReminders, createReminder, deleteReminder, acknowledgeReminder, isReminderForUser } from '../lib/reminders';
+import { ReminderItem, ReminderTarget, ReminderDisplayMode, fetchReminders, createReminder, deleteReminder, acknowledgeReminder, isReminderForUser, normalizeTargetEmails } from '../lib/reminders';
 import { isNotificationSupported, requestNotificationPermission, playOrderChime } from '../lib/notifications';
-import { Bell, Plus, Trash2, CheckCircle2, Clock, User, Shield, PhoneCall, Monitor, Lock, AlertCircle, Filter, Calendar } from 'lucide-react';
+import { Bell, Plus, Trash2, CheckCircle2, Clock, User, Shield, PhoneCall, Monitor, Lock, AlertCircle, Filter, Calendar, Send, Users as UsersIcon } from 'lucide-react';
 import { EmptyState, Spinner } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { getAdminEmail, DEFAULT_ROLE } from '../lib/config';
+import { supabase } from '../lib/supabase';
+
+type UserDirectoryEntry = {
+  id: string;
+  email: string;
+  display_name: string | null;
+  role: string;
+};
+
+type RecipientMode = 'all' | 'role' | 'users' | 'custom';
 
 export default function RemindersScreen() {
   const { user } = useAuth();
@@ -21,14 +31,47 @@ export default function RemindersScreen() {
     d.setMinutes(0);
     return d.toISOString().slice(0, 16);
   });
+  const [recipientMode, setRecipientMode] = useState<RecipientMode>('all');
   const [targetRole, setTargetRole] = useState<ReminderTarget>('all');
-  const [customEmail, setCustomEmail] = useState('');
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]); // e-maily příjemců
+  const [customEmails, setCustomEmails] = useState('');
+  const [userDirectory, setUserDirectory] = useState<UserDirectoryEntry[]>([]);
+  const [directoryLoading, setDirectoryLoading] = useState(false);
+  const [sendNow, setSendNow] = useState(false);
   const [displayMode, setDisplayMode] = useState<ReminderDisplayMode>('both');
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState<'all' | 'my' | 'pending'>('pending');
 
   const currentUserEmail = user?.email || getAdminEmail();
   const currentUserRole = user?.role || DEFAULT_ROLE;
+
+  // Načtení adresáře uživatelů (pro výběr konkrétních příjemců)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setDirectoryLoading(true);
+      try {
+        const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users/directory`;
+        const { data: session } = await supabase.auth.getSession();
+        const res = await fetch(apiUrl, { headers: { Authorization: `Bearer ${session.session?.access_token ?? ''}` } });
+        if (res.ok) {
+          const j = await res.json();
+          if (!cancelled) {
+            const list = ((j.users ?? []) as UserDirectoryEntry[]).filter((u) => u.email);
+            setUserDirectory(list.sort((a, b) => (a.display_name || a.email).localeCompare(b.display_name || b.email)));
+          }
+        }
+      } catch {
+        // adresář není dostupný → zůstane prázdný, uživatel může zadat e-maily ručně
+      }
+      if (!cancelled) setDirectoryLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  function toggleUser(email: string) {
+    setSelectedUsers((prev) => (prev.includes(email) ? prev.filter((e) => e !== email) : [...prev, email]));
+  }
 
   async function loadData() {
     setLoading(true);
@@ -44,23 +87,38 @@ export default function RemindersScreen() {
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) {
-      alert('Zadejte název upomínky.');
+      alert('Zadejte název zprávy / upomínky.');
       return;
     }
-    if (!dateTime) {
-      alert('Zadejte datum a čas upomínky.');
+    if (!sendNow && !dateTime) {
+      alert('Zadejte datum a čas, nebo zvolte „Odeslat ihned".');
       return;
+    }
+
+    // Stanovení příjemců podle zvoleného režimu
+    let finalTargetRole = 'all';
+    let finalTargetEmails: string[] = [];
+    if (recipientMode === 'role') {
+      finalTargetRole = targetRole;
+    } else if (recipientMode === 'users') {
+      if (selectedUsers.length === 0) {
+        alert('Vyberte alespoň jednoho uživatele.');
+        return;
+      }
+      finalTargetRole = 'custom';
+      finalTargetEmails = selectedUsers;
+    } else if (recipientMode === 'custom') {
+      const parsed = normalizeTargetEmails(customEmails);
+      if (parsed.length === 0) {
+        alert('Zadejte alespoň jeden e-mail.');
+        return;
+      }
+      finalTargetRole = 'custom';
+      finalTargetEmails = parsed;
     }
 
     setSaving(true);
     try {
-      const finalTarget = targetRole === 'custom' ? customEmail.trim() : targetRole;
-      if (!finalTarget) {
-        alert('Zadejte cílový e-mail.');
-        setSaving(false);
-        return;
-      }
-
       // Check browser notification permission if desktop push requested
       if (displayMode === 'desktop_push' || displayMode === 'both') {
         if (isNotificationSupported() && Notification.permission !== 'granted') {
@@ -71,16 +129,20 @@ export default function RemindersScreen() {
       await createReminder({
         title: title.trim(),
         note: note.trim() || undefined,
-        date_time: dateTime,
-        target_role: finalTarget,
+        date_time: sendNow ? new Date().toISOString() : dateTime,
+        target_role: finalTargetRole,
+        target_emails: finalTargetEmails,
         display_mode: displayMode,
         created_by: currentUserEmail,
       });
 
       setTitle('');
       setNote('');
+      setSelectedUsers([]);
+      setCustomEmails('');
+      setSendNow(false);
       await loadData();
-      alert('✅ Upomínka byla úspěšně vytvořena a naplánována!');
+      alert('✅ Zpráva / upomínka byla úspěšně odeslána!');
     } catch (e: any) {
       alert('Chyba při vytváření upomínky: ' + (e?.message ?? String(e)));
     } finally {
@@ -112,6 +174,16 @@ export default function RemindersScreen() {
     });
   }, [reminders, filter, currentUserEmail, currentUserRole]);
 
+  function formatRecipients(r: ReminderItem): string {
+    if (r.target_emails && r.target_emails.length > 0) {
+      const shown = r.target_emails.slice(0, 2).join(', ');
+      const count = r.target_emails.length;
+      return count > 2 ? `${count} uživatelů (${shown}…)` : `${count} uživatelů (${shown})`;
+    }
+    if (r.target_role === 'all') return 'Všichni';
+    return r.target_role;
+  }
+
   return (
     <div className="space-y-6 pb-12">
       {/* Banner */}
@@ -122,10 +194,10 @@ export default function RemindersScreen() {
             <span>Chytré plánování & Notifikace</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-display font-black tracking-tight text-white flex items-center gap-2">
-            <span>🔔 Upomínky a Upozornění pro uživatele</span>
+            <span>🔔 Upozornění — posílejte zprávy kolegům</span>
           </h1>
           <p className="text-xs text-neutral-400 font-medium mt-1">
-            Vytvořte si upomínku. Vyberte, komu se zobrazí a zda má vyskočit po přihlášení do aplikace nebo jako notifikace na ploše mobilu a počítače.
+            Napište zprávu nebo upomínku a vyberte příjemce — všechny, roli nebo konkrétní uživatele. Odešlete ihned nebo naplánujte na termín. Uživatelé dostanou push notifikaci a/nebo okno k potvrzení.
           </p>
         </div>
 
@@ -143,7 +215,7 @@ export default function RemindersScreen() {
           <div className="border-b border-amber-100 pb-3">
             <h3 className="font-display font-black text-base sm:text-lg text-neutral-900 flex items-center gap-2">
               <Plus size={20} className="text-amber-500" />
-              <span>Vytvořit novou upomínku</span>
+              <span>Odeslat zprávu / upomínku</span>
             </h3>
           </div>
 
@@ -172,41 +244,167 @@ export default function RemindersScreen() {
             </div>
 
             <div>
-              <label className="block text-xs font-black text-neutral-700 mb-1">Datum a čas upomínky *</label>
-              <input
-                type="datetime-local"
-                required
-                value={dateTime}
-                onChange={(e) => setDateTime(e.target.value)}
-                className="input font-mono font-bold text-xs"
-              />
+              <label className="block text-xs font-black text-neutral-700 mb-1">Kdy se má zpráva doručit?</label>
+              <label className={`flex items-start gap-2.5 p-2.5 rounded-xl border transition cursor-pointer mb-2 ${
+                sendNow ? 'bg-emerald-100/70 border-emerald-400 font-bold' : 'bg-neutral-50 border-neutral-200'
+              }`}>
+                <input
+                  type="checkbox"
+                  checked={sendNow}
+                  onChange={(e) => setSendNow(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <div className="text-xs">
+                  <div className="font-black text-neutral-900">📤 Odeslat ihned</div>
+                  <div className="text-[11px] text-neutral-500">Upozornění se vybraným uživatelům zobrazí okamžitě (do ~12 sekund), bez čekání na termín.</div>
+                </div>
+              </label>
+              {!sendNow && (
+                <input
+                  type="datetime-local"
+                  required
+                  value={dateTime}
+                  onChange={(e) => setDateTime(e.target.value)}
+                  className="input font-mono font-bold text-xs"
+                />
+              )}
             </div>
 
             <div>
-              <label className="block text-xs font-black text-neutral-700 mb-1">Komu všemu se upomínka zobrazí *</label>
-              <select
-                value={targetRole}
-                onChange={(e) => setTargetRole(e.target.value as ReminderTarget)}
-                className="input font-bold text-xs"
-              >
-                <option value="all">👥 Všichni uživatelé pivovaru</option>
-                <option value="admin">👑 Pouze Administrátoři</option>
-                <option value="sef">👔 Pouze Šéf a vedení</option>
-                <option value="sladek">🍺 Pouze Sládek</option>
-                <option value="vyroba">🏭 Výroba a sklep</option>
-                <option value="obchod">💼 Obchod a rozvoz</option>
-                <option value="custom">✉️ Konkrétní e-mail uživatele</option>
-              </select>
-              {targetRole === 'custom' && (
-                <input
-                  type="email"
-                  required
-                  placeholder="napriklad@seznam.cz"
-                  value={customEmail}
-                  onChange={(e) => setCustomEmail(e.target.value)}
-                  className="input font-bold text-xs mt-2"
-                />
-              )}
+              <label className="block text-xs font-black text-neutral-700 mb-1">Komu zprávu / upomínku poslat? *</label>
+              <div className="space-y-1.5">
+                <label className={`flex items-start gap-2.5 p-2.5 rounded-xl border transition cursor-pointer ${
+                  recipientMode === 'all' ? 'bg-amber-100/70 border-amber-400 font-bold' : 'bg-neutral-50 border-neutral-200'
+                }`}>
+                  <input
+                    type="radio"
+                    name="recipient"
+                    value="all"
+                    checked={recipientMode === 'all'}
+                    onChange={() => setRecipientMode('all')}
+                    className="mt-0.5"
+                  />
+                  <div className="text-xs">
+                    <div className="font-black text-neutral-900">👥 Všichni uživatelé pivovaru</div>
+                    <div className="text-[11px] text-neutral-500">Zobrazí se každému, kdo používá aplikaci.</div>
+                  </div>
+                </label>
+
+                <label className={`flex items-start gap-2.5 p-2.5 rounded-xl border transition cursor-pointer ${
+                  recipientMode === 'role' ? 'bg-amber-100/70 border-amber-400 font-bold' : 'bg-neutral-50 border-neutral-200'
+                }`}>
+                  <input
+                    type="radio"
+                    name="recipient"
+                    value="role"
+                    checked={recipientMode === 'role'}
+                    onChange={() => setRecipientMode('role')}
+                    className="mt-0.5"
+                  />
+                  <div className="text-xs">
+                    <div className="font-black text-neutral-900">🎯 Podle role / pracovní pozice</div>
+                    <div className="text-[11px] text-neutral-500">Např. pouze sládek, výroba, obchod…</div>
+                  </div>
+                </label>
+                {recipientMode === 'role' && (
+                  <select
+                    value={targetRole}
+                    onChange={(e) => setTargetRole(e.target.value as ReminderTarget)}
+                    className="input font-bold text-xs mt-1"
+                  >
+                    <option value="admin">👑 Pouze Administrátoři</option>
+                    <option value="sef">👔 Pouze Šéf a vedení</option>
+                    <option value="sladek">🍺 Pouze Sládek</option>
+                    <option value="vyroba">🏭 Výroba a sklep</option>
+                    <option value="obchod">💼 Obchod a rozvoz</option>
+                  </select>
+                )}
+
+                <label className={`flex items-start gap-2.5 p-2.5 rounded-xl border transition cursor-pointer ${
+                  recipientMode === 'users' ? 'bg-amber-100/70 border-amber-400 font-bold' : 'bg-neutral-50 border-neutral-200'
+                }`}>
+                  <input
+                    type="radio"
+                    name="recipient"
+                    value="users"
+                    checked={recipientMode === 'users'}
+                    onChange={() => setRecipientMode('users')}
+                    className="mt-0.5"
+                  />
+                  <div className="text-xs">
+                    <div className="font-black text-neutral-900">👤 Konkrétní uživatelé</div>
+                    <div className="text-[11px] text-neutral-500">Vyberte jednoho nebo více kolegů ze seznamu.</div>
+                  </div>
+                </label>
+                {recipientMode === 'users' && (
+                  <div className="mt-1 space-y-2">
+                    {directoryLoading ? (
+                      <div className="text-[11px] font-bold text-neutral-500">Načítám seznam uživatelů…</div>
+                    ) : userDirectory.length === 0 ? (
+                      <div className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-2">
+                        Seznam uživatelů není dostupný — použijte „Vlastní e-maily" a napište e-maily kolegů ručně.
+                      </div>
+                    ) : (
+                      <div className="max-h-44 overflow-y-auto border border-neutral-200 rounded-xl p-2 space-y-1 bg-white">
+                        {userDirectory.map((u) => {
+                          const checked = selectedUsers.includes(u.email);
+                          return (
+                            <label
+                              key={u.id}
+                              className={`flex items-center gap-2 p-1.5 rounded-lg cursor-pointer text-xs transition ${
+                                checked ? 'bg-amber-100 border border-amber-300' : 'hover:bg-neutral-50 border border-transparent'
+                              }`}
+                            >
+                              <input type="checkbox" checked={checked} onChange={() => toggleUser(u.email)} />
+                              <UsersIcon size={14} className="text-neutral-400 shrink-0" />
+                              <span className="font-black text-neutral-800">{u.display_name || u.email.split('@')[0]}</span>
+                              <span className="text-neutral-400 truncate">{u.email}</span>
+                              <span className="ml-auto text-[10px] font-bold uppercase text-neutral-400 shrink-0">{u.role}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {selectedUsers.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedUsers.map((em) => (
+                          <span key={em} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/15 border border-amber-300 text-[11px] font-bold text-neutral-800">
+                            {em}
+                            <button type="button" onClick={() => toggleUser(em)} className="text-amber-700 hover:text-rose-600 font-black" aria-label={`Odebrat ${em}`}>×</button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <label className={`flex items-start gap-2.5 p-2.5 rounded-xl border transition cursor-pointer ${
+                  recipientMode === 'custom' ? 'bg-amber-100/70 border-amber-400 font-bold' : 'bg-neutral-50 border-neutral-200'
+                }`}>
+                  <input
+                    type="radio"
+                    name="recipient"
+                    value="custom"
+                    checked={recipientMode === 'custom'}
+                    onChange={() => setRecipientMode('custom')}
+                    className="mt-0.5"
+                  />
+                  <div className="text-xs">
+                    <div className="font-black text-neutral-900">✉️ Vlastní e-maily</div>
+                    <div className="text-[11px] text-neutral-500">Napište e-maily příjemců ručně (více oddělte čárkou).</div>
+                  </div>
+                </label>
+                {recipientMode === 'custom' && (
+                  <input
+                    type="text"
+                    required
+                    placeholder="napriklad@seznam.cz, kolega@firma.cz"
+                    value={customEmails}
+                    onChange={(e) => setCustomEmails(e.target.value)}
+                    className="input font-bold text-xs mt-1"
+                  />
+                )}
+              </div>
             </div>
 
             <div>
@@ -271,7 +469,7 @@ export default function RemindersScreen() {
                 disabled={saving}
                 className="w-full px-5 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md flex items-center justify-center gap-2"
               >
-                <Plus size={16} /> Vytvořit upomínku
+                <Send size={16} /> Odeslat zprávu / upomínku
               </button>
             </div>
           </form>
@@ -348,7 +546,7 @@ export default function RemindersScreen() {
                             {r.display_mode === 'desktop_push' ? '📲 Push' : r.display_mode === 'login_modal' ? '🔒 Okno po přihlášení' : '🔔 Okno + Push'}
                           </span>
                           <span className="text-[10px] font-bold text-neutral-500">
-                            Cíl: <strong className="text-neutral-800">{r.target_role === 'all' ? 'Všichni' : r.target_role}</strong>
+                            Cíl: <strong className="text-neutral-800">{formatRecipients(r)}</strong>
                           </span>
                         </div>
                         <h4 className="font-display font-black text-base text-neutral-950 mt-1">

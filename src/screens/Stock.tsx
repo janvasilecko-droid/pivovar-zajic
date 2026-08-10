@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { supabase, Beer, Package, useRealtime, beerBg, beerText, beerBorder } from '../lib/supabase';
+import { supabase, Beer, Package, KegPrefuk, useRealtime, beerBg, beerText, beerBorder } from '../lib/supabase';
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { Warehouse, Calendar, BarChart2, PackageCheck, Download, ShoppingBag, Tent } from 'lucide-react';
 import { exportExciseTaxReportToExcel } from '../lib/excel';
@@ -96,7 +96,7 @@ export default function Stock() {
 
     const curMonth = invMonth;
 
-    const [{ data: invData }, { data: botData }, { data: kegData }, { data: ordItemsData }, { data: ordData }, { data: woData }, { data: akData }, { data: faData }, { data: fpData }] =
+    const [{ data: invData }, { data: botData }, { data: kegData }, { data: ordItemsData }, { data: ordData }, { data: woData }, { data: akData }, { data: faData }, { data: fpData }, { data: pfData }] =
       await Promise.all([
         supabase.from('inventory').select('*'),
         supabase.from('bottling').select('*'),
@@ -107,6 +107,7 @@ export default function Stock() {
         supabase.from('akce').select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
         supabase.from('fasovani').select('*'),
         supabase.from('fasovani_private').select('*'),
+        supabase.from('keg_prefuk').select('*'),
       ]);
 
     const inv = (invData ?? []) as { entry_date: string; beer_id: string | null; package_id: string | null; quantity: number; note?: string }[];
@@ -151,6 +152,7 @@ export default function Stock() {
     const wo = (woData ?? []) as BrewRow[];
     const fa = (faData ?? []) as BrewRow[];
     const fp = (fpData ?? []) as BrewRow[];
+    const pf = (pfData ?? []) as KegPrefuk[];
     const ords = (ordData ?? []) as { id: string; order_date: string; delivery_date: string | null; status: string }[];
     const ordItems = (ordItemsData ?? []) as { order_id: string; beer_id: string | null; package_id: string; quantity: number }[];
     const akRows = (akData ?? []) as { entry_date: string; items: { beer_id: string | null; package_id: string | null; quantity_taken: number; quantity_returned: number }[] }[];
@@ -190,8 +192,13 @@ export default function Stock() {
         });
 
         const outgoingMoved = fasovaniW + woW + prodejnaW + akceWeek + kegsUsedW;
-        // Aktuální reálný stav na skladě = Počáteční + Stočeno − již vydáno/odepsáno
-        const currentStock = Math.max(0, fromInv + brewedW - outgoingMoved);
+
+        // Přefuk KEG: sudy ZE (from_count) se odečtou ze skladu, sudy DO (to_count) se přičtou
+        const prefukFrom = pf.filter((r) => r.beer_id === beer.id && r.from_package_id === pkg.id && isMovementInPeriod(r.entry_date)).reduce((s, r) => s + Number(r.from_count || 0), 0);
+        const prefukTo = pf.filter((r) => r.beer_id === beer.id && r.to_package_id === pkg.id && isMovementInPeriod(r.entry_date)).reduce((s, r) => s + Number(r.to_count || 0), 0);
+
+        // Aktuální reálný stav na skladě = Počáteční + Stočeno − již vydáno/odepsáno − přefuk ZE + přefuk DO
+        const currentStock = Math.max(0, fromInv + brewedW - outgoingMoved - prefukFrom + prefukTo);
 
         const orderedW = ordItems.filter((i) => validOrdIdsWeek.has(i.order_id) && i.beer_id === beer.id && i.package_id === pkg.id).reduce((s, i) => s + Number(i.quantity), 0);
         const outgoing = orderedW;
@@ -259,7 +266,7 @@ export default function Stock() {
 
   useEffect(() => { load(); }, [weekKey, invMonth]);
   useEffect(() => { loadBrewed(); }, [brewFrom, brewTo]);
-  useRealtime(['bottling','kegging','inventory','order_items','orders','writeoffs','fasovani','fasovani_private'], () => { load(true); loadBrewed(true); });
+  useRealtime(['bottling','kegging','keg_prefuk','inventory','order_items','orders','writeoffs','fasovani','fasovani_private'], () => { load(true); loadBrewed(true); });
 
   function setQuickRange(type: 'week' | 'month' | 'year' | 'all') {
     const today = todayISO();

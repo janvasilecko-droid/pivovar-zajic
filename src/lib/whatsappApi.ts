@@ -11,19 +11,29 @@ export interface WhatsAppIncoming {
   message_type: string;
   status: 'pending' | 'processing' | 'parsed' | 'imported' | 'error' | 'ignored';
   error_message?: string;
-  parsed_place_id?: string;
-  parsed_place_name?: string;
-  parsed_delivery_day?: string;
-  parsed_delivery_date?: string;
-  parsed_note?: string;
+  parsed_place_id?: string | null;
+  parsed_place_name?: string | null;
+  parsed_delivery_day?: string | null;
+  parsed_delivery_date?: string | null;
+  parsed_note?: string | null;
+  /** Doslovný přepis zprávy od AI (raw_text) — pro kontrolu, že AI přečetla zprávu správně. */
+  parsed_raw_text?: string | null;
+  /** URL fotky/přílohy (vyplňuje webhook, pokud ji Make/Tasker pošle). */
+  media_url?: string | null;
+  /** Počet položek, jejichž přepis AI nesouhlasí s originálem (kontrola čtení). */
+  readback_unmatched_count?: number | null;
+  /** Kdy byl výsledek kontroly čtení potvrzen (audit). */
+  readback_checked_at?: string | null;
+  /** Kdo kontrolu čtení potvrdil (audit). */
+  readback_checked_by?: string | null;
   parsed_items?: Array<{
-    beer_id?: string;
-    pkg_id?: string;
-    qty?: number;
-    degree?: string;
-    beer_name?: string;
-    package_label?: string;
-    raw_line?: string;
+    beer_id?: string | null;
+    pkg_id?: string | null;
+    qty?: number | null;
+    degree?: string | null;
+    beer_name?: string | null;
+    package_label?: string | null;
+    raw_line?: string | null;
   }>;
   imported_order_id?: string;
   imported_at?: string;
@@ -73,16 +83,20 @@ export async function fetchPendingWhatsAppMessages(): Promise<WhatsAppIncoming[]
     throw error;
   }
   
+  // Do aplikace se ukládají jen zprávy ze skupiny „Objednávky pivovar" (webhook
+  // na to filtruje), takže se vrací vše, co v DB je — každá zpráva je objednávka.
   return data || [];
 }
 
 /**
  * Fetch the number of WhatsApp messages waiting for approval (pending/parsed).
+ * Počítají se všechny zprávy ze skupiny „Objednávky pivovar" (webhook jiné
+ * zprávy neuloží) — každá je potenciální objednávka.
  */
 export async function fetchPendingWhatsAppCount(): Promise<number> {
-  const { count, error } = await supabase
+  const { data, error } = await supabase
     .from('whatsapp_incoming')
-    .select('id', { count: 'exact', head: true })
+    .select('id')
     .in('status', ['pending', 'parsed']);
 
   if (error) {
@@ -90,7 +104,7 @@ export async function fetchPendingWhatsAppCount(): Promise<number> {
     throw error;
   }
 
-  return count ?? 0;
+  return (data || []).length;
 }
 
 
@@ -338,4 +352,60 @@ export function subscribeToWhatsAppMessages(
   return () => {
     supabase.removeChannel(channel);
   };
+}
+
+/**
+ * Uloží opravená/nově rozparsovaná data zprávy (po ručním přečtení znovu).
+ */
+export async function updateWhatsAppParsedData(
+  id: string,
+  updates: {
+    parsedItems?: WhatsAppIncoming['parsed_items'];
+    parsedPlaceId?: string | null;
+    parsedPlaceName?: string | null;
+    parsedDeliveryDay?: string | null;
+    parsedDeliveryDate?: string | null;
+    parsedNote?: string | null;
+    parsedRawText?: string | null;
+    readbackUnmatchedCount?: number | null;
+  }
+): Promise<void> {
+  const payload: any = { status: 'parsed' };
+  if (updates.parsedItems !== undefined) payload.parsed_items = updates.parsedItems;
+  if (updates.parsedPlaceId !== undefined) payload.parsed_place_id = updates.parsedPlaceId || null;
+  if (updates.parsedPlaceName !== undefined) payload.parsed_place_name = updates.parsedPlaceName || null;
+  if (updates.parsedDeliveryDay !== undefined) payload.parsed_delivery_day = updates.parsedDeliveryDay || null;
+  if (updates.parsedDeliveryDate !== undefined) payload.parsed_delivery_date = updates.parsedDeliveryDate || null;
+  if (updates.parsedNote !== undefined) payload.parsed_note = updates.parsedNote || null;
+  if (updates.parsedRawText !== undefined) payload.parsed_raw_text = updates.parsedRawText || null;
+  if (updates.readbackUnmatchedCount !== undefined) payload.readback_unmatched_count = updates.readbackUnmatchedCount;
+
+  const { error } = await supabase
+    .from('whatsapp_incoming')
+    .update(payload)
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error updating WhatsApp parsed data:', error);
+    throw error;
+  }
+}
+
+/**
+ * Načte posledních `limit` zpráv napříč stavy (parsed/imported/ignored) —
+ * pro statistiku kontroly čtení a detekci opakovaných chyb.
+ */
+export async function fetchRecentWhatsAppMessages(limit = 100): Promise<WhatsAppIncoming[]> {
+  const { data, error } = await supabase
+    .from('whatsapp_incoming')
+    .select('*')
+    .in('status', ['pending', 'parsed', 'imported', 'ignored'])
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('Error fetching recent WhatsApp messages:', error);
+    throw error;
+  }
+  return data || [];
 }

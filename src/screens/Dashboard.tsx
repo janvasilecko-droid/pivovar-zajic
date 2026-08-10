@@ -3,8 +3,9 @@ import { supabase, Beer, Package, Vehicle, useRealtime, beerBg, beerText, beerBo
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { getVehicleExpiryStatus } from './Catalogs';
-import { AlertTriangle, ClipboardList, PackageCheck, Layers, Beer as BeerIcon } from 'lucide-react';
+import { AlertTriangle, ClipboardList, PackageCheck, Layers, Beer as BeerIcon, BarChart3, Sparkles } from 'lucide-react';
 import { AnnouncementManagerModal } from '../components/AnnouncementManagerModal';
+import SkloPromoScreen from './SkloPromoScreen';
 import { getStartingStockMap } from '../lib/inventoryHelper';
 
 type Row = {
@@ -36,7 +37,13 @@ type BrewStat = {
   totalKegs: number; totalBottles: number; totalQty: number; totalLiters: number;
 };
 
-export default function Dashboard({ setPage }: { setPage?: (p: any) => void }) {
+export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?: (p: any) => void; initialTab?: 'sklad' | 'sklo_promo' }) {
+  const [activeTab, setActiveTab] = useState<'sklad' | 'sklo_promo'>(initialTab);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
   const { profile } = useAuth();
   const [beers, setBeers] = useState<Beer[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
@@ -288,11 +295,40 @@ export default function Dashboard({ setPage }: { setPage?: (p: any) => void }) {
     });
   }, [brewStats]);
 
-  if (loading) return <Spinner />;
+  if (loading && activeTab === 'sklad') return <Spinner />;
 
   return (
     <div>
-      {showAnnouncementManager && <AnnouncementManagerModal onClose={() => setShowAnnouncementManager(false)} />}
+      {/* Tab Navigation */}
+      <div className="flex items-center gap-2 border-b border-neutral-200 pb-2 overflow-x-auto scrollbar-thin mb-4">
+        <button
+          onClick={() => setActiveTab('sklad')}
+          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
+            activeTab === 'sklad'
+              ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+          }`}
+        >
+          <BarChart3 size={16} />
+          <span>Sklad</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('sklo_promo')}
+          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
+            activeTab === 'sklo_promo'
+              ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+          }`}
+        >
+          <Sparkles size={16} />
+          <span>Sklo, Etikety, Podtáčky</span>
+        </button>
+      </div>
+
+      {activeTab === 'sklad' ? (
+        <>
+          {showAnnouncementManager && <AnnouncementManagerModal onClose={() => setShowAnnouncementManager(false)} />}
 
       <div className="flex justify-end mb-3">
         <button
@@ -325,7 +361,7 @@ export default function Dashboard({ setPage }: { setPage?: (p: any) => void }) {
           </div>
 
           <button
-            onClick={() => setPage && setPage('sklo_promo')}
+            onClick={() => setActiveTab('sklo_promo')}
             className="px-4 py-2.5 rounded-2xl bg-neutral-900 text-amber-300 font-extrabold text-xs shadow-md hover:bg-slate-800 transition shrink-0"
           >
             Přejít do evidence etiket & lahví →
@@ -533,9 +569,13 @@ export default function Dashboard({ setPage }: { setPage?: (p: any) => void }) {
         </Modal>
       )}
 
-      <p className="text-xs text-primary-400 mt-4">
-        Sklad = počáteční stav k 1. dni v měsíci + stočeno do dnešního dne. Zbude = sklad − objednávky (mimo storno) − odpočet (odpisy, akce, sudy na stáčení lahví, obchod) do dnešního dne.
-      </p>
+          <p className="text-xs text-primary-400 mt-4">
+            Sklad = počáteční stav k 1. dni v měsíci + stočeno do dnešního dne. Zbude = sklad − objednávky (mimo storno) − odpočet (odpisy, akce, sudy na stáčení lahví, obchod) do dnešního dne.
+          </p>
+        </>
+      ) : (
+        <SkloPromoScreen setPage={setPage} />
+      )}
     </div>
   );
 }

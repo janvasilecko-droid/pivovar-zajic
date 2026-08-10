@@ -338,32 +338,43 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
   async function startKegging(t: CellarTank) {
     if (!t.current_beer_id) { alert('Tank nemá přiřazené pivo — nejprve nastav pivo.'); return; }
     const now = new Date().toISOString();
-    // Vypnout stáčení na ostatních tancích se stejným pivem (aby byl vždy jen jeden aktivní zdroj)
-    const others = tanks.filter((x) => x.id !== t.id && x.current_beer_id === t.current_beer_id);
-    if (others.length > 0) {
-      await supabase.from('cellar_tanks')
-        .update({ kegging_active: false, kegging_ended_at: now, updated_at: now })
-        .in('id', others.map((x) => x.id));
+    try {
+      // Vypnout stáčení na ostatních tancích se stejným pivem (aby byl vždy jen jeden aktivní zdroj)
+      const others = tanks.filter((x) => x.id !== t.id && x.current_beer_id === t.current_beer_id);
+      if (others.length > 0) {
+        const { error: errOthers } = await supabase.from('cellar_tanks')
+          .update({ kegging_active: false, kegging_ended_at: now, updated_at: now })
+          .in('id', others.map((x) => x.id));
+        if (errOthers) throw errOthers;
+      }
+      // Zapnout stáčení na tomto tanku
+      const { error } = await supabase.from('cellar_tanks').update({
+        kegging_active: true,
+        kegging_started_at: now,
+        kegging_ended_at: null,
+        updated_at: now,
+      }).eq('id', t.id);
+      if (error) throw error;
+      load();
+    } catch (e: any) {
+      alert(`Chyba při zahájení stáčení: ${e?.message ?? e}`);
     }
-    // Zapnout stáčení na tomto tanku
-    await supabase.from('cellar_tanks').update({
-      kegging_active: true,
-      kegging_started_at: now,
-      kegging_ended_at: null,
-      updated_at: now,
-    }).eq('id', t.id);
-    load();
   }
 
   // Ukončit stáčení z tanku
   async function stopKegging(t: CellarTank) {
     const now = new Date().toISOString();
-    await supabase.from('cellar_tanks').update({
-      kegging_active: false,
-      kegging_ended_at: now,
-      updated_at: now,
-    }).eq('id', t.id);
-    load();
+    try {
+      const { error } = await supabase.from('cellar_tanks').update({
+        kegging_active: false,
+        kegging_ended_at: now,
+        updated_at: now,
+      }).eq('id', t.id);
+      if (error) throw error;
+      load();
+    } catch (e: any) {
+      alert(`Chyba při ukončení stáčení: ${e?.message ?? e}`);
+    }
   }
 
 

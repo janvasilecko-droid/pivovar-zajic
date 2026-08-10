@@ -176,6 +176,8 @@ export interface WhatsAppMessageNotifyData {
   message_text: string;
   status?: string | null;
   created_at?: string | null;
+  /** Počet položek, které AI nepřečetla správně (kontrola čtení) — ⚠ notifikace. */
+  readbackUnmatchedCount?: number | null;
 }
 
 export function notifyNewWhatsAppMessage(
@@ -200,11 +202,22 @@ export function notifyNewWhatsAppMessage(
   const preview = (message.message_text || '').replace(/\s+/g, ' ').trim();
   const bodyText = preview.length > 140 ? preview.slice(0, 140) + '…' : preview;
 
+  // ⚠ Notifikace „pozor na čtení" — když AI nemá jisté přečtení (některé
+  // položky se v originálu nenašly). Zřetelně odlišný titulek i text.
+  const mismatchCount = Number(message.readbackUnmatchedCount) || 0;
+  const hasMismatch = mismatchCount > 0;
+  const notifTitle = hasMismatch
+    ? `⚠ WHATSAPP — POZOR NA ČTENÍ: ${sender}`
+    : `📥 NOVÁ WHATSAPP OBJEDNÁVKA K OVĚŘENÍ: ${sender}`;
+  const notifBody = hasMismatch
+    ? `AI si u ${mismatchCount} položek není jistá čtením — zkontrolujte před schválením: ${bodyText}`
+    : bodyText || 'Přijata nová zpráva z WhatsAppu — zkontrolujte ji v aplikaci.';
+
   // 3. System Push Notification
   if (isNotificationSupported() && Notification.permission === 'granted') {
     try {
-      const n = new Notification(`📥 NOVÁ WHATSAPP OBJEDNÁVKA K OVĚŘENÍ: ${sender}`, {
-        body: bodyText || 'Přijata nová zpráva z WhatsAppu — zkontrolujte ji v aplikaci.',
+      const n = new Notification(notifTitle, {
+        body: notifBody,
         icon: '/favicon.ico',
         tag: `whatsapp-${message.id}`,
         requireInteraction: settings.requireInteraction,

@@ -4,8 +4,12 @@
 // Použití:
 //   node scripts/set-whatsapp-senders.mjs                     → nastaví výchozí dvojici
 //   node scripts/set-whatsapp-senders.mjs "Název" "Další" ... → vlastní seznam
+//   node scripts/set-whatsapp-senders.mjs --chat-id "120363...@g.us"
+//                                                           → zaregistruje chat_id
+//                                                             (stabilní ID skupiny)
+//   node scripts/set-whatsapp-senders.mjs --clear-chat-id    → vymaže chat_id
 //
-// Výchozí (dle zadání): kontakt "Objednávky pivovar" + "Ala Milacek".
+// Výchozí (dle zadání): WhatsApp skupina "Objednávky pivovar" — jediný zdroj objednávek.
 // Potřebuje SB_TOKEN a VITE_SUPABASE_URL v .env.
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -15,7 +19,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, '..');
 const envPath = resolve(projectRoot, '.env');
 
-const DEFAULTS = ['Objednávky pivovar', 'Ala Milacek'];
+const DEFAULTS = ['Objednávky pivovar'];
 
 function readEnv(key) {
   if (!existsSync(envPath)) return '';
@@ -32,15 +36,24 @@ const ref = (url || '').match(/https:\/\/([^.]+)\.supabase\.co/)?.[1] || 'sasqex
 
 if (!token) { console.error('Chyba: SB_TOKEN nenalezen v .env'); process.exit(1); }
 
-// Nahradit? 1. argument může být --replace (pouze tyto) nebo --add (přidat k existujícím).
+// Nahradit? --replace (pouze tyto) nebo --add (přidat k existujícím).
+// --chat-id <hodnota> → uloží stabilní chat_id skupiny (např. "120363...@g.us")
+//                      pro právě nastavené odesílatele.
+// --clear-chat-id     → vymaže chat_id.
 const args = process.argv.slice(2);
 const mode = args.includes('--replace') ? 'replace' : args.includes('--add') ? 'add' : 'replace';
-const names = args.filter((a) => !a.startsWith('--'));
+const chatIdx = args.indexOf('--chat-id');
+const chatId = chatIdx >= 0 && args[chatIdx + 1] ? String(args[chatIdx + 1]).trim() : '';
+const clearChatId = args.includes('--clear-chat-id');
+const flags = new Set(['--replace', '--add', '--clear-chat-id', '--chat-id']);
+const skipIndexes = new Set(chatIdx >= 0 ? [chatIdx, chatIdx + 1] : []);
+const names = args.filter((a, i) => !flags.has(a) && !skipIndexes.has(i));
 const finalNames = (names.length > 0 ? names : DEFAULTS)
   .map((n) => n.trim())
   .filter(Boolean);
 
 if (finalNames.length === 0) { console.error('Chyba: prázdný seznam odesílatelů'); process.exit(1); }
+if (chatId && clearChatId) { console.error('Chyba: --chat-id a --clear-chat-id se vylučují'); process.exit(1); }
 
 async function sql(query) {
   const res = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
@@ -75,12 +88,32 @@ try {
   }
   console.log(`✓ Odesílatelé přidáni`);
 
-  const after = await sql('select sender_name, created_at from whatsapp_senders order by created_at;');
+  const nameList = finalNames.map((n) => `'${n.replace(/'/g, "''").trim().toLowerCase()}'`).join(', ');
+  if (chatId) {
+    const escId = chatId.replace(/'/g, "''");
+    await sql(
+      `update whatsapp_senders set chat_id = '${escId}' ` +
+      `where lower(trim(sender_name)) in (${nameList});`
+    );
+    console.log(`✓ chat_id zaregistrován: ${chatId}`);
+  }
+  if (clearChatId) {
+    await sql(
+      `update whatsapp_senders set chat_id = null ` +
+      `where lower(trim(sender_name)) in (${nameList});`
+    );
+    console.log(`✓ chat_id vymazán`);
+  }
+
+  const after = await sql('select sender_name, chat_id, created_at from whatsapp_senders order by created_at;');
   console.log('\n--- Aktuální whitelist ---');
   if (after.length === 0) {
     console.log('(prázdný = načítají se zprávy od VŠECH odesílatelů)');
   } else {
-    for (const r of after) console.log(`  ${JSON.stringify(r.sender_name)} (od ${r.created_at})`);
+    for (const r of after) {
+      const chat = r.chat_id ? ` | chat_id=${JSON.stringify(r.chat_id)}` : ' | bez chat_id';
+      console.log(`  ${JSON.stringify(r.sender_name)}${chat} (od ${r.created_at})`);
+    }
   }
 } catch (e) {
   console.error('Selhání dotazu:', e.message);
