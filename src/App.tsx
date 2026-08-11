@@ -28,6 +28,7 @@ import { ReminderNotificationManager } from './components/ReminderNotificationMa
 import { MandatoryAnnouncementModal } from './components/MandatoryAnnouncementModal';
 import { CriticalMaterialAlertModal } from './components/CriticalMaterialAlertModal';
 import { SetPasswordModal } from './components/SetPasswordModal';
+import { BottlingTasksSettings } from './components/BottlingTasksSettings';
 import { Spinner } from './components/ui';
 
 const DEFAULT_PAGE: Page = 'dashboard';
@@ -156,6 +157,7 @@ export default function App() {
           }
         />
       )}
+      {page === 'bottling_needs' && <BottlingTasksSettings />}
       {page === 'cellar' && <CellarScreen setPage={setPage} />}
       {(page === 'vehicles' || page === 'kniha_jizd') && (
         <VehiclesTabbed

@@ -189,13 +189,29 @@ export function BottlingPlanPlanner({
     return out;
   }, [fasovaniRows, weekKey, todayStr]);
 
-  // Naplánované stáčení v daném týdnu (jen „planned" — hotové už je zahrnuté ve skladu)
+  // Naplánované stáčení v daném týdnu (jen „planned" — hotové už je zahrnuté ve skladu).
+  // Bod c.2: do „Naplánováno" se bere JEN první stáčení piva v týdnu (nejbližší
+  // planned_date) — další úkoly téhož piva později v tomtéž týdnu se nepočítají.
   const plannedMap = useMemo(() => {
+    // Pro každé pivo určíme nejbližší datum stáčení v daném týdnu (první stáčení).
+    const firstDateByBeer = new Map<string, string>();
+    plans
+      .filter((p) => p.beer_id && p.status !== 'cancelled' && isoWeekKey(p.planned_date) === weekKey)
+      .forEach((p) => {
+        const cur = firstDateByBeer.get(p.beer_id!);
+        if (!cur || p.planned_date < cur) firstDateByBeer.set(p.beer_id!, p.planned_date);
+      });
+
     const map: Record<string, number> = {};
     plans
-      .filter((p) => p.status === 'planned' && isoWeekKey(p.planned_date) === weekKey)
+      .filter(
+        (p) =>
+          p.status === 'planned' &&
+          p.beer_id &&
+          isoWeekKey(p.planned_date) === weekKey &&
+          firstDateByBeer.get(p.beer_id) === p.planned_date
+      )
       .forEach((p) => {
-        if (!p.beer_id) return;
         const add = (pkgId: string | null, qty: number) => {
           if (!pkgId || qty <= 0) return;
           const k = `${p.beer_id}__${pkgId}`;

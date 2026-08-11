@@ -23,12 +23,13 @@ import { BugReportModal } from './BugReportModal';
 
 export type NavItem = { id: Page; label: string; icon: LucideIcon; group: string };
 
-export type Page = 'sanitace' | 'marketing' | 'planning' | 'depozitar' | 'dashboard' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'history' | 'orders_entry' | 'orders' | 'zavoz' | 'kniha_jizd' | 'stock' | 'bottling' | 'bottling_entry' | 'bottling_overview' | 'kegging' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions';
+export type Page = 'sanitace' | 'marketing' | 'planning' | 'depozitar' | 'dashboard' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'history' | 'orders_entry' | 'orders' | 'zavoz' | 'kniha_jizd' | 'stock' | 'bottling' | 'bottling_entry' | 'bottling_overview' | 'kegging' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs';
 
 export const NAV: NavItem[] = [
   // --- VÝROBA ---
   { id: 'kegging', label: 'KEG', icon: Cylinder, group: 'Výroba' },
   { id: 'bottling', label: 'Lahve (Stáčení)', icon: Wine, group: 'Výroba' },
+  { id: 'bottling_entry', label: 'Zadat stáčení', icon: FilePlus, group: 'Výroba' },
   { id: 'orders', label: 'Objednávky', icon: ClipboardList, group: 'Výroba' },
   { id: 'fasovani', label: 'Personál', icon: Users, group: 'Výroba' },
   { id: 'prodejna', label: 'Prodejna', icon: Store, group: 'Výroba' },
@@ -39,6 +40,7 @@ export const NAV: NavItem[] = [
   { id: 'dashboard', label: 'Sklad', icon: BarChart3, group: 'Pivovar' },
   { id: 'sklo_promo', label: 'Sklo, Etikety, Podtáčky', icon: GlassWater, group: 'Pivovar' },
   { id: 'cellar', label: 'Sklep', icon: Snowflake, group: 'Pivovar' },
+  { id: 'bottling_needs', label: 'Potřeby stáčení', icon: Wine, group: 'Pivovar' },
   { id: 'inventory', label: 'Inventura', icon: ClipboardCheck, group: 'Pivovar' },
   { id: 'history', label: 'Statistika', icon: HistoryIcon, group: 'Pivovar' },
 
@@ -154,6 +156,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
     packages: 'catalogs',
     vehicles: 'catalogs',
     depozitar: 'catalogs',
+    bottling_needs: 'catalogs',
     pricelist: 'pricelist',
     sklo_promo: 'sklo_promo',
     vycepy: 'vycepy',
@@ -184,6 +187,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
 
   const permittedNav = NAV.filter((n) => {
     if (n.id === 'users') return isAdmin;
+    if (n.id === 'bottling_needs') return isAdmin;
     const modKey = pageToModuleMap[n.id];
     if (!modKey) return true;
     return canUserView(profile?.role, user?.id, modKey, userPerms);

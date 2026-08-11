@@ -28,7 +28,6 @@ const EXTRA_QUICK_ACTION_PAGES: { id: Page; label: string }[] = [
   // --- VÝROBA ---
   { id: 'zavoz', label: 'Závoz (rozvoz)' },
   { id: 'orders_entry', label: 'Objednávky – zadávání' },
-  { id: 'bottling_entry', label: 'Lahve – zadávání' },
   { id: 'bottling_overview', label: 'Lahve – přehled šarží' },
   { id: 'exkurze', label: 'Exkurze' },
   { id: 'marketing', label: 'Marketing' },
@@ -172,7 +171,7 @@ export default function AppSettingsScreen() {
     places: 'catalogs', beers: 'catalogs', packages: 'catalogs', vehicles: 'catalogs',
     pricelist: 'pricelist', sklo_promo: 'sklo_promo', vycepy: 'vycepy', app_settings: 'app_settings',
     exkurze: 'exkurze', akce: 'akce', calendar: 'reminders', feedback: 'catalogs',
-    reminders: 'reminders',
+    reminders: 'reminders', bottling_needs: 'catalogs',
   };
 
   const userPerms = getUserPermissions(user?.id ?? '', (profile as any)?.permissions);
@@ -180,6 +179,7 @@ export default function AppSettingsScreen() {
 
   const permittedNav = NAV.filter((n) => {
     if (n.id === 'users') return isAdmin;
+    if (n.id === 'bottling_needs') return isAdmin;
     const modKey = pageToModuleMap[n.id];
     if (!modKey) return true;
     return canUserView(profile?.role, user?.id, modKey, userPerms);
@@ -551,7 +551,9 @@ export default function AppSettingsScreen() {
       </div>
 
       {isAdmin && (
-        <AdminVersionSyncSection />
+        <>
+          <AdminVersionSyncSection />
+        </>
       )}
     </div>
   );
