@@ -55,22 +55,24 @@ Deno.serve(async (req: Request) => {
   }
 
   try { 
-    // Read Anthropic key from app_secrets table (service role bypasses RLS).
+    // Read keys from app_secrets table (service role bypasses RLS).
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    const { data: secretRow, error: secretErr } = await supabase
+    const { data: secretRows, error: secretsErr } = await supabase
       .from("app_secrets")
-      .select("value")
-      .eq("key", "ANTHROPIC_API_KEY")
-      .maybeSingle();
+      .select("key, value")
+      .in("key", ["ANTHROPIC_API_KEY", "OPENAI_API_KEY"]);
 
-    const apiKey = secretRow?.value;
-    if (secretErr || !apiKey) {
+    const secretsMap = new Map((secretRows ?? []).map((s) => [s.key, s.value]));
+    const apiKey = secretsMap.get("ANTHROPIC_API_KEY");
+    const openaiKey = secretsMap.get("OPENAI_API_KEY");
+
+    if (secretsErr || (!apiKey && !openaiKey)) {
       return new Response(
-        JSON.stringify({ error: "ANTHROPIC_API_KEY not configured in app_secrets" }),
+        JSON.stringify({ error: "Neither ANTHROPIC_API_KEY nor OPENAI_API_KEY is configured in app_secrets" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -355,7 +357,7 @@ PRAVIDLA:
 
 
 Vrať ČISTĚ JSON (bez markdown, bez \`\`\`), přesně v tomto formátu, a nic jiného:
-{"items":[{"quantity":4,"degree":"12°","beer_name":"Světlý ležák","package_label":"KEG 50l","raw_line":"Seeberg 4x30 12sv a 2x30 12sv","place_name":"Seeberg","date":"2026-08-07","bbox":{"x0":5,"y0":12,"x1":80,"y1":18}},{"quantity":2,"degree":"12°","beer_name":"Světlý ležák","package_label":"KEG 30l","raw_line":"Seeberg 4x30 12sv a 2x30 12sv","place_name":"Seeberg","date":"2026-08-07","bbox":{"x0":5,"y0":18,"x1":80,"y1":24}}],"order_date":"2026-08-07","place_name":"Seeberg","raw_text":"celý rozpoznaný text"};
+{"items":[{"quantity":4,"degree":"12°","beer_name":"12° Světlá","package_label":"KEG 50l","raw_line":"Seeberg 4x30 12sv a 2x30 12sv","place_name":"Seeberg","date":"2026-08-07","bbox":{"x0":5,"y0":12,"x1":80,"y1":18}},{"quantity":2,"degree":"12°","beer_name":"12° Světlá","package_label":"KEG 30l","raw_line":"Seeberg 4x30 12sv a 2x30 12sv","place_name":"Seeberg","date":"2026-08-07","bbox":{"x0":5,"y0":18,"x1":80,"y1":24}}],"order_date":"2026-08-07","place_name":"Seeberg","raw_text":"celý rozpoznaný text"};
 
 
 DŮLEŽITÉ — TOP-LEVEL "place_name":
@@ -389,32 +391,89 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
     };
 
 
-    const anthropicUrl = "https://api.anthropic.com/v1/messages";
+    let text = "";
+    let isOpenAiUsed = false;
 
-    const anthropicResp = await fetch(anthropicUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify(anthropicBody),
-    });
+    if (apiKey) {
+      try {
+        const anthropicUrl = "https://api.anthropic.com/v1/messages";
+        const anthropicResp = await fetch(anthropicUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify(anthropicBody),
+        });
 
-    if (!anthropicResp.ok) {
-      const errText = await anthropicResp.text();
-      return new Response(
-        JSON.stringify({ error: `Anthropic API error (${anthropicResp.status}): ${errText}` }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+        if (anthropicResp.ok) {
+          const anthropicData = await anthropicResp.json();
+          text = anthropicData?.content?.[0]?.text ?? "";
+        } else {
+          const errText = await anthropicResp.text();
+          console.warn(`Anthropic API error (status ${anthropicResp.status}): ${errText}`);
+        }
+      } catch (err) {
+        console.warn(`Anthropic API exception: ${err}`);
+      }
     }
 
-    const anthropicData = await anthropicResp.json();
-    const text: string | undefined = anthropicData?.content?.[0]?.text;
+    // Fallback k OpenAI (Vision API)
+    if (!text && openaiKey) {
+      isOpenAiUsed = true;
+      const openaiBody = {
+        model: "gpt-4o",
+        temperature: 0.1,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content: prompt,
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: "Here is the image of the order. Please parse it according to the instructions.",
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:${imageMimeType};base64,${imageBase64}`,
+                },
+              },
+            ],
+          },
+        ],
+      };
+
+      const openaiUrl = "https://api.openai.com/v1/chat/completions";
+      const openaiResp = await fetch(openaiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${openaiKey}`,
+        },
+        body: JSON.stringify(openaiBody),
+      });
+
+      if (!openaiResp.ok) {
+        const errText = await openaiResp.text();
+        return new Response(
+          JSON.stringify({ error: `LLM service failed. OpenAI API error (${openaiResp.status}): ${errText}` }),
+          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      const openaiData = await openaiResp.json();
+      text = openaiData?.choices?.[0]?.message?.content ?? "";
+    }
 
     if (!text) {
       return new Response(
-        JSON.stringify({ error: "Anthropic returned no text", raw: anthropicData }),
+        JSON.stringify({ error: "Failed to get response from any LLM provider (Anthropic, OpenAI)" }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }

@@ -62,16 +62,18 @@ Deno.serve(async (req: Request) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    const { data: secretRow, error: secretErr } = await supabase
+    const { data: secretRows, error: secretsErr } = await supabase
       .from("app_secrets")
-      .select("value")
-      .eq("key", "ANTHROPIC_API_KEY")
-      .maybeSingle();
+      .select("key, value")
+      .in("key", ["ANTHROPIC_API_KEY", "OPENAI_API_KEY"]);
 
-    const apiKey = secretRow?.value;
-    if (secretErr || !apiKey) {
+    const secretsMap = new Map((secretRows ?? []).map((s) => [s.key, s.value]));
+    const apiKey = secretsMap.get("ANTHROPIC_API_KEY");
+    const openaiKey = secretsMap.get("OPENAI_API_KEY");
+
+    if (secretsErr || (!apiKey && !openaiKey)) {
       return new Response(
-        JSON.stringify({ error: "ANTHROPIC_API_KEY not configured in app_secrets" }),
+        JSON.stringify({ error: "Neither ANTHROPIC_API_KEY nor OPENAI_API_KEY is configured in app_secrets" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -333,7 +335,7 @@ PRAVIDLA:
 - OBECNÉ PRAVIDLO PRO CELÝ VÝSTUP: u beer_name i place_name VŽDY nejprve zkus najít shodu v existujících datech (KATALOG PIV / NAUČENÉ ZKRATKY / ZNÁMÍ ODBĚRATELÉ) — i při nepřesné, fonetické nebo překlepové shodě. Teprve když opravdu nic z existujících dat neodpovídá, ber to jako nové/neznámé (u piva vrať null, u odběratele vrať text tak, jak jsi ho přečetl). Nikdy nepřepisuj/nenahrazuj existující známou položku vlastním vymyšleným textem, pokud shoda s katalogem/seznamem je rozumně možná.
 
 Vrať ČISTĚ JSON (bez markdown, bez \`\`\`), přesně v tomto formátu, a nic jiného:
-{"items":[{"quantity":4,"degree":"12°","beer_name":"Světlý ležák","package_label":"KEG 50l","raw_line":"Seeberg 4x30 12sv a 2x30 12sv","place_name":"Seeberg","date":"2026-01-01"},{"quantity":2,"degree":"12°","beer_name":"Světlý ležák","package_label":"KEG 30l","raw_line":"Seeberg 4x30 12sv a 2x30 12sv","place_name":"Seeberg","date":"2026-01-01"}],"place_name":"Seeberg","raw_text":"celý rozpoznaný text"}
+{"items":[{"quantity":4,"degree":"12°","beer_name":"12° Světlá","package_label":"KEG 50l","raw_line":"Seeberg 4x30 12sv a 2x30 12sv","place_name":"Seeberg","date":"2026-01-01"},{"quantity":2,"degree":"12°","beer_name":"12° Světlá","package_label":"KEG 30l","raw_line":"Seeberg 4x30 12sv a 2x30 12sv","place_name":"Seeberg","date":"2026-01-01"}],"place_name":"Seeberg","raw_text":"celý rozpoznaný text"}
 
 DŮLEŽITÉ — TOP-LEVEL "place_name":
 Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpovědi, vedle "items" a "raw_text"). Toto pole = JMÉNO ODBĚRATELE, jehož objednávka je v textu NEJVÝRAZNĚJŠÍ / první / hlavní (obvykle první zpráva nahoře). Pokud je v textu více odběratelů, top-level place_name = ten první/nejvýraznější. Pokud nelze určit žádného (ať už proto, že v textu žádný není, nebo protože jediný kandidát je jméno odesílatele), vrať null. Příklad bez odběratele: {"items":[...],"place_name":null,"raw_text":"..."}. Toto pole je důležité, protože aplikace ho použije pro vytvoření nové objednávky.`;
@@ -355,32 +357,78 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
     };
 
 
-    const anthropicUrl = "https://api.anthropic.com/v1/messages";
+    let text = "";
+    let isOpenAiUsed = false;
 
-    const anthropicResp = await fetch(anthropicUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify(anthropicBody),
-    });
+    if (apiKey) {
+      try {
+        const anthropicUrl = "https://api.anthropic.com/v1/messages";
+        const anthropicResp = await fetch(anthropicUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify(anthropicBody),
+        });
 
-    if (!anthropicResp.ok) {
-      const errText = await anthropicResp.text();
-      return new Response(
-        JSON.stringify({ error: `Anthropic API error (${anthropicResp.status}): ${errText}` }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+        if (anthropicResp.ok) {
+          const anthropicData = await anthropicResp.json();
+          text = anthropicData?.content?.[0]?.text ?? "";
+        } else {
+          const errText = await anthropicResp.text();
+          console.warn(`Anthropic API error (status ${anthropicResp.status}): ${errText}`);
+        }
+      } catch (err) {
+        console.warn(`Anthropic API exception: ${err}`);
+      }
     }
 
-    const anthropicData = await anthropicResp.json();
-    const text: string | undefined = anthropicData?.content?.[0]?.text;
+    // Fallback k OpenAI
+    if (!text && openaiKey) {
+      isOpenAiUsed = true;
+      const openaiBody = {
+        model: "gpt-4o",
+        temperature: 0.1,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content: prompt,
+          },
+          {
+            role: "user",
+            content: `TEXT OBJEDNÁVKY Z WHATSAPP:\n"""\n${rawText}\n"""`,
+          },
+        ],
+      };
+
+      const openaiUrl = "https://api.openai.com/v1/chat/completions";
+      const openaiResp = await fetch(openaiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${openaiKey}`,
+        },
+        body: JSON.stringify(openaiBody),
+      });
+
+      if (!openaiResp.ok) {
+        const errText = await openaiResp.text();
+        return new Response(
+          JSON.stringify({ error: `LLM service failed. OpenAI API error (${openaiResp.status}): ${errText}` }),
+          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      const openaiData = await openaiResp.json();
+      text = openaiData?.choices?.[0]?.message?.content ?? "";
+    }
 
     if (!text) {
       return new Response(
-        JSON.stringify({ error: "Anthropic returned no text", raw: anthropicData }),
+        JSON.stringify({ error: "Failed to get response from any LLM provider (Anthropic, OpenAI)" }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
