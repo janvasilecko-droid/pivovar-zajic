@@ -115,3 +115,21 @@ test('createMessageGate: výpadek čtení whatsapp_senders nezpůsobí pád, jen
   assert.equal(gate.getGate().isGroupAllowed('Objednávky pivovar', ''), true); // env pořád funguje
   gate.stopRefresh();
 });
+
+test('createMessageGate: pravidla brány jde volat přímo na wrapperu (regresní test TypeError isContactAllowed)', () => {
+  const gate = createMessageGate({
+    supabase: null,
+    allowedGroups: ['Objednávky pivovar'],
+    allowedContacts: ['Ala Milacek Milacek'],
+    logger: { info: () => {}, warn: () => {}, error: () => {} },
+  });
+  // index.js volá gate.isGroupAllowed / gate.isContactAllowed na vráceném wrapperu,
+  // ne na gate.getGate() — obojí musí fungovat (jinak spadne handleMessage).
+  assert.equal(typeof gate.isGroupAllowed, 'function');
+  assert.equal(typeof gate.isContactAllowed, 'function');
+  assert.equal(gate.isGroupAllowed('Objednávky pivovar', ''), true);
+  assert.equal(gate.isGroupAllowed('Jiná skupina', ''), false);
+  assert.equal(gate.isContactAllowed('Ala Milacek Milacek', ''), true);
+  assert.equal(gate.isContactAllowed('Někdo jiný', ''), false);
+  gate.stopRefresh();
+});
