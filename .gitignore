@@ -28,6 +28,9 @@ out.log
 # Temp files
 *.timestamp-*.mjs
 scratch/
+
+# Tasker exporty obsahují webhook tajemství (x-webhook-token) — NIKDY do gitu!
+tasker/
 data/
 
 # TypeScript diagnostics

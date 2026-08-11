@@ -3,11 +3,14 @@
 ## Architektura
 
 ### Komponenty
-1. **AutoNotification + Tasker (Android)**: Zachytává WhatsApp oznámení
+1. **Cloudová brána (Make.com / WhatsApp webhook)**: Příjem WhatsApp zpráv
 2. **Make.com**: Zpracovává a předává data
 3. **Supabase Edge Functions**: Příjem webhooků
 4. **Supabase Database**: Ukládání zpráv
 5. **React Frontend**: Zobrazení a správa
+
+> ✅ Tasker/AutoNotification na telefonu byly odstraněny — zprávy jdou přímo
+> přes cloudovou bránu do webhooku.
 
 ## Databázová schémata
 

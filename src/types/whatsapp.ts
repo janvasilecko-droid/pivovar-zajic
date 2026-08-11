@@ -23,9 +23,3 @@ export interface WhatsAppMessageStore {
   getUnprocessedMessages: () => WhatsAppMessage[];
   getMessage: (id: string) => WhatsAppMessage | undefined;
 }
-
-export interface TaskerShareData {
-  text: string;
-  sender?: string;
-  timestamp?: Date;
-}

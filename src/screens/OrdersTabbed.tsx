@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
 import Orders from './Orders';
 import VycepyScreen from './VycepyScreen';
-import SimpleWhatsAppInbox from '../components/SimpleWhatsAppInbox';
-import { ClipboardList, Flame, MessageSquare } from 'lucide-react';
+import { ClipboardList, Flame } from 'lucide-react';
 
 interface OrdersTabbedProps {
-  initialTab?: 'orders' | 'vycepy' | 'whatsapp';
+  initialTab?: 'orders' | 'vycepy';
   autoOpenShareImport?: boolean;
   onShareImportHandled?: () => void;
   setPage?: (p: any, sec?: string) => void;
@@ -17,7 +16,7 @@ export default function OrdersTabbed({
   onShareImportHandled,
   setPage,
 }: OrdersTabbedProps) {
-  const [activeTab, setActiveTab] = useState<'orders' | 'vycepy' | 'whatsapp'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'orders' | 'vycepy'>(initialTab);
 
   // Sync state if initialTab changes from parent
   useEffect(() => {
@@ -51,18 +50,6 @@ export default function OrdersTabbed({
           <Flame size={16} />
           <span>Výčepy (Zápůjčky)</span>
         </button>
-
-        <button
-          onClick={() => setActiveTab('whatsapp')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
-            activeTab === 'whatsapp'
-              ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
-          }`}
-        >
-          <MessageSquare size={16} />
-          <span>WhatsApp</span>
-        </button>
       </div>
 
       {/* Screen Render */}
@@ -74,10 +61,8 @@ export default function OrdersTabbed({
             autoOpenShareImport={autoOpenShareImport}
             onShareImportHandled={onShareImportHandled}
           />
-        ) : activeTab === 'vycepy' ? (
-          <VycepyScreen />
         ) : (
-          <SimpleWhatsAppInbox />
+          <VycepyScreen />
         )}
       </div>
     </div>

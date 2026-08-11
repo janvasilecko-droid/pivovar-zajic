@@ -1,58 +1,18 @@
 # WhatsApp Auto-Import přes Make.com (dříve Integromat)
 
-Tento dokument popisuje, jak nastavit automatický příjem WhatsApp zpráv do pivovarské aplikace pomocí Make.com a AutoNotification.
+Tento dokument popisuje, jak nastavit automatický příjem WhatsApp zpráv do pivovarské aplikace pomocí Make.com (cloudová brána).
 
 ## Přehled řešení
 
-1. **AutoNotification** na Androidu zachytí příchozí WhatsApp zprávy
-2. **Tasker** předá data do **Make.com** webhooku
-3. **Make.com** scénář pošle data do naší aplikace
-4. **Aplikace** automaticky rozparsuje zprávu pomocí AI a vytvoří objednávku
+1. **Cloudová brána** (Make.com / WhatsApp webhook) přijme příchozí WhatsApp zprávu
+2. **Make.com** scénář pošle data do naší aplikace
+3. **Aplikace** automaticky rozparsuje zprávu pomocí AI a vytvoří objednávku
 
-## Krok 1: Nastavení AutoNotification + Tasker
+> ✅ **Tasker/AutoNotification na telefonu už nejsou potřeba.** Zprávy jdou rovnou
+> přes cloudovou bránu do webhooku aplikace — je to efektivnější (telefon nemusí
+> běžet, neztrácejí se zprávy při zavřené aplikaci).
 
-### 1.1 Instalace aplikací
-1. Nainstalujte **AutoNotification** z Google Play
-2. Nainstalujte **Tasker** z Google Play
-3. Povolte přístupová práva pro obě aplikace
-
-### 1.2 Konfigurace AutoNotification
-1. Otevřete **AutoNotification**
-2. Přejděte na **Intercept**
-3. Najděte WhatsApp a povolte zachytávání oznámení
-4. Nastavte:
-   - **Package**: com.whatsapp
-   - **Title Filter**: (nechte prázdné)
-   - **Text Filter**: (nechte prázdné)
-   - **Actions**: Zaznamenat celé oznámení
-
-### 1.3 Vytvoření Tasker úlohy
-1. Otevřete **Tasker**
-2. Vytvořte novou úlohu s názvem "WhatsApp to Make"
-3. Přidejte akci:
-   - **Plugin** → **AutoNotification** → **Intercept**
-4. Nastavte proměnné:
-   - `%antitle` → sender name
-   - `%antext` → message text
-   - `%antime` → timestamp
-   - `%anpackage` → com.whatsapp
-5. Přidejte další akci:
-   - **Net** → **HTTP Request**
-   - URL: `YOUR_WEBHOOK_URL` (viz krok 2)
-   - Method: POST
-   - Headers: `Content-Type: application/json`
-   - Body:
-     ```json
-     {
-       "sender": "%antitle",
-       "message": "%antext",
-       "timestamp": "%antime",
-       "senderNumber": "%annumber",
-       "messageType": "whatsapp"
-     }
-     ```
-
-## Krok 2: Vytvoření Make.com scénáře
+## Krok 1: Vytvoření Make.com scénáře
 
 ### 2.1 Přihlášení do Make.com
 1. Jděte na [make.com](https://www.make.com)
@@ -69,14 +29,25 @@ Tento dokument popisuje, jak nastavit automatický příjem WhatsApp zpráv do p
 4. Zkopírujte URL: `https://YOUR_SUPABASE_URL/functions/v1/whatsapp-webhook`
 5. Uložte webhook
 
-### 2.4 Přidání AutoNotification modulu (volitelné)
-1. Přidejte další modul
-2. Vyhledejte **AutoNotification**
-3. Připojte svůj AutoNotification účet
-4. Mapujte data z AutoNotification na webhook:
-   - `sender` → `%antitle`
-   - `message` → `%antext`
-   - `timestamp` → `%antime`
+### 2.4 Předání dat na webhook aplikace
+1. Přidejte HTTP modul **Webhook → Custom webhook** (nebo **HTTP → Make a request**) jako poslední krok scénáře.
+2. Nakonfigurujte POST na webhook aplikace:
+   - **URL**: `https://YOUR_SUPABASE_URL/functions/v1/whatsapp-webhook`
+   - **Method**: POST
+   - **Headers**: `Content-Type: application/json` + `x-webhook-token: <WEBHOOK_SECRET>` (viz zabezpečení níže)
+   - **Body**: mapujte pole z webhooku vstupu:
+     ```json
+     {
+       "sender": "…",
+       "message": "…",
+       "timestamp": "…",
+       "senderNumber": "…",
+       "messageType": "whatsapp",
+       "webhookId": "…"
+     }
+     ```
+3. Hodnotu `WEBHOOK_SECRET` najdete v `.env` projektu (řádek `WEBHOOK_SECRET=`).
+   Bez správné hlavičky webhook vrací HTTP 401.
 
 ### 2.5 Uložení a aktivace
 1. Klikněte na **Save**
@@ -105,7 +76,7 @@ Díky!
 #### Zpráva se nezobrazuje
 1. Zkontrolujte, zda Make.com scénář běží
 2. Zkontrolujte logy v Make.com
-3. Ověřte, zda AutoNotification zachytává oznámení
+3. Ověřte, že cloudová brána zprávy skutečně odesílá (webhook vstup scénáře přijímá data)
 
 #### Chyba parsování
 1. Zkontrolujte formát zprávy
@@ -163,10 +134,10 @@ Přidejte modul pro ukládání zpráv do:
 
 ### Časté otázky
 **Q: Funguje to i s WhatsApp Business?**
-A: Ano, AutoNotification zachytává oznámení z obou verzí.
+A: Ano, cloudová brána zpracovává zprávy z obou verzí.
 
 **Q: Co když přijde zpráva s fotkou?**
-A: AutoNotification zachytí pouze textovou část. Fotky se nezpracovávají.
+A: Webhook zpracovává text i přílohy — fotky se přepíší pomocí OCR v AI parsování.
 
 **Q: Jak dlouho trvá zpracování?**
 A: AI parsování trvá 2-10 sekund.
