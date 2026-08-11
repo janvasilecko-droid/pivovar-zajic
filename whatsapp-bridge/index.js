@@ -19,7 +19,7 @@ import qrcodeTerminal from 'qrcode-terminal';
 import pino from 'pino';
 import { getSupabase, useSupabaseAuthState, clearSession } from './lib/supabaseAuth.js';
 import { createMessageGate } from './lib/filter.js';
-import { HistoryCollector } from './lib/history.js';
+import { HistoryCollector, normTs } from './lib/history.js';
 import { forwardToWebhook } from './lib/webhook.js';
 import { prepareImageForForwarding, ensureMediaBucket, getImageMessage } from './lib/media.js';
 
@@ -214,14 +214,14 @@ async function handleMessage(sock, gate, supabase, msg, opts = {}) {
   let sender;
   if (isGroup) {
     const groupName = await getGroupSubject(sock, remoteJid);
-    if (!isOwn && !gate.isGroupAllowed(groupName, remoteJid)) {
+    if (!gate.isGroupAllowed(groupName, remoteJid)) {
       logger.info(`[msg] skupina „${groupName}“ (${remoteJid}) není povolená — ignoruji`);
       return;
     }
     sender = groupName;
   } else {
     sender = pushName || senderNumber || remoteJid;
-    if (!isOwn && !gate.isContactAllowed(sender, senderNumber)) {
+    if (!gate.isContactAllowed(sender, senderNumber)) {
       logger.info(`[msg] kontakt „${sender}“ (${senderNumber}) není povolený — ignoruji`);
       return;
     }
@@ -233,8 +233,7 @@ async function handleMessage(sock, gate, supabase, msg, opts = {}) {
     remember(key.id);
   }
 
-  const tsMs =
-    typeof msg.messageTimestamp === 'number' ? msg.messageTimestamp * 1000 : Date.now();
+  const tsMs = normTs(msg.messageTimestamp);
 
   // Pokud je to zpráva z historie a je starší než pátek 7. 8. 2026, přeskočíme ji,
   // aby se zbytečně nenačítala stará historie (např. z července).
