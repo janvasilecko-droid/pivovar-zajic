@@ -1,4 +1,4 @@
-import { BottlingChecklistModal } from '../components/BottlingChecklistModal';
+import { BottlingChecklistModal, DEFAULT_ITEMS, isStartChecklistCompleteForDate, isMonthlyChecklistCompleteForDate, MONTHLY_CATEGORY } from '../components/BottlingChecklistModal';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName } from '../lib/supabase';
 import { EmptyState, Spinner, Modal } from '../components/ui';
@@ -11,6 +11,9 @@ import { useAuth } from '../lib/auth';
 import { BottlingPlan, getPlanSeenAt, markPlanSeenAt, isPlanUnseen, isBottlingManager, setPlanStatus } from '../lib/bottlingPlans';
 import { BottlingPlanPlanner } from '../components/BottlingPlanPlanner';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
+import { QuickQtySelect } from '../components/QuickQtySelect';
+import { isLastWeekOfMonth } from '../lib/monthlyCleanup';
+import { autoLogBottleSanitationFromChecklist } from '../lib/bottleSanitation';
 
 
 const ROW_COUNT = 12;
@@ -40,6 +43,9 @@ export default function BottlingScreen({
   const [loading, setLoading] = useState(true);
   const [editingRow, setEditingRow] = useState<EntryRow | null>(null);
   const loadCountRef = useRef(0);
+  // Aby se checklist „Stáčecí den" automaticky otevřel jen jednou za návštěvu
+  // záložky Stáčení (a ne znovu po zavření bez splnění).
+  const checklistPromptedRef = useRef(false);
 
 
 
@@ -52,6 +58,15 @@ export default function BottlingScreen({
 
   const [showImageImport, setShowImageImport] = useState(false);
   const [showChecklistModal, setShowChecklistModal] = useState(false);
+  const [showEndConfirm, setShowEndConfirm] = useState(false);
+  // Při automatickém otevření (povinná brána) se modal nesmí zavřít, dokud
+  // není splněná sekce „1. Začátek stáčení"; ruční otevření z lišty neblokuje.
+  const [checklistGate, setChecklistGate] = useState(false);
+  // Fáze checklistu — 'start' = příprava pracoviště PŘED stáčením, 'end' =
+  // konec stáčení (úklid), který se vyplňuje až po ukončení stáčení.
+  const [checklistPhase, setChecklistPhase] = useState<'start' | 'end' | 'monthly'>('start');
+  // Zaměření otevřeného checklistu na konkrétní sekci (např. měsíční údržba).
+  const [checklistInitialCategory, setChecklistInitialCategory] = useState<string | null>(null);
 
   // Záložky: Stáčení / Přehled / Potřeba stočit lahve
   // Z menu se otevře nejprve Přehled stočených; tlačítko „Stáčení lahví" otevře zápis stáčení.
@@ -62,6 +77,24 @@ export default function BottlingScreen({
       setTab(initialTab);
     }
   }, [initialTab]);
+
+  // 📋 „Stáčecí den" — při vstupu do zápisu stáčení se automaticky otevře
+  // kontrolní seznam (příprava pracoviště). Je to POVINNÁ BRÁNA: dokud nejsou
+  // odškrtnuté položky „1. Začátek stáčení", modal nejde zavřít a nelze zadávat
+  // stáčení. Po splnění se už sám neotevírá (tlačítko v liště zůstává).
+  useEffect(() => {
+    if (tab !== 'zapis') {
+      checklistPromptedRef.current = false;
+      return;
+    }
+    if (checklistPromptedRef.current) return;
+    checklistPromptedRef.current = true;
+    if (!isStartChecklistCompleteForDate(date)) {
+      setChecklistPhase('start');
+      setChecklistGate(true);
+      setShowChecklistModal(true);
+    }
+  }, [tab, date]);
 
   const { profile } = useAuth();
   const isManager = isBottlingManager(profile?.role);
@@ -333,12 +366,11 @@ export default function BottlingScreen({
   function fillFromPlan(plan: BottlingPlan) {
     filledPlanRef.current = plan;
     setDate(plan.planned_date);
+    // „Naplnit“ přepíše CELÝ formulář zápisu vybraným úkolem (pivo + obaly + KEG):
+    // úkol se naplní do řádku 1 a ostatní řádky se vyprázdní — zápis je pak
+    // vždy jen o jednom úkolu a stáčeč v něm jen doladí počty (rychlá volba ks).
     setEntryRows((prev) => {
-      const next = [...prev];
-      // 1) první prázdný řádek, 2) řádek se stejným pivem bez obalů, 3) nový řádek na konec
-      let idx = next.findIndex((r) => !r.beerId);
-      if (idx === -1) idx = next.findIndex((r) => r.beerId === plan.beer_id && !(r.pkgId || r.pkg2Id || r.pkg3Id || r.kegPkgId));
-      if (idx === -1) idx = next.length;
+      const next = emptyRows();
       const row = {
         beerId: plan.beer_id || '',
         kegPkgId: plan.keg_pkg_id || '',
@@ -350,7 +382,7 @@ export default function BottlingScreen({
         pkg3Id: plan.pkg3_id || '',
         qty3: plan.qty3 > 0 ? String(plan.qty3) : '',
       };
-      next[idx] = row;
+      next[0] = row;
       return next;
     });
     markPlanSeenAt();
@@ -473,6 +505,7 @@ export default function BottlingScreen({
     setEntryRows(emptyRows()); setNote(''); setErr(null);
     setFlash(true); setTimeout(() => setFlash(false), 800);
     load(true);
+    setShowEndConfirm(true);
   }
 
 
@@ -698,11 +731,19 @@ export default function BottlingScreen({
             </button>
             <button
               type="button"
-              onClick={() => setShowChecklistModal(true)}
+              onClick={() => { setChecklistPhase('start'); setChecklistGate(false); setShowChecklistModal(true); }}
               className="px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] bg-amber-200 hover:bg-amber-300 text-amber-950 flex items-center gap-1.5 shadow-2xs"
             >
               <span>📋</span>
-              <span>Kontrolní seznam (Checklist)</span>
+              <span>Příprava (Checklist)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setChecklistPhase('end'); setChecklistGate(false); setShowChecklistModal(true); }}
+              className="px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] bg-sky-100 hover:bg-sky-200 text-sky-950 flex items-center gap-1.5 shadow-2xs"
+            >
+              <span>🧹</span>
+              <span>Konec stáčení (úklid)</span>
             </button>
             {isManager && (
               <button
@@ -781,13 +822,22 @@ export default function BottlingScreen({
                 <input className="input text-xs" value={note} onChange={(e) => setNote(e.target.value)} placeholder="nepovinná poznámka" />
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowImageImport(true)}
-              className="btn-primary py-2.5 px-4 text-xs font-black shadow-md flex items-center justify-center gap-2 self-stretch sm:self-end shrink-0"
-            >
-              <Camera size={16} /> 📷 Zadání stočení z fotky
-            </button>
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0">
+              <button
+                type="button"
+                onClick={() => { setChecklistPhase('end'); setChecklistGate(false); setShowChecklistModal(true); }}
+                className="px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-xs font-black shadow-md min-h-[44px] transition flex items-center gap-1.5 self-stretch sm:self-end shrink-0"
+              >
+                🧹 Konec stáčení
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowImageImport(true)}
+                className="btn-primary py-2.5 px-4 text-xs font-black shadow-md flex items-center justify-center gap-2 self-stretch sm:self-end shrink-0"
+              >
+                <Camera size={16} /> 📷 Zadání stočení z fotky
+              </button>
+            </div>
           </div>
 
           {/* Mobilní zobrazení (Karty) vs. Desktop zobrazení (Tabulka) */}
@@ -865,6 +915,13 @@ export default function BottlingScreen({
                           onChange={(e) => setRowField(i, 'qty', e.target.value.replace(/[^0-9]/g, ''))}
                           placeholder="0 ks"
                         />
+                        <div className="flex justify-center pt-0.5">
+                          <QuickQtySelect
+                            pkg={packages.find((p) => p.id === r.pkgId)}
+                            qty={r.qty}
+                            onSelect={(q) => setRowField(i, 'qty', String(q))}
+                          />
+                        </div>
                       </div>
                     </div>
 
@@ -893,6 +950,13 @@ export default function BottlingScreen({
                           onChange={(e) => setRowField(i, 'qty2', e.target.value.replace(/[^0-9]/g, ''))}
                           placeholder="0 ks"
                         />
+                        <div className="flex justify-center pt-0.5">
+                          <QuickQtySelect
+                            pkg={packages.find((p) => p.id === r.pkg2Id)}
+                            qty={r.qty2}
+                            onSelect={(q) => setRowField(i, 'qty2', String(q))}
+                          />
+                        </div>
                       </div>
                     </div>
 
@@ -921,6 +985,13 @@ export default function BottlingScreen({
                           onChange={(e) => setRowField(i, 'qty3', e.target.value.replace(/[^0-9]/g, ''))}
                           placeholder="0 ks"
                         />
+                        <div className="flex justify-center pt-0.5">
+                          <QuickQtySelect
+                            pkg={packages.find((p) => p.id === r.pkg3Id)}
+                            qty={r.qty3}
+                            onSelect={(q) => setRowField(i, 'qty3', String(q))}
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1007,16 +1078,23 @@ export default function BottlingScreen({
                         </select>
                       </td>
                       <td className="py-1 pr-0.5">
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          autoComplete="off"
-                          className="input text-lg font-black w-full min-h-[44px] text-center text-neutral-950 bg-amber-50/40 border-2 border-amber-400 focus:border-amber-600 rounded-xl shadow-xs"
-                          value={r.qty}
-                          onChange={(e) => setRowField(i, 'qty', e.target.value.replace(/[^0-9]/g, ''))}
-                          placeholder="0"
-                        />
+                        <div className="flex flex-col items-center gap-1">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            autoComplete="off"
+                            className="input text-lg font-black w-full min-h-[44px] text-center text-neutral-950 bg-amber-50/40 border-2 border-amber-400 focus:border-amber-600 rounded-xl shadow-xs"
+                            value={r.qty}
+                            onChange={(e) => setRowField(i, 'qty', e.target.value.replace(/[^0-9]/g, ''))}
+                            placeholder="0"
+                          />
+                          <QuickQtySelect
+                            pkg={packages.find((p) => p.id === r.pkgId)}
+                            qty={r.qty}
+                            onSelect={(q) => setRowField(i, 'qty', String(q))}
+                          />
+                        </div>
                       </td>
                       {/* Obal 2 */}
                       <td className="py-1 pr-0.5">
@@ -1028,16 +1106,23 @@ export default function BottlingScreen({
                         </select>
                       </td>
                       <td className="py-1 pr-0.5">
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          autoComplete="off"
-                          className="input text-lg font-black w-full min-h-[44px] text-center text-neutral-950 bg-amber-50/40 border-2 border-amber-400 focus:border-amber-600 rounded-xl shadow-xs"
-                          value={r.qty2}
-                          onChange={(e) => setRowField(i, 'qty2', e.target.value.replace(/[^0-9]/g, ''))}
-                          placeholder="0"
-                        />
+                        <div className="flex flex-col items-center gap-1">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            autoComplete="off"
+                            className="input text-lg font-black w-full min-h-[44px] text-center text-neutral-950 bg-amber-50/40 border-2 border-amber-400 focus:border-amber-600 rounded-xl shadow-xs"
+                            value={r.qty2}
+                            onChange={(e) => setRowField(i, 'qty2', e.target.value.replace(/[^0-9]/g, ''))}
+                            placeholder="0"
+                          />
+                          <QuickQtySelect
+                            pkg={packages.find((p) => p.id === r.pkg2Id)}
+                            qty={r.qty2}
+                            onSelect={(q) => setRowField(i, 'qty2', String(q))}
+                          />
+                        </div>
                       </td>
                       {/* Obal 3 */}
                       <td className="py-1 pr-0.5">
@@ -1049,16 +1134,23 @@ export default function BottlingScreen({
                         </select>
                       </td>
                       <td className="py-1 pr-0.5">
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          autoComplete="off"
-                          className="input text-lg font-black w-full min-h-[44px] text-center text-neutral-950 bg-amber-50/40 border-2 border-amber-400 focus:border-amber-600 rounded-xl shadow-xs"
-                          value={r.qty3}
-                          onChange={(e) => setRowField(i, 'qty3', e.target.value.replace(/[^0-9]/g, ''))}
-                          placeholder="0"
-                        />
+                        <div className="flex flex-col items-center gap-1">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            autoComplete="off"
+                            className="input text-lg font-black w-full min-h-[44px] text-center text-neutral-950 bg-amber-50/40 border-2 border-amber-400 focus:border-amber-600 rounded-xl shadow-xs"
+                            value={r.qty3}
+                            onChange={(e) => setRowField(i, 'qty3', e.target.value.replace(/[^0-9]/g, ''))}
+                            placeholder="0"
+                          />
+                          <QuickQtySelect
+                            pkg={packages.find((p) => p.id === r.pkg3Id)}
+                            qty={r.qty3}
+                            onSelect={(q) => setRowField(i, 'qty3', String(q))}
+                          />
+                        </div>
                       </td>
                       {/* KEG zdroj */}
                       <td className="py-1 pr-0.5">
@@ -1654,8 +1746,46 @@ export default function BottlingScreen({
       )}
       <BottlingChecklistModal
         isOpen={showChecklistModal}
-        onClose={() => setShowChecklistModal(false)}
+        onClose={() => {
+          setChecklistGate(false);
+          setChecklistInitialCategory(null);
+          setShowChecklistModal(false);
+          // Po splnění brány „1. Začátek stáčení" se v posledním týdnu měsíce
+          // automaticky otevře okno s měsíčním checklistem („4. Měsíční údržba"),
+          // dokud není pro dané datum kompletně odškrtnutý.
+          if (checklistGate && checklistPhase === 'start' && isLastWeekOfMonth(date)) {
+            if (!isMonthlyChecklistCompleteForDate(date)) {
+              setChecklistPhase('monthly');
+              setChecklistInitialCategory(MONTHLY_CATEGORY);
+              setShowChecklistModal(true);
+            }
+          }
+          // Automatický zápis do „Sanitárního deníku lahví" po dokončení
+          // checklistu „Konec stáčení" (denní proplach/louh) a „Měsíční údržba"
+          // (louh na cestách): odškrtnuté položky se promítnou do deníku.
+          if (checklistPhase === 'end' || checklistPhase === 'monthly') {
+            let checkedMap: Record<string, boolean> = {};
+            try {
+              const raw = localStorage.getItem('bottling_checklist_' + date);
+              if (raw) checkedMap = JSON.parse(raw);
+            } catch {}
+            const checkedItems = DEFAULT_ITEMS.filter((it) => checkedMap[it.id]).map((it) => ({
+              id: it.id,
+              text: it.text,
+            }));
+            if (checkedItems.length > 0) {
+              void autoLogBottleSanitationFromChecklist({
+                dateStr: date,
+                checkedItems,
+                performedBy: profile?.display_name || '',
+              });
+            }
+          }
+        }}
         dateStr={date}
+        phase={checklistPhase}
+        blockCloseUntilStartDone={checklistGate}
+        initialCategory={checklistInitialCategory ?? undefined}
         onApplyNote={(nText: string) => setNote((prev) => (prev ? prev + ' | ' + nText : nText))}
       />
       {showImageImport && (
@@ -1759,6 +1889,39 @@ export default function BottlingScreen({
               <button type="submit" className="btn-primary">Uložit změny</button>
             </div>
           </form>
+        </Modal>
+      )}
+      {showEndConfirm && (
+        <Modal open onClose={() => setShowEndConfirm(false)} title="❓ Dokončeno stáčení lahví">
+          <div className="space-y-4 text-center py-2">
+            <p className="text-sm font-semibold text-neutral-700">
+              Stáčení lahví bylo úspěšně uloženo do databáze.
+            </p>
+            <h3 className="font-display font-black text-base text-neutral-900">
+              Budete dnes ještě pokračovat ve stáčení lahví, nebo končíte?
+            </h3>
+            <div className="flex flex-col sm:flex-row justify-center gap-3 pt-3">
+              <button
+                onClick={() => {
+                  setShowEndConfirm(false);
+                }}
+                className="px-5 py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 text-neutral-900 font-black text-xs transition shadow-md"
+              >
+                🔄 Budu pokračovat ve stáčení
+              </button>
+              <button
+                onClick={() => {
+                  setShowEndConfirm(false);
+                  setChecklistPhase('end');
+                  setChecklistGate(false);
+                  setShowChecklistModal(true);
+                }}
+                className="px-5 py-3 rounded-2xl bg-sky-500 hover:bg-sky-600 text-white font-black text-xs transition shadow-md"
+              >
+                🧹 Končím (otevřít Úklidový checklist)
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
     </div>

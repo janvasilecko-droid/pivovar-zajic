@@ -40,6 +40,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   const [checklistGate, setChecklistGate] = useState(false);
   const [checklistPhase, setChecklistPhase] = useState<'start' | 'end' | 'monthly'>('start');
   const [checklistInitialCategory, setChecklistInitialCategory] = useState<string | null>(null);
+  const [showEndConfirm, setShowEndConfirm] = useState(false);
 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [note, setNote] = useState('');
@@ -555,6 +556,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
     setEntryRows(emptyRows()); setNote(''); setErr(null);
     setFlash(true); setTimeout(() => setFlash(false), 800);
     load(true);
+    setShowEndConfirm(true);
   }
 
   async function del(id: string) {
@@ -1861,6 +1863,39 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
         initialCategory={checklistInitialCategory ?? undefined}
         onApplyNote={(nText: string) => setNote((prev) => (prev ? prev + ' | ' + nText : nText))}
       />
+      {showEndConfirm && (
+        <Modal open onClose={() => setShowEndConfirm(false)} title="❓ Dokončeno stáčení KEG">
+          <div className="space-y-4 text-center py-2">
+            <p className="text-sm font-semibold text-neutral-700">
+              Stáčení KEGů bylo úspěšně uloženo do databáze.
+            </p>
+            <h3 className="font-display font-black text-base text-neutral-900">
+              Budete dnes ještě pokračovat ve stáčení KEGů, nebo končíte?
+            </h3>
+            <div className="flex flex-col sm:flex-row justify-center gap-3 pt-3">
+              <button
+                onClick={() => {
+                  setShowEndConfirm(false);
+                }}
+                className="px-5 py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 text-neutral-900 font-black text-xs transition shadow-md"
+              >
+                🔄 Budu pokračovat ve stáčení
+              </button>
+              <button
+                onClick={() => {
+                  setShowEndConfirm(false);
+                  setChecklistPhase('end');
+                  setChecklistGate(false);
+                  setShowChecklistModal(true);
+                }}
+                className="px-5 py-3 rounded-2xl bg-sky-500 hover:bg-sky-600 text-white font-black text-xs transition shadow-md"
+              >
+                🧹 Končím (otevřít Úklidový checklist)
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
