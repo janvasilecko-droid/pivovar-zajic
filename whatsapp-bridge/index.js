@@ -167,10 +167,9 @@ async function handleMessage(sock, gate, supabase, msg) {
   const remoteJid = key.remoteJid;
   if (!remoteJid || !msg.message) return;
 
-  // 1) Vlastní zprávy (z jiného zařízení / Webu) → NIKDY, prevence smyčky.
+  // 1) Vlastní zprávy (z jiného zařízení / Webu) — zpracovávají se na přání uživatele.
   if (key.fromMe === true) {
-    logger.info('[msg] vlastní zpráva — ignoruji (fromMe)');
-    return;
+    logger.info('[msg] vlastní zpráva — vyhodnocuji (fromMe)');
   }
 
   // Fotka (i v ephemeral / view-once obalu) se řeší zvlášť: DeepSeek fotky
@@ -259,7 +258,7 @@ async function handleMessage(sock, gate, supabase, msg) {
     senderNumber,
     messageType,
     chatId: isGroup ? remoteJid : undefined,
-    fromMe: false,
+    fromMe: key.fromMe === true,
     webhookId,
     ...(mediaUrl ? { mediaUrl } : {}),
   };
@@ -359,7 +358,7 @@ async function start() {
     if (type !== 'notify') return;
     for (const msg of messages) {
       try {
-        await handleMessage(sock, gate, supabase, msg);
+        await handleMessage(sock, gate.getGate(), supabase, msg);
       } catch (e) {
         logger.error({ err: e }, '[msg] chyba zpracování');
       }
