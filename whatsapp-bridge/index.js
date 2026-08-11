@@ -316,6 +316,10 @@ async function start() {
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
+      qrState.qr = qr;
+      qrState.connected = false;
+      qrState.updatedAt = new Date().toISOString();
+
       console.log('\n============================================================');
       console.log('  QR kód pro spárování — v telefonu otevři:');
       console.log('  WhatsApp → Nastavení → Propojená zařízení → Propojit zařízení');
@@ -329,10 +333,12 @@ async function start() {
     }
 
     if (connection === 'open') {
+      qrState.connected = true;
       logger.info('[conn] OPEN — spárováno a online ✔');
     }
 
     if (connection === 'close') {
+      qrState.connected = false;
       const code = lastDisconnect?.error?.output?.statusCode;
       const loggedOut = code === DisconnectReason.loggedOut;
       logger.warn(`[conn] připojení zavřeno (statusCode=${code}, loggedOut=${loggedOut})`);
@@ -366,5 +372,5 @@ start().catch((e) => {
   process.exit(1);
 });
 
-startHealthServer();
+startHttpServer(qrState);
 
