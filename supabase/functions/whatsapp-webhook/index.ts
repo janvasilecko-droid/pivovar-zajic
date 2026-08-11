@@ -15,6 +15,10 @@ interface MakeWebhookPayload {
   
   // Optional fields
   senderNumber?: string;
+  // Skutečné jméno pisatele ve skupině (pushName z WhatsApp bridge). Pro
+  // soukromé zprávy se rovná sender. Aliasy: participantName | participant_name.
+  participantName?: string;
+  participant_name?: string;
   messageType?: string;
   webhookId?: string;
   mediaUrl?: string;
@@ -47,6 +51,7 @@ interface MakeWebhookPayload {
 interface WhatsAppIncomingRecord {
   sender_name: string;
   sender_number?: string;
+  participant_name?: string;
   message_text: string;
   message_timestamp?: string;
   message_type?: string;
@@ -235,6 +240,15 @@ Deno.serve(async (req: Request) => {
     // Add optional fields if present
     if (payload.senderNumber) {
       record.sender_number = payload.senderNumber.trim();
+    }
+
+    // Skutečné jméno pisatele ve skupině (participantName z bridge). Pro
+    // soukromé zprávy se rovná senderu, takže se ukládá jen, když se liší.
+    const participantName = String(
+      payload.participantName ?? payload.participant_name ?? ""
+    ).trim();
+    if (participantName && participantName !== record.sender_name) {
+      record.participant_name = participantName;
     }
 
     // Fotka/příloha — mediaUrl (fotky stahuje a ukládá do Supabase Storage

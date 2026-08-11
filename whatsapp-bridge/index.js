@@ -280,6 +280,10 @@ async function handleMessage(sock, gate, supabase, msg, opts = {}) {
 
   const payload = {
     sender,
+    // Skutečné jméno pisatele (pushName). Pro skupinové zprávy je sender název
+    // skupiny a participantName je jméno konkrétní osoby, která zprávu napsala
+    // (důležité pro AI: "pro mě" v textu znamená tohoto odesílatele).
+    participantName: (pushName || senderNumber || '').trim(),
     message: text,
     timestamp: new Date(tsMs).toISOString(),
     senderNumber,

@@ -703,28 +703,53 @@ Deno.serve(async (req: Request) => {
           continue;
         }
 
-        // Načteme historii posledních 3 zpráv ze stejné skupiny/chatu (chat_id)
-        // před touto zprávou, abychom dali AI kontext (předešlé zprávy, na které může reagovat).
-        let chatContext = [];
+        // Načteme CELOU předešlou konverzaci ze stejné skupiny/chatu (chat_id) před
+        // touto zprávou. Uživatel na předchozí objednávku často ODPOVÍDÁ — odpověď
+        // navazuje na původní zprávu, takže AI musí vidět VŠECHNY předchozí zprávy
+        // až k té původní (poslední odpověď může obsahovat finální úpravu objednávky).
+        // Okno a maximální počet zpráv jsou konfigurovatelné env proměnnými.
+        const contextMaxDays = Math.max(1, Number(Deno.env.get("CONTEXT_MAX_DAYS") || 7) || 7);
+        const contextMaxMessages = Math.max(1, Number(Deno.env.get("CONTEXT_MAX_MESSAGES") || 200) || 200);
+        let chatContext: Array<{
+          sender: string;
+          date: string | null;
+          text: string;
+          fromMe: boolean;
+        }> = [];
         if (message.chat_id) {
+          const since = new Date(
+            new Date(message.created_at).getTime() - contextMaxDays * 24 * 60 * 60 * 1000
+          ).toISOString();
           const { data: contextData } = await supabase
             .from("whatsapp_incoming")
-            .select("sender_name, message_timestamp, message_text")
+            .select("sender_name, participant_name, message_timestamp, message_text, from_me, created_at")
             .eq("chat_id", message.chat_id)
             .lt("created_at", message.created_at)
+            .gte("created_at", since)
             .order("created_at", { ascending: false })
-            .limit(3);
+            .limit(contextMaxMessages);
 
           if (contextData && contextData.length > 0) {
             chatContext = [...contextData].reverse().map((m: any) => ({
-              sender: m.sender_name,
+              // Skutečné jméno pisatele (participant_name) má přednost — když text
+              // zprávy říká "pro mě", je odběratelem PRÁVĚ tento odesílatel.
+              sender: m.participant_name || m.sender_name,
               date: m.message_timestamp ?
                     new Date(m.message_timestamp).toISOString().split('T')[0] :
                     null,
-              text: m.message_text
+              text: m.message_text,
+              fromMe: !!m.from_me
             }));
           }
         }
+
+        // Celá konverzace v jednom textu — readback kontrola čtení ji používá,
+        // protože raw_line položky může pocházet z PŘEDCHOZÍ zprávy, na kterou
+        // se v poslední zprávě odpovídá.
+        const contextReadbackText = [
+          ...chatContext.map((m) => m.text),
+          message.message_text,
+        ].filter(Boolean).join("\n");
 
         // Call the existing parse-order-text edge function
         const parseUrl = `${supabaseUrl}/functions/v1/parse-order-text`;
@@ -739,11 +764,14 @@ Deno.serve(async (req: Request) => {
           messages: [
             ...chatContext,
             {
-              sender: message.sender_name,
+              // Skutečné jméno pisatele má přednost před názvem skupiny — AI tak
+              // u "pro mě"/"mi"/"mně" pozná, že odběratelem je tento odesílatel.
+              sender: message.participant_name || message.sender_name,
               date: message.message_timestamp ?
                     new Date(message.message_timestamp).toISOString().split('T')[0] :
                     null,
-              text: message.message_text
+              text: message.message_text,
+              fromMe: !!message.from_me
             }
           ]
         };
@@ -797,20 +825,39 @@ Deno.serve(async (req: Request) => {
         const firstItemPlaceName: string | null =
           (parsedItems.length > 0 && parsedItems[0].place_name) || null;
 
-        // Jméno odesílatele (posla) nikdy nepoužijeme jako odběratele.
-        const senderNormPlace = normPlaceName(message.sender_name);
+        // Jméno odesílatele (posla) se normálně nikdy nepoužije jako odběratele.
+        // VÝJIMKA: když text zprávy říká "pro mě"/"mi"/"mně"/"pro mne" (objednávka
+        // pro pisatele), je odběratelem PRÁVĚ odesílatel (jeho participant_name
+        // nebo sender_name).
+        const wantsOwnOrder =
+          /(?:^|\s)pro\s+(?:m[eě]|mne|mn[eě])\b|(?:^|\s)(?:mi|mn[eě])\b|pro\s+sebe/i.test(
+            message.message_text
+          );
+        const senderNormPlace = normPlaceName(
+          message.participant_name || message.sender_name
+        );
         const isSameAsSender = (name: string | null | undefined): boolean =>
-          !!name && !!senderNormPlace && normPlaceName(name) === senderNormPlace;
+          !!name &&
+          !!senderNormPlace &&
+          normPlaceName(name) === senderNormPlace;
 
         // Z textu zprávy odstraníme jméno odesílatele, aby nemohlo zastínit
         // odběratele, který je napsaný uvnitř zprávy.
-        const cleanTextForPlace = stripSenderName(message.message_text, message.sender_name);
+        const cleanTextForPlace = stripSenderName(
+          message.message_text,
+          message.participant_name || message.sender_name
+        );
 
         const placeCandidates = [
           firstItemPlaceName,
           topLevelPlaceName,
           cleanTextForPlace,
-        ].filter((c): c is string => !!c && c.trim().length > 0 && !isSameAsSender(c));
+        ].filter((c): c is string => {
+          if (!c || c.trim().length === 0) return false;
+          // "pro mě" → odesílatel je platný odběratel (nesmíme ho zahodit).
+          if (wantsOwnOrder) return true;
+          return !isSameAsSender(c);
+        });
 
         for (const candidate of placeCandidates) {
           const matched = matchPlaceSafely(
@@ -948,7 +995,7 @@ Deno.serve(async (req: Request) => {
             parsed_items: itemsForStorage,
             readback_unmatched_count: readbackUnmatchedCount(
               itemsForStorage,
-              message.message_text
+              contextReadbackText
             ),
           },
           "error"

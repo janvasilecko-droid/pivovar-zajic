@@ -20,6 +20,7 @@ interface WhatsAppMessageHint {
   sender: string | null;
   date: string | null;
   text: string;
+  fromMe?: boolean;
 }
 
 interface AiResponse {
@@ -119,12 +120,15 @@ Deno.serve(async (req: Request) => {
     // kontext pro AI. Plný text každé zprávy je důležitý, protože uživatel často
     // na předchozí objednávku ODPOVÍDÁ — odpověď navazuje na předešlou zprávu a
     // bez plného znění AI nemůže doplnit chybějící informace.
-    // Odesílatel slouží jen k rozlišení zpráv a dat — odběratel (place_name) se
-    // určuje VŽDY z textu zprávy, nikdy z jména odesílatele.
+    // Odesílatel slouží k rozlišení zpráv a dat. VÝJIMKA: když text zprávy říká
+    // "pro mě"/"mi"/"mně"/"pro mne" (objednávka pro pisatele), je odběratelem
+    // (place_name) PRÁVĚ ODESÍLATEL té zprávy.
     const messagesList = messages.length
       ? messages
           .map((m, i) => {
-            const sender = m.sender ? `Odesílatel (jen posel, NIKDY odběratel): "${m.sender}"` : "Odesílatel: (neznámý)";
+            const sender = m.sender
+              ? `Odesílatel: "${m.sender}" (když text zprávy říká "pro mě"/"mi"/"mně"/"pro mne", je TOHLE jméno odběratelem)${m.fromMe ? " — tato zpráva je od VÁS (pivovar), ne od zákazníka" : ""}`
+              : "Odesílatel: (neznámý)";
             const date = m.date ? `, datum: ${m.date}` : "";
             const fullText = m.text.replace(/\s+/g, " ").trim();
             return `Zpráva ${i + 1}: ${sender}${date}\n  Celý obsah zprávy: "${fullText}"`;
@@ -201,6 +205,7 @@ POSTUP při čtení vícenásobné/odpověďové zprávy:
    2) Odpověď patří TÉ objednávce, ze které/s níž komunikace pokračuje (stejný odběratel, stejný den). Nesmíš použít stupeň z jiné objednávky jiného odběratele/dne.
 10. KRITICKÉ — ODPOVĚĎ MŮŽE PŮVODNÍ OBJEDNÁVKU I UPRAVIT (NEJEN DOPLNIT): Pokud odpověď na předchozí zprávu OPRAVUJE/UPRAVUJE původní data (např. "těch 2x50 neber, dej 3x50", "místo 12sv chci 11sv", "sudů místo 2 bude 5", "k tomu 2x30 NE, jen 1x20"), pak na základě odpovědi UPRAV počet/obal/stupeň TÉ PŮVODNÍ položky v původní objednávce — ne jen přidej nový řádek. Výsledná objednávka = původní záměr PO spotřebování úprav z odpovědi.
 11. Rozlišení „doplň" vs „oprav": slova jako "ještě", "k tomu dod"/"přidej", "a ještě", "budu brát i" = DOPLNĚNÍ (přidej nové položky k téže objednávce). Slova jako "ne", "neber", "místo", "oprav", "změ", "bude 3x", "radši", "jen 1x" = OPRAVA (uprav existující položku původní objednávky). Vypočítej výslednou objednávku PO všech úpravách a nevytvářej duplicitní/staré řádky.
+12. KRITICKÉ — SEZNAM ZPRÁV JE CHRONOLOGICKÝ, POSLEDNÍ ZPRÁVA JE NEJNOVĚJŠÍ: Zprávy v seznamu níže jsou seřazené od NEJSTARŠÍ po NEJNOVĚJŠÍ. Poslední zpráva v seznamu je ta, kterou právě zpracováváš. Když je to odpověď na předchozí zprávu, může obsahovat FINÁLNÍ ÚPRAVU objednávky (doplnění NEBO opravu). VÝSLEDKEM je objednávka PO všech úpravách z poslední zprávy — nikdy nevracej zároveň starou i upravenou verzi téže položky/objednávky. Datum (date) a odběratele (place_name) vezmi z původní zprávy, ke které odpověď patří (doplnění/oprava sama je obvykle neobsahuje).
 
 
 
@@ -284,7 +289,7 @@ KAŽDÁ položka objednávky má:
 
 
 - raw_line: přesný text řádku jak ho vidíš
-- place_name: název odběratele / místa dodání. VELMI DŮLEŽITÉ — objednávky často uvádí odběratele JEN JEDNOU, u úplně prvního řádku nebo v záhlaví/podpisu zprávy, a další řádky pod ním už žádné jméno odběratele neopakují. V takovém případě MUSÍŠ stejného odběratele přiřadit i všem následujícím položkám, dokud se v textu neobjeví jiný/nový odběratel (pak se přepni na nového a opět ho "děduj" dolů). Jinými slovy: place_name se v datech "táhne" odshora dolů, dokud ho něco nepřepíše. Hledej jméno odběratele i v: jméně WhatsApp kontaktu, podpisu, oslovení, názvu restaurace/hospody v textu. Pokud znáš seznam UŽ EXISTUJÍCÍCH odběratelů (viz níže "ZNÁMÍ ODBĚRATELÉ") a text jen přibližně/foneticky/s překlepem odpovídá jednomu z nich, POUŽIJ PŘESNĚ ten název ze seznamu (stejná diakritika, velká/malá písmena), ne vlastní přepis. Pokud opravdu nelze určit žádného odběratele, vrať null.
+- place_name: název odběratele / místa dodání. VELMI DŮLEŽITÉ — objednávky často uvádí odběratele JEN JEDNOU, u úplně prvního řádku nebo v záhlaví/podpisu zprávy, a další řádky pod ním už žádné jméno odběratele neopakují. V takovém případě MUSÍŠ stejného odběratele přiřadit i všem následujícím položkám, dokud se v textu neobjeví jiný/nový odběratel (pak se přepni na nového a opět ho "děduj" dolů). Jinými slovy: place_name se v datech "táhne" odshora dolů, dokud ho něco nepřepíše. Hledej jméno odběratele i v: jméně WhatsApp kontaktu, podpisu, oslovení, názvu restaurace/hospody v textu. Pokud znáš seznam UŽ EXISTUJÍCÍCH odběratelů (viz níže "ZNÁMÍ ODBĚRATELÉ") a text jen přibližně/foneticky/s překlepem odpovídá jednomu z nich, POUŽIJ PŘESNĚ ten název ze seznamu (stejná diakritika, velká/malá písmena), ne vlastní přepis. Pokud text říká "pro mě"/"mi"/"mně"/"pro mne" (objednávka pro pisatele), použij jméno ODESÍLATELE té zprávy ze seznamu ROZPOZNANÝCH ZPRÁV. Pokud opravdu nelze určit žádného odběratele, vrať null.
 - date: DATUM objednávky ve formátu YYYY-MM-DD. Text je export z WhatsApp, kde každá zpráva má časové razítko jako "[12:00, 1.1.2026]" nebo "1.1.2026, 12:00 -". Přečti z časového razítka zprávy, ke které položka patří, a převeď ho na YYYY-MM-DD (např. "1.1.2026" → "2026-01-01"). Pokud zpráva žádné časové razítko nemá, vrať null. DŮLEŽITÉ: pokud je v textu VÍCE zpráv od stejného odběratele v RŮZNÝCH dnech, každá položka musí mít SVÉ datum z té zprávy, ve které se nachází — NESLUČUJ je do jednoho data. Tím se objednávky od stejného odběratele v různých dnech správně rozdělí na samostatné objednávky. POZOR: zápis "7.8" nebo "7. 8." v textu objednávky NENÍ objem ani množství — je to datum (7. srpna). Nezaměňuj ho s "7x8" (množství) nebo "7l" (objem).
 
 
@@ -306,14 +311,15 @@ ${pkgAliasList}
 NAUČENÉ ALIASY ODBĚRATELŮ (špatný název → správný název; uživatel tyto opravy ručně potvrdil v minulosti, ber je jako VELMI spolehlivé — pokud text odpovídá "špatnému názvu" z tohoto seznamu, POUŽIJ PŘESNĚ "správný název"):
 ${placeAliasList}
 
-ROZPOZNANÉ ZPRÁVY (každá zpráva = jeden odesílatel + datum; odesílatel slouží JEN k rozlišení zpráv a k určení date — place_name určuj VŽDY z textu zprávy, nikdy z odesílatele):
+ROZPOZNANÉ ZPRÁVY (každá zpráva = jeden odesílatel + datum; odesílatel slouží k rozlišení zpráv a k určení date — place_name určuj z textu zprávy, S VÝJIMKOU "pro mě"/"mi"/"mně"/"pro mne", kdy je odběratelem PRÁVĚ odesílatel):
 ${messagesList}
 
 DŮLEŽITÉ - ODESÍLATEL vs ODBĚRATEL:
-- ODESÍLATEL je JEN osoba/telefon, kdo zprávu poslal (např. "Bednář", "Gábina Účetní", "+420...", "Miláček"). Je to POUZE posel/doručovatel — NIKDY odběratel-hospoda. Jméno odesílatele v place_name VŽDY ignoruj.
+- ODESÍLATEL je osoba/telefon, kdo zprávu poslal (např. "Bednář", "Gábina Účetní", "+420...", "Miláček"). Obvykle je to POUZE posel/doručovatel — NIKDY odběratel-hospoda. Jméno odesílatele v place_name VŽDY ignoruj.
+- ALE VÝJIMKA — "PRO MĚ" = ODESÍLATEL: Pokud text zprávy objednávky výslovně říká, že objednávka je PRO PISATELE — typicky "pro mě", "pro mne", "mi", "mně", "na mě", "pro sebe" — pak je odběratelem (place_name) ODESÍLATEL té zprávy. Použij PŘESNĚ jeho jméno ze seznamu ROZPOZNANÝCH ZPRÁV (např. text "pro mě na středu 50l" od odesílatele "Sládek P. Bednář" → place_name: "Sládek P. Bednář"). Pozor: "pro měho kamaráda Dana" NENÍ "pro mě" — "měho" znamená "mého" (někoho jiného), tam hledej jméno v textu ("Dan").
 - ODBĚRATEL (place_name) je restaurace/hospoda/místo, PRO KTERÉ je objednávka určena. Hledej ho VŽDY VE VLASTNÍM TEXTU OBJEDNÁVKY — typicky u slov jako "pro U Dubu", "objednávka pro U Dubu", "poslat pro U Dubu", "U Dubu objednává", "na U Dubu", nebo v hlavičce/podpisu zprávy.
 - POZOR: jméno odesílatele se může objevit UVNITŘ textu jako pozdrav/podpis (např. "Ahoj, tady Miláček", "díky, Miláček"). To NENÍ odběratel — to je jen podpis posla. Odběratel je ten, PRO KOHO je objednávka určena a koho v textu najdeš jako místo určení.
-- Pokud text žádného odběratele neobsahuje, vrať place_name = null. NIKDY neodvozuj odběratele z JMÉNA ODESÍLATELE — ani tehdy, když je odesílatel mezi ZNÁMÍMI ODBĚRATELI, a ani tehdy, když to vypadá jako nejpravděpodobnější volba. Odesílatel je vždy jen posel. NIKDY nevybírej odběratele ze seznamu ZNÁMÍ ODBĚRATELÉ, který není v textu — to je vymýšlení, vrať raději null.
+- Pokud text žádného odběratele neobsahuje (a neříká "pro mě"/"mi"/"mně" — viz výjimka výše), vrať place_name = null. NIKDY neodvozuj odběratele z JMÉNA ODESÍLATELE — ani tehdy, když je odesílatel mezi ZNÁMÍMI ODBĚRATELI, a ani tehdy, když to vypadá jako nejpravděpodobnější volba. Odesílatel je vždy jen posel (kromě výjimky "pro mě"). NIKDY nevybírej odběratele ze seznamu ZNÁMÍ ODBĚRATELÉ, který není v textu — to je vymýšlení, vrať raději null.
 - Každá položka patří zprávě, pod kterou v textu spadá. Položkám z jedné zprávy přiřaď STEJNÝ place_name (odběratele té zprávy) a STEJNÉ date (datum té zprávy). V každém items vyplň i date (datum zprávy, ke které položka patří).
 
 
@@ -332,14 +338,14 @@ PRAVIDLA:
 - Pokud quantity chybí, vrať null
 - Buď tolerantní k překlepům (např. "Sox" = 5x, "tox" = 10x)
 - Nejprve zkontroluj NAUČENÉ ZKRATKY výše — pokud text řádku obsahuje některou z nich, použij namapovaný název piva/obalu přímo, i když by se ti bez ní zdál nejednoznačný.
-- place_name se dědí odshora dolů — nikdy nenechávej null jen proto, že řádek sám o sobě jméno neobsahuje, pokud ho lze odvodit z PŘEDCHOZÍCH ŘÁDKŮ zprávy. Záhlaví zprávy / jméno odesílatele se pro odběratele NEPOUŽÍVÁ.
+- place_name se dědí odshora dolů — nikdy nenechávej null jen proto, že řádek sám o sobě jméno neobsahuje, pokud ho lze odvodit z PŘEDCHOZÍCH ŘÁDKŮ zprávy. Záhlaví zprávy / jméno odesílatele se pro odběratele NEPOUŽÍVÁ (kromě výjimky "pro mě"/"mi"/"mně"/"pro mne", kdy je odběratelem odesílatel).
 - OBECNÉ PRAVIDLO PRO CELÝ VÝSTUP: u beer_name i place_name VŽDY nejprve zkus najít shodu v existujících datech (KATALOG PIV / NAUČENÉ ZKRATKY / ZNÁMÍ ODBĚRATELÉ) — i při nepřesné, fonetické nebo překlepové shodě. Teprve když opravdu nic z existujících dat neodpovídá, ber to jako nové/neznámé (u piva vrať null, u odběratele vrať text tak, jak jsi ho přečetl). Nikdy nepřepisuj/nenahrazuj existující známou položku vlastním vymyšleným textem, pokud shoda s katalogem/seznamem je rozumně možná.
 
 Vrať ČISTĚ JSON (bez markdown, bez \`\`\`), přesně v tomto formátu, a nic jiného:
 {"items":[{"quantity":4,"degree":"12°","beer_name":"12° Světlá","package_label":"KEG 50l","raw_line":"Seeberg 4x30 12sv a 2x30 12sv","place_name":"Seeberg","date":"2026-01-01"},{"quantity":2,"degree":"12°","beer_name":"12° Světlá","package_label":"KEG 30l","raw_line":"Seeberg 4x30 12sv a 2x30 12sv","place_name":"Seeberg","date":"2026-01-01"}],"place_name":"Seeberg","raw_text":"celý rozpoznaný text"}
 
 DŮLEŽITÉ — TOP-LEVEL "place_name":
-Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpovědi, vedle "items" a "raw_text"). Toto pole = JMÉNO ODBĚRATELE, jehož objednávka je v textu NEJVÝRAZNĚJŠÍ / první / hlavní (obvykle první zpráva nahoře). Pokud je v textu více odběratelů, top-level place_name = ten první/nejvýraznější. Pokud nelze určit žádného (ať už proto, že v textu žádný není, nebo protože jediný kandidát je jméno odesílatele), vrať null. Příklad bez odběratele: {"items":[...],"place_name":null,"raw_text":"..."}. Toto pole je důležité, protože aplikace ho použije pro vytvoření nové objednávky.`;
+Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpovědi, vedle "items" a "raw_text"). Toto pole = JMÉNO ODBĚRATELE, jehož objednávka je v textu NEJVÝRAZNĚJŠÍ / první / hlavní (obvykle první zpráva nahoře). Pokud je v textu více odběratelů, top-level place_name = ten první/nejvýraznější. Pokud text říká "pro mě"/"mi"/"mně"/"pro mne", použij jméno ODESÍLATELE první/nejvýraznější zprávy. Pokud nelze určit žádného (ať už proto, že v textu žádný není, nebo protože jediný kandidát je jméno odesílatele, aniž by text říkal "pro mě"), vrať null. Příklad bez odběratele: {"items":[...],"place_name":null,"raw_text":"..."}. Toto pole je důležité, protože aplikace ho použije pro vytvoření nové objednávky.`;
 
 
     const anthropicBody = {
