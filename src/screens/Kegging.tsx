@@ -30,6 +30,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   const loadCountRef = useRef(0);
 
   const { profile } = useAuth();
+  const isManager = profile?.role === 'admin' || (profile?.role as any) === 'sladek' || (profile?.role as any) === 'sef';
 
   // Zápis / Přehled / Potřeba stočit KEGy / Přefuk KEG záložky
   const [tab, setTab] = useState<'zapis' | 'prehled' | 'potreba' | 'prefuk'>('zapis');
@@ -1862,6 +1863,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
         blockCloseUntilStartDone={checklistGate}
         initialCategory={checklistInitialCategory ?? undefined}
         onApplyNote={(nText: string) => setNote((prev) => (prev ? prev + ' | ' + nText : nText))}
+        showSkip={isManager}
       />
       {showEndConfirm && (
         <Modal open onClose={() => setShowEndConfirm(false)} title="❓ Dokončeno stáčení KEG">

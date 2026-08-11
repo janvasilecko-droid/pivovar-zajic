@@ -1,55 +1,63 @@
 import { useState, useEffect } from 'react';
 import { Modal } from './ui';
-import { CheckSquare, Square, RotateCcw, Check, ShieldCheck } from 'lucide-react';
+import { CheckSquare, Square, RotateCcw, Check, ShieldCheck, Lock } from 'lucide-react';
 
 type ChecklistItem = {
   id: string;
   category: string;
   text: string;
   required?: boolean;
+  // Položka, kterou stačí splnit JEDNOU TÝDNĚ: jakmile je odškrtnutá v kterýkoli
+  // „Stáčecí den\" aktuálního ISO týdne, v dalších dnech týdne se v checklistu
+  // „1. Začátek stáčení\" už nezobrazuje a neblokuje vstup do zápisu stáčení.
+  weekly?: boolean;
 };
 
-const DEFAULT_ITEMS: ChecklistItem[] = [
+// Fáze checklistu: 'start' = jen příprava pracoviště před stáčením (sekce
+// „1. Začátek stáčení"), 'end' = zbytek checklistu vyplňovaný až po ukončení
+// stáčení („2. Konec stáčení", „3. Týdenní kontrola", „4. Měsíční údržba"),
+// 'monthly' = jen sekce „4. Měsíční údržba" (okno s měsíčním checklistem,
+// které se v posledním týdnu měsíce otevře po splnění začátku stáčení).
+export type ChecklistPhase = 'start' | 'end' | 'monthly';
+
+export const DEFAULT_ITEMS: ChecklistItem[] = [
   // 1. Začátek stáčení
   { id: 'start_1', category: '1. Začátek stáčení', text: 'Zkontrolovat veškeré vnější plochy u stáčeček', required: true },
-  { id: 'start_2', category: '1. Začátek stáčení', text: 'Zkontrolovat a vyčistit kartáčem vnitřní a vnější plochy všech stáčeček (1% studeným louhem a opláchnout čistou vodou)', required: true },
+  { id: 'start_2', category: '1. Začátek stáčení', text: 'Zkontrolovat vnitřky stáčeček a vyčistit kartáčem vnitřní a vnější plochy všech stáčeček (na kterých se bude stáčet) studeným louhem o koncentraci 2% a důkladně opláchnout čistou vodou', required: true, weekly: true },
   { id: 'start_3', category: '1. Začátek stáčení', text: 'Zkontrolovat vnější i vnitřní povrch naražečů', required: true },
   { id: 'start_4', category: '1. Začátek stáčení', text: 'Pivní vedení propláchnout čistou vodou', required: true },
-  { id: 'start_5', category: '1. Začátek stáčení', text: 'Pivní vedení propláchnout Persterilem (0,25 %), nechat působit 10 min (příprava sudů, lahví, víček, zátkovaček...)', required: true },
-  { id: 'start_6', category: '1. Začátek stáčení', text: 'Zkontrolovat povrch podlah, u bomby, pod stoly, u tanku', required: true },
+  { id: 'start_5', category: '1. Začátek stáčení', text: 'Pivní vedení propláchnout 1% louhem, nechat působit 20 min (příprava sudů, lahví, víček, zátkovaček...)', required: true },
   { id: 'start_7', category: '1. Začátek stáčení', text: 'Zkontrolovat všechny plochy stolů a odkladových ploch', required: true },
-  { id: 'start_8', category: '1. Začátek stáčení', text: 'Zkontrolovat stěnu', required: false },
   { id: 'start_9', category: '1. Začátek stáčení', text: 'Zkontrolovat všechny nádoby (na oplach, na víčka, na odkládání nástavců na sklo)', required: true },
-  { id: 'start_10', category: '1. Začátek stáčení', text: 'Zkontrolovat konzoli ze všech stran', required: false },
   { id: 'start_11', category: '1. Začátek stáčení', text: 'Zkontrolovat vnitřek zátkovačky na PET lahve', required: true },
   { id: 'start_12', category: '1. Začátek stáčení', text: 'Zkontrolovat zátkovačku na korunky', required: true },
-  { id: 'start_13', category: '1. Začátek stáčení', text: 'Propláchnout pivní vedení čistou vodou (po Persterilu)', required: true },
+  { id: 'start_13', category: '1. Začátek stáčení', text: 'Propláchnout pivní vedení čistou vodou (po 1% louhu)', required: true },
 
   // 2. Konec stáčení
-  { id: 'end_1', category: '2. Konec stáčení', text: 'Vylít pivo a pěnu z nádoby na zbytky piva', required: true },
-  { id: 'end_2', category: '2. Konec stáčení', text: 'Důkladný proplach pivních cest čistou vodou', required: true },
-  { id: 'end_3', category: '2. Konec stáčení', text: 'Sundat nástavce na lahve a opláchnout povrch stáčeček a pivního vedení ZE VŠECH STRAN! (rychlospojky, hadice, naražeče)', required: true },
-  { id: 'end_4', category: '2. Konec stáčení', text: 'Odšroubovat červený ventil na regulaci odtoku zbytků piva, zkontrolovat/vyčistit a opláchnout čistou vodou vč. závitů', required: true },
-  { id: 'end_5', category: '2. Konec stáčení', text: 'Nasadit nástavce a lahve, povolit odtlakování, nechat protéct vodu skrz lahve na odtok zbytků piva, vylít', required: true },
-  { id: 'end_6', category: '2. Konec stáčení', text: 'Sundat vrchní kryt stáčečky a zkontrolovat čistotu vnitřku z obou stran (bez povlaku, pěny, plísní, případně louh a kartáč)', required: true },
+  { id: 'end_2', category: '2. Konec stáčení', text: 'Po posledním stočeném pivu důkladný proplach pivních cest čistou vodou', required: true },
+  { id: 'end_1', category: '2. Konec stáčení', text: 'Vylít zbytky piva a pěny z nádoby', required: true },
+  { id: 'end_3', category: '2. Konec stáčení', text: 'Sundat nástavce na lahve a opláchnout povrch stáčeček a pivního vedení ZE VŠECH STRAN (včetně rychlospojek, hadic, naražečů…)', required: true },
+  { id: 'end_4', category: '2. Konec stáčení', text: 'Odšroubovat červený ventil na regulaci odtoku zbytků piva, zkontrolovat (případně vyčistit) a opláchnout čistou vodou včetně vnitřku', required: true },
+  { id: 'end_5', category: '2. Konec stáčení', text: 'Nasadit nástavce na lahve, nasadit lahve, povolit kohout na rychlost odtlakování (během proplachu několikrát utáhnout a povolit), naplnit lahve vodou a nechat vodu protékat cestou na odtok zbytků piva a pěny, poté vodu z lahví vylít', required: true },
+  { id: 'end_6', category: '2. Konec stáčení', text: 'Sundat vrchní kryt stáčečky a zkontrolovat, zda je vnitřek z obou stran čistý, bez povlaku a zbytků od piva (pokud ne, okamžitě vyčistit louhem a kartáčem) a důkladně vnitřky vypláchnout čistou vodou', required: true },
   { id: 'end_7', category: '2. Konec stáčení', text: 'Zkontrolovat vnější a vnitřní povrch všech naražečů', required: true },
-  { id: 'end_8', category: '2. Konec stáčení', text: 'Na stáčečkách nastavit program na CO2, vyprskat vodu ze vzduchového vedení, nasadit PET a natlakovat', required: true },
-  { id: 'end_9', category: '2. Konec stáčení', text: 'Opláchnout čistou vodou povrch stáčeček ze všech stran (hlavně všechny škvíry)', required: true },
+  { id: 'end_8', category: '2. Konec stáčení', text: 'Nastavit program na stáčečkách na CO2 a pustit CO2, ať „vyprská“ voda ze vzduchového vedení, nasadit PET lahev a natlakovat', required: true },
+  { id: 'end_16', category: '2. Konec stáčení', text: 'Čistou vodou propláchnout nádobu na odlitky', required: true },
+  { id: 'end_11', category: '2. Konec stáčení', text: 'Opláchnout nástavec naražeče na oplach vodou pivní cesty ze všech stran, včetně mezer na šrouby atd.', required: true },
+  { id: 'end_9', category: '2. Konec stáčení', text: 'Oplach čistou vodou povrch stáčeček ze všech stran, hlavně všechny škvíry, kam se potenciálně mohlo dostat pivo', required: true },
+  { id: 'end_12', category: '2. Konec stáčení', text: 'Oplach konzole (důkladně opláchnout zezadu)', required: false },
+  { id: 'end_13', category: '2. Konec stáčení', text: 'Oplach CELÉHO povrchu stěny', required: false },
+  { id: 'end_14', category: '2. Konec stáčení', text: 'Oplach povrchu stolů (důkladně oplachovat ze spodu a zezadu)', required: true },
   { id: 'end_10', category: '2. Konec stáčení', text: 'Oplach naražečů, povrchu hadic a rychlospojek', required: true },
-  { id: 'end_11', category: '2. Konec stáčení', text: 'Opláchnout nástavec naražeče na oplach vodou pivní cesty ze všech stran vč. uchycení ke konzoli', required: true },
-  { id: 'end_12', category: '2. Konec stáčení', text: 'Oplach konzole ze všech stran', required: false },
-  { id: 'end_13', category: '2. Konec stáčení', text: 'Oplach CELÉHO povrchu stěny (včetně spár)', required: false },
-  { id: 'end_14', category: '2. Konec stáčení', text: 'Oplach povrchu stolů (důkladně zespodu)', required: true },
-  { id: 'end_15', category: '2. Konec stáčení', text: 'Oplach celého povrchu odkládací plochy na automatické stáčečce skleněných lahví', required: true },
-  { id: 'end_16', category: '2. Konec stáčení', text: 'Čistou vodou opláchnout nádobu na zbytky (otočit a nechat odkapat)', required: true },
-  { id: 'end_17', category: '2. Konec stáčení', text: 'Oplach podlah (nohy stáčecí linky, palety, u bomby, kolem kanálu)', required: true },
-  { id: 'end_18', category: '2. Konec stáčení', text: 'Oplach zátkovačky na korunky (při stáčení skla)', required: false },
-  { id: 'end_19', category: '2. Konec stáčení', text: 'Naražeč nasadit na nástavec na oplach', required: true },
-  { id: 'end_20', category: '2. Konec stáčení', text: 'Otřít zátkovačku vlhkým hadrem (odpojenou od el. sítě) a umístit do sucha', required: true },
-  { id: 'end_21', category: '2. Konec stáčení', text: 'Vyndat hlavu zátkovačky na PET lahve, opláchnout pod tekoucí vodou a nechat odkapat', required: true },
+  { id: 'end_17', category: '2. Konec stáčení', text: 'Oplach podlah (pozor hlavně na nohy od stáčecí linky, palety a veškerá místa, která se blbě oplachují a může se zde pivo hromadit a zůstává)', required: true },
+  { id: 'end_18', category: '2. Konec stáčení', text: 'Oplach zátkovačky na korunky (v případě, že se stáčelo sklo)', required: false },
+  { id: 'end_21', category: '2. Konec stáčení', text: 'Vyndat hlavu zátkovačky na PET lahve, opláchnout ji pod tekoucí vodou (případně ji vyčistit louhem a kartáčem) a nechat odkapat', required: true },
+  { id: 'end_20', category: '2. Konec stáčení', text: 'Otřít zátkovačku vlhkým hadrem (odpojenou od el. sítě)', required: true },
+  { id: 'end_19', category: '2. Konec stáčení', text: 'Naražeč nasadit na hlavu na oplach', required: true },
   { id: 'end_22', category: '2. Konec stáčení', text: 'Stáhnout stěrkou veškerou vodu ze stolů a podlah', required: true },
+  { id: 'end_24', category: '2. Konec stáčení', text: 'Nechat odkapat nádobu na zbytky piva, u ostatních nádob nechat vyčistit hlavně kraje nádob', required: true },
+  { id: 'end_15', category: '2. Konec stáčení', text: 'Oplach celého povrchu odkládací plochy na automatické stáčečce skleněných lahví', required: true },
   { id: 'end_23', category: '2. Konec stáčení', text: 'Nevyužitá víčka opláchnout čistou vodou a nechat odkapat', required: false },
-  { id: 'end_24', category: '2. Konec stáčení', text: 'Opláchnout a vyčistit všechny nádoby, misky, mřížky na odkapávání a nechat odkapat', required: true },
   { id: 'end_25', category: '2. Konec stáčení', text: 'Při vniknutí piva do vzduchové cesty OKAMŽITĚ vypláchnout čistou vodou (před naražením mít otevřenou bombu)', required: true },
 
   // 3. Týdenní kontrola
@@ -73,6 +81,7 @@ const DEFAULT_ITEMS: ChecklistItem[] = [
   { id: 'month_8', category: '4. Měsíční údržba (1x měsíčně)', text: 'Mechanicky kartáči vyčistit všechny rozebrané díly stáčeček a naražečů', required: false },
   { id: 'month_9', category: '4. Měsíční údržba (1x měsíčně)', text: 'Důkladně zkontrolovat a opláchnout čistou vodou všechny díly stáčeček a naražečů', required: false },
   { id: 'month_10', category: '4. Měsíční údržba (1x měsíčně)', text: 'Do sudu připravit 1% louh, natlakovat VZDUCHEM, projet louhem nápojové i vzduchové cesty a nechat 24 hodin', required: false },
+  { id: 'month_11', category: '4. Měsíční údržba (1x měsíčně)', text: 'Propláchnout veškeré cesty, včetně odtokové na pivo (nevyčerpat louh ze sudu všechen, aby tlak vzduchu nevytlačil louh z pivních cest) a nechat do nejbližšího stáčení na stáčečky na louhu', required: true },
 ];
 
 type Props = {
@@ -80,14 +89,145 @@ type Props = {
   onClose: () => void;
   dateStr?: string;
   onApplyNote?: (noteText: string) => void;
+  blockCloseUntilStartDone?: boolean;
+  phase?: ChecklistPhase;
+  initialCategory?: string;
+  showSkip?: boolean;
 };
 
-export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote }: Props) {
+// Pomocná funkce — je „Stáčecí den" (checklist přípravy pracoviště) pro dané
+// datum ÚPLNĚ splněný? Splněno = všechny položky odškrtnuté v localStorage
+// (klíč bottling_checklist_<YYYY-MM-DD>).
+export function isChecklistCompleteForDate(dateKey: string): boolean {
+  try {
+    const raw = localStorage.getItem('bottling_checklist_' + dateKey);
+    if (!raw) return false;
+    const map = JSON.parse(raw) as Record<string, boolean>;
+    return DEFAULT_ITEMS.every((it) => !!map[it.id] || isWeeklyItemSatisfiedForDate(dateKey, it));
+  } catch {
+    return false;
+  }
+}
+
+// Povinná brána pro vstup do zápisu stáčení: splněno = odškrtnuté VŠECHNY
+// položky sekce „1. Začátek stáčení" (příprava pracoviště PŘED stáčením).
+// Sekce „2. Konec stáčení" (úklid po stáčení), „3. Týdenní kontrola" a
+// „4. Měsíční údržba" se nedají odškrtnout dopředu, proto vstup neblokují.
+export const START_CATEGORY_PREFIX = '1.';
+export const MONTHLY_CATEGORY_PREFIX = '4.';
+// Přesný název sekce měsíční údržby (zaměření okna checklistu na ni).
+export const MONTHLY_CATEGORY = '4. Měsíční údržba (1x měsíčně)';
+
+// ---- Týdenní položky „1. Začátek stáčení\" (stačí 1x týdně) ----
+// Např. kartáčové čištění stáčeček studeným 2% louhem (start_2): dělá se jen
+// jednou týdně, takže jakmile je v aktuálním ISO týdnu splněná, v dalších
+// „Stáčecích dnech\" už se nezobrazuje a nesmí blokovat vstup do zápisu stáčení.
+
+// Formátuje datum lokálním časem jako YYYY-MM-DD (klíč localStorage).
+function dateKeyOf(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+// Vrací datum pondělí (začátek ISO týdne) pro daný „Stáčecí den".
+export function getWeekStartDate(dateKey: string): string {
+  const d = new Date(dateKey + 'T00:00:00');
+  const diffToMonday = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - diffToMonday);
+  return dateKeyOf(d);
+}
+
+// Byla týdenní položka v aktuálním ISO týdnu už splněná v některém „Stáčecím
+// dni"? Projde všechny záznamy bottling_checklist_<datum> od pondělí do neděle.
+export function isWeeklyItemDoneForWeek(dateKey: string, itemId: string): boolean {
+  try {
+    const monday = new Date(getWeekStartDate(dateKey) + 'T00:00:00');
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const raw = localStorage.getItem('bottling_checklist_' + dateKeyOf(d));
+      if (!raw) continue;
+      const map = JSON.parse(raw) as Record<string, boolean>;
+      if (!!map[itemId]) return true;
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
+// Je týdenní položka pro dané datum uspokojená (splněná tento týden)?
+function isWeeklyItemSatisfiedForDate(dateKey: string, item: ChecklistItem): boolean {
+  return !!item.weekly && isWeeklyItemDoneForWeek(dateKey, item.id);
+}
+
+// Položky viditelné v dané fázi checklistu:
+//  - 'start'   → pouze sekce „1. Začátek stáčení" (příprava pracoviště PŘED stáčením)
+//  - 'end'     → zbytek (konec stáčení, týdenní kontrola, měsíční údržba), který
+//                se vyplňuje až PO ukončení stáčení
+//  - 'monthly' → jen sekce „4. Měsíční údržba" (měsíční checklist po začátku stáčení).
+export function getChecklistItemsForPhase(phase: ChecklistPhase, dateKey?: string): ChecklistItem[] {
+  const base = phase === 'start'
+    ? DEFAULT_ITEMS.filter((it) => it.category.startsWith(START_CATEGORY_PREFIX))
+    : phase === 'monthly'
+      ? DEFAULT_ITEMS.filter((it) => it.category.startsWith(MONTHLY_CATEGORY_PREFIX))
+      : DEFAULT_ITEMS.filter((it) => !it.category.startsWith(START_CATEGORY_PREFIX));
+  // Ve fázi „příprava pracoviště\" se týdenní položky (např. kartáčové čištění
+  // stáčeček 2% louhem) zobrazují jen do té doby, než jsou v aktuálním týdnu
+  // splněné — na dalších stáčeních v týdnu už nezabírají místo ani neblokují.
+  if (phase === 'start' && dateKey) {
+    return base.filter((it) => !isWeeklyItemSatisfiedForDate(dateKey, it));
+  }
+  return base;
+}
+
+export function isStartChecklistCompleteForDate(dateKey: string): boolean {
+  try {
+    const raw = localStorage.getItem('bottling_checklist_' + dateKey);
+    if (!raw) return false;
+    const map = JSON.parse(raw) as Record<string, boolean>;
+    return DEFAULT_ITEMS
+      .filter((it) => it.category.startsWith(START_CATEGORY_PREFIX))
+      .every((it) => !!map[it.id] || isWeeklyItemSatisfiedForDate(dateKey, it));
+  } catch {
+    return false;
+  }
+}
+
+// Je sekce „4. Měsíční údržba" pro dané datum úplně odškrtnutá? Po splnění už
+// se okno s měsíčním checklistem po začátku stáčení samo neotevírá.
+export function isMonthlyChecklistCompleteForDate(dateKey: string): boolean {
+  try {
+    const raw = localStorage.getItem('bottling_checklist_' + dateKey);
+    if (!raw) return false;
+    const map = JSON.parse(raw) as Record<string, boolean>;
+    return DEFAULT_ITEMS
+      .filter((it) => it.category.startsWith(MONTHLY_CATEGORY_PREFIX))
+      .every((it) => !!map[it.id]);
+  } catch {
+    return false;
+  }
+}
+
+export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, blockCloseUntilStartDone, phase = 'start', initialCategory, showSkip }: Props) {
   const dateKey = dateStr || new Date().toISOString().slice(0, 10);
   const storageKey = 'bottling_checklist_' + dateKey;
 
+  // Položky viditelné v aktuální fázi (jen příprava, konec stáčení nebo měsíční údržba).
+  const items = getChecklistItemsForPhase(phase, dateKey);
+
   const [checkedMap, setCheckedMap] = useState<Record<string, boolean>>({});
   const [activeCategory, setActiveCategory] = useState<string>('ALL');
+
+  // Při každém otevření modalu se záložka kategorie vrátí na úvodní (příp. se
+  // rovnou zaměří na měsíční údržbu), aby se okno neotevřelo na staré záložce.
+  useEffect(() => {
+    if (isOpen) {
+      setActiveCategory(initialCategory ?? 'ALL');
+    }
+  }, [isOpen, initialCategory]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -112,34 +252,65 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote }
   };
 
   const selectAll = () => {
-    const next: Record<string, boolean> = {};
-    DEFAULT_ITEMS.forEach((it) => { next[it.id] = true; });
-    setCheckedMap(next);
-    localStorage.setItem(storageKey, JSON.stringify(next));
+    setCheckedMap((prev) => {
+      const next = { ...prev };
+      items.forEach((it) => { next[it.id] = true; });
+      localStorage.setItem(storageKey, JSON.stringify(next));
+      return next;
+    });
   };
 
   const resetAll = () => {
-    setCheckedMap({});
-    localStorage.removeItem(storageKey);
+    setCheckedMap((prev) => {
+      const next = { ...prev };
+      items.forEach((it) => { delete next[it.id]; });
+      localStorage.setItem(storageKey, JSON.stringify(next));
+      return next;
+    });
   };
 
-  const totalCount = DEFAULT_ITEMS.length;
-  const checkedCount = DEFAULT_ITEMS.filter((it) => checkedMap[it.id]).length;
+  const totalCount = items.length;
+  const checkedCount = items.filter((it) => checkedMap[it.id]).length;
   const percent = Math.round((checkedCount / totalCount) * 100);
 
-  const categories = Array.from(new Set(DEFAULT_ITEMS.map((it) => it.category)));
+  const categories = Array.from(new Set(items.map((it) => it.category)));
+
+  // Splnění sekce „1. Začátek stáčení" — povinná brána pro vstup do zápisu.
+  const startItems = items.filter((it) => it.category.startsWith(START_CATEGORY_PREFIX));
+  const startCheckedCount = startItems.filter((it) => checkedMap[it.id]).length;
+  const startDone = startCheckedCount === startItems.length;
+  // Bránový režim platí jen pro fázi „příprava pracoviště" ('start').
+  const gateActive = phase === 'start' && !!blockCloseUntilStartDone;
+  const gateLocked = gateActive && !startDone;
+  // Dokud brána blokuje, nejde modal zavřít (Esc, klik mimo, ✕ ani „Zavřít").
+  const effectiveOnClose = gateLocked ? () => {} : onClose;
 
   const handleFinish = () => {
     if (onApplyNote && checkedCount > 0) {
-      onApplyNote('Checklist stáčení lahví (' + checkedCount + '/' + totalCount + ' splněno)');
+      const label = phase === 'start' ? 'Příprava pracoviště' : phase === 'monthly' ? 'Měsíční údržba' : 'Konec stáčení (úklid)';
+      onApplyNote('Checklist stáčení lahví — ' + label + ' (' + checkedCount + '/' + totalCount + ' splněno)');
     }
     onClose();
+  };
+
+  // Splnění brány → zavře modal (bez automatické poznámky).
+  const handleGateFinish = () => {
+    if (startDone) onClose();
   };
 
   if (!isOpen) return null;
 
   return (
-    <Modal open onClose={onClose} title="📋 Oficiální kontrolní seznam (Checklist) stáčení lahví" wide>
+    <Modal
+      open
+      onClose={effectiveOnClose}
+      title={phase === 'start'
+        ? '📋 Oficiální kontrolní seznam (Checklist) stáčení lahví — příprava pracoviště'
+        : phase === 'monthly'
+          ? '📋 Oficiální kontrolní seznam (Checklist) stáčení lahví — měsíční údržba'
+          : '📋 Oficiální kontrolní seznam (Checklist) stáčení lahví — konec stáčení (úklid)'}
+      wide
+    >
       <div className="space-y-4">
         {/* Header progress box */}
         <div className="bg-amber-50 p-3.5 rounded-2xl border border-amber-300 flex flex-col gap-2">
@@ -177,6 +348,17 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote }
           </div>
         </div>
 
+        {/* Brána — nutné splnit sekci „1. Začátek stáčení" */}
+        {gateActive && !startDone && (
+          <div className="bg-rose-50 border border-rose-300 rounded-2xl px-3.5 py-2.5 text-xs font-bold text-rose-900 flex items-start gap-2">
+            <Lock size={15} className="mt-0.5 shrink-0" />
+            <span>
+              Před vstupem do zápisu stáčení je nutné odškrtnout <b>celou sekci „1. Začátek stáčení"</b> (příprava pracoviště).
+              {startCheckedCount > 0 && <> Zbývá {startItems.length - startCheckedCount} položek.</>}
+            </span>
+          </div>
+        )}
+
         {/* Category filter tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
           <button
@@ -184,11 +366,11 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote }
             className={'px-3 py-1.5 rounded-xl font-bold transition shrink-0 ' + (activeCategory === 'ALL' ? 'bg-amber-500 text-amber-950 shadow-xs' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200')}
             onClick={() => setActiveCategory('ALL')}
           >
-            Vše ({DEFAULT_ITEMS.length})
+            Vše ({items.length})
           </button>
           {categories.map((cat) => {
-            const count = DEFAULT_ITEMS.filter((i) => i.category === cat).length;
-            const checked = DEFAULT_ITEMS.filter((i) => i.category === cat && checkedMap[i.id]).length;
+            const count = items.filter((i) => i.category === cat).length;
+            const checked = items.filter((i) => i.category === cat && checkedMap[i.id]).length;
             return (
               <button
                 key={cat}
@@ -207,7 +389,7 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote }
           {categories
             .filter((cat) => activeCategory === 'ALL' || activeCategory === cat)
             .map((cat) => {
-              const catItems = DEFAULT_ITEMS.filter((it) => it.category === cat);
+              const catItems = items.filter((it) => it.category === cat);
               const catChecked = catItems.filter((it) => checkedMap[it.id]).length;
 
               return (
@@ -255,17 +437,70 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote }
         </div>
 
         {/* Footer actions */}
-        <div className="flex items-center justify-between pt-3 border-t border-neutral-200">
-          <button type="button" className="btn-ghost text-xs" onClick={onClose}>
-            Zavřít
-          </button>
+        <div className="flex items-center justify-between pt-3 border-t border-neutral-200 gap-3">
+          {gateActive ? (
+            <div className="text-[11px] font-bold text-neutral-500 leading-snug">
+              {startDone ? (
+                <span className="text-emerald-700">✔ Příprava pracoviště splněna — můžete pokračovat.</span>
+               ) : (
+                <span>
+                  Nejde zavřít. Odškrtněte celou sekci <b>„1. Začátek stáčení"</b> (zbývá {startItems.length - startCheckedCount} položek), abyste mohli vstoupit do zápisu stáčení.
+                </span>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              {showSkip && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = { ...checkedMap };
+                    items.forEach((it) => {
+                      next[it.id] = true;
+                    });
+                    setCheckedMap(next);
+                    localStorage.setItem(storageKey, JSON.stringify(next));
+                    onClose();
+                  }}
+                  className="btn-ghost flex items-center justify-center gap-1 text-[10px] font-black text-rose-600 hover:bg-rose-50 border border-dashed border-rose-200 px-2.5 py-1.5 rounded-xl"
+                >
+                  <span>🔓 Přeskočit (Admin)</span>
+                </button>
+              )}
+              <button type="button" className="btn-ghost text-xs" onClick={onClose}>
+                Zavřít
+              </button>
+            </div>
+          )}
+          {gateActive && showSkip && (
+            <button
+              type="button"
+              onClick={() => {
+                const next = { ...checkedMap };
+                items.forEach((it) => {
+                  next[it.id] = true;
+                });
+                setCheckedMap(next);
+                localStorage.setItem(storageKey, JSON.stringify(next));
+                onClose();
+              }}
+              className="btn-ghost flex items-center justify-center gap-1 text-[10px] font-black text-rose-600 hover:bg-rose-50 border border-dashed border-rose-200 px-2.5 py-1.5 rounded-xl"
+            >
+              <span>🔓 Přeskočit (Admin)</span>
+            </button>
+          )}
           <button
             type="button"
-            className="btn-primary py-2.5 px-5 text-xs font-black shadow-md flex items-center gap-2"
-            onClick={handleFinish}
+            disabled={gateLocked}
+            className={'btn-primary py-2.5 px-5 text-xs font-black shadow-md flex items-center gap-2 ' + (gateLocked ? 'opacity-45 cursor-not-allowed' : '')}
+            onClick={gateActive ? handleGateFinish : handleFinish}
           >
             <Check size={14} />
-            <span>Potvrdit a uložit checklist</span>
+            <span>
+              {gateActive
+                ? (startDone ? 'Pokračovat na stáčení' : 'Začátek stáčení: ' + startCheckedCount + '/' + startItems.length)
+                : (phase === 'monthly' ? 'Potvrdit měsíční údržbu' : phase === 'end' ? 'Potvrdit konec stáčení' : 'Potvrdit a uložit checklist')}
+            </span>
           </button>
         </div>
       </div>

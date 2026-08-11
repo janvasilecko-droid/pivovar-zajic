@@ -1787,6 +1787,7 @@ export default function BottlingScreen({
         blockCloseUntilStartDone={checklistGate}
         initialCategory={checklistInitialCategory ?? undefined}
         onApplyNote={(nText: string) => setNote((prev) => (prev ? prev + ' | ' + nText : nText))}
+        showSkip={isManager}
       />
       {showImageImport && (
         

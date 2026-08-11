@@ -123,9 +123,10 @@ type Props = {
   blockCloseUntilStartDone?: boolean;
   phase?: ChecklistPhase;
   initialCategory?: string;
+  showSkip?: boolean;
 };
 
-export function KeggingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, blockCloseUntilStartDone, phase = 'start', initialCategory }: Props) {
+export function KeggingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, blockCloseUntilStartDone, phase = 'start', initialCategory, showSkip }: Props) {
   const dateKey = dateStr || new Date().toISOString().slice(0, 10);
   const [checks, setChecks] = useState<Record<string, boolean>>({});
 
@@ -274,7 +275,7 @@ export function KeggingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, b
 
         {/* Footer actions */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t border-neutral-100">
-          <div>
+          <div className="flex gap-2 items-center flex-wrap">
             <button
               onClick={handleReset}
               className="btn-ghost flex items-center justify-center gap-1 text-[10px] font-black text-rose-600 hover:bg-rose-50"
@@ -282,6 +283,22 @@ export function KeggingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, b
               <RotateCcw size={12} />
               <span>Resetovat checklist</span>
             </button>
+            {showSkip && (
+              <button
+                onClick={() => {
+                  const next = { ...checks };
+                  items.forEach((it) => {
+                    next[it.id] = true;
+                  });
+                  setChecks(next);
+                  localStorage.setItem('keg_checklist_' + dateKey, JSON.stringify(next));
+                  onClose();
+                }}
+                className="btn-ghost flex items-center justify-center gap-1 text-[10px] font-black text-rose-600 hover:bg-rose-50 border border-dashed border-rose-200 px-2.5 py-1.5 rounded-xl"
+              >
+                <span>🔓 Přeskočit (Admin)</span>
+              </button>
+            )}
           </div>
 
           <div className="flex gap-2">
