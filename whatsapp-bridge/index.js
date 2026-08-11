@@ -19,6 +19,7 @@ import qrcodeTerminal from 'qrcode-terminal';
 import pino from 'pino';
 import { getSupabase, useSupabaseAuthState } from './lib/supabaseAuth.js';
 import { createMessageGate } from './lib/filter.js';
+import { HistoryCollector } from './lib/history.js';
 import { forwardToWebhook } from './lib/webhook.js';
 import { prepareImageForForwarding, ensureMediaBucket, getImageMessage } from './lib/media.js';
 
@@ -34,6 +35,10 @@ const ALLOWED_CONTACTS = (process.env.ALLOWED_CONTACTS || 'Ala Milacek Milacek')
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean);
+
+/** Historie chatu: starší zprávy (history sync) se po připojení přeposílají do aplikace. */
+const SYNC_HISTORY = (process.env.SYNC_HISTORY || 'on') !== 'off';
+const HISTORY_MAX_MESSAGES = Math.max(0, Number(process.env.HISTORY_MAX_MESSAGES || 1000) || 0);
 
 /** In-memory dedup: `messages.upsert` může stejnou zprávu doručit vícenásobně. */
 const SEEN = new Set();
@@ -162,7 +167,8 @@ async function getGroupSubject(sock, jid) {
 }
 
 // --- Zpracování jedné příchozí zprávy --------------------------------------
-async function handleMessage(sock, gate, supabase, msg) {
+async function handleMessage(sock, gate, supabase, msg, opts = {}) {
+  const { history = false } = opts;
   const key = msg.key || {};
   const remoteJid = key.remoteJid;
   if (!remoteJid || !msg.message) return;
@@ -179,6 +185,11 @@ async function handleMessage(sock, gate, supabase, msg) {
   let text = extractText(msg);
   if (!text) {
     if (imageMessage) {
+      if (history) {
+        // V historii stará média nestahujeme — fotka bez popisku nemá co přeposlat.
+        logger.debug('[msg] historie: fotka bez popisku — přeskočena');
+        return;
+      }
       // Fotka bez popisku — dřív se ignorovala. Teď ji přeposíláme s placeholderem,
       // aby si ji v aplikaci mohl člověk otevřít a stáhnout.
       text = '📷 Fotka objednávky (bez popisu)';
@@ -245,7 +256,8 @@ async function handleMessage(sock, gate, supabase, msg) {
   // takže kontrola objednávky z fotky je vždy na člověku. mediaUrl pošleme
   // webhooku → whatsapp_incoming.media_url.
   let mediaUrl = null;
-  if (imageMessage) {
+  if (imageMessage && !history) {
+    // Stará média z historie nestahujeme (pomalé a zbytečné) — text a popisky jdou dál.
     mediaUrl = await prepareImageForForwarding({
       msg,
       supabase,
@@ -307,7 +319,7 @@ async function start() {
     logger,
     browser: ['WhatsApp Bridge', 'Chrome', '24.0.0'],
     printQRInTerminal: false,
-    syncFullHistory: false,
+    syncFullHistory: SYNC_HISTORY,
     markOnlineOnConnect: false,
   });
 
@@ -367,6 +379,24 @@ async function start() {
       }
     }
   });
+
+  // Historie chatu: WhatsApp po připojení posílá starší zprávy (history sync) v dávkách.
+  // Kolektor je poskládá, vybere nejnovějších HISTORY_MAX_MESSAGES a přeposílá stejným
+  // pipeline jako živé zprávy (whitelist + fromMe bypass + dedup podle key.id / webhook_id).
+  const historyCollector =
+    SYNC_HISTORY && HISTORY_MAX_MESSAGES > 0
+      ? new HistoryCollector({
+          cap: HISTORY_MAX_MESSAGES,
+          logger,
+          onMessage: (msg) => handleMessage(sock, gate.getGate(), supabase, msg, { history: true }),
+        })
+      : null;
+  if (historyCollector) {
+    sock.ev.on('messaging-history.set', (data) => historyCollector.add(data));
+    logger.info(
+      `[history] sync zapnut — po připojení přepošlu max. ${HISTORY_MAX_MESSAGES} nejnovějších zpráv historie`
+    );
+  }
 }
 
 start().catch((e) => {

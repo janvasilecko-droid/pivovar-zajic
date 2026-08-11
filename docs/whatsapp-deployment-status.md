@@ -544,6 +544,48 @@ se v bridge zahodila.
 
 ---
 
+## 📜 AKTUALIZACE 2026-08-11 (23. kolo): starší WhatsApp zprávy (historie) se přeposílají do aplikace
+
+### Požadavek
+Majitel chce do aplikace dostat i **starší zprávy** z WhatsApp (historii chatu), ne jen
+nově příchozí — např. dřívější objednávky ve skupině „Objednávky pivovar“ nebo vlastní
+zprávy ze soukromých konverzací („Message yourself“).
+
+### Jak to funguje
+WhatsApp po připojení propojeného zařízení posílá historii v dávkách (history sync).
+Bridge ji teď zpracovává:
+
+- `syncFullHistory: true` v Baileys (dříve `false`) → po připojení čeká na historii.
+- Nový handler `messaging-history.set` sbírá dávky; kolektor vybere **nejnovějších
+  `HISTORY_MAX_MESSAGES` zpráv** (default **1000**) a přeposílá je sekvenčně s rozestupem,
+  aby se nepřetížil webhook / auto-parse.
+- Historie jde **stejným pipeline jako živé zprávy**: whitelist (cizí nepovolení odesílatelé
+  se vyfiltrují), `from_me` bypass (vlastní zprávy projdou vždy) a dedup podle `key.id`
+  / `webhook_id` (zpráva, která už byla přeposlaná živě, se neuloží dvakrát).
+- Zprávy si zachovávají **původní čas odeslání** (`messageTimestamp`).
+- Stará média (fotky) se v historii nestahují — text a popisky se přeposílají.
+
+### Konfigurace (env proměnné na Renderu — defaulty stačí, měnit nemusíš)
+| Proměnná | Default | Význam |
+|---|---|---|
+| `SYNC_HISTORY` | `on` | `off` vypne history sync |
+| `HISTORY_MAX_MESSAGES` | `1000` | kolik nejnovějších zpráv historie max. přeposlat (0 = nic) |
+
+### Poznámky
+- Nejdůvěryhodnější je **znovupárování** zařízení (WhatsApp → Nastavení → Propojená
+  zařízení → odpojit → propojit znovu QR): telefon při párování pošle úplnou historii
+  (INITIAL_BOOTSTRAP, cca 3 měsíce). Bez opětovného párování může poslat jen nedávnou
+  historii (RECENT) — pokud nic nepřijde, znovu spáruj.
+- Kolektor zpracuje historii do ~5 s po skončení přenosu; v logu bridgu hledej
+  `[history] zpracovávám N nejnovějších zpráv historie…`.
+
+### Nasazení (provedeno)
+1. Změny v `whatsapp-bridge` (`lib/history.js` nový, `index.js`, `package.json`, testy).
+2. Push → Render auto-deploy (ověřeno v logu: `[history] sync zapnut…`).
+
+---
+
+
 ## 🔐 AKTUALIZACE 2026-08-09 (11. kolo): filtr podle chat_id + ignorování vlastních zpráv (from_me)
 
 ## 🔐 AKTUALIZACE 2026-08-09 (11. kolo): filtr podle chat_id + ignorování vlastních zpráv (from_me)
