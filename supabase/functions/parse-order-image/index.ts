@@ -64,15 +64,16 @@ Deno.serve(async (req: Request) => {
     const { data: secretRows, error: secretsErr } = await supabase
       .from("app_secrets")
       .select("key, value")
-      .in("key", ["ANTHROPIC_API_KEY", "OPENAI_API_KEY"]);
+      .in("key", ["GEMINI_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"]);
 
     const secretsMap = new Map((secretRows ?? []).map((s) => [s.key, s.value]));
+    const geminiKey = secretsMap.get("GEMINI_API_KEY");
     const apiKey = secretsMap.get("ANTHROPIC_API_KEY");
     const openaiKey = secretsMap.get("OPENAI_API_KEY");
 
-    if (secretsErr || (!apiKey && !openaiKey)) {
+    if (secretsErr || (!geminiKey && !apiKey && !openaiKey)) {
       return new Response(
-        JSON.stringify({ error: "Neither ANTHROPIC_API_KEY nor OPENAI_API_KEY is configured in app_secrets" }),
+        JSON.stringify({ error: "Neither GEMINI_API_KEY nor ANTHROPIC_API_KEY nor OPENAI_API_KEY is configured in app_secrets" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -394,6 +395,59 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
     let text = "";
     let isOpenAiUsed = false;
 
+    // 1) Primární provider: Google Gemini (nativní JSON mode, vision).
+    //    Gemini má velkorysé rate limity a čtení funguje bez Anthropic kreditů.
+    //    Pozn.: "gemini-2.5-flash" už Google nezpřístupňuje novým klíčům (HTTP 404),
+    //    proto používáme gemini-3.5-flash (GA, stejná kategorie flash).
+    if (!text && geminiKey) {
+      try {
+        const geminiBody = {
+          contents: [
+            {
+              role: "user",
+              parts: [
+                { text: prompt },
+                { text: "Toto je fotka objednávky piva. Přečti ji přesně podle instrukcí a vrať JSON." },
+                {
+                  inline_data: {
+                    mime_type: imageMimeType,
+                    data: imageBase64,
+                  },
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.1,
+            responseMimeType: "application/json",
+          },
+        };
+
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`;
+        const geminiResp = await fetch(geminiUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(geminiBody),
+        });
+
+        if (geminiResp.ok) {
+          const geminiData = await geminiResp.json();
+          text =
+            geminiData?.candidates?.[0]?.content?.parts
+              ?.map((p: any) => p.text || "")
+              .join("") ?? "";
+        } else {
+          const errText = await geminiResp.text();
+          console.warn(`Gemini API error (status ${geminiResp.status}): ${errText}`);
+        }
+      } catch (err) {
+        console.warn(`Gemini API exception: ${err}`);
+      }
+    }
+
+    // 2) Fallback k Anthropic
     if (apiKey) {
       try {
         const anthropicUrl = "https://api.anthropic.com/v1/messages";
@@ -473,7 +527,7 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
 
     if (!text) {
       return new Response(
-        JSON.stringify({ error: "Failed to get response from any LLM provider (Anthropic, OpenAI)" }),
+        JSON.stringify({ error: "Failed to get response from any LLM provider (Gemini, Anthropic, OpenAI)" }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
