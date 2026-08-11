@@ -20,6 +20,7 @@ import pino from 'pino';
 import { getSupabase, useSupabaseAuthState } from './lib/supabaseAuth.js';
 import { createMessageGate } from './lib/filter.js';
 import { forwardToWebhook } from './lib/webhook.js';
+import { prepareImageForForwarding, ensureMediaBucket, getImageMessage } from './lib/media.js';
 
 // sync:true → logy se okamžitě zapíší (nespoléháme na flush bufferu při killu/exit)
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' }, pino.destination({ sync: true }));
@@ -84,7 +85,7 @@ async function getGroupSubject(sock, jid) {
 }
 
 // --- Zpracování jedné příchozí zprávy --------------------------------------
-async function handleMessage(sock, gate, msg) {
+async function handleMessage(sock, gate, supabase, msg) {
   const key = msg.key || {};
   const remoteJid = key.remoteJid;
   if (!remoteJid || !msg.message) return;
@@ -95,10 +96,21 @@ async function handleMessage(sock, gate, msg) {
     return;
   }
 
-  const text = extractText(msg);
+  // Fotka (i v ephemeral / view-once obalu) se řeší zvlášť: DeepSeek fotky
+  // nečte, takže se fotka stáhne, uloží do Storage a pošle se jako mediaUrl.
+  const imageMessage = getImageMessage(msg);
+
+  let text = extractText(msg);
   if (!text) {
-    logger.debug('[msg] zpráva bez textu (systémová/obrázek bez popisku) — ignoruji');
-    return;
+    if (imageMessage) {
+      // Fotka bez popisku — dřív se ignorovala. Teď ji přeposíláme s placeholderem,
+      // aby si ji v aplikaci mohl člověk otevřít a stáhnout.
+      text = '📷 Fotka objednávky (bez popisu)';
+      logger.info('[msg] fotka bez popisku — přeposílám s placeholderem (DeepSeek fotky nečte)');
+    } else {
+      logger.debug('[msg] zpráva bez textu (systémová/obrázek bez popisku) — ignoruji');
+      return;
+    }
   }
 
   const isGroup = remoteJid.endsWith('@g.us');
@@ -147,6 +159,22 @@ async function handleMessage(sock, gate, msg) {
           ? 'audio'
           : 'text';
 
+  const webhookId = key.id ? `wa-${key.id}` : `wa-${Date.now()}-${senderNumber}`;
+
+  // Fotka: stáhni ze serverů WhatsApp a ulož do Supabase Storage (veřejný bucket),
+  // ať je v aplikaci trvale dostupná ke zobrazení a stažení. DeepSeek fotky nečte,
+  // takže kontrola objednávky z fotky je vždy na člověku. mediaUrl pošleme
+  // webhooku → whatsapp_incoming.media_url.
+  let mediaUrl = null;
+  if (imageMessage) {
+    mediaUrl = await prepareImageForForwarding({
+      msg,
+      supabase,
+      webhookId,
+      logger,
+    });
+  }
+
   const payload = {
     sender,
     message: text,
@@ -155,7 +183,8 @@ async function handleMessage(sock, gate, msg) {
     messageType,
     chatId: isGroup ? remoteJid : undefined,
     fromMe: false,
-    webhookId: key.id ? `wa-${key.id}` : `wa-${Date.now()}-${senderNumber}`,
+    webhookId,
+    ...(mediaUrl ? { mediaUrl } : {}),
   };
 
   logger.info(
@@ -167,23 +196,32 @@ async function handleMessage(sock, gate, msg) {
 }
 
 
+// --- Globální instance pro znovupoužití --------------------------------------
+const supabase = getSupabase();
+let gate = null;
+
 // --- Hlavní smyčka -----------------------------------------------------------
 async function start() {
   logger.info('=== WhatsApp Gateway (Baileys) ===');
 
-  const supabase = getSupabase();
-  const { state, saveCreds } = await useSupabaseAuthState({ logger });
+  if (!gate) {
+    // Storage bucket pro fotky — zkontroluj při startu (samo-opravné; bucket lze
+    // vytvořit i migrací 20261010000000_add_whatsapp_media_bucket.sql).
+    ensureMediaBucket(supabase, { logger });
 
-  // Filtr čtení: whitelist z whatsapp_senders (aplikace) + env proměnné, pravidla
-  // shodná s bránou webhooku (název NEBO chat_id). Obnovuje se každých 5 minut.
-  const gate = createMessageGate({
-    supabase,
-    allowedGroups: ALLOWED_GROUPS,
-    allowedContacts: ALLOWED_CONTACTS,
-    logger,
-  });
-  await gate.load();
-  gate.startRefresh();
+    // Filtr čtení: whitelist z whatsapp_senders (aplikace) + env proměnné, pravidla
+    // shodná s bránou webhooku (název NEBO chat_id). Obnovuje se každých 5 minut.
+    gate = createMessageGate({
+      supabase,
+      allowedGroups: ALLOWED_GROUPS,
+      allowedContacts: ALLOWED_CONTACTS,
+      logger,
+    });
+    await gate.load();
+    gate.startRefresh();
+  }
+
+  const { state, saveCreds } = await useSupabaseAuthState({ logger });
 
   const sock = makeWASocket({
     auth: state,
@@ -225,8 +263,12 @@ async function start() {
         logger.error(
           '[conn] Zařízení bylo odpojeno (logged out). Smazat klíč "creds" z whatsapp_session a restartovat službu pro nový QR.'
         );
+      } else {
+        logger.info('[conn] Restartuji připojení za 3 sekundy...');
+        setTimeout(() => {
+          start().catch((e) => logger.error({ err: e }, 'Fatal chyba při znovupřipojení'));
+        }, 3000);
       }
-      // Baileys se o reconnect stará sám (výjimka: loggedOut).
     }
   });
 
@@ -234,7 +276,7 @@ async function start() {
     if (type !== 'notify') return;
     for (const msg of messages) {
       try {
-        await handleMessage(sock, gate, msg);
+        await handleMessage(sock, gate, supabase, msg);
       } catch (e) {
         logger.error({ err: e }, '[msg] chyba zpracování');
       }
