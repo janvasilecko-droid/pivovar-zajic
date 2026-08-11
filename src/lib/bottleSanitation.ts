@@ -45,6 +45,9 @@ export type BottleSanitationEntry = {
   note: string | null;
   created_at: string;
   source?: 'manual' | 'checklist' | null;
+  // Časy jednotlivých kroků: klíč = pole deníku (louh, proplach_vodou,
+  // cela_cesta_na_louhu, prostory, proc_rinse_water, …), hodnota = HH:MM.
+  step_times: Record<string, string>;
 };
 
 export const BOTTLE_SAN_FIELDS: { id: BottleSanField; icon: string; label: string; hint?: string }[] = [
@@ -95,6 +98,7 @@ export function newBottleSanEntry(dateStr: string, performedBy?: string | null):
     note: null,
     created_at: now.toISOString(),
     source: 'manual',
+    step_times: {},
   };
 }
 
@@ -161,6 +165,7 @@ export async function saveBottleSanEntry(entry: BottleSanitationEntry): Promise<
     note: entry.note,
     source: entry.source || 'manual',
     created_at: entry.created_at,
+    step_times: entry.step_times || {},
   };
   try {
     if (isRemoteId(entry.id)) {
@@ -233,13 +238,35 @@ export async function autoLogBottleSanitationFromChecklist(opts: {
   const mapped = mapChecklistToBottleSan(checkedItems);
   const existing = await loadBottleSanitation();
   const found = existing.find((e) => e.sanitation_date === dateStr);
+
+  // Čas zápisu — použije se pro všechny nově odškrtnuté kroky.
+  const timeStr = `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}`;
+
+  // Která pole se daným zápisem mění (klíč -> nová boolean hodnota).
+  const changed: Record<string, boolean> = {
+    louh: false,
+    proplach_vodou: false,
+    cela_cesta_na_louhu: false,
+    prostory: false,
+  };
+  (Object.keys(mapped) as BottleSanField[]).forEach((f) => {
+    const newVal = found ? found[f] || mapped[f] : mapped[f];
+    changed[f] = newVal;
+  });
+
   if (found) {
+    const stepTimes = { ...(found.step_times || {}) };
+    (Object.keys(changed)).forEach((f) => {
+      if (changed[f]) stepTimes[f] = stepTimes[f] || timeStr;
+    });
+
     await saveBottleSanEntry({
       ...found,
-      louh: found.louh || mapped.louh,
-      proplach_vodou: found.proplach_vodou || mapped.proplach_vodou,
-      cela_cesta_na_louhu: found.cela_cesta_na_louhu || mapped.cela_cesta_na_louhu,
-      prostory: found.prostory || mapped.prostory,
+      louh: changed.louh,
+      proplach_vodou: changed.proplach_vodou,
+      cela_cesta_na_louhu: changed.cela_cesta_na_louhu,
+      prostory: changed.prostory,
+      step_times: stepTimes,
       performed_by: found.performed_by || performedBy || null,
       note: found.note
         ? found.note.includes('Auto-zápis z checklistu')
@@ -254,6 +281,12 @@ export async function autoLogBottleSanitationFromChecklist(opts: {
     entry.proplach_vodou = mapped.proplach_vodou;
     entry.cela_cesta_na_louhu = mapped.cela_cesta_na_louhu;
     entry.prostory = mapped.prostory;
+    const stepTimes: Record<string, string> = {};
+    if (entry.louh) stepTimes.louh = timeStr;
+    if (entry.proplach_vodou) stepTimes.proplach_vodou = timeStr;
+    if (entry.cela_cesta_na_louhu) stepTimes.cela_cesta_na_louhu = timeStr;
+    if (entry.prostory) stepTimes.prostory = timeStr;
+    entry.step_times = stepTimes;
     entry.note = 'Auto-zápis z checklistu';
     entry.source = 'checklist';
     await saveBottleSanEntry(entry);

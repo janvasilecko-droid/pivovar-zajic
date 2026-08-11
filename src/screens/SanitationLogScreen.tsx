@@ -5,8 +5,7 @@ import { ShieldCheck, FileSpreadsheet, Plus, Calendar, User, Edit3, MessageSquar
 import * as XLSX from 'xlsx';
 
 import { useAuth } from '../lib/auth';
-import BottleSanitationDiary from '../components/BottleSanitationDiary';
-import KegSanitationDiary from '../components/KegSanitationDiary';
+
 
 const METHOD_BADGES: Record<string, { label: string; bg: string; text: string; icon: string }> = {
   kyselina_dusicna: { label: 'Kyselina dusičná', bg: 'bg-rose-100 border-rose-300', text: 'text-rose-950', icon: '🧪' },
@@ -36,7 +35,6 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
   const [filterTank, setFilterTank] = useState('');
   const [filterMethod, setFilterMethod] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [diaryTab, setDiaryTab] = useState<'tanks' | 'lahve' | 'kegy'>('tanks');
 
   // Note & time editing state for existing logs
   const [editingLog, setEditingLog] = useState<SanitationLog | null>(null);
@@ -253,49 +251,21 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
           >
             <FileSpreadsheet size={16} /> Export do Excelu
           </button>
-          {diaryTab === 'tanks' && (
-            <button
-              onClick={() => {
-                setSanitationTime(getCurrentTimeStr());
-                setDurationMinutes(20);
-                setConcentrationPct(2.0);
-                setShowAddModal(true);
-              }}
-              className="px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md flex items-center gap-1.5"
-            >
-              <Plus size={16} /> + Zapsat sanitaci
-            </button>
-          )}
+          <button
+            onClick={() => {
+              setSanitationTime(getCurrentTimeStr());
+              setDurationMinutes(20);
+              setConcentrationPct(2.0);
+              setShowAddModal(true);
+            }}
+            className="px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md flex items-center gap-1.5"
+          >
+            <Plus size={16} /> + Zapsat sanitaci
+          </button>
         </div>
       </div>
 
-      {/* Přepínání deníků — tanky vs. lahve */}
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setDiaryTab('tanks')}
-          className={`px-4 py-2.5 rounded-2xl text-xs font-black transition shadow-xs flex items-center gap-1.5 ${diaryTab === 'tanks' ? 'bg-amber-500 text-neutral-950 shadow-md' : 'bg-white text-neutral-700 border border-neutral-200 hover:bg-neutral-100'}`}
-        >
-          🛢️ Deník tanků & zařízení
-        </button>
-        <button
-          type="button"
-          onClick={() => setDiaryTab('lahve')}
-          className={`px-4 py-2.5 rounded-2xl text-xs font-black transition shadow-xs flex items-center gap-1.5 ${diaryTab === 'lahve' ? 'bg-amber-500 text-neutral-950 shadow-md' : 'bg-white text-neutral-700 border border-neutral-200 hover:bg-neutral-100'}`}
-        >
-          🍾 Deník lahví (stáčení)
-        </button>
-        <button
-          type="button"
-          onClick={() => setDiaryTab('kegy')}
-          className={`px-4 py-2.5 rounded-2xl text-xs font-black transition shadow-xs flex items-center gap-1.5 ${diaryTab === 'kegy' ? 'bg-amber-500 text-neutral-950 shadow-md' : 'bg-white text-neutral-700 border border-neutral-200 hover:bg-neutral-100'}`}
-        >
-          🏷️ Deník KEGů (stáčení)
-        </button>
-      </div>
-
-      {diaryTab === 'tanks' && (
-        <>
+      <>
       {/* Filters */}
       <div className="card p-4 bg-white border border-neutral-200/90 rounded-2xl flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2 text-xs font-bold text-neutral-700">
@@ -599,10 +569,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
           </form>
         </div>
       )}
-        </>
-      )}
-      {diaryTab === 'lahve' && <BottleSanitationDiary />}
-      {diaryTab === 'kegy' && <KegSanitationDiary />}
+      </>
     </div>
   );
 }

@@ -27,6 +27,7 @@ import ExkurzeScreen from './screens/ExkurzeScreen';
 import { ReminderNotificationManager } from './components/ReminderNotificationManager';
 import { MandatoryAnnouncementModal } from './components/MandatoryAnnouncementModal';
 import { CriticalMaterialAlertModal } from './components/CriticalMaterialAlertModal';
+import { MonthlyCleanupWarning } from './components/MonthlyCleanupWarning';
 import { SetPasswordModal } from './components/SetPasswordModal';
 import { BottlingTasksSettings } from './components/BottlingTasksSettings';
 import { Spinner } from './components/ui';
@@ -101,6 +102,7 @@ export default function App() {
       <ReminderNotificationManager />
       <MandatoryAnnouncementModal />
       <CriticalMaterialAlertModal />
+      <MonthlyCleanupWarning onOpenMonthlyChecklist={() => setPage('bottling')} />
       {(page === 'dashboard' || page === 'sklo_promo') && (
         <Dashboard setPage={setPage} initialTab={page === 'sklo_promo' ? 'sklo_promo' : 'sklad'} />
       )}

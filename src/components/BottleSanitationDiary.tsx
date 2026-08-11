@@ -10,6 +10,7 @@ import {
   newBottleSanEntry,
 } from '../lib/bottleSanitation';
 import { Spinner } from './ui';
+import { SanitationStepRow, currentTimeStr } from './SanitationStepRow';
 import { 
   Plus, 
   FileSpreadsheet, 
@@ -81,6 +82,9 @@ export default function BottleSanitationDiary() {
   // Approval
   const [approvedBy, setApprovedBy] = useState('');
   const [note, setNote] = useState('');
+
+  // Časy jednotlivých kroků (step key -> HH:MM) — pole se zobrazí po zaškrtnutí.
+  const [stepTimes, setStepTimes] = useState<Record<string, string>>({});
   
   const [saving, setSaving] = useState(false);
 
@@ -132,6 +136,28 @@ export default function BottleSanitationDiary() {
     setApprovedBy('');
     setNote('');
     setPerformedBy(defaultUserName || performedBy);
+
+    // Časy kroků — nový zápis: předvyplnit aktuálním časem hlavní kroky
+    const t = currentTimeStr();
+    setStepTimes({
+      louh: t,
+      proplach_vodou: t,
+      cela_cesta_na_louhu: t,
+      prostory: t,
+      proc_rinse_water: t,
+      proc_circulation: t,
+      proc_rinse_co2: t,
+      proc_disassembly: t,
+      ctrl_visual: t,
+      ctrl_co2_pressure: t,
+      ctrl_tightness: t,
+      ctrl_valve: t,
+      eq_pegas: t,
+      eq_hoses: t,
+      eq_coupler: t,
+      eq_co2: t,
+    });
+
     setShowModal(true);
   }
 
@@ -166,6 +192,10 @@ export default function BottleSanitationDiary() {
     
     setNote(e.note || '');
     setPerformedBy(e.performed_by || defaultUserName);
+
+    // Načíst uložené časy kroků (pokud existují)
+    setStepTimes({ ...(e.step_times || {}) });
+
     setShowModal(true);
   }
 
@@ -213,6 +243,7 @@ export default function BottleSanitationDiary() {
           approved_by: approvedBy.trim() || null,
           performed_by: performedBy.trim() || null,
           note: note.trim() || null,
+          step_times: stepTimes,
         }
       : {
           ...newBottleSanEntry(sanDate, performedBy.trim() || null),
@@ -239,6 +270,7 @@ export default function BottleSanitationDiary() {
           mismatch_action: mismatchAction.trim() || null,
           approved_by: approvedBy.trim() || null,
           note: note.trim() || null,
+          step_times: stepTimes,
         };
 
     if (editing && !editing.id.includes('-')) {
@@ -257,7 +289,10 @@ export default function BottleSanitationDiary() {
   }
 
   function exportExcel() {
-    const rows = filtered.map((e) => ({
+    const rows = filtered.map((e) => {
+      const st = e.step_times || {};
+      const t = (key: string) => (st[key] ? ` (${st[key]})` : '');
+      return {
       'Datum': e.sanitation_date,
       'Čas': e.sanitation_time ?? '—',
       'Provedl': e.performed_by ?? '—',
@@ -266,23 +301,24 @@ export default function BottleSanitationDiary() {
       'Koncentrace': e.chemical_concentration ?? '—',
       'Teplota': e.chemical_temperature ?? '—',
       'Doba působení': e.chemical_contact_time ?? '—',
-      'Zařízení PEGAS': e.eq_pegas ? 'ANO' : 'NE',
-      'Zařízení Hadice': e.eq_hoses ? 'ANO' : 'NE',
-      'Zařízení Narážeč': e.eq_coupler ? 'ANO' : 'NE',
-      'Zařízení CO2': e.eq_co2 ? 'ANO' : 'NE',
-      'Oplach vodou': e.proc_rinse_water ? 'ANO' : 'NE',
-      'Cirkulace': e.proc_circulation ? 'ANO' : 'NE',
-      'Proplach CO2/voda': e.proc_rinse_co2 ? 'ANO' : 'NE',
-      'Rozebrání': e.proc_disassembly ? 'ANO' : 'NE',
-      'Vizuální kontrola': e.ctrl_visual ? 'ANO' : 'NE',
-      'Tlak CO2': e.ctrl_co2_pressure ? 'ANO' : 'NE',
-      'Těsnost': e.ctrl_tightness ? 'ANO' : 'NE',
-      'Ventil': e.ctrl_valve ? 'ANO' : 'NE',
+      'Zařízení PEGAS': e.eq_pegas ? 'ANO' + t('eq_pegas') : 'NE',
+      'Zařízení Hadice': e.eq_hoses ? 'ANO' + t('eq_hoses') : 'NE',
+      'Zařízení Narážeč': e.eq_coupler ? 'ANO' + t('eq_coupler') : 'NE',
+      'Zařízení CO2': e.eq_co2 ? 'ANO' + t('eq_co2') : 'NE',
+      'Oplach vodou': e.proc_rinse_water ? 'ANO' + t('proc_rinse_water') : 'NE',
+      'Cirkulace': e.proc_circulation ? 'ANO' + t('proc_circulation') : 'NE',
+      'Proplach CO2/voda': e.proc_rinse_co2 ? 'ANO' + t('proc_rinse_co2') : 'NE',
+      'Rozebrání': e.proc_disassembly ? 'ANO' + t('proc_disassembly') : 'NE',
+      'Vizuální kontrola': e.ctrl_visual ? 'ANO' + t('ctrl_visual') : 'NE',
+      'Tlak CO2': e.ctrl_co2_pressure ? 'ANO' + t('ctrl_co2_pressure') : 'NE',
+      'Těsnost': e.ctrl_tightness ? 'ANO' + t('ctrl_tightness') : 'NE',
+      'Ventil': e.ctrl_valve ? 'ANO' + t('ctrl_valve') : 'NE',
       'Neshoda': e.mismatch_note ?? '—',
       'Nápravné opatření': e.mismatch_action ?? '—',
       'Schválil': e.approved_by ?? '—',
       'Poznámka': e.note ?? '',
-    }));
+    };
+    });
     
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
@@ -386,6 +422,15 @@ export default function BottleSanitationDiary() {
                             <div className="text-[11px] text-neutral-600 flex items-center gap-1">
                               <Beaker size={11} className="text-blue-500" />
                               <span>{e.chemical_name} {e.chemical_concentration ? `(${e.chemical_concentration})` : ''}</span>
+                            </div>
+                          )}
+                          {(e.step_times && Object.keys(e.step_times).length > 0) && (
+                            <div className="flex flex-wrap gap-1 pt-0.5">
+                              {Object.entries(e.step_times).map(([k, v]) => (
+                                <span key={k} className="text-[9px] font-mono font-black text-amber-800 bg-amber-50 border border-amber-200 px-1 py-0.5 rounded">
+                                  {k.replace(/_/g, ' ')} ⏱{v}
+                                </span>
+                              ))}
                             </div>
                           )}
                         </div>
@@ -510,22 +555,42 @@ export default function BottleSanitationDiary() {
                     <Settings size={13} /> Sanované zařízení
                   </h4>
                   <div className="grid grid-cols-2 gap-2">
-                    <label className="flex items-center gap-2 p-2 rounded-xl border bg-white cursor-pointer hover:border-amber-400">
-                      <input type="checkbox" checked={eqPegas} onChange={() => setEqPegas(!eqPegas)} className="accent-amber-500 h-4 w-4" />
-                      <span className="text-xs font-bold">PEGAS hlava</span>
-                    </label>
-                    <label className="flex items-center gap-2 p-2 rounded-xl border bg-white cursor-pointer hover:border-amber-400">
-                      <input type="checkbox" checked={eqHoses} onChange={() => setEqHoses(!eqHoses)} className="accent-amber-500 h-4 w-4" />
-                      <span className="text-xs font-bold">Hadice</span>
-                    </label>
-                    <label className="flex items-center gap-2 p-2 rounded-xl border bg-white cursor-pointer hover:border-amber-400">
-                      <input type="checkbox" checked={eqCoupler} onChange={() => setEqCoupler(!eqCoupler)} className="accent-amber-500 h-4 w-4" />
-                      <span className="text-xs font-bold">Narážeč</span>
-                    </label>
-                    <label className="flex items-center gap-2 p-2 rounded-xl border bg-white cursor-pointer hover:border-amber-400">
-                      <input type="checkbox" checked={eqCo2} onChange={() => setEqCo2(!eqCo2)} className="accent-amber-500 h-4 w-4" />
-                      <span className="text-xs font-bold">CO₂ rozvody</span>
-                    </label>
+                    <SanitationStepRow
+                      field="eq_pegas"
+                      checked={eqPegas}
+                      onChecked={setEqPegas}
+                      stepTimes={stepTimes}
+                      setStepTimes={setStepTimes}
+                    >
+                      PEGAS hlava
+                    </SanitationStepRow>
+                    <SanitationStepRow
+                      field="eq_hoses"
+                      checked={eqHoses}
+                      onChecked={setEqHoses}
+                      stepTimes={stepTimes}
+                      setStepTimes={setStepTimes}
+                    >
+                      Hadice
+                    </SanitationStepRow>
+                    <SanitationStepRow
+                      field="eq_coupler"
+                      checked={eqCoupler}
+                      onChecked={setEqCoupler}
+                      stepTimes={stepTimes}
+                      setStepTimes={setStepTimes}
+                    >
+                      Narážeč
+                    </SanitationStepRow>
+                    <SanitationStepRow
+                      field="eq_co2"
+                      checked={eqCo2}
+                      onChecked={setEqCo2}
+                      stepTimes={stepTimes}
+                      setStepTimes={setStepTimes}
+                    >
+                      CO₂ rozvody
+                    </SanitationStepRow>
                   </div>
                 </div>
               </div>
@@ -563,22 +628,42 @@ export default function BottleSanitationDiary() {
                     <Check size={13} /> 3. Postup sanitace
                   </h4>
                   <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-xs cursor-pointer">
-                      <input type="checkbox" checked={procRinseWater} onChange={() => setProcRinseWater(!procRinseWater)} className="accent-amber-500 h-4 w-4" />
-                      <span>Oplach čistou vodou</span>
-                    </label>
-                    <label className="flex items-center gap-2 text-xs cursor-pointer">
-                      <input type="checkbox" checked={procCirculation} onChange={() => setProcCirculation(!procCirculation)} className="accent-amber-500 h-4 w-4" />
-                      <span>Cirkulace sanitačního roztoku (celý systém)</span>
-                    </label>
-                    <label className="flex items-center gap-2 text-xs cursor-pointer">
-                      <input type="checkbox" checked={procRinseCo2} onChange={() => setProcRinseCo2(!procRinseCo2)} className="accent-amber-500 h-4 w-4" />
-                      <span>Finální výplach sterilní vodou / profuk CO₂</span>
-                    </label>
-                    <label className="flex items-center gap-2 text-xs cursor-pointer">
-                      <input type="checkbox" checked={procDisassembly} onChange={() => setProcDisassembly(!procDisassembly)} className="accent-amber-500 h-4 w-4" />
-                      <span>Rozebrání a ruční čištění Pegasu</span>
-                    </label>
+                    <SanitationStepRow
+                      field="proc_rinse_water"
+                      checked={procRinseWater}
+                      onChecked={setProcRinseWater}
+                      stepTimes={stepTimes}
+                      setStepTimes={setStepTimes}
+                    >
+                      Oplach čistou vodou
+                    </SanitationStepRow>
+                    <SanitationStepRow
+                      field="proc_circulation"
+                      checked={procCirculation}
+                      onChecked={setProcCirculation}
+                      stepTimes={stepTimes}
+                      setStepTimes={setStepTimes}
+                    >
+                      Cirkulace sanitačního roztoku (celý systém)
+                    </SanitationStepRow>
+                    <SanitationStepRow
+                      field="proc_rinse_co2"
+                      checked={procRinseCo2}
+                      onChecked={setProcRinseCo2}
+                      stepTimes={stepTimes}
+                      setStepTimes={setStepTimes}
+                    >
+                      Finální výplach sterilní vodou / profuk CO₂
+                    </SanitationStepRow>
+                    <SanitationStepRow
+                      field="proc_disassembly"
+                      checked={procDisassembly}
+                      onChecked={setProcDisassembly}
+                      stepTimes={stepTimes}
+                      setStepTimes={setStepTimes}
+                    >
+                      Rozebrání a ruční čištění Pegasu
+                    </SanitationStepRow>
                   </div>
                 </div>
               </div>
@@ -593,22 +678,42 @@ export default function BottleSanitationDiary() {
                   <UserCheck size={13} /> 4. Kontrolní body (Měření)
                 </h4>
                 <div className="grid grid-cols-2 gap-x-2 gap-y-3">
-                  <label className="flex items-center gap-2 text-xs cursor-pointer">
-                    <input type="checkbox" checked={ctrlVisual} onChange={() => setCtrlVisual(!ctrlVisual)} className="accent-amber-500 h-4 w-4" />
-                    <span>Vizuální čistota / pach</span>
-                  </label>
-                  <label className="flex items-center gap-2 text-xs cursor-pointer">
-                    <input type="checkbox" checked={ctrlCo2Pressure} onChange={() => setCtrlCo2Pressure(!ctrlCo2Pressure)} className="accent-amber-500 h-4 w-4" />
-                    <span>Tlak CO₂ (2–2.5 bar)</span>
-                  </label>
-                  <label className="flex items-center gap-2 text-xs cursor-pointer">
-                    <input type="checkbox" checked={ctrlTightness} onChange={() => setCtrlTightness(!ctrlTightness)} className="accent-amber-500 h-4 w-4" />
-                    <span>Těsnost rozvodů</span>
-                  </label>
-                  <label className="flex items-center gap-2 text-xs cursor-pointer">
-                    <input type="checkbox" checked={ctrlValve} onChange={() => setCtrlValve(!ctrlValve)} className="accent-amber-500 h-4 w-4" />
-                    <span>Funkčnost ventilů</span>
-                  </label>
+                  <SanitationStepRow
+                    field="ctrl_visual"
+                    checked={ctrlVisual}
+                    onChecked={setCtrlVisual}
+                    stepTimes={stepTimes}
+                    setStepTimes={setStepTimes}
+                  >
+                    Vizuální čistota / pach
+                  </SanitationStepRow>
+                  <SanitationStepRow
+                    field="ctrl_co2_pressure"
+                    checked={ctrlCo2Pressure}
+                    onChecked={setCtrlCo2Pressure}
+                    stepTimes={stepTimes}
+                    setStepTimes={setStepTimes}
+                  >
+                    Tlak CO₂ (2–2.5 bar)
+                  </SanitationStepRow>
+                  <SanitationStepRow
+                    field="ctrl_tightness"
+                    checked={ctrlTightness}
+                    onChecked={setCtrlTightness}
+                    stepTimes={stepTimes}
+                    setStepTimes={setStepTimes}
+                  >
+                    Těsnost rozvodů
+                  </SanitationStepRow>
+                  <SanitationStepRow
+                    field="ctrl_valve"
+                    checked={ctrlValve}
+                    onChecked={setCtrlValve}
+                    stepTimes={stepTimes}
+                    setStepTimes={setStepTimes}
+                  >
+                    Funkčnost ventilů
+                  </SanitationStepRow>
                 </div>
               </div>
 

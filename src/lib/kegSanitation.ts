@@ -33,6 +33,9 @@ export type KegSanitationEntry = {
   note: string | null;
   source?: 'manual' | 'checklist' | null;
   created_at: string;
+  // Časy jednotlivých kroků: klíč = pole deníku (proc_rinse_naoh_2_20,
+  // proc_end_rinse_lines_water, …), hodnota = HH:MM.
+  step_times: Record<string, string>;
 };
 
 export const KEG_SAN_STORAGE_KEY = 'keg_sanitation_logs';
@@ -75,6 +78,7 @@ export function newKegSanEntry(dateStr: string, performedBy?: string | null): Ke
     note: null,
     source: 'manual',
     created_at: now.toISOString(),
+    step_times: {},
   };
 }
 
@@ -138,6 +142,7 @@ export async function saveKegSanEntry(entry: KegSanitationEntry): Promise<boolea
     note: entry.note,
     source: entry.source || 'manual',
     created_at: entry.created_at,
+    step_times: entry.step_times || {},
   };
 
   try {
@@ -215,32 +220,59 @@ export async function autoLogKegSanitationFromChecklist(opts: {
   entry.performed_by = entry.performed_by || performedBy || null;
   entry.source = 'checklist';
 
+  // Sleduj, které kroky se nově zapisují, abych k nim přiřadil čas provedení.
+  const step_times = { ...(entry.step_times || {}) };
+  const mark = (key: string, done: boolean) => {
+    if (done) {
+      step_times[key] = step_times[key] || timeStr;
+    }
+  };
+
   if (phase === 'start') {
     entry.reason = entry.reason || 'pred_stacenim';
+    mark('proc_rinse_naoh_2_20', !!checkedMap['keg_start_1']);
+    mark('proc_rinse_persteril_02_10', !!checkedMap['keg_start_1']);
     if (checkedMap['keg_start_1']) {
       entry.proc_rinse_naoh_2_20 = true;
     }
+    mark('proc_rinse_water_before', !!checkedMap['keg_start_2']);
     if (checkedMap['keg_start_2']) entry.proc_rinse_water_before = true;
+    mark('proc_scrub_valves_naoh_2_15', !!checkedMap['keg_start_valves_weekly']);
     if (checkedMap['keg_start_valves_weekly']) entry.proc_scrub_valves_naoh_2_15 = true;
+    mark('proc_spray_valves_persteril_02_10', !!checkedMap['keg_start_valves_daily']);
     if (checkedMap['keg_start_valves_daily']) entry.proc_spray_valves_persteril_02_10 = true;
-    if (checkedMap['keg_start_valves_weekly'] || checkedMap['keg_start_valves_daily']) {
+    const valvesAny = !!checkedMap['keg_start_valves_weekly'] || !!checkedMap['keg_start_valves_daily'];
+    mark('proc_rinse_water_after_valves', valvesAny);
+    if (valvesAny) {
       entry.proc_rinse_water_after_valves = true;
     }
   } else if (phase === 'end') {
     entry.reason = entry.reason || 'po_staceni';
+    mark('proc_end_rinse_lines_water', !!checkedMap['keg_end_1']);
     if (checkedMap['keg_end_1']) entry.proc_end_rinse_lines_water = true;
+    mark('proc_end_rinse_valves_water', !!checkedMap['keg_end_2']);
     if (checkedMap['keg_end_2']) entry.proc_end_rinse_valves_water = true;
+    mark('proc_end_rinse_couplers_water', !!checkedMap['keg_end_3']);
     if (checkedMap['keg_end_3']) entry.proc_end_rinse_couplers_water = true;
+    mark('proc_end_rinse_floors_cellar', !!checkedMap['keg_end_4']);
     if (checkedMap['keg_end_4']) entry.proc_end_rinse_floors_cellar = true;
+    mark('proc_end_rinse_floors_walls_bottlers', !!checkedMap['keg_end_5']);
     if (checkedMap['keg_end_5']) entry.proc_end_rinse_floors_walls_bottlers = true;
+    mark('proc_end_coupler_heads_persteril_bucket', !!checkedMap['keg_end_6']);
     if (checkedMap['keg_end_6']) entry.proc_end_coupler_heads_persteril_bucket = true;
   } else if (phase === 'monthly') {
     entry.reason = 'mesicni';
+    mark('proc_month_disassemble_couplers', !!checkedMap['keg_month_1']);
     if (checkedMap['keg_month_1']) entry.proc_month_disassemble_couplers = true;
+    mark('proc_month_clean_brush_24h', !!checkedMap['keg_month_2']);
     if (checkedMap['keg_month_2']) entry.proc_month_clean_brush_24h = true;
+    mark('proc_month_rinse_water', !!checkedMap['keg_month_3']);
     if (checkedMap['keg_month_3']) entry.proc_month_rinse_water = true;
+    mark('proc_month_visual_clean', !!checkedMap['keg_month_4']);
     if (checkedMap['keg_month_4']) entry.proc_month_visual_clean = true;
   }
+
+  entry.step_times = step_times;
 
   const prefix = `Auto-zápis z checklistu (${phase === 'start' ? 'příprava' : phase === 'end' ? 'úklid' : 'měsíční'})`;
   if (entry.note) {
