@@ -84,7 +84,7 @@ Nastav proto **pravidelný ping na health endpoint**:
 
 1. Otevři **https://cron-job.org** → zaregistruj se (zdarma).
 2. **Create cronjob**:
-   - URL: `https://whatsapp-bridge.onrender.com/health`
+   - URL: `https://whatsapp-bridge-g1v0.onrender.com/health`
      (přesnou adresu vidíš na kartě služby v Renderu — vpravo nahoře, tvar `…onrender.com`)
    - Schedule: `*/5 * * * *` (každých 5 minut) → **Save**
 3. Hotovo. Služba teď nikdy neusne. (Alternativa: UptimeRobot zdarma.)

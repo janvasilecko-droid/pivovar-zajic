@@ -18,7 +18,9 @@ export interface WhatsAppIncoming {
   parsed_note?: string | null;
   /** Doslovný přepis zprávy od AI (raw_text) — pro kontrolu, že AI přečetla zprávu správně. */
   parsed_raw_text?: string | null;
-  /** URL fotky/přílohy (vyplňuje webhook, pokud ji Make/Tasker pošle). */
+  /** URL fotky/přílohy. Fotky z WhatsApp stahuje whatsapp-bridge a ukládá je do
+      veřejného Supabase Storage bucketu „whatsapp-media“ (DeepSeek fotky nečte,
+      proto je potřeba fotka ke zobrazení a stažení v aplikaci). */
   media_url?: string | null;
   /** Počet položek, jejichž přepis AI nesouhlasí s originálem (kontrola čtení). */
   readback_unmatched_count?: number | null;
@@ -309,15 +311,30 @@ export async function removeWhatsAppSender(id: string): Promise<void> {
 }
 
 /**
+ * Normalizace názvu odesílatele/skupiny pro porovnání: malá písmena, ořezané
+ * mezery, bez diakritiky. Stejná pravidla jako normName ve webhooku
+ * (supabase/functions/whatsapp-webhook/index.ts), aby UI neignorovalo zprávy,
+ * které brána webhooku pustila („Objednávky pivovar“ == „Objednavky pivovar“).
+ */
+export function normSenderName(s: string | null | undefined): string {
+  return (s || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+/**
  * Decide whether a message from the given sender should be loaded/processed.
  * - Empty whitelist = ALLOW ALL (initial state, zpětně kompatibilní).
  * - Once at least one sender is whitelisted, only those senders are allowed.
+ * - Porovnání bez diakritiky a velikosti písmen (viz normSenderName).
  */
 export function isSenderAllowed(allowedSenders: WhatsAppSender[], senderName: string | null | undefined): boolean {
   if (!allowedSenders || allowedSenders.length === 0) return true;
-  const name = (senderName || '').trim().toLowerCase();
+  const name = normSenderName(senderName);
   if (!name) return false;
-  return allowedSenders.some((s) => (s.sender_name || '').trim().toLowerCase() === name);
+  return allowedSenders.some((s) => normSenderName(s.sender_name) === name);
 }
 
 export function subscribeToWhatsAppMessages(

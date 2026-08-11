@@ -119,6 +119,35 @@ try {
   ok(goodJson.id && goodJson.status === 'pending', `uloženo jako pending (id=${goodJson.id})`);
   const goodId = goodJson.id;
 
+  // 3b) Název bez diakritiky → musí projít (webhook i DB trigger porovnávají bez diakritiky)
+  console.log('\n3b) Skupina bez diakritiky „Objednavky pivovar“…');
+  const noDiak = {
+    sender: 'Objednavky pivovar',
+    message: 'Test: 1x 10° světlá 30l',
+    timestamp: new Date().toISOString(),
+    webhookId: `${WID_PREFIX}-nodiak`,
+  };
+  const noDiakRes = await postJson(WEBHOOK, noDiak);
+  const noDiakJson = await noDiakRes.json();
+  ok(noDiakJson.id && noDiakJson.status === 'pending', `uloženo jako pending (id=${noDiakJson.id})`);
+
+  // 3c) Pokud je chat_id zaregistrováno → zpráva ze skupiny BEZ chat_id musí stále
+  //     projít (název-filtr funguje i po zaregistrování chat_id; Tasker %anwhatsappchatid neposílá)
+  if (chatIdConfigured) {
+    console.log('\n3c) Skupina BEZ chat_id (chat_id je registrované)…');
+    const noChat = {
+      sender: GROUP,
+      message: 'Test bez chat_id: 1x 12° tmavá 50l',
+      timestamp: new Date().toISOString(),
+      webhookId: `${WID_PREFIX}-nochatid`,
+    };
+    const noChatRes = await postJson(WEBHOOK, noChat);
+    const noChatJson = await noChatRes.json();
+    ok(noChatJson.id && noChatJson.status === 'pending', `uloženo jako pending (id=${noChatJson.id})`);
+  } else {
+    console.log('\n3c) Zpráva bez chat_id — přeskočeno (chat_id zatím není zaregistrováno, viz 3).');
+  }
+
   // 4) Pokud je chat_id zaregistrováno → špatné chat_id se NESMÍ uložit
   if (chatIdConfigured) {
     console.log('\n4) Špatné chat_id (striktní filtr)…');
@@ -136,22 +165,32 @@ try {
     console.log('\n4) Špatné chat_id — přeskočeno (chat_id zatím není zaregistrováno).');
   }
 
-  // 5) Ověřit v DB: uložila se JEN skupinová zpráva (nepovolená ani from_me ne)
+  // 5) Ověřit v DB: uložily se JEN povolené skupinové zprávy
+  //    (nepovolená, from_me a špatné chat_id se neuložily)
   console.log('\n5) Kontrola v DB…');
   const rows = await sql(
     `select id, sender_name, chat_id, from_me, status, webhook_id from whatsapp_incoming where webhook_id like '${WID_PREFIX}-%' order by created_at;`
   );
-  ok(rows.length === 1, `v DB je jen 1 testovací zpráva (nepovolená a from_me se neuložily) — našlo se ${rows.length}`);
-  if (rows[0]) {
-    ok(rows[0].webhook_id === `${WID_PREFIX}-good`, 'je to právě zpráva ze skupiny');
-    ok(rows[0].from_me === false, 'from_me je false');
-    if (good.chatId) ok(rows[0].chat_id === good.chatId, `chat_id se uložil (${rows[0].chat_id})`);
+  const expected = chatIdConfigured ? 3 : 2; // good + nodiak (+ nochatid)
+  ok(rows.length === expected, `v DB je právě ${expected} testovacích zpráv (špatné se neuložily) — našlo se ${rows.length}`);
+  ok(rows.some((r) => r.webhook_id === `${WID_PREFIX}-good`), 'zpráva ze skupiny je v DB');
+  ok(rows.some((r) => r.webhook_id === `${WID_PREFIX}-nodiak`), 'zpráva bez diakritiky je v DB (filtr sjednocen)');
+  if (chatIdConfigured) {
+    ok(rows.some((r) => r.webhook_id === `${WID_PREFIX}-nochatid`), 'zpráva bez chat_id je v DB i po zaregistrování chat_id');
+    ok(!rows.some((r) => r.webhook_id === `${WID_PREFIX}-wrongchat`), 'špatné chat_id se neuložilo');
+  }
+  const goodRow = rows.find((r) => r.webhook_id === `${WID_PREFIX}-good`);
+  if (goodRow) {
+    ok(goodRow.from_me === false, 'from_me je false');
+    if (good.chatId) ok(goodRow.chat_id === good.chatId, `chat_id se uložil (${goodRow.chat_id})`);
   }
 
   // 6) Auto-parse → pending → parsed
   console.log('\n6) Auto-parse…');
   const apRes = await postJson(AUTO_PARSE, {});
   const apJson = await apRes.json();
+  console.log('  status:', apRes.status);
+  console.log('  response:', JSON.stringify(apJson, null, 2));
   console.log('  summary:', JSON.stringify(apJson.summary));
   const db = await sql(`select status, parsed_items from whatsapp_incoming where id = '${goodId}';`);
   const item = db[0];
