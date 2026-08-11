@@ -9,8 +9,8 @@
   },
   "scripts": {
     "start": "node index.js",
-    "check": "node --check index.js && node --check lib/supabaseAuth.js && node --check lib/webhook.js && node --check lib/filter.js",
-    "test": "node --test test/filter.test.mjs"
+    "check": "node --check index.js && node --check lib/supabaseAuth.js && node --check lib/webhook.js && node --check lib/filter.js && node --check lib/media.js",
+    "test": "node --test test/filter.test.mjs test/media.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

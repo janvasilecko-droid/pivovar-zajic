@@ -50,7 +50,8 @@ whatsapp-bridge/
 ├── index.js            # hlavní proces: socket, QR, zpracování zpráv, health server
 ├── lib/
 │   ├── supabaseAuth.js # Baileys auth state → Supabase (čte/zapisuje whatsapp_session)
-│   └── webhook.js      # POST na whatsapp-webhook + retry (exponenciální backoff)
+│   ├── webhook.js      # POST na whatsapp-webhook + retry (exponenciální backoff)
+│   └── media.js        # fotky: stažení z WhatsApp (Baileys) → Supabase Storage → mediaUrl
 ├── Dockerfile          # node:22-alpine — nasazení na Render.com / Fly.io
 ├── render.yaml         # Render Blueprint (volitelně, dá se naklikat i ručně)
 ├── package.json
@@ -71,6 +72,39 @@ whatsapp-bridge/
 | `ALLOWED_CONTACTS`        | volná   | Povolení kontakty mimo skupiny (jméno nebo tel. číslo), default `Ala Milacek Milacek`; sjednoceno s `whatsapp_senders` |
 | `LOG_LEVEL`               | volná   | `info` (default), `debug` pro detail |
 | `PORT`                    | volná   | Port health endpointu, default `3000` (Render ho nastavuje sám) |
+| `WHATSAPP_MEDIA_BUCKET`   | volná   | Supabase Storage bucket pro fotky (default `whatsapp-media`); vytvoří ho migrace `20261010000000_add_whatsapp_media_bucket.sql`, služba si ho případně vytvoří sama |
+
+
+## Fotky z WhatsApp (média)
+
+**DeepSeek (textový model AI) fotky NEČTE.** Proto se objednávka poslaná jako
+fotka nezpracovává „slepě“ — fotka se **stáhne a uloží**, aby si ji v aplikaci
+mohl otevřít a stáhnout člověk (případně objednávku zadat ručně).
+
+Průběh pro zprávu s fotkou (s popiskem i bez):
+
+1. Bridge rozbalí `imageMessage` (i z `ephemeralMessage` / `viewOnceMessage`).
+2. Baileys stáhne fotku ze serverů WhatsApp (`downloadMediaMessage` → Buffer).
+3. Buffer se nahraje do **veřejného Supabase Storage bucketu `whatsapp-media`**
+   (cesta `incoming/wa-<key.id>.<ext>`, MIME z `imageMessage.mimetype`).
+4. Veřejná URL se pošle webhooku jako `mediaUrl` → `whatsapp_incoming.media_url`.
+5. V aplikaci (Import z WhatsApp / detail zprávy) se fotka zobrazí a je u ní
+   tlačítko **Stáhnout fotografii**.
+
+**Proč přes Storage a ne přímá WhatsApp URL?** Přímá URL od WhatsAppu časem
+vyprší, objekt v Storage zůstává → odkaz ke stažení funguje i při pozdější
+kontrole objednávky. Když se upload nepovede (bucket neexistuje apod.), pošle se
+jako nouzový fallback aspoň přímá (dočasná) WhatsApp URL; nepovede-li se ani
+stažení, zpráva se přepošle bez `mediaUrl` a aplikace to ukáže hláškou.
+
+**Fotka bez popisku** se dřív ignorovala („zpráva bez textu“). Teď se přeposílá
+s placeholderem `📷 Fotka objednávky (bez popisu)`, aby se dala v aplikaci
+najít a fotka stáhnout.
+
+> Zápis do bucketu dělá jen bridge se service role klíčem; čtení je veřejné
+> (politika `whatsapp_media_public_read`, viz migrace). Bucket si bridge ověří
+> i při startu (`ensureMediaBucket`) — zvládne i projekt, kde migrace ještě
+> neproběhla.
 
 
 ## Filtr čtení (gate)
@@ -192,6 +226,12 @@ Pak restartuj službu (Render → service → Manual Deploy → Deploy).
    ```
    Tenhle řádek v logu znamená, že skupina ještě nemá v `whatsapp_senders`
    zaregistrované `chat_id` — není to chyba, jen doporučení.
+6. Fotky: pošli do skupiny fotku (klidně bez popisku). V logu by mělo svítit
+   ```
+   [media] fotka uložena do Storage: https://…/storage/v1/object/public/whatsapp-media/…
+   ```
+   a v aplikaci (**Import z WhatsApp**) se u zprávy zobrazí náhled + tlačítko
+   **Stáhnout fotografii** (fotku bez popisku najdeš jako „📷 Fotka objednávky (bez popisu)“).
 
 ---
 
