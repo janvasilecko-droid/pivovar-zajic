@@ -30,10 +30,15 @@ export function normTs(ts) {
  * (chronologicky vzestupně — přeposílá se pak v původním pořadí).
  * Zprávy bez `key.id` (systémové) se vynechávají.
  */
-export function pickRecent(messages, cap) {
+export function pickRecent(messages, cap, maxDays = 0) {
   const limit = Math.max(0, Number(cap) || 0);
+  const cutoff = maxDays > 0 ? Date.now() - maxDays * 24 * 60 * 60 * 1000 : 0;
   const sorted = [...messages]
-    .filter((m) => m && m.key && m.key.id)
+    .filter((m) => {
+      if (!m || !m.key || !m.key.id) return false;
+      if (cutoff > 0 && normTs(m.messageTimestamp) < cutoff) return false;
+      return true;
+    })
     .sort((a, b) => normTs(a.messageTimestamp) - normTs(b.messageTimestamp));
   return sorted.slice(Math.max(0, sorted.length - limit));
 }
@@ -52,6 +57,7 @@ export class HistoryCollector {
   constructor({
     onMessage,
     cap = 1000,
+    maxDays = 0,
     quietMs = 5000,
     maxWaitMs = 60000,
     flushAtLeastMultiplier = 2,
@@ -63,6 +69,7 @@ export class HistoryCollector {
     }
     this.onMessage = onMessage;
     this.cap = Number(cap) > 0 ? Number(cap) : 1000;
+    this.maxDays = Number(maxDays) > 0 ? Number(maxDays) : 0;
     this.quietMs = quietMs;
     this.maxWaitMs = maxWaitMs;
     this.flushAtLeast = this.cap * Math.max(1, flushAtLeastMultiplier);
@@ -109,9 +116,15 @@ export class HistoryCollector {
     const all = this.all;
     this.all = [];
     try {
-      const selected = pickRecent(all, this.cap);
+      const selected = pickRecent(all, this.cap, this.maxDays);
       if (selected.length === 0) return;
-      this.logger?.info(`[history] zpracovávám ${selected.length} nejnovějších zpráv historie…`);
+      if (this.maxDays > 0) {
+        this.logger?.info(
+          `[history] zpracovávám ${selected.length} nejnovějších zpráv historie z posledních ${this.maxDays} dní…`
+        );
+      } else {
+        this.logger?.info(`[history] zpracovávám ${selected.length} nejnovějších zpráv historie…`);
+      }
       for (const msg of selected) {
         try {
           await this.onMessage(msg);

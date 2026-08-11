@@ -39,6 +39,7 @@ const ALLOWED_CONTACTS = (process.env.ALLOWED_CONTACTS || 'Ala Milacek Milacek')
 /** Historie chatu: starší zprávy (history sync) se po připojení přeposílají do aplikace. */
 const SYNC_HISTORY = (process.env.SYNC_HISTORY || 'on') !== 'off';
 const HISTORY_MAX_MESSAGES = Math.max(0, Number(process.env.HISTORY_MAX_MESSAGES || 1000) || 0);
+const HISTORY_MAX_DAYS = Math.max(0, Number(process.env.HISTORY_MAX_DAYS || 4) || 0);
 
 /** In-memory dedup: `messages.upsert` může stejnou zprávu doručit vícenásobně. */
 const SEEN = new Set();
@@ -407,6 +408,7 @@ async function start() {
     SYNC_HISTORY && HISTORY_MAX_MESSAGES > 0
       ? new HistoryCollector({
           cap: HISTORY_MAX_MESSAGES,
+          maxDays: HISTORY_MAX_DAYS,
           logger,
           onMessage: (msg) => handleMessage(sock, gate.getGate(), supabase, msg, { history: true }),
         })
@@ -414,7 +416,9 @@ async function start() {
   if (historyCollector) {
     sock.ev.on('messaging-history.set', (data) => historyCollector.add(data));
     logger.info(
-      `[history] sync zapnut — po připojení přepošlu max. ${HISTORY_MAX_MESSAGES} nejnovějších zpráv historie`
+      HISTORY_MAX_DAYS > 0
+        ? `[history] sync zapnut — po připojení přepošlu max. ${HISTORY_MAX_MESSAGES} nejnovějších zpráv historie z posledních ${HISTORY_MAX_DAYS} dní`
+        : `[history] sync zapnut — po připojení přepošlu max. ${HISTORY_MAX_MESSAGES} nejnovějších zpráv historie`
     );
   }
 }

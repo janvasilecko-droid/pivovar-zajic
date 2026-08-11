@@ -35,6 +35,20 @@ test('pickRecent: ignoruje zprávy bez key.id a bez timestampu nekoliduje', () =
   );
 });
 
+test('pickRecent: filtruje zprávy starší než maxDays', () => {
+  const nowSec = Math.floor(Date.now() / 1000);
+  const msgs = [
+    { key: { id: 'too_old' }, messageTimestamp: nowSec - 5 * 24 * 3600 }, // 5 dní stará
+    { key: { id: 'recent_1' }, messageTimestamp: nowSec - 3 * 24 * 3600 }, // 3 dny stará
+    { key: { id: 'recent_2' }, messageTimestamp: nowSec - 1 * 24 * 3600 }, // 1 den stará
+  ];
+  assert.deepEqual(
+    pickRecent(msgs, 5, 4).map((m) => m.key.id),
+    ['recent_1', 'recent_2']
+  );
+});
+
+
 test('normTs: číslo (sekundy), řetězec i Long protobuf objekt', () => {
   const Long = { toNumber: () => 1750 };
   assert.equal(normTs(100), 100000);

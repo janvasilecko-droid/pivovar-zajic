@@ -169,7 +169,7 @@ projektu, root `.gitignore` už ignoruje `node_modules/`).
 9. Po připojení uvidíš v logu `[conn] OPEN — spárováno a online ✔`.
 10. **Nastav uptime ping** (jinak free instance po 15 min usne a zprávy se ztratí):
     v cron-job.org / UptimeRobot zadej URL
-    `https://whatsapp-bridge.onrender.com/health` s intervalem **5 minut** —
+    `https://whatsapp-bridge-g1v0.onrender.com/health` s intervalem **5 minut** —
     Render ti URL služby ukáže na kartě služby (ve tvaru `…onrender.com`).
 
 > **Varianta placená (bez triků):** placený **Background Worker (Starter, ~7 $/měsíc)**
