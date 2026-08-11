@@ -56,6 +56,7 @@ const USER_DATA_PREFIXES: string[] = [
   'user_quick_actions_',        // rychlé akce uživatele
   'user_permissions_',          // oprávnění uživatele
   'actual_inventory_',          // aktuální inventura (per měsíc)
+  'inventory_adjustments_',     // dorovnání inventury (per měsíc, uchovává se bokem)
   'initial_stock_',             // počáteční stav skladu (per měsíc)
   'acknowledged_announcement_', // potvrzená hlášení
 ];

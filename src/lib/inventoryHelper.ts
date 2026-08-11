@@ -1,4 +1,20 @@
 /**
+ * Dorovnání inventury — přičte/odečte zadané ± ks k očekávanému (teoretickému) stavu,
+ * aby seděl s fyzickou realitou (manko). Dorovnání se NEPOČÍTÁ do stáčení ani odpočtů,
+ * je to pouze vyrovnávací evidence, která se ukládá bokem (inventory_adjustments).
+ */
+export function computeInventoryReconciliation(
+  expectedQty: number,
+  actualQty: number,
+  dorovnatQty: number
+): { diffQty: number; reconciledQty: number; diffAfterQty: number } {
+  const diffQty = actualQty - expectedQty;          // Manko před dorovnáním (Skutečnost − Očekávání)
+  const reconciledQty = expectedQty + dorovnatQty;  // Teoretický stav PO dorovnání
+  const diffAfterQty = actualQty - reconciledQty;   // Manko po dorovnání
+  return { diffQty, reconciledQty, diffAfterQty };
+}
+
+/**
  * Helper to compute the starting stock of a month with automatic fallbacks.
  * If no starting stock is explicitly defined for the target month, it falls back
  * to the previous month's ending stock (either physical count or calculated from movements).

@@ -6,7 +6,7 @@ import { Spinner } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { ClipboardCheck, Plus, Save, Download, Lock, RefreshCw, AlertCircle, CheckCircle2, RotateCcw, Calendar, Camera } from 'lucide-react';
 import { CountFromImage } from '../components/CountFromImage';
-import { getStartingStockMap } from '../lib/inventoryHelper';
+import { getStartingStockMap, computeInventoryReconciliation } from '../lib/inventoryHelper';
 
 type InitialStockMap = Record<string, number>; // key: `${beer_id}__${package_id}`, val: qty
 
@@ -35,6 +35,11 @@ type InventoryRow = {
   actualQty: number;   // Zadaná skutečná fyzická inventura
   diffQty: number;     // Odchylka (Skutečnost - Očekávání)
   diffCzk: number;     // Finanční odchylka v Kč
+
+  dorovnatQty: number;   // Dorovnání (±) — přičte/odečte k očekávanému stavu (manko)
+  reconciledQty: number; // Očekávaný stav PO dorovnání (expectedQty + dorovnatQty)
+  diffAfterQty: number;  // Manko po dorovnání (Skutečnost − Dorovnaný stav)
+  diffAfterCzk: number;  // Finanční rozdíl po dorovnání
 };
 
 function getPrevMonthKey(monthKey: string): string {
@@ -80,6 +85,14 @@ export default function InventoryScreen() {
     } catch { return {}; }
   });
 
+  // Dorovnání (±) — uchovává se BOKEM (mimo stáčení a odpočty), klíč: `${beer_id}__${package_id}`
+  const [dorovnatMap, setDorovnatMap] = useState<Record<string, string>>(() => {
+    try {
+      const saved = localStorage.getItem(`inventory_adjustments_${currentMonth}`);
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
+
   const [stacenoMap, setStacenoMap] = useState<Record<string, number>>({});
   const [vydejMap, setVydejMap] = useState<Record<string, number>>({});
   const [busy, setBusy] = useState(false);
@@ -99,7 +112,7 @@ export default function InventoryScreen() {
     const loadId = ++loadCountRef.current;
     setLoading(true);
 
-    const [{ data: b }, { data: pk }, { data: bt }, { data: kg }, { data: fa }, { data: fp }, { data: wo }, { data: inv }, { data: ords }, { data: oi }, { data: ak }] = await Promise.all([
+    const [{ data: b }, { data: pk }, { data: bt }, { data: kg }, { data: fa }, { data: fp }, { data: wo }, { data: inv }, { data: adj }, { data: ords }, { data: oi }, { data: ak }] = await Promise.all([
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
       supabase.from('bottling').select('beer_id,package_id,quantity,entry_date,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
@@ -108,6 +121,7 @@ export default function InventoryScreen() {
       supabase.from('fasovani_private').select('beer_id,package_id,quantity,entry_date'),
       supabase.from('writeoffs').select('beer_id,package_id,quantity,entry_date'),
       supabase.from('inventory').select('beer_id,package_id,quantity,entry_date,note'),
+      supabase.from('inventory_adjustments').select('beer_id,package_id,quantity,entry_date,created_at'),
       supabase.from('orders').select('id,order_date,delivery_date,status'),
       supabase.from('order_items').select('order_id,beer_id,package_id,quantity'),
       supabase.from('akce').select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
@@ -157,6 +171,30 @@ export default function InventoryScreen() {
     }
     if (shouldReloadState) {
       setActualStock(curActual);
+    }
+
+    // 3. DOROVNÁNÍ (±) — uchovává se BOKEM (mimo stáčení a odpočty)
+    // 3a. Základ = localStorage inventory_adjustments_YYYY-MM
+    let curAdj: Record<string, string> = {};
+    try {
+      const savedAdj = localStorage.getItem(`inventory_adjustments_${currentMonth}`);
+      if (savedAdj) curAdj = JSON.parse(savedAdj) ?? {};
+    } catch {}
+    // 3b. Pokud je v DB uložené dorovnání, má přednost a uloží i do localStorage.
+    const adjRowsForCurMonth = ((adj as any[]) ?? []).filter((r) => r.entry_date?.slice(0, 7) === currentMonth);
+    if (adjRowsForCurMonth.length > 0) {
+      const dbAdjMap: Record<string, string> = {};
+      adjRowsForCurMonth.forEach((r) => {
+        if (!r.beer_id || !r.package_id) return;
+        const k = `${r.beer_id}__${r.package_id}`;
+        const v = Number(r.quantity || 0);
+        if (v !== 0) dbAdjMap[k] = String(v);
+      });
+      curAdj = dbAdjMap;
+      try { localStorage.setItem(`inventory_adjustments_${currentMonth}`, JSON.stringify(dbAdjMap)); } catch {}
+    }
+    if (shouldReloadState) {
+      setDorovnatMap(curAdj);
     }
 
     loadedMonthRef.current = currentMonth;
@@ -332,7 +370,7 @@ export default function InventoryScreen() {
     loadData();
   }, [currentMonth]);
 
-  useRealtime(['beers', 'packages', 'bottling', 'kegging', 'fasovani', 'fasovani_private', 'writeoffs', 'inventory', 'orders', 'order_items'], loadData);
+  useRealtime(['beers', 'packages', 'bottling', 'kegging', 'fasovani', 'fasovani_private', 'writeoffs', 'inventory', 'inventory_adjustments', 'orders', 'order_items'], loadData);
 
 
 
@@ -386,6 +424,7 @@ export default function InventoryScreen() {
     setBusy(true);
     try {
       localStorage.setItem(`actual_inventory_${currentMonth}`, JSON.stringify(actualStock));
+      localStorage.setItem(`inventory_adjustments_${currentMonth}`, JSON.stringify(dorovnatMap));
       const entryDate = currentMonth + '-01';
 
       await supabase.from('inventory').delete().eq('entry_date', entryDate).or('note.ilike.%Fyzická%,note.ilike.%Schválená%');
@@ -403,7 +442,36 @@ export default function InventoryScreen() {
         await supabase.from('inventory').insert(rowsToInsert);
       }
 
-      setSaveMsg('Fyzická inventura byla v pořádku uložena do databáze!');
+      // Dorovnání (±) — ukládá se BOKEM (samostatná tabulka), NEzapočítává se do stáčení ani odpočtů
+      try {
+        await supabase.from('inventory_adjustments').delete().eq('entry_date', entryDate);
+        const adjRowsToInsert = Object.entries(dorovnatMap)
+          .map(([k, val]) => {
+            const v = Number(val);
+            if (!val || val === '' || !isFinite(v) || v === 0) return null;
+            const [beer_id, package_id] = k.split('__');
+            const beer = beers.find((x) => x.id === beer_id);
+            const pkg = packages.find((x) => x.id === package_id);
+            return {
+              entry_date: entryDate,
+              beer_id,
+              beer_name: beer?.name ?? null,
+              package_id,
+              package_label: pkg ? formatPackageLabel(pkg.label) : null,
+              quantity: v,
+            };
+          })
+          .filter((r): r is NonNullable<typeof r> => r !== null);
+
+        if (adjRowsToInsert.length > 0) {
+          await supabase.from('inventory_adjustments').insert(adjRowsToInsert);
+        }
+      } catch (e) {
+        // Tabulka inventory_adjustments zatím nemusí existovat (nenahraná migrace) — hlavní inventura nesmí spadnout.
+        console.warn('Dorovnání se nepodařilo uložit do DB (chybí tabulka inventory_adjustments?), zůstává v localStorage:', e);
+      }
+
+      setSaveMsg('Fyzická inventura i dorovnání byla v pořádku uložena do databáze!');
       forceReloadRef.current = true;
       await loadData();
     } catch (e) {
@@ -504,9 +572,14 @@ export default function InventoryScreen() {
         const actualInputStr = actualStock[k];
         const actualQty = actualInputStr !== undefined && actualInputStr !== '' ? Number(actualInputStr) : 0;
 
-        const diffQty = actualQty - expectedQty;
         const priceCzk = p.volume_l > 20 ? 1500 : p.volume_l > 0.6 ? 250 : 45; // Orientační hodnota
+
+        // Dorovnání (±) — přičte/odečte k očekávanému stavu, aby seděl s fyzickou realitou (manko).
+        // Ukládá se BOKEM a NEpočítá se do stáčení ani odpočtů.
+        const dorovnatQty = Number(dorovnatMap[k] || 0);
+        const { diffQty, reconciledQty, diffAfterQty } = computeInventoryReconciliation(expectedQty, actualQty, dorovnatQty);
         const diffCzk = diffQty * priceCzk;
+        const diffAfterCzk = diffAfterQty * priceCzk;
 
         // Zobrazit všechny aktivní položky (piva a obaly) v bilanční tabulce
         list.push({
@@ -525,12 +598,16 @@ export default function InventoryScreen() {
           actualQty,
           diffQty,
           diffCzk,
+          dorovnatQty,
+          reconciledQty,
+          diffAfterQty,
+          diffAfterCzk,
         });
       });
     });
 
     return list;
-  }, [beers, packages, initialStock, actualStock, stacenoMap, odpisyMap, vydejMap]);
+  }, [beers, packages, initialStock, actualStock, dorovnatMap, stacenoMap, odpisyMap, vydejMap]);
 
   // Totals
   const totals = useMemo(() => {
@@ -544,9 +621,12 @@ export default function InventoryScreen() {
         acc.actual += r.actualQty;
         acc.diffQty += r.diffQty;
         acc.diffCzk += r.diffCzk;
+        acc.dorovnat += r.dorovnatQty;
+        acc.diffAfterQty += r.diffAfterQty;
+        acc.diffAfterCzk += r.diffAfterCzk;
         return acc;
       },
-      { initial: 0, staceno: 0, odpis: 0, vydej: 0, expected: 0, actual: 0, diffQty: 0, diffCzk: 0 }
+      { initial: 0, staceno: 0, odpis: 0, vydej: 0, expected: 0, actual: 0, diffQty: 0, diffCzk: 0, dorovnat: 0, diffAfterQty: 0, diffAfterCzk: 0 }
     );
   }, [rows]);
 
@@ -623,13 +703,14 @@ function exportInventoryExcel() {
         'Druh': druh,
         'Obal': obal,
         'Fyzická inventura (ks)': r.actualQty,
+        'Dorovnání (± ks)': r.dorovnatQty,
       };
     });
 
     exportHistoryDetailToExcel(
       dataToExport,
-      ['Název piva', 'Druh', 'Obal', 'Fyzická inventura (ks)'],
-      ['Název piva', 'Druh', 'Obal', 'Fyzická inventura (ks)'],
+      ['Název piva', 'Druh', 'Obal', 'Fyzická inventura (ks)', 'Dorovnání (± ks)'],
+      ['Název piva', 'Druh', 'Obal', 'Fyzická inventura (ks)', 'Dorovnání (± ks)'],
       `inventura_${currentMonth}.xlsx`
     );
   }
@@ -805,6 +886,13 @@ function exportInventoryExcel() {
                 {totals.diffQty > 0 ? `+${totals.diffQty}` : totals.diffQty} ks ({totals.diffCzk.toLocaleString('cs-CZ')} Kč)
               </div>
               <span className="text-[10px] text-neutral-400">Fyzický vs Systémový stav</span>
+              <span className="block pt-1 border-t border-neutral-800 text-[10px] font-bold text-neutral-300">
+                Dorovnáno: {totals.dorovnat > 0 ? `+${totals.dorovnat}` : totals.dorovnat} ks ·
+                <span className={totals.diffAfterQty === 0 ? 'text-emerald-400' : totals.diffAfterQty < 0 ? 'text-rose-400' : 'text-amber-300'}>
+                  {' '}po dorovnání: {totals.diffAfterQty > 0 ? `+${totals.diffAfterQty}` : totals.diffAfterQty} ks ({totals.diffAfterCzk.toLocaleString('cs-CZ')} Kč)
+                </span>
+              </span>
+              <span className="text-[9px] text-neutral-500">Dorovnání se ukládá bokem a nepočítá se do stáčení ani odpočtů.</span>
             </div>
           </div>
 
@@ -812,7 +900,7 @@ function exportInventoryExcel() {
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3 flex-wrap gap-2">
               <div>
                 <h3 className="font-display font-black text-lg text-neutral-900">Bilanční tabulka piva & Obalů k datu</h3>
-                <p className="text-xs text-neutral-500 font-bold">Do sloupce Inventura zadej ručně přesný spočítaný stav na konci měsíce (výchozí 0 ks)</p>
+                <p className="text-xs text-neutral-500 font-bold">Do sloupce Inventura zadej ručně přesný spočítaný stav na konci měsíce (výchozí 0 ks). Sloupec DOROVNAT (±) přičte/ubírá k očekávanému stavu, aby seděl s realitou — ukládá se bokem a nepočítá se do stáčení ani odpočtů.</p>
               </div>
               <button
                 onClick={handleSaveActualStock}
@@ -846,7 +934,9 @@ function exportInventoryExcel() {
                       <th className="py-2.5 px-2 text-right text-amber-800">Výdej (−)</th>
                       <th className="py-2.5 px-3 text-right bg-emerald-600 text-white font-black rounded-t-lg">ZBYDE (Oček.)</th>
                       <th className="py-2.5 px-3 text-right bg-amber-500 text-neutral-950 font-black rounded-t-lg">INVENTURA</th>
+                      <th className="py-2.5 px-3 text-right bg-sky-500 text-white font-black rounded-t-lg" title="Dorovnání (±) — přičti nebo uber k očekávanému stavu, aby seděl s fyzickou realitou. Ukládá se BOKEM a NEpočítá se do stáčení ani odpočtů.">DOROVNAT (±)</th>
                       <th className="py-2.5 px-2 text-right font-black">MANKO</th>
+                      <th className="py-2.5 px-2 text-right font-black" title="Manko po započtení dorovnání (INVENTURA − Dorovnaný stav)">PO DOROVNÁNÍ</th>
                       <th className="py-2.5 px-3 text-right font-black">ROZDÍL (Kč)</th>
                     </tr>
                   </thead>
@@ -887,10 +977,43 @@ function exportInventoryExcel() {
                               onChange={(e) => setActualStock((prev) => ({ ...prev, [k]: e.target.value }))}
                             />
                           </td>
+                          <td className="text-right bg-sky-50/90 border-x border-sky-300 px-2 py-2">
+                            <div className="flex items-center justify-end gap-1">
+                              <input
+                                type="number"
+                                className="input !py-1 text-right font-mono font-black text-xs text-neutral-950 border-sky-400 bg-sky-100/80 w-20 ml-auto rounded-xl shadow-inner focus:ring-2 focus:ring-sky-500"
+                                placeholder="±"
+                                value={dorovnatMap[k] !== undefined ? dorovnatMap[k] : ''}
+                                onChange={(e) => setDorovnatMap((prev) => ({ ...prev, [k]: e.target.value }))}
+                                title="Zadej, o kolik kusů se má očekávaný stav dorovnat (+ přidat, − ubrat), aby seděl s realitou. Ukládá se bokem a nepočítá se do stáčení ani odpočtů."
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setDorovnatMap((prev) => ({ ...prev, [k]: String(r.diffQty) }))}
+                                className="shrink-0 p-1 rounded-lg bg-sky-200/70 hover:bg-sky-300 text-sky-950 font-black text-[10px] leading-none transition"
+                                title={`Dorovnat dle manka (nastavit na ${r.diffQty} ks)`}
+                              >
+                                ⟳
+                              </button>
+                            </div>
+                            {r.dorovnatQty !== 0 && (
+                              <div className="mt-0.5 text-[9px] font-black text-sky-800">
+                                Dorovnáno: {r.reconciledQty} ks
+                              </div>
+                            )}
+                          </td>
                           <td className={`text-right font-mono font-black text-[11px] px-2 py-2 ${
                             r.diffQty < 0 ? (isDark ? 'text-rose-900' : 'text-rose-800') : r.diffQty > 0 ? (isDark ? 'text-emerald-900' : 'text-emerald-800') : textColor
                           }`}>
                             {r.diffQty > 0 ? `+${r.diffQty}` : r.diffQty} ks
+                          </td>
+                          <td className={`text-right font-mono font-black text-[11px] px-2 py-2 ${
+                            r.diffAfterQty < 0 ? (isDark ? 'text-rose-900' : 'text-rose-800') : r.diffAfterQty > 0 ? (isDark ? 'text-emerald-900' : 'text-emerald-800') : textColor
+                          }`}>
+                            {r.diffAfterQty > 0 ? `+${r.diffAfterQty}` : r.diffAfterQty} ks
+                            {r.diffAfterQty === 0 && r.dorovnatQty !== 0 && (
+                              <span className="ml-1 text-[9px] font-black text-emerald-700">✓ dorovnáno</span>
+                            )}
                           </td>
                           <td className={`text-right font-black text-[11px] px-3 py-2 ${
                             r.diffCzk < 0 ? (isDark ? 'text-rose-900' : 'text-rose-800') : r.diffCzk > 0 ? (isDark ? 'text-emerald-900' : 'text-emerald-800') : textColor
@@ -914,8 +1037,14 @@ function exportInventoryExcel() {
                           : 'bg-emerald-950/80 text-emerald-900 border-emerald-700 font-black'
                       }`}>{totals.expected} ks</td>
                       <td className="text-right px-3 py-2.5 text-amber-950 font-mono text-sm bg-amber-950/80 border-x border-amber-700">{totals.actual} ks</td>
+                      <td className={`text-right px-3 py-2.5 font-mono text-sm bg-sky-950/80 border-x border-sky-700 ${totals.dorovnat === 0 ? 'text-sky-300' : totals.dorovnat < 0 ? 'text-rose-300' : 'text-sky-200'}`}>
+                        {totals.dorovnat > 0 ? `+${totals.dorovnat}` : totals.dorovnat} ks
+                      </td>
                       <td className={`text-right px-2 py-2.5 font-mono text-sm ${totals.diffQty < 0 ? 'text-rose-900' : totals.diffQty > 0 ? 'text-emerald-900' : 'text-slate-950'}`}>
                         {totals.diffQty > 0 ? `+${totals.diffQty}` : totals.diffQty} ks
+                      </td>
+                      <td className={`text-right px-2 py-2.5 font-mono text-sm ${totals.diffAfterQty < 0 ? 'text-rose-900' : totals.diffAfterQty > 0 ? 'text-emerald-900' : 'text-slate-950'}`}>
+                        {totals.diffAfterQty > 0 ? `+${totals.diffAfterQty}` : totals.diffAfterQty} ks
                       </td>
                       <td className={`text-right px-3 py-2.5 ${totals.diffCzk < 0 ? 'text-rose-900' : totals.diffCzk > 0 ? 'text-emerald-900' : 'text-slate-950'}`}>
                         {totals.diffCzk.toLocaleString('cs-CZ')} Kč

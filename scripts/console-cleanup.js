@@ -39,7 +39,7 @@
   const USER_TABLES = [
     'order_items', 'orders',
     'bottling', 'bottling_entries', 'kegging', 'kegging_entries',
-    'writeoffs', 'inventory', 'monthly_inventory',
+    'writeoffs', 'inventory', 'monthly_inventory', 'inventory_adjustments',
     'fasovani', 'fasovani_private',
     'akce_items', 'akce', 'event_items',
     'calendar_events', 'reminders',

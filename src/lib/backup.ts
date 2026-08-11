@@ -20,6 +20,7 @@ export interface DatabaseBackup {
     fasovani_private: any[];
     writeoffs: any[];
     inventory: any[];
+    inventory_adjustments: any[];
     akce: any[];
     akce_items: any[];
   };
@@ -29,7 +30,7 @@ export async function createFullBackup(): Promise<DatabaseBackup> {
   const tables = [
     'beers', 'packages', 'places', 'price_list', 'orders', 'order_items',
     'cellar_tanks', 'cellar_batches', 'bottling', 'kegging', 'keg_prefuk', 'fasovani',
-    'fasovani_private', 'writeoffs', 'inventory', 'akce', 'akce_items'
+    'fasovani_private', 'writeoffs', 'inventory', 'inventory_adjustments', 'akce', 'akce_items'
   ];
 
   const backupData: any = {};
