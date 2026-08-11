@@ -81,8 +81,20 @@ export async function useSupabaseAuthState({ logger } = {}) {
         );
         return out;
       },
-      set: async (data, id) => {
-        await write(`${type}-${id}`, data);
+      set: async (data) => {
+        const tasks = [];
+        for (const type in data) {
+          for (const id in data[type]) {
+            const value = data[type][id];
+            const key = `${type}-${id}`;
+            if (value) {
+              tasks.push(write(key, value));
+            } else {
+              tasks.push(supabase.from('whatsapp_session').delete().eq('key', key));
+            }
+          }
+        }
+        await Promise.all(tasks);
       },
     },
     logger || undefined
