@@ -16,7 +16,7 @@ import {
   type ReadbackMatch,
   type ReadbackStatus,
 } from '../lib/whatsappReadback';
-import { Check, X, MessageSquare, Image as ImageIcon, AlertCircle, UserCheck, Eye, ChevronDown, FileText, RefreshCw, ExternalLink, ShieldAlert, ShieldCheck, ArrowDown } from 'lucide-react';
+import { Check, X, MessageSquare, Image as ImageIcon, AlertCircle, UserCheck, Eye, ChevronDown, FileText, RefreshCw, ExternalLink, Download, ShieldAlert, ShieldCheck, ArrowDown } from 'lucide-react';
 
 interface WhatsAppOrderReviewModalProps {
   isOpen: boolean;
@@ -326,7 +326,10 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         props.packages,
         props.places,
         message.sender_name,
-        message.message_timestamp
+        message.message_timestamp,
+        undefined,
+        undefined,
+        message.id
       );
       const newParsedItems: WhatsAppIncoming['parsed_items'] = (parsed.items || []).map((item) => ({
         beer_id: item.beer_id,
@@ -481,21 +484,42 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             </div>
           </div>
 
-          {/* Fotka/příloha — náhled, když webhook poslal mediaUrl (#22) */}
+          {/* Fotka/příloha — náhled + otevření a stažení (#22, DeepSeek fotky nečte,
+              takže je kontrola objednávky z fotky vždy na člověku). */}
           {message.media_url ? (
-            <a
-              href={message.media_url}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-3 inline-block"
-              title="Otevřít fotografii v nové kartě"
-            >
-              <img
-                src={message.media_url}
-                alt="Příloha zprávy"
-                className="max-h-64 rounded-lg border border-blue-200 object-contain bg-white"
-              />
-            </a>
+            <div className="mt-3">
+              <a
+                href={message.media_url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-block"
+                title="Otevřít fotografii v nové kartě"
+              >
+                <img
+                  src={message.media_url}
+                  alt="Příloha zprávy"
+                  className="max-h-64 rounded-lg border border-blue-200 object-contain bg-white"
+                />
+              </a>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <a
+                  href={message.media_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold"
+                >
+                  <ExternalLink size={14} /> Otevřít fotografii
+                </a>
+                <a
+                  href={message.media_url}
+                  download
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-neutral-200 hover:bg-neutral-300 text-neutral-700 text-xs font-semibold"
+                  title="Stáhnout fotografii na počítač"
+                >
+                  <Download size={14} /> Stáhnout fotografii
+                </a>
+              </div>
+            </div>
           ) : isImage ? (
             <div className="text-xs text-neutral-500 mt-2 flex items-center gap-1">
               <ImageIcon size={13} /> Fotka — médium nebylo doručeno (webhook neposlal mediaUrl).
@@ -591,6 +615,14 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                   })
                 ) : message.parsed_raw_text ? (
                   <span className="whitespace-pre-wrap">{message.parsed_raw_text}</span>
+                ) : isImage ? (
+                  <span className="text-neutral-400">
+                    Tahle zpráva je fotka — AI ji nepřepisuje do textu. Zkontrolujte objednávku podle fotky a případně opravte položky ručně.
+                  </span>
+                ) : message.status === 'pending' ? (
+                  <span className="text-neutral-400">
+                    Přepis od AI zatím není k dispozici — zpráva se teprve zpracovává.
+                  </span>
                 ) : (
                   <span className="text-neutral-400">
                     Přepis od AI není k dispozici (zpráva rozparsovaná před nasazením kontroly čtení). Použijte „Přečíst znovu (AI)".

@@ -4,7 +4,7 @@ import { WhatsAppIncoming, fetchPendingWhatsAppMessages, updateWhatsAppMessageSt
 import { parseWhatsAppOrderMessageWithAI } from '../lib/whatsappParser';
 import { analyzeReadback, findRepeatedReadbackErrors, findSimilarMessages, type RepeatedReadbackError } from '../lib/whatsappReadback';
 import { Modal, Spinner } from './ui';
-import { MessageSquare, AlertCircle, Check, X, RefreshCw, Trash2, Square, CheckSquare, Image as ImageIcon, Filter, ArrowDownUp, Clock, Copy } from 'lucide-react';
+import { MessageSquare, AlertCircle, Check, X, RefreshCw, Trash2, Square, CheckSquare, Image as ImageIcon, Filter, ArrowDownUp, Clock, Copy, Download } from 'lucide-react';
 
 interface WhatsAppAutoProcessorModalProps {
   isOpen: boolean;
@@ -239,7 +239,10 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
           props.packages,
           props.places,
           message.sender_name,
-          message.message_timestamp
+          message.message_timestamp,
+          undefined,
+          undefined,
+          message.id
         );
 
         results.set(message.id, parsed);
@@ -501,14 +504,25 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
                         </span>
                       </div>
 
-                      {/* Náhled fotky (#22) */}
+                      {/* Náhled fotky (#22) — DeepSeek fotky nečte, odkaz umožní stažení */}
                       {message.media_url && (
-                        <img
-                          src={message.media_url}
-                          alt="Příloha"
-                          className="h-16 w-16 object-cover rounded-lg border mb-2"
-                          onClick={(e) => e.stopPropagation()}
-                        />
+                        <div className="flex items-center gap-1 mb-2">
+                          <img
+                            src={message.media_url}
+                            alt="Příloha"
+                            className="h-16 w-16 object-cover rounded-lg border"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <a
+                            href={message.media_url}
+                            download
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-1.5 rounded-lg text-neutral-500 hover:bg-neutral-100 hover:text-blue-600"
+                            title="Stáhnout fotografii"
+                          >
+                            <Download size={16} />
+                          </a>
+                        </div>
                       )}
 
                       <div className="text-xs text-neutral-500">
@@ -524,7 +538,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
                       </div>
                     </div>
 
-                    <div className="flex flex-col gap-1.5">
+                    <div className="flex flex-col gap-1.5 shrink-0">
                       {parsedResult && parsedResult.items && parsedResult.items.length > 0 && (
                         <button
                           onClick={(e) => { e.stopPropagation(); importOrder(message.id); }}
@@ -534,6 +548,14 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
                           <Check size={16} />
                         </button>
                       )}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); processMessages([message]); }}
+                        disabled={processing}
+                        className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 disabled:opacity-50"
+                        title="Přečíst / rozparsovat přes AI"
+                      >
+                        <RefreshCw size={16} className={processing ? "animate-spin" : ""} />
+                      </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); ignoreMessage(message.id); }}
                         className="p-1.5 rounded-lg text-neutral-500 hover:bg-neutral-100"

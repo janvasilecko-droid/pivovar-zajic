@@ -1,4 +1,4 @@
-import { Beer, Package, Place } from './supabase';
+import { Beer, Package, Place, supabase } from './supabase';
 import { parseGeminiItems, matchPlaceFromText, detectOrderNotes, loadAliasMap, loadPlaceAliasMap, ParserAliasMap, ParsedLine, GeminiItem } from './orderParser';
 import { parseExplicitDate } from './orderDates';
 
@@ -301,6 +301,7 @@ export async function parseWhatsAppOrderMessageWithAI(
   messageTimestamp?: string | null,
   aliasMapOverride?: ParserAliasMap,
   placeAliasMapOverride?: Map<string, string>,
+  messageId?: string,
 ): Promise<ParsedWhatsAppResult> {
   // 1. Naučené zkratky (piva + obaly) a aliasy odběratelů — stejné hinty
   //    jako posílá čtení z fotky (ImportFromImage).
@@ -339,6 +340,38 @@ export async function parseWhatsAppOrderMessageWithAI(
       })()
     : null;
 
+  // Načtení kontextu z předchozích zpráv ve stejném chatu/skupině (chat_id)
+  let chatContext: any[] = [];
+  if (messageId) {
+    try {
+      const { data: currentMsg } = await supabase
+        .from('whatsapp_incoming')
+        .select('chat_id, created_at')
+        .eq('id', messageId)
+        .maybeSingle();
+
+      if (currentMsg?.chat_id) {
+        const { data: contextData } = await supabase
+          .from('whatsapp_incoming')
+          .select('sender_name, message_timestamp, message_text')
+          .eq('chat_id', currentMsg.chat_id)
+          .lt('created_at', currentMsg.created_at)
+          .order('created_at', { ascending: false })
+          .limit(3);
+
+        if (contextData && contextData.length > 0) {
+          chatContext = [...contextData].reverse().map((m: any) => ({
+            sender: m.sender_name,
+            date: m.message_timestamp ? new Date(m.message_timestamp).toISOString().split('T')[0] : null,
+            text: m.message_text,
+          }));
+        }
+      }
+    } catch (e) {
+      console.error('Chyba při načítání chat kontextu:', e);
+    }
+  }
+
   const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-order-text`;
 
   const resp = await fetch(fnUrl, {
@@ -354,7 +387,10 @@ export async function parseWhatsAppOrderMessageWithAI(
       places: places.map((pl) => pl.name),
       aliases: aliasList,
       placeAliases: placeAliasList,
-      messages: [{ sender: sender ?? null, date, text: rawMessage }],
+      messages: [
+        ...chatContext,
+        { sender: sender ?? null, date, text: rawMessage }
+      ],
     }),
   });
 
