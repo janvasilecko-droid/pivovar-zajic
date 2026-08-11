@@ -82,7 +82,7 @@ export function WhatsAppIncomingModal(props: WhatsAppIncomingModalProps) {
                       <div className="mb-2">
                         <div className="text-sm font-medium">{message.sender_name}</div>
                         <div className="text-xs text-neutral-500">
-                          {new Date(message.created_at).toLocaleDateString('cs-CZ')}
+                          {new Date(message.message_timestamp || message.created_at).toLocaleDateString('cs-CZ')}
                         </div>
                       </div>
                       <div className="text-sm bg-neutral-50 p-3 rounded-lg">

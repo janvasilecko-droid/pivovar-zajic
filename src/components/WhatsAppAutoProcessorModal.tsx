@@ -122,7 +122,9 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
       list = [...list].sort((a, b) => {
         const diff = analyzeReadback(b).mismatchCount - analyzeReadback(a).mismatchCount;
         if (diff !== 0) return diff;
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        const timeB = new Date(b.message_timestamp || b.created_at).getTime();
+        const timeA = new Date(a.message_timestamp || a.created_at).getTime();
+        return timeB - timeA;
       });
     }
     return list;
@@ -494,13 +496,13 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
                         )}
                         <span
                           className={`px-2 py-0.5 rounded-full text-xs flex items-center gap-1 ${
-                            rb.mismatchCount > 0 && Date.now() - new Date(message.created_at).getTime() > 60 * 60 * 1000
+                            rb.mismatchCount > 0 && Date.now() - new Date(message.message_timestamp || message.created_at).getTime() > 60 * 60 * 1000
                               ? 'bg-red-50 text-red-700'
                               : 'bg-neutral-100 text-neutral-500'
                           }`}
                           title="Čas čekání na zpracování"
                         >
-                          <Clock size={11} /> {formatWaitTime(message.created_at)}
+                          <Clock size={11} /> {formatWaitTime(message.message_timestamp || message.created_at)}
                         </span>
                       </div>
 
@@ -526,7 +528,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
                       )}
 
                       <div className="text-xs text-neutral-500">
-                        {new Date(message.created_at).toLocaleDateString('cs-CZ')}
+                        {new Date(message.message_timestamp || message.created_at).toLocaleDateString('cs-CZ')}
                         {message.parsed_delivery_date ? ` · dodání ${message.parsed_delivery_date}` : ''}
                       </div>
                       <div className="text-sm bg-neutral-50 p-3 rounded-lg mt-2">

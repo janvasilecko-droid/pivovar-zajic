@@ -449,7 +449,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             <div>
               <div className="text-sm text-neutral-600">Čas přijetí</div>
               <div className="font-medium">
-                {new Date(message.created_at).toLocaleString('cs-CZ', {
+                {new Date(message.message_timestamp || message.created_at).toLocaleString('cs-CZ', {
                   day: '2-digit',
                   month: '2-digit',
                   year: 'numeric',
