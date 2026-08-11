@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../lib/auth';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 
-import { supabase, Beer, CellarTank, CellarTransfer, CellarTankCycle, EntryRow, useRealtime, beerBg, beerBorder, beerName } from '../lib/supabase';
+import { supabase, Beer, Package, CellarTank, CellarTransfer, CellarTankCycle, EntryRow, useRealtime, beerBg, beerBorder, beerName } from '../lib/supabase';
 import { Modal, Field, Spinner } from '../components/ui';
 import { TankOccupancyPlanner } from '../components/TankOccupancyPlanner';
 
@@ -40,6 +42,7 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
   const [cycles, setCycles] = useState<CellarTankCycle[]>([]);
   const [kegging, setKegging] = useState<EntryRow[]>([]);
   const [beers, setBeers] = useState<Beer[]>([]);
+  const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
   const [showTransfer, setShowTransfer] = useState(false);
   const [transferFromId, setTransferFromId] = useState('');
@@ -57,15 +60,17 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
   // Objednávky (pro propojení: kolik kegů z aktuálního piva je objednáno)
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [orderItems, setOrderItems] = useState<OrderItemRow[]>([]);
+  const [weekKey, setWeekKey] = useState(isoWeekKey(new Date().toISOString().slice(0, 10)));
 
   async function load(silent = false) {
     if (!silent && !tanks.length) setLoading(true);
-    const [t, tr, cy, kg, b] = await Promise.all([
+    const [t, tr, cy, kg, b, pkg] = await Promise.all([
       supabase.from('cellar_tanks').select('*').order('label'),
       supabase.from('cellar_transfers').select('*').order('transfer_date', { ascending: false }).order('created_at', { ascending: false }).limit(50),
       supabase.from('cellar_tank_cycles').select('*').order('ended_at', { ascending: false }).limit(200),
       supabase.from('kegging').select('id,entry_date,beer_id,beer_name,package_id,package_label,quantity,cellar_tank_id,source_volume_l,loss_l,tank_id,created_at').order('created_at', { ascending: false }),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
+      supabase.from('packages').select('*').order('sort_order'),
     ]);
 
     let tankList = (t.data as CellarTank[]) ?? [];
@@ -145,6 +150,7 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
     setCycles((cy.data as CellarTankCycle[]) ?? []);
     setKegging((kg.data as EntryRow[]) ?? []);
     setBeers((b.data as Beer[]) ?? []);
+    setPackages((pkg.data as Package[]) ?? []);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
@@ -165,15 +171,31 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
   const beerName = (id: string | null) => beers.find((b) => b.id === id)?.name ?? '—';
   const tankLabel = (id: string | null) => tanks.find((t) => t.id === id)?.label ?? '—';
 
-  // Kolik kegů daného piva je objednáno celkem (nevyexpedovaných objednávek), pro info na kartě tanku
-  const orderedByBeer = useMemo(() => {
+  // Celkový objem v hl (hektolitrech) daného piva, který je objednaný a nestočený pro zvolený týden
+  const orderedHlByBeer = useMemo(() => {
     const m = new Map<string, number>();
+
+    // Filtrujeme objednávky patřící do vybraného týdne
+    const activeOrderIds = new Set(
+      orders
+        .filter((o) => o.order_date && isoWeekKey(o.order_date) === weekKey)
+        .map((o) => o.id)
+    );
+
     orderItems.forEach((i) => {
-      if (!i.beer_id) return;
-      m.set(i.beer_id, (m.get(i.beer_id) ?? 0) + Number(i.quantity));
+      if (!i.beer_id || !activeOrderIds.has(i.order_id)) return;
+      const pkg = packages.find((p) => p.id === i.package_id);
+      const volL = pkg ? Number(pkg.volume_l) : 50; // fallback 50l
+      const liters = Number(i.quantity) * volL;
+      m.set(i.beer_id, (m.get(i.beer_id) ?? 0) + liters);
     });
-    return m;
-  }, [orderItems]);
+
+    const hlMap = new Map<string, number>();
+    m.forEach((liters, beerId) => {
+      hlMap.set(beerId, liters / 100);
+    });
+    return hlMap;
+  }, [orderItems, orders, packages, weekKey]);
 
   // Souhrn stáčení z tanku (kegging) — pro aktuální (nedokončený) cyklus
   const tankSummary = useMemo(() => {
@@ -425,6 +447,32 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
             </button>
           </div>
 
+          {/* Týdenní selector pro výpočet objednávek */}
+          <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-neutral-200 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setWeekKey(shiftWeek(weekKey, -1))}
+              className="p-1.5 rounded-lg text-neutral-500 hover:bg-neutral-100"
+              title="Předchozí týden"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <div className="px-2 text-xs font-bold text-amber-800 text-center min-w-[90px]">
+              Týden {weekKey.split('-')[1]}
+              <div className="text-[10px] text-neutral-500 font-normal">
+                ({weekRange(weekKey).label})
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setWeekKey(shiftWeek(weekKey, 1))}
+              className="p-1.5 rounded-lg text-neutral-500 hover:bg-neutral-100"
+              title="Následující týden"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+
           <button className="btn-primary" onClick={() => setShowTransfer(true)}>⇄ Přetáčení (Přefuk ze Spilky)</button>
         </div>
       </div>
@@ -450,7 +498,7 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
               const isEmpty = t.status === 'empty' || t.status === 'sanitizing' || t.status === 'rinsing' || t.status === 'cleaning';
               const sizeKeys = Object.keys(s.bySize).map(Number).sort((a, b) => b - a);
               const isLow = t.status === 'active' && remaining > 0 && remaining < LOW_VOLUME_THRESHOLD;
-              const orderedForBeer = t.current_beer_id ? (orderedByBeer.get(t.current_beer_id) ?? 0) : 0;
+              const orderedHlForBeer = t.current_beer_id ? (orderedHlByBeer.get(t.current_beer_id) ?? 0) : 0;
               const recentCycles = (cyclesByTank.get(t.id) ?? []).slice(0, 3);
 
               return (
@@ -548,11 +596,20 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
                     </div>
                   )}
 
-                  {orderedForBeer > 0 && t.status === 'active' && (
-                    <div className="mt-2 text-xs text-accent-700 bg-accent-50 rounded-lg px-2.5 py-1.5">
-                      📋 Objednáno {orderedForBeer} ks tohoto piva (nestočeno)
-                    </div>
-                  )}
+                  {orderedHlForBeer > 0 && t.status === 'active' && (() => {
+                    const remainingHl = remaining / 100;
+                    const isDeficit = orderedHlForBeer > remainingHl;
+                    const missingHl = orderedHlForBeer - remainingHl;
+                    return isDeficit ? (
+                      <div className="mt-2 text-xs text-rose-700 bg-rose-50 rounded-lg px-2.5 py-1.5 font-bold border border-rose-200">
+                        ⚠️ Objednáno {orderedHlForBeer.toFixed(1)} hl (v tanku chybí {missingHl.toFixed(1)} hl, nutno stočit z jiného tanku)
+                      </div>
+                    ) : (
+                      <div className="mt-2 text-xs text-accent-700 bg-accent-50 rounded-lg px-2.5 py-1.5 font-bold">
+                        📋 Objednáno {orderedHlForBeer.toFixed(1)} hl tohoto piva (nestočeno)
+                      </div>
+                    );
+                  })()}
 
                   {/* Grafické znázornění nerezového ležáckého tanku */}
                   <div className="my-3 p-3 bg-slate-900/90 rounded-2xl border border-slate-800 text-white flex items-center gap-4 shadow-inner">
