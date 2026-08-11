@@ -1043,3 +1043,46 @@ Fotka **bez popisku** se přestala ignorovat — přeposílá se s placeholderem
 - Fotky **ne**jsou posílány do DeepSeek promptu — AI dostává jen text (popisek
   nebo placeholder), médium řeší člověk. Pokud se později přidá vision model,
   stačí mu dát `media_url` z `whatsapp_incoming`.
+
+---
+
+## ✅ AKTUALIZACE 2026-08-11 (21. kolo): WhatsApp AI fallback Gemini → Groq → Mistral → OpenAI (24/7)
+
+### Co se změnilo
+
+- `parse-order-text` má nový fallback řetězec:
+  **Gemini (gemini-3.5-flash) → Groq (llama-3.3-70b-versatile) → Mistral (mistral-large-latest)
+  → OpenAI (gpt-4o-mini)**.
+  - Dříve: Gemini → Anthropic → OpenAI. **Anthropic odebrán** (bez kreditů, jen zdržoval);
+    místo něj přidány **bezplatné pojistky Groq + Mistral** (free tier, bez karty).
+  - Při chybě/vyčerpání limitu (HTTP 429/500) se funkce okamžitě přepne na dalšího providera (~0,5 s).
+- **Nasazeno na produkci**: `node scripts/deploy-function.mjs parse-order-text` → **HTTP 201**,
+  verze **20**, ACTIVE (2026-08-11).
+- **E2E ověřeno**: `node scripts/test-parse-order-text-e2e.mjs` → **VÝSLEDEK: OK** (2 objednávky,
+  správné přiřazení piva/obalu, bedny a place_name — přes Gemini).
+
+### Soubory / změny
+
+- `supabase/functions/parse-order-text/index.ts` — secrets `GROQ_API_KEY`+`MISTRAL_API_KEY`,
+  `groqBody`/`mistralBody`, fallbacky 2) Groq, 3) Mistral, 4) OpenAI (`gpt-4o-mini`).
+- `supabase/migrations/20261117000000_add_groq_api_key_secret.sql` (placeholder).
+- `supabase/migrations/20261118000000_add_mistral_api_key_secret.sql` (placeholder).
+- `docs/whatsapp-llm-fallback-deploy.md` — návod na zítra (klíče + ověření + test fallbacku).
+- `docs/set-llm-api-keys.sql` — SQL připravené k vložení do Supabase SQL Editoru.
+- Commity: `03090124` (Gemini→Groq→OpenAI), `48c1d05c` (+Mistral).
+
+### 🔜 ZBÝVÁ ZÍTRA (pouze klíče)
+
+1. GROQ klíč → https://console.groq.com (zdarma, `gsk_...`)
+2. Mistral klíč → https://console.mistral.ai (zdarma, dlouhý klíč s tečkou)
+3. Supabase SQL Editor → spustit `docs/set-llm-api-keys.sql` (doplnit reálné klíče)
+4. Kontrola: `node scripts/test-parse-order-text-e2e.mjs` → „VÝSLEDEK: OK";
+   provider v logu (Edge Functions → parse-order-text → Logs, hledat `PROVIDER=...`).
+5. Volitelný test fallbacku: dočasně znehodnotit `GEMINI_API_KEY` → log ukáže `PROVIDER=groq` → vrátit klíč.
+
+### Poznámky
+
+- Klíče se ukládají do `app_secrets` (server-only, RLS zamčené); do Gitu ani `.env` se nezapisují.
+- Migrace v repozitáři obsahují placeholder (`REPLACE_WITH_...`) — jen záznam pro `db push`;
+  reálné klíče se nastaví SQL upsertem výše.
+
