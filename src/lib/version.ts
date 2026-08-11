@@ -1,7 +1,7 @@
 ﻿// Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-export const APP_VERSION = '1.547';
-export const APP_VERSION_DATE = '10.8.2026 10:16';
+export const APP_VERSION = '1.566';
+export const APP_VERSION_DATE = '10.8.2026 21:09';
 
 
 
@@ -9,6 +9,17 @@ export const APP_VERSION_DATE = '10.8.2026 10:16';
 // StruÄŤnĂ˝ pĹ™ehled zmÄ›n v aktuĂˇlnĂ­ verzi (zobrazuje se v admin sekci NastavenĂ­)
 
 export const APP_CHANGELOG: string[] = [
+  '🍺 KEG (Stáčení): u každého řádku zápisu se automaticky přiřadí a zobrazí aktivní tank, ze kterého se pivo stáčí (tank se „Zahájeným stáčením“ a daným pivem — např. zadáte 12sv a označí se Tank č.5), a z něj se rovnou odečte stočený objem; pokud je aktivních tanků se stejným pivem víc (2+), řádek výrazně upozorní ⚠️ a nechá vybrat, ze kterého odečítat; nahoře ve formuláři je živý souhrn „Odečte se z tanků“. v1.559',
+  '🍾 Sanitace: nový „Sanitární deník lahví“ (záložka v Sanitačním deníku) — denní záznam sanitace stáčecí linky lahví: louh NaOH každý den, proplach čistou vodou, celá cesta včetně vzduchové na louhu s opláchem a úklid prostor; po dokončení checklistu „Konec stáčení“ nebo „Měsíční údržba“ se záznam pro dané datum zapíše automaticky; jde editovat, mazat a exportovat do Excelu. v1.558',
+  '🍾 Lahve (Stáčení): tlačítko „Konec stáčení“ se přesunulo zespodu formuláře zápisu nahoru do hlavičky (vedle „Zadání stočení z fotky“), aby bylo po ruce hned na začátku. v1.557',
+  '⚠️ Lahve (Stáčení): v posledním týdnu měsíce se po přihlášení při každém otevření aplikace zobrazí výrazné upozornění, že je tento týden potřeba udělat měsíční úklid (tlačítko „OK vím o tom“); po splnění úvodního checklistu „1. Začátek stáčení“ se automaticky otevře okno s měsíčním checklistem („4. Měsíční údržba“) s novou položkou — propláchnout veškeré cesty včetně odtokové na pivo, nevyčerpat louh ze sudu všechen (aby tlak vzduchu nevytlačil louh z pivních cest) a nechat do nejbližšího stáčení na stáčečky na louhu; checklist „2. Konec stáčení“ je opět s odškrtávacími políčky. v1.556',
+  '📋 Lahve (Stáčení): checklist „2. Konec stáčení“ (úklid) je nyní čistý textový přehled BEZ zaškrtávacích políček — žádné odškrtávání ani „Potvrdit konec stáčení“, jen body k dodržení a tlačítko Zavřít. v1.555',
+  '🍾 Lahve (Stáčení): ve formuláři zápisu přibylo tlačítko „Konec stáčení“, které otevře checklist „2. Konec stáčení“ (úklid) — položky seřízeny podle aktuálního postupu; „Naplnit“ u úkolu ke stočení teď přepíše celý formulář zápisu vybraným úkolem (pivo + obaly + KEG) a u počtu lahví 1./2./3. obalu se objevily rychlé volby množství v ks. v1.554',
+  '🍾 Číselníky: sekce „Zadávání stáčení lahví“ (potřeba stáčení na týden + tlačítko „Stočit“) se přesunula z Nastavení (ADMIN) do Číselníků jako nová záložka „Potřeby stáčení“ — je viditelná jen pro administrátory. v1.553',
+  '📋 Lahve (Stáčení): položka „Zkontrolovat vnitřky stáčeček a vyčistit kartáčem vnitřní a vnější plochy všech stáčeček (na kterých se bude stáčet) studeným louhem o koncentraci 2% a důkladně opláchnout čistou vodou“ se v checklistu „1. Začátek stáčení“ objeví jen do prvního splnění v týdnu — stačí ji udělat 1× týdně, na dalších stáčeních v tom samém týdnu se už nezobrazuje a neblokuje vstup do zápisu stáčení. v1.552',
+  '🍾 Nastavení (ADMIN): nová sekce „Zadávání stáčení lahví“ — přehled potřeby na týden (lahve na skladě, sudy na skladě, objednávky + fašování, chybí stočit, konec týdne) a tlačítko „Stočit“, které otevře menu s velikostmi obalů (až 3) a počtem KEG sudů; úkol se uloží a automaticky propíše do formuláře stáčení (Lahve → „Úkoly ke stočení“ → „Naplnit“). v1.551',
+  '📋 Lahve (Stáčení): „Stáčecí den“ je nyní povinná brána — po otevření zápisu stáčení se checklist sám otevře a nejde zavřít (Esc, kliknutí mimo ani „Zavřít“), dokud není odškrtnutá celá sekce „1. Začátek stáčení“ (příprava pracoviště); po splnění se uvolní „Pokračovat na stáčení“. Sekce „2. Konec stáčení“, „3. Týdenní kontrola“ a „4. Měsíční údržba“ se dají splnit kdykoli a vstup neblokují. v1.550',
+  '📋 Lahve (Stáčení): při vstupu do zápisu stáčení se automaticky otevře „Stáčecí den“ — kontrolní seznam přípravy pracoviště (checklist), dokud není pro daný den splněný; po splnění se už sám neotevírá (tlačítko v liště zůstává). v1.549',
   '🌾 Šrotování sladu: kalkulačka v „Kalkulačkách“ přepracovaná na plán šrotování — 4 řádky s rozklikávacím výběrem piva, kolik se šrotuje (kg sladu) a dopočtem pytlů 25 kg; odstraněna vystírka a výpočty °P/výtěžnosti. v1.546',
 
   '🔐 Zabezpečení: z klientské aplikace odstraněn service-role klíč (RLS tak opravdu chrání data — bez přihlášení nikdo nemůže číst WhatsApp zprávy ani ostatní data) a webhook přijímá zprávy jen s hlavičkou x-webhook-token. v1.545',
