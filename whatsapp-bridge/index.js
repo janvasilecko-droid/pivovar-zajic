@@ -236,6 +236,18 @@ async function handleMessage(sock, gate, supabase, msg, opts = {}) {
   const tsMs =
     typeof msg.messageTimestamp === 'number' ? msg.messageTimestamp * 1000 : Date.now();
 
+  // Pokud je to zpráva z historie a je starší než pátek 7. 8. 2026, přeskočíme ji,
+  // aby se zbytečně nenačítala stará historie (např. z července).
+  if (history) {
+    const minTimestamp = new Date('2026-08-07T00:00:00Z').getTime();
+    if (tsMs < minTimestamp) {
+      logger.debug(
+        `[msg] historie: zpráva ze dne ${new Date(tsMs).toLocaleDateString('cs-CZ')} je starší než pátek 7.8.2026 — přeskočena`
+      );
+      return;
+    }
+  }
+
   // Typ zprávy pro webhook (image/video/document/audio/text) — rozbalí i ephemeral.
   const m = msg.message || {};
   const unwrapped = m.ephemeralMessage?.message || m.viewOnceMessage?.message || m;
