@@ -572,10 +572,17 @@ Bridge ji teď zpracovává:
 | `HISTORY_MAX_MESSAGES` | `1000` | kolik nejnovějších zpráv historie max. přeposlat (0 = nic) |
 
 ### Poznámky
-- Nejdůvěryhodnější je **znovupárování** zařízení (WhatsApp → Nastavení → Propojená
-  zařízení → odpojit → propojit znovu QR): telefon při párování pošle úplnou historii
-  (INITIAL_BOOTSTRAP, cca 3 měsíce). Bez opětovného párování může poslat jen nedávnou
-  historii (RECENT) — pokud nic nepřijde, znovu spáruj.
+- **Ověřeno na produkci (2026-08-11):** commit `cee504c6` je live, ale u UŽ
+  SPÁROVANÉHO zařízení WhatsApp historii po běžném reconnectu neposílá (Baileys
+  počká 20 s a pokračuje dál). Historie se posílá **při párování** (INITIAL_BOOTSTRAP,
+  cca 3 měsíce). Pro získání starých zpráv proto stačí zařízení **znovu spárovat**:
+  1. WhatsApp → Nastavení → Propojená zařízení → „WhatsApp Bridge“ → **Odpojit**.
+  2. Otevřít `https://whatsapp-bridge-g1v0.onrender.com/qr` a naskenovat nový QR.
+     (Bridge po odhlášení automaticky smaže session a vygeneruje nový QR — viz níže.)
+  3. Během ~10–20 s telefon pošle historii → bridge ji přeposílá do aplikace
+     (limit `HISTORY_MAX_MESSAGES`).
+- **Bridge se po odhlášení zařízení (logged out) resetuje sám**: `clearSession`
+  vymaže `whatsapp_session` a služba vygeneruje nový QR — žádné ruční mazání v DB.
 - Kolektor zpracuje historii do ~5 s po skončení přenosu; v logu bridgu hledej
   `[history] zpracovávám N nejnovějších zpráv historie…`.
 

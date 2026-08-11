@@ -17,7 +17,7 @@ import { createServer } from 'node:http';
 import makeWASocket, { DisconnectReason } from '@whiskeysockets/baileys';
 import qrcodeTerminal from 'qrcode-terminal';
 import pino from 'pino';
-import { getSupabase, useSupabaseAuthState } from './lib/supabaseAuth.js';
+import { getSupabase, useSupabaseAuthState, clearSession } from './lib/supabaseAuth.js';
 import { createMessageGate } from './lib/filter.js';
 import { HistoryCollector } from './lib/history.js';
 import { forwardToWebhook } from './lib/webhook.js';
@@ -357,9 +357,18 @@ async function start() {
       const loggedOut = code === DisconnectReason.loggedOut;
       logger.warn(`[conn] připojení zavřeno (statusCode=${code}, loggedOut=${loggedOut})`);
       if (loggedOut) {
-        logger.error(
-          '[conn] Zařízení bylo odpojeno (logged out). Smazat klíč "creds" z whatsapp_session a restartovat službu pro nový QR.'
-        );
+        // Uživatel odpojil zařízení v WhatsAppu → smažeme session; start() pak
+        // vygeneruje nový QR. (Znovupárování je zároveň jediný spolehlivý způsob,
+        // jak dostat starší zprávy — telefon pošle historii při párování.)
+        logger.error('[conn] Zařízení bylo odpojeno (logged out) — mažu session, připravuji nový QR…');
+        try {
+          await clearSession(supabase, logger);
+        } catch (e) {
+          logger.error({ err: e }, '[conn] nelze smazat whatsapp_session');
+        }
+        setTimeout(() => {
+          start().catch((e) => logger.error({ err: e }, 'Fatal chyba při znovupřipojení'));
+        }, 1000);
       } else {
         logger.info('[conn] Restartuji připojení za 3 sekundy...');
         setTimeout(() => {

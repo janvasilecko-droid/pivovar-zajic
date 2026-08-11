@@ -14,9 +14,15 @@
  * Čistou funkci `pickRecent` lze testovat bez socketu.
  */
 
-/** Baileys posílá `messageTimestamp` v sekundách → převod na ms. */
+/** Baileys posílá `messageTimestamp` v sekundách → převod na ms. Robustní vůči číslu, řetězci i Long (protobuf int64). */
 export function normTs(ts) {
-  return typeof ts === 'number' ? ts * 1000 : Date.now();
+  if (typeof ts === 'number') return ts * 1000;
+  if (typeof ts === 'string' && ts.trim() !== '') {
+    const n = Number(ts);
+    if (Number.isFinite(n)) return n * 1000;
+  }
+  if (ts && typeof ts.toNumber === 'function') return ts.toNumber() * 1000;
+  return Date.now();
 }
 
 /**

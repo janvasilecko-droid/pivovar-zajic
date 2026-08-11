@@ -2,7 +2,7 @@
 // Spuštění: npm test   (v whatsapp-bridge/)
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { pickRecent, HistoryCollector } from '../lib/history.js';
+import { pickRecent, HistoryCollector, normTs } from '../lib/history.js';
 
 test('pickRecent: vrací nejnovějších cap zpráv chronologicky vzestupně', () => {
   const msgs = [
@@ -33,6 +33,14 @@ test('pickRecent: ignoruje zprávy bez key.id a bez timestampu nekoliduje', () =
     pickRecent(msgs, 5).map((m) => m.key && m.key.id),
     ['a']
   );
+});
+
+test('normTs: číslo (sekundy), řetězec i Long protobuf objekt', () => {
+  const Long = { toNumber: () => 1750 };
+  assert.equal(normTs(100), 100000);
+  assert.equal(normTs('200'), 200000);
+  assert.equal(normTs(Long), 1750000);
+  assert.equal(normTs(undefined) > 0, true);
 });
 
 test('HistoryCollector: po zklidnění vybere nejnovější zprávy a zavolá onMessage sekvenčně', async () => {

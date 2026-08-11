@@ -105,3 +105,13 @@ export async function useSupabaseAuthState({ logger } = {}) {
     saveCreds: () => write('creds', creds),
   };
 }
+
+/**
+ * Smaže celou session z `whatsapp_session` — používá se po odhlášení zařízení
+ * (loggedOut), aby se automaticky vygeneroval nový QR bez ručního mazání v DB.
+ */
+export async function clearSession(supabase, logger) {
+  const { error } = await supabase.from('whatsapp_session').delete().neq('key', '');
+  if (error) throw new Error(`[session] clear: ${error.message}`);
+  logger?.info('[session] whatsapp_session vyčištěna — připravuji nový QR');
+}
