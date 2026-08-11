@@ -66,16 +66,17 @@ Deno.serve(async (req: Request) => {
     const { data: secretRows, error: secretsErr } = await supabase
       .from("app_secrets")
       .select("key, value")
-      .in("key", ["GEMINI_API_KEY", "GROQ_API_KEY", "OPENAI_API_KEY"]);
+      .in("key", ["GEMINI_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY", "OPENAI_API_KEY"]);
 
     const secretsMap = new Map((secretRows ?? []).map((s) => [s.key, s.value]));
     const geminiKey = secretsMap.get("GEMINI_API_KEY");
     const groqKey = secretsMap.get("GROQ_API_KEY");
+    const mistralKey = secretsMap.get("MISTRAL_API_KEY");
     const openaiKey = secretsMap.get("OPENAI_API_KEY");
 
-    if (secretsErr || (!geminiKey && !groqKey && !openaiKey)) {
+    if (secretsErr || (!geminiKey && !groqKey && !mistralKey && !openaiKey)) {
       return new Response(
-        JSON.stringify({ error: "Neither GEMINI_API_KEY nor GROQ_API_KEY nor OPENAI_API_KEY is configured in app_secrets" }),
+        JSON.stringify({ error: "Neither GEMINI_API_KEY nor GROQ_API_KEY nor MISTRAL_API_KEY nor OPENAI_API_KEY is configured in app_secrets" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -365,12 +366,29 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
     };
 
 
+    const mistralBody = {
+      model: "mistral-large-latest",
+      temperature: 0.1,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content: prompt,
+        },
+        {
+          role: "user",
+          content: `TEXT OBJEDNÁVKY Z WHATSAPP:\n"""\n${rawText}\n"""`,
+        },
+      ],
+    };
+
+
     let text = "";
     let isOpenAiUsed = false;
 
     // 1) Primární provider: Google Gemini (nativní JSON mode).
-    //    Gemini má velkorysé rate limity (na rozdíl od OpenAI gpt-4o TPM limitů)
-    //    a čtení funguje bez Anthropic kreditů.
+    //    Gemini má velkorysé rate limity (na rozdíl od OpenAI TPM limitů)
+    //    a čtení funguje bez kreditů navíc.
     //    Pozn.: "gemini-2.5-flash" už Google nezpřístupňuje novým klíčům (HTTP 404),
     //    proto používáme gemini-3.5-flash (GA, stejná kategorie flash).
     if (!text && geminiKey) {
@@ -444,7 +462,34 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
       }
     }
 
-    // 3) Poslední fallback: OpenAI (gpt-4o-mini) — kdyby selhal i Groq.
+    // 3) Další pojistka: Mistral (mistral-large-latest). Když vyčerpá limit
+    //    i Groq (HTTP 429/500), přepneme OKAMŽITĚ dál — bez čekání, řádově 0,5 s.
+    if (!text && mistralKey) {
+      try {
+        const mistralUrl = "https://api.mistral.ai/v1/chat/completions";
+        const mistralResp = await fetch(mistralUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${mistralKey}`,
+          },
+          body: JSON.stringify(mistralBody),
+        });
+
+        if (mistralResp.ok) {
+          const mistralData = await mistralResp.json();
+          text = mistralData?.choices?.[0]?.message?.content ?? "";
+          console.log("parse-order-text: PROVIDER=mistral");
+        } else {
+          const errText = await mistralResp.text();
+          console.warn(`Mistral API error (status ${mistralResp.status}): ${errText}`);
+        }
+      } catch (err) {
+        console.warn(`Mistral API exception: ${err}`);
+      }
+    }
+
+    // 4) Poslední záchrana: OpenAI (gpt-4o-mini) — kdyby selhaly Gemini, Groq i Mistral.
     if (!text && openaiKey) {
       isOpenAiUsed = true;
       const openaiBody = {
@@ -487,7 +532,7 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
 
     if (!text) {
       return new Response(
-        JSON.stringify({ error: "Failed to get response from any LLM provider (Gemini, Groq, OpenAI)" }),
+        JSON.stringify({ error: "Failed to get response from any LLM provider (Gemini, Groq, Mistral, OpenAI)" }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
