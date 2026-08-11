@@ -1,7 +1,7 @@
 ﻿// Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-export const APP_VERSION = '1.570';
-export const APP_VERSION_DATE = '10.8.2026 21:09';
+export const APP_VERSION = '1.574';
+export const APP_VERSION_DATE = '11.8.2026 20:10';
 
 
 
@@ -9,6 +9,7 @@ export const APP_VERSION_DATE = '10.8.2026 21:09';
 // StruÄŤnĂ˝ pĹ™ehled zmÄ›n v aktuĂˇlnĂ­ verzi (zobrazuje se v admin sekci NastavenĂ­)
 
 export const APP_CHANGELOG: string[] = [
+  '🧼 Sanitace: u každého kroku sanitárních deníků lahví i KEGů se nyní zaznamenává čas provedení — po odškrtnutí se u kroku objeví pole s časem (předvyplněným aktuálním časem, lze ručně upravit); časy se ukládají a zobrazují v přehledu i exportu do Excelu. Přibyl zcela nový „Sanitární deník výčepů“ (kohouty a výčepní vedení) — kroky s časy, důvodem, provádějící a schvalující osobou, filtrováním podle měsíce a exportem. v1.574',
   '🍺 KEG (Stáčení): u každého řádku zápisu se automaticky přiřadí a zobrazí aktivní tank, ze kterého se pivo stáčí (tank se „Zahájeným stáčením“ a daným pivem — např. zadáte 12sv a označí se Tank č.5), a z něj se rovnou odečte stočený objem; pokud je aktivních tanků se stejným pivem víc (2+), řádek výrazně upozorní ⚠️ a nechá vybrat, ze kterého odečítat; nahoře ve formuláři je živý souhrn „Odečte se z tanků“. v1.559',
   '🍾 Sanitace: nový „Sanitární deník lahví“ (záložka v Sanitačním deníku) — denní záznam sanitace stáčecí linky lahví: louh NaOH každý den, proplach čistou vodou, celá cesta včetně vzduchové na louhu s opláchem a úklid prostor; po dokončení checklistu „Konec stáčení“ nebo „Měsíční údržba“ se záznam pro dané datum zapíše automaticky; jde editovat, mazat a exportovat do Excelu. v1.558',
   '🍾 Lahve (Stáčení): tlačítko „Konec stáčení“ se přesunulo zespodu formuláře zápisu nahoru do hlavičky (vedle „Zadání stočení z fotky“), aby bylo po ruce hned na začátku. v1.557',
