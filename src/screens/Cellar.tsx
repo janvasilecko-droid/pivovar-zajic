@@ -173,7 +173,12 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
 
   // Celkový objem v hl (hektolitrech) daného piva, který je objednaný a nestočený pro zvolený týden
   const orderedHlByBeer = useMemo(() => {
-    const m = new Map<string, number>();
+    const beerJantar = beers.find(b => b.name.toLowerCase().includes('jantar'));
+    const beer12Sv = beers.find(b => b.name.toLowerCase().includes('12° svět') || b.name.toLowerCase().includes('12sv'));
+    const beerDark = beers.find(b => b.name.toLowerCase().includes('tmav'));
+
+    const m = new Map<string, number>(); // beer_id -> liters
+    const needsBottling = new Set<string>();
 
     // Filtrujeme objednávky patřící do vybraného týdne
     const activeOrderIds = new Set(
@@ -185,17 +190,74 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
     orderItems.forEach((i) => {
       if (!i.beer_id || !activeOrderIds.has(i.order_id)) return;
       const pkg = packages.find((p) => p.id === i.package_id);
-      const volL = pkg ? Number(pkg.volume_l) : 50; // fallback 50l
+      if (!pkg) return;
+
+      const volL = Number(pkg.volume_l) || 50;
       const liters = Number(i.quantity) * volL;
+
+      if (pkg.kind === 'bottle' && Number(i.quantity) > 0) {
+        needsBottling.add(i.beer_id);
+      }
+
       m.set(i.beer_id, (m.get(i.beer_id) ?? 0) + liters);
     });
 
-    const hlMap = new Map<string, number>();
-    m.forEach((liters, beerId) => {
-      hlMap.set(beerId, liters / 100);
+    // 1) Připočtení 50l za lahve (lahvování) PŘED rozdělením Jantaru
+    // "pokud budou potreba stocit lahve tak pridej 50l danyh piva"
+    needsBottling.forEach((beerId) => {
+      m.set(beerId, (m.get(beerId) ?? 0) + 50);
     });
+
+    // 2) Rozdělení Jantaru (80% do 12sv, 20% do tmavého)
+    if (beerJantar) {
+      const jantarLiters = m.get(beerJantar.id) ?? 0;
+      if (jantarLiters > 0) {
+        if (beer12Sv) {
+          m.set(beer12Sv.id, (m.get(beer12Sv.id) ?? 0) + jantarLiters * 0.8);
+        }
+        if (beerDark) {
+          m.set(beerDark.id, (m.get(beerDark.id) ?? 0) + jantarLiters * 0.2);
+        }
+        m.set(beerJantar.id, 0); // Jantar sám se ze sklepa přímo nestáčí (míchá se ze 12sv a tmavého)
+      }
+    }
+
+    // 3) Zjištění již stočených sudů (kegging) pro vybraný týden
+    // "od toho obednano vzdy odecitej stoceny sudy ten tyden, vzdy at je to na tyden objednavky vs staceni keg"
+    const keggedLitersByBeer = new Map<string, number>();
+    kegging.forEach((r) => {
+      if (!r.beer_id || !r.entry_date || isoWeekKey(r.entry_date) !== weekKey) return;
+      const sizeMatch = (r.package_label ?? '').match(/(\d+(?:[.,]\d+)?)\s*l/i);
+      const size = sizeMatch ? Number(sizeMatch[1].replace(',', '.')) : 0;
+      const vol = size > 0 ? size : 50; // fallback 50l
+      const liters = Number(r.quantity ?? 0) * vol;
+      keggedLitersByBeer.set(r.beer_id, (keggedLitersByBeer.get(r.beer_id) ?? 0) + liters);
+    });
+
+    // Rozdělení stáčení Jantaru (kegging) do 12sv a tmavého
+    if (beerJantar) {
+      const jantarKegged = keggedLitersByBeer.get(beerJantar.id) ?? 0;
+      if (jantarKegged > 0) {
+        if (beer12Sv) {
+          keggedLitersByBeer.set(beer12Sv.id, (keggedLitersByBeer.get(beer12Sv.id) ?? 0) + jantarKegged * 0.8);
+        }
+        if (beerDark) {
+          keggedLitersByBeer.set(beerDark.id, (keggedLitersByBeer.get(beerDark.id) ?? 0) + jantarKegged * 0.2);
+        }
+        keggedLitersByBeer.set(beerJantar.id, 0);
+      }
+    }
+
+    // 4) Převod na hektolitry a odečtení stočeného piva (objem nemůže být záporný, minimum je 0 hl)
+    const hlMap = new Map<string, number>();
+    m.forEach((orderedLiters, beerId) => {
+      const keggedLiters = keggedLitersByBeer.get(beerId) ?? 0;
+      const remainingLiters = Math.max(0, orderedLiters - keggedLiters);
+      hlMap.set(beerId, remainingLiters / 100);
+    });
+
     return hlMap;
-  }, [orderItems, orders, packages, weekKey]);
+  }, [orderItems, orders, packages, weekKey, kegging, beers]);
 
   // Souhrn stáčení z tanku (kegging) — pro aktuální (nedokončený) cyklus
   const tankSummary = useMemo(() => {
