@@ -206,6 +206,10 @@ async function start() {
       console.log('  WhatsApp → Nastavení → Propojená zařízení → Propojit zařízení');
       console.log('============================================================');
       qrcodeTerminal.generate(qr, { small: true });
+      // Klikací odkaz na velký QR (párování je pak spolehlivější než skenování terminálu).
+      // QR je jednorázový a za ~30-60 s vyprší — otevři ho hned a naskenuj telefonem.
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(qr)}`;
+      console.log('\n  Pro velký QR klikni sem (platí jen pár vteřin):\n  ' + qrUrl);
       console.log('');
     }
 
