@@ -477,7 +477,7 @@ vytvoří novou zálohu stejným způsobem.
 
 ---
 
-## 📬 AKTUALIZACE 2026-08-11 (12. kolo): vlastní zprávy (from_me) se zpracovávají
+## 📬 AKTUALIZACE 2026-08-11 (21. kolo): vlastní zprávy (from_me) se zpracovávají
 
 ### Změna chování
 - **WhatsApp bridge** přeposílá i vlastní zprávy (odeslané ze spárovaného telefonu / Webu)

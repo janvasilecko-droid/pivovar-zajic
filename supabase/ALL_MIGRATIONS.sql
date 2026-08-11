@@ -1,4 +1,4 @@
-﻿-- ==== 20260719105703_brewery_schema.sql ====
+-- ==== 20260719105703_brewery_schema.sql ====
 /*
 # SchĂ©ma databĂˇze minipivovaru
 
@@ -1254,234 +1254,10 @@ VALUES ('OPENAI_API_KEY', 'REPLACE_WITH_YOUR_OPENAI_API_KEY', now())
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now();
 
 
--- ==== 20260729150000_user_app_versions.sql ====
--- SledovĂˇnĂ­ verzĂ­ aplikace u jednotlivĂ˝ch uĹľivatelĹŻ
--- KaĹľdĂ˝ uĹľivatel pĹ™i startu zapĂ­Ĺˇe svou verzi, admin vidĂ­ pĹ™ehled
-
-CREATE TABLE IF NOT EXISTS user_app_versions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  version TEXT NOT NULL,
-  device_info TEXT,
-  last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE(user_id)
-);
-
--- Index pro rychlĂ© vyhledĂˇvĂˇnĂ­
-CREATE INDEX IF NOT EXISTS idx_user_app_versions_version ON user_app_versions(version);
-CREATE INDEX IF NOT EXISTS idx_user_app_versions_last_seen ON user_app_versions(last_seen_at);
-
--- RLS
-ALTER TABLE user_app_versions ENABLE ROW LEVEL SECURITY;
-
--- KaĹľdĂ˝ uĹľivatel mĹŻĹľe ÄŤĂ­st a zapisovat jen svĂ© vlastnĂ­ verze
-CREATE POLICY "users_manage_own_version"
-  ON user_app_versions
-  FOR ALL
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
-
--- Admin mĹŻĹľe ÄŤĂ­st vĹˇechny verze
-CREATE POLICY "admin_read_all_versions"
-  ON user_app_versions
-  FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
-
-
--- ==== 20260802000000_cleanup_all_user_data.sql ====
-/*
-# VYÄŚIĹ TÄšNĂŤ VĹ ECH UĹ˝IVATELSKĂťCH DAT â€” PĹĂŤPRAVA NA OSTRĂť PROVOZ
-
-## 1. ĂšÄŤel
-OdstranĂ­ VĹ ECHNA uĹľivatelsky zadanĂˇ data z databĂˇze, aby byla aplikace
-pĹ™ipravena na ostrĂ˝ provoz. Tento skript:
-
-- SmaĹľe vĹˇechny provoznĂ­/transakÄŤnĂ­ zĂˇznamy (objednĂˇvky, stĂˇÄŤenĂ­, inventury,
-  akce, fasovĂˇnĂ­, odpisy, kalendĂˇĹ™, pĹ™ipomĂ­nky, sanitace, ĹˇrotovĂˇnĂ­, zadĂˇvĂˇnĂ­,
-  vozidla, odbÄ›ratele, cenĂ­k, audit, verze uĹľivatelĹŻ, feedback, rezervace...).
-- SmaĹľe vĹˇechny uĹľivatelskĂ© ĂşÄŤty (auth.users) a jejich profily.
-- ZACHOVĂ referenÄŤnĂ­ ÄŤĂ­selnĂ­ky (seed data): piva (beers), obaly (packages)
-  a sklepnĂ­ tanky (cellar_tanks) â€” tyto jsou nezbytnĂ© pro chod aplikace.
-- ZACHOVĂ strukturu tabulek, RLS politiky, triggery a funkce.
-
-## 2. JAK SPUSTIT
-1. OtevĹ™ete Supabase Dashboard â†’ SQL Editor.
-2. VloĹľte celĂ˝ obsah tohoto souboru.
-3. SpusĹĄte (Run).
-4. Po dokonÄŤenĂ­ se zobrazĂ­ pĹ™ehled smazanĂ˝ch Ĺ™ĂˇdkĹŻ.
-
-## 3. BEZPEÄŚNOST
-- Skript je idempotentnĂ­ (lze spustit vĂ­cekrĂˇt bez chyby).
-- PouĹľĂ­vĂˇ `TRUNCATE ... CASCADE` pro tabulky s cizĂ­mi klĂ­ÄŤi.
-- ReferenÄŤnĂ­ ÄŤĂ­selnĂ­ky (beers, packages, cellar_tanks) se NEMAĹ˝OU.
-- UĹľivatelĂ© se maĹľou z `auth.users` (kaskĂˇdovÄ› smaĹľe i profily).
-*/
-
--- ============================================================
--- 1) VYMAZĂNĂŤ PROVOZNĂŤCH / TRANSAKÄŚNĂŤCH TABULEK
---    (vĹˇechna uĹľivatelsky zadanĂˇ data)
--- ============================================================
-
--- ObjednĂˇvky a jejich poloĹľky
-TRUNCATE TABLE public.order_items CASCADE;
-TRUNCATE TABLE public.orders CASCADE;
-
--- StĂˇÄŤenĂ­ lahvĂ­ a kegĹŻ (vÄŤetnÄ› historickĂ˝ch zĂˇznamĹŻ)
-TRUNCATE TABLE public.bottling CASCADE;
-TRUNCATE TABLE public.bottling_entries CASCADE;
-TRUNCATE TABLE public.kegging CASCADE;
-TRUNCATE TABLE public.kegging_entries CASCADE;
-
--- Odpisy, inventury, mÄ›sĂ­ÄŤnĂ­ inventury
-TRUNCATE TABLE public.writeoffs CASCADE;
-TRUNCATE TABLE public.inventory CASCADE;
-TRUNCATE TABLE public.monthly_inventory CASCADE;
-
--- FasovĂˇnĂ­ (prodejna + soukromĂ©)
-TRUNCATE TABLE public.fasovani CASCADE;
-TRUNCATE TABLE public.fasovani_private CASCADE;
-
--- Akce a vĂ˝jezdnĂ­ prodej
-TRUNCATE TABLE public.akce_items CASCADE;
-TRUNCATE TABLE public.akce CASCADE;
-TRUNCATE TABLE public.event_items CASCADE;
-
--- KalendĂˇĹ™ a pĹ™ipomĂ­nky
-TRUNCATE TABLE public.calendar_events CASCADE;
-TRUNCATE TABLE public.reminders CASCADE;
-
--- Sanitace, ĹˇrotovĂˇnĂ­, zadĂˇvĂˇnĂ­
-TRUNCATE TABLE public.sanitation_logs CASCADE;
-TRUNCATE TABLE public.srotovani CASCADE;
-TRUNCATE TABLE public.zadavani CASCADE;
-
--- Sklep: transfery a historie cyklĹŻ (tanky samotnĂ© se zachovajĂ­)
-TRUNCATE TABLE public.cellar_transfers CASCADE;
-TRUNCATE TABLE public.cellar_tank_cycles CASCADE;
-
--- StĂˇÄŤecĂ­ tanky (kegging_tanks) â€” historie stĂˇÄŤenĂ­
-TRUNCATE TABLE public.kegging_tanks CASCADE;
-
--- OdbÄ›ratelĂ© / mĂ­sta (ÄŤĂ­selnĂ­k zĂˇkaznĂ­kĹŻ)
-TRUNCATE TABLE public.places CASCADE;
-
--- CenĂ­k pivovaru
-TRUNCATE TABLE public.price_list CASCADE;
-
--- Vozidla
-TRUNCATE TABLE public.vehicles CASCADE;
-
--- Parser aliasy (nauÄŤenĂ© opravy OCR)
-TRUNCATE TABLE public.parser_aliases CASCADE;
-
--- AuditnĂ­ log
-TRUNCATE TABLE public.audit_log CASCADE;
-
--- Verze uĹľivatelĹŻ
-TRUNCATE TABLE public.user_app_versions CASCADE;
-
--- Feedback / poznĂˇmky k aplikaci
-TRUNCATE TABLE public.feedback_notes CASCADE;
-
--- ============================================================
--- 2) VYMAZĂNĂŤ UĹ˝IVATELSKĂťCH ĂšÄŚTĹ® A PROFILĹ®
---    (auth.users kaskĂˇdovÄ› smaĹľe i profily)
--- ============================================================
-
--- SmaĹľe vĹˇechny uĹľivatele (profily se smaĹľou kaskĂˇdovÄ› pĹ™es FK)
-DELETE FROM auth.users;
-
--- ============================================================
--- 3) RESET REFERENÄŚNĂŤCH ÄŚĂŤSELNĂŤKĹ® NA SEED STAV
---    (beers, packages, cellar_tanks â€” zachovĂˇme seed data)
--- ============================================================
-
--- Piva: reset na seed (8 piv z evidence)
--- SmaĹľeme pĹ™Ă­padnĂ© uĹľivatelem pĹ™idanĂ© piva a znovu vloĹľĂ­me seed.
-DELETE FROM public.beers;
-INSERT INTO public.beers (name, degree, color, beer_color, is_active, sort_order)
-SELECT v.name, v.degree, v.color, v.beer_color, true, v.sort_order
-FROM (VALUES
-  ('12Â° SvÄ›tlĂˇ',       '12Â°', 'svÄ›tlĂ©',  '#FDE68A', 1),
-  ('11Â° SvÄ›tlĂˇ',       '11Â°', 'svÄ›tlĂ©',  '#FEF3C7', 2),
-  ('10Â° DesĂ­tka',      '10Â°', 'svÄ›tlĂ©',  '#FCD34D', 3),
-  ('12Â° TmavĂˇ',        '12Â°', 'tmavĂ©',   '#44403B', 4),
-  ('Jantar',           NULL,  'jantarovĂ©','#F59E0B', 5),
-  ('Summer Ale',       NULL,  'ovocnĂ©',  '#86EFAC', 6),
-  ('13 Hazy Bunny',    '13Â°', 'nefiltrovanĂ©', '#FCA5A5', 7),
-  ('Hazy Spring Day',  NULL,  'nefiltrovanĂ©', '#F9A8D4', 8)
-) AS v(name, degree, color, beer_color, sort_order);
-
--- Obaly: reset na seed (9 obalĹŻ)
-DELETE FROM public.packages;
-INSERT INTO public.packages (code, kind, volume_l, label, sort_order)
-VALUES
-  ('KEG50',   'keg',    50,   'KEG 50l',    1),
-  ('KEG30',   'keg',    30,   'KEG 30l',    2),
-  ('KEG20',   'keg',    20,   'KEG 20l',    3),
-  ('KEG15',   'keg',    15,   'KEG 15l',    4),
-  ('KEG10',   'keg',    10,   'KEG 10l',    5),
-  ('LAHEV15', 'bottle', 1.5,  'Lahve 1.5l', 6),
-  ('LAHEV1',  'bottle', 1,    'Lahve 1l',   7),
-  ('LAHEV05', 'bottle', 0.5,  'Lahve 0.5l', 8),
-  ('LAHEV033','bottle', 0.33, 'Lahve 0.33l',9);
-
--- SklepnĂ­ tanky: reset na 8 prĂˇzdnĂ˝ch tankĹŻ (Tank 1..8)
-DELETE FROM public.cellar_tanks;
-INSERT INTO public.cellar_tanks (label, capacity_l, current_volume_l, status)
-SELECT 'Tank ' || n, 7500, 0, 'empty'
-FROM generate_series(1, 8) AS n;
-
--- ============================================================
--- 4) PĹEHLED VĂťSLEDKU
--- ============================================================
-
-DO $$
-DECLARE
-  t text;
-  cnt bigint;
-BEGIN
-  RAISE NOTICE '=== VYÄŚIĹ TÄšNĂŤ DOKONÄŚENO ===';
-  RAISE NOTICE 'ReferenÄŤnĂ­ ÄŤĂ­selnĂ­ky zachovĂˇny: beers, packages, cellar_tanks';
-  RAISE NOTICE 'VĹˇichni uĹľivatelĂ© smazĂˇni. Pro pĹ™ihlĂˇĹˇenĂ­ vytvoĹ™te novĂ˝ ĂşÄŤet.';
-END $$;
-
-
--- ==== 20260802010000_add_beers_short_name.sql ====
-/*
-# PĹ™idĂˇnĂ­ sloupce short_name do tabulky beers
-
-## 1. ĂšÄŤel
-Frontend (Catalogs.tsx, supabase.ts) pouĹľĂ­vĂˇ sloupec `short_name` na tabulce
-`beers` (zkratka piva pro ĂşzkĂ© sloupce), ale tento sloupec v databĂˇzi chybĂ­
-(nebyl pĹ™idĂˇn v ĹľĂˇdnĂ© migraci). To zpĹŻsobuje, Ĺľe INSERT/UPDATE piva selhĂˇvĂˇ
-s chybou "column short_name does not exist" a pivo se nepodaĹ™Ă­ uloĹľit.
-
-## 2. ZmÄ›ny
-- `beers` â€” novĂ˝ sloupec `short_name text` (nullable).
-
-## 3. BezpeÄŤnost
-- Ĺ˝ĂˇdnĂ© zmÄ›ny RLS/policy â€” sloupec je souÄŤĂˇstĂ­ existujĂ­cĂ­ tabulky `beers`,
-  Ĺ™Ă­dĂ­ se stĂˇvajĂ­cĂ­mi policy (authenticated CRUD).
-
-## 4. PoznĂˇmky
-- IdempotentnĂ­ â€” `ADD COLUMN IF NOT EXISTS`.
-*/
-
-ALTER TABLE public.beers
-  ADD COLUMN IF NOT EXISTS short_name text;
-
-
 -- ==== 20260802020000_add_places_contact_columns.sql ====
-kn u na nic k exportu nic -- PĹ™idĂˇnĂ­ chybÄ›jĂ­cĂ­ch sloupcĹŻ do tabulky places
--- (contact_name, email, delivery_group) â€” tyto sloupce aplikace pouĹľĂ­vĂˇ,
--- ale v databĂˇzi zatĂ­m neexistovaly, takĹľe vklĂˇdĂˇnĂ­ novĂ©ho odbÄ›ratele selhĂˇvalo.
+-- Přidání chybějících sloupců do tabulky places
+-- (contact_name, email, delivery_group) — tyto sloupce aplikace používá,
+-- ale v databázi zatím neexistovaly, takže vkládání nového odběratele selhávalo.
 
 ALTER TABLE public.places
   ADD COLUMN IF NOT EXISTS contact_name text,
@@ -1490,9 +1266,9 @@ ALTER TABLE public.places
 
 
 -- ==== 20260803020000_add_bottling_kegs_used.sql ====
--- PĹ™idĂˇnĂ­ sloupcĹŻ do tabulky bottling pro evidenci pouĹľitĂ˝ch sudĹŻ KEG
--- (kolik sudĹŻ KEG bylo pouĹľito na stoÄŤenĂ­ do lahvĂ­ a jakĂ˝ typ sudu)
--- PĹ™i stĂˇÄŤenĂ­ napĹ™. 2x50L do 1L lahvĂ­ (~98 lahvĂ­) se odeÄŤtou 2 kegy ze skladu.
+-- Přidání sloupců do tabulky bottling pro evidenci použitých sudů KEG
+-- (kolik sudů KEG bylo použito na stočení do lahví a jaký typ sudu)
+-- Při stáčení např. 2x50L do 1L lahví (~98 lahví) se odečtou 2 kegy ze skladu.
 
 ALTER TABLE public.bottling
   ADD COLUMN IF NOT EXISTS kegs_used numeric,
@@ -1500,10 +1276,10 @@ ALTER TABLE public.bottling
 
 
 -- ==== 20260803030000_add_bottling_tank_source.sql ====
--- PĹ™idĂˇnĂ­ sloupce do tabulky bottling pro zdrojovĂ˝ objem ze sudĹŻ.
--- PĹ™i stĂˇÄŤenĂ­ do lahvĂ­ ze sudĹŻ (kegs_used) se uloĹľĂ­ zdrojovĂ˝ objem
--- (source_volume_l = poÄŤet sudĹŻ Ă— objem sudu, napĹ™. 6Ă—50L = 300L).
--- Sudy se odeÄŤtou ze skladu (jako objednĂˇvka) a vytrata se poÄŤĂ­tĂˇ jako
+-- Přidání sloupce do tabulky bottling pro zdrojový objem ze sudů.
+-- Při stáčení do lahví ze sudů (kegs_used) se uloží zdrojový objem
+-- (source_volume_l = počet sudů × objem sudu, např. 6×50L = 300L).
+-- Sudy se odečtou ze skladu (jako objednávka) a vytrata se počítá jako
 -- source_volume_l - (quantity * package.volume_l).
 
 ALTER TABLE public.bottling
@@ -1516,225 +1292,17 @@ ALTER TABLE public.fasovani ADD COLUMN IF NOT EXISTS who text;
 ALTER TABLE public.fasovani_private ADD COLUMN IF NOT EXISTS who text;
 
 
--- ==== 20260807120000_add_whatsapp_incoming_table.sql ====
--- WhatsApp webhook integration for automatic order import via Make.com
--- Created: 2026-08-07
-
--- Table for storing incoming WhatsApp messages from AutoNotification/Tasker via Make
-CREATE TABLE whatsapp_incoming (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  
-  -- Raw message data from WhatsApp
-  sender_name TEXT NOT NULL,           -- Sender name from WhatsApp
-  sender_number TEXT,                  -- Sender phone number (if available)
-  message_text TEXT NOT NULL,          -- Full message text
-  message_timestamp TIMESTAMP WITH TIME ZONE, -- When message was sent in WhatsApp
-  message_type TEXT DEFAULT 'text',    -- 'text', 'image', 'document', etc.
-  
-  -- Processing status
-  status TEXT NOT NULL DEFAULT 'pending', -- 'pending', 'processing', 'parsed', 'imported', 'error', 'ignored'
-  error_message TEXT,                  -- If status = 'error'
-  
-  -- Parsed data (filled after AI processing)
-  parsed_place_id UUID REFERENCES places(id) ON DELETE SET NULL,
-  parsed_place_name TEXT,              -- Place name from parsing
-  parsed_delivery_day TEXT,            -- 'po', 'ut', 'st', 'ct', 'pa', 'so', 'ne'
-  parsed_delivery_date DATE,
-  parsed_note TEXT,
-  parsed_items JSONB,                  -- Array of parsed items
-  
-  -- Import reference
-  imported_order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
-  imported_at TIMESTAMP WITH TIME ZONE,
-  
-  -- Make webhook metadata
-  webhook_id TEXT,                     -- Make webhook ID for deduplication
-  webhook_timestamp TIMESTAMP WITH TIME ZONE,
-  
-  -- Indexes for performance
-  CONSTRAINT whatsapp_incoming_status_check CHECK (status IN ('pending', 'processing', 'parsed', 'imported', 'error', 'ignored'))
-);
-
--- Indexes
-CREATE INDEX idx_whatsapp_incoming_status ON whatsapp_incoming(status);
-CREATE INDEX idx_whatsapp_incoming_created_at ON whatsapp_incoming(created_at DESC);
-CREATE INDEX idx_whatsapp_incoming_sender ON whatsapp_incoming(sender_name);
-CREATE INDEX idx_whatsapp_incoming_webhook_id ON whatsapp_incoming(webhook_id);
-
--- Enable realtime for the table
-ALTER PUBLICATION supabase_realtime ADD TABLE whatsapp_incoming;
-
--- RLS policies
-ALTER TABLE whatsapp_incoming ENABLE ROW LEVEL SECURITY;
-
--- Allow authenticated users to read all incoming messages
-CREATE POLICY "Users can view whatsapp_incoming" ON whatsapp_incoming
-  FOR SELECT USING (auth.role() = 'authenticated');
-
--- Allow service role to insert/update (for webhook)
-CREATE POLICY "Service role can manage whatsapp_incoming" ON whatsapp_incoming
-  FOR ALL USING (auth.role() = 'service_role');
-
--- Function to automatically process pending WhatsApp messages
-CREATE OR REPLACE FUNCTION process_pending_whatsapp_messages()
-RETURNS TRIGGER AS $$
-BEGIN
-  -- Only trigger for new pending messages
-  IF NEW.status = 'pending' THEN
-    -- This function will be called by a scheduled job or edge function
-    -- For now, just mark as ready for processing
-    NULL;
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- Trigger to handle new messages
-CREATE TRIGGER on_new_whatsapp_message
-  AFTER INSERT ON whatsapp_incoming
-  FOR EACH ROW
-  EXECUTE FUNCTION process_pending_whatsapp_messages();
-
--- Comment
-COMMENT ON TABLE whatsapp_incoming IS 'Incoming WhatsApp messages from AutoNotification/Tasker via Make webhook for automatic order import';
-COMMENT ON COLUMN whatsapp_incoming.status IS 'pending = waiting for processing, processing = AI parsing in progress, parsed = successfully parsed, imported = created as order, error = failed to parse, ignored = manually ignored';
-COMMENT ON COLUMN whatsapp_incoming.parsed_items IS 'JSON array of parsed order items: [{beer_id, pkg_id, qty, degree, raw_line}]';
-
--- ==== 20260808130000_add_whatsapp_incoming_rls_write_policies.sql ====
--- WhatsApp incoming: pĹ™idĂˇnĂ­ RLS politik pro zĂˇpis (schvĂˇlenĂ­/zamĂ­tnutĂ­/mazĂˇnĂ­ zprĂˇv z UI)
--- VytvoĹ™eno: 2026-08-08
--- DĹŻvod: UI (Orders.tsx) mÄ›nĂ­ status na 'imported'/'ignored' a maĹľe zprĂˇvy jako
---        pĹ™ihlĂˇĹˇenĂ˝ uĹľivatel (authenticated role). PĹŻvodnĂ­ migrace mÄ›la jen SELECT.
-
--- Povolit pĹ™ihlĂˇĹˇenĂ˝m uĹľivatelĹŻm aktualizovat zprĂˇvy (schvĂˇlenĂ­, zamĂ­tnutĂ­, oznaÄŤenĂ­ za importovanĂ©)
-CREATE POLICY "Users can update whatsapp_incoming" ON whatsapp_incoming
-  FOR UPDATE USING (auth.role() = 'authenticated');
-
--- Povolit pĹ™ihlĂˇĹˇenĂ˝m uĹľivatelĹŻm mazat zprĂˇvy
-CREATE POLICY "Users can delete whatsapp_incoming" ON whatsapp_incoming
-  FOR DELETE USING (auth.role() = 'authenticated');
-
-
--- ==== 20260808140000_add_whatsapp_senders.sql ====
--- WhatsApp: povolenĂ­ odesĂ­latelĂ© (whitelist) pro vĂ˝bÄ›r zprĂˇv k naÄŤtenĂ­
--- VytvoĹ™eno: 2026-08-08
--- DĹŻvod: uĹľivatel si urÄŤuje, od kterĂ˝ch kontaktĹŻ se WhatsApp zprĂˇvy naÄŤĂ­tajĂ­
---        automaticky (realtime modĂˇl + AI parsing). OstatnĂ­ zĹŻstĂˇvajĂ­ v seznamu
---        'pending' pro ruÄŤnĂ­ zpracovĂˇnĂ­.
-
-CREATE TABLE IF NOT EXISTS whatsapp_senders (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  sender_name TEXT NOT NULL,
-  sender_number TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
-
--- JednoznaÄŤnost podle jmĂ©na (bez ohledu na velikost pĂ­smen a okolnĂ­ mezery)
-CREATE UNIQUE INDEX IF NOT EXISTS idx_whatsapp_senders_name ON whatsapp_senders (LOWER(trim(sender_name)));
-
-ALTER TABLE whatsapp_senders ENABLE ROW LEVEL SECURITY;
-
--- PĹ™ihlĂˇĹˇenĂ­ uĹľivatelĂ© spravujĂ­ seznam z UI (nastavenĂ­ aplikace)
-CREATE POLICY "Users can view whatsapp_senders" ON whatsapp_senders
-  FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "Users can insert whatsapp_senders" ON whatsapp_senders
-  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
-CREATE POLICY "Users can update whatsapp_senders" ON whatsapp_senders
-  FOR UPDATE USING (auth.role() = 'authenticated');
-CREATE POLICY "Users can delete whatsapp_senders" ON whatsapp_senders
-  FOR DELETE USING (auth.role() = 'authenticated');
-
--- Service role pro edge funkce (whatsapp-auto-parse)
-CREATE POLICY "Service role can manage whatsapp_senders" ON whatsapp_senders
-  FOR ALL USING (auth.role() = 'service_role');
-
-COMMENT ON TABLE whatsapp_senders IS 'PovolenĂ­ odesĂ­latelĂ© WhatsApp â€” seznam kontaktĹŻ, od kterĂ˝ch se zprĂˇvy naÄŤĂ­tajĂ­ automaticky. PrĂˇzdnĂ˝ seznam = naÄŤĂ­tajĂ­ se zprĂˇvy od vĹˇech.';
-
-
--- ==== 20260808150000_add_place_aliases_table.sql ====
-/*
-# Place aliases â€” uÄŤenĂ­ se opravĂˇm odbÄ›ratele (mĂ­sta)
-
-KdyĹľ uĹľivatel v aplikaci opravĂ­ odbÄ›ratele, kterĂ©ho AI/OCR rozpoznala ĹˇpatnÄ›,
-uloĹľĂ­ se alias: ĹˇpatnĂ˝ nĂˇzev (wrong_name) â†’ sprĂˇvnĂ˝ odbÄ›ratel (place_id +
-correct_name). AI (edge funkce parse-order-text / whatsapp-auto-parse) i lokĂˇlnĂ­
-parser pak tento alias pouĹľijĂ­ pĹ™i pĹ™Ă­ĹˇtĂ­m parsovĂˇnĂ­, aby mĂ­sto poznaly sprĂˇvnÄ›.
-*/
-
-CREATE TABLE IF NOT EXISTS public.place_aliases (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  wrong_name text NOT NULL,
-  place_id uuid REFERENCES places(id) ON DELETE SET NULL,
-  correct_name text NOT NULL DEFAULT '',
-  hit_count int NOT NULL DEFAULT 0,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now(),
-  UNIQUE (wrong_name)
-);
-
-ALTER TABLE public.place_aliases ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "place_aliases_select" ON public.place_aliases
-  FOR SELECT TO authenticated USING (true);
-CREATE POLICY "place_aliases_insert" ON public.place_aliases
-  FOR INSERT TO authenticated WITH CHECK (true);
-CREATE POLICY "place_aliases_update" ON public.place_aliases
-  FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "place_aliases_delete" ON public.place_aliases
-  FOR DELETE TO authenticated USING (true);
-
-CREATE INDEX IF NOT EXISTS idx_place_aliases_wrong_name ON public.place_aliases(wrong_name);
-
-
--- ==== 20260809100000_add_whatsapp_parsed_raw_text.sql ====
--- Kontrola ÄŤtenĂ­ WhatsApp zprĂˇv: doslovnĂ˝ pĹ™epis textu od AI (raw_text),
--- aby uĹľivatel mohl vĹľdy porovnat originĂˇlnĂ­ zprĂˇvu s tĂ­m, co AI pĹ™eÄŤetla.
-ALTER TABLE whatsapp_incoming
-  ADD COLUMN IF NOT EXISTS parsed_raw_text TEXT;
-
-COMMENT ON COLUMN whatsapp_incoming.parsed_raw_text IS 'DoslovnĂ˝ pĹ™epis zprĂˇvy od AI (raw_text z parse-order-text) â€” pro vizuĂˇlnĂ­ kontrolu, Ĺľe AI pĹ™eÄŤetla zprĂˇvu sprĂˇvnÄ›.';
-
-
--- ==== 20260810120000_add_whatsapp_readback_and_media.sql ====
--- Kontrola ÄŤtenĂ­ WhatsApp zprĂˇv â€” rozĹˇĂ­Ĺ™enĂ­ 2. fĂˇze:
---   * media_url â€” fotka/pĹ™Ă­loha zprĂˇvy (vyplĹuje webhook, kdyĹľ ji Make/Tasker poĹˇle)
---   * readback_unmatched_count â€” poÄŤet poloĹľek, jejichĹľ pĹ™epis AI nesouhlasĂ­
---     s originĂˇlem (vyplĹuje se pĹ™i parsovĂˇnĂ­ i po ruÄŤnĂ­m â€žpĹ™eÄŤtenĂ­ znovu")
---   * readback_checked_at / readback_checked_by â€” audit, kdo/kdy zprĂˇvu zkontroloval
---   * orders.whatsapp_message_id â€” zpÄ›tnĂ˝ odkaz objednĂˇvka â†’ WhatsApp zprĂˇva
-
-ALTER TABLE whatsapp_incoming
-  ADD COLUMN IF NOT EXISTS media_url TEXT,
-  ADD COLUMN IF NOT EXISTS readback_unmatched_count INTEGER,
-  ADD COLUMN IF NOT EXISTS readback_checked_at TIMESTAMP WITH TIME ZONE,
-  ADD COLUMN IF NOT EXISTS readback_checked_by TEXT;
-
-COMMENT ON COLUMN whatsapp_incoming.media_url IS 'URL fotky/pĹ™Ă­lohy zprĂˇvy (pokud ji webhook dostane) â€” zobrazenĂ­ v UI bez uklĂˇdĂˇnĂ­ mĂ©diĂ­.';
-COMMENT ON COLUMN whatsapp_incoming.readback_unmatched_count IS 'PoÄŤet poloĹľek, jejichĹľ raw_line se nenaĹˇel v originĂˇlnĂ­m textu (kontrola ÄŤtenĂ­). 0 = vĹˇe sedĂ­, NULL = nezkontrolovĂˇno.';
-COMMENT ON COLUMN whatsapp_incoming.readback_checked_at IS 'Kdy byla kontrola ÄŤtenĂ­ potvrzena (audit).';
-COMMENT ON COLUMN whatsapp_incoming.readback_checked_by IS 'Kdo kontrolu ÄŤtenĂ­ potvrdil (audit â€” user id nebo jmĂ©no).';
-
--- ZpÄ›tnĂ˝ odkaz objednĂˇvka â†’ WhatsApp zprĂˇva (z kterĂ© zprĂˇvy objednĂˇvka vznikla).
-ALTER TABLE orders
-  ADD COLUMN IF NOT EXISTS whatsapp_message_id UUID REFERENCES whatsapp_incoming(id) ON DELETE SET NULL;
-
-CREATE INDEX IF NOT EXISTS idx_orders_whatsapp_message_id ON orders(whatsapp_message_id);
-
-COMMENT ON COLUMN orders.whatsapp_message_id IS 'WhatsApp zprĂˇva, ze kterĂ© objednĂˇvka vznikla (zpÄ›tnĂ˝ odkaz pro kontrolu ÄŤtenĂ­).';
-
-
 -- ==== 20260815120000_add_reminders_target_emails.sql ====
--- RozĹˇĂ­Ĺ™enĂ­ tabulky reminders o hromadnĂ© cĂ­lenĂ­ na konkrĂ©tnĂ­ uĹľivatele.
+-- Rozšíření tabulky reminders o hromadné cílení na konkrétní uživatele.
 --
--- Aplikace nynĂ­ umoĹľĹuje posĂ­lat zprĂˇvy a upozornÄ›nĂ­ nejen vĹˇem / roli,
--- ale i vybranĂ˝m konkrĂ©tnĂ­m uĹľivatelĹŻm (vĂ­cenĂˇsobnĂ˝ vĂ˝bÄ›r podle e-mailĹŻ).
+-- Aplikace nyní umožňuje posílat zprávy a upozornění nejen všem / roli,
+-- ale i vybraným konkrétním uživatelům (vícenásobný výběr podle e-mailů).
 --
--- 1. CREATE TABLE IF NOT EXISTS â€” vytvoĹ™Ă­ tabulku (vÄŤetnÄ› novĂ©ho sloupce
---    target_emails text[]) i pro ÄŤistou instalaci databĂˇze.
--- 2. ALTER ... ADD COLUMN IF NOT EXISTS â€” pro existujĂ­cĂ­ databĂˇze, kde tabulka
---    uĹľ existuje (manuĂˇlnÄ› zaloĹľenĂˇ), pĹ™idĂˇ pĹ™Ă­padnĂ© chybÄ›jĂ­cĂ­ sloupce.
--- 3. RLS politiky â€” sdĂ­lenĂˇ data pivovaru (stejnĂ˝ vzor jako calendar_events).
+-- 1. CREATE TABLE IF NOT EXISTS — vytvoří tabulku (včetně nového sloupce
+--    target_emails text[]) i pro čistou instalaci databáze.
+-- 2. ALTER ... ADD COLUMN IF NOT EXISTS — pro existující databáze, kde tabulka
+--    už existuje (manuálně založená), přidá případné chybějící sloupce.
+-- 3. RLS politiky — sdílená data pivovaru (stejný vzor jako calendar_events).
 
 CREATE TABLE IF NOT EXISTS reminders (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1771,15 +1339,9 @@ CREATE POLICY "reminders_update" ON reminders FOR UPDATE TO authenticated USING 
 DROP POLICY IF EXISTS "reminders_delete" ON reminders;
 CREATE POLICY "reminders_delete" ON reminders FOR DELETE TO authenticated USING (true);
 
-COMMENT ON COLUMN reminders.target_emails IS 'E-maily konkrĂ©tnĂ­ch pĹ™Ă­jemcĹŻ (prĂˇzdnĂ© pole = cĂ­lĂ­ se podle target_role / vĹˇichni).';
+COMMENT ON COLUMN reminders.target_emails IS 'E-maily konkrétních příjemců (prázdné pole = cílí se podle target_role / všichni).';
 
-
--- ==== 20260815130000_add_notes_table.sql ====
--- Tabulka poznĂˇmek â€” souÄŤĂˇst â€žKalendĂˇĹ™ & PoznĂˇmky".
---
--- UmoĹľĹuje zapisovat volnĂ© poznĂˇmky (bez vazby na datum/upomĂ­nku),
--- sdĂ­lenĂ© mezi vĹˇemi uĹľivateli pivovaru (jako kalendĂˇĹ™ / upomĂ­nky).
-
+-- 20260815130000_add_notes_table.sql
 CREATE TABLE IF NOT EXISTS notes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   title text,
@@ -1789,9 +1351,7 @@ CREATE TABLE IF NOT EXISTS notes (
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );
-
 ALTER TABLE notes ENABLE ROW LEVEL SECURITY;
-
 DROP POLICY IF EXISTS "notes_select" ON notes;
 CREATE POLICY "notes_select" ON notes FOR SELECT TO authenticated USING (true);
 DROP POLICY IF EXISTS "notes_insert" ON notes;
@@ -1800,15 +1360,19 @@ DROP POLICY IF EXISTS "notes_update" ON notes;
 CREATE POLICY "notes_update" ON notes FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
 DROP POLICY IF EXISTS "notes_delete" ON notes;
 CREATE POLICY "notes_delete" ON notes FOR DELETE TO authenticated USING (true);
-
 CREATE INDEX IF NOT EXISTS idx_notes_created_at ON notes(created_at DESC);
+COMMENT ON TABLE notes IS 'Volné poznámky sdílené v rámci pivovaru (Kalendář & Poznámky).';
 
-COMMENT ON TABLE notes IS 'VolnĂ© poznĂˇmky sdĂ­lenĂ© v rĂˇmci pivovaru (KalendĂˇĹ™ & PoznĂˇmky).';
+
+
+
 
 
 -- ==== 20260816120000_add_keg_prefuk.sql ====
--- PĹ™efuk KEG sudĹŻ: pĹ™elitĂ­ piva ze sudĹŻ jednĂ© velikosti do sudĹŻ jinĂ© velikosti.
--- Ze skladu se odeÄŤtou sudy "ZE" (from_package_id, from_count) a pĹ™iÄŤtou se sudy "DO" (to_package_id, to_count).
+-- ============================================================================
+-- Přefuk KEG sudů: přelití piva ze sudů jedné velikosti do sudů jiné velikosti.
+-- Ze skladu se odečtou sudy "ZE" (from_package_id, from_count) a přičtou se sudy "DO" (to_package_id, to_count).
+-- ============================================================================
 CREATE TABLE IF NOT EXISTS keg_prefuk (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   entry_date date NOT NULL,
@@ -1837,35 +1401,35 @@ DROP POLICY IF EXISTS "auth_delete_keg_prefuk" ON keg_prefuk;
 CREATE POLICY "auth_delete_keg_prefuk" ON keg_prefuk FOR DELETE TO authenticated USING (true);
 
 CREATE INDEX IF NOT EXISTS idx_keg_prefuk_entry_date ON keg_prefuk(entry_date DESC);
-COMMENT ON TABLE keg_prefuk IS 'PĹ™efuk KEG sudĹŻ: pĹ™elitĂ­ piva ze sudĹŻ jednĂ© velikosti do jinĂ˝ch (sudy ZE se odeÄŤtou ze skladu, sudy DO se pĹ™iÄŤtou).';
-
+COMMENT ON TABLE keg_prefuk IS 'Přefuk KEG sudů: přelití piva ze sudů jedné velikosti do jiných (sudy ZE se odečtou ze skladu, sudy DO se přičtou).';
 
 -- ==== 20260817000000_add_cellar_tanks_kegging_active.sql ====
--- Sloupce pro Ĺ™Ă­zenĂ­ aktivnĂ­ho stĂˇÄŤenĂ­ z tanku (zdroj odeÄŤtu piva pĹ™i stĂˇÄŤenĂ­ KEG).
--- Aplikace (Sklep â†’ "ZahĂˇjit stĂˇÄŤenĂ­" / "UkonÄŤit stĂˇÄŤenĂ­") tyto sloupce zapisuje,
--- ale doposud nebyly v databĂˇzi â€” update tiĹˇe selhĂˇval a tlaÄŤĂ­tko se tvĂˇĹ™ilo, Ĺľe nic nedÄ›lĂˇ.
+-- Sloupce pro řízení aktivního stáčení z tanku (zdroj odečtu piva při stáčení KEG).
+-- Aplikace (Sklep → "Zahájit stáčení" / "Ukončit stáčení") tyto sloupce zapisuje,
+-- ale doposud nebyly v databázi — update tiše selhával a tlačítko se tvářilo, že nic nedělá.
 
 ALTER TABLE public.cellar_tanks
   ADD COLUMN IF NOT EXISTS kegging_active boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS kegging_started_at timestamptz,
   ADD COLUMN IF NOT EXISTS kegging_ended_at timestamptz;
 
-COMMENT ON COLUMN public.cellar_tanks.kegging_active IS 'Zda je na tanku aktivnĂ­ stĂˇÄŤenĂ­ KEG (jedinĂ˝ aktivnĂ­ zdroj, ze kterĂ©ho se odeÄŤĂ­tĂˇ pivo pĹ™i stĂˇÄŤenĂ­).';
-COMMENT ON COLUMN public.cellar_tanks.kegging_started_at IS 'Kdy bylo na tanku zahĂˇjeno stĂˇÄŤenĂ­ KEG.';
-COMMENT ON COLUMN public.cellar_tanks.kegging_ended_at IS 'Kdy bylo na tanku ukonÄŤeno stĂˇÄŤenĂ­ KEG.';
+COMMENT ON COLUMN public.cellar_tanks.kegging_active IS 'Zda je na tanku aktivní stáčení KEG (jediný aktivní zdroj, ze kterého se odečítá pivo při stáčení).';
+COMMENT ON COLUMN public.cellar_tanks.kegging_started_at IS 'Kdy bylo na tanku zahájeno stáčení KEG.';
+COMMENT ON COLUMN public.cellar_tanks.kegging_ended_at IS 'Kdy bylo na tanku ukončeno stáčení KEG.';
+
 
 
 -- ==== 20260818000000_auto_delete_non_whitelisted_whatsapp.sql ====
--- AutomatickĂ© mazĂˇnĂ­ WhatsApp zprĂˇv od nepovolenĂ˝ch odesĂ­latelĹŻ
--- VytvoĹ™eno: 2026-08-09
--- DĹŻvod: do aplikace se majĂ­ dostat JEN zprĂˇvy ze skupiny â€žObjednĂˇvky pivovarâ€ś.
---        Webhook je uĹľ neuklĂˇdĂˇ (odpovĂ­dĂˇ skipped:true), ale tahle pojistka zajistĂ­,
---        Ĺľe se do whatsapp_incoming nedostane ani zprĂˇva uloĹľenĂˇ jinou cestou
---        (SQL konzole, seed, Make bez filtru) a Ĺľe se smaĹľou i starĂ© zprĂˇvy
---        uloĹľenĂ© pĹ™ed nastavenĂ­m whitelistu.
+-- Automatické mazání WhatsApp zpráv od nepovolených odesílatelů
+-- Vytvořeno: 2026-08-09
+-- Důvod: do aplikace se mají dostat JEN zprávy ze skupiny „Objednávky pivovar“.
+--        Webhook je už neukládá (odpovídá skipped:true), ale tahle pojistka zajistí,
+--        že se do whatsapp_incoming nedostane ani zpráva uložená jinou cestou
+--        (SQL konzole, seed, Make bez filtru) a že se smažou i staré zprávy
+--        uložené před nastavením whitelistu.
 
--- 1) BEFORE INSERT pojistka: zprĂˇva od nepovolenĂ©ho odesĂ­latele se neuloĹľĂ­ vĹŻbec.
---    PrĂˇzdnĂ˝ whitelist = povoleno vĹˇe (zpÄ›tnÄ› kompatibilnĂ­ chovĂˇnĂ­).
+-- 1) BEFORE INSERT pojistka: zpráva od nepovoleného odesílatele se neuloží vůbec.
+--    Prázdný whitelist = povoleno vše (zpětně kompatibilní chování).
 CREATE OR REPLACE FUNCTION check_whatsapp_sender_allowed()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -1883,7 +1447,7 @@ BEGIN
   ) INTO v_is_allowed;
 
   IF NOT v_is_allowed THEN
-    RETURN NULL; -- Ĺ™Ăˇdek se nevytvoĹ™Ă­
+    RETURN NULL; -- řádek se nevytvoří
   END IF;
 
   RETURN NEW;
@@ -1896,8 +1460,8 @@ CREATE TRIGGER trg_whatsapp_check_sender_allowed
   FOR EACH ROW
   EXECUTE FUNCTION check_whatsapp_sender_allowed();
 
--- 2) PĹ™i odebrĂˇnĂ­ odesĂ­latele z whitelistu se smaĹľou i jeho uloĹľenĂ© zprĂˇvy
---    (pĹ™estal bĂ˝t povolenĂ˝ â†’ nemĂˇ v DB co dÄ›lat).
+-- 2) Při odebrání odesílatele z whitelistu se smažou i jeho uložené zprávy
+--    (přestal být povolený → nemá v DB co dělat).
 CREATE OR REPLACE FUNCTION delete_whatsapp_messages_of_removed_sender()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -1913,8 +1477,8 @@ CREATE TRIGGER trg_whatsapp_delete_on_sender_removed
   FOR EACH ROW
   EXECUTE FUNCTION delete_whatsapp_messages_of_removed_sender();
 
--- 3) OÄŤista stĂˇvajĂ­cĂ­ch zprĂˇv: smaĹľe zprĂˇvy od odesĂ­latelĹŻ, kteĹ™Ă­ nejsou
---    ve whitelistu (whitelist nenĂ­ prĂˇzdnĂ˝). PĹ™ed oÄŤistou doporuÄŤuji zĂˇlohu:
+-- 3) Očista stávajících zpráv: smaže zprávy od odesílatelů, kteří nejsou
+--    ve whitelistu (whitelist není prázdný). Před očistou doporučuji zálohu:
 --    node scripts/backup-whatsapp-incoming.mjs
 DO $$
 DECLARE
@@ -1922,7 +1486,7 @@ DECLARE
 BEGIN
   SELECT count(*) INTO v_allowed_count FROM whatsapp_senders;
   IF v_allowed_count = 0 THEN
-    RAISE NOTICE 'Whitelist je prĂˇzdnĂ˝ â€” nic se nemaĹľe.';
+    RAISE NOTICE 'Whitelist je prázdný — nic se nemaže.';
   ELSE
     DELETE FROM whatsapp_incoming w
     WHERE NOT EXISTS (
@@ -1933,25 +1497,24 @@ BEGIN
 END $$;
 
 COMMENT ON TRIGGER trg_whatsapp_check_sender_allowed ON whatsapp_incoming IS
-  'Automaticky zahodĂ­ zprĂˇvu od odesĂ­latele, kterĂ˝ nenĂ­ ve whatsapp_senders (prĂˇzdnĂ˝ whitelist = vĹˇe povoleno).';
+  'Automaticky zahodí zprávu od odesílatele, který není ve whatsapp_senders (prázdný whitelist = vše povoleno).';
 COMMENT ON TRIGGER trg_whatsapp_delete_on_sender_removed ON whatsapp_senders IS
-  'PĹ™i odebrĂˇnĂ­ odesĂ­latele z whitelistu smaĹľe jeho zprĂˇvy z whatsapp_incoming.';
-
+  'Při odebrání odesílatele z whitelistu smaže jeho zprávy z whatsapp_incoming.';
 
 -- ==== 20260818120000_whatsapp_chat_id_from_me_filter.sql ====
--- WhatsApp: filtrovĂˇnĂ­ podle chat_id + ignorovĂˇnĂ­ vlastnĂ­ch zprĂˇv (from_me)
--- VytvoĹ™eno: 2026-08-09
--- DĹŻvod:
---   1) ZpracovĂˇvĂˇ se JEN jedna skupina â€žObjednĂˇvky pivovarâ€ś â€” primĂˇrnÄ› podle
---      stabilnĂ­ho chat_id (napĹ™. "120363...@g.us"), nĂˇzev skupiny jen jako
---      pĹ™echodnĂˇ zĂˇloha (skupina se dĂˇ pĹ™ejmenovat, chat_id ne).
---   2) VlastnĂ­ zprĂˇvy (from_me = true â€” poslanĂ© z jinĂ©ho zaĹ™Ă­zenĂ­/WhatsApp Webu)
---      se NESMĂŤ dostat do systĂ©mu ani k AI â†’ vynuceno uĹľ na Ăşrovni databĂˇze
---      (prevence smyÄŤky AI â†’ odpovÄ›ÄŹ â†’ Tasker â†’ webhook).
---   3) PorovnĂˇnĂ­ nĂˇzvu je tolerantnĂ­ k diakritice: "objednavky pivovar" ==
---      "ObjednĂˇvky pivovar".
+-- WhatsApp: filtrování podle chat_id + ignorování vlastních zpráv (from_me)
+-- Vytvořeno: 2026-08-09
+-- Důvod:
+--   1) Zpracovává se JEN jedna skupina „Objednávky pivovar“ — primárně podle
+--      stabilního chat_id (např. "120363...@g.us"), název skupiny jen jako
+--      přechodná záloha (skupina se dá přejmenovat, chat_id ne).
+--   2) Vlastní zprávy (from_me = true — poslané z jiného zařízení/WhatsApp Webu)
+--      se NESMÍ dostat do systému ani k AI → vynuceno už na úrovni databáze
+--      (prevence smyčky AI → odpověď → Tasker → webhook).
+--   3) Porovnání názvu je tolerantní k diakritice: "objednavky pivovar" ==
+--      "Objednávky pivovar".
 
--- 0) NovĂ© sloupce (idempotentnÄ›)
+-- 0) Nové sloupce (idempotentně)
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns
@@ -1970,27 +1533,27 @@ BEGIN
   END IF;
 END $$;
 
--- 0.5) Normalizace nĂˇzvu pro porovnĂˇnĂ­: malĂˇ pĂ­smena, oĹ™ezanĂ© mezery, bez diakritiky.
+-- 0.5) Normalizace názvu pro porovnání: malá písmena, ořezané mezery, bez diakritiky.
 CREATE OR REPLACE FUNCTION whatsapp_norm(s text)
 RETURNS text
 LANGUAGE sql
 IMMUTABLE
 AS $$
-  SELECT translate(lower(trim(s)), 'ĂˇÄŤÄŹĂ©Ä›Ă­ĹĂłĹ™ĹˇĹĄĂşĹŻĂ˝Ĺľ', 'acdeeinorstuuyz');
+  SELECT translate(lower(trim(s)), 'áčďéěíňóřšťúůýž', 'acdeeinorstuuyz');
 $$;
 
--- 1) BEFORE INSERT pojistka (rozĹˇĂ­Ĺ™enĂˇ verze):
---    - from_me = true â†’ Ĺ™Ăˇdek se NIKDY nevytvoĹ™Ă­ (vlastnĂ­ zprĂˇva, prevence smyÄŤky).
---    - jinak je zprĂˇva povolenĂˇ, kdyĹľ sender_name odpovĂ­dĂˇ whitelistu NEBO chat_id
---      odpovĂ­dĂˇ nastavenĂ©mu chat_id. PrĂˇzdnĂ˝ whitelist = povoleno vĹˇe (zpÄ›tnÄ›
---      kompatibilnĂ­ chovĂˇnĂ­).
+-- 1) BEFORE INSERT pojistka (rozšířená verze):
+--    - from_me = true → řádek se NIKDY nevytvoří (vlastní zpráva, prevence smyčky).
+--    - jinak je zpráva povolená, když sender_name odpovídá whitelistu NEBO chat_id
+--      odpovídá nastavenému chat_id. Prázdný whitelist = povoleno vše (zpětně
+--      kompatibilní chování).
 CREATE OR REPLACE FUNCTION check_whatsapp_sender_allowed()
 RETURNS TRIGGER AS $$
 DECLARE
   v_allowed_count bigint;
   v_is_allowed boolean;
 BEGIN
-  -- VlastnĂ­ zprĂˇvy (z jinĂ©ho zaĹ™Ă­zenĂ­/Webu) se NIKDY neuklĂˇdajĂ­.
+  -- Vlastní zprávy (z jiného zařízení/Webu) se NIKDY neukládají.
   IF NEW.from_me THEN
     RETURN NULL;
   END IF;
@@ -2012,7 +1575,7 @@ BEGIN
   ) INTO v_is_allowed;
 
   IF NOT v_is_allowed THEN
-    RETURN NULL; -- Ĺ™Ăˇdek se nevytvoĹ™Ă­
+    RETURN NULL; -- řádek se nevytvoří
   END IF;
 
   RETURN NEW;
@@ -2025,8 +1588,8 @@ CREATE TRIGGER trg_whatsapp_check_sender_allowed
   FOR EACH ROW
   EXECUTE FUNCTION check_whatsapp_sender_allowed();
 
--- 2) PĹ™i odebrĂˇnĂ­ odesĂ­latele ze whitelistu se smaĹľou i jeho uloĹľenĂ© zprĂˇvy
---    (podle jmĂ©na NEBO chat_id).
+-- 2) Při odebrání odesílatele ze whitelistu se smažou i jeho uložené zprávy
+--    (podle jména NEBO chat_id).
 CREATE OR REPLACE FUNCTION delete_whatsapp_messages_of_removed_sender()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -2045,8 +1608,8 @@ CREATE TRIGGER trg_whatsapp_delete_on_sender_removed
   FOR EACH ROW
   EXECUTE FUNCTION delete_whatsapp_messages_of_removed_sender();
 
--- 3) OÄŤista: smaĹľe vlastnĂ­ zprĂˇvy a zprĂˇvy, kterĂ© neodpovĂ­dajĂ­ whitelistu
---    (podle jmĂ©na NEBO chat_id). PĹ™ed oÄŤistou doporuÄŤuji zĂˇlohu:
+-- 3) Očista: smaže vlastní zprávy a zprávy, které neodpovídají whitelistu
+--    (podle jména NEBO chat_id). Před očistou doporučuji zálohu:
 --    node scripts/backup-whatsapp-incoming.mjs
 DELETE FROM whatsapp_incoming WHERE from_me = true;
 
@@ -2056,7 +1619,7 @@ DECLARE
 BEGIN
   SELECT count(*) INTO v_allowed_count FROM whatsapp_senders;
   IF v_allowed_count = 0 THEN
-    RAISE NOTICE 'Whitelist je prĂˇzdnĂ˝ â€” nic se nemaĹľe.';
+    RAISE NOTICE 'Whitelist je prázdný — nic se nemaže.';
   ELSE
     DELETE FROM whatsapp_incoming w
     WHERE NOT EXISTS (
@@ -2070,50 +1633,16 @@ BEGIN
 END $$;
 
 COMMENT ON TRIGGER trg_whatsapp_check_sender_allowed ON whatsapp_incoming IS
-  'Automaticky zahodĂ­ zprĂˇvu od nepovolenĂ©ho odesĂ­latele a VĹ˝DY zprĂˇvu s from_me=true (vlastnĂ­ zprĂˇva â†’ prevence smyÄŤky).';
+  'Automaticky zahodí zprávu od nepovoleného odesílatele a VŽDY zprávu s from_me=true (vlastní zpráva → prevence smyčky).';
 COMMENT ON TRIGGER trg_whatsapp_delete_on_sender_removed ON whatsapp_senders IS
-  'PĹ™i odebrĂˇnĂ­ odesĂ­latele z whitelistu smaĹľe jeho zprĂˇvy z whatsapp_incoming (podle jmĂ©na nebo chat_id).';
-
-
--- ==== 20260820000000_add_whatsapp_session_table.sql ====
--- Migration to add a simple key-value session storage table for WhatsApp gateway (Baileys)
-CREATE TABLE IF NOT EXISTS public.whatsapp_session (
-    key text PRIMARY KEY,
-    value jsonb NOT NULL,
-    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
-    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
--- Enable RLS
-ALTER TABLE public.whatsapp_session ENABLE ROW LEVEL SECURITY;
-
--- Service role can manage all, authenticated users cannot access (sensitive credentials)
-CREATE POLICY "Service role manages whatsapp_session" ON public.whatsapp_session
-    FOR ALL
-    TO service_role
-    USING (true)
-    WITH CHECK (true);
-
--- Trigger to automatically update updated_at timestamp
-CREATE OR REPLACE FUNCTION public.handle_whatsapp_session_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = timezone('utc'::text, now());
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_whatsapp_session_updated_at
-    BEFORE UPDATE ON public.whatsapp_session
-    FOR EACH ROW
-    EXECUTE FUNCTION public.handle_whatsapp_session_updated_at();
+  'Při odebrání odesílatele z whitelistu smaže jeho zprávy z whatsapp_incoming (podle jména nebo chat_id).';
 
 
 -- ==== 20260820120000_add_sanitation_logs_table.sql ====
--- SanitaÄŤnĂ­ denĂ­k (HACCP): evidence provedenĂ˝ch sanitacĂ­ tankĹŻ a stĂˇÄŤecĂ­ch linek.
+-- Sanitační deník (HACCP): evidence provedených sanitací tanků a stáčecích linek.
 -- Aplikace: SanitationLogScreen.tsx (typ SanitationLog v src/lib/supabase.ts).
--- Tabulka doposud nikdy nevznikla v produkci â†’ PostgREST vracel 404 a denĂ­k
--- fungoval jen z lokĂˇlnĂ­ho ĂşloĹľiĹˇtÄ›. Tato migrace ji vytvoĹ™Ă­ vÄŤetnÄ› RLS.
+-- Tabulka doposud nikdy nevznikla v produkci → PostgREST vracel 404 a deník
+-- fungoval jen z lokálního úložiště. Tato migrace ji vytvoří včetně RLS.
 CREATE TABLE IF NOT EXISTS sanitation_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   sanitation_date date NOT NULL,
@@ -2143,22 +1672,22 @@ DROP POLICY IF EXISTS "auth_delete_sanitation_logs" ON sanitation_logs;
 CREATE POLICY "auth_delete_sanitation_logs" ON sanitation_logs FOR DELETE TO authenticated USING (true);
 
 CREATE INDEX IF NOT EXISTS idx_sanitation_logs_date ON sanitation_logs(sanitation_date DESC, created_at DESC);
-COMMENT ON TABLE sanitation_logs IS 'SanitaÄŤnĂ­ denĂ­k HACCP: provedenĂ© sanitace tankĹŻ / linek (metoda, chemie, koncentrace, teplota, dĂ©lka, odpovÄ›dnĂˇ osoba).';
+COMMENT ON TABLE sanitation_logs IS 'Sanitační deník HACCP: provedené sanitace tanků / linek (metoda, chemie, koncentrace, teplota, délka, odpovědná osoba).';
 
--- Realtime (ĹľivĂ© obnovenĂ­ denĂ­ku na otevĹ™enĂ˝ch zaĹ™Ă­zenĂ­ch)
+-- Realtime (živé obnovení deníku na otevřených zařízeních)
 DO $$
 BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE public.sanitation_logs;
 EXCEPTION WHEN OTHERS THEN
-  RAISE NOTICE 'sanitation_logs uĹľ v publikaci: %', SQLERRM;
+  RAISE NOTICE 'sanitation_logs už v publikaci: %', SQLERRM;
 END $$;
 
 
 -- ==== 20260820130000_add_srotovani_table.sql ====
--- Ĺ rotovĂˇnĂ­ sladu (HACCP norma 3.1): zĂˇpis hmotnosti naĹˇrotovanĂ©ho sladu pro vĂˇrky.
+-- Šrotování sladu (HACCP norma 3.1): zápis hmotnosti našrotovaného sladu pro várky.
 -- Aplikace: SrotovaniScreen v src/screens/BreweryScreens.tsx (typ SrotovaniRow).
--- Tabulka doposud v produkci neexistovala â†’ obrazovka Ĺ rotovĂˇnĂ­ se naÄŤĂ­tala navĹľdy
--- (supabase.from('srotovani').select() vracel 404). Tato migrace ji vytvoĹ™Ă­.
+-- Tabulka doposud v produkci neexistovala → obrazovka Šrotování se načítala navždy
+-- (supabase.from('srotovani').select() vracel 404). Tato migrace ji vytvoří.
 CREATE TABLE IF NOT EXISTS srotovani (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   entry_date date NOT NULL,
@@ -2181,28 +1710,27 @@ DROP POLICY IF EXISTS "auth_delete_srotovani" ON srotovani;
 CREATE POLICY "auth_delete_srotovani" ON srotovani FOR DELETE TO authenticated USING (true);
 
 CREATE INDEX IF NOT EXISTS idx_srotovani_entry_date ON srotovani(entry_date DESC);
-COMMENT ON TABLE srotovani IS 'Ĺ rotovĂˇnĂ­ sladu dle HACCP bodu 3.1 â€” zĂˇpis hmotnosti naĹˇrotovanĂ©ho sladu pro jednotlivĂ© vĂˇrky piv.';
+COMMENT ON TABLE srotovani IS 'Šrotování sladu dle HACCP bodu 3.1 — zápis hmotnosti našrotovaného sladu pro jednotlivé várky piv.';
 
--- Realtime (ĹľivĂ© obnovenĂ­ obrazovky Ĺ rotovĂˇnĂ­)
+-- Realtime (živé obnovení obrazovky Šrotování)
 DO $$
 BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE public.srotovani;
 EXCEPTION WHEN OTHERS THEN
-  RAISE NOTICE 'srotovani uĹľ v publikaci: %', SQLERRM;
+  RAISE NOTICE 'srotovani už v publikaci: %', SQLERRM;
 END $$;
 
 
 -- ==== 20260820140000_add_legacy_zadavani_cellar_batches_audit_log.sql ====
--- Legacy tabulky, na kterĂ© aplikace/operativnĂ­ skripty odkazujĂ­, ale v produkci chybÄ›ly:
---   * audit_log       â€” auditnĂ­ log operacĂ­ (typ AuditEntry v src/lib/supabase.ts,
+-- Legacy tabulky, na které aplikace/operativní skripty odkazují, ale v produkci chyběly:
+--   * audit_log       — auditní log operací (typ AuditEntry v src/lib/supabase.ts,
 --                       tabulka je i v realtime publikaci a v cleanup skriptech)
---   * cellar_batches  â€” vĂˇrky v tancĂ­ch sklepa (src/lib/backup.ts)
---   * zadavani        â€” legacy zĂˇznamy (cleanup/backup skripty)
--- Schema zadavani / cellar_batches je minimĂˇlnĂ­ best-guess â€” ĹľĂˇdnĂ˝ kĂłd sloupce
--- nepouĹľĂ­vĂˇ, tabulky vznikajĂ­ hlavnÄ› kvĹŻli tomu, aby cleanup/backup skripty
--- bÄ›Ĺľely bez chyby "table does not exist".
+--   * cellar_batches  — várky v tancích sklepa (src/lib/backup.ts)
+--   * zadavani        — legacy záznamy (cleanup/backup skripty)
+-- Schema zadavani / cellar_batches je minimální best-guess — žádný kód sloupce
+-- nepoužívá, tabulky vznikají hlavně kvůli tomu, aby cleanup/backup skripty
+-- běžely bez chyby "table does not exist".
 
--- 1) audit_log (odpovĂ­dĂˇ typu AuditEntry)
 CREATE TABLE IF NOT EXISTS audit_log (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   table_name text NOT NULL,
@@ -2226,9 +1754,8 @@ DROP POLICY IF EXISTS "auth_delete_audit_log" ON audit_log;
 CREATE POLICY "auth_delete_audit_log" ON audit_log FOR DELETE TO authenticated USING (true);
 
 CREATE INDEX IF NOT EXISTS idx_audit_log_changed_at ON audit_log(changed_at DESC);
-COMMENT ON TABLE audit_log IS 'AuditnĂ­ log operacĂ­ nad daty (typ AuditEntry).';
+COMMENT ON TABLE audit_log IS 'Auditní log operací nad daty (typ AuditEntry).';
 
--- 2) cellar_batches â€” vĂˇrky v tancĂ­ch sklepa
 CREATE TABLE IF NOT EXISTS cellar_batches (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   batch_number text,
@@ -2256,9 +1783,8 @@ CREATE POLICY "auth_update_cellar_batches" ON cellar_batches FOR UPDATE TO authe
 DROP POLICY IF EXISTS "auth_delete_cellar_batches" ON cellar_batches;
 CREATE POLICY "auth_delete_cellar_batches" ON cellar_batches FOR DELETE TO authenticated USING (true);
 
-COMMENT ON TABLE cellar_batches IS 'VĂˇrky v tancĂ­ch sklepa (legacy â€” doposud ĹľĂˇdnĂ˝ kĂłd nepĂ­Ĺˇe, schĂ©ma je best-guess).';
+COMMENT ON TABLE cellar_batches IS 'Várky v tancích sklepa (legacy — doposud žádný kód nepíše, schéma je best-guess).';
 
--- 3) zadavani â€” legacy zĂˇznamy
 CREATE TABLE IF NOT EXISTS zadavani (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   entry_date date,
@@ -2282,90 +1808,34 @@ CREATE POLICY "auth_update_zadavani" ON zadavani FOR UPDATE TO authenticated USI
 DROP POLICY IF EXISTS "auth_delete_zadavani" ON zadavani;
 CREATE POLICY "auth_delete_zadavani" ON zadavani FOR DELETE TO authenticated USING (true);
 
-COMMENT ON TABLE zadavani IS 'Legacy tabulka (doposud ĹľĂˇdnĂ˝ kĂłd neÄŤte ani nezapisuje, schĂ©ma je best-guess).';
+COMMENT ON TABLE zadavani IS 'Legacy tabulka (doposud žádný kód nečte ani nezapisuje, schéma je best-guess).';
 
--- audit_log doplnit i do realtime publikace (byla v seznamu uĹľ v enable_realtime)
+-- audit_log doplnit i do realtime publikace (byla v seznamu už v enable_realtime)
 DO $$
 BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE public.audit_log;
 EXCEPTION WHEN OTHERS THEN
-  RAISE NOTICE 'audit_log uĹľ v publikaci: %', SQLERRM;
+  RAISE NOTICE 'audit_log už v publikaci: %', SQLERRM;
 END $$;
 
 
--- ==== 20260821000000_auth_passwordless_allowlist.sql ====
--- Migration for passwordless approved email whitelist and profiles.password_set flag
--- 1. Create allowed_emails table
-CREATE TABLE IF NOT EXISTS public.allowed_emails (
-    email text PRIMARY KEY,
-    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
-);
 
--- Enable RLS on allowed_emails
-ALTER TABLE public.allowed_emails ENABLE ROW LEVEL SECURITY;
-
--- Admins (role = 'admin') can do anything on allowed_emails
-CREATE POLICY "Admins manage allowed_emails" ON public.allowed_emails
-    FOR ALL TO authenticated
-    USING (
-        EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
-    )
-    WITH CHECK (
-        EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
-    );
-
--- 2. Add password_set to profiles
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS password_set boolean DEFAULT false NOT NULL;
-
--- 3. Populate allowed_emails with existing users in auth.users and primary admin email
-INSERT INTO public.allowed_emails (email)
-VALUES ('vasilecko@seznam.cz')
-ON CONFLICT (email) DO NOTHING;
-
-INSERT INTO public.allowed_emails (email)
-SELECT email FROM auth.users
-WHERE email IS NOT NULL
-ON CONFLICT (email) DO NOTHING;
-
--- Set password_set = true for all existing users (they already have passwords)
-UPDATE public.profiles SET password_set = true;
-
--- 4. Create trigger to block sign-ups of non-allowed emails
-CREATE OR REPLACE FUNCTION public.check_allowed_email()
-RETURNS TRIGGER AS $$
-BEGIN
-    -- Check if email is in allowed_emails (case-insensitive)
-    IF NOT EXISTS (
-        SELECT 1 FROM public.allowed_emails 
-        WHERE LOWER(email) = LOWER(NEW.email)
-    ) THEN
-        RAISE EXCEPTION 'Registrace/PĹ™ihlĂˇĹˇenĂ­ nenĂ­ povoleno. E-mail % nenĂ­ schvĂˇlen administrĂˇtorem.', NEW.email;
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-DROP TRIGGER IF EXISTS trg_check_allowed_email ON auth.users;
-CREATE TRIGGER trg_check_allowed_email
-    BEFORE INSERT ON auth.users
-    FOR EACH ROW
-    EXECUTE FUNCTION public.check_allowed_email();
 
 
 -- ==== 20261008120000_add_bottling_plans.sql ====
 -- ============================================================================
--- âš—ď¸Ź PlĂˇnovĂˇnĂ­ stĂˇÄŤenĂ­ â€” â€žCo je potĹ™eba stoÄŤit"
+-- ⚗️ Plánování stáčení — „Co je potřeba stočit"
 -- ----------------------------------------------------------------------------
--- Admin / slĂˇdek / ĹˇĂ©f zadĂˇ Ăşkol (pivo, aĹľ 3 velikosti lahvĂ­, KEG sudy, datum,
--- poznĂˇmka). StĂˇÄŤeÄŤ vidĂ­ Ăşkoly zvĂ˝raznÄ›nĂ© v zĂˇpisu stĂˇÄŤenĂ­ (BottlingScreen,
--- zĂˇloĹľka â€žStĂˇÄŤenĂ­ lahvĂ­") a mĹŻĹľe je â€žnaplnit" do formulĂˇĹ™e nebo oznaÄŤit jako
--- hotovĂ©.
+-- Admin / sládek / šéf zadá úkol (pivo, až 3 velikosti lahví, KEG sudy, datum,
+-- poznámka). Stáčeč vidí úkoly zvýrazněné v zápisu stáčení (BottlingScreen,
+-- záložka „Stáčení lahví") a může je „naplnit" do formuláře nebo označit jako
+-- hotové.
 --
--- RLS: otevĹ™enĂ© ÄŤtenĂ­ i zĂˇpis pro pĹ™ihlĂˇĹˇenĂ© uĹľivatele â€” shodnÄ› s ostatnĂ­mi
--- tabulkami aplikace (bottling, orders, ...). Kdo smĂ­ zadĂˇvat/upravovat/mazat
--- se Ĺ™Ă­dĂ­ UI vrstvou (isBottlingManager: admin/sef/sladek/boss/manager),
--- protoĹľe stĂˇÄŤeÄŤ musĂ­ umÄ›t pĹ™epnout Ăşkol na â€žhotovo" (offline fronta aplikace
--- pak umĂ­ zĂˇpis spolehlivÄ› zopakovat).
+-- RLS: otevřené čtení i zápis pro přihlášené uživatele — shodně s ostatními
+-- tabulkami aplikace (bottling, orders, ...). Kdo smí zadávat/upravovat/mazat
+-- se řídí UI vrstvou (isBottlingManager: admin/sef/sladek/boss/manager),
+-- protože stáčeč musí umět přepnout úkol na „hotovo" (offline fronta aplikace
+-- pak umí zápis spolehlivě zopakovat).
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS bottling_plans (
@@ -2374,7 +1844,7 @@ CREATE TABLE IF NOT EXISTS bottling_plans (
   -- KEG sudy
   keg_pkg_id uuid REFERENCES packages(id) ON DELETE SET NULL,
   keg_qty integer NOT NULL DEFAULT 0 CHECK (keg_qty >= 0),
-  -- Lahve (aĹľ 3 velikosti na jeden Ăşkol)
+  -- Lahve (až 3 velikosti na jeden úkol)
   pkg_id uuid REFERENCES packages(id) ON DELETE SET NULL,
   qty integer NOT NULL DEFAULT 0 CHECK (qty >= 0),
   pkg2_id uuid REFERENCES packages(id) ON DELETE SET NULL,
@@ -2387,14 +1857,14 @@ CREATE TABLE IF NOT EXISTS bottling_plans (
   created_by uuid REFERENCES profiles(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  -- Ăškol musĂ­ mĂ­t alespoĹ jeden obal s poÄŤtem > 0
+  -- Úkol musí mít alespoň jeden obal s počtem > 0
   CONSTRAINT bottling_plans_has_lines CHECK (qty > 0 OR qty2 > 0 OR qty3 > 0 OR keg_qty > 0)
 );
 
 CREATE INDEX IF NOT EXISTS idx_bottling_plans_planned_date ON bottling_plans(planned_date);
 CREATE INDEX IF NOT EXISTS idx_bottling_plans_status ON bottling_plans(status);
 
--- Auto-update updated_at pĹ™i zmÄ›nÄ› (pro odznĂˇÄŤek â€žnovĂ˝ch ĂşkolĹŻ" u stĂˇÄŤeÄŤe)
+-- Auto-update updated_at při změně (pro odznáček „nových úkolů" u stáčeče)
 CREATE OR REPLACE FUNCTION public.touch_updated_at_bottling_plans()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -2411,7 +1881,7 @@ CREATE TRIGGER trg_bottling_plans_touch_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION public.touch_updated_at_bottling_plans();
 
--- RLS (otevĹ™enĂ© pro pĹ™ihlĂˇĹˇenĂ© â€” viz komentĂˇĹ™ nahoĹ™e)
+-- RLS (otevřené pro přihlášené — viz komentář nahoře)
 ALTER TABLE bottling_plans ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "auth_read_bottling_plans" ON bottling_plans;
@@ -2426,99 +1896,15 @@ CREATE POLICY "auth_update_bottling_plans" ON bottling_plans FOR UPDATE TO authe
 DROP POLICY IF EXISTS "auth_delete_bottling_plans" ON bottling_plans;
 CREATE POLICY "auth_delete_bottling_plans" ON bottling_plans FOR DELETE TO authenticated USING (true);
 
--- Realtime (ĹľivĂ© obnovenĂ­ pro stĂˇÄŤeÄŤe i plĂˇnovaÄŤe)
+-- Realtime (živé obnovení pro stáčeče i plánovače)
 DO $$
 BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE public.bottling_plans;
 EXCEPTION WHEN OTHERS THEN
-  RAISE NOTICE 'bottling_plans uĹľ v publikaci: %', SQLERRM;
+  RAISE NOTICE 'bottling_plans už v publikaci: %', SQLERRM;
 END $$;
 
-COMMENT ON TABLE bottling_plans IS 'Ăškoly na stĂˇÄŤenĂ­ (lahve + KEG) â€” zadĂˇvĂˇ admin/slĂˇdek/ĹˇĂ©f, stĂˇÄŤeÄŤ vidĂ­ zvĂ˝raznÄ›nĂ© v zĂˇpisu stĂˇÄŤenĂ­.';
-
-
--- ==== 20261009120000_add_bottle_sanitation_logs.sql ====
--- SanitĂˇrnĂ­ denĂ­k lahvĂ­: dennĂ­ zĂˇznam sanitace stĂˇÄŤecĂ­ linky lahvĂ­.
--- Aplikace: BottleSanitationDiary.tsx + lib/bottleSanitation.ts.
--- Jeden den stĂˇÄŤenĂ­ = jeden zĂˇznam: louh NaOH, proplach ÄŤistou vodou,
--- celĂˇ cesta vÄŤetnÄ› vzduchovĂ© na louhu s oplĂˇchem a Ăşklid prostor.
--- ZĂˇpis se vytvĂˇĹ™Ă­ ruÄŤnÄ› nebo automaticky po dokonÄŤenĂ­ checklistu
--- â€žKonec stĂˇÄŤenĂ­â€ś / â€žMÄ›sĂ­ÄŤnĂ­ ĂşdrĹľbaâ€ś (source = 'checklist').
-CREATE TABLE IF NOT EXISTS bottle_sanitation_logs (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  sanitation_date date NOT NULL,
-  louh boolean NOT NULL DEFAULT false,
-  proplach_vodou boolean NOT NULL DEFAULT false,
-  cela_cesta_na_louhu boolean NOT NULL DEFAULT false,
-  prostory boolean NOT NULL DEFAULT false,
-  performed_by text,
-  note text,
-  source text CHECK (source IN ('manual', 'checklist')) DEFAULT 'manual',
-  created_at timestamptz DEFAULT now()
-);
-
-ALTER TABLE bottle_sanitation_logs ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "auth_read_bottle_sanitation_logs" ON bottle_sanitation_logs;
-CREATE POLICY "auth_read_bottle_sanitation_logs" ON bottle_sanitation_logs FOR SELECT TO authenticated USING (true);
-DROP POLICY IF EXISTS "auth_write_bottle_sanitation_logs" ON bottle_sanitation_logs;
-CREATE POLICY "auth_write_bottle_sanitation_logs" ON bottle_sanitation_logs FOR INSERT TO authenticated WITH CHECK (true);
-DROP POLICY IF EXISTS "auth_update_bottle_sanitation_logs" ON bottle_sanitation_logs;
-CREATE POLICY "auth_update_bottle_sanitation_logs" ON bottle_sanitation_logs FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "auth_delete_bottle_sanitation_logs" ON bottle_sanitation_logs;
-CREATE POLICY "auth_delete_bottle_sanitation_logs" ON bottle_sanitation_logs FOR DELETE TO authenticated USING (true);
-
-CREATE INDEX IF NOT EXISTS idx_bottle_sanitation_logs_date ON bottle_sanitation_logs(sanitation_date DESC, created_at DESC);
-COMMENT ON TABLE bottle_sanitation_logs IS 'SanitĂˇrnĂ­ denĂ­k lahvĂ­ HACCP: dennĂ­ sanitace stĂˇÄŤecĂ­ linky lahvĂ­ (louh, proplach vodou, cesta na louhu, Ăşklid prostor, odpovÄ›dnĂˇ osoba).';
-
--- Realtime (ĹľivĂ© obnovenĂ­ denĂ­ku na otevĹ™enĂ˝ch zaĹ™Ă­zenĂ­ch)
-DO $$
-BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.bottle_sanitation_logs;
-EXCEPTION WHEN OTHERS THEN
-  RAISE NOTICE 'bottle_sanitation_logs uĹľ v publikaci: %', SQLERRM;
-END $$;
-
-
--- ==== 20261010000000_add_whatsapp_media_bucket.sql ====
--- Fotky z WhatsApp objednĂˇvek: veĹ™ejnĂ˝ Supabase Storage bucket â€žwhatsapp-mediaâ€ś.
---
--- ProÄŤ: DeepSeek (textovĂ˝ model AI) fotky NEÄŚTE, takĹľe objednĂˇvku poslanou jako
--- fotka musĂ­ v aplikaci zkontrolovat a stĂˇhnout ÄŤlovÄ›k. whatsapp-bridge stĂˇhne
--- fotku ze serverĹŻ WhatsApp a nahraje ji sem (service role klĂ­ÄŤ); vĂ˝slednĂˇ URL
--- se uloĹľĂ­ do whatsapp_incoming.media_url (viz whatsapp_readback_and_media).
---
--- Bucket je veĹ™ejnĂ˝ â†’ fotka je dostupnĂˇ pĹ™Ă­mo v prohlĂ­ĹľeÄŤi (<img>, download)
--- bez pĹ™ihlĂˇĹˇenĂ­. ZĂˇpis dÄ›lĂˇ jen whatsapp-bridge se service role klĂ­ÄŤem (RLS
--- se obejde), aplikace ke ÄŤtenĂ­ nepotĹ™ebuje ĹľĂˇdnĂ˝ extra grant.
-
--- 1) VytvoĹ™ bucket idempotentnÄ› (DO blok â†’ migrace je bezpeÄŤnĂˇ i pĹ™i opÄ›tovnĂ©m
---    spuĹˇtÄ›nĂ­ na existujĂ­cĂ­ databĂˇzi).
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM storage.buckets WHERE id = 'whatsapp-media') THEN
-    INSERT INTO storage.buckets (id, name, public)
-    VALUES ('whatsapp-media', 'whatsapp-media', true);
-  END IF;
-END $$;
-
--- 2) VeĹ™ejnĂ© ÄŤtenĂ­ objektĹŻ bucketu (storage.objects mĂˇ vlastnĂ­ RLS). Bez tĂ©to
---    politiky by i GET /object/public/... mohl skonÄŤit 401 u nereplikovanĂ˝ch
---    bucketĹŻ; zĂˇpis zĹŻstĂˇvĂˇ omezen na service role (RLS se obejde).
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies
-    WHERE schemaname = 'storage' AND tablename = 'objects'
-      AND policyname = 'whatsapp_media_public_read'
-  ) THEN
-    CREATE POLICY "whatsapp_media_public_read"
-      ON storage.objects FOR SELECT
-      USING (bucket_id = 'whatsapp-media');
-  END IF;
-END $$;
-
-
+COMMENT ON TABLE bottling_plans IS 'Úkoly na stáčení (lahve + KEG) — zadává admin/sládek/šéf, stáčeč vidí zvýrazněné v zápisu stáčení.';
 
 
 -- ==== 20260811120000_allow_from_me_messages.sql ====
@@ -2563,4 +1949,3 @@ $$ LANGUAGE plpgsql;
 
 COMMENT ON TRIGGER trg_whatsapp_check_sender_allowed ON whatsapp_incoming IS
   'Zahodí zprávu od nepovoleného odesílatele (whitelist podle názvu nebo chat_id). Vlastní zprávy (from_me=true) se ukládají a rozliší se flagem from_me.';
-
