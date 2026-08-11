@@ -66,16 +66,16 @@ Deno.serve(async (req: Request) => {
     const { data: secretRows, error: secretsErr } = await supabase
       .from("app_secrets")
       .select("key, value")
-      .in("key", ["GEMINI_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"]);
+      .in("key", ["GEMINI_API_KEY", "GROQ_API_KEY", "OPENAI_API_KEY"]);
 
     const secretsMap = new Map((secretRows ?? []).map((s) => [s.key, s.value]));
     const geminiKey = secretsMap.get("GEMINI_API_KEY");
-    const apiKey = secretsMap.get("ANTHROPIC_API_KEY");
+    const groqKey = secretsMap.get("GROQ_API_KEY");
     const openaiKey = secretsMap.get("OPENAI_API_KEY");
 
-    if (secretsErr || (!geminiKey && !apiKey && !openaiKey)) {
+    if (secretsErr || (!geminiKey && !groqKey && !openaiKey)) {
       return new Response(
-        JSON.stringify({ error: "Neither GEMINI_API_KEY nor ANTHROPIC_API_KEY nor OPENAI_API_KEY is configured in app_secrets" }),
+        JSON.stringify({ error: "Neither GEMINI_API_KEY nor GROQ_API_KEY nor OPENAI_API_KEY is configured in app_secrets" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -348,17 +348,18 @@ DŮLEŽITÉ — TOP-LEVEL "place_name":
 Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpovědi, vedle "items" a "raw_text"). Toto pole = JMÉNO ODBĚRATELE, jehož objednávka je v textu NEJVÝRAZNĚJŠÍ / první / hlavní (obvykle první zpráva nahoře). Pokud je v textu více odběratelů, top-level place_name = ten první/nejvýraznější. Pokud text říká "pro mě"/"mi"/"mně"/"pro mne", použij jméno ODESÍLATELE první/nejvýraznější zprávy. Pokud nelze určit žádného (ať už proto, že v textu žádný není, nebo protože jediný kandidát je jméno odesílatele, aniž by text říkal "pro mě"), vrať null. Příklad bez odběratele: {"items":[...],"place_name":null,"raw_text":"..."}. Toto pole je důležité, protože aplikace ho použije pro vytvoření nové objednávky.`;
 
 
-    const anthropicBody = {
-      model: "claude-sonnet-4-5-20250929",
-      max_tokens: 8192,
+    const groqBody = {
+      model: "llama-3.3-70b-versatile",
       temperature: 0.1,
+      response_format: { type: "json_object" },
       messages: [
         {
+          role: "system",
+          content: prompt,
+        },
+        {
           role: "user",
-          content: [
-            { type: "text", text: prompt },
-            { type: "text", text: `\n\nTEXT OBJEDNÁVKY Z WHATSAPP:\n"""\n${rawText}\n"""` },
-          ],
+          content: `TEXT OBJEDNÁVKY Z WHATSAPP:\n"""\n${rawText}\n"""`,
         },
       ],
     };
@@ -415,37 +416,39 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
       }
     }
 
-    // 2) Fallback k Anthropic
-    if (apiKey) {
+    // 2) Fallback: Groq (Llama 3.3 70B). Jakmile Gemini vrátí chybu nebo vyčerpá
+    //    denní limit (HTTP 429/500), přepneme OKAMŽITĚ (bez čekání, řádově 0,5 s),
+    //    takže čtení objednávek z WhatsAppu funguje 24/7 bez přerušení.
+    if (!text && groqKey) {
       try {
-        const anthropicUrl = "https://api.anthropic.com/v1/messages";
-        const anthropicResp = await fetch(anthropicUrl, {
+        const groqUrl = "https://api.groq.com/openai/v1/chat/completions";
+        const groqResp = await fetch(groqUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-api-key": apiKey,
-            "anthropic-version": "2023-06-01",
+            "Authorization": `Bearer ${groqKey}`,
           },
-          body: JSON.stringify(anthropicBody),
+          body: JSON.stringify(groqBody),
         });
 
-        if (anthropicResp.ok) {
-          const anthropicData = await anthropicResp.json();
-          text = anthropicData?.content?.[0]?.text ?? "";
+        if (groqResp.ok) {
+          const groqData = await groqResp.json();
+          text = groqData?.choices?.[0]?.message?.content ?? "";
+          console.log("parse-order-text: PROVIDER=groq");
         } else {
-          const errText = await anthropicResp.text();
-          console.warn(`Anthropic API error (status ${anthropicResp.status}): ${errText}`);
+          const errText = await groqResp.text();
+          console.warn(`Groq API error (status ${groqResp.status}): ${errText}`);
         }
       } catch (err) {
-        console.warn(`Anthropic API exception: ${err}`);
+        console.warn(`Groq API exception: ${err}`);
       }
     }
 
-    // Fallback k OpenAI
+    // 3) Poslední fallback: OpenAI (gpt-4o-mini) — kdyby selhal i Groq.
     if (!text && openaiKey) {
       isOpenAiUsed = true;
       const openaiBody = {
-        model: "gpt-4o",
+        model: "gpt-4o-mini",
         temperature: 0.1,
         response_format: { type: "json_object" },
         messages: [
@@ -484,7 +487,7 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
 
     if (!text) {
       return new Response(
-        JSON.stringify({ error: "Failed to get response from any LLM provider (Gemini, Anthropic, OpenAI)" }),
+        JSON.stringify({ error: "Failed to get response from any LLM provider (Gemini, Groq, OpenAI)" }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
