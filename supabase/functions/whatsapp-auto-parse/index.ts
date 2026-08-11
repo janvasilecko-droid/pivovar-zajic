@@ -639,7 +639,7 @@ Deno.serve(async (req: Request) => {
     // NEBO chat_id odpovídá zaregistrovanému. Název-filtr funguje vždy, chat_id
     // je dobrovolná pojistka (Tasker %anwhatsappchatid často neposílá).
     // Ostatní se označí 'ignored', aby neležely v aplikaci jako 'pending'.
-    // Vlastní zprávy (from_me) procházejí whitelistem stejně jako zákaznické.
+    // Vlastní zprávy (from_me) whitelist obcházejí — píše je sám majitel.
     const { data: senderRows } = await supabase
       .from("whatsapp_senders")
       .select("sender_name, chat_id");
@@ -650,7 +650,9 @@ Deno.serve(async (req: Request) => {
       .map((s: any) => (s.chat_id || "").trim().toLowerCase())
       .filter(Boolean);
     const isSenderAllowed = (message: any): boolean => {
-      // Vlastní zprávy (from_me) se zpracovávají — platí pro ně stejný whitelist.
+      // Vlastní zprávy (from_me) se zpracovávají VŽDY — píše je sám majitel
+      // (do skupiny i soukromě), whitelist na ně neplatí.
+      if (message.from_me === true) return true;
       // Prázdný whitelist = povoleno vše (zpětně kompatibilní chování).
       if ((senderRows || []).length === 0) return true;
       const chat = (message.chat_id || "").trim().toLowerCase();
@@ -701,9 +703,28 @@ Deno.serve(async (req: Request) => {
           continue;
         }
 
-        // Do AI jde JEN poslední zpráva (jméno + text), žádná celá konverzace.
-        // Předchozí zprávy od stejného odesílatele se neposílají — AI má číst
-        // jen text aktuální objednávky, ne celý chat.
+        // Načteme historii posledních 3 zpráv ze stejné skupiny/chatu (chat_id)
+        // před touto zprávou, abychom dali AI kontext (předešlé zprávy, na které může reagovat).
+        let chatContext = [];
+        if (message.chat_id) {
+          const { data: contextData } = await supabase
+            .from("whatsapp_incoming")
+            .select("sender_name, message_timestamp, message_text")
+            .eq("chat_id", message.chat_id)
+            .lt("created_at", message.created_at)
+            .order("created_at", { ascending: false })
+            .limit(3);
+
+          if (contextData && contextData.length > 0) {
+            chatContext = [...contextData].reverse().map((m: any) => ({
+              sender: m.sender_name,
+              date: m.message_timestamp ?
+                    new Date(m.message_timestamp).toISOString().split('T')[0] :
+                    null,
+              text: m.message_text
+            }));
+          }
+        }
 
         // Call the existing parse-order-text edge function
         const parseUrl = `${supabaseUrl}/functions/v1/parse-order-text`;
@@ -716,6 +737,7 @@ Deno.serve(async (req: Request) => {
           aliases,
           placeAliases,
           messages: [
+            ...chatContext,
             {
               sender: message.sender_name,
               date: message.message_timestamp ?

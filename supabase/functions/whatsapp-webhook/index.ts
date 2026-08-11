@@ -260,8 +260,9 @@ Deno.serve(async (req: Request) => {
     //        MUSÍ souhlasit (jinak je to jiná skupina se stejným názvem);
     //      • když zpráva chat_id neposílá (Tasker %anwhatsappchatid často neumí),
     //        projde podle názvu — název-filtr funguje i po zaregistrování chat_id.
-    //    Vlastní zprávy (from_me=true, z jiného zařízení/Webu) se ukládají se
-    //    flagem from_me — aplikace je tak rozliší od zákaznických objednávek.
+    //    Vlastní zprávy (from_me=true — píše je sám majitel ze spárovaného
+    //    telefonu, do skupiny i soukromě) whitelist OBEJDOU a vždy se uloží
+    //    s flagem from_me, aby je aplikace rozlišila od zákaznických objednávek.
     const chatId = String(payload.chatId ?? payload.chat_id ?? "").trim();
     const fromMe =
       payload.fromMe === true ||
@@ -308,7 +309,7 @@ Deno.serve(async (req: Request) => {
     // přejmenovat — chat_id je stabilní). Stejná pravidla jako DB trigger
     // (check_whatsapp_sender_allowed) a whatsapp-auto-parse.
     const chatAllowed = chatId !== "" && allowedChatIds.includes(chatId.toLowerCase());
-    if (senders.length > 0 && !senderRow && !chatAllowed) {
+    if (!fromMe && senders.length > 0 && !senderRow && !chatAllowed) {
       console.log(
         `[whatsapp-webhook] IGNOROVÁNO — odesílatel "${record.sender_name}" (chat_id="${chatId}") není v whitelistu.`
       );
@@ -322,7 +323,7 @@ Deno.serve(async (req: Request) => {
     // neposílá), ale pokud zpráva chat_id posílá a odesílatel ho má registrované,
     // musí souhlasit.
     const registeredChatId = (senderRow && (senderRow.chat_id || "").trim()) || "";
-    if (senderRow && registeredChatId) {
+    if (!fromMe && senderRow && registeredChatId) {
       if (chatId && chatId.toLowerCase() !== registeredChatId.toLowerCase()) {
         console.log(
           `[whatsapp-webhook] IGNOROVÁNO — chat_id="${chatId}" nesouhlasí se zaregistrovaným "${registeredChatId}" pro "${record.sender_name}".`

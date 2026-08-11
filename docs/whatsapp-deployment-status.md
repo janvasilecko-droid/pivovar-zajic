@@ -477,6 +477,48 @@ vytvoří novou zálohu stejným způsobem.
 
 ---
 
+## 📬 AKTUALIZACE 2026-08-11 (22. kolo): vlastní zprávy (from_me) obcházejí whitelist — propisují se do aplikace i ze soukromých zpráv
+
+### Požadavek
+Majitel potřebuje, aby se do aplikace propisovaly **VŠECHNY jeho vlastní zprávy** —
+ze skupiny i ze soukromých (1:1) konverzací (např. zpráva sám sobě, psaní a úprava
+objednávek). Dosud vlastní zprávy procházely whitelistem jako zákaznické, takže
+soukromá zpráva od majitele (sender „Vasil“ / `16896468508730`, ve whitelistu není)
+se v bridge zahodila.
+
+### Změna chování
+- **Vlastní zprávy (`from_me=true`) whitelist OBEJDOU na všech vrstvách** — píše je
+  sám majitel ze spárovaného telefonu (žádné riziko spamu). Aplikace je rozliší
+  podle flagu `from_me`.
+- Bridge přeposílá i soukromé (1:1) vlastní zprávy; webhook je uloží, DB trigger
+  nezahodí a auto-parse zpracuje (i pro odesílatele mimo whitelist).
+
+### Co se změnilo
+- `whatsapp-bridge/index.js` — `isOwn` (fromMe) přeskočí `isGroupAllowed` /
+  `isContactAllowed` (vlastní zpráva z 1:1 se nezahodí).
+- `supabase/functions/whatsapp-webhook/index.ts` — whitelist a chat_id pojistka se
+  pro `from_me` přeskočí.
+- `supabase/functions/whatsapp-auto-parse/index.ts` — `isSenderAllowed` vrací pro
+  `from_me=true` vždy `true`.
+- `supabase/migrations/20260811130000_from_me_bypass_whitelist.sql` (nová) — trigger
+  `check_whatsapp_sender_allowed` vrací `NEW` pro `from_me=true` dřív než whitelist.
+
+### Nasazení (provedeno)
+1. `node scripts/apply-whatsapp-migration.mjs 20260811130000_from_me_bypass_whitelist.sql`
+2. `node scripts/deploy-function.mjs whatsapp-webhook`
+3. `node scripts/deploy-function.mjs whatsapp-auto-parse`
+4. Push `whatsapp-bridge` → Render auto-deploy.
+
+### Ověřeno
+- E2E webhook: POST s `from_me=true` a senderem mimo whitelist → uloženo
+  (`from_me=true`), negativní kontrola (`from_me=false`) → `skipped`, testovací
+  řádek uklizen.
+- Test uživatele: zpráva sám sobě (1:1) ze spárovaného telefonu → dorazí do
+  aplikace s `from_me=true`.
+
+---
+
+
 ## 📬 AKTUALIZACE 2026-08-11 (21. kolo): vlastní zprávy (from_me) se zpracovávají
 
 ### Změna chování
