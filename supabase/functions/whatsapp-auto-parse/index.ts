@@ -635,10 +635,11 @@ Deno.serve(async (req: Request) => {
     const placeAliases = placeAliasRows || [];
 
     // Povolení odesílatelé (whitelist): pokud je seznam neprázdný, zpracujeme
-    // jen zprávy ze skupiny „Objednávky pivovar“ — podle chat_id (primárně)
-    // nebo názvu skupiny (přechodně, dokud chat_id není zaregistrováno).
-    // Ostatní (a VŠECHNY vlastní zprávy z jiných zařízení, from_me) se označí
-    // 'ignored', aby neležely v aplikaci jako 'pending'.
+    // jen zprávy, které prošly bránou — odesílatel podle názvu (bez diakritiky)
+    // NEBO chat_id odpovídá zaregistrovanému. Název-filtr funguje vždy, chat_id
+    // je dobrovolná pojistka (Tasker %anwhatsappchatid často neposílá).
+    // Ostatní se označí 'ignored', aby neležely v aplikaci jako 'pending'.
+    // Vlastní zprávy (from_me) procházejí whitelistem stejně jako zákaznické.
     const { data: senderRows } = await supabase
       .from("whatsapp_senders")
       .select("sender_name, chat_id");
@@ -648,15 +649,17 @@ Deno.serve(async (req: Request) => {
     const allowedChatIds = (senderRows || [])
       .map((s: any) => (s.chat_id || "").trim().toLowerCase())
       .filter(Boolean);
-    const chatIdConfigured = allowedChatIds.length > 0;
     const isSenderAllowed = (message: any): boolean => {
-      // Vlastní zpráva → nikdy k AI (pojistka; webhook je už neukládá).
-      if (message.from_me === true) return false;
+      // Vlastní zprávy (from_me) se zpracovávají — platí pro ně stejný whitelist.
+      // Prázdný whitelist = povoleno vše (zpětně kompatibilní chování).
+      if ((senderRows || []).length === 0) return true;
       const chat = (message.chat_id || "").trim().toLowerCase();
-      if (chatIdConfigured) {
-        return chat !== "" && allowedChatIds.includes(chat);
-      }
-      return allowedNames.length === 0 || allowedNames.includes(normName(message.sender_name));
+      // Povolené chat_id (stabilní identifikátor skupiny)…
+      if (chat !== "" && allowedChatIds.includes(chat)) return true;
+      // …nebo název skupiny z whitelistu (bez diakritiky/velikosti). Název-filtr
+      // funguje i po zaregistrování chat_id — Tasker %anwhatsappchatid často neposílá,
+      // a bez toho by se zprávy ze skupiny tiše označily 'ignored'.
+      return allowedNames.includes(normName(message.sender_name));
     };
 
     // Process each pending message
@@ -668,22 +671,19 @@ Deno.serve(async (req: Request) => {
         // zprávy od nepovolených odesílatelů označíme 'ignored', aby neležely
         // v aplikaci jako 'pending' a nezvětšovaly počítadlo.
         if (!isSenderAllowed(message)) {
-          const isOwn = message.from_me === true;
           await safeUpdateMessage(
             supabase,
             message.id,
             {
               status: "ignored",
-              error_message: isOwn
-                ? "Vlastní zpráva (from_me) — nikdy se nezpracovává (prevence smyčky)"
-                : "Odesílatel není povolený (povolena je jen skupina Objednávky pivovar)",
+              error_message: "Odesílatel není povolený (povolena je jen skupina Objednávky pivovar)",
             },
             "pending"
           );
           results.push({
             id: message.id,
             status: "ignored",
-            reason: isOwn ? "from_me" : "sender not allowed",
+            reason: "sender not allowed",
           });
           continue;
         }

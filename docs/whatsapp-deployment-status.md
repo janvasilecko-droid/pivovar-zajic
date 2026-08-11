@@ -1,6 +1,6 @@
 # Stav nasazení WhatsApp backendu — RESUMÉ
 
-> **Poslední aktualizace**: 2026-08-09 (11. kolo — chat_id + from_me filtr, viz níže)
+> **Poslední aktualizace**: 2026-08-10 (18. kolo — Tasker/AutoNotification odstraněny, WhatsApp jde přes cloudovou bránu; viz kolo 18 na konci)
 > **Účel**: záchranný dokument — kam se navázalo, co je hotové, co zbývá.
 
 ## 📌 Klíčové údaje
@@ -10,7 +10,7 @@
 | Supabase projekt (ref) | `sasqexjadvlqyticxwja` |
 | Region | West EU (Ireland) |
 | URL frontendu (PWA) | https://zajic-pivovar.pages.dev |
-| Webhook URL (Make/Tasker) | `https://sasqexjadvlqyticxwja.supabase.co/functions/v1/whatsapp-webhook` |
+| Webhook URL (cloudová brána / Make.com) | `https://sasqexjadvlqyticxwja.supabase.co/functions/v1/whatsapp-webhook` |
 | Auto-parse URL | `https://sasqexjadvlqyticxwja.supabase.co/functions/v1/whatsapp-auto-parse` |
 | Management API token | **v `.env`** (klíče `SUPABASE_ACCESS_TOKEN` a `SB_TOKEN`) — `.env` je v gitignoru |
 | Dashboard Supabase | https://supabase.com/dashboard/project/sasqexjadvlqyticxwja |
@@ -477,6 +477,33 @@ vytvoří novou zálohu stejným způsobem.
 
 ---
 
+## 📬 AKTUALIZACE 2026-08-11 (12. kolo): vlastní zprávy (from_me) se zpracovávají
+
+### Změna chování
+- **WhatsApp bridge** přeposílá i vlastní zprávy (odeslané ze spárovaného telefonu / Webu)
+  s flagem `fromMe: true` (commit b8411c05 — zrušené ignorování `from_me` na bridge).
+- **Webhook funkce**, **DB trigger** i **whatsapp-auto-parse** už vlastní zprávy
+  NEZahazují — uloží se s `from_me=true` a projdou stejným whitelistem jako zákaznické.
+  Aplikace je rozliší flagem `from_me`.
+- Týká se to testování: zpráva ze spárovaného telefonu do skupiny „Objednávky pivovar“
+  teď dorazí do aplikace (skupina je v whitelistu podle názvu).
+
+### Co se změnilo
+- `supabase/functions/whatsapp-webhook/index.ts` — odstraněno `skipped` pro from_me.
+- `supabase/functions/whatsapp-auto-parse/index.ts` — odstraněn bypass pro from_me.
+- `supabase/migrations/20260811120000_allow_from_me_messages.sql` (nová) — trigger
+  `check_whatsapp_sender_allowed` už nehází `RETURN NULL` pro `from_me=true`.
+- `whatsapp-bridge/index.js` — fromMe zprávy se vyhodnocují (místo „ignoruji“).
+
+### Nasazení (provedeno)
+1. `node scripts/apply-migration.mjs 20260811120000_allow_from_me_messages.sql`
+2. `node scripts/deploy-function.mjs whatsapp-webhook`
+3. `node scripts/deploy-function.mjs whatsapp-auto-parse`
+
+---
+
+## 🔐 AKTUALIZACE 2026-08-09 (11. kolo): filtr podle chat_id + ignorování vlastních zpráv (from_me)
+
 ## 🔐 AKTUALIZACE 2026-08-09 (11. kolo): filtr podle chat_id + ignorování vlastních zpráv (from_me)
 
 ### Požadavek
@@ -555,3 +582,373 @@ ELSE → ignoruj
 - Do AI se posílá jen poslední zpráva — zpráva se ukládá po jedné a auto-parse
   zpracovává každou zvlášť (bez minulých zpráv v promptu).
 
+
+---
+
+## 🚨 AKTUALIZACE 2026-08-10 (12. kolo): tichý výpadek — chybějící `x-webhook-token` v Taskeru
+
+### Symptom
+Uživateli přišly **2 zprávy do skupiny „Objednávky pivovar“**, ale do aplikace se
+**nic nepropsalo** (`whatsapp_incoming` v produkci byla **úplně prázdná**).
+
+### Diagnóza (ověřeno na produkci)
+1. REST dotaz: `whatsapp_incoming` = **0 řádků** → zprávy se nikdy neuložily.
+2. `whatsapp_senders`: „Objednávky pivovar“, `chat_id = null` → aktivní je název-filter.
+3. **`WEBHOOK_SECRET` je nastavené** na projektu (secret `WEBHOOK_SECRET` existuje).
+4. Webhook (verze 7) vyžaduje hlavičku `x-webhook-token` → bez ní vrací **HTTP 401**.
+5. **Tasker (nastavený podle `docs/tasker-direct-webhook-podrobne.md` v2.0) hlavičku
+   neposílal** → každá zpráva skončila 401 a byla tichou ztrátou.
+6. Live test: POST bez hlavičky → **401**; POST s hlavičkou + UTF-8 → **uloženo** (pending)
+   → auto-parse → **parsed** (položky spárovány s katalogem). Celý řetězec funguje.
+
+### Příčina
+- `docs/tasker-direct-webhook-podrobne.md` (v2.0, 2026-08-08) nemělo v tabulce
+  hlaviček `x-webhook-token`. Dokument `tasker-direct-webhook.md` (v1.2) ji uvádí.
+
+### Oprava
+1. **Tasker**: do HTTP Request doplnit hlavičku `x-webhook-token: <WEBHOOK_SECRET>`
+   (hodnota z `.env`). Bez ní se zprávy neuloží.
+2. **Dokumentace**: `tasker-direct-webhook-podrobne.md` v2.1 — povinná hlavička
+   zvýrazněna + troubleshooting „HTTP 401“.
+3. **Webhook v8**: přidán `console.warn` při neúspěšné autorizaci (401 je teď vidět
+   v logech funkce). Nasazeno, `verify_jwt=false` (přijímá bez JWT).
+
+### Stav po opravě (2026-08-10)
+- `whatsapp_incoming` = 0 řádků (testovací zprávy smazány).
+- Webhook v8 aktivní, end-to-end ověřen (webhook → auto-parse → parsed).
+- Zbývá: **v Taskeru doplnit hlavičku** a odeslat zkušební objednávku.
+
+
+---
+
+## ✅ AKTUALIZACE 2026-08-10 (13. kolo): přesný Tasker payload ověřen naživo
+
+### Co se ověřilo
+POST na webhook s **přesně tím tvarem, jaký posílá Tasker** (hlavička
+`x-webhook-token` + `Content-Type: application/json`, body na jeden řádek
+s epoch-milisekundovým `timestamp` a víceřádkovým `message`):
+
+```json
+{"sender":"Objednávky pivovar","message":"Ahoj sládku, na čtvrtek potřebujeme:\n2x 12° světlý ležák 50l\n1x 13° jantar 30l\nDíky!","timestamp":"<epoch ms>","senderNumber":"+420777111222","webhookId":"tasker-live-<ms>","chatId":"","fromMe":false}
+```
+
+Výsledek:
+1. **HTTP 200** → uloženo jako `pending` (id `9e58cf46-…`).
+2. `whatsapp-auto-parse` (volané stejně jako frontend, s anon klíčem) → **parsed**,
+   **2 položky spárované s katalogem** (2× 12° Světlá **KEG 50l** + 1× Jantar **KEG 30l**,
+   `beer_id`/`pkg_id` vyplněny, `place=null` = odběratele doplní uživatel v modálu).
+3. DB ověřena, testovací zpráva **smazána** (`whatsapp_incoming` = 0 řádků).
+
+### Co to znamená pro uživatele
+- **Serverová strana je 100% hotová.** Stačí jen v Taskeru opravit HTTP Request:
+  hlavička `x-webhook-token: <secret z .env>` + body (viz `docs/tasker-direct-webhook-podrobne.md` v2.2).
+- Testovací zprávu posílat **DO SKUPINY „Objednávky pivovar“** (ne „Message yourself“ —
+  odesílatel by nesouhlasil s whitelistem a zpráva by se zahodila).
+- `chatId`/`fromMe` v těle jsou volitelné (prázdné `chatId` je OK — funguje název-filter).
+
+---
+
+## ✅ AKTUALIZACE 2026-08-10 (14. kolo): hotový importovatelný Tasker soubor
+
+### Co přibylo
+- **`tasker/whatsapp-do-pivovaru.tsk.xml`** — Tasker úloha „WhatsApp do pivovaru“
+  s jedinou akcí **HTTP Request** (kód 339), která se **importuje přímo v Taskeru**
+  (záložka ÚLOHY → dlouhý stisk → Import). Žádné ruční opisování.
+- Formát XML je ověřený proti **reálným Tasker exportům** (kód 339 = HTTP Request,
+  `arg1=1` = POST, `arg2` = URL, `arg3` = hlavičky, `arg5` = JSON body, `arg8` = timeout).
+
+### Co soubor obsahuje
+- URL: `https://sasqexjadvlqyticxwja.supabase.co/functions/v1/whatsapp-webhook`
+- Metoda: `POST`
+- Hlavičky: `Content-Type: application/json` + `x-webhook-token: <WEBHOOK_SECRET>` (**povinná**)
+- Body: `{"sender":"%antitle","message":"%antext","timestamp":"%antime","senderNumber":"%annumber","webhookId":"%TIMEMS","chatId":"%anwhatsappchatid","fromMe":false}`
+- Timeout: 30 s
+
+### Ověření (2026-08-10, produkce)
+- XML validní (well-formed, .NET parser), JSON tělo validní, všechny proměnné
+  (`%antitle`, `%antext`, `%antime`, `%annumber`, `%TIMEMS`, `%anwhatsappchatid`) přítomné.
+- **Live test znovu spuštěn s přesně těmito hodnotami**: POST → **HTTP 200**,
+  uloženo (`pending`) → `whatsapp-auto-parse` → **parsed**, 2 položky spárované
+  s katalogem (2× 12° Světlá **KEG 50l** + 1× 13° Hazy Bunny **KEG 30l**).
+- Testovací zpráva smazána — `whatsapp_incoming` = **0 řádků**.
+
+### Zbývá (na uživateli)
+1. Importovat `tasker/whatsapp-do-pivovaru.tsk.xml` do Taskeru.
+2. Přepojit profil AutoNotification Intercept na importovanou úlohu
+   (a starou úlohu smazat).
+3. Odeslat zkušební objednávku **DO SKUPINY „Objednávky pivovar“** →
+   zkontrolovat Run log (HTTP 200) a modál Schválit/Zamítnout v aplikaci.
+
+
+
+
+---
+
+## 🚨 AKTUALIZACE 2026-08-10 (15. kolo): stále „nepropsáno“ — prokázáno, že webhook NIC nedostává
+
+### Co se zjistilo (kontrola produkce)
+
+- Uživatel: „chodí další zprávy a pořád se nepropíšou“.
+- `whatsapp_incoming` = **0 řádků**; `whatsapp_senders` = „Objednávky pivovar“ (`chat_id = null` → aktivní je **název-filtr**, nikoli striktní chat_id).
+- **Logy edge funkcí** (Management API, dotaz nad `edge_logs`): za posledních 7 dní **ŽÁDNÉ volání** `/functions/v1/whatsapp-webhook`. V logu jsou jen REST requesty aplikace (PWA si čte `whatsapp_incoming`). → **Telefon na webhook nic neposílá.** Nejedná se o 401, ani o shozenou zprávu — request se k serveru vůbec nedostane.
+- Serverová strana ověřena **naživo s přesným payloadem z `.tsk.xml`**: token v souboru = `WEBHOOK_SECRET` z `.env` (48 znaků, shoda ověřena), POST → **HTTP 200** → uloženo `pending` → AI parsing → úklid. Webhook funguje.
+
+### Co přibylo na serveru (deploy 15. kolo)
+
+1. **GET ping** na `https://sasqexjadvlqyticxwja.supabase.co/functions/v1/whatsapp-webhook` → vrací `{"ok":true}` (bez tokenu, nic citlivého). Slouží k rychlému ověření z TELEFONU, že URL a server fungují — odliší „neposílá telefon“ od „webhook odmítá“.
+2. **Oprava času zprávy**: Tasker `%antime` je epoch **sekundy** (10 číslic) — webhook je nyní správně rozpozná a uloží reálný čas (dříve by skončil v roce 1970). Ověřeno naživo pro sekundy i ISO.
+
+### Co to znamená a co udělat (uživatel — telefon)
+
+`.tsk.xml` obsahuje **jen ÚLOHU**. Úloha se sama **nikdy** nespustí — musí ji spustit **PROFIL** (Událost → AutoNotification → Zachytit/Intercept). To je nejpravděpodobnější příčina: profil buď neexistuje, není zapnutý, nebo je stále propojený se STAROU úlohou (bez hlavičky → 401 → tichá ztráta).
+
+Pořadí ověření na telefonu:
+
+1. **Ping**: v prohlížeči na telefonu otevřít webhook URL (GET) → musí se zobrazit `{"ok":true}`.
+2. **Profil**: Tasker → Profily → profil „AutoNotification Intercept“ musí být **zapnutý** (zelený) a jako úloha musí mít **„WhatsApp do pivovaru“** (klepnout na úlohu u profilu → změnit → vybrat importovanou). Starou úlohu smazat (pozor na „(2)“ při konfliktu názvů).
+3. **Run log**: Tasker → Protokoly → Protokol běhu. Po zprávě ve skupině tam MUSÍ být HTTP Request. Není-li tam nic → AutoNotification nezachytává: zkontrolovat **přístup k notifikacím** a **optimalizaci baterie** pro Tasker i AutoNotification.
+4. **Odesílatel**: zprávy posílat z **JINÉHO účtu** do skupiny „Objednávky pivovar“ (název skupiny musí souhlasit přesně — bez emoji/přípon). Zprávy odeslané z vlastního účtu (WhatsApp Web) se správně ignorují (from_me) a na telefonu ani negenerují notifikaci.
+
+### Zbývá
+
+- Úspěšný E2E průchod: zpráva z telefonu → webhook (HTTP 200 v Run logu) → modál Schválit/Zamítnout v aplikaci.
+
+
+---
+
+## ✅ AKTUALIZACE 2026-08-10 (16. kolo): oprava brány — název-filtr funguje i po zaregistrování chat_id + sjednocené porovnání diakritiky
+
+### Co se opravilo
+
+Brána (filtr, které zprávy se čtou do systému) měla dvě skryté vady:
+
+1. **Název-filtr se vypínal po zaregistrování `chat_id`.** Jakmile měl alespoň jeden odesílatel ve
+   `whatsapp_senders` vyplněné `chat_id`, webhook přepnul na „striktní filtr podle chat_id" a zprávu
+   **bez** `chat_id` v payloadu tiše zahodil (`chat_id missing`) — i když přišla ze skupiny
+   „Objednávky pivovar". Tasker `%anwhatsappchatid` ale řada verzí neposílá → ztráta objednávek.
+   Stejnou vadu měl i `whatsapp-auto-parse` (takové zprávy by označil `ignored`).
+   To odporovalo dokumentaci (`prázdné chatId je v pořádku — webhook filtruje podle názvu skupiny`).
+2. **Nesjednocené porovnávání odesílatele.** Webhook porovnával bez diakritiky (NFD), frontend
+   (`isSenderAllowed`) jen `toLowerCase()` → zpráva, kterou brána pustila (např. odesílatel
+   „Objednavky pivovar"), by se v aplikaci mohla skrýt.
+
+### Nové pravidlo brány (stejné ve webhooku, DB triggeru i auto-parse)
+
+```
+povoleno, když:
+  • whitelist je prázdný (zpětně kompatibilní — vše), NEBO
+  • sender_name odpovídá whitelistu (bez diakritiky a velikosti písmen), NEBO
+  • chat_id zprávy odpovídá zaregistrovanému chat_id (skupina se mohla přejmenovat)
+vlastní zpráva (from_me) se NIKDY neuloží (prevence smyčky)
+```
+
+Webhook navíc hlídá stabilitu: pokud odesílatel má registrované `chat_id` a zpráva posílá jiné
+(`chat_id_unknown`) → zahodí. DB trigger (`check_whatsapp_sender_allowed`, `whatsapp_norm`)
+a auto-parse už používání bez diakritiky podporovaly — sjednotil se k nim webhook a frontend.
+
+### Co se změnilo (soubory)
+
+- `supabase/functions/whatsapp-webhook/index.ts` — brána přepsána: whitelist podle názvu vždy aktivní,
+  `chat_id` jako dobrovolná stabilizační pojistka; přijetí i podle `chat_id` (přejmenovaná skupina).
+- `supabase/functions/whatsapp-auto-parse/index.ts` — `isSenderAllowed` stejné pravidlo (název NEBO chat_id);
+  zprávy ze skupiny bez chat_id už NEkončí jako `ignored`.
+- `src/lib/whatsappApi.ts` — `normSenderName()` + `isSenderAllowed` bez diakritiky (sjednoceno s webhookem/DB).
+- `src/lib/whatsappApi.test.ts` — nové unit testy normalizace a whitelistu.
+- `scripts/verify-whatsapp-group-gate.mjs` — rozšířen o testy: zpráva bez diakritiky (3b),
+  zpráva bez chat_id při registrovaném chat_id (3c), špatné chat_id (4).
+
+### Ověřeno naživo (produkce, 2026-08-10)
+
+- **Bez registrovaného chat_id**: nepovolený odesílatel → `skipped`, from_me → `skipped`,
+  skupina → `pending` → auto-parse → `parsed`; **„Objednavky pivovar" bez diakritiky → uloženo**.
+- **S dočasně registrovaným chat_id** (placeholder, poté vráceno):
+  - zpráva ze skupiny s platným chat_id → uložena;
+  - **zpráva ze skupiny BEZ chat_id → uložena** (název-filtr funguje i po registraci chat_id);
+  - **špatné chat_id → `skipped` (`chat_id_unknown`)**;
+  - auto-parse: 3 parsed / 0 ignored.
+- Testovací zprávy smazány, `chat_id` vrácen na `null` (whitelist = „Objednávky pivovar" bez chat_id).
+- Edge funkce nasazeny: `whatsapp-webhook` **v11**, `whatsapp-auto-parse` **v17**.
+- Frontend **v1.548** nasazen na Cloudflare Pages (`zajic-pivovar.pages.dev`).
+
+### Zbývá (na uživateli — telefon)
+
+- Úspěšný E2E průchod: zpráva z telefonu → webhook (HTTP 200 v Run logu) → modál Schválit/Zamítnout.
+  Serverová strana je kompletní a ověřená — viz postup ověření v 15. kole (ping → profil → run log → odesílatel).
+
+---
+
+## ✅ AKTUALIZACE 2026-08-10 (17. kolo): filtr smazán a nastaven znova + živé ověření brány
+
+Dle požadavku („filtry vymazat a nastavit znova“) byl whitelist kompletně resetován
+a znovu nastaven:
+
+1. `node scripts/set-whatsapp-senders.mjs` → smazal celý `whatsapp_senders`
+   (byl prázdný — filtr byl vypnutý) a vložil **`Objednávky pivovar`** (bez chat_id).
+   Filtr čtení je tedy opět **AKTIVNÍ** — do systému se čtou jen zprávy ze skupiny.
+2. `node scripts/verify-whatsapp-group-gate.mjs` → **HOTOVO ✓ (brána funguje)**:
+   - nepovolený odesílatel → `skipped` (neuloží se),
+   - vlastní zpráva (`from_me`) → `skipped`,
+   - „Objednávky pivovar“ → `pending` → auto-parse → `parsed` (2/2, 0 ignored),
+   - „Objednavky pivovar“ bez diakritiky → prošlo (filtr sjednocen).
+3. Testovací zprávy smazány — `whatsapp_incoming` je prázdná, whitelist je
+   `["Objednávky pivovar"]` bez chat_id.
+
+Zbývá (na uživateli — telefon): reálný E2E průchod z telefonu (ping → profil → run log → modál).
+
+---
+
+### 17b. Příprava večerního testu (2026-08-10)
+
+Do whitelistu přidán kontakt **„Ala Milacek Milacek“** (`set-whatsapp-senders.mjs --add`,
+skupina „Objednávky pivovar“ zachována) — manželka může posílat testovací objednávky
+i přímo (1:1), ne jen do skupiny. Ověřeno naživo: zpráva od ní → webhook HTTP 200
+`pending` (prošla bránou); testovací zpráva smazána, `whatsapp_incoming` prázdná.
+
+Aktuální whitelist: `["Objednávky pivovar", "Ala Milacek Milacek"]` (bez chat_id).
+
+
+---
+
+## 🗑️ AKTUALIZACE 2026-08-10 (18. kolo): Tasker/AutoNotification odstraněny — WhatsApp jde přes cloudovou bránu
+
+### Co se rozhodlo
+
+Tasker (lokální zpracování na telefonu) se ruší — WhatsApp objednávky jdou
+rovnou přes **cloudovou bránu** (Make.com / WhatsApp webhook → Supabase → AI
+parsing). Je to efektivnější: telefon nemusí běžet, nezávisí na notifikacích,
+zprávy se neztrácejí.
+
+### Co bylo odstraněno
+
+| Položka | Umístění |
+|---|---|
+| `taskerShareService.ts` | `src/lib/` — singleton pro příjem sdíleného textu z Taskeru/Android Share |
+| `SimpleWhatsAppInbox.tsx` | `src/components/` — stará WhatsApp schránka (localStorage) |
+| WhatsApp tab | `src/screens/OrdersTabbed.tsx` — tab „WhatsApp" s SimpleWhatsAppInbox odebrán |
+| `receiveSharedText` handler | `android/.../MainActivity.java` — vrácen na default (jen `BridgeActivity`) |
+| SEND intent-filter (`text/plain`) | `android/.../AndroidManifest.xml` — odebrán |
+| `tasker-setup.md` | `docs/` |
+| `tasker-direct-webhook.md` | `docs/` |
+| `tasker-direct-webhook-podrobne.md` | `docs/` |
+| `tasker-live-test.mjs`, `tasker-live-test-group.mjs` | `scratch/` |
+| `whatsapp-do-pivovaru.tsk.xml` | `tasker/` (celá složka) |
+
+Záloha všeho je v **`D:\stazene\zajic\_backup\tasker-2026-08-10\`** (mimo repo)
+pro případ, že by bylo potřeba se vrátit.
+
+### Co zůstává (cloudová brána)
+
+- `supabase/functions/whatsapp-webhook` — příjem zpráv (v11),
+- `supabase/functions/whatsapp-auto-parse` — AI parsing (v17),
+- tabulka `whatsapp_incoming` + RLS + trigger brány (`check_whatsapp_sender_allowed`),
+- whitelist: `["Objednávky pivovar", "Ala Milacek Milacek"]` (bez chat_id),
+- frontend modály Schválit/Zamítnout v `src/screens/Orders.tsx`.
+
+### Zbývá
+
+- Zdroj dat pro webhook (Make.com scénář / WhatsApp Business API) — nastavení
+  mimo repo, viz `docs/whatsapp-make-integration.md`.
+
+---
+
+## 🛠️ AKTUALIZACE 2026-08-10 (19. kolo): oprava „filtru čtení“ v bridge (Baileys gateway)
+
+Cloudová brána se přepisuje na vlastní mikroslužbu
+(`whatsapp-bridge/` — Baileys Multi-Device, běží na Renderu). Bridge má vlastní
+filtr, které zprávy z WhatsAppu **přečte** a přepošle na webhook. Ten nebyl
+konzistentní s autoritativní bránou (webhook + DB trigger + auto-parse) — opraveno:
+
+| Vada | Projev | Oprava |
+|---|---|---|
+| Bridge filtroval skupiny **jen podle názvu** | Po přejmenování skupiny „Objednávky pivovar“ se zprávy tiše ztrácely (webhook by je přes registrované `chat_id` přijal) | Bridge povoluje skupinu podle názvu **NEBO `chat_id`** (stejné pravidlo jako webhook) |
+| Whitelist v env (`ALLOWED_GROUPS`/`ALLOWED_CONTACTS`) byl oddělený od `whatsapp_senders` | Změny odesílatelů provedené v aplikaci (Nastavení → WhatsApp odesílatelé) bridge ignoroval → zprávy od nově povolených se zahazovaly | Bridge čte `whatsapp_senders` ze Supabase při startu a každých ~5 minut a sjednocuje ho s env proměnnými |
+| Kontakty 1:1 jen podle `pushName` | Jméno nemuselo sedět se jménem ve whitelistu | Porovnává se jméno **nebo telefonní číslo** |
+| `groupMetadata` se volala pro každou zprávu | Zbytečná zátěž API (limit WhatsAppu) | Cache názvů skupin (TTL 10 min) |
+
+### Nové soubory / změny
+
+- `whatsapp-bridge/lib/filter.js` — **brána filtru čtení** (pravidla = webhook:
+  název NEBO `chat_id`, prázdný whitelist = vše; sjednocení `whatsapp_senders`
+  + env; refresh 5 min).
+- `whatsapp-bridge/index.js` — použití brány v `handleMessage`, cache názvů
+  skupin, doplnění `messageType` do payloadu webhooku.
+- `whatsapp-bridge/test/filter.test.mjs` — **9 unit testů brány** (`npm test`,
+  bez sítě): přejmenovaná skupina přes `chat_id`, sjednocení whitelistů, výpadek
+  čtení z DB apod.
+- `whatsapp-bridge/package.json` — skript `test`.
+- `whatsapp-bridge/README.md` — sekce „Filtr čtení (gate)“.
+
+### Pravidla (platí pro celý řetězec)
+
+```
+zpráva je povolená ⇔ from_me ≠ true ∧ (název ∈ whitelist ∨ chat_id ∈ whitelist)
+prázdný whitelist = povoleno vše; whitelist = whatsapp_senders ∪ env ALLOWED_*
+```
+
+Ověřeno: `npm run check` (syntax) + `npm test` (9/9 ✅).
+
+## ✅ AKTUALIZACE 2026-08-11 (20. kolo): fotky z WhatsApp se stahují a ukládají
+
+### Požadavek
+
+**DeepSeek (textový model AI) fotky NEČTE.** Objednávka poslaná jako fotka se
+proto musí v aplikaci zobrazit a dát stáhnout — kontrola objednávky je vždy na
+člověku. Dřív se fotka **vůbec nepřeposílala**: s popiskem šel jen text, bez
+popisku se zpráva ignorovala úplně.
+
+### Co se udělalo
+
+Bridge (`whatsapp-bridge/`) nyní pro každou zprávu s fotkou:
+
+1. rozbalí `imageMessage` (i z `ephemeralMessage` / `viewOnceMessage`),
+2. stáhne fotku ze serverů WhatsApp (Baileys `downloadMediaMessage` → Buffer),
+3. nahraje ji do **veřejného Supabase Storage bucketu `whatsapp-media`**
+   (cesta `incoming/wa-<key.id>.<ext>`),
+4. veřejnou URL pošle webhooku jako `mediaUrl` → `whatsapp_incoming.media_url`.
+
+Fotka **bez popisku** se přestala ignorovat — přeposílá se s placeholderem
+`📷 Fotka objednávky (bez popisu)`, ať se dá v aplikaci najít a stáhnout.
+
+### Nové soubory / změny
+
+- `whatsapp-bridge/lib/media.js` — **stažení + upload médií** (čisté funkce
+  `extensionFromMime`, `buildStoragePath`, `buildPublicUrl`; `ensureMediaBucket`,
+  `uploadMediaToSupabase`, `prepareImageForForwarding`).
+- `whatsapp-bridge/index.js` — fotky se zpracovávají i bez textu, `mediaUrl`
+  v payloadu, kontrola bucketu při startu.
+- `supabase/migrations/20261010000000_add_whatsapp_media_bucket.sql` — veřejný
+  bucket + politika `whatsapp_media_public_read` (idempotentní).
+- `src/components/WhatsAppOrderReviewModal.tsx` — tlačítka **Otevřít fotografii**
+  a **Stáhnout fotografii**.
+- `src/components/WhatsAppAutoProcessorModal.tsx` — ikona stažení u náhledu.
+- `whatsapp-bridge/test/media.test.mjs` — **6 unit testů media helperů**.
+- `whatsapp-bridge/README.md`, `.env.example`, `src/lib/whatsappApi.ts` — docs.
+
+### Nasazení
+
+1. ✅ Migrace `20261010000000_add_whatsapp_media_bucket.sql` **nasazena**
+   (`scripts/apply-whatsapp-migration.mjs` → HTTP 201). Bucket ověřen přes
+   Storage API: `id=whatsapp-media`, `public=true`.
+2. Frontend redeploy (Vercel).
+3. **Redepoly `whatsapp-bridge`** (Render) — fotky se začnou ukládat po restartu.
+4. Volitelně: env `WHATSAPP_MEDIA_BUCKET` (default `whatsapp-media`).
+
+### Ověření
+
+- ✅ `npm run check` + `npm test` v `whatsapp-bridge/` (15/15 testů ✅, z toho
+  6 media helperů).
+- ✅ Celý Storage tok otestován na produkci: upload service role → **HTTP 200**,
+  anonymní veřejný GET → **HTTP 200** (politika `whatsapp_media_public_read`
+  funguje), delete → HTTP 200 (testovací objekt uklizen).
+- Po redeply: pošli fotku do skupiny → v logu Renderu `[media] fotka uložena
+  do Storage: https://…/whatsapp-media/…` → v aplikaci (Import z WhatsApp) je
+  náhled + „Stáhnout fotografii“.
+
+### Poznámky
+
+- Storage URL je trvalá (WA URL by vypršela); při selhání uploadu se pošle aspoň
+  dočasná přímá WA URL, při selhání stažení zpráva jde bez `mediaUrl`.
+- Zápis do bucketu dělá jen bridge (service role); čtení je veřejné.
+- Fotky **ne**jsou posílány do DeepSeek promptu — AI dostává jen text (popisek
+  nebo placeholder), médium řeší člověk. Pokud se později přidá vision model,
+  stačí mu dát `media_url` z `whatsapp_incoming`.

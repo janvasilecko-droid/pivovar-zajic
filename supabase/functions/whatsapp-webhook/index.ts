@@ -30,8 +30,8 @@ interface MakeWebhookPayload {
   chatId?: string;
   chat_id?: string;
 
-  // ✅ Vlastní zpráva (odeslaná z jiného zařízení/Webu) — from_me=true znamená
-  //    "moje vlastní zpráva" → NIKDY se nezpracuje (prevence smyčky).
+  // ✅ Vlastní zpráva (odeslaná z jiného zařízení/Webu) — from_me=true se uloží
+  //    s flagem from_me, aby ji aplikace odlišila od zákaznických zpráv.
   //    Aliasy: fromMe | from_me. Pokud se neposílá, použije se prefixová
   //    heuristika "You:/Ty:/Vy:" v textu (viz isOwnMessage).
   fromMe?: boolean;
@@ -128,6 +128,21 @@ Deno.serve(async (req: Request) => {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
 
+  // 📡 Ping (GET) — rychlá kontrola z telefonu, že URL a server fungují.
+  //    Nepotřebuje token ani tělo (nic nevrací citlivého). V Taskeru/prohlížeči
+  //    na telefonu stačí otevřít: https://…/functions/v1/whatsapp-webhook
+  //    a vidět {"ok":true}. Pomáhá odlišit „neposílá telefon" od „webhook odmítá".
+  if (req.method === "GET") {
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        service: "whatsapp-webhook",
+        hint: "POST s hlavičkou x-webhook-token pro odeslání zprávy",
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
   // 🔐 Ověření sdíleného tajemství webhooku.
   // Aktivuje se až ve chvíli, kdy je v Supabase nastavena proměnná WEBHOOK_SECRET.
   // Tasker/Make pak musí posílat hlavičku `x-webhook-token` se stejnou hodnotou.
@@ -136,6 +151,9 @@ Deno.serve(async (req: Request) => {
   if (webhookSecret) {
     const provided = req.headers.get("x-webhook-token") ?? "";
     if (provided !== webhookSecret) {
+      console.warn(
+        `[whatsapp-webhook] 401 — chybí nebo nesouhlasí x-webhook-token (WEBHOOK_SECRET je nastaveno). Požadavek NEBYL zpracován — zpráva se NEULOŽÍ. Tasker: doplň hlavičku x-webhook-token.`
+      );
       return new Response(
         JSON.stringify({ error: "Unauthorized: chybí nebo nesouhlasí x-webhook-token" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -184,18 +202,21 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Parse timestamp
+    // Parse timestamp — Tasker posílá %antime (epoch SEKUNDY, 10 číslic) nebo
+    // %TIMEMS (milisekundy, 13 číslic); Make posílá ISO string. Rozlišíme to podle
+    // tvaru, ať se zprávy nezobrazují s časem roku 1970.
     let messageTimestamp: Date | null = null;
     if (payload.timestamp) {
       try {
-        // Try parsing as ISO string
-        messageTimestamp = new Date(payload.timestamp);
-        if (isNaN(messageTimestamp.getTime())) {
-          // Try parsing as epoch milliseconds
-          const epoch = parseInt(payload.timestamp);
-          if (!isNaN(epoch)) {
-            messageTimestamp = new Date(epoch);
+        const raw = String(payload.timestamp).trim();
+        if (/^\d{1,16}$/.test(raw)) {
+          const num = Number(raw);
+          if (num > 0) {
+            messageTimestamp = new Date(num < 1e12 ? num * 1000 : num);
           }
+        } else {
+          const d = new Date(raw);
+          if (!isNaN(d.getTime())) messageTimestamp = d;
         }
       } catch (e) {
         console.warn("Failed to parse timestamp:", e);
@@ -216,8 +237,9 @@ Deno.serve(async (req: Request) => {
       record.sender_number = payload.senderNumber.trim();
     }
 
-    // Fotka/příloha — přímý mediaUrl nebo první attachment s URL. Slouží jen
-    // k zobrazení v aplikaci (odkaz na originál); médium se neukládá.
+    // Fotka/příloha — mediaUrl (fotky stahuje a ukládá do Supabase Storage
+    // whatsapp-bridge; sem chodí jen finální URL) nebo první attachment s URL.
+    // Slouží k zobrazení a stažení v aplikaci — DeepSeek fotky nečte.
     const firstAttachmentUrl = (payload.attachments && payload.attachments.length > 0)
       ? payload.attachments.find((a) => a.url)?.url
       : undefined;
@@ -230,11 +252,16 @@ Deno.serve(async (req: Request) => {
       record.message_timestamp = messageTimestamp.toISOString();
     }
 
-    // ✅ Brána: zpracovávají se JEN zprávy ze skupiny „Objednávky pivovar".
-    //    Primární filtr je stabilní chat_id (sloupec `chat_id` ve `whatsapp_senders`).
-    //    Dokud není chat_id zaregistrováno, používá se jako přechodná záloha název
-    //    skupiny (whitelist). Vlastní zprávy (from_me) se NIKDY neukládají →
-    //    neprojdou ani k AI (prevence smyčky AI → odpověď → Tasker → webhook).
+    // ✅ Brána: zpracovávají se JEN zprávy od povolených odesílatelů (whitelist
+    //    ve `whatsapp_senders`). Whitelist se porovnává podle NÁZVU skupiny bez
+    //    diakritiky a velikosti písmen (viz normName).
+    //    chat_id je dobrovolná stabilizační pojistka:
+    //      • když má odesílatel zaregistrované chat_id a zpráva nějaké posílá,
+    //        MUSÍ souhlasit (jinak je to jiná skupina se stejným názvem);
+    //      • když zpráva chat_id neposílá (Tasker %anwhatsappchatid často neumí),
+    //        projde podle názvu — název-filtr funguje i po zaregistrování chat_id.
+    //    Vlastní zprávy (from_me=true, z jiného zařízení/Webu) se ukládají se
+    //    flagem from_me — aplikace je tak rozliší od zákaznických objednávek.
     const chatId = String(payload.chatId ?? payload.chat_id ?? "").trim();
     const fromMe =
       payload.fromMe === true ||
@@ -246,18 +273,7 @@ Deno.serve(async (req: Request) => {
 
     if (fromMe) {
       console.log(
-        `[whatsapp-webhook] IGNOROVÁNO (from_me): sender="${record.sender_name}" chat_id="${chatId}" — vlastní zpráva, NIKDY do systému ani k AI.`
-      );
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: "Own message (from_me) ignored — vlastní zprávy se nezpracovávají",
-          skipped: true,
-          from_me: true,
-          chat_id: chatId || null,
-          sender_name: record.sender_name,
-        }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        `[whatsapp-webhook] vlastní zpráva (from_me): sender="${record.sender_name}" chat_id="${chatId}" — ukládám s from_me=true.`
       );
     }
 
@@ -265,13 +281,6 @@ Deno.serve(async (req: Request) => {
       .from("whatsapp_senders")
       .select("sender_name, chat_id");
     const senders = senderRows || [];
-    const allowedNames = senders
-      .map((s: any) => normName(s.sender_name))
-      .filter(Boolean);
-    const allowedChatIds = senders
-      .map((s: any) => (s.chat_id || "").trim())
-      .filter(Boolean);
-    const chatIdConfigured = allowedChatIds.length > 0;
 
     const skip = (reason: string, extra: Record<string, unknown> = {}) =>
       new Response(
@@ -286,35 +295,50 @@ Deno.serve(async (req: Request) => {
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
 
-    if (chatIdConfigured) {
-      // Striktní filtr podle chat_id: IF (chat_id == ID_SKUPINY AND from_me == false) → zpracuj.
-      const isAllowedChat = allowedChatIds.some(
-        (id: string) => id.toLowerCase() === chatId.toLowerCase()
+    // Whitelist (prázdný seznam = povoleno vše, zpětně kompatibilní). Najdeme
+    // odesílatele podle normalizovaného názvu (bez diakritiky a velikosti).
+    const allowedChatIds = senders
+      .map((s: any) => (s.chat_id || "").trim().toLowerCase())
+      .filter(Boolean);
+    const senderRow = senders.find(
+      (s: any) => normName(s.sender_name) === normName(record.sender_name)
+    );
+    // Zpráva je povolená, když odesílatel je ve whitelistu podle názvu NEBO
+    // chat_id zprávy odpovídá zaregistrovanému chat_id (skupina se mohla
+    // přejmenovat — chat_id je stabilní). Stejná pravidla jako DB trigger
+    // (check_whatsapp_sender_allowed) a whatsapp-auto-parse.
+    const chatAllowed = chatId !== "" && allowedChatIds.includes(chatId.toLowerCase());
+    if (senders.length > 0 && !senderRow && !chatAllowed) {
+      console.log(
+        `[whatsapp-webhook] IGNOROVÁNO — odesílatel "${record.sender_name}" (chat_id="${chatId}") není v whitelistu.`
       );
+      return skip(
+        "Sender not allowed — message skipped (povolena je jen skupina Objednávky pivovar)"
+      );
+    }
+
+    // chat_id — dobrovolná stabilizační pojistka (viz komentář výše). Název-filtr
+    // zůstává aktivní: prázdné chat_id v payloadu zprávu NEzahodí (Tasker ho často
+    // neposílá), ale pokud zpráva chat_id posílá a odesílatel ho má registrované,
+    // musí souhlasit.
+    const registeredChatId = (senderRow && (senderRow.chat_id || "").trim()) || "";
+    if (senderRow && registeredChatId) {
+      if (chatId && chatId.toLowerCase() !== registeredChatId.toLowerCase()) {
+        console.log(
+          `[whatsapp-webhook] IGNOROVÁNO — chat_id="${chatId}" nesouhlasí se zaregistrovaným "${registeredChatId}" pro "${record.sender_name}".`
+        );
+        return skip(
+          "chat_id not allowed — message skipped (chat_id nesouhlasí se zaregistrovaným pro tuto skupinu)",
+          { chat_id_unknown: true }
+        );
+      }
       if (!chatId) {
         console.log(
-          `[whatsapp-webhook] IGNOROVÁNO — chat_id nebyl v payloadu odeslán (Tasker neposílá chatId). sender="${record.sender_name}". Filtruji striktně podle chat_id.`
+          `[whatsapp-webhook] chat_id nebylo v payloadu odesláno (Tasker neposílá chatId) — prošlo podle názvu skupiny "${record.sender_name}".`
         );
-        return skip("chat_id missing in payload — message skipped (Tasker musí posílat chatId)", {
-          chat_id_missing: true,
-        });
       }
-      if (!isAllowedChat) {
-        console.log(
-          `[whatsapp-webhook] IGNOROVÁNO — chat_id="${chatId}" neodpovídá povolené skupině. sender="${record.sender_name}".`
-        );
-        return skip("chat_id not allowed — message skipped", { chat_id_unknown: true });
-      }
-      // ✓ povolené chat_id (a from_me je false) → pokračujeme k uložení.
     } else {
-      // chat_id ještě není zaregistrováno → přechodně filtr podle názvu skupiny.
-      if (allowedNames.length > 0 && !allowedNames.includes(normName(record.sender_name))) {
-        return skip(
-          "Sender not allowed — message skipped (povolena je jen skupina Objednávky pivovar)"
-        );
-      }
-      // Zpráva ze skupiny prošla podle názvu. Pokud známe chat_id, vypíšeme ho,
-      // ať ho uživatel zaregistruje; jinak upozorníme, že ho Tasker neposílá.
+      // chat_id u odesílatele ještě není zaregistrováno → platí jen název-filtr.
       if (chatId) {
         console.log(
           `[whatsapp-webhook] 🆔 DETEKCE chat_id pro skupinu "${record.sender_name}": chat_id="${chatId}" — zaregistruj ho: node scripts/set-whatsapp-senders.mjs --chat-id "${chatId}"`
