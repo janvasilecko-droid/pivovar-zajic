@@ -4,19 +4,34 @@ import { Lock, Mail, Eye, EyeOff, Beer, ArrowRight, ShieldCheck } from 'lucide-r
 import { getAdminEmail } from '../lib/config';
 
 export default function AuthScreen() {
-  const { signIn } = useAuth();
+  const { signIn, signInOtp } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [infoMsg, setInfoMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [authMode, setAuthMode] = useState<'otp' | 'password'>('otp');
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErr(null); setBusy(true);
-    const res = await signIn(email.trim(), password);
-    setBusy(false);
-    if (res.error) setErr(res.error);
+    setErr(null);
+    setInfoMsg(null);
+    setBusy(true);
+
+    if (authMode === 'password') {
+      const res = await signIn(email.trim(), password);
+      setBusy(false);
+      if (res.error) setErr(res.error);
+    } else {
+      const res = await signInOtp(email.trim());
+      setBusy(false);
+      if (res.error) {
+        setErr(res.error);
+      } else {
+        setInfoMsg('Přihlašovací odkaz byl odeslán! Zkontrolujte prosím svou e-mailovou schránku.');
+      }
+    }
   };
 
   return (
@@ -41,7 +56,7 @@ export default function AuthScreen() {
           <div className="relative card p-7 sm:p-10 backdrop-blur-2xl bg-white/95 border border-amber-200/90 shadow-2xl rounded-[2.2rem] text-neutral-900">
             
             {/* Header / Logo Badge (Transparent Background Logo without gold frame) */}
-            <div className="flex flex-col items-center mb-8 text-center">
+            <div className="flex flex-col items-center mb-6 text-center">
               <div className="relative mb-3">
                 <div className="w-28 h-28 sm:w-36 sm:h-36 flex items-center justify-center">
                   <img src="/logo.png" alt="Pivovar Zajíc" className="w-full h-full object-contain filter drop-shadow-lg" />
@@ -55,6 +70,32 @@ export default function AuthScreen() {
                 <ShieldCheck size={14} className="text-amber-600" />
                 <span>Kynšperk nad Ohří — Výrobní systém</span>
               </p>
+            </div>
+
+            {/* Mode Selector */}
+            <div className="flex bg-amber-50/70 p-1.5 rounded-2xl border border-amber-200/60 mb-6">
+              <button
+                type="button"
+                onClick={() => { setAuthMode('otp'); setErr(null); setInfoMsg(null); }}
+                className={`flex-1 py-2 text-xs font-black rounded-xl transition duration-200 cursor-pointer ${
+                  authMode === 'otp'
+                    ? 'bg-amber-500 text-neutral-950 shadow-sm'
+                    : 'text-neutral-500 hover:text-amber-800'
+                }`}
+              >
+                Bez hesla (e-mail)
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAuthMode('password'); setErr(null); setInfoMsg(null); }}
+                className={`flex-1 py-2 text-xs font-black rounded-xl transition duration-200 cursor-pointer ${
+                  authMode === 'password'
+                    ? 'bg-amber-500 text-neutral-950 shadow-sm'
+                    : 'text-neutral-500 hover:text-amber-800'
+                }`}
+              >
+                Přihlášení heslem
+              </button>
             </div>
 
             {/* Form */}
@@ -77,36 +118,45 @@ export default function AuthScreen() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-black text-amber-900 uppercase tracking-wider mb-2">
-                  Heslo
-                </label>
-                <div className="relative flex items-center">
-                  <Lock className="absolute left-4 text-amber-600 pointer-events-none" size={18} />
-                  <input
-                    className="w-full pl-11 pr-12 py-3.5 text-sm font-bold text-neutral-900 bg-amber-50/50 border-2 border-amber-200 rounded-2xl focus:outline-hidden focus:bg-white focus:border-amber-500 focus:ring-4 focus:ring-amber-500/20 transition-all placeholder:text-neutral-400 shadow-2xs"
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    autoComplete="current-password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 text-neutral-400 hover:text-amber-700 transition-colors p-1 rounded-lg"
-                    title={showPassword ? 'Skrýt heslo' : 'Zobrazit heslo'}
-                  >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
+              {authMode === 'password' && (
+                <div>
+                  <label className="block text-xs font-black text-amber-900 uppercase tracking-wider mb-2">
+                    Heslo
+                  </label>
+                  <div className="relative flex items-center">
+                    <Lock className="absolute left-4 text-amber-600 pointer-events-none" size={18} />
+                    <input
+                      className="w-full pl-11 pr-12 py-3.5 text-sm font-bold text-neutral-900 bg-amber-50/50 border-2 border-amber-200 rounded-2xl focus:outline-hidden focus:bg-white focus:border-amber-500 focus:ring-4 focus:ring-amber-500/20 transition-all placeholder:text-neutral-400 shadow-2xs"
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      autoComplete="current-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3.5 text-neutral-400 hover:text-amber-700 transition-colors p-1 rounded-lg"
+                      title={showPassword ? 'Skrýt heslo' : 'Zobrazit heslo'}
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {err && (
                 <div className="text-xs font-bold text-rose-950 bg-rose-50 border border-rose-300 rounded-2xl px-4 py-3 flex items-start gap-2.5 animate-shake">
                   <span className="text-base leading-none">⚠️</span>
                   <span>{err}</span>
+                </div>
+              )}
+
+              {infoMsg && (
+                <div className="text-xs font-bold text-emerald-950 bg-emerald-50 border border-emerald-300 rounded-2xl px-4 py-3 flex items-start gap-2.5">
+                  <span className="text-base leading-none">✅</span>
+                  <span>{infoMsg}</span>
                 </div>
               )}
 
@@ -118,11 +168,11 @@ export default function AuthScreen() {
                 {busy ? (
                   <span className="flex items-center gap-2">
                     <span className="w-4 h-4 border-2 border-neutral-950 border-t-transparent rounded-full animate-spin" />
-                    <span>Přihlašuji…</span>
+                    <span>Pracuji…</span>
                   </span>
                 ) : (
                   <>
-                    <span>Vstoupit do pivovaru</span>
+                    <span>{authMode === 'otp' ? 'Zaslat přihlašovací odkaz' : 'Vstoupit do pivovaru'}</span>
                     <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                   </>
                 )}

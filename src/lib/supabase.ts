@@ -393,6 +393,7 @@ export type Profile = {
   display_name: string | null;
   role: 'admin' | 'user';
   receive_vehicle_alerts?: boolean | null;
+  password_set?: boolean | null;
   created_at: string;
 };
 

@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import { createFullBackup, downloadBackupJSON, downloadGoogleSheetsExcelBackup } from '../lib/backup';
-import { Download, Shield, History, Table } from 'lucide-react';
+import { Download, Shield, History, Table, Mail, Search, Trash2 } from 'lucide-react';
 import { UserPermissionsModal } from '../components/UserPermissionsModal';
 import { AuditLogViewer } from '../components/AuditLogViewer';
 import { isAdminEmail } from '../lib/config';
@@ -84,7 +84,68 @@ export default function Users() {
   }
 
   const [permissionsUser, setPermissionsUser] = useState<UserRow | null>(null);
-  const [activeTab, setActiveTab] = useState<'users' | 'audit'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'audit' | 'emails'>('users');
+
+  // Schválené e-maily states
+  const [allowedEmails, setAllowedEmails] = useState<{ email: string; created_at: string }[]>([]);
+  const [searchEmail, setSearchEmail] = useState('');
+  const [loadingEmails, setLoadingEmails] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [emailErr, setEmailErr] = useState<string | null>(null);
+  const [emailMsg, setEmailMsg] = useState<string | null>(null);
+
+  async function loadAllowedEmails() {
+    setLoadingEmails(true);
+    setEmailErr(null);
+    const { data, error } = await supabase
+      .from('allowed_emails')
+      .select('*')
+      .order('email', { ascending: true });
+    if (error) {
+      setEmailErr(error.message);
+    } else {
+      setAllowedEmails(data || []);
+    }
+    setLoadingEmails(false);
+  }
+
+  useEffect(() => {
+    if (isAdmin && activeTab === 'emails') {
+      loadAllowedEmails();
+    }
+  }, [isAdmin, activeTab]);
+
+  async function handleAddAllowedEmail(e: React.FormEvent) {
+    e.preventDefault();
+    setEmailErr(null);
+    setEmailMsg(null);
+    const cleanEmail = newEmail.trim().toLowerCase();
+    if (!cleanEmail) return;
+
+    const { error } = await supabase.from('allowed_emails').insert({ email: cleanEmail });
+    if (error) {
+      setEmailErr(error.message);
+    } else {
+      setEmailMsg(`E-mail ${cleanEmail} byl úspěšně schválen.`);
+      setNewEmail('');
+      loadAllowedEmails();
+    }
+  }
+
+  async function handleDeleteAllowedEmail(email: string) {
+    if (!confirm(`Opravdu chcete odebrat schválení pro e-mail ${email}?`)) return;
+    setEmailErr(null);
+    setEmailMsg(null);
+    const { error } = await supabase.from('allowed_emails').delete().eq('email', email);
+    if (error) {
+      setEmailErr(error.message);
+    } else {
+      setEmailMsg(`Schválení pro e-mail ${email} bylo odebráno.`);
+      loadAllowedEmails();
+    }
+  }
+
+  const filteredEmails = allowedEmails.filter(e => e.email.toLowerCase().includes(searchEmail.toLowerCase()));
 
   if (!isAdmin) return <div className="card p-6 text-center text-neutral-600">Správa uživatelů je dostupná pouze adminům.</div>;
 
@@ -110,6 +171,18 @@ export default function Users() {
         >
           <Shield size={16} />
           <span>👥 Uživatelé & Práva</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('emails')}
+          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 ${
+            activeTab === 'emails'
+              ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+          }`}
+        >
+          <Mail size={16} />
+          <span>📧 Schválené e-maily</span>
         </button>
 
         <button
@@ -193,6 +266,95 @@ export default function Users() {
       )}
       {showForm && <UserForm user={editing} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); }} />}
         </>
+      )}
+
+      {activeTab === 'emails' && (
+        <div className="space-y-6">
+          {/* Add allowed email card */}
+          <div className="card p-6 border border-amber-200/90 rounded-3xl bg-white shadow-xs">
+            <h3 className="font-display font-black text-base text-neutral-900 mb-2">
+              ➕ Schválit nový e-mail
+            </h3>
+            <p className="text-xs text-neutral-500 font-medium mb-4">
+              Schválený e-mail se bude moci okamžitě zaregistrovat nebo přihlásit do systému bez hesla.
+            </p>
+            
+            <form onSubmit={handleAddAllowedEmail} className="flex gap-3 max-w-lg">
+              <input
+                className="input flex-1"
+                type="email"
+                required
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="jmeno@pivovar.cz"
+              />
+              <button type="submit" className="btn-primary py-2 px-6 font-black text-xs">
+                Schválit přístup
+              </button>
+            </form>
+
+            {emailErr && <div className="text-xs font-bold text-rose-900 bg-rose-50 rounded-xl px-4 py-2 mt-4">{emailErr}</div>}
+            {emailMsg && <div className="text-xs font-bold text-emerald-900 bg-emerald-50 rounded-xl px-4 py-2 mt-4">{emailMsg}</div>}
+          </div>
+
+          {/* List card */}
+          <div className="card p-6 border border-amber-200/90 rounded-3xl bg-white shadow-xs space-y-4">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <h3 className="font-display font-black text-base text-neutral-900">
+                📋 Seznam schválených e-mailů ({filteredEmails.length})
+              </h3>
+              
+              <div className="relative max-w-xs w-full flex items-center">
+                <Search className="absolute left-3 text-neutral-400" size={16} />
+                <input
+                  className="w-full pl-9 pr-4 py-2 text-xs font-bold text-neutral-900 bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-hidden focus:bg-white focus:border-amber-500"
+                  type="text"
+                  placeholder="Hledat e-mail..."
+                  value={searchEmail}
+                  onChange={(e) => setSearchEmail(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {loadingEmails ? (
+              <Spinner />
+            ) : filteredEmails.length === 0 ? (
+              <EmptyState text="Žádné schválené e-maily neodpovídají hledání." icon="📧" />
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-neutral-100">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-neutral-50 text-neutral-500 text-[10px] font-black uppercase tracking-wider border-b border-neutral-100">
+                      <th className="p-4">E-mailová adresa</th>
+                      <th className="p-4">Datum schválení</th>
+                      <th className="p-4 text-right">Akce</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-100 text-xs font-medium text-neutral-700">
+                    {filteredEmails.map((e) => (
+                      <tr key={e.email} className="hover:bg-amber-50/20 transition-colors">
+                        <td className="p-4 font-bold text-neutral-900">{e.email}</td>
+                        <td className="p-4 text-neutral-400">
+                          {new Date(e.created_at).toLocaleString('cs-CZ')}
+                        </td>
+                        <td className="p-4 text-right">
+                          <button
+                            onClick={() => handleDeleteAllowedEmail(e.email)}
+                            className="btn-danger !py-1 !px-2.5 text-[10px] font-black flex items-center gap-1 ml-auto cursor-pointer"
+                            title="Odebrat schválení"
+                          >
+                            <Trash2 size={12} />
+                            <span>Odebrat</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

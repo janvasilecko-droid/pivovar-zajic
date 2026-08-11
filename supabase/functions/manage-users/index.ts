@@ -67,17 +67,23 @@ Deno.serve(async (req: Request) => {
       const { email, display_name, is_admin } = body;
       const password = "zajic";
       if (!email) return json({ error: "Email je povinný." }, 400);
+      
+      // 1. Insert into allowed_emails first to satisfy the trigger BEFORE INSERT ON auth.users
+      await adminClient.from("allowed_emails").upsert({
+        email,
+      }, { onConflict: "email" });
+
       const { data, error } = await adminClient.auth.admin.createUser({
         email, password, email_confirm: true, user_metadata: { display_name: display_name ?? null },
       });
       if (error) return json({ error: error.message }, 400);
-      await adminClient.from("allowed_users").upsert({
-        email, display_name: display_name ?? null, is_admin: !!is_admin,
-      }, { onConflict: "email" });
+
       if (data.user) {
         await adminClient.from("profiles").upsert({
-          id: data.user.id, display_name: display_name ?? email.split("@")[0],
+          id: data.user.id,
+          display_name: display_name ?? email.split("@")[0],
           role: is_admin ? "admin" : "user",
+          password_set: true, // admin created user has a default password 'zajic'
         });
       }
       return json({ ok: true, id: data.user?.id });
@@ -104,9 +110,18 @@ Deno.serve(async (req: Request) => {
     if (req.method === "DELETE" && path === "") {
       const id = url.searchParams.get("id");
       if (!id) return json({ error: "Chybí id." }, 400);
+
+      // Get email of the user first so we can remove it from allowed_emails allowlist
+      const { data: userToDel } = await adminClient.auth.admin.getUserById(id);
+      const email = userToDel?.user?.email;
+
       const { error } = await adminClient.auth.admin.deleteUser(id);
       if (error) return json({ error: error.message }, 400);
       await adminClient.from("profiles").delete().eq("id", id);
+
+      if (email) {
+        await adminClient.from("allowed_emails").delete().eq("email", email);
+      }
       return json({ ok: true });
     }
 

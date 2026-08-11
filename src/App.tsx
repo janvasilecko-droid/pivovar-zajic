@@ -27,6 +27,7 @@ import ExkurzeScreen from './screens/ExkurzeScreen';
 import { ReminderNotificationManager } from './components/ReminderNotificationManager';
 import { MandatoryAnnouncementModal } from './components/MandatoryAnnouncementModal';
 import { CriticalMaterialAlertModal } from './components/CriticalMaterialAlertModal';
+import { SetPasswordModal } from './components/SetPasswordModal';
 import { Spinner } from './components/ui';
 
 const DEFAULT_PAGE: Page = 'dashboard';
@@ -95,6 +96,7 @@ export default function App() {
 
   return (
     <Layout page={page} setPage={setPage}>
+      <SetPasswordModal />
       <ReminderNotificationManager />
       <MandatoryAnnouncementModal />
       <CriticalMaterialAlertModal />

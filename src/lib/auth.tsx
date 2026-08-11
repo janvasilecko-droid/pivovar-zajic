@@ -10,7 +10,9 @@ type AuthCtx = {
   profile: Profile | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signInOtp: (email: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
+  reloadProfile: () => Promise<void>;
 };
 
 const Ctx = createContext<AuthCtx>({} as AuthCtx);
@@ -36,6 +38,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(prof);
   }
 
+  async function reloadProfile() {
+    if (session?.user) {
+      await loadProfile(session.user);
+    }
+  }
+
   useEffect(() => {
     let mounted = true;
     supabase.auth.getSession().then(({ data }) => {
@@ -55,16 +63,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
     return () => sub.subscription.unsubscribe();
-  }, []);
+  }, [session?.user?.id]); // Dependency array matches sessions
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error: error?.message ?? null };
   };
+
+  const signInOtp = async (email: string) => {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: window.location.origin,
+      },
+    });
+    return { error: error?.message ?? null };
+  };
+
   const signOut = () => supabase.auth.signOut().then(() => { setProfile(null); });
 
   return (
-    <Ctx.Provider value={{ session, user: session?.user ?? null, profile, loading, signIn, signOut }}>
+    <Ctx.Provider value={{ session, user: session?.user ?? null, profile, loading, signIn, signInOtp, signOut, reloadProfile }}>
       {children}
     </Ctx.Provider>
   );
