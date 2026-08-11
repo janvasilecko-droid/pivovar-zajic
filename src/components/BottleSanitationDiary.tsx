@@ -261,7 +261,7 @@ export default function BottleSanitationDiary() {
       'Datum': e.sanitation_date,
       'Čas': e.sanitation_time ?? '—',
       'Provedl': e.performed_by ?? '—',
-      'Důvod': e.reason === 'pred_stacenim' ? 'Před stáčením' : e.reason === 'po_staceni' ? 'Po stáčení' : 'Pravidelná',
+      'Důvod': e.reason === 'pred_stacenim' ? 'Před stáčením' : e.reason === 'po_staceni' ? 'Po stáčení' : 'Měsíční',
       'Chemie': e.chemical_name ?? '—',
       'Koncentrace': e.chemical_concentration ?? '—',
       'Teplota': e.chemical_temperature ?? '—',
@@ -354,7 +354,7 @@ export default function BottleSanitationDiary() {
                   const isProblem = !!e.mismatch_note;
                   const reasonLabel = 
                     e.reason === 'pred_stacenim' ? 'Před stáčením' : 
-                    e.reason === 'po_staceni' ? 'Po stáčení' : 'Pravidelná';
+                    e.reason === 'po_staceni' ? 'Po stáčení' : 'Měsíční';
                   
                   const eqList = [
                     e.eq_pegas && 'PEGAS',
@@ -500,7 +500,7 @@ export default function BottleSanitationDiary() {
                     <select value={reason} onChange={(e) => setReason(e.target.value)} className="input w-full text-xs font-semibold">
                       <option value="pred_stacenim">🧼 Před stáčením</option>
                       <option value="po_staceni">🧼 Po stáčení</option>
-                      <option value="pravidelna">🧼 Pravidelná sanitace</option>
+                      <option value="pravidelna">🧼 Měsíční sanitace</option>
                     </select>
                   </div>
                 </div>
