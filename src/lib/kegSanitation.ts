@@ -187,3 +187,69 @@ export function isLastWeekOfMonth(date: Date = new Date()): boolean {
   const nextWeek = new Date(date.getTime() + 7 * 24 * 60 * 60 * 1000);
   return nextWeek.getMonth() !== date.getMonth();
 }
+
+export async function autoLogKegSanitationFromChecklist(opts: {
+  dateStr: string;
+  checkedMap: Record<string, boolean>;
+  performedBy?: string | null;
+  phase: 'start' | 'end' | 'monthly';
+}): Promise<void> {
+  const { dateStr, checkedMap, performedBy, phase } = opts;
+  if (!dateStr) return;
+
+  const existing = await loadKegSanitation();
+  const found = existing.find((e) => e.sanitation_date === dateStr);
+
+  const now = new Date();
+  const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+  const entry: KegSanitationEntry = found
+    ? { ...found }
+    : {
+        ...newKegSanEntry(dateStr, performedBy || null),
+        id: String(Date.now()),
+        created_at: now.toISOString(),
+      };
+
+  entry.sanitation_time = entry.sanitation_time || timeStr;
+  entry.performed_by = entry.performed_by || performedBy || null;
+  entry.source = 'checklist';
+
+  if (phase === 'start') {
+    entry.reason = entry.reason || 'pred_stacenim';
+    if (checkedMap['keg_start_1']) {
+      entry.proc_rinse_naoh_2_20 = true;
+    }
+    if (checkedMap['keg_start_2']) entry.proc_rinse_water_before = true;
+    if (checkedMap['keg_start_valves_weekly']) entry.proc_scrub_valves_naoh_2_15 = true;
+    if (checkedMap['keg_start_valves_daily']) entry.proc_spray_valves_persteril_02_10 = true;
+    if (checkedMap['keg_start_valves_weekly'] || checkedMap['keg_start_valves_daily']) {
+      entry.proc_rinse_water_after_valves = true;
+    }
+  } else if (phase === 'end') {
+    entry.reason = entry.reason || 'po_staceni';
+    if (checkedMap['keg_end_1']) entry.proc_end_rinse_lines_water = true;
+    if (checkedMap['keg_end_2']) entry.proc_end_rinse_valves_water = true;
+    if (checkedMap['keg_end_3']) entry.proc_end_rinse_couplers_water = true;
+    if (checkedMap['keg_end_4']) entry.proc_end_rinse_floors_cellar = true;
+    if (checkedMap['keg_end_5']) entry.proc_end_rinse_floors_walls_bottlers = true;
+    if (checkedMap['keg_end_6']) entry.proc_end_coupler_heads_persteril_bucket = true;
+  } else if (phase === 'monthly') {
+    entry.reason = 'mesicni';
+    if (checkedMap['keg_month_1']) entry.proc_month_disassemble_couplers = true;
+    if (checkedMap['keg_month_2']) entry.proc_month_clean_brush_24h = true;
+    if (checkedMap['keg_month_3']) entry.proc_month_rinse_water = true;
+    if (checkedMap['keg_month_4']) entry.proc_month_visual_clean = true;
+  }
+
+  const prefix = `Auto-zápis z checklistu (${phase === 'start' ? 'příprava' : phase === 'end' ? 'úklid' : 'měsíční'})`;
+  if (entry.note) {
+    if (!entry.note.includes(prefix)) {
+      entry.note = `${entry.note} | ${prefix}`;
+    }
+  } else {
+    entry.note = prefix;
+  }
+
+  await saveKegSanEntry(entry);
+}
