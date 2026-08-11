@@ -118,5 +118,12 @@ export function createMessageGate({
     }
   };
 
-  return { getGate: () => gate, load, startRefresh, stopRefresh };
+  return {
+    getGate: () => gate,
+    isGroupAllowed: (groupName, chatId) => gate.isGroupAllowed(groupName, chatId),
+    isContactAllowed: (senderName, senderNumber) => gate.isContactAllowed(senderName, senderNumber),
+    load,
+    startRefresh,
+    stopRefresh
+  };
 }
