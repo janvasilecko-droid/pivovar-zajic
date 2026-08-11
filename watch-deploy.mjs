@@ -57,6 +57,21 @@ function bumpVersion() {
   const versionJsonPath = resolve(PROJECT_DIR, 'public/version.json');
   writeFileSync(versionJsonPath, JSON.stringify({ version: newVersion, date: isoDate }, null, 2), 'utf-8');
 
+  // Aktualizovat i nativní verzi APK (android/app/build.gradle), aby se číslo
+  // v Google Play shodovalo s APP_VERSION. versionCode musí monotónně růst:
+  // 1.574 → 10574.
+  const gradleFile = resolve(PROJECT_DIR, 'android/app/build.gradle');
+  if (existsSync(gradleFile)) {
+    const gradleContent = readFileSync(gradleFile, 'utf-8');
+    const gradleParts = newVersion.split('.').map(Number);
+    const versionCode = (gradleParts[0] || 0) * 10000 + (gradleParts[1] || 0);
+    const newGradle = gradleContent
+      .replace(/versionCode\s+\d+/, `versionCode ${versionCode}`)
+      .replace(/versionName\s+"[^"]*"/, `versionName "${newVersion}"`);
+    writeFileSync(gradleFile, newGradle, 'utf-8');
+    console.log(`📱 android/app/build.gradle → versionCode ${versionCode}, versionName "${newVersion}"`);
+  }
+
   return newVersion;
 }
 

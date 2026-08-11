@@ -49,5 +49,20 @@ console.log(`📦 Verze zvýšena na ${newVersion} (${dateStr})`);
 writeFileSync(VERSION_JSON, JSON.stringify({ version: newVersion, date: isoDate }, null, 2), 'utf-8');
 console.log(`📄 version.json aktualizován na ${newVersion}`);
 
+// Aktualizovat i nativní verzi APK (android/app/build.gradle), aby se číslo
+// v Google Play shodovalo s APP_VERSION. versionCode musí monotónně růst:
+// majorminor → např. 1.574 → 10574 (má platit: nová verze > stará verze).
+const GRADLE_FILE = resolve(PROJECT_DIR, 'android/app/build.gradle');
+if (existsSync(GRADLE_FILE)) {
+  const gradleContent = readFileSync(GRADLE_FILE, 'utf-8');
+  const gradleParts = newVersion.split('.').map(Number);
+  const versionCode = (gradleParts[0] || 0) * 10000 + (gradleParts[1] || 0);
+  const newGradle = gradleContent
+    .replace(/versionCode\s+\d+/, `versionCode ${versionCode}`)
+    .replace(/versionName\s+"[^"]*"/, `versionName "${newVersion}"`);
+  writeFileSync(GRADLE_FILE, newGradle, 'utf-8');
+  console.log(`📱 android/app/build.gradle → versionCode ${versionCode}, versionName "${newVersion}"`);
+}
+
 // Vypiš verzi pro použití v CI (např. do GITHUB_ENV)
 console.log(`NEW_VERSION=${newVersion}`);
