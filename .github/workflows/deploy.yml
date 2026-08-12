@@ -57,11 +57,10 @@ jobs:
           echo "Push se nezdařil ani po opakovaných pokusech."
           exit 1
 
-      # Deploy na Cloudflare Pages. continue-on-error: pokud secret
-      # CF_API_TOKEN chybí/neplatí, krok se označí jako varování, ale
-      # workflow pokračuje a build APK proběhne vždy.
+      # Deploy na Cloudflare Pages. Bez continue-on-error — selhání deploye
+      # (chybějící/neplatný CF_API_TOKEN apod.) musí viditelně zčervenat,
+      # ne se tvářit, že workflow prošlo.
       - name: Deploy to Cloudflare Pages
-        continue-on-error: true
         run: npx wrangler pages deploy dist --project-name=zajic-pivovar --branch main
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
