@@ -98,11 +98,14 @@ jobs:
       - name: Sync to Capacitor
         run: npx cap sync
 
+      # Capacitor 8 Android generuje capacitor.build.gradle se
+      # sourceCompatibility/targetCompatibility = Java 21 — JDK 17 by selhal
+      # s „invalid source release: 21", proto je nutné JDK 21.
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
