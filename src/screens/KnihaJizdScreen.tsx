@@ -3,6 +3,7 @@ import { supabase, useRealtime } from '../lib/supabase';
 import { Spinner } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { Car, Plus, Download, Printer, Trash2, Calendar, MapPin, Navigation, User, Scale, ShieldCheck, CheckCircle2, Zap, Sparkles } from 'lucide-react';
+import { getSecondCarDates } from '../lib/zavozSecondCar';
 
 export type LogbookEntry = {
   id: string;
@@ -116,6 +117,21 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
     return filteredEntries.reduce((sum, e) => sum + Number(e.km_driven || 0), 0);
   }, [filteredEntries]);
 
+  // Druhé vozidlo pivovaru (Kachna / Kačena) — dny označené v Závozu se zapíšou na něj
+  const secondVehicleLabel = useMemo(() => {
+    const second =
+      vehicles.find((v) => {
+        const n = v.name.toLowerCase();
+        return n.includes('kachna') || n.includes('kačena') || n.includes('kacena');
+      }) ??
+      vehicles.find((v) => {
+        const n = v.name.toLowerCase();
+        return !n.includes('velk') && !n.includes('boxer') && !n.includes('transit');
+      }) ??
+      vehicles[1];
+    return second ? (second.spz ? `${second.name} (${second.spz})` : second.name) : 'Kachna (Kačena)';
+  }, [vehicles]);
+
   // ---- AUTOMATICKÝ VÝPOČET A GENEROVÁNÍ KNIHY JÍZD Z OBJEDNÁVEK ----
   async function handleAutoGenerate(e: React.FormEvent) {
     e.preventDefault();
@@ -206,10 +222,13 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
         const kmEndVal = currentKm + driven;
         currentKm = kmEndVal;
 
+        // Den označený v Závozu jako „Druhé auto (Kačena)“ se zapíše na druhé vozidlo
+        const isSecondCarDay = getSecondCarDates().includes(r.date);
+
         generatedEntries.push({
           id: crypto.randomUUID(),
           date: r.date,
-          vehicle_name: autoVehicle || 'Velké auto (Peugeot Boxer / 3K1 2244)',
+          vehicle_name: isSecondCarDay ? secondVehicleLabel : (autoVehicle || 'Velké auto (Peugeot Boxer / 3K1 2244)'),
           driver: autoDriver || 'Petr Bednář',
           route_from: r.routeFrom,
           route_to: r.routeTo,
@@ -217,7 +236,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
           km_start: kmStartVal,
           km_end: kmEndVal,
           km_driven: driven,
-          note: `Automaticky vygenerováno z objednávek (${r.stopsCount} zastávek v daný den)`,
+          note: `Automaticky vygenerováno z objednávek (${r.stopsCount} zastávek v daný den)${isSecondCarDay ? ' — druhé auto' : ''}`,
         });
       });
 
@@ -534,6 +553,10 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                   })}
                 </select>
               </div>
+
+              <p className="text-[11px] text-neutral-500 font-bold leading-snug -mt-1">
+                💡 Dny označené v <strong>Závozu</strong> políčkem <strong>„Druhé auto (Kačena)“</strong> se automaticky zapíšou na druhé vozidlo <strong>{secondVehicleLabel}</strong>.
+              </p>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>

@@ -25,6 +25,7 @@ const USER_DATA_KEYS: string[] = [
   // Kniha jízd
   'kniha_jizd_v1',
   'kniha_jizd_entries',
+  'zavoz_second_car_dates',
   // Exkurze
   'exkurze_entries_v1',
   // Sklo promo

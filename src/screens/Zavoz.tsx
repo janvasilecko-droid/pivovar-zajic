@@ -8,6 +8,7 @@ import { shareDeliveryListToWhatsApp } from '../lib/whatsapp';
 import { exportZavozToExcel } from '../lib/excel';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { EditOrderModal } from '../components/EditOrderModal';
+import { getSecondCarDates, toggleSecondCarDate } from '../lib/zavozSecondCar';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -34,6 +35,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
   const [moveDay, setMoveDay] = useState<{ source: string | null; label: string; orderIds: string[] } | null>(null);
   const [moveTarget, setMoveTarget] = useState<string | null>(null);
   const [moveBusy, setMoveBusy] = useState(false);
+  const [secondCarDates, setSecondCarDates] = useState<string[]>(() => getSecondCarDates());
 
   async function load(silent = false) {
     if (!silent && !orders.length) setLoading(true);
@@ -247,6 +249,23 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
     const orderItems = items[o.id] ?? [];
     if (orderItems.length === 0) return;
     await Promise.all(orderItems.filter(it => !it.is_prepared).map(it => toggleItemPrepared(o, it)));
+  }
+
+  // Datum konkrétního dne závozu — stejný klíč, jaký používá generátor Knihy jízd (delivery_date ?? order_date)
+  function groupDayDate(group: { orders: any[] }): string {
+    for (const og of group.orders) {
+      const o = og && og.isGroup ? og.orders?.[0] : og;
+      if (!o) continue;
+      if (o.delivery_date) return o.delivery_date;
+      if (o.order_date) return o.order_date;
+    }
+    return '';
+  }
+
+  // Zaškrtnutí „Druhé auto (Kačena)“ pro daný den závozu — Kniha jízd pak tento den zapíše na druhé vozidlo
+  function toggleSecondCar(dayDate: string) {
+    if (!dayDate) return;
+    setSecondCarDates(toggleSecondCarDate(dayDate));
   }
 
   // Otevře dialog pro přesun celého dne závozu na jiný den (pouze objednávky aktuálního týdne)
@@ -712,6 +731,24 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                           <span className="chip bg-amber-500 text-slate-950 font-mono font-black text-xs">
                             {group.orders.reduce((s, o) => s + (items[o.id] ?? []).reduce((x, i) => x + Number(i.quantity), 0), 0)} ks celkem
                           </span>
+                          <button
+                            onClick={() => toggleSecondCar(groupDayDate(group))}
+                            title="Zapsat tento den do Knihy jízd pro druhé auto (Kačena)"
+                            className={`px-3 py-1.5 rounded-xl font-black text-xs transition shadow-xs flex items-center gap-1.5 border ${
+                              secondCarDates.includes(groupDayDate(group))
+                                ? 'bg-emerald-600 text-white border-emerald-600'
+                                : 'bg-white border-neutral-300 text-neutral-700 hover:bg-emerald-50'
+                            }`}
+                          >
+                            <span className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] ${
+                              secondCarDates.includes(groupDayDate(group))
+                                ? 'bg-white text-emerald-700 border-white'
+                                : 'bg-white border-neutral-300'
+                            }`}>
+                              {secondCarDates.includes(groupDayDate(group)) ? '✓' : ''}
+                            </span>
+                            <span>Druhé auto (Kačena)</span>
+                          </button>
                           <button
                             onClick={() => openMoveDay(group.dayKey)}
                             className="px-3 py-1.5 rounded-xl bg-white border border-amber-300 hover:bg-amber-100 text-amber-800 font-black text-xs transition shadow-xs flex items-center gap-1.5"
