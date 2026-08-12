@@ -40,6 +40,34 @@ export function toggleSecondCarDate(date: string): string[] {
   return next;
 }
 
+type ZavozOrderLike = {
+  delivery_date?: string | null;
+  order_date?: string | null;
+};
+type ZavozGroupEntry = ZavozOrderLike | (ZavozOrderLike & { isGroup?: boolean; orders?: ZavozOrderLike[] });
+
+/**
+ * Vrátí všechna konkrétní data (YYYY-MM-DD), na která se vážou objednávky
+ * jednoho závozu (skupiny dne v Závozu). Objednávka může mít delivery_date
+ * (skutečné doručení) jiné než order_date; závoz proto může pokrývat více
+ * dat a všechna se vracejí, aby se označení „Druhé auto (Kačena)“ vztáhlo
+ * na celý závoz. Podskupiny SPOLEČNÉHO ZÁVOZU (isGroup) se rozbalí.
+ */
+export function collectZavozDates(groupOrders: ZavozGroupEntry[]): string[] {
+  const dates = new Set<string>();
+  for (const entry of groupOrders) {
+    if (!entry) continue;
+    const isGroup = (entry as ZavozOrderLike & { isGroup?: boolean }).isGroup;
+    const orderList = isGroup ? (entry as ZavozOrderLike & { orders?: ZavozOrderLike[] }).orders ?? [] : [entry];
+    for (const o of orderList) {
+      if (!o) continue;
+      if (o.delivery_date) dates.add(o.delivery_date);
+      else if (o.order_date) dates.add(o.order_date);
+    }
+  }
+  return [...dates];
+}
+
 /**
  * Přepne označení celého závozu pro druhé auto.
  * Jedno zaškrtnutí v Závozu označí VŠECHNA data, na která se objednávky daného

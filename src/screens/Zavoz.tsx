@@ -8,7 +8,7 @@ import { shareDeliveryListToWhatsApp } from '../lib/whatsapp';
 import { exportZavozToExcel } from '../lib/excel';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { EditOrderModal } from '../components/EditOrderModal';
-import { getSecondCarDates, toggleSecondCarDates } from '../lib/zavozSecondCar';
+import { getSecondCarDates, toggleSecondCarDates, collectZavozDates } from '../lib/zavozSecondCar';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -254,18 +254,6 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
   // Konkrétní data CELÉHO závozu — pro každou objednávku dne stejný klíč, jaký používá
   // generátor Knihy jízd (delivery_date ?? order_date). Závoz může obsahovat objednávky
   // s více daty, proto vracíme VŠECHNA, aby se „Druhé auto (Kačena)“ vztáhlo na celý závoz.
-  function groupDates(group: { orders: any[] }): string[] {
-    const dates = new Set<string>();
-    for (const og of group.orders) {
-      const orderList = og && og.isGroup ? (og.orders ?? []) : [og];
-      for (const o of orderList) {
-        if (!o) continue;
-        if (o.delivery_date) dates.add(o.delivery_date);
-        else if (o.order_date) dates.add(o.order_date);
-      }
-    }
-    return [...dates];
-  }
 
   // Zaškrtnutí „Druhé auto (Kačena)“ pro daný závoz — označí VŠECHNA data objednávek
   // závozu, Kniha jízd pak tyto dny zapíše na druhé vozidlo
@@ -712,7 +700,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
 
                 {/* RIGHT COLUMN: ODBĚRATELÉ A ROZVOZOVÉ TRASY */}
                 <div className={`lg:col-span-7 space-y-6 ${mobileTab === 'routes' ? 'block' : 'hidden lg:block'}`}>
-                  {ordersGroupedByDay.map((group) => { const gDates = groupDates(group); return (
+                  {ordersGroupedByDay.map((group) => { const gDates = collectZavozDates(group.orders); return (
                     <div key={group.dayKey} className="card p-5 shadow-sm border-neutral-200/90 bg-white rounded-3xl space-y-4">
                       {/* Day Section Header */}
                       <div className="flex items-center justify-between pb-3 border-b border-neutral-200/70">
