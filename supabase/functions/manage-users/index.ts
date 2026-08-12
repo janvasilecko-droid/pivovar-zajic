@@ -30,7 +30,7 @@ Deno.serve(async (req: Request) => {
     });
 
     // Adresář uživatelů (jen čtení) — dostupný VŠEM přihlášeným uživatelům.
-    // Používá se ve výběru příjemců upozornění („poslat zprávu konkrétním lidem").
+    // Používá se ve výběru příjemců upozornění („poslat zprávu konkrétním lidem“).
     if (req.method === "GET" && path === "directory") {
       const { data, error } = await adminClient.auth.admin.listUsers();
       if (error) return json({ error: error.message }, 500);
@@ -51,6 +51,7 @@ Deno.serve(async (req: Request) => {
     const { data: profile } = await userClient.from("profiles").select("role").eq("id", userData.user.id).maybeSingle();
     if (profile?.role !== "admin") return json({ error: "Pouze admin může spravovat uživatele." }, 403);
 
+    // Seznam uživatelů + stavů e-mailů (jen pro admina)
     if (req.method === "GET" && path === "") {
       const { data, error } = await adminClient.auth.admin.listUsers();
       if (error) return json({ error: error.message }, 500);
@@ -59,36 +60,75 @@ Deno.serve(async (req: Request) => {
       }));
       const { data: profiles } = await adminClient.from("profiles").select("id, display_name, role");
       const profMap = new Map((profiles ?? []).map((p: any) => [p.id, p]));
-      return json({ users: users.map((u: any) => ({ ...u, ...profMap.get(u.id) })) });
+      const { data: emails } = await adminClient.from("allowed_emails").select("email, status, created_at").order("email");
+      return json({ users: users.map((u: any) => ({ ...u, ...profMap.get(u.id) })), emails: emails ?? [] });
     }
 
+    // PŘIDÁNÍ e-mailu KE SCHVÁLENÍ (dvoukrok: admin přidá e-mail, pak ho schválí).
+    // Účet uživatele se ještě NEvytváří — uživatel se přihlásí odkazem na e-mail až po schválení.
     if (req.method === "POST" && path === "") {
       const body = await req.json();
-      const { email, display_name, is_admin } = body;
-      const password = "zajic";
+      const email = (body?.email ?? "").toString().trim().toLowerCase();
       if (!email) return json({ error: "Email je povinný." }, 400);
-      
-      // 1. Insert into allowed_emails first to satisfy the trigger BEFORE INSERT ON auth.users
-      await adminClient.from("allowed_emails").upsert({
-        email,
-      }, { onConflict: "email" });
 
-      const { data, error } = await adminClient.auth.admin.createUser({
-        email, password, email_confirm: true, user_metadata: { display_name: display_name ?? null },
-      });
-      if (error) return json({ error: error.message }, 400);
-
-      if (data.user) {
-        await adminClient.from("profiles").upsert({
-          id: data.user.id,
-          display_name: display_name ?? email.split("@")[0],
-          role: is_admin ? "admin" : "user",
-          password_set: true, // admin created user has a default password 'zajic' (5 znaků — createUser ho povolí, změna hesla na <6 znaků už ne)
-        });
+      // E-mail, který už má účet, se spravuje v záložce Uživatelé.
+      const { data: userList } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      if (userList?.users?.some((u: any) => u.email?.toLowerCase() === email)) {
+        return json({ error: `E-mail ${email} už má vytvořený účet — spravuje se v záložce Uživatelé.` }, 400);
       }
-      return json({ ok: true, id: data.user?.id });
+
+      const { data: existing } = await adminClient.from("allowed_emails").select("status").eq("email", email).maybeSingle();
+      if (existing?.status === "approved") return json({ error: `E-mail ${email} je už schválený.` }, 400);
+      if (existing?.status === "pending") return json({ error: `E-mail ${email} už čeká na schválení.` }, 400);
+
+      const { error: insErr } = await adminClient.from("allowed_emails").insert({ email, status: "pending" });
+      if (insErr) return json({ error: insErr.message }, 400);
+
+      return json({ ok: true, pending: true, email });
     }
 
+    // SCHVÁLENÍ e-mailu — teprve nyní se vytvoří účet (bez hesla; přihlášení probíhá odkazem na e-mail).
+    if (req.method === "POST" && path === "approve") {
+      const body = await req.json();
+      const email = (body?.email ?? "").toString().trim().toLowerCase();
+      if (!email) return json({ error: "Email je povinný." }, 400);
+
+      const { data: allowRow } = await adminClient.from("allowed_emails").select("status").eq("email", email).maybeSingle();
+      if (!allowRow) return json({ error: `E-mail ${email} není v seznamu e-mailů.` }, 400);
+
+      // 1) Nejprve schválit v allowlistu (kvůli triggeru BEFORE INSERT ON auth.users)
+      const { error: updErr } = await adminClient.from("allowed_emails").update({ status: "approved" }).eq("email", email);
+      if (updErr) return json({ error: updErr.message }, 400);
+
+      // 2) Vytvořit účet, pokud ještě neexistuje (bez hesla)
+      const { data: userList } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      const found = userList?.users?.find((u: any) => u.email?.toLowerCase() === email);
+      let userId = found?.id ?? null;
+
+      if (!found) {
+        const { data: created, error: createErr } = await adminClient.auth.admin.createUser({
+          email,
+          email_confirm: true,
+          user_metadata: { display_name: email.split("@")[0] },
+        });
+        if (createErr) return json({ error: createErr.message }, 400);
+        userId = created?.user?.id ?? null;
+      }
+
+      // 3) Profil s právy — heslo se nevyžaduje (přihlašování probíhá emailem)
+      if (userId) {
+        await adminClient.from("profiles").upsert({
+          id: userId,
+          display_name: email.split("@")[0],
+          role: "user",
+          password_set: true,
+        });
+      }
+
+      return json({ ok: true, approved: true, email, id: userId });
+    }
+
+    // Úprava uživatele (heslo, role, jméno)
     if (req.method === "PUT" && path === "") {
       const body = await req.json();
       const { id, password, is_admin, display_name } = body;
@@ -107,11 +147,12 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true });
     }
 
+    // Smazání uživatele (i z allowlistu)
     if (req.method === "DELETE" && path === "") {
       const id = url.searchParams.get("id");
       if (!id) return json({ error: "Chybí id." }, 400);
 
-      // Get email of the user first so we can remove it from allowed_emails allowlist
+      // Zjistíme e-mail uživatele, abychom ho odstranili i z allowed_emails
       const { data: userToDel } = await adminClient.auth.admin.getUserById(id);
       const email = userToDel?.user?.email;
 
@@ -136,3 +177,4 @@ function json(data: unknown, status = 200) {
     status, headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
+

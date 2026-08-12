@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import { createFullBackup, downloadBackupJSON, downloadGoogleSheetsExcelBackup } from '../lib/backup';
-import { Download, Shield, History, Table, Mail, Search, Trash2 } from 'lucide-react';
+import { Download, Shield, History, Table, Mail, Search, Trash2, CheckCircle2 } from 'lucide-react';
 import { UserPermissionsModal } from '../components/UserPermissionsModal';
 import { AuditLogViewer } from '../components/AuditLogViewer';
 import { isAdminEmail } from '../lib/config';
@@ -87,7 +87,7 @@ export default function Users() {
   const [activeTab, setActiveTab] = useState<'users' | 'audit' | 'emails'>('users');
 
   // Schválené e-maily states
-  const [allowedEmails, setAllowedEmails] = useState<{ email: string; created_at: string }[]>([]);
+  const [allowedEmails, setAllowedEmails] = useState<{ email: string; status: 'pending' | 'approved'; created_at: string }[]>([]);
   const [searchEmail, setSearchEmail] = useState('');
   const [loadingEmails, setLoadingEmails] = useState(false);
   const [newEmail, setNewEmail] = useState('');
@@ -122,11 +122,11 @@ export default function Users() {
     const cleanEmail = newEmail.trim().toLowerCase();
     if (!cleanEmail) return;
 
-    const { error } = await supabase.from('allowed_emails').insert({ email: cleanEmail });
+    const { error } = await supabase.from('allowed_emails').insert({ email: cleanEmail, status: 'pending' });
     if (error) {
       setEmailErr(error.message);
     } else {
-      setEmailMsg(`E-mail ${cleanEmail} byl úspěšně schválen.`);
+      setEmailMsg(`E-mail ${cleanEmail} byl přidán a čeká na schválení.`);
       setNewEmail('');
       loadAllowedEmails();
     }
@@ -145,7 +145,29 @@ export default function Users() {
     }
   }
 
-  const filteredEmails = allowedEmails.filter(e => e.email.toLowerCase().includes(searchEmail.toLowerCase()));
+  async function handleApproveAllowedEmail(email: string) {
+    setEmailErr(null);
+    setEmailMsg(null);
+    const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users/approve`;
+    const { data: session } = await supabase.auth.getSession();
+    const res = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.session?.access_token ?? ''}` },
+      body: JSON.stringify({ email }),
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      setEmailErr(j.error ?? 'Chyba při schvalování e-mailu.');
+      return;
+    }
+    setEmailMsg(`E-mail ${email} byl schválen. Uživatel se může přihlásit odkazem na e-mail.`);
+    loadAllowedEmails();
+    load();
+  }
+
+  const searchLower = searchEmail.toLowerCase();
+  const pendingEmails = allowedEmails.filter(e => e.status === 'pending' && e.email.toLowerCase().includes(searchLower));
+  const approvedEmails = allowedEmails.filter(e => e.status === 'approved' && e.email.toLowerCase().includes(searchLower));
 
   if (!isAdmin) return <div className="card p-6 text-center text-neutral-600">Správa uživatelů je dostupná pouze adminům.</div>;
 
@@ -211,8 +233,11 @@ export default function Users() {
               <Download size={15} />
               <span>{backingUp ? 'Zálohuji…' : '💾 JSON Záloha'}</span>
             </button>
-            <button className="btn-primary text-xs font-black shadow-md" onClick={() => { setEditing(null); setShowForm(true); }}>+ Přidat uživatele</button>
+            <button className="btn-primary text-xs font-black shadow-md" onClick={() => setActiveTab('emails')}>➕ Přidat e-mail ke schválení</button>
           </div>
+          <p className="text-xs text-neutral-500 font-medium -mt-2 mb-1 text-right">
+            Nový přístup: v záložce „📧 E-maily" přidejte e-mail a pak ho schvalte. Uživatel se přihlásí odkazem na e-mail.
+          </p>
 
       {err && <div className="text-sm text-danger-600 bg-danger-500/10 rounded-xl px-3.5 py-2.5 mb-4 font-bold">{err}</div>}
       {loading ? <Spinner /> : users.length === 0 ? <EmptyState text="Žádní uživatelé." icon="👥" /> : (
@@ -273,10 +298,10 @@ export default function Users() {
           {/* Add allowed email card */}
           <div className="card p-6 border border-amber-200/90 rounded-3xl bg-white shadow-xs">
             <h3 className="font-display font-black text-base text-neutral-900 mb-2">
-              ➕ Schválit nový e-mail
+              ➕ Přidat e-mail ke schválení
             </h3>
             <p className="text-xs text-neutral-500 font-medium mb-4">
-              Schválený e-mail se bude moci okamžitě zaregistrovat nebo přihlásit do systému bez hesla.
+              Uživatel se přihlásí odkazem na e-mail — a to teprve poté, co tento e-mail schválíte níže.
             </p>
             
             <form onSubmit={handleAddAllowedEmail} className="flex gap-3 max-w-lg">
@@ -289,7 +314,7 @@ export default function Users() {
                 placeholder="jmeno@pivovar.cz"
               />
               <button type="submit" className="btn-primary py-2 px-6 font-black text-xs">
-                Schválit přístup
+                Přidat e-mail
               </button>
             </form>
 
@@ -297,11 +322,66 @@ export default function Users() {
             {emailMsg && <div className="text-xs font-bold text-emerald-900 bg-emerald-50 rounded-xl px-4 py-2 mt-4">{emailMsg}</div>}
           </div>
 
-          {/* List card */}
+          {/* Čeká na schválení */}
+          <div className="card p-6 border border-amber-200/90 rounded-3xl bg-white shadow-xs space-y-4">
+            <h3 className="font-display font-black text-base text-neutral-900">
+              ⏳ Čeká na schválení ({pendingEmails.length})
+            </h3>
+
+            {loadingEmails ? (
+              <Spinner />
+            ) : pendingEmails.length === 0 ? (
+              <EmptyState text="Žádné e-maily nečekají na schválení." icon="⏳" />
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-neutral-100">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-neutral-50 text-neutral-500 text-[10px] font-black uppercase tracking-wider border-b border-neutral-100">
+                      <th className="p-4">E-mailová adresa</th>
+                      <th className="p-4">Datum přidání</th>
+                      <th className="p-4 text-right">Akce</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-100 text-xs font-medium text-neutral-700">
+                    {pendingEmails.map((e) => (
+                      <tr key={e.email} className="hover:bg-amber-50/20 transition-colors">
+                        <td className="p-4 font-bold text-neutral-900">{e.email}</td>
+                        <td className="p-4 text-neutral-400">
+                          {new Date(e.created_at).toLocaleString('cs-CZ')}
+                        </td>
+                        <td className="p-4 text-right">
+                          <div className="flex gap-2 justify-end">
+                            <button
+                              onClick={() => handleApproveAllowedEmail(e.email)}
+                              className="btn-primary !py-1 !px-2.5 text-[10px] font-black flex items-center gap-1 cursor-pointer"
+                              title="Schválit přístup"
+                            >
+                              <CheckCircle2 size={12} />
+                              <span>Schválit</span>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteAllowedEmail(e.email)}
+                              className="btn-danger !py-1 !px-2.5 text-[10px] font-black flex items-center gap-1 cursor-pointer"
+                              title="Odebrat e-mail"
+                            >
+                              <Trash2 size={12} />
+                              <span>Odebrat</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Schválené e-maily */}
           <div className="card p-6 border border-amber-200/90 rounded-3xl bg-white shadow-xs space-y-4">
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <h3 className="font-display font-black text-base text-neutral-900">
-                📋 Seznam schválených e-mailů ({filteredEmails.length})
+                ✅ Schválené e-maily ({approvedEmails.length})
               </h3>
               
               <div className="relative max-w-xs w-full flex items-center">
@@ -318,8 +398,8 @@ export default function Users() {
 
             {loadingEmails ? (
               <Spinner />
-            ) : filteredEmails.length === 0 ? (
-              <EmptyState text="Žádné schválené e-maily neodpovídají hledání." icon="📧" />
+            ) : approvedEmails.length === 0 ? (
+              <EmptyState text="Žádné schválené e-maily neodpovídají hledání." icon="✅" />
             ) : (
               <div className="overflow-x-auto rounded-2xl border border-neutral-100">
                 <table className="w-full text-left border-collapse">
@@ -331,7 +411,7 @@ export default function Users() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-100 text-xs font-medium text-neutral-700">
-                    {filteredEmails.map((e) => (
+                    {approvedEmails.map((e) => (
                       <tr key={e.email} className="hover:bg-amber-50/20 transition-colors">
                         <td className="p-4 font-bold text-neutral-900">{e.email}</td>
                         <td className="p-4 text-neutral-400">
@@ -378,7 +458,7 @@ function UserForm({ user, onClose, onSaved }: { user: UserRow | null; onClose: (
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.session?.access_token ?? ''}` },
       body: JSON.stringify(user
         ? { id: user.id, password: password || undefined, is_admin: isAdmin, display_name: name || undefined }
-        : { email, display_name: name || undefined, is_admin: isAdmin }),
+        : { email }),
     });
 
     if (!res.ok) {
@@ -411,7 +491,7 @@ function UserForm({ user, onClose, onSaved }: { user: UserRow | null; onClose: (
         <Field label="Jméno"><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Křestní jméno" /></Field>
         {user
           ? <Field label='Nové heslo (volitelné)'><input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="min. 6 znaků" /></Field>
-          : <p className="text-xs text-neutral-500">Heslo se nastaví automaticky na <span className="font-mono font-semibold">zajic</span>. Uživatel se přihlásí emailem a tímto heslem.</p>}
+          : <p className="text-xs text-neutral-500">E-mail se přidá do seznamu ke schválení. Po schválení se uživatel přihlásí odkazem na e-mail (bez hesla).</p>}
         
         <div className="p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200/80 space-y-3">
           <label className="flex items-center gap-2.5 cursor-pointer">
