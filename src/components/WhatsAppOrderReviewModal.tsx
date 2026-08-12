@@ -316,8 +316,10 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   // položky i výsledek kontroly čtení. Předchozí přepis se uchová pro srovnání.
   const handleReparse = async () => {
     if (!message || reparsing) return;
+    // První parsování (zpráva čeká) vs. opakované čtení už rozparsované zprávy.
+    const isFirstParse = message.status === 'pending' || !message.parsed_items;
     setReparsing(true);
-    setStatusMessage('Čtu zprávu znovu přes AI...');
+    setStatusMessage(isFirstParse ? 'Parsuji zprávu přes AI...' : 'Čtu zprávu znovu přes AI...');
     try {
       const prevRaw = message.parsed_raw_text || null;
       const parsed = await parseWhatsAppOrderMessageWithAI(
@@ -377,12 +379,16 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
 
       setStatusMessage(
         unmatched > 0
-          ? `Zpráva přečtena znovu — ${unmatched} položky stále nesouhlasí s originálem.`
-          : 'Zpráva přečtena znovu — vše sedí s originálem ✓'
+          ? (isFirstParse
+              ? `Zpráva rozparsována — ${unmatched} položky nesouhlasí s originálem.`
+              : `Zpráva přečtena znovu — ${unmatched} položky stále nesouhlasí s originálem.`)
+          : (isFirstParse
+              ? 'Zpráva rozparsována — vše sedí s originálem ✓'
+              : 'Zpráva přečtena znovu — vše sedí s originálem ✓')
       );
     } catch (error) {
       console.error('Chyba při opakovaném čtení:', error);
-      setStatusMessage('Chyba při opakovaném čtení: ' + (error as Error).message);
+      setStatusMessage((isFirstParse ? 'Chyba při parsování: ' : 'Chyba při opakovaném čtení: ') + (error as Error).message);
     } finally {
       setReparsing(false);
     }
@@ -479,6 +485,18 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                   </span>
                 ) : (
                   <span className="text-neutral-600">Zpracovává se...</span>
+                )}
+
+                {isPending && (
+                  <button
+                    onClick={handleReparse}
+                    disabled={reparsing || loading}
+                    className="mt-1.5 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Ručně spustit AI parsování této zprávy"
+                  >
+                    {reparsing ? <RefreshCw size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+                    {reparsing ? 'Parsuji...' : 'Parsovat ručně'}
+                  </button>
                 )}
               </div>
             </div>
@@ -621,7 +639,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                   </span>
                 ) : message.status === 'pending' ? (
                   <span className="text-neutral-400">
-                    Přepis od AI zatím není k dispozici — zpráva se teprve zpracovává.
+                    Přepis od AI zatím není k dispozici — zpráva se teprve zpracovává. Pokud se tak nestane samo, klepněte na „Parsovat ručně“ výše.
                   </span>
                 ) : (
                   <span className="text-neutral-400">

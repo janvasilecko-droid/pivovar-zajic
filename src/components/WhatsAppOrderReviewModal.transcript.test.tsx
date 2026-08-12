@@ -32,7 +32,7 @@ vi.mock('../lib/whatsappParser', () => ({
 
 const LEGACY_TEXT = 'Přepis od AI není k dispozici (zpráva rozparsovaná před nasazením kontroly čtení). Použijte „Přečíst znovu (AI)".';
 const PHOTO_TEXT = 'Tahle zpráva je fotka — AI ji nepřepisuje do textu. Zkontrolujte objednávku podle fotky a případně opravte položky ručně.';
-const PENDING_TEXT = 'Přepis od AI zatím není k dispozici — zpráva se teprve zpracovává.';
+const PENDING_TEXT = 'Přepis od AI zatím není k dispozici — zpráva se teprve zpracovává. Pokud se tak nestane samo, klepněte na „Parsovat ručně“ výše.';
 
 const beers: any[] = [];
 const packages: any[] = [];
@@ -93,7 +93,7 @@ describe('WhatsAppOrderReviewModal — hláška „Přepis od AI“ bez parsed_r
     expect(screen.queryByText(LEGACY_TEXT)).toBeNull();
   });
 
-  it('pending zpráva ukáže „teprve zpracovává“, ne legacy hlášku', async () => {
+  it('pending zpráva ukáže „teprve zpracovává“ + tlačítko „Parsovat ručně“, ne legacy hlášku', async () => {
     renderModal({
       id: 'pending-1',
       sender_name: 'Čekající Odběratel',
@@ -105,6 +105,7 @@ describe('WhatsAppOrderReviewModal — hláška „Přepis od AI“ bez parsed_r
       parsed_raw_text: null,
     });
     await waitFor(() => expect(screen.getByText(PENDING_TEXT)).toBeTruthy());
+    expect(screen.getByText('Parsovat ručně')).toBeTruthy();
     expect(screen.queryByText(LEGACY_TEXT)).toBeNull();
   });
 });
