@@ -1,8 +1,8 @@
 # WhatsApp AI fallback — Gemini → Groq → Mistral → OpenAI (návod na zítra)
 
-> **Stav k 2026-08-11**: kód hotový, nasazený (verze 20, HTTP 201) a E2E ověřený.
-> **Zítra zbývá jen**: vložit 2 API klíče (GROQ + MISTRAL) a případně ověřit.
-> Návod na pokračování dle `docs/whatsapp-deployment-status.md`.
+> **Stav k 2026-08-12**: nasazená verze 21 obsahuje i **validaci výstupu LLM**
+> s auto-fallbackem na dalšího providera (viz níže). E2E + živý fallback test prošly.
+> Klíče GROQ + MISTRAL už jsou vložené v `app_secrets` a ověřené (HTTP 200).
 
 ## Proč to je
 
@@ -27,6 +27,33 @@ přepne na dalšího** — WhatsApp objednávky se čtou 24/7, i kdyby 3 ze 4 pr
 - **Funkce nasazená** na produkci: `node scripts/deploy-function.mjs parse-order-text` → HTTP 201, verze 20, ACTIVE.
 - **E2E test prošel**: `node scripts/test-parse-order-text-e2e.mjs` → „VÝSLEDEK: OK“ (2 objednávky správně přečtené přes Gemini).
 - Push na GitHub: `48c1d05c`.
+
+## ✅ Validace výstupu + auto-fallback na nevalidní odpověď (2026-08-12)
+
+Fallback se dříve spouštěl **jen při chybě API** (HTTP 429/500/404). Od verze 21
+navíc funkce **validuje samotný výstup** LLM a když neprojde, automaticky zkouší
+dalšího providera. Odmítne se:
+
+- neparsovatelný JSON (i s ``` fency/okolním textem),
+- chybějící / nepole `items`, položky mimo schéma (špatné typy `quantity`,
+  string polí apod.),
+- výstup, který zjevně ignoroval katalog — méně než polovina rozpoznaných
+  pivo/obal polí sedí na `beers`/`packages` (shoda je tolerantní k diakritice,
+  mezerám a chybějícímu stupni, např. „Světlá" vs „12° Světlá").
+
+Logy pak ukazují buď `PROVIDER=gemini` (výstup přijat), nebo
+`PROVIDER=gemini → nevalidní výstup (...), zkouším dalšího providera`.
+
+Testy (oba prošly):
+
+```powershell
+Set-Location d:\stazene\zajic\project
+node scripts/test-parse-order-text-e2e.mjs          # E2E nasazené funkce (validní cesta)
+node scripts/test-parse-order-validation.mjs        # unit test validátoru (13 případů)
+node scripts/test-parse-order-fallback.mjs          # živý fallback: dočasně znehodnotí
+                                                    # GEMINI klíč v app_secrets, ověří čtení
+                                                    # přes fallback a klíč obnoví
+```
 
 ## 🔜 ZÍTRA — jen 2 kroky
 

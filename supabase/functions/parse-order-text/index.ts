@@ -52,6 +52,118 @@ function dedupeItems(items: OrderItem[]): OrderItem[] {
   return out;
 }
 
+// ============================================================
+// Validace výstupu LLM + auto-fallback.
+// Když provider odpoví HTTP 200, ale výstup je zjevně rozbitý
+// (nejde o JSON, chybí items, položky nesedí na katalog), bere se
+// to jako neúspěch a automaticky se zkouší další provider.
+// ============================================================
+
+function normKey(s: string): string {
+  return (s ?? "")
+    .toString()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+// Vyčistí surový text odpovědi (``` fency, text okolo {}) a zkusí JSON.parse.
+function cleanJson(text: string): { ok: boolean; cleaned: string; parsed: AiResponse | null } {
+  let cleaned = text.trim();
+  if (cleaned.startsWith("```")) {
+    cleaned = cleaned.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "");
+  }
+  const jsonStart = cleaned.indexOf("{");
+  const jsonEnd = cleaned.lastIndexOf("}");
+  if (jsonStart > 0 && jsonEnd > jsonStart) {
+    cleaned = cleaned.slice(jsonStart, jsonEnd + 1);
+  }
+  try {
+    const parsed = JSON.parse(cleaned) as AiResponse;
+    return { ok: true, cleaned, parsed };
+  } catch {
+    return { ok: false, cleaned, parsed: null };
+  }
+}
+
+// Kontrola struktury odpovědi + shody s katalogem piva/obalů.
+// Toleruje: prázdné items, chybějící/null pole. Odmítá: rozbité schéma,
+// špatné typy a odpověď, která zjevně ignorovala katalog.
+function validateOutput(
+  parsed: AiResponse,
+  beerNameKeys: Set<string>,
+  pkgLabelKeys: Set<string>,
+): { ok: boolean; reason?: string } {
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return { ok: false, reason: "odpověď není objekt" };
+  }
+  if (!Array.isArray(parsed.items)) {
+    return { ok: false, reason: "items není pole" };
+  }
+  if (parsed.items.length === 0) {
+    return { ok: true }; // zpráva bez objednávky = platná prázdná odpověď
+  }
+  let checkable = 0;
+  let matched = 0;
+  for (const it of parsed.items) {
+    if (typeof it !== "object" || it === null) {
+      return { ok: false, reason: "položka není objekt" };
+    }
+    if (it.quantity !== null && it.quantity !== undefined && typeof it.quantity !== "number") {
+      return { ok: false, reason: "quantity není číslo/null" };
+    }
+    for (const f of ["degree", "beer_name", "package_label", "place_name", "date"] as const) {
+      const v = (it as any)[f];
+      if (v !== null && v !== undefined && typeof v !== "string") {
+        return { ok: false, reason: `${f} není string/null` };
+      }
+    }
+    // Obal musí sedět na katalog (porovnáváme jen pokud katalog obalů existuje).
+    const pkg = (it as any).package_label;
+    if (pkg != null && String(pkg).trim() !== "" && pkgLabelKeys.size > 0) {
+      checkable++;
+      if (pkgLabelKeys.has(normKey(String(pkg)))) matched++;
+    }
+    // Pivo musí sedět na katalog (tolerance na chybějící stupeň, "Světlá" vs "12° Světlá").
+    const beer = (it as any).beer_name;
+    if (beer != null && String(beer).trim() !== "" && beerNameKeys.size > 0) {
+      checkable++;
+      const bk = normKey(String(beer));
+      if (beerNameKeys.has(bk) || [...beerNameKeys].some((k) => k.includes(bk) || bk.includes(k))) matched++;
+    }
+  }
+  // Alespoň polovina rozpoznaných pivo/obal polí musí sedět na katalog,
+  // jinak provider zjevně katalog ignoroval.
+  if (checkable > 0 && matched / checkable < 0.5) {
+    return { ok: false, reason: `jen ${matched}/${checkable} pivo/obal polí odpovídá katalogu` };
+  }
+  return { ok: true };
+}
+
+// Zpracuje odpověď providera: vyčistí, zvaliduje a vrátí vyčištěný JSON.
+// Vrátí "" když je výstup nepřijatelný — pak pokračujeme na dalšího providera.
+function acceptOutput(
+  provider: string,
+  candidate: string,
+  beerNameKeys: Set<string>,
+  pkgLabelKeys: Set<string>,
+): string {
+  if (!candidate) return "";
+  const clean = cleanJson(candidate);
+  if (!clean.ok) {
+    console.warn(`parse-order-text: PROVIDER=${provider} → nevalidní JSON, zkouším dalšího providera`);
+    return "";
+  }
+  const v = validateOutput(clean.parsed!, beerNameKeys, pkgLabelKeys);
+  if (!v.ok) {
+    console.warn(`parse-order-text: PROVIDER=${provider} → nevalidní výstup (${v.reason}), zkouším dalšího providera`);
+    return "";
+  }
+  console.log(`parse-order-text: PROVIDER=${provider}`);
+  return clean.cleaned;
+}
+
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -85,6 +197,9 @@ Deno.serve(async (req: Request) => {
     const rawText: string | undefined = body.rawText;
     const beers: { id: string; name: string; degree: string }[] = body.beers ?? [];
     const packages: { id: string; label: string }[] = body.packages ?? [];
+    // Katalogové klíče (normalizované) pro validaci výstupu LLM.
+    const beerNameKeys = new Set((beers ?? []).map((b) => normKey(b?.name ?? "")));
+    const pkgLabelKeys = new Set((packages ?? []).map((p) => normKey(p?.label ?? "")));
     const isSenderName = (s: string) => {
       const norm = s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
       return ['bednar', 'petr', 'sladek', 'gabina', 'ucetni', 'pojmi', 'bendat'].some((x) => norm.includes(x));
@@ -420,11 +535,11 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
 
         if (geminiResp.ok) {
           const geminiData = await geminiResp.json();
-          text =
+          const candidate =
             geminiData?.candidates?.[0]?.content?.parts
               ?.map((p: any) => p.text || "")
               .join("") ?? "";
-          console.log("parse-order-text: PROVIDER=gemini");
+          text = acceptOutput("gemini", candidate, beerNameKeys, pkgLabelKeys);
         } else {
           const errText = await geminiResp.text();
           console.warn(`Gemini API error (status ${geminiResp.status}): ${errText}`);
@@ -451,8 +566,8 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
 
         if (groqResp.ok) {
           const groqData = await groqResp.json();
-          text = groqData?.choices?.[0]?.message?.content ?? "";
-          console.log("parse-order-text: PROVIDER=groq");
+          const candidate = groqData?.choices?.[0]?.message?.content ?? "";
+          text = acceptOutput("groq", candidate, beerNameKeys, pkgLabelKeys);
         } else {
           const errText = await groqResp.text();
           console.warn(`Groq API error (status ${groqResp.status}): ${errText}`);
@@ -478,8 +593,8 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
 
         if (mistralResp.ok) {
           const mistralData = await mistralResp.json();
-          text = mistralData?.choices?.[0]?.message?.content ?? "";
-          console.log("parse-order-text: PROVIDER=mistral");
+          const candidate = mistralData?.choices?.[0]?.message?.content ?? "";
+          text = acceptOutput("mistral", candidate, beerNameKeys, pkgLabelKeys);
         } else {
           const errText = await mistralResp.text();
           console.warn(`Mistral API error (status ${mistralResp.status}): ${errText}`);
@@ -527,7 +642,8 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
       }
 
       const openaiData = await openaiResp.json();
-      text = openaiData?.choices?.[0]?.message?.content ?? "";
+      const candidate = openaiData?.choices?.[0]?.message?.content ?? "";
+      text = acceptOutput("openai", candidate, beerNameKeys, pkgLabelKeys);
     }
 
     if (!text) {
@@ -537,28 +653,31 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
       );
     }
 
-    // Strip any stray markdown fences just in case.
-    let cleaned = text.trim();
-    if (cleaned.startsWith("```")) {
-      cleaned = cleaned.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "");
+    // text už prošel validací (acceptOutput), ale parse proběhne tady.
+    const finalJson = cleanJson(text);
+    if (!finalJson.ok) {
+      return new Response(
+        JSON.stringify({ error: "All LLM providers returned unparseable JSON output" }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
-    const jsonStart = cleaned.indexOf("{");
-    const jsonEnd = cleaned.lastIndexOf("}");
-    if (jsonStart > 0 && jsonEnd > jsonStart) {
-      cleaned = cleaned.slice(jsonStart, jsonEnd + 1);
-    }
-
-    let parsed: AiResponse;
-    try {
-      parsed = JSON.parse(cleaned);
-    } catch {
-      parsed = { items: [], raw_text: text };
-    }
+    let parsed = finalJson.parsed as AiResponse;
 
     // 🧹 Deduplikace odpovědi — každou objednávku přečíst jen jednou.
     if (Array.isArray(parsed.items)) {
       parsed.items = dedupeItems(parsed.items);
     }
+
+    // Normalizace typů (model někdy vynechá raw_line apod.).
+    parsed.items = (parsed.items ?? []).map((it) => ({
+      quantity: typeof it.quantity === "number" ? it.quantity : null,
+      degree: typeof it.degree === "string" ? it.degree : null,
+      beer_name: typeof it.beer_name === "string" ? it.beer_name : null,
+      package_label: typeof it.package_label === "string" ? it.package_label : null,
+      raw_line: typeof it.raw_line === "string" ? it.raw_line : "",
+      place_name: typeof it.place_name === "string" ? it.place_name : null,
+      date: typeof it.date === "string" ? it.date : null,
+    }));
 
     return new Response(
       JSON.stringify(parsed),
