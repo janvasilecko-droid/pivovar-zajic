@@ -411,7 +411,7 @@ function UserForm({ user, onClose, onSaved }: { user: UserRow | null; onClose: (
         <Field label="Jméno"><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Křestní jméno" /></Field>
         {user
           ? <Field label='Nové heslo (volitelné)'><input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="min. 6 znaků" /></Field>
-          : <p className="text-xs text-neutral-500">Heslo se nastaví automaticky na <span className="font-mono font-semibold">zajic1</span>. Uživatel se přihlásí emailem a tímto heslem.</p>}
+          : <p className="text-xs text-neutral-500">Heslo se nastaví automaticky na <span className="font-mono font-semibold">zajic</span>. Uživatel se přihlásí emailem a tímto heslem.</p>}
         
         <div className="p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200/80 space-y-3">
           <label className="flex items-center gap-2.5 cursor-pointer">
