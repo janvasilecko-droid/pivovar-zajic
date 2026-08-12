@@ -83,27 +83,27 @@ export default function AuthScreen() {
                 <label className="block text-xs font-black text-amber-900 uppercase tracking-wider mb-2">
                   Heslo
                 </label>
-                  <div className="relative flex items-center">
-                    <Lock className="absolute left-4 text-amber-600 pointer-events-none" size={18} />
-                    <input
-                      className="w-full pl-11 pr-12 py-3.5 text-sm font-bold text-neutral-900 bg-amber-50/50 border-2 border-amber-200 rounded-2xl focus:outline-hidden focus:bg-white focus:border-amber-500 focus:ring-4 focus:ring-amber-500/20 transition-all placeholder:text-neutral-400 shadow-2xs"
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      autoComplete="current-password"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3.5 text-neutral-400 hover:text-amber-700 transition-colors p-1 rounded-lg"
-                      title={showPassword ? 'Skrýt heslo' : 'Zobrazit heslo'}
-                    >
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                  </div>
+                <div className="relative flex items-center">
+                  <Lock className="absolute left-4 text-amber-600 pointer-events-none" size={18} />
+                  <input
+                    className="w-full pl-11 pr-12 py-3.5 text-sm font-bold text-neutral-900 bg-amber-50/50 border-2 border-amber-200 rounded-2xl focus:outline-hidden focus:bg-white focus:border-amber-500 focus:ring-4 focus:ring-amber-500/20 transition-all placeholder:text-neutral-400 shadow-2xs"
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    autoComplete="current-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 text-neutral-400 hover:text-amber-700 transition-colors p-1 rounded-lg"
+                    title={showPassword ? 'Skrýt heslo' : 'Zobrazit heslo'}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
                 </div>
+              </div>
 
               {err && (
                 <div className="text-xs font-bold text-rose-950 bg-rose-50 border border-rose-300 rounded-2xl px-4 py-3 flex items-start gap-2.5 animate-shake">
