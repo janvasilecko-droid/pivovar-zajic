@@ -8,7 +8,7 @@ import { shareDeliveryListToWhatsApp } from '../lib/whatsapp';
 import { exportZavozToExcel } from '../lib/excel';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { EditOrderModal } from '../components/EditOrderModal';
-import { getSecondCarDates, toggleSecondCarDate } from '../lib/zavozSecondCar';
+import { getSecondCarDates, toggleSecondCarDates } from '../lib/zavozSecondCar';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -251,21 +251,27 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
     await Promise.all(orderItems.filter(it => !it.is_prepared).map(it => toggleItemPrepared(o, it)));
   }
 
-  // Datum konkrétního dne závozu — stejný klíč, jaký používá generátor Knihy jízd (delivery_date ?? order_date)
-  function groupDayDate(group: { orders: any[] }): string {
+  // Konkrétní data CELÉHO závozu — pro každou objednávku dne stejný klíč, jaký používá
+  // generátor Knihy jízd (delivery_date ?? order_date). Závoz může obsahovat objednávky
+  // s více daty, proto vracíme VŠECHNA, aby se „Druhé auto (Kačena)“ vztáhlo na celý závoz.
+  function groupDates(group: { orders: any[] }): string[] {
+    const dates = new Set<string>();
     for (const og of group.orders) {
-      const o = og && og.isGroup ? og.orders?.[0] : og;
-      if (!o) continue;
-      if (o.delivery_date) return o.delivery_date;
-      if (o.order_date) return o.order_date;
+      const orderList = og && og.isGroup ? (og.orders ?? []) : [og];
+      for (const o of orderList) {
+        if (!o) continue;
+        if (o.delivery_date) dates.add(o.delivery_date);
+        else if (o.order_date) dates.add(o.order_date);
+      }
     }
-    return '';
+    return [...dates];
   }
 
-  // Zaškrtnutí „Druhé auto (Kačena)“ pro daný den závozu — Kniha jízd pak tento den zapíše na druhé vozidlo
-  function toggleSecondCar(dayDate: string) {
-    if (!dayDate) return;
-    setSecondCarDates(toggleSecondCarDate(dayDate));
+  // Zaškrtnutí „Druhé auto (Kačena)“ pro daný závoz — označí VŠECHNA data objednávek
+  // závozu, Kniha jízd pak tyto dny zapíše na druhé vozidlo
+  function toggleSecondCar(dates: string[]) {
+    if (!dates.length) return;
+    setSecondCarDates(toggleSecondCarDates(dates));
   }
 
   // Otevře dialog pro přesun celého dne závozu na jiný den (pouze objednávky aktuálního týdne)
@@ -706,7 +712,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
 
                 {/* RIGHT COLUMN: ODBĚRATELÉ A ROZVOZOVÉ TRASY */}
                 <div className={`lg:col-span-7 space-y-6 ${mobileTab === 'routes' ? 'block' : 'hidden lg:block'}`}>
-                  {ordersGroupedByDay.map((group) => (
+                  {ordersGroupedByDay.map((group) => { const gDates = groupDates(group); return (
                     <div key={group.dayKey} className="card p-5 shadow-sm border-neutral-200/90 bg-white rounded-3xl space-y-4">
                       {/* Day Section Header */}
                       <div className="flex items-center justify-between pb-3 border-b border-neutral-200/70">
@@ -732,20 +738,21 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                             {group.orders.reduce((s, o) => s + (items[o.id] ?? []).reduce((x, i) => x + Number(i.quantity), 0), 0)} ks celkem
                           </span>
                           <button
-                            onClick={() => toggleSecondCar(groupDayDate(group))}
-                            title="Zapsat tento den do Knihy jízd pro druhé auto (Kačena)"
-                            className={`px-3 py-1.5 rounded-xl font-black text-xs transition shadow-xs flex items-center gap-1.5 border ${
-                              secondCarDates.includes(groupDayDate(group))
+                            onClick={() => toggleSecondCar(gDates)}
+                            disabled={!gDates.length}
+                            title="Zapsat tento závoz do Knihy jízd pro druhé auto (Kačena)"
+                            className={`px-3 py-1.5 rounded-xl font-black text-xs transition shadow-xs flex items-center gap-1.5 border disabled:opacity-40 disabled:cursor-not-allowed ${
+                              gDates.some((d) => secondCarDates.includes(d))
                                 ? 'bg-emerald-600 text-white border-emerald-600'
                                 : 'bg-white border-neutral-300 text-neutral-700 hover:bg-emerald-50'
                             }`}
                           >
                             <span className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] ${
-                              secondCarDates.includes(groupDayDate(group))
+                              gDates.some((d) => secondCarDates.includes(d))
                                 ? 'bg-white text-emerald-700 border-white'
                                 : 'bg-white border-neutral-300'
                             }`}>
-                              {secondCarDates.includes(groupDayDate(group)) ? '✓' : ''}
+                              {gDates.some((d) => secondCarDates.includes(d)) ? '✓' : ''}
                             </span>
                             <span>Druhé auto (Kačena)</span>
                           </button>
@@ -925,7 +932,8 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                         })}
                       </div>
                     </div>
-                  ))}
+                  );
+                })}
                 </div>
               </div>
             </>
