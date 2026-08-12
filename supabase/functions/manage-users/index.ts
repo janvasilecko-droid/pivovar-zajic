@@ -65,7 +65,7 @@ Deno.serve(async (req: Request) => {
     if (req.method === "POST" && path === "") {
       const body = await req.json();
       const { email, display_name, is_admin } = body;
-      const password = "zajic";
+      const password = "zajic1";
       if (!email) return json({ error: "Email je povinný." }, 400);
       
       // 1. Insert into allowed_emails first to satisfy the trigger BEFORE INSERT ON auth.users
@@ -83,7 +83,7 @@ Deno.serve(async (req: Request) => {
           id: data.user.id,
           display_name: display_name ?? email.split("@")[0],
           role: is_admin ? "admin" : "user",
-          password_set: true, // admin created user has a default password 'zajic'
+          password_set: true, // admin created user has a default password 'zajic1'
         });
       }
       return json({ ok: true, id: data.user?.id });
