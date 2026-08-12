@@ -86,7 +86,7 @@ export function SetPasswordModal() {
               Založte si své heslo
             </h2>
             <p className="text-xs font-bold text-neutral-500 mt-1">
-              Přihlásil(a) jste se přes jednorázový odkaz. Pro příští přihlášení si prosím vytvořte své heslo.
+              Přihlásil(a) jste se výchozím heslem vytvořeným správcem. Pro příští přihlášení si prosím vytvořte své heslo.
             </p>
           </div>
         </div>

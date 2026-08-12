@@ -4,34 +4,21 @@ import { Lock, Mail, Eye, EyeOff, Beer, ArrowRight, ShieldCheck } from 'lucide-r
 import { getAdminEmail } from '../lib/config';
 
 export default function AuthScreen() {
-  const { signIn, signInOtp } = useAuth();
+  const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [infoMsg, setInfoMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [authMode, setAuthMode] = useState<'otp' | 'password'>('otp');
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErr(null);
-    setInfoMsg(null);
     setBusy(true);
 
-    if (authMode === 'password') {
-      const res = await signIn(email.trim(), password);
-      setBusy(false);
-      if (res.error) setErr(res.error);
-    } else {
-      const res = await signInOtp(email.trim());
-      setBusy(false);
-      if (res.error) {
-        setErr(res.error);
-      } else {
-        setInfoMsg('Přihlašovací odkaz byl odeslán! Zkontrolujte prosím svou e-mailovou schránku.');
-      }
-    }
+    const res = await signIn(email.trim(), password);
+    setBusy(false);
+    if (res.error) setErr(res.error);
   };
 
   return (
@@ -72,32 +59,6 @@ export default function AuthScreen() {
               </p>
             </div>
 
-            {/* Mode Selector */}
-            <div className="flex bg-amber-50/70 p-1.5 rounded-2xl border border-amber-200/60 mb-6">
-              <button
-                type="button"
-                onClick={() => { setAuthMode('otp'); setErr(null); setInfoMsg(null); }}
-                className={`flex-1 py-2 text-xs font-black rounded-xl transition duration-200 cursor-pointer ${
-                  authMode === 'otp'
-                    ? 'bg-amber-500 text-neutral-950 shadow-sm'
-                    : 'text-neutral-500 hover:text-amber-800'
-                }`}
-              >
-                Bez hesla (e-mail)
-              </button>
-              <button
-                type="button"
-                onClick={() => { setAuthMode('password'); setErr(null); setInfoMsg(null); }}
-                className={`flex-1 py-2 text-xs font-black rounded-xl transition duration-200 cursor-pointer ${
-                  authMode === 'password'
-                    ? 'bg-amber-500 text-neutral-950 shadow-sm'
-                    : 'text-neutral-500 hover:text-amber-800'
-                }`}
-              >
-                Přihlášení heslem
-              </button>
-            </div>
-
             {/* Form */}
             <form onSubmit={submit} className="space-y-5">
               <div>
@@ -118,11 +79,10 @@ export default function AuthScreen() {
                 </div>
               </div>
 
-              {authMode === 'password' && (
-                <div>
-                  <label className="block text-xs font-black text-amber-900 uppercase tracking-wider mb-2">
-                    Heslo
-                  </label>
+              <div>
+                <label className="block text-xs font-black text-amber-900 uppercase tracking-wider mb-2">
+                  Heslo
+                </label>
                   <div className="relative flex items-center">
                     <Lock className="absolute left-4 text-amber-600 pointer-events-none" size={18} />
                     <input
@@ -144,19 +104,11 @@ export default function AuthScreen() {
                     </button>
                   </div>
                 </div>
-              )}
 
               {err && (
                 <div className="text-xs font-bold text-rose-950 bg-rose-50 border border-rose-300 rounded-2xl px-4 py-3 flex items-start gap-2.5 animate-shake">
                   <span className="text-base leading-none">⚠️</span>
                   <span>{err}</span>
-                </div>
-              )}
-
-              {infoMsg && (
-                <div className="text-xs font-bold text-emerald-950 bg-emerald-50 border border-emerald-300 rounded-2xl px-4 py-3 flex items-start gap-2.5">
-                  <span className="text-base leading-none">✅</span>
-                  <span>{infoMsg}</span>
                 </div>
               )}
 
@@ -172,7 +124,7 @@ export default function AuthScreen() {
                   </span>
                 ) : (
                   <>
-                    <span>{authMode === 'otp' ? 'Zaslat přihlašovací odkaz' : 'Vstoupit do pivovaru'}</span>
+                    <span>Vstoupit do pivovaru</span>
                     <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                   </>
                 )}

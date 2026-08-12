@@ -10,7 +10,6 @@ type AuthCtx = {
   profile: Profile | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
-  signInOtp: (email: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   reloadProfile: () => Promise<void>;
 };
@@ -70,20 +69,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error?.message ?? null };
   };
 
-  const signInOtp = async (email: string) => {
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: window.location.origin,
-      },
-    });
-    return { error: error?.message ?? null };
-  };
-
   const signOut = () => supabase.auth.signOut().then(() => { setProfile(null); });
 
   return (
-    <Ctx.Provider value={{ session, user: session?.user ?? null, profile, loading, signIn, signInOtp, signOut, reloadProfile }}>
+    <Ctx.Provider value={{ session, user: session?.user ?? null, profile, loading, signIn, signOut, reloadProfile }}>
       {children}
     </Ctx.Provider>
   );

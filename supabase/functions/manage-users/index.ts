@@ -65,7 +65,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // PŘIDÁNÍ e-mailu KE SCHVÁLENÍ (dvoukrok: admin přidá e-mail, pak ho schválí).
-    // Účet uživatele se ještě NEvytváří — uživatel se přihlásí odkazem na e-mail až po schválení.
+    // Účet uživatele se ještě NEvytváří — vytvoří se až po schválení e-mailu.
     if (req.method === "POST" && path === "") {
       const body = await req.json();
       const email = (body?.email ?? "").toString().trim().toLowerCase();
@@ -87,7 +87,8 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true, pending: true, email });
     }
 
-    // SCHVÁLENÍ e-mailu — teprve nyní se vytvoří účet (bez hesla; přihlášení probíhá odkazem na e-mail).
+    // SCHVÁLENÍ e-mailu — teprve nyní se vytvoří účet s výchozím heslem (zajic);
+    // uživatel se přihlásí e-mailem + heslem, bez odesílání přihlašovacích odkazů.
     if (req.method === "POST" && path === "approve") {
       const body = await req.json();
       const email = (body?.email ?? "").toString().trim().toLowerCase();
@@ -100,7 +101,7 @@ Deno.serve(async (req: Request) => {
       const { error: updErr } = await adminClient.from("allowed_emails").update({ status: "approved" }).eq("email", email);
       if (updErr) return json({ error: updErr.message }, 400);
 
-      // 2) Vytvořit účet, pokud ještě neexistuje (bez hesla)
+      // 2) Vytvořit účet, pokud ještě neexistuje (s výchozím heslem zajic, e-mail potvrzený)
       const { data: userList } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
       const found = userList?.users?.find((u: any) => u.email?.toLowerCase() === email);
       let userId = found?.id ?? null;
@@ -108,6 +109,7 @@ Deno.serve(async (req: Request) => {
       if (!found) {
         const { data: created, error: createErr } = await adminClient.auth.admin.createUser({
           email,
+          password: "zajic",
           email_confirm: true,
           user_metadata: { display_name: email.split("@")[0] },
         });
@@ -115,13 +117,13 @@ Deno.serve(async (req: Request) => {
         userId = created?.user?.id ?? null;
       }
 
-      // 3) Profil s právy — heslo se nevyžaduje (přihlašování probíhá emailem)
+      // 3) Profil s právy — uživatel má výchozí heslo, ale při prvním přihlášení si založí vlastní
       if (userId) {
         await adminClient.from("profiles").upsert({
           id: userId,
           display_name: email.split("@")[0],
           role: "user",
-          password_set: true,
+          password_set: false,
         });
       }
 

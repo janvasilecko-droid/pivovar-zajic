@@ -160,7 +160,7 @@ export default function Users() {
       setEmailErr(j.error ?? 'Chyba při schvalování e-mailu.');
       return;
     }
-    setEmailMsg(`E-mail ${email} byl schválen. Uživatel se může přihlásit odkazem na e-mail.`);
+    setEmailMsg(`E-mail ${email} byl schválen. Účet je vytvořen — uživatel se může přihlásit e-mailem a heslem (výchozí heslo zajic).`);
     loadAllowedEmails();
     load();
   }
@@ -301,7 +301,7 @@ export default function Users() {
               ➕ Přidat e-mail ke schválení
             </h3>
             <p className="text-xs text-neutral-500 font-medium mb-4">
-              Uživatel se přihlásí odkazem na e-mail — a to teprve poté, co tento e-mail schválíte níže.
+              Uživatel se přihlásí e-mailem a heslem — a to teprve poté, co tento e-mail schválíte níže.
             </p>
             
             <form onSubmit={handleAddAllowedEmail} className="flex gap-3 max-w-lg">
@@ -491,7 +491,7 @@ function UserForm({ user, onClose, onSaved }: { user: UserRow | null; onClose: (
         <Field label="Jméno"><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Křestní jméno" /></Field>
         {user
           ? <Field label='Nové heslo (volitelné)'><input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="min. 6 znaků" /></Field>
-          : <p className="text-xs text-neutral-500">E-mail se přidá do seznamu ke schválení. Po schválení se uživatel přihlásí odkazem na e-mail (bez hesla).</p>}
+          : <p className="text-xs text-neutral-500">E-mail se přidá do seznamu ke schválení. Po schválení se účet vytvoří s výchozím heslem <span className="font-mono font-semibold">zajic</span> a uživatel si při prvním přihlášení založí vlastní heslo.</p>}
         
         <div className="p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200/80 space-y-3">
           <label className="flex items-center gap-2.5 cursor-pointer">
