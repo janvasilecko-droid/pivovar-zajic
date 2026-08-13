@@ -244,7 +244,8 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
           message.message_timestamp,
           undefined,
           undefined,
-          message.id
+          message.id,
+          message.media_url ?? null
         );
 
         results.set(message.id, parsed);

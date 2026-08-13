@@ -331,7 +331,8 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         message.message_timestamp,
         undefined,
         undefined,
-        message.id
+        message.id,
+        message.media_url ?? null
       );
       const newParsedItems: WhatsAppIncoming['parsed_items'] = (parsed.items || []).map((item) => ({
         beer_id: item.beer_id,
@@ -633,13 +634,13 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                   })
                 ) : message.parsed_raw_text ? (
                   <span className="whitespace-pre-wrap">{message.parsed_raw_text}</span>
-                ) : isImage ? (
-                  <span className="text-neutral-400">
-                    Tahle zpráva je fotka — AI ji nepřepisuje do textu. Zkontrolujte objednávku podle fotky a případně opravte položky ručně.
-                  </span>
                 ) : message.status === 'pending' ? (
                   <span className="text-neutral-400">
                     Přepis od AI zatím není k dispozici — zpráva se teprve zpracovává. Pokud se tak nestane samo, klepněte na „Parsovat ručně“ výše.
+                  </span>
+                ) : isImage ? (
+                  <span className="text-neutral-400">
+                    Tahle zpráva je fotka bez přepisu od AI — byla rozparsovaná v době, kdy se fotky nečetly. Zkontrolujte objednávku podle fotky, případně použijte „Přečíst znovu (AI)".
                   </span>
                 ) : (
                   <span className="text-neutral-400">

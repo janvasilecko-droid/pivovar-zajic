@@ -2,6 +2,79 @@ import { Beer, Package, Place, supabase } from './supabase';
 import { parseGeminiItems, matchPlaceFromText, detectOrderNotes, loadAliasMap, loadPlaceAliasMap, ParserAliasMap, ParsedLine, GeminiItem } from './orderParser';
 import { parseExplicitDate } from './orderDates';
 
+// 📷 Stažení fotky z WhatsApp (media_url ze Supabase Storage) a převod na base64
+// pro AI čtení. Velké fotky zmenšíme na max. 1600 px (JPEG), aby se request
+// vešel do limitu edge funkce a AI nemusela zpracovávat megapixelová data.
+// Selhání jen zalogujeme a vrátíme null — zpráva se zpracuje i bez fotky (z textu).
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || '');
+      const comma = result.indexOf(',');
+      resolve(comma >= 0 ? result.slice(comma + 1) : result);
+    };
+    reader.onerror = () => reject(reader.error || new Error('Blob nelze přečíst'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function downscaleImageBlob(blob: Blob, maxDim = 1600): Promise<{ base64: string; mimeType: string }> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Canvas 2D není dostupný');
+        ctx.drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        const comma = dataUrl.indexOf(',');
+        resolve({ base64: dataUrl.slice(comma + 1), mimeType: 'image/jpeg' });
+      } catch (e) {
+        reject(e);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Fotku nelze načíst'));
+    };
+    img.src = url;
+  });
+}
+
+async function loadWhatsAppImageForAI(
+  imageUrl: string
+): Promise<{ base64: string; mimeType: string } | null> {
+  try {
+    const resp = await fetch(imageUrl);
+    if (!resp.ok) {
+      console.warn(`Fotku z WhatsApp nelze stáhnout pro AI čtení (HTTP ${resp.status})`);
+      return null;
+    }
+    const blob = await resp.blob();
+    if (!blob || blob.size === 0) return null;
+
+    // Velké fotky zmenšíme — menší payload = rychlejší čtení i nižší riziko
+    // překročení limitu edge funkce.
+    if (blob.size > 2_500_000) {
+      return await downscaleImageBlob(blob);
+    }
+    return { base64: await blobToBase64(blob), mimeType: blob.type || 'image/jpeg' };
+  } catch (e) {
+    console.warn('Chyba při zpracování fotky z WhatsApp pro AI čtení:', e);
+    return null;
+  }
+}
+
 export type ParsedWhatsAppResult = {
   placeId: string | null;
   placeName: string | null;
@@ -302,6 +375,7 @@ export async function parseWhatsAppOrderMessageWithAI(
   aliasMapOverride?: ParserAliasMap,
   placeAliasMapOverride?: Map<string, string>,
   messageId?: string,
+  imageUrl?: string | null,
 ): Promise<ParsedWhatsAppResult> {
   // 1. Naučené zkratky (piva + obaly) a aliasy odběratelů — stejné hinty
   //    jako posílá čtení z fotky (ImportFromImage).
@@ -372,6 +446,17 @@ export async function parseWhatsAppOrderMessageWithAI(
     }
   }
 
+  // 📷 Fotka v příloze → stáhneme ji a pošleme AI, aby objednávku přečetla i z fotky.
+  let imageBase64: string | null = null;
+  let imageMimeType: string | null = null;
+  if (imageUrl) {
+    const loaded = await loadWhatsAppImageForAI(imageUrl);
+    if (loaded) {
+      imageBase64 = loaded.base64;
+      imageMimeType = loaded.mimeType;
+    }
+  }
+
   const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-order-text`;
 
   const resp = await fetch(fnUrl, {
@@ -391,6 +476,7 @@ export async function parseWhatsAppOrderMessageWithAI(
         ...chatContext,
         { sender: sender ?? null, date, text: rawMessage }
       ],
+      ...(imageBase64 ? { imageBase64, imageMimeType } : {}),
     }),
   });
 

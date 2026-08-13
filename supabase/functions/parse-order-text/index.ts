@@ -195,6 +195,8 @@ Deno.serve(async (req: Request) => {
 
     const body = await req.json();
     const rawText: string | undefined = body.rawText;
+    const imageBase64: string | undefined = body.imageBase64;
+    const imageMimeType: string | undefined = body.imageMimeType || "image/jpeg";
     const beers: { id: string; name: string; degree: string }[] = body.beers ?? [];
     const packages: { id: string; label: string }[] = body.packages ?? [];
     // Katalogové klíče (normalizované) pro validaci výstupu LLM.
@@ -209,9 +211,9 @@ Deno.serve(async (req: Request) => {
     const placeAliases: { wrong_name: string; correct_name: string }[] = (body.placeAliases ?? []).filter((a: any) => !isSenderName(a.wrong_name) && !isSenderName(a.correct_name));
     const messages: WhatsAppMessageHint[] = body.messages ?? [];
 
-    if (!rawText || !rawText.trim()) {
+    if ((!rawText || !rawText.trim()) && !imageBase64) {
       return new Response(
-        JSON.stringify({ error: "Missing rawText" }),
+        JSON.stringify({ error: "Missing rawText or imageBase64" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -251,6 +253,19 @@ Deno.serve(async (req: Request) => {
           })
           .join("\n")
       : "(žádné rozpoznané zprávy — text nebyl rozdělen na jednotlivé zprávy)";
+
+    // Když je ke zprávě přiložená i FOTKA, AI ji přečte taky (Gemini vision).
+    // Fotka je zdrojová objednávka; text zprávy je jen doplněk (popisek).
+    const photoSection = imageBase64
+      ? `
+
+📷 FOTKA OBJEDNÁVKY Z WHATSAPP:
+K této objednávce je přiložená i FOTKA (viz obrázek v požadavku). Přečti objednávku PŘEDEVŠÍM Z FOTKY.
+- raw_text = doslovný přepis CELÉHO textu z fotky, řádek po řádku, v pořadí jako na fotce (i nečitelné části).
+- Ke KAŽDÉMU řádku fotky s objednávkovým údajem MUSÍ existovat položka v items (viz pravidla výše).
+- Čísla čti VELMI POZORNĚ (5x30 ≠ 5x50, 3 vs 5 vs 8, 0 vs 6).
+- Text zprávy níže je jen doplněk k fotce — má přednost to, co je na fotce.`
+      : "";
 
     const prompt = `Jsi asistent pro pivovar. Níže je text objednávky piva z WhatsApp (může to být celý měsíc konverzace od VÍCE odběratelů).
 Přečti VŠECHNY objednávky a vrať je jako strukturovaná data. NIKDY nevynechávej žádnou položku objednávky — i když si nejsi jistý, vrať ji s tím, co jsi rozpoznal, a nech neznámé hodnoty jako null.
@@ -461,7 +476,8 @@ Vrať ČISTĚ JSON (bez markdown, bez \`\`\`), přesně v tomto formátu, a nic 
 {"items":[{"quantity":4,"degree":"12°","beer_name":"12° Světlá","package_label":"KEG 50l","raw_line":"Seeberg 4x30 12sv a 2x30 12sv","place_name":"Seeberg","date":"2026-01-01"},{"quantity":2,"degree":"12°","beer_name":"12° Světlá","package_label":"KEG 30l","raw_line":"Seeberg 4x30 12sv a 2x30 12sv","place_name":"Seeberg","date":"2026-01-01"}],"place_name":"Seeberg","raw_text":"celý rozpoznaný text"}
 
 DŮLEŽITÉ — TOP-LEVEL "place_name":
-Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpovědi, vedle "items" a "raw_text"). Toto pole = JMÉNO ODBĚRATELE, jehož objednávka je v textu NEJVÝRAZNĚJŠÍ / první / hlavní (obvykle první zpráva nahoře). Pokud je v textu více odběratelů, top-level place_name = ten první/nejvýraznější. Pokud text říká "pro mě"/"mi"/"mně"/"pro mne", použij jméno ODESÍLATELE první/nejvýraznější zprávy. Pokud nelze určit žádného (ať už proto, že v textu žádný není, nebo protože jediný kandidát je jméno odesílatele, aniž by text říkal "pro mě"), vrať null. Příklad bez odběratele: {"items":[...],"place_name":null,"raw_text":"..."}. Toto pole je důležité, protože aplikace ho použije pro vytvoření nové objednávky.`;
+Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpovědi, vedle "items" a "raw_text"). Toto pole = JMÉNO ODBĚRATELE, jehož objednávka je v textu NEJVÝRAZNĚJŠÍ / první / hlavní (obvykle první zpráva nahoře). Pokud je v textu více odběratelů, top-level place_name = ten první/nejvýraznější. Pokud text říká "pro mě"/"mi"/"mně"/"pro mne", použij jméno ODESÍLATELE první/nejvýraznější zprávy. Pokud nelze určit žádného (ať už proto, že v textu žádný není, nebo protože jediný kandidát je jméno odesílatele, aniž by text říkal "pro mě"), vrať null. Příklad bez odběratele: {"items":[...],"place_name":null,"raw_text":"..."}. Toto pole je důležité, protože aplikace ho použije pro vytvoření nové objednávky.
+${photoSection}`;
 
 
     const groqBody = {
@@ -515,6 +531,16 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
               parts: [
                 { text: prompt },
                 { text: `TEXT OBJEDNÁVKY Z WHATSAPP:\n"""\n${rawText}\n"""` },
+                ...(imageBase64
+                  ? [
+                      {
+                        inline_data: {
+                          mime_type: imageMimeType,
+                          data: imageBase64,
+                        },
+                      },
+                    ]
+                  : []),
               ],
             },
           ],
@@ -618,7 +644,17 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
           },
           {
             role: "user",
-            content: `TEXT OBJEDNÁVKY Z WHATSAPP:\n"""\n${rawText}\n"""`,
+            content: imageBase64
+              ? [
+                  { type: "text", text: `TEXT OBJEDNÁVKY Z WHATSAPP:\n"""\n${rawText}\n"""` },
+                  {
+                    type: "image_url",
+                    image_url: {
+                      url: `data:${imageMimeType};base64,${imageBase64}`,
+                    },
+                  },
+                ]
+              : `TEXT OBJEDNÁVKY Z WHATSAPP:\n"""\n${rawText}\n"""`,
           },
         ],
       };

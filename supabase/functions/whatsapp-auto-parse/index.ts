@@ -751,6 +751,31 @@ Deno.serve(async (req: Request) => {
           message.message_text,
         ].filter(Boolean).join("\n");
 
+        // 📷 Fotka v příloze → stáhneme ji a pošleme AI, aby objednávku přečetla
+        // i z fotky (Gemini vision). Selhání jen zalogujeme — text se zpracuje taky.
+        let imageBase64: string | null = null;
+        let imageMimeType: string | null = null;
+        if (message.media_url) {
+          try {
+            const imgResp = await fetch(message.media_url);
+            if (imgResp.ok) {
+              const imgBuf = new Uint8Array(await imgResp.arrayBuffer());
+              // Ochrana před moc velkými fotkami (limit requestu edge funkce).
+              if (imgBuf.length > 0 && imgBuf.length < 6_000_000) {
+                let binary = "";
+                const CHUNK = 0x8000;
+                for (let i = 0; i < imgBuf.length; i += CHUNK) {
+                  binary += String.fromCharCode(...imgBuf.subarray(i, i + CHUNK));
+                }
+                imageBase64 = btoa(binary);
+                imageMimeType = imgResp.headers.get("content-type") || "image/jpeg";
+              }
+            }
+          } catch (e) {
+            console.error(`Chyba při stahování fotky zprávy ${message.id}:`, e);
+          }
+        }
+
         // Call the existing parse-order-text edge function
         const parseUrl = `${supabaseUrl}/functions/v1/parse-order-text`;
 
@@ -761,6 +786,7 @@ Deno.serve(async (req: Request) => {
           places: places.map(p => p.name),
           aliases,
           placeAliases,
+          ...(imageBase64 ? { imageBase64, imageMimeType } : {}),
           messages: [
             ...chatContext,
             {

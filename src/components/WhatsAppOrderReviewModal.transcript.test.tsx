@@ -1,10 +1,11 @@
 // Testy hlášky „Přepis od AI“ v WhatsAppOrderReviewModal, když parsed_raw_text chybí:
 //  - legacy zpráva (rozparsovaná před nasazením kontroly čtení) → původní text
-//  - fotka (AI ji nepřepisuje) → přesné vysvětlení místo zavádějící hlášky
-//  - pending (ještě se zpracovává) → přesné vysvětlení
+//  - fotka (legacy, AI ji tehdy nepřepisovala) → vysvětlení místo zavádějící hlášky
+//  - pending (ještě se zpracovává) → vysvětlení + „Parsovat ručně“ (fotka se pošle AI)
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { WhatsAppOrderReviewModal } from './WhatsAppOrderReviewModal';
+import { parseWhatsAppOrderMessageWithAI } from '../lib/whatsappParser';
 
 vi.mock('../lib/supabase', () => {
   const stub = () => ({
@@ -31,7 +32,7 @@ vi.mock('../lib/whatsappParser', () => ({
 }));
 
 const LEGACY_TEXT = 'Přepis od AI není k dispozici (zpráva rozparsovaná před nasazením kontroly čtení). Použijte „Přečíst znovu (AI)".';
-const PHOTO_TEXT = 'Tahle zpráva je fotka — AI ji nepřepisuje do textu. Zkontrolujte objednávku podle fotky a případně opravte položky ručně.';
+const PHOTO_TEXT = 'Tahle zpráva je fotka bez přepisu od AI — byla rozparsovaná v době, kdy se fotky nečetly. Zkontrolujte objednávku podle fotky, případně použijte „Přečíst znovu (AI)".';
 const PENDING_TEXT = 'Přepis od AI zatím není k dispozici — zpráva se teprve zpracovává. Pokud se tak nestane samo, klepněte na „Parsovat ručně“ výše.';
 
 const beers: any[] = [];
@@ -107,5 +108,29 @@ describe('WhatsAppOrderReviewModal — hláška „Přepis od AI“ bez parsed_r
     await waitFor(() => expect(screen.getByText(PENDING_TEXT)).toBeTruthy());
     expect(screen.getByText('Parsovat ručně')).toBeTruthy();
     expect(screen.queryByText(LEGACY_TEXT)).toBeNull();
+  });
+
+  it('pending fotka ukáže „teprve zpracovává“ + „Parsovat ručně“ a AI parser dostane media_url fotky', async () => {
+    const mediaUrl = 'https://xyz.supabase.co/storage/v1/object/public/whatsapp-media/incoming/wa-1.jpg';
+    renderModal({
+      id: 'pending-photo-1',
+      sender_name: 'Foto Odběratel',
+      message_text: '',
+      message_type: 'image',
+      status: 'pending',
+      created_at: '2026-08-01T10:00:00+00:00',
+      parsed_items: [],
+      parsed_raw_text: null,
+      media_url: mediaUrl,
+    });
+    await waitFor(() => expect(screen.getByText(PENDING_TEXT)).toBeTruthy());
+    expect(screen.queryByText(PHOTO_TEXT)).toBeNull();
+    expect(screen.getByText('Parsovat ručně')).toBeTruthy();
+
+    const parseMock = parseWhatsAppOrderMessageWithAI as unknown as ReturnType<typeof vi.fn>;
+    parseMock.mockClear();
+    fireEvent.click(screen.getByText('Parsovat ručně'));
+    await waitFor(() => expect(parseMock).toHaveBeenCalled());
+    expect(parseMock.mock.calls[0][9]).toBe(mediaUrl);
   });
 });
