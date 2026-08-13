@@ -102,7 +102,10 @@ export default function App() {
       <ReminderNotificationManager />
       <MandatoryAnnouncementModal />
       <CriticalMaterialAlertModal />
-      <MonthlyCleanupWarning onOpenMonthlyChecklist={() => setPage('bottling')} />
+      <MonthlyCleanupWarning
+        onOpenMonthlyChecklist={() => setPage('bottling')}
+        onOpenKegMonthlyChecklist={() => setPage('kegging')}
+      />
       {(page === 'dashboard' || page === 'sklo_promo') && (
         <Dashboard setPage={setPage} initialTab={page === 'sklo_promo' ? 'sklo_promo' : 'sklad'} />
       )}

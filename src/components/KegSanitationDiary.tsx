@@ -288,7 +288,7 @@ export default function KegSanitationDiary() {
       'Po konci: spláchnutí podlah sklep': e.proc_end_rinse_floors_cellar ? 'ANO' + t('proc_end_rinse_floors_cellar') : 'NE',
       'Po konci: spláchnutí podlah/stěn stáčečky': e.proc_end_rinse_floors_walls_bottlers ? 'ANO' + t('proc_end_rinse_floors_walls_bottlers') : 'NE',
       'Po konci: narážeče v persterilu': e.proc_end_coupler_heads_persteril_bucket ? 'ANO' + t('proc_end_coupler_heads_persteril_bucket') : 'NE',
-      'Měsíční: rozebrat narážeče v louhu': e.proc_month_disassemble_couplers ? 'ANO' + t('proc_month_disassemble_couplers') : 'NE',
+      'Měsíční: rozebrat narážeče a rychlospojky v louhu': e.proc_month_disassemble_couplers ? 'ANO' + t('proc_month_disassemble_couplers') : 'NE',
       'Měsíční: čištění kartáčem 24h': e.proc_month_clean_brush_24h ? 'ANO' + t('proc_month_clean_brush_24h') : 'NE',
       'Měsíční: oplach vodou': e.proc_month_rinse_water ? 'ANO' + t('proc_month_rinse_water') : 'NE',
       'Měsíční: vizuální čistota': e.proc_month_visual_clean ? 'ANO' + t('proc_month_visual_clean') : 'NE',
@@ -703,7 +703,7 @@ export default function KegSanitationDiary() {
                       stepTimes={stepTimes}
                       setStepTimes={setStepTimes}
                     >
-                      Rozebrat narážeče a nechat v louhu
+                      Rozebrat VŠECHNY narážeče a rychlospojky a naložit do louhu
                     </SanitationStepRow>
                     <SanitationStepRow
                       field="proc_month_clean_brush_24h"
@@ -712,7 +712,7 @@ export default function KegSanitationDiary() {
                       stepTimes={stepTimes}
                       setStepTimes={setStepTimes}
                     >
-                      Vyčistit kartáčem (louhování 24 hodin)
+                      Vyčistit rozebrané díly kartáčem (louhování 24 hodin)
                     </SanitationStepRow>
                     <SanitationStepRow
                       field="proc_month_rinse_water"

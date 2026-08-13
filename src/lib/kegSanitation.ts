@@ -230,10 +230,18 @@ export async function autoLogKegSanitationFromChecklist(opts: {
 
   if (phase === 'start') {
     entry.reason = entry.reason || 'pred_stacenim';
-    mark('proc_rinse_naoh_2_20', !!checkedMap['keg_start_1']);
-    mark('proc_rinse_persteril_02_10', !!checkedMap['keg_start_1']);
-    if (checkedMap['keg_start_1']) {
-      entry.proc_rinse_naoh_2_20 = true;
+    // Volba chemie pro proplach cest: NaOH 2% (20 min) NEBO Persteril 0.2% (10 min).
+    // Starší checklist bez uložené volby se vyhodnotí jako NaOH (původní chování).
+    const storedRinseChoice = checkedMap['keg_start_1_choice'] as unknown as string | undefined;
+    const rinseChoice = storedRinseChoice === 'persteril' ? 'persteril' : checkedMap['keg_start_1'] ? 'naoh' : null;
+    entry.proc_rinse_naoh_2_20 = rinseChoice === 'naoh';
+    entry.proc_rinse_persteril_02_10 = rinseChoice === 'persteril';
+    if (rinseChoice === 'naoh') {
+      mark('proc_rinse_naoh_2_20', true);
+      delete step_times['proc_rinse_persteril_02_10'];
+    } else if (rinseChoice === 'persteril') {
+      mark('proc_rinse_persteril_02_10', true);
+      delete step_times['proc_rinse_naoh_2_20'];
     }
     mark('proc_spray_valves_persteril_02_10', !!checkedMap['keg_start_valves_spray']);
     if (checkedMap['keg_start_valves_spray']) entry.proc_spray_valves_persteril_02_10 = true;

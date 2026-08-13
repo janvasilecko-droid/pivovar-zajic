@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Modal } from './ui';
-import { CheckSquare, Square, RotateCcw, Check, ShieldCheck, Lock } from 'lucide-react';
+import { CheckSquare, Square, RotateCcw, Check, ShieldCheck, Lock, AlertTriangle } from 'lucide-react';
 
 export type ChecklistPhase = 'start' | 'end' | 'monthly';
 
@@ -10,11 +10,12 @@ export type KegChecklistItem = {
   text: string;
   required?: boolean;
   weekly?: boolean; // Splněno jednou týdně
+  choice?: boolean; // Krok s volbou mezi NaOH a Persterilem (vybere se JEDEN)
 };
 
 export const KEG_DEFAULT_ITEMS: KegChecklistItem[] = [
   // 1. Začátek stáčení
-  { id: 'keg_start_1', category: '1. Začátek stáčení', text: 'Proplach cest: NaOH 2% (20 minut) nebo Persteril 0.2% (10 minut)', required: true },
+  { id: 'keg_start_1', category: '1. Začátek stáčení', text: 'Proplach pivních cest: NaOH 2% (20 minut) NEBO Persteril 0.2% (10 minut) — vyberte jeden postup', required: true, choice: true },
   { id: 'keg_start_valves_spray', category: '1. Začátek stáčení', text: 'Vystříkat klapky Persterilem 0.2%', required: true },
   { id: 'keg_start_valves_rinse', category: '1. Začátek stáčení', text: 'Oplach klapek vodou', required: true },
   { id: 'keg_start_bottler_rinse', category: '1. Začátek stáčení', text: 'Oplach vodou stáčečku (2 minuty)', required: true },
@@ -28,8 +29,8 @@ export const KEG_DEFAULT_ITEMS: KegChecklistItem[] = [
   { id: 'keg_end_6', category: '2. Konec stáčení', text: 'Ponořit hlavy narážečů do kýble s roztokem Persterilu', required: true },
 
   // 4. Měsíční údržba
-  { id: 'keg_month_1', category: '4. Měsíční údržba (1x měsíčně)', text: 'Kompletně rozebrat narážeče a naložit je do louhu NaOH', required: true },
-  { id: 'keg_month_2', category: '4. Měsíční údržba (1x měsíčně)', text: 'Vyčistit rozebrané díly narážečů kartáčem a nechat v louhu 24 hodin', required: true },
+  { id: 'keg_month_1', category: '4. Měsíční údržba (1x měsíčně)', text: 'Kompletně rozebrat VŠECHNY narážeče a rychlospojky a naložit je do louhu NaOH', required: true },
+  { id: 'keg_month_2', category: '4. Měsíční údržba (1x měsíčně)', text: 'Vyčistit rozebrané díly narážečů a rychlospojek kartáčem a nechat v louhu 24 hodin', required: true },
   { id: 'keg_month_3', category: '4. Měsíční údržba (1x měsíčně)', text: 'Poté důkladný oplach všech částí čistou vodou', required: true },
   { id: 'keg_month_4', category: '4. Měsíční údržba (1x měsíčně)', text: 'Vizuální kontrola čistoty a stavu těsnění', required: true },
 ];
@@ -115,7 +116,7 @@ type Props = {
 
 export function KeggingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, blockCloseUntilStartDone, phase = 'start', initialCategory, showSkip }: Props) {
   const dateKey = dateStr || new Date().toISOString().slice(0, 10);
-  const [checks, setChecks] = useState<Record<string, boolean>>({});
+  const [checks, setChecks] = useState<Record<string, boolean | string>>({});
 
   useEffect(() => {
     if (isOpen) {
@@ -184,6 +185,19 @@ export function KeggingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, b
     >
       <div className="space-y-4">
 
+        {phase === 'monthly' && (
+          <div className="p-3.5 rounded-2xl border-2 border-rose-300 bg-rose-50 text-rose-900 text-xs leading-relaxed flex items-start gap-3">
+            <AlertTriangle size={18} className="shrink-0 text-rose-600 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-black text-rose-700 uppercase tracking-wider text-[10px]">⚠️ Poslední týden v měsíci — povinná měsíční údržba</p>
+              <p className="font-medium">
+                Je nutné <b>kompletně rozebrat všechny narážeče a rychlospojky</b>, naložit je do louhu NaOH,
+                po 24 hodinách vyčistit kartáčem, důkladně opláchnout čistou vodou a provést vizuální kontrolu čistoty a těsnění.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Categories Tab Selector */}
         {categories.length > 1 && (
           <div className="flex flex-wrap gap-1 bg-neutral-100 p-1 rounded-xl">
@@ -223,6 +237,55 @@ export function KeggingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, b
             const isChecked = !!checks[item.id];
             const isWeeklySatisfied = isWeeklyItemSatisfiedForKeg(dateKey, item);
             const disabled = isWeeklySatisfied;
+
+            // Krok s volbou mezi NaOH a Persterilem — vybere se JEDEN postup.
+            if (item.choice) {
+              const choiceKey = 'keg_start_1_choice';
+              const choiceVal = (checks[choiceKey] as string) || (isChecked ? 'naoh' : '');
+              const pick = (val: 'naoh' | 'persteril') => {
+                const next = { ...checks, ['keg_start_1']: true, [choiceKey]: val };
+                setChecks(next);
+                localStorage.setItem('keg_checklist_' + dateKey, JSON.stringify(next));
+              };
+              const unpick = () => {
+                const next = { ...checks };
+                delete next['keg_start_1'];
+                delete next[choiceKey];
+                setChecks(next);
+                localStorage.setItem('keg_checklist_' + dateKey, JSON.stringify(next));
+              };
+              return (
+                <div
+                  key={item.id}
+                  className={`p-3 rounded-xl border transition-all ${choiceVal ? 'bg-amber-50/60 border-amber-300 shadow-2xs' : 'bg-white border-neutral-200'}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 shrink-0">
+                      {choiceVal ? <CheckSquare size={18} className="text-amber-600" /> : <Square size={18} className="text-neutral-300" />}
+                    </div>
+                    <div className="text-xs leading-normal flex-1">
+                      <span className={`font-semibold ${choiceVal ? 'text-neutral-900' : 'text-neutral-800'}`}>{item.text}</span>
+                      <div className="flex flex-col sm:flex-row gap-2 mt-2">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); if (choiceVal === 'naoh') unpick(); else pick('naoh'); }}
+                          className={`px-3 py-2 rounded-xl border-2 text-[11px] font-black transition flex items-center gap-1.5 ${choiceVal === 'naoh' ? 'bg-amber-500 border-amber-600 text-neutral-950 shadow-sm' : 'bg-white border-neutral-300 hover:border-amber-400 text-neutral-700'}`}
+                        >
+                          🧪 NaOH 2% (20 minut)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); if (choiceVal === 'persteril') unpick(); else pick('persteril'); }}
+                          className={`px-3 py-2 rounded-xl border-2 text-[11px] font-black transition flex items-center gap-1.5 ${choiceVal === 'persteril' ? 'bg-amber-500 border-amber-600 text-neutral-950 shadow-sm' : 'bg-white border-neutral-300 hover:border-amber-400 text-neutral-700'}`}
+                        >
+                          🫧 Persteril 0.2% (10 minut)
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
 
             return (
               <div
@@ -300,7 +363,14 @@ export function KeggingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, b
                   if (onApplyNote) {
                     const notes = Object.keys(checks)
                       .filter((k) => checks[k])
-                      .map((k) => KEG_DEFAULT_ITEMS.find((it) => it.id === k)?.text)
+                      .map((k) => {
+                        if (k === 'keg_start_1') {
+                          return checks['keg_start_1_choice'] === 'persteril'
+                            ? 'Proplach cest: Persteril 0.2% (10 minut)'
+                            : 'Proplach cest: NaOH 2% (20 minut)';
+                        }
+                        return KEG_DEFAULT_ITEMS.find((it) => it.id === k)?.text;
+                      })
                       .filter(Boolean)
                       .join(' | ');
                     onApplyNote(notes);

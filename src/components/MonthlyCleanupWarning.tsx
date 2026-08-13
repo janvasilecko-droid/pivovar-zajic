@@ -3,15 +3,17 @@ import { CalendarX2, CheckCircle2, ClipboardList } from 'lucide-react';
 import { isLastWeekOfMonth } from '../lib/monthlyCleanup';
 
 type Props = {
-  // Volitelné: tlačítko, které rovnou otevře stáčení (a tam se po splnění
+  // Volitelné: tlačítko, které rovnou otevře stáčení lahví (a tam se po splnění
   // „1. Začátek stáčení" zobrazí okno s měsíčním checklistem).
   onOpenMonthlyChecklist?: () => void;
+  // Volitelné: stejné tlačítko pro stáčení KEGů.
+  onOpenKegMonthlyChecklist?: () => void;
 };
 
 // ⚠️ Výrazné upozornění v posledním týdnu měsíce: „V tomto týdnu je potřeba
 // udělat měsíční úklid." Zobrazí se po přihlášení při KAŽDÉM otevření aplikace
 // a zavírá se tlačítkem „OK vím o tom" (potlačení platí jen pro toto otevření).
-export function MonthlyCleanupWarning({ onOpenMonthlyChecklist }: Props) {
+export function MonthlyCleanupWarning({ onOpenMonthlyChecklist, onOpenKegMonthlyChecklist }: Props) {
   const [open, setOpen] = useState(() => isLastWeekOfMonth());
 
   if (!open) return null;
@@ -39,8 +41,8 @@ export function MonthlyCleanupWarning({ onOpenMonthlyChecklist }: Props) {
 
         <div className="p-5 rounded-2xl bg-rose-50/90 border border-rose-300 text-neutral-900 font-medium text-sm leading-relaxed space-y-2">
           <p className="font-bold text-neutral-900">
-            Je poslední týden v měsíci — v rámci stáčení je nutné provést <b>měsíční údržbu</b>{' '}
-            stáčeček, naražečů a pivních cest (sekce „4. Měsíční údržba" v checklistu).
+            Je poslední týden v měsíci — v rámci stáčení (lahví i KEGů) je nutné provést <b>měsíční údržbu</b>{' '}
+            stáčeček, naražečů, rychlospojek a pivních cest (sekce „4. Měsíční údržba" v checklistu).
           </p>
           <p className="text-xs text-rose-800">
             Po splnění úvodního checklistu „1. Začátek stáčení" se automaticky otevře okno s měsíčním
@@ -67,7 +69,20 @@ export function MonthlyCleanupWarning({ onOpenMonthlyChecklist }: Props) {
               className="w-full py-3 px-6 rounded-2xl bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-bold text-sm transition flex items-center justify-center gap-2"
             >
               <ClipboardList size={18} />
-              <span>Otevřít stáčení (měsíční checklist)</span>
+              <span>Otevřít stáčení lahví (měsíční checklist)</span>
+            </button>
+          )}
+          {onOpenKegMonthlyChecklist && (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onOpenKegMonthlyChecklist();
+              }}
+              className="w-full py-3 px-6 rounded-2xl bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-bold text-sm transition flex items-center justify-center gap-2"
+            >
+              <ClipboardList size={18} />
+              <span>Otevřít stáčení KEGů (měsíční checklist)</span>
             </button>
           )}
         </div>
