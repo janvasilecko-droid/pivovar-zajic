@@ -235,17 +235,12 @@ export async function autoLogKegSanitationFromChecklist(opts: {
     if (checkedMap['keg_start_1']) {
       entry.proc_rinse_naoh_2_20 = true;
     }
-    mark('proc_rinse_water_before', !!checkedMap['keg_start_2']);
-    if (checkedMap['keg_start_2']) entry.proc_rinse_water_before = true;
-    mark('proc_scrub_valves_naoh_2_15', !!checkedMap['keg_start_valves_weekly']);
-    if (checkedMap['keg_start_valves_weekly']) entry.proc_scrub_valves_naoh_2_15 = true;
-    mark('proc_spray_valves_persteril_02_10', !!checkedMap['keg_start_valves_daily']);
-    if (checkedMap['keg_start_valves_daily']) entry.proc_spray_valves_persteril_02_10 = true;
-    const valvesAny = !!checkedMap['keg_start_valves_weekly'] || !!checkedMap['keg_start_valves_daily'];
-    mark('proc_rinse_water_after_valves', valvesAny);
-    if (valvesAny) {
-      entry.proc_rinse_water_after_valves = true;
-    }
+    mark('proc_spray_valves_persteril_02_10', !!checkedMap['keg_start_valves_spray']);
+    if (checkedMap['keg_start_valves_spray']) entry.proc_spray_valves_persteril_02_10 = true;
+    mark('proc_rinse_water_after_valves', !!checkedMap['keg_start_valves_rinse']);
+    if (checkedMap['keg_start_valves_rinse']) entry.proc_rinse_water_after_valves = true;
+    mark('proc_rinse_water_before', !!checkedMap['keg_start_bottler_rinse']);
+    if (checkedMap['keg_start_bottler_rinse']) entry.proc_rinse_water_before = true;
   } else if (phase === 'end') {
     entry.reason = entry.reason || 'po_staceni';
     mark('proc_end_rinse_lines_water', !!checkedMap['keg_end_1']);

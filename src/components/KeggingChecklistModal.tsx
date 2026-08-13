@@ -15,9 +15,9 @@ export type KegChecklistItem = {
 export const KEG_DEFAULT_ITEMS: KegChecklistItem[] = [
   // 1. Začátek stáčení
   { id: 'keg_start_1', category: '1. Začátek stáčení', text: 'Proplach cest: NaOH 2% (20 minut) nebo Persteril 0.2% (10 minut)', required: true },
-  { id: 'keg_start_2', category: '1. Začátek stáčení', text: 'Poté proplach pivního vedení čistou vodou', required: true },
-  { id: 'keg_start_valves_weekly', category: '1. Začátek stáčení', text: 'Klapky: vydrhnout kartáčem louhem 2%, nechat působit 15 minut, poté spláchnout proudem vody (splnit 1x týdně při 1. stáčení)', required: true, weekly: true },
-  { id: 'keg_start_valves_daily', category: '1. Začátek stáčení', text: 'Klapky: vystříkat Persterilem 0.2%, nechat působit 10 minut, poté spláchnout proudem vody (každodenní úkon, pokud už není splněn týdenní louh)', required: true },
+  { id: 'keg_start_valves_spray', category: '1. Začátek stáčení', text: 'Vystříkat klapky Persterilem 0.2%', required: true },
+  { id: 'keg_start_valves_rinse', category: '1. Začátek stáčení', text: 'Oplach klapek vodou', required: true },
+  { id: 'keg_start_bottler_rinse', category: '1. Začátek stáčení', text: 'Oplach vodou stáčečku (2 minuty)', required: true },
 
   // 2. Konec stáčení
   { id: 'keg_end_1', category: '2. Konec stáčení', text: 'Po konci stáčení: důkladný proplach pivních cest vodou', required: true },
@@ -68,25 +68,12 @@ export function isWeeklyItemSatisfiedForKeg(dateKey: string, item: KegChecklistI
   return false;
 }
 
-export function getFilteredKegItems(phase: ChecklistPhase, dateKey: string): KegChecklistItem[] {
-  let base = phase === 'start'
+export function getFilteredKegItems(phase: ChecklistPhase): KegChecklistItem[] {
+  return phase === 'start'
     ? KEG_DEFAULT_ITEMS.filter((it) => it.category.startsWith(START_CATEGORY_PREFIX))
     : phase === 'monthly'
       ? KEG_DEFAULT_ITEMS.filter((it) => it.category.startsWith(MONTHLY_CATEGORY_PREFIX))
       : KEG_DEFAULT_ITEMS.filter((it) => !it.category.startsWith(START_CATEGORY_PREFIX));
-
-  if (phase === 'start' && dateKey) {
-    const isWeeklyValvesDone = isWeeklyItemSatisfiedForKeg(dateKey, { id: 'keg_start_valves_weekly', category: '', text: '', weekly: true });
-    
-    return base.filter((it) => {
-      // Pokud je již hotové týdenní čištění louhem, nezobrazujeme ho
-      if (it.id === 'keg_start_valves_weekly' && isWeeklyValvesDone) return false;
-      // Pokud je hotové týdenní čištění louhem, denní vystříkání persterilem v tento den se nevyžaduje
-      if (it.id === 'keg_start_valves_daily' && isWeeklyValvesDone) return false;
-      return true;
-    });
-  }
-  return base;
 }
 
 export function isStartChecklistCompleteForKeg(dateKey: string): boolean {
@@ -95,7 +82,7 @@ export function isStartChecklistCompleteForKeg(dateKey: string): boolean {
     if (!raw) return false;
     const map = JSON.parse(raw) as Record<string, boolean>;
     
-    const items = getFilteredKegItems('start', dateKey);
+    const items = getFilteredKegItems('start');
     return items.every((it) => !!map[it.id] || isWeeklyItemSatisfiedForKeg(dateKey, it));
   } catch {
     return false;
@@ -142,7 +129,7 @@ export function KeggingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, b
     }
   }, [isOpen, dateKey]);
 
-  const items = getFilteredKegItems(phase, dateKey);
+  const items = getFilteredKegItems(phase);
 
   const categories = Array.from(new Set(items.map((it) => it.category))).sort();
 

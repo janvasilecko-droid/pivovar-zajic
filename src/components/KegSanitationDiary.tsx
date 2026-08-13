@@ -279,10 +279,9 @@ export default function KegSanitationDiary() {
       'Schválil': e.approved_by ?? '—',
       'NaOH 2% 20min': e.proc_rinse_naoh_2_20 ? 'ANO' + t('proc_rinse_naoh_2_20') : 'NE',
       'Persteril 0.2% 10min': e.proc_rinse_persteril_02_10 ? 'ANO' + t('proc_rinse_persteril_02_10') : 'NE',
-      'Proplach vodou (před)': e.proc_rinse_water_before ? 'ANO' + t('proc_rinse_water_before') : 'NE',
-      'Klapky louhem 2% (15min)': e.proc_scrub_valves_naoh_2_15 ? 'ANO' + t('proc_scrub_valves_naoh_2_15') : 'NE',
-      'Klapky persterilem 0.2% (10min)': e.proc_spray_valves_persteril_02_10 ? 'ANO' + t('proc_spray_valves_persteril_02_10') : 'NE',
-      'Klapky spláchnuty vodou': e.proc_rinse_water_after_valves ? 'ANO' + t('proc_rinse_water_after_valves') : 'NE',
+      'Oplach vodou stáčečku (2 min)': e.proc_rinse_water_before ? 'ANO' + t('proc_rinse_water_before') : 'NE',
+      'Klapky: vystříkat Persterilem 0.2%': e.proc_spray_valves_persteril_02_10 ? 'ANO' + t('proc_spray_valves_persteril_02_10') : 'NE',
+      'Oplach klapek vodou': e.proc_rinse_water_after_valves ? 'ANO' + t('proc_rinse_water_after_valves') : 'NE',
       'Po konci: proplach cest vodou': e.proc_end_rinse_lines_water ? 'ANO' + t('proc_end_rinse_lines_water') : 'NE',
       'Po konci: oplach klapek vodou': e.proc_end_rinse_valves_water ? 'ANO' + t('proc_end_rinse_valves_water') : 'NE',
       'Po konci: oplach + kontrola narážečů': e.proc_end_rinse_couplers_water ? 'ANO' + t('proc_end_rinse_couplers_water') : 'NE',
@@ -595,27 +594,8 @@ export default function KegSanitationDiary() {
                     >
                       **Nebo** proplach **Persteril 0.2%** (10 minut)
                     </SanitationStepRow>
-                    <SanitationStepRow
-                      field="proc_rinse_water_before"
-                      checked={procRinseWaterBefore}
-                      onChecked={setProcRinseWaterBefore}
-                      stepTimes={stepTimes}
-                      setStepTimes={setStepTimes}
-                    >
-                      Poté proplach čistou vodou
-                    </SanitationStepRow>
-                    
                     <div className="border-t border-neutral-200/80 my-2 pt-2 space-y-1.5">
                       <span className="block text-[10px] font-bold text-neutral-500 uppercase">Sanitace klapek:</span>
-                      <SanitationStepRow
-                        field="proc_scrub_valves_naoh_2_15"
-                        checked={procScrubValvesNaoh}
-                        onChecked={setProcScrubValvesNaoh}
-                        stepTimes={stepTimes}
-                        setStepTimes={setStepTimes}
-                      >
-                        **První stáčení:** vydrhnout kartáčem louhem 2% (15 min)
-                      </SanitationStepRow>
                       <SanitationStepRow
                         field="proc_spray_valves_persteril_02_10"
                         checked={procSprayValvesPersteril}
@@ -623,7 +603,7 @@ export default function KegSanitationDiary() {
                         stepTimes={stepTimes}
                         setStepTimes={setStepTimes}
                       >
-                        **Ostatní dny:** vystříkat Persterilem 0.2% (10 min)
+                        Vystříkat klapky **Persterilem 0.2%**
                       </SanitationStepRow>
                       <SanitationStepRow
                         field="proc_rinse_water_after_valves"
@@ -632,9 +612,18 @@ export default function KegSanitationDiary() {
                         stepTimes={stepTimes}
                         setStepTimes={setStepTimes}
                       >
-                        Spláchnuto proudem vody
+                        Oplach klapek vodou
                       </SanitationStepRow>
                     </div>
+                    <SanitationStepRow
+                      field="proc_rinse_water_before"
+                      checked={procRinseWaterBefore}
+                      onChecked={setProcRinseWaterBefore}
+                      stepTimes={stepTimes}
+                      setStepTimes={setStepTimes}
+                    >
+                      Oplach vodou stáčečku (2 minuty)
+                    </SanitationStepRow>
                   </div>
                 </div>
 
