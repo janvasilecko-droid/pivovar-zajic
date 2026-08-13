@@ -65,8 +65,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [session?.user?.id]); // Dependency array matches sessions
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error?.message ?? null };
+    const doSignIn = () => supabase.auth.signInWithPassword({ email, password });
+    let res = await doSignIn();
+
+    // Účet zatím nemusí existovat — zkusíme ho automaticky vytvořit
+    // (pouze s výchozím heslem „zajic“) a pak se přihlásit znovu.
+    if (res.error) {
+      try {
+        const r = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/auth-auto-login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await r.json().catch(() => ({})) as { created?: boolean; error?: string };
+        if (r.ok && data?.created) {
+          res = await doSignIn();
+        } else if (data?.error) {
+          return { error: data.error };
+        }
+      } catch {
+        // Ponecháme původní chybu přihlášení.
+      }
+    }
+
+    return { error: res.error?.message ?? null };
   };
 
   const signOut = () => supabase.auth.signOut().then(() => { setProfile(null); });

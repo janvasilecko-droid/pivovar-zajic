@@ -131,7 +131,14 @@ export default function AuthScreen() {
               </button>
             </form>
 
-            <div className="mt-8 pt-5 border-t border-amber-100 text-center">
+            <div className="mt-4 rounded-2xl bg-amber-50/80 border border-amber-200 px-4 py-3 text-center">
+              <p className="text-[11px] font-bold text-amber-800 leading-relaxed">
+                🍺 Nový uživatel? Stačí se přihlásit svým e-mailem a výchozím heslem{' '}
+                <span className="font-black">zajic</span> — účet se vytvoří automaticky a heslo si pak založíte vlastní.
+              </p>
+            </div>
+
+            <div className="mt-6 pt-5 border-t border-amber-100 text-center">
               <p className="text-[11px] text-neutral-500 font-bold">
                 Pivovarský systém Minipivovar Zajíc • Kynšperk nad Ohří
               </p>
