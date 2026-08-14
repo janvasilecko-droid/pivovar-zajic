@@ -2140,8 +2140,14 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
                 // aby bylo na první pohled vidět, podle čeho se daná položka shodla.
                 const isBeerMatch = !!(activeBeerId && i.beer_id === activeBeerId);
                 const isPkgMatch = !!(activePackageId && i.package_id === activePackageId);
+                // Aktivní celá kombinace pivo+obal (klik na „Chybí“ v Potřebě stočení)
+                // → zvýrazní se JEN položky přesně odpovídající kombinaci; částečná
+                // shoda (jen pivo, jen obal) se nezvýrazňuje.
+                const bothActive = !!(activeBeerId && activePackageId);
                 const matchKind: 'beer' | 'pkg' | 'both' | null =
-                  isBeerMatch && isPkgMatch ? 'both' : isBeerMatch ? 'beer' : isPkgMatch ? 'pkg' : null;
+                  bothActive
+                    ? isBeerMatch && isPkgMatch ? 'both' : null
+                    : isBeerMatch && isPkgMatch ? 'both' : isBeerMatch ? 'beer' : isPkgMatch ? 'pkg' : null;
                 const chipCls =
                   matchKind === 'beer'
                     ? 'bg-blue-400 text-neutral-900 border-blue-600 ring-2 ring-blue-500 shadow-md scale-105'
