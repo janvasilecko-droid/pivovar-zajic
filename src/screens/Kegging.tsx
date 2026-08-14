@@ -1422,7 +1422,15 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                     {filteredKegRequirements.map((r) => {
                       const beer = beers.find((b) => b.id === r.beer_id);
                       return (
-                        <tr key={`${r.beer_id}__${r.package_id}`} className="border-b border-neutral-100 hover:bg-neutral-50/80 transition-colors">
+                        <tr
+                          key={`${r.beer_id}__${r.package_id}`}
+                          onClick={r.neededQty > 0 ? () => {
+                            requestOrdersItemFilter({ beerId: r.beer_id, packageId: r.package_id });
+                            setPage?.('orders');
+                          } : undefined}
+                          title={r.neededQty > 0 ? `Zobrazit v přehledu objednávek objednávky s ${r.beer_name} (${r.package_label})` : undefined}
+                          className={`border-b border-neutral-100 transition-colors ${r.neededQty > 0 ? 'cursor-pointer hover:bg-amber-50' : 'hover:bg-neutral-50/80'}`}
+                        >
                           <td className="p-2.5 font-black text-neutral-950">
                             <div className="flex items-center gap-1.5">
                               <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
@@ -1440,7 +1448,8 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                             {r.neededQty > 0 ? (
                               <button
                                 type="button"
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   requestOrdersItemFilter({ beerId: r.beer_id, packageId: r.package_id });
                                   setPage?.('orders');
                                 }}
@@ -1461,6 +1470,11 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                   </tbody>
                 </table>
               </div>
+            )}
+            {filteredKegRequirements.length > 0 && (
+              <p className="text-[11px] text-neutral-500 pt-1">
+                💡 Kliknutím na řádek s chybějícími sudy se přepnete do <b>Přehledu objednávek</b> filtrovaného na dané pivo + obal — uvidíte, kam objednávky jdou.
+              </p>
             )}
           </div>
         </div>

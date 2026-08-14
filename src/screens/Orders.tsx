@@ -629,16 +629,17 @@ export default function Orders({
   useEffect(() => { load(); }, []);
   useRealtime(['orders','order_items','beers','packages','places'], () => load(true));
 
-  // 🔀 Požadavek z „Potřeba stočit KEGy“ (Kegging): uživatel klikl na „Chybí X ks
-  // sudů“ → otevřeme přehled objednávek rovnou filtrovaný na dané pivo + obal,
-  // se všemi objednávkami (bez omezení na týden).
+  // 🔀 Požadavek z „Potřeba stočit KEGy / lahve“ (Kegging / Bottling): uživatel
+  // klikl na řádek „Chybí X ks“ → otevřeme přehled objednávek rovnou filtrovaný
+  // na dané pivo + obal, v rozsahu AKTUÁLNÍHO TÝDNE (stejné objednávky, které
+  // potřeba stočení počítá) — ať je vidět, kam objednávky jdou.
   useEffect(() => {
     const req = consumeOrdersItemFilter();
     if (!req) return;
     setItemFilterBeerId(req.beerId);
     setItemFilterPackageId(req.packageId);
     setViewMode('detail');
-    setTimeScope('all');
+    setTimeScope('week');
     setSearchText('');
     setStatusFilter('');
     setDeliveryDayFilter('all');

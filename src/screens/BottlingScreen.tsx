@@ -14,6 +14,7 @@ import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
 import { QuickQtySelect } from '../components/QuickQtySelect';
 import { isLastWeekOfMonth } from '../lib/monthlyCleanup';
 import { autoLogBottleSanitationFromChecklist } from '../lib/bottleSanitation';
+import { requestOrdersItemFilter } from '../lib/ordersFilter';
 
 
 const ROW_COUNT = 12;
@@ -1717,7 +1718,15 @@ export default function BottlingScreen({
                     {filteredRequirements.map((r) => {
                       const beer = beers.find((b) => b.id === r.beer_id);
                       return (
-                        <tr key={`${r.beer_id}__${r.package_id}`} className="border-b border-neutral-100 hover:bg-neutral-50/80 transition-colors">
+                        <tr
+                          key={`${r.beer_id}__${r.package_id}`}
+                          onClick={r.neededQty > 0 ? () => {
+                            requestOrdersItemFilter({ beerId: r.beer_id, packageId: r.package_id });
+                            setPage?.('orders');
+                          } : undefined}
+                          title={r.neededQty > 0 ? `Zobrazit v přehledu objednávek objednávky s ${r.beer_name} (${r.package_label})` : undefined}
+                          className={`border-b border-neutral-100 transition-colors ${r.neededQty > 0 ? 'cursor-pointer hover:bg-rose-50' : 'hover:bg-neutral-50/80'}`}
+                        >
                           <td className="p-2.5 font-black text-neutral-950 flex items-center gap-1.5">
                             <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
                             <span>{r.beer_name}</span>
@@ -1733,9 +1742,18 @@ export default function BottlingScreen({
                           </td>
                           <td className="p-2.5 text-center">
                             {r.neededQty > 0 ? (
-                              <span className="px-2.5 py-1 rounded-xl bg-rose-100 text-rose-800 font-black text-[11px] border border-rose-300 whitespace-nowrap">
-                                ⚠️ Chybí {r.neededQty} ks
-                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  requestOrdersItemFilter({ beerId: r.beer_id, packageId: r.package_id });
+                                  setPage?.('orders');
+                                }}
+                                title={`Zobrazit v přehledu objednávek objednávky s ${r.beer_name} (${r.package_label})`}
+                                className="px-2.5 py-1 rounded-xl bg-rose-100 text-rose-800 font-black text-[11px] border border-rose-300 whitespace-nowrap transition cursor-pointer hover:bg-rose-200 active:bg-rose-300"
+                              >
+                                ⚠️ Chybí {r.neededQty} ks →
+                              </button>
                             ) : (
                               <span className="px-2.5 py-1 rounded-xl bg-emerald-100 text-emerald-800 font-bold text-[11px] border border-emerald-300 whitespace-nowrap">
                                 ✓ Pokryto
@@ -1748,6 +1766,11 @@ export default function BottlingScreen({
                   </tbody>
                 </table>
               </div>
+            )}
+            {filteredRequirements.length > 0 && (
+              <p className="text-[11px] text-neutral-500 pt-1">
+                💡 Kliknutím na řádek s chybějícími položkami se přepnete do <b>Přehledu objednávek</b> filtrovaného na dané pivo + obal — uvidíte, kam objednávky jdou.
+              </p>
             )}
           </div>
         </div>

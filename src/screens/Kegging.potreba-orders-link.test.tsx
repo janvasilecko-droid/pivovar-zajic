@@ -109,6 +109,22 @@ describe('Kegging — kliknutí na „Chybí X ks sudů" otevře Objednávky s f
     expect(consumeOrdersItemFilter()).toBeNull();
   });
 
+  it('3. kliknutí na RÁDEK chybějícího KEGu (mimo tlačítko) → setPage("orders") + filtr (pivo + obal)', async () => {
+    h.DB.inventory = [{ entry_date: `${new Date().toISOString().slice(0, 7)}-01`, beer_id: 'beer-12', package_id: 'pkg-30', quantity: 0 }];
+    const setPage = vi.fn();
+    render(<KeggingScreen mode="overviews_only" setPage={setPage} />);
+
+    const beerNameInRow = await screen.findByText('Světlý ležák 12°', { selector: 'td span' });
+    const row = beerNameInRow.closest('tr');
+    expect(row).toBeTruthy();
+
+    // Kliknutí na buňku se jménem piva — celý řádek je klikatelný.
+    fireEvent.click(beerNameInRow);
+
+    await waitFor(() => expect(setPage).toHaveBeenCalledWith('orders'));
+    expect(consumeOrdersItemFilter()).toEqual({ beerId: 'beer-12', packageId: 'pkg-30' });
+  });
+
   it('2. pokrytý KEG → řádek má „✓ Pokryto" a žádné klikací tlačítko „Chybí"', async () => {
     h.DB.inventory = [{ entry_date: `${new Date().toISOString().slice(0, 7)}-01`, beer_id: 'beer-12', package_id: 'pkg-30', quantity: 5 }];
     const setPage = vi.fn();
@@ -119,6 +135,9 @@ describe('Kegging — kliknutí na „Chybí X ks sudů" otevře Objednávky s f
 
     await screen.findByText('✓ Pokryto');
     expect(screen.queryByText(/Chybí/)).toBeNull();
+    // Pokrytý řádek NENÍ klikatelný — kliknutí na něj nepřepne stránku ani nevyžádá filtr.
+    fireEvent.click(screen.getByText('Světlý ležák 12°', { selector: 'td span' }));
     expect(setPage).not.toHaveBeenCalled();
+    expect(consumeOrdersItemFilter()).toBeNull();
   });
 });
