@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 
-import { Camera, ListOrdered, Package as PackageIcon, Phone, Building2, Truck, Plus, FileText, MessageCircle, Printer, FileSpreadsheet, CheckSquare, PackageCheck, FilePlus, Calendar, Trash2, Pencil, Copy, Ban, RotateCcw, AlertTriangle, Check, CheckCircle2, Zap } from 'lucide-react';
-import { supabase, Beer, Package, Place, EntryRow, useRealtime, beerBg, beerText, beerName, formatPackageLabel } from '../lib/supabase';
+import { Camera, ListOrdered, Package as PackageIcon, Phone, Building2, Truck, Plus, FileText, MessageCircle, Printer, FileSpreadsheet, CheckSquare, PackageCheck, FilePlus, Calendar, Trash2, Pencil, Copy, Ban, RotateCcw, AlertTriangle, Check, CheckCircle2, Zap, ArrowRight, ChartBar } from 'lucide-react';
+import { supabase, Beer, Package, Place, EntryRow, useRealtime, beerBg, beerText, beerName, formatPackageLabel, pkgBg } from '../lib/supabase';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { consumeOrdersItemFilter } from '../lib/ordersFilter';
+import { computeVariantTotals, type VariantTotalsResult } from '../lib/variantTotals';
 import { ImportFromImage } from '../components/ImportFromImage';
 import { WhatsAppIncomingModal } from '../components/WhatsAppIncomingModal';
 import { WhatsAppOrderReviewModal } from '../components/WhatsAppOrderReviewModal';
@@ -151,7 +152,7 @@ export default function Orders({
   const [editOrder, setEditOrder] = useState<Order | null>(null);
   const [aliasMap, setAliasMap] = useState<ParserAliasMap>(emptyAliasMap());
   const [placeAliasMap, setPlaceAliasMap] = useState<Map<string, string>>(new Map());
-  const [viewMode, setViewMode] = useState<'summary' | 'detail' | 'zavoz'>('summary'); // New state for view mode
+  const [viewMode, setViewMode] = useState<'summary' | 'detail' | 'zavoz' | 'celkem'>('summary'); // New state for view mode
   const [itemFilterBeerId, setItemFilterBeerId] = useState<string | null>(null); // New state for item filter
   const [itemFilterPackageId, setItemFilterPackageId] = useState<string | null>(null); // New state for item filter
   useEffect(() => { loadAliasMap().then(setAliasMap).catch(() => {}); }, []);
@@ -982,6 +983,10 @@ export default function Orders({
     });
   }, [filtered, zavozOnly, statusFilter, deliveryDayFilter, searchText, items, itemFilterBeerId, itemFilterPackageId, packageKindFilter, packages]);
 
+  // 🧮 Záložka „Celkem“ — souhrn objednaného množství podle varianty (pivo + obal)
+  // v aktuálně zvoleném rozsahu (týden / měsíc / vše). Storno se nepočítá.
+  const variantTotals = useMemo(() => computeVariantTotals(filtered, items), [filtered, items]);
+
   const itemAuditStats = useMemo(() => {
     if (!itemFilterBeerId && !itemFilterPackageId && packageKindFilter === 'all' && !searchText.trim()) {
       return null;
@@ -1238,6 +1243,7 @@ export default function Orders({
     setSearchText(''); // Clear general search when applying item filter
     setStatusFilter(''); // Clear status filter
     setDeliveryDayFilter('all'); // Clear day filter
+    setPackageKindFilter('all'); // Filtrujeme přesně pivo+obal, ne jen druh obalu
   }
 
   return (
@@ -1286,6 +1292,16 @@ export default function Orders({
                   }`}
                 >
                   <Truck size={14} /> Závoz
+                </button>
+                <button
+                  onClick={() => setViewMode('celkem')}
+                  className={`flex-1 sm:flex-none px-2 py-1.5 rounded-lg font-black text-[11px] leading-tight transition flex items-center justify-center gap-1 whitespace-nowrap ${
+                    viewMode === 'celkem'
+                      ? 'bg-amber-500 text-neutral-800 shadow-md ring-2 ring-amber-300'
+                      : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+                  }`}
+                >
+                  <ChartBar size={14} /> Celkem
                 </button>
               </div>
             )}
@@ -1506,7 +1522,7 @@ export default function Orders({
           Seznam a detaily objednávek jsou vidět jen v záložce „Objednávky“. */}
 
       {/* ⬅️➡️ Navigace Týden / Celý měsíc / Všechny objednávky — Detaily */}
-      {mode !== 'entry_only' && viewMode === 'detail' && (
+      {mode !== 'entry_only' && (viewMode === 'detail' || viewMode === 'celkem') && (
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4 bg-white rounded-2xl border border-neutral-200 p-2.5 shadow-2xs">
           <div className="flex items-center gap-1.5 bg-neutral-100 p-1 rounded-xl flex-wrap">
             <button
@@ -1768,7 +1784,11 @@ export default function Orders({
 
       {viewMode === 'zavoz' && <Zavoz setPage={setPage} embedded />}
 
-      {viewMode !== 'zavoz' && (loading ? null : searchedFiltered.length === 0 ? <EmptyState text="Žádné objednávky pro zvolené filtry." icon="🧾" /> : (viewMode === 'detail' && groupedByDay) ? (
+      {viewMode === 'celkem' && mode !== 'entry_only' && (
+        <VariantTotalsPanel totals={variantTotals} beers={beers} packages={packages} timeScope={timeScope} onPick={handleItemClick} />
+      )}
+
+      {viewMode !== 'zavoz' && viewMode !== 'celkem' && (loading ? null : searchedFiltered.length === 0 ? <EmptyState text="Žádné objednávky pro zvolené filtry." icon="🧾" /> : (viewMode === 'detail' && groupedByDay) ? (
         <div className="space-y-6">
           {groupedByDay.map((grp) => (
             <div key={grp.key}>
@@ -2036,6 +2056,90 @@ function getTapNameForOrder(orderId: string): string | null {
     const r = list.find((it) => it.order_id === orderId);
     return r?.tap_name && String(r.tap_name).trim() ? String(r.tap_name).trim() : null;
   } catch { return null; }
+}
+
+// 🧮 Záložka „Celkem“ — souhrn objednaného množství podle varianty (pivo + obal)
+// v aktuálně zvoleném rozsahu (týden / měsíc / vše). Kliknutí na variantu otevře
+// Přehled objednávek filtrovaný na přesně dané pivo + obal.
+function VariantTotalsPanel({ totals, beers, packages, timeScope, onPick }: {
+  totals: VariantTotalsResult;
+  beers: Beer[];
+  packages: Package[];
+  timeScope: 'week' | 'month' | 'all';
+  onPick: (beerId: string, packageId: string) => void;
+}) {
+  if (!totals.totalKs) {
+    return <EmptyState text="Žádné objednávky v tomto rozsahu — zatím není co sčítat." icon="🧮" />;
+  }
+  const scopeLabel = timeScope === 'week' ? 'tento týden' : timeScope === 'month' ? 'celý měsíc' : 'všechny objednávky';
+  const sorted = [...totals.totals].sort((a, b) => {
+    const pkgA = packages.find((p) => p.id === a.packageId);
+    const pkgB = packages.find((p) => p.id === b.packageId);
+    const kindA = pkgA?.kind === 'keg' ? 0 : 1;
+    const kindB = pkgB?.kind === 'keg' ? 0 : 1;
+    if (kindA !== kindB) return kindA - kindB;
+    const la = formatPackageLabel(pkgA?.label) || a.packageId;
+    const lb = formatPackageLabel(pkgB?.label) || b.packageId;
+    if (la !== lb) return la.localeCompare(lb, 'cs');
+    return beerName(beers.find((x) => x.id === a.beerId)).localeCompare(beerName(beers.find((x) => x.id === b.beerId)), 'cs');
+  });
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 bg-white rounded-2xl border border-neutral-200 p-3 shadow-2xs">
+        <div className="flex items-start gap-2">
+          <span className="text-lg leading-none mt-0.5">🧮</span>
+          <div>
+            <div className="text-sm font-display font-black text-amber-800">Souhrn objednaného množství podle varianty</div>
+            <div className="text-[11px] font-bold text-neutral-500">
+              Rozsah: {scopeLabel} · kliknutí na variantu zobrazí objednávky jen s daným pivem v daném obalu
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="chip bg-amber-500 text-white font-black">{totals.totalKs} ks celkem</span>
+          <span className="chip bg-white border border-neutral-300 text-neutral-700 font-black">{totals.totalOrders} obj.</span>
+        </div>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        {sorted.map((t) => {
+          const beer = beers.find((b) => b.id === t.beerId);
+          const pkg = packages.find((p) => p.id === t.packageId);
+          const ordersTxt = t.orderCount === 1 ? 'objednávka' : t.orderCount < 5 ? 'objednávky' : 'objednávek';
+          return (
+            <button
+              key={`${t.beerId}|${t.packageId}`}
+              type="button"
+              onClick={() => onPick(t.beerId, t.packageId)}
+              title={`Zobrazit objednávky: ${beerName(beer)} v obalu ${formatPackageLabel(pkg?.label) || '?'}`}
+              className="group text-left bg-white rounded-2xl border-2 border-neutral-200 hover:border-amber-400 hover:ring-2 hover:ring-amber-300 hover:shadow-md transition-all p-3 flex flex-col gap-1.5 cursor-pointer"
+            >
+              <div className="flex items-center justify-between gap-2 min-w-0">
+                <span className="font-display font-black text-sm text-neutral-800 truncate flex items-center gap-1.5">
+                  <span className="inline-block w-3 h-3 rounded-full shrink-0 border border-black/10" style={{ backgroundColor: beerBg(beer) }} />
+                  {beerName(beer)}
+                </span>
+                <span className="font-black text-xl text-amber-700 shrink-0">
+                  {t.qty} <span className="text-[10px] font-bold text-neutral-500">ks</span>
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2 min-w-0">
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-neutral-600 truncate">
+                  <span className="inline-block w-6 h-3.5 rounded-sm shrink-0 border border-black/10" style={{ backgroundColor: pkgBg(pkg) }} />
+                  {formatPackageLabel(pkg?.label) || t.packageId}
+                </span>
+                <span className="text-[11px] font-bold text-neutral-400 shrink-0 flex items-center gap-1">
+                  {t.orderCount} {ordersTxt}
+                  <ArrowRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                </span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, onClick, onToggleFlag, onUpdateDeliveryDay, onSetStatus, onDelete, onDuplicate, onEdit, onOpenWhatsApp, beers, packages, places, activeBeerId, activePackageId }: {
