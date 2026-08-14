@@ -212,7 +212,9 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   if (!props.isOpen || !msg) return null;
 
   const message = msg;
-  const isImage = message.message_type.includes('image');
+  // Starší zprávy (Make.com/Tasker před bridge) můžou mít message_type NULL —
+  // nesmí to shodit render (TypeError na .includes).
+  const isImage = (message.message_type || '').includes('image');
   const isParsed = message.status === 'parsed';
   const isPending = message.status === 'pending';
   const isImported = message.status === 'imported';
@@ -224,9 +226,12 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   // ≈, žádná shoda ⚠. K tomu kontrola po částech (množství/objem/stupeň).
   const readback = preReadback!;
   const readbackByItem = new Map(readback.items.map((i) => [i.index, i]));
+  // Zvýraznit originál lze jen u položek s polohou v textu (match). Regrese
+  // „Cannot read properties of null (reading 'start')“ u fotek ukázala, že status
+  // 'fuzzy' nemusí nutně znamenat nenulový match — proto ho ověřujeme výslovně.
   const matchedReadback = readback.items.filter(
     (i): i is ReadbackItem & { match: ReadbackMatch } =>
-      i.status === 'matched' || i.status === 'fuzzy'
+      i.match !== null && (i.status === 'matched' || i.status === 'fuzzy')
   );
   const originalSegments = buildHighlightedSegments(
     message.message_text || '',

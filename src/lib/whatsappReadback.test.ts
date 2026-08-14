@@ -185,6 +185,35 @@ describe('analyzeReadback — fuzzy a části', () => {
     expect(rb.score).toBe(100);
     expect(rb.scoreLabel).toBe('Vysoká důvěra');
   });
+
+  it('fotka: shodují se jen čísla (popisek „2 30 12“, AI „2x KEG30 12sv“) — zůstane unmatched s match null', () => {
+    // Regrese pádu „Cannot read properties of null (reading 'start')“ v modálu:
+    // dřív se status povýšil na 'fuzzy' (všechna čísla sedí) s match=null,
+    // přestože v originálu není žádné okno, které by se dalo zvýraznit.
+    const msg = makeMessage('2 30 12', ['2x KEG30 12sv']);
+    const item = analyzeReadback(msg).items[0];
+    expect(item.partsScore).toBe(100);
+    expect(item.status).toBe('unmatched');
+    expect(item.match).toBeNull();
+  });
+
+  it('invariant: položka se statusem matched/fuzzy má vždy nenulový match (UI čte i.match.start)', () => {
+    const msgs = [
+      makeMessage('Na čtvrtek prosím keg 50l 12°', ['50l keg 12°']),
+      makeMessage('2x30l 12°', ['2x50l 12°']),
+      makeMessage('2 30 12', ['2x KEG30 12sv']),
+      makeMessage('Seeberg 4x30 12sv a 2x30 12sv', ['4x30 12sv', '2x30 12sv']),
+      makeMessage('', ['2x KEG30 12sv']),
+      makeMessage('Seeberg 4x30 12sv', ['4x30 12sv', null, '']),
+    ];
+    for (const msg of msgs) {
+      for (const item of analyzeReadback(msg).items) {
+        if (item.status === 'matched' || item.status === 'fuzzy') {
+          expect(item.match).not.toBeNull();
+        }
+      }
+    }
+  });
 });
 
 describe('computeReadbackUnmatchedCount', () => {

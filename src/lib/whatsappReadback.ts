@@ -377,7 +377,12 @@ export function analyzeReadback(message: WhatsAppIncoming): ReadbackAnalysis {
     if (status === 'unmatched' || status === 'fuzzy') {
       score = partsScore != null ? Math.round(baseScore * 0.55 + partsScore * 0.45) : baseScore;
       // AI přečetla všechna čísla správně, jen jinak formulovala → částečná shoda.
-      if (status === 'unmatched' && parts.length > 0 && partsScore === 100) {
+      // Status 'fuzzy' MUSÍ mít polohu (match) — UI zvýraznění čte i.match.start/end.
+      // Povýšíme proto jen tehdy, když existuje fuzzy okno v originálu; jinak
+      // zůstane 'unmatched' (jinak by zpráva s fotkou, kde v popisku sedí jen
+      // čísla, padla na „Cannot read properties of null (reading 'start')“).
+      if (status === 'unmatched' && parts.length > 0 && partsScore === 100 && fuzzy) {
+        match = { start: fuzzy.start, end: fuzzy.end };
         status = 'fuzzy';
       }
     }

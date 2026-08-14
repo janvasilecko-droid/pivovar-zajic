@@ -8,7 +8,8 @@ export interface WhatsAppIncoming {
   sender_number?: string;
   message_text: string;
   message_timestamp?: string;
-  message_type: string;
+  /** Typ zprávy (image/text/video…). Starší zprávy ho můžou mít NULL. */
+  message_type?: string | null;
   status: 'pending' | 'processing' | 'parsed' | 'imported' | 'error' | 'ignored';
   error_message?: string;
   parsed_place_id?: string | null;
