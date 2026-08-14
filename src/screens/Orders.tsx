@@ -6,6 +6,7 @@ import { Camera, ListOrdered, Package as PackageIcon, Phone, Building2, Truck, P
 import { supabase, Beer, Package, Place, EntryRow, useRealtime, beerBg, beerText, beerName, formatPackageLabel } from '../lib/supabase';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
+import { consumeOrdersItemFilter } from '../lib/ordersFilter';
 import { ImportFromImage } from '../components/ImportFromImage';
 import { WhatsAppIncomingModal } from '../components/WhatsAppIncomingModal';
 import { WhatsAppOrderReviewModal } from '../components/WhatsAppOrderReviewModal';
@@ -627,6 +628,23 @@ export default function Orders({
   }
   useEffect(() => { load(); }, []);
   useRealtime(['orders','order_items','beers','packages','places'], () => load(true));
+
+  // 🔀 Požadavek z „Potřeba stočit KEGy“ (Kegging): uživatel klikl na „Chybí X ks
+  // sudů“ → otevřeme přehled objednávek rovnou filtrovaný na dané pivo + obal,
+  // se všemi objednávkami (bez omezení na týden).
+  useEffect(() => {
+    const req = consumeOrdersItemFilter();
+    if (!req) return;
+    setItemFilterBeerId(req.beerId);
+    setItemFilterPackageId(req.packageId);
+    setViewMode('detail');
+    setTimeScope('all');
+    setSearchText('');
+    setStatusFilter('');
+    setDeliveryDayFilter('all');
+    window.scrollTo({ top: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [timeScope, setTimeScope] = useState<'week' | 'month' | 'all'>('week');
   const [selectedMonth, setSelectedMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));

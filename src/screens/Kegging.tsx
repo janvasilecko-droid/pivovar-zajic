@@ -8,6 +8,7 @@ import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSumma
 import { exportKeggingToExcel } from '../lib/excel';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
+import { requestOrdersItemFilter } from '../lib/ordersFilter';
 import { Camera, Loader2, Pencil } from 'lucide-react';
 import { ImportKeggingFromImage } from '../components/ImportKeggingFromImage';
 
@@ -1516,9 +1517,17 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                           </td>
                           <td className="p-2.5 text-center">
                             {r.neededQty > 0 ? (
-                              <span className="px-2.5 py-1 rounded-xl bg-amber-100 text-amber-900 font-black text-[11px] border border-amber-300 whitespace-nowrap">
-                                ⚠️ Chybí {r.neededQty} ks sudů
-                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  requestOrdersItemFilter({ beerId: r.beer_id, packageId: r.package_id });
+                                  setPage?.('orders');
+                                }}
+                                title={`Zobrazit v přehledu objednávek všechny objednávky s ${r.beer_name} (${r.package_label})`}
+                                className="px-2.5 py-1 rounded-xl bg-amber-100 text-amber-900 font-black text-[11px] border border-amber-300 whitespace-nowrap transition cursor-pointer hover:bg-amber-200 active:bg-amber-300"
+                              >
+                                ⚠️ Chybí {r.neededQty} ks sudů →
+                              </button>
                             ) : (
                               <span className="px-2.5 py-1 rounded-xl bg-emerald-100 text-emerald-800 font-bold text-[11px] border border-emerald-300 whitespace-nowrap">
                                 ✓ Pokryto
