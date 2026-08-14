@@ -182,6 +182,21 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     setItems(next);
   }
 
+  function deleteItem(index: number) {
+    // ✕ Smazání položky: odebereme ji z editačního seznamu i z lokálního stavu
+    // zprávy, aby kontrola čtení (readback) a indexy položek zůstaly v souladu.
+    // Do databáze se smazání zapíše až při schválení (viz handleApprove), takže
+    // zavřením modálu bez schválení se nic neztratí.
+    setItems((prev) => prev.filter((_, i) => i !== index));
+    setMsg((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        parsed_items: (prev.parsed_items || []).filter((_, i) => i !== index),
+      };
+    });
+  }
+
   function updatePlace(pid: string, pname: string) {
     placeTouchedRef.current = true;
     setPlaceId(pid);
@@ -292,13 +307,15 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         })) as WhatsAppIncoming['parsed_items'],
       };
 
-      // 💾 Opraveného odběratele zapíšeme i zpět do zprávy (před importem — ještě je
-      // status 'parsed', takže ho update nepřehodí na 'imported'). Bez toho by se po
-      // zavření/znovuotevření modálu ukázal zase starý název od AI a korekce by se
-      // „ztratila“. Vlastní import (onApprove) pak zprávu označí jako 'imported'.
+      // 💾 Opraveného odběratele i upravené/smazané položky zapíšeme zpět do zprávy
+      // (před importem — ještě je status 'parsed', takže ho update nepřehodí na
+      // 'imported'). Bez toho by se po zavření/znovuotevření modálu ukázal zase
+      // starý název od AI, resp. smazaná položka, a korekce by se „ztratila“.
+      // Vlastní import (onApprove) pak zprávu označí jako 'imported'.
       await updateWhatsAppParsedData(message.id, {
         parsedPlaceId: editedMessage.parsed_place_id || null,
         parsedPlaceName: editedMessage.parsed_place_name || null,
+        parsedItems: editedMessage.parsed_items,
       }).catch(() => {});
 
       await props.onApprove(editedMessage);
@@ -774,6 +791,15 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                                 <option key={p.id} value={p.id}>{p.label}</option>
                               ))}
                             </select>
+                            <button
+                              type="button"
+                              onClick={() => deleteItem(index)}
+                              aria-label="Smazat položku"
+                              title="Smazat položku z objednávky"
+                              className="p-1 rounded-md text-red-500 hover:bg-red-50 hover:text-red-700 transition-colors shrink-0"
+                            >
+                              <X size={16} />
+                            </button>
                           </div>
 
                           {item.rawLine && (() => {
@@ -886,19 +912,23 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
 
             <button
               onClick={handleApprove}
-              disabled={approving || loading || !isParsed || (strictReadback && readback.mismatchCount > 0)}
+              disabled={approving || loading || !isParsed || items.length === 0 || (strictReadback && readback.mismatchCount > 0)}
               className="px-6 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2 font-medium"
               title={
-                strictReadback && readback.mismatchCount > 0
-                  ? 'Přísný režim je zapnutý — opravte ⚠ položky nebo přísný režim vypněte.'
-                  : undefined
+                items.length === 0
+                  ? 'Žádné položky k importu — smazanou položku vrátíte zavřením bez schválení nebo „Přečíst znovu (AI)".'
+                  : strictReadback && readback.mismatchCount > 0
+                    ? 'Přísný režim je zapnutý — opravte ⚠ položky nebo přísný režim vypněte.'
+                    : undefined
               }
             >
               {approving ? <ButtonSpinner /> : <UserCheck size={16} />}
               {isParsed
                 ? (strictReadback && readback.mismatchCount > 0
                     ? `Opravte ${readback.mismatchCount} nesouladů…`
-                    : 'Schválit a importovat')
+                    : items.length === 0
+                      ? 'Žádné položky…'
+                      : 'Schválit a importovat')
                 : 'Čeká na parsování...'}
             </button>
           </div>
