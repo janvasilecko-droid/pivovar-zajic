@@ -9,6 +9,7 @@ import { exportKeggingToExcel } from '../lib/excel';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
+import { computeKegNeeds } from '../lib/kegNeeds';
 import { Camera, Loader2, Pencil } from 'lucide-react';
 import { ImportKeggingFromImage } from '../components/ImportKeggingFromImage';
 
@@ -142,6 +143,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
 
 
   const [weekKey, setWeekKey] = useState(isoWeekKey(new Date().toISOString().slice(0, 10)));
+  const weekLabel = weekRange(weekKey).label;
 
 
   const kegPackages = useMemo(() => packages.filter((p) => p.kind === 'keg').sort((a, b) => b.volume_l - a.volume_l), [packages]);
@@ -262,114 +264,28 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   useEffect(() => { load(); }, []);
   useRealtime(['kegging', 'cellar_tanks', 'beers', 'packages', 'orders', 'order_items', 'inventory', 'fasovani', 'fasovani_private', 'writeoffs', 'keg_prefuk'], () => load(true));
 
-  // Výpočet potřeby stočení KEG sudů (Objednáno - Skladem)
+  // Výpočet potřeby stočení KEG sudů — objednávky AKTUÁLNÍHO TÝDNE vs. sklad.
+  // Sklad = počáteční inventura (s převodem z předchozího měsíce) + stočeno − výdej ± přefuk,
+  // shodně se Skladem (Stock.tsx). Stáčení je týdenní: po dotočení týdne (o víkendu)
+  // je potřeba 0 a v novém týdnu se počítá znovu z nových objednávek.
   const kegRequirements = useMemo(() => {
     const now = new Date();
-    const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-
-    const kegPkgIds = new Set(packages.filter((p) => p.kind === 'keg').map((p) => p.id));
-    const activeOrderIds = new Set(
-      orders
-        .filter((o) => {
-          if (o.status === 'storno' || o.status === 'vyrizeno' || o.status === 'vyrizeno_zavoz') return false;
-          const targetDate = o.delivery_date || o.order_date;
-          return targetDate && targetDate.startsWith(curMonth);
-        })
-        .map((o) => o.id)
-    );
-
-    const orderedMap: Record<string, number> = {};
-    orderItems.filter((item) => item.package_id && kegPkgIds.has(item.package_id) && activeOrderIds.has(item.order_id)).forEach((item) => {
-      if (!item.beer_id || !item.package_id) return;
-      const k = `${item.beer_id}__${item.package_id}`;
-      orderedMap[k] = (orderedMap[k] || 0) + Number(item.quantity || 0);
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    return computeKegNeeds({
+      beers,
+      packages,
+      orders,
+      orderItems,
+      inventoryRows,
+      keggingRows: rows,
+      fasovaniRows,
+      prodejnaRows,
+      writeoffsRows,
+      prefukRows,
+      weekKey,
+      todayStr,
     });
-
-    // Počáteční inventura pouze pro aktuální měsíc (pokud neexistují záznamy pro curMonth, je počáteční stav 0 ks)
-    const invMap: Record<string, number> = {};
-    inventoryRows.filter((r) => r.entry_date?.startsWith(curMonth)).forEach((r) => {
-      if (!r.beer_id || !r.package_id) return;
-      const k = `${r.beer_id}__${r.package_id}`;
-      invMap[k] = (invMap[k] || 0) + Number(r.quantity || 0);
-    });
-
-    // Pohyby vyfiltrované pro aktuální měsíc
-    const bottledMap: Record<string, number> = {};
-    rows.filter((r) => r.entry_date?.startsWith(curMonth)).forEach((r) => {
-      if (!r.beer_id || !r.package_id) return;
-      const k = `${r.beer_id}__${r.package_id}`;
-      bottledMap[k] = (bottledMap[k] || 0) + Number(r.quantity || 0);
-    });
-
-    const outgoingMap: Record<string, number> = {};
-    [...fasovaniRows, ...prodejnaRows, ...writeoffsRows].filter((r) => r.entry_date?.startsWith(curMonth)).forEach((r) => {
-      if (!r.beer_id || !r.package_id) return;
-      const k = `${r.beer_id}__${r.package_id}`;
-      outgoingMap[k] = (outgoingMap[k] || 0) + Number(r.quantity || 0);
-    });
-
-    // Přefuky: sudy ZE (from_package_id) se odečtou ze skladu, sudy DO (to_package_id) se přičtou
-    const prefukFromMap: Record<string, number> = {};
-    const prefukToMap: Record<string, number> = {};
-    prefukRows.filter((r) => r.entry_date?.startsWith(curMonth)).forEach((r) => {
-      if (!r.beer_id) return;
-      if (r.from_package_id) {
-        const fk = `${r.beer_id}__${r.from_package_id}`;
-        prefukFromMap[fk] = (prefukFromMap[fk] || 0) + Number(r.from_count || 0);
-      }
-      if (r.to_package_id) {
-        const tk = `${r.beer_id}__${r.to_package_id}`;
-        prefukToMap[tk] = (prefukToMap[tk] || 0) + Number(r.to_count || 0);
-      }
-    });
-
-    type ReqRow = {
-      beer_id: string;
-      beer_name: string;
-      package_id: string;
-      package_label: string;
-      volume_l: number;
-      invQty: number;
-      bottledQty: number;
-      outgoingQty: number;
-      stockQty: number;
-      orderedQty: number;
-      neededQty: number;
-    };
-
-    const list: ReqRow[] = [];
-    beers.forEach((b) => {
-      packages.filter((p) => kegPkgIds.has(p.id)).forEach((p) => {
-        const k = `${b.id}__${p.id}`;
-        const invQty = Number(invMap[k] || 0);
-        const bottledQty = Number(bottledMap[k] || 0);
-        const outgoingQty = Number(outgoingMap[k] || 0);
-        const prefukFromQty = Number(prefukFromMap[k] || 0);
-        const prefukToQty = Number(prefukToMap[k] || 0);
-        const stockQty = Math.max(0, invQty + bottledQty - outgoingQty - prefukFromQty + prefukToQty);
-        const orderedQty = Number(orderedMap[k] || 0);
-        const neededQty = Math.max(0, orderedQty - stockQty);
-
-        if (orderedQty > 0 || stockQty > 0 || invQty > 0 || bottledQty > 0) {
-          list.push({
-            beer_id: b.id,
-            beer_name: b.name,
-            package_id: p.id,
-            package_label: p.label,
-            volume_l: Number(p.volume_l || 0),
-            invQty,
-            bottledQty,
-            outgoingQty,
-            stockQty,
-            orderedQty,
-            neededQty,
-          });
-        }
-      });
-    });
-
-    return list;
-  }, [beers, packages, orders, orderItems, inventoryRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, prefukRows]);
+  }, [beers, packages, orders, orderItems, inventoryRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, prefukRows, weekKey]);
 
   const filteredKegRequirements = useMemo(() => {
     let list = kegRequirements;
@@ -1417,19 +1333,19 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
           {/* Souhrnné karty */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="card p-4 bg-white border border-neutral-200 rounded-2xl space-y-1">
-              <span className="text-[10px] font-black uppercase text-neutral-500">Objednáno v KEG sudů</span>
+              <span className="text-[10px] font-black uppercase text-neutral-500">Objednáno tento týden (KEG)</span>
               <div className="font-display font-black text-xl text-sky-700">{reqKegTotals.ordered} ks sudů</div>
-              <span className="text-[11px] text-neutral-500">Aktivní neuplatněné KEG objednávky</span>
+              <span className="text-[11px] text-neutral-500">Aktivní objednávky s dovozem {weekLabel}</span>
             </div>
             <div className="card p-4 bg-white border border-neutral-200 rounded-2xl space-y-1">
               <span className="text-[10px] font-black uppercase text-neutral-500">Sudů na skladě</span>
               <div className="font-display font-black text-xl text-emerald-700">{reqKegTotals.stock} ks sudů</div>
-              <span className="text-[11px] text-neutral-500">Disponibilní KEG zásoby</span>
+              <span className="text-[11px] text-neutral-500">Disponibilní KEG zásoby (inventura + stočeno − výdej)</span>
             </div>
             <div className={`card p-4 rounded-2xl space-y-1 ${reqKegTotals.needed > 0 ? 'bg-amber-600 text-white' : 'bg-neutral-900 text-white'}`}>
-              <span className={`text-[10px] font-black uppercase ${reqKegTotals.needed > 0 ? 'text-amber-100' : 'text-amber-400'}`}>Potřeba stočit do KEGů (chybí)</span>
+              <span className={`text-[10px] font-black uppercase ${reqKegTotals.needed > 0 ? 'text-amber-100' : 'text-amber-400'}`}>Potřeba stočit tento týden (chybí)</span>
               <div className="font-display font-black text-xl">{reqKegTotals.needed} ks sudů ({(reqKegTotals.neededLiters / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 })} hl / {reqKegTotals.neededLiters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L)</div>
-              <span className="text-[11px] opacity-90">{reqKegTotals.needed > 0 ? '⚠️ Objednáno více sudů než je na skladě' : '✓ Všechny KEG objednávky pokryty'}</span>
+              <span className="text-[11px] opacity-90">{reqKegTotals.needed > 0 ? '⚠️ Objednáno víc sudů, než je na skladě' : '✓ Všechny KEG objednávky týdne pokryty'}</span>
             </div>
           </div>
 
@@ -1438,8 +1354,13 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h3 className="font-display font-black text-base text-neutral-900 flex items-center gap-2">
                 <span>🛢️</span>
-                <span>KEGy které je potřeba stočit (Sklad vs. Objednané KEG sudy)</span>
+                <span>KEGy k dotočení tento týden ({weekLabel})</span>
               </h3>
+              <p className="text-[11px] text-neutral-500 w-full sm:w-auto">
+                Počítá se vždy pro aktuální týden: objednávky s dovozem {weekLabel} − sudy na skladě
+                (inventura měsíce + stočeno − výdej). Po dotočení týdne (o víkendu) je potřeba 0,
+                v novém týdnu se počítá znovu z nových objednávek.
+              </p>
 
               <div className="flex flex-wrap items-center gap-2">
                 {/* Filtr Pivo */}
@@ -1490,9 +1411,9 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                   <thead>
                     <tr className="bg-neutral-100 border-b border-neutral-200">
                       <th className="p-2.5 text-left">Pivo (obal)</th>
-                      <th className="p-2.5 text-right font-bold text-emerald-800">Stočeno</th>
+                      <th className="p-2.5 text-right font-bold text-emerald-800">Stočeno (měsíc)</th>
                       <th className="p-2.5 text-right font-bold text-emerald-900 bg-emerald-50">Sklad</th>
-                      <th className="p-2.5 text-right font-bold text-sky-800">Objednáno</th>
+                      <th className="p-2.5 text-right font-bold text-sky-800">Objednáno (týden)</th>
                       <th className="p-2.5 text-right font-black text-amber-900 bg-amber-50">Potřeba stočit</th>
                       <th className="p-2.5 text-center font-bold">Stav</th>
                     </tr>
