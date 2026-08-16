@@ -1560,18 +1560,18 @@ export default function Orders({
 
           {/* 🍺 Piva — dlaždice (klikni na pivo → obaly a množství) */}
 
-          {/* 🍺 Dlaždice piv — 2 vedle sebe. Používáme flexbox + margin
+          {/* 🍺 Dlaždice piv — 3 vedle sebe. Používáme flexbox + margin
               místo CSS grid + gap, protože v některých verzích Android WebView
               (Capacitor) se grid/gap nevykresluje spolehlivě. Díky
-              box-sizing:border-box (Tailwind preflight) dvě w-1/2 dlaždice
-              zaberou přesně 100% šířky a -mx-1/-my-1 s px-1/py-1 vytvoří
+              box-sizing:border-box (Tailwind preflight) tři w-1/3 dlaždice
+              zaberou prakticky celou šířku a -mx-1/-my-1 s px-1/py-1 vytvoří
               stejnou mezeru jako gap-2. */}
           <div className="flex flex-wrap -mx-1 -my-1">
             {beers.map((b) => {
               const rows = beerRows.filter((r) => r.beerId === b.id);
               const total = rows.reduce((s, r) => s + Number(r.qty || 0), 0);
               return (
-                <div key={b.id} className="w-1/2 px-1 py-1 rounded-xl border border-neutral-200/80 transition-all overflow-hidden">
+                <div key={b.id} className="w-1/3 px-1 py-1 rounded-xl border border-neutral-200/80 transition-all overflow-hidden">
                   <button
                     type="button"
                     onClick={() => setExpandedBeerId(b.id)}
