@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { Download, Eye, Palette, Smartphone, Sun, Moon, Monitor, Bell, BellOff, Volume2, VolumeX, MessageSquare, Timer, RefreshCw, CloudDownload, CheckCircle2, AlertCircle, GripVertical, Plus, Trash2, Eraser, Lock } from 'lucide-react';
+import { Download, Eye, Palette, Smartphone, Sun, Moon, Monitor, Bell, BellOff, Volume2, VolumeX, MessageSquare, Timer, RefreshCw, CloudDownload, CheckCircle2, AlertCircle, GripVertical, Plus, Trash2, Eraser, Lock, Users } from 'lucide-react';
 
 import { DENSITY_OPTIONS, DensityMode, getDensity, setDensity } from '../lib/density';
 import { MenuCustomizeModal } from '../components/MenuCustomizeModal';
@@ -51,7 +51,7 @@ const EXTRA_QUICK_ACTION_PAGES: { id: Page; label: string }[] = [
 ];
 
 export default function AppSettingsScreen() {
-  const { profile, user } = useAuth();
+  const { profile, user, reloadProfile } = useAuth();
   const [density, setDensityState] = useState<DensityMode>(getDensity());
   const [theme, setThemeState] = useState<Theme>(getTheme());
   const [notifPermission, setNotifPermission] = useState(getNotificationPermission());
@@ -80,6 +80,38 @@ export default function AppSettingsScreen() {
   const [passwordMsg, setPasswordMsg] = useState<string | null>(null);
   const [passwordErr, setPasswordErr] = useState<string | null>(null);
   const [passwordBusy, setPasswordBusy] = useState(false);
+
+  // Změna jména (zobrazované jméno pro zápisy, např. fašování)
+  const [newName, setNewName] = useState(profile?.display_name ?? '');
+  const [nameMsg, setNameMsg] = useState<string | null>(null);
+  const [nameErr, setNameErr] = useState<string | null>(null);
+  const [nameBusy, setNameBusy] = useState(false);
+
+  async function handleChangeName(e: FormEvent) {
+    e.preventDefault();
+    const value = newName.trim();
+    if (!value) {
+      setNameErr('Zadejte své jméno.');
+      setNameMsg(null);
+      return;
+    }
+    if (!user) return;
+    setNameErr(null);
+    setNameMsg(null);
+    setNameBusy(true);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ display_name: value })
+      .eq('id', user.id);
+    setNameBusy(false);
+    if (error) {
+      setNameErr(error.message);
+      setNameMsg(null);
+    } else {
+      setNameMsg('Jméno bylo úspěšně změněno!');
+      await reloadProfile();
+    }
+  }
 
   async function handleChangePassword(e: FormEvent) {
     e.preventDefault();
@@ -523,6 +555,33 @@ export default function AppSettingsScreen() {
         {senderMsg && <div className="mt-2 p-2 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">{senderMsg}</div>}
       </div>
 
+      {/* 👤 Změna jména */}
+      <div className="card p-6">
+        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Users size={20} /> Změna jména</h2>
+        <p className="text-sm text-neutral-600 mt-2">Jméno se používá pro zápisy (např. fašování, stáčení, sanitace). Změní se i v menu u vašeho profilu.</p>
+        <form onSubmit={handleChangeName} className="mt-4 space-y-3">
+          <div>
+            <label className="label">Vaše jméno</label>
+            <input
+              type="text"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Jak se máte zobrazovat v zápisech"
+              className="input w-full"
+            />
+          </div>
+          {nameMsg && <div className="p-3 bg-emerald-100 text-emerald-900 font-bold text-xs rounded-xl">{nameMsg}</div>}
+          {nameErr && <div className="p-3 bg-rose-100 text-rose-900 font-bold text-xs rounded-xl">{nameErr}</div>}
+          <button
+            type="submit"
+            disabled={nameBusy}
+            className="btn-primary text-sm font-black flex items-center justify-center gap-1.5 w-full sm:w-auto"
+          >
+            {nameBusy ? 'Ukládám…' : '✅ Uložit jméno'}
+          </button>
+        </form>
+      </div>
+
       {/* 🔒 Změna hesla */}
       <div className="card p-6">
         <h2 className="font-display font-bold text-lg flex items-center gap-2"><Lock size={20} /> Změna hesla</h2>
@@ -568,7 +627,7 @@ function QuickActionsSection({ userId, options }: { userId: string; options: { i
   }
 
   function addAction() {
-    if (actions.length >= 4) return;
+    if (actions.length >= 8) return;
     const firstUnused = options.find((n) => !actions.some((a) => a.pageId === n.id));
     if (!firstUnused) return;
     save([...actions, { pageId: firstUnused.id, label: firstUnused.label, icon: '🔗' }]);
@@ -591,8 +650,7 @@ function QuickActionsSection({ userId, options }: { userId: string; options: { i
         <GripVertical size={20} /> Rychlá tlačítka nahoře
       </h2>
       <p className="text-sm text-neutral-600 mt-2">
-        Nastavte si až 4 tlačítka, která se zobrazí nahoře v hlavičce (vedle "Nové objednávky" a "Fasování").
-        První tlačítko bude zvýrazněné.
+        Nastavte si až 8 tlačítek, která se zobrazí nahoře v hlavičce pro okamžitý přístup k oblíbeným sekcím.
       </p>
 
       <div className="mt-4 space-y-2">

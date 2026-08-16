@@ -1,14 +1,21 @@
-﻿// Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
+// Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-export const APP_VERSION = '1.600';
-export const APP_VERSION_DATE = '14.8.2026 21:00';
+export const APP_VERSION = '1.615';
+export const APP_VERSION_DATE = '16.8.2026 13:05';
 
 
 
 
-// StruÄŤnĂ˝ pĹ™ehled zmÄ›n v aktuĂˇlnĂ­ verzi (zobrazuje se v admin sekci NastavenĂ­)
+// Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 
 export const APP_CHANGELOG: string[] = [
+  '👤 Nastavení: přidána možnost změny vlastního jména (používá se v zápisech, např. fašování, stáčení, sanitace). Verze aplikace se přesunula z horní lišty dolů do menu (vedle vašeho jména/stavu připojení) a horní lišta už neotevírá Nastavení — Nastavení zůstává jen v menu. v1.615',
+
+  '🛢️ KEG (Potřeba stočit): kliknutím na kterýkoliv řádek tabulky potřeb (např. 12° Světlá 50l, chybí 3 ks) se přímo otevře Přehled objednávek s automatickým vyfiltrováním daného piva a sudu v aktuálním týdnu. v1.607',
+  '🍺 Objednávky (Zadávání): na kartách jednotlivých piv se v odznaku nyní zobrazuje přesný obal i počet kusů (např. 50l 12, 30l 2, 1l 4) místo pouhého celkového součtu kusů. v1.606',
+  '📦 Objednávky (Zadávání): pole přejmenováno na „Týden závozu (jiný týden)“ a s tlačítkem „Tento týden“ pro rychlý návrat na aktuální týden. v1.605',
+  '📦 Objednávky (Zadávání): Datum závozu / dodání (jiný týden) je nyní primárně předvyplněno aktuálním datem, Den závozu je volitelný výběr a tlačítko „Tento týden“ okamžitě nastaví aktuální týden i datum. v1.604',
+  '💬 WhatsApp objednávky (Kontrola a úprava): automatická detekce odběratele z textu/přepisu (Bar, Terasa, Restaurace...), možnost kdykoliv odběratele vybrat/upravit, přímé nastavení data závozu s rychlými volbami (Dnes/Zítra), poznámky k objednávce a plná editace položek (+ / − množství, rychlé počty, výběr piva a obalu, tlačítko smazat × a přidání další položky). v1.603',
   '🍺 KEG (Stáčení): checklist „1. Začátek stáčení“ nyní nabízí VOLBU chemie — proplach pivních cest buď NaOH 2% (20 minut), nebo Persteril 0.2% (10 minut) (vybere se vždy jen jeden postup; do Sanitárního deníku KEGů se zapíše zvolená chemie). V posledním týdnu měsíce se nyní zobrazuje varování i pro stáčení KEGů a checklist „4. Měsíční údržba“ je rozšířen: kompletně rozebrat VŠECHNY narážeče a rychlospojky (naložit do louhu NaOH, po 24 h vyčistit kartáčem, opláchnout vodou a zkontrolovat těsnění). v1.593',
 
   '🍺 KEG (Stáčení): checklist „1. Začátek stáčení“ nyní odpovídá aktuálnímu postupu a má 4 kroky — 1) proplach cest: NaOH 2% (20 minut) nebo Persteril 0.2% (10 minut), 2) vystříkat klapky Persterilem 0.2%, 3) oplach klapek vodou, 4) oplach vodou stáčečku (2 minuty); stejné kroky (a jejich pořadí) jsou i v „Části A: Před stáčením“ Sanitárního deníku KEGů, kde vypadl samostatný krok drhnutí klapek louhem. v1.592',

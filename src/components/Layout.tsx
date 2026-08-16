@@ -20,6 +20,7 @@ import { QuickSearchModal } from './QuickSearchModal';
 import { getQuickActions, QuickAction } from '../lib/quickActions';
 import { isAdminEmail } from '../lib/config';
 import { BugReportModal } from './BugReportModal';
+import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
 
 export type NavItem = { id: Page; label: string; icon: LucideIcon; group: string };
 
@@ -29,7 +30,6 @@ export const NAV: NavItem[] = [
   // --- VÝROBA ---
   { id: 'kegging', label: 'KEG', icon: Cylinder, group: 'Výroba' },
   { id: 'bottling', label: 'Lahve (Stáčení)', icon: Wine, group: 'Výroba' },
-  { id: 'bottling_entry', label: 'Zadat stáčení', icon: FilePlus, group: 'Výroba' },
   { id: 'orders', label: 'Objednávky', icon: ClipboardList, group: 'Výroba' },
   { id: 'fasovani', label: 'Personál', icon: Users, group: 'Výroba' },
   { id: 'prodejna', label: 'Prodejna', icon: Store, group: 'Výroba' },
@@ -91,6 +91,12 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   const [beers, setBeers] = useState<Beer[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [places, setPlaces] = useState<Place[]>([]);
+
+  useEffect(() => {
+    const updateActions = () => setQuickActions(getQuickActions(user?.id || 'guest'));
+    window.addEventListener('pivovar:quick-actions-updated', updateActions);
+    return () => window.removeEventListener('pivovar:quick-actions-updated', updateActions);
+  }, [user?.id]);
 
   useEffect(() => {
     supabase.from('beers').select('*').eq('is_active', true).order('sort_order').then(({ data }) => setBeers(data || []));
@@ -489,6 +495,17 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             ✕
           </button>
 
+          {/* App Header in Sidebar */}
+          <div className="p-3 border-b border-amber-200/80 flex items-center justify-between bg-amber-100/40">
+            <button
+              onClick={() => { setPage('app_settings'); setOpen(false); }}
+              className="flex items-center gap-1.5 text-xs font-black text-amber-950 hover:text-amber-800 transition"
+            >
+              <Settings size={14} className="text-amber-700" />
+              <span>Nastavení</span>
+            </button>
+          </div>
+
           {/* Navigation Links */}
           <nav className="flex-1 overflow-y-auto p-4 pr-10 sm:pr-4 space-y-6 scrollbar-thin">
             {GROUPS.map((group) => {
@@ -545,6 +562,16 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
               </button>
             </div>
           </div>
+          <div className="flex items-center justify-between text-[10px] px-1">
+            <button
+              onClick={() => { setPage('app_settings'); setOpen(false); }}
+              className="text-neutral-400 hover:text-amber-800 font-bold transition"
+              title={`Verze v${APP_VERSION} (${APP_VERSION_DATE}) — klikněte pro nastavení`}
+            >
+              v{APP_VERSION}
+            </button>
+            <span className="text-neutral-300 font-bold truncate max-w-[110px]">{user?.email}</span>
+          </div>
           <button
             onClick={signOut}
             className="w-full py-2 px-3 rounded-xl bg-white hover:bg-rose-50 text-neutral-700 hover:text-rose-700 text-xs font-black flex items-center justify-center gap-2 transition-all border border-neutral-200 hover:border-rose-300 shadow-2xs"
@@ -559,99 +586,80 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
 
       <main className="flex-1 min-w-0 flex flex-col h-screen overflow-hidden bg-neutral-100 text-neutral-900">
         {/* Top Header - Desktop & Mobile */}
-        <header className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between px-4 sm:px-8 py-1.5 bg-white/95 backdrop-blur-md border-b border-amber-200/70 shadow-2xs z-20 gap-1">
-          <div className="flex items-center justify-between sm:justify-start gap-3">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setOpen(true)}
-                className="sm:hidden w-9 h-9 grid place-items-center rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 transition border border-amber-300"
-              >
-                <Menu size={20} strokeWidth={2.5} />
-              </button>
-              <button
-                type="button"
-                onClick={openWhatsApp}
-                title="WhatsApp — načte a zkontroluje příchozí WhatsApp objednávky"
-                className="relative sm:hidden px-2.5 py-1.5 rounded-xl font-black text-[11px] shadow-md border flex items-center gap-1.5 active:scale-95 transition bg-[#25D366] hover:bg-[#1da851] text-white border-[#1da851]"
-              >
-                <MessageCircle size={13} />
-                <span>WhatsApp</span>
-                {pendingWhatsAppCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[9px] font-black rounded-full min-w-[16px] h-4 px-0.5 flex items-center justify-center shadow" title="Zpráv čeká na schválení">
-                    {pendingWhatsAppCount > 99 ? '99+' : pendingWhatsAppCount}
-                  </span>
-                )}
-              </button>
-            </div>
+        <header className="flex items-center justify-between px-2 sm:px-8 py-2 bg-white/95 backdrop-blur-md border-b border-amber-200/70 shadow-2xs z-20 gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1 overflow-hidden">
+            <button
+              onClick={() => setOpen(true)}
+              className="sm:hidden w-10 h-10 grid place-items-center rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 transition border border-amber-300 active:scale-95 shrink-0"
+              aria-label="Otevřít menu"
+            >
+              <Menu size={20} strokeWidth={2.5} />
+            </button>
 
-            <div className="flex items-center gap-1.5 sm:hidden">
-              {quickActions.map((a, i) => (
-                <button
-                  key={a.pageId}
-                  onClick={() => setPage(a.pageId as any)}
-                  className={`px-3 py-2 rounded-xl font-black text-xs shadow-md border flex items-center gap-1.5 active:scale-95 transition ${
-                    i === 0
-                      ? 'bg-amber-500 text-neutral-950 border-amber-400'
-                      : 'bg-neutral-800 text-white border-neutral-700'
-                  }`}
-                >
-                  <span>{a.icon}</span>
-                  <span>{a.label}</span>
-                </button>
-              ))}
+            {/* Quick Actions Bar — visible on both mobile and desktop */}
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none flex-1 min-w-0 py-0.5">
+              {quickActions.map((a, i) => {
+                const isActive = page === a.pageId;
+                return (
+                  <button
+                    key={a.pageId + i}
+                    onClick={() => setPage(a.pageId as any)}
+                    className={`px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-sm border shrink-0 active:scale-95 whitespace-nowrap ${
+                      isActive
+                        ? 'bg-amber-500 text-neutral-950 border-amber-400 ring-2 ring-amber-300'
+                        : i === 0
+                          ? 'bg-amber-100 hover:bg-amber-200 text-amber-950 border-amber-300'
+                          : 'bg-neutral-800 hover:bg-neutral-700 text-white border-neutral-700'
+                    }`}
+                  >
+                    <span>{a.icon}</span>
+                    <span>{a.label}</span>
+                  </button>
+                );
+              })}
             </div>
-              <button
-                type="button"
-                onClick={() => setShowBugModal(true)}
-                title="Nahlásit chybu nebo nápad"
-                className="flex-1 sm:hidden px-3 py-2 rounded-xl font-black text-xs shadow-md border flex items-center justify-center gap-1.5 active:scale-95 transition border-rose-300 bg-rose-600 text-white"
-              >
-                ⚠️ Chyby
-              </button>
-
           </div>
 
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-            {quickActions.map((a, i) => (
-              <button
-                key={a.pageId}
-                onClick={() => setPage(a.pageId as any)}
-                className={`hidden sm:flex px-2.5 py-1.5 rounded-xl text-[11px] font-black transition items-center gap-1.5 shadow-sm border shrink-0 ${
-                  i === 0
-                    ? 'bg-amber-500 hover:bg-amber-400 text-neutral-950 border-amber-400'
-                    : 'bg-neutral-800 hover:bg-neutral-700 text-white border-neutral-700'
-                }`}
-              >
-                <span>{a.icon}</span>
-                <span>{a.label}</span>
-              </button>
-            ))}
+          {/* Right Header Actions */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Search shortcut button */}
+            <button
+              type="button"
+              onClick={() => setShowSearchModal(true)}
+              title="Hledat (Ctrl+K)"
+              className="w-9 h-9 sm:w-auto sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border border-neutral-200 bg-neutral-100/80 hover:bg-neutral-200 text-neutral-700 active:scale-95"
+            >
+              <Search size={15} />
+              <span className="hidden sm:inline">Hledat</span>
+              <kbd className="hidden sm:inline-block text-[10px] bg-white px-1.5 py-0.5 rounded border border-neutral-300 text-neutral-500 font-mono">⌘K</kbd>
+            </button>
 
+            {/* WhatsApp button */}
             <button
               type="button"
               onClick={openWhatsApp}
-              title="WhatsApp — načte a zkontroluje příchozí WhatsApp objednávky"
-              className="relative hidden sm:flex px-2.5 py-1.5 rounded-xl text-[11px] font-black transition items-center gap-1.5 shadow-sm border shrink-0 bg-[#25D366] hover:bg-[#1da851] text-white border-[#1da851]"
+              title="WhatsApp — zkontroluje příchozí objednávky"
+              className="relative px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-sm border bg-[#25D366] hover:bg-[#1da851] text-white border-[#1da851] active:scale-95"
             >
-              <MessageCircle size={14} />
-              <span>WhatsApp</span>
+              <MessageCircle size={15} />
+              <span className="hidden sm:inline">WhatsApp</span>
               {pendingWhatsAppCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[9px] font-black rounded-full min-w-[16px] h-4 px-0.5 flex items-center justify-center shadow" title="Zpráv čeká na schválení">
+                <span className="bg-red-600 text-white text-[10px] font-black rounded-full min-w-[18px] h-4 px-1 flex items-center justify-center shadow animate-pulse" title="Zpráv čeká na schválení">
                   {pendingWhatsAppCount > 99 ? '99+' : pendingWhatsAppCount}
                 </span>
               )}
             </button>
+
+            {/* Bug report button */}
+            <button
+              type="button"
+              onClick={() => setShowBugModal(true)}
+              title="Nahlásit chybu nebo nápad"
+              className="hidden sm:flex px-3 py-1.5 rounded-xl text-xs font-black transition items-center gap-1.5 shadow-sm border border-rose-300 bg-rose-600 hover:bg-rose-500 text-white shrink-0 active:scale-95"
+            >
+              ⚠️ Chyby
+            </button>
           </div>
-
-          <button
-            type="button"
-            onClick={() => setShowBugModal(true)}
-            title="Nahlásit chybu nebo nápad"
-            className="hidden sm:flex px-3 py-1.5 rounded-xl text-[11px] font-black transition items-center gap-1.5 shadow-sm border border-rose-300 bg-rose-600 hover:bg-rose-500 text-white shrink-0"
-          >
-            ⚠️ Chyby
-          </button>
-
         </header>
 
         <QuickSearchModal
@@ -694,11 +702,76 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           onClose={() => setShowBugModal(false)}
         />
 
-
-        {/* Dynamic Page Content */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-8">
+        {/* Dynamic Page Content with bottom safe padding for Mobile Navigation Dock */}
+        <div className="flex-1 overflow-y-auto p-3.5 sm:p-8 pb-24 sm:pb-8">
           {children}
         </div>
+
+        {/* Mobile Bottom Navigation Dock — thumb-friendly bottom bar */}
+        <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-lg border-t border-amber-200/90 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-1 py-1.5 pb-safe flex items-center justify-around">
+          <button
+            onClick={() => setPage('orders')}
+            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all relative ${
+              page === 'orders'
+                ? 'text-amber-950 font-black scale-105 bg-amber-100/90 ring-1 ring-amber-300'
+                : 'text-neutral-500 hover:text-neutral-800 font-bold'
+            }`}
+          >
+            <div className="relative">
+              <ClipboardList size={20} strokeWidth={page === 'orders' ? 2.5 : 2} className={page === 'orders' ? 'text-amber-700' : ''} />
+              {pendingWhatsAppCount > 0 && (
+                <span className="absolute -top-1 -right-2 bg-red-600 text-white text-[9px] font-black rounded-full min-w-[14px] h-3.5 px-0.5 flex items-center justify-center shadow">
+                  {pendingWhatsAppCount > 9 ? '9+' : pendingWhatsAppCount}
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] mt-0.5 tracking-tight">Objednávky</span>
+          </button>
+
+          <button
+            onClick={() => setPage('kegging')}
+            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all ${
+              page === 'kegging'
+                ? 'text-amber-950 font-black scale-105 bg-amber-100/90 ring-1 ring-amber-300'
+                : 'text-neutral-500 hover:text-neutral-800 font-bold'
+            }`}
+          >
+            <Cylinder size={20} strokeWidth={page === 'kegging' ? 2.5 : 2} className={page === 'kegging' ? 'text-amber-700' : ''} />
+            <span className="text-[10px] mt-0.5 tracking-tight">KEG</span>
+          </button>
+
+          <button
+            onClick={() => setPage('bottling')}
+            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all ${
+              page === 'bottling'
+                ? 'text-amber-950 font-black scale-105 bg-amber-100/90 ring-1 ring-amber-300'
+                : 'text-neutral-500 hover:text-neutral-800 font-bold'
+            }`}
+          >
+            <Wine size={20} strokeWidth={page === 'bottling' ? 2.5 : 2} className={page === 'bottling' ? 'text-amber-700' : ''} />
+            <span className="text-[10px] mt-0.5 tracking-tight">Lahve</span>
+          </button>
+
+          <button
+            onClick={() => setPage('dashboard')}
+            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all ${
+              page === 'dashboard'
+                ? 'text-amber-950 font-black scale-105 bg-amber-100/90 ring-1 ring-amber-300'
+                : 'text-neutral-500 hover:text-neutral-800 font-bold'
+            }`}
+          >
+            <BarChart3 size={20} strokeWidth={page === 'dashboard' ? 2.5 : 2} className={page === 'dashboard' ? 'text-amber-700' : ''} />
+            <span className="text-[10px] mt-0.5 tracking-tight">Sklad</span>
+          </button>
+
+          <button
+            onClick={() => setOpen(true)}
+            className="flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all text-neutral-500 hover:text-neutral-800 font-bold active:scale-95"
+          >
+            <Menu size={20} strokeWidth={2} />
+            <span className="text-[10px] mt-0.5 tracking-tight">Více</span>
+          </button>
+        </nav>
       </main>
 
       {/* Nová verze — modální okno */}
