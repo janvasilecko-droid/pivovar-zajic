@@ -903,7 +903,83 @@ function exportInventoryExcel() {
                 </button>
               </div>
             ) : (
-              <div className="overflow-x-auto scrollbar-thin">
+              <>
+              {/* Mobilní karty — editace inventury a dorovnání bez vodorovného scrollování */}
+              <div className="grid grid-cols-1 gap-2.5 md:hidden">
+                {rows.map((r) => {
+                  const k = `${r.beer_id}__${r.package_id}`;
+                  const beer = beers.find((b) => b.id === r.beer_id);
+                  return (
+                    <div key={k} className="rounded-2xl border border-neutral-200 overflow-hidden" style={beer ? { backgroundColor: beerBg(beer) } : undefined}>
+                      <div className="p-3 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className={`font-black text-sm ${beer && beerText(beer) === 'text-white' ? 'text-white' : 'text-neutral-950'}`}>
+                            {r.beer_name} <span className="font-bold opacity-80">· {formatPackageLabel(r.package_label)}</span>
+                          </div>
+                          <span className={`shrink-0 px-2 py-1 rounded-lg text-xs font-black ${r.expectedQty < 0 ? 'bg-rose-600 text-white' : 'bg-emerald-300/80 text-emerald-950'}`}>
+                            Oček. {r.expectedQty} ks
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <label className="block">
+                            <span className="text-[10px] font-black uppercase text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded-md inline-block mb-1">Inventura</span>
+                            <input
+                              type="number"
+                              min="0"
+                              inputMode="numeric"
+                              className="input !py-2 text-center font-mono font-black text-base text-neutral-950 border-amber-400 bg-amber-100/80 w-full rounded-xl shadow-inner focus:ring-2 focus:ring-amber-500"
+                              value={actualStock[k] !== undefined ? actualStock[k] : ''}
+                              onChange={(e) => setActualStock((prev) => ({ ...prev, [k]: e.target.value }))}
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="text-[10px] font-black uppercase text-sky-800 bg-sky-50 px-1.5 py-0.5 rounded-md inline-block mb-1">Dorovnat (±)</span>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                inputMode="numeric"
+                                className="input !py-2 text-center font-mono font-black text-base text-neutral-950 border-sky-400 bg-sky-100/80 w-full rounded-xl shadow-inner focus:ring-2 focus:ring-sky-500"
+                                placeholder="±"
+                                value={dorovnatMap[k] !== undefined ? dorovnatMap[k] : ''}
+                                onChange={(e) => setDorovnatMap((prev) => ({ ...prev, [k]: e.target.value }))}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setDorovnatMap((prev) => ({ ...prev, [k]: String(r.diffQty) }))}
+                                className="shrink-0 w-10 h-10 grid place-items-center rounded-xl bg-sky-200/70 hover:bg-sky-300 text-sky-950 font-black text-sm transition"
+                                title={`Dorovnat dle manka (nastavit na ${r.diffQty} ks)`}
+                              >
+                                ⟳
+                              </button>
+                            </div>
+                          </label>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 text-xs font-bold">
+                          <span className={r.diffQty < 0 ? 'text-rose-700' : r.diffQty > 0 ? 'text-emerald-700' : 'text-neutral-500'}>
+                            Manko: {r.diffQty > 0 ? `+${r.diffQty}` : r.diffQty} ks ({r.diffCzk.toLocaleString('cs-CZ')} Kč)
+                          </span>
+                          {r.dorovnatQty !== 0 && (
+                            <span className={r.diffAfterQty === 0 ? 'text-emerald-700' : r.diffAfterQty < 0 ? 'text-rose-700' : 'text-amber-700'}>
+                              Po dorovnání: {r.diffAfterQty > 0 ? `+${r.diffAfterQty}` : r.diffAfterQty} ks{r.diffAfterQty === 0 ? ' ✓' : ''}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="text-[10px] text-neutral-500 flex flex-wrap gap-x-2.5 gap-y-0.5 pt-1 border-t border-black/10">
+                          <span>Poč. {r.initialQty}</span>
+                          <span>Stočeno +{r.stacenoQty}</span>
+                          <span>Odpis −{r.odpisQty}</span>
+                          <span>Výdej −{r.vydejQty}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="hidden md:block overflow-x-auto scrollbar-thin">
                 <table className="table text-xs w-full">
                   <thead>
                     <tr className="bg-neutral-100 text-neutral-800 border-b border-neutral-200">
@@ -1034,6 +1110,7 @@ function exportInventoryExcel() {
                   </tfoot>
                 </table>
               </div>
+              </>
             )}
           </div>
         </div>
