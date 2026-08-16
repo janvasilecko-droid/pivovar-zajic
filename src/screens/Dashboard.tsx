@@ -501,26 +501,26 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 mb-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
                   {kegs.length > 0 && (
                     <div className="bg-white/70 backdrop-blur-xs rounded-xl p-3 border border-neutral-200/50">
-                      <div className="text-[11px] font-bold uppercase tracking-wider text-amber-700 mb-1.5 flex items-center gap-1">🛢️ Sudy</div>
-                      <table className="w-full text-xs font-semibold border-collapse">
+                      <div className="text-xs font-bold uppercase tracking-wider text-amber-700 mb-1.5 flex items-center gap-1">🛢️ Sudy</div>
+                      <table className="w-full text-sm font-semibold border-collapse">
                         <thead>
-                          <tr className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">
-                            <th className="text-left pb-1 pr-2" title="Obal"><BeerIcon size={12} className="text-neutral-900" /></th>
-                            <th className="text-center pb-1 px-2" title="Stav"><PackageCheck size={12} className="text-neutral-900 mx-auto" /></th>
-                            <th className="text-center pb-1 px-2" title="Odejde"><AlertTriangle size={12} className="text-neutral-900 mx-auto" /></th>
-                            <th className="text-center pb-1 pl-2" title="Zbude"><Layers size={12} className="text-neutral-900 mx-auto" /></th>
+                          <tr className="text-[11px] font-bold uppercase tracking-wide text-neutral-400">
+                            <th className="text-left pb-1 pr-2" title="Obal"><BeerIcon size={13} className="text-neutral-900" /></th>
+                            <th className="text-center pb-1 px-2" title="Stav"><PackageCheck size={13} className="text-neutral-900 mx-auto" /></th>
+                            <th className="text-center pb-1 px-2" title="Odejde"><AlertTriangle size={13} className="text-neutral-900 mx-auto" /></th>
+                            <th className="text-center pb-1 pl-2" title="Zbude"><Layers size={13} className="text-neutral-900 mx-auto" /></th>
                           </tr>
                         </thead>
                         <tbody>
                           {kegs.map((p) => (
                             <tr key={p.package_id}>
-                              <td className="py-0.5 pr-2 whitespace-nowrap text-neutral-400 text-[10px] font-bold">{p.label}</td>
-                              <td className="py-0.5 px-2 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md">{p.quantity}</td>
-                              <td className={`py-0.5 px-2 text-center font-extrabold rounded-md ${p.orderedWeek > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-400'}`}>{p.orderedWeek > 0 ? `-${p.orderedWeek}` : '0'}</td>
-                              <td className={`py-0.5 pl-2 text-center font-extrabold rounded-md ${p.remaining < 0 ? 'bg-rose-50 text-rose-600' : p.remaining === 0 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>{p.remaining}</td>
+                              <td className="py-1 pr-2 whitespace-nowrap text-neutral-500 text-xs font-bold">{p.label}</td>
+                              <td className="py-1 px-2 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md">{p.quantity}</td>
+                              <td className={`py-1 px-2 text-center font-extrabold rounded-md ${p.orderedWeek > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-400'}`}>{p.orderedWeek > 0 ? `-${p.orderedWeek}` : '0'}</td>
+                              <td className={`py-1 pl-2 text-center font-extrabold rounded-md ${p.remaining < 0 ? 'bg-rose-50 text-rose-600' : p.remaining === 0 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>{p.remaining}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -529,23 +529,23 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                   )}
                   {bottles.length > 0 && (
                     <div className="bg-white/70 backdrop-blur-xs rounded-xl p-3 border border-neutral-200/50">
-                      <div className="text-[11px] font-bold uppercase tracking-wider text-primary-700 mb-1.5 flex items-center gap-1">🍾 Lahve</div>
-                      <table className="w-full text-xs font-semibold border-collapse">
+                      <div className="text-xs font-bold uppercase tracking-wider text-primary-700 mb-1.5 flex items-center gap-1">🍾 Lahve</div>
+                      <table className="w-full text-sm font-semibold border-collapse">
                         <thead>
-                          <tr className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">
-                            <th className="text-left pb-1 pr-2" title="Obal"><BeerIcon size={12} className="text-neutral-900" /></th>
-                            <th className="text-center pb-1 px-2" title="Stav"><PackageCheck size={12} className="text-neutral-900 mx-auto" /></th>
-                            <th className="text-center pb-1 px-2" title="Odejde"><AlertTriangle size={12} className="text-neutral-900 mx-auto" /></th>
-                            <th className="text-center pb-1 pl-2" title="Zbude"><Layers size={12} className="text-neutral-900 mx-auto" /></th>
+                          <tr className="text-[11px] font-bold uppercase tracking-wide text-neutral-400">
+                            <th className="text-left pb-1 pr-2" title="Obal"><BeerIcon size={13} className="text-neutral-900" /></th>
+                            <th className="text-center pb-1 px-2" title="Stav"><PackageCheck size={13} className="text-neutral-900 mx-auto" /></th>
+                            <th className="text-center pb-1 px-2" title="Odejde"><AlertTriangle size={13} className="text-neutral-900 mx-auto" /></th>
+                            <th className="text-center pb-1 pl-2" title="Zbude"><Layers size={13} className="text-neutral-900 mx-auto" /></th>
                           </tr>
                         </thead>
                         <tbody>
                           {bottles.map((p) => (
                             <tr key={p.package_id}>
-                              <td className="py-0.5 pr-2 whitespace-nowrap text-neutral-400 text-[10px] font-bold">{p.label}</td>
-                              <td className="py-0.5 px-2 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md">{p.quantity}</td>
-                              <td className={`py-0.5 px-2 text-center font-extrabold rounded-md ${p.orderedWeek > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-400'}`}>{p.orderedWeek > 0 ? `-${p.orderedWeek}` : '0'}</td>
-                              <td className={`py-0.5 pl-2 text-center font-extrabold rounded-md ${p.remaining < 0 ? 'bg-rose-50 text-rose-600' : p.remaining === 0 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>{p.remaining}</td>
+                              <td className="py-1 pr-2 whitespace-nowrap text-neutral-500 text-xs font-bold">{p.label}</td>
+                              <td className="py-1 px-2 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md">{p.quantity}</td>
+                              <td className={`py-1 px-2 text-center font-extrabold rounded-md ${p.orderedWeek > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-400'}`}>{p.orderedWeek > 0 ? `-${p.orderedWeek}` : '0'}</td>
+                              <td className={`py-1 pl-2 text-center font-extrabold rounded-md ${p.remaining < 0 ? 'bg-rose-50 text-rose-600' : p.remaining === 0 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>{p.remaining}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -568,7 +568,47 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
       {detail && (
         <Modal open onClose={() => setDetail(null)} title={`${detail.beer.name} — detail skladu po obalech`} wide>
           <div className="space-y-4">
-            <div className="overflow-x-auto scrollbar-thin">
+            {/* Mobilní karty — čitelné bez vodorovného scrollování */}
+            <div className="grid grid-cols-1 gap-2.5 md:hidden">
+              {detail.stockByPkg.map((p) => {
+                const akceNet = Math.max(0, p.akTaken - p.akReturned);
+                return (
+                  <div key={p.package_id} className="rounded-2xl border border-neutral-200 bg-white p-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-black text-sm text-neutral-900">{p.label}</span>
+                      <span className={`px-2.5 py-1 rounded-xl font-black text-xs whitespace-nowrap ${p.remaining < 0 ? 'bg-rose-100 text-rose-700' : p.remaining === 0 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                        Zbyde {p.remaining} ks
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5 text-center">
+                      <div className="rounded-lg bg-neutral-50 py-1.5">
+                        <div className="text-[9px] font-black uppercase text-neutral-500">Sklad (AKT)</div>
+                        <div className="text-sm font-black text-neutral-900">{p.quantity}</div>
+                      </div>
+                      <div className="rounded-lg bg-rose-50 py-1.5">
+                        <div className="text-[9px] font-black uppercase text-rose-600">Objednáno</div>
+                        <div className="text-sm font-black text-rose-700">{p.orderedWeek || 0}</div>
+                      </div>
+                      <div className="rounded-lg bg-amber-50 py-1.5">
+                        <div className="text-[9px] font-black uppercase text-amber-700">Odpočet celkem</div>
+                        <div className="text-sm font-black text-amber-800">{p.odpocet || 0}</div>
+                      </div>
+                    </div>
+                    <div className="text-[11px] text-neutral-500 flex flex-wrap gap-x-3 gap-y-0.5">
+                      <span>Poč. {p.fromInventory || 0}</span>
+                      <span>Stoč. +{p.brewedWeek || 0}</span>
+                      <span>Stáč. lahví −{p.kegsUsedWeek || 0}</span>
+                      <span>Fasování −{p.fasovaniWeek || 0}</span>
+                      <span>Prodejna −{p.prodejnaWeek || 0}</span>
+                      <span>Akce −{akceNet}</span>
+                      <span>Odpis −{p.writeoffsWeek || 0}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="hidden md:block overflow-x-auto scrollbar-thin">
               <table className="table text-[10px] w-full border-collapse">
                 <thead>
                   <tr className="bg-neutral-100 border-b border-neutral-200">

@@ -459,14 +459,14 @@ export default function Stock() {
                       </div>
                     </div>
 
-                    {/* Package breakdown: KEG + Lahve side by side */}
-                    <div className="grid grid-cols-2 gap-2 mb-3">
+                    {/* Package breakdown: KEG + Lahve */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
                       {kegs.length > 0 && (
                         <div className="bg-white/70 backdrop-blur-xs rounded-xl p-2.5 border border-neutral-200/50">
-                          <div className="text-[10px] font-bold uppercase tracking-wider text-amber-700 mb-1.5 flex items-center gap-1">🛢️ Sudy</div>
-                          <table className="w-full text-[11px] font-semibold border-collapse">
+                          <div className="text-xs font-bold uppercase tracking-wider text-amber-700 mb-1.5 flex items-center gap-1">🛢️ Sudy</div>
+                          <table className="w-full text-xs font-semibold border-collapse">
                             <thead>
-                              <tr className="text-[9px] font-bold uppercase tracking-wide text-neutral-400">
+                              <tr className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">
                                 <th className="text-left pb-1 pr-1">Obal</th>
                                 <th className="text-center pb-1 px-1" title="Aktuální stav">Stav</th>
                                 <th className="text-center pb-1 px-1" title="Odpis (všechny odchody)">Odpis</th>
@@ -476,13 +476,13 @@ export default function Stock() {
                             <tbody>
                               {kegs.map((p) => (
                                 <tr key={p.package_id}>
-                                  <td className="py-0.5 pr-1 whitespace-nowrap text-neutral-400 text-[9px] font-bold">{p.label}</td>
-                                  <td className="py-0.5 px-1 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md">
+                                  <td className="py-1 pr-1 whitespace-nowrap text-neutral-500 text-xs font-bold">{p.label}</td>
+                                  <td className="py-1 px-1 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md">
                                     {p.currentStock}
-                                    {p.rawStock < 0 && <span className="block text-[8px] font-black text-rose-600 font-mono" title="Nestočeno / nestíhá sklad">({p.rawStock})</span>}
+                                    {p.rawStock < 0 && <span className="block text-[9px] font-black text-rose-600 font-mono" title="Nestočeno / nestíhá sklad">({p.rawStock})</span>}
                                   </td>
-                                  <td className={`py-0.5 px-1 text-center font-extrabold rounded-md ${p.outgoing > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-400'}`}>{p.outgoing > 0 ? `-${p.outgoing}` : '0'}</td>
-                                  <td className={`py-0.5 pl-1 text-center font-extrabold rounded-md ${p.difference < 0 ? 'bg-rose-50 text-rose-600' : p.difference === 0 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>{p.difference}</td>
+                                  <td className={`py-1 px-1 text-center font-extrabold rounded-md ${p.outgoing > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-400'}`}>{p.outgoing > 0 ? `-${p.outgoing}` : '0'}</td>
+                                  <td className={`py-1 pl-1 text-center font-extrabold rounded-md ${p.difference < 0 ? 'bg-rose-50 text-rose-600' : p.difference === 0 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>{p.difference}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -491,10 +491,10 @@ export default function Stock() {
                       )}
                       {bottles.length > 0 && (
                         <div className="bg-white/70 backdrop-blur-xs rounded-xl p-2.5 border border-neutral-200/50">
-                          <div className="text-[10px] font-bold uppercase tracking-wider text-primary-700 mb-1.5 flex items-center gap-1">🍾 Lahve</div>
-                          <table className="w-full text-[11px] font-semibold border-collapse">
+                          <div className="text-xs font-bold uppercase tracking-wider text-primary-700 mb-1.5 flex items-center gap-1">🍾 Lahve</div>
+                          <table className="w-full text-xs font-semibold border-collapse">
                             <thead>
-                              <tr className="text-[9px] font-bold uppercase tracking-wide text-neutral-400">
+                              <tr className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">
                                 <th className="text-left pb-1 pr-1">Obal</th>
                                 <th className="text-center pb-1 px-1" title="Aktuální stav">Stav</th>
                                 <th className="text-center pb-1 px-1" title="Odpis (všechny odchody)">Odpis</th>
@@ -504,13 +504,13 @@ export default function Stock() {
                             <tbody>
                               {bottles.map((p) => (
                                 <tr key={p.package_id}>
-                                  <td className="py-0.5 pr-1 whitespace-nowrap text-neutral-400 text-[9px] font-bold">{p.label}</td>
-                                  <td className="py-0.5 px-1 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md">
+                                  <td className="py-1 pr-1 whitespace-nowrap text-neutral-500 text-xs font-bold">{p.label}</td>
+                                  <td className="py-1 px-1 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md">
                                     {p.currentStock}
-                                    {p.rawStock < 0 && <span className="block text-[8px] font-black text-rose-600 font-mono" title="Nestočeno / nestíhá sklad">({p.rawStock})</span>}
+                                    {p.rawStock < 0 && <span className="block text-[9px] font-black text-rose-600 font-mono" title="Nestočeno / nestíhá sklad">({p.rawStock})</span>}
                                   </td>
-                                  <td className={`py-0.5 px-1 text-center font-extrabold rounded-md ${p.outgoing > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-400'}`}>{p.outgoing > 0 ? `-${p.outgoing}` : '0'}</td>
-                                  <td className={`py-0.5 pl-1 text-center font-extrabold rounded-md ${p.difference < 0 ? 'bg-rose-50 text-rose-600' : p.difference === 0 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>{p.difference}</td>
+                                  <td className={`py-1 px-1 text-center font-extrabold rounded-md ${p.outgoing > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-400'}`}>{p.outgoing > 0 ? `-${p.outgoing}` : '0'}</td>
+                                  <td className={`py-1 pl-1 text-center font-extrabold rounded-md ${p.difference < 0 ? 'bg-rose-50 text-rose-600' : p.difference === 0 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>{p.difference}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -548,7 +548,7 @@ export default function Stock() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {(['keg', 'bottle'] as const).map((kind) => {
                     const items = detail.stockByPkg.filter((p) => p.kind === kind && (p.currentStock > 0 || p.outgoing > 0));
                     if (!items.length) return null;
