@@ -328,7 +328,55 @@ export default function VycepyScreen() {
         {reservations.length === 0 ? (
           <EmptyState text="Žádné aktivní rezervace výčepů." icon="📅" />
         ) : (
-          <div className="overflow-x-auto scrollbar-thin">
+          <>
+          {/* Mobilní karty */}
+          <div className="grid grid-cols-1 gap-2.5 md:hidden">
+            {reservations.map((r) => {
+              const isOverdue = !r.is_returned && r.date_to < todayStr;
+              const isReturned = r.is_returned;
+              return (
+                <div key={r.id} className={`rounded-2xl border p-3 space-y-2 ${isOverdue ? 'bg-rose-50/60 border-rose-200' : 'bg-white border-neutral-200'}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-black text-sm text-neutral-950">{r.tap_name}</span>
+                    {isReturned ? (
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-950 font-black text-[10px] border border-emerald-300">✓ Vráceno</span>
+                    ) : isOverdue ? (
+                      <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white font-black text-[10px] animate-pulse">⚠️ Po termínu</span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-950 font-black text-[10px] border border-amber-300">Půjčeno</span>
+                    )}
+                  </div>
+                  <div className="font-mono font-bold text-xs text-amber-950">
+                    {new Date(r.date_from).toLocaleDateString('cs-CZ')} – {new Date(r.date_to).toLocaleDateString('cs-CZ')}
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <div className="font-black text-xs text-neutral-900">{r.customer_name}</div>
+                      {r.phone && <a href={`tel:${r.phone}`} className="text-xs text-blue-700 font-bold hover:underline">📞 {r.phone}</a>}
+                    </div>
+                    {r.deposit_czk ? <span className="font-mono font-bold text-xs text-neutral-700 shrink-0">{r.deposit_czk.toLocaleString('cs-CZ')} Kč</span> : null}
+                  </div>
+                  {r.note && <div className="text-xs text-neutral-600 font-medium">{r.note}</div>}
+                  <div className="flex items-center gap-1.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleReturnReservation(r)}
+                      className={`flex-1 min-h-[40px] px-3 py-2 rounded-xl text-xs font-black transition ${
+                        r.is_returned ? 'bg-neutral-200 text-neutral-800 hover:bg-neutral-300' : 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-2xs'
+                      }`}
+                    >
+                      {r.is_returned ? 'Zrušit vrácení' : '✓ Vrátit'}
+                    </button>
+                    <button onClick={() => handleDeleteReservation(r.id)} className="w-10 h-10 grid place-items-center rounded-lg hover:bg-rose-100 text-rose-600 transition shrink-0" title="Smazat rezervaci">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="hidden md:block overflow-x-auto scrollbar-thin">
             <table className="table text-xs">
               <thead>
                 <tr>
@@ -403,6 +451,7 @@ export default function VycepyScreen() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 

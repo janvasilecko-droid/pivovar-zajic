@@ -420,7 +420,39 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
             </div>
           </div>
         ) : (
-          <div className="overflow-x-auto scrollbar-thin">
+          <>
+          {/* Mobilní karty */}
+          <div className="grid grid-cols-1 gap-2.5 md:hidden">
+            {filteredEntries.map((e) => (
+              <div key={e.id} className="rounded-2xl border border-neutral-200 bg-white p-3 space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-black text-sm text-neutral-950">{e.vehicle_name}</div>
+                    <div className="text-[11px] text-neutral-500 font-bold">{new Date(e.date).toLocaleDateString('cs-CZ')} · {e.driver}</div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="font-mono font-black text-sm text-amber-600 whitespace-nowrap">{e.km_driven.toLocaleString('cs-CZ')} km</span>
+                    <button
+                      onClick={() => handleDelete(e.id)}
+                      className="w-9 h-9 grid place-items-center rounded-lg hover:bg-rose-100 text-rose-600 transition shrink-0"
+                      title="Smazat jízdu"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+                <div className="text-xs text-neutral-700 font-medium">
+                  <span className="text-neutral-500">{e.route_from}</span> ➔ <strong className="text-amber-900">{e.route_to}</strong>
+                </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-neutral-500 font-mono">
+                  <span>{e.purpose}</span>
+                  <span>{e.km_start.toLocaleString('cs-CZ')} → {e.km_end.toLocaleString('cs-CZ')} km</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="hidden md:block overflow-x-auto scrollbar-thin">
             <table className="table">
               <thead>
                 <tr>
@@ -466,6 +498,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 

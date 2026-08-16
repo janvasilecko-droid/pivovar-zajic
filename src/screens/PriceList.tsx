@@ -113,7 +113,43 @@ export default function PriceListScreen() {
             </div>
 
             {beers.length === 0 ? <EmptyState text="Žádná piva v katalogu." icon="🍺" /> : (
-              <div className="overflow-x-auto scrollbar-thin rounded-2xl border border-neutral-200">
+              <>
+              {/* Mobilní karty */}
+              <div className="grid grid-cols-1 gap-2.5 md:hidden">
+                {beers.map((b) => {
+                  const bg = beerBg(b) || '#fef3c7';
+                  const txt = beerText(b) || 'text-neutral-900';
+                  return (
+                    <div key={b.id} className="rounded-2xl border border-neutral-200 overflow-hidden" style={{ backgroundColor: bg }}>
+                      <div className="p-3 space-y-2.5">
+                        <span className={`text-sm font-black ${txt}`}>{b.name}{b.degree ? ` (${b.degree})` : ''}</span>
+                        <label className="block">
+                          <span className="text-[10px] font-black uppercase text-neutral-600 bg-white/70 px-1.5 py-0.5 rounded-md inline-block mb-1">Cena za 1 litr</span>
+                          <input
+                            type="number" step="0.01" min={0}
+                            className="input w-full text-right font-mono font-black text-base bg-white border border-neutral-300 shadow-xs"
+                            defaultValue={b.price_per_liter ?? ''}
+                            placeholder="— Kč/l"
+                            onBlur={(e) => { if (e.target.value !== String(b.price_per_liter ?? '')) savePricePerLiter(b, e.target.value); }}
+                            disabled={savingBeerId === b.id}
+                          />
+                        </label>
+                        {b.price_per_liter != null && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {kegPackages.map((p) => (
+                              <span key={p.id} className="px-2.5 py-1 rounded-lg bg-neutral-900 text-amber-300 text-xs font-black shadow-xs">
+                                {formatPackageLabel(p.label)}: {(Number(b.price_per_liter) * Number(p.volume_l)).toLocaleString('cs-CZ', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} Kč
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="hidden md:block overflow-x-auto scrollbar-thin rounded-2xl border border-neutral-200">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="bg-neutral-900 text-amber-300 uppercase tracking-wider text-[11px] font-black">
@@ -165,6 +201,7 @@ export default function PriceListScreen() {
                   </tbody>
                 </table>
               </div>
+              </>
             )}
           </div>
 
@@ -187,7 +224,45 @@ export default function PriceListScreen() {
             ) : beers.length === 0 ? (
               <EmptyState text="Žádná piva v katalogu." icon="🍺" />
             ) : (
-              <div className="overflow-x-auto scrollbar-thin rounded-2xl border border-neutral-200">
+              <>
+              {/* Mobilní karty */}
+              <div className="grid grid-cols-1 gap-2.5 md:hidden">
+                {beers.map((b) => {
+                  const bg = beerBg(b) || '#fef3c7';
+                  const txt = beerText(b) || 'text-neutral-900';
+                  return (
+                    <div key={b.id} className="rounded-2xl border border-neutral-200 overflow-hidden" style={{ backgroundColor: bg }}>
+                      <div className="p-3 space-y-2.5">
+                        <span className={`text-sm font-black ${txt}`}>{b.name}{b.degree ? ` (${b.degree})` : ''}</span>
+                        <div className="grid grid-cols-2 gap-2">
+                          {bottlePackages.map((p) => {
+                            const existing = findBottleRow(b.id, p.id);
+                            const cellKey = `${b.id}:${p.id}`;
+                            return (
+                              <label key={p.id} className="block">
+                                <span className="text-[10px] font-black uppercase text-neutral-600 bg-white/70 px-1.5 py-0.5 rounded-md inline-block mb-1">{formatPackageLabel(p.label)}</span>
+                                <input
+                                  type="number" step="0.01" min={0}
+                                  className="input w-full text-right font-mono font-black text-sm bg-white border border-neutral-300 shadow-xs"
+                                  defaultValue={existing?.price_per_unit ?? ''}
+                                  placeholder="— Kč/ks"
+                                  onBlur={(e) => {
+                                    const cur = existing?.price_per_unit;
+                                    if (e.target.value !== String(cur ?? '')) saveBottlePrice(b, p, e.target.value);
+                                  }}
+                                  disabled={savingCellId === cellKey}
+                                />
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="hidden md:block overflow-x-auto scrollbar-thin rounded-2xl border border-neutral-200">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="bg-neutral-900 text-amber-300 uppercase tracking-wider text-[11px] font-black">
@@ -237,6 +312,7 @@ export default function PriceListScreen() {
                   </tbody>
                 </table>
               </div>
+              </>
             )}
           </div>
         </>

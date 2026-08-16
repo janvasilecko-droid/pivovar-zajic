@@ -302,7 +302,68 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
       ) : filtered.length === 0 ? (
         <EmptyState text="Zatím žádné záznamy o sanitaci tanků." icon="🧼" />
       ) : (
-        <div className="card bg-white border border-neutral-200/90 rounded-3xl overflow-hidden shadow-sm">
+        <>
+        <div className="space-y-2.5 md:hidden">
+          {filtered.map((log) => {
+            const badge = METHOD_BADGES[log.method] ?? {
+              label: log.method_label || log.method,
+              bg: 'bg-neutral-100 border-neutral-300',
+              text: 'text-neutral-900',
+              icon: '🧴',
+            };
+            const displayTime = log.sanitation_time || (log.created_at ? log.created_at.slice(11, 16) : null);
+            const displayDuration = log.duration_minutes ?? 20;
+            const displayConc = log.concentration_pct ?? (log.method === 'louh' || log.method === 'kyselina_dusicna' || log.method === 'kombinovana' ? 2.0 : null);
+            return (
+              <div key={log.id} className="card bg-white border border-neutral-200/90 rounded-2xl p-3 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="px-2.5 py-1 rounded-xl bg-neutral-900 text-white font-black text-xs shadow-xs">{log.tank_label}</span>
+                  <button
+                    onClick={() => {
+                      setEditingLog(log);
+                      setEditNoteText(log.note || '');
+                      setEditTimeText(log.sanitation_time || (log.created_at ? log.created_at.slice(11, 16) : getCurrentTimeStr()));
+                      setEditDurationNum(log.duration_minutes ?? 20);
+                      setEditConcentrationPct(log.concentration_pct ?? getDefaultConcentration(log.method));
+                    }}
+                    className="min-h-[36px] px-3 py-1.5 rounded-xl bg-neutral-100 hover:bg-amber-100 text-neutral-700 hover:text-amber-900 text-xs font-bold border border-neutral-200 transition flex items-center gap-1"
+                  >
+                    <Edit3 size={14} />
+                    <span>Upravit</span>
+                  </button>
+                </div>
+                <div className="flex items-center flex-wrap gap-1.5">
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border font-bold text-xs shadow-xs ${badge.bg} ${badge.text}`}>
+                    <span>{badge.icon}</span><span>{badge.label}</span>
+                    {displayConc !== null && <span className="ml-1 font-black px-1.5 py-0.5 rounded-md bg-black/10 text-[11px]">{displayConc} %</span>}
+                  </span>
+                  <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-amber-100/80 text-amber-900 border border-amber-300 font-bold text-[11px]">
+                    <Clock size={12} className="text-amber-700" /><span>{displayDuration} min</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <span className="flex items-center gap-1 text-neutral-500 font-bold">
+                    <Calendar size={13} className="text-amber-600 shrink-0" />
+                    {new Date(log.sanitation_date).toLocaleDateString('cs-CZ')}{displayTime ? ` · ${displayTime}` : ''}
+                  </span>
+                  {log.performed_by && (
+                    <span className="flex items-center gap-1 text-neutral-700 font-semibold">
+                      <User size={13} className="text-neutral-400" />{log.performed_by}
+                    </span>
+                  )}
+                </div>
+                {log.note && (
+                  <div className="flex items-start gap-1.5 bg-amber-50/60 p-2 rounded-xl border border-amber-200/60 text-xs font-semibold text-neutral-800 leading-snug">
+                    <MessageSquare size={14} className="text-amber-600 shrink-0 mt-0.5" />
+                    <span className="whitespace-pre-line">{log.note}</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="hidden md:block card bg-white border border-neutral-200/90 rounded-3xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-neutral-100/80 border-b border-neutral-200/80 text-neutral-600 font-extrabold uppercase tracking-wider">
@@ -405,6 +466,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
             </table>
           </div>
         </div>
+        </>
       )}
 
       {/* Edit Log Modal (Note, Time, Duration, Concentration) */}
