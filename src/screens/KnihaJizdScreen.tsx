@@ -4,6 +4,7 @@ import { Spinner } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { Car, Plus, Download, Printer, Trash2, Calendar, MapPin, Navigation, User, Scale, ShieldCheck, CheckCircle2, Zap, Sparkles } from 'lucide-react';
 import { getSecondCarDates } from '../lib/zavozSecondCar';
+import { printTable } from '../lib/safePrint';
 
 export type LogbookEntry = {
   id: string;
@@ -278,57 +279,32 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
   }
 
   function printLogbook() {
-    const rowsHtml = filteredEntries.map((e) => `
-      <tr>
-        <td style="padding:6px;border:1px solid #ccc;font-weight:bold;">${new Date(e.date).toLocaleDateString('cs-CZ')}</td>
-        <td style="padding:6px;border:1px solid #ccc;">${e.vehicle_name}</td>
-        <td style="padding:6px;border:1px solid #ccc;">${e.driver}</td>
-        <td style="padding:6px;border:1px solid #ccc;">${e.route_from} ➔ ${e.route_to}</td>
-        <td style="padding:6px;border:1px solid #ccc;">${e.purpose}</td>
-        <td style="padding:6px;border:1px solid #ccc;text-align:right;">${e.km_start} km</td>
-        <td style="padding:6px;border:1px solid #ccc;text-align:right;">${e.km_end} km</td>
-        <td style="padding:6px;border:1px solid #ccc;text-align:right;font-weight:bold;">${e.km_driven} km</td>
-      </tr>
-    `).join('');
-
-    const win = window.open('', '_blank');
-    if (!win) return;
-    win.document.write(`
-      <html>
-        <head>
-          <title>Kniha jízd — ${filterMonth}</title>
-          <style>
-            body { font-family: sans-serif; padding: 20px; color: #000; }
-            h1 { font-size: 20px; margin-bottom: 4px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 12px; }
-            th { background: #f3f4f6; padding: 8px; border: 1px solid #ccc; text-align: left; }
-          </style>
-        </head>
-        <body>
-          <h1>🚚 Kniha jízd pivovaru — Měsíc ${filterMonth}</h1>
-          <p style="font-size:12px;color:#555;">Kynšperský pivovar s.r.o. · Celkem ujeto v měsíci: <strong>${totalKmMonth} km</strong></p>
-          <table>
-            <thead>
-              <tr>
-                <th>Datum</th>
-                <th>Vozidlo</th>
-                <th>Řidič</th>
-                <th>Trasa (Odkud ➔ Kam)</th>
-                <th>Účel jízdy</th>
-                <th>Start (km)</th>
-                <th>Konec (km)</th>
-                <th>Ujeto (km)</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rowsHtml || '<tr><td colspan="8" style="text-align:center;padding:20px;">Žádné jízdní záznamy</td></tr>'}
-            </tbody>
-          </table>
-          <script>window.onload = () => window.print();</script>
-        </body>
-      </html>
-    `);
-    win.document.close();
+    printTable({
+      title: `Kniha jízd — ${filterMonth}`,
+      heading: `🚚 Kniha jízd pivovaru — Měsíc ${filterMonth}`,
+      summary: `Kynšperský pivovar s.r.o. · Celkem ujeto v měsíci: ${totalKmMonth} km`,
+      columns: [
+        { label: 'Datum' },
+        { label: 'Vozidlo' },
+        { label: 'Řidič' },
+        { label: 'Trasa (Odkud ➔ Kam)' },
+        { label: 'Účel jízdy' },
+        { label: 'Start (km)', align: 'right' },
+        { label: 'Konec (km)', align: 'right' },
+        { label: 'Ujeto (km)', align: 'right' },
+      ],
+      rows: filteredEntries.map((entry) => [
+        new Date(entry.date).toLocaleDateString('cs-CZ'),
+        entry.vehicle_name,
+        entry.driver,
+        `${entry.route_from} ➔ ${entry.route_to}`,
+        entry.purpose,
+        `${entry.km_start} km`,
+        `${entry.km_end} km`,
+        `${entry.km_driven} km`,
+      ]),
+      emptyMessage: 'Žádné jízdní záznamy',
+    });
   }
 
   if (loading) return <Spinner />;

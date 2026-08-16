@@ -17,7 +17,9 @@ export const PRIMARY_ADMIN_EMAIL: string = ADMIN_EMAILS[0] ?? '';
 export const PRIMARY_ADMIN_NAME: string = 'Vasil';
 
 /** Výchozí role používaná, když není k dispozici profil uživatele. */
-export const DEFAULT_ROLE: 'admin' | 'user' = 'admin';
+// Při chybějícím profilu nikdy nezvyšovat oprávnění. Admin role se musí
+// potvrdit daty ze serveru, nikoli klientským fallbackem.
+export const DEFAULT_ROLE: 'admin' | 'user' = 'user';
 
 /**
  * Vrátí true, pokud daný e-mail patří mezi systémové administrátory.

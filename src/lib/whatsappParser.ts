@@ -1,6 +1,7 @@
 import { Beer, Package, Place, supabase } from './supabase';
 import { parseGeminiItems, matchPlaceFromText, detectOrderNotes, loadAliasMap, loadPlaceAliasMap, ParserAliasMap, ParsedLine, GeminiItem } from './orderParser';
 import { parseExplicitDate } from './orderDates';
+import { authenticatedFunctionHeaders } from './functionAuth';
 
 // 📷 Stažení fotky z WhatsApp (media_url ze Supabase Storage) a převod na base64
 // pro AI čtení. Velké fotky zmenšíme na max. 1600 px (JPEG), aby se request
@@ -461,10 +462,7 @@ export async function parseWhatsAppOrderMessageWithAI(
 
   const resp = await fetch(fnUrl, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-    },
+    headers: await authenticatedFunctionHeaders(),
     body: JSON.stringify({
       rawText: rawMessage,
       beers: beers.map((b) => ({ id: b.id, name: b.name, degree: b.degree ?? '' })),

@@ -86,7 +86,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
 
   async function load(silent = false) {
     if (!silent) setLoading(true);
-    const [{ data: b }, { data: pk }, { data: bt }, { data: kg }, { data: wo }, { data: inv }, { data: oi }, { data: ord }, { data: ak }, { data: fa }, { data: fp }] = await Promise.all([
+    const [{ data: b }, { data: pk }, { data: bt }, { data: kg }, { data: wo }, { data: inv }, { data: oi }, { data: ord }, { data: ak }, { data: fa }, { data: fp }, { data: zd }] = await Promise.all([
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
       supabase.from('bottling').select('entry_date,beer_id,package_id,quantity,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
@@ -98,6 +98,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
       supabase.from('akce').select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
       supabase.from('fasovani').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('fasovani_private').select('entry_date,beer_id,package_id,quantity'),
+      supabase.from('zavoz_deductions').select('deduct_date,beer_id,package_id,quantity'),
     ]);
     const beerList = (b as Beer[]) ?? [];
     const pkgList = (pk as Package[]) ?? [];
@@ -112,6 +113,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
     const akRows = (ak as { entry_date: string; items: { beer_id: string | null; package_id: string | null; quantity_taken: number; quantity_returned: number }[] }[]) ?? [];
     const faRows = (fa as Row[]) ?? [];
     const fpRows = (fp as Row[]) ?? [];
+    const zdRows = (zd as { deduct_date: string; beer_id: string | null; package_id: string | null; quantity: number }[]) ?? [];
 
     const now = new Date();
     const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -202,8 +204,14 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
       const stockByPkg = [...byPkg.values()].map((p) => {
         p.quantity = p.fromInventory + p.brewedWeek;
         const akceNet = Math.max(0, p.akTaken - p.akReturned);
-        p.odpocet = p.writeoffsWeek + p.fasovaniWeek + p.prodejnaWeek + akceNet + (p.kegsUsedWeek || 0);
-        p.remaining = p.quantity - p.orderedWeek - p.odpocet;
+        // Auto-odpočet závozu (zavoz_deductions) za aktuální měsíc
+        const zdWeek = zdRows
+          .filter((r) => r.beer_id === beer.id && r.package_id === p.package_id && monthKey(r.deduct_date) === curMonth && r.deduct_date <= todayISO())
+          .reduce((s, r) => s + Number(r.quantity), 0);
+        p.odpocet = p.writeoffsWeek + p.fasovaniWeek + p.prodejnaWeek + akceNet + (p.kegsUsedWeek || 0) + zdWeek;
+        // Odečtené závozy jsou již v odpocet — z orderedWeek odeber aby nedošlo k dvojímu odečtu
+        const orderedEffective = Math.max(0, p.orderedWeek - zdWeek);
+        p.remaining = p.quantity - orderedEffective - p.odpocet;
         return p;
       }).filter((p) => p.fromInventory > 0 || p.orderedWeek > 0 || p.brewedWeek > 0 || p.fasovaniWeek > 0 || p.prodejnaWeek > 0 || p.odpocet > 0).sort((a, b) => b.quantity - a.quantity);
 
@@ -245,7 +253,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
   }
 
   useEffect(() => { load(); }, [brewFrom, brewTo]);
-  useRealtime(['bottling', 'kegging', 'fasovani', 'fasovani_private', 'writeoffs', 'inventory', 'orders', 'order_items', 'akce', 'akce_items'], () => load(true));
+  useRealtime(['bottling', 'kegging', 'fasovani', 'fasovani_private', 'writeoffs', 'inventory', 'orders', 'order_items', 'akce', 'akce_items', 'zavoz_deductions'], () => load(true));
 
   const statusOf = (s: StockStat) => s.remaining < 0 ? 'deficit' : s.stockTotal === 0 ? 'empty' : s.remaining <= 10 ? 'low' : 'ok';
 

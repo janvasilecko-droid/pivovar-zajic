@@ -42,6 +42,17 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true, created: false });
     }
 
+    // Účet smí vzniknout pouze pro e-mail, který předem schválil administrátor.
+    const { data: allowed, error: allowedErr } = await admin
+      .from("allowed_emails")
+      .select("status")
+      .ilike("email", email)
+      .maybeSingle();
+    if (allowedErr) return json({ error: "Schválení e-mailu se nepodařilo ověřit." }, 500);
+    if (allowed?.status !== "approved") {
+      return json({ error: "Tento e-mail zatím nebyl schválen administrátorem." }, 403);
+    }
+
     // Účet neexistuje → vytvoří se pouze s výchozím heslem „zajic“.
     if (password !== "zajic") {
       return json({

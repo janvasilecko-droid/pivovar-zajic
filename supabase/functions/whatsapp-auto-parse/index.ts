@@ -1,10 +1,26 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { requireApprovedUser } from "../_shared/require-user.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
+
+const MAX_MEDIA_BYTES = 6_000_000;
+
+function isAllowedMediaUrl(rawUrl: string, supabaseUrl: string): boolean {
+  try {
+    const candidate = new URL(rawUrl);
+    const expected = new URL(supabaseUrl);
+    const path = decodeURIComponent(candidate.pathname);
+    return candidate.protocol === "https:" &&
+      candidate.origin === expected.origin &&
+      /^\/storage\/v1\/object\/(?:public|sign|authenticated)\/whatsapp-media(?:\/|$)/.test(path);
+  } catch {
+    return false;
+  }
+}
 
 // Interface for parsed order items
 interface ParsedItem {
@@ -567,13 +583,18 @@ Deno.serve(async (req: Request) => {
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Get pending messages (limit to 10 at a time)
+    const auth = await requireApprovedUser(req, supabase, corsHeaders, {
+      bucket: "whatsapp-auto-parse",
+      limit: 5,
+      windowSeconds: 60,
+    });
+    if (!auth.ok) return auth.response;
+    const callerAuthorization = req.headers.get("Authorization") ?? "";
+
+    // Claim rows atomically so concurrent browser tabs cannot process the same
+    // message and create duplicate AI calls/orders.
     const { data: pendingMessages, error: fetchError } = await supabase
-      .from("whatsapp_incoming")
-      .select("*")
-      .eq("status", "pending")
-      .order("created_at", { ascending: true })
-      .limit(10);
+      .rpc("claim_pending_whatsapp_messages", { p_limit: 10 });
 
     if (fetchError) {
       console.error("Error fetching pending messages:", fetchError);
@@ -692,17 +713,6 @@ Deno.serve(async (req: Request) => {
 
         // Mark as processing — když se to nepodaří, zpráva zůstane 'pending'
         // a v této iteraci ji přeskočíme (zpracuje ji někdo příště).
-        const { ok: markOk, error: markError } = await safeUpdateMessage(
-          supabase,
-          message.id,
-          { status: "processing" },
-          "pending"
-        );
-        if (!markOk) {
-          results.push({ id: message.id, status: "error", error: markError });
-          continue;
-        }
-
         // Načteme CELOU předešlou konverzaci ze stejné skupiny/chatu (chat_id) před
         // touto zprávou. Uživatel na předchozí objednávku často ODPOVÍDÁ — odpověď
         // navazuje na původní zprávu, takže AI musí vidět VŠECHNY předchozí zprávy
@@ -757,11 +767,18 @@ Deno.serve(async (req: Request) => {
         let imageMimeType: string | null = null;
         if (message.media_url) {
           try {
-            const imgResp = await fetch(message.media_url);
+            if (!isAllowedMediaUrl(message.media_url, supabaseUrl)) {
+              throw new Error("Media URL is outside the configured WhatsApp storage bucket");
+            }
+            const imgResp = await fetch(message.media_url, { redirect: "error" });
             if (imgResp.ok) {
+              const declaredLength = Number(imgResp.headers.get("content-length") ?? "0");
+              if (Number.isFinite(declaredLength) && declaredLength > MAX_MEDIA_BYTES) {
+                throw new Error("WhatsApp media is too large");
+              }
               const imgBuf = new Uint8Array(await imgResp.arrayBuffer());
               // Ochrana před moc velkými fotkami (limit requestu edge funkce).
-              if (imgBuf.length > 0 && imgBuf.length < 6_000_000) {
+              if (imgBuf.length > 0 && imgBuf.length <= MAX_MEDIA_BYTES) {
                 let binary = "";
                 const CHUNK = 0x8000;
                 for (let i = 0; i < imgBuf.length; i += CHUNK) {
@@ -806,7 +823,8 @@ Deno.serve(async (req: Request) => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${serviceRoleKey}`,
+            "Authorization": callerAuthorization,
+            "Apikey": Deno.env.get("SUPABASE_ANON_KEY") ?? "",
           },
           body: JSON.stringify(parseBody),
         });

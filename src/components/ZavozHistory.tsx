@@ -4,6 +4,7 @@ import { Spinner, EmptyState } from './ui';
 import { orderWeightKg, fmtKg } from '../lib/weight';
 import { DAYS } from '../lib/shared';
 import { History as HistoryIcon, Printer, Filter } from 'lucide-react';
+import { printDeliveryList } from '../lib/safePrint';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -116,35 +117,24 @@ export default function ZavozHistory() {
   }, [orders, items, packages, histPeriod, histPlaceId, histBeerId, histPackageId]);
 
   function printDeliveryListForOrders(toPrint: Order[], titleLabel: string) {
-    const rows = toPrint.map((o) => {
-      const its = items[o.id] ?? [];
-      const itemsHtml = its.map((i) => `<li>${i.beer_name ?? '—'} — <strong>${i.quantity} ks</strong> (${i.package_label ?? '—'})</li>`).join('');
-      return `
-        <div style="page-break-inside:avoid;border:2px solid #333;border-radius:10px;padding:14px;margin-bottom:14px;background:#FAF8F5;">
-          <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #ccc;padding-bottom:6px;">
-            <span style="font-weight:900;font-size:18px;color:#111;">${o.place_name ?? 'Neznámý odběratel'}</span>
-            <span style="font-weight:bold;font-size:13px;background:#f59e0b;padding:4px 8px;border-radius:6px;color:#000;">
-              ${o.delivery_day ? DAYS.find((d) => d.v === o.delivery_day)?.label ?? '' : 'Bez dne'}
-            </span>
-          </div>
-          <ul style="margin:10px 0 0 18px;padding:0;font-size:14px;">${itemsHtml}</ul>
-          ${o.note ? `<div style="font-size:12px;margin-top:8px;color:#555;font-style:italic;">Poznámka: ${o.note}</div>` : ''}
-        </div>`;
-    }).join('');
-
-    const win = window.open('', '_blank');
-    if (!win) return;
-    win.document.write(`
-      <html><head><title>Zavážecí list — ${titleLabel}</title>
-      <style>body{font-family:sans-serif;padding:24px;background:#fff;color:#000;} h1{font-size:22px;margin-bottom:16px;}</style>
-      </head><body>
-      <h1>🚚 Zavážecí list — ${titleLabel}</h1>
-      <p style="font-size:13px;margin-bottom:20px;color:#444;">Celkem objednávek: ${toPrint.length}</p>
-      ${rows || '<p>Žádné objednávky k vytištění.</p>'}
-      <script>window.onload = () => window.print();</script>
-      </body></html>
-    `);
-    win.document.close();
+    printDeliveryList({
+      title: `Zavážecí list — ${titleLabel}`,
+      heading: `🚚 Zavážecí list — ${titleLabel}`,
+      summary: `Celkem objednávek: ${toPrint.length}`,
+      emptyMessage: 'Žádné objednávky k vytištění.',
+      orders: toPrint.map((order) => ({
+        placeName: order.place_name,
+        deliveryLabel: order.delivery_day
+          ? DAYS.find((day) => day.v === order.delivery_day)?.label
+          : 'Bez dne',
+        note: order.note,
+        items: (items[order.id] ?? []).map((item) => ({
+          beerName: item.beer_name,
+          quantity: item.quantity,
+          packageLabel: item.package_label,
+        })),
+      })),
+    });
   }
 
   if (loading) {

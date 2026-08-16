@@ -44,7 +44,7 @@ export async function syncQueue(): Promise<{ ok: number; failed: number; remaini
   const { supabase } = await import('./supabase');
   const q = read();
   let ok = 0, failed = 0;
-  const remaining: QueuedOp[] = [];
+  const failedIds = new Set<string>();
   for (const op of q) {
     let res: { error: any } | null = null;
     try {
@@ -61,12 +61,16 @@ export async function syncQueue(): Promise<{ ok: number; failed: number; remaini
         for (const [k, v] of Object.entries(op.inMatch ?? {})) b = b.in(k, v);
         res = await b;
       }
-      if (res?.error) { failed++; remaining.push(op); }
+      if (res?.error) { failed++; failedIds.add(op.id); }
       else ok++;
     } catch {
-      failed++; remaining.push(op);
+      failed++; failedIds.add(op.id);
     }
   }
+  // Během synchronizace mohl uživatel přidat další operace. Zachováme je a
+  // odstraníme pouze úspěšně zpracované položky z původního snapshotu.
+  const processedIds = new Set(q.map((op) => op.id));
+  const remaining = read().filter((op) => !processedIds.has(op.id) || failedIds.has(op.id));
   write(remaining);
   return { ok, failed, remaining: remaining.length };
 }

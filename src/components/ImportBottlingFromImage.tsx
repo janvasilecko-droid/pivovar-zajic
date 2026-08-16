@@ -3,6 +3,7 @@ import { Modal, Spinner } from './ui';
 import { PhotoReviewPane } from './PhotoReviewPane';
 import { ImageEditor } from './ImageEditor';
 import type { Beer, Package } from '../lib/supabase';
+import { authenticatedFunctionHeaders } from '../lib/functionAuth';
 import { Camera, Upload, Sparkles, AlertCircle, Plus, Trash2, RotateCcw, Check, FilePlus } from 'lucide-react';
 
 type RowInput = { beerId: string; pkgId: string; pkg2Id: string; pkg3Id: string; kegPkgId: string; kegQty: string; qty: string; qty2: string; qty3: string; _removed?: boolean; _manual?: boolean };
@@ -118,10 +119,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
       const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-order-image`;
       const resp = await fetch(fnUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
+        headers: await authenticatedFunctionHeaders(),
         body: JSON.stringify({
           imageBase64: base64,
           imageMimeType: mimeType,

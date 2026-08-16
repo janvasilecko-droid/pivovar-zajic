@@ -38,19 +38,31 @@ export async function requestNotificationPermission(): Promise<boolean> {
 
 // Audio chime using Web Audio API (Synthesized ascending 3-note chime: C5 -> E5 -> G5)
 export function playOrderChime() {
+  let ctx: AudioContext | null = null;
   try {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioContextClass) return;
 
-    const ctx = new AudioContextClass();
-    const now = ctx.currentTime;
+    const audioContext = new AudioContextClass() as AudioContext;
+    ctx = audioContext;
+    const now = audioContext.currentTime;
 
     // Frequencies: C5 = 523.25Hz, E5 = 659.25Hz, G5 = 783.99Hz, C6 = 1046.50Hz
     const freqs = [523.25, 659.25, 783.99, 1046.50];
 
+    let closeTimer: ReturnType<typeof setTimeout> | null = null;
+    const closeContext = () => {
+      if (closeTimer) {
+        clearTimeout(closeTimer);
+        closeTimer = null;
+      }
+      if (!ctx || ctx.state === 'closed') return;
+      void ctx.close().catch(() => undefined);
+    };
+
     freqs.forEach((freq, idx) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
 
       osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, now + idx * 0.12);
@@ -60,12 +72,17 @@ export function playOrderChime() {
       gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.35);
 
       osc.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(audioContext.destination);
 
       osc.start(now + idx * 0.12);
       osc.stop(now + idx * 0.12 + 0.38);
+      if (idx === freqs.length - 1) osc.onended = closeContext;
     });
+    // Fallback pro prohlížeče, které při suspendovaném audio kontextu
+    // nevyvolají onended. Každý vytvořený kontext se vždy uzavře.
+    closeTimer = setTimeout(closeContext, 1500);
   } catch (e) {
+    if (ctx && ctx.state !== 'closed') void ctx.close().catch(() => undefined);
     console.warn('Web Audio Playback muted or unavailable:', e);
   }
 }

@@ -3,6 +3,8 @@
 // every deploy automatically invalidates the old cache.
 // SW_VERSION: 1.509 — change this to force SW update in browser
 const CACHE_PREFIX = 'pivovar-';
+const CACHE_META = `${CACHE_PREFIX}meta`;
+const CACHE_META_KEY = new URL('./__installed-cache__', self.registration.scope).href;
 
 const PRECACHE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './logo copy.jpg', './version.json'];
 
@@ -22,6 +24,34 @@ async function getCacheVersion() {
 // Store the version we installed with so we can detect updates
 let installedVersion = '';
 
+async function rememberInstalledCache(cacheName) {
+  const meta = await caches.open(CACHE_META);
+  await meta.put(CACHE_META_KEY, new Response(cacheName, {
+    headers: { 'Content-Type': 'text/plain' },
+  }));
+}
+
+async function readInstalledCache() {
+  try {
+    const meta = await caches.open(CACHE_META);
+    const response = await meta.match(CACHE_META_KEY);
+    return response ? await response.text() : '';
+  } catch {
+    return '';
+  }
+}
+
+async function getInstalledCache() {
+  if (self.__pivovarCache) return self.__pivovarCache;
+  const remembered = await readInstalledCache();
+  if (remembered) {
+    self.__pivovarCache = remembered;
+    installedVersion = remembered;
+    return remembered;
+  }
+  return getCacheVersion();
+}
+
 self.addEventListener('install', (e) => {
   e.waitUntil(
     (async () => {
@@ -30,36 +60,39 @@ self.addEventListener('install', (e) => {
       // Store the cache name so the activate handler can read it
       self.__pivovarCache = CACHE;
       const c = await caches.open(CACHE);
-      await c.addAll(PRECACHE).catch(() => {});
+      // Cache.addAll je atomické: selhání libovolného kritického souboru
+      // odmítne instalaci a stávající aktivní worker/cache zůstanou funkční.
+      await c.addAll(PRECACHE);
+      await rememberInstalledCache(CACHE);
     })()
   );
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     (async () => {
-      const CACHE = self.__pivovarCache || (await getCacheVersion());
+      const CACHE = await getInstalledCache();
       installedVersion = CACHE;
       const keys = await caches.keys();
-      await Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)));
-      // Notify all clients that a new version is now active — client si
-      // vynutí reload, aby se okamžitě načetla nejnovější verze aplikace.
+      await Promise.all(
+        keys
+          .filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE && key !== CACHE_META)
+          .map((key) => caches.delete(key)),
+      );
       const clients = await self.clients.matchAll();
       for (const client of clients) {
         client.postMessage({ type: 'SW_ACTIVATED', version: CACHE });
       }
+      await self.clients.claim();
     })()
   );
-  self.clients.claim();
 });
 
-// Periodicky kontrolovat novou verzi SW (každou minutu).
-// Bez toho by se SW aktualizoval jen při navigaci/načtení stránky a uživatel
-// s otevřenou aplikací by zůstal na staré verzi, dokud by ručně nerefreshnul.
-setInterval(() => {
-  self.registration.update().catch(() => {});
-}, 60 * 1000);
+// Nový worker zůstane ve waiting stavu. Aktivaci lze vyžádat pouze explicitní
+// akcí uživatele; samotná instalace nikdy nereloaduje rozpracovanou aplikaci.
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
+});
 
 // Web Share Target: when the user shares an image (e.g. from WhatsApp) directly
 // to this installed PWA, Chrome sends a POST request here with the photo(s)
@@ -94,13 +127,6 @@ async function storeSharedFiles(files) {
 // Check if there's a newer version of the SW available
 async function checkForSWUpdate() {
   try {
-    // Fetch the current SW script and compare
-    const resp = await fetch('./sw.js', { cache: 'no-cache' });
-    if (!resp.ok) return false;
-    const text = await resp.text();
-    // If the fetched SW has a different version string, there's an update
-    // We compare by checking if the installed version appears in the new SW
-    // A simpler approach: just check version.json
     const versionResp = await fetch('./version.json?t=' + Date.now(), { cache: 'no-cache' });
     if (versionResp.ok) {
       const info = await versionResp.json();
@@ -161,7 +187,7 @@ self.addEventListener('fetch', (e) => {
               try {
                 const networkRes = await fetch(req);
                 if (networkRes && networkRes.status === 200) {
-                  const CACHE = self.__pivovarCache || (await getCacheVersion());
+                  const CACHE = await getInstalledCache();
                   const clone = networkRes.clone();
                   caches.open(CACHE).then(c => c.put(req, clone)).catch(() => {});
                   // Check for SW update
@@ -183,7 +209,7 @@ self.addEventListener('fetch', (e) => {
         try {
           const res = await fetch(req);
           if (res && res.status === 200) {
-            const CACHE = self.__pivovarCache || (await getCacheVersion());
+            const CACHE = await getInstalledCache();
             const clone = res.clone();
             caches.open(CACHE).then(c => c.put(req, clone)).catch(() => {});
           }
@@ -214,13 +240,13 @@ self.addEventListener('fetch', (e) => {
         try {
           const res = await fetch(req);
           if (res && res.status === 200) {
-            const CACHE = self.__pivovarCache || (await getCacheVersion());
+            const CACHE = await getInstalledCache();
             const clone = res.clone();
             caches.open(CACHE).then((c) => c.put(req, clone)).catch(() => {});
           }
           return res;
         } catch {
-          const fallback = await caches.match('/index.html');
+          const fallback = await caches.match(req);
           return fallback || new Response('Offline', { status: 503, statusText: 'Offline' });
         }
       })()
@@ -234,7 +260,7 @@ self.addEventListener('fetch', (e) => {
       try {
         const networkRes = await fetch(req, { cache: 'no-cache' });
         if (networkRes && networkRes.status === 200) {
-          const CACHE = self.__pivovarCache || (await getCacheVersion());
+          const CACHE = await getInstalledCache();
           const clone = networkRes.clone();
           caches.open(CACHE).then((c) => c.put(req, clone)).catch(() => {});
           return networkRes;
@@ -244,8 +270,7 @@ self.addEventListener('fetch', (e) => {
       }
       const cached = await caches.match(req);
       if (cached) return cached;
-      const fallback = await caches.match('/index.html');
-      return fallback || new Response('Offline', { status: 503, statusText: 'Offline' });
+      return new Response('Offline', { status: 503, statusText: 'Offline' });
     })()
   );
 });

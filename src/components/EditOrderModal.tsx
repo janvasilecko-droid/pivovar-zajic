@@ -85,44 +85,36 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
         }
       }
 
-      const { error: upErr } = await supabase.from('orders').update({
-        order_date: date, place_id: resolvedPlaceId, place_name: resolvedName || null,
-        delivery_day: deliveryDay || null, delivery_date: deliveryDate || null,
-        note: note.trim() || null,
-      }).eq('id', order.id);
-      if (upErr) throw new Error(upErr.message);
-
-      // Removed existing items -> delete from DB
-      const toDelete = rows.filter((r) => r.removed && r.id).map((r) => r.id as string);
-      if (toDelete.length) {
-        const { error: delErr } = await supabase.from('order_items').delete().in('id', toDelete);
-        if (delErr) throw new Error(delErr.message);
-      }
-
-      // Existing items that are kept -> update
       const toUpdate = rows.filter((r) => !r.removed && r.id && r.beerId && r.pkgId && Number(r.qty) > 0);
-      for (const r of toUpdate) {
+      const replacementItems = validRows.map((r) => {
         const beer = beers.find((b) => b.id === r.beerId);
         const pkg = packages.find((p) => p.id === r.pkgId);
-        const { error: itemErr } = await supabase.from('order_items').update({
-          beer_id: r.beerId, beer_name: beer?.name ?? null,
-          package_id: r.pkgId, package_label: pkg?.label ?? null,
+        return {
+          id: r.id,
+          beer_id: r.beerId,
+          beer_name: beer?.name ?? null,
+          package_id: r.pkgId,
+          package_label: pkg?.label ?? null,
           quantity: Number(r.qty),
-        }).eq('id', r.id);
-        if (itemErr) throw new Error(itemErr.message);
-      }
+          is_prepared: r.id
+            ? (items.find((item) => item.id === r.id)?.is_prepared ?? false)
+            : false,
+        };
+      });
 
-      // New rows -> insert
-      const toInsert = rows.filter((r) => !r.removed && !r.id && r.beerId && r.pkgId && Number(r.qty) > 0);
-      if (toInsert.length) {
-        const insertRows = toInsert.map((r) => {
-          const beer = beers.find((b) => b.id === r.beerId);
-          const pkg = packages.find((p) => p.id === r.pkgId);
-          return { order_id: order.id, beer_id: r.beerId, beer_name: beer?.name ?? null, package_id: r.pkgId, package_label: pkg?.label ?? null, quantity: Number(r.qty) };
-        });
-        const { error: insErr } = await supabase.from('order_items').insert(insertRows);
-        if (insErr) throw new Error(insErr.message);
-      }
+      const { error: replaceError } = await supabase.rpc('replace_order_with_items', {
+        p_order_id: order.id,
+        p_order: {
+          order_date: date,
+          place_id: resolvedPlaceId,
+          place_name: resolvedName || null,
+          delivery_day: deliveryDay || null,
+          delivery_date: deliveryDate || null,
+          note: note.trim() || null,
+        },
+        p_items: replacementItems,
+      });
+      if (replaceError) throw new Error(replaceError.message);
 
       // Items removed with no id (shouldn't happen since removeRow drops non-persisted rows immediately) — nothing to do
 

@@ -3,6 +3,7 @@ import { Modal, Spinner } from './ui';
 import { ImageEditor } from './ImageEditor';
 import type { Beer, Package } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
+import { authenticatedFunctionHeaders } from '../lib/functionAuth';
 import { Camera, Plus, Trash2, Package as PackageIcon, CheckCircle2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 
 type CountItem = {
@@ -124,10 +125,7 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
       const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/count-bottles`;
       const resp = await fetch(fnUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
+        headers: await authenticatedFunctionHeaders(),
         body: JSON.stringify({
           imageBase64: base64,
           imageMimeType: mimeType,

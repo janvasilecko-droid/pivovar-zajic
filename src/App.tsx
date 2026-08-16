@@ -31,6 +31,7 @@ import { MonthlyCleanupWarning } from './components/MonthlyCleanupWarning';
 import { SetPasswordModal } from './components/SetPasswordModal';
 import { BottlingTasksSettings } from './components/BottlingTasksSettings';
 import { Spinner } from './components/ui';
+import { scheduleNightlyCheck } from './lib/zavozDeduction';
 
 const DEFAULT_PAGE: Page = 'dashboard';
 
@@ -62,6 +63,13 @@ export default function App() {
       window.history.replaceState({ page: 'orders' }, '', '/');
     }
   }, []);
+
+  // Automatický odpočet závozu ze skladu (spuštěn po přihlášení, každý den v 01:00)
+  useEffect(() => {
+    if (!session) return;
+    const cleanup = scheduleNightlyCheck();
+    return cleanup;
+  }, [session]);
 
   function setPage(p: Page, targetSection?: string) {
     if (targetSection) {

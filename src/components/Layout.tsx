@@ -8,7 +8,7 @@ import {
 
 import { useAuth } from '../lib/auth';
 import { Modal } from './ui';
-import { onNewVersion, startVersionCheck, stopVersionCheck, forceRefresh, autoRefreshIfNewVersion, type VersionInfo } from '../lib/versionCheck';
+import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
 import { supabase, Beer, Package, Place } from '../lib/supabase';
 import { EditOrderModal } from './EditOrderModal';
 import { autoReserveTapIfNeeded } from '../lib/tapReservations';
@@ -124,13 +124,8 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   const [newVersionInfo, setNewVersionInfo] = useState<VersionInfo | null>(null);
 
   useEffect(() => {
-    startVersionCheck();
-    const unsub = onNewVersion((info) => {
-      setNewVersionInfo(info);
-      // Automatická aktualizace — pokud uživatel zrovna nepíše, aplikace se sama obnoví
-      autoRefreshIfNewVersion();
-    });
-    return () => { unsub(); stopVersionCheck(); };
+    // main.tsx vlastní jediný časovač kontroly; Layout pouze spravuje UI listener.
+    return onNewVersion((info) => setNewVersionInfo(info));
   }, []);
 
   const isAdmin = profile?.role === 'admin' || isAdminEmail(user?.email);
@@ -206,10 +201,14 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
       e.preventDefault();
       setInstallPrompt(e as BeforeInstallPromptEvent);
     };
+    const handleInstalled = () => setInstalled(true);
     window.addEventListener('beforeinstallprompt', handler);
-    window.addEventListener('appinstalled', () => setInstalled(true));
+    window.addEventListener('appinstalled', handleInstalled);
     if (window.matchMedia('(display-mode: standalone)').matches) setInstalled(true);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+      window.removeEventListener('appinstalled', handleInstalled);
+    };
   }, []);
 
   // Real-time listener for incoming orders
@@ -791,7 +790,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
 
             <div className="flex flex-col gap-2">
               <button
-                onClick={forceRefresh}
+                onClick={() => { void forceRefresh(); }}
                 className="w-full py-3 rounded-xl text-sm font-black transition shadow-lg bg-sky-500 hover:bg-sky-400 text-white border border-sky-400"
               >
                 🔄 Aktualizovat na v{newVersionInfo.version}

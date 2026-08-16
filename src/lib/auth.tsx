@@ -26,12 +26,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
     let prof = data as Profile | null;
 
-    if (isSpecialAdmin && prof && prof.role !== 'admin') {
-      await supabase.from('profiles').update({ role: 'admin' }).eq('id', user.id);
-      prof = { ...prof, role: 'admin' };
-    } else if (isSpecialAdmin && !prof) {
-      await supabase.from('profiles').upsert({ id: user.id, role: 'admin' });
-      prof = { id: user.id, display_name: getAdminName(), role: 'admin', created_at: new Date().toISOString() };
+    // Klient nesmí sám přidělovat admin roli. E-mailový seznam slouží pouze
+    // jako UI fallback; autoritativní roli nastavuje server/admin funkce.
+    if (isSpecialAdmin && !prof) {
+      await supabase.from('profiles').upsert({ id: user.id, display_name: getAdminName(), role: 'user' });
+      prof = { id: user.id, display_name: getAdminName(), role: 'user', created_at: new Date().toISOString() };
     }
 
     setProfile(prof);

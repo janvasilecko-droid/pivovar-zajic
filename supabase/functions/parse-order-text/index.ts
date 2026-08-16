@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { readJsonWithLimit, requireApprovedUser } from "../_shared/require-user.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -175,6 +176,13 @@ Deno.serve(async (req: Request) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+    const auth = await requireApprovedUser(req, supabase, corsHeaders, {
+      bucket: "parse-order-text",
+      limit: 20,
+      windowSeconds: 60,
+    });
+    if (!auth.ok) return auth.response;
+
     const { data: secretRows, error: secretsErr } = await supabase
       .from("app_secrets")
       .select("key, value")
@@ -193,7 +201,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const body = await req.json();
+    const body = await readJsonWithLimit<Record<string, any>>(req, 15 * 1024 * 1024);
     const rawText: string | undefined = body.rawText;
     const imageBase64: string | undefined = body.imageBase64;
     const imageMimeType: string | undefined = body.imageMimeType || "image/jpeg";

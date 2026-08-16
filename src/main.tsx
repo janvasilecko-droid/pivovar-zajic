@@ -6,7 +6,8 @@ import { AuthProvider } from './lib/auth';
 import { initDensity } from './lib/density';
 import { initTheme } from './lib/theme';
 import { reportAppVersion } from './lib/appVersionTracker';
-import { startVersionCheck, onNewVersion, autoRefreshIfNewVersion } from './lib/versionCheck';
+import { checkVersion, forceRefresh, startVersionCheck } from './lib/versionCheck';
+import { renderFatalError } from './lib/safeDom';
 
 
 initDensity();
@@ -46,17 +47,7 @@ class DebugErrorBoundary extends React.Component<{ children: React.ReactNode }, 
             </button>
             <button
               style={{ padding: '10px 18px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 'bold', cursor: 'pointer' }}
-              onClick={async () => {
-                if ('serviceWorker' in navigator) {
-                  const registrations = await navigator.serviceWorker.getRegistrations();
-                  for (const registration of registrations) { await registration.unregister(); }
-                }
-                if ('caches' in window) {
-                  const keys = await caches.keys();
-                  for (const key of keys) { await caches.delete(key); }
-                }
-                window.location.reload();
-              }}
+              onClick={() => { void forceRefresh(); }}
             >
               🔄 Vyčistit mezipaměť a znovu načíst
             </button>
@@ -74,15 +65,11 @@ class DebugErrorBoundary extends React.Component<{ children: React.ReactNode }, 
 // Zachytí i chyby mimo React (globální/unhandled), aby se nic neztratilo tiše.
 window.addEventListener('error', (e) => {
   const el = document.getElementById('root');
-  if (el && !el.innerHTML) {
-    el.innerHTML = `<div style="padding:24px;font-family:monospace;white-space:pre-wrap;color:#900;background:#fee">Globální chyba: ${String(e.error?.stack || e.message)}</div>`;
-  }
+  if (el) renderFatalError(el, 'Globální chyba', e.error?.stack || e.message);
 });
 window.addEventListener('unhandledrejection', (e) => {
   const el = document.getElementById('root');
-  if (el && !el.innerHTML) {
-    el.innerHTML = `<div style="padding:24px;font-family:monospace;white-space:pre-wrap;color:#900;background:#fee">Nezachycená chyba (Promise): ${String(e.reason?.stack || e.reason)}</div>`;
-  }
+  if (el) renderFatalError(el, 'Nezachycená chyba (Promise)', e.reason?.stack || e.reason);
 });
 
 initTheme();
@@ -93,30 +80,16 @@ setTimeout(() => reportAppVersion(), 2000);
 // Spustit pravidelné kontroly nové verze (každých 5 minut)
 startVersionCheck();
 
-// Poslouchat na zprávy od service workeru o nové verzi.
-// Když se aktivuje nový service worker (SW_ACTIVATED), okamžitě obnovíme
-// stránku, aby se načetla nejnovější verze aplikace bez nutnosti ručního
-// obnovení. NEW_VERSION_AVAILABLE jen logujeme — UI (Layout.tsx) zobrazí
-// modální okno s tlačítkem.
+// Service worker může pouze vyžádat kontrolu verze. Nikdy odsud stránku
+// automaticky neobnovujeme — rozepsaná data smí zahodit jen explicitní kliknutí.
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', (event) => {
-    if (event.data?.type === 'SW_ACTIVATED') {
-      console.log('📱 Nový service worker aktivní — obnovuji stránku');
-      window.location.reload();
-    } else if (event.data?.type === 'NEW_VERSION_AVAILABLE') {
-      console.log('📱 Service worker hlásí novou verzi — UI zobrazí upozornění');
+    if (event.data?.type === 'SW_ACTIVATED' || event.data?.type === 'NEW_VERSION_AVAILABLE') {
+      console.log('📱 Service worker hlásí novou verzi — kontroluji dostupnou verzi');
+      void checkVersion();
     }
   });
 }
-
-// Když versionCheck najde novou verzi, aplikace se AUTOMATICKY aktualizuje.
-// autoRefreshIfNewVersion() obnoví stránku (a vymaže cache), ale jen pokud
-// uživatel zrovna nepíše do formuláře — aby nepřišel o rozpracovaný zápis.
-// Pokud píše, aktualizace proběhne při příští kontrole (za 1 minutu).
-onNewVersion((info) => {
-  console.log(`📱 Nová verze ${info.version} dostupná — automaticky aktualizuji`);
-  autoRefreshIfNewVersion();
-});
 
 
 try {
@@ -131,14 +104,12 @@ try {
   );
 } catch (err: any) {
   const el = document.getElementById('root');
-  if (el) {
-    el.innerHTML = `<div style="padding:24px;font-family:monospace;white-space:pre-wrap;color:#900;background:#fee">Chyba při renderu: ${String(err?.stack || err)}</div>`;
-  }
+  if (el) renderFatalError(el, 'Chyba při renderu', err?.stack || err, true);
   console.error('Render error:', err);
 }
 
 // Service worker (offline/PWA) funguje jen na http(s), ne přes file://
-if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+if ('serviceWorker' in navigator && location.protocol !== 'file:' && import.meta.env.PROD) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch(() => {});
   });

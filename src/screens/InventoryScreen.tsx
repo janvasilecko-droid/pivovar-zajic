@@ -379,28 +379,27 @@ export default function InventoryScreen() {
     setBusy(true);
     try {
       const entryDate = currentMonth + '-01';
-      // Smažeme staré počáteční stavy pro tento měsíc
-      await supabase.from('inventory').delete().eq('entry_date', entryDate).ilike('note', '%Počáteční%');
-      // Vložíme nové počáteční stavy
-      const rowsToInsert = Object.entries(initialStock)
+      const snapshotRows = Object.entries(initialStock)
         .filter(([, qty]) => Number(qty) > 0)
         .map(([key, qty]) => {
           const [beer_id, package_id] = key.split('__');
           const beer = beers.find((b) => b.id === beer_id);
           const pkg = packages.find((p) => p.id === package_id);
           return {
-            entry_date: entryDate,
             beer_id,
             beer_name: beer?.name ?? null,
             package_id,
             package_label: pkg?.label ?? null,
             quantity: Number(qty),
-            note: 'Počáteční stav',
           };
         });
-      if (rowsToInsert.length > 0) {
-        await supabase.from('inventory').insert(rowsToInsert);
-      }
+      const { error } = await supabase.rpc('save_inventory_snapshot', {
+        p_entry_date: entryDate,
+        p_snapshot_type: 'initial',
+        p_rows: snapshotRows,
+      });
+      if (error) throw new Error(error.message);
+
       // Uložíme i do localStorage, aby návaznost měsíců fungovala i bez databáze.
       try {
         const lsMap: Record<string, number> = {};
@@ -423,53 +422,41 @@ export default function InventoryScreen() {
   async function handleSaveActualStock() {
     setBusy(true);
     try {
-      localStorage.setItem(`actual_inventory_${currentMonth}`, JSON.stringify(actualStock));
-      localStorage.setItem(`inventory_adjustments_${currentMonth}`, JSON.stringify(dorovnatMap));
       const entryDate = currentMonth + '-01';
-
-      await supabase.from('inventory').delete().eq('entry_date', entryDate).or('note.ilike.%Fyzická%,note.ilike.%Schválená%');
-      const rowsToInsert = rows.map((r) => ({
-        entry_date: entryDate,
+      const snapshotRows = rows.map((r) => ({
         beer_id: r.beer_id,
         beer_name: r.beer_name,
         package_id: r.package_id,
         package_label: r.package_label,
         quantity: r.actualQty,
-        note: 'Fyzická inventura',
       })).filter((r) => r.quantity > 0);
+      const adjustmentRows = Object.entries(dorovnatMap)
+        .map(([key, value]) => {
+          const quantity = Number(value);
+          if (!value || value === '' || !Number.isFinite(quantity) || quantity === 0) return null;
+          const [beer_id, package_id] = key.split('__');
+          const beer = beers.find((item) => item.id === beer_id);
+          const pkg = packages.find((item) => item.id === package_id);
+          return {
+            beer_id,
+            beer_name: beer?.name ?? null,
+            package_id,
+            package_label: pkg ? formatPackageLabel(pkg.label) : null,
+            quantity,
+          };
+        })
+        .filter((row): row is NonNullable<typeof row> => row !== null);
 
-      if (rowsToInsert.length > 0) {
-        await supabase.from('inventory').insert(rowsToInsert);
-      }
+      const { error } = await supabase.rpc('save_physical_inventory', {
+        p_entry_date: entryDate,
+        p_rows: snapshotRows,
+        p_adjustments: adjustmentRows,
+      });
+      if (error) throw new Error(error.message);
 
-      // Dorovnání (±) — ukládá se BOKEM (samostatná tabulka), NEzapočítává se do stáčení ani odpočtů
-      try {
-        await supabase.from('inventory_adjustments').delete().eq('entry_date', entryDate);
-        const adjRowsToInsert = Object.entries(dorovnatMap)
-          .map(([k, val]) => {
-            const v = Number(val);
-            if (!val || val === '' || !isFinite(v) || v === 0) return null;
-            const [beer_id, package_id] = k.split('__');
-            const beer = beers.find((x) => x.id === beer_id);
-            const pkg = packages.find((x) => x.id === package_id);
-            return {
-              entry_date: entryDate,
-              beer_id,
-              beer_name: beer?.name ?? null,
-              package_id,
-              package_label: pkg ? formatPackageLabel(pkg.label) : null,
-              quantity: v,
-            };
-          })
-          .filter((r): r is NonNullable<typeof r> => r !== null);
-
-        if (adjRowsToInsert.length > 0) {
-          await supabase.from('inventory_adjustments').insert(adjRowsToInsert);
-        }
-      } catch (e) {
-        // Tabulka inventory_adjustments zatím nemusí existovat (nenahraná migrace) — hlavní inventura nesmí spadnout.
-        console.warn('Dorovnání se nepodařilo uložit do DB (chybí tabulka inventory_adjustments?), zůstává v localStorage:', e);
-      }
+      // Lokální kopii aktualizujeme až po úspěšném potvrzení celé DB transakce.
+      localStorage.setItem(`actual_inventory_${currentMonth}`, JSON.stringify(actualStock));
+      localStorage.setItem(`inventory_adjustments_${currentMonth}`, JSON.stringify(dorovnatMap));
 
       setSaveMsg('Fyzická inventura i dorovnání byla v pořádku uložena do databáze!');
       forceReloadRef.current = true;
@@ -494,37 +481,28 @@ export default function InventoryScreen() {
 
     setBusy(true);
     try {
-      // 1. Uložíme schválený stav pro aktuální měsíc
-      await supabase.from('inventory').delete().eq('entry_date', curEntryDate).or('note.ilike.%Fyzická%,note.ilike.%Schválená%');
-      const curRowsToInsert = rows.map((r) => ({
-        entry_date: curEntryDate,
+      const currentSnapshotRows = rows.map((r) => ({
         beer_id: r.beer_id,
         beer_name: r.beer_name,
         package_id: r.package_id,
         package_label: r.package_label,
         quantity: r.actualQty,
-        note: 'Schválená inventura',
       })).filter((r) => r.quantity > 0);
-
-      if (curRowsToInsert.length > 0) {
-        await supabase.from('inventory').insert(curRowsToInsert);
-      }
-
-      // 2. Převádíme fyzické stavy jako počáteční stavy do nového měsíce
-      await supabase.from('inventory').delete().eq('entry_date', nextEntryDate).ilike('note', '%Počáteční%');
-      const nextRowsToInsert = rows.map((r) => ({
-        entry_date: nextEntryDate,
+      const nextSnapshotRows = rows.map((r) => ({
         beer_id: r.beer_id,
         beer_name: r.beer_name,
         package_id: r.package_id,
         package_label: r.package_label,
         quantity: r.actualQty,
-        note: 'Počáteční stav',
       })).filter((r) => r.quantity > 0);
 
-      if (nextRowsToInsert.length > 0) {
-        await supabase.from('inventory').insert(nextRowsToInsert);
-      }
+      const { error } = await supabase.rpc('close_inventory_month', {
+        p_current_date: curEntryDate,
+        p_next_date: nextEntryDate,
+        p_current_rows: currentSnapshotRows,
+        p_next_rows: nextSnapshotRows,
+      });
+      if (error) throw new Error(error.message);
 
       // Uložíme do localStorage pro aktuální měsíc i pro následující měsíc
       try {

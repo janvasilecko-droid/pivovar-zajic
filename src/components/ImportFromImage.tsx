@@ -9,6 +9,7 @@ import { PhotoReviewPane } from './PhotoReviewPane';
 import { isTapMentioned } from '../lib/tapReservations';
 import type { Beer, Package, Place } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
+import { authenticatedFunctionHeaders } from '../lib/functionAuth';
 import {
   parseOrderText, parseGeminiItems, dedupeAgainstExisting,
   saveAlias, savePlaceAlias, loadAliasMap, loadPlaceAliasMap, emptyAliasMap, detectOrderNotes, matchPlaceFromText,
@@ -367,10 +368,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
 
       const resp = await fetch(fnUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
+        headers: await authenticatedFunctionHeaders(),
         body: JSON.stringify({
           imageBase64: base64,
           imageMimeType: mimeType,

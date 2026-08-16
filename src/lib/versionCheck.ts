@@ -10,6 +10,7 @@ import { APP_VERSION } from './version';
 
 const CHECK_INTERVAL_MS = 60 * 1000; // 1 minuta — rychlejší detekce nové verze
 const VERSION_URL = './version.json';
+export const APP_CACHE_PREFIX = 'pivovar-';
 
 export type VersionInfo = {
   version: string;
@@ -18,12 +19,15 @@ export type VersionInfo = {
 
 let currentVersion: string | null = null;
 let checkTimer: ReturnType<typeof setInterval> | null = null;
-let listeners: Array<(info: VersionInfo) => void> = [];
+let initialCheckTimer: ReturnType<typeof setTimeout> | null = null;
+let latestAvailableVersion: VersionInfo | null = null;
+const listeners = new Set<(info: VersionInfo) => void>();
 
 export function onNewVersion(cb: (info: VersionInfo) => void): () => void {
-  listeners.push(cb);
+  listeners.add(cb);
+  if (latestAvailableVersion) cb(latestAvailableVersion);
   return () => {
-    listeners = listeners.filter((l) => l !== cb);
+    listeners.delete(cb);
   };
 }
 
@@ -39,7 +43,7 @@ export async function checkVersion(silent = false): Promise<VersionInfo | null> 
     if ('serviceWorker' in navigator) {
       const reg = await navigator.serviceWorker.getRegistration();
       if (reg) {
-        reg.update().catch(() => {});
+        await reg.update().catch(() => undefined);
       }
     }
 
@@ -58,9 +62,13 @@ export async function checkVersion(silent = false): Promise<VersionInfo | null> 
 
     currentVersion = info.version;
 
-    // silent = true se používá při automatické aktualizaci, aby se znovu
-    // nevyvolala notifikace (a nevznikl nekonečný cyklus).
-    if (!silent && info.version !== APP_VERSION) {
+    if (info.version !== APP_VERSION) {
+      latestAvailableVersion = info;
+    } else {
+      latestAvailableVersion = null;
+    }
+
+    if (!silent && latestAvailableVersion) {
       notify(info);
     }
     return info;
@@ -72,43 +80,39 @@ export async function checkVersion(silent = false): Promise<VersionInfo | null> 
 
 
 export function startVersionCheck() {
+  // Idempotentní start: main.tsx je jediný vlastník časovačů. Opakované
+  // zavolání nesmí vytvořit další timeout ani interval.
+  if (checkTimer || initialCheckTimer) return;
+
   // První kontrola za 3 sekundy po startu
-  setTimeout(() => checkVersion(), 3000);
+  initialCheckTimer = setTimeout(() => {
+    initialCheckTimer = null;
+    void checkVersion();
+  }, 3000);
 
-  if (checkTimer) clearInterval(checkTimer);
-  checkTimer = setInterval(() => checkVersion(), CHECK_INTERVAL_MS);
-}
-
-/**
- * Automatická aktualizace: pokud je dostupná nová verze, aplikace se sama
- * obnoví (bez nutnosti klikat na tlačítko). Aby uživatel nepřišel o rozpracovaný
- * zápis, obnoví se jen tehdy, když zrovna nepíše do žádného pole.
- *
- * Vrací true, pokud se aktualizace spustila.
- */
-export async function autoRefreshIfNewVersion(): Promise<boolean> {
-  // silent = true, aby se znovu nevyvolala notifikace (a nevznikl nekonečný cyklus)
-  const info = await checkVersion(true);
-  if (!info) return false;
-
-
-  // Pokud uživatel zrovna píše do formuláře, necháme ho dokončit zápis —
-  // aktualizace proběhne při příští kontrole (za 5 minut).
-  const active = document.activeElement;
-  if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) {
-    return false;
-  }
-
-  // Krátké zpoždění, aby se stihlo zobrazit upozornění
-  setTimeout(() => { forceRefresh(); }, 1500);
-  return true;
+  checkTimer = setInterval(() => { void checkVersion(); }, CHECK_INTERVAL_MS);
 }
 
 export function stopVersionCheck() {
+  if (initialCheckTimer) {
+    clearTimeout(initialCheckTimer);
+    initialCheckTimer = null;
+  }
   if (checkTimer) {
     clearInterval(checkTimer);
     checkTimer = null;
   }
+}
+
+/** Odstraní jen CacheStorage položky vlastněné touto aplikací. */
+export async function clearAppCaches(): Promise<void> {
+  if (!('caches' in window)) return;
+  const keys = await caches.keys();
+  await Promise.all(
+    keys
+      .filter((key) => key.startsWith(APP_CACHE_PREFIX))
+      .map((key) => caches.delete(key)),
+  );
 }
 
 export function getCurrentVersion(): string | null {
@@ -116,26 +120,17 @@ export function getCurrentVersion(): string | null {
 }
 
 /**
- * Vynucená aktualizace: zruší všechny service workery, vymaže cache
- * a reloadne stránku.
+ * Vynucená aktualizace: zruší registraci této aplikace, vymaže její cache
+ * a znovu načte stránku.
  */
 export async function forceRefresh() {
-  // 1. Odregistrovat service workery
+  // Aktualizace je vždy explicitní akce uživatele. Automatická kontrola pouze
+  // zobrazí upozornění a nikdy sama nereloaduje rozpracovanou obrazovku.
   if ('serviceWorker' in navigator) {
-    const registrations = await navigator.serviceWorker.getRegistrations();
-    for (const reg of registrations) {
-      await reg.unregister();
-    }
+    const registration = await navigator.serviceWorker.getRegistration();
+    await registration?.unregister();
   }
 
-  // 2. Vymazat všechny cache
-  if ('caches' in window) {
-    const keys = await caches.keys();
-    for (const key of keys) {
-      await caches.delete(key);
-    }
-  }
-
-  // 3. Reload
+  await clearAppCaches();
   window.location.reload();
 }

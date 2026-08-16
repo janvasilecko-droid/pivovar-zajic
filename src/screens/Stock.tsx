@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ZavozDeductionRow } from '../lib/zavozDeduction';
 
 import { supabase, Beer, Package, KegPrefuk, useRealtime, beerBg, beerText, beerBorder } from '../lib/supabase';
 import { Spinner, EmptyState, Modal } from '../components/ui';
@@ -96,7 +97,7 @@ export default function Stock() {
 
     const curMonth = invMonth;
 
-    const [{ data: invData }, { data: botData }, { data: kegData }, { data: ordItemsData }, { data: ordData }, { data: woData }, { data: akData }, { data: faData }, { data: fpData }, { data: pfData }] =
+    const [{ data: invData }, { data: botData }, { data: kegData }, { data: ordItemsData }, { data: ordData }, { data: woData }, { data: akData }, { data: faData }, { data: fpData }, { data: pfData }, { data: zdData }] =
       await Promise.all([
         supabase.from('inventory').select('*'),
         supabase.from('bottling').select('*'),
@@ -108,6 +109,7 @@ export default function Stock() {
         supabase.from('fasovani').select('*'),
         supabase.from('fasovani_private').select('*'),
         supabase.from('keg_prefuk').select('*'),
+        supabase.from('zavoz_deductions').select('deduct_date,beer_id,package_id,quantity'),
       ]);
 
     const inv = (invData ?? []) as { entry_date: string; beer_id: string | null; package_id: string | null; quantity: number; note?: string }[];
@@ -153,6 +155,7 @@ export default function Stock() {
     const fa = (faData ?? []) as BrewRow[];
     const fp = (fpData ?? []) as BrewRow[];
     const pf = (pfData ?? []) as KegPrefuk[];
+    const zd = (zdData ?? []) as Pick<ZavozDeductionRow, 'deduct_date' | 'beer_id' | 'package_id' | 'quantity'>[];
     const ords = (ordData ?? []) as { id: string; order_date: string; delivery_date: string | null; status: string }[];
     const ordItems = (ordItemsData ?? []) as { order_id: string; beer_id: string | null; package_id: string; quantity: number }[];
     const akRows = (akData ?? []) as { entry_date: string; items: { beer_id: string | null; package_id: string | null; quantity_taken: number; quantity_returned: number }[] }[];
@@ -193,16 +196,23 @@ export default function Stock() {
 
         const outgoingMoved = fasovaniW + woW + prodejnaW + akceWeek + kegsUsedW;
 
+        // Automatický odpočet závozu (zavoz_deductions) — položky odečtené ráno v 01:00
+        const zdW = zd
+          .filter((r) => r.beer_id === beer.id && r.package_id === pkg.id && isMovementInPeriod(r.deduct_date))
+          .reduce((s, r) => s + Number(r.quantity), 0);
+
         // Přefuk KEG: sudy ZE (from_count) se odečtou ze skladu, sudy DO (to_count) se přičtou
         const prefukFrom = pf.filter((r) => r.beer_id === beer.id && r.from_package_id === pkg.id && isMovementInPeriod(r.entry_date)).reduce((s, r) => s + Number(r.from_count || 0), 0);
         const prefukTo = pf.filter((r) => r.beer_id === beer.id && r.to_package_id === pkg.id && isMovementInPeriod(r.entry_date)).reduce((s, r) => s + Number(r.to_count || 0), 0);
 
-        // Aktuální reálný stav na skladě = Počáteční + Stočeno − již vydáno/odepsáno − přefuk ZE + přefuk DO
-        const rawStock = fromInv + brewedW - outgoingMoved - prefukFrom + prefukTo;
+        // Aktuální reálný stav na skladě = Počáteční + Stočeno − vydáno/odepsáno − odpočet závozu − přefuk ZE + přefuk DO
+        const rawStock = fromInv + brewedW - outgoingMoved - zdW - prefukFrom + prefukTo;
         const currentStock = Math.max(0, rawStock);
 
         const orderedW = ordItems.filter((i) => validOrdIdsWeek.has(i.order_id) && i.beer_id === beer.id && i.package_id === pkg.id).reduce((s, i) => s + Number(i.quantity), 0);
-        const outgoing = orderedW;
+        // Odečtené závozy jsou již v rawStock — zobrazíme je ale v outgoing jako info (ne duplicitní odpočet)
+        const zdWeekOrdered = zd.filter((r) => r.beer_id === beer.id && r.package_id === pkg.id && isMovementInPeriod(r.deduct_date)).reduce((s, r) => s + Number(r.quantity), 0);
+        const outgoing = Math.max(0, orderedW - zdWeekOrdered); // zbývající neodevzdané závozy
         const difference = currentStock - outgoing;
 
         return {
@@ -267,7 +277,7 @@ export default function Stock() {
 
   useEffect(() => { load(); }, [weekKey, invMonth]);
   useEffect(() => { loadBrewed(); }, [brewFrom, brewTo]);
-  useRealtime(['bottling','kegging','keg_prefuk','inventory','order_items','orders','writeoffs','fasovani','fasovani_private'], () => { load(true); loadBrewed(true); });
+  useRealtime(['bottling','kegging','keg_prefuk','inventory','order_items','orders','writeoffs','fasovani','fasovani_private','zavoz_deductions'], () => { load(true); loadBrewed(true); });
 
   function setQuickRange(type: 'week' | 'month' | 'year' | 'all') {
     const today = todayISO();

@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { authenticatedFunctionHeaders } from './functionAuth';
 
 // Interface for WhatsApp incoming message
 export interface WhatsAppIncoming {
@@ -210,18 +211,14 @@ export async function deleteWhatsAppMessage(id: string): Promise<void> {
  */
 export async function triggerAutoParse(): Promise<{ success: boolean; message: string }> {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
   
-  if (!supabaseUrl || !supabaseKey) {
+  if (!supabaseUrl) {
     throw new Error('Missing Supabase configuration');
   }
   
   const response = await fetch(`${supabaseUrl}/functions/v1/whatsapp-auto-parse`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${supabaseKey}`,
-    },
+    headers: await authenticatedFunctionHeaders(),
   });
   
   if (!response.ok) {

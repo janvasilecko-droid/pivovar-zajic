@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Mic, Square, Loader2 } from 'lucide-react';
 
 /**
@@ -26,6 +26,43 @@ export function VoiceRecorder({
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const recognitionRef = useRef<any>(null);
+  const transcriptionAbortRef = useRef<AbortController | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      transcriptionAbortRef.current?.abort();
+      transcriptionAbortRef.current = null;
+
+      const recognition = recognitionRef.current;
+      recognitionRef.current = null;
+      if (recognition) {
+        recognition.onresult = null;
+        recognition.onerror = null;
+        recognition.onend = null;
+        try {
+          if (typeof recognition.abort === 'function') recognition.abort();
+          else recognition.stop();
+        } catch {}
+      }
+
+      const recorder = mediaRecorderRef.current;
+      mediaRecorderRef.current = null;
+      if (recorder) {
+        recorder.ondataavailable = null;
+        recorder.onstop = null;
+        try {
+          if (recorder.state !== 'inactive') recorder.stop();
+        } catch {}
+      }
+
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+      chunksRef.current = [];
+    };
+  }, []);
 
   async function start() {
     setErr(null);
@@ -34,15 +71,18 @@ export function VoiceRecorder({
       try {
         const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
         const recognition = new SpeechRecognition();
+        recognitionRef.current = recognition;
         recognition.lang = 'cs-CZ';
         recognition.continuous = false;
         recognition.interimResults = false;
         recognition.onresult = (event: any) => {
+          if (!mountedRef.current) return;
           const text = event.results[0][0].transcript;
           if (text.trim()) onResult(text.trim());
           else setErr('Nerozpoznal jsem žádný text.');
         };
         recognition.onerror = (event: any) => {
+          if (!mountedRef.current) return;
           setRecording(false);
           if (event.error === 'not-allowed') {
             setErr('⚠️ Mikrofon není povolen. Povol ho v prohlížeči (🔒 v adresním řádku) a zkus to znovu.');
@@ -54,39 +94,54 @@ export function VoiceRecorder({
             setErr('Chyba mikrofonu: ' + event.error + '. Zkus to znovu nebo použij jiný prohlížeč.');
           }
         };
+        recognition.onend = () => {
+          if (recognitionRef.current === recognition) recognitionRef.current = null;
+          if (mountedRef.current) setRecording(false);
+        };
         recognition.start();
-        setRecording(true);
-        recognition.onend = () => setRecording(false);
+        if (mountedRef.current) setRecording(true);
         return;
       } catch (e: any) {
+        const recognition = recognitionRef.current;
+        recognitionRef.current = null;
+        try { recognition?.abort?.(); } catch {}
         // Web Speech API selhalo — zkusíme fallback na MediaRecorder + edge funkci
         console.warn('Web Speech API selhalo, zkouším fallback:', e?.message);
       }
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!mountedRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
       streamRef.current = stream;
       const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
       const rec = new MediaRecorder(stream, { mimeType });
       chunksRef.current = [];
       rec.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-      rec.onstop = () => handleStop(mimeType);
+      rec.onstop = () => {
+        if (mediaRecorderRef.current === rec) mediaRecorderRef.current = null;
+        if (streamRef.current === stream) streamRef.current = null;
+        stream.getTracks().forEach((track) => track.stop());
+        if (mountedRef.current) void handleStop(mimeType);
+      };
       mediaRecorderRef.current = rec;
       rec.start();
-      setRecording(true);
+      if (mountedRef.current) setRecording(true);
     } catch (e: any) {
-      setErr('Nelze spustit mikrofon: ' + (e?.message ?? String(e)));
+      if (mountedRef.current) setErr('Nelze spustit mikrofon: ' + (e?.message ?? String(e)));
     }
   }
 
   function stop() {
     if (recognitionRef.current) {
-      recognitionRef.current.stop();
-      recognitionRef.current = null;
+      try { recognitionRef.current.stop(); } catch { recognitionRef.current = null; }
     }
-    mediaRecorderRef.current?.stop();
+    const recorder = mediaRecorderRef.current;
+    if (recorder?.state !== 'inactive') recorder?.stop();
     streamRef.current?.getTracks().forEach((t: MediaStreamTrack) => t.stop());
-    setRecording(false);
+    if (mountedRef.current) setRecording(false);
   }
 
   function buildContextPrompt(): string {
@@ -101,10 +156,15 @@ export function VoiceRecorder({
   }
 
   async function handleStop(mimeType: string) {
+    if (!mountedRef.current) return;
     setBusy(true);
+    const abortController = new AbortController();
+    transcriptionAbortRef.current?.abort();
+    transcriptionAbortRef.current = abortController;
     try {
       const blob = new Blob(chunksRef.current, { type: mimeType });
       const base64 = await blobToBase64(blob);
+      if (!mountedRef.current) return;
       const contextPrompt = buildContextPrompt();
 
       const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcribe-audio`;
@@ -115,6 +175,7 @@ export function VoiceRecorder({
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
         },
         body: JSON.stringify({ audioBase64: base64, audioMimeType: mimeType, contextPrompt }),
+        signal: abortController.signal,
       });
 
       const respText = await resp.text();
@@ -127,12 +188,17 @@ export function VoiceRecorder({
       try { data = JSON.parse(respText); } catch { throw new Error('Neplatná odpověď: ' + respText.slice(0, 200)); }
       if (data?.error) throw new Error(data.error);
       const text: string = data?.text ?? '';
+      if (!mountedRef.current) return;
       if (text.trim()) onResult(text.trim());
       else setErr('Nerozpoznal jsem žádný text. Zkus to znovu, mluv blíž k mikrofonu.');
     } catch (e: any) {
-      setErr('Přepis selhal: ' + (e?.message ?? String(e)));
+      if (mountedRef.current && e?.name !== 'AbortError') {
+        setErr('Přepis selhal: ' + (e?.message ?? String(e)));
+      }
     } finally {
-      setBusy(false);
+      chunksRef.current = [];
+      if (transcriptionAbortRef.current === abortController) transcriptionAbortRef.current = null;
+      if (mountedRef.current) setBusy(false);
     }
   }
 

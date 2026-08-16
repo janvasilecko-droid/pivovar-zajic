@@ -1,7 +1,7 @@
 // Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-export const APP_VERSION = '1.620';
-export const APP_VERSION_DATE = '16.8.2026 15:08';
+export const APP_VERSION = '1.621';
+export const APP_VERSION_DATE = '16.8.2026 17:43';
 
 
 
@@ -9,6 +9,7 @@ export const APP_VERSION_DATE = '16.8.2026 15:08';
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 
 export const APP_CHANGELOG: string[] = [
+  '🔐 Zabezpečení a spolehlivost: účet lze vytvořit jen pro schválený e-mail, klient už nemůže sám přidělit administrátorskou roli, opraveny duplicitní odpočty závozu a ztráta nových operací při offline synchronizaci. v1.620',
   '🍺 Objednávky: nové zadávání objednávek — dlaždice piv (klikni na pivo → obaly a množství), datum závozu (aktuální týden + den), souhrn objednávky dole pod dlaždicemi s úpravou, poznámka s automatickým doplněním data závozu (17.8. / pátek) a zaškrtávací pole 🚰 Půjčení výčepu s rezervačním systémem. v1.619',
   '🏪 Odběratelé: tlačítko 🔍 Načíst adresu pro automatické dohledání adresy a telefonu hospody z map/Google, nové pole pro telefon zákazníka a štítky ⚠️ Bez adresy. v1.618',
   '⚡ Objednávky: detekce duplicity v týdnu, 1-Click opakování poslední objednávky hospody. 📦 Sklad: červené zvýraznění záporného teoretického deficitu (nestihlo se zapsat stočení). 🚚 Závoz: 1-Click navigace (Mapy/Waze/Mapy.cz), WhatsApp avízo, prázdné sudy a podpis. v1.617',
