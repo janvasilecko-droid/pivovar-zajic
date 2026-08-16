@@ -41,20 +41,27 @@ Deno.serve(async (req: Request) => {
     // Rate limit podle IP (endpoint nemá přihlášeného uživatele, takže per-user
     // limit z require-user.ts nejde použít). Klíč se mapuje na pseudo-UUID přes
     // SHA-256, aby šla znovupoužít existující tabulka edge_rate_limits.
+    // Fail-open: pokud RPC chybí/selže (např. neaplikovaná migrace), tato
+    // doplňková ochrana proti zneužití se jen přeskočí — nesmí zablokovat
+    // běžné přihlašování (funkce už beztak nezakládá účty, takže výpadek
+    // limitu neotevírá zpět původní zranitelnost).
     const clientIp =
       req.headers.get("cf-connecting-ip") ??
       req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
       "unknown";
-    const rateKey = await keyToUuid(`auth-auto-login:${clientIp}`);
-    const { data: allowed, error: rateError } = await admin.rpc("consume_edge_rate_limit", {
-      p_user_id: rateKey,
-      p_bucket: "auth_auto_login",
-      p_limit: 20,
-      p_window_seconds: 900,
-    });
-    if (rateError) return json({ error: "Kontrola limitu není dostupná." }, 503);
-    if (allowed !== true) {
-      return json({ error: "Příliš mnoho pokusů o přihlášení. Zkuste to za chvíli." }, 429);
+    try {
+      const rateKey = await keyToUuid(`auth-auto-login:${clientIp}`);
+      const { data: allowed, error: rateError } = await admin.rpc("consume_edge_rate_limit", {
+        p_user_id: rateKey,
+        p_bucket: "auth_auto_login",
+        p_limit: 20,
+        p_window_seconds: 900,
+      });
+      if (!rateError && allowed === false) {
+        return json({ error: "Příliš mnoho pokusů o přihlášení. Zkuste to za chvíli." }, 429);
+      }
+    } catch {
+      // Rate limiting je best-effort — pokračujeme bez něj.
     }
 
     // Existuje účet pro tento e-mail? Pak se nic nezakládá — původní chyba
