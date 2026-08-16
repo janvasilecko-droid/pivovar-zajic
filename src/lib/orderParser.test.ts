@@ -333,6 +333,23 @@ describe('parseOrderText', () => {
     const lines = parseOrderText('Malenovice\n', beers, packages);
     expect(lines).toHaveLength(0);
   });
+
+  it('řádek bez "x"/"ks" ale s náznakem balení ("12 piv 0.5l") nezmizí beze stopy', () => {
+    const lines = parseOrderText('12 piv 0.5l', beers, packages);
+    expect(lines).toHaveLength(1);
+    expect(lines[0].quantity).toBe(12);
+  });
+
+  it('řádek "2 kegy 30L" bez "x"/"ks" se také zachytí', () => {
+    const lines = parseOrderText('2 kegy 30L', beers, packages);
+    expect(lines).toHaveLength(1);
+    expect(lines[0].quantity).toBe(2);
+  });
+
+  it('"vse 10" zůstává řídicí frází a nevyrobí vlastní položku (i když obsahuje číslo)', () => {
+    const lines = parseOrderText('7x30\nvse 10', beers, packages);
+    expect(lines).toHaveLength(1);
+  });
 });
 
 describe('detectOrderNotes', () => {

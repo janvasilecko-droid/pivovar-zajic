@@ -55,9 +55,10 @@ function computeInitialStockForMonth(
   kgRows: any[],
   faRows: any[],
   fpRows: any[],
-  woRows: any[]
+  woRows: any[],
+  zdRows: any[]
 ): Record<string, number> {
-  return getStartingStockMap(monthKey, invRowsAll, btRows, kgRows, faRows, fpRows, woRows);
+  return getStartingStockMap(monthKey, invRowsAll, btRows, kgRows, faRows, fpRows, woRows, 0, zdRows);
 }
 
 export default function InventoryScreen() {
@@ -112,7 +113,7 @@ export default function InventoryScreen() {
     const loadId = ++loadCountRef.current;
     setLoading(true);
 
-    const [{ data: b }, { data: pk }, { data: bt }, { data: kg }, { data: fa }, { data: fp }, { data: wo }, { data: inv }, { data: adj }, { data: ords }, { data: oi }, { data: ak }] = await Promise.all([
+    const [{ data: b }, { data: pk }, { data: bt }, { data: kg }, { data: fa }, { data: fp }, { data: wo }, { data: inv }, { data: adj }, { data: zd }, { data: ak }] = await Promise.all([
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
       supabase.from('bottling').select('beer_id,package_id,quantity,entry_date,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
@@ -122,8 +123,9 @@ export default function InventoryScreen() {
       supabase.from('writeoffs').select('beer_id,package_id,quantity,entry_date'),
       supabase.from('inventory').select('beer_id,package_id,quantity,entry_date,note'),
       supabase.from('inventory_adjustments').select('beer_id,package_id,quantity,entry_date,created_at'),
-      supabase.from('orders').select('id,order_date,delivery_date,status'),
-      supabase.from('order_items').select('order_id,beer_id,package_id,quantity'),
+      // Odpočet objednávek — stejný zdroj (zavoz_deductions) jako obrazovka Sklad, aby se
+      // čísla shodovala i po dodatečné změně data doručení objednávky (viz Stock.tsx).
+      supabase.from('zavoz_deductions').select('deduct_date,beer_id,package_id,quantity'),
       supabase.from('akce').select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
     ]);
 
@@ -144,7 +146,8 @@ export default function InventoryScreen() {
       (kg as any[]) ?? [],
       (fa as any[]) ?? [],
       (fp as any[]) ?? [],
-      (wo as any[]) ?? []
+      (wo as any[]) ?? [],
+      (zd as any[]) ?? []
     );
     if (shouldReloadState) {
       setInitialStock(invAcc);
@@ -250,9 +253,10 @@ export default function InventoryScreen() {
     };
     // Fasování + Prodejna (BEZ odpisů wo)
     [...((fa as any[]) ?? []), ...((fp as any[]) ?? [])].filter((r) => filterMovement(r.entry_date)).forEach(addVydej);
-    // Objednávky (kegy/lahve objednané v tomto měsíci, ne storno)
-    const orderIdsVydej = new Set(((ords as any[]) ?? []).filter((o) => filterMovement(o.delivery_date || o.order_date) && o.status !== 'storno').map((o) => o.id));
-    ((oi as any[]) ?? []).filter((r) => orderIdsVydej.has(r.order_id)).forEach(addVydej);
+    // Objednávky — odečtené závozy (zavoz_deductions), stejný zdroj jako obrazovka Sklad.
+    // Datum odpočtu (deduct_date) je zafixované v okamžiku závozu, takže se nerozejde
+    // s Objednávkami, i když se datum doručení objednávky dodatečně změní.
+    ((zd as any[]) ?? []).filter((r) => filterMovement(r.deduct_date)).forEach((r) => addVydej({ beer_id: r.beer_id, package_id: r.package_id, quantity: r.quantity }));
     // Stáčení lahví (kegy použité na stáčení lahví) — deduplikace zdroje
     const seenKegSourceVydej = new Set<string>();
     ((bt as any[]) ?? []).filter((r) => filterMovement(r.entry_date)).forEach((r) => {
@@ -326,10 +330,9 @@ export default function InventoryScreen() {
     });
     setOdpisyMap(odpisyAcc);
 
-    // Objednávky — kegy objednané v tomto měsíci
-    const orderIds = new Set(((ords as any[]) ?? []).filter((o) => filterMovement(o.delivery_date || o.order_date) && o.status !== 'storno').map((o) => o.id));
+    // Objednávky — kegy odečtené závozem v tomto měsíci (zavoz_deductions, stejný zdroj jako Sklad)
     const objAcc: Record<string, number> = {};
-    ((oi as any[]) ?? []).filter((r) => orderIds.has(r.order_id) && kegPkgIds.has(r.package_id)).forEach((r) => {
+    ((zd as any[]) ?? []).filter((r) => filterMovement(r.deduct_date) && kegPkgIds.has(r.package_id)).forEach((r) => {
       const k = `${r.beer_id}__${r.package_id}`;
       objAcc[k] = (objAcc[k] || 0) + Number(r.quantity || 0);
     });
@@ -370,7 +373,7 @@ export default function InventoryScreen() {
     loadData();
   }, [currentMonth]);
 
-  useRealtime(['beers', 'packages', 'bottling', 'kegging', 'fasovani', 'fasovani_private', 'writeoffs', 'inventory', 'inventory_adjustments', 'orders', 'order_items'], loadData);
+  useRealtime(['beers', 'packages', 'bottling', 'kegging', 'fasovani', 'fasovani_private', 'writeoffs', 'inventory', 'inventory_adjustments', 'zavoz_deductions'], loadData);
 
 
 

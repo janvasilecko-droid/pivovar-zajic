@@ -27,7 +27,8 @@ export function getStartingStockMap(
   fasovaniRows: any[],
   prodejnaRows: any[],
   writeoffsRows: any[],
-  depth = 0
+  depth = 0,
+  zavozDeductionRows: any[] = []
 ): Record<string, number> {
   // Prevent infinite recursion
   if (depth > 12) {
@@ -109,7 +110,8 @@ export function getStartingStockMap(
     fasovaniRows,
     prodejnaRows,
     writeoffsRows,
-    depth + 1
+    depth + 1,
+    zavozDeductionRows
   );
 
   const map: Record<string, number> = { ...prevStartingMap };
@@ -128,13 +130,40 @@ export function getStartingStockMap(
     map[k] = (map[k] || 0) + Number(r.quantity || 0);
   });
 
-  // Subtract outgoing in prevMonthKey
+  // Subtract outgoing in prevMonthKey (fasování, prodejna, odpisy)
   [...fasovaniRows, ...prodejnaRows, ...writeoffsRows]
     .filter((r) => r.entry_date?.slice(0, 7) === prevMonthKey)
     .forEach((r) => {
       if (!r.beer_id || !r.package_id) return;
       const k = `${r.beer_id}__${r.package_id}`;
       map[k] = Math.max(0, (map[k] || 0) - Number(r.quantity || 0));
+    });
+
+  // Subtract orders delivered/deducted in prevMonthKey (zavoz_deductions — stejný zdroj jako
+  // obrazovka Sklad, aby zpětný dopočet neignoroval vydané objednávky).
+  zavozDeductionRows
+    .filter((r) => r.deduct_date?.slice(0, 7) === prevMonthKey)
+    .forEach((r) => {
+      if (!r.beer_id || !r.package_id) return;
+      const k = `${r.beer_id}__${r.package_id}`;
+      map[k] = Math.max(0, (map[k] || 0) - Number(r.quantity || 0));
+    });
+
+  // Subtract kegs consumed as a bottling source in prevMonthKey (kegs_used /
+  // kegs_used_package_id on bottling rows) — these deplete keg stock separately
+  // from the bottled-beer row already added above.
+  const seenKegSource = new Set<string>();
+  bottlingRows
+    .filter((r) => r.entry_date?.slice(0, 7) === prevMonthKey)
+    .forEach((r) => {
+      const kegsUsed = Number(r.kegs_used || 0);
+      const kegPkgId = r.kegs_used_package_id;
+      if (kegsUsed <= 0 || !kegPkgId || !r.beer_id) return;
+      const dedupeKey = `${r.entry_date}|${r.beer_id}|${kegsUsed}|${kegPkgId}|${r.created_at || r.note || ''}`;
+      if (seenKegSource.has(dedupeKey)) return;
+      seenKegSource.add(dedupeKey);
+      const k = `${r.beer_id}__${kegPkgId}`;
+      map[k] = Math.max(0, (map[k] || 0) - kegsUsed);
     });
 
   return map;

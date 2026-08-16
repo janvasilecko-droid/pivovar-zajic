@@ -1065,9 +1065,10 @@ function TransferForm({ tanks, beers, initialFromId, initialBeerId, initialVolum
     const v = Number(volume);
     if (!v || v <= 0) { setErr('Zadej objem v litrech.'); return; }
     if (fromTank && v > Number(fromTank.current_volume_l)) { setErr(`Tank ${fromTank.label} má jen ${fromTank.current_volume_l} l.`); return; }
+    const lossV = Number(loss) || 0;
+    if (lossV < 0 || lossV > v) { setErr(`Ztráta musí být mezi 0 a ${v} l (přelévaný objem).`); return; }
     setBusy(true);
     const beer = beers.find((b) => b.id === beerId);
-    const lossV = Number(loss) || 0;
     await supabase.from('cellar_transfers').insert({
       transfer_date: date,
       from_tank_id: fromId,

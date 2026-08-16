@@ -475,6 +475,29 @@ export function parseOrderText(
       }
     }
 
+    // 🧠 ZÁCHRANNÝ FALLBACK: řádek obsahuje číslo, ale žádné "x"/"ks" (např.
+    // "12 piv 0.5l", "2 kegy 30L") — tokenRe výše na něj nechytne nic a řádek by
+    // beze stopy zmizel (uživatel by nikdy nezjistil, že se položka neobjednala).
+    // Vezmeme první číslo v řádku jako množství a necháme ho projít stejnou
+    // logikou rozpoznání piva/obalu níže; při nejistotě se označí jako
+    // low/unknown confidence, aby si toho uživatel v UI všiml a zkontroloval.
+    // Aktivuje se jen s jasným náznakem balení/piva u čísla (jinak by chytal
+    // i data, telefonní čísla apod.) a ne na řádcích "vše/všechno <stupeň>",
+    // což je řídicí fráze aplikovaná globálně, ne samostatná položka.
+    if (
+      tokens.length === 0 &&
+      !/\b(v[šs]e|v[šs]echno|v[šs]echny|v[šs]echna)\b/i.test(flat) &&
+      (/\b(piv|keg|sud|lahv|balen|ks)\b/i.test(flat) || /\d\s*[lL]\b/.test(flat))
+    ) {
+      const bare = flat.match(/\d{1,4}/);
+      if (bare) {
+        const qty = parseInt(bare[0], 10);
+        if (qty > 0) {
+          tokens.push({ qty, volStr: null, degree: null, start: bare.index ?? 0, end: (bare.index ?? 0) + bare[0].length });
+        }
+      }
+    }
+
     // 🧠 STUPEŇ NA ZAČÁTKU ŘÁDKU SE APLIKUJE NA VŠECHNY POLOŽKY:
     // Pokud řádek začíná stupněm (např. "11sv 3x30 3x20 15x1"), platí tento
     // stupeň pro VŠECHNY položky na řádku, i když u nich není explicitně napsaný.

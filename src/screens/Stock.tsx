@@ -97,7 +97,7 @@ export default function Stock() {
 
     const curMonth = invMonth;
 
-    const [{ data: invData }, { data: botData }, { data: kegData }, { data: ordItemsData }, { data: ordData }, { data: woData }, { data: akData }, { data: faData }, { data: fpData }, { data: pfData }, { data: zdData }] =
+    const [{ data: invData }, { data: botData }, { data: kegData }, { data: ordItemsData }, { data: ordData }, { data: woData }, { data: akData }, { data: faData }, { data: fpData }, { data: pfData }, { data: zdData }, { data: adjData }] =
       await Promise.all([
         supabase.from('inventory').select('*'),
         supabase.from('bottling').select('*'),
@@ -110,6 +110,7 @@ export default function Stock() {
         supabase.from('fasovani_private').select('*'),
         supabase.from('keg_prefuk').select('*'),
         supabase.from('zavoz_deductions').select('deduct_date,beer_id,package_id,quantity'),
+        supabase.from('inventory_adjustments').select('entry_date,beer_id,package_id,quantity'),
       ]);
 
     const inv = (invData ?? []) as { entry_date: string; beer_id: string | null; package_id: string | null; quantity: number; note?: string }[];
@@ -156,6 +157,7 @@ export default function Stock() {
     const fp = (fpData ?? []) as BrewRow[];
     const pf = (pfData ?? []) as KegPrefuk[];
     const zd = (zdData ?? []) as Pick<ZavozDeductionRow, 'deduct_date' | 'beer_id' | 'package_id' | 'quantity'>[];
+    const adj = (adjData ?? []) as { entry_date: string; beer_id: string | null; package_id: string | null; quantity: number }[];
     const ords = (ordData ?? []) as { id: string; order_date: string; delivery_date: string | null; status: string }[];
     const ordItems = (ordItemsData ?? []) as { order_id: string; beer_id: string | null; package_id: string; quantity: number }[];
     const akRows = (akData ?? []) as { entry_date: string; items: { beer_id: string | null; package_id: string | null; quantity_taken: number; quantity_returned: number }[] }[];
@@ -205,8 +207,14 @@ export default function Stock() {
         const prefukFrom = pf.filter((r) => r.beer_id === beer.id && r.from_package_id === pkg.id && isMovementInPeriod(r.entry_date)).reduce((s, r) => s + Number(r.from_count || 0), 0);
         const prefukTo = pf.filter((r) => r.beer_id === beer.id && r.to_package_id === pkg.id && isMovementInPeriod(r.entry_date)).reduce((s, r) => s + Number(r.to_count || 0), 0);
 
-        // Aktuální reálný stav na skladě = Počáteční + Stočeno − vydáno/odepsáno − odpočet závozu − přefuk ZE + přefuk DO
-        const rawStock = fromInv + brewedW - outgoingMoved - zdW - prefukFrom + prefukTo;
+        // Dorovnání inventury (± z Inventura → Fyzická inventura), zapsané bokem přes inventory_adjustments.
+        // Bez tohoto řádku Sklad ignoroval manko/přebytek zjištěné a zapsané v Inventuře.
+        const adjW = adj
+          .filter((r) => r.beer_id === beer.id && r.package_id === pkg.id && isMovementInPeriod(r.entry_date))
+          .reduce((s, r) => s + Number(r.quantity || 0), 0);
+
+        // Aktuální reálný stav na skladě = Počáteční + Stočeno − vydáno/odepsáno − odpočet závozu − přefuk ZE + přefuk DO + dorovnání
+        const rawStock = fromInv + brewedW - outgoingMoved - zdW - prefukFrom + prefukTo + adjW;
         const currentStock = Math.max(0, rawStock);
 
         const orderedW = ordItems.filter((i) => validOrdIdsWeek.has(i.order_id) && i.beer_id === beer.id && i.package_id === pkg.id).reduce((s, i) => s + Number(i.quantity), 0);
