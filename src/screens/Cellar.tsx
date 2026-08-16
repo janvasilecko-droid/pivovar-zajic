@@ -809,56 +809,93 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
                     </div>
                   )}
 
-                  {/* Tlačítka přímých sanitací a akcí */}
-                  <div className="mt-3 space-y-1.5">
-                    <div className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-400 flex items-center gap-1">
-                      <span>🧼 Sanitace tanku:</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1">
-                      <button
-                        className="text-[11px] px-2 py-1 rounded-lg bg-sky-100 text-sky-900 font-bold hover:bg-sky-200 shadow-xs border border-sky-300"
-                        onClick={async () => {
-                          await recordSanitation('oplach_vodou', t, 'Rychlý oplach vodou z karty tanku');
-                          await supabase.from('cellar_tanks').update({ status: 'rinsing', updated_at: new Date().toISOString() }).eq('id', t.id);
-                          load();
-                          alert(`💧 Oplach vodou pro ${t.label} byl zapsán (Provedl: ${userName})`);
-                        }}
-                      >
-                        💧 Oplach
+                  {/* Hlavní akce — velké, snadno klepnutelné (stáčení, spuštění/ukončení tanku) */}
+                  <div className="mt-3 space-y-2">
+                    {(t.status === 'active' || t.status === 'emptying' || t.status === 'filling') && t.current_beer_id && (
+                      t.kegging_active ? (
+                        <button
+                          className="w-full min-h-[48px] text-sm px-3 py-3 rounded-xl bg-rose-600 text-white hover:bg-rose-500 font-black border border-rose-700 shadow-md flex items-center justify-center gap-2 transition-all"
+                          onClick={() => stopKegging(t)}
+                          title="Zastaví odebírání piva z tohoto tanku při stáčení keg"
+                        >
+                          <span>⏹</span>
+                          <span>Ukončit stáčení</span>
+                        </button>
+                      ) : (
+                        <button
+                          className="w-full min-h-[48px] text-sm px-3 py-3 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 font-black border border-emerald-700 shadow-md flex items-center justify-center gap-2 transition-all"
+                          onClick={() => startKegging(t)}
+                          title="Aktivuje tento tank jako zdroj pro stáčení keg — pivo se bude odebírat z něj"
+                        >
+                          <span>▶️</span>
+                          <span>Zahájit stáčení</span>
+                        </button>
+                      )
+                    )}
+
+                    {t.status === 'empty' && (
+                      <button className="w-full min-h-[48px] text-sm px-3 py-3 rounded-xl bg-success-600 text-white hover:bg-success-500 font-black shadow-md flex items-center justify-center gap-2" onClick={() => setShowStart(t)}>
+                        <span>🚀</span><span>Spustit tank</span>
                       </button>
-                      <button
-                        className="text-[11px] px-2 py-1 rounded-lg bg-amber-100 text-amber-950 font-bold hover:bg-amber-200 shadow-xs border border-amber-300"
-                        onClick={async () => {
-                          await recordSanitation('louh', t, 'Sanitace louhem NaOH z karty tanku');
-                          await supabase.from('cellar_tanks').update({ status: 'cleaning', updated_at: new Date().toISOString() }).eq('id', t.id);
-                          load();
-                          alert(`🧼 Sanitace louhem pro ${t.label} byla zapsána (Provedl: ${userName})`);
-                        }}
-                      >
-                        🧼 Louh (NaOH)
+                    )}
+                    {(t.status === 'active' || t.status === 'emptying' || t.status === 'filling') && (
+                      <button className="w-full min-h-[48px] text-sm px-3 py-3 rounded-xl bg-danger-600 text-white hover:bg-danger-500 font-black shadow-md flex items-center justify-center gap-2" onClick={() => endTank(t)}>
+                        <span>✓</span><span>Zavřít tank</span>
                       </button>
-                      <button
-                        className="text-[11px] px-2 py-1 rounded-lg bg-rose-100 text-rose-950 font-bold hover:bg-rose-200 shadow-xs border border-rose-300"
-                        onClick={async () => {
-                          await recordSanitation('kyselina_dusicna', t, 'Sanitace kyselinou dusičnou z karty tanku');
-                          await supabase.from('cellar_tanks').update({
-                            status: 'empty', current_beer_id: null, current_beer_name: null,
-                            started_at: null, initial_volume_l: null, updated_at: new Date().toISOString(),
-                          }).eq('id', t.id);
-                          load();
-                          alert(`🧪 Kyselina dusičná pro ${t.label} byla zapsána (Provedl: ${userName})`);
-                        }}
-                      >
-                        🧪 Kyselina
-                      </button>
+                    )}
+
+                    {/* Sanitace tanku — postup: oplach → louh → kyselina */}
+                    <div className="pt-1">
+                      <div className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-400 mb-1">🧼 Sanitace tanku</div>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        <button
+                          className="min-h-[44px] text-xs px-1.5 py-2 rounded-xl bg-sky-100 text-sky-900 font-bold hover:bg-sky-200 shadow-xs border border-sky-300 flex flex-col items-center justify-center gap-0.5"
+                          onClick={async () => {
+                            await recordSanitation('oplach_vodou', t, 'Rychlý oplach vodou z karty tanku');
+                            await supabase.from('cellar_tanks').update({ status: 'rinsing', updated_at: new Date().toISOString() }).eq('id', t.id);
+                            load();
+                            alert(`💧 Oplach vodou pro ${t.label} byl zapsán (Provedl: ${userName})`);
+                          }}
+                        >
+                          <span className="text-base leading-none">💧</span>
+                          <span>Oplach</span>
+                        </button>
+                        <button
+                          className="min-h-[44px] text-xs px-1.5 py-2 rounded-xl bg-amber-100 text-amber-950 font-bold hover:bg-amber-200 shadow-xs border border-amber-300 flex flex-col items-center justify-center gap-0.5"
+                          onClick={async () => {
+                            await recordSanitation('louh', t, 'Sanitace louhem NaOH z karty tanku');
+                            await supabase.from('cellar_tanks').update({ status: 'cleaning', updated_at: new Date().toISOString() }).eq('id', t.id);
+                            load();
+                            alert(`🧼 Sanitace louhem pro ${t.label} byla zapsána (Provedl: ${userName})`);
+                          }}
+                        >
+                          <span className="text-base leading-none">🧼</span>
+                          <span>Louh</span>
+                        </button>
+                        <button
+                          className="min-h-[44px] text-xs px-1.5 py-2 rounded-xl bg-rose-100 text-rose-950 font-bold hover:bg-rose-200 shadow-xs border border-rose-300 flex flex-col items-center justify-center gap-0.5"
+                          onClick={async () => {
+                            await recordSanitation('kyselina_dusicna', t, 'Sanitace kyselinou dusičnou z karty tanku');
+                            await supabase.from('cellar_tanks').update({
+                              status: 'empty', current_beer_id: null, current_beer_name: null,
+                              started_at: null, initial_volume_l: null, updated_at: new Date().toISOString(),
+                            }).eq('id', t.id);
+                            load();
+                            alert(`🧪 Kyselina dusičná pro ${t.label} byla zapsána (Provedl: ${userName})`);
+                          }}
+                        >
+                          <span className="text-base leading-none">🧪</span>
+                          <span>Kyselina</span>
+                        </button>
+                      </div>
                     </div>
 
+                    {/* Vedlejší akce */}
                     <div className="pt-1 flex flex-wrap gap-1.5">
-                      <button className="text-xs px-2 py-1 rounded-lg bg-neutral-200/80 text-neutral-800 hover:bg-neutral-300 font-medium" onClick={() => setEditTank(t)}>Upravit</button>
-
+                      <button className="min-h-[40px] text-xs px-3 py-2 rounded-lg bg-neutral-200/80 text-neutral-800 hover:bg-neutral-300 font-medium" onClick={() => setEditTank(t)}>Upravit</button>
                       {t.label.toLowerCase().includes('spilka') && (t.status === 'active' || t.status === 'filling' || Number(t.current_volume_l) > 0) && (
                         <button
-                          className="text-xs px-2.5 py-1 rounded-lg bg-sky-600 text-white font-black hover:bg-sky-500 shadow-xs flex items-center gap-1"
+                          className="min-h-[40px] text-xs px-3 py-2 rounded-lg bg-sky-600 text-white font-black hover:bg-sky-500 shadow-xs flex items-center gap-1"
                           onClick={() => {
                             setTransferFromId(t.id);
                             if (t.current_beer_id) setTransferBeerId(t.current_beer_id);
@@ -869,39 +906,7 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
                           <span>⇄ Přefouknout do ležáku</span>
                         </button>
                       )}
-
-                      {t.status === 'empty' && (
-                        <button className="text-xs px-2 py-1 rounded-lg bg-success-100 text-success-700 hover:bg-success-200 font-semibold" onClick={() => setShowStart(t)}>🚀 Spustit tank</button>
-                      )}
-                      {(t.status === 'active' || t.status === 'emptying' || t.status === 'filling') && (
-                        <button className="text-xs px-2 py-1 rounded-lg bg-danger-100 text-danger-700 hover:bg-danger-200 font-semibold" onClick={() => endTank(t)}>✓ Ukončit tank</button>
-                      )}
                     </div>
-
-                    {/* Ovládání stáčení — aktivní zdroj, ze kterého se odečítá stáčení keg */}
-                    {(t.status === 'active' || t.status === 'emptying' || t.status === 'filling') && t.current_beer_id && (
-                      <div className="pt-1.5">
-                        {t.kegging_active ? (
-                          <button
-                            className="w-full text-xs px-3 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-500 font-black border border-rose-700 shadow-md flex items-center justify-center gap-1.5 transition-all"
-                            onClick={() => stopKegging(t)}
-                            title="Zastaví odebírání piva z tohoto tanku při stáčení keg"
-                          >
-                            <span className="text-sm">⏹</span>
-                            <span>Ukončit stáčení</span>
-                          </button>
-                        ) : (
-                          <button
-                            className="w-full text-xs px-3 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 font-black border border-emerald-700 shadow-md flex items-center justify-center gap-1.5 transition-all"
-                            onClick={() => startKegging(t)}
-                            title="Aktivuje tento tank jako zdroj pro stáčení keg — pivo se bude odebírat z něj"
-                          >
-                            <span className="text-sm">▶️</span>
-                            <span>Zahájit stáčení</span>
-                          </button>
-                        )}
-                      </div>
-                    )}
                   </div>
                 </div>
               );
