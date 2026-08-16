@@ -6,6 +6,16 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
+// Náhodné dočasné heslo pro nově založený účet (nahrazuje dřívější sdílenou
+// konstantu "zajic", kterou mohl uhodnout kdokoli, kdo znal schválený e-mail).
+// Vyloučené jsou vizuálně zaměnitelné znaky (0/O, 1/l/I).
+function generateTempPassword(): string {
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  const bytes = new Uint8Array(10);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => chars[b % chars.length]).join("");
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -87,8 +97,9 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true, pending: true, email });
     }
 
-    // SCHVÁLENÍ e-mailu — teprve nyní se vytvoří účet s výchozím heslem (zajic);
-    // uživatel se přihlásí e-mailem + heslem, bez odesílání přihlašovacích odkazů.
+    // SCHVÁLENÍ e-mailu — teprve nyní se vytvoří účet s náhodným dočasným heslem;
+    // to admin ihned uvidí v odpovědi a sdělí ho uživateli mimo aplikaci (osobně/
+    // přes WhatsApp). Uživatel si při prvním přihlášení založí vlastní heslo.
     if (req.method === "POST" && path === "approve") {
       const body = await req.json();
       const email = (body?.email ?? "").toString().trim().toLowerCase();
@@ -101,15 +112,17 @@ Deno.serve(async (req: Request) => {
       const { error: updErr } = await adminClient.from("allowed_emails").update({ status: "approved" }).eq("email", email);
       if (updErr) return json({ error: updErr.message }, 400);
 
-      // 2) Vytvořit účet, pokud ještě neexistuje (s výchozím heslem zajic, e-mail potvrzený)
+      // 2) Vytvořit účet, pokud ještě neexistuje (s náhodným dočasným heslem, e-mail potvrzený)
       const { data: userList } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
       const found = userList?.users?.find((u: any) => u.email?.toLowerCase() === email);
       let userId = found?.id ?? null;
+      let tempPassword: string | null = null;
 
       if (!found) {
+        tempPassword = generateTempPassword();
         const { data: created, error: createErr } = await adminClient.auth.admin.createUser({
           email,
-          password: "zajic",
+          password: tempPassword,
           email_confirm: true,
           user_metadata: { display_name: email.split("@")[0] },
         });
@@ -117,7 +130,7 @@ Deno.serve(async (req: Request) => {
         userId = created?.user?.id ?? null;
       }
 
-      // 3) Profil s právy — uživatel má výchozí heslo, ale při prvním přihlášení si založí vlastní
+      // 3) Profil s právy — uživatel má dočasné heslo, ale při prvním přihlášení si založí vlastní
       if (userId) {
         await adminClient.from("profiles").upsert({
           id: userId,
@@ -127,7 +140,7 @@ Deno.serve(async (req: Request) => {
         });
       }
 
-      return json({ ok: true, approved: true, email, id: userId });
+      return json({ ok: true, approved: true, email, id: userId, tempPassword });
     }
 
     // Úprava uživatele (heslo, role, jméno)

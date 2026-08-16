@@ -67,8 +67,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const doSignIn = () => supabase.auth.signInWithPassword({ email, password });
     let res = await doSignIn();
 
-    // Účet zatím nemusí existovat — zkusíme ho automaticky vytvořit
-    // (pouze s výchozím heslem „zajic“) a pak se přihlásit znovu.
+    // Přihlášení selhalo — zeptáme se auth-auto-login na srozumitelnější důvod
+    // (účet ještě neexistuje / čeká na schválení). Účet už se tady nezakládá,
+    // jen se vysvětlí, co udělat dál.
     if (res.error) {
       try {
         const r = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/auth-auto-login`, {

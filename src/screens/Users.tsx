@@ -155,12 +155,16 @@ export default function Users() {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.session?.access_token ?? ''}` },
       body: JSON.stringify({ email }),
     });
+    const j = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const j = await res.json().catch(() => ({}));
       setEmailErr(j.error ?? 'Chyba při schvalování e-mailu.');
       return;
     }
-    setEmailMsg(`E-mail ${email} byl schválen. Účet je vytvořen — uživatel se může přihlásit e-mailem a heslem (výchozí heslo zajic).`);
+    setEmailMsg(
+      j.tempPassword
+        ? `E-mail ${email} byl schválen. Dočasné heslo pro první přihlášení: „${j.tempPassword}“ — sděl ho uživateli osobně nebo přes WhatsApp (v aplikaci se znovu nezobrazí).`
+        : `E-mail ${email} byl schválen. Účet už existoval, heslo se nemění.`
+    );
     loadAllowedEmails();
     load();
   }
@@ -491,7 +495,7 @@ function UserForm({ user, onClose, onSaved }: { user: UserRow | null; onClose: (
         <Field label="Jméno"><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Křestní jméno" /></Field>
         {user
           ? <Field label='Nové heslo (volitelné)'><input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="min. 6 znaků" /></Field>
-          : <p className="text-xs text-neutral-500">E-mail se přidá do seznamu ke schválení. Po schválení se účet vytvoří s výchozím heslem <span className="font-mono font-semibold">zajic</span> a uživatel si při prvním přihlášení založí vlastní heslo.</p>}
+          : <p className="text-xs text-neutral-500">E-mail se přidá do seznamu ke schválení. Po schválení (v záložce „Schválené e-maily“) se účet vytvoří s náhodným dočasným heslem, které se zobrazí adminovi ke sdělení uživateli.</p>}
         
         <div className="p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200/80 space-y-3">
           <label className="flex items-center gap-2.5 cursor-pointer">

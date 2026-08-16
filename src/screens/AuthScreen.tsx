@@ -133,8 +133,7 @@ export default function AuthScreen() {
 
             <div className="mt-4 rounded-2xl bg-amber-50/80 border border-amber-200 px-4 py-3 text-center">
               <p className="text-[11px] font-bold text-amber-800 leading-relaxed">
-                🍺 Nový uživatel? Stačí se přihlásit svým e-mailem a výchozím heslem{' '}
-                <span className="font-black">zajic</span> — účet se vytvoří automaticky a heslo si pak založíte vlastní.
+                🍺 Nový uživatel? Účet a dočasné heslo vám založí administrátor — zeptejte se ho.
               </p>
             </div>
 
