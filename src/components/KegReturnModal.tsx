@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal } from './ui';
-import { Plus, Minus, CheckCircle2, Cylinder } from 'lucide-react';
+import { Plus, Minus, CheckCircle2, Cylinder, RotateCcw } from 'lucide-react';
 
 type KegReturnModalProps = {
   isOpen: boolean;
@@ -11,19 +11,20 @@ type KegReturnModalProps = {
 
 const KEG_SIZES = ['50L', '30L', '20L', '15L', '10L'];
 
+const EMPTY_COUNTS: Record<string, number> = { '50L': 0, '30L': 0, '20L': 0, '15L': 0, '10L': 0 };
+
 export function KegReturnModal({
   isOpen,
   onClose,
   customerName,
   onSaveReturns,
 }: KegReturnModalProps) {
-  const [counts, setCounts] = useState<Record<string, number>>({
-    '50L': 0,
-    '30L': 0,
-    '20L': 0,
-    '15L': 0,
-    '10L': 0,
-  });
+  const [counts, setCounts] = useState<Record<string, number>>(EMPTY_COUNTS);
+
+  // BUGFIX: reset counts when modal opens for a (possibly different) customer
+  useEffect(() => {
+    if (isOpen) setCounts({ ...EMPTY_COUNTS });
+  }, [isOpen, customerName]);
 
   const handleDelta = (size: string, delta: number) => {
     setCounts((prev) => ({
@@ -95,6 +96,9 @@ export function KegReturnModal({
           </div>
 
           <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setCounts({ ...EMPTY_COUNTS })} className="btn-ghost text-xs font-bold flex items-center gap-1" title="Vynulovat">
+              <RotateCcw size={13} /> Reset
+            </button>
             <button type="button" onClick={onClose} className="btn-secondary text-xs font-bold">
               Zrušit
             </button>

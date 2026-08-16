@@ -3,7 +3,7 @@ import { supabase, Package, Beer, Place, useRealtime, formatPackageLabel } from 
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { orderWeightKg, fmtKg } from '../lib/weight';
 import { DAYS } from '../lib/shared';
-import { Calendar, Truck, Plus, FileText, Package as PackageIcon, CheckCircle2, Scale, Search, Printer, Share2, ArrowRightCircle, Phone, CalendarDays, MapPin, Pencil, StickyNote, Cylinder, Wine, ArrowRightLeft, AlertTriangle } from 'lucide-react';
+import { Calendar, Truck, Plus, FileText, Package as PackageIcon, CheckCircle2, Scale, Search, Printer, Share2, ArrowRightCircle, Phone, CalendarDays, MapPin, Pencil, StickyNote, Cylinder, Wine, ArrowRightLeft, AlertTriangle, MessageCircle, PenTool } from 'lucide-react';
 import { shareDeliveryListToWhatsApp } from '../lib/whatsapp';
 import { exportZavozToExcel } from '../lib/excel';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
@@ -11,8 +11,7 @@ import { EditOrderModal } from '../components/EditOrderModal';
 import { getSecondCarDates, toggleSecondCarDates, collectZavozDates } from '../lib/zavozSecondCar';
 import { SignatureModal } from '../components/SignatureModal';
 import { KegReturnModal } from '../components/KegReturnModal';
-import { openNavigation, buildCustomerDeliveryWhatsAppText, openCustomerWhatsApp, NavigationApp } from '../lib/navigation';
-import { MessageCircle, PenTool } from 'lucide-react';
+import { openNavigation, buildCustomerDeliveryWhatsAppText, openCustomerWhatsApp } from '../lib/navigation';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -248,12 +247,24 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
     }
   }
 
-  async function toggleDelivered(o: Order) {
-    const patch: Record<string, unknown> = { is_delivered: !o.is_delivered };
-    if (!o.is_delivered) patch.delivered_at = new Date().toISOString();
-    else patch.delivered_at = null;
+  async function toggleDelivered(o: Order, afterDeliveredCallback?: () => void) {
+    const nowDelivered = !o.is_delivered;
+    const patch: Record<string, unknown> = { is_delivered: nowDelivered };
+    if (nowDelivered) {
+      patch.delivered_at = new Date().toISOString();
+      // Auto-mark as 'vyrizeno_zavoz' for proper stock tracking
+      if (o.status === 'nova' || o.status === 'pripravena') {
+        patch.status = 'vyrizeno_zavoz';
+      }
+    } else {
+      patch.delivered_at = null;
+      // Revert to 'nova' if undelivered
+      if (o.status === 'vyrizeno_zavoz') patch.status = 'nova';
+    }
     await supabase.from('orders').update(patch).eq('id', o.id);
     setOrders((arr) => arr.map((x) => (x.id === o.id ? ({ ...x, ...patch } as Order) : x)));
+    // After marking as delivered, offer keg return dialog
+    if (nowDelivered && afterDeliveredCallback) afterDeliveredCallback();
   }
 
   async function markAllAsPrepared(o: Order) {
@@ -859,7 +870,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                               }`}
                             >
                               <div className="flex flex-wrap items-start justify-between gap-3">
-                                <div>
+                                <div className="flex-1 min-w-0">
                                   <a
                                     onClick={() => setPage && setPage('orders', o.id)}
                                     className="font-display font-black text-lg text-neutral-900 flex items-center gap-2 text-left hover:underline cursor-pointer"
@@ -872,6 +883,16 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                       </span>
                                     )}
                                   </a>
+                                  {/* Telefon zákazníka — klikatelný */}
+                                  {o.place_phone && (
+                                    <a
+                                      href={`tel:${o.place_phone}`}
+                                      className="text-xs font-mono font-bold text-amber-700 hover:text-amber-900 flex items-center gap-1 mt-1 w-fit"
+                                      title="Zavolat zákazníkovi"
+                                    >
+                                      <Phone size={11} /> {o.place_phone}
+                                    </a>
+                                  )}
                                   {o.note && (
                                     <div className="text-xs text-neutral-600 font-medium mt-1 bg-amber-100/60 px-2.5 py-1 rounded-lg italic flex items-start gap-1">
                                       <StickyNote size={12} className="mt-0.5 shrink-0" /> {o.note}
@@ -910,17 +931,21 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                   <span>Váha: {fmtKg(weightKg)} kg</span>
                                 </div>
                                 <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                                  {/* 🧭 1-Click Navigace */}
-                                  {o.place_name && (
-                                    <button
-                                      type="button"
-                                      onClick={() => setNavTarget({ name: o.place_name!, destination: o.place_name! })}
-                                      className="btn-ghost !py-1.5 !px-2.5 text-xs font-black flex items-center gap-1 bg-amber-50 text-amber-950 border border-amber-300 shadow-2xs hover:bg-amber-100"
-                                      title="Otevřít navigaci (Google Mapy / Waze / Mapy.cz)"
-                                    >
-                                      <MapPin size={13} className="text-amber-700" /> Navigovat
-                                    </button>
-                                  )}
+                                  {/* 🧭 1-Click Navigace — používá adresu z databáze pokud existuje */}
+                                  {o.place_name && (() => {
+                                    const placeRecord = places.find(p => p.id === o.place_id);
+                                    const navDest = placeRecord?.address || o.place_name!;
+                                    return (
+                                      <button
+                                        type="button"
+                                        onClick={() => setNavTarget({ name: o.place_name!, destination: navDest })}
+                                        className="btn-ghost !py-1.5 !px-2.5 text-xs font-black flex items-center gap-1 bg-amber-50 text-amber-950 border border-amber-300 shadow-2xs hover:bg-amber-100"
+                                        title={`Navigovat: ${navDest}`}
+                                      >
+                                        <MapPin size={13} className="text-amber-700" /> Navigovat
+                                      </button>
+                                    );
+                                  })()}
 
                                   {/* 💬 WhatsApp avízo zákazníkovi */}
                                   <button
@@ -960,7 +985,14 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                   </button>
 
                                   <button
-                                    onClick={() => toggleDelivered(o)}
+                                    onClick={() => toggleDelivered(o, () => {
+                                      // Po zavezení: nabídni dialog pro vrácené sudy (pokud má KEGy)
+                                      const hasKegs = orderItems.some(it => {
+                                        const pkg = packages.find(p => p.id === it.package_id);
+                                        return pkg?.kind === 'keg' || (it.package_label || '').toLowerCase().includes('sud') || (it.package_label || '').toLowerCase().includes('keg');
+                                      });
+                                      if (hasKegs) setKegReturnOrder(o);
+                                    })}
                                     className={`px-3.5 py-1.5 rounded-xl font-black text-xs transition shadow-xs flex items-center gap-1.5 ${
                                       o.is_delivered
                                         ? 'bg-emerald-600 text-white hover:bg-emerald-700'

@@ -66,6 +66,9 @@ export function SignatureModal({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // Prevent page scroll when drawing on touch devices
+    if ('touches' in e) (e as React.TouchEvent).preventDefault();
+
     const rect = canvas.getBoundingClientRect();
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
@@ -98,6 +101,15 @@ export function SignatureModal({
     onSaveSignature(dataUrl, signerName);
     onClose();
   };
+
+  // Block passive touch scroll on canvas so preventDefault() works
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !isOpen) return;
+    const handler = (e: TouchEvent) => { if (isDrawing) e.preventDefault(); };
+    canvas.addEventListener('touchmove', handler, { passive: false });
+    return () => canvas.removeEventListener('touchmove', handler);
+  }, [isOpen, isDrawing]);
 
   if (!isOpen) return null;
 
