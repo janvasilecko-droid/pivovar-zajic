@@ -1646,7 +1646,22 @@ export async function getOrCreatePlace(name: string, places: Place[] = []): Prom
   // 2. Pokus se vložit přes běžného klienta (RLS povoluje přihlášeným uživatelům)
   try {
     const { supabase } = await import('./supabase');
-    const { data: newPlace, error } = await supabase.from('places').insert({ name: trimmed }).select().single();
+    const { lookupPlaceOnline } = await import('./placeLookup');
+    let address: string | null = null;
+    let phone: string | null = null;
+    try {
+      const candidates = await lookupPlaceOnline(trimmed);
+      if (candidates.length > 0) {
+        address = candidates[0].address || null;
+        phone = candidates[0].phone || null;
+      }
+    } catch {}
+
+    const { data: newPlace, error } = await supabase
+      .from('places')
+      .insert({ name: trimmed, address, phone })
+      .select()
+      .single();
     if (!error && newPlace) return newPlace as Place;
   } catch {}
 

@@ -6,6 +6,7 @@ import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSumma
 import { supabase, Beer, Package, CellarTank, CellarTransfer, CellarTankCycle, EntryRow, useRealtime, beerBg, beerBorder, beerName } from '../lib/supabase';
 import { Modal, Field, Spinner } from '../components/ui';
 import { TankOccupancyPlanner } from '../components/TankOccupancyPlanner';
+import { VisualCellarMap } from '../components/VisualCellarMap';
 
 const STATUS_LABELS: Record<CellarTank['status'], string> = {
   empty: 'Prázdný', filling: 'Plní se', active: 'Aktivní', emptying: 'Stáčí se',
@@ -36,7 +37,7 @@ function fmtHours(h: number | null | undefined): string {
 }
 
 export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: string) => void } = {}) {
-  const [activeTab, setActiveTab] = useState<'lezacke' | 'spilka' | 'planovac' | 'statistiky'>('lezacke');
+  const [activeTab, setActiveTab] = useState<'mapa' | 'lezacke' | 'spilka' | 'planovac' | 'statistiky'>('mapa');
   const [tanks, setTanks] = useState<CellarTank[]>([]);
   const [transfers, setTransfers] = useState<CellarTransfer[]>([]);
   const [cycles, setCycles] = useState<CellarTankCycle[]>([]);
@@ -478,8 +479,17 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
         </div>
 
         <div className="flex flex-wrap items-center gap-2 w-full">
-          {/* Tab Selector: Spilka vs Ležácké */}
+          {/* Tab Selector: Mapa vs Spilka vs Ležácké */}
           <div className="flex items-center gap-1.5 bg-neutral-100 p-1 rounded-xl border border-neutral-200 w-full sm:w-fit overflow-x-auto scrollbar-none flex-nowrap shrink-0">
+            <button
+              type="button"
+              onClick={() => setActiveTab('mapa')}
+              className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${
+                activeTab === 'mapa' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-700 hover:bg-amber-50'
+              }`}
+            >
+              🏰 Vizuální mapa tanků
+            </button>
             <button
               type="button"
               onClick={() => setActiveTab('lezacke')}
@@ -541,6 +551,8 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
 
       {loading ? <Spinner /> : activeTab === 'planovac' ? (
         <TankOccupancyPlanner tanks={tanks} beers={beers} cycles={cycles} />
+      ) : activeTab === 'mapa' ? (
+        <VisualCellarMap tanks={tanks} beers={beers} onSelectTank={(t) => setEditTank(t)} />
       ) : (
         <>
           {/* Tanky grid */}

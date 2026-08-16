@@ -3,10 +3,11 @@ import { supabase, Beer, Package, Vehicle, useRealtime, beerBg, beerText, beerBo
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { getVehicleExpiryStatus } from './Catalogs';
-import { AlertTriangle, ClipboardList, PackageCheck, Layers, Beer as BeerIcon, BarChart3, Sparkles } from 'lucide-react';
+import { AlertTriangle, ClipboardList, PackageCheck, Layers, Beer as BeerIcon, BarChart3, Sparkles, Calculator } from 'lucide-react';
 import { AnnouncementManagerModal } from '../components/AnnouncementManagerModal';
 import SkloPromoScreen from './SkloPromoScreen';
 import { getStartingStockMap } from '../lib/inventoryHelper';
+import { QuickCountModal } from '../components/QuickCountModal';
 
 type Row = {
   entry_date: string; beer_id: string | null; beer_name: string | null;
@@ -55,6 +56,33 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
   const [brewTo, setBrewTo] = useState<string>(todayISO());
   const [brewStats, setBrewStats] = useState<BrewStat[]>([]);
   const [brewLoading, setBrewLoading] = useState(true);
+  const [showQuickCount, setShowQuickCount] = useState(false);
+
+  async function handleConfirmQuickCount(items: { beerId: string; packageId: string; count: number }[]) {
+    if (!items.length) return;
+    const today = todayISO();
+    const payloads = items.map((it) => {
+      const beer = beers.find((b) => b.id === it.beerId);
+      const pkg = packages.find((p) => p.id === it.packageId);
+      return {
+        entry_date: today,
+        beer_id: it.beerId,
+        beer_name: beer?.name ?? null,
+        package_id: it.packageId,
+        package_label: pkg?.label ?? null,
+        quantity: it.count,
+        note: 'Rychlé dotykové sčítadlo',
+      };
+    });
+
+    const { error } = await supabase.from('inventory').insert(payloads);
+    if (error) {
+      alert(`Chyba při ukládání inventury: ${error.message}`);
+    } else {
+      alert(`✅ Inventura (${items.length} položek) úspěšně uložena!`);
+      load();
+    }
+  }
 
   async function load(silent = false) {
     if (!silent) setLoading(true);
@@ -330,14 +358,30 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
         <>
           {showAnnouncementManager && <AnnouncementManagerModal onClose={() => setShowAnnouncementManager(false)} />}
 
-      <div className="flex justify-end mb-3">
+      <div className="flex justify-end mb-3 items-center gap-2 flex-wrap">
+        <button
+          onClick={() => setShowQuickCount(true)}
+          className="btn-primary !py-2 !px-3.5 text-xs font-black shadow-sm transition flex items-center gap-1.5"
+        >
+          <Calculator size={15} /> 📦 Rychlé sčítadlo skladu
+        </button>
         <button
           onClick={() => setShowAnnouncementManager(true)}
-          className="px-3.5 py-2 rounded-2xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-sm transition flex items-center gap-1.5"
+          className="px-3.5 py-2 rounded-2xl bg-neutral-900 hover:bg-neutral-800 text-amber-300 font-black text-xs shadow-sm transition flex items-center gap-1.5"
         >
-          <AlertTriangle size={15} /> Spravovat Pivovarská Hlášení
+          <AlertTriangle size={15} /> Spravovat Hlášení
         </button>
       </div>
+
+      {showQuickCount && (
+        <QuickCountModal
+          isOpen={showQuickCount}
+          onClose={() => setShowQuickCount(false)}
+          beers={beers}
+          packages={packages}
+          onConfirmCount={handleConfirmQuickCount}
+        />
+      )}
       {/* Material (Labels & Bottles) Warning Banner */}
       {materialAlerts.length > 0 && (
         <div className="mb-6 p-4 rounded-3xl bg-gradient-to-r from-rose-500/20 via-rose-400/10 to-amber-500/10 border-2 border-rose-400 shadow-md flex items-center justify-between flex-wrap gap-3">

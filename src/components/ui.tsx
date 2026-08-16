@@ -32,8 +32,8 @@ export function Field({ label, children, hint }: { label: string; children: Reac
   );
 }
 
-export function Modal({ open, onClose, title, children, wide }: {
-  open: boolean; onClose: () => void; title: string; children: ReactNode; wide?: boolean;
+export function Modal({ open, onClose, title, children, wide, maxWidth }: {
+  open: boolean; onClose: () => void; title: string; children: ReactNode; wide?: boolean; maxWidth?: string;
 }) {
   useEffect(() => {
     if (!open) return;
@@ -46,7 +46,7 @@ export function Modal({ open, onClose, title, children, wide }: {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
       <div className="absolute inset-0 bg-neutral-950/60 backdrop-blur-md transition-opacity" onClick={onClose} />
-      <div className={`relative card shadow-2xl w-full ${wide ? 'max-w-3xl' : 'max-w-md'} max-h-[92vh] flex flex-col animate-slide-up rounded-b-none sm:rounded-2xl border-neutral-200`}>
+      <div className={`relative card shadow-2xl w-full ${maxWidth ?? (wide ? 'max-w-3xl' : 'max-w-md')} max-h-[92vh] flex flex-col animate-slide-up rounded-b-none sm:rounded-2xl border-neutral-200`}>
         <div className="flex items-center justify-between px-6 py-4.5 border-b border-neutral-100 sticky top-0 bg-white/95 backdrop-blur-md rounded-t-2xl z-10">
           <h3 className="font-display font-bold text-lg text-neutral-900 tracking-tight">{title}</h3>
           <button

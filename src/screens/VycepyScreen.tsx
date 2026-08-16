@@ -24,6 +24,10 @@ export type TapReservation = {
   date_from: string;      // YYYY-MM-DD
   date_to: string;        // YYYY-MM-DD
   customer_name: string;  // Odběratel / Jméno
+  phone?: string;
+  deposit_czk?: number;
+  is_returned?: boolean;
+  returned_at?: string;
   note?: string;
   order_id?: string;
 };
@@ -61,6 +65,8 @@ export default function VycepyScreen() {
   const [resDateFrom, setResDateFrom] = useState(new Date().toISOString().slice(0, 10));
   const [resDateTo, setResDateTo] = useState(new Date().toISOString().slice(0, 10));
   const [resCustomer, setResCustomer] = useState('');
+  const [resPhone, setResPhone] = useState('');
+  const [resDeposit, setResDeposit] = useState<number | ''>(2000);
   const [resNote, setResNote] = useState('');
 
   function saveTaps(newTaps: TapEquipment[]) {
@@ -135,20 +141,45 @@ export default function VycepyScreen() {
       date_from: resDateFrom,
       date_to: resDateTo,
       customer_name: resCustomer.trim(),
+      phone: resPhone.trim() || undefined,
+      deposit_czk: typeof resDeposit === 'number' ? resDeposit : undefined,
+      is_returned: false,
       note: resNote.trim() || undefined,
     };
 
-    saveReservations([newRes, ...reservations]);
+    saveReservations([...reservations, newRes]);
     setShowResModal(false);
     setResCustomer('');
+    setResPhone('');
     setResNote('');
-    alert(`✅ Rezervace výčepu "${tap?.name}" vytvořena!`);
   }
 
   function handleDeleteReservation(id: string) {
-    if (!confirm('Smazat tuto rezervaci výčepu?')) return;
+    if (!confirm('Opravdu smazat tuto rezervaci?')) return;
     saveReservations(reservations.filter((r) => r.id !== id));
   }
+
+  function handleToggleReturnReservation(res: TapReservation) {
+    const nextReturned = !res.is_returned;
+    const updated = reservations.map((r) => {
+      if (r.id !== res.id) return r;
+      return {
+        ...r,
+        is_returned: nextReturned,
+        returned_at: nextReturned ? new Date().toISOString() : undefined,
+      };
+    });
+    saveReservations(updated);
+
+    // Pokud byl výčep vrácen, nastavíme jeho stav sanitace na 'dirty_beer'
+    if (nextReturned) {
+      updateSanitation(res.tap_id, {
+        status: 'dirty_beer',
+      });
+    }
+  }
+
+  const todayStr = new Date().toISOString().slice(0, 10);
 
   return (
     <div className="space-y-6 pb-12">
@@ -157,48 +188,34 @@ export default function VycepyScreen() {
         <div>
           <div className="flex items-center gap-2 text-amber-400 font-extrabold text-xs uppercase tracking-widest mb-1">
             <Flame size={18} />
-            <span>Pivovarské výčepy & Sanitace</span>
+            <span>Půjčovna & Sanitace výčepů</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-display font-black tracking-tight text-white flex items-center gap-2">
-            <span>🍺 Výčepy, Sanitace & Rezervační kalendář</span>
+            <span>🍻 Půjčovna výčepních zařízení & Sanitace</span>
           </h1>
           <p className="text-xs text-neutral-400 font-medium mt-1">
-            Přehled čistoty výčepů (oplach vodou, sanitace louhem, rozebrané kohouty) a rezervace jednokohoutů, dvojkohoutů, trojkohoutů a šestikohoutů pro hospody a akce.
+            Evidence výčepů (1–6 kohouty), sanitace louhem/vodou a rezervační kalendář pro zápůjčky.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => setShowAddTapModal(true)}
-            className="px-4 py-2.5 rounded-2xl bg-neutral-800 hover:bg-neutral-700 text-white font-extrabold text-xs transition shadow-xs flex items-center gap-1.5"
-          >
-            <Plus size={16} /> Přidat výčep
-          </button>
-
-          <button
-            onClick={() => {
-              if (taps.length > 0) setResTapId(taps[0].id);
-              setShowResModal(true);
-            }}
-            className="px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md flex items-center gap-1.5"
-          >
-            <Calendar size={16} /> Vytvořit rezervaci
-          </button>
-        </div>
+        <button
+          onClick={() => setShowAddTapModal(true)}
+          className="btn-primary !bg-amber-500 !text-neutral-950 font-black text-xs flex items-center gap-1.5 shadow-md"
+        >
+          <Plus size={16} /> Přidat výčepní zařízení
+        </button>
       </div>
 
-      {/* 🍺 EVIDOVANÉ VÝČEPY A JEJICH ČISTOTA */}
+      {/* 🚰 SEZNAM VÝČEPŮ A STAV ČISTOTY */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
-          <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-            <span>Vozový výčepní park ({taps.length})</span>
-          </h3>
-        </div>
+        <h2 className="text-sm font-display font-black uppercase tracking-wider text-amber-950 flex items-center gap-2">
+          <span>🚰 Výčepní zařízení v pivovaru ({taps.length})</span>
+        </h2>
 
         {taps.length === 0 ? (
-          <EmptyState text="Zatím nemáš zadané žádné výčepy." icon="🍺" />
+          <EmptyState text="Zatím nemáte přidané žádné výčepy." icon="🚰" />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {taps.map((t) => {
               const isDirty = t.status === 'dirty_beer';
               const needsLouh = t.status === 'needs_louh';
@@ -233,8 +250,8 @@ export default function VycepyScreen() {
                       <div className="flex items-center justify-between">
                         <span className="text-neutral-500 font-medium">Stav čistoty:</span>
                         {isClean && <span className="text-emerald-700 font-black flex items-center gap-1"><CheckCircle2 size={14} /> Čisté & Opláchnuté</span>}
-                        {isDirty && <span className="text-rose-700 font-black flex items-center gap-1"><ShieldAlert size={14} /> V trubkách je pivo (Nutno vyčistit!)</span>}
-                        {needsLouh && <span className="text-amber-800 font-black flex items-center gap-1"><AlertTriangle size={14} /> Nutná sanitace louhem</span>}
+                        {isDirty && <span className="text-rose-700 font-black flex items-center gap-1"><ShieldAlert size={14} /> V trubkách je pivo</span>}
+                        {needsLouh && <span className="text-amber-800 font-black flex items-center gap-1"><AlertTriangle size={14} /> Nutný louh</span>}
                       </div>
 
                       <div className="pt-2 border-t border-neutral-100 text-[11px] text-neutral-700 space-y-1 font-mono">
@@ -249,7 +266,7 @@ export default function VycepyScreen() {
                         <div className="flex justify-between">
                           <span>🔧 Rozebrané kohouty:</span>
                           <strong className={t.taps_disassembled ? 'text-emerald-700' : 'text-rose-600'}>
-                            {t.taps_disassembled ? '✓ Ano (Vyčištěné)' : '✕ Ne'}
+                            {t.taps_disassembled ? '✓ Ano' : '✕ Ne'}
                           </strong>
                         </div>
                       </div>
@@ -291,10 +308,10 @@ export default function VycepyScreen() {
 
       {/* 📅 REZERVAČNÍ KALENDÁŘ VÝČEPŮ */}
       <div className="card p-6 bg-white border border-neutral-200 rounded-3xl shadow-xs space-y-4">
-        <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+        <div className="flex items-center justify-between border-b border-neutral-100 pb-3 flex-wrap gap-2">
           <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
             <Calendar className="text-amber-600" size={20} />
-            <span>Rezervace výčepních zařízení ({reservations.length})</span>
+            <span>Rezervace a výpůjčky výčepů ({reservations.length})</span>
           </h3>
 
           <button
@@ -302,9 +319,9 @@ export default function VycepyScreen() {
               if (taps.length > 0) setResTapId(taps[0].id);
               setShowResModal(true);
             }}
-            className="px-3.5 py-2 rounded-xl bg-amber-500 text-neutral-950 font-black text-xs shadow-2xs flex items-center gap-1"
+            className="btn-primary !py-1.5 !px-3.5 text-xs font-black shadow-2xs flex items-center gap-1"
           >
-            + Nová rezervace výčepu
+            + Nová výpůjčka / rezervace
           </button>
         </div>
 
@@ -315,29 +332,74 @@ export default function VycepyScreen() {
             <table className="table text-xs">
               <thead>
                 <tr>
+                  <th>Stav</th>
                   <th>Výčep</th>
-                  <th>Od</th>
-                  <th>Do</th>
-                  <th>Odběratel</th>
+                  <th>Od – Do</th>
+                  <th>Zákazník</th>
+                  <th>Kauce</th>
                   <th>Poznámka</th>
-                  <th className="w-10"></th>
+                  <th className="text-right">Akce</th>
                 </tr>
               </thead>
               <tbody>
-                {reservations.map((r) => (
-                  <tr key={r.id} className="hover:bg-neutral-50/80 transition-colors">
-                    <td className="font-black text-[11px] text-neutral-950">{r.tap_name}</td>
-                    <td className="font-mono font-bold text-[11px] text-amber-950 whitespace-nowrap">{new Date(r.date_from).toLocaleDateString('cs-CZ')}</td>
-                    <td className="font-mono font-bold text-[11px] text-amber-950 whitespace-nowrap">{new Date(r.date_to).toLocaleDateString('cs-CZ')}</td>
-                    <td className="font-black text-[11px] text-neutral-900">{r.customer_name}</td>
-                    <td className="text-[11px] text-neutral-600 font-medium">{r.note || '—'}</td>
-                    <td className="text-right">
-                      <button onClick={() => handleDeleteReservation(r.id)} className="p-1.5 rounded-lg hover:bg-rose-100 text-rose-600 transition" title="Smazat rezervaci">
-                        <Trash2 size={15} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {reservations.map((r) => {
+                  const isOverdue = !r.is_returned && r.date_to < todayStr;
+                  const isReturned = r.is_returned;
+
+                  return (
+                    <tr key={r.id} className={`hover:bg-neutral-50/80 transition-colors ${isOverdue ? 'bg-rose-50/60' : ''}`}>
+                      <td>
+                        {isReturned ? (
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-950 font-black text-[10px] border border-emerald-300">
+                            ✓ Vráceno
+                          </span>
+                        ) : isOverdue ? (
+                          <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white font-black text-[10px] animate-pulse">
+                            ⚠️ Po termínu
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-950 font-black text-[10px] border border-amber-300">
+                            Půjčeno
+                          </span>
+                        )}
+                      </td>
+                      <td className="font-black text-xs text-neutral-950">{r.tap_name}</td>
+                      <td className="font-mono font-bold text-xs text-amber-950 whitespace-nowrap">
+                        {new Date(r.date_from).toLocaleDateString('cs-CZ')} – {new Date(r.date_to).toLocaleDateString('cs-CZ')}
+                      </td>
+                      <td>
+                        <div className="font-black text-xs text-neutral-900">{r.customer_name}</div>
+                        {r.phone && (
+                          <a href={`tel:${r.phone}`} className="text-[11px] text-blue-700 font-bold hover:underline">
+                            📞 {r.phone}
+                          </a>
+                        )}
+                      </td>
+                      <td className="font-mono font-bold text-xs text-neutral-700">
+                        {r.deposit_czk ? `${r.deposit_czk.toLocaleString('cs-CZ')} Kč` : '—'}
+                      </td>
+                      <td className="text-[11px] text-neutral-600 font-medium">{r.note || '—'}</td>
+                      <td className="text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleReturnReservation(r)}
+                            className={`px-2.5 py-1 rounded-xl text-[11px] font-black transition ${
+                              r.is_returned
+                                ? 'bg-neutral-200 text-neutral-800 hover:bg-neutral-300'
+                                : 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-2xs'
+                            }`}
+                          >
+                            {r.is_returned ? 'Zrušit vrácení' : '✓ Vrátit'}
+                          </button>
+                          <button onClick={() => handleDeleteReservation(r.id)} className="p-1.5 rounded-lg hover:bg-rose-100 text-rose-600 transition" title="Smazat rezervaci">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -392,8 +454,8 @@ export default function VycepyScreen() {
               </div>
 
               <div className="pt-3 flex justify-end gap-2 border-t border-neutral-100">
-                <button type="button" onClick={() => setShowAddTapModal(false)} className="px-4 py-2 rounded-xl bg-neutral-100 font-bold text-xs">Zrušit</button>
-                <button type="submit" className="px-4 py-2 rounded-xl bg-amber-500 font-black text-xs">Uložit výčep</button>
+                <button type="button" onClick={() => setShowAddTapModal(false)} className="btn-secondary text-xs font-bold">Zrušit</button>
+                <button type="submit" className="btn-primary text-xs font-black">Uložit výčep</button>
               </div>
             </form>
           </div>
@@ -405,7 +467,7 @@ export default function VycepyScreen() {
         <div className="fixed inset-0 bg-neutral-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-neutral-200">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
-              <h3 className="font-display font-black text-lg text-neutral-900">Vytvořit rezervaci výčepu</h3>
+              <h3 className="font-display font-black text-lg text-neutral-900">Vytvořit výpůjčku výčepu</h3>
               <button onClick={() => setShowResModal(false)} className="text-neutral-400 font-bold">✕</button>
             </div>
 
@@ -446,11 +508,36 @@ export default function VycepyScreen() {
                 />
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-black text-neutral-700 mb-1">Telefon</label>
+                  <input
+                    type="tel"
+                    placeholder="+420 777..."
+                    value={resPhone}
+                    onChange={(e) => setResPhone(e.target.value)}
+                    className="input font-bold text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-neutral-700 mb-1">Vratná kauce (Kč)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="500"
+                    placeholder="2000"
+                    value={resDeposit}
+                    onChange={(e) => setResDeposit(e.target.value ? Number(e.target.value) : '')}
+                    className="input font-mono font-bold text-xs"
+                  />
+                </div>
+              </div>
+
               <div>
-                <label className="block text-xs font-black text-neutral-700 mb-1">Poznámka k rezervaci</label>
+                <label className="block text-xs font-black text-neutral-700 mb-1">Poznámka</label>
                 <input
                   type="text"
-                  placeholder="Volitelné"
+                  placeholder="Volitelná poznámka k zápůjčce"
                   value={resNote}
                   onChange={(e) => setResNote(e.target.value)}
                   className="input text-xs"

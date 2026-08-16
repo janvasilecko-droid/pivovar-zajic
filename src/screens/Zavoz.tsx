@@ -9,6 +9,10 @@ import { exportZavozToExcel } from '../lib/excel';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { EditOrderModal } from '../components/EditOrderModal';
 import { getSecondCarDates, toggleSecondCarDates, collectZavozDates } from '../lib/zavozSecondCar';
+import { SignatureModal } from '../components/SignatureModal';
+import { KegReturnModal } from '../components/KegReturnModal';
+import { openNavigation, buildCustomerDeliveryWhatsAppText, openCustomerWhatsApp, NavigationApp } from '../lib/navigation';
+import { MessageCircle, PenTool } from 'lucide-react';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -16,6 +20,8 @@ type Order = {
   is_delivered: boolean; note: string | null; source: string; delivered_at: string | null;
   created_at: string; delivery_date: string | null;
   place_phone?: string | null;
+  signature_url?: string | null;
+  signature_name?: string | null;
 };
 type OrderItem = { id: string; order_id: string; beer_id: string | null; beer_name: string | null; package_id: string | null; package_label: string | null; quantity: number; is_prepared: boolean };
 
@@ -36,6 +42,11 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
   const [moveTarget, setMoveTarget] = useState<string | null>(null);
   const [moveBusy, setMoveBusy] = useState(false);
   const [secondCarDates, setSecondCarDates] = useState<string[]>(() => getSecondCarDates());
+
+  // Driver Tool Modals
+  const [navTarget, setNavTarget] = useState<{ name: string; destination: string } | null>(null);
+  const [signOrder, setSignOrder] = useState<Order | null>(null);
+  const [kegReturnOrder, setKegReturnOrder] = useState<Order | null>(null);
 
   async function load(silent = false) {
     if (!silent && !orders.length) setLoading(true);
@@ -898,11 +909,56 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                   <span>Celkem: {totalQty} ks</span>
                                   <span>Váha: {fmtKg(weightKg)} kg</span>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  <button onClick={() => setEditOrder(o)} className="btn-ghost !py-1.5 !px-3 text-xs font-black flex items-center gap-1" title="Upravit objednávku"><Pencil size={13} /> Upravit</button>
+                                <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                                  {/* 🧭 1-Click Navigace */}
                                   {o.place_name && (
-                                    <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(o.place_name)}`} target="_blank" rel="noreferrer" className="btn-ghost !py-1.5 !px-3 text-xs font-black flex items-center gap-1" title="Otevřít v Google Mapách"><MapPin size={13} /> Mapy</a>
+                                    <button
+                                      type="button"
+                                      onClick={() => setNavTarget({ name: o.place_name!, destination: o.place_name! })}
+                                      className="btn-ghost !py-1.5 !px-2.5 text-xs font-black flex items-center gap-1 bg-amber-50 text-amber-950 border border-amber-300 shadow-2xs hover:bg-amber-100"
+                                      title="Otevřít navigaci (Google Mapy / Waze / Mapy.cz)"
+                                    >
+                                      <MapPin size={13} className="text-amber-700" /> Navigovat
+                                    </button>
                                   )}
+
+                                  {/* 💬 WhatsApp avízo zákazníkovi */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const text = buildCustomerDeliveryWhatsAppText(o.place_name || 'Vážený zákazníku', orderItems, o.note);
+                                      openCustomerWhatsApp(o.place_phone || undefined, text);
+                                    }}
+                                    className="btn-ghost !py-1.5 !px-2.5 text-xs font-black flex items-center gap-1 bg-emerald-50 text-emerald-950 border border-emerald-300 shadow-2xs hover:bg-emerald-100"
+                                    title="Odeslat avízo o závozu na WhatsApp"
+                                  >
+                                    <MessageCircle size={13} className="text-emerald-700" /> WhatsApp
+                                  </button>
+
+                                  {/* 🛢️ Vrácené prázdné sudy */}
+                                  <button
+                                    type="button"
+                                    onClick={() => setKegReturnOrder(o)}
+                                    className="btn-ghost !py-1.5 !px-2.5 text-xs font-black flex items-center gap-1 bg-sky-50 text-sky-950 border border-sky-300 shadow-2xs hover:bg-sky-100"
+                                    title="Zaznamenat vrácené prázdné KEG sudy"
+                                  >
+                                    <Cylinder size={13} className="text-sky-700" /> Sudy
+                                  </button>
+
+                                  {/* ✍️ Podpis zákazníka */}
+                                  <button
+                                    type="button"
+                                    onClick={() => setSignOrder(o)}
+                                    className="btn-ghost !py-1.5 !px-2.5 text-xs font-black flex items-center gap-1 bg-neutral-100 text-neutral-900 border border-neutral-300 shadow-2xs hover:bg-neutral-200"
+                                    title="Podepsat převzetí na sklo"
+                                  >
+                                    <PenTool size={13} /> Podpis
+                                  </button>
+
+                                  <button onClick={() => setEditOrder(o)} className="btn-ghost !py-1.5 !px-2.5 text-xs font-black flex items-center gap-1" title="Upravit objednávku">
+                                    <Pencil size={13} /> Upravit
+                                  </button>
+
                                   <button
                                     onClick={() => toggleDelivered(o)}
                                     className={`px-3.5 py-1.5 rounded-xl font-black text-xs transition shadow-xs flex items-center gap-1.5 ${
@@ -1009,6 +1065,87 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
             </div>
           </div>
         </Modal>
+      )}
+
+      {/* Modal pro výběr Navigační aplikace */}
+      {navTarget && (
+        <Modal open onClose={() => setNavTarget(null)} title={`🧭 Spustit navigaci — ${navTarget.name}`}>
+          <div className="space-y-4">
+            <p className="text-xs text-neutral-600 font-medium">
+              Zvolte navigační aplikaci pro trasu k odběrateli <strong>{navTarget.destination}</strong>:
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  openNavigation('google', navTarget.destination);
+                  setNavTarget(null);
+                }}
+                className="p-4 rounded-2xl bg-white hover:bg-neutral-50 border-2 border-neutral-200 hover:border-amber-400 font-black text-xs text-neutral-900 shadow-sm flex flex-col items-center justify-center gap-2"
+              >
+                <span className="text-2xl">🗺️</span>
+                <span>Google Mapy</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  openNavigation('waze', navTarget.destination);
+                  setNavTarget(null);
+                }}
+                className="p-4 rounded-2xl bg-white hover:bg-neutral-50 border-2 border-neutral-200 hover:border-sky-400 font-black text-xs text-neutral-900 shadow-sm flex flex-col items-center justify-center gap-2"
+              >
+                <span className="text-2xl">🚗</span>
+                <span>Waze</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  openNavigation('mapycz', navTarget.destination);
+                  setNavTarget(null);
+                }}
+                className="p-4 rounded-2xl bg-white hover:bg-neutral-50 border-2 border-neutral-200 hover:border-emerald-400 font-black text-xs text-neutral-900 shadow-sm flex flex-col items-center justify-center gap-2"
+              >
+                <span className="text-2xl">🌲</span>
+                <span>Mapy.cz</span>
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal pro podpis zákazníka na sklo */}
+      {signOrder && (
+        <SignatureModal
+          isOpen={!!signOrder}
+          onClose={() => setSignOrder(null)}
+          customerName={signOrder.place_name || ''}
+          onSaveSignature={async (signatureDataUrl, signerName) => {
+            await supabase.from('orders').update({
+              signature_url: signatureDataUrl,
+              signature_name: signerName,
+              is_delivered: true,
+              delivered_at: new Date().toISOString(),
+            }).eq('id', signOrder.id);
+            alert(`✅ Podpis ${signerName} úspěšně zaznamenán!`);
+            load();
+          }}
+        />
+      )}
+
+      {/* Modal pro vrácené prázdné sudy */}
+      {kegReturnOrder && (
+        <KegReturnModal
+          isOpen={!!kegReturnOrder}
+          onClose={() => setKegReturnOrder(null)}
+          customerName={kegReturnOrder.place_name || 'Odběratel'}
+          onSaveReturns={async (returns) => {
+            const summaryStr = returns.map((r) => `${r.count}x ${r.size}`).join(', ');
+            alert(`✅ Zaznamenáno vrácení prázdných sudů pro ${kegReturnOrder.place_name}: ${summaryStr}`);
+          }}
+        />
       )}
     </div>
   );

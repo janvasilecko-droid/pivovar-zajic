@@ -9,7 +9,7 @@ import { MarketingMerchInventory } from '../components/MarketingMerchInventory';
 
 type StockByPkg = {
   package_id: string; label: string; volume_l: number; kind: string;
-  currentStock: number; outgoing: number; difference: number;
+  currentStock: number; rawStock: number; outgoing: number; difference: number;
 };
 
 type StockRow = {
@@ -198,7 +198,8 @@ export default function Stock() {
         const prefukTo = pf.filter((r) => r.beer_id === beer.id && r.to_package_id === pkg.id && isMovementInPeriod(r.entry_date)).reduce((s, r) => s + Number(r.to_count || 0), 0);
 
         // Aktuální reálný stav na skladě = Počáteční + Stočeno − již vydáno/odepsáno − přefuk ZE + přefuk DO
-        const currentStock = Math.max(0, fromInv + brewedW - outgoingMoved - prefukFrom + prefukTo);
+        const rawStock = fromInv + brewedW - outgoingMoved - prefukFrom + prefukTo;
+        const currentStock = Math.max(0, rawStock);
 
         const orderedW = ordItems.filter((i) => validOrdIdsWeek.has(i.order_id) && i.beer_id === beer.id && i.package_id === pkg.id).reduce((s, i) => s + Number(i.quantity), 0);
         const outgoing = orderedW;
@@ -206,7 +207,7 @@ export default function Stock() {
 
         return {
           package_id: pkg.id, label: pkg.label, volume_l: Number(pkg.volume_l), kind: pkg.kind,
-          currentStock, outgoing, difference,
+          currentStock, rawStock, outgoing, difference,
         };
       });
 
@@ -458,7 +459,10 @@ export default function Stock() {
                               {kegs.map((p) => (
                                 <tr key={p.package_id}>
                                   <td className="py-0.5 pr-1 whitespace-nowrap text-neutral-400 text-[9px] font-bold">{p.label}</td>
-                                  <td className="py-0.5 px-1 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md">{p.currentStock}</td>
+                                  <td className="py-0.5 px-1 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md">
+                                    {p.currentStock}
+                                    {p.rawStock < 0 && <span className="block text-[8px] font-black text-rose-600 font-mono" title="Nestočeno / nestíhá sklad">({p.rawStock})</span>}
+                                  </td>
                                   <td className={`py-0.5 px-1 text-center font-extrabold rounded-md ${p.outgoing > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-400'}`}>{p.outgoing > 0 ? `-${p.outgoing}` : '0'}</td>
                                   <td className={`py-0.5 pl-1 text-center font-extrabold rounded-md ${p.difference < 0 ? 'bg-rose-50 text-rose-600' : p.difference === 0 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>{p.difference}</td>
                                 </tr>
@@ -483,7 +487,10 @@ export default function Stock() {
                               {bottles.map((p) => (
                                 <tr key={p.package_id}>
                                   <td className="py-0.5 pr-1 whitespace-nowrap text-neutral-400 text-[9px] font-bold">{p.label}</td>
-                                  <td className="py-0.5 px-1 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md">{p.currentStock}</td>
+                                  <td className="py-0.5 px-1 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md">
+                                    {p.currentStock}
+                                    {p.rawStock < 0 && <span className="block text-[8px] font-black text-rose-600 font-mono" title="Nestočeno / nestíhá sklad">({p.rawStock})</span>}
+                                  </td>
                                   <td className={`py-0.5 px-1 text-center font-extrabold rounded-md ${p.outgoing > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-400'}`}>{p.outgoing > 0 ? `-${p.outgoing}` : '0'}</td>
                                   <td className={`py-0.5 pl-1 text-center font-extrabold rounded-md ${p.difference < 0 ? 'bg-rose-50 text-rose-600' : p.difference === 0 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>{p.difference}</td>
                                 </tr>

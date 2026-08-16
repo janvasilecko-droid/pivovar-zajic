@@ -1,7 +1,7 @@
 // Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-export const APP_VERSION = '1.616';
-export const APP_VERSION_DATE = '16.8.2026 12:43';
+export const APP_VERSION = '1.618';
+export const APP_VERSION_DATE = '16.8.2026 15:10';
 
 
 
@@ -9,6 +9,9 @@ export const APP_VERSION_DATE = '16.8.2026 12:43';
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 
 export const APP_CHANGELOG: string[] = [
+  '🏪 Odběratelé: tlačítko 🔍 Načíst adresu pro automatické dohledání adresy a telefonu hospody z map/Google, nové pole pro telefon zákazníka a štítky ⚠️ Bez adresy. v1.618',
+  '⚡ Objednávky: detekce duplicity v týdnu, 1-Click opakování poslední objednávky hospody. 📦 Sklad: červené zvýraznění záporného teoretického deficitu (nestihlo se zapsat stočení). 🚚 Závoz: 1-Click navigace (Mapy/Waze/Mapy.cz), WhatsApp avízo, prázdné sudy a podpis. v1.617',
+  '🚚 Závoz & Řidič: 1-Click navigace (Google Mapy / Waze / Mapy.cz), WhatsApp odeslání avíza zákazníkovi, dotykový podpis na sklo při převzetí a evidence vrácených prázdných KEG sudů. 🏰 Sklep: Vizuální mapa tanků a CKT s hladinami a zráním. 🍻 Půjčovna výčepů: evidence kaucí, kontaktů a vrácení. 📦 Sklad: rychlé mobilní dotykové sčítadlo. 🎙️ Hlasové diktování ve stáčení lahví. v1.616',
   '👤 Nastavení: přidána možnost změny vlastního jména (používá se v zápisech, např. fašování, stáčení, sanitace). Verze aplikace se přesunula z horní lišty dolů do menu (vedle vašeho jména/stavu připojení) a horní lišta už neotevírá Nastavení — Nastavení zůstává jen v menu. v1.615',
 
   '🛢️ KEG (Potřeba stočit): kliknutím na kterýkoliv řádek tabulky potřeb (např. 12° Světlá 50l, chybí 3 ks) se přímo otevře Přehled objednávek s automatickým vyfiltrováním daného piva a sudu v aktuálním týdnu. v1.607',

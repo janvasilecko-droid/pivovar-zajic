@@ -1363,6 +1363,62 @@ export default function Orders({
           <div className="mb-4">
             <label className="label dark:text-white">Odběratel <span className="text-neutral-400 dark:text-neutral-400 font-normal">(nepovinné)</span></label>
             <PlaceCombobox value={placeId} onChange={(id, name) => { setPlaceId(id); setPlaceNameFree(name); }} places={places} onPlacesChanged={load} />
+
+            {/* Chytrá doporučení: Duplicita v týdnu & Zopakovat objednávku */}
+            {(placeId || placeNameFree.trim()) && (() => {
+              const targetPId = placeId || null;
+              const targetPName = (placeNameFree || '').toLowerCase().trim();
+              const placeOrders = orders.filter((o) => {
+                if (o.status === 'storno') return false;
+                if (targetPId && o.place_id === targetPId) return true;
+                if (targetPName && (o.place_name || '').toLowerCase().trim() === targetPName) return true;
+                return false;
+              });
+
+              const targetWeek = isoWeekKey(deliveryDate);
+              const dupOrder = placeOrders.find((o) => isoWeekKey(o.delivery_date || o.order_date) === targetWeek);
+              const lastOrder = [...placeOrders].sort((a, b) => (b.order_date || '').localeCompare(a.order_date || ''))[0];
+              const lastItems = lastOrder ? (items[lastOrder.id] || []) : [];
+
+              return (
+                <div className="mt-2 space-y-1.5">
+                  {dupOrder && (
+                    <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-bold flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-1.5">
+                        ⚠️ <strong>Upozornění:</strong> Tento odběratel již má objednávku na tento týden ({new Date(dupOrder.delivery_date || dupOrder.order_date).toLocaleDateString('cs-CZ')}).
+                      </span>
+                    </div>
+                  )}
+
+                  {lastItems.length > 0 && (
+                    <div className="flex items-center justify-between p-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs">
+                      <span className="text-neutral-600 dark:text-neutral-300 font-bold truncate">
+                        Poslední závoz: {lastItems.map((i) => `${i.quantity}x ${i.beer_name || ''} ${i.package_label || ''}`).join(', ')}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newRows: BeerRowItem[] = lastItems.map((it) => ({
+                            beerId: it.beer_id || '',
+                            pkgId: it.package_id || '',
+                            qty: String(it.quantity || ''),
+                            placeId: placeId,
+                            placeNameFree: placeNameFree,
+                          }));
+                          while (newRows.length < 5) {
+                            newRows.push({ beerId: '', pkgId: '', qty: '', placeId: '', placeNameFree: '' });
+                          }
+                          setBeerRows(newRows);
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[11px] shadow-2xs shrink-0 transition"
+                      >
+                        ⚡ Zopakovat položky
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Datum dodání + Závoz na jednom řádku */}

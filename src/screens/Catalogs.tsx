@@ -3,6 +3,7 @@ import { supabase, Beer, Package, Place, Vehicle, useRealtime, BEER_COLOR_PRESET
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import ExcelImportModal from '../components/ExcelImportModal';
 import { FileSpreadsheet, Plus, Search, Beer as BeerIcon, Package as PackageIcon, MapPin, Phone, Mail, Edit, Trash2, Eye, EyeOff, Car, AlertTriangle, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { lookupPlaceOnline } from '../lib/placeLookup';
 
 /* ===== PIVA ===== */
 export function BeersScreen() {
@@ -345,11 +346,36 @@ export function PlacesScreen() {
           {filtered.map((p) => (
             <div key={p.id} className="card p-5 shadow-sm hover:shadow-md border border-neutral-200/90 bg-white rounded-3xl flex flex-col justify-between">
               <div>
-                <div className="font-display font-black text-base text-neutral-900">{p.name}</div>
-                {p.address && <div className="text-xs text-neutral-500 mt-1 flex items-center gap-1"><MapPin size={13} className="text-amber-600 shrink-0" /><span className="truncate">{p.address}</span></div>}
+                <div className="flex items-start justify-between gap-1">
+                  <div className="font-display font-black text-base text-neutral-900">{p.name}</div>
+                  {!p.address && (
+                    <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 font-extrabold text-[10px] shrink-0 border border-amber-300">
+                      ⚠️ Bez adresy
+                    </span>
+                  )}
+                </div>
+                {p.address ? (
+                  <div className="text-xs text-neutral-600 font-medium mt-1 flex items-center gap-1">
+                    <MapPin size={13} className="text-amber-600 shrink-0" />
+                    <span className="truncate">{p.address}</span>
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-neutral-400 font-bold italic mt-1">
+                    Adresa není zadána
+                  </div>
+                )}
                 {p.delivery_group && <div className="mt-2 text-xs font-bold text-emerald-800 bg-emerald-100 border border-emerald-200 rounded-lg px-2 py-1 inline-block">Skupina: {p.delivery_group}</div>}
                 {p.contact_name && <div className="text-xs text-neutral-700 font-bold mt-2">Kontakt: {p.contact_name}</div>}
-                {p.phone && <div className="text-xs text-amber-700 font-mono font-bold mt-0.5 flex items-center gap-1"><Phone size={12} />{p.phone}</div>}
+                {p.phone ? (
+                  <div className="text-xs text-amber-700 font-mono font-bold mt-0.5 flex items-center gap-1">
+                    <Phone size={12} />
+                    <a href={`tel:${p.phone}`} className="hover:underline">{p.phone}</a>
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-neutral-400 font-mono mt-0.5 flex items-center gap-1">
+                    <Phone size={12} /> bez telefonu
+                  </div>
+                )}
                 {p.email && <div className="text-xs text-neutral-500 font-mono mt-0.5 flex items-center gap-1"><Mail size={12} />{p.email}</div>}
               </div>
 
@@ -379,6 +405,33 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
   const [deliveryGroup, setDeliveryGroup] = useState((place as any)?.delivery_group ?? '');
   const [note, setNote] = useState(place?.note ?? '');
   const [busy, setBusy] = useState(false);
+  const [searchingAddress, setSearchingAddress] = useState(false);
+  const [addressCandidates, setAddressCandidates] = useState<{ address: string; phone?: string; displayName: string }[]>([]);
+  const [lookupMsg, setLookupMsg] = useState<string | null>(null);
+
+  async function handleAutoLookupAddress() {
+    if (!name.trim()) {
+      alert('Nejprve zadejte název odběratele / hospody.');
+      return;
+    }
+    setSearchingAddress(true);
+    setLookupMsg(null);
+    setAddressCandidates([]);
+
+    const results = await lookupPlaceOnline(name);
+    setSearchingAddress(false);
+
+    if (results.length === 0) {
+      setLookupMsg('❌ Adresa nebyla nalezena. Můžete ji zadat ručně, nebo do názvu připsat město (např. „U Zajíce Cheb“).');
+    } else if (results.length === 1) {
+      setAddress(results[0].address);
+      if (results[0].phone && !phone) setPhone(results[0].phone);
+      setLookupMsg(`✓ Adresa načtena: ${results[0].address}`);
+    } else {
+      setAddressCandidates(results);
+      setLookupMsg(`Nalezeno ${results.length} možných adres — zvolte správnou:`);
+    }
+  }
 
   async function save() {
     if (!name.trim()) {
@@ -449,23 +502,130 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
     onSaved();
   }
 
-
-
   return (
     <Modal open onClose={onClose} title={place ? 'Upravit odběratele' : 'Nový odběratel'}>
       <div className="space-y-4">
-        <Field label="Název odběratele / Hospody"><input className="input font-bold" value={name} onChange={(e) => setName(e.target.value)} placeholder="např. U Zajíce" /></Field>
-        <Field label="Adresa"><input className="input" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Ulice 123, Město" /></Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Kontaktní osoba"><input className="input" value={contactName} onChange={(e) => setContactName(e.target.value)} /></Field>
-          <Field label="Telefon"><input className="input font-mono" value={phone} onChange={(e) => setPhone(e.target.value)} /></Field>
+        <div>
+          <Field label="Název odběratele / Hospody">
+            <div className="flex gap-2">
+              <input
+                className="input font-bold flex-1"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="např. U Zajíce"
+              />
+              <button
+                type="button"
+                onClick={handleAutoLookupAddress}
+                disabled={searchingAddress || !name.trim()}
+                className="btn-secondary text-xs font-black shrink-0 flex items-center gap-1 shadow-2xs"
+                title="Automaticky načíst adresu z Google / Map"
+              >
+                {searchingAddress ? '⏳ Hledám…' : '🔍 Načíst adresu'}
+              </button>
+            </div>
+          </Field>
+
+          {lookupMsg && (
+            <div className="mt-1.5 text-xs font-bold text-neutral-700 bg-amber-50 border border-amber-200 rounded-xl p-2">
+              {lookupMsg}
+            </div>
+          )}
+
+          {addressCandidates.length > 0 && (
+            <div className="mt-2 space-y-1 bg-white border border-neutral-200 rounded-xl p-2">
+              {addressCandidates.map((cand, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    setAddress(cand.address);
+                    if (cand.phone && !phone) setPhone(cand.phone);
+                    setAddressCandidates([]);
+                    setLookupMsg(`✓ Vybrána adresa: ${cand.address}`);
+                  }}
+                  className="w-full text-left p-2 rounded-lg text-xs hover:bg-amber-50 font-medium text-neutral-800 transition flex items-center justify-between gap-2 border border-transparent hover:border-amber-300"
+                >
+                  <span className="truncate">{cand.address}</span>
+                  <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md shrink-0">
+                    Zvolit
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-        <Field label="Závozová skupina (pro sloučení více míst do jednoho závozu)"><input className="input" value={deliveryGroup} onChange={(e) => setDeliveryGroup(e.target.value)} placeholder="např. Radek" /></Field>
-        <Field label="E-mail"><input className="input font-mono" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
-        <Field label="Poznámka"><textarea className="input" value={note} onChange={(e) => setNote(e.target.value)} rows={2} /></Field>
-        <div className="flex justify-end gap-2 pt-2">
-          <button className="btn-ghost" onClick={onClose}>Zrušit</button>
-          <button className="btn-primary" disabled={busy || !name} onClick={save}>{busy ? 'Ukládám…' : 'Uložit'}</button>
+
+        <Field label="Adresa">
+          <input
+            className="input font-medium"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="Ulice 123, Město"
+          />
+        </Field>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Kontaktní osoba">
+            <input
+              className="input"
+              value={contactName}
+              onChange={(e) => setContactName(e.target.value)}
+              placeholder="Jméno vedoucího"
+            />
+          </Field>
+          <Field label="Telefon zákazníka">
+            <input
+              type="tel"
+              className="input font-mono font-bold"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+420 777 123 456"
+            />
+          </Field>
+        </div>
+
+        <Field label="Závozová skupina (pro sloučení více míst do jednoho závozu)">
+          <input
+            className="input"
+            value={deliveryGroup}
+            onChange={(e) => setDeliveryGroup(e.target.value)}
+            placeholder="např. Radek"
+          />
+        </Field>
+
+        <Field label="E-mail">
+          <input
+            type="email"
+            className="input font-mono"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="objednavky@hospoda.cz"
+          />
+        </Field>
+
+        <Field label="Poznámka">
+          <textarea
+            className="input"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={2}
+            placeholder="např. vjezd zezadu, zvonit na rampu"
+          />
+        </Field>
+
+        <div className="flex justify-end gap-2 pt-2 border-t border-neutral-100">
+          <button type="button" className="btn-ghost text-xs font-bold" onClick={onClose}>
+            Zrušit
+          </button>
+          <button
+            type="button"
+            className="btn-primary text-xs font-black"
+            disabled={busy || !name}
+            onClick={save}
+          >
+            {busy ? 'Ukládám…' : 'Uložit odběratele'}
+          </button>
         </div>
       </div>
     </Modal>

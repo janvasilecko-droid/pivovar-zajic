@@ -15,6 +15,8 @@ import { QuickQtySelect } from '../components/QuickQtySelect';
 import { isLastWeekOfMonth } from '../lib/monthlyCleanup';
 import { autoLogBottleSanitationFromChecklist } from '../lib/bottleSanitation';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
+import { VoiceRecorder } from '../components/VoiceRecorder';
+import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 
 
 const ROW_COUNT = 12;
@@ -110,6 +112,31 @@ export default function BottlingScreen({
     () => plans.filter((p) => isPlanUnseen(p, planSeenAt)).length,
     [plans, planSeenAt]
   );
+
+  const [aliasMap, setAliasMap] = useState<ParserAliasMap>(emptyAliasMap());
+  useEffect(() => { loadAliasMap().then(setAliasMap).catch(() => {}); }, []);
+
+  const handleVoiceResult = (text: string) => {
+    const parsed = parseFreeTextEntries(text, beers, packages, aliasMap);
+    if (!parsed.length) {
+      setErr('Nerozpoznal jsem žádnou položku z hlasu. Zkuste to znovu.');
+      return;
+    }
+    setEntryRows((prev) => {
+      const next = [...prev];
+      let cursor = 0;
+      for (const p of parsed) {
+        while (cursor < next.length && (next[cursor].beerId || next[cursor].qty)) cursor++;
+        if (cursor >= next.length) {
+          next.push({ beerId: p.beer_id ?? '', pkgId: p.package_id ?? '', pkg2Id: '', pkg3Id: '', kegPkgId: '', kegQty: '', qty: p.quantity != null ? String(p.quantity) : '', qty2: '', qty3: '' });
+        } else {
+          next[cursor] = { ...next[cursor], beerId: p.beer_id ?? '', pkgId: p.package_id ?? '', qty: p.quantity != null ? String(p.quantity) : '' };
+          cursor++;
+        }
+      }
+      return next;
+    });
+  };
 
   const handleApplyPhotoRows = (parsedRows: RowInput[], dateVal?: string, photoNote?: string) => {
     setEntryRows((prev) => {
@@ -1201,6 +1228,7 @@ export default function BottlingScreen({
               </button>
               <button type="button" className="btn-ghost text-xs font-bold min-h-[44px] px-3.5" onClick={() => setEntryRows([...entryRows, emptyItem()])}>➕ Přidat řádek</button>
               <button type="button" className="btn-ghost text-xs font-bold min-h-[44px] px-3.5" onClick={() => setEntryRows(emptyRows())}>🗑️ Vymazat vše</button>
+              <VoiceRecorder onResult={handleVoiceResult} beerNames={beers.map((b) => b.name)} />
             </div>
             {err && <span className="text-xs font-bold text-rose-700 bg-rose-50 px-3 py-1.5 rounded-xl border border-rose-200">{err}</span>}
           </div>
