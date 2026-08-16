@@ -12,6 +12,7 @@ import { requestOrdersItemFilter } from '../lib/ordersFilter';
 import { computeKegNeeds } from '../lib/kegNeeds';
 import { Camera, Loader2, Pencil } from 'lucide-react';
 import { ImportKeggingFromImage } from '../components/ImportKeggingFromImage';
+import { BeerTileGrid, BeerTilePanel, TileTotalBar } from '../components/BeerTileGrid';
 
 
 const ROW_COUNT = 12;
@@ -48,6 +49,8 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   const [note, setNote] = useState('');
 
   const [entryRows, setEntryRows] = useState<RowInput[]>(emptyRows());
+  const [expandedKegBeerId, setExpandedKegBeerId] = useState<string | null>(null);
+  const expandedKegBeer = beers.find((b) => b.id === expandedKegBeerId) ?? null;
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
@@ -151,6 +154,25 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   function largestTank(tanks: CellarTank[]): CellarTank | undefined {
     if (tanks.length === 0) return undefined;
     return tanks.reduce((best, t) => Number(t.current_volume_l) > Number(best.current_volume_l) ? t : best);
+  }
+
+  // Zadávání přes dlaždice piv: čte/zapisuje do stejného pole entryRows (fixní
+  // řádky) jako tabulka níže — najde existující řádek pro dané pivo+obal, jinak
+  // použije první prázdný slot. Tabulka pod dlaždicemi zůstává pro ruční úpravy
+  // (např. dva řádky stejného piva/obalu z různých tanků).
+  function tileQtyFor(beerId: string, pkgId: string): number {
+    const row = entryRows.find((r) => r.beerId === beerId && r.pkgId === pkgId);
+    return row ? Number(row.qty || 0) : 0;
+  }
+  function setTileRow(beerId: string, pkgId: string, patch: Partial<RowInput>) {
+    setEntryRows((rs) => {
+      const idx = rs.findIndex((r) => r.beerId === beerId && r.pkgId === pkgId);
+      if (idx >= 0) return rs.map((r, i) => (i === idx ? { ...r, ...patch } : r));
+      const emptyIdx = rs.findIndex((r) => !r.beerId && !r.pkgId);
+      const base: RowInput = { beerId, pkgId, qty: '', tankId: '' };
+      if (emptyIdx >= 0) return rs.map((r, i) => (i === emptyIdx ? { ...base, ...patch } : r));
+      return [...rs, { ...base, ...patch }];
+    });
   }
 
   // Souhrn zapisovaných řádků: celkový počet ks a litrů podle vyplněných řádků formuláře
@@ -745,6 +767,73 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                   <Camera size={16} /> Číst stáčení z fotky
             </button>
           </div>
+
+          <TileTotalBar label="Zatím v zápisu" value={`${rowsSummary.totalQty} ks · ${rowsSummary.totalL.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} L`} />
+          <div className="mb-2">
+            <span className="text-[11px] text-neutral-400 font-medium">klepni na dlaždici a zadej obaly a množství sudů</span>
+          </div>
+          <div className="mb-4">
+            <BeerTileGrid
+              beers={beers.filter((b) => b.is_active)}
+              onSelect={(b) => setExpandedKegBeerId(b.id)}
+              summaryFor={(b) => {
+                const beerRows = entryRows.filter((r) => r.beerId === b.id && Number(r.qty) > 0);
+                const total = beerRows.reduce((s, r) => s + Number(r.qty || 0), 0);
+                return { filled: total > 0, label: total > 0 ? `${total} ks` : '' };
+              }}
+            />
+          </div>
+
+          {expandedKegBeer && (
+            <BeerTilePanel beer={expandedKegBeer} onClose={() => setExpandedKegBeerId(null)}>
+              {kegPackages.map((p) => {
+                const qty = tileQtyFor(expandedKegBeer.id, p.id);
+                const rowTanks = activeTanksForBeer(expandedKegBeer.id);
+                const currentTankId = entryRows.find((r) => r.beerId === expandedKegBeer.id && r.pkgId === p.id)?.tankId || '';
+                return (
+                  <div key={p.id} className="rounded-xl border border-neutral-200 py-1.5 px-2 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-bold text-neutral-700 truncate">{formatPackageLabel(p.label)}</span>
+                      <div className="flex items-center gap-1">
+                        <button type="button" onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(Math.max(0, qty - 1)) })} className="w-10 h-10 grid place-items-center rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={qty <= 0}>−</button>
+                        <input
+                          type="number"
+                          min={0}
+                          inputMode="numeric"
+                          value={qty || ''}
+                          placeholder="0"
+                          onChange={(e) => setTileRow(expandedKegBeer.id, p.id, { qty: e.target.value.replace(/[^0-9]/g, '') })}
+                          className="w-14 h-10 text-center text-lg font-black text-neutral-800 bg-white border-2 border-amber-200 rounded-lg"
+                        />
+                        <button type="button" onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(qty + 1) })} className="w-10 h-10 grid place-items-center rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none">+</button>
+                      </div>
+                    </div>
+                    {qty > 0 && rowTanks.length > 1 && (
+                      <div>
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-amber-100 border border-amber-300 text-amber-900 text-[10px] font-black whitespace-nowrap">⚠️ {rowTanks.length} aktivní tanky — vyber</span>
+                        <select
+                          className="input !py-1 !px-1.5 text-xs font-bold w-full mt-1"
+                          value={currentTankId}
+                          onChange={(e) => setTileRow(expandedKegBeer.id, p.id, { tankId: e.target.value })}
+                        >
+                          <option value="">⚡ {largestTank(rowTanks)?.label}</option>
+                          {rowTanks.map((t) => (
+                            <option key={t.id} value={t.id}>{t.label} ({Number(t.current_volume_l).toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} L)</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    {qty > 0 && rowTanks.length === 1 && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-900 text-[10px] font-black whitespace-nowrap">🛢️ {rowTanks[0].label}</span>
+                    )}
+                    {qty > 0 && rowTanks.length === 0 && (
+                      <span className="text-[10px] text-neutral-400 font-semibold">žádný aktivní tank — objem se neodečte</span>
+                    )}
+                  </div>
+                );
+              })}
+            </BeerTilePanel>
+          )}
 
           <div className="overflow-x-auto">
             <table className="w-full text-xs">

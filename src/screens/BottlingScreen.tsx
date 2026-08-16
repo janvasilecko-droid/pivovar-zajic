@@ -17,6 +17,7 @@ import { autoLogBottleSanitationFromChecklist } from '../lib/bottleSanitation';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
+import { BeerTileGrid, BeerTilePanel, TileTotalBar } from '../components/BeerTileGrid';
 
 
 const ROW_COUNT = 12;
@@ -933,131 +934,110 @@ export default function BottlingScreen({
             </div>
           </div>
 
-          {/* 🍺 Piva — dlaždice (2 vedle sebe, klikni na pivo → obaly a množství) */}
-          <div className="mb-3 flex items-center justify-between">
-            <div className="text-xs font-extrabold uppercase tracking-wider text-amber-900">Piva ({beers.filter((b) => b.is_active).length})</div>
-            <span className="text-[11px] text-neutral-400 font-medium">klikni na dlaždici a zadej obaly a množství</span>
+          {/* 🍺 Piva — dlaždice (klikni na pivo → obaly a množství) */}
+          <TileTotalBar
+            label="Zatím v zápisu"
+            value={`${beers.filter((b) => b.is_active).reduce((s, b) => s + tileQtyFor(b.id), 0)} ks`}
+          />
+          <div className="mb-2">
+            <span className="text-[11px] text-neutral-400 font-medium">klepni na dlaždici a zadej obaly a množství</span>
           </div>
-          <div className="grid grid-cols-2 gap-2 mb-4">
-            {beers.filter((b) => b.is_active).map((b) => {
-              const qty = tileQtyFor(b.id);
-              return (
-                <div key={b.id} className="rounded-xl border border-neutral-200/80 transition-all overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => openTile(b)}
-                    className="w-full text-left p-2 transition hover:brightness-[0.97]"
-                    style={{ backgroundColor: beerBg(b) }}
-                  >
-                    <div className="flex items-center justify-between gap-1">
-                      <span className={`font-black text-sm leading-tight truncate ${beerText(b)}`}>{beerName(b)}</span>
-                      <span className={`flex items-center gap-0.5 text-[11px] font-bold opacity-80 shrink-0 ${beerText(b)}`}><span>{b.degree ?? ''}</span>▸</span>
-                    </div>
-                    {qty > 0 ? (
-                      <div className="mt-1 inline-block text-[11px] font-black bg-white/85 border border-black/10 text-neutral-800 rounded-full px-1.5 py-0.5">{qty} ks v zápisu</div>
-                    ) : (
-                      <div className={`mt-1 text-[11px] font-bold opacity-70 ${beerText(b)}`}>klepni pro obaly</div>
-                    )}
-                  </button>
-                </div>
-              );
-            })}
+          <div className="mb-4">
+            <BeerTileGrid
+              beers={beers.filter((b) => b.is_active)}
+              onSelect={openTile}
+              summaryFor={(b) => {
+                const qty = tileQtyFor(b.id);
+                return { filled: qty > 0, label: qty > 0 ? `${qty} ks v zápisu` : '' };
+              }}
+            />
           </div>
 
-          {/* 🔲 Plnoobrazovkový panel — výběr obalů a množství pro zvolené pivo (vzor z Orders) */}
+          {/* 🔲 Plnoobrazovkový panel — výběr obalů a množství pro zvolené pivo */}
           {tileBeer && (
-            <div className="fixed inset-0 z-50 bg-black/60 p-2 sm:p-4 flex items-center justify-center overflow-hidden" onClick={closeTile}>
-              <div className="w-full max-w-xl m-auto" onClick={(e) => e.stopPropagation()}>
-                <div className="rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-                  <div className="px-4 py-3 flex items-center justify-between gap-2 shrink-0" style={{ backgroundColor: beerBg(tileBeer) }}>
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-black text-white text-lg leading-tight truncate drop-shadow">{beerName(tileBeer)}</span>
-                      <span className="text-sm font-bold text-white/80 shrink-0">{tileBeer.degree ?? ''}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={closeTile}
-                      className="shrink-0 w-10 h-10 grid place-items-center rounded-xl bg-black/25 hover:bg-black/40 text-white font-black text-xl transition select-none"
-                      title="Zavřít a vrátit se k dlaždicím"
-                    >✕</button>
-                  </div>
-                  <div className="p-3 bg-white space-y-3 overflow-y-auto">
-                    <div>
-                      <div className="text-[11px] font-black uppercase tracking-wider text-neutral-500 mb-1.5">🍾 Lahve (až 3 druhy)</div>
-                      <div className="space-y-2">
-                        {tileSlots.map((slot) => {
-                          const pkgId = tileDraft[slot.pkg];
-                          const qtyStr = tileDraft[slot.qty];
-                          return (
-                            <div key={slot.key} className="flex items-center justify-between gap-2 rounded-xl border border-neutral-200 py-1.5 px-2">
-                              <select
-                                className="input text-xs font-bold w-28 p-1.5 rounded-lg border border-amber-300 bg-white"
-                                value={pkgId}
-                                onChange={(e) => setTile(slot.pkg, e.target.value)}
-                              >
-                                <option value="">— obal {slot.key} —</option>
-                                {bottlePackages.map((p) => (
-                                  <option key={p.id} value={p.id}>{p.label || `${p.volume_l}L`}</option>
-                                ))}
-                              </select>
-                              <div className="flex items-center gap-1">
-                                <button type="button" onClick={() => bumpTile(slot.qty, -1)} className="w-9 h-9 grid place-items-center rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition select-none">−</button>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  inputMode="numeric"
-                                  className="w-16 h-9 text-center bg-white border border-amber-300 text-neutral-950 font-black text-sm rounded-lg"
-                                  value={qtyStr}
-                                  onChange={(e) => setTile(slot.qty, e.target.value.replace(/[^0-9]/g, ''))}
-                                  placeholder="0"
-                                />
-                                <button type="button" onClick={() => bumpTile(slot.qty, 1)} className="w-9 h-9 grid place-items-center rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-black text-xl transition select-none">+</button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* KEG zdroj — odečet sudů */}
-                    <div className="rounded-xl border border-sky-200 bg-sky-50/70 p-2.5 space-y-1.5">
-                      <div className="text-[11px] font-black uppercase tracking-wider text-sky-900">🛢️ Zdrojový KEG (odečet sudů)</div>
-                      <select
-                        className="input text-xs font-bold w-full p-1.5 rounded-lg border border-sky-300 bg-white"
-                        value={tileDraft.kegPkgId}
-                        onChange={(e) => setTile('kegPkgId', e.target.value)}
-                      >
-                        <option value="">— žádný —</option>
-                        {kegPackages.map((p) => (
-                          <option key={p.id} value={p.id}>KEG {p.volume_l}L</option>
-                        ))}
-                      </select>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] font-extrabold uppercase text-neutral-500">Počet sudů</span>
+            <BeerTilePanel
+              beer={tileBeer}
+              onClose={closeTile}
+              headerRight={tileDraft.kegPkgId ? (
+                <span className="text-xs font-bold text-white/90 bg-black/20 rounded-full px-2 py-0.5 shrink-0">
+                  🛢️ zdroj: {kegPackages.find((p) => p.id === tileDraft.kegPkgId)?.label || 'KEG'}
+                </span>
+              ) : undefined}
+              footer={
+                <div className="flex items-center gap-2 pt-1">
+                  <button type="button" onClick={applyTile} className="btn-primary flex-1 text-xs font-black shadow-md min-h-[44px]">➕ Přidat do zápisu</button>
+                  <button type="button" onClick={closeTile} className="btn-ghost text-xs font-bold min-h-[44px] px-3">Zpět</button>
+                </div>
+              }
+            >
+              <div>
+                <div className="text-[11px] font-black uppercase tracking-wider text-neutral-500 mb-1.5">🍾 Lahve (až 3 druhy)</div>
+                <div className="space-y-2">
+                  {tileSlots.map((slot) => {
+                    const pkgId = tileDraft[slot.pkg];
+                    const qtyStr = tileDraft[slot.qty];
+                    return (
+                      <div key={slot.key} className="flex items-center justify-between gap-2 rounded-xl border border-neutral-200 py-1.5 px-2">
+                        <select
+                          className="input text-xs font-bold w-28 p-1.5 rounded-lg border border-amber-300 bg-white"
+                          value={pkgId}
+                          onChange={(e) => setTile(slot.pkg, e.target.value)}
+                        >
+                          <option value="">— obal {slot.key} —</option>
+                          {bottlePackages.map((p) => (
+                            <option key={p.id} value={p.id}>{p.label || `${p.volume_l}L`}</option>
+                          ))}
+                        </select>
                         <div className="flex items-center gap-1">
-                          <button type="button" onClick={() => bumpTile('kegQty', -1)} className="w-9 h-9 grid place-items-center rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-800 font-black text-xl transition select-none">−</button>
+                          <button type="button" onClick={() => bumpTile(slot.qty, -1)} className="w-9 h-9 grid place-items-center rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition select-none">−</button>
                           <input
                             type="number"
                             min={0}
                             inputMode="numeric"
-                            className="w-16 h-9 text-center bg-white border border-sky-300 text-neutral-950 font-black text-sm rounded-lg"
-                            value={tileDraft.kegQty}
-                            onChange={(e) => setTile('kegQty', e.target.value.replace(/[^0-9]/g, ''))}
+                            className="w-16 h-9 text-center bg-white border border-amber-300 text-neutral-950 font-black text-sm rounded-lg"
+                            value={qtyStr}
+                            onChange={(e) => setTile(slot.qty, e.target.value.replace(/[^0-9]/g, ''))}
                             placeholder="0"
                           />
-                          <button type="button" onClick={() => bumpTile('kegQty', 1)} className="w-9 h-9 grid place-items-center rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-black text-xl transition select-none">+</button>
+                          <button type="button" onClick={() => bumpTile(slot.qty, 1)} className="w-9 h-9 grid place-items-center rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-black text-xl transition select-none">+</button>
                         </div>
                       </div>
-                    </div>
+                    );
+                  })}
+                </div>
+              </div>
 
-                    <div className="flex items-center gap-2 pt-1">
-                      <button type="button" onClick={applyTile} className="btn-primary flex-1 text-xs font-black shadow-md min-h-[44px]">➕ Přidat do zápisu</button>
-                      <button type="button" onClick={closeTile} className="btn-ghost text-xs font-bold min-h-[44px] px-3">Zpět</button>
-                    </div>
+              {/* KEG zdroj — odečet sudů */}
+              <div className="rounded-xl border border-sky-200 bg-sky-50/70 p-2.5 space-y-1.5">
+                <div className="text-[11px] font-black uppercase tracking-wider text-sky-900">🛢️ Zdrojový KEG (odečet sudů)</div>
+                <select
+                  className="input text-xs font-bold w-full p-1.5 rounded-lg border border-sky-300 bg-white"
+                  value={tileDraft.kegPkgId}
+                  onChange={(e) => setTile('kegPkgId', e.target.value)}
+                >
+                  <option value="">— žádný —</option>
+                  {kegPackages.map((p) => (
+                    <option key={p.id} value={p.id}>KEG {p.volume_l}L</option>
+                  ))}
+                </select>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-extrabold uppercase text-neutral-500">Počet sudů</span>
+                  <div className="flex items-center gap-1">
+                    <button type="button" onClick={() => bumpTile('kegQty', -1)} className="w-9 h-9 grid place-items-center rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-800 font-black text-xl transition select-none">−</button>
+                    <input
+                      type="number"
+                      min={0}
+                      inputMode="numeric"
+                      className="w-16 h-9 text-center bg-white border border-sky-300 text-neutral-950 font-black text-sm rounded-lg"
+                      value={tileDraft.kegQty}
+                      onChange={(e) => setTile('kegQty', e.target.value.replace(/[^0-9]/g, ''))}
+                      placeholder="0"
+                    />
+                    <button type="button" onClick={() => bumpTile('kegQty', 1)} className="w-9 h-9 grid place-items-center rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-black text-xl transition select-none">+</button>
                   </div>
                 </div>
               </div>
-            </div>
+            </BeerTilePanel>
           )}
 
           {/* Mobilní zobrazení (Karty) vs. Desktop zobrazení (Tabulka) */}

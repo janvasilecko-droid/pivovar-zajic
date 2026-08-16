@@ -10,6 +10,7 @@ import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap 
 import { TapReservationModal } from '../components/TapReservationModal';
 import { detectTapType } from '../lib/tapReservations';
 import type { TapReservation } from './VycepyScreen';
+import { BeerTileGrid, BeerTilePanel, TileTotalBar } from '../components/BeerTileGrid';
 
 const ROW_COUNT = 12;
 const FASOVANI_ROW_COUNT = 6;
@@ -30,6 +31,8 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   const [who, setWho] = useState('');
   const [note, setNote] = useState('');
   const [entryRows, setEntryRows] = useState<RowInput[]>(() => emptyRows(table === 'fasovani' ? FASOVANI_ROW_COUNT : ROW_COUNT));
+  const [expandedProdejnaBeerId, setExpandedProdejnaBeerId] = useState<string | null>(null);
+  const expandedProdejnaBeer = beers.find((b) => b.id === expandedProdejnaBeerId) ?? null;
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
@@ -92,6 +95,25 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
 
   function setRowField(i: number, field: keyof RowInput, value: string | boolean) {
     setEntryRows((rs) => rs.map((r, idx) => idx === i ? { ...r, [field]: value } : r));
+  }
+
+  // Zadávání přes dlaždice piv: čte/zapisuje do stejného pole entryRows (fixní
+  // řádky) jako tabulka níže — najde existující řádek pro dané pivo+obal, jinak
+  // použije první prázdný slot. Tabulka pod dlaždicemi zůstává pro ruční úpravy
+  // (např. rozdělení stejného piva/obalu mezi dvě různé osoby).
+  function tileQtyFor(beerId: string, pkgId: string): number {
+    const row = entryRows.find((r) => r.beerId === beerId && r.pkgId === pkgId);
+    return row ? Number(row.qty || 0) : 0;
+  }
+  function setTileRow(beerId: string, pkgId: string, patch: Partial<RowInput>) {
+    setEntryRows((rs) => {
+      const idx = rs.findIndex((r) => r.beerId === beerId && r.pkgId === pkgId);
+      if (idx >= 0) return rs.map((r, i) => (i === idx ? { ...r, ...patch } : r));
+      const emptyIdx = rs.findIndex((r) => !r.beerId && !r.pkgId);
+      const base: RowInput = { ...emptyItem(), beerId, pkgId };
+      if (emptyIdx >= 0) return rs.map((r, i) => (i === emptyIdx ? { ...base, ...patch } : r));
+      return [...rs, { ...base, ...patch }];
+    });
   }
 
   function getRowWho(r: EntryRow) {
@@ -288,6 +310,76 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
               </span>
             </div>
           </div>
+
+          <TileTotalBar label="Zatím zapsáno" value={`${rowsSummary.totalQty} ks · ${rowsSummary.totalL.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L`} />
+          <div className="mb-2">
+            <span className="text-[11px] text-neutral-400 font-medium">klepni na dlaždici a zadej obaly a množství</span>
+          </div>
+          <div className="mb-4">
+            <BeerTileGrid
+              beers={beers.filter((b) => b.is_active)}
+              onSelect={(b) => setExpandedProdejnaBeerId(b.id)}
+              summaryFor={(b) => {
+                const beerRows = entryRows.filter((r) => r.beerId === b.id && Number(r.qty) > 0);
+                const total = beerRows.reduce((s, r) => s + Number(r.qty || 0), 0);
+                return { filled: total > 0, label: total > 0 ? `${total} ks` : '' };
+              }}
+            />
+          </div>
+
+          {expandedProdejnaBeer && (
+            <BeerTilePanel beer={expandedProdejnaBeer} onClose={() => setExpandedProdejnaBeerId(null)}>
+              {shopPackages.map((p) => {
+                const qty = tileQtyFor(expandedProdejnaBeer.id, p.id);
+                const rowWho = entryRows.find((r) => r.beerId === expandedProdejnaBeer.id && r.pkgId === p.id)?.who ?? '';
+                const rowVycep = entryRows.find((r) => r.beerId === expandedProdejnaBeer.id && r.pkgId === p.id)?.vycep ?? false;
+                return (
+                  <div key={p.id} className="rounded-xl border border-neutral-200 py-1.5 px-2 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-bold text-neutral-700 truncate">{formatPackageLabel(p.label)}</span>
+                      <div className="flex items-center gap-1">
+                        <button type="button" onClick={() => setTileRow(expandedProdejnaBeer.id, p.id, { qty: String(Math.max(0, qty - 1)) })} className="w-10 h-10 grid place-items-center rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={qty <= 0}>−</button>
+                        <input
+                          type="number"
+                          min={0}
+                          inputMode="numeric"
+                          value={qty || ''}
+                          placeholder="0"
+                          onChange={(e) => setTileRow(expandedProdejnaBeer.id, p.id, { qty: e.target.value.replace(/[^0-9]/g, '') })}
+                          className="w-14 h-10 text-center text-lg font-black text-neutral-800 bg-white border-2 border-amber-200 rounded-lg"
+                        />
+                        <button type="button" onClick={() => setTileRow(expandedProdejnaBeer.id, p.id, { qty: String(qty + 1) })} className="w-10 h-10 grid place-items-center rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none">+</button>
+                      </div>
+                    </div>
+                    {showWhoColumn && (
+                      <input
+                        type="text"
+                        className="input text-xs w-full"
+                        value={rowWho}
+                        onChange={(e) => setTileRow(expandedProdejnaBeer.id, p.id, { who: e.target.value })}
+                        placeholder={who || (table === 'writeoffs' ? 'Důvod odpisu (nepovinné, jinak společný)' : 'Kdo / pro koho (nepovinné, jinak společný)')}
+                      />
+                    )}
+                    {showVycep && (
+                      <label className="flex items-center gap-2 text-xs font-bold text-neutral-600">
+                        <input
+                          type="checkbox"
+                          checked={rowVycep}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setTileRow(expandedProdejnaBeer.id, p.id, { vycep: checked });
+                            if (checked) { setTapModalRowIndex(undefined); setShowTapModal(true); }
+                          }}
+                          className="w-5 h-5 rounded text-amber-600 focus:ring-amber-500 accent-amber-500"
+                        />
+                        Výčep (rezervovat)
+                      </label>
+                    )}
+                  </div>
+                );
+              })}
+            </BeerTilePanel>
+          )}
 
           {/* Tabulka položek */}
           <div className="overflow-x-auto">

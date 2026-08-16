@@ -17,6 +17,7 @@ import { PlaceCombobox } from '../components/PlaceCombobox'; // Assuming this is
 import { DAYS } from '../lib/shared';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { QuickQtySelect, orderQuickQtys } from '../components/QuickQtySelect';
+import { BeerTileGrid, BeerTilePanel, TileTotalBar } from '../components/BeerTileGrid';
 import { parseVoiceOrder, parseOrderText, detectOrderNotes, loadAliasMap, loadPlaceAliasMap, emptyAliasMap, getOrCreatePlace, matchBeerFromHints, matchPackage, normalize, type ParserAliasMap } from '../lib/orderParser';
 
 import { shareOrderToWhatsApp } from '../lib/whatsapp';
@@ -1559,125 +1560,74 @@ export default function Orders({
           </div>
 
           {/* 🍺 Piva — dlaždice (klikni na pivo → obaly a množství) */}
-
-          {/* 🍺 Dlaždice piv — 3 vedle sebe. Používáme flexbox + margin
-              místo CSS grid + gap, protože v některých verzích Android WebView
-              (Capacitor) se grid/gap nevykresluje spolehlivě. Díky
-              box-sizing:border-box (Tailwind preflight) tři w-1/3 dlaždice
-              zaberou prakticky celou šířku a -mx-1/-my-1 s px-1/py-1 vytvoří
-              stejnou mezeru jako gap-2. */}
-          <div className="flex flex-wrap -mx-1 -my-1">
-            {beers.map((b) => {
-              const rows = beerRows.filter((r) => r.beerId === b.id);
+          <TileTotalBar
+            label="Zatím v objednávce"
+            value={`${filledBeerRows.reduce((s, r) => s + Number(r.qty || 0), 0)} ks · ${new Set(filledBeerRows.map((r) => r.beerId)).size} piv`}
+          />
+          <BeerTileGrid
+            beers={beers}
+            onSelect={(b) => setExpandedBeerId(b.id)}
+            summaryFor={(b) => {
+              const rows = beerRows.filter((r) => r.beerId === b.id && Number(r.qty) > 0);
               const total = rows.reduce((s, r) => s + Number(r.qty || 0), 0);
-              return (
-                <div key={b.id} className="w-1/3 px-1 py-1 rounded-xl border border-neutral-200/80 transition-all overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => setExpandedBeerId(b.id)}
-                    className="w-full text-left p-2 transition hover:brightness-[0.97]"
-                    style={{ backgroundColor: beerBg(b) }}
-                  >
-                    <div className="flex items-center justify-between gap-1">
-                      <span className={`font-black text-sm leading-tight truncate ${beerText(b)}`}>{beerName(b)}</span>
-                      <span className={`flex items-center gap-0.5 text-[11px] font-bold opacity-70 shrink-0 ${beerText(b)}`}><span>{b.degree ?? ''}</span>▸</span>
-                    </div>
-                    {total > 0 ? (
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {rows.map((r) => {
-                          const pkg = packages.find((p) => p.id === r.pkgId);
-                          return pkg ? (
-                            <span key={pkg.id} className="px-1 py-0.5 rounded-full bg-white/85 border border-black/10 text-neutral-800 text-[10px] font-black">
-                              {formatPackageLabel(pkg.label)} × {r.qty}
-                            </span>
-                          ) : null;
-                        })}
-                      </div>
-                    ) : (
-                      <div className={`mt-1 text-[11px] font-bold opacity-60 ${beerText(b)}`}>klepni pro obaly</div>
-                    )}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+              return { filled: total > 0, label: total > 0 ? `${total} ks` : '' };
+            }}
+          />
 
-          {/* 🔲 Plnoobrazovkový editační panel — roztáhne vybrané pivo přes celou obrazovku */}
           {expandedBeer && (
-            <div className="fixed inset-0 z-50 bg-black/60 p-2 sm:p-4 flex items-center justify-center overflow-hidden" onClick={() => setExpandedBeerId(null)}>
-              <div className="w-full max-w-xl m-auto" onClick={(e) => e.stopPropagation()}>
-                <div className="rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-                  <div className="px-4 py-3 flex items-center justify-between gap-2 shrink-0" style={{ backgroundColor: beerBg(expandedBeer) }}>
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-black text-white text-lg leading-tight truncate drop-shadow">{beerName(expandedBeer)}</span>
-                      <span className="text-sm font-bold text-white/80 shrink-0">{expandedBeer.degree ?? ''}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setExpandedBeerId(null)}
-                      className="shrink-0 w-10 h-10 grid place-items-center rounded-xl bg-black/25 hover:bg-black/40 text-white font-black text-xl transition select-none"
-                      title="Zavřít a vrátit se k dlaždicím"
-                    >✕</button>
-                  </div>
-                  <div className="p-2.5 bg-white dark:bg-neutral-800 space-y-1.5 overflow-y-auto">
-                    {[...packages].sort((a, b) => pkgPanelIndex(a) - pkgPanelIndex(b)).map((p) => {
-                      const row = beerRows.find((r) => r.beerId === expandedBeer.id && r.pkgId === p.id);
-                      const qty = row ? Number(row.qty || 0) : 0;
-                      const qtyStr = row ? row.qty : '';
-                      const qtys = orderQuickQtys(p);
-                      return (
-                        <div key={p.id} className="flex items-center justify-between gap-2 rounded-xl border border-neutral-200 dark:border-neutral-700 py-1.5 px-2">
-                          <span className="text-sm font-bold text-neutral-700 dark:text-neutral-200 truncate">{formatPackageLabel(p.label)}</span>
-                          <div className="flex items-center gap-1">
-                            {qtys && (
-                              <select
-                                value={qtys.includes(qty) ? qty : ''}
-                                onChange={(e) => { const v = e.target.value; if (v !== '') setPkgAbsolute(expandedBeer.id, p.id, Number(v)); }}
-                                className="h-9 rounded-lg bg-white border border-amber-300 text-emerald-950 font-black text-sm px-1.5 cursor-pointer transition"
-                                title={`Rychlé nastavení počtu (${qtys.join('/')})`}
-                              >
-                                <option value="" disabled>+ ks</option>
-                                {qtys.map((q) => (
-                                  <option key={q} value={q}>{q} ks</option>
-                                ))}
-                              </select>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => setPkgQty(expandedBeer.id, p.id, -1)}
-                              className="w-10 h-10 grid place-items-center rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none"
-                              disabled={qty <= 0}
-                            >−</button>
-                            <input
-                              type="number"
-                              min={0}
-                              inputMode="numeric"
-                              value={qtyStr ?? 0}
-                              placeholder="0"
-                              onChange={(e) => {
-                                const v = e.target.value.replace(/[^0-9]/g, '');
-                                if (v === '') { setPkgAbsolute(expandedBeer.id, p.id, 0); return; }
-                                setPkgAbsolute(expandedBeer.id, p.id, Number(v));
-                              }}
-                              className="w-14 h-10 text-center text-lg font-black text-neutral-800 dark:text-neutral-100 bg-white dark:bg-neutral-900/60 border-2 border-amber-200 dark:border-neutral-700 rounded-lg"
-                              title="Napiš počet ručně"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setPkgQty(expandedBeer.id, p.id, 1)}
-                              className="w-10 h-10 grid place-items-center rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none"
-                            >+</button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    <div className="flex justify-end pt-1">
-                      <button type="button" onClick={() => setExpandedBeerId(null)} className="btn-primary font-black shadow-md">Hotovo ✓</button>
+            <BeerTilePanel beer={expandedBeer} onClose={() => setExpandedBeerId(null)}>
+              {[...packages].sort((a, b) => pkgPanelIndex(a) - pkgPanelIndex(b)).map((p) => {
+                const row = beerRows.find((r) => r.beerId === expandedBeer.id && r.pkgId === p.id);
+                const qty = row ? Number(row.qty || 0) : 0;
+                const qtyStr = row ? row.qty : '';
+                const qtys = orderQuickQtys(p);
+                return (
+                  <div key={p.id} className="flex items-center justify-between gap-2 rounded-xl border border-neutral-200 dark:border-neutral-700 py-1.5 px-2">
+                    <span className="text-sm font-bold text-neutral-700 dark:text-neutral-200 truncate">{formatPackageLabel(p.label)}</span>
+                    <div className="flex items-center gap-1">
+                      {qtys && (
+                        <select
+                          value={qtys.includes(qty) ? qty : ''}
+                          onChange={(e) => { const v = e.target.value; if (v !== '') setPkgAbsolute(expandedBeer.id, p.id, Number(v)); }}
+                          className="h-9 rounded-lg bg-white border border-amber-300 text-emerald-950 font-black text-sm px-1.5 cursor-pointer transition"
+                          title={`Rychlé nastavení počtu (${qtys.join('/')})`}
+                        >
+                          <option value="" disabled>+ ks</option>
+                          {qtys.map((q) => (
+                            <option key={q} value={q}>{q} ks</option>
+                          ))}
+                        </select>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setPkgQty(expandedBeer.id, p.id, -1)}
+                        className="w-10 h-10 grid place-items-center rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none"
+                        disabled={qty <= 0}
+                      >−</button>
+                      <input
+                        type="number"
+                        min={0}
+                        inputMode="numeric"
+                        value={qtyStr ?? 0}
+                        placeholder="0"
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/[^0-9]/g, '');
+                          if (v === '') { setPkgAbsolute(expandedBeer.id, p.id, 0); return; }
+                          setPkgAbsolute(expandedBeer.id, p.id, Number(v));
+                        }}
+                        className="w-14 h-10 text-center text-lg font-black text-neutral-800 dark:text-neutral-100 bg-white dark:bg-neutral-900/60 border-2 border-amber-200 dark:border-neutral-700 rounded-lg"
+                        title="Napiš počet ručně"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setPkgQty(expandedBeer.id, p.id, 1)}
+                        className="w-10 h-10 grid place-items-center rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none"
+                      >+</button>
                     </div>
                   </div>
-                </div>
-              </div>
-            </div>
+                );
+              })}
+            </BeerTilePanel>
           )}
 
 
