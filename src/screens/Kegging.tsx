@@ -38,7 +38,6 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   const [tab, setTab] = useState<'zapis' | 'prehled' | 'potreba' | 'prefuk'>('zapis');
 
   // 📋 Checklist states
-  const checklistPromptedRef = useRef(false);
   const [showChecklistModal, setShowChecklistModal] = useState(false);
   const [checklistGate, setChecklistGate] = useState(false);
   const [checklistPhase, setChecklistPhase] = useState<'start' | 'end' | 'monthly'>('start');
@@ -48,20 +47,6 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [note, setNote] = useState('');
 
-  // Auto trigger start checklist
-  useEffect(() => {
-    if (tab !== 'zapis') {
-      checklistPromptedRef.current = false;
-      return;
-    }
-    if (checklistPromptedRef.current) return;
-    checklistPromptedRef.current = true;
-    if (!isStartChecklistCompleteForKeg(date)) {
-      setChecklistPhase('start');
-      setChecklistGate(true);
-      setShowChecklistModal(true);
-    }
-  }, [tab, date]);
   const [entryRows, setEntryRows] = useState<RowInput[]>(emptyRows());
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
