@@ -261,9 +261,17 @@ html.density-large .btn {
 }
 
 /* HIGH CONTRAST TEXT FIXES - Prevent white-on-white text across the entire application */
+/* color-scheme: light vynutí, aby Chromium/WebView (i v tmavém režimu OS) NEaplikoval
+   auto-dark styling (tmavé nativní pozadí) na formulářové prvky. Bez toho mají pole
+   (např. pole pro počet obalů) v tmavém režimu tmavé pozadí a díky !important níže
+   zůstává tmavé písmo -> tmavé na tmavém, nečitelné. */
+:root { color-scheme: light; }
+
 input, select, textarea, .input {
   color: #0f172a !important; /* Dark Slate 900 for crisp text visibility */
-  background-color: #ffffff;
+  background-color: #ffffff !important;
+  color-scheme: light;
+  -webkit-color-scheme: light;
 }
 
 select option {
