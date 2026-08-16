@@ -1441,17 +1441,9 @@ export default function Orders({
       {/* 1. ZADÁVÁNÍ OBJEDNÁVEK (jen v záložce Zadání objednávek) */}
       {mode !== 'overviews_only' && viewMode === 'summary' && (
         <form onSubmit={addOrder} className={`card p-4 mb-5 transition-all duration-200 ${flash ? 'ring-4 ring-success-500/20' : ''}`}>
-          <div className="text-xs font-black uppercase tracking-wider text-amber-900 dark:text-amber-300 mb-3 flex items-center justify-between">
-            <span className="flex items-center gap-2 text-sm font-display font-extrabold text-amber-800 dark:text-amber-200">
-              <FilePlus size={16} className="text-amber-700 dark:text-amber-400" />
-              <span>Formulář nové objednávky</span>
-            </span>
-            <span className="text-[11px] text-neutral-400 dark:text-neutral-400 font-normal">Zadej novou zákaznickou objednávku</span>
-          </div>
-
           {/* Odběratel */}
           <div className="mb-4">
-            <label className="label dark:text-white">Odběratel <span className="text-neutral-400 dark:text-neutral-400 font-normal">(nepovinné)</span></label>
+            <label className="label dark:text-white">Odběratel</label>
             <PlaceCombobox value={placeId} onChange={(id, name) => { setPlaceId(id); setPlaceNameFree(name); }} places={places} onPlacesChanged={load} />
 
             {/* Chytrá doporučení: Duplicita v týdnu & Zopakovat objednávku */}
@@ -1513,7 +1505,7 @@ export default function Orders({
 
           {/* 📅 Datum závozu — primárně aktuální týden + den závozu */}
           <div className="mb-4">
-            <label className="label dark:text-white">Datum závozu <span className="text-neutral-400 dark:text-neutral-400 font-normal">(primárně aktuální týden)</span></label>
+            <label className="label dark:text-white">Datum závozu</label>
 
             {/* Navigace týdnem */}
             <div className="flex items-center gap-1.5">
@@ -1567,10 +1559,6 @@ export default function Orders({
           </div>
 
           {/* 🍺 Piva — dlaždice (klikni na pivo → obaly a množství) */}
-          <div className="mb-3 flex items-center justify-between">
-            <div className="text-xs font-extrabold uppercase tracking-wider text-amber-900 dark:text-amber-300">Piva ({beers.length})</div>
-            <span className="text-[11px] text-neutral-400 dark:text-neutral-400 font-medium">klikni na pivo a zadej obaly a množství</span>
-          </div>
 
           {/* 🍺 Dlaždice piv — 2 vedle sebe. Používáme flexbox + margin
               místo CSS grid + gap, protože v některých verzích Android WebView
