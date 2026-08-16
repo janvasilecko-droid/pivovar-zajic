@@ -350,9 +350,14 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
   const [sanitationTime, setSanitationTime] = useState(getCurrentTimeStr);
   const [sanitationDuration, setSanitationDuration] = useState<number | ''>(20);
   const [sanitationNote, setSanitationNote] = useState('');
+  const [sanitationConcentration, setSanitationConcentration] = useState<number | ''>('');
   const [sanitationBusy, setSanitationBusy] = useState(false);
 
-  async function recordSanitation(methodToSave: 'louh' | 'kyselina_dusicna' | 'oplach_vodou' | 'persteril' | 'kombinovana', targetTank: CellarTank, customNote?: string) {
+  const DEFAULT_CONCENTRATION: Record<string, number | null> = {
+    louh: 2, kyselina_dusicna: 2, kombinovana: 2, oplach_vodou: null, persteril: 0.5,
+  };
+
+  async function recordSanitation(methodToSave: 'louh' | 'kyselina_dusicna' | 'oplach_vodou' | 'persteril' | 'kombinovana', targetTank: CellarTank, customNote?: string, concentrationPct?: number | '') {
     const labels: Record<string, string> = {
       louh: 'Louh (NaOH)',
       kyselina_dusicna: 'Kyselina dusičná',
@@ -368,6 +373,7 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
       tank_label: targetTank.label,
       method: methodToSave,
       method_label: labels[methodToSave] ?? methodToSave,
+      concentration_pct: concentrationPct !== undefined && concentrationPct !== '' ? Number(concentrationPct) : DEFAULT_CONCENTRATION[methodToSave],
       performed_by: userName,
       note: customNote?.trim() || null,
       created_at: new Date().toISOString(),
@@ -888,6 +894,21 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
                           <span>Kyselina</span>
                         </button>
                       </div>
+                      <button
+                        type="button"
+                        className="mt-1.5 w-full min-h-[40px] text-xs px-3 py-2 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-bold border border-neutral-200 flex items-center justify-center gap-1.5"
+                        onClick={() => {
+                          setSanitationMethod('louh');
+                          setSanitationTime(getCurrentTimeStr());
+                          setSanitationDuration(20);
+                          setSanitationNote('');
+                          setSanitationConcentration('');
+                          setSanitationModalTank(t);
+                        }}
+                        title="Zvolit metodu, čas, dobu trvání a poznámku ručně"
+                      >
+                        📝 Podrobný zápis sanitace (čas, doba, chemie)
+                      </button>
                     </div>
 
                     {/* Vedlejší akce */}
@@ -962,6 +983,16 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
               </Field>
             </div>
 
+            <Field label="Koncentrace chemie (%) — nepovinné, jinak výchozí dle metody">
+              <input
+                type="number" step="0.1" min={0} max={100}
+                className="input w-full font-bold"
+                placeholder={DEFAULT_CONCENTRATION[sanitationMethod] != null ? `výchozí ${DEFAULT_CONCENTRATION[sanitationMethod]} %` : 'bez chemie'}
+                value={sanitationConcentration}
+                onChange={(e) => setSanitationConcentration(e.target.value === '' ? '' : Number(e.target.value))}
+              />
+            </Field>
+
             <Field label="Poznámka / Detaily (nepovinné)">
               <input type="text" className="input w-full" placeholder="např. Oplach na pH 7.0 chráněn" value={sanitationNote} onChange={(e) => setSanitationNote(e.target.value)} />
             </Field>
@@ -973,10 +1004,11 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
                 disabled={sanitationBusy}
                 onClick={async () => {
                   setSanitationBusy(true);
-                  await recordSanitation(sanitationMethod, sanitationModalTank, sanitationNote);
+                  await recordSanitation(sanitationMethod, sanitationModalTank, sanitationNote, sanitationConcentration);
                   setSanitationBusy(false);
                   setSanitationModalTank(null);
                   setSanitationNote('');
+                  setSanitationConcentration('');
                   alert(`✅ Sanitace (${sanitationModalTank.label}) byla zapsána do Sanitačního deníku!`);
                 }}
               >
