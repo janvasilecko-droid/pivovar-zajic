@@ -20,12 +20,16 @@ CREATE TABLE IF NOT EXISTS public.place_aliases (
 
 ALTER TABLE public.place_aliases ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "place_aliases_select" ON public.place_aliases;
 CREATE POLICY "place_aliases_select" ON public.place_aliases
   FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "place_aliases_insert" ON public.place_aliases;
 CREATE POLICY "place_aliases_insert" ON public.place_aliases
   FOR INSERT TO authenticated WITH CHECK (true);
+DROP POLICY IF EXISTS "place_aliases_update" ON public.place_aliases;
 CREATE POLICY "place_aliases_update" ON public.place_aliases
   FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "place_aliases_delete" ON public.place_aliases;
 CREATE POLICY "place_aliases_delete" ON public.place_aliases
   FOR DELETE TO authenticated USING (true);
 

@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS public.allowed_emails (
 ALTER TABLE public.allowed_emails ENABLE ROW LEVEL SECURITY;
 
 -- Admins (role = 'admin') can do anything on allowed_emails
+DROP POLICY IF EXISTS "Admins manage allowed_emails" ON public.allowed_emails;
 CREATE POLICY "Admins manage allowed_emails" ON public.allowed_emails
     FOR ALL TO authenticated
     USING (

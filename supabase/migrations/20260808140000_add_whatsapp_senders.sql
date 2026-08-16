@@ -17,16 +17,21 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_whatsapp_senders_name ON whatsapp_senders 
 ALTER TABLE whatsapp_senders ENABLE ROW LEVEL SECURITY;
 
 -- Přihlášení uživatelé spravují seznam z UI (nastavení aplikace)
+DROP POLICY IF EXISTS "Users can view whatsapp_senders" ON whatsapp_senders;
 CREATE POLICY "Users can view whatsapp_senders" ON whatsapp_senders
   FOR SELECT USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Users can insert whatsapp_senders" ON whatsapp_senders;
 CREATE POLICY "Users can insert whatsapp_senders" ON whatsapp_senders
   FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Users can update whatsapp_senders" ON whatsapp_senders;
 CREATE POLICY "Users can update whatsapp_senders" ON whatsapp_senders
   FOR UPDATE USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Users can delete whatsapp_senders" ON whatsapp_senders;
 CREATE POLICY "Users can delete whatsapp_senders" ON whatsapp_senders
   FOR DELETE USING (auth.role() = 'authenticated');
 
 -- Service role pro edge funkce (whatsapp-auto-parse)
+DROP POLICY IF EXISTS "Service role can manage whatsapp_senders" ON whatsapp_senders;
 CREATE POLICY "Service role can manage whatsapp_senders" ON whatsapp_senders
   FOR ALL USING (auth.role() = 'service_role');
 

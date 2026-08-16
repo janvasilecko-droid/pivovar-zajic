@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS public.whatsapp_session (
 ALTER TABLE public.whatsapp_session ENABLE ROW LEVEL SECURITY;
 
 -- Service role can manage all, authenticated users cannot access (sensitive credentials)
+DROP POLICY IF EXISTS "Service role manages whatsapp_session" ON public.whatsapp_session;
 CREATE POLICY "Service role manages whatsapp_session" ON public.whatsapp_session
     FOR ALL
     TO service_role
@@ -25,6 +26,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_whatsapp_session_updated_at ON public.whatsapp_session;
 CREATE TRIGGER trg_whatsapp_session_updated_at
     BEFORE UPDATE ON public.whatsapp_session
     FOR EACH ROW

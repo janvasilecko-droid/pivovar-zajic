@@ -17,6 +17,7 @@
 
 -- !! IMPORTANT: Replace with your actual Google Gemini API key in Supabase dashboard !!
 -- This is a placeholder. The real key must be set via Supabase SQL editor or dashboard.
+-- ON CONFLICT DO NOTHING: nikdy nepřepsat už nastavený reálný klíč placeholderem.
 INSERT INTO app_secrets (key, value, updated_at)
 VALUES ('GEMINI_API_KEY', 'REPLACE_WITH_YOUR_GEMINI_API_KEY', now())
-ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now();
+ON CONFLICT (key) DO NOTHING;
