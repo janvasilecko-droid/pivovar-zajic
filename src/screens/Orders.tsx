@@ -20,7 +20,7 @@ import { QuickQtySelect, orderQuickQtys } from '../components/QuickQtySelect';
 import { parseVoiceOrder, parseOrderText, detectOrderNotes, loadAliasMap, loadPlaceAliasMap, emptyAliasMap, getOrCreatePlace, matchBeerFromHints, matchPackage, normalize, type ParserAliasMap } from '../lib/orderParser';
 
 import { shareOrderToWhatsApp } from '../lib/whatsapp';
-import { subscribeToWhatsAppMessages, fetchPendingWhatsAppMessages, fetchWhatsAppMessage, WhatsAppIncoming, fetchWhatsAppSenders, isSenderAllowed, type WhatsAppSender } from '../lib/whatsappApi';
+import { subscribeToWhatsAppMessages, fetchPendingWhatsAppMessages, fetchWhatsAppMessage, WhatsAppIncoming, fetchWhatsAppSenders, isSenderAllowed, triggerAutoParse, type WhatsAppSender } from '../lib/whatsappApi';
 import { autoReserveTapIfNeeded, isTapMentioned, detectTapType } from '../lib/tapReservations';
 import { findDuplicateOrders, formatDuplicateMessage } from '../lib/orderDuplicates';
 import { TapReservationModal } from '../components/TapReservationModal';
@@ -276,14 +276,9 @@ export default function Orders({
           
           // Automaticky spustíme parsování, pokud je zpráva v pending stavu
           if (message.status === 'pending') {
-            // Spustíme automatické parsování
-            fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-auto-parse`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-                'Content-Type': 'application/json',
-              },
-            }).catch(err => console.error('Chyba při automatickém parsování:', err));
+            void triggerAutoParse().catch((err) => {
+              console.error('Chyba při automatickém parsování:', err);
+            });
           }
           
           // Zobraz modální okno s novou zprávou
@@ -333,14 +328,7 @@ export default function Orders({
         const hasPending = allowed.some((m) => m.status === 'pending');
         if (hasPending) {
           try {
-            const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-auto-parse`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-                'Content-Type': 'application/json',
-              },
-            });
-            if (!res.ok) console.error('Chyba při automatickém parsování (dočtení):', res.status);
+            await triggerAutoParse();
           } catch (err) {
             console.error('Chyba při automatickém parsování (dočtení):', err);
           }
@@ -1584,12 +1572,18 @@ export default function Orders({
             <span className="text-[11px] text-neutral-400 dark:text-neutral-400 font-medium">klikni na pivo a zadej obaly a množství</span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          {/* 🍺 Dlaždice piv — 2 vedle sebe. Používáme flexbox + margin
+              místo CSS grid + gap, protože v některých verzích Android WebView
+              (Capacitor) se grid/gap nevykresluje spolehlivě. Díky
+              box-sizing:border-box (Tailwind preflight) dvě w-1/2 dlaždice
+              zaberou přesně 100% šířky a -mx-1/-my-1 s px-1/py-1 vytvoří
+              stejnou mezeru jako gap-2. */}
+          <div className="flex flex-wrap -mx-1 -my-1">
             {beers.map((b) => {
               const rows = beerRows.filter((r) => r.beerId === b.id);
               const total = rows.reduce((s, r) => s + Number(r.qty || 0), 0);
               return (
-                <div key={b.id} className="rounded-xl border border-neutral-200/80 transition-all overflow-hidden">
+                <div key={b.id} className="w-1/2 px-1 py-1 rounded-xl border border-neutral-200/80 transition-all overflow-hidden">
                   <button
                     type="button"
                     onClick={() => setExpandedBeerId(b.id)}

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Mic, Square, Loader2 } from 'lucide-react';
+import { authenticatedFunctionHeaders } from '../lib/functionAuth';
 
 /**
  * Nahrávání hlasu → odeslání na edge funkci transcribe-audio (gpt-4o-transcribe) →
@@ -170,10 +171,7 @@ export function VoiceRecorder({
       const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcribe-audio`;
       const resp = await fetch(fnUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
+        headers: await authenticatedFunctionHeaders(),
         body: JSON.stringify({ audioBase64: base64, audioMimeType: mimeType, contextPrompt }),
         signal: abortController.signal,
       });

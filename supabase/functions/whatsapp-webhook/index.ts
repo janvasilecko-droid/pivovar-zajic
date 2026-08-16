@@ -6,6 +6,17 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
+const MAX_WEBHOOK_BYTES = 512 * 1024;
+
+function secretsEqual(actual: string, expected: string): boolean {
+  if (actual.length !== expected.length) return false;
+  let mismatch = 0;
+  for (let index = 0; index < actual.length; index += 1) {
+    mismatch |= actual.charCodeAt(index) ^ expected.charCodeAt(index);
+  }
+  return mismatch === 0;
+}
+
 // Interface for incoming webhook payload from Make.com
 interface MakeWebhookPayload {
   // Required fields
@@ -153,9 +164,16 @@ Deno.serve(async (req: Request) => {
   // Tasker/Make pak musí posílat hlavičku `x-webhook-token` se stejnou hodnotou.
   // Bez nastaveného tajemství zůstává webhook otevřený (pro lokální vývoj).
   const webhookSecret = Deno.env.get("WEBHOOK_SECRET") ?? "";
-  if (webhookSecret) {
+  if (!webhookSecret) {
+    console.error('[whatsapp-webhook] WEBHOOK_SECRET is not configured');
+    return new Response(
+      JSON.stringify({ error: 'Webhook is not configured' }),
+      { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+  {
     const provided = req.headers.get("x-webhook-token") ?? "";
-    if (provided !== webhookSecret) {
+    if (!secretsEqual(provided, webhookSecret)) {
       console.warn(
         `[whatsapp-webhook] 401 — chybí nebo nesouhlasí x-webhook-token (WEBHOOK_SECRET je nastaveno). Požadavek NEBYL zpracován — zpráva se NEULOŽÍ. Tasker: doplň hlavičku x-webhook-token.`
       );
@@ -185,7 +203,20 @@ Deno.serve(async (req: Request) => {
     // na řídicí znaky uvnitř stringů, proto čteme text a při neúspěchu escapujeme
     // řídicí znaky jen uvnitř stringů a zkusíme to znovu (viz escapeControlChars...).
     let payload: MakeWebhookPayload;
+    const declaredLength = Number(req.headers.get('content-length') ?? '0');
+    if (Number.isFinite(declaredLength) && declaredLength > MAX_WEBHOOK_BYTES) {
+      return new Response(
+        JSON.stringify({ error: 'Payload too large' }),
+        { status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
     const rawBody = await req.text();
+    if (new TextEncoder().encode(rawBody).byteLength > MAX_WEBHOOK_BYTES) {
+      return new Response(
+        JSON.stringify({ error: 'Payload too large' }),
+        { status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
     try {
       payload = JSON.parse(rawBody);
     } catch (e) {

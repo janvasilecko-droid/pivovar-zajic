@@ -9,6 +9,7 @@ export const APP_VERSION_DATE = '16.8.2026 17:43';
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 
 export const APP_CHANGELOG: string[] = [
+  '🔐 Kompletní audit a opravy: přístup jen pro adminem schválené e-maily, povinná změna prvního hesla, bezpečnější oprávnění, offline synchronizace, tisk, AI funkce a transakční zápisy. v1.621',
   '🔐 Zabezpečení a spolehlivost: účet lze vytvořit jen pro schválený e-mail, klient už nemůže sám přidělit administrátorskou roli, opraveny duplicitní odpočty závozu a ztráta nových operací při offline synchronizaci. v1.620',
   '🍺 Objednávky: nové zadávání objednávek — dlaždice piv (klikni na pivo → obaly a množství), datum závozu (aktuální týden + den), souhrn objednávky dole pod dlaždicemi s úpravou, poznámka s automatickým doplněním data závozu (17.8. / pátek) a zaškrtávací pole 🚰 Půjčení výčepu s rezervačním systémem. v1.619',
   '🏪 Odběratelé: tlačítko 🔍 Načíst adresu pro automatické dohledání adresy a telefonu hospody z map/Google, nové pole pro telefon zákazníka a štítky ⚠️ Bez adresy. v1.618',

@@ -79,3 +79,7 @@ public/*.backup
 scripts/input/
 scripts/_*.mjs
 scripts/test-month-output.txt
+
+# Claudinio local session logs
+.claudinio/
+

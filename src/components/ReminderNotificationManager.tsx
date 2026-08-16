@@ -73,7 +73,6 @@ export function ReminderNotificationManager() {
   }, [currentUserEmail, currentUserRole, identityKey]);
 
   useEffect(() => {
-    checkingRef.current = false;
     pushedSetRef.current.clear();
     activeModalReminderRef.current = null;
     setActiveModalReminder(null);
