@@ -25,7 +25,7 @@ import { findDuplicateOrders, formatDuplicateMessage } from '../lib/orderDuplica
 import { TapReservationModal } from '../components/TapReservationModal';
 import { createReminder, getLocalReminders } from '../lib/reminders';
 import Zavoz from './Zavoz';
-import { QuickQtySelect } from '../components/QuickQtySelect';
+
 
 import * as XLSX from 'xlsx';
 
@@ -121,9 +121,58 @@ export default function Orders({
     { beerId: '', pkgId: '', qty: '', placeId: '', placeNameFree: '' },
     { beerId: '', pkgId: '', qty: '', placeId: '', placeNameFree: '' },
   ]);
-  function setBeerRow(i: number, field: keyof BeerRowItem, value: string) {
-    setBeerRows((rs) => rs.map((r, idx) => idx === i ? { ...r, [field]: value } : r));
+  // 🍺 Změna množství u dlaždice piva (obal + počet ks) — jeden řádek na (pivo, obal)
+  function setPkgQty(beerId: string, pkgId: string, delta: number) {
+    setBeerRows((prev) => {
+      const i = prev.findIndex((r) => r.beerId === beerId && r.pkgId === pkgId);
+      if (i >= 0) {
+        const next = Math.max(0, Number(prev[i].qty || 0) + delta);
+        if (next <= 0) return prev.filter((_, idx) => idx !== i);
+        return prev.map((r, idx) => (idx === i ? { ...r, qty: String(next) } : r));
+      }
+      if (delta <= 0) return prev;
+      return [...prev, { beerId, pkgId, qty: String(delta), placeId, placeNameFree }];
+    });
   }
+
+  // 📅 Výběr dne závozu — nastaví den i konkrétní datum v aktuálně zvoleném týdnu
+  function pickDeliveryDay(dayV: string) {
+    setDeliveryDay(dayV);
+    const idx = DAYS.findIndex((d) => d.v === dayV);
+    if (idx >= 0) {
+      const start = weekRange(weekKey).start;
+      const d = new Date(start);
+      d.setUTCDate(d.getUTCDate() + idx);
+      setDeliveryDate(d.toISOString().slice(0, 10));
+    }
+  }
+
+  // ◀▶ Přeřadit týden a zachovat zvolený den závozu
+  function shiftWeekAndKeepDay(delta: number) {
+    const wk = shiftWeek(weekKey, delta);
+    setWeekKey(wk);
+    const idx = DAYS.findIndex((d) => d.v === deliveryDay);
+    if (idx >= 0) {
+      const start = weekRange(wk).start;
+      const d = new Date(start);
+      d.setUTCDate(d.getUTCDate() + idx);
+      setDeliveryDate(d.toISOString().slice(0, 10));
+    }
+  }
+
+  // 📅 Návrat na aktuální týden (klik na popisek týdne)
+  function resetToCurrentWeek() {
+    const wk = isoWeekKey(new Date().toISOString().slice(0, 10));
+    setWeekKey(wk);
+    const idx = DAYS.findIndex((d) => d.v === deliveryDay);
+    if (idx >= 0) {
+      const start = weekRange(wk).start;
+      const d = new Date(start);
+      d.setUTCDate(d.getUTCDate() + idx);
+      setDeliveryDate(d.toISOString().slice(0, 10));
+    }
+  }
+
   const filledBeerRows = beerRows.filter((r) => r.beerId && r.pkgId && Number(r.qty) > 0);
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
@@ -132,6 +181,16 @@ export default function Orders({
   // 📝 Ruční zadání objednávky textem — uživatel napíše objednávku a ta se
   // automaticky rozparsuje do tabulky položek (pivo, obal, množství).
   const [manualText, setManualText] = useState('');
+
+  // 🍺 Dlaždice piv — rozbalené pivo v zadávacím formuláři
+  const [expandedBeerId, setExpandedBeerId] = useState<string | null>(null);
+  // 📅 Datum rozpoznané z poznámky (kdy má být zavezeno)
+  const [noteDateHint, setNoteDateHint] = useState<string | null>(null);
+
+  // 🚰 Půjčení výčepu — zaškrtávací pole v zadávacím formuláři
+  const [wantTap, setWantTap] = useState(false);
+  const [tapReservedEarly, setTapReservedEarly] = useState(false);
+  const [tapModalAfterSave, setTapModalAfterSave] = useState(false);
 
   // 🚰 Rezervace výčepu — stav pro modální okno
   const [showTapModal, setShowTapModal] = useState(false);
@@ -878,23 +937,26 @@ export default function Orders({
       }
 
 
-      // 🚰 Pokud poznámka zmiňuje výčep, zobraz modální okno pro rezervaci
+      // 🚰 Výčep — zaškrtnuto „Půjčení výčepu" nebo zmínka v poznámce
       const trimmedNote = note.trim();
       const isVycepMentioned = isTapMentioned(trimmedNote);
-      if (isVycepMentioned && firstOrderId) {
+      if ((wantTap || isVycepMentioned) && firstOrderId) {
+        if (tapReservedEarly) {
+          // Rezervace byla potvrzena už před uložením — jen ji propojíme s objednávkou
+          linkLatestReservationToOrder(firstOrderId);
+          finishOrderForm();
+          return;
+        }
         setTapModalOrderId(firstOrderId);
         setTapModalCustomer(firstPlaceName || placeNameFree || places.find(p => p.id === placeId)?.name || '');
+        setTapModalAfterSave(true);
         setShowTapModal(true);
         setSaving(false);
         return; // Stop — modal will handle the rest
       }
 
-      // No tap mentioned — finish normally
-      setBeerRows(Array.from({ length: 4 }, () => ({ beerId: '', pkgId: '', qty: '', placeId: '', placeNameFree: '' })));
-      setNote(''); setDeliveryDate(''); setErr(null);
-      setFlash(true); setTimeout(() => setFlash(false), 800);
-      setWeekKey(isoWeekKey(deliveryDate || date));
-      load();
+      // Bez výčepu — dokončíme normálně
+      finishOrderForm();
     } catch (err: any) {
       setErr(err.message ?? 'Chyba při vytváření objednávky');
     } finally {
@@ -902,17 +964,27 @@ export default function Orders({
     }
   }
 
+  /** Dokončí formulář po vytvoření objednávky (vyčistí položky a znovu načte data) */
+  function finishOrderForm() {
+    setBeerRows(Array.from({ length: 4 }, () => ({ beerId: '', pkgId: '', qty: '', placeId: '', placeNameFree: '' })));
+    setNote(''); setDeliveryDate(''); setDeliveryDay(''); setErr(null);
+    setFlash(true); setTimeout(() => setFlash(false), 800);
+    setWeekKey(isoWeekKey(deliveryDate || date));
+    setWantTap(false); setTapReservedEarly(false);
+    setSaving(false);
+    load();
+  }
+
   /** Called after tap reservation modal is confirmed or skipped */
   function handleTapModalDone() {
     setShowTapModal(false);
     setTapModalOrderId(undefined);
-    // Finish the order creation flow
-    setBeerRows(Array.from({ length: 4 }, () => ({ beerId: '', pkgId: '', qty: '', placeId: '', placeNameFree: '' })));
-    setNote(''); setDeliveryDate(''); setErr(null);
-    setFlash(true); setTimeout(() => setFlash(false), 800);
-    setWeekKey(isoWeekKey(deliveryDate || date));
-    setSaving(false);
-    load();
+    // Okno otevřené ze zaškrtávacího pole „Půjčení výčepu" před uložením —
+    // jen ho zavřeme a necháme formulář nedotčený.
+    if (!tapModalAfterSave) return;
+    setTapModalAfterSave(false);
+    // Okno otevřené po uložení objednávky — dokončíme tok vytvoření.
+    finishOrderForm();
   }
 
   async function updateDeliveryDay(o: Order, day: string) {
@@ -1421,27 +1493,67 @@ export default function Orders({
             })()}
           </div>
 
-          {/* Datum dodání + Závoz na jednom řádku */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end mb-4">
-            <div>
-              <label className="label dark:text-white">Datum dodání <span className="text-neutral-400 dark:text-neutral-400 font-normal">(jiný týden)</span></label>
-              <input type="date" className="input w-full !py-1.5 !px-2 !min-h-0 text-sm" value={deliveryDate} onChange={(e) => { setDeliveryDate(e.target.value); setWeekKey(isoWeekKey(e.target.value)); }} />
+          {/* 📅 Datum závozu — primárně aktuální týden + den závozu */}
+          <div className="mb-4">
+            <label className="label dark:text-white">Datum závozu <span className="text-neutral-400 dark:text-neutral-400 font-normal">(primárně aktuální týden)</span></label>
+
+            {/* Navigace týdnem */}
+            <div className="flex items-center gap-1.5">
+              <button type="button" onClick={() => shiftWeekAndKeepDay(-1)} className="w-9 h-9 grid place-items-center rounded-xl bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 font-black transition" title="Předchozí týden">‹</button>
+              <button
+                type="button"
+                onClick={resetToCurrentWeek}
+                className="flex-1 text-center text-xs font-black bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 rounded-xl py-2.5 transition"
+                title="Klikni pro návrat na aktuální týden"
+              >
+                📅 Týden {weekRange(weekKey).label}
+              </button>
+              <button type="button" onClick={() => shiftWeekAndKeepDay(1)} className="w-9 h-9 grid place-items-center rounded-xl bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 font-black transition" title="Další týden">›</button>
             </div>
-            <div>
-              <label className="label dark:text-white">Závoz</label>
-              <select className="input w-full !py-1.5 !px-2 !min-h-0 text-sm" value={deliveryDay} onChange={(e) => setDeliveryDay(e.target.value)}>
-                <option value="">—</option>
-                {DAYS.map((d) => <option key={d.v} value={d.v}>{d.label}</option>)}
-              </select>
+
+            {/* Den závozu */}
+            <div className="flex gap-1.5 mt-2">
+              {DAYS.map((d) => (
+                <button
+                  key={d.v}
+                  type="button"
+                  onClick={() => pickDeliveryDay(d.v)}
+                  className={`flex-1 min-w-0 px-1 py-2 rounded-xl font-black text-xs transition ${
+                    deliveryDay === d.v
+                      ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+                      : 'bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-100'
+                  }`}
+                >
+                  {d.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Upřesnění data dodání (volitelné) */}
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                type="date"
+                className="input w-auto !py-1.5 !px-2 !min-h-0 text-sm"
+                value={deliveryDate}
+                onChange={(e) => {
+                  setDeliveryDate(e.target.value);
+                  if (e.target.value) {
+                    setWeekKey(isoWeekKey(e.target.value));
+                    const wd = (new Date(e.target.value + 'T00:00:00Z').getUTCDay() + 6) % 7;
+                    setDeliveryDay(DAYS[wd].v);
+                  }
+                }}
+              />
+              <span className="text-[11px] text-neutral-400 dark:text-neutral-400">upřesnění data dodání</span>
             </div>
           </div>
 
-          {/* 📝 Rychlé zadání objednávky textem — napíšeš objednávku a ta se
-              automaticky rozparsuje do tabulky níže (pivo, obal, množství).
-              Tím se aktivuje tlačítko "Vytvořit objednávku". */}
-          <div className="mb-3 rounded-2xl border border-amber-200 bg-amber-50/50 p-3">
-            <label className="label dark:text-white">📝 Napsat objednávku textem <span className="text-neutral-400 dark:text-neutral-400 font-normal">(rychlé zadání)</span></label>
-            <div className="flex flex-col sm:flex-row gap-2">
+          {/* 📝 Rychlé zadání objednávky textem (volitelné) */}
+          <details className="mb-4 rounded-2xl border border-amber-200 bg-amber-50/50 p-3">
+            <summary className="cursor-pointer text-xs font-extrabold text-amber-800 dark:text-amber-300 select-none">
+              📝 Napsat objednávku textem <span className="text-neutral-400 dark:text-neutral-400 font-normal">(rychlé zadání do dlaždic)</span>
+            </summary>
+            <div className="mt-2 flex flex-col sm:flex-row gap-2">
               <input
                 type="text"
                 className="input flex-1 font-mono text-sm"
@@ -1451,104 +1563,176 @@ export default function Orders({
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleManualTextParse(); } }}
               />
               <button type="button" className="btn-primary text-xs font-black shadow-md shrink-0" onClick={handleManualTextParse} disabled={!manualText.trim()}>
-                ⚡ Rozparsovat do tabulky
+                ⚡ Rozparsovat
               </button>
             </div>
             <div className="text-[11px] text-neutral-500 mt-1.5">
-              Napiš objednávku a klikni na „Rozparsovat“ — položky se vyplní do tabulky níže. Pak už jen klikni na „Vytvořit objednávku“.
+              Položky se vyplní do dlaždic piv níže. Pak už jen klikni na „Vytvořit objednávku“.
             </div>
+          </details>
+
+          {/* 🍺 Piva — dlaždice (klikni na pivo → obaly a množství) */}
+          <div className="mb-3 flex items-center justify-between">
+            <div className="text-xs font-extrabold uppercase tracking-wider text-amber-900 dark:text-amber-300">Piva ({beers.length})</div>
+            <span className="text-[11px] text-neutral-400 dark:text-neutral-400 font-medium">klikni na pivo a zadej obaly a množství</span>
           </div>
 
-          {/* Položky objednávky */}
-          <div className="flex items-center justify-between mb-3">
-            <div className="text-xs font-extrabold uppercase tracking-wider text-amber-900 dark:text-amber-300">Položky objednávky ({filledBeerRows.length} vyplněno)</div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+            {beers.map((b) => {
+              const rows = beerRows.filter((r) => r.beerId === b.id);
+              const total = rows.reduce((s, r) => s + Number(r.qty || 0), 0);
+              const expanded = expandedBeerId === b.id;
+              return (
+                <div key={b.id} className={`rounded-2xl border-2 transition-all overflow-hidden ${expanded ? 'border-amber-500 shadow-md' : 'border-neutral-200/80'}`}>
+                  <button
+                    type="button"
+                    onClick={() => setExpandedBeerId(expanded ? null : b.id)}
+                    className="w-full text-left p-2.5 transition hover:brightness-[0.97]"
+                    style={{ backgroundColor: beerBg(b) }}
+                  >
+                    <div className="flex items-start justify-between gap-1">
+                      <span className={`font-black text-xs leading-tight ${beerText(b)}`}>{beerName(b)}</span>
+                      <span className={`text-[10px] font-bold opacity-70 shrink-0 ${beerText(b)}`}>{b.degree ?? ''}</span>
+                    </div>
+                    {total > 0 ? (
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {rows.map((r) => {
+                          const pkg = packages.find((p) => p.id === r.pkgId);
+                          return pkg ? (
+                            <span key={pkg.id} className="px-1.5 py-0.5 rounded-full bg-white/85 border border-black/10 text-neutral-800 text-[10px] font-black">
+                              {formatPackageLabel(pkg.label)} × {r.qty}
+                            </span>
+                          ) : null;
+                        })}
+                      </div>
+                    ) : (
+                      <div className={`mt-1.5 text-[10px] font-bold opacity-60 ${beerText(b)}`}>klepni pro obaly</div>
+                    )}
+                  </button>
+
+                  {expanded && (
+                    <div className="p-2 bg-white dark:bg-neutral-800 border-t border-neutral-100 dark:border-neutral-700 space-y-1.5">
+                      {packages.map((p) => {
+                        const row = beerRows.find((r) => r.beerId === b.id && r.pkgId === p.id);
+                        const qty = row ? Number(row.qty || 0) : 0;
+                        return (
+                          <div key={p.id} className="flex items-center justify-between gap-1.5">
+                            <span className="text-[11px] font-bold text-neutral-700 dark:text-neutral-200 truncate">{formatPackageLabel(p.label)}</span>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => setPkgQty(b.id, p.id, -1)}
+                                className="w-6 h-6 grid place-items-center rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold text-xs transition disabled:opacity-30"
+                                disabled={qty <= 0}
+                              >−</button>
+                              <span className="w-7 text-center text-xs font-black text-neutral-800 dark:text-neutral-100">{qty}</span>
+                              <button
+                                type="button"
+                                onClick={() => setPkgQty(b.id, p.id, 1)}
+                                className="w-6 h-6 grid place-items-center rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-xs transition"
+                              >+</button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
-          {/* Tabulka položek (styl KEG/Lahve stáčení) */}
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="bg-neutral-100 dark:bg-neutral-800">
-                  <th className="text-left py-1.5 px-2 font-black text-neutral-700 dark:text-neutral-200 w-2/5">Pivo</th>
-                  <th className="text-left py-1.5 px-2 font-black text-neutral-700 dark:text-neutral-200 w-1/4">Obal</th>
-                  <th className="text-center py-1.5 px-2 font-black text-neutral-700 dark:text-neutral-200">Ks</th>
-                  <th className="w-20"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {beerRows.map((r, i) => {
-                  const filled = r.beerId && r.pkgId && Number(r.qty) > 0;
+          {/* 📋 Souhrn objednávky — pod dlaždicemi, editovatelný jako dlaždice */}
+          {filledBeerRows.length > 0 && (
+            <div className="mt-4 rounded-2xl border border-amber-200 bg-white dark:bg-neutral-800 p-3">
+              <div className="text-xs font-extrabold uppercase tracking-wider text-amber-900 dark:text-amber-300 mb-2">
+                📋 Objednávka ({filledBeerRows.reduce((s, r) => s + Number(r.qty || 0), 0)} ks)
+              </div>
+              <ul className="space-y-1.5">
+                {filledBeerRows.map((r, i) => {
+                  const beer = beers.find((b) => b.id === r.beerId);
+                  const pkg = packages.find((p) => p.id === r.pkgId);
                   return (
-                    <tr key={i} className={`border-b border-neutral-200/60 ${filled ? 'bg-amber-50/40' : ''}`}>
-                      <td className="py-1 pr-1">
-                        <select className="input order-input text-xs w-full text-slate-900 bg-white font-bold" value={r.beerId} onChange={(e) => setBeerRow(i, 'beerId', e.target.value)}>
-                          <option value="">—</option>
-                          {beers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-                        </select>
-                      </td>
-                      <td className="py-1 pr-1">
-                        <select className="input order-input text-xs w-full text-slate-900 bg-white font-bold" value={r.pkgId} onChange={(e) => setBeerRow(i, 'pkgId', e.target.value)}>
-                          <option value="">—</option>
-                          {packages.map((p) => <option key={p.id} value={p.id}>{p.volume_l} L</option>)}
-                        </select>
-                      </td>
-                      <td className="py-1 pr-1">
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            type="button"
-                            className="w-7 h-7 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-800 font-bold text-sm transition disabled:opacity-30"
-                            disabled={!r.qty || Number(r.qty) <= 0}
-                            onClick={() => setBeerRow(i, 'qty', String(Math.max(0, Number(r.qty) - 1)))}
-                          >−</button>
-                                                    <span className="w-16 min-w-[3.5rem] text-xs text-center font-bold bg-white border border-neutral-200 rounded-lg py-2">
-                            {Number(r.qty) > 0 ? r.qty : '0'}
-                          </span>
-                          <button
-                            type="button"
-                            className="w-7 h-7 grid place-items-center rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-sm transition"
-                            onClick={() => setBeerRow(i, 'qty', String(Number(r.qty || 0) + 1))}
-                          >+</button>
-                          <QuickQtySelect
-                            pkg={packages.find((p) => p.id === r.pkgId)}
-                            qty={r.qty}
-                            onSelect={(q) => setBeerRow(i, 'qty', String(q))}
-                          />
-                        </div>
-                      </td>
-                      <td className="py-1">
-                        <div className="flex items-center gap-1">
-                          <button type="button" className="w-7 h-7 grid place-items-center rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-sm transition"
-                            onClick={() => { setBeerRow(i, 'beerId', ''); setBeerRow(i, 'pkgId', ''); setBeerRow(i, 'qty', ''); }}
-                            title="Zrušit řádek">✕</button>
-                          <button type="submit" className="w-7 h-7 grid place-items-center rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition shadow-xs"
-                            title="Potvrdit / vytvořit objednávku">✓</button>
-                        </div>
-                      </td>
-                    </tr>
+                    <li key={`${r.beerId}-${r.pkgId}-${i}`} className="flex items-center justify-between gap-2 rounded-xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/70 dark:border-neutral-700 px-2.5 py-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedBeerId(expandedBeerId === r.beerId ? null : r.beerId)}
+                        className="flex items-center gap-1.5 text-xs font-bold text-neutral-800 dark:text-neutral-100 text-left truncate"
+                        title="Klikni pro úpravu v dlaždici"
+                      >
+                        <span className="shrink-0">{r.qty}×</span>
+                        <span className="truncate">{formatPackageLabel(pkg?.label)} · {beerName(beer)}</span>
+                      </button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, -1)} className="w-6 h-6 grid place-items-center rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold text-xs transition disabled:opacity-30" disabled={Number(r.qty) <= 1}>−</button>
+                        <span className="w-6 text-center text-xs font-black text-neutral-800 dark:text-neutral-100">{r.qty}</span>
+                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, 1)} className="w-6 h-6 grid place-items-center rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-xs transition">+</button>
+                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, -Number(r.qty))} className="w-6 h-6 grid place-items-center rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition" title="Odebrat položku">✕</button>
+                      </div>
+                    </li>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
+              </ul>
+            </div>
+          )}
 
-          {/* Poznámka */}
+          {/* 📝 Poznámka — kdy má být zavezeno */}
           <div className="mt-4">
-            <label className="label">Poznámka <span className="text-neutral-400 font-normal">(odfasování sudu, podtacky, sklo…)</span></label>
-            <input type="text" className="input" placeholder="např. vratný sud, podtacky, sklo" value={note} onChange={(e) => setNote(e.target.value)} />
+            <label className="label">Poznámka <span className="text-neutral-400 font-normal">(kdy má být zavezeno, odfasování, sklo…) — datum se doplní automaticky</span></label>
+            <input
+              type="text"
+              className="input"
+              placeholder="např. zavezt v pátek 16.8., vratný sud, podtacky"
+              value={note}
+              onChange={(e) => {
+                const v = e.target.value;
+                setNote(v);
+                const detected = detectDeliveryDateFromNote(v, weekKey);
+                if (detected) {
+                  setDeliveryDate(detected);
+                  setWeekKey(isoWeekKey(detected));
+                  const wd = (new Date(detected + 'T00:00:00Z').getUTCDay() + 6) % 7;
+                  setDeliveryDay(DAYS[wd].v);
+                  setNoteDateHint(detected);
+                } else if (noteDateHint) {
+                  setNoteDateHint(null);
+                }
+              }}
+            />
+            {noteDateHint && (
+              <div className="mt-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1">
+                📅 Z poznámky nastaveno datum závozu: {new Date(noteDateHint + 'T00:00:00Z').toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric' })}
+              </div>
+            )}
           </div>
 
-          {/* Akční tlačítka pod tabulkou */}
-          <div className="flex items-center justify-between mt-4">
+          {/* 🚰 Půjčení výčepu */}
+          <label className="mt-3 flex items-center gap-2 cursor-pointer select-none rounded-2xl border border-neutral-200 bg-white dark:bg-neutral-800 p-3">
+            <input
+              type="checkbox"
+              checked={wantTap}
+              onChange={() => {
+                if (wantTap) { setWantTap(false); return; }
+                setWantTap(true);
+                setTapReservedEarly(false);
+                setTapModalCustomer(placeNameFree || places.find((p) => p.id === placeId)?.name || '');
+                setShowTapModal(true);
+              }}
+              className="accent-amber-500 w-4 h-4"
+            />
+            <span className="text-xs font-extrabold text-neutral-800 dark:text-neutral-100">🚰 Půjčení výčepu</span>
+            <span className="text-[11px] text-neutral-400 font-medium">(otevře rezervační systém výčepu)</span>
+          </label>
+
+          {/* Akční tlačítka */}
+          <div className="flex items-center justify-between mt-4 gap-2 flex-wrap">
             <div className="flex items-center gap-2">
               <button type="submit" className="btn-primary text-xs font-black shadow-md" disabled={saving || (!filledBeerRows.length && !manualText.trim())}>
-                {saving ? '⏳ Ukládám…' : `💾 Vytvořit objednávku${filledBeerRows.length ? ` (${filledBeerRows.length})` : manualText.trim() ? ' (z textu)' : ''}`}
+                {saving ? '⏳ Ukládám…' : `💾 Vytvořit objednávku${filledBeerRows.length ? ` (${filledBeerRows.length} pol. / ${filledBeerRows.reduce((s, r) => s + Number(r.qty || 0), 0)} ks)` : manualText.trim() ? ' (z textu)' : ''}`}
               </button>
 
-              <button type="button" className="btn-ghost text-xs" onClick={() => setBeerRows((rs) => [...rs, { beerId: '', pkgId: '', qty: '', placeId: '', placeNameFree: '' }])}>
-                ➕ Přidat řádek
-              </button>
-              <button type="button" className="btn-ghost text-xs" onClick={() => setBeerRows(Array.from({ length: 4 }, () => ({ beerId: '', pkgId: '', qty: '', placeId: '', placeNameFree: '' })))}>
+              <button type="button" className="btn-ghost text-xs" onClick={() => { setBeerRows(Array.from({ length: 4 }, () => ({ beerId: '', pkgId: '', qty: '', placeId: '', placeNameFree: '' }))); setExpandedBeerId(null); }}>
                 🗑️ Vymazat vše
               </button>
             </div>
@@ -2089,11 +2273,14 @@ export default function Orders({
       {/* 🚰 Modální okno pro výběr výčepu k rezervaci */}
       {showTapModal && (
         <TapReservationModal
-          orderDate={date}
+          orderDate={deliveryDate || date}
           customerName={tapModalCustomer}
           orderId={tapModalOrderId}
           tapTypeHint={detectTapType(note)}
-          onConfirm={handleTapModalDone}
+          onConfirm={() => {
+            if (!tapModalOrderId) setTapReservedEarly(true);
+            handleTapModalDone();
+          }}
           onSkip={handleTapModalDone}
         />
       )}
@@ -2112,6 +2299,59 @@ function getTapNameForOrder(orderId: string): string | null {
     const r = list.find((it) => it.order_id === orderId);
     return r?.tap_name && String(r.tap_name).trim() ? String(r.tap_name).trim() : null;
   } catch { return null; }
+}
+
+// 📅 Z poznámky rozpozná datum závozu (17.8. / 17.8.2026 / název dne v aktuálním týdnu)
+function detectDeliveryDateFromNote(text: string, wk: string): string | null {
+  const t = (text || '').trim();
+  if (!t) return null;
+  const isoOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  // České datum dd.mm. nebo dd.mm.yyyy (musí mít obě tečky, aby se nespletlo s desetinným číslem)
+  const m = t.match(/(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{2,4})?/);
+  if (m) {
+    const day = parseInt(m[1], 10);
+    const month = parseInt(m[2], 10);
+    if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      let year = m[3] ? (parseInt(m[3], 10) < 100 ? 2000 + parseInt(m[3], 10) : parseInt(m[3], 10)) : now.getFullYear();
+      const check = new Date(year, month - 1, day);
+      if (check.getMonth() !== month - 1 || check.getDate() !== day) return null; // neplatné datum (např. 31.2.)
+      if (!m[3] && check < now) check.setFullYear(check.getFullYear() + 1); // bez roku a už uplynulo → příští rok
+      return isoOf(check);
+    }
+  }
+
+  // Název dne → datum v aktuálně zvoleném týdnu
+  const names: Array<[string, number]> = [
+    ['pondeli', 0], ['po', 0], ['utery', 1], ['ut', 1], ['streda', 2], ['st', 2],
+    ['ctvrtek', 3], ['ct', 3], ['patek', 4], ['pa', 4], ['sobota', 5], ['so', 5], ['nedele', 6], ['ne', 6],
+  ];
+  const lower = t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  for (const [name, idx] of names) {
+    if (new RegExp(`(^|[^a-z0-9])${name}([^a-z0-9]|$)`).test(lower)) {
+      const start = weekRange(wk).start;
+      const d = new Date(start);
+      d.setUTCDate(d.getUTCDate() + idx);
+      return d.toISOString().slice(0, 10);
+    }
+  }
+  return null;
+}
+
+// 🔗 Po uložení objednávky propojí nejnovější nezapojenou rezervaci výčepu s objednávkou
+function linkLatestReservationToOrder(orderId: string): void {
+  try {
+    const saved = localStorage.getItem('vycepy_reservations_v1');
+    if (!saved) return;
+    const list = JSON.parse(saved) as any[];
+    const idx = [...list].reverse().findIndex((r) => !r.order_id);
+    if (idx === -1) return;
+    const realIdx = list.length - 1 - idx;
+    list[realIdx] = { ...list[realIdx], order_id: orderId };
+    localStorage.setItem('vycepy_reservations_v1', JSON.stringify(list));
+  } catch { /* tichá chyba */ }
 }
 
 // 🧮 Záložka „Celkem“ — souhrn objednaného množství podle varianty (pivo + obal)
