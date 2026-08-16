@@ -1,12 +1,12 @@
 import type { Package } from '../lib/supabase';
 
 // Rychlé hodnoty počtu v Objednávkách podle zvoleného obalu:
-// - jakýkoli keg → 4 / 6 / 10 / 12 ks
+// - jakýkoli keg (sud) → 6 / 12 / 18 / 24 / 30 ks
+// - PET lahev 1 / 1,5 l → 6 / 12 / 18 / 24 / 48 ks
 // - lahev 0,33 / 0,5 l → 10 / 20 / 40 / 60 / 80 / 100 ks
-// - lahev 1 / 1,5 l → 5 / 6 / 12 / 20 / 24 / 36 / 40 / 50 ks
-const QUICK_QTY_KEG = [4, 6, 10, 12];
+const QUICK_QTY_KEG = [6, 12, 18, 24, 30];
 const QUICK_QTY_BOTTLE_033_05 = [10, 20, 40, 60, 80, 100];
-const QUICK_QTY_BOTTLE_1_15 = [5, 6, 12, 20, 24, 36, 40, 50];
+const QUICK_QTY_BOTTLE_1_15 = [6, 12, 18, 24, 48];
 
 export function orderQuickQtys(pkg: Pick<Package, 'kind' | 'volume_l'> | null | undefined): number[] | null {
   if (!pkg) return null;
