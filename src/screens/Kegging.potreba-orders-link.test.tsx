@@ -133,7 +133,9 @@ describe('Kegging — kliknutí na „Chybí X ks sudů" otevře Objednávky s f
     // Přepínač „Jen chybějící (> 0)" je defaultně zapnutý → pokryté řádky se skryjí.
     fireEvent.click(await screen.findByRole('button', { name: /Jen chybějící/ }));
 
-    await screen.findByText('✓ Pokryto');
+    // Mobilní karty i desktop tabulka se renderují zároveň (přepínají se jen CSS
+    // třídou `md:` — jsdom bez layoutu obojí vidí), proto ověřujeme oba výskyty.
+    await waitFor(() => expect(screen.getAllByText('✓ Pokryto').length).toBeGreaterThan(0));
     expect(screen.queryByText(/Chybí/)).toBeNull();
     // Pokrytý řádek NENÍ klikatelný — kliknutí na něj nepřepne stránku ani nevyžádá filtr.
     fireEvent.click(screen.getByText('Světlý ležák 12°', { selector: 'td span' }));

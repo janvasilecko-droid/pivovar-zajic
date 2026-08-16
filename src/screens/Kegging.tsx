@@ -835,136 +835,12 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
             </BeerTilePanel>
           )}
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="bg-neutral-100">
-                  <th className="text-left py-1.5 px-1 font-black text-neutral-700">Pivo</th>
-                  <th className="text-left py-1.5 px-1 font-black text-neutral-700">Obal</th>
-                  <th className="text-left py-1.5 px-1 font-black text-neutral-700">Tank</th>
-                  <th className="text-center py-1.5 px-1 font-black text-neutral-700">Ks</th>
-                  <th className="w-24"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {entryRows.map((r, i) => {
-                  const pkg = packages.find((p) => p.id === r.pkgId);
-                  const liters = pkg ? (Number(r.qty || 0) * pkg.volume_l) : 0;
-                  const hl = pkg ? (liters / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 }) : '—';
-                  // Aktivní stáčecí tanky s pivem na tomto řádku; vybraný tank = ruční volba,
-                  // jinak automaticky největší aktivní tank (zobrazí se i bez klikání).
-                  const rowTanks = r.beerId ? activeTanksForBeer(r.beerId) : [];
-                  const chosenTank = (r.tankId ? rowTanks.find((t) => t.id === r.tankId) : undefined) ?? largestTank(rowTanks);
-                  return (
-                    <tr key={i} className="border-b border-neutral-200/60">
-                      <td className="py-1 pr-0 w-[30%]">
-                        <select className="input text-[10px] w-full appearance-none pr-2" value={r.beerId} onChange={(e) => setEntryRows((rs) => rs.map((x, j) => j === i ? { ...x, beerId: e.target.value, tankId: '' } : x))}>
-                          <option value="">—</option>
-                          {beers.filter((b) => b.is_active).map((b) => (
-                            <option key={b.id} value={b.id}>{b.name}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="py-1 pr-0 w-[30%]">
-                        <select className="input text-[10px] w-full appearance-none pr-2" value={r.pkgId} onChange={(e) => setEntryRows((rs) => rs.map((x, j) => j === i ? { ...x, pkgId: e.target.value } : x))}>
-                          <option value="">—</option>
-                          {kegPackages.map((p) => (
-                            <option key={p.id} value={p.id}>{p.volume_l} L</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="py-1 pr-0 w-[25%]">
-                        {rowTanks.length === 0 ? (
-                          <span className="text-[10px] text-neutral-300 font-semibold">
-                            {r.beerId ? 'žádný aktivní tank' : '—'}
-                          </span>
-                        ) : rowTanks.length === 1 ? (
-                          <span
-                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-900 text-[10px] font-black whitespace-nowrap"
-                            title={`Automaticky přiřazený aktivní tank — odečte se ${liters.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} L`}
-                          >
-                            🛢️ {chosenTank?.label}
-                          </span>
-                        ) : (
-                          <div className="flex flex-col gap-1">
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-amber-100 border border-amber-300 text-amber-900 text-[10px] font-black whitespace-nowrap">
-                              ⚠️ {rowTanks.length} aktivní tanky
-                            </span>
-                            <select
-                              className="input !py-0.5 !px-1 text-[10px] font-bold w-full"
-                              value={r.tankId}
-                              onChange={(e) => setEntryRows((rs) => rs.map((x, j) => j === i ? { ...x, tankId: e.target.value } : x))}
-                              title="Vyber, ze kterého aktivního tanku se má odečítat"
-                            >
-                              <option value="">⚡ {largestTank(rowTanks)?.label}</option>
-                              {rowTanks.map((t) => (
-                                <option key={t.id} value={t.id}>{t.label} ({Number(t.current_volume_l).toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} L)</option>
-                              ))}
-                            </select>
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-1 pr-0">
-                        <div className="flex items-center justify-center gap-0.5">
-                          <button
-                            type="button"
-                            className="w-6 h-6 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition disabled:opacity-30"
-                            disabled={!r.qty || Number(r.qty) <= 0}
-                            onClick={() => setEntryRows((rs) => rs.map((x, j) => j === i ? { ...x, qty: String(Math.max(0, Number(x.qty) - 1)) } : x))}
-                          >−</button>
-                                                    <span className="w-20 min-w-[4rem] text-lg font-black text-center text-neutral-900 bg-white border border-neutral-200 rounded-lg py-1.5">
-                            {Number(r.qty) > 0 ? r.qty : '0'}
-                          </span>
-
-
-
-                          <button
-                            type="button"
-                            className="w-6 h-6 grid place-items-center rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-xs transition"
-                            onClick={() => setEntryRows((rs) => rs.map((x, j) => j === i ? { ...x, qty: String(Number(x.qty || 0) + 1) } : x))}
-                          >+</button>
-                          <select
-                            className="h-6 rounded-lg bg-white border border-amber-300 text-emerald-950 font-bold text-[11px] px-1 cursor-pointer transition"
-                            value={QUICK_KEG_QTY.includes(Number(r.qty)) ? Number(r.qty) : ''}
-                            onChange={(e) => { const v = e.target.value; if (v !== '') setEntryRows((rs) => rs.map((x, j) => j === i ? { ...x, qty: String(Number(v)) } : x)); }}
-                            title="Rychlé nastavení počtu sudů (6/12/18/24/30/36)"
-                          >
-                            <option value="" disabled>+</option>
-                            {QUICK_KEG_QTY.map((q) => (
-                              <option key={q} value={q}>{q} ks</option>
-                            ))}
-                          </select>
-                        </div>
-                      </td>
-                      <td className="py-1 pr-0 text-right whitespace-nowrap">
-                        {pkg && Number(r.qty) > 0 ? (
-                          <span className="text-xs font-bold text-neutral-700">
-                            {liters.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} L
-                            <span className="text-[10px] text-neutral-400 ml-1">({hl} HL)</span>
-                          </span>
-                        ) : (
-                          <span className="text-xs text-neutral-400">—</span>
-                        )}
-                      </td>
-                      <td className="py-1">
-                        <div className="flex items-center gap-1">
-                          <button type="button" className="w-7 h-7 grid place-items-center rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-bold text-sm transition" onClick={add} title="Uložit vše">✓</button>
-                          <button type="button" className="w-7 h-7 grid place-items-center rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-sm transition" onClick={() => setEntryRows((rs) => rs.map((x, j) => j === i ? emptyItem() : x))} title="Zrušit řádek">✕</button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="flex items-center justify-between mt-4">
+          <div className="flex items-center justify-between mt-2">
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="submit"
                 disabled={saving || !isStartChecklistCompleteForKeg(date)}
-                className="btn-primary text-xs font-black shadow-md disabled:opacity-40"
+                className="btn-primary text-xs font-black shadow-md disabled:opacity-40 min-h-[44px]"
               >
                 {saving ? '⏳ Ukládám…' : '💾 Uložit stáčení'}
               </button>
@@ -973,8 +849,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                   ⚠️ Před uložením musíte splnit checklist přípravy!
                 </span>
               )}
-              <button type="button" className="btn-ghost text-xs" onClick={() => setEntryRows([...entryRows, emptyItem()])}>➕ Přidat řádek</button>
-              <button type="button" className="btn-ghost text-xs" onClick={() => setEntryRows(emptyRows())}>🗑️ Vymazat vše</button>
+              <button type="button" className="btn-ghost text-xs min-h-[44px]" onClick={() => setEntryRows(emptyRows())}>🗑️ Vymazat vše</button>
             </div>
             {err && <span className="text-xs font-bold text-rose-700">{err}</span>}
           </div>
@@ -1480,7 +1355,60 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
             {filteredKegRequirements.length === 0 ? (
               <EmptyState text={reqKegOnlyMissing ? 'Žádné chybějící KEGy! Všechny objednané KEG sudy jsou pokryté na skladě.' : 'Žádné položky k zobrazení.'} icon="🎉" />
             ) : (
-              <div className="overflow-x-auto scrollbar-thin rounded-2xl border border-neutral-200">
+              <>
+              {/* Mobilní karty — čitelné bez vodorovného scrollování */}
+              <div className="grid grid-cols-1 gap-2.5 md:hidden">
+                {filteredKegRequirements.map((r) => {
+                  const beer = beers.find((b) => b.id === r.beer_id);
+                  const missing = r.neededQty > 0;
+                  return (
+                    <div
+                      key={`${r.beer_id}__${r.package_id}`}
+                      onClick={missing ? () => { requestOrdersItemFilter({ beerId: r.beer_id, packageId: r.package_id }); setPage?.('orders'); } : undefined}
+                      className={`rounded-2xl border p-3 space-y-2 ${missing ? 'bg-amber-50 border-amber-300' : 'bg-white border-neutral-200'}`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
+                          <span className="font-black text-sm text-neutral-950 truncate">{r.beer_name}</span>
+                          <span className="font-bold text-xs text-neutral-500 shrink-0">({r.package_label})</span>
+                        </div>
+                        {missing ? (
+                          <span className="shrink-0 px-2.5 py-1 rounded-xl bg-amber-600 text-white font-black text-xs whitespace-nowrap">⚠️ chybí {r.neededQty} ks</span>
+                        ) : (
+                          <span className="shrink-0 px-2.5 py-1 rounded-xl bg-emerald-100 text-emerald-800 font-bold text-[11px] border border-emerald-300 whitespace-nowrap">✓ Pokryto</span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-3 gap-1.5 text-center">
+                        <div className="rounded-lg bg-emerald-50 py-1.5">
+                          <div className="text-[9px] font-black uppercase text-emerald-700">Stočeno</div>
+                          <div className="text-sm font-black text-emerald-800">+{r.bottledQty}</div>
+                        </div>
+                        <div className="rounded-lg bg-neutral-100 py-1.5">
+                          <div className="text-[9px] font-black uppercase text-neutral-500">Sklad</div>
+                          <div className="text-sm font-black text-neutral-800">{r.stockQty}</div>
+                        </div>
+                        <div className="rounded-lg bg-sky-50 py-1.5">
+                          <div className="text-[9px] font-black uppercase text-sky-700">Objednáno</div>
+                          <div className="text-sm font-black text-sky-800">{r.orderedQty}</div>
+                        </div>
+                      </div>
+                      {missing && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); requestOrdersItemFilter({ beerId: r.beer_id, packageId: r.package_id }); setPage?.('orders'); }}
+                          className="w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black text-xs min-h-[44px]"
+                        >
+                          Zobrazit objednávky →
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop tabulka */}
+              <div className="hidden md:block overflow-x-auto scrollbar-thin rounded-2xl border border-neutral-200">
                 <table className="table text-xs w-full">
                   <thead>
                     <tr className="bg-neutral-100 border-b border-neutral-200">
@@ -1544,6 +1472,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                   </tbody>
                 </table>
               </div>
+              </>
             )}
             {filteredKegRequirements.length > 0 && (
               <p className="text-[11px] text-neutral-500 pt-1">
