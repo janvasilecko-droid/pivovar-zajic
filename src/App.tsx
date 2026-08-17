@@ -6,6 +6,7 @@ import AppVersionsScreen from './screens/AppVersionsScreen';
 import Layout, { Page } from './components/Layout';
 import AuthScreen from './screens/AuthScreen';
 import Dashboard from './screens/Dashboard';
+import HomeScreen from './screens/HomeScreen';
 import Orders from './screens/Orders';
 import Zavoz from './screens/Zavoz';
 import Stock from './screens/Stock';
@@ -33,7 +34,7 @@ import { BottlingTasksSettings } from './components/BottlingTasksSettings';
 import { Spinner } from './components/ui';
 import { scheduleNightlyCheck } from './lib/zavozDeduction';
 
-const DEFAULT_PAGE: Page = 'dashboard';
+const DEFAULT_PAGE: Page = 'home';
 
 function readPageFromHistory(): Page {
   return (window.history.state && window.history.state.page) || DEFAULT_PAGE;
@@ -114,6 +115,7 @@ export default function App() {
         onOpenMonthlyChecklist={() => setPage('bottling')}
         onOpenKegMonthlyChecklist={() => setPage('kegging')}
       />
+      {page === 'home' && <HomeScreen setPage={setPage} />}
       {(page === 'dashboard' || page === 'sklo_promo') && (
         <Dashboard setPage={setPage} initialTab={page === 'sklo_promo' ? 'sklo_promo' : 'sklad'} />
       )}

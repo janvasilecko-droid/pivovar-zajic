@@ -3,7 +3,7 @@ import {
   FilePlus, ClipboardList, Wine, Cylinder, Sparkles, TrendingDown, Store, FileText,
   ClipboardCheck, BarChart3, History as HistoryIcon, Snowflake,
   CalendarDays, Car, Tag, ShieldCheck, PlusCircle, Settings, Calculator,
-  LogOut, Menu, Download, Wheat, FlaskConical, Shield, Bell, BellOff, X, ArrowRight, Search, Smartphone, MessageCircle, Users, GlassWater, type LucideIcon,
+  LogOut, Menu, Download, Wheat, FlaskConical, Shield, Bell, BellOff, X, ArrowRight, Search, Smartphone, MessageCircle, Users, GlassWater, Home, type LucideIcon,
 } from 'lucide-react';
 
 import { useAuth } from '../lib/auth';
@@ -24,7 +24,7 @@ import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
 
 export type NavItem = { id: Page; label: string; icon: LucideIcon; group: string };
 
-export type Page = 'sanitace' | 'marketing' | 'planning' | 'depozitar' | 'dashboard' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'history' | 'orders_entry' | 'orders' | 'zavoz' | 'kniha_jizd' | 'stock' | 'bottling' | 'bottling_entry' | 'bottling_overview' | 'kegging' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs';
+export type Page = 'home' | 'sanitace' | 'marketing' | 'planning' | 'depozitar' | 'dashboard' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'history' | 'orders_entry' | 'orders' | 'zavoz' | 'kniha_jizd' | 'stock' | 'bottling' | 'bottling_entry' | 'bottling_overview' | 'kegging' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs';
 
 export const NAV: NavItem[] = [
   // --- VÝROBA ---
@@ -752,15 +752,15 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           </button>
 
           <button
-            onClick={() => setPage('dashboard')}
+            onClick={() => setPage('home')}
             className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all ${
-              page === 'dashboard'
+              page === 'home'
                 ? 'text-amber-950 font-black scale-105 bg-amber-100/90 ring-1 ring-amber-300'
                 : 'text-neutral-500 hover:text-neutral-800 font-bold'
             }`}
           >
-            <BarChart3 size={20} strokeWidth={page === 'dashboard' ? 2.5 : 2} className={page === 'dashboard' ? 'text-amber-700' : ''} />
-            <span className="text-[10px] mt-0.5 tracking-tight">Sklad</span>
+            <Home size={20} strokeWidth={page === 'home' ? 2.5 : 2} className={page === 'home' ? 'text-amber-700' : ''} />
+            <span className="text-[10px] mt-0.5 tracking-tight">Domů</span>
           </button>
 
           <button

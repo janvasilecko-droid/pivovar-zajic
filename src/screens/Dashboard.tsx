@@ -9,7 +9,6 @@ import SkloPromoScreen from './SkloPromoScreen';
 import { getStartingStockMap } from '../lib/inventoryHelper';
 import { QuickCountModal } from '../components/QuickCountModal';
 import { fetchLabelBalances } from '../lib/labelStock';
-import { AppLauncher } from '../components/AppLauncher';
 
 type Row = {
   entry_date: string; beer_id: string | null; beer_name: string | null;
@@ -356,8 +355,6 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
           <span>Sklo, Etikety, Podtáčky</span>
         </button>
       </div>
-
-      {setPage && <AppLauncher setPage={setPage} />}
 
       {activeTab === 'sklad' ? (
         <>
