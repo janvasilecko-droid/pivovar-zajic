@@ -6,7 +6,6 @@ import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSumma
 import { supabase, Beer, Package, CellarTank, CellarTransfer, CellarTankCycle, EntryRow, useRealtime, beerBg, beerBorder, beerName } from '../lib/supabase';
 import { Modal, Field, Spinner } from '../components/ui';
 import { TankOccupancyPlanner } from '../components/TankOccupancyPlanner';
-import { VisualCellarMap } from '../components/VisualCellarMap';
 
 const STATUS_LABELS: Record<CellarTank['status'], string> = {
   empty: 'Prázdný', filling: 'Plní se', active: 'Aktivní', emptying: 'Stáčí se',
@@ -37,7 +36,7 @@ function fmtHours(h: number | null | undefined): string {
 }
 
 export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: string) => void } = {}) {
-  const [activeTab, setActiveTab] = useState<'mapa' | 'lezacke' | 'spilka' | 'planovac' | 'statistiky'>('mapa');
+  const [activeTab, setActiveTab] = useState<'lezacke' | 'spilka' | 'planovac'>('lezacke');
   const [tanks, setTanks] = useState<CellarTank[]>([]);
   const [transfers, setTransfers] = useState<CellarTransfer[]>([]);
   const [cycles, setCycles] = useState<CellarTankCycle[]>([]);
@@ -356,8 +355,12 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
   const DEFAULT_CONCENTRATION: Record<string, number | null> = {
     louh: 2, kyselina_dusicna: 2, kombinovana: 2, oplach_vodou: null, persteril: 0.5,
   };
+  // Výchozí doba trvání podle metody — oplach vodou je kratší krok než chemická sanitace.
+  const DEFAULT_DURATION: Record<string, number> = {
+    oplach_vodou: 10, louh: 20, kyselina_dusicna: 20, kombinovana: 20, persteril: 15,
+  };
 
-  async function recordSanitation(methodToSave: 'louh' | 'kyselina_dusicna' | 'oplach_vodou' | 'persteril' | 'kombinovana', targetTank: CellarTank, customNote?: string, concentrationPct?: number | '') {
+  async function recordSanitation(methodToSave: 'louh' | 'kyselina_dusicna' | 'oplach_vodou' | 'persteril' | 'kombinovana', targetTank: CellarTank, customNote?: string, concentrationPct?: number | '', durationMinutes?: number | '') {
     const labels: Record<string, string> = {
       louh: 'Louh (NaOH)',
       kyselina_dusicna: 'Kyselina dusičná',
@@ -365,10 +368,13 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
       persteril: 'Persteril',
       kombinovana: 'Kombinovaná sanitace',
     };
+    const effectiveDuration = durationMinutes !== undefined
+      ? (durationMinutes !== '' ? Number(durationMinutes) : DEFAULT_DURATION[methodToSave])
+      : (sanitationDuration !== '' ? Number(sanitationDuration) : DEFAULT_DURATION[methodToSave]);
     const logItem = {
       sanitation_date: new Date().toISOString().slice(0, 10),
       sanitation_time: sanitationTime || getCurrentTimeStr(),
-      duration_minutes: sanitationDuration !== '' ? Number(sanitationDuration) : 20,
+      duration_minutes: effectiveDuration,
       tank_id: targetTank.id,
       tank_label: targetTank.label,
       method: methodToSave,
@@ -485,17 +491,8 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
         </div>
 
         <div className="flex flex-wrap items-center gap-2 w-full">
-          {/* Tab Selector: Mapa vs Spilka vs Ležácké */}
+          {/* Tab Selector: Ležácké vs Spilka vs Plánovač */}
           <div className="flex items-center gap-1.5 bg-neutral-100 p-1 rounded-xl border border-neutral-200 w-full sm:w-fit overflow-x-auto scrollbar-none flex-nowrap shrink-0">
-            <button
-              type="button"
-              onClick={() => setActiveTab('mapa')}
-              className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${
-                activeTab === 'mapa' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-700 hover:bg-amber-50'
-              }`}
-            >
-              🏰 Vizuální mapa tanků
-            </button>
             <button
               type="button"
               onClick={() => setActiveTab('lezacke')}
@@ -557,8 +554,6 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
 
       {loading ? <Spinner /> : activeTab === 'planovac' ? (
         <TankOccupancyPlanner tanks={tanks} beers={beers} cycles={cycles} />
-      ) : activeTab === 'mapa' ? (
-        <VisualCellarMap tanks={tanks} beers={beers} onSelectTank={(t) => setEditTank(t)} />
       ) : (
         <>
           {/* Tanky grid */}
@@ -857,7 +852,7 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
                         <button
                           className="min-h-[44px] text-xs px-1.5 py-2 rounded-xl bg-sky-100 text-sky-900 font-bold hover:bg-sky-200 shadow-xs border border-sky-300 flex flex-col items-center justify-center gap-0.5"
                           onClick={async () => {
-                            await recordSanitation('oplach_vodou', t, 'Rychlý oplach vodou z karty tanku');
+                            await recordSanitation('oplach_vodou', t, 'Rychlý oplach vodou z karty tanku', undefined, 10);
                             await supabase.from('cellar_tanks').update({ status: 'rinsing', updated_at: new Date().toISOString() }).eq('id', t.id);
                             load();
                             alert(`💧 Oplach vodou pro ${t.label} byl zapsán (Provedl: ${userName})`);
@@ -869,7 +864,7 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
                         <button
                           className="min-h-[44px] text-xs px-1.5 py-2 rounded-xl bg-amber-100 text-amber-950 font-bold hover:bg-amber-200 shadow-xs border border-amber-300 flex flex-col items-center justify-center gap-0.5"
                           onClick={async () => {
-                            await recordSanitation('louh', t, 'Sanitace louhem NaOH z karty tanku');
+                            await recordSanitation('louh', t, 'Sanitace louhem NaOH z karty tanku', 2, 20);
                             await supabase.from('cellar_tanks').update({ status: 'cleaning', updated_at: new Date().toISOString() }).eq('id', t.id);
                             load();
                             alert(`🧼 Sanitace louhem pro ${t.label} byla zapsána (Provedl: ${userName})`);
@@ -881,7 +876,7 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
                         <button
                           className="min-h-[44px] text-xs px-1.5 py-2 rounded-xl bg-rose-100 text-rose-950 font-bold hover:bg-rose-200 shadow-xs border border-rose-300 flex flex-col items-center justify-center gap-0.5"
                           onClick={async () => {
-                            await recordSanitation('kyselina_dusicna', t, 'Sanitace kyselinou dusičnou z karty tanku');
+                            await recordSanitation('kyselina_dusicna', t, 'Sanitace kyselinou dusičnou z karty tanku', 2, 20);
                             await supabase.from('cellar_tanks').update({
                               status: 'empty', current_beer_id: null, current_beer_name: null,
                               started_at: null, initial_volume_l: null, updated_at: new Date().toISOString(),
