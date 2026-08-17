@@ -117,10 +117,18 @@ export default {
         sidebar: '6px 0 30px rgba(0, 0, 0, 0.35)',
         glass: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
       },
+      // Appka je teď hranatá — všechny obdélníkové rohy jsou ostré (0). "full"
+      // (kolečka, odznaky, avatary) zůstává kulaté, protože jde o tvarově
+      // odlišný prvek, ne o "zaoblený obdélník".
       borderRadius: {
-        xl: '0.875rem',
-        '2xl': '1.25rem',
-        '3xl': '1.5rem',
+        none: '0px',
+        sm: '0px',
+        DEFAULT: '0px',
+        md: '0px',
+        lg: '0px',
+        xl: '0px',
+        '2xl': '0px',
+        '3xl': '0px',
       },
       animation: {
         'fade-in': 'fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
