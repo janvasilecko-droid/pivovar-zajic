@@ -88,6 +88,10 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
     window.dispatchEvent(new CustomEvent('pivovar:open-auto-import'));
   };
   const [quickActions, setQuickActions] = useState<QuickAction[]>(() => getQuickActions(user?.id || 'guest'));
+  // Horní hlavička ukazuje jen upozornění, ne trvalou lištu tlačítek — počet
+  // nových (ještě nezpracovaných) objednávek, ať se ikona objeví jen když je
+  // co řešit.
+  const [newOrdersCount, setNewOrdersCount] = useState(0);
   const [beers, setBeers] = useState<Beer[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [places, setPlaces] = useState<Place[]>([]);
@@ -102,6 +106,21 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
     supabase.from('beers').select('*').eq('is_active', true).order('sort_order').then(({ data }) => setBeers(data || []));
     supabase.from('packages').select('*').order('sort_order').then(({ data }) => setPackages(data || []));
     supabase.from('places').select('*').order('name').then(({ data }) => setPlaces(data || []));
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const refreshNewOrders = () => {
+      supabase.from('orders').select('id', { count: 'exact', head: true }).eq('status', 'nova').then(({ count }) => {
+        if (!cancelled) setNewOrdersCount(count ?? 0);
+      });
+    };
+    refreshNewOrders();
+    const channel = supabase
+      .channel('realtime_new_orders_count')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, refreshNewOrders)
+      .subscribe();
+    return () => { cancelled = true; supabase.removeChannel(channel); };
   }, []);
 
   useEffect(() => {
@@ -586,7 +605,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
       <main className="flex-1 min-w-0 flex flex-col h-screen overflow-hidden bg-neutral-100 text-neutral-900">
         {/* Top Header - Desktop & Mobile */}
         <header className="flex items-center justify-between px-2 sm:px-8 py-2 bg-white/95 backdrop-blur-md border-b border-amber-200/70 shadow-2xs z-20 gap-2 shrink-0">
-          <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1 overflow-hidden">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 shrink-0">
             <button
               onClick={() => setOpen(true)}
               className="sm:hidden w-10 h-10 grid place-items-center rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 transition border border-amber-300 active:scale-95 shrink-0"
@@ -594,34 +613,11 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             >
               <Menu size={20} strokeWidth={2.5} />
             </button>
-
-            {/* Quick Actions Bar — visible on both mobile and desktop */}
-            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none flex-1 min-w-0 py-0.5">
-              {quickActions.map((a, i) => {
-                const isActive = page === a.pageId;
-                return (
-                  <button
-                    key={a.pageId + i}
-                    onClick={() => setPage(a.pageId as any)}
-                    className={`px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-sm border shrink-0 active:scale-95 whitespace-nowrap ${
-                      isActive
-                        ? 'bg-amber-500 text-neutral-950 border-amber-400 ring-2 ring-amber-300'
-                        : i === 0
-                          ? 'bg-amber-100 hover:bg-amber-200 text-amber-950 border-amber-300'
-                          : 'bg-neutral-800 hover:bg-neutral-700 text-white border-neutral-700'
-                    }`}
-                  >
-                    <span>{a.icon}</span>
-                    <span>{a.label}</span>
-                  </button>
-                );
-              })}
-            </div>
           </div>
 
-          {/* Right Header Actions */}
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {/* Search shortcut button */}
+          {/* Pravá strana hlavičky — jen upozornění, nic trvalého. WhatsApp a
+              nové objednávky se objeví jen když je opravdu co řešit. */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
             <button
               type="button"
               onClick={() => setShowSearchModal(true)}
@@ -633,21 +629,33 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
               <kbd className="hidden sm:inline-block text-[10px] bg-white px-1.5 py-0.5 rounded border border-neutral-300 text-neutral-500 font-mono">⌘K</kbd>
             </button>
 
-            {/* WhatsApp button */}
-            <button
-              type="button"
-              onClick={openWhatsApp}
-              title="WhatsApp — zkontroluje příchozí objednávky"
-              className="relative px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-sm border bg-[#25D366] hover:bg-[#1da851] text-white border-[#1da851] active:scale-95"
-            >
-              <MessageCircle size={15} />
-              <span className="hidden sm:inline">WhatsApp</span>
-              {pendingWhatsAppCount > 0 && (
-                <span className="bg-red-600 text-white text-[10px] font-black rounded-full min-w-[18px] h-4 px-1 flex items-center justify-center shadow animate-pulse" title="Zpráv čeká na schválení">
+            {newOrdersCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setPage('orders')}
+                title="Nové objednávky k vyřízení"
+                className="relative w-9 h-9 grid place-items-center rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm border border-emerald-700 active:scale-95 transition"
+              >
+                <ClipboardList size={16} />
+                <span className="absolute -top-1.5 -right-1.5 bg-white text-emerald-700 text-[10px] font-black rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center shadow border border-emerald-200">
+                  {newOrdersCount > 99 ? '99+' : newOrdersCount}
+                </span>
+              </button>
+            )}
+
+            {pendingWhatsAppCount > 0 && (
+              <button
+                type="button"
+                onClick={openWhatsApp}
+                title="WhatsApp — zkontroluje příchozí objednávky"
+                className="relative w-9 h-9 grid place-items-center rounded-xl bg-[#25D366] hover:bg-[#1da851] text-white shadow-sm border border-[#1da851] active:scale-95 transition"
+              >
+                <MessageCircle size={16} />
+                <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[10px] font-black rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center shadow animate-pulse" title="Zpráv čeká na schválení">
                   {pendingWhatsAppCount > 99 ? '99+' : pendingWhatsAppCount}
                 </span>
-              )}
-            </button>
+              </button>
+            )}
 
             {/* Bug report button */}
             <button
