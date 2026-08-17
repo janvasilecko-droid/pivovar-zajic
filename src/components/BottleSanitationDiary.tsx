@@ -328,6 +328,19 @@ export default function BottleSanitationDiary() {
 
   const filtered = entries.filter((e) => e.sanitation_date.slice(0, 7) === filterMonth);
 
+  function reasonLabelFor(e: BottleSanitationEntry): string {
+    return e.reason === 'pred_stacenim' ? 'Před stáčením' : e.reason === 'po_staceni' ? 'Po stáčení' : 'Měsíční';
+  }
+
+  function eqListFor(e: BottleSanitationEntry): string {
+    return [
+      e.eq_pegas && 'PEGAS',
+      e.eq_hoses && 'Hadice',
+      e.eq_coupler && 'Narážeč',
+      e.eq_co2 && 'CO2'
+    ].filter(Boolean).join(', ');
+  }
+
   return (
     <div className="space-y-4">
       {/* Toolbar */}
@@ -372,7 +385,90 @@ export default function BottleSanitationDiary() {
           <p className="font-medium text-sm">V tomto měsíci zatím nebyly zapsány žádné sanitace lahví.</p>
         </div>
       ) : (
-        <div className="card bg-white border border-neutral-200/90 rounded-2xl shadow-sm overflow-hidden">
+        <>
+          {/* Mobilní karty */}
+          <div className="grid grid-cols-1 gap-2.5 md:hidden">
+            {filtered.map((e) => {
+              const isProblem = !!e.mismatch_note;
+              const reasonLabel = reasonLabelFor(e);
+              const eqList = eqListFor(e);
+              return (
+                <div key={e.id} className="card p-3.5 bg-white border border-neutral-200/90 rounded-2xl shadow-xs space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-1.5 font-bold text-neutral-900 text-sm">
+                      <Calendar size={14} className="text-amber-600 shrink-0" />
+                      <span>{new Date(e.sanitation_date).toLocaleDateString('cs-CZ')}</span>
+                      {e.sanitation_time && (
+                        <span className="text-neutral-500 font-medium flex items-center gap-0.5 text-[10px] bg-neutral-100 px-1.5 py-0.5 rounded">
+                          <Clock size={10} /> {e.sanitation_time}
+                        </span>
+                      )}
+                    </div>
+                    {isProblem ? (
+                      <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-50 text-red-700 text-[10px] font-bold border border-red-200">
+                        <ShieldAlert size={10} /> Neshoda
+                      </span>
+                    ) : (
+                      <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
+                        <CheckCircle2 size={10} /> V pořádku
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="font-bold text-neutral-900 text-xs">{reasonLabel}</div>
+                  {e.chemical_name && (
+                    <div className="text-[11px] text-neutral-600 flex items-center gap-1">
+                      <Beaker size={11} className="text-blue-500 shrink-0" />
+                      <span>{e.chemical_name} {e.chemical_concentration ? `(${e.chemical_concentration})` : ''}</span>
+                    </div>
+                  )}
+                  {(e.step_times && Object.keys(e.step_times).length > 0) && (
+                    <div className="flex flex-wrap gap-1">
+                      {Object.entries(e.step_times).map(([k, v]) => (
+                        <span key={k} className="text-[9px] font-mono font-black text-amber-800 bg-amber-50 border border-amber-200 px-1 py-0.5 rounded">
+                          {k.replace(/_/g, ' ')} ⏱{v}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="text-[11px] font-semibold text-neutral-700">
+                    Zařízení: {eqList || <span className="text-neutral-400 italic">žádné</span>}
+                  </div>
+                  {isProblem && (
+                    <div className="text-[11px] text-red-600">{e.mismatch_note}</div>
+                  )}
+
+                  <div className="flex items-center gap-1 text-neutral-700 font-semibold text-xs">
+                    <User size={13} className="text-neutral-400 shrink-0" />
+                    {e.performed_by ?? '—'}
+                    {e.approved_by && (
+                      <span className="flex items-center gap-1 text-emerald-700 text-[10px] font-bold ml-1.5">
+                        <UserCheck size={11} /> Schválil: {e.approved_by}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-neutral-100">
+                    <button
+                      onClick={() => openEdit(e)}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-neutral-100 hover:bg-amber-100 border border-neutral-200 text-neutral-700 hover:text-amber-900 transition text-[11px] font-bold"
+                    >
+                      <Edit3 size={13} /> Upravit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(e)}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-neutral-100 hover:bg-rose-100 border border-neutral-200 text-neutral-700 hover:text-rose-900 transition text-[11px] font-bold"
+                    >
+                      <Trash2 size={13} /> Smazat
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+        <div className="hidden md:block card bg-white border border-neutral-200/90 rounded-2xl shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
@@ -388,16 +484,8 @@ export default function BottleSanitationDiary() {
               <tbody className="divide-y divide-neutral-100 font-medium text-neutral-800">
                 {filtered.map((e) => {
                   const isProblem = !!e.mismatch_note;
-                  const reasonLabel = 
-                    e.reason === 'pred_stacenim' ? 'Před stáčením' : 
-                    e.reason === 'po_staceni' ? 'Po stáčení' : 'Měsíční';
-                  
-                  const eqList = [
-                    e.eq_pegas && 'PEGAS',
-                    e.eq_hoses && 'Hadice',
-                    e.eq_coupler && 'Narážeč',
-                    e.eq_co2 && 'CO2'
-                  ].filter(Boolean).join(', ');
+                  const reasonLabel = reasonLabelFor(e);
+                  const eqList = eqListFor(e);
 
                   return (
                     <tr key={e.id} className="hover:bg-amber-50/20 transition-colors">
@@ -501,6 +589,7 @@ export default function BottleSanitationDiary() {
             </table>
           </div>
         </div>
+        </>
       )}
 
       {/* Add / Edit modal */}

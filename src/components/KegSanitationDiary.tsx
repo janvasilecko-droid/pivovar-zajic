@@ -304,6 +304,49 @@ export default function KegSanitationDiary() {
 
   const filtered = entries.filter((e) => e.sanitation_date.slice(0, 7) === filterMonth);
 
+  function reasonLabelFor(e: KegSanitationEntry): string {
+    return e.reason === 'pred_stacenim' ? 'Před stáčením' : e.reason === 'po_staceni' ? 'Po stáčení' : 'Měsíční';
+  }
+
+  // Souhrn provedených kroků — nezávisle na `reason` (jeden den může mít splněnou
+  // přípravu i úklid po stáčení zároveň; `reason` je jen štítek poslední akce,
+  // takže zobrazujeme VŠECHNY skupiny, které mají zaškrtnuté kroky, aby se žádný
+  // záznam neztratil z přehledu).
+  function stepsSummaryFor(e: KegSanitationEntry): string {
+    const st = e.step_times || {};
+    const withTime = (label: string | boolean | null | undefined, key: string) => {
+      if (!label || typeof label === 'boolean') return '';
+      return st[key] ? `${label} ⏱${st[key]}` : label;
+    };
+    const beforeSteps = [
+      withTime(e.proc_rinse_naoh_2_20 && 'NaOH 2%', 'proc_rinse_naoh_2_20'),
+      withTime(e.proc_rinse_persteril_02_10 && 'Persteril 0.2%', 'proc_rinse_persteril_02_10'),
+      withTime(e.proc_rinse_water_before && 'Proplach vodou', 'proc_rinse_water_before'),
+      withTime(e.proc_scrub_valves_naoh_2_15 && 'Klapky: louh 2% (kartáč)', 'proc_scrub_valves_naoh_2_15'),
+      withTime(e.proc_spray_valves_persteril_02_10 && 'Klapky: persteril 0.2%', 'proc_spray_valves_persteril_02_10'),
+      withTime(e.proc_rinse_water_after_valves && 'Oplach klapek', 'proc_rinse_water_after_valves')
+    ].filter(Boolean).join(', ');
+    const endSteps = [
+      withTime(e.proc_end_rinse_lines_water && 'Proplach pivních cest', 'proc_end_rinse_lines_water'),
+      withTime(e.proc_end_rinse_valves_water && 'Oplach klapek', 'proc_end_rinse_valves_water'),
+      withTime(e.proc_end_rinse_couplers_water && 'Oplach narážečů', 'proc_end_rinse_couplers_water'),
+      withTime(e.proc_end_rinse_floors_cellar && 'Spláchnutí sklepa', 'proc_end_rinse_floors_cellar'),
+      withTime(e.proc_end_rinse_floors_walls_bottlers && 'Spláchnutí stáčeček', 'proc_end_rinse_floors_walls_bottlers'),
+      withTime(e.proc_end_coupler_heads_persteril_bucket && 'Narážeče v persterilu', 'proc_end_coupler_heads_persteril_bucket')
+    ].filter(Boolean).join(', ');
+    const monthSteps = [
+      withTime(e.proc_month_disassemble_couplers && 'Rozborka do louhu', 'proc_month_disassemble_couplers'),
+      withTime(e.proc_month_clean_brush_24h && 'Čištění kartáčem (24h)', 'proc_month_clean_brush_24h'),
+      withTime(e.proc_month_rinse_water && 'Oplach vodou', 'proc_month_rinse_water'),
+      withTime(e.proc_month_visual_clean && 'Vizuální čistota OK', 'proc_month_visual_clean')
+    ].filter(Boolean).join(', ');
+    return [
+      beforeSteps && `☀️ Před: ${beforeSteps}`,
+      endSteps && `🌙 Po: ${endSteps}`,
+      monthSteps && `📅 Měsíčně: ${monthSteps}`,
+    ].filter(Boolean).join(' | ');
+  }
+
   return (
     <div className="space-y-4">
       {/* Monthly Warning Banner */}
@@ -374,7 +417,71 @@ export default function KegSanitationDiary() {
           <p className="font-medium text-sm">V tomto měsíci zatím nebyly zapsány žádné sanitace KEGů.</p>
         </div>
       ) : (
-        <div className="card bg-white border border-neutral-200/90 rounded-2xl shadow-sm overflow-hidden">
+        <>
+          {/* Mobilní karty */}
+          <div className="grid grid-cols-1 gap-2.5 md:hidden">
+            {filtered.map((e) => {
+              const reasonLabel = reasonLabelFor(e);
+              const stepsSummary = stepsSummaryFor(e);
+              return (
+                <div key={e.id} className="card p-3.5 bg-white border border-neutral-200/90 rounded-2xl shadow-xs space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-1.5 font-bold text-neutral-900 text-sm">
+                      <Calendar size={14} className="text-amber-600 shrink-0" />
+                      <span>{new Date(e.sanitation_date).toLocaleDateString('cs-CZ')}</span>
+                      {e.sanitation_time && (
+                        <span className="text-neutral-500 font-medium flex items-center gap-0.5 text-[10px] bg-neutral-100 px-1.5 py-0.5 rounded">
+                          <Clock size={10} /> {e.sanitation_time}
+                        </span>
+                      )}
+                    </div>
+                    <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border font-bold text-[10px] shadow-xs ${
+                      e.reason === 'mesicni'
+                        ? 'bg-rose-100 border-rose-300 text-rose-950'
+                        : e.reason === 'po_staceni'
+                          ? 'bg-purple-100 border-purple-300 text-purple-950'
+                          : 'bg-sky-100 border-sky-300 text-sky-950'
+                    }`}>
+                      {reasonLabel}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1 text-neutral-700 font-semibold text-xs">
+                    <User size={13} className="text-neutral-400 shrink-0" />
+                    {e.performed_by ?? '—'}
+                    {e.approved_by && (
+                      <span className="flex items-center gap-1 text-emerald-700 text-[10px] font-bold ml-1.5">
+                        <UserCheck size={11} /> Schválil: {e.approved_by}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="text-[11px] text-neutral-700 font-medium leading-relaxed bg-neutral-50/70 rounded-xl px-2.5 py-2">
+                    {stepsSummary || <span className="text-neutral-400 italic">žádné kroky</span>}
+                  </div>
+
+                  {e.note && <div className="text-xs text-neutral-600">{e.note}</div>}
+
+                  <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-neutral-100">
+                    <button
+                      onClick={() => openEdit(e)}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-neutral-100 hover:bg-amber-100 border border-neutral-200 text-neutral-700 hover:text-amber-900 transition text-[11px] font-bold"
+                    >
+                      <Edit3 size={13} /> Upravit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(e)}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-neutral-100 hover:bg-rose-100 border border-neutral-200 text-neutral-700 hover:text-rose-900 transition text-[11px] font-bold"
+                    >
+                      <Trash2 size={13} /> Smazat
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+        <div className="hidden md:block card bg-white border border-neutral-200/90 rounded-2xl shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
@@ -389,46 +496,8 @@ export default function KegSanitationDiary() {
               </thead>
               <tbody className="divide-y divide-neutral-100 font-medium text-neutral-800">
                 {filtered.map((e) => {
-                  const reasonLabel = 
-                    e.reason === 'pred_stacenim' ? 'Před stáčením' : 
-                    e.reason === 'po_staceni' ? 'Po stáčení' : 'Měsíční';
-                  
-                  // Souhrn provedených kroků — nezávisle na `reason` (jeden den může mít
-                  // splněnou přípravu i úklid po stáčení zároveň; `reason` je jen štítek
-                  // poslední akce, takže zobrazujeme VŠECHNY skupiny, které mají zaškrtnuté
-                  // kroky, aby se žádný záznam neztratil z přehledu).
-                  const st = e.step_times || {};
-                  const withTime = (label: string | boolean | null | undefined, key: string) => {
-                    if (!label || typeof label === 'boolean') return '';
-                    return st[key] ? `${label} ⏱${st[key]}` : label;
-                  };
-                  const beforeSteps = [
-                    withTime(e.proc_rinse_naoh_2_20 && 'NaOH 2%', 'proc_rinse_naoh_2_20'),
-                    withTime(e.proc_rinse_persteril_02_10 && 'Persteril 0.2%', 'proc_rinse_persteril_02_10'),
-                    withTime(e.proc_rinse_water_before && 'Proplach vodou', 'proc_rinse_water_before'),
-                    withTime(e.proc_scrub_valves_naoh_2_15 && 'Klapky: louh 2% (kartáč)', 'proc_scrub_valves_naoh_2_15'),
-                    withTime(e.proc_spray_valves_persteril_02_10 && 'Klapky: persteril 0.2%', 'proc_spray_valves_persteril_02_10'),
-                    withTime(e.proc_rinse_water_after_valves && 'Oplach klapek', 'proc_rinse_water_after_valves')
-                  ].filter(Boolean).join(', ');
-                  const endSteps = [
-                    withTime(e.proc_end_rinse_lines_water && 'Proplach pivních cest', 'proc_end_rinse_lines_water'),
-                    withTime(e.proc_end_rinse_valves_water && 'Oplach klapek', 'proc_end_rinse_valves_water'),
-                    withTime(e.proc_end_rinse_couplers_water && 'Oplach narážečů', 'proc_end_rinse_couplers_water'),
-                    withTime(e.proc_end_rinse_floors_cellar && 'Spláchnutí sklepa', 'proc_end_rinse_floors_cellar'),
-                    withTime(e.proc_end_rinse_floors_walls_bottlers && 'Spláchnutí stáčeček', 'proc_end_rinse_floors_walls_bottlers'),
-                    withTime(e.proc_end_coupler_heads_persteril_bucket && 'Narážeče v persterilu', 'proc_end_coupler_heads_persteril_bucket')
-                  ].filter(Boolean).join(', ');
-                  const monthSteps = [
-                    withTime(e.proc_month_disassemble_couplers && 'Rozborka do louhu', 'proc_month_disassemble_couplers'),
-                    withTime(e.proc_month_clean_brush_24h && 'Čištění kartáčem (24h)', 'proc_month_clean_brush_24h'),
-                    withTime(e.proc_month_rinse_water && 'Oplach vodou', 'proc_month_rinse_water'),
-                    withTime(e.proc_month_visual_clean && 'Vizuální čistota OK', 'proc_month_visual_clean')
-                  ].filter(Boolean).join(', ');
-                  const stepsSummary = [
-                    beforeSteps && `☀️ Před: ${beforeSteps}`,
-                    endSteps && `🌙 Po: ${endSteps}`,
-                    monthSteps && `📅 Měsíčně: ${monthSteps}`,
-                  ].filter(Boolean).join(' | ');
+                  const reasonLabel = reasonLabelFor(e);
+                  const stepsSummary = stepsSummaryFor(e);
 
                   return (
                     <tr key={e.id} className="hover:bg-amber-50/20 transition-colors">
@@ -508,6 +577,7 @@ export default function KegSanitationDiary() {
             </table>
           </div>
         </div>
+        </>
       )}
 
       {/* Add / Edit modal */}
