@@ -393,39 +393,42 @@ export default function KegSanitationDiary() {
                     e.reason === 'pred_stacenim' ? 'Před stáčením' : 
                     e.reason === 'po_staceni' ? 'Po stáčení' : 'Měsíční';
                   
-                  // Summary of checked steps to display in table
+                  // Souhrn provedených kroků — nezávisle na `reason` (jeden den může mít
+                  // splněnou přípravu i úklid po stáčení zároveň; `reason` je jen štítek
+                  // poslední akce, takže zobrazujeme VŠECHNY skupiny, které mají zaškrtnuté
+                  // kroky, aby se žádný záznam neztratil z přehledu).
                   const st = e.step_times || {};
                   const withTime = (label: string | boolean | null | undefined, key: string) => {
                     if (!label || typeof label === 'boolean') return '';
                     return st[key] ? `${label} ⏱${st[key]}` : label;
                   };
-                  let stepsSummary = '';
-                  if (e.reason === 'pred_stacenim') {
-                    stepsSummary = [
-                      withTime(e.proc_rinse_naoh_2_20 && 'NaOH 2%', 'proc_rinse_naoh_2_20'),
-                      withTime(e.proc_rinse_persteril_02_10 && 'Persteril 0.2%', 'proc_rinse_persteril_02_10'),
-                      withTime(e.proc_rinse_water_before && 'Proplach vodou', 'proc_rinse_water_before'),
-                      withTime(e.proc_scrub_valves_naoh_2_15 && 'Klapky: louh 2% (kartáč)', 'proc_scrub_valves_naoh_2_15'),
-                      withTime(e.proc_spray_valves_persteril_02_10 && 'Klapky: persteril 0.2%', 'proc_spray_valves_persteril_02_10'),
-                      withTime(e.proc_rinse_water_after_valves && 'Oplach klapek', 'proc_rinse_water_after_valves')
-                    ].filter(Boolean).join(', ');
-                  } else if (e.reason === 'po_staceni') {
-                    stepsSummary = [
-                      withTime(e.proc_end_rinse_lines_water && 'Proplach pivních cest', 'proc_end_rinse_lines_water'),
-                      withTime(e.proc_end_rinse_valves_water && 'Oplach klapek', 'proc_end_rinse_valves_water'),
-                      withTime(e.proc_end_rinse_couplers_water && 'Oplach narážečů', 'proc_end_rinse_couplers_water'),
-                      withTime(e.proc_end_rinse_floors_cellar && 'Spláchnutí sklepa', 'proc_end_rinse_floors_cellar'),
-                      withTime(e.proc_end_rinse_floors_walls_bottlers && 'Spláchnutí stáčeček', 'proc_end_rinse_floors_walls_bottlers'),
-                      withTime(e.proc_end_coupler_heads_persteril_bucket && 'Narážeče v persterilu', 'proc_end_coupler_heads_persteril_bucket')
-                    ].filter(Boolean).join(', ');
-                  } else {
-                    stepsSummary = [
-                      withTime(e.proc_month_disassemble_couplers && 'Rozborka do louhu', 'proc_month_disassemble_couplers'),
-                      withTime(e.proc_month_clean_brush_24h && 'Čištění kartáčem (24h)', 'proc_month_clean_brush_24h'),
-                      withTime(e.proc_month_rinse_water && 'Oplach vodou', 'proc_month_rinse_water'),
-                      withTime(e.proc_month_visual_clean && 'Vizuální čistota OK', 'proc_month_visual_clean')
-                    ].filter(Boolean).join(', ');
-                  }
+                  const beforeSteps = [
+                    withTime(e.proc_rinse_naoh_2_20 && 'NaOH 2%', 'proc_rinse_naoh_2_20'),
+                    withTime(e.proc_rinse_persteril_02_10 && 'Persteril 0.2%', 'proc_rinse_persteril_02_10'),
+                    withTime(e.proc_rinse_water_before && 'Proplach vodou', 'proc_rinse_water_before'),
+                    withTime(e.proc_scrub_valves_naoh_2_15 && 'Klapky: louh 2% (kartáč)', 'proc_scrub_valves_naoh_2_15'),
+                    withTime(e.proc_spray_valves_persteril_02_10 && 'Klapky: persteril 0.2%', 'proc_spray_valves_persteril_02_10'),
+                    withTime(e.proc_rinse_water_after_valves && 'Oplach klapek', 'proc_rinse_water_after_valves')
+                  ].filter(Boolean).join(', ');
+                  const endSteps = [
+                    withTime(e.proc_end_rinse_lines_water && 'Proplach pivních cest', 'proc_end_rinse_lines_water'),
+                    withTime(e.proc_end_rinse_valves_water && 'Oplach klapek', 'proc_end_rinse_valves_water'),
+                    withTime(e.proc_end_rinse_couplers_water && 'Oplach narážečů', 'proc_end_rinse_couplers_water'),
+                    withTime(e.proc_end_rinse_floors_cellar && 'Spláchnutí sklepa', 'proc_end_rinse_floors_cellar'),
+                    withTime(e.proc_end_rinse_floors_walls_bottlers && 'Spláchnutí stáčeček', 'proc_end_rinse_floors_walls_bottlers'),
+                    withTime(e.proc_end_coupler_heads_persteril_bucket && 'Narážeče v persterilu', 'proc_end_coupler_heads_persteril_bucket')
+                  ].filter(Boolean).join(', ');
+                  const monthSteps = [
+                    withTime(e.proc_month_disassemble_couplers && 'Rozborka do louhu', 'proc_month_disassemble_couplers'),
+                    withTime(e.proc_month_clean_brush_24h && 'Čištění kartáčem (24h)', 'proc_month_clean_brush_24h'),
+                    withTime(e.proc_month_rinse_water && 'Oplach vodou', 'proc_month_rinse_water'),
+                    withTime(e.proc_month_visual_clean && 'Vizuální čistota OK', 'proc_month_visual_clean')
+                  ].filter(Boolean).join(', ');
+                  const stepsSummary = [
+                    beforeSteps && `☀️ Před: ${beforeSteps}`,
+                    endSteps && `🌙 Po: ${endSteps}`,
+                    monthSteps && `📅 Měsíčně: ${monthSteps}`,
+                  ].filter(Boolean).join(' | ');
 
                   return (
                     <tr key={e.id} className="hover:bg-amber-50/20 transition-colors">

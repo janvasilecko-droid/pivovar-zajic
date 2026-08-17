@@ -1793,9 +1793,10 @@ export default function BottlingScreen({
             }
           }
           // Automatický zápis do „Sanitárního deníku lahví" po dokončení
-          // checklistu „Konec stáčení" (denní proplach/louh) a „Měsíční údržba"
-          // (louh na cestách): odškrtnuté položky se promítnou do deníku.
-          if (checklistPhase === 'end' || checklistPhase === 'monthly') {
+          // checklistu „Začátek stáčení" (příprava pracoviště, louh/oplach),
+          // „Konec stáčení" (denní proplach/louh) a „Měsíční údržba" (louh na
+          // cestách): odškrtnuté položky se promítnou do deníku.
+          if (checklistPhase === 'end' || checklistPhase === 'monthly' || checklistPhase === 'start') {
             let checkedMap: Record<string, boolean> = {};
             try {
               const raw = localStorage.getItem('bottling_checklist_' + date);
