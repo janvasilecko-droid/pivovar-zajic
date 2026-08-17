@@ -79,6 +79,77 @@ export function TankOccupancyPlanner({
   // Vypočte dny ležení a datum dokončení
   const today = new Date();
 
+  // ---- Detekce kolizí obsazenosti ----
+  // Konec intervalu je dnem, kdy se tank uvolní (exkluzivní) — [start, end).
+  function addDays(dateStr: string, days: number): Date {
+    const d = new Date(dateStr + 'T00:00:00');
+    d.setDate(d.getDate() + days);
+    return d;
+  }
+  function rangesOverlap(startA: Date, endA: Date, startB: Date, endB: Date): boolean {
+    return startA.getTime() < endB.getTime() && startB.getTime() < endA.getTime();
+  }
+
+  // Pro každý tank s pivem: odhadovaný den uvolnění (start + doporučená doba ležení).
+  const tankFreeDate = new Map<string, Date>();
+  tanks.forEach((t) => {
+    const hasBeer = t.status === 'active' || t.status === 'filling' || Number(t.current_volume_l) > 0;
+    if (!hasBeer) return;
+    const startDateObj = t.started_at ? new Date(t.started_at) : new Date();
+    const days = getRecommendedLageringDays(t.current_beer_name ?? '');
+    const freeDate = new Date(startDateObj);
+    freeDate.setDate(freeDate.getDate() + days);
+    tankFreeDate.set(t.id, freeDate);
+  });
+
+  // Množina ID naplánovaných várek, které kolidují buď se současnou obsazeností tanku,
+  // nebo s jinou naplánovanou várkou na stejném tanku.
+  const conflictingBatchIds = new Set<string>();
+  plannedBatches.forEach((pb) => {
+    const pbStart = addDays(pb.startDate, 0);
+    const pbEnd = addDays(pb.startDate, pb.targetDays);
+
+    const tankFree = tankFreeDate.get(pb.tankId);
+    if (tankFree && pbStart.getTime() < tankFree.getTime()) {
+      conflictingBatchIds.add(pb.id);
+    }
+
+    plannedBatches.forEach((other) => {
+      if (other.id === pb.id || other.tankId !== pb.tankId) return;
+      const otherStart = addDays(other.startDate, 0);
+      const otherEnd = addDays(other.startDate, other.targetDays);
+      if (rangesOverlap(pbStart, pbEnd, otherStart, otherEnd)) {
+        conflictingBatchIds.add(pb.id);
+        conflictingBatchIds.add(other.id);
+      }
+    });
+  });
+
+  // Kolize pro tank+datum vybrané v modalu "Naplánovat várku" — varování před uložením.
+  function checkNewBatchConflict(tankId: string, startDateStr: string, days: number): string | null {
+    if (!tankId || !startDateStr) return null;
+    const newStart = addDays(startDateStr, 0);
+    const newEnd = addDays(startDateStr, days);
+
+    const tankFree = tankFreeDate.get(tankId);
+    if (tankFree && newStart.getTime() < tankFree.getTime()) {
+      const t = tanks.find((x) => x.id === tankId);
+      return `${t?.label ?? 'Tank'} bude podle odhadu obsazený do ${tankFree.toLocaleDateString('cs-CZ')} — várka od ${newStart.toLocaleDateString('cs-CZ')} se s tím překrývá.`;
+    }
+    const conflict = plannedBatches.find((other) => {
+      if (other.tankId !== tankId) return false;
+      const otherStart = addDays(other.startDate, 0);
+      const otherEnd = addDays(other.startDate, other.targetDays);
+      return rangesOverlap(newStart, newEnd, otherStart, otherEnd);
+    });
+    if (conflict) {
+      return `Koliduje s už naplánovanou várkou "${conflict.beerName}" (od ${new Date(conflict.startDate).toLocaleDateString('cs-CZ')}) na stejném tanku.`;
+    }
+    return null;
+  }
+
+  const newBatchConflict = checkNewBatchConflict(selectedTankId, startDate, Number(targetDays) || 0);
+
   return (
     <div className="space-y-6">
       {/* Top Header Card */}
@@ -110,6 +181,13 @@ export function TankOccupancyPlanner({
           </button>
         </div>
       </div>
+
+      {conflictingBatchIds.size > 0 && (
+        <div className="flex items-center gap-2 p-3.5 rounded-2xl bg-rose-50 border-2 border-rose-300 text-sm font-black text-rose-800">
+          <ShieldAlert size={18} className="text-rose-600 shrink-0" />
+          <span>⚠️ {conflictingBatchIds.size} naplánovaných várek koliduje s obsazeností tanku — viz označené várky níže.</span>
+        </div>
+      )}
 
       {/* Gantt Overview Table */}
       <div className="card p-6 bg-white border border-neutral-200/90 rounded-3xl shadow-sm space-y-4">
@@ -198,19 +276,27 @@ export function TankOccupancyPlanner({
                 {plannedForThisTank.length > 0 && (
                   <div className="mt-3 pt-2 border-t border-neutral-200/80 space-y-1">
                     <span className="text-[10px] font-black uppercase text-amber-900 tracking-wider">Naplánované budoucí várky:</span>
-                    {plannedForThisTank.map((pb) => (
-                      <div key={pb.id} className="flex items-center justify-between p-2 rounded-xl bg-white border border-amber-300 text-xs font-mono">
-                        <div>
-                          <strong className="text-neutral-900">{pb.beerName}</strong> ({pb.volumeHl} hl) — Plnění od {new Date(pb.startDate).toLocaleDateString('cs-CZ')} (Doba ležení {pb.targetDays} dní)
+                    {plannedForThisTank.map((pb) => {
+                      const isConflicting = conflictingBatchIds.has(pb.id);
+                      return (
+                        <div key={pb.id} className={`flex items-center justify-between p-2 rounded-xl bg-white border text-xs font-mono ${isConflicting ? 'border-rose-400 ring-1 ring-rose-300' : 'border-amber-300'}`}>
+                          <div>
+                            {isConflicting && (
+                              <div className="flex items-center gap-1 text-rose-700 font-black text-[11px] mb-0.5">
+                                <ShieldAlert size={12} /> Kolize obsazenosti tanku
+                              </div>
+                            )}
+                            <strong className="text-neutral-900">{pb.beerName}</strong> ({pb.volumeHl} hl) — Plnění od {new Date(pb.startDate).toLocaleDateString('cs-CZ')} (Doba ležení {pb.targetDays} dní)
+                          </div>
+                          <button
+                            onClick={() => handleRemovePlannedBatch(pb.id)}
+                            className="text-rose-600 hover:text-rose-800 font-bold text-xs"
+                          >
+                            ✕ Zrušit
+                          </button>
                         </div>
-                        <button
-                          onClick={() => handleRemovePlannedBatch(pb.id)}
-                          className="text-rose-600 hover:text-rose-800 font-bold text-xs"
-                        >
-                          ✕ Zrušit
-                        </button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -305,6 +391,13 @@ export function TankOccupancyPlanner({
                   className="input font-medium text-xs"
                 />
               </div>
+
+              {newBatchConflict && (
+                <div className="flex items-start gap-2 p-3 rounded-2xl bg-rose-50 border border-rose-300 text-xs font-bold text-rose-800">
+                  <ShieldAlert size={16} className="text-rose-600 shrink-0 mt-0.5" />
+                  <span>⚠️ {newBatchConflict}</span>
+                </div>
+              )}
 
               <div className="pt-3 flex justify-end gap-2 border-t border-neutral-100">
                 <button
