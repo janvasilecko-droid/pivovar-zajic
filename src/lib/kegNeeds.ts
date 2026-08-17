@@ -42,6 +42,8 @@ export type KegNeedsInput = {
   prodejnaRows: any[];
   writeoffsRows: any[];
   prefukRows: any[];
+  /** Automatický odpočet závozu (stejný zdroj jako Sklad/Inventura — viz zavoz_deductions). */
+  zavozDeductionRows?: any[];
   weekKey: string;
   todayStr: string;
 };
@@ -58,6 +60,7 @@ export function computeKegNeeds(input: KegNeedsInput): KegNeedsRow[] {
     prodejnaRows,
     writeoffsRows,
     prefukRows,
+    zavozDeductionRows = [],
     weekKey,
     todayStr,
   } = input;
@@ -99,6 +102,15 @@ export function computeKegNeeds(input: KegNeedsInput): KegNeedsRow[] {
 
   const outgoingMap: Record<string, number> = {};
   [...fasovaniRows, ...prodejnaRows, ...writeoffsRows].filter((r) => r.entry_date?.startsWith(curMonth)).forEach((r) => {
+    if (!r.beer_id || !r.package_id) return;
+    const k = `${r.beer_id}__${r.package_id}`;
+    outgoingMap[k] = (outgoingMap[k] || 0) + Number(r.quantity || 0);
+  });
+
+  // Skutečně zavezené objednávky (automatický odpočet ráno v 01:00) — bez tohohle
+  // by "sklad" jen rostl s každým stočením a nikdy se nesnížil o to, co už fyzicky
+  // odjelo k odběratelům. Stejný zdroj jako Sklad (Stock.tsx) a Inventura.
+  zavozDeductionRows.filter((r) => r.deduct_date?.startsWith(curMonth)).forEach((r) => {
     if (!r.beer_id || !r.package_id) return;
     const k = `${r.beer_id}__${r.package_id}`;
     outgoingMap[k] = (outgoingMap[k] || 0) + Number(r.quantity || 0);

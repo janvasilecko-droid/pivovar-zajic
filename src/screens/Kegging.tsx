@@ -71,6 +71,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   const [fasovaniRows, setFasovaniRows] = useState<any[]>([]);
   const [prodejnaRows, setProdejnaRows] = useState<any[]>([]);
   const [writeoffsRows, setWriteoffsRows] = useState<any[]>([]);
+  const [zavozDeductionRows, setZavozDeductionRows] = useState<any[]>([]);
 
   // Filtry pro "Potřeba stočit KEGy"
   const [reqKegBeerFilter, setReqKegBeerFilter] = useState('');
@@ -242,7 +243,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   async function load(silent = false) {
     const loadId = ++loadCountRef.current;
     if (!silent && !rows.length) setLoading(true);
-    const [kg, ct, b, p, ords, oi, inv, fa, fp, wo, pf] = await Promise.all([
+    const [kg, ct, b, p, ords, oi, inv, fa, fp, wo, pf, zd] = await Promise.all([
       supabase.from('kegging').select('*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
       supabase.from('cellar_tanks').select('*').order('label'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
@@ -254,6 +255,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
       supabase.from('fasovani_private').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('writeoffs').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('keg_prefuk').select('*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
+      supabase.from('zavoz_deductions').select('deduct_date,beer_id,package_id,quantity'),
     ]);
     if (loadId !== loadCountRef.current) return;
     setRows((kg.data as EntryRow[]) ?? []);
@@ -267,10 +269,11 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
     if (fp.data) setProdejnaRows(fp.data);
     if (wo.data) setWriteoffsRows(wo.data);
     if (pf.data) setPrefukRows(pf.data as KegPrefuk[]);
+    if (zd.data) setZavozDeductionRows(zd.data);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
-  useRealtime(['kegging', 'cellar_tanks', 'beers', 'packages', 'orders', 'order_items', 'inventory', 'fasovani', 'fasovani_private', 'writeoffs', 'keg_prefuk'], () => load(true));
+  useRealtime(['kegging', 'cellar_tanks', 'beers', 'packages', 'orders', 'order_items', 'inventory', 'fasovani', 'fasovani_private', 'writeoffs', 'keg_prefuk', 'zavoz_deductions'], () => load(true));
 
   // Výpočet potřeby stočení KEG sudů — objednávky AKTUÁLNÍHO TÝDNE vs. sklad.
   // Sklad = počáteční inventura (s převodem z předchozího měsíce) + stočeno − výdej ± přefuk,
@@ -290,10 +293,11 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
       prodejnaRows,
       writeoffsRows,
       prefukRows,
+      zavozDeductionRows,
       weekKey,
       todayStr,
     });
-  }, [beers, packages, orders, orderItems, inventoryRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, prefukRows, weekKey]);
+  }, [beers, packages, orders, orderItems, inventoryRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, prefukRows, zavozDeductionRows, weekKey]);
 
   const filteredKegRequirements = useMemo(() => {
     let list = kegRequirements;

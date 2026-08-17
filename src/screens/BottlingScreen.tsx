@@ -204,6 +204,7 @@ export default function BottlingScreen({
   const [fasovaniRows, setFasovaniRows] = useState<any[]>([]);
   const [prodejnaRows, setProdejnaRows] = useState<any[]>([]);
   const [writeoffsRows, setWriteoffsRows] = useState<any[]>([]);
+  const [zavozDeductionRows, setZavozDeductionRows] = useState<any[]>([]);
 
   // Filtry pro "Potřeba stočit lahve"
   const [reqBeerFilter, setReqBeerFilter] = useState('');
@@ -317,6 +318,15 @@ export default function BottlingScreen({
       outgoingMap[k] = (outgoingMap[k] || 0) + Number(r.quantity || 0);
     });
 
+    // Skutečně zavezené objednávky (automatický odpočet ráno v 01:00) — stejný
+    // zdroj jako Sklad/Inventura. Bez tohohle by sklad jen rostl s každým
+    // stočením a nikdy neodrážel to, co už fyzicky odjelo k odběratelům.
+    zavozDeductionRows.filter((r) => r.deduct_date?.startsWith(curMonth)).forEach((r) => {
+      if (!r.beer_id || !r.package_id) return;
+      const k = `${r.beer_id}__${r.package_id}`;
+      outgoingMap[k] = (outgoingMap[k] || 0) + Number(r.quantity || 0);
+    });
+
     type ReqRow = {
       beer_id: string;
       beer_name: string;
@@ -361,7 +371,7 @@ export default function BottlingScreen({
     });
 
     return list;
-  }, [beers, packages, orders, orderItems, inventoryRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, keggingRows, weekKey]);
+  }, [beers, packages, orders, orderItems, inventoryRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, keggingRows, zavozDeductionRows, weekKey]);
 
   const filteredRequirements = useMemo(() => {
     let list = bottleRequirements;
@@ -465,7 +475,7 @@ export default function BottlingScreen({
   async function load(silent = false) {
     const loadId = ++loadCountRef.current;
     if (!silent && !rows.length) setLoading(true);
-    const [bt, b, p, ords, oi, inv, fa, fp, wo, kg, pl] = await Promise.all([
+    const [bt, b, p, ords, oi, inv, fa, fp, wo, kg, pl, zd] = await Promise.all([
       supabase.from('bottling').select('*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
@@ -477,6 +487,7 @@ export default function BottlingScreen({
       supabase.from('writeoffs').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('kegging').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('bottling_plans').select('*').order('planned_date'),
+      supabase.from('zavoz_deductions').select('deduct_date,beer_id,package_id,quantity'),
     ]);
     if (loadId !== loadCountRef.current) return;
     setRows((bt.data as EntryRow[]) ?? []);
@@ -490,10 +501,11 @@ export default function BottlingScreen({
     if (wo.data) setWriteoffsRows(wo.data);
     if (kg.data) setKeggingRows(kg.data);
     if (pl.data) setPlans(pl.data);
+    if (zd.data) setZavozDeductionRows(zd.data);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
-  useRealtime(['bottling', 'beers', 'packages', 'orders', 'order_items', 'inventory', 'fasovani', 'fasovani_private', 'writeoffs', 'kegging', 'bottling_plans'], () => load(true));
+  useRealtime(['bottling', 'beers', 'packages', 'orders', 'order_items', 'inventory', 'fasovani', 'fasovani_private', 'writeoffs', 'kegging', 'bottling_plans', 'zavoz_deductions'], () => load(true));
 
   async function add(e?: React.FormEvent) {
     e?.preventDefault();

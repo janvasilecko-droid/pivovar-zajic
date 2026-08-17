@@ -116,6 +116,21 @@ describe('computeKegNeeds', () => {
     expect(row!.stockQty).toBe(6); // 10 − 4 (přefuk ZE)
   });
 
+  it('zavezené objednávky (zavoz_deductions) se odečtou ze skladu — stejný zdroj jako Sklad/Inventura', () => {
+    const rows = computeKegNeeds(
+      makeInput({
+        inventoryRows: [{ entry_date: '2026-08-01', beer_id: 'b1', package_id: 'p-keg', quantity: 11, note: 'Počáteční' }],
+        keggingRows: [{ entry_date: '2026-08-10', beer_id: 'b1', package_id: 'p-keg', quantity: 58 }],
+        zavozDeductionRows: [{ deduct_date: '2026-08-11', beer_id: 'b1', package_id: 'p-keg', quantity: 3 }],
+      })
+    );
+    const row = rows.find((r) => r.package_id === 'p-keg');
+    // 11 (počátek) + 58 (stočeno) − 3 (zavezeno) = 66 — bez tohohle odpočtu by
+    // sklad jen rostl s každým stočením a nikdy neodrážel to, co už fyzicky
+    // odjelo k odběratelům (přesně tenhle typ chyby nahlásil uživatel).
+    expect(row!.stockQty).toBe(66);
+  });
+
   it('lahve se do KEG potřeby nepočítají (jen obaly kind === "keg")', () => {
     const rows = computeKegNeeds(
       makeInput({
