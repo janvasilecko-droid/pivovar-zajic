@@ -748,7 +748,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
       {tab === 'zapis' && mode !== 'overviews_only' && isStartChecklistCompleteForKeg(date) && (
         <form onSubmit={add} className={`card px-1 py-3 mb-5 transition-all duration-200 ${flash ? 'ring-4 ring-success-500/20' : ''}`}>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end mb-4">
+          <div className="grid grid-cols-2 gap-3 items-end mb-4">
           <div className="flex items-center gap-2">
             <label className="label !mb-0 shrink-0">Datum</label>
             <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -783,10 +783,6 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                 {rowTankPreview.missingCount}× řádek bez aktivního tanku s daným pivem — objem se neodečte
               </p>
             )}
-          </div>
-          <div>
-            <label className="label">Poznámka</label>
-            <input className="input text-xs" value={note} onChange={(e) => setNote(e.target.value)} placeholder="nepovinná poznámka" />
           </div>
           </div>
 

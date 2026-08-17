@@ -606,13 +606,9 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
         {/* Top Header - Desktop & Mobile */}
         <header className="flex items-center justify-between px-2 sm:px-8 py-2 bg-white/95 backdrop-blur-md border-b border-amber-200/70 shadow-2xs z-20 gap-2 shrink-0">
           <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 shrink-0">
-            <button
-              onClick={() => setOpen(true)}
-              className="sm:hidden w-10 h-10 grid place-items-center rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 transition border border-amber-300 active:scale-95 shrink-0"
-              aria-label="Otevřít menu"
-            >
-              <Menu size={20} strokeWidth={2.5} />
-            </button>
+            <span className="sm:hidden font-display font-black text-base text-amber-950 truncate">
+              {NAV.find((n) => n.id === page)?.label ?? ''}
+            </span>
           </div>
 
           {/* Pravá strana hlavičky — jen upozornění, nic trvalého. WhatsApp a
