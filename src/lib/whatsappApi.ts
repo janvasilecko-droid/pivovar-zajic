@@ -101,7 +101,9 @@ export async function fetchPendingWhatsAppCount(): Promise<number> {
   const { data, error } = await supabase
     .from('whatsapp_incoming')
     .select('id')
-    .in('status', ['pending', 'parsed']);
+    // 'error' (AI parsování selhalo) počítáme taky — jinak taková zpráva
+    // nikde v appce nesvítí a vypadá, že se ztratila.
+    .in('status', ['pending', 'parsed', 'error']);
 
   if (error) {
     console.error('Error counting WhatsApp messages:', error);
@@ -109,6 +111,25 @@ export async function fetchPendingWhatsAppCount(): Promise<number> {
   }
 
   return (data || []).length;
+}
+
+/**
+ * Načte VŠECHNY zprávy (libovolný status) od zadaného data — pro kontrolní
+ * přehled "nezmizela nějaká objednávka?". Na rozdíl od fetchRecentWhatsAppMessages
+ * není omezená počtem řádků a zahrnuje i 'error'/'processing'.
+ */
+export async function fetchAllWhatsAppMessagesSince(sinceISO: string): Promise<WhatsAppIncoming[]> {
+  const { data, error } = await supabase
+    .from('whatsapp_incoming')
+    .select('*')
+    .gte('created_at', sinceISO)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching all WhatsApp messages:', error);
+    throw error;
+  }
+  return data || [];
 }
 
 

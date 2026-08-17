@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 
-import { Camera, ListOrdered, Package as PackageIcon, Phone, Building2, Truck, Plus, FileText, MessageCircle, Printer, FileSpreadsheet, CheckSquare, PackageCheck, FilePlus, Calendar, Trash2, Pencil, Copy, Ban, RotateCcw, AlertTriangle, Check, CheckCircle2, Zap, ArrowRight, ChartBar, Mail } from 'lucide-react';
+import { Camera, ListOrdered, Package as PackageIcon, Phone, Building2, Truck, Plus, FileText, MessageCircle, Printer, FileSpreadsheet, CheckSquare, PackageCheck, FilePlus, Calendar, Trash2, Pencil, Copy, Ban, RotateCcw, AlertTriangle, Check, CheckCircle2, Zap, ArrowRight, ChartBar, Mail, ShieldAlert } from 'lucide-react';
 import { supabase, Beer, Package, Place, EntryRow, useRealtime, beerBg, beerText, beerName, formatPackageLabel, pkgBg } from '../lib/supabase';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
@@ -12,6 +12,7 @@ import { ImportFromImage } from '../components/ImportFromImage';
 import { WhatsAppIncomingModal } from '../components/WhatsAppIncomingModal';
 import { WhatsAppOrderReviewModal } from '../components/WhatsAppOrderReviewModal';
 import { WhatsAppAutoProcessorModal } from '../components/WhatsAppAutoProcessorModal';
+import { WhatsAppAuditModal } from '../components/WhatsAppAuditModal';
 import { EditOrderModal } from '../components/EditOrderModal';
 import { PlaceCombobox } from '../components/PlaceCombobox'; // Assuming this is needed
 import { DAYS } from '../lib/shared';
@@ -223,6 +224,7 @@ export default function Orders({
   const [showImport, setShowImport] = useState(false);
   const [showWhatsAppIncoming, setShowWhatsAppIncoming] = useState(false);
   const [showWhatsAppAutoProcessor, setShowWhatsAppAutoProcessor] = useState(false);
+  const [showWhatsAppAudit, setShowWhatsAppAudit] = useState(false);
   
   // Automatické zobrazování nových WhatsApp objednávek
   const [autoWhatsAppModal, setAutoWhatsAppModal] = useState(false);
@@ -1426,6 +1428,7 @@ export default function Orders({
               )}
             </button>
             <button className="btn-ghost !bg-[#25D366] !border-[#25D366] !text-white font-black text-xs shadow-xs flex items-center gap-1.5 hover:!bg-[#1da851]" title="WhatsApp — hromadné zpracování příchozích zpráv" onClick={() => setShowWhatsAppAutoProcessor(true)}><MessageCircle size={14} /> WhatsApp</button>
+            <button className="btn-ghost !bg-white border-neutral-300 text-neutral-700 font-extrabold text-xs shadow-xs flex items-center gap-1.5" title="Kontrola — zobrazí VŠECHNY WhatsApp zprávy za období, i chybové a ignorované, ať nic nezmizí bez povšimnutí" onClick={() => setShowWhatsAppAudit(true)}><ShieldAlert size={14} /> Kontrola zpráv</button>
             <button className="btn-ghost !bg-white border-amber-300 text-amber-800 font-extrabold text-xs shadow-xs flex items-center gap-1.5" title="Načíst z fotky/e-mailu" onClick={() => { setImportTarget(null); setShowImport(true); }}><Camera size={14} /> Fotka/AI</button>
             {mode !== 'entry_only' && (
               <>
@@ -2178,6 +2181,18 @@ export default function Orders({
           onImport={handleSaveWhatsAppOrder}
           refreshKey={whatsappListRefresh}
           onOpenMessage={(message) => {
+            setAutoWhatsAppMessage(message);
+            setAutoWhatsAppModal(true);
+          }}
+        />
+      )}
+
+      {showWhatsAppAudit && (
+        <WhatsAppAuditModal
+          isOpen={showWhatsAppAudit}
+          onClose={() => setShowWhatsAppAudit(false)}
+          onOpenMessage={(message) => {
+            setShowWhatsAppAudit(false);
             setAutoWhatsAppMessage(message);
             setAutoWhatsAppModal(true);
           }}
