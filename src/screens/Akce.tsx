@@ -546,7 +546,52 @@ export default function AkceScreen() {
                   Zadání piv a obalů na akci (7 řádků):
                 </label>
 
-                <div className="overflow-x-auto">
+                {/* Mobilní karty */}
+                <div className="grid grid-cols-1 gap-2 md:hidden">
+                  {itemRows.map((r, i) => (
+                    <div key={i} className="rounded-2xl border border-neutral-200 bg-white p-3 space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <select
+                          className="input text-xs"
+                          value={r.beer_id}
+                          onChange={(e) => handleRowChange(i, 'beer_id', e.target.value)}
+                        >
+                          <option value="">— pivo —</option>
+                          {beers.map((b) => <option key={b.id} value={b.id}>{b.name}{b.degree ? ` (${b.degree})` : ''}</option>)}
+                        </select>
+                        <select
+                          className="input text-xs"
+                          value={r.package_id}
+                          onChange={(e) => handleRowChange(i, 'package_id', e.target.value)}
+                        >
+                          <option value="">— obal —</option>
+                          {sortedPackages.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+                        </select>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          className="w-11 h-11 shrink-0 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-lg transition disabled:opacity-30"
+                          disabled={!r.qty || Number(r.qty) <= 0}
+                          onClick={() => handleRowChange(i, 'qty', String(Math.max(0, Number(r.qty) - 1)))}
+                        >−</button>
+                        <span className="flex-1 text-center text-base font-black bg-white border border-neutral-200 rounded-lg py-2.5">
+                          {Number(r.qty) > 0 ? r.qty : '0'}
+                        </span>
+                        <button
+                          type="button"
+                          className="w-11 h-11 shrink-0 grid place-items-center rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-lg transition"
+                          onClick={() => handleRowChange(i, 'qty', String(Number(r.qty || 0) + 1))}
+                        >+</button>
+                        <button type="submit" className="min-h-[44px] px-3 shrink-0 grid place-items-center rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-black text-lg transition" title="Potvrdit / uložit vše">✓</button>
+                        <button type="button" className="w-11 min-h-[44px] shrink-0 grid place-items-center rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-lg transition" onClick={() => clearRow(i)} title="Zrušit řádek">✕</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Desktop tabulka */}
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-xs whitespace-nowrap">
                     <thead>
                       <tr className="bg-neutral-100">

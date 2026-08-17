@@ -344,7 +344,36 @@ export default function ExkurzeScreen() {
           {activeEntries.length === 0 ? (
             <EmptyState text={`Pro měsíc ${currentMonth} nejsou žádné aktivní nearchivované exkurze.`} icon="🏰" />
           ) : (
-            <div className="overflow-x-auto scrollbar-thin">
+            <>
+            {/* Mobilní karty */}
+            <div className="grid grid-cols-1 gap-2.5 md:hidden">
+              {activeEntries.map((e) => (
+                <div key={e.id} className="rounded-2xl border border-neutral-200 bg-white p-3 space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1 font-bold text-sm text-neutral-900">
+                      <Calendar size={14} className="text-amber-600" />
+                      {new Date(e.tour_date).toLocaleDateString('cs-CZ')}
+                      <span className="font-mono text-neutral-500 text-xs">({e.tour_time})</span>
+                    </span>
+                    <button onClick={() => handleDelete(e.id)} className="w-9 h-9 grid place-items-center rounded-lg hover:bg-rose-100 text-rose-600 transition shrink-0" title="Smazat">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1 font-extrabold text-neutral-900">
+                      <UserCheck size={14} className="text-amber-600" /> {e.guide_name}
+                    </span>
+                    <span className="font-mono font-black text-neutral-950">{e.people_count} osob</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-neutral-600 font-medium truncate">{e.note || '—'}</span>
+                    <span className="font-mono font-black text-emerald-800 shrink-0">{e.revenue ? `${e.revenue.toLocaleString('cs-CZ')} Kč` : '—'}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden md:block overflow-x-auto scrollbar-thin">
               <table className="table text-xs">
                 <thead>
                   <tr>
@@ -388,6 +417,7 @@ export default function ExkurzeScreen() {
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </div>
       </div>
