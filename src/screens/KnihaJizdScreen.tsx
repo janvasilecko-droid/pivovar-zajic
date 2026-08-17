@@ -48,14 +48,21 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
   const [kmDriven, setKmDriven] = useState<string>('85');
   const [note, setNote] = useState('');
 
-  // Auto Generator Modal state
+  // Auto Generator Modal state — dvoukrokové: 1) měsíc/řidič/počáteční km → načte dny
+  // z objednávek, 2) náhled dnů s editovatelným km a přepínačem vozidla (Velké auto/Kachna).
   const [showAutoModal, setShowAutoModal] = useState(false);
+  const [autoStep, setAutoStep] = useState<'form' | 'preview'>('form');
   const [autoMonth, setAutoMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
-  const [autoVehicle, setAutoVehicle] = useState('Velké auto (Peugeot Boxer / 3K1 2244)');
   const [autoDriver, setAutoDriver] = useState('Petr Bednář');
   const [autoStartKm, setAutoStartKm] = useState<string>('120000');
-  const [autoEndKm, setAutoEndKm] = useState<string>('120850');
   const [autoGenerating, setAutoGenerating] = useState(false);
+  const [previewDays, setPreviewDays] = useState<{ date: string; routeTo: string; stopsCount: number; isKachna: boolean; km: string }[]>([]);
+
+  function openAutoModal() {
+    setAutoStep('form');
+    setPreviewDays([]);
+    setShowAutoModal(true);
+  }
 
   async function loadVehicles() {
     setLoading(true);
@@ -67,7 +74,6 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
       const largeV = vList.find((v) => v.name.toLowerCase().includes('velk') || v.name.toLowerCase().includes('boxer') || v.name.toLowerCase().includes('transit')) ?? vList[0];
       const defaultName = largeV.spz ? `${largeV.name} (${largeV.spz})` : largeV.name;
       setVehicleName((prev) => prev || defaultName);
-      setAutoVehicle((prev) => prev || defaultName);
     }
     setLoading(false);
   }
@@ -118,6 +124,16 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
     return filteredEntries.reduce((sum, e) => sum + Number(e.km_driven || 0), 0);
   }, [filteredEntries]);
 
+  // Velké auto — výchozí vozidlo pro vygenerované jízdy z objednávek
+  const bigVehicleLabel = useMemo(() => {
+    const big =
+      vehicles.find((v) => {
+        const n = v.name.toLowerCase();
+        return n.includes('velk') || n.includes('boxer') || n.includes('transit');
+      }) ?? vehicles[0];
+    return big ? (big.spz ? `${big.name} (${big.spz})` : big.name) : 'Velké auto (Peugeot Boxer / 3K1 2244)';
+  }, [vehicles]);
+
   // Druhé vozidlo pivovaru (Kachna / Kačena) — dny označené v Závozu se zapíšou na něj
   const secondVehicleLabel = useMemo(() => {
     const second =
@@ -133,127 +149,99 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
     return second ? (second.spz ? `${second.name} (${second.spz})` : second.name) : 'Kachna (Kačena)';
   }, [vehicles]);
 
-  // ---- AUTOMATICKÝ VÝPOČET A GENEROVÁNÍ KNIHY JÍZD Z OBJEDNÁVEK ----
-  async function handleAutoGenerate(e: React.FormEvent) {
+  // ---- KROK 1: NAČÍST DNY ZÁVOZU Z OBJEDNÁVEK (jen ty, které MAJÍ nastavený den závozu) ----
+  async function handleBuildPreview(e: React.FormEvent) {
     e.preventDefault();
-    const startKmNum = Number(autoStartKm) || 0;
-    const endKmNum = Number(autoEndKm) || 0;
-    const totalDistance = endKmNum - startKmNum;
-
-    if (totalDistance <= 0) {
-      alert('Konečný stav tachometru musí být větší než počáteční stav km.');
-      return;
-    }
-
     setAutoGenerating(true);
 
     try {
-      // 1. Fetch orders from Supabase for selected month
+      // Jen objednávky s nastaveným dnem závozu (delivery_date) — objednávky bez něj
+      // by vytvářely fiktivní jízdy na den vytvoření objednávky, ne na skutečný den rozvozu.
       const { data: rawOrders } = await supabase
         .from('orders')
         .select('*')
         .neq('status', 'storno')
-        .gte('order_date', `${autoMonth}-01`)
-        .lte('order_date', `${autoMonth}-31`)
-        .order('order_date', { ascending: true });
+        .not('delivery_date', 'is', null)
+        .gte('delivery_date', `${autoMonth}-01`)
+        .lte('delivery_date', `${autoMonth}-31`)
+        .order('delivery_date', { ascending: true });
 
       const ordersList = (rawOrders as any[]) ?? [];
 
       if (!ordersList.length) {
-        alert(`V měsíci ${autoMonth} nebyly nalezeny žádné objednávky pro vytvoření tras.`);
+        alert(`V měsíci ${autoMonth} nebyly nalezeny žádné objednávky s nastaveným dnem závozu.`);
         setAutoGenerating(false);
         return;
       }
 
-      // 2. Group orders by delivery date or order date
-      const dateGroups = new Map<string, { date: string; places: Set<string> }>();
+      const dateGroups = new Map<string, Set<string>>();
       ordersList.forEach((o) => {
-        const d = o.delivery_date || o.order_date;
+        const d = o.delivery_date;
         if (!d) return;
         const pName = o.place_name || 'Místní odběratel';
-        const cur = dateGroups.get(d) || { date: d, places: new Set<string>() };
-        cur.places.add(pName);
-        dateGroups.set(d, cur);
+        const set = dateGroups.get(d) ?? new Set<string>();
+        set.add(pName);
+        dateGroups.set(d, set);
       });
 
-      const sortedGroupList = [...dateGroups.values()].sort((a, b) => a.date.localeCompare(b.date));
-
-      if (!sortedGroupList.length) {
-        alert('Nebyly nalezeny žádné dny s objednávkami.');
-        setAutoGenerating(false);
-        return;
-      }
-
-      // 3. For each day, build route starting and ending in Kynšperk nad Ohří
-      // Format: Kynšperk nad Ohří (Pivovar) ➔ [Place 1] ➔ [Place 2] ➔ Kynšperk nad Ohří
-      const routes = sortedGroupList.map((g) => {
-        const placesArr = Array.from(g.places);
-        const routeToText = placesArr.length > 0 
-          ? `${placesArr.join(' ➔ ')} ➔ Kynšperk nad Ohří`
-          : 'Kynšperk nad Ohří (Okruh)';
-        
-        // Base weight calculation: 30 km return loop + 25 km per stop
-        const rawWeight = 30 + (placesArr.length * 25);
-        return {
-          date: g.date,
-          routeFrom: 'Kynšperk nad Ohří (Pivovar)',
-          routeTo: routeToText,
-          stopsCount: placesArr.length,
-          rawWeight,
-        };
-      });
-
-      // 4. Distribute totalDistance proportionally & evenly across all delivery days
-      const totalRawWeight = routes.reduce((s, r) => s + r.rawWeight, 0);
-
-      let currentKm = startKmNum;
-      const generatedEntries: LogbookEntry[] = [];
-
-      routes.forEach((r, idx) => {
-        let driven: number;
-        if (idx === routes.length - 1) {
-          // Last entry gets exact remainder to hit endKmNum precisely
-          driven = Math.max(1, endKmNum - currentKm);
-        } else {
-          const proportion = r.rawWeight / totalRawWeight;
-          driven = Math.max(1, Math.round(totalDistance * proportion));
-        }
-
-        const kmStartVal = currentKm;
-        const kmEndVal = currentKm + driven;
-        currentKm = kmEndVal;
-
-        // Den označený v Závozu jako „Druhé auto (Kačena)“ se zapíše na druhé vozidlo
-        const isSecondCarDay = getSecondCarDates().includes(r.date);
-
-        generatedEntries.push({
-          id: crypto.randomUUID(),
-          date: r.date,
-          vehicle_name: isSecondCarDay ? secondVehicleLabel : (autoVehicle || 'Velké auto (Peugeot Boxer / 3K1 2244)'),
-          driver: autoDriver || 'Petr Bednář',
-          route_from: r.routeFrom,
-          route_to: r.routeTo,
-          purpose: 'Rozvoz piva z objednávek & Svoz obalů',
-          km_start: kmStartVal,
-          km_end: kmEndVal,
-          km_driven: driven,
-          note: `Automaticky vygenerováno z objednávek (${r.stopsCount} zastávek v daný den)${isSecondCarDay ? ' — druhé auto' : ''}`,
+      const secondCarDates = new Set(getSecondCarDates());
+      const days = [...dateGroups.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([dDate, placesSet]) => {
+          const places = Array.from(placesSet);
+          return {
+            date: dDate,
+            routeTo: places.length > 0 ? `${places.join(' ➔ ')} ➔ Kynšperk nad Ohří` : 'Kynšperk nad Ohří (Okruh)',
+            stopsCount: places.length,
+            isKachna: secondCarDates.has(dDate),
+            km: '',
+          };
         });
-      });
 
-      // Prepend generated entries, replacing any previous entries for the same dates
-      const existingOtherDates = entries.filter((e) => !routes.some((r) => r.date === e.date));
-      const updatedEntries = [...generatedEntries, ...existingOtherDates].sort((a, b) => b.date.localeCompare(a.date));
-
-      saveEntriesToStorage(updatedEntries);
-      setFilterMonth(autoMonth);
-      setShowAutoModal(false);
-      alert(`✅ Úspěšně vygenerováno ${generatedEntries.length} závozových jízd (start i cíl Kynšperk) v celkové délce ${totalDistance} km!`);
+      setPreviewDays(days);
+      setAutoStep('preview');
     } catch (err: any) {
-      alert(`Chyba při generování Knihy jízd: ${err?.message || err}`);
+      alert(`Chyba při načítání objednávek: ${err?.message || err}`);
     } finally {
       setAutoGenerating(false);
     }
+  }
+
+  // ---- KROK 2: Z NÁHLEDU (upravené km + vozidlo na den) VYTVOŘIT ZÁZNAMY ----
+  function handleGenerateFromPreview() {
+    if (previewDays.some((d) => !d.km || Number(d.km) <= 0)) {
+      if (!window.confirm('Některé dny nemají vyplněné ujeté km. Pokračovat i tak (budou mít 0 km)?')) return;
+    }
+    let currentKm = Number(autoStartKm) || 0;
+    const generatedEntries: LogbookEntry[] = previewDays.map((d) => {
+      const driven = Math.max(0, Number(d.km) || 0);
+      const kmStartVal = currentKm;
+      const kmEndVal = currentKm + driven;
+      currentKm = kmEndVal;
+      return {
+        id: crypto.randomUUID(),
+        date: d.date,
+        vehicle_name: d.isKachna ? secondVehicleLabel : bigVehicleLabel,
+        driver: autoDriver || 'Petr Bednář',
+        route_from: 'Kynšperk nad Ohří (Pivovar)',
+        route_to: d.routeTo,
+        purpose: 'Rozvoz piva z objednávek & Svoz obalů',
+        km_start: kmStartVal,
+        km_end: kmEndVal,
+        km_driven: driven,
+        note: `Vygenerováno z objednávek (${d.stopsCount} zastávek v daný den)${d.isKachna ? ' — auto Kachna' : ' — Velké auto'}`,
+      };
+    });
+
+    const existingOtherDates = entries.filter((e) => !previewDays.some((d) => d.date === e.date));
+    const updatedEntries = [...generatedEntries, ...existingOtherDates].sort((a, b) => b.date.localeCompare(a.date));
+
+    saveEntriesToStorage(updatedEntries);
+    setFilterMonth(autoMonth);
+    setShowAutoModal(false);
+    setAutoStep('form');
+    setPreviewDays([]);
+    alert(`✅ Úspěšně vygenerováno ${generatedEntries.length} závozových jízd!`);
   }
 
   function exportExcelLogbook() {
@@ -338,7 +326,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
           </div>
 
           <button
-            onClick={() => setShowAutoModal(true)}
+            onClick={openAutoModal}
             className="px-4 py-2.5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-black text-xs transition shadow-md flex items-center gap-1.5 animate-pulse"
             title="Automaticky spočítat trasy z objednávek podle dnů s rovnoměrným rozpočítáním tachometru"
           >
@@ -394,7 +382,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
             <span>Evidenční list jízd ({filteredEntries.length})</span>
           </h3>
           <button
-            onClick={() => setShowAutoModal(true)}
+            onClick={openAutoModal}
             className="text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3 py-1.5 rounded-xl transition flex items-center gap-1"
           >
             <Sparkles size={14} /> Automatické dopočítání z tachometru
@@ -406,7 +394,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
             <p>V měsíci {filterMonth} zatím nebyly zapsané žádné jízdy.</p>
             <div className="flex justify-center gap-2">
               <button
-                onClick={() => setShowAutoModal(true)}
+                onClick={openAutoModal}
                 className="px-4 py-2.5 rounded-xl bg-amber-500 text-neutral-950 font-black text-xs shadow-xs flex items-center gap-1.5"
               >
                 <Zap size={15} /> Generovat z objednávek
@@ -514,62 +502,43 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
               <button onClick={() => setShowAutoModal(false)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg">✕</button>
             </div>
 
-            <form onSubmit={handleAutoGenerate} className="space-y-3">
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-950 font-medium space-y-1">
-                <p className="font-bold flex items-center gap-1 text-amber-900">
-                  <CheckCircle2 size={14} className="text-amber-600" />
-                  <span>Automatická trasa Kynšperk ➔ Zastávky ➔ Kynšperk</span>
-                </p>
-                <p>
-                  Aplikace vyhledá objednávky v daném měsíci podle dnů, vytvoří trasy začínající i končící v Kynšperku nad Ohří a <strong>rozpočítá celkový stav tachometru rovnoměrně do všech jízd</strong>.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-black text-neutral-700 mb-1">Měsíc objednávek</label>
-                  <input
-                    type="month"
-                    required
-                    value={autoMonth}
-                    onChange={(e) => setAutoMonth(e.target.value)}
-                    className="input font-mono font-bold text-xs"
-                  />
+            {autoStep === 'form' ? (
+              <form onSubmit={handleBuildPreview} className="space-y-3">
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-950 font-medium space-y-1">
+                  <p className="font-bold flex items-center gap-1 text-amber-900">
+                    <CheckCircle2 size={14} className="text-amber-600" />
+                    <span>Trasa Kynšperk ➔ Zastávky ➔ Kynšperk</span>
+                  </p>
+                  <p>
+                    Načtou se dny, které mají v objednávkách nastavený <strong>den závozu</strong>. V dalším kroku pro každý den zvolíš vozidlo (výchozí Velké auto, nebo zaškrtneš Kachnu) a doplníš skutečně ujeté km.
+                  </p>
                 </div>
-                <div>
-                  <label className="block text-xs font-black text-neutral-700 mb-1">Řidič</label>
-                  <input
-                    type="text"
-                    required
-                    value={autoDriver}
-                    onChange={(e) => setAutoDriver(e.target.value)}
-                    className="input font-bold text-xs"
-                  />
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-black text-neutral-700 mb-1">Měsíc objednávek</label>
+                    <input
+                      type="month"
+                      required
+                      value={autoMonth}
+                      onChange={(e) => setAutoMonth(e.target.value)}
+                      className="input font-mono font-bold text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black text-neutral-700 mb-1">Řidič</label>
+                    <input
+                      type="text"
+                      required
+                      value={autoDriver}
+                      onChange={(e) => setAutoDriver(e.target.value)}
+                      className="input font-bold text-xs"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-xs font-black text-neutral-700 mb-1">Vozidlo (Primárně Velké auto)</label>
-                <select
-                  value={autoVehicle}
-                  onChange={(e) => setAutoVehicle(e.target.value)}
-                  className="input font-bold text-xs"
-                >
-                  <option value="Velké auto (Peugeot Boxer / 3K1 2244)">Velké auto (Peugeot Boxer / 3K1 2244)</option>
-                  {vehicles.map((v) => {
-                    const label = v.spz ? `${v.name} (${v.spz})` : v.name;
-                    return <option key={v.id} value={label}>{label}</option>;
-                  })}
-                </select>
-              </div>
-
-              <p className="text-[11px] text-neutral-500 font-bold leading-snug -mt-1">
-                💡 Dny označené v <strong>Závozu</strong> políčkem <strong>„Druhé auto (Kačena)“</strong> se automaticky zapíšou na druhé vozidlo <strong>{secondVehicleLabel}</strong>.
-              </p>
-
-              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-black text-neutral-700 mb-1">Tachometr START (km)</label>
+                  <label className="block text-xs font-black text-neutral-700 mb-1">Tachometr na začátku měsíce (km)</label>
                   <input
                     type="number"
                     required
@@ -579,44 +548,82 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                     placeholder="Např. 120000"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-black text-neutral-700 mb-1">Tachometr KONEC (km)</label>
-                  <input
-                    type="number"
-                    required
-                    value={autoEndKm}
-                    onChange={(e) => setAutoEndKm(e.target.value)}
-                    className="input font-mono font-bold text-xs"
-                    placeholder="Např. 120850"
-                  />
+
+                <div className="pt-3 flex justify-end gap-2 border-t border-neutral-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowAutoModal(false)}
+                    className="px-4 py-2 rounded-xl bg-neutral-100 text-neutral-700 font-extrabold text-xs"
+                  >
+                    Zrušit
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={autoGenerating}
+                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    <Zap size={16} />
+                    <span>{autoGenerating ? 'Načítám dny…' : 'Načíst dny z objednávek →'}</span>
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-[11px] text-neutral-500 font-bold leading-snug">
+                  Nalezeno <strong>{previewDays.length}</strong> dnů se závozem v {autoMonth}. Zaškrtni <strong>🦆 Kachna</strong> u dnů, kdy jelo malé auto, jinak se použije <strong>{bigVehicleLabel}</strong>. Doplň ujeté km z tachometru za daný den.
+                </p>
+
+                <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
+                  {previewDays.map((d, i) => (
+                    <div key={d.date} className="rounded-2xl border border-neutral-200 p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-black text-xs text-neutral-900">{new Date(d.date).toLocaleDateString('cs-CZ')}</span>
+                        <span className="text-[10px] font-bold text-neutral-500">{d.stopsCount} zastávek</span>
+                      </div>
+                      <div className="text-[11px] text-neutral-600 font-medium leading-snug">{d.routeTo}</div>
+                      <div className="flex items-center gap-2">
+                        <label className="flex items-center gap-1.5 text-xs font-bold text-neutral-700 shrink-0">
+                          <input
+                            type="checkbox"
+                            checked={d.isKachna}
+                            onChange={(e) => setPreviewDays((rs) => rs.map((r, j) => j === i ? { ...r, isKachna: e.target.checked } : r))}
+                            className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 accent-amber-500"
+                          />
+                          🦆 Kachna
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          inputMode="numeric"
+                          className="input !py-1.5 flex-1 font-mono font-bold text-xs"
+                          placeholder="km za tento den"
+                          value={d.km}
+                          onChange={(e) => setPreviewDays((rs) => rs.map((r, j) => j === i ? { ...r, km: e.target.value.replace(/[^0-9]/g, '') } : r))}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="pt-3 flex justify-between gap-2 border-t border-neutral-100">
+                  <button
+                    type="button"
+                    onClick={() => setAutoStep('form')}
+                    className="px-4 py-2 rounded-xl bg-neutral-100 text-neutral-700 font-extrabold text-xs"
+                  >
+                    ← Zpět
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleGenerateFromPreview}
+                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md flex items-center gap-1.5"
+                  >
+                    <Zap size={16} />
+                    <span>Vygenerovat {previewDays.length} jízd</span>
+                  </button>
                 </div>
               </div>
-
-              {Number(autoEndKm) > Number(autoStartKm) && (
-                <div className="p-2.5 rounded-xl bg-neutral-900 text-amber-300 font-mono font-bold text-xs flex justify-between items-center">
-                  <span>Celkem ujeto k rozpočítání:</span>
-                  <span className="text-sm font-black text-white">{(Number(autoEndKm) - Number(autoStartKm)).toLocaleString('cs-CZ')} km</span>
-                </div>
-              )}
-
-              <div className="pt-3 flex justify-end gap-2 border-t border-neutral-100">
-                <button
-                  type="button"
-                  onClick={() => setShowAutoModal(false)}
-                  className="px-4 py-2 rounded-xl bg-neutral-100 text-neutral-700 font-extrabold text-xs"
-                >
-                  Zrušit
-                </button>
-                <button
-                  type="submit"
-                  disabled={autoGenerating}
-                  className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md disabled:opacity-50 flex items-center gap-1.5"
-                >
-                  <Zap size={16} />
-                  <span>{autoGenerating ? 'Generuji trasy...' : 'Vygenerovat jízdy'}</span>
-                </button>
-              </div>
-            </form>
+            )}
           </div>
         </div>
       )}
