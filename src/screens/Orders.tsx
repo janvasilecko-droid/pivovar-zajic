@@ -19,6 +19,7 @@ import { DAYS } from '../lib/shared';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { QuickQtySelect, orderQuickQtys } from '../components/QuickQtySelect';
 import { BeerTileGrid, BeerTilePanel, TileTotalBar } from '../components/BeerTileGrid';
+import { topQuantitiesLastMonth } from '../lib/quickQty';
 import { parseVoiceOrder, parseOrderText, detectOrderNotes, loadAliasMap, loadPlaceAliasMap, emptyAliasMap, getOrCreatePlace, matchBeerFromHints, matchPackage, normalize, type ParserAliasMap } from '../lib/orderParser';
 
 import { shareOrderToWhatsApp } from '../lib/whatsapp';
@@ -209,6 +210,20 @@ export default function Orders({
   const [expandedBeerId, setExpandedBeerId] = useState<string | null>(null);
   // Pivo aktuálně otevřené v plnoobrazovkovém editačním panelu
   const expandedBeer = expandedBeerId ? beers.find((b) => b.id === expandedBeerId) ?? null : null;
+
+  // Historie objednaného množství (pivo+obal) ze VŠECH nestornovaných objednávek —
+  // slouží k dopočtu "4 nejčastější hodnoty z minulého měsíce" u dlaždic (viz níže).
+  const orderQtyHistory = useMemo(() => {
+    const out: { beer_id: string | null; package_id: string | null; quantity: number | null; entry_date: string | null }[] = [];
+    orders.forEach((o) => {
+      if (o.status === 'storno') return;
+      const entry_date = o.delivery_date || o.order_date;
+      (items[o.id] ?? []).forEach((it) => {
+        out.push({ beer_id: it.beer_id, package_id: it.package_id, quantity: it.quantity, entry_date });
+      });
+    });
+    return out;
+  }, [orders, items]);
   // 📅 Datum rozpoznané z poznámky (kdy má být zavezeno)
   const [noteDateHint, setNoteDateHint] = useState<string | null>(null);
 
@@ -1584,10 +1599,22 @@ export default function Orders({
                 const qty = row ? Number(row.qty || 0) : 0;
                 const qtyStr = row ? row.qty : '';
                 const qtys = orderQuickQtys(p);
+                const commonQtys = topQuantitiesLastMonth(orderQtyHistory, expandedBeer.id, p.id);
                 return (
-                  <div key={p.id} className="flex items-center justify-between gap-2 rounded-xl border border-neutral-200 dark:border-neutral-700 py-1.5 px-2">
+                  <div key={p.id} className="flex items-center justify-between gap-2 rounded-xl border border-neutral-200 dark:border-neutral-700 py-1.5 px-2 flex-wrap">
                     <span className="text-sm font-bold text-neutral-700 dark:text-neutral-200 truncate">{formatPackageLabel(p.label)}</span>
                     <div className="flex items-center gap-1">
+                      {commonQtys.map((q) => (
+                        <button
+                          key={q}
+                          type="button"
+                          onClick={() => setPkgAbsolute(expandedBeer.id, p.id, q)}
+                          title="Nejčastější hodnota minulý měsíc"
+                          className={`h-9 min-w-[1.75rem] px-1.5 rounded-lg text-[11px] font-black transition ${qty === q ? 'bg-amber-500 text-white' : 'bg-neutral-100 hover:bg-amber-200 text-neutral-600 hover:text-amber-950'}`}
+                        >
+                          {q}
+                        </button>
+                      ))}
                       {qtys && (
                         <select
                           value={qtys.includes(qty) ? qty : ''}

@@ -13,6 +13,7 @@ import { computeKegNeeds } from '../lib/kegNeeds';
 import { Camera, Loader2, Pencil } from 'lucide-react';
 import { ImportKeggingFromImage } from '../components/ImportKeggingFromImage';
 import { BeerTileGrid, BeerTilePanel, TileTotalBar } from '../components/BeerTileGrid';
+import { topQuantitiesLastMonth } from '../lib/quickQty';
 
 
 const ROW_COUNT = 12;
@@ -816,11 +817,23 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                 const qty = tileQtyFor(expandedKegBeer.id, p.id);
                 const rowTanks = activeTanksForBeer(expandedKegBeer.id);
                 const currentTankId = entryRows.find((r) => r.beerId === expandedKegBeer.id && r.pkgId === p.id)?.tankId || '';
+                const quickQtys = topQuantitiesLastMonth(rows, expandedKegBeer.id, p.id);
                 return (
                   <div key={p.id} className="rounded-xl border border-neutral-200 py-1.5 px-2 space-y-1.5">
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
                       <span className="text-sm font-bold text-neutral-700 truncate">{formatPackageLabel(p.label)}</span>
                       <div className="flex items-center gap-1">
+                        {quickQtys.map((q) => (
+                          <button
+                            key={q}
+                            type="button"
+                            onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(q) })}
+                            title="Nejčastější hodnota minulý měsíc"
+                            className={`h-7 min-w-[1.75rem] px-1.5 rounded-lg text-[11px] font-black transition ${qty === q ? 'bg-amber-500 text-white' : 'bg-neutral-100 hover:bg-amber-200 text-neutral-600 hover:text-amber-950'}`}
+                          >
+                            {q}
+                          </button>
+                        ))}
                         <button type="button" onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(Math.max(0, qty - 1)) })} className="w-10 h-10 grid place-items-center rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={qty <= 0}>−</button>
                         <input
                           type="number"

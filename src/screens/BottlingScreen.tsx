@@ -18,6 +18,7 @@ import { requestOrdersItemFilter } from '../lib/ordersFilter';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { BeerTileGrid, BeerTilePanel, TileTotalBar } from '../components/BeerTileGrid';
+import { topQuantitiesLastMonth } from '../lib/quickQty';
 
 
 const ROW_COUNT = 12;
@@ -975,8 +976,9 @@ export default function BottlingScreen({
                   {tileSlots.map((slot) => {
                     const pkgId = tileDraft[slot.pkg];
                     const qtyStr = tileDraft[slot.qty];
+                    const quickQtys = tileBeer ? topQuantitiesLastMonth(rows, tileBeer.id, pkgId) : [];
                     return (
-                      <div key={slot.key} className="flex items-center justify-between gap-2 rounded-xl border border-neutral-200 py-1.5 px-2">
+                      <div key={slot.key} className="flex items-center justify-between gap-2 rounded-xl border border-neutral-200 py-1.5 px-2 flex-wrap">
                         <select
                           className="input text-xs font-bold w-28 p-1.5 rounded-lg border border-amber-300 bg-white"
                           value={pkgId}
@@ -988,6 +990,17 @@ export default function BottlingScreen({
                           ))}
                         </select>
                         <div className="flex items-center gap-1">
+                          {quickQtys.map((q) => (
+                            <button
+                              key={q}
+                              type="button"
+                              onClick={() => setTile(slot.qty, String(q))}
+                              title="Nejčastější hodnota minulý měsíc"
+                              className={`h-7 min-w-[1.75rem] px-1.5 rounded-lg text-[11px] font-black transition ${Number(qtyStr) === q ? 'bg-amber-500 text-white' : 'bg-neutral-100 hover:bg-amber-200 text-neutral-600 hover:text-amber-950'}`}
+                            >
+                              {q}
+                            </button>
+                          ))}
                           <button type="button" onClick={() => bumpTile(slot.qty, -1)} className="w-9 h-9 grid place-items-center rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition select-none">−</button>
                           <input
                             type="number"
