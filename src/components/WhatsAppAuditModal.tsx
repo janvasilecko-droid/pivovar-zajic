@@ -205,7 +205,7 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
                     <div className="text-xs text-neutral-700 bg-neutral-50 p-2 rounded-lg mt-1.5 line-clamp-2">
                       {m.message_text?.slice(0, 220)}{(m.message_text?.length ?? 0) > 220 ? '…' : ''}
                     </div>
-                    {m.status === 'error' && m.error_message && (
+                    {(m.status === 'error' || m.status === 'ignored') && m.error_message && (
                       <div className="text-[11px] text-rose-700 font-bold mt-1">⚠️ {m.error_message}</div>
                     )}
                     {m.status === 'imported' && (

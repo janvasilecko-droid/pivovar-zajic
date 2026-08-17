@@ -341,6 +341,24 @@ Deno.serve(async (req: Request) => {
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
 
+    // Zpráva prošla ověřením webhook tokenu (tj. je z důvěryhodné brány — vlastní
+    // telefon/Tasker), jen ji whitelist podle odesílatele/skupiny nepustil dál.
+    // Dřív se v tomto případě nikam neuložila — v appce ("Kontrola zpráv") pak
+    // vypadalo, že objednávka prostě zmizela beze stopy. Teď se uloží se stavem
+    // 'ignored' a důvodem v error_message, ať jde v appce dohledat.
+    const skipAndLog = async (reason: string, extra: Record<string, unknown> = {}) => {
+      try {
+        await supabase.from("whatsapp_incoming").insert({
+          ...record,
+          status: "ignored",
+          error_message: `Nenačteno automaticky: ${reason}`,
+        });
+      } catch (e) {
+        console.error("[whatsapp-webhook] Nepodařilo se zalogovat odfiltrovanou zprávu:", e);
+      }
+      return skip(reason, extra);
+    };
+
     // Whitelist (prázdný seznam = povoleno vše, zpětně kompatibilní). Najdeme
     // odesílatele podle normalizovaného názvu (bez diakritiky a velikosti).
     const allowedChatIds = senders
@@ -358,7 +376,7 @@ Deno.serve(async (req: Request) => {
       console.log(
         `[whatsapp-webhook] IGNOROVÁNO — odesílatel "${record.sender_name}" (chat_id="${chatId}") není v whitelistu.`
       );
-      return skip(
+      return await skipAndLog(
         "Sender not allowed — message skipped (povolena je jen skupina Objednávky pivovar)"
       );
     }
@@ -373,7 +391,7 @@ Deno.serve(async (req: Request) => {
         console.log(
           `[whatsapp-webhook] IGNOROVÁNO — chat_id="${chatId}" nesouhlasí se zaregistrovaným "${registeredChatId}" pro "${record.sender_name}".`
         );
-        return skip(
+        return await skipAndLog(
           "chat_id not allowed — message skipped (chat_id nesouhlasí se zaregistrovaným pro tuto skupinu)",
           { chat_id_unknown: true }
         );
