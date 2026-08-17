@@ -275,12 +275,14 @@ export default function BottlingScreen({
     const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
     const bottlePkgIds = new Set(packages.filter((p) => p.kind !== 'keg').map((p) => p.id));
+    // VŠECHNY nezavezené objednávky — bez ohledu na týden dovozu. Objednávka
+    // z minulého týdne, která ještě nejela, pořád "potřebuje" stočit.
     const activeOrderIds = new Set(
       orders
         .filter((o) => {
           if (o.status === 'storno' || o.status === 'vyrizeno' || o.status === 'vyrizeno_zavoz') return false;
-          const targetDate = o.delivery_date || o.order_date;
-          return !!targetDate && isoWeekKey(targetDate) === weekKey;
+          if (o.is_delivered) return false;
+          return true;
         })
         .map((o) => o.id)
     );
@@ -371,7 +373,7 @@ export default function BottlingScreen({
     });
 
     return list;
-  }, [beers, packages, orders, orderItems, inventoryRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, keggingRows, zavozDeductionRows, weekKey]);
+  }, [beers, packages, orders, orderItems, inventoryRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, keggingRows, zavozDeductionRows]);
 
   const filteredRequirements = useMemo(() => {
     let list = bottleRequirements;
@@ -479,7 +481,7 @@ export default function BottlingScreen({
       supabase.from('bottling').select('*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
-      supabase.from('orders').select('id,order_date,delivery_date,status'),
+      supabase.from('orders').select('id,order_date,delivery_date,status,is_delivered'),
       supabase.from('order_items').select('order_id,beer_id,package_id,quantity'),
       supabase.from('inventory').select('entry_date,beer_id,package_id,quantity,note'),
       supabase.from('fasovani').select('entry_date,beer_id,package_id,quantity'),
@@ -1626,19 +1628,19 @@ export default function BottlingScreen({
           {/* Souhrnné karty */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="card p-4 bg-white border border-neutral-200 rounded-2xl space-y-1">
-              <span className="text-[10px] font-black uppercase text-neutral-500">Objednáno tento týden</span>
+              <span className="text-[10px] font-black uppercase text-neutral-500">Objednáno, ještě nezavezeno</span>
               <div className="font-display font-black text-xl text-sky-700">{reqTotals.ordered} ks</div>
-              <span className="text-[11px] text-neutral-500">Aktivní objednávky s dovozem {weekLabel}</span>
+              <span className="text-[11px] text-neutral-500">Všechny aktivní objednávky, které ještě nejely ven</span>
             </div>
             <div className="card p-4 bg-white border border-neutral-200 rounded-2xl space-y-1">
               <span className="text-[10px] font-black uppercase text-neutral-500">Na skladě</span>
               <div className="font-display font-black text-xl text-emerald-700">{reqTotals.stock} ks</div>
-              <span className="text-[11px] text-neutral-500">Disponibilní zásoby</span>
+              <span className="text-[11px] text-neutral-500">Disponibilní zásoby (inventura + stočeno − výdej − zavezeno)</span>
             </div>
             <div className={`card p-4 rounded-2xl space-y-1 ${reqTotals.needed > 0 ? 'bg-rose-600 text-white' : 'bg-neutral-900 text-white'}`}>
-              <span className={`text-[10px] font-black uppercase ${reqTotals.needed > 0 ? 'text-rose-100' : 'text-amber-400'}`}>Potřeba stočit tento týden (chybí)</span>
+              <span className={`text-[10px] font-black uppercase ${reqTotals.needed > 0 ? 'text-rose-100' : 'text-amber-400'}`}>Potřeba stočit (chybí)</span>
               <div className="font-display font-black text-xl">{reqTotals.needed} ks ({reqTotals.neededLiters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L)</div>
-              <span className="text-[11px] opacity-90">{reqTotals.needed > 0 ? '⚠️ Objednáno víc, než je na skladě' : '✓ Všechny objednávky týdne pokryty'}</span>
+              <span className="text-[11px] opacity-90">{reqTotals.needed > 0 ? '⚠️ Objednáno víc, než je na skladě' : '✓ Všechny nezavezené objednávky pokryty'}</span>
             </div>
           </div>
 
@@ -1647,12 +1649,12 @@ export default function BottlingScreen({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h3 className="font-display font-black text-base text-neutral-900 flex items-center gap-2">
                 <span>🍾</span>
-                <span>Lahve k dotočení tento týden ({weekLabel})</span>
+                <span>Lahve k dotočení</span>
               </h3>
               <p className="text-[11px] text-neutral-500 w-full sm:w-auto">
-                Počítá se vždy pro aktuální týden: objednávky s dovozem {weekLabel} − lahve na skladě
-                (inventura měsíce + stočeno − výdej). Po dotočení týdne (o víkendu) je potřeba 0,
-                v novém týdnu se počítá znovu z nových objednávek.
+                Počítá se ze VŠECH nezavezených objednávek (bez ohledu na týden dovozu) − lahve na
+                skladě (inventura měsíce + stočeno − výdej − zavezeno). Objednávka zůstává
+                "potřeba", dokud fyzicky nejede ven — ne jen do konce týdne.
               </p>
 
               <div className="flex flex-wrap items-center gap-2">

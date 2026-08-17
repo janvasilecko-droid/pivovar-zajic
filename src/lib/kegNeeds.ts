@@ -5,17 +5,18 @@
 //                   měsíce — pokud pro aktuální měsíc není „Počáteční“ záznam,
 //                   vezme se koncový stav předchozího měsíce)
 //   • bottledQty  – stočeno do KEGů v aktuálním měsíci
-//   • outgoingQty – výdej v aktuálním měsíci (fašování + prodejna + odpisy)
+//   • outgoingQty – výdej v aktuálním měsíci (fašování + prodejna + odpisy + zavezené objednávky)
 //   • stockQty    – sklad = max(0, inv + stočeno − výdej − přefuk ZE + přefuk DO)
-//   • orderedQty  – objednávky v AKTUÁLNÍM TÝDNU (nový týden = nové objednávky)
+//   • orderedQty  – VŠECHNY nezavezené objednávky (bez ohledu na týden/datum —
+//                   objednávka zůstává "potřeba" dokud nejede ven, ne jen týden)
 //   • neededQty   – chybí stočit = max(0, objednáno − sklad)
 //
-// Objednávky se počítají ZA TÝDEN (ne za měsíc): stáčení probíhá týdně,
-// po dotočení týdne (o víkendu) je potřeba 0 a v novém týdnu se počítá
-// znovu z nových objednávek. Sklad se počítá shodně se Skladem (Stock.tsx),
-// aby „sudy v plusu“ odpovídaly tomu, co je fyzicky na skladě.
+// DŮLEŽITÉ: orderedQty se počítá podle toho, co je OBJEDNANÉ a JEŠTĚ NEZAVEZENÉ
+// (order.is_delivered !== true), ne podle týdne dovozu — objednávka z minulého
+// týdne, která ještě nejela, pořád "potřebuje" stočit, i když už její týden
+// skončil. Sklad se počítá shodně se Skladem (Stock.tsx), aby „sudy v plusu“
+// odpovídaly tomu, co je fyzicky na skladě.
 import { getStartingStockMap } from './inventoryHelper';
-import { isoWeekKey } from '../components/WeeklyOrderSummaryCard';
 
 export type KegNeedsRow = {
   beer_id: string;
@@ -44,7 +45,6 @@ export type KegNeedsInput = {
   prefukRows: any[];
   /** Automatický odpočet závozu (stejný zdroj jako Sklad/Inventura — viz zavoz_deductions). */
   zavozDeductionRows?: any[];
-  weekKey: string;
   todayStr: string;
 };
 
@@ -61,20 +61,21 @@ export function computeKegNeeds(input: KegNeedsInput): KegNeedsRow[] {
     writeoffsRows,
     prefukRows,
     zavozDeductionRows = [],
-    weekKey,
     todayStr,
   } = input;
   const curMonth = todayStr.slice(0, 7);
 
   const kegPkgIds = new Set(packages.filter((p) => p.kind === 'keg').map((p) => p.id));
 
-  // Objednávky v AKTUÁLNÍM TÝDNU (vyřízené/stornované se nepočítají)
+  // VŠECHNY nezavezené objednávky — bez ohledu na týden/datum dovozu. Storno,
+  // vyřízené a už zavezené (is_delivered) se nepočítají, protože ty už kegy
+  // nepotřebují (buď se nestočí vůbec, nebo už odjely).
   const activeOrderIds = new Set(
     orders
       .filter((o) => {
         if (o.status === 'storno' || o.status === 'vyrizeno' || o.status === 'vyrizeno_zavoz') return false;
-        const targetDate = o.delivery_date || o.order_date;
-        return !!targetDate && isoWeekKey(targetDate) === weekKey;
+        if (o.is_delivered) return false;
+        return true;
       })
       .map((o) => o.id)
   );
