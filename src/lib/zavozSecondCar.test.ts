@@ -1,11 +1,16 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { getSecondCarDates, toggleSecondCarDate, toggleSecondCarDates, collectZavozDates } from './zavozSecondCar';
+import {
+  getSecondCarDates, toggleSecondCarDate, toggleSecondCarDates, collectZavozDates,
+  getSecondCarOrderIds, isOrderKachna, toggleOrderKachna, toggleOrdersKachna, migrateSecondCarDatesToOrders,
+} from './zavozSecondCar';
 
 const KEY = 'zavoz_second_car_dates';
+const ORDER_KEY = 'zavoz_second_car_order_ids';
 
 describe('zavozSecondCar', () => {
   beforeEach(() => {
     localStorage.removeItem(KEY);
+    localStorage.removeItem(ORDER_KEY);
   });
 
   it('vrací prázdný seznam, když nic není uložené', () => {
@@ -109,5 +114,51 @@ describe('zavozSecondCar', () => {
     // Odškrtnutí závozu → data se z Knihy jízd odeberou
     toggleSecondCarDates(zavozDates);
     expect(getSecondCarDates()).toEqual([]);
+  });
+
+  // --- Označení po jednotlivých objednávkách (umožní smíšený den) ---
+
+  it('toggleOrderKachna přidá a zase odebere jednu objednávku', () => {
+    expect(toggleOrderKachna('order-1')).toEqual(['order-1']);
+    expect(isOrderKachna('order-1')).toBe(true);
+    expect(isOrderKachna('order-2')).toBe(false);
+    expect(toggleOrderKachna('order-1')).toEqual([]);
+    expect(isOrderKachna('order-1')).toBe(false);
+  });
+
+  it('toggleOrderKachna nemíchá objednávky mezi sebou', () => {
+    toggleOrderKachna('order-1');
+    toggleOrderKachna('order-2');
+    expect(getSecondCarOrderIds().sort()).toEqual(['order-1', 'order-2']);
+    toggleOrderKachna('order-1');
+    expect(getSecondCarOrderIds()).toEqual(['order-2']);
+  });
+
+  it('toggleOrdersKachna označí celý den najednou a zase ho celý odškrtne', () => {
+    expect(toggleOrdersKachna(['order-1', 'order-2', 'order-3'])).toEqual(['order-1', 'order-2', 'order-3']);
+    expect(toggleOrdersKachna(['order-1', 'order-2', 'order-3'])).toEqual([]);
+  });
+
+  it('toggleOrdersKachna odškrtne celý den, i když byla označená jen jedna objednávka (smíšený den)', () => {
+    toggleOrderKachna('order-2');
+    expect(toggleOrdersKachna(['order-1', 'order-2', 'order-3'])).toEqual([]);
+  });
+
+  it('migrateSecondCarDatesToOrders převede stará data na objednávky podle jejich datumu', () => {
+    toggleSecondCarDate('2026-08-12');
+    const orders = [
+      { id: 'a', delivery_date: '2026-08-12', order_date: '2026-08-10' },
+      { id: 'b', delivery_date: null, order_date: '2026-08-12' },
+      { id: 'c', delivery_date: '2026-08-13', order_date: '2026-08-13' },
+    ];
+    migrateSecondCarDatesToOrders(orders as any);
+    expect(getSecondCarOrderIds().sort()).toEqual(['a', 'b']);
+  });
+
+  it('migrateSecondCarDatesToOrders nic nedělá, pokud už nová data existují', () => {
+    toggleSecondCarDate('2026-08-12');
+    toggleOrderKachna('order-x');
+    migrateSecondCarDatesToOrders([{ id: 'a', delivery_date: '2026-08-12' }] as any);
+    expect(getSecondCarOrderIds()).toEqual(['order-x']);
   });
 });

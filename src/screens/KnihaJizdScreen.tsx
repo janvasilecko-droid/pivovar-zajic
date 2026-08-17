@@ -3,7 +3,7 @@ import { supabase, useRealtime } from '../lib/supabase';
 import { Spinner } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { Car, Plus, Download, Printer, Trash2, Calendar, MapPin, Navigation, User, Scale, ShieldCheck, CheckCircle2, Zap, Sparkles } from 'lucide-react';
-import { getSecondCarDates } from '../lib/zavozSecondCar';
+import { isOrderKachna } from '../lib/zavozSecondCar';
 import { printTable } from '../lib/safePrint';
 
 export type LogbookEntry = {
@@ -41,7 +41,6 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [vehicleName, setVehicleName] = useState('');
   const [driver, setDriver] = useState('Petr Bednář');
-  const [routeFrom, setRouteFrom] = useState('Kynšperk nad Ohří (Pivovar)');
   const [routeTo, setRouteTo] = useState('');
   const [purpose, setPurpose] = useState('Rozvoz piva z objednávek & Svoz obalů');
   const [kmStart, setKmStart] = useState<string>('125000');
@@ -86,6 +85,14 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
     localStorage.setItem('kniha_jizd_entries', JSON.stringify(newEntries));
   }
 
+  // Kniha jízd VŽDY začíná a končí v pivovaru (Kynšperk nad Ohří) — doplní se
+  // automaticky na konec trasy, pokud tam uživatel zapomene napsat.
+  const HOME_BASE = 'Kynšperk nad Ohří (Pivovar)';
+  function ensureEndsAtHomeBase(routeToRaw: string): string {
+    const r = routeToRaw.trim() || 'Okruh po odběratelích';
+    return /kynšperk/i.test(r) ? r : `${r} ➔ Kynšperk nad Ohří`;
+  }
+
   function handleAddEntry(e: React.FormEvent) {
     e.preventDefault();
     const start = Number(kmStart) || 0;
@@ -96,8 +103,8 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
       date,
       vehicle_name: vehicleName || 'Velké auto (Peugeot Boxer / 3K1 2244)',
       driver,
-      route_from: routeFrom,
-      route_to: routeTo || 'Sokolov - Karlovy Vary - Kynšperk nad Ohří',
+      route_from: HOME_BASE,
+      route_to: ensureEndsAtHomeBase(routeTo),
       purpose,
       km_start: start,
       km_end: start + driven,
@@ -174,28 +181,47 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
         return;
       }
 
-      const dateGroups = new Map<string, Set<string>>();
+      // Objednávky dne rozdělíme podle toho, kterou objednávku odbavil v Závozu
+      // zaškrtnutím "🦆 Kačena" — smíšený den (část objednávek Kačenou, část
+      // velkým autem) vytvoří DVĚ samostatné jízdy pro stejné datum.
+      const dateGroups = new Map<string, any[]>();
       ordersList.forEach((o) => {
         const d = o.delivery_date;
         if (!d) return;
-        const pName = o.place_name || 'Místní odběratel';
-        const set = dateGroups.get(d) ?? new Set<string>();
-        set.add(pName);
-        dateGroups.set(d, set);
+        const arr = dateGroups.get(d) ?? [];
+        arr.push(o);
+        dateGroups.set(d, arr);
       });
 
-      const secondCarDates = new Set(getSecondCarDates());
-      const days = [...dateGroups.entries()]
+      const buildRoute = (dayOrders: any[]) => {
+        const placeNames = Array.from(new Set(dayOrders.map((o) => o.place_name || 'Místní odběratel')));
+        return placeNames.length > 0 ? `${placeNames.join(' ➔ ')} ➔ Kynšperk nad Ohří` : 'Kynšperk nad Ohří (Okruh)';
+      };
+
+      const days: typeof previewDays = [];
+      [...dateGroups.entries()]
         .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([dDate, placesSet]) => {
-          const places = Array.from(placesSet);
-          return {
-            date: dDate,
-            routeTo: places.length > 0 ? `${places.join(' ➔ ')} ➔ Kynšperk nad Ohří` : 'Kynšperk nad Ohří (Okruh)',
-            stopsCount: places.length,
-            isKachna: secondCarDates.has(dDate),
-            km: '',
-          };
+        .forEach(([dDate, dayOrders]) => {
+          const kachnaOrders = dayOrders.filter((o) => isOrderKachna(o.id));
+          const bigOrders = dayOrders.filter((o) => !isOrderKachna(o.id));
+          if (bigOrders.length > 0) {
+            days.push({
+              date: dDate,
+              routeTo: buildRoute(bigOrders),
+              stopsCount: new Set(bigOrders.map((o) => o.place_name)).size,
+              isKachna: false,
+              km: '',
+            });
+          }
+          if (kachnaOrders.length > 0) {
+            days.push({
+              date: dDate,
+              routeTo: buildRoute(kachnaOrders),
+              stopsCount: new Set(kachnaOrders.map((o) => o.place_name)).size,
+              isKachna: true,
+              km: '',
+            });
+          }
         });
 
       setPreviewDays(days);
@@ -223,7 +249,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
         date: d.date,
         vehicle_name: d.isKachna ? secondVehicleLabel : bigVehicleLabel,
         driver: autoDriver || 'Petr Bednář',
-        route_from: 'Kynšperk nad Ohří (Pivovar)',
+        route_from: HOME_BASE,
         route_to: d.routeTo,
         purpose: 'Rozvoz piva z objednávek & Svoz obalů',
         km_start: kmStartVal,
@@ -570,14 +596,19 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
             ) : (
               <div className="space-y-3">
                 <p className="text-[11px] text-neutral-500 font-bold leading-snug">
-                  Nalezeno <strong>{previewDays.length}</strong> dnů se závozem v {autoMonth}. Zaškrtni <strong>🦆 Kachna</strong> u dnů, kdy jelo malé auto, jinak se použije <strong>{bigVehicleLabel}</strong>. Doplň ujeté km z tachometru za daný den.
+                  Nalezeno <strong>{previewDays.length}</strong> {previewDays.length === 1 ? 'jízda' : 'jízd'} se závozem v {autoMonth} — vozidlo je předvyplněné podle značení <strong>🦆 Kačena</strong> u jednotlivých objednávek v Závozu (smíšený den = dvě jízdy). Klidně přeškrtni, jinak se použije <strong>{bigVehicleLabel}</strong>. Doplň ujeté km z tachometru za danou jízdu.
                 </p>
 
                 <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
                   {previewDays.map((d, i) => (
-                    <div key={d.date} className="rounded-2xl border border-neutral-200 p-3 space-y-2">
+                    <div key={`${d.date}-${d.isKachna ? 'kachna' : 'velke'}-${i}`} className="rounded-2xl border border-neutral-200 p-3 space-y-2">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-black text-xs text-neutral-900">{new Date(d.date).toLocaleDateString('cs-CZ')}</span>
+                        <span className="font-black text-xs text-neutral-900 flex items-center gap-1.5">
+                          {new Date(d.date).toLocaleDateString('cs-CZ')}
+                          <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase ${d.isKachna ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                            {d.isKachna ? '🦆 Kačena' : '🚐 Velké auto'}
+                          </span>
+                        </span>
                         <span className="text-[10px] font-bold text-neutral-500">{d.stopsCount} zastávek</span>
                       </div>
                       <div className="text-[11px] text-neutral-600 font-medium leading-snug">{d.routeTo}</div>
@@ -694,10 +725,10 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                   <label className="block text-xs font-black text-neutral-700 mb-1">Odkud</label>
                   <input
                     type="text"
-                    required
-                    value={routeFrom}
-                    onChange={(e) => setRouteFrom(e.target.value)}
-                    className="input font-bold text-xs"
+                    disabled
+                    value={HOME_BASE}
+                    title="Každá jízda vždy začíná v pivovaru"
+                    className="input font-bold text-xs bg-neutral-100 text-neutral-500 cursor-not-allowed"
                   />
                 </div>
                 <div>
@@ -707,7 +738,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                     required
                     value={routeTo}
                     onChange={(e) => setRouteTo(e.target.value)}
-                    placeholder="Např. Sokolov ➔ Karlovy Vary ➔ Kynšperk nad Ohří"
+                    placeholder="Např. Sokolov ➔ Karlovy Vary (vrátí se automaticky do Kynšperku)"
                     className="input font-bold text-xs"
                   />
                 </div>

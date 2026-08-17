@@ -8,7 +8,7 @@ import { shareDeliveryListToWhatsApp } from '../lib/whatsapp';
 import { exportZavozToExcel } from '../lib/excel';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { EditOrderModal } from '../components/EditOrderModal';
-import { getSecondCarDates, toggleSecondCarDates, collectZavozDates } from '../lib/zavozSecondCar';
+import { getSecondCarOrderIds, toggleOrderKachna, toggleOrdersKachna, migrateSecondCarDatesToOrders } from '../lib/zavozSecondCar';
 import { SignatureModal } from '../components/SignatureModal';
 import { KegReturnModal } from '../components/KegReturnModal';
 import { openNavigation, buildCustomerDeliveryWhatsAppText, openCustomerWhatsApp } from '../lib/navigation';
@@ -41,7 +41,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
   const [moveDay, setMoveDay] = useState<{ source: string | null; label: string; orderIds: string[] } | null>(null);
   const [moveTarget, setMoveTarget] = useState<string | null>(null);
   const [moveBusy, setMoveBusy] = useState(false);
-  const [secondCarDates, setSecondCarDates] = useState<string[]>(() => getSecondCarDates());
+  const [secondCarOrderIds, setSecondCarOrderIds] = useState<string[]>(() => getSecondCarOrderIds());
 
   // Driver Tool Modals
   const [navTarget, setNavTarget] = useState<{ name: string; destination: string } | null>(null);
@@ -61,6 +61,10 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
       return { ...order, place_phone: place?.phone ?? null, delivery_group: (place as any)?.delivery_group };
     });
     setOrders(ords);
+    // Jednorázová migrace ze starého (datumového) na nové (po objednávkách) označení
+    // druhého auta — bez efektu, pokud už migrace proběhla nebo staré označení chybí.
+    migrateSecondCarDatesToOrders(ords);
+    setSecondCarOrderIds(getSecondCarOrderIds());
     setPackages((p as Package[]) ?? []);
     setBeers((b as Beer[]) ?? []);
     setPlaces((pl as Place[]) ?? []);
@@ -278,11 +282,19 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
   // generátor Knihy jízd (delivery_date ?? order_date). Závoz může obsahovat objednávky
   // s více daty, proto vracíme VŠECHNA, aby se „Druhé auto (Kačena)“ vztáhlo na celý závoz.
 
-  // Zaškrtnutí „Druhé auto (Kačena)“ pro daný závoz — označí VŠECHNA data objednávek
-  // závozu, Kniha jízd pak tyto dny zapíše na druhé vozidlo
-  function toggleSecondCar(dates: string[]) {
-    if (!dates.length) return;
-    setSecondCarDates(toggleSecondCarDates(dates));
+  // Zaškrtnutí „Druhé auto (Kačena)“ pro celý den najednou (tlačítko u nadpisu dne) —
+  // označí VŠECHNY objednávky toho dne. Jednotlivé objednávky lze pak dál doladit
+  // zvlášť (viz toggleOrderKachnaFor) — např. jen 2 ze 3 skutečně jely Kačenou.
+  function toggleSecondCarForDay(orderIds: string[]) {
+    if (!orderIds.length) return;
+    setSecondCarOrderIds(toggleOrdersKachna(orderIds));
+  }
+
+  // Zaškrtnutí „Druhé auto (Kačena)“ pro JEDNU konkrétní objednávku — umožní smíšený
+  // den (část objednávek Kačenou, část velkým autem). Kniha jízd pak takový den
+  // rozdělí na dvě jízdy.
+  function toggleOrderKachnaFor(orderId: string) {
+    setSecondCarOrderIds(toggleOrderKachna(orderId));
   }
 
   // Otevře dialog pro přesun celého dne závozu na jiný den (pouze objednávky aktuálního týdne)
@@ -712,7 +724,9 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
 
                 {/* RIGHT COLUMN: ODBĚRATELÉ A ROZVOZOVÉ TRASY */}
                 <div className={`lg:col-span-7 space-y-6 ${mobileTab === 'routes' ? 'block' : 'hidden lg:block'}`}>
-                  {ordersGroupedByDay.map((group) => { const gDates = collectZavozDates(group.orders); return (
+                  {ordersGroupedByDay.map((group) => {
+                    const gOrderIds = group.orders.flatMap((entry: any) => entry.isGroup ? entry.orders.map((o: Order) => o.id) : [entry.id]);
+                    return (
                     <div key={group.dayKey} className="card p-5 shadow-sm border-neutral-200/90 bg-white rounded-3xl space-y-4">
                       {/* Day Section Header */}
                       <div className="flex items-center justify-between pb-3 border-b border-neutral-200/70">
@@ -738,23 +752,23 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                             {group.orders.reduce((s, o) => s + (items[o.id] ?? []).reduce((x, i) => x + Number(i.quantity), 0), 0)} ks celkem
                           </span>
                           <button
-                            onClick={() => toggleSecondCar(gDates)}
-                            disabled={!gDates.length}
-                            title="Zapsat tento závoz do Knihy jízd pro druhé auto (Kačena)"
+                            onClick={() => toggleSecondCarForDay(gOrderIds)}
+                            disabled={!gOrderIds.length}
+                            title="Označit/odznačit Kačenu pro VŠECHNY objednávky tohoto dne najednou (jednotlivé objednávky lze pak doladit zvlášť u každé karty)"
                             className={`px-3 py-1.5 rounded-xl font-black text-xs transition shadow-xs flex items-center gap-1.5 border disabled:opacity-40 disabled:cursor-not-allowed ${
-                              gDates.some((d) => secondCarDates.includes(d))
+                              gOrderIds.some((id) => secondCarOrderIds.includes(id))
                                 ? 'bg-emerald-600 text-white border-emerald-600'
                                 : 'bg-white border-neutral-300 text-neutral-700 hover:bg-emerald-50'
                             }`}
                           >
                             <span className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] ${
-                              gDates.some((d) => secondCarDates.includes(d))
+                              gOrderIds.some((id) => secondCarOrderIds.includes(id))
                                 ? 'bg-white text-emerald-700 border-white'
                                 : 'bg-white border-neutral-300'
                             }`}>
-                              {gDates.some((d) => secondCarDates.includes(d)) ? '✓' : ''}
+                              {gOrderIds.some((id) => secondCarOrderIds.includes(id)) ? '✓' : ''}
                             </span>
-                            <span>Druhé auto (Kačena)</span>
+                            <span>Druhé auto (Kačena) — celý den</span>
                           </button>
                           <button
                             onClick={() => openMoveDay(group.dayKey)}
@@ -817,9 +831,22 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                             <a onClick={() => setPage && setPage('orders', o.id)} className="font-bold text-sm text-neutral-900 hover:underline cursor-pointer">{o.place_name}</a>
                                             {o.note && <div className="text-xs text-neutral-600 font-medium mt-1 bg-amber-100/60 px-2.5 py-1 rounded-lg italic flex items-start gap-1"><StickyNote size={12} className="mt-0.5 shrink-0" /> {o.note}</div>}
                                           </div>
-                                          <button onClick={() => toggleDelivered(o)} className={`px-3 py-1.5 rounded-xl font-black text-xs transition shadow-xs flex items-center gap-1.5 ${o.is_delivered ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-slate-950 hover:bg-amber-400'}`}>
-                                            {o.is_delivered ? '✓ Zavezeno' : 'Označit'}
-                                          </button>
+                                          <div className="flex items-center gap-1.5">
+                                            <button
+                                              onClick={() => toggleOrderKachnaFor(o.id)}
+                                              title="Tato objednávka pojede druhým autem (Kačena)"
+                                              className={`px-2.5 py-1.5 rounded-xl font-black text-[11px] transition shadow-xs flex items-center gap-1 border ${
+                                                secondCarOrderIds.includes(o.id)
+                                                  ? 'bg-emerald-600 text-white border-emerald-600'
+                                                  : 'bg-white border-neutral-300 text-neutral-500 hover:bg-emerald-50'
+                                              }`}
+                                            >
+                                              🦆 {secondCarOrderIds.includes(o.id) ? 'Kačena' : ''}
+                                            </button>
+                                            <button onClick={() => toggleDelivered(o)} className={`px-3 py-1.5 rounded-xl font-black text-xs transition shadow-xs flex items-center gap-1.5 ${o.is_delivered ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-slate-950 hover:bg-amber-400'}`}>
+                                              {o.is_delivered ? '✓ Zavezeno' : 'Označit'}
+                                            </button>
+                                          </div>
                                         </div>
                                         <div className="mt-2 space-y-1.5">
                                           {orderItems.map(it => (
@@ -972,6 +999,19 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
 
                                   <button onClick={() => setEditOrder(o)} className="btn-ghost !py-1.5 !px-2.5 text-xs font-black flex items-center gap-1" title="Upravit objednávku">
                                     <Pencil size={13} /> Upravit
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleOrderKachnaFor(o.id)}
+                                    title="Tato objednávka pojede druhým autem (Kačena) — Kniha jízd ji zapíše zvlášť"
+                                    className={`btn-ghost !py-1.5 !px-2.5 text-xs font-black flex items-center gap-1 border ${
+                                      secondCarOrderIds.includes(o.id)
+                                        ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
+                                        : 'bg-white text-neutral-600 border-neutral-300 hover:bg-emerald-50'
+                                    }`}
+                                  >
+                                    🦆 Kačena
                                   </button>
 
                                   <button
