@@ -309,6 +309,13 @@ KRITICKÉ POKYNY PRO ČTENÍ TEXTU:
 19. KRITICKÉ — 50L SUDY: POKUD JE V OBJEDNÁVCE 50L, 50 L, 50, "VELKÝ SUD", "SUD 50" NEBO "KEG 50", PAK JE OBAL VŽDY "KEG 50l"! NIKDY NEPIŠ "KEG 30l" ANI "30l"! Pokud je u položky uvedeno "50l", "50 l", "50", "velký sud", "sud 50", "keg 50", Obal/package_label MUSÍ BÝT "KEG 50l"! NIKDY to nepiš jako "KEG 30l" ani nenechávej obal prázdný!
 20. KRITICKÉ — VYHODNOCENÍ LAHVÍ 20x0,5 A 20x0,33: Pokud je v textu "20x0,5" nebo "20x0.5" nebo "20 ks 0,5l", jde o 20 ks lahví 0,5l (package_label: "Lahve 0.5l")! NIKDY to nepiš jako 0.33l! Pouze pokud je výslovně napsáno "0,33" nebo "0.33" (např. "20x0,33"), použij "Lahve 0.33l".
 21. KRITICKÉ — STUPEŇ PATŘÍ K TÉ OBJEDNÁVCE, U KTERÉ JE NAPSANÝ: Stupeň/barva piva napsaná v konkrétní zprávě patří TÉ objednávce (položkám té zprávy), u které je napsaná. Pokud je u jiné objednávky (jiné zprávy/dne/odběratele) napsaný jiný stupeň, NEPŘENÁŠEJ ho mezi objednávkami. Pokud u objednávky stupeň napsaný není a nejde ho jednoznačně dovodit z kontextu odpovědi (viz pravidla u ODPOVĚDÍ), ponech degree=null a NEDOSAZUJ ho z jiné objednávky.
+22. KRITICKÉ — NIKDY NEPŘEPISUJ "1,5" NA "15"! To jsou dva ÚPLNĚ JINÉ obaly: "1,5" (jeden a půl) = PET 1.5l, "15" (patnáct) = KEG/sud 15l. Slovo "PET" nebo "petka" u položky (i s překlepem — "peT", "pet.", "pETR", "peťky", "petky") ZARUČUJE, že číslo u něj je 1,5 nebo 1 (PET) — NIKDY 15. Kegy 15l jsou vzácné a vyskytují se JEN v kontextu ostatních objemů sudů (50/30/20/10) nebo se slovem "keg"/"sud" v blízkosti, NIKDY vedle slova "PET"/"petka". Pokud vidíš "PET 15" nebo "petka 15", je to skoro jistě ztracená čárka — správně je "PET 1,5".
+23. KRITICKÉ — NADPIS SEZNAMU URČUJE OBAL VŠECH POLOŽEK POD NÍM: Objednávky často mají tvar "nadpis" (např. "PET:", "PET", "Petky:", "Lahve:", "Sudy:", "Kegy:") a POD ním seznam čísel/piv BEZ opakování obalu na každém řádku. Nadpis platí pro VŠECHNY položky pod ním, dokud se neobjeví jiný nadpis nebo jiný explicitní obal u konkrétní položky. Příklad:
+    "PET
+    12sv 1,5
+    10° 1
+    tmavé 1,5"
+    → všechny 3 položky mají package_label PET (podle čísla u nich: 1.5l/1l/1.5l), NIKOLIV KEG — i kdyby číslo u položky bylo napsané jako holé "15" nebo "1" bez desetinné čárky, protože nadpis "PET" jednoznačně určuje kategorii obalu pro celý seznam pod ním.
 
 ODPOVĚDI NA ZPRÁVY = KONTEXT (VELMI DŮLEŽITÉ):
 V WhatsApp se na objednávku často ODPOVÍDÁ — další zpráva je pokračováním/doplněním té PŘEDCHOZÍ (stejný odběratel, stejný den), NE nová samostatná objednávka. Typicky může jít o: citaci původní zprávy, slova jako "ještě", "k tomu", "dále", "a", "do objednávky přidej", "pak taky", "jo a ještě", nebo odpověď obsahuje jen čísla/piva bez jména odběratele.

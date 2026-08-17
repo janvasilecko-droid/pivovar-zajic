@@ -332,6 +332,25 @@ function matchPackageId(
     if (byVol) return byVol.id;
     return null;
   };
+
+  // 1b) POJISTKA: holé číslo "15" (BEZ desetinné čárky) vedle slova
+  // "pet"/"petka"/"petr" je skoro jistě "1,5" se ztracenou čárkou (AI/OCR
+  // chyba: "PET 1,5" → "PET 15"), NE sud 15l — bez tohohle by ho o pár
+  // řádků níž chytil regex pro sud/KEG 15l. Úzce cílené: nezasahuje do
+  // jiných případů (např. objednávka od odběratele se jménem "Petr"),
+  // protože se aktivuje JEN když je v textu doslova holé "15" a NENÍ tam
+  // slovo "keg"/"sud". Skutečné "1,5"/"1.5" (s čárkou/tečkou) už správně
+  // řeší pravidlo níže samo o sobě.
+  if (
+    /\bpet\b|\bpetka\b|\bpetky\b|\bpetr\b/i.test(text) &&
+    !/\bkeg\b|\bsud\b/i.test(text) &&
+    /\b15\b/.test(text) &&
+    !/\b1[,.]5\b/.test(text)
+  ) {
+    const hit = pickVol(1.5) ?? packages.find((p) => /1[,.]5/i.test(p.label))?.id ?? null;
+    if (hit) return hit;
+  }
+
   if (/\b50\s*l?\b|\bsud50\b|\bkeg50\b|\bvelky\s*sud\b|\bsud\s*50\b|\bkeg\s*50\b/i.test(text)) {
     const hit = pickVol(50) ?? packages.find((p) => /50/i.test(p.label))?.id ?? null;
     if (hit) return hit;

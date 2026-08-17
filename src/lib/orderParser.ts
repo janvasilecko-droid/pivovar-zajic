@@ -270,6 +270,23 @@ function pickPackageByVolume(v: number, packages: Package[], norm: string): Pack
 export function matchPackage(norm: string, packages: Package[], aliasMap: ParserAliasMap): Package | null {
   if (!packages || !packages.length) return null;
 
+  // 0. POJISTKA: holé číslo "15" (BEZ desetinné čárky) vedle slova "pet"/
+  // "petka"/"petr" je skoro jistě "1,5" se ztracenou čárkou (typický přepis
+  // "PET 1,5" → "PET 15"), NE sud 15l — bez tohohle by ho o pár řádků níž
+  // chytil regex pro sud/KEG 15l. Úzce cílené: nezasahuje do jiných případů
+  // (např. objednávka od zákazníka jménem "Petr"), protože se aktivuje JEN
+  // když je v textu doslova holé "15" a NENÍ tam slovo "keg"/"sud". Skutečné
+  // "1,5"/"1.5" (s čárkou/tečkou) už správně řeší pravidlo níže samo o sobě.
+  if (
+    /\bpet\b|\bpetka\b|\bpetky\b|\bpetr\b/i.test(norm) &&
+    !/\bkeg\b|\bsud\b/i.test(norm) &&
+    /\b15\b/.test(norm) &&
+    !/\b1[,.]5\b/.test(norm)
+  ) {
+    const hit = packages.find((p) => Number(p.volume_l) === 1.5) ?? packages.find((p) => /1[,.]5/i.test(p.label));
+    if (hit) return hit;
+  }
+
   // 1. Check EXPLICIT VOLUME NUMBERS FIRST so "keg 50l" is never intercepted by "keg" alias for 30l
   if (/\b50\s*l?\b|\bsud50\b|\bkeg50\b|\bvelky\s*sud\b|\bsud\s*50\b|\bkeg\s*50\b/i.test(norm)) {
     return packages.find((p) => Number(p.volume_l) === 50 || /50/i.test(p.label)) ?? null;

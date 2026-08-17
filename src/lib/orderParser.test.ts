@@ -251,6 +251,16 @@ describe('matchPackage', () => {
   it('vrátí null pro neznámý obal', () => {
     expect(matchPackage('neznama vec', packages, aliases())).toBeNull();
   });
+
+  it('u PET nikdy nezamění "1,5" (ztracenou čárkou vzniklé "15") za KEG 15l', () => {
+    expect(matchPackage('pet 15', packages, aliases())?.id).toBe('pet15');
+    expect(matchPackage('petka 15', packages, aliases())?.id).toBe('pet15');
+    expect(matchPackage('pet 1.5l', packages, aliases())?.id).toBe('pet15');
+    expect(matchPackage('petr 1,5', packages, aliases())?.id).toBe('pet15');
+    // se slovem "keg"/"sud" v textu se pojistka nepoužije — bere se jako sud
+    expect(matchPackage('keg 15', packages, aliases())?.id).toBe('keg15');
+    expect(matchPackage('sud 15', packages, aliases())?.id).toBe('keg15');
+  });
 });
 
 

@@ -215,6 +215,8 @@ KRITICKÉ POKYNY PRO ČTENÍ TEXTU Z OBRÁZKU:
    - "1l" nebo "1 l" → quantity=1, package="PET 1l" (1 je objem)
    - "PET 1" → quantity=1, package="PET 1l"
    - Pokud je "1" u objemu kegu (30/50/20/15/10), je to MNOŽSTVÍ. Pokud je "1" samostatně u piva bez jiného objemu, je to MNOŽSTVÍ 1 kus s výchozím obalem KEG 30l.
+30. KRITICKÉ — NIKDY NEPŘEPISUJ "1,5" NA "15"! To jsou dva ÚPLNĚ JINÉ obaly: "1,5" (jeden a půl) = PET 1.5l, "15" (patnáct) = KEG/sud 15l. Slovo "PET" nebo "petka" u položky (i s překlepem — "peT", "pet.", "pETR", "peťky", "petky") ZARUČUJE, že číslo u něj je 1,5 nebo 1 (PET) — NIKDY 15. Kegy 15l jsou vzácné a vyskytují se JEN v kontextu ostatních objemů sudů (50/30/20/10) nebo se slovem "keg"/"sud" v blízkosti, NIKDY vedle slova "PET"/"petka". Pokud vidíš na obrázku "PET 15" nebo "petka 15", je to skoro jistě ztracená čárka v rukopisu — správně je "PET 1,5".
+31. KRITICKÉ — NADPIS SEZNAMU URČUJE OBAL VŠECH POLOŽEK POD NÍM: Objednávky často mají tvar "nadpis" (např. "PET:", "PET", "Petky:", "Lahve:", "Sudy:", "Kegy:") a POD ním seznam čísel/piv BEZ opakování obalu na každém řádku. Nadpis platí pro VŠECHNY položky pod ním, dokud se neobjeví jiný nadpis nebo jiný explicitní obal u konkrétní položky (např. "PET" nahoře a pod tím "12sv 1,5", "10° 1", "tmavé 1,5" → všechny 3 položky jsou PET, i kdyby číslo vypadalo jako holé "15" nebo "1" bez čárky).
 
 
 
