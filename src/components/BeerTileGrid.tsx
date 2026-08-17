@@ -29,7 +29,7 @@ export function BeerTileGrid({ beers, onSelect, summaryFor, emptyHint = 'klepni 
             key={b.id}
             type="button"
             onClick={() => onSelect(b)}
-            className={`relative text-left rounded-none p-3 min-h-[76px] transition-all hover:brightness-[0.97] active:scale-[0.98] flex flex-col gap-1.5 ${
+            className={`relative text-left rounded-2xl shadow-sm p-3 min-h-[76px] transition-all hover:brightness-[0.97] active:scale-[0.98] flex flex-col gap-1.5 ${
               filled ? 'ring-2 ring-success-500 ring-offset-1 ring-offset-white dark:ring-offset-neutral-900' : 'ring-1 ring-black/5'
             }`}
             style={{ backgroundColor: beerBg(b) }}
