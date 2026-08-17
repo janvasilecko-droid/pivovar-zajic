@@ -47,11 +47,6 @@ export default function BottlingScreen({
   const [loading, setLoading] = useState(true);
   const [editingRow, setEditingRow] = useState<EntryRow | null>(null);
   const loadCountRef = useRef(0);
-  // Aby se checklist „Stáčecí den" automaticky otevřel jen jednou za návštěvu
-  // záložky Stáčení (a ne znovu po zavření bez splnění).
-  const checklistPromptedRef = useRef(false);
-
-
 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [note, setNote] = useState('');
@@ -81,24 +76,6 @@ export default function BottlingScreen({
       setTab(initialTab);
     }
   }, [initialTab]);
-
-  // 📋 „Stáčecí den" — při vstupu do zápisu stáčení se automaticky otevře
-  // kontrolní seznam (příprava pracoviště). Je to POVINNÁ BRÁNA: dokud nejsou
-  // odškrtnuté položky „1. Začátek stáčení", modal nejde zavřít a nelze zadávat
-  // stáčení. Po splnění se už sám neotevírá (tlačítko v liště zůstává).
-  useEffect(() => {
-    if (tab !== 'zapis') {
-      checklistPromptedRef.current = false;
-      return;
-    }
-    if (checklistPromptedRef.current) return;
-    checklistPromptedRef.current = true;
-    if (!isStartChecklistCompleteForDate(date)) {
-      setChecklistPhase('start');
-      setChecklistGate(true);
-      setShowChecklistModal(true);
-    }
-  }, [tab, date]);
 
   const { profile } = useAuth();
   const isManager = isBottlingManager(profile?.role);
@@ -904,6 +881,28 @@ export default function BottlingScreen({
             </button>
           </div>
         )}
+        {!isStartChecklistCompleteForDate(date) ? (
+          <div className="card p-8 sm:p-12 mb-5 text-center space-y-5 border-2 border-amber-300 bg-gradient-to-br from-amber-50 to-amber-100/40">
+            <div className="text-6xl">🍾</div>
+            <div>
+              <h2 className="font-display font-black text-xl sm:text-2xl text-amber-950">Začátek stáčení lahví</h2>
+              <p className="text-sm text-amber-800/80 font-medium max-w-md mx-auto mt-1.5">
+                Před zahájením je nutné proklikat checklist přípravy pracoviště. Pak se odemkne zadávání.
+              </p>
+            </div>
+            <div className="max-w-xs mx-auto">
+              <label className="label text-left">Datum stáčení</label>
+              <input type="date" className="input text-center font-black" value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
+            <button
+              type="button"
+              onClick={() => { setChecklistPhase('start'); setChecklistGate(true); setShowChecklistModal(true); }}
+              className="mx-auto flex items-center gap-3 px-8 py-5 sm:px-10 sm:py-6 rounded-3xl bg-amber-500 hover:bg-amber-600 text-neutral-950 font-black text-lg sm:text-xl shadow-xl hover:shadow-amber-500/40 active:scale-[0.97] transition ring-4 ring-amber-300"
+            >
+              🚀 Zahájit stáčení
+            </button>
+          </div>
+        ) : (
         <form onSubmit={add} className={`card px-2 py-3 mb-5 transition-all duration-200 ${flash ? 'ring-4 ring-success-500/20' : ''}`}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 p-2 bg-primary-50/50 rounded-2xl border border-primary-100">
             <div className="grid grid-cols-2 gap-3 items-end flex-1">
@@ -1402,6 +1401,7 @@ export default function BottlingScreen({
             {err && <span className="text-xs font-bold text-rose-700 bg-rose-50 px-3 py-1.5 rounded-xl border border-rose-200">{err}</span>}
           </div>
         </form>
+        )}
         </>
       )}
 

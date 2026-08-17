@@ -698,8 +698,34 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
           </div>
         </div>
 
+      {/* Začátek stáčení — dokud není splněný checklist přípravy pracoviště pro
+          zvolené datum, dlaždice pro zadávání se vůbec nezobrazí. Až po jeho
+          splnění (velké tlačítko níže) se odemkne zápis stáčení. */}
+      {tab === 'zapis' && mode !== 'overviews_only' && !isStartChecklistCompleteForKeg(date) && (
+        <div className="card p-8 sm:p-12 mb-5 text-center space-y-5 border-2 border-amber-300 bg-gradient-to-br from-amber-50 to-amber-100/40">
+          <div className="text-6xl">🛢️</div>
+          <div>
+            <h2 className="font-display font-black text-xl sm:text-2xl text-amber-950">Začátek stáčení KEG</h2>
+            <p className="text-sm text-amber-800/80 font-medium max-w-md mx-auto mt-1.5">
+              Před zahájením je nutné proklikat checklist přípravy pracoviště (proplach cest, klapky, stáčeček). Pak se odemkne zadávání.
+            </p>
+          </div>
+          <div className="max-w-xs mx-auto">
+            <label className="label text-left">Datum stáčení</label>
+            <input type="date" className="input text-center font-black" value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
+          <button
+            type="button"
+            onClick={() => { setChecklistPhase('start'); setChecklistGate(true); setShowChecklistModal(true); }}
+            className="mx-auto flex items-center gap-3 px-8 py-5 sm:px-10 sm:py-6 rounded-3xl bg-amber-500 hover:bg-amber-600 text-neutral-950 font-black text-lg sm:text-xl shadow-xl hover:shadow-amber-500/40 active:scale-[0.97] transition ring-4 ring-amber-300"
+          >
+            🚀 Zahájit stáčení
+          </button>
+        </div>
+      )}
+
       {/* Zápis stáčení — multi-row (12 řádků pivo+obal+množství najednou) */}
-      {tab === 'zapis' && mode !== 'overviews_only' && (
+      {tab === 'zapis' && mode !== 'overviews_only' && isStartChecklistCompleteForKeg(date) && (
         <form onSubmit={add} className={`card px-1 py-3 mb-5 transition-all duration-200 ${flash ? 'ring-4 ring-success-500/20' : ''}`}>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end mb-4">
@@ -858,7 +884,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
       )}
 
       {/* Voice recorder mimo form */}
-      {tab === 'zapis' && mode !== 'overviews_only' && (
+      {tab === 'zapis' && mode !== 'overviews_only' && isStartChecklistCompleteForKeg(date) && (
         <div className="flex justify-end -mt-4 mb-2">
           <VoiceRecorder onResult={handleVoiceResult} beerNames={beers.map((b) => b.name)} />
         </div>
