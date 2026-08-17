@@ -11,6 +11,11 @@ import { MarketingMerchInventory } from '../components/MarketingMerchInventory';
 type StockByPkg = {
   package_id: string; label: string; volume_l: number; kind: string;
   currentStock: number; rawStock: number; outgoing: number; difference: number;
+  // Podrobný rozpad pohybu za období (pro kontrolní detail) — stejné složky,
+  // ze kterých se currentStock/rawStock počítá výš.
+  fromInv: number; brewedW: number; woW: number; fasovaniW: number; prodejnaW: number;
+  akceWeek: number; kegsUsedW: number; zdW: number; prefukFrom: number; prefukTo: number; adjW: number;
+  orderedW: number;
 };
 
 type StockRow = {
@@ -226,6 +231,7 @@ export default function Stock() {
         return {
           package_id: pkg.id, label: pkg.label, volume_l: Number(pkg.volume_l), kind: pkg.kind,
           currentStock, rawStock, outgoing, difference,
+          fromInv, brewedW, woW, fasovaniW, prodejnaW, akceWeek, kegsUsedW, zdW, prefukFrom, prefukTo, adjW, orderedW,
         };
       });
 
@@ -548,42 +554,71 @@ export default function Stock() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {(['keg', 'bottle'] as const).map((kind) => {
-                    const items = detail.stockByPkg.filter((p) => p.kind === kind && (p.currentStock > 0 || p.outgoing > 0));
-                    if (!items.length) return null;
-                    return (
-                      <div key={kind} className="rounded-xl border border-neutral-200 overflow-hidden">
-                        <div className={`px-3 py-2 text-xs font-black uppercase tracking-wider ${kind === 'keg' ? 'bg-amber-100 text-amber-800' : 'bg-primary-100 text-primary-800'}`}>
-                          {kind === 'keg' ? '🛢 Sudy' : '🍾 Lahve'}
+                <div className="space-y-2.5">
+                  {detail.stockByPkg
+                    .filter((p) => p.currentStock > 0 || p.outgoing > 0 || p.fromInv > 0 || p.brewedW > 0)
+                    .map((p) => (
+                      <div key={p.package_id} className="rounded-2xl border border-neutral-200 overflow-hidden">
+                        <div className={`px-3 py-2 flex items-center justify-between gap-2 text-xs font-black uppercase tracking-wider ${p.kind === 'keg' ? 'bg-amber-100 text-amber-800' : 'bg-primary-100 text-primary-800'}`}>
+                          <span>{p.kind === 'keg' ? '🛢' : '🍾'} {p.label}</span>
+                          <span className="font-mono">Aktuální stav: {p.currentStock} ks</span>
                         </div>
-                        <table className="w-full text-xs">
-                          <thead>
-                            <tr className="text-[10px] font-bold uppercase text-neutral-400 bg-neutral-50">
-                              <th className="text-left px-3 py-1.5">Obal</th>
-                              <th className="text-center px-2 py-1.5">Stav</th>
-                              <th className="text-center px-2 py-1.5">Odpis</th>
-                              <th className="text-center px-3 py-1.5">Rozdíl</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {items.map((p) => (
-                              <tr key={p.package_id} className="border-t border-neutral-100">
-                                <td className="px-3 py-1.5 font-bold text-neutral-600">{p.label}</td>
-                                <td className="px-2 py-1.5 text-center font-mono font-black text-neutral-900">{p.currentStock}</td>
-                                <td className={`px-2 py-1.5 text-center font-mono font-black ${p.outgoing > 0 ? 'text-rose-600' : 'text-neutral-400'}`}>{p.outgoing > 0 ? `-${p.outgoing}` : '0'}</td>
-                                <td className={`px-3 py-1.5 text-center font-mono font-black ${p.difference < 0 ? 'text-rose-600' : p.difference === 0 ? 'text-amber-600' : 'text-emerald-600'}`}>{p.difference}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                        <div className="p-3 grid grid-cols-3 gap-1.5 text-center">
+                          <div className="rounded-lg bg-neutral-50 py-1.5">
+                            <div className="text-[9px] font-black uppercase text-neutral-500">Počáteční</div>
+                            <div className="text-sm font-black text-neutral-800">{p.fromInv}</div>
+                          </div>
+                          <div className="rounded-lg bg-emerald-50 py-1.5">
+                            <div className="text-[9px] font-black uppercase text-emerald-700">Stočeno</div>
+                            <div className="text-sm font-black text-emerald-800">+{p.brewedW}</div>
+                          </div>
+                          <div className="rounded-lg bg-sky-50 py-1.5">
+                            <div className="text-[9px] font-black uppercase text-sky-700">Objednáno (týden)</div>
+                            <div className="text-sm font-black text-sky-800">{p.orderedW}</div>
+                          </div>
+                          <div className="rounded-lg bg-rose-50 py-1.5">
+                            <div className="text-[9px] font-black uppercase text-rose-700">Odečteno závozem</div>
+                            <div className="text-sm font-black text-rose-800">−{p.zdW}</div>
+                          </div>
+                          <div className="rounded-lg bg-rose-50 py-1.5">
+                            <div className="text-[9px] font-black uppercase text-rose-700">Fasování (personál)</div>
+                            <div className="text-sm font-black text-rose-800">−{p.fasovaniW}</div>
+                          </div>
+                          <div className="rounded-lg bg-rose-50 py-1.5">
+                            <div className="text-[9px] font-black uppercase text-rose-700">Prodejna</div>
+                            <div className="text-sm font-black text-rose-800">−{p.prodejnaW}</div>
+                          </div>
+                          <div className="rounded-lg bg-rose-50 py-1.5">
+                            <div className="text-[9px] font-black uppercase text-rose-700">Akce</div>
+                            <div className="text-sm font-black text-rose-800">−{p.akceWeek}</div>
+                          </div>
+                          <div className="rounded-lg bg-rose-50 py-1.5">
+                            <div className="text-[9px] font-black uppercase text-rose-700">Odpisy</div>
+                            <div className="text-sm font-black text-rose-800">−{p.woW}</div>
+                          </div>
+                          <div className="rounded-lg bg-purple-50 py-1.5">
+                            <div className="text-[9px] font-black uppercase text-purple-700">Sudy na lahve</div>
+                            <div className="text-sm font-black text-purple-800">−{p.kegsUsedW}</div>
+                          </div>
+                          {(p.prefukFrom > 0 || p.prefukTo > 0) && (
+                            <div className="rounded-lg bg-neutral-50 py-1.5">
+                              <div className="text-[9px] font-black uppercase text-neutral-500">Přefuk ZE/DO</div>
+                              <div className="text-sm font-black text-neutral-800">−{p.prefukFrom} / +{p.prefukTo}</div>
+                            </div>
+                          )}
+                          {p.adjW !== 0 && (
+                            <div className="rounded-lg bg-amber-50 py-1.5">
+                              <div className="text-[9px] font-black uppercase text-amber-700">Dorovnání inventury</div>
+                              <div className="text-sm font-black text-amber-800">{p.adjW > 0 ? '+' : ''}{p.adjW}</div>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    );
-                  })}
+                    ))}
                 </div>
 
                 <p className="text-xs text-neutral-400">
-                  Stav = počáteční stav (inventura) + stočeno do dnešního dne. Odpis = fasování + odpisy + objednávky + prodejna + akce + sudy ze stáčení lahví. Rozdíl = stav − odpis.
+                  Aktuální stav = počáteční + stočeno − fasování (personál) − prodejna − akce − odpisy − sudy na lahve − odečteno závozem − přefuk ZE + přefuk DO + dorovnání inventury. „Objednáno (týden)" je aktuální poptávka tohoto týdne, ne totéž co „odečteno závozem" (to je historický odpočet z doručených objednávek).
                 </p>
               </div>
             )}
