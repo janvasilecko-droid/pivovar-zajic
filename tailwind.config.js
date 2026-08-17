@@ -8,18 +8,36 @@ export default {
         display: ['Outfit', 'Sora', 'system-ui', 'sans-serif'],
       },
       colors: {
+        // Hlavní akce (btn-primary, focus/selection) — hluboká měděná, sesterská
+        // barva k amber níže. Dřív syté červená, která s jantarovým brandem
+        // appky (nav, amber tlačítka) nesouzněla — teď tvoří jednu rodinu "zlato + měď".
         primary: {
-          50:  '#fdf2f2',
-          100: '#fce4e4',
-          200: '#f9cccc',
-          300: '#f4a4a4',
-          400: '#ec6c6c',
-          500: '#df3d3d',
-          600: '#cc2222',
-          700: '#aa1919',
-          800: '#8c1818',
-          900: '#751a1a',
-          950: '#400808',
+          50:  '#fdf4ec',
+          100: '#fbe3cc',
+          200: '#f6c494',
+          300: '#ef9e5c',
+          400: '#e27c33',
+          500: '#c85f1e',
+          600: '#a64714',
+          700: '#7f3612',
+          800: '#5f2a12',
+          900: '#451f10',
+          950: '#271109',
+        },
+        // Přebarvení výchozí Tailwind palety amber-* (nejpoužívanější barva appky —
+        // navigace, hlavní tlačítka) na hlubší, méně neonový "cínovaný zlatý" tón.
+        amber: {
+          50:  '#fef9ec',
+          100: '#fcefc7',
+          200: '#f8dd8a',
+          300: '#f2c555',
+          400: '#e6a62e',
+          500: '#d4900f',
+          600: '#b3730a',
+          700: '#8c5a08',
+          800: '#6b4508',
+          900: '#4a2f08',
+          950: '#2e1d05',
         },
         amberBeer: {
           50:  '#fffbe6',
@@ -90,10 +108,12 @@ export default {
         },
       },
       boxShadow: {
-        card: '0 2px 10px -2px rgba(15, 23, 42, 0.05), 0 1px 4px -1px rgba(15, 23, 42, 0.03)',
-        cardHover: '0 12px 28px -6px rgba(15, 23, 42, 0.12), 0 4px 12px -2px rgba(15, 23, 42, 0.06)',
-        glow: '0 0 20px -3px rgba(223, 61, 61, 0.35)',
-        glowGold: '0 0 20px -3px rgba(230, 168, 0, 0.35)',
+        // Jemně teplý (hnědý, ne studeně šedý) odstín stínu — sedí s jantarovým
+        // brandem líp než neutrální slate, aniž by byl nápadný.
+        card: '0 2px 10px -2px rgba(69, 31, 16, 0.06), 0 1px 4px -1px rgba(69, 31, 16, 0.04)',
+        cardHover: '0 16px 32px -8px rgba(69, 31, 16, 0.16), 0 6px 14px -3px rgba(69, 31, 16, 0.08)',
+        glow: '0 0 20px -3px rgba(200, 95, 30, 0.35)',
+        glowGold: '0 0 20px -3px rgba(212, 144, 15, 0.35)',
         sidebar: '6px 0 30px rgba(0, 0, 0, 0.35)',
         glass: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
       },

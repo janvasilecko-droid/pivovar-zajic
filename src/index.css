@@ -21,21 +21,29 @@ html, body, #root {
     @apply bg-neutral-50 text-neutral-900 antialiased font-sans;
     font-feature-settings: 'cv11', 'ss01';
     background-image:
-      radial-gradient(circle at 10% 0%, rgba(223, 61, 61, 0.04), transparent 35%),
-      radial-gradient(circle at 90% 100%, rgba(230, 168, 0, 0.04), transparent 35%),
+      radial-gradient(circle at 10% 0%, rgba(200, 95, 30, 0.05), transparent 35%),
+      radial-gradient(circle at 90% 100%, rgba(212, 144, 15, 0.05), transparent 35%),
       radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.015), transparent 50%);
     background-attachment: fixed;
   }
   html.dark body {
     @apply bg-neutral-50 text-neutral-900;
     background-image:
-      radial-gradient(circle at 10% 0%, rgba(223, 61, 61, 0.04), transparent 35%),
-      radial-gradient(circle at 90% 100%, rgba(230, 168, 0, 0.04), transparent 35%),
+      radial-gradient(circle at 10% 0%, rgba(200, 95, 30, 0.05), transparent 35%),
+      radial-gradient(circle at 90% 100%, rgba(212, 144, 15, 0.05), transparent 35%),
       radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.015), transparent 50%);
   }
 
   * { -webkit-tap-highlight-color: transparent; }
   ::selection { @apply bg-primary-200 text-primary-950; }
+
+  /* Viditelný, ale nerušivý focus prstenec pro klávesnicové ovládání — modernější
+     než výchozí prohlížečový obrys a konzistentní napříč appkou. */
+  :focus-visible {
+    outline: 2px solid theme('colors.primary.500');
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
 }
 
 @layer components {
@@ -48,7 +56,7 @@ html, body, #root {
     @apply dark:bg-white/80 dark:border-neutral-200/60;
   }
   .card-hover {
-    @apply card hover:shadow-cardHover hover:-translate-y-1 hover:border-neutral-300/80;
+    @apply card hover:shadow-cardHover hover:-translate-y-0.5 hover:border-neutral-300/80;
     @apply dark:hover:border-neutral-700;
   }
   .input {
@@ -117,7 +125,7 @@ html, body, #root {
     @apply px-4 py-2.5 rounded-2xl font-black text-xs sm:text-sm transition-all flex items-center gap-2 select-none min-h-[44px] sm:min-h-[38px] text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100/80 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800;
   }
   .nav-tab-active {
-    @apply bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300 scale-[1.02] dark:bg-amber-500 dark:text-neutral-950 dark:ring-amber-400;
+    @apply bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300 dark:bg-amber-500 dark:text-neutral-950 dark:ring-amber-400;
   }
 
   .chip {
