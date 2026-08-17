@@ -1034,6 +1034,23 @@ export default function Orders({
     return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
   }
 
+  // Jedna položka objednávky vyhovuje AKTUÁLNÍ KOMBINACI filtrů obalu a druhu
+  // piva zároveň (ne každý filtr zvlášť přes celou objednávku) — takže při
+  // zadání obalu I piva se vyfiltrují jen objednávky, které mají DANÝ druh
+  // piva v DANÉM obalu na stejném řádku, ne kteroukoli kombinaci napříč
+  // různými řádky objednávky.
+  function matchesItemFilters(item: OrderItem): boolean {
+    if (itemFilterBeerId && item.beer_id !== itemFilterBeerId) return false;
+    if (itemFilterPackageId && item.package_id !== itemFilterPackageId) return false;
+    if (packageKindFilter && packageKindFilter !== 'all') {
+      const pkg = packages.find((p) => p.id === item.package_id);
+      if (!pkg) return false;
+      const isKeg = pkg.kind === 'keg' || (pkg.label ?? '').toLowerCase().includes('keg') || (pkg.label ?? '').toLowerCase().includes('sud');
+      if (packageKindFilter === 'keg' ? !isKeg : isKeg) return false;
+    }
+    return true;
+  }
+
   const searchedFiltered = useMemo(() => {
     const q = norm(searchText);
     return filtered.filter((o) => {
@@ -1044,20 +1061,8 @@ export default function Orders({
         if (deliveryDayFilter !== '_none' && o.delivery_day !== deliveryDayFilter) return false;
       }
       const its = items[o.id] ?? [];
-      // Item filters (AND) — order must contain items matching ALL selected filters
-      if (itemFilterBeerId && !its.some(item => item.beer_id === itemFilterBeerId)) return false;
-      if (itemFilterPackageId && !its.some(item => item.package_id === itemFilterPackageId)) return false;
-
-      // Filtr podle druhu obalu (Sudy KEG vs Lahve / Sklo / PET)
-      if (packageKindFilter && packageKindFilter !== 'all') {
-        const hasMatchingKind = its.some((item) => {
-          const pkg = packages.find((p) => p.id === item.package_id);
-          if (!pkg) return false;
-          const isKeg = pkg.kind === 'keg' || (pkg.label ?? '').toLowerCase().includes('keg') || (pkg.label ?? '').toLowerCase().includes('sud');
-          return packageKindFilter === 'keg' ? isKeg : !isKeg;
-        });
-        if (!hasMatchingKind) return false;
-      }
+      // Obal + druh piva se vyhodnocují SPOLEČNĚ na jedné položce (viz matchesItemFilters výše)
+      if ((itemFilterBeerId || itemFilterPackageId || (packageKindFilter && packageKindFilter !== 'all')) && !its.some(matchesItemFilters)) return false;
 
       if (q) {
         const placeMatch = norm(o.place_name ?? '').includes(q);
@@ -1079,15 +1084,7 @@ export default function Orders({
     }
 
     const matchItem = (item: OrderItem) => {
-      if (itemFilterBeerId && item.beer_id !== itemFilterBeerId) return false;
-      if (itemFilterPackageId && item.package_id !== itemFilterPackageId) return false;
-      if (packageKindFilter !== 'all') {
-        const pkg = packages.find((p) => p.id === item.package_id);
-        if (!pkg) return false;
-        const isKeg = pkg.kind === 'keg' || (pkg.label ?? '').toLowerCase().includes('keg') || (pkg.label ?? '').toLowerCase().includes('sud');
-        if (packageKindFilter === 'keg' && !isKeg) return false;
-        if (packageKindFilter === 'bottle' && isKeg) return false;
-      }
+      if (!matchesItemFilters(item)) return false;
       if (searchText.trim()) {
         const q = norm(searchText);
         const bName = norm(item.beer_name ?? '');
@@ -1098,11 +1095,13 @@ export default function Orders({
 
     let currentViewQty = 0;
     let currentViewOrdersCount = 0;
+    let currentViewItemsCount = 0;
     searchedFiltered.forEach((o) => {
       const its = items[o.id] ?? [];
       const matchingIts = its.filter(matchItem);
       if (matchingIts.length > 0) {
         currentViewOrdersCount++;
+        currentViewItemsCount += matchingIts.length;
         matchingIts.forEach((i) => { currentViewQty += Number(i.quantity); });
       }
     });
@@ -1121,6 +1120,7 @@ export default function Orders({
     return {
       currentViewQty,
       currentViewOrdersCount,
+      currentViewItemsCount,
       allOrdersQty,
       allOrdersCount,
       hasHiddenOrders: allOrdersQty > currentViewQty
@@ -1892,7 +1892,7 @@ export default function Orders({
 
                 {itemAuditStats && (
                   <span className="ml-1 px-2.5 py-1 rounded-xl bg-amber-500 text-white font-black text-xs shadow-xs">
-                    Součet v tomto zobrazení: {itemAuditStats.currentViewQty} ks ({itemAuditStats.currentViewOrdersCount} obj.)
+                    Vyfiltrováno: {itemAuditStats.currentViewItemsCount} položek — {itemAuditStats.currentViewQty} ks ({itemAuditStats.currentViewOrdersCount} obj.)
                   </span>
                 )}
 
