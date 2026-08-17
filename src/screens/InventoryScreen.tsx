@@ -1401,7 +1401,59 @@ function EndStockTab({
             <p>Pro měsíc {currentMonth} nejsou žádné pohyby sudů.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto scrollbar-thin">
+          <>
+          {/* Mobilní karty — čitelné bez vodorovného scrollování napříč 11 sloupci */}
+          <div className="grid grid-cols-1 gap-2.5 md:hidden">
+            {rows.map((r) => {
+              const beer = beers.find((b) => b.id === r.beer_id);
+              const isDark = beer && beerText(beer) === 'text-white';
+              const textColor = isDark ? 'text-white' : 'text-neutral-950';
+              const metrics: { label: string; value: string; cls: string }[] = [
+                { label: 'Počátek', value: String(r.initialQty), cls: 'bg-white/70 text-neutral-900' },
+                { label: 'Stáč. KEG', value: `+${r.stacenoKegQty}`, cls: 'bg-emerald-50 text-emerald-800' },
+                { label: 'Objedn.', value: `−${r.objednavkyQty}`, cls: 'bg-white/70 text-rose-700' },
+                { label: 'Stáč. lahví', value: `−${r.stacenoLahveQty}`, cls: 'bg-white/70 text-rose-700' },
+                { label: 'Fasování', value: `−${r.fasovaniQty}`, cls: 'bg-white/70 text-rose-700' },
+                { label: 'Prodejna', value: `−${r.prodejnaQty}`, cls: 'bg-white/70 text-rose-700' },
+                { label: 'Akce', value: `−${r.akceQty}`, cls: 'bg-white/70 text-rose-700' },
+                { label: 'Odpisy', value: `−${r.odpisyQty}`, cls: 'bg-white/70 text-rose-700' },
+                { label: 'Konec', value: String(r.endStockQty), cls: r.endStockQty < 0 ? 'bg-rose-600 text-white' : 'bg-amber-500 text-neutral-950' },
+              ];
+              return (
+                <div key={`${r.beer_id}__${r.package_id}`} className="rounded-2xl border border-neutral-200 p-3 space-y-2" style={beer ? { backgroundColor: beerBg(beer) } : undefined}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`font-black text-sm ${textColor}`}>{r.beer_name}</span>
+                    <span className={`font-bold text-xs ${textColor} opacity-80`}>{formatPackageLabel(r.package_label)}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5 text-center">
+                    {metrics.map((m) => (
+                      <div key={m.label} className={`rounded-lg py-1.5 ${m.cls}`}>
+                        <div className="text-[8px] font-black uppercase opacity-80">{m.label}</div>
+                        <div className="text-xs font-black">{m.value} ks</div>
+                      </div>
+                    ))}
+                  </div>
+                  {r.endStockQty < 0 && <div className="text-[10px] text-rose-700 font-black">⚠️ Chybí {Math.abs(r.endStockQty)} ks!</div>}
+                </div>
+              );
+            })}
+            <div className="rounded-2xl bg-neutral-200 p-3 space-y-2">
+              <div className="font-black text-sm text-neutral-900">📦 CELKEM</div>
+              <div className="grid grid-cols-3 gap-1.5 text-center text-[10px] font-bold text-neutral-800">
+                <div>Počátek {totals.initial}</div>
+                <div className="text-emerald-700">+{totals.stacenoKeg} KEG</div>
+                <div className="text-rose-700">−{totals.objednavky} obj.</div>
+                <div className="text-rose-700">−{totals.stacenoLahve} lah.</div>
+                <div className="text-rose-700">−{totals.fasovani} fas.</div>
+                <div className="text-rose-700">−{totals.prodejna} prod.</div>
+                <div className="text-rose-700">−{totals.akce} akce</div>
+                <div className="text-rose-700">−{totals.odpisy} odp.</div>
+                <div className="font-black text-neutral-950">{totals.endStock} ks konec</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="hidden md:block overflow-x-auto scrollbar-thin">
             <table className="table text-xs">
               <thead>
                 <tr>
@@ -1460,6 +1512,7 @@ function EndStockTab({
               </tfoot>
             </table>
           </div>
+          </>
         )}
       </div>
     </div>

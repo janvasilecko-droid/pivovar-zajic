@@ -653,7 +653,22 @@ export default function Stock() {
                 Export Excel
               </button>
             </div>
-            <div className="overflow-x-auto">
+            {/* Mobilní karty */}
+            <div className="grid grid-cols-1 gap-2 md:hidden">
+              {rows.map((r) => (
+                <div key={r.beer.id} className="rounded-xl border border-neutral-200 p-3 flex items-center justify-between gap-2">
+                  <span className="font-bold text-sm text-neutral-800 truncate">{r.beer.name}</span>
+                  <div className="flex items-center gap-3 text-xs font-mono shrink-0">
+                    <span className="text-neutral-500">{r.stockKegs} sud.</span>
+                    <span className="text-neutral-500">{r.stockBottles} lah.</span>
+                    <span className="font-black text-neutral-900">{r.stockTotal} ks</span>
+                    <span className="font-black text-amber-700">{fmtHl(r.stockLiters)} hl</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="text-[10px] font-bold uppercase text-neutral-400 border-b border-neutral-200">
