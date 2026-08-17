@@ -44,6 +44,23 @@ export async function requireApprovedUser(
   corsHeaders: Record<string, string>,
   options: EdgeAuthOptions,
 ): Promise<EdgeAuthResult> {
+  // Důvěryhodné volání ze serveru (pg_cron → net.http_post), ne od přihlášeného
+  // uživatele v appce — ověří se sdíleným interním secretem z app_secrets místo
+  // uživatelského JWT. Používá se, aby se WhatsApp zprávy rozparsovaly i bez
+  // otevřené appky (viz migrace whatsapp-auto-parse-poll).
+  const cronSecret = req.headers.get('X-Internal-Cron-Secret');
+  if (cronSecret) {
+    const { data: secretRow } = await admin
+      .from('app_secrets')
+      .select('value')
+      .eq('key', 'WHATSAPP_CRON_SECRET')
+      .maybeSingle();
+    if (secretRow?.value && cronSecret === secretRow.value) {
+      return { ok: true, user: { id: 'system-cron', email: 'cron@internal' } };
+    }
+    return { ok: false, response: json(corsHeaders, 401, { error: 'Neplatný interní secret.' }) };
+  }
+
   const authHeader = req.headers.get('Authorization') ?? '';
   const match = authHeader.match(/^Bearer\s+(.+)$/i);
   if (!match) {

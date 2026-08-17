@@ -609,6 +609,10 @@ Deno.serve(async (req: Request) => {
     });
     if (!auth.ok) return auth.response;
     const callerAuthorization = req.headers.get("Authorization") ?? "";
+    // Pokud volání přišlo z pg_cron (interní secret, ne uživatelský JWT),
+    // přeposíláme dál stejný secret místo Authorization — parse-order-text má
+    // stejnou pojistku v requireApprovedUser a secret rozpozná stejně.
+    const cronSecretHeader = req.headers.get("X-Internal-Cron-Secret");
 
     // Claim rows atomically so concurrent browser tabs cannot process the same
     // message and create duplicate AI calls/orders.
@@ -842,7 +846,9 @@ Deno.serve(async (req: Request) => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": callerAuthorization,
+            ...(cronSecretHeader
+              ? { "X-Internal-Cron-Secret": cronSecretHeader }
+              : { "Authorization": callerAuthorization }),
             "Apikey": Deno.env.get("SUPABASE_ANON_KEY") ?? "",
           },
           body: JSON.stringify(parseBody),
