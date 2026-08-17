@@ -222,10 +222,11 @@ export default function Stock() {
         const rawStock = fromInv + brewedW - outgoingMoved - zdW - prefukFrom + prefukTo + adjW;
         const currentStock = Math.max(0, rawStock);
 
+        // Zbývá = (sklad + stočené − fašování − prodejna − akce − odpisy − sudy na
+        // lahve − zavezeno ± přefuk + dorovnání), tedy currentStock, − objednávky
+        // tohoto týdne (ještě nezavezené — viz validOrdIdsWeek).
         const orderedW = ordItems.filter((i) => validOrdIdsWeek.has(i.order_id) && i.beer_id === beer.id && i.package_id === pkg.id).reduce((s, i) => s + Number(i.quantity), 0);
-        // Odečtené závozy jsou již v rawStock — zobrazíme je ale v outgoing jako info (ne duplicitní odpočet)
-        const zdWeekOrdered = zd.filter((r) => r.beer_id === beer.id && r.package_id === pkg.id && isMovementInPeriod(r.deduct_date)).reduce((s, r) => s + Number(r.quantity), 0);
-        const outgoing = Math.max(0, orderedW - zdWeekOrdered); // zbývající neodevzdané závozy
+        const outgoing = orderedW;
         const difference = currentStock - outgoing;
 
         return {
@@ -475,7 +476,7 @@ export default function Stock() {
                               <tr className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">
                                 <th className="text-left pb-1 pr-1">Obal</th>
                                 <th className="text-center pb-1 px-1" title="Aktuální stav">Stav</th>
-                                <th className="text-center pb-1 px-1" title="Odpis (všechny odchody)">Odpis</th>
+                                <th className="text-center pb-1 px-1" title="Objednáno tento týden, ještě nezavezeno">Objedn.</th>
                                 <th className="text-center pb-1 pl-1" title="Rozdíl">Rozdíl</th>
                               </tr>
                             </thead>
@@ -503,7 +504,7 @@ export default function Stock() {
                               <tr className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">
                                 <th className="text-left pb-1 pr-1">Obal</th>
                                 <th className="text-center pb-1 px-1" title="Aktuální stav">Stav</th>
-                                <th className="text-center pb-1 px-1" title="Odpis (všechny odchody)">Odpis</th>
+                                <th className="text-center pb-1 px-1" title="Objednáno tento týden, ještě nezavezeno">Objedn.</th>
                                 <th className="text-center pb-1 pl-1" title="Rozdíl">Rozdíl</th>
                               </tr>
                             </thead>
@@ -618,7 +619,7 @@ export default function Stock() {
                 </div>
 
                 <p className="text-xs text-neutral-400">
-                  Aktuální stav = počáteční + stočeno − fasování (personál) − prodejna − akce − odpisy − sudy na lahve − odečteno závozem − přefuk ZE + přefuk DO + dorovnání inventury. „Objednáno (týden)" je aktuální poptávka tohoto týdne, ne totéž co „odečteno závozem" (to je historický odpočet z doručených objednávek).
+                  Aktuální stav = počáteční + stočeno − fasování (personál) − prodejna − akce − odpisy − sudy na lahve − odečteno závozem − přefuk ZE + přefuk DO + dorovnání inventury. Zbývá = aktuální stav − objednáno (týden) — kolik po vyřízení tohoto týdne reálně zbyde na skladě.
                 </p>
               </div>
             )}
