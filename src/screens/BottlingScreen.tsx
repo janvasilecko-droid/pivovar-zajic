@@ -1388,6 +1388,10 @@ export default function BottlingScreen({
             return s;
           }, 0);
           const seenKegBatches = new Set<string>();
+          // Samostatná sada pro mobilní karty — jinak by sdílený stav se
+          // desktop tabulkou způsobil, že by po vykreslení karet byly
+          // všechny dávky v tabulce mylně označené jako "stejná dávka".
+          const seenKegBatchesMobile = new Set<string>();
 
           function formatDate(d: string | null | undefined) {
             if (!d) return '—';
@@ -1402,7 +1406,78 @@ export default function BottlingScreen({
               <h3 className="font-display font-black text-amber-950 text-sm mb-3">
                 🍾 {recordsView === 'month' ? `Měsíc ${recordsMonthKey}` : `Týden ${recordsWeekKey}`}
               </h3>
-              <div className="rounded-xl border border-amber-300/80 bg-amber-50/90 overflow-x-auto">
+
+              {/* Mobilní karty */}
+              <div className="grid grid-cols-1 gap-2.5 md:hidden">
+                {sortedRows.map((r) => {
+                  const beer = beers.find((b) => b.id === r.beer_id);
+                  const pkg = packages.find((p) => p.id === r.package_id);
+                  const kegPkg = r.kegs_used_package_id ? packages.find((p) => p.id === r.kegs_used_package_id) : null;
+                  const vol = pkg ? Number(pkg.volume_l) : 0;
+                  const liters = Number(r.quantity) * vol;
+                  const bId = getBatchId(r);
+                  const isFirstInBatch = !seenKegBatchesMobile.has(bId);
+                  if (r.kegs_used && r.kegs_used > 0) seenKegBatchesMobile.add(bId);
+                  return (
+                    <div key={r.id} className="rounded-2xl border border-amber-300/80 bg-white p-3 space-y-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
+                          <span className="font-black text-sm text-amber-950 truncate">{r.beer_name ?? beer?.name ?? '—'}</span>
+                        </div>
+                        <span className="shrink-0 font-mono font-bold text-xs text-amber-800">{formatDate(r.entry_date)}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-amber-700">{pkg?.label ?? '—'}</span>
+                        <span className="font-display font-black text-xl text-amber-950">{r.quantity} ks</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5 text-center">
+                        <div className="rounded-lg bg-amber-100/70 py-1.5">
+                          <div className="text-[9px] font-black uppercase text-amber-700">Litry</div>
+                          <div className="text-sm font-black text-amber-900">{liters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })}</div>
+                        </div>
+                        <div className="rounded-lg bg-amber-100/70 py-1.5 flex items-center justify-center gap-1">
+                          {isFirstInBatch ? (
+                            <>
+                              <button type="button" onClick={() => incrementKegs(r.id, -1)} className="w-7 h-7 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-800 font-black text-sm transition">−</button>
+                              <span className="text-sm font-black text-amber-900">{r.kegs_used && r.kegs_used > 0 ? r.kegs_used : 0} 🛢️</span>
+                              <button type="button" onClick={() => incrementKegs(r.id, 1)} className="w-7 h-7 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-900 font-black text-sm transition">+</button>
+                            </>
+                          ) : (
+                            <span className="text-[10px] font-bold text-amber-600">〃 stejná dávka</span>
+                          )}
+                        </div>
+                      </div>
+                      {isFirstInBatch && (
+                        <select
+                          value={kegPkg?.id ?? ''}
+                          onChange={(e) => updateKegPackage(r.id, e.target.value)}
+                          className="input !py-1.5 text-xs font-bold w-full"
+                          title="Změnit velikost KEG sudu"
+                        >
+                          <option value="">— Zdrojový KEG —</option>
+                          {kegPackages.map((p) => (<option key={p.id} value={p.id}>KEG {p.volume_l}L</option>))}
+                        </select>
+                      )}
+                      <div className="flex items-center gap-1.5 pt-1 border-t border-amber-100">
+                        <button type="button" onClick={() => increment(r.id, -1)} className="w-11 min-h-[44px] grid place-items-center rounded-xl bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-lg transition">−</button>
+                        <button type="button" onClick={() => increment(r.id, 1)} className="w-11 min-h-[44px] grid place-items-center rounded-xl bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-lg transition">+</button>
+                        <button type="button" onClick={() => setEditingRow(r)} className="flex-1 min-h-[44px] rounded-xl bg-sky-100 hover:bg-sky-200 text-sky-800 font-black text-xs transition">✏️ Upravit</button>
+                        <button type="button" onClick={() => del(r.id)} className="w-11 min-h-[44px] grid place-items-center rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-lg transition">✕</button>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div className="rounded-2xl bg-amber-200/60 p-3 space-y-1 font-black text-amber-950 text-sm">
+                  <div className="flex items-center justify-between"><span>📦 Celkem</span><span>{totalCount} ks</span></div>
+                  <div className="flex items-center justify-between text-xs font-bold text-amber-800">
+                    <span>{totalLiters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L</span>
+                    <span>{totalKegs > 0 ? `${totalKegs} sudů` : '—'}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="hidden md:block rounded-xl border border-amber-300/80 bg-amber-50/90 overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b border-amber-300/80 bg-amber-100/80">
