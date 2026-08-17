@@ -69,7 +69,7 @@ export default function AkceScreen() {
     Array.from({ length: 7 }, () => ({ beer_id: '', package_id: '', qty: '' }))
   );
 
-  // Datum upomínky "řict Denisovi o kašu" = 3 dny před akcí
+  // Datum upomínky "říct Denisovi o kašu" = 3 dny před akcí
   const reminderDate = useMemo(() => {
     if (!entryDate) return null;
     const d = new Date(entryDate + 'T09:00:00');
@@ -181,7 +181,7 @@ export default function AkceScreen() {
 
       await createReminder({
         title: `🎪 Akce: ${newRecord.name}`,
-        note: `Za 3 dny je akce "${newRecord.name}" (${new Date(entryDate).toLocaleDateString('cs-CZ')}). Nezapomeň: řict Denisovi o kašu!`,
+        note: `Za 3 dny je akce "${newRecord.name}" (${new Date(entryDate).toLocaleDateString('cs-CZ')}). Nezapomeň: říct Denisovi o kašu!`,
         date_time: remindDateTime,
         target_role: newRecord.who.trim() || 'all',
         display_mode: 'both',
@@ -533,7 +533,7 @@ export default function AkceScreen() {
                   <div>
                     <p className="font-bold text-sky-900">🔔 Upozornění na kašu (Denis)</p>
                     <p>
-                      Osoba <strong>{who || '…'}</strong> dostane upomínku <strong>„řict Denisovi o kašu“</strong> dne{' '}
+                      Osoba <strong>{who || '…'}</strong> dostane upomínku <strong>„říct Denisovi o kašu“</strong> dne{' '}
                       <strong className="font-mono">{reminderDate.toLocaleDateString('cs-CZ')}</strong> (3 dny před akcí) — na telefonu i při přihlášení.
                     </p>
                   </div>
