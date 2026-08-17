@@ -598,13 +598,16 @@ export default function Stock() {
               </h2>
               <button
                 onClick={() => exportExciseTaxReportToExcel(
-                  rows.map((r) => ({
-                    beer_name: r.beer.name,
-                    degree: r.beer.degree ?? '',
-                    liters: r.stockLiters,
-                    hl: r.stockLiters / 100,
-                    keg_count: r.stockKegs,
-                    bottle_count: r.stockBottles,
+                  // Spotřební daň se vyměřuje ze skutečně stočeného množství za dané období
+                  // (brewStats, filtrováno podle entry_date od–do), ne z toho, kolik zbývá
+                  // na skladě teď (r.stockLiters = počáteční stav + stočeno − vydané do dneška).
+                  brewStats.map((s) => ({
+                    beer_name: s.beer.name,
+                    degree: s.beer.degree ?? '',
+                    liters: s.totalLiters,
+                    hl: s.totalLiters / 100,
+                    keg_count: s.totalKegs,
+                    bottle_count: s.totalBottles,
                   })),
                   `${brewFrom} – ${brewTo}`
                 )}
