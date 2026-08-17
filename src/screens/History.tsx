@@ -1574,7 +1574,41 @@ export default function History() {
             ) : detailResults.length === 0 ? (
               <div className="p-8 text-center text-xs font-bold text-neutral-500">Žádné výsledky pro zvolené filtry.</div>
             ) : (
-              <div className="overflow-x-auto scrollbar-thin">
+              <>
+              {/* Mobilní karty */}
+              <div className="grid grid-cols-1 gap-2.5 md:hidden">
+                {detailResultsSorted.map((r) => {
+                  const beer = beers.find((b) => b.id === r.beer_id);
+                  const matchingOrderIds = new Set(
+                    delOrders
+                      .filter(o => o.status !== 'storno')
+                      .filter(o => (delItems[o.id] ?? []).some(i => i.beer_id === r.beer_id && i.package_id === r.package_id))
+                      .map(o => o.id)
+                  );
+                  const hasOrders = matchingOrderIds.size > 0;
+                  return (
+                    <div
+                      key={`${r.beer_id}__${r.package_id}`}
+                      className={`rounded-2xl border border-black/10 p-3 space-y-1.5 ${hasOrders ? 'cursor-pointer' : ''}`}
+                      style={beer ? { backgroundColor: beerBg(beer) } : undefined}
+                      onClick={() => { if (hasOrders) openEditOrder([...matchingOrderIds][0]); }}
+                    >
+                      <div className={`flex items-center justify-between gap-2 font-black text-sm ${beer && beerText(beer) === 'text-white' ? 'text-white' : 'text-neutral-950'}`}>
+                        <span>{r.beer_name} <span className="font-bold opacity-80">· {formatPackageLabel(r.package_label)}</span></span>
+                        <span className="shrink-0 font-mono text-sm">{r.totalQty} ks</span>
+                      </div>
+                      <div className={`flex flex-wrap gap-x-3 gap-y-0.5 text-xs font-bold ${beer && beerText(beer) === 'text-white' ? 'text-white/80' : 'text-neutral-700'}`}>
+                        {ACTIVITY_SOURCES.filter((s) => selSources.has(s.key)).map((s) => (
+                          <span key={s.key}>{s.icon} {r.qtyBySource[s.key] || 0}</span>
+                        ))}
+                        <span>· {r.totalLiters.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} l</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="hidden md:block overflow-x-auto scrollbar-thin">
                 <table className="table text-xs">
                   <thead>
                     <tr>
@@ -1627,6 +1661,7 @@ export default function History() {
                   </tbody>
                 </table>
               </div>
+              </>
             )}
           </div>
         </div>
@@ -1702,7 +1737,32 @@ export default function History() {
             ) : tankCycles.length === 0 ? (
               <div className="text-center text-xs font-bold text-neutral-500 py-8">Zatím žádné ukončené cykly tanků.</div>
             ) : (
-              <div className="overflow-x-auto scrollbar-thin">
+              <>
+              {/* Mobilní karty */}
+              <div className="grid grid-cols-1 gap-2.5 md:hidden">
+                {tankCyclesSorted.map((c) => {
+                  const beer = c.beer_name ? beers.find((b) => b.name === c.beer_name) : null;
+                  const highLoss = Number(c.loss_pct) > 3;
+                  return (
+                    <div key={c.id} className="rounded-2xl border border-black/10 p-3 space-y-1.5" style={beer ? { backgroundColor: beerBg(beer) } : undefined}>
+                      <div className={`flex items-center justify-between gap-2 font-black text-sm ${beer && beerText(beer) === 'text-white' ? 'text-white' : 'text-neutral-950'}`}>
+                        <span>{c.tank_label} <span className="font-bold opacity-80">· {c.beer_name ?? '—'}</span></span>
+                        <span className={`shrink-0 px-2 py-0.5 rounded-lg text-xs font-black ${highLoss ? 'bg-rose-600 text-white' : 'bg-black/10'}`}>{Number(c.loss_pct).toFixed(1)}% ztráta</span>
+                      </div>
+                      <div className={`flex flex-wrap gap-x-3 gap-y-0.5 text-xs font-bold ${beer && beerText(beer) === 'text-white' ? 'text-white/80' : 'text-neutral-700'}`}>
+                        <span>Poč. {(Number(c.initial_volume_l) / 100).toFixed(2)} hl</span>
+                        <span>Stoč. {(Number(c.kegged_volume_l) / 100).toFixed(2)} hl</span>
+                        <span>{c.keg_count} sudů</span>
+                        <span>Ztr. {Number(c.loss_l).toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} l</span>
+                        <span>{fmtHoursShort(c.duration_hours)}</span>
+                        <span>{new Date(c.ended_at).toLocaleDateString('cs-CZ')}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="hidden md:block overflow-x-auto scrollbar-thin">
                 <table className="table text-xs">
                   <thead>
                     <tr>
@@ -1737,6 +1797,7 @@ export default function History() {
                   </tbody>
                 </table>
               </div>
+              </>
             )}
           </div>
         </div>
