@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
+import { fetchLabelBalances, LabelBalance } from '../lib/labelStock';
 import { CheckCircle2, ShieldAlert } from 'lucide-react';
 
 type LowItem = {
@@ -12,6 +13,7 @@ type LowItem = {
 export function CriticalMaterialAlertModal() {
   const { profile } = useAuth();
   const [criticalItems, setCriticalItems] = useState<LowItem[]>([]);
+  const [allLabelBalances, setAllLabelBalances] = useState<LabelBalance[]>([]);
   const [acknowledged, setAcknowledged] = useState<boolean>(true);
 
   useEffect(() => {
@@ -26,32 +28,24 @@ export function CriticalMaterialAlertModal() {
     }
 
     Promise.all([
-      supabase.from('beers').select('name').eq('is_active', true),
+      fetchLabelBalances(),
       supabase.from('packages').select('label,kind'),
       supabase.from('bottling').select('beer_name,package_label,quantity'),
-    ]).then(([bRes, pRes, botRes]) => {
-      const beers = (bRes.data as any[]) ?? [];
+    ]).then(([labelBalances, pRes, botRes]) => {
       const pkgs = (pRes.data as any[]) ?? [];
       const bot = (botRes.data as any[]) ?? [];
 
-      let labelPurchases: any[] = [];
       let bottlePurchases: any[] = [];
       try {
-        labelPurchases = JSON.parse(localStorage.getItem('labels_purchases') || '[]');
         bottlePurchases = JSON.parse(localStorage.getItem('bottles_purchases') || '[]');
       } catch {}
 
+      setAllLabelBalances(labelBalances.filter((l) => l.purchased > 0));
+
       const items: LowItem[] = [];
 
-      beers.forEach((b) => {
-        const inL = labelPurchases.filter((lp) => lp.beer_name?.toLowerCase().trim() === b.name?.toLowerCase().trim()).reduce((s, lp) => s + Number(lp.quantity || 0), 0);
-        if (inL > 0) {
-          const usedL = bot.filter((bd) => bd.beer_name?.toLowerCase().trim() === b.name?.toLowerCase().trim()).reduce((s, bd) => s + Number(bd.quantity || 0), 0);
-          const bal = inL - usedL;
-          if (bal < 100) {
-            items.push({ name: `Etikety "${b.name}"`, type: 'etiketa', balance: bal });
-          }
-        }
+      labelBalances.filter((l) => l.isLow).forEach((l) => {
+        items.push({ name: `Etikety "${l.beer_name}"`, type: 'etiketa', balance: l.balance });
       });
 
       pkgs.filter((p) => p.kind !== 'keg').forEach((p) => {
@@ -123,6 +117,22 @@ export function CriticalMaterialAlertModal() {
             ))}
           </div>
         </div>
+
+        {allLabelBalances.length > 0 && (
+          <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-200 space-y-2 max-h-56 overflow-y-auto">
+            <div className="font-black text-[11px] uppercase text-neutral-600 flex items-center gap-1.5 border-b border-neutral-200 pb-1.5">
+              <span>Přehled etiket u ostatních druhů piva:</span>
+            </div>
+            <div className="space-y-1.5">
+              {allLabelBalances.map((l) => (
+                <div key={l.beer_name} className="flex items-center justify-between px-1 font-mono text-[11px]">
+                  <span className="font-bold text-neutral-800">{l.beer_name}</span>
+                  <span className={`font-black ${l.isLow ? 'text-rose-600' : 'text-emerald-700'}`}>{l.balance} ks</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="pt-2 space-y-2">
           <button

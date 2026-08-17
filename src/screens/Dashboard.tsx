@@ -8,6 +8,7 @@ import { AnnouncementManagerModal } from '../components/AnnouncementManagerModal
 import SkloPromoScreen from './SkloPromoScreen';
 import { getStartingStockMap } from '../lib/inventoryHelper';
 import { QuickCountModal } from '../components/QuickCountModal';
+import { fetchLabelBalances } from '../lib/labelStock';
 
 type Row = {
   entry_date: string; beer_id: string | null; beer_name: string | null;
@@ -288,32 +289,22 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
   const [materialAlerts, setMaterialAlerts] = useState<{ name: string; type: 'etiketa' | 'lahev'; balance: number }[]>([]);
   useEffect(() => {
     Promise.all([
-      supabase.from('beers').select('name').eq('is_active', true),
+      fetchLabelBalances(),
       supabase.from('packages').select('label,kind'),
       supabase.from('bottling').select('beer_name,package_label,quantity'),
-    ]).then(([bRes, pRes, botRes]) => {
-      const beers = (bRes.data as any[]) ?? [];
+    ]).then(([labelBalances, pRes, botRes]) => {
       const pkgs = (pRes.data as any[]) ?? [];
       const bot = (botRes.data as any[]) ?? [];
 
-      let labelPurchases: any[] = [];
       let bottlePurchases: any[] = [];
       try {
-        labelPurchases = JSON.parse(localStorage.getItem('labels_purchases') || '[]');
         bottlePurchases = JSON.parse(localStorage.getItem('bottles_purchases') || '[]');
       } catch {}
 
       const alerts: { name: string; type: 'etiketa' | 'lahev'; balance: number }[] = [];
 
-      beers.forEach((b) => {
-        const inL = labelPurchases.filter((lp) => lp.beer_name?.toLowerCase().trim() === b.name?.toLowerCase().trim()).reduce((s, lp) => s + Number(lp.quantity || 0), 0);
-        if (inL > 0) {
-          const usedL = bot.filter((bd) => bd.beer_name?.toLowerCase().trim() === b.name?.toLowerCase().trim()).reduce((s, bd) => s + Number(bd.quantity || 0), 0);
-          const bal = inL - usedL;
-          if (bal < 200) {
-            alerts.push({ name: `Etikety "${b.name}"`, type: 'etiketa', balance: bal });
-          }
-        }
+      labelBalances.filter((l) => l.isLow).forEach((l) => {
+        alerts.push({ name: `Etikety "${l.beer_name}"`, type: 'etiketa', balance: l.balance });
       });
 
       pkgs.filter((p) => p.kind !== 'keg').forEach((p) => {

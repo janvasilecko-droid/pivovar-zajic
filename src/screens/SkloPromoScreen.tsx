@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 
 import { supabase, useRealtime, Place, Beer, Package } from '../lib/supabase';
+import { LABELS_LOW_STOCK_THRESHOLD } from '../lib/labelStock';
 import { Spinner, EmptyState } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { PlaceCombobox } from '../components/PlaceCombobox';
@@ -22,15 +23,6 @@ export type LabelPurchase = {
   beer_name: string;
   entry_date: string;
   quantity: number;
-  note?: string;
-};
-
-export type LabelIssue = {
-  id: string;
-  beer_name: string;
-  entry_date: string;
-  quantity: number;
-  destination?: string;
   note?: string;
 };
 
@@ -92,21 +84,8 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
     } catch { return []; }
   });
 
-  // Label purchases
-  const [labelPurchases, setLabelPurchases] = useState<LabelPurchase[]>(() => {
-    try {
-      const saved = localStorage.getItem('labels_purchases');
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
-
-  // Label issues (výdej etiket - fasování)
-  const [labelIssues, setLabelIssues] = useState<LabelIssue[]>(() => {
-    try {
-      const saved = localStorage.getItem('labels_issues');
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
+  // Label purchases (sdílené přes Supabase — vidí je všechna zařízení stejně)
+  const [labelPurchases, setLabelPurchases] = useState<LabelPurchase[]>([]);
 
   // Bottle purchases
   const [bottlePurchases, setBottlePurchases] = useState<BottlePurchase[]>(() => {
@@ -156,11 +135,12 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
 
   async function loadData() {
     setLoading(true);
-    const [pRes, bRes, pkgRes, botRes] = await Promise.all([
+    const [pRes, bRes, pkgRes, botRes, lpRes] = await Promise.all([
       supabase.from('places').select('*').order('name'),
       supabase.from('beers').select('*').eq('is_active', true).order('name'),
       supabase.from('packages').select('*').order('kind'),
       supabase.from('bottling').select('beer_name, package_label, quantity'),
+      supabase.from('label_purchases').select('id, beer_name, entry_date, quantity, note').order('entry_date', { ascending: false }),
     ]);
 
     const loadedBeers = (bRes.data as Beer[]) ?? [];
@@ -168,6 +148,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
     setBeers(loadedBeers);
     setPackages((pkgRes.data as Package[]) ?? []);
     setBottlingData((botRes.data as any[]) ?? []);
+    setLabelPurchases(((lpRes.data as any[]) ?? []).map((r) => ({ id: r.id, beer_name: r.beer_name, entry_date: r.entry_date, quantity: Number(r.quantity), note: r.note ?? undefined })));
 
     if (loadedBeers.length > 0 && !labelBeerName) {
       setLabelBeerName(loadedBeers[0].name);
@@ -176,21 +157,11 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
   }
 
   useEffect(() => { loadData(); }, []);
-  useRealtime(['places', 'beers', 'packages', 'bottling'], loadData);
+  useRealtime(['places', 'beers', 'packages', 'bottling', 'label_purchases'], loadData);
 
   function saveEntries(newEntries: PromoEntry[]) {
     setEntries(newEntries);
     localStorage.setItem('sklo_promo_entries', JSON.stringify(newEntries));
-  }
-
-  function saveLabelPurchases(newP: LabelPurchase[]) {
-    setLabelPurchases(newP);
-    localStorage.setItem('labels_purchases', JSON.stringify(newP));
-  }
-
-  function saveLabelIssues(newP: LabelIssue[]) {
-    setLabelIssues(newP);
-    localStorage.setItem('labels_issues', JSON.stringify(newP));
   }
 
   function saveBottlePurchases(newP: BottlePurchase[]) {
@@ -239,16 +210,12 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
         .filter((bd) => bd.beer_name && bd.beer_name.toLowerCase().trim() === bName.toLowerCase().trim())
         .reduce((acc, bd) => acc + Number(bd.quantity || 0), 0);
 
-      const issuedLabels = labelIssues
-        .filter((li) => li.beer_name.toLowerCase().trim() === bName.toLowerCase().trim())
-        .reduce((acc, li) => acc + Number(li.quantity || 0), 0);
+      const balance = inLabels - usedLabels;
+      const isLow = balance < LABELS_LOW_STOCK_THRESHOLD;
 
-      const balance = inLabels - usedLabels - issuedLabels;
-      const isLow = balance < 200;
-
-      return { beer_name: bName, inLabels, usedLabels, issuedLabels, balance, isLow };
+      return { beer_name: bName, inLabels, usedLabels, balance, isLow };
     }).sort((a, b) => a.balance - b.balance);
-  }, [beers, labelPurchases, bottlingData, labelIssues]);
+  }, [beers, labelPurchases, bottlingData]);
 
   const lowLabelsCount = useMemo(() => labelsSummary.filter((l) => l.isLow && l.inLabels > 0).length, [labelsSummary]);
 
@@ -327,23 +294,30 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
     saveEntries(entries.filter((e) => e.id !== id));
   }
 
-  // Handlers for Etikety
-  function handleAddLabelPurchase(e: React.FormEvent) {
+  // Handlers for Etikety (Supabase — sdílené mezi zařízeními)
+  async function handleAddLabelPurchase(e: React.FormEvent) {
     e.preventDefault();
     const qty = Number(labelQty);
     if (!qty || qty <= 0 || !labelBeerName) { alert('Vyplňte platné pivo a množství etiket.'); return; }
 
-    const newLP: LabelPurchase = {
-      id: crypto.randomUUID(), beer_name: labelBeerName, entry_date: labelDate, quantity: qty, note: labelNote.trim() || undefined,
-    };
-    saveLabelPurchases([newLP, ...labelPurchases]);
+    const { error } = await supabase.from('label_purchases').insert({
+      beer_name: labelBeerName,
+      entry_date: labelDate,
+      quantity: qty,
+      note: labelNote.trim() || null,
+    });
+    if (error) { alert(`Nepodařilo se zapsat nákup etiket: ${error.message}`); return; }
+
+    await loadData();
     setLabelQty('1000'); setLabelNote('');
     alert(`✅ Zapsán nákup ${qty} ks etiket pro pivo "${labelBeerName}"!`);
   }
 
-  function handleDeleteLabelPurchase(id: string) {
+  async function handleDeleteLabelPurchase(id: string) {
     if (!window.confirm('Smazat tento nákup etiket?')) return;
-    saveLabelPurchases(labelPurchases.filter((lp) => lp.id !== id));
+    const { error } = await supabase.from('label_purchases').delete().eq('id', id);
+    if (error) { alert(`Nepodařilo se smazat záznam: ${error.message}`); return; }
+    await loadData();
   }
 
   // Handlers for Lahve
@@ -697,11 +671,11 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
             <div className="p-5 rounded-3xl bg-rose-50 border-2 border-rose-300 shadow-md space-y-2">
               <div className="flex items-center gap-2 text-rose-900 font-display font-black text-base">
                 <AlertTriangle size={22} className="text-rose-600 animate-pulse" />
-                <span>VAROVÁNÍ: NÍZKÝ STAV ETIKET U {lowLabelsCount} DRUHŮ PIVA! ({'<'} 200 ks)</span>
+                <span>VAROVÁNÍ: NÍZKÝ STAV ETIKET U {lowLabelsCount} DRUHŮ PIVA! ({'<'} {LABELS_LOW_STOCK_THRESHOLD} ks)</span>
 
               </div>
               <p className="text-xs text-rose-800 font-medium">
-                Při stáčení lahví bylo spotřebováno většinové množství etiket. U následujících piv zbývá méně než 200 ks etiket!
+                Při stáčení lahví bylo spotřebováno většinové množství etiket. U následujících piv zbývá méně než {LABELS_LOW_STOCK_THRESHOLD} ks etiket!
               </p>
               <div className="flex flex-wrap gap-2 pt-1">
                 {labelsSummary.filter((l) => l.isLow && l.inLabels > 0).map((l) => (
@@ -763,7 +737,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                     <span className="font-display font-black text-base text-neutral-950">{l.beer_name}</span>
                     {l.isLow ? (
                       <span className="px-2.5 py-0.5 rounded-full bg-rose-600 text-white font-mono font-black text-[10px] animate-pulse">
-                        ⚠️ POZOR {'<'} 200 KS!
+                        ⚠️ POZOR {'<'} {LABELS_LOW_STOCK_THRESHOLD} KS!
 
                       </span>
                     ) : (

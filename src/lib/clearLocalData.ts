@@ -18,10 +18,8 @@ const USER_DATA_KEYS: string[] = [
   'vycepy_reservations_v1',
   // Připomínky
   'reminders_list_v1',
-  // Nákupy etiket a lahví
-  'labels_purchases',
+  // Nákupy prázdných lahví (nákupy etiket od 2026-11-20 žijí v Supabase — viz USER_TABLES)
   'bottles_purchases',
-  'labels_issues',
   // Kniha jízd
   'kniha_jizd_v1',
   'kniha_jizd_entries',
@@ -117,6 +115,7 @@ const USER_TABLES: string[] = [
   'calendar_events', 'reminders',
   'sanitation_logs', 'srotovani', 'zadavani',
   'cellar_transfers', 'cellar_tank_cycles', 'kegging_tanks', 'keg_prefuk',
+  'label_purchases',
   'places', 'price_list', 'vehicles',
   'parser_aliases', 'audit_log', 'user_app_versions', 'feedback_notes',
 ];
