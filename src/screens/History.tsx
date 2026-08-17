@@ -153,7 +153,7 @@ export default function History() {
   // ---- Přehled objednávek (týdenní) ----
   const [ordWeekKey, setOrdWeekKey] = useState(isoWeekKey(new Date().toISOString().slice(0, 10)));
   type OrdItem = { order_id: string; beer_id: string | null; beer_name: string | null; package_id: string | null; package_label: string | null; quantity: number };
-  type OrdRow = { id: string; order_date: string; status: string };
+  type OrdRow = { id: string; order_date: string; delivery_date: string | null; status: string };
   const [ordItems, setOrdItems] = useState<OrdItem[]>([]);
   const [ordRows, setOrdRows] = useState<OrdRow[]>([]);
   // Modal pro tisk uzávěrky
@@ -260,7 +260,7 @@ export default function History() {
       supabase.from('writeoffs').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('akce').select('entry_date,revenue,items:akce_items(beer_id,quantity_taken,quantity_returned,quantity)'),
       supabase.from('order_items').select('beer_id,package_id,quantity,order_id'),
-      supabase.from('orders').select('id,order_date,status'),
+      supabase.from('orders').select('id,order_date,delivery_date,status'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
     ]);
@@ -339,7 +339,7 @@ export default function History() {
       });
     });
 
-    const ordRows = (ord as { id: string; order_date: string; status: string }[]) ?? [];
+    const ordRows = (ord as { id: string; order_date: string; delivery_date: string | null; status: string }[]) ?? [];
     const oiRows = (oi as { beer_id: string | null; package_id: string | null; quantity: number; order_id: string }[]) ?? [];
     // Save for weekly orders tab
     setOrdRows(ordRows);
@@ -475,7 +475,9 @@ export default function History() {
     const activeOrdIds = new Set(
       ordRows
         .filter(o => o.status !== 'storno')
-        .filter(o => { const d = new Date(o.order_date + 'T00:00:00Z'); return d >= start && d <= end; })
+        // Datum dodání (delivery_date), pokud je vyplněné — objednávka zadaná dřív, ale
+        // dodávaná v tomto týdnu, se jinak z týdenního přehledu ztratí.
+        .filter(o => { const target = o.delivery_date || o.order_date; const d = new Date(target + 'T00:00:00Z'); return d >= start && d <= end; })
         .map(o => o.id)
     );
     const grouped = new Map<string, { beerName: string; volume: number; packageLabel: string; beerId: string; packageId: string; ordered: number }>();
@@ -1868,7 +1870,7 @@ export default function History() {
               const { start, end } = ordWr;
               const matchingOrders = delOrders
                 .filter(o => o.status !== 'storno')
-                .filter(o => { const d = new Date(o.order_date + 'T00:00:00Z'); return d >= start && d <= end; })
+                .filter(o => { const target = o.delivery_date || o.order_date; const d = new Date(target + 'T00:00:00Z'); return d >= start && d <= end; })
                 .filter(o => {
                   const oItems = delItems[o.id] ?? [];
                   return oItems.some(i => i.beer_id === beerId && i.package_id === packageId);

@@ -2,8 +2,8 @@
 // Zadání úkolu (pivo + lahve až 3 velikosti + KEG sudy + datum), přehled
 // naplánovaných úkolů v týdnu a tabulky potřeby (objednávky týdne vs. sklad
 // vs. naplánováno vs. odhad fasování).
-import { useMemo, useState } from 'react';
-import { Beer, Package, beerBg } from '../lib/supabase';
+import { useEffect, useMemo, useState } from 'react';
+import { Beer, Package, beerBg, supabase, useRealtime } from '../lib/supabase';
 import { isoWeekKey, weekRange, shiftWeek } from './WeeklyOrderSummaryCard';
 import { getStartingStockMap } from '../lib/inventoryHelper';
 import {
@@ -111,6 +111,23 @@ export function BottlingPlanPlanner({
   const [err, setErr] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
 
+  // Automatický odpočet závozu (stejný zdroj jako Sklad/Potřeba stočit lahve) — potřebný,
+  // aby „sklad" i „objednáno" v tomto plánovacím přehledu nepočítaly už fyzicky zavezené
+  // objednávky (viz komentáře u stockMap a weekOrdered níže).
+  const [zavozDeductionRows, setZavozDeductionRows] = useState<any[]>([]);
+  useEffect(() => {
+    supabase
+      .from('zavoz_deductions')
+      .select('deduct_date,beer_id,package_id,quantity,order_item_id')
+      .then(({ data }) => setZavozDeductionRows(data ?? []));
+  }, []);
+  useRealtime(['zavoz_deductions'], () => {
+    supabase
+      .from('zavoz_deductions')
+      .select('deduct_date,beer_id,package_id,quantity,order_item_id')
+      .then(({ data }) => setZavozDeductionRows(data ?? []));
+  });
+
   const todayStr = new Date().toISOString().slice(0, 10);
   const curMonth = todayStr.slice(0, 7);
   const weekLabel = weekRange(weekKey).label;
@@ -139,12 +156,30 @@ export function BottlingPlanPlanner({
       const k = `${r.beer_id}__${r.package_id}`;
       outMap[k] = (outMap[k] || 0) + Number(r.quantity || 0);
     });
+    // Skutečně zavezené objednávky (automatický odpočet ráno v 01:00) — bez tohohle by
+    // „sklad" zahrnoval i pivo, které už fyzicky odjelo k odběratelům. Stejný zdroj jako
+    // Sklad (Stock.tsx) a Potřeba stočit lahve/KEGy.
+    zavozDeductionRows.filter((r) => r.deduct_date?.startsWith(curMonth)).forEach((r) => {
+      if (!r.beer_id || !r.package_id) return;
+      const k = `${r.beer_id}__${r.package_id}`;
+      outMap[k] = (outMap[k] || 0) + Number(r.quantity || 0);
+    });
     const map: Record<string, number> = {};
     new Set([...Object.keys(invMap), ...Object.keys(inMap), ...Object.keys(outMap)]).forEach((k) => {
       map[k] = Math.max(0, Number(invMap[k] || 0) + Number(inMap[k] || 0) - Number(outMap[k] || 0));
     });
     return map;
-  }, [curMonth, inventoryRows, rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows]);
+  }, [curMonth, inventoryRows, rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, zavozDeductionRows]);
+
+  // Položky, které už mají svůj vlastní odpočet závozu — ty jsou fyzicky odečtené ze
+  // skladu už jednou přes stockMap výše, takže se nesmí počítat i do weekOrdered
+  // (dvojí odpočet). Odděleně od `is_delivered`, protože se nastavuje samostatně
+  // (řidič odklikne objednávku až po dojetí trasy) a může chvíli zaostávat za ranním
+  // odpočtem.
+  const deductedItemIds = useMemo(
+    () => new Set(zavozDeductionRows.map((r) => r.order_item_id).filter(Boolean)),
+    [zavozDeductionRows]
+  );
 
   // Objednávky v daném týdnu (ks na pivo + obal)
   const weekOrdered = useMemo(() => {
@@ -152,19 +187,20 @@ export function BottlingPlanPlanner({
       orders
         .filter((o) => {
           if (o.status === 'storno' || o.status === 'vyrizeno' || o.status === 'vyrizeno_zavoz') return false;
+          if (o.is_delivered) return false;
           const target = o.delivery_date || o.order_date;
           return !!target && isoWeekKey(target) === weekKey;
         })
         .map((o) => o.id)
     );
     const map: Record<string, number> = {};
-    orderItems.filter((item) => item.package_id && activeIds.has(item.order_id)).forEach((item) => {
+    orderItems.filter((item) => item.package_id && activeIds.has(item.order_id) && !deductedItemIds.has(item.id)).forEach((item) => {
       if (!item.beer_id || !item.package_id) return;
       const k = `${item.beer_id}__${item.package_id}`;
       map[k] = (map[k] || 0) + Number(item.quantity || 0);
     });
     return map;
-  }, [orders, orderItems, weekKey]);
+  }, [orders, orderItems, weekKey, deductedItemIds]);
 
   // Odhad fasování do konce vybraného týdne (průměr za posledních 30 dní × zbývající dny)
   const fasovaniEstimate = useMemo(() => {

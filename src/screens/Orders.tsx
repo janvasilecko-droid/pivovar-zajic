@@ -103,6 +103,7 @@ export default function Orders({
   const [kegging, setKegging] = useState<EntryRow[]>([]);
   const [inventory, setInventory] = useState<EntryRow[]>([]);
   const [writeoffs, setWriteoffs] = useState<EntryRow[]>([]);
+  const [zavozDeductionRows, setZavozDeductionRows] = useState<{ order_item_id: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<Order | null>(null);
 
@@ -685,7 +686,7 @@ export default function Orders({
 
   async function load(silent = false) {
     if (!silent && !orders.length) setLoading(true);
-    const [{ data: o }, { data: pl }, { data: b }, { data: pk }, { data: bt }, { data: kg }, { data: inv }, { data: wo }] = await Promise.all([
+    const [{ data: o }, { data: pl }, { data: b }, { data: pk }, { data: bt }, { data: kg }, { data: inv }, { data: wo }, { data: zd }] = await Promise.all([
       supabase.from('orders').select('*').order('order_date', { ascending: false }).order('created_at', { ascending: false }),
       supabase.from('places').select('*').order('name'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
@@ -694,6 +695,7 @@ export default function Orders({
       supabase.from('kegging').select('entry_date,beer_id,quantity'),
       supabase.from('inventory').select('entry_date,beer_id,quantity'),
       supabase.from('writeoffs').select('entry_date,beer_id,quantity'),
+      supabase.from('zavoz_deductions').select('order_item_id'),
     ]);
     const rawPk = (pk as Package[]) ?? [];
     const sortedPk = [...rawPk].sort((a, b) => {
@@ -706,6 +708,7 @@ export default function Orders({
     setOrders((o as Order[]) ?? []); setPlaces((pl as Place[]) ?? []); setBeers((b as Beer[]) ?? []); setPackages(sortedPk);
     setBottling((bt as EntryRow[]) ?? []); setKegging((kg as EntryRow[]) ?? []);
     setInventory((inv as EntryRow[]) ?? []); setWriteoffs((wo as EntryRow[]) ?? []);
+    setZavozDeductionRows((zd as { order_item_id: string | null }[]) ?? []);
     const ids = (o as Order[])?.map((x) => x.id) ?? [];
     if (ids.length) {
       const { data: it } = await supabase.from('order_items').select('*').in('order_id', ids);
@@ -716,7 +719,7 @@ export default function Orders({
     if (!silent) setLoading(false);
   }
   useEffect(() => { load(); }, []);
-  useRealtime(['orders','order_items','beers','packages','places'], () => load(true));
+  useRealtime(['orders','order_items','beers','packages','places','zavoz_deductions'], () => load(true));
 
   // 🔀 Požadavek z „Potřeba stočit KEGy / lahve“ (Kegging / Bottling): uživatel
   // klikl na řádek „Chybí X ks“ → otevřeme přehled objednávek rovnou filtrovaný
@@ -780,11 +783,21 @@ export default function Orders({
       woByBeer.set(r.beer_id!, (woByBeer.get(r.beer_id!) ?? 0) + Number(r.quantity));
     });
 
-    // Odečet sudů/lahví ze skladu se provede pouze u HOTOVÉ / VYŘÍZENÉ objednávky!
+    // Položky, které už mají svůj vlastní odpočet závozu (ráno v 01:00, viz
+    // zavoz_deductions) — autoritativní zdroj, že pivo fyzicky odjelo, i když se
+    // status/is_delivered ještě neaktualizoval (řidič odklikne až po dojetí trasy).
+    const deductedItemIds = new Set(zavozDeductionRows.map((r) => r.order_item_id).filter(Boolean));
+
+    // Odečet sudů/lahví ze skladu se provede u HOTOVÉ / VYŘÍZENÉ objednávky, nebo pokud
+    // má aspoň jednu položku už odečtenou přes zavoz_deductions (viz výše).
     // Používáme týden DORUČENÍ (datum akce), ne týden zadání — objednávka se odečte ve skladu v týdnu, kdy se závozí.
     const ordIdsThisWeek = new Set(
       orders
-        .filter((o) => isoWeekKey(o.delivery_date || o.order_date) === wk && (o.status === 'vyrizena' || o.status === 'hotova' || o.status === 'vyrizeno' || o.is_delivered))
+        .filter((o) => {
+          if (isoWeekKey(o.delivery_date || o.order_date) !== wk) return false;
+          if (o.status === 'vyrizena' || o.status === 'hotova' || o.status === 'vyrizeno' || o.is_delivered) return true;
+          return (items[o.id] ?? []).some((i) => deductedItemIds.has(i.id));
+        })
         .map((o) => o.id)
     );
     const ordByBeer = new Map<string, number>();
@@ -2110,7 +2123,7 @@ export default function Orders({
                           beers={beers}
                           packages={packages}
                           places={places}
-                          remaining={stockRemainingForWeek(isoWeekKey(detail.order_date))}
+                          remaining={stockRemainingForWeek(orderWeekKey(detail))}
                           onClose={() => setDetail(null)}
                           onChanged={load}
                           onToggleFlag={toggleFlag}
@@ -2148,7 +2161,7 @@ export default function Orders({
                     beers={beers}
                     packages={packages}
                     places={places}
-                    remaining={stockRemainingForWeek(isoWeekKey(detail.order_date))}
+                    remaining={stockRemainingForWeek(orderWeekKey(detail))}
                     onClose={() => setDetail(null)}
                     onChanged={load}
                     onToggleFlag={toggleFlag}
