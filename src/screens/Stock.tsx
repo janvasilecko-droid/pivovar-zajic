@@ -108,7 +108,7 @@ export default function Stock() {
         supabase.from('bottling').select('*'),
         supabase.from('kegging').select('*'),
         supabase.from('order_items').select('*'),
-        supabase.from('orders').select('id, order_date, delivery_date, status'),
+        supabase.from('orders').select('id, order_date, delivery_date, status, is_delivered'),
         supabase.from('writeoffs').select('*'),
         supabase.from('akce').select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
         supabase.from('fasovani').select('*'),
@@ -163,11 +163,17 @@ export default function Stock() {
     const pf = (pfData ?? []) as KegPrefuk[];
     const zd = (zdData ?? []) as Pick<ZavozDeductionRow, 'deduct_date' | 'beer_id' | 'package_id' | 'quantity'>[];
     const adj = (adjData ?? []) as { entry_date: string; beer_id: string | null; package_id: string | null; quantity: number }[];
-    const ords = (ordData ?? []) as { id: string; order_date: string; delivery_date: string | null; status: string }[];
+    const ords = (ordData ?? []) as { id: string; order_date: string; delivery_date: string | null; status: string; is_delivered?: boolean }[];
     const ordItems = (ordItemsData ?? []) as { order_id: string; beer_id: string | null; package_id: string; quantity: number }[];
     const akRows = (akData ?? []) as { entry_date: string; items: { beer_id: string | null; package_id: string | null; quantity_taken: number; quantity_returned: number }[] }[];
 
-    const validOrdIdsWeek = new Set(ords.filter((o) => o.status !== 'storno' && isoWeekKey(o.delivery_date || o.order_date) === weekKey).map((o) => o.id));
+    // Objednáno = VŠECHNY objednávky tohoto týdne (i ty už zavezené — informační
+    // "kolik se má tento týden celkem odeslat"). Do odečtu na "Zbývá" ale smí jít
+    // jen to, co JEŠTĚ nebylo zavezeno — jinak by se už odeslané kusy odečetly
+    // dvakrát (jednou přes zavoz_deductions v currentStock, podruhé tady).
+    const ordersThisWeek = ords.filter((o) => o.status !== 'storno' && isoWeekKey(o.delivery_date || o.order_date) === weekKey);
+    const validOrdIdsWeek = new Set(ordersThisWeek.map((o) => o.id));
+    const validOrdIdsWeekOutstanding = new Set(ordersThisWeek.filter((o) => !o.is_delivered).map((o) => o.id));
 
     const stockRows: StockRow[] = beerList.map((beer) => {
       const stockByPkg: StockByPkg[] = pkgList.map((pkg) => {
@@ -222,12 +228,16 @@ export default function Stock() {
         const rawStock = fromInv + brewedW - outgoingMoved - zdW - prefukFrom + prefukTo + adjW;
         const currentStock = Math.max(0, rawStock);
 
-        // Zbývá = (sklad + stočené − fašování − prodejna − akce − odpisy − sudy na
-        // lahve − zavezeno ± přefuk + dorovnání), tedy currentStock, − objednávky
-        // tohoto týdne (ještě nezavezené — viz validOrdIdsWeek).
+        // Objednáno (zobrazený sloupec) = celý týden, i to už zavezené — informace
+        // "kolik se má tento týden celkem odeslat".
         const orderedW = ordItems.filter((i) => validOrdIdsWeek.has(i.order_id) && i.beer_id === beer.id && i.package_id === pkg.id).reduce((s, i) => s + Number(i.quantity), 0);
+        // Zbývá = (sklad + stočené − fašování − prodejna − akce − odpisy − sudy na
+        // lahve − zavezeno ± přefuk + dorovnání), tedy currentStock, − JEN JEŠTĚ
+        // NEZAVEZENÉ objednávky tohoto týdne. Už zavezené se neodečítají znovu —
+        // ty currentStock zohlednil už přes zavoz_deductions.
+        const outstandingW = ordItems.filter((i) => validOrdIdsWeekOutstanding.has(i.order_id) && i.beer_id === beer.id && i.package_id === pkg.id).reduce((s, i) => s + Number(i.quantity), 0);
         const outgoing = orderedW;
-        const difference = currentStock - outgoing;
+        const difference = currentStock - outstandingW;
 
         return {
           package_id: pkg.id, label: pkg.label, volume_l: Number(pkg.volume_l), kind: pkg.kind,
@@ -619,7 +629,7 @@ export default function Stock() {
                 </div>
 
                 <p className="text-xs text-neutral-400">
-                  Aktuální stav = počáteční + stočeno − fasování (personál) − prodejna − akce − odpisy − sudy na lahve − odečteno závozem − přefuk ZE + přefuk DO + dorovnání inventury. Zbývá = aktuální stav − objednáno (týden) — kolik po vyřízení tohoto týdne reálně zbyde na skladě.
+                  Aktuální stav = počáteční + stočeno − fasování (personál) − prodejna − akce − odpisy − sudy na lahve − odečteno závozem − přefuk ZE + přefuk DO + dorovnání inventury. Objednáno (týden) je celý týden včetně už zavezeného. Zbývá = aktuální stav − jen ještě nezavezené objednávky tohoto týdne — kolik po vyřízení zbytku týdne reálně zbyde na skladě.
                 </p>
               </div>
             )}
