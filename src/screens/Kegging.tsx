@@ -12,7 +12,7 @@ import { requestOrdersItemFilter } from '../lib/ordersFilter';
 import { computeKegNeeds } from '../lib/kegNeeds';
 import { Camera, Loader2, Pencil } from 'lucide-react';
 import { ImportKeggingFromImage } from '../components/ImportKeggingFromImage';
-import { BeerTileGrid, BeerTilePanel, TileTotalBar } from '../components/BeerTileGrid';
+import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { topQuantitiesLastMonth } from '../lib/quickQty';
 
 
@@ -673,6 +673,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
             </button>
           </div>
         )}
+          <div className="flex items-center gap-1.5 flex-wrap">
           <div className="relative group">
 
             <button className="btn-ghost !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs" disabled={!rows.length}>📊 Export Excel ▾</button>
@@ -700,6 +701,20 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                 }}>📅 Všechno</button>
               </div>
             )}
+          </div>
+
+          {tab === 'zapis' && mode !== 'overviews_only' && isStartChecklistCompleteForKeg(date) && (
+            <>
+              <button
+                type="button"
+                onClick={() => setShowImageImport(true)}
+                className="btn-ghost !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs flex items-center gap-1.5"
+              >
+                <Camera size={14} /> Číst z fotky
+              </button>
+              <VoiceRecorder onResult={handleVoiceResult} beerNames={beers.map((b) => b.name)} />
+            </>
+          )}
           </div>
         </div>
 
@@ -734,16 +749,12 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
         <form onSubmit={add} className={`card px-1 py-3 mb-5 transition-all duration-200 ${flash ? 'ring-4 ring-success-500/20' : ''}`}>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end mb-4">
-          <div>
-            <label className="label">Datum</label>
+          <div className="flex items-center gap-2">
+            <label className="label !mb-0 shrink-0">Datum</label>
             <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
           <div>
-            <label className="label">Poznámka</label>
-            <input className="input text-xs" value={note} onChange={(e) => setNote(e.target.value)} placeholder="nepovinná poznámka" />
-          </div>
-          <div>
-            <label className="label">🛢️ Odečte se z tanků</label>
+            <label className="label">🛢️ Tank číslo:</label>
             <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-2.5 min-h-[38px] flex flex-wrap items-center gap-1.5">
               {rowTankPreview.perTank.size > 0 ? (
                 [...rowTankPreview.perTank.entries()].map(([tankId, liters]) => {
@@ -773,33 +784,12 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
               </p>
             )}
           </div>
+          <div>
+            <label className="label">Poznámka</label>
+            <input className="input text-xs" value={note} onChange={(e) => setNote(e.target.value)} placeholder="nepovinná poznámka" />
+          </div>
           </div>
 
-          <div className="flex items-center justify-end gap-2 mb-3">
-            <button
-              type="button"
-              onClick={() => { setChecklistPhase('start'); setChecklistGate(false); setShowChecklistModal(true); }}
-              className="px-4 py-2.5 rounded-xl bg-amber-200 hover:bg-amber-300 text-amber-950 text-xs font-black shadow-md transition flex items-center gap-1.5"
-            >
-              📋 Příprava
-            </button>
-            <button
-              type="button"
-              onClick={() => { setChecklistPhase('end'); setChecklistGate(false); setShowChecklistModal(true); }}
-              className="px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-xs font-black shadow-md transition flex items-center gap-1.5"
-            >
-              🧹 Konec stáčení
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowImageImport(true)}
-              className="btn-primary py-2.5 px-4 text-xs font-black shadow-md flex items-center justify-center gap-2"
-            >
-                  <Camera size={16} /> Číst stáčení z fotky
-            </button>
-          </div>
-
-          <TileTotalBar label="Zatím v zápisu" value={`${rowsSummary.totalQty} ks · ${rowsSummary.totalL.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} L`} />
           <div className="mb-2">
             <span className="text-[11px] text-neutral-400 font-medium">klepni na dlaždici a zadej obaly a množství sudů</span>
           </div>
@@ -945,13 +935,6 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
           </div>
 
         </form>
-      )}
-
-      {/* Voice recorder mimo form */}
-      {tab === 'zapis' && mode !== 'overviews_only' && isStartChecklistCompleteForKeg(date) && (
-        <div className="flex justify-end -mt-4 mb-2">
-          <VoiceRecorder onResult={handleVoiceResult} beerNames={beers.map((b) => b.name)} />
-        </div>
       )}
 
       {/* Prehled: objednane kegy na dany tyden & tanky */}
