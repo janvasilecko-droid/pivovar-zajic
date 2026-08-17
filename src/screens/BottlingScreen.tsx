@@ -1,6 +1,6 @@
 import { BottlingChecklistModal, DEFAULT_ITEMS, isStartChecklistCompleteForDate, isMonthlyChecklistCompleteForDate, MONTHLY_CATEGORY } from '../components/BottlingChecklistModal';
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, beerText } from '../lib/supabase';
+import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, beerText, formatPackageLabel } from '../lib/supabase';
 import { EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { exportBottlingToExcel } from '../lib/excel';
@@ -11,7 +11,6 @@ import { useAuth } from '../lib/auth';
 import { BottlingPlan, getPlanSeenAt, markPlanSeenAt, isPlanUnseen, isBottlingManager, setPlanStatus } from '../lib/bottlingPlans';
 import { BottlingPlanPlanner } from '../components/BottlingPlanPlanner';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
-import { QuickQtySelect } from '../components/QuickQtySelect';
 import { isLastWeekOfMonth } from '../lib/monthlyCleanup';
 import { autoLogBottleSanitationFromChecklist } from '../lib/bottleSanitation';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
@@ -496,11 +495,6 @@ export default function BottlingScreen({
   useEffect(() => { load(); }, []);
   useRealtime(['bottling', 'beers', 'packages', 'orders', 'order_items', 'inventory', 'fasovani', 'fasovani_private', 'writeoffs', 'kegging', 'bottling_plans'], () => load(true));
 
-
-  function setRowField(i: number, field: keyof RowInput, value: string) {
-    setEntryRows((rs) => rs.map((r, idx) => idx === i ? { ...r, [field]: value } : r));
-  }
-
   async function add(e?: React.FormEvent) {
     e?.preventDefault();
     setErr(null);
@@ -978,7 +972,7 @@ export default function BottlingScreen({
                     const qtyStr = tileDraft[slot.qty];
                     const quickQtys = tileBeer ? topQuantitiesLastMonth(rows, tileBeer.id, pkgId) : [];
                     return (
-                      <div key={slot.key} className="flex items-center justify-between gap-2 rounded-xl border border-neutral-200 py-1.5 px-2 flex-wrap">
+                      <div key={slot.key} className="flex items-center justify-between gap-2 rounded-xl border border-neutral-200 dark:border-neutral-700 py-1.5 px-2 flex-wrap">
                         <select
                           className="input text-xs font-bold w-28 p-1.5 rounded-lg border border-amber-300 bg-white"
                           value={pkgId}
@@ -996,7 +990,7 @@ export default function BottlingScreen({
                               type="button"
                               onClick={() => setTile(slot.qty, String(q))}
                               title="Nejčastější hodnota minulý měsíc"
-                              className={`h-7 min-w-[1.75rem] px-1.5 rounded-lg text-[11px] font-black transition ${Number(qtyStr) === q ? 'bg-amber-500 text-white' : 'bg-neutral-100 hover:bg-amber-200 text-neutral-600 hover:text-amber-950'}`}
+                              className={`h-7 min-w-[1.75rem] px-1.5 rounded-lg text-[11px] font-black transition ${Number(qtyStr) === q ? 'bg-amber-500 text-white' : 'bg-neutral-100 dark:bg-neutral-700 hover:bg-amber-200 text-neutral-600 dark:text-neutral-200 hover:text-amber-950'}`}
                             >
                               {q}
                             </button>
@@ -1006,7 +1000,7 @@ export default function BottlingScreen({
                             type="number"
                             min={0}
                             inputMode="numeric"
-                            className="w-16 h-9 text-center bg-white border border-amber-300 text-neutral-950 font-black text-sm rounded-lg"
+                            className="w-16 h-9 text-center bg-white dark:bg-neutral-900/60 border border-amber-300 dark:border-neutral-700 text-neutral-950 dark:text-neutral-100 font-black text-sm rounded-lg"
                             value={qtyStr}
                             onChange={(e) => setTile(slot.qty, e.target.value.replace(/[^0-9]/g, ''))}
                             placeholder="0"
@@ -1052,362 +1046,71 @@ export default function BottlingScreen({
             </BeerTilePanel>
           )}
 
-          {/* Mobilní zobrazení (Karty) vs. Desktop zobrazení (Tabulka) */}
-          {/* 1. MOBILNÍ ZOBRAZENÍ (md:hidden) */}
-          <div className="block md:hidden space-y-4">
-            {entryRows.map((r, i) => {
-              const pkg1 = packages.find((p) => p.id === r.pkgId);
-              const pkg2 = packages.find((p) => p.id === r.pkg2Id);
-              const pkg3 = packages.find((p) => p.id === r.pkg3Id);
-              const liters =
-                (pkg1 ? Number(r.qty || 0) * pkg1.volume_l : 0) +
-                (pkg2 ? Number(r.qty2 || 0) * pkg2.volume_l : 0) +
-                (pkg3 ? Number(r.qty3 || 0) * pkg3.volume_l : 0);
-
-              const selectedBeer = beers.find((b) => b.id === r.beerId);
-
-              return (
-                <div
-                  key={i}
-                  className="p-4 rounded-3xl bg-white border-2 border-neutral-200 shadow-xs space-y-3 relative"
-                  style={selectedBeer ? { borderLeftColor: beerBg(selectedBeer), borderLeftWidth: '6px' } : undefined}
-                >
-                  <div className="flex items-center justify-between gap-2 border-b border-neutral-100 pb-2">
-                    <span className="text-xs font-black text-neutral-500 uppercase tracking-wider">
-                      Řádek #{i + 1} {liters > 0 && <span className="text-emerald-700 font-extrabold ml-2">({liters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L)</span>}
-                    </span>
-                    <button
-                      type="button"
-                      className="px-2.5 py-1 rounded-xl bg-rose-100 text-rose-800 font-bold text-xs"
-                      onClick={() => setEntryRows((rs) => rs.map((x, j) => (j === i ? emptyItem() : x)))}
-                    >
-                      ✕ Vymazat
-                    </button>
-                  </div>
-
-                  {/* Výběr piva */}
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-black uppercase text-neutral-700">🍺 Vyber pivo</label>
-                    <select
-                      className="input text-sm font-black w-full p-2.5 rounded-2xl border-2 border-neutral-300 bg-white"
-                      value={r.beerId}
-                      onChange={(e) => setRowField(i, 'beerId', e.target.value)}
-                    >
-                      <option value="">— Vyber pivo k stočení —</option>
-                      {beers.filter((b) => b.is_active).map((b) => (
-                        <option key={b.id} value={b.id}>{b.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* 3 Obaly a Počty lahví */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
-                    {/* Obal 1 */}
-                    <div className="p-2.5 rounded-2xl bg-amber-50/60 border border-amber-200 space-y-1.5">
-                      <label className="text-[10px] font-black uppercase text-amber-900 block">🍾 1. Obal</label>
-                      <select
-                        className="input text-xs font-bold w-full p-2 rounded-xl border border-amber-300 bg-white"
-                        value={r.pkgId}
-                        onChange={(e) => setRowField(i, 'pkgId', e.target.value)}
-                      >
-                        <option value="">— Vyber obal 1 —</option>
-                        {bottlePackages.map((p) => (
-                          <option key={p.id} value={p.id}>{p.label || `${p.volume_l}L`}</option>
-                        ))}
-                      </select>
-                      <div className="space-y-0.5">
-                        <span className="text-[9px] font-extrabold uppercase text-neutral-500">Počet kusů</span>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          autoComplete="off"
-                          className="input text-xl font-black w-full min-h-[48px] text-center text-neutral-950 bg-white border-2 border-amber-400 focus:border-amber-600 rounded-xl shadow-inner"
-                          value={r.qty}
-                          onChange={(e) => setRowField(i, 'qty', e.target.value.replace(/[^0-9]/g, ''))}
-                          placeholder="0 ks"
-                        />
-                        <div className="flex justify-center pt-0.5">
-                          <QuickQtySelect
-                            pkg={packages.find((p) => p.id === r.pkgId)}
-                            qty={r.qty}
-                            onSelect={(q) => setRowField(i, 'qty', String(q))}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Obal 2 */}
-                    <div className="p-2.5 rounded-2xl bg-amber-50/60 border border-amber-200 space-y-1.5">
-                      <label className="text-[10px] font-black uppercase text-amber-900 block">🍾 2. Obal</label>
-                      <select
-                        className="input text-xs font-bold w-full p-2 rounded-xl border border-amber-300 bg-white"
-                        value={r.pkg2Id}
-                        onChange={(e) => setRowField(i, 'pkg2Id', e.target.value)}
-                      >
-                        <option value="">— Vyber obal 2 —</option>
-                        {bottlePackages.map((p) => (
-                          <option key={p.id} value={p.id}>{p.label || `${p.volume_l}L`}</option>
-                        ))}
-                      </select>
-                      <div className="space-y-0.5">
-                        <span className="text-[9px] font-extrabold uppercase text-neutral-500">Počet kusů</span>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          autoComplete="off"
-                          className="input text-xl font-black w-full min-h-[48px] text-center text-neutral-950 bg-white border-2 border-amber-400 focus:border-amber-600 rounded-xl shadow-inner"
-                          value={r.qty2}
-                          onChange={(e) => setRowField(i, 'qty2', e.target.value.replace(/[^0-9]/g, ''))}
-                          placeholder="0 ks"
-                        />
-                        <div className="flex justify-center pt-0.5">
-                          <QuickQtySelect
-                            pkg={packages.find((p) => p.id === r.pkg2Id)}
-                            qty={r.qty2}
-                            onSelect={(q) => setRowField(i, 'qty2', String(q))}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Obal 3 */}
-                    <div className="p-2.5 rounded-2xl bg-amber-50/60 border border-amber-200 space-y-1.5">
-                      <label className="text-[10px] font-black uppercase text-amber-900 block">🍾 3. Obal</label>
-                      <select
-                        className="input text-xs font-bold w-full p-2 rounded-xl border border-amber-300 bg-white"
-                        value={r.pkg3Id}
-                        onChange={(e) => setRowField(i, 'pkg3Id', e.target.value)}
-                      >
-                        <option value="">— Vyber obal 3 —</option>
-                        {bottlePackages.map((p) => (
-                          <option key={p.id} value={p.id}>{p.label || `${p.volume_l}L`}</option>
-                        ))}
-                      </select>
-                      <div className="space-y-0.5">
-                        <span className="text-[9px] font-extrabold uppercase text-neutral-500">Počet kusů</span>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          autoComplete="off"
-                          className="input text-xl font-black w-full min-h-[48px] text-center text-neutral-950 bg-white border-2 border-amber-400 focus:border-amber-600 rounded-xl shadow-inner"
-                          value={r.qty3}
-                          onChange={(e) => setRowField(i, 'qty3', e.target.value.replace(/[^0-9]/g, ''))}
-                          placeholder="0 ks"
-                        />
-                        <div className="flex justify-center pt-0.5">
-                          <QuickQtySelect
-                            pkg={packages.find((p) => p.id === r.pkg3Id)}
-                            qty={r.qty3}
-                            onSelect={(q) => setRowField(i, 'qty3', String(q))}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* KEG zdroj a odečet sudů */}
-                  <div className="p-3 rounded-2xl bg-sky-50/70 border border-sky-200 grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-[10px] font-black uppercase text-sky-900 block">🛢️ Zdrojový KEG</label>
-                      <select
-                        className="input text-xs font-bold w-full p-2 rounded-xl border border-sky-300 bg-white mt-1"
-                        value={r.kegPkgId}
-                        onChange={(e) => setRowField(i, 'kegPkgId', e.target.value)}
-                      >
-                        <option value="">— KEG —</option>
-                        {kegPackages.map((p) => (
-                          <option key={p.id} value={p.id}>KEG {p.volume_l}L</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-black uppercase text-sky-900 block">Odečíst sudů</label>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        autoComplete="off"
-                        className="input text-xl font-black w-full min-h-[44px] text-center text-neutral-950 bg-white border-2 border-sky-400 focus:border-sky-600 rounded-xl shadow-inner mt-1"
-                        value={r.kegQty}
-                        onChange={(e) => setRowField(i, 'kegQty', e.target.value.replace(/[^0-9]/g, ''))}
-                        placeholder="0"
-                      />
-                    </div>
-                  </div>
+          {/* 📋 Souhrn zápisu — pod dlaždicemi, editovatelný jako dlaždice */}
+          {(() => {
+            type SummaryLine = { rowIndex: number; field: 'qty' | 'qty2' | 'qty3' | 'kegQty'; beerId: string; label: string; qty: number };
+            const lines: SummaryLine[] = [];
+            entryRows.forEach((r, i) => {
+              if (!r.beerId) return;
+              const beer = beers.find((b) => b.id === r.beerId);
+              const pushLine = (field: SummaryLine['field'], pkgId: string, qtyStr: string, isKeg: boolean) => {
+                const qty = Number(qtyStr);
+                if (!pkgId || !(qty > 0)) return;
+                const pkg = (isKeg ? kegPackages : bottlePackages).find((p) => p.id === pkgId);
+                lines.push({ rowIndex: i, field, beerId: r.beerId, label: `${formatPackageLabel(pkg?.label)} · ${beerName(beer)}`, qty });
+              };
+              pushLine('qty', r.pkgId, r.qty, false);
+              pushLine('qty2', r.pkg2Id, r.qty2, false);
+              pushLine('qty3', r.pkg3Id, r.qty3, false);
+              pushLine('kegQty', r.kegPkgId, r.kegQty, true);
+            });
+            if (lines.length === 0) return null;
+            const updateQty = (rowIndex: number, field: SummaryLine['field'], value: string) =>
+              setEntryRows((rs) => rs.map((row, idx) => (idx === rowIndex ? { ...row, [field]: value } : row)));
+            return (
+              <div className="mt-4 border border-amber-200 dark:border-amber-800/60 bg-white dark:bg-neutral-800 p-3">
+                <div className="text-xs font-extrabold uppercase tracking-wider text-amber-900 dark:text-amber-300 mb-2">
+                  📋 Zápis stáčení ({lines.reduce((s, l) => s + l.qty, 0)} ks)
                 </div>
-              );
-            })}
-          </div>
-
-          {/* 2. DESKTOP ZOBRAZENÍ (hidden md:block) */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="bg-neutral-100">
-                  <th className="text-left py-2 px-1.5 font-black text-neutral-700">Pivo</th>
-                  <th className="text-left py-2 px-1 font-black text-neutral-700">1. Obal</th>
-                  <th className="text-center py-2 px-1 font-black text-neutral-700">KS 1</th>
-                  <th className="text-left py-2 px-1 font-black text-neutral-700">2. Obal</th>
-                  <th className="text-center py-2 px-1 font-black text-neutral-700">KS 2</th>
-                  <th className="text-left py-2 px-1 font-black text-neutral-700">3. Obal</th>
-                  <th className="text-center py-2 px-1 font-black text-neutral-700">KS 3</th>
-                  <th className="text-left py-2 px-1 font-black text-neutral-700">Zdroj KEG</th>
-                  <th className="text-center py-2 px-1 font-black text-neutral-700">Sudů</th>
-                  <th className="text-right py-2 px-1 font-black text-neutral-700">Litry</th>
-                  <th className="w-8"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {entryRows.map((r, i) => {
-                  const pkg1 = packages.find((p) => p.id === r.pkgId);
-                  const pkg2 = packages.find((p) => p.id === r.pkg2Id);
-                  const pkg3 = packages.find((p) => p.id === r.pkg3Id);
-                  const liters =
-                    (pkg1 ? Number(r.qty || 0) * pkg1.volume_l : 0) +
-                    (pkg2 ? Number(r.qty2 || 0) * pkg2.volume_l : 0) +
-                    (pkg3 ? Number(r.qty3 || 0) * pkg3.volume_l : 0);
-
-                  return (
-                    <tr key={i} className="border-b border-neutral-200/60 hover:bg-neutral-50/50">
-                      <td className="py-1.5 pr-1 w-[20%]">
-                        <select className="input text-xs font-bold w-full p-2 rounded-xl" value={r.beerId} onChange={(e) => setRowField(i, 'beerId', e.target.value)}>
-                          <option value="">— Vyber pivo —</option>
-                          {beers.filter((b) => b.is_active).map((b) => (
-                            <option key={b.id} value={b.id}>{b.name}</option>
-                          ))}
-                        </select>
-                      </td>
-                      {/* Obal 1 */}
-                      <td className="py-1 pr-0.5">
-                        <select className="input text-xs font-bold w-full p-2 rounded-xl" value={r.pkgId} onChange={(e) => setRowField(i, 'pkgId', e.target.value)}>
-                          <option value="">—</option>
-                          {bottlePackages.map((p) => (
-                            <option key={p.id} value={p.id}>{p.label || `${p.volume_l}L`}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="py-1 pr-0.5">
-                        <div className="flex flex-col items-center gap-1">
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            autoComplete="off"
-                            className="input text-lg font-black w-full min-h-[44px] text-center text-neutral-950 bg-amber-50/40 border-2 border-amber-400 focus:border-amber-600 rounded-xl shadow-xs"
-                            value={r.qty}
-                            onChange={(e) => setRowField(i, 'qty', e.target.value.replace(/[^0-9]/g, ''))}
-                            placeholder="0"
-                          />
-                          <QuickQtySelect
-                            pkg={packages.find((p) => p.id === r.pkgId)}
-                            qty={r.qty}
-                            onSelect={(q) => setRowField(i, 'qty', String(q))}
-                          />
-                        </div>
-                      </td>
-                      {/* Obal 2 */}
-                      <td className="py-1 pr-0.5">
-                        <select className="input text-xs font-bold w-full p-2 rounded-xl" value={r.pkg2Id} onChange={(e) => setRowField(i, 'pkg2Id', e.target.value)}>
-                          <option value="">—</option>
-                          {bottlePackages.map((p) => (
-                            <option key={p.id} value={p.id}>{p.label || `${p.volume_l}L`}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="py-1 pr-0.5">
-                        <div className="flex flex-col items-center gap-1">
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            autoComplete="off"
-                            className="input text-lg font-black w-full min-h-[44px] text-center text-neutral-950 bg-amber-50/40 border-2 border-amber-400 focus:border-amber-600 rounded-xl shadow-xs"
-                            value={r.qty2}
-                            onChange={(e) => setRowField(i, 'qty2', e.target.value.replace(/[^0-9]/g, ''))}
-                            placeholder="0"
-                          />
-                          <QuickQtySelect
-                            pkg={packages.find((p) => p.id === r.pkg2Id)}
-                            qty={r.qty2}
-                            onSelect={(q) => setRowField(i, 'qty2', String(q))}
-                          />
-                        </div>
-                      </td>
-                      {/* Obal 3 */}
-                      <td className="py-1 pr-0.5">
-                        <select className="input text-xs font-bold w-full p-2 rounded-xl" value={r.pkg3Id} onChange={(e) => setRowField(i, 'pkg3Id', e.target.value)}>
-                          <option value="">—</option>
-                          {bottlePackages.map((p) => (
-                            <option key={p.id} value={p.id}>{p.label || `${p.volume_l}L`}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="py-1 pr-0.5">
-                        <div className="flex flex-col items-center gap-1">
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            autoComplete="off"
-                            className="input text-lg font-black w-full min-h-[44px] text-center text-neutral-950 bg-amber-50/40 border-2 border-amber-400 focus:border-amber-600 rounded-xl shadow-xs"
-                            value={r.qty3}
-                            onChange={(e) => setRowField(i, 'qty3', e.target.value.replace(/[^0-9]/g, ''))}
-                            placeholder="0"
-                          />
-                          <QuickQtySelect
-                            pkg={packages.find((p) => p.id === r.pkg3Id)}
-                            qty={r.qty3}
-                            onSelect={(q) => setRowField(i, 'qty3', String(q))}
-                          />
-                        </div>
-                      </td>
-                      {/* KEG zdroj */}
-                      <td className="py-1 pr-0.5">
-                        <select className="input text-xs font-bold w-full p-2 rounded-xl" value={r.kegPkgId} onChange={(e) => setRowField(i, 'kegPkgId', e.target.value)}>
-                          <option value="">—</option>
-                          {kegPackages.map((p) => (
-                            <option key={p.id} value={p.id}>KEG {p.volume_l}L</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="py-1 pr-0.5">
+                <ul className="space-y-1.5">
+                  {lines.map((l, idx) => (
+                    <li key={idx} className="flex items-center justify-between gap-2 bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/70 dark:border-neutral-700 px-2.5 py-1.5">
+                      <button
+                        type="button"
+                        onClick={() => { const b = beers.find((bb) => bb.id === l.beerId); if (b) openTile(b); }}
+                        className="flex items-center gap-1.5 text-xs font-bold text-neutral-800 dark:text-neutral-100 text-left truncate"
+                        title="Klikni pro úpravu v dlaždici"
+                      >
+                        <span className="shrink-0">{l.qty}×</span>
+                        <span className="truncate">{l.label}</span>
+                      </button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button type="button" onClick={() => updateQty(l.rowIndex, l.field, String(Math.max(0, l.qty - 1)))} className="w-10 h-10 grid place-items-center rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={l.qty <= 1}>−</button>
                         <input
-                          type="text"
+                          type="number"
+                          min={0}
                           inputMode="numeric"
-                          pattern="[0-9]*"
-                          autoComplete="off"
-                          title="Počet sudů KEG použitých na stočení do lahví"
-                          className="input text-lg font-black w-full min-h-[44px] text-center text-neutral-950 bg-sky-50/40 border-2 border-sky-400 focus:border-sky-600 rounded-xl shadow-xs"
-                          value={r.kegQty}
-                          onChange={(e) => setRowField(i, 'kegQty', e.target.value.replace(/[^0-9]/g, ''))}
+                          value={l.qty}
                           placeholder="0"
+                          onChange={(e) => updateQty(l.rowIndex, l.field, e.target.value.replace(/[^0-9]/g, ''))}
+                          className="w-14 h-10 text-center text-base font-black text-neutral-800 dark:text-neutral-100 bg-white dark:bg-neutral-900/60 border-2 border-amber-200 dark:border-neutral-700 rounded-xl"
+                          title="Napiš počet ručně"
                         />
-                      </td>
-
-                      <td className="py-1 pr-1 text-right text-xs font-bold text-neutral-600 whitespace-nowrap">{liters > 0 ? liters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 }) : '—'}</td>
-
-                      <td className="py-1">
-                        <div className="flex items-center gap-1">
-                          <button type="button" className="w-8 h-8 grid place-items-center rounded-xl bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold text-base transition" onClick={add} title="Uložit vše">✓</button>
-                          <button type="button" className="w-8 h-8 grid place-items-center rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold text-base transition" onClick={() => setEntryRows((rs) => rs.map((x, j) => (j === i ? emptyItem() : x)))}>✕</button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                        <button type="button" onClick={() => updateQty(l.rowIndex, l.field, String(l.qty + 1))} className="w-10 h-10 grid place-items-center rounded-xl bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none">+</button>
+                        <button type="button" onClick={() => updateQty(l.rowIndex, l.field, '0')} className="w-10 h-10 grid place-items-center rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-xl transition select-none" title="Odebrat položku">✕</button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })()}
 
           <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-2 border-t border-neutral-100">
             <div className="flex items-center gap-2 flex-wrap">
               <button type="submit" disabled={saving} className="btn-primary text-xs font-black shadow-md min-h-[44px] px-5">
                 {saving ? '⏳ Ukládám…' : '💾 Uložit stáčení lahví'}
               </button>
-              <button type="button" className="btn-ghost text-xs font-bold min-h-[44px] px-3.5" onClick={() => setEntryRows([...entryRows, emptyItem()])}>➕ Přidat řádek</button>
               <button type="button" className="btn-ghost text-xs font-bold min-h-[44px] px-3.5" onClick={() => setEntryRows(emptyRows())}>🗑️ Vymazat vše</button>
               <VoiceRecorder onResult={handleVoiceResult} beerNames={beers.map((b) => b.name)} />
             </div>

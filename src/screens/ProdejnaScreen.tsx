@@ -334,9 +334,9 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                 const rowWho = entryRows.find((r) => r.beerId === expandedProdejnaBeer.id && r.pkgId === p.id)?.who ?? '';
                 const rowVycep = entryRows.find((r) => r.beerId === expandedProdejnaBeer.id && r.pkgId === p.id)?.vycep ?? false;
                 return (
-                  <div key={p.id} className="rounded-xl border border-neutral-200 py-1.5 px-2 space-y-1.5">
+                  <div key={p.id} className="rounded-xl border border-neutral-200 dark:border-neutral-700 py-1.5 px-2 space-y-1.5">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-bold text-neutral-700 truncate">{formatPackageLabel(p.label)}</span>
+                      <span className="text-sm font-bold text-neutral-700 dark:text-neutral-200 truncate">{formatPackageLabel(p.label)}</span>
                       <div className="flex items-center gap-1">
                         <button type="button" onClick={() => setTileRow(expandedProdejnaBeer.id, p.id, { qty: String(Math.max(0, qty - 1)) })} className="w-10 h-10 grid place-items-center rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={qty <= 0}>−</button>
                         <input
@@ -346,7 +346,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                           value={qty || ''}
                           placeholder="0"
                           onChange={(e) => setTileRow(expandedProdejnaBeer.id, p.id, { qty: e.target.value.replace(/[^0-9]/g, '') })}
-                          className="w-14 h-10 text-center text-lg font-black text-neutral-800 bg-white border-2 border-amber-200 rounded-lg"
+                          className="w-14 h-10 text-center text-lg font-black text-neutral-800 dark:text-neutral-100 bg-white dark:bg-neutral-900/60 border-2 border-amber-200 dark:border-neutral-700 rounded-lg"
                         />
                         <button type="button" onClick={() => setTileRow(expandedProdejnaBeer.id, p.id, { qty: String(qty + 1) })} className="w-10 h-10 grid place-items-center rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none">+</button>
                       </div>
@@ -361,7 +361,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                       />
                     )}
                     {showVycep && (
-                      <label className="flex items-center gap-2 text-xs font-bold text-neutral-600">
+                      <label className="flex items-center gap-2 text-xs font-bold text-neutral-600 dark:text-neutral-300">
                         <input
                           type="checkbox"
                           checked={rowVycep}

@@ -819,9 +819,9 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                 const currentTankId = entryRows.find((r) => r.beerId === expandedKegBeer.id && r.pkgId === p.id)?.tankId || '';
                 const quickQtys = topQuantitiesLastMonth(rows, expandedKegBeer.id, p.id);
                 return (
-                  <div key={p.id} className="rounded-xl border border-neutral-200 py-1.5 px-2 space-y-1.5">
+                  <div key={p.id} className="rounded-xl border border-neutral-200 dark:border-neutral-700 py-1.5 px-2 space-y-1.5">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-neutral-700 truncate">{formatPackageLabel(p.label)}</span>
+                      <span className="text-sm font-bold text-neutral-700 dark:text-neutral-200 truncate">{formatPackageLabel(p.label)}</span>
                       <div className="flex items-center gap-1">
                         {quickQtys.map((q) => (
                           <button
@@ -829,7 +829,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                             type="button"
                             onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(q) })}
                             title="Nejčastější hodnota minulý měsíc"
-                            className={`h-7 min-w-[1.75rem] px-1.5 rounded-lg text-[11px] font-black transition ${qty === q ? 'bg-amber-500 text-white' : 'bg-neutral-100 hover:bg-amber-200 text-neutral-600 hover:text-amber-950'}`}
+                            className={`h-7 min-w-[1.75rem] px-1.5 rounded-lg text-[11px] font-black transition ${qty === q ? 'bg-amber-500 text-white' : 'bg-neutral-100 dark:bg-neutral-700 hover:bg-amber-200 text-neutral-600 dark:text-neutral-200 hover:text-amber-950'}`}
                           >
                             {q}
                           </button>
@@ -842,7 +842,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                           value={qty || ''}
                           placeholder="0"
                           onChange={(e) => setTileRow(expandedKegBeer.id, p.id, { qty: e.target.value.replace(/[^0-9]/g, '') })}
-                          className="w-14 h-10 text-center text-lg font-black text-neutral-800 bg-white border-2 border-amber-200 rounded-lg"
+                          className="w-14 h-10 text-center text-lg font-black text-neutral-800 dark:text-neutral-100 bg-white dark:bg-neutral-900/60 border-2 border-amber-200 dark:border-neutral-700 rounded-lg"
                         />
                         <button type="button" onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(qty + 1) })} className="w-10 h-10 grid place-items-center rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none">+</button>
                       </div>
@@ -873,6 +873,53 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
               })}
             </BeerTilePanel>
           )}
+
+          {/* 📋 Souhrn zápisu — pod dlaždicemi, editovatelný jako dlaždice */}
+          {(() => {
+            const filled = entryRows.filter((r) => r.beerId && r.pkgId && Number(r.qty) > 0);
+            if (filled.length === 0) return null;
+            return (
+              <div className="mt-4 border border-amber-200 dark:border-amber-800/60 bg-white dark:bg-neutral-800 p-3">
+                <div className="text-xs font-extrabold uppercase tracking-wider text-amber-900 dark:text-amber-300 mb-2">
+                  📋 Zápis stáčení ({filled.reduce((s, r) => s + Number(r.qty || 0), 0)} ks)
+                </div>
+                <ul className="space-y-1.5">
+                  {filled.map((r, i) => {
+                    const beer = beers.find((b) => b.id === r.beerId);
+                    const pkg = packages.find((p) => p.id === r.pkgId);
+                    return (
+                      <li key={`${r.beerId}-${r.pkgId}-${i}`} className="flex items-center justify-between gap-2 bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/70 dark:border-neutral-700 px-2.5 py-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedKegBeerId(r.beerId)}
+                          className="flex items-center gap-1.5 text-xs font-bold text-neutral-800 dark:text-neutral-100 text-left truncate"
+                          title="Klikni pro úpravu v dlaždici"
+                        >
+                          <span className="shrink-0">{r.qty}×</span>
+                          <span className="truncate">{formatPackageLabel(pkg?.label)} · {beerName(beer)}</span>
+                        </button>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button type="button" onClick={() => setTileRow(r.beerId, r.pkgId, { qty: String(Math.max(0, Number(r.qty) - 1)) })} className="w-10 h-10 grid place-items-center rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={Number(r.qty) <= 1}>−</button>
+                          <input
+                            type="number"
+                            min={0}
+                            inputMode="numeric"
+                            value={r.qty}
+                            placeholder="0"
+                            onChange={(e) => setTileRow(r.beerId, r.pkgId, { qty: e.target.value.replace(/[^0-9]/g, '') })}
+                            className="w-14 h-10 text-center text-base font-black text-neutral-800 dark:text-neutral-100 bg-white dark:bg-neutral-900/60 border-2 border-amber-200 dark:border-neutral-700 rounded-xl"
+                            title="Napiš počet ručně"
+                          />
+                          <button type="button" onClick={() => setTileRow(r.beerId, r.pkgId, { qty: String(Number(r.qty) + 1) })} className="w-10 h-10 grid place-items-center rounded-xl bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none">+</button>
+                          <button type="button" onClick={() => setTileRow(r.beerId, r.pkgId, { qty: '0' })} className="w-10 h-10 grid place-items-center rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-xl transition select-none" title="Odebrat položku">✕</button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })()}
 
           <div className="flex items-center justify-between mt-2">
             <div className="flex flex-wrap items-center gap-3">
@@ -921,7 +968,74 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
             return (
               <div className="card p-4 mb-5 border-2 border-emerald-300/80 bg-gradient-to-br from-emerald-50/80 to-emerald-100/30">
                 <h3 className="font-display font-black text-emerald-950 text-sm mb-3">🍺 Stočeno KEG za týden {weekKey}</h3>
-                <div className="rounded-xl border border-emerald-300/80 bg-emerald-50/90 overflow-x-auto">
+
+                {/* Mobilní karty — čitelné a ovladatelné bez vodorovného scrollování */}
+                <div className="grid grid-cols-1 gap-2.5 md:hidden">
+                  {sorted.map((r) => {
+                    const beer = beers.find((b) => b.id === r.beer_id);
+                    const pkg = packages.find((p) => p.id === r.package_id);
+                    const vol = pkg ? Number(pkg.volume_l) : 0;
+                    const isEditing = editingId === r.id;
+                    return (
+                      <div key={r.id} className="rounded-2xl border border-emerald-300/80 bg-white p-3 space-y-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
+                            <span className="font-black text-sm text-emerald-950 truncate">{r.beer_name ?? beer?.name ?? '—'}</span>
+                          </div>
+                          <span className="shrink-0 font-mono font-bold text-xs text-emerald-800">
+                            {r.entry_date ? r.entry_date.slice(8, 10) + '.' + r.entry_date.slice(5, 7) + '.' : '—'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-bold text-emerald-700">{vol > 0 ? `KEG ${vol}L` : '—'}</span>
+                          {isEditing ? (
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="number" min="0" step="1" autoFocus
+                                className="input text-base font-black w-16 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                value={editQty}
+                                onChange={(e) => setEditQty(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') { setEditingId(null); setEditQty(''); } }}
+                              />
+                              <button type="button" onClick={saveEdit} className="px-3 h-10 rounded-xl bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xs transition">✓</button>
+                              <button type="button" onClick={() => { setEditingId(null); setEditQty(''); }} className="px-3 h-10 rounded-xl bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-black text-xs transition">✕</button>
+                            </div>
+                          ) : (
+                            <span className="font-display font-black text-xl text-emerald-950">{r.quantity} ks</span>
+                          )}
+                        </div>
+                        {!isEditing && (
+                          <div className="flex items-center gap-1.5 pt-2 border-t border-emerald-100">
+                            <button type="button" onClick={() => setEditingRow(r)} className="flex-1 min-h-[44px] rounded-xl bg-sky-100 hover:bg-sky-200 text-sky-800 font-black text-xs transition">✏️ Upravit</button>
+                            <button type="button" onClick={() => increment(r.id, -1)} disabled={Number(r.quantity) <= 0} className="w-11 min-h-[44px] grid place-items-center rounded-xl bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-lg transition disabled:opacity-30">−</button>
+                            <button type="button" onClick={() => increment(r.id, 1)} className="w-11 min-h-[44px] grid place-items-center rounded-xl bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-lg transition">+</button>
+                            <select
+                              className="min-h-[44px] rounded-xl bg-white border border-amber-300 text-emerald-950 font-bold text-xs px-1.5 cursor-pointer transition"
+                              value={QUICK_KEG_QTY.includes(Number(r.quantity)) ? Number(r.quantity) : ''}
+                              onChange={(e) => { const v = e.target.value; if (v !== '') setQty(r.id, Number(v)); }}
+                              title="Rychlé nastavení počtu sudů"
+                            >
+                              <option value="" disabled>⚡</option>
+                              {QUICK_KEG_QTY.map((q) => (<option key={q} value={q}>{q} ks</option>))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => { if (confirm(`Smazat záznam: ${r.beer_name ?? beer?.name ?? '—'} ${vol}L × ${r.quantity} ks?`)) del(r.id); }}
+                              className="w-11 min-h-[44px] grid place-items-center rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-lg transition"
+                            >✕</button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  <div className="rounded-2xl bg-emerald-200/60 p-3 flex items-center justify-between font-black text-emerald-950 text-sm">
+                    <span>📦 Celkem</span>
+                    <span>{totalCount} ks</span>
+                  </div>
+                </div>
+
+                <div className="hidden md:block rounded-xl border border-emerald-300/80 bg-emerald-50/90 overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-emerald-300/80 bg-emerald-100/80">
@@ -1186,7 +1300,85 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                 🍺 {recordsView === 'month' ? `Měsíc ${recordsMonthKey}` : recordsView === 'week' ? `Týden ${recordsWeekKey}` : `Den ${recordsDay}`}
               </h3>
 
-              <div className="rounded-xl border border-amber-300/80 bg-amber-50/90 overflow-x-auto">
+              {/* Mobilní karty — čitelné a ovladatelné bez vodorovného scrollování */}
+              <div className="grid grid-cols-1 gap-2.5 md:hidden">
+                {sortedRows.map((r) => {
+                  const beer = beers.find((b) => b.id === r.beer_id);
+                  const pkg = packages.find((p) => p.id === r.package_id);
+                  const vol = pkg ? Number(pkg.volume_l) : 0;
+                  const liters = Number(r.quantity) * vol;
+                  const isEditing = editingId === r.id;
+                  return (
+                    <div key={r.id} className="rounded-2xl border border-amber-300/80 bg-white p-3 space-y-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
+                          <span className="font-black text-sm text-amber-950 truncate">{r.beer_name ?? beer?.name ?? '—'}</span>
+                        </div>
+                        <span className="shrink-0 font-mono font-bold text-xs text-amber-800">{formatDate(r.entry_date)}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-amber-700">{pkg ? `KEG ${vol}L` : '—'}</span>
+                        {isEditing ? (
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="number" min="0" step="1" autoFocus
+                              className="input text-base font-black w-16 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              value={editQty}
+                              onChange={(e) => setEditQty(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') { setEditingId(null); setEditQty(''); } }}
+                            />
+                            <button type="button" onClick={saveEdit} className="px-3 h-10 rounded-xl bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xs transition">✓</button>
+                            <button type="button" onClick={() => { setEditingId(null); setEditQty(''); }} className="px-3 h-10 rounded-xl bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-black text-xs transition">✕</button>
+                          </div>
+                        ) : (
+                          <span className="font-display font-black text-xl text-amber-950">{r.quantity} ks</span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5 text-center">
+                        <div className="rounded-lg bg-amber-100/70 py-1.5">
+                          <div className="text-[9px] font-black uppercase text-amber-700">Litry</div>
+                          <div className="text-sm font-black text-amber-900">{liters.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })}</div>
+                        </div>
+                        <div className="rounded-lg bg-amber-100/70 py-1.5">
+                          <div className="text-[9px] font-black uppercase text-amber-700">HL</div>
+                          <div className="text-sm font-black text-amber-900">{(liters / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 })}</div>
+                        </div>
+                      </div>
+                      {!isEditing && (
+                        <div className="flex items-center gap-1.5 pt-2 border-t border-amber-100">
+                          <button type="button" onClick={() => setEditingRow(r)} className="flex-1 min-h-[44px] rounded-xl bg-sky-100 hover:bg-sky-200 text-sky-800 font-black text-xs transition">✏️ Upravit</button>
+                          <button type="button" onClick={() => increment(r.id, -1)} disabled={Number(r.quantity) <= 0} className="w-11 min-h-[44px] grid place-items-center rounded-xl bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-lg transition disabled:opacity-30">−</button>
+                          <button type="button" onClick={() => increment(r.id, 1)} className="w-11 min-h-[44px] grid place-items-center rounded-xl bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-lg transition">+</button>
+                          <select
+                            className="min-h-[44px] rounded-xl bg-white border border-amber-300 text-emerald-950 font-bold text-xs px-1.5 cursor-pointer transition"
+                            value={QUICK_KEG_QTY.includes(Number(r.quantity)) ? Number(r.quantity) : ''}
+                            onChange={(e) => { const v = e.target.value; if (v !== '') setQty(r.id, Number(v)); }}
+                            title="Rychlé nastavení počtu sudů"
+                          >
+                            <option value="" disabled>⚡</option>
+                            {QUICK_KEG_QTY.map((q) => (<option key={q} value={q}>{q} ks</option>))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => { if (confirm(`Smazat záznam: ${r.beer_name ?? beer?.name ?? '—'} ${vol}L × ${r.quantity} ks?`)) del(r.id); }}
+                            className="w-11 min-h-[44px] grid place-items-center rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-lg transition"
+                          >✕</button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                <div className="rounded-2xl bg-amber-200/60 p-3 space-y-1 font-black text-amber-950 text-sm">
+                  <div className="flex items-center justify-between"><span>📦 Celkem</span><span>{totalCount} ks</span></div>
+                  <div className="flex items-center justify-between text-xs font-bold text-amber-800">
+                    <span>{totalLiters.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} L</span>
+                    <span>{(totalLiters / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 })} hl</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="hidden md:block rounded-xl border border-amber-300/80 bg-amber-50/90 overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b border-amber-300/80 bg-amber-100/80">
