@@ -286,8 +286,14 @@ export default function BottlingScreen({
         .map((o) => o.id)
     );
 
+    // Položky, které už mají svůj vlastní odpočet závozu (ráno v 01:00) — ty jsou
+    // fyzicky odečtené ze skladu už jednou přes stockQty, takže se nesmí počítat
+    // i do orderedQty (dvojí odpočet). Odděleně od is_delivered výše, protože se
+    // nastavuje samostatně (řidič odklikne až po dojetí trasy).
+    const deductedItemIds = new Set(zavozDeductionRows.map((r: any) => r.order_item_id).filter(Boolean));
+
     const orderedMap: Record<string, number> = {};
-    orderItems.filter((item) => item.package_id && bottlePkgIds.has(item.package_id) && activeOrderIds.has(item.order_id)).forEach((item) => {
+    orderItems.filter((item) => item.package_id && bottlePkgIds.has(item.package_id) && activeOrderIds.has(item.order_id) && !deductedItemIds.has(item.id)).forEach((item) => {
       if (!item.beer_id || !item.package_id) return;
       const k = `${item.beer_id}__${item.package_id}`;
       orderedMap[k] = (orderedMap[k] || 0) + Number(item.quantity || 0);
@@ -481,14 +487,14 @@ export default function BottlingScreen({
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
       supabase.from('orders').select('id,order_date,delivery_date,status,is_delivered'),
-      supabase.from('order_items').select('order_id,beer_id,package_id,quantity'),
+      supabase.from('order_items').select('id,order_id,beer_id,package_id,quantity'),
       supabase.from('inventory').select('entry_date,beer_id,package_id,quantity,note'),
       supabase.from('fasovani').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('fasovani_private').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('writeoffs').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('kegging').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('bottling_plans').select('*').order('planned_date'),
-      supabase.from('zavoz_deductions').select('deduct_date,beer_id,package_id,quantity'),
+      supabase.from('zavoz_deductions').select('deduct_date,beer_id,package_id,quantity,order_item_id'),
     ]);
     if (loadId !== loadCountRef.current) return;
     setRows((bt.data as EntryRow[]) ?? []);

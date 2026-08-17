@@ -249,13 +249,13 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
       supabase.from('orders').select('id,order_date,delivery_date,status,is_delivered'),
-      supabase.from('order_items').select('order_id,beer_id,package_id,quantity'),
+      supabase.from('order_items').select('id,order_id,beer_id,package_id,quantity'),
       supabase.from('inventory').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('fasovani').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('fasovani_private').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('writeoffs').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('keg_prefuk').select('*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
-      supabase.from('zavoz_deductions').select('deduct_date,beer_id,package_id,quantity'),
+      supabase.from('zavoz_deductions').select('deduct_date,beer_id,package_id,quantity,order_item_id'),
     ]);
     if (loadId !== loadCountRef.current) return;
     setRows((kg.data as EntryRow[]) ?? []);

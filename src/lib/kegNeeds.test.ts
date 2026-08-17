@@ -130,6 +130,21 @@ describe('computeKegNeeds', () => {
     expect(row!.stockQty).toBe(6); // 10 − 4 (přefuk ZE)
   });
 
+  it('položka se svým vlastním odpočtem závozu (order_item_id) se nepočítá do orderedQty, i když objednávka ještě nemá is_delivered', () => {
+    const rows = computeKegNeeds(
+      makeInput({
+        orders: [{ id: 'o1', order_date: todayStr, delivery_date: todayStr, status: 'nova', is_delivered: false }],
+        orderItems: [
+          { id: 'i1', order_id: 'o1', beer_id: 'b1', package_id: 'p-keg', quantity: 6 }, // ráno odečteno
+          { id: 'i2', order_id: 'o1', beer_id: 'b1', package_id: 'p-keg', quantity: 4 }, // ještě čeká
+        ],
+        zavozDeductionRows: [{ deduct_date: todayStr, beer_id: 'b1', package_id: 'p-keg', quantity: 6, order_item_id: 'i1' }],
+      })
+    );
+    const row = rows.find((r) => r.package_id === 'p-keg');
+    expect(row!.orderedQty).toBe(4); // jen i2 — i1 už je fyzicky odečtená
+  });
+
   it('zavezené objednávky (zavoz_deductions) se odečtou z FYZICKÉHO skladu — stejný zdroj jako Sklad/Inventura', () => {
     const rows = computeKegNeeds(
       makeInput({

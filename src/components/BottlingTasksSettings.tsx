@@ -102,14 +102,14 @@ export function BottlingTasksSettings() {
       supabase.from('packages').select('*').order('sort_order'),
       supabase.from('bottling_plans').select('*').order('planned_date'),
       supabase.from('orders').select('id,order_date,delivery_date,status,is_delivered'),
-      supabase.from('order_items').select('order_id,beer_id,package_id,quantity'),
+      supabase.from('order_items').select('id,order_id,beer_id,package_id,quantity'),
       supabase.from('inventory').select('entry_date,beer_id,package_id,quantity,note'),
       supabase.from('bottling').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('kegging').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('fasovani').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('fasovani_private').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('writeoffs').select('entry_date,beer_id,package_id,quantity'),
-      supabase.from('zavoz_deductions').select('deduct_date,beer_id,package_id,quantity'),
+      supabase.from('zavoz_deductions').select('deduct_date,beer_id,package_id,quantity,order_item_id'),
     ]);
     if (b.data) setBeers(b.data as Beer[]);
     if (p.data) setPackages(p.data as Package[]);

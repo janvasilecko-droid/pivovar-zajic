@@ -114,7 +114,7 @@ export default function Stock() {
         supabase.from('fasovani').select('*'),
         supabase.from('fasovani_private').select('*'),
         supabase.from('keg_prefuk').select('*'),
-        supabase.from('zavoz_deductions').select('deduct_date,beer_id,package_id,quantity'),
+        supabase.from('zavoz_deductions').select('deduct_date,beer_id,package_id,quantity,order_item_id'),
         supabase.from('inventory_adjustments').select('entry_date,beer_id,package_id,quantity'),
       ]);
 
@@ -161,10 +161,10 @@ export default function Stock() {
     const fa = (faData ?? []) as BrewRow[];
     const fp = (fpData ?? []) as BrewRow[];
     const pf = (pfData ?? []) as KegPrefuk[];
-    const zd = (zdData ?? []) as Pick<ZavozDeductionRow, 'deduct_date' | 'beer_id' | 'package_id' | 'quantity'>[];
+    const zd = (zdData ?? []) as Pick<ZavozDeductionRow, 'deduct_date' | 'beer_id' | 'package_id' | 'quantity' | 'order_item_id'>[];
     const adj = (adjData ?? []) as { entry_date: string; beer_id: string | null; package_id: string | null; quantity: number }[];
     const ords = (ordData ?? []) as { id: string; order_date: string; delivery_date: string | null; status: string; is_delivered?: boolean }[];
-    const ordItems = (ordItemsData ?? []) as { order_id: string; beer_id: string | null; package_id: string; quantity: number }[];
+    const ordItems = (ordItemsData ?? []) as { id: string; order_id: string; beer_id: string | null; package_id: string; quantity: number }[];
     const akRows = (akData ?? []) as { entry_date: string; items: { beer_id: string | null; package_id: string | null; quantity_taken: number; quantity_returned: number }[] }[];
 
     // Objednáno = VŠECHNY objednávky tohoto týdne (i ty už zavezené — informační
@@ -174,6 +174,10 @@ export default function Stock() {
     const ordersThisWeek = ords.filter((o) => o.status !== 'storno' && isoWeekKey(o.delivery_date || o.order_date) === weekKey);
     const validOrdIdsWeek = new Set(ordersThisWeek.map((o) => o.id));
     const validOrdIdsWeekOutstanding = new Set(ordersThisWeek.filter((o) => !o.is_delivered).map((o) => o.id));
+    // Položky, které už mají svůj vlastní odpočet závozu — odděleně od is_delivered
+    // výše, protože se nastavuje samostatně (řidič odklikne až po dojetí trasy) a
+    // může chvíli zaostávat za ranním odpočtem ze skladu.
+    const deductedItemIds = new Set(zd.map((r) => r.order_item_id).filter(Boolean));
 
     const stockRows: StockRow[] = beerList.map((beer) => {
       const stockByPkg: StockByPkg[] = pkgList.map((pkg) => {
@@ -235,7 +239,7 @@ export default function Stock() {
         // lahve − zavezeno ± přefuk + dorovnání), tedy currentStock, − JEN JEŠTĚ
         // NEZAVEZENÉ objednávky tohoto týdne. Už zavezené se neodečítají znovu —
         // ty currentStock zohlednil už přes zavoz_deductions.
-        const outstandingW = ordItems.filter((i) => validOrdIdsWeekOutstanding.has(i.order_id) && i.beer_id === beer.id && i.package_id === pkg.id).reduce((s, i) => s + Number(i.quantity), 0);
+        const outstandingW = ordItems.filter((i) => validOrdIdsWeekOutstanding.has(i.order_id) && !deductedItemIds.has(i.id) && i.beer_id === beer.id && i.package_id === pkg.id).reduce((s, i) => s + Number(i.quantity), 0);
         const outgoing = orderedW;
         const difference = currentStock - outstandingW;
 

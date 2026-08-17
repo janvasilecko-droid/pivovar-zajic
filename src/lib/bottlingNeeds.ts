@@ -100,8 +100,13 @@ export function computeBottlingNeeds(input: BottlingNeedsInput): NeedsRow[] {
       })
       .map((o) => o.id)
   );
+  // Položky, které už mají svůj vlastní odpočet závozu (ráno v 01:00) — ty jsou
+  // fyzicky odečtené ze skladu už jednou přes stockMap, takže se nesmí počítat
+  // i do weekOrdered (dvojí odpočet). Odděleně od is_delivered výše, protože se
+  // nastavuje samostatně (řidič odklikne až po dojetí trasy).
+  const deductedItemIds = new Set(zavozDeductionRows.map((r) => r.order_item_id).filter(Boolean));
   const weekOrdered: Record<string, number> = {};
-  orderItems.filter((item) => item.package_id && activeIds.has(item.order_id)).forEach((item) => {
+  orderItems.filter((item) => item.package_id && activeIds.has(item.order_id) && !deductedItemIds.has(item.id)).forEach((item) => {
     if (!item.beer_id || !item.package_id) return;
     const k = `${item.beer_id}__${item.package_id}`;
     weekOrdered[k] = (weekOrdered[k] || 0) + Number(item.quantity || 0);

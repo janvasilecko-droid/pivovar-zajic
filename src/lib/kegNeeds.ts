@@ -81,9 +81,16 @@ export function computeKegNeeds(input: KegNeedsInput): KegNeedsRow[] {
       .map((o) => o.id)
   );
 
+  // Položky, které už mají svůj vlastní odpočet závozu (ráno v 01:00, viz
+  // zavozDeductionRows) — ty jsou fyzicky odečtené ze skladu už jednou přes
+  // stockQty, takže se nesmí počítat i do orderedQty (dvojí odpočet). Odděleně
+  // od `is_delivered` výše, protože se nastavuje samostatně (řidič odklikne
+  // objednávku až po dojetí trasy) a může chvíli zaostávat za ranním odpočtem.
+  const deductedItemIds = new Set(zavozDeductionRows.map((r) => r.order_item_id).filter(Boolean));
+
   const orderedMap: Record<string, number> = {};
   orderItems
-    .filter((item) => item.package_id && kegPkgIds.has(item.package_id) && activeOrderIds.has(item.order_id))
+    .filter((item) => item.package_id && kegPkgIds.has(item.package_id) && activeOrderIds.has(item.order_id) && !deductedItemIds.has(item.id))
     .forEach((item) => {
       if (!item.beer_id || !item.package_id) return;
       const k = `${item.beer_id}__${item.package_id}`;
