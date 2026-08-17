@@ -94,13 +94,14 @@ export function BottlingTasksSettings() {
   const [fasovaniRows, setFasovaniRows] = useState<any[]>([]);
   const [prodejnaRows, setProdejnaRows] = useState<any[]>([]);
   const [writeoffsRows, setWriteoffsRows] = useState<any[]>([]);
+  const [zavozDeductionRows, setZavozDeductionRows] = useState<any[]>([]);
 
   async function load() {
-    const [b, p, pl, ords, oi, inv, bt, kg, fa, fp, wo] = await Promise.all([
+    const [b, p, pl, ords, oi, inv, bt, kg, fa, fp, wo, zd] = await Promise.all([
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
       supabase.from('bottling_plans').select('*').order('planned_date'),
-      supabase.from('orders').select('id,order_date,delivery_date,status'),
+      supabase.from('orders').select('id,order_date,delivery_date,status,is_delivered'),
       supabase.from('order_items').select('order_id,beer_id,package_id,quantity'),
       supabase.from('inventory').select('entry_date,beer_id,package_id,quantity,note'),
       supabase.from('bottling').select('entry_date,beer_id,package_id,quantity'),
@@ -108,6 +109,7 @@ export function BottlingTasksSettings() {
       supabase.from('fasovani').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('fasovani_private').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('writeoffs').select('entry_date,beer_id,package_id,quantity'),
+      supabase.from('zavoz_deductions').select('deduct_date,beer_id,package_id,quantity'),
     ]);
     if (b.data) setBeers(b.data as Beer[]);
     if (p.data) setPackages(p.data as Package[]);
@@ -120,11 +122,12 @@ export function BottlingTasksSettings() {
     if (fa.data) setFasovaniRows(fa.data);
     if (fp.data) setProdejnaRows(fp.data);
     if (wo.data) setWriteoffsRows(wo.data);
+    if (zd.data) setZavozDeductionRows(zd.data);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
   useRealtime(
-    ['bottling', 'beers', 'packages', 'orders', 'order_items', 'inventory', 'fasovani', 'fasovani_private', 'writeoffs', 'kegging', 'bottling_plans'],
+    ['bottling', 'beers', 'packages', 'orders', 'order_items', 'inventory', 'fasovani', 'fasovani_private', 'writeoffs', 'kegging', 'bottling_plans', 'zavoz_deductions'],
     () => load()
   );
 
@@ -149,10 +152,11 @@ export function BottlingTasksSettings() {
         fasovaniRows,
         prodejnaRows,
         writeoffsRows,
+        zavozDeductionRows,
         weekKey,
         todayStr,
       }),
-    [beers, packages, plans, orders, orderItems, inventoryRows, rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, weekKey, todayStr]
+    [beers, packages, plans, orders, orderItems, inventoryRows, rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, zavozDeductionRows, weekKey, todayStr]
   );
 
   const isKegPkg = (pkgId: string) => packages.find((p) => p.id === pkgId)?.kind === 'keg';

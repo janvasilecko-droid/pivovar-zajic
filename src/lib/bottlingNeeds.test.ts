@@ -102,4 +102,32 @@ describe('computeBottlingNeeds', () => {
     expect(kegRow!.afterOutgoing).toBe(5); // 20 + 10 − 25
     expect(kegRow!.missing).toBe(0);
   });
+
+  it('počítají se VŠECHNY nezavezené objednávky, ne jen aktuální týden; zavezené (is_delivered) se nepočítají', () => {
+    const rows = computeBottlingNeeds(
+      makeInput({
+        orders: [
+          { id: 'o1', order_date: '2026-07-01', delivery_date: '2026-07-01', status: 'nova', is_delivered: false }, // starý týden, nezavezeno → počítá se
+          { id: 'o2', order_date: todayStr, delivery_date: todayStr, status: 'nova', is_delivered: true },           // tento týden, ale zavezeno → NE
+        ],
+        orderItems: [
+          { order_id: 'o1', beer_id: 'b1', package_id: 'p-bottle', quantity: 40 },
+          { order_id: 'o2', beer_id: 'b1', package_id: 'p-bottle', quantity: 99 },
+        ],
+      })
+    );
+    const row = rows.find((r) => r.package_id === 'p-bottle');
+    expect(row!.ordered).toBe(40);
+  });
+
+  it('zavezené objednávky (zavoz_deductions) se odečtou ze skladu — stejný zdroj jako Sklad/Inventura', () => {
+    const rows = computeBottlingNeeds(
+      makeInput({
+        inventoryRows: [{ entry_date: todayStr, beer_id: 'b1', package_id: 'p-bottle', quantity: 100, note: 'Počáteční' }],
+        zavozDeductionRows: [{ deduct_date: todayStr, beer_id: 'b1', package_id: 'p-bottle', quantity: 30 }],
+      })
+    );
+    const row = rows.find((r) => r.package_id === 'p-bottle');
+    expect(row!.stock).toBe(70); // 100 − 30
+  });
 });

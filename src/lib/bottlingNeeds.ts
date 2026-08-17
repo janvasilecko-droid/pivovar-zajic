@@ -40,6 +40,8 @@ export type BottlingNeedsInput = {
   fasovaniRows: any[];
   prodejnaRows: any[];
   writeoffsRows: any[];
+  /** Automatický odpočet závozu (stejný zdroj jako Sklad/Inventura — viz zavoz_deductions). */
+  zavozDeductionRows?: any[];
   weekKey: string;
   todayStr: string;
 };
@@ -56,6 +58,7 @@ export function computeBottlingNeeds(input: BottlingNeedsInput): NeedsRow[] {
     fasovaniRows,
     prodejnaRows,
     writeoffsRows,
+    zavozDeductionRows = [],
     weekKey,
     todayStr,
   } = input;
@@ -75,17 +78,26 @@ export function computeBottlingNeeds(input: BottlingNeedsInput): NeedsRow[] {
     const k = `${r.beer_id}__${r.package_id}`;
     outMap[k] = (outMap[k] || 0) + Number(r.quantity || 0);
   });
+  // Skutečně zavezené objednávky — stejný zdroj jako Sklad/Inventura/Potřeba
+  // stočit. Bez tohohle by sklad jen rostl s každým stočením.
+  zavozDeductionRows.filter((r) => r.deduct_date?.startsWith(curMonth)).forEach((r) => {
+    if (!r.beer_id || !r.package_id) return;
+    const k = `${r.beer_id}__${r.package_id}`;
+    outMap[k] = (outMap[k] || 0) + Number(r.quantity || 0);
+  });
   const stockMap: Record<string, number> = {};
   new Set([...Object.keys(invMap), ...Object.keys(inMap), ...Object.keys(outMap)]).forEach((k) => {
     stockMap[k] = Math.max(0, Number(invMap[k] || 0) + Number(inMap[k] || 0) - Number(outMap[k] || 0));
   });
-  // Objednávky v daném týdnu (ks na pivo + obal)
+  // VŠECHNY nezavezené objednávky (ks na pivo + obal) — bez ohledu na týden
+  // dovozu, stejně jako "Potřeba stočit". Objednávka zůstává "potřeba", dokud
+  // fyzicky nejede ven, ne jen do konce týdne.
   const activeIds = new Set(
     orders
       .filter((o) => {
         if (o.status === 'storno' || o.status === 'vyrizeno' || o.status === 'vyrizeno_zavoz') return false;
-        const target = o.delivery_date || o.order_date;
-        return !!target && isoWeekKey(target) === weekKey;
+        if (o.is_delivered) return false;
+        return true;
       })
       .map((o) => o.id)
   );
