@@ -2934,7 +2934,91 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
         {order.whatsapp_message_id && <WhatsAppOriginalBlock messageId={order.whatsapp_message_id} />}
 
         {items.length === 0 ? <p className="text-sm text-primary-400">Žádné položky.</p> : (
-          <div className="card overflow-hidden">
+          <>
+          {/* Mobilní karty */}
+          <div className="grid grid-cols-1 gap-2 md:hidden">
+            {items.map((i) => {
+              const rem = i.beer_id ? (remaining.get(i.beer_id) ?? 0) : 0;
+              const missing = rem < 0 ? -rem : 0;
+              const inStock = i.beer_id ? rem >= Number(i.quantity) : false;
+              const isEditing = editingItemId === i.id;
+              const beer = beers.find((b) => b.id === i.beer_id);
+              return (
+                <div key={i.id} className={`rounded-2xl border p-3 space-y-2 ${i.is_prepared ? 'bg-success-50/50 border-success-200' : missing > 0 ? 'bg-danger-50/40 border-danger-200' : 'bg-white border-neutral-200'}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="flex items-center gap-2 min-w-0 flex-1 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={i.is_prepared}
+                        onChange={() => toggleItemPrepared(i)}
+                        className="w-5 h-5 rounded text-success-600 cursor-pointer shrink-0"
+                        title={i.is_prepared ? 'Připraveno' : 'Označit jako připravené'}
+                      />
+                      <span className="inline-block rounded-md px-2 py-0.5 font-bold text-sm truncate" style={{ backgroundColor: beerBg(beer), color: beerText(beer) === 'text-white' ? '#fff' : undefined }}>{i.beer_name ?? '—'}</span>
+                    </label>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        className="text-primary-400 hover:text-primary-700 px-2 py-1.5"
+                        title="Upravit položku"
+                        onClick={() => {
+                          if (isEditing) { setEditingItemId(null); return; }
+                          setEditingItemId(i.id);
+                          setEditBeerId(i.beer_id ?? '');
+                          setEditPkgId(i.package_id ?? '');
+                          setEditQty(String(i.quantity));
+                        }}
+                      >✎</button>
+                      <button className="text-danger-400 hover:text-danger-600 px-2 py-1.5" onClick={() => rmItem(i.id)}>×</button>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-primary-600 font-bold">{i.package_label ?? '—'}</span>
+                    <span className="font-black text-base text-neutral-900">{i.quantity} ks</span>
+                  </div>
+                  {missing > 0 && <span className="block text-xs text-danger-600 font-bold">⚠️ Chybí {missing} ks ve skladu</span>}
+                  {inStock && <span className="block text-xs text-success-600 font-bold">✓ Skladem ({rem} ks)</span>}
+                  {isEditing && (
+                    <div className="pt-2 border-t border-neutral-200 grid grid-cols-2 gap-2 items-end">
+                      <div className="col-span-2">
+                        <label className="label">Pivo</label>
+                        <select className="input !py-2 text-sm" value={editBeerId} onChange={(e) => setEditBeerId(e.target.value)}>
+                          <option value="">— vyber pivo —</option>
+                          {beers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="label">Obal</label>
+                        <select className="input !py-2 text-sm" value={editPkgId} onChange={(e) => setEditPkgId(e.target.value)}>
+                          <option value="">—</option>
+                          {packages.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="label">Množství</label>
+                        <input type="number" min={0} className="input !py-2 text-sm" value={editQty} onChange={(e) => setEditQty(e.target.value)} inputMode="numeric" />
+                      </div>
+                      <div className="col-span-2 flex gap-2">
+                        <button
+                          className="btn-primary flex-1 !py-2 text-sm"
+                          onClick={async () => {
+                            if (editBeerId && editBeerId !== i.beer_id) await updateItemBeer(i, editBeerId);
+                            if (editPkgId && editPkgId !== i.package_id) await updateItemPkg(i, editPkgId);
+                            const qtyNum = Number(editQty);
+                            if (qtyNum && qtyNum !== i.quantity) await updateItemQty(i, qtyNum);
+                            setEditingItemId(null);
+                          }}
+                        >✓ Uložit</button>
+                        <button className="btn-ghost !py-2 !px-3" onClick={() => setEditingItemId(null)}>✕</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Desktop tabulka */}
+          <div className="hidden md:block card overflow-hidden">
             <table className="table text-xs">
               <thead><tr><th className="w-8"></th><th>Pivo</th><th>Obal</th><th className="text-right">Množství</th><th></th><th></th><th></th></tr></thead>
               <tbody>
@@ -2943,6 +3027,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                   const missing = rem < 0 ? -rem : 0;
                   const inStock = i.beer_id ? rem >= Number(i.quantity) : false;
                   const isEditing = editingItemId === i.id;
+                  const beer = beers.find((b) => b.id === i.beer_id);
                   return (
                     <>
                     <tr key={i.id} className={i.is_prepared ? 'bg-success-50/50' : (missing > 0 ? 'bg-danger-50/40' : '')}>
@@ -2956,7 +3041,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                         />
                       </td>
                       <td className="font-medium">
-                        <span className="inline-block rounded-md px-2 py-0.5" style={{ backgroundColor: beerBg(beers.find((b) => b.id === i.beer_id)), color: beerText(beers.find((b) => b.id === i.beer_id)) === 'text-white' ? '#fff' : undefined }}>{i.beer_name ?? '—'}</span>
+                        <span className="inline-block rounded-md px-2 py-0.5" style={{ backgroundColor: beerBg(beer), color: beerText(beer) === 'text-white' ? '#fff' : undefined }}>{i.beer_name ?? '—'}</span>
                         {missing > 0 && <span className="block text-xs text-danger-600 mt-0.5">⚠️ Chybí {missing} ks ve skladu</span>}
                         {inStock && <span className="block text-xs text-success-600 mt-0.5">✓ Skladem ({rem} ks)</span>}
                       </td>
@@ -3023,6 +3108,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
               </tbody>
             </table>
           </div>
+          </>
         )}
 
 

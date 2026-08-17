@@ -381,8 +381,83 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
             </BeerTilePanel>
           )}
 
-          {/* Tabulka položek */}
-          <div className="overflow-x-auto">
+          {/* Mobilní karty — čitelné a ovladatelné bez vodorovného scrollování */}
+          <div className="grid grid-cols-1 gap-2.5 md:hidden">
+            {entryRows.map((r, i) => (
+              <div key={i} className="rounded-2xl border border-neutral-200 bg-white p-3 space-y-2">
+                {showWhoColumn && (
+                  <input
+                    type="text"
+                    className="input text-xs w-full"
+                    value={r.who ?? ''}
+                    onChange={(e) => setRowField(i, 'who', e.target.value)}
+                    placeholder={who || (table === 'writeoffs' ? 'Důvod odpisu' : 'Kdo / pro koho')}
+                  />
+                )}
+                <div className="grid grid-cols-2 gap-2">
+                  <select className="input text-xs" value={r.beerId} onChange={(e) => setRowField(i, 'beerId', e.target.value)}>
+                    <option value="">— pivo —</option>
+                    {beers.filter((b) => b.is_active).map((b) => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                  <select className="input text-xs" value={r.pkgId} onChange={(e) => setRowField(i, 'pkgId', e.target.value)}>
+                    <option value="">— obal —</option>
+                    {shopPackages.map((p) => (
+                      <option key={p.id} value={p.id}>{p.volume_l} L</option>
+                    ))}
+                  </select>
+                </div>
+                {showVycep && (
+                  <label className="flex items-center gap-2 text-xs font-bold text-neutral-700">
+                    <input
+                      type="checkbox"
+                      checked={r.vycep}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setRowField(i, 'vycep', checked);
+                        if (checked) { setTapModalRowIndex(i); setShowTapModal(true); }
+                      }}
+                      className="w-5 h-5 rounded text-amber-600 focus:ring-amber-500 accent-amber-500"
+                    />
+                    Výčep (rezervovat)
+                  </label>
+                )}
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    className="w-11 h-11 shrink-0 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-lg transition disabled:opacity-30"
+                    disabled={!r.qty || Number(r.qty) <= 0}
+                    onClick={() => setEntryRows((rs) => rs.map((x, j) => j === i ? { ...x, qty: String(Math.max(0, Number(x.qty) - 1)) } : x))}
+                  >−</button>
+                  <span className="flex-1 text-center text-base font-black bg-white border border-neutral-200 rounded-lg py-2.5">
+                    {Number(r.qty) > 0 ? r.qty : '0'}
+                  </span>
+                  <button
+                    type="button"
+                    className="w-11 h-11 shrink-0 grid place-items-center rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-lg transition"
+                    onClick={() => setEntryRows((rs) => rs.map((x, j) => j === i ? { ...x, qty: String(Number(x.qty || 0) + 1) } : x))}
+                  >+</button>
+                  <select
+                    className="h-11 shrink-0 rounded-lg bg-white border border-amber-300 text-emerald-950 font-bold text-xs px-1.5 cursor-pointer transition"
+                    value={QUICK_SHOP_QTY.includes(Number(r.qty)) ? Number(r.qty) : ''}
+                    onChange={(e) => { const v = e.target.value; if (v !== '') setEntryRows((rs) => rs.map((x, j) => j === i ? { ...x, qty: String(Number(v)) } : x)); }}
+                    title="Rychlé nastavení počtu"
+                  >
+                    <option value="" disabled>⚡</option>
+                    {QUICK_SHOP_QTY.map((q) => (<option key={q} value={q}>{q} ks</option>))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-1.5 pt-1">
+                  <button type="button" className="flex-1 min-h-[44px] rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-black text-xs transition" onClick={add}>✓ Potvrdit / uložit vše</button>
+                  <button type="button" className="w-11 min-h-[44px] shrink-0 grid place-items-center rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-lg transition" onClick={() => setEntryRows((rs) => rs.map((x, j) => j === i ? emptyItem() : x))}>✕</button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Tabulka položek (desktop) */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-neutral-100">
