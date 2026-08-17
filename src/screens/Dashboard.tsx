@@ -95,7 +95,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
       supabase.from('writeoffs').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('inventory').select('entry_date,beer_id,beer_name,package_id,package_label,quantity,note'),
       supabase.from('order_items').select('beer_id,package_id,quantity,order_id'),
-      supabase.from('orders').select('id,order_date,status'),
+      supabase.from('orders').select('id,order_date,status,is_delivered'),
       supabase.from('akce').select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
       supabase.from('fasovani').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('fasovani_private').select('entry_date,beer_id,package_id,quantity'),
@@ -110,7 +110,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
     const woRows = (wo as Row[]) ?? [];
     const invRows = (inv as Row[]) ?? [];
     const oiRows = (oi as { beer_id: string | null; package_id: string | null; quantity: number; order_id: string }[]) ?? [];
-    const ordRows = (ord as { id: string; order_date: string; status: string }[]) ?? [];
+    const ordRows = (ord as { id: string; order_date: string; status: string; is_delivered?: boolean }[]) ?? [];
     const akRows = (ak as { entry_date: string; items: { beer_id: string | null; package_id: string | null; quantity_taken: number; quantity_returned: number }[] }[]) ?? [];
     const faRows = (fa as Row[]) ?? [];
     const fpRows = (fp as Row[]) ?? [];
@@ -120,9 +120,11 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
     const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const lastInvMonth = curMonth;
 
+    // VŠECHNY nezavezené objednávky — bez ohledu na měsíc objednání. Objednávka
+    // zůstává "k odeslání", dokud fyzicky nejede ven, ne jen do konce měsíce.
     const ordIdsThisMonth = new Set(
       ordRows
-        .filter((o) => monthKey(o.order_date) === curMonth && o.status !== 'storno')
+        .filter((o) => o.status !== 'storno' && !o.is_delivered)
         .map((o) => o.id)
     );
 

@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../lib/auth';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 
 import { supabase, Beer, Package, CellarTank, CellarTransfer, CellarTankCycle, EntryRow, useRealtime, beerBg, beerBorder, beerName } from '../lib/supabase';
 import { Modal, Field, Spinner } from '../components/ui';
@@ -25,8 +23,9 @@ const STATUS_COLORS: Record<CellarTank['status'], string> = {
 const DEFAULT_INITIAL_VOLUME = 7500;
 const LOW_VOLUME_THRESHOLD = 300; // l — upozornění na blížící se konec stáčení
 
-type OrderRow = { id: string; order_date: string; status: string };
+type OrderRow = { id: string; order_date: string; status: string; is_delivered?: boolean };
 type OrderItemRow = { order_id: string; beer_id: string | null; package_id: string | null; quantity: number };
+type ZavozDeductionRow = { deduct_date: string; beer_id: string | null; package_id: string | null; quantity: number };
 
 function fmtHours(h: number | null | undefined): string {
   if (h == null) return '—';
@@ -60,7 +59,7 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
   // Objednávky (pro propojení: kolik kegů z aktuálního piva je objednáno)
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [orderItems, setOrderItems] = useState<OrderItemRow[]>([]);
-  const [weekKey, setWeekKey] = useState(isoWeekKey(new Date().toISOString().slice(0, 10)));
+  const [zavozDeductionRows, setZavozDeductionRows] = useState<ZavozDeductionRow[]>([]);
 
   async function load(silent = false) {
     if (!silent && !tanks.length) setLoading(true);
@@ -158,32 +157,41 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
 
   // Objednávky bez storna — pro propojení s aktuálním pivem v tanku
   async function loadOrders() {
-    const { data: ords } = await supabase.from('orders').select('id,order_date,status').neq('status', 'storno');
+    const { data: ords } = await supabase.from('orders').select('id,order_date,status,is_delivered').neq('status', 'storno');
     const list = (ords as OrderRow[]) ?? [];
     setOrders(list);
     if (!list.length) { setOrderItems([]); return; }
     const { data: its } = await supabase.from('order_items').select('order_id,beer_id,package_id,quantity').in('order_id', list.map((o) => o.id));
     setOrderItems((its as OrderItemRow[]) ?? []);
   }
-  useEffect(() => { loadOrders(); }, []);
+  async function loadZavozDeductions() {
+    const { data } = await supabase.from('zavoz_deductions').select('deduct_date,beer_id,package_id,quantity');
+    setZavozDeductionRows((data as ZavozDeductionRow[]) ?? []);
+  }
+  useEffect(() => { loadOrders(); loadZavozDeductions(); }, []);
   useRealtime(['orders', 'order_items'], loadOrders);
+  useRealtime(['zavoz_deductions'], loadZavozDeductions);
 
   const beerName = (id: string | null) => beers.find((b) => b.id === id)?.name ?? '—';
   const tankLabel = (id: string | null) => tanks.find((t) => t.id === id)?.label ?? '—';
 
-  // Celkový objem v hl (hektolitrech) daného piva, který je objednaný a nestočený pro zvolený týden
+  // Celkový objem v hl (hektolitrech) daného piva, který je objednaný a ještě nestočený
+  // (VŠECHNY nezavezené objednávky, bez ohledu na týden — objednávka zůstává "potřeba",
+  // dokud fyzicky nejede ven, stejně jako "Potřeba stočit" jinde v aplikaci).
   const orderedHlByBeer = useMemo(() => {
     const beerJantar = beers.find(b => b.name.toLowerCase().includes('jantar'));
     const beer12Sv = beers.find(b => b.name.toLowerCase().includes('12° svět') || b.name.toLowerCase().includes('12sv'));
     const beerDark = beers.find(b => b.name.toLowerCase().includes('tmav'));
+    const kegPkgIds = new Set(packages.filter((p) => p.kind === 'keg').map((p) => p.id));
 
     const m = new Map<string, number>(); // beer_id -> liters
     const needsBottling = new Set<string>();
 
-    // Filtrujeme objednávky patřící do vybraného týdne
+    // VŠECHNY nezavezené objednávky (storno a už zavezené se nepočítají) — bez
+    // ohledu na týden, aby starší nedokončený backlog nezmizel z přehledu.
     const activeOrderIds = new Set(
       orders
-        .filter((o) => o.order_date && isoWeekKey(o.order_date) === weekKey)
+        .filter((o) => o.status !== 'storno' && !o.is_delivered)
         .map((o) => o.id)
     );
 
@@ -222,16 +230,28 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
       }
     }
 
-    // 3) Zjištění již stočených sudů (kegging) pro vybraný týden
-    // "od toho obednano vzdy odecitej stoceny sudy ten tyden, vzdy at je to na tyden objednavky vs staceni keg"
+    // 3) Zjištění stočených sudů (kegging), které ještě nejsou zavezené k odběratelům —
+    // celkově (bez ohledu na týden), aby stočení z minulých týdnů pořád snižovalo
+    // aktuální backlog objednávek téhož piva.
     const keggedLitersByBeer = new Map<string, number>();
     kegging.forEach((r) => {
-      if (!r.beer_id || !r.entry_date || isoWeekKey(r.entry_date) !== weekKey) return;
+      if (!r.beer_id) return;
       const sizeMatch = (r.package_label ?? '').match(/(\d+(?:[.,]\d+)?)\s*l/i);
       const size = sizeMatch ? Number(sizeMatch[1].replace(',', '.')) : 0;
       const vol = size > 0 ? size : 50; // fallback 50l
       const liters = Number(r.quantity ?? 0) * vol;
       keggedLitersByBeer.set(r.beer_id, (keggedLitersByBeer.get(r.beer_id) ?? 0) + liters);
+    });
+
+    // Odečtení už zavezených sudů (zavoz_deductions, jen KEG obaly) — stočené sudy,
+    // které už fyzicky odjely k odběrateli, se nepočítají jako "dostupné" pro krytí
+    // dalších objednávek téhož piva.
+    zavozDeductionRows.forEach((r) => {
+      if (!r.beer_id || !r.package_id || !kegPkgIds.has(r.package_id)) return;
+      const pkg = packages.find((p) => p.id === r.package_id);
+      const vol = pkg ? Number(pkg.volume_l) || 50 : 50;
+      const liters = Number(r.quantity ?? 0) * vol;
+      keggedLitersByBeer.set(r.beer_id, (keggedLitersByBeer.get(r.beer_id) ?? 0) - liters);
     });
 
     // Rozdělení stáčení Jantaru (kegging) do 12sv a tmavého
@@ -257,7 +277,7 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
     });
 
     return hlMap;
-  }, [orderItems, orders, packages, weekKey, kegging, beers]);
+  }, [orderItems, orders, packages, kegging, zavozDeductionRows, beers]);
 
   // Souhrn stáčení z tanku (kegging) — pro aktuální (nedokončený) cyklus
   const tankSummary = useMemo(() => {
@@ -519,32 +539,6 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
               }`}
             >
               📅 Plánovač obsazenosti & Zrání (Gantt)
-            </button>
-          </div>
-
-          {/* Týdenní selector pro výpočet objednávek */}
-          <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-neutral-200 shadow-2xs">
-            <button
-              type="button"
-              onClick={() => setWeekKey(shiftWeek(weekKey, -1))}
-              className="p-1.5 rounded-lg text-neutral-500 hover:bg-neutral-100"
-              title="Předchozí týden"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <div className="px-2 text-xs font-bold text-amber-800 text-center min-w-[90px]">
-              Týden {weekKey.split('-')[1]}
-              <div className="text-[10px] text-neutral-500 font-normal">
-                ({weekRange(weekKey).label})
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setWeekKey(shiftWeek(weekKey, 1))}
-              className="p-1.5 rounded-lg text-neutral-500 hover:bg-neutral-100"
-              title="Následující týden"
-            >
-              <ChevronRight size={16} />
             </button>
           </div>
 
