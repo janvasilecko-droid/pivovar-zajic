@@ -25,7 +25,7 @@ const STATUS_COLORS: Record<CellarTank['status'], string> = {
 const DEFAULT_INITIAL_VOLUME = 7500;
 const LOW_VOLUME_THRESHOLD = 300; // l — upozornění na blížící se konec stáčení
 
-type OrderRow = { id: string; order_date: string; status: string };
+type OrderRow = { id: string; order_date: string; delivery_date: string | null; status: string };
 type OrderItemRow = { order_id: string; beer_id: string | null; package_id: string | null; quantity: number };
 
 function fmtHours(h: number | null | undefined): string {
@@ -158,7 +158,7 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
 
   // Objednávky bez storna — pro propojení s aktuálním pivem v tanku
   async function loadOrders() {
-    const { data: ords } = await supabase.from('orders').select('id,order_date,status').neq('status', 'storno');
+    const { data: ords } = await supabase.from('orders').select('id,order_date,delivery_date,status').neq('status', 'storno');
     const list = (ords as OrderRow[]) ?? [];
     setOrders(list);
     if (!list.length) { setOrderItems([]); return; }
@@ -180,10 +180,14 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
     const m = new Map<string, number>(); // beer_id -> liters
     const needsBottling = new Set<string>();
 
-    // Filtrujeme objednávky patřící do vybraného týdne
+    // Filtrujeme objednávky patřící do vybraného týdne — podle data DOVOZU, ne
+    // zadání (objednávka zadaná dřív s dovozem v tomto týdnu sem musí patřit).
     const activeOrderIds = new Set(
       orders
-        .filter((o) => o.order_date && isoWeekKey(o.order_date) === weekKey)
+        .filter((o) => {
+          const target = o.delivery_date || o.order_date;
+          return !!target && isoWeekKey(target) === weekKey;
+        })
         .map((o) => o.id)
     );
 
