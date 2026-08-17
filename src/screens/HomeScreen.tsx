@@ -69,12 +69,12 @@ const ITEM_COLOR: Partial<Record<Page, ColorKey>> = {
   history: 'blue',
   bottling_needs: 'blue',
 };
-const COLOR_CLASSES: Record<ColorKey, { box: string; icon: string }> = {
-  amber: { box: 'bg-amber-50', icon: 'text-amber-600' },
-  blue: { box: 'bg-blue-50', icon: 'text-blue-600' },
-  emerald: { box: 'bg-emerald-50', icon: 'text-emerald-600' },
-  rose: { box: 'bg-rose-50', icon: 'text-rose-600' },
-  slate: { box: 'bg-slate-100', icon: 'text-slate-600' },
+const COLOR_CLASSES: Record<ColorKey, { border: string; icon: string }> = {
+  amber: { border: 'border-amber-300', icon: 'text-amber-600' },
+  blue: { border: 'border-blue-300', icon: 'text-blue-600' },
+  emerald: { border: 'border-emerald-300', icon: 'text-emerald-600' },
+  rose: { border: 'border-rose-300', icon: 'text-rose-600' },
+  slate: { border: 'border-slate-300', icon: 'text-slate-600' },
 };
 
 export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) {
@@ -100,11 +100,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
           <button
             key={item.id}
             onClick={() => setPage(item.id)}
-            className="bg-white rounded-2xl shadow-sm p-3.5 flex flex-col items-center justify-center gap-2.5 text-center active:scale-95 transition-transform"
+            className={`bg-white rounded-2xl shadow-sm p-3.5 flex flex-col items-center justify-center gap-2.5 text-center active:scale-95 transition-transform border-2 ${c.border}`}
           >
-            <div className={`w-11 h-11 rounded-xl ${c.box} flex items-center justify-center`}>
-              <Icon size={22} strokeWidth={1.8} className={c.icon} />
-            </div>
+            <Icon size={24} strokeWidth={1.8} className={c.icon} />
             <span className="text-xs font-bold text-neutral-900 leading-tight">{item.label}</span>
           </button>
         );
