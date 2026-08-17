@@ -294,9 +294,10 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
       writeoffsRows,
       prefukRows,
       zavozDeductionRows,
+      weekKey,
       todayStr,
     });
-  }, [beers, packages, orders, orderItems, inventoryRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, prefukRows, zavozDeductionRows]);
+  }, [beers, packages, orders, orderItems, inventoryRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, prefukRows, zavozDeductionRows, weekKey]);
 
   const filteredKegRequirements = useMemo(() => {
     let list = kegRequirements;
@@ -1516,19 +1517,19 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
           {/* Souhrnné karty */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="card p-4 bg-white border border-neutral-200 rounded-2xl space-y-1">
-              <span className="text-[10px] font-black uppercase text-neutral-500">Objednáno, ještě nezavezeno (KEG)</span>
+              <span className="text-[10px] font-black uppercase text-neutral-500">Objednáno tento týden (KEG)</span>
               <div className="font-display font-black text-xl text-sky-700">{reqKegTotals.ordered} ks sudů</div>
-              <span className="text-[11px] text-neutral-500">Všechny aktivní objednávky, které ještě nejely ven</span>
+              <span className="text-[11px] text-neutral-500">Aktivní objednávky s dovozem {weekLabel}</span>
             </div>
             <div className="card p-4 bg-white border border-neutral-200 rounded-2xl space-y-1">
               <span className="text-[10px] font-black uppercase text-neutral-500">Sudů na skladě</span>
               <div className="font-display font-black text-xl text-emerald-700">{reqKegTotals.stock} ks sudů</div>
-              <span className="text-[11px] text-neutral-500">Disponibilní KEG zásoby (inventura + stočeno − výdej − zavezeno)</span>
+              <span className="text-[11px] text-neutral-500">Disponibilní KEG zásoby (inventura + stočeno − výdej)</span>
             </div>
             <div className={`card p-4 rounded-2xl space-y-1 ${reqKegTotals.needed > 0 ? 'bg-amber-600 text-white' : 'bg-neutral-900 text-white'}`}>
-              <span className={`text-[10px] font-black uppercase ${reqKegTotals.needed > 0 ? 'text-amber-100' : 'text-amber-400'}`}>Potřeba stočit (chybí)</span>
+              <span className={`text-[10px] font-black uppercase ${reqKegTotals.needed > 0 ? 'text-amber-100' : 'text-amber-400'}`}>Potřeba stočit tento týden (chybí)</span>
               <div className="font-display font-black text-xl">{reqKegTotals.needed} ks sudů ({(reqKegTotals.neededLiters / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 })} hl / {reqKegTotals.neededLiters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L)</div>
-              <span className="text-[11px] opacity-90">{reqKegTotals.needed > 0 ? '⚠️ Objednáno víc sudů, než je na skladě' : '✓ Všechny nezavezené KEG objednávky pokryty'}</span>
+              <span className="text-[11px] opacity-90">{reqKegTotals.needed > 0 ? '⚠️ Objednáno víc sudů, než je na skladě' : '✓ Všechny KEG objednávky týdne pokryty'}</span>
             </div>
           </div>
 
@@ -1537,12 +1538,12 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h3 className="font-display font-black text-base text-neutral-900 flex items-center gap-2">
                 <span>🛢️</span>
-                <span>KEGy k dotočení</span>
+                <span>KEGy k dotočení tento týden ({weekLabel})</span>
               </h3>
               <p className="text-[11px] text-neutral-500 w-full sm:w-auto">
-                Počítá se ze VŠECH nezavezených objednávek (bez ohledu na týden dovozu) − sudy na
-                skladě (inventura měsíce + stočeno − výdej − zavezeno). Objednávka zůstává
-                "potřeba", dokud fyzicky nejede ven — ne jen do konce týdne.
+                Počítá se vždy pro aktuální týden: objednávky s dovozem {weekLabel} − sudy na skladě
+                (inventura měsíce + stočeno − výdej). Po dotočení týdne (o víkendu) je potřeba 0,
+                v novém týdnu se počítá znovu z nových objednávek.
               </p>
 
               <div className="flex flex-wrap items-center gap-2">

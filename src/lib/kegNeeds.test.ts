@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { computeKegNeeds, KegNeedsInput } from './kegNeeds';
+import { isoWeekKey } from '../components/WeeklyOrderSummaryCard';
 
 const todayStr = '2026-08-12';
+const weekKey = isoWeekKey(todayStr);
 
 const BEER = { id: 'b1', name: 'Světlý ležák 11°' };
 const PKG_KEG = { id: 'p-keg', label: 'KEG 50L', kind: 'keg', volume_l: 50 };
@@ -19,6 +21,7 @@ function makeInput(patch: Partial<KegNeedsInput> = {}): KegNeedsInput {
     prodejnaRows: [],
     writeoffsRows: [],
     prefukRows: [],
+    weekKey,
     todayStr,
     ...patch,
   };
@@ -33,13 +36,13 @@ describe('computeKegNeeds', () => {
     expect(computeKegNeeds(makeInput())).toEqual([]);
   });
 
-  it('počítají se VŠECHNY nezavezené objednávky, bez ohledu na týden dovozu', () => {
+  it('počítají se jen objednávky AKTUÁLNÍHO TÝDNE (starší/budoucí týden se nepočítá)', () => {
     const rows = computeKegNeeds(
       makeInput({
         orders: [
-          { id: 'o1', order_date: '2026-08-05', delivery_date: '2026-08-05', status: 'nova', is_delivered: false },       // starý týden, nezavezeno → ANO
-          { id: 'o2', order_date: '2026-08-05', delivery_date: '2026-08-19', status: 'nova', is_delivered: false },       // budoucí týden, nezavezeno → ANO
-          { id: 'o3', order_date: todayStr, delivery_date: null, status: 'nova', is_delivered: false },                   // bez dovozu → ANO
+          { id: 'o1', order_date: '2026-08-05', delivery_date: '2026-08-05', status: 'nova', is_delivered: false },       // starý týden → NE
+          { id: 'o2', order_date: '2026-08-05', delivery_date: '2026-08-19', status: 'nova', is_delivered: false },       // budoucí týden → NE
+          { id: 'o3', order_date: todayStr, delivery_date: todayStr, status: 'nova', is_delivered: false },               // aktuální týden → ANO
         ],
         orderItems: [
           { order_id: 'o1', beer_id: 'b1', package_id: 'p-keg', quantity: 10 },
@@ -50,11 +53,11 @@ describe('computeKegNeeds', () => {
     );
     const row = rows.find((r) => r.package_id === 'p-keg');
     expect(row).toBeDefined();
-    expect(row!.orderedQty).toBe(35); // 10 + 20 + 5 — objednávka "potřebuje" stočit, dokud nejede ven, ne jen do konce týdne
-    expect(row!.neededQty).toBe(35);  // sklad 0
+    expect(row!.orderedQty).toBe(5); // jen o3 (aktuální týden)
+    expect(row!.neededQty).toBe(5);  // sklad 0
   });
 
-  it('už zavezené objednávky (is_delivered) se do "potřeba stočit" nepočítají', () => {
+  it('už zavezené objednávky (is_delivered) se do "potřeba stočit" nepočítají, i když jsou v aktuálním týdnu', () => {
     const rows = computeKegNeeds(
       makeInput({
         orders: [

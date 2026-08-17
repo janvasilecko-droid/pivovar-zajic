@@ -108,7 +108,7 @@ export default function Stock() {
         supabase.from('bottling').select('*'),
         supabase.from('kegging').select('*'),
         supabase.from('order_items').select('*'),
-        supabase.from('orders').select('id, order_date, delivery_date, status, is_delivered'),
+        supabase.from('orders').select('id, order_date, delivery_date, status'),
         supabase.from('writeoffs').select('*'),
         supabase.from('akce').select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
         supabase.from('fasovani').select('*'),
@@ -167,10 +167,7 @@ export default function Stock() {
     const ordItems = (ordItemsData ?? []) as { order_id: string; beer_id: string | null; package_id: string; quantity: number }[];
     const akRows = (akData ?? []) as { entry_date: string; items: { beer_id: string | null; package_id: string | null; quantity_taken: number; quantity_returned: number }[] }[];
 
-    // VŠECHNY nezavezené objednávky — bez ohledu na prohlížený týden. Objednávka
-    // zůstává "k odeslání", dokud fyzicky nejede ven, ne jen do konce svého týdne
-    // (jinak "Zbude" vypadalo v pořádku, i když ve skladu čekal starý nedodělek).
-    const validOrdIdsWeek = new Set(ords.filter((o: any) => o.status !== 'storno' && !o.is_delivered).map((o) => o.id));
+    const validOrdIdsWeek = new Set(ords.filter((o) => o.status !== 'storno' && isoWeekKey(o.delivery_date || o.order_date) === weekKey).map((o) => o.id));
 
     const stockRows: StockRow[] = beerList.map((beer) => {
       const stockByPkg: StockByPkg[] = pkgList.map((pkg) => {

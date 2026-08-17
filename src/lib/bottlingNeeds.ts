@@ -89,15 +89,14 @@ export function computeBottlingNeeds(input: BottlingNeedsInput): NeedsRow[] {
   new Set([...Object.keys(invMap), ...Object.keys(inMap), ...Object.keys(outMap)]).forEach((k) => {
     stockMap[k] = Math.max(0, Number(invMap[k] || 0) + Number(inMap[k] || 0) - Number(outMap[k] || 0));
   });
-  // VŠECHNY nezavezené objednávky (ks na pivo + obal) — bez ohledu na týden
-  // dovozu, stejně jako "Potřeba stočit". Objednávka zůstává "potřeba", dokud
-  // fyzicky nejede ven, ne jen do konce týdne.
+  // Objednávky v daném týdnu (ks na pivo + obal)
   const activeIds = new Set(
     orders
       .filter((o) => {
         if (o.status === 'storno' || o.status === 'vyrizeno' || o.status === 'vyrizeno_zavoz') return false;
         if (o.is_delivered) return false;
-        return true;
+        const target = o.delivery_date || o.order_date;
+        return !!target && isoWeekKey(target) === weekKey;
       })
       .map((o) => o.id)
   );
