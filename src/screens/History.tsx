@@ -768,60 +768,61 @@ export default function History() {
         </div>
       </div>
 
-      {/* Top Header Navigation Tabs */}
-      <div className="flex items-center justify-between flex-wrap gap-3 border-b border-neutral-200 pb-2">
-        <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin">
+      {/* Top Header Navigation Tabs — na mobilu kratší popisky, ať se vejde
+          víc záložek na obrazovku a je míň nutné vodorovně scrollovat. */}
+      <div className="flex items-center justify-between flex-wrap gap-2 sm:gap-3 border-b border-neutral-200 pb-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-thin">
           <button
             onClick={() => setActiveTab('overview')}
-            className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === 'overview'
                 ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 scale-102'
                 : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
             }`}
           >
             <BarChart3 size={16} />
-            <span>📊 Měsíční přehledy & Porovnání</span>
+            <span>📊 <span className="sm:hidden">Přehledy</span><span className="hidden sm:inline">Měsíční přehledy & Porovnání</span></span>
           </button>
 
           <button
             onClick={() => setActiveTab('production')}
-            className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === 'production'
                 ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 scale-102'
                 : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
             }`}
           >
             <TrendingUp size={16} />
-            <span>📈 Výstav (HL) & KEG/PET</span>
+            <span>📈 <span className="sm:hidden">Výstav</span><span className="hidden sm:inline">Výstav (HL) & KEG/PET</span></span>
           </button>
 
           <button
             onClick={() => setActiveTab('detail')}
-            className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === 'detail'
                 ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 scale-102'
                 : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
             }`}
           >
             <Search size={16} />
-            <span>🔍 Podrobné hledání & Filtry</span>
+            <span>🔍 <span className="sm:hidden">Hledání</span><span className="hidden sm:inline">Podrobné hledání & Filtry</span></span>
           </button>
 
           <button
             onClick={() => setActiveTab('cycles')}
-            className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === 'cycles'
                 ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 scale-102'
                 : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
             }`}
           >
             <Cylinder size={16} />
-            <span>🏚️ Cykly tanků & Ztráty ({tankCycles.length})</span>
+            <span>🏚️ <span className="sm:hidden">Cykly ({tankCycles.length})</span><span className="hidden sm:inline">Cykly tanků & Ztráty ({tankCycles.length})</span></span>
           </button>
 
           <button
             onClick={() => setActiveTab('stats')}
-            className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === 'stats'
                 ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 scale-102'
                 : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
@@ -833,43 +834,43 @@ export default function History() {
 
           <button
             onClick={() => setActiveTab('orders')}
-            className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === 'orders'
                 ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 scale-102'
                 : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
             }`}
           >
             <ShoppingCart size={16} />
-            <span>📦 Přehled objednávek</span>
+            <span>📦 <span className="sm:hidden">Objednávky</span><span className="hidden sm:inline">Přehled objednávek</span></span>
           </button>
 
           <button
             onClick={() => setActiveTab('deliveries')}
-            className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === 'deliveries'
                 ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 scale-102'
                 : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
             }`}
           >
             <Truck size={16} />
-            <span>🚚 Historie a přehled tras</span>
+            <span>🚚 <span className="sm:hidden">Trasy</span><span className="hidden sm:inline">Historie a přehled tras</span></span>
           </button>
         </div>
 
         {/* 🖨️ Tlačítko tiskové uzávěrky pro sládka */}
         <button
           onClick={() => setShowPrintModal(true)}
-          className="px-4 py-2.5 rounded-2xl bg-neutral-900 hover:bg-neutral-800 text-amber-300 font-black text-xs transition shadow-md flex items-center gap-1.5 shrink-0"
+          className="px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-neutral-900 hover:bg-neutral-800 text-amber-300 font-black text-xs transition shadow-md flex items-center gap-1.5 shrink-0"
         >
           <Printer size={16} />
-          <span>🖨️ Měsíční uzávěrka (PDF/Tisk)</span>
+          <span>🖨️ <span className="sm:hidden">Uzávěrka</span><span className="hidden sm:inline">Měsíční uzávěrka (PDF/Tisk)</span></span>
         </button>
       </div>
 
       {/* TAB 1: OVERVIEW & MONTHLY COMPARISON */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
-          <div className="card p-4 flex flex-wrap items-end gap-3 bg-white border border-neutral-200">
+          <div className="card sticky top-0 z-10 p-4 flex flex-wrap items-end gap-3 bg-white border border-neutral-200 shadow-sm">
             <div className="flex-1 min-w-[180px]">
               <label className="label">Pivo</label>
               <select className="input" value={beerFilter} onChange={(e) => setBeerFilter(e.target.value)}>
@@ -1143,7 +1144,7 @@ export default function History() {
       {activeTab === 'production' && (
         <div className="space-y-6">
           {/* Volba období */}
-          <div className="card p-4 bg-white border border-neutral-200 rounded-3xl flex flex-wrap items-end gap-3">
+          <div className="card sticky top-0 z-10 p-4 bg-white border border-neutral-200 rounded-3xl flex flex-wrap items-end gap-3 shadow-sm">
             <div>
               <label className="label">Období</label>
               <div className="flex flex-wrap gap-1.5">

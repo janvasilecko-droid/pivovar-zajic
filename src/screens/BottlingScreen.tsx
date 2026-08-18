@@ -1562,7 +1562,7 @@ export default function BottlingScreen({
                 projeví okamžitě po uložení, v novém týdnu se počítá znovu z nových objednávek.
               </p>
 
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 bg-white py-1.5 -mx-4 px-4 sm:mx-0 sm:px-0">
                 {/* Filtr Pivo */}
                 <select
                   value={reqBeerFilter}
