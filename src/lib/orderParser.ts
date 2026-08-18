@@ -843,11 +843,15 @@ export function parseGeminiItems(
     if (item.beer_name) {
       ({ beer, alias } = matchBeerFromHints(normalize(item.beer_name), beers, aliases));
     }
-    if (!beer && item.degree) {
-      ({ beer, alias } = matchBeerFromHints(normalize(item.degree), beers, aliases));
-    }
+    // Celý raw text (obsahuje jméno piva, např. "Summer") má přednost před
+    // holým stupněm — pivo se stejným stupněm jako jiné (typicky bez
+    // vlastního stupně v katalogu, jako sezonní "Summer Ale") by jinak
+    // shoda podle degree přebila jménem správně určené pivo.
     if (!beer) {
       ({ beer, alias } = matchBeerFromHints(normalize(raw), beers, aliases));
+    }
+    if (!beer && item.degree) {
+      ({ beer, alias } = matchBeerFromHints(normalize(item.degree), beers, aliases));
     }
     // 🧠 "VŠE [stupeň]" NA KONCI OBJEDNÁVKY — pokud položka nemá pivo,
     // zkus ho najít podle globálního stupně z konce objednávky

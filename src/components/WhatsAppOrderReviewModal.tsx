@@ -6,6 +6,7 @@ import { loadAliasMap, saveAlias, matchBeerFromHints, matchPackage, matchPlaceFr
 import { PlaceCombobox } from './PlaceCombobox';
 import { QuickQtySelect } from './QuickQtySelect';
 import { Modal } from './ui';
+import { PhotoReviewPane } from './PhotoReviewPane';
 import {
   analyzeReadback,
   buildHighlightedSegments,
@@ -525,23 +526,20 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             </div>
           </div>
 
-          {/* Fotka/příloha — náhled + otevření a stažení (#22, DeepSeek fotky nečte,
-              takže je kontrola objednávky z fotky vždy na člověku). */}
+          {/* Fotka/příloha — čtení objednávek z fotky: zoomovatelný/posuvný
+              náhled (stejná komponenta jako ruční „Číst z fotky") místo
+              malého statického obrázku, ať jde snadno porovnat přepsané
+              položky se skutečnou fotkou (#22, DeepSeek fotky nečte, takže
+              je kontrola objednávky z fotky vždy na člověku). */}
           {message.media_url ? (
             <div className="mt-3">
-              <a
-                href={message.media_url}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-block"
-                title="Otevřít fotografii v nové kartě"
-              >
-                <img
-                  src={message.media_url}
-                  alt="Příloha zprávy"
-                  className="max-h-64 rounded-lg border border-blue-200 object-contain bg-white"
+              <div className="h-64 sm:h-80 rounded-lg overflow-hidden border border-blue-200">
+                <PhotoReviewPane
+                  photos={[{ dataUrl: message.media_url, name: 'Fotka objednávky' }]}
+                  activeIndex={0}
+                  onChangeIndex={() => {}}
                 />
-              </a>
+              </div>
               <div className="mt-2 flex flex-wrap gap-2">
                 <a
                   href={message.media_url}
@@ -757,13 +755,13 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                             isMismatch ? 'border-amber-300 ring-2 ring-amber-200' : ''
                           }`}
                         >
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <input
                               type="number"
                               min={1}
                               value={item.qty}
                               onChange={(e) => updateItemQty(index, e.target.value)}
-                              className="input !py-1 !px-2 text-sm font-bold w-16 text-center"
+                              className="input !py-1 !px-2 text-sm font-bold w-16 text-center shrink-0"
                               title="Množství"
                             />
                             <QuickQtySelect

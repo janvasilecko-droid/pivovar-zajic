@@ -775,7 +775,7 @@ export default function BottlingScreen({
     <div className="space-y-6 pb-12">
       {/* Top Action Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl sm:rounded-3xl border border-neutral-200/90 shadow-2xs">
-        <div className="flex items-center justify-between gap-2">
+        <div className="hidden sm:flex items-center justify-between gap-2">
           <span className="text-sm sm:text-base font-display font-black text-amber-950 flex items-center gap-1.5 shrink-0">
             <span>🍾</span>
             <span>{mode === 'entry_only' ? 'Lahve (Stáčení)' : mode === 'overviews_only' ? 'Lahve (Přehled)' : 'Lahve (Stáčení & Přehled)'}</span>
@@ -790,7 +790,7 @@ export default function BottlingScreen({
               onClick={() => setTab('zapis')}
               className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'zapis' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-700 hover:bg-amber-50'}`}
             >
-              🍾 Stáčení lahví
+              🍾 Začátek stáčení
               {unseenCount > 0 && (
                 <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black animate-pulse">{unseenCount}</span>
               )}
