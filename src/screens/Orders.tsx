@@ -23,7 +23,7 @@ import { topQuantitiesLastMonth } from '../lib/quickQty';
 import { parseVoiceOrder, parseOrderText, detectOrderNotes, loadAliasMap, loadPlaceAliasMap, emptyAliasMap, getOrCreatePlace, matchBeerFromHints, matchPackage, normalize, type ParserAliasMap } from '../lib/orderParser';
 
 import { shareOrderToWhatsApp } from '../lib/whatsapp';
-import { subscribeToWhatsAppMessages, fetchPendingWhatsAppMessages, fetchWhatsAppMessage, WhatsAppIncoming, fetchWhatsAppSenders, isSenderAllowed, triggerAutoParse, sendOrderToWhatsApp, type WhatsAppSender } from '../lib/whatsappApi';
+import { subscribeToWhatsAppMessages, fetchPendingWhatsAppMessages, fetchWhatsAppMessage, WhatsAppIncoming, fetchWhatsAppSenders, isSenderAllowed, triggerAutoParse, type WhatsAppSender } from '../lib/whatsappApi';
 import { autoReserveTapIfNeeded, isTapMentioned, detectTapType } from '../lib/tapReservations';
 import { findDuplicateOrders, formatDuplicateMessage } from '../lib/orderDuplicates';
 import { TapReservationModal } from '../components/TapReservationModal';
@@ -875,6 +875,7 @@ export default function Orders({
     // Keep track of the first created order ID for tap reservation
     let firstOrderId: string | undefined;
     let firstPlaceName: string | undefined;
+    let firstOrderItems: { beer_name: string | null; package_label: string | null; quantity: number }[] | undefined;
 
     try {
       for (const group of groups.values()) {
@@ -906,24 +907,17 @@ export default function Orders({
         const { error: itemErr } = await supabase.from('order_items').insert(itemRows);
         if (itemErr) throw new Error(itemErr.message);
 
-        // 📤 Volitelné odeslání shrnutí objednávky do WhatsApp skupiny — chyba
-        // odeslání nesmí shodit vytvoření objednávky, jen se zaloguje/ukáže.
-        if (sendWhatsApp) {
-          try {
-            await sendOrderToWhatsApp({
-              placeName: group.resolvedName || 'Neznámý odběratel',
-              items: itemRows.map((r) => ({
-                qty: r.quantity,
-                beerName: r.beer_name ?? '?',
-                packageLabel: formatPackageLabel(r.package_label) || '?',
-              })),
-              note: note.trim() || null,
-            });
-          } catch (waErr: any) {
-            console.warn('Odeslání na WhatsApp selhalo:', waErr);
-            setErr((prev) => prev ?? `Objednávka byla vytvořena, ale odeslání na WhatsApp selhalo: ${waErr?.message ?? waErr}`);
-          }
-        }
+        if (!firstOrderItems) firstOrderItems = itemRows;
+      }
+
+      // 📤 Volitelné odeslání shrnutí (jen první vytvořené objednávky, pokud
+      // se odesílá víc odběratelů najednou) přes WhatsApp — otevře appku
+      // WhatsApp s předvyplněnou zprávou, uživatel jen vybere kam poslat.
+      if (sendWhatsApp && firstOrderItems) {
+        shareOrderToWhatsApp(
+          { place_name: firstPlaceName || null, order_date: date, delivery_day: deliveryDay || null, delivery_date: deliveryDate || null, note: note.trim() || null },
+          firstOrderItems
+        );
       }
 
       // Pokud je vyplněno konkrétní datum dodání, vytvoř upomínku 48 hodin předem v 9:00
@@ -1810,7 +1804,7 @@ export default function Orders({
                 className="!bg-[#25D366] hover:!bg-[#1da851] !border-[#25D366] !text-white text-xs font-black shadow-md flex items-center gap-1.5 px-3.5 py-2 rounded-xl transition disabled:opacity-40"
                 disabled={saving || (!filledBeerRows.length && !manualText.trim())}
                 onClick={() => addOrder(undefined, true)}
-                title="Vytvoří objednávku a zároveň pošle její shrnutí do WhatsApp skupiny Objednávky pivovar"
+                title="Vytvoří objednávku a otevře WhatsApp s předvyplněnou zprávou"
               >
                 <MessageCircle size={14} /> {saving ? '⏳ Ukládám…' : '📤 Vytvořit a odeslat na WhatsApp'}
               </button>

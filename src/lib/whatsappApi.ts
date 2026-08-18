@@ -253,33 +253,6 @@ export async function triggerAutoParse(): Promise<{ success: boolean; message: s
 }
 
 /**
- * Pošle shrnutí nové objednávky do WhatsApp skupiny "Objednávky pivovar"
- * (stejné skupiny, ze které appka zprávy čte) — přes whatsapp-bridge.
- */
-export async function sendOrderToWhatsApp(order: {
-  placeName: string;
-  items: Array<{ qty: number; beerName: string; packageLabel: string }>;
-  note?: string | null;
-}): Promise<{ ok: boolean; text: string }> {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  if (!supabaseUrl) {
-    throw new Error('Missing Supabase configuration');
-  }
-
-  const response = await fetch(`${supabaseUrl}/functions/v1/whatsapp-send-order`, {
-    method: 'POST',
-    headers: await authenticatedFunctionHeaders(),
-    body: JSON.stringify(order),
-  });
-
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(result?.error || `Odeslání selhalo (HTTP ${response.status})`);
-  }
-  return result;
-}
-
-/**
  * Get webhook URL for Make.com integration
  */
 export function getMakeWebhookUrl(): string {

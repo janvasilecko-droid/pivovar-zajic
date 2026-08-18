@@ -20,7 +20,9 @@ export function shareOrderToWhatsApp(
 
   const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
   if (typeof window !== 'undefined') {
-    window.open(url, '_blank');
+    // Přímá navigace (ne nová záložka) — na mobilu spolehlivěji předá odkaz
+    // rovnou nainstalované appce, místo aby zůstala viset prázdná záložka.
+    window.location.href = url;
   }
 }
 
@@ -41,6 +43,6 @@ export function shareDeliveryListToWhatsApp(
 
   const url = `https://wa.me/?text=${encodeURIComponent(body.trim())}`;
   if (typeof window !== 'undefined') {
-    window.open(url, '_blank');
+    window.location.href = url;
   }
 }
