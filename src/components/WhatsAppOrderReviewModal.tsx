@@ -64,6 +64,10 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   const [strictReadback, setStrictReadback] = useState(false);
   const [prevRawText, setPrevRawText] = useState<string | null>(null);
   const [rebuildKey, setRebuildKey] = useState(0);
+  // Explicitní potvrzení "porovnal/a jsem fotku s přepisem" u fotoobjednávek
+  // — dokud uživatel nekliknul, schválení je zamčené (ať se fotka opravdu
+  // zkontroluje, ne jen proklikne).
+  const [photoChecked, setPhotoChecked] = useState(false);
   // Reference na položky pro auto-posun na první nesoulad (#9).
   const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
   // Uživatel ručně upravil odběratele — inicializace ho nesmí přepsat.
@@ -77,6 +81,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     setMsg(props.message);
     setStatusMessage(null);
     setPrevRawText(null);
+    setPhotoChecked(false);
   }, [props.message?.id]);
 
   // Přísný režim: zakázat schválení, dokud nejsou nesoulady opraveny.
@@ -527,13 +532,14 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           </div>
 
           {/* Fotka/příloha — čtení objednávek z fotky: zoomovatelný/posuvný
-              náhled (stejná komponenta jako ruční „Číst z fotky") místo
-              malého statického obrázku, ať jde snadno porovnat přepsané
-              položky se skutečnou fotkou (#22, DeepSeek fotky nečte, takže
-              je kontrola objednávky z fotky vždy na člověku). */}
+              náhled (stejná komponenta jako ruční „Číst z fotky"), přilepený
+              nahoře přes polovinu obrazovky, zatímco se pod ním scrolluje
+              přepis a položky — jde tak průběžně porovnávat fotku s tím,
+              co se z ní zapsalo (#22, DeepSeek fotky nečte, takže je
+              kontrola objednávky z fotky vždy na člověku). */}
           {message.media_url ? (
             <div className="mt-3">
-              <div className="h-64 sm:h-80 rounded-lg overflow-hidden border border-blue-200">
+              <div className="sticky top-0 z-20 h-[45vh] sm:h-96 rounded-lg overflow-hidden border border-blue-200 shadow-lg">
                 <PhotoReviewPane
                   photos={[{ dataUrl: message.media_url, name: 'Fotka objednávky' }]}
                   activeIndex={0}
@@ -888,7 +894,22 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             )}
           </div>
         ) : (
-          <div className="flex flex-col sm:flex-row gap-3 justify-between pt-4 border-t">
+          <div className="flex flex-col gap-3 pt-4 border-t">
+            {isImage && message.media_url && (
+              <button
+                type="button"
+                onClick={() => setPhotoChecked((v) => !v)}
+                className={`self-start flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-semibold border transition ${
+                  photoChecked
+                    ? 'bg-green-50 border-green-300 text-green-800'
+                    : 'bg-amber-50 border-amber-300 text-amber-800 animate-pulse'
+                }`}
+              >
+                {photoChecked ? <Check size={16} /> : <Eye size={16} />}
+                {photoChecked ? 'Zkontrolováno — fotka odpovídá přepisu' : 'Zkontrolovat fotku a potvrdit'}
+              </button>
+            )}
+            <div className="flex flex-col sm:flex-row gap-3 justify-between">
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={handleIgnore}
@@ -910,10 +931,12 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
 
             <button
               onClick={handleApprove}
-              disabled={approving || loading || !isParsed || items.length === 0 || (strictReadback && readback.mismatchCount > 0)}
+              disabled={approving || loading || !isParsed || items.length === 0 || (strictReadback && readback.mismatchCount > 0) || (isImage && !!message.media_url && !photoChecked)}
               className="px-6 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2 font-medium"
               title={
-                items.length === 0
+                isImage && !!message.media_url && !photoChecked
+                  ? 'Nejprve potvrďte, že jste fotku zkontroloval/a (tlačítko výše).'
+                  : items.length === 0
                   ? 'Žádné položky k importu — smazanou položku vrátíte zavřením bez schválení nebo „Přečíst znovu (AI)".'
                   : strictReadback && readback.mismatchCount > 0
                     ? 'Přísný režim je zapnutý — opravte ⚠ položky nebo přísný režim vypněte.'
@@ -929,6 +952,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                       : 'Schválit a importovat')
                 : 'Čeká na parsování...'}
             </button>
+            </div>
           </div>
         )}
 

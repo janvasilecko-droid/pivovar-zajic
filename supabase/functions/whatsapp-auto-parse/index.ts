@@ -279,6 +279,25 @@ function matchBeerInText(
   }
   if (fuzzyBest && fuzzyScore >= 0.72) return fuzzyBest;
 
+  // 2d) Rozlišující slovo přímo ze jména piva (vlastní jméno jako
+  // Jantar/Summer/Hazy/Bunny, ne obecné "světlé/tmavé") — má přednost
+  // před shodou podle stupně. Bez tohohle by sezonní pivo bez vlastního
+  // stupně v katalogu (např. "Summer Ale") přebilo jiné pivo se stejným
+  // stupněm, protože OCR text má jen "summer", ne celé "summer ale"
+  // (na to fuzzy shoda výše nestačí — chybí celé slovo "ale").
+  const DISTINCTIVE_NAME_HINTS: [RegExp, string][] = [
+    [/\bjantar\b|\bjant\b|\bjantarek\b|\bpolotmav\b/, "jantar"],
+    [/\bsummer\b|\bsumr\b/, "summer"],
+    [/\bhazy\b|\bipa\b|\bneipa\b/, "hazy"],
+    [/\bbunny\b|\bbuni\b/, "bunny"],
+  ];
+  for (const [pattern, token] of DISTINCTIVE_NAME_HINTS) {
+    if (pattern.test(text)) {
+      const hit = beers.find((b) => normText(b.name).includes(token));
+      if (hit) return hit.id;
+    }
+  }
+
   // 3) Podle stupně (rozlišení světlá/tmavá, 12° má 2 piva v katalogu)
   const degree = (rawDegree || "").replace("°", "").trim();
   if (degree) {
