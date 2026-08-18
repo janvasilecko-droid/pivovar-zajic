@@ -334,7 +334,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
       {/* Tab Navigation */}
       <div className="flex items-center gap-2 border-b border-neutral-200 pb-2 overflow-x-auto scrollbar-thin mb-4">
         <button
-          onClick={() => setActiveTab('sklad')}
+          onClick={() => (setPage ? setPage('dashboard') : setActiveTab('sklad'))}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'sklad'
               ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
@@ -346,7 +346,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
         </button>
 
         <button
-          onClick={() => setActiveTab('sklo_promo')}
+          onClick={() => (setPage ? setPage('sklo_promo') : setActiveTab('sklo_promo'))}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'sklo_promo'
               ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
@@ -409,7 +409,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
           </div>
 
           <button
-            onClick={() => setActiveTab('sklo_promo')}
+            onClick={() => (setPage ? setPage('sklo_promo') : setActiveTab('sklo_promo'))}
             className="px-4 py-2.5 rounded-2xl bg-neutral-900 text-amber-300 font-extrabold text-xs shadow-md hover:bg-slate-800 transition shrink-0"
           >
             Přejít do evidence etiket & lahví →
