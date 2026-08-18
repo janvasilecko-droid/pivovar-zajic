@@ -332,17 +332,6 @@ export function beerText(beer: { beer_color?: string | null } | null | undefined
 export function beerBorder(beer: { beer_color?: string | null } | null | undefined): string {
   return beer?.beer_color ?? '#E5E7EB';
 }
-/**
- * Světlý odstín barvy piva pro pozadí dlaždice/karty (barevný rámeček z
- * beerBorder pak na světlém podkladu vynikne víc než na čistě bílé —
- * spousta barev piv v katalogu je sama o sobě pastelová/světlá, takže by
- * jako tenký rámeček na bílé skoro nebyla vidět).
- */
-export function beerBgLight(beer: { beer_color?: string | null } | null | undefined): string {
-  const c = beer?.beer_color;
-  if (!c || c.replace('#', '').length !== 6) return '#FFFFFF';
-  return c + '26'; // ~15% opacity nad bílým pozadím stránky
-}
 
 /**
  * Vrátí zkratku piva (short_name), pokud existuje, jinak celý název.

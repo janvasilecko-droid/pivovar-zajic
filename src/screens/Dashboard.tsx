@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase, Beer, Package, Vehicle, useRealtime, beerBgLight, beerBorder } from '../lib/supabase';
+import { supabase, Beer, Package, Vehicle, useRealtime, beerBorder } from '../lib/supabase';
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { getVehicleExpiryStatus } from './Catalogs';
@@ -486,7 +486,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
               <div
                 key={s.beer.id}
                 className="card-hover p-5 flex flex-col relative overflow-hidden group border-2"
-                style={{ backgroundColor: beerBgLight(s.beer), borderColor: beerBorder(s.beer) }}
+                style={{ borderColor: beerBorder(s.beer) }}
               >
                 <div className="flex items-start justify-between mb-3.5">
                   <div>

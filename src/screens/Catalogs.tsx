@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { supabase, Beer, Package, Place, Vehicle, useRealtime, BEER_COLOR_PRESETS, beerBgLight, beerBorder } from '../lib/supabase';
+import { supabase, Beer, Package, Place, Vehicle, useRealtime, BEER_COLOR_PRESETS, beerBorder } from '../lib/supabase';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import ExcelImportModal from '../components/ExcelImportModal';
 import { FileSpreadsheet, Plus, Search, Beer as BeerIcon, Package as PackageIcon, MapPin, Phone, Mail, Edit, Trash2, Eye, EyeOff, Car, AlertTriangle, ShieldCheck, ShieldAlert } from 'lucide-react';
@@ -73,7 +73,7 @@ export function BeersScreen() {
       {loading ? <Spinner /> : filtered.length === 0 ? <EmptyState text="Žádná piva v katalogu." icon="🍺" /> : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((b) => (
-            <div key={b.id} className="card p-5 border-2 shadow-sm transition-all hover:shadow-md flex flex-col justify-between" style={{ backgroundColor: beerBgLight(b), borderColor: beerBorder(b) }}>
+            <div key={b.id} className="card p-5 border-2 shadow-sm transition-all hover:shadow-md flex flex-col justify-between" style={{ borderColor: beerBorder(b) }}>
               <div>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">

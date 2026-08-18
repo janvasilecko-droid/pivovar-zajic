@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Beer, beerBg, beerBgLight, beerBorder, beerText, beerName } from '../lib/supabase';
+import { Beer, beerBg, beerBorder, beerText, beerName } from '../lib/supabase';
 
 type TileSummary = {
   filled: boolean;
@@ -32,23 +32,23 @@ export function BeerTileGrid({ beers, onSelect, summaryFor, emptyHint = 'klepni 
             key={b.id}
             type="button"
             onClick={() => onSelect(b)}
-            className={`relative text-left rounded-2xl shadow-sm p-3 min-h-[76px] transition-all hover:brightness-[0.97] active:scale-[0.98] flex flex-col gap-1.5 border-2 ${
-              filled ? 'ring-2 ring-success-500 ring-offset-1 ring-offset-white dark:ring-offset-neutral-900' : ''
+            className={`relative text-left bg-white rounded-2xl shadow-sm p-3 min-h-[76px] transition-all hover:brightness-[0.97] active:scale-[0.98] flex flex-col gap-1.5 border-2 ${
+              filled ? 'ring-2 ring-success-500 ring-offset-1 ring-offset-white' : ''
             }`}
-            style={{ backgroundColor: beerBgLight(b), borderColor: beerBorder(b) }}
+            style={{ borderColor: beerBorder(b) }}
           >
             {filled && (
               <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-success-600 text-white text-xs font-black grid place-items-center shadow-md">
                 ✓
               </span>
             )}
-            <span className="font-black text-sm leading-tight text-neutral-900 dark:text-neutral-100">{beerName(b)}</span>
+            <span className="font-black text-sm leading-tight text-neutral-900">{beerName(b)}</span>
             {!hideDegree && b.degree && (
-              <span className="self-start text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300">
+              <span className="self-start text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600">
                 {b.degree}
               </span>
             )}
-            <span className={`mt-auto text-[11px] font-bold ${filled ? 'text-neutral-800 dark:text-neutral-200' : 'text-neutral-400'}`}>
+            <span className={`mt-auto text-[11px] font-bold ${filled ? 'text-neutral-800' : 'text-neutral-400'}`}>
               {filled ? label : emptyHint}
             </span>
           </button>
