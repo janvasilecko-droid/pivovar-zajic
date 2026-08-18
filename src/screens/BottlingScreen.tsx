@@ -16,7 +16,7 @@ import { autoLogBottleSanitationFromChecklist } from '../lib/bottleSanitation';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
-import { BeerTileGrid, BeerTilePanel, TileTotalBar } from '../components/BeerTileGrid';
+import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { topQuantitiesLastMonth } from '../lib/quickQty';
 
 
@@ -843,6 +843,7 @@ export default function BottlingScreen({
         )}
 
           {/* Export do Excelu — vedle názvu */}
+          <div className="flex items-center gap-1.5 flex-wrap">
           <div className="relative group">
             <button className="btn-ghost !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs" disabled={!rows.length}>📊 Export Excel ▾</button>
             {rows.length > 0 && (
@@ -869,6 +870,20 @@ export default function BottlingScreen({
                 }}>📅 Všechno</button>
               </div>
             )}
+          </div>
+
+          {(mode === 'entry_only' || (mode === 'all' && tab === 'zapis')) && isStartChecklistCompleteForDate(date) && (
+            <>
+              <button
+                type="button"
+                onClick={() => setShowImageImport(true)}
+                className="btn-ghost !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs flex items-center gap-1.5"
+              >
+                <Camera size={14} /> Číst z fotky
+              </button>
+              <VoiceRecorder onResult={handleVoiceResult} beerNames={beers.map((b) => b.name)} />
+            </>
+          )}
           </div>
         </div>
 
@@ -918,40 +933,12 @@ export default function BottlingScreen({
           </div>
         ) : (
         <form onSubmit={add} className={`card px-2 py-3 mb-5 transition-all duration-200 ${flash ? 'ring-4 ring-success-500/20' : ''}`}>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 p-2 bg-primary-50/50 rounded-2xl border border-primary-100">
-            <div className="grid grid-cols-2 gap-3 items-end flex-1">
-              <div>
-                <label className="label">Datum</label>
-                <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
-              </div>
-              <div>
-                <label className="label">Poznámka</label>
-                <input className="input text-xs" value={note} onChange={(e) => setNote(e.target.value)} placeholder="nepovinná poznámka" />
-              </div>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0">
-              <button
-                type="button"
-                onClick={() => { setChecklistPhase('end'); setChecklistGate(false); setShowChecklistModal(true); }}
-                className="px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-xs font-black shadow-md min-h-[44px] transition flex items-center gap-1.5 self-stretch sm:self-end shrink-0"
-              >
-                🧹 Konec stáčení
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowImageImport(true)}
-                className="btn-primary py-2.5 px-4 text-xs font-black shadow-md flex items-center justify-center gap-2 self-stretch sm:self-end shrink-0"
-              >
-                <Camera size={16} /> 📷 Zadání stočení z fotky
-              </button>
-            </div>
+          <div className="flex items-center gap-2 mb-4">
+            <label className="label !mb-0 shrink-0">Datum</label>
+            <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
 
           {/* 🍺 Piva — dlaždice (klikni na pivo → obaly a množství) */}
-          <TileTotalBar
-            label="Zatím v zápisu"
-            value={`${beers.filter((b) => b.is_active).reduce((s, b) => s + tileQtyFor(b.id), 0)} ks`}
-          />
           <div className="mb-2">
             <span className="text-[11px] text-neutral-400 font-medium">klepni na dlaždici a zadej obaly a množství</span>
           </div>
@@ -1131,7 +1118,6 @@ export default function BottlingScreen({
                 {saving ? '⏳ Ukládám…' : '💾 Uložit stáčení lahví'}
               </button>
               <button type="button" className="btn-ghost text-xs font-bold min-h-[44px] px-3.5" onClick={() => setEntryRows(emptyRows())}>🗑️ Vymazat vše</button>
-              <VoiceRecorder onResult={handleVoiceResult} beerNames={beers.map((b) => b.name)} />
             </div>
             {err && <span className="text-xs font-bold text-rose-700 bg-rose-50 px-3 py-1.5 rounded-xl border border-rose-200">{err}</span>}
           </div>
