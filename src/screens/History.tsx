@@ -1511,41 +1511,44 @@ export default function History() {
               </div>
             </div>
 
-            {/* Zdroje aktivit */}
-            <div>
-              <label className="label mb-2">Aktivita / zdroj dat</label>
-              <div className="flex flex-wrap gap-2">
-                {ACTIVITY_SOURCES.map((s) => {
-                  const active = selSources.has(s.key);
-                  return (
-                    <button
-                      key={s.key}
-                      type="button"
-                      onClick={() => setSelSources((set) => toggleSet(set, s.key))}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-black transition ${active ? 'bg-amber-500 text-neutral-950 shadow-2xs' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'}`}
-                    >
-                      {s.icon} {s.label}
-                    </button>
-                  );
-                })}
+            {/* Zdroje aktivit + Date range — přilepené nahoře, ať jde měnit
+                filtr i uprostřed prohlížení výsledků dole. */}
+            <div className="sticky top-0 z-10 bg-white space-y-3 py-1 -mx-5 px-5">
+              <div>
+                <label className="label mb-2">Aktivita / zdroj dat</label>
+                <div className="flex flex-wrap gap-2">
+                  {ACTIVITY_SOURCES.map((s) => {
+                    const active = selSources.has(s.key);
+                    return (
+                      <button
+                        key={s.key}
+                        type="button"
+                        onClick={() => setSelSources((set) => toggleSet(set, s.key))}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-black transition ${active ? 'bg-amber-500 text-neutral-950 shadow-2xs' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'}`}
+                      >
+                        {s.icon} {s.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
 
-            {/* Date range */}
-            <div className="flex flex-wrap items-end gap-3 bg-neutral-50 p-3.5 rounded-2xl border border-neutral-200">
-              <div>
-                <label className="block text-[11px] font-black uppercase text-neutral-600 mb-1">Od</label>
-                <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="input !py-1.5 text-xs font-mono font-bold" />
-              </div>
-              <div>
-                <label className="block text-[11px] font-black uppercase text-neutral-600 mb-1">Do</label>
-                <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="input !py-1.5 text-xs font-mono font-bold" />
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                <button className="px-2.5 py-1.5 rounded-xl bg-white border border-neutral-300 text-xs font-bold" onClick={() => setQuickRange('week')}>Týden</button>
-                <button className="px-2.5 py-1.5 rounded-xl bg-white border border-neutral-300 text-xs font-bold" onClick={() => setQuickRange('month')}>Měsíc</button>
-                <button className="px-2.5 py-1.5 rounded-xl bg-white border border-neutral-300 text-xs font-bold" onClick={() => setQuickRange('year')}>Rok</button>
-                <button className="px-2.5 py-1.5 rounded-xl bg-white border border-neutral-300 text-xs font-bold" onClick={() => setQuickRange('all')}>Vše</button>
+              {/* Date range */}
+              <div className="flex flex-wrap items-end gap-3 bg-neutral-50 p-3.5 rounded-2xl border border-neutral-200">
+                <div>
+                  <label className="block text-[11px] font-black uppercase text-neutral-600 mb-1">Od</label>
+                  <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="input !py-1.5 text-xs font-mono font-bold" />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-black uppercase text-neutral-600 mb-1">Do</label>
+                  <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="input !py-1.5 text-xs font-mono font-bold" />
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  <button className="px-2.5 py-1.5 rounded-xl bg-white border border-neutral-300 text-xs font-bold" onClick={() => setQuickRange('week')}>Týden</button>
+                  <button className="px-2.5 py-1.5 rounded-xl bg-white border border-neutral-300 text-xs font-bold" onClick={() => setQuickRange('month')}>Měsíc</button>
+                  <button className="px-2.5 py-1.5 rounded-xl bg-white border border-neutral-300 text-xs font-bold" onClick={() => setQuickRange('year')}>Rok</button>
+                  <button className="px-2.5 py-1.5 rounded-xl bg-white border border-neutral-300 text-xs font-bold" onClick={() => setQuickRange('all')}>Vše</button>
+                </div>
               </div>
             </div>
 

@@ -612,7 +612,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
 
           {/* Tabulka Sklo */}
           <div className="card p-6 bg-white border border-neutral-200 rounded-3xl shadow-xs space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 pb-3">
+            <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 bg-white pb-3 -mx-6 px-6 pt-1 -mt-1">
               <h3 className="font-display font-black text-lg text-neutral-900">Přehled zadaných pohybů ({filteredEntries.length})</h3>
               <div className="flex items-center gap-2">
                 <input type="text" placeholder="Hledat odběratele nebo předmět…" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="input !py-1.5 text-xs font-bold w-48" />
