@@ -3,7 +3,7 @@ import { useAuth } from '../lib/auth';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 
-import { supabase, Beer, Package, CellarTank, CellarTransfer, CellarTankCycle, EntryRow, useRealtime, beerBorder } from '../lib/supabase';
+import { supabase, Beer, Package, CellarTank, CellarTransfer, CellarTankCycle, EntryRow, useRealtime, beerBgLight, beerBorder } from '../lib/supabase';
 import { Modal, Field, Spinner } from '../components/ui';
 import { TankOccupancyPlanner } from '../components/TankOccupancyPlanner';
 
@@ -582,7 +582,10 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
 
               return (
                 <div key={t.id} className={`card border-2 p-4 flex flex-col ${isLow ? 'ring-2 ring-warning-400' : ''}`}
-                  style={{ borderColor: beerBorder(t.current_beer_name ? beers.find((b) => b.name === t.current_beer_name) : null) }}>
+                  style={{
+                    backgroundColor: beerBgLight(t.current_beer_name ? beers.find((b) => b.name === t.current_beer_name) : null),
+                    borderColor: beerBorder(t.current_beer_name ? beers.find((b) => b.name === t.current_beer_name) : null),
+                  }}>
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="font-display font-bold text-lg text-primary-900">{t.label}</div>

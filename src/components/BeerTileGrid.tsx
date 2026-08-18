@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Beer, beerBg, beerBorder, beerText, beerName } from '../lib/supabase';
+import { Beer, beerBg, beerBgLight, beerBorder, beerText, beerName } from '../lib/supabase';
 
 type TileSummary = {
   filled: boolean;
@@ -32,10 +32,10 @@ export function BeerTileGrid({ beers, onSelect, summaryFor, emptyHint = 'klepni 
             key={b.id}
             type="button"
             onClick={() => onSelect(b)}
-            className={`relative text-left rounded-2xl shadow-sm p-3 min-h-[76px] transition-all hover:brightness-[0.97] active:scale-[0.98] flex flex-col gap-1.5 bg-white dark:bg-neutral-900 border-2 ${
+            className={`relative text-left rounded-2xl shadow-sm p-3 min-h-[76px] transition-all hover:brightness-[0.97] active:scale-[0.98] flex flex-col gap-1.5 border-2 ${
               filled ? 'ring-2 ring-success-500 ring-offset-1 ring-offset-white dark:ring-offset-neutral-900' : ''
             }`}
-            style={{ borderColor: beerBorder(b) }}
+            style={{ backgroundColor: beerBgLight(b), borderColor: beerBorder(b) }}
           >
             {filled && (
               <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-success-600 text-white text-xs font-black grid place-items-center shadow-md">
