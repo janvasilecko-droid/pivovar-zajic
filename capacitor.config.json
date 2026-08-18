@@ -3,6 +3,7 @@
   "appName": "Pivovar Zajíc",
   "webDir": "dist",
   "server": {
-    "androidScheme": "https"
+    "androidScheme": "https",
+    "url": "https://zajic-pivovar.pages.dev"
   }
 }
