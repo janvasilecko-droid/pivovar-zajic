@@ -23,7 +23,7 @@ import { topQuantitiesLastMonth } from '../lib/quickQty';
 import { parseVoiceOrder, parseOrderText, detectOrderNotes, loadAliasMap, loadPlaceAliasMap, emptyAliasMap, getOrCreatePlace, matchBeerFromHints, matchPackage, normalize, type ParserAliasMap } from '../lib/orderParser';
 
 import { shareOrderToWhatsApp } from '../lib/whatsapp';
-import { subscribeToWhatsAppMessages, fetchPendingWhatsAppMessages, fetchWhatsAppMessage, WhatsAppIncoming, fetchWhatsAppSenders, isSenderAllowed, triggerAutoParse, type WhatsAppSender } from '../lib/whatsappApi';
+import { subscribeToWhatsAppMessages, fetchPendingWhatsAppMessages, fetchWhatsAppMessage, WhatsAppIncoming, fetchWhatsAppSenders, isSenderAllowed, triggerAutoParse, sendOrderToWhatsApp, type WhatsAppSender } from '../lib/whatsappApi';
 import { autoReserveTapIfNeeded, isTapMentioned, detectTapType } from '../lib/tapReservations';
 import { findDuplicateOrders, formatDuplicateMessage } from '../lib/orderDuplicates';
 import { TapReservationModal } from '../components/TapReservationModal';
@@ -815,7 +815,7 @@ export default function Orders({
     return remaining;
   }
 
-  async function addOrder(e?: React.FormEvent) {
+  async function addOrder(e?: React.FormEvent, sendWhatsApp = false) {
     e?.preventDefault();
     setErr(null);
     // 📝 Pokud uživatel napsal objednávku textem, ale tabulka je prázdná,
@@ -905,6 +905,25 @@ export default function Orders({
 
         const { error: itemErr } = await supabase.from('order_items').insert(itemRows);
         if (itemErr) throw new Error(itemErr.message);
+
+        // 📤 Volitelné odeslání shrnutí objednávky do WhatsApp skupiny — chyba
+        // odeslání nesmí shodit vytvoření objednávky, jen se zaloguje/ukáže.
+        if (sendWhatsApp) {
+          try {
+            await sendOrderToWhatsApp({
+              placeName: group.resolvedName || 'Neznámý odběratel',
+              items: itemRows.map((r) => ({
+                qty: r.quantity,
+                beerName: r.beer_name ?? '?',
+                packageLabel: formatPackageLabel(r.package_label) || '?',
+              })),
+              note: note.trim() || null,
+            });
+          } catch (waErr: any) {
+            console.warn('Odeslání na WhatsApp selhalo:', waErr);
+            setErr((prev) => prev ?? `Objednávka byla vytvořena, ale odeslání na WhatsApp selhalo: ${waErr?.message ?? waErr}`);
+          }
+        }
       }
 
       // Pokud je vyplněno konkrétní datum dodání, vytvoř upomínku 48 hodin předem v 9:00
@@ -1784,6 +1803,16 @@ export default function Orders({
             <div className="flex items-center gap-2">
               <button type="submit" className="btn-primary text-xs font-black shadow-md" disabled={saving || (!filledBeerRows.length && !manualText.trim())}>
                 {saving ? '⏳ Ukládám…' : `💾 Vytvořit objednávku${filledBeerRows.length ? ` (${filledBeerRows.length} pol. / ${filledBeerRows.reduce((s, r) => s + Number(r.qty || 0), 0)} ks)` : manualText.trim() ? ' (z textu)' : ''}`}
+              </button>
+
+              <button
+                type="button"
+                className="!bg-[#25D366] hover:!bg-[#1da851] !border-[#25D366] !text-white text-xs font-black shadow-md flex items-center gap-1.5 px-3.5 py-2 rounded-xl transition disabled:opacity-40"
+                disabled={saving || (!filledBeerRows.length && !manualText.trim())}
+                onClick={() => addOrder(undefined, true)}
+                title="Vytvoří objednávku a zároveň pošle její shrnutí do WhatsApp skupiny Objednávky pivovar"
+              >
+                <MessageCircle size={14} /> {saving ? '⏳ Ukládám…' : '📤 Vytvořit a odeslat na WhatsApp'}
               </button>
 
               <button type="button" className="btn-ghost text-xs" onClick={() => { setBeerRows(Array.from({ length: 4 }, () => ({ beerId: '', pkgId: '', qty: '', placeId: '', placeNameFree: '' }))); setExpandedBeerId(null); }}>

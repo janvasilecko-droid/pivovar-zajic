@@ -36,6 +36,10 @@ const ALLOWED_CONTACTS = (process.env.ALLOWED_CONTACTS || 'Ala Milacek Milacek')
   .map((s) => s.trim())
   .filter(Boolean);
 
+/** Sdílené tajemství pro POST /send (appka žádá bridge o odeslání zprávy ven).
+    Bez správné hlavičky x-send-token vrací /send HTTP 401. */
+const SEND_TOKEN = process.env.SEND_TOKEN || '';
+
 /** Historie chatu: starší zprávy (history sync) se po připojení přeposílají do aplikace. */
 const SYNC_HISTORY = (process.env.SYNC_HISTORY || 'on') !== 'off';
 const HISTORY_MAX_MESSAGES = Math.max(0, Number(process.env.HISTORY_MAX_MESSAGES || 1000) || 0);
@@ -62,7 +66,16 @@ const qrState = {
   qr: null, // poslední QR string (null = zatím žádný / nepárované)
   connected: false,
   updatedAt: null,
+  sock: null, // aktuální živý Baileys socket (přepisuje se při každém (re)připojení) — čte ho POST /send
 };
+
+/** Bezpečné porovnání tajemství (stejná odolnost proti timing útoku jako u webhooku). */
+function secretsEqual(actual, expected) {
+  if (actual.length !== expected.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < actual.length; i++) mismatch |= actual.charCodeAt(i) ^ expected.charCodeAt(i);
+  return mismatch === 0;
+}
 
 // --- Health + QR endpoint (Render Web Service / health check) --------------
 function renderQrPage() {
@@ -110,6 +123,24 @@ function renderQrPage() {
 </html>`;
 }
 
+/** Přečte a rozparsuje JSON tělo POST requestu (limit 64 KB — jen krátké zprávy). */
+function readJsonBody(req, maxBytes = 64 * 1024) {
+  return new Promise((resolve, reject) => {
+    let size = 0;
+    const chunks = [];
+    req.on('data', (chunk) => {
+      size += chunk.length;
+      if (size > maxBytes) { reject(new Error('payload too large')); req.destroy(); return; }
+      chunks.push(chunk);
+    });
+    req.on('end', () => {
+      try { resolve(chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {}); }
+      catch (e) { reject(e); }
+    });
+    req.on('error', reject);
+  });
+}
+
 function startHttpServer(state) {
   const port = Number(process.env.PORT || 3000);
   createServer((req, res) => {
@@ -134,9 +165,57 @@ function startHttpServer(state) {
       return;
     }
 
+    // Odeslání zprávy ven (appka → bridge → WhatsApp) — např. shrnutí nové
+    // objednávky do skupiny "Objednávky pivovar". Chráněno sdíleným
+    // tajemstvím (x-send-token), stejný princip jako u příchozího webhooku.
+    if (url === '/send' && req.method === 'POST') {
+      res.setHeader('Content-Type', 'application/json');
+      if (!SEND_TOKEN) {
+        res.statusCode = 503;
+        res.end(JSON.stringify({ ok: false, error: 'SEND_TOKEN není nastavený na bridge' }));
+        return;
+      }
+      const token = req.headers['x-send-token'] || '';
+      if (typeof token !== 'string' || !secretsEqual(token, SEND_TOKEN)) {
+        res.statusCode = 401;
+        res.end(JSON.stringify({ ok: false, error: 'neplatný x-send-token' }));
+        return;
+      }
+      readJsonBody(req)
+        .then(async (body) => {
+          const chatId = String(body?.chatId || '').trim();
+          const text = String(body?.text || '').trim();
+          if (!chatId || !text) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ ok: false, error: 'chybí chatId nebo text' }));
+            return;
+          }
+          if (!state.sock || !state.connected) {
+            res.statusCode = 503;
+            res.end(JSON.stringify({ ok: false, error: 'WhatsApp spojení není aktivní (bridge se právě (znovu)připojuje)' }));
+            return;
+          }
+          try {
+            const sent = await state.sock.sendMessage(chatId, { text });
+            logger.info(`[send] odesláno do ${chatId} (id=${sent?.key?.id ?? '?'})`);
+            res.statusCode = 200;
+            res.end(JSON.stringify({ ok: true, id: sent?.key?.id ?? null }));
+          } catch (e) {
+            logger.error({ err: e }, '[send] odeslání selhalo');
+            res.statusCode = 502;
+            res.end(JSON.stringify({ ok: false, error: e?.message || 'odeslání selhalo' }));
+          }
+        })
+        .catch((e) => {
+          res.statusCode = 400;
+          res.end(JSON.stringify({ ok: false, error: 'neplatné JSON tělo: ' + (e?.message || '') }));
+        });
+      return;
+    }
+
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify({ ok: true, service: 'whatsapp-bridge', uptime: process.uptime() }));
-  }).listen(port, () => logger.info(`[health] HTTP server na portu ${port} (QR: /qr)`));
+  }).listen(port, () => logger.info(`[health] HTTP server na portu ${port} (QR: /qr, odesílání: POST /send)`));
 }
 
 // --- Extrakce textu z message protobufu ------------------------------------
@@ -363,6 +442,7 @@ async function start() {
     syncFullHistory: SYNC_HISTORY,
     markOnlineOnConnect: false,
   });
+  qrState.sock = sock; // POST /send vždy použije aktuální (znovu)připojený socket
 
   // Perzistence: při každé změně přihlašovacích klíčů → Supabase
   sock.ev.on('creds.update', saveCreds);
