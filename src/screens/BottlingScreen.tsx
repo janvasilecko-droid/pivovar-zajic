@@ -6,7 +6,6 @@ import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSumma
 import { exportBottlingToExcel } from '../lib/excel';
 import { ImportBottlingFromImage } from '../components/ImportBottlingFromImage';
 import { Camera, Pencil } from 'lucide-react';
-import { getStartingStockMap } from '../lib/inventoryHelper';
 import { useAuth } from '../lib/auth';
 import { BottlingPlan, getPlanSeenAt, markPlanSeenAt, isPlanUnseen, isBottlingManager, setPlanStatus } from '../lib/bottlingPlans';
 import { BottlingPlanPlanner } from '../components/BottlingPlanPlanner';
@@ -18,6 +17,7 @@ import { VoiceRecorder } from '../components/VoiceRecorder';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { topQuantitiesLastMonth } from '../lib/quickQty';
+import { computePackageNeeds } from '../lib/packageNeeds';
 
 
 const ROW_COUNT = 12;
@@ -269,117 +269,29 @@ export default function BottlingScreen({
       .sort((a, b) => b.volume_l - a.volume_l),
   [packages]);
 
-  // Výpočet potřeby stočení lahví — objednávky AKTUÁLNÍHO TÝDNE vs. sklad (inventura + stočeno − výdej).
+  // Výpočet potřeby stočení lahví — objednávky AKTUÁLNÍHO TÝDNE vs. sklad
+  // (stav v pondělí ráno + stočeno tento týden − výdej tento týden). Sdílená
+  // logika s KEGy — viz packageNeeds.ts.
   const bottleRequirements = useMemo(() => {
-    const now = new Date();
-    const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-
-    const bottlePkgIds = new Set(packages.filter((p) => p.kind !== 'keg').map((p) => p.id));
-    const activeOrderIds = new Set(
-      orders
-        .filter((o) => {
-          if (o.status === 'storno' || o.status === 'vyrizeno' || o.status === 'vyrizeno_zavoz') return false;
-          if (o.is_delivered) return false;
-          const targetDate = o.delivery_date || o.order_date;
-          return !!targetDate && isoWeekKey(targetDate) === weekKey;
-        })
-        .map((o) => o.id)
+    const todayStr = new Date().toISOString().slice(0, 10);
+    return computePackageNeeds(
+      {
+        beers,
+        packages,
+        orders,
+        orderItems,
+        inventoryRows,
+        bottlingRows: rows,
+        keggingRows,
+        fasovaniRows,
+        prodejnaRows,
+        writeoffsRows,
+        zavozDeductionRows,
+        weekKey,
+        todayStr,
+      },
+      (kind) => kind !== 'keg'
     );
-
-    // Položky, které už mají svůj vlastní odpočet závozu (ráno v 01:00) — ty jsou
-    // fyzicky odečtené ze skladu už jednou přes stockQty, takže se nesmí počítat
-    // i do orderedQty (dvojí odpočet). Odděleně od is_delivered výše, protože se
-    // nastavuje samostatně (řidič odklikne až po dojetí trasy).
-    const deductedItemIds = new Set(zavozDeductionRows.map((r: any) => r.order_item_id).filter(Boolean));
-
-    const orderedMap: Record<string, number> = {};
-    orderItems.filter((item) => item.package_id && bottlePkgIds.has(item.package_id) && activeOrderIds.has(item.order_id) && !deductedItemIds.has(item.id)).forEach((item) => {
-      if (!item.beer_id || !item.package_id) return;
-      const k = `${item.beer_id}__${item.package_id}`;
-      orderedMap[k] = (orderedMap[k] || 0) + Number(item.quantity || 0);
-    });
-
-    // Počáteční inventura s podporou automatického převodu z předchozího měsíce
-    const invMap = getStartingStockMap(
-      curMonth,
-      inventoryRows,
-      rows,
-      keggingRows,
-      fasovaniRows,
-      prodejnaRows,
-      writeoffsRows,
-      0,
-      zavozDeductionRows
-    );
-
-    // Pohyby vyfiltrované pro aktuální měsíc
-    const bottledMap: Record<string, number> = {};
-    rows.filter((r) => r.entry_date?.startsWith(curMonth)).forEach((r) => {
-      if (!r.beer_id || !r.package_id) return;
-      const k = `${r.beer_id}__${r.package_id}`;
-      bottledMap[k] = (bottledMap[k] || 0) + Number(r.quantity || 0);
-    });
-
-    const outgoingMap: Record<string, number> = {};
-    [...fasovaniRows, ...prodejnaRows, ...writeoffsRows].filter((r) => r.entry_date?.startsWith(curMonth)).forEach((r) => {
-      if (!r.beer_id || !r.package_id) return;
-      const k = `${r.beer_id}__${r.package_id}`;
-      outgoingMap[k] = (outgoingMap[k] || 0) + Number(r.quantity || 0);
-    });
-
-    // Skutečně zavezené objednávky (automatický odpočet ráno v 01:00) — stejný
-    // zdroj jako Sklad/Inventura. Bez tohohle by sklad jen rostl s každým
-    // stočením a nikdy neodrážel to, co už fyzicky odjelo k odběratelům.
-    zavozDeductionRows.filter((r) => r.deduct_date?.startsWith(curMonth)).forEach((r) => {
-      if (!r.beer_id || !r.package_id) return;
-      const k = `${r.beer_id}__${r.package_id}`;
-      outgoingMap[k] = (outgoingMap[k] || 0) + Number(r.quantity || 0);
-    });
-
-    type ReqRow = {
-      beer_id: string;
-      beer_name: string;
-      package_id: string;
-      package_label: string;
-      volume_l: number;
-      invQty: number;
-      bottledQty: number;
-      outgoingQty: number;
-      stockQty: number;
-      orderedQty: number;
-      neededQty: number;
-    };
-
-    const list: ReqRow[] = [];
-    beers.forEach((b) => {
-      packages.filter((p) => bottlePkgIds.has(p.id)).forEach((p) => {
-        const k = `${b.id}__${p.id}`;
-        const invQty = Number(invMap[k] || 0);
-        const bottledQty = Number(bottledMap[k] || 0);
-        const outgoingQty = Number(outgoingMap[k] || 0);
-        const stockQty = Math.max(0, invQty + bottledQty - outgoingQty);
-        const orderedQty = Number(orderedMap[k] || 0);
-        const neededQty = Math.max(0, orderedQty - stockQty);
-
-        if (orderedQty > 0 || stockQty > 0 || invQty > 0 || bottledQty > 0) {
-          list.push({
-            beer_id: b.id,
-            beer_name: b.name,
-            package_id: p.id,
-            package_label: p.label,
-            volume_l: Number(p.volume_l || 0),
-            invQty,
-            bottledQty,
-            outgoingQty,
-            stockQty,
-            orderedQty,
-            neededQty,
-          });
-        }
-      });
-    });
-
-    return list;
   }, [beers, packages, orders, orderItems, inventoryRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, keggingRows, zavozDeductionRows, weekKey]);
 
   const filteredRequirements = useMemo(() => {
@@ -1646,8 +1558,8 @@ export default function BottlingScreen({
               </h3>
               <p className="text-[11px] text-neutral-500 w-full sm:w-auto">
                 Počítá se vždy pro aktuální týden: objednávky s dovozem {weekLabel} − lahve na skladě
-                (inventura měsíce + stočeno − výdej). Po dotočení týdne (o víkendu) je potřeba 0,
-                v novém týdnu se počítá znovu z nových objednávek.
+                (stav v pondělí ráno + stočeno tento týden − výdej tento týden). Čerstvé stočení se
+                projeví okamžitě po uložení, v novém týdnu se počítá znovu z nových objednávek.
               </p>
 
               <div className="flex flex-wrap items-center gap-2">

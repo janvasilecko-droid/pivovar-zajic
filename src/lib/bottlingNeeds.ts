@@ -1,14 +1,27 @@
-// ⚙️ Výpočet potřeby stáčení — „co je potřeba stočit“.
+// ⚙️ Výpočet potřeby stáčení — „co je potřeba stočit".
 // ---------------------------------------------------------------------------
-// Sdílená logika pro sekci „Zadávání stáčení lahví“ v Nastavení (admin).
-// Sestaví řádek pivo × obal s těmito sloupci:
-//   • stock         – lahve / sudy na skladě (měsíční model inventury)
-//   • ordered       – objednávky v daném týdnu
-//   • fasovani      – odhad fašování do konce týdne (průměr 30 dní)
+// Sdílená logika pro sekci „Zadávání stáčení lahví" v Nastavení (admin).
+// Sestaví řádek pivo × obal s těmito sloupci (VŠE ZA AKTUÁLNÍ TÝDEN, od
+// pondělí do teď — ne za celý měsíc):
+//   • stock         – sklad TEĎ = sklad v pondělí ráno (počátek měsíce
+//                     s převodem z předchozího měsíce + pohyby od 1. dne
+//                     měsíce do pondělí) + stočeno/kegováno OD PONDĚLÍ −
+//                     výdej (fašování/prodejna/odpisy/zavezené objednávky)
+//                     OD PONDĚLÍ
+//   • ordered       – VŠECHNY objednávky v daném týdnu (i už zavezené, ať je
+//                     vidět celková týdenní potřeba na středeční/čtvrteční/
+//                     páteční zavoz, ne jen zbytek)
+//   • fasovani      – odhad fašování pro ZBÝVAJÍCÍ dny týdne (průměr 30 dní)
+//                     — dny od pondělí do teď už jsou ve „stock" jako
+//                     skutečný výdej, tady jen odhad pro dny, co teprve přijdou
 //   • planned       – naplánované stáčení v týdnu (jen 1. stáčení piva)
 //   • afterBottling – sklad + naplánováno
-//   • missing       – chybí stočit = max(0, objednávky + fašování − po stočení)
+//   • missing       – chybí stočit do konce týdne = max(0, objednávky + fašování − po stočení)
 //   • afterOutgoing – konec týdne = po stočení − objednávky − fašování
+//
+// Čerstvé stočení se tak projeví v „chybí stočit" OKAMŽITĚ (počítá se do
+// „stock" hned po uložení), bez čekání na to, až se nějaká JINÁ objednávka
+// označí jako zavezená.
 import { getStartingStockMap } from './inventoryHelper';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import type { BottlingPlan } from './bottlingPlans';
@@ -62,59 +75,82 @@ export function computeBottlingNeeds(input: BottlingNeedsInput): NeedsRow[] {
     weekKey,
     todayStr,
   } = input;
-  const curMonth = todayStr.slice(0, 7);
 
-  // Aktuální sklad (měsíční model — inventura + stočeno − výdej)
-  const invMap = getStartingStockMap(curMonth, inventoryRows, bottlingRows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, 0, zavozDeductionRows);
+  const weekStartStr = weekRange(weekKey).start.toISOString().slice(0, 10);
+  const weekStartMonth = weekStartStr.slice(0, 7);
+  const isThisWeek = (dateStr: string | null | undefined) => !!dateStr && isoWeekKey(dateStr) === weekKey;
+  const isBeforeThisWeek = (dateStr: string | null | undefined) =>
+    !!dateStr && dateStr.startsWith(weekStartMonth) && dateStr < weekStartStr;
+
+  // Sklad v PONDĚLÍ RÁNO: počátek měsíce (s převodem z předchozího měsíce,
+  // včetně zavezených objednávek) + pohyby od 1. dne měsíce do pondělí.
+  const invMap = getStartingStockMap(weekStartMonth, inventoryRows, bottlingRows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, 0, zavozDeductionRows);
+  const preWeekIn: Record<string, number> = {};
+  [...bottlingRows, ...keggingRows].filter((r) => isBeforeThisWeek(r.entry_date)).forEach((r) => {
+    if (!r.beer_id || !r.package_id) return;
+    const k = `${r.beer_id}__${r.package_id}`;
+    preWeekIn[k] = (preWeekIn[k] || 0) + Number(r.quantity || 0);
+  });
+  const preWeekOut: Record<string, number> = {};
+  [...fasovaniRows, ...prodejnaRows, ...writeoffsRows].filter((r) => isBeforeThisWeek(r.entry_date)).forEach((r) => {
+    if (!r.beer_id || !r.package_id) return;
+    const k = `${r.beer_id}__${r.package_id}`;
+    preWeekOut[k] = (preWeekOut[k] || 0) + Number(r.quantity || 0);
+  });
+  zavozDeductionRows.filter((r) => isBeforeThisWeek(r.deduct_date)).forEach((r) => {
+    if (!r.beer_id || !r.package_id) return;
+    const k = `${r.beer_id}__${r.package_id}`;
+    preWeekOut[k] = (preWeekOut[k] || 0) + Number(r.quantity || 0);
+  });
+  const weekStartStockMap: Record<string, number> = {};
+  new Set([...Object.keys(invMap), ...Object.keys(preWeekIn), ...Object.keys(preWeekOut)]).forEach((k) => {
+    weekStartStockMap[k] = Math.max(0, Number(invMap[k] || 0) + Number(preWeekIn[k] || 0) - Number(preWeekOut[k] || 0));
+  });
+
+  // Pohyby OD PONDĚLÍ DO TEĎ (tento týden) — stočeno hned zvyšuje sklad.
   const inMap: Record<string, number> = {};
-  [...bottlingRows, ...keggingRows].filter((r) => r.entry_date?.startsWith(curMonth)).forEach((r) => {
+  [...bottlingRows, ...keggingRows].filter((r) => isThisWeek(r.entry_date)).forEach((r) => {
     if (!r.beer_id || !r.package_id) return;
     const k = `${r.beer_id}__${r.package_id}`;
     inMap[k] = (inMap[k] || 0) + Number(r.quantity || 0);
   });
   const outMap: Record<string, number> = {};
-  [...fasovaniRows, ...prodejnaRows, ...writeoffsRows].filter((r) => r.entry_date?.startsWith(curMonth)).forEach((r) => {
+  [...fasovaniRows, ...prodejnaRows, ...writeoffsRows].filter((r) => isThisWeek(r.entry_date)).forEach((r) => {
     if (!r.beer_id || !r.package_id) return;
     const k = `${r.beer_id}__${r.package_id}`;
     outMap[k] = (outMap[k] || 0) + Number(r.quantity || 0);
   });
-  // Skutečně zavezené objednávky — stejný zdroj jako Sklad/Inventura/Potřeba
-  // stočit. Bez tohohle by sklad jen rostl s každým stočením.
-  zavozDeductionRows.filter((r) => r.deduct_date?.startsWith(curMonth)).forEach((r) => {
+  // Skutečně zavezené objednávky tento týden — stejný zdroj jako Sklad/Inventura.
+  zavozDeductionRows.filter((r) => isThisWeek(r.deduct_date)).forEach((r) => {
     if (!r.beer_id || !r.package_id) return;
     const k = `${r.beer_id}__${r.package_id}`;
     outMap[k] = (outMap[k] || 0) + Number(r.quantity || 0);
   });
   const stockMap: Record<string, number> = {};
-  new Set([...Object.keys(invMap), ...Object.keys(inMap), ...Object.keys(outMap)]).forEach((k) => {
-    stockMap[k] = Math.max(0, Number(invMap[k] || 0) + Number(inMap[k] || 0) - Number(outMap[k] || 0));
+  new Set([...Object.keys(weekStartStockMap), ...Object.keys(inMap), ...Object.keys(outMap)]).forEach((k) => {
+    stockMap[k] = Math.max(0, Number(weekStartStockMap[k] || 0) + Number(inMap[k] || 0) - Number(outMap[k] || 0));
   });
-  // Objednávky v daném týdnu (ks na pivo + obal)
+
+  // Objednávky v daném týdnu (ks na pivo + obal) — VŠECHNY, i už zavezené.
   const activeIds = new Set(
     orders
       .filter((o) => {
         if (o.status === 'storno' || o.status === 'vyrizeno' || o.status === 'vyrizeno_zavoz') return false;
-        if (o.is_delivered) return false;
         const target = o.delivery_date || o.order_date;
-        return !!target && isoWeekKey(target) === weekKey;
+        return isThisWeek(target);
       })
       .map((o) => o.id)
   );
-  // Položky, které už mají svůj vlastní odpočet závozu (ráno v 01:00) — ty jsou
-  // fyzicky odečtené ze skladu už jednou přes stockMap, takže se nesmí počítat
-  // i do weekOrdered (dvojí odpočet). Odděleně od is_delivered výše, protože se
-  // nastavuje samostatně (řidič odklikne až po dojetí trasy).
-  const deductedItemIds = new Set(zavozDeductionRows.map((r) => r.order_item_id).filter(Boolean));
   const weekOrdered: Record<string, number> = {};
-  orderItems.filter((item) => item.package_id && activeIds.has(item.order_id) && !deductedItemIds.has(item.id)).forEach((item) => {
+  orderItems.filter((item) => item.package_id && activeIds.has(item.order_id)).forEach((item) => {
     if (!item.beer_id || !item.package_id) return;
     const k = `${item.beer_id}__${item.package_id}`;
     weekOrdered[k] = (weekOrdered[k] || 0) + Number(item.quantity || 0);
   });
 
-
-
-  // Odhad fašování do konce týdne (průměr za posledních 30 dní × zbývající dny)
+  // Odhad fašování pro ZBÝVAJÍCÍ dny týdne (průměr za posledních 30 dní ×
+  // dny PO dnešku do konce týdne) — dny od pondělí do dneška už jsou ve
+  // „stock" jako skutečný výdej (outMap výše), tady jen odhad budoucna.
   const cutoff = new Date();
   cutoff.setUTCDate(cutoff.getUTCDate() - 29);
   const from = cutoff.toISOString().slice(0, 10);
@@ -127,14 +163,14 @@ export function computeBottlingNeeds(input: BottlingNeedsInput): NeedsRow[] {
     });
   const remainingDays = Math.max(
     0,
-    Math.floor((weekRange(weekKey).end.getTime() - new Date(todayStr + 'T00:00:00Z').getTime()) / 86400000) + 1
+    Math.floor((weekRange(weekKey).end.getTime() - new Date(todayStr + 'T00:00:00Z').getTime()) / 86400000)
   );
   const fasovaniEstimate: Record<string, number> = {};
   Object.entries(per).forEach(([k, total]) => {
     fasovaniEstimate[k] = (total / 30) * remainingDays;
   });
 
-  // Naplánované stáčení v daném týdnu (jen „planned“ — hotové už je ve skladu).
+  // Naplánované stáčení v daném týdnu (jen „planned" — hotové už je ve skladu).
   // Bere se JEN první stáčení piva v týdnu (nejbližší planned_date), další úkoly
   // téhož piva později v tomtéž týdnu se nepočítají.
   const firstDateByBeer = new Map<string, string>();
@@ -193,5 +229,3 @@ export function computeBottlingNeeds(input: BottlingNeedsInput): NeedsRow[] {
   });
   return list;
 }
-
-

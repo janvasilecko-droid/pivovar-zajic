@@ -103,12 +103,12 @@ describe('computeBottlingNeeds', () => {
     expect(kegRow!.missing).toBe(0);
   });
 
-  it('počítají se jen objednávky aktuálního týdne; zavezené (is_delivered) se nepočítají', () => {
+  it('počítají se jen objednávky aktuálního týdne; ordered počítá VŠECHNY (i už zavezené is_delivered) — celková týdenní potřeba', () => {
     const rows = computeBottlingNeeds(
       makeInput({
         orders: [
           { id: 'o1', order_date: '2026-07-01', delivery_date: '2026-07-01', status: 'nova', is_delivered: false }, // starý týden → NE
-          { id: 'o2', order_date: todayStr, delivery_date: todayStr, status: 'nova', is_delivered: true },           // tento týden, ale zavezeno → NE
+          { id: 'o2', order_date: todayStr, delivery_date: todayStr, status: 'nova', is_delivered: true },           // tento týden, i zavezeno → ANO
           { id: 'o3', order_date: todayStr, delivery_date: todayStr, status: 'nova', is_delivered: false },          // tento týden, nezavezeno → ANO
         ],
         orderItems: [
@@ -119,10 +119,10 @@ describe('computeBottlingNeeds', () => {
       })
     );
     const row = rows.find((r) => r.package_id === 'p-bottle');
-    expect(row!.ordered).toBe(7);
+    expect(row!.ordered).toBe(106); // 99 + 7 (o1 je mimo týden)
   });
 
-  it('položka se svým vlastním odpočtem závozu (order_item_id) se nepočítá do ordered, i když objednávka ještě nemá is_delivered', () => {
+  it('ordered počítá i položku s vlastním odpočtem závozu — ten se místo toho odečte ze stock', () => {
     const rows = computeBottlingNeeds(
       makeInput({
         orders: [{ id: 'o1', order_date: todayStr, delivery_date: todayStr, status: 'nova', is_delivered: false }],
@@ -134,7 +134,7 @@ describe('computeBottlingNeeds', () => {
       })
     );
     const row = rows.find((r) => r.package_id === 'p-bottle');
-    expect(row!.ordered).toBe(40); // jen i2 — i1 už je fyzicky odečtená
+    expect(row!.ordered).toBe(100); // i1 + i2 — celková týdenní potřeba
   });
 
   it('zavezené objednávky (zavoz_deductions) se odečtou ze skladu — stejný zdroj jako Sklad/Inventura', () => {

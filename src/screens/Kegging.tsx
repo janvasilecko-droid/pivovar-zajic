@@ -1521,8 +1521,8 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
               </h3>
               <p className="text-[11px] text-neutral-500 w-full sm:w-auto">
                 Počítá se vždy pro aktuální týden: objednávky s dovozem {weekLabel} − sudy na skladě
-                (inventura měsíce + stočeno − výdej). Po dotočení týdne (o víkendu) je potřeba 0,
-                v novém týdnu se počítá znovu z nových objednávek.
+                (stav v pondělí ráno + stočeno tento týden − výdej tento týden). Čerstvé stočení se
+                projeví okamžitě po uložení, v novém týdnu se počítá znovu z nových objednávek.
               </p>
 
               <div className="flex flex-wrap items-center gap-2">
@@ -1627,7 +1627,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
                   <thead>
                     <tr className="bg-neutral-100 border-b border-neutral-200">
                       <th className="p-2.5 text-left">Pivo (obal)</th>
-                      <th className="p-2.5 text-right font-bold text-emerald-800">Stočeno (měsíc)</th>
+                      <th className="p-2.5 text-right font-bold text-emerald-800">Stočeno (týden)</th>
                       <th className="p-2.5 text-right font-bold text-emerald-900 bg-emerald-50">Sklad</th>
                       <th className="p-2.5 text-right font-bold text-sky-800">Objednáno (týden)</th>
                       <th className="p-2.5 text-right font-black text-amber-900 bg-amber-50">Potřeba stočit</th>

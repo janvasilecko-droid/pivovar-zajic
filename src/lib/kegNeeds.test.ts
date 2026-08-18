@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { computeKegNeeds, KegNeedsInput } from './kegNeeds';
-import { isoWeekKey } from '../components/WeeklyOrderSummaryCard';
+import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 
 const todayStr = '2026-08-12';
 const weekKey = isoWeekKey(todayStr);
+const weekMonday = weekRange(weekKey).start.toISOString().slice(0, 10);
 
 const BEER = { id: 'b1', name: 'Světlý ležák 11°' };
 const PKG_KEG = { id: 'p-keg', label: 'KEG 50L', kind: 'keg', volume_l: 50 };
@@ -57,12 +58,12 @@ describe('computeKegNeeds', () => {
     expect(row!.neededQty).toBe(5);  // sklad 0
   });
 
-  it('už zavezené objednávky (is_delivered) se do "potřeba stočit" nepočítají, i když jsou v aktuálním týdnu', () => {
+  it('orderedQty počítá VŠECHNY objednávky týdne (i už zavezené is_delivered) — ukazuje celkovou týdenní potřebu na zavoz', () => {
     const rows = computeKegNeeds(
       makeInput({
         orders: [
-          { id: 'o1', order_date: todayStr, delivery_date: todayStr, status: 'nova', is_delivered: true },   // zavezeno → NE
-          { id: 'o2', order_date: todayStr, delivery_date: todayStr, status: 'nova', is_delivered: false },  // nezavezeno → ANO
+          { id: 'o1', order_date: todayStr, delivery_date: todayStr, status: 'nova', is_delivered: true },
+          { id: 'o2', order_date: todayStr, delivery_date: todayStr, status: 'nova', is_delivered: false },
         ],
         orderItems: [
           { order_id: 'o1', beer_id: 'b1', package_id: 'p-keg', quantity: 99 },
@@ -71,7 +72,7 @@ describe('computeKegNeeds', () => {
       })
     );
     const row = rows.find((r) => r.package_id === 'p-keg');
-    expect(row!.orderedQty).toBe(7);
+    expect(row!.orderedQty).toBe(106); // 99 + 7 — is_delivered už orderedQty neovlivňuje
   });
 
   it('počáteční sklad se převezme z konce předchozího měsíce (Fyzická inventura)', () => {
@@ -130,7 +131,7 @@ describe('computeKegNeeds', () => {
     expect(row!.stockQty).toBe(6); // 10 − 4 (přefuk ZE)
   });
 
-  it('položka se svým vlastním odpočtem závozu (order_item_id) se nepočítá do orderedQty, i když objednávka ještě nemá is_delivered', () => {
+  it('orderedQty počítá VŠECHNY položky týdne, i tu, co už má vlastní odpočet závozu — ten se místo toho odečte ze stockQty', () => {
     const rows = computeKegNeeds(
       makeInput({
         orders: [{ id: 'o1', order_date: todayStr, delivery_date: todayStr, status: 'nova', is_delivered: false }],
@@ -142,7 +143,7 @@ describe('computeKegNeeds', () => {
       })
     );
     const row = rows.find((r) => r.package_id === 'p-keg');
-    expect(row!.orderedQty).toBe(4); // jen i2 — i1 už je fyzicky odečtená
+    expect(row!.orderedQty).toBe(10); // i1 + i2 — celková týdenní potřeba
   });
 
   it('zavezené objednávky (zavoz_deductions) se odečtou z FYZICKÉHO skladu — stejný zdroj jako Sklad/Inventura', () => {
@@ -156,6 +157,28 @@ describe('computeKegNeeds', () => {
     const row = rows.find((r) => r.package_id === 'p-keg');
     // 11 (počátek) + 58 (stočeno) − 3 (fyzicky zavezeno) = 66 skladem.
     expect(row!.stockQty).toBe(66);
+  });
+
+  it('čerstvé stočení TENTO TÝDEN hned pokryje novou objednávku, i když jiná dřívější objednávka týdne už byla zavezena (jiný zavoz, jiné kegy)', () => {
+    const rows = computeKegNeeds(
+      makeInput({
+        // Pondělí tohoto týdne stočeno 9 sudů, v úterý 7 z nich zavezeno k jinému
+        // odběrateli (jiná objednávka, dřívější den v týdnu) — dnes stočeny další
+        // 2 sudy přesně pro dnešní novou objednávku na 2 sudy.
+        keggingRows: [
+          { entry_date: weekMonday, beer_id: 'b1', package_id: 'p-keg', quantity: 9 },
+          { entry_date: todayStr, beer_id: 'b1', package_id: 'p-keg', quantity: 2 },
+        ],
+        zavozDeductionRows: [{ deduct_date: weekMonday, beer_id: 'b1', package_id: 'p-keg', quantity: 7 }],
+        orders: [{ id: 'o1', order_date: todayStr, delivery_date: todayStr, status: 'nova', is_delivered: false }],
+        orderItems: [{ order_id: 'o1', beer_id: 'b1', package_id: 'p-keg', quantity: 2 }],
+      })
+    );
+    const row = rows.find((r) => r.package_id === 'p-keg');
+    // 0 (počátek týdne) + 9 + 2 (stočeno tento týden) − 7 (zavezeno tento týden) = 4 skladem.
+    expect(row!.stockQty).toBe(4);
+    expect(row!.orderedQty).toBe(2);
+    expect(row!.neededQty).toBe(0); // dnešní stočení dnešní objednávku pokrylo — nečeká se na zavoz
   });
 
   it('lahve se do KEG potřeby nepočítají (jen obaly kind === "keg")', () => {

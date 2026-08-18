@@ -10,7 +10,8 @@ import KeggingScreen from './Kegging';
 import { consumeOrdersItemFilter } from '../lib/ordersFilter';
 
 const h = vi.hoisted(() => {
-  const curMonth = new Date().toISOString().slice(0, 7);
+  // Musí odpovídat mockovanému weekRange() níže (týden začíná 2026-01-01).
+  const curMonth = '2026-01';
   const DB: Record<string, any[]> = {
     kegging: [],
     cellar_tanks: [],
@@ -84,7 +85,7 @@ vi.mock('../lib/orderParser', () => ({
 }));
 vi.mock('../components/WeeklyOrderSummaryCard', () => ({
   isoWeekKey: vi.fn(() => '2026-W01'),
-  weekRange: vi.fn(() => ({ start: '2026-01-01', end: '2026-01-07', label: 'Týden' })),
+  weekRange: vi.fn(() => ({ start: new Date('2026-01-01'), end: new Date('2026-01-07'), label: 'Týden' })),
   shiftWeek: vi.fn((k: string) => k),
 }));
 
@@ -110,7 +111,7 @@ describe('Kegging — kliknutí na „Chybí X ks sudů" otevře Objednávky s f
   });
 
   it('3. kliknutí na RÁDEK chybějícího KEGu (mimo tlačítko) → setPage("orders") + filtr (pivo + obal)', async () => {
-    h.DB.inventory = [{ entry_date: `${new Date().toISOString().slice(0, 7)}-01`, beer_id: 'beer-12', package_id: 'pkg-30', quantity: 0 }];
+    h.DB.inventory = [{ entry_date: '2026-01-01', beer_id: 'beer-12', package_id: 'pkg-30', quantity: 0 }];
     const setPage = vi.fn();
     render(<KeggingScreen mode="overviews_only" setPage={setPage} />);
 
@@ -126,7 +127,7 @@ describe('Kegging — kliknutí na „Chybí X ks sudů" otevře Objednávky s f
   });
 
   it('2. pokrytý KEG → řádek má „✓ Pokryto" a žádné klikací tlačítko „Chybí"', async () => {
-    h.DB.inventory = [{ entry_date: `${new Date().toISOString().slice(0, 7)}-01`, beer_id: 'beer-12', package_id: 'pkg-30', quantity: 5 }];
+    h.DB.inventory = [{ entry_date: '2026-01-01', beer_id: 'beer-12', package_id: 'pkg-30', quantity: 5 }];
     const setPage = vi.fn();
     render(<KeggingScreen mode="overviews_only" setPage={setPage} />);
 
