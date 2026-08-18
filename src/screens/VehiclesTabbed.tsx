@@ -16,12 +16,20 @@ export default function VehiclesTabbed({ initialTab = 'vehicles', setPage }: Veh
     setActiveTab(initialTab);
   }, [initialTab]);
 
+  // Přepnutí záložky zapíšeme do historie stránek (setPage), ne jen do
+  // lokálního stavu — jinak tlačítko Zpět z téhle obrazovky nevrátí
+  // předchozí záložku, ale rovnou vyskočí do hlavního menu.
+  function selectTab(tab: 'vehicles' | 'kniha_jizd') {
+    if (setPage) setPage(tab);
+    else setActiveTab(tab);
+  }
+
   return (
     <div className="space-y-6">
       {/* Tab Navigation */}
       <div className="flex items-center gap-2 border-b border-neutral-200 pb-2 overflow-x-auto scrollbar-thin">
         <button
-          onClick={() => setActiveTab('vehicles')}
+          onClick={() => selectTab('vehicles')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'vehicles'
               ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
@@ -33,7 +41,7 @@ export default function VehiclesTabbed({ initialTab = 'vehicles', setPage }: Veh
         </button>
 
         <button
-          onClick={() => setActiveTab('kniha_jizd')}
+          onClick={() => selectTab('kniha_jizd')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'kniha_jizd'
               ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'

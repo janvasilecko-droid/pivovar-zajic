@@ -5,24 +5,35 @@ import Notes from './Notes';
 import Feedback from './Feedback';
 import { CalendarDays, Bell, StickyNote, MessageSquare } from 'lucide-react';
 
+type PlanningTab = 'calendar' | 'reminders' | 'notes' | 'feedback';
+
 interface PlanningTabbedProps {
-  initialTab?: 'calendar' | 'reminders' | 'notes' | 'feedback';
+  initialTab?: PlanningTab;
+  setPage?: (p: any, sec?: string) => void;
 }
 
-export default function PlanningTabbed({ initialTab = 'calendar' }: PlanningTabbedProps) {
-  const [activeTab, setActiveTab] = useState<'calendar' | 'reminders' | 'notes' | 'feedback'>(initialTab);
+export default function PlanningTabbed({ initialTab = 'calendar', setPage }: PlanningTabbedProps) {
+  const [activeTab, setActiveTab] = useState<PlanningTab>(initialTab);
 
   // Sync state if initialTab changes from parent
   useEffect(() => {
     setActiveTab(initialTab);
   }, [initialTab]);
 
+  // Přepnutí záložky zapíšeme do historie stránek (setPage), ne jen do
+  // lokálního stavu — jinak tlačítko Zpět z téhle obrazovky nevrátí
+  // předchozí záložku, ale rovnou vyskočí do hlavního menu.
+  function selectTab(tab: PlanningTab) {
+    if (setPage) setPage(tab);
+    else setActiveTab(tab);
+  }
+
   return (
     <div className="space-y-6">
       {/* Tab Navigation */}
       <div className="flex items-center gap-2 border-b border-neutral-200 pb-2 overflow-x-auto scrollbar-thin">
         <button
-          onClick={() => setActiveTab('calendar')}
+          onClick={() => selectTab('calendar')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'calendar'
               ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
@@ -34,7 +45,7 @@ export default function PlanningTabbed({ initialTab = 'calendar' }: PlanningTabb
         </button>
 
         <button
-          onClick={() => setActiveTab('reminders')}
+          onClick={() => selectTab('reminders')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'reminders'
               ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
@@ -46,7 +57,7 @@ export default function PlanningTabbed({ initialTab = 'calendar' }: PlanningTabb
         </button>
 
         <button
-          onClick={() => setActiveTab('notes')}
+          onClick={() => selectTab('notes')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'notes'
               ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
@@ -58,7 +69,7 @@ export default function PlanningTabbed({ initialTab = 'calendar' }: PlanningTabb
         </button>
 
         <button
-          onClick={() => setActiveTab('feedback')}
+          onClick={() => selectTab('feedback')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'feedback'
               ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'

@@ -19,6 +19,16 @@ const TABS: { id: TopTab; label: string; icon: typeof ClipboardList }[] = [
   { id: 'vycepy', label: 'Výčepy (Zápůjčky)', icon: Flame },
 ];
 
+// Mapování interní záložky → Page (viz App.tsx). 'zavoz' Page název je už
+// obsazený samostatnou obrazovkou Zavoz.tsx, proto tahle záložka má vlastní
+// 'orders_zavoz' název.
+const TAB_TO_PAGE: Record<TopTab, string> = {
+  orders: 'orders',
+  detail: 'orders_detail',
+  zavoz: 'orders_zavoz',
+  vycepy: 'vycepy',
+};
+
 export default function OrdersTabbed({
   initialTab = 'orders',
   autoOpenShareImport,
@@ -32,6 +42,14 @@ export default function OrdersTabbed({
     setActiveTab(initialTab);
   }, [initialTab]);
 
+  // Přepnutí záložky zapíšeme do historie stránek (setPage), ne jen do
+  // lokálního stavu — jinak tlačítko Zpět z téhle obrazovky nevrátí
+  // předchozí záložku, ale rovnou vyskočí do hlavního menu.
+  function selectTab(tab: TopTab) {
+    if (setPage) setPage(TAB_TO_PAGE[tab]);
+    else setActiveTab(tab);
+  }
+
   return (
     <div className="space-y-6">
       {/* Tab Navigation — pořadí: Objednávky, Přehled, Závoz, Výčepy (Zápůjčky) */}
@@ -41,7 +59,7 @@ export default function OrdersTabbed({
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => selectTab(tab.id)}
               className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
                 activeTab === tab.id
                   ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'

@@ -140,18 +140,23 @@ export default function App() {
         <Dashboard setPage={setPage} initialTab={page === 'sklo_promo' ? 'sklo_promo' : 'sklad'} />
       )}
       {page === 'concentration' && <ConcentrationScreen />}
-      {(page === 'checklists' || page === 'haccp' || page === 'sanitation_log' || page === 'sanitace') && (
+      {(page === 'checklists' || page === 'haccp' || page === 'sanitation_log' || page === 'sanitace' || page === 'sanitace_lahve' || page === 'sanitace_kegy' || page === 'sanitace_vycepy') && (
         <SanitaceTabbed
           initialTab={
-            page === 'haccp' ? 'haccp' : page === 'checklists' ? 'checklists' : 'sanitation_log'
+            page === 'haccp' ? 'haccp'
+            : page === 'checklists' ? 'checklists'
+            : page === 'sanitace_lahve' ? 'lahve'
+            : page === 'sanitace_kegy' ? 'kegy'
+            : page === 'sanitace_vycepy' ? 'vycepy'
+            : 'sanitation_log'
           }
           initialSection={haccpSection}
           setPage={setPage}
         />
       )}
-      {(page === 'orders' || page === 'orders_entry' || page === 'vycepy') && (
+      {(page === 'orders' || page === 'orders_entry' || page === 'orders_detail' || page === 'orders_zavoz' || page === 'vycepy') && (
         <OrdersTabbed
-          initialTab={page === 'vycepy' ? 'vycepy' : 'orders'}
+          initialTab={page === 'vycepy' ? 'vycepy' : page === 'orders_detail' ? 'detail' : page === 'orders_zavoz' ? 'zavoz' : 'orders'}
           autoOpenShareImport={autoOpenShareImport}
           onShareImportHandled={() => setAutoOpenShareImport(false)}
           setPage={setPage}
@@ -176,12 +181,14 @@ export default function App() {
           initialTab={
             page === 'exkurze' ? 'exkurze' : 'akce'
           }
+          setPage={setPage}
         />
       )}
       {page === 'inventory' && <InventoryScreen />}
-      {(page === 'calendar' || page === 'feedback' || page === 'planning' || page === 'reminders') && (
+      {(page === 'calendar' || page === 'feedback' || page === 'planning' || page === 'reminders' || page === 'notes') && (
         <PlanningTabbed
-          initialTab={page === 'reminders' ? 'reminders' : page === 'feedback' ? 'feedback' : 'calendar'}
+          initialTab={page === 'reminders' ? 'reminders' : page === 'feedback' ? 'feedback' : page === 'notes' ? 'notes' : 'calendar'}
+          setPage={setPage}
         />
       )}
       {page === 'history' && <Statistika />}
@@ -190,6 +197,7 @@ export default function App() {
           initialTab={
             page === 'beers' ? 'beers' : page === 'packages' ? 'packages' : page === 'pricelist' ? 'pricelist' : 'places'
           }
+          setPage={setPage}
         />
       )}
       {page === 'bottling_needs' && <BottlingTasksSettings />}

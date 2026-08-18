@@ -24,7 +24,7 @@ import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
 
 export type NavItem = { id: Page; label: string; icon: LucideIcon; group: string };
 
-export type Page = 'home' | 'sanitace' | 'marketing' | 'planning' | 'depozitar' | 'dashboard' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'history' | 'orders_entry' | 'orders' | 'zavoz' | 'kniha_jizd' | 'stock' | 'bottling' | 'bottling_entry' | 'bottling_overview' | 'kegging' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs';
+export type Page = 'home' | 'sanitace' | 'marketing' | 'planning' | 'depozitar' | 'dashboard' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'sanitace_lahve' | 'sanitace_kegy' | 'sanitace_vycepy' | 'history' | 'orders_entry' | 'orders' | 'orders_detail' | 'orders_zavoz' | 'zavoz' | 'kniha_jizd' | 'stock' | 'bottling' | 'bottling_entry' | 'bottling_overview' | 'kegging' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'notes' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs';
 
 export const NAV: NavItem[] = [
   // --- VÝROBA ---
@@ -60,6 +60,41 @@ export const NAV: NavItem[] = [
 ];
 
 const GROUPS = ['Výroba', 'Pivovar', 'Nástroje', 'Číselníky', 'Nastavení'];
+
+// Interní záložky uvnitř "Tabbed" obrazovek (viz App.tsx) mají vlastní Page
+// hodnotu, aby zapisovaly do historie (tlačítko Zpět vrací záložku, ne celé
+// menu) — v menu/hlavičce se ale mají pořád tvářit jako svoje nadřazená
+// položka NAV. Tahle mapa říká, pod kterou položku NAV daná dílčí záložka patří.
+const PAGE_GROUP_PARENT: Partial<Record<Page, Page>> = {
+  sanitation_log: 'haccp',
+  checklists: 'haccp',
+  sanitace: 'haccp',
+  sanitace_lahve: 'haccp',
+  sanitace_kegy: 'haccp',
+  sanitace_vycepy: 'haccp',
+  orders_entry: 'orders',
+  orders_detail: 'orders',
+  orders_zavoz: 'orders',
+  vycepy: 'orders',
+  places: 'depozitar',
+  beers: 'depozitar',
+  packages: 'depozitar',
+  pricelist: 'depozitar',
+  kniha_jizd: 'vehicles',
+  feedback: 'calendar',
+  planning: 'calendar',
+  reminders: 'calendar',
+  notes: 'calendar',
+  exkurze: 'akce',
+  marketing: 'akce',
+  bottling_entry: 'bottling',
+  bottling_overview: 'bottling',
+};
+
+/** Vrátí Page, pod kterou se má daná stránka zvýraznit/pojmenovat v menu. */
+function navPageFor(page: Page): Page {
+  return PAGE_GROUP_PARENT[page] ?? page;
+}
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -534,7 +569,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                   <div className="px-3 text-[10px] font-black uppercase tracking-widest text-amber-900/60 mb-1.5">{group}</div>
                   {groupItems.map((item) => {
                     const Icon = item.icon;
-                    const isActive = page === item.id;
+                    const isActive = navPageFor(page) === item.id;
                     return (
                       <button
                         key={item.id}
@@ -607,7 +642,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
         <header className="flex items-center justify-between px-2 sm:px-8 py-2 bg-white/95 backdrop-blur-md border-b border-amber-200/70 shadow-2xs z-20 gap-2 shrink-0">
           <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 shrink-0">
             <span className="sm:hidden font-display font-black text-base text-amber-950 truncate">
-              {NAV.find((n) => n.id === page)?.label ?? ''}
+              {NAV.find((n) => n.id === navPageFor(page))?.label ?? ''}
             </span>
           </div>
 
@@ -715,13 +750,13 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           <button
             onClick={() => setPage('orders')}
             className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all relative ${
-              page === 'orders'
+              navPageFor(page) === 'orders'
                 ? 'text-amber-950 font-black scale-105 bg-amber-100/90 ring-1 ring-amber-300'
                 : 'text-neutral-500 hover:text-neutral-800 font-bold'
             }`}
           >
             <div className="relative">
-              <ClipboardList size={20} strokeWidth={page === 'orders' ? 2.5 : 2} className={page === 'orders' ? 'text-amber-700' : ''} />
+              <ClipboardList size={20} strokeWidth={navPageFor(page) === 'orders' ? 2.5 : 2} className={navPageFor(page) === 'orders' ? 'text-amber-700' : ''} />
               {pendingWhatsAppCount > 0 && (
                 <span className="absolute -top-1 -right-2 bg-red-600 text-white text-[9px] font-black rounded-full min-w-[14px] h-3.5 px-0.5 flex items-center justify-center shadow">
                   {pendingWhatsAppCount > 9 ? '9+' : pendingWhatsAppCount}
@@ -746,12 +781,12 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           <button
             onClick={() => setPage('bottling')}
             className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all ${
-              page === 'bottling'
+              navPageFor(page) === 'bottling'
                 ? 'text-amber-950 font-black scale-105 bg-amber-100/90 ring-1 ring-amber-300'
                 : 'text-neutral-500 hover:text-neutral-800 font-bold'
             }`}
           >
-            <Wine size={20} strokeWidth={page === 'bottling' ? 2.5 : 2} className={page === 'bottling' ? 'text-amber-700' : ''} />
+            <Wine size={20} strokeWidth={navPageFor(page) === 'bottling' ? 2.5 : 2} className={navPageFor(page) === 'bottling' ? 'text-amber-700' : ''} />
             <span className="text-[10px] mt-0.5 tracking-tight">Lahve</span>
           </button>
 

@@ -7,14 +7,28 @@ import KegSanitationDiary from '../components/KegSanitationDiary';
 import TapSanitationDiary from '../components/TapSanitationDiary';
 import { FlaskConical, Shield, CheckSquare, Wine, Cylinder, SlidersHorizontal } from 'lucide-react';
 
+type SanitaceTab = 'tanks' | 'lahve' | 'kegy' | 'vycepy' | 'haccp' | 'checklists';
+
 interface SanitaceTabbedProps {
-  initialTab?: 'sanitation_log' | 'haccp' | 'checklists' | 'tanks' | 'lahve' | 'kegy';
+  initialTab?: 'sanitation_log' | 'haccp' | 'checklists' | 'tanks' | 'lahve' | 'kegy' | 'vycepy';
   initialSection?: string;
   setPage?: (p: any, sec?: string) => void;
 }
 
+// Mapování interní záložky → Page (viz App.tsx) — jen ty, co mají vlastní
+// routovanou stránku (tanks/haccp/checklists mají historicky jiný Page
+// název: 'sanitation_log', ostatní shodné s názvem záložky s prefixem).
+const TAB_TO_PAGE: Record<SanitaceTab, string> = {
+  tanks: 'sanitation_log',
+  haccp: 'haccp',
+  checklists: 'checklists',
+  lahve: 'sanitace_lahve',
+  kegy: 'sanitace_kegy',
+  vycepy: 'sanitace_vycepy',
+};
+
 export default function SanitaceTabbed({ initialTab = 'sanitation_log', initialSection, setPage }: SanitaceTabbedProps) {
-  const [activeTab, setActiveTab] = useState<'tanks' | 'lahve' | 'kegy' | 'vycepy' | 'haccp' | 'checklists'>(
+  const [activeTab, setActiveTab] = useState<SanitaceTab>(
     initialTab === 'sanitation_log' ? 'tanks' : initialTab as any
   );
 
@@ -23,12 +37,20 @@ export default function SanitaceTabbed({ initialTab = 'sanitation_log', initialS
     setActiveTab(initialTab === 'sanitation_log' ? 'tanks' : initialTab as any);
   }, [initialTab]);
 
+  // Přepnutí záložky zapíšeme do historie stránek (setPage), ne jen do
+  // lokálního stavu — jinak tlačítko Zpět z téhle obrazovky nevrátí
+  // předchozí záložku, ale rovnou vyskočí do hlavního menu.
+  function selectTab(tab: SanitaceTab) {
+    if (setPage) setPage(TAB_TO_PAGE[tab]);
+    else setActiveTab(tab);
+  }
+
   return (
     <div className="space-y-6">
       {/* Tab Navigation */}
       <div className="flex items-center gap-2 border-b border-neutral-200 pb-2 overflow-x-auto scrollbar-thin">
         <button
-          onClick={() => setActiveTab('tanks')}
+          onClick={() => selectTab('tanks')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'tanks'
               ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
@@ -40,7 +62,7 @@ export default function SanitaceTabbed({ initialTab = 'sanitation_log', initialS
         </button>
 
         <button
-          onClick={() => setActiveTab('lahve')}
+          onClick={() => selectTab('lahve')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'lahve'
               ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
@@ -52,7 +74,7 @@ export default function SanitaceTabbed({ initialTab = 'sanitation_log', initialS
         </button>
 
         <button
-          onClick={() => setActiveTab('kegy')}
+          onClick={() => selectTab('kegy')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'kegy'
               ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
@@ -64,7 +86,7 @@ export default function SanitaceTabbed({ initialTab = 'sanitation_log', initialS
         </button>
 
         <button
-          onClick={() => setActiveTab('vycepy')}
+          onClick={() => selectTab('vycepy')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'vycepy'
               ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
@@ -76,7 +98,7 @@ export default function SanitaceTabbed({ initialTab = 'sanitation_log', initialS
         </button>
 
         <button
-          onClick={() => setActiveTab('haccp')}
+          onClick={() => selectTab('haccp')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'haccp'
               ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
@@ -88,7 +110,7 @@ export default function SanitaceTabbed({ initialTab = 'sanitation_log', initialS
         </button>
 
         <button
-          onClick={() => setActiveTab('checklists')}
+          onClick={() => selectTab('checklists')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'checklists'
               ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'

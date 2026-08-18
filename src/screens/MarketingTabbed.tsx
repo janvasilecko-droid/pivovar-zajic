@@ -5,9 +5,10 @@ import { Sparkles, Building } from 'lucide-react';
 
 interface MarketingTabbedProps {
   initialTab?: 'akce' | 'exkurze';
+  setPage?: (p: any, sec?: string) => void;
 }
 
-export default function MarketingTabbed({ initialTab = 'akce' }: MarketingTabbedProps) {
+export default function MarketingTabbed({ initialTab = 'akce', setPage }: MarketingTabbedProps) {
   const [activeTab, setActiveTab] = useState<'akce' | 'exkurze'>(initialTab);
 
   // Sync state if initialTab changes from parent
@@ -15,12 +16,20 @@ export default function MarketingTabbed({ initialTab = 'akce' }: MarketingTabbed
     setActiveTab(initialTab);
   }, [initialTab]);
 
+  // Přepnutí záložky zapíšeme do historie stránek (setPage), ne jen do
+  // lokálního stavu — jinak tlačítko Zpět z téhle obrazovky nevrátí
+  // předchozí záložku, ale rovnou vyskočí do hlavního menu.
+  function selectTab(tab: 'akce' | 'exkurze') {
+    if (setPage) setPage(tab);
+    else setActiveTab(tab);
+  }
+
   return (
     <div className="space-y-6">
       {/* Tab Navigation */}
       <div className="flex items-center gap-2 border-b border-neutral-200 pb-2 overflow-x-auto scrollbar-thin">
         <button
-          onClick={() => setActiveTab('akce')}
+          onClick={() => selectTab('akce')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'akce'
               ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
@@ -32,7 +41,7 @@ export default function MarketingTabbed({ initialTab = 'akce' }: MarketingTabbed
         </button>
 
         <button
-          onClick={() => setActiveTab('exkurze')}
+          onClick={() => selectTab('exkurze')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'exkurze'
               ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
