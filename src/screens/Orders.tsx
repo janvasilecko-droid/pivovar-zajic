@@ -1598,10 +1598,20 @@ export default function Orders({
           <BeerTileGrid
             beers={beers}
             onSelect={(b) => setExpandedBeerId(b.id)}
+            hideDegree
             summaryFor={(b) => {
               const rows = beerRows.filter((r) => r.beerId === b.id && Number(r.qty) > 0);
-              const total = rows.reduce((s, r) => s + Number(r.qty || 0), 0);
-              return { filled: total > 0, label: total > 0 ? `${total} ks` : '' };
+              // Detailní rozpis podle obalů (např. "6×1,5 3×30 1×50"), ne jen
+              // celkový počet — ať je na dlaždici hned vidět, co přesně je v
+              // objednávce, bez nutnosti klikat dovnitř.
+              const detail = [...rows]
+                .sort((a, c) => (packages.find((p) => p.id === a.pkgId)?.volume_l ?? 0) - (packages.find((p) => p.id === c.pkgId)?.volume_l ?? 0))
+                .map((r) => {
+                  const vol = packages.find((p) => p.id === r.pkgId)?.volume_l;
+                  return `${r.qty}×${vol != null ? vol.toLocaleString('cs-CZ') : '?'}`;
+                })
+                .join(' ');
+              return { filled: rows.length > 0, label: detail };
             }}
           />
 

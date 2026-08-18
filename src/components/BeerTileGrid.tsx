@@ -11,6 +11,9 @@ type BeerTileGridProps = {
   onSelect: (beer: Beer) => void;
   summaryFor: (beer: Beer) => TileSummary;
   emptyHint?: string;
+  /** Skryje odznak stupně (12°/11°…) — v Objednávkách je zbytečný, důležité
+      je vidět rozpis množství podle obalů, ne stupeň piva. */
+  hideDegree?: boolean;
 };
 
 /**
@@ -19,7 +22,7 @@ type BeerTileGridProps = {
  * a odznak ✓, aby šlo na první pohled (bez čtení drobného textu) poznat, co
  * už je v zápisu.
  */
-export function BeerTileGrid({ beers, onSelect, summaryFor, emptyHint = 'klepni pro obaly' }: BeerTileGridProps) {
+export function BeerTileGrid({ beers, onSelect, summaryFor, emptyHint = 'klepni pro obaly', hideDegree = false }: BeerTileGridProps) {
   return (
     <div className="grid grid-cols-2 gap-2.5">
       {beers.map((b) => {
@@ -40,7 +43,7 @@ export function BeerTileGrid({ beers, onSelect, summaryFor, emptyHint = 'klepni 
               </span>
             )}
             <span className={`font-black text-sm leading-tight ${beerText(b)}`}>{beerName(b)}</span>
-            {b.degree && (
+            {!hideDegree && b.degree && (
               <span className={`self-start text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-white/70 ${beerText(b)} opacity-90`}>
                 {b.degree}
               </span>
