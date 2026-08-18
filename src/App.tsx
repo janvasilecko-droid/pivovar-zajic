@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
 import { useAuth } from './lib/auth';
 import AppSettingsScreen from './screens/AppSettingsScreen';
 import AppVersionsScreen from './screens/AppVersionsScreen';
@@ -95,6 +97,24 @@ export default function App() {
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
+
+  // Hardwarové tlačítko Zpět na Androidu (bez tohoto Capacitor bez
+  // registrovaného posluchače aplikaci rovnou ukončí — po opětovném otevření
+  // se pak WebView natvrdo restartuje na DEFAULT_PAGE, což vypadá jako
+  // "skok do menu" místo očekávaného kroku zpět). Místo ukončení jdeme
+  // o krok zpět v historii stránek (stejná historie, kterou plní setPage);
+  // teprve na výchozí stránce se aplikace jen minimalizuje.
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const listenerPromise = CapacitorApp.addListener('backButton', () => {
+      if (page !== DEFAULT_PAGE) {
+        window.history.back();
+      } else {
+        CapacitorApp.minimizeApp();
+      }
+    });
+    return () => { listenerPromise.then((l) => l.remove()); };
+  }, [page]);
 
   if (loading) {
     return (
