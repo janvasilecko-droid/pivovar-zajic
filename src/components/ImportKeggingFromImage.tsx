@@ -140,10 +140,13 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
         const itemPkgLabel = item.package_label || '';
         const itemQty = item.quantity != null && item.quantity !== '' ? String(item.quantity) : '';
 
-        // Pivo
+        // Pivo — přesná shoda jména, pak podřetězec jména (zachytí i pivo bez
+        // vlastního stupně v katalogu, např. sezonní "Summer Ale"), a teprve
+        // pak holý stupeň jako poslední záchrana — jinak by pivo se stejným
+        // stupněm jako jiné (ale bez stupně v katalogu) prohrálo se špatným.
         let matchedBeer = beers.find((b) => norm(b.name) === norm(itemBeerName));
-        if (!matchedBeer && itemDegree) matchedBeer = beers.find((b) => b.degree && norm(b.degree) === norm(itemDegree));
         if (!matchedBeer && itemBeerName) matchedBeer = beers.find((b) => norm(b.name).includes(norm(itemBeerName)) || norm(itemBeerName).includes(norm(b.name)));
+        if (!matchedBeer && itemDegree) matchedBeer = beers.find((b) => b.degree && norm(b.degree) === norm(itemDegree));
 
         // KEG obal — podle objemu z textu (nejspolehlivější), jinak z label
         let matchedPkg: Package | undefined;
@@ -155,7 +158,6 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
           matchedPkg = kegPackages.find((p) => norm(p.label) === norm(itemPkgLabel))
             || kegPackages.find((p) => norm(p.label).includes(norm(itemPkgLabel)) || norm(itemPkgLabel).includes(norm(p.label)));
         }
-        if (!matchedPkg) matchedPkg = kegPackages[0];
 
         rows.push({ beerId: matchedBeer?.id ?? '', pkgId: matchedPkg?.id ?? '', qty: itemQty });
       }

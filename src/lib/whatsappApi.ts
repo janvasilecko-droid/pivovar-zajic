@@ -43,6 +43,8 @@ export interface WhatsAppIncoming {
   imported_at?: string;
   webhook_id?: string;
   webhook_timestamp?: string;
+  /** Text zprávy, na kterou tahle odpovídá (WhatsApp "reply"/citace), pokud nějaký je. */
+  quoted_text?: string | null;
 }
 
 // Interface for parsed order item

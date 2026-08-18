@@ -417,13 +417,15 @@ export async function parseWhatsAppOrderMessageWithAI(
 
   // Načtení kontextu z předchozích zpráv ve stejném chatu/skupině (chat_id)
   let chatContext: any[] = [];
+  let quotedText: string | null = null;
   if (messageId) {
     try {
       const { data: currentMsg } = await supabase
         .from('whatsapp_incoming')
-        .select('chat_id, created_at')
+        .select('chat_id, created_at, quoted_text')
         .eq('id', messageId)
         .maybeSingle();
+      quotedText = currentMsg?.quoted_text || null;
 
       if (currentMsg?.chat_id) {
         const { data: contextData } = await supabase
@@ -472,7 +474,7 @@ export async function parseWhatsAppOrderMessageWithAI(
       placeAliases: placeAliasList,
       messages: [
         ...chatContext,
-        { sender: sender ?? null, date, text: rawMessage }
+        { sender: sender ?? null, date, text: rawMessage, ...(quotedText ? { quotedText } : {}) }
       ],
       ...(imageBase64 ? { imageBase64, imageMimeType } : {}),
     }),

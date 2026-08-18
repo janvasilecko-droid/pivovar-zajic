@@ -774,7 +774,7 @@ Deno.serve(async (req: Request) => {
           ).toISOString();
           const { data: contextData } = await supabase
             .from("whatsapp_incoming")
-            .select("sender_name, participant_name, message_timestamp, message_text, from_me, created_at")
+            .select("id, sender_name, participant_name, message_timestamp, message_text, from_me, created_at")
             .eq("chat_id", message.chat_id)
             .lt("created_at", message.created_at)
             .gte("created_at", since)
@@ -856,7 +856,11 @@ Deno.serve(async (req: Request) => {
                     new Date(message.message_timestamp).toISOString().split('T')[0] :
                     null,
               text: message.message_text,
-              fromMe: !!message.from_me
+              fromMe: !!message.from_me,
+              // Text zprávy, na kterou tahle odpovídá (WhatsApp "reply"/citace) —
+              // jasný signál, KTERÉ dřívější objednávky se odpověď týká, místo
+              // hádání podle pořadí zpráv v chatu.
+              ...(message.quoted_text ? { quotedText: message.quoted_text } : {})
             }
           ]
         };
@@ -1081,10 +1085,14 @@ Deno.serve(async (req: Request) => {
             parsed_note: note,
             parsed_raw_text: parseResult.raw_text || null,
             parsed_items: itemsForStorage,
-            readback_unmatched_count: readbackUnmatchedCount(
-              itemsForStorage,
-              contextReadbackText
-            ),
+            // U fotoobjednávek nemá kontrola čtení (diff popisku zprávy vs.
+            // přepisu fotky) smysl — popisek typu "Maneo" nikdy neobsahuje
+            // text položek, takže by vždy hlásil nesoulady. Tam kontrolu
+            // řeší UI tlačítko "Zkontrolovat fotku a potvrdit" u konkrétní
+            // zprávy, ne tenhle textový diff.
+            readback_unmatched_count: message.media_url
+              ? 0
+              : readbackUnmatchedCount(itemsForStorage, contextReadbackText),
           },
           "error"
         );

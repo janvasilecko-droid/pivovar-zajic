@@ -22,6 +22,10 @@ interface WhatsAppMessageHint {
   date: string | null;
   text: string;
   fromMe?: boolean;
+  // Text zprávy, na kterou tahle odpovídá (WhatsApp "reply"/citace) — když je
+  // vyplněný, je to JISTOTA (ne odhad), které dřívější zprávy/objednávky se
+  // tahle týká.
+  quotedText?: string | null;
 }
 
 interface AiResponse {
@@ -257,7 +261,10 @@ Deno.serve(async (req: Request) => {
               : "Odesílatel: (neznámý)";
             const date = m.date ? `, datum: ${m.date}` : "";
             const fullText = m.text.replace(/\s+/g, " ").trim();
-            return `Zpráva ${i + 1}: ${sender}${date}\n  Celý obsah zprávy: "${fullText}"`;
+            const quoted = m.quotedText
+              ? `\n  ⭐ TOHLE JE ODPOVĚĎ (WhatsApp reply) NA ZPRÁVU S TÍMTO TEXTEM: "${m.quotedText.replace(/\s+/g, " ").trim()}" — najdi tuhle zprávu výše v seznamu a POUZE k NÍ tuhle odpověď připoj/uprav (viz pravidlo o citovaných odpovědích níže). Je to JISTOTA, ne odhad.`
+              : "";
+            return `Zpráva ${i + 1}: ${sender}${date}\n  Celý obsah zprávy: "${fullText}"${quoted}`;
           })
           .join("\n")
       : "(žádné rozpoznané zprávy — text nebyl rozdělen na jednotlivé zprávy)";
@@ -319,6 +326,9 @@ KRITICKÉ POKYNY PRO ČTENÍ TEXTU:
 
 ODPOVĚDI NA ZPRÁVY = KONTEXT (VELMI DŮLEŽITÉ):
 V WhatsApp se na objednávku často ODPOVÍDÁ — další zpráva je pokračováním/doplněním té PŘEDCHOZÍ (stejný odběratel, stejný den), NE nová samostatná objednávka. Typicky může jít o: citaci původní zprávy, slova jako "ještě", "k tomu", "dále", "a", "do objednávky přidej", "pak taky", "jo a ještě", nebo odpověď obsahuje jen čísla/piva bez jména odběratele.
+
+0a. KRITICKÉ — ⭐ OZNAČENÍ "TOHLE JE ODPOVĚĎ NA..." MÁ ABSOLUTNÍ PŘEDNOST PŘED POŘADÍM ZPRÁV: Pokud má zpráva v seznamu níže označení "⭐ TOHLE JE ODPOVĚĎ NA ZPRÁVU S TÍMTO TEXTEM", je to skutečná WhatsApp citace (uživatel klepnul na konkrétní starší zprávu a odpověděl na NI) — NE odhad. Najdi v seznamu zprávu, jejíž text odpovídá tomu citovanému, a doplnění/opravu z pravidel 1–11 níže aplikuj PRÁVĚ na TU zprávu/objednávku (jejího odběratele a den) — i kdyby mezitím v chatu přišly JINÉ, nesouvisející objednávky jiných odběratelů. Bez tohohle označení (zpráva ho nemá) postupuj podle pravidel 1–11 a bodu 13 níže (odhad podle pořadí a jazykových signálů, opatrně kvůli sdílenému chatu s více odběrateli).
+
 POSTUP při čtení vícenásobné/odpověďové zprávy:
 0. Pokud zpráva neobsahuje žádné konkrétní objednávkové údaje (množství, obal, pivo, stupeň) a obsahuje pouze obecná potvrzení („ok“, „ano“, „dobře“, „budem“, „jo“, „potvrzuji“, „+1“, „stejné“, emotikony ze sad 👍👌✅✔️), celou ji ignoruj, neextrahuj z ní žádné položky. Tím zabráníš přidávání duplicit nebo neúplných záznamů.
 

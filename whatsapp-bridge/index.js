@@ -153,6 +153,26 @@ function extractText(message) {
   return '';
 }
 
+// --- Text CITOVANÉ zprávy (na kterou se odpovídá), pokud jde o odpověď -----
+// WhatsApp posílá u odpovědí "contextInfo.quotedMessage" (obsah zprávy, na
+// kterou se odpovídá) — dřív se zahazovalo, takže AI musela hádat kontext
+// jen podle pořadí zpráv v chatu (chybovalo to, když mezi odpovědí a
+// původní objednávkou přišla mezitím jiná objednávka od jiného odběratele).
+function extractQuotedText(message) {
+  if (!message) return '';
+  const m = message.message || {};
+  const unwrapped = m.ephemeralMessage?.message || m.viewOnceMessage?.message || m;
+  const ctx =
+    unwrapped.extendedTextMessage?.contextInfo ||
+    unwrapped.imageMessage?.contextInfo ||
+    unwrapped.videoMessage?.contextInfo ||
+    unwrapped.documentMessage?.contextInfo ||
+    null;
+  const quoted = ctx?.quotedMessage;
+  if (!quoted) return '';
+  return extractText({ message: quoted });
+}
+
 async function getGroupSubject(sock, jid) {
   const cached = GROUP_SUBJECTS.get(jid);
   if (cached && Date.now() - cached.ts < GROUP_SUBJECT_TTL_MS) return cached.subject;
@@ -278,6 +298,8 @@ async function handleMessage(sock, gate, supabase, msg, opts = {}) {
     });
   }
 
+  const quotedText = extractQuotedText(msg);
+
   const payload = {
     sender,
     // Skutečné jméno pisatele (pushName). Pro skupinové zprávy je sender název
@@ -292,6 +314,9 @@ async function handleMessage(sock, gate, supabase, msg, opts = {}) {
     fromMe: key.fromMe === true,
     webhookId,
     ...(mediaUrl ? { mediaUrl } : {}),
+    // Text zprávy, na kterou tahle odpovídá (WhatsApp "reply"/citace) — jasný
+    // signál, KTERÉ objednávky se odpověď týká, místo hádání podle pořadí.
+    ...(quotedText ? { quotedText } : {}),
   };
 
   logger.info(

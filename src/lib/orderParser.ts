@@ -613,26 +613,12 @@ export function parseOrderText(
 
       const bbox = findBboxForContext(dispContext, linesWithBbox);
 
-
-      // Guarantee beer fallback so beer_id is never empty
-      if (!beer && beers && beers.length > 0) {
-        beer = beers.find((b) => b.degree === '11°' || /11/i.test(b.name)) || beers[0];
-      }
-
-      // Guarantee package fallback so package_id is never empty
-      if (!pkg && packages && packages.length > 0) {
-        const rawStr = dispContext || '';
-        if (/50/i.test(rawStr)) {
-          pkg = packages.find((p) => Number(p.volume_l) === 50 || /50/i.test(p.label)) ?? null;
-        } else if (/30/i.test(rawStr)) {
-          pkg = packages.find((p) => Number(p.volume_l) === 30 || /30/i.test(p.label)) ?? null;
-        } else if (/0[.,]5/i.test(rawStr) || /lahv|sklo/i.test(rawStr)) {
-          pkg = packages.find((p) => Number(p.volume_l) === 0.5 || /0[.,]5|lahv/i.test(p.label)) ?? null;
-        }
-        if (!pkg) {
-          pkg = packages.find((p) => Number(p.volume_l) === 30 || /30/i.test(p.label)) || packages[0];
-        }
-      }
+      // Pivo/obal, které se nepodařilo rozpoznat, zůstávají null (nehádáme
+      // je natvrdo) — issues/confidence výše už správně říkají, co chybí,
+      // a beer_id/package_id musí tomu odpovídat, jinak by se dala do
+      // objednávky tiše zapsat úplně jiná položka, aniž by si toho uživatel
+      // všiml (beerId/pkgId prázdné = řádek zůstane needitovaný ve
+      // formuláři, dokud ho uživatel sám nevyplní).
 
       results.push({
         raw: dispContext,

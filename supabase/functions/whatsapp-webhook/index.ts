@@ -45,6 +45,12 @@ interface MakeWebhookPayload {
   chatId?: string;
   chat_id?: string;
 
+  // ✅ Text CITOVANÉ zprávy (na kterou tahle odpovídá — WhatsApp "reply").
+  //    Jasný signál, které dřívější objednávky se odpověď týká, místo
+  //    hádání podle pořadí zpráv v chatu. Aliasy: quotedText | quoted_text.
+  quotedText?: string;
+  quoted_text?: string;
+
   // ✅ Vlastní zpráva (odeslaná z jiného zařízení/Webu) — from_me=true se uloží
   //    s flagem from_me, aby ji aplikace odlišila od zákaznických zpráv.
   //    Aliasy: fromMe | from_me. Pokud se neposílá, použije se prefixová
@@ -71,6 +77,7 @@ interface WhatsAppIncomingRecord {
   webhook_timestamp?: string;
   chat_id?: string;
   from_me?: boolean;
+  quoted_text?: string;
 }
 
 /**
@@ -291,6 +298,13 @@ Deno.serve(async (req: Request) => {
     const mediaUrl = payload.mediaUrl || firstAttachmentUrl;
     if (mediaUrl) {
       record.media_url = mediaUrl.trim();
+    }
+
+    // Text citované zprávy (WhatsApp "reply") — jasný signál pro AI, na
+    // kterou dřívější objednávku se tahle zpráva odpovídá.
+    const quotedText = String(payload.quotedText ?? payload.quoted_text ?? "").trim();
+    if (quotedText) {
+      record.quoted_text = quotedText;
     }
 
     if (messageTimestamp && !isNaN(messageTimestamp.getTime())) {

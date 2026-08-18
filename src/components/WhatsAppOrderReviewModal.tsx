@@ -349,6 +349,10 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     if (!message || reparsing) return;
     // První parsování (zpráva čeká) vs. opakované čtení už rozparsované zprávy.
     const isFirstParse = message.status === 'pending' || !message.parsed_items;
+    // Nový přepis nahrazuje ten, který uživatel případně už "Zkontrolovat
+    // fotku a potvrdil" — potvrzení se musí zopakovat pro nová data, jinak
+    // by šlo kontrolu fotky obejít opakovaným "Přečíst znovu (AI)".
+    setPhotoChecked(false);
     setReparsing(true);
     setStatusMessage(isFirstParse ? 'Parsuji zprávu přes AI...' : 'Čtu zprávu znovu přes AI...');
     try {
@@ -374,7 +378,9 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         package_label: item.package_label || null,
         raw_line: item.raw || item.originalLine || null,
       }));
-      const unmatched = computeReadbackUnmatchedCount(newParsedItems || [], message.message_text);
+      // U fotoobjednávek nemá tenhle textový diff smysl (viz photoChecked
+      // gate výše) — nepočítej ho, ať se nezobrazí zavádějící "N nesouladů".
+      const unmatched = isImage ? 0 : computeReadbackUnmatchedCount(newParsedItems || [], message.message_text);
 
       await updateWhatsAppParsedData(message.id, {
         parsedItems: newParsedItems,

@@ -156,33 +156,35 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
         const itemPkgLabel = item.package_label || '';
         const itemQty = item.quantity ? String(item.quantity) : '';
 
-        // Match Beer
+        // Match Beer — přesná shoda jména, pak podřetězec jména (zachytí i
+        // pivo bez vlastního stupně v katalogu, např. sezonní "Summer Ale"),
+        // a teprve pak holý stupeň jako poslední záchrana — jinak by pivo se
+        // stejným stupněm jako jiné (ale bez stupně v katalogu) prohrálo se
+        // špatným.
         let matchedBeer = beers.find((b) => norm(b.name) === norm(itemBeerName));
-        if (!matchedBeer && itemDegree) {
-          matchedBeer = beers.find((b) => b.degree && norm(b.degree) === norm(itemDegree));
-        }
         if (!matchedBeer && itemBeerName) {
           matchedBeer = beers.find((b) => norm(b.name).includes(norm(itemBeerName)) || norm(itemBeerName).includes(norm(b.name)));
         }
+        if (!matchedBeer && itemDegree) {
+          matchedBeer = beers.find((b) => b.degree && norm(b.degree) === norm(itemDegree));
+        }
 
-        // Match Package
+        // Match Package — nenajde-li se shoda, necháme obal prázdný (nehádáme
+        // natvrdo první obal v katalogu, uživatel ho pak doplní ručně).
         let matchedPkg = bottlePackages.find((p) => norm(p.label) === norm(itemPkgLabel));
         if (!matchedPkg && itemPkgLabel) {
           matchedPkg = bottlePackages.find((p) => norm(p.label).includes(norm(itemPkgLabel)) || norm(itemPkgLabel).includes(norm(p.label)));
         }
         if (!matchedPkg && raw) {
           if (raw.includes('1.5') || raw.includes('1,5') || raw.toLowerCase().includes('pet')) {
-            matchedPkg = bottlePackages.find((p) => Number(p.volume_l) === 1.5) || bottlePackages[0];
+            matchedPkg = bottlePackages.find((p) => Number(p.volume_l) === 1.5);
           } else if (raw.includes('0.5') || raw.includes('0,5') || raw.toLowerCase().includes('sklo')) {
-            matchedPkg = bottlePackages.find((p) => Number(p.volume_l) === 0.5) || bottlePackages[0];
+            matchedPkg = bottlePackages.find((p) => Number(p.volume_l) === 0.5);
           } else if (raw.includes('1l') || raw.includes('1 l')) {
-            matchedPkg = bottlePackages.find((p) => Number(p.volume_l) === 1.0) || bottlePackages[0];
+            matchedPkg = bottlePackages.find((p) => Number(p.volume_l) === 1.0);
           } else if (raw.includes('0.33') || raw.includes('0,33')) {
-            matchedPkg = bottlePackages.find((p) => Number(p.volume_l) === 0.33) || bottlePackages[0];
+            matchedPkg = bottlePackages.find((p) => Number(p.volume_l) === 0.33);
           }
-        }
-        if (!matchedPkg) {
-          matchedPkg = bottlePackages[0];
         }
 
         // Match Kegs/Sudy (ONLY if written in photo!)
@@ -198,14 +200,13 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
             const foundKeg = kegPackages.find((p) => Number(p.volume_l) === Number(volVal));
             if (foundKeg) kegPkgId = foundKeg.id;
           }
-          if (!kegPkgId && kegPackages.length) {
-            kegPkgId = kegPackages[0].id;
-          }
+          // Nehádáme natvrdo první KEG v katalogu, když se konkrétní objem
+          // nenajde — necháme prázdné, ať si ho uživatel doplní ručně.
         }
 
         rows.push({
           beerId: matchedBeer?.id ?? '',
-          pkgId: matchedPkg?.id ?? bottlePackages[0]?.id ?? '',
+          pkgId: matchedPkg?.id ?? '',
           pkg2Id: '',
           pkg3Id: '',
           kegPkgId: kegPkgId, // Leave empty if not mentioned on photo!

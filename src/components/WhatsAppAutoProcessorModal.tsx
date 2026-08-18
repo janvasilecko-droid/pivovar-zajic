@@ -19,6 +19,15 @@ interface WhatsAppAutoProcessorModalProps {
   refreshKey?: number;
 }
 
+// U fotoobjednávek nemá kontrola čtení (diff popisku zprávy vs. přepisu
+// fotky) smysl — popisek typu "Maneo" nikdy neobsahuje text položek, takže
+// by vždy hlásil nesoulady. Tam kontrolu řeší tlačítko "Zkontrolovat fotku
+// a potvrdit" v detailu zprávy, ne tenhle textový diff.
+function mismatchCountFor(m: WhatsAppIncoming): number {
+  if (m.media_url) return 0;
+  return analyzeReadback(m).mismatchCount;
+}
+
 function formatWaitTime(createdAt: string): string {
   const diffMs = Date.now() - new Date(createdAt).getTime();
   const minutes = Math.floor(diffMs / 60000);
@@ -82,7 +91,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
   // Statistika čekajících zpráv.
   const listStats = useMemo(() => {
     const parsed = messages.filter((m) => m.status === 'parsed' || parsedResults.has(m.id));
-    const mismatched = messages.filter((m) => analyzeReadback(m).mismatchCount > 0);
+    const mismatched = messages.filter((m) => mismatchCountFor(m) > 0);
     return { total: messages.length, parsed: parsed.length, mismatched: mismatched.length };
   }, [messages, parsedResults]);
 
@@ -95,7 +104,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
     for (const m of done) {
       const rb = analyzeReadback(m);
       if (rb.items.length === 0) { noItems++; continue; }
-      if (rb.mismatchCount === 0) ok++;
+      if (mismatchCountFor(m) === 0) ok++;
       else mismatch++;
     }
     return { total: done.length, ok, mismatch, noItems };
@@ -116,11 +125,11 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
   const visibleMessages = useMemo(() => {
     let list = messages;
     if (filterMismatchOnly) {
-      list = list.filter((m) => analyzeReadback(m).mismatchCount > 0);
+      list = list.filter((m) => mismatchCountFor(m) > 0);
     }
     if (sortMode === 'mismatch') {
       list = [...list].sort((a, b) => {
-        const diff = analyzeReadback(b).mismatchCount - analyzeReadback(a).mismatchCount;
+        const diff = mismatchCountFor(b) - mismatchCountFor(a);
         if (diff !== 0) return diff;
         const timeB = new Date(b.message_timestamp || b.created_at).getTime();
         const timeA = new Date(a.message_timestamp || a.created_at).getTime();
@@ -433,7 +442,8 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
               const status = getMessageStatus(message);
               const parsedResult = parsedResults.get(message.id);
               const rb = analyzeReadback(message);
-              const isMismatch = rb.mismatchCount > 0;
+              // U fotoobjednávek nemá textový diff smysl (viz mismatchCountFor výše).
+              const isMismatch = !message.media_url && rb.mismatchCount > 0;
               const isRepeated = repeatedErrors.some((err) => err.messageIds.includes(message.id));
               const isDup = similarIds.has(message.id);
 
@@ -471,7 +481,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
                           {getStatusIcon(status)}
                           {getStatusText(status)}
                         </div>
-                        {rb.mismatchCount > 0 && (
+                        {isMismatch && (
                           <span
                             className={`px-2 py-0.5 rounded-full text-xs flex items-center gap-1 ${
                               rb.unmatchedCount > 0 ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
@@ -497,7 +507,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
                         )}
                         <span
                           className={`px-2 py-0.5 rounded-full text-xs flex items-center gap-1 ${
-                            rb.mismatchCount > 0 && Date.now() - new Date(message.message_timestamp || message.created_at).getTime() > 60 * 60 * 1000
+                            isMismatch && Date.now() - new Date(message.message_timestamp || message.created_at).getTime() > 60 * 60 * 1000
                               ? 'bg-red-50 text-red-700'
                               : 'bg-neutral-100 text-neutral-500'
                           }`}
