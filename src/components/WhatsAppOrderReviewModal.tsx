@@ -236,6 +236,10 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   // Starší zprávy (Make.com/Tasker před bridge) můžou mít message_type NULL —
   // nesmí to shodit render (TypeError na .includes).
   const isImage = (message.message_type || '').includes('image');
+  // Fotoobjednávka s dostupnou fotkou → napevno přilepený panel s fotkou
+  // nahoře a scrollovatelný zbytek dole (místo běžného Modalu), ať jde
+  // fotku průběžně porovnávat s přepsanými položkami při scrollování.
+  const useFullscreenPhotoLayout = isImage && !!message.media_url;
   const isParsed = message.status === 'parsed';
   const isPending = message.status === 'pending';
   const isImported = message.status === 'imported';
@@ -470,8 +474,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     }
   };
 
-  return (
-    <Modal open={props.isOpen} onClose={props.onClose} title="🛒 Kontrola WhatsApp objednávky" wide>
+  const body = (
       <div className="space-y-6">
         {/* Informace o zprávě */}
         <div className="border rounded-xl p-4 bg-blue-50">
@@ -541,20 +544,23 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           </div>
 
           {/* Fotka/příloha — čtení objednávek z fotky: zoomovatelný/posuvný
-              náhled (stejná komponenta jako ruční „Číst z fotky"), přilepený
-              nahoře přes polovinu obrazovky, zatímco se pod ním scrolluje
-              přepis a položky — jde tak průběžně porovnávat fotku s tím,
-              co se z ní zapsalo (#22, DeepSeek fotky nečte, takže je
-              kontrola objednávky z fotky vždy na člověku). */}
+              náhled (stejná komponenta jako ruční „Číst z fotky"). Když je
+              foto k dispozici, zobrazí se v napevno přilepeném panelu nahoře
+              (viz níže), tady jen odkazy pro otevření/stažení — jde tak
+              průběžně porovnávat fotku s tím, co se z ní zapsalo (#22,
+              DeepSeek fotky nečte, takže je kontrola objednávky z fotky
+              vždy na člověku). */}
           {message.media_url ? (
             <div className="mt-3">
-              <div className="sticky top-0 z-20 h-[45vh] sm:h-96 rounded-lg overflow-hidden border border-blue-200 shadow-lg">
-                <PhotoReviewPane
-                  photos={[{ dataUrl: message.media_url, name: 'Fotka objednávky' }]}
-                  activeIndex={0}
-                  onChangeIndex={() => {}}
-                />
-              </div>
+              {!useFullscreenPhotoLayout && (
+                <div className="h-[45vh] sm:h-96 rounded-lg overflow-hidden border border-blue-200 shadow-lg">
+                  <PhotoReviewPane
+                    photos={[{ dataUrl: message.media_url, name: 'Fotka objednávky' }]}
+                    activeIndex={0}
+                    onChangeIndex={() => {}}
+                  />
+                </div>
+              )}
               <div className="mt-2 flex flex-wrap gap-2">
                 <a
                   href={message.media_url}
@@ -985,6 +991,40 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           </ol>
         </div>
       </div>
+  );
+
+  // Fotoobjednávka: vlastní fullscreen layout s napevno přilepenou fotkou
+  // nahoře (ne Modal — jeho tělo scrolluje jako celek, což by fotku odneslo
+  // pryč se zbytkem obsahu).
+  if (useFullscreenPhotoLayout && message.media_url) {
+    return (
+      <div className="fixed inset-0 z-50 bg-white flex flex-col animate-fade-in">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 shrink-0 bg-white">
+          <h3 className="font-display font-bold text-base text-neutral-900 tracking-tight">🛒 Kontrola WhatsApp objednávky</h3>
+          <button
+            onClick={props.onClose}
+            className="w-8 h-8 grid place-items-center rounded-xl text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="h-[42vh] sm:h-[45vh] shrink-0 border-b border-blue-200">
+          <PhotoReviewPane
+            photos={[{ dataUrl: message.media_url, name: 'Fotka objednávky' }]}
+            activeIndex={0}
+            onChangeIndex={() => {}}
+          />
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin p-4 sm:p-6">
+          {body}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Modal open={props.isOpen} onClose={props.onClose} title="🛒 Kontrola WhatsApp objednávky" wide>
+      {body}
     </Modal>
   );
 }
