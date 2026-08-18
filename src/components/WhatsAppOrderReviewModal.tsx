@@ -268,9 +268,12 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     : [];
 
   const handleApprove = async () => {
-    // Blokace/varování při nesouladu čtení (⚠/≈). V přísném režimu je tlačítko
-    // rovnou neaktivní; jinak se zeptáme a uživatel může vědomě pokračovat.
-    if (readback.mismatchCount > 0 && !strictReadback) {
+    // Blokace/varování při nesouladu čtení (⚠/≈) — u fotoobjednávek je toto
+    // porovnání (popisek zprávy vs. přepis fotky) nesmysluplné, tam kontrolu
+    // řeší tlačítko "Zkontrolovat fotku a potvrdit" (photoChecked) níže.
+    // V přísném režimu je tlačítko rovnou neaktivní; jinak se zeptáme a
+    // uživatel může vědomě pokračovat.
+    if (!isImage && readback.mismatchCount > 0 && !strictReadback) {
       const ok = window.confirm(
         `⚠ ${readback.mismatchCount} z ${readback.items.length} položek nesouhlasí s originálem (AI mohla špatně přečíst).\n\n` +
         `Pokračovat a i přesto objednávku schválit?` +
@@ -610,12 +613,16 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             </div>
           </div>
 
-          {/* Přísný režim — blokace schválení při nesouladu (#4) */}
-          <label className="flex items-center gap-2 text-xs text-neutral-600 mb-2 cursor-pointer select-none">
-            <input type="checkbox" checked={strictReadback} onChange={toggleStrictReadback} className="accent-amber-600" />
-            {strictReadback ? <ShieldCheck size={13} className="text-emerald-600" /> : <ShieldAlert size={13} className="text-amber-600" />}
-            Vyžadovat opravu nesouladů před schválením
-          </label>
+          {/* Přísný režim — blokace schválení při nesouladu (#4). U fotoobjednávek
+              nemá smysl (originál je jen popisek, ne text k porovnání) — tam
+              kontrolu řeší tlačítko "Zkontrolovat fotku a potvrdit" níže. */}
+          {!isImage && (
+            <label className="flex items-center gap-2 text-xs text-neutral-600 mb-2 cursor-pointer select-none">
+              <input type="checkbox" checked={strictReadback} onChange={toggleStrictReadback} className="accent-amber-600" />
+              {strictReadback ? <ShieldCheck size={13} className="text-emerald-600" /> : <ShieldAlert size={13} className="text-amber-600" />}
+              Vyžadovat opravu nesouladů před schválením
+            </label>
+          )}
 
           {/* Side-by-side na desktopu, pod sebou na mobilu (#7) */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
@@ -931,25 +938,27 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
 
             <button
               onClick={handleApprove}
-              disabled={approving || loading || !isParsed || items.length === 0 || (strictReadback && readback.mismatchCount > 0) || (isImage && !!message.media_url && !photoChecked)}
+              disabled={approving || loading || !isParsed || items.length === 0 || (isImage ? (!!message.media_url && !photoChecked) : (strictReadback && readback.mismatchCount > 0))}
               className="px-6 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2 font-medium"
               title={
                 isImage && !!message.media_url && !photoChecked
                   ? 'Nejprve potvrďte, že jste fotku zkontroloval/a (tlačítko výše).'
                   : items.length === 0
                   ? 'Žádné položky k importu — smazanou položku vrátíte zavřením bez schválení nebo „Přečíst znovu (AI)".'
-                  : strictReadback && readback.mismatchCount > 0
+                  : !isImage && strictReadback && readback.mismatchCount > 0
                     ? 'Přísný režim je zapnutý — opravte ⚠ položky nebo přísný režim vypněte.'
                     : undefined
               }
             >
               {approving ? <ButtonSpinner /> : <UserCheck size={16} />}
               {isParsed
-                ? (strictReadback && readback.mismatchCount > 0
-                    ? `Opravte ${readback.mismatchCount} nesouladů…`
-                    : items.length === 0
-                      ? 'Žádné položky…'
-                      : 'Schválit a importovat')
+                ? (isImage && !!message.media_url && !photoChecked
+                    ? 'Nejprve zkontrolujte fotku…'
+                    : !isImage && strictReadback && readback.mismatchCount > 0
+                      ? `Opravte ${readback.mismatchCount} nesouladů…`
+                      : items.length === 0
+                        ? 'Žádné položky…'
+                        : 'Schválit a importovat')
                 : 'Čeká na parsování...'}
             </button>
             </div>
