@@ -151,7 +151,9 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
       kgRows,
       faRows,
       fpRows,
-      woRows
+      woRows,
+      0,
+      zdRows
     );
 
     const result: StockStat[] = beerList.map((beer) => {

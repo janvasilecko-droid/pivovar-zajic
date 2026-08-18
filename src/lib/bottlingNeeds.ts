@@ -65,7 +65,7 @@ export function computeBottlingNeeds(input: BottlingNeedsInput): NeedsRow[] {
   const curMonth = todayStr.slice(0, 7);
 
   // Aktuální sklad (měsíční model — inventura + stočeno − výdej)
-  const invMap = getStartingStockMap(curMonth, inventoryRows, bottlingRows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows);
+  const invMap = getStartingStockMap(curMonth, inventoryRows, bottlingRows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, 0, zavozDeductionRows);
   const inMap: Record<string, number> = {};
   [...bottlingRows, ...keggingRows].filter((r) => r.entry_date?.startsWith(curMonth)).forEach((r) => {
     if (!r.beer_id || !r.package_id) return;

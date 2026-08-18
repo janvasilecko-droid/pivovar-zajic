@@ -307,7 +307,9 @@ export default function BottlingScreen({
       keggingRows,
       fasovaniRows,
       prodejnaRows,
-      writeoffsRows
+      writeoffsRows,
+      0,
+      zavozDeductionRows
     );
 
     // Pohyby vyfiltrované pro aktuální měsíc

@@ -143,7 +143,7 @@ export function BottlingPlanPlanner({
 
   // Aktuální sklad (měsíční model — shodný s „Potřeba stočit lahve")
   const stockMap = useMemo(() => {
-    const invMap = getStartingStockMap(curMonth, inventoryRows, rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows);
+    const invMap = getStartingStockMap(curMonth, inventoryRows, rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, 0, zavozDeductionRows);
     const inMap: Record<string, number> = {};
     [...rows, ...keggingRows].filter((r) => r.entry_date?.startsWith(curMonth)).forEach((r) => {
       if (!r.beer_id || !r.package_id) return;

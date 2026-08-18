@@ -99,7 +99,7 @@ export function computeKegNeeds(input: KegNeedsInput): KegNeedsRow[] {
 
   // Počáteční sklad měsíce — inventura s automatickým převodem z předchozího měsíce.
   // (bottlingRows = [] — lahve nejsou KEG zásoba; KEGy se berou z keggingRows.)
-  const invMap = getStartingStockMap(curMonth, inventoryRows, [], keggingRows, fasovaniRows, prodejnaRows, writeoffsRows);
+  const invMap = getStartingStockMap(curMonth, inventoryRows, [], keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, 0, zavozDeductionRows);
 
   // Pohyby v aktuálním měsíci
   const bottledMap: Record<string, number> = {};
