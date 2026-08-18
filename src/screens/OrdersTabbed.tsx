@@ -53,7 +53,7 @@ export default function OrdersTabbed({
   return (
     <div className="space-y-6">
       {/* Tab Navigation — pořadí: Objednávky, Přehled, Závoz, Výčepy (Zápůjčky) */}
-      <div className="flex items-center gap-2 border-b border-neutral-200 pb-2 overflow-x-auto scrollbar-thin">
+      <div className="sticky top-0 z-20 bg-neutral-100 pt-1 flex items-center gap-2 border-b border-neutral-200 pb-2 overflow-x-auto scrollbar-thin">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           return (

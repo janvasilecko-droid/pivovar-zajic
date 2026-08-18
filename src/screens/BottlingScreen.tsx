@@ -687,8 +687,8 @@ export default function BottlingScreen({
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Top Action Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl sm:rounded-3xl border border-neutral-200/90 shadow-2xs">
+      {/* Top Action Bar — přilepený nahoře, ať jde přepínat záložku i uprostřed scrollování. */}
+      <div className="sticky top-0 z-20 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl sm:rounded-3xl border border-neutral-200/90 shadow-2xs">
         <div className="hidden sm:flex items-center justify-between gap-2">
           <span className="text-sm sm:text-base font-display font-black text-amber-950 flex items-center gap-1.5 shrink-0">
             <span>🍾</span>
@@ -1562,7 +1562,7 @@ export default function BottlingScreen({
                 projeví okamžitě po uložení, v novém týdnu se počítá znovu z nových objednávek.
               </p>
 
-              <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 bg-white py-1.5 -mx-4 px-4 sm:mx-0 sm:px-0">
+              <div className="sticky top-[66px] z-10 flex flex-wrap items-center gap-2 bg-white py-1.5 -mx-4 px-4 sm:mx-0 sm:px-0">
                 {/* Filtr Pivo */}
                 <select
                   value={reqBeerFilter}

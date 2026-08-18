@@ -228,8 +228,8 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Top Action Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-3xl border border-neutral-200 shadow-2xs">
+      {/* Top Action Bar — přilepený nahoře, ať jde přepínat záložku i uprostřed scrollování. */}
+      <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-3xl border border-neutral-200 shadow-2xs">
         <div className="flex items-center gap-2">
           <span className="text-sm font-display font-black text-amber-950 flex items-center gap-1.5">
             <span>{icon}</span>

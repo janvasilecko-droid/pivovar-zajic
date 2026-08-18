@@ -2004,7 +2004,7 @@ export default function Orders({
           </button>
         </div>
 
-        <div className="card sticky top-0 z-10 p-3 flex flex-wrap items-center gap-3 shadow-sm">
+        <div className="card sticky top-[52px] z-10 p-3 flex flex-wrap items-center gap-3 shadow-sm">
           <input
             type="text" placeholder="🔍 Hledat odběratele, pivo nebo poznámku…"
             className="input flex-1 min-w-[200px]" value={searchText}

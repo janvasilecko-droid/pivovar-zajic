@@ -267,7 +267,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
 
       <>
       {/* Filters */}
-      <div className="card sticky top-0 z-10 p-4 bg-white border border-neutral-200/90 rounded-2xl flex flex-wrap items-center gap-3 shadow-sm">
+      <div className="card sticky top-[52px] z-10 p-4 bg-white border border-neutral-200/90 rounded-2xl flex flex-wrap items-center gap-3 shadow-sm">
         <div className="flex items-center gap-2 text-xs font-bold text-neutral-700">
           <span>🔍 Filtr:</span>
         </div>

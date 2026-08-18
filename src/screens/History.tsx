@@ -768,9 +768,11 @@ export default function History() {
         </div>
       </div>
 
-      {/* Top Header Navigation Tabs — na mobilu kratší popisky, ať se vejde
-          víc záložek na obrazovku a je míň nutné vodorovně scrollovat. */}
-      <div className="flex items-center justify-between flex-wrap gap-2 sm:gap-3 border-b border-neutral-200 pb-2">
+      {/* Top Header Navigation Tabs — přilepené nahoře (tlačítko tiskové
+          uzávěrky je mimo přilepený pruh, ať má pruh pořád stejnou výšku a
+          nepřekrývá se s filtry pod ním). Na mobilu kratší popisky, ať se
+          vejde víc záložek na obrazovku a je míň nutné vodorovně scrollovat. */}
+      <div className="sticky top-0 z-20 bg-neutral-100 pt-1 flex items-center gap-2 border-b border-neutral-200 pb-2">
         <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-thin">
           <button
             onClick={() => setActiveTab('overview')}
@@ -856,8 +858,11 @@ export default function History() {
             <span>🚚 <span className="sm:hidden">Trasy</span><span className="hidden sm:inline">Historie a přehled tras</span></span>
           </button>
         </div>
+      </div>
 
-        {/* 🖨️ Tlačítko tiskové uzávěrky pro sládka */}
+      {/* 🖨️ Tlačítko tiskové uzávěrky pro sládka — schválně mimo přilepený
+          pruh záložek výše, ať má ten pruh stálou výšku. */}
+      <div className="flex justify-end">
         <button
           onClick={() => setShowPrintModal(true)}
           className="px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-neutral-900 hover:bg-neutral-800 text-amber-300 font-black text-xs transition shadow-md flex items-center gap-1.5 shrink-0"
@@ -870,7 +875,7 @@ export default function History() {
       {/* TAB 1: OVERVIEW & MONTHLY COMPARISON */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
-          <div className="card sticky top-0 z-10 p-4 flex flex-wrap items-end gap-3 bg-white border border-neutral-200 shadow-sm">
+          <div className="card sticky top-[48px] sm:top-[56px] z-10 p-4 flex flex-wrap items-end gap-3 bg-white border border-neutral-200 shadow-sm">
             <div className="flex-1 min-w-[180px]">
               <label className="label">Pivo</label>
               <select className="input" value={beerFilter} onChange={(e) => setBeerFilter(e.target.value)}>
@@ -1144,7 +1149,7 @@ export default function History() {
       {activeTab === 'production' && (
         <div className="space-y-6">
           {/* Volba období */}
-          <div className="card sticky top-0 z-10 p-4 bg-white border border-neutral-200 rounded-3xl flex flex-wrap items-end gap-3 shadow-sm">
+          <div className="card sticky top-[48px] sm:top-[56px] z-10 p-4 bg-white border border-neutral-200 rounded-3xl flex flex-wrap items-end gap-3 shadow-sm">
             <div>
               <label className="label">Období</label>
               <div className="flex flex-wrap gap-1.5">
@@ -1513,7 +1518,7 @@ export default function History() {
 
             {/* Zdroje aktivit + Date range — přilepené nahoře, ať jde měnit
                 filtr i uprostřed prohlížení výsledků dole. */}
-            <div className="sticky top-0 z-10 bg-white space-y-3 py-1 -mx-5 px-5">
+            <div className="sticky top-[48px] sm:top-[56px] z-10 bg-white space-y-3 py-1 -mx-5 px-5">
               <div>
                 <label className="label mb-2">Aktivita / zdroj dat</label>
                 <div className="flex flex-wrap gap-2">

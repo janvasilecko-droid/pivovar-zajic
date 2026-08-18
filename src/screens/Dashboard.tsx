@@ -331,8 +331,8 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
 
   return (
     <div>
-      {/* Tab Navigation */}
-      <div className="flex items-center gap-2 border-b border-neutral-200 pb-2 overflow-x-auto scrollbar-thin mb-4">
+      {/* Tab Navigation — přilepená nahoře, ať jde přepínat záložku i uprostřed scrollování. */}
+      <div className="sticky top-0 z-20 bg-neutral-100 pt-1 flex items-center gap-2 border-b border-neutral-200 pb-2 overflow-x-auto scrollbar-thin mb-4">
         <button
           onClick={() => (setPage ? setPage('dashboard') : setActiveTab('sklad'))}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
