@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { supabase, Beer, Package, Place, useRealtime, beerBg, beerText, beerName, formatPackageLabel } from '../lib/supabase';
+import { supabase, Beer, Package, Place, useRealtime, beerBg, beerBorder, beerName, formatPackageLabel } from '../lib/supabase';
 import { Spinner, EmptyState } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { orderWeightKg, fmtKg } from '../lib/weight';
@@ -732,39 +732,39 @@ export default function History() {
     <div className="space-y-6 pb-12">
       {/* 🏆 GLOBÁLNÍ KPI DASHBOARD — aktuální rok */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
-        <div className="rounded-2xl p-3 bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-md">
-          <div className="text-[10px] font-black uppercase tracking-wider opacity-80">Uvařeno {currentYear}</div>
-          <div className="text-lg font-display font-black">{yearData.totalBrewed} ks</div>
-          <div className="text-[10px] font-bold opacity-70">{yearData.totalBrewedHl.toFixed(1)} hl</div>
+        <div className="rounded-2xl p-3 bg-white border-2 border-amber-300 shadow-xs">
+          <div className="text-[10px] font-black uppercase tracking-wider text-amber-700">Uvařeno {currentYear}</div>
+          <div className="text-lg font-display font-black text-neutral-900">{yearData.totalBrewed} ks</div>
+          <div className="text-[10px] font-bold text-neutral-500">{yearData.totalBrewedHl.toFixed(1)} hl</div>
         </div>
-        <div className="rounded-2xl p-3 bg-gradient-to-br from-sky-500 to-sky-600 text-white shadow-md">
-          <div className="text-[10px] font-black uppercase tracking-wider opacity-80">Lahve</div>
-          <div className="text-lg font-display font-black">{yearData.totalBottled} ks</div>
+        <div className="rounded-2xl p-3 bg-white border-2 border-sky-300 shadow-xs">
+          <div className="text-[10px] font-black uppercase tracking-wider text-sky-700">Lahve</div>
+          <div className="text-lg font-display font-black text-neutral-900">{yearData.totalBottled} ks</div>
         </div>
-        <div className="rounded-2xl p-3 bg-gradient-to-br from-amber-700 to-amber-800 text-white shadow-md">
-          <div className="text-[10px] font-black uppercase tracking-wider opacity-80">Sudy (KEG)</div>
-          <div className="text-lg font-display font-black">{yearData.totalKegged} ks</div>
+        <div className="rounded-2xl p-3 bg-white border-2 border-amber-500 shadow-xs">
+          <div className="text-[10px] font-black uppercase tracking-wider text-amber-800">Sudy (KEG)</div>
+          <div className="text-lg font-display font-black text-neutral-900">{yearData.totalKegged} ks</div>
         </div>
-        <div className="rounded-2xl p-3 bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md">
-          <div className="text-[10px] font-black uppercase tracking-wider opacity-80">Fasováno</div>
-          <div className="text-lg font-display font-black">{yearData.totalFasovani} ks</div>
+        <div className="rounded-2xl p-3 bg-white border-2 border-emerald-300 shadow-xs">
+          <div className="text-[10px] font-black uppercase tracking-wider text-emerald-700">Fasováno</div>
+          <div className="text-lg font-display font-black text-neutral-900">{yearData.totalFasovani} ks</div>
         </div>
-        <div className="rounded-2xl p-3 bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-md">
-          <div className="text-[10px] font-black uppercase tracking-wider opacity-80">Odpisy</div>
-          <div className="text-lg font-display font-black">{yearData.totalWriteoffs} ks</div>
+        <div className="rounded-2xl p-3 bg-white border-2 border-rose-300 shadow-xs">
+          <div className="text-[10px] font-black uppercase tracking-wider text-rose-700">Odpisy</div>
+          <div className="text-lg font-display font-black text-neutral-900">{yearData.totalWriteoffs} ks</div>
         </div>
-        <div className="rounded-2xl p-3 bg-gradient-to-br from-violet-500 to-violet-600 text-white shadow-md">
-          <div className="text-[10px] font-black uppercase tracking-wider opacity-80">Objednáno</div>
-          <div className="text-lg font-display font-black">{yearData.totalOrdered} ks</div>
+        <div className="rounded-2xl p-3 bg-white border-2 border-violet-300 shadow-xs">
+          <div className="text-[10px] font-black uppercase tracking-wider text-violet-700">Objednáno</div>
+          <div className="text-lg font-display font-black text-neutral-900">{yearData.totalOrdered} ks</div>
         </div>
-        <div className="rounded-2xl p-3 bg-gradient-to-br from-green-500 to-green-600 text-white shadow-md">
-          <div className="text-[10px] font-black uppercase tracking-wider opacity-80">Tržby akce</div>
-          <div className="text-lg font-display font-black">{yearData.totalAkceRevenue.toLocaleString('cs-CZ')} Kč</div>
+        <div className="rounded-2xl p-3 bg-white border-2 border-green-300 shadow-xs">
+          <div className="text-[10px] font-black uppercase tracking-wider text-green-700">Tržby akce</div>
+          <div className="text-lg font-display font-black text-neutral-900">{yearData.totalAkceRevenue.toLocaleString('cs-CZ')} Kč</div>
         </div>
-        <div className="rounded-2xl p-3 bg-gradient-to-br from-neutral-800 to-neutral-900 text-white shadow-md">
-          <div className="text-[10px] font-black uppercase tracking-wider opacity-80">Ø měsíčně</div>
-          <div className="text-lg font-display font-black">{yearData.avgMonthlyBrewed} ks</div>
-          <div className="text-[10px] font-bold opacity-70">{yearData.monthCount} měsíců</div>
+        <div className="rounded-2xl p-3 bg-white border-2 border-neutral-300 shadow-xs">
+          <div className="text-[10px] font-black uppercase tracking-wider text-neutral-600">Ø měsíčně</div>
+          <div className="text-lg font-display font-black text-neutral-900">{yearData.avgMonthlyBrewed} ks</div>
+          <div className="text-[10px] font-bold text-neutral-500">{yearData.monthCount} měsíců</div>
         </div>
       </div>
 
@@ -1247,25 +1247,25 @@ export default function History() {
               <>
                 {/* Hlavní KPI karty */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  <div className="rounded-2xl p-4 bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-md">
-                    <div className="text-[10px] font-black uppercase tracking-wider opacity-80">Celkový výstav</div>
-                    <div className="text-2xl font-display font-black">{totalHl.toFixed(2)} hl</div>
-                    <div className="text-[11px] font-bold opacity-70">{monthsInRange.reduce((s, d) => s + d.brewed, 0)} ks</div>
+                  <div className="rounded-2xl p-4 bg-white border-2 border-amber-300 shadow-xs">
+                    <div className="text-[10px] font-black uppercase tracking-wider text-amber-700">Celkový výstav</div>
+                    <div className="text-2xl font-display font-black text-neutral-900">{totalHl.toFixed(2)} hl</div>
+                    <div className="text-[11px] font-bold text-neutral-500">{monthsInRange.reduce((s, d) => s + d.brewed, 0)} ks</div>
                   </div>
-                  <div className="rounded-2xl p-4 bg-gradient-to-br from-amber-700 to-amber-800 text-white shadow-md">
-                    <div className="text-[10px] font-black uppercase tracking-wider opacity-80">🛢️ KEG sudy</div>
-                    <div className="text-2xl font-display font-black">{totalKegHl.toFixed(2)} hl</div>
-                    <div className="text-[11px] font-bold opacity-70">{totalKegPct.toFixed(1)}% z celku</div>
+                  <div className="rounded-2xl p-4 bg-white border-2 border-amber-500 shadow-xs">
+                    <div className="text-[10px] font-black uppercase tracking-wider text-amber-800">🛢️ KEG sudy</div>
+                    <div className="text-2xl font-display font-black text-neutral-900">{totalKegHl.toFixed(2)} hl</div>
+                    <div className="text-[11px] font-bold text-neutral-500">{totalKegPct.toFixed(1)}% z celku</div>
                   </div>
-                  <div className="rounded-2xl p-4 bg-gradient-to-br from-sky-500 to-sky-600 text-white shadow-md">
-                    <div className="text-[10px] font-black uppercase tracking-wider opacity-80">🍾 Lahve / PET</div>
-                    <div className="text-2xl font-display font-black">{totalBottleHl.toFixed(2)} hl</div>
-                    <div className="text-[11px] font-bold opacity-70">{totalBottlePct.toFixed(1)}% z celku</div>
+                  <div className="rounded-2xl p-4 bg-white border-2 border-sky-300 shadow-xs">
+                    <div className="text-[10px] font-black uppercase tracking-wider text-sky-700">🍾 Lahve / PET</div>
+                    <div className="text-2xl font-display font-black text-neutral-900">{totalBottleHl.toFixed(2)} hl</div>
+                    <div className="text-[11px] font-bold text-neutral-500">{totalBottlePct.toFixed(1)}% z celku</div>
                   </div>
-                  <div className="rounded-2xl p-4 bg-gradient-to-br from-neutral-800 to-neutral-900 text-white shadow-md">
-                    <div className="text-[10px] font-black uppercase tracking-wider opacity-80">Počet měsíců</div>
-                    <div className="text-2xl font-display font-black">{monthsInRange.length}</div>
-                    <div className="text-[11px] font-bold opacity-70">Ø {(totalHl / Math.max(monthsInRange.length, 1)).toFixed(2)} hl/měsíc</div>
+                  <div className="rounded-2xl p-4 bg-white border-2 border-neutral-300 shadow-xs">
+                    <div className="text-[10px] font-black uppercase tracking-wider text-neutral-600">Počet měsíců</div>
+                    <div className="text-2xl font-display font-black text-neutral-900">{monthsInRange.length}</div>
+                    <div className="text-[11px] font-bold text-neutral-500">Ø {(totalHl / Math.max(monthsInRange.length, 1)).toFixed(2)} hl/měsíc</div>
                   </div>
                 </div>
 
@@ -1595,15 +1595,15 @@ export default function History() {
                   return (
                     <div
                       key={`${r.beer_id}__${r.package_id}`}
-                      className={`rounded-2xl border border-black/10 p-3 space-y-1.5 ${hasOrders ? 'cursor-pointer' : ''}`}
-                      style={beer ? { backgroundColor: beerBg(beer) } : undefined}
+                      className={`rounded-2xl bg-white border-2 p-3 space-y-1.5 ${hasOrders ? 'cursor-pointer' : ''}`}
+                      style={{ borderColor: beer ? beerBorder(beer) : '#e5e7eb' }}
                       onClick={() => { if (hasOrders) openEditOrder([...matchingOrderIds][0]); }}
                     >
-                      <div className={`flex items-center justify-between gap-2 font-black text-sm ${beer && beerText(beer) === 'text-white' ? 'text-white' : 'text-neutral-950'}`}>
+                      <div className="flex items-center justify-between gap-2 font-black text-sm text-neutral-950">
                         <span>{r.beer_name} <span className="font-bold opacity-80">· {formatPackageLabel(r.package_label)}</span></span>
                         <span className="shrink-0 font-mono text-sm">{r.totalQty} ks</span>
                       </div>
-                      <div className={`flex flex-wrap gap-x-3 gap-y-0.5 text-xs font-bold ${beer && beerText(beer) === 'text-white' ? 'text-white/80' : 'text-neutral-700'}`}>
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs font-bold text-neutral-700">
                         {ACTIVITY_SOURCES.filter((s) => selSources.has(s.key)).map((s) => (
                           <span key={s.key}>{s.icon} {r.qtyBySource[s.key] || 0}</span>
                         ))}
@@ -1644,8 +1644,8 @@ export default function History() {
                       return (
                         <tr
                           key={`${r.beer_id}__${r.package_id}`}
-                          className={`transition-colors ${hasOrders ? 'cursor-pointer hover:brightness-90' : 'hover:brightness-95'}`}
-                          style={beer ? { backgroundColor: beerBg(beer) } : undefined}
+                          className={`transition-colors bg-white ${hasOrders ? 'cursor-pointer hover:bg-neutral-50' : 'hover:bg-neutral-50/60'}`}
+                          style={{ borderLeft: `4px solid ${beer ? beerBorder(beer) : '#e5e7eb'}` }}
                           onClick={() => {
                             if (hasOrders) {
                               const firstOrderId = [...matchingOrderIds][0];
@@ -1654,7 +1654,7 @@ export default function History() {
                           }}
                           title={hasOrders ? 'Kliknutím upravíte objednávku' : undefined}
                         >
-                          <td className={`font-black text-[11px] ${beer ? (beerText(beer) === 'text-white' ? 'text-white' : 'text-neutral-950') : 'text-neutral-950'}`}>{r.beer_name}</td>
+                          <td className="font-black text-[11px] text-neutral-950">{r.beer_name}</td>
                           <td className="font-extrabold text-neutral-950 text-[11px]">{formatPackageLabel(r.package_label)}</td>
                           {ACTIVITY_SOURCES.filter((s) => selSources.has(s.key)).map((s) => (
                             <td key={s.key} className="text-right font-bold text-neutral-900 text-[11px]">{r.qtyBySource[s.key] || '—'}</td>
@@ -1677,13 +1677,13 @@ export default function History() {
       {activeTab === 'cycles' && (
         <div className="space-y-6">
           {/* Diagnostický přehled ztrát podle tanků */}
-          <div className="card p-5 bg-gradient-to-br from-neutral-900 to-neutral-800 text-white rounded-3xl space-y-4 shadow-md">
-            <div className="flex items-center justify-between border-b border-neutral-700 pb-3">
-              <h3 className="font-display font-black text-lg text-amber-400 flex items-center gap-2">
-                <ShieldAlert size={20} className="text-amber-400" />
+          <div className="card p-5 bg-white border border-neutral-200 rounded-3xl space-y-4 shadow-xs">
+            <div className="flex items-center justify-between border-b border-neutral-200 pb-3">
+              <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
+                <ShieldAlert size={20} className="text-amber-600" />
                 <span>Diagnostika průměrné ztrátovosti podle tanků</span>
               </h3>
-              <span className="text-xs font-mono font-bold bg-neutral-800 px-3 py-1 rounded-xl text-neutral-300 border border-neutral-700">
+              <span className="text-xs font-mono font-bold bg-neutral-100 px-3 py-1 rounded-xl text-neutral-600 border border-neutral-200">
                 {tankLossDiagnostics.length} Tanků sledováno
               </span>
             </div>
@@ -1694,22 +1694,22 @@ export default function History() {
                 return (
                   <div
                     key={t.tank_label}
-                    className={`p-3.5 rounded-2xl border transition-all ${
-                      isHighLoss ? 'bg-rose-950/80 border-rose-500/80 text-white' : 'bg-neutral-800/80 border-neutral-700 text-neutral-200'
+                    className={`p-3.5 rounded-2xl bg-white border-2 transition-all ${
+                      isHighLoss ? 'border-rose-400' : 'border-neutral-200'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-black text-base">{t.tank_label}</span>
-                      <span className={`font-mono font-black text-xs px-2 py-0.5 rounded-lg ${isHighLoss ? 'bg-rose-600 text-white' : 'bg-neutral-700 text-neutral-200'}`}>
+                      <span className="font-black text-base text-neutral-900">{t.tank_label}</span>
+                      <span className={`font-mono font-black text-xs px-2 py-0.5 rounded-lg ${isHighLoss ? 'bg-rose-600 text-white' : 'bg-neutral-100 text-neutral-700'}`}>
                         {t.avgLossPct.toFixed(1)}% ztráta
                       </span>
                     </div>
-                    <div className="text-[11px] opacity-80 flex justify-between">
+                    <div className="text-[11px] text-neutral-500 flex justify-between">
                       <span>{t.count} cyklů</span>
                       <span>Celkem ztráta {t.totalLossL.toFixed(0)} l</span>
                     </div>
                     {isHighLoss && (
-                      <div className="mt-2 text-[10px] font-bold text-rose-300 bg-rose-900/60 p-1.5 rounded-xl border border-rose-700/60">
+                      <div className="mt-2 text-[10px] font-bold text-rose-700 bg-rose-50 p-1.5 rounded-xl border border-rose-200">
                         ⚠️ Vyšší ztrátovost (kontrola hradícího ventilu & těsnění klapky)
                       </div>
                     )}
@@ -1750,12 +1750,12 @@ export default function History() {
                   const beer = c.beer_name ? beers.find((b) => b.name === c.beer_name) : null;
                   const highLoss = Number(c.loss_pct) > 3;
                   return (
-                    <div key={c.id} className="rounded-2xl border border-black/10 p-3 space-y-1.5" style={beer ? { backgroundColor: beerBg(beer) } : undefined}>
-                      <div className={`flex items-center justify-between gap-2 font-black text-sm ${beer && beerText(beer) === 'text-white' ? 'text-white' : 'text-neutral-950'}`}>
+                    <div key={c.id} className="rounded-2xl bg-white border-2 p-3 space-y-1.5" style={{ borderColor: beer ? beerBorder(beer) : '#e5e7eb' }}>
+                      <div className="flex items-center justify-between gap-2 font-black text-sm text-neutral-950">
                         <span>{c.tank_label} <span className="font-bold opacity-80">· {c.beer_name ?? '—'}</span></span>
-                        <span className={`shrink-0 px-2 py-0.5 rounded-lg text-xs font-black ${highLoss ? 'bg-rose-600 text-white' : 'bg-black/10'}`}>{Number(c.loss_pct).toFixed(1)}% ztráta</span>
+                        <span className={`shrink-0 px-2 py-0.5 rounded-lg text-xs font-black ${highLoss ? 'bg-rose-600 text-white' : 'bg-neutral-100 text-neutral-700'}`}>{Number(c.loss_pct).toFixed(1)}% ztráta</span>
                       </div>
-                      <div className={`flex flex-wrap gap-x-3 gap-y-0.5 text-xs font-bold ${beer && beerText(beer) === 'text-white' ? 'text-white/80' : 'text-neutral-700'}`}>
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs font-bold text-neutral-700">
                         <span>Poč. {(Number(c.initial_volume_l) / 100).toFixed(2)} hl</span>
                         <span>Stoč. {(Number(c.kegged_volume_l) / 100).toFixed(2)} hl</span>
                         <span>{c.keg_count} sudů</span>
@@ -1787,9 +1787,9 @@ export default function History() {
                     {tankCyclesSorted.map((c) => {
                       const beer = c.beer_name ? beers.find((b) => b.name === c.beer_name) : null;
                       return (
-                        <tr key={c.id} className="hover:brightness-95 transition-colors" style={beer ? { backgroundColor: beerBg(beer) } : undefined}>
+                        <tr key={c.id} className="hover:bg-neutral-50 transition-colors bg-white" style={{ borderLeft: `4px solid ${beer ? beerBorder(beer) : '#e5e7eb'}` }}>
                           <td className="font-black text-[11px] text-neutral-950">{c.tank_label}</td>
-                          <td className={`font-black text-[11px] ${beer ? (beerText(beer) === 'text-white' ? 'text-white' : 'text-neutral-950') : 'text-neutral-950'}`}>{c.beer_name ?? '—'}</td>
+                          <td className="font-black text-[11px] text-neutral-950">{c.beer_name ?? '—'}</td>
                           <td className="text-right font-bold text-neutral-900 text-[11px]">{(Number(c.initial_volume_l) / 100).toFixed(2)} hl</td>
                           <td className="text-right font-black text-neutral-950 text-[11px]">{(Number(c.kegged_volume_l) / 100).toFixed(2)} hl</td>
                           <td className="text-right font-mono font-black text-neutral-950 text-[11px]">{c.keg_count} ks</td>
@@ -1813,7 +1813,7 @@ export default function History() {
       {activeTab === 'stats' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {topStats.topBeer && (
-            <div className="card p-5 bg-gradient-to-br from-amber-500/10 via-amber-100/40 to-white border-2 border-amber-300 rounded-3xl space-y-2">
+            <div className="card p-5 bg-white border-2 border-amber-300 rounded-3xl space-y-2">
               <div className="text-xs font-black uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
                 <Trophy size={16} className="text-amber-600" />
                 <span>Nejvíc stočené pivo</span>
@@ -1824,7 +1824,7 @@ export default function History() {
           )}
 
           {topStats.lowestLoss && (
-            <div className="card p-5 bg-gradient-to-br from-emerald-500/10 via-emerald-100/40 to-white border-2 border-emerald-300 rounded-3xl space-y-2">
+            <div className="card p-5 bg-white border-2 border-emerald-300 rounded-3xl space-y-2">
               <div className="text-xs font-black uppercase tracking-wider text-emerald-900 flex items-center gap-1.5">
                 <ArrowDownRight size={16} className="text-emerald-600" />
                 <span>Nejnižší ztráta cyklu</span>
@@ -1835,7 +1835,7 @@ export default function History() {
           )}
 
           {topStats.highestLoss && (
-            <div className="card p-5 bg-gradient-to-br from-rose-500/10 via-rose-100/40 to-white border-2 border-rose-300 rounded-3xl space-y-2">
+            <div className="card p-5 bg-white border-2 border-rose-300 rounded-3xl space-y-2">
               <div className="text-xs font-black uppercase tracking-wider text-rose-900 flex items-center gap-1.5">
                 <ArrowUpRight size={16} className="text-rose-600" />
                 <span>Nejvyšší ztráta cyklu</span>
@@ -1846,7 +1846,7 @@ export default function History() {
           )}
 
           {topStats.fastest && (
-            <div className="card p-5 bg-gradient-to-br from-blue-500/10 via-blue-100/40 to-white border-2 border-blue-300 rounded-3xl space-y-2">
+            <div className="card p-5 bg-white border-2 border-blue-300 rounded-3xl space-y-2">
               <div className="text-xs font-black uppercase tracking-wider text-blue-900 flex items-center gap-1.5">
                 <Zap size={16} className="text-blue-600" />
                 <span>Nejrychlejší cyklus tanku</span>
