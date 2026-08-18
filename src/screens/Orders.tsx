@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 
-import { Camera, ListOrdered, Package as PackageIcon, Phone, Building2, Truck, Plus, FileText, MessageCircle, Printer, FileSpreadsheet, CheckSquare, PackageCheck, FilePlus, Calendar, Trash2, Pencil, Copy, Ban, RotateCcw, AlertTriangle, Check, CheckCircle2, Zap, ArrowRight, ChartBar, Mail, ShieldAlert } from 'lucide-react';
+import { Camera, ListOrdered, Package as PackageIcon, Phone, Building2, Truck, Plus, MessageCircle, Printer, FileSpreadsheet, CheckSquare, PackageCheck, FilePlus, Calendar, Trash2, Pencil, Copy, Ban, RotateCcw, AlertTriangle, Check, CheckCircle2, Zap, ArrowRight, ChartBar, Mail, ShieldAlert } from 'lucide-react';
 import { supabase, Beer, Package, Place, EntryRow, useRealtime, beerBg, beerText, beerName, formatPackageLabel, pkgBg } from '../lib/supabase';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
@@ -87,11 +87,13 @@ export default function Orders({
   onShareImportHandled,
   mode = 'all',
   setPage,
+  initialViewMode = 'summary',
 }: {
   autoOpenShareImport?: boolean;
   onShareImportHandled?: () => void;
   mode?: 'entry_only' | 'overviews_only' | 'all';
   setPage?: (p: any) => void;
+  initialViewMode?: 'summary' | 'detail' | 'zavoz' | 'celkem' | 'text';
 } = {}) {
 
   const [orders, setOrders] = useState<Order[]>([]);
@@ -253,7 +255,7 @@ export default function Orders({
   const [editOrder, setEditOrder] = useState<Order | null>(null);
   const [aliasMap, setAliasMap] = useState<ParserAliasMap>(emptyAliasMap());
   const [placeAliasMap, setPlaceAliasMap] = useState<Map<string, string>>(new Map());
-  const [viewMode, setViewMode] = useState<'summary' | 'detail' | 'zavoz' | 'celkem' | 'text'>('summary'); // New state for view mode
+  const [viewMode, setViewMode] = useState<'summary' | 'detail' | 'zavoz' | 'celkem' | 'text'>(initialViewMode); // New state for view mode
   const [itemFilterBeerId, setItemFilterBeerId] = useState<string | null>(null); // New state for item filter
   const [itemFilterPackageId, setItemFilterPackageId] = useState<string | null>(null); // New state for item filter
   useEffect(() => { loadAliasMap().then(setAliasMap).catch(() => {}); }, []);
@@ -1396,26 +1398,6 @@ export default function Orders({
                   }`}
                 >
                   <Plus size={14} /> Nové
-                </button>
-                <button
-                  onClick={() => setViewMode('detail')}
-                  className={`flex-1 sm:flex-none px-2 py-1.5 rounded-lg font-black text-[11px] leading-tight transition flex items-center justify-center gap-1 whitespace-nowrap ${
-                    viewMode === 'detail'
-                      ? 'bg-amber-500 text-neutral-800 shadow-md ring-2 ring-amber-300'
-                      : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
-                  }`}
-                >
-                  <FileText size={14} /> Přehled
-                </button>
-                <button
-                  onClick={() => setViewMode('zavoz')}
-                  className={`flex-1 sm:flex-none px-2 py-1.5 rounded-lg font-black text-[11px] leading-tight transition flex items-center justify-center gap-1 whitespace-nowrap ${
-                    viewMode === 'zavoz'
-                      ? 'bg-amber-500 text-neutral-800 shadow-md ring-2 ring-amber-300'
-                      : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
-                  }`}
-                >
-                  <Truck size={14} /> Závoz
                 </button>
                 <button
                   onClick={() => setViewMode('celkem')}
