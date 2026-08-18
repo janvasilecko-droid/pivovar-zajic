@@ -240,6 +240,10 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   // nahoře a scrollovatelný zbytek dole (místo běžného Modalu), ať jde
   // fotku průběžně porovnávat s přepsanými položkami při scrollování.
   const useFullscreenPhotoLayout = isImage && !!message.media_url;
+  // Textová objednávka s originálním textem → stejný princip jako u fotky:
+  // napevno přilepený originál zprávy nahoře a scrollovatelné položky dole,
+  // ať jde text průběžně porovnávat s tím, co se z něj zapsalo.
+  const useFullscreenTextLayout = !isImage && !!message.message_text;
   const isParsed = message.status === 'parsed';
   const isPending = message.status === 'pending';
   const isImported = message.status === 'imported';
@@ -270,6 +274,39 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   const transcriptSegments = message.parsed_raw_text
     ? diffWords(message.message_text || '', message.parsed_raw_text)
     : [];
+
+  // Originál zprávy — v běžném (Modal) zobrazení součást gridu "Kontrola
+  // čtení", u textových objednávek (useFullscreenTextLayout) se stejný obsah
+  // vykreslí zvlášť v napevno přilepeném panelu nahoře (viz níže).
+  const originalMessageBlock = (
+    <div>
+      <div className="text-xs font-medium text-neutral-500 mb-1 flex items-center gap-1">
+        <MessageSquare size={12} /> Originál zprávy
+      </div>
+      <div className="border rounded-lg p-3 bg-white font-mono text-sm whitespace-pre-wrap max-h-80 overflow-y-auto">
+        {message.message_text ? (
+          originalSegments.map((seg, si) =>
+            seg.highlighted ? (
+              <span
+                key={si}
+                className={seg.tone === 'warn' ? 'bg-amber-200/80 rounded px-0.5' : 'bg-green-200/80 rounded px-0.5'}
+                title={`AI četla odtud — položka ${seg.badges.join(', ')}`}
+              >
+                {seg.text}
+                {seg.badges.map((b) => (
+                  <sup key={b} className="text-[9px] font-bold text-neutral-700 ml-0.5">#{b}</sup>
+                ))}
+              </span>
+            ) : (
+              <span key={si}>{seg.text}</span>
+            )
+          )
+        ) : (
+          <span className="text-neutral-400">(bez textu - fotka)</span>
+        )}
+      </div>
+    </div>
+  );
 
   const handleApprove = async () => {
     // Blokace/varování při nesouladu čtení (⚠/≈) — u fotoobjednávek je toto
@@ -636,35 +673,11 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             </label>
           )}
 
-          {/* Side-by-side na desktopu, pod sebou na mobilu (#7) */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            <div>
-              <div className="text-xs font-medium text-neutral-500 mb-1 flex items-center gap-1">
-                <MessageSquare size={12} /> Originál zprávy
-              </div>
-              <div className="border rounded-lg p-3 bg-white font-mono text-sm whitespace-pre-wrap max-h-80 overflow-y-auto">
-                {message.message_text ? (
-                  originalSegments.map((seg, si) =>
-                    seg.highlighted ? (
-                      <span
-                        key={si}
-                        className={seg.tone === 'warn' ? 'bg-amber-200/80 rounded px-0.5' : 'bg-green-200/80 rounded px-0.5'}
-                        title={`AI četla odtud — položka ${seg.badges.join(', ')}`}
-                      >
-                        {seg.text}
-                        {seg.badges.map((b) => (
-                          <sup key={b} className="text-[9px] font-bold text-neutral-700 ml-0.5">#{b}</sup>
-                        ))}
-                      </span>
-                    ) : (
-                      <span key={si}>{seg.text}</span>
-                    )
-                  )
-                ) : (
-                  <span className="text-neutral-400">(bez textu - fotka)</span>
-                )}
-              </div>
-            </div>
+          {/* Side-by-side na desktopu, pod sebou na mobilu (#7). U textových
+              objednávek (useFullscreenTextLayout) se originál zobrazuje
+              zvlášť v přilepeném panelu nahoře, tady by byl duplicitně. */}
+          <div className={`grid grid-cols-1 gap-3 ${useFullscreenTextLayout ? '' : 'lg:grid-cols-2'}`}>
+            {!useFullscreenTextLayout && originalMessageBlock}
 
             <div>
               <div className="text-xs font-medium text-neutral-500 mb-1 flex items-center gap-1">
@@ -1014,6 +1027,31 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             activeIndex={0}
             onChangeIndex={() => {}}
           />
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin p-4 sm:p-6">
+          {body}
+        </div>
+      </div>
+    );
+  }
+
+  // Textová objednávka: stejný princip jako u fotky — originál zprávy
+  // napevno přilepený nahoře (vlastní scroll uvnitř, když je text dlouhý),
+  // položky a zbytek kontroly se scrollují pod ním.
+  if (useFullscreenTextLayout) {
+    return (
+      <div className="fixed inset-0 z-50 bg-white flex flex-col animate-fade-in">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 shrink-0 bg-white">
+          <h3 className="font-display font-bold text-base text-neutral-900 tracking-tight">🛒 Kontrola WhatsApp objednávky</h3>
+          <button
+            onClick={props.onClose}
+            className="w-8 h-8 grid place-items-center rounded-xl text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="max-h-[38vh] sm:max-h-[42vh] shrink-0 border-b border-blue-200 bg-blue-50/40 p-3 overflow-y-auto scrollbar-thin">
+          {originalMessageBlock}
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin p-4 sm:p-6">
           {body}
