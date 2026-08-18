@@ -301,13 +301,11 @@ export default function Orders({
               console.error('Chyba při automatickém parsování:', err);
             });
           }
-          
-          // Zobraz modální okno s novou zprávou
-          setAutoWhatsAppMessage(message);
-          setAutoWhatsAppModal(true);
-          
-          // Zvuk + systémovou notifikaci řeší globální listener v Layout.tsx
-          // (funguje na všech obrazovkách) — tady by byla duplicita.
+
+          // Modál s kontrolou/potvrzením se NEotevírá automaticky — uživatel
+          // ho otevře sám (tlačítko WhatsApp / hromadné zpracování), jen
+          // přibude do počítadla. Zvuk + systémovou notifikaci řeší globální
+          // listener v Layout.tsx (funguje na všech obrazovkách).
         }
       });
     } catch (error) {
@@ -322,8 +320,9 @@ export default function Orders({
   }, []);
 
   // Dočtení zpráv, které přišly, když byla aplikace zavřená nebo na jiné
-  // obrazovce (realtime v tu chvíli neběžel). Bez toho by zůstaly navždy
-  // 'pending' a uživatel by je v appce neviděl.
+  // obrazovce (realtime v tu chvíli neběžel) — jen dopočítá a spustí
+  // serverové parsování na pozadí. Modál s kontrolou/potvrzením se
+  // NEotevírá automaticky, uživatel ho otevře sám.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -352,38 +351,6 @@ export default function Orders({
             await triggerAutoParse();
           } catch (err) {
             console.error('Chyba při automatickém parsování (dočtení):', err);
-          }
-        }
-
-        // Počkáme, až server rozparsuje pending zprávy (2 s krok, max ~30 s),
-        // a otevřeme modál s nejnovější rozparsovanou zprávou.
-        for (let i = 0; i < 15 && !cancelled; i++) {
-          await new Promise((r) => setTimeout(r, 2000));
-          if (cancelled) return;
-          try {
-            const re = await fetchPendingWhatsAppMessages();
-            if (cancelled) return;
-            const reAllowed = re.filter((m) => isSenderAllowed(allowedSendersRef.current, m.sender_name));
-            const parsed = reAllowed.filter((m) => m.status === 'parsed');
-            if (parsed.length > 0) {
-              setAutoWhatsAppMessage(parsed[0]);
-              setAutoWhatsAppModal(true);
-              return;
-            }
-          } catch {
-            // Parsování ještě běží — zkusíme znovu.
-          }
-        }
-
-        // Parsování trvalo déle než 30 s — aspoň otevřeme modál s pending zprávou
-        // (tlačítko Schválit bude aktivní, jakmile realtime dorazí 'parsed').
-        if (!cancelled) {
-          const re = await fetchPendingWhatsAppMessages().catch(() => [] as WhatsAppIncoming[]);
-          if (cancelled) return;
-          const reAllowed = re.filter((m) => isSenderAllowed(allowedSendersRef.current, m.sender_name));
-          if (reAllowed.length > 0) {
-            setAutoWhatsAppMessage(reAllowed[0]);
-            setAutoWhatsAppModal(true);
           }
         }
       } catch (error) {
