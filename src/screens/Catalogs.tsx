@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { supabase, Beer, Package, Place, Vehicle, useRealtime, BEER_COLOR_PRESETS, beerBg, beerText, beerBorder } from '../lib/supabase';
+import { supabase, Beer, Package, Place, Vehicle, useRealtime, BEER_COLOR_PRESETS, beerBorder } from '../lib/supabase';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import ExcelImportModal from '../components/ExcelImportModal';
 import { FileSpreadsheet, Plus, Search, Beer as BeerIcon, Package as PackageIcon, MapPin, Phone, Mail, Edit, Trash2, Eye, EyeOff, Car, AlertTriangle, ShieldCheck, ShieldAlert } from 'lucide-react';
@@ -73,28 +73,28 @@ export function BeersScreen() {
       {loading ? <Spinner /> : filtered.length === 0 ? <EmptyState text="Žádná piva v katalogu." icon="🍺" /> : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((b) => (
-            <div key={b.id} className="card p-5 border-2 shadow-sm transition-all hover:shadow-md flex flex-col justify-between" style={{ backgroundColor: beerBg(b), borderColor: beerBorder(b) }}>
+            <div key={b.id} className="card p-5 border-2 bg-white dark:bg-neutral-900 shadow-sm transition-all hover:shadow-md flex flex-col justify-between" style={{ borderColor: beerBorder(b) }}>
               <div>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <div className={`font-display font-black text-lg truncate ${beerText(b)}`}>{b.name}</div>
+                    <div className="font-display font-black text-lg truncate text-neutral-900 dark:text-neutral-100">{b.name}</div>
                     <div className="flex flex-wrap gap-1.5 mt-2">
                       {b.degree && <span className="px-2.5 py-0.5 rounded-lg bg-neutral-900 text-amber-300 font-mono font-black text-xs">{b.degree}</span>}
-                      {b.color && <span className="px-2 py-0.5 rounded-lg bg-white/80 text-neutral-800 font-extrabold text-xs border border-black/10">{b.color}</span>}
+                      {b.color && <span className="px-2 py-0.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-extrabold text-xs border border-neutral-200 dark:border-neutral-700">{b.color}</span>}
                     </div>
                   </div>
                   <span className={`w-3 h-3 rounded-full shrink-0 shadow-xs ${b.is_active ? 'bg-emerald-500' : 'bg-neutral-300'}`} title={b.is_active ? 'Aktivní' : 'Skryté'} />
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 mt-5 pt-3 border-t border-black/10">
-                <button className="flex-1 px-3 py-1.5 rounded-xl bg-white/80 hover:bg-white text-neutral-900 font-extrabold text-xs shadow-xs transition" onClick={() => { setEdit(b); setShow(true); }}>
+              <div className="flex items-center gap-2 mt-5 pt-3 border-t border-neutral-200 dark:border-neutral-700">
+                <button className="flex-1 px-3 py-1.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-900 dark:text-neutral-100 font-extrabold text-xs shadow-xs transition" onClick={() => { setEdit(b); setShow(true); }}>
                   Upravit
                 </button>
-                <button className="px-3 py-1.5 rounded-xl bg-white/60 hover:bg-white/90 text-neutral-800 font-bold text-xs shadow-xs transition" onClick={() => toggleActive(b)}>
+                <button className="px-3 py-1.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 font-bold text-xs shadow-xs transition" onClick={() => toggleActive(b)}>
                   {b.is_active ? 'Skrýt' : 'Aktivovat'}
                 </button>
-                <button className="p-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500 text-rose-700 hover:text-white font-bold text-xs transition" onClick={() => del(b.id)}>
+                <button className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-500 dark:bg-rose-900/30 text-rose-700 hover:text-white font-bold text-xs transition" onClick={() => del(b.id)}>
                   <Trash2 size={15} />
                 </button>
               </div>

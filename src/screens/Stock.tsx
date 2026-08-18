@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ZavozDeductionRow } from '../lib/zavozDeduction';
 
-import { supabase, Beer, Package, KegPrefuk, useRealtime, beerBg, beerText, beerBorder } from '../lib/supabase';
+import { supabase, Beer, Package, KegPrefuk, useRealtime, beerBorder } from '../lib/supabase';
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { Warehouse, Calendar, BarChart2, PackageCheck, Download, ShoppingBag, Tent } from 'lucide-react';
 import { exportExciseTaxReportToExcel } from '../lib/excel';
@@ -457,11 +457,11 @@ export default function Stock() {
                     className={`card p-5 cursor-pointer transition-all border-2 hover:shadow-md ${
                       isDeficit ? 'ring-2 ring-rose-500/50' : ''
                     }`}
-                    style={{ backgroundColor: beerBg(r.beer), borderColor: beerBorder(r.beer) }}
+                    style={{ borderColor: beerBorder(r.beer) }}
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div>
-                        <h3 className={`font-display font-black text-lg ${beerText(r.beer)}`}>{r.beer.name}</h3>
+                        <h3 className="font-display font-black text-lg text-neutral-900">{r.beer.name}</h3>
                         {r.beer.degree && <span className="text-xs font-bold text-neutral-600">{r.beer.degree} • {r.beer.color}</span>}
                       </div>
                       <span className="px-3 py-1 rounded-xl bg-neutral-900 text-amber-300 font-mono font-black text-xs shadow-xs">
@@ -748,9 +748,9 @@ export default function Stock() {
             {brewLoading ? <Spinner /> : brewStats.length === 0 ? <EmptyState text="Žádné stočení v tomto období." icon="🍺" /> : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {brewStats.map((s) => (
-                  <div key={s.beer.id} className="rounded-2xl border border-neutral-200 bg-white p-4" style={{ borderColor: beerBorder(s.beer) }}>
+                  <div key={s.beer.id} className="rounded-2xl border-2 border-neutral-200 bg-white p-4" style={{ borderColor: beerBorder(s.beer) }}>
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className={`font-display font-black text-base ${beerText(s.beer)}`}>{s.beer.name}</h3>
+                      <h3 className="font-display font-black text-base text-neutral-900">{s.beer.name}</h3>
                       <span className="px-2.5 py-1 rounded-lg bg-neutral-900 text-amber-300 font-mono font-black text-xs">{fmtHl(s.totalLiters)} hl</span>
                     </div>
                     <div className="grid grid-cols-2 gap-2 mb-2">

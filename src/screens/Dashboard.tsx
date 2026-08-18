@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase, Beer, Package, Vehicle, useRealtime, beerBg, beerText, beerBorder, beerName } from '../lib/supabase';
+import { supabase, Beer, Package, Vehicle, useRealtime, beerBorder } from '../lib/supabase';
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { getVehicleExpiryStatus } from './Catalogs';
@@ -483,12 +483,12 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
             return (
               <div
                 key={s.beer.id}
-                className="card-hover p-5 flex flex-col relative overflow-hidden group"
-                style={{ backgroundColor: beerBg(s.beer), borderColor: beerBorder(s.beer) }}
+                className="card-hover p-5 flex flex-col relative overflow-hidden group border-2"
+                style={{ borderColor: beerBorder(s.beer) }}
               >
                 <div className="flex items-start justify-between mb-3.5">
                   <div>
-                    <div className={`font-display font-extrabold text-lg sm:text-xl text-neutral-900 ${beerText(s.beer)}`}>{s.beer.name}</div>
+                    <div className="font-display font-extrabold text-lg sm:text-xl text-neutral-900">{s.beer.name}</div>
                   </div>
                   <span className={`chip ${badgeClass}`}>
                     {st === 'deficit' ? '⚠️ Deficit' : st === 'empty' ? 'Vyprodáno' : st === 'low' ? 'Nízký stav' : '✓ Skladem'}
