@@ -1620,9 +1620,8 @@ export default function BottlingScreen({
               <div className="overflow-x-auto scrollbar-thin rounded-2xl border border-neutral-200">
                 <table className="table text-xs w-full">
                   <thead>
-                    <tr className="bg-neutral-100 border-b border-neutral-200">
-                      <th className="p-2.5 text-left">Pivo</th>
-                      <th className="p-2.5 text-left">Obal</th>
+                    <tr className="sticky top-[112px] z-10 bg-neutral-100 border-b border-neutral-200 shadow-xs">
+                      <th className="p-2.5 text-left">Pivo (obal)</th>
                       <th className="p-2.5 text-right font-bold text-neutral-600">Poč. stav</th>
                       <th className="p-2.5 text-right font-bold text-emerald-800">Stočeno (+)</th>
                       <th className="p-2.5 text-right font-bold text-amber-800">Výdeje (−)</th>
@@ -1645,11 +1644,13 @@ export default function BottlingScreen({
                           title={r.neededQty > 0 ? `Zobrazit v přehledu objednávek objednávky s ${r.beer_name} (${r.package_label})` : undefined}
                           className={`border-b border-neutral-100 transition-colors ${r.neededQty > 0 ? 'cursor-pointer hover:bg-rose-50' : 'hover:bg-neutral-50/80'}`}
                         >
-                          <td className="p-2.5 font-black text-neutral-950 flex items-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
-                            <span>{r.beer_name}</span>
+                          <td className="p-2.5 font-black text-neutral-950">
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
+                              <span>{r.beer_name}</span>
+                              <span className="font-bold text-neutral-500">({r.package_label})</span>
+                            </div>
                           </td>
-                          <td className="p-2.5 font-bold text-neutral-800">{r.package_label}</td>
                           <td className="p-2.5 text-right font-mono text-neutral-600">{r.invQty} ks</td>
                           <td className="p-2.5 text-right font-mono font-bold text-emerald-700">+{r.bottledQty} ks</td>
                           <td className="p-2.5 text-right font-mono font-bold text-amber-700">−{r.outgoingQty} ks</td>
