@@ -470,8 +470,8 @@ export function ConcentrationScreen() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin pb-2 border-b border-neutral-200">
+      {/* Tabs — přilepené nahoře, ať jde přepínat záložku i uprostřed scrollování. */}
+      <div className="sticky top-0 z-20 bg-neutral-100 pt-1 flex items-center gap-2 overflow-x-auto scrollbar-thin pb-2 border-b border-neutral-200">
         <button
           onClick={() => setActiveTab('keg_calc')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
@@ -607,7 +607,7 @@ export function ConcentrationScreen() {
             </div>
           </div>
 
-          <div className="card p-6 bg-gradient-to-br from-amber-500/15 to-white border-2 border-amber-300 rounded-3xl space-y-4 shadow-md">
+          <div className="card p-6 bg-white border-2 border-amber-300 rounded-3xl space-y-4 shadow-md">
             <h3 className="font-display font-black text-lg text-amber-950">🛢️ Varianty v sudování</h3>
             <div className="space-y-3 font-mono text-xs">
               <div className="p-3 rounded-2xl bg-white border border-amber-300 space-y-1">
@@ -671,7 +671,7 @@ export function ConcentrationScreen() {
             })}
           </div>
 
-          <div className="card p-6 bg-gradient-to-br from-amber-500/15 to-white border-2 border-amber-300 rounded-3xl space-y-4 shadow-md h-fit">
+          <div className="card p-6 bg-white border-2 border-amber-300 rounded-3xl space-y-4 shadow-md h-fit">
             <h3 className="font-display font-black text-lg text-amber-950 flex items-center gap-2">
               <span>🌾 Celkem na šrotování</span>
             </h3>
@@ -729,7 +729,7 @@ export function ConcentrationScreen() {
             </div>
           </div>
 
-          <div className="card p-5 bg-gradient-to-br from-amber-500/15 via-amber-400/10 to-amber-100/50 border-2 border-amber-300/90 rounded-3xl shadow-md space-y-4">
+          <div className="card p-5 bg-white border-2 border-amber-300 rounded-3xl shadow-md space-y-4">
             <h3 className="font-display font-black text-lg text-amber-950 flex items-center gap-2">
               <span>⚖️ Výsledek dávkování</span>
             </h3>

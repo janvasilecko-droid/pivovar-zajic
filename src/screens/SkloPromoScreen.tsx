@@ -399,11 +399,11 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex flex-wrap gap-2 border-b border-neutral-200 pb-3">
+      {/* Tabs — přilepené nahoře, ať jde přepínat záložku i uprostřed scrollování. */}
+      <div className="sticky top-[56px] z-20 bg-neutral-100 pt-1 flex flex-nowrap gap-2 overflow-x-auto scrollbar-thin border-b border-neutral-200 pb-3">
         <button
           onClick={() => setActiveTab('sklo')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition-all flex items-center gap-2 ${
+          className={`shrink-0 px-4 py-2.5 rounded-2xl font-black text-xs transition-all flex items-center gap-2 ${
             activeTab === 'sklo'
               ? 'bg-neutral-900 text-amber-400 shadow-md scale-[1.02]'
               : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
@@ -415,7 +415,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
 
         <button
           onClick={() => setActiveTab('etikety')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition-all flex items-center gap-2 ${
+          className={`shrink-0 px-4 py-2.5 rounded-2xl font-black text-xs transition-all flex items-center gap-2 ${
             activeTab === 'etikety'
               ? 'bg-neutral-900 text-amber-400 shadow-md scale-[1.02]'
               : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
@@ -432,7 +432,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
 
         <button
           onClick={() => setActiveTab('lahve')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition-all flex items-center gap-2 ${
+          className={`shrink-0 px-4 py-2.5 rounded-2xl font-black text-xs transition-all flex items-center gap-2 ${
             activeTab === 'lahve'
               ? 'bg-neutral-900 text-amber-400 shadow-md scale-[1.02]'
               : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
@@ -612,7 +612,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
 
           {/* Tabulka Sklo */}
           <div className="card p-6 bg-white border border-neutral-200 rounded-3xl shadow-xs space-y-4">
-            <div className="sticky top-[56px] z-10 flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 bg-white pb-3 -mx-6 px-6 pt-1 -mt-1">
+            <div className="sticky top-[112px] z-10 flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 bg-white pb-3 -mx-6 px-6 pt-1 -mt-1">
               <h3 className="font-display font-black text-lg text-neutral-900">Přehled zadaných pohybů ({filteredEntries.length})</h3>
               <div className="flex items-center gap-2">
                 <input type="text" placeholder="Hledat odběratele nebo předmět…" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="input !py-1.5 text-xs font-bold w-48" />

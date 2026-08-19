@@ -494,8 +494,8 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
           <p className="text-sm text-primary-500 mt-1">Kvasné tanky na Spilce (Spilka 1–3) & Ležácké tanky (Tanky 1–8).</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 w-full">
-          {/* Tab Selector: Ležácké vs Spilka vs Plánovač */}
+        <div className="sticky top-0 z-20 bg-neutral-100 py-1 flex flex-wrap items-center gap-2 w-full">
+          {/* Tab Selector: Ležácké vs Spilka vs Plánovač — přilepený nahoře. */}
           <div className="flex items-center gap-1.5 bg-neutral-100 p-1 rounded-xl border border-neutral-200 w-full sm:w-fit overflow-x-auto scrollbar-none flex-nowrap shrink-0">
             <button
               type="button"

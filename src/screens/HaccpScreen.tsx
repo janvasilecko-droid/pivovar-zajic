@@ -385,7 +385,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
   return (
     <div className="space-y-6 pb-12">
       {/* Top Header & Navigation Tabs */}
-      <div className="card p-5 bg-gradient-to-r from-amber-500/15 via-amber-100/40 to-white border border-amber-300/80 rounded-3xl space-y-4 shadow-xs">
+      <div className="card p-5 bg-white border-2 border-amber-300 rounded-3xl space-y-4 shadow-xs">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-amber-500 text-neutral-950 font-black flex items-center justify-center shadow-md shrink-0">
@@ -401,7 +401,8 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
           </span>
         </div>
 
-        <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin pt-1 border-t border-amber-200/60">
+        {/* Přilepené pod záložkami SanitaceTabbed nad tím. */}
+        <div className="sticky top-[56px] z-10 bg-white flex items-center gap-2 overflow-x-auto scrollbar-thin pt-1 border-t border-amber-200/60">
           <button
             onClick={() => setActiveTab('sanitacni_rad')}
             className={`px-4 py-2.5 rounded-2xl text-xs font-black transition flex items-center gap-2 shrink-0 ${

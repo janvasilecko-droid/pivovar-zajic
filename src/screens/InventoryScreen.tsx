@@ -788,8 +788,8 @@ function exportInventoryExcel() {
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-neutral-200 pb-2 overflow-x-auto scrollbar-thin">
+      {/* Tabs — přilepené nahoře, ať jde přepínat záložku i uprostřed scrollování. */}
+      <div className="sticky top-0 z-20 bg-neutral-100 pt-1 flex items-center gap-2 border-b border-neutral-200 pb-2 overflow-x-auto scrollbar-thin">
         <button
           onClick={() => setActiveTab('inventory')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
