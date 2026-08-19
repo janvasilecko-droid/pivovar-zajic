@@ -166,10 +166,17 @@ export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind
     outgoingMap[k] = (outgoingMap[k] || 0) + Number(r.quantity || 0);
   });
   // Skutečně zavezené objednávky tento týden — stejný zdroj jako Sklad/Inventura.
+  // POZOR: do zvlášť mapy, NE do outgoingMap — orderedQty níže už počítá
+  // VŠECHNY objednávky tento týden (i zavezené), takže kdyby se zavezené
+  // odečetly ještě jednou od skladu při výpočtu "chybí stočit", ta samá
+  // zavezená objednávka by se odečetla dvakrát a "chybí" by bylo uměle
+  // vyšší, než kolik se má skutečně dotočit do konce týdne. Do stockQty
+  // (fyzický sklad TEĎ, sloupec "Sklad") se ale zavezené odečíst MUSÍ.
+  const zavozThisWeekMap: Record<string, number> = {};
   zavozDeductionRows.filter((r) => isThisWeek(r.deduct_date)).forEach((r) => {
     if (!r.beer_id || !r.package_id) return;
     const k = `${r.beer_id}__${r.package_id}`;
-    outgoingMap[k] = (outgoingMap[k] || 0) + Number(r.quantity || 0);
+    zavozThisWeekMap[k] = (zavozThisWeekMap[k] || 0) + Number(r.quantity || 0);
   });
   const prefukFromMap: Record<string, number> = {};
   const prefukToMap: Record<string, number> = {};
@@ -192,11 +199,18 @@ export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind
       const invQty = Number(weekStartStockMap[k] || 0);
       const bottledQty = Number(bottledMap[k] || 0);
       const outgoingQty = Number(outgoingMap[k] || 0);
+      const zavozThisWeekQty = Number(zavozThisWeekMap[k] || 0);
       const prefukFromQty = Number(prefukFromMap[k] || 0);
       const prefukToQty = Number(prefukToMap[k] || 0);
-      const stockQty = Math.max(0, invQty + bottledQty - outgoingQty - prefukFromQty + prefukToQty);
+      // Fyzický sklad TEĎ (sloupec "Sklad") — zavezené objednávky tento
+      // týden už fyzicky odešly, proto se odečítají i tady.
+      const stockQty = Math.max(0, invQty + bottledQty - outgoingQty - zavozThisWeekQty - prefukFromQty + prefukToQty);
       const orderedQty = Number(orderedMap[k] || 0);
-      const neededQty = Math.max(0, orderedQty - stockQty);
+      // Kolik ještě chybí dotočit do konce týdne — porovnává CELKOVOU
+      // týdenní poptávku (orderedQty, viz výše) s tím, co bylo tento týden
+      // k dispozici BEZ odečtení zavezených (ty už jsou v orderedQty
+      // zahrnuté jako součást poptávky, viz komentář u zavozThisWeekMap).
+      const neededQty = Math.max(0, orderedQty - Math.max(0, invQty + bottledQty - outgoingQty - prefukFromQty + prefukToQty));
 
       if (orderedQty > 0 || stockQty > 0 || invQty > 0 || bottledQty > 0) {
         list.push({
