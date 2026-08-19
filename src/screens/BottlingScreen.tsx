@@ -1244,8 +1244,8 @@ export default function BottlingScreen({
 
         {/* Filtr Druh piva a Obal */}
         {rows.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2.5 bg-amber-100/60 p-2.5 rounded-xl border border-amber-200/90 shadow-2xs">
-            <div className="flex items-center gap-1.5 flex-1 min-w-[150px] max-w-[240px]">
+          <div className="sticky top-[66px] z-10 flex flex-nowrap items-center gap-2.5 bg-amber-100/60 p-2.5 rounded-xl border border-amber-200/90 shadow-2xs overflow-x-auto scrollbar-thin">
+            <div className="flex items-center gap-1.5 shrink-0 min-w-[150px] max-w-[240px]">
               <span className="text-xs font-bold text-amber-950/80 shrink-0">🍺 Pivo:</span>
               <select
                 value={recordsBeerFilter}
@@ -1259,7 +1259,7 @@ export default function BottlingScreen({
               </select>
             </div>
 
-            <div className="flex items-center gap-1.5 flex-1 min-w-[150px] max-w-[240px]">
+            <div className="flex items-center gap-1.5 shrink-0 min-w-[150px] max-w-[240px]">
               <span className="text-xs font-bold text-amber-950/80 shrink-0">📦 Obal:</span>
               <select
                 value={recordsPkgFilter}
@@ -1282,7 +1282,7 @@ export default function BottlingScreen({
               <button
                 type="button"
                 onClick={() => { setRecordsBeerFilter(''); setRecordsPkgFilter(''); }}
-                className="text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2.5 py-1 rounded-lg transition shrink-0 ml-auto"
+                className="text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2.5 py-1 rounded-lg transition shrink-0 ml-auto whitespace-nowrap"
               >
                 ✕ Vymazat filtry
               </button>
@@ -1573,12 +1573,12 @@ export default function BottlingScreen({
                 projeví okamžitě po uložení, v novém týdnu se počítá znovu z nových objednávek.
               </p>
 
-              <div className="sticky top-[66px] z-10 flex flex-wrap items-center gap-2 bg-white py-1.5 -mx-4 px-4 sm:mx-0 sm:px-0">
+              <div className="sticky top-[66px] z-10 flex flex-nowrap items-center gap-2 bg-white py-1.5 -mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto scrollbar-thin">
                 {/* Filtr Pivo */}
                 <select
                   value={reqBeerFilter}
                   onChange={(e) => setReqBeerFilter(e.target.value)}
-                  className="input text-xs font-bold px-2.5 py-1.5 rounded-xl border border-neutral-200 bg-white text-neutral-800"
+                  className="input text-xs font-bold px-2.5 py-1.5 rounded-xl border border-neutral-200 bg-white text-neutral-800 shrink-0"
                 >
                   <option value="">🍺 Všechna piva</option>
                   {beers.map((b) => (
@@ -1590,7 +1590,7 @@ export default function BottlingScreen({
                 <select
                   value={reqPkgFilter}
                   onChange={(e) => setReqPkgFilter(e.target.value)}
-                  className="input text-xs font-bold px-2.5 py-1.5 rounded-xl border border-neutral-200 bg-white text-neutral-800"
+                  className="input text-xs font-bold px-2.5 py-1.5 rounded-xl border border-neutral-200 bg-white text-neutral-800 shrink-0"
                 >
                   <option value="">🍾 Všechny obaly</option>
                   {packages.filter((p) => p.kind !== 'keg').map((p) => (
@@ -1602,7 +1602,7 @@ export default function BottlingScreen({
                 <button
                   type="button"
                   onClick={() => setReqOnlyMissing(!reqOnlyMissing)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-black transition border ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black transition border shrink-0 whitespace-nowrap ${
                     reqOnlyMissing
                       ? 'bg-rose-600 text-white border-rose-700 shadow-xs'
                       : 'bg-neutral-100 text-neutral-700 border-neutral-200 hover:bg-neutral-200'

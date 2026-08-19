@@ -1536,12 +1536,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 projeví okamžitě po uložení, v novém týdnu se počítá znovu z nových objednávek.
               </p>
 
-              <div className="sticky top-[66px] z-10 flex flex-wrap items-center gap-2 bg-white py-1.5 -mx-4 px-4 sm:mx-0 sm:px-0">
+              <div className="sticky top-[66px] z-10 flex flex-nowrap items-center gap-2 bg-white py-1.5 -mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto scrollbar-thin">
                 {/* Filtr Pivo */}
                 <select
                   value={reqKegBeerFilter}
                   onChange={(e) => setReqKegBeerFilter(e.target.value)}
-                  className="input text-xs font-bold px-2.5 py-1.5 rounded-xl border border-neutral-200 bg-white text-neutral-800"
+                  className="input text-xs font-bold px-2.5 py-1.5 rounded-xl border border-neutral-200 bg-white text-neutral-800 shrink-0"
                 >
                   <option value="">🍺 Všechna piva</option>
                   {beers.map((b) => (
@@ -1553,7 +1553,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 <select
                   value={reqKegPkgFilter}
                   onChange={(e) => setReqKegPkgFilter(e.target.value)}
-                  className="input text-xs font-bold px-2.5 py-1.5 rounded-xl border border-neutral-200 bg-white text-neutral-800"
+                  className="input text-xs font-bold px-2.5 py-1.5 rounded-xl border border-neutral-200 bg-white text-neutral-800 shrink-0"
                 >
                   <option value="">🛢️ Všechny KEG obaly</option>
                   {packages.filter((p) => p.kind === 'keg').map((p) => (
@@ -1565,7 +1565,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 <button
                   type="button"
                   onClick={() => setReqKegOnlyMissing(!reqKegOnlyMissing)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-black transition border ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black transition border shrink-0 whitespace-nowrap ${
                     reqKegOnlyMissing
                       ? 'bg-amber-600 text-white border-amber-700 shadow-xs'
                       : 'bg-neutral-100 text-neutral-700 border-neutral-200 hover:bg-neutral-200'
