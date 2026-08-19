@@ -6,6 +6,8 @@ import { BottlingLineMaintenance } from '../components/BottlingLineMaintenance';
 interface HaccpScreenProps {
   initialSection?: string;
   initialTab?: 'sanitacni_rad' | 'svhp' | 'udrzba' | 'diagram' | 'bozp_prvni_pomoc' | 'troubleshooting' | 'staceci_linka';
+  setPage?: (p: any, sec?: string, sub?: string) => void;
+  initialSubTab?: string;
 }
 
 type CategoryKey = 'all' | 'uvod' | 'suroviny' | 'uskladneni' | 'varna' | 'kvaseni' | 'staceni' | 'expedice' | 'pravidla';
@@ -329,10 +331,19 @@ Pro zajištění aplikace správné výrobní a hygienické praxe při výrobě 
   }
 ];
 
-export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_rad' }: HaccpScreenProps) {
-  const [activeTab, setActiveTab] = useState<'sanitacni_rad' | 'svhp' | 'udrzba' | 'diagram' | 'bozp_prvni_pomoc' | 'troubleshooting' | 'staceci_linka'>(initialTab);
+export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_rad', setPage, initialSubTab }: HaccpScreenProps) {
+  const [activeTab, setActiveTab] = useState<'sanitacni_rad' | 'svhp' | 'udrzba' | 'diagram' | 'bozp_prvni_pomoc' | 'troubleshooting' | 'staceci_linka'>((initialSubTab as any) || initialTab);
   const [activeCategory, setActiveCategory] = useState<CategoryKey>('all');
   const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    setActiveTab((initialSubTab as any) || initialTab);
+  }, [initialSubTab, initialTab]);
+
+  function selectTab(t: 'sanitacni_rad' | 'svhp' | 'udrzba' | 'diagram' | 'bozp_prvni_pomoc' | 'troubleshooting' | 'staceci_linka') {
+    if (setPage) setPage('haccp', undefined, t);
+    else setActiveTab(t);
+  }
 
   // Kalkulačka sanitační koncentrace M = (P * V) / C
   const [calcP, setCalcP] = useState<string>('1.5');
@@ -404,7 +415,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
         {/* Přilepené pod záložkami SanitaceTabbed nad tím. */}
         <div className="sticky top-[56px] z-10 bg-white flex items-center gap-2 overflow-x-auto scrollbar-thin pt-1 border-t border-amber-200/60">
           <button
-            onClick={() => setActiveTab('sanitacni_rad')}
+            onClick={() => selectTab('sanitacni_rad')}
             className={`px-4 py-2.5 rounded-2xl text-xs font-black transition flex items-center gap-2 shrink-0 ${
               activeTab === 'sanitacni_rad'
                 ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 scale-102'
@@ -416,7 +427,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
           </button>
 
           <button
-            onClick={() => setActiveTab('svhp')}
+            onClick={() => selectTab('svhp')}
             className={`px-4 py-2.5 rounded-2xl text-xs font-black transition flex items-center gap-2 shrink-0 ${
               activeTab === 'svhp'
                 ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 scale-102'
@@ -428,7 +439,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
           </button>
 
           <button
-            onClick={() => setActiveTab('udrzba')}
+            onClick={() => selectTab('udrzba')}
             className={`px-4 py-2.5 rounded-2xl text-xs font-black transition flex items-center gap-2 shrink-0 ${
               activeTab === 'udrzba'
                 ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 scale-102'
@@ -440,7 +451,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
           </button>
 
           <button
-            onClick={() => setActiveTab('diagram')}
+            onClick={() => selectTab('diagram')}
             className={`px-4 py-2.5 rounded-2xl text-xs font-black transition flex items-center gap-2 shrink-0 ${
               activeTab === 'diagram'
                 ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 scale-102'
@@ -452,7 +463,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
           </button>
 
           <button
-            onClick={() => setActiveTab('bozp_prvni_pomoc')}
+            onClick={() => selectTab('bozp_prvni_pomoc')}
             className={`px-4 py-2.5 rounded-2xl text-xs font-black transition flex items-center gap-2 shrink-0 ${
               activeTab === 'bozp_prvni_pomoc'
                 ? 'bg-rose-600 text-white shadow-md ring-2 ring-rose-300 scale-102'

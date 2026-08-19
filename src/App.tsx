@@ -42,6 +42,14 @@ function readPageFromHistory(): Page {
   return (window.history.state && window.history.state.page) || DEFAULT_PAGE;
 }
 
+// Vnitřní záložka uvnitř stránky (např. Kegging: Zápis/Přehled/Potřeba/Přefuk),
+// pro obrazovky, které NEmají vlastní Page hodnotu pro každou záložku — jinak
+// tlačítko Zpět z takové záložky přeskočí rovnou o celou stránku výš (viz
+// setPage níže).
+function readSubTabFromHistory(): string {
+  return (window.history.state && window.history.state.subTab) || '';
+}
+
 function wasOpenedViaShare(): boolean {
   return window.location.pathname === '/share';
 }
@@ -60,6 +68,7 @@ export default function App() {
   const [page, setPageState] = useState<Page>(() => (wasOpenedViaShare() ? 'orders' : readPageFromHistory()));
   const [autoOpenShareImport, setAutoOpenShareImport] = useState(() => wasOpenedViaShare());
   const [haccpSection, setHaccpSection] = useState<string | undefined>();
+  const [pageSubTab, setPageSubTabState] = useState<string>(() => (wasOpenedViaShare() ? '' : readSubTabFromHistory()));
 
   useEffect(() => {
     if (wasOpenedViaShare()) {
@@ -74,18 +83,24 @@ export default function App() {
     return cleanup;
   }, [session]);
 
-  function setPage(p: Page, targetSection?: string) {
+  // subTab: vnitřní záložka v rámci stránky (viz readSubTabFromHistory výše).
+  // Běžná navigace (klik na položku menu) subTab nezadává → vždy se vynuluje,
+  // ať si nová stránka neponese cizí záložku z předchozí. Kliknutí na vnitřní
+  // záložku volá setPage(stejná stránka, undefined, 'nazev-zalozky').
+  function setPage(p: Page, targetSection?: string, subTab?: string) {
     if (targetSection) {
       setHaccpSection(targetSection);
     }
-    if (p === page && !targetSection) return;
-    window.history.pushState({ page: p, targetSection }, '', '');
+    const nextSubTab = subTab ?? '';
+    if (p === page && !targetSection && nextSubTab === pageSubTab) return;
+    window.history.pushState({ page: p, targetSection, subTab: nextSubTab }, '', '');
     setPageState(p);
+    setPageSubTabState(nextSubTab);
   }
 
   useEffect(() => {
     if (!window.history.state || !window.history.state.page) {
-      window.history.replaceState({ page }, '', '');
+      window.history.replaceState({ page, subTab: pageSubTab }, '', '');
     }
     const onPopState = (e: PopStateEvent) => {
       const p: Page = (e.state && e.state.page) || DEFAULT_PAGE;
@@ -93,9 +108,11 @@ export default function App() {
         setHaccpSection(e.state.targetSection);
       }
       setPageState(p);
+      setPageSubTabState((e.state && e.state.subTab) || '');
     };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Hardwarové tlačítko Zpět na Androidu (bez tohoto Capacitor bez
@@ -139,7 +156,7 @@ export default function App() {
       {(page === 'dashboard' || page === 'sklo_promo') && (
         <Dashboard setPage={setPage} initialTab={page === 'sklo_promo' ? 'sklo_promo' : 'sklad'} />
       )}
-      {page === 'concentration' && <ConcentrationScreen />}
+      {page === 'concentration' && <ConcentrationScreen setPage={setPage} initialSubTab={pageSubTab} />}
       {(page === 'checklists' || page === 'haccp' || page === 'sanitation_log' || page === 'sanitace' || page === 'sanitace_lahve' || page === 'sanitace_kegy' || page === 'sanitace_vycepy') && (
         <SanitaceTabbed
           initialTab={
@@ -152,6 +169,7 @@ export default function App() {
           }
           initialSection={haccpSection}
           setPage={setPage}
+          pageSubTab={pageSubTab}
         />
       )}
       {(page === 'orders' || page === 'orders_entry' || page === 'orders_detail' || page === 'orders_zavoz' || page === 'vycepy') && (
@@ -165,12 +183,12 @@ export default function App() {
 
       {page === 'zavoz' && <Zavoz setPage={setPage} />}
       {page === 'stock' && <Stock />}
-      {page === 'bottling' && <BottlingScreen mode="all" setPage={setPage} />}
-      {page === 'bottling_entry' && <BottlingScreen mode="entry_only" setPage={setPage} />}
-      {page === 'bottling_overview' && <BottlingScreen mode="overviews_only" setPage={setPage} />}
+      {page === 'bottling' && <BottlingScreen mode="all" setPage={setPage} initialSubTab={pageSubTab} />}
+      {page === 'bottling_entry' && <BottlingScreen mode="entry_only" setPage={setPage} initialSubTab={pageSubTab} />}
+      {page === 'bottling_overview' && <BottlingScreen mode="overviews_only" setPage={setPage} initialSubTab={pageSubTab} />}
       {page === 'srotovani' && <SrotovaniScreen setPage={setPage} />}
 
-      {page === 'kegging' && <KeggingScreen mode="all" setPage={setPage} />}
+      {page === 'kegging' && <KeggingScreen mode="all" setPage={setPage} initialSubTab={pageSubTab} />}
       {page === 'fasovani' && <ProdejnaScreen setPage={setPage} table="fasovani" title="Personál" icon="📦" showVycep />}
       {page === 'writeoffs' && (
         <ProdejnaScreen setPage={setPage} table="writeoffs" title="Odpis" icon="📉" />
@@ -184,14 +202,15 @@ export default function App() {
           setPage={setPage}
         />
       )}
-      {page === 'inventory' && <InventoryScreen />}
+      {page === 'inventory' && <InventoryScreen setPage={setPage} initialSubTab={pageSubTab} />}
       {(page === 'calendar' || page === 'feedback' || page === 'planning' || page === 'reminders' || page === 'notes') && (
         <PlanningTabbed
           initialTab={page === 'reminders' ? 'reminders' : page === 'feedback' ? 'feedback' : page === 'notes' ? 'notes' : 'calendar'}
           setPage={setPage}
+          pageSubTab={pageSubTab}
         />
       )}
-      {page === 'history' && <Statistika />}
+      {page === 'history' && <Statistika setPage={setPage} initialSubTab={pageSubTab} />}
       {(page === 'pricelist' || page === 'places' || page === 'beers' || page === 'packages' || page === 'depozitar') && (
         <DepozitarTabbed
           initialTab={
@@ -201,14 +220,14 @@ export default function App() {
         />
       )}
       {page === 'bottling_needs' && <BottlingTasksSettings />}
-      {page === 'cellar' && <CellarScreen setPage={setPage} />}
+      {page === 'cellar' && <CellarScreen setPage={setPage} initialSubTab={pageSubTab} />}
       {(page === 'vehicles' || page === 'kniha_jizd') && (
         <VehiclesTabbed
           initialTab={page === 'kniha_jizd' ? 'kniha_jizd' : 'vehicles'}
           setPage={setPage}
         />
       )}
-      {page === 'users' && <Users />}
+      {page === 'users' && <Users setPage={setPage} initialSubTab={pageSubTab} />}
       {page === 'app_settings' && <AppSettingsScreen />}
       {page === 'app_versions' && <AppVersionsScreen />}
     </Layout>

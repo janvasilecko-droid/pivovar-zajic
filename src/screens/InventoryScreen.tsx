@@ -61,11 +61,20 @@ function computeInitialStockForMonth(
   return getStartingStockMap(monthKey, invRowsAll, btRows, kgRows, faRows, fpRows, woRows, 0, zdRows);
 }
 
-export default function InventoryScreen() {
+export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; initialSubTab?: string } = {}) {
   const [beers, setBeers] = useState<Beer[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'inventory' | 'initial_stock' | 'end_stock'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'initial_stock' | 'end_stock'>((initialSubTab as any) || 'inventory');
+
+  useEffect(() => {
+    setActiveTab((initialSubTab as any) || 'inventory');
+  }, [initialSubTab]);
+
+  function selectTab(t: 'inventory' | 'initial_stock' | 'end_stock') {
+    if (setPage) setPage('inventory', undefined, t);
+    else setActiveTab(t);
+  }
   const loadCountRef = useRef(0);
   const loadedMonthRef = useRef<string | null>(null);
   const forceReloadRef = useRef(false);
@@ -791,7 +800,7 @@ function exportInventoryExcel() {
       {/* Tabs — přilepené nahoře, ať jde přepínat záložku i uprostřed scrollování. */}
       <div className="sticky top-0 z-20 bg-neutral-100 pt-1 flex items-center gap-2 border-b border-neutral-200 pb-2 overflow-x-auto scrollbar-thin">
         <button
-          onClick={() => setActiveTab('inventory')}
+          onClick={() => selectTab('inventory')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'inventory'
               ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
@@ -815,7 +824,7 @@ function exportInventoryExcel() {
         </button>
 
         <button
-          onClick={() => setActiveTab('end_stock')}
+          onClick={() => selectTab('end_stock')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'end_stock'
               ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
@@ -896,7 +905,7 @@ function exportInventoryExcel() {
               <div className="text-center py-10 text-xs font-bold text-neutral-500 space-y-2">
                 <p>Pro měsíc {currentMonth} zatím nebyly zadané žádné počáteční stavy ani pohyby.</p>
                 <button
-                  onClick={() => setActiveTab('initial_stock')}
+                  onClick={() => selectTab('initial_stock')}
                   className="px-4 py-2 rounded-xl bg-amber-500 text-neutral-950 font-black text-xs shadow-xs"
                 >
                   + Zadat počáteční zásoby na skladě

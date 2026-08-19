@@ -35,8 +35,17 @@ function fmtHours(h: number | null | undefined): string {
   return `${days.toFixed(1)} dní`;
 }
 
-export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: string) => void } = {}) {
-  const [activeTab, setActiveTab] = useState<'lezacke' | 'spilka' | 'planovac'>('lezacke');
+export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; initialSubTab?: string } = {}) {
+  const [activeTab, setActiveTab] = useState<'lezacke' | 'spilka' | 'planovac'>((initialSubTab as any) || 'lezacke');
+
+  useEffect(() => {
+    setActiveTab((initialSubTab as any) || 'lezacke');
+  }, [initialSubTab]);
+
+  function selectTab(t: 'lezacke' | 'spilka' | 'planovac') {
+    if (setPage) setPage('cellar', undefined, t);
+    else setActiveTab(t);
+  }
   const [tanks, setTanks] = useState<CellarTank[]>([]);
   const [transfers, setTransfers] = useState<CellarTransfer[]>([]);
   const [cycles, setCycles] = useState<CellarTankCycle[]>([]);
@@ -502,7 +511,7 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
           <div className="flex items-center gap-1.5 bg-neutral-100 p-1 rounded-xl border border-neutral-200 w-full sm:w-fit overflow-x-auto scrollbar-none flex-nowrap shrink-0">
             <button
               type="button"
-              onClick={() => setActiveTab('lezacke')}
+              onClick={() => selectTab('lezacke')}
               className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${
                 activeTab === 'lezacke' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-700 hover:bg-amber-50'
               }`}
@@ -511,7 +520,7 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab('spilka')}
+              onClick={() => selectTab('spilka')}
               className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${
                 activeTab === 'spilka' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-700 hover:bg-amber-50'
               }`}
@@ -520,7 +529,7 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab('planovac')}
+              onClick={() => selectTab('planovac')}
               className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${
                 activeTab === 'planovac' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-700 hover:bg-amber-50'
               }`}

@@ -257,8 +257,17 @@ export function ChecklistsScreen() {
 // 4. CHYTRÉ KALKULAČKY PIVOVARU (KEGy, Chemie, Energie, Jednotky)
 // ==========================================
 
-export function ConcentrationScreen() {
-  const [activeTab, setActiveTab] = useState<'keg_calc' | 'srot_calc' | 'chem_calc' | 'energy_calc' | 'units_calc'>('keg_calc');
+export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; initialSubTab?: string } = {}) {
+  const [activeTab, setActiveTab] = useState<'keg_calc' | 'srot_calc' | 'chem_calc' | 'energy_calc' | 'units_calc'>((initialSubTab as any) || 'keg_calc');
+
+  useEffect(() => {
+    setActiveTab((initialSubTab as any) || 'keg_calc');
+  }, [initialSubTab]);
+
+  function selectTab(t: 'keg_calc' | 'srot_calc' | 'chem_calc' | 'energy_calc' | 'units_calc') {
+    if (setPage) setPage('concentration', undefined, t);
+    else setActiveTab(t);
+  }
 
   // --- Helper Stepper Input Component ---
   function NumberStepper({
@@ -473,7 +482,7 @@ export function ConcentrationScreen() {
       {/* Tabs — přilepené nahoře, ať jde přepínat záložku i uprostřed scrollování. */}
       <div className="sticky top-0 z-20 bg-neutral-100 pt-1 flex items-center gap-2 overflow-x-auto scrollbar-thin pb-2 border-b border-neutral-200">
         <button
-          onClick={() => setActiveTab('keg_calc')}
+          onClick={() => selectTab('keg_calc')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'keg_calc'
               ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
@@ -485,7 +494,7 @@ export function ConcentrationScreen() {
         </button>
 
         <button
-          onClick={() => setActiveTab('srot_calc')}
+          onClick={() => selectTab('srot_calc')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'srot_calc'
               ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
@@ -497,7 +506,7 @@ export function ConcentrationScreen() {
         </button>
 
         <button
-          onClick={() => setActiveTab('chem_calc')}
+          onClick={() => selectTab('chem_calc')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'chem_calc'
               ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
@@ -509,7 +518,7 @@ export function ConcentrationScreen() {
         </button>
 
         <button
-          onClick={() => setActiveTab('energy_calc')}
+          onClick={() => selectTab('energy_calc')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'energy_calc'
               ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
@@ -521,7 +530,7 @@ export function ConcentrationScreen() {
         </button>
 
         <button
-          onClick={() => setActiveTab('units_calc')}
+          onClick={() => selectTab('units_calc')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'units_calc'
               ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'

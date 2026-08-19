@@ -9,10 +9,11 @@ type PlanningTab = 'calendar' | 'reminders' | 'notes' | 'feedback';
 
 interface PlanningTabbedProps {
   initialTab?: PlanningTab;
-  setPage?: (p: any, sec?: string) => void;
+  setPage?: (p: any, sec?: string, sub?: string) => void;
+  pageSubTab?: string;
 }
 
-export default function PlanningTabbed({ initialTab = 'calendar', setPage }: PlanningTabbedProps) {
+export default function PlanningTabbed({ initialTab = 'calendar', setPage, pageSubTab }: PlanningTabbedProps) {
   const [activeTab, setActiveTab] = useState<PlanningTab>(initialTab);
 
   // Sync state if initialTab changes from parent
@@ -86,7 +87,7 @@ export default function PlanningTabbed({ initialTab = 'calendar', setPage }: Pla
         {activeTab === 'calendar' && <CalendarScreen />}
         {activeTab === 'reminders' && <RemindersScreen />}
         {activeTab === 'notes' && <Notes />}
-        {activeTab === 'feedback' && <Feedback />}
+        {activeTab === 'feedback' && <Feedback setPage={setPage} initialSubTab={pageSubTab} />}
       </div>
     </div>
   );

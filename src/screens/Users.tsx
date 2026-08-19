@@ -14,7 +14,7 @@ type UserRow = {
   receive_vehicle_alerts?: boolean | null;
 };
 
-export default function Users() {
+export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; initialSubTab?: string } = {}) {
   const { profile, user } = useAuth();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,7 +84,16 @@ export default function Users() {
   }
 
   const [permissionsUser, setPermissionsUser] = useState<UserRow | null>(null);
-  const [activeTab, setActiveTab] = useState<'users' | 'audit' | 'emails'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'audit' | 'emails'>((initialSubTab as any) || 'users');
+
+  useEffect(() => {
+    setActiveTab((initialSubTab as any) || 'users');
+  }, [initialSubTab]);
+
+  function selectTab(t: 'users' | 'audit' | 'emails') {
+    if (setPage) setPage('users', undefined, t);
+    else setActiveTab(t);
+  }
 
   // Schválené e-maily states
   const [allowedEmails, setAllowedEmails] = useState<{ email: string; status: 'pending' | 'approved'; created_at: string }[]>([]);
@@ -188,7 +197,7 @@ export default function Users() {
       {/* Navigation tabs — přilepené nahoře, ať jde přepínat záložku i uprostřed scrollování. */}
       <div className="sticky top-0 z-20 bg-neutral-100 pt-1 flex items-center gap-2 border-b border-neutral-200 pb-2">
         <button
-          onClick={() => setActiveTab('users')}
+          onClick={() => selectTab('users')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 ${
             activeTab === 'users'
               ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
@@ -200,7 +209,7 @@ export default function Users() {
         </button>
 
         <button
-          onClick={() => setActiveTab('emails')}
+          onClick={() => selectTab('emails')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 ${
             activeTab === 'emails'
               ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
@@ -212,7 +221,7 @@ export default function Users() {
         </button>
 
         <button
-          onClick={() => setActiveTab('audit')}
+          onClick={() => selectTab('audit')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 ${
             activeTab === 'audit'
               ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'

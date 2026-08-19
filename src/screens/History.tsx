@@ -135,8 +135,17 @@ type DeliveryOrder = {
 };
 type DeliveryItem = { id: string; order_id: string; beer_id: string | null; beer_name: string | null; package_id: string | null; package_label: string | null; quantity: number; is_prepared: boolean };
 
-export default function History() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'production' | 'detail' | 'cycles' | 'stats' | 'orders' | 'deliveries'>('overview');
+export default function History({ setPage, initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; initialSubTab?: string } = {}) {
+  const [activeTab, setActiveTab] = useState<'overview' | 'production' | 'detail' | 'cycles' | 'stats' | 'orders' | 'deliveries'>((initialSubTab as any) || 'overview');
+
+  useEffect(() => {
+    setActiveTab((initialSubTab as any) || 'overview');
+  }, [initialSubTab]);
+
+  function selectTab(t: 'overview' | 'production' | 'detail' | 'cycles' | 'stats' | 'orders' | 'deliveries') {
+    if (setPage) setPage('history', undefined, t);
+    else setActiveTab(t);
+  }
   // ---- Výstav (production) state ----
   const [prodPeriod, setProdPeriod] = useState<'week' | 'month' | 'year' | 'all'>('year');
   const [prodCustomFrom, setProdCustomFrom] = useState<string>(startOfYearISO(todayISO()));
@@ -775,7 +784,7 @@ export default function History() {
       <div className="sticky top-0 z-20 bg-neutral-100 pt-1 flex items-center gap-2 border-b border-neutral-200 pb-2">
         <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-thin">
           <button
-            onClick={() => setActiveTab('overview')}
+            onClick={() => selectTab('overview')}
             className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === 'overview'
                 ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 scale-102'
@@ -787,7 +796,7 @@ export default function History() {
           </button>
 
           <button
-            onClick={() => setActiveTab('production')}
+            onClick={() => selectTab('production')}
             className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === 'production'
                 ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 scale-102'
@@ -799,7 +808,7 @@ export default function History() {
           </button>
 
           <button
-            onClick={() => setActiveTab('detail')}
+            onClick={() => selectTab('detail')}
             className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === 'detail'
                 ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 scale-102'
@@ -811,7 +820,7 @@ export default function History() {
           </button>
 
           <button
-            onClick={() => setActiveTab('cycles')}
+            onClick={() => selectTab('cycles')}
             className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === 'cycles'
                 ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 scale-102'
@@ -823,7 +832,7 @@ export default function History() {
           </button>
 
           <button
-            onClick={() => setActiveTab('stats')}
+            onClick={() => selectTab('stats')}
             className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === 'stats'
                 ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 scale-102'
@@ -835,7 +844,7 @@ export default function History() {
           </button>
 
           <button
-            onClick={() => setActiveTab('orders')}
+            onClick={() => selectTab('orders')}
             className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === 'orders'
                 ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 scale-102'
@@ -847,7 +856,7 @@ export default function History() {
           </button>
 
           <button
-            onClick={() => setActiveTab('deliveries')}
+            onClick={() => selectTab('deliveries')}
             className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === 'deliveries'
                 ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 scale-102'

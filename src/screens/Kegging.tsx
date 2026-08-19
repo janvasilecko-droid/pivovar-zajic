@@ -24,7 +24,7 @@ const emptyRows = (): RowInput[] => Array.from({ length: ROW_COUNT }, emptyItem)
 // Rychlé hodnoty počtu sudů v rozbalovacím poli (6/12/18/24/30/36 ks)
 const QUICK_KEG_QTY = [6, 12, 18, 24, 30, 36];
 
-export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p: any, sec?: string) => void; mode?: 'entry_only' | 'overviews_only' | 'all' } = {}) {
+export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; mode?: 'entry_only' | 'overviews_only' | 'all'; initialSubTab?: string } = {}) {
   const [rows, setRows] = useState<EntryRow[]>([]);
   const [cellarTanks, setCellarTanks] = useState<CellarTank[]>([]);
   const [beers, setBeers] = useState<Beer[]>([]);
@@ -37,7 +37,18 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
   const isManager = profile?.role === 'admin' || (profile?.role as any) === 'sladek' || (profile?.role as any) === 'sef';
 
   // Zápis / Přehled / Potřeba stočit KEGy / Přefuk KEG záložky
-  const [tab, setTab] = useState<'zapis' | 'prehled' | 'potreba' | 'prefuk'>('zapis');
+  const [tab, setTab] = useState<'zapis' | 'prehled' | 'potreba' | 'prefuk'>((initialSubTab as any) || 'zapis');
+
+  // Sync ze subTab v historii (viz App.tsx) — jinak tlačítko Zpět z téhle
+  // záložky nevrátí předchozí záložku, ale rovnou vyskočí do menu.
+  useEffect(() => {
+    setTab((initialSubTab as any) || 'zapis');
+  }, [initialSubTab]);
+
+  function selectTab(t: 'zapis' | 'prehled' | 'potreba' | 'prefuk') {
+    if (setPage) setPage('kegging', undefined, t);
+    else setTab(t);
+  }
 
   // 📋 Checklist states
   const [showChecklistModal, setShowChecklistModal] = useState(false);
@@ -623,21 +634,21 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
           <div className="flex items-center gap-1.5 bg-neutral-100 p-1 rounded-xl border border-neutral-200 w-full sm:w-fit overflow-x-auto scrollbar-none flex-nowrap shrink-0">
             <button
               type="button"
-              onClick={() => setTab('zapis')}
+              onClick={() => selectTab('zapis')}
               className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'zapis' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-700 hover:bg-amber-50'}`}
             >
               ✍️ Zápis
             </button>
             <button
               type="button"
-              onClick={() => setTab('prehled')}
+              onClick={() => selectTab('prehled')}
               className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'prehled' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-700 hover:bg-amber-50'}`}
             >
               📊 Přehled
             </button>
             <button
               type="button"
-              onClick={() => setTab('potreba')}
+              onClick={() => selectTab('potreba')}
               className={`px-3.5 py-2 rounded-lg text-xs font-black transition flex items-center gap-1.5 shrink-0 min-h-[38px] ${tab === 'potreba' ? 'bg-rose-600 text-white shadow-xs' : 'text-neutral-700 hover:bg-rose-50'}`}
             >
               <span>🛢️ Potřeba stočit KEGy</span>
@@ -649,7 +660,7 @@ export default function KeggingScreen({ setPage, mode = 'all' }: { setPage?: (p:
             </button>
             <button
               type="button"
-              onClick={() => setTab('prefuk')}
+              onClick={() => selectTab('prefuk')}
               className={`px-3.5 py-2 rounded-lg text-xs font-black transition flex items-center gap-1.5 shrink-0 min-h-[38px] ${tab === 'prefuk' ? 'bg-sky-600 text-white shadow-xs' : 'text-neutral-700 hover:bg-sky-50'}`}
             >
               <span>🔄 Přefuk KEG</span>

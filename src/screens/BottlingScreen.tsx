@@ -36,11 +36,14 @@ export default function BottlingScreen({
   setPage,
   mode = 'all',
   initialTab,
+  initialSubTab,
 }: {
-  setPage?: (p: any, sec?: string) => void;
+  setPage?: (p: any, sec?: string, sub?: string) => void;
   mode?: 'entry_only' | 'overviews_only' | 'all';
   initialTab?: 'zapis' | 'prehled' | 'potreba';
+  initialSubTab?: string;
 } = {}) {
+  const pageValue = mode === 'entry_only' ? 'bottling_entry' : mode === 'overviews_only' ? 'bottling_overview' : 'bottling';
   const [rows, setRows] = useState<EntryRow[]>([]);
   const [beers, setBeers] = useState<Beer[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
@@ -69,13 +72,21 @@ export default function BottlingScreen({
 
   // Záložky: Stáčení / Přehled / Potřeba stočit lahve
   // Z menu se otevře nejprve Přehled stočených; tlačítko „Stáčení lahví" otevře zápis stáčení.
-  const [tab, setTab] = useState<'zapis' | 'prehled' | 'potreba' | 'plan'>(initialTab ?? (mode === 'all' ? 'prehled' : 'zapis'));
+  const defaultTab: 'zapis' | 'prehled' | 'potreba' | 'plan' = mode === 'all' ? 'prehled' : 'zapis';
+  const [tab, setTab] = useState<'zapis' | 'prehled' | 'potreba' | 'plan'>((initialSubTab as any) || initialTab || defaultTab);
 
   useEffect(() => {
-    if (initialTab) {
-      setTab(initialTab);
-    }
-  }, [initialTab]);
+    setTab((initialSubTab as any) || initialTab || defaultTab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSubTab, initialTab]);
+
+  // Přepnutí záložky zapíšeme do historie stránek (setPage), ne jen do
+  // lokálního stavu — jinak tlačítko Zpět z téhle obrazovky nevrátí
+  // předchozí záložku, ale rovnou vyskočí do menu.
+  function selectTab(t: 'zapis' | 'prehled' | 'potreba' | 'plan') {
+    if (setPage) setPage(pageValue, undefined, t);
+    else setTab(t);
+  }
 
   const { profile } = useAuth();
   const isManager = isBottlingManager(profile?.role);
@@ -389,7 +400,7 @@ export default function BottlingScreen({
     });
     markPlanSeenAt();
     setPlanSeenAt(Date.now());
-    setTab('zapis');
+    selectTab('zapis');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -701,7 +712,7 @@ export default function BottlingScreen({
           <div className="flex items-center gap-1.5 bg-neutral-100 p-1 rounded-xl border border-neutral-200 w-full sm:w-fit overflow-x-auto scrollbar-none flex-nowrap shrink-0">
             <button
               type="button"
-              onClick={() => setTab('zapis')}
+              onClick={() => selectTab('zapis')}
               className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'zapis' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-700 hover:bg-amber-50'}`}
             >
               🍾 Začátek stáčení
@@ -711,14 +722,14 @@ export default function BottlingScreen({
             </button>
             <button
               type="button"
-              onClick={() => setTab('prehled')}
+              onClick={() => selectTab('prehled')}
               className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'prehled' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-700 hover:bg-amber-50'}`}
             >
               📊 Přehled
             </button>
             <button
               type="button"
-              onClick={() => setTab('potreba')}
+              onClick={() => selectTab('potreba')}
               className={`px-3.5 py-2 rounded-lg text-xs font-black transition flex items-center gap-1.5 shrink-0 min-h-[38px] ${tab === 'potreba' ? 'bg-rose-600 text-white shadow-xs' : 'text-neutral-700 hover:bg-rose-50'}`}
             >
               <span>🍾 Potřeba stočit lahve</span>
@@ -747,7 +758,7 @@ export default function BottlingScreen({
             {isManager && (
               <button
                 type="button"
-                onClick={() => setTab('plan')}
+                onClick={() => selectTab('plan')}
                 className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'plan' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-700 hover:bg-amber-50'}`}
               >
                 🗓️ Zadat stáčení

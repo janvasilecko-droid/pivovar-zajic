@@ -36,7 +36,7 @@ const STATUS_META: Record<Status, { label: string; chip: string }> = {
 
 const STATUS_ORDER: Status[] = ['open', 'in_progress', 'done', 'rejected'];
 
-export default function Feedback() {
+export default function Feedback({ setPage, initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; initialSubTab?: string } = {}) {
   const { profile, user } = useAuth();
   const isAdmin = profile?.role === 'admin';
   const [notes, setNotes] = useState<FeedbackNote[]>([]);
@@ -95,7 +95,16 @@ export default function Feedback() {
     load();
   }
 
-  const [activeTab, setActiveTab] = useState<'notes' | 'untappd'>('notes');
+  const [activeTab, setActiveTab] = useState<'notes' | 'untappd'>((initialSubTab as any) || 'notes');
+
+  useEffect(() => {
+    setActiveTab((initialSubTab as any) || 'notes');
+  }, [initialSubTab]);
+
+  function selectTab(t: 'notes' | 'untappd') {
+    if (setPage) setPage('feedback', undefined, t);
+    else setActiveTab(t);
+  }
   const filtered = filter === 'all' ? notes : notes.filter((n) => n.category === filter);
   const grouped = STATUS_ORDER.map((s) => ({ status: s, items: filtered.filter((n) => n.status === s) })).filter((g) => g.items.length);
 
@@ -104,7 +113,7 @@ export default function Feedback() {
       {/* Navigation tabs — přilepené pod záložkami PlanningTabbed nad tím. */}
       <div className="sticky top-[56px] z-10 bg-neutral-100 pt-1 flex items-center gap-2 border-b border-neutral-200 pb-2">
         <button
-          onClick={() => setActiveTab('notes')}
+          onClick={() => selectTab('notes')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 ${
             activeTab === 'notes'
               ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
@@ -116,7 +125,7 @@ export default function Feedback() {
         </button>
 
         <button
-          onClick={() => setActiveTab('untappd')}
+          onClick={() => selectTab('untappd')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 ${
             activeTab === 'untappd'
               ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
