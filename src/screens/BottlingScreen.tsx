@@ -1553,10 +1553,17 @@ export default function BottlingScreen({
               <div className="font-display font-black text-xl text-emerald-700">{reqTotals.stock} ks</div>
               <span className="text-[11px] text-neutral-500">Disponibilní zásoby</span>
             </div>
-            <div className={`card p-4 rounded-2xl space-y-1 ${reqTotals.needed > 0 ? 'bg-rose-600 text-white' : 'bg-neutral-900 text-white'}`}>
-              <span className={`text-[10px] font-black uppercase ${reqTotals.needed > 0 ? 'text-rose-100' : 'text-amber-400'}`}>Potřeba stočit tento týden (chybí)</span>
-              <div className="font-display font-black text-xl">{reqTotals.needed} ks ({reqTotals.neededLiters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L)</div>
-              <span className="text-[11px] opacity-90">{reqTotals.needed > 0 ? '⚠️ Objednáno víc, než je na skladě' : '✓ Všechny objednávky týdne pokryty'}</span>
+            <div className="card p-4 bg-white border border-neutral-200 rounded-2xl space-y-1">
+              <span className="text-[10px] font-black uppercase text-neutral-500">Potřeba stočit tento týden (chybí)</span>
+              <div className="font-display font-black text-xl text-neutral-900 flex items-baseline gap-1.5">
+                {reqTotals.needed > 0 ? (
+                  <span className="px-2 py-0.5 rounded-lg bg-rose-600 text-white">{reqTotals.needed} ks</span>
+                ) : (
+                  <span className="text-emerald-700">0 ks</span>
+                )}
+                <span className="text-sm font-bold text-neutral-500">({reqTotals.neededLiters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L)</span>
+              </div>
+              <span className="text-[11px] text-neutral-500">{reqTotals.needed > 0 ? '⚠️ Objednáno víc, než je na skladě' : '✓ Všechny objednávky týdne pokryty'}</span>
             </div>
           </div>
 
@@ -1648,7 +1655,7 @@ export default function BottlingScreen({
                             <div className="flex items-center gap-1.5">
                               <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
                               <span>{r.beer_name}</span>
-                              <span className="font-bold text-neutral-500">({r.package_label})</span>
+                              <span className="px-1.5 py-0.5 rounded-md bg-neutral-100 text-neutral-800 font-black text-xs">{r.package_label}</span>
                             </div>
                           </td>
                           <td className="p-2.5 text-right font-mono text-neutral-600">{r.invQty} ks</td>

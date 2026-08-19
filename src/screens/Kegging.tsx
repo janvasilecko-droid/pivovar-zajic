@@ -1516,10 +1516,17 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               <div className="font-display font-black text-xl text-emerald-700">{reqKegTotals.stock} ks sudů</div>
               <span className="text-[11px] text-neutral-500">Disponibilní KEG zásoby (inventura + stočeno − výdej)</span>
             </div>
-            <div className={`card p-4 rounded-2xl space-y-1 ${reqKegTotals.needed > 0 ? 'bg-amber-600 text-white' : 'bg-neutral-900 text-white'}`}>
-              <span className={`text-[10px] font-black uppercase ${reqKegTotals.needed > 0 ? 'text-amber-100' : 'text-amber-400'}`}>Potřeba stočit tento týden (chybí)</span>
-              <div className="font-display font-black text-xl">{reqKegTotals.needed} ks sudů ({(reqKegTotals.neededLiters / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 })} hl / {reqKegTotals.neededLiters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L)</div>
-              <span className="text-[11px] opacity-90">{reqKegTotals.needed > 0 ? '⚠️ Objednáno víc sudů, než je na skladě' : '✓ Všechny KEG objednávky týdne pokryty'}</span>
+            <div className="card p-4 bg-white border border-neutral-200 rounded-2xl space-y-1">
+              <span className="text-[10px] font-black uppercase text-neutral-500">Potřeba stočit tento týden (chybí)</span>
+              <div className="font-display font-black text-xl text-neutral-900 flex items-baseline gap-1.5">
+                {reqKegTotals.needed > 0 ? (
+                  <span className="px-2 py-0.5 rounded-lg bg-rose-600 text-white">{reqKegTotals.needed} ks sudů</span>
+                ) : (
+                  <span className="text-emerald-700">0 ks sudů</span>
+                )}
+                <span className="text-sm font-bold text-neutral-500">({(reqKegTotals.neededLiters / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 })} hl / {reqKegTotals.neededLiters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L)</span>
+              </div>
+              <span className="text-[11px] text-neutral-500">{reqKegTotals.needed > 0 ? '⚠️ Objednáno víc sudů, než je na skladě' : '✓ Všechny KEG objednávky týdne pokryty'}</span>
             </div>
           </div>
 
@@ -1596,7 +1603,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                         <div className="flex items-center gap-1.5 min-w-0">
                           <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
                           <span className="font-black text-sm text-neutral-950 truncate">{r.beer_name}</span>
-                          <span className="font-bold text-xs text-neutral-500 shrink-0">({r.package_label})</span>
+                          <span className="px-1.5 py-0.5 rounded-md bg-neutral-100 text-neutral-800 font-black text-xs shrink-0">{r.package_label}</span>
                         </div>
                         {missing ? (
                           <span className="shrink-0 px-2.5 py-1 rounded-xl bg-amber-600 text-white font-black text-xs whitespace-nowrap">⚠️ chybí {r.neededQty} ks</span>
@@ -1662,7 +1669,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                             <div className="flex items-center gap-1.5">
                               <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
                               <span>{r.beer_name}</span>
-                              <span className="font-bold text-neutral-600">({r.package_label})</span>
+                              <span className="px-1.5 py-0.5 rounded-md bg-neutral-100 text-neutral-800 font-black text-xs">{r.package_label}</span>
                             </div>
                           </td>
                           <td className="p-2.5 text-right font-mono font-bold text-emerald-700">+{r.bottledQty} ks</td>
