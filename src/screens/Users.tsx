@@ -246,7 +246,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
               <Download size={15} />
               <span>{backingUp ? 'Zálohuji…' : '💾 JSON Záloha'}</span>
             </button>
-            <button className="btn-primary text-xs font-black shadow-md" onClick={() => setActiveTab('emails')}>➕ Přidat e-mail ke schválení</button>
+            <button className="btn-primary text-xs font-black shadow-md" onClick={() => selectTab('emails')}>➕ Přidat e-mail ke schválení</button>
           </div>
           <p className="text-xs text-neutral-500 font-medium -mt-2 mb-1 text-right">
             Nový přístup: v záložce „📧 E-maily" přidejte e-mail a pak ho schvalte. Uživatel se přihlásí odkazem na e-mail.

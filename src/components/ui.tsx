@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 
 export function Spinner({ className = '' }: { className?: string }) {
   return (
@@ -42,6 +42,25 @@ export function Modal({ open, onClose, title, children, wide, maxWidth }: {
     document.body.style.overflow = 'hidden';
     return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = ''; };
   }, [open, onClose]);
+
+  // Tlačítko Zpět (hardwarové na Androidu i v prohlížeči) zavře modal místo
+  // toho, aby vyskočilo o stránku výš — zapíšeme si při otevření dodatečný
+  // krok do historie (se zachováním page/subTab, ať App.tsx při jeho
+  // odpopnutí nepřehodí stránku) a na popstate modal zavřeme.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+  useEffect(() => {
+    if (!open) return;
+    window.history.pushState({ ...window.history.state, modalOpen: true }, '');
+    const onPopState = () => onCloseRef.current();
+    window.addEventListener('popstate', onPopState);
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+      if (window.history.state?.modalOpen) window.history.back();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">

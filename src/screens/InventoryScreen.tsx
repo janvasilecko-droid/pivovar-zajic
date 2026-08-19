@@ -812,7 +812,7 @@ function exportInventoryExcel() {
         </button>
 
         <button
-          onClick={() => setActiveTab('initial_stock')}
+          onClick={() => selectTab('initial_stock')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'initial_stock'
               ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'

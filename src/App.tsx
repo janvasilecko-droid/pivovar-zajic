@@ -124,7 +124,11 @@ export default function App() {
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
     const listenerPromise = CapacitorApp.addListener('backButton', () => {
-      if (page !== DEFAULT_PAGE) {
+      // I na výchozí stránce může být otevřený modal (viz Modal v ui.tsx,
+      // který si pro sebe připojí vlastní krok do historie) — v tom případě
+      // jde hardwarové tlačítko Zpět taky o krok zpět (zavře modal), ne
+      // rovnou minimalizovat appku.
+      if (page !== DEFAULT_PAGE || (window.history.state && window.history.state.modalOpen)) {
         window.history.back();
       } else {
         CapacitorApp.minimizeApp();
