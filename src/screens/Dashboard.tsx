@@ -24,6 +24,8 @@ type StockByPkg = {
   fromInventory: number; brewedWeek: number;
   orderedWeek: number; writeoffsWeek: number; fasovaniWeek: number; prodejnaWeek: number; akTaken: number; akReturned: number;
   kegsUsedWeek: number; odpocet: number; remaining: number;
+  /** Objednáno celkem mínus to, co už fyzicky odjelo (zavoz_deductions) tento měsíc — kolik ještě čeká na odvoz. */
+  orderedRemaining: number;
 };
 type StockStat = {
   beer: Beer;
@@ -164,7 +166,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
           const pkg = pkgList.find((p) => p.id === r.package_id);
           if (!pkg) return;
           let e = byPkg.get(r.package_id);
-          if (!e) { e = { package_id: r.package_id, label: pkg.label, quantity: 0, volume_l: pkg.volume_l, kind: pkg.kind, fromInventory: 0, brewedWeek: 0, orderedWeek: 0, writeoffsWeek: 0, fasovaniWeek: 0, prodejnaWeek: 0, akTaken: 0, akReturned: 0, kegsUsedWeek: 0, odpocet: 0, remaining: 0 }; byPkg.set(r.package_id, e); }
+          if (!e) { e = { package_id: r.package_id, label: pkg.label, quantity: 0, volume_l: pkg.volume_l, kind: pkg.kind, fromInventory: 0, brewedWeek: 0, orderedWeek: 0, writeoffsWeek: 0, fasovaniWeek: 0, prodejnaWeek: 0, akTaken: 0, akReturned: 0, kegsUsedWeek: 0, odpocet: 0, remaining: 0, orderedRemaining: 0 }; byPkg.set(r.package_id, e); }
           (e[field] as number) += Number(r.quantity);
         });
       
@@ -173,7 +175,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
         const qty = invMap[k] || 0;
         if (qty > 0) {
           let e = byPkg.get(pkg.id);
-          if (!e) { e = { package_id: pkg.id, label: pkg.label, quantity: 0, volume_l: pkg.volume_l, kind: pkg.kind, fromInventory: 0, brewedWeek: 0, orderedWeek: 0, writeoffsWeek: 0, fasovaniWeek: 0, prodejnaWeek: 0, akTaken: 0, akReturned: 0, kegsUsedWeek: 0, odpocet: 0, remaining: 0 }; byPkg.set(pkg.id, e); }
+          if (!e) { e = { package_id: pkg.id, label: pkg.label, quantity: 0, volume_l: pkg.volume_l, kind: pkg.kind, fromInventory: 0, brewedWeek: 0, orderedWeek: 0, writeoffsWeek: 0, fasovaniWeek: 0, prodejnaWeek: 0, akTaken: 0, akReturned: 0, kegsUsedWeek: 0, odpocet: 0, remaining: 0, orderedRemaining: 0 }; byPkg.set(pkg.id, e); }
           e.fromInventory = qty;
         }
       });
@@ -200,7 +202,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
           if (!pkg) return;
           let e = byPkg.get(pkgId);
           if (!e) {
-            e = { package_id: pkgId, label: pkg.label, quantity: 0, volume_l: pkg.volume_l, kind: pkg.kind, fromInventory: 0, brewedWeek: 0, orderedWeek: 0, writeoffsWeek: 0, fasovaniWeek: 0, prodejnaWeek: 0, akTaken: 0, akReturned: 0, kegsUsedWeek: 0, odpocet: 0, remaining: 0 };
+            e = { package_id: pkgId, label: pkg.label, quantity: 0, volume_l: pkg.volume_l, kind: pkg.kind, fromInventory: 0, brewedWeek: 0, orderedWeek: 0, writeoffsWeek: 0, fasovaniWeek: 0, prodejnaWeek: 0, akTaken: 0, akReturned: 0, kegsUsedWeek: 0, odpocet: 0, remaining: 0, orderedRemaining: 0 };
             byPkg.set(pkgId, e);
           }
           e.kegsUsedWeek += res.kegsUsed;
@@ -221,8 +223,10 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
         // reálně vydáno.
         p.quantity = Math.max(0, p.fromInventory + p.brewedWeek - p.odpocet);
         // Odečtené závozy jsou již v odpočtu (a tedy v p.quantity) — z orderedWeek
-        // je odeber, ať se nepočítají dvakrát.
+        // je odeber, ať se nepočítají dvakrát. Totéž číslo je i "Zbývá zavézt"
+        // (objednáno celkem mínus to, co už fyzicky odjelo) pro zobrazení.
         const orderedEffective = Math.max(0, p.orderedWeek - zdWeek);
+        p.orderedRemaining = orderedEffective;
         p.remaining = p.quantity - orderedEffective;
         return p;
       }).filter((p) => p.fromInventory > 0 || p.orderedWeek > 0 || p.brewedWeek > 0 || p.fasovaniWeek > 0 || p.prodejnaWeek > 0 || p.odpocet > 0).sort((a, b) => b.quantity - a.quantity);
@@ -521,7 +525,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                             <tr key={p.package_id}>
                               <td className="py-1 pr-2 whitespace-nowrap text-neutral-500 text-xs font-bold">{p.label}</td>
                               <td className="py-1 px-2 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md">{p.quantity}</td>
-                              <td className={`py-1 px-2 text-center font-extrabold rounded-md ${p.orderedWeek > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-400'}`}>{p.orderedWeek > 0 ? `-${p.orderedWeek}` : '0'}</td>
+                              <td className={`py-1 px-2 text-center font-extrabold rounded-md ${p.orderedRemaining > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-400'}`}>{p.orderedRemaining > 0 ? `-${p.orderedRemaining}` : '0'}</td>
                               <td className={`py-1 pl-2 text-center font-extrabold rounded-md ${p.remaining < 0 ? 'bg-rose-50 text-rose-600' : p.remaining === 0 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>{p.remaining}</td>
                             </tr>
                           ))}
@@ -546,7 +550,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                             <tr key={p.package_id}>
                               <td className="py-1 pr-2 whitespace-nowrap text-neutral-500 text-xs font-bold">{p.label}</td>
                               <td className="py-1 px-2 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md">{p.quantity}</td>
-                              <td className={`py-1 px-2 text-center font-extrabold rounded-md ${p.orderedWeek > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-400'}`}>{p.orderedWeek > 0 ? `-${p.orderedWeek}` : '0'}</td>
+                              <td className={`py-1 px-2 text-center font-extrabold rounded-md ${p.orderedRemaining > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-400'}`}>{p.orderedRemaining > 0 ? `-${p.orderedRemaining}` : '0'}</td>
                               <td className={`py-1 pl-2 text-center font-extrabold rounded-md ${p.remaining < 0 ? 'bg-rose-50 text-rose-600' : p.remaining === 0 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>{p.remaining}</td>
                             </tr>
                           ))}
@@ -582,14 +586,18 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                         Zbyde {p.remaining} ks
                       </span>
                     </div>
-                    <div className="grid grid-cols-3 gap-1.5 text-center">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-center">
                       <div className="rounded-lg bg-neutral-50 py-1.5">
                         <div className="text-[9px] font-black uppercase text-neutral-500">Sklad (AKT)</div>
                         <div className="text-sm font-black text-neutral-900">{p.quantity}</div>
                       </div>
                       <div className="rounded-lg bg-rose-50 py-1.5">
-                        <div className="text-[9px] font-black uppercase text-rose-600">Objednáno</div>
+                        <div className="text-[9px] font-black uppercase text-rose-600">Objednáno celkem</div>
                         <div className="text-sm font-black text-rose-700">{p.orderedWeek || 0}</div>
+                      </div>
+                      <div className="rounded-lg bg-rose-100 py-1.5">
+                        <div className="text-[9px] font-black uppercase text-rose-700">Zbývá zavézt</div>
+                        <div className="text-sm font-black text-rose-800">{p.orderedRemaining || 0}</div>
                       </div>
                       <div className="rounded-lg bg-amber-50 py-1.5">
                         <div className="text-[9px] font-black uppercase text-amber-700">Odpočet celkem</div>
@@ -618,7 +626,8 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                     <th className="p-2 text-right text-sky-800" title="Počáteční stav k 1. dni v měsíci">Poč.</th>
                     <th className="p-2 text-right text-emerald-700" title="Stáčení (příjem)">Stoč.</th>
                     <th className="p-2 text-right text-emerald-950 font-black" title="Aktuální stav na skladě (Poč. + Stoč.)">AKT</th>
-                    <th className="p-2 text-right text-rose-700 font-bold" title="Objednávky">OBJ</th>
+                    <th className="p-2 text-right text-rose-700 font-bold" title="Objednávky celkem tento měsíc">OBJ</th>
+                    <th className="p-2 text-right text-rose-800 font-bold" title="Objednáno − co už fyzicky odjelo (zavoz) = ještě čeká na odvoz">ZBÝVÁ ZAVÉZT</th>
                     <th className="p-2 text-right text-purple-700 font-bold" title="Sudy spotřebované na plnění lahví">Stáč. lahví</th>
                     <th className="p-2 text-right text-rose-600" title="Fasování zaměstnanců / privátní">Fasování</th>
                     <th className="p-2 text-right text-rose-600" title="Prodejna (výdej prodejny)">Prodejna</th>
@@ -638,6 +647,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                         <td className="p-2 text-right font-black text-emerald-600">{p.brewedWeek ? `+${p.brewedWeek}` : '—'}</td>
                         <td className="p-2 text-right font-black text-neutral-950 bg-neutral-50">{p.quantity}</td>
                         <td className="p-2 text-right font-bold text-rose-700">{p.orderedWeek ? `-${p.orderedWeek}` : '—'}</td>
+                        <td className="p-2 text-right font-bold text-rose-800 bg-rose-50/50">{p.orderedRemaining ? `-${p.orderedRemaining}` : '—'}</td>
                         <td className="p-2 text-right font-bold text-purple-700">{p.kegsUsedWeek ? `-${p.kegsUsedWeek}` : '—'}</td>
                         <td className="p-2 text-right font-medium text-neutral-600">{p.fasovaniWeek ? `-${p.fasovaniWeek}` : '—'}</td>
                         <td className="p-2 text-right font-medium text-neutral-600">{p.prodejnaWeek ? `-${p.prodejnaWeek}` : '—'}</td>
