@@ -182,9 +182,12 @@ export default function CellarScreen({ setPage }: { setPage?: (p: any, sec?: str
 
     // Filtrujeme objednávky patřící do vybraného týdne — podle data DOVOZU, ne
     // zadání (objednávka zadaná dřív s dovozem v tomto týdnu sem musí patřit).
+    // Stornované objednávky se nepočítají — na rozdíl od zbytku appky tu dřív
+    // chybělo vyloučení, takže zrušená objednávka zbytečně nafukovala potřebu.
     const activeOrderIds = new Set(
       orders
         .filter((o) => {
+          if (o.status === 'storno') return false;
           const target = o.delivery_date || o.order_date;
           return !!target && isoWeekKey(target) === weekKey;
         })
