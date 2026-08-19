@@ -799,10 +799,10 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
             </div>
           </div>
 
-          <div className="card p-6 bg-neutral-900 text-white rounded-3xl shadow-xl space-y-4">
-            <h3 className="font-display font-black text-lg text-amber-400">⚡ Výsledné náklady</h3>
+          <div className="card p-6 bg-white border-2 border-amber-300 rounded-3xl shadow-md space-y-4">
+            <h3 className="font-display font-black text-lg text-amber-950">⚡ Výsledné náklady</h3>
             <div className="space-y-3 font-mono">
-              <div className="p-4 rounded-2xl bg-neutral-800 border border-neutral-700">
+              <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800">
                 <div className="text-[10px] text-neutral-400 uppercase">Celkem na 1 várku ({bHl} hl)</div>
                 <div className="text-2xl font-black text-amber-400">{totalEnergyCostBatch.toLocaleString('cs-CZ')} Kč</div>
               </div>

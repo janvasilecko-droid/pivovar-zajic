@@ -892,7 +892,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                       <div className="text-[9px] font-bold text-neutral-500 uppercase">Stočeno</div>
                       <div className="text-sm font-black text-neutral-900">−{b.usedBottles}</div>
                     </div>
-                    <div className={`p-2 rounded-xl ${b.isLow ? 'bg-rose-600 text-white' : 'bg-emerald-700 text-white'}`}>
+                    <div className={`p-2 rounded-xl ${b.isLow ? 'bg-rose-100 text-rose-800' : 'bg-emerald-50 text-emerald-800'}`}>
                       <div className="text-[9px] font-bold uppercase">Zbývá</div>
                       <div className="text-sm font-black">{b.balance} ks</div>
                     </div>

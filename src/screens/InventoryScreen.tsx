@@ -861,24 +861,26 @@ function exportInventoryExcel() {
               <div className="font-display font-black text-lg text-amber-800">-{totals.vydej} ks</div>
               <span className="text-[10px] text-neutral-500">Fasování + Prodejna + Objednávky</span>
             </div>
-            <div className={`card p-3.5 rounded-2xl space-y-1 border shadow-md ${
-              totals.expected < 0
-                ? 'bg-rose-950 text-white border-rose-500/80 ring-2 ring-rose-500/30'
-                : 'bg-emerald-950 text-white border-emerald-500/50'
-            }`}>
-              <span className={`text-[10px] font-black uppercase ${totals.expected < 0 ? 'text-rose-900' : 'text-emerald-900'}`}>📦 ZBYDE SKLADEM (Oček.)</span>
-              <div className={`font-display font-black text-xl ${totals.expected < 0 ? 'text-rose-900' : 'text-emerald-900'}`}>{totals.expected} ks</div>
-              <span className={`text-[10px] ${totals.expected < 0 ? 'text-rose-200' : 'text-emerald-200'}`}>Teoretický zůstatek</span>
+            <div className="card p-3.5 bg-white border border-neutral-200 rounded-2xl space-y-1">
+              <span className="text-[10px] font-black uppercase text-neutral-500">📦 ZBYDE SKLADEM (Oček.)</span>
+              <div className="font-display font-black text-xl">
+                {totals.expected < 0 ? (
+                  <span className="px-2 py-0.5 rounded-lg bg-rose-600 text-white">{totals.expected} ks</span>
+                ) : (
+                  <span className="text-emerald-700">{totals.expected} ks</span>
+                )}
+              </div>
+              <span className="text-[10px] text-neutral-500">Teoretický zůstatek</span>
             </div>
-            <div className="card p-3.5 bg-neutral-900 text-white rounded-2xl space-y-1 border border-neutral-800 shadow-md">
-              <span className="text-[10px] font-black uppercase text-amber-400">Celkové Manko/Přebytek</span>
-              <div className={`font-display font-black text-lg ${totals.diffQty < 0 ? 'text-rose-900' : totals.diffQty > 0 ? 'text-emerald-900' : 'text-white'}`}>
+            <div className="card p-3.5 bg-white border border-neutral-200 rounded-2xl space-y-1">
+              <span className="text-[10px] font-black uppercase text-neutral-500">Celkové Manko/Přebytek</span>
+              <div className={`font-display font-black text-lg ${totals.diffQty < 0 ? 'text-rose-700' : totals.diffQty > 0 ? 'text-emerald-700' : 'text-neutral-900'}`}>
                 {totals.diffQty > 0 ? `+${totals.diffQty}` : totals.diffQty} ks ({totals.diffCzk.toLocaleString('cs-CZ')} Kč)
               </div>
-              <span className="text-[10px] text-neutral-400">Fyzický vs Systémový stav</span>
-              <span className="block pt-1 border-t border-neutral-800 text-[10px] font-bold text-neutral-300">
+              <span className="text-[10px] text-neutral-500">Fyzický vs Systémový stav</span>
+              <span className="block pt-1 border-t border-neutral-200 text-[10px] font-bold text-neutral-600">
                 Dorovnáno: {totals.dorovnat > 0 ? `+${totals.dorovnat}` : totals.dorovnat} ks ·
-                <span className={totals.diffAfterQty === 0 ? 'text-emerald-400' : totals.diffAfterQty < 0 ? 'text-rose-400' : 'text-amber-300'}>
+                <span className={totals.diffAfterQty === 0 ? 'text-emerald-700' : totals.diffAfterQty < 0 ? 'text-rose-700' : 'text-amber-700'}>
                   {' '}po dorovnání: {totals.diffAfterQty > 0 ? `+${totals.diffAfterQty}` : totals.diffAfterQty} ks ({totals.diffAfterCzk.toLocaleString('cs-CZ')} Kč)
                 </span>
               </span>
@@ -1391,10 +1393,16 @@ function EndStockTab({
           <span className="text-[10px] font-black uppercase text-neutral-500">Výdeje (−)</span>
           <div className="font-display font-black text-xl text-rose-600">−{totals.objednavky + totals.stacenoLahve + totals.fasovani + totals.prodejna + totals.akce + totals.odpisy} ks</div>
         </div>
-        <div className={`card p-4 rounded-2xl space-y-1 ${totals.endStock < 0 ? 'bg-rose-600 text-white' : 'bg-neutral-900 text-white'}`}>
-          <span className={`text-[10px] font-black uppercase ${totals.endStock < 0 ? 'text-rose-100' : 'text-amber-400'}`}>Stav na konci měsíce</span>
-          <div className="font-display font-black text-xl">{totals.endStock} ks</div>
-          {totals.endStock < 0 && <span className="text-[11px] text-rose-100 font-bold">⚠️ Chybí {Math.abs(totals.endStock)} sudů!</span>}
+        <div className="card p-4 bg-white border border-neutral-200 rounded-2xl space-y-1">
+          <span className="text-[10px] font-black uppercase text-neutral-500">Stav na konci měsíce</span>
+          <div className="font-display font-black text-xl">
+            {totals.endStock < 0 ? (
+              <span className="px-2 py-0.5 rounded-lg bg-rose-600 text-white">{totals.endStock} ks</span>
+            ) : (
+              <span className="text-neutral-900">{totals.endStock} ks</span>
+            )}
+          </div>
+          {totals.endStock < 0 && <span className="text-[11px] text-rose-700 font-bold">⚠️ Chybí {Math.abs(totals.endStock)} sudů!</span>}
         </div>
       </div>
 

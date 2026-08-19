@@ -394,10 +394,10 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
           <div className="font-display font-black text-2xl text-neutral-900">{filteredEntries.length} jízd</div>
           <span className="text-[11px] text-neutral-600">Rozvozy & Svozy</span>
         </div>
-        <div className="card p-4 bg-neutral-900 text-white rounded-2xl space-y-1">
-          <span className="text-[10px] font-black uppercase text-amber-400">Pivovarský vozový park</span>
-          <div className="font-display font-black text-xl text-white">{vehicles.length || 1} vozidel</div>
-          <span className="text-[11px] text-neutral-300">Primárně Velké auto (Kynšperk)</span>
+        <div className="card p-4 bg-white border border-neutral-200 rounded-2xl space-y-1">
+          <span className="text-[10px] font-black uppercase text-neutral-500">Pivovarský vozový park</span>
+          <div className="font-display font-black text-xl text-neutral-900">{vehicles.length || 1} vozidel</div>
+          <span className="text-[11px] text-neutral-600">Primárně Velké auto (Kynšperk)</span>
         </div>
       </div>
 
