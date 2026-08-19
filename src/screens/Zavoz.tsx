@@ -609,7 +609,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
               {/* MAIN 2-COLUMN DRIVER DASHBOARD */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 {/* LEFT COLUMN: NAKLÁDKOVÝ LIST DO AUTA */}
-                <div className={`lg:col-span-5 bg-gradient-to-br from-amber-500/10 via-amber-100/30 to-white text-neutral-900 p-5 rounded-3xl border-2 border-amber-300/80 shadow-md space-y-5 sticky top-4 ${
+                <div className={`lg:col-span-5 bg-white text-neutral-900 p-5 rounded-3xl border-2 border-amber-300 shadow-md space-y-5 sticky top-4 ${
                   mobileTab === 'loading' ? 'block' : 'hidden lg:block'
                 }`}>
                   <div className="flex items-center justify-between pb-3 border-b border-amber-200/80">

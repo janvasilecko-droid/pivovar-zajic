@@ -208,16 +208,22 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
       });
 
       const stockByPkg = [...byPkg.values()].map((p) => {
-        p.quantity = p.fromInventory + p.brewedWeek;
         const akceNet = Math.max(0, p.akTaken - p.akReturned);
         // Auto-odpočet závozu (zavoz_deductions) za aktuální měsíc
         const zdWeek = zdRows
           .filter((r) => r.beer_id === beer.id && r.package_id === p.package_id && monthKey(r.deduct_date) === curMonth && r.deduct_date <= todayISO())
           .reduce((s, r) => s + Number(r.quantity), 0);
         p.odpocet = p.writeoffsWeek + p.fasovaniWeek + p.prodejnaWeek + akceNet + (p.kegsUsedWeek || 0) + zdWeek;
-        // Odečtené závozy jsou již v odpocet — z orderedWeek odeber aby nedošlo k dvojímu odečtu
+        // Sklad = počáteční stav + stočeno TENTO MĚSÍC − vše, co už fyzicky
+        // odešlo (odpočet). Dřív se tady neodečítal odpočet vůbec, takže
+        // "Sklad (AKT)" ukazoval hrubou výrobu měsíce, ne skutečný fyzický
+        // stav — po fasování/prodejně/závozu zůstal stejný, i když už bylo
+        // reálně vydáno.
+        p.quantity = Math.max(0, p.fromInventory + p.brewedWeek - p.odpocet);
+        // Odečtené závozy jsou již v odpočtu (a tedy v p.quantity) — z orderedWeek
+        // je odeber, ať se nepočítají dvakrát.
         const orderedEffective = Math.max(0, p.orderedWeek - zdWeek);
-        p.remaining = p.quantity - orderedEffective - p.odpocet;
+        p.remaining = p.quantity - orderedEffective;
         return p;
       }).filter((p) => p.fromInventory > 0 || p.orderedWeek > 0 || p.brewedWeek > 0 || p.fasovaniWeek > 0 || p.prodejnaWeek > 0 || p.odpocet > 0).sort((a, b) => b.quantity - a.quantity);
 

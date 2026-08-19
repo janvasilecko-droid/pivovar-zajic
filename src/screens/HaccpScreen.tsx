@@ -771,7 +771,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
           </div>
 
           {/* DŮKLADNÝ NÁVOD: ÚDRŽBA KOHOUTŮ, NARÁŽEČŮ A HADIC */}
-          <div className="card p-6 bg-gradient-to-br from-amber-500/10 via-amber-50 to-white border-2 border-amber-300 rounded-3xl space-y-5 shadow-sm">
+          <div className="card p-6 bg-white border-2 border-amber-300 rounded-3xl space-y-5 shadow-sm">
             <div className="flex items-center gap-3 border-b border-amber-200 pb-3">
               <div className="w-12 h-12 rounded-2xl bg-amber-500 text-neutral-950 flex items-center justify-center text-2xl font-black shadow-md shrink-0">
                 🚰
