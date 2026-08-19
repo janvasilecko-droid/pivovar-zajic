@@ -9,6 +9,7 @@ import SkloPromoScreen from './SkloPromoScreen';
 import { getStartingStockMap } from '../lib/inventoryHelper';
 import { QuickCountModal } from '../components/QuickCountModal';
 import { fetchLabelBalances } from '../lib/labelStock';
+import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 
 type Row = {
   entry_date: string; beer_id: string | null; beer_name: string | null;
@@ -26,6 +27,8 @@ type StockByPkg = {
   kegsUsedWeek: number; odpocet: number; remaining: number;
   /** Objednáno celkem mínus to, co už fyzicky odjelo (zavoz_deductions) tento měsíc — kolik ještě čeká na odvoz. */
   orderedRemaining: number;
+  /** Objednáno s dovozem do konce TOHOTO týdne (ne celý měsíc) — základ pro "Zbyde". */
+  orderedThisWeek: number;
 };
 type StockStat = {
   beer: Beer;
@@ -131,6 +134,22 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
         .map((o) => o.id)
     );
 
+    // "Zbyde" má smysl počítat jen proti objednávkám splatným DO KONCE TOHOTO
+    // TÝDNE — objednávka s dovozem třeba za 10 dní ještě nemá smysl odečítat
+    // z toho, co je aktuálně na skladě (to zkreslovalo "Zbyde" na 0, i když
+    // fyzicky ještě nic neodešlo).
+    const todayStr = todayISO();
+    const weekKey = isoWeekKey(todayStr);
+    const { start: weekStartDate, end: weekEndDate } = weekRange(weekKey);
+    const weekStartStr = weekStartDate.toISOString().slice(0, 10);
+    const weekEndStr = weekEndDate.toISOString().slice(0, 10);
+    const isThisWeek = (dateStr: string | null | undefined) => !!dateStr && dateStr >= weekStartStr && dateStr <= weekEndStr;
+    const ordIdsThisWeek = new Set(
+      ordRows
+        .filter((o) => isThisWeek(o.delivery_date || o.order_date) && o.status !== 'storno')
+        .map((o) => o.id)
+    );
+
     const getKegsUsed = (r: BtRow) => {
       const kegsUsed = Number(r.kegs_used || 0);
       if (kegsUsed <= 0) return null;
@@ -160,13 +179,13 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
 
     const result: StockStat[] = beerList.map((beer) => {
       const byPkg = new Map<string, StockByPkg>();
-      const add = (rs: { beer_id: string | null; package_id: string | null; quantity: number }[], field: 'fromInventory' | 'brewedWeek' | 'orderedWeek' | 'writeoffsWeek' | 'fasovaniWeek' | 'prodejnaWeek' | 'akTaken' | 'akReturned') =>
+      const add = (rs: { beer_id: string | null; package_id: string | null; quantity: number }[], field: 'fromInventory' | 'brewedWeek' | 'orderedWeek' | 'orderedThisWeek' | 'writeoffsWeek' | 'fasovaniWeek' | 'prodejnaWeek' | 'akTaken' | 'akReturned') =>
         rs.forEach((r) => {
           if (r.beer_id !== beer.id || !r.package_id) return;
           const pkg = pkgList.find((p) => p.id === r.package_id);
           if (!pkg) return;
           let e = byPkg.get(r.package_id);
-          if (!e) { e = { package_id: r.package_id, label: pkg.label, quantity: 0, volume_l: pkg.volume_l, kind: pkg.kind, fromInventory: 0, brewedWeek: 0, orderedWeek: 0, writeoffsWeek: 0, fasovaniWeek: 0, prodejnaWeek: 0, akTaken: 0, akReturned: 0, kegsUsedWeek: 0, odpocet: 0, remaining: 0, orderedRemaining: 0 }; byPkg.set(r.package_id, e); }
+          if (!e) { e = { package_id: r.package_id, label: pkg.label, quantity: 0, volume_l: pkg.volume_l, kind: pkg.kind, fromInventory: 0, brewedWeek: 0, orderedWeek: 0, orderedThisWeek: 0, writeoffsWeek: 0, fasovaniWeek: 0, prodejnaWeek: 0, akTaken: 0, akReturned: 0, kegsUsedWeek: 0, odpocet: 0, remaining: 0, orderedRemaining: 0 }; byPkg.set(r.package_id, e); }
           (e[field] as number) += Number(r.quantity);
         });
       
@@ -175,7 +194,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
         const qty = invMap[k] || 0;
         if (qty > 0) {
           let e = byPkg.get(pkg.id);
-          if (!e) { e = { package_id: pkg.id, label: pkg.label, quantity: 0, volume_l: pkg.volume_l, kind: pkg.kind, fromInventory: 0, brewedWeek: 0, orderedWeek: 0, writeoffsWeek: 0, fasovaniWeek: 0, prodejnaWeek: 0, akTaken: 0, akReturned: 0, kegsUsedWeek: 0, odpocet: 0, remaining: 0, orderedRemaining: 0 }; byPkg.set(pkg.id, e); }
+          if (!e) { e = { package_id: pkg.id, label: pkg.label, quantity: 0, volume_l: pkg.volume_l, kind: pkg.kind, fromInventory: 0, brewedWeek: 0, orderedWeek: 0, orderedThisWeek: 0, writeoffsWeek: 0, fasovaniWeek: 0, prodejnaWeek: 0, akTaken: 0, akReturned: 0, kegsUsedWeek: 0, odpocet: 0, remaining: 0, orderedRemaining: 0 }; byPkg.set(pkg.id, e); }
           e.fromInventory = qty;
         }
       });
@@ -183,6 +202,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
       add(btRows.filter((r) => r.beer_id === beer.id && monthKey(r.entry_date) === curMonth && r.entry_date <= todayISO()), 'brewedWeek');
       add(kgRows.filter((r) => r.beer_id === beer.id && monthKey(r.entry_date) === curMonth && r.entry_date <= todayISO()), 'brewedWeek');
       add(oiRows.filter((i) => i.beer_id === beer.id && ordIdsThisMonth.has(i.order_id)), 'orderedWeek');
+      add(oiRows.filter((i) => i.beer_id === beer.id && ordIdsThisWeek.has(i.order_id)), 'orderedThisWeek');
       add(woRows.filter((r) => r.beer_id === beer.id && monthKey(r.entry_date) === curMonth && r.entry_date <= todayISO()), 'writeoffsWeek');
       add(faRows.filter((r) => r.beer_id === beer.id && monthKey(r.entry_date) === curMonth && r.entry_date <= todayISO()), 'fasovaniWeek');
       add(fpRows.filter((r) => r.beer_id === beer.id && monthKey(r.entry_date) === curMonth && r.entry_date <= todayISO()), 'prodejnaWeek');
@@ -202,7 +222,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
           if (!pkg) return;
           let e = byPkg.get(pkgId);
           if (!e) {
-            e = { package_id: pkgId, label: pkg.label, quantity: 0, volume_l: pkg.volume_l, kind: pkg.kind, fromInventory: 0, brewedWeek: 0, orderedWeek: 0, writeoffsWeek: 0, fasovaniWeek: 0, prodejnaWeek: 0, akTaken: 0, akReturned: 0, kegsUsedWeek: 0, odpocet: 0, remaining: 0, orderedRemaining: 0 };
+            e = { package_id: pkgId, label: pkg.label, quantity: 0, volume_l: pkg.volume_l, kind: pkg.kind, fromInventory: 0, brewedWeek: 0, orderedWeek: 0, orderedThisWeek: 0, writeoffsWeek: 0, fasovaniWeek: 0, prodejnaWeek: 0, akTaken: 0, akReturned: 0, kegsUsedWeek: 0, odpocet: 0, remaining: 0, orderedRemaining: 0 };
             byPkg.set(pkgId, e);
           }
           e.kegsUsedWeek += res.kegsUsed;
@@ -215,6 +235,10 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
         const zdWeek = zdRows
           .filter((r) => r.beer_id === beer.id && r.package_id === p.package_id && monthKey(r.deduct_date) === curMonth && r.deduct_date <= todayISO())
           .reduce((s, r) => s + Number(r.quantity), 0);
+        // Totéž, ale jen odpočty z TOHOTO týdne — pro "Zbyde" (viz níže).
+        const zdThisWeek = zdRows
+          .filter((r) => r.beer_id === beer.id && r.package_id === p.package_id && isThisWeek(r.deduct_date))
+          .reduce((s, r) => s + Number(r.quantity), 0);
         p.odpocet = p.writeoffsWeek + p.fasovaniWeek + p.prodejnaWeek + akceNet + (p.kegsUsedWeek || 0) + zdWeek;
         // Sklad = počáteční stav + stočeno TENTO MĚSÍC − vše, co už fyzicky
         // odešlo (odpočet). Dřív se tady neodečítal odpočet vůbec, takže
@@ -222,10 +246,12 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
         // stav — po fasování/prodejně/závozu zůstal stejný, i když už bylo
         // reálně vydáno.
         p.quantity = Math.max(0, p.fromInventory + p.brewedWeek - p.odpocet);
-        // Odečtené závozy jsou již v odpočtu (a tedy v p.quantity) — z orderedWeek
-        // je odeber, ať se nepočítají dvakrát. Totéž číslo je i "Zbývá zavézt"
-        // (objednáno celkem mínus to, co už fyzicky odjelo) pro zobrazení.
-        const orderedEffective = Math.max(0, p.orderedWeek - zdWeek);
+        // "Zbývá zavézt" a "Zbyde" se počítají jen proti objednávkám DO KONCE
+        // TOHOTO TÝDNE, ne za celý měsíc — objednávka splatná až za týden a
+        // víc by jinak "Zbyde" ukazovala jako 0, i když fyzicky ještě nic
+        // neodešlo. Odečtené závozy z tohoto týdne jsou už v p.quantity, tak
+        // je z orderedThisWeek odeber, ať se nepočítají dvakrát.
+        const orderedEffective = Math.max(0, p.orderedThisWeek - zdThisWeek);
         p.orderedRemaining = orderedEffective;
         p.remaining = p.quantity - orderedEffective;
         return p;
@@ -524,7 +550,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                           {kegs.map((p) => (
                             <tr key={p.package_id}>
                               <td className="py-1 pr-2 whitespace-nowrap text-neutral-500 text-xs font-bold">{p.label}</td>
-                              <td className="py-1 px-2 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md">{p.quantity}</td>
+                              <td className="py-1 px-2 text-center font-extrabold text-sky-900 bg-sky-100 rounded-md">{p.quantity}</td>
                               <td className={`py-1 px-2 text-center font-extrabold rounded-md ${p.orderedRemaining > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-400'}`}>{p.orderedRemaining > 0 ? `-${p.orderedRemaining}` : '0'}</td>
                               <td className={`py-1 pl-2 text-center font-extrabold rounded-md ${p.remaining < 0 ? 'bg-rose-50 text-rose-600' : p.remaining === 0 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>{p.remaining}</td>
                             </tr>
@@ -549,7 +575,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                           {bottles.map((p) => (
                             <tr key={p.package_id}>
                               <td className="py-1 pr-2 whitespace-nowrap text-neutral-500 text-xs font-bold">{p.label}</td>
-                              <td className="py-1 px-2 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md">{p.quantity}</td>
+                              <td className="py-1 px-2 text-center font-extrabold text-sky-900 bg-sky-100 rounded-md">{p.quantity}</td>
                               <td className={`py-1 px-2 text-center font-extrabold rounded-md ${p.orderedRemaining > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-400'}`}>{p.orderedRemaining > 0 ? `-${p.orderedRemaining}` : '0'}</td>
                               <td className={`py-1 pl-2 text-center font-extrabold rounded-md ${p.remaining < 0 ? 'bg-rose-50 text-rose-600' : p.remaining === 0 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>{p.remaining}</td>
                             </tr>
@@ -587,9 +613,9 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                       </span>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-center">
-                      <div className="rounded-lg bg-neutral-50 py-1.5">
-                        <div className="text-[9px] font-black uppercase text-neutral-500">Sklad (AKT)</div>
-                        <div className="text-sm font-black text-neutral-900">{p.quantity}</div>
+                      <div className="rounded-lg bg-sky-100 py-1.5 border border-sky-300">
+                        <div className="text-[9px] font-black uppercase text-sky-700">Sklad (AKT)</div>
+                        <div className="text-sm font-black text-sky-900">{p.quantity}</div>
                       </div>
                       <div className="rounded-lg bg-rose-50 py-1.5">
                         <div className="text-[9px] font-black uppercase text-rose-600">Objednáno celkem</div>
@@ -625,7 +651,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                     <th className="p-2 text-left">Obal</th>
                     <th className="p-2 text-right text-sky-800" title="Počáteční stav k 1. dni v měsíci">Poč.</th>
                     <th className="p-2 text-right text-emerald-700" title="Stáčení (příjem)">Stoč.</th>
-                    <th className="p-2 text-right text-emerald-950 font-black" title="Aktuální stav na skladě (Poč. + Stoč.)">AKT</th>
+                    <th className="p-2 text-right text-sky-900 font-black" title="Aktuální fyzický stav na skladě (Poč. + Stoč. − vše, co už fyzicky odešlo)">AKT</th>
                     <th className="p-2 text-right text-rose-700 font-bold" title="Objednávky celkem tento měsíc">OBJ</th>
                     <th className="p-2 text-right text-rose-800 font-bold" title="Objednáno − co už fyzicky odjelo (zavoz) = ještě čeká na odvoz">ZBÝVÁ ZAVÉZT</th>
                     <th className="p-2 text-right text-purple-700 font-bold" title="Sudy spotřebované na plnění lahví">Stáč. lahví</th>
@@ -645,7 +671,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                         <td className="p-2 font-bold text-neutral-900 whitespace-nowrap">{p.label}</td>
                         <td className="p-2 text-right font-semibold text-neutral-700">{p.fromInventory || '—'}</td>
                         <td className="p-2 text-right font-black text-emerald-600">{p.brewedWeek ? `+${p.brewedWeek}` : '—'}</td>
-                        <td className="p-2 text-right font-black text-neutral-950 bg-neutral-50">{p.quantity}</td>
+                        <td className="p-2 text-right font-black text-sky-900 bg-sky-100">{p.quantity}</td>
                         <td className="p-2 text-right font-bold text-rose-700">{p.orderedWeek ? `-${p.orderedWeek}` : '—'}</td>
                         <td className="p-2 text-right font-bold text-rose-800 bg-rose-50/50">{p.orderedRemaining ? `-${p.orderedRemaining}` : '—'}</td>
                         <td className="p-2 text-right font-bold text-purple-700">{p.kegsUsedWeek ? `-${p.kegsUsedWeek}` : '—'}</td>
