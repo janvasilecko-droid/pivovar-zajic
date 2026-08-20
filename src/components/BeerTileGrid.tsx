@@ -10,17 +10,16 @@ type BeerTileGridProps = {
   beers: Beer[];
   onSelect: (beer: Beer) => void;
   summaryFor: (beer: Beer) => TileSummary;
-  /** Skryje stupeň (12°/11°…) před názvem — v Objednávkách je zbytečný, důležité
-      je vidět rozpis množství podle obalů, ne stupeň piva. */
-  hideDegree?: boolean;
 };
 
 /**
  * Dvousloupcová mřížka dlaždic piv — sdílený vzhled pro Objednávky, Stáčení
  * (lahve i KEG) a Fasování/Prodejnu. Vyplněná dlaždice dostane světle zelené
  * pozadí (žádný druhý rámeček navíc) a pod názvem konkrétní rozpis množství.
+ * Název piva (beerName) už stupeň obsahuje (např. "12° Světlá"), proto se
+ * sem stupeň znovu nepřidává - dřív se tím zdvojoval ("12° 12° Světlá").
  */
-export function BeerTileGrid({ beers, onSelect, summaryFor, hideDegree = false }: BeerTileGridProps) {
+export function BeerTileGrid({ beers, onSelect, summaryFor }: BeerTileGridProps) {
   return (
     <div className="grid grid-cols-2 gap-2.5">
       {beers.map((b) => {
@@ -35,9 +34,7 @@ export function BeerTileGrid({ beers, onSelect, summaryFor, hideDegree = false }
             }`}
             style={{ borderColor: beerBorder(b) }}
           >
-            <span className="font-black text-sm leading-tight text-neutral-900">
-              {!hideDegree && b.degree ? `${b.degree} ` : ''}{beerName(b)}
-            </span>
+            <span className="font-black text-sm leading-tight text-neutral-900">{beerName(b)}</span>
             {filled && (
               <span className="text-[11px] font-bold text-emerald-800">{label}</span>
             )}

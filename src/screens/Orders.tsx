@@ -1563,7 +1563,6 @@ export default function Orders({
           <BeerTileGrid
             beers={beers}
             onSelect={(b) => setExpandedBeerId(b.id)}
-            hideDegree
             summaryFor={(b) => {
               const rows = beerRows.filter((r) => r.beerId === b.id && Number(r.qty) > 0);
               // Detailní rozpis podle obalů (např. "6×1,5 3×30 1×50"), ne jen
