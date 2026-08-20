@@ -723,7 +723,7 @@ export default function BottlingScreen({
             <button
               type="button"
               onClick={() => selectTab('zapis')}
-              className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'zapis' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-700 hover:bg-amber-50'}`}
+              className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'zapis' ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'text-neutral-700 hover:bg-amber-50'}`}
             >
               🍾 Začátek stáčení
               {unseenCount > 0 && (
@@ -733,14 +733,14 @@ export default function BottlingScreen({
             <button
               type="button"
               onClick={() => selectTab('prehled')}
-              className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'prehled' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-700 hover:bg-amber-50'}`}
+              className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'prehled' ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'text-neutral-700 hover:bg-amber-50'}`}
             >
               📊 Přehled
             </button>
             <button
               type="button"
               onClick={() => selectTab('potreba')}
-              className={`px-3.5 py-2 rounded-lg text-xs font-black transition flex items-center gap-1.5 shrink-0 min-h-[38px] ${tab === 'potreba' ? 'bg-rose-600 text-white shadow-xs' : 'text-neutral-700 hover:bg-rose-50'}`}
+              className={`px-3.5 py-2 rounded-lg text-xs font-black transition flex items-center gap-1.5 shrink-0 min-h-[38px] ${tab === 'potreba' ? 'bg-white text-rose-700 shadow-xs ring-2 ring-rose-300' : 'text-neutral-700 hover:bg-rose-50'}`}
             >
               <span>🍾 Potřeba stočit lahve</span>
               {bottleRequirements.some((r) => r.neededQty > 0) && (
@@ -769,7 +769,7 @@ export default function BottlingScreen({
               <button
                 type="button"
                 onClick={() => selectTab('plan')}
-                className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'plan' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-700 hover:bg-amber-50'}`}
+                className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'plan' ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'text-neutral-700 hover:bg-amber-50'}`}
               >
                 🗓️ Zadat stáčení
               </button>
@@ -1261,7 +1261,7 @@ export default function BottlingScreen({
 
         {/* Filtr Druh piva a Obal */}
         {rows.length > 0 && (
-          <div className="sticky top-[66px] z-10 flex flex-nowrap items-center gap-2.5 bg-amber-100/60 p-2.5 rounded-xl border border-amber-200/90 shadow-2xs overflow-x-auto scrollbar-thin">
+          <div className="sticky top-[98px] z-10 flex flex-nowrap items-center gap-2.5 bg-amber-100/60 p-2.5 rounded-xl border border-amber-200/90 shadow-2xs overflow-x-auto scrollbar-thin">
             <div className="flex items-center gap-1.5 shrink-0 min-w-[150px] max-w-[240px]">
               <span className="text-xs font-bold text-amber-950/80 shrink-0">🍺 Pivo:</span>
               <select

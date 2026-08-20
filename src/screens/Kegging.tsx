@@ -635,21 +635,21 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             <button
               type="button"
               onClick={() => selectTab('zapis')}
-              className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'zapis' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-700 hover:bg-amber-50'}`}
+              className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'zapis' ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'text-neutral-700 hover:bg-amber-50'}`}
             >
               ✍️ Zápis
             </button>
             <button
               type="button"
               onClick={() => selectTab('prehled')}
-              className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'prehled' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-700 hover:bg-amber-50'}`}
+              className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'prehled' ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'text-neutral-700 hover:bg-amber-50'}`}
             >
               📊 Přehled
             </button>
             <button
               type="button"
               onClick={() => selectTab('potreba')}
-              className={`px-3.5 py-2 rounded-lg text-xs font-black transition flex items-center gap-1.5 shrink-0 min-h-[38px] ${tab === 'potreba' ? 'bg-rose-600 text-white shadow-xs' : 'text-neutral-700 hover:bg-rose-50'}`}
+              className={`px-3.5 py-2 rounded-lg text-xs font-black transition flex items-center gap-1.5 shrink-0 min-h-[38px] ${tab === 'potreba' ? 'bg-white text-rose-700 shadow-xs ring-2 ring-rose-300' : 'text-neutral-700 hover:bg-rose-50'}`}
             >
               <span>🛢️ Potřeba stočit KEGy</span>
               {kegRequirements.some((r) => r.neededQty > 0) && (
@@ -661,7 +661,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             <button
               type="button"
               onClick={() => selectTab('prefuk')}
-              className={`px-3.5 py-2 rounded-lg text-xs font-black transition flex items-center gap-1.5 shrink-0 min-h-[38px] ${tab === 'prefuk' ? 'bg-sky-600 text-white shadow-xs' : 'text-neutral-700 hover:bg-sky-50'}`}
+              className={`px-3.5 py-2 rounded-lg text-xs font-black transition flex items-center gap-1.5 shrink-0 min-h-[38px] ${tab === 'prefuk' ? 'bg-white text-sky-700 shadow-xs ring-2 ring-sky-300' : 'text-neutral-700 hover:bg-sky-50'}`}
             >
               <span>🔄 Přefuk KEG</span>
               {prefukRows.length > 0 && (
@@ -1764,7 +1764,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-4">
               {/* ZE — odečet */}
-              <div className="rounded-2xl border-2 border-rose-200 bg-rose-50/50 p-3">
+              <div className="rounded-2xl border-2 border-rose-300 bg-white p-3">
                 <div className="text-[11px] font-black text-rose-700 uppercase tracking-wider mb-2">
                   ➖ ZE sudů <span className="normal-case font-bold">(odečte se ze skladu)</span>
                 </div>
@@ -1795,7 +1795,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 </div>
               </div>
               {/* DO — příčet */}
-              <div className="rounded-2xl border-2 border-emerald-200 bg-emerald-50/50 p-3">
+              <div className="rounded-2xl border-2 border-emerald-300 bg-white p-3">
                 <div className="text-[11px] font-black text-emerald-700 uppercase tracking-wider mb-2">
                   ➕ DO sudů <span className="normal-case font-bold">(přičte se na sklad)</span>
                 </div>
