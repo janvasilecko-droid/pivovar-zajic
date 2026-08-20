@@ -534,7 +534,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
 
       {/* Sidebar - Desktop & Mobile */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-64 bg-gradient-to-b from-amber-100/90 via-amber-50/70 to-white border-r border-amber-200/90 flex flex-col justify-between transition-transform duration-300 ease-out sm:relative sm:translate-x-0 sm:shrink-0 shadow-lg ${
+        className={`fixed inset-y-0 left-0 z-40 w-64 bg-white border-r-2 border-amber-200 flex flex-col justify-between transition-transform duration-300 ease-out sm:relative sm:translate-x-0 sm:shrink-0 shadow-lg ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -543,13 +543,13 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           <button
             onClick={() => setOpen(false)}
             aria-label="Zavřít menu"
-            className="sm:hidden absolute top-1.5 right-1.5 z-10 w-8 h-8 grid place-items-center rounded-full text-amber-900/60 hover:text-amber-950 hover:bg-amber-200/60 transition"
+            className="sm:hidden absolute top-1.5 right-1.5 z-10 w-8 h-8 grid place-items-center rounded-full text-amber-900/60 hover:text-amber-950 hover:bg-amber-100 transition"
           >
             ✕
           </button>
 
           {/* App Header in Sidebar */}
-          <div className="p-3 border-b border-amber-200/80 flex items-center justify-between bg-amber-100/40">
+          <div className="p-3 border-b border-neutral-200 flex items-center justify-between bg-amber-50/60">
             <button
               onClick={() => { setPage('app_settings'); setOpen(false); }}
               className="flex items-center gap-1.5 text-xs font-black text-amber-950 hover:text-amber-800 transition"
@@ -595,7 +595,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
         </div>
 
         {/* Footer User Info */}
-        <div className="p-4 border-t border-amber-200/80 space-y-2 bg-white/70 backdrop-blur-xs">
+        <div className="p-4 border-t border-neutral-200 space-y-2 bg-white">
           <div className="flex items-center justify-between text-xs text-neutral-700 px-1">
             <div className="flex items-center gap-1.5 min-w-0">
               <span className="font-bold truncate max-w-[110px] text-amber-950">{profile?.display_name || user?.email}</span>
