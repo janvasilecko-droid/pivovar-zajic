@@ -1,7 +1,7 @@
 // Minimal offline-first service worker for the Minipivovar PWA.
 // Cache version is fetched from version.json at install time so that
 // every deploy automatically invalidates the old cache.
-// SW_VERSION: 1.513-debug2 — change this to force SW update in browser
+// SW_VERSION: 1.514 — change this to force SW update in browser
 const CACHE_PREFIX = 'pivovar-';
 const CACHE_META = `${CACHE_PREFIX}meta`;
 const CACHE_META_KEY = new URL('./__installed-cache__', self.registration.scope).href;
@@ -57,27 +57,13 @@ async function getInstalledCache() {
 // souběžně registrovany service worker — časté při castych nasazenich)
 // nezablokuje ulozeni ostatnich. Idempotentni: uz existujici polozky se
 // jen tise přeskocí přes c.put (přepíší se, coz nevadí).
-async function dbgLog(msg) {
-  try {
-    const dbg = await caches.open('sw-debug-log');
-    await dbg.put('https://debug.local/' + Date.now() + '-' + Math.random(), new Response(msg));
-  } catch (e) { }
-}
-
 async function ensurePrecached(c) {
   await Promise.all(
     PRECACHE.map(async (url) => {
       try {
-        await dbgLog('ensurePrecached: fetching ' + url);
         const res = await fetch(url, { cache: 'no-cache' });
-        await dbgLog('ensurePrecached: fetched ' + url + ' status=' + (res && res.status) + ' ok=' + (res && res.ok));
-        if (res && res.ok) {
-          await c.put(url, res);
-          await dbgLog('ensurePrecached: put OK ' + url);
-        }
-      } catch (err) {
-        await dbgLog('ensurePrecached: ERROR ' + url + ' :: ' + (err && (err.message || String(err))));
-      }
+        if (res && res.ok) await c.put(url, res);
+      } catch {}
     })
   );
 }
@@ -178,7 +164,6 @@ async function checkForSWUpdate() {
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   const url = new URL(req.url);
-  dbgLog('FETCH EVENT: ' + req.method + ' ' + url.pathname + ' mode=' + req.mode);
 
   // Web Share Target
   if (req.method === 'POST' && url.pathname === '/share') {
