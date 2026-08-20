@@ -109,8 +109,9 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   const [recordsDay, setRecordsDay] = useState(() => new Date().toISOString().slice(0, 10));
   const [beerFilter, setBeerFilter] = useState('');
   const [recordPkgFilter, setRecordPkgFilter] = useState('');
-  // Filtr piva pro souhrn "Stočeno KEG za týden" v záložce Zápis (nezávislý na beerFilter v Přehledu).
+  // Filtr piva a obalu pro souhrn "Stočeno KEG za týden" v záložce Zápis (nezávislý na beerFilter/recordPkgFilter v Přehledu).
   const [weekBeerFilter, setWeekBeerFilter] = useState('');
+  const [weekPkgFilter, setWeekPkgFilter] = useState('');
 
   // Posun měsíce o delta měsíců (vrací YYYY-MM)
   function shiftMonth(monthKey: string, delta: number): string {
@@ -970,7 +971,10 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
           {rows.length > 0 && (() => {
             const weekRowsAll = rows.filter((r) => isoWeekKey(r.entry_date) === weekKey);
             if (weekRowsAll.length === 0) return null;
-            const weekRows = weekBeerFilter ? weekRowsAll.filter((r) => r.beer_id === weekBeerFilter) : weekRowsAll;
+            const weekRows = weekRowsAll.filter((r) =>
+              (!weekBeerFilter || r.beer_id === weekBeerFilter) &&
+              (!weekPkgFilter || r.package_id === weekPkgFilter)
+            );
             const sorted = [...weekRows].sort((a, b) => {
               const dateCmp = (b.entry_date ?? '').localeCompare(a.entry_date ?? '');
               if (dateCmp !== 0) return dateCmp;
@@ -979,23 +983,39 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             const totalCount = sorted.reduce((s, r) => s + Number(r.quantity), 0);
             const weekBeerIds = new Set(weekRowsAll.map((r) => r.beer_id));
             const weekBeers = beers.filter((b) => weekBeerIds.has(b.id));
+            const weekPkgIds = new Set(weekRowsAll.map((r) => r.package_id));
+            const weekPkgs = packages.filter((p) => weekPkgIds.has(p.id));
 
             return (
               <div className="card p-4 mb-5 border-2 border-emerald-300/80 bg-white">
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                   <h3 className="font-display font-black text-emerald-950 text-sm">🍺 Stočeno KEG za týden {weekKey}</h3>
-                  {weekBeers.length > 0 && (
-                    <select
-                      value={weekBeerFilter}
-                      onChange={(e) => setWeekBeerFilter(e.target.value)}
-                      className="input text-xs font-bold py-1 px-2 rounded-lg bg-white border-emerald-300 text-emerald-950 shrink-0"
-                    >
-                      <option value="">🍺 Všechna piva</option>
-                      {weekBeers.map((b) => (
-                        <option key={b.id} value={b.id}>{beerName(b)}</option>
-                      ))}
-                    </select>
-                  )}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {weekBeers.length > 0 && (
+                      <select
+                        value={weekBeerFilter}
+                        onChange={(e) => setWeekBeerFilter(e.target.value)}
+                        className="input text-xs font-bold py-1 px-2 rounded-lg bg-white border-emerald-300 text-emerald-950 shrink-0"
+                      >
+                        <option value="">🍺 Všechna piva</option>
+                        {weekBeers.map((b) => (
+                          <option key={b.id} value={b.id}>{beerName(b)}</option>
+                        ))}
+                      </select>
+                    )}
+                    {weekPkgs.length > 0 && (
+                      <select
+                        value={weekPkgFilter}
+                        onChange={(e) => setWeekPkgFilter(e.target.value)}
+                        className="input text-xs font-bold py-1 px-2 rounded-lg bg-white border-emerald-300 text-emerald-950 shrink-0"
+                      >
+                        <option value="">📦 Všechny obaly</option>
+                        {weekPkgs.map((p) => (
+                          <option key={p.id} value={p.id}>{formatPackageLabel(p.label)}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
                 </div>
 
                 {/* Mobilní karty — čitelné a ovladatelné bez vodorovného scrollování */}
