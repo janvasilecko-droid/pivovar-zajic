@@ -510,7 +510,7 @@ export function BottlingPlanPlanner({
   return (
     <div className="space-y-5">
       {/* Hlavička + výběr týdne */}
-      <div className="card p-3.5 border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/80 to-amber-100/30">
+      <div className="card p-3.5 border-2 border-amber-300/80 bg-white">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
             <div className="font-display font-black text-amber-950 text-sm">🗓️ Co je potřeba stočit</div>

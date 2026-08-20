@@ -141,7 +141,7 @@ export function BottlingPlanBottler({ plans, beers, packages, isManager, onChang
   const total = groups.late.length + groups.today.length + groups.upcoming.length;
 
   return (
-    <div className="card p-3 mb-5 border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/80 to-amber-100/30">
+    <div className="card p-3 mb-5 border-2 border-amber-300/80 bg-white">
       <div className="flex items-center justify-between gap-2 mb-2.5 flex-wrap">
         <span className="font-display font-black text-amber-950 text-xs flex items-center gap-1.5">
           📋 Úkoly ke stočení

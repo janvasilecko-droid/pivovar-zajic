@@ -449,7 +449,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
           </div>
 
           {/* Kompaktní přehled závozu — styl jako "Zbývá stočit keg" */}
-          <div className="card p-3 mb-4 border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/80 to-amber-100/30">
+          <div className="card p-3 mb-4 border-2 border-amber-300/80 bg-white">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <span className="font-display font-black text-amber-950 text-xs">🚚 Závoz na tento týden</span>

@@ -638,7 +638,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
               const totalCount = sortedRows.reduce((s, r) => s + Number(r.quantity), 0);
 
               return (
-                <div className="card p-4 border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/80 to-amber-100/30">
+                <div className="card p-4 border-2 border-amber-300/80 bg-white">
                   <h3 className="font-display font-black text-amber-950 text-sm mb-3">
                     📋 Přehled fasování
                   </h3>

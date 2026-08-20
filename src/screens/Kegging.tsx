@@ -960,7 +960,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             const totalCount = sorted.reduce((s, r) => s + Number(r.quantity), 0);
 
             return (
-              <div className="card p-4 mb-5 border-2 border-emerald-300/80 bg-gradient-to-br from-emerald-50/80 to-emerald-100/30">
+              <div className="card p-4 mb-5 border-2 border-emerald-300/80 bg-white">
                 <h3 className="font-display font-black text-emerald-950 text-sm mb-3">🍺 Stočeno KEG za týden {weekKey}</h3>
 
                 {/* Mobilní karty — čitelné a ovladatelné bez vodorovného scrollování */}
@@ -1290,7 +1290,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
           }
 
           return (
-            <div className="card p-4 border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/80 to-amber-100/30">
+            <div className="card p-4 border-2 border-amber-300/80 bg-white">
               <h3 className="font-display font-black text-amber-950 text-sm mb-3">
                 🍺 {recordsView === 'month' ? `Měsíc ${recordsMonthKey}` : recordsView === 'week' ? `Týden ${recordsWeekKey}` : `Den ${recordsDay}`}
               </h3>

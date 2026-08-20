@@ -1075,7 +1075,7 @@ export default function BottlingScreen({
 
       {/* Přehled: Stočeno lahví — velikosti */}
       {(mode === 'overviews_only' || (mode === 'all' && tab === 'prehled')) && rows.length > 0 && (
-        <div className="card p-3 mb-4 border-2 border-emerald-300/80 bg-gradient-to-br from-emerald-50/80 to-emerald-100/30">
+        <div className="card p-3 mb-4 border-2 border-emerald-300/80 bg-white">
           <div className="flex items-center justify-between mb-2">
             <span className="font-display font-black text-amber-950 text-xs">🍾 Přehled stočených lahví</span>
           </div>
@@ -1104,7 +1104,7 @@ export default function BottlingScreen({
 
       {/* Přehled: Stočeno KEG — velikosti + ztráta */}
       {(mode === 'overviews_only' || (mode === 'all' && tab === 'prehled')) && rows.length > 0 && kegBuckets.some((b) => b.count > 0) && (
-        <div className="card p-3 mb-4 border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/80 to-amber-100/30">
+        <div className="card p-3 mb-4 border-2 border-amber-300/80 bg-white">
           <div className="flex items-center justify-between mb-2">
             <span className="font-display font-black text-amber-950 text-xs">🛢️ Přehled stočených KEG</span>
           </div>
@@ -1333,7 +1333,7 @@ export default function BottlingScreen({
 
           return (
 
-            <div className="card p-4 border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/80 to-amber-100/30">
+            <div className="card p-4 border-2 border-amber-300/80 bg-white">
               <h3 className="font-display font-black text-amber-950 text-sm mb-3">
                 🍾 {recordsView === 'month' ? `Měsíc ${recordsMonthKey}` : `Týden ${recordsWeekKey}`}
               </h3>
