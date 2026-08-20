@@ -39,6 +39,11 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   // Zápis / Přehled záložky
   const [tab, setTab] = useState<'zapis' | 'prehled'>('zapis');
 
+  // Filtry v Přehledu — druh (pivo), jméno (kdo) a měsíc; výchozí je aktuální měsíc.
+  const [overviewMonth, setOverviewMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [overviewBeerId, setOverviewBeerId] = useState('');
+  const [overviewWho, setOverviewWho] = useState('');
+
   // 🚰 Rezervace výčepu — stav pro modální okno
   const [showTapModal, setShowTapModal] = useState(false);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
@@ -47,12 +52,20 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   const showWhoColumn = table === 'fasovani' || table === 'writeoffs';
 
   const filteredRows = useMemo(() => {
-    return [...rows].sort((a, b) => {
-      const dateCmp = (b.entry_date ?? '').localeCompare(a.entry_date ?? '');
-      if (dateCmp !== 0) return dateCmp;
-      return (b.created_at ?? '').localeCompare(a.created_at ?? '');
-    });
-  }, [rows]);
+    const whoNeedle = overviewWho.trim().toLowerCase();
+    return rows
+      .filter((r) => {
+        if (overviewMonth && !(r.entry_date ?? '').startsWith(overviewMonth)) return false;
+        if (overviewBeerId && r.beer_id !== overviewBeerId) return false;
+        if (whoNeedle && !getRowWho(r).toLowerCase().includes(whoNeedle)) return false;
+        return true;
+      })
+      .sort((a, b) => {
+        const dateCmp = (b.entry_date ?? '').localeCompare(a.entry_date ?? '');
+        if (dateCmp !== 0) return dateCmp;
+        return (b.created_at ?? '').localeCompare(a.created_at ?? '');
+      });
+  }, [rows, overviewMonth, overviewBeerId, overviewWho]);
 
   // Souhrn zapisovaných řádků
   const rowsSummary = useMemo(() => {
@@ -451,6 +464,41 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
               <div className="flex items-center gap-2">
                 {rows.length > 0 && <span className="chip bg-amber-100/60 text-amber-900/70 text-xs font-bold">{filteredRows.length} záznamů</span>}
               </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="month"
+                value={overviewMonth}
+                onChange={(e) => setOverviewMonth(e.target.value)}
+                className="input !py-1.5 !px-3 text-xs font-semibold"
+              />
+              <select
+                value={overviewBeerId}
+                onChange={(e) => setOverviewBeerId(e.target.value)}
+                className="input !py-1.5 !px-3 text-xs font-semibold"
+              >
+                <option value="">Všechna piva</option>
+                {beers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+              {showWhoColumn && (
+                <input
+                  type="text"
+                  value={overviewWho}
+                  onChange={(e) => setOverviewWho(e.target.value)}
+                  placeholder={table === 'writeoffs' ? 'Hledat důvod…' : 'Hledat jméno…'}
+                  className="input !py-1.5 !px-3 text-xs font-semibold"
+                />
+              )}
+              {(overviewMonth !== new Date().toISOString().slice(0, 7) || overviewBeerId || overviewWho) && (
+                <button
+                  type="button"
+                  onClick={() => { setOverviewMonth(new Date().toISOString().slice(0, 7)); setOverviewBeerId(''); setOverviewWho(''); }}
+                  className="btn-ghost text-xs font-bold !py-1.5 !px-3"
+                >
+                  Zrušit filtry
+                </button>
+              )}
             </div>
 
             {loading ? (

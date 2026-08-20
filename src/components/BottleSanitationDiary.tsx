@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../lib/auth';
 import {
   BottleSanField,
@@ -31,6 +31,41 @@ import {
 import * as XLSX from 'xlsx';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
+
+// Definice kroků sanitace lahví — pro zobrazení deníku jako tabulky (datum,
+// co bylo provedeno, čím, koncentrace, čas). U lahví je chemie/koncentrace
+// společná pro celý zápis (vybírá se ručně v `chemical_name`/`chemical_concentration`),
+// jen krok "oplach vodou" ji nepoužívá. Pole `louh`/`proplach_vodou`/
+// `cela_cesta_na_louhu`/`prostory` jsou starší přímé zápisy (auto-zápis
+// z checklistu) — chemie/koncentrace se u nich neukládá ručně, proto mají
+// napevno danou hodnotu.
+type BottleStepKey =
+  | 'proc_circulation' | 'proc_rinse_water' | 'proc_rinse_co2' | 'proc_disassembly'
+  | 'louh' | 'proplach_vodou' | 'cela_cesta_na_louhu' | 'prostory';
+
+const BOTTLE_STEP_DEFS: {
+  key: BottleStepKey;
+  label: string;
+  chemical: (e: BottleSanitationEntry) => string;
+  concentration: (e: BottleSanitationEntry) => string | null;
+}[] = [
+  { key: 'proc_circulation', label: 'Cirkulace sanitačního roztoku', chemical: (e) => e.chemical_name || '—', concentration: (e) => e.chemical_concentration || null },
+  { key: 'proc_rinse_water', label: 'Oplach čistou vodou', chemical: () => 'Voda', concentration: () => null },
+  { key: 'proc_rinse_co2', label: 'Finální výplach / profuk CO₂', chemical: () => 'Voda / CO₂', concentration: () => null },
+  { key: 'proc_disassembly', label: 'Rozebrání a ruční čištění Pegasu', chemical: () => '—', concentration: () => null },
+  { key: 'louh', label: 'Proplach stáčecích cest (louh)', chemical: () => 'NaOH (louh)', concentration: (e) => e.chemical_concentration || null },
+  { key: 'proplach_vodou', label: 'Proplach čistou vodou', chemical: () => 'Voda', concentration: () => null },
+  { key: 'cela_cesta_na_louhu', label: 'Celá cesta (vč. vzduchové) na louhu', chemical: () => 'NaOH (louh)', concentration: (e) => e.chemical_concentration || null },
+  { key: 'prostory', label: 'Úklid prostor stáčení', chemical: () => '—', concentration: () => null },
+];
+
+type BottleStepRow = {
+  entry: BottleSanitationEntry;
+  label: string;
+  chemical: string;
+  concentration: string | null;
+  time: string | null;
+};
 
 export default function BottleSanitationDiary() {
   const { profile, user } = useAuth();
@@ -328,6 +363,25 @@ export default function BottleSanitationDiary() {
 
   const filtered = entries.filter((e) => e.sanitation_date.slice(0, 7) === filterMonth);
 
+  // Rozpad zápisů na jednotlivé provedené kroky (datum, co, čím, koncentrace,
+  // čas) — jeden uložený zápis může obsahovat víc zaškrtnutých kroků.
+  const stepRows: BottleStepRow[] = useMemo(() => {
+    const rows: BottleStepRow[] = [];
+    filtered.forEach((e) => {
+      BOTTLE_STEP_DEFS.forEach((def) => {
+        if (!e[def.key]) return;
+        rows.push({
+          entry: e,
+          label: def.label,
+          chemical: def.chemical(e),
+          concentration: def.concentration(e),
+          time: e.step_times?.[def.key] || e.sanitation_time || null,
+        });
+      });
+    });
+    return rows.sort((a, b) => (a.entry.sanitation_date < b.entry.sanitation_date ? 1 : a.entry.sanitation_date > b.entry.sanitation_date ? -1 : 0));
+  }, [filtered]);
+
   function reasonLabelFor(e: BottleSanitationEntry): string {
     return e.reason === 'pred_stacenim' ? 'Před stáčením' : e.reason === 'po_staceni' ? 'Po stáčení' : 'Měsíční';
   }
@@ -416,21 +470,24 @@ export default function BottleSanitationDiary() {
                   </div>
 
                   <div className="font-bold text-neutral-900 text-xs">{reasonLabel}</div>
-                  {e.chemical_name && (
-                    <div className="text-[11px] text-neutral-600 flex items-center gap-1">
-                      <Beaker size={11} className="text-blue-500 shrink-0" />
-                      <span>{e.chemical_name} {e.chemical_concentration ? `(${e.chemical_concentration})` : ''}</span>
-                    </div>
-                  )}
-                  {(e.step_times && Object.keys(e.step_times).length > 0) && (
-                    <div className="flex flex-wrap gap-1">
-                      {Object.entries(e.step_times).map(([k, v]) => (
-                        <span key={k} className="text-[9px] font-mono font-black text-amber-800 bg-amber-50 border border-amber-200 px-1 py-0.5 rounded">
-                          {k.replace(/_/g, ' ')} ⏱{v}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                  <div className="bg-neutral-50/70 rounded-xl px-2.5 py-2 space-y-1">
+                    {stepRows.filter((r) => r.entry.id === e.id).length === 0 ? (
+                      <span className="text-[11px] text-neutral-400 italic">žádné kroky</span>
+                    ) : (
+                      stepRows.filter((r) => r.entry.id === e.id).map((r, i) => (
+                        <div key={i} className="flex items-center justify-between gap-2 text-[11px] font-semibold text-neutral-700">
+                          <span className="flex items-center gap-1 min-w-0">
+                            {r.time && <span className="font-mono font-black text-amber-800 shrink-0">{r.time}</span>}
+                            <span className="truncate">{r.label}</span>
+                          </span>
+                          <span className="shrink-0 text-neutral-600 flex items-center gap-1">
+                            <Beaker size={10} className="text-blue-500" />
+                            {r.chemical}{r.concentration ? ` · ${r.concentration}` : ''}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
 
                   <div className="text-[11px] font-semibold text-neutral-700">
                     Zařízení: {eqList || <span className="text-neutral-400 italic">žádné</span>}
@@ -473,118 +530,127 @@ export default function BottleSanitationDiary() {
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-neutral-50/70 border-b border-neutral-100 text-neutral-500 font-bold uppercase tracking-wider">
-                  <th className="py-3 px-4">Datum a čas</th>
-                  <th className="py-3 px-4">Důvod a Prostředek</th>
-                  <th className="py-3 px-4">Zařízení</th>
+                  <th className="py-3 px-4">Datum</th>
+                  <th className="py-3 px-4">Co bylo provedeno</th>
+                  <th className="py-3 px-4">Čím</th>
+                  <th className="py-3 px-4">Koncentrace</th>
+                  <th className="py-3 px-4">Čas</th>
                   <th className="py-3 px-4">Provedl / Schválil</th>
-                  <th className="py-3 px-4">Stav / Neshody</th>
+                  <th className="py-3 px-4">Stav</th>
                   <th className="py-3 px-4 text-right">Akce</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100 font-medium text-neutral-800">
-                {filtered.map((e) => {
-                  const isProblem = !!e.mismatch_note;
-                  const reasonLabel = reasonLabelFor(e);
-                  const eqList = eqListFor(e);
-
-                  return (
-                    <tr key={e.id} className="hover:bg-amber-50/20 transition-colors">
-                      {/* Date & Time */}
-                      <td className="py-3.5 px-4 font-bold text-neutral-900 whitespace-nowrap">
-                        <div className="flex items-center gap-1.5">
-                          <Calendar size={14} className="text-amber-600 shrink-0" />
-                          <span>{new Date(e.sanitation_date).toLocaleDateString('cs-CZ')}</span>
-                          {e.sanitation_time && (
-                            <span className="text-neutral-500 font-medium flex items-center gap-0.5 text-[10px] ml-1 bg-neutral-100 px-1.5 py-0.5 rounded">
-                              <Clock size={10} /> {e.sanitation_time}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Reason & Agent */}
-                      <td className="py-3.5 px-4">
-                        <div className="space-y-1">
-                          <div className="font-bold text-neutral-900">{reasonLabel}</div>
-                          {e.chemical_name && (
-                            <div className="text-[11px] text-neutral-600 flex items-center gap-1">
-                              <Beaker size={11} className="text-blue-500" />
-                              <span>{e.chemical_name} {e.chemical_concentration ? `(${e.chemical_concentration})` : ''}</span>
+                {stepRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-6 px-4 text-center text-neutral-400 italic">Žádné kroky nebyly zaškrtnuty.</td>
+                  </tr>
+                ) : (
+                  stepRows.map((r, i) => {
+                    const isNewGroup = i === 0 || stepRows[i - 1].entry.id !== r.entry.id;
+                    const isProblem = !!r.entry.mismatch_note;
+                    const reasonLabel = reasonLabelFor(r.entry);
+                    return (
+                      <tr key={`${r.entry.id}-${i}`} className={`hover:bg-amber-50/20 transition-colors ${isNewGroup ? 'border-t-2 border-neutral-200' : ''}`}>
+                        {/* Date */}
+                        <td className="py-3 px-4 font-bold text-neutral-900 whitespace-nowrap align-top">
+                          {isNewGroup && (
+                            <div className="flex items-center gap-1.5">
+                              <Calendar size={14} className="text-amber-600 shrink-0" />
+                              <span>{new Date(r.entry.sanitation_date).toLocaleDateString('cs-CZ')}</span>
                             </div>
                           )}
-                          {(e.step_times && Object.keys(e.step_times).length > 0) && (
-                            <div className="flex flex-wrap gap-1 pt-0.5">
-                              {Object.entries(e.step_times).map(([k, v]) => (
-                                <span key={k} className="text-[9px] font-mono font-black text-amber-800 bg-amber-50 border border-amber-200 px-1 py-0.5 rounded">
-                                  {k.replace(/_/g, ' ')} ⏱{v}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </td>
+                        </td>
 
-                      {/* Equipment */}
-                      <td className="py-3.5 px-4 text-neutral-700">
-                        <div className="text-[11px] font-semibold">{eqList || <span className="text-neutral-400 italic">žádné</span>}</div>
-                      </td>
+                        {/* Co bylo provedeno */}
+                        <td className="py-3 px-4 align-top">
+                          <div className="font-bold text-neutral-900">{r.label}</div>
+                          {isNewGroup && <div className="text-[10px] text-neutral-500 font-semibold mt-0.5">{reasonLabel}</div>}
+                        </td>
 
-                      {/* Performed / Approved */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1 text-neutral-700 font-semibold">
-                            <User size={13} className="text-neutral-400" />
-                            {e.performed_by ?? '—'}
-                          </div>
-                          {e.approved_by && (
-                            <div className="flex items-center gap-1 text-emerald-700 text-[10px] font-bold">
-                              <UserCheck size={11} />
-                              <span>Schválil: {e.approved_by}</span>
-                            </div>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Status / Problems */}
-                      <td className="py-3.5 px-4">
-                        {isProblem ? (
-                          <div className="space-y-1 max-w-xs">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-50 text-red-700 text-[10px] font-bold border border-red-200">
-                              <ShieldAlert size={10} /> Neshoda
-                            </span>
-                            <div className="text-[10px] text-red-600 truncate" title={e.mismatch_note!}>
-                              {e.mismatch_note}
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
-                            <CheckCircle2 size={10} /> V pořádku
+                        {/* Čím */}
+                        <td className="py-3 px-4 align-top text-neutral-700 font-semibold">
+                          <span className="flex items-center gap-1">
+                            <Beaker size={11} className="text-blue-500 shrink-0" />
+                            {r.chemical}
                           </span>
-                        )}
-                      </td>
+                        </td>
 
-                      {/* Actions */}
-                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                        <div className="inline-flex gap-1.5">
-                          <button
-                            onClick={() => openEdit(e)}
-                            title="Upravit záznam"
-                            className="p-2 rounded-xl bg-neutral-100 hover:bg-amber-100 border border-neutral-200 text-neutral-700 hover:text-amber-900 transition"
-                          >
-                            <Edit3 size={14} />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(e)}
-                            title="Smazat záznam"
-                            className="p-2 rounded-xl bg-neutral-100 hover:bg-rose-100 border border-neutral-200 text-neutral-700 hover:text-rose-900 transition"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                        {/* Koncentrace */}
+                        <td className="py-3 px-4 align-top font-mono font-bold text-neutral-700">{r.concentration ?? '—'}</td>
+
+                        {/* Čas */}
+                        <td className="py-3 px-4 align-top whitespace-nowrap">
+                          {r.time ? (
+                            <span className="inline-flex items-center gap-1 text-neutral-700 font-bold">
+                              <Clock size={11} className="text-neutral-400" /> {r.time}
+                            </span>
+                          ) : <span className="text-neutral-400 italic">—</span>}
+                        </td>
+
+                        {/* Performed / Approved */}
+                        <td className="py-3 px-4 align-top whitespace-nowrap">
+                          {isNewGroup && (
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1 text-neutral-700 font-semibold">
+                                <User size={13} className="text-neutral-400" />
+                                {r.entry.performed_by ?? '—'}
+                              </div>
+                              {r.entry.approved_by && (
+                                <div className="flex items-center gap-1 text-emerald-700 text-[10px] font-bold">
+                                  <UserCheck size={11} />
+                                  <span>Schválil: {r.entry.approved_by}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Status / Problems */}
+                        <td className="py-3 px-4 align-top">
+                          {isNewGroup && (
+                            isProblem ? (
+                              <div className="space-y-1 max-w-xs">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-50 text-red-700 text-[10px] font-bold border border-red-200">
+                                  <ShieldAlert size={10} /> Neshoda
+                                </span>
+                                <div className="text-[10px] text-red-600 truncate" title={r.entry.mismatch_note!}>
+                                  {r.entry.mismatch_note}
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
+                                <CheckCircle2 size={10} /> V pořádku
+                              </span>
+                            )
+                          )}
+                        </td>
+
+                        {/* Actions */}
+                        <td className="py-3 px-4 text-right whitespace-nowrap align-top">
+                          {isNewGroup && (
+                            <div className="inline-flex gap-1.5">
+                              <button
+                                onClick={() => openEdit(r.entry)}
+                                title="Upravit záznam"
+                                className="p-2 rounded-xl bg-neutral-100 hover:bg-amber-100 border border-neutral-200 text-neutral-700 hover:text-amber-900 transition"
+                              >
+                                <Edit3 size={14} />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(r.entry)}
+                                title="Smazat záznam"
+                                className="p-2 rounded-xl bg-neutral-100 hover:bg-rose-100 border border-neutral-200 text-neutral-700 hover:text-rose-900 transition"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>

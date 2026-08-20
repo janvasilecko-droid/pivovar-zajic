@@ -30,6 +30,44 @@ import * as XLSX from 'xlsx';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
+// Definice jednotlivých kroků sanitace KEGů — pro zobrazení deníku jako
+// tabulky (datum, co bylo provedeno, čím, koncentrace, čas). Chemie a
+// koncentrace jsou u KEGů dané typem kroku (na rozdíl od lahví, kde se
+// volí ručně), takže je tu mapujeme napevno podle názvu pole.
+type KegStepKey =
+  | 'proc_rinse_naoh_2_20' | 'proc_rinse_persteril_02_10' | 'proc_rinse_water_before'
+  | 'proc_scrub_valves_naoh_2_15' | 'proc_spray_valves_persteril_02_10' | 'proc_rinse_water_after_valves'
+  | 'proc_end_rinse_lines_water' | 'proc_end_rinse_valves_water' | 'proc_end_rinse_couplers_water'
+  | 'proc_end_rinse_floors_cellar' | 'proc_end_rinse_floors_walls_bottlers' | 'proc_end_coupler_heads_persteril_bucket'
+  | 'proc_month_disassemble_couplers' | 'proc_month_clean_brush_24h' | 'proc_month_rinse_water' | 'proc_month_visual_clean';
+
+const KEG_STEP_DEFS: { key: KegStepKey; label: string; chemical: string; concentration: string | null }[] = [
+  { key: 'proc_rinse_naoh_2_20', label: 'Proplach cest', chemical: 'NaOH (louh)', concentration: '2 %' },
+  { key: 'proc_rinse_persteril_02_10', label: 'Proplach cest', chemical: 'Persteril', concentration: '0,2 %' },
+  { key: 'proc_rinse_water_before', label: 'Oplach stáčečky', chemical: 'Voda', concentration: null },
+  { key: 'proc_scrub_valves_naoh_2_15', label: 'Sanitace klapek (kartáč)', chemical: 'NaOH (louh)', concentration: '2 %' },
+  { key: 'proc_spray_valves_persteril_02_10', label: 'Sanitace klapek (postřik)', chemical: 'Persteril', concentration: '0,2 %' },
+  { key: 'proc_rinse_water_after_valves', label: 'Oplach klapek', chemical: 'Voda', concentration: null },
+  { key: 'proc_end_rinse_lines_water', label: 'Proplach pivních cest', chemical: 'Voda', concentration: null },
+  { key: 'proc_end_rinse_valves_water', label: 'Oplach klapek', chemical: 'Voda', concentration: null },
+  { key: 'proc_end_rinse_couplers_water', label: 'Oplach narážečů + kontrola', chemical: 'Voda', concentration: null },
+  { key: 'proc_end_rinse_floors_cellar', label: 'Spláchnutí podlah (sklep)', chemical: 'Voda', concentration: null },
+  { key: 'proc_end_rinse_floors_walls_bottlers', label: 'Spláchnutí podlah/stěn (stáčečky)', chemical: 'Voda', concentration: null },
+  { key: 'proc_end_coupler_heads_persteril_bucket', label: 'Narážeče v kýblu', chemical: 'Persteril', concentration: null },
+  { key: 'proc_month_disassemble_couplers', label: 'Rozborka narážečů do louhu', chemical: 'NaOH (louh)', concentration: null },
+  { key: 'proc_month_clean_brush_24h', label: 'Čištění kartáčem (24h louhování)', chemical: 'NaOH (louh)', concentration: null },
+  { key: 'proc_month_rinse_water', label: 'Oplach vodou', chemical: 'Voda', concentration: null },
+  { key: 'proc_month_visual_clean', label: 'Vizuální kontrola čistoty', chemical: '—', concentration: null },
+];
+
+type KegStepRow = {
+  entry: KegSanitationEntry;
+  label: string;
+  chemical: string;
+  concentration: string | null;
+  time: string | null;
+};
+
 export default function KegSanitationDiary() {
   const { profile, user } = useAuth();
   const defaultUserName = profile?.display_name || user?.email?.split('@')[0] || '';
@@ -304,47 +342,28 @@ export default function KegSanitationDiary() {
 
   const filtered = entries.filter((e) => e.sanitation_date.slice(0, 7) === filterMonth);
 
+  // Rozpad zápisů na jednotlivé provedené kroky (datum, co, čím, koncentrace,
+  // čas) — jeden uložený zápis může obsahovat víc zaškrtnutých kroků, takže
+  // ho pro tabulkové zobrazení "rozbalíme" na víc řádků.
+  const stepRows: KegStepRow[] = useMemo(() => {
+    const rows: KegStepRow[] = [];
+    filtered.forEach((e) => {
+      KEG_STEP_DEFS.forEach((def) => {
+        if (!e[def.key]) return;
+        rows.push({
+          entry: e,
+          label: def.label,
+          chemical: def.chemical,
+          concentration: def.concentration,
+          time: e.step_times?.[def.key] || e.sanitation_time || null,
+        });
+      });
+    });
+    return rows.sort((a, b) => (a.entry.sanitation_date < b.entry.sanitation_date ? 1 : a.entry.sanitation_date > b.entry.sanitation_date ? -1 : 0));
+  }, [filtered]);
+
   function reasonLabelFor(e: KegSanitationEntry): string {
     return e.reason === 'pred_stacenim' ? 'Před stáčením' : e.reason === 'po_staceni' ? 'Po stáčení' : 'Měsíční';
-  }
-
-  // Souhrn provedených kroků — nezávisle na `reason` (jeden den může mít splněnou
-  // přípravu i úklid po stáčení zároveň; `reason` je jen štítek poslední akce,
-  // takže zobrazujeme VŠECHNY skupiny, které mají zaškrtnuté kroky, aby se žádný
-  // záznam neztratil z přehledu).
-  function stepsSummaryFor(e: KegSanitationEntry): string {
-    const st = e.step_times || {};
-    const withTime = (label: string | boolean | null | undefined, key: string) => {
-      if (!label || typeof label === 'boolean') return '';
-      return st[key] ? `${label} ⏱${st[key]}` : label;
-    };
-    const beforeSteps = [
-      withTime(e.proc_rinse_naoh_2_20 && 'NaOH 2%', 'proc_rinse_naoh_2_20'),
-      withTime(e.proc_rinse_persteril_02_10 && 'Persteril 0.2%', 'proc_rinse_persteril_02_10'),
-      withTime(e.proc_rinse_water_before && 'Proplach vodou', 'proc_rinse_water_before'),
-      withTime(e.proc_scrub_valves_naoh_2_15 && 'Klapky: louh 2% (kartáč)', 'proc_scrub_valves_naoh_2_15'),
-      withTime(e.proc_spray_valves_persteril_02_10 && 'Klapky: persteril 0.2%', 'proc_spray_valves_persteril_02_10'),
-      withTime(e.proc_rinse_water_after_valves && 'Oplach klapek', 'proc_rinse_water_after_valves')
-    ].filter(Boolean).join(', ');
-    const endSteps = [
-      withTime(e.proc_end_rinse_lines_water && 'Proplach pivních cest', 'proc_end_rinse_lines_water'),
-      withTime(e.proc_end_rinse_valves_water && 'Oplach klapek', 'proc_end_rinse_valves_water'),
-      withTime(e.proc_end_rinse_couplers_water && 'Oplach narážečů', 'proc_end_rinse_couplers_water'),
-      withTime(e.proc_end_rinse_floors_cellar && 'Spláchnutí sklepa', 'proc_end_rinse_floors_cellar'),
-      withTime(e.proc_end_rinse_floors_walls_bottlers && 'Spláchnutí stáčeček', 'proc_end_rinse_floors_walls_bottlers'),
-      withTime(e.proc_end_coupler_heads_persteril_bucket && 'Narážeče v persterilu', 'proc_end_coupler_heads_persteril_bucket')
-    ].filter(Boolean).join(', ');
-    const monthSteps = [
-      withTime(e.proc_month_disassemble_couplers && 'Rozborka do louhu', 'proc_month_disassemble_couplers'),
-      withTime(e.proc_month_clean_brush_24h && 'Čištění kartáčem (24h)', 'proc_month_clean_brush_24h'),
-      withTime(e.proc_month_rinse_water && 'Oplach vodou', 'proc_month_rinse_water'),
-      withTime(e.proc_month_visual_clean && 'Vizuální čistota OK', 'proc_month_visual_clean')
-    ].filter(Boolean).join(', ');
-    return [
-      beforeSteps && `☀️ Před: ${beforeSteps}`,
-      endSteps && `🌙 Po: ${endSteps}`,
-      monthSteps && `📅 Měsíčně: ${monthSteps}`,
-    ].filter(Boolean).join(' | ');
   }
 
   return (
@@ -422,7 +441,6 @@ export default function KegSanitationDiary() {
           <div className="grid grid-cols-1 gap-2.5 md:hidden">
             {filtered.map((e) => {
               const reasonLabel = reasonLabelFor(e);
-              const stepsSummary = stepsSummaryFor(e);
               return (
                 <div key={e.id} className="card p-3.5 bg-white border border-neutral-200/90 rounded-2xl shadow-xs space-y-2">
                   <div className="flex items-start justify-between gap-2">
@@ -456,8 +474,22 @@ export default function KegSanitationDiary() {
                     )}
                   </div>
 
-                  <div className="text-[11px] text-neutral-700 font-medium leading-relaxed bg-neutral-50/70 rounded-xl px-2.5 py-2">
-                    {stepsSummary || <span className="text-neutral-400 italic">žádné kroky</span>}
+                  <div className="bg-neutral-50/70 rounded-xl px-2.5 py-2 space-y-1">
+                    {stepRows.filter((r) => r.entry.id === e.id).length === 0 ? (
+                      <span className="text-[11px] text-neutral-400 italic">žádné kroky</span>
+                    ) : (
+                      stepRows.filter((r) => r.entry.id === e.id).map((r, i) => (
+                        <div key={i} className="flex items-center justify-between gap-2 text-[11px] font-semibold text-neutral-700">
+                          <span className="flex items-center gap-1 min-w-0">
+                            {r.time && <span className="font-mono font-black text-amber-800 shrink-0">{r.time}</span>}
+                            <span className="truncate">{r.label}</span>
+                          </span>
+                          <span className="shrink-0 text-neutral-600">
+                            {r.chemical}{r.concentration ? ` · ${r.concentration}` : ''}
+                          </span>
+                        </div>
+                      ))
+                    )}
                   </div>
 
                   {e.note && <div className="text-xs text-neutral-600">{e.note}</div>}
@@ -486,93 +518,110 @@ export default function KegSanitationDiary() {
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-neutral-50/70 border-b border-neutral-100 text-neutral-500 font-bold uppercase tracking-wider">
-                  <th className="py-3 px-4">Datum a čas</th>
-                  <th className="py-3 px-4">Typ / Důvod</th>
+                  <th className="py-3 px-4">Datum</th>
+                  <th className="py-3 px-4">Co bylo provedeno</th>
+                  <th className="py-3 px-4">Čím</th>
+                  <th className="py-3 px-4">Koncentrace</th>
+                  <th className="py-3 px-4">Čas</th>
                   <th className="py-3 px-4">Provedl / Schválil</th>
-                  <th className="py-3 px-4">Provedené kroky</th>
-                  <th className="py-3 px-4">Poznámka</th>
                   <th className="py-3 px-4 text-right">Akce</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100 font-medium text-neutral-800">
-                {filtered.map((e) => {
-                  const reasonLabel = reasonLabelFor(e);
-                  const stepsSummary = stepsSummaryFor(e);
-
-                  return (
-                    <tr key={e.id} className="hover:bg-amber-50/20 transition-colors">
-                      {/* Date & Time */}
-                      <td className="py-3.5 px-4 font-bold text-neutral-900 whitespace-nowrap">
-                        <div className="flex items-center gap-1.5">
-                          <Calendar size={14} className="text-amber-600 shrink-0" />
-                          <span>{new Date(e.sanitation_date).toLocaleDateString('cs-CZ')}</span>
-                          {e.sanitation_time && (
-                            <span className="text-neutral-500 font-medium flex items-center gap-0.5 text-[10px] ml-1 bg-neutral-100 px-1.5 py-0.5 rounded">
-                              <Clock size={10} /> {e.sanitation_time}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Reason */}
-                      <td className="py-3.5 px-4">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg border font-bold text-[11px] shadow-xs ${
-                          e.reason === 'mesicni' 
-                            ? 'bg-rose-100 border-rose-300 text-rose-950' 
-                            : e.reason === 'po_staceni'
-                              ? 'bg-purple-100 border-purple-300 text-purple-950'
-                              : 'bg-sky-100 border-sky-300 text-sky-950'
-                        }`}>
-                          {reasonLabel}
-                        </span>
-                      </td>
-
-                      {/* Performed / Approved */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1 text-neutral-700 font-semibold">
-                            <User size={13} className="text-neutral-400" />
-                            {e.performed_by ?? '—'}
-                          </div>
-                          {e.approved_by && (
-                            <div className="flex items-center gap-1 text-emerald-700 text-[10px] font-bold">
-                              <UserCheck size={11} />
-                              <span>Schválil: {e.approved_by}</span>
+                {stepRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-6 px-4 text-center text-neutral-400 italic">Žádné kroky nebyly zaškrtnuty.</td>
+                  </tr>
+                ) : (
+                  stepRows.map((r, i) => {
+                    const isNewGroup = i === 0 || stepRows[i - 1].entry.id !== r.entry.id;
+                    const reasonLabel = reasonLabelFor(r.entry);
+                    return (
+                      <tr key={`${r.entry.id}-${i}`} className={`hover:bg-amber-50/20 transition-colors ${isNewGroup ? 'border-t-2 border-neutral-200' : ''}`}>
+                        {/* Date */}
+                        <td className="py-3 px-4 font-bold text-neutral-900 whitespace-nowrap align-top">
+                          {isNewGroup && (
+                            <div className="flex items-center gap-1.5">
+                              <Calendar size={14} className="text-amber-600 shrink-0" />
+                              <span>{new Date(r.entry.sanitation_date).toLocaleDateString('cs-CZ')}</span>
                             </div>
                           )}
-                        </div>
-                      </td>
+                        </td>
 
-                      {/* Steps Summary */}
-                      <td className="py-3.5 px-4 max-w-xs text-neutral-700 font-medium text-[11px] leading-relaxed">
-                        {stepsSummary || <span className="text-neutral-400 italic">žádné kroky</span>}
-                      </td>
+                        {/* Co bylo provedeno */}
+                        <td className="py-3 px-4 align-top">
+                          <div className="font-bold text-neutral-900">{r.label}</div>
+                          {isNewGroup && (
+                            <span className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-lg border font-bold text-[10px] shadow-xs ${
+                              r.entry.reason === 'mesicni'
+                                ? 'bg-rose-100 border-rose-300 text-rose-950'
+                                : r.entry.reason === 'po_staceni'
+                                  ? 'bg-purple-100 border-purple-300 text-purple-950'
+                                  : 'bg-sky-100 border-sky-300 text-sky-950'
+                            }`}>
+                              {reasonLabel}
+                            </span>
+                          )}
+                        </td>
 
-                      {/* Note */}
-                      <td className="py-3.5 px-4 max-w-[200px] text-neutral-600 truncate">{e.note || <span className="text-neutral-400 italic">—</span>}</td>
+                        {/* Čím */}
+                        <td className="py-3 px-4 align-top text-neutral-700 font-semibold">{r.chemical}</td>
 
-                      {/* Actions */}
-                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                        <div className="inline-flex gap-1.5">
-                          <button
-                            onClick={() => openEdit(e)}
-                            title="Upravit záznam"
-                            className="p-2 rounded-xl bg-neutral-100 hover:bg-amber-100 border border-neutral-200 text-neutral-700 hover:text-amber-900 transition"
-                          >
-                            <Edit3 size={14} />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(e)}
-                            title="Smazat záznam"
-                            className="p-2 rounded-xl bg-neutral-100 hover:bg-rose-100 border border-neutral-200 text-neutral-700 hover:text-rose-900 transition"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                        {/* Koncentrace */}
+                        <td className="py-3 px-4 align-top font-mono font-bold text-neutral-700">{r.concentration ?? '—'}</td>
+
+                        {/* Čas */}
+                        <td className="py-3 px-4 align-top whitespace-nowrap">
+                          {r.time ? (
+                            <span className="inline-flex items-center gap-1 text-neutral-700 font-bold">
+                              <Clock size={11} className="text-neutral-400" /> {r.time}
+                            </span>
+                          ) : <span className="text-neutral-400 italic">—</span>}
+                        </td>
+
+                        {/* Performed / Approved */}
+                        <td className="py-3 px-4 align-top whitespace-nowrap">
+                          {isNewGroup && (
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1 text-neutral-700 font-semibold">
+                                <User size={13} className="text-neutral-400" />
+                                {r.entry.performed_by ?? '—'}
+                              </div>
+                              {r.entry.approved_by && (
+                                <div className="flex items-center gap-1 text-emerald-700 text-[10px] font-bold">
+                                  <UserCheck size={11} />
+                                  <span>Schválil: {r.entry.approved_by}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Actions */}
+                        <td className="py-3 px-4 text-right whitespace-nowrap align-top">
+                          {isNewGroup && (
+                            <div className="inline-flex gap-1.5">
+                              <button
+                                onClick={() => openEdit(r.entry)}
+                                title="Upravit záznam"
+                                className="p-2 rounded-xl bg-neutral-100 hover:bg-amber-100 border border-neutral-200 text-neutral-700 hover:text-amber-900 transition"
+                              >
+                                <Edit3 size={14} />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(r.entry)}
+                                title="Smazat záznam"
+                                className="p-2 rounded-xl bg-neutral-100 hover:bg-rose-100 border border-neutral-200 text-neutral-700 hover:text-rose-900 transition"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>

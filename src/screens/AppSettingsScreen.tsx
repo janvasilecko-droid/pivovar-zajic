@@ -1,17 +1,16 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { Download, Eye, Palette, Smartphone, Sun, Moon, Monitor, Bell, BellOff, Volume2, VolumeX, MessageSquare, Timer, RefreshCw, CloudDownload, CheckCircle2, AlertCircle, GripVertical, Plus, Trash2, Eraser, Lock, Users } from 'lucide-react';
+import { Download, Eye, Palette, Smartphone, Sun, Moon, Monitor, Bell, BellOff, Volume2, VolumeX, MessageSquare, Timer, RefreshCw, CloudDownload, CheckCircle2, AlertCircle, Plus, Trash2, Eraser, Lock, Users } from 'lucide-react';
 
 import { DENSITY_OPTIONS, DensityMode, getDensity, setDensity } from '../lib/density';
 import { MenuCustomizeModal } from '../components/MenuCustomizeModal';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
-import { NAV, NavItem, type Page } from '../components/Layout';
+import { NAV, NavItem } from '../components/Layout';
 import { canUserView, getUserPermissions, ModuleKey } from '../lib/permissions';
 import { Theme, getTheme, setTheme } from '../lib/theme';
 import { getNotificationPermission, requestNotificationPermission, getNotificationSettings, saveNotificationSettings, NotificationSettings } from '../lib/notifications';
 import { APP_VERSION, APP_VERSION_DATE, APP_CHANGELOG } from '../lib/version';
 import { forceRefresh } from '../lib/versionCheck';
-import { getQuickActions, saveQuickActions, QuickAction } from '../lib/quickActions';
 import { isAdminEmail } from '../lib/config';
 import { fetchWhatsAppSenders, addWhatsAppSender, removeWhatsAppSender, type WhatsAppSender } from '../lib/whatsappApi';
 
@@ -19,36 +18,6 @@ interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
-
-/**
- * Všechny stránky / záložky aplikace, které nejsou v hlavním NAV menu,
- * ale dají se použít jako rychlá tlačítka nahoře v hlavičce.
- */
-const EXTRA_QUICK_ACTION_PAGES: { id: Page; label: string }[] = [
-  // --- VÝROBA ---
-  { id: 'zavoz', label: 'Závoz (rozvoz)' },
-  { id: 'orders_entry', label: 'Objednávky – zadávání' },
-  { id: 'bottling_overview', label: 'Lahve – přehled šarží' },
-  { id: 'exkurze', label: 'Exkurze' },
-  { id: 'marketing', label: 'Marketing' },
-  // --- PIVOVAR ---
-  { id: 'stock', label: 'Stav zásob (Sklad)' },
-  { id: 'srotovani', label: 'Šrotování' },
-  // --- NÁSTROJE / HACCP ---
-  { id: 'sanitace', label: 'Sanitace' },
-  { id: 'sanitation_log', label: 'Sanitační deník' },
-  { id: 'checklists', label: 'Kontrolní seznamy (HACCP)' },
-  { id: 'planning', label: 'Plánování (Kalendář, Úkoly, Poznámky)' },
-  { id: 'kniha_jizd', label: 'Kniha jízd' },
-  { id: 'vycepy', label: 'Výčepy, Sanitace & Kalendář' },
-  // --- ČÍSELNÍKY ---
-  { id: 'places', label: 'Odběratelé' },
-  { id: 'beers', label: 'Piva' },
-  { id: 'packages', label: 'Obaly' },
-  { id: 'pricelist', label: 'Ceník' },
-  // --- NASTAVENÍ ---
-  { id: 'app_versions', label: 'Verze aplikace' },
-];
 
 export default function AppSettingsScreen() {
   const { profile, user, reloadProfile } = useAuth();
@@ -217,19 +186,6 @@ export default function AppSettingsScreen() {
     return canUserView(profile?.role, user?.id, modKey, userPerms);
   });
 
-  // Extra stránky/záložky (mimo NAV) dostupné jako rychlá tlačítka — respektují oprávnění.
-  const permittedExtraQuickPages = EXTRA_QUICK_ACTION_PAGES.filter((p) => {
-    if (p.id === 'app_versions') return isAdmin;
-    const modKey = pageToModuleMap[p.id];
-    if (!modKey) return true;
-    return canUserView(profile?.role, user?.id, modKey, userPerms);
-  });
-
-  const quickActionOptions = [
-    ...permittedNav.map((n) => ({ id: n.id, label: n.label })),
-    ...permittedExtraQuickPages,
-  ];
-
   function saveHiddenModules(newHidden: string[]) {
     setHiddenModules(newHidden);
     try {
@@ -346,9 +302,6 @@ export default function AppSettingsScreen() {
         <p className="text-sm text-neutral-600 mt-2">Vyberte si, které položky chcete vidět v hlavním menu pro rychlejší navigaci.</p>
         <button onClick={() => setShowMenuCustomize(true)} className="btn-ghost mt-3 text-sm font-black">Upravit viditelnost menu</button>
       </div>
-
-      {/* Rychlá tlačítka nahoře */}
-      <QuickActionsSection userId={user?.id || 'guest'} options={quickActionOptions} />
 
       {/* Hustota / Velikost */}
       <div className="card p-6">
@@ -618,99 +571,9 @@ export default function AppSettingsScreen() {
   );
 }
 
-function QuickActionsSection({ userId, options }: { userId: string; options: { id: string; label: string }[] }) {
-  const [actions, setActions] = useState<QuickAction[]>(() => getQuickActions(userId));
 
-  function save(newActions: QuickAction[]) {
-    setActions(newActions);
-    saveQuickActions(userId, newActions);
-  }
-
-  function addAction() {
-    if (actions.length >= 8) return;
-    const firstUnused = options.find((n) => !actions.some((a) => a.pageId === n.id));
-    if (!firstUnused) return;
-    save([...actions, { pageId: firstUnused.id, label: firstUnused.label, icon: '🔗' }]);
-  }
-
-  function removeAction(idx: number) {
-    save(actions.filter((_, i) => i !== idx));
-  }
-
-  function changeAction(idx: number, pageId: string) {
-    const option = options.find((n) => n.id === pageId);
-    if (!option) return;
-    const newActions = actions.map((a, i) => i === idx ? { ...a, pageId: option.id, label: option.label } : a);
-    save(newActions);
-  }
-
-  return (
-    <div className="card p-6">
-      <h2 className="font-display font-bold text-lg flex items-center gap-2">
-        <GripVertical size={20} /> Rychlá tlačítka nahoře
-      </h2>
-      <p className="text-sm text-neutral-600 mt-2">
-        Nastavte si až 8 tlačítek, která se zobrazí nahoře v hlavičce pro okamžitý přístup k oblíbeným sekcím.
-      </p>
-
-      <div className="mt-4 space-y-2">
-        {actions.map((a, i) => (
-          <div key={i} className="flex items-center gap-2 p-3 rounded-2xl bg-neutral-50 border border-neutral-200">
-            <span className="text-lg shrink-0">{a.icon}</span>
-            <select
-              className="input flex-1 !py-2 text-sm font-bold"
-              value={a.pageId}
-              onChange={(e) => changeAction(i, e.target.value)}
-            >
-              {options.map((n) => (
-                <option key={n.id} value={n.id}>{n.label}</option>
-              ))}
-            </select>
-            <button
-              onClick={() => removeAction(i)}
-              className="p-2 rounded-xl hover:bg-rose-100 text-rose-500 hover:text-rose-700 transition"
-              title="Odebrat tlačítko"
-            >
-              <Trash2 size={16} />
-            </button>
-          </div>
-        ))}
-      </div>
-
-      {actions.length < 8 && (
-        <button
-          onClick={addAction}
-          className="btn-ghost mt-3 text-sm font-black flex items-center gap-2"
-        >
-          <Plus size={16} /> Přidat tlačítko ({actions.length}/8)
-        </button>
-      )}
-
-      {actions.length === 0 && (
-        <p className="text-xs text-neutral-500 mt-2 italic">Žádná rychlá tlačítka — na mobilu se nezobrazí nic.</p>
-      )}
-
-      <div className="mt-4 p-3 rounded-2xl bg-amber-50 border border-amber-200">
-        <div className="text-xs font-bold text-amber-950">Náhled:</div>
-        <div className="flex items-center gap-2 mt-2 flex-wrap">
-          {actions.map((a, i) => (
-            <span
-              key={i}
-              className={`px-3 py-1.5 rounded-xl text-xs font-black border ${
-                i === 0
-                  ? 'bg-amber-500 text-neutral-950 border-amber-400'
-                  : 'bg-neutral-800 text-white border-neutral-700'
-              }`}
-            >
-              {a.icon} {a.label}
-            </span>
-          ))}
-          {actions.length === 0 && <span className="text-xs text-neutral-500 italic">(prázdné)</span>}
-        </div>
-      </div>
-    </div>
-  );
-}
+/** Text, který musí uživatel zadat pro potvrzení vyčištění všech dat. */
+const CLEAN_CONFIRM_TEXT = 'SMAZAT';
 
 function AdminVersionSyncSection() {
   const [refreshing, setRefreshing] = useState(false);
@@ -719,19 +582,15 @@ function AdminVersionSyncSection() {
   const [cleaning, setCleaning] = useState(false);
   const [cleanMsg, setCleanMsg] = useState<string | null>(null);
   const [cleanOk, setCleanOk] = useState<boolean | null>(null);
+  const [confirmingClean, setConfirmingClean] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
 
   async function handleClearData() {
-    const confirmed = window.confirm(
-      '⚠️ VYČIŠTĚNÍ VŠECH DAT\n\n' +
-      'Tato akce SMAŽE VŠECHNA uživatelská data z databáze:\n' +
-      '• Objednávky, stáčení, inventury, odpisy, fasování\n' +
-      '• Akce, kalendář, připomínky, sanitace, vozidla\n' +
-      '• Odběratele, ceník, audit, feedback, rezervace výčepů\n\n' +
-      'Referenční číselníky (piva, obaly, tanky) se resetují na výchozí stav.\n\n' +
-      'Tuto akci nelze vrátit zpět!'
-    );
-    if (!confirmed) return;
+    // Pojistka: destruktivní akce se spustí jen při přesné shodě textu.
+    if (confirmText !== CLEAN_CONFIRM_TEXT) return;
 
+    setConfirmingClean(false);
+    setConfirmText('');
     setCleaning(true);
     setCleanMsg(null);
     setCleanOk(null);
@@ -932,8 +791,8 @@ function AdminVersionSyncSection() {
         </div>
 
         <button
-          onClick={handleClearData}
-          disabled={cleaning}
+          onClick={() => setConfirmingClean(true)}
+          disabled={cleaning || confirmingClean}
           className="w-full py-3 rounded-2xl bg-rose-600 hover:bg-rose-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-black text-sm shadow-md transition flex items-center justify-center gap-2"
         >
           {cleaning ? (
@@ -948,6 +807,57 @@ function AdminVersionSyncSection() {
             </>
           )}
         </button>
+
+        {confirmingClean && (
+          <div className="p-3 rounded-xl bg-rose-100 border-2 border-rose-400 space-y-3">
+            <div className="text-xs font-black text-rose-900">
+              ⚠️ Tuto akci nelze vrátit zpět!
+            </div>
+            <p className="text-xs font-medium text-rose-900 leading-relaxed">
+              Vyčištění SMAŽE VŠECHNA uživatelská data z databáze i z prohlížeče:
+              objednávky, stáčení, inventury, odpisy, fasování, akce, kalendář, připomínky,
+              sanitace, vozidla, odběratele, ceník, audit, feedback a rezervace výčepů.
+              Referenční číselníky (piva, obaly, tanky) se resetují na výchozí stav.
+            </p>
+            <p className="text-xs font-bold text-rose-900">
+              Pro potvrzení napiš do pole přesně text <span className="font-black underline">{CLEAN_CONFIRM_TEXT}</span>:
+            </p>
+            <input
+              type="text"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder={CLEAN_CONFIRM_TEXT}
+              autoFocus
+              className="w-full px-3 py-2 rounded-xl bg-white border-2 border-rose-400 focus:border-rose-600 focus:outline-none text-sm font-mono font-bold text-rose-900 placeholder:text-rose-300"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={handleClearData}
+                disabled={confirmText !== CLEAN_CONFIRM_TEXT || cleaning}
+                className="flex-1 py-2.5 rounded-xl bg-rose-700 hover:bg-rose-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-sm shadow transition flex items-center justify-center gap-2"
+              >
+                {cleaning ? (
+                  <>
+                    <RefreshCw size={16} className="animate-spin" />
+                    <span>Mažu data…</span>
+                  </>
+                ) : (
+                  <>
+                    <Eraser size={16} />
+                    <span>Trvale smazat všechna data</span>
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => { setConfirmingClean(false); setConfirmText(''); }}
+                disabled={cleaning}
+                className="px-4 py-2.5 rounded-xl bg-neutral-200 hover:bg-neutral-300 disabled:opacity-40 disabled:cursor-not-allowed text-neutral-800 font-bold text-sm transition"
+              >
+                Zrušit
+              </button>
+            </div>
+          </div>
+        )}
 
         {cleanMsg && (
           <div className={`p-3 rounded-xl text-xs font-bold flex items-center gap-2 ${

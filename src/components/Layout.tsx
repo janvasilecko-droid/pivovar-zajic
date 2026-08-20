@@ -17,7 +17,6 @@ import { subscribeToWhatsAppMessages, fetchWhatsAppSenders, fetchPendingWhatsApp
 import { getDensity, setDensity, DensityMode } from '../lib/density';
 import { canUserView, getUserPermissions, ModuleKey } from '../lib/permissions';
 import { QuickSearchModal } from './QuickSearchModal';
-import { getQuickActions, QuickAction } from '../lib/quickActions';
 import { isAdminEmail } from '../lib/config';
 import { BugReportModal } from './BugReportModal';
 import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
@@ -122,7 +121,6 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
     setPage('orders');
     window.dispatchEvent(new CustomEvent('pivovar:open-auto-import'));
   };
-  const [quickActions, setQuickActions] = useState<QuickAction[]>(() => getQuickActions(user?.id || 'guest'));
   // Horní hlavička ukazuje jen upozornění, ne trvalou lištu tlačítek — počet
   // nových (ještě nezpracovaných) objednávek, ať se ikona objeví jen když je
   // co řešit.
@@ -130,12 +128,6 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   const [beers, setBeers] = useState<Beer[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [places, setPlaces] = useState<Place[]>([]);
-
-  useEffect(() => {
-    const updateActions = () => setQuickActions(getQuickActions(user?.id || 'guest'));
-    window.addEventListener('pivovar:quick-actions-updated', updateActions);
-    return () => window.removeEventListener('pivovar:quick-actions-updated', updateActions);
-  }, [user?.id]);
 
   useEffect(() => {
     supabase.from('beers').select('*').eq('is_active', true).order('sort_order').then(({ data }) => setBeers(data || []));
