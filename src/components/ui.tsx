@@ -47,16 +47,27 @@ export function Modal({ open, onClose, title, children, wide, maxWidth }: {
   // toho, aby vyskočilo o stránku výš — zapíšeme si při otevření dodatečný
   // krok do historie (se zachováním page/subTab, ať App.tsx při jeho
   // odpopnutí nepřehodí stránku) a na popstate modal zavřeme.
+  //
+  // modalId: history.back() je asynchronní (popstate přijde až příští tick).
+  // Když se jeden modal zavře a hned v tomtéž renderu se otevře další (např.
+  // potvrzovací dialog → checklist), zpožděný back() z toho prvního by bez
+  // téhle kontroly odpopnul historii AŽ PO tom, co druhý modal stihl
+  // pushnout svůj vlastní záznam — a jeho popstate listener by ho tím pádem
+  // hned zase zavřel. Cleanup proto volá back() jen tehdy, když je na vrcholu
+  // historie pořád jeho VLASTNÍ záznam (podle unikátního id).
   const onCloseRef = useRef(onClose);
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
   useEffect(() => {
     if (!open) return;
-    window.history.pushState({ ...window.history.state, modalOpen: true }, '');
+    const modalId = Math.random().toString(36).slice(2);
+    window.history.pushState({ ...window.history.state, modalOpen: true, modalId }, '');
     const onPopState = () => onCloseRef.current();
     window.addEventListener('popstate', onPopState);
     return () => {
       window.removeEventListener('popstate', onPopState);
-      if (window.history.state?.modalOpen) window.history.back();
+      if (window.history.state?.modalOpen && window.history.state?.modalId === modalId) {
+        window.history.back();
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
