@@ -54,7 +54,7 @@ export default function SanitaceTabbed({ initialTab = 'sanitation_log', initialS
           onClick={() => selectTab('tanks')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'tanks'
-              ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
               : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
           }`}
         >
@@ -66,7 +66,7 @@ export default function SanitaceTabbed({ initialTab = 'sanitation_log', initialS
           onClick={() => selectTab('lahve')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'lahve'
-              ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
               : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
           }`}
         >
@@ -78,7 +78,7 @@ export default function SanitaceTabbed({ initialTab = 'sanitation_log', initialS
           onClick={() => selectTab('kegy')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'kegy'
-              ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
               : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
           }`}
         >
@@ -90,7 +90,7 @@ export default function SanitaceTabbed({ initialTab = 'sanitation_log', initialS
           onClick={() => selectTab('vycepy')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'vycepy'
-              ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
               : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
           }`}
         >
@@ -102,7 +102,7 @@ export default function SanitaceTabbed({ initialTab = 'sanitation_log', initialS
           onClick={() => selectTab('haccp')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'haccp'
-              ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
               : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
           }`}
         >
@@ -114,7 +114,7 @@ export default function SanitaceTabbed({ initialTab = 'sanitation_log', initialS
           onClick={() => selectTab('checklists')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'checklists'
-              ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
               : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
           }`}
         >

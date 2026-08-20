@@ -1527,7 +1527,7 @@ export default function Orders({
                   onClick={() => pickDeliveryDay(d.v)}
                   className={`flex-1 min-w-0 px-1 py-2 rounded-xl font-black text-xs transition ${
                     deliveryDay === d.v
-                      ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+                      ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
                       : 'bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-100'
                   }`}
                 >

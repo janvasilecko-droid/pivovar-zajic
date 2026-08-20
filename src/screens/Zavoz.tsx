@@ -371,7 +371,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
             </button>
           )}
           <button
-            className="flex-1 px-2 py-1.5 rounded-lg font-black text-[11px] leading-tight transition flex items-center justify-center gap-1 bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300 whitespace-nowrap"
+            className="flex-1 px-2 py-1.5 rounded-lg font-black text-[11px] leading-tight transition flex items-center justify-center gap-1 bg-white text-amber-900 shadow-md ring-2 ring-amber-300 whitespace-nowrap"
           >
             <Truck size={14} />
             <span>Závoz</span>

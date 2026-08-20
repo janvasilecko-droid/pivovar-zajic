@@ -200,7 +200,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
           onClick={() => selectTab('users')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 ${
             activeTab === 'users'
-              ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
               : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
           }`}
         >
@@ -212,7 +212,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
           onClick={() => selectTab('emails')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 ${
             activeTab === 'emails'
-              ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
               : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
           }`}
         >
@@ -224,7 +224,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
           onClick={() => selectTab('audit')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 ${
             activeTab === 'audit'
-              ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
               : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
           }`}
         >

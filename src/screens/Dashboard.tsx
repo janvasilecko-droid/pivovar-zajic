@@ -373,7 +373,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
           onClick={() => (setPage ? setPage('dashboard') : setActiveTab('sklad'))}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'sklad'
-              ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
               : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
           }`}
         >
@@ -385,7 +385,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
           onClick={() => (setPage ? setPage('sklo_promo') : setActiveTab('sklo_promo'))}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'sklo_promo'
-              ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
               : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
           }`}
         >

@@ -32,7 +32,7 @@ export default function MarketingTabbed({ initialTab = 'akce', setPage }: Market
           onClick={() => selectTab('akce')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'akce'
-              ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
               : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
           }`}
         >
@@ -44,7 +44,7 @@ export default function MarketingTabbed({ initialTab = 'akce', setPage }: Market
           onClick={() => selectTab('exkurze')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'exkurze'
-              ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
               : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
           }`}
         >

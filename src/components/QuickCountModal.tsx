@@ -105,13 +105,13 @@ export function QuickCountModal({
                   onClick={() => setSelectedPkgId(pkg.id)}
                   className={`p-2.5 rounded-xl border text-xs font-black flex items-center justify-between transition ${
                     isSel
-                      ? 'bg-amber-600 text-white border-amber-700 shadow-sm'
+                      ? 'bg-white text-amber-900 border-amber-400 ring-2 ring-amber-300 shadow-sm'
                       : 'bg-white text-neutral-900 border-neutral-200 hover:bg-amber-50'
                   }`}
                 >
                   <span>{formatPackageLabel(pkg.label)}</span>
                   {c > 0 && (
-                    <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold ${isSel ? 'bg-white/25 text-white' : 'bg-emerald-100 text-emerald-950'}`}>
+                    <span className="px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold bg-emerald-100 text-emerald-950">
                       {c} ks
                     </span>
                   )}

@@ -1167,7 +1167,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                     key={p}
                     onClick={() => setProdPeriod(p)}
                     className={`px-3 py-1.5 rounded-xl text-xs font-black transition ${
-                      prodPeriod === p ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                      prodPeriod === p ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
                     }`}
                   >
                     {p === 'week' ? 'Týden' : p === 'month' ? 'Měsíc' : p === 'year' ? 'Rok' : 'Vše'}
@@ -1538,7 +1538,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                         key={s.key}
                         type="button"
                         onClick={() => setSelSources((set) => toggleSet(set, s.key))}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-black transition ${active ? 'bg-amber-500 text-neutral-950 shadow-2xs' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'}`}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-black transition ${active ? 'bg-white text-amber-900 shadow-2xs ring-2 ring-amber-300' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'}`}
                       >
                         {s.icon} {s.label}
                       </button>

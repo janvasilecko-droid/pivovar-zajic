@@ -275,7 +275,7 @@ export default function ExkurzeScreen() {
                     onClick={() => setGuideName(name)}
                     className={`px-2 py-1 rounded-lg text-[11px] font-black border transition ${
                       guideName === name
-                        ? 'bg-amber-500 text-neutral-950 border-amber-400 shadow-2xs'
+                        ? 'bg-white text-amber-900 border-amber-400 ring-2 ring-amber-300 shadow-2xs'
                         : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200 border-neutral-300'
                     }`}
                   >

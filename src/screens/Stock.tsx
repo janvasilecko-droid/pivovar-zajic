@@ -334,7 +334,7 @@ export default function Stock() {
           onClick={() => setTopTab('stock')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 ${
             topTab === 'stock'
-              ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
               : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
           }`}
         >
@@ -346,7 +346,7 @@ export default function Stock() {
           onClick={() => setTopTab('festival')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 ${
             topTab === 'festival'
-              ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
               : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
           }`}
         >
@@ -358,7 +358,7 @@ export default function Stock() {
           onClick={() => setTopTab('merch')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 ${
             topTab === 'merch'
-              ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
               : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
           }`}
         >

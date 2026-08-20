@@ -62,7 +62,7 @@ export default function OrdersTabbed({
               onClick={() => selectTab(tab.id)}
               className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
                 activeTab === tab.id
-                  ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+                  ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
                   : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
               }`}
             >

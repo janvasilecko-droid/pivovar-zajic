@@ -485,7 +485,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
           onClick={() => selectTab('keg_calc')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'keg_calc'
-              ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
               : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
           }`}
         >
@@ -497,7 +497,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
           onClick={() => selectTab('srot_calc')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'srot_calc'
-              ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
               : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
           }`}
         >
@@ -509,7 +509,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
           onClick={() => selectTab('chem_calc')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'chem_calc'
-              ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
               : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
           }`}
         >
@@ -521,7 +521,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
           onClick={() => selectTab('energy_calc')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'energy_calc'
-              ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
               : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
           }`}
         >
@@ -533,7 +533,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
           onClick={() => selectTab('units_calc')}
           className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'units_calc'
-              ? 'bg-amber-500 text-neutral-950 shadow-md ring-2 ring-amber-300'
+              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
               : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
           }`}
         >
@@ -577,8 +577,8 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
               <div className="flex items-center justify-between border-b border-amber-200 pb-2">
                 <h4 className="font-display font-black text-base text-amber-950">🎛️ Ruční volba sudů (30L vs 50L)</h4>
                 <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-amber-300">
-                  <button type="button" onClick={() => setCalcMode('fix30')} className={`px-3 py-1 rounded-lg text-xs font-black ${calcMode === 'fix30' ? 'bg-amber-500 text-neutral-950' : 'text-neutral-600'}`}>Zadám 30L</button>
-                  <button type="button" onClick={() => setCalcMode('fix50')} className={`px-3 py-1 rounded-lg text-xs font-black ${calcMode === 'fix50' ? 'bg-amber-500 text-neutral-950' : 'text-neutral-600'}`}>Zadám 50L</button>
+                  <button type="button" onClick={() => setCalcMode('fix30')} className={`px-3 py-1 rounded-lg text-xs font-black ${calcMode === 'fix30' ? 'bg-white text-amber-900 ring-2 ring-amber-300' : 'text-neutral-600'}`}>Zadám 30L</button>
+                  <button type="button" onClick={() => setCalcMode('fix50')} className={`px-3 py-1 rounded-lg text-xs font-black ${calcMode === 'fix50' ? 'bg-white text-amber-900 ring-2 ring-amber-300' : 'text-neutral-600'}`}>Zadám 50L</button>
                 </div>
               </div>
 

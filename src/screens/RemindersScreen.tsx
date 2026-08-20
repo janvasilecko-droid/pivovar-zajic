@@ -488,7 +488,7 @@ export default function RemindersScreen() {
               <button
                 onClick={() => setFilter('pending')}
                 className={`px-3 py-1 rounded-lg transition ${
-                  filter === 'pending' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'text-neutral-600 hover:text-neutral-900'
+                  filter === 'pending' ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'text-neutral-600 hover:text-neutral-900'
                 }`}
               >
                 Ke schválení pro mě
@@ -496,7 +496,7 @@ export default function RemindersScreen() {
               <button
                 onClick={() => setFilter('my')}
                 className={`px-3 py-1 rounded-lg transition ${
-                  filter === 'my' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'text-neutral-600 hover:text-neutral-900'
+                  filter === 'my' ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'text-neutral-600 hover:text-neutral-900'
                 }`}
               >
                 Moje upomínky
@@ -504,7 +504,7 @@ export default function RemindersScreen() {
               <button
                 onClick={() => setFilter('all')}
                 className={`px-3 py-1 rounded-lg transition ${
-                  filter === 'all' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'text-neutral-600 hover:text-neutral-900'
+                  filter === 'all' ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'text-neutral-600 hover:text-neutral-900'
                 }`}
               >
                 Všechny
