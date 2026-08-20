@@ -1153,7 +1153,8 @@ export default function BottlingScreen({
       {/* Všechny záznamy stáčení lahví / KEG */}
       {(mode === 'overviews_only' || (mode === 'all' && tab === 'prehled')) && (
         <div className="mt-0 space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        {/* Přilepeno pod hlavní listou záložek, ať jde přepínat obdobi/filtry i uprostřed scrollování dlouhé tabulky níže. */}
+        <div className="sticky top-[66px] z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-neutral-100 py-1.5 -mx-4 px-4 sm:mx-0 sm:px-0">
           <div className="text-xs font-black uppercase tracking-wider text-amber-950/60 flex items-center gap-2">
             <span>📋</span>
             <span>
