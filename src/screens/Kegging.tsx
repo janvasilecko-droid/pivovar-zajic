@@ -1031,32 +1031,30 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                     const isEditing = editingId === r.id;
                     return (
                       <div key={r.id} className="rounded-2xl border border-emerald-300/80 bg-white p-3 space-y-2.5">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
-                            <span className="font-black text-sm text-emerald-950 truncate">{r.beer_name ?? beer?.name ?? '—'}</span>
-                          </div>
+                        <div className="flex items-center gap-2">
                           <span className="shrink-0 font-mono font-bold text-xs text-emerald-800">
                             {r.entry_date ? r.entry_date.slice(8, 10) + '.' + r.entry_date.slice(5, 7) + '.' : '—'}
                           </span>
-                        </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-bold text-emerald-700">{vol > 0 ? `KEG ${vol}L` : '—'}</span>
-                          {isEditing ? (
-                            <div className="flex items-center gap-1.5">
-                              <input
-                                type="number" min="0" step="1" autoFocus
-                                className="input text-base font-black w-16 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                value={editQty}
-                                onChange={(e) => setEditQty(e.target.value)}
-                                onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') { setEditingId(null); setEditQty(''); } }}
-                              />
-                              <button type="button" onClick={saveEdit} className="px-3 h-10 rounded-xl bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xs transition">✓</button>
-                              <button type="button" onClick={() => { setEditingId(null); setEditQty(''); }} className="px-3 h-10 rounded-xl bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-black text-xs transition">✕</button>
-                            </div>
-                          ) : (
-                            <span className="font-display font-black text-xl text-emerald-950">{r.quantity} ks</span>
-                          )}
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
+                          <span className="font-black text-sm text-emerald-950 truncate min-w-0">{r.beer_name ?? beer?.name ?? '—'}</span>
+                          <span className="shrink-0 text-xs font-bold text-emerald-700">{vol > 0 ? `KEG ${vol}L` : '—'}</span>
+                          <span className="ml-auto shrink-0">
+                            {isEditing ? (
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  type="number" min="0" step="1" autoFocus
+                                  className="input text-base font-black w-16 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                  value={editQty}
+                                  onChange={(e) => setEditQty(e.target.value)}
+                                  onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') { setEditingId(null); setEditQty(''); } }}
+                                />
+                                <button type="button" onClick={saveEdit} className="px-3 h-10 rounded-xl bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xs transition">✓</button>
+                                <button type="button" onClick={() => { setEditingId(null); setEditQty(''); }} className="px-3 h-10 rounded-xl bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-black text-xs transition">✕</button>
+                              </div>
+                            ) : (
+                              <span className="font-display font-black text-xl text-emerald-950">{r.quantity} ks</span>
+                            )}
+                          </span>
                         </div>
                         {!isEditing && (
                           <div className="flex items-center gap-1.5 pt-2 border-t border-emerald-100">
