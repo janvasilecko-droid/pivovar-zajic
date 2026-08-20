@@ -266,6 +266,16 @@ export default function BottlingScreen({
     return result;
   }, [rows, recordsView, recordsMonthKey, recordsWeekKey, recordsTab, recordsBeerFilter, recordsPkgFilter, packages]);
 
+  // Záznamy omezené jen na zvolené období (měsíc/týden) — bez filtru lahve/KEG,
+  // piva a obalu. Slouží pro souhrnné karty "Přehled stočených..." nahoře,
+  // aby respektovaly stejné období jako výběr týdne/měsíce níže.
+  const periodRows = useMemo(() => {
+    if (recordsView === 'month') {
+      return rows.filter((r) => r.entry_date?.startsWith(recordsMonthKey));
+    }
+    return rows.filter((r) => isoWeekKey(r.entry_date) === recordsWeekKey);
+  }, [rows, recordsView, recordsMonthKey, recordsWeekKey]);
+
   // Filtrované obaly: pouze lahve povolených velikostí
   const bottlePackages = useMemo(() =>
     packages
@@ -610,7 +620,7 @@ export default function BottlingScreen({
   const BOTTLE_SIZES = [1.5, 1, 0.5, 0.33];
 
   const sizeBuckets = BOTTLE_SIZES.map((size) => {
-    const sizeRows = rows.filter((r) => {
+    const sizeRows = periodRows.filter((r) => {
       const pkg = packages.find((p) => p.id === r.package_id);
       return pkg && Math.abs(Number(pkg.volume_l) - size) < 0.01;
     });
@@ -621,7 +631,7 @@ export default function BottlingScreen({
 
   // Přehled podle velikosti KEG
   const kegBuckets = KEG_SIZES.map((size) => {
-    const sizeRows = rows.filter((r) => {
+    const sizeRows = periodRows.filter((r) => {
       const pkg = packages.find((p) => p.id === r.package_id);
       return pkg && Number(pkg.volume_l) === size;
     });
@@ -643,7 +653,7 @@ export default function BottlingScreen({
     // vznikne více záznamů se stejným zdrojem (kegs_used). Zdroj započítáme jen jednou.
     const seenSource = new Set<string>();
 
-    rows.forEach((r) => {
+    periodRows.forEach((r) => {
       const pkg = packages.find((p) => p.id === r.package_id);
       // Přímé stáčení do KEG
       if (pkg && pkg.kind === 'keg' && KEG_SIZES.includes(Number(pkg.volume_l))) {
@@ -668,11 +678,11 @@ export default function BottlingScreen({
     const lossL = totalSourceL > 0 ? Math.max(totalSourceL - (totalKegLiters + totalBottledL), 0) : 0;
     const lossPct = totalSourceL > 0 ? (lossL / totalSourceL * 100) : 0;
     return { totalKegCount, totalKegLiters, totalSourceL, totalBottledL, lossL, lossPct };
-  }, [rows, packages]);
+  }, [periodRows, packages]);
 
 
 
-  const otherRows = rows.filter((r) => {
+  const otherRows = periodRows.filter((r) => {
     const pkg = packages.find((p) => p.id === r.package_id);
     return !pkg || (!BOTTLE_SIZES.some((s) => Math.abs(Number(pkg.volume_l) - s) < 0.01) && !KEG_SIZES.includes(Number(pkg.volume_l)));
   });
@@ -686,7 +696,7 @@ export default function BottlingScreen({
   // Celkový počet použitých sudů (kegs_used) — deduplikace zdroje (jeden sud může plnit více druhů obalů)
   const totalKegs = (() => {
     const seen = new Set<string>();
-    return rows.reduce((s, r) => {
+    return periodRows.reduce((s, r) => {
       if (r.kegs_used && r.kegs_used > 0) {
         const key = `${r.entry_date}|${r.beer_id}|${r.kegs_used}|${r.kegs_used_package_id}`;
         if (!seen.has(key)) { seen.add(key); return s + Number(r.kegs_used); }
@@ -1078,6 +1088,9 @@ export default function BottlingScreen({
         <div className="card p-3 mb-4 border-2 border-emerald-300/80 bg-white">
           <div className="flex items-center justify-between mb-2">
             <span className="font-display font-black text-amber-950 text-xs">🍾 Přehled stočených lahví</span>
+            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">
+              {recordsView === 'week' ? weekRange(recordsWeekKey).label : recordsMonthKey}
+            </span>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {sizeBuckets.map((b) => (
@@ -1107,6 +1120,9 @@ export default function BottlingScreen({
         <div className="card p-3 mb-4 border-2 border-amber-300/80 bg-white">
           <div className="flex items-center justify-between mb-2">
             <span className="font-display font-black text-amber-950 text-xs">🛢️ Přehled stočených KEG</span>
+            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">
+              {recordsView === 'week' ? weekRange(recordsWeekKey).label : recordsMonthKey}
+            </span>
           </div>
           <div className="flex items-center gap-2 flex-wrap mb-3">
             {kegBuckets.filter((b) => b.count > 0).map((b) => (
