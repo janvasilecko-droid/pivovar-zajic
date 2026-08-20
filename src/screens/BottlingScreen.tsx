@@ -16,7 +16,7 @@ import { requestOrdersItemFilter } from '../lib/ordersFilter';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
-import { topQuantitiesLastMonth } from '../lib/quickQty';
+import { stackingQuickQtys } from '../lib/quickQty';
 import { computePackageNeeds } from '../lib/packageNeeds';
 
 
@@ -911,7 +911,7 @@ export default function BottlingScreen({
                   {tileSlots.map((slot) => {
                     const pkgId = tileDraft[slot.pkg];
                     const qtyStr = tileDraft[slot.qty];
-                    const quickQtys = tileBeer ? topQuantitiesLastMonth(rows, tileBeer.id, pkgId) : [];
+                    const quickQtys = stackingQuickQtys(bottlePackages.find((p) => p.id === pkgId));
                     return (
                       <div key={slot.key} className="flex items-center justify-between gap-2 rounded-xl border border-neutral-200 dark:border-neutral-700 py-1.5 px-2 flex-wrap">
                         <select
@@ -930,8 +930,8 @@ export default function BottlingScreen({
                               key={q}
                               type="button"
                               onClick={() => setTile(slot.qty, String(q))}
-                              title="Nejčastější hodnota minulý měsíc"
-                              className={`h-7 min-w-[1.75rem] px-1.5 rounded-lg text-[11px] font-black transition ${Number(qtyStr) === q ? 'bg-amber-500 text-white' : 'bg-neutral-100 dark:bg-neutral-700 hover:bg-amber-200 text-neutral-600 dark:text-neutral-200 hover:text-amber-950'}`}
+                              title="Rychlá volba množství"
+                              className={`h-7 min-w-[1.75rem] px-1.5 rounded-lg text-[11px] font-black transition ${Number(qtyStr) === q ? 'bg-emerald-500 text-white' : 'bg-neutral-100 dark:bg-neutral-700 hover:bg-emerald-200 text-neutral-600 dark:text-neutral-200 hover:text-emerald-950'}`}
                             >
                               {q}
                             </button>
@@ -1049,7 +1049,7 @@ export default function BottlingScreen({
 
           <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-2 border-t border-neutral-100">
             <div className="flex items-center gap-2 flex-wrap">
-              <button type="submit" disabled={saving} className="btn-primary text-xs font-black shadow-md min-h-[44px] px-5">
+              <button type="submit" disabled={saving} className="btn-primary !from-emerald-600 !to-emerald-700 hover:!from-emerald-500 hover:!to-emerald-600 !shadow-emerald-600/30 text-xs font-black shadow-md min-h-[44px] px-5">
                 {saving ? '⏳ Ukládám…' : '💾 Uložit stáčení lahví'}
               </button>
               <button type="button" className="btn-ghost text-xs font-bold min-h-[44px] px-3.5" onClick={() => setEntryRows(emptyRows())}>🗑️ Vymazat vše</button>

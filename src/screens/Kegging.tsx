@@ -13,7 +13,6 @@ import { computeKegNeeds } from '../lib/kegNeeds';
 import { Camera, Loader2, Pencil } from 'lucide-react';
 import { ImportKeggingFromImage } from '../components/ImportKeggingFromImage';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
-import { topQuantitiesLastMonth } from '../lib/quickQty';
 
 
 const ROW_COUNT = 12;
@@ -22,7 +21,7 @@ const emptyItem = (): RowInput => ({ beerId: '', pkgId: '', qty: '', tankId: '' 
 const emptyRows = (): RowInput[] => Array.from({ length: ROW_COUNT }, emptyItem);
 
 // Rychlé hodnoty počtu sudů v rozbalovacím poli (6/12/18/24/30/36 ks)
-const QUICK_KEG_QTY = [6, 12, 18, 24, 30, 36];
+const QUICK_KEG_QTY = [6, 12, 18, 24];
 
 export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; mode?: 'entry_only' | 'overviews_only' | 'all'; initialSubTab?: string } = {}) {
   const [rows, setRows] = useState<EntryRow[]>([]);
@@ -841,7 +840,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 const qty = tileQtyFor(expandedKegBeer.id, p.id);
                 const rowTanks = activeTanksForBeer(expandedKegBeer.id);
                 const currentTankId = entryRows.find((r) => r.beerId === expandedKegBeer.id && r.pkgId === p.id)?.tankId || '';
-                const quickQtys = topQuantitiesLastMonth(rows, expandedKegBeer.id, p.id);
+                const quickQtys = QUICK_KEG_QTY;
                 return (
                   <div key={p.id} className="rounded-xl border border-neutral-200 dark:border-neutral-700 py-1.5 px-2 space-y-1.5">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -852,8 +851,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                             key={q}
                             type="button"
                             onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(q) })}
-                            title="Nejčastější hodnota minulý měsíc"
-                            className={`h-7 min-w-[1.75rem] px-1.5 rounded-lg text-[11px] font-black transition ${qty === q ? 'bg-amber-500 text-white' : 'bg-neutral-100 dark:bg-neutral-700 hover:bg-amber-200 text-neutral-600 dark:text-neutral-200 hover:text-amber-950'}`}
+                            title="Rychlá volba množství"
+                            className={`h-7 min-w-[1.75rem] px-1.5 rounded-lg text-[11px] font-black transition ${qty === q ? 'bg-emerald-500 text-white' : 'bg-neutral-100 dark:bg-neutral-700 hover:bg-emerald-200 text-neutral-600 dark:text-neutral-200 hover:text-emerald-950'}`}
                           >
                             {q}
                           </button>
@@ -950,7 +949,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               <button
                 type="submit"
                 disabled={saving || !isStartChecklistCompleteForKeg(date)}
-                className="btn-primary text-xs font-black shadow-md disabled:opacity-40 min-h-[44px]"
+                className="btn-primary !from-emerald-600 !to-emerald-700 hover:!from-emerald-500 hover:!to-emerald-600 !shadow-emerald-600/30 text-xs font-black shadow-md disabled:opacity-40 min-h-[44px]"
               >
                 {saving ? '⏳ Ukládám…' : '💾 Uložit stáčení'}
               </button>

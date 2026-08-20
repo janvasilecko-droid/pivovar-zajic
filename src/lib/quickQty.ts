@@ -10,6 +10,22 @@ export type QtyHistoryRow = {
   entry_date: string | null;
 };
 
+// Pevné rychlé hodnoty pro zadávání STÁČENÍ (na rozdíl od topQuantitiesLastMonth
+// výše, které je dynamické podle historie) — stejné pro všechny piva daného
+// typu obalu, podle nejčastěji stáčených dávek.
+const QUICK_QTY_STACKING_KEG = [6, 12, 18, 24];
+const QUICK_QTY_STACKING_PET = [12, 24, 40, 50];
+const QUICK_QTY_STACKING_GLASS = [20, 40, 60, 80, 100];
+
+export function stackingQuickQtys(pkg: { kind?: string; volume_l?: number | string } | null | undefined): number[] {
+  if (!pkg) return [];
+  if (pkg.kind === 'keg') return QUICK_QTY_STACKING_KEG;
+  const v = Number(pkg.volume_l);
+  if (v === 0.33 || v === 0.5) return QUICK_QTY_STACKING_GLASS;
+  if (v === 1 || v === 1.5) return QUICK_QTY_STACKING_PET;
+  return [];
+}
+
 function lastMonthKey(today = new Date()): string {
   const d = new Date(today.getFullYear(), today.getMonth() - 1, 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
