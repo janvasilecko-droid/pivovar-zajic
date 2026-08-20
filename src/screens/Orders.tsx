@@ -1818,7 +1818,7 @@ export default function Orders({
           Přilepeno nahoře, ať jde přepínat období i uprostřed scrollování
           dlouhého seznamu objednávek (viz i den/vyhledávání níže). */}
       {mode !== 'entry_only' && (viewMode === 'detail' || viewMode === 'celkem') && (
-        <div className="sticky top-[52px] z-20 flex flex-wrap items-center justify-between gap-3 mb-4 bg-white rounded-2xl border border-neutral-200 p-2.5 shadow-md">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4 bg-white rounded-2xl border border-neutral-200 p-2.5 shadow-md">
           <div className="flex items-center gap-1.5 bg-neutral-100 p-1 rounded-xl flex-wrap">
             <button
               type="button"
@@ -1963,8 +1963,8 @@ export default function Orders({
             </div>
           )}
 
-        {/* Delivery Day quick selector tabs — přilepené pod přepínačem období výše. */}
-        <div className="sticky top-[112px] z-20 mb-4 bg-neutral-100 pt-1 flex items-center gap-1.5 overflow-x-auto scrollbar-thin pb-1">
+        {/* Delivery Day quick selector tabs — jediná přilepená lišta v Objednávkách (přepínač období a vyhledávací filtry pod ní se scrollují normálně). */}
+        <div className="sticky top-[52px] z-20 mb-4 bg-neutral-100 pt-1 flex items-center gap-1.5 overflow-x-auto scrollbar-thin pb-1">
           <button
             onClick={() => setDeliveryDayFilter('all')}
             className={`px-3.5 py-1.5 rounded-xl font-extrabold text-xs shrink-0 transition-all shadow-2xs ${
@@ -2011,7 +2011,7 @@ export default function Orders({
           </button>
         </div>
 
-        <div className="card sticky top-[156px] z-10 p-3 flex flex-wrap items-center gap-3 shadow-sm">
+        <div className="card p-3 flex flex-wrap items-center gap-3 shadow-sm">
           <input
             type="text" placeholder="🔍 Hledat odběratele, pivo nebo poznámku…"
             className="input flex-1 min-w-[200px]" value={searchText}

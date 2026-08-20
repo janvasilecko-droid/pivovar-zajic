@@ -1598,7 +1598,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 projeví okamžitě po uložení, v novém týdnu se počítá znovu z nových objednávek.
               </p>
 
-              <div className="sticky top-[66px] z-10 flex flex-nowrap items-center gap-2 bg-white py-1.5 -mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto scrollbar-thin">
+              <div className="sticky top-[66px] z-10 flex flex-wrap items-center gap-2 bg-white py-1.5 -mx-4 px-4 sm:mx-0 sm:px-0">
                 {/* Filtr Pivo */}
                 <select
                   value={reqKegBeerFilter}

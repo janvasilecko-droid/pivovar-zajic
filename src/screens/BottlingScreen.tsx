@@ -1261,7 +1261,7 @@ export default function BottlingScreen({
 
         {/* Filtr Druh piva a Obal */}
         {rows.length > 0 && (
-          <div className="sticky top-[98px] z-10 flex flex-nowrap items-center gap-2.5 bg-amber-100/60 p-2.5 rounded-xl border border-amber-200/90 shadow-2xs overflow-x-auto scrollbar-thin">
+          <div className="sticky top-[98px] z-10 flex flex-wrap items-center gap-2.5 bg-amber-100/60 p-2.5 rounded-xl border border-amber-200/90 shadow-2xs">
             <div className="flex items-center gap-1.5 shrink-0 min-w-[150px] max-w-[240px]">
               <span className="text-xs font-bold text-amber-950/80 shrink-0">🍺 Pivo:</span>
               <select
@@ -1597,7 +1597,7 @@ export default function BottlingScreen({
                 projeví okamžitě po uložení, v novém týdnu se počítá znovu z nových objednávek.
               </p>
 
-              <div className="sticky top-[66px] z-10 flex flex-nowrap items-center gap-2 bg-white py-1.5 -mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto scrollbar-thin">
+              <div className="sticky top-[66px] z-10 flex flex-wrap items-center gap-2 bg-white py-1.5 -mx-4 px-4 sm:mx-0 sm:px-0">
                 {/* Filtr Pivo */}
                 <select
                   value={reqBeerFilter}
