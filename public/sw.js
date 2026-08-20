@@ -54,8 +54,9 @@ async function getInstalledCache() {
 
 async function broadcastDebug(msg) {
   try {
-    const clients = await self.clients.matchAll({ includeUncontrolled: true });
-    for (const client of clients) client.postMessage({ type: 'SW_DEBUG', msg });
+    const dbg = await caches.open('sw-debug-log');
+    const key = 'https://debug.local/' + Date.now() + '-' + Math.random();
+    await dbg.put(key, new Response(msg));
   } catch {}
 }
 
