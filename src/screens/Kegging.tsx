@@ -109,6 +109,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   const [recordsDay, setRecordsDay] = useState(() => new Date().toISOString().slice(0, 10));
   const [beerFilter, setBeerFilter] = useState('');
   const [recordPkgFilter, setRecordPkgFilter] = useState('');
+  // Filtr piva pro souhrn "Stočeno KEG za týden" v záložce Zápis (nezávislý na beerFilter v Přehledu).
+  const [weekBeerFilter, setWeekBeerFilter] = useState('');
 
   // Posun měsíce o delta měsíců (vrací YYYY-MM)
   function shiftMonth(monthKey: string, delta: number): string {
@@ -956,18 +958,35 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
           {/* Stočeno KEG za týden — jednotlivé záznamy s +/−/✕ */}
           {rows.length > 0 && (() => {
-            const weekRows = rows.filter((r) => isoWeekKey(r.entry_date) === weekKey);
-            if (weekRows.length === 0) return null;
+            const weekRowsAll = rows.filter((r) => isoWeekKey(r.entry_date) === weekKey);
+            if (weekRowsAll.length === 0) return null;
+            const weekRows = weekBeerFilter ? weekRowsAll.filter((r) => r.beer_id === weekBeerFilter) : weekRowsAll;
             const sorted = [...weekRows].sort((a, b) => {
               const dateCmp = (b.entry_date ?? '').localeCompare(a.entry_date ?? '');
               if (dateCmp !== 0) return dateCmp;
               return (a.created_at ?? '').localeCompare(b.created_at ?? '') || a.id.localeCompare(b.id);
             });
             const totalCount = sorted.reduce((s, r) => s + Number(r.quantity), 0);
+            const weekBeerIds = new Set(weekRowsAll.map((r) => r.beer_id));
+            const weekBeers = beers.filter((b) => weekBeerIds.has(b.id));
 
             return (
               <div className="card p-4 mb-5 border-2 border-emerald-300/80 bg-white">
-                <h3 className="font-display font-black text-emerald-950 text-sm mb-3">🍺 Stočeno KEG za týden {weekKey}</h3>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                  <h3 className="font-display font-black text-emerald-950 text-sm">🍺 Stočeno KEG za týden {weekKey}</h3>
+                  {weekBeers.length > 1 && (
+                    <select
+                      value={weekBeerFilter}
+                      onChange={(e) => setWeekBeerFilter(e.target.value)}
+                      className="input text-xs font-bold py-1 px-2 rounded-lg bg-white border-emerald-300 text-emerald-950 shrink-0"
+                    >
+                      <option value="">🍺 Všechna piva</option>
+                      {weekBeers.map((b) => (
+                        <option key={b.id} value={b.id}>{beerName(b)}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
 
                 {/* Mobilní karty — čitelné a ovladatelné bez vodorovného scrollování */}
                 <div className="grid grid-cols-1 gap-2.5 md:hidden">

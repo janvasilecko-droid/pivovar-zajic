@@ -579,11 +579,11 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                         }}
                         className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl font-black text-xs transition-all ${
                           isActive
-                            ? 'bg-amber-500 text-neutral-950 shadow-md shadow-amber-500/20 scale-[1.02] ring-1 ring-amber-400'
+                            ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300'
                             : 'text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900'
                         }`}
                       >
-                        <Icon size={16} strokeWidth={isActive ? 2.5 : 2} className={isActive ? 'text-neutral-950' : 'text-neutral-400'} />
+                        <Icon size={16} strokeWidth={isActive ? 2.5 : 2} className={isActive ? 'text-amber-600' : 'text-neutral-400'} />
                         <span>{item.label}</span>
                       </button>
                     );
