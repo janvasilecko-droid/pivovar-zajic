@@ -1,7 +1,7 @@
 // Minimal offline-first service worker for the Minipivovar PWA.
 // Cache version is fetched from version.json at install time so that
 // every deploy automatically invalidates the old cache.
-// SW_VERSION: 1.510 — change this to force SW update in browser
+// SW_VERSION: 1.511-debug — change this to force SW update in browser
 const CACHE_PREFIX = 'pivovar-';
 const CACHE_META = `${CACHE_PREFIX}meta`;
 const CACHE_META_KEY = new URL('./__installed-cache__', self.registration.scope).href;
@@ -52,29 +52,49 @@ async function getInstalledCache() {
   return getCacheVersion();
 }
 
+async function broadcastDebug(msg) {
+  try {
+    const clients = await self.clients.matchAll({ includeUncontrolled: true });
+    for (const client of clients) client.postMessage({ type: 'SW_DEBUG', msg });
+  } catch {}
+}
+
 self.addEventListener('install', (e) => {
   e.waitUntil(
     (async () => {
-      const CACHE = await getCacheVersion();
-      installedVersion = CACHE;
-      // Store the cache name so the activate handler can read it
-      self.__pivovarCache = CACHE;
-      const c = await caches.open(CACHE);
-      // Cache.addAll je atomicke: kdyz jediny jeden fetch z PRECACHE selze
-      // (napr. docasny sitovy zaskuk), CELY install tise selze a offline
-      // shell se nikdy neulozi - appka pak po prvnim vypnuti netu neni k
-      // dispozici vubec ("nenacetla se"), i kdyz vsechno ostatni bezelo v
-      // poradku. Misto atomickeho addAll cachujeme kazdy soubor zvlast a
-      // selhani jednoho nezablokuje ulozeni ostatnich.
-      await Promise.all(
-        PRECACHE.map(async (url) => {
-          try {
-            const res = await fetch(url, { cache: 'no-cache' });
-            if (res && res.ok) await c.put(url, res);
-          } catch {}
-        })
-      );
-      await rememberInstalledCache(CACHE);
+      try {
+        await broadcastDebug('install:start');
+        const CACHE = await getCacheVersion();
+        await broadcastDebug('install:gotVersion:' + CACHE);
+        installedVersion = CACHE;
+        // Store the cache name so the activate handler can read it
+        self.__pivovarCache = CACHE;
+        const c = await caches.open(CACHE);
+        await broadcastDebug('install:opened cache');
+        // Cache.addAll je atomicke: kdyz jediny jeden fetch z PRECACHE selze
+        // (napr. docasny sitovy zaskuk), CELY install tise selze a offline
+        // shell se nikdy neulozi - appka pak po prvnim vypnuti netu neni k
+        // dispozici vubec ("nenacetla se"), i kdyz vsechno ostatni bezelo v
+        // poradku. Misto atomickeho addAll cachujeme kazdy soubor zvlast a
+        // selhani jednoho nezablokuje ulozeni ostatnich.
+        const results = await Promise.all(
+          PRECACHE.map(async (url) => {
+            try {
+              const res = await fetch(url, { cache: 'no-cache' });
+              if (res && res.ok) { await c.put(url, res); return url + ':ok'; }
+              return url + ':badstatus:' + (res && res.status);
+            } catch (err) {
+              return url + ':ERR:' + (err && err.message);
+            }
+          })
+        );
+        await broadcastDebug('install:precache results: ' + JSON.stringify(results));
+        await rememberInstalledCache(CACHE);
+        await broadcastDebug('install:remembered, done');
+      } catch (err) {
+        await broadcastDebug('install:FATAL: ' + (err && (err.stack || err.message || String(err))));
+        throw err;
+      }
     })()
   );
 });
