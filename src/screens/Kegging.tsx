@@ -642,7 +642,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               onClick={() => selectTab('zapis')}
               className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'zapis' ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'text-neutral-700 hover:bg-amber-50'}`}
             >
-              ✍️ Zápis
+              ✍️ Začátek stáčení
             </button>
             <button
               type="button"
