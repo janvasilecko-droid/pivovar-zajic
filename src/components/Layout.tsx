@@ -543,18 +543,18 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           <button
             onClick={() => setOpen(false)}
             aria-label="Zavřít menu"
-            className="sm:hidden absolute top-1.5 right-1.5 z-10 w-8 h-8 grid place-items-center rounded-full text-amber-900/60 hover:text-amber-950 hover:bg-amber-100 transition"
+            className="sm:hidden absolute top-1.5 right-1.5 z-10 w-8 h-8 grid place-items-center rounded-full text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 transition"
           >
             ✕
           </button>
 
           {/* App Header in Sidebar */}
-          <div className="p-3 border-b border-neutral-200 flex items-center justify-between bg-amber-50/60">
+          <div className="p-3 border-b border-neutral-200 flex items-center justify-between bg-white">
             <button
               onClick={() => { setPage('app_settings'); setOpen(false); }}
-              className="flex items-center gap-1.5 text-xs font-black text-amber-950 hover:text-amber-800 transition"
+              className="flex items-center gap-1.5 text-xs font-black text-neutral-900 hover:text-amber-700 transition"
             >
-              <Settings size={14} className="text-amber-700" />
+              <Settings size={14} className="text-neutral-400" />
               <span>Nastavení</span>
             </button>
           </div>
@@ -566,7 +566,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
               if (groupItems.length === 0) return null;
               return (
                 <div key={group} className="space-y-1">
-                  <div className="px-3 text-[10px] font-black uppercase tracking-widest text-amber-900/60 mb-1.5">{group}</div>
+                  <div className="px-3 text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-1.5">{group}</div>
                   {groupItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = navPageFor(page) === item.id;
@@ -580,10 +580,10 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                         className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl font-black text-xs transition-all ${
                           isActive
                             ? 'bg-amber-500 text-neutral-950 shadow-md shadow-amber-500/20 scale-[1.02] ring-1 ring-amber-400'
-                            : 'text-neutral-700 hover:bg-amber-100/70 hover:text-amber-950'
+                            : 'text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900'
                         }`}
                       >
-                        <Icon size={16} strokeWidth={isActive ? 2.5 : 2} className={isActive ? 'text-neutral-950' : 'text-amber-700'} />
+                        <Icon size={16} strokeWidth={isActive ? 2.5 : 2} className={isActive ? 'text-neutral-950' : 'text-neutral-400'} />
                         <span>{item.label}</span>
                       </button>
                     );
@@ -598,7 +598,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
         <div className="p-4 border-t border-neutral-200 space-y-2 bg-white">
           <div className="flex items-center justify-between text-xs text-neutral-700 px-1">
             <div className="flex items-center gap-1.5 min-w-0">
-              <span className="font-bold truncate max-w-[110px] text-amber-950">{profile?.display_name || user?.email}</span>
+              <span className="font-bold truncate max-w-[110px] text-neutral-900">{profile?.display_name || user?.email}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <OfflineStatus online={online} pending={pending} syncing={syncing} syncMsg={syncMsg} onSync={async () => { const { syncQueue, queueLength } = await import('../lib/offline'); if (queueLength() === 0) { setSyncMsg('Fronta je prázdná — nic k synchronizaci'); setTimeout(() => setSyncMsg(null), 3000); return; } setSyncing(true); const r = await syncQueue(); setSyncing(false); setSyncMsg(r.remaining === 0 ? `Synchronizováno ${r.ok} změn` : `OK ${r.ok}, selhalo ${r.failed}`); setTimeout(() => setSyncMsg(null), 4000); }} />
@@ -618,7 +618,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           <div className="flex items-center justify-between text-[10px] px-1">
             <button
               onClick={() => { setPage('app_settings'); setOpen(false); }}
-              className="text-neutral-400 hover:text-amber-800 font-bold transition"
+              className="text-neutral-400 hover:text-neutral-700 font-bold transition"
               title={`Verze v${APP_VERSION} (${APP_VERSION_DATE}) — klikněte pro nastavení`}
             >
               v{APP_VERSION}
@@ -639,9 +639,9 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
 
       <main className="flex-1 min-w-0 flex flex-col h-screen overflow-hidden bg-neutral-100 text-neutral-900">
         {/* Top Header - Desktop & Mobile */}
-        <header className="flex items-center justify-between px-2 sm:px-8 py-2 bg-white/95 backdrop-blur-md border-b border-amber-200/70 shadow-2xs z-20 gap-2 shrink-0">
+        <header className="flex items-center justify-between px-2 sm:px-8 py-2 bg-white/95 backdrop-blur-md border-b border-neutral-200 shadow-2xs z-20 gap-2 shrink-0">
           <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 shrink-0">
-            <span className="sm:hidden font-display font-black text-base text-amber-950 truncate">
+            <span className="sm:hidden font-display font-black text-base text-neutral-900 truncate">
               {NAV.find((n) => n.id === navPageFor(page))?.label ?? ''}
             </span>
           </div>
@@ -746,7 +746,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
         </div>
 
         {/* Mobile Bottom Navigation Dock — thumb-friendly bottom bar */}
-        <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-lg border-t border-amber-200/90 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-1 py-1.5 pb-safe flex items-center justify-around">
+        <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-lg border-t border-neutral-200 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-1 py-1.5 pb-safe flex items-center justify-around">
           <button
             onClick={() => setPage('orders')}
             className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all relative ${
