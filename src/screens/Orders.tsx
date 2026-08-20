@@ -1899,13 +1899,16 @@ export default function Orders({
         </div>
       )}
 
-      {/* Vyhledávání a filtry */}
+      {/* Vyhledávání a filtry — NENÍ sticky prvek obalený v malém wrapperu:
+          position:sticky drží prvek jen v rámci výšky SVÉHO rodiče, takže
+          záložky dnů a vyhledávání níže musí být přímými sourozenci ve
+          velkém kontejneru (celý seznam objednávek), ne v úzkém obalu jen
+          kolem sebe navzájem — jinak by "sticky" přestalo fungovat hned po
+          pár řádcích scrollování. */}
       {mode !== 'entry_only' && viewMode === 'detail' && ( // Render only in detail view
         <>
-        <div className="space-y-3 mb-4">
-          {/* Active Item Filter Display */}
           {(itemFilterBeerId || itemFilterPackageId || packageKindFilter !== 'all' || timeScope !== 'week' || searchText.trim()) && (
-            <div className="p-3.5 rounded-2xl bg-amber-100/90 border-2 border-amber-400 text-amber-800 text-xs font-bold shadow-xs flex flex-wrap items-center justify-between gap-3">
+            <div className="mb-3 p-3.5 rounded-2xl bg-amber-100/90 border-2 border-amber-400 text-amber-800 text-xs font-bold shadow-xs flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-base">🔎</span>
                 <span>
@@ -1962,7 +1965,7 @@ export default function Orders({
           )}
 
         {/* Delivery Day quick selector tabs — přilepené pod přepínačem období výše. */}
-        <div className="sticky top-[112px] z-20 bg-neutral-100 pt-1 flex items-center gap-1.5 overflow-x-auto scrollbar-thin pb-1">
+        <div className="sticky top-[112px] z-20 mb-4 bg-neutral-100 pt-1 flex items-center gap-1.5 overflow-x-auto scrollbar-thin pb-1">
           <button
             onClick={() => setDeliveryDayFilter('all')}
             className={`px-3.5 py-1.5 rounded-xl font-extrabold text-xs shrink-0 transition-all shadow-2xs ${
@@ -2054,7 +2057,6 @@ export default function Orders({
             <button className="btn-ghost !py-1.5 text-xs font-bold text-amber-900" onClick={() => { setSearchText(''); setStatusFilter(''); setDeliveryDayFilter('all'); setItemFilterBeerId(null); setItemFilterPackageId(null); }}>Zrušit filtr</button>
           )}
         </div>
-      </div>
 
       <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
         <label className="flex items-center gap-2 text-sm text-primary-700 cursor-pointer px-3 py-1.5 rounded-lg hover:bg-primary-50">
