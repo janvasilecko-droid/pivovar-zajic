@@ -623,7 +623,9 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Top Action Bar — přilepený nahoře, ať jde přepínat záložku i uprostřed scrollování. */}
+      {/* Top Action Bar — přilepený nahoře, ať jde přepínat záložku i uprostřed scrollování.
+          Export Excel a foto/hlas jsou schválně MIMO tuhle sticky listu (viz níže) - jinak by
+          na mobilu (kde se lišta zalamuje na víc řádků) nesedel top offset dalších sticky lišt pod ní. */}
       <div className="sticky top-0 z-20 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl sm:rounded-3xl border border-neutral-200/90 shadow-2xs">
         <div className="hidden sm:flex items-center justify-between gap-2">
           <span className="text-sm sm:text-base font-display font-black text-amber-950 flex items-center gap-1.5 shrink-0">
@@ -697,7 +699,10 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             </button>
           </div>
         )}
-          <div className="flex items-center gap-1.5 flex-wrap">
+      </div>
+
+      {/* Export Excel a foto/hlas — schválně NEUKOTVENO (viz komentář u sticky lišty výše). */}
+      <div className="flex items-center gap-1.5 flex-wrap">
           <div className="relative group">
 
             <button className="btn-ghost !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs" disabled={!rows.length}>📊 Export Excel ▾</button>
@@ -739,8 +744,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               <VoiceRecorder onResult={handleVoiceResult} beerNames={beers.map((b) => b.name)} />
             </>
           )}
-          </div>
-        </div>
+      </div>
 
       {/* Začátek stáčení — dokud není splněný checklist přípravy pracoviště pro
           zvolené datum, dlaždice pro zadávání se vůbec nezobrazí. Až po jeho
@@ -1360,30 +1364,28 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                   const isEditing = editingId === r.id;
                   return (
                     <div key={r.id} className="rounded-2xl border border-amber-300/80 bg-white p-3 space-y-2.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
-                          <span className="font-black text-sm text-amber-950 truncate">{r.beer_name ?? beer?.name ?? '—'}</span>
-                        </div>
+                      <div className="flex items-center gap-2">
                         <span className="shrink-0 font-mono font-bold text-xs text-amber-800">{formatDate(r.entry_date)}</span>
-                      </div>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-bold text-amber-700">{pkg ? `KEG ${vol}L` : '—'}</span>
-                        {isEditing ? (
-                          <div className="flex items-center gap-1.5">
-                            <input
-                              type="number" min="0" step="1" autoFocus
-                              className="input text-base font-black w-16 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                              value={editQty}
-                              onChange={(e) => setEditQty(e.target.value)}
-                              onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') { setEditingId(null); setEditQty(''); } }}
-                            />
-                            <button type="button" onClick={saveEdit} className="px-3 h-10 rounded-xl bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xs transition">✓</button>
-                            <button type="button" onClick={() => { setEditingId(null); setEditQty(''); }} className="px-3 h-10 rounded-xl bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-black text-xs transition">✕</button>
-                          </div>
-                        ) : (
-                          <span className="font-display font-black text-xl text-amber-950">{r.quantity} ks</span>
-                        )}
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
+                        <span className="font-black text-sm text-amber-950 truncate min-w-0">{r.beer_name ?? beer?.name ?? '—'}</span>
+                        <span className="shrink-0 text-xs font-bold text-amber-700">{pkg ? `KEG ${vol}L` : '—'}</span>
+                        <span className="ml-auto shrink-0">
+                          {isEditing ? (
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="number" min="0" step="1" autoFocus
+                                className="input text-base font-black w-16 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                value={editQty}
+                                onChange={(e) => setEditQty(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') { setEditingId(null); setEditQty(''); } }}
+                              />
+                              <button type="button" onClick={saveEdit} className="px-3 h-10 rounded-xl bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xs transition">✓</button>
+                              <button type="button" onClick={() => { setEditingId(null); setEditQty(''); }} className="px-3 h-10 rounded-xl bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-black text-xs transition">✕</button>
+                            </div>
+                          ) : (
+                            <span className="font-display font-black text-xl text-amber-950">{r.quantity} ks</span>
+                          )}
+                        </span>
                       </div>
                       <div className="grid grid-cols-2 gap-1.5 text-center">
                         <div className="rounded-lg bg-amber-100/70 py-1.5">
