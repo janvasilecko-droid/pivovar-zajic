@@ -1,7 +1,7 @@
 // Minimal offline-first service worker for the Minipivovar PWA.
 // Cache version is fetched from version.json at install time so that
 // every deploy automatically invalidates the old cache.
-// SW_VERSION: 1.511-debug — change this to force SW update in browser
+// SW_VERSION: 1.512 — change this to force SW update in browser
 const CACHE_PREFIX = 'pivovar-';
 const CACHE_META = `${CACHE_PREFIX}meta`;
 const CACHE_META_KEY = new URL('./__installed-cache__', self.registration.scope).href;
@@ -52,50 +52,32 @@ async function getInstalledCache() {
   return getCacheVersion();
 }
 
-async function broadcastDebug(msg) {
-  try {
-    const dbg = await caches.open('sw-debug-log');
-    const key = 'https://debug.local/' + Date.now() + '-' + Math.random();
-    await dbg.put(key, new Response(msg));
-  } catch {}
+// Nacachuje PRECACHE do dane cache — kazdy soubor zvlast (ne atomicky Cache.addAll),
+// at selhani/vynechani jednoho souboru (napr. kdyz instalaci prebije jiny,
+// souběžně registrovany service worker — časté při castych nasazenich)
+// nezablokuje ulozeni ostatnich. Idempotentni: uz existujici polozky se
+// jen tise přeskocí přes c.put (přepíší se, coz nevadí).
+async function ensurePrecached(c) {
+  await Promise.all(
+    PRECACHE.map(async (url) => {
+      try {
+        const res = await fetch(url, { cache: 'no-cache' });
+        if (res && res.ok) await c.put(url, res);
+      } catch {}
+    })
+  );
 }
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
     (async () => {
-      try {
-        await broadcastDebug('install:start');
-        const CACHE = await getCacheVersion();
-        await broadcastDebug('install:gotVersion:' + CACHE);
-        installedVersion = CACHE;
-        // Store the cache name so the activate handler can read it
-        self.__pivovarCache = CACHE;
-        const c = await caches.open(CACHE);
-        await broadcastDebug('install:opened cache');
-        // Cache.addAll je atomicke: kdyz jediny jeden fetch z PRECACHE selze
-        // (napr. docasny sitovy zaskuk), CELY install tise selze a offline
-        // shell se nikdy neulozi - appka pak po prvnim vypnuti netu neni k
-        // dispozici vubec ("nenacetla se"), i kdyz vsechno ostatni bezelo v
-        // poradku. Misto atomickeho addAll cachujeme kazdy soubor zvlast a
-        // selhani jednoho nezablokuje ulozeni ostatnich.
-        const results = await Promise.all(
-          PRECACHE.map(async (url) => {
-            try {
-              const res = await fetch(url, { cache: 'no-cache' });
-              if (res && res.ok) { await c.put(url, res); return url + ':ok'; }
-              return url + ':badstatus:' + (res && res.status);
-            } catch (err) {
-              return url + ':ERR:' + (err && err.message);
-            }
-          })
-        );
-        await broadcastDebug('install:precache results: ' + JSON.stringify(results));
-        await rememberInstalledCache(CACHE);
-        await broadcastDebug('install:remembered, done');
-      } catch (err) {
-        await broadcastDebug('install:FATAL: ' + (err && (err.stack || err.message || String(err))));
-        throw err;
-      }
+      const CACHE = await getCacheVersion();
+      installedVersion = CACHE;
+      // Store the cache name so the activate handler can read it
+      self.__pivovarCache = CACHE;
+      const c = await caches.open(CACHE);
+      await ensurePrecached(c);
+      await rememberInstalledCache(CACHE);
     })()
   );
 });
@@ -111,6 +93,14 @@ self.addEventListener('activate', (e) => {
           .filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE && key !== CACHE_META)
           .map((key) => caches.delete(key)),
       );
+      // Pojistka: pri souběžnem nasazeni/registraci vic service workeru
+      // najednou se muze stat, ze install() teto instance byl prerusen dřív,
+      // než stihl dopsat cely precache (viz komentář u ensurePrecached výše).
+      // Activate ma jistotu, ze uz je to TA aktivni instance, takže tady je
+      // bezpečné (a levné — c.put přeskočí uz existující shodne URL) precache
+      // znovu doplnit, pokud něco chybí.
+      const c = await caches.open(CACHE);
+      await ensurePrecached(c);
       const clients = await self.clients.matchAll();
       for (const client of clients) {
         client.postMessage({ type: 'SW_ACTIVATED', version: CACHE });
