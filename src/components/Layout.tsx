@@ -769,12 +769,12 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           <button
             onClick={() => setPage('kegging')}
             className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all ${
-              page === 'kegging'
+              navPageFor(page) === 'kegging'
                 ? 'text-amber-950 font-black scale-105 bg-amber-100/90 ring-1 ring-amber-300'
                 : 'text-neutral-500 hover:text-neutral-800 font-bold'
             }`}
           >
-            <Cylinder size={20} strokeWidth={page === 'kegging' ? 2.5 : 2} className={page === 'kegging' ? 'text-amber-700' : ''} />
+            <Cylinder size={20} strokeWidth={navPageFor(page) === 'kegging' ? 2.5 : 2} className={navPageFor(page) === 'kegging' ? 'text-amber-700' : ''} />
             <span className="text-[10px] mt-0.5 tracking-tight">KEG</span>
           </button>
 
@@ -793,12 +793,12 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           <button
             onClick={() => setPage('home')}
             className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all ${
-              page === 'home'
+              navPageFor(page) === 'home'
                 ? 'text-amber-950 font-black scale-105 bg-amber-100/90 ring-1 ring-amber-300'
                 : 'text-neutral-500 hover:text-neutral-800 font-bold'
             }`}
           >
-            <Home size={20} strokeWidth={page === 'home' ? 2.5 : 2} className={page === 'home' ? 'text-amber-700' : ''} />
+            <Home size={20} strokeWidth={navPageFor(page) === 'home' ? 2.5 : 2} className={navPageFor(page) === 'home' ? 'text-amber-700' : ''} />
             <span className="text-[10px] mt-0.5 tracking-tight">Domů</span>
           </button>
 
