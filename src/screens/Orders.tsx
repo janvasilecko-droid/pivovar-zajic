@@ -2230,7 +2230,7 @@ export default function Orders({
           onClose={() => setShowOrderAudit(false)}
           beers={beers}
           packages={packages}
-          selectedWeekKey={weekKey}
+          selectedWeekKey={weekRange(weekKey).start.toISOString().slice(0, 10)}
           onRefreshOrders={() => load(true)}
         />
       )}
