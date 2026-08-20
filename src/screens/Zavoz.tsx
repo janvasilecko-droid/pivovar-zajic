@@ -502,13 +502,13 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
             )}
           </div>
 
-          {/* Interactive Day Filter Tabs */}
-          <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin pb-2 pt-1">
+          {/* Interactive Day Filter Tabs — jediná ukotvená lišta v Zavozu (spolu s přepínačem Trasy/Co naložit níže). */}
+          <div className="sticky top-[52px] z-20 flex items-center gap-2 overflow-x-auto scrollbar-thin bg-neutral-100 pb-2 pt-1">
             <button
               onClick={() => setSelectedDayFilter('all')}
               className={`px-4 py-2.5 rounded-2xl font-black text-xs shrink-0 transition-all flex items-center gap-2 shadow-xs ${
                 selectedDayFilter === 'all'
-                  ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-300 scale-105'
+                  ? 'bg-white text-amber-900 ring-2 ring-amber-300 scale-105'
                   : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200/90'
               }`}
             >
@@ -526,7 +526,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                     onClick={() => setSelectedDayFilter(isSelected ? 'all' : d.v)}
                     className={`px-3.5 py-2 rounded-2xl font-black text-xs transition-all flex items-center gap-1.5 shadow-xs ${
                       isSelected
-                        ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-300 scale-105'
+                        ? 'bg-white text-amber-900 ring-2 ring-amber-300 scale-105'
                         : stats.count > 0
                         ? 'bg-white text-neutral-900 hover:bg-amber-50 border border-amber-200'
                         : 'bg-neutral-100 text-neutral-400 border border-neutral-200/60'
@@ -583,12 +583,12 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
             <EmptyState text="Žádné objednávky k závozu pro zvolený filtr." icon="🚚" />
           ) : (
             <>
-              {/* Mobile Tab Switcher */}
-              <div className="lg:hidden flex items-center p-1.5 rounded-2xl bg-neutral-900 text-white border border-white/10 shadow-md">
+              {/* Mobile Tab Switcher — ukotvený hned pod dnovým filtrem výše. */}
+              <div className="lg:hidden sticky top-[100px] z-20 flex items-center p-1.5 rounded-2xl bg-white border border-neutral-200 shadow-md">
                 <button
                   onClick={() => setMobileTab('routes')}
                   className={`flex-1 py-3 px-3 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 ${
-                    mobileTab === 'routes' ? 'bg-amber-500 text-slate-950 shadow-md scale-[1.02]' : 'text-neutral-400 hover:text-white'
+                    mobileTab === 'routes' ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300 scale-[1.02]' : 'text-neutral-500 hover:text-neutral-900'
                   }`}
                 >
                   <Truck size={16} />
@@ -598,7 +598,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                 <button
                   onClick={() => setMobileTab('loading')}
                   className={`flex-1 py-3 px-3 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 ${
-                    mobileTab === 'loading' ? 'bg-amber-500 text-slate-950 shadow-md scale-[1.02]' : 'text-neutral-400 hover:text-white'
+                    mobileTab === 'loading' ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300 scale-[1.02]' : 'text-neutral-500 hover:text-neutral-900'
                   }`}
                 >
                   <PackageIcon size={16} />

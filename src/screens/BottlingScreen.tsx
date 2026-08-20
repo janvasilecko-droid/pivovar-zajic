@@ -882,8 +882,20 @@ export default function BottlingScreen({
               beers={beers.filter((b) => b.is_active)}
               onSelect={openTile}
               summaryFor={(b) => {
-                const qty = tileQtyFor(b.id);
-                return { filled: qty > 0, label: qty > 0 ? `${qty} ks v zápisu` : '' };
+                const row = entryRows.find((r) => r.beerId === b.id);
+                if (!row) return { filled: false, label: '' };
+                const parts: string[] = [];
+                const addPart = (pkgId: string, qtyStr: string) => {
+                  const n = Number(qtyStr);
+                  if (!pkgId || !(n > 0)) return;
+                  const pkg = packages.find((p) => p.id === pkgId);
+                  if (pkg) parts.push(`${n}×${Math.round(Number(pkg.volume_l) * 100) / 100}`);
+                };
+                addPart(row.pkgId, row.qty);
+                addPart(row.pkg2Id, row.qty2);
+                addPart(row.pkg3Id, row.qty3);
+                addPart(row.kegPkgId, row.kegQty);
+                return { filled: parts.length > 0, label: parts.join(', ') };
               }}
             />
           </div>

@@ -18,9 +18,6 @@ type RowInput = { beerId: string; pkgId: string; qty: string; vycep: boolean; wh
 const emptyItem = (): RowInput => ({ beerId: '', pkgId: '', qty: '', vycep: false, who: '' });
 const emptyRows = (count: number): RowInput[] => Array.from({ length: count }, emptyItem);
 
-// Rychlé hodnoty počtu pro rozbalovací pole v Prodejně (6/10/12/20/24/40 ks)
-const QUICK_SHOP_QTY = [6, 10, 12, 20, 24, 40];
-
 export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovani_private', title = 'Prodejna — Fasování na prodejnu', icon = '🏪', showVycep = false }: { setPage?: (p: any, sec?: string) => void; mode?: 'entry_only' | 'overviews_only' | 'all'; table?: string; title?: string; icon?: string; showVycep?: boolean } = {}) {
   const [rows, setRows] = useState<EntryRow[]>([]);
   const [beers, setBeers] = useState<Beer[]>([]);
@@ -228,8 +225,8 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Top Action Bar — přilepený nahoře, ať jde přepínat záložku i uprostřed scrollování. */}
-      <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-3xl border border-neutral-200 shadow-2xs">
+      {/* Top Action Bar — bez ukotvení (žádný prvek na téhle obrazovce nezůstává přilepený). */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-3xl border border-neutral-200 shadow-2xs">
         <div className="flex items-center gap-2">
           <span className="text-sm font-display font-black text-amber-950 flex items-center gap-1.5">
             <span>{icon}</span>
@@ -321,8 +318,14 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
               onSelect={(b) => setExpandedProdejnaBeerId(b.id)}
               summaryFor={(b) => {
                 const beerRows = entryRows.filter((r) => r.beerId === b.id && Number(r.qty) > 0);
-                const total = beerRows.reduce((s, r) => s + Number(r.qty || 0), 0);
-                return { filled: total > 0, label: total > 0 ? `${total} ks` : '' };
+                const label = beerRows
+                  .map((r) => {
+                    const pkg = packages.find((p) => p.id === r.pkgId);
+                    return pkg ? `${r.qty}×${Math.round(Number(pkg.volume_l) * 100) / 100}` : null;
+                  })
+                  .filter(Boolean)
+                  .join(', ');
+                return { filled: beerRows.length > 0, label };
               }}
             />
           </div>
@@ -381,199 +384,26 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
             </BeerTilePanel>
           )}
 
-          {/* Mobilní karty — čitelné a ovladatelné bez vodorovného scrollování */}
-          <div className="grid grid-cols-1 gap-2.5 md:hidden">
-            {entryRows.map((r, i) => (
-              <div key={i} className="rounded-2xl border border-neutral-200 bg-white p-3 space-y-2">
-                {showWhoColumn && (
-                  <input
-                    type="text"
-                    className="input text-xs w-full"
-                    value={r.who ?? ''}
-                    onChange={(e) => setRowField(i, 'who', e.target.value)}
-                    placeholder={who || (table === 'writeoffs' ? 'Důvod odpisu' : 'Kdo / pro koho')}
-                  />
-                )}
-                <div className="grid grid-cols-2 gap-2">
-                  <select className="input text-xs" value={r.beerId} onChange={(e) => setRowField(i, 'beerId', e.target.value)}>
-                    <option value="">— pivo —</option>
-                    {beers.filter((b) => b.is_active).map((b) => (
-                      <option key={b.id} value={b.id}>{b.name}</option>
-                    ))}
-                  </select>
-                  <select className="input text-xs" value={r.pkgId} onChange={(e) => setRowField(i, 'pkgId', e.target.value)}>
-                    <option value="">— obal —</option>
-                    {shopPackages.map((p) => (
-                      <option key={p.id} value={p.id}>{p.volume_l} L</option>
-                    ))}
-                  </select>
-                </div>
-                {showVycep && (
-                  <label className="flex items-center gap-2 text-xs font-bold text-neutral-700">
-                    <input
-                      type="checkbox"
-                      checked={r.vycep}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-                        setRowField(i, 'vycep', checked);
-                        if (checked) { setTapModalRowIndex(i); setShowTapModal(true); }
-                      }}
-                      className="w-5 h-5 rounded text-amber-600 focus:ring-amber-500 accent-amber-500"
-                    />
-                    Výčep (rezervovat)
-                  </label>
-                )}
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    className="w-11 h-11 shrink-0 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-lg transition disabled:opacity-30"
-                    disabled={!r.qty || Number(r.qty) <= 0}
-                    onClick={() => setEntryRows((rs) => rs.map((x, j) => j === i ? { ...x, qty: String(Math.max(0, Number(x.qty) - 1)) } : x))}
-                  >−</button>
-                  <span className="flex-1 text-center text-base font-black bg-white border border-neutral-200 rounded-lg py-2.5">
-                    {Number(r.qty) > 0 ? r.qty : '0'}
-                  </span>
-                  <button
-                    type="button"
-                    className="w-11 h-11 shrink-0 grid place-items-center rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-lg transition"
-                    onClick={() => setEntryRows((rs) => rs.map((x, j) => j === i ? { ...x, qty: String(Number(x.qty || 0) + 1) } : x))}
-                  >+</button>
-                  <select
-                    className="h-11 shrink-0 rounded-lg bg-white border border-amber-300 text-emerald-950 font-bold text-xs px-1.5 cursor-pointer transition"
-                    value={QUICK_SHOP_QTY.includes(Number(r.qty)) ? Number(r.qty) : ''}
-                    onChange={(e) => { const v = e.target.value; if (v !== '') setEntryRows((rs) => rs.map((x, j) => j === i ? { ...x, qty: String(Number(v)) } : x)); }}
-                    title="Rychlé nastavení počtu"
-                  >
-                    <option value="" disabled>⚡</option>
-                    {QUICK_SHOP_QTY.map((q) => (<option key={q} value={q}>{q} ks</option>))}
-                  </select>
-                </div>
-                <div className="flex items-center gap-1.5 pt-1">
-                  <button type="button" className="flex-1 min-h-[44px] rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-black text-xs transition" onClick={add}>✓ Potvrdit / uložit vše</button>
-                  <button type="button" className="w-11 min-h-[44px] shrink-0 grid place-items-center rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-lg transition" onClick={() => setEntryRows((rs) => rs.map((x, j) => j === i ? emptyItem() : x))}>✕</button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Tabulka položek (desktop) */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="bg-neutral-100">
-                  {showWhoColumn && (
-                    <th className="text-left py-1.5 px-1 font-black text-neutral-700">{table === 'writeoffs' ? 'Důvod odpisu' : 'Kdo / Pro koho'}</th>
-                  )}
-                  <th className="text-left py-1.5 px-1 font-black text-neutral-700">Pivo</th>
-                  <th className="text-left py-1.5 px-1 font-black text-neutral-700">Obal</th>
-                  {showVycep && <th className="text-center py-1.5 px-1 font-black text-neutral-700">Výčep</th>}
-                  <th className="text-center py-1.5 px-1 font-black text-neutral-700">KS</th>
-                  <th className="w-24"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {entryRows.map((r, i) => {
-                  return (
-                    <tr key={i} className="border-b border-neutral-200/60">
-                      {showWhoColumn && (
-                        <td className="py-1 pr-0.5 w-[25%]">
-                          <input
-                            type="text"
-                            className="input text-[10px] w-full px-1.5 py-1"
-                            value={r.who ?? ''}
-                            onChange={(e) => setRowField(i, 'who', e.target.value)}
-                            placeholder={who || (table === 'writeoffs' ? 'Důvod odpisu' : 'Kdo / pro koho')}
-                          />
-                        </td>
-                      )}
-                      <td className="py-1 pr-0.5 w-[35%]">
-                        <select
-                          className="input text-[10px] w-full appearance-none pr-2"
-                          value={r.beerId}
-                          onChange={(e) => setRowField(i, 'beerId', e.target.value)}
-                        >
-                          <option value="">—</option>
-                          {beers.filter((b) => b.is_active).map((b) => (
-                            <option key={b.id} value={b.id}>{b.name}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="py-1 pr-0.5 w-[16%]">
-                        <select
-                          className="input text-[10px] w-full appearance-none pr-2"
-                          value={r.pkgId}
-                          onChange={(e) => setRowField(i, 'pkgId', e.target.value)}
-                        >
-                          <option value="">—</option>
-                          {shopPackages.map((p) => (
-                            <option key={p.id} value={p.id}>{p.volume_l} L</option>
-                          ))}
-                        </select>
-                      </td>
-                      {showVycep && (
-                        <td className="py-1 pr-0.5 text-center">
-                          <input
-                            type="checkbox"
-                            checked={r.vycep}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              setRowField(i, 'vycep', checked);
-                              if (checked) {
-                                setTapModalRowIndex(i);
-                                setShowTapModal(true);
-                              }
-                            }}
-                            className="w-5 h-5 rounded text-amber-600 focus:ring-amber-500 accent-amber-500"
-                            title="Rezervovat výčep"
-                          />
-                        </td>
-                      )}
-                      <td className="py-1 pr-0.5">
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            type="button"
-                            className="w-7 h-7 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-sm transition disabled:opacity-30"
-                            disabled={!r.qty || Number(r.qty) <= 0}
-                            onClick={() => setEntryRows((rs) => rs.map((x, j) => j === i ? { ...x, qty: String(Math.max(0, Number(x.qty) - 1)) } : x))}
-                          >−</button>
-                                                    <span className="w-16 min-w-[3.5rem] text-xs text-center font-bold bg-white border border-neutral-200 rounded-lg py-2">
-                            {Number(r.qty) > 0 ? r.qty : '0'}
-                          </span>
-                          <button
-                            type="button"
-                            className="w-7 h-7 grid place-items-center rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-sm transition"
-                            onClick={() => setEntryRows((rs) => rs.map((x, j) => j === i ? { ...x, qty: String(Number(x.qty || 0) + 1) } : x))}
-                          >+</button>
-                          <select
-                            className="h-6 rounded-lg bg-white border border-amber-300 text-emerald-950 font-bold text-[11px] px-1 cursor-pointer transition"
-                            value={QUICK_SHOP_QTY.includes(Number(r.qty)) ? Number(r.qty) : ''}
-                            onChange={(e) => { const v = e.target.value; if (v !== '') setEntryRows((rs) => rs.map((x, j) => j === i ? { ...x, qty: String(Number(v)) } : x)); }}
-                            title="Rychlé nastavení počtu (6/10/12/20/24/40)"
-                          >
-                            <option value="" disabled>+</option>
-                            {QUICK_SHOP_QTY.map((q) => (
-                              <option key={q} value={q}>{q} ks</option>
-                            ))}
-                          </select>
-                        </div>
-                      </td>
-                      <td className="py-1">
-                        <div className="flex items-center gap-1">
-                          <button type="button" className="w-7 h-7 grid place-items-center rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-bold text-sm transition" onClick={add} title="Potvrdit / uložit vše">✓</button>
-                          <button type="button" className="w-7 h-7 grid place-items-center rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-sm transition" onClick={() => setEntryRows((rs) => rs.map((x, j) => j === i ? emptyItem() : x))} title="Zrušit řádek">✕</button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Přidat další řádek */}
-          <div className="mt-3">
-            <button type="button" className="btn-ghost text-xs" onClick={() => setEntryRows([...entryRows, emptyItem()])}>➕ Přidat další řádek</button>
-          </div>
+          {/* Souhrn zapsaných položek — jen ke čtení, úprava se dělá kliknutím na dlaždici výše. */}
+          {entryRows.some((r) => r.pkgId && Number(r.qty) > 0) && (
+            <div className="rounded-2xl border border-neutral-200 bg-white p-3 space-y-1.5 mb-4">
+              <div className="text-[11px] font-black uppercase tracking-wider text-neutral-500 mb-1">Zapsáno</div>
+              {entryRows.filter((r) => r.pkgId && Number(r.qty) > 0).map((r, i) => {
+                const beer = beers.find((b) => b.id === r.beerId);
+                const pkg = packages.find((p) => p.id === r.pkgId);
+                return (
+                  <div key={i} className="flex items-center justify-between gap-2 text-xs font-bold text-neutral-800 py-1.5 border-b border-neutral-100 last:border-0">
+                    <span className="flex items-center gap-1.5 min-w-0">
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
+                      <span className="truncate">{beerName(beer)} {pkg ? `· ${formatPackageLabel(pkg.label)}` : ''}</span>
+                      {showWhoColumn && r.who && <span className="text-neutral-400 font-medium shrink-0">· {r.who}</span>}
+                    </span>
+                    <span className="font-black text-emerald-700 shrink-0">{r.qty} ks</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* Poznámka pod tabulkou */}
           <div className="mt-3">
