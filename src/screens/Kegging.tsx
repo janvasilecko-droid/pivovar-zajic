@@ -984,7 +984,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               <div className="card p-4 mb-5 border-2 border-emerald-300/80 bg-white">
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                   <h3 className="font-display font-black text-emerald-950 text-sm">🍺 Stočeno KEG za týden {weekKey}</h3>
-                  {weekBeers.length > 1 && (
+                  {weekBeers.length > 0 && (
                     <select
                       value={weekBeerFilter}
                       onChange={(e) => setWeekBeerFilter(e.target.value)}
