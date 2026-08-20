@@ -1,7 +1,7 @@
 // Minimal offline-first service worker for the Minipivovar PWA.
 // Cache version is fetched from version.json at install time so that
 // every deploy automatically invalidates the old cache.
-// SW_VERSION: 1.509 — change this to force SW update in browser
+// SW_VERSION: 1.510 — change this to force SW update in browser
 const CACHE_PREFIX = 'pivovar-';
 const CACHE_META = `${CACHE_PREFIX}meta`;
 const CACHE_META_KEY = new URL('./__installed-cache__', self.registration.scope).href;
@@ -60,9 +60,20 @@ self.addEventListener('install', (e) => {
       // Store the cache name so the activate handler can read it
       self.__pivovarCache = CACHE;
       const c = await caches.open(CACHE);
-      // Cache.addAll je atomické: selhání libovolného kritického souboru
-      // odmítne instalaci a stávající aktivní worker/cache zůstanou funkční.
-      await c.addAll(PRECACHE);
+      // Cache.addAll je atomicke: kdyz jediny jeden fetch z PRECACHE selze
+      // (napr. docasny sitovy zaskuk), CELY install tise selze a offline
+      // shell se nikdy neulozi - appka pak po prvnim vypnuti netu neni k
+      // dispozici vubec ("nenacetla se"), i kdyz vsechno ostatni bezelo v
+      // poradku. Misto atomickeho addAll cachujeme kazdy soubor zvlast a
+      // selhani jednoho nezablokuje ulozeni ostatnich.
+      await Promise.all(
+        PRECACHE.map(async (url) => {
+          try {
+            const res = await fetch(url, { cache: 'no-cache' });
+            if (res && res.ok) await c.put(url, res);
+          } catch {}
+        })
+      );
       await rememberInstalledCache(CACHE);
     })()
   );
