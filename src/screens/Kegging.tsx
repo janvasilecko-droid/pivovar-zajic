@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { supabase, Beer, Package, EntryRow, CellarTank, KegPrefuk, useRealtime, beerBg, beerText, beerName, pkgBg, pkgText, formatPackageLabel } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
-import { KeggingChecklistModal, isStartChecklistCompleteForKeg, isMonthlyChecklistCompleteForKeg } from '../components/KeggingChecklistModal';
+import { KeggingChecklistModal, KeggingChecklistBody, isStartChecklistCompleteForKeg, isMonthlyChecklistCompleteForKeg } from '../components/KeggingChecklistModal';
 import { autoLogKegSanitationFromChecklist, isLastWeekOfMonth } from '../lib/kegSanitation';
 import { EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
@@ -36,8 +36,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   const { profile } = useAuth();
   const isManager = profile?.role === 'admin' || (profile?.role as any) === 'sladek' || (profile?.role as any) === 'sef';
 
-  // Zápis / Přehled / Potřeba stočit KEGy / Přefuk KEG záložky
-  const [tab, setTab] = useState<'zapis' | 'prehled' | 'potreba' | 'prefuk'>((initialSubTab as any) || 'zapis');
+  // Zápis / Přehled / Potřeba stočit KEGy / Přefuk KEG / Checklist záložky
+  const [tab, setTab] = useState<'zapis' | 'prehled' | 'potreba' | 'prefuk' | 'checklist'>((initialSubTab as any) || 'zapis');
 
   // Sync ze subTab v historii (viz App.tsx) — jinak tlačítko Zpět z téhle
   // záložky nevrátí předchozí záložku, ale rovnou vyskočí do menu.
@@ -45,7 +45,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     setTab((initialSubTab as any) || 'zapis');
   }, [initialSubTab]);
 
-  function selectTab(t: 'zapis' | 'prehled' | 'potreba' | 'prefuk') {
+  function selectTab(t: 'zapis' | 'prehled' | 'potreba' | 'prefuk' | 'checklist') {
     if (setPage) setPage('kegging', undefined, t);
     else setTab(t);
   }
@@ -668,6 +668,16 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               <span>🔄 Přefuk KEG</span>
               {prefukRows.length > 0 && (
                 <span className="px-1.5 py-0.5 rounded-full bg-sky-200 text-sky-900 text-[10px] font-black">{prefukRows.length}</span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => selectTab('checklist')}
+              className={`px-3.5 py-2 rounded-lg text-xs font-black transition flex items-center gap-1.5 shrink-0 min-h-[38px] ${tab === 'checklist' ? 'bg-white text-emerald-700 shadow-xs ring-2 ring-emerald-300' : 'text-neutral-700 hover:bg-emerald-50'}`}
+            >
+              <span>📋 Checklist</span>
+              {isLastWeekOfMonth(new Date(date)) && !isMonthlyChecklistCompleteForKeg(date) && (
+                <span className="px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black animate-pulse">1</span>
               )}
             </button>
             <button
@@ -1934,6 +1944,18 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* TAB 5: CHECKLIST — celý checklist (začátek, konec, měsíční údržba) na jedné stránce k nahlédnutí */}
+      {(mode === 'all' && tab === 'checklist') && (
+        <div className="card p-4 sm:p-5">
+          <div className="text-sm font-display font-black text-amber-950 mb-4">📋 Checklist stáčení KEG — kompletní přehled</div>
+          <KeggingChecklistBody
+            dateStr={date}
+            phase="all"
+            isLastWeekOfMonth={isLastWeekOfMonth(new Date(date))}
+          />
         </div>
       )}
 

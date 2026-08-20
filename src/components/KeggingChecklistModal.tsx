@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Modal } from './ui';
 import { CheckSquare, Square, RotateCcw, Check, ShieldCheck, Lock, AlertTriangle } from 'lucide-react';
 
-export type ChecklistPhase = 'start' | 'end' | 'monthly';
+export type ChecklistPhase = 'start' | 'end' | 'monthly' | 'all';
 
 export type KegChecklistItem = {
   id: string;
@@ -74,7 +74,9 @@ export function getFilteredKegItems(phase: ChecklistPhase): KegChecklistItem[] {
     ? KEG_DEFAULT_ITEMS.filter((it) => it.category.startsWith(START_CATEGORY_PREFIX))
     : phase === 'monthly'
       ? KEG_DEFAULT_ITEMS.filter((it) => it.category.startsWith(MONTHLY_CATEGORY_PREFIX))
-      : KEG_DEFAULT_ITEMS.filter((it) => !it.category.startsWith(START_CATEGORY_PREFIX));
+      : phase === 'all'
+        ? KEG_DEFAULT_ITEMS
+        : KEG_DEFAULT_ITEMS.filter((it) => !it.category.startsWith(START_CATEGORY_PREFIX));
 }
 
 export function isStartChecklistCompleteForKeg(dateKey: string): boolean {
@@ -103,32 +105,36 @@ export function isMonthlyChecklistCompleteForKeg(dateKey: string): boolean {
   }
 }
 
-type Props = {
-  isOpen: boolean;
-  onClose: () => void;
+type BodyProps = {
   dateStr?: string;
   onApplyNote?: (noteText: string) => void;
+  onDone?: () => void;
   blockCloseUntilStartDone?: boolean;
   phase?: ChecklistPhase;
   initialCategory?: string;
   showSkip?: boolean;
+  /** Zvýrazní upozornění na měsíční údržbu i mimo phase='monthly' — nastavuje volající (isLastWeekOfMonth). */
+  isLastWeekOfMonth?: boolean;
 };
 
-export function KeggingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, blockCloseUntilStartDone, phase = 'start', initialCategory, showSkip }: Props) {
+/**
+ * Obsah checklistu (kategorie + položky + akce) bez modálního obalu —
+ * použitelný jak uvnitř Modal (viz KeggingChecklistModal níže), tak přímo
+ * vložený do stránky (záložka "Checklist" v Kegging.tsx pro souhrnný pohled).
+ */
+export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseUntilStartDone, phase = 'start', initialCategory, showSkip, isLastWeekOfMonth = false }: BodyProps) {
   const dateKey = dateStr || new Date().toISOString().slice(0, 10);
   const [checks, setChecks] = useState<Record<string, boolean | string>>({});
 
   useEffect(() => {
-    if (isOpen) {
-      try {
-        const raw = localStorage.getItem('keg_checklist_' + dateKey);
-        if (raw) setChecks(JSON.parse(raw));
-        else setChecks({});
-      } catch {
-        setChecks({});
-      }
+    try {
+      const raw = localStorage.getItem('keg_checklist_' + dateKey);
+      if (raw) setChecks(JSON.parse(raw));
+      else setChecks({});
+    } catch {
+      setChecks({});
     }
-  }, [isOpen, dateKey]);
+  }, [dateKey]);
 
   const items = getFilteredKegItems(phase);
 
@@ -168,24 +174,10 @@ export function KeggingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, b
     localStorage.removeItem('keg_checklist_' + dateKey);
   }
 
-  if (!isOpen) return null;
-
-  const effectiveOnClose = blockCloseUntilStartDone && !isOverallStartDone ? () => {} : onClose;
-
   return (
-    <Modal
-      open
-      onClose={effectiveOnClose}
-      title={phase === 'start'
-        ? '📋 Oficiální checklist stáčení KEGů — příprava pracoviště'
-        : phase === 'monthly'
-          ? '📋 Oficiální checklist stáčení KEGů — měsíční údržba'
-          : '📋 Oficiální checklist stáčení KEGů — konec stáčení (úklid)'}
-      wide
-    >
       <div className="space-y-4">
 
-        {phase === 'monthly' && (
+        {(phase === 'monthly' || (phase === 'all' && isLastWeekOfMonth)) && (
           <div className="p-3.5 rounded-2xl border-2 border-rose-300 bg-rose-50 text-rose-900 text-xs leading-relaxed flex items-start gap-3">
             <AlertTriangle size={18} className="shrink-0 text-rose-600 mt-0.5" />
             <div className="space-y-1">
@@ -342,7 +334,7 @@ export function KeggingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, b
                   });
                   setChecks(next);
                   localStorage.setItem('keg_checklist_' + dateKey, JSON.stringify(next));
-                  onClose();
+                  onDone?.();
                 }}
                 className="btn-ghost flex items-center justify-center gap-1 text-[10px] font-black text-rose-600 hover:bg-rose-50 border border-dashed border-rose-200 px-2.5 py-1.5 rounded-xl"
               >
@@ -357,7 +349,7 @@ export function KeggingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, b
                 <Lock size={13} className="shrink-0" />
                 <span>Splňte checklist pro pokračování</span>
               </div>
-            ) : (
+            ) : phase !== 'all' && onDone ? (
               <button
                 onClick={() => {
                   if (onApplyNote) {
@@ -375,16 +367,59 @@ export function KeggingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, b
                       .join(' | ');
                     onApplyNote(notes);
                   }
-                  onClose();
+                  onDone();
                 }}
                 className="btn-primary text-xs font-black shadow-md bg-amber-500 hover:bg-amber-600 border-none text-neutral-950"
               >
                 <span>{phase === 'start' ? 'Pokračovat na stáčení' : 'Ukončit a uložit'}</span>
               </button>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
+  );
+}
+
+type ModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  dateStr?: string;
+  onApplyNote?: (noteText: string) => void;
+  blockCloseUntilStartDone?: boolean;
+  phase?: ChecklistPhase;
+  initialCategory?: string;
+  showSkip?: boolean;
+};
+
+/** Modálni obal nad KeggingChecklistBody — použitý pro povinnou bránu před stáčením a rychlé otevření z lišty. */
+export function KeggingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, blockCloseUntilStartDone, phase = 'start', initialCategory, showSkip }: ModalProps) {
+  const dateKey = dateStr || new Date().toISOString().slice(0, 10);
+  const isOverallStartDone = isStartChecklistCompleteForKeg(dateKey);
+
+  if (!isOpen) return null;
+
+  const effectiveOnClose = blockCloseUntilStartDone && !isOverallStartDone ? () => {} : onClose;
+
+  return (
+    <Modal
+      open
+      onClose={effectiveOnClose}
+      title={phase === 'start'
+        ? '📋 Oficiální checklist stáčení KEGů — příprava pracoviště'
+        : phase === 'monthly'
+          ? '📋 Oficiální checklist stáčení KEGů — měsíční údržba'
+          : '📋 Oficiální checklist stáčení KEGů — konec stáčení (úklid)'}
+      wide
+    >
+      <KeggingChecklistBody
+        dateStr={dateStr}
+        onApplyNote={onApplyNote}
+        onDone={onClose}
+        blockCloseUntilStartDone={blockCloseUntilStartDone}
+        phase={phase}
+        initialCategory={initialCategory}
+        showSkip={showSkip}
+      />
     </Modal>
   );
 }
