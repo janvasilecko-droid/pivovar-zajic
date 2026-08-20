@@ -9,10 +9,16 @@ describe('service worker update policy', () => {
     source.indexOf("self.addEventListener('activate'"),
   );
 
-  it('does not skip waiting or swallow precache failures during install', () => {
-    expect(installHandler).toContain('await c.addAll(PRECACHE);');
+  // Cache.addAll je atomicke: kdyz jediny fetch z PRECACHE selze (napr.
+  // docasny sitovy zaskuk pri castych nasazenich), CELY install tise selze
+  // a offline shell se nikdy neulozi. Zivym testem na produkci overeno, ze
+  // se to skutecne delo. Zamerne proto misto atomickeho addAll cachujeme
+  // kazdy soubor zvlast (viz ensurePrecached v sw.js) - selhani jednoho
+  // souboru uz nezablokuje ulozeni ostatnich.
+  it('cachuje precache soubory jednotlive (ne atomickym addAll) a neskippuje waiting', () => {
+    expect(installHandler).toContain('ensurePrecached(c)');
+    expect(installHandler).not.toContain('await c.addAll(PRECACHE)');
     expect(installHandler).not.toContain('skipWaiting');
-    expect(installHandler).not.toMatch(/addAll\(PRECACHE\)\.catch/);
   });
 
   it('limits cache cleanup to the application prefix', () => {

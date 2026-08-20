@@ -677,12 +677,12 @@ function QuickActionsSection({ userId, options }: { userId: string; options: { i
         ))}
       </div>
 
-      {actions.length < 4 && (
+      {actions.length < 8 && (
         <button
           onClick={addAction}
           className="btn-ghost mt-3 text-sm font-black flex items-center gap-2"
         >
-          <Plus size={16} /> Přidat tlačítko ({actions.length}/4)
+          <Plus size={16} /> Přidat tlačítko ({actions.length}/8)
         </button>
       )}
 

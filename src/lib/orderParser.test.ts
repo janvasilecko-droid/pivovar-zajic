@@ -20,7 +20,10 @@ import type { Beer, Package, Place } from './supabase';
 
 const beers: Beer[] = [
   { id: 'b-desitka', name: 'Desítka', short_name: null, degree: '10°', color: 'světlé', beer_color: null, price_per_liter: null, is_active: true, sort_order: 1, created_at: '' },
-  { id: 'b-jantar', name: 'Jantar', short_name: 'Jant', degree: '13°', color: 'tmavé', beer_color: null, price_per_liter: null, is_active: true, sort_order: 2, created_at: '' },
+  { id: 'b-12sv', name: '12° Světlá', short_name: '12sv', degree: '12°', color: 'světlé', beer_color: null, price_per_liter: null, is_active: true, sort_order: 2, created_at: '' },
+  { id: 'b-12tm', name: '12° Tmavá', short_name: '12tm', degree: '12°', color: 'tmavé', beer_color: null, price_per_liter: null, is_active: true, sort_order: 3, created_at: '' },
+  { id: 'b-cyklo8', name: '8° Cykloosma', short_name: 'cyklo', degree: '8°', color: 'světlé', beer_color: null, price_per_liter: null, is_active: true, sort_order: 4, created_at: '' },
+  { id: 'b-jantar', name: 'Jantar', short_name: 'Jant', degree: '13°', color: 'tmavé', beer_color: null, price_per_liter: null, is_active: true, sort_order: 5, created_at: '' },
 ];
 
 const packages: Package[] = [
@@ -206,7 +209,8 @@ describe('matchBeerFromHints', () => {
   it('najde pivo podle stupně a barvy', () => {
     expect(matchBeerFromHints('10sv 3x30', beers, aliases()).beer?.id).toBe('b-desitka');
     expect(matchBeerFromHints('13 3x30', beers, aliases()).beer?.id).toBe('b-jantar');
-    expect(matchBeerFromHints('tmave', beers, aliases()).beer?.id).toBe('b-jantar');
+    expect(matchBeerFromHints('13 tmave', beers, aliases()).beer?.id).toBe('b-jantar');
+    expect(matchBeerFromHints('12 tmave', beers, aliases()).beer?.id).toBe('b-12tm');
   });
 
   it('rozpozná načtený alias (učený z předchozích importů)', () => {
@@ -248,6 +252,13 @@ describe('matchPackage', () => {
     expect(matchPackage('velka flasa 2x', packages, a)?.id).toBe('pet15');
   });
 
+  it('nikdy nezamění 10% za 10l sud', () => {
+    expect(matchPackage('1x 10%', packages, aliases())).toBeNull();
+    expect(matchPackage('10ka', packages, aliases())).toBeNull();
+    expect(matchPackage('10sv', packages, aliases())).toBeNull();
+    expect(matchPackage('10l', packages, aliases())?.id).toBe('keg10');
+  });
+
   it('vrátí null pro neznámý obal', () => {
     expect(matchPackage('neznama vec', packages, aliases())).toBeNull();
   });
@@ -260,6 +271,32 @@ describe('matchPackage', () => {
     // se slovem "keg"/"sud" v textu se pojistka nepoužije — bere se jako sud
     expect(matchPackage('keg 15', packages, aliases())?.id).toBe('keg15');
     expect(matchPackage('sud 15', packages, aliases())?.id).toBe('keg15');
+  });
+});
+
+describe('parseGeminiItems — BAR a TERASA výchozí KEG 50l a 10% desítka', () => {
+  it('správně nastaví KEG 50l pro BAR a TERASU u 10% i 12%', () => {
+    const items: GeminiItem[] = [
+      { raw_line: '1x 50 TM', quantity: 1, degree: '12°', beer_name: '12° Tmavá', package_label: 'KEG 50l', place_name: 'BAR' },
+      { raw_line: '1x 10 %', quantity: 1, degree: '10°', beer_name: '10° Desítka', package_label: 'KEG 50l', place_name: 'BAR' },
+      { raw_line: '2x 12 %', quantity: 2, degree: '12°', beer_name: '12° Světlá', package_label: 'KEG 50l', place_name: 'BAR' },
+      { raw_line: '2x 12 %', quantity: 2, degree: '12°', beer_name: '12° Světlá', package_label: 'KEG 50l', place_name: 'TERASA' },
+      { raw_line: '2x Cykl. vosma', quantity: 2, degree: '8°', beer_name: '8° Cykloosma', package_label: 'KEG 50l', place_name: 'TERASA' },
+    ];
+    const results = parseGeminiItems(items, beers, packages);
+    expect(results).toHaveLength(5);
+    expect(results[0].package_id).toBe('keg50');
+    expect(results[0].beer_id).toBe('b-12tm');
+    expect(results[1].package_id).toBe('keg50');
+    expect(results[1].beer_id).toBe('b-desitka');
+    expect(results[2].package_id).toBe('keg50');
+    expect(results[2].beer_id).toBe('b-12sv');
+    expect(results[2].quantity).toBe(2);
+    expect(results[3].package_id).toBe('keg50');
+    expect(results[3].beer_id).toBe('b-12sv');
+    expect(results[3].quantity).toBe(2);
+    expect(results[4].package_id).toBe('keg50');
+    expect(results[4].beer_id).toBe('b-cyklo8');
   });
 });
 

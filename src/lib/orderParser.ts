@@ -111,7 +111,7 @@ function volToPackage(volStr: string, packages: Package[], norm?: string): Packa
 
 // Rozšířené zkratky a vzory pro rozpoznávání piv
 const BEER_ALIASES: { pattern: RegExp; degree?: string; color?: string; namePart?: string }[] = [
-  { pattern: /\bvosm(a|u|e|y|icka|ička)?\b|\bosm(a|u|e|y|icka|ička)?\b|\bcyklo\s*osm(a|u)?\b|\bcykloosm(a|u)?\b|\bcyklo\b|\b8\s*°?\b|\b8st\b|\bosma\b|\bvosma\b/, degree: '8°' },
+  { pattern: /\bcykl\.?\s*vosm(a|u|e|y|icka|ička)?\b|\bcykl\.?\s*osm(a|u|e|y|icka|ička)?\b|\bvosm(a|u|e|y|icka|ička)?\b|\bosm(a|u|e|y|icka|ička)?\b|\bcyklo\s*osm(a|u)?\b|\bcykloosm(a|u)?\b|\bcyklo\b|\b8\s*°?\b|\b8st\b|\bosma\b|\bvosma\b/i, degree: '8°' },
   { pattern: /\bdesitk(a|u|e|y)?\b|\bdesit(k)?\b|\bdesitku\b|\b10\s*°?\b|\b10\s*st\b|\b10sv\b|\bsvetle\s*vcepni\b|\bvycepni\s*svetle\b|\bdesitka\b|\bvycep\b|\bvýčep\b|\bvycepni\b|\bvýčepní\b/, degree: '10°', color: 'světlé' },
   { pattern: /\b11\s*(sv|svet|svetl)\b|\b11sv\b|\bjedenact(k)?(a|u|y)?\b|\bjedenactku\b|\bjedenactka\b/, degree: '11°', color: 'světlé' },
   { pattern: /\b12\s*(sv|svet|swet|svetl|light)\b|\b12sv\b|\bdvanactk(a|u|e|y)?\b|\bdvanactka\b|\bsvetla 12\b|\bsvetly 12\b|\bsvetly\s*lezak\b|\blezak\s*svetly\b/i, degree: '12°', color: 'světlé' },
@@ -288,25 +288,27 @@ export function matchPackage(norm: string, packages: Package[], aliasMap: Parser
   }
 
   // 1. Check EXPLICIT VOLUME NUMBERS FIRST so "keg 50l" is never intercepted by "keg" alias for 30l
-  if (/\b50\s*l?\b|\bsud50\b|\bkeg50\b|\bvelky\s*sud\b|\bsud\s*50\b|\bkeg\s*50\b/i.test(norm)) {
+  // ⚠️ CRITICAL: 10, 11, 12, 13, 14, 8 are BEER DEGREES (10%, 10°, 10sv, 10ka, 10) when NOT followed by 'l' or 'litr' or preceded by keg/sud!
+  // NEVER treat bare "10" or "10%" or "10sv" as 10L keg!
+  if (/\b50\s*l\b|\b50\s*litr|\bsud50\b|\bkeg50\b|\bvelky\s*sud\b|\bsud\s*50\b|\bkeg\s*50\b|(?:\b|\d\s*x\s*)50\b(?!%|°|sv|tm)/i.test(norm)) {
     return packages.find((p) => Number(p.volume_l) === 50 || /50/i.test(p.label)) ?? null;
   }
-  if (/\b30\s*l?\b|\bsud30\b|\bkeg30\b|\bmaly\s*sud\b|\bsud\s*30\b|\bkeg\s*30\b/i.test(norm)) {
+  if (/\b30\s*l\b|\b30\s*litr|\bsud30\b|\bkeg30\b|\bmaly\s*sud\b|\bsud\s*30\b|\bkeg\s*30\b|(?:\b|\d\s*x\s*)30\b(?!%|°|sv|tm)/i.test(norm)) {
     return packages.find((p) => Number(p.volume_l) === 30 || /30/i.test(p.label)) ?? null;
   }
-  if (/\b20\s*l?\b|\bsud20\b|\bkeg20\b|\bsud\s*20\b|\bkeg\s*20\b/i.test(norm)) {
+  if (/\b20\s*l\b|\b20\s*litr|\bsud20\b|\bkeg20\b|\bsud\s*20\b|\bkeg\s*20\b|(?:\b|\d\s*x\s*)20\b(?!%|°|sv|tm|x)/i.test(norm)) {
     return packages.find((p) => Number(p.volume_l) === 20 || /20/i.test(p.label)) ?? null;
   }
-  if (/\b15\s*l?\b|\bsud15\b|\bkeg15\b|\bsud\s*15\b|\bkeg\s*15\b/i.test(norm)) {
+  if (/\b15\s*l\b|\b15\s*litr|\bsud15\b|\bkeg15\b|\bsud\s*15\b|\bkeg\s*15\b|(?:\b|\d\s*x\s*)15\b(?!%|°|sv|tm)/i.test(norm)) {
     return packages.find((p) => Number(p.volume_l) === 15 || /15/i.test(p.label)) ?? null;
   }
-  if (/\b10\s*l?\b|\bsud10\b|\bkeg10\b|\bsud\s*10\b|\bkeg\s*10\b/i.test(norm)) {
+  if ((/\b10\s*l\b|\b10\s*litr|\bsud10\b|\bkeg10\b|\bsud\s*10\b|\bkeg\s*10\b/i.test(norm)) && !/\b10\s*(%|°|sv|tm|ka|tka|desitk)/i.test(norm)) {
     return packages.find((p) => Number(p.volume_l) === 10 || /10/i.test(p.label)) ?? null;
   }
   if (/\b1[,.]5\s*l?\b|\bpetka\b/i.test(norm)) {
     return packages.find((p) => Number(p.volume_l) === 1.5 || /1[,.]5/i.test(p.label)) ?? null;
   }
-  if (/(?<!\d)\b1\s*l\b(?!\s*[,.]?\s*5)/i.test(norm)) {
+  if (/(?<!\d)\b1\s*l\b(?!\s*[,.]?\s*5)|\b1\s*litr\b/i.test(norm)) {
     return packages.find((p) => Number(p.volume_l) === 1.0 || /1\s*l/i.test(p.label)) ?? null;
   }
   if (/\b0[,.]33\s*l?\b|\btretinka\b|\btřetinka\b/i.test(norm)) {
@@ -335,7 +337,7 @@ export function matchPackage(norm: string, packages: Package[], aliasMap: Parser
     return packages.find((p) => Number(p.volume_l) === 0.5 || /0[,.]5|lahv/i.test(p.label)) ?? null;
   }
   if (/\bkeg\b|\bsud\b/i.test(norm)) {
-    return packages.find((p) => Number(p.volume_l) === 30 || /30/i.test(p.label)) ?? null;
+    return packages.find((p) => Number(p.volume_l) === 50 || /50/i.test(p.label)) ?? packages.find((p) => Number(p.volume_l) === 30 || /30/i.test(p.label)) ?? null;
   }
 
   return null;
@@ -942,11 +944,36 @@ export function parseGeminiItems(
       const volMatch = raw.match(/(\d+[.,]?\d*)\s*l?\b/);
       if (volMatch) pkg = volToPackage(volMatch[1], packages, rawNorm);
     }
-    // 🧠 VÝČEP / "sv l" / "tm l" BEZ OBJEMU → výchozí KEG 30l.
+    // 🧠 RESTAURACE, TERASA, BAR, HOSPODA: Pokud není v raw textu explicitně uveden jiný obal (30l/20l/15l/pet/lahev),
+    // všechny sudy a položky jsou VŽDY 50L (KEG 50l)! 10% je 10° pivo v 50l sudu, 12% je 12° pivo v 50l sudu!
+    const isRestauraceOrTerasa = /\b(restaurace|terasa|bar|hospoda)\b/i.test(
+      (item.place_name || '') + ' ' + (lastPlaceName || '') + ' ' + (item.raw_line || '') + ' ' + (raw || '')
+    );
+    if (isRestauraceOrTerasa) {
+      const rawHasExplicitOther =
+        /\b30\s*l\b|\b30\s*litr|\bsud\s*30\b|\bkeg\s*30\b|\b\d{1,2}\s*x\s*30\b(?![%°])/i.test(raw) ||
+        /\b20\s*l\b|\b20\s*litr|\bsud\s*20\b|\bkeg\s*20\b|\b\d{1,2}\s*x\s*20\b(?![%°])/i.test(raw) ||
+        /\b15\s*l\b|\b15\s*litr|\bsud\s*15\b|\bkeg\s*15\b/i.test(raw) ||
+        /\b10\s*l\b|\b10\s*litr|\bsud\s*10\b|\bkeg\s*10\b/i.test(raw) ||
+        /\bpet\b|\b1[.,]5\s*l\b/i.test(raw) ||
+        /\blahv\b|\bsklo\b|\b0[.,](5|33)\b/i.test(raw);
+
+      if (!rawHasExplicitOther) {
+        const keg50 = packages.find((p) => Number(p.volume_l) === 50 || /50/i.test(p.label));
+        if (keg50) {
+          pkg = keg50;
+          item.package_label = keg50.label;
+        }
+      }
+    }
+
+    // 🧠 VÝČEP / "sv l" / "tm l" BEZ OBJEMU → výchozí KEG 30l (pokud to není restaurace/terasa).
     // Pokud text zmiňuje pivo (světlé/tmavé/výčep) s "l" (litr/sud) nebo jen
     // "vycep", ale bez konkrétního objemu, použij výchozí KEG 30l.
     if (!pkg && (/\bsv\s*l\b|\bsvetl[ée]\s*l\b|\btm\s*l\b|\btmav[ée]\s*l\b|\bvycep\b|\bvýčep\b|\bvycepni\b|\bvýčepní\b/i.test(raw))) {
-      pkg = volToPackage('30', packages, rawNorm);
+      pkg = isRestauraceOrTerasa
+        ? (packages.find((p) => Number(p.volume_l) === 50 || /50/i.test(p.label)) ?? volToPackage('30', packages, rawNorm))
+        : volToPackage('30', packages, rawNorm);
     }
 
     // 🧠 „2x50“ BEZ OBALU/MNOŽSTVÍ OD AI — POSLEDNÍ ZÁCHRANA:
