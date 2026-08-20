@@ -1969,7 +1969,7 @@ export default function Orders({
             onClick={() => setDeliveryDayFilter('all')}
             className={`px-3.5 py-1.5 rounded-xl font-extrabold text-xs shrink-0 transition-all shadow-2xs ${
               deliveryDayFilter === 'all'
-                ? 'bg-amber-600 text-white shadow-xs'
+                ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300'
                 : 'bg-white text-neutral-800 hover:bg-neutral-100 border border-neutral-200'
             }`}
           >
@@ -1984,7 +1984,7 @@ export default function Orders({
                 onClick={() => setDeliveryDayFilter(d.v)}
                 className={`px-3 py-1.5 rounded-xl font-black text-xs shrink-0 transition-all flex items-center gap-1.5 shadow-2xs ${
                   deliveryDayFilter === d.v
-                    ? 'bg-amber-600 text-white ring-2 ring-amber-400'
+                    ? 'bg-white text-amber-900 ring-2 ring-amber-400'
                     : hasOrders
                     ? 'bg-amber-100/90 text-amber-800 border-2 border-amber-400/80 hover:bg-amber-200'
                     : 'bg-white text-neutral-900 border border-neutral-200 hover:bg-neutral-100'
@@ -1992,7 +1992,7 @@ export default function Orders({
               >
                 <span>{d.label}</span>
                 {hasOrders && (
-                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${deliveryDayFilter === d.v ? 'bg-white/20 text-white' : 'bg-black/10 text-black'}`}>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${deliveryDayFilter === d.v ? 'bg-amber-100 text-amber-900' : 'bg-black/10 text-black'}`}>
                     {count}
                   </span>
                 )}
