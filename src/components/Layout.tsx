@@ -3,7 +3,7 @@ import {
   FilePlus, ClipboardList, Wine, Cylinder, Sparkles, TrendingDown, Store, FileText,
   ClipboardCheck, BarChart3, History as HistoryIcon, Snowflake,
   CalendarDays, Car, Tag, ShieldCheck, PlusCircle, Settings, Calculator,
-  LogOut, Menu, Download, Wheat, FlaskConical, Shield, Bell, BellOff, X, ArrowRight, Search, Smartphone, MessageCircle, Users, GlassWater, Home, type LucideIcon,
+  LogOut, Menu, Download, Wheat, FlaskConical, Shield, Bell, BellOff, X, ArrowRight, Search, Smartphone, MessageCircle, Users, GlassWater, Home, BottleWine, type LucideIcon,
 } from 'lucide-react';
 
 import { useAuth } from '../lib/auth';
@@ -47,7 +47,7 @@ export const NAV: NavItem[] = [
   // --- NÁSTROJE ---
   { id: 'concentration', label: 'Kalkulačky', icon: FlaskConical, group: 'Nástroje' },
   { id: 'calendar', label: 'Kalendář & Upozornění', icon: CalendarDays, group: 'Nástroje' },
-  { id: 'haccp', label: 'Sanitační postupy', icon: Shield, group: 'Nástroje' },
+  { id: 'haccp', label: 'Sanitační deníky', icon: Shield, group: 'Nástroje' },
   { id: 'vehicles', label: 'Auta', icon: Car, group: 'Nástroje' },
 
   // --- ČÍSELNÍKY ---
@@ -786,7 +786,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                 : 'text-neutral-500 hover:text-neutral-800 font-bold'
             }`}
           >
-            <Wine size={20} strokeWidth={navPageFor(page) === 'bottling' ? 2.5 : 2} className={navPageFor(page) === 'bottling' ? 'text-amber-700' : ''} />
+            <BottleWine size={20} strokeWidth={navPageFor(page) === 'bottling' ? 2.5 : 2} className={navPageFor(page) === 'bottling' ? 'text-amber-700' : ''} />
             <span className="text-[10px] mt-0.5 tracking-tight">Lahve</span>
           </button>
 

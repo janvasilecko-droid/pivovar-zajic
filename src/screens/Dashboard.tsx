@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
-import { supabase, Beer, Package, Vehicle, useRealtime, beerBorder } from '../lib/supabase';
+import { supabase, Beer, Package, useRealtime, beerBorder } from '../lib/supabase';
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { useAuth } from '../lib/auth';
-import { getVehicleExpiryStatus } from './Catalogs';
 import { AlertTriangle, ClipboardList, PackageCheck, Layers, Beer as BeerIcon, BarChart3, Sparkles, Calculator } from 'lucide-react';
 import { AnnouncementManagerModal } from '../components/AnnouncementManagerModal';
 import SkloPromoScreen from './SkloPromoScreen';
@@ -299,32 +298,6 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
 
   const statusOf = (s: StockStat) => s.remaining < 0 ? 'deficit' : s.stockTotal === 0 ? 'empty' : s.remaining <= 10 ? 'low' : 'ok';
 
-  const canSeeVehicleAlerts = profile?.role === 'admin' || !!profile?.receive_vehicle_alerts;
-
-  const [vehicleAlerts, setVehicleAlerts] = useState<{ vehicleName: string; label: string; status: 'warning' | 'expired' }[]>([]);
-  useEffect(() => {
-    if (!canSeeVehicleAlerts) {
-      setVehicleAlerts([]);
-      return;
-    }
-
-    supabase.from('vehicles').select('*').then(({ data }) => {
-      const rows = (data as Vehicle[]) ?? [];
-      const alerts: { vehicleName: string; label: string; status: 'warning' | 'expired' }[] = [];
-      rows.forEach((v) => {
-        const stk = getVehicleExpiryStatus(v.stk_valid_until);
-        if (stk.status === 'warning' || stk.status === 'expired') {
-          alerts.push({ vehicleName: v.name, label: `STK: ${stk.label}`, status: stk.status });
-        }
-        const toll = getVehicleExpiryStatus(v.highway_toll_valid_until);
-        if (toll.status === 'warning' || toll.status === 'expired') {
-          alerts.push({ vehicleName: v.name, label: `Dálniční známka: ${toll.label}`, status: toll.status });
-        }
-      });
-      setVehicleAlerts(alerts);
-    });
-  }, [canSeeVehicleAlerts]);
-
   const [showAnnouncementManager, setShowAnnouncementManager] = useState(false);
 
   const [materialAlerts, setMaterialAlerts] = useState<{ name: string; type: 'etiketa' | 'lahev'; balance: number }[]>([]);
@@ -453,37 +426,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
         </div>
       )}
 
-      {/* Vehicle STK / Highway Toll Warning Banner */}
-      {vehicleAlerts.length > 0 && (
-        <div className="mb-6 p-4 rounded-3xl bg-gradient-to-r from-amber-500/20 via-amber-400/10 to-rose-500/10 border-2 border-amber-400 shadow-md flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center text-2xl font-black shadow-md shrink-0">
-              🚗
-            </div>
-            <div>
-              <div className="font-extrabold text-sm text-neutral-900 flex items-center gap-2">
-                <span>Upozornění vozového parku (STK / Dálniční známky)</span>
-                <span className="px-2.5 py-0.5 rounded-full bg-amber-500 text-slate-950 font-black text-xs">{vehicleAlerts.length} Upozornění</span>
-              </div>
-              <div className="flex flex-wrap gap-2 mt-1.5">
-                {vehicleAlerts.map((a, i) => (
-                  <span key={i} className={`text-xs font-bold px-3 py-1 rounded-xl shadow-xs ${a.status === 'expired' ? 'bg-rose-600 text-white font-black animate-pulse' : 'bg-amber-100 text-amber-950 border border-amber-300'}`}>
-                    <strong>{a.vehicleName}</strong> — {a.label}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setPage && setPage('vehicles')}
-            className="px-4 py-2.5 rounded-2xl bg-neutral-900 text-amber-300 font-extrabold text-xs shadow-md hover:bg-slate-800 transition shrink-0"
-          >
-            Přejít do evidence aut →
-          </button>
-        </div>
-      )}
-
+      {/* Upozornění na STK/dálniční známku se přesunulo na domovskou obrazovku (HomeScreen.tsx). */}
 
 
       <div className="card p-4 mb-6 shadow-sm border-neutral-200/80 bg-white space-y-3">
