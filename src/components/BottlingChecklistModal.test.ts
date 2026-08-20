@@ -194,12 +194,12 @@ describe('isMonthlyChecklistCompleteForDate a fáze „monthly" (okno s měsíč
     expect(monthIds.length).toBeGreaterThan(0);
   });
 
-  it('obsahuje novou položku o proplachu cest louhem do nejbližšího stáčení', () => {
+  it('obsahuje položku o přehození hadic na naražeči a projetí cesty ke stáčečkám na CO2', () => {
     const item = DEFAULT_ITEMS.find((it) => it.id === 'month_11');
     expect(item?.category).toBe(MONTHLY_CATEGORY);
-    expect(item?.text).toContain('veškeré cesty, včetně odtokové na pivo');
-    expect(item?.text).toContain('nevyčerpat louh ze sudu všechen');
-    expect(item?.text).toContain('nechat do nejbližšího stáčení na stáčečky na louhu');
+    expect(item?.text).toContain('Přehodit hadice na naražeči');
+    expect(item?.text).toContain('program na CO2');
+    expect(item?.text).toContain('nevyčerpat všechen louh ze sudu');
   });
 
   it('není splněno, když není uloženo nic', () => {

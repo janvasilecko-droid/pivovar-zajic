@@ -988,7 +988,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
             return (
               <div className="card p-4 mb-5 border-2 border-emerald-300/80 bg-white">
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <div className="sticky top-[66px] z-10 flex flex-wrap items-center justify-between gap-2 mb-3 bg-white py-1.5 -mx-4 px-4 rounded-t-2xl">
                   <h3 className="font-display font-black text-emerald-950 text-sm">🍺 Stočeno KEG za týden {weekKey}</h3>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {weekBeers.length > 0 && (
