@@ -271,14 +271,14 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
         <button
           type="button"
           onClick={() => setTab('zapis')}
-          className={`px-4 py-1.5 rounded-xl text-xs font-black transition ${tab === 'zapis' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-600 hover:bg-amber-50'}`}
+          className={`px-4 py-1.5 rounded-xl text-xs font-black transition ${tab === 'zapis' ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'text-neutral-600 hover:bg-amber-50'}`}
         >
           ✍️ Zápis
         </button>
         <button
           type="button"
           onClick={() => setTab('prehled')}
-          className={`px-4 py-1.5 rounded-xl text-xs font-black transition ${tab === 'prehled' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-600 hover:bg-amber-50'}`}
+          className={`px-4 py-1.5 rounded-xl text-xs font-black transition ${tab === 'prehled' ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'text-neutral-600 hover:bg-amber-50'}`}
         >
           📊 Přehled
         </button>
@@ -583,7 +583,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
 
           <div className="flex items-center justify-between mt-4">
             <div className="flex items-center gap-2">
-              <button type="submit" disabled={saving} className="btn-primary text-xs font-black shadow-md">
+              <button type="submit" disabled={saving} className="btn-primary !from-emerald-600 !to-emerald-700 hover:!from-emerald-500 hover:!to-emerald-600 !shadow-emerald-600/30 text-xs font-black shadow-md">
                 {saving ? '⏳ Ukládám…' : '💾 Uložit fasování'}
               </button>
               <button type="button" className="btn-ghost text-xs" onClick={() => setEntryRows(emptyRows(table === 'fasovani' ? FASOVANI_ROW_COUNT : ROW_COUNT))}>🗑️ Vymazat vše</button>

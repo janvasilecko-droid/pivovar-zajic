@@ -233,7 +233,7 @@ export function WeeklyOrderSummaryCard({
             onClick={() => { setFilterMode('all'); setSelectedVolume('all'); }}
             className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition ${
               filterMode === 'all' && selectedVolume === 'all'
-                ? 'bg-amber-500 text-white shadow-sm'
+                ? 'bg-white text-amber-900 shadow-sm ring-2 ring-amber-300'
                 : 'bg-white hover:bg-amber-50 text-neutral-700 border border-neutral-200'
             }`}
           >
@@ -244,7 +244,7 @@ export function WeeklyOrderSummaryCard({
             onClick={() => setFilterMode('remaining')}
             className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition ${
               filterMode === 'remaining' && selectedVolume === 'all'
-                ? 'bg-rose-600 text-white shadow-sm'
+                ? 'bg-white text-rose-700 shadow-sm ring-2 ring-rose-300'
                 : 'bg-white hover:bg-rose-50 text-neutral-700 border border-neutral-200'
             }`}
           >
@@ -261,7 +261,7 @@ export function WeeklyOrderSummaryCard({
               onClick={() => setSelectedVolume(selectedVolume === vol ? 'all' : vol)}
               className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
                 selectedVolume === vol
-                  ? 'bg-amber-500 text-white font-black shadow-xs'
+                  ? 'bg-white text-amber-900 font-black shadow-xs ring-2 ring-amber-300'
                   : 'bg-white hover:bg-neutral-100 text-neutral-700 border border-neutral-200'
               }`}
             >
@@ -273,14 +273,14 @@ export function WeeklyOrderSummaryCard({
         <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-neutral-200 shadow-xs">
           <button
             onClick={() => setViewMode('grid')}
-            className={`p-1.5 rounded-lg text-xs font-bold transition ${viewMode === 'grid' ? 'bg-amber-500 text-white shadow-xs' : 'text-neutral-600 hover:text-neutral-900'}`}
+            className={`p-1.5 rounded-lg text-xs font-bold transition ${viewMode === 'grid' ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'text-neutral-600 hover:text-neutral-900'}`}
             title="Karty / Mřížka"
           >
             <LayoutGrid size={15} />
           </button>
           <button
             onClick={() => setViewMode('table')}
-            className={`p-1.5 rounded-lg text-xs font-bold transition ${viewMode === 'table' ? 'bg-amber-500 text-slate-950' : 'text-neutral-400 hover:text-white'}`}
+            className={`p-1.5 rounded-lg text-xs font-bold transition ${viewMode === 'table' ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'text-neutral-400 hover:text-neutral-700'}`}
             title="Tabulka"
           >
             <ListFilter size={15} />

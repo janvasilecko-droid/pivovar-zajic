@@ -1596,8 +1596,8 @@ export default function Orders({
                           key={q}
                           type="button"
                           onClick={() => setPkgAbsolute(expandedBeer.id, p.id, q)}
-                          title="Nejčastější hodnota minulý měsíc"
-                          className={`h-9 min-w-[1.75rem] px-1.5 rounded-lg text-[11px] font-black transition ${qty === q ? 'bg-amber-500 text-white' : 'bg-neutral-100 hover:bg-amber-200 text-neutral-600 hover:text-amber-950'}`}
+                          title="Rychlá volba množství"
+                          className={`h-9 min-w-[1.75rem] px-1.5 rounded-lg text-[11px] font-black transition ${qty === q ? 'bg-emerald-500 text-white' : 'bg-neutral-100 hover:bg-emerald-200 text-neutral-600 hover:text-emerald-950'}`}
                         >
                           {q}
                         </button>

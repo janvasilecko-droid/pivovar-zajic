@@ -120,7 +120,7 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
                 type="button"
                 onClick={() => setDays(d)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-black transition ${
-                  days === d ? 'bg-amber-500 text-white shadow-xs' : 'bg-neutral-100 text-neutral-700 hover:bg-amber-50'
+                  days === d ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'bg-neutral-100 text-neutral-700 hover:bg-amber-50'
                 }`}
               >
                 {d} dní

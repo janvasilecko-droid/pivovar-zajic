@@ -37,7 +37,7 @@ export function VisualCellarMap({ tanks, beers, onSelectTank }: VisualCellarMapP
             type="button"
             onClick={() => setFilter('all')}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition ${
-              filter === 'all' ? 'bg-amber-500 text-white shadow-xs' : 'bg-neutral-100 text-neutral-700 hover:bg-amber-50'
+              filter === 'all' ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'bg-neutral-100 text-neutral-700 hover:bg-amber-50'
             }`}
           >
             Všechny tanky ({tanks.length})
@@ -46,7 +46,7 @@ export function VisualCellarMap({ tanks, beers, onSelectTank }: VisualCellarMapP
             type="button"
             onClick={() => setFilter('spilka')}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition ${
-              filter === 'spilka' ? 'bg-amber-500 text-white shadow-xs' : 'bg-neutral-100 text-neutral-700 hover:bg-amber-50'
+              filter === 'spilka' ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'bg-neutral-100 text-neutral-700 hover:bg-amber-50'
             }`}
           >
             🏭 Spilka (CKT)
@@ -55,7 +55,7 @@ export function VisualCellarMap({ tanks, beers, onSelectTank }: VisualCellarMapP
             type="button"
             onClick={() => setFilter('lezak')}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition ${
-              filter === 'lezak' ? 'bg-amber-500 text-white shadow-xs' : 'bg-neutral-100 text-neutral-700 hover:bg-amber-50'
+              filter === 'lezak' ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'bg-neutral-100 text-neutral-700 hover:bg-amber-50'
             }`}
           >
             🍺 Ležácké tanky
