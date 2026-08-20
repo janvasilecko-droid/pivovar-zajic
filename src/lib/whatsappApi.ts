@@ -362,7 +362,7 @@ export function subscribeToWhatsAppMessages(
   callback: (message: WhatsAppIncoming) => void
 ): () => void {
   const channel = supabase
-    .channel('whatsapp_incoming_changes')
+    .channel(`whatsapp_incoming_changes-${Math.random().toString(36).slice(2)}`)
     .on(
       'postgres_changes',
       {
