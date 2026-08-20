@@ -10,19 +10,17 @@ type BeerTileGridProps = {
   beers: Beer[];
   onSelect: (beer: Beer) => void;
   summaryFor: (beer: Beer) => TileSummary;
-  emptyHint?: string;
-  /** Skryje odznak stupně (12°/11°…) — v Objednávkách je zbytečný, důležité
+  /** Skryje stupeň (12°/11°…) před názvem — v Objednávkách je zbytečný, důležité
       je vidět rozpis množství podle obalů, ne stupeň piva. */
   hideDegree?: boolean;
 };
 
 /**
  * Dvousloupcová mřížka dlaždic piv — sdílený vzhled pro Objednávky, Stáčení
- * (lahve i KEG) a Fasování/Prodejnu. Vyplněná dlaždice dostane zelený rámeček
- * a odznak ✓, aby šlo na první pohled (bez čtení drobného textu) poznat, co
- * už je v zápisu.
+ * (lahve i KEG) a Fasování/Prodejnu. Vyplněná dlaždice dostane světle zelené
+ * pozadí (žádný druhý rámeček navíc) a pod názvem konkrétní rozpis množství.
  */
-export function BeerTileGrid({ beers, onSelect, summaryFor, emptyHint = 'klepni pro obaly', hideDegree = false }: BeerTileGridProps) {
+export function BeerTileGrid({ beers, onSelect, summaryFor, hideDegree = false }: BeerTileGridProps) {
   return (
     <div className="grid grid-cols-2 gap-2.5">
       {beers.map((b) => {
@@ -32,25 +30,17 @@ export function BeerTileGrid({ beers, onSelect, summaryFor, emptyHint = 'klepni 
             key={b.id}
             type="button"
             onClick={() => onSelect(b)}
-            className={`relative text-left bg-white rounded-2xl shadow-sm p-3 min-h-[76px] transition-all hover:brightness-[0.97] active:scale-[0.98] flex flex-col gap-1.5 border-2 ${
-              filled ? 'ring-2 ring-success-500 ring-offset-1 ring-offset-white' : ''
+            className={`text-left rounded-2xl shadow-sm p-3 min-h-[64px] transition-all hover:brightness-[0.97] active:scale-[0.98] flex flex-col gap-1 border-2 ${
+              filled ? 'bg-emerald-50' : 'bg-white'
             }`}
             style={{ borderColor: beerBorder(b) }}
           >
-            {filled && (
-              <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-success-600 text-white text-xs font-black grid place-items-center shadow-md">
-                ✓
-              </span>
-            )}
-            <span className="font-black text-sm leading-tight text-neutral-900">{beerName(b)}</span>
-            {!hideDegree && b.degree && (
-              <span className="self-start text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600">
-                {b.degree}
-              </span>
-            )}
-            <span className={`mt-auto text-[11px] font-bold ${filled ? 'text-neutral-800' : 'text-neutral-400'}`}>
-              {filled ? label : emptyHint}
+            <span className="font-black text-sm leading-tight text-neutral-900">
+              {!hideDegree && b.degree ? `${b.degree} ` : ''}{beerName(b)}
             </span>
+            {filled && (
+              <span className="text-[11px] font-bold text-emerald-800">{label}</span>
+            )}
           </button>
         );
       })}

@@ -806,8 +806,14 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               onSelect={(b) => setExpandedKegBeerId(b.id)}
               summaryFor={(b) => {
                 const beerRows = entryRows.filter((r) => r.beerId === b.id && Number(r.qty) > 0);
-                const total = beerRows.reduce((s, r) => s + Number(r.qty || 0), 0);
-                return { filled: total > 0, label: total > 0 ? `${total} ks` : '' };
+                const label = beerRows
+                  .map((r) => {
+                    const pkg = packages.find((p) => p.id === r.pkgId);
+                    return pkg ? `${r.qty}×${Math.round(Number(pkg.volume_l))}` : null;
+                  })
+                  .filter(Boolean)
+                  .join(', ');
+                return { filled: beerRows.length > 0, label };
               }}
             />
           </div>
