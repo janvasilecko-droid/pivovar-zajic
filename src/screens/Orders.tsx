@@ -13,6 +13,7 @@ import { WhatsAppIncomingModal } from '../components/WhatsAppIncomingModal';
 import { WhatsAppOrderReviewModal } from '../components/WhatsAppOrderReviewModal';
 import { WhatsAppAutoProcessorModal } from '../components/WhatsAppAutoProcessorModal';
 import { WhatsAppAuditModal } from '../components/WhatsAppAuditModal';
+import { OrderAuditModal } from '../components/OrderAuditModal';
 import { EditOrderModal } from '../components/EditOrderModal';
 import { PlaceCombobox } from '../components/PlaceCombobox'; // Assuming this is needed
 import { DAYS } from '../lib/shared';
@@ -243,7 +244,8 @@ export default function Orders({
   const [showWhatsAppIncoming, setShowWhatsAppIncoming] = useState(false);
   const [showWhatsAppAutoProcessor, setShowWhatsAppAutoProcessor] = useState(false);
   const [showWhatsAppAudit, setShowWhatsAppAudit] = useState(false);
-  
+  const [showOrderAudit, setShowOrderAudit] = useState(false);
+
   // Automatické zobrazování nových WhatsApp objednávek
   const [autoWhatsAppModal, setAutoWhatsAppModal] = useState(false);
   const [autoWhatsAppMessage, setAutoWhatsAppMessage] = useState<WhatsAppIncoming | null>(null);
@@ -1419,6 +1421,7 @@ export default function Orders({
             </button>
             <button className="btn-ghost !bg-[#25D366] !border-[#25D366] !text-white font-black text-xs shadow-xs flex items-center gap-1.5 hover:!bg-[#1da851]" title="WhatsApp — hromadné zpracování příchozích zpráv" onClick={() => setShowWhatsAppAutoProcessor(true)}><MessageCircle size={14} /> WhatsApp</button>
             <button className="btn-ghost !bg-white border-neutral-300 text-neutral-700 font-extrabold text-xs shadow-xs flex items-center gap-1.5" title="Kontrola — zobrazí VŠECHNY WhatsApp zprávy za období, i chybové a ignorované, ať nic nezmizí bez povšimnutí" onClick={() => setShowWhatsAppAudit(true)}><ShieldAlert size={14} /> Kontrola zpráv</button>
+            <button className="btn-ghost !bg-white border-neutral-300 text-neutral-700 font-extrabold text-xs shadow-xs flex items-center gap-1.5" title="Audit objednávek — najde duplicitní položky, nesrovnalosti proti WhatsAppu a nezpracované zprávy" onClick={() => setShowOrderAudit(true)}><ShieldAlert size={14} /> Audit objednávek</button>
             <button className="btn-ghost !bg-white border-amber-300 text-amber-800 font-extrabold text-xs shadow-xs flex items-center gap-1.5" title="Načíst z fotky/e-mailu" onClick={() => { setImportTarget(null); setShowImport(true); }}><Camera size={14} /> Fotka/AI</button>
             {mode !== 'entry_only' && (
               <>
@@ -2218,6 +2221,17 @@ export default function Orders({
             setAutoWhatsAppMessage(message);
             setAutoWhatsAppModal(true);
           }}
+        />
+      )}
+
+      {showOrderAudit && (
+        <OrderAuditModal
+          isOpen={showOrderAudit}
+          onClose={() => setShowOrderAudit(false)}
+          beers={beers}
+          packages={packages}
+          selectedWeekKey={weekKey}
+          onRefreshOrders={() => load(true)}
         />
       )}
 
