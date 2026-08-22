@@ -2,9 +2,10 @@
 // Mimo edit mód je to prostý navigační button; v edit módu navíc nabízí
 // přesun (pointer eventy — funguje myší i prstem, na rozdíl od nativního
 // HTML5 drag & drop, co na dotykových displejích vůbec nefunguje),
-// cyklování velikosti a přebarvení.
+// cyklování velikosti a přebarvení (přednastavené barvy nebo libovolná
+// vlastní přes nativní color picker).
 import type { NavItem } from './Layout';
-import { TILE_COLORS, COLOR_HEX, type TileOverride, type TileSize, type TileColor } from '../lib/homeLayout';
+import { TILE_COLORS, COLOR_HEX, hexToRgba, type TileOverride, type TileSize } from '../lib/homeLayout';
 
 function sizeClass(size: TileSize): string {
   if (size === 'w2') return 'w2';
@@ -15,26 +16,31 @@ function sizeClass(size: TileSize): string {
 }
 
 export default function LauncherTile({
-  item, override, editing, badge, onClick, onDragPointerDown, dragOver, isDragging, onCycleSize, onRecolor,
+  item, override, editing, badge, tileOpacity, onClick, onDragPointerDown, dragOver, isDragging, onCycleSize, onRecolor,
 }: {
   item: NavItem;
   override: TileOverride;
   editing: boolean;
   badge?: string | number;
+  tileOpacity: number;
   onClick: () => void;
   onDragPointerDown: (e: React.PointerEvent) => void;
   dragOver: boolean;
   isDragging: boolean;
   onCycleSize: () => void;
-  onRecolor: (c: TileColor) => void;
+  onRecolor: (c: string) => void;
 }) {
   const Icon = item.icon;
   const color = override.color ?? 'coral';
   const size = override.size ?? 'n';
+  // Přednastavená barva → CSS třída .c-<jméno> (viz HomeScreen.css); vlastní
+  // barva z color pickeru (hex, není v seznamu jmen) → inline styl.
+  const isPreset = (TILE_COLORS as string[]).includes(color);
 
   return (
     <div
-      className={`hs-tile c-${color} ${sizeClass(size)} ${editing ? 'hs-editing' : ''} ${dragOver ? 'hs-drag-over' : ''} ${isDragging ? 'hs-dragging' : ''}`}
+      className={`hs-tile ${isPreset ? `c-${color}` : ''} ${sizeClass(size)} ${editing ? 'hs-editing' : ''} ${dragOver ? 'hs-drag-over' : ''} ${isDragging ? 'hs-dragging' : ''}`}
+      style={isPreset ? undefined : { background: hexToRgba(color, tileOpacity) }}
       data-tile-id={item.id}
       onPointerDown={editing ? onDragPointerDown : undefined}
       onClick={editing ? undefined : onClick}
@@ -66,6 +72,13 @@ export default function LauncherTile({
                 onClick={() => onRecolor(c)}
               />
             ))}
+            <label className="hs-swatch hs-swatch-custom" title="Vlastní barva" style={{ background: isPreset ? undefined : color }}>
+              <input
+                type="color"
+                value={isPreset ? '#ffffff' : color}
+                onChange={(e) => onRecolor(e.target.value)}
+              />
+            </label>
           </div>
         </div>
       )}

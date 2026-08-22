@@ -18,7 +18,7 @@ import { fetchPendingWhatsAppCount } from '../lib/whatsappApi';
 import { getVehicleExpiryStatus } from './Catalogs';
 import {
   getHomeLayout, saveHomeLayout, TILE_SIZES, SCENES, MIN_OPACITY, MAX_OPACITY,
-  type HomeLayout, type TileColor,
+  type HomeLayout,
 } from '../lib/homeLayout';
 import './HomeScreen.css';
 
@@ -68,11 +68,11 @@ const PAGE_TO_MODULE: Record<string, ModuleKey> = {
 type VehicleAlert = { vehicleName: string; label: string; status: 'warning' | 'expired' };
 
 const SCENE_LABELS: Record<string, string> = {
-  warm: 'Teplá', sunset: 'Západ', ocean: 'Oceán', forest: 'Les', night: 'Noc',
+  warm: 'Teplá', sunset: 'Západ', ocean: 'Oceán', forest: 'Les', night: 'Noc', custom: 'Vlastní',
 };
 
 export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) {
-  const { profile, user } = useAuth();
+  const { profile, user, patchProfile } = useAuth();
   const isAdmin = profile?.role === 'admin' || isAdminEmail(user?.email);
   const userPerms = getUserPermissions(user?.id ?? '', (profile as any)?.permissions);
 
@@ -111,6 +111,11 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
   function persist(next: HomeLayout) {
     setLayout(next);
     setHasCustomLayout(true);
+    // Okamžitě (bez čekání na uložení) promítnout do profilu v AuthContext —
+    // Layout.tsx čte scénu pozadí ze stejného profilu, takže bez tohohle by
+    // se barva pozadí v hlavičce/liště změnila až po znovunačtení profilu
+    // (typicky až příštím přihlášením), ne hned po výběru.
+    patchProfile({ home_layout: next as any });
     if (!user?.id) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => { saveHomeLayout(user.id, next); }, 500);
@@ -170,11 +175,14 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
     const next = TILE_SIZES[(TILE_SIZES.indexOf(current) + 1) % TILE_SIZES.length];
     persist({ ...layout, overrides: { ...layout.overrides, [id]: { ...layout.overrides[id], size: next } } });
   }
-  function handleRecolor(id: Page, color: TileColor) {
+  function handleRecolor(id: Page, color: string) {
     persist({ ...layout, overrides: { ...layout.overrides, [id]: { ...layout.overrides[id], color } } });
   }
   function handleSceneChange(scene: HomeLayout['scene']) {
     persist({ ...layout, scene });
+  }
+  function handleCustomAccentChange(hex: string) {
+    persist({ ...layout, scene: 'custom', customAccent: hex });
   }
   function handleOpacityChange(tileOpacity: number) {
     persist({ ...layout, tileOpacity });
@@ -183,6 +191,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
     const next = getHomeLayout(null, visibleIds);
     setLayout(next);
     setHasCustomLayout(false);
+    patchProfile({ home_layout: {} as any });
     if (user?.id) saveHomeLayout(user.id, {} as any);
   }
 
@@ -297,7 +306,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
           <div className="hs-controls">
             <div className="hs-controls-group">
               <span className="hs-controls-label">Pozadí</span>
-              {SCENES.map((s) => (
+              {SCENES.filter((s) => s !== 'custom').map((s) => (
                 <button
                   key={s}
                   className={`hs-scene-swatch ${s} ${s === layout.scene ? 'active' : ''}`}
@@ -305,6 +314,13 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                   onClick={() => handleSceneChange(s)}
                 />
               ))}
+              <label className="hs-bg-custom" title="Vlastní barva pozadí">
+                <input
+                  type="color"
+                  value={layout.customAccent}
+                  onChange={(e) => handleCustomAccentChange(e.target.value)}
+                />
+              </label>
             </div>
             <div className="hs-controls-group">
               <span className="hs-controls-label">Průhlednost</span>
@@ -346,6 +362,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                 override={layout.overrides[id] ?? {}}
                 editing={editMode}
                 badge={badge}
+                tileOpacity={layout.tileOpacity}
                 onClick={() => setPage(id)}
                 onDragPointerDown={(e) => { e.preventDefault(); startDrag(id); }}
                 dragOver={dragOverId === id}

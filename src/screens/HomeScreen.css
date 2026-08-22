@@ -65,18 +65,28 @@
 .hs-fullscreen-scene[data-scene="night"] .b4 { background: var(--hs-plum); }
 .hs-fullscreen-scene[data-scene="night"] i { opacity: 0.22; }
 
+/* Vlastní barva pozadí — --hs-custom nastavuje inline Layout.tsx podle
+   home_layout.customAccent. Všechny 4 "bubliny" mají stejný odstín, různé
+   velikosti/pozice/průhlednost jim i tak dají trochu hloubky. */
+.hs-fullscreen-scene[data-scene="custom"] .b1,
+.hs-fullscreen-scene[data-scene="custom"] .b2,
+.hs-fullscreen-scene[data-scene="custom"] .b3,
+.hs-fullscreen-scene[data-scene="custom"] .b4 { background: var(--hs-custom, #ff6b6b); }
+
 /* Hlavička a spodní lišta na domovské stránce — poloprůhledné/skleněné
    (glass), ať skrz ně prosvítá scéna z .hs-fullscreen-scene, místo plné
    bílé, co scénu úplně zakrývala. */
 [data-home-chrome] {
-  background: rgba(255,255,255,0.55) !important;
+  background: rgba(255,255,255,0.18) !important;
   -webkit-backdrop-filter: blur(16px) saturate(160%);
   backdrop-filter: blur(16px) saturate(160%);
 }
 
-/* Spodní navigační dlaždice (mobilní dock) na domovské stránce */
+/* Spodní navigační dlaždice (mobilní dock) na domovské stránce — stejné
+   zaoblení jako dlaždice v mřížce (.hs-tile), ať to nepůsobí jako dva
+   různé styly vedle sebe. */
 .hs-nav-tile {
-  border-radius: 12px !important;
+  border-radius: 4px !important;
   color: #fff !important;
 }
 .hs-nav-tile svg { stroke: #fff; }
@@ -192,3 +202,15 @@
 .hs-swatches { display: flex; gap: 3px; flex-wrap: wrap; }
 .hs-swatch { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.8); cursor: pointer; padding: 0; }
 .hs-swatch.active { border-color: #2b2438; box-shadow: 0 0 0 2px rgba(255,255,255,0.9); }
+/* Poslední "tečka" v řadě je nativní color picker (vlastní barva) — vypadá
+   jako duhový puntík, dokud si uživatel nevybere konkrétní odstín. */
+.hs-swatch-custom {
+  display: block; position: relative; overflow: hidden;
+  background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red);
+}
+.hs-swatch-custom input[type="color"] {
+  position: absolute; inset: -4px; width: 20px; height: 20px; opacity: 0; cursor: pointer; border: none; padding: 0;
+}
+.hs-bg-custom input[type="color"] {
+  width: 26px; height: 26px; border-radius: 50%; border: 2px solid rgba(43,36,56,0.2); cursor: pointer; padding: 0; background: none;
+}

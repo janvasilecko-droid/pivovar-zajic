@@ -110,6 +110,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   const isHome = page === 'home';
   const homeSceneRaw = (profile as any)?.home_layout?.scene;
   const homeScene: Scene = SCENES.includes(homeSceneRaw) ? homeSceneRaw : 'warm';
+  const homeCustomAccent: string = (profile as any)?.home_layout?.customAccent || '#ff6b6b';
   const [open, setOpen] = useState(false);
   const [densityState, setDensityState] = useState<DensityMode>(getDensity());
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
@@ -675,7 +676,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
 
       <main className={`flex-1 min-w-0 flex flex-col h-screen overflow-hidden text-neutral-900 ${isHome ? '' : 'bg-neutral-100'}`}>
         {isHome && (
-          <div className="hs-fullscreen-scene" data-scene={homeScene}>
+          <div className="hs-fullscreen-scene" data-scene={homeScene} style={{ ['--hs-custom' as any]: homeCustomAccent }}>
             <i className="b1" /><i className="b2" /><i className="b3" /><i className="b4" />
           </div>
         )}
@@ -708,7 +709,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
               </button>
             )}
 
-            {newOrdersCount > 0 && (
+            {!isHome && newOrdersCount > 0 && (
               <button
                 type="button"
                 onClick={() => setPage('orders')}

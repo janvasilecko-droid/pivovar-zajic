@@ -42,4 +42,9 @@ describe('getHomeLayout', () => {
     const layout = getHomeLayout({ scene: 'neexistujici' }, [A]);
     expect(layout.scene).toBe('warm');
   });
+
+  it('přijme platný vlastní hex jako customAccent, neplatný nahradí výchozím', () => {
+    expect(getHomeLayout({ customAccent: '#00ff00' }, [A]).customAccent).toBe('#00ff00');
+    expect(getHomeLayout({ customAccent: 'nesmysl' }, [A]).customAccent).toBe('#ff6b6b');
+  });
 });

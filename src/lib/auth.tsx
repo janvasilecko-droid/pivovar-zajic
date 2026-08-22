@@ -12,6 +12,10 @@ type AuthCtx = {
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   reloadProfile: () => Promise<void>;
+  /** Okamžitá lokální (optimistická) úprava profilu bez čekání na round-trip
+   * na server — např. launcher po uložení home_layout, ať se hned promítne
+   * i do Layout.tsx (hlavička/scéna pozadí), který čte tentýž profile. */
+  patchProfile: (patch: Partial<Profile>) => void;
 };
 
 const Ctx = createContext<AuthCtx>({} as AuthCtx);
@@ -96,8 +100,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = () => supabase.auth.signOut().then(() => { setProfile(null); });
 
+  const patchProfile = (patch: Partial<Profile>) => {
+    setProfile((prev) => (prev ? { ...prev, ...patch } : prev));
+  };
+
   return (
-    <Ctx.Provider value={{ session, user: session?.user ?? null, profile, loading, signIn, signOut, reloadProfile }}>
+    <Ctx.Provider value={{ session, user: session?.user ?? null, profile, loading, signIn, signOut, reloadProfile, patchProfile }}>
       {children}
     </Ctx.Provider>
   );

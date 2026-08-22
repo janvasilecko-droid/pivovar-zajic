@@ -8,24 +8,40 @@ export type TileSize = 'n' | 'w2' | 'h2' | 'w2h2' | 'sm';
 export type TileColor =
   | 'coral' | 'amber2' | 'citrus' | 'mint' | 'sky' | 'indigo' | 'orchid' | 'forest' | 'plum'
   | 'rose' | 'teal' | 'lime' | 'slate' | 'gold' | 'crimson';
-export type Scene = 'warm' | 'sunset' | 'ocean' | 'forest' | 'night';
+export type Scene = 'warm' | 'sunset' | 'ocean' | 'forest' | 'night' | 'custom';
 
-export type TileOverride = { size?: TileSize; color?: TileColor };
+// Barva dlaždice může být buď jméno přednastaveného odstínu (TileColor), nebo
+// libovolný hex ("#rrggbb") z vlastního výběru barvy — proto plain string.
+export type TileOverride = { size?: TileSize; color?: string };
 
 export type HomeLayout = {
   order: Page[];
   overrides: Partial<Record<Page, TileOverride>>;
   scene: Scene;
+  /** Vlastní barva pozadí (hex), použije se jen když scene === 'custom'. */
+  customAccent: string;
   /** Průhlednost skleněných dlaždic (viz MIN/MAX_OPACITY) — jako "Full Screen Picture" efekt na WP */
   tileOpacity: number;
 };
+
+/** Převede "#rrggbb" (nebo "#rgb") na "rgba(r, g, b, alpha)". Neplatný vstup spadne na šedou. */
+export function hexToRgba(hex: string, alpha: number): string {
+  const h = (hex || '').replace('#', '');
+  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+  const r = parseInt(full.slice(0, 2), 16);
+  const g = parseInt(full.slice(2, 4), 16);
+  const b = parseInt(full.slice(4, 6), 16);
+  if ([r, g, b].some((n) => Number.isNaN(n))) return `rgba(120,120,120,${alpha})`;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
 
 export const TILE_SIZES: TileSize[] = ['n', 'w2', 'h2', 'w2h2', 'sm'];
 export const TILE_COLORS: TileColor[] = [
   'coral', 'amber2', 'citrus', 'mint', 'sky', 'indigo', 'orchid', 'forest', 'plum',
   'rose', 'teal', 'lime', 'slate', 'gold', 'crimson',
 ];
-export const SCENES: Scene[] = ['warm', 'sunset', 'ocean', 'forest', 'night'];
+export const SCENES: Scene[] = ['warm', 'sunset', 'ocean', 'forest', 'night', 'custom'];
+const DEFAULT_CUSTOM_ACCENT = '#ff6b6b';
 
 // Plné (neprůhledné) odstíny pro barevné tečky ve výběru — samotná dlaždice
 // pak stejnou barvu použije poloprůhledně (viz HomeScreen.css .hs-tile.c-*).
@@ -98,8 +114,11 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[]): HomeLayout {
   const scene: Scene = SCENES.includes(saved.scene as Scene) ? (saved.scene as Scene) : DEFAULT_SCENE;
   const rawOpacity = typeof saved.tileOpacity === 'number' ? saved.tileOpacity : DEFAULT_OPACITY;
   const tileOpacity = Math.min(MAX_OPACITY, Math.max(MIN_OPACITY, rawOpacity));
+  const customAccent = typeof saved.customAccent === 'string' && /^#[0-9a-fA-F]{3,6}$/.test(saved.customAccent)
+    ? saved.customAccent
+    : DEFAULT_CUSTOM_ACCENT;
 
-  return { order, overrides: filledOverrides, scene, tileOpacity };
+  return { order, overrides: filledOverrides, scene, tileOpacity, customAccent };
 }
 
 export async function saveHomeLayout(userId: string, layout: HomeLayout): Promise<void> {
