@@ -6,7 +6,8 @@ import type { Page } from '../components/Layout';
 
 export type TileSize = 'n' | 'w2' | 'h2' | 'w2h2' | 'sm';
 export type TileColor =
-  | 'coral' | 'amber2' | 'citrus' | 'mint' | 'sky' | 'indigo' | 'orchid' | 'forest' | 'plum';
+  | 'coral' | 'amber2' | 'citrus' | 'mint' | 'sky' | 'indigo' | 'orchid' | 'forest' | 'plum'
+  | 'rose' | 'teal' | 'lime' | 'slate' | 'gold' | 'crimson';
 export type Scene = 'warm' | 'sunset' | 'ocean' | 'forest' | 'night';
 
 export type TileOverride = { size?: TileSize; color?: TileColor };
@@ -15,12 +16,15 @@ export type HomeLayout = {
   order: Page[];
   overrides: Partial<Record<Page, TileOverride>>;
   scene: Scene;
-  /** Průhlednost skleněných dlaždic 0.2–0.7 (jako "Full Screen Picture" efekt na WP) */
+  /** Průhlednost skleněných dlaždic (viz MIN/MAX_OPACITY) — jako "Full Screen Picture" efekt na WP */
   tileOpacity: number;
 };
 
 export const TILE_SIZES: TileSize[] = ['n', 'w2', 'h2', 'w2h2', 'sm'];
-export const TILE_COLORS: TileColor[] = ['coral', 'amber2', 'citrus', 'mint', 'sky', 'indigo', 'orchid', 'forest', 'plum'];
+export const TILE_COLORS: TileColor[] = [
+  'coral', 'amber2', 'citrus', 'mint', 'sky', 'indigo', 'orchid', 'forest', 'plum',
+  'rose', 'teal', 'lime', 'slate', 'gold', 'crimson',
+];
 export const SCENES: Scene[] = ['warm', 'sunset', 'ocean', 'forest', 'night'];
 
 // Plné (neprůhledné) odstíny pro barevné tečky ve výběru — samotná dlaždice
@@ -28,12 +32,25 @@ export const SCENES: Scene[] = ['warm', 'sunset', 'ocean', 'forest', 'night'];
 export const COLOR_HEX: Record<TileColor, string> = {
   coral: '#ff6b6b', amber2: '#ffa94d', citrus: '#ffd43b', mint: '#38d9a9',
   sky: '#4dabf7', indigo: '#7c5cff', orchid: '#e066b0', forest: '#2f9e64', plum: '#6a3fa0',
+  rose: '#f5487f', teal: '#0ca5b0', lime: '#82c91e', slate: '#495464', gold: '#d4a017', crimson: '#c1121f',
+};
+
+// Výchozí velikost pro pár dlaždic, aby mřížka hned po zapnutí launcheru
+// ukázala rozmanitost velikostí (ne samé stejné čtverce) — uživatel si to
+// pak stejně může v edit módu přeskládat/zvětšit/zmenšit podle sebe.
+const DEFAULT_SIZE: Partial<Record<Page, TileSize>> = {
+  orders: 'w2',
+  kegging: 'h2',
+  dashboard: 'w2',
+  app_settings: 'sm',
+  users: 'sm',
+  calendar: 'sm',
 };
 
 const DEFAULT_SCENE: Scene = 'warm';
-const DEFAULT_OPACITY = 0.42;
-export const MIN_OPACITY = 0.2;
-export const MAX_OPACITY = 0.7;
+const DEFAULT_OPACITY = 0.62;
+export const MIN_OPACITY = 0.3;
+export const MAX_OPACITY = 0.9;
 
 // Odvození výchozí barvy dlaždice ze starého ITEM_COLOR schématu (HomeScreen.tsx),
 // aby appka po zapnutí launcheru vypadala stejně, dokud si uživatel barvu sám
@@ -72,12 +89,10 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[]): HomeLayout {
   const filledOverrides: Partial<Record<Page, TileOverride>> = {};
   order.forEach((id) => {
     const existing = overrides[id];
-    if (existing?.color) {
-      filledOverrides[id] = existing;
-    } else {
-      filledOverrides[id] = { ...existing, color: defaultColorFor(id, fallbackIdx) };
-      fallbackIdx += 1;
-    }
+    const color = existing?.color ?? defaultColorFor(id, fallbackIdx);
+    if (!existing?.color) fallbackIdx += 1;
+    const size = existing?.size ?? DEFAULT_SIZE[id];
+    filledOverrides[id] = { ...(size ? { size } : {}), color };
   });
 
   const scene: Scene = SCENES.includes(saved.scene as Scene) ? (saved.scene as Scene) : DEFAULT_SCENE;

@@ -190,7 +190,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4 min-h-full">
       {showVehicleBanner && (
         <div className="p-4 rounded-3xl bg-white border-2 border-amber-300 shadow-md space-y-3">
           <div className="flex items-center gap-3">

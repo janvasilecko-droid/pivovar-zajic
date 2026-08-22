@@ -11,7 +11,7 @@ describe('getHomeLayout', () => {
     const layout = getHomeLayout(null, [A, B, C]);
     expect(layout.order).toEqual([A, B, C]);
     expect(layout.scene).toBe('warm');
-    expect(layout.tileOpacity).toBeCloseTo(0.42);
+    expect(layout.tileOpacity).toBeCloseTo(0.62);
     [A, B, C].forEach((id) => expect(layout.overrides[id]?.color).toBeTruthy());
   });
 
