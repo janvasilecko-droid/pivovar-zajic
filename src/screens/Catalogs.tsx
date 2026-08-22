@@ -404,9 +404,11 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
   const [email, setEmail] = useState(place?.email ?? '');
   const [deliveryGroup, setDeliveryGroup] = useState((place as any)?.delivery_group ?? '');
   const [note, setNote] = useState(place?.note ?? '');
+  const [lat, setLat] = useState<number | null>(place?.lat ?? null);
+  const [lng, setLng] = useState<number | null>(place?.lng ?? null);
   const [busy, setBusy] = useState(false);
   const [searchingAddress, setSearchingAddress] = useState(false);
-  const [addressCandidates, setAddressCandidates] = useState<{ address: string; phone?: string; displayName: string }[]>([]);
+  const [addressCandidates, setAddressCandidates] = useState<{ address: string; phone?: string; displayName: string; lat?: number; lng?: number }[]>([]);
   const [lookupMsg, setLookupMsg] = useState<string | null>(null);
 
   async function handleAutoLookupAddress() {
@@ -426,6 +428,8 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
     } else if (results.length === 1) {
       setAddress(results[0].address);
       if (results[0].phone && !phone) setPhone(results[0].phone);
+      if (results[0].lat != null) setLat(results[0].lat);
+      if (results[0].lng != null) setLng(results[0].lng);
       setLookupMsg(`✓ Adresa načtena: ${results[0].address}`);
     } else {
       setAddressCandidates(results);
@@ -449,12 +453,14 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
       email: email.trim() || null,
       note: note.trim() || null,
       delivery_group: deliveryGroup.trim() || null,
+      lat, lng,
     };
     const basePayload = {
       name: trimmedName,
       address: address.trim() || null,
       phone: phone.trim() || null,
       note: note.trim() || null,
+      lat, lng,
     };
     const minimalPayload = {
       name: trimmedName,
@@ -541,6 +547,8 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
                   onClick={() => {
                     setAddress(cand.address);
                     if (cand.phone && !phone) setPhone(cand.phone);
+                    if (cand.lat != null) setLat(cand.lat);
+                    if (cand.lng != null) setLng(cand.lng);
                     setAddressCandidates([]);
                     setLookupMsg(`✓ Vybrána adresa: ${cand.address}`);
                   }}

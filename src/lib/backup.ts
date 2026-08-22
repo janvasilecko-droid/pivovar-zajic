@@ -23,6 +23,10 @@ export interface DatabaseBackup {
     inventory_adjustments: any[];
     akce: any[];
     akce_items: any[];
+    whatsapp_incoming: any[];
+    whatsapp_senders: any[];
+    parser_aliases: any[];
+    place_aliases: any[];
   };
 }
 
@@ -30,7 +34,8 @@ export async function createFullBackup(): Promise<DatabaseBackup> {
   const tables = [
     'beers', 'packages', 'places', 'price_list', 'orders', 'order_items',
     'cellar_tanks', 'cellar_batches', 'bottling', 'kegging', 'keg_prefuk', 'fasovani',
-    'fasovani_private', 'writeoffs', 'inventory', 'inventory_adjustments', 'akce', 'akce_items'
+    'fasovani_private', 'writeoffs', 'inventory', 'inventory_adjustments', 'akce', 'akce_items',
+    'whatsapp_incoming', 'whatsapp_senders', 'parser_aliases', 'place_aliases'
   ];
 
   const backupData: any = {};
@@ -48,7 +53,7 @@ export async function createFullBackup(): Promise<DatabaseBackup> {
   );
 
   return {
-    version: '1.1',
+    version: '1.2',
     timestamp: new Date().toISOString(),
     tables: backupData,
   };
@@ -102,6 +107,10 @@ export function downloadGoogleSheetsExcelBackup(backup: DatabaseBackup, monthLab
   addSheet('Odpisy_Manka', backup.tables.writeoffs || []);
   addSheet('Kvasne_Tanky', backup.tables.cellar_tanks || []);
   addSheet('Akce_Vyjezdni', backup.tables.akce || []);
+  addSheet('WhatsApp_Message', backup.tables.whatsapp_incoming || []);
+  addSheet('WhatsApp_Odesilatele', backup.tables.whatsapp_senders || []);
+  addSheet('Parser_Aliasy', backup.tables.parser_aliases || []);
+  addSheet('Mista_Aliasy', backup.tables.place_aliases || []);
   addSheet('Kniha_Jizd', knihaJizd);
   addSheet('Exkurze', exkurze);
   addSheet('Vycepy_Rezervace', vycepy);

@@ -136,7 +136,24 @@ async function serveCached(url: URL, rest: RestInfo | null, wantCount: boolean):
   const headers: Record<string, string> = {};
   if (wantCount) headers['Content-Range'] = `0-${Math.max(finalRows.length - 1, 0)}/${finalRows.length}`;
   else if (contentRange) headers['Content-Range'] = contentRange;
+  // Tady víme, že odpověď vznikla offline (fetch selhal) a data jsou buď z
+  // mezipaměti, nebo prázdná — uživatel by si myslel, že v tabulce nic není.
+  // Signalizujeme UI banner (Layout.tsx), aby ukázal, že data nemusí být aktuální.
+  if (typeof window !== 'undefined' && !navigator.onLine) signalOfflineStale();
   return jsonResponse(finalRows, 200, headers);
+}
+
+// ---------------------------------------------------------------------------
+// Signalizace "offline → zobrazena zastaralá/prázdná data" pro UI banner.
+// Guard omezuje dispatch na ~1x za 3 s, aby opakované dotazy (např. realtime
+// retry) nespamovaly Layout banner. Viz Layout.tsx → 'pivovar:offline-stale'.
+// ---------------------------------------------------------------------------
+let staleSignalCooldown = false;
+function signalOfflineStale(): void {
+  if (staleSignalCooldown) return;
+  staleSignalCooldown = true;
+  window.dispatchEvent(new CustomEvent('pivovar:offline-stale'));
+  setTimeout(() => { staleSignalCooldown = false; }, 3000);
 }
 
 async function handleGet(input: RequestInfo | URL, init: RequestInit | undefined, url: URL, rest: RestInfo | null): Promise<Response> {
@@ -386,6 +403,7 @@ export type Place = {
   address: string | null; phone: string | null; opening_hours: string | null;
   contact_name?: string | null; email?: string | null;
   delivery_group?: string | null;
+  lat?: number | null; lng?: number | null;
 };
 
 export type Profile = {

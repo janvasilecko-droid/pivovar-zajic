@@ -5,6 +5,7 @@ import { exportHistoryDetailToExcel } from '../lib/excel';
 import { Car, Plus, Download, Printer, Trash2, Calendar, MapPin, Navigation, User, Scale, ShieldCheck, CheckCircle2, Zap, Sparkles } from 'lucide-react';
 import { isOrderKachna } from '../lib/zavozSecondCar';
 import { printTable } from '../lib/safePrint';
+import { computeRouteDistanceKm } from '../lib/routeDistance';
 
 export type LogbookEntry = {
   id: string;
@@ -24,13 +25,28 @@ export type LogbookEntry = {
 
 type Vehicle = { id: string; name: string; spz?: string };
 
+// Sloupec v DB je entry_date; ve zbytku obrazovky (a v LogbookEntry typu výše)
+// se pole jmenuje `date`, ať se nemusí přejmenovávat na desítkách míst.
+function rowToEntry(r: any): LogbookEntry {
+  return {
+    id: r.id,
+    date: r.entry_date,
+    vehicle_id: r.vehicle_id ?? undefined,
+    vehicle_name: r.vehicle_name,
+    driver: r.driver,
+    route_from: r.route_from,
+    route_to: r.route_to,
+    purpose: r.purpose,
+    km_start: Number(r.km_start) || 0,
+    km_end: Number(r.km_end) || 0,
+    km_driven: Number(r.km_driven) || 0,
+    fuel_liters: r.fuel_liters ?? undefined,
+    note: r.note ?? undefined,
+  };
+}
+
 export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => void }) {
-  const [entries, setEntries] = useState<LogbookEntry[]>(() => {
-    try {
-      const saved = localStorage.getItem('kniha_jizd_entries');
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
+  const [entries, setEntries] = useState<LogbookEntry[]>([]);
 
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,7 +71,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
   const [autoDriver, setAutoDriver] = useState('Petr Bednář');
   const [autoStartKm, setAutoStartKm] = useState<string>('120000');
   const [autoGenerating, setAutoGenerating] = useState(false);
-  const [previewDays, setPreviewDays] = useState<{ date: string; routeTo: string; stopsCount: number; isKachna: boolean; km: string }[]>([]);
+  const [previewDays, setPreviewDays] = useState<{ date: string; routeTo: string; stopsCount: number; isKachna: boolean; km: string; missingCoords: string[] }[]>([]);
 
   function openAutoModal() {
     setAutoStep('form');
@@ -64,7 +80,6 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
   }
 
   async function loadVehicles() {
-    setLoading(true);
     const { data } = await supabase.from('vehicles').select('*').order('name');
     const vList = (data as Vehicle[]) ?? [];
     setVehicles(vList);
@@ -74,15 +89,44 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
       const defaultName = largeV.spz ? `${largeV.name} (${largeV.spz})` : largeV.name;
       setVehicleName((prev) => prev || defaultName);
     }
-    setLoading(false);
   }
 
-  useEffect(() => { loadVehicles(); }, []);
-  useRealtime(['vehicles'], loadVehicles);
+  async function loadEntries() {
+    const { data } = await supabase.from('logbook_entries').select('*').order('entry_date', { ascending: false }).order('created_at', { ascending: false });
+    setEntries(((data as any[]) ?? []).map(rowToEntry));
+  }
 
-  function saveEntriesToStorage(newEntries: LogbookEntry[]) {
-    setEntries(newEntries);
-    localStorage.setItem('kniha_jizd_entries', JSON.stringify(newEntries));
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([loadVehicles(), loadEntries()]).finally(() => setLoading(false));
+  }, []);
+  useRealtime(['vehicles'], loadVehicles);
+  useRealtime(['logbook_entries'], loadEntries);
+
+  // Uloží nové záznamy do Supabase (sdílená Kniha jízd, ne lokální prohlížeč)
+  // a rovnou je promítne do UI, ať uživatel nečeká na realtime echo.
+  async function persistNewEntries(newEntries: LogbookEntry[]) {
+    const payload = newEntries.map((e) => ({
+      id: e.id,
+      entry_date: e.date,
+      vehicle_id: e.vehicle_id ?? null,
+      vehicle_name: e.vehicle_name,
+      driver: e.driver,
+      route_from: e.route_from,
+      route_to: e.route_to,
+      purpose: e.purpose,
+      km_start: e.km_start,
+      km_end: e.km_end,
+      km_driven: e.km_driven,
+      fuel_liters: e.fuel_liters ?? null,
+      note: e.note ?? null,
+    }));
+    const { error } = await supabase.from('logbook_entries').insert(payload);
+    if (error) {
+      alert(`❌ Nepodařilo se uložit jízdu/jízdy do Knihy jízd: ${error.message}`);
+      return;
+    }
+    setEntries((prev) => [...newEntries, ...prev].sort((a, b) => b.date.localeCompare(a.date)));
   }
 
   // Kniha jízd VŽDY začíná a končí v pivovaru (Kynšperk nad Ohří) — doplní se
@@ -93,7 +137,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
     return /kynšperk/i.test(r) ? r : `${r} ➔ Kynšperk nad Ohří`;
   }
 
-  function handleAddEntry(e: React.FormEvent) {
+  async function handleAddEntry(e: React.FormEvent) {
     e.preventDefault();
     const start = Number(kmStart) || 0;
     const driven = Number(kmDriven) || 0;
@@ -112,15 +156,20 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
       note,
     };
 
-    saveEntriesToStorage([newE, ...entries]);
+    await persistNewEntries([newE]);
     setShowModal(false);
     setRouteTo('');
     setNote('');
   }
 
-  function handleDelete(id: string) {
+  async function handleDelete(id: string) {
     if (!window.confirm('Opravdu smazat tento záznam z Knihy jízd?')) return;
-    saveEntriesToStorage(entries.filter((e) => e.id !== id));
+    const { error } = await supabase.from('logbook_entries').delete().eq('id', id);
+    if (error) {
+      alert(`❌ Nepodařilo se smazat záznam: ${error.message}`);
+      return;
+    }
+    setEntries((prev) => prev.filter((e) => e.id !== id));
   }
 
   const filteredEntries = useMemo(() => {
@@ -164,16 +213,22 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
     try {
       // Jen objednávky s nastaveným dnem závozu (delivery_date) — objednávky bez něj
       // by vytvářely fiktivní jízdy na den vytvoření objednávky, ne na skutečný den rozvozu.
-      const { data: rawOrders } = await supabase
-        .from('orders')
-        .select('*')
-        .neq('status', 'storno')
-        .not('delivery_date', 'is', null)
-        .gte('delivery_date', `${autoMonth}-01`)
-        .lte('delivery_date', `${autoMonth}-31`)
-        .order('delivery_date', { ascending: true });
+      const [{ data: rawOrders }, { data: rawPlaces }] = await Promise.all([
+        supabase
+          .from('orders')
+          .select('*')
+          .neq('status', 'storno')
+          .not('delivery_date', 'is', null)
+          .gte('delivery_date', `${autoMonth}-01`)
+          .lte('delivery_date', `${autoMonth}-31`)
+          .order('delivery_date', { ascending: true }),
+        supabase.from('places').select('id, name, lat, lng'),
+      ]);
 
       const ordersList = (rawOrders as any[]) ?? [];
+      const placesById = new Map<string, { lat: number | null; lng: number | null }>(
+        ((rawPlaces as any[]) ?? []).map((p) => [p.id, { lat: p.lat, lng: p.lng }])
+      );
 
       if (!ordersList.length) {
         alert(`V měsíci ${autoMonth} nebyly nalezeny žádné objednávky s nastaveným dnem závozu.`);
@@ -198,31 +253,64 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
         return placeNames.length > 0 ? `${placeNames.join(' ➔ ')} ➔ Kynšperk nad Ohří` : 'Kynšperk nad Ohří (Okruh)';
       };
 
-      const days: typeof previewDays = [];
+      // Zastávky dne v pořadí prvního výskytu — pro OSRM výpočet reálné jízdní
+      // vzdálenosti pivovar → zastávky → pivovar. Zastávky bez uložených
+      // souřadnic (u odběratele) se do výpočtu nezapočítají.
+      const buildStops = (dayOrders: any[]) => {
+        const seen = new Set<string>();
+        const stops: { name: string; lat: number | null; lng: number | null }[] = [];
+        dayOrders.forEach((o) => {
+          const name = o.place_name || 'Místní odběratel';
+          const key = o.place_id || name;
+          if (seen.has(key)) return;
+          seen.add(key);
+          const p = o.place_id ? placesById.get(o.place_id) : undefined;
+          stops.push({ name, lat: p?.lat ?? null, lng: p?.lng ?? null });
+        });
+        return stops;
+      };
+
+      const groups: { date: string; routeTo: string; stopsCount: number; isKachna: boolean; stops: { name: string; lat: number | null; lng: number | null }[] }[] = [];
       [...dateGroups.entries()]
         .sort((a, b) => a[0].localeCompare(b[0]))
         .forEach(([dDate, dayOrders]) => {
           const kachnaOrders = dayOrders.filter((o) => isOrderKachna(o.id));
           const bigOrders = dayOrders.filter((o) => !isOrderKachna(o.id));
           if (bigOrders.length > 0) {
-            days.push({
+            groups.push({
               date: dDate,
               routeTo: buildRoute(bigOrders),
               stopsCount: new Set(bigOrders.map((o) => o.place_name)).size,
               isKachna: false,
-              km: '',
+              stops: buildStops(bigOrders),
             });
           }
           if (kachnaOrders.length > 0) {
-            days.push({
+            groups.push({
               date: dDate,
               routeTo: buildRoute(kachnaOrders),
               stopsCount: new Set(kachnaOrders.map((o) => o.place_name)).size,
               isKachna: true,
-              km: '',
+              stops: buildStops(kachnaOrders),
             });
           }
         });
+
+      // Reálná jízdní vzdálenost přes OSRM — pro každý den/auto zvlášť, ať se
+      // dá km po vygenerování náhledu ještě ručně opravit.
+      const days: typeof previewDays = await Promise.all(
+        groups.map(async (g) => {
+          const { km, missingCoords } = await computeRouteDistanceKm(g.stops);
+          return {
+            date: g.date,
+            routeTo: g.routeTo,
+            stopsCount: g.stopsCount,
+            isKachna: g.isKachna,
+            km: km > 0 ? String(km) : '',
+            missingCoords,
+          };
+        })
+      );
 
       setPreviewDays(days);
       setAutoStep('preview');
@@ -234,7 +322,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
   }
 
   // ---- KROK 2: Z NÁHLEDU (upravené km + vozidlo na den) VYTVOŘIT ZÁZNAMY ----
-  function handleGenerateFromPreview() {
+  async function handleGenerateFromPreview() {
     if (previewDays.some((d) => !d.km || Number(d.km) <= 0)) {
       if (!window.confirm('Některé dny nemají vyplněné ujeté km. Pokračovat i tak (budou mít 0 km)?')) return;
     }
@@ -244,6 +332,9 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
       const kmStartVal = currentKm;
       const kmEndVal = currentKm + driven;
       currentKm = kmEndVal;
+      const missingNote = d.missingCoords.length > 0
+        ? ` — km odhad neúplný, chybí souřadnice u: ${d.missingCoords.join(', ')} (doplň v Odběratelích)`
+        : '';
       return {
         id: crypto.randomUUID(),
         date: d.date,
@@ -255,14 +346,21 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
         km_start: kmStartVal,
         km_end: kmEndVal,
         km_driven: driven,
-        note: `Vygenerováno z objednávek (${d.stopsCount} zastávek v daný den)${d.isKachna ? ' — auto Kachna' : ' — Velké auto'}`,
+        note: `Vygenerováno z objednávek (${d.stopsCount} zastávek v daný den)${d.isKachna ? ' — auto Kachna' : ' — Velké auto'}${missingNote}`,
       };
     });
 
-    const existingOtherDates = entries.filter((e) => !previewDays.some((d) => d.date === e.date));
-    const updatedEntries = [...generatedEntries, ...existingOtherDates].sort((a, b) => b.date.localeCompare(a.date));
+    // Znovu-vygenerování za stejné dny nahradí předchozí záznamy pro tyto
+    // dny, ať se při opakovaném běhu nehromadí duplicity.
+    const affectedDates = Array.from(new Set(previewDays.map((d) => d.date)));
+    const { error: delError } = await supabase.from('logbook_entries').delete().in('entry_date', affectedDates);
+    if (delError) {
+      alert(`❌ Nepodařilo se nahradit stávající záznamy: ${delError.message}`);
+      return;
+    }
+    setEntries((prev) => prev.filter((e) => !affectedDates.includes(e.date)));
 
-    saveEntriesToStorage(updatedEntries);
+    await persistNewEntries(generatedEntries);
     setFilterMonth(autoMonth);
     setShowAutoModal(false);
     setAutoStep('form');
@@ -596,7 +694,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
             ) : (
               <div className="space-y-3">
                 <p className="text-[11px] text-neutral-500 font-bold leading-snug">
-                  Nalezeno <strong>{previewDays.length}</strong> {previewDays.length === 1 ? 'jízda' : 'jízd'} se závozem v {autoMonth} — vozidlo je předvyplněné podle značení <strong>🦆 Kačena</strong> u jednotlivých objednávek v Závozu (smíšený den = dvě jízdy). Klidně přeškrtni, jinak se použije <strong>{bigVehicleLabel}</strong>. Doplň ujeté km z tachometru za danou jízdu.
+                  Nalezeno <strong>{previewDays.length}</strong> {previewDays.length === 1 ? 'jízda' : 'jízd'} se závozem v {autoMonth} — vozidlo je předvyplněné podle značení <strong>🦆 Kačena</strong> u jednotlivých objednávek v Závozu (smíšený den = dvě jízdy). Klidně přeškrtni, jinak se použije <strong>{bigVehicleLabel}</strong>. Km jsou předvyplněná reálnou jízdní vzdálenostní trasy pivovar → zastávky → pivovar — klidně uprav podle tachometru, pokud se liší.
                 </p>
 
                 <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
@@ -612,6 +710,11 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                         <span className="text-[10px] font-bold text-neutral-500">{d.stopsCount} zastávek</span>
                       </div>
                       <div className="text-[11px] text-neutral-600 font-medium leading-snug">{d.routeTo}</div>
+                      {d.missingCoords.length > 0 && (
+                        <div className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1 font-semibold leading-snug">
+                          ⚠️ Chybí souřadnice u: {d.missingCoords.join(', ')} — km je jen odhad zbylých zastávek, doplň v Odběratelích nebo uprav ručně.
+                        </div>
+                      )}
                       <div className="flex items-center gap-2">
                         <label className="flex items-center gap-1.5 text-xs font-bold text-neutral-700 shrink-0">
                           <input
@@ -625,11 +728,12 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                         <input
                           type="number"
                           min={0}
-                          inputMode="numeric"
+                          step="0.1"
+                          inputMode="decimal"
                           className="input !py-1.5 flex-1 font-mono font-bold text-xs"
                           placeholder="km za tento den"
                           value={d.km}
-                          onChange={(e) => setPreviewDays((rs) => rs.map((r, j) => j === i ? { ...r, km: e.target.value.replace(/[^0-9]/g, '') } : r))}
+                          onChange={(e) => setPreviewDays((rs) => rs.map((r, j) => j === i ? { ...r, km: e.target.value.replace(/[^0-9.]/g, '') } : r))}
                         />
                       </div>
                     </div>

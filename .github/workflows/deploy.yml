@@ -10,8 +10,31 @@ permissions:
   contents: write
 
 jobs:
+  # Testy (vitest) běží PŘED deployem — bez nich by se rozbitý kód dostal
+  # na Cloudflare. build-and-deploy i build-apk mají needs: test, takže
+  # selhání testů zastaví celý release.
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Node >= 22 je vyžadován @capacitor/cli@8 (engines: node >=22).
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # vitest běží headless (jsdom), žádný browser není potřeba.
+      - name: Run tests
+        run: npm test
+
   build-and-deploy:
     runs-on: ubuntu-latest
+    needs: test
 
     steps:
       - uses: actions/checkout@v4

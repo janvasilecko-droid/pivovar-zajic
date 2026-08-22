@@ -5,15 +5,35 @@
  * Využije váš přihlašovací token (uložený v localStorage) a vymaže
  * VŠECHNA uživatelská data z databáze Supabase.
  *
+ * POZOR: Skript si nyní vyžádá anon klíč (Supabase > Settings > API > anon public).
+ * Klíč už NENÍ v kódu napevno zapsaný — získá se za běhu
+ * (window.__SUPABASE_ANON_KEY__ nebo prompt).
+ * Pokud jste dříve používali verzi s napevno zapsaným klíčem, OTOČTE (rotujte)
+ * anon klíč v Supabase — starý klíč byl zveřejněn v repozitáři.
+ *
  * POSTUP:
  * 1. Otevřete aplikaci a přihlaste se (musíte být přihlášeni).
  * 2. Stiskněte F12 → záložka Console.
  * 3. Vložte celý tento kód a stiskněte Enter.
- * 4. Počkejte na dokončení (zobrazí se přehled smazaných tabulek).
+ * 4. Skript se zeptá na anon klíč (a případně na URL projektu).
+ * 5. Počkejte na dokončení (zobrazí se přehled smazaných tabulek).
  */
 
 (async () => {
-  const SUPABASE_URL = 'https://sasqexjadvlqyticxwja.supabase.co';
+  // Konfigurace: anon klíč a URL se získají za běhu (žádný hardcoded klíč)
+  const SUPABASE_ANON_KEY = window.__SUPABASE_ANON_KEY__ !== undefined
+    ? window.__SUPABASE_ANON_KEY__
+    : window.prompt('Vložte anon klíč (Supabase > Settings > API > anon public):');
+
+  if (!SUPABASE_ANON_KEY) {
+    console.error('❌ Chybí anon klíč. Skript byl přerušen.');
+    return;
+  }
+
+  const SUPABASE_URL = window.__SUPABASE_URL__ !== undefined
+    ? window.__SUPABASE_URL__
+    : window.prompt('Supabase project URL:', 'https://sasqexjadvlqyticxwja.supabase.co');
+
   const PROJECT_REF = 'sasqexjadvlqyticxwja';
 
   // 1) Najdeme přihlašovací token v localStorage
@@ -73,7 +93,7 @@
   ];
 
   const headers = {
-    'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNhc3FleGphZHZscXl0aWN4d2phIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ2NDUwNDIsImV4cCI6MjEwMDIyMTA0Mn0.ydJoE65MhlUpUDrl3bWzSpt0D6jauHVkgwI5uBKTgRs',
+    'apikey': SUPABASE_ANON_KEY,
     'Authorization': `Bearer ${accessToken}`,
     'Content-Type': 'application/json',
     'Prefer': 'return=minimal',

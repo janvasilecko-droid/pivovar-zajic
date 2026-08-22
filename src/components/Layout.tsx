@@ -111,6 +111,8 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   const [pending, setPending] = useState(0);
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  // Banner "offline → zobrazená data nemusí být aktuální" (událost z supabase.ts serveCached).
+  const [showStaleBanner, setShowStaleBanner] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showQuickAddOrder, setShowQuickAddOrder] = useState(false);
   const [showBugModal, setShowBugModal] = useState(false);
@@ -442,6 +444,23 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
     return () => { mounted = false; };
   }, []);
 
+  // Banner "offline → zastaralá data": supabase.ts dispatches 'pivovar:offline-stale'
+  // vždy, když GET odpověď byla vyrobena z mezipaměti/prázdná kvůli offline stavu.
+  // Ukážeme banner na ~6 s (nebo dokud uživatel nezavře X).
+  useEffect(() => {
+    let hideTimer: ReturnType<typeof setTimeout> | null = null;
+    const onStale = () => {
+      setShowStaleBanner(true);
+      if (hideTimer) clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => setShowStaleBanner(false), 6000);
+    };
+    window.addEventListener('pivovar:offline-stale', onStale);
+    return () => {
+      window.removeEventListener('pivovar:offline-stale', onStale);
+      if (hideTimer) clearTimeout(hideTimer);
+    };
+  }, []);
+
   const handleInstall = async () => {
     if (installPrompt) {
       await installPrompt.prompt();
@@ -628,6 +647,23 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
       </aside>
 
       {open && <div className="fixed inset-0 bg-neutral-950/70 backdrop-blur-md z-30 sm:hidden" onClick={() => setOpen(false)} />}
+
+      {/* Banner: offline → zobrazená data nemusí být aktuální (z mezipaměti). */}
+      {showStaleBanner && (
+        <div className="fixed top-4 right-4 z-40 max-w-xs sm:max-w-sm flex items-center gap-2 rounded-2xl bg-amber-50 border-2 border-amber-300 text-amber-950 shadow-xl px-3.5 py-2.5 animate-fade-in">
+          <span className="text-base shrink-0">⚠️</span>
+          <p className="text-[11px] font-bold leading-snug flex-1">
+            Jste offline - zobrazená data nemusí být aktuální (z mezipaměti).
+          </p>
+          <button
+            onClick={() => setShowStaleBanner(false)}
+            aria-label="Zavřít upozornění"
+            className="p-1 rounded-lg hover:bg-amber-200/70 text-amber-900/70 hover:text-amber-950 transition shrink-0"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       <main className="flex-1 min-w-0 flex flex-col h-screen overflow-hidden bg-neutral-100 text-neutral-900">
         {/* Top Header - Desktop & Mobile */}

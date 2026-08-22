@@ -94,13 +94,11 @@ if ('serviceWorker' in navigator) {
 
 try {
   ReactDOM.createRoot(document.getElementById('root')!).render(
-    <React.StrictMode>
-      <DebugErrorBoundary>
-        <AuthProvider>
-          <App />
-        </AuthProvider>
-      </DebugErrorBoundary>
-    </React.StrictMode>,
+    <DebugErrorBoundary>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </DebugErrorBoundary>,
   );
 } catch (err: any) {
   const el = document.getElementById('root');
