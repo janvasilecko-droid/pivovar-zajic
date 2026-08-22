@@ -79,6 +79,23 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
     setShowAutoModal(true);
   }
 
+  // Poslední zaznamenaný stav tachometru (km_end) pro každé vozidlo — entries
+  // jsou seřazené od nejnovějšího data, takže první výskyt daného vozidla je
+  // jeho poslední záznam. Použije se pro předvyplnění i kontrolu návaznosti.
+  const lastKmEndByVehicle = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const e of entries) {
+      if (!(e.vehicle_name in map)) map[e.vehicle_name] = e.km_end;
+    }
+    return map;
+  }, [entries]);
+
+  function openAddModal() {
+    const last = lastKmEndByVehicle[vehicleName];
+    if (last != null) setKmStart(String(last));
+    setShowModal(true);
+  }
+
   async function loadVehicles() {
     const { data } = await supabase.from('vehicles').select('*').order('name');
     const vList = (data as Vehicle[]) ?? [];
@@ -458,7 +475,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
           </button>
 
           <button
-            onClick={() => setShowModal(true)}
+            onClick={openAddModal}
             className="px-4 py-2.5 rounded-2xl bg-neutral-800 hover:bg-neutral-700 text-white font-extrabold text-xs transition shadow-xs flex items-center gap-1.5"
           >
             <Plus size={16} /> Ruční jízda
@@ -524,7 +541,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                 <Zap size={15} /> Generovat z objednávek
               </button>
               <button
-                onClick={() => setShowModal(true)}
+                onClick={openAddModal}
                 className="px-4 py-2.5 rounded-xl bg-neutral-100 text-neutral-800 font-extrabold text-xs"
               >
                 + Zadat ručně
@@ -804,7 +821,11 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                 {vehicles.length > 0 ? (
                   <select
                     value={vehicleName}
-                    onChange={(e) => setVehicleName(e.target.value)}
+                    onChange={(e) => {
+                      setVehicleName(e.target.value);
+                      const last = lastKmEndByVehicle[e.target.value];
+                      if (last != null) setKmStart(String(last));
+                    }}
                     className="input font-bold text-xs"
                   >
                     {vehicles.map((v) => {
@@ -869,6 +890,11 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                     onChange={(e) => setKmStart(e.target.value)}
                     className="input font-mono font-bold text-xs"
                   />
+                  {lastKmEndByVehicle[vehicleName] != null && Number(kmStart) !== lastKmEndByVehicle[vehicleName] && (
+                    <p className="text-[10px] text-amber-700 font-bold mt-1 leading-snug">
+                      ⚠️ Poslední záznam tohoto vozidla končí na {lastKmEndByVehicle[vehicleName].toLocaleString('cs-CZ')} km — nenavazuje.
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-black text-neutral-700 mb-1">Ujeté km (vzdálenost)</label>
