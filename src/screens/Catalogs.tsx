@@ -276,6 +276,7 @@ export function PlacesScreen() {
   const [loading, setLoading] = useState(true);
   const [show, setShow] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [showGpsBackfill, setShowGpsBackfill] = useState(false);
   const [edit, setEdit] = useState<Place | null>(null);
   const [search, setSearch] = useState('');
 
@@ -317,9 +318,19 @@ export function PlacesScreen() {
     return rows.filter((p) => p.name.toLowerCase().includes(term) || (p.address ?? '').toLowerCase().includes(term) || (p.contact_name ?? '').toLowerCase().includes(term));
   }, [rows, search]);
 
+  const missingGpsWithAddress = useMemo(
+    () => rows.filter((p) => (p.lat == null || p.lng == null) && p.address && p.address.trim()),
+    [rows]
+  );
+
   return (
     <div className="space-y-6 pb-12">
       <div className="flex flex-wrap items-center justify-end gap-2">
+        {missingGpsWithAddress.length > 0 && (
+          <button className="px-3.5 py-2.5 rounded-2xl bg-white border border-sky-300/80 text-sky-950 hover:bg-sky-50 font-extrabold text-xs transition flex items-center gap-1.5 shadow-xs" onClick={() => setShowGpsBackfill(true)}>
+            <MapPin size={16} /> Doplnit chybějící GPS ({missingGpsWithAddress.length})
+          </button>
+        )}
         <button className="px-3.5 py-2.5 rounded-2xl bg-white border border-amber-300/80 text-amber-950 hover:bg-amber-50 font-extrabold text-xs transition flex items-center gap-1.5 shadow-xs" onClick={() => setShowImport(true)}>
           <FileSpreadsheet size={16} /> Import z Excelu
         </button>
@@ -392,7 +403,142 @@ export function PlacesScreen() {
         </div>
       )}
       {show && <PlaceForm place={edit} onClose={() => setShow(false)} onSaved={() => { setShow(false); load(); }} />}
+      {showGpsBackfill && (
+        <GpsBackfillModal
+          places={missingGpsWithAddress}
+          onClose={() => setShowGpsBackfill(false)}
+          onSaved={() => { setShowGpsBackfill(false); load(); }}
+        />
+      )}
     </div>
+  );
+}
+
+// Hromadné dohledání GPS pro odběratele, kteří MAJÍ vyplněnou adresu, ale
+// chybí jim souřadnice (potřeba pro výpočet reálné jízdní vzdálenosti v Knize
+// jízd). Úmyslně NEDOHLEDÁVÁ podle pouhého jména bez adresy — jméno typu
+// "Radek" nebo "Sklad" by přes geokodér vrátilo náhodné/špatné místo. Výsledky
+// se před uložením musí ručně potvrdit (checkbox u každého řádku).
+function GpsBackfillModal({ places, onClose, onSaved }: { places: Place[]; onClose: () => void; onSaved: () => void }) {
+  const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [results, setResults] = useState<Record<string, { address: string; lat: number; lng: number; displayName: string } | null>>({});
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [saving, setSaving] = useState(false);
+  const [done, setDone] = useState(false);
+
+  async function runLookup() {
+    setRunning(true);
+    setProgress(0);
+    const found: typeof results = {};
+    const picked: Record<string, boolean> = {};
+    for (let i = 0; i < places.length; i++) {
+      const p = places[i];
+      const candidates = await lookupPlaceOnline(p.address!);
+      const best = candidates.find((c) => c.lat != null && c.lng != null);
+      if (best && best.lat != null && best.lng != null) {
+        found[p.id] = { address: best.address, lat: best.lat, lng: best.lng, displayName: best.displayName };
+        picked[p.id] = true;
+      } else {
+        found[p.id] = null;
+      }
+      setResults({ ...found });
+      setProgress(i + 1);
+      // Nominatim usage policy: max ~1 dotaz/s.
+      if (i < places.length - 1) await new Promise((r) => setTimeout(r, 1100));
+    }
+    setSelected(picked);
+    setRunning(false);
+    setDone(true);
+  }
+
+  async function saveSelected() {
+    setSaving(true);
+    const toSave = places.filter((p) => selected[p.id] && results[p.id]);
+    for (const p of toSave) {
+      const r = results[p.id]!;
+      await supabase.from('places').update({ lat: r.lat, lng: r.lng }).eq('id', p.id);
+    }
+    setSaving(false);
+    onSaved();
+  }
+
+  const foundCount = Object.values(results).filter(Boolean).length;
+  const selectedCount = Object.entries(selected).filter(([id, v]) => v && results[id]).length;
+
+  return (
+    <Modal open={true} onClose={onClose} title="📍 Doplnit chybějící GPS">
+      <div className="space-y-4 text-xs">
+        {!running && !done && (
+          <>
+            <p className="text-neutral-700 font-bold leading-snug">
+              Najde souřadnice pro {places.length} odběratelů, kteří mají vyplněnou adresu, ale chybí jim GPS
+              (potřeba pro výpočet km v Knize jízd). Použije veřejný geokodér Nominatim (OpenStreetMap) — výsledky
+              před uložením zkontroluj, u méně přesných adres může vrátit jen střed obce.
+            </p>
+            <button onClick={runLookup} className="btn-amber w-full justify-center py-2.5 font-black">
+              🔍 Spustit vyhledání ({places.length})
+            </button>
+          </>
+        )}
+
+        {running && (
+          <div className="space-y-2">
+            <div className="w-full bg-neutral-100 rounded-full h-2.5 overflow-hidden">
+              <div className="bg-amber-500 h-full transition-all" style={{ width: `${(progress / places.length) * 100}%` }} />
+            </div>
+            <p className="text-center text-neutral-500 font-bold">Hledám {progress}/{places.length}…</p>
+          </div>
+        )}
+
+        {done && (
+          <>
+            <p className="text-neutral-700 font-bold">
+              Nalezeno {foundCount} z {places.length}. Odškrtni, co nechceš uložit (vybráno {selectedCount}).
+            </p>
+            <div className="space-y-1.5 max-h-[45vh] overflow-y-auto pr-1">
+              {places.map((p) => {
+                const r = results[p.id];
+                return (
+                  <label key={p.id} className={`flex items-start gap-2 px-3 py-2 rounded-xl border cursor-pointer ${r ? 'bg-white border-neutral-200' : 'bg-neutral-50 border-neutral-200 opacity-60'}`}>
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      disabled={!r}
+                      checked={!!selected[p.id] && !!r}
+                      onChange={(e) => setSelected((s) => ({ ...s, [p.id]: e.target.checked }))}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="font-black text-neutral-900 truncate">{p.name}</div>
+                      <div className="text-[11px] text-neutral-500 truncate">{p.address}</div>
+                      {r ? (
+                        <div className="text-[11px] text-emerald-700 font-bold truncate" title={r.displayName}>
+                          ✓ {r.lat.toFixed(6)}, {r.lng.toFixed(6)} — {r.displayName}
+                        </div>
+                      ) : (
+                        <div className="text-[11px] text-rose-600 font-bold">✗ Nenalezeno</div>
+                      )}
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-2 pt-2">
+              <button onClick={onClose} className="flex-1 px-3 py-2.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-900 font-extrabold transition">
+                Zrušit
+              </button>
+              <button
+                onClick={saveSelected}
+                disabled={saving || selectedCount === 0}
+                className="flex-1 btn-amber py-2.5 font-black disabled:opacity-50"
+              >
+                {saving ? 'Ukládám…' : `Uložit vybrané (${selectedCount})`}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </Modal>
   );
 }
 
