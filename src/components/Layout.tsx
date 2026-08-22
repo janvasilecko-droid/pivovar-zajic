@@ -641,19 +641,6 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             {/* Stav offline fronty a upozornění — dřív v patičce staré
                 postranní nabídky, teď v hlavičce (vidět na každé stránce). */}
             <OfflineStatus online={online} pending={pending} syncing={syncing} syncMsg={syncMsg} onSync={async () => { const { syncQueue, queueLength } = await import('../lib/offline'); if (queueLength() === 0) { setSyncMsg('Fronta je prázdná — nic k synchronizaci'); setTimeout(() => setSyncMsg(null), 3000); return; } setSyncing(true); const r = await syncQueue(); setSyncing(false); setSyncMsg(r.remaining === 0 ? `Synchronizováno ${r.ok} změn` : `OK ${r.ok}, selhalo ${r.failed}`); setTimeout(() => setSyncMsg(null), 4000); }} />
-            <button
-              type="button"
-              onClick={() => setPage('app_settings')}
-              title="Nastavení upozornění"
-              className={`w-9 h-9 rounded-xl grid place-items-center transition border ${
-                notifPermission === 'granted'
-                  ? 'bg-amber-100 text-amber-950 border-amber-300'
-                  : 'bg-neutral-100 text-neutral-700 border-neutral-300'
-              }`}
-            >
-              <Bell size={15} className={notifPermission === 'granted' ? 'text-amber-600 fill-amber-500' : 'text-neutral-500'} />
-            </button>
-
             {/* Bug report button */}
             <button
               type="button"

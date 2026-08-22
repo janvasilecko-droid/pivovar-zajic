@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { Search, MessageCircle, ClipboardList, SlidersHorizontal, LogOut, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { NAV, type Page } from '../components/Layout';
+import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import LauncherTile from '../components/LauncherTile';
 import { QuickSearchModal } from '../components/QuickSearchModal';
 import { useAuth } from '../lib/auth';
@@ -225,11 +226,18 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
     if (user?.id) saveHomeLayout(user.id, {} as any);
   }
 
-  // ---- Živá dlaždice: reálný počet nevyřízených objednávek ----
+  // ---- Živá dlaždice: počet nevyřízených objednávek PRO TENTO TÝDEN ----
+  // Týden objednávky se (stejně jako v Objednávkách/Knize jízd) počítá z
+  // delivery_date, a když ten není vyplněný, z order_date.
   const [pendingOrders, setPendingOrders] = useState<number | null>(null);
   useEffect(() => {
     if (!visibleIds.includes('orders')) return;
-    supabase.from('orders').select('id', { count: 'exact', head: true }).eq('status', 'nova')
+    const { start, end } = weekRange(isoWeekKey(new Date().toISOString().slice(0, 10)));
+    const startIso = start.toISOString().slice(0, 10);
+    const endIso = end.toISOString().slice(0, 10);
+    supabase.from('orders').select('id', { count: 'exact', head: true })
+      .eq('status', 'nova')
+      .or(`and(delivery_date.gte.${startIso},delivery_date.lte.${endIso}),and(delivery_date.is.null,order_date.gte.${startIso},order_date.lte.${endIso})`)
       .then(({ count }) => setPendingOrders(count ?? 0));
   }, [visibleIds]);
 
@@ -406,8 +414,8 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
             </button>
             {editMode && (
               <>
-                <button type="button" className="hs-pager-manage" title="Přidat stránku" onClick={handleAddPage}>
-                  <Plus size={15} />
+                <button type="button" className="hs-pager-manage hs-pager-manage-labeled" onClick={handleAddPage}>
+                  <Plus size={15} /> Přidat stránku
                 </button>
                 {layout.pages.length > 1 && (
                   <button type="button" className="hs-pager-manage" title="Smazat tuhle stránku" onClick={handleRemoveCurrentPage}>
@@ -433,7 +441,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
               </button>
               <button type="button" className="hs-tile c-coral" onClick={() => setPage('orders')}>
                 <ClipboardList />
-                <div className="hs-lbl">Nové objednávky</div>
+                <div className="hs-lbl">Objednávky tento týden</div>
                 {!!pendingOrders && <span className="hs-badge">{pendingOrders > 99 ? '99+' : pendingOrders}</span>}
               </button>
               <button type="button" className="hs-tile c-mint" onClick={openWhatsAppFromTile}>
