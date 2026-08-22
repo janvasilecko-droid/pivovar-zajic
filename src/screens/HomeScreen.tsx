@@ -69,7 +69,7 @@ const SCENE_LABELS: Record<string, string> = {
 };
 
 export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) {
-  const { profile, user, reloadProfile } = useAuth();
+  const { profile, user } = useAuth();
   const isAdmin = profile?.role === 'admin' || isAdminEmail(user?.email);
   const userPerms = getUserPermissions(user?.id ?? '', (profile as any)?.permissions);
 
@@ -101,7 +101,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
 
   const [editMode, setEditMode] = useState(false);
   const [dragOverId, setDragOverId] = useState<Page | null>(null);
-  const dragId = useRef<Page | null>(null);
+  const [draggingId, setDraggingId] = useState<Page | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hasCustomLayout, setHasCustomLayout] = useState(!!(profile as any)?.home_layout && Object.keys((profile as any).home_layout).length > 0);
 
@@ -113,17 +113,55 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
     saveTimer.current = setTimeout(() => { saveHomeLayout(user.id, next); }, 500);
   }
 
-  function handleDrop(targetId: Page) {
-    const fromId = dragId.current;
-    setDragOverId(null);
-    if (!fromId || fromId === targetId) return;
-    const order = [...layout.order];
-    const from = order.indexOf(fromId);
-    const to = order.indexOf(targetId);
-    if (from < 0 || to < 0) return;
-    order.splice(to, 0, order.splice(from, 1)[0]);
-    persist({ ...layout, order });
+  // Přesun dlaždice: pointer eventy (funguje myší i prstem) místo nativního
+  // HTML5 drag & drop, které na dotykových displejích vůbec nefunguje.
+  // Během přesunu poslouchá na window (ne jen na dlaždici), aby přesun
+  // fungoval i když prst/kurzor rychle přeletí mimo původní element.
+  const draggingIdRef = useRef<Page | null>(null);
+  function startDrag(id: Page) {
+    draggingIdRef.current = id;
+    setDraggingId(id);
   }
+  useEffect(() => {
+    if (!draggingId) return;
+    function findTileId(clientX: number, clientY: number): Page | null {
+      const el = document.elementFromPoint(clientX, clientY);
+      const tileEl = el?.closest('[data-tile-id]') as HTMLElement | null;
+      return (tileEl?.dataset.tileId as Page | undefined) ?? null;
+    }
+    function onMove(e: PointerEvent) {
+      const overId = findTileId(e.clientX, e.clientY);
+      setDragOverId(overId && overId !== draggingIdRef.current ? overId : null);
+    }
+    function onUp(e: PointerEvent) {
+      const fromId = draggingIdRef.current;
+      const overId = findTileId(e.clientX, e.clientY);
+      if (fromId && overId && overId !== fromId) {
+        setLayout((prevLayout) => {
+          const order = [...prevLayout.order];
+          const from = order.indexOf(fromId);
+          const to = order.indexOf(overId);
+          if (from < 0 || to < 0) return prevLayout;
+          order.splice(to, 0, order.splice(from, 1)[0]);
+          const next = { ...prevLayout, order };
+          persist(next);
+          return next;
+        });
+      }
+      draggingIdRef.current = null;
+      setDraggingId(null);
+      setDragOverId(null);
+    }
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draggingId]);
   function handleCycleSize(id: Page) {
     const current = layout.overrides[id]?.size ?? 'n';
     const next = TILE_SIZES[(TILE_SIZES.indexOf(current) + 1) % TILE_SIZES.length];
@@ -226,8 +264,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
       )}
 
       <div className="hs-launcher">
-        <div className="hs-scene" data-scene={layout.scene}><i className="b1" /><i className="b2" /><i className="b3" /><i className="b4" /></div>
-
         <div className="hs-toolbar">
           <div />
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -282,10 +318,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                 editing={editMode}
                 badge={badge}
                 onClick={() => setPage(id)}
-                onDragStart={() => { dragId.current = id; }}
-                onDragOver={() => setDragOverId(id)}
-                onDrop={() => handleDrop(id)}
+                onDragPointerDown={(e) => { e.preventDefault(); startDrag(id); }}
                 dragOver={dragOverId === id}
+                isDragging={draggingId === id}
                 onCycleSize={() => handleCycleSize(id)}
                 onRecolor={(c) => handleRecolor(id, c)}
               />

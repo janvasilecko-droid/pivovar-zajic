@@ -20,6 +20,8 @@ import { QuickSearchModal } from './QuickSearchModal';
 import { isAdminEmail } from '../lib/config';
 import { BugReportModal } from './BugReportModal';
 import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
+import { SCENES, type Scene } from '../lib/homeLayout';
+import '../screens/HomeScreen.css';
 
 export type NavItem = { id: Page; label: string; icon: LucideIcon; group: string };
 
@@ -102,6 +104,12 @@ interface BeforeInstallPromptEvent extends Event {
 
 export default function Layout({ page, setPage, children }: { page: Page; setPage: (p: Page, sec?: string) => void; children: ReactNode }) {
   const { profile, user, signOut } = useAuth();
+  // Domovská stránka (launcher) je jediná, kde appka přebírá celou obrazovku
+  // barevnou scénou (viz HomeScreen.css) — hlavička a spodní lišta se na ní
+  // stanou poloprůhledným "sklem", jinde v appce zůstávají beze změny.
+  const isHome = page === 'home';
+  const homeSceneRaw = (profile as any)?.home_layout?.scene;
+  const homeScene: Scene = SCENES.includes(homeSceneRaw) ? homeSceneRaw : 'warm';
   const [open, setOpen] = useState(false);
   const [densityState, setDensityState] = useState<DensityMode>(getDensity());
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
@@ -665,9 +673,17 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
         </div>
       )}
 
-      <main className="flex-1 min-w-0 flex flex-col h-screen overflow-hidden bg-neutral-100 text-neutral-900">
+      <main className={`flex-1 min-w-0 flex flex-col h-screen overflow-hidden text-neutral-900 ${isHome ? '' : 'bg-neutral-100'}`}>
+        {isHome && (
+          <div className="hs-fullscreen-scene" data-scene={homeScene}>
+            <i className="b1" /><i className="b2" /><i className="b3" /><i className="b4" />
+          </div>
+        )}
         {/* Top Header - Desktop & Mobile */}
-        <header className="flex items-center justify-between px-2 sm:px-8 py-2 bg-white/95 backdrop-blur-md border-b border-neutral-200 shadow-2xs z-20 gap-2 shrink-0">
+        <header
+          {...(isHome ? { 'data-home-chrome': true } : {})}
+          className={`flex items-center justify-between px-2 sm:px-8 py-2 ${isHome ? '' : 'bg-white/95'} backdrop-blur-md border-b border-neutral-200 shadow-2xs z-20 gap-2 shrink-0`}
+        >
           <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 shrink-0">
             <span className="sm:hidden font-display font-black text-base text-neutral-900 truncate">
               {NAV.find((n) => n.id === navPageFor(page))?.label ?? ''}
@@ -773,18 +789,23 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           {children}
         </div>
 
-        {/* Mobile Bottom Navigation Dock — thumb-friendly bottom bar */}
-        <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-lg border-t border-neutral-200 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-1 py-1.5 pb-safe flex items-center justify-around">
+        {/* Mobile Bottom Navigation Dock — thumb-friendly bottom bar. Na
+            domovské stránce jsou tlačítka malé barevné dlaždice (hs-nav-tile),
+            ať lišta ladí se stylem launcheru; jinde v appce beze změny. */}
+        <nav
+          {...(isHome ? { 'data-home-chrome': true } : {})}
+          className={`sm:hidden fixed bottom-0 left-0 right-0 z-30 ${isHome ? '' : 'bg-white/95'} backdrop-blur-lg border-t border-neutral-200 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-1 py-1.5 pb-safe flex items-center justify-around gap-1`}
+        >
           <button
             onClick={() => setPage('orders')}
-            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all relative ${
+            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all relative ${isHome ? 'hs-nav-tile n-coral flex-1' :
               navPageFor(page) === 'orders'
                 ? 'text-amber-950 font-black scale-105 bg-amber-100/90 ring-1 ring-amber-300'
                 : 'text-neutral-500 hover:text-neutral-800 font-bold'
             }`}
           >
             <div className="relative">
-              <ClipboardList size={20} strokeWidth={navPageFor(page) === 'orders' ? 2.5 : 2} className={navPageFor(page) === 'orders' ? 'text-amber-700' : ''} />
+              <ClipboardList size={20} strokeWidth={navPageFor(page) === 'orders' ? 2.5 : 2} className={!isHome && navPageFor(page) === 'orders' ? 'text-amber-700' : ''} />
               {pendingWhatsAppCount > 0 && (
                 <span className="absolute -top-1 -right-2 bg-red-600 text-white text-[9px] font-black rounded-full min-w-[14px] h-3.5 px-0.5 flex items-center justify-center shadow">
                   {pendingWhatsAppCount > 9 ? '9+' : pendingWhatsAppCount}
@@ -796,43 +817,43 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
 
           <button
             onClick={() => setPage('kegging')}
-            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all ${
+            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all ${isHome ? 'hs-nav-tile n-mint flex-1' :
               navPageFor(page) === 'kegging'
                 ? 'text-amber-950 font-black scale-105 bg-amber-100/90 ring-1 ring-amber-300'
                 : 'text-neutral-500 hover:text-neutral-800 font-bold'
             }`}
           >
-            <Cylinder size={20} strokeWidth={navPageFor(page) === 'kegging' ? 2.5 : 2} className={navPageFor(page) === 'kegging' ? 'text-amber-700' : ''} />
+            <Cylinder size={20} strokeWidth={navPageFor(page) === 'kegging' ? 2.5 : 2} className={!isHome && navPageFor(page) === 'kegging' ? 'text-amber-700' : ''} />
             <span className="text-[10px] mt-0.5 tracking-tight">KEG</span>
           </button>
 
           <button
             onClick={() => setPage('bottling')}
-            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all ${
+            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all ${isHome ? 'hs-nav-tile n-sky flex-1' :
               navPageFor(page) === 'bottling'
                 ? 'text-amber-950 font-black scale-105 bg-amber-100/90 ring-1 ring-amber-300'
                 : 'text-neutral-500 hover:text-neutral-800 font-bold'
             }`}
           >
-            <BottleWine size={20} strokeWidth={navPageFor(page) === 'bottling' ? 2.5 : 2} className={navPageFor(page) === 'bottling' ? 'text-amber-700' : ''} />
+            <BottleWine size={20} strokeWidth={navPageFor(page) === 'bottling' ? 2.5 : 2} className={!isHome && navPageFor(page) === 'bottling' ? 'text-amber-700' : ''} />
             <span className="text-[10px] mt-0.5 tracking-tight">Lahve</span>
           </button>
 
           <button
             onClick={() => setPage('home')}
-            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all ${
+            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all ${isHome ? 'hs-nav-tile n-indigo flex-1' :
               navPageFor(page) === 'home'
                 ? 'text-amber-950 font-black scale-105 bg-amber-100/90 ring-1 ring-amber-300'
                 : 'text-neutral-500 hover:text-neutral-800 font-bold'
             }`}
           >
-            <Home size={20} strokeWidth={navPageFor(page) === 'home' ? 2.5 : 2} className={navPageFor(page) === 'home' ? 'text-amber-700' : ''} />
+            <Home size={20} strokeWidth={navPageFor(page) === 'home' ? 2.5 : 2} className={!isHome && navPageFor(page) === 'home' ? 'text-amber-700' : ''} />
             <span className="text-[10px] mt-0.5 tracking-tight">Domů</span>
           </button>
 
           <button
             onClick={() => setOpen(true)}
-            className="flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all text-neutral-500 hover:text-neutral-800 font-bold active:scale-95"
+            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all active:scale-95 ${isHome ? 'hs-nav-tile n-slate flex-1' : 'text-neutral-500 hover:text-neutral-800 font-bold'}`}
           >
             <Menu size={20} strokeWidth={2} />
             <span className="text-[10px] mt-0.5 tracking-tight">Více</span>

@@ -1,8 +1,9 @@
 /* Přizpůsobitelný launcher (Windows Phone / Nokia Lumia styl) — poloprůhledné
-   "skleněné" dlaždice nad světlou barevnou scénou. Vše je naschváno pod
-   .hs-launcher, ať se to nikam jinam v appce nedostane. */
+   "skleněné" dlaždice nad světlou barevnou scénou přes celou obrazovku
+   (scéna i hlavička/spodní lišta se přebarvují v Layout.tsx, jen když je
+   aktivní domovská stránka — viz .hs-fullscreen-scene, [data-home-chrome]). */
 
-.hs-launcher {
+:root {
   --hs-coral:  #ff6b6b;
   --hs-amber2: #ffa94d;
   --hs-citrus: #ffd43b;
@@ -18,60 +19,86 @@
   --hs-slate:  #495464;
   --hs-gold:   #d4a017;
   --hs-crimson:#c1121f;
-  --hs-tile-alpha: 0.62;
+}
 
-  position: relative;
-  border-radius: 24px;
-  overflow: hidden;
+/* Barevná scéna přes celou obrazovku — mountuje Layout.tsx jen na domovské
+   stránce, position:fixed ať sedí i za hlavičkou a spodní lištou. */
+.hs-fullscreen-scene {
+  /* z-index: -1 (ne 0!) — main/header/nav v Layoutu jsou position:static,
+     takze bez zaporneho z-indexu by tahle fixed vrstva prekryla uplne
+     vsechno misto aby byla vzadu (staticke prvky maluji driv nez
+     positionovane s z-index 0, ale POZDEJI nez ty se zapornym). */
+  position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none;
   background: #fbfaff;
-  padding: 18px 14px 22px;
+}
+.hs-fullscreen-scene i {
+  position: absolute; border-radius: 50%; filter: blur(70px); opacity: 0.4;
+}
+.hs-fullscreen-scene .b1 { width: 55%; height: 55%; left: -10%; top: -12%; }
+.hs-fullscreen-scene .b2 { width: 46%; height: 46%; right: -8%; top: 2%; }
+.hs-fullscreen-scene .b3 { width: 50%; height: 50%; left: 14%; bottom: -18%; }
+.hs-fullscreen-scene .b4 { width: 36%; height: 36%; right: 6%; bottom: -8%; opacity: 0.32; }
+
+.hs-fullscreen-scene[data-scene="warm"] .b1  { background: var(--hs-coral); }
+.hs-fullscreen-scene[data-scene="warm"] .b2  { background: var(--hs-indigo); }
+.hs-fullscreen-scene[data-scene="warm"] .b3  { background: var(--hs-mint); }
+.hs-fullscreen-scene[data-scene="warm"] .b4  { background: var(--hs-orchid); }
+
+.hs-fullscreen-scene[data-scene="sunset"] .b1 { background: var(--hs-amber2); }
+.hs-fullscreen-scene[data-scene="sunset"] .b2 { background: var(--hs-coral); }
+.hs-fullscreen-scene[data-scene="sunset"] .b3 { background: var(--hs-citrus); }
+.hs-fullscreen-scene[data-scene="sunset"] .b4 { background: var(--hs-orchid); }
+
+.hs-fullscreen-scene[data-scene="ocean"] .b1 { background: var(--hs-sky); }
+.hs-fullscreen-scene[data-scene="ocean"] .b2 { background: var(--hs-indigo); }
+.hs-fullscreen-scene[data-scene="ocean"] .b3 { background: var(--hs-mint); }
+.hs-fullscreen-scene[data-scene="ocean"] .b4 { background: var(--hs-citrus); }
+
+.hs-fullscreen-scene[data-scene="forest"] .b1 { background: var(--hs-mint); }
+.hs-fullscreen-scene[data-scene="forest"] .b2 { background: var(--hs-forest); }
+.hs-fullscreen-scene[data-scene="forest"] .b3 { background: var(--hs-citrus); }
+.hs-fullscreen-scene[data-scene="forest"] .b4 { background: var(--hs-amber2); }
+
+.hs-fullscreen-scene[data-scene="night"] .b1 { background: var(--hs-plum); }
+.hs-fullscreen-scene[data-scene="night"] .b2 { background: var(--hs-indigo); }
+.hs-fullscreen-scene[data-scene="night"] .b3 { background: var(--hs-orchid); }
+.hs-fullscreen-scene[data-scene="night"] .b4 { background: var(--hs-plum); }
+.hs-fullscreen-scene[data-scene="night"] i { opacity: 0.22; }
+
+/* Hlavička a spodní lišta na domovské stránce — poloprůhledné/skleněné
+   (glass), ať skrz ně prosvítá scéna z .hs-fullscreen-scene, místo plné
+   bílé, co scénu úplně zakrývala. */
+[data-home-chrome] {
+  background: rgba(255,255,255,0.55) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  backdrop-filter: blur(16px) saturate(160%);
+}
+
+/* Spodní navigační dlaždice (mobilní dock) na domovské stránce */
+.hs-nav-tile {
+  border-radius: 12px !important;
+  color: #fff !important;
+}
+.hs-nav-tile svg { stroke: #fff; }
+.hs-nav-tile.n-coral  { background: rgba(255,107,107,0.85); }
+.hs-nav-tile.n-mint   { background: rgba(56,217,169,0.85); }
+.hs-nav-tile.n-sky    { background: rgba(77,171,247,0.85); }
+.hs-nav-tile.n-indigo { background: rgba(124,92,255,0.85); }
+.hs-nav-tile.n-slate  { background: rgba(73,84,100,0.85); }
+
+.hs-launcher {
+  position: relative;
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   min-height: 420px;
+  z-index: 1;
 }
-
-.hs-scene {
-  position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0;
-}
-.hs-scene i {
-  position: absolute; border-radius: 50%; filter: blur(55px); opacity: 0.4;
-}
-.hs-scene .b1 { width: 60%; height: 60%; left: -12%; top: -18%; }
-.hs-scene .b2 { width: 50%; height: 50%; right: -10%; top: 4%; }
-.hs-scene .b3 { width: 55%; height: 55%; left: 16%; bottom: -26%; }
-.hs-scene .b4 { width: 40%; height: 40%; right: 8%; bottom: -14%; opacity: 0.32; }
-
-.hs-scene[data-scene="warm"] .b1  { background: var(--hs-coral); }
-.hs-scene[data-scene="warm"] .b2  { background: var(--hs-indigo); }
-.hs-scene[data-scene="warm"] .b3  { background: var(--hs-mint); }
-.hs-scene[data-scene="warm"] .b4  { background: var(--hs-orchid); }
-
-.hs-scene[data-scene="sunset"] .b1 { background: var(--hs-amber2); }
-.hs-scene[data-scene="sunset"] .b2 { background: var(--hs-coral); }
-.hs-scene[data-scene="sunset"] .b3 { background: var(--hs-citrus); }
-.hs-scene[data-scene="sunset"] .b4 { background: var(--hs-orchid); }
-
-.hs-scene[data-scene="ocean"] .b1 { background: var(--hs-sky); }
-.hs-scene[data-scene="ocean"] .b2 { background: var(--hs-indigo); }
-.hs-scene[data-scene="ocean"] .b3 { background: var(--hs-mint); }
-.hs-scene[data-scene="ocean"] .b4 { background: var(--hs-citrus); }
-
-.hs-scene[data-scene="forest"] .b1 { background: var(--hs-mint); }
-.hs-scene[data-scene="forest"] .b2 { background: var(--hs-forest); }
-.hs-scene[data-scene="forest"] .b3 { background: var(--hs-citrus); }
-.hs-scene[data-scene="forest"] .b4 { background: var(--hs-amber2); }
-
-.hs-scene[data-scene="night"] .b1 { background: var(--hs-plum); }
-.hs-scene[data-scene="night"] .b2 { background: var(--hs-indigo); }
-.hs-scene[data-scene="night"] .b3 { background: var(--hs-orchid); }
-.hs-scene[data-scene="night"] .b4 { background: var(--hs-plum); }
-.hs-scene[data-scene="night"] i { opacity: 0.22; }
 
 .hs-toolbar { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 .hs-edit-btn {
   font-family: inherit; font-weight: 700; font-size: 12.5px; color: #2b2438;
-  background: rgba(43,36,56,0.07); border: 1px solid rgba(43,36,56,0.12);
+  background: rgba(43,36,56,0.09); border: 1px solid rgba(43,36,56,0.14);
   padding: 8px 14px; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
 }
 .hs-edit-btn.on { background: #2b2438; color: #fff; }
@@ -81,7 +108,7 @@
   position: relative; z-index: 2;
   display: flex; flex-wrap: wrap; align-items: center; gap: 16px;
   margin-bottom: 14px; padding: 10px 14px; border-radius: 14px;
-  background: rgba(43,36,56,0.05); border: 1px solid rgba(43,36,56,0.08);
+  background: rgba(43,36,56,0.06); border: 1px solid rgba(43,36,56,0.1);
 }
 .hs-controls-group { display: flex; align-items: center; gap: 8px; }
 .hs-controls-label { font-size: 11px; font-weight: 700; color: rgba(43,36,56,0.55); text-transform: uppercase; letter-spacing: 0.06em; }
@@ -132,25 +159,28 @@
 .hs-tile.sm .hs-lbl { font-size: 8.5px; line-height: 1.1; }
 .hs-tile.sm .hs-badge { display: none; }
 
-.hs-tile.c-coral   { background: rgba(255,107,107,var(--hs-tile-alpha)); }
-.hs-tile.c-amber2  { background: rgba(255,169,77,var(--hs-tile-alpha)); }
-.hs-tile.c-citrus  { background: rgba(255,212,59,var(--hs-tile-alpha)); }
-.hs-tile.c-mint    { background: rgba(56,217,169,var(--hs-tile-alpha)); }
-.hs-tile.c-sky     { background: rgba(77,171,247,var(--hs-tile-alpha)); }
-.hs-tile.c-indigo  { background: rgba(124,92,255,var(--hs-tile-alpha)); }
-.hs-tile.c-orchid  { background: rgba(224,102,176,var(--hs-tile-alpha)); }
-.hs-tile.c-forest  { background: rgba(47,158,100,var(--hs-tile-alpha)); }
-.hs-tile.c-plum    { background: rgba(106,63,160,var(--hs-tile-alpha)); }
-.hs-tile.c-rose    { background: rgba(245,72,127,var(--hs-tile-alpha)); }
-.hs-tile.c-teal    { background: rgba(12,165,176,var(--hs-tile-alpha)); }
-.hs-tile.c-lime    { background: rgba(130,201,30,var(--hs-tile-alpha)); }
-.hs-tile.c-slate   { background: rgba(73,84,100,var(--hs-tile-alpha)); }
-.hs-tile.c-gold    { background: rgba(212,160,23,var(--hs-tile-alpha)); }
-.hs-tile.c-crimson { background: rgba(193,18,31,var(--hs-tile-alpha)); }
+.hs-tile.c-coral   { background: rgba(255,107,107,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-amber2  { background: rgba(255,169,77,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-citrus  { background: rgba(255,212,59,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-mint    { background: rgba(56,217,169,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-sky     { background: rgba(77,171,247,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-indigo  { background: rgba(124,92,255,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-orchid  { background: rgba(224,102,176,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-forest  { background: rgba(47,158,100,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-plum    { background: rgba(106,63,160,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-rose    { background: rgba(245,72,127,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-teal    { background: rgba(12,165,176,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-lime    { background: rgba(130,201,30,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-slate   { background: rgba(73,84,100,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-gold    { background: rgba(212,160,23,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-crimson { background: rgba(193,18,31,var(--hs-tile-alpha, 0.62)); }
 
-.hs-tile.hs-editing { cursor: grab; }
+/* touch-action:none je nutné, jinak prst na dotykovém displeji posune
+   stránku (scroll) místo aby přesunul dlaždici (pointermove eventy). */
+.hs-tile.hs-editing { cursor: grab; touch-action: none; }
 .hs-tile.hs-editing:active { cursor: grabbing; }
 .hs-tile.hs-editing .hs-lbl { opacity: 0.6; }
+.hs-tile.hs-dragging { opacity: 0.55; filter: brightness(1.1); }
 .hs-tile.hs-drag-over { outline: 2px dashed rgba(43,36,56,0.6); outline-offset: -2px; }
 
 .hs-tile-controls { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 5px; }

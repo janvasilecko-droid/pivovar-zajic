@@ -1,6 +1,8 @@
 // Jedna dlaždice přizpůsobitelného launcheru (src/screens/HomeScreen.tsx).
 // Mimo edit mód je to prostý navigační button; v edit módu navíc nabízí
-// přetažení (drag handle = celá dlaždice), cyklování velikosti a přebarvení.
+// přesun (pointer eventy — funguje myší i prstem, na rozdíl od nativního
+// HTML5 drag & drop, co na dotykových displejích vůbec nefunguje),
+// cyklování velikosti a přebarvení.
 import type { NavItem } from './Layout';
 import { TILE_COLORS, COLOR_HEX, type TileOverride, type TileSize, type TileColor } from '../lib/homeLayout';
 
@@ -13,17 +15,16 @@ function sizeClass(size: TileSize): string {
 }
 
 export default function LauncherTile({
-  item, override, editing, badge, onClick, onDragStart, onDragOver, onDrop, dragOver, onCycleSize, onRecolor,
+  item, override, editing, badge, onClick, onDragPointerDown, dragOver, isDragging, onCycleSize, onRecolor,
 }: {
   item: NavItem;
   override: TileOverride;
   editing: boolean;
   badge?: string | number;
   onClick: () => void;
-  onDragStart: () => void;
-  onDragOver: (e: React.DragEvent) => void;
-  onDrop: (e: React.DragEvent) => void;
+  onDragPointerDown: (e: React.PointerEvent) => void;
   dragOver: boolean;
+  isDragging: boolean;
   onCycleSize: () => void;
   onRecolor: (c: TileColor) => void;
 }) {
@@ -33,11 +34,9 @@ export default function LauncherTile({
 
   return (
     <div
-      className={`hs-tile c-${color} ${sizeClass(size)} ${editing ? 'hs-editing' : ''} ${dragOver ? 'hs-drag-over' : ''}`}
-      draggable={editing}
-      onDragStart={editing ? onDragStart : undefined}
-      onDragOver={editing ? (e) => { e.preventDefault(); onDragOver(e); } : undefined}
-      onDrop={editing ? (e) => { e.preventDefault(); onDrop(e); } : undefined}
+      className={`hs-tile c-${color} ${sizeClass(size)} ${editing ? 'hs-editing' : ''} ${dragOver ? 'hs-drag-over' : ''} ${isDragging ? 'hs-dragging' : ''}`}
+      data-tile-id={item.id}
+      onPointerDown={editing ? onDragPointerDown : undefined}
       onClick={editing ? undefined : onClick}
       role="button"
       tabIndex={0}
@@ -48,12 +47,11 @@ export default function LauncherTile({
       {badge !== undefined && <span className="hs-badge">{badge}</span>}
 
       {editing && (
-        // draggable={false} je nutné explicitně — jinak potomek zdědí gesto
-        // přetažení z rodičovské dlaždice a myš na desktopu spustí drag
-        // místo kliknutí na tlačítko (klik na velikost/barvu by nefungoval).
-        <div className="hs-tile-controls" draggable={false} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+        // stopPropagation, ať klik/dotek na tlačítko nezačne přesouvat celou
+        // dlaždici (rodič má vlastní onPointerDown pro přesun).
+        <div className="hs-tile-controls" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
           <div className="hs-ctrl-row">
-            <button type="button" draggable={false} className="hs-size-btn" title="Změnit velikost" onClick={onCycleSize}>
+            <button type="button" className="hs-size-btn" title="Změnit velikost" onClick={onCycleSize}>
               ⤢
             </button>
           </div>
@@ -62,7 +60,6 @@ export default function LauncherTile({
               <button
                 key={c}
                 type="button"
-                draggable={false}
                 className={`hs-swatch ${c === color ? 'active' : ''}`}
                 style={{ background: COLOR_HEX[c] }}
                 title={c}
