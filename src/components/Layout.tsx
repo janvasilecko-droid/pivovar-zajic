@@ -691,18 +691,22 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           </div>
 
           {/* Pravá strana hlavičky — jen upozornění, nic trvalého. WhatsApp a
-              nové objednávky se objeví jen když je opravdu co řešit. */}
+              nové objednávky se objeví jen když je opravdu co řešit. Na
+              domovské stránce jsou Hledat a WhatsApp dlaždice v launcheru
+              místo tlačítek tady (viz HomeScreen.tsx). */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
-            <button
-              type="button"
-              onClick={() => setShowSearchModal(true)}
-              title="Hledat (Ctrl+K)"
-              className="w-9 h-9 sm:w-auto sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border border-neutral-200 bg-neutral-100/80 hover:bg-neutral-200 text-neutral-700 active:scale-95"
-            >
-              <Search size={15} />
-              <span className="hidden sm:inline">Hledat</span>
-              <kbd className="hidden sm:inline-block text-[10px] bg-white px-1.5 py-0.5 rounded border border-neutral-300 text-neutral-500 font-mono">⌘K</kbd>
-            </button>
+            {!isHome && (
+              <button
+                type="button"
+                onClick={() => setShowSearchModal(true)}
+                title="Hledat (Ctrl+K)"
+                className="w-9 h-9 sm:w-auto sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border border-neutral-200 bg-neutral-100/80 hover:bg-neutral-200 text-neutral-700 active:scale-95"
+              >
+                <Search size={15} />
+                <span className="hidden sm:inline">Hledat</span>
+                <kbd className="hidden sm:inline-block text-[10px] bg-white px-1.5 py-0.5 rounded border border-neutral-300 text-neutral-500 font-mono">⌘K</kbd>
+              </button>
+            )}
 
             {newOrdersCount > 0 && (
               <button
@@ -718,7 +722,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
               </button>
             )}
 
-            {pendingWhatsAppCount > 0 && (
+            {!isHome && pendingWhatsAppCount > 0 && (
               <button
                 type="button"
                 onClick={openWhatsApp}

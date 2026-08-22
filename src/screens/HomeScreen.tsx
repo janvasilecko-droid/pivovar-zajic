@@ -6,12 +6,15 @@
 // zobrazuje se jen komu je nastaveno (Uživatelé → "Dostává upozornění na
 // vozidla") a musí ho jednou potvrdit, pak zmizí (dokud se stav nezmění).
 import { useEffect, useMemo, useState, useRef } from 'react';
+import { Search, MessageCircle } from 'lucide-react';
 import { NAV, type Page } from '../components/Layout';
 import LauncherTile from '../components/LauncherTile';
+import { QuickSearchModal } from '../components/QuickSearchModal';
 import { useAuth } from '../lib/auth';
 import { canUserView, getUserPermissions, ModuleKey } from '../lib/permissions';
 import { isAdminEmail } from '../lib/config';
 import { supabase, Vehicle } from '../lib/supabase';
+import { fetchPendingWhatsAppCount } from '../lib/whatsappApi';
 import { getVehicleExpiryStatus } from './Catalogs';
 import {
   getHomeLayout, saveHomeLayout, TILE_SIZES, SCENES, MIN_OPACITY, MAX_OPACITY,
@@ -191,6 +194,19 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
       .then(({ count }) => setPendingOrders(count ?? 0));
   }, [visibleIds]);
 
+  // ---- Hledat a WhatsApp — přesunuté z hlavičky (Layout.tsx) sem jako
+  // dlaždice, ať jsou na Domů ve stejném stylu jako zbytek launcheru.
+  // Hlavička je schovává jen na téhle stránce (viz Layout.tsx, isHome). ----
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  const [pendingWhatsApp, setPendingWhatsApp] = useState(0);
+  useEffect(() => {
+    fetchPendingWhatsAppCount().then(setPendingWhatsApp).catch(() => {});
+  }, []);
+  function openWhatsAppFromTile() {
+    setPage('orders');
+    window.dispatchEvent(new CustomEvent('pivovar:open-auto-import'));
+  }
+
   // Upozornění na STK / dálniční známku vozidel — jen komu je to nastaveno
   // v Uživatelích (nebo admin), a jen dokud to ten člověk jednou nepotvrdí.
   const canSeeVehicleAlerts = profile?.role === 'admin' || !!(profile as any)?.receive_vehicle_alerts;
@@ -306,6 +322,19 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
         )}
 
         <div className="hs-grid" style={{ ['--hs-tile-alpha' as any]: layout.tileOpacity }}>
+          {/* Hledat a WhatsApp — pevné dlaždice (nepřesouvají se/nemění
+              velikost, nejsou součástí uloženého rozložení), přesunuté
+              sem z hlavičky. */}
+          <button type="button" className="hs-tile c-slate" onClick={() => setShowSearchModal(true)}>
+            <Search />
+            <div className="hs-lbl">Hledat</div>
+          </button>
+          <button type="button" className="hs-tile c-mint" onClick={openWhatsAppFromTile}>
+            <MessageCircle />
+            <div className="hs-lbl">WhatsApp</div>
+            {pendingWhatsApp > 0 && <span className="hs-badge">{pendingWhatsApp > 99 ? '99+' : pendingWhatsApp}</span>}
+          </button>
+
           {layout.order.map((id) => {
             const item = navById.get(id);
             if (!item) return null;
@@ -328,6 +357,12 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
           })}
         </div>
       </div>
+
+      <QuickSearchModal
+        isOpen={showSearchModal}
+        onClose={() => setShowSearchModal(false)}
+        onSelectPage={setPage}
+      />
     </div>
   );
 }
