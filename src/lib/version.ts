@@ -1,7 +1,7 @@
 // Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-export const APP_VERSION = '1.770';
-export const APP_VERSION_DATE = '22.8.2026 19:24';
+export const APP_VERSION = '1.771';
+export const APP_VERSION_DATE = '22.8.2026 19:33';
 
 
 

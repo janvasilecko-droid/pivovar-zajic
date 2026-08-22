@@ -7,8 +7,8 @@ android {
         applicationId "cz.minipivovar.zajic"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 10770
-        versionName "1.770"
+        versionCode 10771
+        versionName "1.771"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
