@@ -3,7 +3,7 @@ import {
   FilePlus, ClipboardList, Wine, Cylinder, Sparkles, TrendingDown, Store, FileText,
   ClipboardCheck, BarChart3, History as HistoryIcon, Snowflake,
   CalendarDays, Car, Tag, ShieldCheck, PlusCircle, Settings, Calculator,
-  LogOut, Download, Wheat, FlaskConical, Shield, Bell, BellOff, X, ArrowRight, Search, Smartphone, MessageCircle, Users, GlassWater, Home, type LucideIcon,
+  Download, Wheat, FlaskConical, Shield, Bell, BellOff, X, ArrowRight, Search, Smartphone, MessageCircle, Users, GlassWater, Home, type LucideIcon,
 } from 'lucide-react';
 
 import { useAuth } from '../lib/auth';
@@ -62,8 +62,6 @@ export const NAV: NavItem[] = [
   { id: 'app_settings', label: 'Aplikace & Nastavení', icon: Settings, group: 'Nastavení' },
 ];
 
-const GROUPS = ['Výroba', 'Pivovar', 'Nástroje', 'Číselníky', 'Nastavení'];
-
 // Interní záložky uvnitř "Tabbed" obrazovek (viz App.tsx) mají vlastní Page
 // hodnotu, aby zapisovaly do historie (tlačítko Zpět vrací záložku, ne celé
 // menu) — v menu/hlavičce se ale mají pořád tvářit jako svoje nadřazená
@@ -115,7 +113,6 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   const homeCustomAccent: string = (profile as any)?.home_layout?.customAccent || '#ff6b6b';
   const savedDock = (profile as any)?.home_layout?.dock;
   const dockPages: Page[] = Array.isArray(savedDock) && savedDock.length === DEFAULT_DOCK.length ? savedDock : DEFAULT_DOCK;
-  const [open, setOpen] = useState(false);
   const [densityState, setDensityState] = useState<DensityMode>(getDensity());
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(false);
@@ -556,110 +553,10 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
         </div>
       )}
 
-      {/* Sidebar - Desktop & Mobile */}
-      <aside
-        className={`fixed inset-y-0 left-0 z-40 w-64 bg-white border-r-2 border-amber-200 flex flex-col justify-between transition-transform duration-300 ease-out sm:relative sm:translate-x-0 sm:shrink-0 shadow-lg ${
-          open ? 'translate-x-0' : '-translate-x-full'
-        }`}
-      >
-        <div className="relative flex flex-col h-full overflow-hidden">
-          {/* Plovoucí zavírací tlačítko — bez bílého pruhu, menu sahá až nahoru */}
-          <button
-            onClick={() => setOpen(false)}
-            aria-label="Zavřít menu"
-            className="sm:hidden absolute top-1.5 right-1.5 z-10 w-8 h-8 grid place-items-center rounded-full text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 transition"
-          >
-            ✕
-          </button>
-
-          {/* App Header in Sidebar */}
-          <div className="p-3 border-b border-neutral-200 flex items-center justify-between bg-white">
-            <button
-              onClick={() => { setPage('app_settings'); setOpen(false); }}
-              className="flex items-center gap-1.5 text-xs font-black text-neutral-900 hover:text-amber-700 transition"
-            >
-              <Settings size={14} className="text-neutral-400" />
-              <span>Nastavení</span>
-            </button>
-          </div>
-
-          {/* Navigation Links */}
-          <nav className="flex-1 overflow-y-auto p-4 pr-10 sm:pr-4 space-y-6 scrollbar-thin">
-            {GROUPS.map((group) => {
-              const groupItems = visibleNav.filter((n) => n.group === group);
-              if (groupItems.length === 0) return null;
-              return (
-                <div key={group} className="space-y-1">
-                  <div className="px-3 text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-1.5">{group}</div>
-                  {groupItems.map((item) => {
-                    const Icon = item.icon;
-                    const isActive = navPageFor(page) === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => {
-                          setPage(item.id);
-                          setOpen(false);
-                        }}
-                        className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl font-black text-xs transition-all ${
-                          isActive
-                            ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300'
-                            : 'text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900'
-                        }`}
-                      >
-                        <Icon size={16} strokeWidth={isActive ? 2.5 : 2} className={isActive ? 'text-amber-600' : 'text-neutral-400'} />
-                        <span>{item.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </nav>
-        </div>
-
-        {/* Footer User Info */}
-        <div className="p-4 border-t border-neutral-200 space-y-2 bg-white">
-          <div className="flex items-center justify-between text-xs text-neutral-700 px-1">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className="font-bold truncate max-w-[110px] text-neutral-900">{profile?.display_name || user?.email}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <OfflineStatus online={online} pending={pending} syncing={syncing} syncMsg={syncMsg} onSync={async () => { const { syncQueue, queueLength } = await import('../lib/offline'); if (queueLength() === 0) { setSyncMsg('Fronta je prázdná — nic k synchronizaci'); setTimeout(() => setSyncMsg(null), 3000); return; } setSyncing(true); const r = await syncQueue(); setSyncing(false); setSyncMsg(r.remaining === 0 ? `Synchronizováno ${r.ok} změn` : `OK ${r.ok}, selhalo ${r.failed}`); setTimeout(() => setSyncMsg(null), 4000); }} />
-              <button
-                onClick={() => { setPage('app_settings'); setOpen(false); }}
-                title="Nastavení upozornění"
-                className={`w-7 h-7 rounded-lg grid place-items-center transition border ${
-                  notifPermission === 'granted'
-                    ? 'bg-amber-100 text-amber-950 border-amber-300'
-                    : 'bg-neutral-100 text-neutral-700 border-neutral-300'
-                }`}
-              >
-                <Bell size={14} className={notifPermission === 'granted' ? 'text-amber-600 fill-amber-500' : 'text-neutral-500'} />
-              </button>
-            </div>
-          </div>
-          <div className="flex items-center justify-between text-[10px] px-1">
-            <button
-              onClick={() => { setPage('app_settings'); setOpen(false); }}
-              className="text-neutral-400 hover:text-neutral-700 font-bold transition"
-              title={`Verze v${APP_VERSION} (${APP_VERSION_DATE}) — klikněte pro nastavení`}
-            >
-              v{APP_VERSION}
-            </button>
-            <span className="text-neutral-300 font-bold truncate max-w-[110px]">{user?.email}</span>
-          </div>
-          <button
-            onClick={signOut}
-            className="w-full py-2 px-3 rounded-xl bg-white hover:bg-rose-50 text-neutral-700 hover:text-rose-700 text-xs font-black flex items-center justify-center gap-2 transition-all border border-neutral-200 hover:border-rose-300 shadow-2xs"
-          >
-            <LogOut size={15} strokeWidth={2} className="text-rose-600" />
-            Odhlásit se
-          </button>
-        </div>
-      </aside>
-
-      {open && <div className="fixed inset-0 bg-neutral-950/70 backdrop-blur-md z-30 sm:hidden" onClick={() => setOpen(false)} />}
+      {/* Stará postranní nabídka (aside) je pryč — appka je teď navigovaná
+          čistě přes dlaždicový launcher (HomeScreen.tsx). Odhlášení je
+          dlaždice na Domů; stav offline fronty a upozornění jsou v hlavičce
+          níže (vidět na každé stránce, ne jen na Domů). */}
 
       {/* Banner: offline → zobrazená data nemusí být aktuální (z mezipaměti). */}
       {showStaleBanner && (
@@ -740,6 +637,22 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                 </span>
               </button>
             )}
+
+            {/* Stav offline fronty a upozornění — dřív v patičce staré
+                postranní nabídky, teď v hlavičce (vidět na každé stránce). */}
+            <OfflineStatus online={online} pending={pending} syncing={syncing} syncMsg={syncMsg} onSync={async () => { const { syncQueue, queueLength } = await import('../lib/offline'); if (queueLength() === 0) { setSyncMsg('Fronta je prázdná — nic k synchronizaci'); setTimeout(() => setSyncMsg(null), 3000); return; } setSyncing(true); const r = await syncQueue(); setSyncing(false); setSyncMsg(r.remaining === 0 ? `Synchronizováno ${r.ok} změn` : `OK ${r.ok}, selhalo ${r.failed}`); setTimeout(() => setSyncMsg(null), 4000); }} />
+            <button
+              type="button"
+              onClick={() => setPage('app_settings')}
+              title="Nastavení upozornění"
+              className={`w-9 h-9 rounded-xl grid place-items-center transition border ${
+                notifPermission === 'granted'
+                  ? 'bg-amber-100 text-amber-950 border-amber-300'
+                  : 'bg-neutral-100 text-neutral-700 border-neutral-300'
+              }`}
+            >
+              <Bell size={15} className={notifPermission === 'granted' ? 'text-amber-600 fill-amber-500' : 'text-neutral-500'} />
+            </button>
 
             {/* Bug report button */}
             <button

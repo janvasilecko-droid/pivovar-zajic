@@ -6,7 +6,7 @@
 // zobrazuje se jen komu je nastaveno (Uživatelé → "Dostává upozornění na
 // vozidla") a musí ho jednou potvrdit, pak zmizí (dokud se stav nezmění).
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { Search, MessageCircle, ClipboardList, SlidersHorizontal } from 'lucide-react';
+import { Search, MessageCircle, ClipboardList, SlidersHorizontal, LogOut } from 'lucide-react';
 import { NAV, type Page } from '../components/Layout';
 import LauncherTile from '../components/LauncherTile';
 import { QuickSearchModal } from '../components/QuickSearchModal';
@@ -72,7 +72,7 @@ const SCENE_LABELS: Record<string, string> = {
 };
 
 export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) {
-  const { profile, user, patchProfile } = useAuth();
+  const { profile, user, patchProfile, signOut } = useAuth();
   const isAdmin = profile?.role === 'admin' || isAdminEmail(user?.email);
   const userPerms = getUserPermissions(user?.id ?? '', (profile as any)?.permissions);
 
@@ -376,6 +376,14 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
           >
             <SlidersHorizontal />
             <div className="hs-lbl">{editMode ? 'Hotovo' : 'Upravit rozložení'}</div>
+          </button>
+          <button
+            type="button"
+            className="hs-tile c-crimson"
+            onClick={() => { if (window.confirm('Odhlásit se z appky?')) signOut(); }}
+          >
+            <LogOut />
+            <div className="hs-lbl">Odhlásit se</div>
           </button>
 
           {layout.order.map((id) => {
