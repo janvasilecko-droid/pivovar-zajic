@@ -1117,6 +1117,14 @@ function TransferForm({ tanks, beers, initialFromId, initialBeerId, initialVolum
     if (fromTank && v > Number(fromTank.current_volume_l)) { setErr(`Tank ${fromTank.label} má jen ${fromTank.current_volume_l} l.`); return; }
     const lossV = Number(loss) || 0;
     if (lossV < 0 || lossV > v) { setErr(`Ztráta musí být mezi 0 a ${v} l (přelévaný objem).`); return; }
+    if (toId) {
+      const toTank = tanks.find((t) => t.id === toId);
+      const toNewVolCheck = Number(toTank?.current_volume_l ?? 0) + (v - lossV);
+      if (toTank?.capacity_l && toNewVolCheck > toTank.capacity_l) {
+        setErr(`Tank ${toTank.label} má kapacitu jen ${toTank.capacity_l} l (po přelití by měl ${toNewVolCheck} l).`);
+        return;
+      }
+    }
     setBusy(true);
     const beer = beers.find((b) => b.id === beerId);
     await supabase.from('cellar_transfers').insert({
