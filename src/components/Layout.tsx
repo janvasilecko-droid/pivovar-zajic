@@ -878,6 +878,25 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
 
 function OfflineStatus({ online, pending, syncing, syncMsg, onSync }: { online: boolean; pending: number; syncing: boolean; syncMsg: string | null; onSync: () => void }) {
   const [showInfo, setShowInfo] = useState(false);
+  const [queueItems, setQueueItems] = useState<{ id: string; table: string; op: string; ts: number }[]>([]);
+  const [failures, setFailures] = useState<{ id: string; table: string; op: string; error: string }[]>([]);
+
+  async function refreshQueueDetail() {
+    const { getQueue, getLastSyncFailures } = await import('../lib/offline');
+    setQueueItems(getQueue().map((o) => ({ id: o.id, table: o.table, op: o.op, ts: o.ts })));
+    setFailures(getLastSyncFailures());
+  }
+
+  useEffect(() => {
+    if (showInfo) refreshQueueDetail();
+  }, [showInfo, pending, syncing]);
+
+  async function discardOp(id: string) {
+    const { removeOp } = await import('../lib/offline');
+    removeOp(id);
+    setFailures((prev) => prev.filter((f) => f.id !== id));
+    refreshQueueDetail();
+  }
 
   return (
     <div className="flex items-center gap-2">
@@ -905,6 +924,31 @@ function OfflineStatus({ online, pending, syncing, syncMsg, onSync }: { online: 
                 Po obnovení internetového připojení v pivovaru stiskněte tlačítko pro ruční odeslání všech zápisů ze sklepa.
               </p>
             </div>
+
+            {queueItems.length > 0 && (
+              <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                {queueItems.map((item) => {
+                  const failure = failures.find((f) => f.id === item.id);
+                  return (
+                    <div key={item.id} className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-[11px] font-bold ${failure ? 'bg-rose-50 border-rose-300 text-rose-950' : 'bg-neutral-100 border-neutral-200 text-neutral-700'}`}>
+                      <div className="min-w-0">
+                        <div className="truncate">{item.table} · {item.op} · {new Date(item.ts).toLocaleString('cs-CZ')}</div>
+                        {failure && <div className="text-[10px] font-semibold text-rose-700 truncate" title={failure.error}>❌ {failure.error}</div>}
+                      </div>
+                      {failure && (
+                        <button
+                          onClick={() => discardOp(item.id)}
+                          title="Zahodit tento zápis natrvalo (nepovede se uložit)"
+                          className="shrink-0 px-2 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-black"
+                        >
+                          Zahodit
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             <div className="flex items-center justify-between pt-2">
               <button

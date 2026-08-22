@@ -40,11 +40,20 @@ export function removeOp(id: string) {
   write(read().filter((o) => o.id !== id));
 }
 
+export type SyncFailure = { id: string; table: string; op: QueuedOp['op']; error: string };
+
+// Chybové zprávy z posledního syncQueue() běhu — ať UI ukáže PROČ konkrétní
+// zápis uvízl ve frontě (ne jen "selhalo N"), a uživatel se může rozhodnout
+// položku zahodit (removeOp), pokud jde o trvalou chybu (např. duplicitní klíč).
+let lastFailures: SyncFailure[] = [];
+export function getLastSyncFailures(): SyncFailure[] { return lastFailures; }
+
 export async function syncQueue(): Promise<{ ok: number; failed: number; remaining: number }> {
   const { supabase } = await import('./supabase');
   const q = read();
   let ok = 0, failed = 0;
   const failedIds = new Set<string>();
+  const failures: SyncFailure[] = [];
   for (const op of q) {
     let res: { error: any } | null = null;
     try {
@@ -61,12 +70,16 @@ export async function syncQueue(): Promise<{ ok: number; failed: number; remaini
         for (const [k, v] of Object.entries(op.inMatch ?? {})) b = b.in(k, v);
         res = await b;
       }
-      if (res?.error) { failed++; failedIds.add(op.id); }
-      else ok++;
-    } catch {
+      if (res?.error) {
+        failed++; failedIds.add(op.id);
+        failures.push({ id: op.id, table: op.table, op: op.op, error: res.error.message ?? String(res.error) });
+      } else ok++;
+    } catch (e: any) {
       failed++; failedIds.add(op.id);
+      failures.push({ id: op.id, table: op.table, op: op.op, error: e?.message ?? String(e) });
     }
   }
+  lastFailures = failures;
   // Během synchronizace mohl uživatel přidat další operace. Zachováme je a
   // odstraníme pouze úspěšně zpracované položky z původního snapshotu.
   const processedIds = new Set(q.map((op) => op.id));
