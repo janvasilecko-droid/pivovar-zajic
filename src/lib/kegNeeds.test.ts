@@ -190,4 +190,29 @@ describe('computeKegNeeds', () => {
     );
     expect(rows).toEqual([]); // žádný pohyb/objednávka KEG
   });
+
+  it('KEGy spotřebované na stáčení lahví (bottling.kegs_used) se odečtou ze skladu KEGů', () => {
+    const rows = computeKegNeeds(
+      makeInput({
+        inventoryRows: [{ entry_date: '2026-08-01', beer_id: 'b1', package_id: 'p-keg', quantity: 10, note: 'Počáteční' }],
+        // 3 KEGy 50l vystočeny do lahví tento týden — kegs_used_package_id ukazuje přímo na obal KEGu.
+        bottlingRows: [{ entry_date: todayStr, beer_id: 'b1', package_id: 'p-bottle', quantity: 600, kegs_used: 3, kegs_used_package_id: 'p-keg' }],
+      })
+    );
+    const row = rows.find((r) => r.package_id === 'p-keg');
+    expect(row).toBeDefined();
+    expect(row!.stockQty).toBe(7); // 10 − 3 spotřebované na stáčení
+  });
+
+  it('dorovnání inventury (inventory_adjustments) se promítne do skladu KEGů', () => {
+    const rows = computeKegNeeds(
+      makeInput({
+        inventoryRows: [{ entry_date: '2026-08-01', beer_id: 'b1', package_id: 'p-keg', quantity: 10, note: 'Počáteční' }],
+        adjustmentRows: [{ entry_date: todayStr, beer_id: 'b1', package_id: 'p-keg', quantity: -2 }], // zjištěné manko
+      })
+    );
+    const row = rows.find((r) => r.package_id === 'p-keg');
+    expect(row).toBeDefined();
+    expect(row!.stockQty).toBe(8); // 10 − 2 manko
+  });
 });

@@ -55,9 +55,33 @@ export type PackageNeedsInput = {
   prefukRows?: any[];
   /** Automatický odpočet závozu (stejný zdroj jako Sklad/Inventura — viz zavoz_deductions). */
   zavozDeductionRows?: any[];
+  /** Dorovnání inventury — manko/přebytek (± ks), stejný zdroj jako Sklad/Dashboard (inventory_adjustments). */
+  adjustmentRows?: any[];
   weekKey: string;
   todayStr: string;
 };
+
+// KEGy spotřebované jako zdroj pro stáčení lahví (bottling.kegs_used) —
+// stejná logika jako v Stock.tsx/Dashboard.tsx/InventoryScreen.tsx (odsud
+// zkopírováno), jen sdílená napříč potřebami KEG/lahví, aby "co ještě chybí
+// stočit" nepovažovalo tyhle KEGy pořád za dostupné.
+function resolveKegsUsed(
+  row: any,
+  packages: { id: string; kind: string; volume_l: number }[]
+): { kegPkgId: string; kegsUsed: number } | null {
+  const kegsUsed = Number(row.kegs_used || 0);
+  if (kegsUsed <= 0) return null;
+  if (row.kegs_used_package_id) return { kegPkgId: row.kegs_used_package_id, kegsUsed };
+  const sourceL = Number(row.source_volume_l || 0);
+  if (sourceL > 0) {
+    const singleVol = sourceL / kegsUsed;
+    const matched = packages.find((p) => p.kind === 'keg' && Number(p.volume_l) === singleVol);
+    if (matched) return { kegPkgId: matched.id, kegsUsed };
+  }
+  const pkg = packages.find((p) => p.id === row.package_id);
+  if (pkg && pkg.kind === 'keg') return { kegPkgId: pkg.id, kegsUsed };
+  return null;
+}
 
 export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind: string) => boolean): PackageNeedsRow[] {
   const {
@@ -73,6 +97,7 @@ export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind
     writeoffsRows,
     prefukRows = [],
     zavozDeductionRows = [],
+    adjustmentRows = [],
     weekKey,
   } = input;
 
@@ -130,6 +155,18 @@ export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind
     const k = `${r.beer_id}__${r.package_id}`;
     preWeekOut[k] = (preWeekOut[k] || 0) + Number(r.quantity || 0);
   });
+  {
+    const seen = new Set<string>();
+    bottlingRows.filter((r) => isBeforeThisWeek(r.entry_date)).forEach((r) => {
+      const res = resolveKegsUsed(r, packages);
+      if (!res || !r.beer_id) return;
+      const key = `${r.entry_date}|${r.beer_id}|${res.kegsUsed}|${res.kegPkgId}|${r.created_at || r.note || ''}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      const k = `${r.beer_id}__${res.kegPkgId}`;
+      preWeekOut[k] = (preWeekOut[k] || 0) + res.kegsUsed;
+    });
+  }
   const prefukFromPreWeek: Record<string, number> = {};
   const prefukToPreWeek: Record<string, number> = {};
   prefukRows.filter((r) => isBeforeThisWeek(r.entry_date)).forEach((r) => {
@@ -143,11 +180,20 @@ export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind
       prefukToPreWeek[k] = (prefukToPreWeek[k] || 0) + Number(r.to_count || 0);
     }
   });
+  // Dorovnání inventury (manko/přebytek, ± ks) — stejný zdroj jako Sklad/Dashboard
+  // (inventory_adjustments). Bez tohoto se "co chybí stočit" po zápisu manka
+  // v Inventuře rozešlo s tím, co ukazuje Sklad.
+  const adjPreWeek: Record<string, number> = {};
+  adjustmentRows.filter((r) => isBeforeThisWeek(r.entry_date)).forEach((r) => {
+    if (!r.beer_id || !r.package_id) return;
+    const k = `${r.beer_id}__${r.package_id}`;
+    adjPreWeek[k] = (adjPreWeek[k] || 0) + Number(r.quantity || 0);
+  });
   const weekStartStockMap: Record<string, number> = {};
-  new Set([...Object.keys(invMap), ...Object.keys(preWeekIn), ...Object.keys(preWeekOut), ...Object.keys(prefukFromPreWeek), ...Object.keys(prefukToPreWeek)]).forEach((k) => {
+  new Set([...Object.keys(invMap), ...Object.keys(preWeekIn), ...Object.keys(preWeekOut), ...Object.keys(prefukFromPreWeek), ...Object.keys(prefukToPreWeek), ...Object.keys(adjPreWeek)]).forEach((k) => {
     weekStartStockMap[k] = Math.max(
       0,
-      Number(invMap[k] || 0) + Number(preWeekIn[k] || 0) - Number(preWeekOut[k] || 0) - Number(prefukFromPreWeek[k] || 0) + Number(prefukToPreWeek[k] || 0)
+      Number(invMap[k] || 0) + Number(preWeekIn[k] || 0) - Number(preWeekOut[k] || 0) - Number(prefukFromPreWeek[k] || 0) + Number(prefukToPreWeek[k] || 0) + Number(adjPreWeek[k] || 0)
     );
   });
 
@@ -178,6 +224,18 @@ export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind
     const k = `${r.beer_id}__${r.package_id}`;
     zavozThisWeekMap[k] = (zavozThisWeekMap[k] || 0) + Number(r.quantity || 0);
   });
+  {
+    const seen = new Set<string>();
+    bottlingRows.filter((r) => isThisWeek(r.entry_date)).forEach((r) => {
+      const res = resolveKegsUsed(r, packages);
+      if (!res || !r.beer_id) return;
+      const key = `${r.entry_date}|${r.beer_id}|${res.kegsUsed}|${res.kegPkgId}|${r.created_at || r.note || ''}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      const k = `${r.beer_id}__${res.kegPkgId}`;
+      outgoingMap[k] = (outgoingMap[k] || 0) + res.kegsUsed;
+    });
+  }
   const prefukFromMap: Record<string, number> = {};
   const prefukToMap: Record<string, number> = {};
   prefukRows.filter((r) => isThisWeek(r.entry_date)).forEach((r) => {
@@ -191,6 +249,12 @@ export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind
       prefukToMap[tk] = (prefukToMap[tk] || 0) + Number(r.to_count || 0);
     }
   });
+  const adjThisWeekMap: Record<string, number> = {};
+  adjustmentRows.filter((r) => isThisWeek(r.entry_date)).forEach((r) => {
+    if (!r.beer_id || !r.package_id) return;
+    const k = `${r.beer_id}__${r.package_id}`;
+    adjThisWeekMap[k] = (adjThisWeekMap[k] || 0) + Number(r.quantity || 0);
+  });
 
   const list: PackageNeedsRow[] = [];
   beers.forEach((b) => {
@@ -202,15 +266,16 @@ export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind
       const zavozThisWeekQty = Number(zavozThisWeekMap[k] || 0);
       const prefukFromQty = Number(prefukFromMap[k] || 0);
       const prefukToQty = Number(prefukToMap[k] || 0);
+      const adjQty = Number(adjThisWeekMap[k] || 0);
       // Fyzický sklad TEĎ (sloupec "Sklad") — zavezené objednávky tento
       // týden už fyzicky odešly, proto se odečítají i tady.
-      const stockQty = Math.max(0, invQty + bottledQty - outgoingQty - zavozThisWeekQty - prefukFromQty + prefukToQty);
+      const stockQty = Math.max(0, invQty + bottledQty - outgoingQty - zavozThisWeekQty - prefukFromQty + prefukToQty + adjQty);
       const orderedQty = Number(orderedMap[k] || 0);
       // Kolik ještě chybí dotočit do konce týdne — porovnává CELKOVOU
       // týdenní poptávku (orderedQty, viz výše) s tím, co bylo tento týden
       // k dispozici BEZ odečtení zavezených (ty už jsou v orderedQty
       // zahrnuté jako součást poptávky, viz komentář u zavozThisWeekMap).
-      const neededQty = Math.max(0, orderedQty - Math.max(0, invQty + bottledQty - outgoingQty - prefukFromQty + prefukToQty));
+      const neededQty = Math.max(0, orderedQty - Math.max(0, invQty + bottledQty - outgoingQty - prefukFromQty + prefukToQty + adjQty));
 
       if (orderedQty > 0 || stockQty > 0 || invQty > 0 || bottledQty > 0) {
         list.push({

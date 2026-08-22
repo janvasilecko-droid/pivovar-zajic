@@ -24,6 +24,8 @@ type StockByPkg = {
   fromInventory: number; brewedWeek: number;
   orderedWeek: number; writeoffsWeek: number; fasovaniWeek: number; prodejnaWeek: number; akTaken: number; akReturned: number;
   kegsUsedWeek: number; odpocet: number; remaining: number;
+  /** Dorovnání inventury (manko/přebytek, ± z Inventura → Fyzická inventura). */
+  adjWeek: number;
   /** Objednáno celkem mínus to, co už fyzicky odjelo (zavoz_deductions) tento měsíc — kolik ještě čeká na odvoz. */
   orderedRemaining: number;
   /** Objednáno s dovozem do konce TOHOTO týdne (ne celý měsíc) — základ pro "Zbyde". */
@@ -91,7 +93,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
 
   async function load(silent = false) {
     if (!silent) setLoading(true);
-    const [{ data: b }, { data: pk }, { data: bt }, { data: kg }, { data: wo }, { data: inv }, { data: oi }, { data: ord }, { data: ak }, { data: fa }, { data: fp }, { data: zd }] = await Promise.all([
+    const [{ data: b }, { data: pk }, { data: bt }, { data: kg }, { data: wo }, { data: inv }, { data: oi }, { data: ord }, { data: ak }, { data: fa }, { data: fp }, { data: zd }, { data: adj }] = await Promise.all([
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
       supabase.from('bottling').select('entry_date,beer_id,package_id,quantity,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
@@ -104,6 +106,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
       supabase.from('fasovani').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('fasovani_private').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('zavoz_deductions').select('deduct_date,beer_id,package_id,quantity'),
+      supabase.from('inventory_adjustments').select('entry_date,beer_id,package_id,quantity'),
     ]);
     const beerList = (b as Beer[]) ?? [];
     const pkgList = (pk as Package[]) ?? [];
@@ -119,6 +122,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
     const faRows = (fa as Row[]) ?? [];
     const fpRows = (fp as Row[]) ?? [];
     const zdRows = (zd as { deduct_date: string; beer_id: string | null; package_id: string | null; quantity: number }[]) ?? [];
+    const adjRows = (adj as { entry_date: string; beer_id: string | null; package_id: string | null; quantity: number }[]) ?? [];
 
     const now = new Date();
     const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -184,7 +188,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
           const pkg = pkgList.find((p) => p.id === r.package_id);
           if (!pkg) return;
           let e = byPkg.get(r.package_id);
-          if (!e) { e = { package_id: r.package_id, label: pkg.label, quantity: 0, volume_l: pkg.volume_l, kind: pkg.kind, fromInventory: 0, brewedWeek: 0, orderedWeek: 0, orderedThisWeek: 0, writeoffsWeek: 0, fasovaniWeek: 0, prodejnaWeek: 0, akTaken: 0, akReturned: 0, kegsUsedWeek: 0, odpocet: 0, remaining: 0, orderedRemaining: 0 }; byPkg.set(r.package_id, e); }
+          if (!e) { e = { package_id: r.package_id, label: pkg.label, quantity: 0, volume_l: pkg.volume_l, kind: pkg.kind, fromInventory: 0, brewedWeek: 0, orderedWeek: 0, orderedThisWeek: 0, writeoffsWeek: 0, fasovaniWeek: 0, prodejnaWeek: 0, akTaken: 0, akReturned: 0, kegsUsedWeek: 0, odpocet: 0, remaining: 0, orderedRemaining: 0, adjWeek: 0 }; byPkg.set(r.package_id, e); }
           (e[field] as number) += Number(r.quantity);
         });
       
@@ -193,7 +197,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
         const qty = invMap[k] || 0;
         if (qty > 0) {
           let e = byPkg.get(pkg.id);
-          if (!e) { e = { package_id: pkg.id, label: pkg.label, quantity: 0, volume_l: pkg.volume_l, kind: pkg.kind, fromInventory: 0, brewedWeek: 0, orderedWeek: 0, orderedThisWeek: 0, writeoffsWeek: 0, fasovaniWeek: 0, prodejnaWeek: 0, akTaken: 0, akReturned: 0, kegsUsedWeek: 0, odpocet: 0, remaining: 0, orderedRemaining: 0 }; byPkg.set(pkg.id, e); }
+          if (!e) { e = { package_id: pkg.id, label: pkg.label, quantity: 0, volume_l: pkg.volume_l, kind: pkg.kind, fromInventory: 0, brewedWeek: 0, orderedWeek: 0, orderedThisWeek: 0, writeoffsWeek: 0, fasovaniWeek: 0, prodejnaWeek: 0, akTaken: 0, akReturned: 0, kegsUsedWeek: 0, odpocet: 0, remaining: 0, orderedRemaining: 0, adjWeek: 0 }; byPkg.set(pkg.id, e); }
           e.fromInventory = qty;
         }
       });
@@ -221,7 +225,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
           if (!pkg) return;
           let e = byPkg.get(pkgId);
           if (!e) {
-            e = { package_id: pkgId, label: pkg.label, quantity: 0, volume_l: pkg.volume_l, kind: pkg.kind, fromInventory: 0, brewedWeek: 0, orderedWeek: 0, orderedThisWeek: 0, writeoffsWeek: 0, fasovaniWeek: 0, prodejnaWeek: 0, akTaken: 0, akReturned: 0, kegsUsedWeek: 0, odpocet: 0, remaining: 0, orderedRemaining: 0 };
+            e = { package_id: pkgId, label: pkg.label, quantity: 0, volume_l: pkg.volume_l, kind: pkg.kind, fromInventory: 0, brewedWeek: 0, orderedWeek: 0, orderedThisWeek: 0, writeoffsWeek: 0, fasovaniWeek: 0, prodejnaWeek: 0, akTaken: 0, akReturned: 0, kegsUsedWeek: 0, odpocet: 0, remaining: 0, orderedRemaining: 0, adjWeek: 0 };
             byPkg.set(pkgId, e);
           }
           e.kegsUsedWeek += res.kegsUsed;
@@ -239,12 +243,19 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
           .filter((r) => r.beer_id === beer.id && r.package_id === p.package_id && isThisWeek(r.deduct_date))
           .reduce((s, r) => s + Number(r.quantity), 0);
         p.odpocet = p.writeoffsWeek + p.fasovaniWeek + p.prodejnaWeek + akceNet + (p.kegsUsedWeek || 0) + zdWeek;
+        // Dorovnání inventury (± manko/přebytek z Inventura → Fyzická inventura,
+        // zapsané bokem přes inventory_adjustments) — stejně jako ve Skladu
+        // (Stock.tsx). Bez tohoto řádku Dashboard po zápisu manka/přebytku
+        // v Inventuře natrvalo ukazoval jiné číslo než Sklad.
+        p.adjWeek = adjRows
+          .filter((r) => r.beer_id === beer.id && r.package_id === p.package_id && monthKey(r.entry_date) === curMonth && r.entry_date <= todayISO())
+          .reduce((s, r) => s + Number(r.quantity || 0), 0);
         // Sklad = počáteční stav + stočeno TENTO MĚSÍC − vše, co už fyzicky
-        // odešlo (odpočet). Dřív se tady neodečítal odpočet vůbec, takže
-        // "Sklad (AKT)" ukazoval hrubou výrobu měsíce, ne skutečný fyzický
-        // stav — po fasování/prodejně/závozu zůstal stejný, i když už bylo
-        // reálně vydáno.
-        p.quantity = Math.max(0, p.fromInventory + p.brewedWeek - p.odpocet);
+        // odešlo (odpočet) + dorovnání inventury. Dřív se tady neodečítal
+        // odpočet vůbec, takže "Sklad (AKT)" ukazoval hrubou výrobu měsíce,
+        // ne skutečný fyzický stav — po fasování/prodejně/závozu zůstal
+        // stejný, i když už bylo reálně vydáno.
+        p.quantity = Math.max(0, p.fromInventory + p.brewedWeek - p.odpocet + p.adjWeek);
         // "Zbývá zavézt" a "Zbyde" se počítají jen proti objednávkám DO KONCE
         // TOHOTO TÝDNE, ne za celý měsíc — objednávka splatná až za týden a
         // víc by jinak "Zbyde" ukazovala jako 0, i když fyzicky ještě nic
@@ -294,7 +305,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
   }
 
   useEffect(() => { load(); }, [brewFrom, brewTo]);
-  useRealtime(['bottling', 'kegging', 'fasovani', 'fasovani_private', 'writeoffs', 'inventory', 'orders', 'order_items', 'akce', 'akce_items', 'zavoz_deductions'], () => load(true));
+  useRealtime(['bottling', 'kegging', 'fasovani', 'fasovani_private', 'writeoffs', 'inventory', 'orders', 'order_items', 'akce', 'akce_items', 'zavoz_deductions', 'inventory_adjustments'], () => load(true));
 
   const statusOf = (s: StockStat) => s.remaining < 0 ? 'deficit' : s.stockTotal === 0 ? 'empty' : s.remaining <= 10 ? 'low' : 'ok';
 

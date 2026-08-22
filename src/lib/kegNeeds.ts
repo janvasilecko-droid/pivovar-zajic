@@ -16,17 +16,24 @@ export type KegNeedsInput = {
   orderItems: any[];
   inventoryRows: any[];
   keggingRows: any[];
+  /** Stočení lahví — používá se JEN kvůli poli kegs_used (KEGy spotřebované
+      jako zdroj stáčení lahví), ne kvůli výstupu lahví samotnému (ten pro
+      potřebu KEGů nic neznamená). Bez těchto řádků appka považuje kegs_used
+      za pořád dostupné KEGy, i když už byly reálně vystočeny do lahví. */
+  bottlingRows?: any[];
   fasovaniRows: any[];
   prodejnaRows: any[];
   writeoffsRows: any[];
   prefukRows: any[];
   /** Automatický odpočet závozu (stejný zdroj jako Sklad/Inventura — viz zavoz_deductions). */
   zavozDeductionRows?: any[];
+  /** Dorovnání inventury — manko/přebytek (± ks), stejný zdroj jako Sklad/Dashboard (inventory_adjustments). */
+  adjustmentRows?: any[];
   weekKey: string;
   todayStr: string;
 };
 
 export function computeKegNeeds(input: KegNeedsInput): KegNeedsRow[] {
-  const fullInput: PackageNeedsInput = { ...input, bottlingRows: [] };
+  const fullInput: PackageNeedsInput = { ...input, bottlingRows: input.bottlingRows ?? [] };
   return computePackageNeeds(fullInput, (kind) => kind === 'keg');
 }
