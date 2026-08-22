@@ -22,6 +22,8 @@ export type HomeLayout = {
   customAccent: string;
   /** Průhlednost skleněných dlaždic (viz MIN/MAX_OPACITY) — jako "Full Screen Picture" efekt na WP */
   tileOpacity: number;
+  /** 4 zástupci ve spodní mobilní liště (Layout.tsx) — 'home' je vždy platná volba. */
+  dock: Page[];
 };
 
 /** Převede "#rrggbb" (nebo "#rgb") na "rgba(r, g, b, alpha)". Neplatný vstup spadne na šedou. */
@@ -62,6 +64,9 @@ const DEFAULT_SIZE: Partial<Record<Page, TileSize>> = {
   users: 'sm',
   calendar: 'sm',
 };
+
+export const DEFAULT_DOCK: Page[] = ['orders', 'kegging', 'bottling', 'home'];
+export const DOCK_SIZE = DEFAULT_DOCK.length;
 
 const DEFAULT_SCENE: Scene = 'warm';
 const DEFAULT_OPACITY = 0.62;
@@ -118,7 +123,16 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[]): HomeLayout {
     ? saved.customAccent
     : DEFAULT_CUSTOM_ACCENT;
 
-  return { order, overrides: filledOverrides, scene, tileOpacity, customAccent };
+  // Spodní lišta: každý slot musí být buď 'home' (vždy platné), nebo modul,
+  // na který má uživatel právo — jinak spadne na výchozí volbu pro ten slot.
+  const savedDock = Array.isArray(saved.dock) ? (saved.dock as Page[]) : [];
+  const dock: Page[] = DEFAULT_DOCK.map((fallback, i) => {
+    const candidate = savedDock[i];
+    if (candidate === 'home' || (candidate && visibleSet.has(candidate))) return candidate;
+    return fallback;
+  });
+
+  return { order, overrides: filledOverrides, scene, tileOpacity, customAccent, dock };
 }
 
 export async function saveHomeLayout(userId: string, layout: HomeLayout): Promise<void> {

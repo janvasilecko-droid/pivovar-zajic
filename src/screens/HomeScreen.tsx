@@ -187,6 +187,11 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
   function handleOpacityChange(tileOpacity: number) {
     persist({ ...layout, tileOpacity });
   }
+  function handleDockChange(slot: number, id: Page) {
+    const dock = [...layout.dock];
+    dock[slot] = id;
+    persist({ ...layout, dock });
+  }
   function handleReset() {
     const next = getHomeLayout(null, visibleIds);
     setLayout(next);
@@ -333,6 +338,22 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                 value={layout.tileOpacity}
                 onChange={(e) => handleOpacityChange(Number(e.target.value))}
               />
+            </div>
+            <div className="hs-controls-group hs-dock-group">
+              <span className="hs-controls-label">Spodní lišta</span>
+              {layout.dock.map((dockId, i) => (
+                <select
+                  key={i}
+                  className="hs-dock-select"
+                  value={dockId}
+                  onChange={(e) => handleDockChange(i, e.target.value as Page)}
+                >
+                  <option value="home">Domů</option>
+                  {visible.map((n) => (
+                    <option key={n.id} value={n.id}>{n.label}</option>
+                  ))}
+                </select>
+              ))}
             </div>
           </div>
         )}

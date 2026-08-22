@@ -3,7 +3,7 @@ import {
   FilePlus, ClipboardList, Wine, Cylinder, Sparkles, TrendingDown, Store, FileText,
   ClipboardCheck, BarChart3, History as HistoryIcon, Snowflake,
   CalendarDays, Car, Tag, ShieldCheck, PlusCircle, Settings, Calculator,
-  LogOut, Menu, Download, Wheat, FlaskConical, Shield, Bell, BellOff, X, ArrowRight, Search, Smartphone, MessageCircle, Users, GlassWater, Home, BottleWine, type LucideIcon,
+  LogOut, Menu, Download, Wheat, FlaskConical, Shield, Bell, BellOff, X, ArrowRight, Search, Smartphone, MessageCircle, Users, GlassWater, Home, type LucideIcon,
 } from 'lucide-react';
 
 import { useAuth } from '../lib/auth';
@@ -20,7 +20,9 @@ import { QuickSearchModal } from './QuickSearchModal';
 import { isAdminEmail } from '../lib/config';
 import { BugReportModal } from './BugReportModal';
 import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
-import { SCENES, type Scene } from '../lib/homeLayout';
+import { SCENES, DEFAULT_DOCK, type Scene } from '../lib/homeLayout';
+
+const DOCK_COLORS = ['n-coral', 'n-mint', 'n-sky', 'n-indigo'];
 import '../screens/HomeScreen.css';
 
 export type NavItem = { id: Page; label: string; icon: LucideIcon; group: string };
@@ -111,6 +113,8 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   const homeSceneRaw = (profile as any)?.home_layout?.scene;
   const homeScene: Scene = SCENES.includes(homeSceneRaw) ? homeSceneRaw : 'warm';
   const homeCustomAccent: string = (profile as any)?.home_layout?.customAccent || '#ff6b6b';
+  const savedDock = (profile as any)?.home_layout?.dock;
+  const dockPages: Page[] = Array.isArray(savedDock) && savedDock.length === DEFAULT_DOCK.length ? savedDock : DEFAULT_DOCK;
   const [open, setOpen] = useState(false);
   const [densityState, setDensityState] = useState<DensityMode>(getDensity());
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
@@ -794,67 +798,45 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           {children}
         </div>
 
-        {/* Mobile Bottom Navigation Dock — thumb-friendly bottom bar. Na
+        {/* Mobile Bottom Navigation Dock — thumb-friendly bottom bar. Obsah
+            (4 zástupci) je uživatelsky volitelný — viz "Spodní lišta" v edit
+            módu launcheru (HomeScreen.tsx), uložen v home_layout.dock. Na
             domovské stránce jsou tlačítka malé barevné dlaždice (hs-nav-tile),
             ať lišta ladí se stylem launcheru; jinde v appce beze změny. */}
         <nav
           {...(isHome ? { 'data-home-chrome': true } : {})}
           className={`sm:hidden fixed bottom-0 left-0 right-0 z-30 ${isHome ? '' : 'bg-white/95'} backdrop-blur-lg border-t border-neutral-200 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-1 py-1.5 pb-safe flex items-center justify-around gap-1`}
         >
-          <button
-            onClick={() => setPage('orders')}
-            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all relative ${isHome ? 'hs-nav-tile n-coral flex-1' :
-              navPageFor(page) === 'orders'
-                ? 'text-amber-950 font-black scale-105 bg-amber-100/90 ring-1 ring-amber-300'
-                : 'text-neutral-500 hover:text-neutral-800 font-bold'
-            }`}
-          >
-            <div className="relative">
-              <ClipboardList size={20} strokeWidth={navPageFor(page) === 'orders' ? 2.5 : 2} className={!isHome && navPageFor(page) === 'orders' ? 'text-amber-700' : ''} />
-              {pendingWhatsAppCount > 0 && (
-                <span className="absolute -top-1 -right-2 bg-red-600 text-white text-[9px] font-black rounded-full min-w-[14px] h-3.5 px-0.5 flex items-center justify-center shadow">
-                  {pendingWhatsAppCount > 9 ? '9+' : pendingWhatsAppCount}
-                </span>
-              )}
-            </div>
-            <span className="text-[10px] mt-0.5 tracking-tight">Objednávky</span>
-          </button>
-
-          <button
-            onClick={() => setPage('kegging')}
-            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all ${isHome ? 'hs-nav-tile n-mint flex-1' :
-              navPageFor(page) === 'kegging'
-                ? 'text-amber-950 font-black scale-105 bg-amber-100/90 ring-1 ring-amber-300'
-                : 'text-neutral-500 hover:text-neutral-800 font-bold'
-            }`}
-          >
-            <Cylinder size={20} strokeWidth={navPageFor(page) === 'kegging' ? 2.5 : 2} className={!isHome && navPageFor(page) === 'kegging' ? 'text-amber-700' : ''} />
-            <span className="text-[10px] mt-0.5 tracking-tight">KEG</span>
-          </button>
-
-          <button
-            onClick={() => setPage('bottling')}
-            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all ${isHome ? 'hs-nav-tile n-sky flex-1' :
-              navPageFor(page) === 'bottling'
-                ? 'text-amber-950 font-black scale-105 bg-amber-100/90 ring-1 ring-amber-300'
-                : 'text-neutral-500 hover:text-neutral-800 font-bold'
-            }`}
-          >
-            <BottleWine size={20} strokeWidth={navPageFor(page) === 'bottling' ? 2.5 : 2} className={!isHome && navPageFor(page) === 'bottling' ? 'text-amber-700' : ''} />
-            <span className="text-[10px] mt-0.5 tracking-tight">Lahve</span>
-          </button>
-
-          <button
-            onClick={() => setPage('home')}
-            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all ${isHome ? 'hs-nav-tile n-indigo flex-1' :
-              navPageFor(page) === 'home'
-                ? 'text-amber-950 font-black scale-105 bg-amber-100/90 ring-1 ring-amber-300'
-                : 'text-neutral-500 hover:text-neutral-800 font-bold'
-            }`}
-          >
-            <Home size={20} strokeWidth={navPageFor(page) === 'home' ? 2.5 : 2} className={!isHome && navPageFor(page) === 'home' ? 'text-amber-700' : ''} />
-            <span className="text-[10px] mt-0.5 tracking-tight">Domů</span>
-          </button>
+          {dockPages.map((dockId, i) => {
+            const isActive = dockId === 'home' ? navPageFor(page) === 'home' : navPageFor(page) === dockId;
+            const info = dockId === 'home'
+              ? { label: 'Domů', icon: Home }
+              : NAV.find((n) => n.id === dockId);
+            if (!info) return null;
+            const DockIcon = info.icon;
+            const homeColor = DOCK_COLORS[i % DOCK_COLORS.length];
+            return (
+              <button
+                key={`${dockId}-${i}`}
+                onClick={() => setPage(dockId)}
+                className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all relative ${isHome ? `hs-nav-tile ${homeColor} flex-1` :
+                  isActive
+                    ? 'text-amber-950 font-black scale-105 bg-amber-100/90 ring-1 ring-amber-300'
+                    : 'text-neutral-500 hover:text-neutral-800 font-bold'
+                }`}
+              >
+                <div className="relative">
+                  <DockIcon size={20} strokeWidth={isActive ? 2.5 : 2} className={!isHome && isActive ? 'text-amber-700' : ''} />
+                  {dockId === 'orders' && pendingWhatsAppCount > 0 && (
+                    <span className="absolute -top-1 -right-2 bg-red-600 text-white text-[9px] font-black rounded-full min-w-[14px] h-3.5 px-0.5 flex items-center justify-center shadow">
+                      {pendingWhatsAppCount > 9 ? '9+' : pendingWhatsAppCount}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[10px] mt-0.5 tracking-tight truncate max-w-[64px]">{info.label}</span>
+              </button>
+            );
+          })}
 
           <button
             onClick={() => setOpen(true)}

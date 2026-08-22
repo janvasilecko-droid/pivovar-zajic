@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getHomeLayout, MIN_OPACITY, MAX_OPACITY } from './homeLayout';
+import { getHomeLayout, MIN_OPACITY, MAX_OPACITY, DEFAULT_DOCK } from './homeLayout';
 import type { Page } from '../components/Layout';
 
 const A: Page = 'kegging';
@@ -12,6 +12,7 @@ describe('getHomeLayout', () => {
     expect(layout.order).toEqual([A, B, C]);
     expect(layout.scene).toBe('warm');
     expect(layout.tileOpacity).toBeCloseTo(0.62);
+    expect(layout.dock).toEqual(DEFAULT_DOCK);
     [A, B, C].forEach((id) => expect(layout.overrides[id]?.color).toBeTruthy());
   });
 
@@ -46,5 +47,10 @@ describe('getHomeLayout', () => {
   it('přijme platný vlastní hex jako customAccent, neplatný nahradí výchozím', () => {
     expect(getHomeLayout({ customAccent: '#00ff00' }, [A]).customAccent).toBe('#00ff00');
     expect(getHomeLayout({ customAccent: 'nesmysl' }, [A]).customAccent).toBe('#ff6b6b');
+  });
+
+  it('spodní lišta: "home" je vždy platné, modul bez práva spadne na výchozí', () => {
+    const layout = getHomeLayout({ dock: ['home', B, C, 'writeoffs'] }, [B]);
+    expect(layout.dock).toEqual(['home', B, DEFAULT_DOCK[2], DEFAULT_DOCK[3]]);
   });
 });
