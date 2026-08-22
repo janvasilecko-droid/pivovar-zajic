@@ -6,6 +6,8 @@ import { Car, Plus, Download, Printer, Trash2, Calendar, MapPin, Navigation, Use
 import { isOrderKachna } from '../lib/zavozSecondCar';
 import { printTable } from '../lib/safePrint';
 import { computeRouteDistanceKm } from '../lib/routeDistance';
+import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
+import { DAYS } from '../lib/shared';
 
 export type LogbookEntry = {
   id: string;
@@ -222,35 +224,84 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
     return second ? (second.spz ? `${second.name} (${second.spz})` : second.name) : 'Kachna (Kačena)';
   }, [vehicles]);
 
-  // ---- KROK 1: NAČÍST DNY ZÁVOZU Z OBJEDNÁVEK (jen ty, které MAJÍ nastavený den závozu) ----
+  // ---- KROK 1: NAČÍST DNY ZÁVOZU Z OBJEDNÁVEK ----
   async function handleBuildPreview(e: React.FormEvent) {
     e.preventDefault();
     setAutoGenerating(true);
 
     try {
-      // Jen objednávky s nastaveným dnem závozu (delivery_date) — objednávky bez něj
-      // by vytvářely fiktivní jízdy na den vytvoření objednávky, ne na skutečný den rozvozu.
+      // Většina objednávek nemá vyplněné konkrétní delivery_date (to se ukládá
+      // jen u výslovně napsaného data) — místo toho mají delivery_day (den v
+      // týdnu: po/ut/st/ct/pa/so/ne) + order_date, ze kterých appka jinde
+      // (Orders.tsx, isoWeekKey(o.delivery_date || o.order_date)) dopočítává
+      // skutečné datum. Bez tohoto dopočtu by generátor přeskočil naprostou
+      // většinu reálných rozvozů (viz bug: srpen nabídl jen objednávky s ručně
+      // vyplněným přesným datem, zbytek — vč. několika jízd do Prahy — chyběl).
+      //
+      // Načteme širší okno podle order_date (± 1 týden přes hranice měsíce,
+      // pro případ přelivu týdne přes konec/začátek měsíce) SJEDNOCENÉ s
+      // objednávkami, co mají explicitní delivery_date přímo v měsíci (to může
+      // být naplánováno i mimo okno order_date, viz orders s delivery_date o
+      // dost dní/týdny později než order_date).
+      const monthStart = `${autoMonth}-01`;
+      const [yy, mm] = autoMonth.split('-').map(Number);
+      const monthEnd = `${autoMonth}-${String(new Date(Date.UTC(yy, mm, 0)).getUTCDate()).padStart(2, '0')}`;
+      const addDaysISO = (iso: string, delta: number) => {
+        const d = new Date(iso + 'T00:00:00Z');
+        d.setUTCDate(d.getUTCDate() + delta);
+        return d.toISOString().slice(0, 10);
+      };
+      const bufStart = addDaysISO(monthStart, -7);
+      const bufEnd = addDaysISO(monthEnd, 7);
+
       const [{ data: rawOrders }, { data: rawPlaces }] = await Promise.all([
         supabase
           .from('orders')
           .select('*')
           .neq('status', 'storno')
-          .not('delivery_date', 'is', null)
-          .gte('delivery_date', `${autoMonth}-01`)
-          .lte('delivery_date', `${autoMonth}-31`)
-          .order('delivery_date', { ascending: true }),
+          .or(
+            `and(delivery_date.gte.${monthStart},delivery_date.lte.${monthEnd}),and(order_date.gte.${bufStart},order_date.lte.${bufEnd})`
+          )
+          .order('order_date', { ascending: true }),
         supabase.from('places').select('id, name, lat, lng'),
       ]);
 
-      const ordersList = (rawOrders as any[]) ?? [];
+      const dayCodeOffset = (code: string | null | undefined): number | null => {
+        if (!code) return null;
+        const idx = DAYS.findIndex((d) => d.v === code);
+        return idx >= 0 ? idx : null;
+      };
+
+      // Skutečné datum dodání: explicitní delivery_date má přednost, jinak
+      // dopočet z týdne objednávky (order_date) + den v týdnu (delivery_day).
+      const effectiveDeliveryDate = (o: any): string | null => {
+        if (o.delivery_date) return o.delivery_date;
+        const offset = dayCodeOffset(o.delivery_day);
+        if (offset === null || !o.order_date) return null;
+        const weekStart = weekRange(isoWeekKey(o.order_date)).start;
+        const d = new Date(weekStart);
+        d.setUTCDate(d.getUTCDate() + offset);
+        return d.toISOString().slice(0, 10);
+      };
+
+      const ordersList = ((rawOrders as any[]) ?? [])
+        .map((o) => ({ ...o, _effectiveDate: effectiveDeliveryDate(o) }))
+        .filter((o) => o._effectiveDate && o._effectiveDate >= monthStart && o._effectiveDate <= monthEnd);
+
+      const skippedNoDay = ((rawOrders as any[]) ?? []).filter((o) => !effectiveDeliveryDate(o)).length;
+
       const placesById = new Map<string, { lat: number | null; lng: number | null }>(
         ((rawPlaces as any[]) ?? []).map((p) => [p.id, { lat: p.lat, lng: p.lng }])
       );
 
       if (!ordersList.length) {
-        alert(`V měsíci ${autoMonth} nebyly nalezeny žádné objednávky s nastaveným dnem závozu.`);
+        alert(`V měsíci ${autoMonth} nebyly nalezeny žádné objednávky s rozpoznatelným dnem rozvozu.`);
         setAutoGenerating(false);
         return;
+      }
+
+      if (skippedNoDay > 0) {
+        console.warn(`Kniha jízd: ${skippedNoDay} objednávek přeskočeno — chybí den v týdnu (delivery_day) i konkrétní datum.`);
       }
 
       // Objednávky dne rozdělíme podle toho, kterou objednávku odbavil v Závozu
@@ -258,8 +309,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
       // velkým autem) vytvoří DVĚ samostatné jízdy pro stejné datum.
       const dateGroups = new Map<string, any[]>();
       ordersList.forEach((o) => {
-        const d = o.delivery_date;
-        if (!d) return;
+        const d = o._effectiveDate as string;
         const arr = dateGroups.get(d) ?? [];
         arr.push(o);
         dateGroups.set(d, arr);
