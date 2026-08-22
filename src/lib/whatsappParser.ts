@@ -7,7 +7,20 @@ import { authenticatedFunctionHeaders } from './functionAuth';
 // pro AI čtení. Velké fotky zmenšíme na max. 1600 px (JPEG), aby se request
 // vešel do limitu edge funkce a AI nemusela zpracovávat megapixelová data.
 // Selhání jen zalogujeme a vrátíme null — zpráva se zpracuje i bez fotky (z textu).
-function blobToBase64(blob: Blob): Promise<string> {
+// Blob.arrayBuffer(), pokud existuje (moderní prohlížeče i Node.js nativní fetch
+// Blob) — jinak FileReader (jsdom vlastní Blob v testovacím prostředí arrayBuffer
+// nemá, ale jeho vlastní FileReader ho čte v pořádku). Které API je k dispozici,
+// se liší i mezi verzemi Node.js, proto obojí, ne jen jedno nebo druhé.
+async function blobToBase64(blob: Blob): Promise<string> {
+  if (typeof blob.arrayBuffer === 'function') {
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    return btoa(binary);
+  }
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
