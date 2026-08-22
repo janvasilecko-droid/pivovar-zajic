@@ -115,6 +115,10 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
     () => findRepeatedReadbackErrors(recentMessages.length > 0 ? recentMessages : messages),
     [recentMessages, messages]
   );
+  // Zprávy, u kterých AI parsování dřív selhalo — "error" je záměrně bez
+  // automatického retry (viz whatsapp-auto-parse), ale ruční hromadné
+  // zopakování je pořád rychlejší než proklikávat je jednu po druhé.
+  const errorMessages = useMemo(() => messages.filter((m) => m.status === 'error'), [messages]);
   const similarPairs = useMemo(() => findSimilarMessages(messages), [messages]);
   const similarIds = useMemo(() => {
     const ids = new Set<string>();
@@ -314,6 +318,16 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
             >
               Načíst vybrané ({selectedIds.size})
             </button>
+            {errorMessages.length > 0 && (
+              <button
+                onClick={() => processMessages(errorMessages)}
+                disabled={processing}
+                title="Znovu zkusí AI parsování jen u zpráv se stavem Chyba"
+                className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-sm font-medium hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                ❌ Zkusit znovu vše ({errorMessages.length})
+              </button>
+            )}
           </div>
         </div>
 
