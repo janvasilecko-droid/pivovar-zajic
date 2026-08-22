@@ -318,14 +318,25 @@ export function parseWhatsAppExport(rawText: string): WhatsAppMessage[] {
   return messages;
 }
 
+// \b v JS regexu bere za "slovní" znak jen [A-Za-z0-9_] — u slov končících
+// českým znakem s diakritikou (úterý, pondělí) tak koncová \b vůbec nesedne
+// (přechod diakritika→mezera/konec řetězce se nebere jako hranice slova) a
+// pattern nikdy nenajde shodu. Proto vlastní unicode-aware hranice přes
+// \p{L}/\p{N} (flag "u"), co diakritiku počítá jako písmeno správně.
+const WB_BEFORE = '(?<![\\p{L}\\p{N}])';
+const WB_AFTER = '(?![\\p{L}\\p{N}])';
+function dayRegex(...alts: string[]): RegExp {
+  return new RegExp(alts.map((a) => `${WB_BEFORE}${a}${WB_AFTER}`).join('|'), 'iu');
+}
+
 const DAY_MAP: { regex: RegExp; code: string }[] = [
-  { regex: /\b(?:v\s+|na\s+)?pond[eě]l[ií]\b|\bpo\b/i, code: 'po' },
-  { regex: /\b(?:v\s+|na\s+)?[uú]ter[yý]\b|\b[uú]t\b/i, code: 'ut' },
-  { regex: /\b(?:ve\s+|na\s+)?st[rř]ed[uuy]\b|\bst\b/i, code: 'st' },
-  { regex: /\b(?:ve\s+|na\s+)?[cč]tvrtek\b|\b[cč]tvrtek\b|\b[cč]t\b/i, code: 'ct' },
-  { regex: /\b(?:v\s+|na\s+)?p[aá]tek\b|\bp[aá]tky\b|\bpa\b/i, code: 'pa' },
-  { regex: /\b(?:v\s+|na\s+)?sobot[uu]\b|\bsobota\b|\bso\b/i, code: 'so' },
-  { regex: /\b(?:v\s+|na\s+)?ned[eě]li\b|\bned[eě]le\b|\bne\b/i, code: 'ne' },
+  { regex: dayRegex('(?:v\\s+|na\\s+)?pond[eě]l[ií]', 'po'), code: 'po' },
+  { regex: dayRegex('(?:v\\s+|na\\s+)?[uú]ter[yý]', '[uú]t'), code: 'ut' },
+  { regex: dayRegex('(?:ve\\s+|na\\s+)?st[rř]ed[uuy]', 'st'), code: 'st' },
+  { regex: dayRegex('(?:ve\\s+|na\\s+)?[cč]tvrtek', '[cč]t'), code: 'ct' },
+  { regex: dayRegex('(?:v\\s+|na\\s+)?p[aá]tek', 'p[aá]tky', 'pa'), code: 'pa' },
+  { regex: dayRegex('(?:v\\s+|na\\s+)?sobot[uu]', 'sobota', 'so'), code: 'so' },
+  { regex: dayRegex('(?:v\\s+|na\\s+)?ned[eě]li', 'ned[eě]le', 'ne'), code: 'ne' },
 ];
 
 export function detectDeliveryDay(text: string): { day: string | null; dateStr: string | null; cleanText: string } {
@@ -367,6 +378,19 @@ export function detectDeliveryDay(text: string): { day: string | null; dateStr: 
         cleanText = cleanText.replace(d.regex, '');
         break;
       }
+    }
+    // Název dne bez konkrétního data ("na úterý") → nejbližší nadcházející
+    // výskyt toho dne (dnešek se počítá, pokud sedí). Napsáno v pondělí "na
+    // úterý" = zítra (tento týden); napsáno ve středu "na úterý" = úterý už
+    // bylo, takže úterý PŘÍŠTÍHO týdne.
+    if (dayCode) {
+      const dayCodes = ['ne', 'po', 'ut', 'st', 'ct', 'pa', 'so'];
+      const targetIdx = dayCodes.indexOf(dayCode);
+      const fromIdx = now.getDay();
+      const diff = (targetIdx - fromIdx + 7) % 7;
+      const target = new Date(now);
+      target.setDate(now.getDate() + diff);
+      dateStr = target.toISOString().slice(0, 10);
     }
   }
 
