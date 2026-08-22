@@ -412,6 +412,7 @@ export type Profile = {
   role: 'admin' | 'user';
   receive_vehicle_alerts?: boolean | null;
   password_set?: boolean | null;
+  home_layout?: unknown;
   created_at: string;
 };
 

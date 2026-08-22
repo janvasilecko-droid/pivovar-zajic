@@ -1,16 +1,23 @@
-// Domovská obrazovka appky — dlaždicový launcher, výchozí stránka po přihlášení.
-// Jen dlaždice, žádná horní lišta ani KPI čísla — WhatsApp upozornění a
-// hledání (lupa) už řeší horní hlavička appky (Layout.tsx), není potřeba je
-// duplikovat tady. Výjimka: upozornění na STK/dálniční známku vozidel —
+// Domovská obrazovka appky — přizpůsobitelný dlaždicový launcher (styl
+// Windows Phone / Nokia Lumia): pořadí, velikost a barva dlaždic i barevné
+// pozadí jde v "Upravit rozložení" módu měnit a ukládá se per uživatel
+// (profiles.home_layout), takže se to synchronizuje napříč zařízeními.
+// Výjimka nad dlaždicemi: upozornění na STK/dálniční známku vozidel —
 // zobrazuje se jen komu je nastaveno (Uživatelé → "Dostává upozornění na
 // vozidla") a musí ho jednou potvrdit, pak zmizí (dokud se stav nezmění).
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { NAV, type Page } from '../components/Layout';
+import LauncherTile from '../components/LauncherTile';
 import { useAuth } from '../lib/auth';
 import { canUserView, getUserPermissions, ModuleKey } from '../lib/permissions';
 import { isAdminEmail } from '../lib/config';
 import { supabase, Vehicle } from '../lib/supabase';
 import { getVehicleExpiryStatus } from './Catalogs';
+import {
+  getHomeLayout, saveHomeLayout, TILE_SIZES, SCENES, MIN_OPACITY, MAX_OPACITY,
+  type HomeLayout, type TileColor,
+} from '../lib/homeLayout';
+import './HomeScreen.css';
 
 // Mapování stránka → modul oprávnění — zrcadlí stejnou mapu v Layout.tsx (sidebar),
 // aby dlaždice ukazovaly přesně to, co uživatel vidí i v menu. Layout.tsx tuto mapu
@@ -55,47 +62,96 @@ const PAGE_TO_MODULE: Record<string, ModuleKey> = {
   reminders: 'reminders',
 };
 
-// Barevné odlišení podle typu modulu (duotone ikony): výroba/stáčení = teplá
-// jantarová, sklad & sklep = modrá, objednávky = zelená, odpis = růžová.
-// Ostatní (nástroje, číselníky, nastavení) zůstávají neutrální břidlicové.
-type ColorKey = 'amber' | 'blue' | 'emerald' | 'rose' | 'slate';
-const ITEM_COLOR: Partial<Record<Page, ColorKey>> = {
-  kegging: 'amber',
-  bottling: 'amber',
-  fasovani: 'amber',
-  prodejna: 'amber',
-  akce: 'amber',
-  orders: 'emerald',
-  writeoffs: 'rose',
-  dashboard: 'blue',
-  cellar: 'blue',
-  sklo_promo: 'blue',
-  inventory: 'blue',
-  history: 'blue',
-  bottling_needs: 'blue',
-};
-const COLOR_CLASSES: Record<ColorKey, { border: string; icon: string }> = {
-  amber: { border: 'border-amber-300', icon: 'text-amber-600' },
-  blue: { border: 'border-blue-300', icon: 'text-blue-600' },
-  emerald: { border: 'border-emerald-300', icon: 'text-emerald-600' },
-  rose: { border: 'border-rose-300', icon: 'text-rose-600' },
-  slate: { border: 'border-slate-300', icon: 'text-slate-600' },
-};
-
 type VehicleAlert = { vehicleName: string; label: string; status: 'warning' | 'expired' };
 
+const SCENE_LABELS: Record<string, string> = {
+  warm: 'Teplá', sunset: 'Západ', ocean: 'Oceán', forest: 'Les', night: 'Noc',
+};
+
 export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) {
-  const { profile, user } = useAuth();
+  const { profile, user, reloadProfile } = useAuth();
   const isAdmin = profile?.role === 'admin' || isAdminEmail(user?.email);
   const userPerms = getUserPermissions(user?.id ?? '', (profile as any)?.permissions);
 
-  const visible = NAV.filter((n) => {
+  const visible = useMemo(() => NAV.filter((n) => {
     if (n.id === 'users') return isAdmin;
     if (n.id === 'bottling_needs') return isAdmin;
     const modKey = PAGE_TO_MODULE[n.id];
     if (!modKey) return true;
     return canUserView(profile?.role, user?.id, modKey, userPerms);
-  });
+  }), [isAdmin, profile?.role, user?.id, userPerms]);
+
+  const visibleIds = useMemo(() => visible.map((n) => n.id), [visible]);
+  const navById = useMemo(() => new Map(visible.map((n) => [n.id, n])), [visible]);
+
+  // ---- Launcher: pořadí / velikost / barva / scéna, uložené v profilu ----
+  const [layout, setLayout] = useState<HomeLayout>(() => getHomeLayout((profile as any)?.home_layout, visibleIds));
+  useEffect(() => {
+    setLayout((prev) => getHomeLayout({ order: prev.order, overrides: prev.overrides, scene: prev.scene, tileOpacity: prev.tileOpacity }, visibleIds));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleIds.join(',')]);
+  useEffect(() => {
+    const raw = (profile as any)?.home_layout;
+    setLayout(getHomeLayout(raw, visibleIds));
+    setHasCustomLayout(!!raw && Object.keys(raw).length > 0);
+    // Reagujeme jen na skutečnou změnu uloženého layoutu z profilu (např. po
+    // přihlášení na jiném zařízení) — visibleIds řeší efekt výše.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [(profile as any)?.home_layout]);
+
+  const [editMode, setEditMode] = useState(false);
+  const [dragOverId, setDragOverId] = useState<Page | null>(null);
+  const dragId = useRef<Page | null>(null);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [hasCustomLayout, setHasCustomLayout] = useState(!!(profile as any)?.home_layout && Object.keys((profile as any).home_layout).length > 0);
+
+  function persist(next: HomeLayout) {
+    setLayout(next);
+    setHasCustomLayout(true);
+    if (!user?.id) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => { saveHomeLayout(user.id, next); }, 500);
+  }
+
+  function handleDrop(targetId: Page) {
+    const fromId = dragId.current;
+    setDragOverId(null);
+    if (!fromId || fromId === targetId) return;
+    const order = [...layout.order];
+    const from = order.indexOf(fromId);
+    const to = order.indexOf(targetId);
+    if (from < 0 || to < 0) return;
+    order.splice(to, 0, order.splice(from, 1)[0]);
+    persist({ ...layout, order });
+  }
+  function handleCycleSize(id: Page) {
+    const current = layout.overrides[id]?.size ?? 'n';
+    const next = TILE_SIZES[(TILE_SIZES.indexOf(current) + 1) % TILE_SIZES.length];
+    persist({ ...layout, overrides: { ...layout.overrides, [id]: { ...layout.overrides[id], size: next } } });
+  }
+  function handleRecolor(id: Page, color: TileColor) {
+    persist({ ...layout, overrides: { ...layout.overrides, [id]: { ...layout.overrides[id], color } } });
+  }
+  function handleSceneChange(scene: HomeLayout['scene']) {
+    persist({ ...layout, scene });
+  }
+  function handleOpacityChange(tileOpacity: number) {
+    persist({ ...layout, tileOpacity });
+  }
+  function handleReset() {
+    const next = getHomeLayout(null, visibleIds);
+    setLayout(next);
+    setHasCustomLayout(false);
+    if (user?.id) saveHomeLayout(user.id, {} as any);
+  }
+
+  // ---- Živá dlaždice: reálný počet nevyřízených objednávek ----
+  const [pendingOrders, setPendingOrders] = useState<number | null>(null);
+  useEffect(() => {
+    if (!visibleIds.includes('orders')) return;
+    supabase.from('orders').select('id', { count: 'exact', head: true }).eq('status', 'nova')
+      .then(({ count }) => setPendingOrders(count ?? 0));
+  }, [visibleIds]);
 
   // Upozornění na STK / dálniční známku vozidel — jen komu je to nastaveno
   // v Uživatelích (nebo admin), a jen dokud to ten člověk jednou nepotvrdí.
@@ -169,23 +225,74 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
         </div>
       )}
 
-    <div className="grid grid-cols-3 gap-3">
-      {visible.map((item) => {
-        const Icon = item.icon;
-        const color = ITEM_COLOR[item.id] ?? 'slate';
-        const c = COLOR_CLASSES[color];
-        return (
-          <button
-            key={item.id}
-            onClick={() => setPage(item.id)}
-            className={`bg-white rounded-2xl shadow-sm p-3.5 flex flex-col items-center justify-center gap-2.5 text-center active:scale-95 transition-transform border-2 ${c.border}`}
-          >
-            <Icon size={24} strokeWidth={1.8} className={c.icon} />
-            <span className="text-xs font-bold text-neutral-900 leading-tight">{item.label}</span>
-          </button>
-        );
-      })}
-    </div>
+      <div className="hs-launcher">
+        <div className="hs-scene" data-scene={layout.scene}><i className="b1" /><i className="b2" /><i className="b3" /><i className="b4" /></div>
+
+        <div className="hs-toolbar">
+          <div />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {hasCustomLayout && <button className="hs-reset-btn" onClick={handleReset}>Obnovit výchozí</button>}
+            <button
+              className={`hs-edit-btn ${editMode ? 'on' : ''}`}
+              onClick={() => setEditMode((v) => !v)}
+            >
+              {editMode ? 'Hotovo' : 'Upravit rozložení'}
+            </button>
+          </div>
+        </div>
+
+        {editMode && (
+          <div className="hs-controls">
+            <div className="hs-controls-group">
+              <span className="hs-controls-label">Pozadí</span>
+              {SCENES.map((s) => (
+                <button
+                  key={s}
+                  className={`hs-scene-swatch ${s} ${s === layout.scene ? 'active' : ''}`}
+                  title={SCENE_LABELS[s]}
+                  onClick={() => handleSceneChange(s)}
+                />
+              ))}
+            </div>
+            <div className="hs-controls-group">
+              <span className="hs-controls-label">Průhlednost</span>
+              <input
+                type="range"
+                className="hs-opacity-slider"
+                min={MIN_OPACITY}
+                max={MAX_OPACITY}
+                step={0.02}
+                value={layout.tileOpacity}
+                onChange={(e) => handleOpacityChange(Number(e.target.value))}
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="hs-grid" style={{ ['--hs-tile-alpha' as any]: layout.tileOpacity }}>
+          {layout.order.map((id) => {
+            const item = navById.get(id);
+            if (!item) return null;
+            const badge = id === 'orders' && pendingOrders ? pendingOrders : undefined;
+            return (
+              <LauncherTile
+                key={id}
+                item={item}
+                override={layout.overrides[id] ?? {}}
+                editing={editMode}
+                badge={badge}
+                onClick={() => setPage(id)}
+                onDragStart={() => { dragId.current = id; }}
+                onDragOver={() => setDragOverId(id)}
+                onDrop={() => handleDrop(id)}
+                dragOver={dragOverId === id}
+                onCycleSize={() => handleCycleSize(id)}
+                onRecolor={(c) => handleRecolor(id, c)}
+              />
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
