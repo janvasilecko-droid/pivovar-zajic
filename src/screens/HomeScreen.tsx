@@ -111,8 +111,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
   }, [layout.pages.length]);
 
   const [editMode, setEditMode] = useState(false);
-  const [dragOverId, setDragOverId] = useState<Page | null>(null);
-  const [draggingId, setDraggingId] = useState<Page | null>(null);
+  const [selectedTileId, setSelectedTileId] = useState<Page | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hasCustomLayout, setHasCustomLayout] = useState(!!(profile as any)?.home_layout && Object.keys((profile as any).home_layout).length > 0);
 
@@ -129,58 +128,28 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
     saveTimer.current = setTimeout(() => { saveHomeLayout(user.id, next); }, 500);
   }
 
-  // Přesun dlaždice: pointer eventy (funguje myší i prstem) místo nativního
-  // HTML5 drag & drop, které na dotykových displejích vůbec nefunguje.
-  // Během přesunu poslouchá na window (ne jen na dlaždici), aby přesun
-  // fungoval i když prst/kurzor rychle přeletí mimo původní element.
-  const draggingIdRef = useRef<Page | null>(null);
-  function startDrag(id: Page) {
-    draggingIdRef.current = id;
-    setDraggingId(id);
+  // Přesun dlaždice: "klepni a klepni" (tap-to-swap), ne gesto přetažení.
+  // Pointer-based drag (i s pointer capture a touch-action:none) se na
+  // dotykových zařízeních nedařilo spolehlivě rozjet; klepnutí je jediná
+  // interakce, co prokazatelně funguje všude. Klepneš na dlaždici → vybere
+  // se; klepneš na jinou → prohodí se pozice v rámci aktuální stránky;
+  // klepneš na tu samou znovu → zruší se výběr.
+  function handleTapToMove(id: Page) {
+    if (!selectedTileId) { setSelectedTileId(id); return; }
+    if (selectedTileId === id) { setSelectedTileId(null); return; }
+    setLayout((prevLayout) => {
+      const pageTiles = [...prevLayout.pages[currentPageIndex]];
+      const from = pageTiles.indexOf(selectedTileId);
+      const to = pageTiles.indexOf(id);
+      if (from < 0 || to < 0) return prevLayout;
+      [pageTiles[from], pageTiles[to]] = [pageTiles[to], pageTiles[from]];
+      const pages = prevLayout.pages.map((p, i) => (i === currentPageIndex ? pageTiles : p));
+      const next = { ...prevLayout, pages };
+      persist(next);
+      return next;
+    });
+    setSelectedTileId(null);
   }
-  useEffect(() => {
-    if (!draggingId) return;
-    function findTileId(clientX: number, clientY: number): Page | null {
-      const el = document.elementFromPoint(clientX, clientY);
-      const tileEl = el?.closest('[data-tile-id]') as HTMLElement | null;
-      return (tileEl?.dataset.tileId as Page | undefined) ?? null;
-    }
-    function onMove(e: PointerEvent) {
-      const overId = findTileId(e.clientX, e.clientY);
-      setDragOverId(overId && overId !== draggingIdRef.current ? overId : null);
-    }
-    function onUp(e: PointerEvent) {
-      const fromId = draggingIdRef.current;
-      const overId = findTileId(e.clientX, e.clientY);
-      if (fromId && overId && overId !== fromId) {
-        setLayout((prevLayout) => {
-          // Přetažení mění pořadí jen v rámci AKTUÁLNĚ zobrazené stránky —
-          // vidět a mířit na dlaždici jinde stejně nejde.
-          const pageTiles = [...prevLayout.pages[currentPageIndex]];
-          const from = pageTiles.indexOf(fromId);
-          const to = pageTiles.indexOf(overId);
-          if (from < 0 || to < 0) return prevLayout;
-          pageTiles.splice(to, 0, pageTiles.splice(from, 1)[0]);
-          const pages = prevLayout.pages.map((p, i) => (i === currentPageIndex ? pageTiles : p));
-          const next = { ...prevLayout, pages };
-          persist(next);
-          return next;
-        });
-      }
-      draggingIdRef.current = null;
-      setDraggingId(null);
-      setDragOverId(null);
-    }
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-    window.addEventListener('pointercancel', onUp);
-    return () => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-      window.removeEventListener('pointercancel', onUp);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draggingId]);
   function handleCycleSize(id: Page) {
     const current = layout.overrides[id]?.size ?? 'n';
     const next = TILE_SIZES[(TILE_SIZES.indexOf(current) + 1) % TILE_SIZES.length];
@@ -449,7 +418,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
           <button
             type="button"
             className={`hs-tile ${editMode ? 'c-indigo' : 'c-forest'}`}
-            onClick={() => setEditMode((v) => !v)}
+            onClick={() => { setEditMode((v) => !v); setSelectedTileId(null); }}
           >
             <SlidersHorizontal />
             <div className="hs-lbl">{editMode ? 'Hotovo' : 'Upravit rozložení'}</div>
@@ -481,9 +450,8 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                 currentPage={currentPageIndex}
                 onMoveToPage={(target) => handleMoveTileToPage(id, target)}
                 onClick={() => setPage(id)}
-                onDragPointerDown={(e) => { e.preventDefault(); startDrag(id); }}
-                dragOver={dragOverId === id}
-                isDragging={draggingId === id}
+                selectedForSwap={selectedTileId === id}
+                onTapToMove={() => handleTapToMove(id)}
                 onCycleSize={() => handleCycleSize(id)}
                 onRecolor={(c) => handleRecolor(id, c)}
               />
