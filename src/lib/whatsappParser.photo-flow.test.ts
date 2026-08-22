@@ -17,7 +17,10 @@ vi.mock('./supabase', () => {
     maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
     single: vi.fn().mockResolvedValue({ data: null, error: null }),
   });
-  const supabase = { from: vi.fn(() => chainable()) };
+  const supabase = {
+    from: vi.fn(() => chainable()),
+    auth: { getSession: vi.fn().mockResolvedValue({ data: { session: { access_token: 'test-token' } }, error: null }) },
+  };
   return { supabase };
 });
 
