@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getHomeLayout, MIN_OPACITY, MAX_OPACITY, DEFAULT_DOCK } from './homeLayout';
+import { getHomeLayout, addPage, removePage, moveTileToPage, MIN_OPACITY, MAX_OPACITY, DEFAULT_DOCK } from './homeLayout';
 import type { Page } from '../components/Layout';
 
 const A: Page = 'kegging';
@@ -9,27 +9,33 @@ const C: Page = 'dashboard';
 describe('getHomeLayout', () => {
   it('vrátí výchozí layout pro prázdný/null vstup', () => {
     const layout = getHomeLayout(null, [A, B, C]);
-    expect(layout.order).toEqual([A, B, C]);
+    expect(layout.pages).toEqual([[A, B, C]]);
     expect(layout.scene).toBe('warm');
     expect(layout.tileOpacity).toBeCloseTo(0.62);
     expect(layout.dock).toEqual(DEFAULT_DOCK);
     [A, B, C].forEach((id) => expect(layout.overrides[id]?.color).toBeTruthy());
   });
 
-  it('připojí nově viditelný modul na konec uloženého pořadí', () => {
-    const raw = { order: [A, B], overrides: {}, scene: 'ocean', tileOpacity: 0.5 };
+  it('připojí nově viditelný modul na konec poslední stránky', () => {
+    const raw = { pages: [[A, B]], overrides: {}, scene: 'ocean', tileOpacity: 0.5 };
     const layout = getHomeLayout(raw, [A, B, C]);
-    expect(layout.order).toEqual([A, B, C]);
+    expect(layout.pages).toEqual([[A, B, C]]);
   });
 
-  it('vypustí z pořadí modul, na který uživatel už nemá právo', () => {
-    const raw = { order: [A, B, C], overrides: {}, scene: 'warm', tileOpacity: 0.42 };
+  it('vypustí ze stránky modul, na který uživatel už nemá právo', () => {
+    const raw = { pages: [[A, B], [C]], overrides: {}, scene: 'warm', tileOpacity: 0.42 };
     const layout = getHomeLayout(raw, [A, C]);
-    expect(layout.order).toEqual([A, C]);
+    expect(layout.pages).toEqual([[A], [C]]);
+  });
+
+  it('čte starý plochý formát "order" jako jednu stránku (zpětná kompatibilita)', () => {
+    const raw = { order: [A, B], overrides: {}, scene: 'warm', tileOpacity: 0.42 };
+    const layout = getHomeLayout(raw, [A, B]);
+    expect(layout.pages).toEqual([[A, B]]);
   });
 
   it('zachová existující barvu override, nepřepíše ji výchozí', () => {
-    const raw = { order: [A], overrides: { [A]: { color: 'plum', size: 'w2' } }, scene: 'warm', tileOpacity: 0.42 };
+    const raw = { pages: [[A]], overrides: { [A]: { color: 'plum', size: 'w2' } }, scene: 'warm', tileOpacity: 0.42 };
     const layout = getHomeLayout(raw, [A]);
     expect(layout.overrides[A]).toEqual({ color: 'plum', size: 'w2' });
   });
@@ -52,5 +58,31 @@ describe('getHomeLayout', () => {
   it('spodní lišta: "home" je vždy platné, modul bez práva spadne na výchozí', () => {
     const layout = getHomeLayout({ dock: ['home', B, C, 'writeoffs'] }, [B]);
     expect(layout.dock).toEqual(['home', B, DEFAULT_DOCK[2], DEFAULT_DOCK[3]]);
+  });
+});
+
+describe('addPage / removePage / moveTileToPage', () => {
+  it('addPage přidá prázdnou stránku na konec', () => {
+    const layout = getHomeLayout({ pages: [[A]] }, [A]);
+    const next = addPage(layout);
+    expect(next.pages).toEqual([[A], []]);
+  });
+
+  it('removePage smaže stránku a přesune její dlaždice do předchozí', () => {
+    const layout = getHomeLayout({ pages: [[A], [B, C]] }, [A, B, C]);
+    const next = removePage(layout, 1);
+    expect(next.pages).toEqual([[A, B, C]]);
+  });
+
+  it('removePage nikdy nesmaže poslední zbývající stránku', () => {
+    const layout = getHomeLayout({ pages: [[A]] }, [A]);
+    const next = removePage(layout, 0);
+    expect(next.pages).toEqual([[A]]);
+  });
+
+  it('moveTileToPage přesune dlaždici z jedné stránky na jinou', () => {
+    const layout = getHomeLayout({ pages: [[A, B], [C]] }, [A, B, C]);
+    const next = moveTileToPage(layout, B, 1);
+    expect(next.pages).toEqual([[A], [C, B]]);
   });
 });

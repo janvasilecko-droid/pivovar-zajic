@@ -6,7 +6,7 @@
 // zobrazuje se jen komu je nastaveno (Uživatelé → "Dostává upozornění na
 // vozidla") a musí ho jednou potvrdit, pak zmizí (dokud se stav nezmění).
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { Search, MessageCircle, ClipboardList, SlidersHorizontal, LogOut } from 'lucide-react';
+import { Search, MessageCircle, ClipboardList, SlidersHorizontal, LogOut, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { NAV, type Page } from '../components/Layout';
 import LauncherTile from '../components/LauncherTile';
 import { QuickSearchModal } from '../components/QuickSearchModal';
@@ -17,7 +17,8 @@ import { supabase, Vehicle } from '../lib/supabase';
 import { fetchPendingWhatsAppCount } from '../lib/whatsappApi';
 import { getVehicleExpiryStatus } from './Catalogs';
 import {
-  getHomeLayout, saveHomeLayout, TILE_SIZES, SCENES, MIN_OPACITY, MAX_OPACITY,
+  getHomeLayout, saveHomeLayout, addPage, removePage, moveTileToPage,
+  TILE_SIZES, SCENES, MIN_OPACITY, MAX_OPACITY,
   type HomeLayout,
 } from '../lib/homeLayout';
 import './HomeScreen.css';
@@ -87,10 +88,11 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
   const visibleIds = useMemo(() => visible.map((n) => n.id), [visible]);
   const navById = useMemo(() => new Map(visible.map((n) => [n.id, n])), [visible]);
 
-  // ---- Launcher: pořadí / velikost / barva / scéna, uložené v profilu ----
+  // ---- Launcher: stránky / velikost / barva / scéna, uložené v profilu ----
   const [layout, setLayout] = useState<HomeLayout>(() => getHomeLayout((profile as any)?.home_layout, visibleIds));
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
   useEffect(() => {
-    setLayout((prev) => getHomeLayout({ order: prev.order, overrides: prev.overrides, scene: prev.scene, tileOpacity: prev.tileOpacity }, visibleIds));
+    setLayout((prev) => getHomeLayout(prev, visibleIds));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleIds.join(',')]);
   useEffect(() => {
@@ -101,6 +103,11 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
     // přihlášení na jiném zařízení) — visibleIds řeší efekt výše.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [(profile as any)?.home_layout]);
+  // Pokud se smazáním stránky (nebo na jiném zařízení) zmenší počet stránek
+  // pod aktuální index, spadneme na poslední existující.
+  useEffect(() => {
+    setCurrentPageIndex((i) => Math.min(i, layout.pages.length - 1));
+  }, [layout.pages.length]);
 
   const [editMode, setEditMode] = useState(false);
   const [dragOverId, setDragOverId] = useState<Page | null>(null);
@@ -146,12 +153,15 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
       const overId = findTileId(e.clientX, e.clientY);
       if (fromId && overId && overId !== fromId) {
         setLayout((prevLayout) => {
-          const order = [...prevLayout.order];
-          const from = order.indexOf(fromId);
-          const to = order.indexOf(overId);
+          // Přetažení mění pořadí jen v rámci AKTUÁLNĚ zobrazené stránky —
+          // vidět a mířit na dlaždici jinde stejně nejde.
+          const pageTiles = [...prevLayout.pages[currentPageIndex]];
+          const from = pageTiles.indexOf(fromId);
+          const to = pageTiles.indexOf(overId);
           if (from < 0 || to < 0) return prevLayout;
-          order.splice(to, 0, order.splice(from, 1)[0]);
-          const next = { ...prevLayout, order };
+          pageTiles.splice(to, 0, pageTiles.splice(from, 1)[0]);
+          const pages = prevLayout.pages.map((p, i) => (i === currentPageIndex ? pageTiles : p));
+          const next = { ...prevLayout, pages };
           persist(next);
           return next;
         });
@@ -191,6 +201,21 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
     const dock = [...layout.dock];
     dock[slot] = id;
     persist({ ...layout, dock });
+  }
+  function handleAddPage() {
+    const next = addPage(layout);
+    persist(next);
+    setCurrentPageIndex(next.pages.length - 1);
+  }
+  function handleRemoveCurrentPage() {
+    if (layout.pages.length <= 1) return;
+    if (!window.confirm('Smazat tuhle stránku? Dlaždice se přesunou na předchozí stránku.')) return;
+    const next = removePage(layout, currentPageIndex);
+    persist(next);
+    setCurrentPageIndex((i) => Math.max(0, Math.min(i, next.pages.length - 1)));
+  }
+  function handleMoveTileToPage(id: Page, targetPageIndex: number) {
+    persist(moveTileToPage(layout, id, targetPageIndex));
   }
   function handleReset() {
     const next = getHomeLayout(null, visibleIds);
@@ -350,25 +375,74 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
           </div>
         )}
 
+        {(layout.pages.length > 1 || editMode) && (
+          <div className="hs-pager">
+            <button
+              type="button"
+              className="hs-pager-arrow"
+              disabled={currentPageIndex === 0}
+              onClick={() => setCurrentPageIndex((i) => Math.max(0, i - 1))}
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <div className="hs-pager-dots">
+              {layout.pages.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  className={`hs-pager-dot ${i === currentPageIndex ? 'active' : ''}`}
+                  onClick={() => setCurrentPageIndex(i)}
+                  title={`Stránka ${i + 1}`}
+                />
+              ))}
+            </div>
+            <button
+              type="button"
+              className="hs-pager-arrow"
+              disabled={currentPageIndex === layout.pages.length - 1}
+              onClick={() => setCurrentPageIndex((i) => Math.min(layout.pages.length - 1, i + 1))}
+            >
+              <ChevronRight size={18} />
+            </button>
+            {editMode && (
+              <>
+                <button type="button" className="hs-pager-manage" title="Přidat stránku" onClick={handleAddPage}>
+                  <Plus size={15} />
+                </button>
+                {layout.pages.length > 1 && (
+                  <button type="button" className="hs-pager-manage" title="Smazat tuhle stránku" onClick={handleRemoveCurrentPage}>
+                    <Trash2 size={15} />
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
         <div className="hs-grid" style={{ ['--hs-tile-alpha' as any]: layout.tileOpacity }}>
           {/* Pevné dlaždice (nepřesouvají se/nemění velikost, nejsou
-              součástí uloženého pořadí): Hledat a Objednávky k parsování
-              přesunuté sem z hlavičky, Nové objednávky jako živý odznak a
-              samotné přepnutí edit módu jako dlaždice místo tlačítka nahoře. */}
-          <button type="button" className="hs-tile c-slate" onClick={() => setShowSearchModal(true)}>
-            <Search />
-            <div className="hs-lbl">Hledat</div>
-          </button>
-          <button type="button" className="hs-tile c-coral" onClick={() => setPage('orders')}>
-            <ClipboardList />
-            <div className="hs-lbl">Nové objednávky</div>
-            {!!pendingOrders && <span className="hs-badge">{pendingOrders > 99 ? '99+' : pendingOrders}</span>}
-          </button>
-          <button type="button" className="hs-tile c-mint" onClick={openWhatsAppFromTile}>
-            <MessageCircle />
-            <div className="hs-lbl">Objednávky k parsování</div>
-            {pendingWhatsApp > 0 && <span className="hs-badge">{pendingWhatsApp > 99 ? '99+' : pendingWhatsApp}</span>}
-          </button>
+              součástí uloženého pořadí, jen na 1. stránce): Hledat a
+              Objednávky k parsování přesunuté sem z hlavičky, Nové objednávky
+              jako živý odznak a samotné přepnutí edit módu jako dlaždice
+              místo tlačítka nahoře. */}
+          {currentPageIndex === 0 && (
+            <>
+              <button type="button" className="hs-tile c-slate" onClick={() => setShowSearchModal(true)}>
+                <Search />
+                <div className="hs-lbl">Hledat</div>
+              </button>
+              <button type="button" className="hs-tile c-coral" onClick={() => setPage('orders')}>
+                <ClipboardList />
+                <div className="hs-lbl">Nové objednávky</div>
+                {!!pendingOrders && <span className="hs-badge">{pendingOrders > 99 ? '99+' : pendingOrders}</span>}
+              </button>
+              <button type="button" className="hs-tile c-mint" onClick={openWhatsAppFromTile}>
+                <MessageCircle />
+                <div className="hs-lbl">Objednávky k parsování</div>
+                {pendingWhatsApp > 0 && <span className="hs-badge">{pendingWhatsApp > 99 ? '99+' : pendingWhatsApp}</span>}
+              </button>
+            </>
+          )}
           <button
             type="button"
             className={`hs-tile ${editMode ? 'c-indigo' : 'c-forest'}`}
@@ -377,16 +451,18 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
             <SlidersHorizontal />
             <div className="hs-lbl">{editMode ? 'Hotovo' : 'Upravit rozložení'}</div>
           </button>
-          <button
-            type="button"
-            className="hs-tile c-crimson"
-            onClick={() => { if (window.confirm('Odhlásit se z appky?')) signOut(); }}
-          >
-            <LogOut />
-            <div className="hs-lbl">Odhlásit se</div>
-          </button>
+          {currentPageIndex === 0 && (
+            <button
+              type="button"
+              className="hs-tile c-crimson"
+              onClick={() => { if (window.confirm('Odhlásit se z appky?')) signOut(); }}
+            >
+              <LogOut />
+              <div className="hs-lbl">Odhlásit se</div>
+            </button>
+          )}
 
-          {layout.order.map((id) => {
+          {(layout.pages[currentPageIndex] ?? []).map((id) => {
             const item = navById.get(id);
             if (!item) return null;
             const badge = id === 'orders' && pendingOrders ? pendingOrders : undefined;
@@ -398,6 +474,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                 editing={editMode}
                 badge={badge}
                 tileOpacity={layout.tileOpacity}
+                pageCount={layout.pages.length}
+                currentPage={currentPageIndex}
+                onMoveToPage={(target) => handleMoveTileToPage(id, target)}
                 onClick={() => setPage(id)}
                 onDragPointerDown={(e) => { e.preventDefault(); startDrag(id); }}
                 dragOver={dragOverId === id}

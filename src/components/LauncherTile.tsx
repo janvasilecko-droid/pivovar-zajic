@@ -16,13 +16,17 @@ function sizeClass(size: TileSize): string {
 }
 
 export default function LauncherTile({
-  item, override, editing, badge, tileOpacity, onClick, onDragPointerDown, dragOver, isDragging, onCycleSize, onRecolor,
+  item, override, editing, badge, tileOpacity, pageCount, currentPage, onMoveToPage,
+  onClick, onDragPointerDown, dragOver, isDragging, onCycleSize, onRecolor,
 }: {
   item: NavItem;
   override: TileOverride;
   editing: boolean;
   badge?: string | number;
   tileOpacity: number;
+  pageCount: number;
+  currentPage: number;
+  onMoveToPage: (targetPageIndex: number) => void;
   onClick: () => void;
   onDragPointerDown: (e: React.PointerEvent) => void;
   dragOver: boolean;
@@ -57,6 +61,18 @@ export default function LauncherTile({
         // dlaždici (rodič má vlastní onPointerDown pro přesun).
         <div className="hs-tile-controls" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
           <div className="hs-ctrl-row">
+            {pageCount > 1 && (
+              <select
+                className="hs-page-select"
+                title="Přesunout na stránku"
+                value={currentPage}
+                onChange={(e) => onMoveToPage(Number(e.target.value))}
+              >
+                {Array.from({ length: pageCount }, (_, i) => (
+                  <option key={i} value={i}>{i + 1}</option>
+                ))}
+              </select>
+            )}
             <button type="button" className="hs-size-btn" title="Změnit velikost" onClick={onCycleSize}>
               ⤢
             </button>

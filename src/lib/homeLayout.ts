@@ -15,7 +15,8 @@ export type Scene = 'warm' | 'sunset' | 'ocean' | 'forest' | 'night' | 'custom';
 export type TileOverride = { size?: TileSize; color?: string };
 
 export type HomeLayout = {
-  order: Page[];
+  /** Víc stránek launcheru (jako Android home screen) — každá je pole id dlaždic. */
+  pages: Page[][];
   overrides: Partial<Record<Page, TileOverride>>;
   scene: Scene;
   /** Vlastní barva pozadí (hex), použije se jen když scene === 'custom'. */
@@ -90,25 +91,39 @@ function defaultColorFor(id: Page, indexInFallback: number): TileColor {
 }
 
 /**
- * Slučuje uloženou vrstvu (pořadí/velikost/barva/scéna) se seznamem aktuálně
+ * Slučuje uloženou vrstvu (stránky/velikost/barva/scéna) se seznamem aktuálně
  * viditelných dlaždic (po filtraci právy). Nově přidané/nově povolené moduly
- * se připojí na konec; moduly, na které uživatel ztratil právo nebo které
- * zmizely, se z pořadí vypustí.
+ * se připojí na konec poslední stránky; moduly, na které uživatel ztratil
+ * právo nebo které zmizely, se ze stránek vypustí. Čte i starý formát
+ * (plochý `order`) pro zpětnou kompatibilitu s dřívějším jednostránkovým
+ * layoutem.
  */
 export function getHomeLayout(raw: unknown, visibleIds: Page[]): HomeLayout {
-  const saved = (raw && typeof raw === 'object' ? raw : {}) as Partial<HomeLayout>;
-  const savedOrder = Array.isArray(saved.order) ? (saved.order as Page[]) : [];
+  const saved = (raw && typeof raw === 'object' ? raw : {}) as Partial<HomeLayout> & { order?: Page[] };
   const visibleSet = new Set(visibleIds);
 
-  const order: Page[] = savedOrder.filter((id) => visibleSet.has(id));
-  const already = new Set(order);
-  visibleIds.forEach((id) => { if (!already.has(id)) order.push(id); });
+  const rawPages: Page[][] = Array.isArray(saved.pages) && saved.pages.every((p) => Array.isArray(p))
+    ? (saved.pages as Page[][])
+    : Array.isArray(saved.order) // zpětná kompatibilita se starým plochým "order"
+      ? [saved.order as Page[]]
+      : [];
+
+  const seen = new Set<Page>();
+  const pages: Page[][] = rawPages.map((p) => p.filter((id) => {
+    if (!visibleSet.has(id) || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  }));
+
+  const newIds = visibleIds.filter((id) => !seen.has(id));
+  if (pages.length === 0) pages.push([]);
+  if (newIds.length > 0) pages[pages.length - 1] = [...pages[pages.length - 1], ...newIds];
 
   const overrides = (saved.overrides && typeof saved.overrides === 'object' ? saved.overrides : {}) as Partial<Record<Page, TileOverride>>;
 
   let fallbackIdx = 0;
   const filledOverrides: Partial<Record<Page, TileOverride>> = {};
-  order.forEach((id) => {
+  pages.flat().forEach((id) => {
     const existing = overrides[id];
     const color = existing?.color ?? defaultColorFor(id, fallbackIdx);
     if (!existing?.color) fallbackIdx += 1;
@@ -132,9 +147,32 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[]): HomeLayout {
     return fallback;
   });
 
-  return { order, overrides: filledOverrides, scene, tileOpacity, customAccent, dock };
+  return { pages, overrides: filledOverrides, scene, tileOpacity, customAccent, dock };
 }
 
 export async function saveHomeLayout(userId: string, layout: HomeLayout): Promise<void> {
   await supabase.from('profiles').update({ home_layout: layout as any }).eq('id', userId);
+}
+
+/** Přidá prázdnou stránku na konec. */
+export function addPage(layout: HomeLayout): HomeLayout {
+  return { ...layout, pages: [...layout.pages, []] };
+}
+
+/** Smaže stránku a její dlaždice přesune do předchozí (nebo první, pokud mazaná je 0.). Poslední stránka nejde smazat. */
+export function removePage(layout: HomeLayout, pageIndex: number): HomeLayout {
+  if (layout.pages.length <= 1) return layout;
+  const pages = layout.pages.map((p) => [...p]);
+  const [removed] = pages.splice(pageIndex, 1);
+  const mergeInto = Math.max(0, pageIndex - 1);
+  pages[mergeInto] = [...pages[mergeInto], ...removed];
+  return { ...layout, pages };
+}
+
+/** Přesune dlaždici na jinou stránku (na konec cílové stránky). */
+export function moveTileToPage(layout: HomeLayout, tileId: Page, targetPageIndex: number): HomeLayout {
+  if (!layout.pages[targetPageIndex]) return layout;
+  const pages = layout.pages.map((p) => p.filter((id) => id !== tileId));
+  pages[targetPageIndex] = [...pages[targetPageIndex], tileId];
+  return { ...layout, pages };
 }
