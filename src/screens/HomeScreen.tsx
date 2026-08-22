@@ -6,7 +6,7 @@
 // zobrazuje se jen komu je nastaveno (Uživatelé → "Dostává upozornění na
 // vozidla") a musí ho jednou potvrdit, pak zmizí (dokud se stav nezmění).
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { Search, MessageCircle } from 'lucide-react';
+import { Search, MessageCircle, ClipboardList, SlidersHorizontal } from 'lucide-react';
 import { NAV, type Page } from '../components/Layout';
 import LauncherTile from '../components/LauncherTile';
 import { QuickSearchModal } from '../components/QuickSearchModal';
@@ -294,21 +294,13 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
       )}
 
       <div className="hs-launcher">
-        <div className="hs-toolbar">
-          <div />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {hasCustomLayout && <button className="hs-reset-btn" onClick={handleReset}>Obnovit výchozí</button>}
-            <button
-              className={`hs-edit-btn ${editMode ? 'on' : ''}`}
-              onClick={() => setEditMode((v) => !v)}
-            >
-              {editMode ? 'Hotovo' : 'Upravit rozložení'}
-            </button>
-          </div>
-        </div>
-
         {editMode && (
           <div className="hs-controls">
+            {hasCustomLayout && (
+              <div className="hs-controls-group">
+                <button className="hs-reset-btn" onClick={handleReset}>Obnovit výchozí</button>
+              </div>
+            )}
             <div className="hs-controls-group">
               <span className="hs-controls-label">Pozadí</span>
               {SCENES.filter((s) => s !== 'custom').map((s) => (
@@ -359,17 +351,31 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
         )}
 
         <div className="hs-grid" style={{ ['--hs-tile-alpha' as any]: layout.tileOpacity }}>
-          {/* Hledat a WhatsApp — pevné dlaždice (nepřesouvají se/nemění
-              velikost, nejsou součástí uloženého rozložení), přesunuté
-              sem z hlavičky. */}
+          {/* Pevné dlaždice (nepřesouvají se/nemění velikost, nejsou
+              součástí uloženého pořadí): Hledat a Objednávky k parsování
+              přesunuté sem z hlavičky, Nové objednávky jako živý odznak a
+              samotné přepnutí edit módu jako dlaždice místo tlačítka nahoře. */}
           <button type="button" className="hs-tile c-slate" onClick={() => setShowSearchModal(true)}>
             <Search />
             <div className="hs-lbl">Hledat</div>
           </button>
+          <button type="button" className="hs-tile c-coral" onClick={() => setPage('orders')}>
+            <ClipboardList />
+            <div className="hs-lbl">Nové objednávky</div>
+            {!!pendingOrders && <span className="hs-badge">{pendingOrders > 99 ? '99+' : pendingOrders}</span>}
+          </button>
           <button type="button" className="hs-tile c-mint" onClick={openWhatsAppFromTile}>
             <MessageCircle />
-            <div className="hs-lbl">WhatsApp</div>
+            <div className="hs-lbl">Objednávky k parsování</div>
             {pendingWhatsApp > 0 && <span className="hs-badge">{pendingWhatsApp > 99 ? '99+' : pendingWhatsApp}</span>}
+          </button>
+          <button
+            type="button"
+            className={`hs-tile ${editMode ? 'c-indigo' : 'c-forest'}`}
+            onClick={() => setEditMode((v) => !v)}
+          >
+            <SlidersHorizontal />
+            <div className="hs-lbl">{editMode ? 'Hotovo' : 'Upravit rozložení'}</div>
           </button>
 
           {layout.order.map((id) => {

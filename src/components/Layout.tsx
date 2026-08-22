@@ -3,7 +3,7 @@ import {
   FilePlus, ClipboardList, Wine, Cylinder, Sparkles, TrendingDown, Store, FileText,
   ClipboardCheck, BarChart3, History as HistoryIcon, Snowflake,
   CalendarDays, Car, Tag, ShieldCheck, PlusCircle, Settings, Calculator,
-  LogOut, Menu, Download, Wheat, FlaskConical, Shield, Bell, BellOff, X, ArrowRight, Search, Smartphone, MessageCircle, Users, GlassWater, Home, type LucideIcon,
+  LogOut, Download, Wheat, FlaskConical, Shield, Bell, BellOff, X, ArrowRight, Search, Smartphone, MessageCircle, Users, GlassWater, Home, type LucideIcon,
 } from 'lucide-react';
 
 import { useAuth } from '../lib/auth';
@@ -837,14 +837,6 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
               </button>
             );
           })}
-
-          <button
-            onClick={() => setOpen(true)}
-            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all active:scale-95 ${isHome ? 'hs-nav-tile n-slate flex-1' : 'text-neutral-500 hover:text-neutral-800 font-bold'}`}
-          >
-            <Menu size={20} strokeWidth={2} />
-            <span className="text-[10px] mt-0.5 tracking-tight">Více</span>
-          </button>
         </nav>
       </main>
 
