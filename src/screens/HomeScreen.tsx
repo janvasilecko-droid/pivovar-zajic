@@ -6,7 +6,7 @@
 // zobrazuje se jen komu je nastaveno (Uživatelé → "Dostává upozornění na
 // vozidla") a musí ho jednou potvrdit, pak zmizí (dokud se stav nezmění).
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { Search, MessageCircle, ClipboardList, SlidersHorizontal, LogOut, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
+import { Search, MessageCircle, SlidersHorizontal, LogOut, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { NAV, type Page } from '../components/Layout';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import LauncherTile from '../components/LauncherTile';
@@ -430,19 +430,14 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
         <div className="hs-grid" style={{ ['--hs-tile-alpha' as any]: layout.tileOpacity }}>
           {/* Pevné dlaždice (nepřesouvají se/nemění velikost, nejsou
               součástí uloženého pořadí, jen na 1. stránce): Hledat a
-              Objednávky k parsování přesunuté sem z hlavičky, Nové objednávky
-              jako živý odznak a samotné přepnutí edit módu jako dlaždice
-              místo tlačítka nahoře. */}
+              Objednávky k parsování přesunuté sem z hlavičky. Počet
+              objednávek tohoto týdne je odznak přímo na běžné dlaždici
+              Objednávky (layout.pages), ne samostatná dlaždice navíc. */}
           {currentPageIndex === 0 && (
             <>
               <button type="button" className="hs-tile c-slate" onClick={() => setShowSearchModal(true)}>
                 <Search />
                 <div className="hs-lbl">Hledat</div>
-              </button>
-              <button type="button" className="hs-tile c-coral" onClick={() => setPage('orders')}>
-                <ClipboardList />
-                <div className="hs-lbl">Objednávky tento týden</div>
-                {!!pendingOrders && <span className="hs-badge">{pendingOrders > 99 ? '99+' : pendingOrders}</span>}
               </button>
               <button type="button" className="hs-tile c-mint" onClick={openWhatsAppFromTile}>
                 <MessageCircle />

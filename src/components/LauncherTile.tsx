@@ -41,12 +41,23 @@ export default function LauncherTile({
   // barva z color pickeru (hex, není v seznamu jmen) → inline styl.
   const isPreset = (TILE_COLORS as string[]).includes(color);
 
+  function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    // setPointerCapture zajistí, že tenhle element dostane i pointerup/move,
+    // i kdyby prst/kurzor sjel jinam — bez toho na některých mobilních
+    // prohlížečích gesto přetažení hned na začátku "spolkne" scroll.
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+    onDragPointerDown(e);
+  }
+
   return (
     <div
       className={`hs-tile ${isPreset ? `c-${color}` : ''} ${sizeClass(size)} ${editing ? 'hs-editing' : ''} ${dragOver ? 'hs-drag-over' : ''} ${isDragging ? 'hs-dragging' : ''}`}
-      style={isPreset ? undefined : { background: hexToRgba(color, tileOpacity) }}
+      style={{
+        ...(isPreset ? {} : { background: hexToRgba(color, tileOpacity) }),
+        touchAction: editing ? 'none' : undefined,
+      }}
       data-tile-id={item.id}
-      onPointerDown={editing ? onDragPointerDown : undefined}
+      onPointerDown={editing ? handlePointerDown : undefined}
       onClick={editing ? undefined : onClick}
       role="button"
       tabIndex={0}
