@@ -74,23 +74,31 @@ export function WhatsAppIncomingModal(props: WhatsAppIncomingModalProps) {
                 <div
                   key={message.id}
                   onClick={() => props.onOpenMessage?.(message)}
-                  className="border rounded-xl p-4 cursor-pointer transition hover:border-blue-300 hover:bg-blue-50/40"
+                  className={`border rounded-xl p-4 cursor-pointer transition hover:border-blue-300 hover:bg-blue-50/40 ${message.status === 'error' ? 'border-rose-300 bg-rose-50/40' : ''}`}
                   title="Klepnutím otevřete kontrolu objednávky"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <div className="mb-2">
+                      <div className="mb-2 flex items-center gap-2">
                         <div className="text-sm font-medium">{message.sender_name}</div>
                         <div className="text-xs text-neutral-500">
                           {new Date(message.message_timestamp || message.created_at).toLocaleDateString('cs-CZ')}
                         </div>
+                        {message.status === 'error' && (
+                          <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-rose-600 text-white shrink-0">❌ Chyba</span>
+                        )}
                       </div>
                       <div className="text-sm bg-neutral-50 p-3 rounded-lg">
                         {message.message_text.substring(0, 200)}
                         {message.message_text.length > 200 && '...'}
                       </div>
+                      {message.status === 'error' && message.error_message && (
+                        <div className="text-xs text-rose-700 font-semibold mt-1.5 bg-rose-50 border border-rose-200 rounded-lg px-2 py-1">
+                          {message.error_message}
+                        </div>
+                      )}
                       <div className="text-xs text-blue-600 mt-1 font-medium">
-                        Klepnutím zkontrolovat objednávku →
+                        {message.status === 'error' ? 'Klepnutím zkusit znovu →' : 'Klepnutím zkontrolovat objednávku →'}
                       </div>
                     </div>
                     <div className="flex flex-col gap-1.5">

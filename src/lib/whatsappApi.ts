@@ -81,14 +81,18 @@ export async function fetchPendingWhatsAppMessages(): Promise<WhatsAppIncoming[]
   const { data, error } = await supabase
     .from('whatsapp_incoming')
     .select('*')
-    .in('status', ['pending', 'parsed'])
+    // 'error' (AI parsování selhalo) musí zůstat viditelné — jinak zpráva po
+    // neúspěšném pokusu ze seznamu zmizí beze stopy, i když fetchPendingWhatsAppCount
+    // ji do odznaku počítá a WhatsAppAutoProcessorModal na ni má hotové UI (červený
+    // štítek "Chyba"), které se tak nikdy nezobrazí.
+    .in('status', ['pending', 'parsed', 'error'])
     .order('created_at', { ascending: false });
-  
+
   if (error) {
     console.error('Error fetching WhatsApp messages:', error);
     throw error;
   }
-  
+
   // Do aplikace se ukládají jen zprávy ze skupiny „Objednávky pivovar" (webhook
   // na to filtruje), takže se vrací vše, co v DB je — každá zpráva je objednávka.
   return data || [];
