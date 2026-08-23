@@ -167,6 +167,19 @@
   align-content: start;
   flex: 1 1 auto;
 }
+
+/* Obal kolem hs-fixed-row + hs-grid, na kterém se sleduje přejetí prstem
+   doleva/doprava (přepnutí stránky launcheru, viz HomeScreen.tsx
+   handleSwipePointerDown/Up). pan-y nechá svislý scroll obsahu prohlížeči,
+   vodorovný gesture řeší JS. Krátká fade-in animace při každé změně stránky
+   (key={currentPageIndex} v HomeScreen.tsx tenhle prvek při přepnutí
+   znovu-namountuje, takže animace vždycky naběhne od začátku). */
+.hs-swipe-area { touch-action: pan-y; display: flex; flex-direction: column; flex: 1 1 auto; min-height: 200px; }
+.hs-page-enter { animation: hs-page-enter-kf 0.18s ease-out; }
+@keyframes hs-page-enter-kf {
+  from { opacity: 0; transform: translateX(10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
 @media (max-width: 640px) {
   .hs-grid { grid-template-columns: repeat(12, 1fr); grid-auto-rows: 74px; }
 }

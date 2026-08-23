@@ -449,7 +449,7 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
   const fixedColors = (saved.fixedColors && typeof saved.fixedColors === 'object' ? saved.fixedColors : {}) as Partial<Record<string, string>>;
 
   const layout: HomeLayout = { pages, overrides: filledOverrides, groups: resolvedGroups, scene, tileOpacity, tileGap, customAccent, dock, hidden, fixedColors };
-  return ensurePositions(layout, cols);
+  return ensureTrailingEmptyPage(ensurePositions(layout, cols));
 }
 
 export async function saveHomeLayout(userId: string, layout: HomeLayout): Promise<void> {
@@ -471,6 +471,21 @@ export function removeDockSlot(layout: HomeLayout, index: number): HomeLayout {
 /** Přidá prázdnou stránku na konec. */
 export function addPage(layout: HomeLayout): HomeLayout {
   return { ...layout, pages: [...layout.pages, []] };
+}
+
+/**
+ * Garantuje, že poslední stránka je vždy prázdná (styl Android launcheru) —
+ * kamkoliv doděláš dlaždici, hned za ní čeká další volná plocha k zaplnění.
+ * Jen PŘIDÁVÁ prázdnou stránku, když se ta poslední zaplní — nikdy žádnou
+ * neruší/neslučuje (i ručně přidaná stránka přes "Přidat stránku" má zůstat,
+ * jinak by ji `persist` o zlomek vteřiny později zase smazal). Volá se v
+ * `getHomeLayout` (při načtení) i v `persist` po každé změně (HomeScreen.tsx).
+ */
+export function ensureTrailingEmptyPage(layout: HomeLayout): HomeLayout {
+  let pages = layout.pages;
+  if (pages.length === 0) pages = [[]];
+  if (pages[pages.length - 1].length > 0) pages = [...pages, []];
+  return pages === layout.pages ? layout : { ...layout, pages };
 }
 
 /** Smaže stránku a její dlaždice přesune do předchozí (nebo první, pokud mazaná je 0.). Poslední stránka nejde smazat. */

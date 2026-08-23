@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   getHomeLayout, addPage, removePage, moveTileToPage, hideTile, unhideTile, addTile,
   mergeTiles, addToGroup, removeFromGroup, deleteGroup, ensurePositions, moveTileToCell, stepTileCell,
-  addDockSlot, removeDockSlot,
+  addDockSlot, removeDockSlot, ensureTrailingEmptyPage,
   MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, DEFAULT_DOCK, MIN_DOCK, MAX_DOCK, GRID_COLS_DESKTOP, type GroupId,
 } from './homeLayout';
 import type { Page } from '../components/Layout';
@@ -14,7 +14,7 @@ const C: Page = 'dashboard';
 describe('getHomeLayout', () => {
   it('vrátí výchozí layout pro prázdný/null vstup', () => {
     const layout = getHomeLayout(null, [A, B, C]);
-    expect(layout.pages).toEqual([[A, B, C]]);
+    expect(layout.pages).toEqual([[A, B, C], []]);
     expect(layout.scene).toBe('warm');
     expect(layout.tileOpacity).toBeCloseTo(0.62);
     // 'bottling' není v visibleIds, takže i výchozí slot spodní lišty se
@@ -26,19 +26,19 @@ describe('getHomeLayout', () => {
   it('připojí nově viditelný modul na konec poslední stránky', () => {
     const raw = { pages: [[A, B]], overrides: {}, scene: 'ocean', tileOpacity: 0.5 };
     const layout = getHomeLayout(raw, [A, B, C]);
-    expect(layout.pages).toEqual([[A, B, C]]);
+    expect(layout.pages).toEqual([[A, B, C], []]);
   });
 
   it('vypustí ze stránky modul, na který uživatel už nemá právo', () => {
     const raw = { pages: [[A, B], [C]], overrides: {}, scene: 'warm', tileOpacity: 0.42 };
     const layout = getHomeLayout(raw, [A, C]);
-    expect(layout.pages).toEqual([[A], [C]]);
+    expect(layout.pages).toEqual([[A], [C], []]);
   });
 
   it('čte starý plochý formát "order" jako jednu stránku (zpětná kompatibilita)', () => {
     const raw = { order: [A, B], overrides: {}, scene: 'warm', tileOpacity: 0.42 };
     const layout = getHomeLayout(raw, [A, B]);
-    expect(layout.pages).toEqual([[A, B]]);
+    expect(layout.pages).toEqual([[A, B], []]);
   });
 
   it('zachová existující barvu a velikost override, nepřepíše je výchozí', () => {
@@ -80,7 +80,7 @@ describe('getHomeLayout', () => {
 
   it('schovaná dlaždice se znovu nepřipojí mezi "nové", dokud je v hidden', () => {
     const layout = getHomeLayout({ pages: [[A]], hidden: [B] }, [A, B, C]);
-    expect(layout.pages).toEqual([[A, C]]);
+    expect(layout.pages).toEqual([[A, C], []]);
     expect(layout.hidden).toEqual([B]);
   });
 
@@ -97,34 +97,34 @@ describe('getHomeLayout', () => {
 
   it('extraIds se ověří/zachovají, ale nepřidají se automaticky jako nové', () => {
     const layout = getHomeLayout(null, [A], [B]);
-    expect(layout.pages).toEqual([[A]]);
+    expect(layout.pages).toEqual([[A], []]);
     const withExtra = getHomeLayout({ pages: [[A, B]] }, [A], [B]);
-    expect(withExtra.pages).toEqual([[A, B]]);
+    expect(withExtra.pages).toEqual([[A, B], []]);
   });
 
   it('extra dlaždice zmizí ze stránky, pokud přestane být v extraIds/visibleIds', () => {
     const layout = getHomeLayout({ pages: [[A, B]] }, [A], []);
-    expect(layout.pages).toEqual([[A]]);
+    expect(layout.pages).toEqual([[A], []]);
   });
 
   it('skupinu s platnými členy zachová (nový modul C se připojí za ni)', () => {
     const raw = { pages: [['grp_x']], groups: { grp_x: { memberIds: [A, B] } } };
     const layout = getHomeLayout(raw, [A, B, C]);
-    expect(layout.pages).toEqual([['grp_x', C]]);
+    expect(layout.pages).toEqual([['grp_x', C], []]);
     expect(layout.groups['grp_x' as GroupId]).toEqual({ memberIds: [A, B] });
   });
 
   it('skupinu s jedním platným členem rozpustí na obyčejnou dlaždici', () => {
     const raw = { pages: [['grp_x']], groups: { grp_x: { memberIds: [A, B] } } };
     const layout = getHomeLayout(raw, [A]); // B už není viditelné
-    expect(layout.pages).toEqual([[A]]);
+    expect(layout.pages).toEqual([[A], []]);
     expect(layout.groups['grp_x' as GroupId]).toBeUndefined();
   });
 
   it('skupinu bez jediného platného člena zahodí úplně', () => {
     const raw = { pages: [['grp_x']], groups: { grp_x: { memberIds: [B] } } };
     const layout = getHomeLayout(raw, [A]);
-    expect(layout.pages).toEqual([[A]]);
+    expect(layout.pages).toEqual([[A], []]);
   });
 });
 
@@ -132,14 +132,14 @@ describe('hideTile / unhideTile', () => {
   it('hideTile odstraní dlaždici ze stránky a přidá ji do hidden', () => {
     const layout = getHomeLayout({ pages: [[A, B]] }, [A, B]);
     const next = hideTile(layout, B);
-    expect(next.pages).toEqual([[A]]);
+    expect(next.pages).toEqual([[A], []]);
     expect(next.hidden).toEqual([B]);
   });
 
   it('unhideTile vrátí dlaždici na konec první stránky', () => {
     const layout = hideTile(getHomeLayout({ pages: [[A, B]] }, [A, B]), B);
     const next = unhideTile(layout, B);
-    expect(next.pages).toEqual([[A, B]]);
+    expect(next.pages).toEqual([[A, B], []]);
     expect(next.hidden).toEqual([]);
   });
 });
@@ -148,13 +148,13 @@ describe('addPage / removePage / moveTileToPage', () => {
   it('addPage přidá prázdnou stránku na konec', () => {
     const layout = getHomeLayout({ pages: [[A]] }, [A]);
     const next = addPage(layout);
-    expect(next.pages).toEqual([[A], []]);
+    expect(next.pages).toEqual([[A], [], []]);
   });
 
   it('removePage smaže stránku a přesune její dlaždice do předchozí', () => {
     const layout = getHomeLayout({ pages: [[A], [B, C]] }, [A, B, C]);
     const next = removePage(layout, 1);
-    expect(next.pages).toEqual([[A, B, C]]);
+    expect(next.pages).toEqual([[A, B, C], []]);
   });
 
   it('removePage nikdy nesmaže poslední zbývající stránku', () => {
@@ -166,7 +166,7 @@ describe('addPage / removePage / moveTileToPage', () => {
   it('moveTileToPage přesune dlaždici z jedné stránky na jinou', () => {
     const layout = getHomeLayout({ pages: [[A, B], [C]] }, [A, B, C]);
     const next = moveTileToPage(layout, B, 1);
-    expect(next.pages).toEqual([[A], [C, B]]);
+    expect(next.pages).toEqual([[A], [C, B], []]);
   });
 });
 
@@ -174,7 +174,7 @@ describe('addTile', () => {
   it('přidá dlaždici, co je zrovna schovaná, zpátky na zvolenou stránku a odebere z hidden', () => {
     const layout = hideTile(getHomeLayout({ pages: [[A], []] }, [A, B]), B);
     const next = addTile(layout, B, 1);
-    expect(next.pages).toEqual([[A], [B]]);
+    expect(next.pages).toEqual([[A], [B], []]);
     expect(next.hidden).toEqual([]);
   });
 
@@ -296,6 +296,30 @@ describe('ensurePositions / moveTileToCell / stepTileCell (volné pozicování)'
   it('getHomeLayout defaultně používá GRID_COLS_DESKTOP, když cols není zadán', () => {
     const layout = getHomeLayout({ pages: [[A]] }, [A]);
     expect(layout.overrides[A]?.x).toBeLessThan(GRID_COLS_DESKTOP);
+  });
+});
+
+describe('ensureTrailingEmptyPage (Android-styl stránkování)', () => {
+  it('přidá prázdnou stránku, pokud poslední obsahuje dlaždice', () => {
+    const layout = { pages: [[A, B]] } as any;
+    expect(ensureTrailingEmptyPage(layout).pages).toEqual([[A, B], []]);
+  });
+
+  it('nic nepřidá, pokud už poslední stránka je prázdná', () => {
+    const layout = { pages: [[A], []] } as any;
+    const next = ensureTrailingEmptyPage(layout);
+    expect(next.pages).toEqual([[A], []]);
+    expect(next).toBe(layout); // beze změny — stejná reference
+  });
+
+  it('nemaže ručně přidané prázdné stránky navíc (persist po "Přidat stránku" je nesmí zase slít)', () => {
+    const layout = { pages: [[A], [], []] } as any;
+    expect(ensureTrailingEmptyPage(layout).pages).toEqual([[A], [], []]);
+  });
+
+  it('prázdný seznam stránek spadne na jednu prázdnou stránku', () => {
+    const layout = { pages: [] } as any;
+    expect(ensureTrailingEmptyPage(layout).pages).toEqual([[]]);
   });
 });
 

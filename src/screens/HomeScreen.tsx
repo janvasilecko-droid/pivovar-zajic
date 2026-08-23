@@ -20,7 +20,7 @@ import { fetchPendingWhatsAppCount } from '../lib/whatsappApi';
 import { getVehicleExpiryStatus } from './Catalogs';
 import {
   getHomeLayout, saveHomeLayout, addPage, removePage, moveTileToPage, hideTile, addTile,
-  mergeTiles, addToGroup, removeFromGroup, deleteGroup, isGroupId, ensurePositions, moveTileToCell, stepTileCell,
+  mergeTiles, addToGroup, removeFromGroup, deleteGroup, isGroupId, ensurePositions, ensureTrailingEmptyPage, moveTileToCell, stepTileCell,
   addDockSlot, removeDockSlot,
   hexToRgba,
   SCENES, MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX,
@@ -183,7 +183,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
     // sloučením/vyjmuté ze skupiny) — samotné mutátory v homeLayout.ts o
     // aktuálním počtu sloupců nic nevědí, tohle je jediné místo, kudy
     // všechny změny layoutu procházejí.
-    const next = ensurePositions(raw, cols);
+    const next = ensureTrailingEmptyPage(ensurePositions(raw, cols));
     setLayout(next);
     setHasCustomLayout(true);
     // Okamžitě (bez čekání na uložení) promítnout do profilu v AuthContext —
@@ -284,6 +284,26 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
     const w = dim === 'w' ? Math.min(MAX_W, Math.max(MIN_W, (current.w ?? 1) + delta)) : (current.w ?? 1);
     const h = dim === 'h' ? Math.min(MAX_H, Math.max(MIN_H, (current.h ?? 1) + delta)) : (current.h ?? 1);
     persist({ ...layout, overrides: { ...layout.overrides, [id]: { ...current, w, h } } });
+  }
+  // Přejetí prstem doleva/doprava = přepnutí stránky (jako Android launcher),
+  // jen mimo edit mód (tam má přednost podržení+tažení dlaždice, viz výš).
+  // Sleduje se vodorovná vzdálenost od prvního dotyku; svislý posun (scroll
+  // obsahu, pokud je stránka vyšší než displej) a krátký tap na dlaždici se
+  // ignorují (< 50px, nebo víc svislý než vodorovný pohyb).
+  const swipeStart = useRef<{ x: number; y: number } | null>(null);
+  function handleSwipePointerDown(e: React.PointerEvent) {
+    if (editMode) return;
+    swipeStart.current = { x: e.clientX, y: e.clientY };
+  }
+  function handleSwipePointerUp(e: React.PointerEvent) {
+    const start = swipeStart.current;
+    swipeStart.current = null;
+    if (!start || editMode) return;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    if (dx < 0) setCurrentPageIndex((i) => Math.min(layout.pages.length - 1, i + 1));
+    else setCurrentPageIndex((i) => Math.max(0, i - 1));
   }
   function handleRecolor(id: TileId, color: string) {
     persist({ ...layout, overrides: { ...layout.overrides, [id]: { ...layout.overrides[id], color } } });
@@ -613,6 +633,15 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
           </div>
         )}
 
+        {/* Přejetí prstem kdekoliv nad dlaždicemi (mimo edit mód) přepíná
+            stránku launcheru — viz handleSwipePointerDown/Up výš. */}
+        <div
+          key={currentPageIndex}
+          className="hs-swipe-area hs-page-enter"
+          onPointerDown={handleSwipePointerDown}
+          onPointerUp={handleSwipePointerUp}
+          onPointerCancel={() => { swipeStart.current = null; }}
+        >
         {/* Pevné dlaždice — samostatná mřížka NAD .hs-grid (viz HomeScreen.css
             .hs-fixed-row), ať nesoupeří o volné buňky s přesouvatelnými
             dlaždicemi. Hledat a Objednávky k parsování přesunuté sem z
@@ -722,6 +751,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
               />
             );
           })}
+        </div>
         </div>
       </div>
 
