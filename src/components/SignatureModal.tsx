@@ -143,7 +143,7 @@ export function SignatureModal({
             </button>
           </div>
 
-          <div className="rounded-2xl border-2 border-dashed border-neutral-300 overflow-hidden bg-white shadow-inner">
+          <div className="rounded border-2 border-dashed border-neutral-300 overflow-hidden bg-white shadow-inner">
             <canvas
               ref={canvasRef}
               width={400}
@@ -168,7 +168,7 @@ export function SignatureModal({
             type="button"
             onClick={handleSave}
             disabled={!hasDrawn}
-            className="btn-primary text-xs font-black flex items-center gap-1.5 shadow-md disabled:opacity-50"
+            className="btn-primary !rounded text-xs font-black flex items-center gap-1.5 shadow-md disabled:opacity-50"
           >
             <CheckCircle2 size={16} /> Potvrdit převzetí
           </button>

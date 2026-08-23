@@ -153,10 +153,10 @@ export function TankOccupancyPlanner({
   return (
     <div className="space-y-6">
       {/* Top Header Card */}
-      <div className="card p-6 bg-gradient-to-r from-amber-500/15 via-amber-100/40 to-white border-2 border-amber-300 rounded-3xl space-y-4 shadow-sm">
+      <div className="card p-6 bg-gradient-to-r from-amber-500/15 via-amber-100/40 to-white border-2 border-amber-300 rounded space-y-4 shadow-sm">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-amber-500 text-neutral-950 font-black flex items-center justify-center text-2xl shadow-md shrink-0">
+            <div className="w-12 h-12 rounded bg-amber-500 text-neutral-950 font-black flex items-center justify-center text-2xl shadow-md shrink-0">
               📅
             </div>
             <div>
@@ -174,7 +174,7 @@ export function TankOccupancyPlanner({
               }
               setShowAddModal(true);
             }}
-            className="px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md transition flex items-center gap-2"
+            className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md transition flex items-center gap-2"
           >
             <Plus size={18} />
             <span>Naplánovat várku na tank</span>
@@ -183,14 +183,14 @@ export function TankOccupancyPlanner({
       </div>
 
       {conflictingBatchIds.size > 0 && (
-        <div className="flex items-center gap-2 p-3.5 rounded-2xl bg-rose-50 border-2 border-rose-300 text-sm font-black text-rose-800">
+        <div className="flex items-center gap-2 p-3.5 rounded bg-rose-50 border-2 border-rose-300 text-sm font-black text-rose-800">
           <ShieldAlert size={18} className="text-rose-600 shrink-0" />
           <span>⚠️ {conflictingBatchIds.size} naplánovaných várek koliduje s obsazeností tanku — viz označené várky níže.</span>
         </div>
       )}
 
       {/* Gantt Overview Table */}
-      <div className="card p-6 bg-white border border-neutral-200/90 rounded-3xl shadow-sm space-y-4">
+      <div className="card p-6 bg-white border border-neutral-200/90 rounded shadow-sm space-y-4">
         <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
           <span>📊 Vizuální časová osa obsazenosti ležáckých a kvasných tanků</span>
         </h3>
@@ -219,7 +219,7 @@ export function TankOccupancyPlanner({
             return (
               <div
                 key={t.id}
-                className={`p-4 rounded-2xl border-2 transition-all ${
+                className={`p-4 rounded border-2 transition-all ${
                   !hasBeer
                     ? 'bg-neutral-50 border-neutral-200'
                     : isReady
@@ -231,7 +231,7 @@ export function TankOccupancyPlanner({
                   <div className="flex items-center gap-2">
                     <span className="font-display font-black text-sm text-neutral-900">{t.label}</span>
                     <span className="text-xs font-bold text-neutral-500">({(t.capacity_l / 100).toFixed(0)} hl)</span>
-                    {isSpilka && <span className="px-2 py-0.5 rounded-lg bg-sky-100 text-sky-950 text-[10px] font-black">Spilka CCT</span>}
+                    {isSpilka && <span className="px-2 py-0.5 rounded bg-sky-100 text-sky-950 text-[10px] font-black">Spilka CCT</span>}
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -279,7 +279,7 @@ export function TankOccupancyPlanner({
                     {plannedForThisTank.map((pb) => {
                       const isConflicting = conflictingBatchIds.has(pb.id);
                       return (
-                        <div key={pb.id} className={`flex items-center justify-between p-2 rounded-xl bg-white border text-xs font-mono ${isConflicting ? 'border-rose-400 ring-1 ring-rose-300' : 'border-amber-300'}`}>
+                        <div key={pb.id} className={`flex items-center justify-between p-2 rounded bg-white border text-xs font-mono ${isConflicting ? 'border-rose-400 ring-1 ring-rose-300' : 'border-amber-300'}`}>
                           <div>
                             {isConflicting && (
                               <div className="flex items-center gap-1 text-rose-700 font-black text-[11px] mb-0.5">
@@ -308,7 +308,7 @@ export function TankOccupancyPlanner({
       {/* Add Planned Batch Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-neutral-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-neutral-200 animate-in fade-in duration-150">
+          <div className="bg-white rounded max-w-md w-full p-6 space-y-4 shadow-2xl border border-neutral-200 animate-in fade-in duration-150">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
                 <span>➕ Naplánovat novou várku na tank</span>
@@ -393,7 +393,7 @@ export function TankOccupancyPlanner({
               </div>
 
               {newBatchConflict && (
-                <div className="flex items-start gap-2 p-3 rounded-2xl bg-rose-50 border border-rose-300 text-xs font-bold text-rose-800">
+                <div className="flex items-start gap-2 p-3 rounded bg-rose-50 border border-rose-300 text-xs font-bold text-rose-800">
                   <ShieldAlert size={16} className="text-rose-600 shrink-0 mt-0.5" />
                   <span>⚠️ {newBatchConflict}</span>
                 </div>
@@ -403,13 +403,13 @@ export function TankOccupancyPlanner({
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 rounded-xl bg-neutral-100 text-neutral-700 font-extrabold text-xs"
+                  className="px-4 py-2 rounded bg-neutral-100 text-neutral-700 font-extrabold text-xs"
                 >
                   Zrušit
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md"
+                  className="px-4 py-2 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md"
                 >
                   Uložit do plánu zrání
                 </button>

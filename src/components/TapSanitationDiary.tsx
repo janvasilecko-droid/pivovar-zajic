@@ -200,7 +200,7 @@ export default function TapSanitationDiary() {
   const filtered = entries.filter((e) => e.sanitation_date.slice(0, 7) === filterMonth);
 
   return (
-    <div className="card p-4 sm:p-6 bg-white rounded-3xl shadow-sm border border-neutral-200/90 space-y-4">
+    <div className="card p-4 sm:p-6 bg-white rounded shadow-sm border border-neutral-200/90 space-y-4">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
@@ -208,19 +208,19 @@ export default function TapSanitationDiary() {
           <p className="text-xs text-neutral-500 font-semibold">Sanitace kohoutů a výčepních vedení s časem každého kroku.</p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 bg-white border border-neutral-200 rounded-2xl px-2 py-1.5 shadow-sm">
-            <button onClick={() => shiftMonth(-1)} className="w-6 h-6 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition">
+          <div className="flex items-center gap-1 bg-white border border-neutral-200 rounded px-2 py-1.5 shadow-sm">
+            <button onClick={() => shiftMonth(-1)} className="w-6 h-6 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition">
               <ChevronLeft size={14} />
             </button>
             <span className="text-xs font-bold text-amber-950 px-1 whitespace-nowrap">{filterMonth}</span>
-            <button onClick={() => shiftMonth(1)} disabled={filterMonth >= todayStr().slice(0, 7)} className="w-6 h-6 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition disabled:opacity-40">
+            <button onClick={() => shiftMonth(1)} disabled={filterMonth >= todayStr().slice(0, 7)} className="w-6 h-6 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition disabled:opacity-40">
               <ChevronRight size={14} />
             </button>
           </div>
-          <button onClick={exportExcel} className="px-3 py-2 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-xs font-black shadow-sm flex items-center gap-1.5">
+          <button onClick={exportExcel} className="px-3 py-2 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-xs font-black shadow-sm flex items-center gap-1.5">
             <FileSpreadsheet size={14} /> Excel
           </button>
-          <button onClick={openNew} className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-black shadow-md flex items-center gap-1.5">
+          <button onClick={openNew} className="px-3.5 py-2 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-black shadow-md flex items-center gap-1.5">
             <Plus size={15} /> Nový zápis
           </button>
         </div>
@@ -238,13 +238,13 @@ export default function TapSanitationDiary() {
             const done = (e.steps || []).filter((s) => s.completed);
             const total = (e.steps || []).length || DEFAULT_TAP_SANITATION_STEPS.length;
             return (
-              <div key={e.id} className="border border-neutral-200 rounded-2xl p-3.5 bg-white shadow-xs">
+              <div key={e.id} className="border border-neutral-200 rounded p-3.5 bg-white shadow-xs">
                 <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-neutral-100">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-black text-sm text-neutral-900">{e.tap_name || e.tap_id}</span>
-                    <span className="text-[10px] font-black text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded-lg">{formatDate(e.sanitation_date)}</span>
+                    <span className="text-[10px] font-black text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded">{formatDate(e.sanitation_date)}</span>
                     {e.sanitation_time && (
-                      <span className="text-[10px] font-mono font-black text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded-lg flex items-center gap-1">
+                      <span className="text-[10px] font-mono font-black text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded flex items-center gap-1">
                         <Clock size={10} /> {e.sanitation_time}
                       </span>
                     )}
@@ -253,14 +253,14 @@ export default function TapSanitationDiary() {
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => openEdit(e)}
-                      className="p-1.5 rounded-xl bg-neutral-100 hover:bg-amber-100 text-neutral-600 hover:text-amber-800 transition"
+                      className="p-1.5 rounded bg-neutral-100 hover:bg-amber-100 text-neutral-600 hover:text-amber-800 transition"
                       title="Upravit"
                     >
                       <Edit3 size={13} />
                     </button>
                     <button
                       onClick={() => handleDelete(e.id)}
-                      className="p-1.5 rounded-xl bg-neutral-100 hover:bg-rose-100 text-neutral-600 hover:text-rose-700 transition"
+                      className="p-1.5 rounded bg-neutral-100 hover:bg-rose-100 text-neutral-600 hover:text-rose-700 transition"
                       title="Smazat"
                     >
                       <Trash2 size={13} />
@@ -293,7 +293,7 @@ export default function TapSanitationDiary() {
 {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-neutral-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-3xl w-full max-w-2xl p-6 space-y-4 shadow-2xl border border-neutral-200 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded w-full max-w-2xl p-6 space-y-4 shadow-2xl border border-neutral-200 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
               <h3 className="font-display font-black text-lg text-neutral-900">
                 {editingId ? 'Upravit záznam sanitace výčepu' : 'Nový záznam sanitace výčepu'}
@@ -335,7 +335,7 @@ export default function TapSanitationDiary() {
               </div>
 
               {/* Steps */}
-              <div className="p-4 rounded-2xl border border-neutral-200 bg-neutral-50/50 space-y-2.5">
+              <div className="p-4 rounded border border-neutral-200 bg-neutral-50/50 space-y-2.5">
                 <h4 className="font-black text-xs text-neutral-800 uppercase tracking-wider flex items-center gap-1.5">
                   <CheckCircle2 size={13} className="text-amber-600" /> Kroky sanitace (s časem provedení)
                 </h4>
@@ -359,8 +359,8 @@ export default function TapSanitationDiary() {
               </div>
 
               <div className="flex justify-end gap-2 border-t border-neutral-100 pt-3">
-                <button type="button" onClick={() => setShowModal(false)} className="btn-ghost text-xs font-bold">Zrušit</button>
-                <button type="submit" disabled={saving} className="btn-primary text-xs font-black shadow-md bg-amber-500 hover:bg-amber-600 border-none text-neutral-950">
+                <button type="button" onClick={() => setShowModal(false)} className="btn-ghost !rounded text-xs font-bold">Zrušit</button>
+                <button type="submit" disabled={saving} className="btn-primary !rounded text-xs font-black shadow-md bg-amber-500 hover:bg-amber-600 border-none text-neutral-950">
                   {saving ? 'Ukládám…' : '✅ Uložit do sanitačního deníku'}
                 </button>
               </div>

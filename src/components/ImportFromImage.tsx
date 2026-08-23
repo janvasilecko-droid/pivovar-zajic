@@ -755,7 +755,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
             <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="poznámka (např. bez etikety, podtacky…)" />
             <div className="text-[11px] text-warning-600 mt-1">Auto-detected z textu — můžeš upravit. Bude uloženo k objednávce.</div>
             {isTapMentioned(note) && (
-              <div className="mt-2.5 text-xs font-bold text-amber-900 bg-amber-100 dark:bg-amber-950/80 dark:text-amber-200 p-2.5 rounded-xl border border-amber-300 dark:border-amber-700 flex items-center gap-2">
+              <div className="mt-2.5 text-xs font-bold text-amber-900 bg-amber-100 dark:bg-amber-950/80 dark:text-amber-200 p-2.5 rounded border border-amber-300 dark:border-amber-700 flex items-center gap-2">
                 <span className="text-base">🚰</span>
                 <span>Detekován výčep / chlazení! Po importu se automaticky otevře okno pro rezervaci konkrétního výčepu.</span>
               </div>
@@ -775,7 +775,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                 onClick={() => cameraRef.current?.click()}
                 disabled={busy}
                 title="Vyfotit objednávku fotoaparátem"
-                className="w-11 h-11 grid place-items-center rounded-2xl bg-amber-500 hover:bg-amber-600 text-white text-xl shadow-md transition active:scale-95 disabled:opacity-50"
+                className="w-11 h-11 grid place-items-center rounded bg-amber-500 hover:bg-amber-600 text-white text-xl shadow-md transition active:scale-95 disabled:opacity-50"
               >
                 📷
               </button>
@@ -784,7 +784,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                 onClick={() => fileRef.current?.click()}
                 disabled={busy}
                 title="Vybrat objednávku z fotogalerie"
-                className="w-11 h-11 grid place-items-center rounded-2xl bg-neutral-800 hover:bg-neutral-700 text-white text-xl shadow-md transition active:scale-95 disabled:opacity-50"
+                className="w-11 h-11 grid place-items-center rounded bg-neutral-800 hover:bg-neutral-700 text-white text-xl shadow-md transition active:scale-95 disabled:opacity-50"
               >
                 🖼️
               </button>
@@ -793,7 +793,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                 onClick={() => fileRefPdf.current?.click()}
                 disabled={busy}
                 title="Vybrat soubor (např. PDF objednávky)"
-                className="h-11 px-2.5 rounded-2xl bg-white border border-neutral-300 text-neutral-800 text-xs font-black shadow-sm transition active:scale-95 disabled:opacity-50"
+                className="h-11 px-2.5 rounded bg-white border border-neutral-300 text-neutral-800 text-xs font-black shadow-sm transition active:scale-95 disabled:opacity-50"
               >
                 📄 PDF
               </button>
@@ -837,14 +837,14 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                 <div className="flex flex-wrap gap-2 mt-3">
                   <button
                     type="button"
-                    className="btn-primary"
+                    className="btn-primary !rounded"
                     onClick={() => { setPendingFiles((q) => [...q, ...dupFilesPending]); setDupFilesPending(null); }}
                   >
                     Přesto přidat
                   </button>
                   <button
                     type="button"
-                    className="btn-ghost"
+                    className="btn-ghost !rounded"
                     onClick={() => setDupFilesPending(null)}
                   >
                     Přeskočit (doporučeno)
@@ -868,7 +868,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
         {photos.length > 0 && (
           <div className="flex gap-2 flex-wrap">
             {photos.map((ph, i) => (
-              <div key={i} className="relative w-20 h-20 rounded-lg overflow-hidden border-2 border-primary-200 group">
+              <div key={i} className="relative w-20 h-20 rounded overflow-hidden border-2 border-primary-200 group">
                 <img src={ph.dataUrl} alt={ph.name} className="w-full h-full object-cover" />
                 <button
                   className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-primary-900/80 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
@@ -881,7 +881,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
           </div>
         )}
 
-        {err && <div className="text-sm text-danger-600 bg-danger-500/10 rounded-lg px-3 py-2">{err}</div>}
+        {err && <div className="text-sm text-danger-600 bg-danger-500/10 rounded px-3 py-2">{err}</div>}
 
         <div>
           <label className="label">Text objednávky (z fotky nebo e-mailu)</label>
@@ -892,7 +892,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
             onChange={(e) => { setRawText(e.target.value); }}
             placeholder="Např.: 12 svetly lezak 2x KEG30, 10 desitka 1x KEG50, tmava 3x KEG20"
           />
-          <button className="btn-ghost text-xs mt-2 !py-1.5" onClick={() => { doParse(rawText); const d = detectOrderNotes(rawText); if (d) setNote(d); }} disabled={!rawText.trim()}>Parsovat</button>
+          <button className="btn-ghost !rounded text-xs mt-2 !py-1.5" onClick={() => { doParse(rawText); const d = detectOrderNotes(rawText); if (d) setNote(d); }} disabled={!rawText.trim()}>Parsovat</button>
         </div>
 
         {!parsed && (
@@ -933,20 +933,20 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
               {unknownCount > 0 && <span className="chip bg-danger-100 text-danger-700">{unknownCount} nerozpoznaných</span>}
               {dupCount > 0 && <span className="chip bg-primary-200 text-primary-700">{dupCount} duplikátů</span>}
               {dupOrders.length > 0 && <span className="chip bg-danger-100 text-danger-700 font-black">⚠️ {dupOrders.length === 1 ? 'možný dupl. odběratel' : `${dupOrders.length} možní dupl. odběratelé`}</span>}
-              <button className="btn-ghost text-xs !py-1 !px-2" onClick={addLine}>+ Přidat řádek</button>
+              <button className="btn-ghost !rounded text-xs !py-1 !px-2" onClick={addLine}>+ Přidat řádek</button>
               {pendingFiles.length > 0 && (
-                <button className="btn-ghost text-xs !py-1 !px-2" onClick={() => { advanceToNextPhoto(); }}>⏭ Přeskočit fotku</button>
+                <button className="btn-ghost !rounded text-xs !py-1 !px-2" onClick={() => { advanceToNextPhoto(); }}>⏭ Přeskočit fotku</button>
               )}
-              <button className="btn-ghost text-xs !py-1 !px-2" onClick={() => { setParsed(null); setConfirmed(false); setPaused(true); }}>← Zpět na fotky</button>
+              <button className="btn-ghost !rounded text-xs !py-1 !px-2" onClick={() => { setParsed(null); setConfirmed(false); setPaused(true); }}>← Zpět na fotky</button>
 
             </div>
           </div>
 
           <div className="flex-1 overflow-y-auto scrollbar-thin px-4 py-3 space-y-3">
-            {err && <div className="text-sm text-danger-600 bg-danger-500/10 rounded-lg px-3 py-2">{err}</div>}
+            {err && <div className="text-sm text-danger-600 bg-danger-500/10 rounded px-3 py-2">{err}</div>}
 
             {busy && pendingFiles.length > 0 && (
-              <div className="bg-primary-900 text-primary-50 px-4 py-3 rounded-2xl flex items-center gap-3 shadow-md animate-pulse">
+              <div className="bg-primary-900 text-primary-50 px-4 py-3 rounded flex items-center gap-3 shadow-md animate-pulse">
                 <Spinner className="!text-white shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-bold uppercase tracking-wider opacity-75">Rozpoznávání na pozadí</div>
@@ -958,7 +958,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
             )}
 
             {dupOrders.length > 0 && (
-            <div className="card !bg-danger-50 border-2 border-danger-300 p-4 space-y-3 shadow-sm rounded-2xl mb-3">
+            <div className="card !bg-danger-50 border-2 border-danger-300 p-4 space-y-3 shadow-sm rounded mb-3">
               <div className="flex items-start gap-3">
                 <span className="text-3xl leading-none">🚨</span>
                 <div className="flex-1 min-w-0">
@@ -975,7 +975,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
               </div>
 
               {dupOrders.map((w, wi) => (
-                <div key={wi} className="rounded-xl overflow-hidden border border-danger-200 bg-white/70">
+                <div key={wi} className="rounded overflow-hidden border border-danger-200 bg-white/70">
                   <div className="px-3 py-1.5 bg-danger-100 text-danger-700 text-xs font-black flex items-center justify-between gap-2">
                     <span className="truncate">Odběratel: {w.place}</span>
                     <span className="font-normal opacity-70 shrink-0">datum: {w.curr.date || '—'}</span>
@@ -1016,7 +1016,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                 </div>
               ))}
 
-              <label className="flex items-start gap-2.5 bg-white/80 border border-danger-200 rounded-xl px-3 py-2.5 cursor-pointer select-none">
+              <label className="flex items-start gap-2.5 bg-white/80 border border-danger-200 rounded px-3 py-2.5 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={dupOrdersConfirmed}
@@ -1032,7 +1032,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
           )}
 
             {dupCount > 0 && (
-            <div className="card !bg-amber-50 border border-amber-300 p-3.5 text-xs text-amber-950 flex flex-col gap-1.5 shadow-xs rounded-2xl mb-3">
+            <div className="card !bg-amber-50 border border-amber-300 p-3.5 text-xs text-amber-950 flex flex-col gap-1.5 shadow-xs rounded mb-3">
               <div className="font-extrabold text-amber-950 flex items-center gap-2 text-sm">
                 <span className="text-base">⚠️</span>
                 <span>Detekována duplicitní položka / snímek obrazovky ({dupCount}×)</span>
@@ -1045,9 +1045,9 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
           )}
           {parsed.map((p, i) => (
               p.line._removed ? (
-                <div key={i} className="rounded-2xl border-2 border-dashed border-primary-200 bg-primary-50/30 px-4 py-2 flex items-center justify-between text-xs text-primary-500">
+                <div key={i} className="rounded border-2 border-dashed border-primary-200 bg-primary-50/30 px-4 py-2 flex items-center justify-between text-xs text-primary-500">
                   <span>Řádek odstraněn (nebude se importovat)</span>
-                  <button className="btn-ghost text-xs !py-1 !px-2" onClick={() => restoreLine(i)}>Vrátit</button>
+                  <button className="btn-ghost !rounded text-xs !py-1 !px-2" onClick={() => restoreLine(i)}>Vrátit</button>
                 </div>
               ) : (
               <div
@@ -1057,7 +1057,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                   setFocusedLine(i);
                   if (typeof p.line.photo_index === 'number') setActivePhotoIdx(p.line.photo_index);
                 }}
-                className={`rounded-2xl border-2 overflow-hidden transition-all cursor-pointer ${
+                className={`rounded border-2 overflow-hidden transition-all cursor-pointer ${
                   focusedLine === i ? 'ring-4 ring-primary-400 ring-offset-2' : ''
                 } ${
                   p.duplicate
@@ -1115,7 +1115,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                         <span className="chip bg-success-100 text-success-800 font-bold">🔓 Duplikát povolen pro import</span>
                         <button
                           type="button"
-                          className="btn-ghost !py-1 !px-2 text-xs font-bold text-neutral-600 hover:text-neutral-900"
+                          className="btn-ghost !rounded !py-1 !px-2 text-xs font-bold text-neutral-600 hover:text-neutral-900"
                           onClick={(e) => { e.stopPropagation(); toggleAllowDuplicate(i); }}
                         >
                           🔒 Zpět ignorovat
@@ -1207,7 +1207,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                       <div className="flex items-end col-span-1 justify-end">
                         <button
                           type="button"
-                          className="w-10 h-10 rounded-xl bg-danger-100 hover:bg-danger-200 text-danger-600 flex items-center justify-center transition text-base font-bold"
+                          className="w-10 h-10 rounded bg-danger-100 hover:bg-danger-200 text-danger-600 flex items-center justify-center transition text-base font-bold"
                           title="Odstranit řádek"
                           onClick={(e) => { e.stopPropagation(); removeLine(i); }}
                         >×</button>
@@ -1231,19 +1231,19 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
               Zkontroloval jsem data podle fotky a souhlasí
             </label>
             {err && (
-              <div className="text-sm text-danger-700 bg-danger-500/10 border border-danger-300 rounded-lg px-3 py-2 font-medium">
+              <div className="text-sm text-danger-700 bg-danger-500/10 border border-danger-300 rounded px-3 py-2 font-medium">
                 ⚠️ {err}
               </div>
             )}
             {skipReason && !err && (
-              <div className="text-sm text-warning-700 bg-warning-500/10 border border-warning-300 rounded-lg px-3 py-2 font-medium">
+              <div className="text-sm text-warning-700 bg-warning-500/10 border border-warning-300 rounded px-3 py-2 font-medium">
                 ⚠️ {skipReason}
               </div>
             )}
             <div className="flex justify-end gap-2">
-              <button className="btn-ghost" onClick={onClose}>Zrušit</button>
+              <button className="btn-ghost !rounded" onClick={onClose}>Zrušit</button>
               <button
-                className="btn-primary"
+                className="btn-primary !rounded"
                 disabled={busy}
                 onClick={() => {
                   // 🧠 Pokud uživatel odstranil VŠECHNY položky → nic se neimportuje,

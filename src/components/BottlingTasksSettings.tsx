@@ -366,7 +366,7 @@ export function BottlingTasksSettings() {
                       type="button"
                       onClick={() => openStocit(r)}
                       title={r.missing > 0 ? 'Stočit chybějící množství' : 'Stočit (pokrytí objednávek)'}
-                      className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-black transition shadow-xs"
+                      className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-black transition shadow-xs"
                     >
                       🍾 Stočit
                     </button>
@@ -402,7 +402,7 @@ export function BottlingTasksSettings() {
   }
 
   return (
-    <div className={`card p-6 border-2 border-amber-400/60 bg-gradient-to-br from-amber-50/80 to-white rounded-3xl shadow-md transition-all duration-200 ${flash ? 'ring-4 ring-success-500/20' : ''}`}>
+    <div className={`card p-6 border-2 border-amber-400/60 bg-gradient-to-br from-amber-50/80 to-white rounded shadow-md transition-all duration-200 ${flash ? 'ring-4 ring-success-500/20' : ''}`}>
       {/* Hlavička */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <h2 className="font-display font-bold text-lg flex items-center gap-2">
@@ -414,18 +414,18 @@ export function BottlingTasksSettings() {
           <button
             type="button"
             onClick={() => setWeekKey(shiftWeek(weekKey, -1))}
-            className="w-8 h-8 grid place-items-center rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-700 transition"
+            className="w-8 h-8 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 transition"
             title="Předchozí týden"
           >
             <ChevronLeft size={16} />
           </button>
-          <span className="text-xs font-black text-neutral-800 bg-white border border-neutral-200 rounded-xl px-3 py-1.5 whitespace-nowrap">
+          <span className="text-xs font-black text-neutral-800 bg-white border border-neutral-200 rounded px-3 py-1.5 whitespace-nowrap">
             📅 Týden {weekKey} ({weekLabel})
           </span>
           <button
             type="button"
             onClick={() => setWeekKey(shiftWeek(weekKey, 1))}
-            className="w-8 h-8 grid place-items-center rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-700 transition"
+            className="w-8 h-8 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 transition"
             title="Další týden"
           >
             <ChevronRight size={16} />
@@ -438,27 +438,27 @@ export function BottlingTasksSettings() {
         stáčení</strong> (Lahve → „Úkoly ke stočení“ → „Naplnit“).
       </p>
 
-      {msg && <div className="mt-3 p-3 rounded-xl bg-emerald-100 text-emerald-900 font-bold text-xs border border-emerald-300">{msg}</div>}
+      {msg && <div className="mt-3 p-3 rounded bg-emerald-100 text-emerald-900 font-bold text-xs border border-emerald-300">{msg}</div>}
 
       {/* Souhrn */}
       <div className="mt-4 grid grid-cols-2 md:grid-cols-5 gap-2.5">
-        <div className="p-3 rounded-2xl bg-white border border-emerald-200 shadow-xs">
+        <div className="p-3 rounded bg-white border border-emerald-200 shadow-xs">
           <div className="text-[10px] font-black uppercase tracking-wider text-emerald-700">🍾 Lahve na skladě</div>
           <div className="text-xl font-display font-black text-emerald-900 mt-0.5">{fmt(totals.bottleStock)}</div>
         </div>
-        <div className="p-3 rounded-2xl bg-white border border-neutral-200 shadow-xs">
+        <div className="p-3 rounded bg-white border border-neutral-200 shadow-xs">
           <div className="text-[10px] font-black uppercase tracking-wider text-neutral-500">🛢️ Sudy na skladě</div>
           <div className="text-xl font-display font-black text-neutral-900 mt-0.5">{fmt(totals.kegStock)}</div>
         </div>
-        <div className="p-3 rounded-2xl bg-white border border-sky-200 shadow-xs">
+        <div className="p-3 rounded bg-white border border-sky-200 shadow-xs">
           <div className="text-[10px] font-black uppercase tracking-wider text-sky-700">🛒 Objednávky + fašování</div>
           <div className="text-xl font-display font-black text-sky-900 mt-0.5">{fmt(totals.bottleOutgoing)}</div>
         </div>
-        <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 shadow-xs">
+        <div className="p-3 rounded bg-rose-50 border border-rose-200 shadow-xs">
           <div className="text-[10px] font-black uppercase tracking-wider text-rose-700">⚠️ Chybí stočit</div>
           <div className="text-xl font-display font-black text-rose-900 mt-0.5">{fmt(totals.bottleMissing)}</div>
         </div>
-        <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 shadow-xs">
+        <div className="p-3 rounded bg-amber-50 border border-amber-200 shadow-xs">
           <div className="text-[10px] font-black uppercase tracking-wider text-amber-800">📅 Konec týdne</div>
           <div className={`text-xl font-display font-black mt-0.5 ${totals.bottleEndWeek < 0 ? 'text-rose-800' : 'text-amber-900'}`}>
             {fmt(totals.bottleEndWeek)}
@@ -477,18 +477,18 @@ export function BottlingTasksSettings() {
             const beer = beers.find((b) => b.id === plan.beer_id);
             const lines = planLines(plan, packages);
             return (
-              <div key={plan.id} className="rounded-2xl border border-neutral-200 bg-white p-3 flex flex-col sm:flex-row sm:items-center gap-2">
+              <div key={plan.id} className="rounded border border-neutral-200 bg-white p-3 flex flex-col sm:flex-row sm:items-center gap-2">
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   <span className="w-2 h-8 rounded-full shrink-0" style={{ backgroundColor: beer ? beerBg(beer) : '#a8a29e' }} />
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-black text-neutral-950">{beer?.name || '—'}</span>
-                      <span className="text-[10px] font-bold text-neutral-500 bg-neutral-100 rounded-lg px-2 py-0.5 whitespace-nowrap">📅 {plan.planned_date}</span>
-                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg border ${STATUS_CHIP[plan.status] || ''}`}>{STATUS_TEXT[plan.status] || plan.status}</span>
+                      <span className="text-[10px] font-bold text-neutral-500 bg-neutral-100 rounded px-2 py-0.5 whitespace-nowrap">📅 {plan.planned_date}</span>
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded border ${STATUS_CHIP[plan.status] || ''}`}>{STATUS_TEXT[plan.status] || plan.status}</span>
                     </div>
                     <div className="flex items-center gap-1.5 flex-wrap mt-1">
                       {lines.map((l, i) => (
-                        <span key={i} className="text-[10px] font-bold bg-neutral-50 border border-neutral-200 rounded-lg px-1.5 py-0.5 text-neutral-700 whitespace-nowrap">
+                        <span key={i} className="text-[10px] font-bold bg-neutral-50 border border-neutral-200 rounded px-1.5 py-0.5 text-neutral-700 whitespace-nowrap">
                           {l.label} × {l.qty}
                         </span>
                       ))}
@@ -498,20 +498,20 @@ export function BottlingTasksSettings() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <button type="button" onClick={() => openEdit(plan)} className="px-2.5 py-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[11px] font-black transition">
+                  <button type="button" onClick={() => openEdit(plan)} className="px-2.5 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[11px] font-black transition">
                     ✏️ Upravit
                   </button>
                   {plan.status === 'planned' && (
-                    <button type="button" onClick={() => handleStatus(plan, 'done')} className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black transition">
+                    <button type="button" onClick={() => handleStatus(plan, 'done')} className="px-2.5 py-1.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black transition">
                       ✓ Hotovo
                     </button>
                   )}
                   {plan.status !== 'planned' && (
-                    <button type="button" onClick={() => handleStatus(plan, 'planned')} className="px-2.5 py-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[11px] font-black transition">
+                    <button type="button" onClick={() => handleStatus(plan, 'planned')} className="px-2.5 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[11px] font-black transition">
                       ↩️ Zpět
                     </button>
                   )}
-                  <button type="button" onClick={() => handleDelete(plan)} className="px-2.5 py-1.5 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-800 text-[11px] font-black transition">
+                  <button type="button" onClick={() => handleDelete(plan)} className="px-2.5 py-1.5 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 text-[11px] font-black transition">
                     🗑
                   </button>
                 </div>
@@ -610,15 +610,15 @@ export function BottlingTasksSettings() {
 
           {err && <p className="text-[11px] font-black text-rose-700">{err}</p>}
 
-          <p className="text-[11px] text-neutral-500 bg-amber-50 border border-amber-200 rounded-xl p-2.5 leading-relaxed">
+          <p className="text-[11px] text-neutral-500 bg-amber-50 border border-amber-200 rounded p-2.5 leading-relaxed">
             💡 Uložený úkol se automaticky objeví ve formuláři stáčení (Lahve → „📋 Úkoly ke stočení“).
             Stáčeč ho jediným klikem <strong>„Naplnit“</strong> vloží do zápisu — doplní se jen počty lahví,
             obaly a pivo už jsou přednastavené.
           </p>
 
           <div className="flex items-center justify-end gap-2 pt-1">
-            <button type="button" onClick={() => setModalOpen(false)} className="btn-ghost text-sm font-black">Zrušit</button>
-            <button type="submit" disabled={saving} className="btn-primary px-5 py-2.5 text-xs font-black shadow-md">
+            <button type="button" onClick={() => setModalOpen(false)} className="btn-ghost !rounded text-sm font-black">Zrušit</button>
+            <button type="submit" disabled={saving} className="btn-primary !rounded px-5 py-2.5 text-xs font-black shadow-md">
               {saving ? 'Ukládám…' : editPlan ? '💾 Uložit změny' : '✅ Uložit úkol'}
             </button>
           </div>

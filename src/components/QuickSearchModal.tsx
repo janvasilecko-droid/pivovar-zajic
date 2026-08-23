@@ -138,7 +138,7 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
   return (
     <div className="fixed inset-0 bg-neutral-950/70 backdrop-blur-sm z-[9999] flex items-start justify-center pt-16 sm:pt-24 p-4 animate-in fade-in duration-150">
       <div
-        className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-amber-200 overflow-hidden flex flex-col max-h-[80vh]"
+        className="bg-white rounded max-w-2xl w-full shadow-2xl border border-amber-200 overflow-hidden flex flex-col max-h-[80vh]"
         onKeyDown={handleKeyDown}
       >
         {/* Input Header */}
@@ -155,7 +155,7 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
             }}
             className="w-full bg-transparent text-base font-bold text-neutral-900 placeholder:text-neutral-400 focus:outline-hidden"
           />
-          <kbd className="hidden sm:inline-block px-2 py-1 text-[10px] font-mono font-black text-amber-900 bg-amber-200/80 rounded-lg border border-amber-300 shrink-0">
+          <kbd className="hidden sm:inline-block px-2 py-1 text-[10px] font-mono font-black text-amber-900 bg-amber-200/80 rounded border border-amber-300 shrink-0">
             ESC
           </kbd>
         </div>
@@ -176,7 +176,7 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
                   type="button"
                   onClick={item.action}
                   onMouseEnter={() => setSelectedIndex(index)}
-                  className={`w-full text-left p-3 rounded-2xl flex items-center justify-between transition-all ${
+                  className={`w-full text-left p-3 rounded flex items-center justify-between transition-all ${
                     isSelected
                       ? 'bg-amber-500 text-neutral-950 shadow-md ring-1 ring-amber-400 scale-[1.01]'
                       : 'hover:bg-amber-50 text-neutral-800'
@@ -184,7 +184,7 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
                 >
                   <div className="flex items-center gap-3">
                     <div
-                      className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                      className={`w-9 h-9 rounded flex items-center justify-center shrink-0 ${
                         isSelected ? 'bg-amber-600 text-neutral-950' : 'bg-amber-100 text-amber-800'
                       }`}
                     >
@@ -204,7 +204,7 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
 
                   <div className="flex items-center gap-2">
                     <span
-                      className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-lg border ${
+                      className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border ${
                         isSelected
                           ? 'bg-amber-600 text-neutral-950 border-amber-700'
                           : 'bg-neutral-100 text-neutral-600 border-neutral-200'

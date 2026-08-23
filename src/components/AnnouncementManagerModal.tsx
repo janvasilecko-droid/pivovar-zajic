@@ -64,7 +64,7 @@ export function AnnouncementManagerModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 bg-neutral-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl border border-neutral-200 animate-in fade-in zoom-in duration-150">
+      <div className="bg-white rounded max-w-lg w-full p-6 space-y-4 shadow-2xl border border-neutral-200 animate-in fade-in zoom-in duration-150">
         <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
           <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
             <AlertTriangle className="text-amber-600" size={20} />
@@ -74,7 +74,7 @@ export function AnnouncementManagerModal({ onClose }: { onClose: () => void }) {
         </div>
 
         {msg && (
-          <div className="p-3.5 rounded-2xl bg-emerald-100 border border-emerald-300 text-emerald-950 text-xs font-black flex items-center gap-2">
+          <div className="p-3.5 rounded bg-emerald-100 border border-emerald-300 text-emerald-950 text-xs font-black flex items-center gap-2">
             <CheckCircle2 size={18} className="text-emerald-700" />
             <span>{msg}</span>
           </div>
@@ -131,7 +131,7 @@ export function AnnouncementManagerModal({ onClose }: { onClose: () => void }) {
             <button
               type="button"
               onClick={handleClear}
-              className="px-3.5 py-2 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-950 font-bold text-xs transition flex items-center gap-1.5"
+              className="px-3.5 py-2 rounded bg-rose-100 hover:bg-rose-200 text-rose-950 font-bold text-xs transition flex items-center gap-1.5"
             >
               <Trash2 size={15} /> Smazat hlášení
             </button>
@@ -140,13 +140,13 @@ export function AnnouncementManagerModal({ onClose }: { onClose: () => void }) {
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 rounded-xl bg-neutral-100 text-neutral-700 font-extrabold text-xs"
+                className="px-4 py-2 rounded bg-neutral-100 text-neutral-700 font-extrabold text-xs"
               >
                 Zrušit
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md flex items-center gap-1.5"
+                className="px-4 py-2 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md flex items-center gap-1.5"
               >
                 <Save size={15} /> Publikovat hlášení
               </button>

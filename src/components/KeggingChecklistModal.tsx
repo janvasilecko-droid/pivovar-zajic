@@ -178,7 +178,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
       <div className="space-y-4">
 
         {(phase === 'monthly' || (phase === 'all' && isLastWeekOfMonth)) && (
-          <div className="p-3.5 rounded-2xl border-2 border-rose-300 bg-rose-50 text-rose-900 text-xs leading-relaxed flex items-start gap-3">
+          <div className="p-3.5 rounded border-2 border-rose-300 bg-rose-50 text-rose-900 text-xs leading-relaxed flex items-start gap-3">
             <AlertTriangle size={18} className="shrink-0 text-rose-600 mt-0.5" />
             <div className="space-y-1">
               <p className="font-black text-rose-700 uppercase tracking-wider text-[10px]">⚠️ Poslední týden v měsíci — povinná měsíční údržba</p>
@@ -192,7 +192,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
 
         {/* Categories Tab Selector */}
         {categories.length > 1 && (
-          <div className="flex flex-wrap gap-1 bg-neutral-100 p-1 rounded-xl">
+          <div className="flex flex-wrap gap-1 bg-neutral-100 p-1 rounded">
             {categories.map((cat) => {
               const catItems = items.filter((it) => it.category === cat);
               const doneCount = catItems.filter((it) => checks[it.id] || isWeeklyItemSatisfiedForKeg(dateKey, it)).length;
@@ -204,7 +204,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
                 <button
                   key={cat}
                   onClick={() => setActiveCategory(cat)}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-black tracking-wide uppercase transition ${
+                  className={`px-3 py-1.5 rounded text-[10px] font-black tracking-wide uppercase transition ${
                     isSelected
                       ? 'bg-white text-neutral-950 shadow-xs'
                       : isDone
@@ -224,7 +224,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
         )}
 
         {/* Content list */}
-        <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-200/60 max-h-[350px] overflow-y-auto space-y-2.5">
+        <div className="bg-neutral-50 p-4 rounded border border-neutral-200/60 max-h-[350px] overflow-y-auto space-y-2.5">
           {currentCategoryItems.map((item) => {
             const isChecked = !!checks[item.id];
             const isWeeklySatisfied = isWeeklyItemSatisfiedForKeg(dateKey, item);
@@ -249,7 +249,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
               return (
                 <div
                   key={item.id}
-                  className={`p-3 rounded-xl border transition-all ${choiceVal ? 'bg-amber-50/60 border-amber-300 shadow-2xs' : 'bg-white border-neutral-200'}`}
+                  className={`p-3 rounded border transition-all ${choiceVal ? 'bg-amber-50/60 border-amber-300 shadow-2xs' : 'bg-white border-neutral-200'}`}
                 >
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 shrink-0">
@@ -261,14 +261,14 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); if (choiceVal === 'naoh') unpick(); else pick('naoh'); }}
-                          className={`px-3 py-2 rounded-xl border-2 text-[11px] font-black transition flex items-center gap-1.5 ${choiceVal === 'naoh' ? 'bg-amber-500 border-amber-600 text-neutral-950 shadow-sm' : 'bg-white border-neutral-300 hover:border-amber-400 text-neutral-700'}`}
+                          className={`px-3 py-2 rounded border-2 text-[11px] font-black transition flex items-center gap-1.5 ${choiceVal === 'naoh' ? 'bg-amber-500 border-amber-600 text-neutral-950 shadow-sm' : 'bg-white border-neutral-300 hover:border-amber-400 text-neutral-700'}`}
                         >
                           🧪 NaOH 2% (20 minut)
                         </button>
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); if (choiceVal === 'persteril') unpick(); else pick('persteril'); }}
-                          className={`px-3 py-2 rounded-xl border-2 text-[11px] font-black transition flex items-center gap-1.5 ${choiceVal === 'persteril' ? 'bg-amber-500 border-amber-600 text-neutral-950 shadow-sm' : 'bg-white border-neutral-300 hover:border-amber-400 text-neutral-700'}`}
+                          className={`px-3 py-2 rounded border-2 text-[11px] font-black transition flex items-center gap-1.5 ${choiceVal === 'persteril' ? 'bg-amber-500 border-amber-600 text-neutral-950 shadow-sm' : 'bg-white border-neutral-300 hover:border-amber-400 text-neutral-700'}`}
                         >
                           🫧 Persteril 0.2% (10 minut)
                         </button>
@@ -283,7 +283,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
               <div
                 key={item.id}
                 onClick={() => !disabled && toggleItem(item.id)}
-                className={`flex items-start gap-3 p-3 rounded-xl border transition-all ${
+                className={`flex items-start gap-3 p-3 rounded border transition-all ${
                   isWeeklySatisfied
                     ? 'bg-emerald-50 border-emerald-200 text-emerald-950 opacity-80 cursor-default'
                     : isChecked
@@ -320,7 +320,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
           <div className="flex gap-2 items-center flex-wrap">
             <button
               onClick={handleReset}
-              className="btn-ghost flex items-center justify-center gap-1 text-[10px] font-black text-rose-600 hover:bg-rose-50"
+              className="btn-ghost !rounded flex items-center justify-center gap-1 text-[10px] font-black text-rose-600 hover:bg-rose-50"
             >
               <RotateCcw size={12} />
               <span>Resetovat checklist</span>
@@ -336,7 +336,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
                   localStorage.setItem('keg_checklist_' + dateKey, JSON.stringify(next));
                   onDone?.();
                 }}
-                className="btn-ghost flex items-center justify-center gap-1 text-[10px] font-black text-rose-600 hover:bg-rose-50 border border-dashed border-rose-200 px-2.5 py-1.5 rounded-xl"
+                className="btn-ghost !rounded flex items-center justify-center gap-1 text-[10px] font-black text-rose-600 hover:bg-rose-50 border border-dashed border-rose-200 px-2.5 py-1.5 rounded"
               >
                 <span>🔓 Přeskočit (Admin)</span>
               </button>
@@ -345,7 +345,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
 
           <div className="flex gap-2">
             {blockCloseUntilStartDone && !isOverallStartDone ? (
-              <div className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold shadow-xs">
+              <div className="flex items-center gap-1.5 px-4 py-2 rounded bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold shadow-xs">
                 <Lock size={13} className="shrink-0" />
                 <span>Splňte checklist pro pokračování</span>
               </div>
@@ -369,7 +369,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
                   }
                   onDone();
                 }}
-                className="btn-primary text-xs font-black shadow-md bg-amber-500 hover:bg-amber-600 border-none text-neutral-950"
+                className="btn-primary !rounded text-xs font-black shadow-md bg-amber-500 hover:bg-amber-600 border-none text-neutral-950"
               >
                 <span>{phase === 'start' ? 'Pokračovat na stáčení' : 'Ukončit a uložit'}</span>
               </button>

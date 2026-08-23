@@ -138,7 +138,7 @@ export function ImageEditor({ src, onConfirm, onCancel }: Props) {
         <div className="text-xs text-primary-400">Otoč · ořízni tažením · uprav jas/kontrast</div>
       </div>
 
-      <div className="rounded-2xl border-2 border-primary-200 bg-primary-950 overflow-hidden flex items-center justify-center p-2 max-h-[50vh]">
+      <div className="rounded border-2 border-primary-200 bg-primary-950 overflow-hidden flex items-center justify-center p-2 max-h-[50vh]">
         <canvas
           ref={canvasRef}
           onPointerDown={onPointerDown}
@@ -149,9 +149,9 @@ export function ImageEditor({ src, onConfirm, onCancel }: Props) {
       </div>
 
       <div className="flex flex-wrap gap-2 items-center">
-        <button className="btn-ghost text-sm" onClick={rotateLeft}>⟲ Otočit</button>
-        <button className="btn-ghost text-sm" onClick={rotateRight}>⟳ Otočit</button>
-        <button className="btn-ghost text-sm" onClick={resetCrop} disabled={!crop}>Zrušit ořez</button>
+        <button className="btn-ghost !rounded text-sm" onClick={rotateLeft}>⟲ Otočit</button>
+        <button className="btn-ghost !rounded text-sm" onClick={rotateRight}>⟳ Otočit</button>
+        <button className="btn-ghost !rounded text-sm" onClick={resetCrop} disabled={!crop}>Zrušit ořez</button>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -166,8 +166,8 @@ export function ImageEditor({ src, onConfirm, onCancel }: Props) {
       </div>
 
       <div className="flex justify-end gap-2 pt-2">
-        <button className="btn-ghost" onClick={onCancel}>Zrušit</button>
-        <button className="btn-primary" onClick={confirm}>Pokračovat na čtení</button>
+        <button className="btn-ghost !rounded" onClick={onCancel}>Zrušit</button>
+        <button className="btn-primary !rounded" onClick={confirm}>Pokračovat na čtení</button>
       </div>
     </div>
   );

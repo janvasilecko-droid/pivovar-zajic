@@ -60,10 +60,10 @@ export function MarketingMerchInventory() {
 
   return (
     <div className="space-y-6">
-      <div className="card p-6 bg-gradient-to-r from-amber-950 via-neutral-900 to-neutral-950 text-white rounded-3xl space-y-4 shadow-xl border border-neutral-800">
+      <div className="card p-6 bg-gradient-to-r from-amber-950 via-neutral-900 to-neutral-950 text-white rounded space-y-4 shadow-xl border border-neutral-800">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-amber-500 text-neutral-950 flex items-center justify-center font-black text-2xl shadow-lg">
+            <div className="w-12 h-12 rounded bg-amber-500 text-neutral-950 flex items-center justify-center font-black text-2xl shadow-lg">
               🛍️
             </div>
             <div>
@@ -78,7 +78,7 @@ export function MarketingMerchInventory() {
 
           <button
             onClick={() => setShowAddModal(true)}
-            className="btn-amber text-xs font-black px-4 py-2.5 shadow-md flex items-center gap-2"
+            className="btn-amber !rounded text-xs font-black px-4 py-2.5 shadow-md flex items-center gap-2"
           >
             <Plus size={16} />
             <span>+ Přidat merch / sklo</span>
@@ -89,7 +89,7 @@ export function MarketingMerchInventory() {
           <Search className="absolute left-3.5 top-4 text-neutral-400" size={18} />
           <input
             type="text"
-            className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-400 text-xs font-bold focus:outline-hidden focus:ring-2 focus:ring-amber-400"
+            className="w-full pl-10 pr-4 py-2.5 rounded bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-400 text-xs font-bold focus:outline-hidden focus:ring-2 focus:ring-amber-400"
             placeholder="Hledat sklo, tácky, otvíráky, oblečení…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -100,7 +100,7 @@ export function MarketingMerchInventory() {
       {/* Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map((item) => (
-          <div key={item.id} className="card p-5 bg-white border border-neutral-200 rounded-3xl space-y-3 shadow-xs hover:shadow-md transition flex flex-col justify-between">
+          <div key={item.id} className="card p-5 bg-white border border-neutral-200 rounded space-y-3 shadow-xs hover:shadow-md transition flex flex-col justify-between">
             <div>
               <div className="flex items-start justify-between gap-2 border-b border-neutral-100 pb-2">
                 <span className="text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-950 px-2.5 py-0.5 rounded-full border border-amber-200">
@@ -115,7 +115,7 @@ export function MarketingMerchInventory() {
 
               <h4 className="font-display font-black text-base text-neutral-900 mt-2">{item.name}</h4>
 
-              <div className="p-3 rounded-2xl bg-neutral-50 border border-neutral-200 mt-3 space-y-1 text-xs text-neutral-800 font-medium">
+              <div className="p-3 rounded bg-neutral-50 border border-neutral-200 mt-3 space-y-1 text-xs text-neutral-800 font-medium">
                 <div>Nákupní cena: <strong>{item.unitCostKic} Kč/ks</strong></div>
                 {item.sellPriceKic ? <div>Prodejní cena: <strong className="text-emerald-700">{item.sellPriceKic} Kč/ks</strong></div> : null}
                 <div className="text-base font-display font-black text-neutral-950 mt-1">
@@ -127,16 +127,16 @@ export function MarketingMerchInventory() {
             <div className="pt-3 border-t border-neutral-100 flex items-center justify-between">
               <span className="text-[11px] font-bold text-neutral-400">Rychlá úprava:</span>
               <div className="flex gap-1">
-                <button onClick={() => updateQty(item.id, -5)} className="px-2.5 py-1 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-black text-xs">
+                <button onClick={() => updateQty(item.id, -5)} className="px-2.5 py-1 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-black text-xs">
                   -5
                 </button>
-                <button onClick={() => updateQty(item.id, -1)} className="px-2.5 py-1 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-black text-xs">
+                <button onClick={() => updateQty(item.id, -1)} className="px-2.5 py-1 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-black text-xs">
                   -1
                 </button>
-                <button onClick={() => updateQty(item.id, 1)} className="px-2.5 py-1 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs">
+                <button onClick={() => updateQty(item.id, 1)} className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs">
                   +1
                 </button>
-                <button onClick={() => updateQty(item.id, 10)} className="px-2.5 py-1 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs">
+                <button onClick={() => updateQty(item.id, 10)} className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs">
                   +10
                 </button>
               </div>
@@ -148,7 +148,7 @@ export function MarketingMerchInventory() {
       {/* Add Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-neutral-950/75 backdrop-blur-xs flex items-center justify-center p-4 z-[999]">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl border border-neutral-200 animate-in fade-in zoom-in duration-150">
+          <div className="bg-white rounded max-w-md w-full p-6 space-y-5 shadow-2xl border border-neutral-200 animate-in fade-in zoom-in duration-150">
             <div className="border-b border-neutral-100 pb-3">
               <h3 className="font-display font-black text-lg text-neutral-900">+ Nová položka merche / skla</h3>
             </div>
@@ -185,8 +185,8 @@ export function MarketingMerchInventory() {
             </div>
 
             <div className="flex justify-end gap-2 pt-3 border-t border-neutral-100">
-              <button onClick={() => setShowAddModal(false)} className="btn-ghost text-xs font-bold">Zrušit</button>
-              <button onClick={addMerch} disabled={!name.trim()} className="btn-amber text-xs font-black px-5 py-2.5">
+              <button onClick={() => setShowAddModal(false)} className="btn-ghost !rounded text-xs font-bold">Zrušit</button>
+              <button onClick={addMerch} disabled={!name.trim()} className="btn-amber !rounded text-xs font-black px-5 py-2.5">
                 Uložit merch
               </button>
             </div>

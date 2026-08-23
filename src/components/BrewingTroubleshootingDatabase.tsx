@@ -98,9 +98,9 @@ export function BrewingTroubleshootingDatabase() {
 
   return (
     <div className="space-y-6">
-      <div className="card p-6 bg-gradient-to-r from-amber-950 via-neutral-900 to-neutral-950 text-white rounded-3xl space-y-4 shadow-xl">
+      <div className="card p-6 bg-gradient-to-r from-amber-950 via-neutral-900 to-neutral-950 text-white rounded space-y-4 shadow-xl">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-amber-500 text-neutral-950 flex items-center justify-center font-black text-2xl shadow-lg">
+          <div className="w-12 h-12 rounded bg-amber-500 text-neutral-950 flex items-center justify-center font-black text-2xl shadow-lg">
             🚨
           </div>
           <div>
@@ -119,7 +119,7 @@ export function BrewingTroubleshootingDatabase() {
             <Search className="absolute left-3.5 top-3 text-neutral-400" size={18} />
             <input
               type="text"
-              className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-400 text-xs font-bold focus:outline-hidden focus:ring-2 focus:ring-amber-400"
+              className="w-full pl-10 pr-4 py-2.5 rounded bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-400 text-xs font-bold focus:outline-hidden focus:ring-2 focus:ring-amber-400"
               placeholder="Hledat podle chuti, vůně nebo příčiny (diacetyl, DMS, karton, scazování…)"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -127,7 +127,7 @@ export function BrewingTroubleshootingDatabase() {
           </div>
 
           <select
-            className="py-2.5 px-3 rounded-2xl bg-neutral-800 border border-neutral-700 text-white text-xs font-bold"
+            className="py-2.5 px-3 rounded bg-neutral-800 border border-neutral-700 text-white text-xs font-bold"
             value={selectedCat}
             onChange={(e) => setSelectedCat(e.target.value)}
           >
@@ -143,7 +143,7 @@ export function BrewingTroubleshootingDatabase() {
       {/* Cards list */}
       <div className="grid grid-cols-1 gap-4">
         {filtered.map((item) => (
-          <div key={item.id} className="card p-6 bg-white border border-neutral-200 rounded-3xl space-y-4 shadow-sm hover:shadow-md transition">
+          <div key={item.id} className="card p-6 bg-white border border-neutral-200 rounded space-y-4 shadow-sm hover:shadow-md transition">
             <div className="flex items-start justify-between gap-3 border-b border-neutral-100 pb-3">
               <div>
                 <span className="text-xs font-black text-amber-700 uppercase tracking-wider bg-amber-100 px-2.5 py-1 rounded-full border border-amber-200">
@@ -161,7 +161,7 @@ export function BrewingTroubleshootingDatabase() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
               {/* Senzorický profil */}
-              <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-1">
+              <div className="p-3.5 rounded bg-amber-50/70 border border-amber-200 space-y-1">
                 <div className="font-black text-amber-950 flex items-center gap-1.5">
                   <BookOpen size={14} className="text-amber-600" />
                   <span>Senzorická charakteristika:</span>
@@ -170,7 +170,7 @@ export function BrewingTroubleshootingDatabase() {
               </div>
 
               {/* Příčina */}
-              <div className="p-3.5 rounded-2xl bg-rose-50/70 border border-rose-200 space-y-1">
+              <div className="p-3.5 rounded bg-rose-50/70 border border-rose-200 space-y-1">
                 <div className="font-black text-rose-950 flex items-center gap-1.5">
                   <AlertTriangle size={14} className="text-rose-600" />
                   <span>Příčina vzniku v pivovaru:</span>
@@ -179,7 +179,7 @@ export function BrewingTroubleshootingDatabase() {
               </div>
 
               {/* Řešení & Prevence */}
-              <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-1">
+              <div className="p-3.5 rounded bg-emerald-50/70 border border-emerald-200 space-y-1">
                 <div className="font-black text-emerald-950 flex items-center gap-1.5">
                   <CheckCircle2 size={14} className="text-emerald-600" />
                   <span>Náprava & Prevence sládka:</span>

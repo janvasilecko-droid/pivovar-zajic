@@ -73,7 +73,7 @@ export function QuickCountModal({
                     backgroundColor: beerBg(b),
                     color: beerText(b) === 'text-white' ? '#ffffff' : '#111827',
                   }}
-                  className={`p-2 rounded-xl border-2 text-xs font-black text-left transition shadow-2xs relative ${
+                  className={`p-2 rounded border-2 text-xs font-black text-left transition shadow-2xs relative ${
                     isSel ? 'ring-4 ring-amber-400 scale-[1.03] z-10' : 'opacity-85 hover:opacity-100'
                   }`}
                 >
@@ -103,7 +103,7 @@ export function QuickCountModal({
                   key={pkg.id}
                   type="button"
                   onClick={() => setSelectedPkgId(pkg.id)}
-                  className={`p-2.5 rounded-xl border text-xs font-black flex items-center justify-between transition ${
+                  className={`p-2.5 rounded border text-xs font-black flex items-center justify-between transition ${
                     isSel
                       ? 'bg-white text-amber-900 border-amber-400 ring-2 ring-amber-300 shadow-sm'
                       : 'bg-white text-neutral-900 border-neutral-200 hover:bg-amber-50'
@@ -122,7 +122,7 @@ export function QuickCountModal({
         </div>
 
         {/* Velké dotykové sčítadlo */}
-        <div className="bg-neutral-900 text-white p-4 rounded-3xl space-y-3 shadow-lg">
+        <div className="bg-neutral-900 text-white p-4 rounded space-y-3 shadow-lg">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-amber-400">
               {activeBeer?.name} · {formatPackageLabel(activePkg?.label)}
@@ -140,7 +140,7 @@ export function QuickCountModal({
             <button
               type="button"
               onClick={() => handleAdd(-1)}
-              className="w-14 h-14 rounded-2xl bg-neutral-800 hover:bg-neutral-700 grid place-items-center text-2xl font-black active:scale-95 transition border border-neutral-700"
+              className="w-14 h-14 rounded bg-neutral-800 hover:bg-neutral-700 grid place-items-center text-2xl font-black active:scale-95 transition border border-neutral-700"
             >
               <Minus size={22} />
             </button>
@@ -153,7 +153,7 @@ export function QuickCountModal({
             <button
               type="button"
               onClick={() => handleAdd(1)}
-              className="w-14 h-14 rounded-2xl bg-amber-500 hover:bg-amber-400 text-neutral-950 grid place-items-center text-2xl font-black active:scale-95 transition shadow-md"
+              className="w-14 h-14 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 grid place-items-center text-2xl font-black active:scale-95 transition shadow-md"
             >
               <Plus size={22} />
             </button>
@@ -166,7 +166,7 @@ export function QuickCountModal({
                 key={step}
                 type="button"
                 onClick={() => handleAdd(step)}
-                className="py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 font-mono font-bold text-xs text-neutral-200 border border-neutral-700 active:scale-95 transition"
+                className="py-2 rounded bg-neutral-800 hover:bg-neutral-700 font-mono font-bold text-xs text-neutral-200 border border-neutral-700 active:scale-95 transition"
               >
                 +{step}
               </button>
@@ -196,7 +196,7 @@ export function QuickCountModal({
                 onConfirmCount?.(itemsList);
                 onClose();
               }}
-              className="btn-primary text-xs font-black flex items-center gap-1.5 shadow-md"
+              className="btn-primary !rounded text-xs font-black flex items-center gap-1.5 shadow-md"
             >
               <CheckCircle2 size={16} /> Potvrdit inventuru
             </button>

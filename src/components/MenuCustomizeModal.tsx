@@ -38,7 +38,7 @@ export function MenuCustomizeModal({
   return (
     <Modal open={true} onClose={onClose} title="👁️ Přizpůsobení osobního menu" wide>
       <div className="space-y-4">
-        <div className="bg-amber-50 p-4 rounded-2xl border border-amber-200 text-xs text-amber-950 leading-relaxed">
+        <div className="bg-amber-50 p-4 rounded border border-amber-200 text-xs text-amber-950 leading-relaxed">
           <strong>Osobní skrytí položek:</strong> Zde si můžete sami vypnout sekce, které v denním provozu nepoužíváte. Vaše přístupová práva od administrátora tím zůstanou nedotčena. Skryté sekce se nebudou zobrazovat v bočním menu ani v navigaci.
         </div>
 
@@ -61,14 +61,14 @@ export function MenuCustomizeModal({
               <div
                 key={item.id}
                 onClick={() => toggle(item.id)}
-                className={`p-3.5 rounded-2xl border-2 transition-all flex items-center justify-between cursor-pointer select-none ${
+                className={`p-3.5 rounded border-2 transition-all flex items-center justify-between cursor-pointer select-none ${
                   isHidden
                     ? 'bg-neutral-100/80 border-neutral-200 opacity-60'
                     : 'bg-white border-amber-200/90 shadow-2xs hover:bg-amber-50/60'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                  <div className={`w-9 h-9 rounded flex items-center justify-center ${
                     isHidden ? 'bg-neutral-200 text-neutral-500' : 'bg-amber-500 text-neutral-950 font-bold'
                   }`}>
                     <Icon size={18} />
@@ -102,8 +102,8 @@ export function MenuCustomizeModal({
             Skryto: <strong className="text-neutral-900">{currentHidden.length}</strong> z {permittedNav.length}
           </div>
           <div className="flex gap-2">
-            <button type="button" className="btn-ghost" onClick={onClose}>Zrušit</button>
-            <button type="button" className="btn-primary !py-2.5 !px-5 font-black" onClick={handleSave}>
+            <button type="button" className="btn-ghost !rounded" onClick={onClose}>Zrušit</button>
+            <button type="button" className="btn-primary !rounded !py-2.5 !px-5 font-black" onClick={handleSave}>
               💾 Uložit mé nastavení
             </button>
           </div>

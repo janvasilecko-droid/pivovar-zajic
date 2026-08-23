@@ -144,7 +144,7 @@ export function PlaceCombobox({ value, onChange, places, onPlacesChanged, placeh
       {isNew && (
         <button
           type="button"
-          className="mt-1.5 w-full px-3 py-2 rounded-xl bg-success-600 hover:bg-success-500 text-white font-black text-xs transition shadow-sm flex items-center justify-center gap-1.5"
+          className="mt-1.5 w-full px-3 py-2 rounded bg-success-600 hover:bg-success-500 text-white font-black text-xs transition shadow-sm flex items-center justify-center gap-1.5"
           onClick={() => ensurePlace()}
           disabled={creating}
         >

@@ -81,11 +81,11 @@ export function CriticalMaterialAlertModal() {
 
   return (
     <div className="fixed inset-0 bg-neutral-950/90 backdrop-blur-md flex items-center justify-center p-4 z-[99999] animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 space-y-6 shadow-2xl border-4 border-rose-600 relative overflow-hidden">
+      <div className="bg-white rounded max-w-xl w-full p-6 sm:p-8 space-y-6 shadow-2xl border-4 border-rose-600 relative overflow-hidden">
         <div className="h-3 w-full bg-rose-600 absolute top-0 left-0 right-0" />
 
         <div className="flex items-start gap-4 pt-2">
-          <div className="w-14 h-14 rounded-2xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-lg animate-pulse">
+          <div className="w-14 h-14 rounded bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-lg animate-pulse">
             <ShieldAlert size={34} />
           </div>
 
@@ -102,15 +102,15 @@ export function CriticalMaterialAlertModal() {
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-rose-50 border-2 border-rose-300 text-rose-950 space-y-3">
+        <div className="p-5 rounded bg-rose-50 border-2 border-rose-300 text-rose-950 space-y-3">
           <div className="font-black text-xs uppercase text-rose-900 flex items-center gap-1.5 border-b border-rose-200 pb-2">
             <span>U následujících položek zbývá méně než 100 ks:</span>
           </div>
           <div className="space-y-2">
             {criticalItems.map((item, idx) => (
-              <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-white border border-rose-200 shadow-2xs font-mono">
+              <div key={idx} className="flex items-center justify-between p-3 rounded bg-white border border-rose-200 shadow-2xs font-mono">
                 <span className="font-black text-xs text-neutral-900">{item.name}</span>
-                <span className="px-2.5 py-1 rounded-lg bg-rose-600 text-white font-black text-xs">
+                <span className="px-2.5 py-1 rounded bg-rose-600 text-white font-black text-xs">
                   Zbývá JEN {item.balance} ks!
                 </span>
               </div>
@@ -119,7 +119,7 @@ export function CriticalMaterialAlertModal() {
         </div>
 
         {allLabelBalances.length > 0 && (
-          <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-200 space-y-2 max-h-56 overflow-y-auto">
+          <div className="p-4 rounded bg-neutral-50 border border-neutral-200 space-y-2 max-h-56 overflow-y-auto">
             <div className="font-black text-[11px] uppercase text-neutral-600 flex items-center gap-1.5 border-b border-neutral-200 pb-1.5">
               <span>Přehled etiket u ostatních druhů piva:</span>
             </div>
@@ -138,7 +138,7 @@ export function CriticalMaterialAlertModal() {
           <button
             type="button"
             onClick={handleConfirm}
-            className="w-full py-4 px-6 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-black text-base transition shadow-xl hover:shadow-rose-600/30 active:scale-[0.98] flex items-center justify-center gap-3 ring-4 ring-rose-300"
+            className="w-full py-4 px-6 rounded bg-rose-600 hover:bg-rose-500 text-white font-black text-base transition shadow-xl hover:shadow-rose-600/30 active:scale-[0.98] flex items-center justify-center gap-3 ring-4 ring-rose-300"
           >
             <CheckCircle2 size={24} />
             <span>✓ Potvrzuji, že beru na vědomí kritický stav (&lt; 100 ks)</span>

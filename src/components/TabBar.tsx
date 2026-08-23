@@ -26,7 +26,7 @@ export function TabBar({
 }) {
   return (
     <div
-      className="hs-glass-chrome sticky z-20 rounded-2xl pt-1 px-1.5 flex items-center gap-1.5 border pb-2 overflow-x-auto scrollbar-thin"
+      className="hs-glass-chrome sticky z-20 rounded pt-1 px-1.5 flex items-center gap-1.5 border pb-2 overflow-x-auto scrollbar-thin"
       style={{ top: stickyOffset ?? 0 }}
     >
       {items.map((item) => {
@@ -38,7 +38,7 @@ export function TabBar({
             key={item.id}
             type="button"
             onClick={() => onSelect(item.id)}
-            className={`relative px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shrink-0 ${
+            className={`relative px-3.5 py-2 rounded text-xs font-black transition flex items-center gap-1.5 shrink-0 ${
               active ? 'bg-white shadow-sm' : 'text-neutral-500 hover:bg-white/70 hover:text-neutral-700'
             }`}
             style={active ? { color } : undefined}

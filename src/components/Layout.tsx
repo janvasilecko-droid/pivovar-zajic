@@ -551,10 +551,10 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
     <div className="flex h-screen bg-neutral-50 text-neutral-900 font-sans antialiased overflow-hidden selection:bg-amber-500 selection:text-neutral-950">
       {/* Floating Mobile/Desktop New Order Banner Alert */}
       {activeNewOrderBanner && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-lg bg-neutral-900 border-2 border-amber-400 text-white rounded-3xl p-4 sm:p-5 shadow-2xl shadow-amber-500/20 animate-bounce-short flex flex-col gap-3">
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-lg bg-neutral-900 border-2 border-amber-400 text-white rounded p-4 sm:p-5 shadow-2xl shadow-amber-500/20 animate-bounce-short flex flex-col gap-3">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
-              <div className={`w-11 h-11 rounded-2xl text-neutral-950 font-black text-2xl flex items-center justify-center animate-pulse ${activeNewOrderBanner.kind === 'whatsapp' ? 'bg-[#25D366]' : 'bg-amber-500'}`}>
+              <div className={`w-11 h-11 rounded text-neutral-950 font-black text-2xl flex items-center justify-center animate-pulse ${activeNewOrderBanner.kind === 'whatsapp' ? 'bg-[#25D366]' : 'bg-amber-500'}`}>
                 {activeNewOrderBanner.kind === 'whatsapp' ? '💬' : '🍺'}
               </div>
               <div>
@@ -570,7 +570,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             </div>
             <button
               onClick={() => setActiveNewOrderBanner(null)}
-              className="p-1 rounded-xl hover:bg-neutral-800 text-neutral-400 hover:text-white transition"
+              className="p-1 rounded hover:bg-neutral-800 text-neutral-400 hover:text-white transition"
             >
               <X size={18} />
             </button>
@@ -578,13 +578,13 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
 
           {activeNewOrderBanner.kind === 'whatsapp' ? (
             activeNewOrderBanner.message_text ? (
-              <p className="text-xs text-neutral-300 bg-neutral-950 p-2.5 rounded-xl border border-neutral-800">
+              <p className="text-xs text-neutral-300 bg-neutral-950 p-2.5 rounded border border-neutral-800">
                 {activeNewOrderBanner.message_text.length > 200 ? activeNewOrderBanner.message_text.slice(0, 200) + '…' : activeNewOrderBanner.message_text}
               </p>
             ) : null
           ) : (
             activeNewOrderBanner.note && (
-              <p className="text-xs text-neutral-300 bg-neutral-950 p-2.5 rounded-xl border border-neutral-800 italic">
+              <p className="text-xs text-neutral-300 bg-neutral-950 p-2.5 rounded border border-neutral-800 italic">
                 "{activeNewOrderBanner.note}"
               </p>
             )
@@ -593,7 +593,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           <div className="flex items-center justify-end gap-2 pt-1 border-t border-neutral-800/80">
             <button
               onClick={() => setActiveNewOrderBanner(null)}
-              className="px-3 py-1.5 rounded-xl text-xs font-bold text-neutral-400 hover:text-white"
+              className="px-3 py-1.5 rounded text-xs font-bold text-neutral-400 hover:text-white"
             >
               Zavřít
             </button>
@@ -602,7 +602,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                 setActiveNewOrderBanner(null);
                 setPage('orders');
               }}
-              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md transition flex items-center gap-1.5"
+              className="px-4 py-2 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md transition flex items-center gap-1.5"
             >
               <span>Zobrazit v Objednávkách</span>
               <ArrowRight size={14} />
@@ -618,7 +618,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
 
       {/* Banner: offline → zobrazená data nemusí být aktuální (z mezipaměti). */}
       {showStaleBanner && (
-        <div className="fixed top-4 right-4 z-40 max-w-xs sm:max-w-sm flex items-center gap-2 rounded-2xl bg-amber-50 border-2 border-amber-300 text-amber-950 shadow-xl px-3.5 py-2.5 animate-fade-in">
+        <div className="fixed top-4 right-4 z-40 max-w-xs sm:max-w-sm flex items-center gap-2 rounded bg-amber-50 border-2 border-amber-300 text-amber-950 shadow-xl px-3.5 py-2.5 animate-fade-in">
           <span className="text-base shrink-0">⚠️</span>
           <p className="text-[11px] font-bold leading-snug flex-1">
             Jste offline - zobrazená data nemusí být aktuální (z mezipaměti).
@@ -626,7 +626,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           <button
             onClick={() => setShowStaleBanner(false)}
             aria-label="Zavřít upozornění"
-            className="p-1 rounded-lg hover:bg-amber-200/70 text-amber-900/70 hover:text-amber-950 transition shrink-0"
+            className="p-1 rounded hover:bg-amber-200/70 text-amber-900/70 hover:text-amber-950 transition shrink-0"
           >
             <X size={16} />
           </button>
@@ -672,7 +672,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                 type="button"
                 onClick={() => setShowSearchModal(true)}
                 title="Hledat (Ctrl+K)"
-                className="w-9 h-9 sm:w-auto sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border border-neutral-200 bg-neutral-100/80 hover:bg-neutral-200 text-neutral-700 active:scale-95"
+                className="w-9 h-9 sm:w-auto sm:px-2.5 sm:py-1.5 rounded text-xs font-bold transition flex items-center justify-center gap-1.5 border border-neutral-200 bg-neutral-100/80 hover:bg-neutral-200 text-neutral-700 active:scale-95"
               >
                 <Search size={15} />
                 <span className="hidden sm:inline">Hledat</span>
@@ -685,7 +685,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                 type="button"
                 onClick={() => setPage('orders')}
                 title="Nové objednávky k vyřízení"
-                className="relative w-9 h-9 grid place-items-center rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm border border-emerald-700 active:scale-95 transition"
+                className="relative w-9 h-9 grid place-items-center rounded bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm border border-emerald-700 active:scale-95 transition"
               >
                 <ClipboardList size={16} />
                 <span className="absolute -top-1.5 -right-1.5 bg-white text-emerald-700 text-[10px] font-black rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center shadow border border-emerald-200">
@@ -699,7 +699,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                 type="button"
                 onClick={openWhatsApp}
                 title="WhatsApp — zkontroluje příchozí objednávky"
-                className="relative w-9 h-9 grid place-items-center rounded-xl bg-[#25D366] hover:bg-[#1da851] text-white shadow-sm border border-[#1da851] active:scale-95 transition"
+                className="relative w-9 h-9 grid place-items-center rounded bg-[#25D366] hover:bg-[#1da851] text-white shadow-sm border border-[#1da851] active:scale-95 transition"
               >
                 <MessageCircle size={16} />
                 <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[10px] font-black rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center shadow animate-pulse" title="Zpráv čeká na schválení">
@@ -716,7 +716,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
               type="button"
               onClick={() => setShowBugModal(true)}
               title="Nahlásit chybu nebo nápad"
-              className="hidden sm:flex px-3 py-1.5 rounded-xl text-xs font-black transition items-center gap-1.5 shadow-sm border border-rose-300 bg-rose-600 hover:bg-rose-500 text-white shrink-0 active:scale-95"
+              className="hidden sm:flex px-3 py-1.5 rounded text-xs font-black transition items-center gap-1.5 shadow-sm border border-rose-300 bg-rose-600 hover:bg-rose-500 text-white shrink-0 active:scale-95"
             >
               ⚠️ Chyby
             </button>
@@ -794,7 +794,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                 key={`${dockId}-${i}`}
                 onClick={() => setPage(dockId)}
                 style={isActive ? { color: accent } : undefined}
-                className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all relative flex-1 font-bold ${
+                className={`flex flex-col items-center justify-center py-1 px-2.5 rounded transition-all relative flex-1 font-bold ${
                   isActive ? 'bg-white/60 shadow-sm scale-105' : 'text-neutral-500 hover:text-neutral-700'
                 }`}
               >
@@ -817,7 +817,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
       {newVersionInfo && (
         <Modal open={true} onClose={() => setNewVersionInfo(null)} title="📱 Nová verze aplikace">
           <div className="space-y-5 text-sm">
-            <div className="bg-sky-50 rounded-2xl border-2 border-sky-300 p-5 text-center">
+            <div className="bg-sky-50 rounded border-2 border-sky-300 p-5 text-center">
               <div className="text-4xl mb-3">📱</div>
               <div className="font-black text-sky-950 text-lg mb-1">Nová verze v{newVersionInfo.version}</div>
               <div className="text-sky-700 font-semibold text-xs">{newVersionInfo.date}</div>
@@ -831,13 +831,13 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             <div className="flex flex-col gap-2">
               <button
                 onClick={() => { void forceRefresh(); }}
-                className="w-full py-3 rounded-xl text-sm font-black transition shadow-lg bg-sky-500 hover:bg-sky-400 text-white border border-sky-400"
+                className="w-full py-3 rounded text-sm font-black transition shadow-lg bg-sky-500 hover:bg-sky-400 text-white border border-sky-400"
               >
                 🔄 Aktualizovat na v{newVersionInfo.version}
               </button>
               <button
                 onClick={() => setNewVersionInfo(null)}
-                className="w-full py-2.5 rounded-xl text-xs font-bold transition bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border border-neutral-200"
+                className="w-full py-2.5 rounded text-xs font-bold transition bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border border-neutral-200"
               >
                 ✕ Zavřít
               </button>
@@ -876,7 +876,7 @@ function OfflineStatus({ online, pending, syncing, syncMsg, onSync }: { online: 
       {showInfo && (
         <Modal open={true} onClose={() => setShowInfo(false)} title="📡 Offline Režim & Synchronizace">
           <div className="space-y-4 text-xs text-neutral-800 font-medium">
-            <div className={`p-4 rounded-2xl border-2 flex items-center gap-3 ${online ? 'bg-emerald-50 border-emerald-300 text-emerald-950' : 'bg-amber-50 border-amber-300 text-amber-950'}`}>
+            <div className={`p-4 rounded border-2 flex items-center gap-3 ${online ? 'bg-emerald-50 border-emerald-300 text-emerald-950' : 'bg-amber-50 border-amber-300 text-amber-950'}`}>
               <div className="text-2xl">{online ? '🟢' : '⚠️'}</div>
               <div>
                 <div className="font-black text-sm">{online ? 'Jste ONLINE (Připojeno k internetu)' : 'Jste OFFLINE (Bez připojení k síti)'}</div>
@@ -888,7 +888,7 @@ function OfflineStatus({ online, pending, syncing, syncMsg, onSync }: { online: 
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-neutral-900 text-white space-y-2 font-mono text-xs">
+            <div className="p-4 rounded bg-neutral-900 text-white space-y-2 font-mono text-xs">
               <div className="flex justify-between border-b border-neutral-700 pb-2">
                 <span className="text-neutral-400">Čekající offline zápisy ve frontě:</span>
                 <span className="font-black text-amber-400">{pending} operací</span>
@@ -903,7 +903,7 @@ function OfflineStatus({ online, pending, syncing, syncMsg, onSync }: { online: 
                 {queueItems.map((item) => {
                   const failure = failures.find((f) => f.id === item.id);
                   return (
-                    <div key={item.id} className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-[11px] font-bold ${failure ? 'bg-rose-50 border-rose-300 text-rose-950' : 'bg-neutral-100 border-neutral-200 text-neutral-700'}`}>
+                    <div key={item.id} className={`flex items-center justify-between gap-2 px-3 py-2 rounded border text-[11px] font-bold ${failure ? 'bg-rose-50 border-rose-300 text-rose-950' : 'bg-neutral-100 border-neutral-200 text-neutral-700'}`}>
                       <div className="min-w-0">
                         <div className="truncate">{item.table} · {item.op} · {new Date(item.ts).toLocaleString('cs-CZ')}</div>
                         {failure && <div className="text-[10px] font-semibold text-rose-700 truncate" title={failure.error}>❌ {failure.error}</div>}
@@ -912,7 +912,7 @@ function OfflineStatus({ online, pending, syncing, syncMsg, onSync }: { online: 
                         <button
                           onClick={() => discardOp(item.id)}
                           title="Zahodit tento zápis natrvalo (nepovede se uložit)"
-                          className="shrink-0 px-2 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-black"
+                          className="shrink-0 px-2 py-1 rounded bg-rose-600 hover:bg-rose-500 text-white font-black"
                         >
                           Zahodit
                         </button>
@@ -927,11 +927,11 @@ function OfflineStatus({ online, pending, syncing, syncMsg, onSync }: { online: 
               <button
                 onClick={onSync}
                 disabled={syncing || pending === 0}
-                className="px-4 py-2.5 rounded-2xl bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-black text-xs shadow-md transition flex items-center gap-2"
+                className="px-4 py-2.5 rounded bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-black text-xs shadow-md transition flex items-center gap-2"
               >
                 <span>{syncing ? '⏳ Odesílám zápisy…' : `🔄 Ručně synchronizovat (${pending})`}</span>
               </button>
-              <button onClick={() => setShowInfo(false)} className="btn-amber text-xs font-black">
+              <button onClick={() => setShowInfo(false)} className="btn-amber !rounded text-xs font-black">
                 Zavřít
               </button>
             </div>
@@ -940,7 +940,7 @@ function OfflineStatus({ online, pending, syncing, syncMsg, onSync }: { online: 
       )}
 
       {syncMsg && (
-        <span className="text-[11px] font-extrabold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-xl border border-emerald-300 animate-fade-in">
+        <span className="text-[11px] font-extrabold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded border border-emerald-300 animate-fade-in">
           {syncMsg}
         </span>
       )}
@@ -953,7 +953,7 @@ function OfflineStatus({ online, pending, syncing, syncMsg, onSync }: { online: 
         <button
           onClick={onSync}
           disabled={syncing}
-          className="px-2.5 py-1 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-black text-[11px] border border-sky-400 transition flex items-center gap-1 shadow-xs animate-pulse"
+          className="px-2.5 py-1 rounded bg-sky-500 hover:bg-sky-400 text-white font-black text-[11px] border border-sky-400 transition flex items-center gap-1 shadow-xs animate-pulse"
         >
           <span>{syncing ? '⏳ Sync…' : `🔄 Čeká ${pending} změn`}</span>
         </button>
@@ -969,7 +969,7 @@ function InstallModal({ installPrompt, setInstallPrompt, setInstalled, setShowIn
         <p className="text-sm">Nainstalujte si aplikaci Pivovar Zajíc přímo na plochu mobilu nebo počítače pro okamžitá upozornění a rychlé offline zadávání.</p>
         
         {installPrompt && (
-          <div className="p-4 bg-amber-50 rounded-2xl border-2 border-amber-300 flex flex-col gap-2">
+          <div className="p-4 bg-amber-50 rounded border-2 border-amber-300 flex flex-col gap-2">
             <div className="font-extrabold text-amber-950 text-sm">Váš prohlížeč podporuje přímou instalaci na 1 kliknutí!</div>
             <button
               onClick={async () => {
@@ -979,27 +979,27 @@ function InstallModal({ installPrompt, setInstallPrompt, setInstalled, setShowIn
                 setInstallPrompt(null);
                 setShowInstallModal(false);
               }}
-              className="btn-primary w-full !py-3 text-sm font-black shadow-lg"
+              className="btn-primary !rounded w-full !py-3 text-sm font-black shadow-lg"
             >
               📲 Spustit přímou instalaci na plochu
             </button>
           </div>
         )}
 
-        <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-200 space-y-2">
+        <div className="bg-neutral-50 p-4 rounded border border-neutral-200 space-y-2">
           <div className="font-bold text-neutral-900">Postup pro Android (Chrome / Edge):</div>
           <p>1. Klepněte na <strong>tři tečky</strong> vpravo nahoře v prohlížeči.</p>
           <p>2. Zvolte <strong>Nainstalovat aplikaci</strong> nebo <strong>Přidat na plochu</strong>.</p>
         </div>
 
-        <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-200 space-y-2">
+        <div className="bg-neutral-50 p-4 rounded border border-neutral-200 space-y-2">
           <div className="font-bold text-neutral-900">Postup pro iOS (Safari na iPhone):</div>
           <p>1. Klepněte na tlačítko <strong>Sdílet</strong> (čtvereček s šipkou dole na liště).</p>
           <p>2. Zvolte <strong>Přidat na plochu</strong>.</p>
         </div>
 
         <div className="flex justify-end pt-2">
-          <button onClick={() => setShowInstallModal(false)} className="btn-ghost text-xs font-bold">
+          <button onClick={() => setShowInstallModal(false)} className="btn-ghost !rounded text-xs font-bold">
             Zavřít
           </button>
         </div>

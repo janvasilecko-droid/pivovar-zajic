@@ -119,8 +119,8 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
                 key={d}
                 type="button"
                 onClick={() => setDays(d)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-black transition ${
-                  days === d ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'bg-neutral-100 text-neutral-700 hover:bg-amber-50'
+                className={`px-3 py-1.5 rounded text-xs font-black transition ${
+                  days === d ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-100 text-neutral-700 hover:bg-amber-50'
                 }`}
               >
                 {d} dní
@@ -132,12 +132,12 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
               type="button"
               onClick={handleRunAutoParse}
               disabled={runningAutoParse}
-              className="px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-black shadow-xs flex items-center gap-1.5 disabled:opacity-50"
+              className="px-3 py-1.5 rounded bg-sky-600 hover:bg-sky-500 text-white text-xs font-black shadow-xs flex items-center gap-1.5 disabled:opacity-50"
               title="Spustit AI zpracování nevyřízených zpráv"
             >
               <Zap size={14} /> {runningAutoParse ? 'Zpracovávám…' : 'Zpracovat nevyřízené'}
             </button>
-            <button type="button" onClick={load} className="p-1.5 rounded-lg text-neutral-600 hover:bg-neutral-100" title="Obnovit">
+            <button type="button" onClick={load} className="p-1.5 rounded text-neutral-600 hover:bg-neutral-100" title="Obnovit">
               <RefreshCw size={16} />
             </button>
           </div>
@@ -146,7 +146,7 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
         {/* Souhrn podle stavu */}
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
           {(Object.keys(STATUS_LABEL) as WhatsAppIncoming['status'][]).map((s) => (
-            <div key={s} className={`rounded-xl border px-2 py-1.5 text-center ${STATUS_STYLE[s]}`}>
+            <div key={s} className={`rounded border px-2 py-1.5 text-center ${STATUS_STYLE[s]}`}>
               <div className="text-lg font-black leading-none">{counts[s] || 0}</div>
               <div className="text-[9px] font-bold uppercase leading-tight mt-0.5">{STATUS_LABEL[s]}</div>
             </div>
@@ -154,7 +154,7 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
         </div>
 
         {needsAttentionCount > 0 && (
-          <div className="flex items-center gap-2 p-3 rounded-2xl bg-amber-50 border-2 border-amber-300 text-xs font-black text-amber-900">
+          <div className="flex items-center gap-2 p-3 rounded bg-amber-50 border-2 border-amber-300 text-xs font-black text-amber-900">
             <ShieldAlert size={16} className="text-amber-600 shrink-0" />
             <span>⚠️ {needsAttentionCount}× zpráva ještě nemá výsledek (čeká, zpracovává se, nebo skončila chybou) — zkontroluj níže.</span>
           </div>
@@ -182,7 +182,7 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
             {shown.map((m) => (
               <div
                 key={m.id}
-                className={`border rounded-xl p-3 ${
+                className={`border rounded p-3 ${
                   m.status === 'pending' || m.status === 'parsed'
                     ? 'cursor-pointer hover:border-amber-300 hover:bg-amber-50/40'
                     : ''
@@ -202,7 +202,7 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
                         {STATUS_LABEL[m.status]}
                       </span>
                     </div>
-                    <div className="text-xs text-neutral-700 bg-neutral-50 p-2 rounded-lg mt-1.5 line-clamp-2">
+                    <div className="text-xs text-neutral-700 bg-neutral-50 p-2 rounded mt-1.5 line-clamp-2">
                       {m.message_text?.slice(0, 220)}{(m.message_text?.length ?? 0) > 220 ? '…' : ''}
                     </div>
                     {(m.status === 'error' || m.status === 'ignored') && m.error_message && (
@@ -219,7 +219,7 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
                       type="button"
                       onClick={(e) => { e.stopPropagation(); handleRetry(m.id); }}
                       disabled={retrying === m.id}
-                      className="shrink-0 px-2.5 py-1.5 rounded-xl bg-sky-100 hover:bg-sky-200 text-sky-900 text-[11px] font-black transition disabled:opacity-50"
+                      className="shrink-0 px-2.5 py-1.5 rounded bg-sky-100 hover:bg-sky-200 text-sky-900 text-[11px] font-black transition disabled:opacity-50"
                     >
                       {retrying === m.id ? '…' : '↩ Vrátit do fronty'}
                     </button>

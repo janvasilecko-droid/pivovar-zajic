@@ -147,7 +147,7 @@ export default function ZavozHistory() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-neutral-900 text-white p-5 rounded-3xl border border-neutral-800 space-y-1">
+      <div className="bg-neutral-900 text-white p-5 rounded border border-neutral-800 space-y-1">
         <h2 className="font-display font-black text-xl text-amber-400 flex items-center gap-2">
           <HistoryIcon size={22} />
           <span>Přehledová historie všech závozů podle dnů</span>
@@ -158,17 +158,17 @@ export default function ZavozHistory() {
       </div>
 
       {/* Filtry historie tras */}
-      <div className="card sticky top-[48px] sm:top-[56px] z-10 p-3 bg-white border border-neutral-200 rounded-2xl shadow-xs space-y-2">
+      <div className="card sticky top-[48px] sm:top-[56px] z-10 p-3 bg-white border border-neutral-200 rounded shadow-xs space-y-2">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-[11px] font-black uppercase tracking-wider text-neutral-500 flex items-center gap-1"><Filter size={13} /> Filtry</span>
           {/* Období */}
-          <div className="flex items-center gap-1 bg-neutral-100 rounded-xl p-1">
+          <div className="flex items-center gap-1 bg-neutral-100 rounded p-1">
             {([['all', 'Vše'], ['week', 'Týden'], ['month', 'Měsíc'], ['year', 'Rok']] as const).map(([k, lbl]) => (
               <button
                 key={k}
                 onClick={() => setHistPeriod(k)}
-                className={`px-3 py-1.5 rounded-lg font-black text-[11px] transition ${
-                  histPeriod === k ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'text-neutral-600 hover:bg-white'
+                className={`px-3 py-1.5 rounded font-black text-[11px] transition ${
+                  histPeriod === k ? 'bg-white text-neutral-900 shadow-xs' : 'text-neutral-600 hover:bg-white'
                 }`}
               >
                 {lbl}
@@ -204,7 +204,7 @@ export default function ZavozHistory() {
           {(histPeriod !== 'all' || histPlaceId || histBeerId || histPackageId) && (
             <button
               onClick={() => { setHistPeriod('all'); setHistPlaceId(''); setHistBeerId(''); setHistPackageId(''); }}
-              className="btn-ghost !py-1.5 text-xs font-black text-amber-900"
+              className="btn-ghost !rounded !py-1.5 text-xs font-black text-amber-900"
             >
               ✕ Zrušit filtr
             </button>
@@ -219,7 +219,7 @@ export default function ZavozHistory() {
         {filteredHistoryByDate.map((hGroup) => {
           const formattedDate = new Date(hGroup.date).toLocaleDateString('cs-CZ', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
           return (
-            <div key={hGroup.date} className="card p-6 bg-white border border-neutral-200 rounded-3xl space-y-4 shadow-xs">
+            <div key={hGroup.date} className="card p-6 bg-white border border-neutral-200 rounded space-y-4 shadow-xs">
               <div className="flex items-center justify-between border-b border-neutral-200 pb-3 flex-wrap gap-2">
                 <div>
                   <h3 className="font-display font-black text-lg text-neutral-900 capitalize flex items-center gap-2">
@@ -232,7 +232,7 @@ export default function ZavozHistory() {
 
                 <button
                   onClick={() => printDeliveryListForOrders(hGroup.orders, formattedDate)}
-                  className="px-3.5 py-2 rounded-2xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-xs transition flex items-center gap-1.5"
+                  className="px-3.5 py-2 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-xs transition flex items-center gap-1.5"
                 >
                   <Printer size={15} /> Tisk trasovky
                 </button>
@@ -243,7 +243,7 @@ export default function ZavozHistory() {
                   const oItems = items[o.id] ?? [];
                   const wKg = orderWeightKg(oItems, packages);
                   return (
-                    <div key={o.id} className="p-3.5 rounded-2xl bg-neutral-50 border border-neutral-200/80 space-y-2">
+                    <div key={o.id} className="p-3.5 rounded bg-neutral-50 border border-neutral-200/80 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="font-black text-sm text-neutral-900 truncate">{o.place_name}</span>
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${o.is_delivered ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' : 'bg-amber-100 text-amber-900'}`}>

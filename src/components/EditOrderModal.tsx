@@ -220,12 +220,12 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
           <div className="text-xs font-semibold uppercase tracking-wider text-primary-400 mb-2">Položky piva ({filledCount} vyplněno)</div>
           <div className="space-y-2">
             {rows.map((r, i) => r.removed ? (
-              <div key={r.id ?? `new-${i}`} className="flex items-center justify-between rounded-lg border-2 border-dashed border-primary-200 bg-primary-50/40 px-3 py-2 text-xs text-primary-500">
+              <div key={r.id ?? `new-${i}`} className="flex items-center justify-between rounded border-2 border-dashed border-primary-200 bg-primary-50/40 px-3 py-2 text-xs text-primary-500">
                 <span>Položka bude odstraněna</span>
-                <button type="button" className="btn-ghost text-xs !py-1 !px-2" onClick={() => restoreRow(i)}>Vrátit</button>
+                <button type="button" className="btn-ghost !rounded text-xs !py-1 !px-2" onClick={() => restoreRow(i)}>Vrátit</button>
               </div>
             ) : (
-              <div key={r.id ?? `new-${i}`} className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:items-center p-2.5 sm:p-0 rounded-xl sm:rounded-none border border-neutral-200 sm:border-none bg-neutral-50/60 sm:bg-transparent">
+              <div key={r.id ?? `new-${i}`} className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:items-center p-2.5 sm:p-0 rounded-none border border-neutral-200 sm:border-none bg-neutral-50/60 sm:bg-transparent">
                 <div className="sm:col-span-5">
                   <label className="sm:hidden text-[10px] font-black uppercase text-neutral-500 mb-1 block">Pivo</label>
                   <select className="input !py-2 text-sm" value={r.beerId} onChange={(e) => setRow(i, 'beerId', e.target.value)}>
@@ -243,11 +243,11 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
                 <div className="sm:col-span-3">
                   <label className="sm:hidden text-[10px] font-black uppercase text-neutral-500 mb-1 block">Množství</label>
                   <div className="flex items-center gap-1.5">
-                    <button type="button" onClick={() => setRow(i, 'qty', String(Math.max(0, (Number(r.qty) || 0) - 1)))} className="w-10 h-10 sm:w-7 sm:h-7 shrink-0 grid place-items-center rounded-lg bg-neutral-100 hover:bg-amber-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition" title="Odečíst 1">−</button>
-                    <span className="flex-1 min-w-[2.5rem] text-center text-base sm:text-sm font-black bg-white border border-neutral-200 rounded-lg py-2 px-1">
+                    <button type="button" onClick={() => setRow(i, 'qty', String(Math.max(0, (Number(r.qty) || 0) - 1)))} className="w-10 h-10 sm:w-7 sm:h-7 shrink-0 grid place-items-center rounded bg-neutral-100 hover:bg-amber-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition" title="Odečíst 1">−</button>
+                    <span className="flex-1 min-w-[2.5rem] text-center text-base sm:text-sm font-black bg-white border border-neutral-200 rounded py-2 px-1">
                       {r.qty || '0'}
                     </span>
-                    <button type="button" onClick={() => setRow(i, 'qty', String((Number(r.qty) || 0) + 1))} className="w-10 h-10 sm:w-7 sm:h-7 shrink-0 grid place-items-center rounded-lg bg-amber-950 hover:bg-amber-900 text-white font-bold text-sm select-none active:scale-95 transition" title="Přidat 1">+</button>
+                    <button type="button" onClick={() => setRow(i, 'qty', String((Number(r.qty) || 0) + 1))} className="w-10 h-10 sm:w-7 sm:h-7 shrink-0 grid place-items-center rounded bg-amber-950 hover:bg-amber-900 text-white font-bold text-sm select-none active:scale-95 transition" title="Přidat 1">+</button>
                     <QuickQtySelect
                       pkg={packages.find((p) => p.id === r.pkgId)}
                       qty={r.qty}
@@ -261,7 +261,7 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
               </div>
             ))}
           </div>
-          <button type="button" onClick={addRow} className="btn-primary mt-2 !py-2 !px-3 text-sm">
+          <button type="button" onClick={addRow} className="btn-primary !rounded mt-2 !py-2 !px-3 text-sm">
             + Přidat další řádek
           </button>
 
@@ -273,28 +273,28 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
               <button
                 type="button"
                 onClick={() => setNote((n) => n ? `${n}, + výčep jednokohout` : '+ výčep jednokohout')}
-                className="px-2.5 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-[11px] border border-amber-300 transition"
+                className="px-2.5 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-[11px] border border-amber-300 transition"
               >
                 🚰 + Výčep jednokohout
               </button>
               <button
                 type="button"
                 onClick={() => setNote((n) => n ? `${n}, + výčep dvojkohout` : '+ výčep dvojkohout')}
-                className="px-2.5 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-[11px] border border-amber-300 transition"
+                className="px-2.5 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-[11px] border border-amber-300 transition"
               >
                 🚰🚰 + Výčep dvojkohout
               </button>
               <button
                 type="button"
                 onClick={() => setNote((n) => n ? `${n}, + výčep trojkohout` : '+ výčep trojkohout')}
-                className="px-2.5 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-[11px] border border-amber-300 transition"
+                className="px-2.5 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-[11px] border border-amber-300 transition"
               >
                 🚰🚰🚰 + Výčep trojkohout
               </button>
               <button
                 type="button"
                 onClick={() => setNote((n) => n ? `${n}, + výčep šestikohout` : '+ výčep šestikohout')}
-                className="px-2.5 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-[11px] border border-amber-300 transition"
+                className="px-2.5 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-[11px] border border-amber-300 transition"
               >
                 🚰🚰🚰🚰🚰🚰 + Výčep šestikohout (akce)
               </button>
@@ -302,11 +302,11 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
           </div>
         </div>
 
-        {err && <div className="text-sm text-danger-600 bg-danger-500/10 rounded-lg px-3 py-2">{err}</div>}
+        {err && <div className="text-sm text-danger-600 bg-danger-500/10 rounded px-3 py-2">{err}</div>}
 
         <div className="flex justify-end gap-2">
-          <button className="btn-ghost" onClick={onClose} disabled={saving}>Zrušit</button>
-          <button className="btn-primary" onClick={save} disabled={saving || filledCount === 0}>
+          <button className="btn-ghost !rounded" onClick={onClose} disabled={saving}>Zrušit</button>
+          <button className="btn-primary !rounded" onClick={save} disabled={saving || filledCount === 0}>
             {saving ? 'Ukládám…' : 'Uložit změny'}
           </button>
         </div>

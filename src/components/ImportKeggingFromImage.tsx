@@ -242,7 +242,7 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
             <div className="flex flex-wrap gap-3 items-center">
               <input ref={fileRef} type="file" accept="image/*,.png,.jpg,.jpeg,.webp" multiple onChange={(e) => { const files = Array.from(e.target.files ?? []); if (files.length) loadMultipleFiles(files); e.target.value = ''; }} className="hidden" />
               <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={(e) => { const files = Array.from(e.target.files ?? []); if (files.length) setPendingFiles((q) => [...q, ...files]); e.target.value = ''; }} className="hidden" />
-              <button className="btn-primary flex items-center gap-2" onClick={() => cameraRef.current?.click()} disabled={busy}>
+              <button className="btn-primary !rounded flex items-center gap-2" onClick={() => cameraRef.current?.click()} disabled={busy}>
                 <Camera size={16} /> 📷 Spustit fotoaparát
               </button>
               <button className="btn-secondary flex items-center gap-2 border-neutral-300 text-neutral-800 bg-white hover:bg-neutral-50" onClick={() => fileRef.current?.click()} disabled={busy}>
@@ -264,7 +264,7 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
             </div>
           )}
           {err && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start gap-2">
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded text-xs text-rose-800 flex items-start gap-2">
               <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
               <span>{err}</span>
             </div>
@@ -272,18 +272,18 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
 
           {entryRows !== null && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
-              <div className="border border-neutral-200 rounded-2xl overflow-hidden bg-neutral-50 min-h-[350px] flex flex-col">
+              <div className="border border-neutral-200 rounded overflow-hidden bg-neutral-50 min-h-[350px] flex flex-col">
                 <PhotoReviewPane photos={photos} activeIndex={Math.min(activeIndex, Math.max(0, photos.length - 1))} onChangeIndex={setActiveIndex} />
               </div>
 
               <div className="flex flex-col space-y-3 max-h-[500px] overflow-y-auto scrollbar-thin pr-1">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-black text-neutral-900 flex items-center gap-1.5"><Sparkles size={14} className="text-primary-600" /> Rozpoznané řádky stáčení KEG</h3>
-                  <button type="button" className="btn-ghost !py-1 text-xs font-bold text-primary-700" onClick={addLine}>+ Přidat řádek</button>
+                  <button type="button" className="btn-ghost !rounded !py-1 text-xs font-bold text-primary-700" onClick={addLine}>+ Přidat řádek</button>
                 </div>
                 <div className="space-y-2">
                   {entryRows.map((r, i) => (
-                    <div key={i} className={`p-3 rounded-2xl border-2 transition-all ${r._removed ? 'bg-neutral-100/70 border-neutral-200 opacity-60' : 'bg-white border-neutral-200 hover:border-neutral-300'}`}>
+                    <div key={i} className={`p-3 rounded border-2 transition-all ${r._removed ? 'bg-neutral-100/70 border-neutral-200 opacity-60' : 'bg-white border-neutral-200 hover:border-neutral-300'}`}>
                       <div className="flex items-center justify-between gap-2 mb-2 pb-1 border-b border-neutral-100">
                         <span className="text-[10px] font-black uppercase text-neutral-500">Řádek #{i + 1}</span>
                         {r._removed ? (
@@ -320,9 +320,9 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
                   ))}
                 </div>
                 <div className="pt-4 flex items-center justify-end gap-2 border-t border-neutral-100">
-                  <button type="button" className="btn-ghost text-xs" onClick={onClose}>Zrušit</button>
+                  <button type="button" className="btn-ghost !rounded text-xs" onClick={onClose}>Zrušit</button>
                   <button
-            className="btn-primary flex-1 !py-3 text-sm font-bold"
+            className="btn-primary !rounded flex-1 !py-3 text-sm font-bold"
             onClick={saveCurrentAndNext}
             disabled={busy || !entryRows}
           >

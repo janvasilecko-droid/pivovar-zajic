@@ -81,10 +81,10 @@ export function UserPermissionsModal({
 
   return (
     <div className="fixed inset-0 bg-neutral-950/75 backdrop-blur-xs flex items-center justify-center p-4 z-[999]">
-      <div className="bg-white rounded-3xl max-w-3xl w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-neutral-200 animate-in fade-in zoom-in duration-150 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded max-w-3xl w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-neutral-200 animate-in fade-in zoom-in duration-150 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-amber-500 text-neutral-950 flex items-center justify-center font-black text-2xl shadow-md">
+            <div className="w-12 h-12 rounded bg-amber-500 text-neutral-950 flex items-center justify-center font-black text-2xl shadow-md">
               🔐
             </div>
             <div>
@@ -100,14 +100,14 @@ export function UserPermissionsModal({
         </div>
 
         {msg && (
-          <div className="p-3.5 rounded-2xl bg-emerald-100 border border-emerald-300 text-emerald-950 text-xs font-black flex items-center gap-2">
+          <div className="p-3.5 rounded bg-emerald-100 border border-emerald-300 text-emerald-950 text-xs font-black flex items-center gap-2">
             <CheckCircle2 size={18} className="text-emerald-700" />
             <span>{msg}</span>
           </div>
         )}
 
         {/* Quick Role Presets */}
-        <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 space-y-2">
+        <div className="p-4 rounded bg-amber-50/80 border border-amber-200 space-y-2">
           <div className="text-xs font-black uppercase text-amber-950 flex items-center gap-1.5">
             <Zap size={15} className="text-amber-600" />
             <span>Rychlé předvolby rolí (1-Click Aplikovat):</span>
@@ -118,7 +118,7 @@ export function UserPermissionsModal({
                 key={preset.name}
                 type="button"
                 onClick={() => applyPreset(preset)}
-                className="p-2.5 rounded-xl bg-white hover:bg-amber-100 text-neutral-900 font-bold text-xs border border-amber-300 transition shadow-2xs text-left"
+                className="p-2.5 rounded bg-white hover:bg-amber-100 text-neutral-900 font-bold text-xs border border-amber-300 transition shadow-2xs text-left"
               >
                 {preset.name}
               </button>
@@ -139,7 +139,7 @@ export function UserPermissionsModal({
               return (
                 <div
                   key={mod.id}
-                  className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-4 ${
+                  className={`p-3.5 rounded border transition-all flex items-center justify-between gap-4 ${
                     access.view
                       ? access.edit
                         ? 'bg-emerald-50/40 border-emerald-200'
@@ -160,7 +160,7 @@ export function UserPermissionsModal({
                     <button
                       type="button"
                       onClick={() => toggleView(mod.id)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-black border transition flex items-center gap-1 ${
+                      className={`px-3 py-1.5 rounded text-xs font-black border transition flex items-center gap-1 ${
                         access.view
                           ? 'bg-emerald-100 text-emerald-950 border-emerald-300'
                           : 'bg-neutral-200 text-neutral-600 border-neutral-300'
@@ -175,7 +175,7 @@ export function UserPermissionsModal({
                       type="button"
                       onClick={() => toggleEdit(mod.id)}
                       disabled={!access.view}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-black border transition flex items-center gap-1 ${
+                      className={`px-3 py-1.5 rounded text-xs font-black border transition flex items-center gap-1 ${
                         !access.view
                           ? 'opacity-40 cursor-not-allowed bg-neutral-100 text-neutral-400 border-neutral-200'
                           : access.edit
@@ -197,7 +197,7 @@ export function UserPermissionsModal({
           <button
             type="button"
             onClick={() => setPermissions(DEFAULT_FULL_PERMISSIONS)}
-            className="px-3.5 py-2 rounded-xl bg-neutral-100 text-neutral-700 font-extrabold text-xs"
+            className="px-3.5 py-2 rounded bg-neutral-100 text-neutral-700 font-extrabold text-xs"
           >
             Obnovit plná práva
           </button>
@@ -206,7 +206,7 @@ export function UserPermissionsModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-neutral-100 text-neutral-700 font-extrabold text-xs"
+              className="px-4 py-2 rounded bg-neutral-100 text-neutral-700 font-extrabold text-xs"
             >
               Zrušit
             </button>
@@ -214,7 +214,7 @@ export function UserPermissionsModal({
               type="button"
               disabled={busy}
               onClick={handleSave}
-              className="px-5 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md transition flex items-center gap-2"
+              className="px-5 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md transition flex items-center gap-2"
             >
               <Save size={16} />
               <span>{busy ? 'Ukládám…' : 'Uložit nová práva uživatele'}</span>

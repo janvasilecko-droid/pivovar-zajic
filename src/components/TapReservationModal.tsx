@@ -102,14 +102,14 @@ export function TapReservationModal({ orderDate, customerName, orderId, tapTypeH
   if (taps.length === 0) {
     return (
       <div className="fixed inset-0 bg-neutral-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-        <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-neutral-200">
+        <div className="bg-white rounded max-w-md w-full p-6 space-y-4 shadow-2xl border border-neutral-200">
           <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
             <h3 className="font-display font-black text-lg text-neutral-900">🚰 Rezervace výčepu</h3>
             <button onClick={onSkip} className="text-neutral-400 font-bold">✕</button>
           </div>
           <p className="text-sm text-neutral-600">Nemáte vytvořené žádné výčepy. Nejprve je přidejte v sekci Výčepy.</p>
           <div className="flex justify-end gap-2 pt-2">
-            <button onClick={onSkip} className="px-4 py-2 rounded-xl bg-neutral-100 font-bold text-xs">Zavřít</button>
+            <button onClick={onSkip} className="px-4 py-2 rounded bg-neutral-100 font-bold text-xs">Zavřít</button>
           </div>
         </div>
       </div>
@@ -118,7 +118,7 @@ export function TapReservationModal({ orderDate, customerName, orderId, tapTypeH
 
   return (
     <div className="fixed inset-0 bg-neutral-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl border border-neutral-200">
+      <div className="bg-white rounded max-w-lg w-full p-6 space-y-4 shadow-2xl border border-neutral-200">
         <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
           <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
             <span>🚰</span>
@@ -136,7 +136,7 @@ export function TapReservationModal({ orderDate, customerName, orderId, tapTypeH
           <div>
             <label className="block text-xs font-black text-neutral-700 mb-1.5">Vyberte výčepní zařízení</label>
             {taps.some((t) => !(isTapAvailable(t.id, dateFrom, reservations) && isTapAvailable(t.id, dateTo, reservations))) && (
-              <div className="mb-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-800">
+              <div className="mb-2 px-3 py-2 rounded bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-800">
                 ⚠️ Některé výčepy jsou v tomto termínu rezervované — ostatní jsou k dispozici.
               </div>
             )}
@@ -150,7 +150,7 @@ export function TapReservationModal({ orderDate, customerName, orderId, tapTypeH
                     type="button"
                     disabled={!available}
                     onClick={() => setSelectedTapId(t.id)}
-                    className={`w-full text-left p-3 rounded-2xl border-2 transition-all ${
+                    className={`w-full text-left p-3 rounded border-2 transition-all ${
                       isSelected
                         ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-200'
                         : available
@@ -225,19 +225,19 @@ export function TapReservationModal({ orderDate, customerName, orderId, tapTypeH
         </div>
 
         {err && (
-          <div className="text-sm text-danger-600 bg-danger-500/10 rounded-lg px-3 py-2 font-bold">{err}</div>
+          <div className="text-sm text-danger-600 bg-danger-500/10 rounded px-3 py-2 font-bold">{err}</div>
         )}
 
         <div className="flex justify-end gap-2 pt-2 border-t border-neutral-100">
           <button
             onClick={onSkip}
-            className="px-4 py-2.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 font-bold text-xs transition"
+            className="px-4 py-2.5 rounded bg-neutral-100 hover:bg-neutral-200 font-bold text-xs transition"
           >
             Přeskočit (nerezervovat)
           </button>
           <button
             onClick={handleConfirm}
-            className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md transition flex items-center gap-1.5"
+            className="px-5 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md transition flex items-center gap-1.5"
           >
             ✅ Zarezervovat výčep
           </button>

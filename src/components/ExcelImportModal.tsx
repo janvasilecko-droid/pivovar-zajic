@@ -158,11 +158,11 @@ export default function ExcelImportModal({
     <Modal open={open} onClose={onClose} title={`Importovat ${schema.name} z Excelu`} wide>
       <div className="space-y-5">
         {/* Upload box */}
-        <div className="border-2 border-dashed border-neutral-300 rounded-2xl p-6 text-center hover:border-primary-500 transition bg-neutral-50/50">
+        <div className="border-2 border-dashed border-neutral-300 rounded p-6 text-center hover:border-primary-500 transition bg-neutral-50/50">
           <FileSpreadsheet className="w-12 h-12 text-primary-600 mx-auto mb-2" />
           <p className="text-sm font-semibold text-neutral-800">Vyberte soubor Excel (.xlsx, .csv)</p>
           <p className="text-xs text-neutral-500 mt-1 mb-3">Nahrajte tabulku s daty pro {schema.name}</p>
-          <label className="btn-amber cursor-pointer">
+          <label className="btn-amber !rounded cursor-pointer">
             <Upload size={16} />
             <span>Vybrat Excel soubor</span>
             <input type="file" accept=".xlsx, .xls, .csv" onChange={handleFileUpload} className="hidden" />
@@ -172,7 +172,7 @@ export default function ExcelImportModal({
 
         {/* Column Mapping Section */}
         {excelHeaders.length > 0 && (
-          <div className="space-y-3 bg-white p-4 rounded-xl border border-neutral-200 shadow-xs">
+          <div className="space-y-3 bg-white p-4 rounded border border-neutral-200 shadow-xs">
             <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-600">Párování sloupců z Excelu</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {mappings.map((m) => (
@@ -198,7 +198,7 @@ export default function ExcelImportModal({
 
         {/* Status result */}
         {resultMsg && (
-          <div className={`p-3 rounded-xl text-xs font-bold flex items-center gap-2 ${resultMsg.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'}`}>
+          <div className={`p-3 rounded text-xs font-bold flex items-center gap-2 ${resultMsg.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'}`}>
             {resultMsg.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
             <span>{resultMsg.text}</span>
           </div>
@@ -206,9 +206,9 @@ export default function ExcelImportModal({
 
         {/* Action Buttons */}
         <div className="flex justify-end gap-2 pt-2 border-t border-neutral-100">
-          <button className="btn-ghost" onClick={onClose}>Zrušit</button>
+          <button className="btn-ghost !rounded" onClick={onClose}>Zrušit</button>
           <button
-            className="btn-primary"
+            className="btn-primary !rounded"
             onClick={handleImport}
             disabled={loading || rawData.length === 0}
           >

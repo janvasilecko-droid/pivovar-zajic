@@ -55,9 +55,9 @@ export function UntappdAiAnalyzer() {
 
   return (
     <div className="space-y-6">
-      <div className="card p-6 bg-gradient-to-r from-neutral-900 via-neutral-950 to-neutral-900 text-white rounded-3xl space-y-4 shadow-xl border border-neutral-800">
+      <div className="card p-6 bg-gradient-to-r from-neutral-900 via-neutral-950 to-neutral-900 text-white rounded space-y-4 shadow-xl border border-neutral-800">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-amber-500 text-neutral-950 flex items-center justify-center font-black text-2xl shadow-lg">
+          <div className="w-12 h-12 rounded bg-amber-500 text-neutral-950 flex items-center justify-center font-black text-2xl shadow-lg">
             ⭐
           </div>
           <div>
@@ -76,7 +76,7 @@ export function UntappdAiAnalyzer() {
           </label>
           <textarea
             rows={5}
-            className="w-full p-4 rounded-2xl bg-neutral-800 border border-neutral-700 text-white text-xs font-mono placeholder-neutral-500 focus:outline-hidden focus:ring-2 focus:ring-amber-400 leading-relaxed"
+            className="w-full p-4 rounded bg-neutral-800 border border-neutral-700 text-white text-xs font-mono placeholder-neutral-500 focus:outline-hidden focus:ring-2 focus:ring-amber-400 leading-relaxed"
             value={rawText}
             onChange={(e) => setRawText(e.target.value)}
             placeholder="Sem vlož textové recenze zákazníků…"
@@ -86,7 +86,7 @@ export function UntappdAiAnalyzer() {
             <button
               onClick={runAnalysis}
               disabled={analyzing || !rawText.trim()}
-              className="btn-amber text-xs font-black px-6 py-3 shadow-lg flex items-center gap-2"
+              className="btn-amber !rounded text-xs font-black px-6 py-3 shadow-lg flex items-center gap-2"
             >
               <Sparkles size={16} />
               <span>{analyzing ? 'AI Analýza probíhá…' : 'Spustit AI Analýzu recenzí'}</span>
@@ -99,7 +99,7 @@ export function UntappdAiAnalyzer() {
       {analysis && (
         <div className="space-y-4 animate-in fade-in duration-200">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="card p-5 bg-white border border-amber-200 rounded-3xl space-y-1 shadow-xs">
+            <div className="card p-5 bg-white border border-amber-200 rounded space-y-1 shadow-xs">
               <div className="text-[10px] font-black uppercase text-neutral-400">Průměrné Untappd Skóre:</div>
               <div className="text-3xl font-display font-black text-amber-600 flex items-baseline gap-1">
                 <span>{analysis.overallRating}</span>
@@ -107,14 +107,14 @@ export function UntappdAiAnalyzer() {
               </div>
             </div>
 
-            <div className="card p-5 bg-white border border-emerald-200 rounded-3xl space-y-1 shadow-xs">
+            <div className="card p-5 bg-white border border-emerald-200 rounded space-y-1 shadow-xs">
               <div className="text-[10px] font-black uppercase text-neutral-400">Sentiment hodnocení:</div>
               <div className="text-3xl font-display font-black text-emerald-600">
                 {analysis.sentimentScorePct}% <span className="text-xs font-bold text-neutral-500">Pozitivní</span>
               </div>
             </div>
 
-            <div className="card p-5 bg-white border border-purple-200 rounded-3xl space-y-1 shadow-xs">
+            <div className="card p-5 bg-white border border-purple-200 rounded space-y-1 shadow-xs">
               <div className="text-[10px] font-black uppercase text-neutral-400">Počet recenzí:</div>
               <div className="text-3xl font-display font-black text-purple-600">
                 {analysis.totalReviewsAnalyzed} <span className="text-xs font-bold text-neutral-500">záznamů</span>
@@ -123,7 +123,7 @@ export function UntappdAiAnalyzer() {
           </div>
 
           {/* Flavor Notes Grid */}
-          <div className="card p-6 bg-white border border-neutral-200 rounded-3xl space-y-4 shadow-sm">
+          <div className="card p-6 bg-white border border-neutral-200 rounded space-y-4 shadow-sm">
             <h4 className="font-display font-black text-base text-neutral-950 flex items-center gap-2">
               <Tag className="text-amber-600" size={18} />
               <span>Nejčastější senzory a chmelové/sladové tóny v recenzích:</span>
@@ -133,7 +133,7 @@ export function UntappdAiAnalyzer() {
               {analysis.topFlavorNotes.map((note) => (
                 <span
                   key={note.note}
-                  className="px-3.5 py-2 rounded-2xl bg-amber-100 text-amber-950 font-extrabold text-xs border border-amber-300 flex items-center gap-1.5 shadow-2xs"
+                  className="px-3.5 py-2 rounded bg-amber-100 text-amber-950 font-extrabold text-xs border border-amber-300 flex items-center gap-1.5 shadow-2xs"
                 >
                   <span>🍃 {note.note}</span>
                   <span className="bg-amber-500 text-neutral-950 px-2 py-0.5 rounded-full text-[10px] font-black">
@@ -144,7 +144,7 @@ export function UntappdAiAnalyzer() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 space-y-2">
+              <div className="p-4 rounded bg-emerald-50 border border-emerald-200 space-y-2">
                 <div className="font-black text-xs uppercase text-emerald-950 flex items-center gap-1.5">
                   <ThumbsUp size={15} className="text-emerald-600" />
                   <span>Hlavní plusy a pochvaly piva:</span>
@@ -156,7 +156,7 @@ export function UntappdAiAnalyzer() {
                 </ul>
               </div>
 
-              <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 space-y-2">
+              <div className="p-4 rounded bg-amber-50 border border-amber-200 space-y-2">
                 <div className="font-black text-xs uppercase text-amber-950 flex items-center gap-1.5">
                   <Award size={15} className="text-amber-600" />
                   <span>Doporučení pro Sládka:</span>

@@ -56,7 +56,7 @@ function PlanItem({
 
   return (
     <div
-      className={`rounded-2xl border-2 p-3 shadow-2xs ${
+      className={`rounded border-2 p-3 shadow-2xs ${
         isLate ? 'border-rose-300 bg-rose-50/90' : isToday ? 'border-amber-300 bg-amber-50/90' : 'border-neutral-200 bg-white'
       }`}
     >
@@ -67,7 +67,7 @@ function PlanItem({
             <span className="text-sm font-black text-neutral-950 truncate">{beer?.name || '—'}</span>
             <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
               {lines.map((l, i) => (
-                <span key={i} className="text-[10px] font-bold bg-white border border-neutral-200 rounded-lg px-1.5 py-0.5 text-neutral-700 whitespace-nowrap">
+                <span key={i} className="text-[10px] font-bold bg-white border border-neutral-200 rounded px-1.5 py-0.5 text-neutral-700 whitespace-nowrap">
                   {l.label} × {l.qty}
                 </span>
               ))}
@@ -79,7 +79,7 @@ function PlanItem({
           {isToday && <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500 text-white">DNES</span>}
           {isLate && <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-500 text-white">POZDĚ</span>}
           {plan.planned_date && (
-            <span className="text-[10px] font-bold text-neutral-500 bg-neutral-100 rounded-lg px-2 py-1 whitespace-nowrap">
+            <span className="text-[10px] font-bold text-neutral-500 bg-neutral-100 rounded px-2 py-1 whitespace-nowrap">
               📅 {plan.planned_date}
             </span>
           )}
@@ -89,7 +89,7 @@ function PlanItem({
       {plan.note && <p className="text-[11px] text-neutral-600 mt-1.5 leading-snug">💬 {plan.note}</p>}
 
       <div className="flex items-center gap-2 mt-2.5 flex-wrap">
-        <span className={`text-[10px] font-black px-2 py-1 rounded-lg border ${STATUS_CHIP[plan.status] || ''}`}>
+        <span className={`text-[10px] font-black px-2 py-1 rounded border ${STATUS_CHIP[plan.status] || ''}`}>
           {STATUS_TEXT[plan.status] || plan.status}
         </span>
         <div className="flex-1" />
@@ -98,14 +98,14 @@ function PlanItem({
             <button
               type="button"
               onClick={() => onFill(plan)}
-              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black transition shadow-sm"
+              className="px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black transition shadow-sm"
             >
               ➕ Naplnit do zápisu
             </button>
             <button
               type="button"
               onClick={handleDone}
-              className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-black transition shadow-sm"
+              className="px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-black transition shadow-sm"
             >
               ✓ Hotovo
             </button>
@@ -115,7 +115,7 @@ function PlanItem({
           <button
             type="button"
             onClick={() => setPlanStatus(plan.id, 'planned').then(({ error }) => { if (error) alert(error.message); else onChanged(); })}
-            className="px-3 py-1.5 rounded-xl bg-neutral-200 hover:bg-neutral-300 text-neutral-700 text-[11px] font-black transition"
+            className="px-3 py-1.5 rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 text-[11px] font-black transition"
           >
             ↩️ Zpět
           </button>

@@ -14,7 +14,7 @@ export function Spinner({ className = '' }: { className?: string }) {
 export function EmptyState({ text, icon = '📭' }: { text: string; icon?: string }) {
   return (
     <div className="card p-10 text-center animate-fade-in border-dashed border-2 border-neutral-200 bg-neutral-50/50">
-      <div className="w-14 h-14 mx-auto mb-3.5 rounded-2xl bg-white shadow-sm border border-neutral-200/80 grid place-items-center text-3xl">
+      <div className="w-14 h-14 mx-auto mb-3.5 rounded bg-white shadow-sm border border-neutral-200/80 grid place-items-center text-3xl">
         {icon}
       </div>
       <p className="text-neutral-600 text-sm font-medium">{text}</p>
@@ -76,12 +76,12 @@ export function Modal({ open, onClose, title, children, wide, maxWidth }: {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
       <div className="absolute inset-0 bg-neutral-950/60 backdrop-blur-md transition-opacity" onClick={onClose} />
-      <div className={`relative card shadow-2xl w-full ${maxWidth ?? (wide ? 'max-w-3xl' : 'max-w-md')} max-h-[92vh] flex flex-col animate-slide-up rounded-b-none sm:rounded-2xl border-neutral-200`}>
+      <div className={`relative card shadow-2xl w-full ${maxWidth ?? (wide ? 'max-w-3xl' : 'max-w-md')} max-h-[92vh] flex flex-col animate-slide-up rounded-b-none sm:rounded border-neutral-200`}>
         <div className="flex items-center justify-between px-6 py-4.5 border-b border-neutral-100 sticky top-0 bg-white/95 backdrop-blur-md rounded-t-2xl z-10">
           <h3 className="font-display font-bold text-lg text-neutral-900 tracking-tight">{title}</h3>
           <button
             onClick={onClose}
-            className="w-8 h-8 grid place-items-center rounded-xl text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition"
+            className="w-8 h-8 grid place-items-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition"
           >
             ✕
           </button>
@@ -109,7 +109,7 @@ export function Stat({ label, value, icon, tone = 'primary' }: {
     <div className={`card-hover p-5 border ${t.border} ${t.bg}`}>
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">{label}</span>
-        <span className={`w-10 h-10 rounded-xl border grid place-items-center text-xl shadow-xs transition-transform group-hover:scale-105 ${t.iconBg}`}>
+        <span className={`w-10 h-10 rounded border grid place-items-center text-xl shadow-xs transition-transform group-hover:scale-105 ${t.iconBg}`}>
           {icon}
         </span>
       </div>
@@ -136,8 +136,8 @@ export function useConfirm() {
     <Modal open onClose={() => { state.resolve(false); setState(null); }} title="Potvrzení akci">
       <p className="text-sm text-neutral-700 mb-6 font-medium leading-relaxed">{state.msg}</p>
       <div className="flex gap-3 justify-end">
-        <button className="btn-ghost" onClick={() => { state.resolve(false); setState(null); }}>Zrušit</button>
-        <button className="btn-danger" onClick={() => { state.resolve(true); setState(null); }}>Potvrdit</button>
+        <button className="btn-ghost !rounded" onClick={() => { state.resolve(false); setState(null); }}>Zrušit</button>
+        <button className="btn-danger !rounded" onClick={() => { state.resolve(true); setState(null); }}>Potvrdit</button>
       </div>
     </Modal>
   ) : null;

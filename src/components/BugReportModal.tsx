@@ -144,7 +144,7 @@ export function BugReportModal({ isOpen, onClose }: BugReportModalProps) {
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
           {err && (
-            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold">
+            <div className="p-3 rounded bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold">
               {err}
             </div>
           )}
@@ -155,7 +155,7 @@ export function BugReportModal({ isOpen, onClose }: BugReportModalProps) {
               <button
                 type="button"
                 onClick={() => setCategory('bug')}
-                className={`py-2 px-3 rounded-xl text-xs font-black border text-center transition ${
+                className={`py-2 px-3 rounded text-xs font-black border text-center transition ${
                   category === 'bug'
                     ? 'bg-rose-50 border-rose-300 text-rose-900 shadow-2xs'
                     : 'bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50'
@@ -166,7 +166,7 @@ export function BugReportModal({ isOpen, onClose }: BugReportModalProps) {
               <button
                 type="button"
                 onClick={() => setCategory('feature')}
-                className={`py-2 px-3 rounded-xl text-xs font-black border text-center transition ${
+                className={`py-2 px-3 rounded text-xs font-black border text-center transition ${
                   category === 'feature'
                     ? 'bg-amber-50 border-amber-300 text-amber-900 shadow-2xs'
                     : 'bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50'
@@ -238,7 +238,7 @@ export function BugReportModal({ isOpen, onClose }: BugReportModalProps) {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="py-2.5 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 font-black text-xs text-neutral-800 flex items-center gap-2 transition"
+                className="py-2.5 px-4 rounded border border-neutral-200 bg-white hover:bg-neutral-50 font-black text-xs text-neutral-800 flex items-center gap-2 transition"
                 disabled={busy}
               >
                 {busy ? <Loader2 className="animate-spin" size={16} /> : <ImageIcon size={16} />}
@@ -262,7 +262,7 @@ export function BugReportModal({ isOpen, onClose }: BugReportModalProps) {
               className="hidden"
             />
             {photoDataUrl && (
-              <div className="mt-2 rounded-xl overflow-hidden border border-neutral-200 max-h-32 flex items-center justify-center bg-neutral-50 relative">
+              <div className="mt-2 rounded overflow-hidden border border-neutral-200 max-h-32 flex items-center justify-center bg-neutral-50 relative">
                 <img src={photoDataUrl} alt="Náhled přílohy" className="object-contain max-h-32" />
               </div>
             )}
@@ -279,7 +279,7 @@ export function BugReportModal({ isOpen, onClose }: BugReportModalProps) {
             </button>
             <button
               type="submit"
-              className="btn-primary flex items-center gap-1.5 bg-rose-600 hover:bg-rose-500 border-rose-500"
+              className="btn-primary !rounded flex items-center gap-1.5 bg-rose-600 hover:bg-rose-500 border-rose-500"
               disabled={busy}
             >
               {busy && <Loader2 className="animate-spin" size={14} />}

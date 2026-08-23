@@ -312,7 +312,7 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
     >
       <div className="space-y-4">
         {/* Header progress box */}
-        <div className="bg-amber-50 p-3.5 rounded-2xl border border-amber-300 flex flex-col gap-2">
+        <div className="bg-amber-50 p-3.5 rounded border border-amber-300 flex flex-col gap-2">
           <div className="flex items-center justify-between text-xs font-black text-amber-950">
             <span className="flex items-center gap-1.5 text-sm">
               <ShieldCheck size={18} className="text-amber-600" />
@@ -331,14 +331,14 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
           <div className="flex items-center justify-between pt-1 flex-wrap gap-2">
             <button
               type="button"
-              className="btn-ghost !py-1 !px-2.5 text-xs font-bold text-amber-900 hover:bg-amber-100"
+              className="btn-ghost !rounded !py-1 !px-2.5 text-xs font-bold text-amber-900 hover:bg-amber-100"
               onClick={selectAll}
             >
               ✓ Označit vše jako splněné
             </button>
             <button
               type="button"
-              className="btn-ghost !py-1 !px-2.5 text-xs font-bold text-neutral-600 hover:bg-neutral-100"
+              className="btn-ghost !rounded !py-1 !px-2.5 text-xs font-bold text-neutral-600 hover:bg-neutral-100"
               onClick={resetAll}
             >
               <RotateCcw size={12} className="inline mr-1" />
@@ -349,7 +349,7 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
 
         {/* Brána — nutné splnit sekci „1. Začátek stáčení" */}
         {gateActive && !startDone && (
-          <div className="bg-rose-50 border border-rose-300 rounded-2xl px-3.5 py-2.5 text-xs font-bold text-rose-900 flex items-start gap-2">
+          <div className="bg-rose-50 border border-rose-300 rounded px-3.5 py-2.5 text-xs font-bold text-rose-900 flex items-start gap-2">
             <Lock size={15} className="mt-0.5 shrink-0" />
             <span>
               Před vstupem do zápisu stáčení je nutné odškrtnout <b>celou sekci „1. Začátek stáčení"</b> (příprava pracoviště).
@@ -362,7 +362,7 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
           <button
             type="button"
-            className={'px-3 py-1.5 rounded-xl font-bold transition shrink-0 ' + (activeCategory === 'ALL' ? 'bg-amber-500 text-amber-950 shadow-xs' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200')}
+            className={'px-3 py-1.5 rounded font-bold transition shrink-0 ' + (activeCategory === 'ALL' ? 'bg-amber-500 text-amber-950 shadow-xs' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200')}
             onClick={() => setActiveCategory('ALL')}
           >
             Vše ({items.length})
@@ -374,7 +374,7 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
               <button
                 key={cat}
                 type="button"
-                className={'px-3 py-1.5 rounded-xl font-bold transition shrink-0 ' + (activeCategory === cat ? 'bg-amber-500 text-amber-950 shadow-xs' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200')}
+                className={'px-3 py-1.5 rounded font-bold transition shrink-0 ' + (activeCategory === cat ? 'bg-amber-500 text-amber-950 shadow-xs' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200')}
                 onClick={() => setActiveCategory(cat)}
               >
                 {(cat.split(' ')[1] || cat) + ' (' + checked + '/' + count + ')'}
@@ -392,7 +392,7 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
               const catChecked = catItems.filter((it) => checkedMap[it.id]).length;
 
               return (
-                <div key={cat} className="bg-white border border-neutral-200 rounded-2xl p-3.5 shadow-2xs space-y-2">
+                <div key={cat} className="bg-white border border-neutral-200 rounded p-3.5 shadow-2xs space-y-2">
                   <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
                     <h4 className="text-xs font-black text-neutral-900 uppercase tracking-wider">{cat}</h4>
                     <span className="text-[11px] font-bold text-neutral-500 font-mono">
@@ -407,7 +407,7 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
                           key={item.id}
                           type="button"
                           onClick={() => toggleItem(item.id)}
-                          className={'w-full text-left p-2.5 rounded-xl border transition flex items-start gap-3 select-none ' + (
+                          className={'w-full text-left p-2.5 rounded border transition flex items-start gap-3 select-none ' + (
                             isChecked
                               ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950 font-semibold'
                               : 'bg-neutral-50/60 border-neutral-200 text-neutral-800 hover:bg-neutral-100/80'
@@ -461,12 +461,12 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
                     localStorage.setItem(storageKey, JSON.stringify(next));
                     onClose();
                   }}
-                  className="btn-ghost flex items-center justify-center gap-1 text-[10px] font-black text-rose-600 hover:bg-rose-50 border border-dashed border-rose-200 px-2.5 py-1.5 rounded-xl"
+                  className="btn-ghost !rounded flex items-center justify-center gap-1 text-[10px] font-black text-rose-600 hover:bg-rose-50 border border-dashed border-rose-200 px-2.5 py-1.5 rounded"
                 >
                   <span>🔓 Přeskočit (Admin)</span>
                 </button>
               )}
-              <button type="button" className="btn-ghost text-xs" onClick={onClose}>
+              <button type="button" className="btn-ghost !rounded text-xs" onClick={onClose}>
                 Zavřít
               </button>
             </div>
@@ -483,7 +483,7 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
                 localStorage.setItem(storageKey, JSON.stringify(next));
                 onClose();
               }}
-              className="btn-ghost flex items-center justify-center gap-1 text-[10px] font-black text-rose-600 hover:bg-rose-50 border border-dashed border-rose-200 px-2.5 py-1.5 rounded-xl"
+              className="btn-ghost !rounded flex items-center justify-center gap-1 text-[10px] font-black text-rose-600 hover:bg-rose-50 border border-dashed border-rose-200 px-2.5 py-1.5 rounded"
             >
               <span>🔓 Přeskočit (Admin)</span>
             </button>

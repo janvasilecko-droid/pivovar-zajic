@@ -154,13 +154,13 @@ export function OrderAuditModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-neutral-50 w-full sm:max-w-4xl max-h-[94vh] sm:max-h-[90vh] rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-neutral-200">
+      <div className="bg-neutral-50 w-full sm:max-w-4xl max-h-[94vh] sm:max-h-[90vh] rounded-t-3xl sm:rounded shadow-2xl flex flex-col overflow-hidden border border-neutral-200">
         
         {/* Header */}
         <div className="p-4 sm:p-5 bg-gradient-to-r from-amber-950 via-amber-900 to-amber-950 text-white shadow-md shrink-0">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-amber-500/20 border border-amber-400/40 grid place-items-center text-2xl shadow-inner shrink-0">
+              <div className="w-11 h-11 rounded bg-amber-500/20 border border-amber-400/40 grid place-items-center text-2xl shadow-inner shrink-0">
                 🔍
               </div>
               <div>
@@ -189,7 +189,7 @@ export function OrderAuditModal({
               <button
                 onClick={loadAudit}
                 disabled={loading || actionLoading}
-                className="w-10 h-10 sm:w-auto sm:px-3 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white transition text-xs font-bold flex items-center justify-center gap-1.5 border border-white/10"
+                className="w-10 h-10 sm:w-auto sm:px-3 rounded bg-white/10 hover:bg-white/20 active:scale-95 text-white transition text-xs font-bold flex items-center justify-center gap-1.5 border border-white/10"
                 title="Překontrolovat znovu"
               >
                 <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
@@ -197,7 +197,7 @@ export function OrderAuditModal({
               </button>
               <button
                 onClick={onClose}
-                className="w-10 h-10 grid place-items-center rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white transition border border-white/10"
+                className="w-10 h-10 grid place-items-center rounded bg-white/10 hover:bg-white/20 active:scale-95 text-white transition border border-white/10"
                 title="Zavřít"
               >
                 <X size={20} />
@@ -207,10 +207,10 @@ export function OrderAuditModal({
 
           {/* Scope Selector: Tento týden / Vše */}
           <div className="mt-3 pt-2.5 border-t border-amber-800/80 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 bg-black/25 p-1 rounded-xl border border-white/10">
+            <div className="flex items-center gap-1.5 bg-black/25 p-1 rounded border border-white/10">
               <button
                 onClick={() => setFilterScope('week')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
+                className={`px-3 py-1 rounded text-xs font-bold transition ${
                   filterScope === 'week'
                     ? 'bg-amber-500 text-amber-950 font-black shadow-xs'
                     : 'text-amber-200 hover:text-white'
@@ -220,7 +220,7 @@ export function OrderAuditModal({
               </button>
               <button
                 onClick={() => setFilterScope('all')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
+                className={`px-3 py-1 rounded text-xs font-bold transition ${
                   filterScope === 'all'
                     ? 'bg-amber-500 text-amber-950 font-black shadow-xs'
                     : 'text-amber-200 hover:text-white'
@@ -252,7 +252,7 @@ export function OrderAuditModal({
             {/* Card 1: Zdvojené sudy */}
             <button
               onClick={() => setActiveTab(activeTab === 'items_dup' ? 'all' : 'items_dup')}
-              className={`p-2.5 sm:p-3 rounded-2xl border-2 text-left transition flex flex-col justify-between select-none ${
+              className={`p-2.5 sm:p-3 rounded border-2 text-left transition flex flex-col justify-between select-none ${
                 activeTab === 'items_dup'
                   ? 'bg-rose-100 border-rose-500 ring-2 ring-rose-400 shadow-sm'
                   : itemsDupCount > 0
@@ -275,7 +275,7 @@ export function OrderAuditModal({
             {/* Card 2: Neshody s WA */}
             <button
               onClick={() => setActiveTab(activeTab === 'wa_mismatch' ? 'all' : 'wa_mismatch')}
-              className={`p-2.5 sm:p-3 rounded-2xl border-2 text-left transition flex flex-col justify-between select-none ${
+              className={`p-2.5 sm:p-3 rounded border-2 text-left transition flex flex-col justify-between select-none ${
                 activeTab === 'wa_mismatch'
                   ? 'bg-amber-100 border-amber-500 ring-2 ring-amber-400 shadow-sm'
                   : waMismatchCount > 0
@@ -298,7 +298,7 @@ export function OrderAuditModal({
             {/* Card 3: Duplicitní objednávky */}
             <button
               onClick={() => setActiveTab(activeTab === 'order_dup' ? 'all' : 'order_dup')}
-              className={`p-2.5 sm:p-3 rounded-2xl border-2 text-left transition flex flex-col justify-between select-none ${
+              className={`p-2.5 sm:p-3 rounded border-2 text-left transition flex flex-col justify-between select-none ${
                 activeTab === 'order_dup'
                   ? 'bg-purple-100 border-purple-500 ring-2 ring-purple-400 shadow-sm'
                   : orderDupCount > 0
@@ -321,7 +321,7 @@ export function OrderAuditModal({
             {/* Card 4: Čekající zprávy */}
             <button
               onClick={() => setActiveTab(activeTab === 'unprocessed' ? 'all' : 'unprocessed')}
-              className={`p-2.5 sm:p-3 rounded-2xl border-2 text-left transition flex flex-col justify-between select-none ${
+              className={`p-2.5 sm:p-3 rounded border-2 text-left transition flex flex-col justify-between select-none ${
                 activeTab === 'unprocessed'
                   ? 'bg-blue-100 border-blue-500 ring-2 ring-blue-400 shadow-sm'
                   : unprocessedCount > 0
@@ -364,7 +364,7 @@ export function OrderAuditModal({
               </p>
               <button
                 onClick={onClose}
-                className="mt-6 btn-primary !bg-emerald-700 hover:!bg-emerald-800 text-xs font-black shadow-md px-8 py-2.5 rounded-xl"
+                className="mt-6 btn-primary !bg-emerald-700 hover:!bg-emerald-800 text-xs font-black shadow-md px-8 py-2.5 rounded"
               >
                 Hotovo / Zavřít kontrolu
               </button>
@@ -386,7 +386,7 @@ export function OrderAuditModal({
                   {report?.duplicateItemIssues.map((issue, idx) => (
                     <div
                       key={idx}
-                      className="p-3.5 sm:p-4 rounded-2xl bg-white border-2 border-rose-300 shadow-xs space-y-3 transition-all hover:shadow-md"
+                      className="p-3.5 sm:p-4 rounded bg-white border-2 border-rose-300 shadow-xs space-y-3 transition-all hover:shadow-md"
                     >
                       {/* Customer & Order Header */}
                       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-rose-100 pb-2">
@@ -395,7 +395,7 @@ export function OrderAuditModal({
                             {issue.placeName}
                           </span>
                           {issue.orderNumber && (
-                            <span className="text-[11px] font-bold bg-rose-50 text-rose-900 border border-rose-200 px-2 py-0.5 rounded-lg">
+                            <span className="text-[11px] font-bold bg-rose-50 text-rose-900 border border-rose-200 px-2 py-0.5 rounded">
                               Obj. #{issue.orderNumber}
                             </span>
                           )}
@@ -407,7 +407,7 @@ export function OrderAuditModal({
                         {onOpenOrder && (
                           <button
                             onClick={() => { onOpenOrder(issue.orderId); onClose(); }}
-                            className="text-xs font-bold text-neutral-700 hover:text-neutral-950 flex items-center gap-1 hover:underline bg-neutral-100 px-2.5 py-1 rounded-lg border border-neutral-200 transition"
+                            className="text-xs font-bold text-neutral-700 hover:text-neutral-950 flex items-center gap-1 hover:underline bg-neutral-100 px-2.5 py-1 rounded border border-neutral-200 transition"
                           >
                             <Eye size={13} /> Otevřít detail
                           </button>
@@ -415,7 +415,7 @@ export function OrderAuditModal({
                       </div>
 
                       {/* Duplicate Item Detail */}
-                      <div className="p-3 rounded-xl bg-rose-50/80 border border-rose-200/80 space-y-2">
+                      <div className="p-3 rounded bg-rose-50/80 border border-rose-200/80 space-y-2">
                         <div className="flex items-center justify-between flex-wrap gap-2">
                           <span className="text-xs font-black text-rose-950 flex items-center gap-1.5">
                             <span>🍺</span>
@@ -431,7 +431,7 @@ export function OrderAuditModal({
                           {issue.rows.map((r, rIdx) => (
                             <span
                               key={r.id}
-                              className="bg-white border border-rose-300 text-rose-950 px-2.5 py-1 rounded-lg text-xs font-black shadow-2xs"
+                              className="bg-white border border-rose-300 text-rose-950 px-2.5 py-1 rounded text-xs font-black shadow-2xs"
                             >
                               {rIdx + 1}. zápis: {r.quantity} ks
                             </span>
@@ -445,7 +445,7 @@ export function OrderAuditModal({
                         <button
                           disabled={actionLoading}
                           onClick={() => handleMergeRows(issue, issue.rows[0].quantity)}
-                          className="flex-1 py-2.5 px-3 rounded-xl bg-white hover:bg-rose-50 text-rose-900 border-2 border-rose-300 text-xs font-black transition flex items-center justify-center gap-1.5 shadow-2xs active:scale-[0.98]"
+                          className="flex-1 py-2.5 px-3 rounded bg-white hover:bg-rose-50 text-rose-900 border-2 border-rose-300 text-xs font-black transition flex items-center justify-center gap-1.5 shadow-2xs active:scale-[0.98]"
                         >
                           <Trash2 size={15} />
                           <span>Ponechat jen 1× ({issue.rows[0].quantity} ks — smazat duplikát)</span>
@@ -455,7 +455,7 @@ export function OrderAuditModal({
                         <button
                           disabled={actionLoading}
                           onClick={() => handleMergeRows(issue, issue.totalQuantity)}
-                          className="flex-1 py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black transition flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98]"
+                          className="flex-1 py-2.5 px-3 rounded bg-rose-600 hover:bg-rose-700 text-white text-xs font-black transition flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98]"
                         >
                           <Layers size={15} />
                           <span>Sloučit do 1 řádku (sečíst na {issue.totalQuantity} ks)</span>
@@ -482,7 +482,7 @@ export function OrderAuditModal({
                     return (
                       <div
                         key={idx}
-                        className="p-3.5 sm:p-4 rounded-2xl bg-white border-2 border-amber-300 shadow-xs space-y-3 transition-all hover:shadow-md"
+                        className="p-3.5 sm:p-4 rounded bg-white border-2 border-amber-300 shadow-xs space-y-3 transition-all hover:shadow-md"
                       >
                         {/* Header */}
                         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-100 pb-2">
@@ -491,7 +491,7 @@ export function OrderAuditModal({
                               {issue.placeName}
                             </span>
                             {issue.orderNumber && (
-                              <span className="text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200 px-2 py-0.5 rounded-lg">
+                              <span className="text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200 px-2 py-0.5 rounded">
                                 Obj. #{issue.orderNumber}
                               </span>
                             )}
@@ -503,7 +503,7 @@ export function OrderAuditModal({
                           {onOpenOrder && (
                             <button
                               onClick={() => { onOpenOrder(issue.orderId); onClose(); }}
-                              className="text-xs font-bold text-amber-900 hover:text-amber-950 flex items-center gap-1 hover:underline bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200 transition"
+                              className="text-xs font-bold text-amber-900 hover:text-amber-950 flex items-center gap-1 hover:underline bg-amber-50 px-2.5 py-1 rounded border border-amber-200 transition"
                             >
                               <Eye size={13} /> Upravit objednávku
                             </button>
@@ -511,7 +511,7 @@ export function OrderAuditModal({
                         </div>
 
                         {/* WhatsApp Message preview / accordion */}
-                        <div className="rounded-xl bg-[#EFEAE2] dark:bg-neutral-800 p-2.5 border border-neutral-300/80 space-y-1.5">
+                        <div className="rounded bg-[#EFEAE2] dark:bg-neutral-800 p-2.5 border border-neutral-300/80 space-y-1.5">
                           <div
                             onClick={() => toggleExpandMsg(issue.whatsappMessageId)}
                             className="flex items-center justify-between cursor-pointer select-none text-[11px] font-bold text-neutral-700 dark:text-neutral-300"
@@ -527,11 +527,11 @@ export function OrderAuditModal({
                           </div>
 
                           {isExpanded ? (
-                            <div className="bg-white dark:bg-neutral-900 p-2.5 rounded-lg text-xs font-mono whitespace-pre-wrap text-neutral-900 dark:text-neutral-100 border border-neutral-200 max-h-36 overflow-y-auto">
+                            <div className="bg-white dark:bg-neutral-900 p-2.5 rounded text-xs font-mono whitespace-pre-wrap text-neutral-900 dark:text-neutral-100 border border-neutral-200 max-h-36 overflow-y-auto">
                               {issue.messageText || '(prázdná zpráva / fotka)'}
                             </div>
                           ) : (
-                            <div className="text-xs text-neutral-600 dark:text-neutral-400 line-clamp-2 italic font-mono bg-white/70 dark:bg-neutral-900/70 p-1.5 rounded-lg">
+                            <div className="text-xs text-neutral-600 dark:text-neutral-400 line-clamp-2 italic font-mono bg-white/70 dark:bg-neutral-900/70 p-1.5 rounded">
                               {issue.messageText || '(zpráva obsahuje fotku/přílohu)'}
                             </div>
                           )}
@@ -546,7 +546,7 @@ export function OrderAuditModal({
                             {issue.mismatches.map((m, mIdx) => (
                               <div
                                 key={mIdx}
-                                className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-between ${
+                                className={`p-2.5 rounded border text-xs font-semibold flex items-center justify-between ${
                                   m.kind === 'qty_diff'
                                     ? 'bg-amber-50 text-amber-950 border-amber-300'
                                     : m.kind === 'missing_in_order'
@@ -597,20 +597,20 @@ export function OrderAuditModal({
                   {report?.duplicateOrderIssues.map((issue, idx) => (
                     <div
                       key={idx}
-                      className="p-3.5 sm:p-4 rounded-2xl bg-white border-2 border-purple-300 shadow-xs space-y-3"
+                      className="p-3.5 sm:p-4 rounded bg-white border-2 border-purple-300 shadow-xs space-y-3"
                     >
                       <div className="flex items-center justify-between border-b border-purple-100 pb-2">
                         <span className="font-display font-black text-sm sm:text-base text-neutral-950">
                           {issue.placeName}
                         </span>
-                        <span className="text-xs text-purple-900 font-bold bg-purple-100 px-2 py-0.5 rounded-lg">
+                        <span className="text-xs text-purple-900 font-bold bg-purple-100 px-2 py-0.5 rounded">
                           Týden od {issue.deliveryWeek}
                         </span>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                         {issue.orders.map((o) => (
-                          <div key={o.id} className="p-3 rounded-xl bg-purple-50/70 border border-purple-200 text-xs space-y-2">
+                          <div key={o.id} className="p-3 rounded bg-purple-50/70 border border-purple-200 text-xs space-y-2">
                             <div className="flex items-center justify-between">
                               <span className="font-black text-purple-950">
                                 {o.orderNumber ? `Objednávka #${o.orderNumber}` : 'Objednávka'}
@@ -630,7 +630,7 @@ export function OrderAuditModal({
                                 {onOpenOrder && (
                                   <button
                                     onClick={() => { onOpenOrder(o.id); onClose(); }}
-                                    className="p-1.5 rounded-lg bg-white hover:bg-purple-100 text-purple-900 border border-purple-200 text-xs font-bold"
+                                    className="p-1.5 rounded bg-white hover:bg-purple-100 text-purple-900 border border-purple-200 text-xs font-bold"
                                     title="Zobrazit"
                                   >
                                     <Eye size={13} />
@@ -639,7 +639,7 @@ export function OrderAuditModal({
                                 <button
                                   disabled={actionLoading}
                                   onClick={() => handleStornoOrder(o.id)}
-                                  className="px-2.5 py-1 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-800 font-black text-xs transition"
+                                  className="px-2.5 py-1 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 font-black text-xs transition"
                                   title="Stornovat duplikát"
                                 >
                                   Stornovat
@@ -668,14 +668,14 @@ export function OrderAuditModal({
                   {report?.unprocessedWhatsAppIssues.map((issue) => (
                     <div
                       key={issue.messageId}
-                      className="p-3.5 sm:p-4 rounded-2xl bg-white border-2 border-blue-300 shadow-xs space-y-3"
+                      className="p-3.5 sm:p-4 rounded bg-white border-2 border-blue-300 shadow-xs space-y-3"
                     >
                       <div className="flex items-center justify-between border-b border-blue-100 pb-2">
                         <div className="flex items-center gap-2">
                           <span className="font-display font-black text-sm text-neutral-950">
                             {issue.placeName || issue.senderName || 'Neznámý odběratel'}
                           </span>
-                          <span className="text-[11px] font-bold text-blue-900 bg-blue-100 px-2 py-0.5 rounded-lg">
+                          <span className="text-[11px] font-bold text-blue-900 bg-blue-100 px-2 py-0.5 rounded">
                             {issue.status}
                           </span>
                         </div>
@@ -684,7 +684,7 @@ export function OrderAuditModal({
                         </span>
                       </div>
 
-                      <div className="p-2.5 rounded-xl bg-blue-50/70 border border-blue-200 text-xs font-mono whitespace-pre-wrap max-h-24 overflow-y-auto">
+                      <div className="p-2.5 rounded bg-blue-50/70 border border-blue-200 text-xs font-mono whitespace-pre-wrap max-h-24 overflow-y-auto">
                         {issue.messageText || '(pouze foto / příloha)'}
                       </div>
 
@@ -703,7 +703,7 @@ export function OrderAuditModal({
                         {onProcessWhatsApp && (
                           <button
                             onClick={() => { onProcessWhatsApp(issue.messageId); onClose(); }}
-                            className="btn-primary !py-1.5 !px-4 text-xs font-black shadow-sm flex items-center gap-1"
+                            className="btn-primary !rounded !py-1.5 !px-4 text-xs font-black shadow-sm flex items-center gap-1"
                           >
                             <span>Zkontrolovat a vytvořit objednávku</span>
                             <ArrowRight size={14} />
@@ -736,7 +736,7 @@ export function OrderAuditModal({
 
           <button
             onClick={onClose}
-            className="btn-primary text-xs font-black py-2 px-5 rounded-xl shadow-sm"
+            className="btn-primary !rounded text-xs font-black py-2 px-5 rounded shadow-sm"
           >
             Zavřít
           </button>

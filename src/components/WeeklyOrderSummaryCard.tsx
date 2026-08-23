@@ -100,22 +100,22 @@ export function WeeklyOrderSummaryCard({
   const yearNum = weekKey.split('-')[0];
 
   return (
-    <div className="card p-5 mb-6 shadow-md border-amber-200/90 bg-gradient-to-br from-amber-500/10 via-amber-100/30 to-white text-neutral-900 rounded-3xl">
+    <div className="card p-5 mb-6 shadow-md border-amber-200/90 bg-gradient-to-br from-amber-500/10 via-amber-100/30 to-white text-neutral-900 rounded">
       {/* Top Header Controls */}
       <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-amber-200/80">
         <div>
           <h3 className="font-display font-black text-xl text-amber-950 flex items-center gap-2.5">
-            <span className="p-2 rounded-2xl bg-amber-500 text-white shadow-md text-lg">🍺</span>
+            <span className="p-2 rounded bg-amber-500 text-white shadow-md text-lg">🍺</span>
             <span>{title}</span>
           </h3>
           <p className="text-xs text-amber-900/80 mt-1 font-bold">{subtitle}</p>
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center bg-white border border-amber-300/80 rounded-2xl p-1 shadow-xs">
+          <div className="flex items-center bg-white border border-amber-300/80 rounded p-1 shadow-xs">
             <button
               onClick={() => onWeekChange(shiftWeek(weekKey, -1))}
-              className="p-1.5 hover:bg-amber-100 rounded-xl text-amber-900 transition"
+              className="p-1.5 hover:bg-amber-100 rounded text-amber-900 transition"
               title="Předchozí týden"
             >
               <ChevronLeft size={18} />
@@ -129,7 +129,7 @@ export function WeeklyOrderSummaryCard({
             </div>
             <button
               onClick={() => onWeekChange(shiftWeek(weekKey, 1))}
-              className="p-1.5 hover:bg-amber-100 rounded-xl text-amber-900 transition"
+              className="p-1.5 hover:bg-amber-100 rounded text-amber-900 transition"
               title="Následující týden"
             >
               <ChevronRight size={18} />
@@ -138,7 +138,7 @@ export function WeeklyOrderSummaryCard({
 
           <button
             onClick={() => onWeekChange(isoWeekKey(new Date().toISOString().slice(0,10)))}
-            className="px-3.5 py-2 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-black text-xs transition shadow-md shadow-amber-500/20"
+            className="px-3.5 py-2 rounded bg-amber-500 hover:bg-amber-600 text-white font-black text-xs transition shadow-md shadow-amber-500/20"
             > 
             Aktuální týden
           </button>
@@ -149,33 +149,33 @@ export function WeeklyOrderSummaryCard({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 my-4">
         <button
           onClick={() => onSummaryFilterClick?.('all')}
-          className={`p-4 rounded-2xl bg-white border border-amber-200/80 shadow-xs flex items-center justify-between text-left transition-all ${onSummaryFilterClick ? 'hover:scale-105 hover:ring-2 hover:ring-amber-400' : ''}`}
+          className={`p-4 rounded bg-white border border-amber-200/80 shadow-xs flex items-center justify-between text-left transition-all ${onSummaryFilterClick ? 'hover:scale-105 hover:ring-2 hover:ring-amber-400' : ''}`}
         >
           <div>
             <div className="text-xs font-black uppercase tracking-wider text-neutral-500">Objednáno celkem</div>
             <div className="text-2xl font-display font-extrabold text-neutral-900 mt-0.5">{totalOrdered} <span className="text-xs text-neutral-500 font-normal">ks</span></div>
           </div>
-          <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center text-lg font-bold">
+          <div className="w-10 h-10 rounded bg-amber-100 text-amber-800 flex items-center justify-center text-lg font-bold">
             📦
           </div>
         </button>
 
         <button
           onClick={() => onSummaryFilterClick?.('remaining')}
-          className={`p-4 rounded-2xl bg-rose-50 border border-rose-200 shadow-xs flex items-center justify-between text-left transition-all ${onSummaryFilterClick ? 'hover:scale-105 hover:ring-2 hover:ring-rose-400' : ''}`}
+          className={`p-4 rounded bg-rose-50 border border-rose-200 shadow-xs flex items-center justify-between text-left transition-all ${onSummaryFilterClick ? 'hover:scale-105 hover:ring-2 hover:ring-rose-400' : ''}`}
         >
           <div>
             <div className="text-xs font-black uppercase tracking-wider text-rose-700">Zbývá stočit / připravit</div>
             <div className="text-2xl font-display font-extrabold text-rose-900 mt-0.5">{totalRemaining} <span className="text-xs text-rose-700 font-normal">ks</span></div>
           </div>
-          <div className="w-10 h-10 rounded-2xl bg-rose-200 text-rose-900 flex items-center justify-center text-lg font-bold">
+          <div className="w-10 h-10 rounded bg-rose-200 text-rose-900 flex items-center justify-center text-lg font-bold">
             ⏳
           </div>
         </button>
 
         <button
           onClick={() => onSummaryFilterClick?.('done')}
-          className={`p-4 rounded-2xl bg-emerald-50 border border-emerald-200 shadow-xs flex items-center justify-between text-left transition-all ${onSummaryFilterClick ? 'hover:scale-105 hover:ring-2 hover:ring-emerald-400' : ''}`}
+          className={`p-4 rounded bg-emerald-50 border border-emerald-200 shadow-xs flex items-center justify-between text-left transition-all ${onSummaryFilterClick ? 'hover:scale-105 hover:ring-2 hover:ring-emerald-400' : ''}`}
         >
           <div>
             <div className="text-xs font-black uppercase tracking-wider text-emerald-700">Dokončeno stočení</div>
@@ -183,7 +183,7 @@ export function WeeklyOrderSummaryCard({
               {totalOrdered > 0 ? Math.round(((totalOrdered - totalRemaining) / totalOrdered) * 100) : 100}%
             </div>
           </div>
-          <div className="w-10 h-10 rounded-2xl bg-emerald-200 text-emerald-900 flex items-center justify-center text-lg font-bold">
+          <div className="w-10 h-10 rounded bg-emerald-200 text-emerald-900 flex items-center justify-center text-lg font-bold">
             ✅
           </div>
         </button>
@@ -191,9 +191,9 @@ export function WeeklyOrderSummaryCard({
 
       {/* Remaining Sizes Highlight Bar */}
       {remainingBySize.length > 0 ? (
-        <div className="p-4 rounded-2xl bg-rose-50 border-2 border-rose-200 my-3 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+        <div className="p-4 rounded bg-rose-50 border-2 border-rose-200 my-3 flex flex-wrap items-center justify-between gap-3 shadow-sm">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+            <div className="w-8 h-8 rounded bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-xs">
               <AlertCircle size={18} />
             </div>
             <div>
@@ -207,7 +207,7 @@ export function WeeklyOrderSummaryCard({
               <button
                 key={s.volume}
                 onClick={() => setSelectedVolume(selectedVolume === s.volume ? 'all' : s.volume)}
-                className={`px-3.5 py-1.5 rounded-xl font-extrabold text-xs transition-all shadow-xs flex items-center gap-1.5 ${
+                className={`px-3.5 py-1.5 rounded font-extrabold text-xs transition-all shadow-xs flex items-center gap-1.5 ${
                   selectedVolume === s.volume
                     ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-400 scale-105 font-black'
                     : 'bg-rose-600 hover:bg-rose-700 text-white'
@@ -220,7 +220,7 @@ export function WeeklyOrderSummaryCard({
           </div>
         </div>
       ) : (
-        <div className="p-3 rounded-2xl bg-emerald-100 border border-emerald-300 my-3 text-center text-emerald-900 text-xs font-extrabold flex items-center justify-center gap-2">
+        <div className="p-3 rounded bg-emerald-100 border border-emerald-300 my-3 text-center text-emerald-900 text-xs font-extrabold flex items-center justify-center gap-2">
           <CheckCircle2 size={16} />
           <span>Všechna piva pro tento týden jsou 100% stočena a připravena!</span>
         </div>
@@ -231,10 +231,10 @@ export function WeeklyOrderSummaryCard({
         <div className="flex flex-wrap items-center gap-1.5">
           <button
             onClick={() => { setFilterMode('all'); setSelectedVolume('all'); }}
-            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition ${
+            className={`px-3 py-1.5 rounded text-xs font-extrabold transition ${
               filterMode === 'all' && selectedVolume === 'all'
-                ? 'bg-white text-amber-900 shadow-sm ring-2 ring-amber-300'
-                : 'bg-white hover:bg-amber-50 text-neutral-700 border border-neutral-200'
+                ? 'bg-white text-neutral-900 shadow-sm'
+                : 'bg-neutral-900 text-white hover:bg-neutral-800'
             }`}
           >
             Vše položky ({items.length})
@@ -242,10 +242,10 @@ export function WeeklyOrderSummaryCard({
 
           <button
             onClick={() => setFilterMode('remaining')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition ${
+            className={`px-3 py-1.5 rounded text-xs font-extrabold transition ${
               filterMode === 'remaining' && selectedVolume === 'all'
-                ? 'bg-white text-rose-700 shadow-sm ring-2 ring-rose-300'
-                : 'bg-white hover:bg-rose-50 text-neutral-700 border border-neutral-200'
+                ? 'bg-white text-neutral-900 shadow-sm'
+                : 'bg-neutral-900 text-white hover:bg-neutral-800'
             }`}
           >
             Jen zbývající ({items.filter((i) => i.remaining > 0).length})
@@ -259,10 +259,10 @@ export function WeeklyOrderSummaryCard({
             <button
               key={vol}
               onClick={() => setSelectedVolume(selectedVolume === vol ? 'all' : vol)}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
+              className={`px-3 py-1 rounded text-xs font-bold transition ${
                 selectedVolume === vol
-                  ? 'bg-white text-amber-900 font-black shadow-xs ring-2 ring-amber-300'
-                  : 'bg-white hover:bg-neutral-100 text-neutral-700 border border-neutral-200'
+                  ? 'bg-white text-neutral-900 font-black shadow-xs'
+                  : 'bg-neutral-900 text-white hover:bg-neutral-800'
               }`}
             >
               Velikost {vol} L
@@ -270,17 +270,17 @@ export function WeeklyOrderSummaryCard({
           ))}
         </div>
 
-        <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-neutral-200 shadow-xs">
+        <div className="flex items-center gap-1 bg-white p-1 rounded border border-neutral-200 shadow-xs">
           <button
             onClick={() => setViewMode('grid')}
-            className={`p-1.5 rounded-lg text-xs font-bold transition ${viewMode === 'grid' ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'text-neutral-600 hover:text-neutral-900'}`}
+            className={`p-1.5 rounded text-xs font-bold transition ${viewMode === 'grid' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'}`}
             title="Karty / Mřížka"
           >
             <LayoutGrid size={15} />
           </button>
           <button
             onClick={() => setViewMode('table')}
-            className={`p-1.5 rounded-lg text-xs font-bold transition ${viewMode === 'table' ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'text-neutral-400 hover:text-neutral-700'}`}
+            className={`p-1.5 rounded text-xs font-bold transition ${viewMode === 'table' ? 'bg-white text-neutral-900 shadow-xs' : 'text-neutral-400 hover:text-neutral-700'}`}
             title="Tabulka"
           >
             <ListFilter size={15} />
@@ -290,7 +290,7 @@ export function WeeklyOrderSummaryCard({
 
       {/* Table View */}
       {displayedItems.length > 0 ? (
-        <div className="overflow-hidden rounded-2xl border border-neutral-200 shadow-md">
+        <div className="overflow-hidden rounded border border-neutral-200 shadow-md">
           <div className="overflow-x-auto">
             <table className="w-full text-xs table-fixed">
                 <thead>
@@ -324,7 +324,7 @@ export function WeeklyOrderSummaryCard({
                           </div>
                         </td>
                         <td className="py-3.5 px-4 text-center">
-                          <span className="px-3 py-1 rounded-lg bg-neutral-900 text-amber-300 font-mono font-black text-xs shadow-xs">
+                          <span className="px-3 py-1 rounded bg-neutral-900 text-amber-300 font-mono font-black text-xs shadow-xs">
                             {formatPackageLabel(r.packageLabel) || `${r.volume} L`}
                           </span>
                         </td>
@@ -352,7 +352,7 @@ export function WeeklyOrderSummaryCard({
             </div>
           </div>
         ) : (
-        <div className="py-10 text-center bg-white/5 rounded-2xl border border-white/10 text-neutral-400 text-sm font-medium">
+        <div className="py-10 text-center bg-white/5 rounded border border-white/10 text-neutral-400 text-sm font-medium">
           Žádné položky neodpovídají zvolenému filtru.
         </div>
       )}

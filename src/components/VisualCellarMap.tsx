@@ -31,13 +31,13 @@ export function VisualCellarMap({ tanks, beers, onSelectTank }: VisualCellarMapP
   return (
     <div className="space-y-6">
       {/* Horní filtr a legenda */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-3xl border border-neutral-200 shadow-2xs">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded border border-neutral-200 shadow-2xs">
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setFilter('all')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition ${
-              filter === 'all' ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'bg-neutral-100 text-neutral-700 hover:bg-amber-50'
+            className={`px-3.5 py-1.5 rounded text-xs font-black transition ${
+              filter === 'all' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-100 text-neutral-700 hover:bg-amber-50'
             }`}
           >
             Všechny tanky ({tanks.length})
@@ -45,8 +45,8 @@ export function VisualCellarMap({ tanks, beers, onSelectTank }: VisualCellarMapP
           <button
             type="button"
             onClick={() => setFilter('spilka')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition ${
-              filter === 'spilka' ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'bg-neutral-100 text-neutral-700 hover:bg-amber-50'
+            className={`px-3.5 py-1.5 rounded text-xs font-black transition ${
+              filter === 'spilka' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-100 text-neutral-700 hover:bg-amber-50'
             }`}
           >
             🏭 Spilka (CKT)
@@ -54,8 +54,8 @@ export function VisualCellarMap({ tanks, beers, onSelectTank }: VisualCellarMapP
           <button
             type="button"
             onClick={() => setFilter('lezak')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition ${
-              filter === 'lezak' ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'bg-neutral-100 text-neutral-700 hover:bg-amber-50'
+            className={`px-3.5 py-1.5 rounded text-xs font-black transition ${
+              filter === 'lezak' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-100 text-neutral-700 hover:bg-amber-50'
             }`}
           >
             🍺 Ležácké tanky
@@ -91,7 +91,7 @@ export function VisualCellarMap({ tanks, beers, onSelectTank }: VisualCellarMapP
             <div
               key={t.id}
               onClick={() => onSelectTank?.(t)}
-              className="bg-white rounded-3xl border-2 border-neutral-200/90 shadow-sm hover:shadow-md transition-all p-4 flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:border-amber-400"
+              className="bg-white rounded border-2 border-neutral-200/90 shadow-sm hover:shadow-md transition-all p-4 flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:border-amber-400"
             >
               {/* Hlavička tanku */}
               <div className="flex items-start justify-between gap-2 mb-3 z-10">
@@ -118,7 +118,7 @@ export function VisualCellarMap({ tanks, beers, onSelectTank }: VisualCellarMapP
 
               {/* Vizuální tělo tanku (Cylindrický grafický tank) */}
               <div className="relative my-2 py-1">
-                <div className="relative w-full h-36 rounded-2xl bg-neutral-100 border-2 border-neutral-300 overflow-hidden shadow-inner flex flex-col justify-end">
+                <div className="relative w-full h-36 rounded bg-neutral-100 border-2 border-neutral-300 overflow-hidden shadow-inner flex flex-col justify-end">
                   {/* Hladina piva */}
                   {!isEmpty && (
                     <div
@@ -131,7 +131,7 @@ export function VisualCellarMap({ tanks, beers, onSelectTank }: VisualCellarMapP
                     >
                       <div className="absolute top-1 inset-x-0 h-1.5 bg-white/30 rounded-full animate-pulse"></div>
                       <span
-                        className="font-black text-xs px-2 py-0.5 rounded-lg shadow-2xs z-10 border border-black/10"
+                        className="font-black text-xs px-2 py-0.5 rounded shadow-2xs z-10 border border-black/10"
                         style={{ backgroundColor: 'rgba(0,0,0,0.25)', color: '#ffffff' }}
                       >
                         {(currentVol / 100).toFixed(1)} hl ({fillPct.toFixed(0)}%)
@@ -165,7 +165,7 @@ export function VisualCellarMap({ tanks, beers, onSelectTank }: VisualCellarMapP
                 )}
 
                 {daysConditioning !== null && daysConditioning >= 0 && !isEmpty && (
-                  <div className="flex items-center justify-between text-[11px] font-bold text-neutral-600 bg-amber-50/80 px-2 py-1 rounded-lg">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-neutral-600 bg-amber-50/80 px-2 py-1 rounded">
                     <span className="flex items-center gap-1"><Clock size={12} className="text-amber-700" /> Doba ležení:</span>
                     <strong className="text-amber-950 font-black">{daysConditioning} dní</strong>
                   </div>

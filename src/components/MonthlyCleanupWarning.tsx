@@ -20,11 +20,11 @@ export function MonthlyCleanupWarning({ onOpenMonthlyChecklist, onOpenKegMonthly
 
   return (
     <div className="fixed inset-0 bg-neutral-950/85 backdrop-blur-md flex items-center justify-center p-4 z-[9999] animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 space-y-6 shadow-2xl border-4 border-rose-500 relative overflow-hidden">
+      <div className="bg-white rounded max-w-lg w-full p-6 sm:p-8 space-y-6 shadow-2xl border-4 border-rose-500 relative overflow-hidden">
         <div className="h-3 w-full absolute top-0 left-0 right-0 bg-rose-600" />
 
         <div className="flex items-start gap-4 pt-2">
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-lg bg-rose-600">
+          <div className="w-14 h-14 rounded flex items-center justify-center text-white shrink-0 shadow-lg bg-rose-600">
             <CalendarX2 size={32} />
           </div>
           <div>
@@ -39,7 +39,7 @@ export function MonthlyCleanupWarning({ onOpenMonthlyChecklist, onOpenKegMonthly
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-rose-50/90 border border-rose-300 text-neutral-900 font-medium text-sm leading-relaxed space-y-2">
+        <div className="p-5 rounded bg-rose-50/90 border border-rose-300 text-neutral-900 font-medium text-sm leading-relaxed space-y-2">
           <p className="font-bold text-neutral-900">
             Je poslední týden v měsíci — v rámci stáčení (lahví i KEGů) je nutné provést <b>měsíční údržbu</b>{' '}
             stáčeček, naražečů, rychlospojek a pivních cest (sekce „4. Měsíční údržba" v checklistu).
@@ -54,7 +54,7 @@ export function MonthlyCleanupWarning({ onOpenMonthlyChecklist, onOpenKegMonthly
           <button
             type="button"
             onClick={() => setOpen(false)}
-            className="w-full py-3.5 px-6 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-black text-base transition shadow-xl hover:shadow-rose-500/20 active:scale-[0.98] flex items-center justify-center gap-3 ring-4 ring-rose-300"
+            className="w-full py-3.5 px-6 rounded bg-rose-600 hover:bg-rose-500 text-white font-black text-base transition shadow-xl hover:shadow-rose-500/20 active:scale-[0.98] flex items-center justify-center gap-3 ring-4 ring-rose-300"
           >
             <CheckCircle2 size={22} />
             <span>OK vím o tom</span>
@@ -66,7 +66,7 @@ export function MonthlyCleanupWarning({ onOpenMonthlyChecklist, onOpenKegMonthly
                 setOpen(false);
                 onOpenMonthlyChecklist();
               }}
-              className="w-full py-3 px-6 rounded-2xl bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-bold text-sm transition flex items-center justify-center gap-2"
+              className="w-full py-3 px-6 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-bold text-sm transition flex items-center justify-center gap-2"
             >
               <ClipboardList size={18} />
               <span>Otevřít stáčení lahví (měsíční checklist)</span>
@@ -79,7 +79,7 @@ export function MonthlyCleanupWarning({ onOpenMonthlyChecklist, onOpenKegMonthly
                 setOpen(false);
                 onOpenKegMonthlyChecklist();
               }}
-              className="w-full py-3 px-6 rounded-2xl bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-bold text-sm transition flex items-center justify-center gap-2"
+              className="w-full py-3 px-6 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-bold text-sm transition flex items-center justify-center gap-2"
             >
               <ClipboardList size={18} />
               <span>Otevřít stáčení KEGů (měsíční checklist)</span>

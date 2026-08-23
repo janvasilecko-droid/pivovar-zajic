@@ -482,7 +482,7 @@ export function BottlingPlanPlanner({
                       type="button"
                       onClick={() => quickAdd(r, isKeg)}
                       title={r.missing > 0 ? 'Vytvořit úkol na pokrytí chybějícího množství' : 'Vytvořit úkol (pokrytí objednávek)'}
-                      className="px-2 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 text-[11px] font-black transition"
+                      className="px-2 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-900 text-[11px] font-black transition"
                     >
                       + Úkol
                     </button>
@@ -519,10 +519,10 @@ export function BottlingPlanPlanner({
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            <button type="button" onClick={() => setWeekKey(shiftWeek(weekKey, -1))} className="w-7 h-7 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-sm transition">‹</button>
+            <button type="button" onClick={() => setWeekKey(shiftWeek(weekKey, -1))} className="w-7 h-7 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-sm transition">‹</button>
             <span className="text-xs font-black text-amber-950 px-2 whitespace-nowrap">{weekLabel}</span>
-            <button type="button" onClick={() => setWeekKey(shiftWeek(weekKey, 1))} className="w-7 h-7 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-sm transition">›</button>
-            <button type="button" onClick={() => setWeekKey(isoWeekKey(new Date().toISOString().slice(0, 10)))} className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-black transition">Tento týden</button>
+            <button type="button" onClick={() => setWeekKey(shiftWeek(weekKey, 1))} className="w-7 h-7 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-sm transition">›</button>
+            <button type="button" onClick={() => setWeekKey(isoWeekKey(new Date().toISOString().slice(0, 10)))} className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-black transition">Tento týden</button>
           </div>
         </div>
       </div>
@@ -598,7 +598,7 @@ export function BottlingPlanPlanner({
         </div>
         {err && <p className="text-[11px] font-black text-rose-700 mt-2">{err}</p>}
         <div className="flex items-center justify-end gap-2 mt-3">
-          <button type="submit" disabled={saving} className="btn-primary px-5 py-2.5 text-xs font-black shadow-md">
+          <button type="submit" disabled={saving} className="btn-primary !rounded px-5 py-2.5 text-xs font-black shadow-md">
             {saving ? 'Ukládám…' : editingId ? '💾 Uložit změny' : '➕ Přidat úkol'}
           </button>
         </div>
@@ -629,18 +629,18 @@ export function BottlingPlanPlanner({
             const beer = beers.find((b) => b.id === plan.beer_id);
             const lines = planLines(plan, packages);
             return (
-              <div key={plan.id} className="rounded-2xl border border-neutral-200 bg-white p-3 flex flex-col sm:flex-row sm:items-center gap-2">
+              <div key={plan.id} className="rounded border border-neutral-200 bg-white p-3 flex flex-col sm:flex-row sm:items-center gap-2">
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   <span className="w-2 h-8 rounded-full shrink-0" style={{ backgroundColor: beer ? beerBg(beer) : '#a8a29e' }} />
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-black text-neutral-950">{beer?.name || '—'}</span>
-                      <span className="text-[10px] font-bold text-neutral-500 bg-neutral-100 rounded-lg px-2 py-0.5 whitespace-nowrap">📅 {plan.planned_date}</span>
-                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg border ${STATUS_CHIP[plan.status] || ''}`}>{STATUS_TEXT[plan.status] || plan.status}</span>
+                      <span className="text-[10px] font-bold text-neutral-500 bg-neutral-100 rounded px-2 py-0.5 whitespace-nowrap">📅 {plan.planned_date}</span>
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded border ${STATUS_CHIP[plan.status] || ''}`}>{STATUS_TEXT[plan.status] || plan.status}</span>
                     </div>
                     <div className="flex items-center gap-1.5 flex-wrap mt-1">
                       {lines.map((l, i) => (
-                        <span key={i} className="text-[10px] font-bold bg-neutral-50 border border-neutral-200 rounded-lg px-1.5 py-0.5 text-neutral-700 whitespace-nowrap">
+                        <span key={i} className="text-[10px] font-bold bg-neutral-50 border border-neutral-200 rounded px-1.5 py-0.5 text-neutral-700 whitespace-nowrap">
                           {l.label} × {l.qty}
                         </span>
                       ))}
@@ -649,20 +649,20 @@ export function BottlingPlanPlanner({
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <button type="button" onClick={() => startEdit(plan)} className="px-2.5 py-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[11px] font-black transition">
+                  <button type="button" onClick={() => startEdit(plan)} className="px-2.5 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[11px] font-black transition">
                     ✏️ Upravit
                   </button>
                   {plan.status === 'planned' && (
-                    <button type="button" onClick={() => handleStatus(plan, 'done')} className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black transition">
+                    <button type="button" onClick={() => handleStatus(plan, 'done')} className="px-2.5 py-1.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black transition">
                       ✓ Hotovo
                     </button>
                   )}
                   {plan.status !== 'planned' && (
-                    <button type="button" onClick={() => handleStatus(plan, 'planned')} className="px-2.5 py-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[11px] font-black transition">
+                    <button type="button" onClick={() => handleStatus(plan, 'planned')} className="px-2.5 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[11px] font-black transition">
                       ↩️ Zpět
                     </button>
                   )}
-                  <button type="button" onClick={() => handleDelete(plan)} className="px-2.5 py-1.5 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-800 text-[11px] font-black transition">
+                  <button type="button" onClick={() => handleDelete(plan)} className="px-2.5 py-1.5 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 text-[11px] font-black transition">
                     🗑
                   </button>
                 </div>

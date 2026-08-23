@@ -21,10 +21,10 @@ export function MandatoryReminderModal({ reminder, currentUserEmail, onDismiss }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-950/80 backdrop-blur-md animate-fadeIn">
-      <div className="card w-full max-w-lg p-6 sm:p-8 bg-white border-2 border-amber-500 rounded-3xl shadow-2xl space-y-5 animate-scaleUp">
+      <div className="card w-full max-w-lg p-6 sm:p-8 bg-white border-2 border-amber-500 rounded shadow-2xl space-y-5 animate-scaleUp">
         {/* Header Icon */}
         <div className="flex items-center gap-3 border-b border-amber-200 pb-4">
-          <div className="w-12 h-12 rounded-2xl bg-amber-500 text-neutral-950 flex items-center justify-center font-black text-xl shadow-md shrink-0">
+          <div className="w-12 h-12 rounded bg-amber-500 text-neutral-950 flex items-center justify-center font-black text-xl shadow-md shrink-0">
             🔔
           </div>
           <div>
@@ -38,7 +38,7 @@ export function MandatoryReminderModal({ reminder, currentUserEmail, onDismiss }
         </div>
 
         {/* Content Details */}
-        <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 space-y-3">
+        <div className="bg-amber-50/70 border border-amber-200 rounded p-4 space-y-3">
           {reminder.note && (
             <p className="text-sm font-bold text-neutral-800 whitespace-pre-wrap leading-relaxed">
               {reminder.note}
@@ -57,7 +57,7 @@ export function MandatoryReminderModal({ reminder, currentUserEmail, onDismiss }
           </div>
         </div>
 
-        <div className="p-3 bg-neutral-100 rounded-2xl text-xs font-semibold text-neutral-600 text-center">
+        <div className="p-3 bg-neutral-100 rounded text-xs font-semibold text-neutral-600 text-center">
           Tato upomínka vyžaduje vaše potvrzení. Kliknutím na tlačítko níže potvrdíte, že jste zprávu zaznamenali.
         </div>
 
@@ -65,7 +65,7 @@ export function MandatoryReminderModal({ reminder, currentUserEmail, onDismiss }
         <div>
           <button
             onClick={handleConfirm}
-            className="w-full py-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-sm transition shadow-lg flex items-center justify-center gap-2 active:scale-98 cursor-pointer"
+            className="w-full py-4 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-sm transition shadow-lg flex items-center justify-center gap-2 active:scale-98 cursor-pointer"
           >
             <CheckCircle2 size={20} />
             <span>Rozumím, beru na vědomí (Odkliknout)</span>

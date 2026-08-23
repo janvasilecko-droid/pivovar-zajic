@@ -283,7 +283,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       <div className="text-xs font-medium text-neutral-500 mb-1 flex items-center gap-1">
         <MessageSquare size={12} /> Originál zprávy
       </div>
-      <div className="border rounded-lg p-3 bg-white font-mono text-sm whitespace-pre-wrap max-h-80 overflow-y-auto">
+      <div className="border rounded p-3 bg-white font-mono text-sm whitespace-pre-wrap max-h-80 overflow-y-auto">
         {message.message_text ? (
           originalSegments.map((seg, si) =>
             seg.highlighted ? (
@@ -514,7 +514,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   const body = (
       <div className="space-y-6">
         {/* Informace o zprávě */}
-        <div className="border rounded-xl p-4 bg-blue-50">
+        <div className="border rounded p-4 bg-blue-50">
           <div className="flex items-center gap-2 mb-2">
             {isImage ? (
               <ImageIcon size={18} className="text-blue-600" />
@@ -569,7 +569,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                   <button
                     onClick={handleReparse}
                     disabled={reparsing || loading}
-                    className="mt-1.5 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="mt-1.5 flex items-center gap-1.5 px-2.5 py-1 rounded bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Ručně spustit AI parsování této zprávy"
                   >
                     {reparsing ? <RefreshCw size={13} className="animate-spin" /> : <RefreshCw size={13} />}
@@ -590,7 +590,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           {message.media_url ? (
             <div className="mt-3">
               {!useFullscreenPhotoLayout && (
-                <div className="h-[45vh] sm:h-96 rounded-lg overflow-hidden border border-blue-200 shadow-lg">
+                <div className="h-[45vh] sm:h-96 rounded overflow-hidden border border-blue-200 shadow-lg">
                   <PhotoReviewPane
                     photos={[{ dataUrl: message.media_url, name: 'Fotka objednávky' }]}
                     activeIndex={0}
@@ -603,14 +603,14 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                   href={message.media_url}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold"
                 >
                   <ExternalLink size={14} /> Otevřít fotografii
                 </a>
                 <a
                   href={message.media_url}
                   download
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-neutral-200 hover:bg-neutral-300 text-neutral-700 text-xs font-semibold"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 text-xs font-semibold"
                   title="Stáhnout fotografii na počítač"
                 >
                   <Download size={14} /> Stáhnout fotografii
@@ -625,7 +625,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         </div>
 
         {/* Kontrola čtení: originál vs. přepis AI */}
-        <div className="border rounded-xl p-4 bg-neutral-50">
+        <div className="border rounded p-4 bg-neutral-50">
           <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
             <div className="text-sm font-medium flex items-center gap-2">
               <Eye size={16} className="text-blue-600" />
@@ -683,7 +683,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               <div className="text-xs font-medium text-neutral-500 mb-1 flex items-center gap-1">
                 <FileText size={12} /> Přepis AI (diff proti originálu)
               </div>
-              <div className="border rounded-lg p-3 bg-white font-mono text-sm whitespace-pre-wrap max-h-80 overflow-y-auto">
+              <div className="border rounded p-3 bg-white font-mono text-sm whitespace-pre-wrap max-h-80 overflow-y-auto">
                 {transcriptSegments.length > 0 ? (
                   transcriptSegments.map((seg, si) => {
                     if (seg.op === 'same') return <span key={si}>{seg.text} </span>;
@@ -724,7 +724,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                 <RefreshCw size={13} /> Srovnání s předchozím čtením AI
                 <ChevronDown size={13} className="transition-transform group-open:rotate-180" />
               </summary>
-              <div className="mt-2 border rounded-lg p-3 bg-white font-mono text-xs max-h-48 overflow-y-auto">
+              <div className="mt-2 border rounded p-3 bg-white font-mono text-xs max-h-48 overflow-y-auto">
                 {diffWords(prevRawText, message.parsed_raw_text).map((seg, si) => {
                   if (seg.op === 'same') return <span key={si}>{seg.text} </span>;
                   if (seg.op === 'added') return <span key={si} className="bg-red-100 text-red-700 rounded px-0.5">{seg.text}</span>;
@@ -744,7 +744,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               <button
                 onClick={handleReparse}
                 disabled={reparsing || loading}
-                className="ml-auto px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 text-xs font-medium hover:bg-blue-100 disabled:opacity-50 flex items-center gap-1.5"
+                className="ml-auto px-2.5 py-1 rounded bg-blue-50 text-blue-700 text-xs font-medium hover:bg-blue-100 disabled:opacity-50 flex items-center gap-1.5"
                 title="Znovu spustit AI čtení zprávy — nový přepis nahradí ten stávající (a porovná se s ním)"
               >
                 {reparsing ? <RefreshCw size={13} className="animate-spin" /> : <RefreshCw size={13} />}
@@ -752,7 +752,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               </button>
             </div>
 
-            <div className="border rounded-lg p-4 bg-green-50 space-y-3">
+            <div className="border rounded p-4 bg-green-50 space-y-3">
               <div>
                 <div className="text-sm text-neutral-600 mb-1 flex items-center gap-1">
                   Odběratel
@@ -909,14 +909,14 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
 
         {/* Informace o stavu */}
         {statusMessage && (
-          <div className={`p-3 rounded-lg ${statusMessage.includes('Chyba') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+          <div className={`p-3 rounded ${statusMessage.includes('Chyba') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
             {statusMessage}
           </div>
         )}
 
         {/* Akce */}
         {isImported ? (
-          <div className="p-3 rounded-lg bg-green-50 border border-green-200 text-sm text-green-800">
+          <div className="p-3 rounded bg-green-50 border border-green-200 text-sm text-green-800">
             ✅ Zpráva už byla importována do objednávky — prohlížíte archiv originálu a kontrolu čtení.
             {message.readback_checked_at && (
               <span className="block text-xs text-green-700 mt-1">
@@ -931,7 +931,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               <button
                 type="button"
                 onClick={() => setPhotoChecked((v) => !v)}
-                className={`self-start flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-semibold border transition ${
+                className={`self-start flex items-center gap-2 px-3.5 py-2 rounded text-sm font-semibold border transition ${
                   photoChecked
                     ? 'bg-green-50 border-green-300 text-green-800'
                     : 'bg-amber-50 border-amber-300 text-amber-800 animate-pulse'
@@ -946,7 +946,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               <button
                 onClick={handleIgnore}
                 disabled={loading}
-                className="px-4 py-2 border border-neutral-300 rounded-lg text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+                className="px-4 py-2 border border-neutral-300 rounded text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
               >
                 Ignorovat zprávu
               </button>
@@ -954,7 +954,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               <button
                 onClick={handleReject}
                 disabled={rejecting || loading}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
+                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
               >
                 {rejecting ? <ButtonSpinner /> : <X size={16} />}
                 Zamítnout objednávku
@@ -964,7 +964,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             <button
               onClick={handleApprove}
               disabled={approving || loading || !isParsed || items.length === 0 || (isImage ? (!!message.media_url && !photoChecked) : (strictReadback && readback.mismatchCount > 0))}
-              className="px-6 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2 font-medium"
+              className="px-6 py-2.5 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 flex items-center gap-2 font-medium"
               title={
                 isImage && !!message.media_url && !photoChecked
                   ? 'Nejprve potvrďte, že jste fotku zkontroloval/a (tlačítko výše).'
@@ -991,7 +991,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         )}
 
         {/* Informace pro uživatele */}
-        <div className="text-sm text-neutral-500 bg-amber-50 p-3 rounded-lg border border-amber-200">
+        <div className="text-sm text-neutral-500 bg-amber-50 p-3 rounded border border-amber-200">
           <div className="font-medium text-amber-800 mb-1">Jak to funguje?</div>
           <ol className="list-decimal pl-5 space-y-1">
             <li>Zkontrolujte originální zprávu/fotku (vlevo) a porovnejte s přepisem AI (vpravo)</li>
@@ -1016,7 +1016,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           <h3 className="font-display font-bold text-base text-neutral-900 tracking-tight">🛒 Kontrola WhatsApp objednávky</h3>
           <button
             onClick={props.onClose}
-            className="w-8 h-8 grid place-items-center rounded-xl text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition"
+            className="w-8 h-8 grid place-items-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition"
           >
             ✕
           </button>
@@ -1045,7 +1045,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           <h3 className="font-display font-bold text-base text-neutral-900 tracking-tight">🛒 Kontrola WhatsApp objednávky</h3>
           <button
             onClick={props.onClose}
-            className="w-8 h-8 grid place-items-center rounded-xl text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition"
+            className="w-8 h-8 grid place-items-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition"
           >
             ✕
           </button>

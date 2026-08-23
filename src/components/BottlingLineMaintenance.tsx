@@ -115,10 +115,10 @@ export function BottlingLineMaintenance() {
 
   return (
     <div className="space-y-6">
-      <div className="card p-6 bg-gradient-to-r from-neutral-900 via-neutral-950 to-neutral-900 text-white rounded-3xl space-y-4 shadow-xl border border-neutral-800">
+      <div className="card p-6 bg-gradient-to-r from-neutral-900 via-neutral-950 to-neutral-900 text-white rounded space-y-4 shadow-xl border border-neutral-800">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-amber-500 text-neutral-950 flex items-center justify-center font-black text-2xl shadow-lg">
+            <div className="w-12 h-12 rounded bg-amber-500 text-neutral-950 flex items-center justify-center font-black text-2xl shadow-lg">
               🛠️
             </div>
             <div>
@@ -133,7 +133,7 @@ export function BottlingLineMaintenance() {
 
           <button
             onClick={() => setShowAddModal(true)}
-            className="btn-amber text-xs font-black px-4 py-2.5 shadow-md flex items-center gap-2"
+            className="btn-amber !rounded text-xs font-black px-4 py-2.5 shadow-md flex items-center gap-2"
           >
             <Plus size={16} />
             <span>+ Nový úkon údržby</span>
@@ -146,7 +146,7 @@ export function BottlingLineMaintenance() {
         {tasks.map((task) => (
           <div
             key={task.id}
-            className={`card p-5 border-2 rounded-3xl space-y-3 shadow-xs flex flex-col justify-between transition ${
+            className={`card p-5 border-2 rounded space-y-3 shadow-xs flex flex-col justify-between transition ${
               task.status === 'overdue'
                 ? 'bg-rose-50/50 border-rose-300'
                 : task.status === 'due'
@@ -176,7 +176,7 @@ export function BottlingLineMaintenance() {
                 </span>
               </div>
 
-              <div className="p-3.5 rounded-2xl bg-white border border-neutral-200 mt-3 space-y-1.5 text-xs text-neutral-800 font-medium">
+              <div className="p-3.5 rounded bg-white border border-neutral-200 mt-3 space-y-1.5 text-xs text-neutral-800 font-medium">
                 <div><strong>📋 Úkon:</strong> {task.notes}</div>
                 <div>👤 Odpovědná osoba: <strong>{task.assignedOperator}</strong></div>
                 <div className="flex items-center justify-between text-[11px] text-neutral-500 pt-1 border-t border-neutral-100">
@@ -202,7 +202,7 @@ export function BottlingLineMaintenance() {
       {/* Add Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-neutral-950/75 backdrop-blur-xs flex items-center justify-center p-4 z-[999]">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl border border-neutral-200 animate-in fade-in zoom-in duration-150">
+          <div className="bg-white rounded max-w-md w-full p-6 space-y-5 shadow-2xl border border-neutral-200 animate-in fade-in zoom-in duration-150">
             <div className="border-b border-neutral-100 pb-3">
               <h3 className="font-display font-black text-lg text-neutral-900">+ Nový plánovaný úkon údržby</h3>
             </div>
@@ -266,8 +266,8 @@ export function BottlingLineMaintenance() {
             </div>
 
             <div className="flex justify-end gap-2 pt-3 border-t border-neutral-100">
-              <button onClick={() => setShowAddModal(false)} className="btn-ghost text-xs font-bold">Zrušit</button>
-              <button onClick={addTask} disabled={!equipmentName.trim()} className="btn-amber text-xs font-black px-5 py-2.5">
+              <button onClick={() => setShowAddModal(false)} className="btn-ghost !rounded text-xs font-bold">Zrušit</button>
+              <button onClick={addTask} disabled={!equipmentName.trim()} className="btn-amber !rounded text-xs font-black px-5 py-2.5">
                 Uložit plán údržby
               </button>
             </div>

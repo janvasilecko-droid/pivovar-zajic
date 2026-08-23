@@ -324,7 +324,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
       <Modal open onClose={onClose} title="Zadání stočení lahví z fotky / WhatsAppu" wide>
         <div className="space-y-4">
 {photos.length > 1 && (
-            <div className="flex items-center justify-between bg-amber-50 p-2.5 rounded-xl border border-amber-300 text-xs font-semibold text-amber-950 mb-3 shadow-xs">
+            <div className="flex items-center justify-between bg-amber-50 p-2.5 rounded border border-amber-300 text-xs font-semibold text-amber-950 mb-3 shadow-xs">
               <button
                 type="button"
                 className="btn-secondary !py-1 !px-2 text-xs"
@@ -377,7 +377,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
               <input ref={fileRef} type="file" accept="image/*,application/pdf,.png,.jpg,.jpeg,.webp" multiple onChange={onFile} className="hidden" />
               <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={onFile} className="hidden" />
               
-              <button className="btn-primary flex items-center gap-2" onClick={() => cameraRef.current?.click()} disabled={busy}>
+              <button className="btn-primary !rounded flex items-center gap-2" onClick={() => cameraRef.current?.click()} disabled={busy}>
                 <Camera size={16} /> 📷 Spustit fotoaparát
               </button>
 
@@ -403,7 +403,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
           )}
 
           {err && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start gap-2">
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded text-xs text-rose-800 flex items-start gap-2">
               <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
               <span>{err}</span>
             </div>
@@ -413,7 +413,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
           {entryRows !== null && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
               {/* Left Column: Photo Review Pane */}
-              <div className="border border-neutral-200 rounded-2xl overflow-hidden bg-neutral-50 min-h-[350px] flex flex-col">
+              <div className="border border-neutral-200 rounded overflow-hidden bg-neutral-50 min-h-[350px] flex flex-col">
                 <PhotoReviewPane
                   photos={photos}
                   activeIndex={Math.min(activeIndex, Math.max(0, photos.length - 1))}
@@ -425,7 +425,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
               <div className="flex flex-col space-y-3 max-h-[500px] overflow-y-auto scrollbar-thin pr-1">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-black text-neutral-900">Rozpoznané řádky stočení</h3>
-                  <button type="button" className="btn-ghost !py-1 text-xs font-bold text-primary-700" onClick={addLine}>
+                  <button type="button" className="btn-ghost !rounded !py-1 text-xs font-bold text-primary-700" onClick={addLine}>
                     + Přidat řádek
                   </button>
                 </div>
@@ -434,7 +434,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                   {entryRows.map((r, i) => (
                     <div
                       key={i}
-                      className={`p-3 rounded-2xl border-2 transition-all ${
+                      className={`p-3 rounded border-2 transition-all ${
                         r._removed
                           ? 'bg-neutral-100/70 border-neutral-200 opacity-60'
                           : 'bg-white border-neutral-200 hover:border-neutral-300'
@@ -583,11 +583,11 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
 
                 {/* Footer confirm buttons */}
                 <div className="pt-4 flex items-center justify-end gap-2 border-t border-neutral-100">
-                  <button type="button" className="btn-ghost text-xs" onClick={onClose}>
+                  <button type="button" className="btn-ghost !rounded text-xs" onClick={onClose}>
                     Zrušit
                   </button>
                   <button
-            className="btn-primary flex-1 !py-3 text-sm font-bold"
+            className="btn-primary !rounded flex-1 !py-3 text-sm font-bold"
             onClick={saveCurrentAndNext}
             disabled={busy || !entryRows}
           >

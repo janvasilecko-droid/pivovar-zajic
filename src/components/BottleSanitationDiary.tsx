@@ -398,7 +398,7 @@ export default function BottleSanitationDiary() {
   return (
     <div className="space-y-4">
       {/* Toolbar */}
-      <div className="card p-4 bg-white border border-neutral-200/90 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-xs">
+      <div className="card p-4 bg-white border border-neutral-200/90 rounded flex flex-wrap items-center justify-between gap-3 shadow-xs">
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2 text-xs font-bold text-neutral-700">
             <span>🗓️ Měsíc:</span>
@@ -414,14 +414,14 @@ export default function BottleSanitationDiary() {
           <button
             onClick={exportExcel}
             disabled={filtered.length === 0}
-            className="btn-ghost flex items-center gap-1.5 text-xs font-bold border border-neutral-200 hover:bg-neutral-50"
+            className="btn-ghost !rounded flex items-center gap-1.5 text-xs font-bold border border-neutral-200 hover:bg-neutral-50"
           >
             <FileSpreadsheet size={15} className="text-emerald-600" />
             <span>Export do Excelu</span>
           </button>
           <button
             onClick={openNew}
-            className="btn-primary flex items-center gap-1.5 text-xs font-black shadow-md bg-amber-500 hover:bg-amber-600 border-none text-neutral-950"
+            className="btn-primary !rounded flex items-center gap-1.5 text-xs font-black shadow-md bg-amber-500 hover:bg-amber-600 border-none text-neutral-950"
           >
             <Plus size={15} />
             <span>Zapsat sanitaci lahví</span>
@@ -434,7 +434,7 @@ export default function BottleSanitationDiary() {
           <Spinner />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="card p-12 bg-white text-center text-neutral-400 border border-neutral-200/60 rounded-2xl">
+        <div className="card p-12 bg-white text-center text-neutral-400 border border-neutral-200/60 rounded">
           <Calendar size={48} className="mx-auto mb-3 opacity-20 text-neutral-600" />
           <p className="font-medium text-sm">V tomto měsíci zatím nebyly zapsány žádné sanitace lahví.</p>
         </div>
@@ -447,7 +447,7 @@ export default function BottleSanitationDiary() {
               const reasonLabel = reasonLabelFor(e);
               const eqList = eqListFor(e);
               return (
-                <div key={e.id} className="card p-3.5 bg-white border border-neutral-200/90 rounded-2xl shadow-xs space-y-2">
+                <div key={e.id} className="card p-3.5 bg-white border border-neutral-200/90 rounded shadow-xs space-y-2">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-1.5 font-bold text-neutral-900 text-sm">
                       <Calendar size={14} className="text-amber-600 shrink-0" />
@@ -470,7 +470,7 @@ export default function BottleSanitationDiary() {
                   </div>
 
                   <div className="font-bold text-neutral-900 text-xs">{reasonLabel}</div>
-                  <div className="bg-neutral-50/70 rounded-xl px-2.5 py-2 space-y-1">
+                  <div className="bg-neutral-50/70 rounded px-2.5 py-2 space-y-1">
                     {stepRows.filter((r) => r.entry.id === e.id).length === 0 ? (
                       <span className="text-[11px] text-neutral-400 italic">žádné kroky</span>
                     ) : (
@@ -509,13 +509,13 @@ export default function BottleSanitationDiary() {
                   <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-neutral-100">
                     <button
                       onClick={() => openEdit(e)}
-                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-neutral-100 hover:bg-amber-100 border border-neutral-200 text-neutral-700 hover:text-amber-900 transition text-[11px] font-bold"
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded bg-neutral-100 hover:bg-amber-100 border border-neutral-200 text-neutral-700 hover:text-amber-900 transition text-[11px] font-bold"
                     >
                       <Edit3 size={13} /> Upravit
                     </button>
                     <button
                       onClick={() => handleDelete(e)}
-                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-neutral-100 hover:bg-rose-100 border border-neutral-200 text-neutral-700 hover:text-rose-900 transition text-[11px] font-bold"
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded bg-neutral-100 hover:bg-rose-100 border border-neutral-200 text-neutral-700 hover:text-rose-900 transition text-[11px] font-bold"
                     >
                       <Trash2 size={13} /> Smazat
                     </button>
@@ -525,7 +525,7 @@ export default function BottleSanitationDiary() {
             })}
           </div>
 
-        <div className="hidden md:block card bg-white border border-neutral-200/90 rounded-2xl shadow-sm overflow-hidden">
+        <div className="hidden md:block card bg-white border border-neutral-200/90 rounded shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
@@ -633,14 +633,14 @@ export default function BottleSanitationDiary() {
                               <button
                                 onClick={() => openEdit(r.entry)}
                                 title="Upravit záznam"
-                                className="p-2 rounded-xl bg-neutral-100 hover:bg-amber-100 border border-neutral-200 text-neutral-700 hover:text-amber-900 transition"
+                                className="p-2 rounded bg-neutral-100 hover:bg-amber-100 border border-neutral-200 text-neutral-700 hover:text-amber-900 transition"
                               >
                                 <Edit3 size={14} />
                               </button>
                               <button
                                 onClick={() => handleDelete(r.entry)}
                                 title="Smazat záznam"
-                                className="p-2 rounded-xl bg-neutral-100 hover:bg-rose-100 border border-neutral-200 text-neutral-700 hover:text-rose-900 transition"
+                                className="p-2 rounded bg-neutral-100 hover:bg-rose-100 border border-neutral-200 text-neutral-700 hover:text-rose-900 transition"
                               >
                                 <Trash2 size={14} />
                               </button>
@@ -661,7 +661,7 @@ export default function BottleSanitationDiary() {
       {/* Add / Edit modal */}
       {showModal && (
         <div className="fixed inset-0 bg-neutral-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <form onSubmit={handleSave} className="card p-6 bg-white rounded-3xl max-w-2xl w-full border-2 border-amber-400 shadow-2xl space-y-5 animate-scale-in my-8">
+          <form onSubmit={handleSave} className="card p-6 bg-white rounded max-w-2xl w-full border-2 border-amber-400 shadow-2xl space-y-5 animate-scale-in my-8">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
                 <span>🧼 {editing ? `Upravit sanitaci — ${editing.sanitation_date}` : 'Záznam sanitace stáčecí linky lahví'}</span>
@@ -674,7 +674,7 @@ export default function BottleSanitationDiary() {
               
               {/* Left Column: Identifikace a Zařízení */}
               <div className="space-y-4">
-                <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-100 space-y-3">
+                <div className="bg-amber-50/50 p-4 rounded border border-amber-100 space-y-3">
                   <h4 className="font-bold text-xs text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
                     <FileText size={13} /> 1. Základní identifikace
                   </h4>
@@ -705,7 +705,7 @@ export default function BottleSanitationDiary() {
                   </div>
                 </div>
 
-                <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-200/70 space-y-3">
+                <div className="bg-neutral-50 p-4 rounded border border-neutral-200/70 space-y-3">
                   <h4 className="font-bold text-xs text-neutral-700 uppercase tracking-wider flex items-center gap-1.5">
                     <Settings size={13} /> Sanované zařízení
                   </h4>
@@ -752,7 +752,7 @@ export default function BottleSanitationDiary() {
 
               {/* Right Column: Chemie a Postup */}
               <div className="space-y-4">
-                <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 space-y-3">
+                <div className="bg-blue-50/50 p-4 rounded border border-blue-100 space-y-3">
                   <h4 className="font-bold text-xs text-blue-900 uppercase tracking-wider flex items-center gap-1.5">
                     <Beaker size={13} /> 2. Použitá chemie (Zásadní pro HACCP)
                   </h4>
@@ -778,7 +778,7 @@ export default function BottleSanitationDiary() {
                   </div>
                 </div>
 
-                <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-200/70 space-y-3">
+                <div className="bg-neutral-50 p-4 rounded border border-neutral-200/70 space-y-3">
                   <h4 className="font-bold text-xs text-neutral-700 uppercase tracking-wider flex items-center gap-1.5">
                     <Check size={13} /> 3. Postup sanitace
                   </h4>
@@ -828,7 +828,7 @@ export default function BottleSanitationDiary() {
             {/* Bottom Row: Kontroly a Neshody */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 border-t border-neutral-100 pt-4">
               
-              <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-200/70 space-y-3">
+              <div className="bg-neutral-50 p-4 rounded border border-neutral-200/70 space-y-3">
                 <h4 className="font-bold text-xs text-neutral-700 uppercase tracking-wider flex items-center gap-1.5">
                   <UserCheck size={13} /> 4. Kontrolní body (Měření)
                 </h4>
@@ -872,7 +872,7 @@ export default function BottleSanitationDiary() {
                 </div>
               </div>
 
-              <div className="bg-red-50/50 p-4 rounded-2xl border border-red-100 space-y-3">
+              <div className="bg-red-50/50 p-4 rounded border border-red-100 space-y-3">
                 <h4 className="font-bold text-xs text-red-900 uppercase tracking-wider flex items-center gap-1.5">
                   <ShieldAlert size={13} /> 5. Neshody a nápravná opatření
                 </h4>
@@ -904,8 +904,8 @@ export default function BottleSanitationDiary() {
 
             {/* Actions */}
             <div className="flex justify-end gap-2 border-t border-neutral-100 pt-3">
-              <button type="button" onClick={() => setShowModal(false)} className="btn-ghost text-xs font-bold">Zrušit</button>
-              <button type="submit" disabled={saving} className="btn-primary text-xs font-black shadow-md bg-amber-500 hover:bg-amber-600 border-none text-neutral-950">
+              <button type="button" onClick={() => setShowModal(false)} className="btn-ghost !rounded text-xs font-bold">Zrušit</button>
+              <button type="submit" disabled={saving} className="btn-primary !rounded text-xs font-black shadow-md bg-amber-500 hover:bg-amber-600 border-none text-neutral-950">
                 {saving ? 'Ukládám…' : '✅ Uložit do sanitačního deníku'}
               </button>
             </div>

@@ -54,7 +54,7 @@ export function WhatsAppIncomingModal(props: WhatsAppIncomingModalProps) {
             <div className="text-sm text-neutral-600">
               {messages.length > 0 ? `${messages.length} zpráv čeká na zpracování` : 'Žádné nové zprávy'}
             </div>
-            <button onClick={loadMessages} className="p-1.5 rounded-lg text-neutral-600 hover:bg-neutral-100">
+            <button onClick={loadMessages} className="p-1.5 rounded text-neutral-600 hover:bg-neutral-100">
               <RefreshCw size={16} />
             </button>
           </div>
@@ -74,7 +74,7 @@ export function WhatsAppIncomingModal(props: WhatsAppIncomingModalProps) {
                 <div
                   key={message.id}
                   onClick={() => props.onOpenMessage?.(message)}
-                  className={`border rounded-xl p-4 cursor-pointer transition hover:border-blue-300 hover:bg-blue-50/40 ${message.status === 'error' ? 'border-rose-300 bg-rose-50/40' : ''}`}
+                  className={`border rounded p-4 cursor-pointer transition hover:border-blue-300 hover:bg-blue-50/40 ${message.status === 'error' ? 'border-rose-300 bg-rose-50/40' : ''}`}
                   title="Klepnutím otevřete kontrolu objednávky"
                 >
                   <div className="flex items-start justify-between">
@@ -88,12 +88,12 @@ export function WhatsAppIncomingModal(props: WhatsAppIncomingModalProps) {
                           <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-rose-600 text-white shrink-0">❌ Chyba</span>
                         )}
                       </div>
-                      <div className="text-sm bg-neutral-50 p-3 rounded-lg">
+                      <div className="text-sm bg-neutral-50 p-3 rounded">
                         {message.message_text.substring(0, 200)}
                         {message.message_text.length > 200 && '...'}
                       </div>
                       {message.status === 'error' && message.error_message && (
-                        <div className="text-xs text-rose-700 font-semibold mt-1.5 bg-rose-50 border border-rose-200 rounded-lg px-2 py-1">
+                        <div className="text-xs text-rose-700 font-semibold mt-1.5 bg-rose-50 border border-rose-200 rounded px-2 py-1">
                           {message.error_message}
                         </div>
                       )}
@@ -104,7 +104,7 @@ export function WhatsAppIncomingModal(props: WhatsAppIncomingModalProps) {
                     <div className="flex flex-col gap-1.5">
                       <button
                         onClick={(e) => { e.stopPropagation(); handleIgnoreMessage(message.id); }}
-                        className="p-1.5 rounded-lg text-neutral-500 hover:bg-neutral-100"
+                        className="p-1.5 rounded text-neutral-500 hover:bg-neutral-100"
                         title="Ignorovat zprávu"
                       >
                         <Trash2 size={16} />

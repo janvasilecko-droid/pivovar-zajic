@@ -69,12 +69,12 @@ export function SetPasswordModal() {
 
   return (
     <div className="fixed inset-0 bg-neutral-950/85 backdrop-blur-md flex items-center justify-center p-4 z-[99999] animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-6 shadow-2xl border-4 border-amber-500 relative overflow-hidden">
+      <div className="bg-white rounded max-w-md w-full p-6 sm:p-8 space-y-6 shadow-2xl border-4 border-amber-500 relative overflow-hidden">
         {/* Decorative Top Accent Line */}
         <div className="h-3 w-full absolute top-0 left-0 right-0 bg-amber-500" />
 
         <div className="flex items-start gap-4 pt-2">
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-lg bg-amber-500">
+          <div className="w-14 h-14 rounded flex items-center justify-center text-white shrink-0 shadow-lg bg-amber-500">
             <Lock size={30} />
           </div>
 
@@ -92,7 +92,7 @@ export function SetPasswordModal() {
         </div>
 
         {success ? (
-          <div className="bg-emerald-50 border border-emerald-300 rounded-2xl p-5 text-center space-y-2">
+          <div className="bg-emerald-50 border border-emerald-300 rounded p-5 text-center space-y-2">
             <div className="flex justify-center text-emerald-600">
               <CheckCircle2 size={44} className="animate-bounce" />
             </div>
@@ -106,7 +106,7 @@ export function SetPasswordModal() {
                 Nové heslo
               </label>
               <input
-                className="w-full px-4 py-3 text-sm font-bold text-neutral-900 bg-neutral-50 border-2 border-neutral-200 rounded-xl focus:outline-hidden focus:bg-white focus:border-amber-500 focus:ring-4 focus:ring-amber-500/20 transition-all placeholder:text-neutral-400"
+                className="w-full px-4 py-3 text-sm font-bold text-neutral-900 bg-neutral-50 border-2 border-neutral-200 rounded focus:outline-hidden focus:bg-white focus:border-amber-500 focus:ring-4 focus:ring-amber-500/20 transition-all placeholder:text-neutral-400"
                 type="password"
                 required
                 value={password}
@@ -121,7 +121,7 @@ export function SetPasswordModal() {
                 Potvrzení hesla
               </label>
               <input
-                className="w-full px-4 py-3 text-sm font-bold text-neutral-900 bg-neutral-50 border-2 border-neutral-200 rounded-xl focus:outline-hidden focus:bg-white focus:border-amber-500 focus:ring-4 focus:ring-amber-500/20 transition-all placeholder:text-neutral-400"
+                className="w-full px-4 py-3 text-sm font-bold text-neutral-900 bg-neutral-50 border-2 border-neutral-200 rounded focus:outline-hidden focus:bg-white focus:border-amber-500 focus:ring-4 focus:ring-amber-500/20 transition-all placeholder:text-neutral-400"
                 type="password"
                 required
                 value={confirmPassword}
@@ -132,7 +132,7 @@ export function SetPasswordModal() {
             </div>
 
             {err && (
-              <div className="text-xs font-bold text-rose-950 bg-rose-50 border border-rose-300 rounded-xl px-4 py-3 flex items-start gap-2 animate-shake">
+              <div className="text-xs font-bold text-rose-950 bg-rose-50 border border-rose-300 rounded px-4 py-3 flex items-start gap-2 animate-shake">
                 <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
                 <span>{err}</span>
               </div>
@@ -140,7 +140,7 @@ export function SetPasswordModal() {
 
             <button
               type="submit"
-              className="w-full py-3.5 text-sm font-black tracking-wide text-neutral-950 bg-amber-500 hover:bg-amber-400 active:scale-[0.98] transition-all duration-200 shadow-md shadow-amber-500/20 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer border border-amber-400"
+              className="w-full py-3.5 text-sm font-black tracking-wide text-neutral-950 bg-amber-500 hover:bg-amber-400 active:scale-[0.98] transition-all duration-200 shadow-md shadow-amber-500/20 rounded flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer border border-amber-400"
               disabled={busy}
             >
               {busy ? (

@@ -75,12 +75,12 @@ export function MandatoryAnnouncementModal() {
 
   return (
     <div className="fixed inset-0 bg-neutral-950/85 backdrop-blur-md flex items-center justify-center p-4 z-[9999] animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 space-y-6 shadow-2xl border-4 border-amber-500 relative overflow-hidden">
+      <div className="bg-white rounded max-w-xl w-full p-6 sm:p-8 space-y-6 shadow-2xl border-4 border-amber-500 relative overflow-hidden">
         {/* Decorative Top Accent Line */}
         <div className={`h-3 w-full absolute top-0 left-0 right-0 ${isTech ? 'bg-amber-500' : isImp ? 'bg-rose-600' : 'bg-blue-600'}`} />
 
         <div className="flex items-start gap-4 pt-2">
-          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-lg ${
+          <div className={`w-14 h-14 rounded flex items-center justify-center text-white shrink-0 shadow-lg ${
             isTech ? 'bg-amber-500' : isImp ? 'bg-rose-600' : 'bg-blue-600'
           }`}>
             {isTech ? <AlertTriangle size={32} /> : isImp ? <ShieldAlert size={32} /> : <BellRing size={32} />}
@@ -102,7 +102,7 @@ export function MandatoryAnnouncementModal() {
         </div>
 
         {/* Notice Body Box */}
-        <div className="p-5 rounded-2xl bg-amber-50/90 border border-amber-300 text-neutral-900 font-medium text-sm leading-relaxed space-y-2">
+        <div className="p-5 rounded bg-amber-50/90 border border-amber-300 text-neutral-900 font-medium text-sm leading-relaxed space-y-2">
           <div className="font-black text-xs uppercase text-amber-950 flex items-center gap-1.5 border-b border-amber-200/80 pb-2">
             <span>📢 Znění technického upozornění:</span>
           </div>
@@ -114,7 +114,7 @@ export function MandatoryAnnouncementModal() {
           <button
             type="button"
             onClick={handleConfirmRead}
-            className="w-full py-4 px-6 rounded-2xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-base transition shadow-xl hover:shadow-amber-500/20 active:scale-[0.98] flex items-center justify-center gap-3 ring-4 ring-amber-300"
+            className="w-full py-4 px-6 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-base transition shadow-xl hover:shadow-amber-500/20 active:scale-[0.98] flex items-center justify-center gap-3 ring-4 ring-amber-300"
           >
             <CheckCircle2 size={24} />
             <span>✓ Přečetl jsem a rozumím (Potvrdit přečtení)</span>

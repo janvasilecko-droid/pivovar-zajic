@@ -200,7 +200,7 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onTextExtr
               }}
               className="hidden"
             />
-            <button className="btn-primary flex items-center gap-2" onClick={() => cameraRef.current?.click()} disabled={busy}>
+            <button className="btn-primary !rounded flex items-center gap-2" onClick={() => cameraRef.current?.click()} disabled={busy}>
               <Camera size={16} /> 📷 Spustit fotoaparát
             </button>
             <button
@@ -217,7 +217,7 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onTextExtr
         </div>
 
         {photos.length > 1 && (
-          <div className="flex items-center justify-between bg-amber-50 p-2.5 rounded-xl border border-amber-300 text-xs font-semibold text-amber-950 shadow-xs">
+          <div className="flex items-center justify-between bg-amber-50 p-2.5 rounded border border-amber-300 text-xs font-semibold text-amber-950 shadow-xs">
             <button
               type="button"
               className="btn-secondary !py-1 !px-2 text-xs"
@@ -252,14 +252,14 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onTextExtr
 
         {busy && <div className="text-xs text-neutral-500 animate-pulse">⏳ Čtu text z fotky {activeIndex + 1}/{photos.length || 1}…</div>}
         {err && (
-          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start gap-2">
+          <div className="p-3 bg-rose-50 border border-rose-200 rounded text-xs text-rose-800 flex items-start gap-2">
             <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
             <span>{err}</span>
           </div>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
-          <div className="border border-neutral-200 rounded-2xl overflow-hidden bg-neutral-50 min-h-[220px] flex flex-col">
+          <div className="border border-neutral-200 rounded overflow-hidden bg-neutral-50 min-h-[220px] flex flex-col">
             {photos[activeIndex] ? (
               <img src={photos[activeIndex].dataUrl} alt="foto" className="w-full flex-1 object-contain max-h-[380px] touch-pan-x touch-pan-y" />
             ) : (
@@ -285,10 +285,10 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onTextExtr
               placeholder="Po načtení fotky se zde objeví přepsaný text. Můžete ho opravit a pak vložit."
             />
             <div className="pt-2 flex items-center justify-end gap-2 border-t border-neutral-100">
-              <button type="button" className="btn-ghost text-xs" onClick={onClose}>Zrušit</button>
+              <button type="button" className="btn-ghost !rounded text-xs" onClick={onClose}>Zrušit</button>
               <button
                 type="button"
-                className="btn-primary py-2.5 px-5 text-xs font-black shadow-md flex items-center gap-2"
+                className="btn-primary !rounded py-2.5 px-5 text-xs font-black shadow-md flex items-center gap-2"
                 onClick={saveCurrentAndNext}
                 disabled={busy}
               >

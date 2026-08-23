@@ -271,7 +271,7 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
       <div className="space-y-3">
         {/* Datum + info v jednom kompaktním řádku */}
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 px-2.5 py-1.5 rounded-xl">
+          <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 px-2.5 py-1.5 rounded">
             <label className="text-[10px] font-black text-neutral-700">📅</label>
             <input type="date" className="input !py-0.5 !px-1.5 font-mono font-bold text-[11px] max-w-[130px]" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
@@ -282,25 +282,25 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
 
         {/* RYCHLÝ KALKULÁTOR — kompaktní */}
         {!isKegMode && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl px-2.5 py-2 space-y-1.5">
+        <div className="bg-amber-50 border border-amber-200 rounded px-2.5 py-2 space-y-1.5">
           <div className="text-[9px] font-black text-amber-950 uppercase tracking-wider flex items-center gap-1">
             <PackageIcon size={12} className="text-amber-600" />
             <span>Rychlý kalkulátor (přepravky/kartony)</span>
           </div>
           <div className="flex flex-wrap gap-1">
-            <button type="button" onClick={() => addPresetCrate(20, '1 přepravka (20 ks)')} className="px-2 py-1 rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 text-[10px] font-black border border-amber-300 transition">
+            <button type="button" onClick={() => addPresetCrate(20, '1 přepravka (20 ks)')} className="px-2 py-1 rounded bg-amber-200 hover:bg-amber-300 text-amber-950 text-[10px] font-black border border-amber-300 transition">
               +20
             </button>
-            <button type="button" onClick={() => addPresetCrate(40, '2 přepravky (40 ks)')} className="px-2 py-1 rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 text-[10px] font-black border border-amber-300 transition">
+            <button type="button" onClick={() => addPresetCrate(40, '2 přepravky (40 ks)')} className="px-2 py-1 rounded bg-amber-200 hover:bg-amber-300 text-amber-950 text-[10px] font-black border border-amber-300 transition">
               +40
             </button>
-            <button type="button" onClick={() => addPresetCrate(100, '5 přepravek (100 ks)')} className="px-2 py-1 rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 text-[10px] font-black border border-amber-300 transition">
+            <button type="button" onClick={() => addPresetCrate(100, '5 přepravek (100 ks)')} className="px-2 py-1 rounded bg-amber-200 hover:bg-amber-300 text-amber-950 text-[10px] font-black border border-amber-300 transition">
               +100
             </button>
-            <button type="button" onClick={() => addPresetCrate(12, '1 karton (12 ks)')} className="px-2 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 text-[10px] font-black border border-amber-200 transition">
+            <button type="button" onClick={() => addPresetCrate(12, '1 karton (12 ks)')} className="px-2 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-900 text-[10px] font-black border border-amber-200 transition">
               +12
             </button>
-            <button type="button" onClick={() => addPresetCrate(6, '1 karton (6 ks)')} className="px-2 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 text-[10px] font-black border border-amber-200 transition">
+            <button type="button" onClick={() => addPresetCrate(6, '1 karton (6 ks)')} className="px-2 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-900 text-[10px] font-black border border-amber-200 transition">
               +6
             </button>
           </div>
@@ -309,7 +309,7 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
 
         <div className="flex items-center gap-2">
           <input ref={fileRef} type="file" accept="image/*" multiple onChange={onFile} className="hidden" />
-          <button className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[11px] transition shadow-xs flex items-center gap-1.5" onClick={() => fileRef.current?.click()} disabled={busyAny}>
+          <button className="px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[11px] transition shadow-xs flex items-center gap-1.5" onClick={() => fileRef.current?.click()} disabled={busyAny}>
             <Camera size={14} /> {isKegMode ? 'Přidat fotky' : 'Přidat fotky'}
           </button>
           <span className="text-[10px] text-neutral-500 font-medium">lze i více najednou</span>
@@ -317,7 +317,7 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
 
         {/* Editors for photos being cropped */}
         {photos.filter((p) => p.editing).map((p) => (
-          <div key={p.id} className="card p-4 border border-amber-200 rounded-2xl">
+          <div key={p.id} className="card p-4 border border-amber-200 rounded">
             <ImageEditor
               src={p.editing!}
               onConfirm={(edited) => onEditorConfirm(p.id, edited)}
@@ -330,7 +330,7 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
         {photos.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {photos.map((p) => (
-              <div key={p.id} className="rounded-xl border border-amber-200 bg-neutral-900 overflow-hidden relative shadow-xs">
+              <div key={p.id} className="rounded border border-amber-200 bg-neutral-900 overflow-hidden relative shadow-xs">
                 <div className="px-2 py-1 bg-neutral-800 text-amber-300 text-[10px] font-black flex items-center justify-between">
                   <span>📷</span>
                   <button className="text-neutral-400 hover:text-rose-400 text-sm font-bold leading-none" onClick={() => removePhoto(p.id)}>×</button>
@@ -363,7 +363,7 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
           </div>
         )}
 
-        {err && <div className="text-[11px] text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-1.5 font-bold">{err}</div>}
+        {err && <div className="text-[11px] text-rose-700 bg-rose-50 border border-rose-200 rounded px-3 py-1.5 font-bold">{err}</div>}
 
         {/* ✅ VÝSLEDKY — kompaktní zobrazení jako ruční zápis */}
         {results.length > 0 && (
@@ -376,7 +376,7 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
               {results.map((r, i) => {
                 const photo = photos.find((p) => p.id === r.photo_id);
                 return (
-                  <div key={i} className="rounded-xl border border-amber-200 bg-amber-50/40 p-2.5 space-y-1.5">
+                  <div key={i} className="rounded border border-amber-200 bg-amber-50/40 p-2.5 space-y-1.5">
                     {/* Řádek: co AI přečetlo + smazat */}
                     <div className="flex items-center justify-between gap-1">
                       {photo?.rawText ? (
@@ -436,8 +436,8 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
         )}
 
         <div className="flex justify-end gap-1.5 pt-1.5 border-t border-neutral-100">
-          <button className="px-3 py-1.5 rounded-lg text-neutral-500 hover:bg-neutral-100 font-bold text-[11px] transition" onClick={onClose}>Zrušit</button>
-          <button className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[11px] transition shadow-xs" disabled={busyAny || saving || readyCount === 0} onClick={save}>
+          <button className="px-3 py-1.5 rounded text-neutral-500 hover:bg-neutral-100 font-bold text-[11px] transition" onClick={onClose}>Zrušit</button>
+          <button className="px-3.5 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[11px] transition shadow-xs" disabled={busyAny || saving || readyCount === 0} onClick={save}>
             {saving ? '⏳' : isKegMode ? `🛢️ Uložit (${readyCount})` : `📦 Přičíst (${readyCount})`}
           </button>
         </div>

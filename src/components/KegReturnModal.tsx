@@ -55,7 +55,7 @@ export function KegReturnModal({
             return (
               <div
                 key={size}
-                className="flex items-center justify-between p-3 rounded-2xl bg-neutral-50 border border-neutral-200"
+                className="flex items-center justify-between p-3 rounded bg-neutral-50 border border-neutral-200"
               >
                 <div className="flex items-center gap-2">
                   <Cylinder size={18} className="text-amber-600" />
@@ -68,7 +68,7 @@ export function KegReturnModal({
                   <button
                     type="button"
                     onClick={() => handleDelta(size, -1)}
-                    className="w-9 h-9 rounded-xl bg-white hover:bg-neutral-200 border border-neutral-300 grid place-items-center text-lg font-black active:scale-95 transition"
+                    className="w-9 h-9 rounded bg-white hover:bg-neutral-200 border border-neutral-300 grid place-items-center text-lg font-black active:scale-95 transition"
                   >
                     <Minus size={16} />
                   </button>
@@ -80,7 +80,7 @@ export function KegReturnModal({
                   <button
                     type="button"
                     onClick={() => handleDelta(size, 1)}
-                    className="w-9 h-9 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 grid place-items-center text-lg font-black active:scale-95 transition shadow-xs"
+                    className="w-9 h-9 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 grid place-items-center text-lg font-black active:scale-95 transition shadow-xs"
                   >
                     <Plus size={16} />
                   </button>
@@ -96,7 +96,7 @@ export function KegReturnModal({
           </div>
 
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setCounts({ ...EMPTY_COUNTS })} className="btn-ghost text-xs font-bold flex items-center gap-1" title="Vynulovat">
+            <button type="button" onClick={() => setCounts({ ...EMPTY_COUNTS })} className="btn-ghost !rounded text-xs font-bold flex items-center gap-1" title="Vynulovat">
               <RotateCcw size={13} /> Reset
             </button>
             <button type="button" onClick={onClose} className="btn-secondary text-xs font-bold">
@@ -111,7 +111,7 @@ export function KegReturnModal({
                 onSaveReturns(list);
                 onClose();
               }}
-              className="btn-primary text-xs font-black flex items-center gap-1.5 shadow-md"
+              className="btn-primary !rounded text-xs font-black flex items-center gap-1.5 shadow-md"
             >
               <CheckCircle2 size={16} /> Uložit vrácení
             </button>
