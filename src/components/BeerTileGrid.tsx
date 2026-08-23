@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Beer, beerBg, beerBorder, beerText, beerName } from '../lib/supabase';
+import { Beer, beerBg, beerText, beerName } from '../lib/supabase';
 
 type TileSummary = {
   filled: boolean;
@@ -14,10 +14,12 @@ type BeerTileGridProps = {
 
 /**
  * Dvousloupcová mřížka dlaždic piv — sdílený vzhled pro Objednávky, Stáčení
- * (lahve i KEG) a Fasování/Prodejnu. Vyplněná dlaždice dostane světle zelené
- * pozadí (žádný druhý rámeček navíc) a pod názvem konkrétní rozpis množství.
- * Název piva (beerName) už stupeň obsahuje (např. "12° Světlá"), proto se
- * sem stupeň znovu nepřidává - dřív se tím zdvojoval ("12° 12° Světlá").
+ * (lahve i KEG) a Fasování/Prodejnu. Styl sjednocený s dlaždicemi na Domů
+ * (viz LauncherTile/HomeScreen.css .hs-tile): plná barva piva (beer_color),
+ * bílý text, zaoblené, bez rámečku. Vyplněná dlaždice dostane bílý prstenec
+ * a pod názvem konkrétní rozpis množství. Název piva (beerName) už stupeň
+ * obsahuje (např. "12° Světlá"), proto se sem stupeň znovu nepřidává - dřív
+ * se tím zdvojoval ("12° 12° Světlá").
  */
 export function BeerTileGrid({ beers, onSelect, summaryFor }: BeerTileGridProps) {
   return (
@@ -29,14 +31,14 @@ export function BeerTileGrid({ beers, onSelect, summaryFor }: BeerTileGridProps)
             key={b.id}
             type="button"
             onClick={() => onSelect(b)}
-            className={`text-left rounded-2xl shadow-sm p-3 min-h-[64px] transition-all hover:brightness-[0.97] active:scale-[0.98] flex flex-col gap-1 border-2 ${
-              filled ? 'bg-emerald-50' : 'bg-white'
+            className={`text-left rounded-2xl shadow-sm p-3 min-h-[64px] transition-all hover:brightness-110 active:scale-[0.98] flex flex-col gap-1 text-white ${
+              filled ? 'ring-2 ring-white/80' : ''
             }`}
-            style={{ borderColor: beerBorder(b) }}
+            style={{ backgroundColor: beerBg(b) }}
           >
-            <span className="font-black text-sm leading-tight text-neutral-900">{beerName(b)}</span>
+            <span className="font-black text-sm leading-tight">{beerName(b)}</span>
             {filled && (
-              <span className="text-[11px] font-bold text-emerald-800">{label}</span>
+              <span className="text-[11px] font-bold text-white/90">{label}</span>
             )}
           </button>
         );

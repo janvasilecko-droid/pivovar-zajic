@@ -2,14 +2,13 @@
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 
-import { Camera, ListOrdered, Package as PackageIcon, Phone, Building2, Truck, Plus, MessageCircle, Printer, FileSpreadsheet, CheckSquare, PackageCheck, FilePlus, Calendar, Trash2, Pencil, Copy, Ban, RotateCcw, AlertTriangle, Check, CheckCircle2, Zap, ArrowRight, ChartBar, Mail, ShieldAlert } from 'lucide-react';
+import { Camera, ListOrdered, Package as PackageIcon, Phone, Building2, Truck, Plus, MessageCircle, CheckSquare, PackageCheck, FilePlus, Calendar, Trash2, Pencil, Copy, Ban, RotateCcw, AlertTriangle, Check, CheckCircle2, Zap, ArrowRight, ChartBar, Mail, ShieldAlert } from 'lucide-react';
 import { supabase, Beer, Package, Place, EntryRow, useRealtime, beerBg, beerText, beerName, formatPackageLabel, pkgBg } from '../lib/supabase';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { consumeOrdersItemFilter } from '../lib/ordersFilter';
 import { computeVariantTotals, type VariantTotalsResult } from '../lib/variantTotals';
 import { ImportFromImage } from '../components/ImportFromImage';
-import { WhatsAppIncomingModal } from '../components/WhatsAppIncomingModal';
 import { WhatsAppOrderReviewModal } from '../components/WhatsAppOrderReviewModal';
 import { WhatsAppAutoProcessorModal } from '../components/WhatsAppAutoProcessorModal';
 import { WhatsAppAuditModal } from '../components/WhatsAppAuditModal';
@@ -29,11 +28,7 @@ import { autoReserveTapIfNeeded, isTapMentioned, detectTapType } from '../lib/ta
 import { findDuplicateOrders, formatDuplicateMessage } from '../lib/orderDuplicates';
 import { TapReservationModal } from '../components/TapReservationModal';
 import { createReminder, getLocalReminders } from '../lib/reminders';
-import { printDeliveryList as openDeliveryPrint } from '../lib/safePrint';
 import Zavoz from './Zavoz';
-
-
-import * as XLSX from 'xlsx';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -241,9 +236,11 @@ export default function Orders({
   const [tapModalOrderId, setTapModalOrderId] = useState<string | undefined>(undefined);
   const [tapModalCustomer, setTapModalCustomer] = useState('');
   const [showImport, setShowImport] = useState(false);
-  const [showWhatsAppIncoming, setShowWhatsAppIncoming] = useState(false);
   const [showWhatsAppAutoProcessor, setShowWhatsAppAutoProcessor] = useState(false);
   const [showWhatsAppAudit, setShowWhatsAppAudit] = useState(false);
+  // Sjednocené menu pod jednou ikonou WhatsApp — místo tří samostatných
+  // tlačítek (Auto-Import/WhatsApp/Kontrola zpráv) jedna ikona s nabídkou.
+  const [showWhatsAppMenu, setShowWhatsAppMenu] = useState(false);
   const [showOrderAudit, setShowOrderAudit] = useState(false);
 
   // Automatické zobrazování nových WhatsApp objednávek
@@ -1199,48 +1196,6 @@ export default function Orders({
     load();
   }
 
-  // ---- Tisk zavážecího listu ----
-  function printDeliveryList() {
-    const toPrint = searchedFiltered;
-    openDeliveryPrint({
-      title: `Zavážecí list — ${weekKey}`,
-      heading: `Zavážecí list — týden ${weekKey}`,
-      emptyMessage: 'Žádné objednávky.',
-      orders: toPrint.map((order) => {
-        const place = places.find((candidate) => candidate.id === order.place_id);
-        return {
-          placeName: order.place_name,
-          deliveryLabel: order.delivery_day
-            ? DAYS.find((day) => day.v === order.delivery_day)?.label
-            : undefined,
-          address: place?.address,
-          phone: place?.phone,
-          note: order.note,
-          items: (items[order.id] ?? []).map((item) => ({
-            beerName: item.beer_name,
-            quantity: item.quantity,
-            packageLabel: item.package_label,
-          })),
-        };
-      }),
-    });
-  }
-
-
-  function exportXlsx() {
-    const data = filtered.map((o) => {
-      const its = items[o.id] ?? [];
-      return {
-        Datum: o.order_date, Odběratel: o.place_name ?? '', Den: o.delivery_day ?? '', 'Datum dodání': o.delivery_date ?? '',
-        Připraveno: o.is_prepared ? 'Ano' : 'Ne', Fasování: o.is_packaged ? 'Ano' : 'Ne',
-        Závoz: o.is_delivered ? 'Ano' : 'Ne',
-        Status: STATUS[o.status]?.label ?? o.source, Položek: its.length, Poznámka: o.note ?? '',
-      };
-    });
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), 'Objednávky');
-    XLSX.writeFile(wb, `objednavky-${weekKey}.xlsx`);
-  }
 
   const openDetail = (o: Order) => {
     setDetail(o);
@@ -1396,7 +1351,7 @@ export default function Orders({
           
             </div>
 
-          {/* Řádek 2: Hlasové zadání / Auto-Import / WhatsApp / Fotka / Tisk / Export */}
+          {/* Řádek 2: Hlasové zadání / WhatsApp (sjednocené menu) / Fotka */}
           <div className="flex gap-2 items-center flex-wrap justify-end">
             <VoiceRecorder
               compact
@@ -1404,24 +1359,47 @@ export default function Orders({
               placeNames={places.map((p) => p.name)}
               onResult={handleVoiceResult}
             />
-            <button className="btn-ghost !bg-blue-50 border border-blue-300 text-blue-950 font-black text-xs shadow-xs flex items-center gap-1.5 relative" title="Auto-Import — načte a zkontroluje příchozí WhatsApp objednávky" onClick={() => setShowWhatsAppIncoming(true)}>
-              <MessageCircle size={14} /> Auto-Import
-              {newWhatsAppCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black rounded-full w-4 h-4 flex items-center justify-center">
-                  {newWhatsAppCount}
-                </span>
+            {/* Jedna ikona WhatsApp pro veškeré zprávy — otevře menu se
+                zpracováním příchozích zpráv i kontrolou celého období,
+                dřív tu byla 3 samostatná tlačítka (Auto-Import/WhatsApp/
+                Kontrola zpráv). */}
+            <div className="relative">
+              <button
+                className="btn-ghost !bg-[#25D366] !border-[#25D366] !text-white font-black text-xs shadow-xs flex items-center gap-1.5 hover:!bg-[#1da851] relative"
+                title="WhatsApp — zprávy k vyřízení"
+                onClick={() => setShowWhatsAppMenu((v) => !v)}
+              >
+                <MessageCircle size={14} /> WhatsApp
+                {newWhatsAppCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-black rounded-full w-4 h-4 flex items-center justify-center">
+                    {newWhatsAppCount}
+                  </span>
+                )}
+              </button>
+              {showWhatsAppMenu && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setShowWhatsAppMenu(false)} />
+                  <div className="absolute right-0 top-full mt-1.5 z-40 bg-white rounded-2xl shadow-xl border border-neutral-200 p-1.5 flex flex-col gap-1 min-w-[220px]">
+                    <button
+                      type="button"
+                      className="text-left px-3 py-2 rounded-xl text-xs font-black text-neutral-800 hover:bg-neutral-100 flex items-center gap-2"
+                      onClick={() => { setShowWhatsAppAutoProcessor(true); setShowWhatsAppMenu(false); }}
+                    >
+                      <MessageCircle size={14} className="text-[#25D366]" /> Zpracovat příchozí zprávy
+                    </button>
+                    <button
+                      type="button"
+                      className="text-left px-3 py-2 rounded-xl text-xs font-black text-neutral-800 hover:bg-neutral-100 flex items-center gap-2"
+                      onClick={() => { setShowWhatsAppAudit(true); setShowWhatsAppMenu(false); }}
+                    >
+                      <ShieldAlert size={14} className="text-neutral-500" /> Kontrola všech zpráv za období
+                    </button>
+                  </div>
+                </>
               )}
-            </button>
-            <button className="btn-ghost !bg-[#25D366] !border-[#25D366] !text-white font-black text-xs shadow-xs flex items-center gap-1.5 hover:!bg-[#1da851]" title="WhatsApp — hromadné zpracování příchozích zpráv" onClick={() => setShowWhatsAppAutoProcessor(true)}><MessageCircle size={14} /> WhatsApp</button>
-            <button className="btn-ghost !bg-white border-neutral-300 text-neutral-700 font-extrabold text-xs shadow-xs flex items-center gap-1.5" title="Kontrola — zobrazí VŠECHNY WhatsApp zprávy za období, i chybové a ignorované, ať nic nezmizí bez povšimnutí" onClick={() => setShowWhatsAppAudit(true)}><ShieldAlert size={14} /> Kontrola zpráv</button>
+            </div>
             <button className="btn-ghost !bg-white border-neutral-300 text-neutral-700 font-extrabold text-xs shadow-xs flex items-center gap-1.5" title="Audit objednávek — najde duplicitní položky, nesrovnalosti proti WhatsAppu a nezpracované zprávy" onClick={() => setShowOrderAudit(true)}><ShieldAlert size={14} /> Audit objednávek</button>
             <button className="btn-ghost !bg-white border-amber-300 text-amber-800 font-extrabold text-xs shadow-xs flex items-center gap-1.5" title="Načíst z fotky/e-mailu" onClick={() => { setImportTarget(null); setShowImport(true); }}><Camera size={14} /> Fotka/AI</button>
-            {mode !== 'entry_only' && (
-              <>
-                <button className="btn-ghost !bg-white border-amber-300 text-amber-800 font-extrabold text-xs shadow-xs flex items-center gap-1.5" title="Tisk zavážecího listu" onClick={printDeliveryList} disabled={!searchedFiltered.length}><Printer size={14} /> Tisk</button>
-                <button className="btn-ghost !bg-white border-amber-300 text-amber-800 font-extrabold text-xs shadow-xs flex items-center gap-1.5" title="Export týdne do Excelu" onClick={exportXlsx} disabled={!filtered.length}><FileSpreadsheet size={14} /> Export Excel</button>
-              </>
-            )}
           </div>
         </div>
       </div>
@@ -1511,17 +1489,17 @@ export default function Orders({
               <button type="button" onClick={() => shiftWeekAndKeepDay(1)} className="w-9 h-9 grid place-items-center rounded-xl bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 font-black transition" title="Další týden">›</button>
             </div>
 
-            {/* Den závozu */}
+            {/* Den závozu — jednobarevné dlaždice (bílý text), stejný jazyk jako zbytek appky. */}
             <div className="flex gap-1.5 mt-2">
               {DAYS.map((d) => (
                 <button
                   key={d.v}
                   type="button"
                   onClick={() => pickDeliveryDay(d.v)}
-                  className={`flex-1 min-w-0 px-1 py-2 rounded-xl font-black text-xs transition ${
+                  className={`flex-1 min-w-0 px-1 py-2 rounded-xl font-black text-xs transition text-white ${
                     deliveryDay === d.v
-                      ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-                      : 'bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-100'
+                      ? 'bg-amber-600 shadow-md'
+                      : 'bg-neutral-700 hover:bg-neutral-600'
                   }`}
                 >
                   {d.label}
@@ -1544,7 +1522,7 @@ export default function Orders({
                   }
                 }}
               />
-              <span className="text-[11px] text-neutral-400 dark:text-neutral-400">upřesnění data dodání</span>
+              <span className="text-[11px] text-black dark:text-black font-bold">upřesnění data dodání</span>
             </div>
           </div>
 
@@ -2159,21 +2137,6 @@ export default function Orders({
       )}
 
 
-
-      {showWhatsAppIncoming && (
-        <WhatsAppIncomingModal
-          isOpen={showWhatsAppIncoming}
-          onClose={() => setShowWhatsAppIncoming(false)}
-          beers={beers}
-          packages={packages}
-          places={places}
-          onImport={handleSaveWhatsAppOrder}
-          onOpenMessage={(message) => {
-            setAutoWhatsAppMessage(message);
-            setAutoWhatsAppModal(true);
-          }}
-        />
-      )}
 
       {showWhatsAppAutoProcessor && (
         <WhatsAppAutoProcessorModal
