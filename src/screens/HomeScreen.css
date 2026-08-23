@@ -36,14 +36,17 @@
    pro všechny scény) — dřív byla vidět jen barva 4 rozmazaných "bublin"
    (.b1-.b4), což byl na malém displeji tak jemný rozdíl mezi scénami, že to
    působilo jako "barva pozadí se vůbec nemění". */
-.hs-fullscreen-scene[data-scene="warm"]   { background: linear-gradient(160deg, #fff2e9 0%, #ffe0e6 55%, #f3e0ff 100%); }
-.hs-fullscreen-scene[data-scene="sunset"] { background: linear-gradient(160deg, #fff7df 0%, #ffe2c4 55%, #ffd6d6 100%); }
-.hs-fullscreen-scene[data-scene="ocean"]  { background: linear-gradient(160deg, #e7f5ff 0%, #dcecff 55%, #dff7f0 100%); }
-.hs-fullscreen-scene[data-scene="forest"] { background: linear-gradient(160deg, #eaf8ee 0%, #ddf2d9 55%, #fff3d2 100%); }
-.hs-fullscreen-scene[data-scene="night"]  { background: linear-gradient(160deg, #ded6f5 0%, #cdc5ec 55%, #cfe0f5 100%); }
+.hs-fullscreen-scene[data-scene="warm"]   { background: linear-gradient(160deg, #ffe4d1 0%, #ffc2cf 55%, #e2c2ff 100%); }
+.hs-fullscreen-scene[data-scene="sunset"] { background: linear-gradient(160deg, #ffedb0 0%, #ffbd7a 55%, #ffabab 100%); }
+.hs-fullscreen-scene[data-scene="ocean"]  { background: linear-gradient(160deg, #c8e9ff 0%, #b3d4ff 55%, #b8f3e0 100%); }
+.hs-fullscreen-scene[data-scene="forest"] { background: linear-gradient(160deg, #d3f2dc 0%, #b9e6b0 55%, #ffe9a8 100%); }
+.hs-fullscreen-scene[data-scene="night"]  { background: linear-gradient(160deg, #beadf0 0%, #a196e0 55%, #a9c3ec 100%); }
 .hs-fullscreen-scene[data-scene="custom"] { background: linear-gradient(160deg, var(--hs-custom-wash, rgba(255,107,107,0.4)) 0%, #fbfaff 85%); }
+/* Vyšší průhlednost bublin (dřív 0.4 / 0.22 pro night) — na displeji plném
+   poloprůhledných dlaždic byl rozdíl mezi scénami skoro neznatelný, "jako by
+   se pozadí vůbec neměnilo" (viz i sytější gradient výše). */
 .hs-fullscreen-scene i {
-  position: absolute; border-radius: 50%; filter: blur(70px); opacity: 0.4;
+  position: absolute; border-radius: 50%; filter: blur(70px); opacity: 0.6;
 }
 .hs-fullscreen-scene .b1 { width: 55%; height: 55%; left: -10%; top: -12%; }
 .hs-fullscreen-scene .b2 { width: 46%; height: 46%; right: -8%; top: 2%; }
@@ -74,7 +77,7 @@
 .hs-fullscreen-scene[data-scene="night"] .b2 { background: var(--hs-indigo); }
 .hs-fullscreen-scene[data-scene="night"] .b3 { background: var(--hs-orchid); }
 .hs-fullscreen-scene[data-scene="night"] .b4 { background: var(--hs-plum); }
-.hs-fullscreen-scene[data-scene="night"] i { opacity: 0.22; }
+.hs-fullscreen-scene[data-scene="night"] i { opacity: 0.4; }
 
 /* Vlastní barva pozadí — --hs-custom nastavuje inline Layout.tsx podle
    home_layout.customAccent. Všechny 4 "bubliny" mají stejný odstín, různé
@@ -228,6 +231,11 @@
 .hs-tile.xs svg { width: 16px; height: 16px; }
 .hs-tile.xs .hs-lbl { font-size: 8.5px; line-height: 1.1; }
 .hs-tile.xs .hs-badge { display: none; }
+/* Mini dlaždice je moc úzká/nízká pro plný dpad — v edit módu se tam vejde
+   jen tlačítko ⚙ (viz LauncherTile.tsx), vycentrované a zmenšené, ať se
+   celé vejde dovnitř (jinak by ho oříznul overflow:hidden na .hs-tile). */
+.hs-tile.xs .hs-tile-controls { align-items: center; justify-content: center; padding: 2px; }
+.hs-tile.xs .hs-gear-btn { width: 22px; height: 22px; font-size: 12px; }
 
 .hs-tile.c-coral   { background: rgba(255,107,107,var(--hs-tile-alpha, 0.62)); }
 .hs-tile.c-amber2  { background: rgba(255,169,77,var(--hs-tile-alpha, 0.62)); }

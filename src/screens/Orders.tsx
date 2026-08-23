@@ -1811,7 +1811,7 @@ export default function Orders({
           Přilepeno nahoře, ať jde přepínat období i uprostřed scrollování
           dlouhého seznamu objednávek (viz i den/vyhledávání níže). */}
       {mode !== 'entry_only' && (viewMode === 'detail' || viewMode === 'celkem') && (
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4 bg-white rounded-2xl border border-neutral-200 p-2.5 shadow-md">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-2.5 bg-white rounded-2xl border border-neutral-200 p-2.5 shadow-md">
           <div className="flex items-center gap-1.5 bg-neutral-100 p-1 rounded-xl flex-wrap">
             <button
               type="button"
@@ -1956,14 +1956,13 @@ export default function Orders({
             </div>
           )}
 
-        {/* Delivery Day quick selector tabs — jediná přilepená lišta v Objednávkách (přepínač období a vyhledávací filtry pod ní se scrollují normálně). */}
-        <div className="sticky top-[52px] z-20 mb-4 bg-neutral-100 pt-1 flex items-center gap-1.5 overflow-x-auto scrollbar-thin pb-1">
+        {/* Delivery Day quick selector tabs — jediná přilepená lišta v Objednávkách (přepínač období a vyhledávací filtry pod ní se scrollují normálně).
+            Styl sjednocený s dlaždicemi na Domů (viz LauncherTile/HomeScreen.css .hs-tile): plná jedna barva, bílý text, zaoblené, bez rámečků/ringů. */}
+        <div className="sticky top-[52px] z-20 mb-2.5 bg-neutral-100 pt-1 flex items-center gap-1.5 overflow-x-auto scrollbar-thin pb-1">
           <button
             onClick={() => setDeliveryDayFilter('all')}
-            className={`px-3.5 py-1.5 rounded-xl font-extrabold text-xs shrink-0 transition-all shadow-2xs ${
-              deliveryDayFilter === 'all'
-                ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300'
-                : 'bg-white text-neutral-800 hover:bg-neutral-100 border border-neutral-200'
+            className={`px-3.5 py-1.5 rounded-xl font-extrabold text-xs shrink-0 transition-all text-white ${
+              deliveryDayFilter === 'all' ? 'bg-amber-600 shadow-xs' : 'bg-neutral-400 hover:bg-neutral-500'
             }`}
           >
             🚚 Všechny dny
@@ -1975,17 +1974,17 @@ export default function Orders({
               <button
                 key={d.v}
                 onClick={() => setDeliveryDayFilter(d.v)}
-                className={`px-3 py-1.5 rounded-xl font-black text-xs shrink-0 transition-all flex items-center gap-1.5 shadow-2xs ${
+                className={`px-3 py-1.5 rounded-xl font-black text-xs shrink-0 transition-all flex items-center gap-1.5 text-white ${
                   deliveryDayFilter === d.v
-                    ? 'bg-white text-amber-900 ring-2 ring-amber-400'
+                    ? 'bg-amber-600 shadow-xs'
                     : hasOrders
-                    ? 'bg-amber-100/90 text-amber-800 border-2 border-amber-400/80 hover:bg-amber-200'
-                    : 'bg-white text-neutral-900 border border-neutral-200 hover:bg-neutral-100'
+                    ? 'bg-amber-400 hover:bg-amber-500'
+                    : 'bg-neutral-400 hover:bg-neutral-500'
                 }`}
               >
                 <span>{d.label}</span>
                 {hasOrders && (
-                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${deliveryDayFilter === d.v ? 'bg-amber-100 text-amber-900' : 'bg-black/10 text-black'}`}>
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/25">
                     {count}
                   </span>
                 )}
@@ -1994,19 +1993,17 @@ export default function Orders({
           })}
           <button
             onClick={() => setDeliveryDayFilter('_none')}
-            className={`px-3 py-1.5 rounded-xl font-bold text-xs shrink-0 transition-all ${
-              deliveryDayFilter === '_none'
-                ? 'bg-neutral-800 text-white'
-                : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-100'
+            className={`px-3 py-1.5 rounded-xl font-bold text-xs shrink-0 transition-all text-white ${
+              deliveryDayFilter === '_none' ? 'bg-neutral-800' : 'bg-neutral-400 hover:bg-neutral-500'
             }`}
           >
             Bez dne
           </button>
         </div>
 
-        <div className="card p-3 flex flex-wrap items-center gap-3 shadow-sm">
+        <div className="card p-2.5 flex flex-wrap items-center gap-2.5 shadow-sm">
           <input
-            type="text" placeholder="🔍 Hledat odběratele, pivo nebo poznámku…"
+            type="text" placeholder="Hledat odběratele, pivo nebo poznámku"
             className="input flex-1 min-w-[200px]" value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
           />
@@ -2027,21 +2024,7 @@ export default function Orders({
             <option value="">🏷️ Konkrétní obal</option>
             {packages.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
           </select>
-          {(itemFilterBeerId || itemFilterPackageId) && (
-            <span className="flex items-center gap-2.5 text-[10px] font-black tracking-wide text-neutral-600">
-              {itemFilterBeerId && (
-                <span className="flex items-center gap-1">
-                  <span className="w-2.5 h-2.5 rounded-full bg-blue-400 ring-1 ring-blue-600" /> pivo
-                </span>
-              )}
-              {itemFilterPackageId && (
-                <span className="flex items-center gap-1">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 ring-1 ring-emerald-600" /> obal
-                </span>
-              )}
-            </span>
-          )}
-          <label className="flex items-center gap-2 text-sm text-primary-700 cursor-pointer px-3 py-1.5 rounded-lg hover:bg-primary-50">
+          <label className="flex items-center gap-2 text-sm text-primary-700 cursor-pointer px-2.5 py-1 rounded-lg hover:bg-primary-50">
             <input type="checkbox" checked={groupByDay} onChange={(e) => setGroupByDay(e.target.checked)} className="w-4 h-4 rounded text-primary-600" />
             📅 Seskupit dle dne
           </label>
@@ -2050,8 +2033,8 @@ export default function Orders({
           )}
         </div>
 
-      <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
-        <label className="flex items-center gap-2 text-sm text-primary-700 cursor-pointer px-3 py-1.5 rounded-lg hover:bg-primary-50">
+      <div className="flex items-center justify-between gap-2 mb-2.5 flex-wrap">
+        <label className="flex items-center gap-2 text-sm text-primary-700 cursor-pointer px-2.5 py-1 rounded-lg hover:bg-primary-50">
           <input type="checkbox" checked={zavozOnly} onChange={(e) => setZavozOnly(e.target.checked)} className="w-4 h-4 rounded text-primary-600" />
           🚚 Jen nezavezenné (pro závozníka)
         </label>

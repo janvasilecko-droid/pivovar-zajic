@@ -147,6 +147,10 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   // barevnou scénou (viz HomeScreen.css) — hlavička a spodní lišta se na ní
   // stanou poloprůhledným "sklem", jinde v appce zůstávají beze změny.
   const isHome = page === 'home';
+  // Stránky se svojí TabBar (viz TABBED_PAGES níže) nemají mít nad záložkami
+  // žádnou lištu — záložka má být úplně nahoře, stejně jako dlaždice na Domů.
+  const isTabbed = TABBED_PAGES.has(navPageFor(page));
+  const hideHeader = isHome || isTabbed;
   const homeSceneRaw = (profile as any)?.home_layout?.scene;
   const homeScene: Scene = SCENES.includes(homeSceneRaw) ? homeSceneRaw : 'warm';
   const homeCustomAccent: string = (profile as any)?.home_layout?.customAccent || '#ff6b6b';
@@ -637,11 +641,12 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
         <div className="hs-fullscreen-scene" data-scene={homeScene} style={{ ['--hs-custom' as any]: homeCustomAccent, ['--hs-custom-wash' as any]: homeCustomWash }}>
           <i className="b1" /><i className="b2" /><i className="b3" /><i className="b4" />
         </div>
-        {/* Top Header - Desktop & Mobile. Na Domů úplně schovaná — launcher
-            má být dlaždice od úplně nahoře, žádný rámeček/lišta nad nimi.
-            Jinde skleněná/poloprůhledná (stejný vzhled jako na Domů), ať
-            skrz ni prosvítá barevná scéna. */}
-        {!isHome && (
+        {/* Top Header - Desktop & Mobile. Na Domů a na stránkách s vlastní
+            TabBar (viz TABBED_PAGES) úplně schovaná — dlaždice/záložky mají
+            být úplně nahoře, žádný rámeček/lišta nad nimi. Jinde skleněná/
+            poloprůhledná (stejný vzhled jako na Domů), ať skrz ni prosvítá
+            barevná scéna. */}
+        {!hideHeader && (
         <header
           className="hs-glass-chrome flex items-center justify-between px-2 sm:px-8 py-2 border-b shadow-2xs z-20 gap-2 shrink-0"
         >
@@ -761,9 +766,10 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
         />
 
         {/* Dynamic Page Content with bottom safe padding for Mobile Navigation Dock.
-            Na Domů bez horního odsazení, ať dlaždice začínají úplně nahoře
-            (hlavička tam navíc není vůbec vykreslená). */}
-        <div className={`flex-1 overflow-y-auto px-3.5 sm:px-8 pb-24 sm:pb-8 ${isHome ? 'pt-2' : 'pt-3.5 sm:pt-8'}`}>
+            Na Domů a na stránkách s vlastní TabBar bez horního odsazení, ať
+            dlaždice/záložky začínají úplně nahoře (hlavička tam navíc není
+            vůbec vykreslená). */}
+        <div className={`flex-1 overflow-y-auto px-3.5 sm:px-8 pb-24 sm:pb-8 ${hideHeader ? 'pt-2' : 'pt-3.5 sm:pt-8'}`}>
           {children}
         </div>
 

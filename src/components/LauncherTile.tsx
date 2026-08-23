@@ -106,12 +106,19 @@ export default function LauncherTile({
         // stopPropagation, ať klik/dotek na ovládací prvky nezačne dlouhé
         // podržení celé dlaždice (rodič má vlastní onPointerDown pro přesun).
         <div className="hs-tile-controls" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
-          <div className="hs-move-dpad">
-            <button type="button" className="hs-dpad-btn hs-dpad-up" title="Přesunout nahoru" onClick={() => onMoveStep('up')}>▲</button>
-            <button type="button" className="hs-dpad-btn hs-dpad-left" title="Přesunout doleva" onClick={() => onMoveStep('left')}>◀</button>
-            <button type="button" className="hs-dpad-btn hs-dpad-down" title="Přesunout dolů" onClick={() => onMoveStep('down')}>▼</button>
-            <button type="button" className="hs-dpad-btn hs-dpad-right" title="Přesunout doprava" onClick={() => onMoveStep('right')}>▶</button>
-          </div>
+          {/* "Mini" dlaždice (w=0) je na mobilu jen ~28px široká — plný dpad
+              (4 šipky) se tam vůbec nevejde a díky overflow:hidden na
+              .hs-tile úplně zmizí i tlačítko ⚙ pod ním. Radši jen ⚙
+              (dlouhé podržení + dpad rodičovské dlaždice pořád funguje pro
+              přesun), ať jde barvu/velikost aspoň otevřít. */}
+          {w !== 0 && (
+            <div className="hs-move-dpad">
+              <button type="button" className="hs-dpad-btn hs-dpad-up" title="Přesunout nahoru" onClick={() => onMoveStep('up')}>▲</button>
+              <button type="button" className="hs-dpad-btn hs-dpad-left" title="Přesunout doleva" onClick={() => onMoveStep('left')}>◀</button>
+              <button type="button" className="hs-dpad-btn hs-dpad-down" title="Přesunout dolů" onClick={() => onMoveStep('down')}>▼</button>
+              <button type="button" className="hs-dpad-btn hs-dpad-right" title="Přesunout doprava" onClick={() => onMoveStep('right')}>▶</button>
+            </div>
+          )}
           <button type="button" className="hs-gear-btn" title="Upravit dlaždici" onClick={onOpenEditor}>⚙</button>
         </div>
       )}
