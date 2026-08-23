@@ -351,14 +351,16 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
 
   return (
     <div>
-      {/* Tab Navigation — přilepená nahoře, ať jde přepínat záložku i uprostřed scrollování. */}
-      <div className="sticky top-0 z-20 bg-neutral-100 pt-1 flex items-center gap-2 border-b border-neutral-200 pb-2 overflow-x-auto scrollbar-thin mb-4">
+      {/* Tab Navigation — přilepená nahoře, ať jde přepínat záložku i uprostřed scrollování.
+          Stejný jazyk jako Objednávky: neoznačená záložka černá s bílým textem,
+          označená se obrací na bílou s tmavým textem. */}
+      <div className="sticky top-0 z-20 bg-neutral-100 pt-1 flex items-center gap-2 pb-2 overflow-x-auto scrollbar-thin mb-4">
         <button
           onClick={() => (setPage ? setPage('dashboard') : setActiveTab('sklad'))}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
+          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'sklad'
-              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+              ? 'bg-white text-neutral-900 shadow-md'
+              : 'bg-neutral-900 text-white hover:bg-neutral-800'
           }`}
         >
           <BarChart3 size={16} />
@@ -367,10 +369,10 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
 
         <button
           onClick={() => (setPage ? setPage('sklo_promo') : setActiveTab('sklo_promo'))}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
+          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'sklo_promo'
-              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+              ? 'bg-white text-neutral-900 shadow-md'
+              : 'bg-neutral-900 text-white hover:bg-neutral-800'
           }`}
         >
           <Sparkles size={16} />
@@ -385,13 +387,13 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
       <div className="flex justify-end mb-3 items-center gap-2 flex-wrap">
         <button
           onClick={() => setShowQuickCount(true)}
-          className="btn-primary !py-2 !px-3.5 text-xs font-black shadow-sm transition flex items-center gap-1.5"
+          className="btn-primary !rounded !bg-neutral-900 hover:!bg-neutral-800 !bg-none !py-2 !px-3.5 text-xs font-black shadow-sm"
         >
           <Calculator size={15} /> 📦 Rychlé sčítadlo skladu
         </button>
         <button
           onClick={() => setShowAnnouncementManager(true)}
-          className="px-3.5 py-2 rounded-2xl bg-neutral-900 hover:bg-neutral-800 text-amber-300 font-black text-xs shadow-sm transition flex items-center gap-1.5"
+          className="btn !rounded bg-neutral-900 hover:bg-neutral-800 text-white !py-2 !px-3.5 text-xs font-black shadow-sm"
         >
           <AlertTriangle size={15} /> Spravovat Hlášení
         </button>
@@ -408,9 +410,9 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
       )}
       {/* Material (Labels & Bottles) Warning Banner */}
       {materialAlerts.length > 0 && (
-        <div className="mb-6 p-4 rounded-3xl bg-gradient-to-r from-rose-500/20 via-rose-400/10 to-amber-500/10 border-2 border-rose-400 shadow-md flex items-center justify-between flex-wrap gap-3">
+        <div className="mb-6 p-4 rounded bg-gradient-to-r from-rose-500/20 via-rose-400/10 to-amber-500/10 border-2 border-rose-400 shadow-md flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-rose-600 text-white flex items-center justify-center text-2xl font-black shadow-md shrink-0 animate-pulse">
+            <div className="w-12 h-12 rounded bg-rose-600 text-white flex items-center justify-center text-2xl font-black shadow-md shrink-0 animate-pulse">
               ⚠️
             </div>
             <div>
@@ -420,7 +422,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
               </div>
               <div className="flex flex-wrap gap-2 mt-1.5">
                 {materialAlerts.map((a, i) => (
-                  <span key={i} className="text-xs font-bold px-3 py-1 rounded-xl shadow-xs bg-rose-600 text-white font-mono">
+                  <span key={i} className="text-xs font-bold px-3 py-1 rounded shadow-xs bg-rose-600 text-white font-mono">
                     <strong>{a.name}</strong> — zbývá jen {a.balance} ks!
                   </span>
                 ))}
@@ -430,7 +432,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
 
           <button
             onClick={() => (setPage ? setPage('sklo_promo') : setActiveTab('sklo_promo'))}
-            className="px-4 py-2.5 rounded-2xl bg-neutral-900 text-amber-300 font-extrabold text-xs shadow-md hover:bg-slate-800 transition shrink-0"
+            className="px-4 py-2.5 rounded bg-neutral-900 text-white font-extrabold text-xs shadow-md hover:bg-neutral-800 transition shrink-0"
           >
             Přejít do evidence etiket & lahví →
           </button>
@@ -440,14 +442,12 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
       {/* Upozornění na STK/dálniční známku se přesunulo na domovskou obrazovku (HomeScreen.tsx). */}
 
 
-      <div className="card p-4 mb-6 shadow-sm border-neutral-200/80 bg-white space-y-3">
-        {/* Big current date label */}
-        <div className="text-center">
-          <div className="font-display font-black text-neutral-900 text-xl sm:text-2xl">
-            Aktuální skladové zásoby
-          </div>
-          <div className="text-sm sm:text-base font-extrabold text-amber-700 mt-1">Stav k {todayISO()}</div>
+      {/* Bez bílé "karty" kolem — nadpis sedí přímo na pozadí stránky. */}
+      <div className="text-center mb-6">
+        <div className="font-display font-black text-neutral-900 text-xl sm:text-2xl">
+          Aktuální skladové zásoby
         </div>
+        <div className="text-sm sm:text-base font-extrabold text-amber-700 mt-1">Stav k {todayISO()}</div>
       </div>
 
       {/* Legend explaining the stock icons */}
@@ -475,7 +475,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
             return (
               <div
                 key={s.beer.id}
-                className="card-hover p-5 flex flex-col relative overflow-hidden group border-2"
+                className="card-hover !rounded p-5 flex flex-col relative overflow-hidden group border-2"
                 style={{ borderColor: beerBorder(s.beer) }}
               >
                 <div className="flex items-start justify-between mb-3.5">
@@ -542,7 +542,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
 
                 {s.stockByPkg.length === 0 && <p className="text-xs text-neutral-400 py-3 italic">Žádné volné obaly na skladě.</p>}
 
-                <button className="w-full text-sm text-primary-700 hover:text-primary-900 font-extrabold mt-2 py-1.5 rounded-lg bg-primary-50 hover:bg-primary-100 flex items-center justify-center gap-1.5 transition" onClick={() => setDetail(s)}>
+                <button className="w-full text-sm text-white font-extrabold mt-2 py-1.5 rounded bg-neutral-900 hover:bg-neutral-800 flex items-center justify-center gap-1.5 transition" onClick={() => setDetail(s)}>
                   <ClipboardList size={16} /> Detailní přehled
                 </button>
               </div>
