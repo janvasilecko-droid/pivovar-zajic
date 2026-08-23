@@ -237,9 +237,6 @@ export default function Orders({
   const [showImport, setShowImport] = useState(false);
   const [showWhatsAppAutoProcessor, setShowWhatsAppAutoProcessor] = useState(false);
   const [showWhatsAppAudit, setShowWhatsAppAudit] = useState(false);
-  // Sjednocené menu pod jednou ikonou WhatsApp — místo tří samostatných
-  // tlačítek (Auto-Import/WhatsApp/Kontrola zpráv) jedna ikona s nabídkou.
-  const [showWhatsAppMenu, setShowWhatsAppMenu] = useState(false);
   const [showOrderAudit, setShowOrderAudit] = useState(false);
 
   // Automatické zobrazování nových WhatsApp objednávek
@@ -1315,16 +1312,6 @@ export default function Orders({
                 >
                   <Plus size={14} /> Nové
                 </button>
-                <button
-                  onClick={() => setViewMode('text')}
-                  className={`flex-1 sm:flex-none px-2 py-1.5 rounded font-black text-[11px] leading-tight transition flex items-center justify-center gap-1 whitespace-nowrap ${
-                    viewMode === 'text'
-                      ? 'bg-neutral-900 text-white shadow-md'
-                      : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                  }`}
-                >
-                  <Mail size={14} /> Text
-                </button>
               </div>
             )}
             {mode === 'overviews_only' && setPage && (
@@ -1340,7 +1327,7 @@ export default function Orders({
           
             </div>
 
-          {/* Řádek 2: Hlasové zadání / WhatsApp (sjednocené menu) / Fotka */}
+          {/* Řádek 2: Hlasové zadání / Text / WhatsApp / Kontrola / Audit / Fotka — jednotný styl (btn-ghost). */}
           <div className="flex gap-2 items-center flex-wrap justify-end">
             <VoiceRecorder
               compact
@@ -1348,45 +1335,29 @@ export default function Orders({
               placeNames={places.map((p) => p.name)}
               onResult={handleVoiceResult}
             />
-            {/* Jedna ikona WhatsApp pro veškeré zprávy — otevře menu se
-                zpracováním příchozích zpráv i kontrolou celého období,
-                dřív tu byla 3 samostatná tlačítka (Auto-Import/WhatsApp/
-                Kontrola zpráv). */}
-            <div className="relative">
+            {mode !== 'entry_only' && (
               <button
-                className="btn-ghost !rounded !bg-[#25D366] !border-[#25D366] !text-white font-black text-xs shadow-xs flex items-center gap-1.5 hover:!bg-[#1da851] relative"
-                title="WhatsApp — zprávy k vyřízení"
-                onClick={() => setShowWhatsAppMenu((v) => !v)}
+                className={`btn-ghost !rounded font-black text-xs shadow-xs flex items-center gap-1.5 ${viewMode === 'text' ? '!bg-neutral-900 !text-white !border-neutral-900' : '!bg-white border-neutral-300 text-neutral-700'}`}
+                onClick={() => setViewMode('text')}
               >
-                <MessageCircle size={14} /> WhatsApp
-                {newWhatsAppCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-black rounded-full w-4 h-4 flex items-center justify-center">
-                    {newWhatsAppCount}
-                  </span>
-                )}
+                <Mail size={14} /> Text
               </button>
-              {showWhatsAppMenu && (
-                <>
-                  <div className="fixed inset-0 z-30" onClick={() => setShowWhatsAppMenu(false)} />
-                  <div className="absolute right-0 top-full mt-1.5 z-40 bg-white rounded shadow-xl border border-neutral-200 p-1.5 flex flex-col gap-1 min-w-[220px]">
-                    <button
-                      type="button"
-                      className="text-left px-3 py-2 rounded text-xs font-black text-neutral-800 hover:bg-neutral-100 flex items-center gap-2"
-                      onClick={() => { setShowWhatsAppAutoProcessor(true); setShowWhatsAppMenu(false); }}
-                    >
-                      <MessageCircle size={14} className="text-[#25D366]" /> Zpracovat příchozí zprávy
-                    </button>
-                    <button
-                      type="button"
-                      className="text-left px-3 py-2 rounded text-xs font-black text-neutral-800 hover:bg-neutral-100 flex items-center gap-2"
-                      onClick={() => { setShowWhatsAppAudit(true); setShowWhatsAppMenu(false); }}
-                    >
-                      <ShieldAlert size={14} className="text-neutral-500" /> Kontrola všech zpráv za období
-                    </button>
-                  </div>
-                </>
+            )}
+            {/* Klik rovnou otevře čtení/zpracování příchozích zpráv — ne
+                mezikrok navíc (kontrola je samostatné tlačítko vedle). */}
+            <button
+              className="btn-ghost !rounded !bg-[#25D366] !border-[#25D366] !text-white font-black text-xs shadow-xs flex items-center gap-1.5 hover:!bg-[#1da851] relative"
+              title="WhatsApp — čtení a zpracování příchozích zpráv"
+              onClick={() => setShowWhatsAppAutoProcessor(true)}
+            >
+              <MessageCircle size={14} /> WhatsApp
+              {newWhatsAppCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-black rounded-full w-4 h-4 flex items-center justify-center">
+                  {newWhatsAppCount}
+                </span>
               )}
-            </div>
+            </button>
+            <button className="btn-ghost !rounded !bg-white border-neutral-300 text-neutral-700 font-extrabold text-xs shadow-xs flex items-center gap-1.5" title="Kontrola — zobrazí VŠECHNY WhatsApp zprávy za období, i chybové a ignorované" onClick={() => setShowWhatsAppAudit(true)}><ShieldAlert size={14} /> Kontrola zpráv</button>
             <button className="btn-ghost !rounded !bg-white border-neutral-300 text-neutral-700 font-extrabold text-xs shadow-xs flex items-center gap-1.5" title="Audit objednávek — najde duplicitní položky, nesrovnalosti proti WhatsAppu a nezpracované zprávy" onClick={() => setShowOrderAudit(true)}><ShieldAlert size={14} /> Audit objednávek</button>
             <button className="btn-ghost !rounded !bg-white border-amber-300 text-amber-800 font-extrabold text-xs shadow-xs flex items-center gap-1.5" title="Načíst z fotky/e-mailu" onClick={() => { setImportTarget(null); setShowImport(true); }}><Camera size={14} /> Fotka/AI</button>
           </div>
