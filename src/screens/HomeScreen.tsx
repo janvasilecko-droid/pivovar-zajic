@@ -224,6 +224,21 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
   function handleOpacityChange(tileOpacity: number) {
     persist({ ...layout, tileOpacity });
   }
+  // Záložní, garantovaně funkční přesun (čisté kliknutí, žádné gesto) —
+  // dlouhé podržení je citlivé na zařízení/prohlížeč, tohle vždy funguje.
+  function handleMoveTileStep(id: Page, direction: -1 | 1) {
+    setLayout((prevLayout) => {
+      const pageTiles = [...prevLayout.pages[currentPageIndex]];
+      const from = pageTiles.indexOf(id);
+      const to = from + direction;
+      if (from < 0 || to < 0 || to >= pageTiles.length) return prevLayout;
+      [pageTiles[from], pageTiles[to]] = [pageTiles[to], pageTiles[from]];
+      const pages = prevLayout.pages.map((p, i) => (i === currentPageIndex ? pageTiles : p));
+      const next = { ...prevLayout, pages };
+      persist(next);
+      return next;
+    });
+  }
   function handleDockChange(slot: number, id: Page) {
     const dock = [...layout.dock];
     dock[slot] = id;
@@ -500,6 +515,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                 dragOver={dragOverId === id}
                 jiggling={editMode && draggingId !== null && draggingId !== id}
                 onSetSize={(s) => handleSetSize(id, s)}
+                onMoveStep={(dir) => handleMoveTileStep(id, dir)}
                 onRecolor={(c) => handleRecolor(id, c)}
                 onHide={() => handleHideTile(id)}
                 onRename={(label) => handleRenameTile(id, label)}

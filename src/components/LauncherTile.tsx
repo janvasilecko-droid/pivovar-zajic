@@ -32,7 +32,7 @@ const SIZE_OPTIONS: { key: TileSize; w: number; h: number; label: string }[] = [
 
 export default function LauncherTile({
   item, override, editing, badge, tileOpacity, pageCount, currentPage, onMoveToPage,
-  onClick, onDragPointerDown, isDragging, isPriming, dragOver, jiggling, onSetSize, onRecolor, onHide, onRename,
+  onClick, onDragPointerDown, isDragging, isPriming, dragOver, jiggling, onSetSize, onMoveStep, onRecolor, onHide, onRename,
 }: {
   item: NavItem;
   override: TileOverride;
@@ -53,6 +53,8 @@ export default function LauncherTile({
   /** Jiná dlaždice se právě přesouvá — tahle se jemně "chvěje" (jako na Androidu) */
   jiggling: boolean;
   onSetSize: (size: TileSize) => void;
+  /** Záložní garantovaně funkční přesun o jednu pozici — čisté kliknutí. */
+  onMoveStep: (direction: -1 | 1) => void;
   onRecolor: (c: string) => void;
   onHide: () => void;
   onRename: (label: string) => void;
@@ -109,21 +111,27 @@ export default function LauncherTile({
         // celé dlaždice (rodič má vlastní onPointerDown pro přesun).
         <div className="hs-tile-controls" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
           <div className="hs-ctrl-row">
-            {pageCount > 1 && (
-              <select
-                className="hs-page-select"
-                title="Přesunout na stránku"
-                value={currentPage}
-                onChange={(e) => onMoveToPage(Number(e.target.value))}
-              >
-                {Array.from({ length: pageCount }, (_, i) => (
-                  <option key={i} value={i}>{i + 1}</option>
-                ))}
-              </select>
-            )}
-            <button type="button" className="hs-size-btn" title="Skrýt dlaždici" onClick={onHide}>
-              ✕
-            </button>
+            <div className="hs-move-arrows">
+              <button type="button" className="hs-size-btn" title="Přesunout doleva/nahoru" onClick={() => onMoveStep(-1)}>◀</button>
+              <button type="button" className="hs-size-btn" title="Přesunout doprava/dolů" onClick={() => onMoveStep(1)}>▶</button>
+            </div>
+            <div className="hs-move-arrows">
+              {pageCount > 1 && (
+                <select
+                  className="hs-page-select"
+                  title="Přesunout na stránku"
+                  value={currentPage}
+                  onChange={(e) => onMoveToPage(Number(e.target.value))}
+                >
+                  {Array.from({ length: pageCount }, (_, i) => (
+                    <option key={i} value={i}>{i + 1}</option>
+                  ))}
+                </select>
+              )}
+              <button type="button" className="hs-size-btn" title="Skrýt dlaždici" onClick={onHide}>
+                ✕
+              </button>
+            </div>
           </div>
 
           <div className="hs-bottom-controls">
