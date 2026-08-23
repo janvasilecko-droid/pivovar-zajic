@@ -19,8 +19,8 @@ import { fetchPendingWhatsAppCount } from '../lib/whatsappApi';
 import { getVehicleExpiryStatus } from './Catalogs';
 import {
   getHomeLayout, saveHomeLayout, addPage, removePage, moveTileToPage, hideTile, unhideTile,
-  TILE_SIZES, SCENES, MIN_OPACITY, MAX_OPACITY,
-  type HomeLayout,
+  SCENES, MIN_OPACITY, MAX_OPACITY,
+  type HomeLayout, type TileSize,
 } from '../lib/homeLayout';
 import './HomeScreen.css';
 
@@ -113,6 +113,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
   const [editMode, setEditMode] = useState(false);
   const [draggingId, setDraggingId] = useState<Page | null>(null);
   const [dragOverId, setDragOverId] = useState<Page | null>(null);
+  const [primingId, setPrimingId] = useState<Page | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hasCustomLayout, setHasCustomLayout] = useState(!!(profile as any)?.home_layout && Object.keys((profile as any).home_layout).length > 0);
 
@@ -159,14 +160,16 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
       window.removeEventListener('pointercancel', onUp);
       if (longPressTimer.current) clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
+      setPrimingId(null);
       setDraggingId(null);
       setDragOverId(null);
     }
     function onMove(ev: PointerEvent) {
       if (!longPressFired.current) {
-        // Dokud se čeká na podržení, pohyb nad ~10px = uživatel chtěl
-        // scrollovat/přejet, ne přesouvat — zrušit bez zásahu.
-        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) > 10) cleanup();
+        // Dokud se čeká na podržení, výraznější pohyb (přirozený třes prstu
+        // je pár px) = uživatel chtěl scrollovat/přejet, ne přesouvat —
+        // zrušit bez zásahu.
+        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) > 18) cleanup();
         return;
       }
       const overId = findTileIdAtPoint(ev.clientX, ev.clientY);
@@ -195,16 +198,19 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onUp);
+    // "Nabíjecí" vizuální stav hned od dotyku (viz LauncherTile — jemné
+    // zvětšení, co roste po dobu čekání), ať je jasné, že se něco děje,
+    // ne až po plných 400ms ticha.
+    setPrimingId(id);
     longPressTimer.current = setTimeout(() => {
       longPressFired.current = true;
+      setPrimingId(null);
       setDraggingId(id);
       try { navigator.vibrate?.(15); } catch {}
-    }, 450);
+    }, 400);
   }
-  function handleCycleSize(id: Page) {
-    const current = layout.overrides[id]?.size ?? 'n';
-    const next = TILE_SIZES[(TILE_SIZES.indexOf(current) + 1) % TILE_SIZES.length];
-    persist({ ...layout, overrides: { ...layout.overrides, [id]: { ...layout.overrides[id], size: next } } });
+  function handleSetSize(id: Page, size: TileSize) {
+    persist({ ...layout, overrides: { ...layout.overrides, [id]: { ...layout.overrides[id], size } } });
   }
   function handleRecolor(id: Page, color: string) {
     persist({ ...layout, overrides: { ...layout.overrides, [id]: { ...layout.overrides[id], color } } });
@@ -527,9 +533,10 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                 onClick={() => setPage(id)}
                 onDragPointerDown={(e) => handleTileDragPointerDown(id, e)}
                 isDragging={draggingId === id}
+                isPriming={primingId === id}
                 dragOver={dragOverId === id}
                 jiggling={editMode && draggingId !== null && draggingId !== id}
-                onCycleSize={() => handleCycleSize(id)}
+                onSetSize={(s) => handleSetSize(id, s)}
                 onRecolor={(c) => handleRecolor(id, c)}
                 onHide={() => handleHideTile(id)}
                 onRename={(label) => handleRenameTile(id, label)}

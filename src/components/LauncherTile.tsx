@@ -1,12 +1,12 @@
 // Jedna dlaždice přizpůsobitelného launcheru (src/screens/HomeScreen.tsx).
 // Mimo edit mód je to prostý navigační button; v edit módu navíc nabízí
-// přesun, cyklování velikosti, přebarvení, přejmenování a skrytí.
+// přesun, přímý výběr velikosti, přebarvení, přejmenování a skrytí.
 //
 // Přesun je dlouhé podržení (long-press), stejně jako na Androidu — držení
 // timeru a rozhodování "scroll vs. drag" řeší rodič (HomeScreen.tsx) přes
 // window pointer eventy; tahle komponenta jen předává pointerdown a
-// zobrazuje vizuální stav (zvednutá dlaždice / cíl přesunu / "jiggle"
-// ostatních dlaždic, dokud se jedna přesouvá — jako na Androidu).
+// zobrazuje vizuální stav ("nabíjení" během čekání / zvednutá dlaždice /
+// cíl přesunu / "jiggle" ostatních dlaždic, dokud se jedna přesouvá).
 import { useState } from 'react';
 import type { NavItem } from './Layout';
 import { TILE_COLORS, COLOR_HEX, hexToRgba, type TileOverride, type TileSize } from '../lib/homeLayout';
@@ -19,9 +19,20 @@ function sizeClass(size: TileSize): string {
   return '';
 }
 
+// Přímý výběr velikosti (místo cyklování jedním tlačítkem) — každá dlaždice
+// ve výběru ukazuje svůj skutečný tvar/poměr stran, takže je jasné, co se
+// stane, a stačí jedno klepnutí přesně na cílovou velikost.
+const SIZE_OPTIONS: { key: TileSize; w: number; h: number; label: string }[] = [
+  { key: 'sm', w: 8, h: 8, label: 'Malá' },
+  { key: 'n', w: 14, h: 14, label: 'Normální' },
+  { key: 'w2', w: 22, h: 11, label: 'Široká' },
+  { key: 'h2', w: 11, h: 22, label: 'Vysoká' },
+  { key: 'w2h2', w: 20, h: 20, label: 'Velká' },
+];
+
 export default function LauncherTile({
   item, override, editing, badge, tileOpacity, pageCount, currentPage, onMoveToPage,
-  onClick, onDragPointerDown, isDragging, dragOver, jiggling, onCycleSize, onRecolor, onHide, onRename,
+  onClick, onDragPointerDown, isDragging, isPriming, dragOver, jiggling, onSetSize, onRecolor, onHide, onRename,
 }: {
   item: NavItem;
   override: TileOverride;
@@ -35,11 +46,13 @@ export default function LauncherTile({
   onDragPointerDown: (e: React.PointerEvent) => void;
   /** Tahle dlaždice je právě "zvednutá" (po dlouhém podržení) */
   isDragging: boolean;
+  /** Prst drží dlaždici, ale ještě čeká se na uplynutí podržení */
+  isPriming: boolean;
   /** Prst/kurzor je teď nad touhle dlaždicí během přesunu jiné */
   dragOver: boolean;
   /** Jiná dlaždice se právě přesouvá — tahle se jemně "chvěje" (jako na Androidu) */
   jiggling: boolean;
-  onCycleSize: () => void;
+  onSetSize: (size: TileSize) => void;
   onRecolor: (c: string) => void;
   onHide: () => void;
   onRename: (label: string) => void;
@@ -55,7 +68,7 @@ export default function LauncherTile({
 
   return (
     <div
-      className={`hs-tile ${isPreset ? `c-${color}` : ''} ${sizeClass(size)} ${editing ? 'hs-editing' : ''} ${isDragging ? 'hs-picked-up' : ''} ${dragOver ? 'hs-drag-over' : ''} ${jiggling ? 'hs-jiggle' : ''}`}
+      className={`hs-tile ${isPreset ? `c-${color}` : ''} ${sizeClass(size)} ${editing ? 'hs-editing' : ''} ${isDragging ? 'hs-picked-up' : ''} ${isPriming ? 'hs-priming' : ''} ${dragOver ? 'hs-drag-over' : ''} ${jiggling ? 'hs-jiggle' : ''}`}
       style={{
         ...(isPreset ? {} : { background: hexToRgba(color, tileOpacity) }),
         touchAction: editing ? 'none' : undefined,
@@ -111,28 +124,42 @@ export default function LauncherTile({
             <button type="button" className="hs-size-btn" title="Skrýt dlaždici" onClick={onHide}>
               ✕
             </button>
-            <button type="button" className="hs-size-btn" title="Změnit velikost" onClick={onCycleSize}>
-              ⤢
-            </button>
           </div>
-          <div className="hs-swatches">
-            {TILE_COLORS.map((c) => (
-              <button
-                key={c}
-                type="button"
-                className={`hs-swatch ${c === color ? 'active' : ''}`}
-                style={{ background: COLOR_HEX[c] }}
-                title={c}
-                onClick={() => onRecolor(c)}
-              />
-            ))}
-            <label className="hs-swatch hs-swatch-custom" title="Vlastní barva" style={{ background: isPreset ? undefined : color }}>
-              <input
-                type="color"
-                value={isPreset ? '#ffffff' : color}
-                onChange={(e) => onRecolor(e.target.value)}
-              />
-            </label>
+
+          <div className="hs-bottom-controls">
+            <div className="hs-size-row">
+              {SIZE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  className={`hs-size-opt ${size === opt.key ? 'active' : ''}`}
+                  title={opt.label}
+                  onClick={() => onSetSize(opt.key)}
+                >
+                  <span className="hs-size-shape" style={{ width: opt.w, height: opt.h }} />
+                </button>
+              ))}
+            </div>
+
+            <div className="hs-swatches">
+              {TILE_COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  className={`hs-swatch ${c === color ? 'active' : ''}`}
+                  style={{ background: COLOR_HEX[c] }}
+                  title={c}
+                  onClick={() => onRecolor(c)}
+                />
+              ))}
+              <label className="hs-swatch hs-swatch-custom" title="Vlastní barva" style={{ background: isPreset ? undefined : color }}>
+                <input
+                  type="color"
+                  value={isPreset ? '#ffffff' : color}
+                  onChange={(e) => onRecolor(e.target.value)}
+                />
+              </label>
+            </div>
           </div>
         </div>
       )}

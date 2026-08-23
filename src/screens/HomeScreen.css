@@ -221,6 +221,10 @@
 .hs-tile.hs-picked-up {
   transform: scale(1.08); box-shadow: 0 10px 24px rgba(43,36,56,0.35); opacity: 0.92; z-index: 5; cursor: grabbing;
 }
+/* "Nabíjecí" stav hned od dotyku, dokud se čeká na uplynutí podržení — bez
+   tohohle uživatel neví, jestli se vůbec něco děje, dokud dlaždice po
+   400ms najednou "neposkočí" do zvednutého stavu. */
+.hs-tile.hs-priming { transform: scale(1.03); transition: transform 0.4s ease; }
 .hs-tile.hs-drag-over { outline: 3px dashed rgba(43,36,56,0.7); outline-offset: -3px; }
 .hs-move-hint {
   position: absolute; top: 8px; left: 8px; font-size: 9px; font-weight: 800;
@@ -258,6 +262,17 @@
   width: 20px; height: 20px; border-radius: 5px; border: none; cursor: pointer;
   background: rgba(0,0,0,0.32); color: #fff; font-size: 11px; font-weight: 800; display: grid; place-items: center;
 }
+.hs-bottom-controls { display: flex; flex-direction: column; gap: 5px; }
+/* Přímý výběr velikosti — každé tlačítko ukazuje skutečný tvar/poměr stran
+   dlaždice, co by vznikla, takže je jasné, co se stane jedním klepnutím
+   (místo cyklování jedním tlačítkem, kde není vidět, kde v cyklu jsi). */
+.hs-size-row { display: flex; align-items: center; gap: 4px; }
+.hs-size-opt {
+  width: 24px; height: 24px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.35);
+  background: rgba(0,0,0,0.28); color: #fff; display: grid; place-items: center; cursor: pointer; padding: 0;
+}
+.hs-size-opt.active { background: rgba(255,255,255,0.95); border-color: #fff; color: #2b2438; }
+.hs-size-shape { display: block; background: currentColor; border-radius: 2px; }
 .hs-swatches { display: flex; gap: 3px; flex-wrap: wrap; }
 .hs-swatch { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.8); cursor: pointer; padding: 0; }
 .hs-swatch.active { border-color: #2b2438; box-shadow: 0 0 0 2px rgba(255,255,255,0.9); }
