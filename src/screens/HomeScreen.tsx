@@ -6,7 +6,7 @@
 // zobrazuje se jen komu je nastaveno (Uživatelé → "Dostává upozornění na
 // vozidla") a musí ho jednou potvrdit, pak zmizí (dokud se stav nezmění).
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { Search, MessageCircle, SlidersHorizontal, LogOut, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
+import { Search, MessageCircle, SlidersHorizontal, LogOut, ChevronLeft, ChevronRight, Plus, Trash2, Eye } from 'lucide-react';
 import { NAV, type Page } from '../components/Layout';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import LauncherTile from '../components/LauncherTile';
@@ -18,7 +18,7 @@ import { supabase, Vehicle } from '../lib/supabase';
 import { fetchPendingWhatsAppCount } from '../lib/whatsappApi';
 import { getVehicleExpiryStatus } from './Catalogs';
 import {
-  getHomeLayout, saveHomeLayout, addPage, removePage, moveTileToPage,
+  getHomeLayout, saveHomeLayout, addPage, removePage, moveTileToPage, hideTile, unhideTile,
   TILE_SIZES, SCENES, MIN_OPACITY, MAX_OPACITY,
   type HomeLayout,
 } from '../lib/homeLayout';
@@ -238,6 +238,16 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
   function handleMoveTileToPage(id: Page, targetPageIndex: number) {
     persist(moveTileToPage(layout, id, targetPageIndex));
   }
+  function handleHideTile(id: Page) {
+    persist(hideTile(layout, id));
+  }
+  function handleUnhideTile(id: Page) {
+    persist(unhideTile(layout, id));
+  }
+  function handleRenameTile(id: Page, label: string) {
+    const trimmed = label.trim();
+    persist({ ...layout, overrides: { ...layout.overrides, [id]: { ...layout.overrides[id], label: trimmed || undefined } } });
+  }
   function handleReset() {
     const next = getHomeLayout(null, visibleIds);
     setLayout(next);
@@ -400,6 +410,20 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                 </select>
               ))}
             </div>
+            {layout.hidden.length > 0 && (
+              <div className="hs-controls-group">
+                <span className="hs-controls-label">Skryté</span>
+                {layout.hidden.map((id) => {
+                  const item = navById.get(id);
+                  if (!item) return null;
+                  return (
+                    <button key={id} type="button" className="hs-hidden-chip" onClick={() => handleUnhideTile(id)}>
+                      <Eye size={12} /> {layout.overrides[id]?.label || item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -504,8 +528,11 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                 onDragPointerDown={(e) => handleTileDragPointerDown(id, e)}
                 isDragging={draggingId === id}
                 dragOver={dragOverId === id}
+                jiggling={editMode && draggingId !== null && draggingId !== id}
                 onCycleSize={() => handleCycleSize(id)}
                 onRecolor={(c) => handleRecolor(id, c)}
+                onHide={() => handleHideTile(id)}
+                onRename={(label) => handleRenameTile(id, label)}
               />
             );
           })}

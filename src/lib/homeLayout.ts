@@ -12,7 +12,7 @@ export type Scene = 'warm' | 'sunset' | 'ocean' | 'forest' | 'night' | 'custom';
 
 // Barva dlaždice může být buď jméno přednastaveného odstínu (TileColor), nebo
 // libovolný hex ("#rrggbb") z vlastního výběru barvy — proto plain string.
-export type TileOverride = { size?: TileSize; color?: string };
+export type TileOverride = { size?: TileSize; color?: string; label?: string };
 
 export type HomeLayout = {
   /** Víc stránek launcheru (jako Android home screen) — každá je pole id dlaždic. */
@@ -25,6 +25,8 @@ export type HomeLayout = {
   tileOpacity: number;
   /** 4 zástupci ve spodní mobilní liště (Layout.tsx) — 'home' je vždy platná volba. */
   dock: Page[];
+  /** Dlaždice schované z mřížky (modul zůstává dostupný, jen nezabírá místo). */
+  hidden: Page[];
 };
 
 /** Převede "#rrggbb" (nebo "#rgb") na "rgba(r, g, b, alpha)". Neplatný vstup spadne na šedou. */
@@ -108,14 +110,20 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[]): HomeLayout {
       ? [saved.order as Page[]]
       : [];
 
-  const seen = new Set<Page>();
+  // Schované dlaždice (odstraněné z mřížky, ale modul zůstává dostupný) —
+  // nesmí se znovu automaticky připojit mezi "nové" jen proto, že nejsou
+  // zrovna na žádné stránce.
+  const hidden: Page[] = (Array.isArray(saved.hidden) ? (saved.hidden as Page[]) : []).filter((id) => visibleSet.has(id));
+  const hiddenSet = new Set(hidden);
+
+  const seen = new Set<Page>(hidden);
   const pages: Page[][] = rawPages.map((p) => p.filter((id) => {
     if (!visibleSet.has(id) || seen.has(id)) return false;
     seen.add(id);
     return true;
   }));
 
-  const newIds = visibleIds.filter((id) => !seen.has(id));
+  const newIds = visibleIds.filter((id) => !seen.has(id) && !hiddenSet.has(id));
   if (pages.length === 0) pages.push([]);
   if (newIds.length > 0) pages[pages.length - 1] = [...pages[pages.length - 1], ...newIds];
 
@@ -147,7 +155,7 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[]): HomeLayout {
     return fallback;
   });
 
-  return { pages, overrides: filledOverrides, scene, tileOpacity, customAccent, dock };
+  return { pages, overrides: filledOverrides, scene, tileOpacity, customAccent, dock, hidden };
 }
 
 export async function saveHomeLayout(userId: string, layout: HomeLayout): Promise<void> {
@@ -175,4 +183,16 @@ export function moveTileToPage(layout: HomeLayout, tileId: Page, targetPageIndex
   const pages = layout.pages.map((p) => p.filter((id) => id !== tileId));
   pages[targetPageIndex] = [...pages[targetPageIndex], tileId];
   return { ...layout, pages };
+}
+
+/** Schová dlaždici z mřížky (modul zůstává dostupný jinde, jen nezabírá místo v launcheru). */
+export function hideTile(layout: HomeLayout, tileId: Page): HomeLayout {
+  const pages = layout.pages.map((p) => p.filter((id) => id !== tileId));
+  return { ...layout, pages, hidden: [...layout.hidden, tileId] };
+}
+
+/** Vrátí schovanou dlaždici zpátky na konec první stránky. */
+export function unhideTile(layout: HomeLayout, tileId: Page): HomeLayout {
+  const pages = layout.pages.map((p, i) => (i === 0 ? [...p, tileId] : p));
+  return { ...layout, pages, hidden: layout.hidden.filter((id) => id !== tileId) };
 }

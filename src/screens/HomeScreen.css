@@ -229,8 +229,31 @@
 }
 .hs-tile.sm .hs-move-hint { display: none; }
 
+/* Ostatní dlaždice se jemně "chvějí", dokud jednu z nich někdo drží
+   a přesouvá — stejný vizuální signál "jsme v režimu přeskládávání" jako
+   na Androidu. Vypnuto při prefers-reduced-motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .hs-tile.hs-jiggle { animation: hs-jiggle-kf 0.32s ease-in-out infinite; }
+}
+@keyframes hs-jiggle-kf {
+  0%, 100% { transform: rotate(-1deg); }
+  50% { transform: rotate(1deg); }
+}
+
+.hs-rename-input {
+  font-weight: 700; font-size: 12.5px; line-height: 1.2; color: #fff;
+  background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.6); border-radius: 4px;
+  padding: 2px 4px; width: 90%; font-family: inherit;
+}
+
+.hs-hidden-chip {
+  display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700;
+  background: rgba(43,36,56,0.08); border: 1px solid rgba(43,36,56,0.16); border-radius: 999px;
+  padding: 4px 10px; color: #2b2438; cursor: pointer;
+}
+
 .hs-tile-controls { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 5px; }
-.hs-ctrl-row { display: flex; justify-content: flex-end; }
+.hs-ctrl-row { display: flex; justify-content: flex-end; gap: 4px; }
 .hs-size-btn {
   width: 20px; height: 20px; border-radius: 5px; border: none; cursor: pointer;
   background: rgba(0,0,0,0.32); color: #fff; font-size: 11px; font-weight: 800; display: grid; place-items: center;

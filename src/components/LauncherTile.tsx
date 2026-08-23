@@ -1,12 +1,13 @@
 // Jedna dlaždice přizpůsobitelného launcheru (src/screens/HomeScreen.tsx).
 // Mimo edit mód je to prostý navigační button; v edit módu navíc nabízí
-// přesun, cyklování velikosti a přebarvení (přednastavené barvy nebo
-// libovolná vlastní přes nativní color picker).
+// přesun, cyklování velikosti, přebarvení, přejmenování a skrytí.
 //
 // Přesun je dlouhé podržení (long-press), stejně jako na Androidu — držení
 // timeru a rozhodování "scroll vs. drag" řeší rodič (HomeScreen.tsx) přes
 // window pointer eventy; tahle komponenta jen předává pointerdown a
-// zobrazuje vizuální stav (zvednutá dlaždice / cíl přesunu).
+// zobrazuje vizuální stav (zvednutá dlaždice / cíl přesunu / "jiggle"
+// ostatních dlaždic, dokud se jedna přesouvá — jako na Androidu).
+import { useState } from 'react';
 import type { NavItem } from './Layout';
 import { TILE_COLORS, COLOR_HEX, hexToRgba, type TileOverride, type TileSize } from '../lib/homeLayout';
 
@@ -20,7 +21,7 @@ function sizeClass(size: TileSize): string {
 
 export default function LauncherTile({
   item, override, editing, badge, tileOpacity, pageCount, currentPage, onMoveToPage,
-  onClick, onDragPointerDown, isDragging, dragOver, onCycleSize, onRecolor,
+  onClick, onDragPointerDown, isDragging, dragOver, jiggling, onCycleSize, onRecolor, onHide, onRename,
 }: {
   item: NavItem;
   override: TileOverride;
@@ -36,19 +37,25 @@ export default function LauncherTile({
   isDragging: boolean;
   /** Prst/kurzor je teď nad touhle dlaždicí během přesunu jiné */
   dragOver: boolean;
+  /** Jiná dlaždice se právě přesouvá — tahle se jemně "chvěje" (jako na Androidu) */
+  jiggling: boolean;
   onCycleSize: () => void;
   onRecolor: (c: string) => void;
+  onHide: () => void;
+  onRename: (label: string) => void;
 }) {
+  const [renaming, setRenaming] = useState(false);
   const Icon = item.icon;
   const color = override.color ?? 'coral';
   const size = override.size ?? 'n';
+  const label = override.label || item.label;
   // Přednastavená barva → CSS třída .c-<jméno> (viz HomeScreen.css); vlastní
   // barva z color pickeru (hex, není v seznamu jmen) → inline styl.
   const isPreset = (TILE_COLORS as string[]).includes(color);
 
   return (
     <div
-      className={`hs-tile ${isPreset ? `c-${color}` : ''} ${sizeClass(size)} ${editing ? 'hs-editing' : ''} ${isDragging ? 'hs-picked-up' : ''} ${dragOver ? 'hs-drag-over' : ''}`}
+      className={`hs-tile ${isPreset ? `c-${color}` : ''} ${sizeClass(size)} ${editing ? 'hs-editing' : ''} ${isDragging ? 'hs-picked-up' : ''} ${dragOver ? 'hs-drag-over' : ''} ${jiggling ? 'hs-jiggle' : ''}`}
       style={{
         ...(isPreset ? {} : { background: hexToRgba(color, tileOpacity) }),
         touchAction: editing ? 'none' : undefined,
@@ -61,9 +68,28 @@ export default function LauncherTile({
       onKeyDown={editing ? undefined : (e) => { if (e.key === 'Enter') onClick(); }}
     >
       <Icon />
-      <div className="hs-lbl">{item.label}</div>
+      {renaming ? (
+        <input
+          autoFocus
+          className="hs-rename-input"
+          defaultValue={label}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          onBlur={(e) => { onRename(e.target.value); setRenaming(false); }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+            if (e.key === 'Escape') setRenaming(false);
+          }}
+        />
+      ) : (
+        <div
+          className="hs-lbl"
+          onPointerDown={(e) => { if (editing) e.stopPropagation(); }}
+          onClick={(e) => { if (editing) { e.stopPropagation(); setRenaming(true); } }}
+        >{label}</div>
+      )}
       {badge !== undefined && <span className="hs-badge">{badge}</span>}
-      {editing && <span className="hs-move-hint">podrž a táhni</span>}
+      {editing && !renaming && <span className="hs-move-hint">podrž a táhni</span>}
 
       {editing && (
         // stopPropagation, ať klik/dotek na tlačítko nezačne dlouhé podržení
@@ -82,6 +108,9 @@ export default function LauncherTile({
                 ))}
               </select>
             )}
+            <button type="button" className="hs-size-btn" title="Skrýt dlaždici" onClick={onHide}>
+              ✕
+            </button>
             <button type="button" className="hs-size-btn" title="Změnit velikost" onClick={onCycleSize}>
               ⤢
             </button>
