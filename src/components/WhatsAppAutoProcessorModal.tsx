@@ -48,6 +48,11 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
   const [status, setStatus] = useState<string>('');
   const [progress, setProgress] = useState(0);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // Zabraňuje vytvoření DVOU objednávek ze stejné zprávy — bez tohohle by
+  // rychlý dvojklik/dvojťuk na "Importovat objednávku" (async, žádná
+  // ochrana) stihl spustit importOrder() podruhé dřív, než první běh
+  // dokončí uložení a zpráva zmizí ze seznamu po loadMessages().
+  const [importingIds, setImportingIds] = useState<Set<string>>(new Set());
   const [allowedSenders, setAllowedSenders] = useState<WhatsAppSender[]>([]);
   // Filtr „jen ⚠" a řazení (#8)
   const [filterMismatchOnly, setFilterMismatchOnly] = useState(false);
@@ -146,6 +151,8 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
   async function importOrder(messageId: string) {
     const parsedResult = parsedResults.get(messageId);
     if (!parsedResult) return;
+    if (importingIds.has(messageId)) return; // už se importuje — druhý (rychlý dvojťuk) klik ignorujeme
+    setImportingIds((prev) => new Set(prev).add(messageId));
 
     try {
       const message = messages.find(m => m.id === messageId);
@@ -178,6 +185,8 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
     } catch (error) {
       console.error('Error importing order:', error);
       setStatus(`Chyba při importu: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setImportingIds((prev) => { const next = new Set(prev); next.delete(messageId); return next; });
     }
   }
 
@@ -569,10 +578,11 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
                       {parsedResult && parsedResult.items && parsedResult.items.length > 0 && (
                         <button
                           onClick={(e) => { e.stopPropagation(); importOrder(message.id); }}
-                          className="p-1.5 rounded text-green-600 hover:bg-green-50"
-                          title="Importovat objednávku"
+                          disabled={importingIds.has(message.id)}
+                          className="p-1.5 rounded text-green-600 hover:bg-green-50 disabled:opacity-40 disabled:cursor-wait"
+                          title={importingIds.has(message.id) ? 'Importuje se…' : 'Importovat objednávku'}
                         >
-                          <Check size={16} />
+                          {importingIds.has(message.id) ? <RefreshCw size={16} className="animate-spin" /> : <Check size={16} />}
                         </button>
                       )}
                       <button
