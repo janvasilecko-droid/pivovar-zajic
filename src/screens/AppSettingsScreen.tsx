@@ -210,7 +210,7 @@ export default function AppSettingsScreen() {
         onClose={() => setShowMenuCustomize(false)}
       />
 
-      <div className="bg-neutral-900 text-white p-5 sm:p-6 rounded-3xl border border-amber-500/30 shadow-xl">
+      <div className="bg-neutral-900 text-white p-5 sm:p-6 rounded border border-amber-500/30 shadow-xl">
         <h1 className="text-xl sm:text-2xl font-display font-black tracking-tight text-white flex items-center gap-2">
           <span>⚙️ Aplikace & Nastavení</span>
         </h1>
@@ -218,12 +218,12 @@ export default function AppSettingsScreen() {
       </div>
 
       {/* Návod k použití */}
-      <div className="card p-6 border-2 border-amber-400/60 bg-gradient-to-br from-amber-50/50 to-white rounded-3xl shadow-sm">
+      <div className="card p-6 border-2 border-amber-400/60 bg-gradient-to-br from-amber-50/50 to-white rounded shadow-sm">
         <div className="flex items-center justify-between cursor-pointer" onClick={() => setShowGuide(!showGuide)}>
           <h2 className="font-display font-black text-lg text-amber-950 flex items-center gap-2">
             <span>📖</span> Návod k použití & Přehled funkcí
           </h2>
-          <button className="text-xs font-bold text-amber-800 bg-amber-100 hover:bg-amber-200 px-3 py-1.5 rounded-xl transition">
+          <button className="text-xs font-bold text-amber-800 bg-amber-100 hover:bg-amber-200 px-3 py-1.5 rounded transition">
             {showGuide ? 'Skrýt návod ▲' : 'Zobrazit návod ▼'}
           </button>
         </div>
@@ -274,7 +274,7 @@ export default function AppSettingsScreen() {
               </ul>
             </div>
 
-            <div className="bg-amber-100/50 p-3.5 rounded-2xl border border-amber-200 text-xs text-amber-900 font-bold">
+            <div className="bg-amber-100/50 p-3.5 rounded border border-amber-200 text-xs text-amber-900 font-bold">
               💡 Tento návod budeme průběžně doplňovat a aktualizovat s každou novou funkcí, kterou do aplikace Zajíc přidáme.
             </div>
           </div>
@@ -289,7 +289,7 @@ export default function AppSettingsScreen() {
         ) : installPrompt ? (
           <>
             <p className="text-sm text-neutral-600 mt-2">Nainstalujte si aplikaci na plochu pro rychlejší přístup a offline funkčnost.</p>
-            <button onClick={handleInstall} className="btn-primary mt-3 text-sm font-black flex items-center gap-2"><Download size={16} /> Nainstalovat aplikaci</button>
+            <button onClick={handleInstall} className="btn-primary !rounded mt-3 text-sm font-black flex items-center gap-2"><Download size={16} /> Nainstalovat aplikaci</button>
           </>
         ) : (
           <p className="text-sm text-neutral-600 mt-2">Váš prohlížeč nepodporuje přímou instalaci, nebo již byla nabídnuta. Můžete ji přidat na plochu ručně přes menu prohlížeče.</p>
@@ -300,7 +300,7 @@ export default function AppSettingsScreen() {
       <div className="card p-6">
         <h2 className="font-display font-bold text-lg flex items-center gap-2"><Eye size={20} /> Přizpůsobení menu</h2>
         <p className="text-sm text-neutral-600 mt-2">Vyberte si, které položky chcete vidět v hlavním menu pro rychlejší navigaci.</p>
-        <button onClick={() => setShowMenuCustomize(true)} className="btn-ghost mt-3 text-sm font-black">Upravit viditelnost menu</button>
+        <button onClick={() => setShowMenuCustomize(true)} className="btn-ghost !rounded mt-3 text-sm font-black">Upravit viditelnost menu</button>
       </div>
 
       {/* Hustota / Velikost */}
@@ -312,7 +312,7 @@ export default function AppSettingsScreen() {
             <button
               key={opt.value}
               onClick={() => { setDensity(opt.value); setDensityState(opt.value); }}
-              className={`flex flex-col items-center px-4 py-2.5 rounded-2xl border-2 font-black text-sm transition-all min-w-[56px] ${
+              className={`flex flex-col items-center px-4 py-2.5 rounded border-2 font-black text-sm transition-all min-w-[56px] ${
                 density === opt.value
                   ? 'bg-amber-500 border-amber-400 text-neutral-950 shadow-md scale-105'
                   : 'bg-white border-neutral-200 text-neutral-700 hover:border-amber-300 hover:bg-amber-50'
@@ -334,7 +334,7 @@ export default function AppSettingsScreen() {
           {/* Povolení systémových notifikací */}
           <button
             onClick={handleToggleNotifications}
-            className={`w-full text-left p-4 rounded-2xl border-2 font-bold flex items-center gap-3 transition ${
+            className={`w-full text-left p-4 rounded border-2 font-bold flex items-center gap-3 transition ${
               notifPermission === 'granted'
                 ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
                 : 'bg-rose-50 border-rose-300 text-rose-900'
@@ -352,7 +352,7 @@ export default function AppSettingsScreen() {
           </button>
 
           {/* In-app banner */}
-          <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-200 space-y-1">
+          <div className="p-4 rounded bg-neutral-50 border border-neutral-200 space-y-1">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <MessageSquare size={16} className="text-neutral-600" />
@@ -369,7 +369,7 @@ export default function AppSettingsScreen() {
           </div>
 
           {/* Zvukové upozornění */}
-          <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-200 space-y-1">
+          <div className="p-4 rounded bg-neutral-50 border border-neutral-200 space-y-1">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 {notifSettings.playSound ? <Volume2 size={16} className="text-neutral-600" /> : <VolumeX size={16} className="text-neutral-500" />}
@@ -386,7 +386,7 @@ export default function AppSettingsScreen() {
           </div>
 
           {/* Vyžadovat kliknutí */}
-          <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-200 space-y-1">
+          <div className="p-4 rounded bg-neutral-50 border border-neutral-200 space-y-1">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Bell size={16} className="text-neutral-600" />
@@ -403,7 +403,7 @@ export default function AppSettingsScreen() {
           </div>
  
           {/* Auto-hide čas */}
-          <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-200">
+          <div className="p-4 rounded bg-neutral-50 border border-neutral-200">
             <div className="flex items-center gap-2 mb-2">
               <Timer size={16} className="text-neutral-600" />
               <span className="text-sm font-black text-neutral-800">Automaticky skrýt banner po:</span>
@@ -413,7 +413,7 @@ export default function AppSettingsScreen() {
                 <button
                   key={secs}
                   onClick={() => handleNotifSettingsChange({ autoHideSeconds: secs })}
-                  className={`px-3 py-1.5 rounded-xl border-2 font-bold text-sm transition-all ${
+                  className={`px-3 py-1.5 rounded border-2 font-bold text-sm transition-all ${
                     notifSettings.autoHideSeconds === secs
                       ? 'bg-amber-500 border-amber-400 text-neutral-950 shadow-sm'
                       : 'bg-white border-neutral-200 text-neutral-700 hover:border-amber-300'
@@ -460,14 +460,14 @@ export default function AppSettingsScreen() {
 
         <div className="mt-4 space-y-2">
           {whatsappSenders.map((s) => (
-            <div key={s.id} className="flex items-center justify-between p-3 rounded-2xl bg-neutral-50 border border-neutral-200">
+            <div key={s.id} className="flex items-center justify-between p-3 rounded bg-neutral-50 border border-neutral-200">
               <div>
                 <div className="text-sm font-black text-neutral-800">{s.sender_name}</div>
                 {s.sender_number && <div className="text-xs text-neutral-500">{s.sender_number}</div>}
               </div>
               <button
                 onClick={() => handleRemoveSender(s.id)}
-                className="p-2 rounded-xl hover:bg-rose-100 text-rose-500 hover:text-rose-700 transition"
+                className="p-2 rounded hover:bg-rose-100 text-rose-500 hover:text-rose-700 transition"
                 title="Odebrat odesílatele"
               >
                 <Trash2 size={16} />
@@ -498,14 +498,14 @@ export default function AppSettingsScreen() {
           />
           <button
             onClick={handleAddSender}
-            className="btn-primary text-sm font-black flex items-center justify-center gap-1.5 shrink-0"
+            className="btn-primary !rounded text-sm font-black flex items-center justify-center gap-1.5 shrink-0"
           >
             <Plus size={16} /> Přidat
           </button>
         </div>
 
-        {senderErr && <div className="mt-2 p-2 rounded-xl bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200">{senderErr}</div>}
-        {senderMsg && <div className="mt-2 p-2 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">{senderMsg}</div>}
+        {senderErr && <div className="mt-2 p-2 rounded bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200">{senderErr}</div>}
+        {senderMsg && <div className="mt-2 p-2 rounded bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">{senderMsg}</div>}
       </div>
 
       {/* 👤 Změna jména */}
@@ -523,12 +523,12 @@ export default function AppSettingsScreen() {
               className="input w-full"
             />
           </div>
-          {nameMsg && <div className="p-3 bg-emerald-100 text-emerald-900 font-bold text-xs rounded-xl">{nameMsg}</div>}
-          {nameErr && <div className="p-3 bg-rose-100 text-rose-900 font-bold text-xs rounded-xl">{nameErr}</div>}
+          {nameMsg && <div className="p-3 bg-emerald-100 text-emerald-900 font-bold text-xs rounded">{nameMsg}</div>}
+          {nameErr && <div className="p-3 bg-rose-100 text-rose-900 font-bold text-xs rounded">{nameErr}</div>}
           <button
             type="submit"
             disabled={nameBusy}
-            className="btn-primary text-sm font-black flex items-center justify-center gap-1.5 w-full sm:w-auto"
+            className="btn-primary !rounded text-sm font-black flex items-center justify-center gap-1.5 w-full sm:w-auto"
           >
             {nameBusy ? 'Ukládám…' : '✅ Uložit jméno'}
           </button>
@@ -550,12 +550,12 @@ export default function AppSettingsScreen() {
               className="input w-full"
             />
           </div>
-          {passwordMsg && <div className="p-3 bg-emerald-100 text-emerald-900 font-bold text-xs rounded-xl">{passwordMsg}</div>}
-          {passwordErr && <div className="p-3 bg-rose-100 text-rose-900 font-bold text-xs rounded-xl">{passwordErr}</div>}
+          {passwordMsg && <div className="p-3 bg-emerald-100 text-emerald-900 font-bold text-xs rounded">{passwordMsg}</div>}
+          {passwordErr && <div className="p-3 bg-rose-100 text-rose-900 font-bold text-xs rounded">{passwordErr}</div>}
           <button
             type="submit"
             disabled={passwordBusy}
-            className="btn-primary text-sm font-black flex items-center justify-center gap-1.5 w-full sm:w-auto"
+            className="btn-primary !rounded text-sm font-black flex items-center justify-center gap-1.5 w-full sm:w-auto"
           >
             {passwordBusy ? 'Ukládám…' : '✅ Uložit nové heslo'}
           </button>
@@ -685,7 +685,7 @@ function AdminVersionSyncSection() {
   }
 
   return (
-    <div className="card p-6 border-2 border-amber-400/60 bg-gradient-to-br from-amber-50/80 to-white rounded-3xl shadow-md">
+    <div className="card p-6 border-2 border-amber-400/60 bg-gradient-to-br from-amber-50/80 to-white rounded shadow-md">
       <h2 className="font-display font-bold text-lg flex items-center gap-2">
         <RefreshCw size={20} className="text-amber-600" />
         <span>🔄 Verze & Synchronizace dat</span>
@@ -697,11 +697,11 @@ function AdminVersionSyncSection() {
 
       {/* Verze a datum */}
       <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="p-4 rounded-2xl bg-neutral-900 text-white border border-neutral-700 shadow-inner">
+        <div className="p-4 rounded bg-neutral-900 text-white border border-neutral-700 shadow-inner">
           <div className="text-[10px] font-black uppercase tracking-wider text-amber-400">Verze kódu</div>
           <div className="text-2xl font-display font-black mt-1">v{APP_VERSION}</div>
         </div>
-        <div className="p-4 rounded-2xl bg-neutral-900 text-white border border-neutral-700 shadow-inner">
+        <div className="p-4 rounded bg-neutral-900 text-white border border-neutral-700 shadow-inner">
           <div className="text-[10px] font-black uppercase tracking-wider text-amber-400">Poslední změna kódu</div>
           <div className="text-lg font-display font-black mt-1">{APP_VERSION_DATE}</div>
         </div>
@@ -710,7 +710,7 @@ function AdminVersionSyncSection() {
       <div className="mt-3">
         <button
           onClick={forceRefresh}
-          className="w-full py-3 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 hover:text-amber-800 font-black text-xs border border-amber-300 transition flex items-center justify-center gap-1.5"
+          className="w-full py-3 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 hover:text-amber-800 font-black text-xs border border-amber-300 transition flex items-center justify-center gap-1.5"
         >
           🔄 Vynutit stažení nejnovější verze aplikace (vyčistit cache)
         </button>
@@ -718,7 +718,7 @@ function AdminVersionSyncSection() {
 
       {/* Co je nového v této verzi */}
       {APP_CHANGELOG.length > 0 && (
-        <div className="mt-5 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 space-y-2">
+        <div className="mt-5 p-4 rounded bg-emerald-50 border border-emerald-200 space-y-2">
           <div className="flex items-center gap-2">
             <span className="text-sm">✨</span>
             <span className="text-xs font-black uppercase tracking-wider text-emerald-800">Co je nového ve verzi v{APP_VERSION}</span>
@@ -735,7 +735,7 @@ function AdminVersionSyncSection() {
       )}
 
       {/* Tlačítko pro refresh */}
-      <div className="mt-5 p-4 rounded-2xl bg-amber-100/70 border border-amber-300 space-y-3">
+      <div className="mt-5 p-4 rounded bg-amber-100/70 border border-amber-300 space-y-3">
         <div className="flex items-start gap-3">
           <CloudDownload size={20} className="text-amber-700 shrink-0 mt-0.5" />
           <div>
@@ -750,7 +750,7 @@ function AdminVersionSyncSection() {
         <button
           onClick={handleRefreshData}
           disabled={refreshing}
-          className="w-full py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 disabled:opacity-60 disabled:cursor-not-allowed text-neutral-950 font-black text-sm shadow-md transition flex items-center justify-center gap-2"
+          className="w-full py-3 rounded bg-amber-500 hover:bg-amber-400 disabled:opacity-60 disabled:cursor-not-allowed text-neutral-950 font-black text-sm shadow-md transition flex items-center justify-center gap-2"
         >
           {refreshing ? (
             <>
@@ -766,7 +766,7 @@ function AdminVersionSyncSection() {
         </button>
 
         {refreshMsg && (
-          <div className={`p-3 rounded-xl text-xs font-bold flex items-center gap-2 ${
+          <div className={`p-3 rounded text-xs font-bold flex items-center gap-2 ${
             refreshOk ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' : 'bg-rose-100 text-rose-900 border border-rose-300'
           }`}>
             {refreshOk ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
@@ -776,7 +776,7 @@ function AdminVersionSyncSection() {
       </div>
 
       {/* 🧹 VYČIŠTĚNÍ DAT */}
-      <div className="mt-5 p-4 rounded-2xl bg-rose-50 border-2 border-rose-300 space-y-3">
+      <div className="mt-5 p-4 rounded bg-rose-50 border-2 border-rose-300 space-y-3">
         <div className="flex items-start gap-3">
           <Eraser size={20} className="text-rose-600 shrink-0 mt-0.5" />
           <div>
@@ -793,7 +793,7 @@ function AdminVersionSyncSection() {
         <button
           onClick={() => setConfirmingClean(true)}
           disabled={cleaning || confirmingClean}
-          className="w-full py-3 rounded-2xl bg-rose-600 hover:bg-rose-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-black text-sm shadow-md transition flex items-center justify-center gap-2"
+          className="w-full py-3 rounded bg-rose-600 hover:bg-rose-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-black text-sm shadow-md transition flex items-center justify-center gap-2"
         >
           {cleaning ? (
             <>
@@ -809,7 +809,7 @@ function AdminVersionSyncSection() {
         </button>
 
         {confirmingClean && (
-          <div className="p-3 rounded-xl bg-rose-100 border-2 border-rose-400 space-y-3">
+          <div className="p-3 rounded bg-rose-100 border-2 border-rose-400 space-y-3">
             <div className="text-xs font-black text-rose-900">
               ⚠️ Tuto akci nelze vrátit zpět!
             </div>
@@ -828,13 +828,13 @@ function AdminVersionSyncSection() {
               onChange={(e) => setConfirmText(e.target.value)}
               placeholder={CLEAN_CONFIRM_TEXT}
               autoFocus
-              className="w-full px-3 py-2 rounded-xl bg-white border-2 border-rose-400 focus:border-rose-600 focus:outline-none text-sm font-mono font-bold text-rose-900 placeholder:text-rose-300"
+              className="w-full px-3 py-2 rounded bg-white border-2 border-rose-400 focus:border-rose-600 focus:outline-none text-sm font-mono font-bold text-rose-900 placeholder:text-rose-300"
             />
             <div className="flex gap-2">
               <button
                 onClick={handleClearData}
                 disabled={confirmText !== CLEAN_CONFIRM_TEXT || cleaning}
-                className="flex-1 py-2.5 rounded-xl bg-rose-700 hover:bg-rose-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-sm shadow transition flex items-center justify-center gap-2"
+                className="flex-1 py-2.5 rounded bg-rose-700 hover:bg-rose-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-sm shadow transition flex items-center justify-center gap-2"
               >
                 {cleaning ? (
                   <>
@@ -851,7 +851,7 @@ function AdminVersionSyncSection() {
               <button
                 onClick={() => { setConfirmingClean(false); setConfirmText(''); }}
                 disabled={cleaning}
-                className="px-4 py-2.5 rounded-xl bg-neutral-200 hover:bg-neutral-300 disabled:opacity-40 disabled:cursor-not-allowed text-neutral-800 font-bold text-sm transition"
+                className="px-4 py-2.5 rounded bg-neutral-200 hover:bg-neutral-300 disabled:opacity-40 disabled:cursor-not-allowed text-neutral-800 font-bold text-sm transition"
               >
                 Zrušit
               </button>
@@ -860,7 +860,7 @@ function AdminVersionSyncSection() {
         )}
 
         {cleanMsg && (
-          <div className={`p-3 rounded-xl text-xs font-bold flex items-center gap-2 ${
+          <div className={`p-3 rounded text-xs font-bold flex items-center gap-2 ${
             cleanOk ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' : 'bg-rose-100 text-rose-900 border border-rose-300'
           }`}>
             {cleanOk ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}

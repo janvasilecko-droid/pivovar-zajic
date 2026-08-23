@@ -375,7 +375,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
   return (
     <div className="space-y-6 pb-12">
       {/* Header Banner */}
-      <div className="bg-neutral-900 text-white p-5 sm:p-7 rounded-3xl border border-amber-500/30 shadow-xl flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-neutral-900 text-white p-5 sm:p-7 rounded border border-amber-500/30 shadow-xl flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-amber-400 font-extrabold text-xs uppercase tracking-widest mb-1">
             <Wine size={18} />
@@ -392,7 +392,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={exportExcel}
-            className="px-3.5 py-2.5 rounded-2xl bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs transition shadow-xs flex items-center gap-1.5"
+            className="px-3.5 py-2.5 rounded bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs transition shadow-xs flex items-center gap-1.5"
           >
             <Download size={16} /> Excel
           </button>
@@ -403,10 +403,10 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
       <div className="sticky top-[56px] z-20 bg-neutral-100 pt-1 flex flex-nowrap gap-2 overflow-x-auto scrollbar-thin border-b border-neutral-200 pb-3">
         <button
           onClick={() => setActiveTab('sklo')}
-          className={`shrink-0 px-4 py-2.5 rounded-2xl font-black text-xs transition-all flex items-center gap-2 ${
+          className={`shrink-0 px-4 py-2.5 rounded font-black text-xs transition-all flex items-center gap-2 ${
             activeTab === 'sklo'
               ? 'bg-neutral-900 text-amber-400 shadow-md scale-[1.02]'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+              : 'bg-neutral-900 text-white hover:bg-neutral-800'
           }`}
         >
           <Wine size={16} />
@@ -415,10 +415,10 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
 
         <button
           onClick={() => setActiveTab('etikety')}
-          className={`shrink-0 px-4 py-2.5 rounded-2xl font-black text-xs transition-all flex items-center gap-2 ${
+          className={`shrink-0 px-4 py-2.5 rounded font-black text-xs transition-all flex items-center gap-2 ${
             activeTab === 'etikety'
               ? 'bg-neutral-900 text-amber-400 shadow-md scale-[1.02]'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+              : 'bg-neutral-900 text-white hover:bg-neutral-800'
           }`}
         >
           <Tag size={16} />
@@ -432,10 +432,10 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
 
         <button
           onClick={() => setActiveTab('lahve')}
-          className={`shrink-0 px-4 py-2.5 rounded-2xl font-black text-xs transition-all flex items-center gap-2 ${
+          className={`shrink-0 px-4 py-2.5 rounded font-black text-xs transition-all flex items-center gap-2 ${
             activeTab === 'lahve'
               ? 'bg-neutral-900 text-amber-400 shadow-md scale-[1.02]'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+              : 'bg-neutral-900 text-white hover:bg-neutral-800'
           }`}
         >
           <Boxes size={16} />
@@ -453,7 +453,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Příjem Skla & Promo */}
-            <div className="card p-5 sm:p-6 bg-white border border-emerald-200 rounded-3xl shadow-sm space-y-4">
+            <div className="card p-5 sm:p-6 bg-white border border-emerald-200 rounded shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-emerald-100 pb-3">
                 <h3 className="font-display font-black text-base sm:text-lg text-emerald-950 flex items-center gap-2">
                   <ArrowDownCircle size={22} className="text-emerald-600" />
@@ -499,9 +499,9 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                   <div>
                     <label className="block text-xs font-black text-neutral-700 mb-1">Přivezeno kusů (ks)</label>
                     <div className="flex items-center gap-1">
-                      <button type="button" onClick={() => setInQty(String(Math.max(0, (Number(inQty) || 0) - 50)))} className="w-8 h-8 shrink-0 grid place-items-center rounded-xl bg-neutral-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition">−</button>
-                      <span className="w-20 px-2 text-center font-mono font-black text-sm bg-white border border-neutral-200 rounded-xl py-2 shadow-2xs">{inQty || '0'}</span>
-                      <button type="button" onClick={() => setInQty(String((Number(inQty) || 0) + 50))} className="w-8 h-8 shrink-0 grid place-items-center rounded-xl bg-emerald-700 text-white font-bold text-sm select-none active:scale-95 transition">+</button>
+                      <button type="button" onClick={() => setInQty(String(Math.max(0, (Number(inQty) || 0) - 50)))} className="w-8 h-8 shrink-0 grid place-items-center rounded bg-neutral-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition">−</button>
+                      <span className="w-20 px-2 text-center font-mono font-black text-sm bg-white border border-neutral-200 rounded py-2 shadow-2xs">{inQty || '0'}</span>
+                      <button type="button" onClick={() => setInQty(String((Number(inQty) || 0) + 50))} className="w-8 h-8 shrink-0 grid place-items-center rounded bg-emerald-700 text-white font-bold text-sm select-none active:scale-95 transition">+</button>
                     </div>
                   </div>
                   <div>
@@ -510,14 +510,14 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                   </div>
                 </div>
 
-                <button type="submit" className="w-full px-5 py-2.5 rounded-2xl bg-emerald-700 hover:bg-emerald-600 text-white font-black text-xs transition shadow-md flex items-center justify-center gap-2">
+                <button type="submit" className="w-full px-5 py-2.5 rounded bg-emerald-700 hover:bg-emerald-600 text-white font-black text-xs transition shadow-md flex items-center justify-center gap-2">
                   <Plus size={16} /> Zapsat příjem na sklad
                 </button>
               </form>
             </div>
 
             {/* Výdej Skla & Promo */}
-            <div className="card p-5 sm:p-6 bg-white border border-amber-200 rounded-3xl shadow-sm space-y-4">
+            <div className="card p-5 sm:p-6 bg-white border border-amber-200 rounded shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-amber-100 pb-3">
                 <h3 className="font-display font-black text-base sm:text-lg text-amber-950 flex items-center gap-2">
                   <ArrowUpCircle size={22} className="text-amber-600" />
@@ -568,11 +568,11 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                   <div>
                     <label className="block text-xs font-black text-neutral-700 mb-1">Vydáno kusů (ks)</label>
                     <div className="flex items-center gap-1">
-                      <button type="button" onClick={() => setOutQty(String(Math.max(0, (Number(outQty) || 0) - 10)))} className="w-8 h-8 shrink-0 grid place-items-center rounded-xl bg-neutral-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition">−</button>
-                      <span className="w-16 min-w-[3.5rem] px-2 text-center font-mono font-black text-sm bg-white border border-neutral-200 rounded-xl py-2 shadow-2xs">
+                      <button type="button" onClick={() => setOutQty(String(Math.max(0, (Number(outQty) || 0) - 10)))} className="w-8 h-8 shrink-0 grid place-items-center rounded bg-neutral-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition">−</button>
+                      <span className="w-16 min-w-[3.5rem] px-2 text-center font-mono font-black text-sm bg-white border border-neutral-200 rounded py-2 shadow-2xs">
                         {outQty || '0'}
                       </span>
-                      <button type="button" onClick={() => setOutQty(String((Number(outQty) || 0) + 10))} className="w-8 h-8 shrink-0 grid place-items-center rounded-xl bg-amber-950 text-white font-bold text-sm select-none active:scale-95 transition">+</button>
+                      <button type="button" onClick={() => setOutQty(String((Number(outQty) || 0) + 10))} className="w-8 h-8 shrink-0 grid place-items-center rounded bg-amber-950 text-white font-bold text-sm select-none active:scale-95 transition">+</button>
                     </div>
                   </div>
                   <div>
@@ -581,7 +581,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                   </div>
                 </div>
 
-                <button type="submit" className="w-full px-5 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md flex items-center justify-center gap-2">
+                <button type="submit" className="w-full px-5 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md flex items-center justify-center gap-2">
                   <Plus size={16} /> Zapsat výdej pro odběratele
                 </button>
               </form>
@@ -597,7 +597,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {stockSummary.slice(0, 8).map((item) => (
-                <div key={item.name} className={`p-4 rounded-2xl border-2 shadow-xs space-y-1 ${item.balance > 0 ? 'bg-white border-neutral-200' : 'bg-rose-50 border-rose-200'}`}>
+                <div key={item.name} className={`p-4 rounded border-2 shadow-xs space-y-1 ${item.balance > 0 ? 'bg-white border-neutral-200' : 'bg-rose-50 border-rose-200'}`}>
                   <span className="text-[10px] font-black uppercase tracking-wider text-neutral-500 block truncate">{item.name}</span>
                   <div className="flex items-baseline justify-between">
                     <span className={`font-display font-black text-2xl ${item.balance > 0 ? 'text-neutral-950' : 'text-rose-600'}`}>
@@ -611,7 +611,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
           </div>
 
           {/* Tabulka Sklo */}
-          <div className="card p-6 bg-white border border-neutral-200 rounded-3xl shadow-xs space-y-4">
+          <div className="card p-6 bg-white border border-neutral-200 rounded shadow-xs space-y-4">
             <div className="sticky top-[112px] z-10 flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 bg-white pb-3 -mx-6 px-6 pt-1 -mt-1">
               <h3 className="font-display font-black text-lg text-neutral-900">Přehled zadaných pohybů ({filteredEntries.length})</h3>
               <div className="flex items-center gap-2">
@@ -668,7 +668,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
         <div className="space-y-6">
           {/* Low Labels Warnings */}
           {lowLabelsCount > 0 && (
-            <div className="p-5 rounded-3xl bg-rose-50 border-2 border-rose-300 shadow-md space-y-2">
+            <div className="p-5 rounded bg-rose-50 border-2 border-rose-300 shadow-md space-y-2">
               <div className="flex items-center gap-2 text-rose-900 font-display font-black text-base">
                 <AlertTriangle size={22} className="text-rose-600 animate-pulse" />
                 <span>VAROVÁNÍ: NÍZKÝ STAV ETIKET U {lowLabelsCount} DRUHŮ PIVA! ({'<'} {LABELS_LOW_STOCK_THRESHOLD} ks)</span>
@@ -679,7 +679,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
               </p>
               <div className="flex flex-wrap gap-2 pt-1">
                 {labelsSummary.filter((l) => l.isLow && l.inLabels > 0).map((l) => (
-                  <span key={l.beer_name} className="px-3 py-1.5 rounded-xl bg-rose-600 text-white font-bold text-xs shadow-xs">
+                  <span key={l.beer_name} className="px-3 py-1.5 rounded bg-rose-600 text-white font-bold text-xs shadow-xs">
                     ⚠️ {l.beer_name}: zbývá jen {l.balance} ks etiket!
                   </span>
                 ))}
@@ -688,7 +688,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
           )}
 
           {/* Form: Nákup etiket */}
-          <div className="card p-6 bg-white border-2 border-amber-200 rounded-3xl shadow-sm space-y-4">
+          <div className="card p-6 bg-white border-2 border-amber-200 rounded shadow-sm space-y-4">
             <h3 className="font-display font-black text-lg text-amber-950 flex items-center gap-2">
               <Tag className="text-amber-600" size={20} />
               <span>🏷️ Zadání nákupu / příjmu etiket na sklad</span>
@@ -712,15 +712,15 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
               <div>
                 <label className="block text-xs font-black text-neutral-700 mb-1">Nakoupeno etiket (ks)</label>
                 <div className="flex items-center gap-1">
-                  <button type="button" onClick={() => setLabelQty(String(Math.max(0, (Number(labelQty) || 0) - 500)))} className="w-8 h-8 shrink-0 grid place-items-center rounded-xl bg-neutral-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition">−</button>
-                  <span className="w-20 px-2 text-center font-mono font-black text-sm bg-white border border-neutral-200 rounded-xl py-2 shadow-2xs">{labelQty || '0'}</span>
-                  <button type="button" onClick={() => setLabelQty(String((Number(labelQty) || 0) + 500))} className="w-8 h-8 shrink-0 grid place-items-center rounded-xl bg-amber-950 text-white font-bold text-sm select-none active:scale-95 transition">+</button>
+                  <button type="button" onClick={() => setLabelQty(String(Math.max(0, (Number(labelQty) || 0) - 500)))} className="w-8 h-8 shrink-0 grid place-items-center rounded bg-neutral-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition">−</button>
+                  <span className="w-20 px-2 text-center font-mono font-black text-sm bg-white border border-neutral-200 rounded py-2 shadow-2xs">{labelQty || '0'}</span>
+                  <button type="button" onClick={() => setLabelQty(String((Number(labelQty) || 0) + 500))} className="w-8 h-8 shrink-0 grid place-items-center rounded bg-amber-950 text-white font-bold text-sm select-none active:scale-95 transition">+</button>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
                 <input type="text" value={labelNote} onChange={(e) => setLabelNote(e.target.value)} placeholder="Poznámka / Dodavatel" className="input text-xs font-medium flex-1" />
-                <button type="submit" className="px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md shrink-0">
+                <button type="submit" className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md shrink-0">
                   + Zapsat nákup
                 </button>
               </div>
@@ -732,7 +732,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
             <h3 className="font-display font-black text-lg text-neutral-900">Stav etiket podle druhů piva</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {labelsSummary.map((l) => (
-                <div key={l.beer_name} className={`p-5 rounded-3xl border-2 transition-all shadow-sm space-y-3 ${l.isLow ? 'bg-rose-50/70 border-rose-300' : 'bg-white border-neutral-200'}`}>
+                <div key={l.beer_name} className={`p-5 rounded border-2 transition-all shadow-sm space-y-3 ${l.isLow ? 'bg-rose-50/70 border-rose-300' : 'bg-white border-neutral-200'}`}>
                   <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
                     <span className="font-display font-black text-base text-neutral-950">{l.beer_name}</span>
                     {l.isLow ? (
@@ -748,15 +748,15 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                   </div>
 
                   <div className="grid grid-cols-3 gap-1 text-center font-mono">
-                    <div className="p-2 rounded-xl bg-neutral-100">
+                    <div className="p-2 rounded bg-neutral-100">
                       <div className="text-[9px] font-bold text-neutral-500 uppercase">Nakoupeno</div>
                       <div className="text-sm font-black text-neutral-900">+{l.inLabels}</div>
                     </div>
-                    <div className="p-2 rounded-xl bg-neutral-100">
+                    <div className="p-2 rounded bg-neutral-100">
                       <div className="text-[9px] font-bold text-neutral-500 uppercase">Stočeno</div>
                       <div className="text-sm font-black text-neutral-900">−{l.usedLabels}</div>
                     </div>
-                    <div className={`p-2 rounded-xl ${l.isLow ? 'bg-rose-600 text-white' : 'bg-amber-500 text-neutral-950'}`}>
+                    <div className={`p-2 rounded ${l.isLow ? 'bg-rose-600 text-white' : 'bg-amber-500 text-neutral-950'}`}>
                       <div className="text-[9px] font-bold uppercase">Zbývá</div>
                       <div className="text-sm font-black">{l.balance} ks</div>
                     </div>
@@ -767,7 +767,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
           </div>
 
           {/* Table: Label Purchases History */}
-          <div className="card p-6 bg-white border border-neutral-200 rounded-3xl shadow-xs space-y-3">
+          <div className="card p-6 bg-white border border-neutral-200 rounded shadow-xs space-y-3">
             <h4 className="font-display font-black text-base text-neutral-900">Historie nákupů etiket ({labelPurchases.length})</h4>
             {labelPurchases.length === 0 ? (
               <EmptyState text="Zatiaľ nebol zadaný žiadny nákup etiket." icon="🏷️" />
@@ -804,7 +804,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
         <div className="space-y-6">
           {/* Low Bottles Warnings */}
           {lowBottlesCount > 0 && (
-            <div className="p-5 rounded-3xl bg-rose-50 border-2 border-rose-300 shadow-md space-y-2">
+            <div className="p-5 rounded bg-rose-50 border-2 border-rose-300 shadow-md space-y-2">
               <div className="flex items-center gap-2 text-rose-900 font-display font-black text-base">
                 <AlertTriangle size={22} className="text-rose-600 animate-pulse" />
                 <span>VAROVÁNÍ: NÍZKÝ STAV PRÁZDNÝCH LAHVÍ! ({'<'} 200 ks)</span>
@@ -815,7 +815,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
               </p>
               <div className="flex flex-wrap gap-2 pt-1">
                 {bottlesSummary.filter((b) => b.isLow && b.inBottles > 0).map((b) => (
-                  <span key={b.package_label} className="px-3 py-1.5 rounded-xl bg-rose-600 text-white font-bold text-xs shadow-xs">
+                  <span key={b.package_label} className="px-3 py-1.5 rounded bg-rose-600 text-white font-bold text-xs shadow-xs">
                     ⚠️ {b.package_label}: zbývá jen {b.balance} ks prázdných lahví!
                   </span>
                 ))}
@@ -824,7 +824,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
           )}
 
           {/* Form: Nákup prázdných lahví */}
-          <div className="card p-6 bg-white border-2 border-emerald-200 rounded-3xl shadow-sm space-y-4">
+          <div className="card p-6 bg-white border-2 border-emerald-200 rounded shadow-sm space-y-4">
             <h3 className="font-display font-black text-lg text-emerald-950 flex items-center gap-2">
               <Boxes className="text-emerald-600" size={20} />
               <span>🍾 Zadání nákupu / příjmu prázdných lahví na sklad</span>
@@ -848,15 +848,15 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
               <div>
                 <label className="block text-xs font-black text-neutral-700 mb-1">Nakoupeno lahví (ks)</label>
                 <div className="flex items-center gap-1">
-                  <button type="button" onClick={() => setBottleQty(String(Math.max(0, (Number(bottleQty) || 0) - 600)))} className="w-8 h-8 shrink-0 grid place-items-center rounded-xl bg-neutral-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition">−</button>
-                  <span className="w-20 px-2 text-center font-mono font-black text-sm bg-white border border-neutral-200 rounded-xl py-2 shadow-2xs">{bottleQty || '0'}</span>
-                  <button type="button" onClick={() => setBottleQty(String((Number(bottleQty) || 0) + 600))} className="w-8 h-8 shrink-0 grid place-items-center rounded-xl bg-emerald-700 text-white font-bold text-sm select-none active:scale-95 transition">+</button>
+                  <button type="button" onClick={() => setBottleQty(String(Math.max(0, (Number(bottleQty) || 0) - 600)))} className="w-8 h-8 shrink-0 grid place-items-center rounded bg-neutral-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition">−</button>
+                  <span className="w-20 px-2 text-center font-mono font-black text-sm bg-white border border-neutral-200 rounded py-2 shadow-2xs">{bottleQty || '0'}</span>
+                  <button type="button" onClick={() => setBottleQty(String((Number(bottleQty) || 0) + 600))} className="w-8 h-8 shrink-0 grid place-items-center rounded bg-emerald-700 text-white font-bold text-sm select-none active:scale-95 transition">+</button>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
                 <input type="text" value={bottleNote} onChange={(e) => setBottleNote(e.target.value)} placeholder="Poznámka / Paleta" className="input text-xs font-medium flex-1" />
-                <button type="submit" className="px-4 py-2.5 rounded-2xl bg-emerald-700 hover:bg-emerald-600 text-white font-black text-xs transition shadow-md shrink-0">
+                <button type="submit" className="px-4 py-2.5 rounded bg-emerald-700 hover:bg-emerald-600 text-white font-black text-xs transition shadow-md shrink-0">
                   + Zapsat nákup lahví
                 </button>
               </div>
@@ -868,7 +868,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
             <h3 className="font-display font-black text-lg text-neutral-900">Stav prázdných lahví (1.5L / 1L / 0.5L / 0.33L + Víčka)</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {bottlesSummary.map((b) => (
-                <div key={b.package_label} className={`p-5 rounded-3xl border-2 transition-all shadow-sm space-y-3 ${b.isLow ? 'bg-rose-50/70 border-rose-300' : 'bg-white border-neutral-200'}`}>
+                <div key={b.package_label} className={`p-5 rounded border-2 transition-all shadow-sm space-y-3 ${b.isLow ? 'bg-rose-50/70 border-rose-300' : 'bg-white border-neutral-200'}`}>
                   <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
                     <span className="font-display font-black text-base text-neutral-950">{b.package_label}</span>
                     {b.isLow ? (
@@ -884,15 +884,15 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                   </div>
 
                   <div className="grid grid-cols-3 gap-1 text-center font-mono">
-                    <div className="p-2 rounded-xl bg-neutral-100">
+                    <div className="p-2 rounded bg-neutral-100">
                       <div className="text-[9px] font-bold text-neutral-500 uppercase">Nakoupeno</div>
                       <div className="text-sm font-black text-neutral-900">+{b.inBottles}</div>
                     </div>
-                    <div className="p-2 rounded-xl bg-neutral-100">
+                    <div className="p-2 rounded bg-neutral-100">
                       <div className="text-[9px] font-bold text-neutral-500 uppercase">Stočeno</div>
                       <div className="text-sm font-black text-neutral-900">−{b.usedBottles}</div>
                     </div>
-                    <div className={`p-2 rounded-xl ${b.isLow ? 'bg-rose-100 text-rose-800' : 'bg-emerald-50 text-emerald-800'}`}>
+                    <div className={`p-2 rounded ${b.isLow ? 'bg-rose-100 text-rose-800' : 'bg-emerald-50 text-emerald-800'}`}>
                       <div className="text-[9px] font-bold uppercase">Zbývá</div>
                       <div className="text-sm font-black">{b.balance} ks</div>
                     </div>
@@ -903,7 +903,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
           </div>
 
           {/* Table: Bottle Purchases History */}
-          <div className="card p-6 bg-white border border-neutral-200 rounded-3xl shadow-xs space-y-3">
+          <div className="card p-6 bg-white border border-neutral-200 rounded shadow-xs space-y-3">
             <h4 className="font-display font-black text-base text-neutral-900">Historie příjmů prázdných lahví ({bottlePurchases.length})</h4>
             {bottlePurchases.length === 0 ? (
               <EmptyState text="Zatiaľ nebol zadaný žiadny nákup prázdných lahví." icon="🍾" />

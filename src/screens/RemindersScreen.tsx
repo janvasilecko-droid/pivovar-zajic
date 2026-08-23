@@ -187,7 +187,7 @@ export default function RemindersScreen() {
   return (
     <div className="space-y-6 pb-12">
       {/* Banner */}
-      <div className="bg-neutral-900 text-white p-5 sm:p-7 rounded-3xl border border-amber-500/30 shadow-xl flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-neutral-900 text-white p-5 sm:p-7 rounded border border-amber-500/30 shadow-xl flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-amber-400 font-extrabold text-xs uppercase tracking-widest mb-1">
             <Bell size={18} />
@@ -203,7 +203,7 @@ export default function RemindersScreen() {
 
         <button
           onClick={() => requestNotificationPermission()}
-          className="px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md flex items-center gap-2"
+          className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md flex items-center gap-2"
         >
           <Monitor size={16} /> Povolit Notifikace na Ploše
         </button>
@@ -211,7 +211,7 @@ export default function RemindersScreen() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Formulář Nová Upomínka */}
-        <div className="card p-5 sm:p-6 bg-white border border-amber-200 rounded-3xl shadow-sm space-y-4 lg:col-span-1">
+        <div className="card p-5 sm:p-6 bg-white border border-amber-200 rounded shadow-sm space-y-4 lg:col-span-1">
           <div className="border-b border-amber-100 pb-3">
             <h3 className="font-display font-black text-base sm:text-lg text-neutral-900 flex items-center gap-2">
               <Plus size={20} className="text-amber-500" />
@@ -245,7 +245,7 @@ export default function RemindersScreen() {
 
             <div>
               <label className="block text-xs font-black text-neutral-700 mb-1">Kdy se má zpráva doručit?</label>
-              <label className={`flex items-start gap-2.5 p-2.5 rounded-xl border transition cursor-pointer mb-2 ${
+              <label className={`flex items-start gap-2.5 p-2.5 rounded border transition cursor-pointer mb-2 ${
                 sendNow ? 'bg-emerald-100/70 border-emerald-400 font-bold' : 'bg-neutral-50 border-neutral-200'
               }`}>
                 <input
@@ -273,7 +273,7 @@ export default function RemindersScreen() {
             <div>
               <label className="block text-xs font-black text-neutral-700 mb-1">Komu zprávu / upomínku poslat? *</label>
               <div className="space-y-1.5">
-                <label className={`flex items-start gap-2.5 p-2.5 rounded-xl border transition cursor-pointer ${
+                <label className={`flex items-start gap-2.5 p-2.5 rounded border transition cursor-pointer ${
                   recipientMode === 'all' ? 'bg-amber-100/70 border-amber-400 font-bold' : 'bg-neutral-50 border-neutral-200'
                 }`}>
                   <input
@@ -290,7 +290,7 @@ export default function RemindersScreen() {
                   </div>
                 </label>
 
-                <label className={`flex items-start gap-2.5 p-2.5 rounded-xl border transition cursor-pointer ${
+                <label className={`flex items-start gap-2.5 p-2.5 rounded border transition cursor-pointer ${
                   recipientMode === 'role' ? 'bg-amber-100/70 border-amber-400 font-bold' : 'bg-neutral-50 border-neutral-200'
                 }`}>
                   <input
@@ -320,7 +320,7 @@ export default function RemindersScreen() {
                   </select>
                 )}
 
-                <label className={`flex items-start gap-2.5 p-2.5 rounded-xl border transition cursor-pointer ${
+                <label className={`flex items-start gap-2.5 p-2.5 rounded border transition cursor-pointer ${
                   recipientMode === 'users' ? 'bg-amber-100/70 border-amber-400 font-bold' : 'bg-neutral-50 border-neutral-200'
                 }`}>
                   <input
@@ -341,17 +341,17 @@ export default function RemindersScreen() {
                     {directoryLoading ? (
                       <div className="text-[11px] font-bold text-neutral-500">Načítám seznam uživatelů…</div>
                     ) : userDirectory.length === 0 ? (
-                      <div className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-2">
+                      <div className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
                         Seznam uživatelů není dostupný — použijte „Vlastní e-maily" a napište e-maily kolegů ručně.
                       </div>
                     ) : (
-                      <div className="max-h-44 overflow-y-auto border border-neutral-200 rounded-xl p-2 space-y-1 bg-white">
+                      <div className="max-h-44 overflow-y-auto border border-neutral-200 rounded p-2 space-y-1 bg-white">
                         {userDirectory.map((u) => {
                           const checked = selectedUsers.includes(u.email);
                           return (
                             <label
                               key={u.id}
-                              className={`flex items-center gap-2 p-1.5 rounded-lg cursor-pointer text-xs transition ${
+                              className={`flex items-center gap-2 p-1.5 rounded cursor-pointer text-xs transition ${
                                 checked ? 'bg-amber-100 border border-amber-300' : 'hover:bg-neutral-50 border border-transparent'
                               }`}
                             >
@@ -368,7 +368,7 @@ export default function RemindersScreen() {
                     {selectedUsers.length > 0 && (
                       <div className="flex flex-wrap gap-1.5">
                         {selectedUsers.map((em) => (
-                          <span key={em} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/15 border border-amber-300 text-[11px] font-bold text-neutral-800">
+                          <span key={em} className="inline-flex items-center gap-1 px-2 py-1 rounded bg-amber-500/15 border border-amber-300 text-[11px] font-bold text-neutral-800">
                             {em}
                             <button type="button" onClick={() => toggleUser(em)} className="text-amber-700 hover:text-rose-600 font-black" aria-label={`Odebrat ${em}`}>×</button>
                           </span>
@@ -378,7 +378,7 @@ export default function RemindersScreen() {
                   </div>
                 )}
 
-                <label className={`flex items-start gap-2.5 p-2.5 rounded-xl border transition cursor-pointer ${
+                <label className={`flex items-start gap-2.5 p-2.5 rounded border transition cursor-pointer ${
                   recipientMode === 'custom' ? 'bg-amber-100/70 border-amber-400 font-bold' : 'bg-neutral-50 border-neutral-200'
                 }`}>
                   <input
@@ -410,7 +410,7 @@ export default function RemindersScreen() {
             <div>
               <label className="block text-xs font-black text-neutral-700 mb-1">Způsob zobrazení (Kde se zobrazí) *</label>
               <div className="space-y-2">
-                <label className={`flex items-start gap-2.5 p-2.5 rounded-xl border transition cursor-pointer ${
+                <label className={`flex items-start gap-2.5 p-2.5 rounded border transition cursor-pointer ${
                   displayMode === 'both' ? 'bg-amber-100/70 border-amber-400 font-bold' : 'bg-neutral-50 border-neutral-200'
                 }`}>
                   <input
@@ -427,7 +427,7 @@ export default function RemindersScreen() {
                   </div>
                 </label>
 
-                <label className={`flex items-start gap-2.5 p-2.5 rounded-xl border transition cursor-pointer ${
+                <label className={`flex items-start gap-2.5 p-2.5 rounded border transition cursor-pointer ${
                   displayMode === 'login_modal' ? 'bg-amber-100/70 border-amber-400 font-bold' : 'bg-neutral-50 border-neutral-200'
                 }`}>
                   <input
@@ -444,7 +444,7 @@ export default function RemindersScreen() {
                   </div>
                 </label>
 
-                <label className={`flex items-start gap-2.5 p-2.5 rounded-xl border transition cursor-pointer ${
+                <label className={`flex items-start gap-2.5 p-2.5 rounded border transition cursor-pointer ${
                   displayMode === 'desktop_push' ? 'bg-amber-100/70 border-amber-400 font-bold' : 'bg-neutral-50 border-neutral-200'
                 }`}>
                   <input
@@ -467,7 +467,7 @@ export default function RemindersScreen() {
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full px-5 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md flex items-center justify-center gap-2"
+                className="w-full px-5 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md flex items-center justify-center gap-2"
               >
                 <Send size={16} /> Odeslat zprávu / upomínku
               </button>
@@ -476,7 +476,7 @@ export default function RemindersScreen() {
         </div>
 
         {/* Seznam Upomínek */}
-        <div className="card p-5 sm:p-6 bg-white border border-neutral-200 rounded-3xl shadow-sm space-y-4 lg:col-span-2">
+        <div className="card p-5 sm:p-6 bg-white border border-neutral-200 rounded shadow-sm space-y-4 lg:col-span-2">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 pb-3">
             <div>
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
@@ -484,27 +484,27 @@ export default function RemindersScreen() {
               </h3>
             </div>
 
-            <div className="flex items-center gap-1.5 bg-neutral-100 p-1 rounded-xl text-xs font-bold">
+            <div className="flex items-center gap-1.5 bg-neutral-100 p-1 rounded text-xs font-bold">
               <button
                 onClick={() => setFilter('pending')}
-                className={`px-3 py-1 rounded-lg transition ${
-                  filter === 'pending' ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'text-neutral-600 hover:text-neutral-900'
+                className={`px-3 py-1 rounded transition ${
+                  filter === 'pending' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'
                 }`}
               >
                 Ke schválení pro mě
               </button>
               <button
                 onClick={() => setFilter('my')}
-                className={`px-3 py-1 rounded-lg transition ${
-                  filter === 'my' ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'text-neutral-600 hover:text-neutral-900'
+                className={`px-3 py-1 rounded transition ${
+                  filter === 'my' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'
                 }`}
               >
                 Moje upomínky
               </button>
               <button
                 onClick={() => setFilter('all')}
-                className={`px-3 py-1 rounded-lg transition ${
-                  filter === 'all' ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'text-neutral-600 hover:text-neutral-900'
+                className={`px-3 py-1 rounded transition ${
+                  filter === 'all' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'
                 }`}
               >
                 Všechny
@@ -525,7 +525,7 @@ export default function RemindersScreen() {
                 return (
                   <div
                     key={r.id}
-                    className={`p-4 rounded-2xl border transition-all space-y-2 ${
+                    className={`p-4 rounded border transition-all space-y-2 ${
                       isAcked
                         ? 'bg-neutral-50/80 border-neutral-200 opacity-75'
                         : isDue
@@ -536,7 +536,7 @@ export default function RemindersScreen() {
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase ${
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
                             r.display_mode === 'desktop_push'
                               ? 'bg-blue-100 text-blue-900 border border-blue-200'
                               : r.display_mode === 'login_modal'
@@ -561,14 +561,14 @@ export default function RemindersScreen() {
                         {!isAcked && (
                           <button
                             onClick={() => handleAck(r.id)}
-                            className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-2xs flex items-center gap-1"
+                            className="px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-2xs flex items-center gap-1"
                           >
                             <CheckCircle2 size={14} /> Odkliknout
                           </button>
                         )}
                         <button
                           onClick={() => handleDelete(r.id)}
-                          className="p-1.5 rounded-lg hover:bg-rose-100 text-rose-600 transition"
+                          className="p-1.5 rounded hover:bg-rose-100 text-rose-600 transition"
                           title="Smazat upomínku"
                         >
                           <Trash2 size={16} />

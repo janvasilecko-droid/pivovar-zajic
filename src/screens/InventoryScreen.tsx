@@ -710,7 +710,7 @@ function exportInventoryExcel() {
   return (
     <div className="space-y-6 pb-12">
       {/* Banner */}
-      <div className="bg-neutral-900 text-white p-5 sm:p-7 rounded-3xl border border-amber-500/30 shadow-xl flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-neutral-900 text-white p-5 sm:p-7 rounded border border-amber-500/30 shadow-xl flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-amber-400 font-extrabold text-xs uppercase tracking-widest mb-1">
             <ClipboardCheck size={18} />
@@ -725,10 +725,10 @@ function exportInventoryExcel() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1 bg-neutral-800 border border-neutral-700 px-2 py-1.5 rounded-2xl text-xs font-bold">
+          <div className="flex items-center gap-1 bg-neutral-800 border border-neutral-700 px-2 py-1.5 rounded text-xs font-bold">
             <button
               onClick={() => setCurrentMonth(shiftMonth(currentMonth, -1))}
-              className="px-2 py-1 rounded-lg bg-neutral-700 hover:bg-amber-500 hover:text-neutral-950 text-white font-black transition"
+              className="px-2 py-1 rounded bg-neutral-700 hover:bg-amber-500 hover:text-neutral-950 text-white font-black transition"
               title="Předchozí měsíc"
             >
               ‹
@@ -745,7 +745,7 @@ function exportInventoryExcel() {
             </div>
             <button
               onClick={() => setCurrentMonth(shiftMonth(currentMonth, 1))}
-              className="px-2 py-1 rounded-lg bg-neutral-700 hover:bg-amber-500 hover:text-neutral-950 text-white font-black transition"
+              className="px-2 py-1 rounded bg-neutral-700 hover:bg-amber-500 hover:text-neutral-950 text-white font-black transition"
               title="Následující měsíc"
             >
               ›
@@ -755,7 +755,7 @@ function exportInventoryExcel() {
 
           <button
             onClick={() => setShowPhotoCounter(true)}
-            className="px-3.5 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md flex items-center gap-1.5"
+            className="px-3.5 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md flex items-center gap-1.5"
           >
             <Camera size={16} /> Spočítat z fotek (Bedny & Lahve)
           </button>
@@ -770,20 +770,20 @@ function exportInventoryExcel() {
           <button
             type="button"
             onClick={() => excelFileRef.current?.click()}
-            className="px-3.5 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-amber-950 font-black text-xs transition shadow-xs flex items-center gap-1.5"
+            className="px-3.5 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-amber-950 font-black text-xs transition shadow-xs flex items-center gap-1.5"
           >
             <span>📥 Import Excel / Google Tabulky</span>
           </button>
           <button
             onClick={exportInventoryExcel}
-            className="px-3.5 py-2.5 rounded-2xl bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs transition shadow-xs flex items-center gap-1.5"
+            className="px-3.5 py-2.5 rounded bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs transition shadow-xs flex items-center gap-1.5"
           >
             <Download size={16} /> Export Excel
           </button>
 
           <button
             onClick={handleLockAndTransferNextMonth}
-            className="px-4 py-2.5 rounded-2xl bg-neutral-800 hover:bg-neutral-700 text-amber-950 border border-neutral-700 font-black text-xs transition shadow-md flex items-center gap-1.5"
+            className="px-4 py-2.5 rounded bg-neutral-800 hover:bg-neutral-700 text-amber-950 border border-neutral-700 font-black text-xs transition shadow-md flex items-center gap-1.5"
           >
             <Lock size={16} /> Schválit & Převést do nového měsíce
           </button>
@@ -791,7 +791,7 @@ function exportInventoryExcel() {
       </div>
 
       {saveMsg && (
-        <div className="p-4 rounded-2xl bg-emerald-100 border border-emerald-300 text-emerald-950 text-xs font-black flex items-center gap-2">
+        <div className="p-4 rounded bg-emerald-100 border border-emerald-300 text-emerald-950 text-xs font-black flex items-center gap-2">
           <CheckCircle2 size={18} className="text-emerald-700" />
           <span>{saveMsg}</span>
         </div>
@@ -801,10 +801,10 @@ function exportInventoryExcel() {
       <div className="sticky top-0 z-20 bg-neutral-100 pt-1 flex items-center gap-2 border-b border-neutral-200 pb-2 overflow-x-auto scrollbar-thin">
         <button
           onClick={() => selectTab('inventory')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
+          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'inventory'
-              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+              ? 'bg-white text-neutral-900 shadow-md'
+              : 'bg-neutral-900 text-white hover:bg-neutral-800'
           }`}
         >
           <ClipboardCheck size={16} />
@@ -813,10 +813,10 @@ function exportInventoryExcel() {
 
         <button
           onClick={() => selectTab('initial_stock')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
+          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'initial_stock'
-              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+              ? 'bg-white text-neutral-900 shadow-md'
+              : 'bg-neutral-900 text-white hover:bg-neutral-800'
           }`}
         >
           <RotateCcw size={16} />
@@ -825,10 +825,10 @@ function exportInventoryExcel() {
 
         <button
           onClick={() => selectTab('end_stock')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
+          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'end_stock'
-              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+              ? 'bg-white text-neutral-900 shadow-md'
+              : 'bg-neutral-900 text-white hover:bg-neutral-800'
           }`}
         >
           <ClipboardCheck size={16} />
@@ -841,38 +841,38 @@ function exportInventoryExcel() {
       {activeTab === 'inventory' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            <div className="card p-3.5 bg-white border border-neutral-200 rounded-2xl space-y-1">
+            <div className="card p-3.5 bg-white border border-neutral-200 rounded space-y-1">
               <span className="text-[10px] font-black uppercase text-neutral-500">Počáteční stav</span>
               <div className="font-display font-black text-lg text-neutral-900">{totals.initial} ks</div>
               <span className="text-[10px] text-neutral-500">Převedeno z minulého měsíce</span>
             </div>
-            <div className="card p-3.5 bg-white border border-neutral-200 rounded-2xl space-y-1">
+            <div className="card p-3.5 bg-white border border-neutral-200 rounded space-y-1">
               <span className="text-[10px] font-black uppercase text-amber-700">Nově stočeno (+)</span>
               <div className="font-display font-black text-lg text-amber-600">+{totals.staceno} ks</div>
               <span className="text-[10px] text-neutral-500">Zapsáno ve Stáčení</span>
             </div>
-            <div className="card p-3.5 bg-white border border-rose-200 rounded-2xl space-y-1">
+            <div className="card p-3.5 bg-white border border-rose-200 rounded space-y-1">
               <span className="text-[10px] font-black uppercase text-rose-600">Odpisy (− odpis)</span>
               <div className="font-display font-black text-lg text-rose-700">-{totals.odpis} ks</div>
               <span className="text-[10px] text-neutral-500">Zapsáno v Odpisech</span>
             </div>
-            <div className="card p-3.5 bg-white border border-neutral-200 rounded-2xl space-y-1">
+            <div className="card p-3.5 bg-white border border-neutral-200 rounded space-y-1">
               <span className="text-[10px] font-black uppercase text-amber-800">Vytočeno/Výdej (−)</span>
               <div className="font-display font-black text-lg text-amber-800">-{totals.vydej} ks</div>
               <span className="text-[10px] text-neutral-500">Fasování + Prodejna + Objednávky</span>
             </div>
-            <div className="card p-3.5 bg-white border border-neutral-200 rounded-2xl space-y-1">
+            <div className="card p-3.5 bg-white border border-neutral-200 rounded space-y-1">
               <span className="text-[10px] font-black uppercase text-neutral-500">📦 ZBYDE SKLADEM (Oček.)</span>
               <div className="font-display font-black text-xl">
                 {totals.expected < 0 ? (
-                  <span className="px-2 py-0.5 rounded-lg bg-rose-600 text-white">{totals.expected} ks</span>
+                  <span className="px-2 py-0.5 rounded bg-rose-600 text-white">{totals.expected} ks</span>
                 ) : (
                   <span className="text-emerald-700">{totals.expected} ks</span>
                 )}
               </div>
               <span className="text-[10px] text-neutral-500">Teoretický zůstatek</span>
             </div>
-            <div className="card p-3.5 bg-white border border-neutral-200 rounded-2xl space-y-1">
+            <div className="card p-3.5 bg-white border border-neutral-200 rounded space-y-1">
               <span className="text-[10px] font-black uppercase text-neutral-500">Celkové Manko/Přebytek</span>
               <div className={`font-display font-black text-lg ${totals.diffQty < 0 ? 'text-rose-700' : totals.diffQty > 0 ? 'text-emerald-700' : 'text-neutral-900'}`}>
                 {totals.diffQty > 0 ? `+${totals.diffQty}` : totals.diffQty} ks ({totals.diffCzk.toLocaleString('cs-CZ')} Kč)
@@ -888,7 +888,7 @@ function exportInventoryExcel() {
             </div>
           </div>
 
-          <div className="card p-5 bg-white border border-neutral-200/90 rounded-3xl shadow-xs space-y-4">
+          <div className="card p-5 bg-white border border-neutral-200/90 rounded shadow-xs space-y-4">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3 flex-wrap gap-2">
               <div>
                 <h3 className="font-display font-black text-lg text-neutral-900">Bilanční tabulka piva & Obalů k datu</h3>
@@ -897,7 +897,7 @@ function exportInventoryExcel() {
               <button
                 onClick={handleSaveActualStock}
                 disabled={busy}
-                className="px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md transition flex items-center gap-1.5"
+                className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md transition flex items-center gap-1.5"
               >
                 <Save size={16} /> Uložit fyzické stavy
               </button>
@@ -908,7 +908,7 @@ function exportInventoryExcel() {
                 <p>Pro měsíc {currentMonth} zatím nebyly zadané žádné počáteční stavy ani pohyby.</p>
                 <button
                   onClick={() => selectTab('initial_stock')}
-                  className="px-4 py-2 rounded-xl bg-amber-500 text-neutral-950 font-black text-xs shadow-xs"
+                  className="px-4 py-2 rounded bg-amber-500 text-neutral-950 font-black text-xs shadow-xs"
                 >
                   + Zadat počáteční zásoby na skladě
                 </button>
@@ -921,13 +921,13 @@ function exportInventoryExcel() {
                   const k = `${r.beer_id}__${r.package_id}`;
                   const beer = beers.find((b) => b.id === r.beer_id);
                   return (
-                    <div key={k} className="rounded-2xl border border-neutral-200 overflow-hidden" style={beer ? { backgroundColor: beerBg(beer) } : undefined}>
+                    <div key={k} className="rounded border border-neutral-200 overflow-hidden" style={beer ? { backgroundColor: beerBg(beer) } : undefined}>
                       <div className="p-3 space-y-2">
                         <div className="flex items-center justify-between gap-2">
                           <div className={`font-black text-sm ${beer && beerText(beer) === 'text-white' ? 'text-white' : 'text-neutral-950'}`}>
                             {r.beer_name} <span className="font-bold opacity-80">· {formatPackageLabel(r.package_label)}</span>
                           </div>
-                          <span className={`shrink-0 px-2 py-1 rounded-lg text-xs font-black ${r.expectedQty < 0 ? 'bg-rose-600 text-white' : 'bg-emerald-300/80 text-emerald-950'}`}>
+                          <span className={`shrink-0 px-2 py-1 rounded text-xs font-black ${r.expectedQty < 0 ? 'bg-rose-600 text-white' : 'bg-emerald-300/80 text-emerald-950'}`}>
                             Oček. {r.expectedQty} ks
                           </span>
                         </div>
@@ -939,7 +939,7 @@ function exportInventoryExcel() {
                               type="number"
                               min="0"
                               inputMode="numeric"
-                              className="input !py-2 text-center font-mono font-black text-base text-neutral-950 border-amber-400 bg-amber-100/80 w-full rounded-xl shadow-inner focus:ring-2 focus:ring-amber-500"
+                              className="input !py-2 text-center font-mono font-black text-base text-neutral-950 border-amber-400 bg-amber-100/80 w-full rounded shadow-inner focus:ring-2 focus:ring-amber-500"
                               value={actualStock[k] !== undefined ? actualStock[k] : ''}
                               onChange={(e) => setActualStock((prev) => ({ ...prev, [k]: e.target.value }))}
                             />
@@ -950,7 +950,7 @@ function exportInventoryExcel() {
                               <input
                                 type="number"
                                 inputMode="numeric"
-                                className="input !py-2 text-center font-mono font-black text-base text-neutral-950 border-sky-400 bg-sky-100/80 w-full rounded-xl shadow-inner focus:ring-2 focus:ring-sky-500"
+                                className="input !py-2 text-center font-mono font-black text-base text-neutral-950 border-sky-400 bg-sky-100/80 w-full rounded shadow-inner focus:ring-2 focus:ring-sky-500"
                                 placeholder="±"
                                 value={dorovnatMap[k] !== undefined ? dorovnatMap[k] : ''}
                                 onChange={(e) => setDorovnatMap((prev) => ({ ...prev, [k]: e.target.value }))}
@@ -958,7 +958,7 @@ function exportInventoryExcel() {
                               <button
                                 type="button"
                                 onClick={() => setDorovnatMap((prev) => ({ ...prev, [k]: String(r.diffQty) }))}
-                                className="shrink-0 w-10 h-10 grid place-items-center rounded-xl bg-sky-200/70 hover:bg-sky-300 text-sky-950 font-black text-sm transition"
+                                className="shrink-0 w-10 h-10 grid place-items-center rounded bg-sky-200/70 hover:bg-sky-300 text-sky-950 font-black text-sm transition"
                                 title={`Dorovnat dle manka (nastavit na ${r.diffQty} ks)`}
                               >
                                 ⟳
@@ -1040,7 +1040,7 @@ function exportInventoryExcel() {
                             <input
                               type="number"
                               min="0"
-                              className="input !py-1 text-right font-mono font-black text-xs text-neutral-950 border-amber-400 bg-amber-100/80 w-24 ml-auto rounded-xl shadow-inner focus:ring-2 focus:ring-amber-500"
+                              className="input !py-1 text-right font-mono font-black text-xs text-neutral-950 border-amber-400 bg-amber-100/80 w-24 ml-auto rounded shadow-inner focus:ring-2 focus:ring-amber-500"
                               value={actualStock[k] !== undefined ? actualStock[k] : ''}
                               onChange={(e) => setActualStock((prev) => ({ ...prev, [k]: e.target.value }))}
                             />
@@ -1049,7 +1049,7 @@ function exportInventoryExcel() {
                             <div className="flex items-center justify-end gap-1">
                               <input
                                 type="number"
-                                className="input !py-1 text-right font-mono font-black text-xs text-neutral-950 border-sky-400 bg-sky-100/80 w-20 ml-auto rounded-xl shadow-inner focus:ring-2 focus:ring-sky-500"
+                                className="input !py-1 text-right font-mono font-black text-xs text-neutral-950 border-sky-400 bg-sky-100/80 w-20 ml-auto rounded shadow-inner focus:ring-2 focus:ring-sky-500"
                                 placeholder="±"
                                 value={dorovnatMap[k] !== undefined ? dorovnatMap[k] : ''}
                                 onChange={(e) => setDorovnatMap((prev) => ({ ...prev, [k]: e.target.value }))}
@@ -1058,7 +1058,7 @@ function exportInventoryExcel() {
                               <button
                                 type="button"
                                 onClick={() => setDorovnatMap((prev) => ({ ...prev, [k]: String(r.diffQty) }))}
-                                className="shrink-0 p-1 rounded-lg bg-sky-200/70 hover:bg-sky-300 text-sky-950 font-black text-[10px] leading-none transition"
+                                className="shrink-0 p-1 rounded bg-sky-200/70 hover:bg-sky-300 text-sky-950 font-black text-[10px] leading-none transition"
                                 title={`Dorovnat dle manka (nastavit na ${r.diffQty} ks)`}
                               >
                                 ⟳
@@ -1129,7 +1129,7 @@ function exportInventoryExcel() {
 
       {/* TAB 2: POČÁTEČNÍ STAVY SE ZADÁVÁNÍM RUČNĚ */}
       {activeTab === 'initial_stock' && (
-        <div className="card p-6 bg-white border border-neutral-200 rounded-3xl space-y-5 shadow-xs">
+        <div className="card p-6 bg-white border border-neutral-200 rounded space-y-5 shadow-xs">
           <div className="flex items-center justify-between border-b border-neutral-100 pb-3 flex-wrap gap-2">
             <div>
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
@@ -1143,7 +1143,7 @@ function exportInventoryExcel() {
             <button
               onClick={handleSaveInitialStock}
               disabled={busy}
-              className="px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md transition flex items-center gap-1.5"
+              className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md transition flex items-center gap-1.5"
             >
               <Save size={16} /> Uložit počáteční zásoby
             </button>
@@ -1151,7 +1151,7 @@ function exportInventoryExcel() {
 
           <div className="space-y-6">
             {beers.map((b) => (
-              <div key={b.id} className="p-4 rounded-3xl bg-neutral-50 border border-neutral-200 space-y-3">
+              <div key={b.id} className="p-4 rounded bg-neutral-50 border border-neutral-200 space-y-3">
                 <h4 className="font-display font-black text-base text-neutral-900 border-b border-neutral-200 pb-2 flex items-center gap-2">
                   <span>🍺 {b.name}</span>
                   {b.degree && <span className="text-xs text-neutral-500 font-bold">({b.degree})</span>}
@@ -1161,7 +1161,7 @@ function exportInventoryExcel() {
                   {packages.map((p) => {
                     const k = `${b.id}__${p.id}`;
                     return (
-                      <div key={p.id} className="p-3 bg-white rounded-2xl border border-neutral-200 space-y-1">
+                      <div key={p.id} className="p-3 bg-white rounded border border-neutral-200 space-y-1">
                         <label className="block text-[11px] font-black uppercase text-neutral-600 truncate">
                           {formatPackageLabel(p.label)}
                         </label>
@@ -1341,13 +1341,13 @@ function EndStockTab({
   return (
     <div className="space-y-6">
       {/* Vysvětlení bilance */}
-      <div className="p-4 rounded-2xl bg-sky-50 border border-sky-200 text-xs text-sky-950 font-medium space-y-1">
+      <div className="p-4 rounded bg-sky-50 border border-sky-200 text-xs text-sky-950 font-medium space-y-1">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="font-black text-sky-900">🛢️ Bilanční konto sudů za {monthLabel}</p>
-          <div className="flex items-center gap-1 bg-white border border-sky-300 px-2 py-1 rounded-xl text-xs font-bold">
+          <div className="flex items-center gap-1 bg-white border border-sky-300 px-2 py-1 rounded text-xs font-bold">
             <button
               onClick={() => onMonthChange(shiftMonth(currentMonth, -1))}
-              className="px-2 py-0.5 rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-900 font-black transition"
+              className="px-2 py-0.5 rounded bg-sky-100 hover:bg-sky-200 text-sky-900 font-black transition"
               title="Předchozí měsíc"
             >
               ‹
@@ -1363,7 +1363,7 @@ function EndStockTab({
             </div>
             <button
               onClick={() => onMonthChange(shiftMonth(currentMonth, 1))}
-              className="px-2 py-0.5 rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-900 font-black transition"
+              className="px-2 py-0.5 rounded bg-sky-100 hover:bg-sky-200 text-sky-900 font-black transition"
               title="Následující měsíc"
             >
               ›
@@ -1381,23 +1381,23 @@ function EndStockTab({
 
       {/* Souhrn */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="card p-4 bg-white border border-neutral-200 rounded-2xl space-y-1">
+        <div className="card p-4 bg-white border border-neutral-200 rounded space-y-1">
           <span className="text-[10px] font-black uppercase text-neutral-500">Počáteční stav</span>
           <div className="font-display font-black text-xl text-neutral-900">{totals.initial} ks</div>
         </div>
-        <div className="card p-4 bg-white border border-neutral-200 rounded-2xl space-y-1">
+        <div className="card p-4 bg-white border border-neutral-200 rounded space-y-1">
           <span className="text-[10px] font-black uppercase text-neutral-500">Stáčení KEG (+)</span>
           <div className="font-display font-black text-xl text-emerald-600">+{totals.stacenoKeg} ks</div>
         </div>
-        <div className="card p-4 bg-white border border-neutral-200 rounded-2xl space-y-1">
+        <div className="card p-4 bg-white border border-neutral-200 rounded space-y-1">
           <span className="text-[10px] font-black uppercase text-neutral-500">Výdeje (−)</span>
           <div className="font-display font-black text-xl text-rose-600">−{totals.objednavky + totals.stacenoLahve + totals.fasovani + totals.prodejna + totals.akce + totals.odpisy} ks</div>
         </div>
-        <div className="card p-4 bg-white border border-neutral-200 rounded-2xl space-y-1">
+        <div className="card p-4 bg-white border border-neutral-200 rounded space-y-1">
           <span className="text-[10px] font-black uppercase text-neutral-500">Stav na konci měsíce</span>
           <div className="font-display font-black text-xl">
             {totals.endStock < 0 ? (
-              <span className="px-2 py-0.5 rounded-lg bg-rose-600 text-white">{totals.endStock} ks</span>
+              <span className="px-2 py-0.5 rounded bg-rose-600 text-white">{totals.endStock} ks</span>
             ) : (
               <span className="text-neutral-900">{totals.endStock} ks</span>
             )}
@@ -1407,7 +1407,7 @@ function EndStockTab({
       </div>
 
       {/* Tabulka */}
-      <div className="card p-6 bg-white border border-neutral-200/90 rounded-3xl shadow-xs space-y-4">
+      <div className="card p-6 bg-white border border-neutral-200/90 rounded shadow-xs space-y-4">
         <div className="border-b border-neutral-100 pb-3">
           <h3 className="font-display font-black text-lg text-neutral-900">Přehled sudů podle piva a obalu</h3>
           <p className="text-xs text-neutral-500 font-bold">Bilance: Počáteční + Stáčení KEG = Objednávky + Stáčení lahví + Fasování + Prodejna + Akce + Odpisy + Stav na konci měsíce</p>
@@ -1437,14 +1437,14 @@ function EndStockTab({
                 { label: 'Konec', value: String(r.endStockQty), cls: r.endStockQty < 0 ? 'bg-rose-600 text-white' : 'bg-amber-500 text-neutral-950' },
               ];
               return (
-                <div key={`${r.beer_id}__${r.package_id}`} className="rounded-2xl border border-neutral-200 p-3 space-y-2" style={beer ? { backgroundColor: beerBg(beer) } : undefined}>
+                <div key={`${r.beer_id}__${r.package_id}`} className="rounded border border-neutral-200 p-3 space-y-2" style={beer ? { backgroundColor: beerBg(beer) } : undefined}>
                   <div className="flex items-center justify-between gap-2">
                     <span className={`font-black text-sm ${textColor}`}>{r.beer_name}</span>
                     <span className={`font-bold text-xs ${textColor} opacity-80`}>{formatPackageLabel(r.package_label)}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-1.5 text-center">
                     {metrics.map((m) => (
-                      <div key={m.label} className={`rounded-lg py-1.5 ${m.cls}`}>
+                      <div key={m.label} className={`rounded py-1.5 ${m.cls}`}>
                         <div className="text-[8px] font-black uppercase opacity-80">{m.label}</div>
                         <div className="text-xs font-black">{m.value} ks</div>
                       </div>
@@ -1454,7 +1454,7 @@ function EndStockTab({
                 </div>
               );
             })}
-            <div className="rounded-2xl bg-neutral-200 p-3 space-y-2">
+            <div className="rounded bg-neutral-200 p-3 space-y-2">
               <div className="font-black text-sm text-neutral-900">📦 CELKEM</div>
               <div className="grid grid-cols-3 gap-1.5 text-center text-[10px] font-bold text-neutral-800">
                 <div>Počátek {totals.initial}</div>

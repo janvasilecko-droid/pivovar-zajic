@@ -87,7 +87,7 @@ export default function Notes() {
   }
 
   return (
-    <div className="card p-5 sm:p-6 bg-white border border-neutral-200 rounded-3xl shadow-sm space-y-4">
+    <div className="card p-5 sm:p-6 bg-white border border-neutral-200 rounded shadow-sm space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
         <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
@@ -126,7 +126,7 @@ export default function Notes() {
           <button
             type="submit"
             disabled={saving || (!title.trim() && !body.trim())}
-            className="flex-1 px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
+            className="flex-1 px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
           >
             <Plus size={16} /> Přidat poznámku
           </button>
@@ -144,7 +144,7 @@ export default function Notes() {
           {notes.map((n) => {
             const isEditing = editingId === n.id;
             return (
-              <div key={n.id} className="p-3.5 rounded-2xl border border-neutral-200 bg-white hover:shadow-sm transition">
+              <div key={n.id} className="p-3.5 rounded border border-neutral-200 bg-white hover:shadow-sm transition">
                 <div className={`h-1 w-full rounded-full mb-2 ${NOTE_COLORS[n.color] ?? NOTE_COLORS.primary}`} />
 
                 {isEditing ? (
@@ -165,13 +165,13 @@ export default function Notes() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => saveEdit(n.id)}
-                        className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs flex items-center gap-1 transition"
+                        className="px-3 py-1.5 rounded bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs flex items-center gap-1 transition"
                       >
                         <Check size={14} /> Uložit
                       </button>
                       <button
                         onClick={() => setEditingId(null)}
-                        className="px-3 py-1.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-black text-xs flex items-center gap-1 transition"
+                        className="px-3 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-black text-xs flex items-center gap-1 transition"
                       >
                         <X size={14} /> Zrušit
                       </button>
@@ -187,14 +187,14 @@ export default function Notes() {
                       <div className="flex items-center gap-1 shrink-0">
                         <button
                           onClick={() => startEdit(n)}
-                          className="p-1.5 rounded-lg hover:bg-amber-100 text-amber-600 transition"
+                          className="p-1.5 rounded hover:bg-amber-100 text-amber-600 transition"
                           title="Upravit poznámku"
                         >
                           <Pencil size={14} />
                         </button>
                         <button
                           onClick={() => del(n.id)}
-                          className="p-1.5 rounded-lg hover:bg-rose-100 text-rose-600 transition"
+                          className="p-1.5 rounded hover:bg-rose-100 text-rose-600 transition"
                           title="Smazat poznámku"
                         >
                           <Trash2 size={14} />

@@ -239,7 +239,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   return (
     <div className="space-y-6 pb-12">
       {/* Top Action Bar — bez ukotvení (žádný prvek na téhle obrazovce nezůstává přilepený). */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-3xl border border-neutral-200 shadow-2xs">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded border border-neutral-200 shadow-2xs">
         <div className="flex items-center gap-2">
           <span className="text-sm font-display font-black text-amber-950 flex items-center gap-1.5">
             <span>{icon}</span>
@@ -247,9 +247,9 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
           </span>
           {/* Export do Excelu */}
           <div className="relative group">
-            <button className="btn-ghost !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs" disabled={!rows.length}>📊 Export Excel ▾</button>
+            <button className="btn-ghost !rounded !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs" disabled={!rows.length}>📊 Export Excel ▾</button>
             {rows.length > 0 && (
-              <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-neutral-200 rounded-xl shadow-lg py-1 min-w-[180px] hidden group-hover:block">
+              <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-neutral-200 rounded shadow-lg py-1 min-w-[180px] hidden group-hover:block">
                 <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
                   const now = new Date();
                   const m = now.toISOString().slice(0, 7);
@@ -277,18 +277,18 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
       </div>
 
       {/* Záložky: Zápis / Přehled */}
-      <div className="flex items-center gap-1 bg-white p-1 rounded-2xl border border-neutral-200 shadow-2xs w-fit">
+      <div className="flex items-center gap-1 bg-white p-1 rounded border border-neutral-200 shadow-2xs w-fit">
         <button
           type="button"
           onClick={() => setTab('zapis')}
-          className={`px-4 py-1.5 rounded-xl text-xs font-black transition ${tab === 'zapis' ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'text-neutral-600 hover:bg-amber-50'}`}
+          className={`px-4 py-1.5 rounded text-xs font-black transition ${tab === 'zapis' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'}`}
         >
           ✍️ Zápis
         </button>
         <button
           type="button"
           onClick={() => setTab('prehled')}
-          className={`px-4 py-1.5 rounded-xl text-xs font-black transition ${tab === 'prehled' ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'text-neutral-600 hover:bg-amber-50'}`}
+          className={`px-4 py-1.5 rounded text-xs font-black transition ${tab === 'prehled' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'}`}
         >
           📊 Přehled
         </button>
@@ -315,7 +315,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
               </div>
             )}
             <div className={`flex items-end justify-end ${!showWhoColumn ? 'sm:col-span-2' : ''}`}>
-              <span className="text-xs font-bold text-neutral-500 bg-neutral-100 rounded-lg px-3 py-2">
+              <span className="text-xs font-bold text-neutral-500 bg-neutral-100 rounded px-3 py-2">
                 📦 {rowsSummary.totalQty} ks · {rowsSummary.totalL.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L
               </span>
             </div>
@@ -350,11 +350,11 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                 const rowWho = entryRows.find((r) => r.beerId === expandedProdejnaBeer.id && r.pkgId === p.id)?.who ?? '';
                 const rowVycep = entryRows.find((r) => r.beerId === expandedProdejnaBeer.id && r.pkgId === p.id)?.vycep ?? false;
                 return (
-                  <div key={p.id} className="rounded-xl border border-neutral-200 dark:border-neutral-700 py-1.5 px-2 space-y-1.5">
+                  <div key={p.id} className="rounded border border-neutral-200 dark:border-neutral-700 py-1.5 px-2 space-y-1.5">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-sm font-bold text-neutral-700 dark:text-neutral-200 truncate">{formatPackageLabel(p.label)}</span>
                       <div className="flex items-center gap-1">
-                        <button type="button" onClick={() => setTileRow(expandedProdejnaBeer.id, p.id, { qty: String(Math.max(0, qty - 1)) })} className="w-10 h-10 grid place-items-center rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={qty <= 0}>−</button>
+                        <button type="button" onClick={() => setTileRow(expandedProdejnaBeer.id, p.id, { qty: String(Math.max(0, qty - 1)) })} className="w-10 h-10 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={qty <= 0}>−</button>
                         <input
                           type="number"
                           min={0}
@@ -362,9 +362,9 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                           value={qty || ''}
                           placeholder="0"
                           onChange={(e) => setTileRow(expandedProdejnaBeer.id, p.id, { qty: e.target.value.replace(/[^0-9]/g, '') })}
-                          className="w-14 h-10 text-center text-lg font-black text-neutral-800 dark:text-neutral-100 bg-white dark:bg-neutral-900/60 border-2 border-amber-200 dark:border-neutral-700 rounded-lg"
+                          className="w-14 h-10 text-center text-lg font-black text-neutral-800 dark:text-neutral-100 bg-white dark:bg-neutral-900/60 border-2 border-amber-200 dark:border-neutral-700 rounded"
                         />
-                        <button type="button" onClick={() => setTileRow(expandedProdejnaBeer.id, p.id, { qty: String(qty + 1) })} className="w-10 h-10 grid place-items-center rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none">+</button>
+                        <button type="button" onClick={() => setTileRow(expandedProdejnaBeer.id, p.id, { qty: String(qty + 1) })} className="w-10 h-10 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none">+</button>
                       </div>
                     </div>
                     {showWhoColumn && (
@@ -399,7 +399,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
 
           {/* Souhrn zapsaných položek — jen ke čtení, úprava se dělá kliknutím na dlaždici výše. */}
           {entryRows.some((r) => r.pkgId && Number(r.qty) > 0) && (
-            <div className="rounded-2xl border border-neutral-200 bg-white p-3 space-y-1.5 mb-4">
+            <div className="rounded border border-neutral-200 bg-white p-3 space-y-1.5 mb-4">
               <div className="text-[11px] font-black uppercase tracking-wider text-neutral-500 mb-1">Zapsáno</div>
               {entryRows.filter((r) => r.pkgId && Number(r.qty) > 0).map((r, i) => {
                 const beer = beers.find((b) => b.id === r.beerId);
@@ -426,10 +426,10 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
 
           <div className="flex items-center justify-between mt-4">
             <div className="flex items-center gap-2">
-              <button type="submit" disabled={saving} className="btn-primary !from-emerald-600 !to-emerald-700 hover:!from-emerald-500 hover:!to-emerald-600 !shadow-emerald-600/30 text-xs font-black shadow-md">
+              <button type="submit" disabled={saving} className="btn-primary !rounded !from-emerald-600 !to-emerald-700 hover:!from-emerald-500 hover:!to-emerald-600 !shadow-emerald-600/30 text-xs font-black shadow-md">
                 {saving ? '⏳ Ukládám…' : '💾 Uložit fasování'}
               </button>
-              <button type="button" className="btn-ghost text-xs" onClick={() => setEntryRows(emptyRows(table === 'fasovani' ? FASOVANI_ROW_COUNT : ROW_COUNT))}>🗑️ Vymazat vše</button>
+              <button type="button" className="btn-ghost !rounded text-xs" onClick={() => setEntryRows(emptyRows(table === 'fasovani' ? FASOVANI_ROW_COUNT : ROW_COUNT))}>🗑️ Vymazat vše</button>
             </div>
             {err && <span className="text-xs font-bold text-rose-700">{err}</span>}
           </div>
@@ -494,7 +494,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                 <button
                   type="button"
                   onClick={() => { setOverviewMonth(new Date().toISOString().slice(0, 7)); setOverviewBeerId(''); setOverviewWho(''); }}
-                  className="btn-ghost text-xs font-bold !py-1.5 !px-3"
+                  className="btn-ghost !rounded text-xs font-bold !py-1.5 !px-3"
                 >
                   Zrušit filtry
                 </button>
@@ -520,7 +520,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                   <h3 className="font-display font-black text-amber-950 text-sm mb-3">
                     📋 Přehled fasování
                   </h3>
-                  <div className="rounded-xl border border-amber-300/80 bg-amber-50/90 overflow-x-auto">
+                  <div className="rounded border border-amber-300/80 bg-amber-50/90 overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="border-b border-amber-300/80 bg-amber-100/80">
@@ -557,20 +557,20 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                                 <div className="flex items-center justify-end gap-1">
                                   <button
                                     type="button"
-                                    className="w-6 h-6 grid place-items-center rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition"
+                                    className="w-6 h-6 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition"
                                     onClick={() => increment(r.id, -1)}
                                     disabled={Number(r.quantity) <= 0}
                                     title="Odebrat 1 ks"
                                   >−</button>
                                   <button
                                     type="button"
-                                    className="w-6 h-6 grid place-items-center rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-xs transition"
+                                    className="w-6 h-6 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-xs transition"
                                     onClick={() => increment(r.id, 1)}
                                     title="Přidat 1 ks"
                                   >+</button>
                                   <button
                                     type="button"
-                                    className="w-6 h-6 grid place-items-center rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition"
+                                    className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition"
                                     onClick={() => {
                                       if (confirm(`Smazat záznam: ${r.beer_name ?? beer?.name ?? '—'} ${vol}L × ${r.quantity} ks?`)) {
                                         del(r.id);

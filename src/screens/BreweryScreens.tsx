@@ -67,7 +67,7 @@ export function SrotovaniScreen({ setPage }: { setPage?: (p: any, sec?: string) 
   return (
     <div className="space-y-6 pb-12">
       {/* Top Banner */}
-      <div className="bg-neutral-900 text-white p-5 sm:p-7 rounded-3xl border border-amber-500/30 shadow-xl flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-neutral-900 text-white p-5 sm:p-7 rounded border border-amber-500/30 shadow-xl flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-amber-400 font-extrabold text-xs uppercase tracking-widest mb-1">
             <FileText size={18} />
@@ -83,7 +83,7 @@ export function SrotovaniScreen({ setPage }: { setPage?: (p: any, sec?: string) 
       </div>
 
       {/* HACCP & WhatsApp Banner */}
-      <div className="bg-amber-500/10 border border-amber-500/30 p-4 rounded-3xl flex flex-wrap items-center justify-between gap-3 shadow-xs">
+      <div className="bg-amber-500/10 border border-amber-500/30 p-4 rounded flex flex-wrap items-center justify-between gap-3 shadow-xs">
         <div className="flex items-center gap-3">
           <span className="text-2xl">🌾</span>
           <div>
@@ -93,13 +93,13 @@ export function SrotovaniScreen({ setPage }: { setPage?: (p: any, sec?: string) 
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {setPage && (
-            <button onClick={() => setPage('haccp', 'sec-3-1')} className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md transition">
+            <button onClick={() => setPage('haccp', 'sec-3-1')} className="px-3.5 py-2 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md transition">
               📖 Šrotování sladu (3.1)
             </button>
           )}
         </div>
       </div>
-      <form onSubmit={handleSubmit} className="card p-5 shadow-sm border border-neutral-200/90 bg-white rounded-3xl space-y-4">
+      <form onSubmit={handleSubmit} className="card p-5 shadow-sm border border-neutral-200/90 bg-white rounded space-y-4">
         <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
           <Plus size={18} className="text-amber-600" />
           <span>Záznam o šrotování</span>
@@ -127,7 +127,7 @@ export function SrotovaniScreen({ setPage }: { setPage?: (p: any, sec?: string) 
         </Field>
 
         <div className="flex justify-end pt-2">
-          <button type="submit" disabled={busy || !beerId || !weightKg} className="btn-primary !py-2.5 font-black text-sm shadow-md">
+          <button type="submit" disabled={busy || !beerId || !weightKg} className="btn-primary !rounded !py-2.5 font-black text-sm shadow-md">
             {busy ? 'Ukládám…' : '+ Uložit šrotování'}
           </button>
         </div>
@@ -135,20 +135,20 @@ export function SrotovaniScreen({ setPage }: { setPage?: (p: any, sec?: string) 
 
       {/* List */}
       {loading ? <Spinner /> : rows.length === 0 ? <EmptyState text="Zatím žádné záznamy o šrotování." icon="🌾" /> : (
-        <div className="card p-5 bg-white border border-neutral-200 shadow-sm rounded-3xl space-y-3">
+        <div className="card p-5 bg-white border border-neutral-200 shadow-sm rounded space-y-3">
           <h3 className="font-display font-black text-lg text-neutral-900">Historie šrotování</h3>
           <div className="space-y-2">
             {rows.map((r, i) => (
-              <div key={r.id || i} className="p-3.5 rounded-2xl bg-neutral-50 border border-neutral-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div key={r.id || i} className="p-3.5 rounded bg-neutral-50 border border-neutral-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-display font-black text-base text-neutral-950">{r.beer_name ?? '—'}</span>
-                    <span className="text-xs font-mono font-bold text-neutral-500 bg-white border border-neutral-300 px-2 py-0.5 rounded-lg">{new Date(r.entry_date).toLocaleDateString('cs-CZ')}</span>
+                    <span className="text-xs font-mono font-bold text-neutral-500 bg-white border border-neutral-300 px-2 py-0.5 rounded">{new Date(r.entry_date).toLocaleDateString('cs-CZ')}</span>
                   </div>
                   {r.note && <p className="text-xs text-neutral-600 font-medium mt-1">📝 {r.note}</p>}
                 </div>
                 <div className="shrink-0">
-                  <span className="px-3.5 py-1.5 rounded-xl bg-amber-500 text-slate-950 font-mono font-black text-sm shadow-2xs">
+                  <span className="px-3.5 py-1.5 rounded bg-amber-500 text-slate-950 font-mono font-black text-sm shadow-2xs">
                     {r.weight_kg} kg sladu
                   </span>
                 </div>
@@ -188,7 +188,7 @@ export function ChecklistsScreen() {
   return (
     <div className="space-y-6 pb-12">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 card p-5 bg-white border border-neutral-200/90 rounded-3xl shadow-sm space-y-4">
+        <div className="lg:col-span-2 card p-5 bg-white border border-neutral-200/90 rounded shadow-sm space-y-4">
           <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
             <CheckSquare size={18} className="text-amber-600" />
             <span>Denní kontrolní seznam (Check-list)</span>
@@ -202,7 +202,7 @@ export function ChecklistsScreen() {
               value={newTaskTitle}
               onChange={(e) => setNewTaskTitle(e.target.value)}
             />
-            <button type="submit" className="btn-primary !py-2.5 text-xs font-black shrink-0">Přidat</button>
+            <button type="submit" className="btn-primary !rounded !py-2.5 text-xs font-black shrink-0">Přidat</button>
           </form>
 
           <div className="space-y-2">
@@ -210,18 +210,18 @@ export function ChecklistsScreen() {
               <div
                 key={t.id}
                 onClick={() => toggleTask(t.id)}
-                className={`p-3.5 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between gap-3 ${
+                className={`p-3.5 rounded border-2 cursor-pointer transition-all flex items-center justify-between gap-3 ${
                   t.completed ? 'bg-emerald-50/70 border-emerald-300 text-emerald-950 opacity-80' : 'bg-neutral-50 border-neutral-200 text-neutral-900 hover:border-amber-400'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <span className={`w-5 h-5 rounded-lg border-2 grid place-items-center font-black text-xs ${t.completed ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-neutral-300'}`}>
+                  <span className={`w-5 h-5 rounded border-2 grid place-items-center font-black text-xs ${t.completed ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-neutral-300'}`}>
                     {t.completed ? '✓' : ''}
                   </span>
                   <span className={`font-extrabold text-sm ${t.completed ? 'line-through' : ''}`}>{t.title}</span>
                 </div>
                 {t.assigned_to && (
-                  <span className="px-2.5 py-0.5 rounded-lg bg-neutral-900 text-amber-300 font-mono font-bold text-xs shrink-0">
+                  <span className="px-2.5 py-0.5 rounded bg-neutral-900 text-amber-300 font-mono font-bold text-xs shrink-0">
                     👤 {t.assigned_to}
                   </span>
                 )}
@@ -231,18 +231,18 @@ export function ChecklistsScreen() {
         </div>
 
         {/* Manuals / Navody section */}
-        <div className="card p-5 bg-white border border-neutral-200/90 rounded-3xl shadow-sm space-y-4">
+        <div className="card p-5 bg-white border border-neutral-200/90 rounded shadow-sm space-y-4">
           <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
             <FileText size={18} className="text-amber-600" />
             <span>Provozní Návody</span>
           </h3>
 
           <div className="space-y-3">
-            <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 space-y-1">
+            <div className="p-3 rounded bg-amber-50 border border-amber-200 text-amber-950 space-y-1">
               <div className="font-black text-sm">🧪 Postup sanitace stáčecí linky</div>
               <p className="text-xs text-amber-900/80 font-medium">1. Proplach studenou vodou 10 min. 2. Cirkulace 2% hydroxidu při 60°C. 3. Proplach minerální vodou.</p>
             </div>
-            <div className="p-3 rounded-2xl bg-neutral-50 border border-neutral-200 text-neutral-900 space-y-1">
+            <div className="p-3 rounded bg-neutral-50 border border-neutral-200 text-neutral-900 space-y-1">
               <div className="font-black text-sm">🚚 Pokyny pro zavezování</div>
               <p className="text-xs text-neutral-600 font-medium">Vždy zkontrolovat neporušenost zátek u KEG sudů a správně vyplnit dodací list pro odběratele.</p>
             </div>
@@ -291,18 +291,18 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
         <button
           type="button"
           onClick={() => onChange(String(Math.max(min, Number((numVal - step).toFixed(2)))))}
-          className="w-8 h-8 shrink-0 grid place-items-center rounded-xl bg-neutral-200 hover:bg-amber-200 text-neutral-900 font-black text-sm select-none active:scale-95 transition"
+          className="w-8 h-8 shrink-0 grid place-items-center rounded bg-neutral-200 hover:bg-amber-200 text-neutral-900 font-black text-sm select-none active:scale-95 transition"
           title={`- ${step}`}
         >
           −
         </button>
-        <span className={`w-20 min-w-[4rem] px-2 text-center font-mono font-black bg-white border border-neutral-200 rounded-xl py-2 shadow-2xs ${className ?? ''}`}>
+        <span className={`w-20 min-w-[4rem] px-2 text-center font-mono font-black bg-white border border-neutral-200 rounded py-2 shadow-2xs ${className ?? ''}`}>
           {value || '0'}
         </span>
         <button
           type="button"
           onClick={() => onChange(String(Number((numVal + step).toFixed(2))))}
-          className="w-8 h-8 shrink-0 grid place-items-center rounded-xl bg-amber-950 hover:bg-amber-900 text-white font-black text-sm select-none active:scale-95 transition"
+          className="w-8 h-8 shrink-0 grid place-items-center rounded bg-amber-950 hover:bg-amber-900 text-white font-black text-sm select-none active:scale-95 transition"
           title={`+ ${step}`}
         >
           +
@@ -464,7 +464,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
   return (
     <div className="space-y-6 pb-12">
       {/* Top Banner */}
-      <div className="bg-neutral-900 text-white p-5 sm:p-7 rounded-3xl border border-amber-500/30 shadow-xl flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-neutral-900 text-white p-5 sm:p-7 rounded border border-amber-500/30 shadow-xl flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-amber-400 font-extrabold text-xs uppercase tracking-widest mb-1">
             <FlaskConical size={18} />
@@ -483,10 +483,10 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
       <div className="sticky top-0 z-20 bg-neutral-100 pt-1 flex items-center gap-2 overflow-x-auto scrollbar-thin pb-2 border-b border-neutral-200">
         <button
           onClick={() => selectTab('keg_calc')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
+          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'keg_calc'
-              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+              ? 'bg-white text-neutral-900 shadow-md'
+              : 'bg-neutral-900 text-white hover:bg-neutral-800'
           }`}
         >
           <Cylinder size={16} />
@@ -495,10 +495,10 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
 
         <button
           onClick={() => selectTab('srot_calc')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
+          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'srot_calc'
-              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+              ? 'bg-white text-neutral-900 shadow-md'
+              : 'bg-neutral-900 text-white hover:bg-neutral-800'
           }`}
         >
           <Wheat size={16} />
@@ -507,10 +507,10 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
 
         <button
           onClick={() => selectTab('chem_calc')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
+          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'chem_calc'
-              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+              ? 'bg-white text-neutral-900 shadow-md'
+              : 'bg-neutral-900 text-white hover:bg-neutral-800'
           }`}
         >
           <FlaskConical size={16} />
@@ -519,10 +519,10 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
 
         <button
           onClick={() => selectTab('energy_calc')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
+          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'energy_calc'
-              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+              ? 'bg-white text-neutral-900 shadow-md'
+              : 'bg-neutral-900 text-white hover:bg-neutral-800'
           }`}
         >
           <Flame size={16} />
@@ -531,10 +531,10 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
 
         <button
           onClick={() => selectTab('units_calc')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
+          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'units_calc'
-              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+              ? 'bg-white text-neutral-900 shadow-md'
+              : 'bg-neutral-900 text-white hover:bg-neutral-800'
           }`}
         >
           <Calculator size={16} />
@@ -545,7 +545,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
       {/* TAB 1: KEG KALKULAČKA */}
       {activeTab === 'keg_calc' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 card p-6 bg-white border border-neutral-200 rounded-3xl space-y-5 shadow-sm">
+          <div className="lg:col-span-2 card p-6 bg-white border border-neutral-200 rounded space-y-5 shadow-sm">
             <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
               <Cylinder className="text-amber-600" size={20} />
               <span>Kalkulačka potřebných sudů na stáčení z tanku</span>
@@ -561,7 +561,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
               </Field>
             </div>
 
-            <div className="p-4 rounded-2xl bg-neutral-900 text-white space-y-2 font-mono text-xs">
+            <div className="p-4 rounded bg-neutral-900 text-white space-y-2 font-mono text-xs">
               <div className="flex justify-between">
                 <span className="text-neutral-400">Hrubý objem piva:</span>
                 <span className="font-black text-amber-400">{tankLiters} l ({(tankLiters / 100).toFixed(2)} hl)</span>
@@ -573,12 +573,12 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
             </div>
 
             {/* Simulátor */}
-            <div className="p-5 rounded-3xl bg-amber-50/80 border-2 border-amber-300 space-y-4">
+            <div className="p-5 rounded bg-amber-50/80 border-2 border-amber-300 space-y-4">
               <div className="flex items-center justify-between border-b border-amber-200 pb-2">
                 <h4 className="font-display font-black text-base text-amber-950">🎛️ Ruční volba sudů (30L vs 50L)</h4>
-                <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-amber-300">
-                  <button type="button" onClick={() => setCalcMode('fix30')} className={`px-3 py-1 rounded-lg text-xs font-black ${calcMode === 'fix30' ? 'bg-white text-amber-900 ring-2 ring-amber-300' : 'text-neutral-600'}`}>Zadám 30L</button>
-                  <button type="button" onClick={() => setCalcMode('fix50')} className={`px-3 py-1 rounded-lg text-xs font-black ${calcMode === 'fix50' ? 'bg-white text-amber-900 ring-2 ring-amber-300' : 'text-neutral-600'}`}>Zadám 50L</button>
+                <div className="flex items-center gap-1 bg-white p-1 rounded border border-amber-300">
+                  <button type="button" onClick={() => setCalcMode('fix30')} className={`px-3 py-1 rounded text-xs font-black ${calcMode === 'fix30' ? 'bg-white text-amber-900 ring-2 ring-amber-300' : 'text-neutral-600'}`}>Zadám 30L</button>
+                  <button type="button" onClick={() => setCalcMode('fix50')} className={`px-3 py-1 rounded text-xs font-black ${calcMode === 'fix50' ? 'bg-white text-amber-900 ring-2 ring-amber-300' : 'text-neutral-600'}`}>Zadám 50L</button>
                 </div>
               </div>
 
@@ -588,7 +588,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
                     <label className="text-xs font-black text-neutral-800">Chci stočit přesně 30L sudů:</label>
                     <NumberStepper value={custom30Input} onChange={setCustom30Input} step={1} min={0} />
                   </div>
-                  <div className="p-3.5 rounded-2xl bg-neutral-900 text-amber-300 font-mono text-xs space-y-1">
+                  <div className="p-3.5 rounded bg-neutral-900 text-amber-300 font-mono text-xs space-y-1">
                     <div>• Zadala jsi: <strong className="text-amber-400 font-black">{custom30Count}× 30L sudů</strong> ({custom30Count * 30} L)</div>
                     <div>• Automaticky dopočítáno: <strong className="text-emerald-400 font-black">{auto50Count}× 50L sudů</strong> ({auto50Count * 50} L)</div>
                     <div className="pt-1 border-t border-neutral-700 flex justify-between text-xs">
@@ -603,7 +603,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
                     <label className="text-xs font-black text-neutral-800">Chci stočit přesně 50L sudů:</label>
                     <NumberStepper value={custom50Input} onChange={setCustom50Input} step={1} min={0} />
                   </div>
-                  <div className="p-3.5 rounded-2xl bg-neutral-900 text-amber-300 font-mono text-xs space-y-1">
+                  <div className="p-3.5 rounded bg-neutral-900 text-amber-300 font-mono text-xs space-y-1">
                     <div>• Zadala jsi: <strong className="text-amber-400 font-black">{custom50Count}× 50L sudů</strong> ({custom50Count * 50} L)</div>
                     <div>• Automaticky dopočítáno: <strong className="text-emerald-400 font-black">{auto30Count}× 30L sudů</strong> ({auto30Count * 30} L)</div>
                     <div className="pt-1 border-t border-neutral-700 flex justify-between text-xs">
@@ -616,19 +616,19 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
             </div>
           </div>
 
-          <div className="card p-6 bg-white border-2 border-amber-300 rounded-3xl space-y-4 shadow-md">
+          <div className="card p-6 bg-white border-2 border-amber-300 rounded space-y-4 shadow-md">
             <h3 className="font-display font-black text-lg text-amber-950">🛢️ Varianty v sudování</h3>
             <div className="space-y-3 font-mono text-xs">
-              <div className="p-3 rounded-2xl bg-white border border-amber-300 space-y-1">
+              <div className="p-3 rounded bg-white border border-amber-300 space-y-1">
                 <span className="text-[10px] font-black uppercase text-amber-900">1 Typ sudů:</span>
                 <div>• {pure50}× 50L (zb. {rem50.toFixed(0)}l)</div>
                 <div>• {pure30}× 30L (zb. {rem30.toFixed(0)}l)</div>
               </div>
-              <div className="p-3 rounded-2xl bg-neutral-900 text-amber-300 space-y-1">
+              <div className="p-3 rounded bg-neutral-900 text-amber-300 space-y-1">
                 <div className="text-[10px] font-black text-white uppercase">MIX 1 (Max 50L):</div>
                 <div>• {mix1_50}× 50L + {mix1_30}× 30L</div>
               </div>
-              <div className="p-3 rounded-2xl bg-neutral-900 text-emerald-300 space-y-1">
+              <div className="p-3 rounded bg-neutral-900 text-emerald-300 space-y-1">
                 <div className="text-[10px] font-black text-white uppercase">MIX 2 (50% / 50%):</div>
                 <div>• {mix2_50}× 50L + {mix2_30}× 30L</div>
               </div>
@@ -640,7 +640,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
       {/* TAB 2: ŠROTOVÁNÍ SLADU */}
       {activeTab === 'srot_calc' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 card p-6 bg-white border border-neutral-200 rounded-3xl space-y-4 shadow-sm">
+          <div className="lg:col-span-2 card p-6 bg-white border border-neutral-200 rounded space-y-4 shadow-sm">
             <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
               <Wheat className="text-amber-600" size={20} />
               <span>Plán šrotování — kolik sladu se šrotuje</span>
@@ -672,7 +672,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
                   <div className="w-36">
                     <NumberStepper value={row.kg} onChange={(v) => setSrotRow(i, { kg: v })} step={5} min={0} />
                   </div>
-                  <div className="w-24 text-center font-mono font-black text-sm bg-neutral-100 border border-neutral-200 rounded-xl py-2">
+                  <div className="w-24 text-center font-mono font-black text-sm bg-neutral-100 border border-neutral-200 rounded py-2">
                     {bags}
                   </div>
                 </div>
@@ -680,17 +680,17 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
             })}
           </div>
 
-          <div className="card p-6 bg-white border-2 border-amber-300 rounded-3xl space-y-4 shadow-md h-fit">
+          <div className="card p-6 bg-white border-2 border-amber-300 rounded space-y-4 shadow-md h-fit">
             <h3 className="font-display font-black text-lg text-amber-950 flex items-center gap-2">
               <span>🌾 Celkem na šrotování</span>
             </h3>
 
-            <div className="p-4 rounded-2xl bg-neutral-900 text-white">
+            <div className="p-4 rounded bg-neutral-900 text-white">
               <div className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Slad celkem</div>
               <div className="text-3xl font-mono font-black text-amber-400 mt-1">{srotTotalKg.toFixed(0)} kg</div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-white border border-amber-200 font-mono text-xs">
+            <div className="p-4 rounded bg-white border border-amber-200 font-mono text-xs">
               <div className="flex justify-between">
                 <span className="font-bold text-neutral-500">Pytle 25 kg:</span>
                 <span className="font-black text-amber-950">{srotTotalBags} ks</span>
@@ -707,20 +707,20 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
       {/* TAB 3: SANITAČNÍ CHEMIE */}
       {activeTab === 'chem_calc' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 card p-5 bg-white border border-neutral-200/90 rounded-3xl shadow-sm space-y-4">
+          <div className="lg:col-span-2 card p-5 bg-white border border-neutral-200/90 rounded shadow-sm space-y-4">
             <h3 className="font-display font-black text-lg text-neutral-900">1. Výběr chemické látky & Parametry</h3>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              <button type="button" onClick={() => selectPreset('louh')} className={`p-3 rounded-2xl font-black text-xs transition shadow-2xs flex flex-col items-center gap-1 ${chemType === 'louh' ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-400 scale-[1.02]' : 'bg-neutral-50 text-neutral-800 hover:bg-neutral-100 border border-neutral-200'}`}>
+              <button type="button" onClick={() => selectPreset('louh')} className={`p-3 rounded font-black text-xs transition shadow-2xs flex flex-col items-center gap-1 ${chemType === 'louh' ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-400 scale-[1.02]' : 'bg-neutral-50 text-neutral-800 hover:bg-neutral-100 border border-neutral-200'}`}>
                 <span className="text-lg">🧪</span><span>Louh 100%</span>
               </button>
-              <button type="button" onClick={() => selectPreset('persteril')} className={`p-3 rounded-2xl font-black text-xs transition shadow-2xs flex flex-col items-center gap-1 ${chemType === 'persteril' ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-400 scale-[1.02]' : 'bg-neutral-50 text-neutral-800 hover:bg-neutral-100 border border-neutral-200'}`}>
+              <button type="button" onClick={() => selectPreset('persteril')} className={`p-3 rounded font-black text-xs transition shadow-2xs flex flex-col items-center gap-1 ${chemType === 'persteril' ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-400 scale-[1.02]' : 'bg-neutral-50 text-neutral-800 hover:bg-neutral-100 border border-neutral-200'}`}>
                 <span className="text-lg">🧼</span><span>Persteril 15%</span>
               </button>
-              <button type="button" onClick={() => selectPreset('dusicna')} className={`p-3 rounded-2xl font-black text-xs transition shadow-2xs flex flex-col items-center gap-1 ${chemType === 'dusicna' ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-400 scale-[1.02]' : 'bg-neutral-50 text-neutral-800 hover:bg-neutral-100 border border-neutral-200'}`}>
+              <button type="button" onClick={() => selectPreset('dusicna')} className={`p-3 rounded font-black text-xs transition shadow-2xs flex flex-col items-center gap-1 ${chemType === 'dusicna' ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-400 scale-[1.02]' : 'bg-neutral-50 text-neutral-800 hover:bg-neutral-100 border border-neutral-200'}`}>
                 <span className="text-lg">⚗️</span><span>Kyselina dusičná 53%</span>
               </button>
-              <button type="button" onClick={() => selectPreset('chlornan')} className={`p-3 rounded-2xl font-black text-xs transition shadow-2xs flex flex-col items-center gap-1 ${chemType === 'chlornan' ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-400 scale-[1.02]' : 'bg-neutral-50 text-neutral-800 hover:bg-neutral-100 border border-neutral-200'}`}>
+              <button type="button" onClick={() => selectPreset('chlornan')} className={`p-3 rounded font-black text-xs transition shadow-2xs flex flex-col items-center gap-1 ${chemType === 'chlornan' ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-400 scale-[1.02]' : 'bg-neutral-50 text-neutral-800 hover:bg-neutral-100 border border-neutral-200'}`}>
                 <span className="text-lg">🧽</span><span>Chlornan 15%</span>
               </button>
             </div>
@@ -738,20 +738,20 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
             </div>
           </div>
 
-          <div className="card p-5 bg-white border-2 border-amber-300 rounded-3xl shadow-md space-y-4">
+          <div className="card p-5 bg-white border-2 border-amber-300 rounded shadow-md space-y-4">
             <h3 className="font-display font-black text-lg text-amber-950 flex items-center gap-2">
               <span>⚖️ Výsledek dávkování</span>
             </h3>
 
             <div className="space-y-3">
-              <div className="p-3.5 rounded-2xl bg-white border border-amber-300 shadow-2xs">
+              <div className="p-3.5 rounded bg-white border border-amber-300 shadow-2xs">
                 <div className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Množství chemie (koncentrátu)</div>
                 <div className="text-2xl font-mono font-black text-amber-950 mt-1">
                   {vChem.toFixed(2)} L <span className="text-sm font-bold text-neutral-500">({(vChem * 1000).toFixed(0)} ml / g)</span>
                 </div>
               </div>
 
-              <div className="p-3.5 rounded-2xl bg-white border border-blue-200 shadow-2xs">
+              <div className="p-3.5 rounded bg-white border border-blue-200 shadow-2xs">
                 <div className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Množství vody k doplnění</div>
                 <div className="text-2xl font-mono font-black text-blue-950 mt-1">
                   {vWater.toFixed(2)} L
@@ -765,7 +765,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
       {/* TAB 4: ENERGETICKÁ NÁROČNOST */}
       {activeTab === 'energy_calc' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 card p-6 bg-white border border-neutral-200 rounded-3xl space-y-5 shadow-sm">
+          <div className="lg:col-span-2 card p-6 bg-white border border-neutral-200 rounded space-y-5 shadow-sm">
             <div>
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
                 <Flame className="text-amber-600" size={20} />
@@ -773,14 +773,14 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
               </h3>
             </div>
 
-            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200">
+            <div className="p-4 rounded bg-amber-50 border border-amber-200">
               <label className="block text-xs font-black text-amber-950 mb-1">Velikost várky (Objem v hl)</label>
               <NumberStepper value={energyBatchHl} onChange={setEnergyBatchHl} step={1} min={0.5} />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Elektřina */}
-              <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-200 space-y-2">
+              <div className="p-4 rounded bg-neutral-50 border border-neutral-200 space-y-2">
                 <div className="font-black text-xs text-neutral-900 uppercase">⚡ Elektřina (Chlazení + Čerpadla)</div>
                 <div className="grid grid-cols-2 gap-2">
                   <Field label="kWh"><NumberStepper value={elecKwh} onChange={setElecKwh} step={10} min={0} /></Field>
@@ -789,7 +789,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
               </div>
 
               {/* Plyn */}
-              <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-200 space-y-2">
+              <div className="p-4 rounded bg-neutral-50 border border-neutral-200 space-y-2">
                 <div className="font-black text-xs text-neutral-900 uppercase">🔥 Zemní plyn (Varna)</div>
                 <div className="grid grid-cols-2 gap-2">
                   <Field label="m³ plynu"><NumberStepper value={gasM3} onChange={setGasM3} step={2} min={0} /></Field>
@@ -799,14 +799,14 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
             </div>
           </div>
 
-          <div className="card p-6 bg-white border-2 border-amber-300 rounded-3xl shadow-md space-y-4">
+          <div className="card p-6 bg-white border-2 border-amber-300 rounded shadow-md space-y-4">
             <h3 className="font-display font-black text-lg text-amber-950">⚡ Výsledné náklady</h3>
             <div className="space-y-3 font-mono">
-              <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800">
+              <div className="p-4 rounded bg-neutral-900 border border-neutral-800">
                 <div className="text-[10px] text-neutral-400 uppercase">Celkem na 1 várku ({bHl} hl)</div>
                 <div className="text-2xl font-black text-amber-400">{totalEnergyCostBatch.toLocaleString('cs-CZ')} Kč</div>
               </div>
-              <div className="p-4 rounded-2xl bg-amber-500 text-neutral-950">
+              <div className="p-4 rounded bg-amber-500 text-neutral-950">
                 <div className="text-[10px] font-black uppercase">Na 1 PŮLLITR (0.5 l)</div>
                 <div className="text-3xl font-black">{costPerPint.toFixed(2)} Kč</div>
               </div>
@@ -818,10 +818,10 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
       {/* TAB 5: PŘEPOČET JEDNOTEK */}
       {activeTab === 'units_calc' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="card p-6 bg-white border-2 border-amber-200 rounded-3xl space-y-4 shadow-sm">
+          <div className="card p-6 bg-white border-2 border-amber-200 rounded space-y-4 shadow-sm">
             <h4 className="font-display font-black text-base text-amber-950">🛢️ Přepočet objemu (Hektolimetry hl)</h4>
             <NumberStepper value={volInputHl} onChange={setVolInputHl} step={1} min={0} />
-            <div className="p-4 rounded-2xl bg-neutral-900 text-amber-300 font-mono text-xs space-y-1">
+            <div className="p-4 rounded bg-neutral-900 text-amber-300 font-mono text-xs space-y-1">
               <div>• Litry: <strong>{vLiters.toLocaleString('cs-CZ')} L</strong></div>
               <div>• Půllitry: <strong>{vPints.toLocaleString('cs-CZ')} ks</strong></div>
               <div>• Sudy 50L: <strong>{vKegs50.toFixed(1)} ks</strong></div>
@@ -829,10 +829,10 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
             </div>
           </div>
 
-          <div className="card p-6 bg-white border-2 border-emerald-200 rounded-3xl space-y-4 shadow-sm">
+          <div className="card p-6 bg-white border-2 border-emerald-200 rounded space-y-4 shadow-sm">
             <h4 className="font-display font-black text-base text-emerald-950">🧪 Stupňovitost (°P) ↔ Hustota (SG)</h4>
             <NumberStepper value={platoInput} onChange={setPlatoInput} step={0.5} min={0} />
-            <div className="p-4 rounded-2xl bg-neutral-900 text-emerald-300 font-mono text-xs space-y-1">
+            <div className="p-4 rounded bg-neutral-900 text-emerald-300 font-mono text-xs space-y-1">
               <div>• Specific Gravity: <strong>{sgExact.toFixed(3)} SG</strong></div>
               <div>• Brix: <strong>{degBrix.toFixed(1)} °Bx</strong></div>
             </div>

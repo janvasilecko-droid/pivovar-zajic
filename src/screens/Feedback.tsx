@@ -114,10 +114,10 @@ export default function Feedback({ setPage, initialSubTab }: { setPage?: (p: any
       <div className="sticky top-[56px] z-10 bg-neutral-100 pt-1 flex items-center gap-2 border-b border-neutral-200 pb-2">
         <button
           onClick={() => selectTab('notes')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 ${
+          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 ${
             activeTab === 'notes'
-              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+              ? 'bg-white text-neutral-900 shadow-md'
+              : 'bg-neutral-900 text-white hover:bg-neutral-800'
           }`}
         >
           <MessageSquare size={16} />
@@ -126,10 +126,10 @@ export default function Feedback({ setPage, initialSubTab }: { setPage?: (p: any
 
         <button
           onClick={() => selectTab('untappd')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 ${
+          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 ${
             activeTab === 'untappd'
-              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+              ? 'bg-white text-neutral-900 shadow-md'
+              : 'bg-neutral-900 text-white hover:bg-neutral-800'
           }`}
         >
           <Sparkles size={16} />
@@ -146,12 +146,12 @@ export default function Feedback({ setPage, initialSubTab }: { setPage?: (p: any
               <h1 className="text-2xl font-display font-bold text-primary-900">💬 Poznámky a nápady</h1>
               <p className="text-sm text-primary-500 mt-1">Napiš, co by se mělo vylepšit, opravit nebo upravit. Vidí to všichni kolegové.</p>
             </div>
-            <button className="btn-primary" onClick={() => setShowForm((s) => !s)}>
+            <button className="btn-primary !rounded" onClick={() => setShowForm((s) => !s)}>
               {showForm ? 'Zavřít' : '+ Napsat poznámku'}
             </button>
           </div>
 
-      {err && <div className="text-sm text-danger-600 bg-danger-500/10 rounded-lg px-3 py-2 mb-4">{err}</div>}
+      {err && <div className="text-sm text-danger-600 bg-danger-500/10 rounded px-3 py-2 mb-4">{err}</div>}
 
       {showForm && (
         <form onSubmit={add} className="card p-4 mb-5 animate-fade-in">
@@ -175,8 +175,8 @@ export default function Feedback({ setPage, initialSubTab }: { setPage?: (p: any
             <textarea className="input" rows={3} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Popiš, co přesně by se mělo změnit nebo jak to funguje…" maxLength={1000} />
           </div>
           <div className="flex justify-end gap-2">
-            <button type="button" className="btn-ghost" onClick={() => setShowForm(false)}>Zrušit</button>
-            <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Ukládám…' : 'Odeslat'}</button>
+            <button type="button" className="btn-ghost !rounded" onClick={() => setShowForm(false)}>Zrušit</button>
+            <button type="submit" className="btn-primary !rounded" disabled={saving}>{saving ? 'Ukládám…' : 'Odeslat'}</button>
           </div>
         </form>
       )}
@@ -227,7 +227,7 @@ export default function Feedback({ setPage, initialSubTab }: { setPage?: (p: any
                             {cleanBody && <p className="text-sm text-primary-700 whitespace-pre-wrap break-words">{cleanBody}</p>}
                             {match && (
                               <div
-                                className="mt-2 rounded-lg overflow-hidden border border-neutral-200/80 max-h-48 flex items-center justify-center bg-neutral-50 cursor-pointer hover:opacity-90 transition active:scale-[0.99]"
+                                className="mt-2 rounded overflow-hidden border border-neutral-200/80 max-h-48 flex items-center justify-center bg-neutral-50 cursor-pointer hover:opacity-90 transition active:scale-[0.99]"
                                 onClick={() => {
                                   const win = window.open();
                                   if (win) {

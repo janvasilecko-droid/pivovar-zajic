@@ -83,18 +83,18 @@ function StopwatchTool() {
       <div className="text-6xl font-black tabular-nums text-neutral-900">{formatDurationMs(elapsed, true)}</div>
       <div className="flex flex-wrap justify-center gap-3">
         {!state.running ? (
-          <button onClick={start} className="btn-primary px-8 py-3 rounded-2xl font-black flex items-center gap-2">
+          <button onClick={start} className="btn-primary !rounded px-8 py-3 rounded font-black flex items-center gap-2">
             <Play size={18} /> Start
           </button>
         ) : (
-          <button onClick={pause} className="px-8 py-3 rounded-2xl font-black bg-amber-500 hover:bg-amber-400 text-white flex items-center gap-2">
+          <button onClick={pause} className="px-8 py-3 rounded font-black bg-amber-500 hover:bg-amber-400 text-white flex items-center gap-2">
             <Pause size={18} /> Pauza
           </button>
         )}
-        <button onClick={lap} disabled={!state.running} className="px-5 py-3 rounded-2xl font-black bg-neutral-200 text-neutral-700 disabled:opacity-40 flex items-center gap-2">
+        <button onClick={lap} disabled={!state.running} className="px-5 py-3 rounded font-black bg-neutral-200 text-neutral-700 disabled:opacity-40 flex items-center gap-2">
           <Flag size={16} /> Mezičas
         </button>
-        <button onClick={reset} className="px-5 py-3 rounded-2xl font-black bg-neutral-100 text-neutral-500 flex items-center gap-2">
+        <button onClick={reset} className="px-5 py-3 rounded font-black bg-neutral-100 text-neutral-500 flex items-center gap-2">
           <RotateCcw size={16} /> Reset
         </button>
       </div>
@@ -104,7 +104,7 @@ function StopwatchTool() {
             const idx = state.laps.length - i;
             const prevMs = idx > 1 ? state.laps[idx - 2] : 0;
             return (
-              <div key={idx} className="flex items-center justify-between text-sm font-bold bg-white rounded-xl px-3 py-2 border border-neutral-200">
+              <div key={idx} className="flex items-center justify-between text-sm font-bold bg-white rounded px-3 py-2 border border-neutral-200">
                 <span className="text-neutral-500">Mezičas {idx}</span>
                 <span className="tabular-nums">{formatDurationMs(lapMs - prevMs, true)}</span>
                 <span className="tabular-nums text-neutral-400">{formatDurationMs(lapMs, true)}</span>
@@ -164,14 +164,14 @@ function CountdownTimersTool() {
 
   return (
     <div className="space-y-5">
-      <form onSubmit={addTimer} className="flex flex-wrap items-end gap-2 bg-white p-4 rounded-2xl border border-neutral-200">
+      <form onSubmit={addTimer} className="flex flex-wrap items-end gap-2 bg-white p-4 rounded border border-neutral-200">
         <div>
           <label className="block text-[11px] font-bold text-neutral-500 mb-1">Název</label>
           <input
             value={newLabel}
             onChange={(e) => setNewLabel(e.target.value)}
             placeholder="např. Chmelení"
-            className="border border-neutral-300 rounded-lg px-3 py-2 text-sm w-40"
+            className="border border-neutral-300 rounded px-3 py-2 text-sm w-40"
           />
         </div>
         <div>
@@ -181,10 +181,10 @@ function CountdownTimersTool() {
             min={1}
             value={newMin}
             onChange={(e) => setNewMin(e.target.value)}
-            className="border border-neutral-300 rounded-lg px-3 py-2 text-sm w-24"
+            className="border border-neutral-300 rounded px-3 py-2 text-sm w-24"
           />
         </div>
-        <button type="submit" className="btn-primary px-4 py-2 rounded-xl font-black flex items-center gap-1.5">
+        <button type="submit" className="btn-primary !rounded px-4 py-2 rounded font-black flex items-center gap-1.5">
           <Plus size={16} /> Přidat časovač
         </button>
       </form>
@@ -199,7 +199,7 @@ function CountdownTimersTool() {
           const running = t.targetAt !== null;
           const done = running && remaining === 0;
           return (
-            <div key={t.id} className={`p-4 rounded-2xl border-2 ${done ? 'bg-rose-50 border-rose-300' : 'bg-white border-neutral-200'}`}>
+            <div key={t.id} className={`p-4 rounded border-2 ${done ? 'bg-rose-50 border-rose-300' : 'bg-white border-neutral-200'}`}>
               <div className="flex items-center justify-between gap-2 mb-2">
                 <div className="font-black text-sm text-neutral-800 truncate">{t.label}</div>
                 <button onClick={() => remove(t.id)} className="text-neutral-400 hover:text-rose-600 shrink-0">
@@ -211,13 +211,13 @@ function CountdownTimersTool() {
               </div>
               <div className="flex gap-2">
                 {!running ? (
-                  <button onClick={() => start(t.id)} className="btn-primary px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5">
+                  <button onClick={() => start(t.id)} className="btn-primary !rounded px-4 py-2 rounded text-xs font-black flex items-center gap-1.5">
                     <Play size={14} /> Start
                   </button>
                 ) : done ? (
                   <span className="text-xs font-black text-rose-700 flex items-center gap-1"><CheckCircle2 size={14} /> Hotovo</span>
                 ) : (
-                  <button onClick={() => pause(t.id)} className="px-4 py-2 rounded-xl text-xs font-black bg-amber-500 hover:bg-amber-400 text-white flex items-center gap-1.5">
+                  <button onClick={() => pause(t.id)} className="px-4 py-2 rounded text-xs font-black bg-amber-500 hover:bg-amber-400 text-white flex items-center gap-1.5">
                     <Pause size={14} /> Pauza
                   </button>
                 )}
@@ -271,13 +271,13 @@ function KegRackingTimerTool() {
               {state.history.length > 0 ? `z posledních ${state.history.length} stáčení` : 'zatím žádná historie — první stočení se jen změří'}
             </div>
           </div>
-          <button onClick={begin} className="btn-primary px-10 py-4 rounded-2xl font-black text-lg flex items-center gap-2">
+          <button onClick={begin} className="btn-primary !rounded px-10 py-4 rounded font-black text-lg flex items-center gap-2">
             <Play size={20} /> Začít stáčení
           </button>
         </>
       ) : (
         <>
-          <div className={`text-center p-6 rounded-3xl border-2 w-full max-w-xs ${overdue ? 'bg-rose-50 border-rose-300 animate-pulse' : 'bg-white border-neutral-200'}`}>
+          <div className={`text-center p-6 rounded border-2 w-full max-w-xs ${overdue ? 'bg-rose-50 border-rose-300 animate-pulse' : 'bg-white border-neutral-200'}`}>
             <div className="text-xs font-bold text-neutral-500 mb-1">Uplynulo</div>
             <div className="text-4xl font-black tabular-nums text-neutral-900 mb-3">{formatDurationMs(elapsedMs)}</div>
             {remainingMs !== null && (
@@ -287,10 +287,10 @@ function KegRackingTimerTool() {
             )}
           </div>
           <div className="flex gap-3">
-            <button onClick={finish} className="btn-primary px-8 py-3 rounded-2xl font-black flex items-center gap-2">
+            <button onClick={finish} className="btn-primary !rounded px-8 py-3 rounded font-black flex items-center gap-2">
               <CheckCircle2 size={18} /> Stočeno
             </button>
-            <button onClick={cancel} className="px-5 py-3 rounded-2xl font-black bg-neutral-100 text-neutral-500 flex items-center gap-2">
+            <button onClick={cancel} className="px-5 py-3 rounded font-black bg-neutral-100 text-neutral-500 flex items-center gap-2">
               <Square size={16} /> Zrušit
             </button>
           </div>
@@ -304,7 +304,7 @@ function KegRackingTimerTool() {
             {state.history.slice().reverse().map((ms, i) => {
               const idx = state.history.length - 1 - i;
               return (
-                <div key={idx} className="flex items-center justify-between text-sm font-bold bg-white rounded-xl px-3 py-2 border border-neutral-200">
+                <div key={idx} className="flex items-center justify-between text-sm font-bold bg-white rounded px-3 py-2 border border-neutral-200">
                   <span className="tabular-nums text-neutral-700">{formatDurationMs(ms)}</span>
                   <button onClick={() => removeHistory(idx)} className="text-neutral-300 hover:text-rose-600">
                     <Trash2 size={14} />

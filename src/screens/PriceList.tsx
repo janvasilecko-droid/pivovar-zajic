@@ -68,7 +68,7 @@ export default function PriceListScreen() {
   return (
     <div className="space-y-6 pb-12">
       {/* Banner matching Inventory & Logbook style */}
-      <div className="bg-neutral-900 text-white p-5 sm:p-7 rounded-3xl border border-amber-500/30 shadow-xl flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-neutral-900 text-white p-5 sm:p-7 rounded border border-amber-500/30 shadow-xl flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-amber-400 font-extrabold text-xs uppercase tracking-widest mb-1">
             <Tag size={18} />
@@ -83,7 +83,7 @@ export default function PriceListScreen() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1.5 bg-neutral-800 border border-neutral-700 px-3 py-1.5 rounded-2xl text-xs font-bold">
+          <div className="flex items-center gap-1.5 bg-neutral-800 border border-neutral-700 px-3 py-1.5 rounded text-xs font-bold">
             <Calendar size={15} className="text-amber-400" />
             <span>Měsíc:</span>
             <input
@@ -99,7 +99,7 @@ export default function PriceListScreen() {
       {loading ? <Spinner /> : (
         <>
           {/* Kegs Price Table */}
-          <div className="card p-5 shadow-sm border border-neutral-200/90 bg-white rounded-3xl overflow-hidden space-y-4">
+          <div className="card p-5 shadow-sm border border-neutral-200/90 bg-white rounded overflow-hidden space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-neutral-200/70">
               <div>
                 <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
@@ -120,7 +120,7 @@ export default function PriceListScreen() {
                   const bg = beerBg(b) || '#fef3c7';
                   const txt = beerText(b) || 'text-neutral-900';
                   return (
-                    <div key={b.id} className="rounded-2xl border border-neutral-200 overflow-hidden" style={{ backgroundColor: bg }}>
+                    <div key={b.id} className="rounded border border-neutral-200 overflow-hidden" style={{ backgroundColor: bg }}>
                       <div className="p-3 space-y-2.5">
                         <span className={`text-sm font-black ${txt}`}>{b.name}{b.degree ? ` (${b.degree})` : ''}</span>
                         <label className="block">
@@ -137,7 +137,7 @@ export default function PriceListScreen() {
                         {b.price_per_liter != null && (
                           <div className="flex flex-wrap gap-1.5">
                             {kegPackages.map((p) => (
-                              <span key={p.id} className="px-2.5 py-1 rounded-lg bg-neutral-900 text-amber-300 text-xs font-black shadow-xs">
+                              <span key={p.id} className="px-2.5 py-1 rounded bg-neutral-900 text-amber-300 text-xs font-black shadow-xs">
                                 {formatPackageLabel(p.label)}: {(Number(b.price_per_liter) * Number(p.volume_l)).toLocaleString('cs-CZ', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} Kč
                               </span>
                             ))}
@@ -149,7 +149,7 @@ export default function PriceListScreen() {
                 })}
               </div>
 
-              <div className="hidden md:block overflow-x-auto scrollbar-thin rounded-2xl border border-neutral-200">
+              <div className="hidden md:block overflow-x-auto scrollbar-thin rounded border border-neutral-200">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="bg-neutral-900 text-amber-300 uppercase tracking-wider text-[11px] font-black">
@@ -187,7 +187,7 @@ export default function PriceListScreen() {
                           {kegPackages.map((p) => (
                             <td key={p.id} className="py-3 px-4 text-right font-mono font-black text-neutral-900 text-sm">
                               {b.price_per_liter != null ? (
-                                <span className="px-2.5 py-1 rounded-lg bg-neutral-900 text-amber-300 shadow-xs">
+                                <span className="px-2.5 py-1 rounded bg-neutral-900 text-amber-300 shadow-xs">
                                   {(Number(b.price_per_liter) * Number(p.volume_l)).toLocaleString('cs-CZ', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} Kč
                                 </span>
                               ) : (
@@ -206,7 +206,7 @@ export default function PriceListScreen() {
           </div>
 
           {/* Bottle Prices Table */}
-          <div className="card p-5 shadow-sm border border-neutral-200/90 bg-white rounded-3xl overflow-hidden space-y-4">
+          <div className="card p-5 shadow-sm border border-neutral-200/90 bg-white rounded overflow-hidden space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-neutral-200/70">
               <div>
                 <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
@@ -231,7 +231,7 @@ export default function PriceListScreen() {
                   const bg = beerBg(b) || '#fef3c7';
                   const txt = beerText(b) || 'text-neutral-900';
                   return (
-                    <div key={b.id} className="rounded-2xl border border-neutral-200 overflow-hidden" style={{ backgroundColor: bg }}>
+                    <div key={b.id} className="rounded border border-neutral-200 overflow-hidden" style={{ backgroundColor: bg }}>
                       <div className="p-3 space-y-2.5">
                         <span className={`text-sm font-black ${txt}`}>{b.name}{b.degree ? ` (${b.degree})` : ''}</span>
                         <div className="grid grid-cols-2 gap-2">
@@ -262,7 +262,7 @@ export default function PriceListScreen() {
                 })}
               </div>
 
-              <div className="hidden md:block overflow-x-auto scrollbar-thin rounded-2xl border border-neutral-200">
+              <div className="hidden md:block overflow-x-auto scrollbar-thin rounded border border-neutral-200">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="bg-neutral-900 text-amber-300 uppercase tracking-wider text-[11px] font-black">

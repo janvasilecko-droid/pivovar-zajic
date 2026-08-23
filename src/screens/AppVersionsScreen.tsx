@@ -82,15 +82,15 @@ export default function AppVersionsScreen() {
 
       {/* Přehled */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-neutral-200">
+        <div className="bg-white rounded p-4 shadow-sm border border-neutral-200">
           <div className="text-2xl font-bold text-primary-600">{totalUsers}</div>
           <div className="text-xs text-neutral-500">Uživatelů</div>
         </div>
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-neutral-200">
+        <div className="bg-white rounded p-4 shadow-sm border border-neutral-200">
           <div className="text-2xl font-bold text-primary-600">{uniqueVersions.length}</div>
           <div className="text-xs text-neutral-500">Různých verzí</div>
         </div>
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-neutral-200 col-span-2 sm:col-span-1">
+        <div className="bg-white rounded p-4 shadow-sm border border-neutral-200 col-span-2 sm:col-span-1">
           <div className="text-lg font-bold text-primary-600">
             {versionCounts.sort((a, b) => b.count - a.count).slice(0, 3).map(v => (
               <span key={v.version} className="block text-sm">
@@ -104,7 +104,7 @@ export default function AppVersionsScreen() {
 
       {/* Chyba */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 text-sm">
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded p-4 text-sm">
           {error}
         </div>
       )}
@@ -130,7 +130,7 @@ export default function AppVersionsScreen() {
           {versions.map((v) => (
             <div
               key={v.user_id}
-              className="bg-white rounded-xl p-4 shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4"
+              className="bg-white rounded p-4 shadow-sm border border-neutral-200 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4"
             >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">

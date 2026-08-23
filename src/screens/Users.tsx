@@ -198,10 +198,10 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
       <div className="sticky top-0 z-20 bg-neutral-100 pt-1 flex items-center gap-2 border-b border-neutral-200 pb-2">
         <button
           onClick={() => selectTab('users')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 ${
+          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 ${
             activeTab === 'users'
-              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+              ? 'bg-white text-neutral-900 shadow-md'
+              : 'bg-neutral-900 text-white hover:bg-neutral-800'
           }`}
         >
           <Shield size={16} />
@@ -210,10 +210,10 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
 
         <button
           onClick={() => selectTab('emails')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 ${
+          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 ${
             activeTab === 'emails'
-              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+              ? 'bg-white text-neutral-900 shadow-md'
+              : 'bg-neutral-900 text-white hover:bg-neutral-800'
           }`}
         >
           <Mail size={16} />
@@ -222,10 +222,10 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
 
         <button
           onClick={() => selectTab('audit')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 ${
+          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 ${
             activeTab === 'audit'
-              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+              ? 'bg-white text-neutral-900 shadow-md'
+              : 'bg-neutral-900 text-white hover:bg-neutral-800'
           }`}
         >
           <History size={16} />
@@ -238,25 +238,25 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
       {activeTab === 'users' && (
         <>
           <div className="flex justify-end gap-2 flex-wrap">
-            <button className="btn-amber text-xs font-black shadow-md flex items-center gap-1.5" onClick={handleBackupGoogleSheets} disabled={backingUp}>
+            <button className="btn-amber !rounded text-xs font-black shadow-md flex items-center gap-1.5" onClick={handleBackupGoogleSheets} disabled={backingUp}>
               <Table size={16} className="text-emerald-800" />
               <span>{backingUp ? 'Generuji…' : '📊 Týdenní záloha pro Google Tabulky (.xlsx)'}</span>
             </button>
-            <button className="btn-ghost !bg-white border-amber-300 text-xs font-black shadow-xs flex items-center gap-1.5" onClick={handleBackupJSON} disabled={backingUp}>
+            <button className="btn-ghost !rounded !bg-white border-amber-300 text-xs font-black shadow-xs flex items-center gap-1.5" onClick={handleBackupJSON} disabled={backingUp}>
               <Download size={15} />
               <span>{backingUp ? 'Zálohuji…' : '💾 JSON Záloha'}</span>
             </button>
-            <button className="btn-primary text-xs font-black shadow-md" onClick={() => selectTab('emails')}>➕ Přidat e-mail ke schválení</button>
+            <button className="btn-primary !rounded text-xs font-black shadow-md" onClick={() => selectTab('emails')}>➕ Přidat e-mail ke schválení</button>
           </div>
           <p className="text-xs text-neutral-500 font-medium -mt-2 mb-1 text-right">
             Nový přístup: v záložce „📧 E-maily" přidejte e-mail a pak ho schvalte. Uživatel se přihlásí odkazem na e-mail.
           </p>
 
-      {err && <div className="text-sm text-danger-600 bg-danger-500/10 rounded-xl px-3.5 py-2.5 mb-4 font-bold">{err}</div>}
+      {err && <div className="text-sm text-danger-600 bg-danger-500/10 rounded px-3.5 py-2.5 mb-4 font-bold">{err}</div>}
       {loading ? <Spinner /> : users.length === 0 ? <EmptyState text="Žádní uživatelé." icon="👥" /> : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {users.map((u) => (
-            <div key={u.id} className="card-hover p-5 border border-amber-200/90 rounded-3xl bg-white flex flex-col justify-between space-y-3">
+            <div key={u.id} className="card-hover p-5 border border-amber-200/90 rounded bg-white flex flex-col justify-between space-y-3">
               <div>
                 <div className="flex items-start justify-between gap-2">
                   <div className="font-display font-bold text-base text-neutral-900">{u.display_name ?? u.email}</div>
@@ -287,15 +287,15 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
               <div className="space-y-2 pt-2 border-t border-neutral-100">
                 <button
                   onClick={() => setPermissionsUser(u)}
-                  className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-xs transition flex items-center justify-center gap-1.5"
+                  className="w-full py-2 px-3 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-xs transition flex items-center justify-center gap-1.5"
                 >
                   <Shield size={14} />
                   <span>🔐 Nastavit práva (Vidět / Upravit)</span>
                 </button>
 
                 <div className="flex gap-2">
-                  <button className="btn-ghost text-xs flex-1 !py-1.5 font-bold" onClick={() => { setEditing(u); setShowForm(true); }}>Upravit</button>
-                  <button className="btn-danger text-xs !py-1.5 font-bold" onClick={() => del(u.id, u.email)}>Smazat</button>
+                  <button className="btn-ghost !rounded text-xs flex-1 !py-1.5 font-bold" onClick={() => { setEditing(u); setShowForm(true); }}>Upravit</button>
+                  <button className="btn-danger !rounded text-xs !py-1.5 font-bold" onClick={() => del(u.id, u.email)}>Smazat</button>
                 </div>
               </div>
             </div>
@@ -309,7 +309,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
       {activeTab === 'emails' && (
         <div className="space-y-6">
           {/* Add allowed email card */}
-          <div className="card p-6 border border-amber-200/90 rounded-3xl bg-white shadow-xs">
+          <div className="card p-6 border border-amber-200/90 rounded bg-white shadow-xs">
             <h3 className="font-display font-black text-base text-neutral-900 mb-2">
               ➕ Přidat e-mail ke schválení
             </h3>
@@ -326,17 +326,17 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
                 onChange={(e) => setNewEmail(e.target.value)}
                 placeholder="jmeno@pivovar.cz"
               />
-              <button type="submit" className="btn-primary py-2 px-6 font-black text-xs">
+              <button type="submit" className="btn-primary !rounded py-2 px-6 font-black text-xs">
                 Přidat e-mail
               </button>
             </form>
 
-            {emailErr && <div className="text-xs font-bold text-rose-900 bg-rose-50 rounded-xl px-4 py-2 mt-4">{emailErr}</div>}
-            {emailMsg && <div className="text-xs font-bold text-emerald-900 bg-emerald-50 rounded-xl px-4 py-2 mt-4">{emailMsg}</div>}
+            {emailErr && <div className="text-xs font-bold text-rose-900 bg-rose-50 rounded px-4 py-2 mt-4">{emailErr}</div>}
+            {emailMsg && <div className="text-xs font-bold text-emerald-900 bg-emerald-50 rounded px-4 py-2 mt-4">{emailMsg}</div>}
           </div>
 
           {/* Čeká na schválení */}
-          <div className="card p-6 border border-amber-200/90 rounded-3xl bg-white shadow-xs space-y-4">
+          <div className="card p-6 border border-amber-200/90 rounded bg-white shadow-xs space-y-4">
             <h3 className="font-display font-black text-base text-neutral-900">
               ⏳ Čeká na schválení ({pendingEmails.length})
             </h3>
@@ -346,7 +346,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
             ) : pendingEmails.length === 0 ? (
               <EmptyState text="Žádné e-maily nečekají na schválení." icon="⏳" />
             ) : (
-              <div className="overflow-x-auto rounded-2xl border border-neutral-100">
+              <div className="overflow-x-auto rounded border border-neutral-100">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-neutral-50 text-neutral-500 text-[10px] font-black uppercase tracking-wider border-b border-neutral-100">
@@ -366,7 +366,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
                           <div className="flex gap-2 justify-end">
                             <button
                               onClick={() => handleApproveAllowedEmail(e.email)}
-                              className="btn-primary !py-1 !px-2.5 text-[10px] font-black flex items-center gap-1 cursor-pointer"
+                              className="btn-primary !rounded !py-1 !px-2.5 text-[10px] font-black flex items-center gap-1 cursor-pointer"
                               title="Schválit přístup"
                             >
                               <CheckCircle2 size={12} />
@@ -374,7 +374,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
                             </button>
                             <button
                               onClick={() => handleDeleteAllowedEmail(e.email)}
-                              className="btn-danger !py-1 !px-2.5 text-[10px] font-black flex items-center gap-1 cursor-pointer"
+                              className="btn-danger !rounded !py-1 !px-2.5 text-[10px] font-black flex items-center gap-1 cursor-pointer"
                               title="Odebrat e-mail"
                             >
                               <Trash2 size={12} />
@@ -391,7 +391,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
           </div>
 
           {/* Schválené e-maily */}
-          <div className="card p-6 border border-amber-200/90 rounded-3xl bg-white shadow-xs space-y-4">
+          <div className="card p-6 border border-amber-200/90 rounded bg-white shadow-xs space-y-4">
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <h3 className="font-display font-black text-base text-neutral-900">
                 ✅ Schválené e-maily ({approvedEmails.length})
@@ -400,7 +400,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
               <div className="relative max-w-xs w-full flex items-center">
                 <Search className="absolute left-3 text-neutral-400" size={16} />
                 <input
-                  className="w-full pl-9 pr-4 py-2 text-xs font-bold text-neutral-900 bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-hidden focus:bg-white focus:border-amber-500"
+                  className="w-full pl-9 pr-4 py-2 text-xs font-bold text-neutral-900 bg-neutral-50 border border-neutral-200 rounded focus:outline-hidden focus:bg-white focus:border-amber-500"
                   type="text"
                   placeholder="Hledat e-mail..."
                   value={searchEmail}
@@ -414,7 +414,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
             ) : approvedEmails.length === 0 ? (
               <EmptyState text="Žádné schválené e-maily neodpovídají hledání." icon="✅" />
             ) : (
-              <div className="overflow-x-auto rounded-2xl border border-neutral-100">
+              <div className="overflow-x-auto rounded border border-neutral-100">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-neutral-50 text-neutral-500 text-[10px] font-black uppercase tracking-wider border-b border-neutral-100">
@@ -433,7 +433,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
                         <td className="p-4 text-right">
                           <button
                             onClick={() => handleDeleteAllowedEmail(e.email)}
-                            className="btn-danger !py-1 !px-2.5 text-[10px] font-black flex items-center gap-1 ml-auto cursor-pointer"
+                            className="btn-danger !rounded !py-1 !px-2.5 text-[10px] font-black flex items-center gap-1 ml-auto cursor-pointer"
                             title="Odebrat schválení"
                           >
                             <Trash2 size={12} />
@@ -506,7 +506,7 @@ function UserForm({ user, onClose, onSaved }: { user: UserRow | null; onClose: (
           ? <Field label='Nové heslo (volitelné)'><input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="min. 6 znaků" /></Field>
           : <p className="text-xs text-neutral-500">E-mail se přidá do seznamu ke schválení. Po schválení (v záložce „Schválené e-maily“) se účet vytvoří s náhodným dočasným heslem, které se zobrazí adminovi ke sdělení uživateli.</p>}
         
-        <div className="p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200/80 space-y-3">
+        <div className="p-3.5 rounded bg-amber-50/60 border border-amber-200/80 space-y-3">
           <label className="flex items-center gap-2.5 cursor-pointer">
             <input type="checkbox" checked={isAdmin} onChange={(e) => setIsAdmin(e.target.checked)} className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 accent-amber-500" />
             <span className="text-sm font-bold text-neutral-900">👑 Admin (má plná práva spravovat uživatele a systém)</span>
@@ -518,10 +518,10 @@ function UserForm({ user, onClose, onSaved }: { user: UserRow | null; onClose: (
           </label>
         </div>
 
-        {err && <div className="text-sm text-danger-600 bg-danger-500/10 rounded-xl px-3.5 py-2.5 font-bold">{err}</div>}
+        {err && <div className="text-sm text-danger-600 bg-danger-500/10 rounded px-3.5 py-2.5 font-bold">{err}</div>}
         <div className="flex justify-end gap-2 pt-2">
-          <button className="btn-ghost" onClick={onClose}>Zrušit</button>
-          <button className="btn-primary" disabled={busy} onClick={save}>{busy ? 'Ukládám…' : 'Uložit'}</button>
+          <button className="btn-ghost !rounded" onClick={onClose}>Zrušit</button>
+          <button className="btn-primary !rounded" disabled={busy} onClick={save}>{busy ? 'Ukládám…' : 'Uložit'}</button>
         </div>
       </div>
     </Modal>

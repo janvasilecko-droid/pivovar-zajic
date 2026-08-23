@@ -98,9 +98,9 @@ export default function CalendarScreen() {
 
       <div className="card p-4">
         <div className="flex items-center justify-between mb-4">
-          <button className="btn-ghost !py-2 !px-3" onClick={() => setCursor((c) => ({ y: c.m === 0 ? c.y - 1 : c.y, m: (c.m + 11) % 12 }))}>‹</button>
+          <button className="btn-ghost !rounded !py-2 !px-3" onClick={() => setCursor((c) => ({ y: c.m === 0 ? c.y - 1 : c.y, m: (c.m + 11) % 12 }))}>‹</button>
           <div className="font-display font-bold text-lg text-primary-900">{monthName(cursor.m)} {cursor.y}</div>
-          <button className="btn-ghost !py-2 !px-3" onClick={() => setCursor((c) => ({ y: c.m === 11 ? c.y + 1 : c.y, m: (c.m + 1) % 12 }))}>›</button>
+          <button className="btn-ghost !rounded !py-2 !px-3" onClick={() => setCursor((c) => ({ y: c.m === 11 ? c.y + 1 : c.y, m: (c.m + 1) % 12 }))}>›</button>
         </div>
 
         <div className="grid grid-cols-7 gap-1 mb-2">
@@ -114,7 +114,7 @@ export default function CalendarScreen() {
             const isToday = ds === todayStr;
             return (
               <button key={i} onClick={() => setSelectedDate(ds)}
-                className={`min-h-[60px] sm:min-h-[80px] p-1.5 rounded-lg border text-left transition-colors ${
+                className={`min-h-[60px] sm:min-h-[80px] p-1.5 rounded border text-left transition-colors ${
                   isToday ? 'border-primary-500 bg-primary-50' : 'border-primary-100 hover:bg-primary-50/50'
                 }`}>
                 <div className={`text-xs font-bold ${isToday ? 'text-primary-700' : 'text-primary-500'}`}>{d}</div>
@@ -137,7 +137,7 @@ export default function CalendarScreen() {
       <Modal open={!!selectedDate} onClose={() => setSelectedDate(null)} title={selectedDate ? `Události — ${new Date(selectedDate).toLocaleDateString('cs-CZ')}` : ''}>
         <div className="space-y-4">
           {events.filter((e) => e.event_date === selectedDate).map((e) => (
-            <div key={e.id} className="flex items-start gap-3 p-3 rounded-xl bg-primary-50">
+            <div key={e.id} className="flex items-start gap-3 p-3 rounded bg-primary-50">
               <span className={`w-3 h-3 rounded-full mt-1 shrink-0 ${COLORS[e.color] ?? COLORS.primary}`} />
               <div className="flex-1 min-w-0">
                 <div className="font-semibold text-primary-900">{e.title} {e.reminder && <span className="text-xs">🔔 {e.reminder_time?.slice(0, 5)}</span>}</div>
@@ -166,7 +166,7 @@ export default function CalendarScreen() {
                   <option value="danger">Červená</option>
                 </select>
               </div>
-              <button className="btn-primary w-full" onClick={add}>Přidat událost</button>
+              <button className="btn-primary !rounded w-full" onClick={add}>Přidat událost</button>
             </div>
           </div>
         </div>

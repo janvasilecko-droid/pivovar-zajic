@@ -161,7 +161,7 @@ export default function ExkurzeScreen() {
   return (
     <div className="space-y-6 pb-12">
       {/* Top Banner */}
-      <div className="bg-neutral-900 text-white p-5 sm:p-7 rounded-3xl border border-amber-500/30 shadow-xl flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-neutral-900 text-white p-5 sm:p-7 rounded border border-amber-500/30 shadow-xl flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-amber-400 font-extrabold text-xs uppercase tracking-widest mb-1">
             <Users size={18} />
@@ -176,7 +176,7 @@ export default function ExkurzeScreen() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1.5 bg-neutral-800 border border-neutral-700 px-3 py-1.5 rounded-2xl text-xs font-bold">
+          <div className="flex items-center gap-1.5 bg-neutral-800 border border-neutral-700 px-3 py-1.5 rounded text-xs font-bold">
             <Calendar size={15} className="text-amber-400" />
             <span>Měsíc:</span>
             <input
@@ -189,7 +189,7 @@ export default function ExkurzeScreen() {
 
           <button
             onClick={exportExcel}
-            className="px-3.5 py-2.5 rounded-2xl bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs transition shadow-xs flex items-center gap-1.5"
+            className="px-3.5 py-2.5 rounded bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs transition shadow-xs flex items-center gap-1.5"
           >
             <Download size={16} /> Excel
           </button>
@@ -199,7 +199,7 @@ export default function ExkurzeScreen() {
       {/* Grid: Formulář nahoře + Seznam vpravo/dole */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Formulář Nová Exkurze */}
-        <div className="card p-5 sm:p-6 bg-white border border-amber-200 rounded-3xl shadow-sm space-y-4 lg:col-span-1">
+        <div className="card p-5 sm:p-6 bg-white border border-amber-200 rounded shadow-sm space-y-4 lg:col-span-1">
           <div className="border-b border-amber-100 pb-3">
             <h3 className="font-display font-black text-base sm:text-lg text-neutral-900 flex items-center gap-2">
               <Plus size={20} className="text-amber-500" />
@@ -234,11 +234,11 @@ export default function ExkurzeScreen() {
             <div>
               <label className="block text-xs font-black text-neutral-700 mb-1">Počet lidí (osob)</label>
               <div className="flex items-center gap-1">
-                <button type="button" onClick={() => setPeopleCount(String(Math.max(1, (Number(peopleCount) || 0) - 1)))} className="w-9 h-9 shrink-0 grid place-items-center rounded-xl bg-neutral-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition" title="- 1 osoba">−</button>
-                <span className="min-w-[3rem] px-3 text-center font-mono font-black text-lg bg-white border border-neutral-200 rounded-xl py-2 shadow-2xs">
+                <button type="button" onClick={() => setPeopleCount(String(Math.max(1, (Number(peopleCount) || 0) - 1)))} className="w-9 h-9 shrink-0 grid place-items-center rounded bg-neutral-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition" title="- 1 osoba">−</button>
+                <span className="min-w-[3rem] px-3 text-center font-mono font-black text-lg bg-white border border-neutral-200 rounded py-2 shadow-2xs">
                   {peopleCount || '1'}
                 </span>
-                <button type="button" onClick={() => setPeopleCount(String((Number(peopleCount) || 0) + 1))} className="w-9 h-9 shrink-0 grid place-items-center rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-sm select-none active:scale-95 transition shadow-2xs" title="+ 1 osoba">+</button>
+                <button type="button" onClick={() => setPeopleCount(String((Number(peopleCount) || 0) + 1))} className="w-9 h-9 shrink-0 grid place-items-center rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-sm select-none active:scale-95 transition shadow-2xs" title="+ 1 osoba">+</button>
               </div>
               <div className="flex gap-1.5 mt-2">
                 {[1, 2, 5, 10, 15, 20].map((num) => (
@@ -246,7 +246,7 @@ export default function ExkurzeScreen() {
                     key={num}
                     type="button"
                     onClick={() => setPeopleCount(String((Number(peopleCount) || 0) + num))}
-                    className="px-2 py-1 rounded-lg text-xs font-black bg-amber-100 text-amber-950 hover:bg-amber-200 border border-amber-300 transition"
+                    className="px-2 py-1 rounded text-xs font-black bg-amber-100 text-amber-950 hover:bg-amber-200 border border-amber-300 transition"
                   >
                     +{num}
                   </button>
@@ -273,7 +273,7 @@ export default function ExkurzeScreen() {
                     key={name}
                     type="button"
                     onClick={() => setGuideName(name)}
-                    className={`px-2 py-1 rounded-lg text-[11px] font-black border transition ${
+                    className={`px-2 py-1 rounded text-[11px] font-black border transition ${
                       guideName === name
                         ? 'bg-white text-amber-900 border-amber-400 ring-2 ring-amber-300 shadow-2xs'
                         : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200 border-neutral-300'
@@ -311,7 +311,7 @@ export default function ExkurzeScreen() {
             <div className="pt-2">
               <button
                 type="submit"
-                className="w-full px-5 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md flex items-center justify-center gap-2"
+                className="w-full px-5 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md flex items-center justify-center gap-2"
               >
                 <Plus size={16} /> Zarezervovat exkurzi
               </button>
@@ -320,7 +320,7 @@ export default function ExkurzeScreen() {
         </div>
 
         {/* Aktivní seznam exkurzí pro zvolený měsíc */}
-        <div className="card p-5 sm:p-6 bg-white border border-neutral-200 rounded-3xl shadow-sm space-y-4 lg:col-span-2">
+        <div className="card p-5 sm:p-6 bg-white border border-neutral-200 rounded shadow-sm space-y-4 lg:col-span-2">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 pb-3">
             <div>
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
@@ -334,7 +334,7 @@ export default function ExkurzeScreen() {
             {activeEntries.length > 0 && (
               <button
                 onClick={handleArchiveMonth}
-                className="px-3.5 py-2 rounded-2xl bg-neutral-900 hover:bg-neutral-800 text-amber-300 font-black text-xs transition shadow-xs flex items-center gap-1.5"
+                className="px-3.5 py-2 rounded bg-neutral-900 hover:bg-neutral-800 text-amber-300 font-black text-xs transition shadow-xs flex items-center gap-1.5"
               >
                 <Archive size={16} /> Přesunout měsíc do statistiky
               </button>
@@ -348,14 +348,14 @@ export default function ExkurzeScreen() {
             {/* Mobilní karty */}
             <div className="grid grid-cols-1 gap-2.5 md:hidden">
               {activeEntries.map((e) => (
-                <div key={e.id} className="rounded-2xl border border-neutral-200 bg-white p-3 space-y-1.5">
+                <div key={e.id} className="rounded border border-neutral-200 bg-white p-3 space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
                     <span className="flex items-center gap-1 font-bold text-sm text-neutral-900">
                       <Calendar size={14} className="text-amber-600" />
                       {new Date(e.tour_date).toLocaleDateString('cs-CZ')}
                       <span className="font-mono text-neutral-500 text-xs">({e.tour_time})</span>
                     </span>
-                    <button onClick={() => handleDelete(e.id)} className="w-9 h-9 grid place-items-center rounded-lg hover:bg-rose-100 text-rose-600 transition shrink-0" title="Smazat">
+                    <button onClick={() => handleDelete(e.id)} className="w-9 h-9 grid place-items-center rounded hover:bg-rose-100 text-rose-600 transition shrink-0" title="Smazat">
                       <Trash2 size={16} />
                     </button>
                   </div>
@@ -408,7 +408,7 @@ export default function ExkurzeScreen() {
                       </td>
                       <td className="text-[11px] text-neutral-600 font-medium">{e.note || '—'}</td>
                       <td className="text-right">
-                        <button onClick={() => handleDelete(e.id)} className="p-1.5 rounded-lg hover:bg-rose-100 text-rose-600 transition" title="Smazat">
+                        <button onClick={() => handleDelete(e.id)} className="p-1.5 rounded hover:bg-rose-100 text-rose-600 transition" title="Smazat">
                           <Trash2 size={15} />
                         </button>
                       </td>
@@ -423,10 +423,10 @@ export default function ExkurzeScreen() {
       </div>
 
       {/* 👨‍💼 ROZKLIKÁVACÍ STATISTIKA PODLE PRŮVODCŮ */}
-      <div className="card p-6 bg-white border border-amber-200 rounded-3xl shadow-sm space-y-4">
+      <div className="card p-6 bg-white border border-amber-200 rounded shadow-sm space-y-4">
         <div className="flex items-center justify-between border-b border-amber-100 pb-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500 text-neutral-950 flex items-center justify-center font-black text-lg shadow-sm">
+            <div className="w-10 h-10 rounded bg-amber-500 text-neutral-950 flex items-center justify-center font-black text-lg shadow-sm">
               👨‍💼
             </div>
             <div>
@@ -449,7 +449,7 @@ export default function ExkurzeScreen() {
               return (
                 <div
                   key={gs.guideName}
-                  className={`rounded-2xl border transition-all overflow-hidden ${
+                  className={`rounded border transition-all overflow-hidden ${
                     isExpanded
                       ? 'bg-amber-50/70 border-amber-300 shadow-md'
                       : 'bg-neutral-50/80 border-neutral-200 hover:border-amber-300'
@@ -461,7 +461,7 @@ export default function ExkurzeScreen() {
                     className="w-full p-4 flex flex-wrap items-center justify-between gap-4 text-left cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-amber-500 text-neutral-950 flex items-center justify-center font-black shadow-xs">
+                      <div className="w-10 h-10 rounded bg-amber-500 text-neutral-950 flex items-center justify-center font-black shadow-xs">
                         <User size={20} />
                       </div>
                       <div>
@@ -516,7 +516,7 @@ export default function ExkurzeScreen() {
                                 </td>
                                 <td className="text-neutral-600 font-medium">{it.note || '—'}</td>
                                 <td>
-                                  <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black border ${
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-black border ${
                                     it.archived_month
                                       ? 'bg-neutral-100 text-neutral-600 border-neutral-200'
                                       : 'bg-emerald-100 text-emerald-950 border-emerald-300'
@@ -549,24 +549,24 @@ export default function ExkurzeScreen() {
 
         {/* 4 Karty souhrnů */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="card p-5 bg-white border border-neutral-200 rounded-3xl shadow-xs space-y-1">
+          <div className="card p-5 bg-white border border-neutral-200 rounded shadow-xs space-y-1">
             <span className="text-[10px] font-black uppercase text-neutral-500 tracking-wider">Celkem exkurzí</span>
             <div className="font-display font-black text-3xl text-neutral-950">{totalTours} exkurzí</div>
           </div>
 
-          <div className="card p-5 bg-white border border-neutral-200 rounded-3xl shadow-xs space-y-1">
+          <div className="card p-5 bg-white border border-neutral-200 rounded shadow-xs space-y-1">
             <span className="text-[10px] font-black uppercase text-neutral-500 tracking-wider">Celkem návštěvníků</span>
             <div className="font-display font-black text-3xl text-amber-600">{totalPeople.toLocaleString('cs-CZ')} lidí</div>
           </div>
 
-          <div className="card p-5 bg-white border border-neutral-200 rounded-3xl shadow-xs space-y-1">
+          <div className="card p-5 bg-white border border-neutral-200 rounded shadow-xs space-y-1">
             <span className="text-[10px] font-black uppercase text-neutral-500 tracking-wider">Celková tržba</span>
             <div className="font-display font-black text-3xl text-emerald-700">{totalRevenue.toLocaleString('cs-CZ')} Kč</div>
           </div>
         </div>
 
         {/* Tabulka po měsících */}
-        <div className="card p-6 bg-white border border-neutral-200 rounded-3xl shadow-xs space-y-4">
+        <div className="card p-6 bg-white border border-neutral-200 rounded shadow-xs space-y-4">
           <h3 className="font-display font-black text-base text-neutral-900">Přehled exkurzí podle měsíců</h3>
 
           {monthStats.length === 0 ? (

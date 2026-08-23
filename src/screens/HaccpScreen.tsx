@@ -396,10 +396,10 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
   return (
     <div className="space-y-6 pb-12">
       {/* Top Header & Navigation Tabs */}
-      <div className="card p-5 bg-white border-2 border-amber-300 rounded-3xl space-y-4 shadow-xs">
+      <div className="card p-5 bg-white border-2 border-amber-300 rounded space-y-4 shadow-xs">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500 text-neutral-950 font-black flex items-center justify-center shadow-md shrink-0">
+            <div className="w-10 h-10 rounded bg-amber-500 text-neutral-950 font-black flex items-center justify-center shadow-md shrink-0">
               <Shield size={22} />
             </div>
             <div>
@@ -407,7 +407,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
               <p className="text-xs text-neutral-600 font-bold">Kynšperský pivovar s.r.o. — Sokolovská 482/40, Kynšperk nad Ohří</p>
             </div>
           </div>
-          <span className="px-3 py-1.5 rounded-xl bg-neutral-900 text-amber-300 font-mono font-black text-xs shadow-2xs">
+          <span className="px-3 py-1.5 rounded bg-neutral-900 text-amber-300 font-mono font-black text-xs shadow-2xs">
             Ing. Petr Bednář (od 1. 3. 2024)
           </span>
         </div>
@@ -416,10 +416,10 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
         <div className="sticky top-[56px] z-10 bg-white flex items-center gap-2 overflow-x-auto scrollbar-thin pt-1 border-t border-amber-200/60">
           <button
             onClick={() => selectTab('sanitacni_rad')}
-            className={`px-4 py-2.5 rounded-2xl text-xs font-black transition flex items-center gap-2 shrink-0 ${
+            className={`px-4 py-2.5 rounded text-xs font-black transition flex items-center gap-2 shrink-0 ${
               activeTab === 'sanitacni_rad'
-                ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 scale-102'
-                : 'bg-white text-neutral-700 hover:bg-amber-50 border border-neutral-200'
+                ? 'bg-white text-neutral-900 shadow-md'
+                : 'bg-neutral-900 text-white hover:bg-neutral-800'
             }`}
           >
             <Droplets size={16} />
@@ -428,10 +428,10 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
 
           <button
             onClick={() => selectTab('svhp')}
-            className={`px-4 py-2.5 rounded-2xl text-xs font-black transition flex items-center gap-2 shrink-0 ${
+            className={`px-4 py-2.5 rounded text-xs font-black transition flex items-center gap-2 shrink-0 ${
               activeTab === 'svhp'
-                ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 scale-102'
-                : 'bg-white text-neutral-700 hover:bg-amber-50 border border-neutral-200'
+                ? 'bg-white text-neutral-900 shadow-md'
+                : 'bg-neutral-900 text-white hover:bg-neutral-800'
             }`}
           >
             <FileText size={16} />
@@ -440,10 +440,10 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
 
           <button
             onClick={() => selectTab('udrzba')}
-            className={`px-4 py-2.5 rounded-2xl text-xs font-black transition flex items-center gap-2 shrink-0 ${
+            className={`px-4 py-2.5 rounded text-xs font-black transition flex items-center gap-2 shrink-0 ${
               activeTab === 'udrzba'
-                ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 scale-102'
-                : 'bg-white text-neutral-700 hover:bg-amber-50 border border-neutral-200'
+                ? 'bg-white text-neutral-900 shadow-md'
+                : 'bg-neutral-900 text-white hover:bg-neutral-800'
             }`}
           >
             <Wrench size={16} />
@@ -452,10 +452,10 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
 
           <button
             onClick={() => selectTab('diagram')}
-            className={`px-4 py-2.5 rounded-2xl text-xs font-black transition flex items-center gap-2 shrink-0 ${
+            className={`px-4 py-2.5 rounded text-xs font-black transition flex items-center gap-2 shrink-0 ${
               activeTab === 'diagram'
-                ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 scale-102'
-                : 'bg-white text-neutral-700 hover:bg-amber-50 border border-neutral-200'
+                ? 'bg-white text-neutral-900 shadow-md'
+                : 'bg-neutral-900 text-white hover:bg-neutral-800'
             }`}
           >
             <Sparkles size={16} />
@@ -464,7 +464,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
 
           <button
             onClick={() => selectTab('bozp_prvni_pomoc')}
-            className={`px-4 py-2.5 rounded-2xl text-xs font-black transition flex items-center gap-2 shrink-0 ${
+            className={`px-4 py-2.5 rounded text-xs font-black transition flex items-center gap-2 shrink-0 ${
               activeTab === 'bozp_prvni_pomoc'
                 ? 'bg-rose-600 text-white shadow-md ring-2 ring-rose-300 scale-102'
                 : 'bg-rose-50 text-rose-950 hover:bg-rose-100 border border-rose-200'
@@ -479,14 +479,14 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
       {/* TAB 1: SANITAČNÍ ŘÁD (Oficiální dokumentace Ing. Petr Bednář) */}
       {activeTab === 'sanitacni_rad' && (
         <div className="space-y-6">
-          <div className="card p-6 bg-white border border-neutral-200/90 rounded-3xl shadow-xs space-y-6">
+          <div className="card p-6 bg-white border border-neutral-200/90 rounded shadow-xs space-y-6">
             <div className="border-b border-neutral-100 pb-4 space-y-1">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <h1 className="text-xl sm:text-2xl font-display font-black text-neutral-900 flex items-center gap-2">
                   <Droplets className="text-amber-600" size={26} />
                   <span>Sanitační řád — Kynšperský pivovar s.r.o.</span>
                 </h1>
-                <span className="px-3 py-1 rounded-xl bg-amber-100 text-amber-950 font-mono font-black text-xs border border-amber-300">
+                <span className="px-3 py-1 rounded bg-amber-100 text-amber-950 font-mono font-black text-xs border border-amber-300">
                   Platnost od 1. března 2024
                 </span>
               </div>
@@ -496,7 +496,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
             </div>
 
             {/* BOZP a Chemikálie */}
-            <div className="p-5 rounded-3xl bg-rose-50/80 border-2 border-rose-200 space-y-3">
+            <div className="p-5 rounded bg-rose-50/80 border-2 border-rose-200 space-y-3">
               <h3 className="font-black text-rose-950 text-base flex items-center gap-2">
                 <AlertTriangle size={20} className="text-rose-600" />
                 <span>Bezpečnost práce (BOZP) & Používané chemikálie</span>
@@ -505,19 +505,19 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
                 Sanitační řád je nastaven v souladu s pravidly pro BOZP. Pro práci s chemikáliemi jsou používány ochranné pracovní pomůcky – <strong>gumové rukavice, ochranné brýle, práce je prováděna v odpovídající pracovní obuvi</strong>.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
-                <div className="p-3 rounded-2xl bg-white border border-rose-200 text-xs">
+                <div className="p-3 rounded bg-white border border-rose-200 text-xs">
                   <strong className="block text-rose-900 font-black mb-1">🧼 Alkalická sanitace</strong>
                   <span className="text-neutral-700">Hydroxid sodný (NaOH) a chlornan sodný. Odstraňuje organické úsady a kvasnice.</span>
                 </div>
-                <div className="p-3 rounded-2xl bg-white border border-rose-200 text-xs">
+                <div className="p-3 rounded bg-white border border-rose-200 text-xs">
                   <strong className="block text-rose-900 font-black mb-1">🧪 Kyselá sanitace</strong>
                   <span className="text-neutral-700">Kyselina dusičná a fosforečná. Odstraňuje anorganické usazeniny a pivní kámen.</span>
                 </div>
-                <div className="p-3 rounded-2xl bg-white border border-rose-200 text-xs">
+                <div className="p-3 rounded bg-white border border-rose-200 text-xs">
                   <strong className="block text-rose-900 font-black mb-1">✨ Finální sterilace</strong>
                   <span className="text-neutral-700">Kyselina peroxyoctová (Persteril) pro stáčecí aparáty, kvasnice a sudy.</span>
                 </div>
-                <div className="p-3 rounded-2xl bg-white border border-rose-200 text-xs">
+                <div className="p-3 rounded bg-white border border-rose-200 text-xs">
                   <strong className="block text-rose-900 font-black mb-1">🧹 Sanitace podlah</strong>
                   <span className="text-neutral-700">Chlorové vápno (chlornan vápenatý) pro hrubou sterilaci podlah.</span>
                 </div>
@@ -525,13 +525,13 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
             </div>
 
             {/* Výpočet hrubé koncentrace */}
-            <div className="p-5 rounded-3xl bg-neutral-900 text-white space-y-4 shadow-md">
+            <div className="p-5 rounded bg-neutral-900 text-white space-y-4 shadow-md">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <h3 className="font-display font-black text-base text-amber-400 flex items-center gap-2">
                   <Calculator size={20} />
                   <span>Výpočet „hrubé“ koncentrace sanitačního roztoku</span>
                 </h3>
-                <span className="text-xs font-mono font-bold bg-neutral-800 px-3 py-1 rounded-xl text-amber-300 border border-neutral-700">
+                <span className="text-xs font-mono font-bold bg-neutral-800 px-3 py-1 rounded text-amber-300 border border-neutral-700">
                   M = (P × V) / C
                 </span>
               </div>
@@ -552,7 +552,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
                   <span className="text-neutral-200">Čistá látka = 100%</span>
                   <input className="input !py-1.5 text-xs font-mono font-bold text-neutral-900 bg-white mt-1" value={calcC} onChange={(e) => setCalcC(e.target.value)} placeholder="100" />
                 </div>
-                <div className="p-3 rounded-2xl bg-amber-500 text-neutral-950 font-mono flex flex-col justify-center">
+                <div className="p-3 rounded bg-amber-500 text-neutral-950 font-mono flex flex-col justify-center">
                   <span className="text-[10px] uppercase font-black tracking-wider text-amber-950">M — Hmotnost chemikálie</span>
                   <span className="font-display font-black text-2xl">{calcM ? `${calcM} kg` : '—'}</span>
                 </div>
@@ -560,7 +560,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
             </div>
 
             {/* Hlavní obecné zásady */}
-            <div className="p-5 rounded-3xl bg-amber-50/60 border border-amber-200/90 space-y-3">
+            <div className="p-5 rounded bg-amber-50/60 border border-amber-200/90 space-y-3">
               <h3 className="font-display font-black text-base text-amber-950 flex items-center gap-2">
                 <CheckCircle2 size={20} className="text-amber-600" />
                 <span>Hlavní obecné zásady pro správné provedení sanitace</span>
@@ -580,28 +580,28 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
               </h3>
 
               {/* Varna */}
-              <div className="card p-5 bg-white border border-neutral-200 rounded-3xl space-y-3 shadow-2xs">
+              <div className="card p-5 bg-white border border-neutral-200 rounded space-y-3 shadow-2xs">
                 <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
                   <h4 className="font-display font-black text-base text-neutral-900 flex items-center gap-2">
                     <span>⚙️ Sanitace Varny (Varní kotel, Scezovací káď, RMP, Vířivka)</span>
                   </h4>
-                  <span className="px-2.5 py-1 rounded-xl bg-neutral-100 text-neutral-800 font-mono font-bold text-xs">Po každém týdnu várek</span>
+                  <span className="px-2.5 py-1 rounded bg-neutral-100 text-neutral-800 font-mono font-bold text-xs">Po každém týdnu várek</span>
                 </div>
                 <div className="text-xs text-neutral-700 font-medium leading-relaxed space-y-2.5">
                   <p>Po každém týdnu (pokud se vaří) se provádí alkalická sanitace varného zařízení. Před sanitací se zkontroluje uzavření šoupěte z dopravníku sladového šrotu.</p>
-                  <div className="p-3 rounded-2xl bg-neutral-50 border border-neutral-200 space-y-1.5">
+                  <div className="p-3 rounded bg-neutral-50 border border-neutral-200 space-y-1.5">
                     <strong className="text-neutral-900">1. Varní kotel:</strong>
                     <p>Napustí se 5 hl vody, rozmíchá se hydroxid sodný na koncentraci 1,5% a přidají se 2 dcl chlornanu (dle znečištění, max 0,5 l/5 hl). Cirkuluje se hlavním čerpadlem skrze sanitační sprchy při teplotě <strong>80 °C</strong>. Během cirkulace se napustí celý systém trubek a sanitace se nechá procházet potrubím do vystěradla (3x po dobu 2 minut). Po 15–20 minutách se přečerpá do scezovací kádě.</p>
                   </div>
-                  <div className="p-3 rounded-2xl bg-neutral-50 border border-neutral-200 space-y-1.5">
+                  <div className="p-3 rounded bg-neutral-50 border border-neutral-200 space-y-1.5">
                     <strong className="text-neutral-900">2. Scezovací káď:</strong>
                     <p>Cirkulace 15 minut skrze sanitační sprchy (<strong>POZOR: Nepouštět sanitaci do sprch pro vyslazování!</strong> Hrozilo by zacpání). Ke konci se pustí kopačka na nízké otáčky (3-4 na fm) pro sanitaci sít. Poté se sanitace pustí trubkami spodem do scezovacího věnce a na půl se otevře cesta do trysek pod síta (5 min). Přečerpá se scezovacím čerpadlem do rmutomladinové pánve (RMP).</p>
                   </div>
-                  <div className="p-3 rounded-2xl bg-neutral-50 border border-neutral-200 space-y-1.5">
+                  <div className="p-3 rounded bg-neutral-50 border border-neutral-200 space-y-1.5">
                     <strong className="text-neutral-900">3. RMP & Vířivá káď:</strong>
                     <p>Ve RMP se sanitace přihřeje na <strong>85 °C</strong> a vyčerpá se do vířivé kádě. Do VK se nechá odtéct i veškerá sanitace z trubek.</p>
                   </div>
-                  <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 space-y-1.5">
+                  <div className="p-3 rounded bg-amber-50 border border-amber-200 space-y-1.5">
                     <strong className="text-amber-950">4. Proplach a kontrola:</strong>
                     <p>Celá varna se ihned propláchne horkou vodou z bojleru. Postupným zavíráním klapek se propláchne RMP, trubky do SK, sprcha SK (3 min), věnec a trysky pod síty (1 min), scezovací cesta do RMP (3 min), podrážení (2 min) a vystěradlo. <strong>Poslední odkapová voda se kontroluje hmatem na přítomnost reziduí hydroxidu a chlornanu – voda musí být čistá a bez zápachu!</strong></p>
                   </div>
@@ -610,12 +610,12 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
               </div>
 
               {/* Vířivá káď a Spílací cesta */}
-              <div className="card p-5 bg-white border border-neutral-200 rounded-3xl space-y-3 shadow-2xs">
+              <div className="card p-5 bg-white border border-neutral-200 rounded space-y-3 shadow-2xs">
                 <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
                   <h4 className="font-display font-black text-base text-neutral-900 flex items-center gap-2">
                     <span>❄️ Sanitace Vířivé kádě & Spílací cesty</span>
                   </h4>
-                  <span className="px-2.5 py-1 rounded-xl bg-neutral-100 text-neutral-800 font-mono font-bold text-xs">Před a mezi várkami</span>
+                  <span className="px-2.5 py-1 rounded bg-neutral-100 text-neutral-800 font-mono font-bold text-xs">Před a mezi várkami</span>
                 </div>
                 <div className="text-xs text-neutral-700 font-medium leading-relaxed space-y-2">
                   <p><strong>Alkalická sanitace po varně:</strong> Propojí se spílací cesta (POZOR na propláchnutí chmelového filtru před deskovým chladičem!) do cirkulace zpět od kvasných tanků do sprchy vířivé kádě. Horký sanitační roztok se nechá cirkulovat 20 minut s pootevřeným vzduchem do vzdušnící svíčky.</p>
@@ -624,17 +624,17 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
               </div>
 
               {/* Kvasné tanky a Kvasničné hospodářství */}
-              <div className="card p-5 bg-white border border-neutral-200 rounded-3xl space-y-3 shadow-2xs">
+              <div className="card p-5 bg-white border border-neutral-200 rounded space-y-3 shadow-2xs">
                 <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
                   <h4 className="font-display font-black text-base text-neutral-900 flex items-center gap-2">
                     <span>🧪 Kvasné tanky & Kvasničné hospodářství</span>
                   </h4>
-                  <span className="px-2.5 py-1 rounded-xl bg-rose-100 text-rose-950 font-mono font-bold text-xs border border-rose-300">⚠️ POZOR na CO2 a podtlak</span>
+                  <span className="px-2.5 py-1 rounded bg-rose-100 text-rose-950 font-mono font-bold text-xs border border-rose-300">⚠️ POZOR na CO2 a podtlak</span>
                 </div>
                 <div className="text-xs text-neutral-700 font-medium leading-relaxed space-y-2.5">
                   <p><strong>Před sespíláním:</strong> Sanitace 1% roztokem kyseliny dusičné skrze sprchu (15 min), následně 3x proplach vodou (3-4 min).</p>
                   <p><strong>Nádoby na kvasnice:</strong> Nerezové kýble se sterilují 0,1% Persterilem. Barely na rozkvas sušených kvasnic se sanitují 3% NaOH, 0,2% Persterilem a 3x oplachují pitnou vodou. Pomůcky pro sběr kvasnic se myjí 3% NaOH s kartáčem určeným pro čisté části a sterilují 0,1% Persterilem.</p>
-                  <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-300 text-rose-950 space-y-1.5">
+                  <div className="p-3.5 rounded bg-rose-50 border border-rose-300 text-rose-950 space-y-1.5">
                     <strong className="block text-rose-900 font-black">⚠️ DŮLEŽITÁ UPOZORNĚNÍ PRO KVASNÉ TANKY:</strong>
                     <ul className="list-disc pl-4 space-y-1">
                       <li><strong>Kvasný tank během sanitace NEZAVÍRAT! Nemá podtlakový ventil – hrozí zborcení tanku!</strong></li>
@@ -647,7 +647,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
               </div>
 
               {/* Ležácké tanky */}
-              <div className="card p-5 bg-white border border-neutral-200 rounded-3xl space-y-3 shadow-2xs">
+              <div className="card p-5 bg-white border border-neutral-200 rounded space-y-3 shadow-2xs">
                 <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
                   <h4 className="font-display font-black text-base text-neutral-900 flex items-center gap-2">
                     <span>🛢️ Ležácké tanky (LT)</span>
@@ -659,7 +659,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
               </div>
 
               {/* Stáčecí aparát pro KEG sudy */}
-              <div className="card p-5 bg-white border border-neutral-200 rounded-3xl space-y-3 shadow-2xs">
+              <div className="card p-5 bg-white border border-neutral-200 rounded space-y-3 shadow-2xs">
                 <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
                   <h4 className="font-display font-black text-base text-neutral-900 flex items-center gap-2">
                     <span>🔌 Stáčecí aparát pro KEG sudy</span>
@@ -672,7 +672,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
               </div>
 
               {/* Mytí a sanitace KEG sudů */}
-              <div className="card p-5 bg-white border border-neutral-200 rounded-3xl space-y-3 shadow-2xs">
+              <div className="card p-5 bg-white border border-neutral-200 rounded space-y-3 shadow-2xs">
                 <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
                   <h4 className="font-display font-black text-base text-neutral-900 flex items-center gap-2">
                     <span>🧼 Sanitace a mytí KEG sudů</span>
@@ -708,10 +708,10 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
                 <button
                   key={cat.id}
                   onClick={() => setActiveCategory(cat.id)}
-                  className={`px-3.5 py-1.5 rounded-2xl text-xs font-black transition flex items-center gap-1.5 shrink-0 ${
+                  className={`px-3.5 py-1.5 rounded text-xs font-black transition flex items-center gap-1.5 shrink-0 ${
                     activeCategory === cat.id
                       ? 'bg-neutral-900 text-amber-300 shadow-xs'
-                      : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+                      : 'bg-neutral-900 text-white hover:bg-neutral-800'
                   }`}
                 >
                   <span>{cat.icon}</span>
@@ -729,11 +729,11 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
                 <div
                   key={doc.id}
                   id={doc.id}
-                  className="card p-6 bg-white border border-neutral-200/90 rounded-3xl space-y-3 shadow-xs hover:shadow-md transition-all scroll-mt-20"
+                  className="card p-6 bg-white border border-neutral-200/90 rounded space-y-3 shadow-xs hover:shadow-md transition-all scroll-mt-20"
                 >
                   <div className="flex items-start justify-between gap-3 border-b border-neutral-100 pb-3 flex-wrap">
                     <div className="flex items-center gap-2.5">
-                      <span className="w-9 h-9 rounded-2xl bg-amber-100 text-amber-900 font-bold grid place-items-center text-base shrink-0 border border-amber-300">
+                      <span className="w-9 h-9 rounded bg-amber-100 text-amber-900 font-bold grid place-items-center text-base shrink-0 border border-amber-300">
                         {doc.icon}
                       </span>
                       <div>
@@ -756,25 +756,25 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
       {/* TAB 3: ÚDRŽBA ZAŘÍZENÍ, KOHOUTŮ, HADIC A NARÁŽEČŮ */}
       {activeTab === 'udrzba' && (
         <div className="space-y-6">
-          <div className="card p-6 bg-white border border-neutral-200/90 rounded-3xl shadow-xs space-y-4">
+          <div className="card p-6 bg-white border border-neutral-200/90 rounded shadow-xs space-y-4">
             <h2 className="text-lg font-display font-black text-neutral-900 flex items-center gap-2">
               <Wrench className="text-amber-600" size={22} />
               <span>🔧 Preventivní údržba strojního zařízení pivovaru</span>
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-              <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-200 space-y-1">
+              <div className="p-4 rounded bg-neutral-50 border border-neutral-200 space-y-1">
                 <div className="font-bold text-neutral-900">Myčka KEG sudů & Rotomatik</div>
                 <p className="text-neutral-600">Kontrola dosedání aretačních kolíků rotomatiku, čistota trysek alkalického i parního okruhu, odpouštění kondenzátu z parního filtru.</p>
               </div>
-              <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-200 space-y-1">
+              <div className="p-4 rounded bg-neutral-50 border border-neutral-200 space-y-1">
                 <div className="font-bold text-neutral-900">Šrotovník sladu</div>
                 <p className="text-neutral-600">Čištění válců šrotovníku a odsávacího prostoru od sladového prachu. Kontrola napnutí řemenů a mazání ložisek.</p>
               </div>
-              <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-200 space-y-1">
+              <div className="p-4 rounded bg-neutral-50 border border-neutral-200 space-y-1">
                 <div className="font-bold text-neutral-900">Ležácké tanky & Hradící ventily</div>
                 <p className="text-neutral-600">Kontrola těsnosti gumiček dvířek, vzorkovacích kohoutů, rozebírání a čištění hradících přístrojů.</p>
               </div>
-              <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-200 space-y-1">
+              <div className="p-4 rounded bg-neutral-50 border border-neutral-200 space-y-1">
                 <div className="font-bold text-neutral-900">Deskový chladič</div>
                 <p className="text-neutral-600">Reverzní proplach horkou vodou s čisticím prostředkem pro odstranění kalů ze zchlazování mladiny.</p>
               </div>
@@ -782,9 +782,9 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
           </div>
 
           {/* DŮKLADNÝ NÁVOD: ÚDRŽBA KOHOUTŮ, NARÁŽEČŮ A HADIC */}
-          <div className="card p-6 bg-white border-2 border-amber-300 rounded-3xl space-y-5 shadow-sm">
+          <div className="card p-6 bg-white border-2 border-amber-300 rounded space-y-5 shadow-sm">
             <div className="flex items-center gap-3 border-b border-amber-200 pb-3">
-              <div className="w-12 h-12 rounded-2xl bg-amber-500 text-neutral-950 flex items-center justify-center text-2xl font-black shadow-md shrink-0">
+              <div className="w-12 h-12 rounded bg-amber-500 text-neutral-950 flex items-center justify-center text-2xl font-black shadow-md shrink-0">
                 🚰
               </div>
               <div>
@@ -795,7 +795,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
               {/* 1. Narážeče */}
-              <div className="p-5 rounded-2xl bg-white border border-amber-200 space-y-3 shadow-2xs">
+              <div className="p-5 rounded bg-white border border-amber-200 space-y-3 shadow-2xs">
                 <div className="flex items-center gap-2 text-amber-900 font-black text-sm border-b border-amber-100 pb-2">
                   <span>🛢️ Narážeče (Flach / Kombi / KORB)</span>
                 </div>
@@ -808,7 +808,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
               </div>
 
               {/* 2. Výčepní kohouty */}
-              <div className="p-5 rounded-2xl bg-white border border-amber-200 space-y-3 shadow-2xs">
+              <div className="p-5 rounded bg-white border border-amber-200 space-y-3 shadow-2xs">
                 <div className="flex items-center gap-2 text-amber-900 font-black text-sm border-b border-amber-100 pb-2">
                   <span>🍺 Výčepní kohouty (Kompenzátorové)</span>
                 </div>
@@ -821,7 +821,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
               </div>
 
               {/* 3. Pivní a sanitační hadice */}
-              <div className="p-5 rounded-2xl bg-white border border-amber-200 space-y-3 shadow-2xs">
+              <div className="p-5 rounded bg-white border border-amber-200 space-y-3 shadow-2xs">
                 <div className="flex items-center gap-2 text-amber-900 font-black text-sm border-b border-amber-100 pb-2">
                   <span>🐍 Pivní a sanitační vedení (Hadice)</span>
                 </div>
@@ -841,10 +841,10 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
       {activeTab === 'bozp_prvni_pomoc' && (
         <div className="space-y-6">
           {/* Emergency Contacts Banner */}
-          <div className="p-6 rounded-3xl bg-gradient-to-r from-rose-600 via-rose-700 to-neutral-900 text-white shadow-xl space-y-4">
+          <div className="p-6 rounded bg-gradient-to-r from-rose-600 via-rose-700 to-neutral-900 text-white shadow-xl space-y-4">
             <div className="flex items-center justify-between flex-wrap gap-4 border-b border-rose-500/50 pb-4">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-white text-rose-600 flex items-center justify-center font-black text-2xl shadow-md">
+                <div className="w-12 h-12 rounded bg-white text-rose-600 flex items-center justify-center font-black text-2xl shadow-md">
                   🚑
                 </div>
                 <div>
@@ -853,29 +853,29 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className="px-3 py-1.5 rounded-xl bg-white/20 text-white text-xs font-mono font-black border border-white/30">
+                <span className="px-3 py-1.5 rounded bg-white/20 text-white text-xs font-mono font-black border border-white/30">
                   TIS: 224 919 293
                 </span>
-                <span className="px-3 py-1.5 rounded-xl bg-rose-500 text-white text-xs font-mono font-black border border-rose-300">
+                <span className="px-3 py-1.5 rounded bg-rose-500 text-white text-xs font-mono font-black border border-rose-300">
                   ZZS: 155
                 </span>
               </div>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center font-mono">
-              <div className="p-3 rounded-2xl bg-white/10 border border-white/20">
+              <div className="p-3 rounded bg-white/10 border border-white/20">
                 <div className="text-[10px] text-rose-200 font-bold uppercase">Záchranka (ZZS)</div>
                 <div className="text-2xl font-black text-white">155</div>
               </div>
-              <div className="p-3 rounded-2xl bg-white/10 border border-white/20">
+              <div className="p-3 rounded bg-white/10 border border-white/20">
                 <div className="text-[10px] text-rose-200 font-bold uppercase">Hasiči (HZS)</div>
                 <div className="text-2xl font-black text-white">150</div>
               </div>
-              <div className="p-3 rounded-2xl bg-white/10 border border-white/20">
+              <div className="p-3 rounded bg-white/10 border border-white/20">
                 <div className="text-[10px] text-rose-200 font-bold uppercase">Toxikologie (TIS)</div>
                 <div className="text-base font-black text-amber-300">224 919 293</div>
               </div>
-              <div className="p-3 rounded-2xl bg-white/10 border border-white/20">
+              <div className="p-3 rounded bg-white/10 border border-white/20">
                 <div className="text-[10px] text-rose-200 font-bold uppercase">Tísňové volání</div>
                 <div className="text-2xl font-black text-white">112</div>
               </div>
@@ -885,9 +885,9 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
           {/* First Aid Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* 👀 Zasažení očí */}
-            <div className="card p-6 bg-white border-2 border-rose-200 rounded-3xl space-y-4 shadow-sm">
+            <div className="card p-6 bg-white border-2 border-rose-200 rounded space-y-4 shadow-sm">
               <div className="flex items-center gap-3 border-b border-rose-100 pb-3">
-                <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center font-black text-xl">
+                <div className="w-10 h-10 rounded bg-rose-100 text-rose-700 flex items-center justify-center font-black text-xl">
                   👀
                 </div>
                 <div>
@@ -896,7 +896,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
                 </div>
               </div>
               <ul className="space-y-2.5 text-xs text-neutral-800 font-medium">
-                <li className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 font-bold text-rose-950">
+                <li className="p-2.5 rounded bg-rose-50 border border-rose-200 font-bold text-rose-950">
                   ⚡ <strong>OKAMŽITĚ ROZEVŘÍT VÍČKA a OPLACHOVAT POUZE ČISTOU VODOU!</strong>
                 </li>
                 <li>• Vyplachovat proudem čisté vlažné vody po dobu <strong>minimálně 15 minut</strong>.</li>
@@ -907,9 +907,9 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
             </div>
 
             {/* 🦵 Poleptání kůže */}
-            <div className="card p-6 bg-white border-2 border-amber-200 rounded-3xl space-y-4 shadow-sm">
+            <div className="card p-6 bg-white border-2 border-amber-200 rounded space-y-4 shadow-sm">
               <div className="flex items-center gap-3 border-b border-amber-100 pb-3">
-                <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center font-black text-xl">
+                <div className="w-10 h-10 rounded bg-amber-100 text-amber-700 flex items-center justify-center font-black text-xl">
                   🧴
                 </div>
                 <div>
@@ -918,7 +918,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
                 </div>
               </div>
               <ul className="space-y-2.5 text-xs text-neutral-800 font-medium">
-                <li className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 font-bold text-amber-950">
+                <li className="p-2.5 rounded bg-amber-50 border border-amber-200 font-bold text-amber-950">
                   👕 <strong>Ihned svléknout potřísněný oděv</strong> (oděv drží chemikálii na kůži).
                 </li>
                 <li>• Oplachovat postižené místo silným proudem studené vody po dobu 10–15 minut.</li>
@@ -929,9 +929,9 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
             </div>
 
             {/* 💨 Nadhýchání výparů & CO2 v kvasném tanku */}
-            <div className="card p-6 bg-white border-2 border-sky-200 rounded-3xl space-y-4 shadow-sm">
+            <div className="card p-6 bg-white border-2 border-sky-200 rounded space-y-4 shadow-sm">
               <div className="flex items-center gap-3 border-b border-sky-100 pb-3">
-                <div className="w-10 h-10 rounded-2xl bg-sky-100 text-sky-700 flex items-center justify-center font-black text-xl">
+                <div className="w-10 h-10 rounded bg-sky-100 text-sky-700 flex items-center justify-center font-black text-xl">
                   💨
                 </div>
                 <div>
@@ -940,7 +940,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
                 </div>
               </div>
               <ul className="space-y-2.5 text-xs text-neutral-800 font-medium">
-                <li className="p-2.5 rounded-xl bg-sky-50 border border-sky-200 font-bold text-sky-950">
+                <li className="p-2.5 rounded bg-sky-50 border border-sky-200 font-bold text-sky-950">
                   ❄️ <strong>POZOR NA CO₂ V KVASNÝCH TANCÍCH:</strong> CO₂ se drží u dna tanku, vytěsňuje kyslík a způsobuje bleskový kolaps bez varování!
                 </li>
                 <li>• Při vstupu nebo vyjímání panenky z kvasného tanku vždy úkon provádět za přítomnosti <strong>2. osoby</strong>!</li>
@@ -950,9 +950,9 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
             </div>
 
             {/* 🚰 Požití chemikálie */}
-            <div className="card p-6 bg-white border-2 border-purple-200 rounded-3xl space-y-4 shadow-sm">
+            <div className="card p-6 bg-white border-2 border-purple-200 rounded space-y-4 shadow-sm">
               <div className="flex items-center gap-3 border-b border-purple-100 pb-3">
-                <div className="w-10 h-10 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center font-black text-xl">
+                <div className="w-10 h-10 rounded bg-purple-100 text-purple-700 flex items-center justify-center font-black text-xl">
                   🚰
                 </div>
                 <div>
@@ -961,7 +961,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
                 </div>
               </div>
               <ul className="space-y-2.5 text-xs text-neutral-800 font-medium">
-                <li className="p-2.5 rounded-xl bg-purple-50 border border-purple-200 font-bold text-purple-950">
+                <li className="p-2.5 rounded bg-purple-50 border border-purple-200 font-bold text-purple-950">
                   🚫 <strong>NEVYVOLÁVAT ZVRACENÍ!</strong> Zvratky by znovu poleptaly jícen a hrozí proděravění žaludku.
                 </li>
                 <li>• Postiženému dát ihned vypít 2–5 dcl čisté chladné vody pro rozředění chemikálie.</li>
@@ -972,11 +972,11 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
           </div>
 
           {/* Golden Rule of Acid Dilution */}
-          <div className="p-5 rounded-3xl bg-neutral-900 text-amber-300 border-2 border-amber-500 font-mono text-xs space-y-2 shadow-lg">
+          <div className="p-5 rounded bg-neutral-900 text-amber-300 border-2 border-amber-500 font-mono text-xs space-y-2 shadow-lg">
             <div className="font-black text-white text-sm uppercase flex items-center gap-2">
               <span>⚠️ ZÁKLADNÍ BEZPEČNOSTNÍ PRAVIDLO ŘEDĚNÍ KYSELIN:</span>
             </div>
-            <div className="text-base font-black text-amber-400 p-3 rounded-2xl bg-black/50 border border-amber-500/40 text-center">
+            <div className="text-base font-black text-amber-400 p-3 rounded bg-black/50 border border-amber-500/40 text-center">
               „KYSELINU VŽDY LIJEME DO VODY! NIKDY VODU DO KYSELINY!“
             </div>
             <p className="text-neutral-400 text-xs">

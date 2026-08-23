@@ -48,10 +48,10 @@ export function BeersScreen() {
   return (
     <div className="space-y-6 pb-12">
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <button className="px-3.5 py-2.5 rounded-2xl bg-white border border-amber-300/80 text-amber-950 hover:bg-amber-50 font-extrabold text-xs transition flex items-center gap-1.5 shadow-xs" onClick={() => setShowImport(true)}>
+        <button className="px-3.5 py-2.5 rounded bg-white border border-amber-300/80 text-amber-950 hover:bg-amber-50 font-extrabold text-xs transition flex items-center gap-1.5 shadow-xs" onClick={() => setShowImport(true)}>
           <FileSpreadsheet size={16} /> Import z Excelu
         </button>
-        <button className="px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-black text-xs transition shadow-md flex items-center gap-1.5" onClick={() => { setEdit(null); setShow(true); }}>
+        <button className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-600 text-white font-black text-xs transition shadow-md flex items-center gap-1.5" onClick={() => { setEdit(null); setShow(true); }}>
           <Plus size={16} /> Přidat pivo
         </button>
       </div>
@@ -64,7 +64,7 @@ export function BeersScreen() {
           placeholder="Hledat pivo podle názvu, stupně nebo barvy..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-neutral-200 bg-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
+          className="w-full pl-10 pr-4 py-2.5 rounded border border-neutral-200 bg-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
         />
       </div>
 
@@ -79,8 +79,8 @@ export function BeersScreen() {
                   <div className="min-w-0">
                     <div className="font-display font-black text-lg truncate text-neutral-900 dark:text-neutral-100">{b.name}</div>
                     <div className="flex flex-wrap gap-1.5 mt-2">
-                      {b.degree && <span className="px-2.5 py-0.5 rounded-lg bg-neutral-900 text-amber-300 font-mono font-black text-xs">{b.degree}</span>}
-                      {b.color && <span className="px-2 py-0.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-extrabold text-xs border border-neutral-200 dark:border-neutral-700">{b.color}</span>}
+                      {b.degree && <span className="px-2.5 py-0.5 rounded bg-neutral-900 text-amber-300 font-mono font-black text-xs">{b.degree}</span>}
+                      {b.color && <span className="px-2 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-extrabold text-xs border border-neutral-200 dark:border-neutral-700">{b.color}</span>}
                     </div>
                   </div>
                   <span className={`w-3 h-3 rounded-full shrink-0 shadow-xs ${b.is_active ? 'bg-emerald-500' : 'bg-neutral-300'}`} title={b.is_active ? 'Aktivní' : 'Skryté'} />
@@ -88,13 +88,13 @@ export function BeersScreen() {
               </div>
 
               <div className="flex items-center gap-2 mt-5 pt-3 border-t border-neutral-200 dark:border-neutral-700">
-                <button className="flex-1 px-3 py-1.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-900 dark:text-neutral-100 font-extrabold text-xs shadow-xs transition" onClick={() => { setEdit(b); setShow(true); }}>
+                <button className="flex-1 px-3 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-900 dark:text-neutral-100 font-extrabold text-xs shadow-xs transition" onClick={() => { setEdit(b); setShow(true); }}>
                   Upravit
                 </button>
-                <button className="px-3 py-1.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 font-bold text-xs shadow-xs transition" onClick={() => toggleActive(b)}>
+                <button className="px-3 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 font-bold text-xs shadow-xs transition" onClick={() => toggleActive(b)}>
                   {b.is_active ? 'Skrýt' : 'Aktivovat'}
                 </button>
-                <button className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-500 dark:bg-rose-900/30 text-rose-700 hover:text-white font-bold text-xs transition" onClick={() => del(b.id)}>
+                <button className="p-1.5 rounded bg-rose-50 hover:bg-rose-500 dark:bg-rose-900/30 text-rose-700 hover:text-white font-bold text-xs transition" onClick={() => del(b.id)}>
                   <Trash2 size={15} />
                 </button>
               </div>
@@ -151,16 +151,16 @@ function BeerForm({ beer, onClose, onSaved }: { beer: Beer | null; onClose: () =
           <div className="flex flex-wrap gap-2 items-center">
             {BEER_COLOR_PRESETS.map((c) => (
               <button key={c} type="button" onClick={() => setBeerColor(c)}
-                className={`w-8 h-8 rounded-xl border-2 transition ${beerColor === c ? 'ring-2 ring-amber-500 border-amber-500 scale-110' : 'border-neutral-200'}`}
+                className={`w-8 h-8 rounded border-2 transition ${beerColor === c ? 'ring-2 ring-amber-500 border-amber-500 scale-110' : 'border-neutral-200'}`}
                 style={{ backgroundColor: c }} title={c} />
             ))}
-            <input type="color" value={beerColor} onChange={(e) => setBeerColor(e.target.value)} className="w-8 h-8 rounded-xl cursor-pointer border border-neutral-200" />
+            <input type="color" value={beerColor} onChange={(e) => setBeerColor(e.target.value)} className="w-8 h-8 rounded cursor-pointer border border-neutral-200" />
           </div>
         </Field>
         <Field label="Pořadí"><input type="number" className="input" value={order} onChange={(e) => setOrder(Number(e.target.value))} /></Field>
         <div className="flex justify-end gap-2 pt-2">
-          <button className="btn-ghost" onClick={onClose}>Zrušit</button>
-          <button className="btn-primary" disabled={busy || !name} onClick={save}>{busy ? 'Ukládám…' : 'Uložit'}</button>
+          <button className="btn-ghost !rounded" onClick={onClose}>Zrušit</button>
+          <button className="btn-primary !rounded" disabled={busy || !name} onClick={save}>{busy ? 'Ukládám…' : 'Uložit'}</button>
         </div>
       </div>
     </Modal>
@@ -192,7 +192,7 @@ export function PackagesScreen() {
   return (
     <div className="space-y-6 pb-12">
       <div className="flex justify-end">
-        <button className="px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-black text-xs transition shadow-md flex items-center gap-1.5" onClick={() => { setEdit(null); setShow(true); }}>
+        <button className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-600 text-white font-black text-xs transition shadow-md flex items-center gap-1.5" onClick={() => { setEdit(null); setShow(true); }}>
           <Plus size={16} /> Přidat obal
         </button>
       </div>
@@ -200,11 +200,11 @@ export function PackagesScreen() {
       {loading ? <Spinner /> : rows.length === 0 ? <EmptyState text="Žádné obaly v katalogu." icon="📦" /> : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {rows.map((p) => (
-            <div key={p.id} className="card p-5 shadow-sm hover:shadow-md border border-neutral-200/90 bg-white rounded-3xl flex flex-col justify-between">
+            <div key={p.id} className="card p-5 shadow-sm hover:shadow-md border border-neutral-200/90 bg-white rounded flex flex-col justify-between">
               <div>
                 <div className="flex items-start justify-between gap-2">
                   <div className="font-display font-black text-lg text-neutral-900">{p.label}</div>
-                  <span className={`px-2.5 py-1 rounded-xl text-xs font-black ${p.kind === 'keg' ? 'bg-amber-500/20 text-amber-900 border border-amber-400/30' : 'bg-emerald-500/20 text-emerald-900 border border-emerald-400/30'}`}>
+                  <span className={`px-2.5 py-1 rounded text-xs font-black ${p.kind === 'keg' ? 'bg-amber-500/20 text-amber-900 border border-amber-400/30' : 'bg-emerald-500/20 text-emerald-900 border border-emerald-400/30'}`}>
                     {p.kind === 'keg' ? '🛢️ KEG' : '🍾 Lahev'}
                   </span>
                 </div>
@@ -213,10 +213,10 @@ export function PackagesScreen() {
               </div>
 
               <div className="flex items-center gap-2 mt-5 pt-3 border-t border-neutral-100">
-                <button className="flex-1 px-3 py-1.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-900 font-extrabold text-xs transition" onClick={() => { setEdit(p); setShow(true); }}>
+                <button className="flex-1 px-3 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-900 font-extrabold text-xs transition" onClick={() => { setEdit(p); setShow(true); }}>
                   Upravit
                 </button>
-                <button className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-500 text-rose-600 hover:text-white font-bold text-xs transition" onClick={() => del(p.id)}>
+                <button className="p-1.5 rounded bg-rose-50 hover:bg-rose-500 text-rose-600 hover:text-white font-bold text-xs transition" onClick={() => del(p.id)}>
                   <Trash2 size={15} />
                 </button>
               </div>
@@ -262,8 +262,8 @@ function PackageForm({ pkg, onClose, onSaved }: { pkg: Package | null; onClose: 
         </div>
         <Field label="Popisek"><input className="input font-bold" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="KEG 30l" /></Field>
         <div className="flex justify-end gap-2 pt-2">
-          <button className="btn-ghost" onClick={onClose}>Zrušit</button>
-          <button className="btn-primary" disabled={busy || !code || !label} onClick={save}>{busy ? 'Ukládám…' : 'Uložit'}</button>
+          <button className="btn-ghost !rounded" onClick={onClose}>Zrušit</button>
+          <button className="btn-primary !rounded" disabled={busy || !code || !label} onClick={save}>{busy ? 'Ukládám…' : 'Uložit'}</button>
         </div>
       </div>
     </Modal>
@@ -327,14 +327,14 @@ export function PlacesScreen() {
     <div className="space-y-6 pb-12">
       <div className="flex flex-wrap items-center justify-end gap-2">
         {missingGps.length > 0 && (
-          <button className="px-3.5 py-2.5 rounded-2xl bg-white border border-sky-300/80 text-sky-950 hover:bg-sky-50 font-extrabold text-xs transition flex items-center gap-1.5 shadow-xs" onClick={() => setShowGpsBackfill(true)}>
+          <button className="px-3.5 py-2.5 rounded bg-white border border-sky-300/80 text-sky-950 hover:bg-sky-50 font-extrabold text-xs transition flex items-center gap-1.5 shadow-xs" onClick={() => setShowGpsBackfill(true)}>
             <MapPin size={16} /> Doplnit chybějící GPS ({missingGps.length})
           </button>
         )}
-        <button className="px-3.5 py-2.5 rounded-2xl bg-white border border-amber-300/80 text-amber-950 hover:bg-amber-50 font-extrabold text-xs transition flex items-center gap-1.5 shadow-xs" onClick={() => setShowImport(true)}>
+        <button className="px-3.5 py-2.5 rounded bg-white border border-amber-300/80 text-amber-950 hover:bg-amber-50 font-extrabold text-xs transition flex items-center gap-1.5 shadow-xs" onClick={() => setShowImport(true)}>
           <FileSpreadsheet size={16} /> Import z Excelu
         </button>
-        <button className="px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-black text-xs transition shadow-md flex items-center gap-1.5" onClick={() => { setEdit(null); setShow(true); }}>
+        <button className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-600 text-white font-black text-xs transition shadow-md flex items-center gap-1.5" onClick={() => { setEdit(null); setShow(true); }}>
           <Plus size={16} /> Přidat odběratele
         </button>
       </div>
@@ -346,7 +346,7 @@ export function PlacesScreen() {
           placeholder="Hledat odběratele podle jména, adresy nebo kontaktu..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-neutral-200 bg-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
+          className="w-full pl-10 pr-4 py-2.5 rounded border border-neutral-200 bg-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
         />
       </div>
 
@@ -355,7 +355,7 @@ export function PlacesScreen() {
       {loading ? <Spinner /> : filtered.length === 0 ? <EmptyState text="Žádní odběratelé." icon="🏪" /> : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((p) => (
-            <div key={p.id} className="card p-5 shadow-sm hover:shadow-md border border-neutral-200/90 bg-white rounded-3xl flex flex-col justify-between">
+            <div key={p.id} className="card p-5 shadow-sm hover:shadow-md border border-neutral-200/90 bg-white rounded flex flex-col justify-between">
               <div>
                 <div className="flex items-start justify-between gap-1">
                   <div className="font-display font-black text-base text-neutral-900">{p.name}</div>
@@ -375,7 +375,7 @@ export function PlacesScreen() {
                     Adresa není zadána
                   </div>
                 )}
-                {p.delivery_group && <div className="mt-2 text-xs font-bold text-emerald-800 bg-emerald-100 border border-emerald-200 rounded-lg px-2 py-1 inline-block">Skupina: {p.delivery_group}</div>}
+                {p.delivery_group && <div className="mt-2 text-xs font-bold text-emerald-800 bg-emerald-100 border border-emerald-200 rounded px-2 py-1 inline-block">Skupina: {p.delivery_group}</div>}
                 {p.contact_name && <div className="text-xs text-neutral-700 font-bold mt-2">Kontakt: {p.contact_name}</div>}
                 {p.phone ? (
                   <div className="text-xs text-amber-700 font-mono font-bold mt-0.5 flex items-center gap-1">
@@ -391,10 +391,10 @@ export function PlacesScreen() {
               </div>
 
               <div className="flex items-center gap-2 mt-5 pt-3 border-t border-neutral-100">
-                <button className="flex-1 px-3 py-1.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-900 font-extrabold text-xs transition" onClick={() => { setEdit(p); setShow(true); }}>
+                <button className="flex-1 px-3 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-900 font-extrabold text-xs transition" onClick={() => { setEdit(p); setShow(true); }}>
                   Upravit
                 </button>
-                <button className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-500 text-rose-600 hover:text-white font-bold text-xs transition" onClick={() => del(p.id)}>
+                <button className="p-1.5 rounded bg-rose-50 hover:bg-rose-500 text-rose-600 hover:text-white font-bold text-xs transition" onClick={() => del(p.id)}>
                   <Trash2 size={15} />
                 </button>
               </div>
@@ -491,7 +491,7 @@ function GpsBackfillModal({ places, onClose, onSaved }: { places: Place[]; onClo
             </p>
             <div className="space-y-1.5 max-h-[45vh] overflow-y-auto pr-1">
               {places.map((p) => (
-                <div key={p.id} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-neutral-200 bg-white">
+                <div key={p.id} className="flex items-center gap-2 px-3 py-2 rounded border border-neutral-200 bg-white">
                   <div className="font-black text-neutral-900 shrink-0 w-28 truncate" title={p.name}>{p.name}</div>
                   <input
                     type="text"
@@ -503,7 +503,7 @@ function GpsBackfillModal({ places, onClose, onSaved }: { places: Place[]; onClo
                 </div>
               ))}
             </div>
-            <button onClick={runLookup} disabled={readyCount === 0} className="btn-amber w-full justify-center py-2.5 font-black disabled:opacity-50">
+            <button onClick={runLookup} disabled={readyCount === 0} className="btn-amber !rounded w-full justify-center py-2.5 font-black disabled:opacity-50">
               🔍 Spustit vyhledání ({readyCount})
             </button>
           </>
@@ -527,7 +527,7 @@ function GpsBackfillModal({ places, onClose, onSaved }: { places: Place[]; onClo
               {targets.map((p) => {
                 const r = results[p.id];
                 return (
-                  <label key={p.id} className={`flex items-start gap-2 px-3 py-2 rounded-xl border cursor-pointer ${r ? 'bg-white border-neutral-200' : 'bg-neutral-50 border-neutral-200 opacity-60'}`}>
+                  <label key={p.id} className={`flex items-start gap-2 px-3 py-2 rounded border cursor-pointer ${r ? 'bg-white border-neutral-200' : 'bg-neutral-50 border-neutral-200 opacity-60'}`}>
                     <input
                       type="checkbox"
                       className="mt-0.5"
@@ -551,7 +551,7 @@ function GpsBackfillModal({ places, onClose, onSaved }: { places: Place[]; onClo
               })}
             </div>
             <div className="flex items-center gap-2 pt-2">
-              <button onClick={onClose} className="flex-1 px-3 py-2.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-900 font-extrabold transition">
+              <button onClick={onClose} className="flex-1 px-3 py-2.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-900 font-extrabold transition">
                 Zrušit
               </button>
               <button
@@ -706,13 +706,13 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
           </Field>
 
           {lookupMsg && (
-            <div className="mt-1.5 text-xs font-bold text-neutral-700 bg-amber-50 border border-amber-200 rounded-xl p-2">
+            <div className="mt-1.5 text-xs font-bold text-neutral-700 bg-amber-50 border border-amber-200 rounded p-2">
               {lookupMsg}
             </div>
           )}
 
           {addressCandidates.length > 0 && (
-            <div className="mt-2 space-y-1 bg-white border border-neutral-200 rounded-xl p-2">
+            <div className="mt-2 space-y-1 bg-white border border-neutral-200 rounded p-2">
               {addressCandidates.map((cand, idx) => (
                 <button
                   key={idx}
@@ -725,7 +725,7 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
                     setAddressCandidates([]);
                     setLookupMsg(`✓ Vybrána adresa: ${cand.address}`);
                   }}
-                  className="w-full text-left p-2 rounded-lg text-xs hover:bg-amber-50 font-medium text-neutral-800 transition flex items-center justify-between gap-2 border border-transparent hover:border-amber-300"
+                  className="w-full text-left p-2 rounded text-xs hover:bg-amber-50 font-medium text-neutral-800 transition flex items-center justify-between gap-2 border border-transparent hover:border-amber-300"
                 >
                   <span className="truncate">{cand.address}</span>
                   <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md shrink-0">
@@ -796,12 +796,12 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
         </Field>
 
         <div className="flex justify-end gap-2 pt-2 border-t border-neutral-100">
-          <button type="button" className="btn-ghost text-xs font-bold" onClick={onClose}>
+          <button type="button" className="btn-ghost !rounded text-xs font-bold" onClick={onClose}>
             Zrušit
           </button>
           <button
             type="button"
-            className="btn-primary text-xs font-black"
+            className="btn-primary !rounded text-xs font-black"
             disabled={busy || !name}
             onClick={save}
           >
@@ -890,7 +890,7 @@ export function VehiclesScreen() {
   return (
     <div className="space-y-6 pb-12">
       <div className="flex justify-end">
-        <button className="px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition shadow-md flex items-center gap-1.5" onClick={() => { setEdit(null); setShow(true); }}>
+        <button className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition shadow-md flex items-center gap-1.5" onClick={() => { setEdit(null); setShow(true); }}>
           <Plus size={16} /> Přidat auto
         </button>
       </div>
@@ -907,7 +907,7 @@ export function VehiclesScreen() {
             return (
               <div
                 key={v.id}
-                className={`card p-6 shadow-md border-2 transition-all rounded-3xl flex flex-col justify-between ${
+                className={`card p-6 shadow-md border-2 transition-all rounded flex flex-col justify-between ${
                   hasExpired
                     ? 'bg-rose-50 border-rose-400 shadow-rose-100'
                     : hasWarning
@@ -918,7 +918,7 @@ export function VehiclesScreen() {
                 <div className="space-y-4">
                   <div className="flex items-start justify-between gap-3 pb-3 border-b border-neutral-200/80">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-2xl bg-slate-900 text-amber-400 flex items-center justify-center font-black text-xl shadow-md">
+                      <div className="w-12 h-12 rounded bg-slate-900 text-amber-400 flex items-center justify-center font-black text-xl shadow-md">
                         🚗
                       </div>
                       <div>
@@ -928,7 +928,7 @@ export function VehiclesScreen() {
                     </div>
 
                     {(hasExpired || hasWarning) && (
-                      <span className={`px-3 py-1 rounded-xl text-xs font-black flex items-center gap-1 shadow-xs ${
+                      <span className={`px-3 py-1 rounded text-xs font-black flex items-center gap-1 shadow-xs ${
                         hasExpired ? 'bg-rose-600 text-white animate-pulse' : 'bg-amber-500 text-slate-950'
                       }`}>
                         <AlertTriangle size={15} />
@@ -940,7 +940,7 @@ export function VehiclesScreen() {
                   {/* STK & Toll Indicators */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {/* STK */}
-                    <div className={`p-3.5 rounded-2xl border ${
+                    <div className={`p-3.5 rounded border ${
                       stkStatus.status === 'expired'
                         ? 'bg-rose-500/20 border-rose-500 text-rose-950 font-black'
                         : stkStatus.status === 'warning'
@@ -957,7 +957,7 @@ export function VehiclesScreen() {
                     </div>
 
                     {/* Highway Toll */}
-                    <div className={`p-3.5 rounded-2xl border ${
+                    <div className={`p-3.5 rounded border ${
                       tollStatus.status === 'expired'
                         ? 'bg-rose-500/20 border-rose-500 text-rose-950 font-black'
                         : tollStatus.status === 'warning'
@@ -975,17 +975,17 @@ export function VehiclesScreen() {
                   </div>
 
                   {v.note && (
-                    <div className="text-xs text-neutral-600 font-medium bg-neutral-100/70 p-3 rounded-xl italic">
+                    <div className="text-xs text-neutral-600 font-medium bg-neutral-100/70 p-3 rounded italic">
                       📝 {v.note}
                     </div>
                   )}
                 </div>
 
                 <div className="flex items-center gap-2 mt-5 pt-3 border-t border-neutral-200/80">
-                  <button className="flex-1 px-4 py-2 rounded-xl bg-neutral-900 text-amber-300 font-extrabold text-xs hover:bg-slate-800 transition shadow-xs" onClick={() => { setEdit(v); setShow(true); }}>
+                  <button className="flex-1 px-4 py-2 rounded bg-neutral-900 text-amber-300 font-extrabold text-xs hover:bg-slate-800 transition shadow-xs" onClick={() => { setEdit(v); setShow(true); }}>
                     Upravit termíny & SPZ
                   </button>
-                  <button className="p-2 rounded-xl bg-rose-50 hover:bg-rose-500 text-rose-600 hover:text-white font-bold text-xs transition" onClick={() => del(v.id)}>
+                  <button className="p-2 rounded bg-rose-50 hover:bg-rose-500 text-rose-600 hover:text-white font-bold text-xs transition" onClick={() => del(v.id)}>
                     <Trash2 size={16} />
                   </button>
                 </div>
@@ -1042,8 +1042,8 @@ function VehicleForm({ vehicle, onClose, onSaved }: { vehicle: Vehicle | null; o
         <Field label="Poznámka"><textarea className="input" value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="Náklaďák pro závozy..." /></Field>
 
         <div className="flex justify-end gap-2 pt-2">
-          <button className="btn-ghost" onClick={onClose}>Zrušit</button>
-          <button className="btn-primary" disabled={busy || !name.trim()} onClick={save}>{busy ? 'Ukládám…' : 'Uložit vozidlo'}</button>
+          <button className="btn-ghost !rounded" onClick={onClose}>Zrušit</button>
+          <button className="btn-primary !rounded" disabled={busy || !name.trim()} onClick={save}>{busy ? 'Ukládám…' : 'Uložit vozidlo'}</button>
         </div>
       </div>
     </Modal>

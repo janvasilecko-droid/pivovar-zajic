@@ -184,7 +184,7 @@ export default function VycepyScreen() {
   return (
     <div className="space-y-6 pb-12">
       {/* Top Banner */}
-      <div className="bg-neutral-900 text-white p-5 sm:p-7 rounded-3xl border border-amber-500/30 shadow-xl flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-neutral-900 text-white p-5 sm:p-7 rounded border border-amber-500/30 shadow-xl flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-amber-400 font-extrabold text-xs uppercase tracking-widest mb-1">
             <Flame size={18} />
@@ -200,7 +200,7 @@ export default function VycepyScreen() {
 
         <button
           onClick={() => setShowAddTapModal(true)}
-          className="btn-primary !bg-amber-500 !text-neutral-950 font-black text-xs flex items-center gap-1.5 shadow-md"
+          className="btn-primary !rounded !bg-amber-500 !text-neutral-950 font-black text-xs flex items-center gap-1.5 shadow-md"
         >
           <Plus size={16} /> Přidat výčepní zařízení
         </button>
@@ -224,7 +224,7 @@ export default function VycepyScreen() {
               return (
                 <div
                   key={t.id}
-                  className={`card p-5 rounded-3xl border-2 transition-all shadow-sm space-y-4 flex flex-col justify-between ${
+                  className={`card p-5 rounded border-2 transition-all shadow-sm space-y-4 flex flex-col justify-between ${
                     isDirty
                       ? 'bg-rose-50 border-rose-300'
                       : needsLouh
@@ -246,7 +246,7 @@ export default function VycepyScreen() {
                     </div>
 
                     {/* Stav čistoty odznáček */}
-                    <div className="p-3 rounded-2xl border text-xs font-bold space-y-1 bg-white/90">
+                    <div className="p-3 rounded border text-xs font-bold space-y-1 bg-white/90">
                       <div className="flex items-center justify-between">
                         <span className="text-neutral-500 font-medium">Stav čistoty:</span>
                         {isClean && <span className="text-emerald-700 font-black flex items-center gap-1"><CheckCircle2 size={14} /> Čisté & Opláchnuté</span>}
@@ -281,7 +281,7 @@ export default function VycepyScreen() {
                         last_water_rinse: new Date().toLocaleDateString('cs-CZ') + ' ' + new Date().toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' }),
                         taps_disassembled: true
                       })}
-                      className="px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold shadow-2xs flex items-center justify-center gap-1"
+                      className="px-2.5 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold shadow-2xs flex items-center justify-center gap-1"
                       title="Provést Oplach vodou a zaznamenat čistotu"
                     >
                       <Droplets size={13} /> Opláchnuto
@@ -293,7 +293,7 @@ export default function VycepyScreen() {
                         last_louh_sanitation: new Date().toLocaleDateString('cs-CZ') + ' ' + new Date().toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' }),
                         taps_disassembled: true
                       })}
-                      className="px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black shadow-2xs flex items-center justify-center gap-1"
+                      className="px-2.5 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black shadow-2xs flex items-center justify-center gap-1"
                       title="Provést sanitaci louhem"
                     >
                       <RefreshCw size={13} /> Louh 🧪
@@ -307,7 +307,7 @@ export default function VycepyScreen() {
       </div>
 
       {/* 📅 REZERVAČNÍ KALENDÁŘ VÝČEPŮ */}
-      <div className="card p-6 bg-white border border-neutral-200 rounded-3xl shadow-xs space-y-4">
+      <div className="card p-6 bg-white border border-neutral-200 rounded shadow-xs space-y-4">
         <div className="flex items-center justify-between border-b border-neutral-100 pb-3 flex-wrap gap-2">
           <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
             <Calendar className="text-amber-600" size={20} />
@@ -319,7 +319,7 @@ export default function VycepyScreen() {
               if (taps.length > 0) setResTapId(taps[0].id);
               setShowResModal(true);
             }}
-            className="btn-primary !py-1.5 !px-3.5 text-xs font-black shadow-2xs flex items-center gap-1"
+            className="btn-primary !rounded !py-1.5 !px-3.5 text-xs font-black shadow-2xs flex items-center gap-1"
           >
             + Nová výpůjčka / rezervace
           </button>
@@ -335,7 +335,7 @@ export default function VycepyScreen() {
               const isOverdue = !r.is_returned && r.date_to < todayStr;
               const isReturned = r.is_returned;
               return (
-                <div key={r.id} className={`rounded-2xl border p-3 space-y-2 ${isOverdue ? 'bg-rose-50/60 border-rose-200' : 'bg-white border-neutral-200'}`}>
+                <div key={r.id} className={`rounded border p-3 space-y-2 ${isOverdue ? 'bg-rose-50/60 border-rose-200' : 'bg-white border-neutral-200'}`}>
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-black text-sm text-neutral-950">{r.tap_name}</span>
                     {isReturned ? (
@@ -361,13 +361,13 @@ export default function VycepyScreen() {
                     <button
                       type="button"
                       onClick={() => handleToggleReturnReservation(r)}
-                      className={`flex-1 min-h-[40px] px-3 py-2 rounded-xl text-xs font-black transition ${
+                      className={`flex-1 min-h-[40px] px-3 py-2 rounded text-xs font-black transition ${
                         r.is_returned ? 'bg-neutral-200 text-neutral-800 hover:bg-neutral-300' : 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-2xs'
                       }`}
                     >
                       {r.is_returned ? 'Zrušit vrácení' : '✓ Vrátit'}
                     </button>
-                    <button onClick={() => handleDeleteReservation(r.id)} className="w-10 h-10 grid place-items-center rounded-lg hover:bg-rose-100 text-rose-600 transition shrink-0" title="Smazat rezervaci">
+                    <button onClick={() => handleDeleteReservation(r.id)} className="w-10 h-10 grid place-items-center rounded hover:bg-rose-100 text-rose-600 transition shrink-0" title="Smazat rezervaci">
                       <Trash2 size={16} />
                     </button>
                   </div>
@@ -432,7 +432,7 @@ export default function VycepyScreen() {
                           <button
                             type="button"
                             onClick={() => handleToggleReturnReservation(r)}
-                            className={`px-2.5 py-1 rounded-xl text-[11px] font-black transition ${
+                            className={`px-2.5 py-1 rounded text-[11px] font-black transition ${
                               r.is_returned
                                 ? 'bg-neutral-200 text-neutral-800 hover:bg-neutral-300'
                                 : 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-2xs'
@@ -440,7 +440,7 @@ export default function VycepyScreen() {
                           >
                             {r.is_returned ? 'Zrušit vrácení' : '✓ Vrátit'}
                           </button>
-                          <button onClick={() => handleDeleteReservation(r.id)} className="p-1.5 rounded-lg hover:bg-rose-100 text-rose-600 transition" title="Smazat rezervaci">
+                          <button onClick={() => handleDeleteReservation(r.id)} className="p-1.5 rounded hover:bg-rose-100 text-rose-600 transition" title="Smazat rezervaci">
                             <Trash2 size={14} />
                           </button>
                         </div>
@@ -458,7 +458,7 @@ export default function VycepyScreen() {
       {/* MODAL NOVÝ VÝČEP */}
       {showAddTapModal && (
         <div className="fixed inset-0 bg-neutral-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-neutral-200">
+          <div className="bg-white rounded max-w-md w-full p-6 space-y-4 shadow-2xl border border-neutral-200">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
               <h3 className="font-display font-black text-lg text-neutral-900">Přidat výčepní zařízení</h3>
               <button onClick={() => setShowAddTapModal(false)} className="text-neutral-400 font-bold">✕</button>
@@ -504,7 +504,7 @@ export default function VycepyScreen() {
 
               <div className="pt-3 flex justify-end gap-2 border-t border-neutral-100">
                 <button type="button" onClick={() => setShowAddTapModal(false)} className="btn-secondary text-xs font-bold">Zrušit</button>
-                <button type="submit" className="btn-primary text-xs font-black">Uložit výčep</button>
+                <button type="submit" className="btn-primary !rounded text-xs font-black">Uložit výčep</button>
               </div>
             </form>
           </div>
@@ -514,7 +514,7 @@ export default function VycepyScreen() {
       {/* MODAL NOVÁ REZERVACE */}
       {showResModal && (
         <div className="fixed inset-0 bg-neutral-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-neutral-200">
+          <div className="bg-white rounded max-w-md w-full p-6 space-y-4 shadow-2xl border border-neutral-200">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
               <h3 className="font-display font-black text-lg text-neutral-900">Vytvořit výpůjčku výčepu</h3>
               <button onClick={() => setShowResModal(false)} className="text-neutral-400 font-bold">✕</button>
@@ -594,8 +594,8 @@ export default function VycepyScreen() {
               </div>
 
               <div className="pt-3 flex justify-end gap-2 border-t border-neutral-100">
-                <button type="button" onClick={() => setShowResModal(false)} className="px-4 py-2 rounded-xl bg-neutral-100 font-bold text-xs">Zrušit</button>
-                <button type="submit" className="px-4 py-2 rounded-xl bg-amber-500 font-black text-xs">Zarezervovat</button>
+                <button type="button" onClick={() => setShowResModal(false)} className="px-4 py-2 rounded bg-neutral-100 font-bold text-xs">Zrušit</button>
+                <button type="submit" className="px-4 py-2 rounded bg-amber-500 font-black text-xs">Zarezervovat</button>
               </div>
             </form>
           </div>

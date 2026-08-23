@@ -741,36 +741,36 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
     <div className="space-y-6 pb-12">
       {/* 🏆 GLOBÁLNÍ KPI DASHBOARD — aktuální rok */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
-        <div className="rounded-2xl p-3 bg-white border-2 border-amber-300 shadow-xs">
+        <div className="rounded p-3 bg-white border-2 border-amber-300 shadow-xs">
           <div className="text-[10px] font-black uppercase tracking-wider text-amber-700">Uvařeno {currentYear}</div>
           <div className="text-lg font-display font-black text-neutral-900">{yearData.totalBrewed} ks</div>
           <div className="text-[10px] font-bold text-neutral-500">{yearData.totalBrewedHl.toFixed(1)} hl</div>
         </div>
-        <div className="rounded-2xl p-3 bg-white border-2 border-sky-300 shadow-xs">
+        <div className="rounded p-3 bg-white border-2 border-sky-300 shadow-xs">
           <div className="text-[10px] font-black uppercase tracking-wider text-sky-700">Lahve</div>
           <div className="text-lg font-display font-black text-neutral-900">{yearData.totalBottled} ks</div>
         </div>
-        <div className="rounded-2xl p-3 bg-white border-2 border-amber-500 shadow-xs">
+        <div className="rounded p-3 bg-white border-2 border-amber-500 shadow-xs">
           <div className="text-[10px] font-black uppercase tracking-wider text-amber-800">Sudy (KEG)</div>
           <div className="text-lg font-display font-black text-neutral-900">{yearData.totalKegged} ks</div>
         </div>
-        <div className="rounded-2xl p-3 bg-white border-2 border-emerald-300 shadow-xs">
+        <div className="rounded p-3 bg-white border-2 border-emerald-300 shadow-xs">
           <div className="text-[10px] font-black uppercase tracking-wider text-emerald-700">Fasováno</div>
           <div className="text-lg font-display font-black text-neutral-900">{yearData.totalFasovani} ks</div>
         </div>
-        <div className="rounded-2xl p-3 bg-white border-2 border-rose-300 shadow-xs">
+        <div className="rounded p-3 bg-white border-2 border-rose-300 shadow-xs">
           <div className="text-[10px] font-black uppercase tracking-wider text-rose-700">Odpisy</div>
           <div className="text-lg font-display font-black text-neutral-900">{yearData.totalWriteoffs} ks</div>
         </div>
-        <div className="rounded-2xl p-3 bg-white border-2 border-violet-300 shadow-xs">
+        <div className="rounded p-3 bg-white border-2 border-violet-300 shadow-xs">
           <div className="text-[10px] font-black uppercase tracking-wider text-violet-700">Objednáno</div>
           <div className="text-lg font-display font-black text-neutral-900">{yearData.totalOrdered} ks</div>
         </div>
-        <div className="rounded-2xl p-3 bg-white border-2 border-green-300 shadow-xs">
+        <div className="rounded p-3 bg-white border-2 border-green-300 shadow-xs">
           <div className="text-[10px] font-black uppercase tracking-wider text-green-700">Tržby akce</div>
           <div className="text-lg font-display font-black text-neutral-900">{yearData.totalAkceRevenue.toLocaleString('cs-CZ')} Kč</div>
         </div>
-        <div className="rounded-2xl p-3 bg-white border-2 border-neutral-300 shadow-xs">
+        <div className="rounded p-3 bg-white border-2 border-neutral-300 shadow-xs">
           <div className="text-[10px] font-black uppercase tracking-wider text-neutral-600">Ø měsíčně</div>
           <div className="text-lg font-display font-black text-neutral-900">{yearData.avgMonthlyBrewed} ks</div>
           <div className="text-[10px] font-bold text-neutral-500">{yearData.monthCount} měsíců</div>
@@ -785,10 +785,10 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
         <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-thin">
           <button
             onClick={() => selectTab('overview')}
-            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === 'overview'
-                ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 scale-102'
-                : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+                ? 'bg-white text-neutral-900 shadow-md'
+                : 'bg-neutral-900 text-white hover:bg-neutral-800'
             }`}
           >
             <BarChart3 size={16} />
@@ -797,10 +797,10 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
 
           <button
             onClick={() => selectTab('production')}
-            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === 'production'
-                ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 scale-102'
-                : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+                ? 'bg-white text-neutral-900 shadow-md'
+                : 'bg-neutral-900 text-white hover:bg-neutral-800'
             }`}
           >
             <TrendingUp size={16} />
@@ -809,10 +809,10 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
 
           <button
             onClick={() => selectTab('detail')}
-            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === 'detail'
-                ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 scale-102'
-                : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+                ? 'bg-white text-neutral-900 shadow-md'
+                : 'bg-neutral-900 text-white hover:bg-neutral-800'
             }`}
           >
             <Search size={16} />
@@ -821,10 +821,10 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
 
           <button
             onClick={() => selectTab('cycles')}
-            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === 'cycles'
-                ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 scale-102'
-                : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+                ? 'bg-white text-neutral-900 shadow-md'
+                : 'bg-neutral-900 text-white hover:bg-neutral-800'
             }`}
           >
             <Cylinder size={16} />
@@ -833,10 +833,10 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
 
           <button
             onClick={() => selectTab('stats')}
-            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === 'stats'
-                ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 scale-102'
-                : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+                ? 'bg-white text-neutral-900 shadow-md'
+                : 'bg-neutral-900 text-white hover:bg-neutral-800'
             }`}
           >
             <Trophy size={16} />
@@ -845,10 +845,10 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
 
           <button
             onClick={() => selectTab('orders')}
-            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === 'orders'
-                ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 scale-102'
-                : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+                ? 'bg-white text-neutral-900 shadow-md'
+                : 'bg-neutral-900 text-white hover:bg-neutral-800'
             }`}
           >
             <ShoppingCart size={16} />
@@ -857,10 +857,10 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
 
           <button
             onClick={() => selectTab('deliveries')}
-            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === 'deliveries'
-                ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 scale-102'
-                : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+                ? 'bg-white text-neutral-900 shadow-md'
+                : 'bg-neutral-900 text-white hover:bg-neutral-800'
             }`}
           >
             <Truck size={16} />
@@ -874,7 +874,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
       <div className="flex justify-end">
         <button
           onClick={() => setShowPrintModal(true)}
-          className="px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-neutral-900 hover:bg-neutral-800 text-amber-300 font-black text-xs transition shadow-md flex items-center gap-1.5 shrink-0"
+          className="px-3 sm:px-4 py-2 sm:py-2.5 rounded bg-neutral-900 hover:bg-neutral-800 text-amber-300 font-black text-xs transition shadow-md flex items-center gap-1.5 shrink-0"
         >
           <Printer size={16} />
           <span>🖨️ <span className="sm:hidden">Uzávěrka</span><span className="hidden sm:inline">Měsíční uzávěrka (PDF/Tisk)</span></span>
@@ -900,7 +900,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
               </select>
             </div>
             {(beerFilter || packageFilter) && (
-              <button className="btn-ghost !py-2 text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200" onClick={() => { setBeerFilter(''); setPackageFilter(''); }}>Zrušit filtr</button>
+              <button className="btn-ghost !rounded !py-2 text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200" onClick={() => { setBeerFilter(''); setPackageFilter(''); }}>Zrušit filtr</button>
             )}
           </div>
 
@@ -910,9 +910,9 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
               <button
                 key={d.month}
                 onClick={() => toggleMonth(d.month)}
-                className={`px-3.5 py-1.5 rounded-2xl text-xs font-black transition-all ${
+                className={`px-3.5 py-1.5 rounded text-xs font-black transition-all ${
                   selectedMonths.includes(d.month)
-                    ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 scale-105'
+                    ? 'bg-white text-neutral-900 shadow-md scale-105'
                     : 'bg-white text-neutral-700 border border-neutral-200 hover:bg-amber-50'
                 }`}
               >
@@ -944,11 +944,11 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                 const bottledPct = totalStaceno > 0 ? Math.round((d.bottled / totalStaceno) * 100) : 0;
 
                 return (
-                  <div key={d.month} className="card p-5 bg-white border border-neutral-200 rounded-3xl shadow-xs space-y-4">
+                  <div key={d.month} className="card p-5 bg-white border border-neutral-200 rounded shadow-xs space-y-4">
                     <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
                       <h3 className="font-display font-black text-xl text-neutral-900">{monthLabel(d.month)}</h3>
                       {prevMonthData && (
-                        <div className="flex items-center gap-1.5 text-[11px] font-black px-2.5 py-1 rounded-xl bg-neutral-900 text-amber-300">
+                        <div className="flex items-center gap-1.5 text-[11px] font-black px-2.5 py-1 rounded bg-neutral-900 text-amber-300">
                           <TrendingUp size={14} />
                           <span>YoY porovnáno s {monthLabel(prevYearMonth)}</span>
                         </div>
@@ -959,8 +959,8 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                       <Stat label="Stočeno" value={d.brewed} icon="🍺" tone="amber" />
                       <Stat label="Lahve" value={d.bottled} icon="🍾" />
                       <Stat label="Sudy" value={d.kegged} icon="🛢️" tone="amber" />
-                      <div className="col-span-2 sm:col-span-4 rounded-2xl p-3 border shadow-2xs bg-white">
-                        <div className="flex items-center gap-1.5 mb-1"><span className="w-6 h-6 rounded-lg grid place-items-center text-xs font-bold border text-amber-900 bg-amber-100/80 border-amber-300">💧</span><span className="text-[10px] font-black uppercase tracking-wider text-neutral-600 truncate">Stočeno celkem (hl)</span></div>
+                      <div className="col-span-2 sm:col-span-4 rounded p-3 border shadow-2xs bg-white">
+                        <div className="flex items-center gap-1.5 mb-1"><span className="w-6 h-6 rounded grid place-items-center text-xs font-bold border text-amber-900 bg-amber-100/80 border-amber-300">💧</span><span className="text-[10px] font-black uppercase tracking-wider text-neutral-600 truncate">Stočeno celkem (hl)</span></div>
                         <div className="text-base font-display font-black text-neutral-900">{d.brewed_hl.toFixed(2)} hl</div>
                       </div>
                       <Stat label="Fasování" value={d.fasovani} icon="📦" />
@@ -983,7 +983,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                       });
 
                       return (
-                        <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200 shadow-2xs space-y-3">
+                        <div className="p-3.5 rounded bg-amber-50/80 border border-amber-200 shadow-2xs space-y-3">
                           <div className="text-xs font-black text-amber-950 flex items-center justify-between">
                             <span className="flex items-center gap-1.5 font-display">📦 Konkrétní stočené obaly</span>
                             <span className="text-xs font-mono font-black text-amber-800">Celkem: {d.brewed} ks</span>
@@ -991,7 +991,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                             {/* KEG Sudy */}
-                            <div className="p-2.5 rounded-xl bg-white border border-amber-300 shadow-2xs space-y-1.5">
+                            <div className="p-2.5 rounded bg-white border border-amber-300 shadow-2xs space-y-1.5">
                               <div className="text-[10px] font-black uppercase text-amber-900 flex items-center justify-between border-b border-amber-100 pb-1">
                                 <span>🛢️ KEG Sudy</span>
                                 <span className="font-mono text-amber-800">{d.kegged} ks</span>
@@ -1000,7 +1000,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                                 {[50, 30, 20, 15, 10].map((v) => {
                                   const qty = kegQtyMap[v] || 0;
                                   return (
-                                    <div key={v} className={`p-1 rounded-lg border transition-all ${qty > 0 ? 'bg-amber-100/90 border-amber-400 text-amber-950 font-black shadow-2xs' : 'bg-neutral-50/80 border-neutral-200 text-neutral-400'}`}>
+                                    <div key={v} className={`p-1 rounded border transition-all ${qty > 0 ? 'bg-amber-100/90 border-amber-400 text-amber-950 font-black shadow-2xs' : 'bg-neutral-50/80 border-neutral-200 text-neutral-400'}`}>
                                       <div className="text-[8px] font-black uppercase text-neutral-500">{v} L</div>
                                       <div className="font-mono text-[11px] font-black">{qty}</div>
                                     </div>
@@ -1010,7 +1010,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                             </div>
 
                             {/* Lahve */}
-                            <div className="p-2.5 rounded-xl bg-white border border-sky-300 shadow-2xs space-y-1.5">
+                            <div className="p-2.5 rounded bg-white border border-sky-300 shadow-2xs space-y-1.5">
                               <div className="text-[10px] font-black uppercase text-sky-900 flex items-center justify-between border-b border-sky-100 pb-1">
                                 <span>🍾 Lahve / PET</span>
                                 <span className="font-mono text-sky-800">{d.bottled} ks</span>
@@ -1019,7 +1019,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                                 {[1.5, 1.0, 0.5, 0.33].map((v) => {
                                   const qty = bottleQtyMap[v] || 0;
                                   return (
-                                    <div key={v} className={`p-1 rounded-lg border transition-all ${qty > 0 ? 'bg-sky-100/90 border-sky-400 text-sky-950 font-black shadow-2xs' : 'bg-neutral-50/80 border-neutral-200 text-neutral-400'}`}>
+                                    <div key={v} className={`p-1 rounded border transition-all ${qty > 0 ? 'bg-sky-100/90 border-sky-400 text-sky-950 font-black shadow-2xs' : 'bg-neutral-50/80 border-neutral-200 text-neutral-400'}`}>
                                       <div className="text-[8px] font-black uppercase text-neutral-500">{v === 1 ? '1 L' : `${v} L`}</div>
                                       <div className="font-mono text-[11px] font-black">{qty}</div>
                                     </div>
@@ -1033,11 +1033,11 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                     })()}
 
                     {Object.keys(d.byBeerHl).length > 0 && (
-                      <div className="p-3.5 rounded-2xl bg-neutral-50 border border-neutral-200 space-y-2">
+                      <div className="p-3.5 rounded bg-neutral-50 border border-neutral-200 space-y-2">
                         <div className="text-xs font-black text-neutral-900">Rozpis stočených hl podle piva:</div>
                         <div className="flex flex-wrap gap-2">
                           {Object.entries(d.byBeerHl).sort((a, b) => b[1] - a[1]).map(([beerId, hl]) => (
-                            <div key={beerId} className="px-2.5 py-1 rounded-xl bg-white border border-neutral-200 text-xs font-bold shadow-2xs">
+                            <div key={beerId} className="px-2.5 py-1 rounded bg-white border border-neutral-200 text-xs font-bold shadow-2xs">
                               {beerName(beerId)}: <strong className="font-mono text-amber-700">{(hl / 100).toFixed(2)} hl</strong>
                             </div>
                           ))}
@@ -1047,7 +1047,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
 
                     {/* Vizuální rozpad Stáčení: KEG vs Lahve */}
                     {totalStaceno > 0 && (
-                      <div className="p-3.5 rounded-2xl bg-neutral-50 border border-neutral-200 space-y-2">
+                      <div className="p-3.5 rounded bg-neutral-50 border border-neutral-200 space-y-2">
                         <div className="flex items-center justify-between text-xs font-black text-neutral-900">
                           <span className="flex items-center gap-1.5"><PieChartIcon size={14} className="text-amber-600" /> Poměr stáčení sudů a lahví</span>
                           <span>🛢️ {keggedPct}% Sudy vs 🍾 {bottledPct}% Lahve</span>
@@ -1061,16 +1061,16 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
 
                     {/* YoY Porovnání s minulým rokem */}
                     {prevMonthData && (
-                      <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-1 text-xs">
+                      <div className="p-3 rounded bg-amber-50/70 border border-amber-200 space-y-1 text-xs">
                         <span className="font-extrabold text-amber-950 block">📅 Vývoj oproti minulému roku ({monthLabel(prevYearMonth)}):</span>
                         <div className="grid grid-cols-2 gap-2 pt-1">
-                          <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-amber-200">
+                          <div className="flex items-center justify-between p-2 rounded bg-white border border-amber-200">
                             <span className="text-neutral-600 font-bold">Stáčení hl:</span>
                             <span className={`font-black ${yoyBrewedDiff! >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
                               {yoyBrewedDiff! >= 0 ? `+${yoyBrewedDiff}` : yoyBrewedDiff} ks ({yoyBrewedPct != null ? `${yoyBrewedPct}%` : '—'})
                             </span>
                           </div>
-                          <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-amber-200">
+                          <div className="flex items-center justify-between p-2 rounded bg-white border border-amber-200">
                             <span className="text-neutral-600 font-bold">Fasování:</span>
                             <span className={`font-black ${yoyFasovaniDiff! >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
                               {yoyFasovaniDiff! >= 0 ? `+${yoyFasovaniDiff}` : yoyFasovaniDiff} ks ({yoyFasovaniPct != null ? `${yoyFasovaniPct}%` : '—'})
@@ -1082,25 +1082,25 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
 
                     {/* Ztráty: Stočeno (KEG) vs Fasováno/Objednáno */}
                     {d.kegged > 0 && (
-                      <div className="p-3.5 rounded-2xl bg-rose-50/80 border border-rose-200 space-y-2">
+                      <div className="p-3.5 rounded bg-rose-50/80 border border-rose-200 space-y-2">
                         <div className="flex items-center gap-1.5 mb-1">
-                          <span className="w-6 h-6 rounded-lg grid place-items-center text-xs font-bold border text-rose-900 bg-rose-100/80 border-rose-300">📊</span>
+                          <span className="w-6 h-6 rounded grid place-items-center text-xs font-bold border text-rose-900 bg-rose-100/80 border-rose-300">📊</span>
                           <span className="text-[10px] font-black uppercase tracking-wider text-rose-800">Ztráty KEG</span>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div className="p-2 rounded-xl bg-white border border-rose-200">
+                          <div className="p-2 rounded bg-white border border-rose-200">
                             <span className="block text-[10px] font-bold text-neutral-500">Stočeno KEG (hl)</span>
                             <span className="font-black text-neutral-900">{(d.kegHl).toFixed(2)} hl</span>
                           </div>
-                          <div className="p-2 rounded-xl bg-white border border-rose-200">
+                          <div className="p-2 rounded bg-white border border-rose-200">
                             <span className="block text-[10px] font-bold text-neutral-500">Fasováno (ks)</span>
                             <span className="font-black text-neutral-900">{d.fasovani} ks</span>
                           </div>
-                          <div className="p-2 rounded-xl bg-white border border-rose-200">
+                          <div className="p-2 rounded bg-white border border-rose-200">
                             <span className="block text-[10px] font-bold text-neutral-500">Objednáno (ks)</span>
                             <span className="font-black text-neutral-900">{d.ordered} ks</span>
                           </div>
-                          <div className="p-2 rounded-xl bg-white border border-rose-200">
+                          <div className="p-2 rounded bg-white border border-rose-200">
                             <span className="block text-[10px] font-bold text-neutral-500">Odpisy (ks)</span>
                             <span className="font-black text-rose-700">{d.writeoffs} ks</span>
                           </div>
@@ -1109,7 +1109,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                           const rozdil = d.kegged - d.fasovani - d.writeoffs;
                           const rozdilPct = d.kegged > 0 ? ((rozdil / d.kegged) * 100) : 0;
                           return (
-                            <div className={`p-2 rounded-xl border text-xs font-bold flex items-center justify-between ${rozdil > 0 ? 'bg-rose-100 border-rose-300 text-rose-800' : 'bg-emerald-100 border-emerald-300 text-emerald-800'}`}>
+                            <div className={`p-2 rounded border text-xs font-bold flex items-center justify-between ${rozdil > 0 ? 'bg-rose-100 border-rose-300 text-rose-800' : 'bg-emerald-100 border-emerald-300 text-emerald-800'}`}>
                               <span>{rozdil > 0 ? '⚠️ Nerozpočteno (ztráta)' : '✅ Vše pokryto'}</span>
                               <span className="font-mono font-black">{rozdil} ks ({rozdilPct.toFixed(1)}%)</span>
                             </div>
@@ -1132,15 +1132,15 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
 
           {/* Bar chart */}
           {filteredData.length > 0 && (
-            <div className="card p-6 bg-white border border-neutral-200 rounded-3xl space-y-4 shadow-xs">
+            <div className="card p-6 bg-white border border-neutral-200 rounded space-y-4 shadow-xs">
               <h3 className="font-display font-black text-lg text-neutral-900">Stočeno pivo — všechny měsíce{(beerFilter || packageFilter) ? ' (dle filtru)' : ''}</h3>
               <div className="space-y-2.5 relative">
                 {filteredData.map((d) => (
                   <div key={d.month} className="flex items-center gap-3">
                     <div className="w-24 text-xs font-extrabold text-neutral-700 shrink-0">{monthLabel(d.month)}</div>
-                    <div className="flex-1 bg-neutral-100 rounded-xl h-8 overflow-hidden border border-neutral-200/80">
+                    <div className="flex-1 bg-neutral-100 rounded h-8 overflow-hidden border border-neutral-200/80">
                       <div
-                        className="bg-gradient-to-r from-amber-500 to-amber-600 h-full rounded-xl flex items-center justify-end pr-2.5 transition-all shadow-2xs"
+                        className="bg-gradient-to-r from-amber-500 to-amber-600 h-full rounded flex items-center justify-end pr-2.5 transition-all shadow-2xs"
                         style={{ width: `${Math.max((d.brewed / maxBrewedFiltered) * 100, 2)}%` }}
                       >
                         <span className="text-xs font-black text-neutral-950">{d.brewed} ks</span>
@@ -1158,7 +1158,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
       {activeTab === 'production' && (
         <div className="space-y-6">
           {/* Volba období */}
-          <div className="card sticky top-[48px] sm:top-[56px] z-10 p-4 bg-white border border-neutral-200 rounded-3xl flex flex-wrap items-end gap-3 shadow-sm">
+          <div className="card sticky top-[48px] sm:top-[56px] z-10 p-4 bg-white border border-neutral-200 rounded flex flex-wrap items-end gap-3 shadow-sm">
             <div>
               <label className="label">Období</label>
               <div className="flex flex-wrap gap-1.5">
@@ -1166,8 +1166,8 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                   <button
                     key={p}
                     onClick={() => setProdPeriod(p)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-black transition ${
-                      prodPeriod === p ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                    className={`px-3 py-1.5 rounded text-xs font-black transition ${
+                      prodPeriod === p ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'
                     }`}
                   >
                     {p === 'week' ? 'Týden' : p === 'month' ? 'Měsíc' : p === 'year' ? 'Rok' : 'Vše'}
@@ -1261,22 +1261,22 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
               <>
                 {/* Hlavní KPI karty */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  <div className="rounded-2xl p-4 bg-white border-2 border-amber-300 shadow-xs">
+                  <div className="rounded p-4 bg-white border-2 border-amber-300 shadow-xs">
                     <div className="text-[10px] font-black uppercase tracking-wider text-amber-700">Celkový výstav</div>
                     <div className="text-2xl font-display font-black text-neutral-900">{totalHl.toFixed(2)} hl</div>
                     <div className="text-[11px] font-bold text-neutral-500">{monthsInRange.reduce((s, d) => s + d.brewed, 0)} ks</div>
                   </div>
-                  <div className="rounded-2xl p-4 bg-white border-2 border-amber-500 shadow-xs">
+                  <div className="rounded p-4 bg-white border-2 border-amber-500 shadow-xs">
                     <div className="text-[10px] font-black uppercase tracking-wider text-amber-800">🛢️ KEG sudy</div>
                     <div className="text-2xl font-display font-black text-neutral-900">{totalKegHl.toFixed(2)} hl</div>
                     <div className="text-[11px] font-bold text-neutral-500">{totalKegPct.toFixed(1)}% z celku</div>
                   </div>
-                  <div className="rounded-2xl p-4 bg-white border-2 border-sky-300 shadow-xs">
+                  <div className="rounded p-4 bg-white border-2 border-sky-300 shadow-xs">
                     <div className="text-[10px] font-black uppercase tracking-wider text-sky-700">🍾 Lahve / PET</div>
                     <div className="text-2xl font-display font-black text-neutral-900">{totalBottleHl.toFixed(2)} hl</div>
                     <div className="text-[11px] font-bold text-neutral-500">{totalBottlePct.toFixed(1)}% z celku</div>
                   </div>
-                  <div className="rounded-2xl p-4 bg-white border-2 border-neutral-300 shadow-xs">
+                  <div className="rounded p-4 bg-white border-2 border-neutral-300 shadow-xs">
                     <div className="text-[10px] font-black uppercase tracking-wider text-neutral-600">Počet měsíců</div>
                     <div className="text-2xl font-display font-black text-neutral-900">{monthsInRange.length}</div>
                     <div className="text-[11px] font-bold text-neutral-500">Ø {(totalHl / Math.max(monthsInRange.length, 1)).toFixed(2)} hl/měsíc</div>
@@ -1284,7 +1284,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                 </div>
 
                 {/* Vizuální poměr KEG vs Lahve */}
-                <div className="card p-5 bg-white border border-neutral-200 rounded-3xl space-y-3 shadow-xs">
+                <div className="card p-5 bg-white border border-neutral-200 rounded space-y-3 shadow-xs">
                   <div className="flex items-center justify-between">
                     <h3 className="font-display font-black text-base text-neutral-900 flex items-center gap-2">
                       <PieChartIcon size={18} className="text-amber-600" />
@@ -1325,7 +1325,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                     const totalBottleCount = Object.values(rangeBottleQtyMap).reduce((a, b) => a + b, 0);
 
                     return (
-                      <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 space-y-3 pt-3">
+                      <div className="p-4 rounded bg-amber-50/80 border border-amber-200 space-y-3 pt-3">
                         <div className="text-xs font-black text-amber-950 flex items-center justify-between border-b border-amber-200/60 pb-2">
                           <span className="flex items-center gap-1.5 font-display text-sm">📦 Konkrétní stočené obaly za vybrané období</span>
                           <span className="text-xs font-mono font-black text-amber-800">Celkem: {totalKegCount + totalBottleCount} ks</span>
@@ -1333,7 +1333,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           {/* KEG Sudy */}
-                          <div className="p-3 rounded-xl bg-white border border-amber-300 shadow-2xs space-y-2">
+                          <div className="p-3 rounded bg-white border border-amber-300 shadow-2xs space-y-2">
                             <div className="text-xs font-black uppercase text-amber-900 flex items-center justify-between border-b border-amber-100 pb-1">
                               <span>🛢️ KEG Sudy (50, 30, 20, 15, 10 L)</span>
                               <span className="font-mono text-amber-800">{totalKegCount} ks</span>
@@ -1342,7 +1342,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                               {[50, 30, 20, 15, 10].map((v) => {
                                 const qty = rangeKegQtyMap[v] || 0;
                                 return (
-                                  <div key={v} className={`p-1.5 rounded-xl border transition-all ${qty > 0 ? 'bg-amber-100/90 border-amber-400 text-amber-950 font-black shadow-2xs' : 'bg-neutral-50/80 border-neutral-200 text-neutral-400'}`}>
+                                  <div key={v} className={`p-1.5 rounded border transition-all ${qty > 0 ? 'bg-amber-100/90 border-amber-400 text-amber-950 font-black shadow-2xs' : 'bg-neutral-50/80 border-neutral-200 text-neutral-400'}`}>
                                     <div className="text-[9px] font-black uppercase text-neutral-600">{v} L</div>
                                     <div className="font-mono text-xs font-black">{qty}</div>
                                   </div>
@@ -1352,7 +1352,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                           </div>
 
                           {/* Lahve */}
-                          <div className="p-3 rounded-xl bg-white border border-sky-300 shadow-2xs space-y-2">
+                          <div className="p-3 rounded bg-white border border-sky-300 shadow-2xs space-y-2">
                             <div className="text-xs font-black uppercase text-sky-900 flex items-center justify-between border-b border-sky-100 pb-1">
                               <span>🍾 Lahve (1,5 / 1 / 0,5 / 0,33 L)</span>
                               <span className="font-mono text-sky-800">{totalBottleCount} ks</span>
@@ -1361,7 +1361,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                               {[1.5, 1.0, 0.5, 0.33].map((v) => {
                                 const qty = rangeBottleQtyMap[v] || 0;
                                 return (
-                                  <div key={v} className={`p-1.5 rounded-xl border transition-all ${qty > 0 ? 'bg-sky-100/90 border-sky-400 text-sky-950 font-black shadow-2xs' : 'bg-neutral-50/80 border-neutral-200 text-neutral-400'}`}>
+                                  <div key={v} className={`p-1.5 rounded border transition-all ${qty > 0 ? 'bg-sky-100/90 border-sky-400 text-sky-950 font-black shadow-2xs' : 'bg-neutral-50/80 border-neutral-200 text-neutral-400'}`}>
                                     <div className="text-[9px] font-black uppercase text-neutral-600">{v === 1 ? '1 L' : `${v} L`}</div>
                                     <div className="font-mono text-xs font-black">{qty}</div>
                                   </div>
@@ -1376,7 +1376,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                 </div>
 
                 {/* Rozpad podle piv - celkem */}
-                <div className="card p-5 bg-white border border-neutral-200 rounded-3xl space-y-3 shadow-xs">
+                <div className="card p-5 bg-white border border-neutral-200 rounded space-y-3 shadow-xs">
                   <h3 className="font-display font-black text-base text-neutral-900 flex items-center gap-2">
                     <BeerIcon size={18} className="text-amber-600" />
                     <span>Výstav podle piv (HL)</span>
@@ -1391,9 +1391,9 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                         return (
                           <div key={b.id} className="flex items-center gap-3">
                             <div className="w-32 text-xs font-extrabold text-neutral-700 shrink-0 truncate">{b.name}</div>
-                            <div className="flex-1 bg-neutral-100 rounded-xl h-7 overflow-hidden border border-neutral-200/80">
+                            <div className="flex-1 bg-neutral-100 rounded h-7 overflow-hidden border border-neutral-200/80">
                               <div
-                                className="h-full rounded-xl flex items-center justify-end pr-2.5 transition-all shadow-2xs"
+                                className="h-full rounded flex items-center justify-end pr-2.5 transition-all shadow-2xs"
                                 style={{ width: `${Math.max((b.hl / maxHl) * 100, 2)}%`, backgroundColor: bg }}
                               >
                                 <span className="text-[11px] font-black text-neutral-950">{b.hl.toFixed(2)} hl</span>
@@ -1407,7 +1407,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                 </div>
 
                 {/* Rozpad KEG podle piv */}
-                <div className="card p-5 bg-white border border-neutral-200 rounded-3xl space-y-3 shadow-xs">
+                <div className="card p-5 bg-white border border-neutral-200 rounded space-y-3 shadow-xs">
                   <h3 className="font-display font-black text-base text-neutral-900 flex items-center gap-2">
                     <span>🛢️</span>
                     <span>Výstav KEG podle piv (HL)</span>
@@ -1422,9 +1422,9 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                         return (
                           <div key={b.id} className="flex items-center gap-3">
                             <div className="w-32 text-xs font-extrabold text-neutral-700 shrink-0 truncate">{b.name}</div>
-                            <div className="flex-1 bg-neutral-100 rounded-xl h-7 overflow-hidden border border-neutral-200/80">
+                            <div className="flex-1 bg-neutral-100 rounded h-7 overflow-hidden border border-neutral-200/80">
                               <div
-                                className="h-full rounded-xl flex items-center justify-end pr-2.5 transition-all shadow-2xs"
+                                className="h-full rounded flex items-center justify-end pr-2.5 transition-all shadow-2xs"
                                 style={{ width: `${Math.max((b.hl / Math.max(...beerKegHlList.map(x => x.hl), 1)) * 100, 2)}%`, backgroundColor: bg }}
                               >
                                 <span className="text-[11px] font-black text-neutral-950">{b.hl.toFixed(2)} hl</span>
@@ -1438,7 +1438,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                 </div>
 
                 {/* Rozpad Lahve/PET podle piv */}
-                <div className="card p-5 bg-white border border-neutral-200 rounded-3xl space-y-3 shadow-xs">
+                <div className="card p-5 bg-white border border-neutral-200 rounded space-y-3 shadow-xs">
                   <h3 className="font-display font-black text-base text-neutral-900 flex items-center gap-2">
                     <span>🍾</span>
                     <span>Výstav lahví/PET podle piv (HL)</span>
@@ -1453,9 +1453,9 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                         return (
                           <div key={b.id} className="flex items-center gap-3">
                             <div className="w-32 text-xs font-extrabold text-neutral-700 shrink-0 truncate">{b.name}</div>
-                            <div className="flex-1 bg-neutral-100 rounded-xl h-7 overflow-hidden border border-neutral-200/80">
+                            <div className="flex-1 bg-neutral-100 rounded h-7 overflow-hidden border border-neutral-200/80">
                               <div
-                                className="h-full rounded-xl flex items-center justify-end pr-2.5 transition-all shadow-2xs"
+                                className="h-full rounded flex items-center justify-end pr-2.5 transition-all shadow-2xs"
                                 style={{ width: `${Math.max((b.hl / Math.max(...beerBottleHlList.map(x => x.hl), 1)) * 100, 2)}%`, backgroundColor: bg }}
                               >
                                 <span className="text-[11px] font-black text-neutral-950">{b.hl.toFixed(2)} hl</span>
@@ -1469,7 +1469,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                 </div>
 
                 {/* Měsíční vývojový graf */}
-                <div className="card p-5 bg-white border border-neutral-200 rounded-3xl space-y-3 shadow-xs">
+                <div className="card p-5 bg-white border border-neutral-200 rounded space-y-3 shadow-xs">
                   <h3 className="font-display font-black text-base text-neutral-900 flex items-center gap-2">
                     <TrendingUp size={18} className="text-amber-600" />
                     <span>Měsíční vývoj výstavu (HL)</span>
@@ -1480,9 +1480,9 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                       return (
                         <div key={d.month} className="flex items-center gap-3">
                           <div className="w-20 text-xs font-extrabold text-neutral-700 shrink-0">{monthLabel(d.month)}</div>
-                          <div className="flex-1 bg-neutral-100 rounded-xl h-7 overflow-hidden border border-neutral-200/80">
+                          <div className="flex-1 bg-neutral-100 rounded h-7 overflow-hidden border border-neutral-200/80">
                             <div
-                              className="bg-gradient-to-r from-amber-500 to-amber-600 h-full rounded-xl flex items-center justify-end pr-2.5 transition-all shadow-2xs"
+                              className="bg-gradient-to-r from-amber-500 to-amber-600 h-full rounded flex items-center justify-end pr-2.5 transition-all shadow-2xs"
                               style={{ width: `${Math.max((d.brewed_hl / maxHlInRange) * 100, 2)}%` }}
                             >
                               <span className="text-[11px] font-black text-neutral-950">{d.brewed_hl.toFixed(2)} hl</span>
@@ -1502,9 +1502,9 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
       {/* TAB 3: PODROBNÉ HLEDÁNÍ & FILTRY */}
       {activeTab === 'detail' && (
         <div className="space-y-6">
-          <div className="card p-5 bg-white border border-neutral-200 rounded-3xl space-y-5 shadow-xs">
+          <div className="card p-5 bg-white border border-neutral-200 rounded space-y-5 shadow-xs">
             {/* Uložené oblíbené filtry */}
-            <div className="rounded-2xl border border-amber-300/80 bg-amber-50/50 p-4 space-y-3">
+            <div className="rounded border border-amber-300/80 bg-amber-50/50 p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-black uppercase tracking-wider text-amber-950 flex items-center gap-1.5">
                   <span>⭐ Uložené filtry</span>
@@ -1513,7 +1513,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
               <div className="flex flex-wrap gap-2">
                 {savedFilters.length === 0 && <span className="text-xs text-neutral-500">Zatím žádné uložené filtry.</span>}
                 {savedFilters.map((f) => (
-                  <span key={f.name} className="px-3 py-1.5 rounded-xl bg-white border border-amber-300 text-amber-950 text-xs font-bold shadow-2xs flex items-center gap-2">
+                  <span key={f.name} className="px-3 py-1.5 rounded bg-white border border-amber-300 text-amber-950 text-xs font-bold shadow-2xs flex items-center gap-2">
                     <button type="button" className="hover:underline" onClick={() => applyFilter(f)}>{f.name}</button>
                     <button type="button" className="text-rose-600 hover:text-rose-800 font-bold" onClick={() => deleteFilter(f.name)}>✕</button>
                   </span>
@@ -1521,7 +1521,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
               </div>
               <div className="flex gap-2">
                 <input className="input !py-1.5 text-xs font-semibold flex-1" placeholder="Název filtru (např. 12° lahve za tento měsíc)" value={newFilterName} onChange={(e) => setNewFilterName(e.target.value)} />
-                <button type="button" className="px-3.5 py-1.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-amber-300 font-black text-xs shadow-xs" onClick={saveCurrentFilter}>💾 Uložit aktuální</button>
+                <button type="button" className="px-3.5 py-1.5 rounded bg-neutral-900 hover:bg-neutral-800 text-amber-300 font-black text-xs shadow-xs" onClick={saveCurrentFilter}>💾 Uložit aktuální</button>
               </div>
             </div>
 
@@ -1538,7 +1538,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                         key={s.key}
                         type="button"
                         onClick={() => setSelSources((set) => toggleSet(set, s.key))}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-black transition ${active ? 'bg-white text-amber-900 shadow-2xs ring-2 ring-amber-300' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'}`}
+                        className={`px-3 py-1.5 rounded text-xs font-black transition ${active ? 'bg-white text-amber-900 shadow-2xs ring-2 ring-amber-300' : 'bg-neutral-900 text-white hover:bg-neutral-800'}`}
                       >
                         {s.icon} {s.label}
                       </button>
@@ -1548,7 +1548,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
               </div>
 
               {/* Date range */}
-              <div className="flex flex-wrap items-end gap-3 bg-neutral-50 p-3.5 rounded-2xl border border-neutral-200">
+              <div className="flex flex-wrap items-end gap-3 bg-neutral-50 p-3.5 rounded border border-neutral-200">
                 <div>
                   <label className="block text-[11px] font-black uppercase text-neutral-600 mb-1">Od</label>
                   <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="input !py-1.5 text-xs font-mono font-bold" />
@@ -1558,16 +1558,16 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                   <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="input !py-1.5 text-xs font-mono font-bold" />
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  <button className="px-2.5 py-1.5 rounded-xl bg-white border border-neutral-300 text-xs font-bold" onClick={() => setQuickRange('week')}>Týden</button>
-                  <button className="px-2.5 py-1.5 rounded-xl bg-white border border-neutral-300 text-xs font-bold" onClick={() => setQuickRange('month')}>Měsíc</button>
-                  <button className="px-2.5 py-1.5 rounded-xl bg-white border border-neutral-300 text-xs font-bold" onClick={() => setQuickRange('year')}>Rok</button>
-                  <button className="px-2.5 py-1.5 rounded-xl bg-white border border-neutral-300 text-xs font-bold" onClick={() => setQuickRange('all')}>Vše</button>
+                  <button className="px-2.5 py-1.5 rounded bg-white border border-neutral-300 text-xs font-bold" onClick={() => setQuickRange('week')}>Týden</button>
+                  <button className="px-2.5 py-1.5 rounded bg-white border border-neutral-300 text-xs font-bold" onClick={() => setQuickRange('month')}>Měsíc</button>
+                  <button className="px-2.5 py-1.5 rounded bg-white border border-neutral-300 text-xs font-bold" onClick={() => setQuickRange('year')}>Rok</button>
+                  <button className="px-2.5 py-1.5 rounded bg-white border border-neutral-300 text-xs font-bold" onClick={() => setQuickRange('all')}>Vše</button>
                 </div>
               </div>
             </div>
 
             {/* Souhrn výsledků */}
-            <div className="rounded-3xl bg-neutral-900 text-white p-5 flex flex-wrap items-center justify-between gap-6 shadow-md">
+            <div className="rounded bg-neutral-900 text-white p-5 flex flex-wrap items-center justify-between gap-6 shadow-md">
               <div className="flex items-center gap-6">
                 <div>
                   <div className="text-[10px] uppercase tracking-wider text-amber-400 font-extrabold">Celkem kusů</div>
@@ -1581,7 +1581,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
               <button
                 type="button"
                 onClick={exportDetailExcel}
-                className="px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black shadow-md transition flex items-center gap-2"
+                className="px-4 py-2.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black shadow-md transition flex items-center gap-2"
               >
                 <Download size={16} />
                 <span>Exportovat do Excelu</span>
@@ -1609,7 +1609,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                   return (
                     <div
                       key={`${r.beer_id}__${r.package_id}`}
-                      className={`rounded-2xl bg-white border-2 p-3 space-y-1.5 ${hasOrders ? 'cursor-pointer' : ''}`}
+                      className={`rounded bg-white border-2 p-3 space-y-1.5 ${hasOrders ? 'cursor-pointer' : ''}`}
                       style={{ borderColor: beer ? beerBorder(beer) : '#e5e7eb' }}
                       onClick={() => { if (hasOrders) openEditOrder([...matchingOrderIds][0]); }}
                     >
@@ -1691,13 +1691,13 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
       {activeTab === 'cycles' && (
         <div className="space-y-6">
           {/* Diagnostický přehled ztrát podle tanků */}
-          <div className="card p-5 bg-white border border-neutral-200 rounded-3xl space-y-4 shadow-xs">
+          <div className="card p-5 bg-white border border-neutral-200 rounded space-y-4 shadow-xs">
             <div className="flex items-center justify-between border-b border-neutral-200 pb-3">
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
                 <ShieldAlert size={20} className="text-amber-600" />
                 <span>Diagnostika průměrné ztrátovosti podle tanků</span>
               </h3>
-              <span className="text-xs font-mono font-bold bg-neutral-100 px-3 py-1 rounded-xl text-neutral-600 border border-neutral-200">
+              <span className="text-xs font-mono font-bold bg-neutral-100 px-3 py-1 rounded text-neutral-600 border border-neutral-200">
                 {tankLossDiagnostics.length} Tanků sledováno
               </span>
             </div>
@@ -1708,13 +1708,13 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                 return (
                   <div
                     key={t.tank_label}
-                    className={`p-3.5 rounded-2xl bg-white border-2 transition-all ${
+                    className={`p-3.5 rounded bg-white border-2 transition-all ${
                       isHighLoss ? 'border-rose-400' : 'border-neutral-200'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-black text-base text-neutral-900">{t.tank_label}</span>
-                      <span className={`font-mono font-black text-xs px-2 py-0.5 rounded-lg ${isHighLoss ? 'bg-rose-600 text-white' : 'bg-neutral-100 text-neutral-700'}`}>
+                      <span className={`font-mono font-black text-xs px-2 py-0.5 rounded ${isHighLoss ? 'bg-rose-600 text-white' : 'bg-neutral-100 text-neutral-700'}`}>
                         {t.avgLossPct.toFixed(1)}% ztráta
                       </span>
                     </div>
@@ -1723,7 +1723,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                       <span>Celkem ztráta {t.totalLossL.toFixed(0)} l</span>
                     </div>
                     {isHighLoss && (
-                      <div className="mt-2 text-[10px] font-bold text-rose-700 bg-rose-50 p-1.5 rounded-xl border border-rose-200">
+                      <div className="mt-2 text-[10px] font-bold text-rose-700 bg-rose-50 p-1.5 rounded border border-rose-200">
                         ⚠️ Vyšší ztrátovost (kontrola hradícího ventilu & těsnění klapky)
                       </div>
                     )}
@@ -1733,7 +1733,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
             </div>
           </div>
 
-          <div className="card p-5 bg-white border border-neutral-200 rounded-3xl space-y-4 shadow-xs">
+          <div className="card p-5 bg-white border border-neutral-200 rounded space-y-4 shadow-xs">
             <div className="flex items-center justify-between pb-3 border-b border-neutral-200">
               <div>
                 <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
@@ -1745,7 +1745,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
               <button
                 type="button"
                 onClick={exportCyclesExcel}
-                className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black shadow-md transition flex items-center gap-1.5"
+                className="px-3.5 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black shadow-md transition flex items-center gap-1.5"
               >
                 <Download size={15} />
                 <span>Export cyklů</span>
@@ -1764,10 +1764,10 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                   const beer = c.beer_name ? beers.find((b) => b.name === c.beer_name) : null;
                   const highLoss = Number(c.loss_pct) > 3;
                   return (
-                    <div key={c.id} className="rounded-2xl bg-white border-2 p-3 space-y-1.5" style={{ borderColor: beer ? beerBorder(beer) : '#e5e7eb' }}>
+                    <div key={c.id} className="rounded bg-white border-2 p-3 space-y-1.5" style={{ borderColor: beer ? beerBorder(beer) : '#e5e7eb' }}>
                       <div className="flex items-center justify-between gap-2 font-black text-sm text-neutral-950">
                         <span>{c.tank_label} <span className="font-bold opacity-80">· {c.beer_name ?? '—'}</span></span>
-                        <span className={`shrink-0 px-2 py-0.5 rounded-lg text-xs font-black ${highLoss ? 'bg-rose-600 text-white' : 'bg-neutral-100 text-neutral-700'}`}>{Number(c.loss_pct).toFixed(1)}% ztráta</span>
+                        <span className={`shrink-0 px-2 py-0.5 rounded text-xs font-black ${highLoss ? 'bg-rose-600 text-white' : 'bg-neutral-100 text-neutral-700'}`}>{Number(c.loss_pct).toFixed(1)}% ztráta</span>
                       </div>
                       <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs font-bold text-neutral-700">
                         <span>Poč. {(Number(c.initial_volume_l) / 100).toFixed(2)} hl</span>
@@ -1827,7 +1827,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
       {activeTab === 'stats' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {topStats.topBeer && (
-            <div className="card p-5 bg-white border-2 border-amber-300 rounded-3xl space-y-2">
+            <div className="card p-5 bg-white border-2 border-amber-300 rounded space-y-2">
               <div className="text-xs font-black uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
                 <Trophy size={16} className="text-amber-600" />
                 <span>Nejvíc stočené pivo</span>
@@ -1838,7 +1838,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
           )}
 
           {topStats.lowestLoss && (
-            <div className="card p-5 bg-white border-2 border-emerald-300 rounded-3xl space-y-2">
+            <div className="card p-5 bg-white border-2 border-emerald-300 rounded space-y-2">
               <div className="text-xs font-black uppercase tracking-wider text-emerald-900 flex items-center gap-1.5">
                 <ArrowDownRight size={16} className="text-emerald-600" />
                 <span>Nejnižší ztráta cyklu</span>
@@ -1849,7 +1849,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
           )}
 
           {topStats.highestLoss && (
-            <div className="card p-5 bg-white border-2 border-rose-300 rounded-3xl space-y-2">
+            <div className="card p-5 bg-white border-2 border-rose-300 rounded space-y-2">
               <div className="text-xs font-black uppercase tracking-wider text-rose-900 flex items-center gap-1.5">
                 <ArrowUpRight size={16} className="text-rose-600" />
                 <span>Nejvyšší ztráta cyklu</span>
@@ -1860,7 +1860,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
           )}
 
           {topStats.fastest && (
-            <div className="card p-5 bg-white border-2 border-blue-300 rounded-3xl space-y-2">
+            <div className="card p-5 bg-white border-2 border-blue-300 rounded space-y-2">
               <div className="text-xs font-black uppercase tracking-wider text-blue-900 flex items-center gap-1.5">
                 <Zap size={16} className="text-blue-600" />
                 <span>Nejrychlejší cyklus tanku</span>
@@ -1909,7 +1909,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
       {/* 🖨️ MODAL PRO TISK MĚSÍČNÍ UZÁVĚRKY SLÁDKA */}
       {showPrintModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 space-y-6 shadow-2xl">
+          <div className="bg-white rounded max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 space-y-6 shadow-2xl">
             <div className="flex items-center justify-between border-b border-neutral-200 pb-4">
               <div>
                 <span className="text-[10px] font-mono font-black uppercase tracking-widest text-amber-600">Formátovaný protokol sládka</span>
@@ -1918,14 +1918,14 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
               </div>
               <button
                 onClick={() => setShowPrintModal(false)}
-                className="w-9 h-9 rounded-2xl bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-black grid place-items-center"
+                className="w-9 h-9 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-black grid place-items-center"
               >
                 ✕
               </button>
             </div>
 
             <div className="space-y-4 text-xs text-neutral-800">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-neutral-50 p-4 rounded-2xl border border-neutral-200">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-neutral-50 p-4 rounded border border-neutral-200">
                 <div>
                   <span className="block text-[10px] uppercase font-black text-neutral-500">Měsíc uzávěrky</span>
                   <strong className="text-sm font-black text-neutral-900">{selectedMonths.length > 0 ? monthLabel(selectedMonths[0]) : 'Aktuální'}</strong>
@@ -1979,13 +1979,13 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
             <div className="flex justify-end gap-3 pt-4 border-t border-neutral-100">
               <button
                 onClick={() => setShowPrintModal(false)}
-                className="px-4 py-2.5 rounded-2xl bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-xs font-bold"
+                className="px-4 py-2.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-xs font-bold"
               >
                 Zavřít
               </button>
               <button
                 onClick={() => window.print()}
-                className="px-5 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md flex items-center gap-2"
+                className="px-5 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md flex items-center gap-2"
               >
                 <Printer size={16} />
                 <span>Vytisknout / Uložit do PDF</span>
@@ -2019,9 +2019,9 @@ function Stat({ label, value, icon, tone }: { label: string; value: number; icon
     : tone === 'warning' ? 'text-amber-900 bg-amber-100/80 border-amber-300'
     : 'text-neutral-900 bg-neutral-100 border-neutral-200';
   return (
-    <div className="rounded-2xl p-3 border shadow-2xs bg-white">
+    <div className="rounded p-3 border shadow-2xs bg-white">
       <div className="flex items-center gap-1.5 mb-1">
-        <span className={`w-6 h-6 rounded-lg grid place-items-center text-xs font-bold border ${c}`}>{icon}</span>
+        <span className={`w-6 h-6 rounded grid place-items-center text-xs font-bold border ${c}`}>{icon}</span>
         <span className="text-[10px] font-black uppercase tracking-wider text-neutral-600 truncate">{label}</span>
       </div>
       <div className="text-base font-display font-black text-neutral-900">{value} ks</div>

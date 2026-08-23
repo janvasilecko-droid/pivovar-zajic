@@ -491,7 +491,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
   return (
     <div className="space-y-6 pb-12">
       {/* Banner */}
-      <div className="bg-neutral-900 text-white p-6 rounded-3xl border border-amber-500/30 shadow-xl flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-neutral-900 text-white p-6 rounded border border-amber-500/30 shadow-xl flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-amber-400 font-extrabold text-xs uppercase tracking-widest mb-1">
             <Car size={18} />
@@ -506,7 +506,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1.5 bg-neutral-800 border border-neutral-700 px-3 py-1.5 rounded-2xl text-xs font-bold">
+          <div className="flex items-center gap-1.5 bg-neutral-800 border border-neutral-700 px-3 py-1.5 rounded text-xs font-bold">
             <Calendar size={15} className="text-amber-400" />
             <input
               type="month"
@@ -518,7 +518,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
 
           <button
             onClick={openAutoModal}
-            className="px-4 py-2.5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-black text-xs transition shadow-md flex items-center gap-1.5 animate-pulse"
+            className="px-4 py-2.5 rounded bg-amber-400 hover:bg-amber-300 text-neutral-950 font-black text-xs transition shadow-md flex items-center gap-1.5 animate-pulse"
             title="Automaticky spočítat trasy z objednávek podle dnů s rovnoměrným rozpočítáním tachometru"
           >
             <Zap size={16} className="fill-current text-neutral-950" /> Generovat z objednávek
@@ -526,21 +526,21 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
 
           <button
             onClick={openAddModal}
-            className="px-4 py-2.5 rounded-2xl bg-neutral-800 hover:bg-neutral-700 text-white font-extrabold text-xs transition shadow-xs flex items-center gap-1.5"
+            className="px-4 py-2.5 rounded bg-neutral-800 hover:bg-neutral-700 text-white font-extrabold text-xs transition shadow-xs flex items-center gap-1.5"
           >
             <Plus size={16} /> Ruční jízda
           </button>
 
           <button
             onClick={exportExcelLogbook}
-            className="px-3 py-2.5 rounded-2xl bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs transition shadow-xs flex items-center gap-1.5"
+            className="px-3 py-2.5 rounded bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs transition shadow-xs flex items-center gap-1.5"
           >
             <Download size={16} /> Excel
           </button>
 
           <button
             onClick={printLogbook}
-            className="px-3 py-2.5 rounded-2xl bg-neutral-800 hover:bg-neutral-700 text-white font-extrabold text-xs transition shadow-xs flex items-center gap-1.5"
+            className="px-3 py-2.5 rounded bg-neutral-800 hover:bg-neutral-700 text-white font-extrabold text-xs transition shadow-xs flex items-center gap-1.5"
           >
             <Printer size={16} /> Tisk pro účetní
           </button>
@@ -549,17 +549,17 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
 
       {/* Stats Header */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="card p-4 bg-white border border-neutral-200 rounded-2xl space-y-1">
+        <div className="card p-4 bg-white border border-neutral-200 rounded space-y-1">
           <span className="text-[10px] font-black uppercase text-neutral-500">Ujeté km za měsíc</span>
           <div className="font-display font-black text-2xl text-amber-600">{totalKmMonth} km</div>
           <span className="text-[11px] text-neutral-600">Celkový nájezd měsíce {filterMonth}</span>
         </div>
-        <div className="card p-4 bg-white border border-neutral-200 rounded-2xl space-y-1">
+        <div className="card p-4 bg-white border border-neutral-200 rounded space-y-1">
           <span className="text-[10px] font-black uppercase text-neutral-500">Počet služebních jízd</span>
           <div className="font-display font-black text-2xl text-neutral-900">{filteredEntries.length} jízd</div>
           <span className="text-[11px] text-neutral-600">Rozvozy & Svozy</span>
         </div>
-        <div className="card p-4 bg-white border border-neutral-200 rounded-2xl space-y-1">
+        <div className="card p-4 bg-white border border-neutral-200 rounded space-y-1">
           <span className="text-[10px] font-black uppercase text-neutral-500">Pivovarský vozový park</span>
           <div className="font-display font-black text-xl text-neutral-900">{vehicles.length || 1} vozidel</div>
           <span className="text-[11px] text-neutral-600">Primárně Velké auto (Kynšperk)</span>
@@ -567,14 +567,14 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
       </div>
 
       {/* Main Table */}
-      <div className="card p-6 bg-white border border-neutral-200 rounded-3xl shadow-xs space-y-4">
+      <div className="card p-6 bg-white border border-neutral-200 rounded shadow-xs space-y-4">
         <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
           <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
             <span>Evidenční list jízd ({filteredEntries.length})</span>
           </h3>
           <button
             onClick={openAutoModal}
-            className="text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3 py-1.5 rounded-xl transition flex items-center gap-1"
+            className="text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3 py-1.5 rounded transition flex items-center gap-1"
           >
             <Sparkles size={14} /> Automatické dopočítání z tachometru
           </button>
@@ -586,13 +586,13 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
             <div className="flex justify-center gap-2">
               <button
                 onClick={openAutoModal}
-                className="px-4 py-2.5 rounded-xl bg-amber-500 text-neutral-950 font-black text-xs shadow-xs flex items-center gap-1.5"
+                className="px-4 py-2.5 rounded bg-amber-500 text-neutral-950 font-black text-xs shadow-xs flex items-center gap-1.5"
               >
                 <Zap size={15} /> Generovat z objednávek
               </button>
               <button
                 onClick={openAddModal}
-                className="px-4 py-2.5 rounded-xl bg-neutral-100 text-neutral-800 font-extrabold text-xs"
+                className="px-4 py-2.5 rounded bg-neutral-100 text-neutral-800 font-extrabold text-xs"
               >
                 + Zadat ručně
               </button>
@@ -603,7 +603,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
           {/* Mobilní karty */}
           <div className="grid grid-cols-1 gap-2.5 md:hidden">
             {filteredEntries.map((e) => (
-              <div key={e.id} className="rounded-2xl border border-neutral-200 bg-white p-3 space-y-1.5">
+              <div key={e.id} className="rounded border border-neutral-200 bg-white p-3 space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
                     <div className="font-black text-sm text-neutral-950">{e.vehicle_name}</div>
@@ -613,7 +613,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                     <span className="font-mono font-black text-sm text-amber-600 whitespace-nowrap">{e.km_driven.toLocaleString('cs-CZ')} km</span>
                     <button
                       onClick={() => handleDelete(e.id)}
-                      className="w-9 h-9 grid place-items-center rounded-lg hover:bg-rose-100 text-rose-600 transition shrink-0"
+                      className="w-9 h-9 grid place-items-center rounded hover:bg-rose-100 text-rose-600 transition shrink-0"
                       title="Smazat jízdu"
                     >
                       <Trash2 size={16} />
@@ -666,7 +666,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                     <td className="text-right">
                       <button
                         onClick={() => handleDelete(e.id)}
-                        className="p-1.5 rounded-lg hover:bg-rose-100 text-rose-600 transition"
+                        className="p-1.5 rounded hover:bg-rose-100 text-rose-600 transition"
                         title="Smazat jízdu"
                       >
                         <Trash2 size={15} />
@@ -684,7 +684,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
       {/* MODAL PRO AUTOMATICKÉ VYGENEROVÁNÍ Z OBJEDNÁVEK */}
       {showAutoModal && (
         <div className="fixed inset-0 bg-neutral-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl border border-neutral-200 animate-in fade-in zoom-in duration-150">
+          <div className="bg-white rounded max-w-lg w-full p-6 space-y-4 shadow-2xl border border-neutral-200 animate-in fade-in zoom-in duration-150">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
                 <Zap className="text-amber-500 fill-current" size={20} />
@@ -695,7 +695,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
 
             {autoStep === 'form' ? (
               <form onSubmit={handleBuildPreview} className="space-y-3">
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-950 font-medium space-y-1">
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded text-xs text-amber-950 font-medium space-y-1">
                   <p className="font-bold flex items-center gap-1 text-amber-900">
                     <CheckCircle2 size={14} className="text-amber-600" />
                     <span>Trasa Kynšperk ➔ Zastávky ➔ Kynšperk</span>
@@ -744,14 +744,14 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                   <button
                     type="button"
                     onClick={() => setShowAutoModal(false)}
-                    className="px-4 py-2 rounded-xl bg-neutral-100 text-neutral-700 font-extrabold text-xs"
+                    className="px-4 py-2 rounded bg-neutral-100 text-neutral-700 font-extrabold text-xs"
                   >
                     Zrušit
                   </button>
                   <button
                     type="submit"
                     disabled={autoGenerating}
-                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md disabled:opacity-50 flex items-center gap-1.5"
+                    className="px-4 py-2 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md disabled:opacity-50 flex items-center gap-1.5"
                   >
                     <Zap size={16} />
                     <span>{autoGenerating ? 'Načítám dny…' : 'Načíst dny z objednávek →'}</span>
@@ -766,7 +766,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
 
                 <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
                   {previewDays.map((d, i) => (
-                    <div key={`${d.date}-${d.isKachna ? 'kachna' : 'velke'}-${i}`} className="rounded-2xl border border-neutral-200 p-3 space-y-2">
+                    <div key={`${d.date}-${d.isKachna ? 'kachna' : 'velke'}-${i}`} className="rounded border border-neutral-200 p-3 space-y-2">
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-black text-xs text-neutral-900 flex items-center gap-1.5">
                           {new Date(d.date).toLocaleDateString('cs-CZ')}
@@ -778,7 +778,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                       </div>
                       <div className="text-[11px] text-neutral-600 font-medium leading-snug">{d.routeTo}</div>
                       {d.missingCoords.length > 0 && (
-                        <div className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1 font-semibold leading-snug">
+                        <div className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 font-semibold leading-snug">
                           ⚠️ Chybí souřadnice u: {d.missingCoords.join(', ')} — km je jen odhad zbylých zastávek, doplň v Odběratelích nebo uprav ručně.
                         </div>
                       )}
@@ -811,14 +811,14 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                   <button
                     type="button"
                     onClick={() => setAutoStep('form')}
-                    className="px-4 py-2 rounded-xl bg-neutral-100 text-neutral-700 font-extrabold text-xs"
+                    className="px-4 py-2 rounded bg-neutral-100 text-neutral-700 font-extrabold text-xs"
                   >
                     ← Zpět
                   </button>
                   <button
                     type="button"
                     onClick={handleGenerateFromPreview}
-                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md flex items-center gap-1.5"
+                    className="px-4 py-2 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md flex items-center gap-1.5"
                   >
                     <Zap size={16} />
                     <span>Vygenerovat {previewDays.length} jízd</span>
@@ -833,7 +833,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
       {/* MODAL PRO RUČNÍ ZADÁNÍ NOVÉ JÍZDY */}
       {showModal && (
         <div className="fixed inset-0 bg-neutral-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl border border-neutral-200 animate-in fade-in zoom-in duration-150">
+          <div className="bg-white rounded max-w-lg w-full p-6 space-y-4 shadow-2xl border border-neutral-200 animate-in fade-in zoom-in duration-150">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
                 <Car className="text-amber-600" size={20} />
@@ -962,13 +962,13 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 rounded-xl bg-neutral-100 text-neutral-700 font-extrabold text-xs"
+                  className="px-4 py-2 rounded bg-neutral-100 text-neutral-700 font-extrabold text-xs"
                 >
                   Zrušit
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md"
+                  className="px-4 py-2 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md"
                 >
                   Uložit jízdu
                 </button>
