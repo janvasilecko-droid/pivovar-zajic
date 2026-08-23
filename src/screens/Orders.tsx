@@ -1031,8 +1031,14 @@ export default function Orders({
   }
   async function del(id: string) {
     if (!(await confirm('Smazat objednávku?'))) return;
+    // Objednávka už mohla mít proběhlý automatický odpočet závozu
+    // (zavoz_deductions) — bez smazání těchto řádků FK constraint smazání
+    // objednávky odmítne (409) a bez kontroly chyby to vypadá, že se
+    // "nic nestalo".
+    await supabase.from('zavoz_deductions').delete().eq('order_id', id);
     await supabase.from('order_items').delete().eq('order_id', id);
-    await supabase.from('orders').delete().eq('id', id);
+    const { error } = await supabase.from('orders').delete().eq('id', id);
+    if (error) { alert('Smazání se nepodařilo: ' + error.message); return; }
     load();
   }
 
@@ -1174,8 +1180,11 @@ export default function Orders({
   async function bulkDelete() {
     if (!selectedIds.size) return;
     if (!(await confirm(`Smazat ${selectedIds.size} vybraných objednávek?`))) return;
-    await supabase.from('order_items').delete().in('order_id', [...selectedIds]);
-    await supabase.from('orders').delete().in('id', [...selectedIds]);
+    const ids = [...selectedIds];
+    await supabase.from('zavoz_deductions').delete().in('order_id', ids);
+    await supabase.from('order_items').delete().in('order_id', ids);
+    const { error } = await supabase.from('orders').delete().in('id', ids);
+    if (error) { alert('Smazání se nepodařilo: ' + error.message); return; }
     clearSelection(); load();
   }
 

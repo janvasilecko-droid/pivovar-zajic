@@ -142,6 +142,12 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
     if (filled.length === 0) { setErr('Vyplň alespoň jeden řádek (obal a množství).'); return; }
     setSaving(true);
 
+    // Tabulka `writeoffs` nemá sloupec `note` (jen `who` a `reason`) — na
+    // rozdíl od bottling/kegging/fasovani. Nepodmíněné poslání `note` klíče
+    // v payloadu shodilo KAŽDÝ zápis na Odpisu s PGRST204 ("Could not find
+    // the 'note' column"), tiše (chyba se sice zobrazila v `err`, ale
+    // vypadalo to jako obecná porucha) — tady ho proto vynecháváme.
+    const isWriteoffs = table === 'writeoffs';
     const payloads = filled.map((r) => {
       const beer = beers.find((b) => b.id === r.beerId);
       const pkg = packages.find((p) => p.id === r.pkgId);
@@ -152,7 +158,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
         who: person || null,
         beer_id: r.beerId || null, beer_name: beer?.name ?? null,
         package_id: r.pkgId, package_label: pkg?.label ?? null, quantity: n,
-        note: note || null,
+        ...(isWriteoffs ? {} : { note: note || null }),
       };
     });
 
@@ -168,7 +174,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
           entry_date: date,
           beer_id: r.beerId || null, beer_name: beer?.name ?? null,
           package_id: r.pkgId, package_label: pkg?.label ?? null, quantity: n,
-          note: combinedNote || null,
+          ...(isWriteoffs ? {} : { note: combinedNote || null }),
         };
       });
       const res = await supabase.from(table).insert(fallbackPayloads);
