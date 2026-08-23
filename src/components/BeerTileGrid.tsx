@@ -90,7 +90,7 @@ export function BeerTilePanel({ beer, onClose, children, headerRight, footer }: 
             <button
               type="button"
               onClick={onClose}
-              className="shrink-0 w-10 h-10 grid place-items-center rounded-xl bg-black/25 hover:bg-black/40 text-white font-black text-xl transition select-none"
+              className="shrink-0 w-10 h-10 grid place-items-center rounded bg-black/25 hover:bg-black/40 text-white font-black text-xl transition select-none"
               title="Zavřít a vrátit se k dlaždicím"
             >✕</button>
           </div>
@@ -98,7 +98,7 @@ export function BeerTilePanel({ beer, onClose, children, headerRight, footer }: 
             {children}
             {footer ?? (
               <div className="flex justify-end pt-1">
-                <button type="button" onClick={onClose} className="btn-primary font-black shadow-md">Hotovo ✓</button>
+                <button type="button" onClick={onClose} className="btn-primary !rounded font-black shadow-md">Hotovo ✓</button>
               </div>
             )}
           </div>

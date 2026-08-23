@@ -1340,10 +1340,10 @@ export default function Orders({
             )}
             {mode === 'overviews_only' && setPage && (
               <>
-                <button className="btn-primary text-xs font-black shadow-md" onClick={() => setPage('orders_entry')}>
+                <button className="btn-primary !rounded text-xs font-black shadow-md" onClick={() => setPage('orders_entry')}>
                   <FilePlus size={14} /> + Zadávání objednávek
                 </button>
-                <button className="btn-ghost !bg-emerald-50 border border-emerald-300 text-emerald-950 font-black text-xs shadow-xs" onClick={() => setPage('fasovani')}>
+                <button className="btn-ghost !rounded !bg-emerald-50 border border-emerald-300 text-emerald-950 font-black text-xs shadow-xs" onClick={() => setPage('fasovani')}>
                   <PackageCheck size={14} /> Fasování →
                 </button>
               </>
@@ -1460,7 +1460,7 @@ export default function Orders({
                           }
                           setBeerRows(newRows);
                         }}
-                        className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[11px] shadow-2xs shrink-0 transition"
+                        className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[11px] shadow-2xs shrink-0 transition"
                       >
                         ⚡ Zopakovat položky
                       </button>
@@ -1568,7 +1568,7 @@ export default function Orders({
                           type="button"
                           onClick={() => setPkgAbsolute(expandedBeer.id, p.id, q)}
                           title="Rychlá volba množství"
-                          className={`h-9 min-w-[1.75rem] px-1.5 rounded-lg text-[11px] font-black transition ${qty === q ? 'bg-emerald-500 text-white' : 'bg-neutral-100 hover:bg-emerald-200 text-neutral-600 hover:text-emerald-950'}`}
+                          className={`h-9 min-w-[1.75rem] px-1.5 rounded text-[11px] font-black transition ${qty === q ? 'bg-emerald-500 text-white' : 'bg-neutral-100 hover:bg-emerald-200 text-neutral-600 hover:text-emerald-950'}`}
                         >
                           {q}
                         </button>
@@ -1589,7 +1589,7 @@ export default function Orders({
                       <button
                         type="button"
                         onClick={() => setPkgQty(expandedBeer.id, p.id, -1)}
-                        className="w-10 h-10 grid place-items-center rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none"
+                        className="w-10 h-10 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none"
                         disabled={qty <= 0}
                       >−</button>
                       <input
@@ -1609,7 +1609,7 @@ export default function Orders({
                       <button
                         type="button"
                         onClick={() => setPkgQty(expandedBeer.id, p.id, 1)}
-                        className="w-10 h-10 grid place-items-center rounded-lg bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none"
+                        className="w-10 h-10 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none"
                       >+</button>
                     </div>
                   </div>
@@ -1630,7 +1630,7 @@ export default function Orders({
                   const beer = beers.find((b) => b.id === r.beerId);
                   const pkg = packages.find((p) => p.id === r.pkgId);
                   return (
-                    <li key={`${r.beerId}-${r.pkgId}-${i}`} className="flex items-center justify-between gap-2 rounded-xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/70 dark:border-neutral-700 px-2.5 py-1.5">
+                    <li key={`${r.beerId}-${r.pkgId}-${i}`} className="flex items-center justify-between gap-2 rounded bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/70 dark:border-neutral-700 px-2.5 py-1.5">
                       <button
                         type="button"
                         onClick={() => setExpandedBeerId(expandedBeerId === r.beerId ? null : r.beerId)}
@@ -1641,7 +1641,7 @@ export default function Orders({
                         <span className="truncate">{formatPackageLabel(pkg?.label)} · {beerName(beer)}</span>
                       </button>
                       <div className="flex items-center gap-1 shrink-0">
-                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, -1)} className="w-10 h-10 grid place-items-center rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={Number(r.qty) <= 1}>−</button>
+                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, -1)} className="w-10 h-10 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={Number(r.qty) <= 1}>−</button>
                         <input
                           type="number"
                           min={0}
@@ -1656,8 +1656,8 @@ export default function Orders({
                           className="w-14 h-10 text-center text-base font-black text-neutral-800 dark:text-neutral-100 bg-white dark:bg-neutral-900/60 border-2 border-amber-200 dark:border-neutral-700 rounded-xl"
                           title="Napiš počet ručně"
                         />
-                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, 1)} className="w-10 h-10 grid place-items-center rounded-xl bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none">+</button>
-                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, -Number(r.qty))} className="w-10 h-10 grid place-items-center rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-xl transition select-none" title="Odebrat položku">✕</button>
+                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, 1)} className="w-10 h-10 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none">+</button>
+                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, -Number(r.qty))} className="w-10 h-10 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-xl transition select-none" title="Odebrat položku">✕</button>
                       </div>
                     </li>
                   );
@@ -1717,13 +1717,13 @@ export default function Orders({
           {/* Akční tlačítka */}
           <div className="flex items-center justify-between mt-4 gap-2 flex-wrap">
             <div className="flex items-center gap-2">
-              <button type="submit" className="btn-primary text-xs font-black shadow-md" disabled={saving || (!filledBeerRows.length && !manualText.trim())}>
+              <button type="submit" className="btn-primary !rounded text-xs font-black shadow-md" disabled={saving || (!filledBeerRows.length && !manualText.trim())}>
                 {saving ? '⏳ Ukládám…' : `💾 Vytvořit objednávku${filledBeerRows.length ? ` (${filledBeerRows.length} pol. / ${filledBeerRows.reduce((s, r) => s + Number(r.qty || 0), 0)} ks)` : manualText.trim() ? ' (z textu)' : ''}`}
               </button>
 
               <button
                 type="button"
-                className="!bg-[#25D366] hover:!bg-[#1da851] !border-[#25D366] !text-white text-xs font-black shadow-md flex items-center gap-1.5 px-3.5 py-2 rounded-xl transition disabled:opacity-40"
+                className="!bg-[#25D366] hover:!bg-[#1da851] !border-[#25D366] !text-white text-xs font-black shadow-md flex items-center gap-1.5 px-3.5 py-2 rounded transition disabled:opacity-40"
                 disabled={saving || (!filledBeerRows.length && !manualText.trim())}
                 onClick={() => addOrder(undefined, true)}
                 title="Vytvoří objednávku a otevře WhatsApp s předvyplněnou zprávou"
@@ -1731,7 +1731,7 @@ export default function Orders({
                 <MessageCircle size={14} /> {saving ? '⏳ Ukládám…' : '📤 Vytvořit a odeslat na WhatsApp'}
               </button>
 
-              <button type="button" className="btn-ghost text-xs" onClick={() => { setBeerRows(Array.from({ length: 4 }, () => ({ beerId: '', pkgId: '', qty: '', placeId: '', placeNameFree: '' }))); setExpandedBeerId(null); }}>
+              <button type="button" className="btn-ghost !rounded text-xs" onClick={() => { setBeerRows(Array.from({ length: 4 }, () => ({ beerId: '', pkgId: '', qty: '', placeId: '', placeNameFree: '' }))); setExpandedBeerId(null); }}>
                 🗑️ Vymazat vše
               </button>
             </div>
@@ -1747,7 +1747,7 @@ export default function Orders({
                 <span>Objednávka byla úspěšně vytvořena!</span>
               </span>
               {setPage && (
-                <button type="button" className="btn-ghost text-xs font-black text-emerald-900 underline" onClick={() => setPage('orders')}>
+                <button type="button" className="btn-ghost !rounded text-xs font-black text-emerald-900 underline" onClick={() => setPage('orders')}>
                   Zobrazit v Přehledu →
                 </button>
               )}
@@ -1770,10 +1770,10 @@ export default function Orders({
             onChange={(e) => setManualText(e.target.value)}
           />
           <div className="flex flex-wrap items-center gap-2 mt-3">
-            <button type="button" className="btn-primary text-xs font-black shadow-md" onClick={() => { handleManualTextParse(); setViewMode('summary'); }} disabled={!manualText.trim()}>
+            <button type="button" className="btn-primary !rounded text-xs font-black shadow-md" onClick={() => { handleManualTextParse(); setViewMode('summary'); }} disabled={!manualText.trim()}>
               ⚡ Rozparsovat a přidat do formuláře
             </button>
-            <button type="button" className="btn-ghost text-xs font-black" onClick={() => setViewMode('summary')}>← Zpět na dlaždice</button>
+            <button type="button" className="btn-ghost !rounded text-xs font-black" onClick={() => setViewMode('summary')}>← Zpět na dlaždice</button>
           </div>
           <div className="text-[11px] text-neutral-500 mt-2">
             Položky se vyplní do dlaždic piv ve formuláři. Pak už jen klikni na „Vytvořit objednávku“.
@@ -1824,7 +1824,7 @@ export default function Orders({
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setWeekKey(shiftWeek(weekKey, -1))}
-                className="btn-ghost !py-1.5 !px-2.5 text-xs font-black hover:bg-amber-100 transition"
+                className="btn-ghost !rounded !py-1.5 !px-2.5 text-xs font-black hover:bg-amber-100 transition"
               >
                 ←
               </button>
@@ -1835,7 +1835,7 @@ export default function Orders({
               </div>
               <button
                 onClick={() => setWeekKey(shiftWeek(weekKey, 1))}
-                className="btn-ghost !py-1.5 !px-2.5 text-xs font-black hover:bg-amber-100 transition"
+                className="btn-ghost !rounded !py-1.5 !px-2.5 text-xs font-black hover:bg-amber-100 transition"
               >
                 →
               </button>
@@ -1847,7 +1847,7 @@ export default function Orders({
               <button
                 type="button"
                 onClick={() => setSelectedMonth(shiftMonth(selectedMonth, -1))}
-                className="btn-ghost !py-1 !px-2 text-xs font-black hover:bg-amber-100 transition"
+                className="btn-ghost !rounded !py-1 !px-2 text-xs font-black hover:bg-amber-100 transition"
                 title="Předchozí měsíc"
               >←</button>
               <Calendar size={15} className="text-amber-800" />
@@ -1861,7 +1861,7 @@ export default function Orders({
               <button
                 type="button"
                 onClick={() => setSelectedMonth(shiftMonth(selectedMonth, 1))}
-                className="btn-ghost !py-1 !px-2 text-xs font-black hover:bg-amber-100 transition"
+                className="btn-ghost !rounded !py-1 !px-2 text-xs font-black hover:bg-amber-100 transition"
                 title="Další měsíc"
               >→</button>
             </div>
@@ -1913,7 +1913,7 @@ export default function Orders({
                       setDeliveryDayFilter('all');
                       setZavozOnly(false);
                     }}
-                    className="btn-primary !py-1 !px-3 text-xs font-black shadow-md shrink-0 bg-amber-600 hover:bg-amber-700 text-white"
+                    className="btn-primary !rounded !py-1 !px-3 text-xs font-black shadow-md shrink-0 bg-amber-600 hover:bg-amber-700 text-white"
                   >
                     🌐 Zobrazit všech {itemAuditStats.allOrdersQty} ks
                   </button>
@@ -2002,17 +2002,17 @@ export default function Orders({
             <option value="">🏷️ Konkrétní obal</option>
             {packages.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
           </select>
-          <label className="flex items-center gap-2 text-sm text-primary-700 cursor-pointer px-2.5 py-1 rounded-lg hover:bg-primary-50">
+          <label className="flex items-center gap-2 text-sm text-primary-700 cursor-pointer px-2.5 py-1 rounded hover:bg-primary-50">
             <input type="checkbox" checked={groupByDay} onChange={(e) => setGroupByDay(e.target.checked)} className="w-4 h-4 rounded text-primary-600" />
             📅 Seskupit dle dne
           </label>
           {(searchText || statusFilter || deliveryDayFilter !== 'all' || itemFilterBeerId || itemFilterPackageId) && (
-            <button className="btn-ghost !py-1.5 text-xs font-bold text-amber-900" onClick={() => { setSearchText(''); setStatusFilter(''); setDeliveryDayFilter('all'); setItemFilterBeerId(null); setItemFilterPackageId(null); }}>Zrušit filtr</button>
+            <button className="btn-ghost !rounded !py-1.5 text-xs font-bold text-amber-900" onClick={() => { setSearchText(''); setStatusFilter(''); setDeliveryDayFilter('all'); setItemFilterBeerId(null); setItemFilterPackageId(null); }}>Zrušit filtr</button>
           )}
         </div>
 
       <div className="flex items-center justify-between gap-2 mb-2.5 flex-wrap">
-        <label className="flex items-center gap-2 text-sm text-primary-700 cursor-pointer px-2.5 py-1 rounded-lg hover:bg-primary-50">
+        <label className="flex items-center gap-2 text-sm text-primary-700 cursor-pointer px-2.5 py-1 rounded hover:bg-primary-50">
           <input type="checkbox" checked={zavozOnly} onChange={(e) => setZavozOnly(e.target.checked)} className="w-4 h-4 rounded text-primary-600" />
           🚚 Jen nezavezenné (pro závozníka)
         </label>
@@ -2027,7 +2027,7 @@ export default function Orders({
             <button className="chip bg-white border border-primary-200 text-primary-500 hover:bg-primary-50" onClick={clearSelection}>✕ Zrušit výběr</button>
           </div>
         ) : (
-          searchedFiltered.length > 0 && <button className="btn-ghost !py-1.5 text-xs flex items-center gap-1" onClick={selectAll}><CheckSquare size={13} /> Vybrat vše ({searchedFiltered.length})</button>
+          searchedFiltered.length > 0 && <button className="btn-ghost !rounded !py-1.5 text-xs flex items-center gap-1" onClick={selectAll}><CheckSquare size={13} /> Vybrat vše ({searchedFiltered.length})</button>
         )}
       </div>
         </>
@@ -2428,7 +2428,7 @@ function VariantTotalsPanel({ totals, beers, packages, timeScope, onPick }: {
               type="button"
               onClick={() => onPick(t.beerId, t.packageId)}
               title={`Zobrazit objednávky: ${beerName(beer)} v obalu ${formatPackageLabel(pkg?.label) || '?'}`}
-              className="group text-left bg-white rounded-2xl border-2 border-neutral-200 hover:border-amber-400 hover:ring-2 hover:ring-amber-300 hover:shadow-md transition-all p-3 flex flex-col gap-1.5 cursor-pointer"
+              className="group text-left bg-white rounded border-2 border-neutral-200 hover:border-amber-400 hover:ring-2 hover:ring-amber-300 hover:shadow-md transition-all p-3 flex flex-col gap-1.5 cursor-pointer"
             >
               <div className="flex items-center justify-between gap-2 min-w-0">
                 <span className="font-display font-black text-sm text-neutral-800 truncate flex items-center gap-1.5">
@@ -2536,7 +2536,7 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
           <div className="ml-auto flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={() => onToggleFlag(o, 'is_prepared')}
-              className={`px-2 py-1 rounded-lg text-[11px] font-black transition flex items-center gap-1 shadow-2xs ${
+              className={`px-2 py-1 rounded text-[11px] font-black transition flex items-center gap-1 shadow-2xs ${
                 o.is_prepared
                   ? 'bg-emerald-600 text-white border border-emerald-700 shadow-xs'
                   : 'bg-white text-neutral-800 border border-neutral-300 hover:bg-emerald-50'
@@ -2655,20 +2655,20 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
               <option value="">—</option>
               {DAYS.map((d) => <option key={d.v} value={d.v}>{d.label}</option>)}
             </select>
-            <button className="px-2 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[11px] shadow-md transition flex items-center gap-1" onClick={() => onEdit(o)} title="Upravit objednávku">
+            <button className="px-2 py-1 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[11px] shadow-md transition flex items-center gap-1" onClick={() => onEdit(o)} title="Upravit objednávku">
               <Pencil size={12} /> Upravit
             </button>
-            <button className="btn-ghost text-[11px] font-bold !py-1 !px-2 !bg-emerald-50 text-emerald-950 border border-emerald-300 shadow-2xs hover:bg-emerald-100 flex items-center gap-1" onClick={() => shareOrderToWhatsApp(o, items)} title="Sdílet tuto objednávku na WhatsApp">
+            <button className="btn-ghost !rounded text-[11px] font-bold !py-1 !px-2 !bg-emerald-50 text-emerald-950 border border-emerald-300 shadow-2xs hover:bg-emerald-100 flex items-center gap-1" onClick={() => shareOrderToWhatsApp(o, items)} title="Sdílet tuto objednávku na WhatsApp">
               <MessageCircle size={12} /> WhatsApp
             </button>
-            <button className="btn-ghost text-[11px] font-bold !py-1 !px-2 !bg-white border border-neutral-300 shadow-2xs flex items-center gap-1" onClick={() => onDuplicate(o)} title="Vytvořit stejnou objednávku znovu"><Copy size={12} /> Duplik.</button>
+            <button className="btn-ghost !rounded text-[11px] font-bold !py-1 !px-2 !bg-white border border-neutral-300 shadow-2xs flex items-center gap-1" onClick={() => onDuplicate(o)} title="Vytvořit stejnou objednávku znovu"><Copy size={12} /> Duplik.</button>
             {o.status !== 'storno' && (
-              <button className="btn-ghost text-[11px] font-extrabold !py-1 !px-2 !bg-rose-50 text-rose-800 border border-rose-200 shadow-2xs hover:bg-rose-100 flex items-center gap-1" onClick={() => onSetStatus(o, 'storno')} title="Zrušit / Stornovat objednávku"><Ban size={12} /> Zrušit</button>
+              <button className="btn-ghost !rounded text-[11px] font-extrabold !py-1 !px-2 !bg-rose-50 text-rose-800 border border-rose-200 shadow-2xs hover:bg-rose-100 flex items-center gap-1" onClick={() => onSetStatus(o, 'storno')} title="Zrušit / Stornovat objednávku"><Ban size={12} /> Zrušit</button>
             )}
             {o.status === 'storno' && (
-              <button className="btn-ghost text-[11px] font-extrabold !py-1 !px-2 !bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs flex items-center gap-1" onClick={() => onSetStatus(o, 'nova')} title="Obnovit objednávku"><RotateCcw size={12} /> Obnovit</button>
+              <button className="btn-ghost !rounded text-[11px] font-extrabold !py-1 !px-2 !bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs flex items-center gap-1" onClick={() => onSetStatus(o, 'nova')} title="Obnovit objednávku"><RotateCcw size={12} /> Obnovit</button>
             )}
-            <button className="btn-danger text-[11px] font-bold !py-1 !px-2 shadow-2xs" onClick={() => onDelete(o.id)}>Smazat</button>
+            <button className="btn-danger !rounded text-[11px] font-bold !py-1 !px-2 shadow-2xs" onClick={() => onDelete(o.id)}>Smazat</button>
           </div>
         </div>
       </div>
@@ -2791,7 +2791,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
         <div className="flex items-center justify-between gap-3 mb-4 bg-white rounded-2xl border border-neutral-200 p-2 shadow-2xs">
           <button
             onClick={() => setWeekKey(shiftWeek(weekKey, -1))}
-            className="btn-ghost !py-1.5 !px-3 text-xs font-black flex items-center gap-1 hover:bg-amber-100 transition"
+            className="btn-ghost !rounded !py-1.5 !px-3 text-xs font-black flex items-center gap-1 hover:bg-amber-100 transition"
           >
             ←
           </button>
@@ -2802,7 +2802,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
           </div>
           <button
             onClick={() => setWeekKey(shiftWeek(weekKey, 1))}
-            className="btn-ghost !py-1.5 !px-3 text-xs font-black flex items-center gap-1 hover:bg-amber-100 transition"
+            className="btn-ghost !rounded !py-1.5 !px-3 text-xs font-black flex items-center gap-1 hover:bg-amber-100 transition"
           >
             →
           </button>
@@ -2853,10 +2853,10 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
 
           <div className="flex flex-wrap gap-4">
 
-            <label className="flex items-center gap-2 text-sm text-primary-700 cursor-pointer px-3 py-2 rounded-lg hover:bg-primary-50">
+            <label className="flex items-center gap-2 text-sm text-primary-700 cursor-pointer px-3 py-2 rounded hover:bg-primary-50">
               <input type="checkbox" checked={order.is_prepared} onChange={() => onToggleFlag(order, 'is_prepared')} className="w-4 h-4 rounded text-primary-600" /> Připraveno
             </label>
-            <label className="flex items-center gap-2 text-sm text-primary-700 cursor-pointer px-3 py-2 rounded-lg hover:bg-primary-50">
+            <label className="flex items-center gap-2 text-sm text-primary-700 cursor-pointer px-3 py-2 rounded hover:bg-primary-50">
               <input type="checkbox" checked={order.is_delivered} onChange={() => onToggleFlag(order, 'is_delivered')} className="w-4 h-4 rounded text-primary-600" /> Závoz
             </label>
           </div>
@@ -2878,7 +2878,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
             </div>
           )}
           <div className="flex justify-end mt-2">
-            <button className="btn-ghost text-xs !py-1.5" disabled={savingMeta} onClick={saveMeta}>{savingMeta ? 'Ukládám…' : 'Uložit datum dodání'}</button>
+            <button className="btn-ghost !rounded text-xs !py-1.5" disabled={savingMeta} onClick={saveMeta}>{savingMeta ? 'Ukládám…' : 'Uložit datum dodání'}</button>
           </div>
         </div>
 
@@ -2950,7 +2950,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                       </div>
                       <div className="col-span-2 flex gap-2">
                         <button
-                          className="btn-primary flex-1 !py-2 text-sm"
+                          className="btn-primary !rounded flex-1 !py-2 text-sm"
                           onClick={async () => {
                             if (editBeerId && editBeerId !== i.beer_id) await updateItemBeer(i, editBeerId);
                             if (editPkgId && editPkgId !== i.package_id) await updateItemPkg(i, editPkgId);
@@ -2959,7 +2959,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                             setEditingItemId(null);
                           }}
                         >✓ Uložit</button>
-                        <button className="btn-ghost !py-2 !px-3" onClick={() => setEditingItemId(null)}>✕</button>
+                        <button className="btn-ghost !rounded !py-2 !px-3" onClick={() => setEditingItemId(null)}>✕</button>
                       </div>
                     </div>
                   )}
@@ -3038,7 +3038,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                             </div>
                             <div className="col-span-2 sm:col-span-1 lg:col-span-2 flex gap-2">
                               <button
-                                className="btn-primary flex-1 !py-2 text-sm"
+                                className="btn-primary !rounded flex-1 !py-2 text-sm"
                                 onClick={async () => {
                                   if (editBeerId && editBeerId !== i.beer_id) await updateItemBeer(i, editBeerId);
                                   if (editPkgId && editPkgId !== i.package_id) await updateItemPkg(i, editPkgId);
@@ -3047,7 +3047,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                                   setEditingItemId(null);
                                 }}
                               >✓ Uložit</button>
-                              <button className="btn-ghost !py-2 !px-3" onClick={() => setEditingItemId(null)}>✕</button>
+                              <button className="btn-ghost !rounded !py-2 !px-3" onClick={() => setEditingItemId(null)}>✕</button>
                             </div>
                           </div>
                         </td>
@@ -3084,14 +3084,14 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
               </select>
             </div>
             <div className="col-span-2 sm:col-span-1 lg:col-span-2 flex gap-2">
-              <button className="btn-primary flex-1 !py-2 text-sm" onClick={addItem}>✓ Přidat</button>
-              <button className="btn-ghost !py-2 !px-3" onClick={() => setAdding(false)}>✕</button>
+              <button className="btn-primary !rounded flex-1 !py-2 text-sm" onClick={addItem}>✓ Přidat</button>
+              <button className="btn-ghost !rounded !py-2 !px-3" onClick={() => setAdding(false)}>✕</button>
             </div>
           </div>
         ) : (
           <div className="flex gap-2">
-            <button className="btn-ghost text-sm" onClick={() => setAdding(true)}>+ Přidat položku</button>
-            <button className="btn-ghost text-sm" onClick={() => onImportImage(order)}>📸 Načíst z fotky</button>
+            <button className="btn-ghost !rounded text-sm" onClick={() => setAdding(true)}>+ Přidat položku</button>
+            <button className="btn-ghost !rounded text-sm" onClick={() => onImportImage(order)}>📸 Načíst z fotky</button>
           </div>
         )}
 
@@ -3099,12 +3099,12 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
           <label className="label">Poznámka <span className="text-primary-400 font-normal">(odfasování sudu, podtacky, sklo…)</span></label>
           <input type="text" className="input" placeholder="např. vratný sud, podtacky, sklo" value={note} onChange={(e) => setNote(e.target.value)} />
           <div className="flex justify-end mt-2">
-            <button className="btn-ghost text-xs !py-1.5" disabled={savingMeta} onClick={saveMeta}>{savingMeta ? 'Ukládám…' : 'Uložit poznámku'}</button>
+            <button className="btn-ghost !rounded text-xs !py-1.5" disabled={savingMeta} onClick={saveMeta}>{savingMeta ? 'Ukládám…' : 'Uložit poznámku'}</button>
           </div>
         </div>
 
         <div className="flex justify-end pt-2">
-          <button className="btn-ghost" onClick={onClose}>Zavřít</button>
+          <button className="btn-ghost !rounded" onClick={onClose}>Zavřít</button>
         </div>
       </div>
     </div>
