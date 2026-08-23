@@ -6,7 +6,7 @@
 // zobrazuje se jen komu je nastaveno (Uživatelé → "Dostává upozornění na
 // vozidla") a musí ho jednou potvrdit, pak zmizí (dokud se stav nezmění).
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { Search, MessageCircle, SlidersHorizontal, LogOut, ChevronLeft, ChevronRight, Plus, Trash2, Eye } from 'lucide-react';
+import { Search, MessageCircle, SlidersHorizontal, LogOut, ChevronLeft, ChevronRight, Plus, Trash2, Eye, TriangleAlert } from 'lucide-react';
 import { NAV, type Page } from '../components/Layout';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import LauncherTile from '../components/LauncherTile';
@@ -313,55 +313,8 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
     });
   }, [canSeeVehicleAlerts]);
 
-  // Podpis aktuální sady upozornění — když se změní (nové vozidlo, jiné datum),
-  // dřívější potvrzení už neplatí a banner se objeví znovu.
-  const alertsSignature = vehicleAlerts.map((a) => `${a.vehicleName}|${a.label}`).sort().join(';');
-  const ackKey = `vehicle_alerts_ack_${user?.id || 'guest'}`;
-  const [ackSignature, setAckSignature] = useState<string>(() => {
-    try { return localStorage.getItem(ackKey) || ''; } catch { return ''; }
-  });
-  const showVehicleBanner = vehicleAlerts.length > 0 && alertsSignature !== ackSignature;
-  function acknowledgeVehicleAlerts() {
-    try { localStorage.setItem(ackKey, alertsSignature); } catch {}
-    setAckSignature(alertsSignature);
-  }
-
   return (
     <div className="flex flex-col gap-4 min-h-full">
-      {showVehicleBanner && (
-        <div className="p-4 rounded-3xl bg-white border-2 border-amber-300 shadow-md space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-white border-2 border-amber-300 text-amber-900 flex items-center justify-center text-xl font-black shrink-0">
-              🚗
-            </div>
-            <div className="font-extrabold text-sm text-neutral-900">
-              Upozornění vozového parku (STK / Dálniční známky)
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {vehicleAlerts.map((a, i) => (
-              <span key={i} className={`text-xs font-bold px-3 py-1 rounded-xl ${a.status === 'expired' ? 'bg-rose-600 text-white font-black animate-pulse' : 'bg-amber-100 text-amber-950 border border-amber-300'}`}>
-                <strong>{a.vehicleName}</strong> — {a.label}
-              </span>
-            ))}
-          </div>
-          <div className="flex items-center justify-end gap-2 flex-wrap">
-            <button
-              onClick={() => setPage('vehicles')}
-              className="px-3.5 py-2 rounded-xl bg-white border border-amber-300 text-amber-900 font-black text-xs hover:bg-amber-50 transition"
-            >
-              Přejít do evidence aut →
-            </button>
-            <button
-              onClick={acknowledgeVehicleAlerts}
-              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-sm transition"
-            >
-              ✅ Ano, přečetl jsem si a vím o tom
-            </button>
-          </div>
-        </div>
-      )}
-
       <div className="hs-launcher">
         {editMode && (
           <div className="hs-controls">
@@ -494,6 +447,16 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                 <div className="hs-lbl">Objednávky k parsování</div>
                 {pendingWhatsApp > 0 && <span className="hs-badge">{pendingWhatsApp > 99 ? '99+' : pendingWhatsApp}</span>}
               </button>
+              {vehicleAlerts.length > 0 && (
+                // Tichý ukazatel místo dřívějšího banneru přes celou
+                // obrazovku, co bylo nutné potvrdit — dlaždice prostě zmizí
+                // sama, až se STK/známka skutečně vyřeší (aktualizuje datum).
+                <button type="button" className="hs-tile hs-tile-alert" onClick={() => setPage('vehicles')}>
+                  <TriangleAlert />
+                  <div className="hs-lbl">Vozidla — STK/známka</div>
+                  <span className="hs-badge">{vehicleAlerts.length}</span>
+                </button>
+              )}
             </>
           )}
           <button

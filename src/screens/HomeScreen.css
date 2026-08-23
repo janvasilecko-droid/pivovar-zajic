@@ -211,6 +211,13 @@
 .hs-tile.c-gold    { background: rgba(212,160,23,var(--hs-tile-alpha, 0.62)); }
 .hs-tile.c-crimson { background: rgba(193,18,31,var(--hs-tile-alpha, 0.62)); }
 
+/* Upozornění (STK/dálniční známka) — sytě červená s výrazným žlutým
+   vykřičníkem, ať je na první pohled jasné, že je co řešit. Objevuje se
+   jen dokud je co hlásit, mizí sama po opravě data, žádné potvrzování. */
+.hs-tile-alert { background: rgba(193,18,31,0.82); border-color: rgba(250,204,21,0.5); }
+.hs-tile-alert svg { color: #facc15; }
+.hs-tile-alert .hs-badge { background: #facc15; color: #451a03; }
+
 /* touch-action:none je nutné, jinak prst na dotykovém displeji posune
    stránku (scroll) místo aby přesunul dlaždici (pointermove eventy). */
 .hs-tile.hs-editing { cursor: grab; }
