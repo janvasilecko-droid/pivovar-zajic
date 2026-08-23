@@ -87,6 +87,60 @@ export function playOrderChime() {
   }
 }
 
+// Alarm pro vypršelý časovač/stočení sudu — odlišný od playOrderChime (nová
+// objednávka), ať jde zvukem poznat, o jaké upozornění jde: 3× stejný dvojtón
+// (ne stoupající melodie), jako běžný kuchyňský časovač.
+export function playAlarmSound() {
+  let ctx: AudioContext | null = null;
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+
+    const audioContext = new AudioContextClass() as AudioContext;
+    ctx = audioContext;
+    const now = audioContext.currentTime;
+    const beepAt = [0, 0.3, 0.6];
+
+    let closeTimer: ReturnType<typeof setTimeout> | null = null;
+    const closeContext = () => {
+      if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+      if (!ctx || ctx.state === 'closed') return;
+      void ctx.close().catch(() => undefined);
+    };
+
+    beepAt.forEach((offset, idx) => {
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(880, now + offset);
+      gain.gain.setValueAtTime(0.001, now + offset);
+      gain.gain.exponentialRampToValueAtTime(0.22, now + offset + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.22);
+      osc.connect(gain);
+      gain.connect(audioContext.destination);
+      osc.start(now + offset);
+      osc.stop(now + offset + 0.24);
+      if (idx === beepAt.length - 1) osc.onended = closeContext;
+    });
+    closeTimer = setTimeout(closeContext, 1500);
+  } catch (e) {
+    if (ctx && ctx.state !== 'closed') void ctx.close().catch(() => undefined);
+    console.warn('Web Audio Playback muted or unavailable:', e);
+  }
+}
+
+/** Obecné upozornění "časovač vypršel" — zvuk + vibrace + systémová notifikace
+ *  (pokud povolená). Používá Stopky/Časovač i Stočení sudu (viz stopwatchTimers.ts). */
+export function notifyTimerDone(title: string, body: string) {
+  playAlarmSound();
+  try { navigator.vibrate?.([200, 100, 200, 100, 200]); } catch {}
+  if (isNotificationSupported() && Notification.permission === 'granted') {
+    try {
+      new Notification(title, { body, icon: '/favicon.ico', tag: 'timer-done', requireInteraction: true });
+    } catch {}
+  }
+}
+
 export interface NotificationSettings {
   /** 0 = nikdy (ručně), jiné = auto-skrýt po X sekundách */
   autoHideSeconds: 0 | 5 | 10 | 30 | 60;

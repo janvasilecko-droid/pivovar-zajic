@@ -62,6 +62,8 @@ import SanitaceTabbed from './screens/SanitaceTabbed';
 import PlanningTabbed from './screens/PlanningTabbed';
 import MarketingTabbed from './screens/MarketingTabbed';
 import OrdersTabbed from './screens/OrdersTabbed';
+import TimersScreen from './screens/TimersScreen';
+import { KegTimerNotificationManager } from './components/KegTimerNotificationManager';
 
 export default function App() {
   const { session, loading } = useAuth();
@@ -150,6 +152,7 @@ export default function App() {
     <Layout page={page} setPage={setPage}>
       <SetPasswordModal />
       <ReminderNotificationManager />
+      <KegTimerNotificationManager />
       <MandatoryAnnouncementModal />
       <CriticalMaterialAlertModal />
       <MonthlyCleanupWarning
@@ -232,6 +235,12 @@ export default function App() {
         />
       )}
       {page === 'users' && <Users setPage={setPage} initialSubTab={pageSubTab} />}
+      {(page === 'stopwatch' || page === 'timer' || page === 'keg_timer') && (
+        <TimersScreen
+          initialTab={page === 'timer' ? 'timer' : page === 'keg_timer' ? 'keg' : 'stopwatch'}
+          setPage={setPage}
+        />
+      )}
       {page === 'app_settings' && <AppSettingsScreen />}
       {page === 'app_versions' && <AppVersionsScreen />}
     </Layout>

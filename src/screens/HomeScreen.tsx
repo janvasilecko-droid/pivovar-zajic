@@ -6,8 +6,8 @@
 // zobrazuje se jen komu je nastaveno (Uživatelé → "Dostává upozornění na
 // vozidla") a musí ho jednou potvrdit, pak zmizí (dokud se stav nezmění).
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { Search, MessageCircle, SlidersHorizontal, LogOut, ChevronLeft, ChevronRight, Plus, Trash2, Eye, TriangleAlert } from 'lucide-react';
-import { NAV, type Page } from '../components/Layout';
+import { Search, MessageCircle, SlidersHorizontal, ChevronLeft, ChevronRight, Plus, Trash2, TriangleAlert } from 'lucide-react';
+import { NAV, EXTRA_NAV, type Page, type NavItem } from '../components/Layout';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import LauncherTile from '../components/LauncherTile';
 import { QuickSearchModal } from '../components/QuickSearchModal';
@@ -19,11 +19,14 @@ import { supabase, Vehicle } from '../lib/supabase';
 import { fetchPendingWhatsAppCount } from '../lib/whatsappApi';
 import { getVehicleExpiryStatus } from './Catalogs';
 import {
-  getHomeLayout, saveHomeLayout, addPage, removePage, moveTileToPage, hideTile, unhideTile,
+  getHomeLayout, saveHomeLayout, addPage, removePage, moveTileToPage, hideTile, addTile,
+  mergeTiles, addToGroup, removeFromGroup, deleteGroup, isGroupId, ensurePositions, moveTileToCell, stepTileCell,
   hexToRgba,
-  SCENES, MIN_OPACITY, MAX_OPACITY, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX,
-  type HomeLayout, type TileColor,
+  SCENES, MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX,
+  GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE,
+  type HomeLayout, type TileColor, type TileId, type GroupId,
 } from '../lib/homeLayout';
+import { getKegTimerState, formatDurationMs } from '../lib/stopwatchTimers';
 import './HomeScreen.css';
 
 /** true = jméno přednastaveného odstínu (CSS třída c-*); false = vlastní hex barva (inline styl). */
@@ -98,21 +101,49 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
   }), [isAdmin, profile?.role, user?.id, userPerms]);
 
   const visibleIds = useMemo(() => visible.map((n) => n.id), [visible]);
-  const navById = useMemo(() => new Map(visible.map((n) => [n.id, n])), [visible]);
+
+  // Rozšiřující dlaždice (EXTRA_NAV, viz Layout.tsx) — stránky/záložky, co
+  // dnes nejdou přidat jinak než ručně přes "+ Přidat dlaždici". Na rozdíl
+  // od `visible` se nepřidávají do launcheru automaticky.
+  const extraVisible = useMemo(() => EXTRA_NAV.filter((n) => {
+    const modKey = PAGE_TO_MODULE[n.id];
+    if (!modKey) return true;
+    return canUserView(profile?.role, user?.id, modKey, userPerms);
+  }), [profile?.role, user?.id, userPerms]);
+  const extraVisibleIds = useMemo(() => extraVisible.map((n) => n.id), [extraVisible]);
+
+  const navById = useMemo(() => new Map<Page, NavItem>([...visible, ...extraVisible].map((n) => [n.id, n])), [visible, extraVisible]);
+
+  // Počet sloupců mřížky podle šířky obrazovky (viz HomeScreen.css media query
+  // + homeLayout.ts GRID_COLS_*) — potřeba i v JS, ať jde spočítat cílovou
+  // buňku z pozice myši/prstu při přetažení a ať se volné pozice dlaždic
+  // ukládají v souřadnicích odpovídajících aktuálně zobrazené mřížce.
+  const [cols, setCols] = useState(() => (typeof window !== 'undefined' && window.innerWidth <= MOBILE_BREAKPOINT_PX ? GRID_COLS_MOBILE : GRID_COLS_DESKTOP));
+  useEffect(() => {
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+    const onResize = () => {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        setCols(window.innerWidth <= MOBILE_BREAKPOINT_PX ? GRID_COLS_MOBILE : GRID_COLS_DESKTOP);
+      }, 150);
+    };
+    window.addEventListener('resize', onResize);
+    return () => { window.removeEventListener('resize', onResize); if (resizeTimer) clearTimeout(resizeTimer); };
+  }, []);
 
   // ---- Launcher: stránky / velikost / barva / scéna, uložené v profilu ----
-  const [layout, setLayout] = useState<HomeLayout>(() => getHomeLayout((profile as any)?.home_layout, visibleIds));
+  const [layout, setLayout] = useState<HomeLayout>(() => getHomeLayout((profile as any)?.home_layout, visibleIds, extraVisibleIds, cols));
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   useEffect(() => {
-    setLayout((prev) => getHomeLayout(prev, visibleIds));
+    setLayout((prev) => getHomeLayout(prev, visibleIds, extraVisibleIds, cols));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visibleIds.join(',')]);
+  }, [visibleIds.join(','), extraVisibleIds.join(','), cols]);
   useEffect(() => {
     const raw = (profile as any)?.home_layout;
-    setLayout(getHomeLayout(raw, visibleIds));
+    setLayout(getHomeLayout(raw, visibleIds, extraVisibleIds, cols));
     setHasCustomLayout(!!raw && Object.keys(raw).length > 0);
     // Reagujeme jen na skutečnou změnu uloženého layoutu z profilu (např. po
-    // přihlášení na jiném zařízení) — visibleIds řeší efekt výše.
+    // přihlášení na jiném zařízení) — visibleIds/extraVisibleIds/cols řeší efekt výše.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [(profile as any)?.home_layout]);
   // Pokud se smazáním stránky (nebo na jiném zařízení) zmenší počet stránek
@@ -122,17 +153,29 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
   }, [layout.pages.length]);
 
   const [editMode, setEditMode] = useState(false);
-  const [draggingId, setDraggingId] = useState<Page | null>(null);
-  const [dragOverId, setDragOverId] = useState<Page | null>(null);
-  const [primingId, setPrimingId] = useState<Page | null>(null);
-  // Dlaždice, jejíž plný editor (velikost/barva/popisek/stránka/skrytí) je
+  const [draggingId, setDraggingId] = useState<TileId | null>(null);
+  const [dragOverId, setDragOverId] = useState<TileId | null>(null);
+  const [primingId, setPrimingId] = useState<TileId | null>(null);
+  // Dlaždice, jejíž plný editor (velikost/barva/popisek/stránka/skrytí/skupina) je
   // teď otevřený v modálu — řešení cramování všech ovládacích prvků přímo
   // na dlaždici (nešly vidět všechny barvy, popisky byly nečitelné apod.).
-  const [editingTileId, setEditingTileId] = useState<Page | null>(null);
+  const [editingTileId, setEditingTileId] = useState<TileId | null>(null);
+  // Skupinová dlaždice, jejíž "složka" je teď otevřená (mimo edit mód) —
+  // seznam členů ke klepnutí.
+  const [openGroupId, setOpenGroupId] = useState<GroupId | null>(null);
+  // Modál "Přidat dlaždici" — schované dlaždice + EXTRA_NAV položky, co
+  // ještě nejsou na žádné stránce (viz addableItems níže).
+  const [showAddTileModal, setShowAddTileModal] = useState(false);
+  const [mergeTarget, setMergeTarget] = useState('');
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hasCustomLayout, setHasCustomLayout] = useState(!!(profile as any)?.home_layout && Object.keys((profile as any).home_layout).length > 0);
 
-  function persist(next: HomeLayout) {
+  function persist(raw: HomeLayout) {
+    // Doplní x/y pro dlaždice, co je ještě nemají (nově přidané/vzniklé
+    // sloučením/vyjmuté ze skupiny) — samotné mutátory v homeLayout.ts o
+    // aktuálním počtu sloupců nic nevědí, tohle je jediné místo, kudy
+    // všechny změny layoutu procházejí.
+    const next = ensurePositions(raw, cols);
     setLayout(next);
     setHasCustomLayout(true);
     // Okamžitě (bez čekání na uložení) promítnout do profilu v AuthContext —
@@ -145,26 +188,38 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
     saveTimer.current = setTimeout(() => { saveHomeLayout(user.id, next); }, 500);
   }
 
-  // Přesun dlaždice: "klepni a klepni" (tap-to-swap), ne gesto přetažení.
-  // Pointer-based drag (i s pointer capture a touch-action:none) se na
-  // dotykových zařízeních nedařilo spolehlivě rozjet; klepnutí je jediná
-  // interakce, co prokazatelně funguje všude. Klepneš na dlaždici → vybere
-  // se; klepneš na jinou → prohodí se pozice v rámci aktuální stránky;
-  // klepneš na tu samou znovu → zruší se výběr.
   // Přesun dlaždice: podržení prstu (long-press), stejně jako na Androidu —
   // ne okamžitý drag od prvního dotyku. Krátký dotek / rychlé přejetí (=
   // pokus o scroll) se zruší dřív, než se cokoliv začne přesouvat; teprve
-  // po ~450ms bez pohybu se dlaždice "zvedne" a od tohoto momentu sledování
+  // po ~400ms bez pohybu se dlaždice "zvedne" a od tohoto momentu sledování
   // prstu přesouvá. Řeší se tu na window (ne jen na dlaždici), ať to funguje
   // i když prst při tažení sjede mimo původní element.
+  //
+  // Dlaždice jde pustit na LIBOVOLNOU volnou buňku (i s mezerou kolem) —
+  // cílová buňka se počítá přímo z pozice ukazatele vůči `.hs-grid`, ne z
+  // toho, "která dlaždice je zrovna pod prstem" (to dřív dovolovalo jen
+  // prohodit pořadí, žádné skutečně volné rozmístění). Když je cílová buňka
+  // obsazená, obě dlaždice si prostě vymění místo (viz homeLayout.ts
+  // moveTileToCell) — jinak leze dlaždice přesně tam, kam ukazuješ.
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFired = useRef(false);
-  function findTileIdAtPoint(clientX: number, clientY: number): Page | null {
+  const rowHeight = cols === GRID_COLS_MOBILE ? ROW_HEIGHT_MOBILE : ROW_HEIGHT_DESKTOP;
+  function cellFromPoint(clientX: number, clientY: number): { x: number; y: number } | null {
+    const gridEl = document.querySelector('.hs-grid') as HTMLElement | null;
+    if (!gridEl) return null;
+    const rect = gridEl.getBoundingClientRect();
+    const cellW = rect.width / cols;
+    const x = Math.floor((clientX - rect.left) / cellW);
+    const y = Math.floor((clientY - rect.top) / rowHeight);
+    if (x < 0 || x >= cols || y < 0) return null;
+    return { x, y };
+  }
+  function findTileIdAtPoint(clientX: number, clientY: number): TileId | null {
     const el = document.elementFromPoint(clientX, clientY);
     const tileEl = el?.closest('[data-tile-id]') as HTMLElement | null;
-    return (tileEl?.dataset.tileId as Page | undefined) ?? null;
+    return (tileEl?.dataset.tileId as TileId | undefined) ?? null;
   }
-  function handleTileDragPointerDown(id: Page, e: React.PointerEvent) {
+  function handleTileDragPointerDown(id: TileId, e: React.PointerEvent) {
     const startX = e.clientX;
     const startY = e.clientY;
     longPressFired.current = false;
@@ -187,25 +242,15 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
         if (Math.hypot(ev.clientX - startX, ev.clientY - startY) > 18) cleanup();
         return;
       }
+      // Vizuální zvýraznění: jen když by šlo o výměnu s existující dlaždicí,
+      // ne prázdnou buňkou (tam se nemá co "vysvítit").
       const overId = findTileIdAtPoint(ev.clientX, ev.clientY);
       setDragOverId(overId && overId !== id ? overId : null);
     }
     function onUp(ev: PointerEvent) {
       if (longPressFired.current) {
-        const overId = findTileIdAtPoint(ev.clientX, ev.clientY);
-        if (overId && overId !== id) {
-          setLayout((prevLayout) => {
-            const pageTiles = [...prevLayout.pages[currentPageIndex]];
-            const from = pageTiles.indexOf(id);
-            const to = pageTiles.indexOf(overId);
-            if (from < 0 || to < 0) return prevLayout;
-            pageTiles.splice(to, 0, pageTiles.splice(from, 1)[0]);
-            const pages = prevLayout.pages.map((p, i) => (i === currentPageIndex ? pageTiles : p));
-            const next = { ...prevLayout, pages };
-            persist(next);
-            return next;
-          });
-        }
+        const cell = cellFromPoint(ev.clientX, ev.clientY);
+        if (cell) persist(moveTileToCell(layout, id, cell.x, cell.y, cols));
       }
       cleanup();
     }
@@ -226,13 +271,13 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
   }
   // Volná velikost — +/- krok šířky nebo výšky (žádné pevné předvolby),
   // ať si uživatel důležité dlaždice zvětší a nedůležité zmenší podle sebe.
-  function handleResizeStep(id: Page, dim: 'w' | 'h', delta: number) {
+  function handleResizeStep(id: TileId, dim: 'w' | 'h', delta: number) {
     const current = layout.overrides[id] ?? {};
     const w = dim === 'w' ? Math.min(MAX_W, Math.max(MIN_W, (current.w ?? 1) + delta)) : (current.w ?? 1);
     const h = dim === 'h' ? Math.min(MAX_H, Math.max(MIN_H, (current.h ?? 1) + delta)) : (current.h ?? 1);
     persist({ ...layout, overrides: { ...layout.overrides, [id]: { ...current, w, h } } });
   }
-  function handleRecolor(id: Page, color: string) {
+  function handleRecolor(id: TileId, color: string) {
     persist({ ...layout, overrides: { ...layout.overrides, [id]: { ...layout.overrides[id], color } } });
   }
   // Vlastní barvy pevných utilitních dlaždic (Hledat, Objednávky k
@@ -253,20 +298,15 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
   function handleOpacityChange(tileOpacity: number) {
     persist({ ...layout, tileOpacity });
   }
+  function handleTileGapChange(tileGap: number) {
+    persist({ ...layout, tileGap });
+  }
   // Záložní, garantovaně funkční přesun (čisté kliknutí, žádné gesto) —
   // dlouhé podržení je citlivé na zařízení/prohlížeč, tohle vždy funguje.
-  function handleMoveTileStep(id: Page, direction: -1 | 1) {
-    setLayout((prevLayout) => {
-      const pageTiles = [...prevLayout.pages[currentPageIndex]];
-      const from = pageTiles.indexOf(id);
-      const to = from + direction;
-      if (from < 0 || to < 0 || to >= pageTiles.length) return prevLayout;
-      [pageTiles[from], pageTiles[to]] = [pageTiles[to], pageTiles[from]];
-      const pages = prevLayout.pages.map((p, i) => (i === currentPageIndex ? pageTiles : p));
-      const next = { ...prevLayout, pages };
-      persist(next);
-      return next;
-    });
+  // Posune dlaždici o jednu buňku daným směrem; obsazenou buňku prohodí
+  // (stejná logika jako drag-and-drop, viz homeLayout.ts stepTileCell).
+  function handleMoveTileStep(id: TileId, direction: 'left' | 'right' | 'up' | 'down') {
+    persist(stepTileCell(layout, id, direction, cols));
   }
   function handleDockChange(slot: number, id: Page) {
     const dock = [...layout.dock];
@@ -285,26 +325,58 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
     persist(next);
     setCurrentPageIndex((i) => Math.max(0, Math.min(i, next.pages.length - 1)));
   }
-  function handleMoveTileToPage(id: Page, targetPageIndex: number) {
+  function handleMoveTileToPage(id: TileId, targetPageIndex: number) {
     persist(moveTileToPage(layout, id, targetPageIndex));
   }
-  function handleHideTile(id: Page) {
+  function handleHideTile(id: TileId) {
     persist(hideTile(layout, id));
     setEditingTileId(null);
   }
-  function handleUnhideTile(id: Page) {
-    persist(unhideTile(layout, id));
-  }
-  function handleRenameTile(id: Page, label: string) {
+  function handleRenameTile(id: TileId, label: string) {
     const trimmed = label.trim();
     persist({ ...layout, overrides: { ...layout.overrides, [id]: { ...layout.overrides[id], label: trimmed || undefined } } });
   }
+  // Dlaždice dosud nikde umístěná (schovaná, nebo z EXTRA_NAV registru) —
+  // viz addableItems níže, otevírá se přes "+ Přidat dlaždici".
+  function handleAddTile(id: Page) {
+    persist(addTile(layout, id, currentPageIndex));
+  }
+  // Sloučení dlaždice `editingTileId` s jinou dlaždicí/skupinou na stejné
+  // stránce — vybráno v editor-modálu (sekce "Sloučit s…").
+  function handleMergeInto(targetId: string) {
+    if (!editingTileId || isGroupId(editingTileId) || !targetId) return;
+    const next = isGroupId(targetId)
+      ? addToGroup(layout, targetId, editingTileId)
+      : mergeTiles(layout, editingTileId, targetId as Page, currentPageIndex);
+    persist(next);
+    setEditingTileId(null);
+    setMergeTarget('');
+  }
+  function handleRemoveFromGroup(groupId: GroupId, tileId: Page) {
+    persist(removeFromGroup(layout, groupId, tileId));
+  }
+  function handleDeleteGroup(groupId: GroupId) {
+    persist(deleteGroup(layout, groupId));
+    setEditingTileId(null);
+  }
   function handleReset() {
-    const next = getHomeLayout(null, visibleIds);
+    const next = getHomeLayout(null, visibleIds, [], cols);
     setLayout(next);
     setHasCustomLayout(false);
     patchProfile({ home_layout: {} as any });
     if (user?.id) saveHomeLayout(user.id, {} as any);
+  }
+
+  // Klik na dlaždici v mřížce (nebo v otevřené skupině) — 'signout' není
+  // skutečná routovaná stránka (viz Layout.tsx NAV), je to jen dlaždice,
+  // co se dá stejně jako ostatní přesouvat/přebarvit/dát do skupiny; klik
+  // na ni se tu zvlášť odchytí a spustí odhlášení místo setPage.
+  function handleTileClick(id: Page) {
+    if (id === 'signout') {
+      if (window.confirm('Odhlásit se z appky?')) signOut();
+      return;
+    }
+    setPage(id);
   }
 
   // ---- Živá dlaždice: počet nevyřízených objednávek PRO TENTO TÝDEN ----
@@ -358,8 +430,34 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
     });
   }, [canSeeVehicleAlerts]);
 
-  const editingItem = editingTileId ? navById.get(editingTileId) : null;
+  const editingGroup = editingTileId && isGroupId(editingTileId) ? layout.groups[editingTileId] : null;
+  const editingItem = editingTileId && !isGroupId(editingTileId) ? navById.get(editingTileId) : null;
   const editingOverride = editingTileId ? (layout.overrides[editingTileId] ?? {}) : null;
+
+  // Dlaždice, co jde přidat přes "+ Přidat dlaždici": schované (layout.hidden)
+  // + EXTRA_NAV položky, co ještě nejsou na žádné stránce ani ve skupině.
+  // Sjednocené v jednom seznamu — addTile() zvládne oba případy stejně
+  // (odebere ze staré pozice, ať už to byla stránka nebo hidden).
+  const placedSet = useMemo(() => {
+    const s = new Set<Page>();
+    layout.pages.flat().forEach((id) => { if (!isGroupId(id)) s.add(id as Page); });
+    Object.values(layout.groups).forEach((g) => g.memberIds.forEach((m) => s.add(m)));
+    return s;
+  }, [layout.pages, layout.groups]);
+  const addableItems = useMemo(
+    () => [...visible, ...extraVisible].filter((n) => !placedSet.has(n.id)),
+    [visible, extraVisible, placedSet]
+  );
+
+  // Poslední naměřená doba stočení sudu — rychlý přehled přímo na dlaždici
+  // "Stočení sudu" (badge), bez nutnosti otevírat nástroj.
+  const [kegLastDuration, setKegLastDuration] = useState<string | null>(null);
+  useEffect(() => {
+    const state = getKegTimerState();
+    if (state.history.length > 0) setKegLastDuration(formatDurationMs(state.history[state.history.length - 1]));
+  }, [layout]);
+
+  const openGroup = openGroupId ? layout.groups[openGroupId] : null;
 
   return (
     <div className="flex flex-col gap-4 min-h-full">
@@ -401,6 +499,18 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                 onChange={(e) => handleOpacityChange(Number(e.target.value))}
               />
             </div>
+            <div className="hs-controls-group">
+              <span className="hs-controls-label">Mezery</span>
+              <input
+                type="range"
+                className="hs-opacity-slider"
+                min={MIN_TILE_GAP}
+                max={MAX_TILE_GAP}
+                step={1}
+                value={layout.tileGap}
+                onChange={(e) => handleTileGapChange(Number(e.target.value))}
+              />
+            </div>
             <div className="hs-controls-group hs-dock-group">
               <span className="hs-controls-label">Spodní lišta</span>
               {layout.dock.map((dockId, i) => (
@@ -411,7 +521,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                   onChange={(e) => handleDockChange(i, e.target.value as Page)}
                 >
                   <option value="home">Domů</option>
-                  {visible.map((n) => (
+                  {visible.filter((n) => n.id !== 'signout').map((n) => (
                     <option key={n.id} value={n.id}>{n.label}</option>
                   ))}
                 </select>
@@ -427,25 +537,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                 <input type="color" value={colorInputValue(fixedColor('parse', 'mint'))} onChange={(e) => handleFixedColorChange('parse', e.target.value)} />
                 <span>Parsování</span>
               </label>
-              <label className="hs-fixed-color" title="Odhlásit se">
-                <input type="color" value={colorInputValue(fixedColor('signout', 'crimson'))} onChange={(e) => handleFixedColorChange('signout', e.target.value)} />
-                <span>Odhlásit se</span>
-              </label>
             </div>
-            {layout.hidden.length > 0 && (
-              <div className="hs-controls-group">
-                <span className="hs-controls-label">Skryté</span>
-                {layout.hidden.map((id) => {
-                  const item = navById.get(id);
-                  if (!item) return null;
-                  return (
-                    <button key={id} type="button" className="hs-hidden-chip" onClick={() => handleUnhideTile(id)}>
-                      <Eye size={12} /> {layout.overrides[id]?.label || item.label}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
           </div>
         )}
 
@@ -488,17 +580,23 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                     <Trash2 size={15} />
                   </button>
                 )}
+                {addableItems.length > 0 && (
+                  <button type="button" className="hs-pager-manage hs-pager-manage-labeled" onClick={() => setShowAddTileModal(true)}>
+                    <Plus size={15} /> Přidat dlaždici
+                  </button>
+                )}
               </>
             )}
           </div>
         )}
 
-        <div className="hs-grid" style={{ ['--hs-tile-alpha' as any]: layout.tileOpacity }}>
-          {/* Pevné dlaždice (nepřesouvají se/nemění velikost, nejsou
-              součástí uloženého pořadí, jen na 1. stránce): Hledat a
-              Objednávky k parsování přesunuté sem z hlavičky. Počet
-              objednávek tohoto týdne je odznak přímo na běžné dlaždici
-              Objednávky (layout.pages), ne samostatná dlaždice navíc. */}
+        {/* Pevné dlaždice — samostatná mřížka NAD .hs-grid (viz HomeScreen.css
+            .hs-fixed-row), ať nesoupeří o volné buňky s přesouvatelnými
+            dlaždicemi. Hledat a Objednávky k parsování přesunuté sem z
+            hlavičky, jen na 1. stránce. Počet objednávek tohoto týdne je
+            odznak přímo na běžné dlaždici Objednávky (layout.pages), ne
+            samostatná dlaždice navíc. */}
+        <div className="hs-fixed-row" style={{ ['--hs-tile-alpha' as any]: layout.tileOpacity, ['--hs-tile-gap' as any]: `${layout.tileGap}px` }}>
           {currentPageIndex === 0 && (
             <>
               <button
@@ -542,22 +640,51 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
             <SlidersHorizontal />
             <div className="hs-lbl">{editMode ? 'Hotovo' : 'Upravit rozložení'}</div>
           </button>
+        </div>
 
+        <div className="hs-grid" style={{ ['--hs-tile-alpha' as any]: layout.tileOpacity, ['--hs-tile-gap' as any]: `${layout.tileGap}px` }}>
           {(layout.pages[currentPageIndex] ?? []).map((id) => {
+            const override = layout.overrides[id] ?? {};
+            if (isGroupId(id)) {
+              const group = layout.groups[id];
+              if (!group) return null;
+              const groupItems = group.memberIds.map((mid) => navById.get(mid)).filter((n): n is NavItem => !!n);
+              if (groupItems.length === 0) return null;
+              return (
+                <LauncherTile
+                  key={id}
+                  id={id}
+                  item={null}
+                  groupItems={groupItems}
+                  override={override}
+                  isPresetColor={isPresetColor(override.color ?? 'coral')}
+                  editing={editMode}
+                  tileOpacity={layout.tileOpacity}
+                  onClick={() => setOpenGroupId(id)}
+                  onDragPointerDown={(e) => handleTileDragPointerDown(id, e)}
+                  isDragging={draggingId === id}
+                  isPriming={primingId === id}
+                  dragOver={dragOverId === id}
+                  jiggling={editMode && draggingId !== null && draggingId !== id}
+                  onMoveStep={(dir) => handleMoveTileStep(id, dir)}
+                  onOpenEditor={() => setEditingTileId(id)}
+                />
+              );
+            }
             const item = navById.get(id);
             if (!item) return null;
-            const badge = id === 'orders' && pendingOrders ? pendingOrders : undefined;
-            const override = layout.overrides[id] ?? {};
+            const badge = id === 'orders' && pendingOrders ? pendingOrders : id === 'keg_timer' && kegLastDuration ? kegLastDuration : undefined;
             return (
               <LauncherTile
                 key={id}
+                id={id}
                 item={item}
                 override={override}
                 isPresetColor={isPresetColor(override.color ?? 'coral')}
                 editing={editMode}
                 badge={badge}
                 tileOpacity={layout.tileOpacity}
-                onClick={() => setPage(id)}
+                onClick={() => handleTileClick(id)}
                 onDragPointerDown={(e) => handleTileDragPointerDown(id, e)}
                 isDragging={draggingId === id}
                 isPriming={primingId === id}
@@ -569,29 +696,19 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
             );
           })}
         </div>
-
-        <button
-          type="button"
-          className="hs-signout-tile"
-          style={{ background: hexToRgba(colorInputValue(fixedColor('signout', 'crimson')), layout.tileOpacity) }}
-          onClick={() => { if (window.confirm('Odhlásit se z appky?')) signOut(); }}
-        >
-          <LogOut size={16} />
-          <span>Odhlásit se</span>
-        </button>
       </div>
 
-      {editingItem && editingOverride && editingTileId && (
-        <Modal open onClose={() => setEditingTileId(null)} title={editingOverride.label || editingItem.label}>
+      {(editingItem || editingGroup) && editingOverride && editingTileId && (
+        <Modal open onClose={() => setEditingTileId(null)} title={editingOverride.label || editingItem?.label || 'Skupina'}>
           <div className="flex flex-col gap-5">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500 mb-1.5">Popisek</label>
               <input
                 type="text"
                 className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
-                value={editingOverride.label ?? editingItem.label}
+                value={editingOverride.label ?? ''}
                 onChange={(e) => handleRenameTile(editingTileId, e.target.value)}
-                placeholder={editingItem.label}
+                placeholder={editingItem?.label ?? 'Skupina'}
               />
             </div>
 
@@ -647,9 +764,119 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
               </div>
             )}
 
+            {editingGroup && (
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500 mb-1.5">Dlaždice ve skupině</label>
+                <div className="flex flex-col gap-1.5">
+                  {editingGroup.memberIds.map((mid) => {
+                    const memberItem = navById.get(mid);
+                    if (!memberItem) return null;
+                    return (
+                      <div key={mid} className="flex items-center justify-between gap-2 bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-1.5">
+                        <span className="text-sm font-semibold text-neutral-700 flex items-center gap-2">
+                          <memberItem.icon size={14} /> {memberItem.label}
+                        </span>
+                        <button
+                          type="button"
+                          className="text-xs font-bold text-neutral-500 hover:text-red-600"
+                          onClick={() => handleRemoveFromGroup(editingTileId as GroupId, mid)}
+                        >
+                          Vyjmout
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {editingItem && (
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500 mb-1.5">Sloučit s…</label>
+                <div className="flex items-center gap-2">
+                  <select
+                    className="flex-1 min-w-0 border border-neutral-300 rounded-lg px-3 py-2 text-sm"
+                    value={mergeTarget}
+                    onChange={(e) => setMergeTarget(e.target.value)}
+                  >
+                    <option value="">Vyber dlaždici…</option>
+                    {(layout.pages[currentPageIndex] ?? []).filter((id) => id !== editingTileId).map((id) => {
+                      const label = isGroupId(id) ? (layout.overrides[id]?.label || 'Skupina') : navById.get(id)?.label;
+                      if (!label) return null;
+                      return <option key={id} value={id}>{label}</option>;
+                    })}
+                  </select>
+                  <button
+                    type="button"
+                    className="shrink-0 text-sm font-bold bg-neutral-200 hover:bg-neutral-300 text-neutral-800 rounded-lg px-3 py-2 disabled:opacity-40"
+                    disabled={!mergeTarget}
+                    onClick={() => handleMergeInto(mergeTarget)}
+                  >
+                    Sloučit
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="flex justify-between items-center pt-2 border-t border-neutral-100">
-              <button type="button" className="text-sm font-semibold text-red-600" onClick={() => handleHideTile(editingTileId)}>Skrýt dlaždici</button>
+              {editingGroup ? (
+                <button type="button" className="text-sm font-semibold text-red-600" onClick={() => handleDeleteGroup(editingTileId as GroupId)}>Zrušit skupinu</button>
+              ) : (
+                <button type="button" className="text-sm font-semibold text-red-600" onClick={() => handleHideTile(editingTileId)}>Skrýt dlaždici</button>
+              )}
               <button type="button" className="text-sm font-bold bg-neutral-900 text-white rounded-lg px-4 py-2" onClick={() => setEditingTileId(null)}>Hotovo</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {openGroup && openGroupId && (
+        <Modal open onClose={() => setOpenGroupId(null)} title={layout.overrides[openGroupId]?.label || 'Skupina'}>
+          <div className="flex flex-col gap-2">
+            {openGroup.memberIds.map((mid) => {
+              const memberItem = navById.get(mid);
+              if (!memberItem) return null;
+              return (
+                <button
+                  key={mid}
+                  type="button"
+                  className="flex items-center gap-3 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded-xl px-4 py-3 text-left"
+                  onClick={() => { setOpenGroupId(null); handleTileClick(mid); }}
+                >
+                  <memberItem.icon size={18} className="text-neutral-600" />
+                  <span className="font-bold text-sm text-neutral-800">{memberItem.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </Modal>
+      )}
+
+      {showAddTileModal && (
+        <Modal open onClose={() => setShowAddTileModal(false)} title="Přidat dlaždici">
+          <div className="flex flex-col gap-4">
+            {addableItems.length === 0 ? (
+              <p className="text-sm text-neutral-500">Všechny dostupné dlaždice už jsou na ploše.</p>
+            ) : (
+              <div className="flex flex-col gap-1.5 max-h-[60vh] overflow-y-auto">
+                {addableItems.map((n) => (
+                  <button
+                    key={n.id}
+                    type="button"
+                    className="flex items-center justify-between gap-3 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded-xl px-4 py-2.5 text-left"
+                    onClick={() => handleAddTile(n.id)}
+                  >
+                    <span className="flex items-center gap-3 min-w-0">
+                      <n.icon size={17} className="text-neutral-600 shrink-0" />
+                      <span className="font-bold text-sm text-neutral-800 truncate">{n.label}</span>
+                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-neutral-400 shrink-0">{n.group}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="flex justify-end pt-2 border-t border-neutral-100">
+              <button type="button" className="text-sm font-bold bg-neutral-900 text-white rounded-lg px-4 py-2" onClick={() => setShowAddTileModal(false)}>Hotovo</button>
             </div>
           </div>
         </Modal>

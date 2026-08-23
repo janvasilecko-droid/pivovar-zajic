@@ -4,6 +4,7 @@ import {
   ClipboardCheck, BarChart3, History as HistoryIcon, Snowflake,
   CalendarDays, Car, Tag, ShieldCheck, PlusCircle, Settings, Calculator,
   Download, Wheat, FlaskConical, Shield, Bell, BellOff, X, ArrowRight, Search, Smartphone, MessageCircle, Users, GlassWater, Home, type LucideIcon,
+  BookOpen, Beer as BeerIcon, MapPin, Package as PackageIcon, Receipt, StickyNote, Compass, Truck, Timer, AlarmClock, Hourglass, LogOut,
 } from 'lucide-react';
 
 import { useAuth } from '../lib/auth';
@@ -20,14 +21,12 @@ import { QuickSearchModal } from './QuickSearchModal';
 import { isAdminEmail } from '../lib/config';
 import { BugReportModal } from './BugReportModal';
 import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
-import { SCENES, DEFAULT_DOCK, type Scene } from '../lib/homeLayout';
-
-const DOCK_COLORS = ['n-coral', 'n-mint', 'n-sky', 'n-indigo'];
+import { SCENES, DEFAULT_DOCK, hexToRgba, COLOR_HEX, type Scene, type TileColor } from '../lib/homeLayout';
 import '../screens/HomeScreen.css';
 
 export type NavItem = { id: Page; label: string; icon: LucideIcon; group: string };
 
-export type Page = 'home' | 'sanitace' | 'marketing' | 'planning' | 'depozitar' | 'dashboard' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'sanitace_lahve' | 'sanitace_kegy' | 'sanitace_vycepy' | 'history' | 'orders_entry' | 'orders' | 'orders_detail' | 'orders_zavoz' | 'zavoz' | 'kniha_jizd' | 'stock' | 'bottling' | 'bottling_entry' | 'bottling_overview' | 'kegging' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'notes' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs';
+export type Page = 'home' | 'sanitace' | 'marketing' | 'planning' | 'depozitar' | 'dashboard' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'sanitace_lahve' | 'sanitace_kegy' | 'sanitace_vycepy' | 'history' | 'orders_entry' | 'orders' | 'orders_detail' | 'orders_zavoz' | 'zavoz' | 'kniha_jizd' | 'stock' | 'bottling' | 'bottling_entry' | 'bottling_overview' | 'kegging' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'notes' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs' | 'stopwatch' | 'timer' | 'keg_timer' | 'signout';
 
 export const NAV: NavItem[] = [
   // --- VÝROBA ---
@@ -60,6 +59,41 @@ export const NAV: NavItem[] = [
   { id: 'users', label: 'Uživatelé', icon: ShieldCheck, group: 'Nastavení' },
 
   { id: 'app_settings', label: 'Aplikace & Nastavení', icon: Settings, group: 'Nastavení' },
+
+  // 'signout' není skutečná routovaná stránka (App.tsx pro ni nemá větev) —
+  // je to jen dlaždice v NAV, ať se dá přesouvat/měnit barvu/velikost stejně
+  // jako ostatní; klik na ni HomeScreen.tsx zvlášť odchytává a spustí
+  // odhlášení místo setPage('signout').
+  { id: 'signout', label: 'Odhlásit se', icon: LogOut, group: 'Nastavení' },
+];
+
+// Rozšiřující dlaždice pro domovskou plochu (HomeScreen.tsx) — stránky, které
+// dnes existují jen jako vnitřní záložka jiné obrazovky (viz PAGE_GROUP_PARENT
+// níže), takže nejdou přidat jako vlastní dlaždice. Na rozdíl od NAV se
+// NEpřidávají automaticky do launcheru — uživatel si je musí ručně přidat
+// přes "+ Přidat dlaždici" (viz homeLayout.ts getHomeLayout extraIds).
+export const EXTRA_NAV: NavItem[] = [
+  { id: 'kniha_jizd', label: 'Kniha jízd', icon: BookOpen, group: 'Nástroje' },
+  { id: 'vycepy', label: 'Výčepy', icon: BeerIcon, group: 'Výroba' },
+  { id: 'orders_zavoz', label: 'Rozvoz objednávek', icon: Truck, group: 'Výroba' },
+  { id: 'places', label: 'Odběratelé', icon: MapPin, group: 'Číselníky' },
+  { id: 'beers', label: 'Piva', icon: BeerIcon, group: 'Číselníky' },
+  { id: 'packages', label: 'Obaly', icon: PackageIcon, group: 'Číselníky' },
+  { id: 'pricelist', label: 'Ceník', icon: Receipt, group: 'Číselníky' },
+  { id: 'sanitace_lahve', label: 'Sanitace lahví', icon: Wine, group: 'Nástroje' },
+  { id: 'sanitace_kegy', label: 'Sanitace kegů', icon: Cylinder, group: 'Nástroje' },
+  { id: 'sanitace_vycepy', label: 'Sanitace výčepů', icon: GlassWater, group: 'Nástroje' },
+  { id: 'checklists', label: 'Checklisty', icon: ClipboardCheck, group: 'Nástroje' },
+  { id: 'sanitation_log', label: 'Sanitační deník', icon: FileText, group: 'Nástroje' },
+  { id: 'reminders', label: 'Připomínky', icon: Bell, group: 'Nástroje' },
+  { id: 'notes', label: 'Poznámky', icon: StickyNote, group: 'Nástroje' },
+  { id: 'feedback', label: 'Zpětná vazba', icon: MessageCircle, group: 'Nástroje' },
+  { id: 'exkurze', label: 'Exkurze', icon: Compass, group: 'Výroba' },
+  { id: 'bottling_entry', label: 'Lahve — zápis', icon: Wine, group: 'Výroba' },
+  { id: 'bottling_overview', label: 'Lahve — přehled', icon: BarChart3, group: 'Výroba' },
+  { id: 'stopwatch', label: 'Stopky', icon: Timer, group: 'Nástroje' },
+  { id: 'timer', label: 'Časovač', icon: AlarmClock, group: 'Nástroje' },
+  { id: 'keg_timer', label: 'Stočení sudu', icon: Hourglass, group: 'Nástroje' },
 ];
 
 // Interní záložky uvnitř "Tabbed" obrazovek (viz App.tsx) mají vlastní Page
@@ -111,8 +145,24 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   const homeSceneRaw = (profile as any)?.home_layout?.scene;
   const homeScene: Scene = SCENES.includes(homeSceneRaw) ? homeSceneRaw : 'warm';
   const homeCustomAccent: string = (profile as any)?.home_layout?.customAccent || '#ff6b6b';
+  // Sytější "umytí" barvou pro celoobrazovkovou scénu 'custom' — samotný hex
+  // by na bílém podkladu vypadal jako plná barva přes celou obrazovku, ne
+  // jako jemné pozadí; průhledná verze dá stejný efekt jako přednastavené
+  // scény (viz HomeScreen.css .hs-fullscreen-scene[data-scene]).
+  const homeCustomWash = hexToRgba(homeCustomAccent, 0.4);
   const savedDock = (profile as any)?.home_layout?.dock;
   const dockPages: Page[] = Array.isArray(savedDock) && savedDock.length === DEFAULT_DOCK.length ? savedDock : DEFAULT_DOCK;
+  // Barva ikony+popisku spodní lišty na Domů = stejná barva, jakou má
+  // zástupcova dlaždice v launcheru (ne libovolný cyklus 4 barev nesouvisející
+  // s dlaždicemi) — override.color je buď jméno přednastaveného odstínu
+  // (TileColor), nebo vlastní hex, stejně jako u dlaždic (viz homeLayout.ts).
+  const homeOverrides = ((profile as any)?.home_layout?.overrides ?? {}) as Record<string, { color?: string }>;
+  function dockAccentColor(dockId: Page): string {
+    if (dockId === 'home') return COLOR_HEX.indigo;
+    const raw = homeOverrides[dockId]?.color;
+    if (!raw) return COLOR_HEX.slate;
+    return (raw in COLOR_HEX) ? COLOR_HEX[raw as TileColor] : raw;
+  }
   const [densityState, setDensityState] = useState<DensityMode>(getDensity());
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(false);
@@ -577,7 +627,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
 
       <main className={`flex-1 min-w-0 flex flex-col h-screen overflow-hidden text-neutral-900 ${isHome ? '' : 'bg-neutral-100'}`}>
         {isHome && (
-          <div className="hs-fullscreen-scene" data-scene={homeScene} style={{ ['--hs-custom' as any]: homeCustomAccent }}>
+          <div className="hs-fullscreen-scene" data-scene={homeScene} style={{ ['--hs-custom' as any]: homeCustomAccent, ['--hs-custom-wash' as any]: homeCustomWash }}>
             <i className="b1" /><i className="b2" /><i className="b3" /><i className="b4" />
           </div>
         )}
@@ -589,7 +639,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
         >
           <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 shrink-0">
             <span className="sm:hidden font-display font-black text-base text-neutral-900 truncate">
-              {NAV.find((n) => n.id === navPageFor(page))?.label ?? ''}
+              {(NAV.find((n) => n.id === navPageFor(page)) ?? EXTRA_NAV.find((n) => n.id === navPageFor(page)))?.label ?? ''}
             </span>
           </div>
 
@@ -704,12 +754,11 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
 
         {/* Mobile Bottom Navigation Dock — thumb-friendly bottom bar. Obsah
             (4 zástupci) je uživatelsky volitelný — viz "Spodní lišta" v edit
-            módu launcheru (HomeScreen.tsx), uložen v home_layout.dock. Na
-            domovské stránce jsou tlačítka malé barevné dlaždice (hs-nav-tile),
-            ať lišta ladí se stylem launcheru; jinde v appce beze změny. */}
+            módu launcheru (HomeScreen.tsx), uložen v home_layout.dock. Bílé
+            pozadí všude (i na Domů) — jen ikona a popisek se na Domů obarví
+            stejnou barvou, jakou má daná dlaždice v launcheru. */}
         <nav
-          {...(isHome ? { 'data-home-chrome': true } : {})}
-          className={`sm:hidden fixed bottom-0 left-0 right-0 z-30 ${isHome ? '' : 'bg-white/95'} backdrop-blur-lg border-t border-neutral-200 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-1 py-1.5 pb-safe flex items-center justify-around gap-1`}
+          className="sm:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-lg border-t border-neutral-200 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-1 py-1.5 pb-safe flex items-center justify-around gap-1"
         >
           {dockPages.map((dockId, i) => {
             const isActive = dockId === 'home' ? navPageFor(page) === 'home' : navPageFor(page) === dockId;
@@ -718,12 +767,13 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
               : NAV.find((n) => n.id === dockId);
             if (!info) return null;
             const DockIcon = info.icon;
-            const homeColor = DOCK_COLORS[i % DOCK_COLORS.length];
+            const accent = isHome ? dockAccentColor(dockId) : undefined;
             return (
               <button
                 key={`${dockId}-${i}`}
                 onClick={() => setPage(dockId)}
-                className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all relative ${isHome ? `hs-nav-tile ${homeColor} flex-1` :
+                style={accent ? { color: accent } : undefined}
+                className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all relative flex-1 ${isHome ? 'font-bold' :
                   isActive
                     ? 'text-amber-950 font-black scale-105 bg-amber-100/90 ring-1 ring-amber-300'
                     : 'text-neutral-500 hover:text-neutral-800 font-bold'
