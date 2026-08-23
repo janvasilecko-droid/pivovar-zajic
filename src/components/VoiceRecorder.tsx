@@ -12,12 +12,16 @@ import { authenticatedFunctionHeaders } from '../lib/functionAuth';
  * konkrétní názvy piv a odběratelů, které se v běžném textu nevyskytují.
  */
 export function VoiceRecorder({
-  onResult, compact, beerNames, placeNames,
+  onResult, compact, beerNames, placeNames, dark,
 }: {
   onResult: (text: string) => void;
   compact?: boolean;
   beerNames?: string[];
   placeNames?: string[];
+  /** Černé pozadí + bílý text v klidovém stavu, ať tlačítko sedí do řady
+   *  ostatních jednobarevných tlačítek (viz Orders.tsx toolbar) místo
+   *  výchozí amber varianty. Nahrávání zůstává červené (jasný alert stav). */
+  dark?: boolean;
 }) {
 
   const [recording, setRecording] = useState(false);
@@ -216,17 +220,17 @@ export function VoiceRecorder({
         onClick={recording ? stop : start}
         disabled={busy}
         title={recording ? 'Zastavit nahrávání' : 'Hlasové zadávání / Diktování'}
-        className={`px-3 py-1.5 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all shadow-xs ${
+        className={`px-3 py-1.5 rounded flex items-center gap-1.5 text-xs font-bold transition-all shadow-xs ${
           recording
             ? 'bg-rose-600 text-white animate-pulse shadow-md shadow-rose-500/30'
             : busy
-              ? 'bg-amber-100 text-amber-700 cursor-not-allowed border border-amber-300'
-              : 'bg-amber-50 text-amber-900 border border-amber-300/80 hover:bg-amber-100/90 active:scale-95'
+              ? dark ? 'bg-neutral-700 text-white cursor-not-allowed' : 'bg-amber-100 text-amber-700 cursor-not-allowed border border-amber-300'
+              : dark ? 'bg-neutral-900 text-white hover:bg-neutral-800 active:scale-95' : 'bg-amber-50 text-amber-900 border border-amber-300/80 hover:bg-amber-100/90 active:scale-95'
         }`}
       >
         {busy ? (
           <>
-            <Loader2 size={15} className="animate-spin text-amber-600" />
+            <Loader2 size={15} className={`animate-spin ${dark ? 'text-white' : 'text-amber-600'}`} />
             <span>Přepisuji…</span>
           </>
         ) : recording ? (
@@ -236,7 +240,7 @@ export function VoiceRecorder({
           </>
         ) : (
           <>
-            <Mic size={15} className="text-amber-700" />
+            <Mic size={15} className={dark ? 'text-white' : 'text-amber-700'} />
             <span>Hlasové zadání</span>
           </>
         )}

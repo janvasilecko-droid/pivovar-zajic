@@ -1322,6 +1322,7 @@ export default function Orders({
             )}
             <VoiceRecorder
               compact
+              dark
               beerNames={beers.map((b) => b.name)}
               placeNames={places.map((p) => p.name)}
               onResult={handleVoiceResult}
@@ -1442,17 +1443,18 @@ export default function Orders({
               <button type="button" onClick={() => shiftWeekAndKeepDay(1)} className="w-9 h-9 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 font-black transition" title="Další týden">›</button>
             </div>
 
-            {/* Den závozu — jednobarevné dlaždice (bílý text), stejný jazyk jako zbytek appky. */}
+            {/* Den závozu — stejný jazyk jako zbytek tlačítek (černá/bílý text),
+                označený den se pro odlišení obrátí na bílou s tmavým textem. */}
             <div className="flex gap-1.5 mt-2">
               {DAYS.map((d) => (
                 <button
                   key={d.v}
                   type="button"
                   onClick={() => pickDeliveryDay(d.v)}
-                  className={`flex-1 min-w-0 px-1 py-2 rounded font-black text-xs transition text-white ${
+                  className={`flex-1 min-w-0 px-1 py-2 rounded font-black text-xs transition ${
                     deliveryDay === d.v
-                      ? 'bg-amber-600 shadow-md'
-                      : 'bg-neutral-700 hover:bg-neutral-600'
+                      ? 'bg-white text-neutral-900 shadow-md'
+                      : 'bg-neutral-900 text-white hover:bg-neutral-800'
                   }`}
                 >
                   {d.label}
@@ -1738,13 +1740,13 @@ export default function Orders({
           Přilepeno nahoře, ať jde přepínat období i uprostřed scrollování
           dlouhého seznamu objednávek (viz i den/vyhledávání níže). */}
       {mode !== 'entry_only' && (viewMode === 'detail' || viewMode === 'celkem') && (
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-2.5 bg-white rounded-2xl border border-neutral-200 p-2.5 shadow-md">
-          <div className="flex items-center gap-1.5 bg-neutral-100 p-1 rounded flex-wrap">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-2.5 p-2.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <button
               type="button"
               onClick={() => setTimeScope('week')}
               className={`px-3 py-1.5 rounded font-black text-xs transition ${
-                timeScope === 'week' ? 'bg-neutral-900 text-white shadow-xs' : 'text-neutral-700 hover:bg-neutral-200'
+                timeScope === 'week' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'
               }`}
             >
               📅 Týden
@@ -1753,7 +1755,7 @@ export default function Orders({
               type="button"
               onClick={() => setTimeScope('month')}
               className={`px-3 py-1.5 rounded font-black text-xs transition ${
-                timeScope === 'month' ? 'bg-neutral-900 text-white shadow-xs' : 'text-neutral-700 hover:bg-neutral-200'
+                timeScope === 'month' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'
               }`}
             >
               🗓️ Celý měsíc
@@ -1762,7 +1764,7 @@ export default function Orders({
               type="button"
               onClick={() => setTimeScope('all')}
               className={`px-3 py-1.5 rounded font-black text-xs transition ${
-                timeScope === 'all' ? 'bg-neutral-900 text-white shadow-xs' : 'text-neutral-700 hover:bg-neutral-200'
+                timeScope === 'all' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'
               }`}
             >
               🌐 Všechny
@@ -1884,12 +1886,13 @@ export default function Orders({
           )}
 
         {/* Delivery Day quick selector tabs — jediná přilepená lišta v Objednávkách (přepínač období a vyhledávací filtry pod ní se scrollují normálně).
-            Styl sjednocený s dlaždicemi na Domů (viz LauncherTile/HomeScreen.css .hs-tile): plná jedna barva, bílý text, zaoblené, bez rámečků/ringů. */}
+            Stejný jazyk jako zbytek tlačítek appky: černá/bílý text, označený
+            (aktivní) filtr se pro odlišení obrátí na bílou s tmavým textem. */}
         <div className="sticky top-[52px] z-20 mb-2.5 bg-neutral-100 pt-1 flex items-center gap-1.5 overflow-x-auto scrollbar-thin pb-1">
           <button
             onClick={() => setDeliveryDayFilter('all')}
-            className={`px-3.5 py-1.5 rounded font-extrabold text-xs shrink-0 transition-all text-white ${
-              deliveryDayFilter === 'all' ? 'bg-amber-600 shadow-xs' : 'bg-neutral-400 hover:bg-neutral-500'
+            className={`px-3.5 py-1.5 rounded font-extrabold text-xs shrink-0 transition-all ${
+              deliveryDayFilter === 'all' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'
             }`}
           >
             🚚 Všechny dny
@@ -1901,17 +1904,15 @@ export default function Orders({
               <button
                 key={d.v}
                 onClick={() => setDeliveryDayFilter(d.v)}
-                className={`px-3 py-1.5 rounded font-black text-xs shrink-0 transition-all flex items-center gap-1.5 text-white ${
+                className={`px-3 py-1.5 rounded font-black text-xs shrink-0 transition-all flex items-center gap-1.5 ${
                   deliveryDayFilter === d.v
-                    ? 'bg-amber-600 shadow-xs'
-                    : hasOrders
-                    ? 'bg-amber-400 hover:bg-amber-500'
-                    : 'bg-neutral-400 hover:bg-neutral-500'
+                    ? 'bg-white text-neutral-900 shadow-xs'
+                    : 'bg-neutral-900 text-white hover:bg-neutral-800'
                 }`}
               >
                 <span>{d.label}</span>
                 {hasOrders && (
-                  <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/25">
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${deliveryDayFilter === d.v ? 'bg-neutral-900/10 text-neutral-900' : 'bg-white/25'}`}>
                     {count}
                   </span>
                 )}
@@ -1920,8 +1921,8 @@ export default function Orders({
           })}
           <button
             onClick={() => setDeliveryDayFilter('_none')}
-            className={`px-3 py-1.5 rounded font-bold text-xs shrink-0 transition-all text-white ${
-              deliveryDayFilter === '_none' ? 'bg-neutral-800' : 'bg-neutral-400 hover:bg-neutral-500'
+            className={`px-3 py-1.5 rounded font-bold text-xs shrink-0 transition-all ${
+              deliveryDayFilter === '_none' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'
             }`}
           >
             Bez dne
