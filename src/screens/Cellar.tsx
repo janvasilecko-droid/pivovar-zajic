@@ -508,12 +508,12 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
 
         <div className="sticky top-0 z-20 bg-neutral-100 py-1 flex flex-wrap items-center gap-2 w-full">
           {/* Tab Selector: Ležácké vs Spilka vs Plánovač — přilepený nahoře. */}
-          <div className="flex items-center gap-1.5 bg-neutral-100 p-1 rounded-xl border border-neutral-200 w-full sm:w-fit overflow-x-auto scrollbar-none flex-nowrap shrink-0">
+          <div className="flex items-center gap-1.5 p-1 rounded w-full sm:w-fit overflow-x-auto scrollbar-none flex-nowrap shrink-0">
             <button
               type="button"
               onClick={() => selectTab('lezacke')}
-              className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${
-                activeTab === 'lezacke' ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'text-neutral-700 hover:bg-amber-50'
+              className={`px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[38px] ${
+                activeTab === 'lezacke' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'
               }`}
             >
               🍺 Ležácké tanky (1–8)
@@ -521,8 +521,8 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
             <button
               type="button"
               onClick={() => selectTab('spilka')}
-              className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${
-                activeTab === 'spilka' ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'text-neutral-700 hover:bg-amber-50'
+              className={`px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[38px] ${
+                activeTab === 'spilka' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'
               }`}
             >
               🏭 Spilka (3 kvasné tanky)
@@ -530,8 +530,8 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
             <button
               type="button"
               onClick={() => selectTab('planovac')}
-              className={`px-3.5 py-2 rounded-lg text-xs font-black transition shrink-0 min-h-[38px] ${
-                activeTab === 'planovac' ? 'bg-white text-amber-900 shadow-xs ring-2 ring-amber-300' : 'text-neutral-700 hover:bg-amber-50'
+              className={`px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[38px] ${
+                activeTab === 'planovac' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'
               }`}
             >
               📅 Plánovač obsazenosti & Zrání (Gantt)
@@ -539,11 +539,11 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
           </div>
 
           {/* Týdenní selector pro výpočet objednávek */}
-          <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-neutral-200 shadow-2xs">
+          <div className="flex items-center gap-1 bg-white p-1 rounded border border-neutral-200 shadow-2xs">
             <button
               type="button"
               onClick={() => setWeekKey(shiftWeek(weekKey, -1))}
-              className="p-1.5 rounded-lg text-neutral-500 hover:bg-neutral-100"
+              className="p-1.5 rounded text-neutral-500 hover:bg-neutral-100"
               title="Předchozí týden"
             >
               <ChevronLeft size={16} />
@@ -557,14 +557,14 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
             <button
               type="button"
               onClick={() => setWeekKey(shiftWeek(weekKey, 1))}
-              className="p-1.5 rounded-lg text-neutral-500 hover:bg-neutral-100"
+              className="p-1.5 rounded text-neutral-500 hover:bg-neutral-100"
               title="Následující týden"
             >
               <ChevronRight size={16} />
             </button>
           </div>
 
-          <button className="btn-primary" onClick={() => setShowTransfer(true)}>⇄ Přetáčení (Přefuk ze Spilky)</button>
+          <button className="btn-primary !rounded" onClick={() => setShowTransfer(true)}>⇄ Přetáčení (Přefuk ze Spilky)</button>
         </div>
       </div>
 
@@ -612,17 +612,17 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
 
                   {/* Fáze sanitace tanku — zvýraznění aktuálního kroku */}
                   {t.status === 'sanitizing' && (
-                    <div className="mt-2 text-xs font-bold text-danger-700 bg-danger-50 rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 animate-pulse border border-danger-200">
+                    <div className="mt-2 text-xs font-bold text-danger-700 bg-danger-50 rounded px-2.5 py-1.5 flex items-center gap-1.5 animate-pulse border border-danger-200">
                       ⚠️ Po uzavření tanku — MUSÍ SE OPLÁCHNOUT
                     </div>
                   )}
                   {t.status === 'rinsing' && (
-                    <div className="mt-2 text-xs font-bold text-sky-800 bg-sky-50 rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 border border-sky-200">
+                    <div className="mt-2 text-xs font-bold text-sky-800 bg-sky-50 rounded px-2.5 py-1.5 flex items-center gap-1.5 border border-sky-200">
                       💧 Po oplachu — další krok: <span className="underline">Louh (NaOH)</span>
                     </div>
                   )}
                   {t.status === 'cleaning' && (
-                    <div className="mt-2 text-xs font-bold text-amber-800 bg-amber-50 rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 border border-amber-200">
+                    <div className="mt-2 text-xs font-bold text-amber-800 bg-amber-50 rounded px-2.5 py-1.5 flex items-center gap-1.5 border border-amber-200">
                       🧼 Po louhu — další krok: <span className="underline">Kyselina dusičná</span>
                     </div>
                   )}
@@ -642,10 +642,10 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                         <input type="number" step="0.1" className="input" value={inlineVolume} onChange={(e) => setInlineVolume(e.target.value)} placeholder={`např. ${t.capacity_l}`} />
                       </div>
                       <div className="flex gap-1.5">
-                        <button className="text-xs px-2.5 py-1 rounded-lg bg-success-600 text-white font-bold hover:bg-success-500 disabled:opacity-50" disabled={inlineBusy} onClick={() => saveInlineTank(t)}>
+                        <button className="text-xs px-2.5 py-1 rounded bg-success-600 text-white font-bold hover:bg-success-500 disabled:opacity-50" disabled={inlineBusy} onClick={() => saveInlineTank(t)}>
                           {inlineBusy ? 'Ukládám…' : '💾 Uložit pivo'}
                         </button>
-                        <button className="text-xs px-2.5 py-1 rounded-lg bg-neutral-200 text-neutral-700 hover:bg-neutral-300 font-medium" onClick={() => setInlineEditId(null)}>Zrušit</button>
+                        <button className="text-xs px-2.5 py-1 rounded bg-neutral-200 text-neutral-700 hover:bg-neutral-300 font-medium" onClick={() => setInlineEditId(null)}>Zrušit</button>
                       </div>
                     </div>
                   ) : (
@@ -665,7 +665,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                         )}
                       </div>
                       <button
-                        className="text-[11px] px-2 py-1 rounded-lg bg-primary-100 text-primary-800 hover:bg-primary-200 font-bold shrink-0"
+                        className="text-[11px] px-2 py-1 rounded bg-primary-100 text-primary-800 hover:bg-primary-200 font-bold shrink-0"
                         onClick={() => {
                           setInlineEditId(t.id);
                           setInlineBeerId(t.current_beer_id ?? '');
@@ -684,7 +684,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                   )}
 
                   {isLow && (
-                    <div className="mt-2 text-xs font-semibold text-warning-700 bg-warning-50 rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 animate-pulse">
+                    <div className="mt-2 text-xs font-semibold text-warning-700 bg-warning-50 rounded px-2.5 py-1.5 flex items-center gap-1.5 animate-pulse">
                       ⚠️ Blíží se konec — zbývá {remaining.toFixed(0)} l
                     </div>
                   )}
@@ -694,18 +694,18 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                     const isDeficit = orderedHlForBeer > remainingHl;
                     const missingHl = orderedHlForBeer - remainingHl;
                     return isDeficit ? (
-                      <div className="mt-2 text-xs text-rose-700 bg-rose-50 rounded-lg px-2.5 py-1.5 font-bold border border-rose-200">
+                      <div className="mt-2 text-xs text-rose-700 bg-rose-50 rounded px-2.5 py-1.5 font-bold border border-rose-200">
                         ⚠️ Objednáno {orderedHlForBeer.toFixed(1)} hl (v tanku chybí {missingHl.toFixed(1)} hl, nutno stočit z jiného tanku)
                       </div>
                     ) : (
-                      <div className="mt-2 text-xs text-accent-700 bg-accent-50 rounded-lg px-2.5 py-1.5 font-bold">
+                      <div className="mt-2 text-xs text-accent-700 bg-accent-50 rounded px-2.5 py-1.5 font-bold">
                         📋 Objednáno {orderedHlForBeer.toFixed(1)} hl tohoto piva (nestočeno)
                       </div>
                     );
                   })()}
 
                   {/* Grafické znázornění nerezového ležáckého tanku */}
-                  <div className="my-3 p-3 bg-slate-900/90 rounded-2xl border border-slate-800 text-white flex items-center gap-4 shadow-inner">
+                  <div className="my-3 p-3 bg-slate-900/90 rounded border border-slate-800 text-white flex items-center gap-4 shadow-inner">
                     {/* SVG 3D Tank Cylindrical Graphic */}
                     <div className="relative w-14 h-24 shrink-0 flex items-center justify-center">
                       <svg viewBox="0 0 60 100" className="w-full h-full drop-shadow-md">
@@ -833,7 +833,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                     {(t.status === 'active' || t.status === 'emptying' || t.status === 'filling') && t.current_beer_id && (
                       t.kegging_active ? (
                         <button
-                          className="w-full min-h-[48px] text-sm px-3 py-3 rounded-xl bg-rose-600 text-white hover:bg-rose-500 font-black border border-rose-700 shadow-md flex items-center justify-center gap-2 transition-all"
+                          className="w-full min-h-[48px] text-sm px-3 py-3 rounded bg-rose-600 text-white hover:bg-rose-500 font-black border border-rose-700 shadow-md flex items-center justify-center gap-2 transition-all"
                           onClick={() => stopKegging(t)}
                           title="Zastaví odebírání piva z tohoto tanku při stáčení keg"
                         >
@@ -842,7 +842,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                         </button>
                       ) : (
                         <button
-                          className="w-full min-h-[48px] text-sm px-3 py-3 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 font-black border border-emerald-700 shadow-md flex items-center justify-center gap-2 transition-all"
+                          className="w-full min-h-[48px] text-sm px-3 py-3 rounded bg-emerald-600 text-white hover:bg-emerald-500 font-black border border-emerald-700 shadow-md flex items-center justify-center gap-2 transition-all"
                           onClick={() => startKegging(t)}
                           title="Aktivuje tento tank jako zdroj pro stáčení keg — pivo se bude odebírat z něj"
                         >
@@ -853,12 +853,12 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                     )}
 
                     {t.status === 'empty' && (
-                      <button className="w-full min-h-[48px] text-sm px-3 py-3 rounded-xl bg-success-600 text-white hover:bg-success-500 font-black shadow-md flex items-center justify-center gap-2" onClick={() => setShowStart(t)}>
+                      <button className="w-full min-h-[48px] text-sm px-3 py-3 rounded bg-success-600 text-white hover:bg-success-500 font-black shadow-md flex items-center justify-center gap-2" onClick={() => setShowStart(t)}>
                         <span>🚀</span><span>Spustit tank</span>
                       </button>
                     )}
                     {(t.status === 'active' || t.status === 'emptying' || t.status === 'filling') && (
-                      <button className="w-full min-h-[48px] text-sm px-3 py-3 rounded-xl bg-danger-600 text-white hover:bg-danger-500 font-black shadow-md flex items-center justify-center gap-2" onClick={() => endTank(t)}>
+                      <button className="w-full min-h-[48px] text-sm px-3 py-3 rounded bg-danger-600 text-white hover:bg-danger-500 font-black shadow-md flex items-center justify-center gap-2" onClick={() => endTank(t)}>
                         <span>✓</span><span>Zavřít tank</span>
                       </button>
                     )}
@@ -868,7 +868,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                       <div className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-400 mb-1">🧼 Sanitace tanku</div>
                       <div className="grid grid-cols-3 gap-1.5">
                         <button
-                          className="min-h-[44px] text-xs px-1.5 py-2 rounded-xl bg-sky-100 text-sky-900 font-bold hover:bg-sky-200 shadow-xs border border-sky-300 flex flex-col items-center justify-center gap-0.5"
+                          className="min-h-[44px] text-xs px-1.5 py-2 rounded bg-sky-100 text-sky-900 font-bold hover:bg-sky-200 shadow-xs border border-sky-300 flex flex-col items-center justify-center gap-0.5"
                           onClick={async () => {
                             await recordSanitation('oplach_vodou', t, 'Rychlý oplach vodou z karty tanku', undefined, 10);
                             await supabase.from('cellar_tanks').update({ status: 'rinsing', updated_at: new Date().toISOString() }).eq('id', t.id);
@@ -880,7 +880,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                           <span>Oplach</span>
                         </button>
                         <button
-                          className="min-h-[44px] text-xs px-1.5 py-2 rounded-xl bg-amber-100 text-amber-950 font-bold hover:bg-amber-200 shadow-xs border border-amber-300 flex flex-col items-center justify-center gap-0.5"
+                          className="min-h-[44px] text-xs px-1.5 py-2 rounded bg-amber-100 text-amber-950 font-bold hover:bg-amber-200 shadow-xs border border-amber-300 flex flex-col items-center justify-center gap-0.5"
                           onClick={async () => {
                             await recordSanitation('louh', t, 'Sanitace louhem NaOH z karty tanku', 2, 20);
                             await supabase.from('cellar_tanks').update({ status: 'cleaning', updated_at: new Date().toISOString() }).eq('id', t.id);
@@ -892,7 +892,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                           <span>Louh</span>
                         </button>
                         <button
-                          className="min-h-[44px] text-xs px-1.5 py-2 rounded-xl bg-rose-100 text-rose-950 font-bold hover:bg-rose-200 shadow-xs border border-rose-300 flex flex-col items-center justify-center gap-0.5"
+                          className="min-h-[44px] text-xs px-1.5 py-2 rounded bg-rose-100 text-rose-950 font-bold hover:bg-rose-200 shadow-xs border border-rose-300 flex flex-col items-center justify-center gap-0.5"
                           onClick={async () => {
                             await recordSanitation('kyselina_dusicna', t, 'Sanitace kyselinou dusičnou z karty tanku', 2, 20);
                             await supabase.from('cellar_tanks').update({
@@ -909,7 +909,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                       </div>
                       <button
                         type="button"
-                        className="mt-1.5 w-full min-h-[40px] text-xs px-3 py-2 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-bold border border-neutral-200 flex items-center justify-center gap-1.5"
+                        className="mt-1.5 w-full min-h-[40px] text-xs px-3 py-2 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-bold border border-neutral-200 flex items-center justify-center gap-1.5"
                         onClick={() => {
                           setSanitationMethod('louh');
                           setSanitationTime(getCurrentTimeStr());
@@ -926,10 +926,10 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
 
                     {/* Vedlejší akce */}
                     <div className="pt-1 flex flex-wrap gap-1.5">
-                      <button className="min-h-[40px] text-xs px-3 py-2 rounded-lg bg-neutral-200/80 text-neutral-800 hover:bg-neutral-300 font-medium" onClick={() => setEditTank(t)}>Upravit</button>
+                      <button className="min-h-[40px] text-xs px-3 py-2 rounded bg-neutral-200/80 text-neutral-800 hover:bg-neutral-300 font-medium" onClick={() => setEditTank(t)}>Upravit</button>
                       {t.label.toLowerCase().includes('spilka') && (t.status === 'active' || t.status === 'filling' || Number(t.current_volume_l) > 0) && (
                         <button
-                          className="min-h-[40px] text-xs px-3 py-2 rounded-lg bg-sky-600 text-white font-black hover:bg-sky-500 shadow-xs flex items-center gap-1"
+                          className="min-h-[40px] text-xs px-3 py-2 rounded bg-sky-600 text-white font-black hover:bg-sky-500 shadow-xs flex items-center gap-1"
                           onClick={() => {
                             setTransferFromId(t.id);
                             if (t.current_beer_id) setTransferBeerId(t.current_beer_id);
@@ -1011,9 +1011,9 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
             </Field>
 
             <div className="flex justify-end gap-2 pt-2">
-              <button className="btn-ghost" onClick={() => setSanitationModalTank(null)}>Zrušit</button>
+              <button className="btn-ghost !rounded" onClick={() => setSanitationModalTank(null)}>Zrušit</button>
               <button
-                className="btn-primary font-black"
+                className="btn-primary !rounded font-black"
                 disabled={sanitationBusy}
                 onClick={async () => {
                   setSanitationBusy(true);
@@ -1086,10 +1086,10 @@ function StartTankForm({ tank, beers, onClose, onSaved }: { tank: CellarTank; be
           <input type="number" step="0.1" className="input" value={volume} onChange={(e) => setVolume(e.target.value)} />
         </Field>
         <Field label="Poznámka"><input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="poznámka" /></Field>
-        {err && <div className="text-sm text-danger-600 bg-danger-500/10 rounded-lg px-3 py-2">{err}</div>}
+        {err && <div className="text-sm text-danger-600 bg-danger-500/10 rounded px-3 py-2">{err}</div>}
         <div className="flex justify-end gap-2 pt-2">
-          <button className="btn-ghost" onClick={onClose}>Zrušit</button>
-          <button className="btn-primary" disabled={busy} onClick={save}>{busy ? 'Ukládám…' : '🚀 Spustit'}</button>
+          <button className="btn-ghost !rounded" onClick={onClose}>Zrušit</button>
+          <button className="btn-primary !rounded" disabled={busy} onClick={save}>{busy ? 'Ukládám…' : '🚀 Spustit'}</button>
         </div>
       </div>
     </Modal>
@@ -1193,10 +1193,10 @@ function TransferForm({ tanks, beers, initialFromId, initialBeerId, initialVolum
           <Field label="Ztráta (l)"><input type="number" step="0.1" className="input" value={loss} onChange={(e) => setLoss(e.target.value)} placeholder="např. 2" /></Field>
         </div>
         <Field label="Poznámka"><input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="poznámka" /></Field>
-        {err && <div className="text-sm text-danger-600 bg-danger-500/10 rounded-lg px-3 py-2">{err}</div>}
+        {err && <div className="text-sm text-danger-600 bg-danger-500/10 rounded px-3 py-2">{err}</div>}
         <div className="flex justify-end gap-2 pt-2">
-          <button className="btn-ghost" onClick={onClose}>Zrušit</button>
-          <button className="btn-primary" disabled={busy} onClick={save}>{busy ? 'Ukládám…' : 'Uložit'}</button>
+          <button className="btn-ghost !rounded" onClick={onClose}>Zrušit</button>
+          <button className="btn-primary !rounded" disabled={busy} onClick={save}>{busy ? 'Ukládám…' : 'Uložit'}</button>
         </div>
       </div>
     </Modal>
@@ -1275,8 +1275,8 @@ function TankForm({ tank, beers, onClose, onSaved }: { tank: CellarTank; beers: 
         <Field label="Datum sudování"><input type="date" className="input" value={keggingDate} onChange={(e) => setKeggingDate(e.target.value)} /></Field>
         <Field label="Poznámka"><input className="input" value={note} onChange={(e) => setNote(e.target.value)} /></Field>
         <div className="flex justify-end gap-2 pt-2">
-          <button className="btn-ghost" onClick={onClose}>Zrušit</button>
-          <button className="btn-primary" disabled={busy} onClick={save}>{busy ? 'Ukládám…' : 'Uložit'}</button>
+          <button className="btn-ghost !rounded" onClick={onClose}>Zrušit</button>
+          <button className="btn-primary !rounded" disabled={busy} onClick={save}>{busy ? 'Ukládám…' : 'Uložit'}</button>
         </div>
       </div>
     </Modal>

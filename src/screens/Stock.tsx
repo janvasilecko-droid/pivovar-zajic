@@ -328,14 +328,14 @@ export default function Stock() {
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Top Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-neutral-200 pb-2">
+      {/* Top Navigation Tabs — černá/bílý text, označená se obrací na bílou s tmavým textem. */}
+      <div className="flex items-center gap-2 pb-2">
         <button
           onClick={() => setTopTab('stock')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 ${
+          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 ${
             topTab === 'stock'
-              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+              ? 'bg-white text-neutral-900 shadow-md'
+              : 'bg-neutral-900 text-white hover:bg-neutral-800'
           }`}
         >
           <Warehouse size={16} />
@@ -344,10 +344,10 @@ export default function Stock() {
 
         <button
           onClick={() => setTopTab('festival')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 ${
+          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 ${
             topTab === 'festival'
-              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+              ? 'bg-white text-neutral-900 shadow-md'
+              : 'bg-neutral-900 text-white hover:bg-neutral-800'
           }`}
         >
           <Tent size={16} />
@@ -356,10 +356,10 @@ export default function Stock() {
 
         <button
           onClick={() => setTopTab('merch')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 ${
+          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 ${
             topTab === 'merch'
-              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+              ? 'bg-white text-neutral-900 shadow-md'
+              : 'bg-neutral-900 text-white hover:bg-neutral-800'
           }`}
         >
           <ShoppingBag size={16} />
@@ -374,15 +374,15 @@ export default function Stock() {
         <>
           {/* Top summary stats */}
           <div className="grid grid-cols-3 gap-3 text-center mb-4">
-            <div className="p-3 rounded-2xl bg-white border border-amber-300/80 shadow-xs">
+            <div className="p-3 rounded bg-white border border-amber-300/80 shadow-xs">
               <div className="text-[10px] font-black uppercase text-amber-800">Na skladě</div>
               <div className="text-xl font-display font-black text-neutral-900">{fmtHl(grandLiters)} <span className="text-xs text-neutral-500 font-normal">hl</span></div>
             </div>
-            <div className="p-3 rounded-2xl bg-white border border-amber-300/80 shadow-xs">
+            <div className="p-3 rounded bg-white border border-amber-300/80 shadow-xs">
               <div className="text-[10px] font-black uppercase text-amber-800">Sudů</div>
               <div className="text-xl font-display font-black text-neutral-900">{grandKegs} <span className="text-xs text-neutral-500 font-normal">ks</span></div>
             </div>
-            <div className="p-3 rounded-2xl bg-white border border-amber-300/80 shadow-xs">
+            <div className="p-3 rounded bg-white border border-amber-300/80 shadow-xs">
               <div className="text-[10px] font-black uppercase text-amber-800">Lahví</div>
               <div className="text-xl font-display font-black text-neutral-900">{grandBottles} <span className="text-xs text-neutral-500 font-normal">ks</span></div>
             </div>
@@ -401,20 +401,20 @@ export default function Stock() {
             <div className="flex items-center justify-center gap-3">
               <button
                 onClick={() => setWeekKey(shiftWeek(weekKey, -1))}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-neutral-100 hover:bg-amber-100 text-neutral-700 hover:text-amber-950 text-xs font-black border border-neutral-300 hover:border-amber-400 transition"
+                className="flex items-center gap-1.5 px-4 py-2 rounded bg-neutral-100 hover:bg-amber-100 text-neutral-700 hover:text-amber-950 text-xs font-black border border-neutral-300 hover:border-amber-400 transition"
                 title="Předchozí týden"
               >
                 ‹ Předchozí
               </button>
               <button
                 onClick={() => setWeekKey(isoWeekKey(todayISO()))}
-                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-black border border-amber-400 shadow-sm transition"
+                className="px-4 py-2 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-black border border-amber-400 shadow-sm transition"
               >
                 Tento týden
               </button>
               <button
                 onClick={() => setWeekKey(shiftWeek(weekKey, 1))}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-neutral-100 hover:bg-amber-100 text-neutral-700 hover:text-amber-950 text-xs font-black border border-neutral-300 hover:border-amber-400 transition"
+                className="flex items-center gap-1.5 px-4 py-2 rounded bg-neutral-100 hover:bg-amber-100 text-neutral-700 hover:text-amber-950 text-xs font-black border border-neutral-300 hover:border-amber-400 transition"
                 title="Následující týden"
               >
                 Následující ›
@@ -432,7 +432,7 @@ export default function Stock() {
               />
               <button
                 onClick={() => setInvMonth(monthKey(todayISO()))}
-                className="px-2.5 py-1 rounded-lg bg-neutral-100 hover:bg-amber-100 text-neutral-600 hover:text-amber-950 text-[11px] font-black border border-neutral-300 hover:border-amber-400 transition"
+                className="px-2.5 py-1 rounded bg-neutral-100 hover:bg-amber-100 text-neutral-600 hover:text-amber-950 text-[11px] font-black border border-neutral-300 hover:border-amber-400 transition"
                 title="Aktuální měsíc"
               >
                 Nyní
@@ -464,17 +464,17 @@ export default function Stock() {
                         <h3 className="font-display font-black text-lg text-neutral-900">{r.beer.name}</h3>
                         {r.beer.degree && <span className="text-xs font-bold text-neutral-600">{r.beer.degree} • {r.beer.color}</span>}
                       </div>
-                      <span className="px-3 py-1 rounded-xl bg-neutral-900 text-amber-300 font-mono font-black text-xs shadow-xs">
+                      <span className="px-3 py-1 rounded bg-neutral-900 text-amber-300 font-mono font-black text-xs shadow-xs">
                         {fmtHl(r.stockLiters)} hl
                       </span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 my-3">
-                      <div className="p-2.5 rounded-xl bg-white/70 border border-black/10">
+                      <div className="p-2.5 rounded bg-white/70 border border-black/10">
                         <div className="text-[10px] font-black uppercase text-neutral-500">🛢️ Sudy</div>
                         <div className={`text-base font-mono font-black ${r.stockKegs < 0 ? 'text-rose-600' : 'text-neutral-900'}`}>{r.stockKegs} ks</div>
                       </div>
-                      <div className="p-2.5 rounded-xl bg-white/70 border border-black/10">
+                      <div className="p-2.5 rounded bg-white/70 border border-black/10">
                         <div className="text-[10px] font-black uppercase text-neutral-500">🍾 Lahve</div>
                         <div className={`text-base font-mono font-black ${r.stockBottles < 0 ? 'text-rose-600' : 'text-neutral-900'}`}>{r.stockBottles} ks</div>
                       </div>
@@ -483,7 +483,7 @@ export default function Stock() {
                     {/* Package breakdown: KEG + Lahve */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
                       {kegs.length > 0 && (
-                        <div className="bg-white/70 backdrop-blur-xs rounded-xl p-2.5 border border-neutral-200/50">
+                        <div className="bg-white/70 backdrop-blur-xs rounded p-2.5 border border-neutral-200/50">
                           <div className="text-xs font-bold uppercase tracking-wider text-amber-700 mb-1.5 flex items-center gap-1">🛢️ Sudy</div>
                           <table className="w-full text-xs font-semibold border-collapse">
                             <thead>
@@ -511,7 +511,7 @@ export default function Stock() {
                         </div>
                       )}
                       {bottles.length > 0 && (
-                        <div className="bg-white/70 backdrop-blur-xs rounded-xl p-2.5 border border-neutral-200/50">
+                        <div className="bg-white/70 backdrop-blur-xs rounded p-2.5 border border-neutral-200/50">
                           <div className="text-xs font-bold uppercase tracking-wider text-primary-700 mb-1.5 flex items-center gap-1">🍾 Lahve</div>
                           <table className="w-full text-xs font-semibold border-collapse">
                             <thead>
@@ -557,11 +557,11 @@ export default function Stock() {
             {detail && (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="p-3 rounded-xl bg-neutral-50 border border-neutral-200">
+                  <div className="p-3 rounded bg-neutral-50 border border-neutral-200">
                     <div className="text-[10px] font-black uppercase text-neutral-500">Na skladě</div>
                     <div className="text-lg font-mono font-black text-neutral-900">{fmtHl(detail.stockLiters)} hl</div>
                   </div>
-                  <div className="p-3 rounded-xl bg-neutral-50 border border-neutral-200">
+                  <div className="p-3 rounded bg-neutral-50 border border-neutral-200">
                     <div className="text-[10px] font-black uppercase text-neutral-500">Zbývá</div>
                     <div className={`text-lg font-mono font-black ${detail.remaining < 0 ? 'text-rose-600' : detail.remaining === 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
                       {detail.remaining > 0 ? `+${detail.remaining}` : detail.remaining} ks
@@ -573,56 +573,56 @@ export default function Stock() {
                   {detail.stockByPkg
                     .filter((p) => p.currentStock > 0 || p.outgoing > 0 || p.fromInv > 0 || p.brewedW > 0)
                     .map((p) => (
-                      <div key={p.package_id} className="rounded-2xl border border-neutral-200 overflow-hidden">
+                      <div key={p.package_id} className="rounded border border-neutral-200 overflow-hidden">
                         <div className={`px-3 py-2 flex items-center justify-between gap-2 text-xs font-black uppercase tracking-wider ${p.kind === 'keg' ? 'bg-amber-100 text-amber-800' : 'bg-primary-100 text-primary-800'}`}>
                           <span>{p.kind === 'keg' ? '🛢' : '🍾'} {p.label}</span>
                           <span className="font-mono">Aktuální stav: {p.currentStock} ks</span>
                         </div>
                         <div className="p-3 grid grid-cols-3 gap-1.5 text-center">
-                          <div className="rounded-lg bg-neutral-50 py-1.5">
+                          <div className="rounded bg-neutral-50 py-1.5">
                             <div className="text-[9px] font-black uppercase text-neutral-500">Počáteční</div>
                             <div className="text-sm font-black text-neutral-800">{p.fromInv}</div>
                           </div>
-                          <div className="rounded-lg bg-emerald-50 py-1.5">
+                          <div className="rounded bg-emerald-50 py-1.5">
                             <div className="text-[9px] font-black uppercase text-emerald-700">Stočeno</div>
                             <div className="text-sm font-black text-emerald-800">+{p.brewedW}</div>
                           </div>
-                          <div className="rounded-lg bg-sky-50 py-1.5">
+                          <div className="rounded bg-sky-50 py-1.5">
                             <div className="text-[9px] font-black uppercase text-sky-700">Objednáno (týden)</div>
                             <div className="text-sm font-black text-sky-800">{p.orderedW}</div>
                           </div>
-                          <div className="rounded-lg bg-rose-50 py-1.5">
+                          <div className="rounded bg-rose-50 py-1.5">
                             <div className="text-[9px] font-black uppercase text-rose-700">Odečteno závozem</div>
                             <div className="text-sm font-black text-rose-800">−{p.zdW}</div>
                           </div>
-                          <div className="rounded-lg bg-rose-50 py-1.5">
+                          <div className="rounded bg-rose-50 py-1.5">
                             <div className="text-[9px] font-black uppercase text-rose-700">Fasování (personál)</div>
                             <div className="text-sm font-black text-rose-800">−{p.fasovaniW}</div>
                           </div>
-                          <div className="rounded-lg bg-rose-50 py-1.5">
+                          <div className="rounded bg-rose-50 py-1.5">
                             <div className="text-[9px] font-black uppercase text-rose-700">Prodejna</div>
                             <div className="text-sm font-black text-rose-800">−{p.prodejnaW}</div>
                           </div>
-                          <div className="rounded-lg bg-rose-50 py-1.5">
+                          <div className="rounded bg-rose-50 py-1.5">
                             <div className="text-[9px] font-black uppercase text-rose-700">Akce</div>
                             <div className="text-sm font-black text-rose-800">−{p.akceWeek}</div>
                           </div>
-                          <div className="rounded-lg bg-rose-50 py-1.5">
+                          <div className="rounded bg-rose-50 py-1.5">
                             <div className="text-[9px] font-black uppercase text-rose-700">Odpisy</div>
                             <div className="text-sm font-black text-rose-800">−{p.woW}</div>
                           </div>
-                          <div className="rounded-lg bg-purple-50 py-1.5">
+                          <div className="rounded bg-purple-50 py-1.5">
                             <div className="text-[9px] font-black uppercase text-purple-700">Sudy na lahve</div>
                             <div className="text-sm font-black text-purple-800">−{p.kegsUsedW}</div>
                           </div>
                           {(p.prefukFrom > 0 || p.prefukTo > 0) && (
-                            <div className="rounded-lg bg-neutral-50 py-1.5">
+                            <div className="rounded bg-neutral-50 py-1.5">
                               <div className="text-[9px] font-black uppercase text-neutral-500">Přefuk ZE/DO</div>
                               <div className="text-sm font-black text-neutral-800">−{p.prefukFrom} / +{p.prefukTo}</div>
                             </div>
                           )}
                           {p.adjW !== 0 && (
-                            <div className="rounded-lg bg-amber-50 py-1.5">
+                            <div className="rounded bg-amber-50 py-1.5">
                               <div className="text-[9px] font-black uppercase text-amber-700">Dorovnání inventury</div>
                               <div className="text-sm font-black text-amber-800">{p.adjW > 0 ? '+' : ''}{p.adjW}</div>
                             </div>
@@ -661,7 +661,7 @@ export default function Stock() {
                   })),
                   `${brewFrom} – ${brewTo}`
                 )}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black shadow-sm transition"
+                className="flex items-center gap-1.5 px-3 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black shadow-sm transition"
               >
 
                 <Download size={14} />
@@ -671,7 +671,7 @@ export default function Stock() {
             {/* Mobilní karty */}
             <div className="grid grid-cols-1 gap-2 md:hidden">
               {rows.map((r) => (
-                <div key={r.beer.id} className="rounded-xl border border-neutral-200 p-3 flex items-center justify-between gap-2">
+                <div key={r.beer.id} className="rounded border border-neutral-200 p-3 flex items-center justify-between gap-2">
                   <span className="font-bold text-sm text-neutral-800 truncate">{r.beer.name}</span>
                   <div className="flex items-center gap-3 text-xs font-mono shrink-0">
                     <span className="text-neutral-500">{r.stockKegs} sud.</span>
@@ -722,7 +722,7 @@ export default function Stock() {
                 <input type="date" value={brewTo} onChange={(e) => setBrewTo(e.target.value)} className="input !py-1 !px-2 text-xs font-black text-amber-800 border-amber-300 w-auto" />
                 <div className="flex gap-1">
                   {(['week', 'month', 'year', 'all'] as const).map((t) => (
-                    <button key={t} onClick={() => setQuickRange(t)} className="px-2 py-1 rounded-lg bg-neutral-100 hover:bg-amber-100 text-neutral-600 hover:text-amber-950 text-[11px] font-black border border-neutral-300 hover:border-amber-400 transition">
+                    <button key={t} onClick={() => setQuickRange(t)} className="px-2 py-1 rounded bg-neutral-100 hover:bg-amber-100 text-neutral-600 hover:text-amber-950 text-[11px] font-black border border-neutral-300 hover:border-amber-400 transition">
                       {t === 'week' ? 'Týden' : t === 'month' ? 'Měsíc' : t === 'year' ? 'Rok' : 'Vše'}
                     </button>
                   ))}
@@ -731,15 +731,15 @@ export default function Stock() {
             </div>
 
             <div className="grid grid-cols-3 gap-3 text-center mb-4">
-              <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200">
+              <div className="p-3 rounded bg-amber-50 border border-amber-200">
                 <div className="text-[10px] font-black uppercase text-amber-800">Sudů</div>
                 <div className="text-xl font-display font-black text-neutral-900">{brewTotalKegs} <span className="text-xs text-neutral-500 font-normal">ks</span></div>
               </div>
-              <div className="p-3 rounded-2xl bg-primary-50 border border-primary-200">
+              <div className="p-3 rounded bg-primary-50 border border-primary-200">
                 <div className="text-[10px] font-black uppercase text-primary-800">Lahví</div>
                 <div className="text-xl font-display font-black text-neutral-900">{brewTotalBottles} <span className="text-xs text-neutral-500 font-normal">ks</span></div>
               </div>
-              <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200">
+              <div className="p-3 rounded bg-emerald-50 border border-emerald-200">
                 <div className="text-[10px] font-black uppercase text-emerald-800">Celkem</div>
                 <div className="text-xl font-display font-black text-neutral-900">{fmtHl(brewTotalLiters)} <span className="text-xs text-neutral-500 font-normal">hl</span></div>
               </div>
@@ -748,17 +748,17 @@ export default function Stock() {
             {brewLoading ? <Spinner /> : brewStats.length === 0 ? <EmptyState text="Žádné stočení v tomto období." icon="🍺" /> : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {brewStats.map((s) => (
-                  <div key={s.beer.id} className="bg-white rounded-2xl border-2 border-neutral-200 p-4" style={{ borderColor: beerBorder(s.beer) }}>
+                  <div key={s.beer.id} className="bg-white rounded border-2 border-neutral-200 p-4" style={{ borderColor: beerBorder(s.beer) }}>
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="font-display font-black text-base text-neutral-900">{s.beer.name}</h3>
-                      <span className="px-2.5 py-1 rounded-lg bg-neutral-900 text-amber-300 font-mono font-black text-xs">{fmtHl(s.totalLiters)} hl</span>
+                      <span className="px-2.5 py-1 rounded bg-neutral-900 text-amber-300 font-mono font-black text-xs">{fmtHl(s.totalLiters)} hl</span>
                     </div>
                     <div className="grid grid-cols-2 gap-2 mb-2">
-                      <div className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-center">
+                      <div className="p-2 rounded bg-amber-50 border border-amber-200 text-center">
                         <div className="text-[9px] font-black uppercase text-amber-800">Sudy</div>
                         <div className="text-sm font-mono font-black text-neutral-900">{s.totalKegs}</div>
                       </div>
-                      <div className="p-2 rounded-lg bg-primary-50 border border-primary-200 text-center">
+                      <div className="p-2 rounded bg-primary-50 border border-primary-200 text-center">
                         <div className="text-[9px] font-black uppercase text-primary-800">Lahve</div>
                         <div className="text-sm font-mono font-black text-neutral-900">{s.totalBottles}</div>
                       </div>
