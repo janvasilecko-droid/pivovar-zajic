@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Orders from './Orders';
 import VycepyScreen from './VycepyScreen';
 import { ClipboardList, FileText, Truck, Flame } from 'lucide-react';
+import { TabBar, type TabBarItem } from '../components/TabBar';
 
 type TopTab = 'orders' | 'detail' | 'zavoz' | 'vycepy';
 
@@ -12,11 +13,11 @@ interface OrdersTabbedProps {
   setPage?: (p: any, sec?: string) => void;
 }
 
-const TABS: { id: TopTab; label: string; icon: typeof ClipboardList }[] = [
-  { id: 'orders', label: 'Objednávky', icon: ClipboardList },
-  { id: 'detail', label: 'Přehled', icon: FileText },
-  { id: 'zavoz', label: 'Závoz', icon: Truck },
-  { id: 'vycepy', label: 'Výčepy (Zápůjčky)', icon: Flame },
+const TABS: (TabBarItem & { id: TopTab })[] = [
+  { id: 'orders', label: 'Objednávky', icon: ClipboardList, color: '#38d9a9' },
+  { id: 'detail', label: 'Přehled', icon: FileText, color: '#4dabf7' },
+  { id: 'zavoz', label: 'Závoz', icon: Truck, color: '#ffa94d' },
+  { id: 'vycepy', label: 'Výčepy (Zápůjčky)', icon: Flame, color: '#f5487f' },
 ];
 
 // Mapování interní záložky → Page (viz App.tsx). 'zavoz' Page název je už
@@ -53,25 +54,7 @@ export default function OrdersTabbed({
   return (
     <div className="space-y-6">
       {/* Tab Navigation — pořadí: Objednávky, Přehled, Závoz, Výčepy (Zápůjčky) */}
-      <div className="sticky top-0 z-20 bg-neutral-100 pt-1 flex items-center gap-2 border-b border-neutral-200 pb-2 overflow-x-auto scrollbar-thin">
-        {TABS.map((tab) => {
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => selectTab(tab.id)}
-              className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
-                activeTab === tab.id
-                  ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-                  : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
-              }`}
-            >
-              <Icon size={16} />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
-      </div>
+      <TabBar items={TABS} activeId={activeTab} onSelect={(id) => selectTab(id as TopTab)} />
 
       {/* Screen Render */}
       <div className="transition-all duration-200">

@@ -6,8 +6,18 @@ import BottleSanitationDiary from '../components/BottleSanitationDiary';
 import KegSanitationDiary from '../components/KegSanitationDiary';
 import TapSanitationDiary from '../components/TapSanitationDiary';
 import { FlaskConical, Shield, CheckSquare, Wine, Cylinder, SlidersHorizontal } from 'lucide-react';
+import { TabBar, type TabBarItem } from '../components/TabBar';
 
 type SanitaceTab = 'tanks' | 'lahve' | 'kegy' | 'vycepy' | 'haccp' | 'checklists';
+
+const TABS: (TabBarItem & { id: SanitaceTab })[] = [
+  { id: 'tanks', label: 'Deník tanků & zařízení', icon: FlaskConical, color: '#4dabf7' },
+  { id: 'lahve', label: 'Deník lahví (stáčení)', icon: Wine, color: '#f5487f' },
+  { id: 'kegy', label: 'Deník KEGů (stáčení)', icon: Cylinder, color: '#ffa94d' },
+  { id: 'vycepy', label: 'Deník výčepů', icon: SlidersHorizontal, color: '#7c5cff' },
+  { id: 'haccp', label: 'Sanitační postupy & Řád', icon: Shield, color: '#2f9e64' },
+  { id: 'checklists', label: 'Check-listy & Návody', icon: CheckSquare, color: '#d4a017' },
+];
 
 interface SanitaceTabbedProps {
   initialTab?: 'sanitation_log' | 'haccp' | 'checklists' | 'tanks' | 'lahve' | 'kegy' | 'vycepy';
@@ -48,80 +58,7 @@ export default function SanitaceTabbed({ initialTab = 'sanitation_log', initialS
 
   return (
     <div className="space-y-6">
-      {/* Tab Navigation */}
-      <div className="sticky top-0 z-20 bg-neutral-100 pt-1 flex items-center gap-2 border-b border-neutral-200 pb-2 overflow-x-auto scrollbar-thin">
-        <button
-          onClick={() => selectTab('tanks')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
-            activeTab === 'tanks'
-              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
-          }`}
-        >
-          <FlaskConical size={16} />
-          <span>Deník tanků & zařízení</span>
-        </button>
-
-        <button
-          onClick={() => selectTab('lahve')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
-            activeTab === 'lahve'
-              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
-          }`}
-        >
-          <Wine size={16} />
-          <span>Deník lahví (stáčení)</span>
-        </button>
-
-        <button
-          onClick={() => selectTab('kegy')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
-            activeTab === 'kegy'
-              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
-          }`}
-        >
-          <Cylinder size={16} />
-          <span>Deník KEGů (stáčení)</span>
-        </button>
-
-        <button
-          onClick={() => selectTab('vycepy')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
-            activeTab === 'vycepy'
-              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
-          }`}
-        >
-          <SlidersHorizontal size={16} />
-          <span>Deník výčepů</span>
-        </button>
-
-        <button
-          onClick={() => selectTab('haccp')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
-            activeTab === 'haccp'
-              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
-          }`}
-        >
-          <Shield size={16} />
-          <span>Sanitační postupy & Řád</span>
-        </button>
-
-        <button
-          onClick={() => selectTab('checklists')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
-            activeTab === 'checklists'
-              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
-          }`}
-        >
-          <CheckSquare size={16} />
-          <span>Check-listy & Návody</span>
-        </button>
-      </div>
+      <TabBar items={TABS} activeId={activeTab} onSelect={(id) => selectTab(id as SanitaceTab)} />
 
       {/* Screen Render */}
       <div className="transition-all duration-200">

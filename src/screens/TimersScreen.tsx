@@ -6,7 +6,6 @@
 import { useState, useEffect } from 'react';
 import {
   Timer, AlarmClock, Hourglass, Play, Pause, RotateCcw, Flag, Plus, Trash2, Square, CheckCircle2,
-  type LucideIcon,
 } from 'lucide-react';
 import {
   getStopwatchState, saveStopwatchState, stopwatchElapsedMs, type StopwatchState,
@@ -14,6 +13,7 @@ import {
   getKegTimerState, startKegTimer, finishKegTimer, cancelKegTimer, removeKegHistoryEntry, getKegEstimateMs,
   formatDurationMs,
 } from '../lib/stopwatchTimers';
+import { TabBar, type TabBarItem } from '../components/TabBar';
 
 type TimersTab = 'stopwatch' | 'timer' | 'keg';
 
@@ -21,6 +21,12 @@ interface TimersScreenProps {
   initialTab?: TimersTab;
   setPage?: (p: any, sec?: string) => void;
 }
+
+const TABS: (TabBarItem & { id: TimersTab })[] = [
+  { id: 'stopwatch', label: 'Stopky', icon: Timer, color: '#d4a017' },
+  { id: 'timer', label: 'Časovač', icon: AlarmClock, color: '#7c5cff' },
+  { id: 'keg', label: 'Stočení sudu', icon: Hourglass, color: '#ffa94d' },
+];
 
 export default function TimersScreen({ initialTab = 'stopwatch', setPage }: TimersScreenProps) {
   const [activeTab, setActiveTab] = useState<TimersTab>(initialTab);
@@ -36,11 +42,7 @@ export default function TimersScreen({ initialTab = 'stopwatch', setPage }: Time
 
   return (
     <div className="space-y-6">
-      <div className="sticky top-0 z-20 bg-neutral-100 pt-1 flex items-center gap-2 border-b border-neutral-200 pb-2 overflow-x-auto scrollbar-thin">
-        <TabButton active={activeTab === 'stopwatch'} onClick={() => selectTab('stopwatch')} icon={Timer} label="Stopky" />
-        <TabButton active={activeTab === 'timer'} onClick={() => selectTab('timer')} icon={AlarmClock} label="Časovač" />
-        <TabButton active={activeTab === 'keg'} onClick={() => selectTab('keg')} icon={Hourglass} label="Stočení sudu" />
-      </div>
+      <TabBar items={TABS} activeId={activeTab} onSelect={(id) => selectTab(id as TimersTab)} />
 
       <div className="transition-all duration-200">
         {activeTab === 'stopwatch' && <StopwatchTool />}
@@ -48,22 +50,6 @@ export default function TimersScreen({ initialTab = 'stopwatch', setPage }: Time
         {activeTab === 'keg' && <KegRackingTimerTool />}
       </div>
     </div>
-  );
-}
-
-function TabButton({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: LucideIcon; label: string }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
-        active
-          ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-          : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
-      }`}
-    >
-      <Icon size={16} />
-      <span>{label}</span>
-    </button>
   );
 }
 

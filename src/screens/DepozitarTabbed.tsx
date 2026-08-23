@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { PlacesScreen, BeersScreen, PackagesScreen } from './Catalogs';
 import PriceListScreen from './PriceList';
 import { Building, Beer, Boxes, Tag } from 'lucide-react';
+import { TabBar, type TabBarItem } from '../components/TabBar';
 
 type DepozitarTab = 'places' | 'beers' | 'packages' | 'pricelist';
 
@@ -9,6 +10,13 @@ interface DepozitarTabbedProps {
   initialTab?: DepozitarTab;
   setPage?: (p: any, sec?: string) => void;
 }
+
+const TABS: (TabBarItem & { id: DepozitarTab })[] = [
+  { id: 'places', label: 'Odběratelé', icon: Building, color: '#2f9e64' },
+  { id: 'beers', label: 'Piva', icon: Beer, color: '#ffa94d' },
+  { id: 'packages', label: 'Obaly (Lahve, Podtácky…)', icon: Boxes, color: '#0ca5b0' },
+  { id: 'pricelist', label: 'Ceník', icon: Tag, color: '#38d9a9' },
+];
 
 export default function DepozitarTabbed({ initialTab = 'places', setPage }: DepozitarTabbedProps) {
   const [activeTab, setActiveTab] = useState<DepozitarTab>(initialTab);
@@ -28,56 +36,7 @@ export default function DepozitarTabbed({ initialTab = 'places', setPage }: Depo
 
   return (
     <div className="space-y-6">
-      {/* Tab Navigation */}
-      <div className="sticky top-0 z-20 bg-neutral-100 pt-1 flex items-center gap-2 border-b border-neutral-200 pb-2 overflow-x-auto scrollbar-thin">
-        <button
-          onClick={() => selectTab('places')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
-            activeTab === 'places'
-              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
-          }`}
-        >
-          <Building size={16} />
-          <span>Odběratelé</span>
-        </button>
-
-        <button
-          onClick={() => selectTab('beers')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
-            activeTab === 'beers'
-              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
-          }`}
-        >
-          <Beer size={16} />
-          <span>Piva</span>
-        </button>
-
-        <button
-          onClick={() => selectTab('packages')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
-            activeTab === 'packages'
-              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
-          }`}
-        >
-          <Boxes size={16} />
-          <span>Obaly (Lahve, Podtácky…)</span>
-        </button>
-
-        <button
-          onClick={() => selectTab('pricelist')}
-          className={`px-4 py-2.5 rounded-2xl font-black text-xs transition flex items-center gap-2 shrink-0 ${
-            activeTab === 'pricelist'
-              ? 'bg-white text-amber-900 shadow-md ring-2 ring-amber-300'
-              : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
-          }`}
-        >
-          <Tag size={16} />
-          <span>Ceník</span>
-        </button>
-      </div>
+      <TabBar items={TABS} activeId={activeTab} onSelect={(id) => selectTab(id as DepozitarTab)} />
 
       {/* Screen Render */}
       <div className="transition-all duration-200">
