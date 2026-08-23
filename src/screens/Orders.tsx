@@ -1343,15 +1343,8 @@ export default function Orders({
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Top Action Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-3xl border border-neutral-200 shadow-2xs">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-display font-black text-amber-800 flex items-center gap-1.5">
-            <span>🛒</span>
-            <span>Objednávky</span>
-          </span>
-        </div>
-
+      {/* Top Action Bar — bez nadpisu "Objednávky": to už říká záložka nahoře, duplicitní popisek by byl zbytečný. */}
+      <div className="flex flex-wrap items-center justify-end gap-3 bg-white p-3.5 rounded-3xl border border-neutral-200 shadow-2xs">
         <div className="flex flex-col gap-2 items-end">
           {/* Řádek 1: Zadání objednávek / Detaily objednávek / Závoz — na jednom řádku, kompaktní */}
           <div className="flex gap-1.5 items-center flex-nowrap justify-end w-full sm:w-auto">
@@ -1362,8 +1355,8 @@ export default function Orders({
                   onClick={() => setViewMode('summary')}
                   className={`flex-1 sm:flex-none px-2 py-1.5 rounded-lg font-black text-[11px] leading-tight transition flex items-center justify-center gap-1 whitespace-nowrap ${
                     viewMode === 'summary'
-                      ? 'bg-amber-500 text-neutral-800 shadow-md ring-2 ring-amber-300'
-                      : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+                      ? 'bg-neutral-900 text-white shadow-md'
+                      : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                   }`}
                 >
                   <Plus size={14} /> Nové
@@ -1372,8 +1365,8 @@ export default function Orders({
                   onClick={() => setViewMode('celkem')}
                   className={`flex-1 sm:flex-none px-2 py-1.5 rounded-lg font-black text-[11px] leading-tight transition flex items-center justify-center gap-1 whitespace-nowrap ${
                     viewMode === 'celkem'
-                      ? 'bg-amber-500 text-neutral-800 shadow-md ring-2 ring-amber-300'
-                      : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+                      ? 'bg-neutral-900 text-white shadow-md'
+                      : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                   }`}
                 >
                   <ChartBar size={14} /> Celkem
@@ -1382,8 +1375,8 @@ export default function Orders({
                   onClick={() => setViewMode('text')}
                   className={`flex-1 sm:flex-none px-2 py-1.5 rounded-lg font-black text-[11px] leading-tight transition flex items-center justify-center gap-1 whitespace-nowrap ${
                     viewMode === 'text'
-                      ? 'bg-amber-500 text-neutral-800 shadow-md ring-2 ring-amber-300'
-                      : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+                      ? 'bg-neutral-900 text-white shadow-md'
+                      : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                   }`}
                 >
                   <Mail size={14} /> Text
@@ -1824,7 +1817,7 @@ export default function Orders({
               type="button"
               onClick={() => setTimeScope('week')}
               className={`px-3 py-1.5 rounded-lg font-black text-xs transition ${
-                timeScope === 'week' ? 'bg-amber-500 text-neutral-800 shadow-xs' : 'text-neutral-700 hover:bg-neutral-200'
+                timeScope === 'week' ? 'bg-neutral-900 text-white shadow-xs' : 'text-neutral-700 hover:bg-neutral-200'
               }`}
             >
               📅 Týden
@@ -1833,7 +1826,7 @@ export default function Orders({
               type="button"
               onClick={() => setTimeScope('month')}
               className={`px-3 py-1.5 rounded-lg font-black text-xs transition ${
-                timeScope === 'month' ? 'bg-amber-500 text-neutral-800 shadow-xs' : 'text-neutral-700 hover:bg-neutral-200'
+                timeScope === 'month' ? 'bg-neutral-900 text-white shadow-xs' : 'text-neutral-700 hover:bg-neutral-200'
               }`}
             >
               🗓️ Celý měsíc
@@ -1842,7 +1835,7 @@ export default function Orders({
               type="button"
               onClick={() => setTimeScope('all')}
               className={`px-3 py-1.5 rounded-lg font-black text-xs transition ${
-                timeScope === 'all' ? 'bg-amber-500 text-neutral-800 shadow-xs' : 'text-neutral-700 hover:bg-neutral-200'
+                timeScope === 'all' ? 'bg-neutral-900 text-white shadow-xs' : 'text-neutral-700 hover:bg-neutral-200'
               }`}
             >
               🌐 Všechny

@@ -131,6 +131,11 @@ function navPageFor(page: Page): Page {
   return PAGE_GROUP_PARENT[page] ?? page;
 }
 
+// Top-level stránky, co mají vlastní TabBar (viz src/components/TabBar.tsx) —
+// ta záložka nahoře už jméno sekce ukazuje, takže mobilní hlavička ho
+// nezobrazuje znovu (viz její render níže).
+const TABBED_PAGES = new Set<Page>(['orders', 'akce', 'haccp', 'vehicles', 'depozitar', 'calendar']);
+
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
@@ -641,9 +646,16 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           className="hs-glass-chrome flex items-center justify-between px-2 sm:px-8 py-2 border-b shadow-2xs z-20 gap-2 shrink-0"
         >
           <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 shrink-0">
-            <span className="sm:hidden font-display font-black text-base text-neutral-900 truncate">
-              {(NAV.find((n) => n.id === navPageFor(page)) ?? EXTRA_NAV.find((n) => n.id === navPageFor(page)))?.label ?? ''}
-            </span>
+            {/* Název stránky v mobilní hlavičce — vynechá se na stránkách, co
+                mají vlastní TabBar (viz TABBED_PAGES níže): záložka nahoře
+                už jméno sekce ukazuje, duplicitní popisek by byl zbytečný
+                (viz Objednávky — "🛒 Objednávky" v kartě + tahle hlavička +
+                záložka = 3× to samé). */}
+            {!TABBED_PAGES.has(navPageFor(page)) && (
+              <span className="sm:hidden font-display font-black text-base text-neutral-900 truncate">
+                {(NAV.find((n) => n.id === navPageFor(page)) ?? EXTRA_NAV.find((n) => n.id === navPageFor(page)))?.label ?? ''}
+              </span>
+            )}
           </div>
 
           {/* Pravá strana hlavičky — jen upozornění, nic trvalého. WhatsApp a
