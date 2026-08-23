@@ -16,29 +16,33 @@ type BeerTileGridProps = {
  * Dvousloupcová mřížka dlaždic piv — sdílený vzhled pro Objednávky, Stáčení
  * (lahve i KEG) a Fasování/Prodejnu. Styl sjednocený s dlaždicemi na Domů
  * (viz LauncherTile/HomeScreen.css .hs-tile): plná barva piva (beer_color),
- * bílý text, zaoblené, bez rámečku. Vyplněná dlaždice dostane bílý prstenec
- * a pod názvem konkrétní rozpis množství. Název piva (beerName) už stupeň
- * obsahuje (např. "12° Světlá"), proto se sem stupeň znovu nepřidává - dřív
- * se tím zdvojoval ("12° 12° Světlá").
+ * stejný tvar (border-radius 4px, ne "pilulkovité" zaoblení), bez rámečku.
+ * Text je bílý/tmavý podle jasu barvy piva (beerText) — natvrdo bílý text
+ * byl u světlých piv (např. světlý ležák) špatně čitelný. Vyplněná dlaždice
+ * dostane kontrastní prstenec a pod názvem konkrétní rozpis množství. Název
+ * piva (beerName) už stupeň obsahuje (např. "12° Světlá"), proto se sem
+ * stupeň znovu nepřidává - dřív se tím zdvojoval ("12° 12° Světlá").
  */
 export function BeerTileGrid({ beers, onSelect, summaryFor }: BeerTileGridProps) {
   return (
     <div className="grid grid-cols-2 gap-2.5">
       {beers.map((b) => {
         const { filled, label } = summaryFor(b);
+        const textClass = beerText(b);
+        const isDark = textClass === 'text-white';
         return (
           <button
             key={b.id}
             type="button"
             onClick={() => onSelect(b)}
-            className={`text-left rounded-2xl shadow-sm p-3 min-h-[64px] transition-all hover:brightness-110 active:scale-[0.98] flex flex-col gap-1 text-white ${
-              filled ? 'ring-2 ring-white/80' : ''
+            className={`text-left rounded shadow-sm p-3 min-h-[64px] transition-all hover:brightness-110 active:scale-[0.98] flex flex-col gap-1 ${textClass} ${
+              filled ? (isDark ? 'ring-2 ring-white/80' : 'ring-2 ring-primary-900/40') : ''
             }`}
             style={{ backgroundColor: beerBg(b) }}
           >
             <span className="font-black text-sm leading-tight">{beerName(b)}</span>
             {filled && (
-              <span className="text-[11px] font-bold text-white/90">{label}</span>
+              <span className={`text-[11px] font-bold ${isDark ? 'text-white/90' : 'text-primary-900/80'}`}>{label}</span>
             )}
           </button>
         );

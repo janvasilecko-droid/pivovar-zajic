@@ -1308,7 +1308,7 @@ export default function Orders({
               <div className="flex items-center gap-1.5 flex-1 sm:flex-none">
                 <button
                   onClick={() => setViewMode('summary')}
-                  className={`flex-1 sm:flex-none px-2 py-1.5 rounded-lg font-black text-[11px] leading-tight transition flex items-center justify-center gap-1 whitespace-nowrap ${
+                  className={`flex-1 sm:flex-none px-2 py-1.5 rounded font-black text-[11px] leading-tight transition flex items-center justify-center gap-1 whitespace-nowrap ${
                     viewMode === 'summary'
                       ? 'bg-neutral-900 text-white shadow-md'
                       : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
@@ -1318,7 +1318,7 @@ export default function Orders({
                 </button>
                 <button
                   onClick={() => setViewMode('celkem')}
-                  className={`flex-1 sm:flex-none px-2 py-1.5 rounded-lg font-black text-[11px] leading-tight transition flex items-center justify-center gap-1 whitespace-nowrap ${
+                  className={`flex-1 sm:flex-none px-2 py-1.5 rounded font-black text-[11px] leading-tight transition flex items-center justify-center gap-1 whitespace-nowrap ${
                     viewMode === 'celkem'
                       ? 'bg-neutral-900 text-white shadow-md'
                       : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
@@ -1328,7 +1328,7 @@ export default function Orders({
                 </button>
                 <button
                   onClick={() => setViewMode('text')}
-                  className={`flex-1 sm:flex-none px-2 py-1.5 rounded-lg font-black text-[11px] leading-tight transition flex items-center justify-center gap-1 whitespace-nowrap ${
+                  className={`flex-1 sm:flex-none px-2 py-1.5 rounded font-black text-[11px] leading-tight transition flex items-center justify-center gap-1 whitespace-nowrap ${
                     viewMode === 'text'
                       ? 'bg-neutral-900 text-white shadow-md'
                       : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
@@ -1365,7 +1365,7 @@ export default function Orders({
                 Kontrola zpráv). */}
             <div className="relative">
               <button
-                className="btn-ghost !bg-[#25D366] !border-[#25D366] !text-white font-black text-xs shadow-xs flex items-center gap-1.5 hover:!bg-[#1da851] relative"
+                className="btn-ghost !rounded !bg-[#25D366] !border-[#25D366] !text-white font-black text-xs shadow-xs flex items-center gap-1.5 hover:!bg-[#1da851] relative"
                 title="WhatsApp — zprávy k vyřízení"
                 onClick={() => setShowWhatsAppMenu((v) => !v)}
               >
@@ -1379,17 +1379,17 @@ export default function Orders({
               {showWhatsAppMenu && (
                 <>
                   <div className="fixed inset-0 z-30" onClick={() => setShowWhatsAppMenu(false)} />
-                  <div className="absolute right-0 top-full mt-1.5 z-40 bg-white rounded-2xl shadow-xl border border-neutral-200 p-1.5 flex flex-col gap-1 min-w-[220px]">
+                  <div className="absolute right-0 top-full mt-1.5 z-40 bg-white rounded shadow-xl border border-neutral-200 p-1.5 flex flex-col gap-1 min-w-[220px]">
                     <button
                       type="button"
-                      className="text-left px-3 py-2 rounded-xl text-xs font-black text-neutral-800 hover:bg-neutral-100 flex items-center gap-2"
+                      className="text-left px-3 py-2 rounded text-xs font-black text-neutral-800 hover:bg-neutral-100 flex items-center gap-2"
                       onClick={() => { setShowWhatsAppAutoProcessor(true); setShowWhatsAppMenu(false); }}
                     >
                       <MessageCircle size={14} className="text-[#25D366]" /> Zpracovat příchozí zprávy
                     </button>
                     <button
                       type="button"
-                      className="text-left px-3 py-2 rounded-xl text-xs font-black text-neutral-800 hover:bg-neutral-100 flex items-center gap-2"
+                      className="text-left px-3 py-2 rounded text-xs font-black text-neutral-800 hover:bg-neutral-100 flex items-center gap-2"
                       onClick={() => { setShowWhatsAppAudit(true); setShowWhatsAppMenu(false); }}
                     >
                       <ShieldAlert size={14} className="text-neutral-500" /> Kontrola všech zpráv za období
@@ -1398,8 +1398,8 @@ export default function Orders({
                 </>
               )}
             </div>
-            <button className="btn-ghost !bg-white border-neutral-300 text-neutral-700 font-extrabold text-xs shadow-xs flex items-center gap-1.5" title="Audit objednávek — najde duplicitní položky, nesrovnalosti proti WhatsAppu a nezpracované zprávy" onClick={() => setShowOrderAudit(true)}><ShieldAlert size={14} /> Audit objednávek</button>
-            <button className="btn-ghost !bg-white border-amber-300 text-amber-800 font-extrabold text-xs shadow-xs flex items-center gap-1.5" title="Načíst z fotky/e-mailu" onClick={() => { setImportTarget(null); setShowImport(true); }}><Camera size={14} /> Fotka/AI</button>
+            <button className="btn-ghost !rounded !bg-white border-neutral-300 text-neutral-700 font-extrabold text-xs shadow-xs flex items-center gap-1.5" title="Audit objednávek — najde duplicitní položky, nesrovnalosti proti WhatsAppu a nezpracované zprávy" onClick={() => setShowOrderAudit(true)}><ShieldAlert size={14} /> Audit objednávek</button>
+            <button className="btn-ghost !rounded !bg-white border-amber-300 text-amber-800 font-extrabold text-xs shadow-xs flex items-center gap-1.5" title="Načíst z fotky/e-mailu" onClick={() => { setImportTarget(null); setShowImport(true); }}><Camera size={14} /> Fotka/AI</button>
           </div>
         </div>
       </div>
@@ -1477,16 +1477,16 @@ export default function Orders({
 
             {/* Navigace týdnem */}
             <div className="flex items-center gap-1.5">
-              <button type="button" onClick={() => shiftWeekAndKeepDay(-1)} className="w-9 h-9 grid place-items-center rounded-xl bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 font-black transition" title="Předchozí týden">‹</button>
+              <button type="button" onClick={() => shiftWeekAndKeepDay(-1)} className="w-9 h-9 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 font-black transition" title="Předchozí týden">‹</button>
               <button
                 type="button"
                 onClick={resetToCurrentWeek}
-                className="flex-1 text-center text-xs font-black bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 rounded-xl py-2.5 transition"
+                className="flex-1 text-center text-xs font-black bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 rounded py-2.5 transition"
                 title="Klikni pro návrat na aktuální týden"
               >
                 📅 Týden {weekRange(weekKey).label}
               </button>
-              <button type="button" onClick={() => shiftWeekAndKeepDay(1)} className="w-9 h-9 grid place-items-center rounded-xl bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 font-black transition" title="Další týden">›</button>
+              <button type="button" onClick={() => shiftWeekAndKeepDay(1)} className="w-9 h-9 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 font-black transition" title="Další týden">›</button>
             </div>
 
             {/* Den závozu — jednobarevné dlaždice (bílý text), stejný jazyk jako zbytek appky. */}
@@ -1496,7 +1496,7 @@ export default function Orders({
                   key={d.v}
                   type="button"
                   onClick={() => pickDeliveryDay(d.v)}
-                  className={`flex-1 min-w-0 px-1 py-2 rounded-xl font-black text-xs transition text-white ${
+                  className={`flex-1 min-w-0 px-1 py-2 rounded font-black text-xs transition text-white ${
                     deliveryDay === d.v
                       ? 'bg-amber-600 shadow-md'
                       : 'bg-neutral-700 hover:bg-neutral-600'
@@ -1790,11 +1790,11 @@ export default function Orders({
           dlouhého seznamu objednávek (viz i den/vyhledávání níže). */}
       {mode !== 'entry_only' && (viewMode === 'detail' || viewMode === 'celkem') && (
         <div className="flex flex-wrap items-center justify-between gap-3 mb-2.5 bg-white rounded-2xl border border-neutral-200 p-2.5 shadow-md">
-          <div className="flex items-center gap-1.5 bg-neutral-100 p-1 rounded-xl flex-wrap">
+          <div className="flex items-center gap-1.5 bg-neutral-100 p-1 rounded flex-wrap">
             <button
               type="button"
               onClick={() => setTimeScope('week')}
-              className={`px-3 py-1.5 rounded-lg font-black text-xs transition ${
+              className={`px-3 py-1.5 rounded font-black text-xs transition ${
                 timeScope === 'week' ? 'bg-neutral-900 text-white shadow-xs' : 'text-neutral-700 hover:bg-neutral-200'
               }`}
             >
@@ -1803,7 +1803,7 @@ export default function Orders({
             <button
               type="button"
               onClick={() => setTimeScope('month')}
-              className={`px-3 py-1.5 rounded-lg font-black text-xs transition ${
+              className={`px-3 py-1.5 rounded font-black text-xs transition ${
                 timeScope === 'month' ? 'bg-neutral-900 text-white shadow-xs' : 'text-neutral-700 hover:bg-neutral-200'
               }`}
             >
@@ -1812,7 +1812,7 @@ export default function Orders({
             <button
               type="button"
               onClick={() => setTimeScope('all')}
-              className={`px-3 py-1.5 rounded-lg font-black text-xs transition ${
+              className={`px-3 py-1.5 rounded font-black text-xs transition ${
                 timeScope === 'all' ? 'bg-neutral-900 text-white shadow-xs' : 'text-neutral-700 hover:bg-neutral-200'
               }`}
             >
@@ -1926,7 +1926,7 @@ export default function Orders({
                     setItemFilterBeerId(null); setItemFilterPackageId(null);
                     setSearchText(''); setStatusFilter(''); setDeliveryDayFilter('all');
                   }}
-                  className="btn-ghost !py-1 !px-2.5 text-xs font-black text-rose-900 bg-rose-100 hover:bg-rose-200 border border-rose-300 rounded-xl"
+                  className="btn-ghost !rounded !py-1 !px-2.5 text-xs font-black text-rose-900 bg-rose-100 hover:bg-rose-200 border border-rose-300"
                 >
                   ✕ Zrušit filtry
                 </button>
@@ -1939,7 +1939,7 @@ export default function Orders({
         <div className="sticky top-[52px] z-20 mb-2.5 bg-neutral-100 pt-1 flex items-center gap-1.5 overflow-x-auto scrollbar-thin pb-1">
           <button
             onClick={() => setDeliveryDayFilter('all')}
-            className={`px-3.5 py-1.5 rounded-xl font-extrabold text-xs shrink-0 transition-all text-white ${
+            className={`px-3.5 py-1.5 rounded font-extrabold text-xs shrink-0 transition-all text-white ${
               deliveryDayFilter === 'all' ? 'bg-amber-600 shadow-xs' : 'bg-neutral-400 hover:bg-neutral-500'
             }`}
           >
@@ -1952,7 +1952,7 @@ export default function Orders({
               <button
                 key={d.v}
                 onClick={() => setDeliveryDayFilter(d.v)}
-                className={`px-3 py-1.5 rounded-xl font-black text-xs shrink-0 transition-all flex items-center gap-1.5 text-white ${
+                className={`px-3 py-1.5 rounded font-black text-xs shrink-0 transition-all flex items-center gap-1.5 text-white ${
                   deliveryDayFilter === d.v
                     ? 'bg-amber-600 shadow-xs'
                     : hasOrders
@@ -1971,7 +1971,7 @@ export default function Orders({
           })}
           <button
             onClick={() => setDeliveryDayFilter('_none')}
-            className={`px-3 py-1.5 rounded-xl font-bold text-xs shrink-0 transition-all text-white ${
+            className={`px-3 py-1.5 rounded font-bold text-xs shrink-0 transition-all text-white ${
               deliveryDayFilter === '_none' ? 'bg-neutral-800' : 'bg-neutral-400 hover:bg-neutral-500'
             }`}
           >
