@@ -130,6 +130,11 @@ const DEFAULT_SIZE: Partial<Record<Page, { w: number; h: number }>> = {
 
 export const DEFAULT_DOCK: Page[] = ['orders', 'kegging', 'bottling', 'home'];
 export const DOCK_SIZE = DEFAULT_DOCK.length;
+// Počet slotů spodní lišty jde měnit (viz addDockSlot/removeDockSlot) — MIN,
+// ať lišta nikdy nezůstane prázdná/zbytečná, MAX, ať se na mobilu nenacpe
+// tolik zástupců, že by byli nečitelně malí.
+export const MIN_DOCK = 2;
+export const MAX_DOCK = 6;
 
 const DEFAULT_SCENE: Scene = 'warm';
 const DEFAULT_OPACITY = 0.62;
@@ -387,13 +392,14 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
     ? saved.customAccent
     : DEFAULT_CUSTOM_ACCENT;
 
-  // Spodní lišta: každý slot musí být buď 'home' (vždy platné), nebo modul,
-  // na který má uživatel právo — jinak spadne na výchozí volbu pro ten slot.
-  const savedDock = Array.isArray(saved.dock) ? (saved.dock as Page[]) : [];
-  const dock: Page[] = DEFAULT_DOCK.map((fallback, i) => {
-    const candidate = savedDock[i];
-    if (candidate === 'home' || (candidate && fullVisibleSet.has(candidate))) return candidate;
-    return fallback;
+  // Spodní lišta: počet slotů je teď volitelný (MIN_DOCK–MAX_DOCK, ne napevno
+  // 4) — viz addDockSlot/removeDockSlot. Každý slot musí být buď 'home' (vždy
+  // platné), nebo modul, na který má uživatel právo — jinak spadne na 'home'.
+  const savedDock = Array.isArray(saved.dock) && saved.dock.length > 0 ? (saved.dock as Page[]) : DEFAULT_DOCK;
+  const dockLen = Math.min(MAX_DOCK, Math.max(MIN_DOCK, savedDock.length));
+  const dock: Page[] = Array.from({ length: dockLen }, (_, i) => {
+    const candidate = savedDock[i] ?? DEFAULT_DOCK[i % DEFAULT_DOCK.length];
+    return candidate === 'home' || fullVisibleSet.has(candidate) ? candidate : 'home';
   });
 
   const fixedColors = (saved.fixedColors && typeof saved.fixedColors === 'object' ? saved.fixedColors : {}) as Partial<Record<string, string>>;
@@ -404,6 +410,18 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
 
 export async function saveHomeLayout(userId: string, layout: HomeLayout): Promise<void> {
   await supabase.from('profiles').update({ home_layout: layout as any }).eq('id', userId);
+}
+
+/** Přidá další slot do spodní lišty (výchozí 'home', uživatel si ho pak přenastaví). */
+export function addDockSlot(layout: HomeLayout): HomeLayout {
+  if (layout.dock.length >= MAX_DOCK) return layout;
+  return { ...layout, dock: [...layout.dock, 'home'] };
+}
+
+/** Odebere slot spodní lišty — lišta musí mít vždy aspoň MIN_DOCK slotů. */
+export function removeDockSlot(layout: HomeLayout, index: number): HomeLayout {
+  if (layout.dock.length <= MIN_DOCK) return layout;
+  return { ...layout, dock: layout.dock.filter((_, i) => i !== index) };
 }
 
 /** Přidá prázdnou stránku na konec. */

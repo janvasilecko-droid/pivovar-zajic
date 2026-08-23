@@ -196,7 +196,7 @@ export default function App() {
       {page === 'srotovani' && <SrotovaniScreen setPage={setPage} />}
 
       {page === 'kegging' && <KeggingScreen mode="all" setPage={setPage} initialSubTab={pageSubTab} />}
-      {page === 'fasovani' && <ProdejnaScreen setPage={setPage} table="fasovani" title="Personál" icon="📦" showVycep />}
+      {page === 'fasovani' && <ProdejnaScreen setPage={setPage} table="fasovani" title="Fasování personál" icon="📦" showVycep />}
       {page === 'writeoffs' && (
         <ProdejnaScreen setPage={setPage} table="writeoffs" title="Odpis" icon="📉" />
       )}

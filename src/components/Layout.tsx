@@ -33,7 +33,7 @@ export const NAV: NavItem[] = [
   { id: 'kegging', label: 'KEG', icon: Cylinder, group: 'Výroba' },
   { id: 'bottling', label: 'Lahve (Stáčení)', icon: Wine, group: 'Výroba' },
   { id: 'orders', label: 'Objednávky', icon: ClipboardList, group: 'Výroba' },
-  { id: 'fasovani', label: 'Personál', icon: Users, group: 'Výroba' },
+  { id: 'fasovani', label: 'Fasování personál', icon: Users, group: 'Výroba' },
   { id: 'prodejna', label: 'Prodejna', icon: Store, group: 'Výroba' },
   { id: 'writeoffs', label: 'Odpis', icon: TrendingDown, group: 'Výroba' },
   { id: 'akce', label: 'Akce, Exkurze', icon: Sparkles, group: 'Výroba' },
@@ -151,7 +151,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   // scény (viz HomeScreen.css .hs-fullscreen-scene[data-scene]).
   const homeCustomWash = hexToRgba(homeCustomAccent, 0.4);
   const savedDock = (profile as any)?.home_layout?.dock;
-  const dockPages: Page[] = Array.isArray(savedDock) && savedDock.length === DEFAULT_DOCK.length ? savedDock : DEFAULT_DOCK;
+  const dockPages: Page[] = Array.isArray(savedDock) && savedDock.length > 0 ? savedDock : DEFAULT_DOCK;
   // Barva ikony+popisku spodní lišty na Domů = stejná barva, jakou má
   // zástupcova dlaždice v launcheru (ne libovolný cyklus 4 barev nesouvisející
   // s dlaždicemi) — override.color je buď jméno přednastaveného odstínu

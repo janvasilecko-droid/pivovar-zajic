@@ -21,9 +21,10 @@ import { getVehicleExpiryStatus } from './Catalogs';
 import {
   getHomeLayout, saveHomeLayout, addPage, removePage, moveTileToPage, hideTile, addTile,
   mergeTiles, addToGroup, removeFromGroup, deleteGroup, isGroupId, ensurePositions, moveTileToCell, stepTileCell,
+  addDockSlot, removeDockSlot,
   hexToRgba,
   SCENES, MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX,
-  GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE,
+  GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK,
   type HomeLayout, type TileColor, type TileId, type GroupId,
 } from '../lib/homeLayout';
 import { getKegTimerState, formatDurationMs } from '../lib/stopwatchTimers';
@@ -313,6 +314,12 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
     dock[slot] = id;
     persist({ ...layout, dock });
   }
+  function handleAddDockSlot() {
+    persist(addDockSlot(layout));
+  }
+  function handleRemoveDockSlot(slot: number) {
+    persist(removeDockSlot(layout, slot));
+  }
   function handleAddPage() {
     const next = addPage(layout);
     persist(next);
@@ -514,18 +521,27 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
             <div className="hs-controls-group hs-dock-group">
               <span className="hs-controls-label">Spodní lišta</span>
               {layout.dock.map((dockId, i) => (
-                <select
-                  key={i}
-                  className="hs-dock-select"
-                  value={dockId}
-                  onChange={(e) => handleDockChange(i, e.target.value as Page)}
-                >
-                  <option value="home">Domů</option>
-                  {visible.filter((n) => n.id !== 'signout').map((n) => (
-                    <option key={n.id} value={n.id}>{n.label}</option>
-                  ))}
-                </select>
+                <span key={i} className="hs-dock-slot">
+                  <select
+                    className="hs-dock-select"
+                    value={dockId}
+                    onChange={(e) => handleDockChange(i, e.target.value as Page)}
+                  >
+                    <option value="home">Domů</option>
+                    {visible.filter((n) => n.id !== 'signout').map((n) => (
+                      <option key={n.id} value={n.id}>{n.label}</option>
+                    ))}
+                  </select>
+                  {layout.dock.length > MIN_DOCK && (
+                    <button type="button" className="hs-dock-remove" title="Odebrat tenhle slot" onClick={() => handleRemoveDockSlot(i)}>✕</button>
+                  )}
+                </span>
               ))}
+              {layout.dock.length < MAX_DOCK && (
+                <button type="button" className="hs-dock-add" title="Přidat další slot do spodní lišty" onClick={handleAddDockSlot}>
+                  <Plus size={13} /> Přidat
+                </button>
+              )}
             </div>
             <div className="hs-controls-group">
               <span className="hs-controls-label">Barvy tlačítek</span>

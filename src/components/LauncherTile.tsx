@@ -68,7 +68,14 @@ export default function LauncherTile({
       style={{
         ...tileGridStyle(x, y, w, h),
         ...(isPresetColor ? {} : { background: hexToRgba(color, tileOpacity) }),
-        touchAction: editing ? 'none' : undefined,
+        // touch-action:none jen na dlaždici, co je PRÁVĚ zvednutá (isDragging)
+        // — ne hned od prvního dotyku (isPriming) a ne na všechny dlaždice jen
+        // proto, že je zapnutý edit mód. Dřív to blokovalo scroll stránky
+        // úplně (dotyk čehokoliv v mřížce = žádný posun); teď jde normálně
+        // scrollovat, dokud dlaždice fakticky nepodrží ~400ms bez pohybu —
+        // delší tažení dřív se prostě rozpozná jako scroll (viz
+        // handleTileDragPointerDown: pohyb >18px zruší čekání na podržení).
+        touchAction: isDragging ? 'none' : undefined,
       }}
       data-tile-id={id}
       onPointerDown={editing ? onDragPointerDown : undefined}

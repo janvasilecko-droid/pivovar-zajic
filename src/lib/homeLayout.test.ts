@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   getHomeLayout, addPage, removePage, moveTileToPage, hideTile, unhideTile, addTile,
   mergeTiles, addToGroup, removeFromGroup, deleteGroup, ensurePositions, moveTileToCell, stepTileCell,
-  MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, DEFAULT_DOCK, GRID_COLS_DESKTOP, type GroupId,
+  addDockSlot, removeDockSlot,
+  MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, DEFAULT_DOCK, MIN_DOCK, MAX_DOCK, GRID_COLS_DESKTOP, type GroupId,
 } from './homeLayout';
 import type { Page } from '../components/Layout';
 
@@ -16,7 +17,9 @@ describe('getHomeLayout', () => {
     expect(layout.pages).toEqual([[A, B, C]]);
     expect(layout.scene).toBe('warm');
     expect(layout.tileOpacity).toBeCloseTo(0.62);
-    expect(layout.dock).toEqual(DEFAULT_DOCK);
+    // 'bottling' není v visibleIds, takže i výchozí slot spodní lišty se
+    // ověří a spadne na 'home' — viz "spodní lišta: home je vždy platné" níže.
+    expect(layout.dock).toEqual(['orders', 'kegging', 'home', 'home']);
     [A, B, C].forEach((id) => expect(layout.overrides[id]?.color).toBeTruthy());
   });
 
@@ -65,9 +68,14 @@ describe('getHomeLayout', () => {
     expect(getHomeLayout({ customAccent: 'nesmysl' }, [A]).customAccent).toBe('#ff6b6b');
   });
 
-  it('spodní lišta: "home" je vždy platné, modul bez práva spadne na výchozí', () => {
+  it('spodní lišta: "home" je vždy platné, modul bez práva spadne na "home"', () => {
     const layout = getHomeLayout({ dock: ['home', B, C, 'writeoffs'] }, [B]);
-    expect(layout.dock).toEqual(['home', B, DEFAULT_DOCK[2], DEFAULT_DOCK[3]]);
+    expect(layout.dock).toEqual(['home', B, 'home', 'home']);
+  });
+
+  it('spodní lišta: počet slotů je volitelný (ne napevno 4), respektuje se uložená délka v mezích MIN/MAX_DOCK', () => {
+    expect(getHomeLayout({ dock: ['home', B] }, [B]).dock).toEqual(['home', B]);
+    expect(getHomeLayout({ dock: ['home', B, 'home', B, 'home', B] }, [B]).dock).toHaveLength(6);
   });
 
   it('schovaná dlaždice se znovu nepřipojí mezi "nové", dokud je v hidden', () => {
@@ -288,5 +296,29 @@ describe('ensurePositions / moveTileToCell / stepTileCell (volné pozicování)'
   it('getHomeLayout defaultně používá GRID_COLS_DESKTOP, když cols není zadán', () => {
     const layout = getHomeLayout({ pages: [[A]] }, [A]);
     expect(layout.overrides[A]?.x).toBeLessThan(GRID_COLS_DESKTOP);
+  });
+});
+
+describe('addDockSlot / removeDockSlot', () => {
+  // Všechny DEFAULT_DOCK stránky musí být viditelné, jinak by je dock-validace
+  // v getHomeLayout samo nahradila 'home' a testy by mísily dvě různé věci.
+  const allDockPages: Page[] = DEFAULT_DOCK;
+
+  it('addDockSlot přidá další slot ("home"), respektuje MAX_DOCK', () => {
+    const layout = getHomeLayout(null, allDockPages);
+    const next = addDockSlot(layout);
+    expect(next.dock).toEqual([...DEFAULT_DOCK, 'home']);
+    let maxed = layout;
+    for (let i = 0; i < 10; i++) maxed = addDockSlot(maxed);
+    expect(maxed.dock.length).toBe(MAX_DOCK);
+  });
+
+  it('removeDockSlot odebere slot na indexu, respektuje MIN_DOCK', () => {
+    const layout = getHomeLayout(null, allDockPages);
+    const next = removeDockSlot(layout, 1);
+    expect(next.dock).toEqual([DEFAULT_DOCK[0], DEFAULT_DOCK[2], DEFAULT_DOCK[3]]);
+    let minned = layout;
+    for (let i = 0; i < 10; i++) minned = removeDockSlot(minned, 0);
+    expect(minned.dock.length).toBe(MIN_DOCK);
   });
 });
