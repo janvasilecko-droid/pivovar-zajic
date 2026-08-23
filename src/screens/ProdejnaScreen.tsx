@@ -287,14 +287,14 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
         <button
           type="button"
           onClick={() => setTab('zapis')}
-          className={`px-4 py-1.5 rounded text-xs font-black transition ${tab === 'zapis' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'}`}
+          className={`px-4 py-1.5 rounded text-xs font-black transition ${tab === 'zapis' ? 'bg-neutral-700 text-white shadow-xs' : 'bg-white text-neutral-900 hover:bg-neutral-100'}`}
         >
           ✍️ Zápis
         </button>
         <button
           type="button"
           onClick={() => setTab('prehled')}
-          className={`px-4 py-1.5 rounded text-xs font-black transition ${tab === 'prehled' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'}`}
+          className={`px-4 py-1.5 rounded text-xs font-black transition ${tab === 'prehled' ? 'bg-neutral-700 text-white shadow-xs' : 'bg-white text-neutral-900 hover:bg-neutral-100'}`}
         >
           📊 Přehled
         </button>
