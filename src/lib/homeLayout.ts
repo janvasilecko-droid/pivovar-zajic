@@ -4,9 +4,18 @@
 import { supabase } from './supabase';
 import type { Page } from '../components/Layout';
 
+// Víc odstínů na barvu (modré/zelené/červené/oranžové/fialové po 6-8), ať jde
+// tematicky odlišit skupiny dlaždic barvou (např. "vše z pivovaru" modře,
+// "odběry" zeleně…), ne jen jeden pevný odstín na barvu.
 export type TileColor =
   | 'coral' | 'amber2' | 'citrus' | 'mint' | 'sky' | 'indigo' | 'orchid' | 'forest' | 'plum'
-  | 'rose' | 'teal' | 'lime' | 'slate' | 'gold' | 'crimson';
+  | 'rose' | 'teal' | 'lime' | 'slate' | 'gold' | 'crimson'
+  | 'azure' | 'cobalt' | 'navy' | 'periwinkle'
+  | 'emerald' | 'sage' | 'olive' | 'jade'
+  | 'salmon' | 'ruby' | 'maroon' | 'blush'
+  | 'tangerine' | 'honey' | 'peach' | 'mustard'
+  | 'lavender' | 'violet' | 'grape' | 'magenta'
+  | 'charcoal';
 export type Scene = 'warm' | 'sunset' | 'ocean' | 'forest' | 'night' | 'custom';
 
 // Barva dlaždice může být buď jméno přednastaveného odstínu (TileColor), nebo
@@ -101,9 +110,16 @@ const LEGACY_SIZE_TO_WH: Record<string, { w: number; h: number }> = {
   sm: { w: 0, h: 1 }, n: { w: 1, h: 1 }, w2: { w: 2, h: 1 }, h2: { w: 1, h: 2 }, w2h2: { w: 2, h: 2 },
 };
 
+// Seskupené podle barevné rodiny (modré, zelené, červené/růžové,
+// oranžové/žluté, fialové, neutrální) — ve výběru pak jdou "varianty jedné
+// barvy" najít vedle sebe, ne rozházené náhodně.
 export const TILE_COLORS: TileColor[] = [
-  'coral', 'amber2', 'citrus', 'mint', 'sky', 'indigo', 'orchid', 'forest', 'plum',
-  'rose', 'teal', 'lime', 'slate', 'gold', 'crimson',
+  'sky', 'azure', 'cobalt', 'navy', 'indigo', 'periwinkle',
+  'mint', 'forest', 'lime', 'emerald', 'sage', 'olive', 'jade', 'teal',
+  'coral', 'rose', 'crimson', 'salmon', 'ruby', 'maroon', 'blush',
+  'amber2', 'citrus', 'gold', 'tangerine', 'honey', 'peach', 'mustard',
+  'orchid', 'plum', 'lavender', 'violet', 'grape', 'magenta',
+  'slate', 'charcoal',
 ];
 export const SCENES: Scene[] = ['warm', 'sunset', 'ocean', 'forest', 'night', 'custom'];
 const DEFAULT_CUSTOM_ACCENT = '#ff6b6b';
@@ -114,6 +130,12 @@ export const COLOR_HEX: Record<TileColor, string> = {
   coral: '#ff6b6b', amber2: '#ffa94d', citrus: '#ffd43b', mint: '#38d9a9',
   sky: '#4dabf7', indigo: '#7c5cff', orchid: '#e066b0', forest: '#2f9e64', plum: '#6a3fa0',
   rose: '#f5487f', teal: '#0ca5b0', lime: '#82c91e', slate: '#495464', gold: '#d4a017', crimson: '#c1121f',
+  azure: '#339af0', cobalt: '#1c7ed6', navy: '#1864ab', periwinkle: '#748ffc',
+  emerald: '#0ca678', sage: '#69db7c', olive: '#5c940d', jade: '#12b886',
+  salmon: '#ff8787', ruby: '#e03131', maroon: '#a61e4d', blush: '#faa2c1',
+  tangerine: '#fd7e14', honey: '#f59f00', peach: '#ffc078', mustard: '#e8a53a',
+  lavender: '#9775fa', violet: '#7048e8', grape: '#ae3ec9', magenta: '#d6336c',
+  charcoal: '#343a40',
 };
 
 // Výchozí velikost pro pár dlaždic, aby mřížka hned po zapnutí launcheru

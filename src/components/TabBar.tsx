@@ -26,7 +26,7 @@ export function TabBar({
 }) {
   return (
     <div
-      className="sticky z-20 bg-neutral-100 pt-1 flex items-center gap-1.5 border-b border-neutral-200 pb-2 overflow-x-auto scrollbar-thin"
+      className="hs-glass-chrome sticky z-20 rounded-2xl pt-1 px-1.5 flex items-center gap-1.5 border pb-2 overflow-x-auto scrollbar-thin"
       style={{ top: stickyOffset ?? 0 }}
     >
       {items.map((item) => {

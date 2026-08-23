@@ -625,17 +625,20 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
         </div>
       )}
 
-      <main className={`flex-1 min-w-0 flex flex-col h-screen overflow-hidden text-neutral-900 ${isHome ? '' : 'bg-neutral-100'}`}>
-        {isHome && (
-          <div className="hs-fullscreen-scene" data-scene={homeScene} style={{ ['--hs-custom' as any]: homeCustomAccent, ['--hs-custom-wash' as any]: homeCustomWash }}>
-            <i className="b1" /><i className="b2" /><i className="b3" /><i className="b4" />
-          </div>
-        )}
+      <main className="flex-1 min-w-0 flex flex-col h-screen overflow-hidden text-neutral-900">
+        {/* Barevné pozadí (scéna) — dřív jen na Domů, teď na všech
+            stránkách, ať appka vypadá jednotně (viz homeScene/customAccent
+            výše, nastavuje se v HomeScreen.tsx "Upravit rozložení" → POZADÍ). */}
+        <div className="hs-fullscreen-scene" data-scene={homeScene} style={{ ['--hs-custom' as any]: homeCustomAccent, ['--hs-custom-wash' as any]: homeCustomWash }}>
+          <i className="b1" /><i className="b2" /><i className="b3" /><i className="b4" />
+        </div>
         {/* Top Header - Desktop & Mobile. Na Domů úplně schovaná — launcher
-            má být dlaždice od úplně nahoře, žádný rámeček/lišta nad nimi. */}
+            má být dlaždice od úplně nahoře, žádný rámeček/lišta nad nimi.
+            Jinde skleněná/poloprůhledná (stejný vzhled jako na Domů), ať
+            skrz ni prosvítá barevná scéna. */}
         {!isHome && (
         <header
-          className="flex items-center justify-between px-2 sm:px-8 py-2 bg-white/95 backdrop-blur-md border-b border-neutral-200 shadow-2xs z-20 gap-2 shrink-0"
+          className="hs-glass-chrome flex items-center justify-between px-2 sm:px-8 py-2 border-b shadow-2xs z-20 gap-2 shrink-0"
         >
           <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 shrink-0">
             <span className="sm:hidden font-display font-black text-base text-neutral-900 truncate">
@@ -754,11 +757,12 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
 
         {/* Mobile Bottom Navigation Dock — thumb-friendly bottom bar. Obsah
             (4 zástupci) je uživatelsky volitelný — viz "Spodní lišta" v edit
-            módu launcheru (HomeScreen.tsx), uložen v home_layout.dock. Bílé
-            pozadí všude (i na Domů) — jen ikona a popisek se na Domů obarví
-            stejnou barvou, jakou má daná dlaždice v launcheru. */}
+            módu launcheru (HomeScreen.tsx), uložen v home_layout.dock.
+            Skleněná (stejný vzhled na všech stránkách, ne jen na Domů) —
+            žádné vyplněné barevné bloky, jen ikona+popisek aktivní položky
+            obarvené stejnou barvou, jakou má daná dlaždice v launcheru. */}
         <nav
-          className="sm:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-lg border-t border-neutral-200 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-1 py-1.5 pb-safe flex items-center justify-around gap-1"
+          className="hs-glass-chrome sm:hidden fixed bottom-0 left-0 right-0 z-30 border-t shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-1 py-1.5 pb-safe flex items-center justify-around gap-1"
         >
           {dockPages.map((dockId, i) => {
             const isActive = dockId === 'home' ? navPageFor(page) === 'home' : navPageFor(page) === dockId;
@@ -767,20 +771,18 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
               : NAV.find((n) => n.id === dockId);
             if (!info) return null;
             const DockIcon = info.icon;
-            const accent = isHome ? dockAccentColor(dockId) : undefined;
+            const accent = dockAccentColor(dockId);
             return (
               <button
                 key={`${dockId}-${i}`}
                 onClick={() => setPage(dockId)}
-                style={accent ? { color: accent } : undefined}
-                className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all relative flex-1 ${isHome ? 'font-bold' :
-                  isActive
-                    ? 'text-amber-950 font-black scale-105 bg-amber-100/90 ring-1 ring-amber-300'
-                    : 'text-neutral-500 hover:text-neutral-800 font-bold'
+                style={isActive ? { color: accent } : undefined}
+                className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all relative flex-1 font-bold ${
+                  isActive ? 'bg-white/60 shadow-sm scale-105' : 'text-neutral-500 hover:text-neutral-700'
                 }`}
               >
                 <div className="relative">
-                  <DockIcon size={20} strokeWidth={isActive ? 2.5 : 2} className={!isHome && isActive ? 'text-amber-700' : ''} />
+                  <DockIcon size={20} strokeWidth={isActive ? 2.5 : 2} />
                   {dockId === 'orders' && pendingWhatsAppCount > 0 && (
                     <span className="absolute -top-1 -right-2 bg-red-600 text-white text-[9px] font-black rounded-full min-w-[14px] h-3.5 px-0.5 flex items-center justify-center shadow">
                       {pendingWhatsAppCount > 9 ? '9+' : pendingWhatsAppCount}

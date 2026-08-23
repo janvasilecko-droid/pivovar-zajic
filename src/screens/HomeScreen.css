@@ -84,6 +84,16 @@
 .hs-fullscreen-scene[data-scene="custom"] .b3,
 .hs-fullscreen-scene[data-scene="custom"] .b4 { background: var(--hs-custom, #ff6b6b); }
 
+/* Skleněná/poloprůhledná hlavička a spodní lišta — dřív jen na Domů (přes
+   [data-home-chrome]), teď stejný vzhled na VŠECH stránkách (viz
+   Layout.tsx), ať skrz ně prosvítá barevná scéna .hs-fullscreen-scene i
+   mimo launcher. */
+.hs-glass-chrome {
+  background: rgba(255,255,255,0.18) !important;
+  border-color: rgba(255,255,255,0.4) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  backdrop-filter: blur(16px) saturate(160%);
+}
 
 .hs-launcher {
   position: relative;
