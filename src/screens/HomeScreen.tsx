@@ -20,9 +20,10 @@ import { fetchPendingWhatsAppCount } from '../lib/whatsappApi';
 import { getVehicleExpiryStatus } from './Catalogs';
 import {
   getHomeLayout, saveHomeLayout, addPage, removePage, moveTileToPage, hideTile, addTile,
-  mergeTiles, addToGroup, removeFromGroup, deleteGroup, isGroupId, ensurePositions, ensureTrailingEmptyPage, moveTileToCell, stepTileCell,
+  mergeTiles, addToGroup, removeFromGroup, deleteGroup, isGroupId, ensurePositions, ensureTrailingEmptyPage, unifyColorsByCategory, moveTileToCell, stepTileCell,
   addDockSlot, removeDockSlot,
   hexToRgba,
+  PAGE_CATEGORY, CATEGORY_ORDER, CATEGORY_SHADES, type Category,
   SCENES, MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX,
   GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK,
   type HomeLayout, type TileColor, type TileId, type GroupId,
@@ -400,6 +401,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
     patchProfile({ home_layout: {} as any });
     if (user?.id) saveHomeLayout(user.id, {} as any);
   }
+  function handleUnifyColors() {
+    persist(unifyColorsByCategory(layout));
+  }
 
   // Klik na dlaždici v mřížce (nebo v otevřené skupině) — 'signout' není
   // skutečná routovaná stránka (viz Layout.tsx NAV), je to jen dlaždice,
@@ -478,10 +482,38 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
     Object.values(layout.groups).forEach((g) => g.memberIds.forEach((m) => s.add(m)));
     return s;
   }, [layout.pages, layout.groups]);
+  // Dlaždice, co jsou už na TÉTO stránce, se v seznamu nenabízí (nedává
+  // smysl přidávat je znovu) — ale dlaždice umístěné na JINÉ stránce se
+  // nabízí taky (výběr ji sem PŘESUNE, viz addTile), jen se zeleně
+  // odznakují jako "už někde je", ať je jasné, co se stane.
+  const currentPageSet = useMemo(() => new Set(layout.pages[currentPageIndex] ?? []), [layout.pages, currentPageIndex]);
   const addableItems = useMemo(
-    () => [...visible, ...extraVisible].filter((n) => !placedSet.has(n.id)),
-    [visible, extraVisible, placedSet]
+    () => [...visible, ...extraVisible]
+      .filter((n) => !currentPageSet.has(n.id))
+      .map((n) => ({ item: n, alreadyPlaced: placedSet.has(n.id) })),
+    [visible, extraVisible, currentPageSet, placedSet]
   );
+  // Seskupené podle kategorie (stejné pořadí a rodina barev jako hlavní
+  // mřížka, viz CATEGORY_ORDER/CATEGORY_SHADES) — v každé kategorii má
+  // položka vlastní odstín (jen pro rozlišení v seznamu), ne nutně stejnou
+  // barvu jako její skutečná dlaždice v mřížce.
+  const addableGroups = useMemo(() => {
+    const byCategory = new Map<Category | 'Ostatní', typeof addableItems>();
+    addableItems.forEach((entry) => {
+      const cat = PAGE_CATEGORY[entry.item.id] ?? 'Ostatní';
+      if (!byCategory.has(cat)) byCategory.set(cat, []);
+      byCategory.get(cat)!.push(entry);
+    });
+    const order: (Category | 'Ostatní')[] = [...CATEGORY_ORDER, 'Ostatní'];
+    return order
+      .filter((cat) => byCategory.has(cat))
+      .map((cat) => ({ category: cat, items: byCategory.get(cat)! }));
+  }, [addableItems]);
+  function shadeFor(cat: Category | 'Ostatní', indexInCategory: number): string {
+    if (cat === 'Ostatní') return COLOR_HEX.slate;
+    const shades = CATEGORY_SHADES[cat];
+    return COLOR_HEX[shades[indexInCategory % shades.length]];
+  }
 
   // Poslední naměřená doba stočení sudu — rychlý přehled přímo na dlaždici
   // "Stočení sudu" (badge), bez nutnosti otevírat nástroj.
@@ -503,6 +535,11 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                 <button className="hs-reset-btn" onClick={handleReset}>Obnovit výchozí</button>
               </div>
             )}
+            <div className="hs-controls-group">
+              <button className="hs-reset-btn" onClick={handleUnifyColors} title="Přebarví dlaždice tak, aby všechny ve stejné kategorii (Výroba/Pivovar/Nástroje/Číselníky/Nastavení) měly stejnou barvu">
+                🎨 Sjednotit barvy dle kategorie
+              </button>
+            </div>
             <div className="hs-controls-group">
               <span className="hs-controls-label">Pozadí</span>
               {SCENES.filter((s) => s !== 'custom').map((s) => (
@@ -913,22 +950,31 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
         <Modal open onClose={() => setShowAddTileModal(false)} title="Přidat dlaždici">
           <div className="flex flex-col gap-4">
             {addableItems.length === 0 ? (
-              <p className="text-sm text-neutral-500">Všechny dostupné dlaždice už jsou na ploše.</p>
+              <p className="text-sm text-neutral-500">Všechny dostupné dlaždice už jsou na téhle stránce.</p>
             ) : (
-              <div className="flex flex-col gap-1.5 max-h-[60vh] overflow-y-auto">
-                {addableItems.map((n) => (
-                  <button
-                    key={n.id}
-                    type="button"
-                    className="flex items-center justify-between gap-3 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded px-4 py-2.5 text-left"
-                    onClick={() => handleAddTile(n.id)}
-                  >
-                    <span className="flex items-center gap-3 min-w-0">
-                      <n.icon size={17} className="text-neutral-600 shrink-0" />
-                      <span className="font-bold text-sm text-neutral-800 truncate">{n.label}</span>
-                    </span>
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-neutral-400 shrink-0">{n.group}</span>
-                  </button>
+              <div className="flex flex-col gap-4 max-h-[60vh] overflow-y-auto">
+                {addableGroups.map(({ category, items }) => (
+                  <div key={category} className="flex flex-col gap-1.5">
+                    <span className="text-[11px] font-black uppercase tracking-wide text-neutral-500 px-1">{category}</span>
+                    {items.map(({ item: n, alreadyPlaced }, i) => (
+                      <button
+                        key={n.id}
+                        type="button"
+                        className="flex items-center justify-between gap-3 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded px-4 py-2.5 text-left"
+                        onClick={() => handleAddTile(n.id)}
+                        title={alreadyPlaced ? 'Už je na jiné stránce — výběr ji sem přesune' : undefined}
+                      >
+                        <span className="flex items-center gap-3 min-w-0">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: shadeFor(category, i) }} />
+                          <n.icon size={17} className="text-neutral-600 shrink-0" />
+                          <span className="font-bold text-sm text-neutral-800 truncate">{n.label}</span>
+                        </span>
+                        {alreadyPlaced && (
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Už je umístěná na jiné stránce" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
                 ))}
               </div>
             )}

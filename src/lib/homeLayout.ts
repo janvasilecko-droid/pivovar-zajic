@@ -174,14 +174,27 @@ export const MAX_TILE_GAP = 16;
 // nezmění (viz getHomeLayout — `existing?.color ?? defaultColorFor(...)`).
 // Duplikuje přiřazení kategorie z Layout.tsx NAV/EXTRA_NAV (group), protože
 // homeLayout.ts je importováno DO Layout.tsx — opačný import by byl cyklický.
-const CATEGORY_COLOR: Record<'Výroba' | 'Pivovar' | 'Nástroje' | 'Číselníky' | 'Nastavení', TileColor> = {
+export type Category = 'Výroba' | 'Pivovar' | 'Nástroje' | 'Číselníky' | 'Nastavení';
+export const CATEGORY_ORDER: Category[] = ['Výroba', 'Pivovar', 'Nástroje', 'Číselníky', 'Nastavení'];
+export const CATEGORY_COLOR: Record<Category, TileColor> = {
   'Výroba': 'amber2',
   'Pivovar': 'teal',
   'Nástroje': 'indigo',
   'Číselníky': 'forest',
   'Nastavení': 'slate',
 };
-const PAGE_CATEGORY: Partial<Record<Page, keyof typeof CATEGORY_COLOR>> = {
+// Víc odstínů stejné barevné rodiny na kategorii (viz TILE_COLORS výš) — pro
+// seznam "Přidat dlaždici" (QuickSearchModal), kde má každá položka vlastní
+// odstín, ale barevná rodina hned prozradí kategorii; první odstín v každém
+// poli odpovídá CATEGORY_COLOR, ať je to konzistentní s hlavní mřížkou.
+export const CATEGORY_SHADES: Record<Category, TileColor[]> = {
+  'Výroba': ['amber2', 'citrus', 'gold', 'tangerine', 'honey', 'peach', 'mustard'],
+  'Pivovar': ['teal', 'mint', 'emerald', 'jade', 'sky', 'azure'],
+  'Nástroje': ['indigo', 'cobalt', 'navy', 'periwinkle', 'violet', 'plum'],
+  'Číselníky': ['forest', 'sage', 'olive', 'lime'],
+  'Nastavení': ['slate', 'charcoal'],
+};
+export const PAGE_CATEGORY: Partial<Record<Page, Category>> = {
   // Výroba
   kegging: 'Výroba', bottling: 'Výroba', orders: 'Výroba', fasovani: 'Výroba', prodejna: 'Výroba',
   writeoffs: 'Výroba', akce: 'Výroba', vycepy: 'Výroba', orders_zavoz: 'Výroba', zavoz: 'Výroba',
@@ -466,6 +479,31 @@ export function addDockSlot(layout: HomeLayout): HomeLayout {
 export function removeDockSlot(layout: HomeLayout, index: number): HomeLayout {
   if (layout.dock.length <= MIN_DOCK) return layout;
   return { ...layout, dock: layout.dock.filter((_, i) => i !== index) };
+}
+
+/**
+ * Přebarví všechny dlaždice s definovanou kategorií (viz PAGE_CATEGORY) na
+ * barvu jejich kategorie — i ty, co už mají uloženou VLASTNÍ barvu (na
+ * rozdíl od `defaultColorFor`, která se použije jen když barva chybí úplně).
+ * Spouští se ručně tlačítkem v edit módu ("Sjednotit barvy"), ne
+ * automaticky — jinak by přepisovala barvu i tomu, kdo si dlaždici schválně
+ * přebarvil jinak. Skupinové dlaždice (grp_*) se nechávají beze změny,
+ * protože můžou mít členy z různých kategorií. Dlaždice bez kategorie
+ * (FALLBACK_CYCLE) se taky nechávají beze změny.
+ */
+export function unifyColorsByCategory(layout: HomeLayout): HomeLayout {
+  const overrides = { ...layout.overrides };
+  let changed = false;
+  layout.pages.flat().forEach((id) => {
+    if (isGroupId(id)) return;
+    const category = PAGE_CATEGORY[id as Page];
+    if (!category) return;
+    const color = CATEGORY_COLOR[category];
+    if (overrides[id]?.color === color) return;
+    overrides[id] = { ...overrides[id], color };
+    changed = true;
+  });
+  return changed ? { ...layout, overrides } : layout;
 }
 
 /** Přidá prázdnou stránku na konec. */

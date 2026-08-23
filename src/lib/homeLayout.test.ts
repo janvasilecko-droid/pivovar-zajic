@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   getHomeLayout, addPage, removePage, moveTileToPage, hideTile, unhideTile, addTile,
   mergeTiles, addToGroup, removeFromGroup, deleteGroup, ensurePositions, moveTileToCell, stepTileCell,
-  addDockSlot, removeDockSlot, ensureTrailingEmptyPage,
+  addDockSlot, removeDockSlot, ensureTrailingEmptyPage, unifyColorsByCategory,
   MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, DEFAULT_DOCK, MIN_DOCK, MAX_DOCK, GRID_COLS_DESKTOP, type GroupId,
 } from './homeLayout';
 import type { Page } from '../components/Layout';
@@ -320,6 +320,27 @@ describe('ensureTrailingEmptyPage (Android-styl stránkování)', () => {
   it('prázdný seznam stránek spadne na jednu prázdnou stránku', () => {
     const layout = { pages: [] } as any;
     expect(ensureTrailingEmptyPage(layout).pages).toEqual([[]]);
+  });
+});
+
+describe('unifyColorsByCategory', () => {
+  it('přebarví dlaždice se stejnou kategorií na stejnou barvu, i když měly různou vlastní barvu', () => {
+    // kegging (A) i orders (B) jsou obě 'Výroba', dashboard (C) je 'Pivovar'.
+    const raw = { pages: [[A, B, C]], overrides: { [A]: { color: 'ruby' }, [B]: { color: 'sky' } } };
+    const layout = getHomeLayout(raw, [A, B, C]);
+    const next = unifyColorsByCategory(layout);
+    expect(next.overrides[A]?.color).toBe(next.overrides[B]?.color);
+    expect(next.overrides[A]?.color).not.toBe(next.overrides[C]?.color);
+  });
+
+  it('nechá skupinové dlaždice (grp_*) beze změny', () => {
+    const raw = { pages: [[A, B]], overrides: { [A]: { color: 'ruby' } } };
+    const layout = getHomeLayout(raw, [A, B]);
+    const merged = mergeTiles(layout, A, B, 0);
+    const groupId = merged.pages[0][0] as GroupId;
+    const groupColorBefore = merged.overrides[groupId]?.color;
+    const next = unifyColorsByCategory(merged);
+    expect(next.overrides[groupId]?.color).toBe(groupColorBefore);
   });
 });
 
