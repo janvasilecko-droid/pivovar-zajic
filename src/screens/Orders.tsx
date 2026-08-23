@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 
 import { Camera, ListOrdered, Package as PackageIcon, Phone, Building2, Truck, Plus, MessageCircle, CheckSquare, PackageCheck, FilePlus, Calendar, Trash2, Pencil, Copy, Ban, RotateCcw, AlertTriangle, Check, CheckCircle2, Zap, ArrowRight, Mail, ShieldAlert } from 'lucide-react';
 import { supabase, Beer, Package, Place, EntryRow, useRealtime, beerBg, beerText, beerName, formatPackageLabel, pkgBg } from '../lib/supabase';
-import { Modal, Field, EmptyState, Spinner } from '../components/ui';
+import { Modal, Field, EmptyState, Spinner, useConfirm } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { consumeOrdersItemFilter } from '../lib/ordersFilter';
 import { computeVariantTotals, type VariantTotalsResult } from '../lib/variantTotals';
@@ -196,6 +196,14 @@ export default function Orders({
   }
 
   const filledBeerRows = beerRows.filter((r) => r.beerId && r.pkgId && Number(r.qty) > 0);
+  // Nativní window.confirm() je v nainstalované PWA (standalone mód na
+  // telefonu) nespolehlivý — občas se vůbec nezobrazí a prohlížeč/webview
+  // ho tiše sám za uživatele "odklikne" (chování se liší podle zařízení).
+  // U mazání objednávky to vypadalo jako "klikni Smazat a nic se nestane",
+  // u kontroly duplicit to naopak tiše proklouzlo bez varování a vytvořilo
+  // druhou objednávku, aniž by uživatel cokoliv potvrzoval. In-app modál
+  // (useConfirm) je stejný vzorec už používaný v Calendar/Feedback/Notes.
+  const { confirm, node: confirmNode } = useConfirm();
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -378,7 +386,7 @@ export default function Orders({
         deliveryDay: data.deliveryDay || null,
         items: (data.items || []).map((i) => ({ beerId: i.beerId, pkgId: i.pkgId, qty: i.qty })),
       });
-      if (dup && !window.confirm(formatDuplicateMessage(dup) + '\n\nPokračovat? (Ano = přesto vytvořit objednávku)')) {
+      if (dup && !(await confirm(formatDuplicateMessage(dup) + '\n\nPokračovat? (Ano = přesto vytvořit objednávku)'))) {
         throw new Error('Import zrušen — objednávka je duplicitní (' + (dup.placeName ?? 'odběratel') + ').');
       }
     }
@@ -471,7 +479,7 @@ export default function Orders({
           packageLabel: it.package_label || null,
         })),
       });
-      if (dup && !window.confirm(formatDuplicateMessage(dup) + '\n\nPokračovat? (Ano = přesto vytvořit objednávku)')) {
+      if (dup && !(await confirm(formatDuplicateMessage(dup) + '\n\nPokračovat? (Ano = přesto vytvořit objednávku)'))) {
         throw new Error('Objednávka je duplicitní — nebyla vytvořena.');
       }
 
@@ -1022,7 +1030,7 @@ export default function Orders({
     setOrders((arr) => arr.map((x) => x.id === o.id ? { ...x, ...patch } as Order : x));
   }
   async function del(id: string) {
-    if (!confirm('Smazat objednávku?')) return;
+    if (!(await confirm('Smazat objednávku?'))) return;
     await supabase.from('order_items').delete().eq('order_id', id);
     await supabase.from('orders').delete().eq('id', id);
     load();
@@ -1165,7 +1173,7 @@ export default function Orders({
   }
   async function bulkDelete() {
     if (!selectedIds.size) return;
-    if (!confirm(`Smazat ${selectedIds.size} vybraných objednávek?`)) return;
+    if (!(await confirm(`Smazat ${selectedIds.size} vybraných objednávek?`))) return;
     await supabase.from('order_items').delete().in('order_id', [...selectedIds]);
     await supabase.from('orders').delete().in('id', [...selectedIds]);
     clearSelection(); load();
@@ -1294,6 +1302,7 @@ export default function Orders({
 
   return (
     <div className="space-y-6 pb-12">
+      {confirmNode}
       {/* Top Action Bar — bez nadpisu "Objednávky": to už říká záložka nahoře, duplicitní popisek by byl zbytečný. */}
       <div className="flex flex-wrap items-center justify-end gap-3 bg-white p-3.5 rounded-3xl border border-neutral-200 shadow-2xs">
         <div className="flex flex-col gap-2 items-end">

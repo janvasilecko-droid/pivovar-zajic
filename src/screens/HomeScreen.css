@@ -247,6 +247,30 @@
 .hs-tile.c-slate   { background: rgba(73,84,100,var(--hs-tile-alpha, 0.62)); }
 .hs-tile.c-gold    { background: rgba(212,160,23,var(--hs-tile-alpha, 0.62)); }
 .hs-tile.c-crimson { background: rgba(193,18,31,var(--hs-tile-alpha, 0.62)); }
+/* Rozšířená paleta (TILE_COLORS v homeLayout.ts) — tyhle barvy šly vybrat
+   ve výběru barvy dlaždice, ale chyběla jim tahle .c-* pravidla, takže
+   dlaždice po výběru zůstala bez pozadí (vypadalo to jako "zbělá"). */
+.hs-tile.c-azure      { background: rgba(51,154,240,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-cobalt     { background: rgba(28,126,214,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-navy       { background: rgba(24,100,171,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-periwinkle { background: rgba(116,143,252,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-emerald    { background: rgba(12,166,120,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-sage       { background: rgba(105,219,124,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-olive      { background: rgba(92,148,13,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-jade       { background: rgba(18,184,134,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-salmon     { background: rgba(255,135,135,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-ruby       { background: rgba(224,49,49,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-maroon     { background: rgba(166,30,77,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-blush      { background: rgba(250,162,193,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-tangerine  { background: rgba(253,126,20,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-honey      { background: rgba(245,159,0,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-peach      { background: rgba(255,192,120,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-mustard    { background: rgba(232,165,58,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-lavender   { background: rgba(151,117,250,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-violet     { background: rgba(112,72,232,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-grape      { background: rgba(174,62,201,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-magenta    { background: rgba(214,51,108,var(--hs-tile-alpha, 0.62)); }
+.hs-tile.c-charcoal   { background: rgba(52,58,64,var(--hs-tile-alpha, 0.62)); }
 
 /* Upozornění (STK/dálniční známka) — sytě červená s výrazným žlutým
    vykřičníkem, ať je na první pohled jasné, že je co řešit. Objevuje se

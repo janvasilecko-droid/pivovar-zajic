@@ -52,7 +52,6 @@ export async function syncQueue(): Promise<{ ok: number; failed: number; remaini
   const { supabase } = await import('./supabase');
   const q = read();
   let ok = 0, failed = 0;
-  const failedIds = new Set<string>();
   const failures: SyncFailure[] = [];
   for (const op of q) {
     let res: { error: any } | null = null;
@@ -71,20 +70,24 @@ export async function syncQueue(): Promise<{ ok: number; failed: number; remaini
         res = await b;
       }
       if (res?.error) {
-        failed++; failedIds.add(op.id);
+        failed++;
         failures.push({ id: op.id, table: op.table, op: op.op, error: res.error.message ?? String(res.error) });
-      } else ok++;
+      } else {
+        ok++;
+        // Odstranit HNED po úspěchu, ne až po celé dávce — jinak by reload
+        // uprostřed synchronizace (např. po ťuknutí na "aktualizovat" z
+        // upozornění na novou verzi) nechal už uloženou položku ve frontě a
+        // příští sync by ji poslal ZNOVU (duplicitní objednávka v DB, i když
+        // se uživatel nedotkl ničeho navíc — appka ji poslala sama podruhé).
+        removeOp(op.id);
+      }
     } catch (e: any) {
-      failed++; failedIds.add(op.id);
+      failed++;
       failures.push({ id: op.id, table: op.table, op: op.op, error: e?.message ?? String(e) });
     }
   }
   lastFailures = failures;
-  // Během synchronizace mohl uživatel přidat další operace. Zachováme je a
-  // odstraníme pouze úspěšně zpracované položky z původního snapshotu.
-  const processedIds = new Set(q.map((op) => op.id));
-  const remaining = read().filter((op) => !processedIds.has(op.id) || failedIds.has(op.id));
-  write(remaining);
+  const remaining = read();
   return { ok, failed, remaining: remaining.length };
 }
 

@@ -167,21 +167,43 @@ const DEFAULT_TILE_GAP = 4;
 export const MIN_TILE_GAP = 0;
 export const MAX_TILE_GAP = 16;
 
-// Odvození výchozí barvy dlaždice ze starého ITEM_COLOR schématu (HomeScreen.tsx),
-// aby appka po zapnutí launcheru vypadala stejně, dokud si uživatel barvu sám
-// nezmění. Klíče beze zmínky tady dostanou barvu podle indexu (cyklicky), ať
-// mřížka není jednobarevná.
-const LEGACY_COLOR: Partial<Record<Page, TileColor>> = {
-  kegging: 'amber2', bottling: 'amber2', fasovani: 'amber2', prodejna: 'amber2', akce: 'amber2',
-  orders: 'mint',
-  writeoffs: 'coral',
-  dashboard: 'sky', cellar: 'sky', sklo_promo: 'sky', inventory: 'sky', history: 'sky', bottling_needs: 'sky',
-  signout: 'crimson',
+// Výchozí barva dlaždice podle KATEGORIE (skupiny z NAV/EXTRA_NAV v
+// Layout.tsx: Výroba/Pivovar/Nástroje/Číselníky/Nastavení) — dlaždice ze
+// stejné kategorie mají stejnou barvu, ať se v launcheru na první pohled
+// pozná, co kam patří. Platí jen dokud si uživatel barvu dané dlaždice sám
+// nezmění (viz getHomeLayout — `existing?.color ?? defaultColorFor(...)`).
+// Duplikuje přiřazení kategorie z Layout.tsx NAV/EXTRA_NAV (group), protože
+// homeLayout.ts je importováno DO Layout.tsx — opačný import by byl cyklický.
+const CATEGORY_COLOR: Record<'Výroba' | 'Pivovar' | 'Nástroje' | 'Číselníky' | 'Nastavení', TileColor> = {
+  'Výroba': 'amber2',
+  'Pivovar': 'teal',
+  'Nástroje': 'indigo',
+  'Číselníky': 'forest',
+  'Nastavení': 'slate',
+};
+const PAGE_CATEGORY: Partial<Record<Page, keyof typeof CATEGORY_COLOR>> = {
+  // Výroba
+  kegging: 'Výroba', bottling: 'Výroba', orders: 'Výroba', fasovani: 'Výroba', prodejna: 'Výroba',
+  writeoffs: 'Výroba', akce: 'Výroba', vycepy: 'Výroba', orders_zavoz: 'Výroba', zavoz: 'Výroba',
+  exkurze: 'Výroba', bottling_entry: 'Výroba', bottling_overview: 'Výroba', orders_entry: 'Výroba', orders_detail: 'Výroba', orders_celkem: 'Výroba',
+  // Pivovar
+  dashboard: 'Pivovar', sklo_promo: 'Pivovar', cellar: 'Pivovar', bottling_needs: 'Pivovar', inventory: 'Pivovar', history: 'Pivovar', stock: 'Pivovar',
+  // Nástroje
+  concentration: 'Nástroje', calendar: 'Nástroje', haccp: 'Nástroje', vehicles: 'Nástroje', kniha_jizd: 'Nástroje',
+  sanitace_lahve: 'Nástroje', sanitace_kegy: 'Nástroje', sanitace_vycepy: 'Nástroje', sanitace: 'Nástroje',
+  checklists: 'Nástroje', sanitation_log: 'Nástroje', reminders: 'Nástroje', notes: 'Nástroje', feedback: 'Nástroje',
+  stopwatch: 'Nástroje', timer: 'Nástroje', keg_timer: 'Nástroje', srotovani: 'Nástroje',
+  // Číselníky
+  depozitar: 'Číselníky', places: 'Číselníky', beers: 'Číselníky', packages: 'Číselníky', pricelist: 'Číselníky',
+  // Nastavení
+  users: 'Nastavení', app_settings: 'Nastavení', app_versions: 'Nastavení', signout: 'Nastavení',
 };
 const FALLBACK_CYCLE: TileColor[] = ['indigo', 'orchid', 'forest', 'plum', 'citrus'];
 
 function defaultColorFor(id: TileId, indexInFallback: number): TileColor {
-  return LEGACY_COLOR[id as Page] ?? FALLBACK_CYCLE[indexInFallback % FALLBACK_CYCLE.length];
+  const category = PAGE_CATEGORY[id as Page];
+  if (category) return CATEGORY_COLOR[category];
+  return FALLBACK_CYCLE[indexInFallback % FALLBACK_CYCLE.length];
 }
 
 /**
