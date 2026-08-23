@@ -1297,38 +1297,29 @@ export default function Orders({
       {/* Top Action Bar — bez nadpisu "Objednávky": to už říká záložka nahoře, duplicitní popisek by byl zbytečný. */}
       <div className="flex flex-wrap items-center justify-end gap-3 bg-white p-3.5 rounded-3xl border border-neutral-200 shadow-2xs">
         <div className="flex flex-col gap-2 items-end">
-          {/* Řádek 1: Zadání objednávek / Detaily objednávek / Závoz — na jednom řádku, kompaktní */}
-          <div className="flex gap-1.5 items-center flex-nowrap justify-end w-full sm:w-auto">
-            {/* New Toggle for Summary vs Detail View */}
-            {mode !== 'entry_only' && (
-              <div className="flex items-center gap-1.5 flex-1 sm:flex-none">
-                <button
-                  onClick={() => setViewMode('summary')}
-                  className={`flex-1 sm:flex-none px-2 py-1.5 rounded font-black text-[11px] leading-tight transition flex items-center justify-center gap-1 whitespace-nowrap ${
-                    viewMode === 'summary'
-                      ? 'bg-neutral-900 text-white shadow-md'
-                      : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                  }`}
-                >
-                  <Plus size={14} /> Nové
-                </button>
-              </div>
-            )}
-            {mode === 'overviews_only' && setPage && (
-              <>
-                <button className="btn-primary !rounded text-xs font-black shadow-md" onClick={() => setPage('orders_entry')}>
-                  <FilePlus size={14} /> + Zadávání objednávek
-                </button>
-                <button className="btn-ghost !rounded !bg-emerald-50 border border-emerald-300 text-emerald-950 font-black text-xs shadow-xs" onClick={() => setPage('fasovani')}>
-                  <PackageCheck size={14} /> Fasování →
-                </button>
-              </>
-            )}
-          
+          {mode === 'overviews_only' && setPage && (
+            <div className="flex gap-1.5 items-center flex-nowrap justify-end w-full sm:w-auto">
+              <button className="btn-primary !rounded text-xs font-black shadow-md" onClick={() => setPage('orders_entry')}>
+                <FilePlus size={14} /> + Zadávání objednávek
+              </button>
+              <button className="btn-ghost !rounded !bg-emerald-50 border border-emerald-300 text-emerald-950 font-black text-xs shadow-xs" onClick={() => setPage('fasovani')}>
+                <PackageCheck size={14} /> Fasování →
+              </button>
             </div>
+          )}
 
-          {/* Řádek 2: Hlasové zadání / Text / WhatsApp / Kontrola / Audit / Fotka — jednotný styl (btn-ghost). */}
+          {/* Nové / Hlasové zadání / Text / WhatsApp / Kontrola / Audit / Fotka —
+              jeden řádek, jednotná velikost a styl (černé pozadí, bílý text),
+              jedinou výjimkou zůstává zelený WhatsApp. */}
           <div className="flex gap-2 items-center flex-wrap justify-end">
+            {mode !== 'entry_only' && (
+              <button
+                className={`btn-ghost !rounded font-black text-xs shadow-xs flex items-center gap-1.5 !text-white ${viewMode === 'summary' ? '!bg-neutral-900 !border-neutral-900' : '!bg-neutral-700 !border-neutral-700 hover:!bg-neutral-800'}`}
+                onClick={() => setViewMode('summary')}
+              >
+                <Plus size={14} /> Nové
+              </button>
+            )}
             <VoiceRecorder
               compact
               beerNames={beers.map((b) => b.name)}
@@ -1337,7 +1328,7 @@ export default function Orders({
             />
             {mode !== 'entry_only' && (
               <button
-                className={`btn-ghost !rounded font-black text-xs shadow-xs flex items-center gap-1.5 ${viewMode === 'text' ? '!bg-neutral-900 !text-white !border-neutral-900' : '!bg-white border-neutral-300 text-neutral-700'}`}
+                className={`btn-ghost !rounded font-black text-xs shadow-xs flex items-center gap-1.5 !text-white ${viewMode === 'text' ? '!bg-neutral-900 !border-neutral-900' : '!bg-neutral-700 !border-neutral-700 hover:!bg-neutral-800'}`}
                 onClick={() => setViewMode('text')}
               >
                 <Mail size={14} /> Text
@@ -1357,18 +1348,20 @@ export default function Orders({
                 </span>
               )}
             </button>
-            <button className="btn-ghost !rounded !bg-white border-neutral-300 text-neutral-700 font-extrabold text-xs shadow-xs flex items-center gap-1.5" title="Kontrola — zobrazí VŠECHNY WhatsApp zprávy za období, i chybové a ignorované" onClick={() => setShowWhatsAppAudit(true)}><ShieldAlert size={14} /> Kontrola zpráv</button>
-            <button className="btn-ghost !rounded !bg-white border-neutral-300 text-neutral-700 font-extrabold text-xs shadow-xs flex items-center gap-1.5" title="Audit objednávek — najde duplicitní položky, nesrovnalosti proti WhatsAppu a nezpracované zprávy" onClick={() => setShowOrderAudit(true)}><ShieldAlert size={14} /> Audit objednávek</button>
-            <button className="btn-ghost !rounded !bg-white border-amber-300 text-amber-800 font-extrabold text-xs shadow-xs flex items-center gap-1.5" title="Načíst z fotky/e-mailu" onClick={() => { setImportTarget(null); setShowImport(true); }}><Camera size={14} /> Fotka/AI</button>
+            <button className="btn-ghost !rounded !bg-neutral-900 !border-neutral-900 !text-white font-extrabold text-xs shadow-xs flex items-center gap-1.5 hover:!bg-neutral-800" title="Kontrola — zobrazí VŠECHNY WhatsApp zprávy za období, i chybové a ignorované" onClick={() => setShowWhatsAppAudit(true)}><ShieldAlert size={14} /> Kontrola zpráv</button>
+            <button className="btn-ghost !rounded !bg-neutral-900 !border-neutral-900 !text-white font-extrabold text-xs shadow-xs flex items-center gap-1.5 hover:!bg-neutral-800" title="Audit objednávek — najde duplicitní položky, nesrovnalosti proti WhatsAppu a nezpracované zprávy" onClick={() => setShowOrderAudit(true)}><ShieldAlert size={14} /> Audit objednávek</button>
+            <button className="btn-ghost !rounded !bg-neutral-900 !border-neutral-900 !text-white font-extrabold text-xs shadow-xs flex items-center gap-1.5 hover:!bg-neutral-800" title="Načíst z fotky/e-mailu" onClick={() => { setImportTarget(null); setShowImport(true); }}><Camera size={14} /> Fotka/AI</button>
           </div>
         </div>
       </div>
 
 
 
-      {/* 1. ZADÁVÁNÍ OBJEDNÁVEK (jen v záložce Zadání objednávek) */}
+      {/* 1. ZADÁVÁNÍ OBJEDNÁVEK (jen v záložce Zadání objednávek) — bez bílé
+          "karty" kolem, ať dlaždice piv i zbytek formuláře sedí přímo na
+          pozadí stránky, ne uvnitř dalšího ohraničeného panelu navíc. */}
       {mode !== 'overviews_only' && viewMode === 'summary' && (
-        <form onSubmit={addOrder} className={`card p-4 mb-5 transition-all duration-200 ${flash ? 'ring-4 ring-success-500/20' : ''}`}>
+        <form onSubmit={addOrder} className={`mb-5 transition-all duration-200 ${flash ? 'ring-4 ring-success-500/20 rounded' : ''}`}>
           {/* Odběratel */}
           <div className="mb-4">
             <label className="label dark:text-white">Odběratel</label>
