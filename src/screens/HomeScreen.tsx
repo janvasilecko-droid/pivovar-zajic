@@ -732,7 +732,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
               <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500 mb-1.5">Popisek</label>
               <input
                 type="text"
-                className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
+                className="w-full border border-neutral-300 rounded px-3 py-2 text-sm"
                 value={editingOverride.label ?? ''}
                 onChange={(e) => handleRenameTile(editingTileId, e.target.value)}
                 placeholder={editingItem?.label ?? 'Skupina'}
@@ -780,7 +780,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500 mb-1.5">Přesunout na stránku</label>
                 <select
-                  className="border border-neutral-300 rounded-lg px-3 py-2 text-sm"
+                  className="border border-neutral-300 rounded px-3 py-2 text-sm"
                   value={currentPageIndex}
                   onChange={(e) => handleMoveTileToPage(editingTileId, Number(e.target.value))}
                 >
@@ -799,7 +799,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                     const memberItem = navById.get(mid);
                     if (!memberItem) return null;
                     return (
-                      <div key={mid} className="flex items-center justify-between gap-2 bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-1.5">
+                      <div key={mid} className="flex items-center justify-between gap-2 bg-neutral-50 border border-neutral-200 rounded px-3 py-1.5">
                         <span className="text-sm font-semibold text-neutral-700 flex items-center gap-2">
                           <memberItem.icon size={14} /> {memberItem.label}
                         </span>
@@ -822,7 +822,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                 <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500 mb-1.5">Sloučit s…</label>
                 <div className="flex items-center gap-2">
                   <select
-                    className="flex-1 min-w-0 border border-neutral-300 rounded-lg px-3 py-2 text-sm"
+                    className="flex-1 min-w-0 border border-neutral-300 rounded px-3 py-2 text-sm"
                     value={mergeTarget}
                     onChange={(e) => setMergeTarget(e.target.value)}
                   >
@@ -835,7 +835,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                   </select>
                   <button
                     type="button"
-                    className="shrink-0 text-sm font-bold bg-neutral-200 hover:bg-neutral-300 text-neutral-800 rounded-lg px-3 py-2 disabled:opacity-40"
+                    className="shrink-0 text-sm font-bold bg-neutral-200 hover:bg-neutral-300 text-neutral-800 rounded px-3 py-2 disabled:opacity-40"
                     disabled={!mergeTarget}
                     onClick={() => handleMergeInto(mergeTarget)}
                   >
@@ -851,7 +851,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
               ) : (
                 <button type="button" className="text-sm font-semibold text-red-600" onClick={() => handleHideTile(editingTileId)}>Skrýt dlaždici</button>
               )}
-              <button type="button" className="text-sm font-bold bg-neutral-900 text-white rounded-lg px-4 py-2" onClick={() => setEditingTileId(null)}>Hotovo</button>
+              <button type="button" className="text-sm font-bold bg-neutral-900 text-white rounded px-4 py-2" onClick={() => setEditingTileId(null)}>Hotovo</button>
             </div>
           </div>
         </Modal>
@@ -867,7 +867,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                 <button
                   key={mid}
                   type="button"
-                  className="flex items-center gap-3 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded-xl px-4 py-3 text-left"
+                  className="flex items-center gap-3 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded px-4 py-3 text-left"
                   onClick={() => { setOpenGroupId(null); handleTileClick(mid); }}
                 >
                   <memberItem.icon size={18} className="text-neutral-600" />
@@ -890,7 +890,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                   <button
                     key={n.id}
                     type="button"
-                    className="flex items-center justify-between gap-3 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded-xl px-4 py-2.5 text-left"
+                    className="flex items-center justify-between gap-3 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded px-4 py-2.5 text-left"
                     onClick={() => handleAddTile(n.id)}
                   >
                     <span className="flex items-center gap-3 min-w-0">
@@ -903,7 +903,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
               </div>
             )}
             <div className="flex justify-end pt-2 border-t border-neutral-100">
-              <button type="button" className="text-sm font-bold bg-neutral-900 text-white rounded-lg px-4 py-2" onClick={() => setShowAddTileModal(false)}>Hotovo</button>
+              <button type="button" className="text-sm font-bold bg-neutral-900 text-white rounded px-4 py-2" onClick={() => setShowAddTileModal(false)}>Hotovo</button>
             </div>
           </div>
         </Modal>
