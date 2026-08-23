@@ -3,12 +3,10 @@
 // přesun, cyklování velikosti a přebarvení (přednastavené barvy nebo
 // libovolná vlastní přes nativní color picker).
 //
-// Přesun je "klepni a klepni" (tap-to-swap), NE gesto přetažení — pokusy
-// o pointer-based drag (i s pointer capture a touch-action) na dotykových
-// zařízeních nešlo spolehlivě rozjet. Klepnutí je jediná interakce, co už
-// prokazatelně funguje všude (obyčejná navigace), takže na ní staví
-// i přesouvání: klepneš na dlaždici → vybere se (zvýrazní), klepneš na
-// druhou → prohodí se pozice. Méně "native", ale funguje jistě.
+// Přesun je dlouhé podržení (long-press), stejně jako na Androidu — držení
+// timeru a rozhodování "scroll vs. drag" řeší rodič (HomeScreen.tsx) přes
+// window pointer eventy; tahle komponenta jen předává pointerdown a
+// zobrazuje vizuální stav (zvednutá dlaždice / cíl přesunu).
 import type { NavItem } from './Layout';
 import { TILE_COLORS, COLOR_HEX, hexToRgba, type TileOverride, type TileSize } from '../lib/homeLayout';
 
@@ -22,7 +20,7 @@ function sizeClass(size: TileSize): string {
 
 export default function LauncherTile({
   item, override, editing, badge, tileOpacity, pageCount, currentPage, onMoveToPage,
-  selectedForSwap, onClick, onTapToMove, onCycleSize, onRecolor,
+  onClick, onDragPointerDown, isDragging, dragOver, onCycleSize, onRecolor,
 }: {
   item: NavItem;
   override: TileOverride;
@@ -32,11 +30,12 @@ export default function LauncherTile({
   pageCount: number;
   currentPage: number;
   onMoveToPage: (targetPageIndex: number) => void;
-  /** true = tahle dlaždice je právě vybraná a čeká na klepnutí na cíl */
-  selectedForSwap: boolean;
   onClick: () => void;
-  /** Klik na dlaždici v edit módu (mimo ovládací prvky) — vybrat/prohodit. */
-  onTapToMove: () => void;
+  onDragPointerDown: (e: React.PointerEvent) => void;
+  /** Tahle dlaždice je právě "zvednutá" (po dlouhém podržení) */
+  isDragging: boolean;
+  /** Prst/kurzor je teď nad touhle dlaždicí během přesunu jiné */
+  dragOver: boolean;
   onCycleSize: () => void;
   onRecolor: (c: string) => void;
 }) {
@@ -49,22 +48,27 @@ export default function LauncherTile({
 
   return (
     <div
-      className={`hs-tile ${isPreset ? `c-${color}` : ''} ${sizeClass(size)} ${editing ? 'hs-editing' : ''} ${selectedForSwap ? 'hs-selected' : ''}`}
-      style={isPreset ? undefined : { background: hexToRgba(color, tileOpacity) }}
+      className={`hs-tile ${isPreset ? `c-${color}` : ''} ${sizeClass(size)} ${editing ? 'hs-editing' : ''} ${isDragging ? 'hs-picked-up' : ''} ${dragOver ? 'hs-drag-over' : ''}`}
+      style={{
+        ...(isPreset ? {} : { background: hexToRgba(color, tileOpacity) }),
+        touchAction: editing ? 'none' : undefined,
+      }}
       data-tile-id={item.id}
-      onClick={editing ? onTapToMove : onClick}
+      onPointerDown={editing ? onDragPointerDown : undefined}
+      onClick={editing ? undefined : onClick}
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => { if (e.key === 'Enter') (editing ? onTapToMove() : onClick()); }}
+      onKeyDown={editing ? undefined : (e) => { if (e.key === 'Enter') onClick(); }}
     >
       <Icon />
       <div className="hs-lbl">{item.label}</div>
       {badge !== undefined && <span className="hs-badge">{badge}</span>}
-      {editing && <span className="hs-move-hint">{selectedForSwap ? '✓ Klepni kam přesunout' : '⇄'}</span>}
+      {editing && <span className="hs-move-hint">podrž a táhni</span>}
 
       {editing && (
-        // stopPropagation, ať klik na tlačítko neprovede taky "vybrat/prohodit".
-        <div className="hs-tile-controls" onClick={(e) => e.stopPropagation()}>
+        // stopPropagation, ať klik/dotek na tlačítko nezačne dlouhé podržení
+        // celé dlaždice (rodič má vlastní onPointerDown pro přesun).
+        <div className="hs-tile-controls" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
           <div className="hs-ctrl-row">
             {pageCount > 1 && (
               <select
