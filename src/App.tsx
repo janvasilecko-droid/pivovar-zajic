@@ -179,16 +179,22 @@ export default function App() {
           pageSubTab={pageSubTab}
         />
       )}
-      {(page === 'orders' || page === 'orders_entry' || page === 'orders_detail' || page === 'orders_zavoz' || page === 'vycepy') && (
+      {(page === 'orders' || page === 'orders_entry' || page === 'orders_detail' || page === 'orders_celkem') && (
         <OrdersTabbed
-          initialTab={page === 'vycepy' ? 'vycepy' : page === 'orders_detail' ? 'detail' : page === 'orders_zavoz' ? 'zavoz' : 'orders'}
+          initialTab={page === 'orders_detail' ? 'detail' : page === 'orders_celkem' ? 'celkem' : 'orders'}
           autoOpenShareImport={autoOpenShareImport}
           onShareImportHandled={() => setAutoOpenShareImport(false)}
           setPage={setPage}
         />
       )}
 
-      {page === 'zavoz' && <Zavoz setPage={setPage} />}
+      {/* Výčepy a Závoz jsou teď samostatné dlaždice/stránky (viz Layout.tsx
+          EXTRA_NAV), ne vnitřní záložky Objednávek — čistá obrazovka bez
+          záložkové lišty Objednávek nahoře. 'orders_zavoz' je starší Page
+          název téhož cíle (kvůli už umístěným dlaždicím), vede na stejnou
+          obrazovku jako 'zavoz'. */}
+      {page === 'vycepy' && <VycepyScreen />}
+      {(page === 'zavoz' || page === 'orders_zavoz') && <Zavoz setPage={setPage} />}
       {page === 'stock' && <Stock />}
       {page === 'bottling' && <BottlingScreen mode="all" setPage={setPage} initialSubTab={pageSubTab} />}
       {page === 'bottling_entry' && <BottlingScreen mode="entry_only" setPage={setPage} initialSubTab={pageSubTab} />}

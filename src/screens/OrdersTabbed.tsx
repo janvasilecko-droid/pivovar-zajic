@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import Orders from './Orders';
-import VycepyScreen from './VycepyScreen';
-import { ClipboardList, FileText, Truck, Flame } from 'lucide-react';
+import { ClipboardList, FileText, ChartBar } from 'lucide-react';
 import { TabBar, type TabBarItem } from '../components/TabBar';
 
-type TopTab = 'orders' | 'detail' | 'zavoz' | 'vycepy';
+type TopTab = 'orders' | 'detail' | 'celkem';
 
 interface OrdersTabbedProps {
   initialTab?: TopTab;
@@ -13,21 +12,20 @@ interface OrdersTabbedProps {
   setPage?: (p: any, sec?: string) => void;
 }
 
+// Závoz a Výčepy jsou teď samostatné dlaždice/stránky (viz Layout.tsx
+// EXTRA_NAV + App.tsx), ne záložky tady — dřív duplikovaly navigaci a na
+// "mini" dlaždicích/úzké obrazovce byla lišta se 4 záložkami přeplácaná.
 const TABS: (TabBarItem & { id: TopTab })[] = [
   { id: 'orders', label: 'Objednávky', icon: ClipboardList, color: '#38d9a9' },
   { id: 'detail', label: 'Přehled', icon: FileText, color: '#4dabf7' },
-  { id: 'zavoz', label: 'Závoz', icon: Truck, color: '#ffa94d' },
-  { id: 'vycepy', label: 'Výčepy (Zápůjčky)', icon: Flame, color: '#f5487f' },
+  { id: 'celkem', label: 'Celkem', icon: ChartBar, color: '#ffa94d' },
 ];
 
-// Mapování interní záložky → Page (viz App.tsx). 'zavoz' Page název je už
-// obsazený samostatnou obrazovkou Zavoz.tsx, proto tahle záložka má vlastní
-// 'orders_zavoz' název.
+// Mapování interní záložky → Page (viz App.tsx).
 const TAB_TO_PAGE: Record<TopTab, string> = {
   orders: 'orders',
   detail: 'orders_detail',
-  zavoz: 'orders_zavoz',
-  vycepy: 'vycepy',
+  celkem: 'orders_celkem',
 };
 
 export default function OrdersTabbed({
@@ -53,23 +51,19 @@ export default function OrdersTabbed({
 
   return (
     <div className="space-y-6">
-      {/* Tab Navigation — pořadí: Objednávky, Přehled, Závoz, Výčepy (Zápůjčky) */}
+      {/* Tab Navigation — pořadí: Objednávky, Přehled, Celkem */}
       <TabBar items={TABS} activeId={activeTab} onSelect={(id) => selectTab(id as TopTab)} />
 
       {/* Screen Render */}
       <div className="transition-all duration-200">
-        {activeTab === 'vycepy' ? (
-          <VycepyScreen />
-        ) : (
-          <Orders
-            key={activeTab}
-            mode="all"
-            setPage={setPage}
-            autoOpenShareImport={autoOpenShareImport}
-            onShareImportHandled={onShareImportHandled}
-            initialViewMode={activeTab === 'detail' ? 'detail' : activeTab === 'zavoz' ? 'zavoz' : 'summary'}
-          />
-        )}
+        <Orders
+          key={activeTab}
+          mode="all"
+          setPage={setPage}
+          autoOpenShareImport={autoOpenShareImport}
+          onShareImportHandled={onShareImportHandled}
+          initialViewMode={activeTab === 'detail' ? 'detail' : activeTab === 'celkem' ? 'celkem' : 'summary'}
+        />
       </div>
     </div>
   );

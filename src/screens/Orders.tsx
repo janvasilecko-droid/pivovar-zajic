@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 
-import { Camera, ListOrdered, Package as PackageIcon, Phone, Building2, Truck, Plus, MessageCircle, CheckSquare, PackageCheck, FilePlus, Calendar, Trash2, Pencil, Copy, Ban, RotateCcw, AlertTriangle, Check, CheckCircle2, Zap, ArrowRight, ChartBar, Mail, ShieldAlert } from 'lucide-react';
+import { Camera, ListOrdered, Package as PackageIcon, Phone, Building2, Truck, Plus, MessageCircle, CheckSquare, PackageCheck, FilePlus, Calendar, Trash2, Pencil, Copy, Ban, RotateCcw, AlertTriangle, Check, CheckCircle2, Zap, ArrowRight, Mail, ShieldAlert } from 'lucide-react';
 import { supabase, Beer, Package, Place, EntryRow, useRealtime, beerBg, beerText, beerName, formatPackageLabel, pkgBg } from '../lib/supabase';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
@@ -18,7 +18,7 @@ import { PlaceCombobox } from '../components/PlaceCombobox'; // Assuming this is
 import { DAYS } from '../lib/shared';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { QuickQtySelect, orderQuickQtys } from '../components/QuickQtySelect';
-import { BeerTileGrid, BeerTilePanel, TileTotalBar } from '../components/BeerTileGrid';
+import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { topQuantitiesLastMonth } from '../lib/quickQty';
 import { parseVoiceOrder, parseOrderText, detectOrderNotes, loadAliasMap, loadPlaceAliasMap, emptyAliasMap, getOrCreatePlace, matchBeerFromHints, matchPackage, normalize, type ParserAliasMap } from '../lib/orderParser';
 
@@ -28,7 +28,6 @@ import { autoReserveTapIfNeeded, isTapMentioned, detectTapType } from '../lib/ta
 import { findDuplicateOrders, formatDuplicateMessage } from '../lib/orderDuplicates';
 import { TapReservationModal } from '../components/TapReservationModal';
 import { createReminder, getLocalReminders } from '../lib/reminders';
-import Zavoz from './Zavoz';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -89,7 +88,7 @@ export default function Orders({
   onShareImportHandled?: () => void;
   mode?: 'entry_only' | 'overviews_only' | 'all';
   setPage?: (p: any) => void;
-  initialViewMode?: 'summary' | 'detail' | 'zavoz' | 'celkem' | 'text';
+  initialViewMode?: 'summary' | 'detail' | 'celkem' | 'text';
 } = {}) {
 
   const [orders, setOrders] = useState<Order[]>([]);
@@ -254,7 +253,7 @@ export default function Orders({
   const [editOrder, setEditOrder] = useState<Order | null>(null);
   const [aliasMap, setAliasMap] = useState<ParserAliasMap>(emptyAliasMap());
   const [placeAliasMap, setPlaceAliasMap] = useState<Map<string, string>>(new Map());
-  const [viewMode, setViewMode] = useState<'summary' | 'detail' | 'zavoz' | 'celkem' | 'text'>(initialViewMode); // New state for view mode
+  const [viewMode, setViewMode] = useState<'summary' | 'detail' | 'celkem' | 'text'>(initialViewMode); // New state for view mode
   const [itemFilterBeerId, setItemFilterBeerId] = useState<string | null>(null); // New state for item filter
   const [itemFilterPackageId, setItemFilterPackageId] = useState<string | null>(null); // New state for item filter
   useEffect(() => { loadAliasMap().then(setAliasMap).catch(() => {}); }, []);
@@ -1317,16 +1316,6 @@ export default function Orders({
                   <Plus size={14} /> Nové
                 </button>
                 <button
-                  onClick={() => setViewMode('celkem')}
-                  className={`flex-1 sm:flex-none px-2 py-1.5 rounded font-black text-[11px] leading-tight transition flex items-center justify-center gap-1 whitespace-nowrap ${
-                    viewMode === 'celkem'
-                      ? 'bg-neutral-900 text-white shadow-md'
-                      : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                  }`}
-                >
-                  <ChartBar size={14} /> Celkem
-                </button>
-                <button
                   onClick={() => setViewMode('text')}
                   className={`flex-1 sm:flex-none px-2 py-1.5 rounded font-black text-[11px] leading-tight transition flex items-center justify-center gap-1 whitespace-nowrap ${
                     viewMode === 'text'
@@ -1527,10 +1516,6 @@ export default function Orders({
           </div>
 
           {/* 🍺 Piva — dlaždice (klikni na pivo → obaly a množství) */}
-          <TileTotalBar
-            label="Zatím v objednávce"
-            value={`${filledBeerRows.reduce((s, r) => s + Number(r.qty || 0), 0)} ks · ${new Set(filledBeerRows.map((r) => r.beerId)).size} piv`}
-          />
           <BeerTileGrid
             beers={beers}
             onSelect={(b) => setExpandedBeerId(b.id)}
@@ -2033,13 +2018,11 @@ export default function Orders({
         </>
       )}
 
-      {viewMode === 'zavoz' && <Zavoz setPage={setPage} embedded />}
-
       {viewMode === 'celkem' && mode !== 'entry_only' && (
         <VariantTotalsPanel totals={variantTotals} beers={beers} packages={packages} timeScope={timeScope} onPick={handleItemClick} />
       )}
 
-      {viewMode !== 'zavoz' && viewMode !== 'celkem' && viewMode !== 'text' && (loading ? null : searchedFiltered.length === 0 ? <EmptyState text="Žádné objednávky pro zvolené filtry." icon="🧾" /> : (viewMode === 'detail' && groupedByDay) ? (
+      {viewMode !== 'celkem' && viewMode !== 'text' && (loading ? null : searchedFiltered.length === 0 ? <EmptyState text="Žádné objednávky pro zvolené filtry." icon="🧾" /> : (viewMode === 'detail' && groupedByDay) ? (
         <div className="space-y-6">
           {groupedByDay.map((grp) => (
             <div key={grp.key}>
