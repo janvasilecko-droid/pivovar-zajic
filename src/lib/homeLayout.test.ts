@@ -34,10 +34,16 @@ describe('getHomeLayout', () => {
     expect(layout.pages).toEqual([[A, B]]);
   });
 
-  it('zachová existující barvu override, nepřepíše ji výchozí', () => {
+  it('zachová existující barvu a velikost override, nepřepíše je výchozí', () => {
+    const raw = { pages: [[A]], overrides: { [A]: { color: 'plum', w: 2, h: 1 } }, scene: 'warm', tileOpacity: 0.42 };
+    const layout = getHomeLayout(raw, [A]);
+    expect(layout.overrides[A]).toEqual({ color: 'plum', w: 2, h: 1 });
+  });
+
+  it('převede starý formát override.size na w/h (zpětná kompatibilita)', () => {
     const raw = { pages: [[A]], overrides: { [A]: { color: 'plum', size: 'w2' } }, scene: 'warm', tileOpacity: 0.42 };
     const layout = getHomeLayout(raw, [A]);
-    expect(layout.overrides[A]).toEqual({ color: 'plum', size: 'w2' });
+    expect(layout.overrides[A]).toEqual({ color: 'plum', w: 2, h: 1 });
   });
 
   it('ořízne tileOpacity do platného rozsahu', () => {

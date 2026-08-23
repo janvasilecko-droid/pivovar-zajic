@@ -11,6 +11,7 @@ import { NAV, type Page } from '../components/Layout';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import LauncherTile from '../components/LauncherTile';
 import { QuickSearchModal } from '../components/QuickSearchModal';
+import { Modal } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { canUserView, getUserPermissions, ModuleKey } from '../lib/permissions';
 import { isAdminEmail } from '../lib/config';
@@ -19,10 +20,20 @@ import { fetchPendingWhatsAppCount } from '../lib/whatsappApi';
 import { getVehicleExpiryStatus } from './Catalogs';
 import {
   getHomeLayout, saveHomeLayout, addPage, removePage, moveTileToPage, hideTile, unhideTile,
-  SCENES, MIN_OPACITY, MAX_OPACITY,
-  type HomeLayout, type TileSize,
+  hexToRgba,
+  SCENES, MIN_OPACITY, MAX_OPACITY, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX,
+  type HomeLayout, type TileColor,
 } from '../lib/homeLayout';
 import './HomeScreen.css';
+
+/** true = jméno přednastaveného odstínu (CSS třída c-*); false = vlastní hex barva (inline styl). */
+function isPresetColor(c: string): c is TileColor {
+  return (TILE_COLORS as readonly string[]).includes(c);
+}
+/** Hex hodnota pro nativní <input type="color"> — i když je aktuální hodnota jméno přednastavené barvy. */
+function colorInputValue(c: string): string {
+  return isPresetColor(c) ? COLOR_HEX[c] : c;
+}
 
 // Mapování stránka → modul oprávnění — zrcadlí stejnou mapu v Layout.tsx (sidebar),
 // aby dlaždice ukazovaly přesně to, co uživatel vidí i v menu. Layout.tsx tuto mapu
@@ -114,6 +125,10 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
   const [draggingId, setDraggingId] = useState<Page | null>(null);
   const [dragOverId, setDragOverId] = useState<Page | null>(null);
   const [primingId, setPrimingId] = useState<Page | null>(null);
+  // Dlaždice, jejíž plný editor (velikost/barva/popisek/stránka/skrytí) je
+  // teď otevřený v modálu — řešení cramování všech ovládacích prvků přímo
+  // na dlaždici (nešly vidět všechny barvy, popisky byly nečitelné apod.).
+  const [editingTileId, setEditingTileId] = useState<Page | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hasCustomLayout, setHasCustomLayout] = useState(!!(profile as any)?.home_layout && Object.keys((profile as any).home_layout).length > 0);
 
@@ -209,11 +224,25 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
       try { navigator.vibrate?.(15); } catch {}
     }, 400);
   }
-  function handleSetSize(id: Page, size: TileSize) {
-    persist({ ...layout, overrides: { ...layout.overrides, [id]: { ...layout.overrides[id], size } } });
+  // Volná velikost — +/- krok šířky nebo výšky (žádné pevné předvolby),
+  // ať si uživatel důležité dlaždice zvětší a nedůležité zmenší podle sebe.
+  function handleResizeStep(id: Page, dim: 'w' | 'h', delta: number) {
+    const current = layout.overrides[id] ?? {};
+    const w = dim === 'w' ? Math.min(MAX_W, Math.max(MIN_W, (current.w ?? 1) + delta)) : (current.w ?? 1);
+    const h = dim === 'h' ? Math.min(MAX_H, Math.max(MIN_H, (current.h ?? 1) + delta)) : (current.h ?? 1);
+    persist({ ...layout, overrides: { ...layout.overrides, [id]: { ...current, w, h } } });
   }
   function handleRecolor(id: Page, color: string) {
     persist({ ...layout, overrides: { ...layout.overrides, [id]: { ...layout.overrides[id], color } } });
+  }
+  // Vlastní barvy pevných utilitních dlaždic (Hledat, Objednávky k
+  // parsování, Odhlásit se…) — dřív byly natvrdo přiřazené barvě bez
+  // možnosti změny.
+  function handleFixedColorChange(key: string, color: string) {
+    persist({ ...layout, fixedColors: { ...layout.fixedColors, [key]: color } });
+  }
+  function fixedColor(key: string, fallback: TileColor): string {
+    return layout.fixedColors[key] ?? fallback;
   }
   function handleSceneChange(scene: HomeLayout['scene']) {
     persist({ ...layout, scene });
@@ -261,6 +290,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
   }
   function handleHideTile(id: Page) {
     persist(hideTile(layout, id));
+    setEditingTileId(null);
   }
   function handleUnhideTile(id: Page) {
     persist(unhideTile(layout, id));
@@ -328,6 +358,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
     });
   }, [canSeeVehicleAlerts]);
 
+  const editingItem = editingTileId ? navById.get(editingTileId) : null;
+  const editingOverride = editingTileId ? (layout.overrides[editingTileId] ?? {}) : null;
+
   return (
     <div className="flex flex-col gap-4 min-h-full">
       <div className="hs-launcher">
@@ -383,6 +416,21 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                   ))}
                 </select>
               ))}
+            </div>
+            <div className="hs-controls-group">
+              <span className="hs-controls-label">Barvy tlačítek</span>
+              <label className="hs-fixed-color" title="Hledat">
+                <input type="color" value={colorInputValue(fixedColor('search', 'slate'))} onChange={(e) => handleFixedColorChange('search', e.target.value)} />
+                <span>Hledat</span>
+              </label>
+              <label className="hs-fixed-color" title="Objednávky k parsování">
+                <input type="color" value={colorInputValue(fixedColor('parse', 'mint'))} onChange={(e) => handleFixedColorChange('parse', e.target.value)} />
+                <span>Parsování</span>
+              </label>
+              <label className="hs-fixed-color" title="Odhlásit se">
+                <input type="color" value={colorInputValue(fixedColor('signout', 'crimson'))} onChange={(e) => handleFixedColorChange('signout', e.target.value)} />
+                <span>Odhlásit se</span>
+              </label>
             </div>
             {layout.hidden.length > 0 && (
               <div className="hs-controls-group">
@@ -453,11 +501,21 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
               Objednávky (layout.pages), ne samostatná dlaždice navíc. */}
           {currentPageIndex === 0 && (
             <>
-              <button type="button" className="hs-tile c-slate" onClick={() => setShowSearchModal(true)}>
+              <button
+                type="button"
+                className={isPresetColor(fixedColor('search', 'slate')) ? `hs-tile c-${fixedColor('search', 'slate')}` : 'hs-tile'}
+                style={isPresetColor(fixedColor('search', 'slate')) ? undefined : { background: hexToRgba(fixedColor('search', 'slate'), layout.tileOpacity) }}
+                onClick={() => setShowSearchModal(true)}
+              >
                 <Search />
                 <div className="hs-lbl">Hledat</div>
               </button>
-              <button type="button" className="hs-tile c-mint" onClick={openWhatsAppFromTile}>
+              <button
+                type="button"
+                className={isPresetColor(fixedColor('parse', 'mint')) ? `hs-tile c-${fixedColor('parse', 'mint')}` : 'hs-tile'}
+                style={isPresetColor(fixedColor('parse', 'mint')) ? undefined : { background: hexToRgba(fixedColor('parse', 'mint'), layout.tileOpacity) }}
+                onClick={openWhatsAppFromTile}
+              >
                 <MessageCircle />
                 <div className="hs-lbl">Objednávky k parsování</div>
                 {pendingWhatsApp > 0 && <span className="hs-badge">{pendingWhatsApp > 99 ? '99+' : pendingWhatsApp}</span>}
@@ -466,6 +524,8 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                 // Tichý ukazatel místo dřívějšího banneru přes celou
                 // obrazovku, co bylo nutné potvrdit — dlaždice prostě zmizí
                 // sama, až se STK/známka skutečně vyřeší (aktualizuje datum).
+                // Barva zůstává natvrdo červeno-žlutá (upozornění), aby si ji
+                // nešlo přebarvit tak, že přestane jako upozornění vypadat.
                 <button type="button" className="hs-tile hs-tile-alert" onClick={() => setPage('vehicles')}>
                   <TriangleAlert />
                   <div className="hs-lbl">Vozidla — STK/známka</div>
@@ -482,48 +542,118 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
             <SlidersHorizontal />
             <div className="hs-lbl">{editMode ? 'Hotovo' : 'Upravit rozložení'}</div>
           </button>
-          {currentPageIndex === 0 && (
-            <button
-              type="button"
-              className="hs-tile c-crimson"
-              onClick={() => { if (window.confirm('Odhlásit se z appky?')) signOut(); }}
-            >
-              <LogOut />
-              <div className="hs-lbl">Odhlásit se</div>
-            </button>
-          )}
 
           {(layout.pages[currentPageIndex] ?? []).map((id) => {
             const item = navById.get(id);
             if (!item) return null;
             const badge = id === 'orders' && pendingOrders ? pendingOrders : undefined;
+            const override = layout.overrides[id] ?? {};
             return (
               <LauncherTile
                 key={id}
                 item={item}
-                override={layout.overrides[id] ?? {}}
+                override={override}
+                isPresetColor={isPresetColor(override.color ?? 'coral')}
                 editing={editMode}
                 badge={badge}
                 tileOpacity={layout.tileOpacity}
-                pageCount={layout.pages.length}
-                currentPage={currentPageIndex}
-                onMoveToPage={(target) => handleMoveTileToPage(id, target)}
                 onClick={() => setPage(id)}
                 onDragPointerDown={(e) => handleTileDragPointerDown(id, e)}
                 isDragging={draggingId === id}
                 isPriming={primingId === id}
                 dragOver={dragOverId === id}
                 jiggling={editMode && draggingId !== null && draggingId !== id}
-                onSetSize={(s) => handleSetSize(id, s)}
                 onMoveStep={(dir) => handleMoveTileStep(id, dir)}
-                onRecolor={(c) => handleRecolor(id, c)}
-                onHide={() => handleHideTile(id)}
-                onRename={(label) => handleRenameTile(id, label)}
+                onOpenEditor={() => setEditingTileId(id)}
               />
             );
           })}
         </div>
+
+        <button
+          type="button"
+          className="hs-signout-tile"
+          style={{ background: hexToRgba(colorInputValue(fixedColor('signout', 'crimson')), layout.tileOpacity) }}
+          onClick={() => { if (window.confirm('Odhlásit se z appky?')) signOut(); }}
+        >
+          <LogOut size={16} />
+          <span>Odhlásit se</span>
+        </button>
       </div>
+
+      {editingItem && editingOverride && editingTileId && (
+        <Modal open onClose={() => setEditingTileId(null)} title={editingOverride.label || editingItem.label}>
+          <div className="flex flex-col gap-5">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500 mb-1.5">Popisek</label>
+              <input
+                type="text"
+                className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
+                value={editingOverride.label ?? editingItem.label}
+                onChange={(e) => handleRenameTile(editingTileId, e.target.value)}
+                placeholder={editingItem.label}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500 mb-1.5">Velikost</label>
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-neutral-600">Šířka</span>
+                  <button type="button" className="hs-modal-stepper-btn" disabled={(editingOverride.w ?? 1) <= MIN_W} onClick={() => handleResizeStep(editingTileId, 'w', -1)}>−</button>
+                  <span className="w-5 text-center font-bold tabular-nums">{editingOverride.w ?? 1}</span>
+                  <button type="button" className="hs-modal-stepper-btn" disabled={(editingOverride.w ?? 1) >= MAX_W} onClick={() => handleResizeStep(editingTileId, 'w', 1)}>+</button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-neutral-600">Výška</span>
+                  <button type="button" className="hs-modal-stepper-btn" disabled={(editingOverride.h ?? 1) <= MIN_H} onClick={() => handleResizeStep(editingTileId, 'h', -1)}>−</button>
+                  <span className="w-5 text-center font-bold tabular-nums">{editingOverride.h ?? 1}</span>
+                  <button type="button" className="hs-modal-stepper-btn" disabled={(editingOverride.h ?? 1) >= MAX_H} onClick={() => handleResizeStep(editingTileId, 'h', 1)}>+</button>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500 mb-1.5">Barva</label>
+              <div className="flex flex-wrap gap-2.5">
+                {TILE_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    title={c}
+                    className={`hs-modal-swatch ${editingOverride.color === c ? 'active' : ''}`}
+                    style={{ background: COLOR_HEX[c] }}
+                    onClick={() => handleRecolor(editingTileId, c)}
+                  />
+                ))}
+                <label className="hs-modal-swatch hs-modal-swatch-custom" title="Vlastní barva">
+                  <input type="color" value={colorInputValue(editingOverride.color ?? 'coral')} onChange={(e) => handleRecolor(editingTileId, e.target.value)} />
+                </label>
+              </div>
+            </div>
+
+            {layout.pages.length > 1 && (
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500 mb-1.5">Přesunout na stránku</label>
+                <select
+                  className="border border-neutral-300 rounded-lg px-3 py-2 text-sm"
+                  value={currentPageIndex}
+                  onChange={(e) => handleMoveTileToPage(editingTileId, Number(e.target.value))}
+                >
+                  {layout.pages.map((_, i) => (
+                    <option key={i} value={i}>Stránka {i + 1}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="flex justify-between items-center pt-2 border-t border-neutral-100">
+              <button type="button" className="text-sm font-semibold text-red-600" onClick={() => handleHideTile(editingTileId)}>Skrýt dlaždici</button>
+              <button type="button" className="text-sm font-bold bg-neutral-900 text-white rounded-lg px-4 py-2" onClick={() => setEditingTileId(null)}>Hotovo</button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       <QuickSearchModal
         isOpen={showSearchModal}

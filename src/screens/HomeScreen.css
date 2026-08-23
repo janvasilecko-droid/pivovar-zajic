@@ -188,12 +188,14 @@
 }
 .hs-page-select { font-size: 10px; font-weight: 800; border-radius: 5px; border: none; background: rgba(0,0,0,0.32); color: #fff; padding: 2px 3px; }
 
-.hs-tile.w2 { grid-column: span 6; }
-.hs-tile.h2 { grid-row: span 2; }
-.hs-tile.sm { grid-column: span 1; align-self: start; height: 58px; padding: 6px; border-radius: 6px; }
-.hs-tile.sm svg { width: 16px; height: 16px; }
-.hs-tile.sm .hs-lbl { font-size: 8.5px; line-height: 1.1; }
-.hs-tile.sm .hs-badge { display: none; }
+/* "Mini" dlaždice (šířka 0 jednotek, viz homeLayout.ts MIN_W) — jediná
+   velikost, co má odlišný, kompaktnější styl; zbytek velikostí (w*UNIT_COLS
+   sloupců × h řádků) se řeší přímo inline stylem (LauncherTile.tsx
+   tileGridStyle), protože jde o libovolnou škálu, ne pár pevných tříd. */
+.hs-tile.xs { align-self: start; height: 58px; padding: 6px; border-radius: 6px; }
+.hs-tile.xs svg { width: 16px; height: 16px; }
+.hs-tile.xs .hs-lbl { font-size: 8.5px; line-height: 1.1; }
+.hs-tile.xs .hs-badge { display: none; }
 
 .hs-tile.c-coral   { background: rgba(255,107,107,var(--hs-tile-alpha, 0.62)); }
 .hs-tile.c-amber2  { background: rgba(255,169,77,var(--hs-tile-alpha, 0.62)); }
@@ -219,9 +221,10 @@
 .hs-tile-alert .hs-badge { background: #facc15; color: #451a03; }
 
 /* touch-action:none je nutné, jinak prst na dotykovém displeji posune
-   stránku (scroll) místo aby přesunul dlaždici (pointermove eventy). */
+   stránku (scroll) místo aby přesunul dlaždici (pointermove eventy).
+   Popisek zůstává v edit módu na plnou viditelnost (dřív byl ztlumený,
+   nešlo za pohybu poznat, co přesně se přesouvá). */
 .hs-tile.hs-editing { cursor: grab; }
-.hs-tile.hs-editing .hs-lbl { opacity: 0.6; }
 /* "Zvednutá" dlaždice po dlouhém podržení (jako na Androidu) — vizuálně
    se odlepí od mřížky (větší, stín, mírně průhledná), dokud ji uživatel
    nepustí na cílovém místě. */
@@ -233,12 +236,6 @@
    400ms najednou "neposkočí" do zvednutého stavu. */
 .hs-tile.hs-priming { transform: scale(1.03); transition: transform 0.4s ease; }
 .hs-tile.hs-drag-over { outline: 3px dashed rgba(43,36,56,0.7); outline-offset: -3px; }
-.hs-move-hint {
-  position: absolute; top: 8px; left: 8px; font-size: 9px; font-weight: 800;
-  text-transform: uppercase; letter-spacing: 0.04em;
-  background: rgba(0,0,0,0.28); padding: 2px 6px; border-radius: 999px; z-index: 1;
-}
-.hs-tile.sm .hs-move-hint { display: none; }
 
 /* Ostatní dlaždice se jemně "chvějí", dokud jednu z nich někdo drží
    a přesouvá — stejný vizuální signál "jsme v režimu přeskládávání" jako
@@ -251,48 +248,67 @@
   50% { transform: rotate(1deg); }
 }
 
-.hs-rename-input {
-  font-weight: 700; font-size: 12.5px; line-height: 1.2; color: #fff;
-  background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.6); border-radius: 4px;
-  padding: 2px 4px; width: 90%; font-family: inherit;
-}
-
 .hs-hidden-chip {
   display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700;
   background: rgba(43,36,56,0.08); border: 1px solid rgba(43,36,56,0.16); border-radius: 999px;
   padding: 4px 10px; color: #2b2438; cursor: pointer;
 }
 
-.hs-tile-controls { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 5px; }
-.hs-ctrl-row { display: flex; justify-content: space-between; align-items: center; gap: 4px; }
-.hs-move-arrows { display: flex; gap: 3px; }
+/* Ovládání přímo na dlaždici v edit módu — jen dvě šipky (garantovaně funkční
+   přesun kliknutím) a tlačítko ⚙, co otevře plnohodnotný modál (HomeScreen.tsx)
+   s velikostí/barvou/popiskem/stránkou/skrytím. Dřív tu bylo nacpané všechno
+   (5 tvarů velikosti + 16 barevných teček + šipky) přímo do ~80px dlaždice,
+   což přetékalo a nešlo to pořádně vidět ani trefit prstem. */
+.hs-tile-controls { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 5px; pointer-events: none; }
+.hs-tile-controls > * { pointer-events: auto; }
+.hs-move-arrows { display: flex; gap: 3px; align-self: flex-start; }
 .hs-size-btn {
-  width: 20px; height: 20px; border-radius: 5px; border: none; cursor: pointer;
-  background: rgba(0,0,0,0.32); color: #fff; font-size: 11px; font-weight: 800; display: grid; place-items: center;
+  width: 22px; height: 22px; border-radius: 5px; border: none; cursor: pointer;
+  background: rgba(0,0,0,0.38); color: #fff; font-size: 12px; font-weight: 800; display: grid; place-items: center;
 }
-.hs-bottom-controls { display: flex; flex-direction: column; gap: 5px; }
-/* Přímý výběr velikosti — každé tlačítko ukazuje skutečný tvar/poměr stran
-   dlaždice, co by vznikla, takže je jasné, co se stane jedním klepnutím
-   (místo cyklování jedním tlačítkem, kde není vidět, kde v cyklu jsi). */
-.hs-size-row { display: flex; align-items: center; gap: 4px; }
-.hs-size-opt {
-  width: 24px; height: 24px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.35);
-  background: rgba(0,0,0,0.28); color: #fff; display: grid; place-items: center; cursor: pointer; padding: 0;
+.hs-gear-btn {
+  align-self: flex-end; width: 26px; height: 26px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.5);
+  background: rgba(0,0,0,0.4); color: #fff; font-size: 13px; cursor: pointer; display: grid; place-items: center;
 }
-.hs-size-opt.active { background: rgba(255,255,255,0.95); border-color: #fff; color: #2b2438; }
-.hs-size-shape { display: block; background: currentColor; border-radius: 2px; }
-.hs-swatches { display: flex; gap: 3px; flex-wrap: wrap; }
-.hs-swatch { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.8); cursor: pointer; padding: 0; }
-.hs-swatch.active { border-color: #2b2438; box-shadow: 0 0 0 2px rgba(255,255,255,0.9); }
-/* Poslední "tečka" v řadě je nativní color picker (vlastní barva) — vypadá
-   jako duhový puntík, dokud si uživatel nevybere konkrétní odstín. */
-.hs-swatch-custom {
+
+/* Plnohodnotný editor jedné dlaždice — modál (Modal z ui.tsx), dost místa
+   pro všechny barvy najednou a čitelné popisky (řeší "nejdou vidět všechny
+   barvy"/"dlaždice jsou při úpravě malé"). */
+.hs-modal-stepper-btn {
+  width: 30px; height: 30px; border-radius: 8px; border: 1px solid #d4d4d4; background: #f5f5f5;
+  font-size: 16px; font-weight: 700; cursor: pointer; display: grid; place-items: center; color: #2b2438;
+}
+.hs-modal-stepper-btn:disabled { opacity: 0.35; cursor: default; }
+.hs-modal-swatch {
+  width: 30px; height: 30px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0;
+}
+.hs-modal-swatch.active { border-color: #2b2438; box-shadow: 0 0 0 2px #fff, 0 0 0 4px #2b2438; }
+.hs-modal-swatch-custom {
   display: block; position: relative; overflow: hidden;
   background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red);
 }
-.hs-swatch-custom input[type="color"] {
-  position: absolute; inset: -4px; width: 20px; height: 20px; opacity: 0; cursor: pointer; border: none; padding: 0;
+.hs-modal-swatch-custom input[type="color"] {
+  position: absolute; inset: -4px; width: 38px; height: 38px; opacity: 0; cursor: pointer; border: none; padding: 0;
 }
+
 .hs-bg-custom input[type="color"] {
   width: 26px; height: 26px; border-radius: 50%; border: 2px solid rgba(43,36,56,0.2); cursor: pointer; padding: 0; background: none;
 }
+
+/* Vlastní barvy pevných utilitních dlaždic (Hledat/Parsování/Odhlásit se) —
+   malý kulatý color picker s popiskem, v panelu Upravit rozložení. */
+.hs-fixed-color { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: rgba(43,36,56,0.7); }
+.hs-fixed-color input[type="color"] {
+  width: 22px; height: 22px; border-radius: 50%; border: 2px solid rgba(43,36,56,0.2); cursor: pointer; padding: 0; background: none;
+}
+
+/* Odhlásit se — samostatně dole pod celou mřížkou (ne mezi ostatními
+   dlaždicemi nahoře), ať se nedá splést s běžnou navigací. */
+.hs-signout-tile {
+  position: relative; z-index: 1; margin-top: 12px; align-self: center;
+  display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: 999px;
+  color: #fff; font-weight: 700; font-size: 13px; border: 1px solid rgba(255,255,255,0.5); cursor: pointer;
+  -webkit-backdrop-filter: blur(20px) saturate(160%); backdrop-filter: blur(20px) saturate(160%);
+  box-shadow: 0 1px 3px rgba(43,36,56,0.12);
+}
+.hs-signout-tile:active { transform: scale(0.97); }

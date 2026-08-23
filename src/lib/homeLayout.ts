@@ -4,7 +4,6 @@
 import { supabase } from './supabase';
 import type { Page } from '../components/Layout';
 
-export type TileSize = 'n' | 'w2' | 'h2' | 'w2h2' | 'sm';
 export type TileColor =
   | 'coral' | 'amber2' | 'citrus' | 'mint' | 'sky' | 'indigo' | 'orchid' | 'forest' | 'plum'
   | 'rose' | 'teal' | 'lime' | 'slate' | 'gold' | 'crimson';
@@ -12,7 +11,11 @@ export type Scene = 'warm' | 'sunset' | 'ocean' | 'forest' | 'night' | 'custom';
 
 // Barva dlaždice může být buď jméno přednastaveného odstínu (TileColor), nebo
 // libovolný hex ("#rrggbb") z vlastního výběru barvy — proto plain string.
-export type TileOverride = { size?: TileSize; color?: string; label?: string };
+// w/h = libovolná velikost dlaždice (ne pár pevných předvoleb): w je šířka v
+// jednotkách po UNIT_COLS sloupcích mřížky (0 = "mini" dlaždice, viz MAX_W),
+// h je výška v řádcích mřížky (viz MAX_H) — uživatel si tak důležité dlaždice
+// může zvětšit a nedůležité zmenšit prakticky libovolně.
+export type TileOverride = { w?: number; h?: number; color?: string; label?: string };
 
 export type HomeLayout = {
   /** Víc stránek launcheru (jako Android home screen) — každá je pole id dlaždic. */
@@ -27,6 +30,8 @@ export type HomeLayout = {
   dock: Page[];
   /** Dlaždice schované z mřížky (modul zůstává dostupný, jen nezabírá místo). */
   hidden: Page[];
+  /** Vlastní barvy pevných utilitních dlaždic (Hledat, Odhlásit se...), klíč = FixedTileKey. */
+  fixedColors: Partial<Record<string, string>>;
 };
 
 /** Převede "#rrggbb" (nebo "#rgb") na "rgba(r, g, b, alpha)". Neplatný vstup spadne na šedou. */
@@ -40,7 +45,25 @@ export function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-export const TILE_SIZES: TileSize[] = ['n', 'w2', 'h2', 'w2h2', 'sm'];
+// Volná velikost dlaždice: w v jednotkách po UNIT_COLS sloupcích 18sloupcové
+// mřížky (0 = kompaktní "mini" dlaždice o 1 sloupci, viz HomeScreen.css
+// .hs-tile.xs), h v řádcích. Horní mez w=4 (12 sloupců) je schválně stejná
+// jako celkový počet sloupců mobilní mřížky (viz media query), aby ani
+// nejširší dlaždice nepřetekla přes okraj na malém displeji.
+export const MIN_W = 0;
+export const MAX_W = 4;
+export const DEFAULT_W = 1;
+export const MIN_H = 1;
+export const MAX_H = 3;
+export const DEFAULT_H = 1;
+export const UNIT_COLS = 3;
+
+// Zpětná kompatibilita se starým formátem override.size (pár pevných
+// předvoleb) — dřív uložené hodnoty se při načtení převedou na w/h.
+const LEGACY_SIZE_TO_WH: Record<string, { w: number; h: number }> = {
+  sm: { w: 0, h: 1 }, n: { w: 1, h: 1 }, w2: { w: 2, h: 1 }, h2: { w: 1, h: 2 }, w2h2: { w: 2, h: 2 },
+};
+
 export const TILE_COLORS: TileColor[] = [
   'coral', 'amber2', 'citrus', 'mint', 'sky', 'indigo', 'orchid', 'forest', 'plum',
   'rose', 'teal', 'lime', 'slate', 'gold', 'crimson',
@@ -59,13 +82,13 @@ export const COLOR_HEX: Record<TileColor, string> = {
 // Výchozí velikost pro pár dlaždic, aby mřížka hned po zapnutí launcheru
 // ukázala rozmanitost velikostí (ne samé stejné čtverce) — uživatel si to
 // pak stejně může v edit módu přeskládat/zvětšit/zmenšit podle sebe.
-const DEFAULT_SIZE: Partial<Record<Page, TileSize>> = {
-  orders: 'w2',
-  kegging: 'h2',
-  dashboard: 'w2',
-  app_settings: 'sm',
-  users: 'sm',
-  calendar: 'sm',
+const DEFAULT_SIZE: Partial<Record<Page, { w: number; h: number }>> = {
+  orders: { w: 2, h: 1 },
+  kegging: { w: 1, h: 2 },
+  dashboard: { w: 2, h: 1 },
+  app_settings: { w: 0, h: 1 },
+  users: { w: 0, h: 1 },
+  calendar: { w: 0, h: 1 },
 };
 
 export const DEFAULT_DOCK: Page[] = ['orders', 'kegging', 'bottling', 'home'];
@@ -132,11 +155,15 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[]): HomeLayout {
   let fallbackIdx = 0;
   const filledOverrides: Partial<Record<Page, TileOverride>> = {};
   pages.flat().forEach((id) => {
-    const existing = overrides[id];
+    const existing = overrides[id] as (TileOverride & { size?: string }) | undefined;
     const color = existing?.color ?? defaultColorFor(id, fallbackIdx);
     if (!existing?.color) fallbackIdx += 1;
-    const size = existing?.size ?? DEFAULT_SIZE[id];
-    filledOverrides[id] = { ...(size ? { size } : {}), color };
+    const legacy = typeof existing?.size === 'string' ? LEGACY_SIZE_TO_WH[existing.size] : undefined;
+    const wRaw = existing?.w ?? legacy?.w ?? DEFAULT_SIZE[id]?.w ?? DEFAULT_W;
+    const hRaw = existing?.h ?? legacy?.h ?? DEFAULT_SIZE[id]?.h ?? DEFAULT_H;
+    const w = Math.min(MAX_W, Math.max(MIN_W, Math.round(wRaw)));
+    const h = Math.min(MAX_H, Math.max(MIN_H, Math.round(hRaw)));
+    filledOverrides[id] = { w, h, color, ...(existing?.label ? { label: existing.label } : {}) };
   });
 
   const scene: Scene = SCENES.includes(saved.scene as Scene) ? (saved.scene as Scene) : DEFAULT_SCENE;
@@ -155,7 +182,9 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[]): HomeLayout {
     return fallback;
   });
 
-  return { pages, overrides: filledOverrides, scene, tileOpacity, customAccent, dock, hidden };
+  const fixedColors = (saved.fixedColors && typeof saved.fixedColors === 'object' ? saved.fixedColors : {}) as Partial<Record<string, string>>;
+
+  return { pages, overrides: filledOverrides, scene, tileOpacity, customAccent, dock, hidden, fixedColors };
 }
 
 export async function saveHomeLayout(userId: string, layout: HomeLayout): Promise<void> {
