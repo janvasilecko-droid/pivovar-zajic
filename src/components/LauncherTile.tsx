@@ -1,10 +1,12 @@
 // Jedna dlaždice přizpůsobitelného launcheru (src/screens/HomeScreen.tsx).
-// Mimo edit mód je to prostý navigační button. V edit módu zůstává dlaždice
-// samotná plně čitelná (ikona + popisek na plnou viditelnost, ať je jasné,
-// co se zrovna přesouvá) a nabízí jen: čtyři šipky pro garantovaně funkční
-// přesun (čisté kliknutí, doleva/doprava/nahoru/dolů) a tlačítko ⚙, které
-// otevře sdílený modál (HomeScreen.tsx) s plnohodnotným — ne na dlaždici
-// našlapaným — výběrem velikosti/barvy/popisku/stránky/skrytí.
+// Mimo edit mód je to prostý navigační button. V edit módu klik na dlaždici
+// ji jen OZNAČÍ (viz `selected`/`onSelect`) — ovládání (čtyři šipky pro
+// garantovaně funkční přesun + tlačítko ⚙, které otevře sdílený modál s
+// plnohodnotným výběrem velikosti/barvy/popisku/stránky/skrytí) se objeví
+// centrovaně nad OZNAČENOU dlaždicí, ne nad všemi najednou — dřív každá
+// dlaždice v edit módu pořád zobrazovala svoje vlastní šipky+kolečko, což na
+// malém displeji bylo přeplácané a na "mini" dlaždicích se to kvůli
+// overflow:hidden vůbec nevešlo (kolečko zmizelo úplně mimo dlaždici).
 //
 // Dlouhé podržení (long-press, jako na Androidu) navíc pořád funguje pro
 // rychlejší přesun na zařízeních, kde to gesto spolehlivě rozezná prohlížeč.
@@ -12,7 +14,7 @@
 // Skupinová dlaždice ("složka", styl Windows Phone/iOS, viz homeLayout.ts
 // mergeTiles) — `item` je null a místo něj se předá `groupItems` (2+ členů):
 // vykreslí se mini 2×2 mřížka ikon místo jedné velké, jinak sdílí veškerou
-// stejnou edit-mode "chrome" (dpad, ozubené kolo, jiggle, drag).
+// stejnou edit-mode "chrome" (dpad, ozubené kolo, jiggle, drag, výběr).
 import type { CSSProperties } from 'react';
 import type { NavItem } from './Layout';
 import { hexToRgba, UNIT_COLS, type TileId, type TileOverride } from '../lib/homeLayout';
@@ -25,8 +27,8 @@ export function tileGridStyle(x: number, y: number, w: number, h: number): CSSPr
 }
 
 export default function LauncherTile({
-  id, item, groupItems, override, isPresetColor, editing, badge, tileOpacity,
-  onClick, onDragPointerDown, isDragging, isPriming, dragOver, jiggling, onMoveStep, onOpenEditor,
+  id, item, groupItems, override, isPresetColor, editing, selected, badge, tileOpacity,
+  onClick, onSelect, onDragPointerDown, isDragging, isPriming, dragOver, jiggling, onMoveStep, onOpenEditor,
 }: {
   id: TileId;
   /** null pro skupinovou dlaždici — viz groupItems. */
@@ -37,9 +39,13 @@ export default function LauncherTile({
   /** true = override.color je jméno z TILE_COLORS (CSS třída); false = vlastní hex (inline styl) */
   isPresetColor: boolean;
   editing: boolean;
+  /** Tahle dlaždice je v edit módu právě označená kliknutím — jen ona zobrazuje ovládání. */
+  selected: boolean;
   badge?: string | number;
   tileOpacity: number;
   onClick: () => void;
+  /** Klik na dlaždici v edit módu — označí/odznačí ji (viz `selected`). */
+  onSelect: () => void;
   onDragPointerDown: (e: React.PointerEvent) => void;
   /** Tahle dlaždice je právě "zvednutá" (po dlouhém podržení) */
   isDragging: boolean;
@@ -64,7 +70,7 @@ export default function LauncherTile({
 
   return (
     <div
-      className={`hs-tile ${isPresetColor ? `c-${color}` : ''} ${w === 0 ? 'xs' : ''} ${editing ? 'hs-editing' : ''} ${isDragging ? 'hs-picked-up' : ''} ${isPriming ? 'hs-priming' : ''} ${dragOver ? 'hs-drag-over' : ''} ${jiggling ? 'hs-jiggle' : ''}`}
+      className={`hs-tile ${isPresetColor ? `c-${color}` : ''} ${w === 0 ? 'xs' : ''} ${editing ? 'hs-editing' : ''} ${editing && selected ? 'hs-selected' : ''} ${isDragging ? 'hs-picked-up' : ''} ${isPriming ? 'hs-priming' : ''} ${dragOver ? 'hs-drag-over' : ''} ${jiggling ? 'hs-jiggle' : ''}`}
       style={{
         ...tileGridStyle(x, y, w, h),
         ...(isPresetColor ? {} : { background: hexToRgba(color, tileOpacity) }),
@@ -79,10 +85,10 @@ export default function LauncherTile({
       }}
       data-tile-id={id}
       onPointerDown={editing ? onDragPointerDown : undefined}
-      onClick={editing ? undefined : onClick}
+      onClick={editing ? onSelect : onClick}
       role="button"
       tabIndex={0}
-      onKeyDown={editing ? undefined : (e) => { if (e.key === 'Enter') onClick(); }}
+      onKeyDown={editing ? (e) => { if (e.key === 'Enter') onSelect(); } : (e) => { if (e.key === 'Enter') onClick(); }}
     >
       {groupItems ? (
         <div className="hs-tile-group-icons">
@@ -102,24 +108,22 @@ export default function LauncherTile({
       <div className="hs-lbl">{label}</div>
       {badge !== undefined && <span className="hs-badge">{badge}</span>}
 
-      {editing && (
+      {editing && selected && (
         // stopPropagation, ať klik/dotek na ovládací prvky nezačne dlouhé
-        // podržení celé dlaždice (rodič má vlastní onPointerDown pro přesun).
+        // podržení celé dlaždice (rodič má vlastní onPointerDown pro přesun)
+        // a neodznačí ji zpátky (klik by jinak probublal na .hs-tile výš).
+        // Plovoucí panel VYCENTROVANÝ nad dlaždicí (ne přilepený uvnitř jejích
+        // rohů) — funguje stejně na velké i "mini" (w=0) dlaždici, protože se
+        // zobrazuje jen pro tu jednu OZNAČENOU (viz .hs-selected v CSS:
+        // overflow:visible + vyšší z-index, ať panel nic neoseká).
         <div className="hs-tile-controls" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
-          {/* "Mini" dlaždice (w=0) je na mobilu jen ~28px široká — plný dpad
-              (4 šipky) se tam vůbec nevejde a díky overflow:hidden na
-              .hs-tile úplně zmizí i tlačítko ⚙ pod ním. Radši jen ⚙
-              (dlouhé podržení + dpad rodičovské dlaždice pořád funguje pro
-              přesun), ať jde barvu/velikost aspoň otevřít. */}
-          {w !== 0 && (
-            <div className="hs-move-dpad">
-              <button type="button" className="hs-dpad-btn hs-dpad-up" title="Přesunout nahoru" onClick={() => onMoveStep('up')}>▲</button>
-              <button type="button" className="hs-dpad-btn hs-dpad-left" title="Přesunout doleva" onClick={() => onMoveStep('left')}>◀</button>
-              <button type="button" className="hs-dpad-btn hs-dpad-down" title="Přesunout dolů" onClick={() => onMoveStep('down')}>▼</button>
-              <button type="button" className="hs-dpad-btn hs-dpad-right" title="Přesunout doprava" onClick={() => onMoveStep('right')}>▶</button>
-            </div>
-          )}
-          <button type="button" className="hs-gear-btn" title="Upravit dlaždici" onClick={onOpenEditor}>⚙</button>
+          <div className="hs-move-dpad">
+            <button type="button" className="hs-dpad-btn hs-dpad-up" title="Přesunout nahoru" onClick={() => onMoveStep('up')}>▲</button>
+            <button type="button" className="hs-dpad-btn hs-dpad-left" title="Přesunout doleva" onClick={() => onMoveStep('left')}>◀</button>
+            <button type="button" className="hs-dpad-btn hs-dpad-down" title="Přesunout dolů" onClick={() => onMoveStep('down')}>▼</button>
+            <button type="button" className="hs-dpad-btn hs-dpad-right" title="Přesunout doprava" onClick={() => onMoveStep('right')}>▶</button>
+          </div>
+          <button type="button" className="hs-gear-btn" title="Barva, velikost a další nastavení" onClick={onOpenEditor}>⚙</button>
         </div>
       )}
     </div>

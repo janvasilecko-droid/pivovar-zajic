@@ -231,11 +231,6 @@
 .hs-tile.xs svg { width: 16px; height: 16px; }
 .hs-tile.xs .hs-lbl { font-size: 8.5px; line-height: 1.1; }
 .hs-tile.xs .hs-badge { display: none; }
-/* Mini dlaždice je moc úzká/nízká pro plný dpad — v edit módu se tam vejde
-   jen tlačítko ⚙ (viz LauncherTile.tsx), vycentrované a zmenšené, ať se
-   celé vejde dovnitř (jinak by ho oříznul overflow:hidden na .hs-tile). */
-.hs-tile.xs .hs-tile-controls { align-items: center; justify-content: center; padding: 2px; }
-.hs-tile.xs .hs-gear-btn { width: 22px; height: 22px; font-size: 12px; }
 
 .hs-tile.c-coral   { background: rgba(255,107,107,var(--hs-tile-alpha, 0.62)); }
 .hs-tile.c-amber2  { background: rgba(255,169,77,var(--hs-tile-alpha, 0.62)); }
@@ -306,37 +301,48 @@
 .hs-tile-group-icons svg { width: 12px; height: 12px; stroke-width: 2; }
 .hs-tile-group-icons .hs-group-more { font-size: 8px; font-weight: 800; }
 
-/* Ovládání přímo na dlaždici v edit módu — jen dvě šipky (garantovaně funkční
-   přesun kliknutím) a tlačítko ⚙, co otevře plnohodnotný modál (HomeScreen.tsx)
-   s velikostí/barvou/popiskem/stránkou/skrytím. Dřív tu bylo nacpané všechno
-   (5 tvarů velikosti + 16 barevných teček + šipky) přímo do ~80px dlaždice,
-   což přetékalo a nešlo to pořádně vidět ani trefit prstem. */
-.hs-tile-controls { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 5px; pointer-events: none; }
-.hs-tile-controls > * { pointer-events: auto; }
+/* Dlaždice právě OZNAČENÁ klikem v edit módu (viz LauncherTile.tsx
+   `selected`) — overflow:visible a vyšší z-index, ať plovoucí panel
+   ovládání (níže) nezmizí oříznutý hranicí dlaždice. Kritické pro "mini"
+   (w=0) dlaždice, kam by se panel jinak vůbec nevešel. Zvýrazňující rámeček
+   navíc ukazuje, která dlaždice je zrovna vybraná. */
+.hs-tile.hs-selected { overflow: visible; z-index: 15; box-shadow: 0 0 0 3px rgba(43,36,56,0.4), 0 10px 24px rgba(43,36,56,0.3); }
+
+/* Ovládání OZNAČENÉ dlaždice v edit módu — plovoucí panel VYCENTROVANÝ nad
+   dlaždicí (ne přišpendlený do jejích rohů), stejný pro všechny velikosti
+   dlaždic včetně "mini". Tmavé pozadí panelu čitelné nad libovolnou barvou
+   podkladu. Dřív se ovládání zobrazovalo na KAŽDÉ dlaždici v edit módu
+   zároveň (přeplácané, na mini dlaždicích navíc ořezané pryč) — teď se
+   objeví jen po kliknutí na konkrétní dlaždici (viz `selected`). */
+.hs-tile-controls {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  background: rgba(20,16,28,0.88); padding: 8px; border-radius: 14px;
+  box-shadow: 0 10px 26px rgba(0,0,0,0.35);
+}
 /* Mini "dpad" — 4 směry, ne jen doleva/doprava (to bylo "posouvání funguje
    jen do stran", nešlo přesunout dlaždici o řádek výš/níž). Nahoru/dolů
    hledá cílovou dlaždici podle skutečné vykreslené pozice (HomeScreen.tsx
    handleMoveTileStep), protože grid je "dense" a dlaždice mají různou
    šířku/výšku — o kolik pozic v poli je "o řádek výš" nejde spočítat dopředu. */
 .hs-move-dpad {
-  align-self: flex-start; display: grid;
-  grid-template-columns: repeat(3, 30px); grid-template-rows: repeat(2, 30px); gap: 3px;
+  display: grid; grid-template-columns: repeat(3, 28px); grid-template-rows: repeat(2, 28px); gap: 3px;
 }
 .hs-dpad-btn {
-  width: 30px; height: 30px; border-radius: 7px; border: none; cursor: pointer;
-  background: rgba(0,0,0,0.45); color: #fff; font-size: 15px; font-weight: 800; display: grid; place-items: center; padding: 0;
+  width: 28px; height: 28px; border-radius: 7px; border: none; cursor: pointer;
+  background: rgba(255,255,255,0.14); color: #fff; font-size: 14px; font-weight: 800; display: grid; place-items: center; padding: 0;
   transition: transform 0.1s ease;
 }
 /* Znatelné zvětšení při doteku/kliknutí — ať je jasné, že se tlačítko trefilo. */
-.hs-dpad-btn:active { transform: scale(1.2); background: rgba(0,0,0,0.6); }
+.hs-dpad-btn:active { transform: scale(1.2); background: rgba(255,255,255,0.28); }
 .hs-gear-btn:active { transform: scale(1.12); }
 .hs-dpad-up { grid-column: 2; grid-row: 1; }
 .hs-dpad-left { grid-column: 1; grid-row: 2; }
 .hs-dpad-down { grid-column: 2; grid-row: 2; }
 .hs-dpad-right { grid-column: 3; grid-row: 2; }
 .hs-gear-btn {
-  align-self: flex-end; width: 30px; height: 30px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.5);
-  background: rgba(0,0,0,0.4); color: #fff; font-size: 15px; cursor: pointer; display: grid; place-items: center;
+  width: 28px; height: 28px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.5);
+  background: rgba(255,255,255,0.14); color: #fff; font-size: 14px; cursor: pointer; display: grid; place-items: center;
   transition: transform 0.1s ease;
 }
 

@@ -152,8 +152,15 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
   useEffect(() => {
     setCurrentPageIndex((i) => Math.min(i, layout.pages.length - 1));
   }, [layout.pages.length]);
+  // Označení dlaždice patří k jedné konkrétní stránce launcheru — při
+  // přepnutí stránky by jinak zůstalo "viset" na neviditelné dlaždici jinde.
+  useEffect(() => { setSelectedTileId(null); }, [currentPageIndex]);
 
   const [editMode, setEditMode] = useState(false);
+  // Dlaždice právě označená klikem v edit módu — jen ona zobrazuje plovoucí
+  // panel s ovládáním (šipky + ⚙), viz LauncherTile.tsx `selected`/`onSelect`.
+  // Klik na jinou dlaždici označení přepne, klik na tu samou ho zruší.
+  const [selectedTileId, setSelectedTileId] = useState<TileId | null>(null);
   const [draggingId, setDraggingId] = useState<TileId | null>(null);
   const [dragOverId, setDragOverId] = useState<TileId | null>(null);
   const [primingId, setPrimingId] = useState<TileId | null>(null);
@@ -651,7 +658,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
           <button
             type="button"
             className={`hs-tile ${editMode ? 'c-indigo' : 'c-forest'}`}
-            onClick={() => setEditMode((v) => !v)}
+            onClick={() => { setEditMode((v) => !v); setSelectedTileId(null); }}
           >
             <SlidersHorizontal />
             <div className="hs-lbl">{editMode ? 'Hotovo' : 'Upravit rozložení'}</div>
@@ -675,6 +682,8 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                   override={override}
                   isPresetColor={isPresetColor(override.color ?? 'coral')}
                   editing={editMode}
+                  selected={selectedTileId === id}
+                  onSelect={() => setSelectedTileId((cur) => (cur === id ? null : id))}
                   tileOpacity={layout.tileOpacity}
                   onClick={() => setOpenGroupId(id)}
                   onDragPointerDown={(e) => handleTileDragPointerDown(id, e)}
@@ -698,6 +707,8 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                 override={override}
                 isPresetColor={isPresetColor(override.color ?? 'coral')}
                 editing={editMode}
+                selected={selectedTileId === id}
+                onSelect={() => setSelectedTileId((cur) => (cur === id ? null : id))}
                 badge={badge}
                 tileOpacity={layout.tileOpacity}
                 onClick={() => handleTileClick(id)}
