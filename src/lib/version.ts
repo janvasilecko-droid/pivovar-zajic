@@ -1,7 +1,7 @@
 // Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-export const APP_VERSION = '1.806';
-export const APP_VERSION_DATE = '23.8.2026 18:32';
+export const APP_VERSION = '1.807';
+export const APP_VERSION_DATE = '23.8.2026 21:15';
 
 
 
@@ -9,6 +9,7 @@ export const APP_VERSION_DATE = '23.8.2026 18:32';
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 
 export const APP_CHANGELOG: string[] = [
+  '🐛 Objednávky: oprava mazání — objednávka s proběhlým automatickým odpočtem závozu se dřív nedala smazat (tichý konflikt v databázi, tvářilo se to, že tlačítko Smazat nic nedělá); teď se smaže i navázaný odpočet a případná chyba se zobrazí. 📉 Odpis: oprava — zápis odpisu vždy selhal na chybějící sloupec, teď funguje. v1.807',
   '🔐 Kompletní audit a opravy: přístup jen pro adminem schválené e-maily, povinná změna prvního hesla, bezpečnější oprávnění, offline synchronizace, tisk, AI funkce a transakční zápisy. v1.621',
   '🔐 Zabezpečení a spolehlivost: účet lze vytvořit jen pro schválený e-mail, klient už nemůže sám přidělit administrátorskou roli, opraveny duplicitní odpočty závozu a ztráta nových operací při offline synchronizaci. v1.620',
   '🍺 Objednávky: nové zadávání objednávek — dlaždice piv (klikni na pivo → obaly a množství), datum závozu (aktuální týden + den), souhrn objednávky dole pod dlaždicemi s úpravou, poznámka s automatickým doplněním data závozu (17.8. / pátek) a zaškrtávací pole 🚰 Půjčení výčepu s rezervačním systémem. v1.619',
