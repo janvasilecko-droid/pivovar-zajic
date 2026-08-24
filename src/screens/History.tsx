@@ -792,7 +792,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
             }`}
           >
             <BarChart3 size={16} />
-            <span>📊 <span className="sm:hidden">Přehledy</span><span className="hidden sm:inline">Měsíční přehledy & Porovnání</span></span>
+            <span><span className="sm:hidden">Přehledy</span><span className="hidden sm:inline">Měsíční přehledy & Porovnání</span></span>
           </button>
 
           <button
@@ -804,7 +804,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
             }`}
           >
             <TrendingUp size={16} />
-            <span>📈 <span className="sm:hidden">Výstav</span><span className="hidden sm:inline">Výstav (HL) & KEG/PET</span></span>
+            <span><span className="sm:hidden">Výstav</span><span className="hidden sm:inline">Výstav (HL) & KEG/PET</span></span>
           </button>
 
           <button
@@ -816,7 +816,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
             }`}
           >
             <Search size={16} />
-            <span>🔍 <span className="sm:hidden">Hledání</span><span className="hidden sm:inline">Podrobné hledání & Filtry</span></span>
+            <span><span className="sm:hidden">Hledání</span><span className="hidden sm:inline">Podrobné hledání & Filtry</span></span>
           </button>
 
           <button
@@ -828,7 +828,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
             }`}
           >
             <Cylinder size={16} />
-            <span>🏚️ <span className="sm:hidden">Cykly ({tankCycles.length})</span><span className="hidden sm:inline">Cykly tanků & Ztráty ({tankCycles.length})</span></span>
+            <span><span className="sm:hidden">Cykly ({tankCycles.length})</span><span className="hidden sm:inline">Cykly tanků & Ztráty ({tankCycles.length})</span></span>
           </button>
 
           <button
@@ -840,7 +840,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
             }`}
           >
             <Trophy size={16} />
-            <span>🏆 TOP Žebříčky</span>
+            <span>TOP Žebříčky</span>
           </button>
 
           <button
@@ -852,7 +852,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
             }`}
           >
             <ShoppingCart size={16} />
-            <span>📦 <span className="sm:hidden">Objednávky</span><span className="hidden sm:inline">Přehled objednávek</span></span>
+            <span><span className="sm:hidden">Objednávky</span><span className="hidden sm:inline">Přehled objednávek</span></span>
           </button>
 
           <button
@@ -864,7 +864,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
             }`}
           >
             <Truck size={16} />
-            <span>🚚 <span className="sm:hidden">Trasy</span><span className="hidden sm:inline">Historie a přehled tras</span></span>
+            <span><span className="sm:hidden">Trasy</span><span className="hidden sm:inline">Historie a přehled tras</span></span>
           </button>
         </div>
       </div>

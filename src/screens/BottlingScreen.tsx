@@ -5,7 +5,7 @@ import { EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { exportBottlingToExcel } from '../lib/excel';
 import { ImportBottlingFromImage } from '../components/ImportBottlingFromImage';
-import { Camera, Pencil, Wine, Cylinder, Package as PackageIcon, CalendarDays } from 'lucide-react';
+import { Camera, Pencil, Wine, Cylinder, Package as PackageIcon, CalendarDays, BarChart3, ListChecks, ClipboardList, Sparkles } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { BottlingPlan, getPlanSeenAt, markPlanSeenAt, isPlanUnseen, isBottlingManager, setPlanStatus } from '../lib/bottlingPlans';
 import { BottlingPlanPlanner } from '../components/BottlingPlanPlanner';
@@ -729,7 +729,7 @@ export default function BottlingScreen({
               onClick={() => selectTab('zapis')}
               className={`px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'zapis' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
             >
-              🍾 Začátek stáčení
+              <span className="inline-flex items-center gap-1.5"><Wine size={14} /> Začátek stáčení</span>
               {unseenCount > 0 && (
                 <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black animate-pulse">{unseenCount}</span>
               )}
@@ -739,14 +739,14 @@ export default function BottlingScreen({
               onClick={() => selectTab('prehled')}
               className={`px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'prehled' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
             >
-              📊 Přehled
+              <span className="inline-flex items-center gap-1.5"><BarChart3 size={14} /> Přehled</span>
             </button>
             <button
               type="button"
               onClick={() => selectTab('potreba')}
               className={`px-3.5 py-2 rounded text-xs font-black transition flex items-center gap-1.5 shrink-0 min-h-[38px] ${tab === 'potreba' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
             >
-              <span>🍾 Potřeba stočit lahve</span>
+              <span className="inline-flex items-center gap-1.5"><ListChecks size={14} /> Potřeba stočit lahve</span>
               {bottleRequirements.some((r) => r.neededQty > 0) && (
                 <span className="px-1.5 py-0.5 rounded-full bg-amber-300 text-amber-950 text-[10px] font-black animate-pulse">
                   {bottleRequirements.filter((r) => r.neededQty > 0).length}
@@ -756,17 +756,17 @@ export default function BottlingScreen({
             <button
               type="button"
               onClick={() => { setChecklistPhase('start'); setChecklistGate(false); setShowChecklistModal(true); }}
-              className="px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[38px] bg-neutral-900 hover:bg-neutral-800 text-white flex items-center gap-1.5 shadow-2xs"
+              className="px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[38px] bg-amber-500 hover:bg-amber-600 text-neutral-950 flex items-center gap-1.5 shadow-2xs"
             >
-              <span>📋</span>
+              <ClipboardList size={14} />
               <span>Příprava (Checklist)</span>
             </button>
             <button
               type="button"
               onClick={() => { setChecklistPhase('end'); setChecklistGate(false); setShowChecklistModal(true); }}
-              className="px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[38px] bg-neutral-900 hover:bg-neutral-800 text-white flex items-center gap-1.5 shadow-2xs"
+              className="px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[38px] bg-amber-500 hover:bg-amber-600 text-neutral-950 flex items-center gap-1.5 shadow-2xs"
             >
-              <span>🧹</span>
+              <Sparkles size={14} />
               <span>Konec stáčení (úklid)</span>
             </button>
             {isManager && (
@@ -775,7 +775,7 @@ export default function BottlingScreen({
                 onClick={() => selectTab('plan')}
                 className={`px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'plan' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
               >
-                🗓️ Zadat stáčení
+                <span className="inline-flex items-center gap-1.5"><CalendarDays size={14} /> Zadat stáčení</span>
               </button>
             )}
           </div>
