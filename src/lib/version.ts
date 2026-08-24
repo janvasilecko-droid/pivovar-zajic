@@ -1,7 +1,7 @@
 // Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-export const APP_VERSION = '1.821';
-export const APP_VERSION_DATE = '24.8.2026 17:43';
+export const APP_VERSION = '1.822';
+export const APP_VERSION_DATE = '24.8.2026 20:10';
 
 
 
@@ -9,6 +9,7 @@ export const APP_VERSION_DATE = '24.8.2026 17:43';
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 
 export const APP_CHANGELOG: string[] = [
+  '🎨 Lahve (Stáčení → Přehled): záložky "Lahve / KEG / Vše / Měsíc / Týden" mají teď stejné ikony jako zbytek appky (Domů, navigace) místo emoji obrázků. v1.822',
   '🎨 Audit barev napříč celou appkou: zhruba 60 černých přepínacích tlačítek (záložky/filtry na 16 obrazovkách — Historie, Objednávky, Kalkulačky, KEG, Lahve, HACCP, Sklad, Inventura, Uživatelé, Sklep, Připomínky, Závoz, Zpětná vazba, Dashboard...) nahrazeno barevnou (amber) verzí; opraven i špatně čitelný bílý text na tlumeném amber pozadí na víc místech a pár míst s téměř neviditelným šedým textem. v1.820',
   '🎨 Objednávky (Nové): tlačítka dnů v "Datum závozu" už nejsou černá — barevná (amber), stejná výška jako řádek s týdnem/šipkami. 🎨 Úvodní obrazovka: přibylo 5 nových scén pozadí bližších bílé/modré (Bílá, Modrá, Máta, Levandule, Šedá) vedle původních sytých. v1.818',
   '🐛 Úvodní obrazovka: opravena skutečná příčina toho, že "Pozadí" v Upravit rozložení nešlo změnit — kořenový obal appky měl neprůhledné pozadí, které vždy překrylo barevnou scénu (ta se v pozadí correctně nastavovala, jen nebyla nikdy vidět, na žádné stránce, u žádné barvy). v1.816',

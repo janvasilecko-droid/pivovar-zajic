@@ -5,7 +5,7 @@ import { EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { exportBottlingToExcel } from '../lib/excel';
 import { ImportBottlingFromImage } from '../components/ImportBottlingFromImage';
-import { Camera, Pencil } from 'lucide-react';
+import { Camera, Pencil, Wine, Cylinder, Package as PackageIcon, CalendarDays } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { BottlingPlan, getPlanSeenAt, markPlanSeenAt, isPlanUnseen, isBottlingManager, setPlanStatus } from '../lib/bottlingPlans';
 import { BottlingPlanPlanner } from '../components/BottlingPlanPlanner';
@@ -1203,58 +1203,58 @@ export default function BottlingScreen({
                 <button
                   type="button"
                   onClick={() => setRecordsTab('lahve')}
-                  className={`text-xs font-bold px-2.5 py-1 rounded border transition ${
+                  className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded border transition ${
                     recordsTab === 'lahve'
                       ? 'bg-emerald-200 border-emerald-300 text-emerald-950'
                       : 'bg-white border-neutral-200 text-neutral-600'
                   }`}
                 >
-                  🍾 Lahve
+                  <Wine size={13} /> Lahve
                 </button>
                 <button
                   type="button"
                   onClick={() => setRecordsTab('keg')}
-                  className={`text-xs font-bold px-2.5 py-1 rounded border transition ${
+                  className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded border transition ${
                     recordsTab === 'keg'
                       ? 'bg-amber-200 border-amber-300 text-amber-950'
                       : 'bg-white border-neutral-200 text-neutral-600'
                   }`}
                 >
-                  🛢️ KEG
+                  <Cylinder size={13} /> KEG
                 </button>
                 <button
                   type="button"
                   onClick={() => setRecordsTab('vse')}
-                  className={`text-xs font-bold px-2.5 py-1 rounded border transition ${
+                  className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded border transition ${
                     recordsTab === 'vse'
                       ? 'bg-amber-200 border-amber-300 text-amber-950'
                       : 'bg-white border-neutral-200 text-neutral-600'
                   }`}
                 >
-                  📦 Vše
+                  <PackageIcon size={13} /> Vše
                 </button>
                 <button
                   type="button"
                   onClick={() => setRecordsView('month')}
-                  className={`text-xs font-bold px-2.5 py-1 rounded border transition ${
+                  className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded border transition ${
                     recordsView === 'month'
                       ? 'bg-amber-200 border-amber-300 text-amber-950'
                       : 'bg-white border-neutral-200 text-neutral-600'
                   }`}
                 >
-                  📅 Měsíc
+                  <CalendarDays size={13} /> Měsíc
                 </button>
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
                     onClick={() => setRecordsView('week')}
-                    className={`text-xs font-bold px-2.5 py-1 rounded border transition ${
+                    className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded border transition ${
                       recordsView === 'week'
                         ? 'bg-amber-200 border-amber-300 text-amber-950'
                         : 'bg-white border-neutral-200 text-neutral-600'
                     }`}
                   >
-                    📅 Týden
+                    <CalendarDays size={13} /> Týden
                   </button>
                   {recordsView === 'week' ? (
                     <>
