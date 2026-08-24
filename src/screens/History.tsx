@@ -787,8 +787,8 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
             onClick={() => selectTab('overview')}
             className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === 'overview'
-                ? 'bg-white text-neutral-900 shadow-md'
-                : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                ? 'bg-amber-500 text-neutral-950 shadow-md'
+                : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
             }`}
           >
             <BarChart3 size={16} />
@@ -799,8 +799,8 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
             onClick={() => selectTab('production')}
             className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === 'production'
-                ? 'bg-white text-neutral-900 shadow-md'
-                : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                ? 'bg-amber-500 text-neutral-950 shadow-md'
+                : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
             }`}
           >
             <TrendingUp size={16} />
@@ -811,8 +811,8 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
             onClick={() => selectTab('detail')}
             className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === 'detail'
-                ? 'bg-white text-neutral-900 shadow-md'
-                : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                ? 'bg-amber-500 text-neutral-950 shadow-md'
+                : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
             }`}
           >
             <Search size={16} />
@@ -823,8 +823,8 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
             onClick={() => selectTab('cycles')}
             className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === 'cycles'
-                ? 'bg-white text-neutral-900 shadow-md'
-                : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                ? 'bg-amber-500 text-neutral-950 shadow-md'
+                : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
             }`}
           >
             <Cylinder size={16} />
@@ -835,8 +835,8 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
             onClick={() => selectTab('stats')}
             className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === 'stats'
-                ? 'bg-white text-neutral-900 shadow-md'
-                : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                ? 'bg-amber-500 text-neutral-950 shadow-md'
+                : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
             }`}
           >
             <Trophy size={16} />
@@ -847,8 +847,8 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
             onClick={() => selectTab('orders')}
             className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === 'orders'
-                ? 'bg-white text-neutral-900 shadow-md'
-                : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                ? 'bg-amber-500 text-neutral-950 shadow-md'
+                : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
             }`}
           >
             <ShoppingCart size={16} />
@@ -859,8 +859,8 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
             onClick={() => selectTab('deliveries')}
             className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === 'deliveries'
-                ? 'bg-white text-neutral-900 shadow-md'
-                : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                ? 'bg-amber-500 text-neutral-950 shadow-md'
+                : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
             }`}
           >
             <Truck size={16} />
@@ -1167,7 +1167,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                     key={p}
                     onClick={() => setProdPeriod(p)}
                     className={`px-3 py-1.5 rounded text-xs font-black transition ${
-                      prodPeriod === p ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                      prodPeriod === p ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
                     }`}
                   >
                     {p === 'week' ? 'Týden' : p === 'month' ? 'Měsíc' : p === 'year' ? 'Rok' : 'Vše'}
@@ -1538,7 +1538,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                         key={s.key}
                         type="button"
                         onClick={() => setSelSources((set) => toggleSet(set, s.key))}
-                        className={`px-3 py-1.5 rounded text-xs font-black transition ${active ? 'bg-white text-amber-900 shadow-2xs ring-2 ring-amber-300' : 'bg-neutral-900 text-white hover:bg-neutral-800'}`}
+                        className={`px-3 py-1.5 rounded text-xs font-black transition ${active ? 'bg-amber-500 text-neutral-950 shadow-md' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
                       >
                         {s.icon} {s.label}
                       </button>

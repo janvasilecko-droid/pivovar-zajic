@@ -51,7 +51,7 @@ export function BeersScreen() {
         <button className="px-3.5 py-2.5 rounded bg-white border border-amber-300/80 text-amber-950 hover:bg-amber-50 font-extrabold text-xs transition flex items-center gap-1.5 shadow-xs" onClick={() => setShowImport(true)}>
           <FileSpreadsheet size={16} /> Import z Excelu
         </button>
-        <button className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-600 text-white font-black text-xs transition shadow-md flex items-center gap-1.5" onClick={() => { setEdit(null); setShow(true); }}>
+        <button className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-600 text-neutral-950 font-black text-xs transition shadow-md flex items-center gap-1.5" onClick={() => { setEdit(null); setShow(true); }}>
           <Plus size={16} /> Přidat pivo
         </button>
       </div>
@@ -192,7 +192,7 @@ export function PackagesScreen() {
   return (
     <div className="space-y-6 pb-12">
       <div className="flex justify-end">
-        <button className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-600 text-white font-black text-xs transition shadow-md flex items-center gap-1.5" onClick={() => { setEdit(null); setShow(true); }}>
+        <button className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-600 text-neutral-950 font-black text-xs transition shadow-md flex items-center gap-1.5" onClick={() => { setEdit(null); setShow(true); }}>
           <Plus size={16} /> Přidat obal
         </button>
       </div>
@@ -334,7 +334,7 @@ export function PlacesScreen() {
         <button className="px-3.5 py-2.5 rounded bg-white border border-amber-300/80 text-amber-950 hover:bg-amber-50 font-extrabold text-xs transition flex items-center gap-1.5 shadow-xs" onClick={() => setShowImport(true)}>
           <FileSpreadsheet size={16} /> Import z Excelu
         </button>
-        <button className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-600 text-white font-black text-xs transition shadow-md flex items-center gap-1.5" onClick={() => { setEdit(null); setShow(true); }}>
+        <button className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-600 text-neutral-950 font-black text-xs transition shadow-md flex items-center gap-1.5" onClick={() => { setEdit(null); setShow(true); }}>
           <Plus size={16} /> Přidat odběratele
         </button>
       </div>

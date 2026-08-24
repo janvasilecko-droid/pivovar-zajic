@@ -355,7 +355,7 @@ export function BottlingTasksSettings() {
                   <td className="px-2 py-1.5 text-right font-semibold text-neutral-800">{fmt(r.fasovani)}</td>
                   <td className="px-2 py-1.5 text-right font-semibold text-amber-800">{fmt(r.planned)}</td>
                   <td className="px-2 py-1.5 text-right font-black text-emerald-800">{fmt(r.stock)}</td>
-                  <td className={`px-2 py-1.5 text-right font-black ${r.missing > 0 ? 'bg-rose-100 text-rose-800' : 'text-neutral-400'}`}>
+                  <td className={`px-2 py-1.5 text-right font-black ${r.missing > 0 ? 'bg-rose-100 text-rose-800' : 'text-neutral-600 font-semibold'}`}>
                     {r.missing > 0 ? `${fmt(r.missing)} ⚠️` : '0'}
                   </td>
                   <td className={`px-2 py-1.5 text-right font-black ${r.afterOutgoing < 0 ? 'bg-rose-100 text-rose-800' : 'text-neutral-900'}`}>
@@ -366,7 +366,7 @@ export function BottlingTasksSettings() {
                       type="button"
                       onClick={() => openStocit(r)}
                       title={r.missing > 0 ? 'Stočit chybějící množství' : 'Stočit (pokrytí objednávek)'}
-                      className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-black transition shadow-xs"
+                      className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-600 text-neutral-950 text-[11px] font-black transition shadow-xs"
                     >
                       🍾 Stočit
                     </button>

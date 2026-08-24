@@ -649,21 +649,21 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             <button
               type="button"
               onClick={() => selectTab('zapis')}
-              className={`px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'zapis' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'}`}
+              className={`px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'zapis' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
             >
               ✍️ Začátek stáčení
             </button>
             <button
               type="button"
               onClick={() => selectTab('prehled')}
-              className={`px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'prehled' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'}`}
+              className={`px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'prehled' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
             >
               📊 Přehled
             </button>
             <button
               type="button"
               onClick={() => selectTab('potreba')}
-              className={`px-3.5 py-2 rounded text-xs font-black transition flex items-center gap-1.5 shrink-0 min-h-[38px] ${tab === 'potreba' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'}`}
+              className={`px-3.5 py-2 rounded text-xs font-black transition flex items-center gap-1.5 shrink-0 min-h-[38px] ${tab === 'potreba' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
             >
               <span>🛢️ Potřeba stočit KEGy</span>
               {kegRequirements.some((r) => r.neededQty > 0) && (
@@ -675,7 +675,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             <button
               type="button"
               onClick={() => selectTab('prefuk')}
-              className={`px-3.5 py-2 rounded text-xs font-black transition flex items-center gap-1.5 shrink-0 min-h-[38px] ${tab === 'prefuk' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'}`}
+              className={`px-3.5 py-2 rounded text-xs font-black transition flex items-center gap-1.5 shrink-0 min-h-[38px] ${tab === 'prefuk' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
             >
               <span>🔄 Přefuk KEG</span>
               {prefukRows.length > 0 && (
@@ -685,7 +685,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             <button
               type="button"
               onClick={() => selectTab('checklist')}
-              className={`px-3.5 py-2 rounded text-xs font-black transition flex items-center gap-1.5 shrink-0 min-h-[38px] ${tab === 'checklist' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'}`}
+              className={`px-3.5 py-2 rounded text-xs font-black transition flex items-center gap-1.5 shrink-0 min-h-[38px] ${tab === 'checklist' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
             >
               <span>📋 Checklist</span>
               {isLastWeekOfMonth(new Date(date)) && !isMonthlyChecklistCompleteForKeg(date) && (

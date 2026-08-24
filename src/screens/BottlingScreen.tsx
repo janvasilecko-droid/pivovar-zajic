@@ -727,7 +727,7 @@ export default function BottlingScreen({
             <button
               type="button"
               onClick={() => selectTab('zapis')}
-              className={`px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'zapis' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'}`}
+              className={`px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'zapis' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
             >
               🍾 Začátek stáčení
               {unseenCount > 0 && (
@@ -737,14 +737,14 @@ export default function BottlingScreen({
             <button
               type="button"
               onClick={() => selectTab('prehled')}
-              className={`px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'prehled' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'}`}
+              className={`px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'prehled' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
             >
               📊 Přehled
             </button>
             <button
               type="button"
               onClick={() => selectTab('potreba')}
-              className={`px-3.5 py-2 rounded text-xs font-black transition flex items-center gap-1.5 shrink-0 min-h-[38px] ${tab === 'potreba' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'}`}
+              className={`px-3.5 py-2 rounded text-xs font-black transition flex items-center gap-1.5 shrink-0 min-h-[38px] ${tab === 'potreba' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
             >
               <span>🍾 Potřeba stočit lahve</span>
               {bottleRequirements.some((r) => r.neededQty > 0) && (
@@ -773,7 +773,7 @@ export default function BottlingScreen({
               <button
                 type="button"
                 onClick={() => selectTab('plan')}
-                className={`px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'plan' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'}`}
+                className={`px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'plan' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
               >
                 🗓️ Zadat stáčení
               </button>
@@ -1482,7 +1482,7 @@ export default function BottlingScreen({
                           }`}
                         >
                           <td className="py-1.5 px-2 font-mono font-bold text-amber-950 whitespace-nowrap">
-                            {!isSameBatchAsPrev ? formatDate(r.entry_date) : <span className="text-neutral-300 font-normal">〃</span>}
+                            {!isSameBatchAsPrev ? formatDate(r.entry_date) : <span className="text-neutral-400 font-normal">〃</span>}
                           </td>
                           <td className="py-1.5 px-2 font-bold text-amber-950 flex items-center gap-1.5">
                             {!isSameBatchAsPrev ? (
@@ -1510,7 +1510,7 @@ export default function BottlingScreen({
                                 ))}
                               </select>
                             ) : (
-                              <span className="text-neutral-300 font-normal">—</span>
+                              <span className="text-neutral-400 font-normal">—</span>
                             )}
                           </td>
 
@@ -1534,7 +1534,7 @@ export default function BottlingScreen({
                                 >+</button>
                               </div>
                             ) : (
-                              <span className="text-neutral-300 font-normal">—</span>
+                              <span className="text-neutral-400 font-normal">—</span>
                             )}
                           </td>
 

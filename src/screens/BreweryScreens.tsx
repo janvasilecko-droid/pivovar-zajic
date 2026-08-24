@@ -485,8 +485,8 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
           onClick={() => selectTab('keg_calc')}
           className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'keg_calc'
-              ? 'bg-white text-neutral-900 shadow-md'
-              : 'bg-neutral-900 text-white hover:bg-neutral-800'
+              ? 'bg-amber-500 text-neutral-950 shadow-md'
+              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
           }`}
         >
           <Cylinder size={16} />
@@ -497,8 +497,8 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
           onClick={() => selectTab('srot_calc')}
           className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'srot_calc'
-              ? 'bg-white text-neutral-900 shadow-md'
-              : 'bg-neutral-900 text-white hover:bg-neutral-800'
+              ? 'bg-amber-500 text-neutral-950 shadow-md'
+              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
           }`}
         >
           <Wheat size={16} />
@@ -509,8 +509,8 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
           onClick={() => selectTab('chem_calc')}
           className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'chem_calc'
-              ? 'bg-white text-neutral-900 shadow-md'
-              : 'bg-neutral-900 text-white hover:bg-neutral-800'
+              ? 'bg-amber-500 text-neutral-950 shadow-md'
+              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
           }`}
         >
           <FlaskConical size={16} />
@@ -521,8 +521,8 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
           onClick={() => selectTab('energy_calc')}
           className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'energy_calc'
-              ? 'bg-white text-neutral-900 shadow-md'
-              : 'bg-neutral-900 text-white hover:bg-neutral-800'
+              ? 'bg-amber-500 text-neutral-950 shadow-md'
+              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
           }`}
         >
           <Flame size={16} />
@@ -533,8 +533,8 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
           onClick={() => selectTab('units_calc')}
           className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'units_calc'
-              ? 'bg-white text-neutral-900 shadow-md'
-              : 'bg-neutral-900 text-white hover:bg-neutral-800'
+              ? 'bg-amber-500 text-neutral-950 shadow-md'
+              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
           }`}
         >
           <Calculator size={16} />
@@ -646,7 +646,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
               <span>Plán šrotování — kolik sladu se šrotuje</span>
             </h3>
 
-            <div className="grid grid-cols-[1fr_auto_auto] items-center gap-3 px-1 text-[10px] font-black uppercase tracking-widest text-neutral-400">
+            <div className="grid grid-cols-[1fr_auto_auto] items-center gap-3 px-1 text-[10px] font-black uppercase tracking-widest text-neutral-500">
               <span>Pivo</span>
               <span className="w-36 text-center">Slad (kg)</span>
               <span className="w-24 text-center">Pytlů 25 kg</span>

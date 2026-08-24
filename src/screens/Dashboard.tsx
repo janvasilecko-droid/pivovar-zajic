@@ -359,8 +359,8 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
           onClick={() => (setPage ? setPage('dashboard') : setActiveTab('sklad'))}
           className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'sklad'
-              ? 'bg-white text-neutral-900 shadow-md'
-              : 'bg-neutral-900 text-white hover:bg-neutral-800'
+              ? 'bg-amber-500 text-neutral-950 shadow-md'
+              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
           }`}
         >
           <BarChart3 size={16} />
@@ -371,8 +371,8 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
           onClick={() => (setPage ? setPage('sklo_promo') : setActiveTab('sklo_promo'))}
           className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'sklo_promo'
-              ? 'bg-white text-neutral-900 shadow-md'
-              : 'bg-neutral-900 text-white hover:bg-neutral-800'
+              ? 'bg-amber-500 text-neutral-950 shadow-md'
+              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
           }`}
         >
           <Sparkles size={16} />
@@ -387,7 +387,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
       <div className="flex justify-end mb-3 items-center gap-2 flex-wrap">
         <button
           onClick={() => setShowQuickCount(true)}
-          className="btn-primary !rounded !bg-neutral-900 hover:!bg-neutral-800 !bg-none !py-2 !px-3.5 text-xs font-black shadow-sm"
+          className="btn-primary !rounded !py-2 !px-3.5 text-xs font-black shadow-sm"
         >
           <Calculator size={15} /> 📦 Rychlé sčítadlo skladu
         </button>
@@ -505,7 +505,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                             <tr key={p.package_id}>
                               <td className="py-1 pr-2 whitespace-nowrap text-neutral-500 text-xs font-bold">{p.label}</td>
                               <td className="py-1 px-2 text-center font-extrabold text-sky-900 bg-sky-100 rounded-md">{p.quantity}</td>
-                              <td className={`py-1 px-2 text-center font-extrabold rounded-md ${p.orderedRemaining > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-400'}`}>{p.orderedRemaining > 0 ? `-${p.orderedRemaining}` : '0'}</td>
+                              <td className={`py-1 px-2 text-center font-extrabold rounded-md ${p.orderedRemaining > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-600'}`}>{p.orderedRemaining > 0 ? `-${p.orderedRemaining}` : '0'}</td>
                               <td className={`py-1 pl-2 text-center font-extrabold rounded-md ${p.remaining < 0 ? 'bg-rose-50 text-rose-600' : p.remaining === 0 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>{p.remaining}</td>
                             </tr>
                           ))}
@@ -530,7 +530,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                             <tr key={p.package_id}>
                               <td className="py-1 pr-2 whitespace-nowrap text-neutral-500 text-xs font-bold">{p.label}</td>
                               <td className="py-1 px-2 text-center font-extrabold text-sky-900 bg-sky-100 rounded-md">{p.quantity}</td>
-                              <td className={`py-1 px-2 text-center font-extrabold rounded-md ${p.orderedRemaining > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-400'}`}>{p.orderedRemaining > 0 ? `-${p.orderedRemaining}` : '0'}</td>
+                              <td className={`py-1 px-2 text-center font-extrabold rounded-md ${p.orderedRemaining > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-600'}`}>{p.orderedRemaining > 0 ? `-${p.orderedRemaining}` : '0'}</td>
                               <td className={`py-1 pl-2 text-center font-extrabold rounded-md ${p.remaining < 0 ? 'bg-rose-50 text-rose-600' : p.remaining === 0 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>{p.remaining}</td>
                             </tr>
                           ))}

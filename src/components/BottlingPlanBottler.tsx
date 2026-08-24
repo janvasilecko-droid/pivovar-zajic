@@ -76,7 +76,7 @@ function PlanItem({
           </div>
         </div>
         <div className="flex items-center gap-1.5 flex-wrap shrink-0">
-          {isToday && <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500 text-white">DNES</span>}
+          {isToday && <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500 text-neutral-950">DNES</span>}
           {isLate && <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-500 text-white">POZDĚ</span>}
           {plan.planned_date && (
             <span className="text-[10px] font-bold text-neutral-500 bg-neutral-100 rounded px-2 py-1 whitespace-nowrap">
@@ -105,7 +105,7 @@ function PlanItem({
             <button
               type="button"
               onClick={handleDone}
-              className="px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-black transition shadow-sm"
+              className="px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-600 text-neutral-950 text-[11px] font-black transition shadow-sm"
             >
               ✓ Hotovo
             </button>
@@ -146,7 +146,7 @@ export function BottlingPlanBottler({ plans, beers, packages, isManager, onChang
         <span className="font-display font-black text-amber-950 text-xs flex items-center gap-1.5">
           📋 Úkoly ke stočení
           {groups.today.length > 0 && (
-            <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-amber-500 text-white animate-pulse">DNES: {groups.today.length}</span>
+            <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-amber-500 text-neutral-950 animate-pulse">DNES: {groups.today.length}</span>
           )}
         </span>
         <span className="text-[10px] font-bold text-amber-900/60">

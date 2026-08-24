@@ -418,8 +418,8 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
             onClick={() => selectTab('sanitacni_rad')}
             className={`px-4 py-2.5 rounded text-xs font-black transition flex items-center gap-2 shrink-0 ${
               activeTab === 'sanitacni_rad'
-                ? 'bg-white text-neutral-900 shadow-md'
-                : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                ? 'bg-amber-500 text-neutral-950 shadow-md'
+                : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
             }`}
           >
             <Droplets size={16} />
@@ -430,8 +430,8 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
             onClick={() => selectTab('svhp')}
             className={`px-4 py-2.5 rounded text-xs font-black transition flex items-center gap-2 shrink-0 ${
               activeTab === 'svhp'
-                ? 'bg-white text-neutral-900 shadow-md'
-                : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                ? 'bg-amber-500 text-neutral-950 shadow-md'
+                : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
             }`}
           >
             <FileText size={16} />
@@ -442,8 +442,8 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
             onClick={() => selectTab('udrzba')}
             className={`px-4 py-2.5 rounded text-xs font-black transition flex items-center gap-2 shrink-0 ${
               activeTab === 'udrzba'
-                ? 'bg-white text-neutral-900 shadow-md'
-                : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                ? 'bg-amber-500 text-neutral-950 shadow-md'
+                : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
             }`}
           >
             <Wrench size={16} />
@@ -454,8 +454,8 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
             onClick={() => selectTab('diagram')}
             className={`px-4 py-2.5 rounded text-xs font-black transition flex items-center gap-2 shrink-0 ${
               activeTab === 'diagram'
-                ? 'bg-white text-neutral-900 shadow-md'
-                : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                ? 'bg-amber-500 text-neutral-950 shadow-md'
+                : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
             }`}
           >
             <Sparkles size={16} />
@@ -710,8 +710,8 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
                   onClick={() => setActiveCategory(cat.id)}
                   className={`px-3.5 py-1.5 rounded text-xs font-black transition flex items-center gap-1.5 shrink-0 ${
                     activeCategory === cat.id
-                      ? 'bg-neutral-900 text-amber-300 shadow-xs'
-                      : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                      ? 'bg-amber-500 text-neutral-950 shadow-xs'
+                      : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
                   }`}
                 >
                   <span>{cat.icon}</span>

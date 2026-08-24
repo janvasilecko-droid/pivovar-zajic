@@ -441,7 +441,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
                             <span className="whitespace-pre-line">{log.note}</span>
                           </div>
                         ) : (
-                          <span className="text-neutral-300 italic text-[11px]">Bez poznámky</span>
+                          <span className="text-neutral-400 italic text-[11px]">Bez poznámky</span>
                         )}
                       </td>
                       <td className="py-3.5 px-4 text-right whitespace-nowrap">

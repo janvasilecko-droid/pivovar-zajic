@@ -405,8 +405,8 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
           onClick={() => setActiveTab('sklo')}
           className={`shrink-0 px-4 py-2.5 rounded font-black text-xs transition-all flex items-center gap-2 ${
             activeTab === 'sklo'
-              ? 'bg-neutral-900 text-amber-400 shadow-md scale-[1.02]'
-              : 'bg-neutral-900 text-white hover:bg-neutral-800'
+              ? 'bg-amber-500 text-neutral-950 shadow-md scale-[1.02]'
+              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
           }`}
         >
           <Wine size={16} />
@@ -417,8 +417,8 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
           onClick={() => setActiveTab('etikety')}
           className={`shrink-0 px-4 py-2.5 rounded font-black text-xs transition-all flex items-center gap-2 ${
             activeTab === 'etikety'
-              ? 'bg-neutral-900 text-amber-400 shadow-md scale-[1.02]'
-              : 'bg-neutral-900 text-white hover:bg-neutral-800'
+              ? 'bg-amber-500 text-neutral-950 shadow-md scale-[1.02]'
+              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
           }`}
         >
           <Tag size={16} />
@@ -434,8 +434,8 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
           onClick={() => setActiveTab('lahve')}
           className={`shrink-0 px-4 py-2.5 rounded font-black text-xs transition-all flex items-center gap-2 ${
             activeTab === 'lahve'
-              ? 'bg-neutral-900 text-amber-400 shadow-md scale-[1.02]'
-              : 'bg-neutral-900 text-white hover:bg-neutral-800'
+              ? 'bg-amber-500 text-neutral-950 shadow-md scale-[1.02]'
+              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
           }`}
         >
           <Boxes size={16} />

@@ -87,7 +87,7 @@ function StopwatchTool() {
             <Play size={18} /> Start
           </button>
         ) : (
-          <button onClick={pause} className="px-8 py-3 rounded font-black bg-amber-500 hover:bg-amber-400 text-white flex items-center gap-2">
+          <button onClick={pause} className="px-8 py-3 rounded font-black bg-amber-500 hover:bg-amber-400 text-neutral-950 flex items-center gap-2">
             <Pause size={18} /> Pauza
           </button>
         )}
@@ -217,7 +217,7 @@ function CountdownTimersTool() {
                 ) : done ? (
                   <span className="text-xs font-black text-rose-700 flex items-center gap-1"><CheckCircle2 size={14} /> Hotovo</span>
                 ) : (
-                  <button onClick={() => pause(t.id)} className="px-4 py-2 rounded text-xs font-black bg-amber-500 hover:bg-amber-400 text-white flex items-center gap-1.5">
+                  <button onClick={() => pause(t.id)} className="px-4 py-2 rounded text-xs font-black bg-amber-500 hover:bg-amber-400 text-neutral-950 flex items-center gap-1.5">
                     <Pause size={14} /> Pauza
                   </button>
                 )}
@@ -306,7 +306,7 @@ function KegRackingTimerTool() {
               return (
                 <div key={idx} className="flex items-center justify-between text-sm font-bold bg-white rounded px-3 py-2 border border-neutral-200">
                   <span className="tabular-nums text-neutral-700">{formatDurationMs(ms)}</span>
-                  <button onClick={() => removeHistory(idx)} className="text-neutral-300 hover:text-rose-600">
+                  <button onClick={() => removeHistory(idx)} className="text-neutral-400 hover:text-rose-600">
                     <Trash2 size={14} />
                   </button>
                 </div>

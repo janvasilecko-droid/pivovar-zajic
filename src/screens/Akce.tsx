@@ -741,7 +741,7 @@ export default function AkceScreen() {
                         onClick={() => setEvalRating(star)}
                         className="p-1 hover:scale-125 transition"
                       >
-                        <Star size={20} className={star <= evalRating ? 'fill-amber-400 text-amber-500' : 'text-neutral-300'} />
+                        <Star size={20} className={star <= evalRating ? 'fill-amber-400 text-amber-500' : 'text-neutral-400'} />
                       </button>
                     ))}
                   </div>

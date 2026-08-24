@@ -138,7 +138,7 @@ export function WeeklyOrderSummaryCard({
 
           <button
             onClick={() => onWeekChange(isoWeekKey(new Date().toISOString().slice(0,10)))}
-            className="px-3.5 py-2 rounded bg-amber-500 hover:bg-amber-600 text-white font-black text-xs transition shadow-md shadow-amber-500/20"
+            className="px-3.5 py-2 rounded bg-amber-500 hover:bg-amber-600 text-neutral-950 font-black text-xs transition shadow-md shadow-amber-500/20"
             > 
             Aktuální týden
           </button>
@@ -233,8 +233,8 @@ export function WeeklyOrderSummaryCard({
             onClick={() => { setFilterMode('all'); setSelectedVolume('all'); }}
             className={`px-3 py-1.5 rounded text-xs font-extrabold transition ${
               filterMode === 'all' && selectedVolume === 'all'
-                ? 'bg-white text-neutral-900 shadow-sm'
-                : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                ? 'bg-amber-500 text-neutral-950 shadow-sm'
+                : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
             }`}
           >
             Vše položky ({items.length})
@@ -244,8 +244,8 @@ export function WeeklyOrderSummaryCard({
             onClick={() => setFilterMode('remaining')}
             className={`px-3 py-1.5 rounded text-xs font-extrabold transition ${
               filterMode === 'remaining' && selectedVolume === 'all'
-                ? 'bg-white text-neutral-900 shadow-sm'
-                : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                ? 'bg-amber-500 text-neutral-950 shadow-sm'
+                : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
             }`}
           >
             Jen zbývající ({items.filter((i) => i.remaining > 0).length})
@@ -261,8 +261,8 @@ export function WeeklyOrderSummaryCard({
               onClick={() => setSelectedVolume(selectedVolume === vol ? 'all' : vol)}
               className={`px-3 py-1 rounded text-xs font-bold transition ${
                 selectedVolume === vol
-                  ? 'bg-white text-neutral-900 font-black shadow-xs'
-                  : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                  ? 'bg-amber-500 text-neutral-950 font-black shadow-xs'
+                  : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
               }`}
             >
               Velikost {vol} L
@@ -273,7 +273,7 @@ export function WeeklyOrderSummaryCard({
         <div className="flex items-center gap-1 bg-white p-1 rounded border border-neutral-200 shadow-xs">
           <button
             onClick={() => setViewMode('grid')}
-            className={`p-1.5 rounded text-xs font-bold transition ${viewMode === 'grid' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'}`}
+            className={`p-1.5 rounded text-xs font-bold transition ${viewMode === 'grid' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
             title="Karty / Mřížka"
           >
             <LayoutGrid size={15} />

@@ -803,8 +803,8 @@ function exportInventoryExcel() {
           onClick={() => selectTab('inventory')}
           className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'inventory'
-              ? 'bg-white text-neutral-900 shadow-md'
-              : 'bg-neutral-900 text-white hover:bg-neutral-800'
+              ? 'bg-amber-500 text-neutral-950 shadow-md'
+              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
           }`}
         >
           <ClipboardCheck size={16} />
@@ -815,8 +815,8 @@ function exportInventoryExcel() {
           onClick={() => selectTab('initial_stock')}
           className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'initial_stock'
-              ? 'bg-white text-neutral-900 shadow-md'
-              : 'bg-neutral-900 text-white hover:bg-neutral-800'
+              ? 'bg-amber-500 text-neutral-950 shadow-md'
+              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
           }`}
         >
           <RotateCcw size={16} />
@@ -827,8 +827,8 @@ function exportInventoryExcel() {
           onClick={() => selectTab('end_stock')}
           className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
             activeTab === 'end_stock'
-              ? 'bg-white text-neutral-900 shadow-md'
-              : 'bg-neutral-900 text-white hover:bg-neutral-800'
+              ? 'bg-amber-500 text-neutral-950 shadow-md'
+              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
           }`}
         >
           <ClipboardCheck size={16} />

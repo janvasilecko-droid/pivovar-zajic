@@ -200,8 +200,8 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
           onClick={() => selectTab('users')}
           className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 ${
             activeTab === 'users'
-              ? 'bg-white text-neutral-900 shadow-md'
-              : 'bg-neutral-900 text-white hover:bg-neutral-800'
+              ? 'bg-amber-500 text-neutral-950 shadow-md'
+              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
           }`}
         >
           <Shield size={16} />
@@ -212,8 +212,8 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
           onClick={() => selectTab('emails')}
           className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 ${
             activeTab === 'emails'
-              ? 'bg-white text-neutral-900 shadow-md'
-              : 'bg-neutral-900 text-white hover:bg-neutral-800'
+              ? 'bg-amber-500 text-neutral-950 shadow-md'
+              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
           }`}
         >
           <Mail size={16} />
@@ -224,8 +224,8 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
           onClick={() => selectTab('audit')}
           className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 ${
             activeTab === 'audit'
-              ? 'bg-white text-neutral-900 shadow-md'
-              : 'bg-neutral-900 text-white hover:bg-neutral-800'
+              ? 'bg-amber-500 text-neutral-950 shadow-md'
+              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
           }`}
         >
           <History size={16} />

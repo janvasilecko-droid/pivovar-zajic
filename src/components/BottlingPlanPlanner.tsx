@@ -475,7 +475,7 @@ export function BottlingPlanPlanner({
                   <td className="px-2 py-1.5 text-right font-semibold text-neutral-800">{fmt(r.stock)}</td>
                   <td className="px-2 py-1.5 text-right font-semibold text-amber-800">{fmt(r.planned)}</td>
                   <td className={`px-2 py-1.5 text-right font-black ${r.afterBottling < r.ordered ? 'text-rose-700' : 'text-emerald-800'}`}>{fmt(r.afterBottling)}</td>
-                  <td className={`px-2 py-1.5 text-right font-black ${r.missing > 0 ? 'bg-rose-100 text-rose-800' : 'text-neutral-400'}`}>{r.missing > 0 ? `${fmt(r.missing)} ⚠️` : '0'}</td>
+                  <td className={`px-2 py-1.5 text-right font-black ${r.missing > 0 ? 'bg-rose-100 text-rose-800' : 'text-neutral-600 font-semibold'}`}>{r.missing > 0 ? `${fmt(r.missing)} ⚠️` : '0'}</td>
                   <td className={`px-2 py-1.5 text-right font-black ${r.afterOutgoing < 0 ? 'bg-rose-100 text-rose-800' : 'text-neutral-900'}`}>{fmt(r.afterOutgoing)}</td>
                   <td className="px-2 py-1.5 text-right whitespace-nowrap">
                     <button
@@ -522,7 +522,7 @@ export function BottlingPlanPlanner({
             <button type="button" onClick={() => setWeekKey(shiftWeek(weekKey, -1))} className="w-7 h-7 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-sm transition">‹</button>
             <span className="text-xs font-black text-amber-950 px-2 whitespace-nowrap">{weekLabel}</span>
             <button type="button" onClick={() => setWeekKey(shiftWeek(weekKey, 1))} className="w-7 h-7 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-sm transition">›</button>
-            <button type="button" onClick={() => setWeekKey(isoWeekKey(new Date().toISOString().slice(0, 10)))} className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-black transition">Tento týden</button>
+            <button type="button" onClick={() => setWeekKey(isoWeekKey(new Date().toISOString().slice(0, 10)))} className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-600 text-neutral-950 text-[11px] font-black transition">Tento týden</button>
           </div>
         </div>
       </div>

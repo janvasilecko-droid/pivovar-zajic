@@ -253,7 +253,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
                 >
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 shrink-0">
-                      {choiceVal ? <CheckSquare size={18} className="text-amber-600" /> : <Square size={18} className="text-neutral-300" />}
+                      {choiceVal ? <CheckSquare size={18} className="text-amber-600" /> : <Square size={18} className="text-neutral-400" />}
                     </div>
                     <div className="text-xs leading-normal flex-1">
                       <span className={`font-semibold ${choiceVal ? 'text-neutral-900' : 'text-neutral-800'}`}>{item.text}</span>
@@ -297,7 +297,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
                   ) : isChecked ? (
                     <CheckSquare size={18} className="text-amber-600" />
                   ) : (
-                    <Square size={18} className="text-neutral-300" />
+                    <Square size={18} className="text-neutral-400" />
                   )}
                 </div>
                 <div className="text-xs leading-normal">

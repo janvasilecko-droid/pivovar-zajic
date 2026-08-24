@@ -508,8 +508,8 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
               onClick={() => setSelectedDayFilter('all')}
               className={`px-4 py-2.5 rounded font-black text-xs shrink-0 transition-all flex items-center gap-2 shadow-xs ${
                 selectedDayFilter === 'all'
-                  ? 'bg-white text-neutral-900 scale-105'
-                  : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                  ? 'bg-amber-500 text-neutral-950 scale-105'
+                  : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
               }`}
             >
               <CalendarDays size={14} />
@@ -526,9 +526,9 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                     onClick={() => setSelectedDayFilter(isSelected ? 'all' : d.v)}
                     className={`px-3.5 py-2 rounded font-black text-xs transition-all flex items-center gap-1.5 shadow-xs ${
                       isSelected
-                        ? 'bg-white text-neutral-900 scale-105'
+                        ? 'bg-amber-500 text-neutral-950 scale-105'
                         : stats.count > 0
-                        ? 'bg-neutral-900 text-white hover:bg-neutral-800'
+                        ? 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
                         : 'bg-neutral-200 text-neutral-400'
                     }`}
                   >
@@ -588,7 +588,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                 <button
                   onClick={() => setMobileTab('routes')}
                   className={`flex-1 py-3 px-3 rounded font-black text-xs transition-all flex items-center justify-center gap-2 ${
-                    mobileTab === 'routes' ? 'bg-white text-neutral-900 shadow-md scale-[1.02]' : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                    mobileTab === 'routes' ? 'bg-amber-500 text-neutral-950 shadow-md scale-[1.02]' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
                   }`}
                 >
                   <Truck size={16} />
@@ -598,7 +598,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                 <button
                   onClick={() => setMobileTab('loading')}
                   className={`flex-1 py-3 px-3 rounded font-black text-xs transition-all flex items-center justify-center gap-2 ${
-                    mobileTab === 'loading' ? 'bg-white text-neutral-900 shadow-md scale-[1.02]' : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                    mobileTab === 'loading' ? 'bg-amber-500 text-neutral-950 shadow-md scale-[1.02]' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
                   }`}
                 >
                   <PackageIcon size={16} />
@@ -623,7 +623,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                       </p>
                     </div>
 
-                    <span className="px-3 py-1 rounded-full bg-amber-500 text-white font-mono font-black text-sm shadow-xs">
+                    <span className="px-3 py-1 rounded-full bg-amber-500 text-neutral-950 font-mono font-black text-sm shadow-xs">
                       {loadingListBreakdown.totalCount} ks
                     </span>
                   </div>
@@ -673,7 +673,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                 }`}>{k.label}</span>
                               </div>
                               <span className={`px-2.5 py-1 rounded font-mono font-black text-xs shrink-0 shadow-xs ml-2 ${
-                                allPrepared ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-white'
+                                allPrepared ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-neutral-950'
                               }`}>{k.qty} ks</span>
                             </button>
                           );

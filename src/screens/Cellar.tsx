@@ -513,7 +513,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
               type="button"
               onClick={() => selectTab('lezacke')}
               className={`px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[38px] ${
-                activeTab === 'lezacke' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                activeTab === 'lezacke' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
               }`}
             >
               🍺 Ležácké tanky (1–8)
@@ -522,7 +522,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
               type="button"
               onClick={() => selectTab('spilka')}
               className={`px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[38px] ${
-                activeTab === 'spilka' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                activeTab === 'spilka' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
               }`}
             >
               🏭 Spilka (3 kvasné tanky)
@@ -531,7 +531,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
               type="button"
               onClick={() => selectTab('planovac')}
               className={`px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[38px] ${
-                activeTab === 'planovac' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                activeTab === 'planovac' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
               }`}
             >
               📅 Plánovač obsazenosti & Zrání (Gantt)

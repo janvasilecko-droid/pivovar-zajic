@@ -116,8 +116,8 @@ export default function Feedback({ setPage, initialSubTab }: { setPage?: (p: any
           onClick={() => selectTab('notes')}
           className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 ${
             activeTab === 'notes'
-              ? 'bg-white text-neutral-900 shadow-md'
-              : 'bg-neutral-900 text-white hover:bg-neutral-800'
+              ? 'bg-amber-500 text-neutral-950 shadow-md'
+              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
           }`}
         >
           <MessageSquare size={16} />
@@ -128,8 +128,8 @@ export default function Feedback({ setPage, initialSubTab }: { setPage?: (p: any
           onClick={() => selectTab('untappd')}
           className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 ${
             activeTab === 'untappd'
-              ? 'bg-white text-neutral-900 shadow-md'
-              : 'bg-neutral-900 text-white hover:bg-neutral-800'
+              ? 'bg-amber-500 text-neutral-950 shadow-md'
+              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
           }`}
         >
           <Sparkles size={16} />

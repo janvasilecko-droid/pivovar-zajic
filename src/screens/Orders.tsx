@@ -1332,7 +1332,7 @@ export default function Orders({
           <div className="flex gap-2 items-center flex-wrap justify-end">
             {mode !== 'entry_only' && (
               <button
-                className={`btn-ghost !rounded font-black text-xs shadow-xs flex items-center gap-1.5 !text-white ${viewMode === 'summary' ? '!bg-neutral-900 !border-neutral-900' : '!bg-neutral-700 !border-neutral-700 hover:!bg-neutral-800'}`}
+                className={`btn-ghost !rounded font-black text-xs shadow-xs flex items-center gap-1.5 ${viewMode === 'summary' ? '!bg-amber-500 !border-amber-500 !text-neutral-950' : '!bg-amber-50 !border-amber-200 !text-amber-900 hover:!bg-amber-100'}`}
                 onClick={() => setViewMode('summary')}
               >
                 <Plus size={14} /> Nové
@@ -1347,7 +1347,7 @@ export default function Orders({
             />
             {mode !== 'entry_only' && (
               <button
-                className={`btn-ghost !rounded font-black text-xs shadow-xs flex items-center gap-1.5 !text-white ${viewMode === 'text' ? '!bg-neutral-900 !border-neutral-900' : '!bg-neutral-700 !border-neutral-700 hover:!bg-neutral-800'}`}
+                className={`btn-ghost !rounded font-black text-xs shadow-xs flex items-center gap-1.5 ${viewMode === 'text' ? '!bg-amber-500 !border-amber-500 !text-neutral-950' : '!bg-amber-50 !border-amber-200 !text-amber-900 hover:!bg-amber-100'}`}
                 onClick={() => setViewMode('text')}
               >
                 <Mail size={14} /> Text
@@ -1463,7 +1463,8 @@ export default function Orders({
             </div>
 
             {/* Den závozu — barevné (amber, stejně jako tlačítko týdne výš)
-                místo černé, označený den je sytě amber s bílým textem. */}
+                místo černé, označený den je sytě amber s TMAVÝM textem — bílý
+                text má na téhle (ztlumené) amber barvě appky slabý kontrast. */}
             <div className="flex gap-1.5 mt-2">
               {DAYS.map((d) => (
                 <button
@@ -1472,7 +1473,7 @@ export default function Orders({
                   onClick={() => pickDeliveryDay(d.v)}
                   className={`flex-1 min-w-0 h-10 px-1 rounded font-black text-xs transition ${
                     deliveryDay === d.v
-                      ? 'bg-amber-500 text-white shadow-md'
+                      ? 'bg-amber-500 text-neutral-950 shadow-md'
                       : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
                   }`}
                 >
@@ -1765,7 +1766,7 @@ export default function Orders({
               type="button"
               onClick={() => setTimeScope('week')}
               className={`px-3 py-1.5 rounded font-black text-xs transition ${
-                timeScope === 'week' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                timeScope === 'week' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
               }`}
             >
               📅 Týden
@@ -1774,7 +1775,7 @@ export default function Orders({
               type="button"
               onClick={() => setTimeScope('month')}
               className={`px-3 py-1.5 rounded font-black text-xs transition ${
-                timeScope === 'month' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                timeScope === 'month' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
               }`}
             >
               🗓️ Celý měsíc
@@ -1783,7 +1784,7 @@ export default function Orders({
               type="button"
               onClick={() => setTimeScope('all')}
               className={`px-3 py-1.5 rounded font-black text-xs transition ${
-                timeScope === 'all' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                timeScope === 'all' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
               }`}
             >
               🌐 Všechny
@@ -1861,7 +1862,7 @@ export default function Orders({
                 </span>
 
                 {itemAuditStats && (
-                  <span className="ml-1 px-2.5 py-1 rounded-xl bg-amber-500 text-white font-black text-xs shadow-xs">
+                  <span className="ml-1 px-2.5 py-1 rounded-xl bg-amber-500 text-neutral-950 font-black text-xs shadow-xs">
                     Vyfiltrováno: {itemAuditStats.currentViewItemsCount} položek — {itemAuditStats.currentViewQty} ks ({itemAuditStats.currentViewOrdersCount} obj.)
                   </span>
                 )}
@@ -1911,7 +1912,7 @@ export default function Orders({
           <button
             onClick={() => setDeliveryDayFilter('all')}
             className={`px-3.5 py-1.5 rounded font-extrabold text-xs shrink-0 transition-all ${
-              deliveryDayFilter === 'all' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'
+              deliveryDayFilter === 'all' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
             }`}
           >
             🚚 Všechny dny
@@ -1925,8 +1926,8 @@ export default function Orders({
                 onClick={() => setDeliveryDayFilter(d.v)}
                 className={`px-3 py-1.5 rounded font-black text-xs shrink-0 transition-all flex items-center gap-1.5 ${
                   deliveryDayFilter === d.v
-                    ? 'bg-white text-neutral-900 shadow-xs'
-                    : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                    ? 'bg-amber-500 text-neutral-950 shadow-xs'
+                    : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
                 }`}
               >
                 <span>{d.label}</span>
@@ -1941,7 +1942,7 @@ export default function Orders({
           <button
             onClick={() => setDeliveryDayFilter('_none')}
             className={`px-3 py-1.5 rounded font-bold text-xs shrink-0 transition-all ${
-              deliveryDayFilter === '_none' ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-900 text-white hover:bg-neutral-800'
+              deliveryDayFilter === '_none' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
             }`}
           >
             Bez dne
@@ -2379,7 +2380,7 @@ function VariantTotalsPanel({ totals, beers, packages, timeScope, onPick }: {
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="chip bg-amber-500 text-white font-black">{totals.totalKs} ks celkem</span>
+          <span className="chip bg-amber-500 text-neutral-950 font-black">{totals.totalKs} ks celkem</span>
           <span className="chip bg-white border border-neutral-300 text-neutral-700 font-black">{totals.totalOrders} obj.</span>
         </div>
       </div>
