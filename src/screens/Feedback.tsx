@@ -121,7 +121,7 @@ export default function Feedback({ setPage, initialSubTab }: { setPage?: (p: any
           }`}
         >
           <MessageSquare size={16} />
-          <span>💬 Poznámky a nápady</span>
+          <span>Poznámky a nápady</span>
         </button>
 
         <button
@@ -133,7 +133,7 @@ export default function Feedback({ setPage, initialSubTab }: { setPage?: (p: any
           }`}
         >
           <Sparkles size={16} />
-          <span>⭐ AI Analýza recenzí (Untappd)</span>
+          <span>AI Analýza recenzí (Untappd)</span>
         </button>
       </div>
 

@@ -339,7 +339,7 @@ export default function Stock() {
           }`}
         >
           <Warehouse size={16} />
-          <span>📦 Skladové zásoby piv</span>
+          <span>Skladové zásoby piv</span>
         </button>
 
         <button
@@ -351,7 +351,7 @@ export default function Stock() {
           }`}
         >
           <Tent size={16} />
-          <span>🎪 Festivalové vybavení</span>
+          <span>Festivalové vybavení</span>
         </button>
 
         <button
@@ -363,7 +363,7 @@ export default function Stock() {
           }`}
         >
           <ShoppingBag size={16} />
-          <span>🛍️ Marketing & Merch & Sklo</span>
+          <span>Marketing & Merch & Sklo</span>
         </button>
       </div>
 

@@ -205,7 +205,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
           }`}
         >
           <Shield size={16} />
-          <span>👥 Uživatelé & Práva</span>
+          <span>Uživatelé & Práva</span>
         </button>
 
         <button
@@ -217,7 +217,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
           }`}
         >
           <Mail size={16} />
-          <span>📧 Schválené e-maily</span>
+          <span>Schválené e-maily</span>
         </button>
 
         <button
@@ -229,7 +229,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
           }`}
         >
           <History size={16} />
-          <span>📜 Auditní stopa (History Log)</span>
+          <span>Auditní stopa (History Log)</span>
         </button>
       </div>
 

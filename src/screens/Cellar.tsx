@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../lib/auth';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Beer as BeerIcon, Factory, CalendarDays } from 'lucide-react';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 
 import { supabase, Beer, Package, CellarTank, CellarTransfer, CellarTankCycle, EntryRow, useRealtime, beerBorder } from '../lib/supabase';
@@ -516,7 +516,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                 activeTab === 'lezacke' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
               }`}
             >
-              🍺 Ležácké tanky (1–8)
+              <span className="inline-flex items-center gap-1.5"><BeerIcon size={14} /> Ležácké tanky (1–8)</span>
             </button>
             <button
               type="button"
@@ -525,7 +525,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                 activeTab === 'spilka' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
               }`}
             >
-              🏭 Spilka (3 kvasné tanky)
+              <span className="inline-flex items-center gap-1.5"><Factory size={14} /> Spilka (3 kvasné tanky)</span>
             </button>
             <button
               type="button"
@@ -534,7 +534,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                 activeTab === 'planovac' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
               }`}
             >
-              📅 Plánovač obsazenosti & Zrání (Gantt)
+              <span className="inline-flex items-center gap-1.5"><CalendarDays size={14} /> Plánovač obsazenosti & Zrání (Gantt)</span>
             </button>
           </div>
 

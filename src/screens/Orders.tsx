@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 
-import { Camera, ListOrdered, Package as PackageIcon, Phone, Building2, Truck, Plus, MessageCircle, CheckSquare, PackageCheck, FilePlus, Calendar, Trash2, Pencil, Copy, Ban, RotateCcw, AlertTriangle, Check, CheckCircle2, Zap, ArrowRight, Mail, ShieldAlert } from 'lucide-react';
+import { Camera, ListOrdered, Package as PackageIcon, Phone, Building2, Truck, Plus, MessageCircle, CheckSquare, PackageCheck, FilePlus, Calendar, CalendarDays, Trash2, Pencil, Copy, Ban, RotateCcw, AlertTriangle, Check, CheckCircle2, Zap, ArrowRight, Mail, ShieldAlert } from 'lucide-react';
 import { supabase, Beer, Package, Place, EntryRow, useRealtime, beerBg, beerText, beerName, formatPackageLabel, pkgBg } from '../lib/supabase';
 import { Modal, Field, EmptyState, Spinner, useConfirm } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
@@ -1769,7 +1769,7 @@ export default function Orders({
                 timeScope === 'week' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
               }`}
             >
-              📅 Týden
+              <span className="inline-flex items-center gap-1.5"><CalendarDays size={14} /> Týden</span>
             </button>
             <button
               type="button"
@@ -1778,7 +1778,7 @@ export default function Orders({
                 timeScope === 'month' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
               }`}
             >
-              🗓️ Celý měsíc
+              <span className="inline-flex items-center gap-1.5"><CalendarDays size={14} /> Celý měsíc</span>
             </button>
             <button
               type="button"
@@ -1787,7 +1787,7 @@ export default function Orders({
                 timeScope === 'all' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
               }`}
             >
-              🌐 Všechny
+              <span className="inline-flex items-center gap-1.5"><PackageIcon size={14} /> Všechny</span>
             </button>
           </div>
 
@@ -1915,7 +1915,7 @@ export default function Orders({
               deliveryDayFilter === 'all' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
             }`}
           >
-            🚚 Všechny dny
+            <span className="inline-flex items-center gap-1.5"><Truck size={14} /> Všechny dny</span>
           </button>
           {DAYS.map((d) => {
             const count = filtered.filter((o) => o.delivery_day === d.v && o.status !== 'storno').length;

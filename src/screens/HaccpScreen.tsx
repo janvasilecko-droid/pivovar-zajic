@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Shield, Search, FileText, Wrench, Sparkles, Droplets, AlertTriangle, BookOpen, Calculator, CheckCircle2 } from 'lucide-react';
+import { Shield, Search, FileText, Wrench, Sparkles, Droplets, AlertTriangle, BookOpen, Calculator, CheckCircle2, ScrollText, Wheat, Factory, Cog, Snowflake, Cylinder, Truck } from 'lucide-react';
 import { BrewingTroubleshootingDatabase } from '../components/BrewingTroubleshootingDatabase';
 import { BottlingLineMaintenance } from '../components/BottlingLineMaintenance';
 
@@ -372,16 +372,16 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
     }
   }, [initialSection]);
 
-  const categories: { id: CategoryKey; label: string; icon: string }[] = [
-    { id: 'all', label: 'Všechny kapitoly', icon: '📚' },
-    { id: 'uvod', label: 'Úvod & Cíl SVHP', icon: '📜' },
-    { id: 'suroviny', label: '1. Suroviny & Voda', icon: '🌾' },
-    { id: 'uskladneni', label: '2. Uskladnění surovin', icon: '🏭' },
-    { id: 'varna', label: '3. Varna & Mláto', icon: '⚙️' },
-    { id: 'kvaseni', label: '4. Kvašení & Spílání', icon: '❄️' },
-    { id: 'staceni', label: '5. Stáčení & Myčka', icon: '🛢️' },
-    { id: 'expedice', label: '6. Expedice & Sklad', icon: '🚚' },
-    { id: 'pravidla', label: 'Pravidla SVHP & Hygiena', icon: '🛡️' },
+  const categories: { id: CategoryKey; label: string; icon: typeof BookOpen }[] = [
+    { id: 'all', label: 'Všechny kapitoly', icon: BookOpen },
+    { id: 'uvod', label: 'Úvod & Cíl SVHP', icon: ScrollText },
+    { id: 'suroviny', label: '1. Suroviny & Voda', icon: Wheat },
+    { id: 'uskladneni', label: '2. Uskladnění surovin', icon: Factory },
+    { id: 'varna', label: '3. Varna & Mláto', icon: Cog },
+    { id: 'kvaseni', label: '4. Kvašení & Spílání', icon: Snowflake },
+    { id: 'staceni', label: '5. Stáčení & Myčka', icon: Cylinder },
+    { id: 'expedice', label: '6. Expedice & Sklad', icon: Truck },
+    { id: 'pravidla', label: 'Pravidla SVHP & Hygiena', icon: Shield },
   ];
 
   const filteredDocs = HACCP_DOCUMENTS.filter((doc) => {
@@ -423,7 +423,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
             }`}
           >
             <Droplets size={16} />
-            <span>🧼 Sanitační řád Pivovaru Zajíc</span>
+            <span>Sanitační řád Pivovaru Zajíc</span>
           </button>
 
           <button
@@ -435,7 +435,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
             }`}
           >
             <FileText size={16} />
-            <span>📄 Příručka SVHP / HACCP (1.1–10.1)</span>
+            <span>Příručka SVHP / HACCP (1.1–10.1)</span>
           </button>
 
           <button
@@ -447,7 +447,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
             }`}
           >
             <Wrench size={16} />
-            <span>🔧 Údržba strojů</span>
+            <span>Údržba strojů</span>
           </button>
 
           <button
@@ -459,7 +459,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
             }`}
           >
             <Sparkles size={16} />
-            <span>📌 Schéma (Diagram)</span>
+            <span>Schéma (Diagram)</span>
           </button>
 
           <button
@@ -471,7 +471,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
             }`}
           >
             <AlertTriangle size={16} className="text-rose-600 group-hover:text-rose-700" />
-            <span>🚑 První pomoc & BOZP S kyselinami</span>
+            <span>První pomoc & BOZP S kyselinami</span>
           </button>
         </div>
       </div>
@@ -714,7 +714,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
                       : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
                   }`}
                 >
-                  <span>{cat.icon}</span>
+                  <cat.icon size={14} />
                   <span>{cat.label}</span>
                 </button>
               ))}

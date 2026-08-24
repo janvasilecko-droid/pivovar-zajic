@@ -808,7 +808,7 @@ function exportInventoryExcel() {
           }`}
         >
           <ClipboardCheck size={16} />
-          <span>📊 Fyzická inventura & Manko/Přebytek</span>
+          <span>Fyzická inventura & Manko/Přebytek</span>
         </button>
 
         <button
@@ -820,7 +820,7 @@ function exportInventoryExcel() {
           }`}
         >
           <RotateCcw size={16} />
-          <span>🏁 Nastavit Počáteční stav zásoby (K 1. dni v měsíci)</span>
+          <span>Nastavit Počáteční stav zásoby (K 1. dni v měsíci)</span>
         </button>
 
         <button
@@ -832,7 +832,7 @@ function exportInventoryExcel() {
           }`}
         >
           <ClipboardCheck size={16} />
-          <span>🛢️ Stav sudů na konci měsíce</span>
+          <span>Stav sudů na konci měsíce</span>
         </button>
       </div>
 
