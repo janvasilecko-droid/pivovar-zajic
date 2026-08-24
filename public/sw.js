@@ -52,6 +52,19 @@ async function getInstalledCache() {
   return getCacheVersion();
 }
 
+// Hledá VÝHRADNĚ v cache aktuálně nainstalované verze — nikdy ne holé
+// caches.match(), které bez cacheName prohledává NAPŘÍČ všemi cache úložišti
+// v origin (tedy i starými pivovar-1.8xx z předchozích nasazení, které se
+// nestihly smazat v activate(), protože se čekalo na explicitní potvrzení
+// aktualizace — viz komentář u self.skipWaiting níže). Neomezené caches.match
+// tak mohlo vrátit cross-verzní kombinaci (např. index.html z jedné verze
+// + JS chunk z jiné), což vedlo k prázdné/rozbité stránce po nasazení.
+async function matchInInstalledCache(req) {
+  const CACHE = await getInstalledCache();
+  const c = await caches.open(CACHE);
+  return c.match(req);
+}
+
 // Nacachuje PRECACHE do dane cache — kazdy soubor zvlast (ne atomicky Cache.addAll),
 // at selhani/vynechani jednoho souboru (napr. kdyz instalaci prebije jiny,
 // souběžně registrovany service worker — časté při castych nasazenich)
@@ -201,7 +214,7 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(
       (async () => {
         // First, try cache
-        const cached = await caches.match(req.url);
+        const cached = await matchInInstalledCache(req);
         if (cached) {
           // Cache hit: serve immediately, then refresh in background
           e.waitUntil(
@@ -238,7 +251,7 @@ self.addEventListener('fetch', (e) => {
           return res;
         } catch {
           // If still no cache (first load offline) serve cached index.html as fallback
-          const fallback = await caches.match('/index.html');
+          const fallback = await matchInInstalledCache('./index.html');
           return fallback || new Response('Offline', { status: 503, statusText: 'Offline' });
         }
       })()
@@ -268,7 +281,7 @@ self.addEventListener('fetch', (e) => {
           }
           return res;
         } catch {
-          const fallback = await caches.match(req);
+          const fallback = await matchInInstalledCache(req);
           return fallback || new Response('Offline', { status: 503, statusText: 'Offline' });
         }
       })()
@@ -290,7 +303,7 @@ self.addEventListener('fetch', (e) => {
       } catch {
         // Fallback to cache if offline
       }
-      const cached = await caches.match(req);
+      const cached = await matchInInstalledCache(req);
       if (cached) return cached;
       return new Response('Offline', { status: 503, statusText: 'Offline' });
     })()

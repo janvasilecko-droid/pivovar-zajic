@@ -1,7 +1,7 @@
 // Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-export const APP_VERSION = '1.833';
-export const APP_VERSION_DATE = '24.8.2026 19:51';
+export const APP_VERSION = '1.834';
+export const APP_VERSION_DATE = '24.8.2026 22:30';
 
 
 
@@ -9,6 +9,7 @@ export const APP_VERSION_DATE = '24.8.2026 19:51';
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 
 export const APP_CHANGELOG: string[] = [
+  '🐛 Service worker (offline cache): oprava — appka hledala v cache napříč VŠEMI uloženými verzemi místo jen té aktuální, což po více nasazeních za sebou mohlo výjimečně servírovat smíchané soubory ze staré verze (prázdná/rozbitá stránka po nasazení). Teď se hledá jen v cache aktuálně nainstalované verze. v1.834',
   '🎨 Celkový audit vzhledu pro mobil: dlaždice na Domů teď mají tmavý/světlý text podle jasu vlastní barvy (dřív natvrdo bílý — na světlých odstínech skoro nečitelný); zvětšeny malé dotykové prvky (šipky/kolečko u úpravy dlaždice, barevné vzorky, položky v Objednávkách); doladěno posledních pár černých tlačítek (Zahájit stáčení, Detailní přehled, Hotovo, Kontrola zpráv/Audit/Fotka) na amber. v1.832',
   '🐛 Objednávky (Nové): tlačítko "Hlasové zadání" mělo jinou výšku než sousední tlačítka (Nové/Text/WhatsApp/Kontrola/Audit/Fotka) — teď je v jedné řadě stejně velké jako ostatní. v1.830',
   '🎨 Ikony napříč appkou (Historie, Objednávky, HACCP, Sklad, Inventura, Uživatelé, Sklep): odstraněny zbylé emoji vedle záložek, které už měly lucide ikonu, a doplněny lucide ikony u záložek, které dosud emoji vůbec neměly (Objednávky časový rozsah, Sklep, HACCP kapitoly). v1.828',
