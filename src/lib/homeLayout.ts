@@ -16,7 +16,7 @@ export type TileColor =
   | 'tangerine' | 'honey' | 'peach' | 'mustard'
   | 'lavender' | 'violet' | 'grape' | 'magenta'
   | 'charcoal';
-export type Scene = 'warm' | 'sunset' | 'ocean' | 'forest' | 'night' | 'custom';
+export type Scene = 'warm' | 'sunset' | 'ocean' | 'forest' | 'night' | 'white' | 'sky' | 'mint' | 'lavender' | 'slate' | 'custom';
 
 // Barva dlaždice může být buď jméno přednastaveného odstínu (TileColor), nebo
 // libovolný hex ("#rrggbb") z vlastního výběru barvy — proto plain string.
@@ -121,7 +121,7 @@ export const TILE_COLORS: TileColor[] = [
   'orchid', 'plum', 'lavender', 'violet', 'grape', 'magenta',
   'slate', 'charcoal',
 ];
-export const SCENES: Scene[] = ['warm', 'sunset', 'ocean', 'forest', 'night', 'custom'];
+export const SCENES: Scene[] = ['warm', 'sunset', 'ocean', 'forest', 'night', 'white', 'sky', 'mint', 'lavender', 'slate', 'custom'];
 const DEFAULT_CUSTOM_ACCENT = '#ff6b6b';
 
 // Plné (neprůhledné) odstíny pro barevné tečky ve výběru — samotná dlaždice

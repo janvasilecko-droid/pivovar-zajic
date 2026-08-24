@@ -1447,32 +1447,33 @@ export default function Orders({
           <div className="mb-4">
             <label className="label dark:text-white">Datum závozu</label>
 
-            {/* Navigace týdnem */}
+            {/* Navigace týdnem — šipky, popisek týdne a dny závozu mají teď
+                stejnou výšku (h-10), ať řádek nepůsobí rozeskákaně. */}
             <div className="flex items-center gap-1.5">
-              <button type="button" onClick={() => shiftWeekAndKeepDay(-1)} className="w-9 h-9 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 font-black transition" title="Předchozí týden">‹</button>
+              <button type="button" onClick={() => shiftWeekAndKeepDay(-1)} className="w-10 h-10 shrink-0 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 font-black transition" title="Předchozí týden">‹</button>
               <button
                 type="button"
                 onClick={resetToCurrentWeek}
-                className="flex-1 text-center text-xs font-black bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 rounded py-2.5 transition"
+                className="flex-1 h-10 text-center text-xs font-black bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 rounded transition"
                 title="Klikni pro návrat na aktuální týden"
               >
                 📅 Týden {weekRange(weekKey).label}
               </button>
-              <button type="button" onClick={() => shiftWeekAndKeepDay(1)} className="w-9 h-9 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 font-black transition" title="Další týden">›</button>
+              <button type="button" onClick={() => shiftWeekAndKeepDay(1)} className="w-10 h-10 shrink-0 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 font-black transition" title="Další týden">›</button>
             </div>
 
-            {/* Den závozu — stejný jazyk jako zbytek tlačítek (černá/bílý text),
-                označený den se pro odlišení obrátí na bílou s tmavým textem. */}
+            {/* Den závozu — barevné (amber, stejně jako tlačítko týdne výš)
+                místo černé, označený den je sytě amber s bílým textem. */}
             <div className="flex gap-1.5 mt-2">
               {DAYS.map((d) => (
                 <button
                   key={d.v}
                   type="button"
                   onClick={() => pickDeliveryDay(d.v)}
-                  className={`flex-1 min-w-0 px-1 py-2 rounded font-black text-xs transition ${
+                  className={`flex-1 min-w-0 h-10 px-1 rounded font-black text-xs transition ${
                     deliveryDay === d.v
-                      ? 'bg-white text-neutral-900 shadow-md'
-                      : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                      ? 'bg-amber-500 text-white shadow-md'
+                      : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
                   }`}
                 >
                   {d.label}

@@ -42,6 +42,13 @@
 .hs-fullscreen-scene[data-scene="forest"] { background: linear-gradient(160deg, var(--hs-mint) 0%, var(--hs-forest) 55%, var(--hs-gold) 100%); }
 .hs-fullscreen-scene[data-scene="night"]  { background: linear-gradient(160deg, var(--hs-plum) 0%, var(--hs-indigo) 55%, var(--hs-slate) 100%); }
 .hs-fullscreen-scene[data-scene="custom"] { background: linear-gradient(160deg, var(--hs-custom, #ff6b6b) 0%, var(--hs-custom-wash, rgba(255,107,107,0.55)) 60%, #2b2438 100%); }
+/* Světlejší/neutrálnější scény (bílá/modrá/máta/levandule/šedá) — na rozdíl
+   od sytých scén výš zůstávají blíž bílé, jen s jemným barevným nádechem. */
+.hs-fullscreen-scene[data-scene="white"]    { background: linear-gradient(160deg, #fdfcff 0%, #f3f0ff 55%, #e6ecfb 100%); }
+.hs-fullscreen-scene[data-scene="sky"]      { background: linear-gradient(160deg, #bfe3ff 0%, #7cc4fb 55%, #3f7dd6 100%); }
+.hs-fullscreen-scene[data-scene="mint"]     { background: linear-gradient(160deg, #d4f7ec 0%, #8de8cf 55%, #2fb894 100%); }
+.hs-fullscreen-scene[data-scene="lavender"] { background: linear-gradient(160deg, #ece4ff 0%, #cbb6f7 55%, #9a72e0 100%); }
+.hs-fullscreen-scene[data-scene="slate"]    { background: linear-gradient(160deg, #eef1f5 0%, #d7dde5 55%, #a3aebd 100%); }
 /* Vyšší průhlednost bublin (dřív 0.4 / 0.22 pro night) — na displeji plném
    poloprůhledných dlaždic byl rozdíl mezi scénami skoro neznatelný, "jako by
    se pozadí vůbec neměnilo" (viz i sytější gradient výše). */
@@ -78,6 +85,33 @@
 .hs-fullscreen-scene[data-scene="night"] .b3 { background: var(--hs-orchid); }
 .hs-fullscreen-scene[data-scene="night"] .b4 { background: var(--hs-plum); }
 .hs-fullscreen-scene[data-scene="night"] i { opacity: 0.4; }
+
+.hs-fullscreen-scene[data-scene="white"] .b1 { background: #ffe8d6; }
+.hs-fullscreen-scene[data-scene="white"] .b2 { background: #dbe4ff; }
+.hs-fullscreen-scene[data-scene="white"] .b3 { background: #e0f7ef; }
+.hs-fullscreen-scene[data-scene="white"] .b4 { background: #f3d9ff; }
+.hs-fullscreen-scene[data-scene="white"] i { opacity: 0.4; }
+
+.hs-fullscreen-scene[data-scene="sky"] .b1 { background: var(--hs-sky); }
+.hs-fullscreen-scene[data-scene="sky"] .b2 { background: var(--hs-cobalt, #1c7ed6); }
+.hs-fullscreen-scene[data-scene="sky"] .b3 { background: var(--hs-azure, #339af0); }
+.hs-fullscreen-scene[data-scene="sky"] .b4 { background: var(--hs-navy, #1864ab); }
+
+.hs-fullscreen-scene[data-scene="mint"] .b1 { background: var(--hs-mint); }
+.hs-fullscreen-scene[data-scene="mint"] .b2 { background: var(--hs-teal); }
+.hs-fullscreen-scene[data-scene="mint"] .b3 { background: var(--hs-jade, #12b886); }
+.hs-fullscreen-scene[data-scene="mint"] .b4 { background: var(--hs-mint); }
+
+.hs-fullscreen-scene[data-scene="lavender"] .b1 { background: var(--hs-orchid); }
+.hs-fullscreen-scene[data-scene="lavender"] .b2 { background: var(--hs-indigo); }
+.hs-fullscreen-scene[data-scene="lavender"] .b3 { background: var(--hs-plum); }
+.hs-fullscreen-scene[data-scene="lavender"] .b4 { background: var(--hs-orchid); }
+
+.hs-fullscreen-scene[data-scene="slate"] .b1 { background: var(--hs-slate); }
+.hs-fullscreen-scene[data-scene="slate"] .b2 { background: #94a3b8; }
+.hs-fullscreen-scene[data-scene="slate"] .b3 { background: var(--hs-slate); }
+.hs-fullscreen-scene[data-scene="slate"] .b4 { background: #94a3b8; }
+.hs-fullscreen-scene[data-scene="slate"] i { opacity: 0.4; }
 
 /* Vlastní barva pozadí — --hs-custom nastavuje inline Layout.tsx podle
    home_layout.customAccent. Všechny 4 "bubliny" mají stejný odstín, různé
@@ -133,6 +167,11 @@
 .hs-scene-swatch.ocean  { background: conic-gradient(from 45deg, var(--hs-sky), var(--hs-indigo), var(--hs-mint), var(--hs-citrus)); }
 .hs-scene-swatch.forest { background: conic-gradient(from 45deg, var(--hs-mint), var(--hs-forest), var(--hs-citrus), var(--hs-amber2)); }
 .hs-scene-swatch.night  { background: conic-gradient(from 45deg, var(--hs-plum), var(--hs-indigo), var(--hs-orchid), var(--hs-plum)); }
+.hs-scene-swatch.white    { background: conic-gradient(from 45deg, #fdfcff, #dbe4ff, #e0f7ef, #f3d9ff); border-color: rgba(43,36,56,0.14); }
+.hs-scene-swatch.sky      { background: conic-gradient(from 45deg, #bfe3ff, #7cc4fb, #3f7dd6, #1c7ed6); }
+.hs-scene-swatch.mint     { background: conic-gradient(from 45deg, #d4f7ec, #8de8cf, #2fb894, var(--hs-teal)); }
+.hs-scene-swatch.lavender { background: conic-gradient(from 45deg, #ece4ff, #cbb6f7, #9a72e0, var(--hs-indigo)); }
+.hs-scene-swatch.slate    { background: conic-gradient(from 45deg, #eef1f5, #d7dde5, #a3aebd, var(--hs-slate)); }
 .hs-opacity-slider { width: 110px; accent-color: var(--hs-coral); }
 .hs-dock-group { flex-wrap: wrap; }
 .hs-dock-slot { display: inline-flex; align-items: center; gap: 2px; }

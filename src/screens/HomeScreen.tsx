@@ -86,7 +86,9 @@ const PAGE_TO_MODULE: Record<string, ModuleKey> = {
 type VehicleAlert = { vehicleName: string; label: string; status: 'warning' | 'expired' };
 
 const SCENE_LABELS: Record<string, string> = {
-  warm: 'Teplá', sunset: 'Západ', ocean: 'Oceán', forest: 'Les', night: 'Noc', custom: 'Vlastní',
+  warm: 'Teplá', sunset: 'Západ', ocean: 'Oceán', forest: 'Les', night: 'Noc',
+  white: 'Bílá', sky: 'Modrá', mint: 'Máta', lavender: 'Levandule', slate: 'Šedá',
+  custom: 'Vlastní',
 };
 
 export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) {
