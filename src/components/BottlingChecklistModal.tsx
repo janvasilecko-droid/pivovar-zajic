@@ -278,11 +278,13 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
   const startItems = items.filter((it) => it.category.startsWith(START_CATEGORY_PREFIX));
   const startCheckedCount = startItems.filter((it) => checkedMap[it.id]).length;
   const startDone = startCheckedCount === startItems.length;
-  // Bránový režim platí jen pro fázi „příprava pracoviště" ('start').
+  // Bránový režim platí jen pro fázi „příprava pracoviště" ('start') a dál
+  // drží zamčené tlačítko „Pokračovat na stáčení", dokud není sekce hotová —
+  // ale samotné zavření okna (✕, Esc, klik mimo) už NEBLOKUJE, na výslovné
+  // přání uživatele (dřív šlo zavřít jen přes „Přeskočit (Admin)").
   const gateActive = phase === 'start' && !!blockCloseUntilStartDone;
   const gateLocked = gateActive && !startDone;
-  // Dokud brána blokuje, nejde modal zavřít (Esc, klik mimo, ✕ ani „Zavřít").
-  const effectiveOnClose = gateLocked ? () => {} : onClose;
+  const effectiveOnClose = onClose;
 
   const handleFinish = () => {
     if (onApplyNote && checkedCount > 0) {
@@ -443,7 +445,7 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
                 <span className="text-emerald-700">✔ Příprava pracoviště splněna — můžete pokračovat.</span>
                ) : (
                 <span>
-                  Nejde zavřít. Odškrtněte celou sekci <b>„1. Začátek stáčení"</b> (zbývá {startItems.length - startCheckedCount} položek), abyste mohli vstoupit do zápisu stáčení.
+                  Odškrtněte celou sekci <b>„1. Začátek stáčení"</b> (zbývá {startItems.length - startCheckedCount} položek), abyste mohli vstoupit do zápisu stáčení.
                 </span>
               )}
             </div>

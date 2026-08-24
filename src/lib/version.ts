@@ -1,7 +1,7 @@
 // Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-export const APP_VERSION = '1.823';
-export const APP_VERSION_DATE = '24.8.2026 17:59';
+export const APP_VERSION = '1.824';
+export const APP_VERSION_DATE = '24.8.2026 20:20';
 
 
 
@@ -9,6 +9,7 @@ export const APP_VERSION_DATE = '24.8.2026 17:59';
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 
 export const APP_CHANGELOG: string[] = [
+  '🐛 Lahve (Stáčení): checklist "Příprava pracoviště" šlo dřív zavřít jen přes skryté admin tlačítko — křížek (✕), Esc i klik mimo okno teď checklist vždy zavřou i nedokončený (na výslovné přání). v1.824',
   '🎨 Lahve (Stáčení → Přehled): záložky "Lahve / KEG / Vše / Měsíc / Týden" mají teď stejné ikony jako zbytek appky (Domů, navigace) místo emoji obrázků. v1.822',
   '🎨 Audit barev napříč celou appkou: zhruba 60 černých přepínacích tlačítek (záložky/filtry na 16 obrazovkách — Historie, Objednávky, Kalkulačky, KEG, Lahve, HACCP, Sklad, Inventura, Uživatelé, Sklep, Připomínky, Závoz, Zpětná vazba, Dashboard...) nahrazeno barevnou (amber) verzí; opraven i špatně čitelný bílý text na tlumeném amber pozadí na víc místech a pár míst s téměř neviditelným šedým textem. v1.820',
   '🎨 Objednávky (Nové): tlačítka dnů v "Datum závozu" už nejsou černá — barevná (amber), stejná výška jako řádek s týdnem/šipkami. 🎨 Úvodní obrazovka: přibylo 5 nových scén pozadí bližších bílé/modré (Bílá, Modrá, Máta, Levandule, Šedá) vedle původních sytých. v1.818',
