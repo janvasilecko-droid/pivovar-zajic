@@ -220,17 +220,19 @@ export function VoiceRecorder({
         onClick={recording ? stop : start}
         disabled={busy}
         title={recording ? 'Zastavit nahrávání' : 'Hlasové zadávání / Diktování'}
-        className={`px-3 py-1.5 rounded flex items-center gap-1.5 text-xs font-bold transition-all shadow-xs ${
+        className={`rounded flex items-center gap-1.5 text-xs font-bold transition-all shadow-xs ${
+          dark ? 'px-4 py-3 sm:py-2.5 min-h-[44px] sm:min-h-[38px]' : 'px-3 py-1.5'
+        } ${
           recording
             ? 'bg-rose-600 text-white animate-pulse shadow-md shadow-rose-500/30'
             : busy
-              ? dark ? 'bg-neutral-700 text-white cursor-not-allowed' : 'bg-amber-100 text-amber-700 cursor-not-allowed border border-amber-300'
-              : dark ? 'bg-neutral-900 text-white hover:bg-neutral-800 active:scale-95' : 'bg-amber-50 text-amber-900 border border-amber-300/80 hover:bg-amber-100/90 active:scale-95'
+              ? dark ? 'bg-neutral-200 text-neutral-500 cursor-not-allowed' : 'bg-amber-100 text-amber-700 cursor-not-allowed border border-amber-300'
+              : dark ? 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100 active:scale-95' : 'bg-amber-50 text-amber-900 border border-amber-300/80 hover:bg-amber-100/90 active:scale-95'
         }`}
       >
         {busy ? (
           <>
-            <Loader2 size={15} className={`animate-spin ${dark ? 'text-white' : 'text-amber-600'}`} />
+            <Loader2 size={15} className="animate-spin text-amber-600" />
             <span>Přepisuji…</span>
           </>
         ) : recording ? (
@@ -240,7 +242,7 @@ export function VoiceRecorder({
           </>
         ) : (
           <>
-            <Mic size={15} className={dark ? 'text-white' : 'text-amber-700'} />
+            <Mic size={15} className="text-amber-700" />
             <span>Hlasové zadání</span>
           </>
         )}
