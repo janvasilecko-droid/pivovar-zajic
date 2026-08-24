@@ -1367,9 +1367,9 @@ export default function Orders({
                 </span>
               )}
             </button>
-            <button className="btn-ghost !rounded !bg-neutral-900 !border-neutral-900 !text-white font-extrabold text-xs shadow-xs flex items-center gap-1.5 hover:!bg-neutral-800" title="Kontrola — zobrazí VŠECHNY WhatsApp zprávy za období, i chybové a ignorované" onClick={() => setShowWhatsAppAudit(true)}><ShieldAlert size={14} /> Kontrola zpráv</button>
-            <button className="btn-ghost !rounded !bg-neutral-900 !border-neutral-900 !text-white font-extrabold text-xs shadow-xs flex items-center gap-1.5 hover:!bg-neutral-800" title="Audit objednávek — najde duplicitní položky, nesrovnalosti proti WhatsAppu a nezpracované zprávy" onClick={() => setShowOrderAudit(true)}><ShieldAlert size={14} /> Audit objednávek</button>
-            <button className="btn-ghost !rounded !bg-neutral-900 !border-neutral-900 !text-white font-extrabold text-xs shadow-xs flex items-center gap-1.5 hover:!bg-neutral-800" title="Načíst z fotky/e-mailu" onClick={() => { setImportTarget(null); setShowImport(true); }}><Camera size={14} /> Fotka/AI</button>
+            <button className="btn-ghost !rounded !bg-amber-50 !border-amber-200 !text-amber-900 font-extrabold text-xs shadow-xs flex items-center gap-1.5 hover:!bg-amber-100" title="Kontrola — zobrazí VŠECHNY WhatsApp zprávy za období, i chybové a ignorované" onClick={() => setShowWhatsAppAudit(true)}><ShieldAlert size={14} /> Kontrola zpráv</button>
+            <button className="btn-ghost !rounded !bg-amber-50 !border-amber-200 !text-amber-900 font-extrabold text-xs shadow-xs flex items-center gap-1.5 hover:!bg-amber-100" title="Audit objednávek — najde duplicitní položky, nesrovnalosti proti WhatsAppu a nezpracované zprávy" onClick={() => setShowOrderAudit(true)}><ShieldAlert size={14} /> Audit objednávek</button>
+            <button className="btn-ghost !rounded !bg-amber-50 !border-amber-200 !text-amber-900 font-extrabold text-xs shadow-xs flex items-center gap-1.5 hover:!bg-amber-100" title="Načíst z fotky/e-mailu" onClick={() => { setImportTarget(null); setShowImport(true); }}><Camera size={14} /> Fotka/AI</button>
           </div>
         </div>
       </div>
@@ -2877,7 +2877,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                     </label>
                     <div className="flex items-center gap-1 shrink-0">
                       <button
-                        className="text-primary-400 hover:text-primary-700 px-2 py-1.5"
+                        className="text-primary-400 hover:text-primary-700 min-w-[40px] min-h-[40px] flex items-center justify-center text-lg rounded hover:bg-primary-50"
                         title="Upravit položku"
                         onClick={() => {
                           if (isEditing) { setEditingItemId(null); return; }
@@ -2887,7 +2887,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                           setEditQty(String(i.quantity));
                         }}
                       >✎</button>
-                      <button className="text-danger-400 hover:text-danger-600 px-2 py-1.5" onClick={() => rmItem(i.id)}>×</button>
+                      <button className="text-danger-400 hover:text-danger-600 min-w-[40px] min-h-[40px] flex items-center justify-center text-xl rounded hover:bg-danger-50" onClick={() => rmItem(i.id)}>×</button>
                     </div>
                   </div>
                   <div className="flex items-center justify-between text-xs">

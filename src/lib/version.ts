@@ -1,7 +1,7 @@
 // Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-export const APP_VERSION = '1.831';
-export const APP_VERSION_DATE = '24.8.2026 19:29';
+export const APP_VERSION = '1.832';
+export const APP_VERSION_DATE = '24.8.2026 22:10';
 
 
 
@@ -9,6 +9,7 @@ export const APP_VERSION_DATE = '24.8.2026 19:29';
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 
 export const APP_CHANGELOG: string[] = [
+  '🎨 Celkový audit vzhledu pro mobil: dlaždice na Domů teď mají tmavý/světlý text podle jasu vlastní barvy (dřív natvrdo bílý — na světlých odstínech skoro nečitelný); zvětšeny malé dotykové prvky (šipky/kolečko u úpravy dlaždice, barevné vzorky, položky v Objednávkách); doladěno posledních pár černých tlačítek (Zahájit stáčení, Detailní přehled, Hotovo, Kontrola zpráv/Audit/Fotka) na amber. v1.832',
   '🐛 Objednávky (Nové): tlačítko "Hlasové zadání" mělo jinou výšku než sousední tlačítka (Nové/Text/WhatsApp/Kontrola/Audit/Fotka) — teď je v jedné řadě stejně velké jako ostatní. v1.830',
   '🎨 Ikony napříč appkou (Historie, Objednávky, HACCP, Sklad, Inventura, Uživatelé, Sklep): odstraněny zbylé emoji vedle záložek, které už měly lucide ikonu, a doplněny lucide ikony u záložek, které dosud emoji vůbec neměly (Objednávky časový rozsah, Sklep, HACCP kapitoly). v1.828',
   '🎨 Lahve (Stáčení) a KEG (Stáčení): záložky "Začátek stáčení / Přehled / Potřeba stočit / Příprava (Checklist) / Konec stáčení / Zadat stáčení" mají teď stejné ikony jako Domů (lucide) místo emoji, a "Příprava"/"Konec" už nejsou černá tlačítka. v1.826',

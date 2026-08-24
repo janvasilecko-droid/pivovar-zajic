@@ -920,7 +920,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
               ) : (
                 <button type="button" className="text-sm font-semibold text-red-600" onClick={() => handleHideTile(editingTileId)}>Skrýt dlaždici</button>
               )}
-              <button type="button" className="text-sm font-bold bg-neutral-900 text-white rounded px-4 py-2" onClick={() => setEditingTileId(null)}>Hotovo</button>
+              <button type="button" className="text-sm font-bold bg-amber-500 hover:bg-amber-600 text-neutral-950 rounded px-4 py-2" onClick={() => setEditingTileId(null)}>Hotovo</button>
             </div>
           </div>
         </Modal>
@@ -981,7 +981,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
               </div>
             )}
             <div className="flex justify-end pt-2 border-t border-neutral-100">
-              <button type="button" className="text-sm font-bold bg-neutral-900 text-white rounded px-4 py-2" onClick={() => setShowAddTileModal(false)}>Hotovo</button>
+              <button type="button" className="text-sm font-bold bg-amber-500 hover:bg-amber-600 text-neutral-950 rounded px-4 py-2" onClick={() => setShowAddTileModal(false)}>Hotovo</button>
             </div>
           </div>
         </Modal>

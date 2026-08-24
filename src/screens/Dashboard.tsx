@@ -393,7 +393,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
         </button>
         <button
           onClick={() => setShowAnnouncementManager(true)}
-          className="btn !rounded bg-neutral-900 hover:bg-neutral-800 text-white !py-2 !px-3.5 text-xs font-black shadow-sm"
+          className="btn !rounded bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 !py-2 !px-3.5 text-xs font-black shadow-sm"
         >
           <AlertTriangle size={15} /> Spravovat Hlášení
         </button>
@@ -432,7 +432,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
 
           <button
             onClick={() => (setPage ? setPage('sklo_promo') : setActiveTab('sklo_promo'))}
-            className="px-4 py-2.5 rounded bg-neutral-900 text-white font-extrabold text-xs shadow-md hover:bg-neutral-800 transition shrink-0"
+            className="px-4 py-2.5 rounded bg-white text-amber-900 border border-amber-300 hover:bg-amber-50 font-extrabold text-xs shadow-md transition shrink-0"
           >
             Přejít do evidence etiket & lahví →
           </button>
@@ -542,7 +542,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
 
                 {s.stockByPkg.length === 0 && <p className="text-xs text-neutral-400 py-3 italic">Žádné volné obaly na skladě.</p>}
 
-                <button className="w-full text-sm text-white font-extrabold mt-2 py-1.5 rounded bg-neutral-900 hover:bg-neutral-800 flex items-center justify-center gap-1.5 transition" onClick={() => setDetail(s)}>
+                <button className="w-full text-sm text-neutral-950 font-extrabold mt-2 py-1.5 rounded bg-amber-500 hover:bg-amber-600 flex items-center justify-center gap-1.5 transition" onClick={() => setDetail(s)}>
                   <ClipboardList size={16} /> Detailní přehled
                 </button>
               </div>

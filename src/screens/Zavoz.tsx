@@ -1100,8 +1100,8 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                     onClick={() => setMoveTarget('_none')}
                     className={`flex items-center justify-between gap-1 px-3 py-2.5 rounded border font-black text-xs transition shadow-xs ${
                       moveTarget === '_none'
-                        ? 'bg-neutral-800 text-white border-neutral-900 ring-2 ring-neutral-400'
-                        : 'bg-white text-neutral-700 hover:bg-neutral-100 border-neutral-200'
+                        ? 'bg-amber-500 text-slate-950 border-amber-600 ring-2 ring-amber-300'
+                        : 'bg-white text-neutral-800 hover:bg-amber-50 border-neutral-200'
                     }`}
                   >
                     <span>Bez dne</span>

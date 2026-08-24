@@ -78,6 +78,22 @@ export function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+/** Barva popisku/ikony dlaždice podle jasu jejího podkladu — stejný vzorec
+ *  jako beerText() v lib/supabase.ts. Natvrdo bílý text (dřív .hs-tile color:
+ *  #fff bez ohledu na barvu) byl na světlých odstínech (citrus, honey, peach,
+ *  mustard, blush, lime, sage, lavender...) špatně čitelný, zvlášť nad
+ *  taky světlejšími scénami pozadí (bílá/modrá/máta/levandule/šedá). */
+export function tileTextColor(hex: string): string {
+  const h = (hex || '').replace('#', '');
+  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+  const r = parseInt(full.slice(0, 2), 16) / 255;
+  const g = parseInt(full.slice(2, 4), 16) / 255;
+  const b = parseInt(full.slice(4, 6), 16) / 255;
+  if ([r, g, b].some((n) => Number.isNaN(n))) return '#fff';
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return lum < 0.55 ? '#fff' : '#2b2438';
+}
+
 // Volná velikost dlaždice: w v jednotkách po UNIT_COLS sloupcích 18sloupcové
 // mřížky (0 = kompaktní "mini" dlaždice o 1 sloupci, viz HomeScreen.css
 // .hs-tile.xs), h v řádcích. Horní mez w=4 (12 sloupců) je schválně stejná

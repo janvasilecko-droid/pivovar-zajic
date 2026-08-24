@@ -783,7 +783,7 @@ function exportInventoryExcel() {
 
           <button
             onClick={handleLockAndTransferNextMonth}
-            className="px-4 py-2.5 rounded bg-neutral-800 hover:bg-neutral-700 text-amber-950 border border-neutral-700 font-black text-xs transition shadow-md flex items-center gap-1.5"
+            className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-600 text-neutral-950 font-black text-xs transition shadow-md flex items-center gap-1.5"
           >
             <Lock size={16} /> Schválit & Převést do nového měsíce
           </button>

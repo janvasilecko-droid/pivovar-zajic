@@ -865,7 +865,7 @@ export default function BottlingScreen({
             <button
               type="button"
               onClick={() => { setChecklistPhase('start'); setChecklistGate(true); setShowChecklistModal(true); }}
-              className="mx-auto flex items-center gap-3 px-8 py-5 sm:px-10 sm:py-6 rounded bg-neutral-900 hover:bg-neutral-800 text-white font-black text-lg sm:text-xl shadow-xl active:scale-[0.97] transition"
+              className="mx-auto flex items-center gap-3 px-8 py-5 sm:px-10 sm:py-6 rounded bg-amber-500 hover:bg-amber-600 text-neutral-950 font-black text-lg sm:text-xl shadow-xl active:scale-[0.97] transition"
             >
               🚀 Zahájit stáčení
             </button>
@@ -1897,7 +1897,7 @@ export default function BottlingScreen({
                 onClick={() => {
                   setShowEndConfirm(false);
                 }}
-                className="px-5 py-3 rounded bg-neutral-900 hover:bg-neutral-800 text-white font-black text-xs transition shadow-md"
+                className="px-5 py-3 rounded bg-amber-500 hover:bg-amber-600 text-neutral-950 font-black text-xs transition shadow-md"
               >
                 🔄 Budu pokračovat ve stáčení
               </button>
@@ -1908,7 +1908,7 @@ export default function BottlingScreen({
                   setChecklistGate(false);
                   setShowChecklistModal(true);
                 }}
-                className="px-5 py-3 rounded bg-neutral-900 hover:bg-neutral-800 text-white font-black text-xs transition shadow-md"
+                className="px-5 py-3 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border border-neutral-300 font-black text-xs transition shadow-md"
               >
                 🧹 Končím (otevřít Úklidový checklist)
               </button>

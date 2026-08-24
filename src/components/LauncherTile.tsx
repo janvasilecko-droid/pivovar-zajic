@@ -17,7 +17,7 @@
 // stejnou edit-mode "chrome" (dpad, ozubené kolo, jiggle, drag, výběr).
 import type { CSSProperties } from 'react';
 import type { NavItem } from './Layout';
-import { hexToRgba, UNIT_COLS, type TileId, type TileOverride } from '../lib/homeLayout';
+import { hexToRgba, tileTextColor, COLOR_HEX, UNIT_COLS, type TileColor, type TileId, type TileOverride } from '../lib/homeLayout';
 
 /** Explicitní pozice+rozestup (grid-column/-row) pro danou volnou pozici/velikost —
  *  dlaždice sedí přesně na uložené buňce (x,y), ne jen "další volné místo". */
@@ -67,6 +67,11 @@ export default function LauncherTile({
   const y = override.y ?? 0;
   const label = override.label || item?.label || 'Skupina';
   const Icon = item?.icon;
+  // Popisek/ikona nemůže být natvrdo bílá — na světlých odstínech (citrus,
+  // honey, peach, mustard, blush...), obzvlášť nad taky světlými scénami
+  // pozadí, by byl skoro neviditelný (viz tileTextColor).
+  const resolvedHex = isPresetColor ? COLOR_HEX[color as TileColor] : color;
+  const textColor = tileTextColor(resolvedHex);
 
   return (
     <div
@@ -74,6 +79,7 @@ export default function LauncherTile({
       style={{
         ...tileGridStyle(x, y, w, h),
         ...(isPresetColor ? {} : { background: hexToRgba(color, tileOpacity) }),
+        color: textColor,
         // touch-action:none jen na dlaždici, co je PRÁVĚ zvednutá (isDragging)
         // — ne hned od prvního dotyku (isPriming) a ne na všechny dlaždice jen
         // proto, že je zapnutý edit mód. Dřív to blokovalo scroll stránky

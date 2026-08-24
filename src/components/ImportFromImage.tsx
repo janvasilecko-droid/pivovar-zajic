@@ -784,7 +784,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                 onClick={() => fileRef.current?.click()}
                 disabled={busy}
                 title="Vybrat objednávku z fotogalerie"
-                className="w-11 h-11 grid place-items-center rounded bg-neutral-800 hover:bg-neutral-700 text-white text-xl shadow-md transition active:scale-95 disabled:opacity-50"
+                className="w-11 h-11 grid place-items-center rounded bg-amber-700 hover:bg-amber-800 text-white text-xl shadow-md transition active:scale-95 disabled:opacity-50"
               >
                 🖼️
               </button>
