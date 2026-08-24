@@ -547,8 +547,15 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
     setNotifPermission(getNotificationPermission());
   };
 
+  // Bez neprůhledného pozadí (dřív bg-neutral-50) — jinak tenhle wrapper, i
+  // když je position:static, svým vlastním pozadím vždycky přemaloval
+  // barevnou scénu (.hs-fullscreen-scene, position:fixed, z-index:-1) přes
+  // celou obrazovku, takže výběr scény/barvy v "Upravit rozložení" neměl
+  // VŮBEC žádný viditelný efekt (scéna se sice správně přepočítala a
+  // aplikovala, jen ji nikdy nebylo vidět). Scéna sama vždy nastaví nějaké
+  // pozadí (fallback 'warm'), takže tu žádná díra nehrozí.
   return (
-    <div className="flex h-screen bg-neutral-50 text-neutral-900 font-sans antialiased overflow-hidden selection:bg-amber-500 selection:text-neutral-950">
+    <div className="flex h-screen text-neutral-900 font-sans antialiased overflow-hidden selection:bg-amber-500 selection:text-neutral-950">
       {/* Floating Mobile/Desktop New Order Banner Alert */}
       {activeNewOrderBanner && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-lg bg-neutral-900 border-2 border-amber-400 text-white rounded p-4 sm:p-5 shadow-2xl shadow-amber-500/20 animate-bounce-short flex flex-col gap-3">
