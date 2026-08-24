@@ -157,7 +157,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   // by na bílém podkladu vypadal jako plná barva přes celou obrazovku, ne
   // jako jemné pozadí; průhledná verze dá stejný efekt jako přednastavené
   // scény (viz HomeScreen.css .hs-fullscreen-scene[data-scene]).
-  const homeCustomWash = hexToRgba(homeCustomAccent, 0.4);
+  const homeCustomWash = hexToRgba(homeCustomAccent, 0.55);
   const savedDock = (profile as any)?.home_layout?.dock;
   const dockPages: Page[] = Array.isArray(savedDock) && savedDock.length > 0 ? savedDock : DEFAULT_DOCK;
   // Barva ikony+popisku spodní lišty na Domů = stejná barva, jakou má

@@ -1,7 +1,7 @@
 // Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-export const APP_VERSION = '1.813';
-export const APP_VERSION_DATE = '23.8.2026 20:41';
+export const APP_VERSION = '1.814';
+export const APP_VERSION_DATE = '24.8.2026 00:00';
 
 
 
@@ -9,6 +9,7 @@ export const APP_VERSION_DATE = '23.8.2026 20:41';
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 
 export const APP_CHANGELOG: string[] = [
+  '🎨 Úvodní obrazovka: barevné scény pozadí ("Upravit rozložení" → Pozadí) jsou nyní sytější a tmavší — dřív byly téměř bílé pastelové odstíny, na kterých byla změna sotva postřehnutelná ("jako by se pozadí vůbec neměnilo"); vlastní barva pozadí je teď taky výraznější. v1.814',
   '🐛 Fasování personál (Přehled): mazání záznamu používalo nativní potvrzovací dialog prohlížeče, který v appce (PWA) uměl zamrznout celou obrazovku bez chybové hlášky — nahrazeno vlastním potvrzovacím oknem appky. v1.812',
   '🎨 Fasování personál: záložky "Zápis / Přehled" prohozeny — aktivní záložka je teď tmavě šedá, neaktivní bílá. v1.811',
   '🎨 Úvodní obrazovka: tlačítko "Sjednotit barvy dle kategorie" v Upravit rozložení přebarví dlaždice tak, aby všechny ve stejné kategorii (Výroba/Pivovar/Nástroje/Číselníky/Nastavení) měly stejnou barvu. "Přidat dlaždici" teď nabízí i dlaždice umístěné na jiných stránkách (zelená tečka = výběr ji sem přesune) a je seskupené podle kategorie, každá s vlastním odstínem barevné rodiny. v1.809',

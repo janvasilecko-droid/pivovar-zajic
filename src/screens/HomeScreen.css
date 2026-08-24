@@ -32,16 +32,16 @@
   background: #fbfaff;
   transition: background 0.25s ease;
 }
-/* Základní podklad scény je teď barevně odlišený gradient (ne jednotná bílá
-   pro všechny scény) — dřív byla vidět jen barva 4 rozmazaných "bublin"
-   (.b1-.b4), což byl na malém displeji tak jemný rozdíl mezi scénami, že to
-   působilo jako "barva pozadí se vůbec nemění". */
-.hs-fullscreen-scene[data-scene="warm"]   { background: linear-gradient(160deg, #ffe4d1 0%, #ffc2cf 55%, #e2c2ff 100%); }
-.hs-fullscreen-scene[data-scene="sunset"] { background: linear-gradient(160deg, #ffedb0 0%, #ffbd7a 55%, #ffabab 100%); }
-.hs-fullscreen-scene[data-scene="ocean"]  { background: linear-gradient(160deg, #c8e9ff 0%, #b3d4ff 55%, #b8f3e0 100%); }
-.hs-fullscreen-scene[data-scene="forest"] { background: linear-gradient(160deg, #d3f2dc 0%, #b9e6b0 55%, #ffe9a8 100%); }
-.hs-fullscreen-scene[data-scene="night"]  { background: linear-gradient(160deg, #beadf0 0%, #a196e0 55%, #a9c3ec 100%); }
-.hs-fullscreen-scene[data-scene="custom"] { background: linear-gradient(160deg, var(--hs-custom-wash, rgba(255,107,107,0.4)) 0%, #fbfaff 85%); }
+/* Základní podklad scény je barevně odlišený gradient (ne jednotná bílá pro
+   všechny scény) — sytější/tmavší odstíny (stejné barvy jako --hs-* výš, ne
+   jejich zesvětlené pastelové verze), ať je změna scény na první pohled
+   vidět, ne jen jemný nádech skoro k nerozeznání od bílé. */
+.hs-fullscreen-scene[data-scene="warm"]   { background: linear-gradient(160deg, var(--hs-coral) 0%, var(--hs-rose) 55%, var(--hs-plum) 100%); }
+.hs-fullscreen-scene[data-scene="sunset"] { background: linear-gradient(160deg, var(--hs-amber2) 0%, var(--hs-coral) 55%, var(--hs-orchid) 100%); }
+.hs-fullscreen-scene[data-scene="ocean"]  { background: linear-gradient(160deg, var(--hs-sky) 0%, var(--hs-indigo) 55%, var(--hs-teal) 100%); }
+.hs-fullscreen-scene[data-scene="forest"] { background: linear-gradient(160deg, var(--hs-mint) 0%, var(--hs-forest) 55%, var(--hs-gold) 100%); }
+.hs-fullscreen-scene[data-scene="night"]  { background: linear-gradient(160deg, var(--hs-plum) 0%, var(--hs-indigo) 55%, var(--hs-slate) 100%); }
+.hs-fullscreen-scene[data-scene="custom"] { background: linear-gradient(160deg, var(--hs-custom, #ff6b6b) 0%, var(--hs-custom-wash, rgba(255,107,107,0.55)) 60%, #2b2438 100%); }
 /* Vyšší průhlednost bublin (dřív 0.4 / 0.22 pro night) — na displeji plném
    poloprůhledných dlaždic byl rozdíl mezi scénami skoro neznatelný, "jako by
    se pozadí vůbec neměnilo" (viz i sytější gradient výše). */
