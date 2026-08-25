@@ -775,7 +775,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             Na Domů a na stránkách s vlastní TabBar bez horního odsazení, ať
             dlaždice/záložky začínají úplně nahoře (hlavička tam navíc není
             vůbec vykreslená). */}
-        <div className={`flex-1 overflow-y-auto px-3.5 sm:px-8 pb-24 sm:pb-8 ${hideHeader ? 'pt-2' : 'pt-3.5 sm:pt-8'}`}>
+        <div className={`flex-1 overflow-y-auto px-3.5 sm:px-8 pb-24 ${hideHeader ? 'pt-2' : 'pt-3.5 sm:pt-8'}`}>
           {children}
         </div>
 
@@ -786,7 +786,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             žádné vyplněné barevné bloky, jen ikona+popisek aktivní položky
             obarvené stejnou barvou, jakou má daná dlaždice v launcheru. */}
         <nav
-          className="hs-glass-chrome sm:hidden fixed bottom-0 left-0 right-0 z-30 border-t shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-1 py-1.5 pb-safe flex items-center justify-around gap-1"
+          className="hs-glass-chrome fixed bottom-0 left-0 right-0 z-30 border-t shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-1 py-1.5 pb-safe flex items-center justify-around gap-1 sm:max-w-lg sm:mx-auto sm:rounded-t-2xl sm:border-x"
         >
           {dockPages.map((dockId, i) => {
             const isActive = dockId === 'home' ? navPageFor(page) === 'home' : navPageFor(page) === dockId;

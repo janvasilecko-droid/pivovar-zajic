@@ -1660,7 +1660,7 @@ export default function BottlingScreen({
               <div className="overflow-x-auto scrollbar-thin rounded border border-neutral-200">
                 <table className="table text-xs w-full">
                   <thead>
-                    <tr className="sticky top-[112px] z-10 bg-neutral-100 border-b border-neutral-200 shadow-xs">
+                    <tr className="bg-neutral-100 border-b border-neutral-200 shadow-xs">
                       <th className="p-2.5 text-left">Pivo (obal)</th>
                       <th className="p-2.5 text-right font-bold text-neutral-600">Poč. stav</th>
                       <th className="p-2.5 text-right font-bold text-emerald-800">Stočeno (+)</th>
