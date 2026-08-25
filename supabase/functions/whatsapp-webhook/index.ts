@@ -443,10 +443,42 @@ Deno.serve(async (req: Request) => {
 
       if (existing) {
         return new Response(
-          JSON.stringify({ 
-            success: true, 
+          JSON.stringify({
+            success: true,
             message: "Duplicate webhook ID, message already received",
-            id: existing.id 
+            id: existing.id
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    } else {
+      // webhook_id chybí (integrace ho neposílá vždy — Tasker/starší bridge
+      // verze) → bez něj by se stejná zpráva při retry doručení (výpadek sítě,
+      // opakovaný webhook) uložila DVAKRÁT a mohla by vést i k duplicitně
+      // naimportované objednávce. Záložní kontrola: stejný odesílatel + stejný
+      // text + stejná skupina v posledních 2 minutách je prakticky jistě
+      // opakované doručení téže zprávy, ne dvě různé zprávy se shodným zněním.
+      const dedupWindowStart = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+      let dupQuery = supabase
+        .from("whatsapp_incoming")
+        .select("id")
+        .eq("sender_name", record.sender_name)
+        .eq("message_text", record.message_text)
+        .gte("created_at", dedupWindowStart);
+      dupQuery = record.chat_id
+        ? dupQuery.eq("chat_id", record.chat_id)
+        : dupQuery.is("chat_id", null);
+      const { data: recentDup } = await dupQuery.maybeSingle();
+
+      if (recentDup) {
+        console.log(
+          `[whatsapp-webhook] Duplicitní doručení bez webhook_id (sender="${record.sender_name}" chat_id="${chatId}") — přeskočeno, existující id=${recentDup.id}.`
+        );
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: "Duplicate message (no webhook_id, matched by content within 2min window)",
+            id: recentDup.id,
           }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );

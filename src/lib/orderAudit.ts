@@ -460,24 +460,18 @@ export async function mergeDuplicateItemRows(
   const [keepRow, ...deleteRows] = rows;
   const deleteIds = deleteRows.map((r) => r.id);
 
-  // 1. Aktualizovat ponechaný řádek
-  const { error: updateErr } = await supabase
-    .from('order_items')
-    .update({ quantity: targetQuantity })
-    .eq('id', keepRow.id);
+  // Update ponechaného řádku a smazání duplicit v JEDNÉ DB transakci (RPC) —
+  // dřív šlo o dvě samostatná volání z klienta; když update prošel, ale delete
+  // selhal (výpadek sítě, zavřený prohlížeč uprostřed), zůstaly v objednávce
+  // OBA řádky se stejným pivem/obalem a množství se tiše zdvojilo.
+  const { error } = await supabase.rpc('merge_duplicate_order_items', {
+    p_keep_id: keepRow.id,
+    p_delete_ids: deleteIds,
+    p_target_quantity: targetQuantity,
+  });
 
-  if (updateErr) {
-    return { success: false, error: updateErr.message };
-  }
-
-  // 2. Smazat nadbytečné řádky
-  const { error: deleteErr } = await supabase
-    .from('order_items')
-    .delete()
-    .in('id', deleteIds);
-
-  if (deleteErr) {
-    return { success: false, error: deleteErr.message };
+  if (error) {
+    return { success: false, error: error.message };
   }
 
   return { success: true };
