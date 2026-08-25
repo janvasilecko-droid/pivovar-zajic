@@ -1,6 +1,9 @@
 import { useState } from 'react';
-import { CalendarX2, CheckCircle2, ClipboardList, PartyPopper } from 'lucide-react';
-import { isLastWeekOfMonth, getMonthKey } from '../lib/monthlyCleanup';
+import { CalendarX2, CalendarClock, ClipboardList, PartyPopper } from 'lucide-react';
+import {
+  isLastWeekOfMonth, getMonthKey,
+  readMonthlyCleanupStage, writeMonthlyCleanupStage,
+} from '../lib/monthlyCleanup';
 import { businessDateISO } from '../lib/businessDate';
 import { useAuth } from '../lib/auth';
 import { DEFAULT_ITEMS, MONTHLY_CATEGORY_PREFIX } from './BottlingChecklistModal';
@@ -17,24 +20,11 @@ type Props = {
 };
 
 // Dvoufázové potlačení tohoto upozornění přes daný kalendářní měsíc — na
-// výslovné přání uživatele: první "OK vím o tom" (kdykoliv do čtvrtka) ho
+// výslovné přání uživatele: "Udělám na konci týdne" (kdykoliv do čtvrtka) ho
 // jen odloží do pátku, kdy se připomene znovu; teprve druhé potvrzení (nebo
-// "Už je to provedeno" kdykoliv) ho umlčí až do dalšího měsíce.
-type DismissStage = 'week_start' | 'friday' | 'done';
-const DISMISS_KEY_PREFIX = 'monthly_cleanup_dismiss_';
-
-function readStage(monthKey: string): DismissStage | null {
-  try {
-    return localStorage.getItem(DISMISS_KEY_PREFIX + monthKey) as DismissStage | null;
-  } catch {
-    return null;
-  }
-}
-function writeStage(monthKey: string, stage: DismissStage) {
-  try {
-    localStorage.setItem(DISMISS_KEY_PREFIX + monthKey, stage);
-  } catch {}
-}
+// "Už je to provedeno" kdykoliv) ho umlčí až do dalšího měsíce. Od prvního
+// odkliknutí navíc na Domů zůstává tichá připomínková dlaždice (viz
+// isMonthlyCleanupPending v lib/monthlyCleanup.ts), dokud není úklid hotový.
 // Pátek/sobota/neděle = "pátek a dál" pro účely opětovného připomenutí — kdo
 // appku zrovna v pátek neotevře, dostane upozornění při prvním otevření o
 // víkendu, ne až příští týden (kdy už měsíc končí).
@@ -44,7 +34,7 @@ function isFridayOrLater(): boolean {
 }
 function shouldShow(monthKey: string): boolean {
   if (!isLastWeekOfMonth()) return false;
-  const stage = readStage(monthKey);
+  const stage = readMonthlyCleanupStage(monthKey);
   if (stage === 'done') return false;
   if (!stage) return true;
   if (stage === 'week_start') return isFridayOrLater();
@@ -77,7 +67,7 @@ function markMonthlyDone<T extends { id: string; text: string; category: string 
 
 // ⚠️ Výrazné upozornění v posledním týdnu měsíce: „V tomto týdnu je potřeba
 // udělat měsíční úklid." Zobrazí se na začátku posledního týdne měsíce;
-// „OK vím o tom" ho odloží do pátku (kdy se připomene znovu), druhé
+// „Udělám na konci týdne" ho odloží do pátku (kdy se připomene znovu), druhé
 // potvrzení už ho umlčí do dalšího měsíce. „Už je to provedeno" rovnou
 // označí měsíční checklist (lahve i KEGy) za splněný a zapíše ho do obou
 // sanitárních deníků, beze nutnosti procházet checklist ručně.
@@ -90,7 +80,7 @@ export function MonthlyCleanupWarning({ onOpenMonthlyChecklist, onOpenKegMonthly
   if (!open) return null;
 
   const dismiss = () => {
-    writeStage(monthKey, isFridayOrLater() ? 'friday' : 'week_start');
+    writeMonthlyCleanupStage(monthKey, isFridayOrLater() ? 'friday' : 'week_start');
     setOpen(false);
   };
 
@@ -105,7 +95,7 @@ export function MonthlyCleanupWarning({ onOpenMonthlyChecklist, onOpenKegMonthly
     if (keg.checkedItems.length > 0) {
       void autoLogKegSanitationFromChecklist({ dateStr: today, checkedMap: keg.map, performedBy, phase: 'monthly' });
     }
-    writeStage(monthKey, 'done');
+    writeMonthlyCleanupStage(monthKey, 'done');
     setDone(true);
     setTimeout(() => setOpen(false), 1600);
   };
@@ -158,8 +148,8 @@ export function MonthlyCleanupWarning({ onOpenMonthlyChecklist, onOpenKegMonthly
             onClick={dismiss}
             className="w-full py-3.5 px-6 rounded bg-rose-600 hover:bg-rose-500 text-white font-black text-base transition shadow-xl hover:shadow-rose-500/20 active:scale-[0.98] flex items-center justify-center gap-3 ring-4 ring-rose-300"
           >
-            <CheckCircle2 size={22} />
-            <span>OK vím o tom</span>
+            <CalendarClock size={22} />
+            <span>Udělám na konci týdne</span>
           </button>
           <button
             type="button"

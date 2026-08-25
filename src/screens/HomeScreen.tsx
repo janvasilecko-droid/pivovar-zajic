@@ -6,7 +6,7 @@
 // zobrazuje se jen komu je nastaveno (Uživatelé → "Dostává upozornění na
 // vozidla") a musí ho jednou potvrdit, pak zmizí (dokud se stav nezmění).
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { Search, MessageCircle, SlidersHorizontal, ChevronLeft, ChevronRight, Plus, Trash2, TriangleAlert } from 'lucide-react';
+import { Search, MessageCircle, SlidersHorizontal, ChevronLeft, ChevronRight, Plus, Trash2, TriangleAlert, Download, CalendarX2 } from 'lucide-react';
 import { NAV, EXTRA_NAV, type Page, type NavItem } from '../components/Layout';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import LauncherTile from '../components/LauncherTile';
@@ -29,6 +29,8 @@ import {
   type HomeLayout, type TileColor, type TileId, type GroupId,
 } from '../lib/homeLayout';
 import { getKegTimerState, formatDurationMs } from '../lib/stopwatchTimers';
+import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
+import { isMonthlyCleanupPending, MONTHLY_CLEANUP_CHANGED_EVENT } from '../lib/monthlyCleanup';
 import './HomeScreen.css';
 
 /** true = jméno přednastaveného odstínu (CSS třída c-*); false = vlastní hex barva (inline styl). */
@@ -470,6 +472,25 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
     });
   }, [canSeeVehicleAlerts]);
 
+  // Nová verze appky — dřív automaticky vyskakující modál, teď jen tichá
+  // dlaždice na Domů (stejný princip jako "Vozidla — STK/známka" níže):
+  // uživatel si aktualizaci spustí sám kliknutím, kdy se mu to hodí, appka
+  // ho k tomu nenutí uprostřed rozdělané práce.
+  const [newVersionInfo, setNewVersionInfo] = useState<VersionInfo | null>(null);
+  useEffect(() => onNewVersion((info) => setNewVersionInfo(info)), []);
+
+  // Připomínková dlaždice na měsíční úklid — zůstává vidět, dokud ho uživatel
+  // buď neudělá (tlačítko "Už je to provedeno" v modálu MonthlyCleanupWarning,
+  // App.tsx), nebo měsíc neskončí. Modál žije mimo Domů, proto se poslouchá
+  // vlastní event místo přímého sdílení reactu stavu (viz monthlyCleanup.ts).
+  const [monthlyCleanupPending, setMonthlyCleanupPending] = useState(() => isMonthlyCleanupPending());
+  useEffect(() => {
+    const recheck = () => setMonthlyCleanupPending(isMonthlyCleanupPending());
+    recheck();
+    window.addEventListener(MONTHLY_CLEANUP_CHANGED_EVENT, recheck);
+    return () => window.removeEventListener(MONTHLY_CLEANUP_CHANGED_EVENT, recheck);
+  }, []);
+
   const editingGroup = editingTileId && isGroupId(editingTileId) ? layout.groups[editingTileId] : null;
   const editingItem = editingTileId && !isGroupId(editingTileId) ? navById.get(editingTileId) : null;
   const editingOverride = editingTileId ? (layout.overrides[editingTileId] ?? {}) : null;
@@ -719,6 +740,26 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                   <TriangleAlert />
                   <div className="hs-lbl">Vozidla — STK/známka</div>
                   <span className="hs-badge">{vehicleAlerts.length}</span>
+                </button>
+              )}
+              {newVersionInfo && (
+                <button
+                  type="button"
+                  className="hs-tile hs-tile-alert"
+                  onClick={() => { void forceRefresh(); }}
+                  title={`Nová verze v${newVersionInfo.version} (${newVersionInfo.date}) — klikni pro aktualizaci`}
+                >
+                  <Download />
+                  <div className="hs-lbl">Nová aktualizace v{newVersionInfo.version}</div>
+                </button>
+              )}
+              {monthlyCleanupPending && (
+                // Zůstává i po odkliknutí modálu MonthlyCleanupWarning
+                // (App.tsx) — "Udělám na konci týdne" ho jen na chvíli
+                // schová, tahle dlaždice tu jako připomínka zůstává dál.
+                <button type="button" className="hs-tile hs-tile-alert" onClick={() => setPage('bottling')}>
+                  <CalendarX2 />
+                  <div className="hs-lbl">Měsíční úklid — checklist</div>
                 </button>
               )}
             </>

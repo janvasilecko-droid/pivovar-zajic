@@ -9,7 +9,6 @@ import {
 
 import { useAuth } from '../lib/auth';
 import { Modal } from './ui';
-import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
 import { supabase, Beer, Package, Place } from '../lib/supabase';
 import { EditOrderModal } from './EditOrderModal';
 import { autoReserveTapIfNeeded } from '../lib/tapReservations';
@@ -235,14 +234,6 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   const [notifPermission, setNotifPermission] = useState<'granted' | 'denied' | 'default' | 'unsupported'>(getNotificationPermission());
   type BannerData = NewOrderNotifyData & { kind?: 'order' | 'whatsapp'; sender_name?: string; message_text?: string; autoHideSeconds?: number };
   const [activeNewOrderBanner, setActiveNewOrderBanner] = useState<BannerData | null>(null);
-
-  // New version check
-  const [newVersionInfo, setNewVersionInfo] = useState<VersionInfo | null>(null);
-
-  useEffect(() => {
-    // main.tsx vlastní jediný časovač kontroly; Layout pouze spravuje UI listener.
-    return onNewVersion((info) => setNewVersionInfo(info));
-  }, []);
 
   const isAdmin = profile?.role === 'admin' || isAdminEmail(user?.email);
 
@@ -657,23 +648,25 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           className="hs-glass-chrome flex items-center justify-between px-2 sm:px-8 py-2 border-b shadow-2xs z-20 gap-2 shrink-0"
         >
           <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 shrink-0">
-            {/* Název stránky v mobilní hlavičce — vynechá se na stránkách, co
-                mají vlastní TabBar (viz TABBED_PAGES níže): záložka nahoře
-                už jméno sekce ukazuje, duplicitní popisek by byl zbytečný
-                (viz Objednávky — "🛒 Objednávky" v kartě + tahle hlavička +
-                záložka = 3× to samé). */}
+            {/* Název stránky v hlavičce — na mobilu (viz níže) je to JEDINÝ
+                obsah hlavičky, ať zbytečně nezabírá místo na malém displeji;
+                vynechá se na stránkách, co mají vlastní TabBar (viz
+                TABBED_PAGES níže): záložka nahoře už jméno sekce ukazuje,
+                duplicitní popisek by byl zbytečný (viz Objednávky —
+                "🛒 Objednávky" v kartě + tahle hlavička + záložka = 3× to samé). */}
             {!TABBED_PAGES.has(navPageFor(page)) && (
-              <span className="sm:hidden font-display font-black text-base text-neutral-900 truncate">
+              <span className="font-display font-black text-sm sm:text-base text-neutral-900 truncate">
                 {(NAV.find((n) => n.id === navPageFor(page)) ?? EXTRA_NAV.find((n) => n.id === navPageFor(page)))?.label ?? ''}
               </span>
             )}
           </div>
 
-          {/* Pravá strana hlavičky — jen upozornění, nic trvalého. WhatsApp a
-              nové objednávky se objeví jen když je opravdu co řešit. Na
-              domovské stránce jsou Hledat a WhatsApp dlaždice v launcheru
-              místo tlačítek tady (viz HomeScreen.tsx). */}
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
+          {/* Pravá strana hlavičky (Hledat/odznaky/offline stav/Chyby) — jen
+              na desktopu (sm a víc). Na mobilu appka zbytečně nezabírala
+              místo hlavičkou plnou tlačítek na každé stránce — Hledat a
+              WhatsApp jsou dostupné jako dlaždice na Domů (HomeScreen.tsx),
+              zbytek je jen "nice to have", ne nutný na každé obrazovce. */}
+          <div className="hidden sm:flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
             {!isHome && (
               <button
                 type="button"
@@ -820,38 +813,6 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
         </nav>
       </main>
 
-      {/* Nová verze — modální okno */}
-      {newVersionInfo && (
-        <Modal open={true} onClose={() => setNewVersionInfo(null)} title="📱 Nová verze aplikace">
-          <div className="space-y-5 text-sm">
-            <div className="bg-sky-50 rounded border-2 border-sky-300 p-5 text-center">
-              <div className="text-4xl mb-3">📱</div>
-              <div className="font-black text-sky-950 text-lg mb-1">Nová verze v{newVersionInfo.version}</div>
-              <div className="text-sky-700 font-semibold text-xs">{newVersionInfo.date}</div>
-            </div>
-
-            <p className="text-neutral-700 font-medium text-xs leading-relaxed">
-              Je dostupná nová verze aplikace. Pro aktualizaci klikni na tlačítko níže.
-              Stránka se obnoví a načte nejnovější verzi.
-            </p>
-
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={() => { void forceRefresh(); }}
-                className="w-full py-3 rounded text-sm font-black transition shadow-lg bg-sky-500 hover:bg-sky-400 text-white border border-sky-400"
-              >
-                🔄 Aktualizovat na v{newVersionInfo.version}
-              </button>
-              <button
-                onClick={() => setNewVersionInfo(null)}
-                className="w-full py-2.5 rounded text-xs font-bold transition bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border border-neutral-200"
-              >
-                ✕ Zavřít
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
     </div>
   );
 }

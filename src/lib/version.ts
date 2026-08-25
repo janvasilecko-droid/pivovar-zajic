@@ -1,7 +1,7 @@
 // Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-export const APP_VERSION = '1.845';
-export const APP_VERSION_DATE = '25.8.2026 08:27';
+export const APP_VERSION = '1.846';
+export const APP_VERSION_DATE = '25.8.2026 11:10';
 
 
 
@@ -9,6 +9,7 @@ export const APP_VERSION_DATE = '25.8.2026 08:27';
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 
 export const APP_CHANGELOG: string[] = [
+  '🎨 Domů: nová aktualizace appky a nedokončený měsíční úklid se teď ukazují jako tichá dlaždice (červeno-žlutá, jako STK upozornění) místo vyskakovacího okna — sám si klikneš, kdy se ti to hodí. Checklist měsíčního úklidu má nové tlačítko "Udělám na konci týdne" (dřív "OK vím o tom") a dlaždice na Domů zůstává jako připomínka, dokud úklid skutečně neuděláš. 📱 Mobil: horní lišta (Hledat/odznaky/Chyby) na všech obrazovkách kromě Domů zabírala zbytečně místo — teď se na mobilu ukazuje jen název stránky menším písmem, zbytek zůstal na desktopu. v1.846',
   '🐛 Objednávky: zápis stáčení/inventury/odpisu se nepropisoval do skladových odznaků v Objednávkách (chybí skladem apod.) bez ručního obnovení stránky — appka poslouchala živé změny jen na objednávkách, ne na stáčení/inventuře/odpisech, které do stejného výpočtu taky vstupují. v1.844',
   '🐛 Sklep/KEG: opraveno "% vystočeno" a ztráta při ukončení tanku — po opakovaném použití tanku (nový cyklus) se dřív sčítalo stočené ze VŠECH předchozích cyklů, ne jen z aktuálního. Smazání nebo úprava (množství/pivo/obal/tank) záznamu stáčení teď navíc správně vrátí/odečte objem u sklepního tanku — dřív zůstal navždy posunutý. v1.842',
   '🔐 Bezpečnostní audit — kritická oprava: uživatel si mohl přes přímé API volání sám nastavit vlastní modulová práva na plný přístup (server-side kontrola právům slepě věřila) — teď je to na DB úrovni zablokované, stejně jako už dřív u role. Nastavení práv adminem jinému uživateli se navíc dřív tiše neuložilo (appka hlásila úspěch, ale server odmítl zápis) — teď jde přes zabezpečenou serverovou funkci a skutečně se uloží. Auditní log akcí navíc už nejde komukoliv upravit/smazat. v1.840',
