@@ -275,11 +275,26 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
     return hlMap;
   }, [orderItems, orders, packages, weekKey, kegging, beers]);
 
-  // Souhrn stáčení z tanku (kegging) — pro aktuální (nedokončený) cyklus
+  // Souhrn stáčení z tanku (kegging) — jen pro AKTUÁLNÍ (nedokončený) cyklus
+  // daného tanku, ne kumulativně napříč všemi cykly, co kdy z tabulky kegging
+  // přes daný cellar_tank_id prošly. Bez tohohle omezení se po opakovaném
+  // použití tanku (nový cyklus, nové pivo) sčítalo stočené i ze VŠECH
+  // předchozích cyklů — % vystočeno šplhalo přes 100 % a ztráta při
+  // ukončení tanku vycházela vždy jako 0 (initialVol - kumulativníKeggedL
+  // ořízlé Math.max na 0).
+  const cycleStartByTank = useMemo(() => {
+    const m = new Map<string, string>();
+    tanks.forEach((t) => {
+      if (t.started_at) m.set(t.id, t.started_at.slice(0, 10));
+    });
+    return m;
+  }, [tanks]);
   const tankSummary = useMemo(() => {
     const m = new Map<string, { kegCount: number; sourceL: number; lossL: number; bySize: Record<number, number> }>();
     kegging.forEach((r) => {
       const id = r.cellar_tank_id ?? '_none';
+      const cycleStart = cycleStartByTank.get(id);
+      if (cycleStart && r.entry_date < cycleStart) return; // patří k předchozímu cyklu tanku
       if (!m.has(id)) m.set(id, { kegCount: 0, sourceL: 0, lossL: 0, bySize: {} });
       const s = m.get(id)!;
       s.kegCount += Number(r.quantity ?? 0);
@@ -290,7 +305,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
       if (size > 0) s.bySize[size] = (s.bySize[size] ?? 0) + Number(r.quantity ?? 0);
     });
     return m;
-  }, [kegging]);
+  }, [kegging, cycleStartByTank]);
 
   // Poslední cykly podle tanku (pro mini historii pod kartou)
   const cyclesByTank = useMemo(() => {

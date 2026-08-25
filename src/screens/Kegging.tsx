@@ -233,6 +233,19 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     try {
       const selectedBeer = beers.find(b => b.id === editingRow.beer_id);
       const selectedPkg = packages.find(p => p.id === editingRow.package_id);
+      const newQty = Number(editingRow.quantity);
+      const newTankId = editingRow.cellar_tank_id || null;
+      // Nový zdrojový objem stejným vzorcem jako při vzniku záznamu (add()) —
+      // bez tanku se objem neváže na nic a needeukuje se.
+      const newSourceL = selectedPkg && newTankId ? newQty * Number(selectedPkg.volume_l) : 0;
+
+      // Původní stav záznamu (před úpravou) — potřeba pro vrácení objemu
+      // starému tanku, pokud se tank/množství/obal změnily. Dřív se objem
+      // tanku při plné úpravě záznamu vůbec nepřepočítal (ani starému, ani
+      // novému tanku), takže se natrvalo rozjel.
+      const original = rows.find((r) => r.id === editingRow.id);
+      const oldTankId = original?.cellar_tank_id || null;
+      const oldSourceL = Number(original?.source_volume_l ?? 0);
 
       const { error } = await supabase
         .from('kegging')
@@ -242,13 +255,18 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
           beer_name: selectedBeer?.name || null,
           package_id: editingRow.package_id,
           package_label: selectedPkg?.label || null,
-          quantity: Number(editingRow.quantity),
-          cellar_tank_id: editingRow.cellar_tank_id || null,
+          quantity: newQty,
+          cellar_tank_id: newTankId,
+          source_volume_l: newSourceL || null,
           note: editingRow.note || null
         })
         .eq('id', editingRow.id);
 
       if (error) throw error;
+
+      if (oldTankId && oldSourceL) await adjustTankVolume(oldTankId, oldSourceL);
+      if (newTankId && newSourceL) await adjustTankVolume(newTankId, -newSourceL);
+
       setEditingRow(null);
       load(true);
     } catch (err: any) {
@@ -350,17 +368,29 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
   // Souhrn stáčení z tanku (kegging) — sjednoceno s Cellar.tsx: % stočeno se počítá
   // ze skutečně zapsaných záznamů (source_volume_l), ne z current_volume_l tanku.
+  // Omezeno na AKTUÁLNÍ cyklus tanku (od started_at) — jinak se po opakovaném
+  // použití tanku sčítalo i stočené z předchozích cyklů (viz stejná oprava
+  // v Cellar.tsx).
+  const cycleStartByTank = useMemo(() => {
+    const m = new Map<string, string>();
+    cellarTanks.forEach((t) => {
+      if (t.started_at) m.set(t.id, t.started_at.slice(0, 10));
+    });
+    return m;
+  }, [cellarTanks]);
   const tankSummary = useMemo(() => {
     const m = new Map<string, { kegCount: number; sourceL: number }>();
     rows.forEach((r) => {
       const id = r.cellar_tank_id ?? '_none';
+      const cycleStart = cycleStartByTank.get(id);
+      if (cycleStart && r.entry_date < cycleStart) return;
       if (!m.has(id)) m.set(id, { kegCount: 0, sourceL: 0 });
       const s = m.get(id)!;
       s.kegCount += Number(r.quantity) ?? 0;
       s.sourceL += Number(r.source_volume_l ?? 0);
     });
     return m;
-  }, [rows]);
+  }, [rows, cycleStartByTank]);
 
   function setRowField(i: number, field: keyof RowInput, value: string) {
     setEntryRows((rs) => rs.map((r, idx) => idx === i ? { ...r, [field]: value } : r));
@@ -512,9 +542,52 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     setShowEndConfirm(true);
   }
 
+  // Vrátí (nebo odebere) objem u zdrojového tanku záznamu — volá se při
+  // smazání/úpravě množství, ať cellar_tanks.current_volume_l nezůstane
+  // navždy posunutý (dřív se odečítalo jen jednou při vzniku záznamu v add(),
+  // úprava/smazání objem tanku vůbec nereflektovaly).
+  async function adjustTankVolume(tankId: string | null | undefined, addL: number) {
+    if (!tankId || !addL) return;
+    const tank = cellarTanks.find((t) => t.id === tankId);
+    if (!tank) return;
+    const newVol = Math.max(Number(tank.current_volume_l) + addL, 0);
+    await supabase.from('cellar_tanks').update({
+      current_volume_l: newVol,
+      updated_at: new Date().toISOString(),
+    }).eq('id', tankId);
+  }
+
+  // Sdílená logika pro increment/setQty/saveEdit: dopočítá nový
+  // source_volume_l úměrně staré hodnotě (objem na kus × nové množství) a
+  // rozdíl promítne do zdrojového tanku (víc kusů = víc odebráno, míň = vráceno).
+  async function updateKeggingQty(id: string, newQty: number): Promise<string | null> {
+    const row = rows.find((r) => r.id === id);
+    if (!row) return 'Záznam nenalezen.';
+    const oldQty = Number(row.quantity);
+    const oldSourceL = Number(row.source_volume_l ?? 0);
+    const patch: Record<string, unknown> = { quantity: newQty };
+    let deltaL = 0;
+    if (row.cellar_tank_id && oldQty > 0 && oldSourceL > 0) {
+      const perUnit = oldSourceL / oldQty;
+      const newSourceL = perUnit * newQty;
+      deltaL = newSourceL - oldSourceL;
+      patch.source_volume_l = newSourceL;
+    }
+    const { error } = await supabase.from('kegging').update(patch).eq('id', id);
+    if (error) return error.message;
+    if (deltaL !== 0) await adjustTankVolume(row.cellar_tank_id, -deltaL);
+    load(true);
+    return null;
+  }
+
   async function del(id: string) {
+    const row = rows.find((r) => r.id === id);
     await supabase.from('kegging').delete().eq('id', id);
     setRows((r) => r.filter((x) => x.id !== id));
+    if (row?.cellar_tank_id && row.source_volume_l) {
+      await adjustTankVolume(row.cellar_tank_id, Number(row.source_volume_l));
+      load(true);
+    }
   }
 
   async function increment(id: string, delta: number) {
@@ -522,19 +595,15 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     if (!row) return;
     const newQty = Number(row.quantity) + delta;
     if (newQty < 0) return;
-    const { error } = await supabase.from('kegging').update({ quantity: newQty }).eq('id', id);
-    if (error) { setErr(error.message); return; }
-    setRows((rs) => rs.map((r) => r.id === id ? { ...r, quantity: newQty } : r));
+    const errMsg = await updateKeggingQty(id, newQty);
+    if (errMsg) { setErr(errMsg); return; }
   }
 
   // Rychlé nastavení počtu sudů z rozbalovacího pole (6/12/18/24)
   async function setQty(id: string, qty: number) {
-    const row = rows.find((r) => r.id === id);
-    if (!row) return;
     const newQty = Math.max(0, Math.round(qty));
-    const { error } = await supabase.from('kegging').update({ quantity: newQty }).eq('id', id);
-    if (error) { setErr(error.message); return; }
-    setRows((rs) => rs.map((r) => r.id === id ? { ...r, quantity: newQty } : r));
+    const errMsg = await updateKeggingQty(id, newQty);
+    if (errMsg) { setErr(errMsg); return; }
   }
 
   // Spustí editaci záznamu — naplní pole pro úpravu
@@ -550,9 +619,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     if (!editingId) return;
     const newQty = Number(editQty);
     if (!(newQty >= 0)) { setErr('Zadej platné množství.'); return; }
-    const { error } = await supabase.from('kegging').update({ quantity: newQty }).eq('id', editingId);
-    if (error) { setErr(error.message); return; }
-    setRows((rs) => rs.map((r) => r.id === editingId ? { ...r, quantity: newQty } : r));
+    const errMsg = await updateKeggingQty(editingId, newQty);
+    if (errMsg) { setErr(errMsg); return; }
     setEditingId(null);
     setEditQty('');
     setErr(null);
