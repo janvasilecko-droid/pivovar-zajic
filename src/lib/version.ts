@@ -1,7 +1,7 @@
 // Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-export const APP_VERSION = '1.870';
-export const APP_VERSION_DATE = '25.8.2026 18:40';
+export const APP_VERSION = '1.871';
+export const APP_VERSION_DATE = '25.8.2026 23:00';
 
 
 
@@ -9,6 +9,7 @@ export const APP_VERSION_DATE = '25.8.2026 18:40';
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 
 export const APP_CHANGELOG: string[] = [
+  '🔐 Dokončeno vynucení uživatelských práv na serveru: dřív měly ochranu jen Sklep/Stáčení/Inventura — u ostatních modulů (Objednávky, Závoz, Zápis výroby, Kniha jízd, Číselníky, Ceník, Sanitační deníky, Šrotování, Sklo/etikety, Upomínky) appka práva jen schovávala v prohlížeči a technicky zdatný uživatel je mohl obejít. Teď to hlídá i databáze. Pozn.: nic se nezamyká uživatelům, kteří nemají výslovně nastavené omezení. v1.871',
   '🧹 Úklid nepoužívaného kódu: odstraněny 2 osiřelé komponenty (starší verze WhatsApp okna a mapy sklepa, dávno nahrazené) a 4 nepoužívané funkce exportu do Excelu — bez dopadu na fungující obrazovky. v1.869',
   '🐛 HACCP → Údržba stáčecí linky: celá dlaždice byla jen ukázková data v paměti prohlížeče — po refreshi zmizelo úplně vše, "Odsouhlasit provedení údržby" nikam neukládalo. Teď se plán údržby skutečně ukládá a je sdílený mezi zařízeními. 🐛 Sanitační deník: rozlišení lokálního/uloženého záznamu podle "ID začíná na 17" fungovalo jen náhodou (přestane fungovat cca 2027) — nahrazeno správnou kontrolou formátu. 🐛 Excel export sanitačního deníku: metoda "Kombinovaná sanitace" bez zadané koncentrace se v exportu ukázala jako 0 %, i když na obrazovce správně 2 %. v1.867',
   '🐛 Domů: dlaždice "Objednávky k parsování" a tlačítko WhatsApp v horní liště dřív místo okna s WhatsApp zprávami k parsování skončily jen na obyčejném seznamu objednávek — přepnutí stránky a otevření okna se dělalo přes událost, kterou obrazovka Objednávky ještě nestihla začít poslouchat. Teď se to řeší spolehlivě (stejný princip jako u prokliku z "Potřeba stočit"). v1.864',
