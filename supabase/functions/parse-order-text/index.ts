@@ -262,7 +262,7 @@ Deno.serve(async (req: Request) => {
             const date = m.date ? `, datum: ${m.date}` : "";
             const fullText = m.text.replace(/\s+/g, " ").trim();
             const quoted = m.quotedText
-              ? `\n  ⭐ TOHLE JE ODPOVĚĎ (WhatsApp reply) NA ZPRÁVU S TÍMTO TEXTEM: "${m.quotedText.replace(/\s+/g, " ").trim()}" — najdi tuhle zprávu výše v seznamu a POUZE k NÍ tuhle odpověď připoj/uprav (viz pravidlo o citovaných odpovědích níže). Je to JISTOTA, ne odhad.`
+              ? `\n  ⭐ TOHLE JE ODPOVĚĎ (WhatsApp reply) NA ZPRÁVU S TÍMTO TEXTEM: "${m.quotedText.replace(/\s+/g, " ").trim()}" — najdi tuhle zprávu výše v seznamu (mezi Zprávami 1..${i}) a POUZE k NÍ tuhle odpověď připoj/uprav (viz pravidlo o citovaných odpovědích níže). Je to JISTOTA, ne odhad. ⚠️ Text citace uvedený zde SLOUŽÍ JEN K DOHLEDÁNÍ té zprávy v seznamu výše — NIKDY z něj samotného nečti/nevytvářej žádnou položku navíc. Pokud odpovídající zprávu v seznamu výše nenajdeš, přečti JEN samotný obsah téhle odpovědi (fullText) a nic nevymýšlej z textu citace.`
               : "";
             return `Zpráva ${i + 1}: ${sender}${date}\n  Celý obsah zprávy: "${fullText}"${quoted}`;
           })
@@ -339,6 +339,7 @@ POSTUP při čtení vícenásobné/odpověďové zprávy:
 4. Pokud odpověď neobsahuje jméno odběratele, použij odběratele a datum z té předchozí/původní zprávy, na kterou odpovídá (stejné place_name i date).
 5. Nech raw_line každé položky odpovídat tomu textu, ze kterého reaguje, aby bylo jasné, že patří do stejné objednávky, a místo aby se každý řádek bral jako jiná objednávka.
 6. KRITICKÉ — IGNORUJ CITOVANÉ ZPRÁVY A REAKCE VE WHATSAPPU: Ve WhatsApp chatu se při odpovědi zobrazuje CITOVANÁ ZPRÁVA (v rámečku nahoře v bublině zprávy, kde je zopakované jméno odesílatele a text původní zprávy). NIKDY neextrahuj položky z CITOVANÉ ZPRÁVY jako novou samostatnou objednávku — je to jen zopakovaný text původní zprávy. Texty pod citací typu "3x30 čeho", "čeho?", "jaké pivo?", "ok", "platí", "příští týden", "díky" jsou CHATOVÉ DOTAZY/KOMENTÁŘE, NIKOLIV samostatné objednávky. Neextrahuj z nich nové položky.
+   ⚠️ Tohle platí STEJNĚ i pro DOPLNĚNÍ (bod 2–3 výše, "Plus"/"ještě"/"k tomu")! Citovaný text ("⭐ TOHLE JE ODPOVĚĎ NA ZPRÁVU S TÍMTO TEXTEM") slouží JEN k tomu, abys našel/l tu původní zprávu v seznamu a věděl/a, ke kterému odběrateli/dni doplnění patří — NENÍ to zdroj položek. Vrať z citované zprávy JEN ty položky, které skutečně vidíš v jejím VLASTNÍM textu ve Zprávě výše v seznamu (ne z uvozovek u ⭐), plus to, co je NOVĚ napsané v aktuální odpovědi. Příklad chyby, kterou NESMÍŠ udělat: odpověď "Plus 3x10 11sv" (doplnění k objednávce Maneo) smí vrátit JEN položku 3× 10l 11° — pokud v aktuální odpovědi není napsaná žádná další položka, nevymýšlej/nepřidávej k ní žádnou další položku "navíc" jen proto, že se podobně formulovaná objevuje v citovaném textu.
 7. KRITICKÉ — IGNORUJ CHATOVÝ TEXT, KTERÝ NEPATŘÍ K OBJEDNÁVCE (ZBYTEK JINÉ KONVERZACE):
    Do zprávy se občas připlete kousek textu, který s objednávkou NESOUVISÍ — zbytek
    předchozí/jiné konverzace nebo odpověď na otázku jiného odesílatele (jiné téma).
