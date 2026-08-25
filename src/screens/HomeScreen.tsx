@@ -17,6 +17,7 @@ import { canUserView, getUserPermissions, ModuleKey } from '../lib/permissions';
 import { isAdminEmail } from '../lib/config';
 import { supabase, Vehicle } from '../lib/supabase';
 import { fetchPendingWhatsAppCount } from '../lib/whatsappApi';
+import { requestOrdersAutoImport } from '../lib/ordersFilter';
 import { getVehicleExpiryStatus } from './Catalogs';
 import {
   getHomeLayout, saveHomeLayout, addPage, removePage, moveTileToPage, hideTile, addTile,
@@ -445,8 +446,8 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
     fetchPendingWhatsAppCount().then(setPendingWhatsApp).catch(() => {});
   }, []);
   function openWhatsAppFromTile() {
+    requestOrdersAutoImport();
     setPage('orders');
-    window.dispatchEvent(new CustomEvent('pivovar:open-auto-import'));
   }
 
   // Upozornění na STK / dálniční známku vozidel — jen komu je to nastaveno

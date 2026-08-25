@@ -6,7 +6,7 @@ import { Camera, ListOrdered, Package as PackageIcon, Phone, Building2, Truck, P
 import { supabase, Beer, Package, Place, EntryRow, useRealtime, beerBg, beerText, beerName, formatPackageLabel, pkgBg } from '../lib/supabase';
 import { Modal, Field, EmptyState, Spinner, useConfirm } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
-import { consumeOrdersItemFilter } from '../lib/ordersFilter';
+import { consumeOrdersItemFilter, consumeOrdersAutoImportRequest } from '../lib/ordersFilter';
 import { computeVariantTotals, type VariantTotalsResult } from '../lib/variantTotals';
 import { ImportFromImage } from '../components/ImportFromImage';
 import { WhatsAppOrderReviewModal } from '../components/WhatsAppOrderReviewModal';
@@ -278,11 +278,14 @@ export default function Orders({
     fetchWhatsAppSenders().then((s) => { allowedSendersRef.current = s; }).catch(() => {});
   }, []);
 
-  // Otevřít Auto-Import přímo z horní hlavičky aplikace (tlačítko „Auto-Import“).
+  // Otevřít Auto-Import přímo z horní hlavičky nebo z dlaždice "Objednávky
+  // k parsování" na Domů — obojí přepne stránku na Objednávky a POŽÁDÁ o
+  // otevření (requestOrdersAutoImport), spotřebováno tady při mountu. Dřív se
+  // to řešilo CustomEvent dispatchnutým hned po přepnutí stránky, ale Orders
+  // se montuje až PO přepnutí, takže posluchač event nestihl zachytit a
+  // appka skončila na obyčejném seznamu objednávek (viz lib/ordersFilter.ts).
   useEffect(() => {
-    const handler = () => setShowWhatsAppAutoProcessor(true);
-    window.addEventListener('pivovar:open-auto-import', handler);
-    return () => window.removeEventListener('pivovar:open-auto-import', handler);
+    if (consumeOrdersAutoImportRequest()) setShowWhatsAppAutoProcessor(true);
   }, []);
   
   // Automatické sledování nových WhatsApp zpráv

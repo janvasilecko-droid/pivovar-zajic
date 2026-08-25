@@ -1,7 +1,7 @@
 // Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-export const APP_VERSION = '1.863';
-export const APP_VERSION_DATE = '25.8.2026 10:18';
+export const APP_VERSION = '1.864';
+export const APP_VERSION_DATE = '25.8.2026 20:00';
 
 
 
@@ -9,6 +9,7 @@ export const APP_VERSION_DATE = '25.8.2026 10:18';
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 
 export const APP_CHANGELOG: string[] = [
+  '🐛 Domů: dlaždice "Objednávky k parsování" a tlačítko WhatsApp v horní liště dřív místo okna s WhatsApp zprávami k parsování skončily jen na obyčejném seznamu objednávek — přepnutí stránky a otevření okna se dělalo přes událost, kterou obrazovka Objednávky ještě nestihla začít poslouchat. Teď se to řeší spolehlivě (stejný princip jako u prokliku z "Potřeba stočit"). v1.864',
   '🐛 Objednávky: odznak "chybí skladem" u detailu/karty objednávky ignoroval výdej přes fasování, prodejnu a Akce/festivaly — sklad tak vypadal vyšší, než ve skutečnosti byl, a odznak se objevil pozdě nebo vůbec. v1.862',
   '🔐 Audit objednávek — sloučení duplicitních položek: dřív šlo o dva samostatné kroky (upravit + smazat), při výpadku uprostřed mohlo množství zůstat tiše zdvojené — teď je to jedna atomická operace. 🔐 WhatsApp: zprávy bez ID webhooku (starší bridge/Tasker) se dřív při opakovaném doručení mohly uložit dvakrát — přidána záložní kontrola podle odesílatele+textu+skupiny v posledních 2 minutách. v1.860',
   '🔐 Lahve/KEG — checklist "Začátek stáčení": brána se dřív vázala na editovatelné pole "Datum", takže šlo přepnutím data na jiný den (kde už checklist dřív proběhl) obejít dnešní přípravu pracoviště bez jejího skutečného vyplnění — teď se váže vždy na opravdu dnešní datum. U lahví navíc chyběla druhá kontrola přímo při uložení (spoléhalo se jen na schování formuláře v UI) — teď je tam stejně jako u KEGů. v1.858',

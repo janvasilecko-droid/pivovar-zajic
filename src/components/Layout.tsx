@@ -14,6 +14,7 @@ import { EditOrderModal } from './EditOrderModal';
 import { autoReserveTapIfNeeded } from '../lib/tapReservations';
 import { requestNotificationPermission, getNotificationPermission, notifyNewOrder, notifyNewWhatsAppMessage, NewOrderNotifyData } from '../lib/notifications';
 import { subscribeToWhatsAppMessages, fetchWhatsAppSenders, fetchPendingWhatsAppCount, isSenderAllowed, triggerAutoParse, type WhatsAppSender, type WhatsAppIncoming } from '../lib/whatsappApi';
+import { requestOrdersAutoImport } from '../lib/ordersFilter';
 import { getDensity, setDensity, DensityMode } from '../lib/density';
 import { canUserView, getUserPermissions, ModuleKey } from '../lib/permissions';
 import { QuickSearchModal } from './QuickSearchModal';
@@ -187,8 +188,8 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   // WhatsApp z horní hlavičky — přepne na Objednávky a otevře seznam
   // příchozích WhatsApp objednávek (hromadné zpracování).
   const openWhatsApp = () => {
+    requestOrdersAutoImport();
     setPage('orders');
-    window.dispatchEvent(new CustomEvent('pivovar:open-auto-import'));
   };
   // Horní hlavička ukazuje jen upozornění, ne trvalou lištu tlačítek — počet
   // nových (ještě nezpracovaných) objednávek, ať se ikona objeví jen když je
