@@ -60,14 +60,31 @@ export function UserPermissionsModal({
     setBusy(true);
     setMsg(null);
 
-    // Save to localStorage immediately
+    // Save to localStorage immediately (funguje okamžitě na tomhle zařízení,
+    // i kdyby serverové uložení selhalo).
     saveUserPermissions(user.id, permissions);
 
-    // Save to Supabase profiles table
+    // Serverové uložení MUSÍ jít přes manage-users edge funkci (service-role
+    // klient) — přímý update přes běžného klienta blokuje RLS pro cizí řádek
+    // (update_own_profile povoluje jen auth.uid() = id), takže by se pro
+    // JINÉHO uživatele nic neuložilo. Dřív se tahle chyba tiše polykala a
+    // appka hlásila úspěch, i když se práva ve skutečnosti vůbec neomezila.
     try {
-      await supabase.from('profiles').update({ permissions: permissions as any }).eq('id', user.id);
-    } catch {
-      // ignore table column error fallback to localStorage
+      const { data: session } = await supabase.auth.getSession();
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users`;
+      const res = await fetch(apiUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.session?.access_token ?? ''}` },
+        body: JSON.stringify({ id: user.id, permissions }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error ?? 'Uložení práv na serveru selhalo.');
+      }
+    } catch (e: any) {
+      setBusy(false);
+      setMsg(`⚠️ Uloženo jen lokálně na tomto zařízení — na server se práva neuložila (${e?.message ?? 'neznámá chyba'}). Zkus to prosím znovu.`);
+      return;
     }
 
     setBusy(false);

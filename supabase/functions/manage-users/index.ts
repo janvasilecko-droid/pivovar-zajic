@@ -146,18 +146,24 @@ Deno.serve(async (req: Request) => {
     // Úprava uživatele (heslo, role, jméno)
     if (req.method === "PUT" && path === "") {
       const body = await req.json();
-      const { id, password, is_admin, display_name } = body;
+      const { id, password, is_admin, display_name, permissions } = body;
       if (!id) return json({ error: "Chybí id." }, 400);
       if (password) {
         if (password.length < 6) return json({ error: "Heslo musí mít min. 6 znaků." }, 400);
         const { error } = await adminClient.auth.admin.updateUserById(id, { password });
         if (error) return json({ error: error.message }, 400);
       }
-      if (typeof is_admin !== "undefined" || display_name) {
+      if (typeof is_admin !== "undefined" || display_name || typeof permissions !== "undefined") {
         const patch: any = {};
         if (typeof is_admin !== "undefined") patch.role = is_admin ? "admin" : "user";
         if (display_name) patch.display_name = display_name;
-        await adminClient.from("profiles").update(patch).eq("id", id);
+        // Zápis modulových práv MUSÍ jít přes service-role klienta (tady) —
+        // běžný klient je zablokovaný RLS (update_own_profile povoluje jen
+        // vlastní řádek), a je to jediné místo, kde je před zápisem znovu
+        // ověřeno auth.role() === "admin" volajícího (viz kontrola výš).
+        if (typeof permissions !== "undefined") patch.permissions = permissions;
+        const { error } = await adminClient.from("profiles").update(patch).eq("id", id);
+        if (error) return json({ error: error.message }, 400);
       }
       return json({ ok: true });
     }

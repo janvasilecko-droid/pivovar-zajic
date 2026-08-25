@@ -1,7 +1,7 @@
 // Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-export const APP_VERSION = '1.839';
-export const APP_VERSION_DATE = '25.8.2026 08:00';
+export const APP_VERSION = '1.840';
+export const APP_VERSION_DATE = '25.8.2026 10:35';
 
 
 
@@ -9,6 +9,7 @@ export const APP_VERSION_DATE = '25.8.2026 08:00';
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 
 export const APP_CHANGELOG: string[] = [
+  '🔐 Bezpečnostní audit — kritická oprava: uživatel si mohl přes přímé API volání sám nastavit vlastní modulová práva na plný přístup (server-side kontrola právům slepě věřila) — teď je to na DB úrovni zablokované, stejně jako už dřív u role. Nastavení práv adminem jinému uživateli se navíc dřív tiše neuložilo (appka hlásila úspěch, ale server odmítl zápis) — teď jde přes zabezpečenou serverovou funkci a skutečně se uloží. Auditní log akcí navíc už nejde komukoliv upravit/smazat. v1.840',
   '🎨 Upozornění na měsíční úklid: "OK vím o tom" ho teď jen odloží do pátku (kdy se připomene znovu), místo aby zmizelo na celý zbytek měsíce. Nové tlačítko "Už je to provedeno" rovnou označí měsíční checklist (lahve i KEGy) za splněný a zapíše to do obou sanitárních deníků, bez nutnosti procházet checklist ručně. v1.838',
   '🐛 Lahve/KEG "Potřeba stočit": sticky hlavička tabulky se špatně přilepila doprostřed a schovávala pod sebou reálné řádky (vypadalo to jako černý pruh, i když data byla v pořádku) — hlavička teď zůstává normálně nahoře. 🖥️ Přidána spodní navigační lišta (Domů a zástupci) i pro notebook/desktop, ne jen mobil — dřív se z appky na desktopu nedalo jinak vrátit na Domů. v1.836',
   '🐛 Service worker (offline cache): oprava — appka hledala v cache napříč VŠEMI uloženými verzemi místo jen té aktuální, což po více nasazeních za sebou mohlo výjimečně servírovat smíchané soubory ze staré verze (prázdná/rozbitá stránka po nasazení). Teď se hledá jen v cache aktuálně nainstalované verze. v1.834',
