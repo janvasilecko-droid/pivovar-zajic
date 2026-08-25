@@ -14,6 +14,29 @@ export function computeInventoryReconciliation(
   return { diffQty, reconciledQty, diffAfterQty };
 }
 
+export type AkceRow = {
+  entry_date: string;
+  items: { beer_id: string | null; package_id: string | null; quantity_taken: number; quantity_returned: number }[];
+};
+
+/**
+ * Rozbalí řádky Akcí (festivaly) na plochý seznam výdejových pohybů (stejný
+ * tvar jako fasovaniRows/prodejnaRows/writeoffsRows), s množstvím = čistý
+ * odběr (odvezeno − vráceno). Vrácené kusy se tak nepočítají jako spotřeba.
+ */
+export function flattenAkceNet(
+  akceRows: AkceRow[]
+): { entry_date: string; beer_id: string | null; package_id: string | null; quantity: number }[] {
+  const out: { entry_date: string; beer_id: string | null; package_id: string | null; quantity: number }[] = [];
+  for (const r of akceRows) {
+    for (const it of r.items ?? []) {
+      const net = Number(it.quantity_taken || 0) - Number(it.quantity_returned || 0);
+      if (net > 0) out.push({ entry_date: r.entry_date, beer_id: it.beer_id, package_id: it.package_id, quantity: net });
+    }
+  }
+  return out;
+}
+
 /**
  * Helper to compute the starting stock of a month with automatic fallbacks.
  * If no starting stock is explicitly defined for the target month, it falls back
@@ -28,7 +51,8 @@ export function getStartingStockMap(
   prodejnaRows: any[],
   writeoffsRows: any[],
   depth = 0,
-  zavozDeductionRows: any[] = []
+  zavozDeductionRows: any[] = [],
+  akceRows: AkceRow[] = []
 ): Record<string, number> {
   // Prevent infinite recursion
   if (depth > 12) {
@@ -111,7 +135,8 @@ export function getStartingStockMap(
     prodejnaRows,
     writeoffsRows,
     depth + 1,
-    zavozDeductionRows
+    zavozDeductionRows,
+    akceRows
   );
 
   const map: Record<string, number> = { ...prevStartingMap };
@@ -143,6 +168,16 @@ export function getStartingStockMap(
   // obrazovka Sklad, aby zpětný dopočet neignoroval vydané objednávky).
   zavozDeductionRows
     .filter((r) => r.deduct_date?.slice(0, 7) === prevMonthKey)
+    .forEach((r) => {
+      if (!r.beer_id || !r.package_id) return;
+      const k = `${r.beer_id}__${r.package_id}`;
+      map[k] = Math.max(0, (map[k] || 0) - Number(r.quantity || 0));
+    });
+
+  // Subtract Akce (festivaly) consumed in prevMonthKey — čistý odběr (odvezeno
+  // − vráceno), stejný zdroj jako obrazovka Sklad (Stock.tsx).
+  flattenAkceNet(akceRows)
+    .filter((r) => r.entry_date?.slice(0, 7) === prevMonthKey)
     .forEach((r) => {
       if (!r.beer_id || !r.package_id) return;
       const k = `${r.beer_id}__${r.package_id}`;

@@ -6,8 +6,8 @@
 //   • stock         – sklad TEĎ = sklad v pondělí ráno (počátek měsíce
 //                     s převodem z předchozího měsíce + pohyby od 1. dne
 //                     měsíce do pondělí) + stočeno/kegováno OD PONDĚLÍ −
-//                     výdej (fašování/prodejna/odpisy/zavezené objednávky)
-//                     OD PONDĚLÍ
+//                     výdej (fašování/prodejna/odpisy/Akce-festivaly/zavezené
+//                     objednávky) OD PONDĚLÍ
 //   • ordered       – VŠECHNY objednávky v daném týdnu (i už zavezené, ať je
 //                     vidět celková týdenní potřeba na středeční/čtvrteční/
 //                     páteční zavoz, ne jen zbytek)
@@ -22,7 +22,7 @@
 // Čerstvé stočení se tak projeví v „chybí stočit" OKAMŽITĚ (počítá se do
 // „stock" hned po uložení), bez čekání na to, až se nějaká JINÁ objednávka
 // označí jako zavezená.
-import { getStartingStockMap } from './inventoryHelper';
+import { getStartingStockMap, flattenAkceNet, AkceRow } from './inventoryHelper';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import type { BottlingPlan } from './bottlingPlans';
 
@@ -55,6 +55,8 @@ export type BottlingNeedsInput = {
   writeoffsRows: any[];
   /** Automatický odpočet závozu (stejný zdroj jako Sklad/Inventura — viz zavoz_deductions). */
   zavozDeductionRows?: any[];
+  /** Spotřeba na Akcích/festivalech (odvezeno − vráceno), stejný zdroj jako Sklad (Stock.tsx). */
+  akceRows?: AkceRow[];
   weekKey: string;
   todayStr: string;
 };
@@ -72,9 +74,12 @@ export function computeBottlingNeeds(input: BottlingNeedsInput): NeedsRow[] {
     prodejnaRows,
     writeoffsRows,
     zavozDeductionRows = [],
+    akceRows = [],
     weekKey,
     todayStr,
   } = input;
+
+  const akceOutRows = flattenAkceNet(akceRows);
 
   const weekStartStr = weekRange(weekKey).start.toISOString().slice(0, 10);
   const weekStartMonth = weekStartStr.slice(0, 7);
@@ -84,7 +89,7 @@ export function computeBottlingNeeds(input: BottlingNeedsInput): NeedsRow[] {
 
   // Sklad v PONDĚLÍ RÁNO: počátek měsíce (s převodem z předchozího měsíce,
   // včetně zavezených objednávek) + pohyby od 1. dne měsíce do pondělí.
-  const invMap = getStartingStockMap(weekStartMonth, inventoryRows, bottlingRows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, 0, zavozDeductionRows);
+  const invMap = getStartingStockMap(weekStartMonth, inventoryRows, bottlingRows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, 0, zavozDeductionRows, akceRows);
   const preWeekIn: Record<string, number> = {};
   [...bottlingRows, ...keggingRows].filter((r) => isBeforeThisWeek(r.entry_date)).forEach((r) => {
     if (!r.beer_id || !r.package_id) return;
@@ -92,7 +97,7 @@ export function computeBottlingNeeds(input: BottlingNeedsInput): NeedsRow[] {
     preWeekIn[k] = (preWeekIn[k] || 0) + Number(r.quantity || 0);
   });
   const preWeekOut: Record<string, number> = {};
-  [...fasovaniRows, ...prodejnaRows, ...writeoffsRows].filter((r) => isBeforeThisWeek(r.entry_date)).forEach((r) => {
+  [...fasovaniRows, ...prodejnaRows, ...writeoffsRows, ...akceOutRows].filter((r) => isBeforeThisWeek(r.entry_date)).forEach((r) => {
     if (!r.beer_id || !r.package_id) return;
     const k = `${r.beer_id}__${r.package_id}`;
     preWeekOut[k] = (preWeekOut[k] || 0) + Number(r.quantity || 0);
@@ -115,7 +120,7 @@ export function computeBottlingNeeds(input: BottlingNeedsInput): NeedsRow[] {
     inMap[k] = (inMap[k] || 0) + Number(r.quantity || 0);
   });
   const outMap: Record<string, number> = {};
-  [...fasovaniRows, ...prodejnaRows, ...writeoffsRows].filter((r) => isThisWeek(r.entry_date)).forEach((r) => {
+  [...fasovaniRows, ...prodejnaRows, ...writeoffsRows, ...akceOutRows].filter((r) => isThisWeek(r.entry_date)).forEach((r) => {
     if (!r.beer_id || !r.package_id) return;
     const k = `${r.beer_id}__${r.package_id}`;
     outMap[k] = (outMap[k] || 0) + Number(r.quantity || 0);

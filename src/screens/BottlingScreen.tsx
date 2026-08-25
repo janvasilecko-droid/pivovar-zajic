@@ -217,6 +217,7 @@ export default function BottlingScreen({
   const [writeoffsRows, setWriteoffsRows] = useState<any[]>([]);
   const [zavozDeductionRows, setZavozDeductionRows] = useState<any[]>([]);
   const [adjustmentRows, setAdjustmentRows] = useState<any[]>([]);
+  const [akceRows, setAkceRows] = useState<any[]>([]);
 
   // Filtry pro "Potřeba stočit lahve"
   const [reqBeerFilter, setReqBeerFilter] = useState('');
@@ -310,12 +311,13 @@ export default function BottlingScreen({
         writeoffsRows,
         zavozDeductionRows,
         adjustmentRows,
+        akceRows,
         weekKey,
         todayStr,
       },
       (kind) => kind !== 'keg'
     );
-  }, [beers, packages, orders, orderItems, inventoryRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, keggingRows, zavozDeductionRows, adjustmentRows, weekKey]);
+  }, [beers, packages, orders, orderItems, inventoryRows, rows, fasovaniRows, prodejnaRows, writeoffsRows, keggingRows, zavozDeductionRows, adjustmentRows, akceRows, weekKey]);
 
   const filteredRequirements = useMemo(() => {
     let list = bottleRequirements;
@@ -419,7 +421,7 @@ export default function BottlingScreen({
   async function load(silent = false) {
     const loadId = ++loadCountRef.current;
     if (!silent && !rows.length) setLoading(true);
-    const [bt, b, p, ords, oi, inv, fa, fp, wo, kg, pl, zd, adj] = await Promise.all([
+    const [bt, b, p, ords, oi, inv, fa, fp, wo, kg, pl, zd, adj, ak] = await Promise.all([
       supabase.from('bottling').select('*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
@@ -433,6 +435,7 @@ export default function BottlingScreen({
       supabase.from('bottling_plans').select('*').order('planned_date'),
       supabase.from('zavoz_deductions').select('deduct_date,beer_id,package_id,quantity,order_item_id'),
       supabase.from('inventory_adjustments').select('entry_date,beer_id,package_id,quantity'),
+      supabase.from('akce').select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
     ]);
     if (loadId !== loadCountRef.current) return;
     setRows((bt.data as EntryRow[]) ?? []);
@@ -448,10 +451,11 @@ export default function BottlingScreen({
     if (pl.data) setPlans(pl.data);
     if (zd.data) setZavozDeductionRows(zd.data);
     if (adj.data) setAdjustmentRows(adj.data);
+    if (ak.data) setAkceRows(ak.data);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
-  useRealtime(['bottling', 'beers', 'packages', 'orders', 'order_items', 'inventory', 'fasovani', 'fasovani_private', 'writeoffs', 'kegging', 'bottling_plans', 'zavoz_deductions', 'inventory_adjustments'], () => load(true));
+  useRealtime(['bottling', 'beers', 'packages', 'orders', 'order_items', 'inventory', 'fasovani', 'fasovani_private', 'writeoffs', 'kegging', 'bottling_plans', 'zavoz_deductions', 'inventory_adjustments', 'akce', 'akce_items'], () => load(true));
 
   async function add(e?: React.FormEvent) {
     e?.preventDefault();

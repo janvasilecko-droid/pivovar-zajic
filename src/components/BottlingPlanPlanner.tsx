@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Beer, Package, beerBg, supabase, useRealtime } from '../lib/supabase';
 import { isoWeekKey, weekRange, shiftWeek } from './WeeklyOrderSummaryCard';
-import { getStartingStockMap } from '../lib/inventoryHelper';
+import { getStartingStockMap, flattenAkceNet } from '../lib/inventoryHelper';
 import {
   BottlingPlan,
   BottlingPlanInput,
@@ -128,6 +128,23 @@ export function BottlingPlanPlanner({
       .then(({ data }) => setZavozDeductionRows(data ?? []));
   });
 
+  // Spotřeba na Akcích/festivalech (odvezeno − vráceno) — stejný zdroj jako
+  // Sklad (Stock.tsx), aby „sklad" v tomhle plánovacím přehledu nepovažoval
+  // pivo odvezené na akci pořád za dostupné.
+  const [akceRows, setAkceRows] = useState<any[]>([]);
+  useEffect(() => {
+    supabase
+      .from('akce')
+      .select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)')
+      .then(({ data }) => setAkceRows(data ?? []));
+  }, []);
+  useRealtime(['akce', 'akce_items'], () => {
+    supabase
+      .from('akce')
+      .select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)')
+      .then(({ data }) => setAkceRows(data ?? []));
+  });
+
   const todayStr = new Date().toISOString().slice(0, 10);
   const curMonth = todayStr.slice(0, 7);
   const weekLabel = weekRange(weekKey).label;
@@ -143,7 +160,7 @@ export function BottlingPlanPlanner({
 
   // Aktuální sklad (měsíční model — shodný s „Potřeba stočit lahve")
   const stockMap = useMemo(() => {
-    const invMap = getStartingStockMap(curMonth, inventoryRows, rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, 0, zavozDeductionRows);
+    const invMap = getStartingStockMap(curMonth, inventoryRows, rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, 0, zavozDeductionRows, akceRows);
     const inMap: Record<string, number> = {};
     [...rows, ...keggingRows].filter((r) => r.entry_date?.startsWith(curMonth)).forEach((r) => {
       if (!r.beer_id || !r.package_id) return;
@@ -164,12 +181,17 @@ export function BottlingPlanPlanner({
       const k = `${r.beer_id}__${r.package_id}`;
       outMap[k] = (outMap[k] || 0) + Number(r.quantity || 0);
     });
+    flattenAkceNet(akceRows).filter((r) => r.entry_date?.startsWith(curMonth)).forEach((r) => {
+      if (!r.beer_id || !r.package_id) return;
+      const k = `${r.beer_id}__${r.package_id}`;
+      outMap[k] = (outMap[k] || 0) + Number(r.quantity || 0);
+    });
     const map: Record<string, number> = {};
     new Set([...Object.keys(invMap), ...Object.keys(inMap), ...Object.keys(outMap)]).forEach((k) => {
       map[k] = Math.max(0, Number(invMap[k] || 0) + Number(inMap[k] || 0) - Number(outMap[k] || 0));
     });
     return map;
-  }, [curMonth, inventoryRows, rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, zavozDeductionRows]);
+  }, [curMonth, inventoryRows, rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, zavozDeductionRows, akceRows]);
 
   // Položky, které už mají svůj vlastní odpočet závozu — ty jsou fyzicky odečtené ze
   // skladu už jednou přes stockMap výše, takže se nesmí počítat i do weekOrdered

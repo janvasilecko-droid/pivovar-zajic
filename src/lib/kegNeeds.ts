@@ -6,6 +6,7 @@
 // (invQty/bottledQty/outgoingQty/stockQty/orderedQty/neededQty) viz
 // packageNeeds.ts.
 import { computePackageNeeds, PackageNeedsRow, PackageNeedsInput } from './packageNeeds';
+import type { AkceRow } from './inventoryHelper';
 
 export type KegNeedsRow = PackageNeedsRow;
 
@@ -29,6 +30,8 @@ export type KegNeedsInput = {
   zavozDeductionRows?: any[];
   /** Dorovnání inventury — manko/přebytek (± ks), stejný zdroj jako Sklad/Dashboard (inventory_adjustments). */
   adjustmentRows?: any[];
+  /** Spotřeba na Akcích/festivalech (odvezeno − vráceno), stejný zdroj jako Sklad (Stock.tsx). */
+  akceRows?: AkceRow[];
   weekKey: string;
   todayStr: string;
 };

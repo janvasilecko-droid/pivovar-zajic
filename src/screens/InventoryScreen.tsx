@@ -56,9 +56,10 @@ function computeInitialStockForMonth(
   faRows: any[],
   fpRows: any[],
   woRows: any[],
-  zdRows: any[]
+  zdRows: any[],
+  akRows: any[]
 ): Record<string, number> {
-  return getStartingStockMap(monthKey, invRowsAll, btRows, kgRows, faRows, fpRows, woRows, 0, zdRows);
+  return getStartingStockMap(monthKey, invRowsAll, btRows, kgRows, faRows, fpRows, woRows, 0, zdRows, akRows);
 }
 
 export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; initialSubTab?: string } = {}) {
@@ -156,7 +157,8 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       (fa as any[]) ?? [],
       (fp as any[]) ?? [],
       (wo as any[]) ?? [],
-      (zd as any[]) ?? []
+      (zd as any[]) ?? [],
+      (ak as any[]) ?? []
     );
     if (shouldReloadState) {
       setInitialStock(invAcc);

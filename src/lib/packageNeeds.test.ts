@@ -111,4 +111,25 @@ describe('computePackageNeeds — lahve (kind !== "keg")', () => {
     const row = rows.find((r) => r.package_id === 'p-bottle');
     expect(row!.orderedQty).toBe(106);
   });
+
+  it('spotřeba na Akci (festival) TENTO TÝDEN se odečte ze skladu i z toho, co ještě chybí stočit', () => {
+    const rows = computePackageNeeds(
+      makeInput({
+        bottlingRows: [{ entry_date: todayStr, beer_id: 'b1', package_id: 'p-bottle', quantity: 100 }],
+        akceRows: [
+          {
+            entry_date: todayStr,
+            items: [{ beer_id: 'b1', package_id: 'p-bottle', quantity_taken: 30, quantity_returned: 10 }],
+          },
+        ],
+        orders: [{ id: 'o1', order_date: todayStr, delivery_date: todayStr, status: 'nova', is_delivered: false }],
+        orderItems: [{ order_id: 'o1', beer_id: 'b1', package_id: 'p-bottle', quantity: 80 }],
+      }),
+      bottleFilter
+    );
+    const row = rows.find((r) => r.package_id === 'p-bottle');
+    // 100 stočeno − 20 čistá spotřeba na akci (30 odvezeno − 10 vráceno) = 80 skladem.
+    expect(row!.stockQty).toBe(80);
+    expect(row!.neededQty).toBe(0); // 80 objednáno − 80 k dispozici = 0 chybí
+  });
 });
