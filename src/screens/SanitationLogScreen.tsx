@@ -15,6 +15,16 @@ const METHOD_BADGES: Record<string, { label: string; bg: string; text: string; i
   kombinovana: { label: 'Kombinovaná sanitace', bg: 'bg-emerald-100 border-emerald-300', text: 'text-emerald-950', icon: '🛡️' },
 };
 
+// Skutečná ID ze Supabase (sanitation_logs.id) jsou UUID; lokální záznamy
+// (offline fallback, viz handleAdd) mají id = String(Date.now()) — čistě
+// číselný řetězec. Dřív se to rozlišovalo přes id.startsWith('17') (funguje
+// jen náhodou, protože milisekundové Date.now() timestampy v této dekádě
+// začínají "17" — přestane fungovat cca v roce 2027, a i dřív mělo malou
+// šanci false-positive shody s náhodným UUID začínajícím "17"). Robustní
+// kontrola: je to platný formát UUID, nebo ne.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isLocalOnlyId = (id: string) => !UUID_RE.test(id);
+
 const getCurrentTimeStr = () => {
   const now = new Date();
   return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -175,7 +185,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
     }
 
     // Update in Supabase if valid ID
-    if (editingLog.id && !editingLog.id.toString().startsWith('17')) {
+    if (editingLog.id && !isLocalOnlyId(editingLog.id.toString())) {
       try {
         await supabase
           .from('sanitation_logs')
@@ -201,7 +211,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
       'Doba trvání (min)': l.duration_minutes ?? 20,
       'Nádoba / Tank': l.tank_label,
       'Metoda sanitace': METHOD_BADGES[l.method]?.label ?? l.method_label,
-      'Koncentrace (%)': l.concentration_pct ?? (l.method === 'louh' || l.method === 'kyselina_dusicna' ? 2 : 0),
+      'Koncentrace (%)': l.concentration_pct ?? getDefaultConcentration(l.method),
       'Provedl': l.performed_by ?? '—',
       'Poznámka k sanitaci': l.note ?? '',
     }));

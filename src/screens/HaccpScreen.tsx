@@ -451,6 +451,18 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
           </button>
 
           <button
+            onClick={() => selectTab('staceci_linka')}
+            className={`px-4 py-2.5 rounded text-xs font-black transition flex items-center gap-2 shrink-0 ${
+              activeTab === 'staceci_linka'
+                ? 'bg-amber-500 text-neutral-950 shadow-md'
+                : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
+            }`}
+          >
+            <Cog size={16} />
+            <span>Údržba stáčecí linky</span>
+          </button>
+
+          <button
             onClick={() => selectTab('diagram')}
             className={`px-4 py-2.5 rounded text-xs font-black transition flex items-center gap-2 shrink-0 ${
               activeTab === 'diagram'
