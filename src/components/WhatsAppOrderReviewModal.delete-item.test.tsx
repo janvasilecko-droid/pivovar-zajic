@@ -33,22 +33,22 @@ const beers: any[] = [
 ];
 const packages: any[] = [
   { id: 'pkg-keg30', name: 'KEG 30l', label: 'KEG 30l', kind: 'keg', volume_l: 30 },
-  { id: 'pkg-pet', name: 'PET', label: 'PET', kind: 'bottle', volume_l: 1.5 },
+  { id: 'pkg-pet', name: 'PET 1.5l', label: 'PET 1.5l', kind: 'bottle', volume_l: 1.5 },
 ];
 const places: any[] = [];
 
 const parsedMessage = {
   id: 'del-item-1',
   sender_name: 'Pivovar',
-  message_text: '2x KEG30 12sv\n4x Summer PET',
+  message_text: '2x KEG30 12sv\n4x Summer PET 1.5l',
   message_type: 'text',
   status: 'parsed',
   created_at: '2026-08-01T10:00:00+00:00',
   parsed_items: [
     { qty: 2, degree: '12°', beer_name: 'Světlý ležák 12°', package_label: 'KEG 30l', raw_line: '2x KEG30 12sv' },
-    { qty: 4, degree: null, beer_name: 'Summer', package_label: 'PET', raw_line: '4x Summer PET' },
+    { qty: 4, degree: null, beer_name: 'Summer', package_label: 'PET 1.5l', raw_line: '4x Summer PET 1.5l' },
   ],
-  parsed_raw_text: '2x KEG30 12sv\n4x Summer PET',
+  parsed_raw_text: '2x KEG30 12sv\n4x Summer PET 1.5l',
 };
 
 function renderModal(message: any) {
@@ -106,14 +106,14 @@ describe('WhatsAppOrderReviewModal — křížek na smazání položky', () => {
 
     const approveArg = onApprove.mock.calls[0][0];
     expect(approveArg.parsed_items).toHaveLength(1);
-    expect(approveArg.parsed_items[0].raw_line).toBe('4x Summer PET');
+    expect(approveArg.parsed_items[0].raw_line).toBe('4x Summer PET 1.5l');
 
     const parsedItemsCall = upd.mock.calls.find(
       (c: any) => c[0] === 'del-item-1' && c[1] && Array.isArray(c[1].parsedItems)
     );
     expect(parsedItemsCall).toBeTruthy();
     expect(parsedItemsCall[1].parsedItems).toHaveLength(1);
-    expect(parsedItemsCall[1].parsedItems[0].raw_line).toBe('4x Summer PET');
+    expect(parsedItemsCall[1].parsedItems[0].raw_line).toBe('4x Summer PET 1.5l');
   });
 
   it('2. po smazání všech položek nelze objednávku schválit', async () => {
@@ -129,5 +129,25 @@ describe('WhatsAppOrderReviewModal — křížek na smazání položky', () => {
 
     const disabledBtn = await screen.findByText('Žádné položky…');
     expect((disabledBtn.closest('button') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('3. položku bez rozpoznaného piva/obalu nelze schválit (zmizela by ze skladu)', async () => {
+    // AI nerozpoznala pivo/obal u druhé položky — beer_name/package_label
+    // neodpovídá žádnému katalogovému záznamu ani žádnému fallback pravidlu.
+    const unmatchedMessage = {
+      ...parsedMessage,
+      message_text: '2x KEG30 12sv\nXY neznámá položka',
+      parsed_items: [
+        parsedMessage.parsed_items[0],
+        { qty: 1, degree: null, beer_name: 'Neexistující pivo', package_label: 'Neznámý obal', raw_line: 'XY neznámá položka' },
+      ],
+      parsed_raw_text: '2x KEG30 12sv\nXY neznámá položka',
+    };
+    renderModal(unmatchedMessage);
+    await waitFor(() => expect(screen.queryAllByRole('spinbutton')).toHaveLength(2));
+
+    expect(screen.getByText(/Pivo\/obal se nepodařilo přiřadit automaticky/)).toBeTruthy();
+    const btn = await screen.findByText('Doplňte pivo/obal…');
+    expect((btn.closest('button') as HTMLButtonElement).disabled).toBe(true);
   });
 });

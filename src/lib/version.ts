@@ -1,7 +1,7 @@
 // Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-export const APP_VERSION = '1.855';
-export const APP_VERSION_DATE = '25.8.2026 09:22';
+export const APP_VERSION = '1.856';
+export const APP_VERSION_DATE = '25.8.2026 16:00';
 
 
 
@@ -9,6 +9,7 @@ export const APP_VERSION_DATE = '25.8.2026 09:22';
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 
 export const APP_CHANGELOG: string[] = [
+  '🎨 Domů: červeno-žluté výstražné dlaždice (Nová aktualizace, Měsíční úklid, STK vozidel) teď jemně pulzují mezi tmavou a světlejší červenou, ať nejdou přehlédnout. 🔐 WhatsApp objednávky: schválení teď zablokuje položku bez rozpoznaného piva/obalu (dřív šlo omylem schválit a položka pak mlčky zmizela ze skladu) — platí pro detail zprávy i pro rychlé schválení jedním klikem ze seznamu. v1.856',
   '🐛 Potřeba stočit (Lahve/KEG) a Sklad — počáteční stav: spotřeba piva na Akcích/festivalech (odvezeno − vráceno) se dřív do "co chybí stočit" a do počátečního stavu skladu vůbec nepočítala (jen do obrazovky Sklad/Dashboard) — teď se odečítá všude stejně, napříč Lahve/KEG/Inventura/Plánování stáčení/Dashboard. v1.854',
   '🐛 Objednávky: úprava piva/obalu/množství u položky, která už byla fyzicky zavezena (má záznam ve skladovém odpočtu), se dřív nepropsala do skladové evidence — sklad si "pamatoval" jen původní (nesprávnou) hodnotu navždy. Teď se odpočet při úpravě automaticky opraví na aktuální hodnotu. v1.852',
   '🐛 Kontrola duplicitních objednávek: chybný filtr v databázovém dotazu (tři OR podmínky bez závorkování) prakticky vždy stáhl skoro celou tabulku objednávek místo jen aktuálního týdne — teď se stahují jen relevantní objednávky. Navíc oprava dne "dnes" bez zadaného data dřív mohla kolem půlnoci spadnout do špatného týdne (UTC vs pražský čas). v1.850',

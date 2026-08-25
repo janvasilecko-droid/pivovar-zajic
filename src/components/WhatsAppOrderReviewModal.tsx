@@ -250,6 +250,13 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   const parsedItems = message.parsed_items || [];
   const hasParsedData = parsedItems.length > 0 || message.parsed_place_name || message.parsed_delivery_date;
 
+  // Položka bez přiřazeného piva/obalu by se v order_items zapsala s
+  // beer_id/package_id = null a mlčky by zmizela ze všech skladových výpočtů
+  // (ty všude filtrují „if (!beer_id || !package_id) return"). Amber varování
+  // u položky (níže) samo o sobě schválení nezablokuje, proto se to musí
+  // vynutit i tady — stejně jako EditOrderModal.tsx vyžaduje beerId+pkgId.
+  const hasUnmatchedItems = items.some((it) => !it.beerId || !it.pkgId);
+
   // Kontrola čtení: porovnání raw_line položek (to, co AI tvrdí, že přečetla)
   // s originálním textem zprávy. Přesná shoda ✓, částečná (překlepy/pořadí slov)
   // ≈, žádná shoda ⚠. K tomu kontrola po částech (množství/objem/stupeň).
@@ -963,13 +970,15 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
 
             <button
               onClick={handleApprove}
-              disabled={approving || loading || !isParsed || items.length === 0 || (isImage ? (!!message.media_url && !photoChecked) : (strictReadback && readback.mismatchCount > 0))}
+              disabled={approving || loading || !isParsed || items.length === 0 || hasUnmatchedItems || (isImage ? (!!message.media_url && !photoChecked) : (strictReadback && readback.mismatchCount > 0))}
               className="px-6 py-2.5 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 flex items-center gap-2 font-medium"
               title={
                 isImage && !!message.media_url && !photoChecked
                   ? 'Nejprve potvrďte, že jste fotku zkontroloval/a (tlačítko výše).'
                   : items.length === 0
                   ? 'Žádné položky k importu — smazanou položku vrátíte zavřením bez schválení nebo „Přečíst znovu (AI)".'
+                  : hasUnmatchedItems
+                    ? 'U některé položky chybí přiřazené pivo nebo obal — vyberte je z nabídky (jinak by položka zmizela ze skladu).'
                   : !isImage && strictReadback && readback.mismatchCount > 0
                     ? 'Přísný režim je zapnutý — opravte ⚠ položky nebo přísný režim vypněte.'
                     : undefined
@@ -979,6 +988,8 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               {isParsed
                 ? (isImage && !!message.media_url && !photoChecked
                     ? 'Nejprve zkontrolujte fotku…'
+                    : hasUnmatchedItems
+                      ? 'Doplňte pivo/obal…'
                     : !isImage && strictReadback && readback.mismatchCount > 0
                       ? `Opravte ${readback.mismatchCount} nesouladů…`
                       : items.length === 0

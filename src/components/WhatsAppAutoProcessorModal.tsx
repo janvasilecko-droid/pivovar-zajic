@@ -152,6 +152,16 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
     const parsedResult = parsedResults.get(messageId);
     if (!parsedResult) return;
     if (importingIds.has(messageId)) return; // už se importuje — druhý (rychlý dvojťuk) klik ignorujeme
+    // Položka bez přiřazeného piva/obalu by se zapsala s beer_id/package_id
+    // = null a mlčky by zmizela ze všech skladových výpočtů (ty všude filtrují
+    // „if (!beer_id || !package_id) return"). Tenhle rychlý import (jeden klik
+    // ze seznamu, bez zobrazení detailu položek) na rozdíl od
+    // WhatsAppOrderReviewModal.tsx nemá žádné jiné místo, kde by na to
+    // uživatel narazil — proto tvrdá blokace přímo tady.
+    if (parsedResult.items.some((item: any) => !item.beer_id || !item.package_id)) {
+      setStatus('U některé položky chybí přiřazené pivo nebo obal — otevřete zprávu (klepnutím) a doplňte je z nabídky.');
+      return;
+    }
     setImportingIds((prev) => new Set(prev).add(messageId));
 
     try {
@@ -575,16 +585,25 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
                     </div>
 
                     <div className="flex flex-col gap-1.5 shrink-0">
-                      {parsedResult && parsedResult.items && parsedResult.items.length > 0 && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); importOrder(message.id); }}
-                          disabled={importingIds.has(message.id)}
-                          className="p-1.5 rounded text-green-600 hover:bg-green-50 disabled:opacity-40 disabled:cursor-wait"
-                          title={importingIds.has(message.id) ? 'Importuje se…' : 'Importovat objednávku'}
-                        >
-                          {importingIds.has(message.id) ? <RefreshCw size={16} className="animate-spin" /> : <Check size={16} />}
-                        </button>
-                      )}
+                      {parsedResult && parsedResult.items && parsedResult.items.length > 0 && (() => {
+                        const hasUnmatchedItems = parsedResult.items.some((item: any) => !item.beer_id || !item.package_id);
+                        return (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); importOrder(message.id); }}
+                            disabled={importingIds.has(message.id) || hasUnmatchedItems}
+                            className={`p-1.5 rounded disabled:opacity-40 disabled:cursor-not-allowed ${hasUnmatchedItems ? 'text-amber-600' : 'text-green-600 hover:bg-green-50'}`}
+                            title={
+                              importingIds.has(message.id)
+                                ? 'Importuje se…'
+                                : hasUnmatchedItems
+                                  ? 'Chybí přiřazené pivo/obal u některé položky — otevřete zprávu a doplňte je.'
+                                  : 'Importovat objednávku'
+                            }
+                          >
+                            {importingIds.has(message.id) ? <RefreshCw size={16} className="animate-spin" /> : hasUnmatchedItems ? <AlertCircle size={16} /> : <Check size={16} />}
+                          </button>
+                        );
+                      })()}
                       <button
                         onClick={(e) => { e.stopPropagation(); processMessages([message]); }}
                         disabled={processing}
