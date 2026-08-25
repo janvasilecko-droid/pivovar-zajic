@@ -1,7 +1,7 @@
 // Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-export const APP_VERSION = '1.851';
-export const APP_VERSION_DATE = '25.8.2026 09:00';
+export const APP_VERSION = '1.852';
+export const APP_VERSION_DATE = '25.8.2026 14:00';
 
 
 
@@ -9,6 +9,7 @@ export const APP_VERSION_DATE = '25.8.2026 09:00';
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 
 export const APP_CHANGELOG: string[] = [
+  '🐛 Objednávky: úprava piva/obalu/množství u položky, která už byla fyzicky zavezena (má záznam ve skladovém odpočtu), se dřív nepropsala do skladové evidence — sklad si "pamatoval" jen původní (nesprávnou) hodnotu navždy. Teď se odpočet při úpravě automaticky opraví na aktuální hodnotu. v1.852',
   '🐛 Kontrola duplicitních objednávek: chybný filtr v databázovém dotazu (tři OR podmínky bez závorkování) prakticky vždy stáhl skoro celou tabulku objednávek místo jen aktuálního týdne — teď se stahují jen relevantní objednávky. Navíc oprava dne "dnes" bez zadaného data dřív mohla kolem půlnoci spadnout do špatného týdne (UTC vs pražský čas). v1.850',
   '🐛 Objednávky: odběratel se u karty i detailu objednávky občas nezobrazil (jen prázdné místo vedle stavu "Nová") — stávalo se, když bylo uložené jméno prázdný řetězec místo chybějící hodnoty; teď se v tom případě dohledá podle odběratele. 🎨 Objednávky: tlačítka dnů v přehledu "Rychlý filtr dne" jsou teď šedá, pokud na daný den není žádná objednávka — amber/zlatá barva zůstává jen u dnů, kde nějaká objednávka je. v1.848',
   '🎨 Domů: nová aktualizace appky a nedokončený měsíční úklid se teď ukazují jako tichá dlaždice (červeno-žlutá, jako STK upozornění) místo vyskakovacího okna — sám si klikneš, kdy se ti to hodí. Checklist měsíčního úklidu má nové tlačítko "Udělám na konci týdne" (dřív "OK vím o tom") a dlaždice na Domů zůstává jako připomínka, dokud úklid skutečně neuděláš. 📱 Mobil: horní lišta (Hledat/odznaky/Chyby) na všech obrazovkách kromě Domů zabírala zbytečně místo — teď se na mobilu ukazuje jen název stránky menším písmem, zbytek zůstal na desktopu. v1.846',
