@@ -691,7 +691,11 @@ export default function Orders({
     if (!silent) setLoading(false);
   }
   useEffect(() => { load(); }, []);
-  useRealtime(['orders','order_items','beers','packages','places','zavoz_deductions'], () => load(true));
+  // Chybělo bottling/kegging/inventory/writeoffs — load() si je natahuje pro
+  // výpočet skladových odznaků ("chybí skladem" atd.), ale bez nich v seznamu
+  // se appka o nový zápis stáčení/inventury/odpisu nikdy nedozvěděla a čísla
+  // zůstala stará, dokud uživatel ručně neobnovil stránku.
+  useRealtime(['orders','order_items','beers','packages','places','zavoz_deductions','bottling','kegging','inventory','writeoffs'], () => load(true));
 
   // 🔀 Požadavek z „Potřeba stočit KEGy / lahve“ (Kegging / Bottling): uživatel
   // klikl na řádek „Chybí X ks“ → otevřeme přehled objednávek rovnou filtrovaný

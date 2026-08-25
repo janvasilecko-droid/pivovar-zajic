@@ -1,7 +1,7 @@
 // Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-export const APP_VERSION = '1.843';
-export const APP_VERSION_DATE = '25.8.2026 08:20';
+export const APP_VERSION = '1.844';
+export const APP_VERSION_DATE = '25.8.2026 10:55';
 
 
 
@@ -9,6 +9,7 @@ export const APP_VERSION_DATE = '25.8.2026 08:20';
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 
 export const APP_CHANGELOG: string[] = [
+  '🐛 Objednávky: zápis stáčení/inventury/odpisu se nepropisoval do skladových odznaků v Objednávkách (chybí skladem apod.) bez ručního obnovení stránky — appka poslouchala živé změny jen na objednávkách, ne na stáčení/inventuře/odpisech, které do stejného výpočtu taky vstupují. v1.844',
   '🐛 Sklep/KEG: opraveno "% vystočeno" a ztráta při ukončení tanku — po opakovaném použití tanku (nový cyklus) se dřív sčítalo stočené ze VŠECH předchozích cyklů, ne jen z aktuálního. Smazání nebo úprava (množství/pivo/obal/tank) záznamu stáčení teď navíc správně vrátí/odečte objem u sklepního tanku — dřív zůstal navždy posunutý. v1.842',
   '🔐 Bezpečnostní audit — kritická oprava: uživatel si mohl přes přímé API volání sám nastavit vlastní modulová práva na plný přístup (server-side kontrola právům slepě věřila) — teď je to na DB úrovni zablokované, stejně jako už dřív u role. Nastavení práv adminem jinému uživateli se navíc dřív tiše neuložilo (appka hlásila úspěch, ale server odmítl zápis) — teď jde přes zabezpečenou serverovou funkci a skutečně se uloží. Auditní log akcí navíc už nejde komukoliv upravit/smazat. v1.840',
   '🎨 Upozornění na měsíční úklid: "OK vím o tom" ho teď jen odloží do pátku (kdy se připomene znovu), místo aby zmizelo na celý zbytek měsíce. Nové tlačítko "Už je to provedeno" rovnou označí měsíční checklist (lahve i KEGy) za splněný a zapíše to do obou sanitárních deníků, bez nutnosti procházet checklist ručně. v1.838',
