@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { businessDateISO } from './businessDate';
 
 // ⚠️ Kontrola duplicit objednávek při čtení do aplikace.
 // Cíl: aby dva lidé nezadali ve stejnou chvíli stejnou objednávku (např. oba
@@ -36,7 +37,10 @@ const normName = (s?: string | null) =>
 
 /** ISO pondělí a neděle týdne, do kterého datum spadá (bez data → aktuální týden). */
 function weekBounds(dateStr: string | null): { start: string; end: string } {
-  const ref = dateStr ? new Date(dateStr + 'T00:00:00Z') : new Date();
+  // Bez data se používá pražský "obchodní den" (ne syrové new Date(), které je
+  // v UTC) — kolem půlnoci by jinak UTC den mohl být ještě včerejší a týden by
+  // se spočítal špatně (viz stejný vzorec v monthlyCleanup.ts).
+  const ref = new Date((dateStr || businessDateISO()) + 'T00:00:00Z');
   const d = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), ref.getUTCDate()));
   const dow = (d.getUTCDay() + 6) % 7; // 0 = pondělí
   const monday = new Date(d); monday.setUTCDate(d.getUTCDate() - dow);
@@ -56,11 +60,17 @@ export async function findDuplicateOrders(input: DuplicateCheckInput): Promise<D
   const { start, end } = weekBounds(input.deliveryDate || null);
 
   // Objednávky ve stejném týdnu (podle delivery_date; bez něj podle order_date).
+  // Pozn.: dřív byl tenhle filtr chybně `.or(delivery_date.is.null, delivery_date.gte.start,
+  // delivery_date.lte.end)` — tři samostatné OR podmínky bez závorkování, takže
+  // "delivery_date >= start" NEBO "delivery_date <= end" pokrylo prakticky každé
+  // datum a dotaz tahal skoro celou tabulku objednávek. Teď je to správně
+  // (delivery_date v rozsahu týdne) NEBO (delivery_date chybí A order_date v rozsahu týdne).
   const { data: orders, error } = await supabase
     .from('orders')
     .select('id, order_date, delivery_date, place_id, place_name, status, created_at')
     .not('status', 'eq', 'storno')
-    .or(`delivery_date.is.null,delivery_date.gte.${start},delivery_date.lte.${end}`);
+    .or(`and(delivery_date.gte.${start},delivery_date.lte.${end}),and(delivery_date.is.null,order_date.gte.${start},order_date.lte.${end})`)
+    .limit(200);
 
   if (error) {
     console.warn('Kontrola duplicit selhala:', error.message);
