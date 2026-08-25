@@ -893,7 +893,11 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                     className="font-display font-black text-lg text-neutral-900 flex items-center gap-2 text-left hover:underline cursor-pointer"
                                     title="Zobrazit detail objednávky"
                                   >
-                                    <span>{o.place_name ?? 'Neznámý odběratel'}</span>
+                                    <span>
+                                      {(o.place_name && o.place_name.trim())
+                                        || (o.place_id && places.find((p) => p.id === o.place_id)?.name)
+                                        || 'Neznámý odběratel'}
+                                    </span>
                                     {o.is_delivered && (
                                       <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white font-extrabold text-[10px]">
                                         ✓ Zavezeno

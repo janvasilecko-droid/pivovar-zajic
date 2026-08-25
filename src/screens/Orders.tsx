@@ -1931,7 +1931,9 @@ export default function Orders({
                 className={`px-3 py-1.5 rounded font-black text-xs shrink-0 transition-all flex items-center gap-1.5 ${
                   deliveryDayFilter === d.v
                     ? 'bg-amber-500 text-neutral-950 shadow-xs'
-                    : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
+                    : hasOrders
+                      ? 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
+                      : 'bg-neutral-100 text-neutral-400 border border-neutral-200 hover:bg-neutral-200'
                 }`}
               >
                 <span>{d.label}</span>
@@ -2485,7 +2487,18 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
         <div className="flex items-center gap-1.5 min-w-0">
           <input type="checkbox" checked={selected} onClick={(e) => e.stopPropagation()} onChange={onToggleSelect}
             className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 accent-amber-500 shrink-0" />
-          <span className="font-display font-black text-sm sm:text-base text-neutral-800 break-words truncate">{o.place_name ?? '—'}</span>
+          <span className="font-display font-black text-sm sm:text-base text-neutral-800 break-words truncate">
+            {/* o.place_name je denormalizovaná kopie jména odběratele — u pár
+                objednávek (podle zdroje vzniku) zůstala prázdná i když
+                place_id na skutečného odběratele ukazuje. Dřív se v takovém
+                případě nezobrazilo vůbec nic (jen "—" pro NULL, ale prázdný
+                řetězec `?? '—'` nechytí), takže šlo omylem přehlídnout, kdo
+                objednávku vlastně zadal. Teď se jako záloha dohledá podle
+                place_id v katalogu odběratelů. */}
+            {(o.place_name && o.place_name.trim())
+              || (o.place_id && places.find((p) => p.id === o.place_id)?.name)
+              || '—'}
+          </span>
           {(() => { const tn = getTapNameForOrder(o.id); return tn ? (
             <span title={`Rezervace výčepu: ${tn}`} className="chip bg-violet-600 text-white font-black shrink-0 flex items-center gap-1">
               🍺 {tn}
@@ -2794,7 +2807,11 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
             className={`font-display font-extrabold text-2xl text-primary-800 mb-3 text-left hover:underline flex items-center gap-2 cursor-pointer ${!order.place_id ? 'pointer-events-none opacity-70' : ''}`}
           >
             <Building2 size={22} className="text-amber-700" />
-            <span>{order.place_name ?? '—'}</span>
+            <span>
+              {(order.place_name && order.place_name.trim())
+                || (order.place_id && places.find((p) => p.id === order.place_id)?.name)
+                || '—'}
+            </span>
           </a>
           {(() => { const _ph = places.find(p => p.id === order.place_id)?.phone; return _ph ? (
             <a href={`tel:${_ph}`} className="text-sm text-blue-700 font-bold mt-1.5 flex items-center gap-1 hover:underline">
