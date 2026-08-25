@@ -103,15 +103,6 @@ export const exportKeggingToExcel = (
   download(ws, 'staceni-keg.xlsx');
 };
 
-export const exportWriteoffsToExcel = (rows: EntryRow[]) =>
-  download(cols(rows, ['Datum', 'Kdo', 'Pivo', 'Obal', 'Množství', 'Důvod'], ['entry_date', 'who', 'beer_name', 'package_label', 'quantity', 'reason']), 'odpis.xlsx');
-
-export const exportInventoryToExcel = (rows: EntryRow[]) =>
-  download(cols(rows, ['Datum', 'Pivo', 'Obal', 'Množství', 'Poznámka'], ['entry_date', 'beer_name', 'package_label', 'quantity', 'note']), 'inventura.xlsx');
-
-export const exportFasovaniToExcel = (rows: EntryRow[]) =>
-  download(cols(rows, ['Datum', 'Kdo', 'Pivo', 'Obal', 'Množství', 'Poznámka'], ['entry_date', 'who', 'beer_name', 'package_label', 'quantity', 'note']), 'fasovani.xlsx');
-
 export const exportProdejnaToExcel = (rows: EntryRow[]) =>
   download(cols(rows, ['Datum', 'Kdo', 'Pivo', 'Obal', 'Množství', 'Poznámka'], ['entry_date', 'who', 'beer_name', 'package_label', 'quantity', 'note']), 'prodejna.xlsx');
 
@@ -125,15 +116,6 @@ export const exportExciseTaxReportToExcel = (rows: { beer_name: string; degree: 
     ['beer_name', 'degree', 'liters', 'hl', 'keg_count', 'bottle_count']
   );
   download(ws, `vykaz-spotrebni-dan-${periodLabel.replace(/\s+/g, '-')}.xlsx`);
-};
-
-export const exportMonthlySalesReportToExcel = (rows: { date: string; place: string; beer: string; package_label: string; qty: number; price_total: number }[], monthLabel: string) => {
-  const ws = cols(
-    rows,
-    ['Datum Objednávky', 'Odběratel', 'Pivo', 'Obal', 'Množství (ks)', 'Celkem Kč'],
-    ['date', 'place', 'beer', 'package_label', 'qty', 'price_total']
-  );
-  download(ws, `vykaz-prodej-${monthLabel.replace(/\s+/g, '-')}.xlsx`);
 };
 
 export const exportZavozToExcel = (rows: { order_date: string; place_name: string | null; delivery_day: string | null; beer_name: string | null; package_label: string | null; quantity: number; is_delivered: boolean }[], weekLabel: string) => {
