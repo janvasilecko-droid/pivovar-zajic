@@ -36,7 +36,8 @@ export const KEG_DEFAULT_ITEMS: KegChecklistItem[] = [
 ];
 
 const START_CATEGORY_PREFIX = '1. Začátek';
-const MONTHLY_CATEGORY_PREFIX = '4. Měsíční';
+export const KEG_MONTHLY_CATEGORY_PREFIX = '4. Měsíční';
+const MONTHLY_CATEGORY_PREFIX = KEG_MONTHLY_CATEGORY_PREFIX;
 
 // ISO týden pro porovnávání týdenních úkonů
 function getISOWeekString(dateStr: string): string {

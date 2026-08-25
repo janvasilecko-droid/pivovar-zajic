@@ -1,7 +1,7 @@
 // Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-export const APP_VERSION = '1.837';
-export const APP_VERSION_DATE = '25.8.2026 07:49';
+export const APP_VERSION = '1.838';
+export const APP_VERSION_DATE = '25.8.2026 10:20';
 
 
 
@@ -9,6 +9,7 @@ export const APP_VERSION_DATE = '25.8.2026 07:49';
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 
 export const APP_CHANGELOG: string[] = [
+  '🎨 Upozornění na měsíční úklid: "OK vím o tom" ho teď jen odloží do pátku (kdy se připomene znovu), místo aby zmizelo na celý zbytek měsíce. Nové tlačítko "Už je to provedeno" rovnou označí měsíční checklist (lahve i KEGy) za splněný a zapíše to do obou sanitárních deníků, bez nutnosti procházet checklist ručně. v1.838',
   '🐛 Lahve/KEG "Potřeba stočit": sticky hlavička tabulky se špatně přilepila doprostřed a schovávala pod sebou reálné řádky (vypadalo to jako černý pruh, i když data byla v pořádku) — hlavička teď zůstává normálně nahoře. 🖥️ Přidána spodní navigační lišta (Domů a zástupci) i pro notebook/desktop, ne jen mobil — dřív se z appky na desktopu nedalo jinak vrátit na Domů. v1.836',
   '🐛 Service worker (offline cache): oprava — appka hledala v cache napříč VŠEMI uloženými verzemi místo jen té aktuální, což po více nasazeních za sebou mohlo výjimečně servírovat smíchané soubory ze staré verze (prázdná/rozbitá stránka po nasazení). Teď se hledá jen v cache aktuálně nainstalované verze. v1.834',
   '🎨 Celkový audit vzhledu pro mobil: dlaždice na Domů teď mají tmavý/světlý text podle jasu vlastní barvy (dřív natvrdo bílý — na světlých odstínech skoro nečitelný); zvětšeny malé dotykové prvky (šipky/kolečko u úpravy dlaždice, barevné vzorky, položky v Objednávkách); doladěno posledních pár černých tlačítek (Zahájit stáčení, Detailní přehled, Hotovo, Kontrola zpráv/Audit/Fotka) na amber. v1.832',
