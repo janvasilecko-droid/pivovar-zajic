@@ -11,6 +11,7 @@ import { BottlingPlan, getPlanSeenAt, markPlanSeenAt, isPlanUnseen, isBottlingMa
 import { BottlingPlanPlanner } from '../components/BottlingPlanPlanner';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
 import { isLastWeekOfMonth } from '../lib/monthlyCleanup';
+import { businessDateISO } from '../lib/businessDate';
 import { autoLogBottleSanitationFromChecklist } from '../lib/bottleSanitation';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
 import { VoiceRecorder } from '../components/VoiceRecorder';
@@ -460,6 +461,19 @@ export default function BottlingScreen({
   async function add(e?: React.FormEvent) {
     e?.preventDefault();
     setErr(null);
+    // Stejná brána jako u KEGů (Kegging.tsx) — checklist se váže na SKUTEČNÉ
+    // dnešní datum (businessDateISO), ne na editovatelné pole "Datum" (`date`),
+    // aby ho nešlo obejít přepnutím data na den, kde už dřív (na tomhle
+    // zařízení) proběhl. Dřív tahle druhá (submit-time) kontrola u lahví
+    // chyběla úplně — spoléhalo se jen na to, že formulář je schovaný za
+    // branou v UI.
+    if (!isStartChecklistCompleteForDate(businessDateISO())) {
+      setErr('Před uložením stáčení je nutné vyplnit checklist přípravy pracoviště!');
+      setChecklistPhase('start');
+      setChecklistGate(true);
+      setShowChecklistModal(true);
+      return;
+    }
     const filled = entryRows.filter((r) => (r.pkgId || r.pkg2Id || r.pkg3Id || r.kegPkgId) && (Number(r.qty) > 0 || Number(r.qty2) > 0 || Number(r.qty3) > 0));
     if (filled.length === 0) { setErr('Vyplň alespoň jeden řádek (obal a množství).'); return; }
     setSaving(true);
@@ -815,7 +829,7 @@ export default function BottlingScreen({
             )}
           </div>
 
-          {(mode === 'entry_only' || (mode === 'all' && tab === 'zapis')) && isStartChecklistCompleteForDate(date) && (
+          {(mode === 'entry_only' || (mode === 'all' && tab === 'zapis')) && isStartChecklistCompleteForDate(businessDateISO()) && (
             <>
               <button
                 type="button"
@@ -853,7 +867,7 @@ export default function BottlingScreen({
             </button>
           </div>
         )}
-        {!isStartChecklistCompleteForDate(date) ? (
+        {!isStartChecklistCompleteForDate(businessDateISO()) ? (
           <div className="card p-8 sm:p-12 mb-5 text-center space-y-5 border-2 border-amber-300 bg-gradient-to-br from-amber-50 to-amber-100/40">
             <div className="text-6xl">🍾</div>
             <div>
@@ -1747,8 +1761,8 @@ export default function BottlingScreen({
           // Po splnění brány „1. Začátek stáčení" se v posledním týdnu měsíce
           // automaticky otevře okno s měsíčním checklistem („4. Měsíční údržba"),
           // dokud není pro dané datum kompletně odškrtnutý.
-          if (checklistGate && checklistPhase === 'start' && isLastWeekOfMonth(date)) {
-            if (!isMonthlyChecklistCompleteForDate(date)) {
+          if (checklistGate && checklistPhase === 'start' && isLastWeekOfMonth(businessDateISO())) {
+            if (!isMonthlyChecklistCompleteForDate(businessDateISO())) {
               setChecklistPhase('monthly');
               setChecklistInitialCategory(MONTHLY_CATEGORY);
               setShowChecklistModal(true);
@@ -1761,7 +1775,7 @@ export default function BottlingScreen({
           if (checklistPhase === 'end' || checklistPhase === 'monthly' || checklistPhase === 'start') {
             let checkedMap: Record<string, boolean> = {};
             try {
-              const raw = localStorage.getItem('bottling_checklist_' + date);
+              const raw = localStorage.getItem('bottling_checklist_' + businessDateISO());
               if (raw) checkedMap = JSON.parse(raw);
             } catch {}
             const checkedItems = DEFAULT_ITEMS.filter((it) => checkedMap[it.id]).map((it) => ({
@@ -1770,14 +1784,14 @@ export default function BottlingScreen({
             }));
             if (checkedItems.length > 0) {
               void autoLogBottleSanitationFromChecklist({
-                dateStr: date,
+                dateStr: businessDateISO(),
                 checkedItems,
                 performedBy: profile?.display_name || '',
               });
             }
           }
         }}
-        dateStr={date}
+        dateStr={businessDateISO()}
         phase={checklistPhase}
         blockCloseUntilStartDone={checklistGate}
         initialCategory={checklistInitialCategory ?? undefined}

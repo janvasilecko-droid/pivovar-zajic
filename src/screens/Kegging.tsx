@@ -3,6 +3,7 @@ import { supabase, Beer, Package, EntryRow, CellarTank, KegPrefuk, useRealtime, 
 import { useAuth } from '../lib/auth';
 import { KeggingChecklistModal, KeggingChecklistBody, isStartChecklistCompleteForKeg, isMonthlyChecklistCompleteForKeg } from '../components/KeggingChecklistModal';
 import { autoLogKegSanitationFromChecklist, isLastWeekOfMonth } from '../lib/kegSanitation';
+import { businessDateISO } from '../lib/businessDate';
 import { EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { exportKeggingToExcel } from '../lib/excel';
@@ -481,7 +482,11 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   async function add(e?: React.FormEvent) {
     e?.preventDefault();
     setErr(null);
-    if (!isStartChecklistCompleteForKeg(date)) {
+    // Checklist se váže na SKUTEČNÉ dnešní datum (businessDateISO), ne na
+    // editovatelné pole "Datum stáčení" (`date`) — jinak by šlo bránu obejít
+    // přepnutím data na libovolný den, kde už checklist dřív (na tomhle
+    // zařízení) proběhl, aniž by se dnešní příprava pracoviště skutečně udělala.
+    if (!isStartChecklistCompleteForKeg(businessDateISO())) {
       setErr('Před uložením stáčení je nutné vyplnit checklist přípravy pracoviště!');
       setChecklistPhase('start');
       setChecklistGate(true);
@@ -760,7 +765,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               className={`px-3.5 py-2 rounded text-xs font-black transition flex items-center gap-1.5 shrink-0 min-h-[38px] ${tab === 'checklist' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
             >
               <span className="inline-flex items-center gap-1.5"><ClipboardList size={14} /> Checklist</span>
-              {isLastWeekOfMonth(new Date(date)) && !isMonthlyChecklistCompleteForKeg(date) && (
+              {isLastWeekOfMonth() && !isMonthlyChecklistCompleteForKeg(businessDateISO()) && (
                 <span className="px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black animate-pulse">1</span>
               )}
             </button>
@@ -815,7 +820,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             )}
           </div>
 
-          {tab === 'zapis' && mode !== 'overviews_only' && isStartChecklistCompleteForKeg(date) && (
+          {tab === 'zapis' && mode !== 'overviews_only' && isStartChecklistCompleteForKeg(businessDateISO()) && (
             <>
               <button
                 type="button"
@@ -832,7 +837,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       {/* Začátek stáčení — dokud není splněný checklist přípravy pracoviště pro
           zvolené datum, dlaždice pro zadávání se vůbec nezobrazí. Až po jeho
           splnění (velké tlačítko níže) se odemkne zápis stáčení. */}
-      {tab === 'zapis' && mode !== 'overviews_only' && !isStartChecklistCompleteForKeg(date) && (
+      {tab === 'zapis' && mode !== 'overviews_only' && !isStartChecklistCompleteForKeg(businessDateISO()) && (
         <div className="card p-8 sm:p-12 mb-5 text-center space-y-5 border-2 border-amber-300 bg-gradient-to-br from-amber-50 to-amber-100/40">
           <div className="text-6xl">🛢️</div>
           <div>
@@ -856,7 +861,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       )}
 
       {/* Zápis stáčení — multi-row (12 řádků pivo+obal+množství najednou) */}
-      {tab === 'zapis' && mode !== 'overviews_only' && isStartChecklistCompleteForKeg(date) && (
+      {tab === 'zapis' && mode !== 'overviews_only' && isStartChecklistCompleteForKeg(businessDateISO()) && (
         <form onSubmit={add} className={`card px-1 py-3 mb-5 transition-all duration-200 ${flash ? 'ring-4 ring-success-500/20' : ''}`}>
 
           <div className="grid grid-cols-2 gap-3 items-end mb-4">
@@ -1032,12 +1037,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="submit"
-                disabled={saving || !isStartChecklistCompleteForKeg(date)}
+                disabled={saving || !isStartChecklistCompleteForKeg(businessDateISO())}
                 className="btn-primary !rounded !from-emerald-600 !to-emerald-700 hover:!from-emerald-500 hover:!to-emerald-600 !shadow-emerald-600/30 text-xs font-black shadow-md disabled:opacity-40 min-h-[44px]"
               >
                 {saving ? '⏳ Ukládám…' : '💾 Uložit stáčení'}
               </button>
-              {!isStartChecklistCompleteForKeg(date) && (
+              {!isStartChecklistCompleteForKeg(businessDateISO()) && (
                 <span className="text-[11px] font-bold text-amber-600 animate-pulse bg-amber-50 border border-amber-200 rounded px-2.5 py-1">
                   ⚠️ Před uložením musíte splnit checklist přípravy!
                 </span>
@@ -2057,7 +2062,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
           <KeggingChecklistBody
             dateStr={date}
             phase="all"
-            isLastWeekOfMonth={isLastWeekOfMonth(new Date(date))}
+            isLastWeekOfMonth={isLastWeekOfMonth()}
           />
         </div>
       )}
@@ -2165,8 +2170,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
           setChecklistInitialCategory(null);
           setShowChecklistModal(false);
 
-          if (checklistGate && checklistPhase === 'start' && isLastWeekOfMonth(new Date(date))) {
-            if (!isMonthlyChecklistCompleteForKeg(date)) {
+          if (checklistGate && checklistPhase === 'start' && isLastWeekOfMonth()) {
+            if (!isMonthlyChecklistCompleteForKeg(businessDateISO())) {
               setChecklistPhase('monthly');
               setChecklistInitialCategory('4. Měsíční údržba (1x měsíčně)');
               setShowChecklistModal(true);
@@ -2176,19 +2181,19 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
           if (checklistPhase === 'end' || checklistPhase === 'monthly' || checklistPhase === 'start') {
             let checkedMap: Record<string, boolean> = {};
             try {
-              const raw = localStorage.getItem('keg_checklist_' + date);
+              const raw = localStorage.getItem('keg_checklist_' + businessDateISO());
               if (raw) checkedMap = JSON.parse(raw);
             } catch {}
 
             void autoLogKegSanitationFromChecklist({
-              dateStr: date,
+              dateStr: businessDateISO(),
               checkedMap,
               performedBy: profile?.display_name || '',
               phase: checklistPhase,
             });
           }
         }}
-        dateStr={date}
+        dateStr={businessDateISO()}
         phase={checklistPhase}
         blockCloseUntilStartDone={checklistGate}
         initialCategory={checklistInitialCategory ?? undefined}
