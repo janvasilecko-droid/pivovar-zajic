@@ -28,6 +28,7 @@ import { autoReserveTapIfNeeded, isTapMentioned, detectTapType } from '../lib/ta
 import { findDuplicateOrders, formatDuplicateMessage } from '../lib/orderDuplicates';
 import { TapReservationModal } from '../components/TapReservationModal';
 import { createReminder, getLocalReminders } from '../lib/reminders';
+import { flattenAkceNet, type AkceRow } from '../lib/inventoryHelper';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -100,6 +101,12 @@ export default function Orders({
   const [kegging, setKegging] = useState<EntryRow[]>([]);
   const [inventory, setInventory] = useState<EntryRow[]>([]);
   const [writeoffs, setWriteoffs] = useState<EntryRow[]>([]);
+  // "Chybí skladem" odznak (stockRemainingForWeek) dřív počítal jen stočeno −
+  // objednáno − odpisy, bez fasování/prodejny/akcí — sklad tak vypadal
+  // vyšší, než ve skutečnosti byl, a odznak se objevil pozdě nebo vůbec.
+  const [fasovaniRows, setFasovaniRows] = useState<EntryRow[]>([]);
+  const [prodejnaRows, setProdejnaRows] = useState<EntryRow[]>([]);
+  const [akceRows, setAkceRows] = useState<AkceRow[]>([]);
   const [zavozDeductionRows, setZavozDeductionRows] = useState<{ order_item_id: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<Order | null>(null);
@@ -658,7 +665,7 @@ export default function Orders({
 
   async function load(silent = false) {
     if (!silent && !orders.length) setLoading(true);
-    const [{ data: o }, { data: pl }, { data: b }, { data: pk }, { data: bt }, { data: kg }, { data: inv }, { data: wo }, { data: zd }] = await Promise.all([
+    const [{ data: o }, { data: pl }, { data: b }, { data: pk }, { data: bt }, { data: kg }, { data: inv }, { data: wo }, { data: zd }, { data: fa }, { data: fp }, { data: ak }] = await Promise.all([
       supabase.from('orders').select('*').order('order_date', { ascending: false }).order('created_at', { ascending: false }),
       supabase.from('places').select('*').order('name'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
@@ -668,6 +675,9 @@ export default function Orders({
       supabase.from('inventory').select('entry_date,beer_id,quantity'),
       supabase.from('writeoffs').select('entry_date,beer_id,quantity'),
       supabase.from('zavoz_deductions').select('order_item_id'),
+      supabase.from('fasovani').select('entry_date,beer_id,quantity'),
+      supabase.from('fasovani_private').select('entry_date,beer_id,quantity'),
+      supabase.from('akce').select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
     ]);
     const rawPk = (pk as Package[]) ?? [];
     const sortedPk = [...rawPk].sort((a, b) => {
@@ -681,6 +691,8 @@ export default function Orders({
     setBottling((bt as EntryRow[]) ?? []); setKegging((kg as EntryRow[]) ?? []);
     setInventory((inv as EntryRow[]) ?? []); setWriteoffs((wo as EntryRow[]) ?? []);
     setZavozDeductionRows((zd as { order_item_id: string | null }[]) ?? []);
+    setFasovaniRows((fa as EntryRow[]) ?? []); setProdejnaRows((fp as EntryRow[]) ?? []);
+    setAkceRows((ak as AkceRow[]) ?? []);
     const ids = (o as Order[])?.map((x) => x.id) ?? [];
     if (ids.length) {
       const { data: it } = await supabase.from('order_items').select('*').in('order_id', ids);
@@ -695,7 +707,7 @@ export default function Orders({
   // výpočet skladových odznaků ("chybí skladem" atd.), ale bez nich v seznamu
   // se appka o nový zápis stáčení/inventury/odpisu nikdy nedozvěděla a čísla
   // zůstala stará, dokud uživatel ručně neobnovil stránku.
-  useRealtime(['orders','order_items','beers','packages','places','zavoz_deductions','bottling','kegging','inventory','writeoffs'], () => load(true));
+  useRealtime(['orders','order_items','beers','packages','places','zavoz_deductions','bottling','kegging','inventory','writeoffs','fasovani','fasovani_private','akce','akce_items'], () => load(true));
 
   // 🔀 Požadavek z „Potřeba stočit KEGy / lahve“ (Kegging / Bottling): uživatel
   // klikl na řádek „Chybí X ks“ → otevřeme přehled objednávek rovnou filtrovaný
@@ -735,7 +747,8 @@ export default function Orders({
   function monthKey(dateStr: string): string { return dateStr.slice(0, 7); }
 
   // Per-beer remaining stock for a given ISO week:
-  //   brewed this week + last month's inventory − all orders this week (non-storno) − writeoffs this week
+  //   brewed this week + last month's inventory − all orders this week (non-storno)
+  //   − writeoffs/fasování/prodejna/akce this week
   // Negative = deficit (chybí ve skladu).
   function stockRemainingForWeek(wk: string): Map<string, number> {
     const now = new Date();
@@ -755,7 +768,9 @@ export default function Orders({
     });
 
     const woByBeer = new Map<string, number>();
-    writeoffs.filter((r) => r.beer_id && isoWeekKey(r.entry_date) === wk).forEach((r) => {
+    [...writeoffs, ...fasovaniRows, ...prodejnaRows, ...flattenAkceNet(akceRows)]
+      .filter((r) => r.beer_id && isoWeekKey(r.entry_date) === wk)
+      .forEach((r) => {
       woByBeer.set(r.beer_id!, (woByBeer.get(r.beer_id!) ?? 0) + Number(r.quantity));
     });
 

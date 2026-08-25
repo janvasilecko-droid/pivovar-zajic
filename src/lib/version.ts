@@ -1,7 +1,7 @@
 // Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-export const APP_VERSION = '1.861';
-export const APP_VERSION_DATE = '25.8.2026 10:11';
+export const APP_VERSION = '1.862';
+export const APP_VERSION_DATE = '25.8.2026 19:00';
 
 
 
@@ -9,6 +9,7 @@ export const APP_VERSION_DATE = '25.8.2026 10:11';
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 
 export const APP_CHANGELOG: string[] = [
+  '🐛 Objednávky: odznak "chybí skladem" u detailu/karty objednávky ignoroval výdej přes fasování, prodejnu a Akce/festivaly — sklad tak vypadal vyšší, než ve skutečnosti byl, a odznak se objevil pozdě nebo vůbec. v1.862',
   '🔐 Audit objednávek — sloučení duplicitních položek: dřív šlo o dva samostatné kroky (upravit + smazat), při výpadku uprostřed mohlo množství zůstat tiše zdvojené — teď je to jedna atomická operace. 🔐 WhatsApp: zprávy bez ID webhooku (starší bridge/Tasker) se dřív při opakovaném doručení mohly uložit dvakrát — přidána záložní kontrola podle odesílatele+textu+skupiny v posledních 2 minutách. v1.860',
   '🔐 Lahve/KEG — checklist "Začátek stáčení": brána se dřív vázala na editovatelné pole "Datum", takže šlo přepnutím data na jiný den (kde už checklist dřív proběhl) obejít dnešní přípravu pracoviště bez jejího skutečného vyplnění — teď se váže vždy na opravdu dnešní datum. U lahví navíc chyběla druhá kontrola přímo při uložení (spoléhalo se jen na schování formuláře v UI) — teď je tam stejně jako u KEGů. v1.858',
   '🎨 Domů: červeno-žluté výstražné dlaždice (Nová aktualizace, Měsíční úklid, STK vozidel) teď jemně pulzují mezi tmavou a světlejší červenou, ať nejdou přehlédnout. 🔐 WhatsApp objednávky: schválení teď zablokuje položku bez rozpoznaného piva/obalu (dřív šlo omylem schválit a položka pak mlčky zmizela ze skladu) — platí pro detail zprávy i pro rychlé schválení jedním klikem ze seznamu. v1.856',
