@@ -398,7 +398,7 @@ type Token = { qty: number; volStr: string | null; degree: string | null; start:
 // znamená to, že VŠECHNY položky objednávky jsou TOHO STUPNĚ.
 // Vrací stupeň (např. "11") a barvu (např. "světlé") nebo null.
 function extractGlobalDegree(text: string): { degree: string | null; color: string | null } {
-  const m = text.match(/\b(v[šs]e|v[šs]echno|v[šs]echny|v[šs]echna)\s+(11|12|10|13|8|9|14)\s*(sv|svet|svetl|svetle|svetly|tm|tma|tmav|tmava|tmavy|tmave|dark)?\b/i);
+  const m = text.match(/\b(v[šs]e|v[šs]echno|v[šs]echny|v[šs]echna)\s+(11|12|10|13|8|9|14)\s*(sv|svet|svetl|svetle|svetly|sl|tm|tma|tmav|tmava|tmavy|tmave|dark)?\b/i);
   if (!m) return { degree: null, color: null };
   const degree = m[2];
   const colorRaw = m[3]?.toLowerCase() ?? '';
