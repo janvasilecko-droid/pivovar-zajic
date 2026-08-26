@@ -98,6 +98,10 @@ try {
     <DebugErrorBoundary>
       <AuthProvider>
         <App />
+        {/* Oznámení a potvrzovací dialogy — jedno místo pro celou aplikaci
+            (lib/toast.ts). Musí být namountované, jinak potvrzení spadne
+            na prohlížečový confirm a oznámení se ztratí. */}
+        <ToastHost />
       </AuthProvider>
     </DebugErrorBoundary>,
   );

@@ -1,7 +1,17 @@
-import { useEffect, useState, useRef } from 'react';
-import { Search, ArrowRight, CornerDownLeft, Sparkles, Building, Beer as BeerIcon, MapPin, Calendar, FileText, Tag, Car } from 'lucide-react';
+// 🔎 Rychlé hledání — jedno pole na obrazovky, odběratele, piva i objednávky.
+// ---------------------------------------------------------------------------
+// Aplikace má přes čtyřicet míst, kam se dá jít (NAV + EXTRA_NAV v Layout.tsx).
+// Hledat je očima v menu je pomalejší než napsat tři písmena.
+//
+// Dvě věci, na kterých to dřív drhlo:
+//  • seznam obrazovek byl vypsaný ručně, takže nové obrazovky v hledání
+//    chyběly — teď se bere přímo z NAV/EXTRA_NAV a zastarat nemůže,
+//  • hledalo se přesně na znak, takže „kynsperk" nenašlo „Kynšperk" a
+//    „11" nenašlo „11°". Teď se porovnává bez diakritiky.
+import { useEffect, useState, useRef, useMemo } from 'react';
+import { Search, ArrowRight, MapPin, Beer as BeerIcon, ClipboardList } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { Page } from './Layout';
+import { NAV, EXTRA_NAV, Page } from './Layout';
 
 interface QuickSearchModalProps {
   isOpen: boolean;
@@ -13,20 +23,51 @@ type SearchItem = {
   id: string;
   title: string;
   subtitle: string;
-  category: 'Sekce v aplikaci' | 'Odběratel / Hospoda' | 'Druh piva';
+  category: string;
   icon: any;
   action: () => void;
 };
+
+/** Doplňující popis u obrazovek, kde samotný název nestačí. */
+const POPISY: Partial<Record<Page, string>> = {
+  dashboard: 'Stav piv v KEG sudech a lahvích',
+  bottling_entry: 'Záznam stočení do lahví a PET',
+  bottling_overview: 'Historie a přehled stočených lahví',
+  orders: 'Zadávání a přehled objednávek hospod a prodejen',
+  zavoz: 'Plánování závozu a rozvozu piva',
+  orders_zavoz: 'Plánování závozu a rozvozu piva',
+  prodejna: 'Zápis prodeje na prodejně',
+  sklo_promo: 'Evidence skla, podtáčků, etiket a prázdných lahví',
+  vycepy: 'Sanitace výčepů a rezervace zařízení',
+  exkurze: 'Rezervace prohlídek pivovaru',
+  kniha_jizd: 'Daňová evidence služebních cest',
+  vehicles: 'Evidence vozidel, STK a stav tachometru',
+  depozitar: 'Odběratelé, piva, obaly a ceník',
+  inventory: 'Měsíční inventura a dorovnání',
+  bottling_needs: 'Co je potřeba stočit do konce týdne',
+  cellar: 'Tanky, ležení a várky',
+  kegging: 'Stáčení do sudů',
+  bottling: 'Stáčení do lahví a PET',
+};
+
+/** „Kynšperk" i „kynsperk" musí najít totéž — jinak se hledání nepoužívá. */
+function bezDiakritiky(s: string): string {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
 
 export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchModalProps) {
   const [query, setQuery] = useState('');
   const [places, setPlaces] = useState<{ id: string; name: string; city: string | null }[]>([]);
   const [beers, setBeers] = useState<{ id: string; name: string; category: string | null }[]>([]);
+  const [orders, setOrders] = useState<
+    { id: string; place_name: string | null; delivery_date: string | null; order_date: string; status: string }[]
+  >([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
+      // Na telefonu se klávesnice otevře sama — hledání je psaní, ne klikání.
       setTimeout(() => inputRef.current?.focus(), 50);
       loadSearchData();
     } else {
@@ -37,84 +78,99 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
 
   async function loadSearchData() {
     try {
-      const [{ data: pData }, { data: bData }] = await Promise.all([
+      const [{ data: pData }, { data: bData }, { data: oData }] = await Promise.all([
         supabase.from('places').select('id, name, city').order('name'),
         supabase.from('beers').select('id, name, category').eq('is_active', true).order('name'),
+        // Jen posledních 300 — starší objednávka se hledá přes odběratele.
+        supabase
+          .from('orders')
+          .select('id, place_name, delivery_date, order_date, status')
+          .order('order_date', { ascending: false })
+          .limit(300),
       ]);
       setPlaces(pData || []);
       setBeers(bData || []);
+      setOrders(oData || []);
     } catch {
-      // ignore
+      // Hledání obrazovek funguje i bez dat — ta se dotahují jen jako bonus.
     }
   }
 
-  // Predefined System Pages
-  const pagesList: { id: Page; title: string; subtitle: string; icon: any }[] = [
-    { id: 'dashboard', title: 'Sklad a Přehled zásoby', subtitle: 'Stav piv v KEG sudech a lahvích', icon: Building },
-    { id: 'bottling_entry', title: 'Lahve Stáčení (Zápis)', subtitle: 'Záznam stočení do lahví a PET', icon: FileText },
-    { id: 'bottling_overview', title: 'Lahve Přehled stočených šarží', subtitle: 'Historie a přehled stočených lahví', icon: FileText },
-    { id: 'orders', title: 'Objednávky', icon: Calendar, subtitle: 'Zadávání a přehled objednávek hospod a prodejen' },
-    { id: 'zavoz', title: 'Závoz a Trasy řidičů', icon: MapPin, subtitle: 'Plánování závozu a rozvozu piva' },
-    { id: 'prodejna', title: 'Prodejna pivovaru', icon: Building, subtitle: 'Zápis prodeje na prodejně' },
-    { id: 'sklo_promo', title: 'Sklo, Etikety, Podtáčky', icon: Sparkles, subtitle: 'Evidence skla, podtáčků, etiket a prázdných lahví' },
-    { id: 'vycepy', title: 'Výčepy a Rezervace', icon: Sparkles, subtitle: 'Sanitace výčepů a rezervace zařízení' },
-    { id: 'exkurze', title: 'Exkurze pivovaru', icon: Building, subtitle: 'Rezervace prohlídek pivovaru' },
-    { id: 'kniha_jizd', title: 'Kniha jízd vozidel', icon: MapPin, subtitle: 'Daňová evidence služebních cest' },
-    { id: 'vehicles', title: 'Auta (Vozidla pivovaru)', icon: Car, subtitle: 'Evidence vozidel, STK a stav tachometru' },
-    { id: 'depozitar', title: 'Číselníky (Odběratelé, Piva, Obaly, Ceník)', subtitle: 'Evidence odběratelů, piv, obalů a ceník', icon: Tag },
-  ];
+  // Seznam obrazovek se bere z navigace, ne z ručního výpisu — nová obrazovka
+  // se tak v hledání objeví sama.
+  const strankyList = useMemo(
+    () =>
+      [...NAV, ...EXTRA_NAV]
+        .filter((n) => n.id !== 'signout')
+        .map((n) => ({ id: n.id, title: n.label, subtitle: POPISY[n.id] ?? n.group, icon: n.icon })),
+    []
+  );
 
-  const filteredPages: SearchItem[] = pagesList
-    .filter(
-      (p) =>
-        p.title.toLowerCase().includes(query.toLowerCase()) ||
-        p.subtitle.toLowerCase().includes(query.toLowerCase())
-    )
+  const dotaz = bezDiakritiky(query.trim());
+  const sedi = (...texty: (string | null | undefined)[]) =>
+    !dotaz || texty.some((t) => t && bezDiakritiky(t).includes(dotaz));
+
+  const filteredPages: SearchItem[] = strankyList
+    .filter((p) => sedi(p.title, p.subtitle))
+    .slice(0, 12)
     .map((p) => ({
       id: `page-${p.id}`,
       title: p.title,
       subtitle: p.subtitle,
-      category: 'Sekce v aplikaci',
+      category: 'Obrazovka',
       icon: p.icon,
-      action: () => {
-        onSelectPage(p.id);
-        onClose();
-      },
+      action: () => { onSelectPage(p.id); onClose(); },
     }));
 
-  const filteredPlaces: SearchItem[] = places
-    .filter(
-      (p) =>
-        p.name.toLowerCase().includes(query.toLowerCase()) ||
-        (p.city && p.city.toLowerCase().includes(query.toLowerCase()))
-    )
+  // Odběratelé, piva a objednávky se ukazují až od dvou znaků — jinak by
+  // prázdné hledání vysypalo stovky řádků a nešlo by v tom nic najít.
+  const dostDlouhy = dotaz.length >= 2;
+
+  const filteredPlaces: SearchItem[] = !dostDlouhy ? [] : places
+    .filter((p) => sedi(p.name, p.city))
+    .slice(0, 8)
     .map((p) => ({
       id: `place-${p.id}`,
       title: p.name,
-      subtitle: p.city ? `Město: ${p.city}` : 'Odběratel / Hospoda',
-      category: 'Odběratel / Hospoda',
+      subtitle: p.city ? `Město: ${p.city}` : 'Odběratel / hospoda',
+      category: 'Odběratel',
       icon: MapPin,
-      action: () => {
-        onSelectPage('places');
-        onClose();
-      },
+      action: () => { onSelectPage('places'); onClose(); },
     }));
 
-  const filteredBeers: SearchItem[] = beers
-    .filter((b) => b.name.toLowerCase().includes(query.toLowerCase()))
+  const filteredBeers: SearchItem[] = !dostDlouhy ? [] : beers
+    .filter((b) => sedi(b.name, b.category))
+    .slice(0, 8)
     .map((b) => ({
       id: `beer-${b.id}`,
       title: b.name,
       subtitle: b.category ? `Kategorie: ${b.category}` : 'Pivo pivovaru Zajíc',
-      category: 'Druh piva',
+      category: 'Pivo',
       icon: BeerIcon,
-      action: () => {
-        onSelectPage('beers');
-        onClose();
-      },
+      action: () => { onSelectPage('beers'); onClose(); },
     }));
 
-  const allItems: SearchItem[] = [...filteredPages, ...filteredPlaces, ...filteredBeers];
+  const filteredOrders: SearchItem[] = !dostDlouhy ? [] : orders
+    .filter((o) => sedi(o.place_name))
+    .slice(0, 8)
+    .map((o) => {
+      const den = o.delivery_date || o.order_date;
+      const datum = den ? new Date(den + 'T00:00:00Z').toLocaleDateString('cs-CZ') : '—';
+      const stav =
+        o.status === 'vyrizeno_zavoz' ? 'zavezeno'
+        : o.status === 'storno' ? 'storno'
+        : 'nevyřízená';
+      return {
+        id: `order-${o.id}`,
+        title: o.place_name || 'Objednávka bez odběratele',
+        subtitle: `Závoz ${datum} · ${stav}`,
+        category: 'Objednávka',
+        icon: ClipboardList,
+        action: () => { onSelectPage('orders'); onClose(); },
+      };
+    });
+
+  const allItems: SearchItem[] = [...filteredPages, ...filteredPlaces, ...filteredBeers, ...filteredOrders];
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'ArrowDown') {
@@ -125,9 +181,7 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
       setSelectedIndex((prev) => (prev > 0 ? prev - 1 : allItems.length - 1));
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      if (allItems[selectedIndex]) {
-        allItems[selectedIndex].action();
-      }
+      if (allItems[selectedIndex]) allItems[selectedIndex].action();
     } else if (e.key === 'Escape') {
       onClose();
     }
@@ -136,35 +190,43 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-neutral-950/70 backdrop-blur-sm z-[9999] flex items-start justify-center pt-16 sm:pt-24 p-4 animate-in fade-in duration-150">
+    <div
+      className="fixed inset-0 bg-neutral-950/70 backdrop-blur-sm z-[9999] flex items-start justify-center pt-3 sm:pt-24 px-0 sm:px-4"
+      onClick={onClose}
+    >
       <div
-        className="bg-white rounded max-w-2xl w-full shadow-2xl border border-amber-200 overflow-hidden flex flex-col max-h-[80vh]"
+        className="bg-white rounded-t-3xl sm:rounded-2xl max-w-2xl w-full shadow-2xl border border-amber-200 overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[80vh]"
         onKeyDown={handleKeyDown}
+        onClick={(e) => e.stopPropagation()}
       >
-        {/* Input Header */}
-        <div className="p-4 border-b border-amber-100 flex items-center gap-3 bg-amber-50/50">
+        <div className="p-3 sm:p-4 border-b border-amber-100 flex items-center gap-3 bg-amber-50/50">
           <Search size={22} className="text-amber-600 shrink-0" />
           <input
             ref={inputRef}
-            type="text"
-            placeholder="Rychlé hledání sekce, hospody, piva... (např. 'Závoz', '11°', 'Kynšperk')"
+            type="search"
+            enterKeyHint="search"
+            autoComplete="off"
+            placeholder="Obrazovka, hospoda, pivo, objednávka…"
             value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setSelectedIndex(0);
-            }}
-            className="w-full bg-transparent text-base font-bold text-neutral-900 placeholder:text-neutral-400 focus:outline-hidden"
+            onChange={(e) => { setQuery(e.target.value); setSelectedIndex(0); }}
+            className="w-full bg-transparent text-base font-bold text-neutral-900 placeholder:text-neutral-400 focus:outline-hidden min-h-[44px]"
           />
+          <button
+            type="button"
+            onClick={onClose}
+            className="sm:hidden shrink-0 min-h-[44px] px-3 rounded-xl text-sm font-black text-amber-800"
+          >
+            Zavřít
+          </button>
           <kbd className="hidden sm:inline-block px-2 py-1 text-[10px] font-mono font-black text-amber-900 bg-amber-200/80 rounded border border-amber-300 shrink-0">
             ESC
           </kbd>
         </div>
 
-        {/* Results List */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-1 scrollbar-thin">
+        <div className="flex-1 overflow-y-auto p-2 sm:p-3 space-y-1 scrollbar-thin">
           {allItems.length === 0 ? (
             <div className="p-8 text-center text-neutral-500 font-bold text-sm">
-              Žádné výsledky pro &quot;{query}&quot;
+              {dotaz ? `Žádné výsledky pro „${query}"` : 'Začněte psát…'}
             </div>
           ) : (
             allItems.map((item, index) => {
@@ -176,24 +238,24 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
                   type="button"
                   onClick={item.action}
                   onMouseEnter={() => setSelectedIndex(index)}
-                  className={`w-full text-left p-3 rounded flex items-center justify-between transition-all ${
+                  className={`w-full text-left p-3 rounded-xl flex items-center justify-between gap-2 transition-all min-h-[56px] ${
                     isSelected
-                      ? 'bg-amber-500 text-neutral-950 shadow-md ring-1 ring-amber-400 scale-[1.01]'
+                      ? 'bg-amber-500 text-neutral-950 shadow-md ring-1 ring-amber-400'
                       : 'hover:bg-amber-50 text-neutral-800'
                   }`}
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
                     <div
-                      className={`w-9 h-9 rounded flex items-center justify-center shrink-0 ${
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                         isSelected ? 'bg-amber-600 text-neutral-950' : 'bg-amber-100 text-amber-800'
                       }`}
                     >
                       <Icon size={18} />
                     </div>
-                    <div>
-                      <div className="font-display font-black text-sm">{item.title}</div>
+                    <div className="min-w-0">
+                      <div className="font-display font-black text-sm truncate">{item.title}</div>
                       <div
-                        className={`text-xs ${
+                        className={`text-xs truncate ${
                           isSelected ? 'text-neutral-900 font-bold' : 'text-neutral-500 font-medium'
                         }`}
                       >
@@ -202,9 +264,9 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     <span
-                      className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border ${
+                      className={`hidden sm:inline text-[10px] font-black uppercase px-2 py-0.5 rounded border ${
                         isSelected
                           ? 'bg-amber-600 text-neutral-950 border-amber-700'
                           : 'bg-neutral-100 text-neutral-600 border-neutral-200'
@@ -220,20 +282,17 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
           )}
         </div>
 
-        {/* Modal Footer Keyboard Guide */}
-        <div className="p-3 bg-neutral-50 border-t border-neutral-100 flex items-center justify-between text-xs text-neutral-500 font-bold px-4">
+        <div className="hidden sm:flex p-3 bg-neutral-50 border-t border-neutral-100 items-center justify-between text-xs text-neutral-500 font-bold px-4">
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1">
               <kbd className="px-1.5 py-0.5 bg-white border border-neutral-300 rounded-xs text-[10px]">↑</kbd>
-              <kbd className="px-1.5 py-0.5 bg-white border border-neutral-300 rounded-xs text-[10px]">↓</kbd>{' '}
-              Navigace
+              <kbd className="px-1.5 py-0.5 bg-white border border-neutral-300 rounded-xs text-[10px]">↓</kbd> Navigace
             </span>
             <span className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 bg-white border border-neutral-300 rounded-xs text-[10px]">↵</kbd>{' '}
-              Otevřít
+              <kbd className="px-1.5 py-0.5 bg-white border border-neutral-300 rounded-xs text-[10px]">↵</kbd> Otevřít
             </span>
           </div>
-          <span className="text-[11px] text-amber-700 font-extrabold">Pivovar Zajíc QuickSearch</span>
+          <span className="text-[11px] text-amber-700 font-extrabold">Pivovar Zajíc</span>
         </div>
       </div>
     </div>

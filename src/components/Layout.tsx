@@ -22,6 +22,7 @@ import { isAdminEmail } from '../lib/config';
 import { BugReportModal } from './BugReportModal';
 import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
 import { SCENES, DEFAULT_DOCK, hexToRgba, COLOR_HEX, type Scene, type TileColor } from '../lib/homeLayout';
+import { zavibruj } from '../lib/haptika';
 import '../screens/HomeScreen.css';
 
 export type NavItem = { id: Page; label: string; icon: LucideIcon; group: string };
@@ -182,6 +183,33 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   // Banner "offline → zobrazená data nemusí být aktuální" (událost z supabase.ts serveCached).
   const [showStaleBanner, setShowStaleBanner] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
+  // Předchozí navštívená obrazovka — dlouhý stisk na spodní liště se na ni
+  // vrátí. Přeskakování mezi dvěma místy (třeba Závoz ↔ Objednávky) je
+  // v provozu nejčastější pohyb a přes menu je to pokaždé tři klepnutí.
+  const predchoziStranka = useRef<Page | null>(null);
+  const aktualniStranka = useRef<Page>(page);
+  const dlouhyStiskRef = useRef(false);
+  const casovacStiskuRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (aktualniStranka.current !== page) {
+      predchoziStranka.current = aktualniStranka.current;
+      aktualniStranka.current = page;
+    }
+  }, [page]);
+  const zacniStisk = () => {
+    dlouhyStiskRef.current = false;
+    casovacStiskuRef.current = setTimeout(() => {
+      const kam = predchoziStranka.current;
+      if (!kam || kam === page) return;
+      dlouhyStiskRef.current = true;
+      zavibruj('hotovo');
+      setPage(kam);
+    }, 500);
+  };
+  const ukonciStisk = () => {
+    if (casovacStiskuRef.current) clearTimeout(casovacStiskuRef.current);
+    casovacStiskuRef.current = null;
+  };
   const [showQuickAddOrder, setShowQuickAddOrder] = useState(false);
   const [showBugModal, setShowBugModal] = useState(false);
   const [pendingWhatsAppCount, setPendingWhatsAppCount] = useState(0);
@@ -627,6 +655,17 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             )}
           </div>
 
+          {/* Hledání na telefonu — jediné tlačítko vpravo, ať hlavička
+              nezabírá místo. Ctrl+K se na telefonu zmáčknout nedá. */}
+          <button
+            type="button"
+            onClick={() => setShowSearchModal(true)}
+            aria-label="Hledat"
+            className="sm:hidden ml-auto shrink-0 w-11 h-11 grid place-items-center rounded-xl border border-neutral-200 bg-neutral-100/80 text-neutral-700 active:scale-95 transition"
+          >
+            <Search size={18} />
+          </button>
+
           {/* Pravá strana hlavičky (Hledat/odznaky/offline stav/Chyby) — jen
               na desktopu (sm a víc). Na mobilu appka zbytečně nezabírala
               místo hlavičkou plnou tlačítek na každé stránce — Hledat a
@@ -796,7 +835,12 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             return (
               <button
                 key={`${dockId}-${i}`}
-                onClick={() => setPage(dockId)}
+                onClick={() => { if (dlouhyStiskRef.current) { dlouhyStiskRef.current = false; return; } setPage(dockId); }}
+                onPointerDown={zacniStisk}
+                onPointerUp={ukonciStisk}
+                onPointerLeave={ukonciStisk}
+                onContextMenu={(e) => e.preventDefault()}
+                title={predchoziStranka.current ? 'Podržením se vrátíte na předchozí obrazovku' : undefined}
                 style={isActive ? { color: accent } : undefined}
                 className={`flex flex-col items-center justify-center py-1 px-2.5 rounded transition-all relative flex-1 font-bold ${
                   isActive ? 'bg-white/60 shadow-sm scale-105' : 'text-neutral-500 hover:text-neutral-700'
