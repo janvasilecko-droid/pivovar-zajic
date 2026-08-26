@@ -935,6 +935,17 @@
   "is_prepared": false
  },
  {
+  "id": "30b6bb35-b188-4528-b0e2-6dacbb034460",
+  "order_id": "e95428ca-69b8-4301-a48e-80a15573c567",
+  "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
+  "beer_name": "10° Desítka",
+  "package_id": "16adfff0-50c0-482e-9338-1eb4632cfc14",
+  "package_label": "30l",
+  "quantity": 8,
+  "created_at": "2026-08-26T17:25:23.583553+00:00",
+  "is_prepared": false
+ },
+ {
   "id": "30bdcfbe-e911-4160-a38d-586a147c1c10",
   "order_id": "9dc97eb1-623c-4b25-870a-e2e4cd190e24",
   "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
