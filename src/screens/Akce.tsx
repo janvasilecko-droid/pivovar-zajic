@@ -4,6 +4,33 @@ import { Spinner, EmptyState } from '../components/ui';
 import { createReminder } from '../lib/reminders';
 import { Plus, Trash2, Check, Calendar, Sparkles, Star, DollarSign, CheckCircle2, RotateCcw, User, MapPin, ClipboardList, ThumbsUp, ThumbsDown, Bell } from 'lucide-react';
 
+/** Řádky z DB (akce + vnořené akce_items) → tvar, se kterým pracuje obrazovka. */
+function rowsToRecords(rows: any[]): AkceRecord[] {
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    who: r.who ?? '',
+    entry_date: r.entry_date,
+    status: (r.status === 'completed' ? 'completed' : 'planned') as 'planned' | 'completed',
+    items: (r.items ?? []).map((it: any) => ({
+      id: it.id,
+      beer_id: it.beer_id ?? '',
+      beer_name: it.beer_name ?? undefined,
+      package_id: it.package_id ?? '',
+      package_label: it.package_label ?? undefined,
+      quantity_taken: Number(it.quantity_taken ?? 0),
+      quantity_returned: Number(it.quantity_returned ?? 0),
+    })),
+    ready: r.ready ?? false,
+    equipment: Array.isArray(r.equipment) ? r.equipment : undefined,
+    revenue: r.revenue == null ? undefined : Number(r.revenue),
+    rating: r.rating == null ? undefined : Number(r.rating),
+    note: r.note ?? undefined,
+    recommend: r.recommend ?? undefined,
+    created_at: r.created_at ?? undefined,
+  }));
+}
+
 export type AkceItem = {
   id?: string;
   beer_id: string;
@@ -52,13 +79,9 @@ type FormRow = { beer_id: string; package_id: string; qty: string };
 export default function AkceScreen() {
   const [beers, setBeers] = useState<Beer[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
-  const [records, setRecords] = useState<AkceRecord[]>(() => {
-    try {
-      const saved = localStorage.getItem('akce_records_v2');
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
+  const [records, setRecords] = useState<AkceRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
 
   // New Event Form State
   const [showAddModal, setShowAddModal] = useState(false);
@@ -93,21 +116,120 @@ export default function AkceScreen() {
 
   async function loadData() {
     setLoading(true);
-    const [{ data: b }, { data: pk }] = await Promise.all([
+    const [{ data: b }, { data: pk }, { data: ak }] = await Promise.all([
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
+      supabase
+        .from('akce')
+        .select('*, items:akce_items(id,beer_id,beer_name,package_id,package_label,quantity_taken,quantity_returned)')
+        .order('entry_date', { ascending: false }),
     ]);
     setBeers((b as Beer[]) ?? []);
     setPackages((pk as Package[]) ?? []);
+    setRecords(rowsToRecords((ak as any[]) ?? []));
     setLoading(false);
   }
 
   useEffect(() => { loadData(); }, []);
-  useRealtime(['beers', 'packages'], loadData);
+  // Akce se čtou i na Skladu/Dashboardu/Inventuře (spotřeba piva na akci),
+  // proto posloucháme i změny z jiných zařízení.
+  useRealtime(['beers', 'packages', 'akce', 'akce_items'], loadData);
 
-  function saveRecords(newRecords: AkceRecord[]) {
-    setRecords(newRecords);
-    localStorage.setItem('akce_records_v2', JSON.stringify(newRecords));
+  // 🚚 Jednorázový převod akcí zadaných dřív, kdy se ukládaly jen do tohoto
+  // prohlížeče. Bez toho by po přechodu na databázi historické akce zmizely.
+  // Běží až po prvním načtení; localStorage klíč se po úspěchu přejmenuje,
+  // aby se převod neopakoval (a data zůstala dohledatelná, kdyby něco).
+  useEffect(() => {
+    if (loading) return;
+    let cancelled = false;
+    (async () => {
+      let legacy: AkceRecord[] = [];
+      try {
+        const raw = localStorage.getItem('akce_records_v2');
+        if (!raw) return;
+        legacy = JSON.parse(raw);
+      } catch { return; }
+      if (!Array.isArray(legacy) || legacy.length === 0) return;
+      // Nepřenášet akce, které už v DB jsou (podle názvu + data).
+      const existing = new Set(records.map((r) => `${r.name}__${r.entry_date}`));
+      const toMigrate = legacy.filter((r) => !existing.has(`${r.name}__${r.entry_date}`));
+      for (const rec of toMigrate) {
+        const err = await persistRecord(rec, true);
+        if (err) return; // při chybě necháme localStorage být a zkusíme příště
+      }
+      if (cancelled) return;
+      try {
+        localStorage.setItem('akce_records_v2__prevedeno', localStorage.getItem('akce_records_v2') || '');
+        localStorage.removeItem('akce_records_v2');
+      } catch {}
+      loadData();
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
+
+  /** Uloží akci (hlavičku i položky) do databáze. Vrací text chyby, nebo null. */
+  async function persistRecord(rec: AkceRecord, isNew: boolean): Promise<string | null> {
+    const header = {
+      id: rec.id,
+      name: rec.name,
+      who: rec.who || null,
+      entry_date: rec.entry_date,
+      status: rec.status,
+      ready: rec.ready ?? false,
+      equipment: rec.equipment ?? null,
+      revenue: rec.revenue ?? null,
+      rating: rec.rating ?? null,
+      recommend: rec.recommend ?? null,
+      note: rec.note ?? null,
+    };
+    const { error: headErr } = isNew
+      ? await supabase.from('akce').insert(header)
+      : await supabase.from('akce').update(header).eq('id', rec.id);
+    if (headErr) return headErr.message;
+
+    // Položky se přepisují celé — je jich max 7 a uživatel je edituje najednou.
+    const { error: delErr } = await supabase.from('akce_items').delete().eq('akce_id', rec.id);
+    if (delErr) return delErr.message;
+    if (rec.items.length > 0) {
+      const { error: itemsErr } = await supabase.from('akce_items').insert(
+        rec.items.map((it) => ({
+          akce_id: rec.id,
+          beer_id: it.beer_id || null,
+          beer_name: it.beer_name ?? null,
+          package_id: it.package_id || null,
+          package_label: it.package_label ?? null,
+          quantity_taken: it.quantity_taken,
+          quantity_returned: it.quantity_returned,
+        }))
+      );
+      if (itemsErr) return itemsErr.message;
+    }
+    return null;
+  }
+
+  /** Uloží změnu do DB a teprve po úspěchu ji promítne na obrazovku. */
+  async function saveRecord(rec: AkceRecord, isNew = false) {
+    setSaveErr(null);
+    const err = await persistRecord(rec, isNew);
+    if (err) {
+      setSaveErr('Uložení se nepovedlo: ' + err);
+      return false;
+    }
+    setRecords((prev) =>
+      isNew ? [rec, ...prev] : prev.map((r) => (r.id === rec.id ? rec : r))
+    );
+    return true;
+  }
+
+  async function deleteRecord(id: string) {
+    setSaveErr(null);
+    const { error } = await supabase.from('akce').delete().eq('id', id);
+    if (error) {
+      setSaveErr('Smazání se nepovedlo: ' + error.message);
+      return;
+    }
+    setRecords((prev) => prev.filter((r) => r.id !== id));
   }
 
   // Sorted packages: Bottles first, KEGs second
@@ -167,7 +289,7 @@ export default function AkceScreen() {
       equipment: [],
     };
 
-    saveRecords([newRecord, ...records]);
+    if (!(await saveRecord(newRecord, true))) return;
     setShowAddModal(false);
     setName('');
     setItemRows(Array.from({ length: 7 }, () => ({ beer_id: '', package_id: '', qty: '' })));
@@ -193,9 +315,8 @@ export default function AkceScreen() {
   }
 
   // Přepnutí stavu "Připraveno na akci"
-  function toggleReady(rec: AkceRecord) {
-    const updated = records.map((r) => r.id === rec.id ? { ...r, ready: !r.ready } : r);
-    saveRecords(updated);
+  async function toggleReady(rec: AkceRecord) {
+    await saveRecord({ ...rec, ready: !rec.ready });
   }
 
   // Otevření modálu vybavení na akci
@@ -209,14 +330,13 @@ export default function AkceScreen() {
   }
 
   // Uložení vybavení na akci
-  function saveEquipment() {
+  async function saveEquipment() {
     if (!equipRecord) return;
     const selected = [
       ...DEFAULT_EQUIPMENT.filter((e) => equipChecked[e]),
       ...equipCustomItems,
     ];
-    const updated = records.map((r) => r.id === equipRecord.id ? { ...r, equipment: selected } : r);
-    saveRecords(updated);
+    if (!(await saveRecord({ ...equipRecord, equipment: selected }))) return;
     setEquipRecord(null);
     alert(`✅ Vybavení na akci "${equipRecord.name}" uloženo (${selected.length} položek).`);
   }
@@ -245,7 +365,7 @@ export default function AkceScreen() {
   }
 
   // Save "Po akci" evaluation
-  function handleSaveEval(e: React.FormEvent) {
+  async function handleSaveEval(e: React.FormEvent) {
     e.preventDefault();
     if (!evalRecord) return;
 
@@ -268,21 +388,29 @@ export default function AkceScreen() {
       recommend: evalRecommend || undefined,
     };
 
-    const nextRecords = records.map((r) => r.id === updatedRec.id ? updatedRec : r);
-    saveRecords(nextRecords);
+    if (!(await saveRecord(updatedRec))) return;
     setEvalRecord(null);
     alert(`🎉 Vyhodnocení akce "${updatedRec.name}" uloženo! Neprodané sudy/lahve byly vráceny do skladu.`);
   }
 
-  function handleDeleteAkce(id: string) {
+  async function handleDeleteAkce(id: string) {
     if (!confirm('Opravdu smazat tuto akci?')) return;
-    saveRecords(records.filter((r) => r.id !== id));
+    await deleteRecord(id);
   }
 
   if (loading) return <Spinner />;
 
   return (
     <div className="space-y-6 pb-12">
+      {/* Chyba zápisu do databáze — dřív se akce ukládaly jen do prohlížeče,
+          takže uložení nemohlo selhat. Teď jde o skutečný zápis, a když ho
+          server odmítne (práva, výpadek), musí to uživatel vidět — jinak by
+          si myslel, že je akce uložená, a ona by nikde nebyla. */}
+      {saveErr && (
+        <div className="rounded border border-danger-300 bg-danger-500/10 px-4 py-3 text-sm font-bold text-danger-700">
+          ⚠️ {saveErr}
+        </div>
+      )}
       {/* Top Banner */}
       <div className="bg-neutral-900 text-white p-5 sm:p-7 rounded border border-amber-500/30 shadow-xl flex flex-wrap items-center justify-between gap-4">
         <div>
