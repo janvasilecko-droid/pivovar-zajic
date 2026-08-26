@@ -252,11 +252,45 @@ export function stockAsOf(movements: Movement[], dateISO: string): Map<string, S
   return out;
 }
 
+/**
+ * Stav skladu k RÁNU zadaného dne (než se ten den cokoli stočí nebo vydá).
+ *
+ * Inventura datovaná na ten den se ZAPOČÍTÁ — dělá se ráno a popisuje právě
+ * ten výchozí stav. Ostatní pohyby toho dne se nezapočítají, ty patří už do
+ * probíhajícího dne. Používá „co je potřeba stočit" pro stav v pondělí ráno.
+ */
+export function stockAtStartOfDay(movements: Movement[], dateISO: string): Map<string, StockLine> {
+  return stockAsOf(
+    movements.filter((m) => (m.kind === 'inventura' ? m.date <= dateISO : m.date < dateISO)),
+    dateISO
+  );
+}
+
 /** Zkratka: jen množství, bez rozpadu. */
 export function stockMapAsOf(movements: Movement[], dateISO: string): Record<string, number> {
   const map: Record<string, number> = {};
   stockAsOf(movements, dateISO).forEach((line, key) => { map[key] = line.qty; });
   return map;
+}
+
+/**
+ * Očekávaný (teoretický) stav ke konci měsíce — základ pro inventuru.
+ *
+ * Proti stockAsOf() je tu jeden zásadní rozdíl: inventury zapsané UVNITŘ
+ * počítaného měsíce se do výpočtu nezahrnou. Ony jsou totiž právě to, s čím
+ * se očekávaný stav porovnává — kdyby se braly jako výchozí bod, rozdíl by
+ * po uložení fyzické inventury vždycky vyšel nula a manko by nešlo zjistit.
+ * Výchozím bodem je poslední inventura K PRVNÍMU DNI MĚSÍCE nebo starší
+ * (typicky „Počáteční stav" převedený z minulého měsíce).
+ */
+export function expectedForMonth(movements: Movement[], monthKey: string): Map<string, StockLine> {
+  const monthStart = `${monthKey}-01`;
+  const [y, m] = monthKey.split('-').map(Number);
+  const monthEnd = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+  const bezInventurVMesici = movements.filter(
+    (mv) => !(mv.kind === 'inventura' && mv.date > monthStart && mv.date <= monthEnd)
+  );
+  return stockAsOf(bezInventurVMesici, monthEnd);
 }
 
 /**

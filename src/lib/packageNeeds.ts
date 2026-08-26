@@ -22,7 +22,8 @@
 // PONDĚLÍ, se počítá zvlášť za tento týden — tak se čerstvé stočení hned
 // projeví v "co ještě chybí do konce týdne", bez čekání na to, až se
 // nějaká JINÁ objednávka označí jako zavezená.
-import { getStartingStockMap, flattenAkceNet, AkceRow } from './inventoryHelper';
+import { flattenAkceNet, AkceRow } from './inventoryHelper';
+import { buildMovements, stockAtStartOfDay } from './stockLedger';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 
 export type PackageNeedsRow = {
@@ -137,70 +138,32 @@ export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind
       orderedMap[k] = (orderedMap[k] || 0) + Number(item.quantity || 0);
     });
 
-  // Sklad v PONDĚLÍ RÁNO: počátek měsíce (s převodem z předchozího měsíce,
-  // včetně zavezených objednávek) + pohyby od 1. dne měsíce do pondělí.
-  const invMap = getStartingStockMap(weekStartMonth, inventoryRows, bottlingRows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, 0, zavozDeductionRows, akceRows, prefukRows, adjustmentRows);
+  // 📒 Sklad v PONDĚLÍ RÁNO — ze skladové knihy (lib/stockLedger.ts).
+  // Dřív se tady stav dopočítával vlastní cestou: počátek měsíce z
+  // getStartingStockMap + ručně sečtené pohyby od 1. dne měsíce do pondělí,
+  // rozepsané na šedesát řádků. Ta kopie se rozcházela s ostatními
+  // obrazovkami a hlavně ořezávala výsledek na nulu, takže schodek z
+  // minulých měsíců zmizel a čerstvé stáčení pak umazávalo neexistující dluh.
+  const weekStartLines = stockAtStartOfDay(
+    buildMovements({
+      inventoryRows,
+      bottlingRows,
+      keggingRows,
+      fasovaniRows,
+      prodejnaRows,
+      writeoffsRows,
+      zavozDeductionRows,
+      akceRows,
+      prefukRows,
+      adjustmentRows,
+      packages,
+    }),
+    weekStartStr,
+  );
+  const weekStartStockMap: Record<string, number> = {};
+  weekStartLines.forEach((line, k) => { weekStartStockMap[k] = line.qty; });
 
   const producedRows = [...bottlingRows, ...keggingRows];
-
-  const preWeekIn: Record<string, number> = {};
-  producedRows.filter((r) => isBeforeThisWeek(r.entry_date)).forEach((r) => {
-    if (!r.beer_id || !r.package_id) return;
-    const k = `${r.beer_id}__${r.package_id}`;
-    preWeekIn[k] = (preWeekIn[k] || 0) + Number(r.quantity || 0);
-  });
-  const preWeekOut: Record<string, number> = {};
-  [...fasovaniRows, ...prodejnaRows, ...writeoffsRows, ...akceOutRows].filter((r) => isBeforeThisWeek(r.entry_date)).forEach((r) => {
-    if (!r.beer_id || !r.package_id) return;
-    const k = `${r.beer_id}__${r.package_id}`;
-    preWeekOut[k] = (preWeekOut[k] || 0) + Number(r.quantity || 0);
-  });
-  zavozDeductionRows.filter((r) => isBeforeThisWeek(r.deduct_date)).forEach((r) => {
-    if (!r.beer_id || !r.package_id) return;
-    const k = `${r.beer_id}__${r.package_id}`;
-    preWeekOut[k] = (preWeekOut[k] || 0) + Number(r.quantity || 0);
-  });
-  {
-    const seen = new Set<string>();
-    bottlingRows.filter((r) => isBeforeThisWeek(r.entry_date)).forEach((r) => {
-      const res = resolveKegsUsed(r, packages);
-      if (!res || !r.beer_id) return;
-      const key = `${r.entry_date}|${r.beer_id}|${res.kegsUsed}|${res.kegPkgId}|${r.created_at || r.note || ''}`;
-      if (seen.has(key)) return;
-      seen.add(key);
-      const k = `${r.beer_id}__${res.kegPkgId}`;
-      preWeekOut[k] = (preWeekOut[k] || 0) + res.kegsUsed;
-    });
-  }
-  const prefukFromPreWeek: Record<string, number> = {};
-  const prefukToPreWeek: Record<string, number> = {};
-  prefukRows.filter((r) => isBeforeThisWeek(r.entry_date)).forEach((r) => {
-    if (!r.beer_id) return;
-    if (r.from_package_id) {
-      const k = `${r.beer_id}__${r.from_package_id}`;
-      prefukFromPreWeek[k] = (prefukFromPreWeek[k] || 0) + Number(r.from_count || 0);
-    }
-    if (r.to_package_id) {
-      const k = `${r.beer_id}__${r.to_package_id}`;
-      prefukToPreWeek[k] = (prefukToPreWeek[k] || 0) + Number(r.to_count || 0);
-    }
-  });
-  // Dorovnání inventury (manko/přebytek, ± ks) — stejný zdroj jako Sklad/Dashboard
-  // (inventory_adjustments). Bez tohoto se "co chybí stočit" po zápisu manka
-  // v Inventuře rozešlo s tím, co ukazuje Sklad.
-  const adjPreWeek: Record<string, number> = {};
-  adjustmentRows.filter((r) => isBeforeThisWeek(r.entry_date)).forEach((r) => {
-    if (!r.beer_id || !r.package_id) return;
-    const k = `${r.beer_id}__${r.package_id}`;
-    adjPreWeek[k] = (adjPreWeek[k] || 0) + Number(r.quantity || 0);
-  });
-  const weekStartStockMap: Record<string, number> = {};
-  new Set([...Object.keys(invMap), ...Object.keys(preWeekIn), ...Object.keys(preWeekOut), ...Object.keys(prefukFromPreWeek), ...Object.keys(prefukToPreWeek), ...Object.keys(adjPreWeek)]).forEach((k) => {
-    weekStartStockMap[k] = Math.max(
-      0,
-      Number(invMap[k] || 0) + Number(preWeekIn[k] || 0) - Number(preWeekOut[k] || 0) - Number(prefukFromPreWeek[k] || 0) + Number(prefukToPreWeek[k] || 0) + Number(adjPreWeek[k] || 0)
-    );
-  });
 
   // Pohyby OD PONDĚLÍ DO TEĎ (tento týden) — stočeno hned zvyšuje sklad,
   // bez ohledu na to, jak je na tom kterákoli konkrétní objednávka.

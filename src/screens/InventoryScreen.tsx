@@ -6,7 +6,8 @@ import { Spinner } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { ClipboardCheck, Plus, Save, Download, Lock, RefreshCw, AlertCircle, CheckCircle2, RotateCcw, Calendar, Camera } from 'lucide-react';
 import { CountFromImage } from '../components/CountFromImage';
-import { getStartingStockMap, computeInventoryReconciliation } from '../lib/inventoryHelper';
+import { computeInventoryReconciliation } from '../lib/inventoryHelper';
+import { buildMovements, expectedForMonth, stockAtStartOfDay, type StockLine } from '../lib/stockLedger';
 
 type InitialStockMap = Record<string, number>; // key: `${beer_id}__${package_id}`, val: qty
 
@@ -59,9 +60,32 @@ function computeInitialStockForMonth(
   zdRows: any[],
   akRows: any[],
   pfRows: any[] = [],
-  adjRows: any[] = []
+  adjRows: any[] = [],
+  pkgList: { id: string; kind: string; volume_l: number }[] = []
 ): Record<string, number> {
-  return getStartingStockMap(monthKey, invRowsAll, btRows, kgRows, faRows, fpRows, woRows, 0, zdRows, akRows, pfRows, adjRows);
+  // 📒 Počáteční stav měsíce = stav skladu k RÁNU jeho prvního dne, ze
+  // skladové knihy (lib/stockLedger.ts). Dřív to řešil getStartingStockMap,
+  // který stav hledal i v localStorage (initial_stock_*, actual_inventory_*)
+  // — počáteční stav pak mohl existovat jen v jednom prohlížeči a jiné
+  // zařízení ukazovalo jiná čísla.
+  const map: Record<string, number> = {};
+  stockAtStartOfDay(
+    buildMovements({
+      inventoryRows: invRowsAll,
+      bottlingRows: btRows,
+      keggingRows: kgRows,
+      fasovaniRows: faRows,
+      prodejnaRows: fpRows,
+      writeoffsRows: woRows,
+      zavozDeductionRows: zdRows,
+      akceRows: akRows,
+      prefukRows: pfRows,
+      adjustmentRows: adjRows,
+      packages: pkgList,
+    }),
+    `${monthKey}-01`,
+  ).forEach((line, k) => { map[k] = line.qty; });
+  return map;
 }
 
 export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; initialSubTab?: string } = {}) {
@@ -120,6 +144,8 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   const [akceMap, setAkceMap] = useState<Record<string, number>>({}); // Akce (odvezené kegy)
   const [odpisyMap, setOdpisyMap] = useState<Record<string, number>>({}); // Odpisy (kegy)
   const [stacenoKegMap, setStacenoKegMap] = useState<Record<string, number>>({}); // Stáčení KEG
+  // 📒 Očekávaný stav ze skladové knihy — jediný zdroj pravdy pro sklad.
+  const [expectedLedger, setExpectedLedger] = useState<Map<string, StockLine>>(new Map());
 
   async function loadData() {
     const loadId = ++loadCountRef.current;
@@ -149,6 +175,27 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
 
     const invRowsAll = ((inv as any[]) ?? []);
 
+    // 📒 Očekávaný (teoretický) stav ke konci měsíce ze skladové knihy —
+    // stejná matematika jako Sklad, Dashboard a „co stočit na který den".
+    setExpectedLedger(
+      expectedForMonth(
+        buildMovements({
+          inventoryRows: invRowsAll,
+          bottlingRows: (bt as any[]) ?? [],
+          keggingRows: (kg as any[]) ?? [],
+          fasovaniRows: (fa as any[]) ?? [],
+          prodejnaRows: (fp as any[]) ?? [],
+          writeoffsRows: (wo as any[]) ?? [],
+          zavozDeductionRows: (zd as any[]) ?? [],
+          akceRows: (ak as any[]) ?? [],
+          prefukRows: (pf as any[]) ?? [],
+          adjustmentRows: (adj as any[]) ?? [],
+          packages: (pk as Package[]) ?? [],
+        }),
+        currentMonth
+      )
+    );
+
     const shouldReloadState = loadedMonthRef.current !== currentMonth || forceReloadRef.current;
 
     // 1. POČÁTEČNÍ STAVY pro aktuální měsíc (currentMonth) s automatickou kontinuitou z předchozího měsíce
@@ -163,7 +210,8 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       (zd as any[]) ?? [],
       (ak as any[]) ?? [],
       (pf as any[]) ?? [],
-      (adj as any[]) ?? []
+      (adj as any[]) ?? [],
+      (pk as any[]) ?? []
     );
     if (shouldReloadState) {
       setInitialStock(invAcc);
@@ -558,12 +606,28 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       packages.forEach((p) => {
         const k = `${b.id}__${p.id}`;
 
-        const initialQty = Number(initialStock[k] || 0);
-        const stacenoQty = Number(stacenoMap[k] || 0);
-        const odpisQty = Number(odpisyMap[k] || 0);
-        const vydejQty = Number(vydejMap[k] || 0);
+        // 📒 Očekávaný stav ze skladové knihy (lib/stockLedger.ts) — stejné
+        // číslo jako Sklad i „co stočit". Dřív si ho Inventura počítala sama
+        // z vlastních map a rozcházela se: mimo jiné jí chyběl přefuk a každý
+        // jednotlivý pohyb se ořezával na nulu, takže schodek zmizel a manko
+        // vyšlo menší, než ve skutečnosti bylo.
+        //
+        // expectedForMonth záměrně NEZAPOČÍTÁVÁ inventury zapsané uvnitř
+        // počítaného měsíce — ty jsou právě to, s čím se očekávaný stav
+        // porovnává. Jinak by po uložení fyzické inventury vyšel rozdíl vždy
+        // nula a manko by nešlo zjistit.
+        const line = expectedLedger.get(k);
+        const kinds = line?.byKind ?? {};
+        const initialQty = line?.baselineQty ?? Number(initialStock[k] || 0);
+        const stacenoQty = (kinds.kegovani ?? 0) + (kinds.staceni ?? 0) + (kinds.prefuk_do ?? 0);
+        const odpisQty = -(kinds.odpis ?? 0);
+        const vydejQty =
+          -((kinds.fasovani ?? 0) + (kinds.prodejna ?? 0) + (kinds.zavoz ?? 0) +
+            (kinds.akce ?? 0) + (kinds.sud_na_lahve ?? 0) + (kinds.prefuk_z ?? 0));
 
-        const expectedQty = initialQty + stacenoQty - odpisQty - vydejQty;
+        // Může být ZÁPORNÝ — pak evidence nesedí a inventura je právě ta
+        // příležitost to srovnat.
+        const expectedQty = line?.qty ?? (initialQty + stacenoQty - odpisQty - vydejQty);
 
         // Pokud je zadaný fyzický stav v políčku, použijeme ho, jinak dědí hodnotu z počáteční zásoby
         const actualInputStr = actualStock[k];
@@ -604,7 +668,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     });
 
     return list;
-  }, [beers, packages, initialStock, actualStock, dorovnatMap, stacenoMap, odpisyMap, vydejMap]);
+  }, [beers, packages, initialStock, actualStock, dorovnatMap, stacenoMap, odpisyMap, vydejMap, expectedLedger]);
 
   // Totals
   const totals = useMemo(() => {

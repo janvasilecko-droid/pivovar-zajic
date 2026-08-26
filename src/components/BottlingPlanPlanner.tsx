@@ -5,7 +5,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Beer, Package, beerBg, supabase, useRealtime } from '../lib/supabase';
 import { isoWeekKey, weekRange, shiftWeek } from './WeeklyOrderSummaryCard';
-import { getStartingStockMap, flattenAkceNet } from '../lib/inventoryHelper';
+import { flattenAkceNet } from '../lib/inventoryHelper';
+import { buildMovements, stockAsOf } from '../lib/stockLedger';
 import {
   BottlingPlan,
   BottlingPlanInput,
@@ -158,40 +159,21 @@ export function BottlingPlanPlanner({
     [packages]
   );
 
-  // Aktuální sklad (měsíční model — shodný s „Potřeba stočit lahve")
+  // 📒 Aktuální sklad ze skladové knihy (lib/stockLedger.ts) — stejné číslo
+  // jako Sklad, Inventura i „co stočit na který den". Dřív si ho plánovač
+  // počítal sám z měsíčního modelu a chyběl mu přefuk i dorovnání inventury.
   const stockMap = useMemo(() => {
-    const invMap = getStartingStockMap(curMonth, inventoryRows, rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, 0, zavozDeductionRows, akceRows);
-    const inMap: Record<string, number> = {};
-    [...rows, ...keggingRows].filter((r) => r.entry_date?.startsWith(curMonth)).forEach((r) => {
-      if (!r.beer_id || !r.package_id) return;
-      const k = `${r.beer_id}__${r.package_id}`;
-      inMap[k] = (inMap[k] || 0) + Number(r.quantity || 0);
-    });
-    const outMap: Record<string, number> = {};
-    [...fasovaniRows, ...prodejnaRows, ...writeoffsRows].filter((r) => r.entry_date?.startsWith(curMonth)).forEach((r) => {
-      if (!r.beer_id || !r.package_id) return;
-      const k = `${r.beer_id}__${r.package_id}`;
-      outMap[k] = (outMap[k] || 0) + Number(r.quantity || 0);
-    });
-    // Skutečně zavezené objednávky (automatický odpočet ráno v 01:00) — bez tohohle by
-    // „sklad" zahrnoval i pivo, které už fyzicky odjelo k odběratelům. Stejný zdroj jako
-    // Sklad (Stock.tsx) a Potřeba stočit lahve/KEGy.
-    zavozDeductionRows.filter((r) => r.deduct_date?.startsWith(curMonth)).forEach((r) => {
-      if (!r.beer_id || !r.package_id) return;
-      const k = `${r.beer_id}__${r.package_id}`;
-      outMap[k] = (outMap[k] || 0) + Number(r.quantity || 0);
-    });
-    flattenAkceNet(akceRows).filter((r) => r.entry_date?.startsWith(curMonth)).forEach((r) => {
-      if (!r.beer_id || !r.package_id) return;
-      const k = `${r.beer_id}__${r.package_id}`;
-      outMap[k] = (outMap[k] || 0) + Number(r.quantity || 0);
-    });
+    const dnes = new Date().toISOString().slice(0, 10);
     const map: Record<string, number> = {};
-    new Set([...Object.keys(invMap), ...Object.keys(inMap), ...Object.keys(outMap)]).forEach((k) => {
-      map[k] = Math.max(0, Number(invMap[k] || 0) + Number(inMap[k] || 0) - Number(outMap[k] || 0));
-    });
+    stockAsOf(
+      buildMovements({
+        inventoryRows, bottlingRows: rows, keggingRows, fasovaniRows,
+        prodejnaRows, writeoffsRows, zavozDeductionRows, akceRows, packages,
+      }),
+      dnes,
+    ).forEach((line, k) => { map[k] = Math.max(0, line.qty); });
     return map;
-  }, [curMonth, inventoryRows, rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, zavozDeductionRows, akceRows]);
+  }, [inventoryRows, rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, zavozDeductionRows, akceRows, packages]);
 
   // Položky, které už mají svůj vlastní odpočet závozu — ty jsou fyzicky odečtené ze
   // skladu už jednou přes stockMap výše, takže se nesmí počítat i do weekOrdered

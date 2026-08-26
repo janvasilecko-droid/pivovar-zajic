@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildMovements, stockAsOf, stockMapAsOf, stockKey, movementsFor } from './stockLedger';
+import { buildMovements, stockAsOf, stockMapAsOf, stockKey, movementsFor, expectedForMonth, stockAtStartOfDay } from './stockLedger';
 
 const B = 'beer-11';
 const P30 = 'pkg-30';
@@ -196,5 +196,77 @@ describe('rozpad pro obrazovku', () => {
     });
     const list = movementsFor(pohyby, B, P30);
     expect(list.map((m) => m.date)).toEqual(['2026-08-20', '2026-08-05']);
+  });
+});
+
+describe('expectedForMonth — základ pro inventuru', () => {
+  const zaklad = {
+    packages,
+    inventoryRows: [{ entry_date: '2026-08-01', beer_id: B, package_id: P30, quantity: 20, note: 'Počáteční stav' }],
+    keggingRows: [{ entry_date: '2026-08-10', beer_id: B, package_id: P30, quantity: 6 }],
+    fasovaniRows: [{ entry_date: '2026-08-12', beer_id: B, package_id: P30, quantity: 4 }],
+  };
+
+  it('počítá počáteční stav + pohyby měsíce', () => {
+    const e = expectedForMonth(buildMovements(zaklad), '2026-08');
+    expect(e.get(K)!.qty).toBe(22); // 20 + 6 − 4
+  });
+
+  // Tohle je jádro věci: kdyby se uložená fyzická inventura brala jako výchozí
+  // bod, očekávaný stav by se jí rovnal a manko by vyšlo vždycky nula.
+  it('fyzická inventura uvnitř měsíce očekávaný stav NEovlivní', () => {
+    const src = {
+      ...zaklad,
+      inventoryRows: [
+        ...zaklad.inventoryRows,
+        { entry_date: '2026-08-20', beer_id: B, package_id: P30, quantity: 15, note: 'Fyzická inventura' },
+      ],
+    };
+    const e = expectedForMonth(buildMovements(src), '2026-08');
+    expect(e.get(K)!.qty).toBe(22); // pořád teoretický stav, ne napočítaných 15
+    // …ale běžný stav skladu už tu inventuru respektuje:
+    expect(stockMapAsOf(buildMovements(src), '2026-08-31')[K]).toBe(15);
+  });
+
+  it('navazuje na inventuru z minulého měsíce', () => {
+    const src = {
+      packages,
+      inventoryRows: [{ entry_date: '2026-07-31', beer_id: B, package_id: P30, quantity: 8, note: 'Schválená inventura' }],
+      keggingRows: [{ entry_date: '2026-08-05', beer_id: B, package_id: P30, quantity: 2 }],
+    };
+    const e = expectedForMonth(buildMovements(src), '2026-08');
+    expect(e.get(K)!.qty).toBe(10);
+    expect(e.get(K)!.baselineDate).toBe('2026-07-31');
+  });
+
+  it('nezapočítá pohyby z dalšího měsíce', () => {
+    const src = {
+      ...zaklad,
+      keggingRows: [...zaklad.keggingRows, { entry_date: '2026-09-03', beer_id: B, package_id: P30, quantity: 100 }],
+    };
+    expect(expectedForMonth(buildMovements(src), '2026-08').get(K)!.qty).toBe(22);
+  });
+});
+
+describe('stockAtStartOfDay — stav k ránu', () => {
+  it('inventura z toho dne se započítá, stáčení z toho dne ne', () => {
+    const mv = buildMovements({
+      packages,
+      inventoryRows: [{ entry_date: '2026-08-24', beer_id: B, package_id: P30, quantity: 2, note: 'Počáteční stav' }],
+      keggingRows: [{ entry_date: '2026-08-24', beer_id: B, package_id: P30, quantity: 19 }],
+    });
+    expect(stockAtStartOfDay(mv, '2026-08-24').get(K)!.qty).toBe(2);
+    // Ke KONCI téhož dne už se stáčení projeví.
+    expect(stockMapAsOf(mv, '2026-08-24')[K]).toBe(21);
+  });
+
+  it('pohyby z předchozích dnů se počítají', () => {
+    const mv = buildMovements({
+      packages,
+      inventoryRows: [{ entry_date: '2026-08-01', beer_id: B, package_id: P30, quantity: 10, note: 'Počáteční stav' }],
+      keggingRows: [{ entry_date: '2026-08-20', beer_id: B, package_id: P30, quantity: 5 }],
+      fasovaniRows: [{ entry_date: '2026-08-23', beer_id: B, package_id: P30, quantity: 3 }],
+    });
+    expect(stockAtStartOfDay(mv, '2026-08-24').get(K)!.qty).toBe(12);
   });
 });

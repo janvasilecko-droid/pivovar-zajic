@@ -22,7 +22,8 @@
 // Čerstvé stočení se tak projeví v „chybí stočit" OKAMŽITĚ (počítá se do
 // „stock" hned po uložení), bez čekání na to, až se nějaká JINÁ objednávka
 // označí jako zavezená.
-import { getStartingStockMap, flattenAkceNet, AkceRow } from './inventoryHelper';
+import { flattenAkceNet, AkceRow } from './inventoryHelper';
+import { buildMovements, stockAtStartOfDay } from './stockLedger';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import type { BottlingPlan } from './bottlingPlans';
 
@@ -87,30 +88,17 @@ export function computeBottlingNeeds(input: BottlingNeedsInput): NeedsRow[] {
   const isBeforeThisWeek = (dateStr: string | null | undefined) =>
     !!dateStr && dateStr.startsWith(weekStartMonth) && dateStr < weekStartStr;
 
-  // Sklad v PONDĚLÍ RÁNO: počátek měsíce (s převodem z předchozího měsíce,
-  // včetně zavezených objednávek) + pohyby od 1. dne měsíce do pondělí.
-  const invMap = getStartingStockMap(weekStartMonth, inventoryRows, bottlingRows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, 0, zavozDeductionRows, akceRows);
-  const preWeekIn: Record<string, number> = {};
-  [...bottlingRows, ...keggingRows].filter((r) => isBeforeThisWeek(r.entry_date)).forEach((r) => {
-    if (!r.beer_id || !r.package_id) return;
-    const k = `${r.beer_id}__${r.package_id}`;
-    preWeekIn[k] = (preWeekIn[k] || 0) + Number(r.quantity || 0);
-  });
-  const preWeekOut: Record<string, number> = {};
-  [...fasovaniRows, ...prodejnaRows, ...writeoffsRows, ...akceOutRows].filter((r) => isBeforeThisWeek(r.entry_date)).forEach((r) => {
-    if (!r.beer_id || !r.package_id) return;
-    const k = `${r.beer_id}__${r.package_id}`;
-    preWeekOut[k] = (preWeekOut[k] || 0) + Number(r.quantity || 0);
-  });
-  zavozDeductionRows.filter((r) => isBeforeThisWeek(r.deduct_date)).forEach((r) => {
-    if (!r.beer_id || !r.package_id) return;
-    const k = `${r.beer_id}__${r.package_id}`;
-    preWeekOut[k] = (preWeekOut[k] || 0) + Number(r.quantity || 0);
-  });
+  // 📒 Sklad v PONDĚLÍ RÁNO — ze skladové knihy (lib/stockLedger.ts), stejně
+  // jako u potřeby stočit sudy. Dřív se dopočítával vlastní cestou a ta se
+  // s ostatními obrazovkami rozcházela.
   const weekStartStockMap: Record<string, number> = {};
-  new Set([...Object.keys(invMap), ...Object.keys(preWeekIn), ...Object.keys(preWeekOut)]).forEach((k) => {
-    weekStartStockMap[k] = Math.max(0, Number(invMap[k] || 0) + Number(preWeekIn[k] || 0) - Number(preWeekOut[k] || 0));
-  });
+  stockAtStartOfDay(
+    buildMovements({
+      inventoryRows, bottlingRows, keggingRows, fasovaniRows, prodejnaRows,
+      writeoffsRows, zavozDeductionRows, akceRows, packages,
+    }),
+    weekStartStr,
+  ).forEach((line, k) => { weekStartStockMap[k] = line.qty; });
 
   // Pohyby OD PONDĚLÍ DO TEĎ (tento týden) — stočeno hned zvyšuje sklad.
   const inMap: Record<string, number> = {};

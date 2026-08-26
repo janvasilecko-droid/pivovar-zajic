@@ -5,7 +5,6 @@ import { useAuth } from '../lib/auth';
 import { AlertTriangle, ClipboardList, PackageCheck, Layers, Beer as BeerIcon, BarChart3, Sparkles, Calculator } from 'lucide-react';
 import { AnnouncementManagerModal } from '../components/AnnouncementManagerModal';
 import SkloPromoScreen from './SkloPromoScreen';
-import { getStartingStockMap } from '../lib/inventoryHelper';
 import { buildMovements, stockAsOf, stockKey } from '../lib/stockLedger';
 import { QuickCountModal } from '../components/QuickCountModal';
 import { fetchLabelBalances } from '../lib/labelStock';
@@ -181,20 +180,6 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
       return null;
     };
 
-    const invMap = getStartingStockMap(
-      lastInvMonth,
-      invRows,
-      btRows,
-      kgRows,
-      faRows,
-      fpRows,
-      woRows,
-      0,
-      zdRows,
-      akRows,
-      pfRows,
-      adjRows
-    );
 
     // 📒 Skladová kniha — jediný zdroj pravdy o stavu skladu.
     const ledger = stockAsOf(buildMovements({
@@ -225,7 +210,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
       
       pkgList.forEach((pkg) => {
         const k = `${beer.id}__${pkg.id}`;
-        const qty = invMap[k] || 0;
+        const qty = ledger.get(stockKey(beer.id, pkg.id))?.baselineQty || 0;
         if (qty > 0) {
           let e = byPkg.get(pkg.id);
           if (!e) { e = { package_id: pkg.id, label: pkg.label, quantity: 0, volume_l: pkg.volume_l, kind: pkg.kind, fromInventory: 0, brewedWeek: 0, orderedWeek: 0, orderedThisWeek: 0, writeoffsWeek: 0, fasovaniWeek: 0, prodejnaWeek: 0, akTaken: 0, akReturned: 0, kegsUsedWeek: 0, odpocet: 0, remaining: 0, rawQuantity: 0, orderedRemaining: 0, adjWeek: 0 }; byPkg.set(pkg.id, e); }
