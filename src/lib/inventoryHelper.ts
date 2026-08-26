@@ -31,7 +31,11 @@ export function flattenAkceNet(
   for (const r of akceRows) {
     for (const it of r.items ?? []) {
       const net = Number(it.quantity_taken || 0) - Number(it.quantity_returned || 0);
-      if (net > 0) out.push({ entry_date: r.entry_date, beer_id: it.beer_id, package_id: it.package_id, quantity: net });
+      // Záporný čistý odběr (vrátilo se víc, než se odvezlo — typicky sudy
+      // z minulé akce) se MUSÍ pustit dál. Dřív se zahazoval, takže Sklad
+      // (skladová kniha počítá net !== 0) a "co je potřeba stočit" se o ty
+      // kusy rozešly. Odběr se všude odčítá, záporný se tím přičte zpátky.
+      if (net !== 0) out.push({ entry_date: r.entry_date, beer_id: it.beer_id, package_id: it.package_id, quantity: net });
     }
   }
   return out;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeInventoryReconciliation, getStartingStockMap } from './inventoryHelper';
+import { computeInventoryReconciliation, getStartingStockMap, flattenAkceNet } from './inventoryHelper';
 
 describe('computeInventoryReconciliation', () => {
   it('bez dorovnání se manko počítá jako Skutečnost − Očekávání', () => {
@@ -63,5 +63,31 @@ describe('getStartingStockMap — přefuk KEGů v převodu z minulého měsíce'
     const map = getStartingStockMap('2026-07', inventoryRows, [], [], [], [], [], 0, [], []);
     expect(map['b1__keg50']).toBe(20);
     expect(map['b1__keg30'] ?? 0).toBe(0);
+  });
+});
+
+describe('flattenAkceNet — čistý odběr z Akcí', () => {
+  const akce = (odvezeno: number, vraceno: number) => [{
+    entry_date: '2026-08-10',
+    items: [{ beer_id: 'b1', package_id: 'keg30', quantity_taken: odvezeno, quantity_returned: vraceno }],
+  }];
+
+  it('odvezeno víc než vráceno → výdej v kladných kusech', () => {
+    expect(flattenAkceNet(akce(10, 4))).toEqual([
+      { entry_date: '2026-08-10', beer_id: 'b1', package_id: 'keg30', quantity: 6 },
+    ]);
+  });
+
+  it('všechno se vrátilo → žádný pohyb', () => {
+    expect(flattenAkceNet(akce(5, 5))).toEqual([]);
+  });
+
+  it('vráceno víc, než se odvezlo → záporný výdej, tedy příjem zpátky na sklad', () => {
+    // Sudy vrácené z minulé akce. Dřív se řádek zahazoval, takže Sklad
+    // (skladová kniha) o ně věděl a "co je potřeba stočit" ne — dvě čísla
+    // pro jednu věc.
+    expect(flattenAkceNet(akce(2, 5))).toEqual([
+      { entry_date: '2026-08-10', beer_id: 'b1', package_id: 'keg30', quantity: -3 },
+    ]);
   });
 });
