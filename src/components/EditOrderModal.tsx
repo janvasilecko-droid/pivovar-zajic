@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Modal } from './ui';
 import { PlaceCombobox } from './PlaceCombobox';
 import { supabase, Beer, Package, Place } from '../lib/supabase';
-import { saveAlias, savePlaceAlias, getOrCreatePlace } from '../lib/orderParser';
+import { saveAlias, canLearnBeerAlias, savePlaceAlias, getOrCreatePlace } from '../lib/orderParser';
 import { autoReserveTapIfNeeded, isTapMentioned, detectTapType } from '../lib/tapReservations';
 import { TapReservationModal } from './TapReservationModal';
 import { QuickQtySelect } from './QuickQtySelect';
@@ -126,9 +126,12 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
         const beerChanged = orig.beer_id !== r.beerId;
         const pkgChanged = orig.package_id !== r.pkgId;
         if (beerChanged || pkgChanged) {
-          // Zkusíme najít text, který by mohl být alias — použijeme beer_name z originálu
+          // Zkusíme najít text, který by mohl být alias — použijeme beer_name z originálu.
+          // Trvalé pravidlo z toho ale uděláme jen tehdy, když dává smysl:
+          // text nesmí správně jmenovat jiné pivo z katalogu ani nést cizí
+          // stupeň (viz canLearnBeerAlias v orderParser.ts).
           const origBeerName = orig.beer_name;
-          if (origBeerName && origBeerName.trim()) {
+          if (origBeerName && origBeerName.trim() && r.beerId && canLearnBeerAlias(origBeerName, r.beerId, beers)) {
             await saveAlias(origBeerName, r.beerId, null).catch(() => {});
           }
           const origPkgLabel = orig.package_label;

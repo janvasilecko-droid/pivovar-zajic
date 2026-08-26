@@ -166,8 +166,14 @@ export function matchBeerFromHints(norm: string, beers: Beer[], aliasMap: Parser
   }
 
   // 3. Long alias substring match in aliasMap
-  for (const [alias, bid] of aliasMap.beer) {
-    if (alias.length >= 3 && norm.includes(alias)) {
+  // Od nejdelší zkratky k nejkratší: pořadí v Map je pořadí vložení z databáze,
+  // takže dřív vyhrávala náhodná zkratka, ne ta nejkonkrétnější — a výsledek
+  // se lišil zprávu od zprávy. Zároveň se přeskakují zkratky bez informace
+  // o pivu (viz isUsefulBeerAlias), aby staré zapamatované "2x10" nepřebilo
+  // skutečný název piva.
+  const sortedAliases = [...aliasMap.beer.entries()].sort((a, z) => z[0].length - a[0].length);
+  for (const [alias, bid] of sortedAliases) {
+    if (alias.length >= 3 && norm.includes(alias) && isUsefulBeerAlias(alias)) {
       const beer = beers.find((b) => b.id === bid);
       if (beer) return { beer, score: 0.90, alias };
     }
@@ -1134,10 +1140,87 @@ export function dedupeAgainstExisting(
   });
 }
 
+// 🚧 Smí se tenhle text naučit jako zkratka pro PIVO?
+// ---------------------------------------------------------------------------
+// Když uživatel v kontrole WhatsApp objednávky opraví pivo, uloží se z toho
+// trvalé globální pravidlo. Dřív se ukládalo cokoli — a když u položky chyběl
+// název piva, vzal se celý řádek. Tak se do katalogu zkratek dostaly věci jako
+// "2x10", "7x50", "1x30" nebo "10x30 11", tedy počty a objemy bez jakékoli
+// informace o pivu. Protože se zkratky hledají jako podřetězec, "2x10" pak
+// sedělo na každou budoucí zprávu, kde se ta dvojice čísel objevila, a přiřadilo
+// jí své pivo. Přesně proto to „občas" přiřadilo špatnou položku.
+//
+// Zkratka pro pivo musí nést identitu piva: buď aspoň tři písmena názvu
+// ("osma", "jantar", "sum"), nebo stupeň spolu s barvou ("12° sv", "11sv").
+// Obalů se tohle netýká — tam je "30l" naopak správná zkratka.
+export function isUsefulBeerAlias(aliasText: string): boolean {
+  const norm = normalize(aliasText);
+  if (!norm) return false;
+  const stripped = norm
+    .replace(/\d+\s*[x*]\s*/g, ' ')            // "5x", "2 * "
+    .replace(/\d+[.,]?\d*\s*l\b/g, ' ')        // "30l", "1,5l"
+    .replace(/\b(ks|sud|sudy|sudu|keg|kegy|pet|petka|petky|lahev|lahve|litr|litru|litry)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const letters = stripped.replace(/[^a-z]/g, '');
+  if (letters.length >= 3) return true;
+  const hasDegree = /(?:^|[^0-9])(8|9|1[0-6])(?![0-9])/.test(stripped);
+  const hasColor = /sv|sl\b|tm|svet|tmav|light|dark/.test(stripped);
+  return hasDegree && hasColor;
+}
+
+// 🚧 Smí se z téhle opravy udělat TRVALÉ pravidlo?
+// ---------------------------------------------------------------------------
+// Oprava piva v kontrole objednávky se ukládá jako globální zkratka pro
+// všechny budoucí zprávy. To dává smysl jen tehdy, když opravovaný text pivo
+// pojmenovává špatně nebo neobvykle. Nedává smysl, když text pivo pojmenovává
+// SPRÁVNĚ a uživatel jen u téhle jedné objednávky chtěl něco jiného —
+// z takového „pravidla" se pak kazí všechny další zprávy.
+//
+// V produkci se takhle uložilo mimo jiné "10° desitka" → 11° Světlá,
+// "11° svetla" → 12° Světlá a "jantar" → 12° Světlá. Každá další zpráva
+// s tím názvem pak dostala cizí pivo.
+export function canLearnBeerAlias(
+  aliasText: string,
+  beerId: string,
+  beers: { id: string; name: string; short_name?: string | null; degree?: string | null }[]
+): boolean {
+  if (!isUsefulBeerAlias(aliasText)) return false;
+  const target = beers.find((b) => b.id === beerId);
+  if (!target) return false;
+  const norm = normalize(aliasText);
+
+  // 1) Text už jmenuje JINÉ pivo z katalogu → je to oprava téhle jedné
+  //    objednávky, ne nové pojmenování.
+  for (const b of beers) {
+    if (b.id === beerId) continue;
+    for (const name of [b.name, b.short_name]) {
+      const n = normalize(name || '');
+      if (n.length >= 4 && norm.includes(n)) return false;
+    }
+  }
+
+  // 2) Text nese stupeň, který tomuhle pivu neodpovídá ("1x50l 11sv" nemůže
+  //    být trvalé pravidlo pro 12° Světlou).
+  const targetDegree = (target.degree || '').replace('°', '').trim();
+  const textDegree = extractDegreeFromRaw(norm);
+  if (targetDegree && textDegree && textDegree !== targetDegree) return false;
+
+  return true;
+}
+
 // Uložení naučené zkratky do localStorage i Supabase databáze
 export async function saveAlias(aliasText: string, beerId: string | null, packageId: string | null): Promise<void> {
   const norm = normalize(aliasText);
   if (!norm || norm.length < 2) return;
+
+  // Zkratku pro pivo si zapamatuj jen tehdy, když v ní pivo vůbec je (viz
+  // isUsefulBeerAlias). Případná zkratka pro OBAL se uloží i tak — "4x30l"
+  // o pivu neříká nic, o obalu ale ano.
+  if (beerId && !isUsefulBeerAlias(aliasText)) {
+    if (!packageId) return;
+    beerId = null;
+  }
 
   // 1. Okamžitá paměť do localStorage
   try {

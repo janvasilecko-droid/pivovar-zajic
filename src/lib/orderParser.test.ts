@@ -8,6 +8,8 @@ import {
   parseFreeTextEntries,
   detectOrderNotes,
   parseGeminiItems,
+  isUsefulBeerAlias,
+  canLearnBeerAlias,
   matchPlaceFromText,
   detectOrderDupWarnings,
   placesMatch,
@@ -498,5 +500,111 @@ describe('parseGeminiItems — raw_line degree overrides AI beer_name', () => {
     const results = parseGeminiItems(items, beers, packages);
     expect(results).toHaveLength(1);
     expect(results[0].beer_id).toBe('b-12sv');
+  });
+});
+
+// Všechny texty níže jsou skutečné záznamy z produkční tabulky parser_aliases
+// (stav 26. 8. 2026). Ty odmítnuté se tam dostaly tím, že se při opravě piva
+// v kontrole WhatsApp objednávky uložil celý řádek — a protože se zkratky
+// hledají jako podřetězec, "2x10" pak sedělo na kdejakou budoucí zprávu.
+describe('isUsefulBeerAlias — co se smí naučit jako zkratka piva', () => {
+  it('odmítne počet × objem, v nichž o pivu není nic', () => {
+    for (const junk of ['2x10', '7x30', '6x15', '1x30', '2x30', '7x50', '4x50l', '10x30 11', '5x 10°l', '11 8° 6x', '1x50 8,', '1x50 10,', '12 4x', '5x 10° 0']) {
+      expect(isUsefulBeerAlias(junk), junk).toBe(false);
+    }
+  });
+
+  it('pustí dál zkratky, které pivo skutečně pojmenovávají', () => {
+    for (const ok of ['osma', 'jantar', 'summer ale', 'deset 6x', '5x sum 1', '12° tmava', '4xtmava']) {
+      expect(isUsefulBeerAlias(ok), ok).toBe(true);
+    }
+  });
+
+  it('pustí dál stupeň s barvou', () => {
+    for (const ok of ['4x11sv', '5x 12° sv', '11sv', '12 tm', '5x 11° 0 sv']) {
+      expect(isUsefulBeerAlias(ok), ok).toBe(true);
+    }
+  });
+
+  it('samotný stupeň bez barvy nestačí', () => {
+    expect(isUsefulBeerAlias('11')).toBe(false);
+    expect(isUsefulBeerAlias('30 11')).toBe(false);
+  });
+});
+
+describe('matchBeerFromHints — zkratky nesmí přebít název piva', () => {
+  const beers = [
+    { id: 'b-10', name: '10° Desítka', degree: '10°', color: 'světlé', short_name: null },
+    { id: 'b-11', name: '11° Světlá', degree: '11°', color: 'světlé', short_name: null },
+    { id: 'b-12', name: '12° Světlá', degree: '12°', color: 'světlé', short_name: null },
+    { id: 'b-jan', name: 'Jantar', degree: '13°', color: 'polotmavé', short_name: null },
+  ] as unknown as Beer[];
+
+  function mapa(pairs: [string, string][]): ParserAliasMap {
+    const m = emptyAliasMap();
+    pairs.forEach(([a, id]) => m.beer.set(a, id));
+    return m;
+  }
+
+  // V produkci se omylem uložilo "jantar" → 12° Světlá. Nesmí to přebít
+  // pivo, které je v textu napsané celým jménem.
+  it('název piva v textu vyhraje nad špatně naučenou zkratkou', () => {
+    const { beer } = matchBeerFromHints(normalize('1x30l jantar'), beers, mapa([['jantar', 'b-12']]));
+    expect(beer?.id).toBe('b-jan');
+  });
+
+  it('zapamatované počty × objem už pivo nepřiřazují', () => {
+    const { beer } = matchBeerFromHints(normalize('plus 3x10 11sv'), beers, mapa([['2x10', 'b-10'], ['3x10', 'b-10']]));
+    expect(beer?.id).toBe('b-11');
+  });
+
+  it('z použitelných zkratek vyhraje nejdelší, ne náhodná', () => {
+    const m = mapa([['sum', 'b-10'], ['summer ale', 'b-12']]);
+    const { beer } = matchBeerFromHints(normalize('2x50 summer ale'), beers, m);
+    expect(beer?.id).toBe('b-12');
+  });
+});
+
+// Každé pravidlo níže se v produkci skutečně uložilo a kazilo čtení dalších
+// zpráv: jedna oprava jedné objednávky se stala trvalým globálním pravidlem.
+describe('canLearnBeerAlias — z čeho se smí stát trvalé pravidlo', () => {
+  const katalog = [
+    { id: 'b-10', name: '10° Desítka', short_name: null, degree: '10°' },
+    { id: 'b-11', name: '11° Světlá', short_name: null, degree: '11°' },
+    { id: 'b-12', name: '12° Světlá', short_name: '12sv', degree: '12°' },
+    { id: 'b-tm', name: '12° Tmavá', short_name: '12tm', degree: '12°' },
+    { id: 'b-jan', name: 'Jantar', short_name: 'Jant', degree: '13°' },
+    { id: 'b-osma', name: 'Osma', short_name: null, degree: '8°' },
+    { id: 'b-sum', name: 'Summer Ale', short_name: null, degree: null },
+  ];
+
+  it('odmítne přepsat název piva na jiné pivo', () => {
+    expect(canLearnBeerAlias('10° desitka', 'b-11', katalog)).toBe(false);
+    expect(canLearnBeerAlias('11° svetla', 'b-12', katalog)).toBe(false);
+    expect(canLearnBeerAlias('jantar', 'b-12', katalog)).toBe(false);
+    expect(canLearnBeerAlias('20x 0,5l 12° jantar', 'b-12', katalog)).toBe(false);
+    expect(canLearnBeerAlias('1x 15l 12° summer', 'b-10', katalog)).toBe(false);
+  });
+
+  it('odmítne text s cizím stupněm', () => {
+    expect(canLearnBeerAlias('1x50l 11sv', 'b-12', katalog)).toBe(false);
+    expect(canLearnBeerAlias('5x 10l 11° sv', 'b-osma', katalog)).toBe(false);
+    expect(canLearnBeerAlias('duck and dog na zitra do jeho sudu 11sv.', 'b-12', katalog)).toBe(false);
+  });
+
+  it('odmítne počty a objemy bez informace o pivu', () => {
+    expect(canLearnBeerAlias('7x50', 'b-11', katalog)).toBe(false);
+    expect(canLearnBeerAlias('2x10', 'b-10', katalog)).toBe(false);
+  });
+
+  it('pustí dál skutečnou přezdívku piva', () => {
+    expect(canLearnBeerAlias('vosma', 'b-osma', katalog)).toBe(true);
+    expect(canLearnBeerAlias('jantarek', 'b-jan', katalog)).toBe(true);
+    expect(canLearnBeerAlias('sumr', 'b-sum', katalog)).toBe(true);
+  });
+
+  it('pustí dál text se stupněm, který pivu odpovídá', () => {
+    expect(canLearnBeerAlias('2x50l 12sv', 'b-12', katalog)).toBe(true);
+    expect(canLearnBeerAlias('4x11sv', 'b-11', katalog)).toBe(true);
   });
 });

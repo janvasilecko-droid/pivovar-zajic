@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Beer, Package, Place } from '../lib/supabase';
 import { WhatsAppIncoming, ignoreWhatsAppMessage, updateWhatsAppParsedData } from '../lib/whatsappApi';
 import { parseWhatsAppOrderMessageWithAI } from '../lib/whatsappParser';
-import { loadAliasMap, saveAlias, matchBeerFromHints, matchPackage, matchPlaceFromText, savePlaceAlias, normalize, type ParserAliasMap } from '../lib/orderParser';
+import { loadAliasMap, saveAlias, canLearnBeerAlias, matchBeerFromHints, matchPackage, matchPlaceFromText, savePlaceAlias, normalize, type ParserAliasMap } from '../lib/orderParser';
 import { PlaceCombobox } from './PlaceCombobox';
 import { QuickQtySelect } from './QuickQtySelect';
 import { Modal } from './ui';
@@ -164,8 +164,14 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     const next = [...items];
     const prev = next[index];
     if (beerId && beerId !== prev.beerId) {
+      // Zkratku si zapamatuj jen tehdy, když z ní vzejde použitelné pravidlo —
+      // ne když opravovaný text správně jmenuje jiné pivo z katalogu nebo nese
+      // cizí stupeň (viz canLearnBeerAlias). Jinak by jedna oprava jedné
+      // objednávky rozbila čtení všech dalších zpráv.
       const aliasText = (prev.beerName || prev.rawLine || '').trim();
-      if (aliasText) saveAlias(aliasText.slice(0, 120), beerId, null).catch(() => {});
+      if (aliasText && canLearnBeerAlias(aliasText, beerId, props.beers)) {
+        saveAlias(aliasText.slice(0, 120), beerId, null).catch(() => {});
+      }
     }
     next[index] = { ...prev, beerId };
     setItems(next);

@@ -246,6 +246,46 @@ function extractDegreeFromText(text: string): string | null {
   return null;
 }
 
+// 🚧 Nese tenhle text vůbec informaci o pivu? Zrcadlí isUsefulBeerAlias
+// v src/lib/orderParser.ts — obě strany musí filtrovat stejně, jinak by
+// server použil zkratku, kterou si klient odmítl zapamatovat.
+function isUsefulBeerAlias(aliasText: string): boolean {
+  const norm = normText(aliasText);
+  if (!norm) return false;
+  const stripped = norm
+    .replace(/\d+\s*[x*]\s*/g, " ")
+    .replace(/\d+[.,]?\d*\s*l\b/g, " ")
+    .replace(/\b(ks|sud|sudy|sudu|keg|kegy|pet|petka|petky|lahev|lahve|litr|litru|litry)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const letters = stripped.replace(/[^a-z]/g, "");
+  if (letters.length >= 3) return true;
+  const hasDegree = /(?:^|[^0-9])(8|9|1[0-6])(?![0-9])/.test(stripped);
+  const hasColor = /sv|sl\b|tm|svet|tmav|light|dark/.test(stripped);
+  return hasDegree && hasColor;
+}
+
+// Pivo pojmenované vlastním jménem (Jantar, Summer, Hazy, Bunny) — tyhle
+// názvy jsou jednoznačné a nesmí je přebít naučená zkratka ani stupeň.
+function matchDistinctiveName(
+  text: string,
+  beers: { id: string; name: string }[]
+): string | null {
+  const hints: [RegExp, string][] = [
+    [/\bjantar\b|\bjant\b|\bjantarek\b|\bpolotmav\b/, "jantar"],
+    [/\bsummer\b|\bsumr\b/, "summer"],
+    [/\bhazy\b|\bipa\b|\bneipa\b/, "hazy"],
+    [/\bbunny\b|\bbuni\b/, "bunny"],
+  ];
+  for (const [pattern, token] of hints) {
+    if (pattern.test(text)) {
+      const hit = beers.find((b) => normText(b.name).includes(token));
+      if (hit) return hit.id;
+    }
+  }
+  return null;
+}
+
 function matchBeerInText(
   text: string,
   beers: { id: string; name: string; degree?: string | null; short_name?: string | null }[],
@@ -268,10 +308,25 @@ function matchBeerInText(
   }
   if (best) return best;
 
-  // 2) Naučené aliasy (přesná shoda nebo substring)
-  for (const [alias, beerId] of aliasMap.beer) {
-    const na = normText(alias);
-    if (na.length >= 2 && (text === na || text.includes(na))) return beerId;
+  // 1b) Vlastní jméno piva má přednost před naučenými zkratkami.
+  // Bez tohohle mohla zapamatovaná zkratka (v produkci se omylem uložilo
+  // "jantar" → 12° Světlá) přebít pivo, které je v textu napsané celým jménem.
+  // Klientská matchBeerFromHints tuhle pojistku měla, serverová větev ne —
+  // a právě ta zakládá objednávky z WhatsAppu.
+  const nameGuard = matchDistinctiveName(text, beers);
+  if (nameGuard) return nameGuard;
+
+  // 2) Naučené aliasy — od nejdelší k nejkratší, jen ty, které vůbec nesou
+  // informaci o pivu. Dřív vyhrála první zkratka v pořadí, v jakém přišla
+  // z databáze (tedy náhodně), a zkratky jako "2x10" nebo "7x50" (počet ×
+  // objem, o pivu nic) seděly jako podřetězec na spoustu budoucích zpráv.
+  // Tohle je příčina toho, že se položky přiřazovaly špatně jen občas.
+  const sortedAliases = [...aliasMap.beer.entries()]
+    .map(([alias, beerId]) => [normText(alias), beerId] as const)
+    .filter(([na]) => na.length >= 2 && isUsefulBeerAlias(na))
+    .sort((a, z) => z[0].length - a[0].length);
+  for (const [na, beerId] of sortedAliases) {
+    if (text === na || text.includes(na)) return beerId;
   }
 
   // 2b) OCR opravy názvů piv (seeger/zeeburg → seeberg)
@@ -1071,15 +1126,28 @@ Deno.serve(async (req: Request) => {
 
         // Spárovat položky s katalogem (beer_id, pkg_id) podle názvu/stupně/balení,
         // aby objednávka odkazovala na skutečná piva a obaly.
-        const itemsForStorage = parsedItems.map((item: any) => ({
-          beer_id: matchBeerId(item, beers, aliasMap),
-          pkg_id: matchPackageId(item, packages, aliasMap),
-          qty: item.quantity || null,
-          degree: item.degree || null,
-          beer_name: item.beer_name || null,
-          package_label: item.package_label || null,
-          raw_line: item.raw_line || null,
-        }));
+        const itemsForStorage = parsedItems.map((item: any) => {
+          const beerId = matchBeerId(item, beers, aliasMap);
+          const pkgId = matchPackageId(item, packages, aliasMap);
+          // ⚠️ beer_name MUSÍ odpovídat beer_id. Dřív se určovaly dvěma
+          // nezávislými cestami (id párováním s katalogem, název od AI) a nic
+          // je nesrovnávalo — 25. 8. 2026 tak vznikla položka s beer_id
+          // 10° Desítky a beer_name "11° Světlá": obsluha na obrazovce viděla
+          // jedenáctku, do objednávky se ale založila desítka. Rozhoduje
+          // beer_id (páruje se s původním textem zákazníka, ne s tím, co si
+          // přečetla AI) a název se k němu dopočítá z katalogu.
+          const beer = beerId ? (beers as any[]).find((b) => b.id === beerId) : null;
+          const pkg = pkgId ? (packages as any[]).find((p) => p.id === pkgId) : null;
+          return {
+            beer_id: beerId,
+            pkg_id: pkgId,
+            qty: item.quantity || null,
+            degree: item.degree || null,
+            beer_name: beer?.name ?? item.beer_name ?? null,
+            package_label: pkg?.label ?? item.package_label ?? null,
+            raw_line: item.raw_line || null,
+          };
+        });
 
         // ✅ Zdroj objednávek je jediná WhatsApp skupina „Objednávky pivovar"
         // (whitelist odesílatelů — webhook jiné zprávy neuloží). Všechny zprávy
