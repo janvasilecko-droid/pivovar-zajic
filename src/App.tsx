@@ -1,38 +1,43 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
 import { useAuth } from './lib/auth';
-import AppSettingsScreen from './screens/AppSettingsScreen';
-import AppVersionsScreen from './screens/AppVersionsScreen';
+const AppSettingsScreen = lazy(() => import('./screens/AppSettingsScreen'));
+const AppVersionsScreen = lazy(() => import('./screens/AppVersionsScreen'));
 
 import Layout, { Page } from './components/Layout';
 import AuthScreen from './screens/AuthScreen';
-import Dashboard from './screens/Dashboard';
+const Dashboard = lazy(() => import('./screens/Dashboard'));
 import HomeScreen from './screens/HomeScreen';
-import Orders from './screens/Orders';
-import Zavoz from './screens/Zavoz';
-import Stock from './screens/Stock';
-import { BeersScreen, PackagesScreen, PlacesScreen, VehiclesScreen } from './screens/Catalogs';
-import Users from './screens/Users';
-import KeggingScreen from './screens/Kegging';
-import BottlingScreen from './screens/BottlingScreen';
-import ProdejnaScreen from './screens/ProdejnaScreen';
-import AkceScreen from './screens/Akce';
-import Statistika from './screens/Statistika';
-import PriceListScreen from './screens/PriceList';
-import CellarScreen from './screens/Cellar';
-import { SrotovaniScreen, ChecklistsScreen, ConcentrationScreen } from './screens/BreweryScreens';
-import InventoryScreen from './screens/InventoryScreen';
-import KnihaJizdScreen from './screens/KnihaJizdScreen';
-import SkloPromoScreen from './screens/SkloPromoScreen';
-import VycepyScreen from './screens/VycepyScreen';
-import ExkurzeScreen from './screens/ExkurzeScreen';
+const Orders = lazy(() => import('./screens/Orders'));
+const Zavoz = lazy(() => import('./screens/Zavoz'));
+const Stock = lazy(() => import('./screens/Stock'));
+const BeersScreen = lazy(() => import('./screens/Catalogs').then((m) => ({ default: m.BeersScreen })));
+const PackagesScreen = lazy(() => import('./screens/Catalogs').then((m) => ({ default: m.PackagesScreen })));
+const PlacesScreen = lazy(() => import('./screens/Catalogs').then((m) => ({ default: m.PlacesScreen })));
+const VehiclesScreen = lazy(() => import('./screens/Catalogs').then((m) => ({ default: m.VehiclesScreen })));
+const Users = lazy(() => import('./screens/Users'));
+const KeggingScreen = lazy(() => import('./screens/Kegging'));
+const BottlingScreen = lazy(() => import('./screens/BottlingScreen'));
+const ProdejnaScreen = lazy(() => import('./screens/ProdejnaScreen'));
+const AkceScreen = lazy(() => import('./screens/Akce'));
+const Statistika = lazy(() => import('./screens/Statistika'));
+const PriceListScreen = lazy(() => import('./screens/PriceList'));
+const CellarScreen = lazy(() => import('./screens/Cellar'));
+const SrotovaniScreen = lazy(() => import('./screens/BreweryScreens').then((m) => ({ default: m.SrotovaniScreen })));
+const ChecklistsScreen = lazy(() => import('./screens/BreweryScreens').then((m) => ({ default: m.ChecklistsScreen })));
+const ConcentrationScreen = lazy(() => import('./screens/BreweryScreens').then((m) => ({ default: m.ConcentrationScreen })));
+const InventoryScreen = lazy(() => import('./screens/InventoryScreen'));
+const KnihaJizdScreen = lazy(() => import('./screens/KnihaJizdScreen'));
+const SkloPromoScreen = lazy(() => import('./screens/SkloPromoScreen'));
+const VycepyScreen = lazy(() => import('./screens/VycepyScreen'));
+const ExkurzeScreen = lazy(() => import('./screens/ExkurzeScreen'));
 import { ReminderNotificationManager } from './components/ReminderNotificationManager';
 import { MandatoryAnnouncementModal } from './components/MandatoryAnnouncementModal';
 import { CriticalMaterialAlertModal } from './components/CriticalMaterialAlertModal';
 import { MonthlyCleanupWarning } from './components/MonthlyCleanupWarning';
 import { SetPasswordModal } from './components/SetPasswordModal';
-import { BottlingTasksSettings } from './components/BottlingTasksSettings';
+const BottlingTasksSettings = lazy(() => import('./components/BottlingTasksSettings').then((m) => ({ default: m.BottlingTasksSettings })));
 import { Spinner } from './components/ui';
 import { scheduleNightlyCheck } from './lib/zavozDeduction';
 
@@ -54,15 +59,15 @@ function wasOpenedViaShare(): boolean {
   return window.location.pathname === '/share';
 }
 
-import HaccpScreen from './screens/HaccpScreen';
-import SanitationLogScreen from './screens/SanitationLogScreen';
-import VehiclesTabbed from './screens/VehiclesTabbed';
-import DepozitarTabbed from './screens/DepozitarTabbed';
-import SanitaceTabbed from './screens/SanitaceTabbed';
-import PlanningTabbed from './screens/PlanningTabbed';
-import MarketingTabbed from './screens/MarketingTabbed';
-import OrdersTabbed from './screens/OrdersTabbed';
-import TimersScreen from './screens/TimersScreen';
+const HaccpScreen = lazy(() => import('./screens/HaccpScreen'));
+const SanitationLogScreen = lazy(() => import('./screens/SanitationLogScreen'));
+const VehiclesTabbed = lazy(() => import('./screens/VehiclesTabbed'));
+const DepozitarTabbed = lazy(() => import('./screens/DepozitarTabbed'));
+const SanitaceTabbed = lazy(() => import('./screens/SanitaceTabbed'));
+const PlanningTabbed = lazy(() => import('./screens/PlanningTabbed'));
+const MarketingTabbed = lazy(() => import('./screens/MarketingTabbed'));
+const OrdersTabbed = lazy(() => import('./screens/OrdersTabbed'));
+const TimersScreen = lazy(() => import('./screens/TimersScreen'));
 import { KegTimerNotificationManager } from './components/KegTimerNotificationManager';
 
 export default function App() {
@@ -159,6 +164,10 @@ export default function App() {
         onOpenMonthlyChecklist={() => setPage('bottling')}
         onOpenKegMonthlyChecklist={() => setPage('kegging')}
       />
+      {/* Obrazovky se stahuji az pri prvnim otevreni (React.lazy). Drive se
+          vsech ~40 nacetlo najednou pri startu — 2,9 MB, i kdyz uzivatel
+          otevrel jen Domu. Fallback je stejny spinner jako jinde v appce. */}
+      <Suspense fallback={<Spinner />}>
       {page === 'home' && <HomeScreen setPage={setPage} />}
       {(page === 'dashboard' || page === 'sklo_promo') && (
         <Dashboard setPage={setPage} initialTab={page === 'sklo_promo' ? 'sklo_promo' : 'sklad'} />
@@ -249,6 +258,7 @@ export default function App() {
       )}
       {page === 'app_settings' && <AppSettingsScreen />}
       {page === 'app_versions' && <AppVersionsScreen />}
+      </Suspense>
     </Layout>
   );
 }

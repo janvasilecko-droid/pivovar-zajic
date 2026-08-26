@@ -1,7 +1,7 @@
 // Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-export const APP_VERSION = '1.892';
-export const APP_VERSION_DATE = '26.8.2026 09:43';
+export const APP_VERSION = '1.893';
+export const APP_VERSION_DATE = '26.8.2026 11:52';
 
 
 
@@ -9,7 +9,8 @@ export const APP_VERSION_DATE = '26.8.2026 09:43';
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 
 export const APP_CHANGELOG: string[] = [
-  '🔐 Sjednocena práva k obrazovkám: seznam "která obrazovka patří pod které oprávnění" existoval v aplikaci třikrát a kopie se rozešly — Šrotování patřilo jednou pod vlastní modul a jinde pod Zápis výroby, a Odběratelé/Piva/Obaly v jedné kopii chyběli úplně, takže se zobrazovali i lidem bez práv. Teď je seznam na jednom místě a hlídá ho test. v1.891',
+  '⚡ Aplikace startuje výrazně rychleji: dosud se při každém otevření stáhlo všech ~40 obrazovek najednou (2,9 MB), i když jste chtěli jen Domů — skoro třetinu z toho dělala knihovna pro export do Excelu, používaná jednou za měsíc. Teď se stahuje jen to, co skutečně otevřete; úvodní stažení kleslo o 73 %. Na mobilních datech v pivovaru je to rozdíl několika sekund při každém spuštění i po každé aktualizaci. v1.893',
+  '🔐 Sjednocena práva k obrazovkám: seznam "která obrazovka patří pod které oprávnění" existoval v aplikaci třikrát a kopie se rozešly — Šrotování patřilo jednou pod vlastní modul a jinde pod Zápis výroby, a Odběratelé/Piva/Obaly v jedné kopii chyběli úplně, takže se zobrazovali i lidem bez práv. Teď je seznam na jednom místě a hlídá ho test. v1.892',
   '💾 Záloha dat byla neúplná: stahovala se po tisíci řádcích a zbytek se TIŠE zahodil (bez chyby), takže záloha vypadala kompletní, i když v ní chyběl zbytek objednávek. Navíc jí chyběla zhruba třetina tabulek — mimo jiné kniha jízd, sanitační deníky, evidence sudů a pohyby sklepa. Teď se stahuje po dávkách a pokud se něco nepovede, záloha to uvede. ⚠️ Doporučení: zapněte si i automatické zálohy přímo v Supabase — appka umí zálohu jen stáhnout, ne obnovit. 🔐 Import Excelu má limit velikosti (omylem vybraný obří soubor dřív zamrzl appku uprostřed inventury) a přibyly bezpečnostní hlavičky. v1.890',
   '🐛 ZÁVAŽNÉ — oprava záznamu stáčení vysávala tank: úprava překlepu "35 → 36 sudů" ubrala z tanku 1800 litrů místo padesáti, protože se vrácení původního objemu a odečet nového počítaly ze stejné výchozí hodnoty a druhý přepsal první. Po pár opravách byl tank v aplikaci prázdný, i když byl fyzicky plný. Objem se teď mění relativně přímo v databázi, takže to platí i když stáčejí dva lidé ze stejného tanku naráz. Tlačítko Uložit se navíc odemkne až po dokončení (dvojklik ukládal dvakrát). 🐛 Storno objednávky teď vrátí pivo do skladu — odpočet závozu (běží v 1:00 ráno) dřív zůstal navždy, takže sklad byl trvale nižší o zrušené sudy a v inventuře z toho byl nevysvětlitelný přebytek. v1.888',
   '🐛 Zápis bez vybraného piva už neprojde: dřív se stáčení, fasování nebo odpis bez piva uložily a byly vidět v seznamu, ale VŠECHNY skladové výpočty je přeskočily — pivo se tedy nikdy neodečetlo (ani nepřičetlo) a sklad byl trvale špatně, aniž šlo zjistit proč. Teď to hlídá formulář i databáze. 🔐 Smazání piva nebo obalu z číselníku dřív rázem zneviditelnilo všechny jeho historické pohyby (včetně zpětných dopočtů minulých měsíců) — nově to databáze nedovolí a je potřeba pivo označit jako neaktivní. v1.886',
