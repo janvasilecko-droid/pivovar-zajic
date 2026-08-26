@@ -494,8 +494,17 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       return;
     }
 
-    const filled = entryRows.filter((r) => r.pkgId && Number(r.qty) > 0);
-    if (filled.length === 0) { setErr('Vyplň alespoň jeden řádek (obal a množství).'); return; }
+    // Kontroluje se i PIVO — bez něj se stočení sice uloží a je vidět
+    // v seznamu, ale všechny skladové výpočty ho přeskočí (filtrují
+    // `if (!beer_id || !package_id) return`), takže stočená šarže nikde
+    // nepřibude a sklad zůstane trvale podhodnocený.
+    const bezPiva = entryRows.filter((r) => !r.beerId && (r.pkgId || Number(r.qty) > 0));
+    if (bezPiva.length > 0) {
+      setErr('U každého vyplněného řádku vyberte pivo — bez něj by se stočení nepromítlo do skladu.');
+      return;
+    }
+    const filled = entryRows.filter((r) => r.beerId && r.pkgId && Number(r.qty) > 0);
+    if (filled.length === 0) { setErr('Vyplň alespoň jeden řádek (pivo, obal a množství).'); return; }
     setSaving(true);
 
     // Každý řádek si najde svůj vlastní zdrojový tank podle piva na řádku (ne podle globálně

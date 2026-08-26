@@ -475,7 +475,17 @@ export default function BottlingScreen({
       setShowChecklistModal(true);
       return;
     }
-    const filled = entryRows.filter((r) => (r.pkgId || r.pkg2Id || r.pkg3Id || r.kegPkgId) && (Number(r.qty) > 0 || Number(r.qty2) > 0 || Number(r.qty3) > 0));
+    // Bez vybraného piva se záznam sice uloží, ale všechny skladové výpočty
+    // ho přeskočí (filtrují `if (!beer_id || !package_id) return`) — stočené
+    // lahve by tedy nikde nepřibyly a nikdo by nezjistil proč.
+    const bezPiva = entryRows.filter(
+      (r) => !r.beerId && (r.pkgId || r.pkg2Id || r.pkg3Id || r.kegPkgId) && (Number(r.qty) > 0 || Number(r.qty2) > 0 || Number(r.qty3) > 0)
+    );
+    if (bezPiva.length > 0) {
+      setErr('U každého vyplněného řádku vyberte pivo — bez něj by se stočení nepromítlo do skladu.');
+      return;
+    }
+    const filled = entryRows.filter((r) => r.beerId && (r.pkgId || r.pkg2Id || r.pkg3Id || r.kegPkgId) && (Number(r.qty) > 0 || Number(r.qty2) > 0 || Number(r.qty3) > 0));
     if (filled.length === 0) { setErr('Vyplň alespoň jeden řádek (obal a množství).'); return; }
     setSaving(true);
 

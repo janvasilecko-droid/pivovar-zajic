@@ -139,8 +139,18 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   async function add(e?: React.FormEvent) {
     e?.preventDefault();
     setErr(null);
-    const filled = entryRows.filter((r) => r.pkgId && Number(r.qty) > 0);
-    if (filled.length === 0) { setErr('Vyplň alespoň jeden řádek (obal a množství).'); return; }
+    // Kontroluje se i PIVO, ne jen obal a množství. Bez piva se sice záznam
+    // uložil a byl vidět v seznamu, ale VŠECHNY skladové výpočty ho přeskočí
+    // (filtrují `if (!beer_id || !package_id) return`) — pivo se tedy nikdy
+    // neodečetlo ze skladu a nikdo nezjistil proč.
+    const rozepsane = entryRows.filter((r) => r.pkgId || Number(r.qty) > 0 || r.beerId);
+    const bezPiva = rozepsane.filter((r) => !r.beerId && (r.pkgId || Number(r.qty) > 0));
+    if (bezPiva.length > 0) {
+      setErr('U každého vyplněného řádku vyberte pivo — bez něj by se záznam neodečetl ze skladu.');
+      return;
+    }
+    const filled = entryRows.filter((r) => r.beerId && r.pkgId && Number(r.qty) > 0);
+    if (filled.length === 0) { setErr('Vyplň alespoň jeden řádek (pivo, obal a množství).'); return; }
     setSaving(true);
 
     // Tabulka `writeoffs` nemá sloupec `note` (jen `who` a `reason`) — na
