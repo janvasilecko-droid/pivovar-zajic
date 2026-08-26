@@ -11,6 +11,8 @@ import { EditOrderModal } from '../components/EditOrderModal';
 import { getSecondCarOrderIds, toggleOrderKachna, toggleOrdersKachna, migrateSecondCarDatesToOrders } from '../lib/zavozSecondCar';
 import { SignatureModal } from '../components/SignatureModal';
 import { KegReturnModal } from '../components/KegReturnModal';
+import { saveKegReturns, fetchKegMovements, computeKegBalances, type KegBalance } from '../lib/kegAccount';
+import { useAuth } from '../lib/auth';
 import { openNavigation, buildCustomerDeliveryWhatsAppText, openCustomerWhatsApp } from '../lib/navigation';
 import { printDeliveryList } from '../lib/safePrint';
 
@@ -26,6 +28,7 @@ type Order = {
 type OrderItem = { id: string; order_id: string; beer_id: string | null; beer_name: string | null; package_id: string | null; package_label: string | null; quantity: number; is_prepared: boolean };
 
 export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any, sec?: string) => void; embedded?: boolean } = {}) {
+  const { profile } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [items, setItems] = useState<Record<string, OrderItem[]>>({});
   const [packages, setPackages] = useState<Package[]>([]);
@@ -47,6 +50,9 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
   const [navTarget, setNavTarget] = useState<{ name: string; destination: string } | null>(null);
   const [signOrder, setSignOrder] = useState<Order | null>(null);
   const [kegReturnOrder, setKegReturnOrder] = useState<Order | null>(null);
+  // Konto sudů — kdo má u sebe kolik prázdných KEGů (odvezeno − vráceno).
+  const [kegBalances, setKegBalances] = useState<KegBalance[]>([]);
+  const [showKegBalances, setShowKegBalances] = useState(false);
 
   async function load(silent = false) {
     if (!silent && !orders.length) setLoading(true);
@@ -78,7 +84,17 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
   }
 
   useEffect(() => { load(); }, []);
-  useRealtime(['orders', 'order_items', 'packages', 'beers', 'places'], () => load(true));
+  useRealtime(['orders', 'order_items', 'packages', 'beers', 'places', 'keg_returns'], () => load(true));
+
+  // Konto sudů se počítá ze všech pohybů (odvezeno/vráceno) — načítá se zvlášť,
+  // ať to nezdržuje hlavní seznam závozu.
+  async function loadKegBalances() {
+    try {
+      setKegBalances(computeKegBalances(await fetchKegMovements()));
+    } catch { /* konto sudů je doplňkový přehled — chyba nesmí shodit obrazovku */ }
+  }
+  useEffect(() => { loadKegBalances(); }, []);
+  useRealtime(['keg_returns'], loadKegBalances);
 
   const activeOrders = useMemo(() => {
     return orders.filter((o) => isoWeekKey(o.order_date) === weekKey);
@@ -409,6 +425,52 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
           </div>
         </div>
       </div>
+
+      {/* 🛢️ KONTO SUDŮ — kdo má u sebe kolik prázdných KEGů.
+          Dřív se vrácené sudy nikam neukládaly, takže se nedalo zjistit,
+          kdo kolik dluží; sud přitom stojí 2–3 tisíce. */}
+      {kegBalances.length > 0 && (
+        <div className="card p-0 overflow-hidden border border-sky-300">
+          <button
+            type="button"
+            onClick={() => setShowKegBalances((v) => !v)}
+            className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-sky-50 hover:bg-sky-100 transition text-left"
+          >
+            <span className="flex items-center gap-2 font-black text-sm text-sky-950">
+              <Cylinder size={16} className="text-sky-700" />
+              Konto sudů — u odběratelů je {kegBalances.reduce((s, b) => s + b.total, 0)} prázdných KEGů
+            </span>
+            <span className="text-xs font-bold text-sky-800 shrink-0">
+              {showKegBalances ? 'Skrýt ▲' : `Zobrazit (${kegBalances.length}) ▼`}
+            </span>
+          </button>
+          {showKegBalances && (
+            <div className="divide-y divide-neutral-200">
+              {kegBalances.map((b) => (
+                <div key={b.placeId ?? b.placeName} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
+                  <span className="font-bold text-sm text-neutral-900">{b.placeName}</span>
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    {Object.entries(b.byVolume)
+                      .filter(([, n]) => n !== 0)
+                      .sort((x, y) => Number(y[0]) - Number(x[0]))
+                      .map(([vol, n]) => (
+                        <span
+                          key={vol}
+                          className={`px-2 py-0.5 rounded-md text-xs font-black tabular-nums ${
+                            n > 0 ? 'bg-sky-100 text-sky-950 border border-sky-300' : 'bg-emerald-100 text-emerald-950 border border-emerald-300'
+                          }`}
+                          title={n > 0 ? 'Nevrácené sudy u odběratele' : 'Vráceno víc, než bylo evidováno odvezeno'}
+                        >
+                          {n > 0 ? `${n}× ` : `${n}× `}{vol}l
+                        </span>
+                      ))}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* AKTUÁLNÍ ZÁVOZOVÝ TÝDEN */}
       <>
@@ -1208,8 +1270,23 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
           onClose={() => setKegReturnOrder(null)}
           customerName={kegReturnOrder.place_name || 'Odběratel'}
           onSaveReturns={async (returns) => {
-            const summaryStr = returns.map((r) => `${r.count}x ${r.size}`).join(', ');
+            // Dřív se tady jen složil text do alert() a nikam se nic neuložilo,
+            // přestože appka hlásila „✅ Zaznamenáno". Teď jde o skutečný zápis
+            // a při chybě se úspěch NEHLÁSÍ.
+            const err = await saveKegReturns({
+              returns,
+              placeId: kegReturnOrder.place_id,
+              placeName: kegReturnOrder.place_name,
+              orderId: kegReturnOrder.id,
+              recordedBy: profile?.display_name || null,
+            });
+            if (err) {
+              alert(`⚠️ Vrácené sudy se NEPODAŘILO uložit: ${err}\n\nZkuste to prosím znovu.`);
+              return;
+            }
+            const summaryStr = returns.filter((r) => r.count > 0).map((r) => `${r.count}x ${r.size}`).join(', ');
             alert(`✅ Zaznamenáno vrácení prázdných sudů pro ${kegReturnOrder.place_name}: ${summaryStr}`);
+            setKegReturnOrder(null);
           }}
         />
       )}

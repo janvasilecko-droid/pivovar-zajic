@@ -1,7 +1,7 @@
 // Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-export const APP_VERSION = '1.878';
-export const APP_VERSION_DATE = '26.8.2026 08:10';
+export const APP_VERSION = '1.879';
+export const APP_VERSION_DATE = '26.8.2026 10:20';
 
 
 
@@ -9,7 +9,8 @@ export const APP_VERSION_DATE = '26.8.2026 08:10';
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 
 export const APP_CHANGELOG: string[] = [
-  '🐛 KRITICKÉ — Akce a festivaly se konečně ukládají do databáze: dosud zůstávaly jen v paměti prohlížeče, takže je nikdo jiný neviděl, vymazání dat prohlížeče je smazalo, a hlavně se odvezené pivo NIKDY neodečetlo ze skladu (Sklad, Dashboard i Inventura z toho počítaly, ale tabulka byla prázdná). Odvezete 40 sudů na slavnosti a sklad je dál počítal jako dostupné. Akce zadané dřív se při prvním otevření automaticky převedou. Když se uložení nepovede, appka to teď ohlásí místo tichého selhání. v1.877',
+  '🛢️ Vrácené prázdné sudy se konečně evidují: okno po zavezení objednávky dosud jen zobrazilo "✅ Zaznamenáno" a nikam nic neuložilo — nešlo zjistit, kdo kolik sudů dluží (a sud stojí 2–3 tisíce). Teď se zápis skutečně ukládá, při chybě se úspěch nehlásí, a v Závozu přibyl přehled "Konto sudů" s tím, kdo má u sebe kolik prázdných KEGů. v1.879',
+  '🐛 KRITICKÉ — Akce a festivaly se konečně ukládají do databáze: dosud zůstávaly jen v paměti prohlížeče, takže je nikdo jiný neviděl, vymazání dat prohlížeče je smazalo, a hlavně se odvezené pivo NIKDY neodečetlo ze skladu (Sklad, Dashboard i Inventura z toho počítaly, ale tabulka byla prázdná). Odvezete 40 sudů na slavnosti a sklad je dál počítal jako dostupné. Akce zadané dřív se při prvním otevření automaticky převedou. Když se uložení nepovede, appka to teď ohlásí místo tichého selhání. v1.878',
   '🐛 Čtení objednávek: pivo napsané jako "sl 11" nebo "sv 12" (barva před číslem) se četlo špatně — číslo se ignorovalo a doplnil se výchozí ležák 12°, takže z jedenáctky byla dvanáctka. Teď číslo u barvy určuje stupeň v obou pořadích ("11sl" i "sl 11") a stupeň napsaný přímo v objednávce má přednost před tím, co odhadne AI. 🔐 Bezpečnost: fotky objednávek z WhatsAppu šlo stáhnout bez přihlášení — kdokoli si mohl nechat vypsat seznam všech souborů; anonymní výpis je zablokovaný. v1.875',
   '🔐 Dokončeno vynucení uživatelských práv na serveru: dřív měly ochranu jen Sklep/Stáčení/Inventura — u ostatních modulů (Objednávky, Závoz, Zápis výroby, Kniha jízd, Číselníky, Ceník, Sanitační deníky, Šrotování, Sklo/etikety, Upomínky) appka práva jen schovávala v prohlížeči a technicky zdatný uživatel je mohl obejít. Teď to hlídá i databáze. Pozn.: nic se nezamyká uživatelům, kteří nemají výslovně nastavené omezení. v1.871',
   '🧹 Úklid nepoužívaného kódu: odstraněny 2 osiřelé komponenty (starší verze WhatsApp okna a mapy sklepa, dávno nahrazené) a 4 nepoužívané funkce exportu do Excelu — bez dopadu na fungující obrazovky. v1.869',
