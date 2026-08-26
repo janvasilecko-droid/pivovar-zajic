@@ -1,7 +1,7 @@
 // Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-export const APP_VERSION = '1.905';
-export const APP_VERSION_DATE = '26.8.2026 18:35';
+export const APP_VERSION = '1.906';
+export const APP_VERSION_DATE = '26.8.2026 18:55';
 
 
 
@@ -9,6 +9,7 @@ export const APP_VERSION_DATE = '26.8.2026 18:35';
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 
 export const APP_CHANGELOG: string[] = [
+  '🔢 Napočítaná NULA se konečně ukládá — a tím je odhalená příčina toho deficitu. Inventura dosud zahazovala každý řádek s nulou (v aplikaci i v databázi), takže \"díval jsem se a není tam nic\" se změnilo na \"o téhle položce nic nevím\". To jsou ale dvě úplně jiné věci: uložená nula je pevný základ, od kterého se počítá dál, kdežto chybějící řádek nechá sklad sáhnout po starší inventuře a odečítat od ní všechny závozy. Proto měla schválená inventura za červenec jen 19 řádků z 56 a k 26. 8. vycházelo 34 položek do mínusu. Inventura navíc nahoře vypíše položky, které se tenhle měsíc hýbaly, ale nemají vyplněný stav — ať při počítání nic neuteče. v1.906',
   '📐 Všechny skladové výpočty počítají konečně stejně. Sklad si dosud počítalo SEDM různých míst po svém (Sklad, Domů, Inventura, potřeba stočit sudy i lahve, plánovač stáčení) a kopie se rozcházely — přefuk chyběl ve třech ze čtyř, Akce se nepočítaly vůbec, dorovnání inventury jinde. Teď je matematika na jednom místě. Inventura navíc přestala číst sklad z paměti prohlížeče: počáteční stav měsíce i fyzická inventura mohly existovat jen na jednom zařízení a jinde svítila jiná čísla. A očekávaný stav se v Inventuře počítá tak, aby ho neovlivnila inventura, kterou zrovna zapisujete — jinak by rozdíl vždycky vyšel nula a manko by nešlo zjistit. v1.905',
   '↩️ Odpovědi na WhatsApp objednávky se konečně čtou. Ve skupině se běžně odpovídá \"Bez summera\", \"nakonec 9x30\", \"plus 3x10 11sv\" — dosud z toho buď vznikla DRUHÁ objednávka pro téhož odběratele, nebo se zpráva zahodila (u \"Radek nakonec summer 9x30\" jste ručně opravoval 15 ks na 9, přestože odpověď na to doslova odpovídala). Nově se odpověď naváže na původní objednávku a v kontrole se ukáže CELÁ objednávka se zvýrazněnými změnami: zeleně přidané, žlutě změněné, škrtnuté odebrané. Schválením se objednávka upraví, nová se nezaloží. Dotaz, který nic nemění (\"Je nějaký Summer navíc?\"), objednávku nechá být. v1.904',
   '📒 Sklad počítá nově — jako účetní kniha. Dosud se každý pohyb zvlášť ořezával na nulu, takže když se vydalo víc, než kolik appka věděla, schodek zmizel a sklad hlásil 0. Skrývalo to skutečný problém: u 34 z 56 položek evidence nesedí (12° Světlá 1l −166 ks, 12° Tmavá 0,33l −160 ks, 11° Světlá 30l −12 ks). Nově se stav počítá od poslední inventury a nic se neořezává; položky, kde to nesedí, jsou nahoře ve Skladu vypsané i s tím, o kolik a od které inventury. Srovná je fyzická inventura. Zároveň je matematika na JEDNOM místě místo v sedmi kopiích, které se rozcházely. v1.902',

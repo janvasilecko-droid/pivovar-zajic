@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase, Beer, Package, useRealtime, formatPackageLabel, beerBg, beerText, beerName } from '../lib/supabase';
 import { Spinner } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
-import { ClipboardCheck, Plus, Save, Download, Lock, RefreshCw, AlertCircle, CheckCircle2, RotateCcw, Calendar, Camera } from 'lucide-react';
+import { ClipboardCheck, Plus, Save, Download, Lock, RefreshCw, AlertCircle, CheckCircle2, RotateCcw, Calendar, Camera , AlertTriangle} from 'lucide-react';
 import { CountFromImage } from '../components/CountFromImage';
 import { computeInventoryReconciliation } from '../lib/inventoryHelper';
 import { buildMovements, expectedForMonth, stockAtStartOfDay, type StockLine } from '../lib/stockLedger';
@@ -486,17 +486,40 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
 
 
   // Uložení fyzické inventury do Supabase i localStorage
-  async function handleSaveActualStock() {
-    setBusy(true);
-    try {
-      const entryDate = currentMonth + '-01';
-      const snapshotRows = rows.map((r) => ({
+  /** Byla tahle položka při inventuře skutečně spočítaná? (i „0" je výsledek) */
+  function jeSpocitana(beerId: string, packageId: string): boolean {
+    const raw = actualStock[`${beerId}__${packageId}`];
+    return raw !== undefined && String(raw).trim() !== '';
+  }
+
+  /**
+   * Řádky k uložení — jen to, co člověk skutečně vyplnil, ALE včetně nul.
+   *
+   * Dřív se ukládalo `filter(quantity > 0)`, takže napočítaná nula zmizela.
+   * „Díval jsem se a není tam nic" se tím změnilo na „o téhle položce nic
+   * nevím" — a to jsou dvě úplně jiné věci: uložená nula je pevný základ,
+   * od kterého se počítá dál, kdežto chybějící řádek nechá skladovou knihu
+   * sáhnout po starší inventuře a odečítat od ní všechny závozy dál.
+   * Schválená inventura za červenec 2026 měla proto jen 19 řádků z 56
+   * možných a k 26. 8. vycházelo 34 položek do mínusu.
+   */
+  function spocitaneRadky() {
+    return rows
+      .filter((r) => jeSpocitana(r.beer_id, r.package_id))
+      .map((r) => ({
         beer_id: r.beer_id,
         beer_name: r.beer_name,
         package_id: r.package_id,
         package_label: r.package_label,
         quantity: r.actualQty,
-      })).filter((r) => r.quantity > 0);
+      }));
+  }
+
+  async function handleSaveActualStock() {
+    setBusy(true);
+    try {
+      const entryDate = currentMonth + '-01';
+      const snapshotRows = spocitaneRadky();
       const adjustmentRows = Object.entries(dorovnatMap)
         .map(([key, value]) => {
           const quantity = Number(value);
@@ -548,20 +571,12 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
 
     setBusy(true);
     try {
-      const currentSnapshotRows = rows.map((r) => ({
-        beer_id: r.beer_id,
-        beer_name: r.beer_name,
-        package_id: r.package_id,
-        package_label: r.package_label,
-        quantity: r.actualQty,
-      })).filter((r) => r.quantity > 0);
-      const nextSnapshotRows = rows.map((r) => ({
-        beer_id: r.beer_id,
-        beer_name: r.beer_name,
-        package_id: r.package_id,
-        package_label: r.package_label,
-        quantity: r.actualQty,
-      })).filter((r) => r.quantity > 0);
+      // Do dalšího měsíce se převádí PŘESNĚ to, co se napočítalo — včetně nul.
+      // Dřív se nuly zahodily a další měsíc pak u těch položek počítal od
+      // starší inventury (nebo od ničeho) a odečítal od ní dál všechny závozy;
+      // odtud pramenil deficit u 34 z 56 položek.
+      const currentSnapshotRows = spocitaneRadky();
+      const nextSnapshotRows = currentSnapshotRows;
 
       const { error } = await supabase.rpc('close_inventory_month', {
         p_current_date: curEntryDate,
@@ -690,6 +705,15 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       { initial: 0, staceno: 0, odpis: 0, vydej: 0, expected: 0, actual: 0, diffQty: 0, diffCzk: 0, dorovnat: 0, diffAfterQty: 0, diffAfterCzk: 0 }
     );
   }, [rows]);
+
+  /** Položky, které se letos hýbaly, ale při inventuře se nespočítaly. */
+  const nespocitane = useMemo(
+    () => rows.filter((r) =>
+      !jeSpocitana(r.beer_id, r.package_id) &&
+      (r.initialQty !== 0 || r.stacenoQty !== 0 || r.vydejQty !== 0 || r.odpisQty !== 0)
+    ),
+    [rows, actualStock]
+  );
 
     // Import z Excelu / Google Tabulek
   async function handleExcelImport(e: React.ChangeEvent<HTMLInputElement>) {
@@ -919,6 +943,40 @@ function exportInventoryExcel() {
       {/* TAB 1: FYZICKÁ INVENTURA & ROZDÍLY */}
       {activeTab === 'inventory' && (
         <div className="space-y-6">
+          {/* ⚠️ Nespočítané položky. Právě tohle stálo za deficitem u 34 z 56
+              položek: schválená inventura za červenec 2026 měla jen 19 řádků,
+              zbytek se nikdy nespočítal a skladová kniha u nich dál odečítala
+              závozy od starého (nebo žádného) základu. Napočítat nulu je
+              plnohodnotný výsledek a od 1.906 se ukládá. */}
+          {nespocitane.length > 0 && (
+            <div className="rounded border-2 border-amber-400 bg-amber-50 p-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle size={20} className="text-amber-600 shrink-0 mt-0.5" />
+                <div className="min-w-0 flex-1">
+                  <div className="font-display font-black text-amber-900 text-sm">
+                    {nespocitane.length} {nespocitane.length === 1 ? 'položka nemá' : nespocitane.length < 5 ? 'položky nemají' : 'položek nemá'} vyplněnou inventuru
+                  </div>
+                  <p className="text-[11px] font-bold text-amber-800 mt-1">
+                    Tyhle položky se tenhle měsíc hýbaly (stáčely nebo vydávaly), ale nikdo u nich nezapsal
+                    napočítaný stav. Dokud zůstanou prázdné, nepřevedou se do dalšího měsíce a jejich
+                    schodek poroste dál. <strong>Když jich fyzicky nula je, zapište nulu</strong> — i ta je
+                    plnohodnotný výsledek a uloží se.
+                  </p>
+                  <div className="mt-2.5 flex flex-wrap gap-1.5">
+                    {nespocitane.slice(0, 24).map((r) => (
+                      <span key={`${r.beer_id}__${r.package_id}`} className="px-2 py-1 rounded bg-white border border-amber-300 text-[11px] font-bold text-neutral-700">
+                        {r.beer_name} <span className="text-neutral-500">{String(r.package_label).trim()}</span>
+                      </span>
+                    ))}
+                    {nespocitane.length > 24 && (
+                      <span className="px-2 py-1 text-[11px] font-bold text-amber-800">… a dalších {nespocitane.length - 24}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <div className="card p-3.5 bg-white border border-neutral-200 rounded space-y-1">
               <span className="text-[10px] font-black uppercase text-neutral-500">Počáteční stav</span>
