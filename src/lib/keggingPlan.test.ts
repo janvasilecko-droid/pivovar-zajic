@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeKeggingPlan, dayKeyFromISO } from './keggingPlan';
+import { computeKeggingPlan, dayKeyFromISO, mergeWeekPlan } from './keggingPlan';
 
 // Týden 2026-35 = pondělí 24. 8. – neděle 30. 8. 2026 (stejný týden, na kterém
 // se chyba reálně projevila v produkci).
@@ -169,5 +169,95 @@ describe('computeKeggingPlan', () => {
     const item = day(p, 'st').items[0];
     expect(item.ordered).toBe(5);
     expect(item.orders.map((o) => o.place_name).sort()).toEqual(['Hospoda o1', 'Hospoda o2']);
+  });
+});
+
+describe('mergeWeekPlan — souhrn za celý týden', () => {
+  const objednavka = (id: string, date: string, extra: any = {}) => ({
+    id, delivery_date: date, order_date: date, status: 'nova', place_name: `Hospoda ${id}`, ...extra,
+  });
+  const polozka = (order_id: string, beer_id: string, package_id: string, quantity: number, id = `x${Math.random()}`) => ({
+    id, order_id, beer_id, package_id, quantity,
+  });
+
+  it('sečte stejnou položku napříč dny', () => {
+    const plans = computeKeggingPlan({
+      beers, packages, weekKey: WEEK, keggingRows: [],
+      orders: [objednavka('o1', '2026-08-25'), objednavka('o2', '2026-08-27')],
+      orderItems: [polozka('o1', 'b-des', 'p30', 4), polozka('o2', 'b-des', 'p30', 6)],
+    });
+    const tyden = mergeWeekPlan(plans, '24. 8. – 30. 8.');
+    expect(tyden.items).toHaveLength(1);
+    expect(tyden.items[0].ordered).toBe(10);
+    expect(tyden.totalMissing).toBe(10);
+    expect(tyden.missingLiters).toBe(300);
+    expect(tyden.items[0].orders).toHaveLength(2);
+  });
+
+  // Souhrn musí vždy odpovídat součtu dnů — právě tím, že se počítá z nich
+  // a ne vlastní cestou, se nemůže rozejít (bývalá záložka „Potřeba stočit
+  // KEGy" ukazovala jiná čísla než denní rozpad).
+  it('nikdy se nerozejde se součtem dnů', () => {
+    const plans = computeKeggingPlan({
+      beers, packages, weekKey: WEEK,
+      orders: [objednavka('o1', '2026-08-25'), objednavka('o2', '2026-08-27'), objednavka('o3', '2026-08-28')],
+      orderItems: [polozka('o1', 'b-des', 'p30', 4), polozka('o2', 'b-11', 'p50', 6), polozka('o3', 'b-des', 'p30', 2)],
+      keggingRows: [{ entry_date: '2026-08-24', beer_id: 'b-des', package_id: 'p30', quantity: 5 }],
+    });
+    const tyden = mergeWeekPlan(plans, 'T');
+    expect(tyden.totalMissing).toBe(plans.reduce((s, p) => s + p.totalMissing, 0));
+    expect(tyden.totalOrdered).toBe(plans.reduce((s, p) => s + p.totalOrdered, 0));
+    expect(tyden.totalDone).toBe(plans.reduce((s, p) => s + p.totalDone, 0));
+  });
+});
+
+// Odškrtávátko je pracovní pomůcka, ne evidence stáčení. Do `kegging` nic
+// nezapisuje, takže se s ním musí počítat zvlášť — a hlavně se nesmí sečíst
+// se skutečným stočením, protože stáčeč běžně udělá obojí.
+describe('ruční odškrtnutí (kegging_plan_checks)', () => {
+  const objednavka = (id: string, date: string) => ({
+    id, delivery_date: date, order_date: date, status: 'nova', place_name: 'Hospoda', is_delivered: false,
+  });
+  const zaklad = {
+    beers, packages, weekKey: WEEK,
+    orders: [objednavka('o1', '2026-08-26')],
+    orderItems: [{ id: 'oi-1', order_id: 'o1', beer_id: 'b-des', package_id: 'p30', quantity: 10 }],
+  };
+  const check = (qty: number) => [{ week_key: WEEK, day: 'st', beer_id: 'b-des', package_id: 'p30', qty }];
+  const st = (over: any) => computeKeggingPlan({ keggingRows: [], ...zaklad, ...over }).find((p) => p.day === 'st')!;
+
+  it('odškrtnutí sníží „chybí", i když se nic nestočilo', () => {
+    const d = st({ checkRows: check(4) });
+    expect(d.totalMissing).toBe(6);
+    expect(d.items[0].checked).toBe(4);
+    expect(d.items[0].autoDone).toBe(0);
+  });
+
+  it('odškrtnutí a stejné stočení se NEsečtou', () => {
+    const d = st({
+      checkRows: check(4),
+      keggingRows: [{ entry_date: '2026-08-25', beer_id: 'b-des', package_id: 'p30', quantity: 4 }],
+    });
+    // 4 odškrtnuté a 4 stočené jsou tytéž sudy — ne osm.
+    expect(d.totalMissing).toBe(6);
+    expect(d.items[0].done).toBe(4);
+  });
+
+  it('vyšší z obou rozhoduje', () => {
+    const d = st({
+      checkRows: check(2),
+      keggingRows: [{ entry_date: '2026-08-25', beer_id: 'b-des', package_id: 'p30', quantity: 7 }],
+    });
+    expect(d.items[0].done).toBe(7);
+    expect(d.totalMissing).toBe(3);
+  });
+
+  it('odškrtnout jde nejvýš tolik, kolik je objednáno', () => {
+    expect(st({ checkRows: check(99) }).items[0].checked).toBe(10);
+  });
+
+  it('odškrtnutí z jiného týdne nebo dne se nepoužije', () => {
+    expect(st({ checkRows: [{ week_key: '2026-34', day: 'st', beer_id: 'b-des', package_id: 'p30', qty: 10 }] }).totalMissing).toBe(10);
+    expect(st({ checkRows: [{ week_key: WEEK, day: 'pa', beer_id: 'b-des', package_id: 'p30', qty: 10 }] }).totalMissing).toBe(10);
   });
 });

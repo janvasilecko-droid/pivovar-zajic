@@ -1,26 +1,36 @@
 // 🗓️ „Co stočit na který den" — tabule stáčení uspořádaná jako Závoz.
 // ---------------------------------------------------------------------------
 // Kliknu na den → vidím, co a kolik sudů je na ten den potřeba, kolik už mám
-// hotovo a kolik ještě chybí. Odškrtnutí („mám to") zapíše skutečné stáčení,
-// takže se nikde nevede druhá evidence — číslo „chybí" klesne okamžitě.
-// Výpočet viz lib/keggingPlan.ts.
+// hotovo a kolik ještě chybí.
+//
+// ⚠️ Odškrtávátko NEZAPISUJE stáčení. Je to pracovní pomůcka, aby stáčeč
+// viděl, co už má hotové; skutečné stáčení se dál zapisuje v „Začátek
+// stáčení". Kdyby odškrtnutí zakládalo záznam do `kegging`, vznikl by při
+// běžném zápisu duplicitní řádek a sklad i objem tanku by se nafoukly.
+// Odškrtnutí se ukládá do kegging_plan_checks a s doloženým stavem se skládá
+// přes MAX — viz lib/keggingPlan.ts.
 import { useMemo, useState } from 'react';
-import { CalendarDays, Check, Cylinder, Beer, Truck, ChevronDown } from 'lucide-react';
+import { CalendarDays, Check, Cylinder, Beer, Truck, ChevronDown, ArrowRight } from 'lucide-react';
 import type { DayPlan, PlanItem } from '../lib/keggingPlan';
-import { dayKeyFromISO } from '../lib/keggingPlan';
+import { dayKeyFromISO, mergeWeekPlan } from '../lib/keggingPlan';
 
 type Props = {
   plans: DayPlan[];
   weekLabel: string;
   todayISO: string;
-  /** Zapíše stáčení daného piva/obalu — používá se pro odškrtnutí. */
-  onFill: (beerId: string, packageId: string, qty: number) => Promise<void> | void;
+  /**
+   * Uloží ruční odškrtnutí (kolik kusů má stáčeč hotových). NEZAPISUJE
+   * stáčení — to se dál dělá v záložce „Začátek stáčení".
+   */
+  onCheck: (day: string, beerId: string, packageId: string, qty: number) => Promise<void> | void;
   canEdit: boolean;
+  /** Otevře Objednávky vyfiltrované na tohle pivo a obal. */
+  onShowOrders?: (beerId: string, packageId: string) => void;
 };
 
 const fmtDate = (iso: string) => new Date(iso + 'T00:00:00Z').toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric', timeZone: 'UTC' });
 
-export default function KeggingDayPlan({ plans, weekLabel, todayISO, onFill, canEdit }: Props) {
+export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, canEdit, onShowOrders }: Props) {
   const todayDay = dayKeyFromISO(todayISO);
   // Otevře se rovnou nejbližší den, kde ještě něco chybí — stáčeč většinou
   // řeší ten, ne pondělí.
@@ -29,19 +39,26 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onFill, can
   const [busy, setBusy] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
-  const weekTotals = useMemo(() => ({
-    missing: plans.reduce((s, p) => s + p.totalMissing, 0),
-    ordered: plans.reduce((s, p) => s + p.totalOrdered, 0),
-    liters: plans.reduce((s, p) => s + p.missingLiters, 0),
-  }), [plans]);
+  // Souhrn za celý týden — sečtený z těch samých denních dat, takže se s nimi
+  // nemůže rozejít (bývalá záložka „Potřeba stočit KEGy" ho počítala jinou
+  // cestou a ukazovala jiná čísla).
+  const weekPlan = useMemo(() => mergeWeekPlan(plans, weekLabel), [plans, weekLabel]);
+  const weekTotals = {
+    missing: weekPlan.totalMissing,
+    ordered: weekPlan.totalOrdered,
+    liters: weekPlan.missingLiters,
+  };
 
-  const active = plans.find((p) => p.day === selected) ?? plans[0];
+  const active = selected === 'tyden' ? weekPlan : (plans.find((p) => p.day === selected) ?? plans[0]);
+  const isWeek = active.day === 'tyden';
 
-  async function fill(item: PlanItem, qty: number) {
-    if (!canEdit || qty <= 0) return;
+  // Odškrtnutí se ukládá jako ABSOLUTNÍ počet hotových kusů, ne jako přírůstek
+  // — dva lidé u jednoho seznamu si tak navzájem nepřičtou navíc.
+  async function setCheck(item: PlanItem, qty: number) {
+    if (!canEdit || isWeek) return;
     setBusy(item.key);
     try {
-      await onFill(item.beer_id, item.package_id, qty);
+      await onCheck(active.day, item.beer_id, item.package_id, Math.max(0, Math.min(item.ordered, qty)));
     } finally {
       setBusy(null);
     }
@@ -81,6 +98,24 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onFill, can
 
       {/* Dny v týdnu — stejné ovládání jako v Závozu */}
       <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1">
+        <button
+          type="button"
+          onClick={() => setSelected('tyden')}
+          className={`px-3.5 py-2 rounded font-black text-xs shrink-0 transition-all flex items-center gap-1.5 shadow-xs min-h-[46px] ${
+            isWeek
+              ? 'bg-amber-500 text-neutral-950 scale-105'
+              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
+          }`}
+        >
+          <CalendarDays size={14} />
+          <span>Celý týden</span>
+          {weekTotals.missing > 0 && (
+            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${isWeek ? 'bg-neutral-950 text-amber-300' : 'bg-amber-300 text-amber-950'}`}>
+              {weekTotals.missing}
+            </span>
+          )}
+        </button>
+        <span className="w-px h-8 bg-neutral-300 shrink-0 mx-0.5" />
         {plans.map((p) => {
           const isSel = p.day === selected;
           const hotovo = p.totalOrdered > 0 && p.totalMissing === 0;
@@ -124,14 +159,14 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onFill, can
           <div>
             <h3 className="font-display font-black text-neutral-950 flex items-center gap-2">
               <CalendarDays size={17} className="text-amber-600" />
-              Stočit na {active.label.toLowerCase() === 'ne' ? 'neděli' : active.label} {fmtDate(active.date)}
+              {isWeek ? `Stočit za celý týden ${active.label}` : `Stočit na ${active.label} ${fmtDate(active.date)}`}
             </h3>
             <p className="text-[11px] font-bold text-neutral-500 mt-0.5">
               {active.totalOrdered === 0
-                ? 'Na tenhle den není žádná objednávka.'
+                ? isWeek ? 'Tenhle týden zatím není žádná KEG objednávka.' : 'Na tenhle den není žádná objednávka.'
                 : active.totalMissing === 0
-                ? 'Hotovo — všechno na tenhle den je stočené.'
-                : `Chybí ${active.totalMissing} ks (${active.missingLiters} L). Odškrtnutím se zapíše stáčení.`}
+                ? isWeek ? 'Hotovo — celý týden je stočený.' : 'Hotovo — všechno na tenhle den je stočené.'
+                : `Chybí ${active.totalMissing} ks (${active.missingLiters} L).${isWeek ? '' : ' Odškrtávátko je jen přehled — stáčení se zapisuje v „Začátek stáčení".'}`}
             </p>
           </div>
           {active.totalOrdered > 0 && (
@@ -162,46 +197,89 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onFill, can
                       <div className="font-display font-black text-sm text-neutral-900">
                         {it.beer_name} <span className="text-neutral-500">{it.package_label.trim()}</span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setExpanded((p) => ({ ...p, [it.key]: !p[it.key] }))}
-                        className="text-[11px] font-bold text-neutral-500 hover:text-amber-700 inline-flex items-center gap-1 mt-0.5"
-                      >
-                        <Truck size={11} />
-                        {it.orders.length} {it.orders.length === 1 ? 'odběratel' : it.orders.length < 5 ? 'odběratelé' : 'odběratelů'}
-                        <ChevronDown size={11} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-                      </button>
+                      <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => setExpanded((p) => ({ ...p, [it.key]: !p[it.key] }))}
+                          className="text-[11px] font-bold text-neutral-500 hover:text-amber-700 inline-flex items-center gap-1"
+                        >
+                          <Truck size={11} />
+                          {it.orders.length} {it.orders.length === 1 ? 'odběratel' : it.orders.length < 5 ? 'odběratelé' : 'odběratelů'}
+                          <ChevronDown size={11} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        {onShowOrders && (
+                          <button
+                            type="button"
+                            onClick={() => onShowOrders(it.beer_id, it.package_id)}
+                            className="text-[11px] font-bold text-neutral-500 hover:text-amber-700 inline-flex items-center gap-1"
+                          >
+                            Zobrazit objednávky
+                            <ArrowRight size={11} />
+                          </button>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="text-right shrink-0 w-[92px]">
+                    <div className="text-right shrink-0 w-[100px]">
                       <div className={`font-mono font-black text-xl leading-none ${hotovo ? 'text-emerald-600' : 'text-amber-700'}`}>
                         {hotovo ? '✓' : it.missing}
                       </div>
                       <div className="text-[10px] font-bold text-neutral-500 mt-1">
                         {it.done} / {it.ordered} ks
                       </div>
+                      {it.checked > 0 && (
+                        <div className="text-[10px] font-bold text-emerald-700 mt-0.5" title="Ručně odškrtnuto — nezapisuje se do stáčení">
+                          ✓ {it.checked} odškrtnuto
+                        </div>
+                      )}
                     </div>
 
-                    {canEdit && !hotovo && (
+                    {canEdit && !isWeek && (
                       <div className="flex items-center gap-1.5 shrink-0">
-                        <button
-                          type="button"
-                          disabled={busy === it.key}
-                          onClick={() => fill(it, 1)}
-                          className="px-2.5 py-2 rounded border border-neutral-200 bg-white text-neutral-700 font-black text-xs hover:bg-neutral-50 disabled:opacity-40 min-h-[38px]"
-                          title="Zapsat jeden stočený sud"
-                        >
-                          +1
-                        </button>
-                        <button
-                          type="button"
-                          disabled={busy === it.key}
-                          onClick={() => fill(it, it.missing)}
-                          className="px-3 py-2 rounded bg-emerald-600 text-white font-black text-xs hover:bg-emerald-700 disabled:opacity-40 inline-flex items-center gap-1.5 min-h-[38px]"
-                        >
-                          <Check size={14} />
-                          {busy === it.key ? 'Ukládám…' : `Mám (${it.missing})`}
-                        </button>
+                        {it.checked > 0 && (
+                          <button
+                            type="button"
+                            disabled={busy === it.key}
+                            onClick={() => setCheck(it, it.checked - 1)}
+                            className="px-2.5 py-2 rounded border border-neutral-200 bg-white text-neutral-700 font-black text-xs hover:bg-neutral-50 disabled:opacity-40 min-h-[38px]"
+                            title="Ubrat jeden odškrtnutý sud"
+                          >
+                            −1
+                          </button>
+                        )}
+                        {!hotovo && (
+                          <button
+                            type="button"
+                            disabled={busy === it.key}
+                            onClick={() => setCheck(it, it.checked + 1)}
+                            className="px-2.5 py-2 rounded border border-neutral-200 bg-white text-neutral-700 font-black text-xs hover:bg-neutral-50 disabled:opacity-40 min-h-[38px]"
+                            title="Odškrtnout jeden sud"
+                          >
+                            +1
+                          </button>
+                        )}
+                        {!hotovo ? (
+                          <button
+                            type="button"
+                            disabled={busy === it.key}
+                            onClick={() => setCheck(it, it.ordered)}
+                            className="px-3 py-2 rounded bg-emerald-600 text-white font-black text-xs hover:bg-emerald-700 disabled:opacity-40 inline-flex items-center gap-1.5 min-h-[38px]"
+                            title="Odškrtnout celou položku — nezapisuje se do stáčení"
+                          >
+                            <Check size={14} />
+                            {busy === it.key ? 'Ukládám…' : `Mám (${it.missing})`}
+                          </button>
+                        ) : it.checked > 0 ? (
+                          <button
+                            type="button"
+                            disabled={busy === it.key}
+                            onClick={() => setCheck(it, 0)}
+                            className="px-3 py-2 rounded border border-emerald-300 bg-emerald-50 text-emerald-800 font-black text-xs hover:bg-emerald-100 disabled:opacity-40 min-h-[38px]"
+                            title="Zrušit odškrtnutí"
+                          >
+                            Zrušit ✓
+                          </button>
+                        ) : null}
                       </div>
                     )}
                   </div>

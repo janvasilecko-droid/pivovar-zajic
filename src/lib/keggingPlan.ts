@@ -36,8 +36,12 @@ export type PlanItem = {
   volume_l: number;
   /** Kolik sudů si tenhle den vyžádaly objednávky. */
   ordered: number;
-  /** Kolik z toho je pokryto (zavezeno nebo stočeno tento týden). */
+  /** Kolik z toho je pokryto — vyšší z „doloženo daty" a „ručně odškrtnuto". */
   done: number;
+  /** Kolik z toho je doloženo daty (nachystáno/zavezeno nebo stočeno tento týden). */
+  autoDone: number;
+  /** Kolik kusů si stáčeč ručně odškrtl. */
+  checked: number;
   /** Kolik ještě chybí stočit. */
   missing: number;
   orders: PlanOrderRef[];
@@ -67,6 +71,13 @@ export type KeggingPlanInput = {
   fasovaniRows?: any[];
   prodejnaRows?: any[];
   writeoffsRows?: any[];
+  /**
+   * Ruční odškrtnutí stáčeče (tabulka kegging_plan_checks) — pracovní pomůcka,
+   * NE evidence stáčení. Skládá se s doloženým stavem přes MAX, ne součtem:
+   * když si položku odškrtne a později ji poctivě zapíše do stáčení, nesmí se
+   * počítat dvakrát.
+   */
+  checkRows?: { week_key: string; day: string; beer_id: string; package_id: string; qty: number }[];
   weekKey: string;
 };
 
@@ -87,8 +98,14 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
     fasovaniRows = [],
     prodejnaRows = [],
     writeoffsRows = [],
+    checkRows = [],
     weekKey,
   } = input;
+
+  const checkedMap: Record<string, number> = {};
+  checkRows.filter((r) => r.week_key === weekKey).forEach((r) => {
+    checkedMap[`${r.day}__${r.beer_id}__${r.package_id}`] = Number(r.qty || 0);
+  });
 
   const { start } = weekRange(weekKey);
   const dayDates = DAYS.map((_, i) => {
@@ -187,7 +204,12 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
       const stillNeeded = Math.max(0, b.ordered - b.covered);
       const fromPool = Math.min(stillNeeded, pool[k] || 0);
       pool[k] = (pool[k] || 0) - fromPool;
-      const done = b.covered + fromPool;
+      const autoDone = b.covered + fromPool;
+      // Ruční odškrtnutí a doložený stav se skládají přes MAX. Součet by
+      // položku započítal dvakrát ve chvíli, kdy si ji stáčeč odškrtne a pak
+      // ji poctivě zapíše i do stáčení — a to je běžný postup, ne výjimka.
+      const checked = Math.min(b.ordered, Number(checkedMap[`${d.v}__${beer_id}__${package_id}`] || 0));
+      const done = Math.max(autoDone, checked);
       return {
         key: k,
         beer_id,
@@ -197,6 +219,8 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
         volume_l: Number(pkg.volume_l || 0),
         ordered: b.ordered,
         done,
+        autoDone,
+        checked,
         missing: Math.max(0, b.ordered - done),
         orders: b.orders,
       };
@@ -215,4 +239,42 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
   });
 
   return plans;
+}
+
+/**
+ * Sloučí denní plány do jednoho „celý týden" — stejné položky, jen sečtené
+ * přes všechny dny. Nahrazuje bývalou záložku „Potřeba stočit KEGy", která
+ * týdenní součet počítala z měsíčního skladového modelu a kvůli jeho
+ * schodkům ukazovala jiná čísla než denní rozpad.
+ */
+export function mergeWeekPlan(plans: DayPlan[], weekLabel: string): DayPlan {
+  const merged = new Map<string, PlanItem>();
+  plans.forEach((p) => {
+    p.items.forEach((it) => {
+      const prev = merged.get(it.key);
+      if (!prev) {
+        merged.set(it.key, { ...it, orders: [...it.orders] });
+        return;
+      }
+      prev.ordered += it.ordered;
+      prev.done += it.done;
+      prev.autoDone += it.autoDone;
+      prev.checked += it.checked;
+      prev.missing += it.missing;
+      prev.orders.push(...it.orders);
+    });
+  });
+  const items = [...merged.values()].sort(
+    (a, z) => z.missing - a.missing || a.beer_name.localeCompare(z.beer_name, 'cs') || z.volume_l - a.volume_l
+  );
+  return {
+    day: 'tyden',
+    label: weekLabel,
+    date: plans[0]?.date ?? '',
+    items,
+    totalOrdered: items.reduce((s, x) => s + x.ordered, 0),
+    totalDone: items.reduce((s, x) => s + x.done, 0),
+    totalMissing: items.reduce((s, x) => s + x.missing, 0),
+    missingLiters: items.reduce((s, x) => s + x.missing * x.volume_l, 0),
+  };
 }
