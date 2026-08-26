@@ -3,7 +3,7 @@ import { supabase, useRealtime } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { EmptyState, Spinner } from '../components/ui';
 import { UntappdAiAnalyzer } from '../components/UntappdAiAnalyzer';
-import { Sparkles, MessageSquare } from 'lucide-react';
+import { MessageCircle, MessageSquare, Sparkles } from 'lucide-react';
 import { potvrd } from '../lib/toast';
 
 type Category = 'bug' | 'feature' | 'question' | 'other';
@@ -143,7 +143,7 @@ export default function Feedback({ setPage, initialSubTab }: { setPage?: (p: any
         <>
           <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
             <div>
-              <h1 className="text-2xl font-display font-bold text-primary-900">💬 Poznámky a nápady</h1>
+              <h1 className="text-2xl font-display font-bold text-primary-900"><MessageCircle className="ikona-text" /> Poznámky a nápady</h1>
               <p className="text-sm text-primary-500 mt-1">Napiš, co by se mělo vylepšit, opravit nebo upravit. Vidí to všichni kolegové.</p>
             </div>
             <button className="btn-primary !rounded" onClick={() => setShowForm((s) => !s)}>

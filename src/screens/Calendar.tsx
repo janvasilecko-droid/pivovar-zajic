@@ -1,3 +1,4 @@
+import { Bell, Calendar } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { supabase, CalendarEvent, useRealtime } from '../lib/supabase';
 import { Spinner, Modal } from '../components/ui';
@@ -75,13 +76,13 @@ export default function CalendarScreen() {
   return (
     <div>
       <div className="mb-5">
-        <h1 className="text-2xl font-display font-bold text-primary-900">📅 Kalendář</h1>
+        <h1 className="text-2xl font-display font-bold text-primary-900"><Calendar className="ikona-text" /> Kalendář</h1>
         <p className="text-sm text-primary-500 mt-1">Poznámky a upomínky — klikni na den pro přidání události.</p>
       </div>
 
       {upcomingReminders.length > 0 && (
         <div className="card p-4 mb-5">
-          <h3 className="font-display font-bold text-primary-900 mb-2">🔔 Nadcházející upomínky</h3>
+          <h3 className="font-display font-bold text-primary-900 mb-2"><Bell className="ikona-text" /> Nadcházející upomínky</h3>
           <div className="space-y-1.5">
             {upcomingReminders.map((e) => (
               <div key={e.id} className="flex items-center gap-3 text-sm">
@@ -122,7 +123,7 @@ export default function CalendarScreen() {
                   {evs.slice(0, 3).map((e) => (
                     <div key={e.id} className="flex items-center gap-1 text-[10px] text-primary-700 truncate">
                       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${COLORS[e.color] ?? COLORS.primary}`} />
-                      {e.reminder && <span>🔔</span>}
+                      {e.reminder && <span><Bell className="ikona-text" /></span>}
                       <span className="truncate">{e.title}</span>
                     </div>
                   ))}
@@ -140,7 +141,7 @@ export default function CalendarScreen() {
             <div key={e.id} className="flex items-start gap-3 p-3 rounded bg-primary-50">
               <span className={`w-3 h-3 rounded-full mt-1 shrink-0 ${COLORS[e.color] ?? COLORS.primary}`} />
               <div className="flex-1 min-w-0">
-                <div className="font-semibold text-primary-900">{e.title} {e.reminder && <span className="text-xs">🔔 {e.reminder_time?.slice(0, 5)}</span>}</div>
+                <div className="font-semibold text-primary-900">{e.title} {e.reminder && <span className="text-xs"><Bell className="ikona-text" /> {e.reminder_time?.slice(0, 5)}</span>}</div>
                 {e.description && <div className="text-sm text-primary-600 mt-0.5">{e.description}</div>}
               </div>
               <button className="text-danger-600 hover:text-danger-700 text-xs font-semibold" onClick={() => del(e.id)}>Smazat</button>

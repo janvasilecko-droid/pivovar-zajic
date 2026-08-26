@@ -1,3 +1,4 @@
+import { AlertTriangle } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase, Place } from '../lib/supabase';
 import { getOrCreatePlace } from '../lib/orderParser';
@@ -154,7 +155,7 @@ export function PlaceCombobox({ value, onChange, places, onPlacesChanged, placeh
 
       {exactDup && (
         <div className="text-[11px] text-warning-700 mt-1 flex items-center gap-1">
-          <span>⚠</span> Odběratel „{exactDup.name}“ už existuje — bude použit stávající záznam.
+          <span><AlertTriangle className="ikona-text" /></span> Odběratel „{exactDup.name}“ už existuje — bude použit stávající záznam.
         </div>
       )}
 

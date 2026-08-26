@@ -1,11 +1,5 @@
 import { ReactNode, useState, useEffect, useRef } from 'react';
-import {
-  FilePlus, ClipboardList, Wine, Cylinder, Sparkles, TrendingDown, Store, FileText,
-  ClipboardCheck, BarChart3, History as HistoryIcon, Snowflake,
-  CalendarDays, Car, Tag, ShieldCheck, PlusCircle, Settings, Calculator,
-  Download, Wheat, FlaskConical, Shield, Bell, BellOff, X, ArrowRight, Search, Smartphone, MessageCircle, Users, GlassWater, Home, type LucideIcon,
-  BookOpen, Beer as BeerIcon, MapPin, Package as PackageIcon, Receipt, StickyNote, Compass, Truck, Timer, AlarmClock, Hourglass, LogOut,
-} from 'lucide-react';
+import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Bell, BellOff, BookOpen, Calculator, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Cylinder, Download, FilePlus, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Hourglass, LogOut, MapPin, MessageCircle, Package as PackageIcon, PlusCircle, Receipt, Search, Settings, Shield, ShieldCheck, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Timer, TrendingDown, Truck, Users, Wheat, Wine, X, XCircle, type LucideIcon } from 'lucide-react';
 
 import { useAuth } from '../lib/auth';
 import { Modal } from './ui';
@@ -612,7 +606,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
       {/* Banner: offline → zobrazená data nemusí být aktuální (z mezipaměti). */}
       {showStaleBanner && (
         <div className="fixed top-4 right-4 z-40 max-w-xs sm:max-w-sm flex items-center gap-2 rounded bg-amber-50 border-2 border-amber-300 text-amber-950 shadow-xl px-3.5 py-2.5 animate-fade-in">
-          <span className="text-base shrink-0">⚠️</span>
+          <span className="text-base shrink-0"><AlertTriangle className="ikona-text" /></span>
           <p className="text-[11px] font-bold leading-snug flex-1">
             Jste offline - zobrazená data nemusí být aktuální (z mezipaměti).
           </p>
@@ -724,7 +718,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
               title="Nahlásit chybu nebo nápad"
               className="hidden sm:flex px-3 py-1.5 rounded text-xs font-black transition items-center gap-1.5 shadow-sm border border-rose-300 bg-rose-600 hover:bg-rose-500 text-white shrink-0 active:scale-95"
             >
-              ⚠️ Chyby
+              <AlertTriangle className="ikona-text" /> Chyby
             </button>
           </div>
         </header>
@@ -923,7 +917,7 @@ function OfflineStatus({ online, pending, syncing, syncMsg, onSync }: { online: 
                     <div key={item.id} className={`flex items-center justify-between gap-2 px-3 py-2 rounded border text-[11px] font-bold ${failure ? 'bg-rose-50 border-rose-300 text-rose-950' : 'bg-neutral-100 border-neutral-200 text-neutral-700'}`}>
                       <div className="min-w-0">
                         <div className="truncate">{item.table} · {item.op} · {new Date(item.ts).toLocaleString('cs-CZ')}</div>
-                        {failure && <div className="text-[10px] font-semibold text-rose-700 truncate" title={failure.error}>❌ {failure.error}</div>}
+                        {failure && <div className="text-[10px] font-semibold text-rose-700 truncate" title={failure.error}><XCircle className="ikona-text" /> {failure.error}</div>}
                       </div>
                       {failure && (
                         <button

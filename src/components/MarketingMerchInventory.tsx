@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShoppingBag, Box, Plus, Search, Tag, AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Box, Plus, Search, ShoppingBag, Tag } from 'lucide-react';
 
 type MerchItem = {
   id: string;
@@ -108,7 +108,7 @@ export function MarketingMerchInventory() {
                 </span>
                 {item.stockQty <= item.minAlertQty && (
                   <span className="chip bg-rose-100 text-rose-950 font-black border border-rose-300 text-[10px]">
-                    ⚠️ Dochází
+                    <AlertTriangle className="ikona-text" /> Dochází
                   </span>
                 )}
               </div>

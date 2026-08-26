@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { Download, Eye, Palette, Smartphone, Sun, Moon, Monitor, Bell, BellOff, Volume2, VolumeX, MessageSquare, Timer, RefreshCw, CloudDownload, CheckCircle2, AlertCircle, Plus, Trash2, Eraser, Lock, Users, Vibrate } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Beer as BeerIcon, Bell, BellOff, CheckCircle2, CloudDownload, Download, Eraser, Eye, Factory, Lightbulb, Lock, MessageSquare, Monitor, Moon, Palette, Plus, RefreshCw, Settings, Smartphone, Sun, Timer, Trash2, Users, Vibrate, Volume2, VolumeX } from 'lucide-react';
 
 import { DENSITY_OPTIONS, DensityMode, getDensity, setDensity } from '../lib/density';
 import { haptikaZapnuta, nastavHaptiku, zavibruj } from '../lib/haptika';
@@ -205,7 +205,7 @@ export default function AppSettingsScreen() {
 
       <div className="bg-neutral-900 text-white p-5 sm:p-6 rounded border border-amber-500/30 shadow-xl">
         <h1 className="text-xl sm:text-2xl font-display font-black tracking-tight text-white flex items-center gap-2">
-          <span>⚙️ Aplikace & Nastavení</span>
+          <span><Settings className="ikona-text" /> Aplikace & Nastavení</span>
         </h1>
         <p className="text-xs text-neutral-400 font-medium mt-1">Přizpůsobte si vzhled, chování a upozornění aplikace.</p>
       </div>
@@ -225,7 +225,7 @@ export default function AppSettingsScreen() {
           <div className="mt-5 space-y-6 text-sm text-neutral-700 leading-relaxed border-t border-amber-200 pt-5">
             <div>
               <h3 className="font-display font-extrabold text-neutral-900 flex items-center gap-1.5 text-sm uppercase tracking-wider mb-2">
-                <span>🏭</span> Výroba
+                <span><Factory className="ikona-text" /></span> Výroba
               </h3>
               <ul className="list-disc list-inside space-y-1.5 pl-2">
                 <li><strong>KEG:</strong> Zápis stočených sudů. Stabilní řazení podle data stáčení a času vytvoření.</li>
@@ -237,7 +237,7 @@ export default function AppSettingsScreen() {
 
             <div>
               <h3 className="font-display font-extrabold text-neutral-900 flex items-center gap-1.5 text-sm uppercase tracking-wider mb-2">
-                <span>🍺</span> Pivovar
+                <span><BeerIcon className="ikona-text" /></span> Pivovar
               </h3>
               <ul className="list-disc list-inside space-y-1.5 pl-2">
                 <li><strong>Sklad:</strong> Rychlý přehled aktuálních disponibilních zásob sudů, lahví a reklamních předmětů.</li>
@@ -249,7 +249,7 @@ export default function AppSettingsScreen() {
 
             <div>
               <h3 className="font-display font-extrabold text-neutral-900 flex items-center gap-1.5 text-sm uppercase tracking-wider mb-2">
-                <span>⚙️</span> Nástroje
+                <span><Settings className="ikona-text" /></span> Nástroje
               </h3>
               <ul className="list-disc list-inside space-y-1.5 pl-2">
                 <li><strong>Kalkulačky:</strong> Rychlé výpočty koncentrací, alkoholu, ředění mladiny a obsahu cukru.</li>
@@ -268,7 +268,7 @@ export default function AppSettingsScreen() {
             </div>
 
             <div className="bg-amber-100/50 p-3.5 rounded border border-amber-200 text-xs text-amber-900 font-bold">
-              💡 Tento návod budeme průběžně doplňovat a aktualizovat s každou novou funkcí, kterou do aplikace Zajíc přidáme.
+              <Lightbulb className="ikona-text" /> Tento návod budeme průběžně doplňovat a aktualizovat s každou novou funkcí, kterou do aplikace Zajíc přidáme.
             </div>
           </div>
         )}
@@ -702,7 +702,7 @@ function AdminVersionSyncSection() {
     <div className="card p-6 border-2 border-amber-400/60 bg-gradient-to-br from-amber-50/80 to-white rounded shadow-md">
       <h2 className="font-display font-bold text-lg flex items-center gap-2">
         <RefreshCw size={20} className="text-amber-600" />
-        <span>🔄 Verze & Synchronizace dat</span>
+        <span><RefreshCw className="ikona-text" /> Verze & Synchronizace dat</span>
         <span className="ml-auto px-2.5 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-black text-[10px] uppercase tracking-wider">
           ADMIN
         </span>
@@ -726,7 +726,7 @@ function AdminVersionSyncSection() {
           onClick={forceRefresh}
           className="w-full py-3 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 hover:text-amber-800 font-black text-xs border border-amber-300 transition flex items-center justify-center gap-1.5"
         >
-          🔄 Vynutit stažení nejnovější verze aplikace (vyčistit cache)
+          <RefreshCw className="ikona-text" /> Vynutit stažení nejnovější verze aplikace (vyčistit cache)
         </button>
       </div>
 
@@ -774,7 +774,7 @@ function AdminVersionSyncSection() {
           ) : (
             <>
               <CloudDownload size={18} />
-              <span>📥 Stáhnout nejnovější data ze serveru</span>
+              <span><Download className="ikona-text" /> Stáhnout nejnovější data ze serveru</span>
             </>
           )}
         </button>
@@ -817,7 +817,7 @@ function AdminVersionSyncSection() {
           ) : (
             <>
               <Eraser size={18} />
-              <span>🗑️ Vymazat všechna data</span>
+              <span><Trash2 className="ikona-text" /> Vymazat všechna data</span>
             </>
           )}
         </button>
@@ -825,7 +825,7 @@ function AdminVersionSyncSection() {
         {confirmingClean && (
           <div className="p-3 rounded bg-rose-100 border-2 border-rose-400 space-y-3">
             <div className="text-xs font-black text-rose-900">
-              ⚠️ Tuto akci nelze vrátit zpět!
+              <AlertTriangle className="ikona-text" /> Tuto akci nelze vrátit zpět!
             </div>
             <p className="text-xs font-medium text-rose-900 leading-relaxed">
               Vyčištění SMAŽE VŠECHNA uživatelská data z databáze i z prohlížeče:

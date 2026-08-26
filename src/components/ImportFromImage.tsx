@@ -1,3 +1,4 @@
+import { AlertTriangle, Camera, Lightbulb, Lock, NotebookPen, Siren, Unlock } from 'lucide-react';
 import{ useState, useRef, useEffect } from 'react';
 import { Modal, Spinner } from './ui';
 import { PlaceCombobox } from './PlaceCombobox';
@@ -10,6 +11,7 @@ import { isTapMentioned } from '../lib/tapReservations';
 import type { Beer, Package, Place } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
+import { IkonaVycep } from '../components/ikony';
 import {
   parseOrderText, parseGeminiItems, dedupeAgainstExisting,
   saveAlias, savePlaceAlias, loadAliasMap, loadPlaceAliasMap, emptyAliasMap, detectOrderNotes, matchPlaceFromText,
@@ -751,12 +753,12 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
 
         {note && (
           <div className="card !bg-warning-50/50 border border-warning-200 p-3">
-            <div className="text-xs font-semibold text-warning-800 mb-1">📝 Rozpoznaná poznámka k objednávce</div>
+            <div className="text-xs font-semibold text-warning-800 mb-1"><NotebookPen className="ikona-text" /> Rozpoznaná poznámka k objednávce</div>
             <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="poznámka (např. bez etikety, podtacky…)" />
             <div className="text-[11px] text-warning-600 mt-1">Auto-detected z textu — můžeš upravit. Bude uloženo k objednávce.</div>
             {isTapMentioned(note) && (
               <div className="mt-2.5 text-xs font-bold text-amber-900 bg-amber-100 dark:bg-amber-950/80 dark:text-amber-200 p-2.5 rounded border border-amber-300 dark:border-amber-700 flex items-center gap-2">
-                <span className="text-base">🚰</span>
+                <span className="text-base"><IkonaVycep className="ikona-text" /></span>
                 <span>Detekován výčep / chlazení! Po importu se automaticky otevře okno pro rezervaci konkrétního výčepu.</span>
               </div>
             )}
@@ -777,7 +779,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                 title="Vyfotit objednávku fotoaparátem"
                 className="w-11 h-11 grid place-items-center rounded bg-amber-500 hover:bg-amber-600 text-white text-xl shadow-md transition active:scale-95 disabled:opacity-50"
               >
-                📷
+                <Camera className="ikona-text" />
               </button>
               <button
                 type="button"
@@ -807,7 +809,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
             {queueLeft > 0 && <span className="text-xs text-primary-400">Ve frontě: {queueLeft}</span>}
           </div>
           <span className="text-[11px] text-neutral-500">
-            💡 Můžeš nahrát více fotek najednou. Obrázek/snímek obrazovky lze také přímo vložit zkopírováním a stisknutím <strong>Ctrl+V</strong> (Vložit).
+            <Lightbulb className="ikona-text" /> Můžeš nahrát více fotek najednou. Obrázek/snímek obrazovky lze také přímo vložit zkopírováním a stisknutím <strong>Ctrl+V</strong> (Vložit).
           </span>
         </div>
 
@@ -824,7 +826,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
         {dupFilesPending && dupFilesPending.length > 0 && (
           <div className="card !bg-warning-50/60 border border-warning-300 p-4 space-y-2">
             <div className="flex items-start gap-2">
-              <span className="text-2xl">⚠️</span>
+              <span className="text-2xl"><AlertTriangle className="ikona-text" /></span>
               <div className="flex-1">
                 <div className="font-bold text-warning-900">
                   {dupFilesPending.length === 1 ? 'Tento snímek jsi už nahrál/a' : 'Tyto snímky jsi už nahrál/a'}
@@ -932,7 +934,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
               {lowCount > 0 && <span className="chip bg-warning-100 text-warning-700">{lowCount} doplnit</span>}
               {unknownCount > 0 && <span className="chip bg-danger-100 text-danger-700">{unknownCount} nerozpoznaných</span>}
               {dupCount > 0 && <span className="chip bg-primary-200 text-primary-700">{dupCount} duplikátů</span>}
-              {dupOrders.length > 0 && <span className="chip bg-danger-100 text-danger-700 font-black">⚠️ {dupOrders.length === 1 ? 'možný dupl. odběratel' : `${dupOrders.length} možní dupl. odběratelé`}</span>}
+              {dupOrders.length > 0 && <span className="chip bg-danger-100 text-danger-700 font-black"><AlertTriangle className="ikona-text" /> {dupOrders.length === 1 ? 'možný dupl. odběratel' : `${dupOrders.length} možní dupl. odběratelé`}</span>}
               <button className="btn-ghost !rounded text-xs !py-1 !px-2" onClick={addLine}>+ Přidat řádek</button>
               {pendingFiles.length > 0 && (
                 <button className="btn-ghost !rounded text-xs !py-1 !px-2" onClick={() => { advanceToNextPhoto(); }}>⏭ Přeskočit fotku</button>
@@ -960,7 +962,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
             {dupOrders.length > 0 && (
             <div className="card !bg-danger-50 border-2 border-danger-300 p-4 space-y-3 shadow-sm rounded mb-3">
               <div className="flex items-start gap-3">
-                <span className="text-3xl leading-none">🚨</span>
+                <span className="text-3xl leading-none"><Siren className="ikona-text" /></span>
                 <div className="flex-1 min-w-0">
                   <div className="font-black text-danger-700 text-sm sm:text-base">
                     {dupOrders.length === 1
@@ -997,7 +999,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                       ) : <div className="text-xs text-success-600 italic">—</div>}
                     </div>
                     <div className="p-3">
-                      <div className="text-[10px] uppercase tracking-wider font-bold text-danger-500 mb-1.5">📷 Aktuální fotka</div>
+                      <div className="text-[10px] uppercase tracking-wider font-bold text-danger-500 mb-1.5"><Camera className="ikona-text" /> Aktuální fotka</div>
                       {w.curr.items.length > 0 ? (
                         <ul className="space-y-1.5">
                           {w.curr.items.map((it, ii) => (
@@ -1034,12 +1036,12 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
             {dupCount > 0 && (
             <div className="card !bg-amber-50 border border-amber-300 p-3.5 text-xs text-amber-950 flex flex-col gap-1.5 shadow-xs rounded mb-3">
               <div className="font-extrabold text-amber-950 flex items-center gap-2 text-sm">
-                <span className="text-base">⚠️</span>
+                <span className="text-base"><AlertTriangle className="ikona-text" /></span>
                 <span>Detekována duplicitní položka / snímek obrazovky ({dupCount}×)</span>
               </div>
               <div className="text-amber-900 leading-relaxed">
                 Tato položka se v objednávce/relaci již vyskytuje (např. při 2× vyfocení stejné obrazovky). Automaticky jsme ji přeskočili, aby se nepřidala dvakrát.
-                Pokud ji přesto chceš importovat, klikni níže u dané karty na tlačítko <strong>„🔓 Povolit import duplikátu“</strong>.
+                Pokud ji přesto chceš importovat, klikni níže u dané karty na tlačítko <strong>„<Unlock className="ikona-text" /> Povolit import duplikátu“</strong>.
               </div>
             </div>
           )}
@@ -1101,24 +1103,24 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                 <div className="px-4 pt-2 flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
                   {(p.duplicate && !userAllowedDups.has(i)) ? (
                       <div className="flex flex-wrap items-center justify-between gap-2 w-full">
-                        <span className="chip bg-amber-200 text-amber-950 font-bold">⚠️ Duplikát — zřejmě vyfoceno 2x (přeskočeno)</span>
+                        <span className="chip bg-amber-200 text-amber-950 font-bold"><AlertTriangle className="ikona-text" /> Duplikát — zřejmě vyfoceno 2x (přeskočeno)</span>
                         <button
                           type="button"
                           className="btn-secondary !py-1 !px-2.5 text-xs font-black text-amber-950 bg-amber-100 hover:bg-amber-200 border-amber-300 transition"
                           onClick={(e) => { e.stopPropagation(); toggleAllowDuplicate(i); }}
                         >
-                          🔓 Povolit import duplikátu
+                          <Unlock className="ikona-text" /> Povolit import duplikátu
                         </button>
                       </div>
                     ) : (p.duplicate && userAllowedDups.has(i)) ? (
                       <div className="flex flex-wrap items-center justify-between gap-2 w-full">
-                        <span className="chip bg-success-100 text-success-800 font-bold">🔓 Duplikát povolen pro import</span>
+                        <span className="chip bg-success-100 text-success-800 font-bold"><Unlock className="ikona-text" /> Duplikát povolen pro import</span>
                         <button
                           type="button"
                           className="btn-ghost !rounded !py-1 !px-2 text-xs font-bold text-neutral-600 hover:text-neutral-900"
                           onClick={(e) => { e.stopPropagation(); toggleAllowDuplicate(i); }}
                         >
-                          🔒 Zpět ignorovat
+                          <Lock className="ikona-text" /> Zpět ignorovat
                         </button>
                       </div>
                     ) : p.line.confidence === 'high' ? (
@@ -1232,12 +1234,12 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
             </label>
             {err && (
               <div className="text-sm text-danger-700 bg-danger-500/10 border border-danger-300 rounded px-3 py-2 font-medium">
-                ⚠️ {err}
+                <AlertTriangle className="ikona-text" /> {err}
               </div>
             )}
             {skipReason && !err && (
               <div className="text-sm text-warning-700 bg-warning-500/10 border border-warning-300 rounded px-3 py-2 font-medium">
-                ⚠️ {skipReason}
+                <AlertTriangle className="ikona-text" /> {skipReason}
               </div>
             )}
             <div className="flex justify-end gap-2">

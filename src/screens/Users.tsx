@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import { createFullBackup, downloadBackupJSON, downloadGoogleSheetsExcelBackup } from '../lib/backup';
-import { Download, Shield, History, Table, Mail, Search, Trash2, CheckCircle2 } from 'lucide-react';
+import { Car, CheckCircle2, Download, History, Hourglass, Mail, Plus, Search, Shield, Table, Trash2 } from 'lucide-react';
 import { UserPermissionsModal } from '../components/UserPermissionsModal';
 import { AuditLogViewer } from '../components/AuditLogViewer';
 import { isAdminEmail } from '../lib/config';
@@ -247,7 +247,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
               <Download size={15} />
               <span>{backingUp ? 'Zálohuji…' : '💾 JSON Záloha'}</span>
             </button>
-            <button className="btn-primary !rounded text-xs font-black shadow-md" onClick={() => selectTab('emails')}>➕ Přidat e-mail ke schválení</button>
+            <button className="btn-primary !rounded text-xs font-black shadow-md" onClick={() => selectTab('emails')}><Plus className="ikona-text" /> Přidat e-mail ke schválení</button>
           </div>
           <p className="text-xs text-neutral-500 font-medium -mt-2 mb-1 text-right">
             Nový přístup: v záložce „📧 E-maily" přidejte e-mail a pak ho schvalte. Uživatel se přihlásí odkazem na e-mail.
@@ -271,11 +271,11 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
                 <div className="mt-2.5 flex items-center justify-between gap-1 flex-wrap">
                   {u.role === 'admin' || u.receive_vehicle_alerts ? (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 font-extrabold text-[11px] border border-amber-200">
-                      🚗 Upozornění na auta
+                      <Car className="ikona-text" /> Upozornění na auta
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-neutral-100 text-neutral-500 font-medium text-[11px]">
-                      🚗 Bez upozornění
+                      <Car className="ikona-text" /> Bez upozornění
                     </span>
                   )}
                 </div>
@@ -312,7 +312,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
           {/* Add allowed email card */}
           <div className="card p-6 border border-amber-200/90 rounded bg-white shadow-xs">
             <h3 className="font-display font-black text-base text-neutral-900 mb-2">
-              ➕ Přidat e-mail ke schválení
+              <Plus className="ikona-text" /> Přidat e-mail ke schválení
             </h3>
             <p className="text-xs text-neutral-500 font-medium mb-4">
               Uživatel se přihlásí e-mailem a heslem — a to teprve poté, co tento e-mail schválíte níže.
@@ -339,7 +339,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
           {/* Čeká na schválení */}
           <div className="card p-6 border border-amber-200/90 rounded bg-white shadow-xs space-y-4">
             <h3 className="font-display font-black text-base text-neutral-900">
-              ⏳ Čeká na schválení ({pendingEmails.length})
+              <Hourglass className="ikona-text" /> Čeká na schválení ({pendingEmails.length})
             </h3>
 
             {loadingEmails ? (
@@ -395,7 +395,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
           <div className="card p-6 border border-amber-200/90 rounded bg-white shadow-xs space-y-4">
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <h3 className="font-display font-black text-base text-neutral-900">
-                ✅ Schválené e-maily ({approvedEmails.length})
+                <CheckCircle2 className="ikona-text" /> Schválené e-maily ({approvedEmails.length})
               </h3>
               
               <div className="relative max-w-xs w-full flex items-center">
@@ -515,7 +515,7 @@ function UserForm({ user, onClose, onSaved }: { user: UserRow | null; onClose: (
 
           <label className="flex items-center gap-2.5 cursor-pointer">
             <input type="checkbox" checked={receiveVehicleAlerts} onChange={(e) => setReceiveVehicleAlerts(e.target.checked)} className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 accent-amber-500" />
-            <span className="text-sm font-bold text-neutral-900">🚗 Dostávat upozornění na končící STK a dálniční známky</span>
+            <span className="text-sm font-bold text-neutral-900"><Car className="ikona-text" /> Dostávat upozornění na končící STK a dálniční známky</span>
           </label>
         </div>
 

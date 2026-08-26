@@ -1,3 +1,4 @@
+import { Settings } from 'lucide-react';
 // Jedna dlaždice přizpůsobitelného launcheru (src/screens/HomeScreen.tsx).
 // Mimo edit mód je to prostý navigační button. V edit módu klik na dlaždici
 // ji jen OZNAČÍ (viz `selected`/`onSelect`) — ovládání (čtyři šipky pro
@@ -129,7 +130,7 @@ export default function LauncherTile({
             <button type="button" className="hs-dpad-btn hs-dpad-down" title="Přesunout dolů" onClick={() => onMoveStep('down')}>▼</button>
             <button type="button" className="hs-dpad-btn hs-dpad-right" title="Přesunout doprava" onClick={() => onMoveStep('right')}>▶</button>
           </div>
-          <button type="button" className="hs-gear-btn" title="Barva, velikost a další nastavení" onClick={onOpenEditor}>⚙</button>
+          <button type="button" className="hs-gear-btn" title="Barva, velikost a další nastavení" onClick={onOpenEditor}><Settings className="ikona-text" /></button>
         </div>
       )}
     </div>

@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase, useRealtime } from '../lib/supabase';
 import { Spinner, EmptyState } from '../components/ui';
 import { PlaceCombobox } from '../components/PlaceCombobox';
-import { Flame, Plus, Trash2, Calendar, CheckCircle2, AlertTriangle, Droplets, Wrench, RefreshCw, ShieldAlert, Sparkles, User, Tag } from 'lucide-react';
+import { AlertTriangle, Calendar, CheckCircle2, Droplet, Droplets, Flame, FlaskConical, Phone, Plus, RefreshCw, ShieldAlert, Sparkles, Tag, Trash2, User, Wrench } from 'lucide-react';
 import { oznam, potvrd } from '../lib/toast';
+import { IkonaVycep } from '../components/ikony';
 
 export type TapSanitationStatus = 'clean' | 'dirty_beer' | 'needs_louh';
 
@@ -210,7 +211,7 @@ export default function VycepyScreen() {
       {/* 🚰 SEZNAM VÝČEPŮ A STAV ČISTOTY */}
       <div className="space-y-4">
         <h2 className="text-sm font-display font-black uppercase tracking-wider text-amber-950 flex items-center gap-2">
-          <span>🚰 Výčepní zařízení v pivovaru ({taps.length})</span>
+          <span><IkonaVycep className="ikona-text" /> Výčepní zařízení v pivovaru ({taps.length})</span>
         </h2>
 
         {taps.length === 0 ? (
@@ -257,15 +258,15 @@ export default function VycepyScreen() {
 
                       <div className="pt-2 border-t border-neutral-100 text-[11px] text-neutral-700 space-y-1 font-mono">
                         <div className="flex justify-between">
-                          <span>💧 Oplach vodou:</span>
+                          <span><Droplet className="ikona-text" /> Oplach vodou:</span>
                           <strong>{t.last_water_rinse || 'Zatím neproveden'}</strong>
                         </div>
                         <div className="flex justify-between">
-                          <span>🧪 Louhování:</span>
+                          <span><FlaskConical className="ikona-text" /> Louhování:</span>
                           <strong>{t.last_louh_sanitation || 'Zatím neprovedeno'}</strong>
                         </div>
                         <div className="flex justify-between">
-                          <span>🔧 Rozebrané kohouty:</span>
+                          <span><Wrench className="ikona-text" /> Rozebrané kohouty:</span>
                           <strong className={t.taps_disassembled ? 'text-emerald-700' : 'text-rose-600'}>
                             {t.taps_disassembled ? '✓ Ano' : '✕ Ne'}
                           </strong>
@@ -297,7 +298,7 @@ export default function VycepyScreen() {
                       className="px-2.5 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black shadow-2xs flex items-center justify-center gap-1"
                       title="Provést sanitaci louhem"
                     >
-                      <RefreshCw size={13} /> Louh 🧪
+                      <RefreshCw size={13} /> Louh <FlaskConical className="ikona-text" />
                     </button>
                   </div>
                 </div>
@@ -342,7 +343,7 @@ export default function VycepyScreen() {
                     {isReturned ? (
                       <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-950 font-black text-[10px] border border-emerald-300">✓ Vráceno</span>
                     ) : isOverdue ? (
-                      <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white font-black text-[10px] animate-pulse">⚠️ Po termínu</span>
+                      <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white font-black text-[10px] animate-pulse"><AlertTriangle className="ikona-text" /> Po termínu</span>
                     ) : (
                       <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-950 font-black text-[10px] border border-amber-300">Půjčeno</span>
                     )}
@@ -353,7 +354,7 @@ export default function VycepyScreen() {
                   <div className="flex items-center justify-between gap-2">
                     <div>
                       <div className="font-black text-xs text-neutral-900">{r.customer_name}</div>
-                      {r.phone && <a href={`tel:${r.phone}`} className="text-xs text-blue-700 font-bold hover:underline">📞 {r.phone}</a>}
+                      {r.phone && <a href={`tel:${r.phone}`} className="text-xs text-blue-700 font-bold hover:underline"><Phone className="ikona-text" /> {r.phone}</a>}
                     </div>
                     {r.deposit_czk ? <span className="font-mono font-bold text-xs text-neutral-700 shrink-0">{r.deposit_czk.toLocaleString('cs-CZ')} Kč</span> : null}
                   </div>
@@ -404,7 +405,7 @@ export default function VycepyScreen() {
                           </span>
                         ) : isOverdue ? (
                           <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white font-black text-[10px] animate-pulse">
-                            ⚠️ Po termínu
+                            <AlertTriangle className="ikona-text" /> Po termínu
                           </span>
                         ) : (
                           <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-950 font-black text-[10px] border border-amber-300">
@@ -420,7 +421,7 @@ export default function VycepyScreen() {
                         <div className="font-black text-xs text-neutral-900">{r.customer_name}</div>
                         {r.phone && (
                           <a href={`tel:${r.phone}`} className="text-[11px] text-blue-700 font-bold hover:underline">
-                            📞 {r.phone}
+                            <Phone className="ikona-text" /> {r.phone}
                           </a>
                         )}
                       </td>

@@ -9,25 +9,7 @@ import {
   DuplicateOrderIssue,
   UnprocessedWhatsAppIssue,
 } from '../lib/orderAudit';
-import {
-  AlertTriangle,
-  CheckCircle,
-  RefreshCw,
-  X,
-  MessageSquare,
-  Copy,
-  Layers,
-  Eye,
-  Trash2,
-  ArrowRight,
-  ShieldCheck,
-  ChevronDown,
-  ChevronUp,
-  Sparkles,
-  Calendar,
-  Phone,
-  FileCheck,
-} from 'lucide-react';
+import { AlertTriangle, ArrowRight, Beer as BeerIcon, Calendar, CheckCircle, ChevronDown, ChevronUp, Copy, Eye, FileCheck, Layers, MessageSquare, Phone, RefreshCw, Search, ShieldCheck, Sparkles, Trash2, X } from 'lucide-react';
 import { Spinner } from './ui';
 import { potvrd } from '../lib/toast';
 
@@ -162,7 +144,7 @@ export function OrderAuditModal({
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-3">
               <div className="w-11 h-11 rounded bg-amber-500/20 border border-amber-400/40 grid place-items-center text-2xl shadow-inner shrink-0">
-                🔍
+                <Search className="ikona-text" />
               </div>
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -217,7 +199,7 @@ export function OrderAuditModal({
                     : 'text-amber-200 hover:text-white'
                 }`}
               >
-                📅 Tento týden
+                <Calendar className="ikona-text" /> Tento týden
               </button>
               <button
                 onClick={() => setFilterScope('all')}
@@ -419,7 +401,7 @@ export function OrderAuditModal({
                       <div className="p-3 rounded bg-rose-50/80 border border-rose-200/80 space-y-2">
                         <div className="flex items-center justify-between flex-wrap gap-2">
                           <span className="text-xs font-black text-rose-950 flex items-center gap-1.5">
-                            <span>🍺</span>
+                            <span><BeerIcon className="ikona-text" /></span>
                             <span>{issue.beerName} — {issue.packageLabel}</span>
                           </span>
                           <span className="text-xs font-bold text-rose-900 bg-rose-200/80 px-2 py-0.5 rounded-md">

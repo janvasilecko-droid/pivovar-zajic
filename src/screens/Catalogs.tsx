@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { supabase, Beer, Package, Place, Vehicle, useRealtime, BEER_COLOR_PRESETS, beerBorder } from '../lib/supabase';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import ExcelImportModal from '../components/ExcelImportModal';
-import { FileSpreadsheet, Plus, Search, Beer as BeerIcon, Package as PackageIcon, MapPin, Phone, Mail, Edit, Trash2, Eye, EyeOff, Car, AlertTriangle, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, Beer as BeerIcon, Car, Edit, Eye, EyeOff, FileSpreadsheet, Mail, MapPin, NotebookPen, Package as PackageIcon, Phone, Plus, Search, ShieldAlert, ShieldCheck, Trash2 } from 'lucide-react';
 import { lookupPlaceOnline } from '../lib/placeLookup';
 import { chyba, oznam, potvrd } from '../lib/toast';
 
@@ -362,7 +362,7 @@ export function PlacesScreen() {
                   <div className="font-display font-black text-base text-neutral-900">{p.name}</div>
                   {!p.address && (
                     <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 font-extrabold text-[10px] shrink-0 border border-amber-300">
-                      ⚠️ Bez adresy
+                      <AlertTriangle className="ikona-text" /> Bez adresy
                     </span>
                   )}
                 </div>
@@ -505,7 +505,7 @@ function GpsBackfillModal({ places, onClose, onSaved }: { places: Place[]; onClo
               ))}
             </div>
             <button onClick={runLookup} disabled={readyCount === 0} className="btn-amber !rounded w-full justify-center py-2.5 font-black disabled:opacity-50">
-              🔍 Spustit vyhledání ({readyCount})
+              <Search className="ikona-text" /> Spustit vyhledání ({readyCount})
             </button>
           </>
         )}
@@ -920,7 +920,7 @@ export function VehiclesScreen() {
                   <div className="flex items-start justify-between gap-3 pb-3 border-b border-neutral-200/80">
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 rounded bg-slate-900 text-amber-400 flex items-center justify-center font-black text-xl shadow-md">
-                        🚗
+                        <Car className="ikona-text" />
                       </div>
                       <div>
                         <h3 className="font-display font-black text-xl text-neutral-900">{v.name}</h3>
@@ -977,7 +977,7 @@ export function VehiclesScreen() {
 
                   {v.note && (
                     <div className="text-xs text-neutral-600 font-medium bg-neutral-100/70 p-3 rounded italic">
-                      📝 {v.note}
+                      <NotebookPen className="ikona-text" /> {v.note}
                     </div>
                   )}
                 </div>

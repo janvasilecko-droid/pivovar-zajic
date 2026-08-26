@@ -10,22 +10,7 @@ import {
 } from '../lib/kegSanitation';
 import { SanitationStepRow, currentTimeStr } from './SanitationStepRow';
 import { Spinner } from './ui';
-import { 
-  Plus, 
-  FileSpreadsheet, 
-  Calendar, 
-  User, 
-  Edit3, 
-  Trash2, 
-  Check, 
-  Clock, 
-  FileText, 
-  Settings, 
-  ShieldAlert, 
-  CheckCircle2, 
-  UserCheck,
-  AlertTriangle
-} from 'lucide-react';
+import { AlertTriangle, Calendar, CalendarDays, Check, CheckCircle2, Clock, Edit3, FileSpreadsheet, FileText, Plus, Settings, ShieldAlert, SprayCan, Trash2, User, UserCheck } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { potvrd } from '../lib/toast';
 
@@ -374,7 +359,7 @@ export default function KegSanitationDiary() {
         <div className="card p-4 bg-rose-50 border-2 border-rose-300 rounded flex items-start gap-3 shadow-sm animate-pulse-subtle">
           <AlertTriangle className="text-rose-600 shrink-0 mt-0.5" size={20} />
           <div>
-            <h4 className="font-bold text-xs text-rose-950 uppercase tracking-wide">⚠️ Upozornění: Poslední týden v měsíci!</h4>
+            <h4 className="font-bold text-xs text-rose-950 uppercase tracking-wide"><AlertTriangle className="ikona-text" /> Upozornění: Poslední týden v měsíci!</h4>
             <p className="text-xs text-rose-900 mt-1 font-semibold">
               Je potřeba provést a zapsat **MĚSÍČNÍ SANITACI KEGŮ** (kompletní rozebrání narážečů, naložení do louhu na 24 hodin, vyčištění kartáčem, oplach a vizuální kontrola).
             </p>
@@ -389,7 +374,7 @@ export default function KegSanitationDiary() {
               }}
               className="mt-2.5 px-3 py-1.5 rounded bg-rose-600 text-white font-black text-[11px] hover:bg-rose-700 transition"
             >
-              ✅ Zahájit měsíční sanitaci
+              <CheckCircle2 className="ikona-text" /> Zahájit měsíční sanitaci
             </button>
           </div>
         </div>
@@ -399,7 +384,7 @@ export default function KegSanitationDiary() {
       <div className="card p-4 bg-white border border-neutral-200/90 rounded flex flex-wrap items-center justify-between gap-3 shadow-xs">
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2 text-xs font-bold text-neutral-700">
-            <span>🗓️ Měsíc:</span>
+            <span><CalendarDays className="ikona-text" /> Měsíc:</span>
           </div>
           <input
             type="month"
@@ -636,7 +621,7 @@ export default function KegSanitationDiary() {
           <form onSubmit={handleSave} className="card p-6 bg-white rounded max-w-2xl w-full border-2 border-amber-400 shadow-2xl space-y-5 animate-scale-in my-8">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-                <span>🧼 {editing ? `Upravit sanitaci KEGů — ${editing.sanitation_date}` : 'Záznam sanitace stáčecí linky KEGů'}</span>
+                <span><SprayCan className="ikona-text" /> {editing ? `Upravit sanitaci KEGů — ${editing.sanitation_date}` : 'Záznam sanitace stáčecí linky KEGů'}</span>
               </h3>
               <button type="button" onClick={() => setShowModal(false)} className="text-neutral-400 hover:text-neutral-800 text-lg font-bold">✕</button>
             </div>
@@ -816,7 +801,7 @@ export default function KegSanitationDiary() {
                 {/* Section C: Měsíční sanitace */}
                 <div className={`p-4 rounded border transition ${reason === 'mesicni' ? 'bg-rose-50/50 border-rose-300 shadow-sm' : 'bg-neutral-50/50 border-neutral-200 opacity-60'}`}>
                   <h4 className="font-black text-xs text-neutral-800 uppercase tracking-wider flex items-center gap-1.5 mb-2.5">
-                    📅 Část C: Měsíční sanitace (Poslední týden)
+                    <Calendar className="ikona-text" /> Část C: Měsíční sanitace (Poslední týden)
                   </h4>
                   <div className="space-y-2">
                     <SanitationStepRow

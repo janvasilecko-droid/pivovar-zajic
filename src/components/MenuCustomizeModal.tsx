@@ -1,3 +1,4 @@
+import { Save } from 'lucide-react';
 import { Modal } from './ui';
 import type { NavItem } from './Layout';
 
@@ -104,7 +105,7 @@ export function MenuCustomizeModal({
           <div className="flex gap-2">
             <button type="button" className="btn-ghost !rounded" onClick={onClose}>Zrušit</button>
             <button type="button" className="btn-primary !rounded !py-2.5 !px-5 font-black" onClick={handleSave}>
-              💾 Uložit mé nastavení
+              <Save className="ikona-text" /> Uložit mé nastavení
             </button>
           </div>
         </div>

@@ -82,6 +82,10 @@ html, body, #root {
   .tap::after { content: ""; position: absolute; inset: -6px; }
   .tap:active { transform: scale(0.94); }
 
+  /* Ikona vsazená do textu místo emoji — roste s okolním písmem stejně,
+     jako rostlo emoji, takže v nadpisu je velká a v popisku malá. */
+  .ikona-text { display: inline-block; width: 1.15em; height: 1.15em; vertical-align: -0.18em; flex-shrink: 0; }
+
   .label {
     @apply block text-xs sm:text-xs font-bold text-neutral-700 mb-1.5 uppercase tracking-wider;
   }

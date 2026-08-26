@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { CellarTank, Beer, CellarTankCycle } from '../lib/supabase';
-import { Calendar, Plus, CheckCircle2, Clock, ShieldAlert, Sparkles } from 'lucide-react';
+import { AlertTriangle, BarChart3, Calendar, CheckCircle2, Clock, Plus, ShieldAlert, Sparkles } from 'lucide-react';
 
 export type PlannedBatch = {
   id: string;
@@ -157,7 +157,7 @@ export function TankOccupancyPlanner({
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded bg-amber-500 text-neutral-950 font-black flex items-center justify-center text-2xl shadow-md shrink-0">
-              📅
+              <Calendar className="ikona-text" />
             </div>
             <div>
               <h2 className="text-xl font-display font-black text-neutral-950">Plánovač obsazenosti tanků & Harmonogram ležení</h2>
@@ -185,14 +185,14 @@ export function TankOccupancyPlanner({
       {conflictingBatchIds.size > 0 && (
         <div className="flex items-center gap-2 p-3.5 rounded bg-rose-50 border-2 border-rose-300 text-sm font-black text-rose-800">
           <ShieldAlert size={18} className="text-rose-600 shrink-0" />
-          <span>⚠️ {conflictingBatchIds.size} naplánovaných várek koliduje s obsazeností tanku — viz označené várky níže.</span>
+          <span><AlertTriangle className="ikona-text" /> {conflictingBatchIds.size} naplánovaných várek koliduje s obsazeností tanku — viz označené várky níže.</span>
         </div>
       )}
 
       {/* Gantt Overview Table */}
       <div className="card p-6 bg-white border border-neutral-200/90 rounded shadow-sm space-y-4">
         <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-          <span>📊 Vizuální časová osa obsazenosti ležáckých a kvasných tanků</span>
+          <span><BarChart3 className="ikona-text" /> Vizuální časová osa obsazenosti ležáckých a kvasných tanků</span>
         </h3>
 
         <div className="space-y-4">
@@ -311,7 +311,7 @@ export function TankOccupancyPlanner({
           <div className="bg-white rounded max-w-md w-full p-6 space-y-4 shadow-2xl border border-neutral-200 animate-in fade-in duration-150">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-                <span>➕ Naplánovat novou várku na tank</span>
+                <span><Plus className="ikona-text" /> Naplánovat novou várku na tank</span>
               </h3>
               <button onClick={() => setShowAddModal(false)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg">✕</button>
             </div>
@@ -395,7 +395,7 @@ export function TankOccupancyPlanner({
               {newBatchConflict && (
                 <div className="flex items-start gap-2 p-3 rounded bg-rose-50 border border-rose-300 text-xs font-bold text-rose-800">
                   <ShieldAlert size={16} className="text-rose-600 shrink-0 mt-0.5" />
-                  <span>⚠️ {newBatchConflict}</span>
+                  <span><AlertTriangle className="ikona-text" /> {newBatchConflict}</span>
                 </div>
               )}
 

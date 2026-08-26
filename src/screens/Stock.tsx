@@ -9,6 +9,7 @@ import { Warehouse, Calendar, BarChart2, PackageCheck, Download, ShoppingBag, Te
 import { exportExciseTaxReportToExcel } from '../lib/excel';
 import { FestivalEquipmentTracker } from '../components/FestivalEquipmentTracker';
 import { MarketingMerchInventory } from '../components/MarketingMerchInventory';
+import { IkonaLahev, IkonaSud } from '../components/ikony';
 
 type StockByPkg = {
   package_id: string; label: string; volume_l: number; kind: string;
@@ -523,11 +524,11 @@ export default function Stock() {
 
                     <div className="grid grid-cols-2 gap-2 my-3">
                       <div className="p-2.5 rounded bg-white/70 border border-black/10">
-                        <div className="text-[10px] font-black uppercase text-neutral-500">🛢️ Sudy</div>
+                        <div className="text-[10px] font-black uppercase text-neutral-500"><IkonaSud className="ikona-text" /> Sudy</div>
                         <div className={`text-base font-mono font-black ${r.stockKegs < 0 ? 'text-rose-600' : 'text-neutral-900'}`}>{r.stockKegs} ks</div>
                       </div>
                       <div className="p-2.5 rounded bg-white/70 border border-black/10">
-                        <div className="text-[10px] font-black uppercase text-neutral-500">🍾 Lahve</div>
+                        <div className="text-[10px] font-black uppercase text-neutral-500"><IkonaLahev className="ikona-text" /> Lahve</div>
                         <div className={`text-base font-mono font-black ${r.stockBottles < 0 ? 'text-rose-600' : 'text-neutral-900'}`}>{r.stockBottles} ks</div>
                       </div>
                     </div>
@@ -536,7 +537,7 @@ export default function Stock() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
                       {kegs.length > 0 && (
                         <div className="bg-white/70 backdrop-blur-xs rounded p-2.5 border border-neutral-200/50">
-                          <div className="text-xs font-bold uppercase tracking-wider text-amber-700 mb-1.5 flex items-center gap-1">🛢️ Sudy</div>
+                          <div className="text-xs font-bold uppercase tracking-wider text-amber-700 mb-1.5 flex items-center gap-1"><IkonaSud className="ikona-text" /> Sudy</div>
                           <table className="w-full text-xs font-semibold border-collapse">
                             <thead>
                               <tr className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">
@@ -582,7 +583,7 @@ export default function Stock() {
                       )}
                       {bottles.length > 0 && (
                         <div className="bg-white/70 backdrop-blur-xs rounded p-2.5 border border-neutral-200/50">
-                          <div className="text-xs font-bold uppercase tracking-wider text-primary-700 mb-1.5 flex items-center gap-1">🍾 Lahve</div>
+                          <div className="text-xs font-bold uppercase tracking-wider text-primary-700 mb-1.5 flex items-center gap-1"><IkonaLahev className="ikona-text" /> Lahve</div>
                           <table className="w-full text-xs font-semibold border-collapse">
                             <thead>
                               <tr className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">

@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { supabase, Beer, Package, useRealtime, beerBg, beerText, pkgBg, pkgText, formatPackageLabel } from '../lib/supabase';
 import { Spinner, EmptyState } from '../components/ui';
 import { createReminder } from '../lib/reminders';
-import { Plus, Trash2, Check, Calendar, Sparkles, Star, DollarSign, CheckCircle2, RotateCcw, User, MapPin, ClipboardList, ThumbsUp, ThumbsDown, Bell } from 'lucide-react';
+import { AlertTriangle, Beer as BeerIcon, Bell, Calendar, Check, CheckCircle2, ClipboardList, DollarSign, MapPin, Plus, RotateCcw, Sparkles, Star, ThumbsDown, ThumbsUp, Trash2, User } from 'lucide-react';
 import { oznam, potvrd } from '../lib/toast';
 
 /** Řádky z DB (akce + vnořené akce_items) → tvar, se kterým pracuje obrazovka. */
@@ -409,7 +409,7 @@ export default function AkceScreen() {
           si myslel, že je akce uložená, a ona by nikde nebyla. */}
       {saveErr && (
         <div className="rounded border border-danger-300 bg-danger-500/10 px-4 py-3 text-sm font-bold text-danger-700">
-          ⚠️ {saveErr}
+          <AlertTriangle className="ikona-text" /> {saveErr}
         </div>
       )}
       {/* Top Banner */}
@@ -470,7 +470,7 @@ export default function AkceScreen() {
                             <span className="px-2.5 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-black text-xs shadow-2xs">🟡 Plánovaná / Probíhá</span>
                           )}
                           {!isDone && r.ready && (
-                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500 text-white font-extrabold text-xs shadow-2xs">✅ Připraveno na akci</span>
+                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500 text-white font-extrabold text-xs shadow-2xs"><CheckCircle2 className="ikona-text" /> Připraveno na akci</span>
                           )}
                         </div>
                         <div className="flex items-center gap-3 text-xs text-neutral-600 font-bold mt-1">
@@ -660,7 +660,7 @@ export default function AkceScreen() {
                 <div className="flex items-start gap-2 p-3 rounded bg-sky-50 border border-sky-200 text-xs text-sky-950 font-medium">
                   <Bell size={16} className="text-sky-600 shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-bold text-sky-900">🔔 Upozornění na kašu (Denis)</p>
+                    <p className="font-bold text-sky-900"><Bell className="ikona-text" /> Upozornění na kašu (Denis)</p>
                     <p>
                       Osoba <strong>{who || '…'}</strong> dostane upomínku <strong>„říct Denisovi o kašu“</strong> dne{' '}
                       <strong className="font-mono">{reminderDate.toLocaleDateString('cs-CZ')}</strong> (3 dny před akcí) — na telefonu i při přihlášení.
@@ -811,7 +811,7 @@ export default function AkceScreen() {
 
             <form onSubmit={handleSaveEval} className="space-y-4">
               <div className="p-3 rounded bg-amber-50 border border-amber-200 text-xs text-amber-950 font-medium space-y-1">
-                <p className="font-bold text-amber-900">🍺 Vytočené/prodané kusy:</p>
+                <p className="font-bold text-amber-900"><BeerIcon className="ikona-text" /> Vytočené/prodané kusy:</p>
                 <p>Zadej kolik ks sudů/lahví se z akce <strong>vytáčelo a prodalo</strong>. Zbytek (odvezeno − prodáno) se automaticky vrátí zpět na sklad.</p>
               </div>
 

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase, Beer, Package, PriceListItem, useRealtime, beerBg, beerText, pkgBg, pkgText, formatPackageLabel } from '../lib/supabase';
 import { EmptyState, Spinner } from '../components/ui';
-import { DollarSign, Tag, Beer as BeerIcon, Package as PackageIcon, Calendar, Info, CheckCircle2 } from 'lucide-react';
+import { Beer as BeerIcon, Calendar, CheckCircle2, DollarSign, Info, Package as PackageIcon, Tag } from 'lucide-react';
+import { IkonaLahev, IkonaSud } from '../components/ikony';
 
 export default function PriceListScreen() {
   const [beers, setBeers] = useState<Beer[]>([]);
@@ -75,7 +76,7 @@ export default function PriceListScreen() {
             <span>Prodejní ceny & Finanční kalkulace</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-display font-black tracking-tight text-white flex items-center gap-2">
-            <span>🏷️ Ceník piva a obalů pro měsíc {currentMonth}</span>
+            <span><Tag className="ikona-text" /> Ceník piva a obalů pro měsíc {currentMonth}</span>
           </h1>
           <p className="text-xs text-neutral-400 font-medium mt-1">
             Zde zadej prodejní ceny piva za litr a ceny jednotlivých obalů pro prodejnu a odběratele. Tyto ceny se AUTOMATICKY používají pro výpočty tržeb, hodnoty skladu a fakturaci!
@@ -103,7 +104,7 @@ export default function PriceListScreen() {
             <div className="flex items-center justify-between pb-2 border-b border-neutral-200/70">
               <div>
                 <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-                  <span>🛢️</span>
+                  <span><IkonaSud className="ikona-text" /></span>
                   <span>Sudy / KEGy — cena za litr a automatický dopočet kegů</span>
                 </h3>
                 <p className="text-xs text-neutral-500 font-medium mt-0.5">
@@ -210,7 +211,7 @@ export default function PriceListScreen() {
             <div className="flex items-center justify-between pb-2 border-b border-neutral-200/70">
               <div>
                 <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-                  <span>🍾</span>
+                  <span><IkonaLahev className="ikona-text" /></span>
                   <span>Lahve — ruční nastavení ceny za kus podle piva a objemu</span>
                 </h3>
                 <p className="text-xs text-neutral-500 font-medium mt-0.5">

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { ReminderItem, ReminderTarget, ReminderDisplayMode, fetchReminders, createReminder, deleteReminder, acknowledgeReminder, isReminderForUser, normalizeTargetEmails } from '../lib/reminders';
 import { isNotificationSupported, requestNotificationPermission, playOrderChime } from '../lib/notifications';
-import { Bell, Plus, Trash2, CheckCircle2, Clock, User, Shield, PhoneCall, Monitor, Lock, AlertCircle, Filter, Calendar, Send, Users as UsersIcon } from 'lucide-react';
+import { AlertCircle, Bell, Calendar, CheckCircle2, Clock, Filter, Lock, Monitor, PhoneCall, Plus, Send, Shield, Trash2, Upload, User, Users as UsersIcon } from 'lucide-react';
 import { EmptyState, Spinner } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { getAdminEmail, DEFAULT_ROLE } from '../lib/config';
@@ -195,7 +195,7 @@ export default function RemindersScreen() {
             <span>Chytré plánování & Notifikace</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-display font-black tracking-tight text-white flex items-center gap-2">
-            <span>🔔 Upozornění — posílejte zprávy kolegům</span>
+            <span><Bell className="ikona-text" /> Upozornění — posílejte zprávy kolegům</span>
           </h1>
           <p className="text-xs text-neutral-400 font-medium mt-1">
             Napište zprávu nebo upomínku a vyberte příjemce — všechny, roli nebo konkrétní uživatele. Odešlete ihned nebo naplánujte na termín. Uživatelé dostanou push notifikaci a/nebo okno k potvrzení.
@@ -256,7 +256,7 @@ export default function RemindersScreen() {
                   className="mt-0.5"
                 />
                 <div className="text-xs">
-                  <div className="font-black text-neutral-900">📤 Odeslat ihned</div>
+                  <div className="font-black text-neutral-900"><Upload className="ikona-text" /> Odeslat ihned</div>
                   <div className="text-[11px] text-neutral-500">Upozornění se vybraným uživatelům zobrazí okamžitě (do ~12 sekund), bez čekání na termín.</div>
                 </div>
               </label>
@@ -333,7 +333,7 @@ export default function RemindersScreen() {
                     className="mt-0.5"
                   />
                   <div className="text-xs">
-                    <div className="font-black text-neutral-900">👤 Konkrétní uživatelé</div>
+                    <div className="font-black text-neutral-900"><User className="ikona-text" /> Konkrétní uživatelé</div>
                     <div className="text-[11px] text-neutral-500">Vyberte jednoho nebo více kolegů ze seznamu.</div>
                   </div>
                 </label>
@@ -423,7 +423,7 @@ export default function RemindersScreen() {
                     className="mt-0.5"
                   />
                   <div className="text-xs">
-                    <div className="font-black text-neutral-900">🔔 Obojí (Vyskočí po přihlášení + Push na ploše)</div>
+                    <div className="font-black text-neutral-900"><Bell className="ikona-text" /> Obojí (Vyskočí po přihlášení + Push na ploše)</div>
                     <div className="text-[11px] text-neutral-500">Nejjistější kombinace. Uživatel musí v aplikaci odkliknout, že o upomínce ví.</div>
                   </div>
                 </label>
@@ -440,7 +440,7 @@ export default function RemindersScreen() {
                     className="mt-0.5"
                   />
                   <div className="text-xs">
-                    <div className="font-black text-neutral-900">🔒 Po přihlášení do aplikace (Modální okno)</div>
+                    <div className="font-black text-neutral-900"><Lock className="ikona-text" /> Po přihlášení do aplikace (Modální okno)</div>
                     <div className="text-[11px] text-neutral-500">Po přihlášení vyskočí oknu, které musí daný člověk odkliknout.</div>
                   </div>
                 </label>

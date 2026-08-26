@@ -4,7 +4,8 @@ import { PhotoReviewPane } from './PhotoReviewPane';
 import { ImageEditor } from './ImageEditor';
 import type { Beer, Package } from '../lib/supabase';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
-import { Camera, Upload, AlertCircle, Plus, Trash2, RotateCcw, Check, Sparkles } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Beer as BeerIcon, Camera, Check, Plus, RotateCcw, Sparkles, Trash2, Upload } from 'lucide-react';
+import { IkonaSud } from '../components/ikony';
 
 type KegRow = { beerId: string; pkgId: string; qty: string; _removed?: boolean; _manual?: boolean };
 type PhotoEntry = { dataUrl: string; name: string };
@@ -243,7 +244,7 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
               <input ref={fileRef} type="file" accept="image/*,.png,.jpg,.jpeg,.webp" multiple onChange={(e) => { const files = Array.from(e.target.files ?? []); if (files.length) loadMultipleFiles(files); e.target.value = ''; }} className="hidden" />
               <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={(e) => { const files = Array.from(e.target.files ?? []); if (files.length) setPendingFiles((q) => [...q, ...files]); e.target.value = ''; }} className="hidden" />
               <button className="btn-primary !rounded flex items-center gap-2" onClick={() => cameraRef.current?.click()} disabled={busy}>
-                <Camera size={16} /> 📷 Spustit fotoaparát
+                <Camera size={16} /> <Camera className="ikona-text" /> Spustit fotoaparát
               </button>
               <button className="btn-secondary flex items-center gap-2 border-neutral-300 text-neutral-800 bg-white hover:bg-neutral-50" onClick={() => fileRef.current?.click()} disabled={busy}>
                 <Upload size={16} /> 🖼 Vybrat fotku z galerie
@@ -254,7 +255,7 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
               </label>
             </div>
             <span className="text-[11px] text-neutral-500">
-              📷 Obrázek můžete také vložit zkopírovaný stisknutím <strong>Ctrl+V</strong>.
+              <Camera className="ikona-text" /> Obrázek můžete také vložit zkopírovaný stisknutím <strong>Ctrl+V</strong>.
             </span>
           </div>
 
@@ -295,7 +296,7 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
                       {!r._removed && (
                         <div className="space-y-3">
                           <div>
-                            <label className="text-[9px] font-black uppercase text-neutral-500">🍺 Pivo</label>
+                            <label className="text-[9px] font-black uppercase text-neutral-500"><BeerIcon className="ikona-text" /> Pivo</label>
                             <select className="input text-xs font-bold w-full bg-white border border-neutral-200" value={r.beerId} onChange={(e) => updateLine(i, { beerId: e.target.value })}>
                               <option value="">- Vyber pivo -</option>
                               {beers.filter((b) => b.is_active).map((b) => (<option key={b.id} value={b.id}>{b.name}</option>))}
@@ -303,7 +304,7 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
                           </div>
                           <div className="grid grid-cols-2 gap-1.5">
                             <div>
-                              <label className="text-[9px] font-black uppercase text-amber-800">🛢️ Obal (KEG)</label>
+                              <label className="text-[9px] font-black uppercase text-amber-800"><IkonaSud className="ikona-text" /> Obal (KEG)</label>
                               <select className="input text-xs font-bold w-full bg-white border border-amber-200" value={r.pkgId} onChange={(e) => updateLine(i, { pkgId: e.target.value })}>
                                 {kegPackages.map((p) => (<option key={p.id} value={p.id}>{p.label}</option>))}
                               </select>
@@ -313,7 +314,7 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
                               <input type="text" inputMode="numeric" placeholder="např. 5" className="input text-xs font-bold w-full border border-amber-200 text-center" value={r.qty} onChange={(e) => updateLine(i, { qty: e.target.value.replace(/[^0-9]/g, '') })} />
                             </div>
                           </div>
-                          {!r.pkgId && <span className="text-[10px] text-amber-700">⚠️ Nenalezen obal KEG — vyber velikost ručně.</span>}
+                          {!r.pkgId && <span className="text-[10px] text-amber-700"><AlertTriangle className="ikona-text" /> Nenalezen obal KEG — vyber velikost ručně.</span>}
                         </div>
                       )}
                     </div>

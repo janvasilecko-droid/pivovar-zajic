@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Modal } from './ui';
-import { CheckSquare, Square, RotateCcw, Check, ShieldCheck, Lock } from 'lucide-react';
+import { Check, CheckSquare, Lock, RotateCcw, ShieldCheck, Square, Unlock } from 'lucide-react';
 import { zavibruj } from '../lib/haptika';
 
 type ChecklistItem = {
@@ -467,7 +467,7 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
                   }}
                   className="btn-ghost !rounded flex items-center justify-center gap-1 text-[10px] font-black text-rose-600 hover:bg-rose-50 border border-dashed border-rose-200 px-2.5 py-1.5 rounded"
                 >
-                  <span>🔓 Přeskočit (Admin)</span>
+                  <span><Unlock className="ikona-text" /> Přeskočit (Admin)</span>
                 </button>
               )}
               <button type="button" className="btn-ghost !rounded text-xs" onClick={onClose}>
@@ -489,7 +489,7 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
               }}
               className="btn-ghost !rounded flex items-center justify-center gap-1 text-[10px] font-black text-rose-600 hover:bg-rose-50 border border-dashed border-rose-200 px-2.5 py-1.5 rounded"
             >
-              <span>🔓 Přeskočit (Admin)</span>
+              <span><Unlock className="ikona-text" /> Přeskočit (Admin)</span>
             </button>
           )}
           <button

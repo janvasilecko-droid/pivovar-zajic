@@ -3,7 +3,7 @@ import { supabase, Package, Beer, Place, useRealtime, formatPackageLabel } from 
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { orderWeightKg, fmtKg } from '../lib/weight';
 import { DAYS } from '../lib/shared';
-import { Calendar, Truck, Plus, FileText, Package as PackageIcon, CheckCircle2, Scale, Search, Printer, Share2, ArrowRightCircle, Phone, CalendarDays, MapPin, Pencil, StickyNote, Cylinder, Wine, ArrowRightLeft, AlertTriangle, MessageCircle, PenTool } from 'lucide-react';
+import { AlertTriangle, ArrowRightCircle, ArrowRightLeft, BarChart3, Calendar, CalendarDays, Car, CheckCircle2, Cylinder, FileText, MapPin, MessageCircle, Package as PackageIcon, PenTool, Pencil, Phone, Plus, Printer, Scale, Search, Share2, StickyNote, Truck, Wine } from 'lucide-react';
 import { shareDeliveryListToWhatsApp } from '../lib/whatsapp';
 import { exportZavozToExcel } from '../lib/excel';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
@@ -403,11 +403,11 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded border border-neutral-200 shadow-2xs">
         <div className="flex items-center gap-2">
           <span className="text-sm font-display font-black text-amber-950 flex items-center gap-1.5">
-            <span>🚚</span>
+            <span><Truck className="ikona-text" /></span>
             <span>Závoz</span>
           </span>
           <div className="relative group">
-            <button className="btn-ghost !rounded !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs" disabled={!activeOrders.length}>📊 Export Excel ▾</button>
+            <button className="btn-ghost !rounded !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs" disabled={!activeOrders.length}><BarChart3 className="ikona-text" /> Export Excel ▾</button>
             {activeOrders.length > 0 && (
               <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-neutral-200 rounded shadow-lg py-1 min-w-[180px] hidden group-hover:block group-focus-within:block">
                 <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
@@ -416,14 +416,14 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                     beer_name: i.beer_name, package_label: i.package_label, quantity: i.quantity, is_delivered: o.is_delivered,
                   })));
                   exportZavozToExcel(rows, `tyden-${weekKey}`);
-                }}>📅 Tento týden</button>
+                }}><Calendar className="ikona-text" /> Tento týden</button>
                 <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
                   const rows = orders.filter((o) => o.status !== 'storno').flatMap((o) => (items[o.id] ?? []).map((i) => ({
                     order_date: o.order_date, place_name: o.place_name, delivery_day: o.delivery_day,
                     beer_name: i.beer_name, package_label: i.package_label, quantity: i.quantity, is_delivered: o.is_delivered,
                   })));
                   exportZavozToExcel(rows, 'vse');
-                }}>📅 Všechno</button>
+                }}><Calendar className="ikona-text" /> Všechno</button>
               </div>
             )}
           </div>
@@ -518,7 +518,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
           <div className="card p-3 mb-4 border-2 border-amber-300/80 bg-white">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <span className="font-display font-black text-amber-950 text-xs">🚚 Závoz na tento týden</span>
+                <span className="font-display font-black text-amber-950 text-xs"><Truck className="ikona-text" /> Závoz na tento týden</span>
                 <span className="text-[10px] text-amber-800/70">{wr.label}</span>
               </div>
               <span className="chip bg-amber-500 text-slate-950 font-mono font-black text-xs">
@@ -528,7 +528,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
 
             {activeOrders.length === 0 ? (
               <div className="text-xs text-emerald-800 bg-emerald-100/80 border border-emerald-200 rounded px-3 py-2 font-bold flex items-center gap-1.5">
-                <span>✅</span>
+                <span><CheckCircle2 className="ikona-text" /></span>
                 <span>Žádné objednávky k závozu tento týden.</span>
               </div>
             ) : (
@@ -1228,7 +1228,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                 }}
                 className="p-4 rounded bg-white hover:bg-neutral-50 border-2 border-neutral-200 hover:border-sky-400 font-black text-xs text-neutral-900 shadow-sm flex flex-col items-center justify-center gap-2"
               >
-                <span className="text-2xl">🚗</span>
+                <span className="text-2xl"><Car className="ikona-text" /></span>
                 <span>Waze</span>
               </button>
 

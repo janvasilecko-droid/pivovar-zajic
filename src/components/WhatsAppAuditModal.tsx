@@ -6,7 +6,7 @@ import {
   triggerAutoParse,
 } from '../lib/whatsappApi';
 import { Modal, Spinner } from './ui';
-import { RefreshCw, ShieldAlert, MessageSquare, Zap } from 'lucide-react';
+import { AlertTriangle, MessageSquare, RefreshCw, ShieldAlert, Zap } from 'lucide-react';
 import { chyba } from '../lib/toast';
 
 interface WhatsAppAuditModalProps {
@@ -157,7 +157,7 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
         {needsAttentionCount > 0 && (
           <div className="flex items-center gap-2 p-3 rounded bg-amber-50 border-2 border-amber-300 text-xs font-black text-amber-900">
             <ShieldAlert size={16} className="text-amber-600 shrink-0" />
-            <span>⚠️ {needsAttentionCount}× zpráva ještě nemá výsledek (čeká, zpracovává se, nebo skončila chybou) — zkontroluj níže.</span>
+            <span><AlertTriangle className="ikona-text" /> {needsAttentionCount}× zpráva ještě nemá výsledek (čeká, zpracovává se, nebo skončila chybou) — zkontroluj níže.</span>
           </div>
         )}
 
@@ -207,7 +207,7 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
                       {m.message_text?.slice(0, 220)}{(m.message_text?.length ?? 0) > 220 ? '…' : ''}
                     </div>
                     {(m.status === 'error' || m.status === 'ignored') && m.error_message && (
-                      <div className="text-[11px] text-rose-700 font-bold mt-1">⚠️ {m.error_message}</div>
+                      <div className="text-[11px] text-rose-700 font-bold mt-1"><AlertTriangle className="ikona-text" /> {m.error_message}</div>
                     )}
                     {m.status === 'imported' && (
                       <div className="text-[11px] text-emerald-700 font-bold mt-1">

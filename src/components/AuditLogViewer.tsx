@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { getAuditLogs, AuditLogEntry } from '../lib/audit';
-import { History, Shield, Search, User, Clock } from 'lucide-react';
+import { Clock, History, Scroll, Search, Shield, User } from 'lucide-react';
 
 export function AuditLogViewer() {
   const [logs] = useState<AuditLogEntry[]>(() => getAuditLogs());
@@ -19,7 +19,7 @@ export function AuditLogViewer() {
       <div className="card p-6 bg-gradient-to-r from-neutral-900 via-neutral-950 to-neutral-900 text-white rounded space-y-4 shadow-xl border border-neutral-800">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded bg-amber-500 text-neutral-950 flex items-center justify-center font-black text-2xl shadow-lg">
-            📜
+            <Scroll className="ikona-text" />
           </div>
           <div>
             <h3 className="font-display font-black text-xl text-amber-400">
@@ -57,7 +57,7 @@ export function AuditLogViewer() {
             </div>
 
             <div className="text-right shrink-0 text-[11px] text-neutral-400 font-mono space-y-0.5">
-              <div>👤 {log.user_name}</div>
+              <div><User className="ikona-text" /> {log.user_name}</div>
               <div>{new Date(log.timestamp).toLocaleString('cs-CZ')}</div>
             </div>
           </div>

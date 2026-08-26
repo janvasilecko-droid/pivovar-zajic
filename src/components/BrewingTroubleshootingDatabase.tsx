@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, AlertTriangle, CheckCircle2, ShieldAlert, Sparkles, BookOpen } from 'lucide-react';
+import { AlertTriangle, BookOpen, CheckCircle2, Search, ShieldAlert, Siren, Sparkles } from 'lucide-react';
 
 type OffFlavorDef = {
   id: string;
@@ -101,7 +101,7 @@ export function BrewingTroubleshootingDatabase() {
       <div className="card p-6 bg-gradient-to-r from-amber-950 via-neutral-900 to-neutral-950 text-white rounded space-y-4 shadow-xl">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded bg-amber-500 text-neutral-950 flex items-center justify-center font-black text-2xl shadow-lg">
-            🚨
+            <Siren className="ikona-text" />
           </div>
           <div>
             <h3 className="font-display font-black text-xl text-amber-400">

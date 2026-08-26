@@ -11,23 +11,7 @@ import {
 } from '../lib/bottleSanitation';
 import { Spinner } from './ui';
 import { SanitationStepRow, currentTimeStr } from './SanitationStepRow';
-import { 
-  Plus, 
-  FileSpreadsheet, 
-  Calendar, 
-  User, 
-  Edit3, 
-  Trash2, 
-  ClipboardCheck, 
-  Check, 
-  Clock, 
-  FileText, 
-  Beaker, 
-  Settings, 
-  ShieldAlert, 
-  CheckCircle2, 
-  UserCheck 
-} from 'lucide-react';
+import { Beaker, Calendar, CalendarDays, Check, CheckCircle2, ClipboardCheck, Clock, Edit3, FileSpreadsheet, FileText, Plus, Settings, ShieldAlert, SprayCan, Trash2, User, UserCheck } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { potvrd } from '../lib/toast';
 
@@ -402,7 +386,7 @@ export default function BottleSanitationDiary() {
       <div className="card p-4 bg-white border border-neutral-200/90 rounded flex flex-wrap items-center justify-between gap-3 shadow-xs">
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2 text-xs font-bold text-neutral-700">
-            <span>🗓️ Měsíc:</span>
+            <span><CalendarDays className="ikona-text" /> Měsíc:</span>
           </div>
           <input
             type="month"
@@ -665,7 +649,7 @@ export default function BottleSanitationDiary() {
           <form onSubmit={handleSave} className="card p-6 bg-white rounded max-w-2xl w-full border-2 border-amber-400 shadow-2xl space-y-5 animate-scale-in my-8">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-                <span>🧼 {editing ? `Upravit sanitaci — ${editing.sanitation_date}` : 'Záznam sanitace stáčecí linky lahví'}</span>
+                <span><SprayCan className="ikona-text" /> {editing ? `Upravit sanitaci — ${editing.sanitation_date}` : 'Záznam sanitace stáčecí linky lahví'}</span>
               </h3>
               <button type="button" onClick={() => setShowModal(false)} className="text-neutral-400 hover:text-neutral-800 text-lg font-bold">✕</button>
             </div>

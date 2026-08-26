@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle2, Plus } from 'lucide-react';
+import { CheckCircle2, ClipboardList, Plus, User } from 'lucide-react';
 import { supabase, useRealtime } from '../lib/supabase';
 import { businessDateISO } from '../lib/businessDate';
 
@@ -171,8 +171,8 @@ export function BottlingLineMaintenance() {
               </div>
 
               <div className="p-3.5 rounded bg-white border border-neutral-200 mt-3 space-y-1.5 text-xs text-neutral-800 font-medium">
-                {task.notes && <div><strong>📋 Úkon:</strong> {task.notes}</div>}
-                <div>👤 Odpovědná osoba: <strong>{task.assigned_operator || '—'}</strong></div>
+                {task.notes && <div><strong><ClipboardList className="ikona-text" /> Úkon:</strong> {task.notes}</div>}
+                <div><User className="ikona-text" /> Odpovědná osoba: <strong>{task.assigned_operator || '—'}</strong></div>
                 <div className="flex items-center justify-between text-[11px] text-neutral-500 pt-1 border-t border-neutral-100">
                   <span>Poslední údržba: <strong>{task.last_done_at}</strong></span>
                   <span>Příští údržba: <strong className="text-amber-700 font-bold">{task.next_due_at}</strong></span>

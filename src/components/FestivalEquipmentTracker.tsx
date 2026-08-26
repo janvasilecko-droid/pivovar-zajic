@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Package, Calendar, CheckCircle2, AlertCircle, Plus, Search, User, Truck, Shield } from 'lucide-react';
+import { AlertCircle, Calendar, CheckCircle2, ClipboardList, Download, Package, Phone, Plus, Search, Shield, Truck, User } from 'lucide-react';
 import { potvrd } from '../lib/toast';
 
 type EquipmentItem = {
@@ -217,9 +217,9 @@ export function FestivalEquipmentTracker() {
                     <Truck size={14} className="text-amber-600" />
                     <span>Akce: {item.eventName ?? '—'}</span>
                   </div>
-                  <div>👤 Pořadatel: <strong>{item.borrowerName}</strong></div>
-                  <div>📞 Telefon: <strong>{item.borrowerPhone}</strong></div>
-                  <div>📅 Datum vracení: <strong className="text-rose-600">{item.expectedReturnAt}</strong></div>
+                  <div><User className="ikona-text" /> Pořadatel: <strong>{item.borrowerName}</strong></div>
+                  <div><Phone className="ikona-text" /> Telefon: <strong>{item.borrowerPhone}</strong></div>
+                  <div><Calendar className="ikona-text" /> Datum vracení: <strong className="text-rose-600">{item.expectedReturnAt}</strong></div>
                   {item.depositKic !== undefined && (
                     <div>💰 Vratná kauce: <strong className="text-emerald-700">{item.depositKic.toLocaleString('cs-CZ')} Kč</strong></div>
                   )}
@@ -238,7 +238,7 @@ export function FestivalEquipmentTracker() {
                   }}
                   className="btn-amber !rounded text-xs font-black py-2 px-4 shadow-2xs flex items-center gap-1.5"
                 >
-                  <span>📋 Zapůjčit na festival / akci</span>
+                  <span><ClipboardList className="ikona-text" /> Zapůjčit na festival / akci</span>
                 </button>
               ) : (
                 <button
@@ -246,7 +246,7 @@ export function FestivalEquipmentTracker() {
                   className="btn-primary !rounded text-xs font-black py-2 px-4 shadow-2xs flex items-center gap-1.5"
                 >
                   <CheckCircle2 size={15} />
-                  <span>📥 Vracení na sklad</span>
+                  <span><Download className="ikona-text" /> Vracení na sklad</span>
                 </button>
               )}
             </div>

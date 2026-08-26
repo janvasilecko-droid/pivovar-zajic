@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Modal } from './ui';
 import type { Beer, Package } from '../lib/supabase';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
-import { Camera, Upload, AlertCircle, Check, Sparkles } from 'lucide-react';
+import { AlertCircle, Camera, Check, Folder, Hourglass, Sparkles, Upload } from 'lucide-react';
 
 type PhotoEntry = { dataUrl: string; name: string };
 
@@ -201,18 +201,18 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onTextExtr
               className="hidden"
             />
             <button className="btn-primary !rounded flex items-center gap-2" onClick={() => cameraRef.current?.click()} disabled={busy}>
-              <Camera size={16} /> 📷 Spustit fotoaparát
+              <Camera size={16} /> <Camera className="ikona-text" /> Spustit fotoaparát
             </button>
             <button
               className="btn-secondary flex items-center gap-2 border-neutral-300 text-neutral-800 bg-white hover:bg-neutral-50"
               onClick={() => fileRef.current?.click()}
               disabled={busy}
             >
-              <Upload size={16} /> 📁 Vybrat fotku / fotky z galerie
+              <Upload size={16} /> <Folder className="ikona-text" /> Vybrat fotku / fotky z galerie
             </button>
           </div>
           <span className="text-[11px] text-neutral-500">
-            📷 Můžete vybrat i <strong>více fotek najednou</strong> (např. 30 snímků). Systém je projde postupně po sobě a vše sloučí do tabulky.
+            <Camera className="ikona-text" /> Můžete vybrat i <strong>více fotek najednou</strong> (např. 30 snímků). Systém je projde postupně po sobě a vše sloučí do tabulky.
           </span>
         </div>
 
@@ -232,7 +232,7 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onTextExtr
               ◀ Předchozí fotka
             </button>
             <span className="font-extrabold text-xs sm:text-sm">
-              📷 Fotka {activeIndex + 1} z {photos.length} {photos[activeIndex]?.name ? `(${photos[activeIndex].name})` : ''}
+              <Camera className="ikona-text" /> Fotka {activeIndex + 1} z {photos.length} {photos[activeIndex]?.name ? `(${photos[activeIndex].name})` : ''}
             </span>
             <button
               type="button"
@@ -250,7 +250,7 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onTextExtr
           </div>
         )}
 
-        {busy && <div className="text-xs text-neutral-500 animate-pulse">⏳ Čtu text z fotky {activeIndex + 1}/{photos.length || 1}…</div>}
+        {busy && <div className="text-xs text-neutral-500 animate-pulse"><Hourglass className="ikona-text" /> Čtu text z fotky {activeIndex + 1}/{photos.length || 1}…</div>}
         {err && (
           <div className="p-3 bg-rose-50 border border-rose-200 rounded text-xs text-rose-800 flex items-start gap-2">
             <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />

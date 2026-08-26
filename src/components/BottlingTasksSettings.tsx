@@ -22,8 +22,9 @@ import {
   planLines,
 } from '../lib/bottlingPlans';
 import { Modal } from './ui';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { AlertTriangle, Calendar, ChevronLeft, ChevronRight, ClipboardList, Lightbulb, MessageCircle, Package as PackageIcon, Pencil, ShoppingCart, Trash2 } from 'lucide-react';
 import { chyba, potvrd } from '../lib/toast';
+import { IkonaLahev, IkonaSud } from '../components/ikony';
 
 // Povolené velikosti lahví v dropdownu (shodné se zápisem stáčení)
 const ALLOWED_BOTTLE_VOLUMES = [1.5, 1, 0.5, 0.33];
@@ -344,13 +345,13 @@ export function BottlingTasksSettings() {
             <tr className="text-[10px] uppercase tracking-wide text-neutral-500">
               <th className="text-left font-black px-2 py-1.5">Pivo</th>
               <th className="text-left font-black px-2 py-1.5">Obal</th>
-              <th className="text-right font-black px-2 py-1.5">🛒 Objednávky</th>
-              <th className="text-right font-black px-2 py-1.5">📦 Fasování</th>
-              <th className="text-right font-black px-2 py-1.5">📋 Naplánováno</th>
+              <th className="text-right font-black px-2 py-1.5"><ShoppingCart className="ikona-text" /> Objednávky</th>
+              <th className="text-right font-black px-2 py-1.5"><PackageIcon className="ikona-text" /> Fasování</th>
+              <th className="text-right font-black px-2 py-1.5"><ClipboardList className="ikona-text" /> Naplánováno</th>
               <th className="text-right font-black px-2 py-1.5">{isKeg ? '🛢️ Sudy na skladě' : '🍾 Lahve na skladě'}</th>
-              <th className="text-right font-black px-2 py-1.5">⚠️ Chybí stočit</th>
-              <th className="text-right font-black px-2 py-1.5">📅 Konec týdne</th>
-              <th className="text-right font-black px-2 py-1.5">🍾 Stočit</th>
+              <th className="text-right font-black px-2 py-1.5"><AlertTriangle className="ikona-text" /> Chybí stočit</th>
+              <th className="text-right font-black px-2 py-1.5"><Calendar className="ikona-text" /> Konec týdne</th>
+              <th className="text-right font-black px-2 py-1.5"><IkonaLahev className="ikona-text" /> Stočit</th>
             </tr>
           </thead>
           <tbody>
@@ -382,7 +383,7 @@ export function BottlingTasksSettings() {
                       title={r.missing > 0 ? 'Stočit chybějící množství' : 'Stočit (pokrytí objednávek)'}
                       className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-600 text-neutral-950 text-[11px] font-black transition shadow-xs"
                     >
-                      🍾 Stočit
+                      <IkonaLahev className="ikona-text" /> Stočit
                     </button>
                   </td>
                 </tr>
@@ -420,7 +421,7 @@ export function BottlingTasksSettings() {
       {/* Hlavička */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <h2 className="font-display font-bold text-lg flex items-center gap-2">
-          <span className="text-xl">🍾</span>
+          <span className="text-xl"><IkonaLahev className="ikona-text" /></span>
           <span>Zadávání stáčení lahví</span>
           <span className="ml-1 px-2.5 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-black text-[10px] uppercase tracking-wider">ADMIN</span>
         </h2>
@@ -434,7 +435,7 @@ export function BottlingTasksSettings() {
             <ChevronLeft size={16} />
           </button>
           <span className="text-xs font-black text-neutral-800 bg-white border border-neutral-200 rounded px-3 py-1.5 whitespace-nowrap">
-            📅 Týden {weekKey} ({weekLabel})
+            <Calendar className="ikona-text" /> Týden {weekKey} ({weekLabel})
           </span>
           <button
             type="button"
@@ -447,7 +448,7 @@ export function BottlingTasksSettings() {
         </div>
       </div>
       <p className="text-xs text-neutral-600 mt-1.5 leading-relaxed">
-        Přehled potřeby stáčení pro vybraný týden. Tlačítkem <strong>„🍾 Stočit“</strong> otevřete menu, kde
+        Přehled potřeby stáčení pro vybraný týden. Tlačítkem <strong>„<IkonaLahev className="ikona-text" /> Stočit“</strong> otevřete menu, kde
         nastavíte velikosti obalů a počet KEG sudů — úkol se uloží a <strong>automaticky propíše do formuláře
         stáčení</strong> (Lahve → „Úkoly ke stočení“ → „Naplnit“).
       </p>
@@ -457,23 +458,23 @@ export function BottlingTasksSettings() {
       {/* Souhrn */}
       <div className="mt-4 grid grid-cols-2 md:grid-cols-5 gap-2.5">
         <div className="p-3 rounded bg-white border border-emerald-200 shadow-xs">
-          <div className="text-[10px] font-black uppercase tracking-wider text-emerald-700">🍾 Lahve na skladě</div>
+          <div className="text-[10px] font-black uppercase tracking-wider text-emerald-700"><IkonaLahev className="ikona-text" /> Lahve na skladě</div>
           <div className="text-xl font-display font-black text-emerald-900 mt-0.5">{fmt(totals.bottleStock)}</div>
         </div>
         <div className="p-3 rounded bg-white border border-neutral-200 shadow-xs">
-          <div className="text-[10px] font-black uppercase tracking-wider text-neutral-500">🛢️ Sudy na skladě</div>
+          <div className="text-[10px] font-black uppercase tracking-wider text-neutral-500"><IkonaSud className="ikona-text" /> Sudy na skladě</div>
           <div className="text-xl font-display font-black text-neutral-900 mt-0.5">{fmt(totals.kegStock)}</div>
         </div>
         <div className="p-3 rounded bg-white border border-sky-200 shadow-xs">
-          <div className="text-[10px] font-black uppercase tracking-wider text-sky-700">🛒 Objednávky + fasování</div>
+          <div className="text-[10px] font-black uppercase tracking-wider text-sky-700"><ShoppingCart className="ikona-text" /> Objednávky + fasování</div>
           <div className="text-xl font-display font-black text-sky-900 mt-0.5">{fmt(totals.bottleOutgoing)}</div>
         </div>
         <div className="p-3 rounded bg-rose-50 border border-rose-200 shadow-xs">
-          <div className="text-[10px] font-black uppercase tracking-wider text-rose-700">⚠️ Chybí stočit</div>
+          <div className="text-[10px] font-black uppercase tracking-wider text-rose-700"><AlertTriangle className="ikona-text" /> Chybí stočit</div>
           <div className="text-xl font-display font-black text-rose-900 mt-0.5">{fmt(totals.bottleMissing)}</div>
         </div>
         <div className="p-3 rounded bg-amber-50 border border-amber-200 shadow-xs">
-          <div className="text-[10px] font-black uppercase tracking-wider text-amber-800">📅 Konec týdne</div>
+          <div className="text-[10px] font-black uppercase tracking-wider text-amber-800"><Calendar className="ikona-text" /> Konec týdne</div>
           <div className={`text-xl font-display font-black mt-0.5 ${totals.bottleEndWeek < 0 ? 'text-rose-800' : 'text-amber-900'}`}>
             {fmt(totals.bottleEndWeek)}
           </div>
@@ -482,9 +483,9 @@ export function BottlingTasksSettings() {
 
       {/* Naplánované úkoly v týdnu */}
       <div className="mt-4">
-        <div className="text-xs font-black text-neutral-800 mb-2">📋 Úkoly stáčení v tomto týdnu ({weekPlans.length})</div>
+        <div className="text-xs font-black text-neutral-800 mb-2"><ClipboardList className="ikona-text" /> Úkoly stáčení v tomto týdnu ({weekPlans.length})</div>
         {weekPlans.length === 0 && (
-          <p className="text-xs text-neutral-500">Žádné úkoly. Pomocí „🍾 Stočit“ přidáte úkol pro konkrétní pivo a obal.</p>
+          <p className="text-xs text-neutral-500">Žádné úkoly. Pomocí „<IkonaLahev className="ikona-text" /> Stočit“ přidáte úkol pro konkrétní pivo a obal.</p>
         )}
         <div className="space-y-2">
           {weekPlans.map((plan) => {
@@ -497,7 +498,7 @@ export function BottlingTasksSettings() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-black text-neutral-950">{beer?.name || '—'}</span>
-                      <span className="text-[10px] font-bold text-neutral-500 bg-neutral-100 rounded px-2 py-0.5 whitespace-nowrap">📅 {plan.planned_date}</span>
+                      <span className="text-[10px] font-bold text-neutral-500 bg-neutral-100 rounded px-2 py-0.5 whitespace-nowrap"><Calendar className="ikona-text" /> {plan.planned_date}</span>
                       <span className={`text-[10px] font-black px-2 py-0.5 rounded border ${STATUS_CHIP[plan.status] || ''}`}>{STATUS_TEXT[plan.status] || plan.status}</span>
                     </div>
                     <div className="flex items-center gap-1.5 flex-wrap mt-1">
@@ -507,13 +508,13 @@ export function BottlingTasksSettings() {
                         </span>
                       ))}
                       {lines.length === 0 && <span className="text-[10px] text-neutral-400 italic">bez obalů</span>}
-                      {plan.note && <span className="text-[10px] text-neutral-500">💬 {plan.note}</span>}
+                      {plan.note && <span className="text-[10px] text-neutral-500"><MessageCircle className="ikona-text" /> {plan.note}</span>}
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   <button type="button" onClick={() => openEdit(plan)} className="px-2.5 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[11px] font-black transition">
-                    ✏️ Upravit
+                    <Pencil className="ikona-text" /> Upravit
                   </button>
                   {plan.status === 'planned' && (
                     <button type="button" onClick={() => handleStatus(plan, 'done')} className="px-2.5 py-1.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black transition">
@@ -526,7 +527,7 @@ export function BottlingTasksSettings() {
                     </button>
                   )}
                   <button type="button" onClick={() => handleDelete(plan)} className="px-2.5 py-1.5 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 text-[11px] font-black transition">
-                    🗑
+                    <Trash2 className="ikona-text" />
                   </button>
                 </div>
               </div>
@@ -537,11 +538,11 @@ export function BottlingTasksSettings() {
 
       {/* Tabulky potřeby */}
       <div className="mt-4">
-        <div className="text-xs font-black text-neutral-800 mb-2">🍾 Potřeba lahví (týden {weekLabel})</div>
+        <div className="text-xs font-black text-neutral-800 mb-2"><IkonaLahev className="ikona-text" /> Potřeba lahví (týden {weekLabel})</div>
         {renderTable(bottleRows, false)}
       </div>
       <div className="mt-4">
-        <div className="text-xs font-black text-neutral-800 mb-2">🛢️ Potřeba KEG sudů (týden {weekLabel})</div>
+        <div className="text-xs font-black text-neutral-800 mb-2"><IkonaSud className="ikona-text" /> Potřeba KEG sudů (týden {weekLabel})</div>
         {renderTable(kegRows, true)}
         <p className="text-[10px] text-neutral-400 mt-1.5">
           Sklad = měsíční model (inventura + stočeno − výdej). „Konec týdne“ = sklad + naplánováno − objednávky − odhad
@@ -625,7 +626,7 @@ export function BottlingTasksSettings() {
           {err && <p className="text-[11px] font-black text-rose-700">{err}</p>}
 
           <p className="text-[11px] text-neutral-500 bg-amber-50 border border-amber-200 rounded p-2.5 leading-relaxed">
-            💡 Uložený úkol se automaticky objeví ve formuláři stáčení (Lahve → „📋 Úkoly ke stočení“).
+            <Lightbulb className="ikona-text" /> Uložený úkol se automaticky objeví ve formuláři stáčení (Lahve → „<ClipboardList className="ikona-text" /> Úkoly ke stočení“).
             Stáčeč ho jediným klikem <strong>„Naplnit“</strong> vloží do zápisu — doplní se jen počty lahví,
             obaly a pivo už jsou přednastavené.
           </p>

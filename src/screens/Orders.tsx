@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 
-import { Camera, ListOrdered, Package as PackageIcon, Phone, Building2, Truck, Plus, MessageCircle, CheckSquare, PackageCheck, FilePlus, Calendar, CalendarDays, Trash2, Pencil, Copy, Ban, RotateCcw, AlertTriangle, Check, CheckCircle2, Zap, ArrowRight, Mail, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Ban, Beer as BeerIcon, Bell, Building2, Calculator, Calendar, CalendarDays, Camera, Check, CheckCircle2, CheckSquare, ClipboardList, Copy, FilePlus, Hourglass, ListOrdered, Mail, MessageCircle, NotebookPen, Package as PackageIcon, PackageCheck, Pencil, Phone, Plus, RotateCcw, Scroll, ShieldAlert, Trash2, Truck, User, Zap } from 'lucide-react';
 import { supabase, Beer, Package, Place, EntryRow, useRealtime, beerBg, beerText, beerName, formatPackageLabel, pkgBg } from '../lib/supabase';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
@@ -30,6 +30,7 @@ import { TapReservationModal } from '../components/TapReservationModal';
 import { createReminder, getLocalReminders } from '../lib/reminders';
 import { flattenAkceNet, type AkceRow } from '../lib/inventoryHelper';
 import { chyba, oznam, potvrd } from '../lib/toast';
+import { IkonaVycep } from '../components/ikony';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -1512,7 +1513,7 @@ export default function Orders({
                   {dupOrder && (
                     <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-bold flex items-center justify-between gap-2">
                       <span className="flex items-center gap-1.5">
-                        ⚠️ <strong>Upozornění:</strong> Tento odběratel již má objednávku na tento týden ({new Date(dupOrder.delivery_date || dupOrder.order_date).toLocaleDateString('cs-CZ')}).
+                        <AlertTriangle className="ikona-text" /> <strong>Upozornění:</strong> Tento odběratel již má objednávku na tento týden ({new Date(dupOrder.delivery_date || dupOrder.order_date).toLocaleDateString('cs-CZ')}).
                       </span>
                     </div>
                   )}
@@ -1539,7 +1540,7 @@ export default function Orders({
                         }}
                         className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[11px] shadow-2xs shrink-0 transition"
                       >
-                        ⚡ Zopakovat položky
+                        <Zap className="ikona-text" /> Zopakovat položky
                       </button>
                     </div>
                   )}
@@ -1562,7 +1563,7 @@ export default function Orders({
                 className="flex-1 h-10 text-center text-xs font-black bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 rounded transition"
                 title="Klikni pro návrat na aktuální týden"
               >
-                📅 Týden {weekRange(weekKey).label}
+                <Calendar className="ikona-text" /> Týden {weekRange(weekKey).label}
               </button>
               <button type="button" onClick={() => shiftWeekAndKeepDay(1)} className="w-10 h-10 shrink-0 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 font-black transition" title="Další týden">›</button>
             </div>
@@ -1699,7 +1700,7 @@ export default function Orders({
           {filledBeerRows.length > 0 && (
             <div className="mt-4 rounded-2xl border border-amber-200 bg-white dark:bg-neutral-800 p-3">
               <div className="text-xs font-extrabold uppercase tracking-wider text-amber-900 dark:text-amber-300 mb-2">
-                📋 Objednávka ({filledBeerRows.reduce((s, r) => s + Number(r.qty || 0), 0)} ks)
+                <ClipboardList className="ikona-text" /> Objednávka ({filledBeerRows.reduce((s, r) => s + Number(r.qty || 0), 0)} ks)
               </div>
               <ul className="space-y-1.5">
                 {filledBeerRows.map((r, i) => {
@@ -1767,7 +1768,7 @@ export default function Orders({
             />
             {noteDateHint && (
               <div className="mt-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1">
-                📅 Z poznámky nastaveno datum závozu: {new Date(noteDateHint + 'T00:00:00Z').toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric' })}
+                <Calendar className="ikona-text" /> Z poznámky nastaveno datum závozu: {new Date(noteDateHint + 'T00:00:00Z').toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric' })}
               </div>
             )}
           </div>
@@ -1786,7 +1787,7 @@ export default function Orders({
               }}
               className="accent-amber-500 w-4 h-4"
             />
-            <span className="text-xs font-extrabold text-neutral-800 dark:text-neutral-100">🚰 Půjčení výčepu</span>
+            <span className="text-xs font-extrabold text-neutral-800 dark:text-neutral-100"><IkonaVycep className="ikona-text" /> Půjčení výčepu</span>
             <span className="text-[11px] text-neutral-400 font-medium">(otevře rezervační systém výčepu)</span>
           </label>
 
@@ -1808,7 +1809,7 @@ export default function Orders({
               </button>
 
               <button type="button" className="btn-ghost !rounded text-xs" onClick={() => { setBeerRows(Array.from({ length: 4 }, () => ({ beerId: '', pkgId: '', qty: '', placeId: '', placeNameFree: '' }))); setExpandedBeerId(null); }}>
-                🗑️ Vymazat vše
+                <Trash2 className="ikona-text" /> Vymazat vše
               </button>
             </div>
             {err && <span className="text-xs font-bold text-rose-700">{err}</span>}
@@ -1819,7 +1820,7 @@ export default function Orders({
           {flash && (
             <div className="mt-4 p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 font-bold flex items-center justify-between shadow-xs">
               <span className="flex items-center gap-2 text-sm">
-                <span>✅</span>
+                <span><CheckCircle2 className="ikona-text" /></span>
                 <span>Objednávka byla úspěšně vytvořena!</span>
               </span>
               {setPage && (
@@ -1847,7 +1848,7 @@ export default function Orders({
           />
           <div className="flex flex-wrap items-center gap-2 mt-3">
             <button type="button" className="btn-primary !rounded text-xs font-black shadow-md" onClick={() => { handleManualTextParse(); setViewMode('summary'); }} disabled={!manualText.trim()}>
-              ⚡ Rozparsovat a přidat do formuláře
+              <Zap className="ikona-text" /> Rozparsovat a přidat do formuláře
             </button>
             <button type="button" className="btn-ghost !rounded text-xs font-black" onClick={() => setViewMode('summary')}>← Zpět na dlaždice</button>
           </div>
@@ -1974,7 +1975,7 @@ export default function Orders({
 
                 {itemAuditStats?.hasHiddenOrders && (
                   <span className="text-amber-800 font-black bg-amber-200 border border-amber-400 px-2.5 py-1 rounded-xl">
-                    ⚠️ V jiných filtrech/týdnech je dalších {itemAuditStats.allOrdersQty - itemAuditStats.currentViewQty} ks (Celkem {itemAuditStats.allOrdersQty} ks ve {itemAuditStats.allOrdersCount} obj.)
+                    <AlertTriangle className="ikona-text" /> V jiných filtrech/týdnech je dalších {itemAuditStats.allOrdersQty - itemAuditStats.currentViewQty} ks (Celkem {itemAuditStats.allOrdersQty} ks ve {itemAuditStats.allOrdersCount} obj.)
                   </span>
                 )}
               </div>
@@ -2081,7 +2082,7 @@ export default function Orders({
           </select>
           <label className="flex items-center gap-2 text-sm text-primary-700 cursor-pointer px-2.5 py-1 rounded hover:bg-primary-50">
             <input type="checkbox" checked={groupByDay} onChange={(e) => setGroupByDay(e.target.checked)} className="w-4 h-4 rounded text-primary-600" />
-            📅 Seskupit dle dne
+            <Calendar className="ikona-text" /> Seskupit dle dne
           </label>
           {(searchText || statusFilter || deliveryDayFilter !== 'all' || itemFilterBeerId || itemFilterPackageId) && (
             <button className="btn-ghost !rounded !py-1.5 text-xs font-bold text-amber-900" onClick={() => { setSearchText(''); setStatusFilter(''); setDeliveryDayFilter('all'); setItemFilterBeerId(null); setItemFilterPackageId(null); }}>Zrušit filtr</button>
@@ -2091,7 +2092,7 @@ export default function Orders({
       <div className="flex items-center justify-between gap-2 mb-2.5 flex-wrap">
         <label className="flex items-center gap-2 text-sm text-primary-700 cursor-pointer px-2.5 py-1 rounded hover:bg-primary-50">
           <input type="checkbox" checked={zavozOnly} onChange={(e) => setZavozOnly(e.target.checked)} className="w-4 h-4 rounded text-primary-600" />
-          🚚 Jen nezavezenné (pro závozníka)
+          <Truck className="ikona-text" /> Jen nezavezenné (pro závozníka)
         </label>
         {selectedIds.size > 0 ? (
           <div className="flex flex-wrap items-center gap-2 bg-primary-50 rounded-xl px-3 py-2">
@@ -2481,7 +2482,7 @@ function VariantTotalsPanel({ totals, beers, packages, timeScope, onPick }: {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2 bg-white rounded-2xl border border-neutral-200 p-3 shadow-2xs">
         <div className="flex items-start gap-2">
-          <span className="text-lg leading-none mt-0.5">🧮</span>
+          <span className="text-lg leading-none mt-0.5"><Calculator className="ikona-text" /></span>
           <div>
             <div className="text-sm font-display font-black text-amber-800">Souhrn objednaného množství podle varianty</div>
             <div className="text-[11px] font-bold text-neutral-500">
@@ -2605,7 +2606,7 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
           </span>
           {(() => { const tn = getTapNameForOrder(o.id); return tn ? (
             <span title={`Rezervace výčepu: ${tn}`} className="chip bg-violet-600 text-white font-black shrink-0 flex items-center gap-1">
-              🍺 {tn}
+              <BeerIcon className="ikona-text" /> {tn}
             </span>
           ) : null; })()}
           <span className={`chip font-black ${STATUS[o.status]?.cls ?? ''}`}>{STATUS[o.status]?.label ?? o.status}</span>
@@ -2632,7 +2633,7 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
               }`}
               title="Označit jako připraveno"
             >
-              {o.is_prepared ? <Check size={12} /> : <span className="text-[11px]">⏳</span>}
+              {o.is_prepared ? <Check size={12} /> : <span className="text-[11px]"><Hourglass className="ikona-text" /></span>}
               <span>{o.is_prepared ? 'Připr.' : 'Příprava'}</span>
             </button>
           </div>
@@ -2700,7 +2701,7 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
           <span className="text-[11px] font-black text-neutral-700 shrink-0">
             {items.length} položek · {total} ks
           </span>
-          {o.note && <span className="text-[11px] font-extrabold shrink-0 text-neutral-900 bg-amber-100 border border-amber-300 rounded-md px-1.5 py-0.5">📝 {o.note}</span>}
+          {o.note && <span className="text-[11px] font-extrabold shrink-0 text-neutral-900 bg-amber-100 border border-amber-300 rounded-md px-1.5 py-0.5"><NotebookPen className="ikona-text" /> {o.note}</span>}
           {o.whatsapp_message_id && (
             <button
               onClick={(e) => { e.stopPropagation(); onOpenWhatsApp && onOpenWhatsApp(o.whatsapp_message_id!); }}
@@ -2903,7 +2904,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
             <span>·</span>
             <span className={`chip ${STATUS[order.status]?.cls ?? ''}`}>{STATUS[order.status]?.label}</span>
             {order.is_prepared && <span className="chip bg-success-100 text-success-700">✓ Připraveno</span>}
-            {order.is_packaged && <span className="chip bg-primary-200 text-primary-800">📦 Fasování</span>}
+            {order.is_packaged && <span className="chip bg-primary-200 text-primary-800"><PackageIcon className="ikona-text" /> Fasování</span>}
             {order.is_delivered && <span className="chip bg-success-200 text-success-800">✓ Zavezenné</span>}
           </div>
           <a
@@ -2925,7 +2926,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
 
           {placeHistory.length > 0 && (
             <div className="mb-3 rounded-xl bg-primary-50/60 border border-primary-100 p-3">
-              <div className="text-[10px] uppercase tracking-wider text-primary-500 mb-1.5">📜 Historie odběratele — poslední objednávky</div>
+              <div className="text-[10px] uppercase tracking-wider text-primary-500 mb-1.5"><Scroll className="ikona-text" /> Historie odběratele — poslední objednávky</div>
               <div className="space-y-1">
                 {placeHistory.map((h) => {
                   const hItems = allItems[h.id] ?? [];
@@ -2967,7 +2968,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
           </div>
           {deliveryDate && (
             <div className="mt-2 text-xs text-accent-700">
-              🔔 Upomínka se automaticky vytvoří v kalendáři na <strong>{new Date(new Date(deliveryDate).getTime() - 3 * 86400000).toLocaleDateString('cs-CZ')}</strong> v 8:45.
+              <Bell className="ikona-text" /> Upomínka se automaticky vytvoří v kalendáři na <strong>{new Date(new Date(deliveryDate).getTime() - 3 * 86400000).toLocaleDateString('cs-CZ')}</strong> v 8:45.
             </div>
           )}
           <div className="flex justify-end mt-2">
@@ -3019,7 +3020,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                     <span className="text-primary-600 font-bold">{i.package_label ?? '—'}</span>
                     <span className="font-black text-base text-neutral-900">{i.quantity} ks</span>
                   </div>
-                  {missing > 0 && <span className="block text-xs text-danger-600 font-bold">⚠️ Chybí {missing} ks ve skladu</span>}
+                  {missing > 0 && <span className="block text-xs text-danger-600 font-bold"><AlertTriangle className="ikona-text" /> Chybí {missing} ks ve skladu</span>}
                   {inStock && <span className="block text-xs text-success-600 font-bold">✓ Skladem ({rem} ks)</span>}
                   {isEditing && (
                     <div className="pt-2 border-t border-neutral-200 grid grid-cols-2 gap-2 items-end">
@@ -3086,7 +3087,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                       </td>
                       <td className="font-medium">
                         <span className="inline-block rounded-md px-2 py-0.5" style={{ backgroundColor: beerBg(beer), color: beerText(beer) === 'text-white' ? '#fff' : undefined }}>{i.beer_name ?? '—'}</span>
-                        {missing > 0 && <span className="block text-xs text-danger-600 mt-0.5">⚠️ Chybí {missing} ks ve skladu</span>}
+                        {missing > 0 && <span className="block text-xs text-danger-600 mt-0.5"><AlertTriangle className="ikona-text" /> Chybí {missing} ks ve skladu</span>}
                         {inStock && <span className="block text-xs text-success-600 mt-0.5">✓ Skladem ({rem} ks)</span>}
                       </td>
                       <td className="text-primary-600">{i.package_label ?? '—'}</td>
@@ -3266,10 +3267,10 @@ function WhatsAppOriginalBlock({ messageId }: { messageId: string }) {
           {msg && (
             <>
               <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-bold text-neutral-500">
-                <span className="flex items-center gap-1">👤 {msg.sender_name || 'Neznámý odesílatel'}</span>
+                <span className="flex items-center gap-1"><User className="ikona-text" /> {msg.sender_name || 'Neznámý odesílatel'}</span>
                 <span>🕒 {formatWATime(msg.message_timestamp || msg.created_at)}</span>
                 {msg.readback_unmatched_count ? (
-                  <span className="text-amber-700">⚠ {msg.readback_unmatched_count} položek AI přečetlo jinak</span>
+                  <span className="text-amber-700"><AlertTriangle className="ikona-text" /> {msg.readback_unmatched_count} položek AI přečetlo jinak</span>
                 ) : null}
               </div>
               <div className="rounded-xl bg-neutral-50 border border-neutral-200 p-3.5 text-sm text-neutral-800 whitespace-pre-wrap leading-relaxed">

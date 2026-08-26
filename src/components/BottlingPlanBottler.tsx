@@ -1,3 +1,4 @@
+import { AlertTriangle, Calendar, ClipboardList, MessageCircle, Plus } from 'lucide-react';
 // 📋 Úkoly na stáčení — pohled pro stáčeče v zápisu stáčení (BottlingScreen).
 // Zobrazuje úkoly (dnes + připravované + zpožděné), umožňuje je „naplnit"
 // do formuláře zápisu (onFill) a přepnout na „hotovo".
@@ -5,6 +6,7 @@ import { useMemo } from 'react';
 import { Beer, Package, beerBg } from '../lib/supabase';
 import { BottlingPlan, planLines, setPlanStatus } from '../lib/bottlingPlans';
 import { chyba } from '../lib/toast';
+import { IkonaLahev } from '../components/ikony';
 
 type Props = {
   plans: BottlingPlan[];
@@ -81,13 +83,13 @@ function PlanItem({
           {isLate && <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-500 text-white">POZDĚ</span>}
           {plan.planned_date && (
             <span className="text-[10px] font-bold text-neutral-500 bg-neutral-100 rounded px-2 py-1 whitespace-nowrap">
-              📅 {plan.planned_date}
+              <Calendar className="ikona-text" /> {plan.planned_date}
             </span>
           )}
         </div>
       </div>
 
-      {plan.note && <p className="text-[11px] text-neutral-600 mt-1.5 leading-snug">💬 {plan.note}</p>}
+      {plan.note && <p className="text-[11px] text-neutral-600 mt-1.5 leading-snug"><MessageCircle className="ikona-text" /> {plan.note}</p>}
 
       <div className="flex items-center gap-2 mt-2.5 flex-wrap">
         <span className={`text-[10px] font-black px-2 py-1 rounded border ${STATUS_CHIP[plan.status] || ''}`}>
@@ -101,7 +103,7 @@ function PlanItem({
               onClick={() => onFill(plan)}
               className="px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black transition shadow-sm"
             >
-              ➕ Naplnit do zápisu
+              <Plus className="ikona-text" /> Naplnit do zápisu
             </button>
             <button
               type="button"
@@ -145,7 +147,7 @@ export function BottlingPlanBottler({ plans, beers, packages, isManager, onChang
     <div className="card p-3 mb-5 border-2 border-amber-300/80 bg-white">
       <div className="flex items-center justify-between gap-2 mb-2.5 flex-wrap">
         <span className="font-display font-black text-amber-950 text-xs flex items-center gap-1.5">
-          📋 Úkoly ke stočení
+          <ClipboardList className="ikona-text" /> Úkoly ke stočení
           {groups.today.length > 0 && (
             <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-amber-500 text-neutral-950 animate-pulse">DNES: {groups.today.length}</span>
           )}
@@ -157,13 +159,13 @@ export function BottlingPlanBottler({ plans, beers, packages, isManager, onChang
 
       {total === 0 && (
         <p className="text-xs text-neutral-500 py-1">
-          Žádné úkoly ke stočení. Když je admin/sládek/šéf zadá, objeví se tady zvýrazněné. 🍾
+          Žádné úkoly ke stočení. Když je admin/sládek/šéf zadá, objeví se tady zvýrazněné. <IkonaLahev className="ikona-text" />
         </p>
       )}
 
       {groups.late.length > 0 && (
         <div className="space-y-2 mb-3">
-          <div className="text-[10px] font-black text-rose-700 uppercase tracking-wide">⚠️ Zpožděné úkoly</div>
+          <div className="text-[10px] font-black text-rose-700 uppercase tracking-wide"><AlertTriangle className="ikona-text" /> Zpožděné úkoly</div>
           {groups.late.map((p) => (
             <PlanItem key={p.id} plan={p} beers={beers} packages={packages} isManager={isManager} isToday={false} isLate onFill={onFill} onChanged={onChanged} />
           ))}
@@ -172,7 +174,7 @@ export function BottlingPlanBottler({ plans, beers, packages, isManager, onChang
 
       {groups.today.length > 0 && (
         <div className="space-y-2 mb-3">
-          <div className="text-[10px] font-black text-amber-700 uppercase tracking-wide">📅 Na dnes</div>
+          <div className="text-[10px] font-black text-amber-700 uppercase tracking-wide"><Calendar className="ikona-text" /> Na dnes</div>
           {groups.today.map((p) => (
             <PlanItem key={p.id} plan={p} beers={beers} packages={packages} isManager={isManager} isToday isLate={false} onFill={onFill} onChanged={onChanged} />
           ))}

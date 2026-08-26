@@ -1,3 +1,4 @@
+import { RefreshCw } from 'lucide-react';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -50,7 +51,7 @@ class DebugErrorBoundary extends React.Component<{ children: React.ReactNode }, 
               style={{ padding: '10px 18px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 'bold', cursor: 'pointer' }}
               onClick={() => { void forceRefresh(); }}
             >
-              🔄 Vyčistit mezipaměť a znovu načíst
+              <RefreshCw className="ikona-text" /> Vyčistit mezipaměť a znovu načíst
             </button>
           </div>
           <pre style={{ fontFamily: 'monospace', fontSize: 12, padding: 12, background: '#fff', border: '1px solid #fca5a5', borderRadius: 8, overflowX: 'auto' }}>

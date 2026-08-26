@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Shield, Search, FileText, Wrench, Sparkles, Droplets, AlertTriangle, BookOpen, Calculator, CheckCircle2, ScrollText, Wheat, Factory, Cog, Snowflake, Cylinder, Truck } from 'lucide-react';
+import { AlertTriangle, Beer as BeerIcon, BookOpen, Calculator, CheckCircle2, ClipboardList, Cog, Cylinder, Droplets, Factory, FileText, FlaskConical, ScrollText, Search, Settings, Shield, Snowflake, Sparkles, SprayCan, Truck, Wheat, Wrench, Zap } from 'lucide-react';
 import { BrewingTroubleshootingDatabase } from '../components/BrewingTroubleshootingDatabase';
 import { BottlingLineMaintenance } from '../components/BottlingLineMaintenance';
+import { IkonaSud, IkonaVycep } from '../components/ikony';
 
 interface HaccpScreenProps {
   initialSection?: string;
@@ -518,11 +519,11 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
                 <div className="p-3 rounded bg-white border border-rose-200 text-xs">
-                  <strong className="block text-rose-900 font-black mb-1">🧼 Alkalická sanitace</strong>
+                  <strong className="block text-rose-900 font-black mb-1"><SprayCan className="ikona-text" /> Alkalická sanitace</strong>
                   <span className="text-neutral-700">Hydroxid sodný (NaOH) a chlornan sodný. Odstraňuje organické úsady a kvasnice.</span>
                 </div>
                 <div className="p-3 rounded bg-white border border-rose-200 text-xs">
-                  <strong className="block text-rose-900 font-black mb-1">🧪 Kyselá sanitace</strong>
+                  <strong className="block text-rose-900 font-black mb-1"><FlaskConical className="ikona-text" /> Kyselá sanitace</strong>
                   <span className="text-neutral-700">Kyselina dusičná a fosforečná. Odstraňuje anorganické usazeniny a pivní kámen.</span>
                 </div>
                 <div className="p-3 rounded bg-white border border-rose-200 text-xs">
@@ -588,14 +589,14 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
             {/* Detailní předpisy pro technologii */}
             <div className="space-y-4 pt-2">
               <h3 className="font-display font-black text-lg text-neutral-900 border-b border-neutral-200 pb-2">
-                📋 Postupy sanitace jednotlivých úseků technologií
+                <ClipboardList className="ikona-text" /> Postupy sanitace jednotlivých úseků technologií
               </h3>
 
               {/* Varna */}
               <div className="card p-5 bg-white border border-neutral-200 rounded space-y-3 shadow-2xs">
                 <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
                   <h4 className="font-display font-black text-base text-neutral-900 flex items-center gap-2">
-                    <span>⚙️ Sanitace Varny (Varní kotel, Scezovací káď, RMP, Vířivka)</span>
+                    <span><Settings className="ikona-text" /> Sanitace Varny (Varní kotel, Scezovací káď, RMP, Vířivka)</span>
                   </h4>
                   <span className="px-2.5 py-1 rounded bg-neutral-100 text-neutral-800 font-mono font-bold text-xs">Po každém týdnu várek</span>
                 </div>
@@ -625,7 +626,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
               <div className="card p-5 bg-white border border-neutral-200 rounded space-y-3 shadow-2xs">
                 <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
                   <h4 className="font-display font-black text-base text-neutral-900 flex items-center gap-2">
-                    <span>❄️ Sanitace Vířivé kádě & Spílací cesty</span>
+                    <span><Snowflake className="ikona-text" /> Sanitace Vířivé kádě & Spílací cesty</span>
                   </h4>
                   <span className="px-2.5 py-1 rounded bg-neutral-100 text-neutral-800 font-mono font-bold text-xs">Před a mezi várkami</span>
                 </div>
@@ -639,15 +640,15 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
               <div className="card p-5 bg-white border border-neutral-200 rounded space-y-3 shadow-2xs">
                 <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
                   <h4 className="font-display font-black text-base text-neutral-900 flex items-center gap-2">
-                    <span>🧪 Kvasné tanky & Kvasničné hospodářství</span>
+                    <span><FlaskConical className="ikona-text" /> Kvasné tanky & Kvasničné hospodářství</span>
                   </h4>
-                  <span className="px-2.5 py-1 rounded bg-rose-100 text-rose-950 font-mono font-bold text-xs border border-rose-300">⚠️ POZOR na CO2 a podtlak</span>
+                  <span className="px-2.5 py-1 rounded bg-rose-100 text-rose-950 font-mono font-bold text-xs border border-rose-300"><AlertTriangle className="ikona-text" /> POZOR na CO2 a podtlak</span>
                 </div>
                 <div className="text-xs text-neutral-700 font-medium leading-relaxed space-y-2.5">
                   <p><strong>Před sespíláním:</strong> Sanitace 1% roztokem kyseliny dusičné skrze sprchu (15 min), následně 3x proplach vodou (3-4 min).</p>
                   <p><strong>Nádoby na kvasnice:</strong> Nerezové kýble se sterilují 0,1% Persterilem. Barely na rozkvas sušených kvasnic se sanitují 3% NaOH, 0,2% Persterilem a 3x oplachují pitnou vodou. Pomůcky pro sběr kvasnic se myjí 3% NaOH s kartáčem určeným pro čisté části a sterilují 0,1% Persterilem.</p>
                   <div className="p-3.5 rounded bg-rose-50 border border-rose-300 text-rose-950 space-y-1.5">
-                    <strong className="block text-rose-900 font-black">⚠️ DŮLEŽITÁ UPOZORNĚNÍ PRO KVASNÉ TANKY:</strong>
+                    <strong className="block text-rose-900 font-black"><AlertTriangle className="ikona-text" /> DŮLEŽITÁ UPOZORNĚNÍ PRO KVASNÉ TANKY:</strong>
                     <ul className="list-disc pl-4 space-y-1">
                       <li><strong>Kvasný tank během sanitace NEZAVÍRAT! Nemá podtlakový ventil – hrozí zborcení tanku!</strong></li>
                       <li>Po hlavním kvašení: 1,5% NaOH + 0,1 l chlornanu/1 hl. Po 10-15 min je roztok neutralizován CO2. Pokud zůstává deka, provede se 2. alkalická sanitace 1% NaOH (20 min).</li>
@@ -662,7 +663,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
               <div className="card p-5 bg-white border border-neutral-200 rounded space-y-3 shadow-2xs">
                 <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
                   <h4 className="font-display font-black text-base text-neutral-900 flex items-center gap-2">
-                    <span>🛢️ Ležácké tanky (LT)</span>
+                    <span><IkonaSud className="ikona-text" /> Ležácké tanky (LT)</span>
                   </h4>
                 </div>
                 <div className="text-xs text-neutral-700 font-medium leading-relaxed">
@@ -687,7 +688,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
               <div className="card p-5 bg-white border border-neutral-200 rounded space-y-3 shadow-2xs">
                 <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
                   <h4 className="font-display font-black text-base text-neutral-900 flex items-center gap-2">
-                    <span>🧼 Sanitace a mytí KEG sudů</span>
+                    <span><SprayCan className="ikona-text" /> Sanitace a mytí KEG sudů</span>
                   </h4>
                 </div>
                 <div className="text-xs text-neutral-700 font-medium leading-relaxed space-y-2">
@@ -771,7 +772,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
           <div className="card p-6 bg-white border border-neutral-200/90 rounded shadow-xs space-y-4">
             <h2 className="text-lg font-display font-black text-neutral-900 flex items-center gap-2">
               <Wrench className="text-amber-600" size={22} />
-              <span>🔧 Preventivní údržba strojního zařízení pivovaru</span>
+              <span><Wrench className="ikona-text" /> Preventivní údržba strojního zařízení pivovaru</span>
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
               <div className="p-4 rounded bg-neutral-50 border border-neutral-200 space-y-1">
@@ -797,7 +798,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
           <div className="card p-6 bg-white border-2 border-amber-300 rounded space-y-5 shadow-sm">
             <div className="flex items-center gap-3 border-b border-amber-200 pb-3">
               <div className="w-12 h-12 rounded bg-amber-500 text-neutral-950 flex items-center justify-center text-2xl font-black shadow-md shrink-0">
-                🚰
+                <IkonaVycep className="ikona-text" />
               </div>
               <div>
                 <h3 className="font-display font-black text-xl text-neutral-950">Údržba výčepních kohoutů, narážečů a pivních hadic</h3>
@@ -809,7 +810,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
               {/* 1. Narážeče */}
               <div className="p-5 rounded bg-white border border-amber-200 space-y-3 shadow-2xs">
                 <div className="flex items-center gap-2 text-amber-900 font-black text-sm border-b border-amber-100 pb-2">
-                  <span>🛢️ Narážeče (Flach / Kombi / KORB)</span>
+                  <span><IkonaSud className="ikona-text" /> Narážeče (Flach / Kombi / KORB)</span>
                 </div>
                 <ul className="space-y-2 text-xs text-neutral-700 font-medium leading-relaxed">
                   <li>• <strong>Po každém narazení:</strong> Opláchnout narážecí hlavu teplou vodou pro odstranění zaschlého piva z břitu.</li>
@@ -822,7 +823,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
               {/* 2. Výčepní kohouty */}
               <div className="p-5 rounded bg-white border border-amber-200 space-y-3 shadow-2xs">
                 <div className="flex items-center gap-2 text-amber-900 font-black text-sm border-b border-amber-100 pb-2">
-                  <span>🍺 Výčepní kohouty (Kompenzátorové)</span>
+                  <span><BeerIcon className="ikona-text" /> Výčepní kohouty (Kompenzátorové)</span>
                 </div>
                 <ul className="space-y-2 text-xs text-neutral-700 font-medium leading-relaxed">
                   <li>• <strong>1× za 14 dní rozebírání:</strong> Odšroubovat hubici, regulátor kompenzátoru, ovládací páku a těsnění jehly.</li>
@@ -909,7 +910,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
               </div>
               <ul className="space-y-2.5 text-xs text-neutral-800 font-medium">
                 <li className="p-2.5 rounded bg-rose-50 border border-rose-200 font-bold text-rose-950">
-                  ⚡ <strong>OKAMŽITĚ ROZEVŘÍT VÍČKA a OPLACHOVAT POUZE ČISTOU VODOU!</strong>
+                  <Zap className="ikona-text" /> <strong>OKAMŽITĚ ROZEVŘÍT VÍČKA a OPLACHOVAT POUZE ČISTOU VODOU!</strong>
                 </li>
                 <li>• Vyplachovat proudem čisté vlažné vody po dobu <strong>minimálně 15 minut</strong>.</li>
                 <li>• Oplachovat směrem od vnitřního koutku k vnějšímu (aby zasažená voda nevtekla do druhého oka).</li>
@@ -953,7 +954,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
               </div>
               <ul className="space-y-2.5 text-xs text-neutral-800 font-medium">
                 <li className="p-2.5 rounded bg-sky-50 border border-sky-200 font-bold text-sky-950">
-                  ❄️ <strong>POZOR NA CO₂ V KVASNÝCH TANCÍCH:</strong> CO₂ se drží u dna tanku, vytěsňuje kyslík a způsobuje bleskový kolaps bez varování!
+                  <Snowflake className="ikona-text" /> <strong>POZOR NA CO₂ V KVASNÝCH TANCÍCH:</strong> CO₂ se drží u dna tanku, vytěsňuje kyslík a způsobuje bleskový kolaps bez varování!
                 </li>
                 <li>• Při vstupu nebo vyjímání panenky z kvasného tanku vždy úkon provádět za přítomnosti <strong>2. osoby</strong>!</li>
                 <li>• Při nadhýchání Persterilu nebo chlorových výparů vynést postiženého na čerstvý vzduch.</li>
@@ -965,7 +966,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
             <div className="card p-6 bg-white border-2 border-purple-200 rounded space-y-4 shadow-sm">
               <div className="flex items-center gap-3 border-b border-purple-100 pb-3">
                 <div className="w-10 h-10 rounded bg-purple-100 text-purple-700 flex items-center justify-center font-black text-xl">
-                  🚰
+                  <IkonaVycep className="ikona-text" />
                 </div>
                 <div>
                   <h3 className="font-display font-black text-base text-purple-950">4. Požití kyseliny nebo louhu</h3>
@@ -986,7 +987,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
           {/* Golden Rule of Acid Dilution */}
           <div className="p-5 rounded bg-neutral-900 text-amber-300 border-2 border-amber-500 font-mono text-xs space-y-2 shadow-lg">
             <div className="font-black text-white text-sm uppercase flex items-center gap-2">
-              <span>⚠️ ZÁKLADNÍ BEZPEČNOSTNÍ PRAVIDLO ŘEDĚNÍ KYSELIN:</span>
+              <span><AlertTriangle className="ikona-text" /> ZÁKLADNÍ BEZPEČNOSTNÍ PRAVIDLO ŘEDĚNÍ KYSELIN:</span>
             </div>
             <div className="text-base font-black text-amber-400 p-3 rounded bg-black/50 border border-amber-500/40 text-center">
               „KYSELINU VŽDY LIJEME DO VODY! NIKDY VODU DO KYSELINY!“

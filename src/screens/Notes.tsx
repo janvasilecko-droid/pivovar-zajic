@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase, Note, useRealtime } from '../lib/supabase';
 import { EmptyState, Spinner } from '../components/ui';
 import { useAuth } from '../lib/auth';
-import { StickyNote, Plus, Trash2, Pencil, X, Check } from 'lucide-react';
+import { Check, NotebookPen, Pencil, Plus, StickyNote, Trash2, X } from 'lucide-react';
 import { potvrd } from '../lib/toast';
 
 const NOTE_COLORS: Record<string, string> = {
@@ -91,7 +91,7 @@ export default function Notes() {
       <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
         <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
           <StickyNote size={20} className="text-amber-500" />
-          <span>📝 Poznámky ({notes.length})</span>
+          <span><NotebookPen className="ikona-text" /> Poznámky ({notes.length})</span>
         </h3>
       </div>
 

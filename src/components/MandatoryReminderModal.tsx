@@ -1,5 +1,5 @@
 import { ReminderItem, acknowledgeReminder } from '../lib/reminders';
-import { Bell, CheckCircle2, AlertTriangle, Clock, User } from 'lucide-react';
+import { AlertTriangle, Bell, CheckCircle2, Clock, User } from 'lucide-react';
 
 export function MandatoryReminderModal({ reminder, currentUserEmail, onDismiss }: {
   reminder: ReminderItem;
@@ -25,7 +25,7 @@ export function MandatoryReminderModal({ reminder, currentUserEmail, onDismiss }
         {/* Header Icon */}
         <div className="flex items-center gap-3 border-b border-amber-200 pb-4">
           <div className="w-12 h-12 rounded bg-amber-500 text-neutral-950 flex items-center justify-center font-black text-xl shadow-md shrink-0">
-            🔔
+            <Bell className="ikona-text" />
           </div>
           <div>
             <div className="text-[10px] font-black uppercase text-amber-700 tracking-wider">

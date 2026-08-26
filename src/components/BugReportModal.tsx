@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { Modal } from './ui';
-import { Camera, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Camera, Image as ImageIcon, Lightbulb, Loader2 } from 'lucide-react';
 
 type Category = 'bug' | 'feature' | 'question' | 'other';
 
@@ -172,7 +172,7 @@ export function BugReportModal({ isOpen, onClose }: BugReportModalProps) {
                     : 'bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50'
                 }`}
               >
-                💡 Vylepšení
+                <Lightbulb className="ikona-text" /> Vylepšení
               </button>
             </div>
           </div>

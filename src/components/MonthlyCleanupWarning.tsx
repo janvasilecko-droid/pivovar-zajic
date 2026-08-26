@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CalendarX2, CalendarClock, ClipboardList, PartyPopper } from 'lucide-react';
+import { AlertTriangle, CalendarClock, CalendarX2, ClipboardList, PartyPopper } from 'lucide-react';
 import {
   isLastWeekOfMonth, getMonthKey,
   readMonthlyCleanupStage, writeMonthlyCleanupStage,
@@ -121,7 +121,7 @@ export function MonthlyCleanupWarning({ onOpenMonthlyChecklist, onOpenKegMonthly
           </div>
           <div>
             <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-rose-600">
-              <span>⚠️ Měsíční úklid</span>
+              <span><AlertTriangle className="ikona-text" /> Měsíční úklid</span>
               <span>•</span>
               <span>poslední týden měsíce</span>
             </div>

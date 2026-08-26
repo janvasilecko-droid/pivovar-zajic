@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase, SanitationLog } from '../lib/supabase';
 import { Spinner, EmptyState } from '../components/ui';
-import { ShieldCheck, FileSpreadsheet, Plus, Calendar, User, Edit3, MessageSquare, Clock } from 'lucide-react';
+import { Calendar, Clock, Edit3, FileSpreadsheet, MessageSquare, Pencil, Plus, Search, ShieldCheck, SprayCan, User } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 import { useAuth } from '../lib/auth';
@@ -239,7 +239,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
             <span>Evidenční kniha pivovaru</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-display font-black tracking-tight text-white flex items-center gap-2">
-            <span>🧼 Sanitační deník</span>
+            <span><SprayCan className="ikona-text" /> Sanitační deník</span>
           </h1>
           <p className="text-xs text-neutral-400 font-medium mt-1">
             Protokoly o sanitaci ležáckých tanků, Spilky, varny, stáčecích cest a denní sanitace stáčecí linky lahví
@@ -279,7 +279,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
       {/* Filters */}
       <div className="card sticky top-0 z-10 p-4 bg-white border border-neutral-200/90 rounded flex flex-wrap items-center gap-3 shadow-sm">
         <div className="flex items-center gap-2 text-xs font-bold text-neutral-700">
-          <span>🔍 Filtr:</span>
+          <span><Search className="ikona-text" /> Filtr:</span>
         </div>
         <select
           value={filterTank}
@@ -485,7 +485,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
           <div className="card p-6 bg-white rounded max-w-md w-full border-2 border-amber-400 shadow-2xl space-y-4 animate-scale-in">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-                <span>✏️ Upravit záznam o sanitaci</span>
+                <span><Pencil className="ikona-text" /> Upravit záznam o sanitaci</span>
               </h3>
               <button type="button" onClick={() => setEditingLog(null)} className="text-neutral-400 hover:text-neutral-800 text-lg font-bold">✕</button>
             </div>
@@ -563,7 +563,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
           <form onSubmit={handleAdd} className="card p-6 bg-white rounded max-w-md w-full border-2 border-amber-400 shadow-2xl space-y-4 animate-scale-in">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-                <span>🧼 Zapsat novou sanitaci</span>
+                <span><SprayCan className="ikona-text" /> Zapsat novou sanitaci</span>
               </h3>
               <button type="button" onClick={() => setShowAddModal(false)} className="text-neutral-400 hover:text-neutral-800 text-lg font-bold">✕</button>
             </div>

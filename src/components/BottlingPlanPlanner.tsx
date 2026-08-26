@@ -1,3 +1,4 @@
+import { AlertTriangle, Calculator, Calendar, CalendarDays, ClipboardList, MessageCircle, Package as PackageIcon, Pencil, ShoppingCart, Trash2 } from 'lucide-react';
 // 🗓️ Plánování stáčení — „Co je potřeba stočit" (pouze admin/sládek/šéf).
 // Zadání úkolu (pivo + lahve až 3 velikosti + KEG sudy + datum), přehled
 // naplánovaných úkolů v týdnu a tabulky potřeby (objednávky týdne vs. sklad
@@ -8,6 +9,7 @@ import { isoWeekKey, weekRange, shiftWeek } from './WeeklyOrderSummaryCard';
 import { flattenAkceNet } from '../lib/inventoryHelper';
 import { buildMovements, stockAsOf } from '../lib/stockLedger';
 import { chyba, potvrd } from '../lib/toast';
+import { IkonaLahev, IkonaSud } from '../components/ikony';
 import {
   BottlingPlan,
   BottlingPlanInput,
@@ -468,13 +470,13 @@ export function BottlingPlanPlanner({
             <tr className="text-[10px] uppercase tracking-wide text-neutral-500">
               <th className="text-left font-black px-2 py-1.5">Pivo</th>
               <th className="text-left font-black px-2 py-1.5">Obal</th>
-              <th className="text-right font-black px-2 py-1.5">🛒 Objednáno</th>
-              <th className="text-right font-black px-2 py-1.5">📦 Sklad</th>
-              <th className="text-right font-black px-2 py-1.5">📋 Naplánováno</th>
-              <th className="text-right font-black px-2 py-1.5">🍾 Po stočení</th>
-              <th className="text-right font-black px-2 py-1.5">⚠️ Chybí</th>
-              <th className="text-right font-black px-2 py-1.5">🧮 Po odchodu</th>
-              <th className="text-right font-black px-2 py-1.5">🗓️ Úkol</th>
+              <th className="text-right font-black px-2 py-1.5"><ShoppingCart className="ikona-text" /> Objednáno</th>
+              <th className="text-right font-black px-2 py-1.5"><PackageIcon className="ikona-text" /> Sklad</th>
+              <th className="text-right font-black px-2 py-1.5"><ClipboardList className="ikona-text" /> Naplánováno</th>
+              <th className="text-right font-black px-2 py-1.5"><IkonaLahev className="ikona-text" /> Po stočení</th>
+              <th className="text-right font-black px-2 py-1.5"><AlertTriangle className="ikona-text" /> Chybí</th>
+              <th className="text-right font-black px-2 py-1.5"><Calculator className="ikona-text" /> Po odchodu</th>
+              <th className="text-right font-black px-2 py-1.5"><CalendarDays className="ikona-text" /> Úkol</th>
             </tr>
           </thead>
           <tbody>
@@ -533,7 +535,7 @@ export function BottlingPlanPlanner({
       <div className="card p-3.5 border-2 border-amber-300/80 bg-white">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
-            <div className="font-display font-black text-amber-950 text-sm">🗓️ Co je potřeba stočit</div>
+            <div className="font-display font-black text-amber-950 text-sm"><CalendarDays className="ikona-text" /> Co je potřeba stočit</div>
             <div className="text-[11px] text-amber-900/70 mt-0.5">
               Plánování na týden <b>{weekLabel}</b> — stáčeč to vidí zvýrazněné v zápisu stáčení.
             </div>
@@ -627,11 +629,11 @@ export function BottlingPlanPlanner({
 
       {/* Tabulky potřeby */}
       <div className="card p-3.5">
-        <div className="text-xs font-black text-neutral-800 mb-2">🍾 Potřeba lahví (týden {weekLabel})</div>
+        <div className="text-xs font-black text-neutral-800 mb-2"><IkonaLahev className="ikona-text" /> Potřeba lahví (týden {weekLabel})</div>
         {renderTable(bottleRows, false)}
       </div>
       <div className="card p-3.5">
-        <div className="text-xs font-black text-neutral-800 mb-2">🛢️ Potřeba KEG sudů (týden {weekLabel})</div>
+        <div className="text-xs font-black text-neutral-800 mb-2"><IkonaSud className="ikona-text" /> Potřeba KEG sudů (týden {weekLabel})</div>
         {renderTable(kegRows, true)}
         <p className="text-[10px] text-neutral-400 mt-1.5">
           Sklad = měsíční model (inventura + stočeno − výdej). „Po odchodu" = po stočení − objednávky − odhad
@@ -642,7 +644,7 @@ export function BottlingPlanPlanner({
 
       {/* Přehled úkolů v týdnu */}
       <div className="card p-3.5">
-        <div className="text-xs font-black text-neutral-800 mb-2">📋 Úkoly v tomto týdnu ({weekPlans.length})</div>
+        <div className="text-xs font-black text-neutral-800 mb-2"><ClipboardList className="ikona-text" /> Úkoly v tomto týdnu ({weekPlans.length})</div>
         {weekPlans.length === 0 && <p className="text-xs text-neutral-500">V tomto týdnu nejsou žádné naplánované úkoly.</p>}
         <div className="space-y-2">
           {weekPlans.map((plan) => {
@@ -655,7 +657,7 @@ export function BottlingPlanPlanner({
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-black text-neutral-950">{beer?.name || '—'}</span>
-                      <span className="text-[10px] font-bold text-neutral-500 bg-neutral-100 rounded px-2 py-0.5 whitespace-nowrap">📅 {plan.planned_date}</span>
+                      <span className="text-[10px] font-bold text-neutral-500 bg-neutral-100 rounded px-2 py-0.5 whitespace-nowrap"><Calendar className="ikona-text" /> {plan.planned_date}</span>
                       <span className={`text-[10px] font-black px-2 py-0.5 rounded border ${STATUS_CHIP[plan.status] || ''}`}>{STATUS_TEXT[plan.status] || plan.status}</span>
                     </div>
                     <div className="flex items-center gap-1.5 flex-wrap mt-1">
@@ -664,13 +666,13 @@ export function BottlingPlanPlanner({
                           {l.label} × {l.qty}
                         </span>
                       ))}
-                      {plan.note && <span className="text-[10px] text-neutral-500">💬 {plan.note}</span>}
+                      {plan.note && <span className="text-[10px] text-neutral-500"><MessageCircle className="ikona-text" /> {plan.note}</span>}
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   <button type="button" onClick={() => startEdit(plan)} className="px-2.5 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[11px] font-black transition">
-                    ✏️ Upravit
+                    <Pencil className="ikona-text" /> Upravit
                   </button>
                   {plan.status === 'planned' && (
                     <button type="button" onClick={() => handleStatus(plan, 'done')} className="px-2.5 py-1.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black transition">
@@ -683,7 +685,7 @@ export function BottlingPlanPlanner({
                     </button>
                   )}
                   <button type="button" onClick={() => handleDelete(plan)} className="px-2.5 py-1.5 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 text-[11px] font-black transition">
-                    🗑
+                    <Trash2 className="ikona-text" />
                   </button>
                 </div>
               </div>

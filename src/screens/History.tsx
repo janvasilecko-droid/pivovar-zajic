@@ -4,11 +4,12 @@ import { Spinner, EmptyState } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { orderWeightKg, fmtKg } from '../lib/weight';
 import { DAYS } from '../lib/shared';
-import { BarChart3, Search, Cylinder, Trophy, Calendar, Filter, Download, ArrowUpRight, ArrowDownRight, Zap, Printer, ShieldAlert, PieChart as PieChartIcon, TrendingUp, ShoppingCart, Beer as BeerIcon, Boxes, Building, Percent, Clock, AlertTriangle, CheckCircle2, DollarSign, TrendingDown, ArrowUp, ArrowDown, Eye, EyeOff, Maximize2, Minimize2, Smartphone, AlertOctagon, GitCompare, Truck, History as HistoryIcon } from 'lucide-react';
+import { AlertOctagon, AlertTriangle, ArrowDown, ArrowDownRight, ArrowUp, ArrowUpRight, BarChart3, Beer as BeerIcon, Boxes, Building, Calendar, CheckCircle2, Clock, Cylinder, DollarSign, Download, Droplet, Eye, EyeOff, Filter, GitCompare, History as HistoryIcon, Maximize2, Minimize2, Package as PackageIcon, Percent, PieChart as PieChartIcon, Printer, Save, Search, ShieldAlert, ShoppingCart, Smartphone, TrendingDown, TrendingUp, Trophy, Truck, Zap } from 'lucide-react';
 import { WeeklyOrderSummaryCard, WeeklyOrderItem, isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { PieChart as RePieChart, Pie, Cell, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { EditOrderModal } from '../components/EditOrderModal';
 import ZavozHistory from '../components/ZavozHistory';
+import { IkonaLahev, IkonaSud } from '../components/ikony';
 
 type MonthData = {
   month: string;
@@ -877,7 +878,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
           className="px-3 sm:px-4 py-2 sm:py-2.5 rounded bg-neutral-900 hover:bg-neutral-800 text-amber-300 font-black text-xs transition shadow-md flex items-center gap-1.5 shrink-0"
         >
           <Printer size={16} />
-          <span>🖨️ <span className="sm:hidden">Uzávěrka</span><span className="hidden sm:inline">Měsíční uzávěrka (PDF/Tisk)</span></span>
+          <span><Printer className="ikona-text" /> <span className="sm:hidden">Uzávěrka</span><span className="hidden sm:inline">Měsíční uzávěrka (PDF/Tisk)</span></span>
         </button>
       </div>
 
@@ -960,7 +961,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                       <Stat label="Lahve" value={d.bottled} icon="🍾" />
                       <Stat label="Sudy" value={d.kegged} icon="🛢️" tone="amber" />
                       <div className="col-span-2 sm:col-span-4 rounded p-3 border shadow-2xs bg-white">
-                        <div className="flex items-center gap-1.5 mb-1"><span className="w-6 h-6 rounded grid place-items-center text-xs font-bold border text-amber-900 bg-amber-100/80 border-amber-300">💧</span><span className="text-[10px] font-black uppercase tracking-wider text-neutral-600 truncate">Stočeno celkem (hl)</span></div>
+                        <div className="flex items-center gap-1.5 mb-1"><span className="w-6 h-6 rounded grid place-items-center text-xs font-bold border text-amber-900 bg-amber-100/80 border-amber-300"><Droplet className="ikona-text" /></span><span className="text-[10px] font-black uppercase tracking-wider text-neutral-600 truncate">Stočeno celkem (hl)</span></div>
                         <div className="text-base font-display font-black text-neutral-900">{d.brewed_hl.toFixed(2)} hl</div>
                       </div>
                       <Stat label="Fasování" value={d.fasovani} icon="📦" />
@@ -985,7 +986,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                       return (
                         <div className="p-3.5 rounded bg-amber-50/80 border border-amber-200 shadow-2xs space-y-3">
                           <div className="text-xs font-black text-amber-950 flex items-center justify-between">
-                            <span className="flex items-center gap-1.5 font-display">📦 Konkrétní stočené obaly</span>
+                            <span className="flex items-center gap-1.5 font-display"><PackageIcon className="ikona-text" /> Konkrétní stočené obaly</span>
                             <span className="text-xs font-mono font-black text-amber-800">Celkem: {d.brewed} ks</span>
                           </div>
 
@@ -993,7 +994,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                             {/* KEG Sudy */}
                             <div className="p-2.5 rounded bg-white border border-amber-300 shadow-2xs space-y-1.5">
                               <div className="text-[10px] font-black uppercase text-amber-900 flex items-center justify-between border-b border-amber-100 pb-1">
-                                <span>🛢️ KEG Sudy</span>
+                                <span><IkonaSud className="ikona-text" /> KEG Sudy</span>
                                 <span className="font-mono text-amber-800">{d.kegged} ks</span>
                               </div>
                               <div className="grid grid-cols-5 gap-1 text-center">
@@ -1012,7 +1013,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                             {/* Lahve */}
                             <div className="p-2.5 rounded bg-white border border-sky-300 shadow-2xs space-y-1.5">
                               <div className="text-[10px] font-black uppercase text-sky-900 flex items-center justify-between border-b border-sky-100 pb-1">
-                                <span>🍾 Lahve / PET</span>
+                                <span><IkonaLahev className="ikona-text" /> Lahve / PET</span>
                                 <span className="font-mono text-sky-800">{d.bottled} ks</span>
                               </div>
                               <div className="grid grid-cols-4 gap-1 text-center">
@@ -1050,7 +1051,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                       <div className="p-3.5 rounded bg-neutral-50 border border-neutral-200 space-y-2">
                         <div className="flex items-center justify-between text-xs font-black text-neutral-900">
                           <span className="flex items-center gap-1.5"><PieChartIcon size={14} className="text-amber-600" /> Poměr stáčení sudů a lahví</span>
-                          <span>🛢️ {keggedPct}% Sudy vs 🍾 {bottledPct}% Lahve</span>
+                          <span><IkonaSud className="ikona-text" /> {keggedPct}% Sudy vs <IkonaLahev className="ikona-text" /> {bottledPct}% Lahve</span>
                         </div>
                         <div className="w-full h-3 bg-neutral-200 rounded-full overflow-hidden flex">
                           <div className="bg-amber-500 h-full transition-all" style={{ width: `${keggedPct}%` }} title={`KEG sudy: ${d.kegged} ks (${keggedPct}%)`} />
@@ -1062,7 +1063,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                     {/* YoY Porovnání s minulým rokem */}
                     {prevMonthData && (
                       <div className="p-3 rounded bg-amber-50/70 border border-amber-200 space-y-1 text-xs">
-                        <span className="font-extrabold text-amber-950 block">📅 Vývoj oproti minulému roku ({monthLabel(prevYearMonth)}):</span>
+                        <span className="font-extrabold text-amber-950 block"><Calendar className="ikona-text" /> Vývoj oproti minulému roku ({monthLabel(prevYearMonth)}):</span>
                         <div className="grid grid-cols-2 gap-2 pt-1">
                           <div className="flex items-center justify-between p-2 rounded bg-white border border-amber-200">
                             <span className="text-neutral-600 font-bold">Stáčení hl:</span>
@@ -1084,7 +1085,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                     {d.kegged > 0 && (
                       <div className="p-3.5 rounded bg-rose-50/80 border border-rose-200 space-y-2">
                         <div className="flex items-center gap-1.5 mb-1">
-                          <span className="w-6 h-6 rounded grid place-items-center text-xs font-bold border text-rose-900 bg-rose-100/80 border-rose-300">📊</span>
+                          <span className="w-6 h-6 rounded grid place-items-center text-xs font-bold border text-rose-900 bg-rose-100/80 border-rose-300"><BarChart3 className="ikona-text" /></span>
                           <span className="text-[10px] font-black uppercase tracking-wider text-rose-800">Ztráty KEG</span>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-xs">
@@ -1267,12 +1268,12 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                     <div className="text-[11px] font-bold text-neutral-500">{monthsInRange.reduce((s, d) => s + d.brewed, 0)} ks</div>
                   </div>
                   <div className="rounded p-4 bg-white border-2 border-amber-500 shadow-xs">
-                    <div className="text-[10px] font-black uppercase tracking-wider text-amber-800">🛢️ KEG sudy</div>
+                    <div className="text-[10px] font-black uppercase tracking-wider text-amber-800"><IkonaSud className="ikona-text" /> KEG sudy</div>
                     <div className="text-2xl font-display font-black text-neutral-900">{totalKegHl.toFixed(2)} hl</div>
                     <div className="text-[11px] font-bold text-neutral-500">{totalKegPct.toFixed(1)}% z celku</div>
                   </div>
                   <div className="rounded p-4 bg-white border-2 border-sky-300 shadow-xs">
-                    <div className="text-[10px] font-black uppercase tracking-wider text-sky-700">🍾 Lahve / PET</div>
+                    <div className="text-[10px] font-black uppercase tracking-wider text-sky-700"><IkonaLahev className="ikona-text" /> Lahve / PET</div>
                     <div className="text-2xl font-display font-black text-neutral-900">{totalBottleHl.toFixed(2)} hl</div>
                     <div className="text-[11px] font-bold text-neutral-500">{totalBottlePct.toFixed(1)}% z celku</div>
                   </div>
@@ -1291,7 +1292,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                       <span>Poměr stáčení: KEG vs Lahve</span>
                     </h3>
                     <span className="text-xs font-black text-neutral-600">
-                      🛢️ {totalKegPct.toFixed(1)}% KEG · 🍾 {totalBottlePct.toFixed(1)}% Lahve
+                      <IkonaSud className="ikona-text" /> {totalKegPct.toFixed(1)}% KEG · <IkonaLahev className="ikona-text" /> {totalBottlePct.toFixed(1)}% Lahve
                     </span>
                   </div>
                   <div className="w-full h-5 bg-neutral-200 rounded-full overflow-hidden flex shadow-inner">
@@ -1327,7 +1328,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                     return (
                       <div className="p-4 rounded bg-amber-50/80 border border-amber-200 space-y-3 pt-3">
                         <div className="text-xs font-black text-amber-950 flex items-center justify-between border-b border-amber-200/60 pb-2">
-                          <span className="flex items-center gap-1.5 font-display text-sm">📦 Konkrétní stočené obaly za vybrané období</span>
+                          <span className="flex items-center gap-1.5 font-display text-sm"><PackageIcon className="ikona-text" /> Konkrétní stočené obaly za vybrané období</span>
                           <span className="text-xs font-mono font-black text-amber-800">Celkem: {totalKegCount + totalBottleCount} ks</span>
                         </div>
 
@@ -1335,7 +1336,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                           {/* KEG Sudy */}
                           <div className="p-3 rounded bg-white border border-amber-300 shadow-2xs space-y-2">
                             <div className="text-xs font-black uppercase text-amber-900 flex items-center justify-between border-b border-amber-100 pb-1">
-                              <span>🛢️ KEG Sudy (50, 30, 20, 15, 10 L)</span>
+                              <span><IkonaSud className="ikona-text" /> KEG Sudy (50, 30, 20, 15, 10 L)</span>
                               <span className="font-mono text-amber-800">{totalKegCount} ks</span>
                             </div>
                             <div className="grid grid-cols-5 gap-1.5 text-center">
@@ -1354,7 +1355,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                           {/* Lahve */}
                           <div className="p-3 rounded bg-white border border-sky-300 shadow-2xs space-y-2">
                             <div className="text-xs font-black uppercase text-sky-900 flex items-center justify-between border-b border-sky-100 pb-1">
-                              <span>🍾 Lahve (1,5 / 1 / 0,5 / 0,33 L)</span>
+                              <span><IkonaLahev className="ikona-text" /> Lahve (1,5 / 1 / 0,5 / 0,33 L)</span>
                               <span className="font-mono text-sky-800">{totalBottleCount} ks</span>
                             </div>
                             <div className="grid grid-cols-4 gap-1.5 text-center">
@@ -1409,7 +1410,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                 {/* Rozpad KEG podle piv */}
                 <div className="card p-5 bg-white border border-neutral-200 rounded space-y-3 shadow-xs">
                   <h3 className="font-display font-black text-base text-neutral-900 flex items-center gap-2">
-                    <span>🛢️</span>
+                    <span><IkonaSud className="ikona-text" /></span>
                     <span>Výstav KEG podle piv (HL)</span>
                   </h3>
                   {beerKegHlList.length === 0 ? (
@@ -1440,7 +1441,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                 {/* Rozpad Lahve/PET podle piv */}
                 <div className="card p-5 bg-white border border-neutral-200 rounded space-y-3 shadow-xs">
                   <h3 className="font-display font-black text-base text-neutral-900 flex items-center gap-2">
-                    <span>🍾</span>
+                    <span><IkonaLahev className="ikona-text" /></span>
                     <span>Výstav lahví/PET podle piv (HL)</span>
                   </h3>
                   {beerBottleHlList.length === 0 ? (
@@ -1521,7 +1522,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
               </div>
               <div className="flex gap-2">
                 <input className="input !py-1.5 text-xs font-semibold flex-1" placeholder="Název filtru (např. 12° lahve za tento měsíc)" value={newFilterName} onChange={(e) => setNewFilterName(e.target.value)} />
-                <button type="button" className="px-3.5 py-1.5 rounded bg-neutral-900 hover:bg-neutral-800 text-amber-300 font-black text-xs shadow-xs" onClick={saveCurrentFilter}>💾 Uložit aktuální</button>
+                <button type="button" className="px-3.5 py-1.5 rounded bg-neutral-900 hover:bg-neutral-800 text-amber-300 font-black text-xs shadow-xs" onClick={saveCurrentFilter}><Save className="ikona-text" /> Uložit aktuální</button>
               </div>
             </div>
 
@@ -1724,7 +1725,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                     </div>
                     {isHighLoss && (
                       <div className="mt-2 text-[10px] font-bold text-rose-700 bg-rose-50 p-1.5 rounded border border-rose-200">
-                        ⚠️ Vyšší ztrátovost (kontrola hradícího ventilu & těsnění klapky)
+                        <AlertTriangle className="ikona-text" /> Vyšší ztrátovost (kontrola hradícího ventilu & těsnění klapky)
                       </div>
                     )}
                   </div>

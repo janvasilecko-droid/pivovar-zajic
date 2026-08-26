@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../lib/auth';
-import { ChevronLeft, ChevronRight, Beer as BeerIcon, Factory, CalendarDays } from 'lucide-react';
+import { AlertTriangle, Beer as BeerIcon, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Droplet, Factory, FlaskConical, NotebookPen, SprayCan } from 'lucide-react';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 
 import { supabase, Beer, Package, CellarTank, CellarTransfer, CellarTankCycle, EntryRow, useRealtime, beerBorder } from '../lib/supabase';
 import { Modal, Field, Spinner } from '../components/ui';
 import { TankOccupancyPlanner } from '../components/TankOccupancyPlanner';
 import { chyba, oznam, potvrd } from '../lib/toast';
+import { IkonaSud } from '../components/ikony';
 
 const STATUS_LABELS: Record<CellarTank['status'], string> = {
   empty: 'Prázdný', filling: 'Plní se', active: 'Aktivní', emptying: 'Stáčí se',
@@ -621,7 +622,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                     <div className="flex flex-col items-end gap-1">
                       <span className={`chip text-[10px] ${STATUS_COLORS[t.status]}`}>{STATUS_LABELS[t.status]}</span>
                       {t.kegging_active && (
-                        <span className="chip text-[10px] bg-amber-100 text-amber-800 border border-amber-300">🛢️ Stáčení aktivní</span>
+                        <span className="chip text-[10px] bg-amber-100 text-amber-800 border border-amber-300"><IkonaSud className="ikona-text" /> Stáčení aktivní</span>
                       )}
                     </div>
                   </div>
@@ -629,17 +630,17 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                   {/* Fáze sanitace tanku — zvýraznění aktuálního kroku */}
                   {t.status === 'sanitizing' && (
                     <div className="mt-2 text-xs font-bold text-danger-700 bg-danger-50 rounded px-2.5 py-1.5 flex items-center gap-1.5 animate-pulse border border-danger-200">
-                      ⚠️ Po uzavření tanku — MUSÍ SE OPLÁCHNOUT
+                      <AlertTriangle className="ikona-text" /> Po uzavření tanku — MUSÍ SE OPLÁCHNOUT
                     </div>
                   )}
                   {t.status === 'rinsing' && (
                     <div className="mt-2 text-xs font-bold text-sky-800 bg-sky-50 rounded px-2.5 py-1.5 flex items-center gap-1.5 border border-sky-200">
-                      💧 Po oplachu — další krok: <span className="underline">Louh (NaOH)</span>
+                      <Droplet className="ikona-text" /> Po oplachu — další krok: <span className="underline">Louh (NaOH)</span>
                     </div>
                   )}
                   {t.status === 'cleaning' && (
                     <div className="mt-2 text-xs font-bold text-amber-800 bg-amber-50 rounded px-2.5 py-1.5 flex items-center gap-1.5 border border-amber-200">
-                      🧼 Po louhu — další krok: <span className="underline">Kyselina dusičná</span>
+                      <SprayCan className="ikona-text" /> Po louhu — další krok: <span className="underline">Kyselina dusičná</span>
                     </div>
                   )}
 
@@ -676,7 +677,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                         )}
                         {t.kegging_active && t.kegging_started_at && (
                           <div className="text-[11px] text-amber-700 mt-0.5">
-                            🛢️ Stáčí se od {new Date(t.kegging_started_at).toLocaleDateString('cs-CZ')} {new Date(t.kegging_started_at).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}
+                            <IkonaSud className="ikona-text" /> Stáčí se od {new Date(t.kegging_started_at).toLocaleDateString('cs-CZ')} {new Date(t.kegging_started_at).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}
                           </div>
                         )}
                       </div>
@@ -695,13 +696,13 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
 
                   {t.started_at && (
                     <div className="mt-1.5 text-xs text-primary-600 flex items-center gap-1.5">
-                      <span>🗓️</span><span>Spuštěno: {new Date(t.started_at).toLocaleDateString('cs-CZ')}</span>
+                      <span><CalendarDays className="ikona-text" /></span><span>Spuštěno: {new Date(t.started_at).toLocaleDateString('cs-CZ')}</span>
                     </div>
                   )}
 
                   {isLow && (
                     <div className="mt-2 text-xs font-semibold text-warning-700 bg-warning-50 rounded px-2.5 py-1.5 flex items-center gap-1.5 animate-pulse">
-                      ⚠️ Blíží se konec — zbývá {remaining.toFixed(0)} l
+                      <AlertTriangle className="ikona-text" /> Blíží se konec — zbývá {remaining.toFixed(0)} l
                     </div>
                   )}
 
@@ -711,11 +712,11 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                     const missingHl = orderedHlForBeer - remainingHl;
                     return isDeficit ? (
                       <div className="mt-2 text-xs text-rose-700 bg-rose-50 rounded px-2.5 py-1.5 font-bold border border-rose-200">
-                        ⚠️ Objednáno {orderedHlForBeer.toFixed(1)} hl (v tanku chybí {missingHl.toFixed(1)} hl, nutno stočit z jiného tanku)
+                        <AlertTriangle className="ikona-text" /> Objednáno {orderedHlForBeer.toFixed(1)} hl (v tanku chybí {missingHl.toFixed(1)} hl, nutno stočit z jiného tanku)
                       </div>
                     ) : (
                       <div className="mt-2 text-xs text-accent-700 bg-accent-50 rounded px-2.5 py-1.5 font-bold">
-                        📋 Objednáno {orderedHlForBeer.toFixed(1)} hl tohoto piva (nestočeno)
+                        <ClipboardList className="ikona-text" /> Objednáno {orderedHlForBeer.toFixed(1)} hl tohoto piva (nestočeno)
                       </div>
                     );
                   })()}
@@ -881,7 +882,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
 
                     {/* Sanitace tanku — postup: oplach → louh → kyselina */}
                     <div className="pt-1">
-                      <div className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-400 mb-1">🧼 Sanitace tanku</div>
+                      <div className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-400 mb-1"><SprayCan className="ikona-text" /> Sanitace tanku</div>
                       <div className="grid grid-cols-3 gap-1.5">
                         <button
                           className="min-h-[44px] text-xs px-1.5 py-2 rounded bg-sky-100 text-sky-900 font-bold hover:bg-sky-200 shadow-xs border border-sky-300 flex flex-col items-center justify-center gap-0.5"
@@ -892,7 +893,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                             oznam(`💧 Oplach vodou pro ${t.label} byl zapsán (Provedl: ${userName})`);
                           }}
                         >
-                          <span className="text-base leading-none">💧</span>
+                          <span className="text-base leading-none"><Droplet className="ikona-text" /></span>
                           <span>Oplach</span>
                         </button>
                         <button
@@ -904,7 +905,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                             oznam(`🧼 Sanitace louhem pro ${t.label} byla zapsána (Provedl: ${userName})`);
                           }}
                         >
-                          <span className="text-base leading-none">🧼</span>
+                          <span className="text-base leading-none"><SprayCan className="ikona-text" /></span>
                           <span>Louh</span>
                         </button>
                         <button
@@ -931,7 +932,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                             oznam(`🧪 Kyselina dusičná pro ${t.label} byla zapsána (Provedl: ${userName})`);
                           }}
                         >
-                          <span className="text-base leading-none">🧪</span>
+                          <span className="text-base leading-none"><FlaskConical className="ikona-text" /></span>
                           <span>Kyselina</span>
                         </button>
                       </div>
@@ -948,7 +949,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                         }}
                         title="Zvolit metodu, čas, dobu trvání a poznámku ručně"
                       >
-                        📝 Podrobný zápis sanitace (čas, doba, chemie)
+                        <NotebookPen className="ikona-text" /> Podrobný zápis sanitace (čas, doba, chemie)
                       </button>
                     </div>
 

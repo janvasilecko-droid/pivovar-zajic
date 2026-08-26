@@ -5,7 +5,7 @@ import { isoWeekKey } from '../components/WeeklyOrderSummaryCard';
 import { exportProdejnaToExcel } from '../lib/excel';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { ProdejnaFromImage } from '../components/ProdejnaFromImage';
-import { Camera } from 'lucide-react';
+import { BarChart3, Calendar, Camera, ClipboardList, Package as PackageIcon, Trash2 } from 'lucide-react';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { TapReservationModal } from '../components/TapReservationModal';
 import { detectTapType } from '../lib/tapReservations';
@@ -264,7 +264,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
           </span>
           {/* Export do Excelu */}
           <div className="relative group">
-            <button className="btn-ghost !rounded !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs" disabled={!rows.length}>📊 Export Excel ▾</button>
+            <button className="btn-ghost !rounded !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs" disabled={!rows.length}><BarChart3 className="ikona-text" /> Export Excel ▾</button>
             {rows.length > 0 && (
               <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-neutral-200 rounded shadow-lg py-1 min-w-[180px] hidden group-hover:block group-focus-within:block">
                 <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
@@ -272,21 +272,21 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                   const m = now.toISOString().slice(0, 7);
                   const filtered = rows.filter((r) => r.entry_date?.startsWith(m));
                   exportProdejnaToExcel(filtered);
-                }}>📅 Tento měsíc</button>
+                }}><Calendar className="ikona-text" /> Tento měsíc</button>
                 <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
                   const d = new Date(); d.setMonth(d.getMonth() - 1);
                   const m = d.toISOString().slice(0, 7);
                   const filtered = rows.filter((r) => r.entry_date?.startsWith(m));
                   exportProdejnaToExcel(filtered);
-                }}>📅 Minulý měsíc</button>
+                }}><Calendar className="ikona-text" /> Minulý měsíc</button>
                 <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
                   const wk = isoWeekKey(new Date().toISOString().slice(0, 10));
                   const filtered = rows.filter((r) => isoWeekKey(r.entry_date) === wk);
                   exportProdejnaToExcel(filtered);
-                }}>📅 Tento týden</button>
+                }}><Calendar className="ikona-text" /> Tento týden</button>
                 <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
                   exportProdejnaToExcel(rows);
-                }}>📅 Všechno</button>
+                }}><Calendar className="ikona-text" /> Všechno</button>
               </div>
             )}
           </div>
@@ -307,7 +307,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
           onClick={() => setTab('prehled')}
           className={`px-4 py-1.5 rounded text-xs font-black transition ${tab === 'prehled' ? 'bg-neutral-700 text-white shadow-xs' : 'bg-white text-neutral-900 hover:bg-neutral-100'}`}
         >
-          📊 Přehled
+          <BarChart3 className="ikona-text" /> Přehled
         </button>
       </div>
 
@@ -333,7 +333,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
             )}
             <div className={`flex items-end justify-end ${!showWhoColumn ? 'sm:col-span-2' : ''}`}>
               <span className="text-xs font-bold text-neutral-500 bg-neutral-100 rounded px-3 py-2">
-                📦 {rowsSummary.totalQty} ks · {rowsSummary.totalL.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L
+                <PackageIcon className="ikona-text" /> {rowsSummary.totalQty} ks · {rowsSummary.totalL.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L
               </span>
             </div>
           </div>
@@ -446,7 +446,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
               <button type="submit" disabled={saving} className="btn-primary !rounded !from-emerald-600 !to-emerald-700 hover:!from-emerald-500 hover:!to-emerald-600 !shadow-emerald-600/30 text-xs font-black shadow-md">
                 {saving ? '⏳ Ukládám…' : '💾 Uložit fasování'}
               </button>
-              <button type="button" className="btn-ghost !rounded text-xs" onClick={() => setEntryRows(emptyRows(table === 'fasovani' ? FASOVANI_ROW_COUNT : ROW_COUNT))}>🗑️ Vymazat vše</button>
+              <button type="button" className="btn-ghost !rounded text-xs" onClick={() => setEntryRows(emptyRows(table === 'fasovani' ? FASOVANI_ROW_COUNT : ROW_COUNT))}><Trash2 className="ikona-text" /> Vymazat vše</button>
             </div>
             {err && <span className="text-xs font-bold text-rose-700">{err}</span>}
           </div>
@@ -475,7 +475,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
           <div className="mt-0 space-y-3">
             <div className="flex items-center justify-between">
               <div className="text-xs font-black uppercase tracking-wider text-amber-950/60 flex items-center gap-2">
-                <span>📋</span>
+                <span><ClipboardList className="ikona-text" /></span>
                 <span>Záznamy fasování</span>
               </div>
               <div className="flex items-center gap-2">
@@ -535,7 +535,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
               return (
                 <div className="card p-4 border-2 border-amber-300/80 bg-white">
                   <h3 className="font-display font-black text-amber-950 text-sm mb-3">
-                    📋 Přehled fasování
+                    <ClipboardList className="ikona-text" /> Přehled fasování
                   </h3>
                   <div className="rounded border border-amber-300/80 bg-amber-50/90 overflow-x-auto">
                     <table className="w-full text-xs">
@@ -604,7 +604,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                         <tr className="bg-amber-200/60 font-black">
                           <td className="py-1.5 px-2 font-black text-amber-950"></td>
                           {showWhoColumn && <td className="py-1.5 px-2 font-black text-amber-950"></td>}
-                          <td className="py-1.5 px-2 font-black text-amber-950">📦 Celkem</td>
+                          <td className="py-1.5 px-2 font-black text-amber-950"><PackageIcon className="ikona-text" /> Celkem</td>
                           <td className="py-1.5 px-2 text-right font-black text-amber-950"></td>
                           <td className="py-1.5 px-2 text-right font-black text-amber-950">{totalCount}</td>
                           <td className="py-1.5 px-2 text-right font-black text-amber-950"></td>

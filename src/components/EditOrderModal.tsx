@@ -6,6 +6,7 @@ import { saveAlias, canLearnBeerAlias, savePlaceAlias, getOrCreatePlace } from '
 import { autoReserveTapIfNeeded, isTapMentioned, detectTapType } from '../lib/tapReservations';
 import { TapReservationModal } from './TapReservationModal';
 import { QuickQtySelect } from './QuickQtySelect';
+import { IkonaVycep } from '../components/ikony';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -278,28 +279,28 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
                 onClick={() => setNote((n) => n ? `${n}, + výčep jednokohout` : '+ výčep jednokohout')}
                 className="px-2.5 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-[11px] border border-amber-300 transition"
               >
-                🚰 + Výčep jednokohout
+                <IkonaVycep className="ikona-text" /> + Výčep jednokohout
               </button>
               <button
                 type="button"
                 onClick={() => setNote((n) => n ? `${n}, + výčep dvojkohout` : '+ výčep dvojkohout')}
                 className="px-2.5 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-[11px] border border-amber-300 transition"
               >
-                🚰🚰 + Výčep dvojkohout
+                <IkonaVycep className="ikona-text" /><IkonaVycep className="ikona-text" /> + Výčep dvojkohout
               </button>
               <button
                 type="button"
                 onClick={() => setNote((n) => n ? `${n}, + výčep trojkohout` : '+ výčep trojkohout')}
                 className="px-2.5 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-[11px] border border-amber-300 transition"
               >
-                🚰🚰🚰 + Výčep trojkohout
+                <IkonaVycep className="ikona-text" /><IkonaVycep className="ikona-text" /><IkonaVycep className="ikona-text" /> + Výčep trojkohout
               </button>
               <button
                 type="button"
                 onClick={() => setNote((n) => n ? `${n}, + výčep šestikohout` : '+ výčep šestikohout')}
                 className="px-2.5 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-[11px] border border-amber-300 transition"
               >
-                🚰🚰🚰🚰🚰🚰 + Výčep šestikohout (akce)
+                <IkonaVycep className="ikona-text" /><IkonaVycep className="ikona-text" /><IkonaVycep className="ikona-text" /><IkonaVycep className="ikona-text" /><IkonaVycep className="ikona-text" /><IkonaVycep className="ikona-text" /> + Výčep šestikohout (akce)
               </button>
             </div>
           </div>

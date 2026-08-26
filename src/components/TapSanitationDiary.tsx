@@ -12,16 +12,7 @@ import {
 } from '../lib/tapSanitation';
 import { SanitationStepRow, currentTimeStr } from './SanitationStepRow';
 import { Spinner } from './ui';
-import {
-  Plus,
-  FileSpreadsheet,
-  Trash2,
-  Clock,
-  Edit3,
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react';
+import { CheckCircle2, ChevronLeft, ChevronRight, Clock, Edit3, FileSpreadsheet, Plus, Timer, Trash2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { potvrd } from '../lib/toast';
 
@@ -277,7 +268,7 @@ export default function TapSanitationDiary() {
                       <div key={s.id} className="flex items-center gap-2">
                         <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
                         <span className="text-[11px] text-neutral-700 font-semibold flex-1">{s.text}</span>
-                        {s.completedAt && <span className="text-[10px] font-mono font-black text-amber-800">⏱ {s.completedAt}</span>}
+                        {s.completedAt && <span className="text-[10px] font-mono font-black text-amber-800"><Timer className="ikona-text" /> {s.completedAt}</span>}
                       </div>
                     ))
                   )}

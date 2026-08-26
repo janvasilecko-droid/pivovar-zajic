@@ -5,8 +5,9 @@ import { LABELS_LOW_STOCK_THRESHOLD } from '../lib/labelStock';
 import { Spinner, EmptyState } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { PlaceCombobox } from '../components/PlaceCombobox';
-import { Wine, Plus, Download, Printer, Trash2, ArrowDownCircle, ArrowUpCircle, Search, Boxes, Tag, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, ArrowDownCircle, ArrowUpCircle, Boxes, CheckCircle2, Download, Plus, Printer, Search, Tag, Trash2, Upload, Wine } from 'lucide-react';
 import { chyba, oznam, potvrd } from '../lib/toast';
+import { IkonaLahev } from '../components/ikony';
 
 export type PromoEntry = {
   id: string;
@@ -426,7 +427,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
           <span>Sledování etiket piva</span>
           {lowLabelsCount > 0 && (
             <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white font-mono text-[10px]">
-              ⚠️ {lowLabelsCount}
+              <AlertTriangle className="ikona-text" /> {lowLabelsCount}
             </span>
           )}
         </button>
@@ -443,7 +444,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
           <span>Sledování prázdných lahví (1.5L / 1L / 0.5L / 0.33L + Víčka)</span>
           {lowBottlesCount > 0 && (
             <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white font-mono text-[10px]">
-              ⚠️ {lowBottlesCount}
+              <AlertTriangle className="ikona-text" /> {lowBottlesCount}
             </span>
           )}
         </button>
@@ -458,7 +459,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
               <div className="flex items-center justify-between border-b border-emerald-100 pb-3">
                 <h3 className="font-display font-black text-base sm:text-lg text-emerald-950 flex items-center gap-2">
                   <ArrowDownCircle size={22} className="text-emerald-600" />
-                  <span>📥 Příjem na sklad (Přivezeno do pivovaru)</span>
+                  <span><Download className="ikona-text" /> Příjem na sklad (Přivezeno do pivovaru)</span>
                 </h3>
               </div>
 
@@ -522,7 +523,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
               <div className="flex items-center justify-between border-b border-amber-100 pb-3">
                 <h3 className="font-display font-black text-base sm:text-lg text-amber-950 flex items-center gap-2">
                   <ArrowUpCircle size={22} className="text-amber-600" />
-                  <span>📤 Výdej odběratelům & Na akce (Fasování)</span>
+                  <span><Upload className="ikona-text" /> Výdej odběratelům & Na akce (Fasování)</span>
                 </h3>
               </div>
 
@@ -604,7 +605,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                     <span className={`font-display font-black text-2xl ${item.balance > 0 ? 'text-neutral-950' : 'text-rose-600'}`}>
                       {item.balance.toLocaleString('cs-CZ')} ks
                     </span>
-                    <span className="text-xs font-bold text-neutral-600">(📥+{item.inQty} / 📤-{item.outQty})</span>
+                    <span className="text-xs font-bold text-neutral-600">(<Download className="ikona-text" />+{item.inQty} / <Upload className="ikona-text" />-{item.outQty})</span>
                   </div>
                 </div>
               ))}
@@ -642,9 +643,9 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                         <td className="font-bold text-[11px]">{new Date(e.entry_date).toLocaleDateString('cs-CZ')}</td>
                         <td>
                           {e.entry_type === 'in' ? (
-                            <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 text-[11px] font-bold">📥 PŘÍJEM</span>
+                            <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 text-[11px] font-bold"><Download className="ikona-text" /> PŘÍJEM</span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-950 text-[11px] font-bold">📤 VÝDEJ</span>
+                            <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-950 text-[11px] font-bold"><Upload className="ikona-text" /> VÝDEJ</span>
                           )}
                         </td>
                         <td className="font-black text-[11px]">{e.item_name}</td>
@@ -681,7 +682,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
               <div className="flex flex-wrap gap-2 pt-1">
                 {labelsSummary.filter((l) => l.isLow && l.inLabels > 0).map((l) => (
                   <span key={l.beer_name} className="px-3 py-1.5 rounded bg-rose-600 text-white font-bold text-xs shadow-xs">
-                    ⚠️ {l.beer_name}: zbývá jen {l.balance} ks etiket!
+                    <AlertTriangle className="ikona-text" /> {l.beer_name}: zbývá jen {l.balance} ks etiket!
                   </span>
                 ))}
               </div>
@@ -692,7 +693,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
           <div className="card p-6 bg-white border-2 border-amber-200 rounded shadow-sm space-y-4">
             <h3 className="font-display font-black text-lg text-amber-950 flex items-center gap-2">
               <Tag className="text-amber-600" size={20} />
-              <span>🏷️ Zadání nákupu / příjmu etiket na sklad</span>
+              <span><Tag className="ikona-text" /> Zadání nákupu / příjmu etiket na sklad</span>
             </h3>
 
             <form onSubmit={handleAddLabelPurchase} className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
@@ -738,7 +739,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                     <span className="font-display font-black text-base text-neutral-950">{l.beer_name}</span>
                     {l.isLow ? (
                       <span className="px-2.5 py-0.5 rounded-full bg-rose-600 text-white font-mono font-black text-[10px] animate-pulse">
-                        ⚠️ POZOR {'<'} {LABELS_LOW_STOCK_THRESHOLD} KS!
+                        <AlertTriangle className="ikona-text" /> POZOR {'<'} {LABELS_LOW_STOCK_THRESHOLD} KS!
 
                       </span>
                     ) : (
@@ -817,7 +818,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
               <div className="flex flex-wrap gap-2 pt-1">
                 {bottlesSummary.filter((b) => b.isLow && b.inBottles > 0).map((b) => (
                   <span key={b.package_label} className="px-3 py-1.5 rounded bg-rose-600 text-white font-bold text-xs shadow-xs">
-                    ⚠️ {b.package_label}: zbývá jen {b.balance} ks prázdných lahví!
+                    <AlertTriangle className="ikona-text" /> {b.package_label}: zbývá jen {b.balance} ks prázdných lahví!
                   </span>
                 ))}
               </div>
@@ -828,7 +829,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
           <div className="card p-6 bg-white border-2 border-emerald-200 rounded shadow-sm space-y-4">
             <h3 className="font-display font-black text-lg text-emerald-950 flex items-center gap-2">
               <Boxes className="text-emerald-600" size={20} />
-              <span>🍾 Zadání nákupu / příjmu prázdných lahví na sklad</span>
+              <span><IkonaLahev className="ikona-text" /> Zadání nákupu / příjmu prázdných lahví na sklad</span>
             </h3>
 
             <form onSubmit={handleAddBottlePurchase} className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
@@ -874,7 +875,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                     <span className="font-display font-black text-base text-neutral-950">{b.package_label}</span>
                     {b.isLow ? (
                       <span className="px-2.5 py-0.5 rounded-full bg-rose-600 text-white font-mono font-black text-[10px] animate-pulse">
-                        ⚠️ POZOR {'<'} 200 KS!
+                        <AlertTriangle className="ikona-text" /> POZOR {'<'} 200 KS!
 
                       </span>
                     ) : (

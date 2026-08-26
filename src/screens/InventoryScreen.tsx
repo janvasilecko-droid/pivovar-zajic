@@ -4,12 +4,13 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase, Beer, Package, useRealtime, formatPackageLabel, beerBg, beerText, beerName, fetchAllRows } from '../lib/supabase';
 import { Spinner } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
-import { ClipboardCheck, Plus, Save, Download, Lock, RefreshCw, AlertCircle, CheckCircle2, RotateCcw, Calendar, Camera , AlertTriangle} from 'lucide-react';
+import { AlertCircle, AlertTriangle, Beer as BeerIcon, Calendar, Camera, CheckCircle2, ClipboardCheck, ClipboardList, Download, Lock, Package as PackageIcon, Plus, RefreshCw, RotateCcw, Save } from 'lucide-react';
 import { CountFromImage } from '../components/CountFromImage';
 import { computeInventoryReconciliation } from '../lib/inventoryHelper';
 import { buildMovements, expectedForMonth, stockAtStartOfDay, type StockLine } from '../lib/stockLedger';
 import { chyba, oznam, potvrd } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
+import { IkonaSud } from '../components/ikony';
 
 type InitialStockMap = Record<string, number>; // key: `${beer_id}__${package_id}`, val: qty
 
@@ -865,7 +866,7 @@ function exportInventoryExcel() {
             <span>Měsíční uzávěrky & Skladové bilanční konto</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-display font-black tracking-tight text-white flex items-center gap-2">
-            <span>📋 Poctivá skladová Inventura</span>
+            <span><ClipboardList className="ikona-text" /> Poctivá skladová Inventura</span>
           </h1>
           <p className="text-xs text-neutral-400 font-medium mt-1">
             Zadej zásoby z minulého měsíce / počáteční stav a porovnej teoretický stav se skutečností ve skladu
@@ -920,7 +921,7 @@ function exportInventoryExcel() {
             onClick={() => excelFileRef.current?.click()}
             className="px-3.5 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-amber-950 font-black text-xs transition shadow-xs flex items-center gap-1.5"
           >
-            <span>📥 Import Excel / Google Tabulky</span>
+            <span><Download className="ikona-text" /> Import Excel / Google Tabulky</span>
           </button>
           <button
             onClick={exportInventoryExcel}
@@ -1044,7 +1045,7 @@ function exportInventoryExcel() {
               <span className="text-[10px] text-neutral-500">Fasování + Prodejna + Objednávky</span>
             </div>
             <div className="card p-3.5 bg-white border border-neutral-200 rounded space-y-1">
-              <span className="text-[10px] font-black uppercase text-neutral-500">📦 ZBYDE SKLADEM (Oček.)</span>
+              <span className="text-[10px] font-black uppercase text-neutral-500"><PackageIcon className="ikona-text" /> ZBYDE SKLADEM (Oček.)</span>
               <div className="font-display font-black text-xl">
                 {totals.expected < 0 ? (
                   <span className="px-2 py-0.5 rounded bg-rose-600 text-white">{totals.expected} ks</span>
@@ -1399,7 +1400,7 @@ function exportInventoryExcel() {
             {beers.map((b) => (
               <div key={b.id} className="p-4 rounded bg-neutral-50 border border-neutral-200 space-y-3">
                 <h4 className="font-display font-black text-base text-neutral-900 border-b border-neutral-200 pb-2 flex items-center gap-2">
-                  <span>🍺 {b.name}</span>
+                  <span><BeerIcon className="ikona-text" /> {b.name}</span>
                   {b.degree && <span className="text-xs text-neutral-500 font-bold">({b.degree})</span>}
                 </h4>
 
@@ -1589,7 +1590,7 @@ function EndStockTab({
       {/* Vysvětlení bilance */}
       <div className="p-4 rounded bg-sky-50 border border-sky-200 text-xs text-sky-950 font-medium space-y-1">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="font-black text-sky-900">🛢️ Bilanční konto sudů za {monthLabel}</p>
+          <p className="font-black text-sky-900"><IkonaSud className="ikona-text" /> Bilanční konto sudů za {monthLabel}</p>
           <div className="flex items-center gap-1 bg-white border border-sky-300 px-2 py-1 rounded text-xs font-bold">
             <button
               onClick={() => onMonthChange(shiftMonth(currentMonth, -1))}
@@ -1648,7 +1649,7 @@ function EndStockTab({
               <span className="text-neutral-900">{totals.endStock} ks</span>
             )}
           </div>
-          {totals.endStock < 0 && <span className="text-[11px] text-rose-700 font-bold">⚠️ Chybí {Math.abs(totals.endStock)} sudů!</span>}
+          {totals.endStock < 0 && <span className="text-[11px] text-rose-700 font-bold"><AlertTriangle className="ikona-text" /> Chybí {Math.abs(totals.endStock)} sudů!</span>}
         </div>
       </div>
 
@@ -1696,12 +1697,12 @@ function EndStockTab({
                       </div>
                     ))}
                   </div>
-                  {r.endStockQty < 0 && <div className="text-[10px] text-rose-700 font-black">⚠️ Chybí {Math.abs(r.endStockQty)} ks!</div>}
+                  {r.endStockQty < 0 && <div className="text-[10px] text-rose-700 font-black"><AlertTriangle className="ikona-text" /> Chybí {Math.abs(r.endStockQty)} ks!</div>}
                 </div>
               );
             })}
             <div className="rounded bg-neutral-200 p-3 space-y-2">
-              <div className="font-black text-sm text-neutral-900">📦 CELKEM</div>
+              <div className="font-black text-sm text-neutral-900"><PackageIcon className="ikona-text" /> CELKEM</div>
               <div className="grid grid-cols-3 gap-1.5 text-center text-[10px] font-bold text-neutral-800">
                 <div>Počátek {totals.initial}</div>
                 <div className="text-emerald-700">+{totals.stacenoKeg} KEG</div>
@@ -1753,7 +1754,7 @@ function EndStockTab({
                       <td className={`text-right font-black text-[11px] text-rose-850 font-black`}>−{r.odpisyQty}</td>
                       <td className={`text-right font-mono font-black text-[11px] bg-amber-100/90 border-x border-amber-300 ${r.endStockQty < 0 ? 'text-rose-800' : 'text-neutral-950'}`}>
                         {r.endStockQty} ks
-                        {r.endStockQty < 0 && <span className="block text-[9px] text-rose-700 font-black">⚠️ chybí {Math.abs(r.endStockQty)}</span>}
+                        {r.endStockQty < 0 && <span className="block text-[9px] text-rose-700 font-black"><AlertTriangle className="ikona-text" /> chybí {Math.abs(r.endStockQty)}</span>}
                       </td>
                     </tr>
                   );

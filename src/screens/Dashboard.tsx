@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase, Beer, Package, useRealtime, beerBorder, fetchAllRows } from '../lib/supabase';
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { useAuth } from '../lib/auth';
-import { AlertTriangle, ClipboardList, PackageCheck, Layers, Beer as BeerIcon, BarChart3, Sparkles, Calculator } from 'lucide-react';
+import { AlertTriangle, BarChart3, Beer as BeerIcon, Calculator, ClipboardList, Layers, Package as PackageIcon, PackageCheck, Pin, Sparkles } from 'lucide-react';
 import { AnnouncementManagerModal } from '../components/AnnouncementManagerModal';
 import SkloPromoScreen from './SkloPromoScreen';
 import { buildMovements, stockAsOf, stockKey } from '../lib/stockLedger';
@@ -10,6 +10,7 @@ import { QuickCountModal } from '../components/QuickCountModal';
 import { fetchLabelBalances } from '../lib/labelStock';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import { chyba, oznam } from '../lib/toast';
+import { IkonaLahev, IkonaSud } from '../components/ikony';
 
 type Row = {
   entry_date: string; beer_id: string | null; beer_name: string | null;
@@ -416,7 +417,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
           onClick={() => setShowQuickCount(true)}
           className="btn-primary !rounded !py-2 !px-3.5 text-xs font-black shadow-sm"
         >
-          <Calculator size={15} /> 📦 Rychlé sčítadlo skladu
+          <Calculator size={15} /> <PackageIcon className="ikona-text" /> Rychlé sčítadlo skladu
         </button>
         <button
           onClick={() => setShowAnnouncementManager(true)}
@@ -440,7 +441,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
         <div className="mb-6 p-4 rounded bg-gradient-to-r from-rose-500/20 via-rose-400/10 to-amber-500/10 border-2 border-rose-400 shadow-md flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded bg-rose-600 text-white flex items-center justify-center text-2xl font-black shadow-md shrink-0 animate-pulse">
-              ⚠️
+              <AlertTriangle className="ikona-text" />
             </div>
             <div>
               <div className="font-extrabold text-sm text-neutral-900 flex items-center gap-2">
@@ -566,7 +567,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
                   {kegs.length > 0 && (
                     <div className="bg-white/70 backdrop-blur-xs rounded-xl p-3 border border-neutral-200/50">
-                      <div className="text-xs font-bold uppercase tracking-wider text-amber-700 mb-1.5 flex items-center gap-1">🛢️ Sudy</div>
+                      <div className="text-xs font-bold uppercase tracking-wider text-amber-700 mb-1.5 flex items-center gap-1"><IkonaSud className="ikona-text" /> Sudy</div>
                       <table className="w-full text-sm font-semibold border-collapse">
                         <thead>
                           <tr className="text-[11px] font-bold uppercase tracking-wide text-neutral-400">
@@ -591,7 +592,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                   )}
                   {bottles.length > 0 && (
                     <div className="bg-white/70 backdrop-blur-xs rounded-xl p-3 border border-neutral-200/50">
-                      <div className="text-xs font-bold uppercase tracking-wider text-primary-700 mb-1.5 flex items-center gap-1">🍾 Lahve</div>
+                      <div className="text-xs font-bold uppercase tracking-wider text-primary-700 mb-1.5 flex items-center gap-1"><IkonaLahev className="ikona-text" /> Lahve</div>
                       <table className="w-full text-sm font-semibold border-collapse">
                         <thead>
                           <tr className="text-[11px] font-bold uppercase tracking-wide text-neutral-400">
@@ -720,7 +721,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
               </table>
             </div>
             <div className="p-3 rounded-xl bg-neutral-50 border border-neutral-200 text-[11px] text-neutral-600 space-y-1">
-              <p className="font-bold text-neutral-800">📌 Vysvětlivky výpočtu:</p>
+              <p className="font-bold text-neutral-800"><Pin className="ikona-text" /> Vysvětlivky výpočtu:</p>
               <p>• <strong>AKT (Sklad)</strong> = Počáteční stav na začátku měsíce (Poč.) + Stočeno v měsíci (Stoč.)</p>
               <p>• <strong>Odp. celkem</strong> = Sudy spotřebované na stáčení lahví + Fasování + Prodejna + Akce + Odpisy</p>
               <p>• <strong>ZBYDE</strong> = AKT (Sklad) − OBJ (Objednávky) − Odp. celkem</p>

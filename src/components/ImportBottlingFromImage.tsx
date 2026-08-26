@@ -4,7 +4,7 @@ import { PhotoReviewPane } from './PhotoReviewPane';
 import { ImageEditor } from './ImageEditor';
 import type { Beer, Package } from '../lib/supabase';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
-import { Camera, Upload, Sparkles, AlertCircle, Plus, Trash2, RotateCcw, Check, FilePlus } from 'lucide-react';
+import { AlertCircle, Camera, Check, FilePlus, Folder, Lightbulb, Plus, RotateCcw, Sparkles, Trash2, Upload } from 'lucide-react';
 
 type RowInput = { beerId: string; pkgId: string; pkg2Id: string; pkg3Id: string; kegPkgId: string; kegQty: string; qty: string; qty2: string; qty3: string; _removed?: boolean; _manual?: boolean };
 type PhotoEntry = { dataUrl: string; name: string };
@@ -339,7 +339,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                 ◀ Předchozí fotka
               </button>
               <span className="font-extrabold text-xs sm:text-sm">
-                📷 Fotka {activeIndex + 1} z {photos.length} {photos[activeIndex]?.name ? `(${photos[activeIndex].name})` : ''}
+                <Camera className="ikona-text" /> Fotka {activeIndex + 1} z {photos.length} {photos[activeIndex]?.name ? `(${photos[activeIndex].name})` : ''}
               </span>
               <button
                 type="button"
@@ -378,11 +378,11 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
               <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={onFile} className="hidden" />
               
               <button className="btn-primary !rounded flex items-center gap-2" onClick={() => cameraRef.current?.click()} disabled={busy}>
-                <Camera size={16} /> 📷 Spustit fotoaparát
+                <Camera size={16} /> <Camera className="ikona-text" /> Spustit fotoaparát
               </button>
 
               <button className="btn-secondary flex items-center gap-2 border-neutral-300 text-neutral-800 bg-white hover:bg-neutral-50" onClick={() => fileRef.current?.click()} disabled={busy}>
-                <Upload size={16} /> 📁 Vybrat fotku / soubor z galerie
+                <Upload size={16} /> <Folder className="ikona-text" /> Vybrat fotku / soubor z galerie
               </button>
 
               <label className="flex items-center gap-2 text-xs text-primary-600 cursor-pointer select-none">
@@ -391,7 +391,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
               </label>
             </div>
             <span className="text-[11px] text-neutral-500">
-              💡 Obrázek/snímek obrazovky můžeš také přímo vložit zkopírováním a stisknutím <strong>Ctrl+V</strong> (Vložit).
+              <Lightbulb className="ikona-text" /> Obrázek/snímek obrazovky můžeš také přímo vložit zkopírováním a stisknutím <strong>Ctrl+V</strong> (Vložit).
             </span>
           </div>
 

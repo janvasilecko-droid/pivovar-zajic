@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase, useRealtime } from '../lib/supabase';
 import { Spinner } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
-import { Car, Plus, Download, Printer, Trash2, Calendar, MapPin, Navigation, User, Scale, ShieldCheck, CheckCircle2, Zap, Sparkles } from 'lucide-react';
+import { AlertTriangle, Calendar, Car, CheckCircle2, Download, MapPin, Navigation, Plus, Printer, Scale, ShieldCheck, Sparkles, Trash2, User, Zap } from 'lucide-react';
 import { isOrderKachna } from '../lib/zavozSecondCar';
 import { printTable } from '../lib/safePrint';
 import { computeRouteDistanceKm } from '../lib/routeDistance';
@@ -499,7 +499,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
             <span>Doprava & Logistika</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-display font-black tracking-tight text-white flex items-center gap-2">
-            <span>🚗 Kniha jízd pro daňové účetnictví</span>
+            <span><Car className="ikona-text" /> Kniha jízd pro daňové účetnictví</span>
           </h1>
           <p className="text-xs text-neutral-400 font-medium mt-1">
             Automatické i ruční generování evidencí jízd z rozvozových tras pro finanční úřad
@@ -780,7 +780,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                       <div className="text-[11px] text-neutral-600 font-medium leading-snug">{d.routeTo}</div>
                       {d.missingCoords.length > 0 && (
                         <div className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 font-semibold leading-snug">
-                          ⚠️ Chybí souřadnice u: {d.missingCoords.join(', ')} — km je jen odhad zbylých zastávek, doplň v Odběratelích nebo uprav ručně.
+                          <AlertTriangle className="ikona-text" /> Chybí souřadnice u: {d.missingCoords.join(', ')} — km je jen odhad zbylých zastávek, doplň v Odběratelích nebo uprav ručně.
                         </div>
                       )}
                       <div className="flex items-center gap-2">
@@ -943,7 +943,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                   />
                   {lastKmEndByVehicle[vehicleName] != null && Number(kmStart) !== lastKmEndByVehicle[vehicleName] && (
                     <p className="text-[10px] text-amber-700 font-bold mt-1 leading-snug">
-                      ⚠️ Poslední záznam tohoto vozidla končí na {lastKmEndByVehicle[vehicleName].toLocaleString('cs-CZ')} km — nenavazuje.
+                      <AlertTriangle className="ikona-text" /> Poslední záznam tohoto vozidla končí na {lastKmEndByVehicle[vehicleName].toLocaleString('cs-CZ')} km — nenavazuje.
                     </p>
                   )}
                 </div>

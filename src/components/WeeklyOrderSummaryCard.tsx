@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Beer, beerBg, beerText, beerBorder, pkgBg, pkgText, formatPackageLabel, Package } from '../lib/supabase';
-import { Calendar, ChevronLeft, ChevronRight, CheckCircle2, AlertCircle, LayoutGrid, ListFilter, Beer as BeerIcon } from 'lucide-react';
+import { AlertCircle, Beer as BeerIcon, Calendar, CheckCircle2, ChevronLeft, ChevronRight, Hourglass, LayoutGrid, ListFilter, Package as PackageIcon } from 'lucide-react';
 
 export type WeeklyOrderItem = {
   beerKey: string;
@@ -105,7 +105,7 @@ export function WeeklyOrderSummaryCard({
       <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-amber-200/80">
         <div>
           <h3 className="font-display font-black text-xl text-amber-950 flex items-center gap-2.5">
-            <span className="p-2 rounded bg-amber-500 text-white shadow-md text-lg">🍺</span>
+            <span className="p-2 rounded bg-amber-500 text-white shadow-md text-lg"><BeerIcon className="ikona-text" /></span>
             <span>{title}</span>
           </h3>
           <p className="text-xs text-amber-900/80 mt-1 font-bold">{subtitle}</p>
@@ -156,7 +156,7 @@ export function WeeklyOrderSummaryCard({
             <div className="text-2xl font-display font-extrabold text-neutral-900 mt-0.5">{totalOrdered} <span className="text-xs text-neutral-500 font-normal">ks</span></div>
           </div>
           <div className="w-10 h-10 rounded bg-amber-100 text-amber-800 flex items-center justify-center text-lg font-bold">
-            📦
+            <PackageIcon className="ikona-text" />
           </div>
         </button>
 
@@ -169,7 +169,7 @@ export function WeeklyOrderSummaryCard({
             <div className="text-2xl font-display font-extrabold text-rose-900 mt-0.5">{totalRemaining} <span className="text-xs text-rose-700 font-normal">ks</span></div>
           </div>
           <div className="w-10 h-10 rounded bg-rose-200 text-rose-900 flex items-center justify-center text-lg font-bold">
-            ⏳
+            <Hourglass className="ikona-text" />
           </div>
         </button>
 
@@ -184,7 +184,7 @@ export function WeeklyOrderSummaryCard({
             </div>
           </div>
           <div className="w-10 h-10 rounded bg-emerald-200 text-emerald-900 flex items-center justify-center text-lg font-bold">
-            ✅
+            <CheckCircle2 className="ikona-text" />
           </div>
         </button>
       </div>

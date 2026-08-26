@@ -4,7 +4,7 @@ import { ImageEditor } from './ImageEditor';
 import type { Beer, Package } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
-import { Camera, Plus, Trash2, Package as PackageIcon, CheckCircle2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { AlertCircle, Calendar, Camera, CheckCircle2, ChevronDown, ChevronUp, ClipboardList, Hourglass, NotebookPen, Package as PackageIcon, Plus, RefreshCw, Trash2 } from 'lucide-react';
 
 type CountItem = {
   package_label: string | null;
@@ -272,7 +272,7 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
         {/* Datum + info v jednom kompaktním řádku */}
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 px-2.5 py-1.5 rounded">
-            <label className="text-[10px] font-black text-neutral-700">📅</label>
+            <label className="text-[10px] font-black text-neutral-700"><Calendar className="ikona-text" /></label>
             <input type="date" className="input !py-0.5 !px-1.5 font-mono font-bold text-[11px] max-w-[130px]" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
           <span className="text-[10px] text-neutral-500 font-medium leading-tight">
@@ -332,7 +332,7 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
             {photos.map((p) => (
               <div key={p.id} className="rounded border border-amber-200 bg-neutral-900 overflow-hidden relative shadow-xs">
                 <div className="px-2 py-1 bg-neutral-800 text-amber-300 text-[10px] font-black flex items-center justify-between">
-                  <span>📷</span>
+                  <span><Camera className="ikona-text" /></span>
                   <button className="text-neutral-400 hover:text-rose-400 text-sm font-bold leading-none" onClick={() => removePhoto(p.id)}>×</button>
                 </div>
                 <div className="relative min-h-[80px] flex items-center justify-center bg-neutral-950">
@@ -341,7 +341,7 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
                   ) : p.busy ? (
                     <div className="text-amber-400 text-[10px] p-2 text-center"><Spinner /></div>
                   ) : (
-                    <div className="text-neutral-500 text-[10px] p-2 text-center">⏳</div>
+                    <div className="text-neutral-500 text-[10px] p-2 text-center"><Hourglass className="ikona-text" /></div>
                   )}
                   {p.busy && (
                     <div className="absolute bottom-0 left-0 right-0 h-1 bg-neutral-800">
@@ -356,7 +356,7 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
                   <div className="px-2 py-1 bg-rose-50 text-[9px] text-rose-700 font-bold leading-tight">{p.err}</div>
                 )}
                 {!p.busy && p.preview && (
-                  <button className="w-full text-[10px] py-1 bg-neutral-800 text-amber-300 hover:bg-neutral-700 font-bold transition" onClick={() => retakePhoto(p.id)}>🔄</button>
+                  <button className="w-full text-[10px] py-1 bg-neutral-800 text-amber-300 hover:bg-neutral-700 font-bold transition" onClick={() => retakePhoto(p.id)}><RefreshCw className="ikona-text" /></button>
                 )}
               </div>
             ))}
@@ -369,7 +369,7 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
         {results.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-black text-neutral-900">📋 Rozpoznané položky ({results.length})</span>
+              <span className="text-xs font-black text-neutral-900"><ClipboardList className="ikona-text" /> Rozpoznané položky ({results.length})</span>
               <span className="text-[10px] font-bold text-amber-800">Doplň pivo a obal</span>
             </div>
             <div className="space-y-1.5">
@@ -426,7 +426,7 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
                     </div>
                     {/* Poznámka */}
                     {r.note && (
-                      <div className="text-[9px] text-neutral-500 font-medium leading-tight">📝 {r.note}</div>
+                      <div className="text-[9px] text-neutral-500 font-medium leading-tight"><NotebookPen className="ikona-text" /> {r.note}</div>
                     )}
                   </div>
                 );

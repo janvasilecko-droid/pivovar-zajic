@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { fetchLabelBalances, LabelBalance } from '../lib/labelStock';
-import { CheckCircle2, ShieldAlert } from 'lucide-react';
+import { CheckCircle2, ShieldAlert, Siren } from 'lucide-react';
 
 type LowItem = {
   name: string;
@@ -94,7 +94,7 @@ export function CriticalMaterialAlertModal() {
               <span>POVINNÉ UPOZORNĚNÍ PRO ADMINA, ŠÉFA A SLÁDKA</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-display font-black text-neutral-950 leading-tight mt-1">
-              🚨 KRITICKÝ STAV MATERIÁLU (&lt; 100 ks)!
+              <Siren className="ikona-text" /> KRITICKÝ STAV MATERIÁLU (&lt; 100 ks)!
             </h2>
             <p className="text-xs font-bold text-neutral-500 mt-0.5">
               Role: <strong className="text-neutral-800 uppercase">{profile?.role || 'Sládek / Admin'}</strong>

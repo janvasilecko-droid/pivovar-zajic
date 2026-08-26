@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../lib/auth';
-import { Lock, Mail, Eye, EyeOff, Beer, ArrowRight, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Beer, Beer as BeerIcon, Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react';
 import { getAdminEmail } from '../lib/config';
 
 export default function AuthScreen() {
@@ -107,7 +107,7 @@ export default function AuthScreen() {
 
               {err && (
                 <div className="text-xs font-bold text-rose-950 bg-rose-50 border border-rose-300 rounded-2xl px-4 py-3 flex items-start gap-2.5 animate-shake">
-                  <span className="text-base leading-none">⚠️</span>
+                  <span className="text-base leading-none"><AlertTriangle className="ikona-text" /></span>
                   <span>{err}</span>
                 </div>
               )}
@@ -133,7 +133,7 @@ export default function AuthScreen() {
 
             <div className="mt-4 rounded-2xl bg-amber-50/80 border border-amber-200 px-4 py-3 text-center">
               <p className="text-[11px] font-bold text-amber-800 leading-relaxed">
-                🍺 Nový uživatel? Účet a dočasné heslo vám založí administrátor — zeptejte se ho.
+                <BeerIcon className="ikona-text" /> Nový uživatel? Účet a dočasné heslo vám založí administrátor — zeptejte se ho.
               </p>
             </div>
 

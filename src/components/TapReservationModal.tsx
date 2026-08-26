@@ -1,6 +1,8 @@
+import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import type { TapEquipment, TapReservation } from '../screens/VycepyScreen';
 import type { TapTypeHint } from '../lib/tapReservations';
+import { IkonaVycep } from '../components/ikony';
 
 type Props = {
   /** Date from the order (YYYY-MM-DD) */
@@ -104,7 +106,7 @@ export function TapReservationModal({ orderDate, customerName, orderId, tapTypeH
       <div className="fixed inset-0 bg-neutral-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50">
         <div className="bg-white rounded max-w-md w-full p-6 space-y-4 shadow-2xl border border-neutral-200">
           <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
-            <h3 className="font-display font-black text-lg text-neutral-900">🚰 Rezervace výčepu</h3>
+            <h3 className="font-display font-black text-lg text-neutral-900"><IkonaVycep className="ikona-text" /> Rezervace výčepu</h3>
             <button onClick={onSkip} className="text-neutral-400 font-bold">✕</button>
           </div>
           <p className="text-sm text-neutral-600">Nemáte vytvořené žádné výčepy. Nejprve je přidejte v sekci Výčepy.</p>
@@ -121,7 +123,7 @@ export function TapReservationModal({ orderDate, customerName, orderId, tapTypeH
       <div className="bg-white rounded max-w-lg w-full p-6 space-y-4 shadow-2xl border border-neutral-200">
         <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
           <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-            <span>🚰</span>
+            <span><IkonaVycep className="ikona-text" /></span>
             <span>Rezervace výčepu k objednávce</span>
           </h3>
           <button onClick={onSkip} className="text-neutral-400 font-bold">✕</button>
@@ -137,7 +139,7 @@ export function TapReservationModal({ orderDate, customerName, orderId, tapTypeH
             <label className="block text-xs font-black text-neutral-700 mb-1.5">Vyberte výčepní zařízení</label>
             {taps.some((t) => !(isTapAvailable(t.id, dateFrom, reservations) && isTapAvailable(t.id, dateTo, reservations))) && (
               <div className="mb-2 px-3 py-2 rounded bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-800">
-                ⚠️ Některé výčepy jsou v tomto termínu rezervované — ostatní jsou k dispozici.
+                <AlertTriangle className="ikona-text" /> Některé výčepy jsou v tomto termínu rezervované — ostatní jsou k dispozici.
               </div>
             )}
             <div className="space-y-2 max-h-48 overflow-y-auto scrollbar-thin">
@@ -165,7 +167,7 @@ export function TapReservationModal({ orderDate, customerName, orderId, tapTypeH
                           {t.tap_type === 'jednokohout' ? '🚰 1K' : t.tap_type === 'dvojkohout' ? '🚰🚰 2K' : t.tap_type === 'trojkohout' ? '🚰🚰🚰 3K' : '🚰🚰🚰🚰🚰🚰 6K'}
                         </span>
                       </div>
-                      {!available && <span className="text-[10px] font-bold text-rose-600">❌ Rezervováno</span>}
+                      {!available && <span className="text-[10px] font-bold text-rose-600"><XCircle className="ikona-text" /> Rezervováno</span>}
                       {isSelected && <span className="text-amber-600 font-black text-sm">✓</span>}
                     </div>
                   </button>
@@ -239,7 +241,7 @@ export function TapReservationModal({ orderDate, customerName, orderId, tapTypeH
             onClick={handleConfirm}
             className="px-5 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md transition flex items-center gap-1.5"
           >
-            ✅ Zarezervovat výčep
+            <CheckCircle2 className="ikona-text" /> Zarezervovat výčep
           </button>
         </div>
       </div>

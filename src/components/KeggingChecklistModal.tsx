@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Modal } from './ui';
-import { CheckSquare, Square, RotateCcw, Check, ShieldCheck, Lock, AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Check, CheckSquare, FlaskConical, Lock, RotateCcw, ShieldCheck, Square, Unlock } from 'lucide-react';
 import { potvrd } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
 
@@ -185,7 +185,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
           <div className="p-3.5 rounded border-2 border-rose-300 bg-rose-50 text-rose-900 text-xs leading-relaxed flex items-start gap-3">
             <AlertTriangle size={18} className="shrink-0 text-rose-600 mt-0.5" />
             <div className="space-y-1">
-              <p className="font-black text-rose-700 uppercase tracking-wider text-[10px]">⚠️ Poslední týden v měsíci — povinná měsíční údržba</p>
+              <p className="font-black text-rose-700 uppercase tracking-wider text-[10px]"><AlertTriangle className="ikona-text" /> Poslední týden v měsíci — povinná měsíční údržba</p>
               <p className="font-medium">
                 Je nutné <b>kompletně rozebrat všechny narážeče a rychlospojky</b>, naložit je do louhu NaOH,
                 po 24 hodinách vyčistit kartáčem, důkladně opláchnout čistou vodou a provést vizuální kontrolu čistoty a těsnění.
@@ -267,7 +267,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
                           onClick={(e) => { e.stopPropagation(); if (choiceVal === 'naoh') unpick(); else pick('naoh'); }}
                           className={`px-3 py-2 rounded border-2 text-[11px] font-black transition flex items-center gap-1.5 ${choiceVal === 'naoh' ? 'bg-amber-500 border-amber-600 text-neutral-950 shadow-sm' : 'bg-white border-neutral-300 hover:border-amber-400 text-neutral-700'}`}
                         >
-                          🧪 NaOH 2% (20 minut)
+                          <FlaskConical className="ikona-text" /> NaOH 2% (20 minut)
                         </button>
                         <button
                           type="button"
@@ -342,7 +342,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
                 }}
                 className="btn-ghost !rounded flex items-center justify-center gap-1 text-[10px] font-black text-rose-600 hover:bg-rose-50 border border-dashed border-rose-200 px-2.5 py-1.5 rounded"
               >
-                <span>🔓 Přeskočit (Admin)</span>
+                <span><Unlock className="ikona-text" /> Přeskočit (Admin)</span>
               </button>
             )}
           </div>

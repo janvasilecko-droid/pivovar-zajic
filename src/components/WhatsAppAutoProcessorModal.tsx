@@ -4,7 +4,7 @@ import { WhatsAppIncoming, fetchPendingWhatsAppMessages, updateWhatsAppMessageSt
 import { parseWhatsAppOrderMessageWithAI } from '../lib/whatsappParser';
 import { analyzeReadback, findRepeatedReadbackErrors, findSimilarMessages, type RepeatedReadbackError } from '../lib/whatsappReadback';
 import { Modal, Spinner } from './ui';
-import { MessageSquare, AlertCircle, Check, X, RefreshCw, Trash2, Square, CheckSquare, Image as ImageIcon, Filter, ArrowDownUp, Clock, Copy, Download } from 'lucide-react';
+import { AlertCircle, AlertTriangle, ArrowDownUp, Check, CheckSquare, Clock, Copy, Download, Filter, Image as ImageIcon, MessageSquare, RefreshCw, Square, Trash2, X, XCircle } from 'lucide-react';
 
 interface WhatsAppAutoProcessorModalProps {
   isOpen: boolean;
@@ -344,7 +344,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
                 title="Znovu zkusí AI parsování jen u zpráv se stavem Chyba"
                 className="px-3 py-1.5 rounded bg-rose-600 text-white text-sm font-medium hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                ❌ Zkusit znovu vše ({errorMessages.length})
+                <XCircle className="ikona-text" /> Zkusit znovu vše ({errorMessages.length})
               </button>
             )}
           </div>
@@ -362,7 +362,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
             title="Zobrazit pouze zprávy, kde přepis AI nesouhlasí s originálem"
           >
             <Filter size={14} />
-            Jen ⚠ nesoulady ({listStats.mismatched})
+            Jen <AlertTriangle className="ikona-text" /> nesoulady ({listStats.mismatched})
           </button>
           <label className="flex items-center gap-1.5 text-xs text-neutral-500">
             <ArrowDownUp size={14} />
@@ -390,7 +390,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
               <div className="text-lg font-bold text-green-800">{listStats.parsed}</div>
             </div>
             <div className="rounded bg-amber-50 border border-amber-200 p-2 text-center">
-              <div className="text-amber-700">⚠ v čekajících</div>
+              <div className="text-amber-700"><AlertTriangle className="ikona-text" /> v čekajících</div>
               <div className="text-lg font-bold text-amber-800">{listStats.mismatched}</div>
             </div>
             <div className="rounded bg-blue-50 border border-blue-200 p-2 text-center" title="Z posledních 100 zpracovaných zpráv">
@@ -525,7 +525,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
                                 : `${rb.partialCount} položek částečně souhlasí`
                             }
                           >
-                            ⚠ {rb.unmatchedCount > 0 ? rb.unmatchedCount : rb.partialCount} × nesouhlasí
+                            <AlertTriangle className="ikona-text" /> {rb.unmatchedCount > 0 ? rb.unmatchedCount : rb.partialCount} × nesouhlasí
                           </span>
                         )}
                         {isRepeated && (

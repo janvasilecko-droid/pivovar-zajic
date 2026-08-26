@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { supabase, Beer, useRealtime } from '../lib/supabase';
 import { Spinner, EmptyState, Field } from '../components/ui';
-import { CheckSquare, Plus, FileText, FlaskConical, Calculator, Cylinder, Flame, Wheat } from 'lucide-react';
+import { Calculator, CheckSquare, Cylinder, FileText, Flame, FlaskConical, NotebookPen, Plus, SprayCan, Truck, User, Wheat, Zap } from 'lucide-react';
+import { IkonaSud } from '../components/ikony';
 
 type SrotovaniRow = {
   id?: string;
@@ -74,7 +75,7 @@ export function SrotovaniScreen({ setPage }: { setPage?: (p: any, sec?: string) 
             <span>Šrotování & Slad</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-display font-black tracking-tight text-white flex items-center gap-2">
-            <span>🌾 Šrotování sladu — HACCP norma 3.1</span>
+            <span><Wheat className="ikona-text" /> Šrotování sladu — HACCP norma 3.1</span>
           </h1>
           <p className="text-xs text-neutral-400 font-medium mt-1">
             Zápis šrotování sladu pro jednotlivé várky piv dle HACCP bodu 3.1 (Smyslová kontrola sladu)
@@ -85,7 +86,7 @@ export function SrotovaniScreen({ setPage }: { setPage?: (p: any, sec?: string) 
       {/* HACCP & WhatsApp Banner */}
       <div className="bg-amber-500/10 border border-amber-500/30 p-4 rounded flex flex-wrap items-center justify-between gap-3 shadow-xs">
         <div className="flex items-center gap-3">
-          <span className="text-2xl">🌾</span>
+          <span className="text-2xl"><Wheat className="ikona-text" /></span>
           <div>
             <div className="font-extrabold text-amber-950 text-xs uppercase tracking-wider">Normy HACCP pro Šrotování & Slad</div>
             <div className="text-xs text-neutral-700 font-medium">Smyslová kontrola sladu (Bod 3.1), Vystírání & Rmutování (Bod 3.2), Čištění šrotovníku</div>
@@ -145,7 +146,7 @@ export function SrotovaniScreen({ setPage }: { setPage?: (p: any, sec?: string) 
                     <span className="font-display font-black text-base text-neutral-950">{r.beer_name ?? '—'}</span>
                     <span className="text-xs font-mono font-bold text-neutral-500 bg-white border border-neutral-300 px-2 py-0.5 rounded">{new Date(r.entry_date).toLocaleDateString('cs-CZ')}</span>
                   </div>
-                  {r.note && <p className="text-xs text-neutral-600 font-medium mt-1">📝 {r.note}</p>}
+                  {r.note && <p className="text-xs text-neutral-600 font-medium mt-1"><NotebookPen className="ikona-text" /> {r.note}</p>}
                 </div>
                 <div className="shrink-0">
                   <span className="px-3.5 py-1.5 rounded bg-amber-500 text-slate-950 font-mono font-black text-sm shadow-2xs">
@@ -222,7 +223,7 @@ export function ChecklistsScreen() {
                 </div>
                 {t.assigned_to && (
                   <span className="px-2.5 py-0.5 rounded bg-neutral-900 text-amber-300 font-mono font-bold text-xs shrink-0">
-                    👤 {t.assigned_to}
+                    <User className="ikona-text" /> {t.assigned_to}
                   </span>
                 )}
               </div>
@@ -239,11 +240,11 @@ export function ChecklistsScreen() {
 
           <div className="space-y-3">
             <div className="p-3 rounded bg-amber-50 border border-amber-200 text-amber-950 space-y-1">
-              <div className="font-black text-sm">🧪 Postup sanitace stáčecí linky</div>
+              <div className="font-black text-sm"><FlaskConical className="ikona-text" /> Postup sanitace stáčecí linky</div>
               <p className="text-xs text-amber-900/80 font-medium">1. Proplach studenou vodou 10 min. 2. Cirkulace 2% hydroxidu při 60°C. 3. Proplach minerální vodou.</p>
             </div>
             <div className="p-3 rounded bg-neutral-50 border border-neutral-200 text-neutral-900 space-y-1">
-              <div className="font-black text-sm">🚚 Pokyny pro zavezování</div>
+              <div className="font-black text-sm"><Truck className="ikona-text" /> Pokyny pro zavezování</div>
               <p className="text-xs text-neutral-600 font-medium">Vždy zkontrolovat neporušenost zátek u KEG sudů a správně vyplnit dodací list pro odběratele.</p>
             </div>
           </div>
@@ -471,7 +472,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
             <span>Pivovarské kalkulačky</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-display font-black tracking-tight text-white flex items-center gap-2">
-            <span>🧮 Kalkulačky pro sládka & technologa</span>
+            <span><Calculator className="ikona-text" /> Kalkulačky pro sládka & technologa</span>
           </h1>
           <p className="text-xs text-neutral-400 font-medium mt-1">
             Dotáčení KEG sudů z tanků, ředění sanitační chemie, náklady na várku a přepočty jednotek
@@ -617,7 +618,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
           </div>
 
           <div className="card p-6 bg-white border-2 border-amber-300 rounded space-y-4 shadow-md">
-            <h3 className="font-display font-black text-lg text-amber-950">🛢️ Varianty v sudování</h3>
+            <h3 className="font-display font-black text-lg text-amber-950"><IkonaSud className="ikona-text" /> Varianty v sudování</h3>
             <div className="space-y-3 font-mono text-xs">
               <div className="p-3 rounded bg-white border border-amber-300 space-y-1">
                 <span className="text-[10px] font-black uppercase text-amber-900">1 Typ sudů:</span>
@@ -682,7 +683,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
 
           <div className="card p-6 bg-white border-2 border-amber-300 rounded space-y-4 shadow-md h-fit">
             <h3 className="font-display font-black text-lg text-amber-950 flex items-center gap-2">
-              <span>🌾 Celkem na šrotování</span>
+              <span><Wheat className="ikona-text" /> Celkem na šrotování</span>
             </h3>
 
             <div className="p-4 rounded bg-neutral-900 text-white">
@@ -712,10 +713,10 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <button type="button" onClick={() => selectPreset('louh')} className={`p-3 rounded font-black text-xs transition shadow-2xs flex flex-col items-center gap-1 ${chemType === 'louh' ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-400 scale-[1.02]' : 'bg-neutral-50 text-neutral-800 hover:bg-neutral-100 border border-neutral-200'}`}>
-                <span className="text-lg">🧪</span><span>Louh 100%</span>
+                <span className="text-lg"><FlaskConical className="ikona-text" /></span><span>Louh 100%</span>
               </button>
               <button type="button" onClick={() => selectPreset('persteril')} className={`p-3 rounded font-black text-xs transition shadow-2xs flex flex-col items-center gap-1 ${chemType === 'persteril' ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-400 scale-[1.02]' : 'bg-neutral-50 text-neutral-800 hover:bg-neutral-100 border border-neutral-200'}`}>
-                <span className="text-lg">🧼</span><span>Persteril 15%</span>
+                <span className="text-lg"><SprayCan className="ikona-text" /></span><span>Persteril 15%</span>
               </button>
               <button type="button" onClick={() => selectPreset('dusicna')} className={`p-3 rounded font-black text-xs transition shadow-2xs flex flex-col items-center gap-1 ${chemType === 'dusicna' ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-400 scale-[1.02]' : 'bg-neutral-50 text-neutral-800 hover:bg-neutral-100 border border-neutral-200'}`}>
                 <span className="text-lg">⚗️</span><span>Kyselina dusičná 53%</span>
@@ -781,7 +782,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Elektřina */}
               <div className="p-4 rounded bg-neutral-50 border border-neutral-200 space-y-2">
-                <div className="font-black text-xs text-neutral-900 uppercase">⚡ Elektřina (Chlazení + Čerpadla)</div>
+                <div className="font-black text-xs text-neutral-900 uppercase"><Zap className="ikona-text" /> Elektřina (Chlazení + Čerpadla)</div>
                 <div className="grid grid-cols-2 gap-2">
                   <Field label="kWh"><NumberStepper value={elecKwh} onChange={setElecKwh} step={10} min={0} /></Field>
                   <Field label="Kč/kWh"><NumberStepper value={elecKwc} onChange={setElecKwc} step={0.5} min={0} /></Field>
@@ -790,7 +791,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
 
               {/* Plyn */}
               <div className="p-4 rounded bg-neutral-50 border border-neutral-200 space-y-2">
-                <div className="font-black text-xs text-neutral-900 uppercase">🔥 Zemní plyn (Varna)</div>
+                <div className="font-black text-xs text-neutral-900 uppercase"><Flame className="ikona-text" /> Zemní plyn (Varna)</div>
                 <div className="grid grid-cols-2 gap-2">
                   <Field label="m³ plynu"><NumberStepper value={gasM3} onChange={setGasM3} step={2} min={0} /></Field>
                   <Field label="Kč/m³"><NumberStepper value={gasKwc} onChange={setGasKwc} step={0.5} min={0} /></Field>
@@ -800,7 +801,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
           </div>
 
           <div className="card p-6 bg-white border-2 border-amber-300 rounded shadow-md space-y-4">
-            <h3 className="font-display font-black text-lg text-amber-950">⚡ Výsledné náklady</h3>
+            <h3 className="font-display font-black text-lg text-amber-950"><Zap className="ikona-text" /> Výsledné náklady</h3>
             <div className="space-y-3 font-mono">
               <div className="p-4 rounded bg-neutral-900 border border-neutral-800">
                 <div className="text-[10px] text-neutral-400 uppercase">Celkem na 1 várku ({bHl} hl)</div>
@@ -819,7 +820,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
       {activeTab === 'units_calc' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="card p-6 bg-white border-2 border-amber-200 rounded space-y-4 shadow-sm">
-            <h4 className="font-display font-black text-base text-amber-950">🛢️ Přepočet objemu (Hektolimetry hl)</h4>
+            <h4 className="font-display font-black text-base text-amber-950"><IkonaSud className="ikona-text" /> Přepočet objemu (Hektolimetry hl)</h4>
             <NumberStepper value={volInputHl} onChange={setVolInputHl} step={1} min={0} />
             <div className="p-4 rounded bg-neutral-900 text-amber-300 font-mono text-xs space-y-1">
               <div>• Litry: <strong>{vLiters.toLocaleString('cs-CZ')} L</strong></div>
@@ -830,7 +831,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
           </div>
 
           <div className="card p-6 bg-white border-2 border-emerald-200 rounded space-y-4 shadow-sm">
-            <h4 className="font-display font-black text-base text-emerald-950">🧪 Stupňovitost (°P) ↔ Hustota (SG)</h4>
+            <h4 className="font-display font-black text-base text-emerald-950"><FlaskConical className="ikona-text" /> Stupňovitost (°P) ↔ Hustota (SG)</h4>
             <NumberStepper value={platoInput} onChange={setPlatoInput} step={0.5} min={0} />
             <div className="p-4 rounded bg-neutral-900 text-emerald-300 font-mono text-xs space-y-1">
               <div>• Specific Gravity: <strong>{sgExact.toFixed(3)} SG</strong></div>

@@ -3,7 +3,7 @@ import { supabase, Package, Beer, Place, useRealtime, formatPackageLabel } from 
 import { Spinner, EmptyState } from './ui';
 import { orderWeightKg, fmtKg } from '../lib/weight';
 import { DAYS } from '../lib/shared';
-import { History as HistoryIcon, Printer, Filter } from 'lucide-react';
+import { CalendarDays, Filter, History as HistoryIcon, Printer } from 'lucide-react';
 import { printDeliveryList } from '../lib/safePrint';
 
 type Order = {
@@ -223,7 +223,7 @@ export default function ZavozHistory() {
               <div className="flex items-center justify-between border-b border-neutral-200 pb-3 flex-wrap gap-2">
                 <div>
                   <h3 className="font-display font-black text-lg text-neutral-900 capitalize flex items-center gap-2">
-                    <span>🗓️ {formattedDate}</span>
+                    <span><CalendarDays className="ikona-text" /> {formattedDate}</span>
                   </h3>
                   <p className="text-xs text-neutral-500 font-bold">
                     {hGroup.orders.length} závozů · Celková váha tras: <strong className="text-amber-700 font-mono">{fmtKg(hGroup.totalWeight)} kg</strong>

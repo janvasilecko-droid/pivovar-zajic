@@ -18,7 +18,7 @@ import {
   type ReadbackMatch,
   type ReadbackStatus,
 } from '../lib/whatsappReadback';
-import { Check, X, MessageSquare, Image as ImageIcon, AlertCircle, UserCheck, Eye, ChevronDown, FileText, RefreshCw, ExternalLink, Download, ShieldAlert, ShieldCheck, ArrowDown } from 'lucide-react';
+import { AlertCircle, AlertTriangle, ArrowDown, Check, CheckCircle2, ChevronDown, Download, ExternalLink, Eye, FileText, Image as ImageIcon, MessageSquare, RefreshCw, ShieldAlert, ShieldCheck, ShoppingCart, UserCheck, X } from 'lucide-react';
 import { potvrd } from '../lib/toast';
 
 interface WhatsAppOrderReviewModalProps {
@@ -754,7 +754,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                     </span>
                   ) : (
                     <span className="text-amber-700 font-medium">
-                      ⚠ {readback.unmatchedCount} nesouhlasí · ≈ {readback.partialCount} částečně · ✓ {readback.matchedCount}
+                      <AlertTriangle className="ikona-text" /> {readback.unmatchedCount} nesouhlasí · ≈ {readback.partialCount} částečně · ✓ {readback.matchedCount}
                     </span>
                   )
                 ) : (
@@ -1019,7 +1019,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         {/* Akce */}
         {isImported ? (
           <div className="p-3 rounded bg-green-50 border border-green-200 text-sm text-green-800">
-            ✅ Zpráva už byla importována do objednávky — prohlížíte archiv originálu a kontrolu čtení.
+            <CheckCircle2 className="ikona-text" /> Zpráva už byla importována do objednávky — prohlížíte archiv originálu a kontrolu čtení.
             {message.readback_checked_at && (
               <span className="block text-xs text-green-700 mt-1">
                 Zkontrolováno {new Date(message.readback_checked_at).toLocaleString('cs-CZ')}
@@ -1101,7 +1101,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           <div className="font-medium text-amber-800 mb-1">Jak to funguje?</div>
           <ol className="list-decimal pl-5 space-y-1">
             <li>Zkontrolujte originální zprávu/fotku (vlevo) a porovnejte s přepisem AI (vpravo)</li>
-            <li>⚠ = položka se v originálu nenašla, ≈ = částečná shoda, ✓ = přečteno správně</li>
+            <li><AlertTriangle className="ikona-text" /> = položka se v originálu nenašla, ≈ = částečná shoda, ✓ = přečteno správně</li>
             <li>Čipy u položky ukazují kontrolu množství / objemu / stupně zvlášť</li>
             <li>Při nesouladu použijte „Přečíst znovu (AI)" nebo opravte položku ručně</li>
             <li>Schválte import - objednávka se automaticky vytvoří v systému</li>
@@ -1119,7 +1119,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     return (
       <div className="fixed inset-0 z-50 bg-white flex flex-col animate-fade-in">
         <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 shrink-0 bg-white">
-          <h3 className="font-display font-bold text-base text-neutral-900 tracking-tight">🛒 Kontrola WhatsApp objednávky</h3>
+          <h3 className="font-display font-bold text-base text-neutral-900 tracking-tight"><ShoppingCart className="ikona-text" /> Kontrola WhatsApp objednávky</h3>
           <button
             onClick={props.onClose}
             className="w-8 h-8 grid place-items-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition"
@@ -1148,7 +1148,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     return (
       <div className="fixed inset-0 z-50 bg-white flex flex-col animate-fade-in">
         <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 shrink-0 bg-white">
-          <h3 className="font-display font-bold text-base text-neutral-900 tracking-tight">🛒 Kontrola WhatsApp objednávky</h3>
+          <h3 className="font-display font-bold text-base text-neutral-900 tracking-tight"><ShoppingCart className="ikona-text" /> Kontrola WhatsApp objednávky</h3>
           <button
             onClick={props.onClose}
             className="w-8 h-8 grid place-items-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition"
