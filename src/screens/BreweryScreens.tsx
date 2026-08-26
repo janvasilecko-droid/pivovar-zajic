@@ -118,7 +118,7 @@ export function SrotovaniScreen({ setPage }: { setPage?: (p: any, sec?: string) 
             </select>
           </Field>
           <Field label="Našrotováno sladu (kg)">
-            <input type="number" step="0.1" min="0" required className="input font-mono font-black text-base" value={weightKg} onChange={(e) => setWeightKg(e.target.value)} placeholder="0.0 kg" />
+            <input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} step="0.1" min="0" required className="input font-mono font-black text-base" value={weightKg} onChange={(e) => setWeightKg(e.target.value)} placeholder="0.0 kg" />
           </Field>
         </div>
 

@@ -16,6 +16,7 @@ import { useAuth } from '../lib/auth';
 import { openNavigation, buildCustomerDeliveryWhatsAppText, openCustomerWhatsApp } from '../lib/navigation';
 import { printDeliveryList } from '../lib/safePrint';
 import { chyba, oznam } from '../lib/toast';
+import { zavibruj } from '../lib/haptika';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -214,6 +215,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
 }, [filteredOrders]);
 
   async function toggleItemPrepared(o: Order, it: OrderItem) {
+    zavibruj('odskrtnuto');
     const newPrepared = !it.is_prepared;
     const { error } = await supabase.from('order_items').update({ is_prepared: newPrepared }).eq('id', it.id);
     if (error) return;
@@ -270,6 +272,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
   }
 
   async function toggleDelivered(o: Order, afterDeliveredCallback?: () => void) {
+    zavibruj('hotovo');
     const nowDelivered = !o.is_delivered;
     const patch: Record<string, unknown> = { is_delivered: nowDelivered };
     if (nowDelivered) {

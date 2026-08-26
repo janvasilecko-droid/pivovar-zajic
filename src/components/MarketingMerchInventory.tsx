@@ -171,15 +171,15 @@ export function MarketingMerchInventory() {
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="block text-xs font-black text-neutral-700 mb-1">Počáteční ks</label>
-                  <input type="number" className="input font-bold text-sm" value={stockQty} onChange={(e) => setStockQty(e.target.value)} />
+                  <input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} className="input font-bold text-sm" value={stockQty} onChange={(e) => setStockQty(e.target.value)} />
                 </div>
                 <div>
                   <label className="block text-xs font-black text-neutral-700 mb-1">Nákup (Kč)</label>
-                  <input type="number" className="input font-bold text-sm" value={unitCostKic} onChange={(e) => setUnitCostKic(e.target.value)} />
+                  <input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} className="input font-bold text-sm" value={unitCostKic} onChange={(e) => setUnitCostKic(e.target.value)} />
                 </div>
                 <div>
                   <label className="block text-xs font-black text-neutral-700 mb-1">Prodej (Kč)</label>
-                  <input type="number" className="input font-bold text-sm" value={sellPriceKic} onChange={(e) => setSellPriceKic(e.target.value)} />
+                  <input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} className="input font-bold text-sm" value={sellPriceKic} onChange={(e) => setSellPriceKic(e.target.value)} />
                 </div>
               </div>
             </div>

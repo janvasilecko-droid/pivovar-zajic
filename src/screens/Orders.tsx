@@ -1665,7 +1665,7 @@ export default function Orders({
                         disabled={qty <= 0}
                       >−</button>
                       <input
-                        type="number"
+                        type="number" onWheel={(e) => e.currentTarget.blur()}
                         min={0}
                         inputMode="numeric"
                         value={qtyStr ?? 0}
@@ -1715,7 +1715,7 @@ export default function Orders({
                       <div className="flex items-center gap-1 shrink-0">
                         <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, -1)} className="w-10 h-10 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={Number(r.qty) <= 1}>−</button>
                         <input
-                          type="number"
+                          type="number" onWheel={(e) => e.currentTarget.blur()}
                           min={0}
                           inputMode="numeric"
                           value={r.qty}
@@ -3035,7 +3035,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                       </div>
                       <div>
                         <label className="label">Množství</label>
-                        <input type="number" min={0} className="input !py-2 text-sm" value={editQty} onChange={(e) => setEditQty(e.target.value)} inputMode="numeric" />
+                        <input type="number" onWheel={(e) => e.currentTarget.blur()} min={0} className="input !py-2 text-sm" value={editQty} onChange={(e) => setEditQty(e.target.value)} inputMode="numeric" />
                       </div>
                       <div className="col-span-2 flex gap-2">
                         <button
@@ -3123,7 +3123,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                             </div>
                             <div className="col-span-1 sm:col-span-1 lg:col-span-2">
                               <label className="label">Množství</label>
-                              <input type="number" min={0} className="input !py-2 text-sm" value={editQty} onChange={(e) => setEditQty(e.target.value)} inputMode="numeric" />
+                              <input type="number" onWheel={(e) => e.currentTarget.blur()} min={0} className="input !py-2 text-sm" value={editQty} onChange={(e) => setEditQty(e.target.value)} inputMode="numeric" />
                             </div>
                             <div className="col-span-2 sm:col-span-1 lg:col-span-2 flex gap-2">
                               <button
@@ -3163,7 +3163,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
             </div>
             <div className="col-span-1 sm:col-span-1 lg:col-span-2">
               <label className="label">Množství</label>
-              <input type="number" min={0} className="input" placeholder="ks" value={qty} onChange={(e) => setQty(e.target.value)} inputMode="numeric" />
+              <input type="number" onWheel={(e) => e.currentTarget.blur()} min={0} className="input" placeholder="ks" value={qty} onChange={(e) => setQty(e.target.value)} inputMode="numeric" />
             </div>
             <div className="col-span-1 sm:col-span-1 lg:col-span-3">
               <label className="label">Obal</label>

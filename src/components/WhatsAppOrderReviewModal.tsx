@@ -897,7 +897,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                         >
                           <div className="flex items-center gap-2 flex-wrap">
                             <input
-                              type="number"
+                              type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
                               min={1}
                               value={item.qty}
                               onChange={(e) => updateItemQty(index, e.target.value)}

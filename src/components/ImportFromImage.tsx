@@ -1194,7 +1194,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                       <div className="flex flex-col gap-0.5 min-w-0 col-span-1">
                         <span className="text-[10px] uppercase tracking-wider text-primary-400 font-semibold">Množství</span>
                         <input
-                          type="number" min={0} className="input !py-2.5 sm:!py-1.5 text-sm font-black w-full"
+                          type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} min={0} className="input !py-2.5 sm:!py-1.5 text-sm font-black w-full"
                           value={p.line.quantity ?? ''}
                           onChange={(e) => updateLine(i, { quantity: e.target.value ? Number(e.target.value) : null })}
                           onFocus={() => {

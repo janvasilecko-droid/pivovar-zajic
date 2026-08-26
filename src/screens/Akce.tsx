@@ -833,7 +833,7 @@ export default function AkceScreen() {
                       <div className="flex items-center gap-1.5">
                         <span className="font-bold text-neutral-700">Vytočeno/Prodáno:</span>
                         <input
-                          type="number"
+                          type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
                           min={0}
                           max={it.quantity_taken}
                           value={evalSoldMap[idx] ?? '0'}
@@ -851,7 +851,7 @@ export default function AkceScreen() {
                 <div>
                   <label className="block text-xs font-black text-neutral-700 mb-1">Získaná tržba z akce (Kč)</label>
                   <input
-                    type="number"
+                    type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
                     min={0}
                     placeholder="Např. 45000"
                     value={evalRevenue}

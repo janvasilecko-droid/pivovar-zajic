@@ -971,7 +971,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                         ))}
                         <button type="button" onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(Math.max(0, qty - 1)) })} className="w-10 h-10 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={qty <= 0}>−</button>
                         <input
-                          type="number"
+                          type="number" onWheel={(e) => e.currentTarget.blur()}
                           min={0}
                           inputMode="numeric"
                           value={qty || ''}
@@ -1036,7 +1036,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                         <div className="flex items-center gap-1 shrink-0">
                           <button type="button" onClick={() => setTileRow(r.beerId, r.pkgId, { qty: String(Math.max(0, Number(r.qty) - 1)) })} className="w-10 h-10 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={Number(r.qty) <= 1}>−</button>
                           <input
-                            type="number"
+                            type="number" onWheel={(e) => e.currentTarget.blur()}
                             min={0}
                             inputMode="numeric"
                             value={r.qty}
@@ -1153,7 +1153,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                             {isEditing ? (
                               <div className="flex items-center gap-1.5">
                                 <input
-                                  type="number" min="0" step="1" autoFocus
+                                  type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} min="0" step="1" autoFocus
                                   className="input text-base font-black w-16 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                   value={editQty}
                                   onChange={(e) => setEditQty(e.target.value)}
@@ -1226,7 +1226,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                             <td className="py-1.5 px-2 text-right font-bold text-emerald-950">
                               {editingId === r.id ? (
                                 <input
-                                  type="number"
+                                  type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
                                   min="0"
                                   step="1"
                                   autoFocus
@@ -1482,7 +1482,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                           {isEditing ? (
                             <div className="flex items-center gap-1.5">
                               <input
-                                type="number" min="0" step="1" autoFocus
+                                type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} min="0" step="1" autoFocus
                                 className="input text-base font-black w-16 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                 value={editQty}
                                 onChange={(e) => setEditQty(e.target.value)}
@@ -1569,7 +1569,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                           <td className="py-1.5 px-2 text-right font-bold text-amber-950">
                             {editingId === r.id ? (
                               <input
-                                type="number"
+                                type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
                                 min="0"
                                 step="1"
                                 autoFocus
@@ -1763,7 +1763,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                   <div>
                     <label className="label">Počet sudů</label>
                     <input
-                      type="number"
+                      type="number" onWheel={(e) => e.currentTarget.blur()}
                       min={1}
                       step={1}
                       inputMode="numeric"
@@ -1794,7 +1794,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                   <div>
                     <label className="label">Počet sudů</label>
                     <input
-                      type="number"
+                      type="number" onWheel={(e) => e.currentTarget.blur()}
                       min={1}
                       step={1}
                       inputMode="numeric"
@@ -1956,7 +1956,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             <div>
               <label className="label">Množství (ks)</label>
               <input
-                type="number"
+                type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
                 value={editingRow.quantity}
                 onChange={(e) => setEditingRow({ ...editingRow, quantity: Number(e.target.value) })}
                 className="input"

@@ -1144,7 +1144,7 @@ function exportInventoryExcel() {
                           <label className="block">
                             <span className="text-[10px] font-black uppercase text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded-md inline-block mb-1">Inventura</span>
                             <input
-                              type="number"
+                              type="number" onWheel={(e) => e.currentTarget.blur()}
                               min="0"
                               inputMode="numeric"
                               className="input !py-2 text-center font-mono font-black text-base text-neutral-950 border-amber-400 bg-amber-100/80 w-full rounded shadow-inner focus:ring-2 focus:ring-amber-500"
@@ -1156,7 +1156,7 @@ function exportInventoryExcel() {
                             <span className="text-[10px] font-black uppercase text-sky-800 bg-sky-50 px-1.5 py-0.5 rounded-md inline-block mb-1">Dorovnat (±)</span>
                             <div className="flex items-center gap-1">
                               <input
-                                type="number"
+                                type="number" onWheel={(e) => e.currentTarget.blur()}
                                 inputMode="numeric"
                                 className="input !py-2 text-center font-mono font-black text-base text-neutral-950 border-sky-400 bg-sky-100/80 w-full rounded shadow-inner focus:ring-2 focus:ring-sky-500"
                                 placeholder="±"
@@ -1246,7 +1246,7 @@ function exportInventoryExcel() {
                           </td>
                           <td className="text-right bg-amber-50/90 border-x border-amber-300 px-3 py-2">
                             <input
-                              type="number"
+                              type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
                               min="0"
                               className="input !py-1 text-right font-mono font-black text-xs text-neutral-950 border-amber-400 bg-amber-100/80 w-24 ml-auto rounded shadow-inner focus:ring-2 focus:ring-amber-500"
                               value={actualStock[k] !== undefined ? actualStock[k] : ''}
@@ -1256,7 +1256,7 @@ function exportInventoryExcel() {
                           <td className="text-right bg-sky-50/90 border-x border-sky-300 px-2 py-2">
                             <div className="flex items-center justify-end gap-1">
                               <input
-                                type="number"
+                                type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
                                 className="input !py-1 text-right font-mono font-black text-xs text-neutral-950 border-sky-400 bg-sky-100/80 w-20 ml-auto rounded shadow-inner focus:ring-2 focus:ring-sky-500"
                                 placeholder="±"
                                 value={dorovnatMap[k] !== undefined ? dorovnatMap[k] : ''}
@@ -1375,7 +1375,7 @@ function exportInventoryExcel() {
                         </label>
                         <div className="flex items-center gap-2">
                           <input
-                            type="number"
+                            type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
                             min="0"
                             className="input inventory-input !py-1.5 font-mono font-black text-sm text-slate-900 bg-white"
                             placeholder="0 ks"

@@ -289,7 +289,7 @@ export default function ExkurzeScreen() {
             <div>
               <label className="block text-xs font-black text-neutral-700 mb-1">Tržba / Vybraná částka (Kč)</label>
               <input
-                type="number"
+                type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
                 min={0}
                 placeholder="Např. 3000 Kč"
                 value={revenue}

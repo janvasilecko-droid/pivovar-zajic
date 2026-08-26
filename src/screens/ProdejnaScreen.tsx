@@ -373,7 +373,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                       <div className="flex items-center gap-1">
                         <button type="button" onClick={() => setTileRow(expandedProdejnaBeer.id, p.id, { qty: String(Math.max(0, qty - 1)) })} className="w-10 h-10 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={qty <= 0}>−</button>
                         <input
-                          type="number"
+                          type="number" onWheel={(e) => e.currentTarget.blur()}
                           min={0}
                           inputMode="numeric"
                           value={qty || ''}

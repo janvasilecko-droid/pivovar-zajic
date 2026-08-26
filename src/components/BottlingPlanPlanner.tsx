@@ -596,7 +596,7 @@ export function BottlingPlanPlanner({
               </div>
               <div className="w-24">
                 <label className="label">ks</label>
-                <input type="number" min={0} className="input text-right" value={form[qtyField]} onChange={(e) => setField(qtyField, e.target.value)} placeholder="0" />
+                <input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} min={0} className="input text-right" value={form[qtyField]} onChange={(e) => setField(qtyField, e.target.value)} placeholder="0" />
               </div>
             </div>
           ))}
@@ -613,7 +613,7 @@ export function BottlingPlanPlanner({
           </div>
           <div className="w-24">
             <label className="label">ks</label>
-            <input type="number" min={0} className="input text-right" value={form.kegQty} onChange={(e) => setField('kegQty', e.target.value)} placeholder="0" />
+            <input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} min={0} className="input text-right" value={form.kegQty} onChange={(e) => setField('kegQty', e.target.value)} placeholder="0" />
           </div>
         </div>
         {err && <p className="text-[11px] font-black text-rose-700 mt-2">{err}</p>}

@@ -158,7 +158,7 @@ function BeerForm({ beer, onClose, onSaved }: { beer: Beer | null; onClose: () =
             <input type="color" value={beerColor} onChange={(e) => setBeerColor(e.target.value)} className="w-8 h-8 rounded cursor-pointer border border-neutral-200" />
           </div>
         </Field>
-        <Field label="Pořadí"><input type="number" className="input" value={order} onChange={(e) => setOrder(Number(e.target.value))} /></Field>
+        <Field label="Pořadí"><input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} className="input" value={order} onChange={(e) => setOrder(Number(e.target.value))} /></Field>
         <div className="flex justify-end gap-2 pt-2">
           <button className="btn-ghost !rounded" onClick={onClose}>Zrušit</button>
           <button className="btn-primary !rounded" disabled={busy || !name} onClick={save}>{busy ? 'Ukládám…' : 'Uložit'}</button>
@@ -258,8 +258,8 @@ function PackageForm({ pkg, onClose, onSaved }: { pkg: Package | null; onClose: 
           </Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Objem (l)"><input type="number" step="0.01" className="input" value={vol} onChange={(e) => setVol(Number(e.target.value))} /></Field>
-          <Field label="Pořadí"><input type="number" className="input" value={order} onChange={(e) => setOrder(Number(e.target.value))} /></Field>
+          <Field label="Objem (l)"><input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} step="0.01" className="input" value={vol} onChange={(e) => setVol(Number(e.target.value))} /></Field>
+          <Field label="Pořadí"><input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} className="input" value={order} onChange={(e) => setOrder(Number(e.target.value))} /></Field>
         </div>
         <Field label="Popisek"><input className="input font-bold" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="KEG 30l" /></Field>
         <div className="flex justify-end gap-2 pt-2">

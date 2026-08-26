@@ -572,7 +572,7 @@ export default function VycepyScreen() {
                 <div>
                   <label className="block text-xs font-black text-neutral-700 mb-1">Vratná kauce (Kč)</label>
                   <input
-                    type="number"
+                    type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
                     min="0"
                     step="500"
                     placeholder="2000"

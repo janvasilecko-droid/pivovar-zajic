@@ -655,7 +655,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                       </div>
                       <div>
                         <div className="text-[10px] font-extrabold uppercase tracking-wider text-primary-400 mb-1">Počáteční objem (l)</div>
-                        <input type="number" step="0.1" className="input" value={inlineVolume} onChange={(e) => setInlineVolume(e.target.value)} placeholder={`např. ${t.capacity_l}`} />
+                        <input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} step="0.1" className="input" value={inlineVolume} onChange={(e) => setInlineVolume(e.target.value)} placeholder={`např. ${t.capacity_l}`} />
                       </div>
                       <div className="flex gap-1.5">
                         <button className="text-xs px-2.5 py-1 rounded bg-success-600 text-white font-bold hover:bg-success-500 disabled:opacity-50" disabled={inlineBusy} onClick={() => saveInlineTank(t)}>
@@ -1020,13 +1020,13 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                 <input type="time" className="input w-full font-bold" value={sanitationTime} onChange={(e) => setSanitationTime(e.target.value)} />
               </Field>
               <Field label="Doba trvání (minut)">
-                <input type="number" min={1} max={600} className="input w-full font-bold" value={sanitationDuration} onChange={(e) => setSanitationDuration(e.target.value === '' ? '' : Number(e.target.value))} />
+                <input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} min={1} max={600} className="input w-full font-bold" value={sanitationDuration} onChange={(e) => setSanitationDuration(e.target.value === '' ? '' : Number(e.target.value))} />
               </Field>
             </div>
 
             <Field label="Koncentrace chemie (%) — nepovinné, jinak výchozí dle metody">
               <input
-                type="number" step="0.1" min={0} max={100}
+                type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} step="0.1" min={0} max={100}
                 className="input w-full font-bold"
                 placeholder={DEFAULT_CONCENTRATION[sanitationMethod] != null ? `výchozí ${DEFAULT_CONCENTRATION[sanitationMethod]} %` : 'bez chemie'}
                 value={sanitationConcentration}
@@ -1111,7 +1111,7 @@ function StartTankForm({ tank, beers, onClose, onSaved }: { tank: CellarTank; be
           </select>
         </Field>
         <Field label="Počáteční objem (l)" hint="Výchozí 7500 l, lze upravit.">
-          <input type="number" step="0.1" className="input" value={volume} onChange={(e) => setVolume(e.target.value)} />
+          <input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} step="0.1" className="input" value={volume} onChange={(e) => setVolume(e.target.value)} />
         </Field>
         <Field label="Poznámka"><input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="poznámka" /></Field>
         {err && <div className="text-sm text-danger-600 bg-danger-500/10 rounded px-3 py-2">{err}</div>}
@@ -1217,8 +1217,8 @@ function TransferForm({ tanks, beers, initialFromId, initialBeerId, initialVolum
           </select>
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Objem (l)"><input type="number" step="0.1" className="input" value={volume} onChange={(e) => setVolume(e.target.value)} placeholder="např. 500" /></Field>
-          <Field label="Ztráta (l)"><input type="number" step="0.1" className="input" value={loss} onChange={(e) => setLoss(e.target.value)} placeholder="např. 2" /></Field>
+          <Field label="Objem (l)"><input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} step="0.1" className="input" value={volume} onChange={(e) => setVolume(e.target.value)} placeholder="např. 500" /></Field>
+          <Field label="Ztráta (l)"><input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} step="0.1" className="input" value={loss} onChange={(e) => setLoss(e.target.value)} placeholder="např. 2" /></Field>
         </div>
         <Field label="Poznámka"><input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="poznámka" /></Field>
         {err && <div className="text-sm text-danger-600 bg-danger-500/10 rounded px-3 py-2">{err}</div>}
@@ -1268,11 +1268,11 @@ function TankForm({ tank, beers, onClose, onSaved }: { tank: CellarTank; beers: 
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <Field label="Označení"><input className="input" value={label} onChange={(e) => setLabel(e.target.value)} /></Field>
-          <Field label="Kapacita (l)"><input type="number" step="0.1" className="input" value={capacity} onChange={(e) => setCapacity(e.target.value)} /></Field>
+          <Field label="Kapacita (l)"><input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} step="0.1" className="input" value={capacity} onChange={(e) => setCapacity(e.target.value)} /></Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Aktuální objem (l)"><input type="number" step="0.1" className="input" value={volume} onChange={(e) => setVolume(e.target.value)} /></Field>
-          <Field label="Počáteční objem cyklu (l)"><input type="number" step="0.1" className="input" value={initialVolume} onChange={(e) => setInitialVolume(e.target.value)} /></Field>
+          <Field label="Aktuální objem (l)"><input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} step="0.1" className="input" value={volume} onChange={(e) => setVolume(e.target.value)} /></Field>
+          <Field label="Počáteční objem cyklu (l)"><input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} step="0.1" className="input" value={initialVolume} onChange={(e) => setInitialVolume(e.target.value)} /></Field>
         </div>
         <Field label="Stav">
           <select className="input" value={status} onChange={(e) => setStatus(e.target.value as CellarTank['status'])}>

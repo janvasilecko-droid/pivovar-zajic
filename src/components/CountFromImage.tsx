@@ -405,7 +405,7 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
                         {beers.map((b) => <option key={b.id} value={b.name} />)}
                       </datalist>
                       <input
-                        type="number"
+                        type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
                         min={0}
                         placeholder="ks"
                         className="input !py-1.5 !px-1.5 text-sm sm:text-[11px] font-mono font-black w-14 text-right"

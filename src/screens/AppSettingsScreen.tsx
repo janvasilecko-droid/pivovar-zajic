@@ -1,7 +1,8 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { Download, Eye, Palette, Smartphone, Sun, Moon, Monitor, Bell, BellOff, Volume2, VolumeX, MessageSquare, Timer, RefreshCw, CloudDownload, CheckCircle2, AlertCircle, Plus, Trash2, Eraser, Lock, Users } from 'lucide-react';
+import { Download, Eye, Palette, Smartphone, Sun, Moon, Monitor, Bell, BellOff, Volume2, VolumeX, MessageSquare, Timer, RefreshCw, CloudDownload, CheckCircle2, AlertCircle, Plus, Trash2, Eraser, Lock, Users, Vibrate } from 'lucide-react';
 
 import { DENSITY_OPTIONS, DensityMode, getDensity, setDensity } from '../lib/density';
+import { haptikaZapnuta, nastavHaptiku, zavibruj } from '../lib/haptika';
 import { MenuCustomizeModal } from '../components/MenuCustomizeModal';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
@@ -23,6 +24,7 @@ interface BeforeInstallPromptEvent extends Event {
 export default function AppSettingsScreen() {
   const { profile, user, reloadProfile } = useAuth();
   const [density, setDensityState] = useState<DensityMode>(getDensity());
+  const [haptika, setHaptika] = useState(haptikaZapnuta());
   const [theme, setThemeState] = useState<Theme>(getTheme());
   const [notifPermission, setNotifPermission] = useState(getNotificationPermission());
   const [notifSettings, setNotifSettings] = useState<NotificationSettings>(getNotificationSettings());
@@ -314,6 +316,27 @@ export default function AppSettingsScreen() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Odezva do prstu */}
+      <div className="card p-6">
+        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Vibrate size={20} /> Odezva při dotyku</h2>
+        <p className="text-sm text-neutral-600 mt-2">
+          Krátké zavibrování při odškrtnutí položky nebo zápisu. Na telefonu se
+          díky tomu nemusí kontrolovat očima, jestli klepnutí prošlo.
+        </p>
+        <button
+          onClick={() => { const n = !haptika; nastavHaptiku(n); setHaptika(n); if (n) zavibruj('hotovo'); }}
+          className={`w-full text-left p-4 rounded-xl border-2 font-bold flex items-center gap-3 transition mt-4 min-h-[56px] ${
+            haptika ? 'bg-emerald-50 border-emerald-300 text-emerald-900' : 'bg-neutral-50 border-neutral-200 text-neutral-600'
+          }`}
+        >
+          <Vibrate size={20} />
+          <span className="flex-1">{haptika ? 'Zapnuto' : 'Vypnuto'}</span>
+          <span className={`w-12 h-7 rounded-full transition relative ${haptika ? 'bg-emerald-500' : 'bg-neutral-300'}`}>
+            <span className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-all ${haptika ? 'left-6' : 'left-1'}`} />
+          </span>
+        </button>
       </div>
 
       {/* Upozornění */}

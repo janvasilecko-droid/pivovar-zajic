@@ -67,6 +67,13 @@ html, body, #root {
            dark:bg-white dark:border-neutral-200 dark:text-neutral-900 dark:placeholder:text-neutral-400
            dark:focus:border-amber-500 dark:focus:ring-amber-500/20;
   }
+  /* Systémové šipky u číselných polí jsou na telefonu netrefitelné (12 px)
+     a na počítači je omylem posune kolečko. Pryč s nimi — přidávat/ubírat
+     se má tlačítky −/+ (components/PocetInput.tsx). */
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  input[type='number'] { -moz-appearance: textfield; appearance: textfield; }
+
   .label {
     @apply block text-xs sm:text-xs font-bold text-neutral-700 mb-1.5 uppercase tracking-wider;
   }
@@ -174,7 +181,10 @@ html, body, #root {
 /* Mobile screen scaling & touch optimization */
 @media (max-width: 640px) {
   html {
-    font-size: 15px;
+    /* Bylo 15 px — na telefonu se četlo hůř než na počítači, i když se appka
+       používá hlavně na telefonu. Kdo chce jinak, má Nastavení → hustota
+       zobrazení (třídy density-*, ty tuhle hodnotu přebijí). */
+    font-size: 16px;
   }
   .card {
     @apply rounded-2xl p-3.5 shadow-sm border-neutral-300/90;
@@ -196,12 +206,12 @@ html, body, #root {
 }
 
 /* User density setting */
-html.density-x-compact {
+html.density-xs {
   font-size: 12px !important;
 }
-html.density-x-compact .input,
-html.density-x-compact select,
-html.density-x-compact input {
+html.density-xs .input,
+html.density-xs select,
+html.density-xs input {
   padding-top: 0.15rem !important;
   padding-bottom: 0.15rem !important;
   padding-left: 0.3rem !important;
@@ -209,7 +219,7 @@ html.density-x-compact input {
   min-height: 26px !important;
   font-size: 0.7rem !important;
 }
-html.density-x-compact .btn {
+html.density-xs .btn {
   padding-top: 0.15rem !important;
   padding-bottom: 0.15rem !important;
   padding-left: 0.3rem !important;
@@ -217,7 +227,7 @@ html.density-x-compact .btn {
   min-height: 26px !important;
   font-size: 0.7rem !important;
 }
-html.density-x-compact .chip {
+html.density-xs .chip {
   padding: 2px 6px !important;
   font-size: 9px !important;
 }
@@ -256,24 +266,24 @@ html.density-large input {
   font-size: 0.95rem !important;
 }
 
-html.density-x-large {
+html.density-xl {
   font-size: 17px !important;
 }
-html.density-x-large .input,
-html.density-x-large select,
-html.density-x-large input {
+html.density-xl .input,
+html.density-xl select,
+html.density-xl input {
   padding-top: 0.6rem !important;
   padding-bottom: 0.6rem !important;
   min-height: 48px !important;
   font-size: 1rem !important;
 }
-html.density-x-large .btn {
+html.density-xl .btn {
   padding-top: 0.6rem !important;
   padding-bottom: 0.6rem !important;
   min-height: 48px !important;
   font-size: 1rem !important;
 }
-html.density-x-large .chip {
+html.density-xl .chip {
   padding: 6px 12px !important;
   font-size: 14px !important;
 }

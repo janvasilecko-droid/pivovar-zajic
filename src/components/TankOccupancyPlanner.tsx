@@ -352,7 +352,7 @@ export function TankOccupancyPlanner({
                 <div>
                   <label className="block text-xs font-black text-neutral-700 mb-1">Objem (hl)</label>
                   <input
-                    type="number"
+                    type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
                     step="0.5"
                     value={volumeHl}
                     onChange={(e) => setVolumeHl(e.target.value)}
@@ -374,7 +374,7 @@ export function TankOccupancyPlanner({
               <div>
                 <label className="block text-xs font-black text-neutral-700 mb-1">Doporučená doba ležení (Dny)</label>
                 <input
-                  type="number"
+                  type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
                   value={targetDays}
                   onChange={(e) => setTargetDays(e.target.value)}
                   className="input font-mono font-bold text-xs"

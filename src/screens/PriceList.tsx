@@ -126,7 +126,7 @@ export default function PriceListScreen() {
                         <label className="block">
                           <span className="text-[10px] font-black uppercase text-neutral-600 bg-white/70 px-1.5 py-0.5 rounded-md inline-block mb-1">Cena za 1 litr</span>
                           <input
-                            type="number" step="0.01" min={0}
+                            type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} step="0.01" min={0}
                             className="input w-full text-right font-mono font-black text-base bg-white border border-neutral-300 shadow-xs"
                             defaultValue={b.price_per_liter ?? ''}
                             placeholder="— Kč/l"
@@ -176,7 +176,7 @@ export default function PriceListScreen() {
                           </td>
                           <td className="py-3 px-4 text-right">
                             <input
-                              type="number" step="0.01" min={0}
+                              type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} step="0.01" min={0}
                               className="input !w-28 text-right font-mono font-black text-sm ml-auto bg-white border border-neutral-300 shadow-xs"
                               defaultValue={b.price_per_liter ?? ''}
                               placeholder="— Kč/l"
@@ -242,7 +242,7 @@ export default function PriceListScreen() {
                               <label key={p.id} className="block">
                                 <span className="text-[10px] font-black uppercase text-neutral-600 bg-white/70 px-1.5 py-0.5 rounded-md inline-block mb-1">{formatPackageLabel(p.label)}</span>
                                 <input
-                                  type="number" step="0.01" min={0}
+                                  type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} step="0.01" min={0}
                                   className="input w-full text-right font-mono font-black text-sm bg-white border border-neutral-300 shadow-xs"
                                   defaultValue={existing?.price_per_unit ?? ''}
                                   placeholder="— Kč/ks"
@@ -293,7 +293,7 @@ export default function PriceListScreen() {
                             return (
                               <td key={p.id} className="py-3 px-4 text-right">
                                 <input
-                                  type="number" step="0.01" min={0}
+                                  type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} step="0.01" min={0}
                                   className="input !w-28 text-right font-mono font-black text-sm ml-auto bg-white border border-neutral-300 shadow-xs"
                                   defaultValue={existing?.price_per_unit ?? ''}
                                   placeholder="— Kč/ks"

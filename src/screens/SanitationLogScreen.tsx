@@ -509,7 +509,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
               <div>
                 <label className="label">Trvání (min)</label>
                 <input
-                  type="number"
+                  type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
                   min={1}
                   max={600}
                   value={editDurationNum}
@@ -520,7 +520,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
               <div>
                 <label className="label">Koncentrace (%)</label>
                 <input
-                  type="number"
+                  type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
                   step="0.1"
                   min={0}
                   max={100}
@@ -609,11 +609,11 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
             <div className="grid grid-cols-3 gap-2">
               <div>
                 <label className="label">Doba trvání (min)</label>
-                <input type="number" min={1} max={600} value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value === '' ? '' : Number(e.target.value))} className="input w-full font-bold text-xs" />
+                <input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} min={1} max={600} value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value === '' ? '' : Number(e.target.value))} className="input w-full font-bold text-xs" />
               </div>
               <div>
                 <label className="label">Koncentrace (%)</label>
-                <input type="number" step="0.1" min={0} max={100} value={concentrationPct} onChange={(e) => setConcentrationPct(e.target.value === '' ? '' : Number(e.target.value))} className="input w-full font-bold text-xs" />
+                <input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} step="0.1" min={0} max={100} value={concentrationPct} onChange={(e) => setConcentrationPct(e.target.value === '' ? '' : Number(e.target.value))} className="input w-full font-bold text-xs" />
               </div>
               <div>
                 <label className="label">Sanitaci provedl</label>

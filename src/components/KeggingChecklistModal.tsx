@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Modal } from './ui';
 import { CheckSquare, Square, RotateCcw, Check, ShieldCheck, Lock, AlertTriangle } from 'lucide-react';
 import { potvrd } from '../lib/toast';
+import { zavibruj } from '../lib/haptika';
 
 export type ChecklistPhase = 'start' | 'end' | 'monthly' | 'all';
 
@@ -165,6 +166,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
   const isOverallStartDone = isStartChecklistCompleteForKeg(dateKey);
 
   function toggleItem(id: string) {
+    zavibruj('odskrtnuto');
     const next = { ...checks, [id]: !checks[id] };
     setChecks(next);
     localStorage.setItem('keg_checklist_' + dateKey, JSON.stringify(next));

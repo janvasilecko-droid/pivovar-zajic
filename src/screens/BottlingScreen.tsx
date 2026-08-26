@@ -993,7 +993,7 @@ export default function BottlingScreen({
                           ))}
                           <button type="button" onClick={() => bumpTile(slot.qty, -1)} className="w-9 h-9 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition select-none">−</button>
                           <input
-                            type="number"
+                            type="number" onWheel={(e) => e.currentTarget.blur()}
                             min={0}
                             inputMode="numeric"
                             className="w-16 h-9 text-center bg-white dark:bg-neutral-900/60 border border-amber-300 dark:border-neutral-700 text-neutral-950 dark:text-neutral-100 font-black text-sm rounded"
@@ -1027,7 +1027,7 @@ export default function BottlingScreen({
                   <div className="flex items-center gap-1">
                     <button type="button" onClick={() => bumpTile('kegQty', -1)} className="w-9 h-9 grid place-items-center rounded bg-sky-100 hover:bg-sky-200 text-sky-800 font-black text-xl transition select-none">−</button>
                     <input
-                      type="number"
+                      type="number" onWheel={(e) => e.currentTarget.blur()}
                       min={0}
                       inputMode="numeric"
                       className="w-16 h-9 text-center bg-white border border-sky-300 text-neutral-950 font-black text-sm rounded"
@@ -1083,7 +1083,7 @@ export default function BottlingScreen({
                       <div className="flex items-center gap-1 shrink-0">
                         <button type="button" onClick={() => updateQty(l.rowIndex, l.field, String(Math.max(0, l.qty - 1)))} className="w-10 h-10 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={l.qty <= 1}>−</button>
                         <input
-                          type="number"
+                          type="number" onWheel={(e) => e.currentTarget.blur()}
                           min={0}
                           inputMode="numeric"
                           value={l.qty}
@@ -1873,7 +1873,7 @@ export default function BottlingScreen({
             <div>
               <label className="label">Množství (ks)</label>
               <input
-                type="number"
+                type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
                 value={editingRow.quantity}
                 onChange={(e) => setEditingRow({ ...editingRow, quantity: Number(e.target.value) })}
                 className="input"
@@ -1898,7 +1898,7 @@ export default function BottlingScreen({
               <div>
                 <label className="label">Počet sudů</label>
                 <input
-                  type="number"
+                  type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
                   value={editingRow.kegs_used || ''}
                   onChange={(e) => setEditingRow({ ...editingRow, kegs_used: e.target.value ? Number(e.target.value) : null })}
                   className="input"

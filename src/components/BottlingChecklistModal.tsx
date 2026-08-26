@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Modal } from './ui';
 import { CheckSquare, Square, RotateCcw, Check, ShieldCheck, Lock } from 'lucide-react';
+import { zavibruj } from '../lib/haptika';
 
 type ChecklistItem = {
   id: string;
@@ -243,6 +244,7 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
   }, [isOpen, storageKey]);
 
   const toggleItem = (id: string) => {
+    zavibruj('odskrtnuto');
     setCheckedMap((prev) => {
       const next = { ...prev, [id]: !prev[id] };
       localStorage.setItem(storageKey, JSON.stringify(next));

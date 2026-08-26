@@ -178,7 +178,7 @@ function CountdownTimersTool() {
         <div>
           <label className="block text-[11px] font-bold text-neutral-500 mb-1">Minuty</label>
           <input
-            type="number"
+            type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
             min={1}
             value={newMin}
             onChange={(e) => setNewMin(e.target.value)}

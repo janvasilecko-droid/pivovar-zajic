@@ -229,7 +229,7 @@ export function BottlingLineMaintenance() {
                 <div>
                   <label className="block text-xs font-black text-neutral-700 mb-1">Servisní interval (Dní)</label>
                   <input
-                    type="number"
+                    type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
                     className="input font-bold text-sm"
                     value={intervalDays}
                     onChange={(e) => setIntervalDays(e.target.value)}

@@ -732,7 +732,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                 <div>
                   <label className="block text-xs font-black text-neutral-700 mb-1">Tachometr na začátku měsíce (km)</label>
                   <input
-                    type="number"
+                    type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
                     required
                     value={autoStartKm}
                     onChange={(e) => setAutoStartKm(e.target.value)}
@@ -794,7 +794,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                           🦆 Kachna
                         </label>
                         <input
-                          type="number"
+                          type="number" onWheel={(e) => e.currentTarget.blur()}
                           min={0}
                           step="0.1"
                           inputMode="decimal"
@@ -935,7 +935,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                 <div>
                   <label className="block text-xs font-black text-neutral-700 mb-1">Stav tachometru start (km)</label>
                   <input
-                    type="number"
+                    type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
                     required
                     value={kmStart}
                     onChange={(e) => setKmStart(e.target.value)}
@@ -950,7 +950,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                 <div>
                   <label className="block text-xs font-black text-neutral-700 mb-1">Ujeté km (vzdálenost)</label>
                   <input
-                    type="number"
+                    type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
                     required
                     value={kmDriven}
                     onChange={(e) => setKmDriven(e.target.value)}
