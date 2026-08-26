@@ -569,7 +569,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
           </div>
 
           {/* Interactive Day Filter Tabs — jediná ukotvená lišta v Zavozu (spolu s přepínačem Trasy/Co naložit níže). */}
-          <div className="sticky top-[52px] z-20 flex items-center gap-2 overflow-x-auto scrollbar-thin bg-neutral-100 pb-2 pt-1">
+          <div className="sticky top-0 z-20 flex items-center gap-2 overflow-x-auto scrollbar-thin bg-neutral-100 pb-2 pt-1">
             <button
               onClick={() => setSelectedDayFilter('all')}
               className={`px-4 py-2.5 rounded font-black text-xs shrink-0 transition-all flex items-center gap-2 shadow-xs ${
@@ -650,7 +650,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
           ) : (
             <>
               {/* Mobile Tab Switcher — ukotvený hned pod dnovým filtrem výše. */}
-              <div className="lg:hidden sticky top-[100px] z-20 flex items-center p-1.5 rounded bg-white border border-neutral-200 shadow-md">
+              <div className="lg:hidden sticky top-[48px] z-20 flex items-center p-1.5 rounded bg-white border border-neutral-200 shadow-md">
                 <button
                   onClick={() => setMobileTab('routes')}
                   className={`flex-1 py-3 px-3 rounded font-black text-xs transition-all flex items-center justify-center gap-2 ${

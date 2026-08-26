@@ -158,7 +158,7 @@ export default function ZavozHistory() {
       </div>
 
       {/* Filtry historie tras */}
-      <div className="card sticky top-[48px] sm:top-[56px] z-10 p-3 bg-white border border-neutral-200 rounded shadow-xs space-y-2">
+      <div className="card sticky top-0 z-10 p-3 bg-white border border-neutral-200 rounded shadow-xs space-y-2">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-[11px] font-black uppercase tracking-wider text-neutral-500 flex items-center gap-1"><Filter size={13} /> Filtry</span>
           {/* Období */}

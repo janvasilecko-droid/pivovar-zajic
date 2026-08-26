@@ -884,7 +884,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
       {/* TAB 1: OVERVIEW & MONTHLY COMPARISON */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
-          <div className="card sticky top-[48px] sm:top-[56px] z-10 p-4 flex flex-wrap items-end gap-3 bg-white border border-neutral-200 shadow-sm">
+          <div className="card sticky top-0 z-10 p-4 flex flex-wrap items-end gap-3 bg-white border border-neutral-200 shadow-sm">
             <div className="flex-1 min-w-[180px]">
               <label className="label">Pivo</label>
               <select className="input" value={beerFilter} onChange={(e) => setBeerFilter(e.target.value)}>
@@ -1158,7 +1158,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
       {activeTab === 'production' && (
         <div className="space-y-6">
           {/* Volba období */}
-          <div className="card sticky top-[48px] sm:top-[56px] z-10 p-4 bg-white border border-neutral-200 rounded flex flex-wrap items-end gap-3 shadow-sm">
+          <div className="card sticky top-0 z-10 p-4 bg-white border border-neutral-200 rounded flex flex-wrap items-end gap-3 shadow-sm">
             <div>
               <label className="label">Období</label>
               <div className="flex flex-wrap gap-1.5">
@@ -1527,7 +1527,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
 
             {/* Zdroje aktivit + Date range — přilepené nahoře, ať jde měnit
                 filtr i uprostřed prohlížení výsledků dole. */}
-            <div className="sticky top-[48px] sm:top-[56px] z-10 bg-white space-y-3 py-1 -mx-5 px-5">
+            <div className="sticky top-0 z-10 bg-white space-y-3 py-1 -mx-5 px-5">
               <div>
                 <label className="label mb-2">Aktivita / zdroj dat</label>
                 <div className="flex flex-wrap gap-2">

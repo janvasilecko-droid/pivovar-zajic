@@ -58,7 +58,7 @@ export function BeersScreen() {
       </div>
 
       {/* Search Input */}
-      <div className="sticky top-[52px] z-10 bg-white py-1.5">
+      <div className="sticky top-0 z-10 bg-white py-1.5">
         <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
         <input
           type="text"
@@ -340,7 +340,7 @@ export function PlacesScreen() {
         </button>
       </div>
 
-      <div className="sticky top-[52px] z-10 bg-white py-1.5">
+      <div className="sticky top-0 z-10 bg-white py-1.5">
         <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
         <input
           type="text"

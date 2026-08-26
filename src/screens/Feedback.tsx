@@ -111,7 +111,7 @@ export default function Feedback({ setPage, initialSubTab }: { setPage?: (p: any
   return (
     <div className="space-y-6 pb-12">
       {/* Navigation tabs — přilepené pod záložkami PlanningTabbed nad tím. */}
-      <div className="sticky top-[56px] z-10 bg-neutral-100 pt-1 flex items-center gap-2 border-b border-neutral-200 pb-2">
+      <div className="sticky top-0 z-10 bg-neutral-100 pt-1 flex items-center gap-2 border-b border-neutral-200 pb-2">
         <button
           onClick={() => selectTab('notes')}
           className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 ${

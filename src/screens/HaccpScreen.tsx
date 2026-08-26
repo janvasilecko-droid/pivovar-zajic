@@ -413,7 +413,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
         </div>
 
         {/* Přilepené pod záložkami SanitaceTabbed nad tím. */}
-        <div className="sticky top-[56px] z-10 bg-white flex items-center gap-2 overflow-x-auto scrollbar-thin pt-1 border-t border-amber-200/60">
+        <div className="sticky top-0 z-10 bg-white flex items-center gap-2 overflow-x-auto scrollbar-thin pt-1 border-t border-amber-200/60">
           <button
             onClick={() => selectTab('sanitacni_rad')}
             className={`px-4 py-2.5 rounded text-xs font-black transition flex items-center gap-2 shrink-0 ${

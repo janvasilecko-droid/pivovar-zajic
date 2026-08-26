@@ -2009,7 +2009,7 @@ export default function Orders({
         {/* Delivery Day quick selector tabs — jediná přilepená lišta v Objednávkách (přepínač období a vyhledávací filtry pod ní se scrollují normálně).
             Stejný jazyk jako zbytek tlačítek appky: černá/bílý text, označený
             (aktivní) filtr se pro odlišení obrátí na bílou s tmavým textem. */}
-        <div className="sticky top-[52px] z-20 mb-2.5 bg-neutral-100 pt-1 flex items-center gap-1.5 overflow-x-auto scrollbar-thin pb-1">
+        <div className="sticky top-0 z-20 mb-2.5 bg-neutral-100 pt-1 flex items-center gap-1.5 overflow-x-auto scrollbar-thin pb-1">
           <button
             onClick={() => setDeliveryDayFilter('all')}
             className={`px-3.5 py-1.5 rounded font-extrabold text-xs shrink-0 transition-all ${

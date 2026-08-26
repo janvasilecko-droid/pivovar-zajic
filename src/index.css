@@ -74,6 +74,14 @@ html, body, #root {
   input[type='number']::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   input[type='number'] { -moz-appearance: textfield; appearance: textfield; }
 
+  /* Zvětšení dotykové plochy bez změny vzhledu. Malá ikonová tlačítka
+     (24–36 px) jsou v tabulkách nutná, ale prstem se trefují mizerně —
+     tohle jim přidá 6 px neviditelného okraje na každou stranu, takže
+     z 24px čtverce je 36px cíl a z 36px cíl 48px. Layout se nemění. */
+  .tap { position: relative; }
+  .tap::after { content: ""; position: absolute; inset: -6px; }
+  .tap:active { transform: scale(0.94); }
+
   .label {
     @apply block text-xs sm:text-xs font-bold text-neutral-700 mb-1.5 uppercase tracking-wider;
   }

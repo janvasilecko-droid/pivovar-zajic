@@ -1116,7 +1116,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
             return (
               <div className="card p-4 mb-5 border-2 border-emerald-300/80 bg-white">
-                <div className="sticky top-[66px] z-10 flex flex-wrap items-center justify-between gap-2 mb-3 bg-white py-1.5 -mx-4 px-4 rounded-t-2xl">
+                <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 mb-3 bg-white py-1.5 -mx-4 px-4 rounded-t-2xl">
                   <h3 className="font-display font-black text-emerald-950 text-sm">🍺 Stočeno KEG za týden {weekKey}</h3>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {weekBeers.length > 0 && (
@@ -1340,7 +1340,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       <div className="mt-0 space-y-3">
 
         {/* Přilepeno pod hlavní listou záložek, ať jde přepínat obdobi/filtry i uprostřed scrollování dlouhé tabulky níže. */}
-        <div className="sticky top-[66px] z-10 flex flex-wrap items-center justify-between gap-2 bg-neutral-100 py-1.5 -mx-4 px-4 sm:mx-0 sm:px-0">
+        <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 bg-neutral-100 py-1.5 -mx-4 px-4 sm:mx-0 sm:px-0">
           <div className="text-xs font-black uppercase tracking-wider text-amber-950/60 flex items-center gap-2">
             <span>📋</span>
             <span>Všechny záznamy stáčení KEG</span>

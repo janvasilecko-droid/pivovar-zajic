@@ -9,6 +9,7 @@ import { CountFromImage } from '../components/CountFromImage';
 import { computeInventoryReconciliation } from '../lib/inventoryHelper';
 import { buildMovements, expectedForMonth, stockAtStartOfDay, type StockLine } from '../lib/stockLedger';
 import { chyba, oznam, potvrd } from '../lib/toast';
+import { zavibruj } from '../lib/haptika';
 
 type InitialStockMap = Record<string, number>; // key: `${beer_id}__${package_id}`, val: qty
 
@@ -738,6 +739,19 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   }, [rows, pocitaniFiltr, actualStock]);
 
   /** Položky, které se letos hýbaly, ale při inventuře se nespočítaly. */
+  // Počítání po kusech: „+" a „−" u inventurního pole. Při ručním počítání
+  // v chlaďáku se klepe jednou za kus, přepisovat číslo na klávesnici by bylo
+  // pomalejší a snadněji se u toho ztratí počet. Prázdné pole = nula, takže
+  // první „+" zapíše 1. Pod nulu to nejde, kusy záporné nejsou.
+  function posunInventuru(klic: string, o: number) {
+    setActualStock((prev) => {
+      const soucasne = Number(String(prev[klic] ?? '').replace(',', '.') || 0);
+      const nova = Math.max(0, Math.round(soucasne + o));
+      return { ...prev, [klic]: String(nova) };
+    });
+    zavibruj('odskrtnuto');
+  }
+
   const nespocitane = useMemo(
     () => rows.filter((r) =>
       !jeSpocitana(r.beer_id, r.package_id) &&
@@ -1143,14 +1157,31 @@ function exportInventoryExcel() {
                         <div className="grid grid-cols-2 gap-2">
                           <label className="block">
                             <span className="text-[10px] font-black uppercase text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded-md inline-block mb-1">Inventura</span>
-                            <input
-                              type="number" onWheel={(e) => e.currentTarget.blur()}
-                              min="0"
-                              inputMode="numeric"
-                              className="input !py-2 text-center font-mono font-black text-base text-neutral-950 border-amber-400 bg-amber-100/80 w-full rounded shadow-inner focus:ring-2 focus:ring-amber-500"
-                              value={actualStock[k] !== undefined ? actualStock[k] : ''}
-                              onChange={(e) => setActualStock((prev) => ({ ...prev, [k]: e.target.value }))}
-                            />
+                            <div className="flex items-stretch gap-1">
+                              <button
+                                type="button"
+                                onClick={() => posunInventuru(k, -1)}
+                                className="shrink-0 w-11 min-h-[44px] grid place-items-center rounded-lg bg-amber-200/70 hover:bg-amber-300 text-amber-950 font-black text-xl transition active:scale-95"
+                                title="O jeden kus míň"
+                                aria-label="O jeden kus míň"
+                              >−</button>
+                              <input
+                                type="number" onWheel={(e) => e.currentTarget.blur()}
+                                min="0"
+                                inputMode="numeric"
+                                className="input !py-2 text-center font-mono font-black text-base text-neutral-950 border-amber-400 bg-amber-100/80 w-full min-w-0 rounded shadow-inner focus:ring-2 focus:ring-amber-500"
+                                value={actualStock[k] !== undefined ? actualStock[k] : ''}
+                                onFocus={(e) => e.currentTarget.select()}
+                                onChange={(e) => setActualStock((prev) => ({ ...prev, [k]: e.target.value }))}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => posunInventuru(k, 1)}
+                                className="shrink-0 w-11 min-h-[44px] grid place-items-center rounded-lg bg-emerald-200/80 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition active:scale-95"
+                                title="O jeden kus víc"
+                                aria-label="O jeden kus víc"
+                              >+</button>
+                            </div>
                           </label>
                           <label className="block">
                             <span className="text-[10px] font-black uppercase text-sky-800 bg-sky-50 px-1.5 py-0.5 rounded-md inline-block mb-1">Dorovnat (±)</span>
@@ -1244,14 +1275,21 @@ function exportInventoryExcel() {
                               {r.expectedQty} ks
                             </span>
                           </td>
-                          <td className="text-right bg-amber-50/90 border-x border-amber-300 px-3 py-2">
-                            <input
-                              type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
-                              min="0"
-                              className="input !py-1 text-right font-mono font-black text-xs text-neutral-950 border-amber-400 bg-amber-100/80 w-24 ml-auto rounded shadow-inner focus:ring-2 focus:ring-amber-500"
-                              value={actualStock[k] !== undefined ? actualStock[k] : ''}
-                              onChange={(e) => setActualStock((prev) => ({ ...prev, [k]: e.target.value }))}
-                            />
+                          <td className="text-right bg-amber-50/90 border-x border-amber-300 px-2 py-2">
+                            {/* Počítá se po kusech i tady — u dlouhého seznamu je klepnutí
+                                rychlejší a spolehlivější než přepisování čísla. */}
+                            <div className="flex items-center justify-end gap-1">
+                              <button type="button" onClick={() => posunInventuru(k, -1)} title="O jeden kus míň" aria-label="O jeden kus míň" className="shrink-0 w-9 h-9 grid place-items-center rounded-lg bg-amber-200/70 hover:bg-amber-300 text-amber-950 font-black transition active:scale-95 tap">−</button>
+                              <input
+                                type="number" inputMode="numeric" onWheel={(e) => e.currentTarget.blur()}
+                                min="0"
+                                className="input !py-1 text-center font-mono font-black text-xs text-neutral-950 border-amber-400 bg-amber-100/80 w-16 rounded shadow-inner focus:ring-2 focus:ring-amber-500"
+                                value={actualStock[k] !== undefined ? actualStock[k] : ''}
+                                onFocus={(e) => e.currentTarget.select()}
+                                onChange={(e) => setActualStock((prev) => ({ ...prev, [k]: e.target.value }))}
+                              />
+                              <button type="button" onClick={() => posunInventuru(k, 1)} title="O jeden kus víc" aria-label="O jeden kus víc" className="shrink-0 w-9 h-9 grid place-items-center rounded-lg bg-emerald-200/80 hover:bg-emerald-300 text-emerald-950 font-black transition active:scale-95 tap">+</button>
+                            </div>
                           </td>
                           <td className="text-right bg-sky-50/90 border-x border-sky-300 px-2 py-2">
                             <div className="flex items-center justify-end gap-1">
