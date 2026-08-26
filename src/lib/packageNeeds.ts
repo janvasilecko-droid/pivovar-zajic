@@ -139,7 +139,7 @@ export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind
 
   // Sklad v PONDĚLÍ RÁNO: počátek měsíce (s převodem z předchozího měsíce,
   // včetně zavezených objednávek) + pohyby od 1. dne měsíce do pondělí.
-  const invMap = getStartingStockMap(weekStartMonth, inventoryRows, bottlingRows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, 0, zavozDeductionRows, akceRows);
+  const invMap = getStartingStockMap(weekStartMonth, inventoryRows, bottlingRows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, 0, zavozDeductionRows, akceRows, prefukRows, adjustmentRows);
 
   const producedRows = [...bottlingRows, ...keggingRows];
 

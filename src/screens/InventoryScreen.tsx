@@ -57,9 +57,11 @@ function computeInitialStockForMonth(
   fpRows: any[],
   woRows: any[],
   zdRows: any[],
-  akRows: any[]
+  akRows: any[],
+  pfRows: any[] = [],
+  adjRows: any[] = []
 ): Record<string, number> {
-  return getStartingStockMap(monthKey, invRowsAll, btRows, kgRows, faRows, fpRows, woRows, 0, zdRows, akRows);
+  return getStartingStockMap(monthKey, invRowsAll, btRows, kgRows, faRows, fpRows, woRows, 0, zdRows, akRows, pfRows, adjRows);
 }
 
 export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; initialSubTab?: string } = {}) {
@@ -123,7 +125,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     const loadId = ++loadCountRef.current;
     setLoading(true);
 
-    const [{ data: b }, { data: pk }, { data: bt }, { data: kg }, { data: fa }, { data: fp }, { data: wo }, { data: inv }, { data: adj }, { data: zd }, { data: ak }] = await Promise.all([
+    const [{ data: b }, { data: pk }, { data: bt }, { data: kg }, { data: fa }, { data: fp }, { data: wo }, { data: inv }, { data: adj }, { data: zd }, { data: ak }, { data: pf }] = await Promise.all([
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
       supabase.from('bottling').select('beer_id,package_id,quantity,entry_date,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
@@ -137,6 +139,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       // čísla shodovala i po dodatečné změně data doručení objednávky (viz Stock.tsx).
       supabase.from('zavoz_deductions').select('deduct_date,beer_id,package_id,quantity'),
       supabase.from('akce').select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
+      supabase.from('keg_prefuk').select('entry_date,beer_id,from_package_id,from_count,to_package_id,to_count'),
     ]);
 
     if (loadId !== loadCountRef.current) return;
@@ -158,7 +161,9 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       (fp as any[]) ?? [],
       (wo as any[]) ?? [],
       (zd as any[]) ?? [],
-      (ak as any[]) ?? []
+      (ak as any[]) ?? [],
+      (pf as any[]) ?? [],
+      (adj as any[]) ?? []
     );
     if (shouldReloadState) {
       setInitialStock(invAcc);
@@ -384,7 +389,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     loadData();
   }, [currentMonth]);
 
-  useRealtime(['beers', 'packages', 'bottling', 'kegging', 'fasovani', 'fasovani_private', 'writeoffs', 'inventory', 'inventory_adjustments', 'zavoz_deductions'], loadData);
+  useRealtime(['beers', 'packages', 'bottling', 'kegging', 'fasovani', 'fasovani_private', 'writeoffs', 'inventory', 'inventory_adjustments', 'zavoz_deductions', 'akce', 'akce_items', 'keg_prefuk'], loadData);
 
 
 

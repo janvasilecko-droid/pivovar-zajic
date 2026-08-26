@@ -52,7 +52,9 @@ export function getStartingStockMap(
   writeoffsRows: any[],
   depth = 0,
   zavozDeductionRows: any[] = [],
-  akceRows: AkceRow[] = []
+  akceRows: AkceRow[] = [],
+  prefukRows: any[] = [],
+  adjustmentRows: any[] = []
 ): Record<string, number> {
   // Prevent infinite recursion
   if (depth > 12) {
@@ -136,7 +138,9 @@ export function getStartingStockMap(
     writeoffsRows,
     depth + 1,
     zavozDeductionRows,
-    akceRows
+    akceRows,
+    prefukRows,
+    adjustmentRows
   );
 
   const map: Record<string, number> = { ...prevStartingMap };
@@ -182,6 +186,33 @@ export function getStartingStockMap(
       if (!r.beer_id || !r.package_id) return;
       const k = `${r.beer_id}__${r.package_id}`;
       map[k] = Math.max(0, (map[k] || 0) - Number(r.quantity || 0));
+    });
+
+  // Přefuk KEGů v prevMonthKey (přelití piva mezi obaly: z jednoho objemu
+  // ubude, do druhého přibude). Chyběl tady i v Dashboardu a Inventuře, a
+  // počítal ho jen Sklad — přefuk 20× 50l na 33× 30l tak jinde vypadal jako
+  // manko u jedné velikosti a přebytek u druhé, každý měsíc znovu.
+  prefukRows
+    .filter((r) => r.entry_date?.slice(0, 7) === prevMonthKey)
+    .forEach((r) => {
+      if (!r.beer_id) return;
+      if (r.from_package_id) {
+        const k = `${r.beer_id}__${r.from_package_id}`;
+        map[k] = Math.max(0, (map[k] || 0) - Number(r.from_count || 0));
+      }
+      if (r.to_package_id) {
+        const k = `${r.beer_id}__${r.to_package_id}`;
+        map[k] = (map[k] || 0) + Number(r.to_count || 0);
+      }
+    });
+
+  // Dorovnání inventury (manko/přebytek, ± ks) — stejný zdroj jako Sklad.
+  adjustmentRows
+    .filter((r) => r.entry_date?.slice(0, 7) === prevMonthKey)
+    .forEach((r) => {
+      if (!r.beer_id || !r.package_id) return;
+      const k = `${r.beer_id}__${r.package_id}`;
+      map[k] = Math.max(0, (map[k] || 0) + Number(r.quantity || 0));
     });
 
   // Subtract kegs consumed as a bottling source in prevMonthKey (kegs_used /

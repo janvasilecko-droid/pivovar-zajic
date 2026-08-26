@@ -93,7 +93,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
 
   async function load(silent = false) {
     if (!silent) setLoading(true);
-    const [{ data: b }, { data: pk }, { data: bt }, { data: kg }, { data: wo }, { data: inv }, { data: oi }, { data: ord }, { data: ak }, { data: fa }, { data: fp }, { data: zd }, { data: adj }] = await Promise.all([
+    const [{ data: b }, { data: pk }, { data: bt }, { data: kg }, { data: wo }, { data: inv }, { data: oi }, { data: ord }, { data: ak }, { data: fa }, { data: fp }, { data: zd }, { data: adj }, { data: pf }] = await Promise.all([
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
       supabase.from('bottling').select('entry_date,beer_id,package_id,quantity,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
@@ -107,6 +107,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
       supabase.from('fasovani_private').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('zavoz_deductions').select('deduct_date,beer_id,package_id,quantity'),
       supabase.from('inventory_adjustments').select('entry_date,beer_id,package_id,quantity'),
+      supabase.from('keg_prefuk').select('entry_date,beer_id,from_package_id,from_count,to_package_id,to_count'),
     ]);
     const beerList = (b as Beer[]) ?? [];
     const pkgList = (pk as Package[]) ?? [];
@@ -123,6 +124,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
     const fpRows = (fp as Row[]) ?? [];
     const zdRows = (zd as { deduct_date: string; beer_id: string | null; package_id: string | null; quantity: number }[]) ?? [];
     const adjRows = (adj as { entry_date: string; beer_id: string | null; package_id: string | null; quantity: number }[]) ?? [];
+    const pfRows = (pf as any[]) ?? [];
 
     const now = new Date();
     const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -178,7 +180,9 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
       woRows,
       0,
       zdRows,
-      akRows
+      akRows,
+      pfRows,
+      adjRows
     );
 
     const result: StockStat[] = beerList.map((beer) => {
@@ -306,7 +310,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
   }
 
   useEffect(() => { load(); }, [brewFrom, brewTo]);
-  useRealtime(['bottling', 'kegging', 'fasovani', 'fasovani_private', 'writeoffs', 'inventory', 'orders', 'order_items', 'akce', 'akce_items', 'zavoz_deductions', 'inventory_adjustments'], () => load(true));
+  useRealtime(['bottling', 'kegging', 'fasovani', 'fasovani_private', 'writeoffs', 'inventory', 'orders', 'order_items', 'akce', 'akce_items', 'zavoz_deductions', 'inventory_adjustments', 'keg_prefuk'], () => load(true));
 
   const statusOf = (s: StockStat) => s.remaining < 0 ? 'deficit' : s.stockTotal === 0 ? 'empty' : s.remaining <= 10 ? 'low' : 'ok';
 

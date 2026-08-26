@@ -1,7 +1,7 @@
 // Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-export const APP_VERSION = '1.882';
-export const APP_VERSION_DATE = '26.8.2026 08:30';
+export const APP_VERSION = '1.883';
+export const APP_VERSION_DATE = '26.8.2026 11:08';
 
 
 
@@ -9,7 +9,8 @@ export const APP_VERSION_DATE = '26.8.2026 08:30';
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 
 export const APP_CHANGELOG: string[] = [
-  '⚡ Appka je svižnější: při uložení objednávky s 15 položkami se dřív obrazovka přenačítala 15× po sobě (až 225 dotazů z jednoho uložení) — teď se změny sloučí do jednoho načtení. 📱 Export do Excelu šel na mobilu otevřít jen najetím myší, takže na telefonu nefungoval vůbec (Lahve, KEG, Prodejna, Závoz) — teď se rozbalí klepnutím. 🐛 Objednávky konečně ukazují, že se načítají (dřív bylo prázdno a objednávky se pak "samy objevily"). 🔐 Mazání zápisu stáčení lahví se teď ptá (křížek sousedí s plusem, jedno chybné klepnutí mazalo nenávratně) a sanitace kyselinou ve Sklepě varuje, že tank vyprázdní. v1.881',
+  '🐛 Sklad, Dashboard a Inventura si přestaly odporovat: přefuk sudů (přelití piva mezi objemy) počítal jen Sklad — po přefuku 20× 50l na 33× 30l ostatní obrazovky ukazovaly o 20 padesátek víc a o 33 třicítek míň, a v inventuře to vypadalo jako manko u jedné velikosti a přebytek u druhé. Do převodu z minulého měsíce se teď započítává i dorovnání inventury. 📴 Offline stav je konečně vidět i na mobilu — proužek nad spodní lištou ukazuje, že jste offline a kolik zápisů čeká v telefonu (dřív byl ukazatel schovaný a offline zápis vypadal stejně jako uložený). 🔐 Dokončena serverová ochrana práv i u zbylých tabulek; seznam povolených WhatsApp odesílatelů teď smí měnit jen správce. v1.883',
+  '⚡ Appka je svižnější: při uložení objednávky s 15 položkami se dřív obrazovka přenačítala 15× po sobě (až 225 dotazů z jednoho uložení) — teď se změny sloučí do jednoho načtení. 📱 Export do Excelu šel na mobilu otevřít jen najetím myší, takže na telefonu nefungoval vůbec (Lahve, KEG, Prodejna, Závoz) — teď se rozbalí klepnutím. 🐛 Objednávky konečně ukazují, že se načítají (dřív bylo prázdno a objednávky se pak "samy objevily"). 🔐 Mazání zápisu stáčení lahví se teď ptá (křížek sousedí s plusem, jedno chybné klepnutí mazalo nenávratně) a sanitace kyselinou ve Sklepě varuje, že tank vyprázdní. v1.882',
   '🛢️ Vrácené prázdné sudy se konečně evidují: okno po zavezení objednávky dosud jen zobrazilo "✅ Zaznamenáno" a nikam nic neuložilo — nešlo zjistit, kdo kolik sudů dluží (a sud stojí 2–3 tisíce). Teď se zápis skutečně ukládá, při chybě se úspěch nehlásí, a v Závozu přibyl přehled "Konto sudů" s tím, kdo má u sebe kolik prázdných KEGů. v1.880',
   '🐛 KRITICKÉ — Akce a festivaly se konečně ukládají do databáze: dosud zůstávaly jen v paměti prohlížeče, takže je nikdo jiný neviděl, vymazání dat prohlížeče je smazalo, a hlavně se odvezené pivo NIKDY neodečetlo ze skladu (Sklad, Dashboard i Inventura z toho počítaly, ale tabulka byla prázdná). Odvezete 40 sudů na slavnosti a sklad je dál počítal jako dostupné. Akce zadané dřív se při prvním otevření automaticky převedou. Když se uložení nepovede, appka to teď ohlásí místo tichého selhání. v1.878',
   '🐛 Čtení objednávek: pivo napsané jako "sl 11" nebo "sv 12" (barva před číslem) se četlo špatně — číslo se ignorovalo a doplnil se výchozí ležák 12°, takže z jedenáctky byla dvanáctka. Teď číslo u barvy určuje stupeň v obou pořadích ("11sl" i "sl 11") a stupeň napsaný přímo v objednávce má přednost před tím, co odhadne AI. 🔐 Bezpečnost: fotky objednávek z WhatsAppu šlo stáhnout bez přihlášení — kdokoli si mohl nechat vypsat seznam všech souborů; anonymní výpis je zablokovaný. v1.875',

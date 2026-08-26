@@ -779,6 +779,44 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             Skleněná (stejný vzhled na všech stránkách, ne jen na Domů) —
             žádné vyplněné barevné bloky, jen ikona+popisek aktivní položky
             obarvené stejnou barvou, jakou má daná dlaždice v launcheru. */}
+        {/* 📴 Stav připojení a fronta neodeslaných zápisů.
+            Dřív byl tenhle ukazatel jen v horní liště s třídou "hidden sm:flex",
+            takže na telefonu nebyl vidět NIKDY — a na počítači mizel na Domů
+            i na všech záložkových stránkách. Zápis provedený offline přitom
+            vypadá stejně jako uložený (zelené „Uloženo"), takže ve sklepě
+            s kolísavým signálem lidé zapisovali stáčení s tím, že je hotovo.
+            Sem nad dok je to vidět na každé stránce včetně mobilu. */}
+        {(!online || pending > 0) && (
+          <div className="fixed bottom-[64px] left-0 right-0 z-30 px-2 pointer-events-none sm:max-w-lg sm:mx-auto">
+            <button
+              type="button"
+              onClick={async () => {
+                const { syncQueue, queueLength } = await import('../lib/offline');
+                if (queueLength() === 0) return;
+                setSyncing(true);
+                const r = await syncQueue();
+                setSyncing(false);
+                setSyncMsg(r.remaining === 0 ? `Odesláno ${r.ok} změn` : `OK ${r.ok}, selhalo ${r.failed}`);
+                setTimeout(() => setSyncMsg(null), 4000);
+              }}
+              disabled={syncing || pending === 0}
+              className={`pointer-events-auto w-full rounded-lg px-3 py-2 text-xs font-black shadow-lg border flex items-center justify-center gap-2 transition ${
+                !online
+                  ? 'bg-amber-500 border-amber-600 text-neutral-950'
+                  : 'bg-sky-600 border-sky-700 text-white hover:bg-sky-500'
+              }`}
+            >
+              {!online ? (
+                <>
+                  <span>📴 Jste offline</span>
+                  {pending > 0 && <span className="opacity-90">— {pending} zápisů čeká v telefonu</span>}
+                </>
+              ) : (
+                <span>{syncing ? '⏳ Odesílám zápisy…' : `🔄 ${pending} zápisů čeká na odeslání — klepněte pro odeslání`}</span>
+              )}
+            </button>
+          </div>
+        )}
         <nav
           className="hs-glass-chrome fixed bottom-0 left-0 right-0 z-30 border-t shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-1 py-1.5 pb-safe flex items-center justify-around gap-1 sm:max-w-lg sm:mx-auto sm:rounded-t-2xl sm:border-x"
         >
