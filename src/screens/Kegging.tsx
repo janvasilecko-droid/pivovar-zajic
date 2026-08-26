@@ -538,22 +538,32 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     });
 
     const { error } = await supabase.from('kegging').insert(payloads);
-    setSaving(false);
-    if (error) { setErr(error.message); return; }
+    if (error) { setSaving(false); setErr(error.message); return; }
 
-    // odecti stoceny objem z kazdeho dotcenho tanku zvlast
+    // Odečti stočený objem z každého dotčeného tanku. RELATIVNĚ přes RPC —
+    // dřív se počítala absolutní hodnota z React state, takže když stáčeli
+    // dva lidé ze stejného tanku naráz, druhý zápis přepsal první.
     for (const [tankId, deductL] of deductByTank.entries()) {
       const tank = cellarTanks.find((t) => t.id === tankId);
       if (!tank) continue;
-      const newVol = Math.max(Number(tank.current_volume_l) - deductL, 0);
-      const newStatus = newVol <= 0 ? tank.status : 'emptying';
-      await supabase.from('cellar_tanks').update({
-        current_volume_l: newVol,
-        status: newStatus,
-        updated_at: new Date().toISOString(),
-      }).eq('id', tankId);
+      const { error: tankErr } = await supabase.rpc('adjust_tank_volume', {
+        p_tank_id: tankId,
+        p_delta_l: -deductL,
+      });
+      if (tankErr) {
+        // Stočení je uložené, ale tank se nesnížil — na to uživatele
+        // upozorníme, ať to nezůstane tiše rozjeté.
+        setErr(`Stáčení uloženo, ale objem tanku ${tank.label} se nepodařilo snížit: ${tankErr.message}`);
+        continue;
+      }
+      if (tank.status !== 'emptying') {
+        await supabase.from('cellar_tanks').update({ status: 'emptying', updated_at: new Date().toISOString() }).eq('id', tankId);
+      }
     }
 
+    // Odemknout tlačítko až TEĎ — dřív se odemklo hned po vložení stáčení,
+    // takže dvojklik stihl uložit zápis dvakrát.
+    setSaving(false);
     setEntryRows(emptyRows()); setNote(''); setErr(null);
     setFlash(true); setTimeout(() => setFlash(false), 800);
     load(true);
@@ -566,13 +576,18 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // úprava/smazání objem tanku vůbec nereflektovaly).
   async function adjustTankVolume(tankId: string | null | undefined, addL: number) {
     if (!tankId || !addL) return;
-    const tank = cellarTanks.find((t) => t.id === tankId);
-    if (!tank) return;
-    const newVol = Math.max(Number(tank.current_volume_l) + addL, 0);
-    await supabase.from('cellar_tanks').update({
-      current_volume_l: newVol,
-      updated_at: new Date().toISOString(),
-    }).eq('id', tankId);
+    // RELATIVNÍ úprava přímo v databázi. Dřív se aktuální objem četl z React
+    // state a posílala se hotová absolutní hodnota — jenže úprava záznamu volá
+    // tuhle funkci dvakrát po sobě (vrátit starý objem, odečíst nový) a stav
+    // se mezi await voláními neobnoví, takže obě volání vyšla ze stejné
+    // hodnoty a druhé přepsalo první. Oprava překlepu „35 → 36 sudů" tak
+    // ubrala z tanku 1800 l místo padesáti. Zároveň to řeší případ, kdy
+    // stáčejí dva lidé ze stejného tanku naráz.
+    const { error } = await supabase.rpc('adjust_tank_volume', {
+      p_tank_id: tankId,
+      p_delta_l: addL,
+    });
+    if (error) setErr(`Úprava objemu tanku se nepovedla: ${error.message}`);
   }
 
   // Sdílená logika pro increment/setQty/saveEdit: dopočítá nový

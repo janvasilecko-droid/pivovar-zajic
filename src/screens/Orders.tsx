@@ -1042,7 +1042,19 @@ export default function Orders({
     setOrders((arr) => arr.map((x) => x.id === o.id ? { ...x, ...patch } as Order : x));
   }
   async function setStatus(o: Order, status: string) {
-    await supabase.from('orders').update({ status }).eq('id', o.id);
+    // Přes RPC, aby se při stornu zároveň uklidil odpočet závozu. Ten se
+    // dělá automaticky v 1:00 ráno v den závozu — když odběratel objednávku
+    // dopoledne zruší, odpočet dřív zůstal navždy a sklad byl trvale nižší
+    // o zrušené sudy (v inventuře pak nevysvětlitelný přebytek).
+    // Obojí v jedné transakci, takže nemůže nastat půl na půl.
+    const { error } = await supabase.rpc('set_order_status', {
+      p_order_id: o.id,
+      p_status: status,
+    });
+    if (error) {
+      setErr(`Změna stavu se nepovedla: ${error.message}`);
+      return;
+    }
     load();
   }
   async function toggleFlag(o: Order, key: 'is_prepared' | 'is_packaged' | 'is_delivered') {

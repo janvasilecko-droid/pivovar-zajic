@@ -1,7 +1,7 @@
 // Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-export const APP_VERSION = '1.886';
-export const APP_VERSION_DATE = '26.8.2026 09:18';
+export const APP_VERSION = '1.887';
+export const APP_VERSION_DATE = '26.8.2026 11:24';
 
 
 
@@ -9,7 +9,8 @@ export const APP_VERSION_DATE = '26.8.2026 09:18';
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 
 export const APP_CHANGELOG: string[] = [
-  '🐛 Zápis bez vybraného piva už neprojde: dřív se stáčení, fasování nebo odpis bez piva uložily a byly vidět v seznamu, ale VŠECHNY skladové výpočty je přeskočily — pivo se tedy nikdy neodečetlo (ani nepřičetlo) a sklad byl trvale špatně, aniž šlo zjistit proč. Teď to hlídá formulář i databáze. 🔐 Smazání piva nebo obalu z číselníku dřív rázem zneviditelnilo všechny jeho historické pohyby (včetně zpětných dopočtů minulých měsíců) — nově to databáze nedovolí a je potřeba pivo označit jako neaktivní. v1.885',
+  '🐛 ZÁVAŽNÉ — oprava záznamu stáčení vysávala tank: úprava překlepu "35 → 36 sudů" ubrala z tanku 1800 litrů místo padesáti, protože se vrácení původního objemu a odečet nového počítaly ze stejné výchozí hodnoty a druhý přepsal první. Po pár opravách byl tank v aplikaci prázdný, i když byl fyzicky plný. Objem se teď mění relativně přímo v databázi, takže to platí i když stáčejí dva lidé ze stejného tanku naráz. Tlačítko Uložit se navíc odemkne až po dokončení (dvojklik ukládal dvakrát). 🐛 Storno objednávky teď vrátí pivo do skladu — odpočet závozu (běží v 1:00 ráno) dřív zůstal navždy, takže sklad byl trvale nižší o zrušené sudy a v inventuře z toho byl nevysvětlitelný přebytek. v1.887',
+  '🐛 Zápis bez vybraného piva už neprojde: dřív se stáčení, fasování nebo odpis bez piva uložily a byly vidět v seznamu, ale VŠECHNY skladové výpočty je přeskočily — pivo se tedy nikdy neodečetlo (ani nepřičetlo) a sklad byl trvale špatně, aniž šlo zjistit proč. Teď to hlídá formulář i databáze. 🔐 Smazání piva nebo obalu z číselníku dřív rázem zneviditelnilo všechny jeho historické pohyby (včetně zpětných dopočtů minulých měsíců) — nově to databáze nedovolí a je potřeba pivo označit jako neaktivní. v1.886',
   '🐛 Sklad, Dashboard a Inventura si přestaly odporovat: přefuk sudů (přelití piva mezi objemy) počítal jen Sklad — po přefuku 20× 50l na 33× 30l ostatní obrazovky ukazovaly o 20 padesátek víc a o 33 třicítek míň, a v inventuře to vypadalo jako manko u jedné velikosti a přebytek u druhé. Do převodu z minulého měsíce se teď započítává i dorovnání inventury. 📴 Offline stav je konečně vidět i na mobilu — proužek nad spodní lištou ukazuje, že jste offline a kolik zápisů čeká v telefonu (dřív byl ukazatel schovaný a offline zápis vypadal stejně jako uložený). 🔐 Dokončena serverová ochrana práv i u zbylých tabulek; seznam povolených WhatsApp odesílatelů teď smí měnit jen správce. v1.884',
   '⚡ Appka je svižnější: při uložení objednávky s 15 položkami se dřív obrazovka přenačítala 15× po sobě (až 225 dotazů z jednoho uložení) — teď se změny sloučí do jednoho načtení. 📱 Export do Excelu šel na mobilu otevřít jen najetím myší, takže na telefonu nefungoval vůbec (Lahve, KEG, Prodejna, Závoz) — teď se rozbalí klepnutím. 🐛 Objednávky konečně ukazují, že se načítají (dřív bylo prázdno a objednávky se pak "samy objevily"). 🔐 Mazání zápisu stáčení lahví se teď ptá (křížek sousedí s plusem, jedno chybné klepnutí mazalo nenávratně) a sanitace kyselinou ve Sklepě varuje, že tank vyprázdní. v1.882',
   '🛢️ Vrácené prázdné sudy se konečně evidují: okno po zavezení objednávky dosud jen zobrazilo "✅ Zaznamenáno" a nikam nic neuložilo — nešlo zjistit, kdo kolik sudů dluží (a sud stojí 2–3 tisíce). Teď se zápis skutečně ukládá, při chybě se úspěch nehlásí, a v Závozu přibyl přehled "Konto sudů" s tím, kdo má u sebe kolik prázdných KEGů. v1.880',
