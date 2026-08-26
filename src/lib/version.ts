@@ -1,7 +1,7 @@
 // Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
 export const APP_VERSION = '1.903';
-export const APP_VERSION_DATE = '26.8.2026 13:17';
+export const APP_VERSION_DATE = '26.8.2026 17:55';
 
 
 
@@ -9,6 +9,7 @@ export const APP_VERSION_DATE = '26.8.2026 13:17';
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 
 export const APP_CHANGELOG: string[] = [
+  '📒 Sklad počítá nově — jako účetní kniha. Dosud se každý pohyb zvlášť ořezával na nulu, takže když se vydalo víc, než kolik appka věděla, schodek zmizel a sklad hlásil 0. Skrývalo to skutečný problém: u 34 z 56 položek evidence nesedí (12° Světlá 1l −166 ks, 12° Tmavá 0,33l −160 ks, 11° Světlá 30l −12 ks). Nově se stav počítá od poslední inventury a nic se neořezává; položky, kde to nesedí, jsou nahoře ve Skladu vypsané i s tím, o kolik a od které inventury. Srovná je fyzická inventura. Zároveň je matematika na JEDNOM místě místo v sedmi kopiích, které se rozcházely. v1.902',
   '✅ Odškrtávátko v plánu stáčení už NEZAPISUJE stáčení — je to jen přehled, abyste viděli, co máte hotové. Stáčení se dál zapisuje v \"Začátek stáčení\" a jenom to hýbe skladem a objemem tanku. Odškrtnutí se ukládá zvlášť (vidí ho i kolega na jiném zařízení) a se skutečně zapsaným stáčením se skládá tak, že se nepočítá dvakrát: když si položku odškrtnete a pak ji poctivě zapíšete, zůstane započítaná jednou. v1.901',
   '🗑️ Stará záložka \"Potřeba stočit KEGy\" je pryč — počítala z měsíčního skladu, který se rozešel s realitou, a ukazovala jiná čísla než denní rozpad. Nahradila ji záložka \"Co stočit na který den\", která teď umí i \"Celý týden\": stejný přehled pivo × obal za celý týden, ale sečtený z těch samých denních dat, takže se s nimi nemůže rozejít. Přenesené je i klikání na \"Zobrazit objednávky\" u chybějící položky. v1.900',
   '🔢 Souhrn nad tabulkou \"Potřeba stočit KEGy\" počítal jen řádky, kde něco chybělo — hlásil proto 75 objednaných sudů, i když jich bylo 119. Přepínač \"Jen chybějící\" teď schovává řádky v tabulce, ale karty nahoře už neořezává. v1.899',

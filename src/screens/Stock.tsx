@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { ZavozDeductionRow } from '../lib/zavozDeduction';
 
 import { supabase, Beer, Package, KegPrefuk, useRealtime, beerBorder } from '../lib/supabase';
+import { buildMovements, stockAsOf, stockKey } from '../lib/stockLedger';
 import { Spinner, EmptyState, Modal } from '../components/ui';
-import { Warehouse, Calendar, BarChart2, PackageCheck, Download, ShoppingBag, Tent } from 'lucide-react';
+import { Warehouse, Calendar, BarChart2, PackageCheck, Download, ShoppingBag, Tent, AlertTriangle, ChevronDown } from 'lucide-react';
 import { exportExciseTaxReportToExcel } from '../lib/excel';
 import { FestivalEquipmentTracker } from '../components/FestivalEquipmentTracker';
 import { MarketingMerchInventory } from '../components/MarketingMerchInventory';
@@ -16,6 +17,12 @@ type StockByPkg = {
   fromInv: number; brewedW: number; woW: number; fasovaniW: number; prodejnaW: number;
   akceWeek: number; kegsUsedW: number; zdW: number; prefukFrom: number; prefukTo: number; adjW: number;
   orderedW: number;
+};
+
+// Položka, u které skladová kniha vychází záporně — evidence u ní nesedí.
+type NesediRow = {
+  key: string; beerName: string; pkgLabel: string;
+  qty: number; baselineDate: string | null; baselineQty: number;
 };
 
 type StockRow = {
@@ -83,6 +90,8 @@ export default function Stock() {
   const [weekKey, setWeekKey] = useState(isoWeekKey(todayISO()));
   const [invMonth, setInvMonth] = useState<string>(monthKey(todayISO()));
   const [detail, setDetail] = useState<StockRow | null>(null);
+  const [nesediRows, setNesediRows] = useState<NesediRow[]>([]);
+  const [showNesedi, setShowNesedi] = useState(false);
 
   const [brewFrom, setBrewFrom] = useState<string>(startOfMonthISO(todayISO()));
   const [brewTo, setBrewTo] = useState<string>(todayISO());
@@ -119,41 +128,6 @@ export default function Stock() {
       ]);
 
     const inv = (invData ?? []) as { entry_date: string; beer_id: string | null; package_id: string | null; quantity: number; note?: string }[];
-    // Počáteční inventura pro zvolený měsíc (s navázáním na předchozí měsíc)
-    let lastInv = inv.filter((r) => monthKey(r.entry_date) === curMonth && (r.note?.includes('Počáteční') || !r.note));
-    if (lastInv.length === 0) {
-      const prevMonth = (() => {
-        const [y, m] = curMonth.split('-').map(Number);
-        const d = new Date(Date.UTC(y, m - 2, 1));
-        return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
-      })();
-      const prevActual = inv.filter((r) => monthKey(r.entry_date) === prevMonth && (r.note?.includes('Fyzická') || r.note?.includes('Schválená')));
-      if (prevActual.length > 0) {
-        lastInv = prevActual;
-      } else {
-        lastInv = inv.filter((r) => monthKey(r.entry_date) === prevMonth);
-      }
-    }
-
-    const isMovementInPeriod = (entry_date?: string) => {
-      if (!entry_date) return false;
-      return monthKey(entry_date) === curMonth;
-    };
-
-    const getKegsUsed = (r: any) => {
-      const kegsUsed = Number(r.kegs_used || 0);
-      if (kegsUsed <= 0) return null;
-      if (r.kegs_used_package_id) return { kegPkgId: r.kegs_used_package_id, kegsUsed };
-      const sourceL = Number(r.source_volume_l || 0);
-      if (sourceL > 0) {
-        const singleVol = sourceL / kegsUsed;
-        const matched = pkgList.find((p) => p.kind === 'keg' && Number(p.volume_l) === singleVol);
-        if (matched) return { kegPkgId: matched.id, kegsUsed };
-      }
-      const pkg = pkgList.find((p) => p.id === r.package_id);
-      if (pkg && pkg.kind === 'keg') return { kegPkgId: pkg.id, kegsUsed };
-      return null;
-    };
 
     const bot = (botData ?? []) as BrewRow[];
     const keg = (kegData ?? []) as BrewRow[];
@@ -179,57 +153,55 @@ export default function Stock() {
     // může chvíli zaostávat za ranním odpočtem ze skladu.
     const deductedItemIds = new Set(zd.map((r) => r.order_item_id).filter(Boolean));
 
+    // 📒 Stav skladu ze skladové knihy (lib/stockLedger.ts) — jediné místo,
+    // které v aplikaci ví, jak se která tabulka promítá do skladu. Dřív si
+    // tenhle výpočet držela každá obrazovka po svém (Sklad, Inventura,
+    // Dashboard, potřeba stočit lahví i sudů, plánovač stáčení) a kopie se
+    // rozcházely — přefuk chyběl ve třech ze čtyř, Akce se nepočítaly vůbec.
+    const movements = buildMovements({
+      inventoryRows: inv,
+      bottlingRows: bot,
+      keggingRows: keg,
+      fasovaniRows: fa,
+      prodejnaRows: fp,
+      writeoffsRows: wo,
+      zavozDeductionRows: zd,
+      akceRows: akRows,
+      prefukRows: pf,
+      adjustmentRows: adj,
+      packages: pkgList,
+    });
+    // Konec zvoleného měsíce, nebo dnešek, když jde o měsíc aktuální.
+    const monthEnd = (() => {
+      const [y, m] = curMonth.split('-').map(Number);
+      const last = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+      const dnes = todayISO();
+      return last > dnes ? dnes : last;
+    })();
+    const ledger = stockAsOf(movements, monthEnd);
+
     const stockRows: StockRow[] = beerList.map((beer) => {
       const stockByPkg: StockByPkg[] = pkgList.map((pkg) => {
-        const fromInv = lastInv.filter((r) => r.beer_id === beer.id && r.package_id === pkg.id).reduce((s, r) => s + Number(r.quantity), 0);
-        const brewedW = [...bot, ...keg]
-          .filter((r) => r.beer_id === beer.id && r.package_id === pkg.id && isMovementInPeriod(r.entry_date))
-          .reduce((s, r) => s + Number(r.quantity), 0);
+        const line = ledger.get(stockKey(beer.id, pkg.id));
+        const k = line?.byKind ?? {};
+        const fromInv = line?.baselineQty ?? 0;
+        const brewedW = (k.kegovani ?? 0) + (k.staceni ?? 0);
+        const woW = -(k.odpis ?? 0);
+        const fasovaniW = -(k.fasovani ?? 0);
+        const prodejnaW = -(k.prodejna ?? 0);
+        const akceWeek = -(k.akce ?? 0);
+        const kegsUsedW = -(k.sud_na_lahve ?? 0);
+        const zdW = -(k.zavoz ?? 0);
+        const prefukFrom = -(k.prefuk_z ?? 0);
+        const prefukTo = k.prefuk_do ?? 0;
+        const adjW = k.dorovnani ?? 0;
 
-        const woW = wo.filter((r) => r.beer_id === beer.id && r.package_id === pkg.id && isMovementInPeriod(r.entry_date)).reduce((s, r) => s + Number(r.quantity), 0);
-        const fasovaniW = fa.filter((r) => r.beer_id === beer.id && r.package_id === pkg.id && isMovementInPeriod(r.entry_date)).reduce((s, r) => s + Number(r.quantity), 0);
-        const prodejnaW = fp.filter((r) => r.beer_id === beer.id && r.package_id === pkg.id && isMovementInPeriod(r.entry_date)).reduce((s, r) => s + Number(r.quantity), 0);
-
-        let akceWeek = 0;
-        akRows.filter((r) => isMovementInPeriod(r.entry_date)).forEach((r) => {
-          (r.items ?? []).forEach((it: any) => {
-            if (it.beer_id === beer.id && it.package_id === pkg.id) {
-              akceWeek += Math.max(0, Number(it.quantity_taken || 0) - Number(it.quantity_returned || 0));
-            }
-          });
-        });
-
-        const seenKegSource = new Set<string>();
-        let kegsUsedW = 0;
-        bot.filter((r) => r.beer_id === beer.id && isMovementInPeriod(r.entry_date)).forEach((r) => {
-          const res = getKegsUsed(r);
-          if (res && res.kegPkgId === pkg.id) {
-            const key = `${r.entry_date}|${r.beer_id}|${res.kegsUsed}|${res.kegPkgId}|${(r as any).created_at || (r as any).note || ''}`;
-            if (seenKegSource.has(key)) return;
-            seenKegSource.add(key);
-            kegsUsedW += res.kegsUsed;
-          }
-        });
-
-        const outgoingMoved = fasovaniW + woW + prodejnaW + akceWeek + kegsUsedW;
-
-        // Automatický odpočet závozu (zavoz_deductions) — položky odečtené ráno v 01:00
-        const zdW = zd
-          .filter((r) => r.beer_id === beer.id && r.package_id === pkg.id && isMovementInPeriod(r.deduct_date))
-          .reduce((s, r) => s + Number(r.quantity), 0);
-
-        // Přefuk KEG: sudy ZE (from_count) se odečtou ze skladu, sudy DO (to_count) se přičtou
-        const prefukFrom = pf.filter((r) => r.beer_id === beer.id && r.from_package_id === pkg.id && isMovementInPeriod(r.entry_date)).reduce((s, r) => s + Number(r.from_count || 0), 0);
-        const prefukTo = pf.filter((r) => r.beer_id === beer.id && r.to_package_id === pkg.id && isMovementInPeriod(r.entry_date)).reduce((s, r) => s + Number(r.to_count || 0), 0);
-
-        // Dorovnání inventury (± z Inventura → Fyzická inventura), zapsané bokem přes inventory_adjustments.
-        // Bez tohoto řádku Sklad ignoroval manko/přebytek zjištěné a zapsané v Inventuře.
-        const adjW = adj
-          .filter((r) => r.beer_id === beer.id && r.package_id === pkg.id && isMovementInPeriod(r.entry_date))
-          .reduce((s, r) => s + Number(r.quantity || 0), 0);
-
-        // Aktuální reálný stav na skladě = Počáteční + Stočeno − vydáno/odepsáno − odpočet závozu − přefuk ZE + přefuk DO + dorovnání
-        const rawStock = fromInv + brewedW - outgoingMoved - zdW - prefukFrom + prefukTo + adjW;
+        // rawStock může být ZÁPORNÝ a to je správně — znamená to, že se vydalo
+        // víc, než evidence zná. Dřív se to ořezávalo na nulu už při každém
+        // jednotlivém pohybu, takže schodek nebyl vidět nikde (v srpnu 2026 byl
+        // u 34 z 56 položek) a čerstvé stáčení nejdřív umazávalo neexistující
+        // dluh, místo aby zvedlo stav.
+        const rawStock = line?.qty ?? 0;
         const currentStock = Math.max(0, rawStock);
 
         // Objednáno (zobrazený sloupec) = celý týden, i to už zavezené — informace
@@ -262,6 +234,25 @@ export default function Stock() {
     });
 
     setRows(stockRows);
+
+    // Položky, u kterých kniha vychází do mínusu — evidence u nich nesedí.
+    const nesedi: NesediRow[] = [];
+    ledger.forEach((line) => {
+      if (line.qty >= 0) return;
+      const beer = beerList.find((x) => x.id === line.beer_id);
+      const pkg = pkgList.find((x) => x.id === line.package_id);
+      if (!beer || !pkg) return;
+      nesedi.push({
+        key: line.key,
+        beerName: beer.name,
+        pkgLabel: String(pkg.label).trim(),
+        qty: line.qty,
+        baselineDate: line.baselineDate,
+        baselineQty: line.baselineQty,
+      });
+    });
+    nesedi.sort((a, z) => a.qty - z.qty);
+    setNesediRows(nesedi);
     if (!silent) setLoading(false);
   }
 
@@ -372,6 +363,54 @@ export default function Stock() {
 
       {topTab === 'stock' && (
         <>
+          {/* ⚠️ Položky, u kterých evidence nesedí — vydalo se víc, než kolik
+              aplikace zná. Dřív se každý takový schodek ořezal na nulu a nikde
+              nebyl vidět; sklad pak tvrdil „0 ks" i tam, kde chybělo 160 kusů.
+              Viz lib/stockLedger.ts. */}
+          {nesediRows.length > 0 && (
+            <div className="mb-4 rounded border-2 border-rose-300 bg-rose-50 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowNesedi((v) => !v)}
+                className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-rose-100/60 transition"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <AlertTriangle size={20} className="text-rose-600 shrink-0" />
+                  <div className="min-w-0">
+                    <div className="font-display font-black text-rose-900 text-sm">
+                      U {nesediRows.length} {nesediRows.length === 1 ? 'položky' : nesediRows.length < 5 ? 'položek' : 'položek'} nesedí evidence
+                    </div>
+                    <div className="text-[11px] font-bold text-rose-700 mt-0.5">
+                      Vydalo se víc, než kolik aplikace ví, že se stočilo nebo napočítalo v inventuře. Sklad u nich ukazuje 0.
+                    </div>
+                  </div>
+                </div>
+                <ChevronDown size={18} className={`text-rose-600 shrink-0 transition-transform ${showNesedi ? 'rotate-180' : ''}`} />
+              </button>
+              {showNesedi && (
+                <div className="border-t border-rose-200 bg-white/70 divide-y divide-rose-100">
+                  {nesediRows.map((r) => (
+                    <div key={r.key} className="flex items-center justify-between gap-3 px-4 py-2.5 text-xs">
+                      <span className="font-black text-neutral-800 min-w-0 truncate">
+                        {r.beerName} <span className="text-neutral-500">{r.pkgLabel}</span>
+                      </span>
+                      <span className="flex items-center gap-3 shrink-0 font-mono font-bold text-neutral-600">
+                        <span className="hidden sm:inline text-[11px]">
+                          {r.baselineDate ? `inventura ${r.baselineDate} = ${r.baselineQty}` : 'bez inventury'}
+                        </span>
+                        <span className="text-rose-700 font-black text-sm tabular-nums">{r.qty} ks</span>
+                      </span>
+                    </div>
+                  ))}
+                  <div className="px-4 py-3 text-[11px] font-bold text-neutral-600 bg-rose-50/60">
+                    Nejčastější příčina: v inventuře se položka nenapočítala (chybí v seznamu), nebo se nezapsalo stáčení.
+                    Srovná to fyzická inventura — ta stav nastaví napevno a počítá se od ní dál.
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Top summary stats */}
           <div className="grid grid-cols-3 gap-3 text-center mb-4">
             <div className="p-3 rounded bg-white border border-amber-300/80 shadow-xs">

@@ -6,6 +6,7 @@ import { AlertTriangle, ClipboardList, PackageCheck, Layers, Beer as BeerIcon, B
 import { AnnouncementManagerModal } from '../components/AnnouncementManagerModal';
 import SkloPromoScreen from './SkloPromoScreen';
 import { getStartingStockMap } from '../lib/inventoryHelper';
+import { buildMovements, stockAsOf, stockKey } from '../lib/stockLedger';
 import { QuickCountModal } from '../components/QuickCountModal';
 import { fetchLabelBalances } from '../lib/labelStock';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
@@ -24,6 +25,8 @@ type StockByPkg = {
   fromInventory: number; brewedWeek: number;
   orderedWeek: number; writeoffsWeek: number; fasovaniWeek: number; prodejnaWeek: number; akTaken: number; akReturned: number;
   kegsUsedWeek: number; odpocet: number; remaining: number;
+  /** Stav ze skladové knihy BEZ ořezání na nulu — záporný = evidence nesedí. */
+  rawQuantity: number;
   /** Dorovnání inventury (manko/přebytek, ± z Inventura → Fyzická inventura). */
   adjWeek: number;
   /** Objednáno celkem mínus to, co už fyzicky odjelo (zavoz_deductions) tento měsíc — kolik ještě čeká na odvoz. */
@@ -31,6 +34,11 @@ type StockByPkg = {
   /** Objednáno s dovozem do konce TOHOTO týdne (ne celý měsíc) — základ pro "Zbyde". */
   orderedThisWeek: number;
 };
+type NesediRow = {
+  key: string; beerName: string; pkgLabel: string;
+  qty: number; baselineDate: string | null; baselineQty: number;
+};
+
 type StockStat = {
   beer: Beer;
   stockByPkg: StockByPkg[];
@@ -64,6 +72,9 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
   const [brewStats, setBrewStats] = useState<BrewStat[]>([]);
   const [brewLoading, setBrewLoading] = useState(true);
   const [showQuickCount, setShowQuickCount] = useState(false);
+  // Položky, u kterých skladová kniha vychází záporně — evidence nesedí.
+  const [nesedi, setNesedi] = useState<NesediRow[]>([]);
+  const [showNesedi, setShowNesedi] = useState(false);
 
   async function handleConfirmQuickCount(items: { beerId: string; packageId: string; count: number }[]) {
     if (!items.length) return;
@@ -185,6 +196,21 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
       adjRows
     );
 
+    // 📒 Skladová kniha — jediný zdroj pravdy o stavu skladu.
+    const ledger = stockAsOf(buildMovements({
+      inventoryRows: invRows,
+      bottlingRows: btRows,
+      keggingRows: kgRows,
+      fasovaniRows: faRows,
+      prodejnaRows: fpRows,
+      writeoffsRows: woRows,
+      zavozDeductionRows: zdRows,
+      akceRows: akRows,
+      prefukRows: pfRows,
+      adjustmentRows: adjRows,
+      packages: pkgList,
+    }), todayISO());
+
     const result: StockStat[] = beerList.map((beer) => {
       const byPkg = new Map<string, StockByPkg>();
       const add = (rs: { beer_id: string | null; package_id: string | null; quantity: number }[], field: 'fromInventory' | 'brewedWeek' | 'orderedWeek' | 'orderedThisWeek' | 'writeoffsWeek' | 'fasovaniWeek' | 'prodejnaWeek' | 'akTaken' | 'akReturned') =>
@@ -193,7 +219,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
           const pkg = pkgList.find((p) => p.id === r.package_id);
           if (!pkg) return;
           let e = byPkg.get(r.package_id);
-          if (!e) { e = { package_id: r.package_id, label: pkg.label, quantity: 0, volume_l: pkg.volume_l, kind: pkg.kind, fromInventory: 0, brewedWeek: 0, orderedWeek: 0, orderedThisWeek: 0, writeoffsWeek: 0, fasovaniWeek: 0, prodejnaWeek: 0, akTaken: 0, akReturned: 0, kegsUsedWeek: 0, odpocet: 0, remaining: 0, orderedRemaining: 0, adjWeek: 0 }; byPkg.set(r.package_id, e); }
+          if (!e) { e = { package_id: r.package_id, label: pkg.label, quantity: 0, volume_l: pkg.volume_l, kind: pkg.kind, fromInventory: 0, brewedWeek: 0, orderedWeek: 0, orderedThisWeek: 0, writeoffsWeek: 0, fasovaniWeek: 0, prodejnaWeek: 0, akTaken: 0, akReturned: 0, kegsUsedWeek: 0, odpocet: 0, remaining: 0, rawQuantity: 0, orderedRemaining: 0, adjWeek: 0 }; byPkg.set(r.package_id, e); }
           (e[field] as number) += Number(r.quantity);
         });
       
@@ -202,7 +228,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
         const qty = invMap[k] || 0;
         if (qty > 0) {
           let e = byPkg.get(pkg.id);
-          if (!e) { e = { package_id: pkg.id, label: pkg.label, quantity: 0, volume_l: pkg.volume_l, kind: pkg.kind, fromInventory: 0, brewedWeek: 0, orderedWeek: 0, orderedThisWeek: 0, writeoffsWeek: 0, fasovaniWeek: 0, prodejnaWeek: 0, akTaken: 0, akReturned: 0, kegsUsedWeek: 0, odpocet: 0, remaining: 0, orderedRemaining: 0, adjWeek: 0 }; byPkg.set(pkg.id, e); }
+          if (!e) { e = { package_id: pkg.id, label: pkg.label, quantity: 0, volume_l: pkg.volume_l, kind: pkg.kind, fromInventory: 0, brewedWeek: 0, orderedWeek: 0, orderedThisWeek: 0, writeoffsWeek: 0, fasovaniWeek: 0, prodejnaWeek: 0, akTaken: 0, akReturned: 0, kegsUsedWeek: 0, odpocet: 0, remaining: 0, rawQuantity: 0, orderedRemaining: 0, adjWeek: 0 }; byPkg.set(pkg.id, e); }
           e.fromInventory = qty;
         }
       });
@@ -230,7 +256,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
           if (!pkg) return;
           let e = byPkg.get(pkgId);
           if (!e) {
-            e = { package_id: pkgId, label: pkg.label, quantity: 0, volume_l: pkg.volume_l, kind: pkg.kind, fromInventory: 0, brewedWeek: 0, orderedWeek: 0, orderedThisWeek: 0, writeoffsWeek: 0, fasovaniWeek: 0, prodejnaWeek: 0, akTaken: 0, akReturned: 0, kegsUsedWeek: 0, odpocet: 0, remaining: 0, orderedRemaining: 0, adjWeek: 0 };
+            e = { package_id: pkgId, label: pkg.label, quantity: 0, volume_l: pkg.volume_l, kind: pkg.kind, fromInventory: 0, brewedWeek: 0, orderedWeek: 0, orderedThisWeek: 0, writeoffsWeek: 0, fasovaniWeek: 0, prodejnaWeek: 0, akTaken: 0, akReturned: 0, kegsUsedWeek: 0, odpocet: 0, remaining: 0, rawQuantity: 0, orderedRemaining: 0, adjWeek: 0 };
             byPkg.set(pkgId, e);
           }
           e.kegsUsedWeek += res.kegsUsed;
@@ -248,19 +274,18 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
           .filter((r) => r.beer_id === beer.id && r.package_id === p.package_id && isThisWeek(r.deduct_date))
           .reduce((s, r) => s + Number(r.quantity), 0);
         p.odpocet = p.writeoffsWeek + p.fasovaniWeek + p.prodejnaWeek + akceNet + (p.kegsUsedWeek || 0) + zdWeek;
-        // Dorovnání inventury (± manko/přebytek z Inventura → Fyzická inventura,
-        // zapsané bokem přes inventory_adjustments) — stejně jako ve Skladu
-        // (Stock.tsx). Bez tohoto řádku Dashboard po zápisu manka/přebytku
-        // v Inventuře natrvalo ukazoval jiné číslo než Sklad.
         p.adjWeek = adjRows
           .filter((r) => r.beer_id === beer.id && r.package_id === p.package_id && monthKey(r.entry_date) === curMonth && r.entry_date <= todayISO())
           .reduce((s, r) => s + Number(r.quantity || 0), 0);
-        // Sklad = počáteční stav + stočeno TENTO MĚSÍC − vše, co už fyzicky
-        // odešlo (odpočet) + dorovnání inventury. Dřív se tady neodečítal
-        // odpočet vůbec, takže "Sklad (AKT)" ukazoval hrubou výrobu měsíce,
-        // ne skutečný fyzický stav — po fasování/prodejně/závozu zůstal
-        // stejný, i když už bylo reálně vydáno.
-        p.quantity = Math.max(0, p.fromInventory + p.brewedWeek - p.odpocet + p.adjWeek);
+        // 📒 Stav bere ze skladové knihy (lib/stockLedger.ts) — stejné číslo
+        // jako Sklad, Inventura i „co stočit". Rozpad výše (fromInventory,
+        // brewedWeek, odpocet…) zůstává jen pro zobrazení, na výsledek nemá
+        // vliv. Dřív si každá obrazovka počítala vlastní součet a kopie se
+        // rozcházely; navíc se tady ořezávalo na nulu, takže schodek nebyl
+        // vidět — viz komentář v stockLedger.ts.
+        const line = ledger.get(stockKey(beer.id, p.package_id));
+        p.rawQuantity = line?.qty ?? 0;
+        p.quantity = Math.max(0, p.rawQuantity);
         // "Zbývá zavézt" a "Zbyde" se počítají jen proti objednávkám DO KONCE
         // TOHOTO TÝDNE, ne za celý měsíc — objednávka splatná až za týden a
         // víc by jinak "Zbyde" ukazovala jako 0, i když fyzicky ještě nic
@@ -283,6 +308,17 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
       return { beer, stockByPkg, stockBottles, stockKegs, stockTotal, stockLiters, brewedWeek, orderedWeek, writeoffsWeek, remaining };
     });
     setStats(result);
+
+    const nesediList: NesediRow[] = [];
+    ledger.forEach((line) => {
+      if (line.qty >= 0) return;
+      const beer = beerList.find((x) => x.id === line.beer_id);
+      const pkg = pkgList.find((x) => x.id === line.package_id);
+      if (!beer || !pkg) return;
+      nesediList.push({ key: line.key, beerName: beer.name, pkgLabel: String(pkg.label).trim(), qty: line.qty, baselineDate: line.baselineDate, baselineQty: line.baselineQty });
+    });
+    nesediList.sort((a, z) => a.qty - z.qty);
+    setNesedi(nesediList);
     if (!silent) setLoading(false);
 
     setBrewLoading(true);
@@ -446,6 +482,55 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
 
       {/* Upozornění na STK/dálniční známku se přesunulo na domovskou obrazovku (HomeScreen.tsx). */}
 
+
+      {/* ⚠️ Položky, u kterých evidence nesedí — ze skladu odešlo víc, než
+          kolik aplikace zná. Dřív se každý takový schodek ořezal na nulu
+          a nebyl vidět nikde. Viz lib/stockLedger.ts. */}
+      {nesedi.length > 0 && (
+        <div className="mb-5 rounded border-2 border-rose-300 bg-rose-50 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowNesedi((v) => !v)}
+            className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-rose-100/60 transition"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <AlertTriangle size={20} className="text-rose-600 shrink-0" />
+              <div className="min-w-0">
+                <div className="font-display font-black text-rose-900 text-sm">
+                  U {nesedi.length} položek nesedí evidence
+                </div>
+                <div className="text-xs text-rose-700 mt-0.5 font-bold">
+                  Odešlo víc, než aplikace ví, že se stočilo nebo napočítalo v inventuře. Sklad u nich ukazuje 0.
+                </div>
+              </div>
+            </div>
+            <span className="text-rose-600 shrink-0 font-black text-lg">{showNesedi ? '−' : '+'}</span>
+          </button>
+          {showNesedi && (
+            <div className="border-t border-rose-200 bg-white/70">
+              <div className="divide-y divide-rose-100 max-h-72 overflow-y-auto">
+                {nesedi.map((r) => (
+                  <div key={r.key} className="flex items-center justify-between gap-3 px-4 py-2.5 text-xs">
+                    <span className="font-black text-neutral-800 min-w-0 truncate">
+                      {r.beerName} <span className="text-neutral-500">{r.pkgLabel}</span>
+                    </span>
+                    <span className="flex items-center gap-3 shrink-0">
+                      <span className="hidden sm:inline text-[11px] font-bold text-neutral-500">
+                        {r.baselineDate ? `inventura ${r.baselineDate} = ${r.baselineQty}` : 'nikdy nebyla inventura'}
+                      </span>
+                      <span className="text-rose-700 font-black text-sm font-mono tabular-nums">{r.qty} ks</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="px-4 py-3 text-[11px] font-bold text-neutral-600 bg-rose-50/60 border-t border-rose-100">
+                Nejčastější příčina: položka se v inventuře nenapočítala (chybí v seznamu), nebo se nezapsalo stáčení.
+                Srovná to fyzická inventura — nastaví stav napevno a dál se počítá od ní.
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Bez bílé "karty" kolem — nadpis sedí přímo na pozadí stránky. */}
       <div className="text-center mb-6">
