@@ -413,16 +413,25 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     await load(true);
   }
 
-  const filteredKegRequirements = useMemo(() => {
+  // Rozsah pro souhrnné karty nahoře: filtry piva a obalu ANO (ty určují, o čem
+  // se mluví), přepínač „Jen chybějící" NE — ten jen schovává hotové řádky
+  // v tabulce. Dřív ořezával i karty, takže „Objednáno tento týden" hlásilo 75
+  // sudů, i když jich bylo objednaných 119: chyběly v tom všechny druhy, které
+  // už byly celé pokryté.
+  const scopedKegRequirements = useMemo(() => {
     let list = kegRequirements;
     if (reqKegBeerFilter) list = list.filter((r) => r.beer_id === reqKegBeerFilter);
     if (reqKegPkgFilter) list = list.filter((r) => r.package_id === reqKegPkgFilter);
-    if (reqKegOnlyMissing) list = list.filter((r) => r.neededQty > 0);
     return list;
-  }, [kegRequirements, reqKegBeerFilter, reqKegPkgFilter, reqKegOnlyMissing]);
+  }, [kegRequirements, reqKegBeerFilter, reqKegPkgFilter]);
+
+  const filteredKegRequirements = useMemo(
+    () => (reqKegOnlyMissing ? scopedKegRequirements.filter((r) => r.neededQty > 0) : scopedKegRequirements),
+    [scopedKegRequirements, reqKegOnlyMissing]
+  );
 
   const reqKegTotals = useMemo(() => {
-    return filteredKegRequirements.reduce(
+    return scopedKegRequirements.reduce(
       (acc, r) => {
         acc.ordered += r.orderedQty;
         acc.stock += r.stockQty;
@@ -432,7 +441,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       },
       { ordered: 0, stock: 0, needed: 0, neededLiters: 0 }
     );
-  }, [filteredKegRequirements]);
+  }, [scopedKegRequirements]);
 
   // (zrušeno — pivo se nevyplňuje automaticky z tanku)
 

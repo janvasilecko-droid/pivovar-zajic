@@ -1,7 +1,7 @@
 // Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
 export const APP_VERSION = '1.899';
-export const APP_VERSION_DATE = '26.8.2026 12:20';
+export const APP_VERSION_DATE = '26.8.2026 14:35';
 
 
 
@@ -9,6 +9,7 @@ export const APP_VERSION_DATE = '26.8.2026 12:20';
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 
 export const APP_CHANGELOG: string[] = [
+  '🔢 Souhrn nad tabulkou \"Potřeba stočit KEGy\" počítal jen řádky, kde něco chybělo — hlásil proto 75 objednaných sudů, i když jich bylo 119. Přepínač \"Jen chybějící\" teď schovává řádky v tabulce, ale karty nahoře už neořezává. v1.899',
   '🧠 Oprava chybně přiřazovaných položek z WhatsAppu. Když jste v kontrole objednávky opravili pivo, uložilo se z toho TRVALÉ pravidlo pro všechny budoucí zprávy — i když opravovaný text pivo pojmenovával správně. Takhle se v databázi usadilo mimo jiné \"jantar → 12° Světlá\", \"10° desítka → 11° Světlá\" a 41 pravidel typu \"2x10\" nebo \"7x50\" (počet × objem, o pivu nic), která se pak hledala jako podřetězec a sedla na kdejakou další zprávu. Vyčištěno 58 vadných pravidel ze 177 a doplněny dvě pojistky: zapamatuje se jen text, který pivo skutečně pojmenovává, a nikdy ne přepis jednoho piva z katalogu na jiné. Navíc se u položky srovnal název piva s jeho ID — 25. 8. vznikla položka, kde na obrazovce svítila 11° Světlá, ale do objednávky se založila 10° Desítka. v1.898',
   '🗓️ V KEGu přibyla záložka "Co stočit na který den" — ovládá se jako Závoz: kliknete na den a vidíte, co a kolik sudů je na něj potřeba, kolik už je hotovo a kolik chybí, včetně toho pro koho. Tlačítkem "Mám" nebo "+1" si sudy odškrtáváte a zápis stáčení se uloží rovnou, takže se nikde nevede druhá evidence. Zároveň to opravuje starou potíž, že se čerstvě stočený sud neodečetl hned z "potřeba stočit": to číslo se počítalo z měsíčního skladu, který se rozešel s realitou (devět druhů sudů bylo v srpnu v mínusu kvůli chybějícímu převodu z července) a nový sud pak nejdřív umazával neexistující dluh. Nový plán počítá jen s daty aktuálního týdne a řídí se odečtem u konkrétní objednávky, takže nachystané sudy nechce stočit podruhé. v1.897',
   '⚡ Aplikace startuje výrazně rychleji: dosud se při každém otevření stáhlo všech ~40 obrazovek najednou (2,9 MB), i když jste chtěli jen Domů — skoro třetinu z toho dělala knihovna pro export do Excelu, používaná jednou za měsíc. Teď se stahuje jen to, co skutečně otevřete; úvodní stažení kleslo o 73 %. Na mobilních datech v pivovaru je to rozdíl několika sekund při každém spuštění i po každé aktualizaci. v1.896',
