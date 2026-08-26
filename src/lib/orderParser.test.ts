@@ -24,6 +24,7 @@ const beers: Beer[] = [
   { id: 'b-12tm', name: '12° Tmavá', short_name: '12tm', degree: '12°', color: 'tmavé', beer_color: null, price_per_liter: null, is_active: true, sort_order: 3, created_at: '' },
   { id: 'b-cyklo8', name: '8° Cykloosma', short_name: 'cyklo', degree: '8°', color: 'světlé', beer_color: null, price_per_liter: null, is_active: true, sort_order: 4, created_at: '' },
   { id: 'b-jantar', name: 'Jantar', short_name: 'Jant', degree: '13°', color: 'tmavé', beer_color: null, price_per_liter: null, is_active: true, sort_order: 5, created_at: '' },
+  { id: 'b-11sv', name: '11° Světlá', short_name: null, degree: '11°', color: 'světlé', beer_color: null, price_per_liter: null, is_active: true, sort_order: 2, created_at: '' },
 ];
 
 const packages: Package[] = [
@@ -228,6 +229,25 @@ describe('matchBeerFromHints', () => {
   it('vrátí null, když text neodpovídá žádnému pivu', () => {
     expect(matchBeerFromHints('neznama vec', beers, aliases()).beer).toBeNull();
   });
+
+  it('rozpozná sl zkratku (11sl, sl 11 → 11° Světlá)', () => {
+    expect(matchBeerFromHints('11sl', beers, aliases()).beer?.id).toBe('b-11sv');
+    expect(matchBeerFromHints('sl 11', beers, aliases()).beer?.id).toBe('b-11sv');
+    expect(matchBeerFromHints('12sl', beers, aliases()).beer?.id).toBe('b-12sv');
+    expect(matchBeerFromHints('sl 12', beers, aliases()).beer?.id).toBe('b-12sv');
+  });
+
+  it('rozpozná color-first zkratku (sv 12, sv12, tm 12)', () => {
+    expect(matchBeerFromHints('sv 12', beers, aliases()).beer?.id).toBe('b-12sv');
+    expect(matchBeerFromHints('sv12', beers, aliases()).beer?.id).toBe('b-12sv');
+    expect(matchBeerFromHints('tm 12', beers, aliases()).beer?.id).toBe('b-12tm');
+    expect(matchBeerFromHints('sv 11', beers, aliases()).beer?.id).toBe('b-11sv');
+  });
+
+  it('bare sl defaults to 12° Světlá', () => {
+    expect(matchBeerFromHints('sl', beers, aliases()).beer?.id).toBe('b-12sv');
+  });
+  });
 });
 
 describe('matchPackage', () => {
@@ -300,6 +320,43 @@ describe('parseGeminiItems — BAR a TERASA výchozí KEG 50l a 10% desítka', (
   });
 });
 
+
+describe('parseGeminiItems — stupeň napsaný barvou PŘED číslem ("sl 11", "sv 12")', () => {
+  // Reálný případ: zákazník napíše "sl 11" (světlý jedenáctka). Číslo u barvy
+  // určuje stupeň bez ohledu na pořadí — dřív se chytlo jen pořadí "11sl",
+  // takže "sl 11" propadlo a stupeň se převzal z AI (typicky výchozích 12°).
+  it('"sl 11" opraví špatný stupeň od AI na 11°, ne 12°', () => {
+    const items: GeminiItem[] = [
+      { raw_line: '2x50 sl 11', quantity: 2, degree: '12°', beer_name: '12° Světlá', package_label: 'KEG 50l', place_name: null },
+    ];
+    const results = parseGeminiItems(items, beers, packages);
+    expect(results[0].beer_id).toBe('b-11sv');
+  });
+
+  it('"sv 12" zůstane 12° (číslo u barvy vyhraje i opačným směrem)', () => {
+    const items: GeminiItem[] = [
+      { raw_line: '3x30 sv 12', quantity: 3, degree: '11°', beer_name: '11° Světlá', package_label: 'KEG 30l', place_name: null },
+    ];
+    const results = parseGeminiItems(items, beers, packages);
+    expect(results[0].beer_id).toBe('b-12sv');
+  });
+
+  it('opačné pořadí "11sl" funguje dál stejně', () => {
+    const items: GeminiItem[] = [
+      { raw_line: '1x50 11sl', quantity: 1, degree: '12°', beer_name: '12° Světlá', package_label: 'KEG 50l', place_name: null },
+    ];
+    const results = parseGeminiItems(items, beers, packages);
+    expect(results[0].beer_id).toBe('b-11sv');
+  });
+
+  it('objem se nesmí splést se stupněm — "2x50" bez barvy zůstane na stupni od AI', () => {
+    const items: GeminiItem[] = [
+      { raw_line: '2x50', quantity: 2, degree: '12°', beer_name: '12° Světlá', package_label: 'KEG 50l', place_name: null },
+    ];
+    const results = parseGeminiItems(items, beers, packages);
+    expect(results[0].beer_id).toBe('b-12sv');
+  });
+});
 
 describe('parseFreeTextEntries', () => {
   it('rozparsuje „3x30 desitka“ na jednu položku s vysokou jistotou', () => {

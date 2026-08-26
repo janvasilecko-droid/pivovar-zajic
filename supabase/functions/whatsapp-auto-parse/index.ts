@@ -228,6 +228,24 @@ function matchBeerId(
   return null;
 }
 
+// 🧠 Extract degree from text — mirrors client extractDegreeFromRaw.
+// Number-first: "11sv", "12tm", "10sv" → returns "11", "12", "10"
+// Color-first: "sv 12", "tm 11", "sl 12" → returns "12", "11"
+function extractDegreeFromText(text: string): string | null {
+  if (!text) return null;
+  // Number-first: "11sv", "11 sl", "12tm"
+  const m = text.match(
+    /(?:^|[^0-9.])(8|9|10|11|12|13|14|15|16)\s*(?:°|st|sv|svet|svetl|svetly|svetle|sl|tm|tma|tmav|tmavy|tmave|dark)/i
+  );
+  if (m) return m[1];
+  // Color-first: "sv 12", "tm 11", "sl 12", "svetly 12"
+  const mf = text.match(
+    /(?:^|[^0-9.])(sv|svet|svetl|svetly|svetle|sl|tm|tmav|tmavy|tmave)\s*(8|9|10|11|12|13|14|15|16)(?![0-9.])/i
+  );
+  if (mf) return mf[2];
+  return null;
+}
+
 function matchBeerInText(
   text: string,
   beers: { id: string; name: string; degree?: string | null; short_name?: string | null }[],
@@ -299,7 +317,7 @@ function matchBeerInText(
   }
 
   // 3) Podle stupně (rozlišení světlá/tmavá, 12° má 2 piva v katalogu)
-  const degree = (rawDegree || "").replace("°", "").trim();
+  const degree = (extractDegreeFromText(text) || rawDegree || "").replace("°", "").trim();
   if (degree) {
     const candidates = beers.filter((b) => (b.degree || "").replace("°", "").trim() === degree);
     if (candidates.length === 1) return candidates[0].id;

@@ -425,11 +425,12 @@ KAŽDÁ položka objednávky má:
   3) Teprve pokud text opravdu neodpovídá ničemu z katalogu ani naučeným zkratkám, vrať null — nikdy nevymýšlej název, který v katalogu není.
 
   ROZPOZNÁVÁNÍ STUPNĚ/DRUHU PIVA — velmi časté zkratky a jejich význam (piš je i s překlepy):
+  - ⚠️ KRITICKÉ PRAVIDLO — ČÍSLO (8–16) NAPSANÉ U ZKRATKY/STUPNĚ/BARVY URČUJE STUPEŇ, ZKRATKA URČUJE BARVU: Číslo napsané vedle barvy/zkratky VŽDY určuje stupeň — bez ohledu na pořadí. Platí v OBOJÍM pořadí: "11sl" i "sl 11" = 11° světlé, "sv 12" i "12sv" = 12° světlé, "tm 12" i "12tm" = 12° tmavé. Bez čísla = výchozí 12° ("sl"/"svetly"/"lezak" = 12° světlé, "tm"/"tmavy" = 12° tmavé). NIKDY nepřehazuj číslo mezi položkami — "11sl" je VŽDY 11° (ne 12°), "sv 12" je VŽDY 12° (ne 11°).
   - "8", "8°", "vosmička", "osmička", "cyklo", "cykloosma" → stupeň 8°
   - "10", "10°", "desítka", "10sv", "světlé výčepní", "svetle vcepni" → stupeň 10°, světlé
-  - "11", "11°", "11sv", "jedenáctka", "jedenactka" → stupeň 11°, světlé
-  - "12sv", "ležák", "lezak", "světlý", "svetly", "světlý ležák", "svetly lezak", "ležák světlý" (bez slova "tmavý/tmavy") → stupeň 12°, světlé
-  - "tmavý", "tmavy", "tmavý ležák", "tmavy lezak", "12tm", "tm" → stupeň 12°, tmavé
+  - "11", "11°", "11sv", "11sl", "11 sl", "sl 11", "sv 11", "sv11", "svetly 11", "svetla 11", "jedenáctka", "jedenactka" → stupeň 11°, světlé
+  - "12sv", "12sl", "12 sl", "sl 12", "sv 12", "sv12", "svetly 12", "svetla 12", "12 svetly lezak", "12 svetle lezak", "svetly lezak 12", "ležák", "lezak", "světlý", "svetly", "světlý ležák", "svetly lezak", "ležák světlý" (bez slova "tmavý/tmavy") → stupeň 12°, světlé (STUPEŇ = ČÍSLO nebo výchozí 12°)
+  - "12tm", "12 tm", "tm 12", "tmavý", "tmavy", "tmavý ležák", "tmavy lezak" (bez čísla) → stupeň 12°, tmavé (STUPEŇ = ČÍSLO nebo výchozí 12°)
   - "13", "13°" → stupeň 13°
   - "Jantar", "Summer", "Hazy", "Bunny" a podobné vlastní názvy piv — pokud se objeví v textu, jde o KONKRÉTNÍ NÁZEV piva z katalogu, ne o stupeň — najdi v katalogu pivo s odpovídajícím názvem.
   - KRITICKÉ — "JANTAR": Pokud se v textu objeví "jantar", "jant", "jantar 12", "12 jantar", "12jantar" atd., VŽDY to znamená pivo s názvem "Jantar" (konkrétní pivo z katalogu), NIKDY NE 12° světlý ležák. Číslo "12" před/za slovem "jantar" NEoznačuje 12° světlé pivo — patří k názvu "Jantar" (zákazníci tak běžně zapisují). VŽDY použij beer_name = přesný název "Jantar" z katalogu. Stejně tak "jantarek" = Jantar.
