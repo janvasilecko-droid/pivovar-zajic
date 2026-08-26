@@ -20,6 +20,7 @@ import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { stackingQuickQtys } from '../lib/quickQty';
 import { computePackageNeeds } from '../lib/packageNeeds';
 import { chyba, potvrd } from '../lib/toast';
+import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 
 
 const ROW_COUNT = 12;
@@ -487,6 +488,21 @@ export default function BottlingScreen({
     }
     const filled = entryRows.filter((r) => r.beerId && (r.pkgId || r.pkg2Id || r.pkg3Id || r.kegPkgId) && (Number(r.qty) > 0 || Number(r.qty2) > 0 || Number(r.qty3) > 0));
     if (filled.length === 0) { setErr('Vyplň alespoň jeden řádek (obal a množství).'); return; }
+
+    // Přehmat o řád (60 → 600) se jinak najde až u inventury. Neblokuje se.
+    for (const r of filled) {
+      const dvojice: [string | null, unknown][] = [[r.pkgId, r.qty], [r.pkg2Id, r.qty2], [r.pkg3Id, r.qty3]];
+      for (const [pkgId, qty] of dvojice) {
+        if (!pkgId || !(Number(qty) > 0)) continue;
+        const historie = rows
+          .filter((x) => x.beer_id === r.beerId && x.package_id === pkgId)
+          .map((x) => Number(x.quantity || 0));
+        const popis = `${beers.find((b) => b.id === r.beerId)?.name ?? 'Pivo'} · ${packages.find((p) => p.id === pkgId)?.label ?? 'obal'}`;
+        const dotaz = podezreleMnozstvi(Number(qty), historie, popis);
+        if (dotaz && !(await potvrd(dotaz, { titulek: 'Zkontrolujte množství', potvrdit: 'Ano, uložit' }))) return;
+      }
+    }
+
     setSaving(true);
 
     // Z každého řádku vytvoříme 1–3 záznamy (Lahve 1, Lahve 2 a/nebo Lahve 3).

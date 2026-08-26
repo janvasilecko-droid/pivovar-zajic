@@ -94,7 +94,11 @@ if ('serviceWorker' in navigator) {
 
 
 try {
-  ReactDOM.createRoot(document.getElementById('root')!).render(
+  // Root si držíme na window: při hot reloadu (vývoj) by se jinak nad stejným
+  // elementem zavolal createRoot podruhé a konzole se zaplní chybami
+  // removeChild/insertBefore, které s aplikací nemají nic společného.
+  const koren = ((window as any).__pivovarRoot ??= ReactDOM.createRoot(document.getElementById('root')!));
+  koren.render(
     <DebugErrorBoundary>
       <AuthProvider>
         <App />

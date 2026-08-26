@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { ZavozDeductionRow } from '../lib/zavozDeduction';
 
 import { supabase, Beer, Package, KegPrefuk, useRealtime, beerBorder, fetchAllRows } from '../lib/supabase';
-import { buildMovements, stockAsOf, stockKey } from '../lib/stockLedger';
+import { buildMovements, stockAsOf, stockKey, type Movement } from '../lib/stockLedger';
+import PohybyModal from '../components/PohybyModal';
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { Warehouse, Calendar, BarChart2, PackageCheck, Download, ShoppingBag, Tent, AlertTriangle, ChevronDown } from 'lucide-react';
 import { exportExciseTaxReportToExcel } from '../lib/excel';
@@ -12,6 +13,8 @@ import { MarketingMerchInventory } from '../components/MarketingMerchInventory';
 type StockByPkg = {
   package_id: string; label: string; volume_l: number; kind: string;
   currentStock: number; rawStock: number; outgoing: number; difference: number;
+  // Odkud se stav počítá — potřebuje rozpad pohybů (PohybyModal).
+  baselineDate: string | null; baselineQty: number;
   // Podrobný rozpad pohybu za období (pro kontrolní detail) — stejné složky,
   // ze kterých se currentStock/rawStock počítá výš.
   fromInv: number; brewedW: number; woW: number; fasovaniW: number; prodejnaW: number;
@@ -91,6 +94,13 @@ export default function Stock() {
   const [invMonth, setInvMonth] = useState<string>(monthKey(todayISO()));
   const [detail, setDetail] = useState<StockRow | null>(null);
   const [nesediRows, setNesediRows] = useState<NesediRow[]>([]);
+  // Pohyby skladové knihy si držíme i po načtení — otevírá se z nich rozpad
+  // „proč je tam tohle číslo" (components/PohybyModal.tsx).
+  const [pohyby, setPohyby] = useState<Movement[]>([]);
+  const [pohybyKDatu, setPohybyKDatu] = useState<string>(todayISO());
+  const [rozpad, setRozpad] = useState<
+    { beerId: string; packageId: string; nazev: string; baselineDate: string | null; baselineQty: number; vysledek: number } | null
+  >(null);
   const [showNesedi, setShowNesedi] = useState(false);
 
   const [brewFrom, setBrewFrom] = useState<string>(startOfMonthISO(todayISO()));
@@ -179,6 +189,8 @@ export default function Stock() {
       return last > dnes ? dnes : last;
     })();
     const ledger = stockAsOf(movements, monthEnd);
+    setPohyby(movements);
+    setPohybyKDatu(monthEnd);
 
     const stockRows: StockRow[] = beerList.map((beer) => {
       const stockByPkg: StockByPkg[] = pkgList.map((pkg) => {
@@ -218,6 +230,7 @@ export default function Stock() {
         return {
           package_id: pkg.id, label: pkg.label, volume_l: Number(pkg.volume_l), kind: pkg.kind,
           currentStock, rawStock, outgoing, difference,
+          baselineDate: line?.baselineDate ?? null, baselineQty: line?.baselineQty ?? 0,
           fromInv, brewedW, woW, fasovaniW, prodejnaW, akceWeek, kegsUsedW, zdW, prefukFrom, prefukTo, adjW, orderedW,
         };
       });
@@ -537,9 +550,27 @@ export default function Stock() {
                               {kegs.map((p) => (
                                 <tr key={p.package_id}>
                                   <td className="py-1 pr-1 whitespace-nowrap text-neutral-500 text-xs font-bold">{p.label}</td>
-                                  <td className="py-1 px-1 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md">
-                                    {p.currentStock}
-                                    {p.rawStock < 0 && <span className="block text-[9px] font-black text-rose-600 font-mono" title="Nestočeno / nestíhá sklad">({p.rawStock})</span>}
+                                  <td className="p-0">
+                                    {/* Klepnutím se ukáže, z čeho se stav skládá — inventura
+                                        a každý pohyb po ní. Dřív se tohle dohledávalo ručně
+                                        po obrazovkách. */}
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setRozpad({
+                                          beerId: r.beer.id, packageId: p.package_id,
+                                          nazev: `${r.beer.name} · ${p.label}`,
+                                          baselineDate: p.baselineDate, baselineQty: p.baselineQty,
+                                          vysledek: p.rawStock,
+                                        });
+                                      }}
+                                      title="Ukázat, z čeho se stav skládá"
+                                      className="w-full min-h-[36px] py-1 px-1 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md hover:bg-amber-100 active:scale-95 transition underline decoration-dotted decoration-neutral-400 underline-offset-2"
+                                    >
+                                      {p.currentStock}
+                                      {p.rawStock < 0 && <span className="block text-[9px] font-black text-rose-600 font-mono" title="Vydáno víc, než evidence zná">({p.rawStock})</span>}
+                                    </button>
                                   </td>
                                   <td className={`py-1 px-1 text-center font-extrabold rounded-md ${p.outgoing > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-400'}`}>{p.outgoing > 0 ? `-${p.outgoing}` : '0'}</td>
                                   <td className={`py-1 pl-1 text-center font-extrabold rounded-md ${p.difference < 0 ? 'bg-rose-50 text-rose-600' : p.difference === 0 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>{p.difference}</td>
@@ -565,9 +596,27 @@ export default function Stock() {
                               {bottles.map((p) => (
                                 <tr key={p.package_id}>
                                   <td className="py-1 pr-1 whitespace-nowrap text-neutral-500 text-xs font-bold">{p.label}</td>
-                                  <td className="py-1 px-1 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md">
-                                    {p.currentStock}
-                                    {p.rawStock < 0 && <span className="block text-[9px] font-black text-rose-600 font-mono" title="Nestočeno / nestíhá sklad">({p.rawStock})</span>}
+                                  <td className="p-0">
+                                    {/* Klepnutím se ukáže, z čeho se stav skládá — inventura
+                                        a každý pohyb po ní. Dřív se tohle dohledávalo ručně
+                                        po obrazovkách. */}
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setRozpad({
+                                          beerId: r.beer.id, packageId: p.package_id,
+                                          nazev: `${r.beer.name} · ${p.label}`,
+                                          baselineDate: p.baselineDate, baselineQty: p.baselineQty,
+                                          vysledek: p.rawStock,
+                                        });
+                                      }}
+                                      title="Ukázat, z čeho se stav skládá"
+                                      className="w-full min-h-[36px] py-1 px-1 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md hover:bg-amber-100 active:scale-95 transition underline decoration-dotted decoration-neutral-400 underline-offset-2"
+                                    >
+                                      {p.currentStock}
+                                      {p.rawStock < 0 && <span className="block text-[9px] font-black text-rose-600 font-mono" title="Vydáno víc, než evidence zná">({p.rawStock})</span>}
+                                    </button>
                                   </td>
                                   <td className={`py-1 px-1 text-center font-extrabold rounded-md ${p.outgoing > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-400'}`}>{p.outgoing > 0 ? `-${p.outgoing}` : '0'}</td>
                                   <td className={`py-1 pl-1 text-center font-extrabold rounded-md ${p.difference < 0 ? 'bg-rose-50 text-rose-600' : p.difference === 0 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>{p.difference}</td>
@@ -592,6 +641,22 @@ export default function Stock() {
           )}
 
           {/* Detail Modal */}
+          {/* Rozpad jednoho stavu na pohyby — otevírá se klepnutím na číslo. */}
+          {rozpad && (
+            <PohybyModal
+              open
+              onClose={() => setRozpad(null)}
+              movements={pohyby}
+              beerId={rozpad.beerId}
+              packageId={rozpad.packageId}
+              nazev={rozpad.nazev}
+              kDatu={pohybyKDatu}
+              baselineDate={rozpad.baselineDate}
+              baselineQty={rozpad.baselineQty}
+              vysledek={rozpad.vysledek}
+            />
+          )}
+
           <Modal open={!!detail} onClose={() => setDetail(null)} title={detail ? detail.beer.name : ''}>
             {detail && (
               <div className="space-y-4">

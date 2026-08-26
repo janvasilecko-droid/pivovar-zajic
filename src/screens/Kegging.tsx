@@ -16,6 +16,7 @@ import { Camera, Loader2, Pencil, Cylinder, BarChart3, RefreshCw, ClipboardList,
 import { ImportKeggingFromImage } from '../components/ImportKeggingFromImage';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { chyba, potvrd } from '../lib/toast';
+import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 
 
 const ROW_COUNT = 12;
@@ -504,6 +505,18 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     }
     const filled = entryRows.filter((r) => r.beerId && r.pkgId && Number(r.qty) > 0);
     if (filled.length === 0) { setErr('Vyplň alespoň jeden řádek (pivo, obal a množství).'); return; }
+
+    // Přehmat o řád (12 → 120) se jinak najde až u inventury, kdy se těžko
+    // dohledává, kde vznikl. Neblokuje se — velká várka je legitimní.
+    for (const r of filled) {
+      const historie = rows
+        .filter((x) => x.beer_id === r.beerId && x.package_id === r.pkgId)
+        .map((x) => Number(x.quantity || 0));
+      const popis = `${beers.find((b) => b.id === r.beerId)?.name ?? 'Pivo'} · ${packages.find((p) => p.id === r.pkgId)?.label ?? 'obal'}`;
+      const dotaz = podezreleMnozstvi(Number(r.qty), historie, popis);
+      if (dotaz && !(await potvrd(dotaz, { titulek: 'Zkontrolujte množství', potvrdit: 'Ano, uložit' }))) return;
+    }
+
     setSaving(true);
 
     // Každý řádek si najde svůj vlastní zdrojový tank podle piva na řádku (ne podle globálně

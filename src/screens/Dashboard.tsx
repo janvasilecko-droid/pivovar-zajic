@@ -580,7 +580,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                           {kegs.map((p) => (
                             <tr key={p.package_id}>
                               <td className="py-1 pr-2 whitespace-nowrap text-neutral-500 text-xs font-bold">{p.label}</td>
-                              <td className="py-1 px-2 text-center font-extrabold text-sky-900 bg-sky-100 rounded-md">{p.quantity}</td>
+                              <td className="py-1 px-2 text-center font-extrabold text-sky-900 bg-sky-100 rounded-md">{p.quantity}{p.rawQuantity < 0 && <span className="block text-[9px] font-black text-rose-600 font-mono" title="Vydáno víc, než evidence zná — schodek">({p.rawQuantity})</span>}</td>
                               <td className={`py-1 px-2 text-center font-extrabold rounded-md ${p.orderedRemaining > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-600'}`}>{p.orderedRemaining > 0 ? `-${p.orderedRemaining}` : '0'}</td>
                               <td className={`py-1 pl-2 text-center font-extrabold rounded-md ${p.remaining < 0 ? 'bg-rose-50 text-rose-600' : p.remaining === 0 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>{p.remaining}</td>
                             </tr>
@@ -605,7 +605,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                           {bottles.map((p) => (
                             <tr key={p.package_id}>
                               <td className="py-1 pr-2 whitespace-nowrap text-neutral-500 text-xs font-bold">{p.label}</td>
-                              <td className="py-1 px-2 text-center font-extrabold text-sky-900 bg-sky-100 rounded-md">{p.quantity}</td>
+                              <td className="py-1 px-2 text-center font-extrabold text-sky-900 bg-sky-100 rounded-md">{p.quantity}{p.rawQuantity < 0 && <span className="block text-[9px] font-black text-rose-600 font-mono" title="Vydáno víc, než evidence zná — schodek">({p.rawQuantity})</span>}</td>
                               <td className={`py-1 px-2 text-center font-extrabold rounded-md ${p.orderedRemaining > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-600'}`}>{p.orderedRemaining > 0 ? `-${p.orderedRemaining}` : '0'}</td>
                               <td className={`py-1 pl-2 text-center font-extrabold rounded-md ${p.remaining < 0 ? 'bg-rose-50 text-rose-600' : p.remaining === 0 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>{p.remaining}</td>
                             </tr>
