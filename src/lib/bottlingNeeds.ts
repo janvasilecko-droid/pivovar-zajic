@@ -6,18 +6,18 @@
 //   • stock         – sklad TEĎ = sklad v pondělí ráno (počátek měsíce
 //                     s převodem z předchozího měsíce + pohyby od 1. dne
 //                     měsíce do pondělí) + stočeno/kegováno OD PONDĚLÍ −
-//                     výdej (fašování/prodejna/odpisy/Akce-festivaly/zavezené
+//                     výdej (fasování/prodejna/odpisy/Akce-festivaly/zavezené
 //                     objednávky) OD PONDĚLÍ
 //   • ordered       – VŠECHNY objednávky v daném týdnu (i už zavezené, ať je
 //                     vidět celková týdenní potřeba na středeční/čtvrteční/
 //                     páteční zavoz, ne jen zbytek)
-//   • fasovani      – odhad fašování pro ZBÝVAJÍCÍ dny týdne (průměr 30 dní)
+//   • fasovani      – odhad fasování pro ZBÝVAJÍCÍ dny týdne (průměr 30 dní)
 //                     — dny od pondělí do teď už jsou ve „stock" jako
 //                     skutečný výdej, tady jen odhad pro dny, co teprve přijdou
 //   • planned       – naplánované stáčení v týdnu (jen 1. stáčení piva)
 //   • afterBottling – sklad + naplánováno
-//   • missing       – chybí stočit do konce týdne = max(0, objednávky + fašování − po stočení)
-//   • afterOutgoing – konec týdne = po stočení − objednávky − fašování
+//   • missing       – chybí stočit do konce týdne = max(0, objednávky + fasování − po stočení)
+//   • afterOutgoing – konec týdne = po stočení − objednávky − fasování
 //
 // Čerstvé stočení se tak projeví v „chybí stočit" OKAMŽITĚ (počítá se do
 // „stock" hned po uložení), bez čekání na to, až se nějaká JINÁ objednávka
@@ -125,7 +125,7 @@ export function computeBottlingNeeds(input: BottlingNeedsInput): NeedsRow[] {
     weekOrdered[k] = (weekOrdered[k] || 0) + Number(item.quantity || 0);
   });
 
-  // Odhad fašování pro ZBÝVAJÍCÍ dny týdne (průměr za posledních 30 dní ×
+  // Odhad fasování pro ZBÝVAJÍCÍ dny týdne (průměr za posledních 30 dní ×
   // dny PO dnešku do konce týdne) — dny od pondělí do dneška už jsou ve
   // „stock" jako skutečný výdej, tady jen odhad budoucna.
   const cutoff = new Date();

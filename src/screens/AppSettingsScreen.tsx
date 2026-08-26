@@ -53,7 +53,7 @@ export default function AppSettingsScreen() {
   const [passwordErr, setPasswordErr] = useState<string | null>(null);
   const [passwordBusy, setPasswordBusy] = useState(false);
 
-  // Změna jména (zobrazované jméno pro zápisy, např. fašování)
+  // Změna jména (zobrazované jméno pro zápisy, např. fasování)
   const [newName, setNewName] = useState(profile?.display_name ?? '');
   const [nameMsg, setNameMsg] = useState<string | null>(null);
   const [nameErr, setNameErr] = useState<string | null>(null);
@@ -525,7 +525,7 @@ export default function AppSettingsScreen() {
       {/* 👤 Změna jména */}
       <div className="card p-6">
         <h2 className="font-display font-bold text-lg flex items-center gap-2"><Users size={20} /> Změna jména</h2>
-        <p className="text-sm text-neutral-600 mt-2">Jméno se používá pro zápisy (např. fašování, stáčení, sanitace). Změní se i v menu u vašeho profilu.</p>
+        <p className="text-sm text-neutral-600 mt-2">Jméno se používá pro zápisy (např. fasování, stáčení, sanitace). Změní se i v menu u vašeho profilu.</p>
         <form onSubmit={handleChangeName} className="mt-4 space-y-3">
           <div>
             <label className="label">Vaše jméno</label>

@@ -1,7 +1,7 @@
 // 🗓️ Rok provozu — kontrola, že po roce používání pořád všechno sedí.
 // ---------------------------------------------------------------------------
 // Ostatní testy zkoušejí jednotlivé situace na pár řádcích dat. Tenhle
-// nasimuluje 52 týdnů skutečného provozu (stáčení, kegování, fašování,
+// nasimuluje 52 týdnů skutečného provozu (stáčení, kegování, fasování,
 // prodejna, odpisy, závoz, akce, přefuk, měsíční inventury, dorovnání,
 // objednávky) a vedle toho si nezávisle vede vlastní evidenci — obyčejné
 // sčítání den po dni. Pak porovná, jestli aplikace počítá to samé.

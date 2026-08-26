@@ -2,7 +2,7 @@
 // ---------------------------------------------------------------------------
 // Přehled potřeby stáčení pro zvolený týden:
 //   • 🍾 lahve na skladě / 🛢️ sudy na skladě (měsíční model inventury)
-//   • 🛒 objednávky týdne + 📦 odhad fašování
+//   • 🛒 objednávky týdne + 📦 odhad fasování
 //   • ⚠️ „chybí stočit“  a  📅 „na konci týdne“
 // Tlačítko „🍾 Stočit“ otevře menu, kde se nastaví datum, velikosti obalů
 // (až 3) + počet KEG sudů a poznámka. Úkol se uloží do bottling_plans a
@@ -148,7 +148,7 @@ export function BottlingTasksSettings() {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // ---- Přehled potřeby (sklad vs. objednávky vs. fašování vs. plán) ----
+  // ---- Přehled potřeby (sklad vs. objednávky vs. fasování vs. plán) ----
   const needs = useMemo(
     () =>
       computeBottlingNeeds({
@@ -345,7 +345,7 @@ export function BottlingTasksSettings() {
               <th className="text-left font-black px-2 py-1.5">Pivo</th>
               <th className="text-left font-black px-2 py-1.5">Obal</th>
               <th className="text-right font-black px-2 py-1.5">🛒 Objednávky</th>
-              <th className="text-right font-black px-2 py-1.5">📦 Fašování</th>
+              <th className="text-right font-black px-2 py-1.5">📦 Fasování</th>
               <th className="text-right font-black px-2 py-1.5">📋 Naplánováno</th>
               <th className="text-right font-black px-2 py-1.5">{isKeg ? '🛢️ Sudy na skladě' : '🍾 Lahve na skladě'}</th>
               <th className="text-right font-black px-2 py-1.5">⚠️ Chybí stočit</th>
@@ -465,7 +465,7 @@ export function BottlingTasksSettings() {
           <div className="text-xl font-display font-black text-neutral-900 mt-0.5">{fmt(totals.kegStock)}</div>
         </div>
         <div className="p-3 rounded bg-white border border-sky-200 shadow-xs">
-          <div className="text-[10px] font-black uppercase tracking-wider text-sky-700">🛒 Objednávky + fašování</div>
+          <div className="text-[10px] font-black uppercase tracking-wider text-sky-700">🛒 Objednávky + fasování</div>
           <div className="text-xl font-display font-black text-sky-900 mt-0.5">{fmt(totals.bottleOutgoing)}</div>
         </div>
         <div className="p-3 rounded bg-rose-50 border border-rose-200 shadow-xs">
@@ -545,7 +545,7 @@ export function BottlingTasksSettings() {
         {renderTable(kegRows, true)}
         <p className="text-[10px] text-neutral-400 mt-1.5">
           Sklad = měsíční model (inventura + stočeno − výdej). „Konec týdne“ = sklad + naplánováno − objednávky − odhad
-          fašování (průměr za posledních 30 dní). „Chybí stočit“ = objednávky + fašování − sklad − naplánováno.
+          fasování (průměr za posledních 30 dní). „Chybí stočit“ = objednávky + fasování − sklad − naplánováno.
         </p>
       </div>
 

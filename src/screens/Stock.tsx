@@ -219,7 +219,7 @@ export default function Stock() {
         // Objednáno (zobrazený sloupec) = celý týden, i to už zavezené — informace
         // "kolik se má tento týden celkem odeslat".
         const orderedW = ordItems.filter((i) => validOrdIdsWeek.has(i.order_id) && i.beer_id === beer.id && i.package_id === pkg.id).reduce((s, i) => s + Number(i.quantity), 0);
-        // Zbývá = (sklad + stočené − fašování − prodejna − akce − odpisy − sudy na
+        // Zbývá = (sklad + stočené − fasování − prodejna − akce − odpisy − sudy na
         // lahve − zavezeno ± přefuk + dorovnání), tedy currentStock, − JEN JEŠTĚ
         // NEZAVEZENÉ objednávky tohoto týdne. Už zavezené se neodečítají znovu —
         // ty currentStock zohlednil už přes zavoz_deductions.
