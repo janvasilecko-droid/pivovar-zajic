@@ -6,7 +6,7 @@ import { MenuCustomizeModal } from '../components/MenuCustomizeModal';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import { NAV, NavItem } from '../components/Layout';
-import { canUserView, getUserPermissions, ModuleKey } from '../lib/permissions';
+import { canUserView, getUserPermissions, PAGE_TO_MODULE, ModuleKey } from '../lib/permissions';
 import { Theme, getTheme, setTheme } from '../lib/theme';
 import { getNotificationPermission, requestNotificationPermission, getNotificationSettings, saveNotificationSettings, NotificationSettings } from '../lib/notifications';
 import { APP_VERSION, APP_VERSION_DATE, APP_CHANGELOG } from '../lib/version';
@@ -162,18 +162,8 @@ export default function AppSettingsScreen() {
     setNotifPermission(getNotificationPermission());
   }
 
-  const pageToModuleMap: Record<string, ModuleKey> = {
-    dashboard: 'dashboard', kegging: 'entry',
-    bottling: 'entry', bottling_entry: 'entry', bottling_overview: 'entry', orders_entry: 'entry',
-    fasovani: 'entry', prodejna: 'entry', writeoffs: 'entry', orders: 'orders', zavoz: 'zavoz',
-    kniha_jizd: 'kniha_jizd', stock: 'stock', inventory: 'inventory', srotovani: 'entry',
-    checklists: 'haccp', sanitace: 'haccp', concentration: 'entry',
-    cellar: 'cellar', history: 'cellar', haccp: 'haccp', sanitation_log: 'haccp',
-    places: 'catalogs', beers: 'catalogs', packages: 'catalogs', vehicles: 'catalogs',
-    pricelist: 'pricelist', sklo_promo: 'sklo_promo', vycepy: 'vycepy', app_settings: 'app_settings',
-    exkurze: 'exkurze', akce: 'akce', calendar: 'reminders', feedback: 'catalogs',
-    reminders: 'reminders', bottling_needs: 'catalogs',
-  };
+  // Mapa obrazovka -> modul je sdilena v lib/permissions.ts (drive byla
+  // zkopirovana na tri mistech a kopie se rozesly).
 
   const userPerms = getUserPermissions(user?.id ?? '', (profile as any)?.permissions);
   const isAdmin = profile?.role === 'admin' || isAdminEmail(user?.email);
@@ -181,7 +171,7 @@ export default function AppSettingsScreen() {
   const permittedNav = NAV.filter((n) => {
     if (n.id === 'users') return isAdmin;
     if (n.id === 'bottling_needs') return isAdmin;
-    const modKey = pageToModuleMap[n.id];
+    const modKey = PAGE_TO_MODULE[n.id];
     if (!modKey) return true;
     return canUserView(profile?.role, user?.id, modKey, userPerms);
   });

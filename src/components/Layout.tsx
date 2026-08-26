@@ -16,7 +16,7 @@ import { requestNotificationPermission, getNotificationPermission, notifyNewOrde
 import { subscribeToWhatsAppMessages, fetchWhatsAppSenders, fetchPendingWhatsAppCount, isSenderAllowed, triggerAutoParse, type WhatsAppSender, type WhatsAppIncoming } from '../lib/whatsappApi';
 import { requestOrdersAutoImport } from '../lib/ordersFilter';
 import { getDensity, setDensity, DensityMode } from '../lib/density';
-import { canUserView, getUserPermissions, ModuleKey } from '../lib/permissions';
+import { canUserView, getUserPermissions, PAGE_TO_MODULE, ModuleKey } from '../lib/permissions';
 import { QuickSearchModal } from './QuickSearchModal';
 import { isAdminEmail } from '../lib/config';
 import { BugReportModal } from './BugReportModal';
@@ -238,44 +238,9 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
 
   const isAdmin = profile?.role === 'admin' || isAdminEmail(user?.email);
 
-  const pageToModuleMap: Record<string, ModuleKey> = {
-    dashboard: 'dashboard',
-    kegging: 'entry',
-    bottling: 'entry',
-    bottling_entry: 'entry',
-    bottling_overview: 'entry',
-    orders_entry: 'entry',
-    fasovani: 'entry',
-    prodejna: 'entry',
-    writeoffs: 'entry',
-    orders: 'orders',
-    zavoz: 'zavoz',
-    kniha_jizd: 'kniha_jizd',
-    stock: 'stock',
-    inventory: 'inventory',
-    srotovani: 'srotovani',
-    checklists: 'haccp',
-    concentration: 'cellar',
-    cellar: 'cellar',
-    history: 'cellar',
-    haccp: 'haccp',
-    sanitation_log: 'haccp',
-    places: 'catalogs',
-    beers: 'catalogs',
-    packages: 'catalogs',
-    vehicles: 'catalogs',
-    depozitar: 'catalogs',
-    bottling_needs: 'catalogs',
-    pricelist: 'pricelist',
-    sklo_promo: 'sklo_promo',
-    vycepy: 'vycepy',
-    app_settings: 'app_settings',
-    exkurze: 'exkurze',
-    akce: 'akce',
-    calendar: 'reminders',
-    feedback: 'catalogs',
-    reminders: 'reminders',
-  };
+  // Mapa obrazovka → modul je sdílená v lib/permissions.ts. Dřív byla
+  // zkopírovaná na třech místech a kopie se rozešly (viz komentář tam).
+  const pageToModuleMap = PAGE_TO_MODULE;
 
   const userPerms = getUserPermissions(user?.id ?? '', (profile as any)?.permissions);
 

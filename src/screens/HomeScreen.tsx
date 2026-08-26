@@ -13,7 +13,7 @@ import LauncherTile from '../components/LauncherTile';
 import { QuickSearchModal } from '../components/QuickSearchModal';
 import { Modal } from '../components/ui';
 import { useAuth } from '../lib/auth';
-import { canUserView, getUserPermissions, ModuleKey } from '../lib/permissions';
+import { canUserView, getUserPermissions, PAGE_TO_MODULE, ModuleKey } from '../lib/permissions';
 import { isAdminEmail } from '../lib/config';
 import { supabase, Vehicle } from '../lib/supabase';
 import { fetchPendingWhatsAppCount } from '../lib/whatsappApi';
@@ -47,44 +47,8 @@ function colorInputValue(c: string): string {
 // aby dlaždice ukazovaly přesně to, co uživatel vidí i v menu. Layout.tsx tuto mapu
 // nemá exportovanou, proto je tu zkopírovaná; při úpravě oprávnění v Layout.tsx
 // je potřeba upravit i tuto kopii.
-const PAGE_TO_MODULE: Record<string, ModuleKey> = {
-  dashboard: 'dashboard',
-  kegging: 'entry',
-  bottling: 'entry',
-  bottling_entry: 'entry',
-  bottling_overview: 'entry',
-  orders_entry: 'entry',
-  fasovani: 'entry',
-  prodejna: 'entry',
-  writeoffs: 'entry',
-  orders: 'orders',
-  zavoz: 'zavoz',
-  kniha_jizd: 'kniha_jizd',
-  stock: 'stock',
-  inventory: 'inventory',
-  srotovani: 'srotovani',
-  checklists: 'haccp',
-  concentration: 'cellar',
-  cellar: 'cellar',
-  history: 'cellar',
-  haccp: 'haccp',
-  sanitation_log: 'haccp',
-  places: 'catalogs',
-  beers: 'catalogs',
-  packages: 'catalogs',
-  vehicles: 'catalogs',
-  depozitar: 'catalogs',
-  bottling_needs: 'catalogs',
-  pricelist: 'pricelist',
-  sklo_promo: 'sklo_promo',
-  vycepy: 'vycepy',
-  app_settings: 'app_settings',
-  exkurze: 'exkurze',
-  akce: 'akce',
-  calendar: 'reminders',
-  feedback: 'catalogs',
-  reminders: 'reminders',
-};
+// Mapa obrazovka -> modul je sdilena v lib/permissions.ts (drive byla
+// zkopirovana na tri mistech a kopie se rozesly).
 
 type VehicleAlert = { vehicleName: string; label: string; status: 'warning' | 'expired' };
 

@@ -164,6 +164,68 @@ export const PRESET_ROLES: { name: string; icon: string; permissions: UserPermis
   },
 ];
 
+/**
+ * Která obrazovka patří pod který modul oprávnění.
+ *
+ * JEDINÝ zdroj pravdy. Dřív existovala tahle mapa TŘIKRÁT (Layout.tsx,
+ * AppSettingsScreen.tsx, HomeScreen.tsx) a kopie se rozešly:
+ *   • „srotovani" bylo jednou pod vlastním modulem, jinde pod „entry"
+ *   • „concentration" jednou pod „cellar", jinde pod „entry"
+ *   • „depozitar" v jedné kopii CHYBĚL úplně — a protože se chybějící klíč
+ *     vyhodnocuje jako „povoleno všem", zobrazoval se i lidem bez práv
+ *   • „sanitace" chyběla v jiné kopii
+ * Uživatel tak viděl modul v jednom seznamu a v druhém ne.
+ *
+ * Pozn.: klíč, který tu chybí, se považuje za veřejný — proto sem patří
+ * všechny obrazovky, které mají být za právy.
+ */
+export const PAGE_TO_MODULE: Record<string, ModuleKey> = {
+  dashboard: 'dashboard',
+  kegging: 'entry',
+  bottling: 'entry',
+  bottling_entry: 'entry',
+  bottling_overview: 'entry',
+  orders_entry: 'entry',
+  fasovani: 'entry',
+  prodejna: 'entry',
+  writeoffs: 'entry',
+  orders: 'orders',
+  orders_detail: 'orders',
+  orders_celkem: 'orders',
+  orders_zavoz: 'zavoz',
+  zavoz: 'zavoz',
+  kniha_jizd: 'kniha_jizd',
+  stock: 'stock',
+  inventory: 'inventory',
+  srotovani: 'srotovani',
+  checklists: 'haccp',
+  concentration: 'cellar',
+  cellar: 'cellar',
+  history: 'cellar',
+  haccp: 'haccp',
+  sanitation_log: 'haccp',
+  sanitace: 'haccp',
+  sanitace_lahve: 'haccp',
+  sanitace_kegy: 'haccp',
+  sanitace_vycepy: 'haccp',
+  places: 'catalogs',
+  beers: 'catalogs',
+  packages: 'catalogs',
+  vehicles: 'catalogs',
+  depozitar: 'catalogs',
+  bottling_needs: 'catalogs',
+  pricelist: 'pricelist',
+  sklo_promo: 'sklo_promo',
+  vycepy: 'vycepy',
+  app_settings: 'app_settings',
+  exkurze: 'exkurze',
+  akce: 'akce',
+  calendar: 'reminders',
+  reminders: 'reminders',
+  notes: 'reminders',
+  feedback: 'catalogs',
+};
+
 export function getUserPermissions(userId: string, rawPermissionsJson?: any): UserPermissions {
   const localKey = `user_permissions_${userId}`;
   try {
