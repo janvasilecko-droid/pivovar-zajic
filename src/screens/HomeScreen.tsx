@@ -11,6 +11,7 @@ import { NAV, EXTRA_NAV, type Page, type NavItem } from '../components/Layout';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import LauncherTile from '../components/LauncherTile';
 import { QuickSearchModal } from '../components/QuickSearchModal';
+import Dnesek from '../components/Dnesek';
 import { Modal } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { canUserView, getUserPermissions, PAGE_TO_MODULE, ModuleKey } from '../lib/permissions';
@@ -516,6 +517,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
 
   return (
     <div className="flex flex-col gap-4 min-h-full">
+      {/* Co je dneska potřeba — dlaždice pod tím zůstávají beze změny.
+          V editaci rozložení se skrývá, ať nepřekáží přesouvání dlaždic. */}
+      {!editMode && <Dnesek setPage={setPage} />}
       <div className="hs-launcher">
         {editMode && (
           <div className="hs-controls">
