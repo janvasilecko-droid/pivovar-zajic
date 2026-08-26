@@ -11,7 +11,9 @@ import { VoiceRecorder } from '../components/VoiceRecorder';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
 import { computeKegNeeds } from '../lib/kegNeeds';
-import { Camera, Loader2, Pencil, Cylinder, BarChart3, ListChecks, RefreshCw, ClipboardList, Sparkles } from 'lucide-react';
+import { computeKeggingPlan } from '../lib/keggingPlan';
+import KeggingDayPlan from '../components/KeggingDayPlan';
+import { Camera, Loader2, Pencil, Cylinder, BarChart3, ListChecks, RefreshCw, ClipboardList, Sparkles, CalendarDays } from 'lucide-react';
 import { ImportKeggingFromImage } from '../components/ImportKeggingFromImage';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 
@@ -37,7 +39,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   const isManager = profile?.role === 'admin' || (profile?.role as any) === 'sladek' || (profile?.role as any) === 'sef';
 
   // Zápis / Přehled / Potřeba stočit KEGy / Přefuk KEG / Checklist záložky
-  const [tab, setTab] = useState<'zapis' | 'prehled' | 'potreba' | 'prefuk' | 'checklist'>((initialSubTab as any) || 'zapis');
+  const [tab, setTab] = useState<'zapis' | 'prehled' | 'plan' | 'potreba' | 'prefuk' | 'checklist'>((initialSubTab as any) || 'zapis');
 
   // Sync ze subTab v historii (viz App.tsx) — jinak tlačítko Zpět z téhle
   // záložky nevrátí předchozí záložku, ale rovnou vyskočí do menu.
@@ -45,7 +47,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     setTab((initialSubTab as any) || 'zapis');
   }, [initialSubTab]);
 
-  function selectTab(t: 'zapis' | 'prehled' | 'potreba' | 'prefuk' | 'checklist') {
+  function selectTab(t: 'zapis' | 'prehled' | 'plan' | 'potreba' | 'prefuk' | 'checklist') {
     if (setPage) setPage('kegging', undefined, t);
     else setTab(t);
   }
@@ -285,7 +287,10 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       supabase.from('cellar_tanks').select('*').order('label'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
-      supabase.from('orders').select('id,order_date,delivery_date,status,is_delivered'),
+      // delivery_day + place_name potřebuje denní plán stáčení (keggingPlan.ts):
+      // bez delivery_day by všechny objednávky spadly na den podle delivery_date
+      // a ručně přehozený den závozu by se ignoroval.
+      supabase.from('orders').select('id,order_date,delivery_date,delivery_day,place_name,status,is_delivered'),
       supabase.from('order_items').select('id,order_id,beer_id,package_id,quantity'),
       supabase.from('inventory').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('fasovani').select('entry_date,beer_id,package_id,quantity'),
@@ -344,6 +349,69 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       todayStr,
     });
   }, [beers, packages, orders, orderItems, inventoryRows, rows, bottlingRows, fasovaniRows, prodejnaRows, writeoffsRows, prefukRows, zavozDeductionRows, adjustmentRows, akceRows, weekKey]);
+
+  // 🗓️ Plán stáčení po dnech — „co stočit na středu". Na rozdíl od
+  // kegRequirements výše nestojí na měsíčním skladovém modelu, takže se do něj
+  // nepromítne schodek z minulých měsíců a čerstvé stáčení se odečte přesně
+  // o zapsané množství (viz lib/keggingPlan.ts).
+  const keggingPlan = useMemo(() => computeKeggingPlan({
+    beers,
+    packages,
+    orders,
+    orderItems,
+    keggingRows: rows,
+    zavozDeductionRows,
+    fasovaniRows,
+    prodejnaRows,
+    writeoffsRows,
+    weekKey,
+  }), [beers, packages, orders, orderItems, rows, zavozDeductionRows, fasovaniRows, prodejnaRows, writeoffsRows, weekKey]);
+
+  const planMissingTotal = useMemo(() => keggingPlan.reduce((s, p) => s + p.totalMissing, 0), [keggingPlan]);
+
+  // Odškrtnutí v denním plánu = skutečný zápis do `kegging`. Záměrně se nevede
+  // druhá evidence „odškrtnuto" vedle stáčení — jinak by se ty dvě čísla dřív
+  // nebo později rozešly. Prochází stejnou branou checklistu a stejným
+  // relativním odečtem tanku jako běžný zápis v add().
+  async function quickFillFromPlan(beerId: string, pkgId: string, qty: number) {
+    setErr(null);
+    if (qty <= 0) return;
+    if (!isStartChecklistCompleteForKeg(businessDateISO())) {
+      setErr('Před zapsáním stáčení je nutné vyplnit checklist přípravy pracoviště!');
+      setChecklistPhase('start');
+      setChecklistGate(true);
+      setShowChecklistModal(true);
+      return;
+    }
+    const beer = beers.find((b) => b.id === beerId);
+    const pkg = packages.find((p) => p.id === pkgId);
+    if (!beer || !pkg) { setErr('Pivo nebo obal se nepodařilo najít.'); return; }
+
+    const tank = largestTank(activeTanksForBeer(beerId));
+    const sourceL = tank ? qty * Number(pkg.volume_l || 0) : 0;
+    const { error } = await supabase.from('kegging').insert([{
+      entry_date: businessDateISO(),
+      beer_id: beerId,
+      beer_name: beer.name,
+      package_id: pkgId,
+      package_label: pkg.label,
+      quantity: qty,
+      note: 'Odškrtnuto v plánu stáčení',
+      cellar_tank_id: tank?.id ?? null,
+      source_volume_l: sourceL || null,
+    }]);
+    if (error) { setErr(error.message); return; }
+
+    if (tank && sourceL) {
+      const { error: tankErr } = await supabase.rpc('adjust_tank_volume', { p_tank_id: tank.id, p_delta_l: -sourceL });
+      if (tankErr) {
+        setErr(`Stáčení uloženo, ale objem tanku ${tank.label} se nepodařilo snížit: ${tankErr.message}`);
+      } else if (tank.status !== 'emptying') {
+        await supabase.from('cellar_tanks').update({ status: 'emptying', updated_at: new Date().toISOString() }).eq('id', tank.id);
+      }
+    }
+    await load(true);
+  }
 
   const filteredKegRequirements = useMemo(() => {
     let list = kegRequirements;
@@ -760,6 +828,18 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               className={`px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[38px] ${tab === 'prehled' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
             >
               <span className="inline-flex items-center gap-1.5"><BarChart3 size={14} /> Přehled</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => selectTab('plan')}
+              className={`px-3.5 py-2 rounded text-xs font-black transition flex items-center gap-1.5 shrink-0 min-h-[38px] ${tab === 'plan' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
+            >
+              <span className="inline-flex items-center gap-1.5"><CalendarDays size={14} /> Co stočit na který den</span>
+              {planMissingTotal > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full bg-amber-300 text-amber-950 text-[10px] font-black">
+                  {planMissingTotal}
+                </span>
+              )}
             </button>
             <button
               type="button"
@@ -1670,6 +1750,21 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       )}
 
       {/* TAB 3: POTŘEBA STOČIT KEGY */}
+      {mode === 'all' && tab === 'plan' && (
+        <div className="space-y-4">
+          {err && (
+            <div className="p-3 rounded bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold">{err}</div>
+          )}
+          <KeggingDayPlan
+            plans={keggingPlan}
+            weekLabel={weekLabel}
+            todayISO={businessDateISO()}
+            onFill={quickFillFromPlan}
+            canEdit
+          />
+        </div>
+      )}
+
       {(mode === 'overviews_only' || (mode === 'all' && tab === 'potreba')) && (
         <div className="space-y-4">
           {/* Souhrnné karty */}
