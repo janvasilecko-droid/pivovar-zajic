@@ -982,8 +982,12 @@ export default function Orders({
         );
       }
 
-      // Pokud je vyplněno konkrétní datum dodání, vytvoř upomínku 48 hodin předem v 9:00
-      if (deliveryDate) {
+      // Upomínka 48 hodin předem — ale JEN na závoz v příštím týdnu a dál.
+      // Na závoz v probíhajícím týdnu upomínka nedává smysl: ten je vidět
+      // v Objednávkách, v Závozu i v přehledu Dnešek a další hlášení z toho
+      // dělá jen šum, který se odklikává bez čtení.
+      const zavozTentoTyden = !!deliveryDate && isoWeekKey(deliveryDate) === isoWeekKey(new Date().toISOString().slice(0, 10));
+      if (deliveryDate && !zavozTentoTyden) {
         try {
           const reminderDate = new Date(deliveryDate + 'T09:00:00');
           reminderDate.setDate(reminderDate.getDate() - 2); // 48 hodin předem

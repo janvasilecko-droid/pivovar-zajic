@@ -23,6 +23,7 @@ import { computeKeggingPlan } from '../lib/keggingPlan';
 import KeggingDayPlan from '../components/KeggingDayPlan';
 import { chyba, potvrd } from '../lib/toast';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
+import { IkonaLahev } from '../components/ikony';
 
 
 const ROW_COUNT = 12;
@@ -821,7 +822,7 @@ export default function BottlingScreen({
               onClick={() => selectTab('zapis')}
               className={`px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[44px] ${tab === 'zapis' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
             >
-              <span className="inline-flex items-center gap-1.5"><Wine size={14} /> Začátek stáčení</span>
+              <span className="inline-flex items-center gap-1.5"><IkonaLahev size={14} /> Začátek stáčení</span>
               {unseenCount > 0 && (
                 <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black animate-pulse">{unseenCount}</span>
               )}

@@ -17,6 +17,7 @@ import { ImportKeggingFromImage } from '../components/ImportKeggingFromImage';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { chyba, potvrd } from '../lib/toast';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
+import { IkonaSud } from '../components/ikony';
 
 
 const ROW_COUNT = 12;
@@ -764,7 +765,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               onClick={() => selectTab('zapis')}
               className={`px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[44px] ${tab === 'zapis' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
             >
-              <span className="inline-flex items-center gap-1.5"><Cylinder size={14} /> Začátek stáčení</span>
+              <span className="inline-flex items-center gap-1.5"><IkonaSud size={14} /> Začátek stáčení</span>
             </button>
             <button
               type="button"

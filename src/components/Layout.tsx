@@ -23,6 +23,7 @@ import { BugReportModal } from './BugReportModal';
 import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
 import { SCENES, DEFAULT_DOCK, hexToRgba, COLOR_HEX, type Scene, type TileColor } from '../lib/homeLayout';
 import { zavibruj } from '../lib/haptika';
+import { IkonaSud, IkonaLahev, IkonaVycep } from './ikony';
 import '../screens/HomeScreen.css';
 
 export type NavItem = { id: Page; label: string; icon: LucideIcon; group: string };
@@ -31,8 +32,8 @@ export type Page = 'home' | 'sanitace' | 'marketing' | 'planning' | 'depozitar' 
 
 export const NAV: NavItem[] = [
   // --- VÝROBA ---
-  { id: 'kegging', label: 'KEG', icon: Cylinder, group: 'Výroba' },
-  { id: 'bottling', label: 'Lahve (Stáčení)', icon: Wine, group: 'Výroba' },
+  { id: 'kegging', label: 'KEG', icon: IkonaSud, group: 'Výroba' },
+  { id: 'bottling', label: 'Lahve (Stáčení)', icon: IkonaLahev, group: 'Výroba' },
   { id: 'orders', label: 'Objednávky', icon: ClipboardList, group: 'Výroba' },
   { id: 'fasovani', label: 'Fasování personál', icon: Users, group: 'Výroba' },
   { id: 'prodejna', label: 'Prodejna', icon: Store, group: 'Výroba' },
@@ -43,7 +44,7 @@ export const NAV: NavItem[] = [
   { id: 'dashboard', label: 'Sklad', icon: BarChart3, group: 'Pivovar' },
   { id: 'sklo_promo', label: 'Sklo, Etikety, Podtáčky', icon: GlassWater, group: 'Pivovar' },
   { id: 'cellar', label: 'Sklep', icon: Snowflake, group: 'Pivovar' },
-  { id: 'bottling_needs', label: 'Potřeby stáčení', icon: Wine, group: 'Pivovar' },
+  { id: 'bottling_needs', label: 'Potřeby stáčení', icon: IkonaLahev, group: 'Pivovar' },
   { id: 'inventory', label: 'Inventura', icon: ClipboardCheck, group: 'Pivovar' },
   { id: 'history', label: 'Statistika', icon: HistoryIcon, group: 'Pivovar' },
 
@@ -75,22 +76,22 @@ export const NAV: NavItem[] = [
 // přes "+ Přidat dlaždici" (viz homeLayout.ts getHomeLayout extraIds).
 export const EXTRA_NAV: NavItem[] = [
   { id: 'kniha_jizd', label: 'Kniha jízd', icon: BookOpen, group: 'Nástroje' },
-  { id: 'vycepy', label: 'Výčepy', icon: BeerIcon, group: 'Výroba' },
+  { id: 'vycepy', label: 'Výčepy', icon: IkonaVycep, group: 'Výroba' },
   { id: 'orders_zavoz', label: 'Rozvoz objednávek', icon: Truck, group: 'Výroba' },
   { id: 'places', label: 'Odběratelé', icon: MapPin, group: 'Číselníky' },
   { id: 'beers', label: 'Piva', icon: BeerIcon, group: 'Číselníky' },
   { id: 'packages', label: 'Obaly', icon: PackageIcon, group: 'Číselníky' },
   { id: 'pricelist', label: 'Ceník', icon: Receipt, group: 'Číselníky' },
-  { id: 'sanitace_lahve', label: 'Sanitace lahví', icon: Wine, group: 'Nástroje' },
-  { id: 'sanitace_kegy', label: 'Sanitace kegů', icon: Cylinder, group: 'Nástroje' },
-  { id: 'sanitace_vycepy', label: 'Sanitace výčepů', icon: GlassWater, group: 'Nástroje' },
+  { id: 'sanitace_lahve', label: 'Sanitace lahví', icon: IkonaLahev, group: 'Nástroje' },
+  { id: 'sanitace_kegy', label: 'Sanitace kegů', icon: IkonaSud, group: 'Nástroje' },
+  { id: 'sanitace_vycepy', label: 'Sanitace výčepů', icon: IkonaVycep, group: 'Nástroje' },
   { id: 'checklists', label: 'Checklisty', icon: ClipboardCheck, group: 'Nástroje' },
   { id: 'sanitation_log', label: 'Sanitační deník', icon: FileText, group: 'Nástroje' },
   { id: 'reminders', label: 'Připomínky', icon: Bell, group: 'Nástroje' },
   { id: 'notes', label: 'Poznámky', icon: StickyNote, group: 'Nástroje' },
   { id: 'feedback', label: 'Zpětná vazba', icon: MessageCircle, group: 'Nástroje' },
   { id: 'exkurze', label: 'Exkurze', icon: Compass, group: 'Výroba' },
-  { id: 'bottling_entry', label: 'Lahve — zápis', icon: Wine, group: 'Výroba' },
+  { id: 'bottling_entry', label: 'Lahve — zápis', icon: IkonaLahev, group: 'Výroba' },
   { id: 'bottling_overview', label: 'Lahve — přehled', icon: BarChart3, group: 'Výroba' },
   { id: 'stopwatch', label: 'Stopky', icon: Timer, group: 'Nástroje' },
   { id: 'timer', label: 'Časovač', icon: AlarmClock, group: 'Nástroje' },
