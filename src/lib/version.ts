@@ -1,12 +1,7 @@
 // Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
-<<<<<<< HEAD
-export const APP_VERSION = '1.896';
-export const APP_VERSION_DATE = '26.8.2026 12:25';
-=======
-export const APP_VERSION = '1.895';
-export const APP_VERSION_DATE = '26.8.2026 12:25';
->>>>>>> dafc5d56 (feat(kegging): denní plán stáčení "Co stočit na který den")
+export const APP_VERSION = '1.897';
+export const APP_VERSION_DATE = '26.8.2026 12:35';
 
 
 
@@ -14,6 +9,7 @@ export const APP_VERSION_DATE = '26.8.2026 12:25';
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 
 export const APP_CHANGELOG: string[] = [
+  '🗓️ V KEGu přibyla záložka "Co stočit na který den" — ovládá se jako Závoz: kliknete na den a vidíte, co a kolik sudů je na něj potřeba, kolik už je hotovo a kolik chybí, včetně toho pro koho. Tlačítkem "Mám" nebo "+1" si sudy odškrtáváte a zápis stáčení se uloží rovnou, takže se nikde nevede druhá evidence. Zároveň to opravuje starou potíž, že se čerstvě stočený sud neodečetl hned z "potřeba stočit": to číslo se počítalo z měsíčního skladu, který se rozešel s realitou (devět druhů sudů bylo v srpnu v mínusu kvůli chybějícímu převodu z července) a nový sud pak nejdřív umazával neexistující dluh. Nový plán počítá jen s daty aktuálního týdne a řídí se odečtem u konkrétní objednávky, takže nachystané sudy nechce stočit podruhé. v1.897',
   '⚡ Aplikace startuje výrazně rychleji: dosud se při každém otevření stáhlo všech ~40 obrazovek najednou (2,9 MB), i když jste chtěli jen Domů — skoro třetinu z toho dělala knihovna pro export do Excelu, používaná jednou za měsíc. Teď se stahuje jen to, co skutečně otevřete; úvodní stažení kleslo o 73 %. Na mobilních datech v pivovaru je to rozdíl několika sekund při každém spuštění i po každé aktualizaci. v1.896',
   '🔐 Sjednocena práva k obrazovkám: seznam "která obrazovka patří pod které oprávnění" existoval v aplikaci třikrát a kopie se rozešly — Šrotování patřilo jednou pod vlastní modul a jinde pod Zápis výroby, a Odběratelé/Piva/Obaly v jedné kopii chyběli úplně, takže se zobrazovali i lidem bez práv. Teď je seznam na jednom místě a hlídá ho test. v1.892',
   '💾 Záloha dat byla neúplná: stahovala se po tisíci řádcích a zbytek se TIŠE zahodil (bez chyby), takže záloha vypadala kompletní, i když v ní chyběl zbytek objednávek. Navíc jí chyběla zhruba třetina tabulek — mimo jiné kniha jízd, sanitační deníky, evidence sudů a pohyby sklepa. Teď se stahuje po dávkách a pokud se něco nepovede, záloha to uvede. ⚠️ Doporučení: zapněte si i automatické zálohy přímo v Supabase — appka umí zálohu jen stáhnout, ne obnovit. 🔐 Import Excelu má limit velikosti (omylem vybraný obří soubor dřív zamrzl appku uprostřed inventury) a přibyly bezpečnostní hlavičky. v1.890',
