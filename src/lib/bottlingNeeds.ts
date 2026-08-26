@@ -58,6 +58,10 @@ export type BottlingNeedsInput = {
   zavozDeductionRows?: any[];
   /** Spotřeba na Akcích/festivalech (odvezeno − vráceno), stejný zdroj jako Sklad (Stock.tsx). */
   akceRows?: AkceRow[];
+  /** Přefuk sudů — přelití mezi objemy. Bez něj se plán rozešel se Skladem. */
+  prefukRows?: any[];
+  /** Dorovnání inventury (manko/přebytek, ± ks). */
+  adjustmentRows?: any[];
   weekKey: string;
   todayStr: string;
 };
@@ -76,6 +80,8 @@ export function computeBottlingNeeds(input: BottlingNeedsInput): NeedsRow[] {
     writeoffsRows,
     zavozDeductionRows = [],
     akceRows = [],
+    prefukRows = [],
+    adjustmentRows = [],
     weekKey,
     todayStr,
   } = input;
@@ -95,7 +101,7 @@ export function computeBottlingNeeds(input: BottlingNeedsInput): NeedsRow[] {
   stockAtStartOfDay(
     buildMovements({
       inventoryRows, bottlingRows, keggingRows, fasovaniRows, prodejnaRows,
-      writeoffsRows, zavozDeductionRows, akceRows, packages,
+      writeoffsRows, zavozDeductionRows, akceRows, prefukRows, adjustmentRows, packages,
     }),
     weekStartStr,
   ).forEach((line, k) => { weekStartStockMap[k] = line.qty; });

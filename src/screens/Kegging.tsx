@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { supabase, Beer, Package, EntryRow, CellarTank, KegPrefuk, useRealtime, beerBg, beerText, beerName, pkgBg, pkgText, formatPackageLabel } from '../lib/supabase';
+import { supabase, Beer, Package, EntryRow, CellarTank, KegPrefuk, useRealtime, beerBg, beerText, beerName, pkgBg, pkgText, formatPackageLabel, fetchAllRows } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { KeggingChecklistModal, KeggingChecklistBody, isStartChecklistCompleteForKeg, isMonthlyChecklistCompleteForKeg } from '../components/KeggingChecklistModal';
 import { autoLogKegSanitationFromChecklist, isLastWeekOfMonth } from '../lib/kegSanitation';
@@ -281,23 +281,23 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     const loadId = ++loadCountRef.current;
     if (!silent && !rows.length) setLoading(true);
     const [kg, ct, b, p, ords, oi, inv, fa, fp, wo, pf, zd, bt, adj, ak, pc] = await Promise.all([
-      supabase.from('kegging').select('*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
+      fetchAllRows('kegging', '*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
       supabase.from('cellar_tanks').select('*').order('label'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
       // delivery_day + place_name potřebuje denní plán stáčení (keggingPlan.ts):
       // bez delivery_day by všechny objednávky spadly na den podle delivery_date
       // a ručně přehozený den závozu by se ignoroval.
-      supabase.from('orders').select('id,order_date,delivery_date,delivery_day,place_name,status,is_delivered'),
-      supabase.from('order_items').select('id,order_id,beer_id,package_id,quantity'),
-      supabase.from('inventory').select('entry_date,beer_id,package_id,quantity'),
-      supabase.from('fasovani').select('entry_date,beer_id,package_id,quantity'),
-      supabase.from('fasovani_private').select('entry_date,beer_id,package_id,quantity'),
-      supabase.from('writeoffs').select('entry_date,beer_id,package_id,quantity'),
-      supabase.from('keg_prefuk').select('*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
-      supabase.from('zavoz_deductions').select('deduct_date,beer_id,package_id,quantity,order_item_id'),
-      supabase.from('bottling').select('entry_date,beer_id,package_id,quantity,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
-      supabase.from('inventory_adjustments').select('entry_date,beer_id,package_id,quantity'),
+      fetchAllRows('orders', 'id,order_date,delivery_date,delivery_day,place_name,status,is_delivered'),
+      fetchAllRows('order_items', 'id,order_id,beer_id,package_id,quantity'),
+      fetchAllRows('inventory', 'entry_date,beer_id,package_id,quantity'),
+      fetchAllRows('fasovani', 'entry_date,beer_id,package_id,quantity'),
+      fetchAllRows('fasovani_private', 'entry_date,beer_id,package_id,quantity'),
+      fetchAllRows('writeoffs', 'entry_date,beer_id,package_id,quantity'),
+      fetchAllRows('keg_prefuk', '*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
+      fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity,order_item_id'),
+      fetchAllRows('bottling', 'entry_date,beer_id,package_id,quantity,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
+      fetchAllRows('inventory_adjustments', 'entry_date,beer_id,package_id,quantity'),
       supabase.from('akce').select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
       supabase.from('kegging_plan_checks').select('week_key,day,beer_id,package_id,qty'),
     ]);

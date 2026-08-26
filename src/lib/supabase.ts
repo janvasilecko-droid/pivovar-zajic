@@ -632,3 +632,57 @@ export type AuditEntry = {
   changed_by: string | null;
   changed_at: string;
 };
+
+/**
+ * 📄 Načte VŠECHNY řádky tabulky, i když jich je přes tisíc.
+ * ---------------------------------------------------------------------------
+ * Supabase vrací na jeden dotaz nejvýš 1000 řádků a zbytek TIŠE zahodí — bez
+ * chyby, bez varování. U skladových výpočtů je to zákeřné: jakmile tabulka
+ * přeroste tisícovku, část pohybů se prostě přestane počítat a sklad začne
+ * ukazovat víc, než je ve skutečnosti. Nic přitom nespadne.
+ *
+ * Stav k 26. 8. 2026: zavoz_deductions 473 řádků, order_items 496 — při
+ * tempu zhruba 250 odečtů měsíčně se hranice překročí během pár měsíců.
+ *
+ * `select` je stejný řetězec jako u supabase.from(t).select(...).
+ */
+export function fetchAllRows<T = any>(
+  table: string,
+  select = '*'
+): PromiseLike<{ data: T[] | null; error: { message: string } | null }> & {
+  order: (col: string, opts?: any) => any;
+  gte: (col: string, val: any) => any;
+  lte: (col: string, val: any) => any;
+  eq: (col: string, val: any) => any;
+} {
+  // Modifikátory (order/eq/gte/…) se posbírají a použijí na každou stránku.
+  const kroky: ((q: any) => any)[] = [];
+
+  const nacti = async () => {
+    const PAGE = 1000;
+    const out: T[] = [];
+    for (let from = 0; ; from += PAGE) {
+      let q: any = supabase.from(table).select(select);
+      for (const k of kroky) q = k(q);
+      const { data, error } = await q.range(from, from + PAGE - 1);
+      if (error) {
+        console.error(`fetchAllRows(${table}) selhalo:`, error.message);
+        return { data: out, error };
+      }
+      const batch = (data ?? []) as T[];
+      out.push(...batch);
+      if (batch.length < PAGE) break;
+      if (out.length > 500_000) break; // pojistka proti nekonečné smyčce
+    }
+    return { data: out, error: null };
+  };
+
+  const api: any = {
+    then: (...a: any[]) => nacti().then(...a),
+    order: (col: string, opts?: any) => { kroky.push((q) => q.order(col, opts)); return api; },
+    gte: (col: string, val: any) => { kroky.push((q) => q.gte(col, val)); return api; },
+    lte: (col: string, val: any) => { kroky.push((q) => q.lte(col, val)); return api; },
+    eq: (col: string, val: any) => { kroky.push((q) => q.eq(col, val)); return api; },
+  };
+  return api;
+}

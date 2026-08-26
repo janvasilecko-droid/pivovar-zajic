@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ZavozDeductionRow } from '../lib/zavozDeduction';
 
-import { supabase, Beer, Package, KegPrefuk, useRealtime, beerBorder } from '../lib/supabase';
+import { supabase, Beer, Package, KegPrefuk, useRealtime, beerBorder, fetchAllRows } from '../lib/supabase';
 import { buildMovements, stockAsOf, stockKey } from '../lib/stockLedger';
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { Warehouse, Calendar, BarChart2, PackageCheck, Download, ShoppingBag, Tent, AlertTriangle, ChevronDown } from 'lucide-react';
@@ -113,18 +113,18 @@ export default function Stock() {
 
     const [{ data: invData }, { data: botData }, { data: kegData }, { data: ordItemsData }, { data: ordData }, { data: woData }, { data: akData }, { data: faData }, { data: fpData }, { data: pfData }, { data: zdData }, { data: adjData }] =
       await Promise.all([
-        supabase.from('inventory').select('*'),
-        supabase.from('bottling').select('*'),
-        supabase.from('kegging').select('*'),
-        supabase.from('order_items').select('*'),
-        supabase.from('orders').select('id, order_date, delivery_date, status, is_delivered'),
-        supabase.from('writeoffs').select('*'),
+        fetchAllRows('inventory', '*'),
+        fetchAllRows('bottling', '*'),
+        fetchAllRows('kegging', '*'),
+        fetchAllRows('order_items', '*'),
+        fetchAllRows('orders', 'id, order_date, delivery_date, status, is_delivered'),
+        fetchAllRows('writeoffs', '*'),
         supabase.from('akce').select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
-        supabase.from('fasovani').select('*'),
-        supabase.from('fasovani_private').select('*'),
-        supabase.from('keg_prefuk').select('*'),
-        supabase.from('zavoz_deductions').select('deduct_date,beer_id,package_id,quantity,order_item_id'),
-        supabase.from('inventory_adjustments').select('entry_date,beer_id,package_id,quantity'),
+        fetchAllRows('fasovani', '*'),
+        fetchAllRows('fasovani_private', '*'),
+        fetchAllRows('keg_prefuk', '*'),
+        fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity,order_item_id'),
+        fetchAllRows('inventory_adjustments', 'entry_date,beer_id,package_id,quantity'),
       ]);
 
     const inv = (invData ?? []) as { entry_date: string; beer_id: string | null; package_id: string | null; quantity: number; note?: string }[];
@@ -261,10 +261,10 @@ export default function Stock() {
     const [{ data: b }, { data: pk }, { data: botData }, { data: kegData }, { data: ordItemsData }, { data: ordData }] = await Promise.all([
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
-      supabase.from('bottling').select('entry_date, beer_id, package_id, quantity').gte('entry_date', brewFrom).lte('entry_date', brewTo),
-      supabase.from('kegging').select('entry_date, beer_id, package_id, quantity').gte('entry_date', brewFrom).lte('entry_date', brewTo),
-      supabase.from('order_items').select('order_id, beer_id, package_id, quantity'),
-      supabase.from('orders').select('id, order_date, status').gte('order_date', brewFrom).lte('order_date', brewTo),
+      fetchAllRows('bottling', 'entry_date, beer_id, package_id, quantity').gte('entry_date', brewFrom).lte('entry_date', brewTo),
+      fetchAllRows('kegging', 'entry_date, beer_id, package_id, quantity').gte('entry_date', brewFrom).lte('entry_date', brewTo),
+      fetchAllRows('order_items', 'order_id, beer_id, package_id, quantity'),
+      fetchAllRows('orders', 'id, order_date, status').gte('order_date', brewFrom).lte('order_date', brewTo),
     ]);
     const beerList = (b as Beer[]) ?? [];
     const pkgList = (pk as Package[]) ?? [];

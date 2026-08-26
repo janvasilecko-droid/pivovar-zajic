@@ -9,7 +9,7 @@
 // automaticky se propíše do formuláře stáčení (Lahve) — stáčeč ho tam vidí
 // jako „Úkoly ke stočení“ a jediným klikem „Naplnit“ doplní jen počty lahví.
 import { useEffect, useMemo, useState } from 'react';
-import { supabase, useRealtime, Beer, Package, beerBg } from '../lib/supabase';
+import { supabase, useRealtime, Beer, Package, beerBg, fetchAllRows } from '../lib/supabase';
 import { isoWeekKey, weekRange, shiftWeek } from './WeeklyOrderSummaryCard';
 import { computeBottlingNeeds, NeedsRow } from '../lib/bottlingNeeds';
 import {
@@ -96,22 +96,27 @@ export function BottlingTasksSettings() {
   const [writeoffsRows, setWriteoffsRows] = useState<any[]>([]);
   const [zavozDeductionRows, setZavozDeductionRows] = useState<any[]>([]);
   const [akceRows, setAkceRows] = useState<any[]>([]);
+  // Přefuk a dorovnání inventury — bez nich plán lahví ukazoval jiná čísla než Sklad.
+  const [prefukRows, setPrefukRows] = useState<any[]>([]);
+  const [adjustmentRows, setAdjustmentRows] = useState<any[]>([]);
 
   async function load() {
-    const [b, p, pl, ords, oi, inv, bt, kg, fa, fp, wo, zd, ak] = await Promise.all([
+    const [b, p, pl, ords, oi, inv, bt, kg, fa, fp, wo, zd, ak, pf, adj] = await Promise.all([
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
       supabase.from('bottling_plans').select('*').order('planned_date'),
-      supabase.from('orders').select('id,order_date,delivery_date,status,is_delivered'),
-      supabase.from('order_items').select('id,order_id,beer_id,package_id,quantity'),
-      supabase.from('inventory').select('entry_date,beer_id,package_id,quantity,note'),
-      supabase.from('bottling').select('entry_date,beer_id,package_id,quantity'),
-      supabase.from('kegging').select('entry_date,beer_id,package_id,quantity'),
-      supabase.from('fasovani').select('entry_date,beer_id,package_id,quantity'),
-      supabase.from('fasovani_private').select('entry_date,beer_id,package_id,quantity'),
-      supabase.from('writeoffs').select('entry_date,beer_id,package_id,quantity'),
-      supabase.from('zavoz_deductions').select('deduct_date,beer_id,package_id,quantity,order_item_id'),
+      fetchAllRows('orders', 'id,order_date,delivery_date,status,is_delivered'),
+      fetchAllRows('order_items', 'id,order_id,beer_id,package_id,quantity'),
+      fetchAllRows('inventory', 'entry_date,beer_id,package_id,quantity,note'),
+      fetchAllRows('bottling', 'entry_date,beer_id,package_id,quantity,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
+      fetchAllRows('kegging', 'entry_date,beer_id,package_id,quantity'),
+      fetchAllRows('fasovani', 'entry_date,beer_id,package_id,quantity'),
+      fetchAllRows('fasovani_private', 'entry_date,beer_id,package_id,quantity'),
+      fetchAllRows('writeoffs', 'entry_date,beer_id,package_id,quantity'),
+      fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity,order_item_id'),
       supabase.from('akce').select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
+      fetchAllRows('keg_prefuk', 'entry_date,beer_id,from_package_id,from_count,to_package_id,to_count'),
+      fetchAllRows('inventory_adjustments', 'entry_date,beer_id,package_id,quantity'),
     ]);
     if (b.data) setBeers(b.data as Beer[]);
     if (p.data) setPackages(p.data as Package[]);
@@ -126,11 +131,13 @@ export function BottlingTasksSettings() {
     if (wo.data) setWriteoffsRows(wo.data);
     if (zd.data) setZavozDeductionRows(zd.data);
     if (ak.data) setAkceRows(ak.data);
+    if (pf.data) setPrefukRows(pf.data);
+    if (adj.data) setAdjustmentRows(adj.data);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
   useRealtime(
-    ['bottling', 'beers', 'packages', 'orders', 'order_items', 'inventory', 'fasovani', 'fasovani_private', 'writeoffs', 'kegging', 'bottling_plans', 'zavoz_deductions', 'akce', 'akce_items'],
+    ['bottling', 'beers', 'packages', 'orders', 'order_items', 'inventory', 'fasovani', 'fasovani_private', 'writeoffs', 'kegging', 'bottling_plans', 'zavoz_deductions', 'akce', 'akce_items', 'keg_prefuk', 'inventory_adjustments'],
     () => load()
   );
 
@@ -157,10 +164,12 @@ export function BottlingTasksSettings() {
         writeoffsRows,
         zavozDeductionRows,
         akceRows,
+        prefukRows,
+        adjustmentRows,
         weekKey,
         todayStr,
       }),
-    [beers, packages, plans, orders, orderItems, inventoryRows, rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, zavozDeductionRows, akceRows, weekKey, todayStr]
+    [beers, packages, plans, orders, orderItems, inventoryRows, rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, zavozDeductionRows, akceRows, prefukRows, adjustmentRows, weekKey, todayStr]
   );
 
   const isKegPkg = (pkgId: string) => packages.find((p) => p.id === pkgId)?.kind === 'keg';

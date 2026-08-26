@@ -1,6 +1,6 @@
 import { BottlingChecklistModal, DEFAULT_ITEMS, isStartChecklistCompleteForDate, isMonthlyChecklistCompleteForDate, MONTHLY_CATEGORY } from '../components/BottlingChecklistModal';
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, beerText, formatPackageLabel } from '../lib/supabase';
+import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, beerText, formatPackageLabel, fetchAllRows } from '../lib/supabase';
 import { EmptyState, Spinner, Modal, useConfirm } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { exportBottlingToExcel } from '../lib/excel';
@@ -424,19 +424,19 @@ export default function BottlingScreen({
     const loadId = ++loadCountRef.current;
     if (!silent && !rows.length) setLoading(true);
     const [bt, b, p, ords, oi, inv, fa, fp, wo, kg, pl, zd, adj, ak] = await Promise.all([
-      supabase.from('bottling').select('*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
+      fetchAllRows('bottling', '*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
-      supabase.from('orders').select('id,order_date,delivery_date,status,is_delivered'),
-      supabase.from('order_items').select('id,order_id,beer_id,package_id,quantity'),
-      supabase.from('inventory').select('entry_date,beer_id,package_id,quantity,note'),
-      supabase.from('fasovani').select('entry_date,beer_id,package_id,quantity'),
-      supabase.from('fasovani_private').select('entry_date,beer_id,package_id,quantity'),
-      supabase.from('writeoffs').select('entry_date,beer_id,package_id,quantity'),
-      supabase.from('kegging').select('entry_date,beer_id,package_id,quantity'),
+      fetchAllRows('orders', 'id,order_date,delivery_date,status,is_delivered'),
+      fetchAllRows('order_items', 'id,order_id,beer_id,package_id,quantity'),
+      fetchAllRows('inventory', 'entry_date,beer_id,package_id,quantity,note'),
+      fetchAllRows('fasovani', 'entry_date,beer_id,package_id,quantity'),
+      fetchAllRows('fasovani_private', 'entry_date,beer_id,package_id,quantity'),
+      fetchAllRows('writeoffs', 'entry_date,beer_id,package_id,quantity'),
+      fetchAllRows('kegging', 'entry_date,beer_id,package_id,quantity'),
       supabase.from('bottling_plans').select('*').order('planned_date'),
-      supabase.from('zavoz_deductions').select('deduct_date,beer_id,package_id,quantity,order_item_id'),
-      supabase.from('inventory_adjustments').select('entry_date,beer_id,package_id,quantity'),
+      fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity,order_item_id'),
+      fetchAllRows('inventory_adjustments', 'entry_date,beer_id,package_id,quantity'),
       supabase.from('akce').select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
     ]);
     if (loadId !== loadCountRef.current) return;

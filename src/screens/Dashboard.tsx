@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase, Beer, Package, useRealtime, beerBorder } from '../lib/supabase';
+import { supabase, Beer, Package, useRealtime, beerBorder, fetchAllRows } from '../lib/supabase';
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { AlertTriangle, ClipboardList, PackageCheck, Layers, Beer as BeerIcon, BarChart3, Sparkles, Calculator } from 'lucide-react';
@@ -106,18 +106,18 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
     const [{ data: b }, { data: pk }, { data: bt }, { data: kg }, { data: wo }, { data: inv }, { data: oi }, { data: ord }, { data: ak }, { data: fa }, { data: fp }, { data: zd }, { data: adj }, { data: pf }] = await Promise.all([
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
-      supabase.from('bottling').select('entry_date,beer_id,package_id,quantity,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
-      supabase.from('kegging').select('entry_date,beer_id,package_id,quantity'),
-      supabase.from('writeoffs').select('entry_date,beer_id,package_id,quantity'),
-      supabase.from('inventory').select('entry_date,beer_id,beer_name,package_id,package_label,quantity,note'),
-      supabase.from('order_items').select('beer_id,package_id,quantity,order_id'),
-      supabase.from('orders').select('id,order_date,delivery_date,status'),
+      fetchAllRows('bottling', 'entry_date,beer_id,package_id,quantity,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
+      fetchAllRows('kegging', 'entry_date,beer_id,package_id,quantity'),
+      fetchAllRows('writeoffs', 'entry_date,beer_id,package_id,quantity'),
+      fetchAllRows('inventory', 'entry_date,beer_id,beer_name,package_id,package_label,quantity,note'),
+      fetchAllRows('order_items', 'beer_id,package_id,quantity,order_id'),
+      fetchAllRows('orders', 'id,order_date,delivery_date,status'),
       supabase.from('akce').select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
-      supabase.from('fasovani').select('entry_date,beer_id,package_id,quantity'),
-      supabase.from('fasovani_private').select('entry_date,beer_id,package_id,quantity'),
-      supabase.from('zavoz_deductions').select('deduct_date,beer_id,package_id,quantity'),
-      supabase.from('inventory_adjustments').select('entry_date,beer_id,package_id,quantity'),
-      supabase.from('keg_prefuk').select('entry_date,beer_id,from_package_id,from_count,to_package_id,to_count'),
+      fetchAllRows('fasovani', 'entry_date,beer_id,package_id,quantity'),
+      fetchAllRows('fasovani_private', 'entry_date,beer_id,package_id,quantity'),
+      fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity'),
+      fetchAllRows('inventory_adjustments', 'entry_date,beer_id,package_id,quantity'),
+      fetchAllRows('keg_prefuk', 'entry_date,beer_id,from_package_id,from_count,to_package_id,to_count'),
     ]);
     const beerList = (b as Beer[]) ?? [];
     const pkgList = (pk as Package[]) ?? [];
@@ -342,7 +342,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
     Promise.all([
       fetchLabelBalances(),
       supabase.from('packages').select('label,kind'),
-      supabase.from('bottling').select('beer_name,package_label,quantity'),
+      fetchAllRows('bottling', 'beer_name,package_label,quantity'),
     ]).then(([labelBalances, pRes, botRes]) => {
       const pkgs = (pRes.data as any[]) ?? [];
       const bot = (botRes.data as any[]) ?? [];

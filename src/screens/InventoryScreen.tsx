@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 
 
-import { supabase, Beer, Package, useRealtime, formatPackageLabel, beerBg, beerText, beerName } from '../lib/supabase';
+import { supabase, Beer, Package, useRealtime, formatPackageLabel, beerBg, beerText, beerName, fetchAllRows } from '../lib/supabase';
 import { Spinner } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { ClipboardCheck, Plus, Save, Download, Lock, RefreshCw, AlertCircle, CheckCircle2, RotateCcw, Calendar, Camera , AlertTriangle} from 'lucide-react';
@@ -154,18 +154,18 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     const [{ data: b }, { data: pk }, { data: bt }, { data: kg }, { data: fa }, { data: fp }, { data: wo }, { data: inv }, { data: adj }, { data: zd }, { data: ak }, { data: pf }] = await Promise.all([
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
-      supabase.from('bottling').select('beer_id,package_id,quantity,entry_date,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
-      supabase.from('kegging').select('beer_id,package_id,quantity,entry_date'),
-      supabase.from('fasovani').select('beer_id,package_id,quantity,entry_date'),
-      supabase.from('fasovani_private').select('beer_id,package_id,quantity,entry_date'),
-      supabase.from('writeoffs').select('beer_id,package_id,quantity,entry_date'),
-      supabase.from('inventory').select('beer_id,package_id,quantity,entry_date,note'),
-      supabase.from('inventory_adjustments').select('beer_id,package_id,quantity,entry_date,created_at'),
+      fetchAllRows('bottling', 'beer_id,package_id,quantity,entry_date,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
+      fetchAllRows('kegging', 'beer_id,package_id,quantity,entry_date'),
+      fetchAllRows('fasovani', 'beer_id,package_id,quantity,entry_date'),
+      fetchAllRows('fasovani_private', 'beer_id,package_id,quantity,entry_date'),
+      fetchAllRows('writeoffs', 'beer_id,package_id,quantity,entry_date'),
+      fetchAllRows('inventory', 'beer_id,package_id,quantity,entry_date,note'),
+      fetchAllRows('inventory_adjustments', 'beer_id,package_id,quantity,entry_date,created_at'),
       // Odpočet objednávek — stejný zdroj (zavoz_deductions) jako obrazovka Sklad, aby se
       // čísla shodovala i po dodatečné změně data doručení objednávky (viz Stock.tsx).
-      supabase.from('zavoz_deductions').select('deduct_date,beer_id,package_id,quantity'),
+      fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity'),
       supabase.from('akce').select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
-      supabase.from('keg_prefuk').select('entry_date,beer_id,from_package_id,from_count,to_package_id,to_count'),
+      fetchAllRows('keg_prefuk', 'entry_date,beer_id,from_package_id,from_count,to_package_id,to_count'),
     ]);
 
     if (loadId !== loadCountRef.current) return;

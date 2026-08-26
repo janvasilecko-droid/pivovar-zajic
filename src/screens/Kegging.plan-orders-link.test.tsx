@@ -46,6 +46,9 @@ vi.mock('../lib/supabase', () => {
   const supabase = { from: vi.fn((t: string) => makeQuery(t)) };
   return {
     supabase,
+    // Stránkovaná varianta se v testu chová stejně jako běžný dotaz —
+    // testovací data se do jedné stránky vejdou.
+    fetchAllRows: vi.fn((t: string) => makeQuery(t)),
     useRealtime: vi.fn(),
     beerBg: vi.fn(() => '#f59e0b'),
     beerText: vi.fn(() => '#000'),

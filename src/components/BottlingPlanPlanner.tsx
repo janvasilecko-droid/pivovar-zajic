@@ -129,6 +129,20 @@ export function BottlingPlanPlanner({
       .then(({ data }) => setZavozDeductionRows(data ?? []));
   });
 
+  // Přefuk sudů a dorovnání inventury — stejný zdroj jako Sklad a Inventura.
+  // Bez nich ukazoval tenhle plánovací přehled jiná čísla než zbytek aplikace:
+  // přelití 20× 50l na 33× 30l tady vypadalo, jako by se nic nestalo, a manko
+  // zapsané v Inventuře se sem nepromítlo vůbec.
+  const [prefukRows, setPrefukRows] = useState<any[]>([]);
+  const [adjustmentRows, setAdjustmentRows] = useState<any[]>([]);
+  const nactiPrefukADorovnani = () => {
+    supabase.from('keg_prefuk').select('entry_date,beer_id,from_package_id,from_count,to_package_id,to_count')
+      .then(({ data }) => setPrefukRows(data ?? []));
+    supabase.from('inventory_adjustments').select('entry_date,beer_id,package_id,quantity')
+      .then(({ data }) => setAdjustmentRows(data ?? []));
+  };
+  useEffect(nactiPrefukADorovnani, []);
+  useRealtime(['keg_prefuk', 'inventory_adjustments'], nactiPrefukADorovnani);
   // Spotřeba na Akcích/festivalech (odvezeno − vráceno) — stejný zdroj jako
   // Sklad (Stock.tsx), aby „sklad" v tomhle plánovacím přehledu nepovažoval
   // pivo odvezené na akci pořád za dostupné.
@@ -168,12 +182,13 @@ export function BottlingPlanPlanner({
     stockAsOf(
       buildMovements({
         inventoryRows, bottlingRows: rows, keggingRows, fasovaniRows,
-        prodejnaRows, writeoffsRows, zavozDeductionRows, akceRows, packages,
+        prodejnaRows, writeoffsRows, zavozDeductionRows, akceRows,
+        prefukRows, adjustmentRows, packages,
       }),
       dnes,
     ).forEach((line, k) => { map[k] = Math.max(0, line.qty); });
     return map;
-  }, [inventoryRows, rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, zavozDeductionRows, akceRows, packages]);
+  }, [inventoryRows, rows, keggingRows, fasovaniRows, prodejnaRows, writeoffsRows, zavozDeductionRows, akceRows, prefukRows, adjustmentRows, packages]);
 
   // Položky, které už mají svůj vlastní odpočet závozu — ty jsou fyzicky odečtené ze
   // skladu už jednou přes stockMap výše, takže se nesmí počítat i do weekOrdered
