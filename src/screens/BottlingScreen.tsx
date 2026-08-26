@@ -1,7 +1,7 @@
 import { BottlingChecklistModal, DEFAULT_ITEMS, isStartChecklistCompleteForDate, isMonthlyChecklistCompleteForDate, MONTHLY_CATEGORY } from '../components/BottlingChecklistModal';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, beerText, formatPackageLabel } from '../lib/supabase';
-import { EmptyState, Spinner, Modal } from '../components/ui';
+import { EmptyState, Spinner, Modal, useConfirm } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { exportBottlingToExcel } from '../lib/excel';
 import { ImportBottlingFromImage } from '../components/ImportBottlingFromImage';
@@ -57,6 +57,7 @@ export default function BottlingScreen({
   const [entryRows, setEntryRows] = useState<RowInput[]>(emptyRows());
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const { confirm, node: confirmNode } = useConfirm();
   const [flash, setFlash] = useState(false);
 
   const [showImageImport, setShowImageImport] = useState(false);
@@ -554,7 +555,17 @@ export default function BottlingScreen({
 
 
   async function del(id: string) {
-    await supabase.from('bottling').delete().eq('id', id);
+    // Dřív se mazalo bez ptaní a bez kontroly chyby — křížek přitom sousedí
+    // s „+" a tužkou, takže jedno chybné klepnutí nenávratně smazalo zápis
+    // stáčení. U KEGů a fasování se appka ptá, tady se nechovala stejně.
+    const row = rows.find((r) => r.id === id);
+    const popis = row ? `${row.beer_name ?? 'pivo'} ${row.package_label ?? ''} — ${row.quantity} ks (${row.entry_date})` : 'tento záznam';
+    if (!(await confirm(`Opravdu smazat záznam stáčení?\n\n${popis}`))) return;
+    const { error } = await supabase.from('bottling').delete().eq('id', id);
+    if (error) {
+      setErr('Smazání se nepovedlo: ' + error.message);
+      return;
+    }
     setRows((r) => r.filter((x) => x.id !== id));
   }
 
@@ -804,7 +815,7 @@ export default function BottlingScreen({
           <div className="relative group">
             <button className="btn-ghost !rounded !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs" disabled={!rows.length}>📊 Export Excel ▾</button>
             {rows.length > 0 && (
-              <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-neutral-200 rounded shadow-lg py-1 min-w-[180px] hidden group-hover:block">
+              <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-neutral-200 rounded shadow-lg py-1 min-w-[180px] hidden group-hover:block group-focus-within:block">
                 <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
                   const now = new Date();
                   const m = now.toISOString().slice(0, 7);
@@ -1752,6 +1763,7 @@ export default function BottlingScreen({
           </div>
         </div>
       )}
+      {confirmNode}
       <BottlingChecklistModal
         isOpen={showChecklistModal}
         onClose={() => {

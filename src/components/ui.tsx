@@ -133,7 +133,7 @@ export function useConfirm() {
   const [state, setState] = useState<{ msg: string; resolve: (v: boolean) => void } | null>(null);
   const confirm = (msg: string) => new Promise<boolean>((resolve) => setState({ msg, resolve }));
   const node = state ? (
-    <Modal open onClose={() => { state.resolve(false); setState(null); }} title="Potvrzení akci">
+    <Modal open onClose={() => { state.resolve(false); setState(null); }} title="Potvrzení akce">
       <p className="text-sm text-neutral-700 mb-6 font-medium leading-relaxed">{state.msg}</p>
       <div className="flex gap-3 justify-end">
         <button className="btn-ghost !rounded" onClick={() => { state.resolve(false); setState(null); }}>Zrušit</button>

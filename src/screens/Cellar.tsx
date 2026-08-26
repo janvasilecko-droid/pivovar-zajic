@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, Beer as BeerIcon, Factory, CalendarDays } fr
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 
 import { supabase, Beer, Package, CellarTank, CellarTransfer, CellarTankCycle, EntryRow, useRealtime, beerBorder } from '../lib/supabase';
-import { Modal, Field, Spinner } from '../components/ui';
+import { Modal, Field, Spinner, useConfirm } from '../components/ui';
 import { TankOccupancyPlanner } from '../components/TankOccupancyPlanner';
 
 const STATUS_LABELS: Record<CellarTank['status'], string> = {
@@ -37,6 +37,7 @@ function fmtHours(h: number | null | undefined): string {
 
 export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; initialSubTab?: string } = {}) {
   const [activeTab, setActiveTab] = useState<'lezacke' | 'spilka' | 'planovac'>((initialSubTab as any) || 'lezacke');
+  const { confirm, node: confirmNode } = useConfirm();
 
   useEffect(() => {
     setActiveTab((initialSubTab as any) || 'lezacke');
@@ -515,6 +516,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
 
   return (
     <div>
+      {confirmNode}
       <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
         <div>
           <h1 className="text-2xl font-display font-bold text-primary-900">🏚️ Sklep & Spilka — tanky</h1>
@@ -909,11 +911,23 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                         <button
                           className="min-h-[44px] text-xs px-1.5 py-2 rounded bg-rose-100 text-rose-950 font-bold hover:bg-rose-200 shadow-xs border border-rose-300 flex flex-col items-center justify-center gap-0.5"
                           onClick={async () => {
+                            // Tohle tlačítko kromě zápisu sanitace tank i VYPRÁZDNÍ
+                            // (zahodí pivo, počáteční objem i začátek cyklu). Sousedí
+                            // s Oplachem a Louhem, které tank nemažou — bez potvrzení
+                            // stačilo jedno chybné klepnutí a data byla nenávratně pryč.
+                            const varovani = t.current_beer_name
+                              ? `\n\nPOZOR: tank ${t.label} se tím vyprázdní — zmizí přiřazené pivo (${t.current_beer_name}), počáteční objem i začátek cyklu. Nejde to vrátit zpět.`
+                              : `\n\nTank ${t.label} se tím označí jako prázdný.`;
+                            if (!(await confirm(`Zapsat sanitaci kyselinou dusičnou?${varovani}`))) return;
                             await recordSanitation('kyselina_dusicna', t, 'Sanitace kyselinou dusičnou z karty tanku', 2, 20);
-                            await supabase.from('cellar_tanks').update({
+                            const { error } = await supabase.from('cellar_tanks').update({
                               status: 'empty', current_beer_id: null, current_beer_name: null,
                               started_at: null, initial_volume_l: null, updated_at: new Date().toISOString(),
                             }).eq('id', t.id);
+                            if (error) {
+                              alert(`⚠️ Sanitace se zapsala, ale vyprázdnění tanku selhalo: ${error.message}`);
+                              return;
+                            }
                             load();
                             alert(`🧪 Kyselina dusičná pro ${t.label} byla zapsána (Provedl: ${userName})`);
                           }}

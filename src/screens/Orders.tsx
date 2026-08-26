@@ -2031,7 +2031,10 @@ export default function Orders({
         <VariantTotalsPanel totals={variantTotals} beers={beers} packages={packages} timeScope={timeScope} onPick={handleItemClick} />
       )}
 
-      {viewMode !== 'celkem' && viewMode !== 'text' && (loading ? null : searchedFiltered.length === 0 ? <EmptyState text="Žádné objednávky pro zvolené filtry." icon="🧾" /> : (viewMode === 'detail' && groupedByDay) ? (
+      {/* Při načítání se dřív nezobrazovalo nic — na pomalém připojení bylo pod
+          filtry prázdno a objednávky se pak „samy objevily". Nešlo poznat,
+          jestli se načítá, nebo je opravdu prázdno. */}
+      {viewMode !== 'celkem' && viewMode !== 'text' && (loading ? <Spinner /> : searchedFiltered.length === 0 ? <EmptyState text="Žádné objednávky pro zvolené filtry." icon="🧾" /> : (viewMode === 'detail' && groupedByDay) ? (
         <div className="space-y-6">
           {groupedByDay.map((grp) => (
             <div key={grp.key}>

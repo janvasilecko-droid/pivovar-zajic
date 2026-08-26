@@ -292,11 +292,17 @@ export function useRealtime(tables: string[], onChange: () => void) {
   const ref = useRef(onChange);
   ref.current = onChange;
   useEffect(() => {
-    let pending = false;
+    // Zdržení (debounce) před přenačtením. Dřív se slučovalo jen přes
+    // Promise.resolve() — mikrotask, který spojí jen události doručené ve
+    // STEJNÉ synchronní dávce. Jednotlivé zprávy z WebSocketu ale chodí
+    // každá zvlášť, takže uložení objednávky s 15 položkami spustilo 15
+    // kompletních přenačtení; a jedno přenačtení Stáčení je 15 dotazů,
+    // tedy až 225 požadavků z jednoho uložení. Půlsekundové zdržení je
+    // pod hranicí vnímání a sloučí celou dávku do jednoho načtení.
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const trigger = () => {
-      if (pending) return;
-      pending = true;
-      Promise.resolve().then(() => { pending = false; ref.current(); });
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => { timer = null; ref.current(); }, 400);
     };
     const channels = tables.map((t) =>
       supabase
@@ -306,6 +312,7 @@ export function useRealtime(tables: string[], onChange: () => void) {
     );
     window.addEventListener('pivovar:online-refetch', trigger);
     return () => {
+      if (timer) clearTimeout(timer);
       channels.forEach((c) => supabase.removeChannel(c));
       window.removeEventListener('pivovar:online-refetch', trigger);
     };
