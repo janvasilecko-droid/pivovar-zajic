@@ -113,11 +113,13 @@ function volToPackage(volStr: string, packages: Package[], norm?: string): Packa
 const BEER_ALIASES: { pattern: RegExp; degree?: string; color?: string; namePart?: string }[] = [
   { pattern: /\bcykl\.?\s*vosm(a|u|e|y|icka|ička)?\b|\bcykl\.?\s*osm(a|u|e|y|icka|ička)?\b|\bvosm(a|u|e|y|icka|ička)?\b|\bosm(a|u|e|y|icka|ička)?\b|\bcyklo\s*osm(a|u)?\b|\bcykloosm(a|u)?\b|\bcyklo\b|\b8\s*°?\b|\b8st\b|\bosma\b|\bvosma\b/i, degree: '8°' },
   { pattern: /\bdesitk(a|u|e|y)?\b|\bdesit(k)?\b|\bdesitku\b|\b10\s*°?\b|\b10\s*st\b|\b10sv\b|\bsvetle\s*vcepni\b|\bvycepni\s*svetle\b|\bdesitka\b|\bvycep\b|\bvýčep\b|\bvycepni\b|\bvýčepní\b/, degree: '10°', color: 'světlé' },
-  { pattern: /\b11\s*(sv|svet|svetl)\b|\b11sv\b|\bjedenact(k)?(a|u|y)?\b|\bjedenactku\b|\bjedenactka\b/, degree: '11°', color: 'světlé' },
-  { pattern: /\b12\s*(sv|svet|swet|svetl|light)\b|\b12sv\b|\bdvanactk(a|u|e|y)?\b|\bdvanactka\b|\bsvetla 12\b|\bsvetly 12\b|\bsvetly\s*lezak\b|\blezak\s*svetly\b/i, degree: '12°', color: 'světlé' },
-  { pattern: /\bsv\s*l\b|\bsvetl[ée]\s*l\b|\bsvetl[ýy]\s*l\b|\bsvetle\s*l\b/, degree: '12°', color: 'světlé' },
+  { pattern: /\b11\s*(sv|svet|svetl|sl)\b|\b11sv\b|\b11\s*sl\b|\bsl\s*11\b|\bsv\s*11\b|\bsvetl[ay]\s*11\b|\b11\s*svetly\s*lezak\b|\bsvetly\s*lezak\s*11\b|\bjedenact(k)?(a|u|y)?\b|\bjedenactku\b|\bjedenactka\b/, degree: '11°', color: 'světlé' },
+  { pattern: /\b12\s*(sv|svet|swet|svetl|light|sl)\b|\b12sv\b|\b12\s*sl\b|\bsl\s*12\b|\bsv\s*12\b|\bsv12\b|\bsvetl[ay]\s*12\b|\b12\s*svetly\s*lezak\b|\bsvetly\s*lezak\s*12\b|\bdvanactk(a|u|e|y)?\b|\bdvanactka\b|\bsvetla 12\b|\bsvetly 12\b|\bsvetly\s*lezak\b|\blezak\s*svetly\b/i, degree: '12°', color: 'světlé' },
+  // Holé "sl" bez čísla = světlý ležák 12° (výchozí). Vzory s číslem výše mají
+  // přednost, protože se v poli vyhodnocují dřív — "sl 11" tak spadne na 11°.
+  { pattern: /\bsl\b|\bsv\s*l\b|\bsvetl[ée]\s*l\b|\bsvetl[ýy]\s*l\b|\bsvetle\s*l\b/, degree: '12°', color: 'světlé' },
 
-  { pattern: /\b12\s*(tm|tma|tmavy|tmava|dark|tmave)\b|\btl\b|\btmava\b|\btmave\b|\btmavy\b|\btmavy\s*lezak\b|\blezak\s*tmavy\b|\btm\b|\bcerne\b|\bcerna\b/, degree: '12°', color: 'tmavé' },
+  { pattern: /\b12\s*(tm|tma|tmavy|tmava|dark|tmave)\b|\btm\s*12\b|\btm12\b|\btmav[ay]\s*12\b|\b12\s*tmavy\s*lezak\b|\btl\b|\btmava\b|\btmave\b|\btmavy\b|\btmavy\s*lezak\b|\blezak\s*tmavy\b|\btm\b|\bcerne\b|\bcerna\b/, degree: '12°', color: 'tmavé' },
   { pattern: /\bjantar\b|\bjant\b|\bjantarek\b|\bpolotmav\b|\b13\s*°?\b|\b13st\b/i, namePart: 'Jantar', degree: '13°' },
   { pattern: /\bsummer\b|\bsumr\b|\bsummer\s*ale\b|\bale\b/, namePart: 'Summer' },
   { pattern: /\bhazy\b|\bipa\b|\bneipa\b/, namePart: 'Hazy' },
@@ -419,9 +421,16 @@ function extractDegreeFromRaw(text: string): string | null {
   // nejsou v BEER_DEGREES kromě č. 10 a 8, které se ale u piva typicky píšou
   // s °, "sv"/"tm" nebo jako součást názvu piva ("8", "10").
   const m = text.match(
-    /(?:^|[^0-9.])(8|9|10|11|12|13|14|15|16)\s*(?:°|stupn|st|sv|svet|svetl|svetly|svetle|tm|tma|tmav|tmavy|tmave|dark|l[eé]ž[aá]k|des[ií]tk|dvan[aá]ctk)/i
+    /(?:^|[^0-9.])(8|9|10|11|12|13|14|15|16)\s*(?:°|stupn|st|sv|svet|svetl|svetly|svetle|sl|tm|tma|tmav|tmavy|tmave|dark|l[eé]ž[aá]k|des[ií]tk|dvan[aá]ctk)/i
   );
   if (m) return m[1];
+  // Barva PŘED číslem ("sl 11", "sv 12", "tm 11", "svetly 12"). Číslo u barvy
+  // určuje stupeň bez ohledu na pořadí — bez tohohle se chytlo jen "11sl",
+  // ale "sl 11" propadlo a stupeň se převzal z AI (typicky výchozích 12°).
+  const mColorFirst = text.match(
+    /(?:^|[^0-9.])(?:sv|svet|svetl|svetly|svetle|sl|tm|tmav|tmavy|tmave)\s*(8|9|10|11|12|13|14|15|16)(?![0-9.])/i
+  );
+  if (mColorFirst) return mColorFirst[1];
   // Stupeň napsaný ZA SUDEM na konci řádku (např. "2x50 10", "2x50 8",
   // "3x 30l 11"): po objemu KEG (x50/x30...) následuje na konci číslo stupně.
   // Bezpečně rozlišíme, že 10/8 tady není objem (objem už je vypsaný), ale stupeň.
@@ -854,7 +863,26 @@ export function parseGeminiItems(
       ({ beer, alias } = matchBeerFromHints(normalize(ld + '°'), beers, aliases));
     }
 
-
+    // 🧠 STUPEŇ Z VLASTNÍHO TEXTU PŘEBIJE PIVO URČENÉ AI PODLE NÁZVU:
+    // beer_name od AI se výše zkouší jako první, takže když zákazník napíše
+    // "2x50 sl 11", ale AI k tomu přiloží beer_name "12° Světlá", vyhrálo by
+    // chybné 12°. raw_line je doslovný přepis toho, co zákazník napsal, takže
+    // stupeň v něm má přednost. Přepisujeme jen když v katalogu existuje pivo
+    // se stejnou BARVOU a tím správným stupněm — to chrání názvy jako
+    // "Jantar 12" nebo "Summer", kde číslo ke stupni nepatří.
+    const rawOwnDegree = extractDegreeFromRaw(raw);
+    if (beer && rawOwnDegree) {
+      const beerDegree = (beer.degree || '').replace('°', '').trim();
+      if (beerDegree && beerDegree !== rawOwnDegree) {
+        const better = beers.find(
+          (b) => (b.degree || '').replace('°', '').trim() === rawOwnDegree && b.color === beer!.color
+        );
+        if (better) {
+          beer = better;
+          alias = null;
+        }
+      }
+    }
 
     const rawNorm = normalize(raw);
     let pkg: Package | null = null;

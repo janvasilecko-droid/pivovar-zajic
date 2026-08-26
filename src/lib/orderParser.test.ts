@@ -247,7 +247,6 @@ describe('matchBeerFromHints', () => {
   it('bare sl defaults to 12° Světlá', () => {
     expect(matchBeerFromHints('sl', beers, aliases()).beer?.id).toBe('b-12sv');
   });
-  });
 });
 
 describe('matchPackage', () => {
@@ -479,5 +478,25 @@ describe('detectOrderNotes', () => {
 
   it('vrátí prázdný řetězec, když žádná poznámka není', () => {
     expect(detectOrderNotes('2x50 12sv desitka')).toBe('');
+  });
+});
+
+describe('parseGeminiItems — raw_line degree overrides AI beer_name', () => {
+  it('raw_line 11sl overrides AI beer_name 12° Světlá', () => {
+    const items: GeminiItem[] = [
+      { raw_line: '3x30 11sl', quantity: 3, degree: '12°', beer_name: '12° Světlá', package_label: 'KEG 30l' },
+    ];
+    const results = parseGeminiItems(items, beers, packages);
+    expect(results).toHaveLength(1);
+    expect(results[0].beer_id).toBe('b-11sv');
+  });
+
+  it('raw_line sv 12 overrides AI beer_name 11° Světlá', () => {
+    const items: GeminiItem[] = [
+      { raw_line: '3x30 sv 12', quantity: 3, degree: '11°', beer_name: '11° Světlá', package_label: 'KEG 30l' },
+    ];
+    const results = parseGeminiItems(items, beers, packages);
+    expect(results).toHaveLength(1);
+    expect(results[0].beer_id).toBe('b-12sv');
   });
 });
