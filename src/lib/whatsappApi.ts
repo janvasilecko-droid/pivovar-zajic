@@ -45,6 +45,15 @@ export interface WhatsAppIncoming {
   webhook_timestamp?: string;
   /** Text zprávy, na kterou tahle odpovídá (WhatsApp "reply"/citace), pokud nějaký je. */
   quoted_text?: string | null;
+  /**
+   * Objednávka, kterou tahle odpověď UPRAVUJE („Bez summera", „nakonec 9x30",
+   * „plus 3x10 11sv"). Když je vyplněná, `parsed_items` obsahují VÝSLEDNOU
+   * podobu celé objednávky po zapracování odpovědi — ne jen obsah odpovědi.
+   * Schválení pak objednávku upraví místo aby zakládalo novou.
+   */
+  amends_order_id?: string | null;
+  /** Původní zpráva, na kterou odpověď reaguje (pro zobrazení kontextu). */
+  amends_message_id?: string | null;
 }
 
 // Interface for parsed order item

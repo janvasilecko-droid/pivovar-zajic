@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Beer, Package, Place } from '../lib/supabase';
+import { supabase, Beer, Package, Place } from '../lib/supabase';
 import { WhatsAppIncoming, ignoreWhatsAppMessage, updateWhatsAppParsedData } from '../lib/whatsappApi';
 import { parseWhatsAppOrderMessageWithAI } from '../lib/whatsappParser';
 import { loadAliasMap, saveAlias, canLearnBeerAlias, matchBeerFromHints, matchPackage, matchPlaceFromText, savePlaceAlias, normalize, type ParserAliasMap } from '../lib/orderParser';
+import { diffOrderItems, type DiffRow } from '../lib/whatsappAmendment';
 import { PlaceCombobox } from './PlaceCombobox';
 import { QuickQtySelect } from './QuickQtySelect';
 import { Modal } from './ui';
@@ -75,6 +76,10 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   // Interní stav zprávy — po „přečtení znovu (AI)" se aktualizuje lokálně,
   // aby se přepis, položky i kontrola čtení okamžitě překreslily.
   const [msg, setMsg] = useState<WhatsAppIncoming | null>(props.message);
+  // Rozdíl mezi současnou objednávkou a tím, co z odpovědi vyšlo.
+  const [amendDiff, setAmendDiff] = useState<DiffRow[]>([]);
+  const [amendPlace, setAmendPlace] = useState<string | null>(null);
+  const [amendLoading, setAmendLoading] = useState(false);
 
   // Synchronizace s prop (otevření nové zprávy).
   useEffect(() => {
@@ -159,6 +164,36 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.isOpen, msg?.id, rebuildKey]);
+
+  // ↩️ Když zpráva upravuje existující objednávku, načti její SOUČASNÝ obsah
+  // a porovnej s tím, co z odpovědi vyšlo — obsluha pak vidí celou objednávku
+  // se zvýrazněnými změnami, ne jen samotnou odpověď.
+  useEffect(() => {
+    if (!props.isOpen || !msg?.amends_order_id) { setAmendDiff([]); setAmendPlace(null); return; }
+    let zruseno = false;
+    setAmendLoading(true);
+    (async () => {
+      const { data } = await supabase
+        .from('orders')
+        .select('place_name, items:order_items(beer_id, package_id, quantity)')
+        .eq('id', msg.amends_order_id!)
+        .maybeSingle();
+      if (zruseno) return;
+      setAmendPlace((data as any)?.place_name ?? null);
+      const soucasne = (((data as any)?.items ?? []) as any[]).map((i) => ({
+        beer_id: i.beer_id, package_id: i.package_id, quantity: Number(i.quantity || 0),
+      }));
+      setAmendDiff(diffOrderItems(soucasne, items.map((it) => ({
+        beer_id: it.beerId || null, package_id: it.pkgId || null, quantity: Number(it.qty) || 0,
+      }))));
+      setAmendLoading(false);
+    })();
+    return () => { zruseno = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.isOpen, msg?.amends_order_id, items]);
+
+  const beerNameById = (id: string | null) => props.beers.find((b) => b.id === id)?.name ?? '(neurčené pivo)';
+  const pkgLabelById = (id: string | null) => String(props.packages.find((p) => p.id === id)?.label ?? '').trim();
 
   function updateItemBeer(index: number, beerId: string) {
     const next = [...items];
@@ -526,6 +561,59 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
 
   const body = (
       <div className="space-y-6">
+        {/* ↩️ Odpověď, která upravuje dřívější objednávku. Ukáže se PŮVODNÍ
+            objednávka se zvýrazněnými změnami, ať je vidět, co se potvrzuje —
+            schválení objednávku upraví, nezaloží novou. */}
+        {msg?.amends_order_id && (
+          <div className="border-2 border-violet-300 rounded bg-violet-50 overflow-hidden">
+            <div className="p-4 border-b border-violet-200">
+              <div className="flex items-center gap-2">
+                <RefreshCw size={18} className="text-violet-600 shrink-0" />
+                <div className="font-display font-black text-violet-900 text-sm">
+                  Tohle je odpověď — upraví už existující objednávku
+                </div>
+              </div>
+              <div className="text-xs font-bold text-violet-700 mt-1">
+                {amendPlace ? `Odběratel: ${amendPlace}. ` : ''}
+                Schválením se objednávka přepíše podle níže uvedeného stavu. Nová objednávka se nezaloží.
+              </div>
+            </div>
+
+            {amendLoading ? (
+              <div className="p-4 text-xs font-bold text-violet-700">Načítám původní objednávku…</div>
+            ) : amendDiff.length === 0 ? (
+              <div className="p-4 text-xs font-bold text-violet-700">Původní objednávka se nepodařilo načíst.</div>
+            ) : (
+              <ul className="divide-y divide-violet-100 bg-white/70">
+                {amendDiff.map((d, i) => {
+                  const nazev = `${beerNameById(d.beer_id)} ${pkgLabelById(d.package_id)}`.trim();
+                  const styl =
+                    d.zmena === 'pridano' ? 'bg-emerald-50' :
+                    d.zmena === 'odebrano' ? 'bg-rose-50' :
+                    d.zmena === 'zmeneno' ? 'bg-amber-50' : '';
+                  return (
+                    <li key={`${d.beer_id}-${d.package_id}-${i}`} className={`flex items-center justify-between gap-3 px-4 py-2.5 text-xs ${styl}`}>
+                      <span className={`font-black min-w-0 truncate ${d.zmena === 'odebrano' ? 'text-neutral-400 line-through' : 'text-neutral-800'}`}>
+                        {nazev}
+                      </span>
+                      <span className="shrink-0 font-mono font-bold flex items-center gap-2">
+                        {d.zmena === 'pridano' && <span className="text-emerald-700">+ {d.after} ks — nově</span>}
+                        {d.zmena === 'odebrano' && <span className="text-rose-700">{d.before} ks → odebrat</span>}
+                        {d.zmena === 'zmeneno' && (
+                          <span className="text-amber-800">
+                            <span className="line-through text-neutral-400">{d.before}</span> → <strong>{d.after} ks</strong>
+                          </span>
+                        )}
+                        {d.zmena === 'beze_zmeny' && <span className="text-neutral-500">{d.after} ks</span>}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        )}
+
         {/* Informace o zprávě */}
         <div className="border rounded p-4 bg-blue-50">
           <div className="flex items-center gap-2 mb-2">

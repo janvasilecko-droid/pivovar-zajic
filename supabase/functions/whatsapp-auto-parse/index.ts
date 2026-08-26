@@ -119,6 +119,18 @@ function bestFuzzyScoreInText(needle: string, haystack: string): number {
   return best;
 }
 
+// Normalizace pro porovnání citace s původní zprávou. WhatsApp v citaci
+// posílá jen ZAČÁTEK delší zprávy, proto se porovnává prefixem v obou směrech.
+// Zrcadlí norm() v src/lib/whatsappAmendment.ts.
+function normQuote(s: string | null | undefined): string {
+  return (s ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 // Kód dne (po/ut/st/ct/pa/so/ne) pro zadané ISO datum.
 function weekdayCode(dateStr: string): string {
   const dow = new Date(dateStr + "T00:00:00Z").getUTCDay();
@@ -908,6 +920,54 @@ Deno.serve(async (req: Request) => {
           }
         }
 
+        // ↩️ Je tahle zpráva ODPOVĚĎ, která upravuje dřívější objednávku?
+        // Ve skupině se běžně odpovídá „Bez summera", „nakonec 9x30", „plus
+        // 3x10 11sv" — dřív z toho vznikla samostatná objednávka pro téhož
+        // odběratele, nebo se zpráva zahodila. Párování viz
+        // src/lib/whatsappAmendment.ts (findQuotedMessage) — stejná pravidla.
+        let amendsOrderId: string | null = null;
+        let amendsMessageId: string | null = null;
+        let amendedItems: { beer_name: string | null; package_label: string | null; quantity: number }[] = [];
+        let amendedPlaceName: string | null = null;
+
+        if (message.quoted_text) {
+          const q = normQuote(message.quoted_text);
+          if (q.length >= 3) {
+            const { data: drivejsi } = await supabase
+              .from("whatsapp_incoming")
+              .select("id, created_at, message_text, imported_order_id")
+              .lt("created_at", message.created_at)
+              .order("created_at", { ascending: false })
+              .limit(200);
+            const kandidati = (drivejsi ?? []).filter((z: any) => {
+              const t = normQuote(z.message_text);
+              return t && (t.startsWith(q) || q.startsWith(t));
+            });
+            // Přednost má zpráva, ze které objednávka opravdu vznikla; mezi nimi
+            // ta časově nejbližší (dotaz je řazený sestupně, takže první).
+            const vybrany = kandidati.find((z: any) => z.imported_order_id) ?? kandidati[0] ?? null;
+            if (vybrany) {
+              amendsMessageId = vybrany.id;
+              amendsOrderId = vybrany.imported_order_id ?? null;
+            }
+          }
+        }
+
+        if (amendsOrderId) {
+          const { data: ord } = await supabase
+            .from("orders")
+            .select("place_name, status, items:order_items(beer_name, package_label, quantity)")
+            .eq("id", amendsOrderId)
+            .maybeSingle();
+          // Stornovanou objednávku nemá smysl upravovat.
+          if (ord && ord.status !== "storno") {
+            amendedPlaceName = ord.place_name ?? null;
+            amendedItems = (ord.items ?? []) as any[];
+          } else {
+            amendsOrderId = null;
+          }
+        }
+
         // Call the existing parse-order-text edge function
         const parseUrl = `${supabaseUrl}/functions/v1/parse-order-text`;
 
@@ -918,6 +978,19 @@ Deno.serve(async (req: Request) => {
           places: places.map(p => p.name),
           aliases,
           placeAliases,
+          // Když jde o úpravu, dostane AI SOUČASNÝ obsah objednávky a má vrátit
+          // VÝSLEDNÝ stav po zapracování odpovědi — ne jen to, co je v odpovědi
+          // napsané. Jinak by z „Bez summera" vyšla prázdná objednávka.
+          ...(amendsOrderId ? {
+            amendOrder: {
+              place_name: amendedPlaceName,
+              items: amendedItems.map((i) => ({
+                beer_name: i.beer_name,
+                package_label: i.package_label,
+                quantity: Number(i.quantity || 0),
+              })),
+            },
+          } : {}),
           ...(imageBase64 ? { imageBase64, imageMimeType } : {}),
           messages: [
             ...chatContext,
@@ -1179,6 +1252,10 @@ Deno.serve(async (req: Request) => {
             readback_unmatched_count: message.media_url
               ? 0
               : readbackUnmatchedCount(itemsForStorage, contextReadbackText),
+            // Odpověď, která upravuje dřívější objednávku — kontrola pak
+            // nabídne úpravu té objednávky místo založení nové.
+            amends_order_id: amendsOrderId,
+            amends_message_id: amendsMessageId,
           },
           "error"
         );

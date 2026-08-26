@@ -303,6 +303,57 @@ Deno.serve(async (req: Request) => {
           .join("\n")
       : "(žádné rozpoznané zprávy — text nebyl rozdělen na jednotlivé zprávy)";
 
+    // ↩️ Zpráva je ODPOVĚĎ, která upravuje už existující objednávku. AI dostane
+    // její SOUČASNÝ obsah a má vrátit VÝSLEDNÝ stav po zapracování odpovědi —
+    // ne jen to, co je v odpovědi napsané. Bez toho by z „Bez summera" vyšla
+    // prázdná objednávka a z „nakonec 9x30" objednávka jen na jednu položku.
+    const amendOrder = body.amendOrder as
+      | { place_name: string | null; items: { beer_name: string | null; package_label: string | null; quantity: number }[] }
+      | undefined;
+    const amendSection = amendOrder
+      ? `
+
+↩️ TATO ZPRÁVA UPRAVUJE UŽ EXISTUJÍCÍ OBJEDNÁVKU — TOHLE JE NEJDŮLEŽITĚJŠÍ POKYN:
+Odběratel: ${amendOrder.place_name ?? "(neurčen)"}
+Objednávka OBSAHUJE TEĎ:
+${amendOrder.items.length
+  ? amendOrder.items.map((i) => `  • ${i.quantity}× ${i.beer_name ?? "(neurčené pivo)"} ${i.package_label ?? ""}`.trimEnd()).join("\n")
+  : "  (zatím žádné položky)"}
+
+Vrať do "items" VÝSLEDNOU PODOBU CELÉ OBJEDNÁVKY po zapracování téhle zprávy —
+tedy VŠECHNY položky, které v ní mají po úpravě zůstat, ne jen to, co je
+napsané v odpovědi. Postupuj takto:
+  • "Bez summera", "summer neber", "zruš jantar" → tu položku VYNECH,
+    ostatní zopakuj beze změny.
+  • "nakonec 9x30", "místo 15 dej 9", "sudů bude 5" → u TÉ položky uprav
+    množství, ostatní zopakuj beze změny.
+  • "30 litrů, ne 20??", "místo 12sv chci 11sv" → u TÉ položky uprav obal
+    nebo pivo, ostatní zopakuj beze změny.
+  • "plus 3x10 11sv", "ještě 5 kryglí" → PŘIDEJ novou položku a všechny
+    dosavadní zopakuj beze změny.
+  • Když zpráva objednávku vůbec nemění (je to dotaz nebo poznámka — např.
+    "Je nějaký Summer navíc nebo nebude?", "To je ten foodtruck?"), vrať
+    objednávku PŘESNĚ TAK, JAK JE TEĎ, beze změny.
+⚠️ NIKDY nevynechej položku jen proto, že v odpovědi není zmíněná — co se
+nemění, se doslova zopakuje.
+
+POČET POLOŽEK VE VÝSTUPU si po sobě zkontroluj. Objednávka má teď
+${amendOrder.items.length} ${amendOrder.items.length === 1 ? "položku" : amendOrder.items.length < 5 ? "položky" : "položek"}, takže:
+  • přidání → ${amendOrder.items.length + 1} položek
+  • změna množství/obalu → ${amendOrder.items.length} položek (stejně)
+  • odebrání → ${Math.max(0, amendOrder.items.length - 1)} položek
+  • dotaz/poznámka bez úpravy → ${amendOrder.items.length} položek (stejně)
+Když ti vyjde míň, něco jsi zapomněl zopakovat — vrať se a doplň to.
+
+PŘÍKLAD PŘIDÁNÍ (přesně tenhle případ se v provozu spletl):
+  Objednávka teď: 2× 10° Desítka KEG 20l
+  Zpráva:         "Plus 3x10 11sv"
+  SPRÁVNĚ items:  [2× 10° Desítka KEG 20l, 3× 11° Světlá KEG 10l]
+  ŠPATNĚ:         [3× 11° Světlá KEG 10l]  ← původní položka chybí!
+  („3x10" je 3 kusy sudu 10l, „11sv" je pivo 11° Světlá — viz tabulka
+  stupeň vs. objem výše.)`
+      : "";
+
     // Když je ke zprávě přiložená i FOTKA, AI ji přečte taky (Gemini vision).
     // Fotka je zdrojová objednávka; text zprávy je jen doplněk (popisek).
     const photoSection = imageBase64
@@ -538,6 +589,8 @@ PRAVIDLA:
 - Nejprve zkontroluj NAUČENÉ ZKRATKY výše — pokud text řádku obsahuje některou z nich, použij namapovaný název piva/obalu přímo, i když by se ti bez ní zdál nejednoznačný.
 - place_name se dědí odshora dolů — nikdy nenechávej null jen proto, že řádek sám o sobě jméno neobsahuje, pokud ho lze odvodit z PŘEDCHOZÍCH ŘÁDKŮ zprávy. Záhlaví zprávy / jméno odesílatele se pro odběratele NEPOUŽÍVÁ (kromě výjimky "pro mě"/"mi"/"mně"/"pro mne", kdy je odběratelem odesílatel).
 - OBECNÉ PRAVIDLO PRO CELÝ VÝSTUP: u beer_name i place_name VŽDY nejprve zkus najít shodu v existujících datech (KATALOG PIV / NAUČENÉ ZKRATKY / ZNÁMÍ ODBĚRATELÉ) — i při nepřesné, fonetické nebo překlepové shodě. Teprve když opravdu nic z existujících dat neodpovídá, ber to jako nové/neznámé (u piva vrať null, u odběratele vrať text tak, jak jsi ho přečetl). Nikdy nepřepisuj/nenahrazuj existující známou položku vlastním vymyšleným textem, pokud shoda s katalogem/seznamem je rozumně možná.
+
+${amendSection}
 
 Vrať ČISTĚ JSON (bez markdown, bez \`\`\`), přesně v tomto formátu, a nic jiného:
 {"items":[{"quantity":4,"degree":"12°","beer_name":"12° Světlá","package_label":"KEG 50l","raw_line":"Seeberg 4x30 12sv a 2x30 12sv","place_name":"Seeberg","date":"2026-01-01"},{"quantity":2,"degree":"12°","beer_name":"12° Světlá","package_label":"KEG 30l","raw_line":"Seeberg 4x30 12sv a 2x30 12sv","place_name":"Seeberg","date":"2026-01-01"}],"place_name":"Seeberg","raw_text":"celý rozpoznaný text"}

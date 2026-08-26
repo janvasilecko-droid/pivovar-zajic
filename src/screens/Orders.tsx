@@ -474,6 +474,75 @@ export default function Orders({
       const placeId = message.parsed_place_id || null;
       const placeNameFree = message.parsed_place_name || 'Neznámý odběratel';
 
+      // ↩️ Odpověď, která UPRAVUJE dřívější objednávku („Bez summera",
+      // „nakonec 9x30", „plus 3x10 11sv"). parsed_items u ní obsahují
+      // VÝSLEDNOU podobu celé objednávky, takže se stávající položky nahradí.
+      // Dřív z takové odpovědi vznikla druhá objednávka pro téhož odběratele,
+      // nebo se zpráva zahodila a obsluha to opravovala ručně.
+      if (message.amends_order_id) {
+        const upraveneRadky = (message.parsed_items || []).map((item) => {
+          const beer =
+            beers.find((b) => b.id === item.beer_id) ??
+            matchBeerFromHints(normalize([item.raw_line, item.degree].filter(Boolean).join(' ')), beers, aliasMap).beer ??
+            matchBeerFromHints(normalize(item.beer_name || ''), beers, aliasMap).beer;
+          const pkg =
+            packages.find((p) => p.id === item.pkg_id) ??
+            matchPackage(normalize([item.package_label, item.raw_line].filter(Boolean).join(' ')), packages, aliasMap);
+          return {
+            beer_id: beer?.id ?? null,
+            beer_name: beer?.name || item.beer_name || null,
+            package_id: pkg?.id ?? null,
+            package_label: pkg?.label || item.package_label || null,
+            quantity: item.qty || 0,
+            is_prepared: false,
+          };
+        });
+
+        if (upraveneRadky.length === 0) {
+          throw new Error(
+            'Po zapracování odpovědi by objednávka neměla žádnou položku. ' +
+            'Pokud se má celá zrušit, stornujte ji přímo v objednávkách.'
+          );
+        }
+
+        // ⚠️ replace_order_with_items přepisuje i HLAVIČKU objednávky hodnotami
+        // z p_order — prázdný objekt by objednávce vymazal datum, odběratele
+        // i den závozu. Odpověď mění jen položky, takže se hlavička načte
+        // a pošle beze změny.
+        const { data: puvodni, error: ordErr } = await supabase
+          .from('orders')
+          .select('order_date, place_id, place_name, delivery_day, delivery_date, note')
+          .eq('id', message.amends_order_id)
+          .single();
+        if (ordErr || !puvodni) throw new Error(ordErr?.message || 'Upravovaná objednávka už neexistuje.');
+
+        // Stejné RPC jako ruční úprava objednávky — nahradí položky atomicky,
+        // takže objednávka nikdy nezůstane rozepsaná napůl.
+        const { error: replaceErr } = await supabase.rpc('replace_order_with_items', {
+          p_order_id: message.amends_order_id,
+          p_order: puvodni,
+          p_items: upraveneRadky,
+        });
+        if (replaceErr) throw new Error(replaceErr.message);
+
+        const { data: authUpr } = await supabase.auth.getUser();
+        await supabase
+          .from('whatsapp_incoming')
+          .update({
+            status: 'imported',
+            imported_order_id: message.amends_order_id,
+            imported_at: new Date().toISOString(),
+            readback_checked_at: new Date().toISOString(),
+            readback_checked_by: authUpr?.user?.id || null,
+          })
+          .eq('id', message.id);
+
+        setFlash(true);
+        setTimeout(() => setFlash(false), 2000);
+        load();
+        return;
+      }
+
       // ⚠️ Kontrola duplicity — aby dva lidé nezadali ve stejnou chvíli stejnou
       // objednávku (např. oba kliknou na „Schválit“ u téže zprávy).
       const dup = await findDuplicateOrders({
