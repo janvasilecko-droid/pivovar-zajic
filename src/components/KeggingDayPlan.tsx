@@ -16,6 +16,8 @@ import { dayKeyFromISO, mergeWeekPlan } from '../lib/keggingPlan';
 
 type Props = {
   plans: DayPlan[];
+  /** Jak se říká kusům — „sudů" u KEGů, „ks" u lahví. */
+  jednotka?: string;
   weekLabel: string;
   todayISO: string;
   /**
@@ -30,7 +32,7 @@ type Props = {
 
 const fmtDate = (iso: string) => new Date(iso + 'T00:00:00Z').toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric', timeZone: 'UTC' });
 
-export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, canEdit, onShowOrders }: Props) {
+export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, canEdit, onShowOrders, jednotka = 'sudů' }: Props) {
   const todayDay = dayKeyFromISO(todayISO);
   // Otevře se rovnou nejbližší den, kde ještě něco chybí — stáčeč většinou
   // řeší ten, ne pondělí.
@@ -70,13 +72,13 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="bg-white p-4 rounded border border-neutral-200/90 shadow-xs">
           <div className="text-[11px] font-black uppercase tracking-wide text-neutral-500">Objednáno tento týden</div>
-          <div className="font-display font-black text-2xl text-neutral-900 mt-0.5">{weekTotals.ordered} <span className="text-sm font-bold text-neutral-500">ks sudů</span></div>
+          <div className="font-display font-black text-2xl text-neutral-900 mt-0.5">{weekTotals.ordered} <span className="text-sm font-bold text-neutral-500">ks {jednotka}</span></div>
           <div className="text-[11px] font-bold text-neutral-500 mt-0.5">{weekLabel}</div>
         </div>
         <div className={`p-4 rounded border shadow-xs ${weekTotals.missing > 0 ? 'bg-amber-50 border-amber-300' : 'bg-emerald-50 border-emerald-300'}`}>
           <div className={`text-[11px] font-black uppercase tracking-wide ${weekTotals.missing > 0 ? 'text-amber-800' : 'text-emerald-800'}`}>Zbývá stočit</div>
           <div className={`font-display font-black text-2xl mt-0.5 ${weekTotals.missing > 0 ? 'text-amber-900' : 'text-emerald-900'}`}>
-            {weekTotals.missing} <span className="text-sm font-bold opacity-70">ks sudů</span>
+            {weekTotals.missing} <span className="text-sm font-bold opacity-70">ks {jednotka}</span>
           </div>
           <div className={`text-[11px] font-bold mt-0.5 ${weekTotals.missing > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
             {weekTotals.missing > 0 ? `${(weekTotals.liters / 100).toFixed(1)} hl / ${weekTotals.liters} L` : 'Všechno je stočené'}
@@ -242,7 +244,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                             disabled={busy === it.key}
                             onClick={() => setCheck(it, it.checked - 1)}
                             className="px-2.5 py-2 rounded border border-neutral-200 bg-white text-neutral-700 font-black text-xs hover:bg-neutral-50 disabled:opacity-40 min-h-[44px]"
-                            title="Ubrat jeden odškrtnutý sud"
+                            title="Ubrat jeden odškrtnutý kus"
                           >
                             −1
                           </button>
@@ -253,7 +255,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                             disabled={busy === it.key}
                             onClick={() => setCheck(it, it.checked + 1)}
                             className="px-2.5 py-2 rounded border border-neutral-200 bg-white text-neutral-700 font-black text-xs hover:bg-neutral-50 disabled:opacity-40 min-h-[44px]"
-                            title="Odškrtnout jeden sud"
+                            title="Odškrtnout jeden kus"
                           >
                             +1
                           </button>

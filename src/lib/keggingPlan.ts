@@ -1,4 +1,6 @@
 // 🗓️ Plán stáčení po dnech — „co musím stočit na který den".
+// Používá se pro sudy i pro lahve; liší se jen filtrem obalů (jeCilovyObal)
+// a tím, jestli se předají řádky z `kegging`, nebo z `bottling`.
 // ---------------------------------------------------------------------------
 // Záměrně NEPOUŽÍVÁ měsíční skladový model (getStartingStockMap), na kterém
 // stojí packageNeeds.ts. Ten model je odvozený z inventury + všech pohybů za
@@ -66,7 +68,16 @@ export type KeggingPlanInput = {
   packages: { id: string; label: string; kind: string; volume_l: number }[];
   orders: any[];
   orderItems: any[];
+  /**
+   * Řádky výroby pro daný druh obalu — pro sudy `kegging`, pro lahve
+   * `bottling`. Výpočet je jinak stejný, viz jeCilovyObal níže.
+   */
   keggingRows: any[];
+  /**
+   * Které obaly se plánují. Výchozí jsou sudy (kvůli stávajícím voláním),
+   * pro lahve se předá `(kind) => kind !== 'keg'`.
+   */
+  jeCilovyObal?: (kind: string) => boolean;
   zavozDeductionRows?: any[];
   fasovaniRows?: any[];
   prodejnaRows?: any[];
@@ -117,7 +128,8 @@ export function computeKeggingPlan(input: KeggingPlanInput): DayPlan[] {
   const weekEndStr = dayDates[6];
   const inWeek = (s: string | null | undefined) => !!s && s >= weekStartStr && s <= weekEndStr;
 
-  const kegPkgs = new Map(packages.filter((p) => p.kind === 'keg').map((p) => [p.id, p]));
+  const jeCilovy = input.jeCilovyObal ?? ((kind: string) => kind === 'keg');
+  const kegPkgs = new Map(packages.filter((p) => jeCilovy(p.kind)).map((p) => [p.id, p]));
   const beerName = new Map(beers.map((b) => [b.id, b.name]));
 
   // ── Zásoba k rozdělení: co se tento týden stočilo, mínus co už fyzicky

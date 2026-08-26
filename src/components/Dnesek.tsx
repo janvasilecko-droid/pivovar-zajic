@@ -24,9 +24,17 @@ type Radek = {
 
 const DNY = ['neděle', 'pondělí', 'úterý', 'středa', 'čtvrtek', 'pátek', 'sobota'];
 
+function oDenPozdeji(iso: string): string {
+  const d = new Date(iso + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
 export default function Dnesek({ setPage }: { setPage: (p: Page) => void }) {
   const [radky, setRadky] = useState<Radek[] | null>(null);
   const dnes = businessDateISO();
+  // Závoz se chystá den předem — hlavní číslo na dnešek je to, co se veze zítra.
+  const zitra = oDenPozdeji(dnes);
 
   useEffect(() => {
     let zruseno = false;
@@ -34,33 +42,56 @@ export default function Dnesek({ setPage }: { setPage: (p: Page) => void }) {
     (async () => {
       const out: Radek[] = [];
 
-      // 1) Dnešní závoz — kolik objednávek a kolik kusů se dnes veze.
-      try {
+      // Objednávky na jeden konkrétní den závozu + kolik je to celkem kusů.
+      const zavozNaDen = async (den: string) => {
         const { data: obj } = await supabase
           .from('orders')
           .select('id')
-          .eq('delivery_date', dnes)
+          .eq('delivery_date', den)
           .neq('status', 'storno');
         const ids = (obj ?? []).map((o: any) => o.id);
-        if (ids.length) {
-          const { data: polozky } = await supabase
-            .from('order_items')
-            .select('quantity')
-            .in('order_id', ids);
-          const kusu = (polozky ?? []).reduce((s: number, p: any) => s + Number(p.quantity || 0), 0);
+        if (!ids.length) return null;
+        const { data: polozky } = await supabase
+          .from('order_items')
+          .select('quantity')
+          .in('order_id', ids);
+        const kusu = (polozky ?? []).reduce((s: number, p: any) => s + Number(p.quantity || 0), 0);
+        return { objednavek: ids.length, kusu };
+      };
+
+      // 1) ZÍTŘEJŠÍ závoz — to je to, co se dnes chystá. Proto je první.
+      try {
+        const z = await zavozNaDen(zitra);
+        if (z) {
           out.push({
-            klic: 'zavoz',
-            pocet: ids.length,
-            popis: ids.length === 1 ? 'objednávka na dnešní závoz' : 'objednávek na dnešní závoz',
-            detail: kusu ? `${kusu} ks celkem` : undefined,
+            klic: 'zavoz-zitra',
+            pocet: z.objednavek,
+            popis: z.objednavek === 1 ? 'objednávka na zítřejší závoz' : 'objednávek na zítřejší závoz',
+            detail: `Připravit dnes${z.kusu ? ` · ${z.kusu} ks celkem` : ''}`,
             ikona: Truck,
-            barva: 'text-sky-600 bg-sky-50 border-sky-200',
+            barva: 'text-sky-700 bg-sky-50 border-sky-200',
             kam: 'orders_zavoz',
           });
         }
       } catch { /* řádek se prostě neukáže */ }
 
-      // 2) Objednávky, které ještě nikdo nevyřídil a mají závoz dnes nebo dřív.
+      // 2) Dnešní závoz — co dneska vyjíždí, ať to řidič vidí taky.
+      try {
+        const z = await zavozNaDen(dnes);
+        if (z) {
+          out.push({
+            klic: 'zavoz-dnes',
+            pocet: z.objednavek,
+            popis: z.objednavek === 1 ? 'objednávka vyjíždí dnes' : 'objednávek vyjíždí dnes',
+            detail: z.kusu ? `${z.kusu} ks celkem` : undefined,
+            ikona: Truck,
+            barva: 'text-neutral-600 bg-neutral-100 border-neutral-200',
+            kam: 'orders_zavoz',
+          });
+        }
+      } catch { /* nevadí */ }
+
+      // 3) Objednávky, které ještě nikdo nevyřídil a mají závoz dnes nebo dřív.
       try {
         const { count } = await supabase
           .from('orders')
@@ -80,7 +111,7 @@ export default function Dnesek({ setPage }: { setPage: (p: Page) => void }) {
         }
       } catch { /* nevadí */ }
 
-      // 3) Naplánované stáčení na dnešek.
+      // 4) Naplánované stáčení na dnešek.
       try {
         const { count } = await supabase
           .from('bottling_plans')
@@ -99,7 +130,7 @@ export default function Dnesek({ setPage }: { setPage: (p: Page) => void }) {
         }
       } catch { /* nevadí */ }
 
-      // 4) WhatsApp objednávky čekající na kontrolu.
+      // 5) WhatsApp objednávky čekající na kontrolu.
       try {
         const cekajici = await fetchPendingWhatsAppCount();
         if (cekajici) {
@@ -118,7 +149,7 @@ export default function Dnesek({ setPage }: { setPage: (p: Page) => void }) {
     })();
 
     return () => { zruseno = true; };
-  }, [dnes]);
+  }, [dnes, zitra]);
 
   const datum = new Date(dnes + 'T00:00:00Z');
   const nadpis = `${DNY[datum.getUTCDay()]} ${datum.getUTCDate()}. ${datum.getUTCMonth() + 1}.`;
@@ -141,7 +172,7 @@ export default function Dnesek({ setPage }: { setPage: (p: Page) => void }) {
       ) : radky.length === 0 ? (
         <div className="flex items-center gap-3 py-3 text-neutral-600">
           <CheckCircle2 className="w-6 h-6 text-emerald-500 shrink-0" />
-          <p className="text-sm font-semibold">Na dnešek nic nečeká — žádný závoz, žádná objednávka po termínu.</p>
+          <p className="text-sm font-semibold">Nic nečeká — na zítra není co chystat a žádná objednávka není po termínu.</p>
         </div>
       ) : (
         <div className="space-y-2">

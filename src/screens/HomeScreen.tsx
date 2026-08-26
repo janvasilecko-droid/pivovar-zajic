@@ -6,7 +6,7 @@
 // zobrazuje se jen komu je nastaveno (Uživatelé → "Dostává upozornění na
 // vozidla") a musí ho jednou potvrdit, pak zmizí (dokud se stav nezmění).
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { Search, MessageCircle, SlidersHorizontal, ChevronLeft, ChevronRight, Plus, Trash2, TriangleAlert, Download, CalendarX2 } from 'lucide-react';
+import { Search, MessageCircle, SlidersHorizontal, ChevronLeft, ChevronRight, Plus, Trash2, TriangleAlert, Download, CalendarX2, LogOut, Check } from 'lucide-react';
 import { NAV, EXTRA_NAV, type Page, type NavItem } from '../components/Layout';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import LauncherTile from '../components/LauncherTile';
@@ -614,8 +614,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
           </div>
         )}
 
-        {(layout.pages.length > 1 || editMode) && (
-          <div className="hs-pager">
+        <div className="hs-pager">
+            {(layout.pages.length > 1 || editMode) && (
+            <>
             <button
               type="button"
               className="hs-pager-arrow"
@@ -643,6 +644,36 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
             >
               <ChevronRight size={18} />
             </button>
+            </>
+            )}
+            {/* Ovládání launcheru — malé ikony místo velkých dlaždic. */}
+            <button
+              type="button"
+              className="hs-pager-manage"
+              title="Hledat"
+              aria-label="Hledat"
+              onClick={() => setShowSearchModal(true)}
+            >
+              <Search size={16} />
+            </button>
+            <button
+              type="button"
+              className={`hs-pager-manage ${editMode ? 'hs-pager-manage-on' : ''}`}
+              title={editMode ? 'Hotovo' : 'Upravit rozložení'}
+              aria-label={editMode ? 'Hotovo' : 'Upravit rozložení'}
+              onClick={() => { setEditMode((v) => !v); setSelectedTileId(null); }}
+            >
+              {editMode ? <Check size={16} /> : <SlidersHorizontal size={16} />}
+            </button>
+            <button
+              type="button"
+              className="hs-pager-manage"
+              title="Odhlásit se"
+              aria-label="Odhlásit se"
+              onClick={async () => { if (await potvrd('Odhlásit se z aplikace?', { potvrdit: 'Odhlásit' })) signOut(); }}
+            >
+              <LogOut size={16} />
+            </button>
             {editMode && (
               <>
                 <button type="button" className="hs-pager-manage hs-pager-manage-labeled" onClick={handleAddPage}>
@@ -661,7 +692,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
               </>
             )}
           </div>
-        )}
 
         {/* Přejetí prstem kdekoliv nad dlaždicemi (mimo edit mód) přepíná
             stránku launcheru — viz handleSwipePointerDown/Up výš. */}
@@ -681,15 +711,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
         <div className="hs-fixed-row" style={{ ['--hs-tile-alpha' as any]: layout.tileOpacity, ['--hs-tile-gap' as any]: `${layout.tileGap}px` }}>
           {currentPageIndex === 0 && (
             <>
-              <button
-                type="button"
-                className={isPresetColor(fixedColor('search', 'slate')) ? `hs-tile c-${fixedColor('search', 'slate')}` : 'hs-tile'}
-                style={isPresetColor(fixedColor('search', 'slate')) ? undefined : { background: hexToRgba(fixedColor('search', 'slate'), layout.tileOpacity) }}
-                onClick={() => setShowSearchModal(true)}
-              >
-                <Search />
-                <div className="hs-lbl">Hledat</div>
-              </button>
               <button
                 type="button"
                 className={isPresetColor(fixedColor('parse', 'mint')) ? `hs-tile c-${fixedColor('parse', 'mint')}` : 'hs-tile'}
@@ -734,18 +755,12 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
               )}
             </>
           )}
-          <button
-            type="button"
-            className={`hs-tile ${editMode ? 'c-indigo' : 'c-forest'}`}
-            onClick={() => { setEditMode((v) => !v); setSelectedTileId(null); }}
-          >
-            <SlidersHorizontal />
-            <div className="hs-lbl">{editMode ? 'Hotovo' : 'Upravit rozložení'}</div>
-          </button>
         </div>
 
         <div className="hs-grid" style={{ ['--hs-tile-alpha' as any]: layout.tileOpacity, ['--hs-tile-gap' as any]: `${layout.tileGap}px` }}>
-          {(layout.pages[currentPageIndex] ?? []).map((id) => {
+          {/* 'signout' se nevykresluje — odhlášení je nahoře u šipek jako
+              ikona. V uloženém rozložení zůstává, ať jde vrátit beze ztráty. */}
+          {(layout.pages[currentPageIndex] ?? []).filter((id) => id !== 'signout').map((id) => {
             const override = layout.overrides[id] ?? {};
             if (isGroupId(id)) {
               const group = layout.groups[id];

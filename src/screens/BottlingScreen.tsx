@@ -19,6 +19,8 @@ import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap 
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { stackingQuickQtys } from '../lib/quickQty';
 import { computePackageNeeds } from '../lib/packageNeeds';
+import { computeKeggingPlan } from '../lib/keggingPlan';
+import KeggingDayPlan from '../components/KeggingDayPlan';
 import { chyba, potvrd } from '../lib/toast';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 
@@ -214,6 +216,7 @@ export default function BottlingScreen({
   const [orders, setOrders] = useState<any[]>([]);
   const [orderItems, setOrderItems] = useState<any[]>([]);
   const [inventoryRows, setInventoryRows] = useState<any[]>([]);
+  const [planCheckRows, setPlanCheckRows] = useState<any[]>([]);
   const [keggingRows, setKeggingRows] = useState<any[]>([]);
   const [fasovaniRows, setFasovaniRows] = useState<any[]>([]);
   const [prodejnaRows, setProdejnaRows] = useState<any[]>([]);
@@ -298,6 +301,38 @@ export default function BottlingScreen({
   // Výpočet potřeby stočení lahví — objednávky AKTUÁLNÍHO TÝDNE vs. sklad
   // (stav v pondělí ráno + stočeno tento týden − výdej tento týden). Sdílená
   // logika s KEGy — viz packageNeeds.ts.
+  // 🗓️ „Co stočit na který den" — stejná tabule jako u sudů (KEG), jen pro
+  // lahve a PET. Počítá se JEN z dat aktuálního týdne, takže se každý zápis
+  // stáčení projeví okamžitě (viz lib/keggingPlan.ts).
+  const dennniPlanLahvi = useMemo(() => computeKeggingPlan({
+    beers,
+    packages,
+    orders,
+    orderItems,
+    keggingRows: rows,          // u lahví jsou „výrobní" řádky z bottling
+    zavozDeductionRows,
+    fasovaniRows,
+    prodejnaRows,
+    writeoffsRows,
+    checkRows: planCheckRows,
+    weekKey,
+    jeCilovyObal: (kind) => kind !== 'keg',
+  }), [beers, packages, orders, orderItems, rows, zavozDeductionRows, fasovaniRows, prodejnaRows, writeoffsRows, planCheckRows, weekKey]);
+
+  // ✅ Odškrtnutí NEZAPISUJE stáčení — je to pracovní pomůcka. Skutečné
+  // stáčení se dál zapisuje v „Zápis". S doloženým stavem se skládá přes MAX,
+  // aby se odškrtnutá a poté poctivě zapsaná položka nepočítala dvakrát.
+  async function togglePlanCheck(day: string, beerId: string, pkgId: string, qty: number) {
+    const { error } = await supabase
+      .from('kegging_plan_checks')
+      .upsert(
+        { week_key: weekKey, day, beer_id: beerId, package_id: pkgId, qty: Math.max(0, qty), updated_at: new Date().toISOString(), updated_by: profile?.display_name ?? null },
+        { onConflict: 'week_key,day,beer_id,package_id' }
+      );
+    if (error) { setErr(`Odškrtnutí se nepodařilo uložit: ${error.message}`); return; }
+    await load(true);
+  }
+
   const bottleRequirements = useMemo(() => {
     const todayStr = new Date().toISOString().slice(0, 10);
     return computePackageNeeds(
@@ -424,11 +459,11 @@ export default function BottlingScreen({
   async function load(silent = false) {
     const loadId = ++loadCountRef.current;
     if (!silent && !rows.length) setLoading(true);
-    const [bt, b, p, ords, oi, inv, fa, fp, wo, kg, pl, zd, adj, ak] = await Promise.all([
+    const [bt, b, p, ords, oi, inv, fa, fp, wo, kg, pl, zd, adj, ak, checks] = await Promise.all([
       fetchAllRows('bottling', '*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
-      fetchAllRows('orders', 'id,order_date,delivery_date,status,is_delivered'),
+      fetchAllRows('orders', 'id,order_date,delivery_date,delivery_day,place_name,status,is_delivered'),
       fetchAllRows('order_items', 'id,order_id,beer_id,package_id,quantity'),
       fetchAllRows('inventory', 'entry_date,beer_id,package_id,quantity,note'),
       fetchAllRows('fasovani', 'entry_date,beer_id,package_id,quantity'),
@@ -439,6 +474,7 @@ export default function BottlingScreen({
       fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity,order_item_id'),
       fetchAllRows('inventory_adjustments', 'entry_date,beer_id,package_id,quantity'),
       supabase.from('akce').select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
+      supabase.from('kegging_plan_checks').select('week_key,day,beer_id,package_id,qty'),
     ]);
     if (loadId !== loadCountRef.current) return;
     setRows((bt.data as EntryRow[]) ?? []);
@@ -447,6 +483,7 @@ export default function BottlingScreen({
     if (ords.data) setOrders(ords.data);
     if (oi.data) setOrderItems(oi.data);
     if (inv.data) setInventoryRows(inv.data);
+    setPlanCheckRows((checks.data as any[]) ?? []);
     if (fa.data) setFasovaniRows(fa.data);
     if (fp.data) setProdejnaRows(fp.data);
     if (wo.data) setWriteoffsRows(wo.data);
@@ -458,7 +495,7 @@ export default function BottlingScreen({
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
-  useRealtime(['bottling', 'beers', 'packages', 'orders', 'order_items', 'inventory', 'fasovani', 'fasovani_private', 'writeoffs', 'kegging', 'bottling_plans', 'zavoz_deductions', 'inventory_adjustments', 'akce', 'akce_items'], () => load(true));
+  useRealtime(['bottling', 'beers', 'packages', 'orders', 'order_items', 'inventory', 'fasovani', 'fasovani_private', 'writeoffs', 'kegging', 'bottling_plans', 'zavoz_deductions', 'inventory_adjustments', 'akce', 'akce_items', 'kegging_plan_checks'], () => load(true));
 
   async function add(e?: React.FormEvent) {
     e?.preventDefault();
@@ -1629,6 +1666,18 @@ export default function BottlingScreen({
       {/* TAB 3: POTŘEBA STOČIT LAHVE */}
       {(mode === 'overviews_only' || (mode === 'all' && tab === 'potreba')) && (
         <div className="space-y-4">
+          {/* Tabule po dnech — stejná jako u sudů. Odpovídá na „co stočit
+              dnes", ne jen „kolik chybí za celý týden". */}
+          <KeggingDayPlan
+            plans={dennniPlanLahvi}
+            weekLabel={weekLabel}
+            todayISO={businessDateISO()}
+            onCheck={togglePlanCheck}
+            canEdit
+            jednotka="lahví"
+            onShowOrders={(beerId, packageId) => { requestOrdersItemFilter({ beerId, packageId }); setPage?.('orders'); }}
+          />
+
           {/* Souhrnné karty */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="card p-4 bg-white border border-neutral-200 rounded space-y-1">
