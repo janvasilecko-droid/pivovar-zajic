@@ -1,11 +1,26 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { readJsonWithLimit, requireApprovedUser } from "../_shared/require-user.ts";
+import { PRAVIDLA_CTENI_OBJEDNAVEK } from "../_shared/order-rules.ts";
 
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
+};
+
+// ⏱️ Časové stropy pro jednotlivé AI poskytovatele.
+// ---------------------------------------------------------------------------
+// Funkce zkouší poskytovatele za sebou a při chybě přepne na dalšího. Dokud
+// tady timeouty nebyly, platilo to jen pro poskytovatele, který ODPOVĚDĚL
+// chybou — když se některý zasekl a neodpověděl vůbec, čekalo se na něj až do
+// tvrdého limitu platformy (150 s) a záložní poskytovatelé se nikdy
+// nespustili. Volání pak skončilo HTTP 546/504 a objednávka se nepřečetla.
+// Součet stropů musí zůstat bezpečně pod 150 s.
+const AI_TIMEOUT_MS = {
+  gemini: 30_000,
+  anthropic: 30_000,
+  openai: 30_000,
 };
 
 interface OrderItem {
@@ -125,7 +140,7 @@ Deno.serve(async (req: Request) => {
 
     const prompt = `Jsi asistent pro pivovar. Na obrázku je objednávka piva (WhatsApp zpráva, e-mail, nebo ručně psaný seznam).
 Přečti VŠECHNY řádky objednávky a vrať je jako strukturovaná data. NIKDY nevynechávej žádnou položku objednávky — i když si nejsi jistý, vrať ji s tím, co jsi rozpoznal, a nech neznámé hodnoty jako null.
-
+${PRAVIDLA_CTENI_OBJEDNAVEK}
 NADPŘEDNOSTNÍ PRAVIDLA PŘESNOSTI (důležitější než cokoli jiného):
 0a. ŘÁDKOVÁ INVENTURA: NEŽ ZAPÍŠEŠ ODPOVĚĎ, spočítej si v duchu, kolik řádků textu/objednávky je na fotce vidět (každá zpráva, každá položka, každé pokračování na novém řádku). Ke KAŽDÉMU viditelnému řádku, který obsahuje číslo nebo položku objednávky, MUSÍ v "items" existovat alespoň jedna položka. Po napsání odpovědi se znovu podívej na fotku a zkontroluj, že jsi žádný řádek nevynechal. Pokud nějaký řádek neumíš přečíst, NIKDY ho nevynechávej — přidej ho do items s null hodnotami a doslovně ho zkopíruj do raw_text.
 0b. RUČNĚ PSANÝ TEXT = DVOJITÉ ČTENÍ: každé ručně psané číslo přečti DVAKRÁT — (1) podle tvaru číslic a (2) podle kontextu objednávky (kolik kusů / jaký obal dává smysl). Časté záměny rukou psaných číslic: 1↔7↔2, 4↔9↔1, 3↔8↔5, 0↔6, 5↔6. Pokud se obě čtení liší, zvol to, které odpovídá běžnému vzoru (množství 1–30 ks; obal 10/15/20/30/50l = KEG, 1/1,5l = PET, 0,33/0,5l = lahev). Nikdy nevyhoď celý řádek jen proto, že je psaný rukou a hůře čitelný — raději vrať nejpravděpodobnější hodnotu.
@@ -435,6 +450,7 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
 
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`;
         const geminiResp = await fetch(geminiUrl, {
+          signal: AbortSignal.timeout(AI_TIMEOUT_MS.gemini),
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -453,7 +469,7 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
           console.warn(`Gemini API error (status ${geminiResp.status}): ${errText}`);
         }
       } catch (err) {
-        console.warn(`Gemini API exception: ${err}`);
+        console.warn(`Gemini API exception (timeout nebo síť): ${err instanceof Error ? err.name + ": " + err.message : err}`);
       }
     }
 
@@ -462,6 +478,7 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
       try {
         const anthropicUrl = "https://api.anthropic.com/v1/messages";
         const anthropicResp = await fetch(anthropicUrl, {
+          signal: AbortSignal.timeout(AI_TIMEOUT_MS.anthropic),
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -479,7 +496,7 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
           console.warn(`Anthropic API error (status ${anthropicResp.status}): ${errText}`);
         }
       } catch (err) {
-        console.warn(`Anthropic API exception: ${err}`);
+        console.warn(`Anthropic API exception (timeout nebo síť): ${err instanceof Error ? err.name + ": " + err.message : err}`);
       }
     }
 
@@ -515,6 +532,7 @@ Do odpovědi VŽDY přidej i top-level pole "place_name" (na úrovni celé odpov
 
       const openaiUrl = "https://api.openai.com/v1/chat/completions";
       const openaiResp = await fetch(openaiUrl, {
+          signal: AbortSignal.timeout(AI_TIMEOUT_MS.openai),
         method: "POST",
         headers: {
           "Content-Type": "application/json",

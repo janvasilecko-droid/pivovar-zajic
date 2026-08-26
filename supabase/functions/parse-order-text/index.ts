@@ -1,5 +1,32 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { readJsonWithLimit, requireApprovedUser } from "../_shared/require-user.ts";
+import { PRAVIDLA_CTENI_OBJEDNAVEK } from "../_shared/order-rules.ts";
+
+// ⏱️ Časové stropy pro jednotlivé AI poskytovatele.
+// ---------------------------------------------------------------------------
+// Funkce zkouší Gemini → Groq → Mistral → OpenAI a při chybě přepne na
+// dalšího. Dokud tady timeouty nebyly, platilo to jen pro poskytovatele, který
+// ODPOVĚDĚL chybou — když se některý zasekl a neodpověděl vůbec, čekalo se na
+// něj až do tvrdého limitu platformy (150 s) a záložní poskytovatelé se nikdy
+// nespustili. Volání skončilo HTTP 546/504 a objednávka se nepřečetla vůbec,
+// přestože tři funkční záložní poskytovatelé byli k dispozici.
+// Součet stropů musí zůstat bezpečně pod 150 s.
+const AI_TIMEOUT_MS = {
+  gemini: 30_000,
+  groq: 25_000,
+  mistral: 25_000,
+  openai: 30_000,
+};
+
+// Groq modely v pořadí preference — první, který odpoví, se použije.
+// Seznam existuje proto, že Groq modely vyřazuje bez náhrady (viz komentář
+// u volání Groqu níže). Neexistující model vrátí 404 do ~200 ms.
+const GROQ_MODELY = [
+  "llama-3.3-70b-versatile",
+  "llama-3.1-8b-instant",
+  "openai/gpt-oss-120b",
+  "meta-llama/llama-4-scout-17b-16e-instruct",
+];
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -125,10 +152,17 @@ function validateOutput(
       }
     }
     // Obal musí sedět na katalog (porovnáváme jen pokud katalog obalů existuje).
+    // ⚠️ Prompt po modelu chce obaly ve tvaru "KEG 30l" / "PET 1.5l" /
+    // "Lahve 0.5l", zatímco v katalogu jsou holé popisky "30l", "1.5l",
+    // "0.5l". Dokud se druh obalu neodstraňoval, správná odpověď se tady
+    // vyhodnotila jako NEshoda — a protože stačí, aby polovina polí nesedla,
+    // padaly kvůli tomu celé odpovědi záložních providerů. Gemini procházel
+    // jen proto, že mu shodu vytáhl název piva přesně na hranici 0,5.
     const pkg = (it as any).package_label;
     if (pkg != null && String(pkg).trim() !== "" && pkgLabelKeys.size > 0) {
       checkable++;
-      if (pkgLabelKeys.has(normKey(String(pkg)))) matched++;
+      const pk = normKey(String(pkg).replace(/^\s*(keg|pet|lahve|lahev|sud|sudy|petka|petky)\s+/i, ""));
+      if (pkgLabelKeys.has(pk) || [...pkgLabelKeys].some((k) => k.includes(pk) || pk.includes(k))) matched++;
     }
     // Pivo musí sedět na katalog (tolerance na chybějící stupeň, "Světlá" vs "12° Světlá").
     const beer = (it as any).beer_name;
@@ -284,7 +318,7 @@ K této objednávce je přiložená i FOTKA (viz obrázek v požadavku). Přečt
 
     const prompt = `Jsi asistent pro pivovar. Níže je text objednávky piva z WhatsApp (může to být celý měsíc konverzace od VÍCE odběratelů).
 Přečti VŠECHNY objednávky a vrať je jako strukturovaná data. NIKDY nevynechávej žádnou položku objednávky — i když si nejsi jistý, vrať ji s tím, co jsi rozpoznal, a nech neznámé hodnoty jako null.
-
+${PRAVIDLA_CTENI_OBJEDNAVEK}
 KRITICKÉ POKYNY PRO ČTENÍ TEXTU:
 1. ČTI POZORNĚ každý řádek textu — nespěchej, nevynechávej řádky.
 2. ČÍSLA čti VELMI POZORNĚ — "5x30" NENÍ "5x50", "10x50" NENÍ "10x30". Rozdíl mezi 3 a 5, 0 a 8, 1 a 7 je kritický.
@@ -585,6 +619,7 @@ ${photoSection}`;
 
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`;
         const geminiResp = await fetch(geminiUrl, {
+          signal: AbortSignal.timeout(AI_TIMEOUT_MS.gemini),
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -604,35 +639,52 @@ ${photoSection}`;
           console.warn(`Gemini API error (status ${geminiResp.status}): ${errText}`);
         }
       } catch (err) {
-        console.warn(`Gemini API exception: ${err}`);
+        console.warn(`Gemini API exception (timeout nebo síť): ${err instanceof Error ? err.name + ": " + err.message : err}`);
       }
     }
 
-    // 2) Fallback: Groq (Llama 3.3 70B). Jakmile Gemini vrátí chybu nebo vyčerpá
-    //    denní limit (HTTP 429/500), přepneme OKAMŽITĚ (bez čekání, řádově 0,5 s),
+    // 2) Fallback: Groq. Jakmile Gemini vrátí chybu nebo vyčerpá denní limit
+    //    (HTTP 429/500/503), přepneme OKAMŽITĚ (bez čekání, řádově 0,5 s),
     //    takže čtení objednávek z WhatsAppu funguje 24/7 bez přerušení.
+    //
+    //    ⚠️ Groq modely průběžně vyřazuje. 26. 8. 2026 vracel natvrdo zadraný
+    //    "llama-3.3-70b-versatile" chybu 404 "model does not exist" — záloha
+    //    tedy tiše nefungovala vůbec a nikdo to nepoznal, protože se to
+    //    logovalo jen jako varování. Proto se zkouší několik modelů za sebou:
+    //    404 přijde řádově do 200 ms, takže to nic nestojí, a když Groq model
+    //    zase přejmenuje, záloha se opraví sama.
     if (!text && groqKey) {
-      try {
-        const groqUrl = "https://api.groq.com/openai/v1/chat/completions";
-        const groqResp = await fetch(groqUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${groqKey}`,
-          },
-          body: JSON.stringify(groqBody),
-        });
+      const groqUrl = "https://api.groq.com/openai/v1/chat/completions";
+      for (const model of GROQ_MODELY) {
+        if (text) break;
+        try {
+          const groqResp = await fetch(groqUrl, {
+            signal: AbortSignal.timeout(AI_TIMEOUT_MS.groq),
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${groqKey}`,
+            },
+            body: JSON.stringify({ ...groqBody, model }),
+          });
 
-        if (groqResp.ok) {
-          const groqData = await groqResp.json();
-          const candidate = groqData?.choices?.[0]?.message?.content ?? "";
-          text = acceptOutput("groq", candidate, beerNameKeys, pkgLabelKeys);
-        } else {
-          const errText = await groqResp.text();
-          console.warn(`Groq API error (status ${groqResp.status}): ${errText}`);
+          if (groqResp.ok) {
+            const groqData = await groqResp.json();
+            const candidate = groqData?.choices?.[0]?.message?.content ?? "";
+            text = acceptOutput("groq", candidate, beerNameKeys, pkgLabelKeys);
+            if (text) console.log(`Groq: použit model ${model}`);
+          } else {
+            const errText = await groqResp.text();
+            console.warn(`Groq API error (model ${model}, status ${groqResp.status}): ${errText.slice(0, 200)}`);
+            // Model neexistuje (404) nebo je na něj prompt moc velký (413) →
+            // zkus další model. Jiná chyba (limit, výpadek) → další model to
+            // nespraví, jdi rovnou na dalšího poskytovatele.
+            if (groqResp.status !== 404 && groqResp.status !== 413) break;
+          }
+        } catch (err) {
+          console.warn(`Groq API exception (model ${model}, timeout nebo síť): ${err instanceof Error ? err.name + ": " + err.message : err}`);
+          break;
         }
-      } catch (err) {
-        console.warn(`Groq API exception: ${err}`);
       }
     }
 
@@ -642,6 +694,7 @@ ${photoSection}`;
       try {
         const mistralUrl = "https://api.mistral.ai/v1/chat/completions";
         const mistralResp = await fetch(mistralUrl, {
+          signal: AbortSignal.timeout(AI_TIMEOUT_MS.mistral),
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -659,7 +712,7 @@ ${photoSection}`;
           console.warn(`Mistral API error (status ${mistralResp.status}): ${errText}`);
         }
       } catch (err) {
-        console.warn(`Mistral API exception: ${err}`);
+        console.warn(`Mistral API exception (timeout nebo síť): ${err instanceof Error ? err.name + ": " + err.message : err}`);
       }
     }
 
@@ -694,6 +747,7 @@ ${photoSection}`;
 
       const openaiUrl = "https://api.openai.com/v1/chat/completions";
       const openaiResp = await fetch(openaiUrl, {
+          signal: AbortSignal.timeout(AI_TIMEOUT_MS.openai),
         method: "POST",
         headers: {
           "Content-Type": "application/json",
