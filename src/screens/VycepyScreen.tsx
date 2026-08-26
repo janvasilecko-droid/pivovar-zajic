@@ -3,6 +3,7 @@ import { supabase, useRealtime } from '../lib/supabase';
 import { Spinner, EmptyState } from '../components/ui';
 import { PlaceCombobox } from '../components/PlaceCombobox';
 import { Flame, Plus, Trash2, Calendar, CheckCircle2, AlertTriangle, Droplets, Wrench, RefreshCw, ShieldAlert, Sparkles, User, Tag } from 'lucide-react';
+import { oznam, potvrd } from '../lib/toast';
 
 export type TapSanitationStatus = 'clean' | 'dirty_beer' | 'needs_louh';
 
@@ -81,7 +82,7 @@ export default function VycepyScreen() {
 
   function handleAddTap(e: React.FormEvent) {
     e.preventDefault();
-    if (!newTapName.trim()) { alert('Zadejte název výčepu.'); return; }
+    if (!newTapName.trim()) { oznam('Zadejte název výčepu.'); return; }
 
     const newT: TapEquipment = {
       id: crypto.randomUUID(),
@@ -99,8 +100,8 @@ export default function VycepyScreen() {
     setNewTapNote('');
   }
 
-  function handleDeleteTap(id: string) {
-    if (!confirm('Opravdu smazat tento výčep z evidenci?')) return;
+  async function handleDeleteTap(id: string) {
+    if (!(await potvrd('Opravdu smazat tento výčep z evidenci?'))) return;
     saveTaps(taps.filter((t) => t.id !== id));
   }
 
@@ -124,12 +125,12 @@ export default function VycepyScreen() {
 
   function handleAddReservation(e: React.FormEvent) {
     e.preventDefault();
-    if (!resTapId) { alert('Vyberte výčep.'); return; }
-    if (!resCustomer.trim()) { alert('Zadejte zákazníka / odběratele.'); return; }
-    if (resDateTo < resDateFrom) { alert('Konec rezervace nesmí být před začátkem.'); return; }
+    if (!resTapId) { oznam('Vyberte výčep.'); return; }
+    if (!resCustomer.trim()) { oznam('Zadejte zákazníka / odběratele.'); return; }
+    if (resDateTo < resDateFrom) { oznam('Konec rezervace nesmí být před začátkem.'); return; }
 
     if (!isTapAvailable(resTapId, resDateFrom, resDateTo)) {
-      alert('❌ Tento výčep je v tomto termínu již zarezervovaný!');
+      oznam('❌ Tento výčep je v tomto termínu již zarezervovaný!');
       return;
     }
 
@@ -154,8 +155,8 @@ export default function VycepyScreen() {
     setResNote('');
   }
 
-  function handleDeleteReservation(id: string) {
-    if (!confirm('Opravdu smazat tuto rezervaci?')) return;
+  async function handleDeleteReservation(id: string) {
+    if (!(await potvrd('Opravdu smazat tuto rezervaci?'))) return;
     saveReservations(reservations.filter((r) => r.id !== id));
   }
 

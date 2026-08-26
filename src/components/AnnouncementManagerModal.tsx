@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Announcement } from './MandatoryAnnouncementModal';
 import { AlertTriangle, Save, Trash2, CheckCircle2 } from 'lucide-react';
 import { isNotificationSupported, playOrderChime } from '../lib/notifications';
+import { potvrd } from '../lib/toast';
 
 export function AnnouncementManagerModal({ onClose }: { onClose: () => void }) {
   const [announcements, setAnnouncements] = useState<Announcement[]>(() => {
@@ -52,8 +53,8 @@ export function AnnouncementManagerModal({ onClose }: { onClose: () => void }) {
     }, 2000);
   }
 
-  function handleClear() {
-    if (!window.confirm('Opravdu smazat a deaktivovat aktuální hlášení?')) return;
+  async function handleClear() {
+    if (!(await potvrd('Opravdu smazat a deaktivovat aktuální hlášení?'))) return;
     localStorage.removeItem('pivovar_active_announcement');
     setMsg('Hlášení bylo deaktivováno.');
     setTimeout(() => {

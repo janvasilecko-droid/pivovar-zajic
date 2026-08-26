@@ -1,3 +1,4 @@
+import { oznam } from '../lib/toast';
 // PWA & Browser Mobile Push Notifications & Web Audio Chime for New Orders
 
 export function isNotificationSupported(): boolean {
@@ -11,7 +12,7 @@ export function getNotificationPermission(): NotificationPermission | 'unsupport
 
 export async function requestNotificationPermission(): Promise<boolean> {
   if (!isNotificationSupported()) {
-    alert('Tento prohlížeč nebo zařízení nepodporuje systémové notifikace.');
+    oznam('Tento prohlížeč nebo zařízení nepodporuje systémové notifikace.');
     return false;
   }
 
@@ -27,7 +28,7 @@ export async function requestNotificationPermission(): Promise<boolean> {
       });
       return true;
     } else {
-      alert('Povolení notifikací bylo zamítnuto. Upozornění můžete povolit v nastavení prohlížeče.');
+      oznam('Povolení notifikací bylo zamítnuto. Upozornění můžete povolit v nastavení prohlížeče.');
       return false;
     }
   } catch (err) {

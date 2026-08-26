@@ -32,6 +32,7 @@ import {
 import { getKegTimerState, formatDurationMs } from '../lib/stopwatchTimers';
 import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
 import { isMonthlyCleanupPending, MONTHLY_CLEANUP_CHANGED_EVENT } from '../lib/monthlyCleanup';
+import { potvrd } from '../lib/toast';
 import './HomeScreen.css';
 
 /** true = jméno přednastaveného odstínu (CSS třída c-*); false = vlastní hex barva (inline styl). */
@@ -322,9 +323,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
     persist(next);
     setCurrentPageIndex(next.pages.length - 1);
   }
-  function handleRemoveCurrentPage() {
+  async function handleRemoveCurrentPage() {
     if (layout.pages.length <= 1) return;
-    if (!window.confirm('Smazat tuhle stránku? Dlaždice se přesunou na předchozí stránku.')) return;
+    if (!(await potvrd('Smazat tuhle stránku? Dlaždice se přesunou na předchozí stránku.'))) return;
     const next = removePage(layout, currentPageIndex);
     persist(next);
     setCurrentPageIndex((i) => Math.max(0, Math.min(i, next.pages.length - 1)));
@@ -378,9 +379,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
   // skutečná routovaná stránka (viz Layout.tsx NAV), je to jen dlaždice,
   // co se dá stejně jako ostatní přesouvat/přebarvit/dát do skupiny; klik
   // na ni se tu zvlášť odchytí a spustí odhlášení místo setPage.
-  function handleTileClick(id: Page) {
+  async function handleTileClick(id: Page) {
     if (id === 'signout') {
-      if (window.confirm('Odhlásit se z appky?')) signOut();
+      if ((await potvrd('Odhlásit se z appky?'))) signOut();
       return;
     }
     setPage(id);

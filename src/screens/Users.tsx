@@ -7,6 +7,7 @@ import { Download, Shield, History, Table, Mail, Search, Trash2, CheckCircle2 } 
 import { UserPermissionsModal } from '../components/UserPermissionsModal';
 import { AuditLogViewer } from '../components/AuditLogViewer';
 import { isAdminEmail } from '../lib/config';
+import { chyba, potvrd } from '../lib/toast';
 
 type UserRow = {
   id: string; email: string; display_name: string | null;
@@ -30,7 +31,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
       const backup = await createFullBackup();
       downloadBackupJSON(backup);
     } catch (e: any) {
-      alert(`Chyba zálohování: ${e.message}`);
+      chyba(`Chyba zálohování: ${e.message}`);
     } finally {
       setBackingUp(false);
     }
@@ -42,7 +43,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
       const backup = await createFullBackup();
       downloadGoogleSheetsExcelBackup(backup);
     } catch (e: any) {
-      alert(`Chyba zálohování do Google Tabulek: ${e.message}`);
+      chyba(`Chyba zálohování do Google Tabulek: ${e.message}`);
     } finally {
       setBackingUp(false);
     }
@@ -75,11 +76,11 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
   useEffect(() => { if (isAdmin) load(); }, [isAdmin]);
 
   async function del(id: string, email: string) {
-    if (!confirm(`Smazat uživatele ${email}?`)) return;
+    if (!(await potvrd(`Smazat uživatele ${email}?`))) return;
     const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users?id=${id}`;
     const { data: session } = await supabase.auth.getSession();
     const res = await fetch(apiUrl, { method: 'DELETE', headers: { Authorization: `Bearer ${session.session?.access_token ?? ''}` } });
-    if (!res.ok) { const j = await res.json().catch(() => ({})); alert(j.error ?? 'Chyba'); return; }
+    if (!res.ok) { const j = await res.json().catch(() => ({})); chyba(j.error ?? 'Chyba'); return; }
     load();
   }
 
@@ -142,7 +143,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
   }
 
   async function handleDeleteAllowedEmail(email: string) {
-    if (!confirm(`Opravdu chcete odebrat schválení pro e-mail ${email}?`)) return;
+    if (!(await potvrd(`Opravdu chcete odebrat schválení pro e-mail ${email}?`))) return;
     setEmailErr(null);
     setEmailMsg(null);
     const { error } = await supabase.from('allowed_emails').delete().eq('email', email);

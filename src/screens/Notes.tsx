@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase, Note, useRealtime } from '../lib/supabase';
-import { EmptyState, Spinner, useConfirm } from '../components/ui';
+import { EmptyState, Spinner } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { StickyNote, Plus, Trash2, Pencil, X, Check } from 'lucide-react';
+import { potvrd } from '../lib/toast';
 
 const NOTE_COLORS: Record<string, string> = {
   primary: 'bg-primary-500',
@@ -27,8 +28,6 @@ export default function Notes() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editBody, setEditBody] = useState('');
-
-  const { confirm, node: confirmNode } = useConfirm();
   const currentUser = user?.email || '';
 
   async function load() {
@@ -60,7 +59,7 @@ export default function Notes() {
   }
 
   async function del(id: string) {
-    if (!(await confirm('Smazat tuto poznámku?'))) return;
+    if (!(await potvrd('Smazat tuto poznámku?'))) return;
     await supabase.from('notes').delete().eq('id', id);
     setNotes((n) => n.filter((x) => x.id !== id));
   }
@@ -213,7 +212,6 @@ export default function Notes() {
           })}
         </div>
       )}
-      {confirmNode}
     </div>
   );
 }

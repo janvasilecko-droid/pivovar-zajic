@@ -1,7 +1,7 @@
 import { BottlingChecklistModal, DEFAULT_ITEMS, isStartChecklistCompleteForDate, isMonthlyChecklistCompleteForDate, MONTHLY_CATEGORY } from '../components/BottlingChecklistModal';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, beerText, formatPackageLabel, fetchAllRows } from '../lib/supabase';
-import { EmptyState, Spinner, Modal, useConfirm } from '../components/ui';
+import { EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { exportBottlingToExcel } from '../lib/excel';
 import { ImportBottlingFromImage } from '../components/ImportBottlingFromImage';
@@ -19,6 +19,7 @@ import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap 
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { stackingQuickQtys } from '../lib/quickQty';
 import { computePackageNeeds } from '../lib/packageNeeds';
+import { chyba, potvrd } from '../lib/toast';
 
 
 const ROW_COUNT = 12;
@@ -57,7 +58,6 @@ export default function BottlingScreen({
   const [entryRows, setEntryRows] = useState<RowInput[]>(emptyRows());
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const { confirm, node: confirmNode } = useConfirm();
   const [flash, setFlash] = useState(false);
 
   const [showImageImport, setShowImageImport] = useState(false);
@@ -387,7 +387,7 @@ export default function BottlingScreen({
       load(true);
     } catch (err: any) {
       console.error(err);
-      alert('Chyba při ukládání změn: ' + err.message);
+      chyba('Chyba při ukládání změn: ' + err.message);
     }
   }
 
@@ -570,7 +570,7 @@ export default function BottlingScreen({
     // stáčení. U KEGů a fasování se appka ptá, tady se nechovala stejně.
     const row = rows.find((r) => r.id === id);
     const popis = row ? `${row.beer_name ?? 'pivo'} ${row.package_label ?? ''} — ${row.quantity} ks (${row.entry_date})` : 'tento záznam';
-    if (!(await confirm(`Opravdu smazat záznam stáčení?\n\n${popis}`))) return;
+    if (!(await potvrd(`Opravdu smazat záznam stáčení?\n\n${popis}`))) return;
     const { error } = await supabase.from('bottling').delete().eq('id', id);
     if (error) {
       setErr('Smazání se nepovedlo: ' + error.message);
@@ -1773,7 +1773,6 @@ export default function BottlingScreen({
           </div>
         </div>
       )}
-      {confirmNode}
       <BottlingChecklistModal
         isOpen={showChecklistModal}
         onClose={() => {

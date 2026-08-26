@@ -23,6 +23,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { potvrd } from '../lib/toast';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -171,7 +172,7 @@ export default function TapSanitationDiary() {
   }
 
   async function handleDelete(id: string) {
-    if (!window.confirm('Opravdu smazat tento záznam sanitace výčepu?')) return;
+    if (!(await potvrd('Opravdu smazat tento záznam sanitace výčepu?'))) return;
     await removeTapSanEntry(id);
     await load();
   }

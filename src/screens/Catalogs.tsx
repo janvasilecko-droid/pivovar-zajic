@@ -4,6 +4,7 @@ import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import ExcelImportModal from '../components/ExcelImportModal';
 import { FileSpreadsheet, Plus, Search, Beer as BeerIcon, Package as PackageIcon, MapPin, Phone, Mail, Edit, Trash2, Eye, EyeOff, Car, AlertTriangle, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { lookupPlaceOnline } from '../lib/placeLookup';
+import { chyba, oznam, potvrd } from '../lib/toast';
 
 /* ===== PIVA ===== */
 export function BeersScreen() {
@@ -33,9 +34,9 @@ export function BeersScreen() {
     load();
   }
   async function del(id: string) {
-    if (!confirm('Smazat pivo?')) return;
+    if (!(await potvrd('Smazat pivo?'))) return;
     const { error } = await supabase.from('beers').delete().eq('id', id);
-    if (error) { alert('Pivo nelze smazat — je použito v záznamech.'); return; }
+    if (error) { chyba('Pivo nelze smazat — je použito v záznamech.'); return; }
     load();
   }
 
@@ -130,7 +131,7 @@ function BeerForm({ beer, onClose, onSaved }: { beer: Beer | null; onClose: () =
     }
     setBusy(false);
     if (error) {
-      alert(`❌ Nepodařilo se uložit pivo: ${error.message}`);
+      chyba(`❌ Nepodařilo se uložit pivo: ${error.message}`);
       return;
     }
     onSaved();
@@ -183,9 +184,9 @@ export function PackagesScreen() {
   useRealtime(['packages'], load);
 
   async function del(id: string) {
-    if (!confirm('Smazat obal?')) return;
+    if (!(await potvrd('Smazat obal?'))) return;
     const { error } = await supabase.from('packages').delete().eq('id', id);
-    if (error) { alert('Obal nelze smazat — je použit v záznamech.'); return; }
+    if (error) { chyba('Obal nelze smazat — je použit v záznamech.'); return; }
     load();
   }
 
@@ -306,9 +307,9 @@ export function PlacesScreen() {
   useRealtime(['places'], load);
 
   async function del(id: string) {
-    if (!confirm('Smazat odběratele?')) return;
+    if (!(await potvrd('Smazat odběratele?'))) return;
     const { error } = await supabase.from('places').delete().eq('id', id);
-    if (error) { alert('Odběratele nelze smazat — má navázané objednávky.'); return; }
+    if (error) { chyba('Odběratele nelze smazat — má navázané objednávky.'); return; }
     load();
   }
 
@@ -586,7 +587,7 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
 
   async function handleAutoLookupAddress() {
     if (!name.trim()) {
-      alert('Nejprve zadejte název odběratele / hospody.');
+      oznam('Nejprve zadejte název odběratele / hospody.');
       return;
     }
     setSearchingAddress(true);
@@ -612,7 +613,7 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
 
   async function save() {
     if (!name.trim()) {
-      alert('Vyplň název odběratele.');
+      oznam('Vyplň název odběratele.');
       return;
     }
     setBusy(true);
@@ -675,7 +676,7 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
 
     setBusy(false);
     if (error) {
-      alert(`❌ Nepodařilo se uložit odběratele: ${error.message || JSON.stringify(error)}`);
+      chyba(`❌ Nepodařilo se uložit odběratele: ${error.message || JSON.stringify(error)}`);
       return;
     }
     onSaved();
@@ -882,7 +883,7 @@ export function VehiclesScreen() {
   useRealtime(['vehicles'], load);
 
   async function del(id: string) {
-    if (!confirm('Smazat vozidlo z evidence?')) return;
+    if (!(await potvrd('Smazat vozidlo z evidence?'))) return;
     await supabase.from('vehicles').delete().eq('id', id);
     load();
   }

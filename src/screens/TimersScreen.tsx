@@ -14,6 +14,7 @@ import {
   formatDurationMs,
 } from '../lib/stopwatchTimers';
 import { TabBar, type TabBarItem } from '../components/TabBar';
+import { potvrd } from '../lib/toast';
 
 type TimersTab = 'stopwatch' | 'timer' | 'keg';
 
@@ -252,8 +253,8 @@ function KegRackingTimerTool() {
 
   function begin() { setState(startKegTimer()); }
   function finish() { setState(finishKegTimer()); }
-  function cancel() {
-    if (!window.confirm('Zrušit měření bez uložení do historie?')) return;
+  async function cancel() {
+    if (!(await potvrd('Zrušit měření bez uložení do historie?'))) return;
     setState(cancelKegTimer());
   }
   function removeHistory(i: number) { setState(removeKegHistoryEntry(i)); }

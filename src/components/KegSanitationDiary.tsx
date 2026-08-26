@@ -27,6 +27,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { potvrd } from '../lib/toast';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -300,7 +301,7 @@ export default function KegSanitationDiary() {
   }
 
   async function handleDelete(e: KegSanitationEntry) {
-    if (!window.confirm(`Opravdu smazat záznam deníku KEGů pro ${e.sanitation_date}?`)) return;
+    if (!(await potvrd(`Opravdu smazat záznam deníku KEGů pro ${e.sanitation_date}?`))) return;
     await removeKegSanEntry(e.id);
     await load();
   }

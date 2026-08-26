@@ -23,6 +23,7 @@ import {
 } from '../lib/bottlingPlans';
 import { Modal } from './ui';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { chyba, potvrd } from '../lib/toast';
 
 // Povolené velikosti lahví v dropdownu (shodné se zápisem stáčení)
 const ALLOWED_BOTTLE_VOLUMES = [1.5, 1, 0.5, 0.33];
@@ -305,14 +306,14 @@ export function BottlingTasksSettings() {
 
   async function handleStatus(plan: BottlingPlan, status: BottlingPlan['status']) {
     const { error } = await setPlanStatus(plan.id, status);
-    if (error) alert(error.message);
+    if (error) chyba(error.message);
     else load();
   }
 
   async function handleDelete(plan: BottlingPlan) {
-    if (!window.confirm('Smazat tento úkol stáčení?')) return;
+    if (!(await potvrd('Smazat tento úkol stáčení?'))) return;
     const { error } = await deleteBottlingPlan(plan.id);
-    if (error) alert(error.message);
+    if (error) chyba(error.message);
     else load();
   }
 

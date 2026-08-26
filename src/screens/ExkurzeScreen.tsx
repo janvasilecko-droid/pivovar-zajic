@@ -3,6 +3,7 @@ import { supabase, useRealtime } from '../lib/supabase';
 import { Spinner, EmptyState } from '../components/ui';
 import { Users, Plus, Trash2, Calendar, Clock, UserCheck, CheckCircle2, Archive, BarChart3, Download, ChevronDown, ChevronUp, User } from 'lucide-react';
 import { exportHistoryDetailToExcel } from '../lib/excel';
+import { oznam, potvrd } from '../lib/toast';
 
 export type ExkurzeEntry = {
   id: string;
@@ -46,11 +47,11 @@ export default function ExkurzeScreen() {
     e.preventDefault();
     const count = Number(peopleCount);
     if (!count || count <= 0) {
-      alert('Zadejte platný počet lidí.');
+      oznam('Zadejte platný počet lidí.');
       return;
     }
     if (!guideName.trim()) {
-      alert('Zadejte jméno průvodce.');
+      oznam('Zadejte jméno průvodce.');
       return;
     }
 
@@ -68,11 +69,11 @@ export default function ExkurzeScreen() {
     setPeopleCount('1');
     setRevenue('');
     setNote('');
-    alert(`✅ Exkurze pro ${count} ${count === 1 ? 'osobu' : count < 5 ? 'osoby' : 'osob'} (průvodce ${guideName}) byla úspěšně naplánována na ${new Date(tourDate).toLocaleDateString('cs-CZ')} v ${tourTime}!`);
+    oznam(`✅ Exkurze pro ${count} ${count === 1 ? 'osobu' : count < 5 ? 'osoby' : 'osob'} (průvodce ${guideName}) byla úspěšně naplánována na ${new Date(tourDate).toLocaleDateString('cs-CZ')} v ${tourTime}!`);
   }
 
-  function handleDelete(id: string) {
-    if (!confirm('Smazat tuto exkurzi?')) return;
+  async function handleDelete(id: string) {
+    if (!(await potvrd('Smazat tuto exkurzi?'))) return;
     saveEntries(entries.filter((e) => e.id !== id));
   }
 
@@ -121,12 +122,12 @@ export default function ExkurzeScreen() {
   const totalRevenue = useMemo(() => entries.reduce((s, e) => s + Number(e.revenue || 0), 0), [entries]);
 
   // Archive current month
-  function handleArchiveMonth() {
+  async function handleArchiveMonth() {
     if (!activeEntries.length) {
-      alert('V tomto měsíci nejsou žádné aktivní exkurze k přesunu do statistiky.');
+      oznam('V tomto měsíci nejsou žádné aktivní exkurze k přesunu do statistiky.');
       return;
     }
-    if (!confirm(`Opravdu přesunout ${activeEntries.length} exkurzí měsíce ${currentMonth} do statistiky a vyčistit aktivní pole?`)) return;
+    if (!(await potvrd(`Opravdu přesunout ${activeEntries.length} exkurzí měsíce ${currentMonth} do statistiky a vyčistit aktivní pole?`))) return;
 
     const next = entries.map((e) => {
       if (!e.archived_month && e.tour_date.startsWith(currentMonth)) {
@@ -136,7 +137,7 @@ export default function ExkurzeScreen() {
     });
 
     saveEntries(next);
-    alert(`📦 Měsíc ${currentMonth} byl úspěšně přesunut do statistiky! Použijte jiný měsíc nebo přidejte nové exkurze.`);
+    oznam(`📦 Měsíc ${currentMonth} byl úspěšně přesunut do statistiky! Použijte jiný měsíc nebo přidejte nové exkurze.`);
   }
 
   function exportExcel() {

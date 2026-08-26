@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Modal } from './ui';
 import { CheckSquare, Square, RotateCcw, Check, ShieldCheck, Lock, AlertTriangle } from 'lucide-react';
+import { potvrd } from '../lib/toast';
 
 export type ChecklistPhase = 'start' | 'end' | 'monthly' | 'all';
 
@@ -169,8 +170,8 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
     localStorage.setItem('keg_checklist_' + dateKey, JSON.stringify(next));
   }
 
-  function handleReset() {
-    if (!window.confirm('Opravdu resetovat všechny odškrtnuté položky pro tento den?')) return;
+  async function handleReset() {
+    if (!(await potvrd('Opravdu resetovat všechny odškrtnuté položky pro tento den?'))) return;
     setChecks({});
     localStorage.removeItem('keg_checklist_' + dateKey);
   }

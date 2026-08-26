@@ -8,6 +8,7 @@ import { ClipboardCheck, Plus, Save, Download, Lock, RefreshCw, AlertCircle, Che
 import { CountFromImage } from '../components/CountFromImage';
 import { computeInventoryReconciliation } from '../lib/inventoryHelper';
 import { buildMovements, expectedForMonth, stockAtStartOfDay, type StockLine } from '../lib/stockLedger';
+import { chyba, oznam, potvrd } from '../lib/toast';
 
 type InitialStockMap = Record<string, number>; // key: `${beer_id}__${package_id}`, val: qty
 
@@ -564,7 +565,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
 
   // Schválení inventury a převod fyzického stavu jako počáteční stav nového měsíce
   async function handleLockAndTransferNextMonth() {
-    if (!window.confirm(`Chceš schválit inventuru za ${currentMonth} a převést fyzické stavy jako počáteční stav do nového měsíce?`)) return;
+    if (!(await potvrd(`Chceš schválit inventuru za ${currentMonth} a převést fyzické stavy jako počáteční stav do nového měsíce?`))) return;
 
     const [y, m] = currentMonth.split('-').map(Number);
     const nextDate = new Date(y, m, 1);
@@ -603,14 +604,14 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
         localStorage.setItem(`initial_stock_${nextMonthKey}`, JSON.stringify(nextInitialLs));
       } catch {}
 
-      alert(`Inventura za ${currentMonth} byla schválena a stavy byly převedeny jako počáteční stav (Poč.) do měsíce ${nextMonthKey}.`);
+      oznam(`Inventura za ${currentMonth} byla schválena a stavy byly převedeny jako počáteční stav (Poč.) do měsíce ${nextMonthKey}.`);
       
       // Nastavíme příznaky pro vynucené načtení nových stavů z DB
       forceReloadRef.current = true;
       setCurrentMonth(nextMonthKey);
     } catch (e) {
       console.error(e);
-      alert('Chyba při převodu inventury do nového měsíce!');
+      chyba('Chyba při převodu inventury do nového měsíce!');
     }
     setBusy(false);
   }
@@ -753,7 +754,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     // uprostřed inventury.
     const MAX_MB = 10;
     if (file.size > MAX_MB * 1024 * 1024) {
-      alert(`Soubor je moc velký (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum je ${MAX_MB} MB — zkontrolujte, jestli jste vybrali správný soubor.`);
+      oznam(`Soubor je moc velký (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum je ${MAX_MB} MB — zkontrolujte, jestli jste vybrali správný soubor.`);
       e.target.value = '';
       return;
     }
@@ -799,12 +800,12 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       if (matchCount > 0) {
         setActualStock(importedActual);
         localStorage.setItem(`actual_inventory_${currentMonth}`, JSON.stringify(importedActual));
-        alert(`Úspěšně naimportováno ${matchCount} položek z Excelu/Google Tabulky pro měsíc ${currentMonth}!`);
+        oznam(`Úspěšně naimportováno ${matchCount} položek z Excelu/Google Tabulky pro měsíc ${currentMonth}!`);
       } else {
-        alert('V souboru nebyly nalezeny žádné odpovídající položky piva a obalu. Zkontrolujte strukturu tabulky.');
+        oznam('V souboru nebyly nalezeny žádné odpovídající položky piva a obalu. Zkontrolujte strukturu tabulky.');
       }
     } catch (err: any) {
-      alert('Chyba při čtení Excel souboru: ' + (err?.message ?? String(err)));
+      chyba('Chyba při čtení Excel souboru: ' + (err?.message ?? String(err)));
     } finally {
       e.target.value = '';
       setBusy(false);

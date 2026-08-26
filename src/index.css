@@ -153,6 +153,22 @@ html, body, #root {
   .scrollbar-none { scrollbar-width: none; }
   .scrollbar-none::-webkit-scrollbar { display: none; }
   @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+
+  /* Oznámení a potvrzovací list (components/ToastHost.tsx). Vlastní @keyframes,
+     ne přes Tailwind — používají se přes animate-[...] a Tailwind by je
+     v takovém zápisu do CSS nevygeneroval. */
+  @keyframes toastIn { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
+  @keyframes sheetUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+  @keyframes sheetFade { from { opacity: 0; } to { opacity: 1; } }
+  /* Kdo má v systému vypnuté animace, ať je nemá ani tady. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
 
 /* Mobile screen scaling & touch optimization */

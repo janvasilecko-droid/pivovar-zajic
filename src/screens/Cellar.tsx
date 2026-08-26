@@ -4,8 +4,9 @@ import { ChevronLeft, ChevronRight, Beer as BeerIcon, Factory, CalendarDays } fr
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 
 import { supabase, Beer, Package, CellarTank, CellarTransfer, CellarTankCycle, EntryRow, useRealtime, beerBorder } from '../lib/supabase';
-import { Modal, Field, Spinner, useConfirm } from '../components/ui';
+import { Modal, Field, Spinner } from '../components/ui';
 import { TankOccupancyPlanner } from '../components/TankOccupancyPlanner';
+import { chyba, oznam, potvrd } from '../lib/toast';
 
 const STATUS_LABELS: Record<CellarTank['status'], string> = {
   empty: 'Prázdný', filling: 'Plní se', active: 'Aktivní', emptying: 'Stáčí se',
@@ -37,7 +38,6 @@ function fmtHours(h: number | null | undefined): string {
 
 export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; initialSubTab?: string } = {}) {
   const [activeTab, setActiveTab] = useState<'lezacke' | 'spilka' | 'planovac'>((initialSubTab as any) || 'lezacke');
-  const { confirm, node: confirmNode } = useConfirm();
 
   useEffect(() => {
     setActiveTab((initialSubTab as any) || 'lezacke');
@@ -320,7 +320,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
   }, [cycles]);
 
   async function clearTank(t: CellarTank) {
-    if (!confirm(`Vyprázdnit ${t.label} (nastavit objem na 0 a stav na prázdný)?`)) return;
+    if (!potvrd(`Vyprázdnit ${t.label} (nastavit objem na 0 a stav na prázdný)?`)) return;
     await supabase.from('cellar_tanks').update({
       current_volume_l: 0, current_beer_id: null, current_beer_name: null, status: 'empty',
       started_at: null, initial_volume_l: null,
@@ -341,7 +341,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
     const endedAt = new Date();
     const durationHours = startedAt ? (endedAt.getTime() - startedAt.getTime()) / 3600000 : null;
 
-    if (!confirm(`Ukončit ${t.label}?\n\nStočeno: ${(keggedL / 100).toFixed(2)} hl\nZtráta (auto): ${lossL.toFixed(1)} l (${lossPct.toFixed(1)}%)\nDoba: ${durationHours != null ? fmtHours(durationHours) : '—'}\n\nTank přejde do stavu Sanitace.`)) return;
+    if (!potvrd(`Ukončit ${t.label}?\n\nStočeno: ${(keggedL / 100).toFixed(2)} hl\nZtráta (auto): ${lossL.toFixed(1)} l (${lossPct.toFixed(1)}%)\nDoba: ${durationHours != null ? fmtHours(durationHours) : '—'}\n\nTank přejde do stavu Sanitace.`)) return;
 
     await supabase.from('cellar_tank_cycles').insert({
       tank_id: t.id,
@@ -433,9 +433,9 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
 
   // Inline uložení piva a počátečního objemu přímo z karty tanku
   async function saveInlineTank(t: CellarTank) {
-    if (!inlineBeerId) { alert('Vyber pivo.'); return; }
+    if (!inlineBeerId) { oznam('Vyber pivo.'); return; }
     const v = Number(inlineVolume);
-    if (!v || v <= 0) { alert('Zadej počáteční objem v litrech.'); return; }
+    if (!v || v <= 0) { oznam('Zadej počáteční objem v litrech.'); return; }
     setInlineBusy(true);
     const beer = beers.find((b) => b.id === inlineBeerId);
     const now = new Date();
@@ -465,7 +465,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
 
   // Zahájit stáčení z tanku — vypne stáčení na všech ostatních tancích se stejným pivem
   async function startKegging(t: CellarTank) {
-    if (!t.current_beer_id) { alert('Tank nemá přiřazené pivo — nejprve nastav pivo.'); return; }
+    if (!t.current_beer_id) { oznam('Tank nemá přiřazené pivo — nejprve nastav pivo.'); return; }
     const now = new Date().toISOString();
     try {
       // Vypnout stáčení na ostatních tancích se stejným pivem (aby byl vždy jen jeden aktivní zdroj)
@@ -486,7 +486,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
       if (error) throw error;
       load();
     } catch (e: any) {
-      alert(`Chyba při zahájení stáčení: ${e?.message ?? e}`);
+      chyba(`Chyba při zahájení stáčení: ${e?.message ?? e}`);
     }
   }
 
@@ -502,7 +502,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
       if (error) throw error;
       load();
     } catch (e: any) {
-      alert(`Chyba při ukončení stáčení: ${e?.message ?? e}`);
+      chyba(`Chyba při ukončení stáčení: ${e?.message ?? e}`);
     }
   }
 
@@ -516,7 +516,6 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
 
   return (
     <div>
-      {confirmNode}
       <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
         <div>
           <h1 className="text-2xl font-display font-bold text-primary-900">🏚️ Sklep & Spilka — tanky</h1>
@@ -890,7 +889,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                             await recordSanitation('oplach_vodou', t, 'Rychlý oplach vodou z karty tanku', undefined, 10);
                             await supabase.from('cellar_tanks').update({ status: 'rinsing', updated_at: new Date().toISOString() }).eq('id', t.id);
                             load();
-                            alert(`💧 Oplach vodou pro ${t.label} byl zapsán (Provedl: ${userName})`);
+                            oznam(`💧 Oplach vodou pro ${t.label} byl zapsán (Provedl: ${userName})`);
                           }}
                         >
                           <span className="text-base leading-none">💧</span>
@@ -902,7 +901,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                             await recordSanitation('louh', t, 'Sanitace louhem NaOH z karty tanku', 2, 20);
                             await supabase.from('cellar_tanks').update({ status: 'cleaning', updated_at: new Date().toISOString() }).eq('id', t.id);
                             load();
-                            alert(`🧼 Sanitace louhem pro ${t.label} byla zapsána (Provedl: ${userName})`);
+                            oznam(`🧼 Sanitace louhem pro ${t.label} byla zapsána (Provedl: ${userName})`);
                           }}
                         >
                           <span className="text-base leading-none">🧼</span>
@@ -918,18 +917,18 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                             const varovani = t.current_beer_name
                               ? `\n\nPOZOR: tank ${t.label} se tím vyprázdní — zmizí přiřazené pivo (${t.current_beer_name}), počáteční objem i začátek cyklu. Nejde to vrátit zpět.`
                               : `\n\nTank ${t.label} se tím označí jako prázdný.`;
-                            if (!(await confirm(`Zapsat sanitaci kyselinou dusičnou?${varovani}`))) return;
+                            if (!(await potvrd(`Zapsat sanitaci kyselinou dusičnou?${varovani}`))) return;
                             await recordSanitation('kyselina_dusicna', t, 'Sanitace kyselinou dusičnou z karty tanku', 2, 20);
                             const { error } = await supabase.from('cellar_tanks').update({
                               status: 'empty', current_beer_id: null, current_beer_name: null,
                               started_at: null, initial_volume_l: null, updated_at: new Date().toISOString(),
                             }).eq('id', t.id);
                             if (error) {
-                              alert(`⚠️ Sanitace se zapsala, ale vyprázdnění tanku selhalo: ${error.message}`);
+                              chyba(`⚠️ Sanitace se zapsala, ale vyprázdnění tanku selhalo: ${error.message}`);
                               return;
                             }
                             load();
-                            alert(`🧪 Kyselina dusičná pro ${t.label} byla zapsána (Provedl: ${userName})`);
+                            oznam(`🧪 Kyselina dusičná pro ${t.label} byla zapsána (Provedl: ${userName})`);
                           }}
                         >
                           <span className="text-base leading-none">🧪</span>
@@ -1051,7 +1050,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                   setSanitationModalTank(null);
                   setSanitationNote('');
                   setSanitationConcentration('');
-                  alert(`✅ Sanitace (${sanitationModalTank.label}) byla zapsána do Sanitačního deníku!`);
+                  oznam(`✅ Sanitace (${sanitationModalTank.label}) byla zapsána do Sanitačního deníku!`);
                 }}
               >
                 {sanitationBusy ? 'Ukládám…' : '✅ Uložit do Sanitačního deníku'}

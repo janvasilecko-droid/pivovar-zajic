@@ -4,6 +4,7 @@
 import { useMemo } from 'react';
 import { Beer, Package, beerBg } from '../lib/supabase';
 import { BottlingPlan, planLines, setPlanStatus } from '../lib/bottlingPlans';
+import { chyba } from '../lib/toast';
 
 type Props = {
   plans: BottlingPlan[];
@@ -50,7 +51,7 @@ function PlanItem({
 
   async function handleDone() {
     const { error } = await setPlanStatus(plan.id, 'done');
-    if (error) alert(error.message);
+    if (error) chyba(error.message);
     else onChanged();
   }
 
@@ -114,7 +115,7 @@ function PlanItem({
         {plan.status === 'done' && isManager && (
           <button
             type="button"
-            onClick={() => setPlanStatus(plan.id, 'planned').then(({ error }) => { if (error) alert(error.message); else onChanged(); })}
+            onClick={() => setPlanStatus(plan.id, 'planned').then(({ error }) => { if (error) chyba(error.message); else onChanged(); })}
             className="px-3 py-1.5 rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 text-[11px] font-black transition"
           >
             ↩️ Zpět

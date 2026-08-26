@@ -29,6 +29,7 @@ import {
   FileCheck,
 } from 'lucide-react';
 import { Spinner } from './ui';
+import { potvrd } from '../lib/toast';
 
 interface OrderAuditModalProps {
   isOpen: boolean;
@@ -115,7 +116,7 @@ export function OrderAuditModal({
   }
 
   async function handleStornoOrder(orderId: string) {
-    if (!confirm('Opravdu chcete tuto duplicitní objednávku stornovat?')) return;
+    if (!(await potvrd('Opravdu chcete tuto duplicitní objednávku stornovat?'))) return;
     setActionLoading(true);
     try {
       const { error } = await supabase.from('orders').update({ status: 'storno' }).eq('id', orderId);

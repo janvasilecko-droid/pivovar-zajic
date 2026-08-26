@@ -13,6 +13,7 @@ import { APP_VERSION, APP_VERSION_DATE, APP_CHANGELOG } from '../lib/version';
 import { forceRefresh } from '../lib/versionCheck';
 import { isAdminEmail } from '../lib/config';
 import { fetchWhatsAppSenders, addWhatsAppSender, removeWhatsAppSender, type WhatsAppSender } from '../lib/whatsappApi';
+import { oznam } from '../lib/toast';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -155,7 +156,7 @@ export default function AppSettingsScreen() {
 
   async function handleToggleNotifications() {
     if (notifPermission === 'granted') {
-      alert('Upozornění jsou povolena. Pro jejich zakázání je nutné to udělat v nastavení prohlížeče.');
+      oznam('Upozornění jsou povolena. Pro jejich zakázání je nutné to udělat v nastavení prohlížeče.');
       return;
     }
     await requestNotificationPermission();

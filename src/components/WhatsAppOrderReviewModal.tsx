@@ -19,6 +19,7 @@ import {
   type ReadbackStatus,
 } from '../lib/whatsappReadback';
 import { Check, X, MessageSquare, Image as ImageIcon, AlertCircle, UserCheck, Eye, ChevronDown, FileText, RefreshCw, ExternalLink, Download, ShieldAlert, ShieldCheck, ArrowDown } from 'lucide-react';
+import { potvrd } from '../lib/toast';
 
 interface WhatsAppOrderReviewModalProps {
   isOpen: boolean;
@@ -363,13 +364,13 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     // V přísném režimu je tlačítko rovnou neaktivní; jinak se zeptáme a
     // uživatel může vědomě pokračovat.
     if (!isImage && readback.mismatchCount > 0 && !strictReadback) {
-      const ok = window.confirm(
+      const ok = (await potvrd(
         `⚠ ${readback.mismatchCount} z ${readback.items.length} položek nesouhlasí s originálem (AI mohla špatně přečíst).\n\n` +
         `Pokračovat a i přesto objednávku schválit?` +
         (readback.unmatchedCount > 0
           ? `\n\nTip: přísný režim („Vyžadovat opravu nesouladů") schválení zablokuje, dokud ⚠ neopravíte.`
           : '')
-      );
+      ));
       if (!ok) {
         setStatusMessage('Schválení zrušeno — nejprve zkontrolujte nesoulady čtení.');
         return;
@@ -522,7 +523,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   };
 
   const handleReject = async () => {
-    if (!confirm('Opravdu chcete zamítnout tuto WhatsApp objednávku?')) return;
+    if (!(await potvrd('Opravdu chcete zamítnout tuto WhatsApp objednávku?'))) return;
 
     setRejecting(true);
     setStatusMessage('Zamítám objednávku...');
@@ -544,7 +545,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   };
 
   const handleIgnore = async () => {
-    if (!confirm('Opravdu chcete tuto zprávu ignorovat? Nebude importována do objednávek.')) return;
+    if (!(await potvrd('Opravdu chcete tuto zprávu ignorovat? Nebude importována do objednávek.'))) return;
 
     setLoading(true);
     try {

@@ -15,6 +15,7 @@ import { saveKegReturns, fetchKegMovements, computeKegBalances, type KegBalance 
 import { useAuth } from '../lib/auth';
 import { openNavigation, buildCustomerDeliveryWhatsAppText, openCustomerWhatsApp } from '../lib/navigation';
 import { printDeliveryList } from '../lib/safePrint';
+import { chyba, oznam } from '../lib/toast';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -1257,7 +1258,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
               is_delivered: true,
               delivered_at: new Date().toISOString(),
             }).eq('id', signOrder.id);
-            alert(`✅ Podpis ${signerName} úspěšně zaznamenán!`);
+            oznam(`✅ Podpis ${signerName} úspěšně zaznamenán!`);
             load();
           }}
         />
@@ -1281,11 +1282,11 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
               recordedBy: profile?.display_name || null,
             });
             if (err) {
-              alert(`⚠️ Vrácené sudy se NEPODAŘILO uložit: ${err}\n\nZkuste to prosím znovu.`);
+              chyba(`⚠️ Vrácené sudy se NEPODAŘILO uložit: ${err}\n\nZkuste to prosím znovu.`);
               return;
             }
             const summaryStr = returns.filter((r) => r.count > 0).map((r) => `${r.count}x ${r.size}`).join(', ');
-            alert(`✅ Zaznamenáno vrácení prázdných sudů pro ${kegReturnOrder.place_name}: ${summaryStr}`);
+            oznam(`✅ Zaznamenáno vrácení prázdných sudů pro ${kegReturnOrder.place_name}: ${summaryStr}`);
             setKegReturnOrder(null);
           }}
         />

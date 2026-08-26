@@ -15,6 +15,7 @@ import KeggingDayPlan from '../components/KeggingDayPlan';
 import { Camera, Loader2, Pencil, Cylinder, BarChart3, RefreshCw, ClipboardList, Sparkles, CalendarDays } from 'lucide-react';
 import { ImportKeggingFromImage } from '../components/ImportKeggingFromImage';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
+import { chyba, potvrd } from '../lib/toast';
 
 
 const ROW_COUNT = 12;
@@ -273,7 +274,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       load(true);
     } catch (err: any) {
       console.error(err);
-      alert('Chyba při ukládání změn: ' + err.message);
+      chyba('Chyba při ukládání změn: ' + err.message);
     }
   }
 
@@ -723,9 +724,9 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
   // Smazání přefuku — sklad se vrátí do stavu před přefukem
   async function deletePrefuk(id: string) {
-    if (!window.confirm('Smazat tento přefuk? Sklad se vrátí do původního stavu.')) return;
+    if (!(await potvrd('Smazat tento přefuk? Sklad se vrátí do původního stavu.'))) return;
     const { error } = await supabase.from('keg_prefuk').delete().eq('id', id);
-    if (error) { alert('Chyba při mazání: ' + error.message); return; }
+    if (error) { chyba('Chyba při mazání: ' + error.message); return; }
     load(true);
   }
 
@@ -1182,7 +1183,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                             </select>
                             <button
                               type="button"
-                              onClick={() => { if (confirm(`Smazat záznam: ${r.beer_name ?? beer?.name ?? '—'} ${vol}L × ${r.quantity} ks?`)) del(r.id); }}
+                              onClick={async () => { if ((await potvrd(`Smazat záznam: ${r.beer_name ?? beer?.name ?? '—'} ${vol}L × ${r.quantity} ks?`))) del(r.id); }}
                               className="w-11 min-h-[44px] grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-lg transition"
                             >✕</button>
                           </div>
@@ -1289,8 +1290,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                                   <button
                                     type="button"
                                     className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition"
-                                    onClick={() => {
-                                      if (confirm(`Smazat záznam: ${r.beer_name ?? beer?.name ?? '—'} ${vol}L × ${r.quantity} ks?`)) {
+                                    onClick={async () => {
+                                      if ((await potvrd(`Smazat záznam: ${r.beer_name ?? beer?.name ?? '—'} ${vol}L × ${r.quantity} ks?`))) {
                                         del(r.id);
                                       }
                                     }}
@@ -1521,7 +1522,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                           </select>
                           <button
                             type="button"
-                            onClick={() => { if (confirm(`Smazat záznam: ${r.beer_name ?? beer?.name ?? '—'} ${vol}L × ${r.quantity} ks?`)) del(r.id); }}
+                            onClick={async () => { if ((await potvrd(`Smazat záznam: ${r.beer_name ?? beer?.name ?? '—'} ${vol}L × ${r.quantity} ks?`))) del(r.id); }}
                             className="w-11 min-h-[44px] grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-lg transition"
                           >✕</button>
                         </div>
@@ -1634,8 +1635,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                                 <button
                                   type="button"
                                   className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition"
-                                  onClick={() => {
-                                    if (confirm(`Smazat záznam: ${r.beer_name ?? beer?.name ?? '—'} ${vol}L × ${r.quantity} ks?`)) {
+                                  onClick={async () => {
+                                    if ((await potvrd(`Smazat záznam: ${r.beer_name ?? beer?.name ?? '—'} ${vol}L × ${r.quantity} ks?`))) {
                                       del(r.id);
                                     }
                                   }}

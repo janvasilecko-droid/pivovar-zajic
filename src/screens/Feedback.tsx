@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { supabase, useRealtime } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
-import { EmptyState, Spinner, useConfirm } from '../components/ui';
+import { EmptyState, Spinner } from '../components/ui';
 import { UntappdAiAnalyzer } from '../components/UntappdAiAnalyzer';
 import { Sparkles, MessageSquare } from 'lucide-react';
+import { potvrd } from '../lib/toast';
 
 type Category = 'bug' | 'feature' | 'question' | 'other';
 type Status = 'open' | 'in_progress' | 'done' | 'rejected';
@@ -43,7 +44,6 @@ export default function Feedback({ setPage, initialSubTab }: { setPage?: (p: any
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Category | 'all'>('all');
   const [showForm, setShowForm] = useState(false);
-  const { confirm, node: confirmNode } = useConfirm();
 
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -90,7 +90,7 @@ export default function Feedback({ setPage, initialSubTab }: { setPage?: (p: any
   }
 
   async function del(id: string) {
-    if (!(await confirm('Opravdu smazat tuto poznámku?'))) return;
+    if (!(await potvrd('Opravdu smazat tuto poznámku?'))) return;
     await supabase.from('feedback_notes').delete().eq('id', id);
     load();
   }
@@ -266,7 +266,6 @@ export default function Feedback({ setPage, initialSubTab }: { setPage?: (p: any
       )}
         </>
       )}
-      {confirmNode}
     </div>
   );
 }

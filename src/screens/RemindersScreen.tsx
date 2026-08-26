@@ -6,6 +6,7 @@ import { EmptyState, Spinner } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { getAdminEmail, DEFAULT_ROLE } from '../lib/config';
 import { supabase } from '../lib/supabase';
+import { chyba, oznam, potvrd } from '../lib/toast';
 
 type UserDirectoryEntry = {
   id: string;
@@ -87,11 +88,11 @@ export default function RemindersScreen() {
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) {
-      alert('Zadejte název zprávy / upomínky.');
+      oznam('Zadejte název zprávy / upomínky.');
       return;
     }
     if (!sendNow && !dateTime) {
-      alert('Zadejte datum a čas, nebo zvolte „Odeslat ihned".');
+      oznam('Zadejte datum a čas, nebo zvolte „Odeslat ihned".');
       return;
     }
 
@@ -102,7 +103,7 @@ export default function RemindersScreen() {
       finalTargetRole = targetRole;
     } else if (recipientMode === 'users') {
       if (selectedUsers.length === 0) {
-        alert('Vyberte alespoň jednoho uživatele.');
+        oznam('Vyberte alespoň jednoho uživatele.');
         return;
       }
       finalTargetRole = 'custom';
@@ -110,7 +111,7 @@ export default function RemindersScreen() {
     } else if (recipientMode === 'custom') {
       const parsed = normalizeTargetEmails(customEmails);
       if (parsed.length === 0) {
-        alert('Zadejte alespoň jeden e-mail.');
+        oznam('Zadejte alespoň jeden e-mail.');
         return;
       }
       finalTargetRole = 'custom';
@@ -142,16 +143,16 @@ export default function RemindersScreen() {
       setCustomEmails('');
       setSendNow(false);
       await loadData();
-      alert('✅ Zpráva / upomínka byla úspěšně odeslána!');
+      oznam('✅ Zpráva / upomínka byla úspěšně odeslána!');
     } catch (e: any) {
-      alert('Chyba při vytváření upomínky: ' + (e?.message ?? String(e)));
+      chyba('Chyba při vytváření upomínky: ' + (e?.message ?? String(e)));
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Smazat tuto upomínku?')) return;
+    if (!(await potvrd('Smazat tuto upomínku?'))) return;
     await deleteReminder(id);
     await loadData();
   }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, formatPackageLabel } from '../lib/supabase';
-import { EmptyState, Spinner, useConfirm } from '../components/ui';
+import { EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey } from '../components/WeeklyOrderSummaryCard';
 import { exportProdejnaToExcel } from '../lib/excel';
 import { VoiceRecorder } from '../components/VoiceRecorder';
@@ -11,6 +11,7 @@ import { TapReservationModal } from '../components/TapReservationModal';
 import { detectTapType } from '../lib/tapReservations';
 import type { TapReservation } from './VycepyScreen';
 import { BeerTileGrid, BeerTilePanel, TileTotalBar } from '../components/BeerTileGrid';
+import { potvrd } from '../lib/toast';
 
 const ROW_COUNT = 12;
 const FASOVANI_ROW_COUNT = 6;
@@ -29,7 +30,6 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   const [note, setNote] = useState('');
   const [entryRows, setEntryRows] = useState<RowInput[]>(() => emptyRows(table === 'fasovani' ? FASOVANI_ROW_COUNT : ROW_COUNT));
   const [expandedProdejnaBeerId, setExpandedProdejnaBeerId] = useState<string | null>(null);
-  const { confirm, node: confirmNode } = useConfirm();
   const expandedProdejnaBeer = beers.find((b) => b.id === expandedProdejnaBeerId) ?? null;
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -255,7 +255,6 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
 
   return (
     <div className="space-y-6 pb-12">
-      {confirmNode}
       {/* Top Action Bar — bez ukotvení (žádný prvek na téhle obrazovce nezůstává přilepený). */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded border border-neutral-200 shadow-2xs">
         <div className="flex items-center gap-2">
@@ -590,7 +589,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                                     type="button"
                                     className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition"
                                     onClick={async () => {
-                                      if (await confirm(`Smazat záznam: ${r.beer_name ?? beer?.name ?? '—'} ${vol}L × ${r.quantity} ks?`)) {
+                                      if (await potvrd(`Smazat záznam: ${r.beer_name ?? beer?.name ?? '—'} ${vol}L × ${r.quantity} ks?`)) {
                                         del(r.id);
                                       }
                                     }}

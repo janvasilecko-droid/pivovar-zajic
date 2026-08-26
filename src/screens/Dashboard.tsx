@@ -9,6 +9,7 @@ import { buildMovements, stockAsOf, stockKey } from '../lib/stockLedger';
 import { QuickCountModal } from '../components/QuickCountModal';
 import { fetchLabelBalances } from '../lib/labelStock';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
+import { chyba, oznam } from '../lib/toast';
 
 type Row = {
   entry_date: string; beer_id: string | null; beer_name: string | null;
@@ -94,9 +95,9 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
 
     const { error } = await supabase.from('inventory').insert(payloads);
     if (error) {
-      alert(`Chyba při ukládání inventury: ${error.message}`);
+      chyba(`Chyba při ukládání inventury: ${error.message}`);
     } else {
-      alert(`✅ Inventura (${items.length} položek) úspěšně uložena!`);
+      oznam(`✅ Inventura (${items.length} položek) úspěšně uložena!`);
       load();
     }
   }

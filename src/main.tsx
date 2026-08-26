@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import ToastHost from './components/ToastHost';
 import './index.css';
 import { AuthProvider } from './lib/auth';
 import { initDensity } from './lib/density';

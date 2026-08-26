@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Package, Calendar, CheckCircle2, AlertCircle, Plus, Search, User, Truck, Shield } from 'lucide-react';
+import { potvrd } from '../lib/toast';
 
 type EquipmentItem = {
   id: string;
@@ -119,8 +120,8 @@ export function FestivalEquipmentTracker() {
     setLoaningItem(null);
   }
 
-  function returnItem(id: string) {
-    if (!confirm('Potvrdit vrácení festivalového vybavení z akce zpět na sklad?')) return;
+  async function returnItem(id: string) {
+    if (!(await potvrd('Potvrdit vrácení festivalového vybavení z akce zpět na sklad?'))) return;
     setItems((prev) =>
       prev.map((item) =>
         item.id === id

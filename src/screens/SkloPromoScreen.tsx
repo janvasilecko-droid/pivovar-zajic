@@ -6,6 +6,7 @@ import { Spinner, EmptyState } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { PlaceCombobox } from '../components/PlaceCombobox';
 import { Wine, Plus, Download, Printer, Trash2, ArrowDownCircle, ArrowUpCircle, Search, Boxes, Tag, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { chyba, oznam, potvrd } from '../lib/toast';
 
 export type PromoEntry = {
   id: string;
@@ -260,9 +261,9 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
   function handleAddIn(e: React.FormEvent) {
     e.preventDefault();
     const qty = Number(inQty);
-    if (!qty || qty <= 0) { alert('Zadejte platné množstí příjmu (ks).'); return; }
+    if (!qty || qty <= 0) { oznam('Zadejte platné množstí příjmu (ks).'); return; }
     const finalName = inItemName === '__custom__' ? inCustomName.trim() : inItemName;
-    if (!finalName) { alert('Zadejte název předmětu.'); return; }
+    if (!finalName) { oznam('Zadejte název předmětu.'); return; }
 
     const newE: PromoEntry = {
       id: crypto.randomUUID(), entry_type: 'in', entry_date: inDate, category: inCategory,
@@ -270,13 +271,13 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
     };
     saveEntries([newE, ...entries]);
     setInQty(''); setInNote('');
-    alert(`✅ Zapsán příjem ${qty} ks (${finalName}) na sklad!`);
+    oznam(`✅ Zapsán příjem ${qty} ks (${finalName}) na sklad!`);
   }
 
   function handleAddOut(e: React.FormEvent) {
     e.preventDefault();
     const qty = Number(outQty);
-    if (!qty || qty <= 0) { alert('Zadejte platné množstí výdeje (ks).'); return; }
+    if (!qty || qty <= 0) { oznam('Zadejte platné množstí výdeje (ks).'); return; }
     const placeObj = places.find((p) => p.id === outPlaceId);
     const dest = placeObj?.name ?? (outPlaceNameCustom.trim() || 'Odběratel / Akce');
 
@@ -286,11 +287,11 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
     };
     saveEntries([newE, ...entries]);
     setOutQty(''); setOutNote('');
-    alert(`✅ Zapsán výdej ${qty} ks (${outItemName}) pro ${dest}!`);
+    oznam(`✅ Zapsán výdej ${qty} ks (${outItemName}) pro ${dest}!`);
   }
 
-  function handleDeletePromo(id: string) {
-    if (!window.confirm('Smazat tento záznam?')) return;
+  async function handleDeletePromo(id: string) {
+    if (!(await potvrd('Smazat tento záznam?'))) return;
     saveEntries(entries.filter((e) => e.id !== id));
   }
 
@@ -298,7 +299,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
   async function handleAddLabelPurchase(e: React.FormEvent) {
     e.preventDefault();
     const qty = Number(labelQty);
-    if (!qty || qty <= 0 || !labelBeerName) { alert('Vyplňte platné pivo a množství etiket.'); return; }
+    if (!qty || qty <= 0 || !labelBeerName) { oznam('Vyplňte platné pivo a množství etiket.'); return; }
 
     const { error } = await supabase.from('label_purchases').insert({
       beer_name: labelBeerName,
@@ -306,17 +307,17 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
       quantity: qty,
       note: labelNote.trim() || null,
     });
-    if (error) { alert(`Nepodařilo se zapsat nákup etiket: ${error.message}`); return; }
+    if (error) { chyba(`Nepodařilo se zapsat nákup etiket: ${error.message}`); return; }
 
     await loadData();
     setLabelQty('1000'); setLabelNote('');
-    alert(`✅ Zapsán nákup ${qty} ks etiket pro pivo "${labelBeerName}"!`);
+    oznam(`✅ Zapsán nákup ${qty} ks etiket pro pivo "${labelBeerName}"!`);
   }
 
   async function handleDeleteLabelPurchase(id: string) {
-    if (!window.confirm('Smazat tento nákup etiket?')) return;
+    if (!(await potvrd('Smazat tento nákup etiket?'))) return;
     const { error } = await supabase.from('label_purchases').delete().eq('id', id);
-    if (error) { alert(`Nepodařilo se smazat záznam: ${error.message}`); return; }
+    if (error) { chyba(`Nepodařilo se smazat záznam: ${error.message}`); return; }
     await loadData();
   }
 
@@ -324,18 +325,18 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
   function handleAddBottlePurchase(e: React.FormEvent) {
     e.preventDefault();
     const qty = Number(bottleQty);
-    if (!qty || qty <= 0 || !bottlePkgLabel) { alert('Vyplňte platný obal a množství lahví.'); return; }
+    if (!qty || qty <= 0 || !bottlePkgLabel) { oznam('Vyplňte platný obal a množství lahví.'); return; }
 
     const newBP: BottlePurchase = {
       id: crypto.randomUUID(), package_label: bottlePkgLabel, entry_date: bottleDate, quantity: qty, note: bottleNote.trim() || undefined,
     };
     saveBottlePurchases([newBP, ...bottlePurchases]);
     setBottleQty('1200'); setBottleNote('');
-    alert(`✅ Zapsán nákup ${qty} ks prázdných lahví "${bottlePkgLabel}"!`);
+    oznam(`✅ Zapsán nákup ${qty} ks prázdných lahví "${bottlePkgLabel}"!`);
   }
 
-  function handleDeleteBottlePurchase(id: string) {
-    if (!window.confirm('Smazat tento nákup lahví?')) return;
+  async function handleDeleteBottlePurchase(id: string) {
+    if (!(await potvrd('Smazat tento nákup lahví?'))) return;
     saveBottlePurchases(bottlePurchases.filter((bp) => bp.id !== id));
   }
 

@@ -8,6 +8,7 @@ import { printTable } from '../lib/safePrint';
 import { computeRouteDistanceKm } from '../lib/routeDistance';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import { DAYS } from '../lib/shared';
+import { chyba, oznam, potvrd } from '../lib/toast';
 
 export type LogbookEntry = {
   id: string;
@@ -142,7 +143,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
     }));
     const { error } = await supabase.from('logbook_entries').insert(payload);
     if (error) {
-      alert(`❌ Nepodařilo se uložit jízdu/jízdy do Knihy jízd: ${error.message}`);
+      chyba(`❌ Nepodařilo se uložit jízdu/jízdy do Knihy jízd: ${error.message}`);
       return;
     }
     setEntries((prev) => [...newEntries, ...prev].sort((a, b) => b.date.localeCompare(a.date)));
@@ -182,10 +183,10 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
   }
 
   async function handleDelete(id: string) {
-    if (!window.confirm('Opravdu smazat tento záznam z Knihy jízd?')) return;
+    if (!(await potvrd('Opravdu smazat tento záznam z Knihy jízd?'))) return;
     const { error } = await supabase.from('logbook_entries').delete().eq('id', id);
     if (error) {
-      alert(`❌ Nepodařilo se smazat záznam: ${error.message}`);
+      chyba(`❌ Nepodařilo se smazat záznam: ${error.message}`);
       return;
     }
     setEntries((prev) => prev.filter((e) => e.id !== id));
@@ -295,7 +296,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
       );
 
       if (!ordersList.length) {
-        alert(`V měsíci ${autoMonth} nebyly nalezeny žádné objednávky s rozpoznatelným dnem rozvozu.`);
+        oznam(`V měsíci ${autoMonth} nebyly nalezeny žádné objednávky s rozpoznatelným dnem rozvozu.`);
         setAutoGenerating(false);
         return;
       }
@@ -382,7 +383,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
       setPreviewDays(days);
       setAutoStep('preview');
     } catch (err: any) {
-      alert(`Chyba při načítání objednávek: ${err?.message || err}`);
+      chyba(`Chyba při načítání objednávek: ${err?.message || err}`);
     } finally {
       setAutoGenerating(false);
     }
@@ -391,7 +392,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
   // ---- KROK 2: Z NÁHLEDU (upravené km + vozidlo na den) VYTVOŘIT ZÁZNAMY ----
   async function handleGenerateFromPreview() {
     if (previewDays.some((d) => !d.km || Number(d.km) <= 0)) {
-      if (!window.confirm('Některé dny nemají vyplněné ujeté km. Pokračovat i tak (budou mít 0 km)?')) return;
+      if (!(await potvrd('Některé dny nemají vyplněné ujeté km. Pokračovat i tak (budou mít 0 km)?'))) return;
     }
     let currentKm = Number(autoStartKm) || 0;
     const generatedEntries: LogbookEntry[] = previewDays.map((d) => {
@@ -422,7 +423,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
     const affectedDates = Array.from(new Set(previewDays.map((d) => d.date)));
     const { error: delError } = await supabase.from('logbook_entries').delete().in('entry_date', affectedDates);
     if (delError) {
-      alert(`❌ Nepodařilo se nahradit stávající záznamy: ${delError.message}`);
+      chyba(`❌ Nepodařilo se nahradit stávající záznamy: ${delError.message}`);
       return;
     }
     setEntries((prev) => prev.filter((e) => !affectedDates.includes(e.date)));
@@ -432,7 +433,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
     setShowAutoModal(false);
     setAutoStep('form');
     setPreviewDays([]);
-    alert(`✅ Úspěšně vygenerováno ${generatedEntries.length} závozových jízd!`);
+    oznam(`✅ Úspěšně vygenerováno ${generatedEntries.length} závozových jízd!`);
   }
 
   function exportExcelLogbook() {

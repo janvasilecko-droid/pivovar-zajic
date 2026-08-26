@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase, CalendarEvent, useRealtime } from '../lib/supabase';
-import { Spinner, Modal, useConfirm } from '../components/ui';
+import { Spinner, Modal } from '../components/ui';
+import { potvrd } from '../lib/toast';
 
 const COLORS: Record<string, string> = {
   primary: 'bg-primary-500',
@@ -19,7 +20,6 @@ export default function CalendarScreen() {
   const [loading, setLoading] = useState(true);
   const [cursor, setCursor] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; });
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const { confirm, node: confirmNode } = useConfirm();
 
   const [form, setForm] = useState({ title: '', description: '', reminder: false, reminder_time: '09:00', color: 'primary' });
 
@@ -47,7 +47,7 @@ export default function CalendarScreen() {
   }
 
   async function del(id: string) {
-    if (!(await confirm('Opravdu smazat tuto událost?'))) return;
+    if (!(await potvrd('Opravdu smazat tuto událost?'))) return;
     await supabase.from('calendar_events').delete().eq('id', id);
     setEvents((e) => e.filter((x) => x.id !== id));
   }
@@ -171,7 +171,6 @@ export default function CalendarScreen() {
           </div>
         </div>
       </Modal>
-      {confirmNode}
     </div>
   );
 }

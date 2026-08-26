@@ -7,6 +7,7 @@ import { Beer, Package, beerBg, supabase, useRealtime } from '../lib/supabase';
 import { isoWeekKey, weekRange, shiftWeek } from './WeeklyOrderSummaryCard';
 import { flattenAkceNet } from '../lib/inventoryHelper';
 import { buildMovements, stockAsOf } from '../lib/stockLedger';
+import { chyba, potvrd } from '../lib/toast';
 import {
   BottlingPlan,
   BottlingPlanInput,
@@ -401,15 +402,15 @@ export function BottlingPlanPlanner({
   }
 
   async function handleDelete(plan: BottlingPlan) {
-    if (!window.confirm('Smazat tento úkol stáčení?')) return;
+    if (!(await potvrd('Smazat tento úkol stáčení?'))) return;
     const { error } = await deleteBottlingPlan(plan.id);
-    if (error) alert(error.message);
+    if (error) chyba(error.message);
     else onChanged();
   }
 
   async function handleStatus(plan: BottlingPlan, status: BottlingPlan['status']) {
     const { error } = await setPlanStatus(plan.id, status);
-    if (error) alert(error.message);
+    if (error) chyba(error.message);
     else onChanged();
   }
 

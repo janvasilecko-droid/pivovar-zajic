@@ -7,6 +7,7 @@ import {
 } from '../lib/whatsappApi';
 import { Modal, Spinner } from './ui';
 import { RefreshCw, ShieldAlert, MessageSquare, Zap } from 'lucide-react';
+import { chyba } from '../lib/toast';
 
 interface WhatsAppAuditModalProps {
   isOpen: boolean;
@@ -85,7 +86,7 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
       await updateWhatsAppMessageStatus(id, 'pending');
       await load();
     } catch (e) {
-      alert(`Nepodařilo se vrátit zprávu do fronty: ${e instanceof Error ? e.message : e}`);
+      chyba(`Nepodařilo se vrátit zprávu do fronty: ${e instanceof Error ? e.message : e}`);
     } finally {
       setRetrying(null);
     }
@@ -97,7 +98,7 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
       await triggerAutoParse();
       await load();
     } catch (e) {
-      alert(`AI zpracování se nepodařilo spustit: ${e instanceof Error ? e.message : e}`);
+      chyba(`AI zpracování se nepodařilo spustit: ${e instanceof Error ? e.message : e}`);
     } finally {
       setRunningAutoParse(false);
     }

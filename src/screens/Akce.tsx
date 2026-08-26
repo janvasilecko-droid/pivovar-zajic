@@ -3,6 +3,7 @@ import { supabase, Beer, Package, useRealtime, beerBg, beerText, pkgBg, pkgText,
 import { Spinner, EmptyState } from '../components/ui';
 import { createReminder } from '../lib/reminders';
 import { Plus, Trash2, Check, Calendar, Sparkles, Star, DollarSign, CheckCircle2, RotateCcw, User, MapPin, ClipboardList, ThumbsUp, ThumbsDown, Bell } from 'lucide-react';
+import { oznam, potvrd } from '../lib/toast';
 
 /** Řádky z DB (akce + vnořené akce_items) → tvar, se kterým pracuje obrazovka. */
 function rowsToRecords(rows: any[]): AkceRecord[] {
@@ -254,7 +255,7 @@ export default function AkceScreen() {
   async function handleCreateAkce(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) {
-      alert('Zadejte název akce.');
+      oznam('Zadejte název akce.');
       return;
     }
 
@@ -274,7 +275,7 @@ export default function AkceScreen() {
       });
 
     if (!validItems.length) {
-      alert('Vyberte alespoň jedno pivo, obal a počet kusů.');
+      oznam('Vyberte alespoň jedno pivo, obal a počet kusů.');
       return;
     }
 
@@ -311,7 +312,7 @@ export default function AkceScreen() {
       });
     } catch {}
 
-    alert(`✅ Akce "${newRecord.name}" byla úspěšně uložena s ${validItems.length} položkami! Upomínka pro ${newRecord.who} přijde 3 dny před akcí.`);
+    oznam(`✅ Akce "${newRecord.name}" byla úspěšně uložena s ${validItems.length} položkami! Upomínka pro ${newRecord.who} přijde 3 dny před akcí.`);
   }
 
   // Přepnutí stavu "Připraveno na akci"
@@ -338,7 +339,7 @@ export default function AkceScreen() {
     ];
     if (!(await saveRecord({ ...equipRecord, equipment: selected }))) return;
     setEquipRecord(null);
-    alert(`✅ Vybavení na akci "${equipRecord.name}" uloženo (${selected.length} položek).`);
+    oznam(`✅ Vybavení na akci "${equipRecord.name}" uloženo (${selected.length} položek).`);
   }
 
   function addCustomEquipItem() {
@@ -390,11 +391,11 @@ export default function AkceScreen() {
 
     if (!(await saveRecord(updatedRec))) return;
     setEvalRecord(null);
-    alert(`🎉 Vyhodnocení akce "${updatedRec.name}" uloženo! Neprodané sudy/lahve byly vráceny do skladu.`);
+    oznam(`🎉 Vyhodnocení akce "${updatedRec.name}" uloženo! Neprodané sudy/lahve byly vráceny do skladu.`);
   }
 
   async function handleDeleteAkce(id: string) {
-    if (!confirm('Opravdu smazat tuto akci?')) return;
+    if (!(await potvrd('Opravdu smazat tuto akci?'))) return;
     await deleteRecord(id);
   }
 
