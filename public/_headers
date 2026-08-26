@@ -17,3 +17,15 @@
 
 /*
   Cache-Control: public, max-age=0, must-revalidate
+  # Bezpečnostní hlavičky (obrana do hloubky). Přihlašovací token Supabase
+  # je v localStorage, takže jakýkoli podstrčený skript by ho mohl odeslat
+  # pryč — tyhle hlavičky to ztěžují.
+  # Aplikaci nesmí nikdo vložit do rámu na cizí stránce (clickjacking):
+  X-Frame-Options: DENY
+  # Prohlížeč nesmí "hádat" typ souboru podle obsahu:
+  X-Content-Type-Options: nosniff
+  # Na cizí weby se neposílá celá adresa stránky, jen doména:
+  Referrer-Policy: strict-origin-when-cross-origin
+  # POZOR: mikrofon se NEZAKAZUJE — používá ho hlasové zadání objednávek
+  # (VoiceRecorder → getUserMedia). Zakázáno je jen to, co appka nepoužívá:
+  Permissions-Policy: geolocation=(), payment=(), usb=()

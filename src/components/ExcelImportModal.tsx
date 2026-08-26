@@ -66,6 +66,19 @@ export default function ExcelImportModal({
     const uploadedFile = e.target.files?.[0];
     if (!uploadedFile) return;
 
+    // Limit velikosti — bez něj stačilo omylem vybrat obří soubor a appka
+    // na telefonu zamrzla (celý soubor se drží v paměti jako řetězec),
+    // klidně uprostřed rozdělané inventury.
+    const MAX_MB = 10;
+    if (uploadedFile.size > MAX_MB * 1024 * 1024) {
+      setResultMsg({
+        type: 'error',
+        text: `Soubor je moc velký (${(uploadedFile.size / 1024 / 1024).toFixed(1)} MB). Maximum je ${MAX_MB} MB — zkontrolujte, jestli jste vybrali správný soubor.`,
+      });
+      e.target.value = '';
+      return;
+    }
+
     setFile(uploadedFile);
     setResultMsg(null);
 

@@ -30,27 +30,64 @@ export interface DatabaseBackup {
   };
 }
 
+/** Tabulky, které se zálohují. Jeden zdroj pravdy — ať seznam nezastarává. */
+export const BACKUP_TABLES = [
+  'beers', 'packages', 'places', 'price_list', 'orders', 'order_items',
+  'cellar_tanks', 'cellar_batches', 'cellar_transfers', 'cellar_tank_cycles',
+  'bottling', 'kegging', 'keg_prefuk', 'kegging_tanks', 'fasovani',
+  'fasovani_private', 'writeoffs', 'inventory', 'inventory_adjustments',
+  'akce', 'akce_items', 'zavoz_deductions', 'keg_returns',
+  'sanitation_logs', 'bottle_sanitation_logs', 'keg_sanitation_logs',
+  'tap_sanitation_logs', 'bottling_line_maintenance_tasks',
+  'logbook_entries', 'srotovani', 'vehicles', 'label_purchases',
+  'bottling_plans', 'notes', 'reminders', 'calendar_events',
+  'whatsapp_incoming', 'whatsapp_senders', 'parser_aliases', 'place_aliases',
+];
+
+/**
+ * Načte CELOU tabulku po stránkách.
+ *
+ * Supabase vrací ve výchozím nastavení nejvýš 1000 řádků a chybu nehlásí —
+ * `select('*')` se tedy po překročení limitu TIŠE ořízl a záloha vypadala
+ * kompletně, přestože v ní chyběl zbytek. Proto se čte po dávkách přes
+ * .range(), dokud chodí plné stránky.
+ */
+async function fetchAllRows(table: string): Promise<{ rows: any[]; error: string | null }> {
+  const PAGE = 1000;
+  const out: any[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase.from(table).select('*').range(from, from + PAGE - 1);
+    if (error) return { rows: out, error: error.message };
+    const batch = data ?? [];
+    out.push(...batch);
+    if (batch.length < PAGE) break;
+    // Pojistka proti nekonečné smyčce u nečekaně velké tabulky.
+    if (out.length > 500_000) break;
+  }
+  return { rows: out, error: null };
+}
+
 export async function createFullBackup(): Promise<DatabaseBackup> {
-  const tables = [
-    'beers', 'packages', 'places', 'price_list', 'orders', 'order_items',
-    'cellar_tanks', 'cellar_batches', 'bottling', 'kegging', 'keg_prefuk', 'fasovani',
-    'fasovani_private', 'writeoffs', 'inventory', 'inventory_adjustments', 'akce', 'akce_items',
-    'whatsapp_incoming', 'whatsapp_senders', 'parser_aliases', 'place_aliases'
-  ];
+  const tables = BACKUP_TABLES;
 
   const backupData: any = {};
+  const problemy: string[] = [];
 
   await Promise.all(
     tables.map(async (table) => {
-      const { data, error } = await supabase.from(table).select('*');
+      const { rows, error } = await fetchAllRows(table);
+      backupData[table] = rows;
       if (error) {
         console.error(`Chyba při zálohování tabulky ${table}:`, error);
-        backupData[table] = [];
-      } else {
-        backupData[table] = data ?? [];
+        problemy.push(`${table}: ${error}`);
       }
     })
   );
+
+  // Nekompletní zálohu je lepší nahlásit, než ji mlčky vydat za platnou.
+  if (problemy.length > 0) {
+    backupData.__nekompletni = problemy;
+  }
 
   return {
     version: '1.2',

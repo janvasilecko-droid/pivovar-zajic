@@ -631,6 +631,14 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   async function handleExcelImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    // Limit velikosti — omylem vybraný obří soubor jinak zamrzne appku
+    // uprostřed inventury.
+    const MAX_MB = 10;
+    if (file.size > MAX_MB * 1024 * 1024) {
+      alert(`Soubor je moc velký (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum je ${MAX_MB} MB — zkontrolujte, jestli jste vybrali správný soubor.`);
+      e.target.value = '';
+      return;
+    }
     setBusy(true);
     try {
       const buffer = await file.arrayBuffer();
