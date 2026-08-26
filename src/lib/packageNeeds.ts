@@ -23,7 +23,7 @@
 // projeví v "co ještě chybí do konce týdne", bez čekání na to, až se
 // nějaká JINÁ objednávka označí jako zavezená.
 import { flattenAkceNet, AkceRow } from './inventoryHelper';
-import { buildMovements, stockAtStartOfDay } from './stockLedger';
+import { buildMovements, stockAsOf, stockAtStartOfDay } from './stockLedger';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 
 export type PackageNeedsRow = {
@@ -112,10 +112,8 @@ export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind
   // Pondělí aktuálního týdne — hranice mezi "sklad na začátku týdne" a
   // "pohyby tento týden".
   const weekStartStr = weekRange(weekKey).start.toISOString().slice(0, 10);
-  const weekStartMonth = weekStartStr.slice(0, 7);
+  const weekEndStr = weekRange(weekKey).end.toISOString().slice(0, 10);
   const isThisWeek = (dateStr: string | null | undefined) => !!dateStr && isoWeekKey(dateStr) === weekKey;
-  const isBeforeThisWeek = (dateStr: string | null | undefined) =>
-    !!dateStr && dateStr.startsWith(weekStartMonth) && dateStr < weekStartStr;
 
   // Objednávky v AKTUÁLNÍM TÝDNU — VŠECHNY (i už zavezené), ať je vidět
   // celková týdenní potřeba na středu/čtvrtek/pátek zavoz, ne jen zbytek.
@@ -144,24 +142,37 @@ export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind
   // rozepsané na šedesát řádků. Ta kopie se rozcházela s ostatními
   // obrazovkami a hlavně ořezávala výsledek na nulu, takže schodek z
   // minulých měsíců zmizel a čerstvé stáčení pak umazávalo neexistující dluh.
-  const weekStartLines = stockAtStartOfDay(
-    buildMovements({
-      inventoryRows,
-      bottlingRows,
-      keggingRows,
-      fasovaniRows,
-      prodejnaRows,
-      writeoffsRows,
-      zavozDeductionRows,
-      akceRows,
-      prefukRows,
-      adjustmentRows,
-      packages,
-    }),
-    weekStartStr,
-  );
+  const pohyby = buildMovements({
+    inventoryRows,
+    bottlingRows,
+    keggingRows,
+    fasovaniRows,
+    prodejnaRows,
+    writeoffsRows,
+    zavozDeductionRows,
+    akceRows,
+    prefukRows,
+    adjustmentRows,
+    packages,
+  });
   const weekStartStockMap: Record<string, number> = {};
-  weekStartLines.forEach((line, k) => { weekStartStockMap[k] = line.qty; });
+  stockAtStartOfDay(pohyby, weekStartStr).forEach((line, k) => { weekStartStockMap[k] = line.qty; });
+
+  // 📒 Sklad ke KONCI TÝDNE — taky z knihy, ne ručním součtem pohybů od
+  // pondělí. Ten součet se s knihou rozcházel v týdnu, do kterého padne
+  // 1. den měsíce: inventura (počáteční stav) je nový výchozí bod a ruční
+  // součet od pondělí ji do konce týdne ignoroval, zatímco Sklad i Inventura
+  // s ní počítaly hned — dvě různá čísla pro tentýž sklad.
+  const weekEndStockMap: Record<string, number> = {};
+  stockAsOf(pohyby, weekEndStr).forEach((line, k) => { weekEndStockMap[k] = line.qty; });
+
+  // Totéž, ale BEZ závozů tohoto týdne — kolik by bylo k dispozici, kdyby
+  // objednávky ještě nevyjely. Proti tomuhle se počítá "chybí stočit",
+  // protože orderedQty níž zahrnuje i zavezené objednávky (jinak by se
+  // tytéž kusy odečetly dvakrát).
+  const weekEndBezZavozuMap: Record<string, number> = {};
+  stockAsOf(pohyby.filter((m) => !(m.kind === 'zavoz' && isThisWeek(m.date))), weekEndStr)
+    .forEach((line, k) => { weekEndBezZavozuMap[k] = line.qty; });
 
   const producedRows = [...bottlingRows, ...keggingRows];
 
@@ -179,19 +190,6 @@ export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind
     const k = `${r.beer_id}__${r.package_id}`;
     outgoingMap[k] = (outgoingMap[k] || 0) + Number(r.quantity || 0);
   });
-  // Skutečně zavezené objednávky tento týden — stejný zdroj jako Sklad/Inventura.
-  // POZOR: do zvlášť mapy, NE do outgoingMap — orderedQty níže už počítá
-  // VŠECHNY objednávky tento týden (i zavezené), takže kdyby se zavezené
-  // odečetly ještě jednou od skladu při výpočtu "chybí stočit", ta samá
-  // zavezená objednávka by se odečetla dvakrát a "chybí" by bylo uměle
-  // vyšší, než kolik se má skutečně dotočit do konce týdne. Do stockQty
-  // (fyzický sklad TEĎ, sloupec "Sklad") se ale zavezené odečíst MUSÍ.
-  const zavozThisWeekMap: Record<string, number> = {};
-  zavozDeductionRows.filter((r) => isThisWeek(r.deduct_date)).forEach((r) => {
-    if (!r.beer_id || !r.package_id) return;
-    const k = `${r.beer_id}__${r.package_id}`;
-    zavozThisWeekMap[k] = (zavozThisWeekMap[k] || 0) + Number(r.quantity || 0);
-  });
   {
     const seen = new Set<string>();
     bottlingRows.filter((r) => isThisWeek(r.entry_date)).forEach((r) => {
@@ -204,26 +202,6 @@ export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind
       outgoingMap[k] = (outgoingMap[k] || 0) + res.kegsUsed;
     });
   }
-  const prefukFromMap: Record<string, number> = {};
-  const prefukToMap: Record<string, number> = {};
-  prefukRows.filter((r) => isThisWeek(r.entry_date)).forEach((r) => {
-    if (!r.beer_id) return;
-    if (r.from_package_id) {
-      const fk = `${r.beer_id}__${r.from_package_id}`;
-      prefukFromMap[fk] = (prefukFromMap[fk] || 0) + Number(r.from_count || 0);
-    }
-    if (r.to_package_id) {
-      const tk = `${r.beer_id}__${r.to_package_id}`;
-      prefukToMap[tk] = (prefukToMap[tk] || 0) + Number(r.to_count || 0);
-    }
-  });
-  const adjThisWeekMap: Record<string, number> = {};
-  adjustmentRows.filter((r) => isThisWeek(r.entry_date)).forEach((r) => {
-    if (!r.beer_id || !r.package_id) return;
-    const k = `${r.beer_id}__${r.package_id}`;
-    adjThisWeekMap[k] = (adjThisWeekMap[k] || 0) + Number(r.quantity || 0);
-  });
-
   const list: PackageNeedsRow[] = [];
   beers.forEach((b) => {
     packages.filter((p) => targetPkgIds.has(p.id)).forEach((p) => {
@@ -231,19 +209,15 @@ export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind
       const invQty = Number(weekStartStockMap[k] || 0);
       const bottledQty = Number(bottledMap[k] || 0);
       const outgoingQty = Number(outgoingMap[k] || 0);
-      const zavozThisWeekQty = Number(zavozThisWeekMap[k] || 0);
-      const prefukFromQty = Number(prefukFromMap[k] || 0);
-      const prefukToQty = Number(prefukToMap[k] || 0);
-      const adjQty = Number(adjThisWeekMap[k] || 0);
-      // Fyzický sklad TEĎ (sloupec "Sklad") — zavezené objednávky tento
-      // týden už fyzicky odešly, proto se odečítají i tady.
-      const stockQty = Math.max(0, invQty + bottledQty - outgoingQty - zavozThisWeekQty - prefukFromQty + prefukToQty + adjQty);
+      // Fyzický sklad ke konci týdne (sloupec "Sklad") — zavezené objednávky
+      // už fyzicky odešly a skladová kniha je má odečtené.
+      const stockQty = Math.max(0, Number(weekEndStockMap[k] || 0));
       const orderedQty = Number(orderedMap[k] || 0);
       // Kolik ještě chybí dotočit do konce týdne — porovnává CELKOVOU
-      // týdenní poptávku (orderedQty, viz výše) s tím, co bylo tento týden
-      // k dispozici BEZ odečtení zavezených (ty už jsou v orderedQty
-      // zahrnuté jako součást poptávky, viz komentář u zavozThisWeekMap).
-      const neededQty = Math.max(0, orderedQty - Math.max(0, invQty + bottledQty - outgoingQty - prefukFromQty + prefukToQty + adjQty));
+      // týdenní poptávku (orderedQty, viz výše) s tím, co bylo k dispozici
+      // BEZ odečtení zavezených (ty už jsou v orderedQty zahrnuté jako
+      // součást poptávky, viz komentář u weekEndBezZavozuMap).
+      const neededQty = Math.max(0, orderedQty - Math.max(0, Number(weekEndBezZavozuMap[k] || 0)));
 
       if (orderedQty > 0 || stockQty > 0 || invQty > 0 || bottledQty > 0) {
         list.push({

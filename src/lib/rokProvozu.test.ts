@@ -372,33 +372,37 @@ describe('rok provozu — očekávaný stav pro inventuru', () => {
   });
 });
 
-describe('rok provozu — týdenní „co je potřeba stočit"', () => {
-  // Týden bez inventury uvnitř: k 1. dni měsíce se zapisuje počáteční stav a
-  // ten by uprostřed týdne posunul základ, se kterým týdenní pohled počítá
-  // (ten sčítá pohyby od pondělí, skladová kniha bere poslední inventuru).
-  const tydenPondeli = (() => {
-    for (let i = DNU - 7; i > 0; i -= 7) {
-      const po = posun(ZACATEK, i);
-      const dny = Array.from({ length: 6 }, (_, k) => posun(po, k + 1));
-      if (!dny.some((d) => ROK.zdroje.inventoryRows.some((r: any) => r.entry_date === d))) return po;
-    }
-    throw new Error('nenašel se týden bez inventury uvnitř');
-  })();
-  const tydenNedele = posun(tydenPondeli, 6);
-  const weekKey = isoWeekKey(tydenPondeli);
+/** Pondělí týdne, který uvnitř (út–ne) inventuru buď má, nebo nemá. */
+function najdiTyden(sInventurouUvnitr: boolean): string {
+  for (let i = DNU - 7; i > 0; i -= 7) {
+    const pondeli = posun(ZACATEK, i);
+    const maInventuru = Array.from({ length: 6 }, (_, k) => posun(pondeli, k + 1))
+      .some((d) => ROK.zdroje.inventoryRows.some((r: any) => r.entry_date === d));
+    if (maInventuru === sInventurouUvnitr) return pondeli;
+  }
+  throw new Error(`nenašel se týden ${sInventurouUvnitr ? 's inventurou' : 'bez inventury'} uvnitř`);
+}
 
-  const potreba = computePackageNeeds(
+function potrebaKegu(pondeli: string) {
+  return computePackageNeeds(
     {
       beers: PIVA,
       packages: OBALY,
       orders: ROK.orders,
       orderItems: ROK.orderItems,
       ...ROK.zdroje,
-      weekKey,
-      todayStr: tydenNedele,
+      weekKey: isoWeekKey(pondeli),
+      todayStr: posun(pondeli, 6),
     },
     (kind) => kind === 'keg',
   );
+}
+
+describe('rok provozu — týdenní „co je potřeba stočit"', () => {
+  const tydenPondeli = najdiTyden(false);
+  const tydenNedele = posun(tydenPondeli, 6);
+  const weekKey = isoWeekKey(tydenPondeli);
+  const potreba = potrebaKegu(tydenPondeli);
 
   it('„Sklad" v týdenním pohledu sedí se skladovou knihou i po roce dat', () => {
     const kniha = stockAsOf(POHYBY, tydenNedele);
@@ -445,5 +449,42 @@ describe('rok provozu — výkon', () => {
     for (let i = 0; i < DNU; i += 7) stockAsOf(pohyby, posun(ZACATEK, i));
     for (const mesic of ROK.inventuraKPrvnimu.keys()) expectedForMonth(pohyby, mesic);
     expect(performance.now() - start).toBeLessThan(1500);
+  });
+});
+
+describe('rok provozu — inventura uprostřed týdne', () => {
+  // K 1. dni měsíce se zapisuje počáteční stav. Když ten den padne doprostřed
+  // týdne, je to nový výchozí bod skladu — a týdenní „co je potřeba stočit"
+  // s ním musí počítat okamžitě, ne až od dalšího pondělí. Dřív si sklad
+  // sčítalo samo od pondělí, takže do konce týdne ukazovalo jiné číslo než
+  // Sklad a Inventura.
+  const tydenPondeli = najdiTyden(true);
+  const tydenNedele = posun(tydenPondeli, 6);
+  const potreba = potrebaKegu(tydenPondeli);
+
+  it('týden s inventurou uprostřed se opravdu našel a něco se v něm počítá', () => {
+    const dnyUvnitr = Array.from({ length: 6 }, (_, k) => posun(tydenPondeli, k + 1));
+    expect(dnyUvnitr.some((d) => ROK.zdroje.inventoryRows.some((r: any) => r.entry_date === d))).toBe(true);
+    expect(potreba.length).toBeGreaterThan(0);
+  });
+
+  it('„Sklad" sedí se skladovou knihou i v týdnu, do kterého padne 1. den měsíce', () => {
+    const kniha = stockAsOf(POHYBY, tydenNedele);
+    for (const radek of potreba) {
+      const klic = stockKey(radek.beer_id, radek.package_id);
+      expect(`${klic}=${radek.stockQty}`).toBe(`${klic}=${Math.max(0, kniha.get(klic)?.qty ?? 0)}`);
+    }
+  });
+
+  it('„chybí stočit" se počítá proti skladu bez závozů tohoto týdne', () => {
+    const bezZavozu = stockAsOf(
+      POHYBY.filter((m) => !(m.kind === 'zavoz' && isoWeekKey(m.date) === isoWeekKey(tydenPondeli))),
+      tydenNedele,
+    );
+    for (const radek of potreba) {
+      const klic = stockKey(radek.beer_id, radek.package_id);
+      const dostupne = Math.max(0, bezZavozu.get(klic)?.qty ?? 0);
+      expect(`${klic}=${radek.neededQty}`).toBe(`${klic}=${Math.max(0, radek.orderedQty - dostupne)}`);
+    }
   });
 });

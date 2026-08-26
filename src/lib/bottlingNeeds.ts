@@ -22,8 +22,8 @@
 // Čerstvé stočení se tak projeví v „chybí stočit" OKAMŽITĚ (počítá se do
 // „stock" hned po uložení), bez čekání na to, až se nějaká JINÁ objednávka
 // označí jako zavezená.
-import { flattenAkceNet, AkceRow } from './inventoryHelper';
-import { buildMovements, stockAtStartOfDay } from './stockLedger';
+import { AkceRow } from './inventoryHelper';
+import { buildMovements, stockAsOf } from './stockLedger';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import type { BottlingPlan } from './bottlingPlans';
 
@@ -86,49 +86,27 @@ export function computeBottlingNeeds(input: BottlingNeedsInput): NeedsRow[] {
     todayStr,
   } = input;
 
-  const akceOutRows = flattenAkceNet(akceRows);
-
-  const weekStartStr = weekRange(weekKey).start.toISOString().slice(0, 10);
-  const weekStartMonth = weekStartStr.slice(0, 7);
+  const weekEndStr = weekRange(weekKey).end.toISOString().slice(0, 10);
   const isThisWeek = (dateStr: string | null | undefined) => !!dateStr && isoWeekKey(dateStr) === weekKey;
-  const isBeforeThisWeek = (dateStr: string | null | undefined) =>
-    !!dateStr && dateStr.startsWith(weekStartMonth) && dateStr < weekStartStr;
 
-  // 📒 Sklad v PONDĚLÍ RÁNO — ze skladové knihy (lib/stockLedger.ts), stejně
-  // jako u potřeby stočit sudy. Dřív se dopočítával vlastní cestou a ta se
-  // s ostatními obrazovkami rozcházela.
-  const weekStartStockMap: Record<string, number> = {};
-  stockAtStartOfDay(
+  // 📒 Sklad ke KONCI TÝDNE — ze skladové knihy (lib/stockLedger.ts), stejné
+  // číslo jako Sklad, Inventura i plánovač stáčení.
+  //
+  // Dřív se tady sčítalo ručně: sklad v pondělí ráno + pohyby tohoto týdne.
+  // Ten součet se s knihou rozcházel ve třech situacích:
+  //   • v týdnu, do kterého padne 1. den měsíce — inventura (počáteční stav)
+  //     je nový výchozí bod a ruční součet od pondělí ji do konce týdne
+  //     ignoroval, zatímco Sklad i Inventura s ní počítaly hned,
+  //   • přefuk a dorovnání inventury zadané tento týden se nezapočítaly vůbec,
+  //   • sud spotřebovaný na stáčení lahví (kegs_used) taky ne.
+  const stockMap: Record<string, number> = {};
+  stockAsOf(
     buildMovements({
       inventoryRows, bottlingRows, keggingRows, fasovaniRows, prodejnaRows,
       writeoffsRows, zavozDeductionRows, akceRows, prefukRows, adjustmentRows, packages,
     }),
-    weekStartStr,
-  ).forEach((line, k) => { weekStartStockMap[k] = line.qty; });
-
-  // Pohyby OD PONDĚLÍ DO TEĎ (tento týden) — stočeno hned zvyšuje sklad.
-  const inMap: Record<string, number> = {};
-  [...bottlingRows, ...keggingRows].filter((r) => isThisWeek(r.entry_date)).forEach((r) => {
-    if (!r.beer_id || !r.package_id) return;
-    const k = `${r.beer_id}__${r.package_id}`;
-    inMap[k] = (inMap[k] || 0) + Number(r.quantity || 0);
-  });
-  const outMap: Record<string, number> = {};
-  [...fasovaniRows, ...prodejnaRows, ...writeoffsRows, ...akceOutRows].filter((r) => isThisWeek(r.entry_date)).forEach((r) => {
-    if (!r.beer_id || !r.package_id) return;
-    const k = `${r.beer_id}__${r.package_id}`;
-    outMap[k] = (outMap[k] || 0) + Number(r.quantity || 0);
-  });
-  // Skutečně zavezené objednávky tento týden — stejný zdroj jako Sklad/Inventura.
-  zavozDeductionRows.filter((r) => isThisWeek(r.deduct_date)).forEach((r) => {
-    if (!r.beer_id || !r.package_id) return;
-    const k = `${r.beer_id}__${r.package_id}`;
-    outMap[k] = (outMap[k] || 0) + Number(r.quantity || 0);
-  });
-  const stockMap: Record<string, number> = {};
-  new Set([...Object.keys(weekStartStockMap), ...Object.keys(inMap), ...Object.keys(outMap)]).forEach((k) => {
-    stockMap[k] = Math.max(0, Number(weekStartStockMap[k] || 0) + Number(inMap[k] || 0) - Number(outMap[k] || 0));
-  });
+    weekEndStr,
+  ).forEach((line, k) => { stockMap[k] = Math.max(0, line.qty); });
 
   // Objednávky v daném týdnu (ks na pivo + obal) — VŠECHNY, i už zavezené.
   const activeIds = new Set(
@@ -149,7 +127,7 @@ export function computeBottlingNeeds(input: BottlingNeedsInput): NeedsRow[] {
 
   // Odhad fašování pro ZBÝVAJÍCÍ dny týdne (průměr za posledních 30 dní ×
   // dny PO dnešku do konce týdne) — dny od pondělí do dneška už jsou ve
-  // „stock" jako skutečný výdej (outMap výše), tady jen odhad budoucna.
+  // „stock" jako skutečný výdej, tady jen odhad budoucna.
   const cutoff = new Date();
   cutoff.setUTCDate(cutoff.getUTCDate() - 29);
   const from = cutoff.toISOString().slice(0, 10);
