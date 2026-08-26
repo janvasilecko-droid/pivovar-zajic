@@ -1,7 +1,7 @@
 // Verze aplikace â€” zvyĹˇuje se pĹ™i kaĹľdĂ© provedenĂ© ĂşpravÄ›, aby Ĺˇlo v UI poznat,
 // jestli je naÄŤtenĂˇ nejnovÄ›jĹˇĂ­ nasazenĂˇ verze (Ĺ™eĹˇĂ­ problĂ©my s cachĂ­ prohlĂ­ĹľeÄŤe/PWA).
 export const APP_VERSION = '1.908';
-export const APP_VERSION_DATE = '26.8.2026 17:13';
+export const APP_VERSION_DATE = '26.8.2026 19:45';
 
 
 
@@ -9,6 +9,7 @@ export const APP_VERSION_DATE = '26.8.2026 17:13';
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 
 export const APP_CHANGELOG: string[] = [
+  '📱 Inventura na telefonu: přibyl režim počítání. Nahoře je vidět postup (kolik z kolika je hotovo) a čtyři filtry — Vše, Chybí spočítat, Jen s pohybem, Nesedí. Bez toho se ve skladu prochází všech 99 kombinací pivo × obal a není poznat, co už máte. Zvětšil jsem taky 23 malých tlačítek na velikost, která se dá na dotyk trefit. 💾 A přibyla bezplatná denní záloha objednávek a stáčení do GitHubu — každý den jeden commit, takže se dá vrátit ke stavu k libovolnému dni. Stačí přidat jeden klíč, viz zalohy/README.md. v1.908',
   '🔍 Kontrola po sjednocení výpočtů — a dvě další nesrovnalosti k tomu. Plán stáčení lahví a plánovač si nenačítaly přefuk ani dorovnání inventury, takže i po sjednocení ukazovaly jiná čísla než Sklad; plán lahví navíc nevěděl o sudech spotřebovaných na lahve. Teď dostává všech sedm míst identická data. Druhá věc byla časovaná: Supabase vrací nejvýš 1000 řádků na dotaz a zbytek TIŠE zahodí — odečty závozu jsou na 473, položky objednávek na 496, takže za pár měsíců by sklad začal počítat špatně a nic by nespadlo. Všech 68 dotazů na rostoucí tabulky se teď načítá po stránkách. v1.907',
   '🔢 Napočítaná NULA se konečně ukládá — a tím je odhalená příčina toho deficitu. Inventura dosud zahazovala každý řádek s nulou (v aplikaci i v databázi), takže \"díval jsem se a není tam nic\" se změnilo na \"o téhle položce nic nevím\". To jsou ale dvě úplně jiné věci: uložená nula je pevný základ, od kterého se počítá dál, kdežto chybějící řádek nechá sklad sáhnout po starší inventuře a odečítat od ní všechny závozy. Proto měla schválená inventura za červenec jen 19 řádků z 56 a k 26. 8. vycházelo 34 položek do mínusu. Inventura navíc nahoře vypíše položky, které se tenhle měsíc hýbaly, ale nemají vyplněný stav — ať při počítání nic neuteče. v1.906',
   '📐 Všechny skladové výpočty počítají konečně stejně. Sklad si dosud počítalo SEDM různých míst po svém (Sklad, Domů, Inventura, potřeba stočit sudy i lahve, plánovač stáčení) a kopie se rozcházely — přefuk chyběl ve třech ze čtyř, Akce se nepočítaly vůbec, dorovnání inventury jinde. Teď je matematika na jednom místě. Inventura navíc přestala číst sklad z paměti prohlížeče: počáteční stav měsíce i fyzická inventura mohly existovat jen na jednom zařízení a jinde svítila jiná čísla. A očekávaný stav se v Inventuře počítá tak, aby ho neovlivnila inventura, kterou zrovna zapisujete — jinak by rozdíl vždycky vyšel nula a manko by nešlo zjistit. v1.905',

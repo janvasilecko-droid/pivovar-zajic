@@ -1,0 +1,54 @@
+name: Denní záloha objednávek a stáčení
+
+# Zálohuje objednávky a stáčení do adresáře `zalohy/` v tomhle repozitáři.
+# Každý den = jeden commit, takže historie gitu funguje jako bodová obnova:
+# dá se vrátit ke stavu k libovolnému dni, ne jen k poslednímu.
+#
+# ⚠️ POTŘEBUJE SECRET `SUPABASE_SERVICE_ROLE_KEY`
+#    (Settings → Secrets and variables → Actions → New repository secret).
+#    Servisní klíč obchází veškerá oprávnění, proto ho přidej jen sem a nikam
+#    ho nekopíruj. Bez něj workflow skončí chybou a nic se nezálohuje —
+#    záměrně, ať se na to nezapomene.
+
+on:
+  schedule:
+    # 02:30 UTC = 04:30 v létě / 03:30 v zimě — po nočním odpočtu závozu.
+    - cron: '30 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: zaloha
+  cancel-in-progress: false
+
+jobs:
+  zaloha:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Stáhnout data
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/zaloha-objednavek.mjs
+
+      - name: Uložit do repozitáře
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add zalohy/
+          if git diff --staged --quiet; then
+            echo "Data se od minule nezměnila — není co commitovat."
+            exit 0
+          fi
+          git commit -m "chore: záloha objednávek a stáčení $(date +%Y-%m-%d) [skip ci]"
+          # Mezitím mohl přijít jiný commit (třeba bump verze z deploye).
+          git pull --rebase origin main
+          git push

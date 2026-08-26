@@ -135,6 +135,9 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   const [busy, setBusy] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [showPhotoCounter, setShowPhotoCounter] = useState(false);
+  // Režim počítání — ve skladu se prochází s telefonem a všech 99 kombinací
+  // pivo × obal je nepřehledných. Filtr zúží seznam na to, co se opravdu řeší.
+  const [pocitaniFiltr, setPocitaniFiltr] = useState<'vse' | 'nespocitane' | 'pohyb' | 'nesedi'>('vse');
 
   // Data pro "Stav na konci měsíce" (bilanční konto sudů)
   const [objednavkyMap, setObjednavkyMap] = useState<Record<string, number>>({}); // Objednávky (kegy)
@@ -706,6 +709,33 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     );
   }, [rows]);
 
+  // Kolik položek už je spočítaných — ukazatel postupu při inventuře.
+  const postup = useMemo(() => {
+    const relevantni = rows.filter((r) =>
+      r.initialQty !== 0 || r.stacenoQty !== 0 || r.vydejQty !== 0 || r.odpisQty !== 0
+    );
+    return {
+      hotovo: relevantni.filter((r) => jeSpocitana(r.beer_id, r.package_id)).length,
+      celkem: relevantni.length,
+    };
+  }, [rows, actualStock]);
+
+  // Seznam podle zvoleného filtru. Platí pro mobilní karty i tabulku,
+  // aby se obojí chovalo stejně.
+  const zobrazeneRadky = useMemo(() => {
+    if (pocitaniFiltr === 'nespocitane') {
+      return rows.filter((r) =>
+        !jeSpocitana(r.beer_id, r.package_id) &&
+        (r.initialQty !== 0 || r.stacenoQty !== 0 || r.vydejQty !== 0 || r.odpisQty !== 0)
+      );
+    }
+    if (pocitaniFiltr === 'pohyb') {
+      return rows.filter((r) => r.stacenoQty !== 0 || r.vydejQty !== 0 || r.odpisQty !== 0);
+    }
+    if (pocitaniFiltr === 'nesedi') return rows.filter((r) => r.expectedQty < 0);
+    return rows;
+  }, [rows, pocitaniFiltr, actualStock]);
+
   /** Položky, které se letos hýbaly, ale při inventuře se nespočítaly. */
   const nespocitane = useMemo(
     () => rows.filter((r) =>
@@ -1052,9 +1082,49 @@ function exportInventoryExcel() {
               </div>
             ) : (
               <>
+              {/* 📱 Režim počítání — postup a zúžení seznamu. Ve skladu se chodí
+                  s telefonem a projít 99 kombinací pivo × obal bez filtru nejde. */}
+              <div className="rounded border border-neutral-200 bg-white p-3 space-y-2.5">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[11px] font-black uppercase tracking-wide text-neutral-500">Postup inventury</span>
+                  <span className="font-mono font-black text-sm text-neutral-900 tabular-nums">
+                    {postup.hotovo} / {postup.celkem}
+                  </span>
+                </div>
+                <div className="h-2 rounded-full bg-neutral-200 overflow-hidden">
+                  <div
+                    className="h-full bg-emerald-500 rounded-full transition-all"
+                    style={{ width: `${postup.celkem > 0 ? Math.round((postup.hotovo / postup.celkem) * 100) : 0}%` }}
+                  />
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {([
+                    ['vse', 'Vše', rows.length],
+                    ['nespocitane', 'Chybí spočítat', nespocitane.length],
+                    ['pohyb', 'Jen s pohybem', rows.filter((r) => r.stacenoQty !== 0 || r.vydejQty !== 0 || r.odpisQty !== 0).length],
+                    ['nesedi', 'Nesedí', rows.filter((r) => r.expectedQty < 0).length],
+                  ] as const).map(([id, popis, pocet]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setPocitaniFiltr(id)}
+                      className={`px-3 py-2 rounded font-black text-xs transition min-h-[44px] flex items-center gap-1.5 ${
+                        pocitaniFiltr === id
+                          ? 'bg-amber-500 text-neutral-950 shadow-xs'
+                          : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                      }`}
+                    >
+                      {popis}
+                      <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                        pocitaniFiltr === id ? 'bg-neutral-950/15' : 'bg-white'
+                      }`}>{pocet}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
               {/* Mobilní karty — editace inventury a dorovnání bez vodorovného scrollování */}
               <div className="grid grid-cols-1 gap-2.5 md:hidden">
-                {rows.map((r) => {
+                {zobrazeneRadky.map((r) => {
                   const k = `${r.beer_id}__${r.package_id}`;
                   const beer = beers.find((b) => b.id === r.beer_id);
                   return (

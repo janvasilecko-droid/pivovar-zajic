@@ -336,7 +336,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
                       setEditDurationNum(log.duration_minutes ?? 20);
                       setEditConcentrationPct(log.concentration_pct ?? getDefaultConcentration(log.method));
                     }}
-                    className="min-h-[36px] px-3 py-1.5 rounded bg-neutral-100 hover:bg-amber-100 text-neutral-700 hover:text-amber-900 text-xs font-bold border border-neutral-200 transition flex items-center gap-1"
+                    className="min-h-[44px] px-3 py-1.5 rounded bg-neutral-100 hover:bg-amber-100 text-neutral-700 hover:text-amber-900 text-xs font-bold border border-neutral-200 transition flex items-center gap-1"
                   >
                     <Edit3 size={14} />
                     <span>Upravit</span>

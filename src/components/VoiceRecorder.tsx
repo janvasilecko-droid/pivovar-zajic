@@ -221,7 +221,7 @@ export function VoiceRecorder({
         disabled={busy}
         title={recording ? 'Zastavit nahrávání' : 'Hlasové zadávání / Diktování'}
         className={`rounded flex items-center gap-1.5 text-xs font-bold transition-all shadow-xs ${
-          dark ? 'px-4 py-3 sm:py-2.5 min-h-[44px] sm:min-h-[38px]' : 'px-3 py-1.5'
+          dark ? 'px-4 py-3 sm:py-2.5 min-h-[44px] sm:min-h-[44px]' : 'px-3 py-1.5'
         } ${
           recording
             ? 'bg-rose-600 text-white animate-pulse shadow-md shadow-rose-500/30'

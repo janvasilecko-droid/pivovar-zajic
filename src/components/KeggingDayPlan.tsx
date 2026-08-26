@@ -241,7 +241,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                             type="button"
                             disabled={busy === it.key}
                             onClick={() => setCheck(it, it.checked - 1)}
-                            className="px-2.5 py-2 rounded border border-neutral-200 bg-white text-neutral-700 font-black text-xs hover:bg-neutral-50 disabled:opacity-40 min-h-[38px]"
+                            className="px-2.5 py-2 rounded border border-neutral-200 bg-white text-neutral-700 font-black text-xs hover:bg-neutral-50 disabled:opacity-40 min-h-[44px]"
                             title="Ubrat jeden odškrtnutý sud"
                           >
                             −1
@@ -252,7 +252,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                             type="button"
                             disabled={busy === it.key}
                             onClick={() => setCheck(it, it.checked + 1)}
-                            className="px-2.5 py-2 rounded border border-neutral-200 bg-white text-neutral-700 font-black text-xs hover:bg-neutral-50 disabled:opacity-40 min-h-[38px]"
+                            className="px-2.5 py-2 rounded border border-neutral-200 bg-white text-neutral-700 font-black text-xs hover:bg-neutral-50 disabled:opacity-40 min-h-[44px]"
                             title="Odškrtnout jeden sud"
                           >
                             +1
@@ -263,7 +263,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                             type="button"
                             disabled={busy === it.key}
                             onClick={() => setCheck(it, it.ordered)}
-                            className="px-3 py-2 rounded bg-emerald-600 text-white font-black text-xs hover:bg-emerald-700 disabled:opacity-40 inline-flex items-center gap-1.5 min-h-[38px]"
+                            className="px-3 py-2 rounded bg-emerald-600 text-white font-black text-xs hover:bg-emerald-700 disabled:opacity-40 inline-flex items-center gap-1.5 min-h-[44px]"
                             title="Odškrtnout celou položku — nezapisuje se do stáčení"
                           >
                             <Check size={14} />
@@ -274,7 +274,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                             type="button"
                             disabled={busy === it.key}
                             onClick={() => setCheck(it, 0)}
-                            className="px-3 py-2 rounded border border-emerald-300 bg-emerald-50 text-emerald-800 font-black text-xs hover:bg-emerald-100 disabled:opacity-40 min-h-[38px]"
+                            className="px-3 py-2 rounded border border-emerald-300 bg-emerald-50 text-emerald-800 font-black text-xs hover:bg-emerald-100 disabled:opacity-40 min-h-[44px]"
                             title="Zrušit odškrtnutí"
                           >
                             Zrušit ✓
