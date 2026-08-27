@@ -239,7 +239,7 @@
   "package_label": "20l",
   "quantity": 3,
   "created_at": "2026-08-25T07:12:45.898367+00:00",
-  "is_prepared": false
+  "is_prepared": true
  },
  {
   "id": "0e316940-a577-484e-8270-4903f9e5ad3c",
@@ -316,7 +316,7 @@
   "package_label": "30l",
   "quantity": 1,
   "created_at": "2026-08-25T19:14:21.919503+00:00",
-  "is_prepared": false
+  "is_prepared": true
  },
  {
   "id": "1388ead7-bcb2-4b98-b099-f319483ea44a",
@@ -855,7 +855,7 @@
   "package_label": "1l",
   "quantity": 6,
   "created_at": "2026-08-24T19:20:32.735899+00:00",
-  "is_prepared": false
+  "is_prepared": true
  },
  {
   "id": "2e5e1872-3983-4c6d-9a29-3706b63e935a",
@@ -943,7 +943,7 @@
   "package_label": "30l",
   "quantity": 8,
   "created_at": "2026-08-26T17:25:23.583553+00:00",
-  "is_prepared": false
+  "is_prepared": true
  },
  {
   "id": "30bdcfbe-e911-4160-a38d-586a147c1c10",
@@ -1053,7 +1053,7 @@
   "package_label": "20l",
   "quantity": 2,
   "created_at": "2026-08-25T07:09:48.855271+00:00",
-  "is_prepared": false
+  "is_prepared": true
  },
  {
   "id": "35bb5c5e-0c48-4f41-8f6a-d90de56e1fee",
@@ -1064,7 +1064,7 @@
   "package_label": "30l",
   "quantity": 1,
   "created_at": "2026-08-25T07:08:33.838544+00:00",
-  "is_prepared": false
+  "is_prepared": true
  },
  {
   "id": "36c1129d-532a-4b37-82bf-4cf02a71dc77",
@@ -1141,7 +1141,7 @@
   "package_label": "30l",
   "quantity": 1,
   "created_at": "2026-08-25T19:13:56.675088+00:00",
-  "is_prepared": false
+  "is_prepared": true
  },
  {
   "id": "38ffa634-c31a-4e1c-8519-86963440981f",
@@ -1185,7 +1185,7 @@
   "package_label": "0.5l",
   "quantity": 10,
   "created_at": "2026-08-25T19:13:56.675088+00:00",
-  "is_prepared": false
+  "is_prepared": true
  },
  {
   "id": "3c4e293d-7496-4cd1-be8a-27955004bc4d",
@@ -1537,7 +1537,7 @@
   "package_label": "10l",
   "quantity": 3,
   "created_at": "2026-08-25T07:12:45.898367+00:00",
-  "is_prepared": false
+  "is_prepared": true
  },
  {
   "id": "4d8e86b8-8719-4cc4-a4a7-47d610d9b38f",
@@ -1691,7 +1691,7 @@
   "package_label": "1.5l",
   "quantity": 6,
   "created_at": "2026-08-24T19:20:32.735899+00:00",
-  "is_prepared": false
+  "is_prepared": true
  },
  {
   "id": "53135ded-4d91-4999-b8e6-bc3403947f62",
@@ -1724,7 +1724,7 @@
   "package_label": "50l",
   "quantity": 13,
   "created_at": "2026-08-22T11:52:22.294202+00:00",
-  "is_prepared": false
+  "is_prepared": true
  },
  {
   "id": "5545a60f-48ba-4ef5-ade8-f1edc4b128d7",
@@ -1900,7 +1900,7 @@
   "package_label": "30l",
   "quantity": 1,
   "created_at": "2026-08-25T19:13:08.958297+00:00",
-  "is_prepared": false
+  "is_prepared": true
  },
  {
   "id": "5aa335f9-bae7-4877-b643-e5d012e9e7db",
@@ -1922,7 +1922,7 @@
   "package_label": "50l",
   "quantity": 2,
   "created_at": "2026-08-22T11:52:22.294202+00:00",
-  "is_prepared": false
+  "is_prepared": true
  },
  {
   "id": "5b3c6272-84d9-405e-8e1f-a721cd6c6497",
@@ -2318,7 +2318,7 @@
   "package_label": " 50l",
   "quantity": 2,
   "created_at": "2026-08-25T19:13:08.958297+00:00",
-  "is_prepared": false
+  "is_prepared": true
  },
  {
   "id": "6f65dea2-6790-4773-9c2a-4118b1e2a62c",
@@ -2395,7 +2395,7 @@
   "package_label": "20l",
   "quantity": 5,
   "created_at": "2026-08-22T11:52:22.294202+00:00",
-  "is_prepared": false
+  "is_prepared": true
  },
  {
   "id": "72667190-c2c6-493d-8a1a-ec54c5cf6198",
@@ -2758,7 +2758,7 @@
   "package_label": " 50l",
   "quantity": 10,
   "created_at": "2026-08-24T19:20:20.019482+00:00",
-  "is_prepared": false
+  "is_prepared": true
  },
  {
   "id": "83ad64e8-df21-4545-84a9-78ef9307e9a8",
@@ -3319,7 +3319,7 @@
   "package_label": "30l",
   "quantity": 6,
   "created_at": "2026-08-25T07:12:45.898367+00:00",
-  "is_prepared": false
+  "is_prepared": true
  },
  {
   "id": "9dff8db7-ef7b-470d-bb79-8d49f6f66f23",
@@ -3506,7 +3506,7 @@
   "package_label": "1.5l",
   "quantity": 24,
   "created_at": "2026-08-25T19:13:56.675088+00:00",
-  "is_prepared": false
+  "is_prepared": true
  },
  {
   "id": "a60aa6a5-2139-402f-8efc-53a6bc8b212b",
@@ -3968,7 +3968,7 @@
   "package_label": "10l",
   "quantity": 3,
   "created_at": "2026-08-25T19:15:00.065607+00:00",
-  "is_prepared": false
+  "is_prepared": true
  },
  {
   "id": "b8a1e5b7-6d21-466a-b2b4-79682c3bdf28",
@@ -4639,7 +4639,7 @@
   "package_label": "0.5l",
   "quantity": 20,
   "created_at": "2026-08-25T19:13:56.675088+00:00",
-  "is_prepared": false
+  "is_prepared": true
  },
  {
   "id": "d4c2d07f-27be-4b5e-8b53-91569d846f3c",
@@ -4661,7 +4661,7 @@
   "package_label": "1l",
   "quantity": 6,
   "created_at": "2026-08-24T19:20:32.735899+00:00",
-  "is_prepared": false
+  "is_prepared": true
  },
  {
   "id": "d57e72b8-f807-490c-aabb-7583b1bc2cb0",
@@ -4870,7 +4870,7 @@
   "package_label": "1l",
   "quantity": 4,
   "created_at": "2026-08-24T19:20:32.735899+00:00",
-  "is_prepared": false
+  "is_prepared": true
  },
  {
   "id": "e0b4db51-dfa1-4694-9290-4cd59f56eecb",
@@ -5057,7 +5057,7 @@
   "package_label": "50l",
   "quantity": 4,
   "created_at": "2026-08-25T19:13:56.675088+00:00",
-  "is_prepared": false
+  "is_prepared": true
  },
  {
   "id": "e8bf9a8b-0e19-45a6-b56e-2844e7d9dfa3",
@@ -5211,7 +5211,7 @@
   "package_label": "30l",
   "quantity": 2,
   "created_at": "2026-08-25T19:14:21.919503+00:00",
-  "is_prepared": false
+  "is_prepared": true
  },
  {
   "id": "f20d8f9f-bd53-4afa-b436-84b00f8da9bc",
