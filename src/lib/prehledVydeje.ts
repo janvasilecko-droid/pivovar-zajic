@@ -28,6 +28,8 @@ export type VydejRadek = {
   quantity: number | null;
   who?: string | null;
   note?: string | null;
+  /** Číslo/označení tanku — list stáčení KEG má na něj vlastní sloupec. */
+  tank?: string | null;
 };
 
 export type ObalPrehled = { id: string; label: string; kind: string; volume_l: number | string | null };
@@ -47,12 +49,14 @@ type PopisVarianty = {
   skupinaSudy: string;
   /** Nadpis skupiny nad sloupci lahví; prázdné = list lahve nemá. */
   skupinaLahve: string;
+  /** Sloupec „Tank č." za obaly — má ho jen list stáčení KEG. */
+  sTankem?: boolean;
 };
 
 export const VARIANTY: Record<VariantaPrehledu, PopisVarianty> = {
   odberatel: { sOdberatelem: true, popisOdberatele: 'Odběratel', skupinaSudy: 'Sudy', skupinaLahve: 'Lahve' },
   staceni_lahve: { sOdberatelem: false, popisOdberatele: '', skupinaSudy: 'Z sudů', skupinaLahve: 'Stočeno lahví' },
-  staceni_keg: { sOdberatelem: false, popisOdberatele: '', skupinaSudy: 'Stočené množství', skupinaLahve: '' },
+  staceni_keg: { sOdberatelem: false, popisOdberatele: '', skupinaSudy: 'Stočené množství', skupinaLahve: '', sTankem: true },
 };
 
 /** Sloupce dané varianty — u KEGů se lahve vynechají. */
@@ -75,6 +79,8 @@ export type PrehledRadek = {
   datum: string;
   odberatel: string;
   pivo: string;
+  /** Tanky, ze kterých se ten den stáčelo; víc tanků se spojí čárkou. */
+  tank: string;
   /** Kusy podle objemu — klíč je objem v litrech. */
   kusy: Record<number, number>;
   /** Kusy obalů, které nespadají do žádného sloupce (jiné objemy). */
@@ -115,8 +121,15 @@ export function sestavPrehled(
 
     const zaznam = podleKlice.get(klic) ?? {
       datum: seskupeni === 'souhrn' ? '' : r.entry_date,
-      odberatel, pivo, kusy: {}, kusyJine: 0, sudyL: 0, lahveL: 0,
+      odberatel, pivo, tank: '', kusy: {}, kusyJine: 0, sudyL: 0, lahveL: 0,
     };
+
+    // Když se do jednoho řádku slučuje víc zápisů z různých tanků, vypíšou
+    // se všechny — jinak by se tiše ztratilo, odkud se stáčelo.
+    const tank = (r.tank || '').trim();
+    if (tank && !zaznam.tank.split(', ').includes(tank)) {
+      zaznam.tank = zaznam.tank ? `${zaznam.tank}, ${tank}` : tank;
+    }
 
     const sloupec = klicObjemu(litruKus);
     if (vsechnySloupce.has(sloupec)) {
@@ -189,11 +202,13 @@ export function hlavickaTsv(varianta: VariantaPrehledu, bezData = false): string
     ...prazdne(popisne.length),
     v.skupinaSudy, ...prazdne(SLOUPCE_SUDY.length - 1),
     ...(v.skupinaLahve ? [v.skupinaLahve, ...prazdne(SLOUPCE_LAHVE.length - 1)] : []),
+    ...(v.sTankem ? [''] : []),
   ].join('\t');
 
   const radek2 = [
     ...popisne,
     ...sloupceVarianty(varianta).map(popisSloupce),
+    ...(v.sTankem ? ['Tank č.'] : []),
   ].join('\t');
 
   return `${radek1}\n${radek2}`;
@@ -219,6 +234,7 @@ export function prehledDoTsv(radky: PrehledRadek[], moznosti: MoznostiTsv): stri
     ...(v.sOdberatelem ? [r.odberatel] : []),
     r.pivo,
     ...kusyDoSloupcu(r.kusy),
+    ...(v.sTankem ? [r.tank] : []),
   ].join('\t'));
 
   const casti: string[] = [];
@@ -228,7 +244,7 @@ export function prehledDoTsv(radky: PrehledRadek[], moznosti: MoznostiTsv): stri
     const s = soucty(radky);
     // „Celkem" patří do prvního popisného sloupce, zbytek zůstane prázdný.
     const popisnych = popisneSloupce(varianta, bezData).length;
-    casti.push(['Celkem', ...Array(popisnych - 1).fill(''), ...kusyDoSloupcu(s.kusy)].join('\t'));
+    casti.push(['Celkem', ...Array(popisnych - 1).fill(''), ...kusyDoSloupcu(s.kusy), ...(v.sTankem ? [''] : [])].join('\t'));
   }
   return casti.join('\n');
 }

@@ -154,8 +154,14 @@ describe('TSV k vykopírování', () => {
     // Datum │ Druh piva │ Stočené množství(5) — lahve tenhle list nemá.
     const tsv = prehledDoTsv(prehled, { varianta: 'staceni_keg' });
 
-    it('má jen sloupce sudů, lahve vynechá', () => {
-      for (const r of tsv.split('\n')) expect(r.split('\t')).toHaveLength(2 + 5);
+    it('má sloupce sudů a Tank č., lahve vynechá', () => {
+      // Datum + pivo + 5 objemů sudů + Tank č. = 8; lahve tenhle list nemá.
+      for (const r of tsv.split('\n')) expect(r.split('\t')).toHaveLength(2 + 5 + 1);
+    });
+
+    it('hlavička má sloupec Tank č. až za objemy', () => {
+      const druhy = hlavickaTsv('staceni_keg').split('\n')[1].split('\t');
+      expect(druhy[druhy.length - 1]).toBe('Tank č.');
     });
 
     it('hlavička říká „Stočené množství" a nemá skupinu lahví', () => {

@@ -34,7 +34,12 @@ const QUICK_KEG_QTY = [6, 12, 18, 24];
 
 // List „Zápis stáčení KEG": Datum │ Druh piva │ Stočené množství(5).
 const ZDROJE_STACENI_KEG = [
-  { tabulka: 'kegging', popis: 'Stáčení sudů' },
+  {
+    tabulka: 'kegging',
+    popis: 'Stáčení sudů',
+    // cellar_tank_id se v modálu překládá na označení tanku (viz níž).
+    sloupce: 'entry_date,beer_name,package_id,quantity,note,cellar_tank_id',
+  },
 ];
 
 export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; mode?: 'entry_only' | 'overviews_only' | 'all'; initialSubTab?: string } = {}) {
@@ -2154,6 +2159,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
         nadpis="Zápis stáčení KEG"
         varianta="staceni_keg"
         zdroje={ZDROJE_STACENI_KEG}
+        tanky={cellarTanks as any}
       />
     </div>
   );

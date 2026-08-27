@@ -39,13 +39,15 @@ type Props = {
   zdroje: ZdrojPrehledu[];
   nadpis: string;
   varianta: VariantaPrehledu;
+  /** Tanky pro překlad cellar_tank_id na označení — list stáčení KEG. */
+  tanky?: { id: string; label: string | null }[];
 };
 
 const prvniDenMesice = (iso: string) => `${iso.slice(0, 7)}-01`;
 const dnesIso = () => new Date().toISOString().slice(0, 10);
 const VYCHOZI_SLOUPCE = 'entry_date,beer_name,package_id,quantity,who,note';
 
-export default function PrehledVydejeModal({ open, onClose, obaly, zdroje, nadpis, varianta }: Props) {
+export default function PrehledVydejeModal({ open, onClose, obaly, zdroje, nadpis, varianta, tanky = [] }: Props) {
   const [od, setOd] = useState(() => prvniDenMesice(dnesIso()));
   const [doKdy, setDoKdy] = useState(() => dnesIso());
   const [nacitam, setNacitam] = useState(false);
@@ -83,11 +85,14 @@ export default function PrehledVydejeModal({ open, onClose, obaly, zdroje, nadpi
   }, [open, zdroje]);
 
   const radky = useMemo(() => {
+    const mapaTanku = new Map(tanky.map((t) => [t.id, (t.label || '').trim()]));
     const vstup = zdroje
       .filter((z) => coZahrnout === 'vse' || coZahrnout === z.tabulka)
-      .flatMap((z) => data[z.tabulka] ?? []);
+      .flatMap((z) => data[z.tabulka] ?? [])
+      // Označení tanku se dotahuje až tady — zdroj vrací jen jeho id.
+      .map((r: any) => (r.cellar_tank_id ? { ...r, tank: mapaTanku.get(r.cellar_tank_id) ?? '' } : r));
     return sestavPrehled(vstup, obaly, { od, do: doKdy, seskupeni });
-  }, [data, zdroje, obaly, od, doKdy, coZahrnout, seskupeni]);
+  }, [data, zdroje, obaly, od, doKdy, coZahrnout, seskupeni, tanky]);
 
   const celkem = useMemo(() => soucty(radky), [radky]);
   const moznostiTsv = {
@@ -213,6 +218,7 @@ export default function PrehledVydejeModal({ open, onClose, obaly, zdroje, nadpi
                 <tr className="text-[10px] font-black uppercase tracking-wider text-neutral-500 border-b border-neutral-300">
                   {popisne.map((p) => <th key={p} className="text-left py-1.5 pr-2 whitespace-nowrap">{p}</th>)}
                   {sloupce.map((l) => <th key={l} className="text-right py-1.5 px-1.5 whitespace-nowrap">{popisSloupce(l)}</th>)}
+                  {popisVarianty.sTankem && <th className="text-right py-1.5 pl-1.5 whitespace-nowrap">Tank č.</th>}
                 </tr>
               </thead>
               <tbody>
@@ -226,6 +232,7 @@ export default function PrehledVydejeModal({ open, onClose, obaly, zdroje, nadpi
                         {r.kusy[Math.round(l * 100) / 100] || ''}
                       </td>
                     ))}
+                    {popisVarianty.sTankem && <td className="text-right py-1.5 pl-1.5 font-semibold text-neutral-600">{r.tank}</td>}
                   </tr>
                 ))}
                 <tr className="border-t-2 border-neutral-300 font-black">
@@ -233,6 +240,7 @@ export default function PrehledVydejeModal({ open, onClose, obaly, zdroje, nadpi
                   {sloupce.map((l) => (
                     <td key={l} className="text-right py-2 px-1.5 tabular-nums">{celkem.kusy[Math.round(l * 100) / 100] || ''}</td>
                   ))}
+                  {popisVarianty.sTankem && <td />}
                 </tr>
               </tbody>
             </table>

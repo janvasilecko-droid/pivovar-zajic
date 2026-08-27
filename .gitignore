@@ -83,3 +83,6 @@ scripts/test-month-output.txt
 # Claudinio local session logs
 .claudinio/
 
+
+# Klíč servisního účtu Google (vkládání do Tabulek) — nikdy do repozitáře.
+google-klic.json
