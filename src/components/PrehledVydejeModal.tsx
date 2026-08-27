@@ -26,6 +26,9 @@ export default function PrehledVydejeModal({ open, onClose, obaly }: Props) {
   const [nacitam, setNacitam] = useState(false);
   const [zdroje, setZdroje] = useState<{ fasovani: VydejRadek[]; prodejna: VydejRadek[] }>({ fasovani: [], prodejna: [] });
   const [coZahrnout, setCoZahrnout] = useState<'obojí' | 'fasovani' | 'prodejna'>('obojí');
+  // Výchozí je to, co se vkládá do existujícího listu: jen datové řádky
+  // Datum → 0,33l. Hlavička a hektolitry jen na vyžádání.
+  const [sHlavickou, setSHlavickou] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -61,8 +64,10 @@ export default function PrehledVydejeModal({ open, onClose, obaly }: Props) {
 
   const celkem = useMemo(() => soucty(radky), [radky]);
 
+  const moznostiTsv = { hlavicka: sHlavickou, soucet: sHlavickou, hektolitry: sHlavickou };
+
   async function kopiruj() {
-    const tsv = prehledDoTsv(radky);
+    const tsv = prehledDoTsv(radky, moznostiTsv);
     try {
       await navigator.clipboard.writeText(tsv);
       zavibruj('hotovo');
@@ -127,6 +132,10 @@ export default function PrehledVydejeModal({ open, onClose, obaly }: Props) {
               </button>
             ))}
           </div>
+          <label className="flex items-center gap-2 text-xs font-bold text-neutral-600 min-h-[44px] px-1 cursor-pointer">
+            <input type="checkbox" checked={sHlavickou} onChange={(e) => setSHlavickou(e.target.checked)} className="w-5 h-5 accent-amber-500" />
+            i s hlavičkou a hl
+          </label>
           <button onClick={kopiruj} disabled={!radky.length} className="btn-primary !rounded-xl !min-h-[44px] ml-auto disabled:opacity-50">
             <Copy className="w-4 h-4" /> Kopírovat
           </button>
@@ -200,7 +209,7 @@ export default function PrehledVydejeModal({ open, onClose, obaly }: Props) {
         <textarea
           id="prehled-vydeje-tsv"
           readOnly
-          value={radky.length ? prehledDoTsv(radky) : ''}
+          value={radky.length ? prehledDoTsv(radky, moznostiTsv) : ''}
           className="sr-only"
           tabIndex={-1}
           aria-hidden

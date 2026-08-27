@@ -101,53 +101,84 @@ export function formatDatum(iso: string): string {
 }
 
 /** Číslo s českou desetinnou čárkou; nula se nepíše, ať tabulka není zaplevelená. */
-export function cisloProTabulku(n: number, desetinnych = 2): string {
+export function cisloProTabulku(n: number, desetinnych = 3): string {
   if (!n) return '';
   const zaokrouhleno = Math.round(n * 10 ** desetinnych) / 10 ** desetinnych;
   return String(zaokrouhleno).replace('.', ',');
 }
 
-function popisSloupce(l: number): string {
-  return `${String(l).replace('.', ',')} l`;
+/** Popisky přesně jako v listu: u sudů „50 l", u lahví „1,0l" (bez mezery). */
+export function popisSloupce(l: number): string {
+  if (SLOUPCE_SUDY.includes(l)) return `${l} l`;
+  const cislo = l === 1 ? '1,0' : String(l).replace('.', ',');
+  return `${cislo}l`;
 }
 
-/** Hlavička ve dvou řádcích — skupiny nad sloupci, jak to má být v tabulce. */
-export function hlavickaTsv(): string {
+/** Hlavička ve dvou řádcích — skupiny nad sloupci, jak to je v listu. */
+export function hlavickaTsv(hektolitry = false): string {
   const prazdne = (n: number) => Array(n).fill('').join('\t');
-  const radek1 = ['Fasování prodejna', '', '', 'Sudy', prazdne(SLOUPCE_SUDY.length - 1), 'Lahve', prazdne(SLOUPCE_LAHVE.length - 1), 'sudy hl', 'lahve hl', 'celkem hl'].join('\t');
-  const radek2 = ['Datum', 'Odběratel', 'Druh piva',
+  const radek1 = [
+    'Fasování prodejna', '', '',
+    'Sudy', prazdne(SLOUPCE_SUDY.length - 1),
+    'Lahve', prazdne(SLOUPCE_LAHVE.length - 1),
+    ...(hektolitry ? ['sudy hl', 'lahve hl', 'celkem hl'] : []),
+  ].join('\t');
+  const radek2 = [
+    'Datum', 'Odběratel', 'Druh piva',
     ...SLOUPCE_SUDY.map(popisSloupce), ...SLOUPCE_LAHVE.map(popisSloupce),
-    '', '', ''].join('\t');
+    ...(hektolitry ? ['', '', ''] : []),
+  ].join('\t');
   return `${radek1}\n${radek2}`;
 }
 
+export type MoznostiTsv = {
+  /** Přidat dvouřádkovou hlavičku (jen pro samostatnou tabulku). */
+  hlavicka?: boolean;
+  /** Přidat řádek se součtem. */
+  soucet?: boolean;
+  /**
+   * Přidat sloupce sudy hl / lahve hl / celkem hl.
+   *
+   * VÝCHOZÍ JE NE. V listu jsou tyhle tři sloupce spočítané VZORCEM z počtů
+   * vlevo — kdyby se do nich vložila hodnota, vzorec by se přepsal a od toho
+   * řádku dál by se přestalo počítat samo.
+   */
+  hektolitry?: boolean;
+};
+
 /**
- * Celý přehled jako TSV — přesně to, co se vloží do tabulky.
- * Poslední řádek je součet, ať se nemusí dopočítávat ručně.
+ * Přehled jako TSV. Výchozí podoba je „co se vkládá do existujícího listu":
+ * jen datové řádky, sloupce Datum až 0,33l, bez hlavičky a bez součtu.
  */
-export function prehledDoTsv(radky: PrehledRadek[]): string {
+export function prehledDoTsv(radky: PrehledRadek[], moznosti: MoznostiTsv = {}): string {
+  const { hlavicka = false, soucet = false, hektolitry = false } = moznosti;
+  const kusyDoSloupcu = (kusy: Record<number, number>) => [
+    ...SLOUPCE_SUDY, ...SLOUPCE_LAHVE,
+  ].map((l) => {
+    const v = kusy[klicObjemu(l)];
+    return v ? String(v) : '';
+  });
+
+  const hlSloupce = (sudyL: number, lahveL: number) => (hektolitry
+    ? [cisloProTabulku(sudyL / 100), cisloProTabulku(lahveL / 100), cisloProTabulku((sudyL + lahveL) / 100)]
+    : []);
+
   const telo = radky.map((r) => [
     formatDatum(r.datum),
     r.odberatel,
     r.pivo,
-    ...SLOUPCE_SUDY.map((l) => (r.kusy[klicObjemu(l)] ? String(r.kusy[klicObjemu(l)]) : '')),
-    ...SLOUPCE_LAHVE.map((l) => (r.kusy[klicObjemu(l)] ? String(r.kusy[klicObjemu(l)]) : '')),
-    cisloProTabulku(r.sudyL / 100),
-    cisloProTabulku(r.lahveL / 100),
-    cisloProTabulku((r.sudyL + r.lahveL) / 100),
+    ...kusyDoSloupcu(r.kusy),
+    ...hlSloupce(r.sudyL, r.lahveL),
   ].join('\t'));
 
-  const soucet = soucty(radky);
-  const soucetRadek = [
-    'Celkem', '', '',
-    ...SLOUPCE_SUDY.map((l) => (soucet.kusy[klicObjemu(l)] ? String(soucet.kusy[klicObjemu(l)]) : '')),
-    ...SLOUPCE_LAHVE.map((l) => (soucet.kusy[klicObjemu(l)] ? String(soucet.kusy[klicObjemu(l)]) : '')),
-    cisloProTabulku(soucet.sudyL / 100),
-    cisloProTabulku(soucet.lahveL / 100),
-    cisloProTabulku((soucet.sudyL + soucet.lahveL) / 100),
-  ].join('\t');
-
-  return [hlavickaTsv(), ...telo, soucetRadek].join('\n');
+  const casti: string[] = [];
+  if (hlavicka) casti.push(hlavickaTsv(hektolitry));
+  casti.push(...telo);
+  if (soucet) {
+    const s = soucty(radky);
+    casti.push(['Celkem', '', '', ...kusyDoSloupcu(s.kusy), ...hlSloupce(s.sudyL, s.lahveL)].join('\t'));
+  }
+  return casti.join('\n');
 }
 
 export function soucty(radky: PrehledRadek[]): { kusy: Record<number, number>; kusyJine: number; sudyL: number; lahveL: number } {

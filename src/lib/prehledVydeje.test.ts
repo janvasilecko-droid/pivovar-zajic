@@ -90,41 +90,80 @@ describe('formát pro tabulku', () => {
 });
 
 describe('TSV k vykopírování', () => {
-  const tsv = prehledDoTsv(sestavPrehled(radky, OBALY, { od: '2026-08-01', do: '2026-08-31' }));
-  const radkyTsv = tsv.split('\n');
+  const prehled = sestavPrehled(radky, OBALY, { od: '2026-08-01', do: '2026-08-31' });
 
-  it('má dvouřádkovou hlavičku se skupinami Sudy a Lahve', () => {
-    expect(radkyTsv[0]).toContain('Fasování prodejna');
-    expect(radkyTsv[0]).toContain('Sudy');
-    expect(radkyTsv[0]).toContain('Lahve');
-    expect(radkyTsv[0]).toContain('celkem hl');
-    expect(radkyTsv[1].split('\t').slice(0, 3)).toEqual(['Datum', 'Odběratel', 'Druh piva']);
+  // Výchozí podoba je to, co se vkládá do existujícího listu: jen datové
+  // řádky, sloupce Datum → 0,33l. Bez hlavičky (v listu už je) a bez
+  // hektolitrů (ty si list počítá sám).
+  describe('výchozí — k vložení do listu', () => {
+    const tsv = prehledDoTsv(prehled);
+    const radkyTsv = tsv.split('\n');
+
+    it('žádná hlavička ani součet — první řádek je rovnou datum', () => {
+      expect(radkyTsv[0].startsWith('3.8.2026')).toBe(true);
+      expect(tsv).not.toContain('Fasování prodejna');
+      expect(tsv).not.toContain('Celkem');
+    });
+
+    it('má dvanáct sloupců: datum, odběratel, pivo a devět objemů', () => {
+      for (const r of radkyTsv) expect(r.split('\t')).toHaveLength(3 + 9);
+    });
+
+    it('kusy sedí ve správných sloupcích', () => {
+      // Novák / 11° Světlá: 2 sudy 30 l (4. sloupec objemů) a 20 lahví 0,5 l.
+      const novak = radkyTsv.find((r) => r.includes('11° Světlá') && r.includes('Novák'))!;
+      const bunky = novak.split('\t');
+      expect(bunky.slice(0, 3)).toEqual(['3.8.2026', 'Novák', '11° Světlá']);
+      expect(bunky[3 + 1]).toBe('2');   // 30 l
+      expect(bunky[3 + 7]).toBe('20');  // 0,5 l
+      expect(bunky[3 + 0]).toBe('');    // 50 l prázdné
+    });
+
+    it('sloupce odděluje tabulátor — TSV se do listu vloží samo', () => {
+      // Se středníkem nebo čárkou by záleželo na místním nastavení tabulky.
+      expect(radkyTsv[0]).toContain('\t');
+      expect(radkyTsv[0]).not.toContain(';');
+    });
   });
 
-  it('sloupce jsou oddělené tabulátorem — TSV se do tabulky vloží samo', () => {
-    // Se středníkem nebo čárkou by záleželo na místním nastavení Excelu.
-    expect(radkyTsv[1]).toContain('\t');
-    expect(radkyTsv[1]).not.toContain(';');
-  });
+  describe('volitelně — samostatná tabulka s hlavičkou', () => {
+    const tsv = prehledDoTsv(prehled, { hlavicka: true, soucet: true, hektolitry: true });
+    const radkyTsv = tsv.split('\n');
 
-  it('objemy sloupců sedí se zadáním', () => {
-    expect(radkyTsv[1].split('\t').slice(3, 12)).toEqual(
-      ['50 l', '30 l', '20 l', '15 l', '10 l', '1,5 l', '1 l', '0,5 l', '0,33 l'],
-    );
-  });
+    it('hlavička má skupiny Sudy a Lahve i sloupce s hektolitry', () => {
+      expect(radkyTsv[0]).toContain('Fasování prodejna');
+      expect(radkyTsv[0]).toContain('Sudy');
+      expect(radkyTsv[0]).toContain('Lahve');
+      expect(radkyTsv[0]).toContain('celkem hl');
+      expect(radkyTsv[1].split('\t').slice(0, 3)).toEqual(['Datum', 'Odběratel', 'Druh piva']);
+    });
 
-  it('každý datový řádek má stejný počet sloupců jako hlavička', () => {
-    const sloupcu = radkyTsv[1].split('\t').length;
-    for (const r of radkyTsv.slice(2)) expect(r.split('\t').length).toBe(sloupcu);
-  });
+    it('popisky objemů jsou přesně jako v listu', () => {
+      expect(radkyTsv[1].split('\t').slice(3, 12)).toEqual(
+        ['50 l', '30 l', '20 l', '15 l', '10 l', '1,5l', '1,0l', '0,5l', '0,33l'],
+      );
+    });
 
-  it('poslední řádek je součet', () => {
-    const posledni = radkyTsv[radkyTsv.length - 1].split('\t');
-    expect(posledni[0]).toBe('Celkem');
-    // Sudy: 2×30 + 1×50 = 110 l = 1,1 hl; lahve: 20×0,5 + 4×1,5 = 16 l = 0,16 hl
-    expect(posledni[posledni.length - 3]).toBe('1,1');
-    expect(posledni[posledni.length - 2]).toBe('0,16');
-    expect(posledni[posledni.length - 1]).toBe('1,26');
+    it('každý řádek má stejný počet sloupců jako hlavička', () => {
+      const sloupcu = radkyTsv[1].split('\t').length;
+      for (const r of radkyTsv.slice(2)) expect(r.split('\t')).toHaveLength(sloupcu);
+    });
+
+    it('poslední řádek je součet v hektolitrech', () => {
+      const posledni = radkyTsv[radkyTsv.length - 1].split('\t');
+      expect(posledni[0]).toBe('Celkem');
+      // Sudy: 2×30 + 1×50 = 110 l = 1,1 hl; lahve: 20×0,5 + 4×1,5 = 16 l = 0,16 hl
+      expect(posledni.slice(-3)).toEqual(['1,1', '0,16', '1,26']);
+    });
+
+    it('hektolitry na tři desetinná místa — v listu jsou hodnoty jako 0,033', () => {
+      const drobne = sestavPrehled(
+        [{ entry_date: '2026-08-03', beer_id: 'b', beer_name: 'Desítka', package_id: 'l033', quantity: 10, who: 'A' }],
+        OBALY, { od: '2026-08-01', do: '2026-08-31' },
+      );
+      const r = prehledDoTsv(drobne, { hektolitry: true }).split('\t');
+      expect(r[r.length - 1]).toBe('0,033'); // 10 × 0,33 l = 3,3 l
+    });
   });
 });
 
