@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import * as XLSX from 'xlsx';
 import { supabase } from '../lib/supabase';
 import { Modal, Spinner } from './ui';
 import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -83,8 +82,9 @@ export default function ExcelImportModal({
     setResultMsg(null);
 
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       try {
+        const XLSX = await import('xlsx');
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
         const wsName = wb.SheetNames[0];

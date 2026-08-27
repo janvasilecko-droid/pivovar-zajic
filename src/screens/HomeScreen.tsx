@@ -19,7 +19,7 @@ import { isAdminEmail } from '../lib/config';
 import { supabase, Vehicle } from '../lib/supabase';
 import { fetchPendingWhatsAppCount } from '../lib/whatsappApi';
 import { requestOrdersAutoImport } from '../lib/ordersFilter';
-import { getVehicleExpiryStatus } from './Catalogs';
+import { getVehicleExpiryStatus } from '../lib/vozidla';
 import {
   getHomeLayout, saveHomeLayout, addPage, removePage, moveTileToPage, hideTile, addTile,
   mergeTiles, addToGroup, removeFromGroup, deleteGroup, isGroupId, ensurePositions, ensureTrailingEmptyPage, unifyColorsByCategory, moveTileToCell, stepTileCell,

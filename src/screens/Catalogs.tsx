@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { supabase, Beer, Package, Place, Vehicle, useRealtime, BEER_COLOR_PRESETS, beerBorder } from '../lib/supabase';
+import { getVehicleExpiryStatus } from '../lib/vozidla';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import ExcelImportModal from '../components/ExcelImportModal';
 import { AlertTriangle, Beer as BeerIcon, Car, Edit, Eye, EyeOff, FileSpreadsheet, Mail, MapPin, NotebookPen, Package as PackageIcon, Phone, Plus, Search, ShieldAlert, ShieldCheck, Trash2 } from 'lucide-react';
@@ -815,28 +816,7 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
 }
 
 /* ===== VOZIDLA (STK & DÁLNIČNÍ ZNÁMKY) ===== */
-export function getVehicleExpiryStatus(dateStr: string | null | undefined): {
-  daysLeft: number | null;
-  status: 'ok' | 'warning' | 'expired' | 'none';
-  label: string;
-} {
-  if (!dateStr) return { daysLeft: null, status: 'none', label: 'Nezadáno' };
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const target = new Date(dateStr + 'T00:00:00Z');
-  const diffTime = target.getTime() - today.getTime();
-  const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-  const fmtDate = new Date(dateStr).toLocaleDateString('cs-CZ');
-
-  if (daysLeft < 0) {
-    return { daysLeft, status: 'expired', label: `🚨 EXPIROVALO před ${Math.abs(daysLeft)} dny (${fmtDate})` };
-  } else if (daysLeft <= 30) {
-    return { daysLeft, status: 'warning', label: `⚠️ Vyprší za ${daysLeft} dní (${fmtDate})` };
-  } else {
-    return { daysLeft, status: 'ok', label: `Platné do ${fmtDate}` };
-  }
-}
+export { getVehicleExpiryStatus };
 
 export function VehiclesScreen() {
   const [rows, setRows] = useState<Vehicle[]>([]);
