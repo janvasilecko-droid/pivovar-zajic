@@ -54,18 +54,24 @@ export function OrderAuditModal({
   const [vypadky, setVypadky] = useState<VypadekRadek[]>([]);
   const [pokryti, setPokryti] = useState<{ chybi: PokrytiRadek[]; noviTentoTyden: string[] }>({ chybi: [], noviTentoTyden: [] });
   const [odmitnute, setOdmitnute] = useState<any[]>([]);
+  // Deník příjmu: kolik zpráv došlo na webhook a kolik z nich se uložilo.
+  // Tohle je jediné místo, kde jde ověřit „na WhatsAppu je 12, v appce 11".
+  const [denik, setDenik] = useState<any[]>([]);
 
   async function nactiKontroluPrijmu() {
     try {
       const pred = new Date();
       pred.setDate(pred.getDate() - 180);
       const odIso = pred.toISOString().slice(0, 10);
-      const [zpravy, objednavky, zamitnute] = await Promise.all([
+      const [zpravy, objednavky, zamitnute, denikDennne] = await Promise.all([
         supabase.from('whatsapp_incoming').select('id,sender_name,created_at,status').gte('created_at', odIso),
         supabase.from('orders').select('id,place_name,delivery_date,order_date,status').gte('order_date', odIso),
         // Tabulka vzniká migrací 20261216000000 — dokud není nasazená, chyba
         // se spolkne a zbytek kontroly funguje dál.
         supabase.from('whatsapp_rejected').select('*').is('acknowledged_at', null).order('created_at', { ascending: false }).limit(50),
+        // Pohled vzniká migrací 20261217000000; dokud není nasazená, spolkne
+        // se chyba a zbytek kontroly funguje dál.
+        supabase.from('whatsapp_prijem_denne').select('*').limit(30),
       ]);
       const seznamZprav = (zpravy.data as any[]) ?? [];
       setTicho(tichoUOdberatelu(seznamZprav, new Date()));
@@ -75,6 +81,7 @@ export function OrderAuditModal({
       pondeli.setDate(dnes.getDate() - ((dnes.getDay() + 6) % 7));
       setPokryti(pokrytiTydne((objednavky.data as any[]) ?? [], pondeli.toISOString().slice(0, 10)));
       setOdmitnute((zamitnute.data as any[]) ?? []);
+      setDenik((denikDennne.data as any[]) ?? []);
     } catch {
       // Kontrola je doplněk — když se nenačte, zbytek auditu funguje dál.
     }
@@ -421,6 +428,52 @@ export function OrderAuditModal({
               {/* 1. SEKCIE: ZDVOJENÉ ŘÁDKY POLOŽIEK (např. 2x 12% 50l) */}
               {(activeTab === 'all' || activeTab === 'prislo') && (
                 <div className="space-y-3">
+                  {/* 0) Deník příjmu — jediný TVRDÝ údaj. Ostatní kontroly níž
+                         jsou odhady z chování; tohle je počítadlo. */}
+                  {denik.length > 0 && (
+                    <div className="rounded-xl border-2 border-neutral-300 bg-white p-3.5">
+                      <div className="font-display font-black text-neutral-900 text-sm mb-1">Deník příjmu</div>
+                      <p className="text-xs font-bold text-neutral-600 mb-2">
+                        Kolik zpráv došlo na webhook a kolik z nich se uložilo. Když čísla nesedí, je u toho důvod —
+                        nemusí se hádat, kde se zpráva ztratila.
+                      </p>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="text-[10px] font-black uppercase tracking-wider text-neutral-500 border-b border-neutral-200">
+                              <th className="text-left py-1.5">Den</th>
+                              <th className="text-right py-1.5">Došlo</th>
+                              <th className="text-right py-1.5">Uloženo</th>
+                              <th className="text-right py-1.5">Duplicita</th>
+                              <th className="text-right py-1.5">Zahozeno</th>
+                              <th className="text-right py-1.5">Chyba</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {denik.map((d) => {
+                              const nesedi = Number(d.zahozeno_filtr) > 0 || Number(d.chyba) > 0;
+                              return (
+                                <tr key={d.den} className={`border-b border-neutral-100 last:border-0 ${nesedi ? 'bg-rose-50/60' : ''}`}>
+                                  <td className="py-1.5 font-bold text-neutral-800">{d.den}</td>
+                                  <td className="text-right tabular-nums font-black text-neutral-900">{d.doslo}</td>
+                                  <td className="text-right tabular-nums font-bold text-emerald-700">{d.ulozeno}</td>
+                                  <td className="text-right tabular-nums font-semibold text-neutral-500">{d.duplicita}</td>
+                                  <td className={`text-right tabular-nums font-bold ${Number(d.zahozeno_filtr) > 0 ? 'text-rose-700' : 'text-neutral-400'}`}>{d.zahozeno_filtr}</td>
+                                  <td className={`text-right tabular-nums font-bold ${Number(d.chyba) > 0 ? 'text-rose-700' : 'text-neutral-400'}`}>{d.chyba}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                      <p className="text-[11px] text-neutral-500 font-semibold mt-2">
+                        Deník vidí zprávy od chvíle, kdy dorazí na webhook. Co se ztratí dřív (neběžel most na
+                        WhatsApp), pozná až dopočtení historie po jeho restartu — most si při připojení vyžádá
+                        poslední dny ze skupiny a chybějící zprávy doplní.
+                      </p>
+                    </div>
+                  )}
+
                   {/* 1) Kdo objednal minulý týden a tenhle ne — nejpraktičtější
                          kontrola, dá se podle ní rovnou zavolat. */}
                   <div className="rounded-xl border-2 border-violet-200 bg-violet-50/60 p-3.5">

@@ -342,6 +342,31 @@ Deno.serve(async (req: Request) => {
       .select("sender_name, chat_id");
     const senders = senderRows || [];
 
+    // 📓 Deník příjmu — zapíše, jak dopadlo TOHLE doručení. Díky němu se dá
+    // dohledat, kde se ztratila zpráva, která je na WhatsAppu, ale ne
+    // v aplikaci (viz migrace 20261217000000). Zápis nikdy nesmí shodit
+    // příjem zprávy — proto je celý v try/catch a chyba se jen zaloguje.
+    const zapisDoDeniku = async (
+      vysledek: "ulozeno" | "duplicita" | "zahozeno_filtr" | "chyba",
+      duvod?: string,
+      incomingId?: string,
+    ) => {
+      try {
+        await supabase.from("whatsapp_prijem_log").insert({
+          webhook_id: record.webhook_id ?? null,
+          sender_name: record.sender_name ?? null,
+          chat_id: chatId || null,
+          message_preview: (record.message_text || "").slice(0, 200),
+          message_timestamp: record.message_timestamp ?? null,
+          vysledek,
+          duvod: duvod ?? null,
+          incoming_id: incomingId ?? null,
+        });
+      } catch (e) {
+        console.error("[whatsapp-webhook] deník příjmu selhal:", e);
+      }
+    };
+
     const skip = (reason: string, extra: Record<string, unknown> = {}) =>
       new Response(
         JSON.stringify({
@@ -361,6 +386,10 @@ Deno.serve(async (req: Request) => {
     // vypadalo, že objednávka prostě zmizela beze stopy. Teď se uloží se stavem
     // 'ignored' a důvodem v error_message, ať jde v appce dohledat.
     const skipAndLog = async (reason: string, extra: Record<string, unknown> = {}) => {
+      // Do deníku vždycky — i když se uložení se stavem 'ignored' nepovede
+      // (databázový trigger zprávu od nepovoleného odesílatele zahodí, viz
+      // migrace 20261216000000), musí zůstat stopa, že zpráva DORAZILA.
+      await zapisDoDeniku("zahozeno_filtr", reason);
       try {
         await supabase.from("whatsapp_incoming").insert({
           ...record,
@@ -442,6 +471,7 @@ Deno.serve(async (req: Request) => {
         .maybeSingle();
 
       if (existing) {
+        await zapisDoDeniku("duplicita", "stejné webhook_id už v databázi je", existing.id);
         return new Response(
           JSON.stringify({
             success: true,
@@ -494,11 +524,14 @@ Deno.serve(async (req: Request) => {
 
     if (error) {
       console.error("Database insert error:", error);
+      await zapisDoDeniku("chyba", error.message);
       return new Response(
         JSON.stringify({ error: "Failed to store message", details: error.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    await zapisDoDeniku("ulozeno", undefined, data.id);
 
     // Return success response
     return new Response(
