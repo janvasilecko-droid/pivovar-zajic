@@ -1,11 +1,13 @@
-import { ReactNode, useState, useEffect, useRef } from 'react';
+import { ReactNode, useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Bell, BellOff, BookOpen, Calculator, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Cylinder, Download, FilePlus, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Hourglass, LogOut, MapPin, MessageCircle, Package as PackageIcon, PlusCircle, Receipt, Search, Settings, Shield, ShieldCheck, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Timer, TrendingDown, Truck, Users, Wheat, Wine, X, XCircle, type LucideIcon } from 'lucide-react';
 
 import { useAuth } from '../lib/auth';
 import { Modal } from './ui';
 import { supabase, Beer, Package, Place } from '../lib/supabase';
-import { EditOrderModal } from './EditOrderModal';
 import { autoReserveTapIfNeeded } from '../lib/tapReservations';
+
+// Načte se až při otevření — viz komentář u <EditOrderModal /> níž.
+const EditOrderModal = lazy(() => import('./EditOrderModal').then((m) => ({ default: m.EditOrderModal })));
 import { requestNotificationPermission, getNotificationPermission, notifyNewOrder, notifyNewWhatsAppMessage, NewOrderNotifyData } from '../lib/notifications';
 import { subscribeToWhatsAppMessages, fetchWhatsAppSenders, fetchPendingWhatsAppCount, isSenderAllowed, triggerAutoParse, type WhatsAppSender, type WhatsAppIncoming } from '../lib/whatsappApi';
 import { requestOrdersAutoImport } from '../lib/ordersFilter';
@@ -732,6 +734,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
         />
 
         {showQuickAddOrder && (
+          <Suspense fallback={null}>
           <EditOrderModal
             order={{
               id: '', order_date: new Date().toISOString().slice(0, 10), place_id: null, place_name: null,
@@ -749,6 +752,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
               setPage('orders');
             }}
           />
+          </Suspense>
         )}
 
         {showInstallModal && (
