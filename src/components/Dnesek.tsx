@@ -10,7 +10,8 @@ import { ChevronRight, Truck, ClipboardList, MessageCircle, Wine, CheckCircle2, 
 import { supabase } from '../lib/supabase';
 import { businessDateISO } from '../lib/businessDate';
 import { fetchPendingWhatsAppCount } from '../lib/whatsappApi';
-import { souhrnUkolu } from '../lib/zavozUkoly';
+import { souhrnUkolu, ukolyZPoznamky } from '../lib/zavozUkoly';
+import { nactiHotoveUkoly, klicUkolu } from '../lib/zavozUkolyDb';
 import type { Page } from './Layout';
 
 type Radek = {
@@ -59,8 +60,20 @@ export default function Dnesek({ setPage }: { setPage: (p: Page) => void }) {
         const kusu = (polozky ?? []).reduce((s: number, p: any) => s + Number(p.quantity || 0), 0);
         // Poznámky nesou i požadavky typu „ještě vyzvednout sudy". Ty se
         // nejsnáz zapomenou, protože se nedají naložit dopředu v pivovaru.
+        // Odškrtnuté se do „co ještě čeká" nepočítají — jinak by řádek svítil
+        // i po tom, co je všechno hotové, a přestalo by se na něj koukat.
+        let hotove = new Set<string>();
+        try {
+          hotove = await nactiHotoveUkoly(ids);
+        } catch { /* radši ukázat úkol navíc než ho zamlčet */ }
         const ukoly = souhrnUkolu(
-          (obj ?? []).map((o: any) => ({ poznamka: o.note, odberatel: o.place_name })),
+          (obj ?? []).map((o: any) => ({
+            poznamka: o.note,
+            odberatel: o.place_name,
+            vynechat: ukolyZPoznamky(o.note)
+              .filter((u) => hotove.has(klicUkolu(o.id, u.klic)))
+              .map((u) => u.klic),
+          })),
         );
         return { objednavek: ids.length, kusu, ukoly };
       };

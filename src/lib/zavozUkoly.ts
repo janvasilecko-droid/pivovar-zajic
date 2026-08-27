@@ -132,13 +132,19 @@ export type SouhrnUkolu = {
  * neděje.
  */
 export function souhrnUkolu(
-  objednavky: { poznamka: string | null | undefined; odberatel: string | null | undefined }[],
+  objednavky: {
+    poznamka: string | null | undefined;
+    odberatel: string | null | undefined;
+    /** Úkoly, které už jsou odškrtnuté — do souhrnu „co zbývá" nepatří. */
+    vynechat?: UkolKlic[];
+  }[],
 ): SouhrnUkolu[] {
   const podle = new Map<UkolKlic, SouhrnUkolu>();
 
   for (const o of objednavky) {
     const jmeno = (o.odberatel || '').trim() || 'Neznámý odběratel';
     for (const ukol of ukolyZPoznamky(o.poznamka)) {
+      if (o.vynechat?.includes(ukol.klic)) continue;
       const zaznam = podle.get(ukol.klic) ?? { klic: ukol.klic, popis: ukol.popis, odberatele: [] };
       if (!zaznam.odberatele.includes(jmeno)) zaznam.odberatele.push(jmeno);
       podle.set(ukol.klic, zaznam);

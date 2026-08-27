@@ -18,6 +18,8 @@ import { printDeliveryList } from '../lib/safePrint';
 import { chyba, oznam } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
 import { UkolyObjednavky, UkolyDne } from '../components/ZavozUkoly';
+import { nactiHotoveUkoly, nastavUkolHotovo, klicUkolu } from '../lib/zavozUkolyDb';
+import type { UkolKlic } from '../lib/zavozUkoly';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -34,6 +36,8 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
   const { profile } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [items, setItems] = useState<Record<string, OrderItem[]>>({});
+  // Odškrtnuté úkoly k závozu (`objednávka:druh`) — viz lib/zavozUkolyDb.ts.
+  const [hotoveUkoly, setHotoveUkoly] = useState<Set<string>>(new Set());
   const [packages, setPackages] = useState<Package[]>([]);
   const [beers, setBeers] = useState<Beer[]>([]);
   const [places, setPlaces] = useState<Place[]>([]);
@@ -82,12 +86,39 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
       const map: Record<string, OrderItem[]> = {};
       (it as OrderItem[])?.forEach((i) => { (map[i.order_id] ??= []).push(i); });
       setItems(map);
+      // Odškrtnutá „vyzvednout sudy" a spol. Když se to nepovede, štítky se
+      // ukážou jako neodškrtnuté — to je horší než pravda, ale ne nebezpečné.
+      try {
+        setHotoveUkoly(await nactiHotoveUkoly(ords.map((x) => x.id)));
+      } catch { /* nevadí */ }
     }
     if (!silent) setLoading(false);
   }
 
+  async function prepniUkol(orderId: string, klic: UkolKlic, hotovo: boolean) {
+    const k = klicUkolu(orderId, klic);
+    // Nejdřív se překreslí, pak se ukládá: na mobilních datech v autě by
+    // čekání na odpověď vypadalo, že klepnutí neprošlo, a klepalo by se znovu.
+    setHotoveUkoly((m) => {
+      const n = new Set(m);
+      if (hotovo) n.add(k); else n.delete(k);
+      return n;
+    });
+    zavibruj(hotovo ? 'odskrtnuto' : 'klik');
+    try {
+      await nastavUkolHotovo(orderId, klic, hotovo);
+    } catch (e) {
+      setHotoveUkoly((m) => {
+        const n = new Set(m);
+        if (hotovo) n.delete(k); else n.add(k);
+        return n;
+      });
+      chyba(e);
+    }
+  }
+
   useEffect(() => { load(); }, []);
-  useRealtime(['orders', 'order_items', 'packages', 'beers', 'places', 'keg_returns'], () => load(true));
+  useRealtime(['orders', 'order_items', 'packages', 'beers', 'places', 'keg_returns', 'zavoz_ukoly_hotovo'], () => load(true));
 
   // Konto sudů se počítá ze všech pohybů (odvezeno/vráceno) — načítá se zvlášť,
   // ať to nezdržuje hlavní seznam závozu.
@@ -862,6 +893,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
 
                       <UkolyDne
                         objednavky={group.orders.flatMap((e: any) => (e.isGroup ? e.orders : [e]))}
+                        hotove={hotoveUkoly}
                       />
 
                       {/* Orders Cards List */}
@@ -901,7 +933,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                           <div>
                                             <a onClick={() => setPage && setPage('orders', o.id)} className="font-bold text-sm text-neutral-900 hover:underline cursor-pointer">{o.place_name}</a>
                                             {o.note && <div className="text-xs text-neutral-600 font-medium mt-1 bg-amber-100/60 px-2.5 py-1 rounded italic flex items-start gap-1"><StickyNote size={12} className="mt-0.5 shrink-0" /> {o.note}</div>}
-                                            <UkolyObjednavky poznamka={o.note} />
+                                            <UkolyObjednavky poznamka={o.note} orderId={o.id} hotove={hotoveUkoly} onPrepni={prepniUkol} />
                                           </div>
                                           <div className="flex items-center gap-1.5">
                                             <button
@@ -991,7 +1023,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                       <StickyNote size={12} className="mt-0.5 shrink-0" /> {o.note}
                                     </div>
                                   )}
-                                  <UkolyObjednavky poznamka={o.note} />
+                                  <UkolyObjednavky poznamka={o.note} orderId={o.id} hotove={hotoveUkoly} onPrepni={prepniUkol} />
                                 </div>
                               </div>
 

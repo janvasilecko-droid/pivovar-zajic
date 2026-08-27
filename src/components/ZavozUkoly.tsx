@@ -1,6 +1,7 @@
-import { ArrowLeftRight, GlassWater, Receipt, StickyNote, Disc } from 'lucide-react';
-import { IkonaSud, IkonaLahev, IkonaVycep } from './ikony';
+import { ArrowLeftRight, Check, GlassWater, Receipt, StickyNote, Disc } from 'lucide-react';
+import { IkonaLahev, IkonaVycep } from './ikony';
 import { ukolyZPoznamky, souhrnUkolu, type UkolKlic } from '../lib/zavozUkoly';
+import { klicUkolu } from '../lib/zavozUkolyDb';
 
 /**
  * Úkoly k závozu — co kromě piva naložit nebo přivézt zpátky.
@@ -10,6 +11,7 @@ import { ukolyZPoznamky, souhrnUkolu, type UkolKlic } from '../lib/zavozUkoly';
  * odběratele. Při nakládání auta se to přehlédne — proto z poznámky vznikají
  * štítky a nad každým dnem souhrn „nezapomeň naložit".
  *
+ * Štítek je zároveň odškrtávátko: klepnutím se úkol označí za splněný.
  * Poznámka zůstává vidět tak jako dřív; tohle je navíc, ne místo ní.
  */
 
@@ -28,48 +30,100 @@ const IKONY: Record<UkolKlic, (p: { size?: number; className?: string }) => JSX.
  * znamená cestu znovu — proto svítí červeně, zbytek je klidně žlutý.
  */
 const TONY: Record<UkolKlic, string> = {
-  sudy: 'bg-rose-100 text-rose-900 border-rose-300',
-  lahve: 'bg-rose-50 text-rose-900 border-rose-200',
-  vycep: 'bg-amber-100 text-amber-900 border-amber-300',
-  sklo: 'bg-amber-100 text-amber-900 border-amber-300',
-  podtacky: 'bg-amber-100 text-amber-900 border-amber-300',
-  spotak: 'bg-amber-100 text-amber-900 border-amber-300',
-  faktura: 'bg-sky-100 text-sky-900 border-sky-300',
+  sudy: 'bg-rose-100 text-rose-900 border-rose-300 hover:bg-rose-200',
+  lahve: 'bg-rose-50 text-rose-900 border-rose-200 hover:bg-rose-100',
+  vycep: 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200',
+  sklo: 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200',
+  podtacky: 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200',
+  spotak: 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200',
+  faktura: 'bg-sky-100 text-sky-900 border-sky-300 hover:bg-sky-200',
+};
+
+const TON_SPLNENO = 'bg-emerald-100 text-emerald-900 border-emerald-300 hover:bg-emerald-200';
+
+export type UkolyProps = {
+  poznamka: string | null | undefined;
+  /** Bez id se štítky jen zobrazí — odškrtnout je nelze. */
+  orderId?: string;
+  hotove?: Set<string>;
+  onPrepni?: (orderId: string, klic: UkolKlic, hotovo: boolean) => void;
 };
 
 /** Štítky u jedné objednávky. Když poznámka nic neobsahuje, nevykreslí nic. */
-export function UkolyObjednavky({ poznamka }: { poznamka: string | null | undefined }) {
+export function UkolyObjednavky({ poznamka, orderId, hotove, onPrepni }: UkolyProps) {
   const ukoly = ukolyZPoznamky(poznamka);
   if (ukoly.length === 0) return null;
+
+  const lzeOdskrtnout = Boolean(orderId && onPrepni);
 
   return (
     <div className="flex flex-wrap gap-1.5 mt-1.5">
       {ukoly.map((u) => {
         const Ikona = IKONY[u.klic];
+        const splneno = Boolean(orderId && hotove?.has(klicUkolu(orderId, u.klic)));
+        // 44 px na výšku — štítek se odškrtává v autě, prstem a v rukavici.
+        const tridy = `inline-flex items-center gap-1.5 px-3 min-h-[44px] rounded border font-black text-[11px] text-left transition ${
+          splneno ? TON_SPLNENO : TONY[u.klic]
+        }`;
+
+        if (!lzeOdskrtnout) {
+          return (
+            <span key={u.klic} className={tridy}>
+              <Ikona size={13} className="shrink-0" />
+              {u.popis}
+            </span>
+          );
+        }
+
         return (
-          <span
+          <button
             key={u.klic}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded border font-black text-[11px] ${TONY[u.klic]}`}
+            type="button"
+            onClick={() => onPrepni!(orderId!, u.klic, !splneno)}
+            className={tridy}
+            title={splneno ? 'Klepnutím zrušit odškrtnutí' : 'Klepnutím označit za hotové'}
           >
-            <Ikona size={13} className="shrink-0" />
-            {u.popis}
-          </span>
+            <span
+              className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${
+                splneno ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white/70 border-current'
+              }`}
+            >
+              {splneno ? <Check size={12} strokeWidth={4} /> : <Ikona size={12} />}
+            </span>
+            <span className={splneno ? 'line-through opacity-70' : ''}>{u.popis}</span>
+          </button>
         );
       })}
     </div>
   );
 }
 
+export type UkolyDneProps = {
+  objednavky: { id?: string; note: string | null | undefined; place_name: string | null | undefined }[];
+  hotove?: Set<string>;
+};
+
 /**
  * Souhrn za celý den nad seznamem objednávek. Bez něj by se úkoly musely
  * hledat proklikáním všech karet dne — což při nakládání nikdo nedělá.
+ *
+ * Hotové úkoly ze souhrnu mizí. Když je hotové všechno, zmizí celý pruh —
+ * jinak by ve výhledu zůstala trvalá červená výstraha, kterou se člověk
+ * naučí přehlížet, a s ní i ta příští, na které záleží.
  */
-export function UkolyDne({
-  objednavky,
-}: {
-  objednavky: { note: string | null | undefined; place_name: string | null | undefined }[];
-}) {
-  const souhrn = souhrnUkolu(objednavky.map((o) => ({ poznamka: o.note, odberatel: o.place_name })));
+export function UkolyDne({ objednavky, hotove }: UkolyDneProps) {
+  const souhrn = souhrnUkolu(
+    objednavky.map((o) => ({
+      poznamka: o.note,
+      odberatel: o.place_name,
+      // Odškrtnuté úkoly se z poznámky vyfiltrují až tady, aby se souhrn
+      // počítal ze stejné funkce jako štítky u odběratelů.
+      vynechat: o.id && hotove
+        ? ukolyZPoznamky(o.note).filter((u) => hotove.has(klicUkolu(o.id!, u.klic))).map((u) => u.klic)
+        : [],
+    })),
+  );
+
   if (souhrn.length === 0) return null;
 
   return (

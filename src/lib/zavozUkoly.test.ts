@@ -88,3 +88,28 @@ describe('souhrnUkolu', () => {
     expect(souhrnUkolu([{ poznamka: '2x50 12sv', odberatel: 'X' }])).toEqual([]);
   });
 });
+
+describe('souhrnUkolu — odškrtnuté úkoly', () => {
+  it('odškrtnutý úkol ze souhrnu vypadne', () => {
+    const s = souhrnUkolu([
+      { poznamka: 'vyzvednout sudy a podtácky', odberatel: 'Bar U Sadu', vynechat: ['sudy'] },
+    ]);
+    expect(s.map((x) => x.klic)).toEqual(['podtacky']);
+  });
+
+  it('odškrtnutí u jednoho odběratele nezruší tentýž úkol u druhého', () => {
+    const s = souhrnUkolu([
+      { poznamka: 'vyzvednout sudy', odberatel: 'Bar U Sadu', vynechat: ['sudy'] },
+      { poznamka: 'vyzvednout sudy', odberatel: 'Hospoda Na Rohu' },
+    ]);
+    expect(s).toHaveLength(1);
+    expect(s[0].odberatele).toEqual(['Hospoda Na Rohu']);
+  });
+
+  it('když je hotové všechno, souhrn je prázdný', () => {
+    const s = souhrnUkolu([
+      { poznamka: 'vyzvednout sudy', odberatel: 'Bar U Sadu', vynechat: ['sudy'] },
+    ]);
+    expect(s).toEqual([]);
+  });
+});
