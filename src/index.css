@@ -49,11 +49,11 @@ html, body, #root {
 @layer components {
   .card {
     @apply bg-white rounded-2xl shadow-card border border-neutral-200/80 transition-all duration-200;
-    @apply dark:bg-white dark:border-neutral-200/80;
+    @apply dark:bg-neutral-900 dark:border-neutral-700/80;
   }
   .card-glass {
     @apply bg-white/80 backdrop-blur-md rounded-2xl shadow-card border border-white/60 transition-all duration-200;
-    @apply dark:bg-white/80 dark:border-neutral-200/60;
+    @apply dark:bg-neutral-900/80 dark:border-neutral-700/60;
   }
   .card-hover {
     @apply card hover:shadow-cardHover hover:-translate-y-0.5 hover:border-neutral-300/80;
@@ -64,7 +64,7 @@ html, body, #root {
            text-neutral-900 placeholder:text-neutral-400
            focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/15
            transition-all duration-150 min-h-[44px] sm:min-h-[38px]
-           dark:bg-white dark:border-neutral-200 dark:text-neutral-900 dark:placeholder:text-neutral-400
+           dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500
            dark:focus:border-amber-500 dark:focus:ring-amber-500/20;
   }
   /* Systémové šipky u číselných polí jsou na telefonu netrefitelné (12 px)
@@ -350,24 +350,52 @@ html.density-large .btn {
    (např. pole pro počet obalů) v tmavém režimu tmavé pozadí a díky !important níže
    zůstává tmavé písmo -> tmavé na tmavém, nečitelné. */
 :root { color-scheme: light; }
+:root.dark { color-scheme: dark; }
 
-input, select, textarea, .input {
+:root:not(.dark) input,
+:root:not(.dark) select,
+:root:not(.dark) textarea,
+:root:not(.dark) .input {
   color: #0f172a !important; /* Dark Slate 900 for crisp text visibility */
   background-color: #ffffff !important;
   color-scheme: light;
   -webkit-color-scheme: light;
 }
 
-select option {
+/* Tmavý režim má vlastní hodnoty — ale taky s !important, jinak by je přebily
+   utility bg-white/text-neutral-900 zapsané přímo u polí. */
+:root.dark input,
+:root.dark select,
+:root.dark textarea,
+:root.dark .input {
+  color: #f1f5f9 !important;
+  background-color: #131c2e !important;
+  color-scheme: dark;
+  -webkit-color-scheme: dark;
+}
+
+:root:not(.dark) select option {
   color: #0f172a !important;
   background-color: #ffffff !important;
 }
 
-input::placeholder, textarea::placeholder {
+:root.dark select option {
+  color: #f1f5f9 !important;
+  background-color: #131c2e !important;
+}
+
+:root:not(.dark) input::placeholder,
+:root:not(.dark) textarea::placeholder {
   color: #64748b !important;
 }
 
-.table tbody td, .table thead th {
+:root.dark input::placeholder,
+:root.dark textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+:root:not(.dark) .table tbody td,
+:root:not(.dark) .table thead th {
   color: #0f172a;
 }
 
@@ -416,3 +444,161 @@ input::placeholder, textarea::placeholder {
   color: #0f172a !important; /* slate-900 */
 }
 
+
+/* ───────────────────────────────────────────────────────────────────────
+   TMAVÝ REŽIM
+   ───────────────────────────────────────────────────────────────────────
+   V aplikaci je přes čtyři tisíce míst s natvrdo zapsanou světlou barvou
+   (bg-white, text-neutral-900, border-neutral-200 …) ve 108 různých třídách.
+   Dopisovat ke každé z nich dark: variantu by znamenalo přepsat je všechny
+   a u každé nově napsané na to zapomenout.
+
+   Proto se v tmavém režimu přemapují samotné třídy — jedno místo, které drží
+   i pro kód, co teprve vznikne, a čte se jako převodní tabulka: povrchy
+   ztmavnou, písmo zesvětlá, rámečky se ztlumí.
+
+   Míří se přes [class~="…"], ne přes .třídu. Přepis .bg-neutral-50 by Tailwind
+   pochopil jako předefinování utility a @apply bg-neutral-50 v komponentových
+   třídách výš by spadl na kruhové závislosti.
+
+   Barvy jsou ze stejné neutrální škály jako světlý režim, jen otočené, takže
+   na sebe odstíny sedí a nevznikají šedivé skvrny.
+   ─────────────────────────────────────────────────────────────────────── */
+:root.dark {
+  --povrch: #0f172a;        /* pozadí stránky */
+  --povrch-karta: #172033;  /* karta nad pozadím */
+  --povrch-vyssi: #1e293b;  /* pruhy, hlavičky tabulek, vybrané řádky */
+  --ram: #334155;
+  --ram-jemny: #263449;
+  --ink: #f1f5f9;
+  --ink-tlumeny: #cbd5e1;
+  --ink-slaby: #94a3b8;
+}
+
+:root.dark body { background-color: var(--povrch); color: var(--ink); }
+
+/* Komponentní třídy mají vlastní dark: varianty a ty by přebily přemapování
+   níž. .card měla dark:bg-neutral-900, což je v téhle paletě #0f172a — přesně
+   barva pozadí stránky, takže karty splývaly s podkladem a nebylo poznat, kde
+   která začíná. Proto se jim barva určuje tady, natvrdo. */
+:root.dark .card,
+:root.dark .card-hover { background-color: var(--povrch-karta); border-color: var(--ram); }
+:root.dark .card-glass { background-color: rgb(23 32 51 / 0.85); border-color: var(--ram); }
+:root.dark .input { background-color: #131c2e; border-color: var(--ram); color: var(--ink); }
+:root.dark .input::placeholder { color: var(--ink-slaby); }
+:root.dark .table thead th { background-color: var(--povrch-vyssi); color: var(--ink-tlumeny); }
+:root.dark .table tbody tr:hover td { background-color: rgb(30 41 59 / 0.6); }
+
+/* ── Povrchy ─────────────────────────────────────────────────────────── */
+:root.dark [class~="bg-white"] { background-color: var(--povrch-karta); }
+:root.dark [class~="bg-white/80"],
+:root.dark [class~="bg-white/70"],
+:root.dark [class~="bg-white/60"],
+:root.dark [class~="bg-white/50"] { background-color: rgb(23 32 51 / 0.85); }
+:root.dark [class~="bg-neutral-50"],
+:root.dark [class~="bg-neutral-50/90"] { background-color: var(--povrch-karta); }
+:root.dark [class~="bg-neutral-100"],
+:root.dark [class~="bg-neutral-100/90"],
+:root.dark [class~="bg-neutral-100/80"] { background-color: var(--povrch-vyssi); }
+:root.dark [class~="bg-neutral-200"] { background-color: #2b3a52; }
+:root.dark [class~="bg-neutral-300"] { background-color: #3a4a63; }
+
+/* Tmavé plochy zůstávají tmavé, jen se odliší od pozadí. Otočit je na světlé
+   by z tmavého tlačítka udělalo bílý obdélník s bílým textem. */
+:root.dark [class~="bg-neutral-700"] { background-color: #2b3a52; }
+:root.dark [class~="bg-neutral-800"] { background-color: #24304a; }
+:root.dark [class~="bg-neutral-900"] { background-color: #1b2438; }
+:root.dark [class~="bg-neutral-950"] { background-color: #131b2c; }
+
+/* ── Písmo ───────────────────────────────────────────────────────────── */
+:root.dark [class~="text-neutral-950"],
+:root.dark [class~="text-slate-950"],
+:root.dark [class~="text-neutral-900"] { color: var(--ink); }
+:root.dark [class~="text-neutral-800"] { color: #e2e8f0; }
+:root.dark [class~="text-neutral-700"] { color: var(--ink-tlumeny); }
+:root.dark [class~="text-neutral-600"] { color: #b6c2d2; }
+:root.dark [class~="text-neutral-500"] { color: var(--ink-slaby); }
+:root.dark [class~="text-neutral-400"] { color: #7d8ba1; }
+
+/* ── Rámečky a oddělovače ────────────────────────────────────────────── */
+:root.dark [class~="border-neutral-100"],
+:root.dark [class~="border-neutral-100/90"] { border-color: var(--ram-jemny); }
+:root.dark [class~="border-neutral-200"],
+:root.dark [class~="border-neutral-200/90"],
+:root.dark [class~="border-neutral-200/80"],
+:root.dark [class~="border-neutral-200/60"],
+:root.dark [class~="border-neutral-200/50"] { border-color: var(--ram); }
+:root.dark [class~="border-neutral-300"],
+:root.dark [class~="border-neutral-300/90"] { border-color: #3d4d66; }
+:root.dark [class~="divide-neutral-100"] > * + * { border-color: var(--ram-jemny); }
+:root.dark [class~="divide-neutral-200"] > * + * { border-color: var(--ram); }
+
+/* ── Barevné podklady ────────────────────────────────────────────────── */
+/* Světlé podbarvení (amber-50, rose-50 …) by v tmavém svítilo jako reflektor.
+   Ztlumí se, ale barevný tón zůstane — nese význam: výstraha, hotovo, chyba. */
+:root.dark [class~="bg-amber-50"],
+:root.dark [class~="bg-amber-100"],
+:root.dark [class~="bg-amber-50/80"],
+:root.dark [class~="bg-amber-100/70"],
+:root.dark [class~="bg-amber-50/60"],
+:root.dark [class~="bg-amber-50/50"] { background-color: rgb(180 115 10 / 0.16); }
+:root.dark [class~="bg-emerald-50"],
+:root.dark [class~="bg-emerald-100"],
+:root.dark [class~="bg-emerald-50/70"],
+:root.dark [class~="bg-emerald-50/60"],
+:root.dark [class~="bg-emerald-100/70"] { background-color: rgb(21 128 61 / 0.18); }
+:root.dark [class~="bg-rose-50"],
+:root.dark [class~="bg-rose-100"],
+:root.dark [class~="bg-rose-50/90"],
+:root.dark [class~="bg-rose-50/70"],
+:root.dark [class~="bg-rose-50/60"] { background-color: rgb(190 18 60 / 0.18); }
+:root.dark [class~="bg-sky-50"],
+:root.dark [class~="bg-sky-100"],
+:root.dark [class~="bg-sky-50/70"] { background-color: rgb(3 105 161 / 0.18); }
+:root.dark [class~="bg-primary-50"],
+:root.dark [class~="bg-primary-100"] { background-color: rgb(200 95 30 / 0.16); }
+:root.dark [class~="bg-violet-50"],
+:root.dark [class~="bg-violet-100"],
+:root.dark [class~="bg-violet-50/60"] { background-color: rgb(126 34 206 / 0.18); }
+:root.dark [class~="bg-teal-50"],
+:root.dark [class~="bg-teal-100"] { background-color: rgb(13 148 136 / 0.18); }
+:root.dark [class~="bg-blue-50"],
+:root.dark [class~="bg-blue-100"],
+:root.dark [class~="bg-blue-50/80"] { background-color: rgb(29 78 216 / 0.18); }
+
+/* Text v barevných plochách musí zesvětlat, jinak zůstane tmavý na tmavém. */
+:root.dark [class~="text-amber-800"],
+:root.dark [class~="text-amber-900"],
+:root.dark [class~="text-amber-950"] { color: #fcd34d; }
+:root.dark [class~="text-emerald-800"],
+:root.dark [class~="text-emerald-900"],
+:root.dark [class~="text-emerald-950"] { color: #6ee7a8; }
+:root.dark [class~="text-rose-800"],
+:root.dark [class~="text-rose-900"],
+:root.dark [class~="text-rose-950"] { color: #fda4af; }
+:root.dark [class~="text-sky-800"],
+:root.dark [class~="text-sky-900"] { color: #7dd3fc; }
+:root.dark [class~="text-primary-700"],
+:root.dark [class~="text-primary-900"] { color: #f0a868; }
+:root.dark [class~="text-violet-900"],
+:root.dark [class~="text-violet-950"] { color: #d8b4fe; }
+:root.dark [class~="text-blue-800"],
+:root.dark [class~="text-blue-900"] { color: #93c5fd; }
+
+/* ── Drobnosti ───────────────────────────────────────────────────────── */
+/* Stíny na tmavém pozadí nejsou vidět — nahradí je jemný světlý okraj. */
+:root.dark [class~="shadow-card"],
+:root.dark [class~="shadow-sm"],
+:root.dark [class~="shadow-md"],
+:root.dark [class~="shadow-lg"] {
+  box-shadow: 0 1px 0 0 rgb(255 255 255 / 0.04), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+}
+
+/* Bílé kryty u rolovacích tabulek by v tmavém režimu svítily. */
+:root.dark .overflow-x-auto:has(table) {
+  background-image:
+    linear-gradient(to right, #172033 30%, rgb(23 32 51 / 0)),
+    linear-gradient(to right, rgb(23 32 51 / 0), #172033 70%),
+    linear-gradient(to right, rgb(0 0 0 / 0.45), rgb(0 0 0 / 0)),
+    linear-gradient(to left, rgb(0 0 0 / 0.45), rgb(0 0 0 / 0));
+}

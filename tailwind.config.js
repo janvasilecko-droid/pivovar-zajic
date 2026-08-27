@@ -1,5 +1,11 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  // Tmavý režim se řídí třídou .dark na <html>, ne nastavením systému.
+  // Ve výchozím režimu (media) se všech 95 dark: variant v aplikaci spouštělo
+  // samo podle telefonu a nešlo to vypnout — proto byly v index.css zneškodněné
+  // tím, že se v tmavém režimu nastavovaly zpátky světlé barvy. Tohle je
+  // příčina, kvůli které byl tmavý režim v lib/theme.ts natvrdo zakázaný.
+  darkMode: 'class',
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {

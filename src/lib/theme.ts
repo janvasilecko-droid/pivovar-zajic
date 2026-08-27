@@ -10,12 +10,34 @@ export function getTheme(): Theme {
   return 'system';
 }
 
+/** Chce systém tmavý režim? */
+function systemChceTmu(): boolean {
+  try {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  } catch {
+    return false;
+  }
+}
+
 function applyTheme(theme: Theme) {
   const root = document.documentElement;
-  // Tmavý režim je v této aplikaci deaktivovaný: tmavé pozadí s tmavým textem
-  // je nečitelné (černé písmo). Vždy používáme světlý režim.
-  root.classList.remove('dark');
-  root.dataset.theme = 'light';
+  // Dřív tu byl tmavý režim natvrdo zakázaný, protože vycházel tmavý text na
+  // tmavém pozadí. Příčina nebyla v barvách, ale v nastavení Tailwindu: běžel
+  // ve výchozím režimu 'media', takže se dark: varianty spouštěly podle
+  // TELEFONU bez ohledu na volbu v aplikaci. Od přepnutí na darkMode: 'class'
+  // rozhoduje tahle funkce a barvy jsou přemapované v index.css.
+  const tmavy = theme === 'dark' || (theme === 'system' && systemChceTmu());
+  root.classList.toggle('dark', tmavy);
+  root.dataset.theme = tmavy ? 'dark' : 'light';
+}
+
+/** Když je zvolené „podle systému", reaguj na jeho přepnutí za běhu. */
+function sledujSystem() {
+  try {
+    const dotaz = window.matchMedia('(prefers-color-scheme: dark)');
+    const reakce = () => { if (getTheme() === 'system') applyTheme('system'); };
+    dotaz.addEventListener('change', reakce);
+  } catch {}
 }
 
 export function setTheme(theme: Theme) {
@@ -28,6 +50,7 @@ export function setTheme(theme: Theme) {
 export function initTheme() {
   const theme = getTheme();
   applyTheme(theme);
+  sledujSystem();
   if (theme === 'system' && window.matchMedia) {
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
     const handler = () => { if (getTheme() === 'system') applyTheme('system'); };
