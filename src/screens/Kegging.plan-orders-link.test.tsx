@@ -6,7 +6,7 @@
 // odstraněna: počítala z měsíčního skladového modelu, a když ten spadl do
 // mínusu (v srpnu 2026 devět druhů sudů), ořízl se na nulu a čerstvé stáčení
 // se v čísle „chybí stočit" ztratilo. Plán počítá jen z dat aktuálního týdne.
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import KeggingScreen from './Kegging';
 import { consumeOrdersItemFilter } from '../lib/ordersFilter';
@@ -87,6 +87,14 @@ vi.mock('../lib/orderParser', () => ({
   parseFreeTextEntries: vi.fn(() => []),
   loadAliasMap: vi.fn().mockResolvedValue({}),
   emptyAliasMap: vi.fn(() => ({})),
+}));
+// Dnešek se drží na pevném dni uvnitř testovaného týdne. Bez toho test
+// závisel na tom, jaký je zrovna den: plán se otevírá na prvním dni, kde
+// něco chybí, a když nechybí nic, spadne na DNEŠEK — takže o půlnoci začal
+// hledat 'Stočit na Čt' místo 'na St' a spadl, aniž se změnil kód.
+vi.mock('../lib/businessDate', async (puvodni) => ({
+  ...(await puvodni<any>()),
+  businessDateISO: () => '2026-01-07',
 }));
 vi.mock('../components/WeeklyOrderSummaryCard', () => ({
   isoWeekKey: vi.fn(() => '2026-02'),

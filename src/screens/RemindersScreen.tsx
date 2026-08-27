@@ -229,7 +229,7 @@ export default function RemindersScreen() {
                 placeholder="Např. Sanace CCT tanku #3 / Koupit zátky"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="input font-bold text-xs"
+                className="input font-bold"
               />
             </div>
 
@@ -240,7 +240,7 @@ export default function RemindersScreen() {
                 placeholder="Doplňující pokyny pro kolegy nebo sebe..."
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                className="input text-xs"
+                className="input"
               />
             </div>
 
@@ -253,7 +253,7 @@ export default function RemindersScreen() {
                   type="checkbox"
                   checked={sendNow}
                   onChange={(e) => setSendNow(e.target.checked)}
-                  className="mt-0.5"
+                  className="mt-0.5 w-5 h-5 shrink-0 accent-amber-500"
                 />
                 <div className="text-xs">
                   <div className="font-black text-neutral-900"><Upload className="ikona-text" /> Odeslat ihned</div>
@@ -261,13 +261,36 @@ export default function RemindersScreen() {
                 </div>
               </label>
               {!sendNow && (
-                <input
-                  type="datetime-local"
-                  required
-                  value={dateTime}
-                  onChange={(e) => setDateTime(e.target.value)}
-                  className="input font-mono font-bold text-xs"
-                />
+                <>
+                  {/* Rychlé termíny — datetime-local se na telefonu vyplňuje přes
+                      systémový výběr data a času, což je pět klepnutí. Devadesát
+                      procent upomínek přitom míří na dnešek, zítřek nebo za týden. */}
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {[["Dnes 9:00", 0], ["Zítra 9:00", 1], ["Za 3 dny", 3], ["Za týden", 7]].map(([popis, zaDnu]) => (
+                      <button
+                        key={String(popis)}
+                        type="button"
+                        onClick={() => {
+                          const d = new Date();
+                          d.setDate(d.getDate() + Number(zaDnu));
+                          d.setHours(9, 0, 0, 0);
+                          const p = (n: number) => String(n).padStart(2, '0');
+                          setDateTime(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T09:00`);
+                        }}
+                        className="min-h-[40px] px-3 rounded-xl border border-neutral-200 bg-white text-xs font-black text-neutral-700 hover:bg-amber-50 hover:border-amber-300 active:scale-95 transition"
+                      >
+                        {popis}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={dateTime}
+                    onChange={(e) => setDateTime(e.target.value)}
+                    className="input font-mono font-bold"
+                  />
+                </>
               )}
             </div>
 
@@ -283,7 +306,7 @@ export default function RemindersScreen() {
                     value="all"
                     checked={recipientMode === 'all'}
                     onChange={() => setRecipientMode('all')}
-                    className="mt-0.5"
+                    className="mt-0.5 w-5 h-5 shrink-0 accent-amber-500"
                   />
                   <div className="text-xs">
                     <div className="font-black text-neutral-900">👥 Všichni uživatelé pivovaru</div>
@@ -300,7 +323,7 @@ export default function RemindersScreen() {
                     value="role"
                     checked={recipientMode === 'role'}
                     onChange={() => setRecipientMode('role')}
-                    className="mt-0.5"
+                    className="mt-0.5 w-5 h-5 shrink-0 accent-amber-500"
                   />
                   <div className="text-xs">
                     <div className="font-black text-neutral-900">🎯 Podle role / pracovní pozice</div>
@@ -311,7 +334,7 @@ export default function RemindersScreen() {
                   <select
                     value={targetRole}
                     onChange={(e) => setTargetRole(e.target.value as ReminderTarget)}
-                    className="input font-bold text-xs mt-1"
+                    className="input font-bold mt-1"
                   >
                     <option value="admin">👑 Pouze Administrátoři</option>
                     <option value="sef">👔 Pouze Šéf a vedení</option>
@@ -330,7 +353,7 @@ export default function RemindersScreen() {
                     value="users"
                     checked={recipientMode === 'users'}
                     onChange={() => setRecipientMode('users')}
-                    className="mt-0.5"
+                    className="mt-0.5 w-5 h-5 shrink-0 accent-amber-500"
                   />
                   <div className="text-xs">
                     <div className="font-black text-neutral-900"><User className="ikona-text" /> Konkrétní uživatelé</div>
@@ -356,7 +379,7 @@ export default function RemindersScreen() {
                                 checked ? 'bg-amber-100 border border-amber-300' : 'hover:bg-neutral-50 border border-transparent'
                               }`}
                             >
-                              <input type="checkbox" checked={checked} onChange={() => toggleUser(u.email)} />
+                              <input type="checkbox" checked={checked} onChange={() => toggleUser(u.email)} className="w-5 h-5 shrink-0 accent-amber-500" />
                               <UsersIcon size={14} className="text-neutral-400 shrink-0" />
                               <span className="font-black text-neutral-800">{u.display_name || u.email.split('@')[0]}</span>
                               <span className="text-neutral-400 truncate">{u.email}</span>
@@ -388,7 +411,7 @@ export default function RemindersScreen() {
                     value="custom"
                     checked={recipientMode === 'custom'}
                     onChange={() => setRecipientMode('custom')}
-                    className="mt-0.5"
+                    className="mt-0.5 w-5 h-5 shrink-0 accent-amber-500"
                   />
                   <div className="text-xs">
                     <div className="font-black text-neutral-900">✉️ Vlastní e-maily</div>
@@ -402,7 +425,7 @@ export default function RemindersScreen() {
                     placeholder="napriklad@seznam.cz, kolega@firma.cz"
                     value={customEmails}
                     onChange={(e) => setCustomEmails(e.target.value)}
-                    className="input font-bold text-xs mt-1"
+                    className="input font-bold mt-1"
                   />
                 )}
               </div>
@@ -420,7 +443,7 @@ export default function RemindersScreen() {
                     value="both"
                     checked={displayMode === 'both'}
                     onChange={() => setDisplayMode('both')}
-                    className="mt-0.5"
+                    className="mt-0.5 w-5 h-5 shrink-0 accent-amber-500"
                   />
                   <div className="text-xs">
                     <div className="font-black text-neutral-900"><Bell className="ikona-text" /> Obojí (Vyskočí po přihlášení + Push na ploše)</div>
@@ -437,7 +460,7 @@ export default function RemindersScreen() {
                     value="login_modal"
                     checked={displayMode === 'login_modal'}
                     onChange={() => setDisplayMode('login_modal')}
-                    className="mt-0.5"
+                    className="mt-0.5 w-5 h-5 shrink-0 accent-amber-500"
                   />
                   <div className="text-xs">
                     <div className="font-black text-neutral-900"><Lock className="ikona-text" /> Po přihlášení do aplikace (Modální okno)</div>
@@ -454,7 +477,7 @@ export default function RemindersScreen() {
                     value="desktop_push"
                     checked={displayMode === 'desktop_push'}
                     onChange={() => setDisplayMode('desktop_push')}
-                    className="mt-0.5"
+                    className="mt-0.5 w-5 h-5 shrink-0 accent-amber-500"
                   />
                   <div className="text-xs">
                     <div className="font-black text-neutral-900">📲 Na ploše telefonu / počítače (Push alert)</div>
