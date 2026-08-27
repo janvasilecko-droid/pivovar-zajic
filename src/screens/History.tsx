@@ -10,6 +10,8 @@ import { PieChart as RePieChart, Pie, Cell, LineChart, Line, BarChart, Bar, XAxi
 import { EditOrderModal } from '../components/EditOrderModal';
 import ZavozHistory from '../components/ZavozHistory';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
+import StatistikaVystav from '../components/StatistikaVystav';
+import type { Obdobi, VyrobniRadek } from '../lib/statistika';
 
 type MonthData = {
   month: string;
@@ -137,13 +139,13 @@ type DeliveryOrder = {
 type DeliveryItem = { id: string; order_id: string; beer_id: string | null; beer_name: string | null; package_id: string | null; package_label: string | null; quantity: number; is_prepared: boolean };
 
 export default function History({ setPage, initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; initialSubTab?: string } = {}) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'production' | 'detail' | 'cycles' | 'stats' | 'orders' | 'deliveries'>((initialSubTab as any) || 'overview');
+  const [activeTab, setActiveTab] = useState<'vystav' | 'overview' | 'production' | 'detail' | 'cycles' | 'stats' | 'orders' | 'deliveries'>((initialSubTab as any) || 'vystav');
 
   useEffect(() => {
     setActiveTab((initialSubTab as any) || 'overview');
   }, [initialSubTab]);
 
-  function selectTab(t: 'overview' | 'production' | 'detail' | 'cycles' | 'stats' | 'orders' | 'deliveries') {
+  function selectTab(t: 'vystav' | 'overview' | 'production' | 'detail' | 'cycles' | 'stats' | 'orders' | 'deliveries') {
     if (setPage) setPage('history', undefined, t);
     else setActiveTab(t);
   }
@@ -154,6 +156,13 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
 
   const [data, setData] = useState<MonthData[]>([]);
   const [beers, setBeers] = useState<Beer[]>([]);
+  // Nový přehled „Výstav" potřebuje řádky tak, jak jsou — z měsíčních součtů
+  // se týden ani odběratel dopočítat nedá.
+  const [vyrobaLahve, setVyrobaLahve] = useState<VyrobniRadek[]>([]);
+  const [vyrobaSudy, setVyrobaSudy] = useState<VyrobniRadek[]>([]);
+  const [objednavkyStat, setObjednavkyStat] = useState<any[]>([]);
+  const [polozkyStat, setPolozkyStat] = useState<any[]>([]);
+  const [obdobiStat, setObdobiStat] = useState<Obdobi>('mesic');
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
@@ -270,12 +279,16 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
       supabase.from('writeoffs').select('entry_date,beer_id,package_id,quantity'),
       supabase.from('akce').select('entry_date,revenue,items:akce_items(beer_id,quantity_taken,quantity_returned,quantity)'),
       supabase.from('order_items').select('beer_id,package_id,quantity,order_id'),
-      supabase.from('orders').select('id,order_date,delivery_date,status'),
+      supabase.from('orders').select('id,order_date,delivery_date,status,place_name'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
     ]);
     const beerList = (b as Beer[]) ?? [];
     setBeers(beerList);
+    setVyrobaLahve((bt as VyrobniRadek[]) ?? []);
+    setVyrobaSudy((kg as VyrobniRadek[]) ?? []);
+    setObjednavkyStat((ord as any[]) ?? []);
+    setPolozkyStat((oi as any[]) ?? []);
     setPackages((pk as Package[]) ?? []);
 
     const agg = (rows: FilterableEntry[]) => {
@@ -785,6 +798,18 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
       <div className="sticky top-0 z-20 bg-neutral-100 pt-1 flex items-center gap-2 border-b border-neutral-200 pb-2">
         <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-thin">
           <button
+            onClick={() => selectTab('vystav')}
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 min-h-[44px] ${
+              activeTab === 'vystav'
+                ? 'bg-amber-500 text-neutral-950 shadow-md'
+                : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
+            }`}
+          >
+            <TrendingUp size={16} />
+            <span>Výstav</span>
+          </button>
+
+          <button
             onClick={() => selectTab('overview')}
             className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === 'overview'
@@ -883,6 +908,20 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
       </div>
 
       {/* TAB 1: OVERVIEW & MONTHLY COMPARISON */}
+      {activeTab === 'vystav' && (
+        <StatistikaVystav
+          bottlingRows={vyrobaLahve}
+          keggingRows={vyrobaSudy}
+          obaly={packages as any}
+          piva={beers as any}
+          orders={objednavkyStat}
+          orderItems={polozkyStat}
+          dnes={todayISO()}
+          obdobi={obdobiStat}
+          onObdobi={setObdobiStat}
+        />
+      )}
+
       {activeTab === 'overview' && (
         <div className="space-y-6">
           <div className="card sticky top-0 z-10 p-4 flex flex-wrap items-end gap-3 bg-white border border-neutral-200 shadow-sm">
