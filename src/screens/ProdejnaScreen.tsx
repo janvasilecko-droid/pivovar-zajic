@@ -554,7 +554,61 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                   <h3 className="font-display font-black text-amber-950 text-sm mb-3">
                     <ClipboardList className="ikona-text" /> Přehled fasování
                   </h3>
-                  <div className="rounded border border-amber-300/80 bg-amber-50/90 overflow-x-auto">
+                  <ul className="md:hidden space-y-2">
+                    {sortedRows.map((r) => {
+                      const beer = beers.find((b) => b.id === r.beer_id);
+                      const pkg = packages.find((p) => p.id === r.package_id);
+                      const vol = pkg ? Number(pkg.volume_l) : 0;
+                      return (
+                        <li key={`m-${r.id}`} className="rounded border border-amber-300/80 bg-amber-50/90 p-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="font-black text-sm text-amber-950 flex items-center gap-1.5">
+                                <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
+                                <span className="truncate">{r.beer_name ?? beer?.name ?? '—'}</span>
+                                <span className="px-1.5 py-0.5 rounded-md bg-amber-200/80 text-amber-950 font-black text-xs shrink-0">{pkg ? `${vol} l` : '—'}</span>
+                              </div>
+                              <div className="text-[11px] font-bold text-amber-800 mt-0.5">
+                                {formatDate(r.entry_date)}
+                                {showWhoColumn && getRowWho(r) ? ` · ${getRowWho(r)}` : ''}
+                              </div>
+                            </div>
+                            <div className="font-mono font-black text-2xl text-amber-950 leading-none shrink-0">{r.quantity}</div>
+                          </div>
+
+                          {/* Křížek je schválně až za mezerou od plusu — na dotyk
+                              jsou to sousedi a záměna maže zápis. */}
+                          <div className="flex items-stretch gap-1.5 mt-2.5">
+                            <button
+                              type="button"
+                              className="w-12 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black transition disabled:opacity-40"
+                              onClick={() => increment(r.id, -1)}
+                              disabled={Number(r.quantity) <= 0}
+                              title="Odebrat 1 ks"
+                            >−</button>
+                            <button
+                              type="button"
+                              className="flex-1 min-h-[44px] grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black transition"
+                              onClick={() => increment(r.id, 1)}
+                              title="Přidat 1 ks"
+                            >+ 1 ks</button>
+                            <button
+                              type="button"
+                              className="w-12 min-h-[44px] ml-2 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black transition"
+                              onClick={() => del(r.id)}
+                              title="Smazat záznam"
+                            >✕</button>
+                          </div>
+                        </li>
+                      );
+                    })}
+                    <li className="rounded border-2 border-amber-400 bg-amber-200/70 px-3 py-2.5 flex items-center justify-between font-black text-amber-950">
+                      <span className="text-sm"><PackageIcon className="ikona-text" /> Celkem</span>
+                      <span className="font-mono text-xl">{totalCount}</span>
+                    </li>
+                  </ul>
+
+                  <div className="hidden md:block rounded border border-amber-300/80 bg-amber-50/90 overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="border-b border-amber-300/80 bg-amber-100/80">
