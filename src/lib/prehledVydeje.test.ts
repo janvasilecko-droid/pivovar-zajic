@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  sestavPrehled, prehledDoTsv, soucty, formatDatum, cisloProTabulku,
+  sestavPrehled, prehledDoTsv, soucty, formatDatum, cisloProTabulku, hlavickaTsv,
   type ObalPrehled, type VydejRadek,
 } from './prehledVydeje';
 
@@ -92,16 +92,15 @@ describe('formát pro tabulku', () => {
 describe('TSV k vykopírování', () => {
   const prehled = sestavPrehled(radky, OBALY, { od: '2026-08-01', do: '2026-08-31' });
 
-  // Výchozí podoba je to, co se vkládá do existujícího listu: jen datové
-  // řádky, sloupce Datum → 0,33l. Bez hlavičky (v listu už je) a bez
-  // hektolitrů (ty si list počítá sám).
-  describe('výchozí — k vložení do listu', () => {
-    const tsv = prehledDoTsv(prehled);
+  // Vkládá se do listu, kde hlavička už je a hektolitry jsou VZORCEM —
+  // proto se kopírují jen datové řádky a sloupce hl se neexportují vůbec.
+  describe('odběratelský list (personál, prodejna, promo)', () => {
+    const tsv = prehledDoTsv(prehled, { varianta: 'odberatel' });
     const radkyTsv = tsv.split('\n');
 
     it('žádná hlavička ani součet — první řádek je rovnou datum', () => {
       expect(radkyTsv[0].startsWith('3.8.2026')).toBe(true);
-      expect(tsv).not.toContain('Fasování prodejna');
+      expect(tsv).not.toContain('Odběratel');
       expect(tsv).not.toContain('Celkem');
     });
 
@@ -109,8 +108,15 @@ describe('TSV k vykopírování', () => {
       for (const r of radkyTsv) expect(r.split('\t')).toHaveLength(3 + 9);
     });
 
+    it('hektolitry se nekopírují — v listu jsou vzorcem a hodnota by ho přepsala', () => {
+      // Poslední sloupec musí být počet kusů 0,33l, ne hektolitry.
+      for (const r of radkyTsv) {
+        const bunky = r.split('\t');
+        expect(bunky[bunky.length - 1]).not.toContain(',');
+      }
+    });
+
     it('kusy sedí ve správných sloupcích', () => {
-      // Novák / 11° Světlá: 2 sudy 30 l (4. sloupec objemů) a 20 lahví 0,5 l.
       const novak = radkyTsv.find((r) => r.includes('11° Světlá') && r.includes('Novák'))!;
       const bunky = novak.split('\t');
       expect(bunky.slice(0, 3)).toEqual(['3.8.2026', 'Novák', '11° Světlá']);
@@ -126,43 +132,72 @@ describe('TSV k vykopírování', () => {
     });
   });
 
-  describe('volitelně — samostatná tabulka s hlavičkou', () => {
-    const tsv = prehledDoTsv(prehled, { hlavicka: true, soucet: true, hektolitry: true });
-    const radkyTsv = tsv.split('\n');
+  describe('list stáčení lahví', () => {
+    // Datum │ Druh piva │ Z sudů(5) │ Stočeno lahví(4) — bez odběratele.
+    const tsv = prehledDoTsv(prehled, { varianta: 'staceni_lahve' });
 
-    it('hlavička má skupiny Sudy a Lahve i sloupce s hektolitry', () => {
-      expect(radkyTsv[0]).toContain('Fasování prodejna');
-      expect(radkyTsv[0]).toContain('Sudy');
-      expect(radkyTsv[0]).toContain('Lahve');
-      expect(radkyTsv[0]).toContain('celkem hl');
-      expect(radkyTsv[1].split('\t').slice(0, 3)).toEqual(['Datum', 'Odběratel', 'Druh piva']);
+    it('vynechá sloupec odběratele', () => {
+      const bunky = tsv.split('\n')[0].split('\t');
+      expect(bunky).toHaveLength(2 + 9);
+      expect(bunky[1]).toBe('11° Světlá'); // hned za datem je pivo
     });
 
-    it('popisky objemů jsou přesně jako v listu', () => {
-      expect(radkyTsv[1].split('\t').slice(3, 12)).toEqual(
-        ['50 l', '30 l', '20 l', '15 l', '10 l', '1,5l', '1,0l', '0,5l', '0,33l'],
+    it('hlavička pojmenuje skupiny podle listu', () => {
+      const h = hlavickaTsv('staceni_lahve');
+      expect(h).toContain('Z sudů');
+      expect(h).toContain('Stočeno lahví');
+      expect(h).not.toContain('Odběratel');
+    });
+  });
+
+  describe('list stáčení KEG', () => {
+    // Datum │ Druh piva │ Stočené množství(5) — lahve tenhle list nemá.
+    const tsv = prehledDoTsv(prehled, { varianta: 'staceni_keg' });
+
+    it('má jen sloupce sudů, lahve vynechá', () => {
+      for (const r of tsv.split('\n')) expect(r.split('\t')).toHaveLength(2 + 5);
+    });
+
+    it('hlavička říká „Stočené množství" a nemá skupinu lahví', () => {
+      const h = hlavickaTsv('staceni_keg');
+      expect(h).toContain('Stočené množství');
+      expect(h).not.toContain('Lahve');
+    });
+  });
+
+  describe('volitelně — s hlavičkou pro nový list', () => {
+    const radkyTsv = prehledDoTsv(prehled, { varianta: 'odberatel', hlavicka: true, soucet: true }).split('\n');
+
+    it('hlavička má skupiny nad sloupci a popisky objemů jako v listu', () => {
+      expect(radkyTsv[0]).toContain('Sudy');
+      expect(radkyTsv[0]).toContain('Lahve');
+      expect(radkyTsv[1].split('\t')).toEqual(
+        ['Datum', 'Odběratel', 'Druh piva', '50 l', '30 l', '20 l', '15 l', '10 l', '1,5l', '1,0l', '0,5l', '0,33l'],
       );
     });
 
     it('každý řádek má stejný počet sloupců jako hlavička', () => {
       const sloupcu = radkyTsv[1].split('\t').length;
-      for (const r of radkyTsv.slice(2)) expect(r.split('\t')).toHaveLength(sloupcu);
+      for (const r of radkyTsv) expect(r.split('\t')).toHaveLength(sloupcu);
     });
 
-    it('poslední řádek je součet v hektolitrech', () => {
+    it('poslední řádek je součet kusů', () => {
       const posledni = radkyTsv[radkyTsv.length - 1].split('\t');
       expect(posledni[0]).toBe('Celkem');
-      // Sudy: 2×30 + 1×50 = 110 l = 1,1 hl; lahve: 20×0,5 + 4×1,5 = 16 l = 0,16 hl
-      expect(posledni.slice(-3)).toEqual(['1,1', '0,16', '1,26']);
+      expect(posledni[3 + 0]).toBe('1');   // 50 l
+      expect(posledni[3 + 1]).toBe('2');   // 30 l
+      expect(posledni[3 + 7]).toBe('20');  // 0,5 l
     });
+  });
 
-    it('hektolitry na tři desetinná místa — v listu jsou hodnoty jako 0,033', () => {
-      const drobne = sestavPrehled(
-        [{ entry_date: '2026-08-03', beer_id: 'b', beer_name: 'Desítka', package_id: 'l033', quantity: 10, who: 'A' }],
-        OBALY, { od: '2026-08-01', do: '2026-08-31' },
-      );
-      const r = prehledDoTsv(drobne, { hektolitry: true }).split('\t');
-      expect(r[r.length - 1]).toBe('0,033'); // 10 × 0,33 l = 3,3 l
+  describe('souhrn za období', () => {
+    const souhrn = sestavPrehled(radky, OBALY, { od: '2026-08-01', do: '2026-08-31', seskupeni: 'souhrn' });
+
+    it('slučuje přes dny a vynechá sloupec Datum', () => {
+      const tsv = prehledDoTsv(souhrn, { varianta: 'odberatel', bezData: true });
+      const prvni = tsv.split('\n')[0].split('\t');
+      expect(prvni[0]).toBe('Novák'); // rovnou odběratel, žádné datum
+      expect(prvni).toHaveLength(2 + 9);
     });
   });
 });

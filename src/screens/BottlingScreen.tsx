@@ -5,7 +5,7 @@ import { EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { exportBottlingToExcel } from '../lib/excel';
 import { ImportBottlingFromImage } from '../components/ImportBottlingFromImage';
-import { AlertTriangle, BarChart3, Beer as BeerIcon, Calendar, CalendarDays, Camera, ClipboardList, Cylinder, Lightbulb, ListChecks, Package as PackageIcon, Pencil, Plus, RefreshCw, Sparkles, Trash2, Wine } from 'lucide-react';
+import { AlertTriangle, BarChart3, Beer as BeerIcon, Calendar, CalendarDays, Camera, ClipboardList, Copy, Cylinder, Lightbulb, ListChecks, Package as PackageIcon, Pencil, Plus, RefreshCw, Sparkles, Trash2, Wine } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { BottlingPlan, getPlanSeenAt, markPlanSeenAt, isPlanUnseen, isBottlingManager, setPlanStatus } from '../lib/bottlingPlans';
 import { BottlingPlanPlanner } from '../components/BottlingPlanPlanner';
@@ -24,6 +24,7 @@ import KeggingDayPlan from '../components/KeggingDayPlan';
 import { chyba, potvrd } from '../lib/toast';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
+import PrehledVydejeModal from '../components/PrehledVydejeModal';
 
 
 const ROW_COUNT = 12;
@@ -37,6 +38,30 @@ const ALLOWED_BOTTLE_VOLUMES = [1.5, 1, 0.5, 0.33];
 // Velikosti KEG sudů
 const KEG_SIZES = [50, 30, 20, 15, 10];
 
+
+// List „Zápis stáčení lahve": Datum │ Druh piva │ Z sudů(5) │ Stočeno lahví(4).
+// Sloupce „Z sudů" nejsou obal zápisu, ale sudy SPOTŘEBOVANÉ na stočení
+// (kegs_used) — proto se z jednoho řádku dělají dvě položky.
+const ZDROJE_STACENI_LAHVE = [
+  {
+    tabulka: 'bottling',
+    popis: 'Stáčení lahví',
+    sloupce: 'entry_date,beer_name,package_id,quantity,note,kegs_used,kegs_used_package_id',
+    prevod: (r: any) => {
+      const out: any[] = [{
+        entry_date: r.entry_date, beer_name: r.beer_name,
+        package_id: r.package_id, quantity: r.quantity, note: r.note,
+      }];
+      if (Number(r.kegs_used) > 0 && r.kegs_used_package_id) {
+        out.push({
+          entry_date: r.entry_date, beer_name: r.beer_name,
+          package_id: r.kegs_used_package_id, quantity: r.kegs_used, note: r.note,
+        });
+      }
+      return out;
+    },
+  },
+];
 
 export default function BottlingScreen({
   setPage,
@@ -218,6 +243,7 @@ export default function BottlingScreen({
   const [orderItems, setOrderItems] = useState<any[]>([]);
   const [inventoryRows, setInventoryRows] = useState<any[]>([]);
   const [planCheckRows, setPlanCheckRows] = useState<any[]>([]);
+  const [prehledOtevren, setPrehledOtevren] = useState(false);
   const [keggingRows, setKeggingRows] = useState<any[]>([]);
   const [fasovaniRows, setFasovaniRows] = useState<any[]>([]);
   const [prodejnaRows, setProdejnaRows] = useState<any[]>([]);
@@ -834,6 +860,14 @@ export default function BottlingScreen({
             >
               <span className="inline-flex items-center gap-1.5"><BarChart3 size={14} /> Přehled</span>
             </button>
+            <button
+              type="button"
+              onClick={() => setPrehledOtevren(true)}
+              className="btn-ghost !rounded !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs"
+            >
+              <Copy className="ikona-text" /> Přehled k vykopírování
+            </button>
+
             <button
               type="button"
               onClick={() => selectTab('potreba')}
@@ -2021,6 +2055,14 @@ export default function BottlingScreen({
           </div>
         </Modal>
       )}
+      <PrehledVydejeModal
+        open={prehledOtevren}
+        onClose={() => setPrehledOtevren(false)}
+        obaly={packages as any}
+        nadpis="Zápis stáčení lahve"
+        varianta="staceni_lahve"
+        zdroje={ZDROJE_STACENI_LAHVE}
+      />
     </div>
   );
 }

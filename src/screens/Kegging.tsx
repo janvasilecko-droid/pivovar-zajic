@@ -14,13 +14,14 @@ import { computeKeggingPlan } from '../lib/keggingPlan';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
 import { markPlanSeenAt, type BottlingPlan } from '../lib/bottlingPlans';
 import KeggingDayPlan from '../components/KeggingDayPlan';
-import { AlertTriangle, BarChart3, Beer as BeerIcon, Calendar, CalendarDays, Camera, ClipboardList, Cylinder, Loader2, Package as PackageIcon, Pencil, Plus, RefreshCw, Scroll, Sparkles, Trash2 } from 'lucide-react';
+import { AlertTriangle, BarChart3, Beer as BeerIcon, Calendar, CalendarDays, Camera, ClipboardList, Copy, Cylinder, Loader2, Package as PackageIcon, Pencil, Plus, RefreshCw, Scroll, Sparkles, Trash2 } from 'lucide-react';
 import { ImportKeggingFromImage } from '../components/ImportKeggingFromImage';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { chyba, potvrd } from '../lib/toast';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { IkonaSud } from '../components/ikony';
 import { zavibruj } from '../lib/haptika';
+import PrehledVydejeModal from '../components/PrehledVydejeModal';
 
 
 const ROW_COUNT = 12;
@@ -31,12 +32,18 @@ const emptyRows = (): RowInput[] => Array.from({ length: ROW_COUNT }, emptyItem)
 // Rychlé hodnoty počtu sudů v rozbalovacím poli (6/12/18/24/30/36 ks)
 const QUICK_KEG_QTY = [6, 12, 18, 24];
 
+// List „Zápis stáčení KEG": Datum │ Druh piva │ Stočené množství(5).
+const ZDROJE_STACENI_KEG = [
+  { tabulka: 'kegging', popis: 'Stáčení sudů' },
+];
+
 export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; mode?: 'entry_only' | 'overviews_only' | 'all'; initialSubTab?: string } = {}) {
   const [rows, setRows] = useState<EntryRow[]>([]);
   // Úkoly zadané sládkem/šéfem (tabulka bottling_plans). Dřív je viděli jen
   // stáčeči lahví — u sudů se zadaná práce nikde neukazovala, i když v úkolu
   // sudová část byla.
   const [plany, setPlany] = useState<BottlingPlan[]>([]);
+  const [prehledOtevren, setPrehledOtevren] = useState(false);
   const [cellarTanks, setCellarTanks] = useState<CellarTank[]>([]);
   const [beers, setBeers] = useState<Beer[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
@@ -794,6 +801,14 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             >
               <span className="inline-flex items-center gap-1.5"><IkonaSud size={14} /> Začátek stáčení</span>
             </button>
+            <button
+              type="button"
+              onClick={() => setPrehledOtevren(true)}
+              className="btn-ghost !rounded !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs"
+            >
+              <Copy className="ikona-text" /> Přehled k vykopírování
+            </button>
+
             <button
               type="button"
               onClick={() => selectTab('prehled')}
@@ -2132,6 +2147,14 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
           </div>
         </Modal>
       )}
+      <PrehledVydejeModal
+        open={prehledOtevren}
+        onClose={() => setPrehledOtevren(false)}
+        obaly={packages as any}
+        nadpis="Zápis stáčení KEG"
+        varianta="staceni_keg"
+        zdroje={ZDROJE_STACENI_KEG}
+      />
     </div>
   );
 }

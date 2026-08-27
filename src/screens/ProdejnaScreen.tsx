@@ -28,6 +28,15 @@ type RowInput = { beerId: string; pkgId: string; qty: string; vycep: boolean; wh
 const emptyItem = (): RowInput => ({ beerId: '', pkgId: '', qty: '', vycep: false, who: '' });
 const emptyRows = (count: number): RowInput[] => Array.from({ length: count }, emptyItem);
 
+// Tři listy se stejným rozvržením (Datum │ Odběratel │ Druh piva │ obaly).
+// Pole je mimo komponentu, aby se neměnilo při každém překreslení a modál
+// kvůli tomu nenačítal data znovu.
+const ZDROJE_VYDEJE = [
+  { tabulka: 'fasovani', popis: 'Personál' },
+  { tabulka: 'fasovani_private', popis: 'Prodejna' },
+  { tabulka: 'writeoffs', popis: 'Odpis' },
+];
+
 export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovani_private', title = 'Prodejna — Fasování na prodejnu', icon = '🏪', showVycep = false }: { setPage?: (p: any, sec?: string) => void; mode?: 'entry_only' | 'overviews_only' | 'all'; table?: string; title?: string; icon?: string; showVycep?: boolean } = {}) {
   const [rows, setRows] = useState<EntryRow[]>([]);
   const [beers, setBeers] = useState<Beer[]>([]);
@@ -686,6 +695,9 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
         open={prehledOtevren}
         onClose={() => setPrehledOtevren(false)}
         obaly={packages as any}
+        nadpis="Odběr personál / prodejna / odpis"
+        varianta="odberatel"
+        zdroje={ZDROJE_VYDEJE}
       />
     </div>
   );

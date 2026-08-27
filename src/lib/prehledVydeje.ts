@@ -1,19 +1,28 @@
-// 📋 Přehled výdeje (Fasování + Prodejna) k vykopírování do tabulky.
+// 📋 Přehledy zápisů k vykopírování do tabulek.
 // ---------------------------------------------------------------------------
-// Jeden řádek = datum + odběratel + pivo, množství rozhozené do sloupců podle
-// objemu obalu, a k tomu hektolitry zvlášť za sudy, za lahve a celkem.
+// Pivovar si vede několik listů a každý má trochu jiné rozvržení. Tenhle modul
+// umí všechna tři, protože se liší jen v tom, které popisné sloupce mají smysl:
+//
+//   'odberatel'      Datum │ Odběratel │ Druh piva │ Sudy(5) │ Lahve(4)
+//                    — Odběr personál, Fasování prodejna, Vzorky promo a PR
+//                      (tam se druhý sloupec jmenuje „Komu proč a zač")
+//   'staceni_lahve'  Datum │ Druh piva │ Z sudů(5) │ Stočeno lahví(4)
+//   'staceni_keg'    Datum │ Druh piva │ Stočené množství(5)
 //
 // Formát je daný tím, jak se s tím dál pracuje: kopíruje se to do tabulky,
 // takže se skládá jako TSV (sloupce oddělené tabulátorem). Excel i Google
-// Tabulky si TSV samy rozhodí do buněk; kdyby se použil středník nebo čárka,
-// záleželo by na místním nastavení a rozpadlo by se to.
+// Tabulky si TSV samy rozhodí do buněk; se středníkem nebo čárkou by záleželo
+// na místním nastavení a rozpadlo by se to.
 //
 // Desetinná čísla se píšou s ČÁRKOU — v českém Excelu se jinak „1.5" chápe
 // jako text nebo datum, ne jako číslo.
+//
+// Sloupce s hektolitry se schválně NEEXPORTUJÍ: v listech jsou spočítané
+// vzorcem z počtů vlevo, takže vložením hodnoty by se vzorec přepsal a od
+// toho řádku dál by se přestalo počítat samo.
 
 export type VydejRadek = {
   entry_date: string | null;
-  beer_id: string | null;
   beer_name: string | null;
   package_id: string | null;
   quantity: number | null;
@@ -23,11 +32,46 @@ export type VydejRadek = {
 
 export type ObalPrehled = { id: string; label: string; kind: string; volume_l: number | string | null };
 
-/** Sloupce podle zadání — sudy zleva od největšího, pak lahve. */
+export type VariantaPrehledu = 'odberatel' | 'staceni_lahve' | 'staceni_keg';
+
+/** Objemy sloupců — ve všech listech stejné. */
 export const SLOUPCE_SUDY = [50, 30, 20, 15, 10];
 export const SLOUPCE_LAHVE = [1.5, 1, 0.5, 0.33];
 
+type PopisVarianty = {
+  /** Má list sloupec s odběratelem / komu? */
+  sOdberatelem: boolean;
+  /** Popisek toho sloupce v hlavičce. */
+  popisOdberatele: string;
+  /** Nadpis skupiny nad sloupci sudů. */
+  skupinaSudy: string;
+  /** Nadpis skupiny nad sloupci lahví; prázdné = list lahve nemá. */
+  skupinaLahve: string;
+};
+
+export const VARIANTY: Record<VariantaPrehledu, PopisVarianty> = {
+  odberatel: { sOdberatelem: true, popisOdberatele: 'Odběratel', skupinaSudy: 'Sudy', skupinaLahve: 'Lahve' },
+  staceni_lahve: { sOdberatelem: false, popisOdberatele: '', skupinaSudy: 'Z sudů', skupinaLahve: 'Stočeno lahví' },
+  staceni_keg: { sOdberatelem: false, popisOdberatele: '', skupinaSudy: 'Stočené množství', skupinaLahve: '' },
+};
+
+/** Sloupce dané varianty — u KEGů se lahve vynechají. */
+export function sloupceVarianty(varianta: VariantaPrehledu): number[] {
+  return VARIANTY[varianta].skupinaLahve
+    ? [...SLOUPCE_SUDY, ...SLOUPCE_LAHVE]
+    : [...SLOUPCE_SUDY];
+}
+
+/**
+ * Jak se řádky slučují:
+ *   'den'    — jeden řádek na datum + odběratele + pivo (denní zápis),
+ *   'souhrn' — jeden řádek na odběratele + pivo za celé období (měsíční
+ *              uzávěrka, kde datum nedává smysl a sloupec Datum se vynechá).
+ */
+export type Seskupeni = 'den' | 'souhrn';
+
 export type PrehledRadek = {
+  /** U souhrnu prázdné — řádek je za celé období, ne za jeden den. */
   datum: string;
   odberatel: string;
   pivo: string;
@@ -52,7 +96,7 @@ const klicObjemu = (l: number): number => Math.round(l * 100) / 100;
 export function sestavPrehled(
   radky: VydejRadek[],
   obaly: ObalPrehled[],
-  { od, do: doKdy }: { od: string; do: string },
+  { od, do: doKdy, seskupeni = 'den' }: { od: string; do: string; seskupeni?: Seskupeni },
 ): PrehledRadek[] {
   const mapaObalu = new Map(obaly.map((o) => [o.id, o]));
   const vsechnySloupce = new Set([...SLOUPCE_SUDY, ...SLOUPCE_LAHVE].map(klicObjemu));
@@ -67,10 +111,11 @@ export function sestavPrehled(
 
     const odberatel = (r.who || '').trim() || (r.note || '').trim() || '—';
     const pivo = (r.beer_name || '').trim() || '—';
-    const klic = `${r.entry_date}|${odberatel}|${pivo}`;
+    const klic = seskupeni === 'souhrn' ? `${odberatel}|${pivo}` : `${r.entry_date}|${odberatel}|${pivo}`;
 
     const zaznam = podleKlice.get(klic) ?? {
-      datum: r.entry_date, odberatel, pivo, kusy: {}, kusyJine: 0, sudyL: 0, lahveL: 0,
+      datum: seskupeni === 'souhrn' ? '' : r.entry_date,
+      odberatel, pivo, kusy: {}, kusyJine: 0, sudyL: 0, lahveL: 0,
     };
 
     const sloupec = klicObjemu(litruKus);
@@ -107,76 +152,83 @@ export function cisloProTabulku(n: number, desetinnych = 3): string {
   return String(zaokrouhleno).replace('.', ',');
 }
 
-/** Popisky přesně jako v listu: u sudů „50 l", u lahví „1,0l" (bez mezery). */
+/** Popisky přesně jako v listech: u sudů „50 l", u lahví „1,0l" (bez mezery). */
 export function popisSloupce(l: number): string {
   if (SLOUPCE_SUDY.includes(l)) return `${l} l`;
   const cislo = l === 1 ? '1,0' : String(l).replace('.', ',');
   return `${cislo}l`;
 }
 
-/** Hlavička ve dvou řádcích — skupiny nad sloupci, jak to je v listu. */
-export function hlavickaTsv(hektolitry = false): string {
-  const prazdne = (n: number) => Array(n).fill('').join('\t');
-  const radek1 = [
-    'Fasování prodejna', '', '',
-    'Sudy', prazdne(SLOUPCE_SUDY.length - 1),
-    'Lahve', prazdne(SLOUPCE_LAHVE.length - 1),
-    ...(hektolitry ? ['sudy hl', 'lahve hl', 'celkem hl'] : []),
-  ].join('\t');
-  const radek2 = [
-    'Datum', 'Odběratel', 'Druh piva',
-    ...SLOUPCE_SUDY.map(popisSloupce), ...SLOUPCE_LAHVE.map(popisSloupce),
-    ...(hektolitry ? ['', '', ''] : []),
-  ].join('\t');
-  return `${radek1}\n${radek2}`;
-}
-
 export type MoznostiTsv = {
-  /** Přidat dvouřádkovou hlavičku (jen pro samostatnou tabulku). */
+  varianta: VariantaPrehledu;
+  /** Vynechat sloupec Datum — u souhrnu za období nemá co obsahovat. */
+  bezData?: boolean;
+  /** Přidat dvouřádkovou hlavičku (jen pro zakládání nového listu). */
   hlavicka?: boolean;
   /** Přidat řádek se součtem. */
   soucet?: boolean;
-  /**
-   * Přidat sloupce sudy hl / lahve hl / celkem hl.
-   *
-   * VÝCHOZÍ JE NE. V listu jsou tyhle tři sloupce spočítané VZORCEM z počtů
-   * vlevo — kdyby se do nich vložila hodnota, vzorec by se přepsal a od toho
-   * řádku dál by se přestalo počítat samo.
-   */
-  hektolitry?: boolean;
 };
+
+/** Popisné sloupce vlevo (Datum / Odběratel / Druh piva) pro danou podobu. */
+export function popisneSloupce(varianta: VariantaPrehledu, bezData = false): string[] {
+  const v = VARIANTY[varianta];
+  return [
+    ...(bezData ? [] : ['Datum']),
+    ...(v.sOdberatelem ? [v.popisOdberatele] : []),
+    'Druh piva',
+  ];
+}
+
+/** Hlavička ve dvou řádcích — skupiny nad sloupci, jak to je v listech. */
+export function hlavickaTsv(varianta: VariantaPrehledu, bezData = false): string {
+  const v = VARIANTY[varianta];
+  const popisne = popisneSloupce(varianta, bezData);
+  const prazdne = (n: number) => Array(Math.max(0, n)).fill('');
+
+  const radek1 = [
+    ...prazdne(popisne.length),
+    v.skupinaSudy, ...prazdne(SLOUPCE_SUDY.length - 1),
+    ...(v.skupinaLahve ? [v.skupinaLahve, ...prazdne(SLOUPCE_LAHVE.length - 1)] : []),
+  ].join('\t');
+
+  const radek2 = [
+    ...popisne,
+    ...sloupceVarianty(varianta).map(popisSloupce),
+  ].join('\t');
+
+  return `${radek1}\n${radek2}`;
+}
 
 /**
  * Přehled jako TSV. Výchozí podoba je „co se vkládá do existujícího listu":
- * jen datové řádky, sloupce Datum až 0,33l, bez hlavičky a bez součtu.
+ * jen datové řádky, bez hlavičky, bez součtu a bez hektolitrů.
  */
-export function prehledDoTsv(radky: PrehledRadek[], moznosti: MoznostiTsv = {}): string {
-  const { hlavicka = false, soucet = false, hektolitry = false } = moznosti;
-  const kusyDoSloupcu = (kusy: Record<number, number>) => [
-    ...SLOUPCE_SUDY, ...SLOUPCE_LAHVE,
-  ].map((l) => {
-    const v = kusy[klicObjemu(l)];
-    return v ? String(v) : '';
-  });
+export function prehledDoTsv(radky: PrehledRadek[], moznosti: MoznostiTsv): string {
+  const { varianta, bezData = false, hlavicka = false, soucet = false } = moznosti;
+  const v = VARIANTY[varianta];
+  const sloupce = sloupceVarianty(varianta);
 
-  const hlSloupce = (sudyL: number, lahveL: number) => (hektolitry
-    ? [cisloProTabulku(sudyL / 100), cisloProTabulku(lahveL / 100), cisloProTabulku((sudyL + lahveL) / 100)]
-    : []);
+  const kusyDoSloupcu = (kusy: Record<number, number>) =>
+    sloupce.map((l) => {
+      const hodnota = kusy[klicObjemu(l)];
+      return hodnota ? String(hodnota) : '';
+    });
 
   const telo = radky.map((r) => [
-    formatDatum(r.datum),
-    r.odberatel,
+    ...(bezData ? [] : [formatDatum(r.datum)]),
+    ...(v.sOdberatelem ? [r.odberatel] : []),
     r.pivo,
     ...kusyDoSloupcu(r.kusy),
-    ...hlSloupce(r.sudyL, r.lahveL),
   ].join('\t'));
 
   const casti: string[] = [];
-  if (hlavicka) casti.push(hlavickaTsv(hektolitry));
+  if (hlavicka) casti.push(hlavickaTsv(varianta, bezData));
   casti.push(...telo);
   if (soucet) {
     const s = soucty(radky);
-    casti.push(['Celkem', '', '', ...kusyDoSloupcu(s.kusy), ...hlSloupce(s.sudyL, s.lahveL)].join('\t'));
+    // „Celkem" patří do prvního popisného sloupce, zbytek zůstane prázdný.
+    const popisnych = popisneSloupce(varianta, bezData).length;
+    casti.push(['Celkem', ...Array(popisnych - 1).fill(''), ...kusyDoSloupcu(s.kusy)].join('\t'));
   }
   return casti.join('\n');
 }
