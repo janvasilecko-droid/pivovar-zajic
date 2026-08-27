@@ -5,7 +5,7 @@ import { isoWeekKey } from '../components/WeeklyOrderSummaryCard';
 import { exportProdejnaToExcel } from '../lib/excel';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { ProdejnaFromImage } from '../components/ProdejnaFromImage';
-import { BarChart3, Calendar, Camera, ClipboardList, Package as PackageIcon, Trash2 } from 'lucide-react';
+import { BarChart3, Calendar, Camera, ClipboardList, Package as PackageIcon, Trash2, Copy } from 'lucide-react';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { TapReservationModal } from '../components/TapReservationModal';
 import { detectTapType } from '../lib/tapReservations';
@@ -13,6 +13,7 @@ import type { TapReservation } from './VycepyScreen';
 import { BeerTileGrid, BeerTilePanel, TileTotalBar } from '../components/BeerTileGrid';
 import { potvrd } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
+import PrehledVydejeModal from '../components/PrehledVydejeModal';
 
 // Tři podoby jednoho výdeje ze skladu. Klíč je tabulka, do které se zapisuje.
 const DRUHY_VYDEJE = [
@@ -40,6 +41,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   const [expandedProdejnaBeerId, setExpandedProdejnaBeerId] = useState<string | null>(null);
   const expandedProdejnaBeer = beers.find((b) => b.id === expandedProdejnaBeerId) ?? null;
   const [saving, setSaving] = useState(false);
+  const [prehledOtevren, setPrehledOtevren] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
   const [aliasMap, setAliasMap] = useState<ParserAliasMap>(emptyAliasMap());
@@ -293,6 +295,15 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
               <span>{title}</span>
             </span>
           )}
+          {/* Přehled k vykopírování do tabulky — sloupce podle objemů obalů. */}
+          <button
+            type="button"
+            onClick={() => setPrehledOtevren(true)}
+            className="btn-ghost !rounded !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs"
+          >
+            <Copy className="ikona-text" /> Přehled k vykopírování
+          </button>
+
           {/* Export do Excelu */}
           <div className="relative group">
             <button className="btn-ghost !rounded !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs" disabled={!rows.length}><BarChart3 className="ikona-text" /> Export Excel ▾</button>
@@ -670,6 +681,12 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
           onTextExtracted={handlePhotoText}
         />
       )}
+
+      <PrehledVydejeModal
+        open={prehledOtevren}
+        onClose={() => setPrehledOtevren(false)}
+        obaly={packages as any}
+      />
     </div>
   );
 }
