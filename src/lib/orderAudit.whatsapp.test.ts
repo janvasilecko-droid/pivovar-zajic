@@ -25,7 +25,12 @@ vi.mock('./supabase', () => {
     q.maybeSingle = vi.fn().mockResolvedValue({ data: data[0] ?? null, error: null });
     return q;
   }
-  return { supabase: { from: vi.fn((t: string) => makeQuery(t)) } };
+  return {
+    supabase: { from: vi.fn((t: string) => makeQuery(t)) },
+    // Stránkovaný protějšek supabase.from(...).select(...) — pro atrapu se
+    // chová stejně, jen se volá jinak.
+    fetchAllRows: vi.fn((t: string) => makeQuery(t)),
+  };
 });
 
 vi.mock('./orderParser', () => ({

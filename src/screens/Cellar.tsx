@@ -3,7 +3,7 @@ import { useAuth } from '../lib/auth';
 import { AlertTriangle, Beer as BeerIcon, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Droplet, Factory, FlaskConical, NotebookPen, SprayCan } from 'lucide-react';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 
-import { supabase, Beer, Package, CellarTank, CellarTransfer, CellarTankCycle, EntryRow, useRealtime, beerBorder } from '../lib/supabase';
+import { Beer, CellarTank, CellarTankCycle, CellarTransfer, EntryRow, Package, beerBorder, fetchAllRows, supabase, useRealtime } from '../lib/supabase';
 import { Modal, Field, Spinner } from '../components/ui';
 import { TankOccupancyPlanner } from '../components/TankOccupancyPlanner';
 import { chyba, oznam, potvrd } from '../lib/toast';
@@ -173,7 +173,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
     const list = (ords as OrderRow[]) ?? [];
     setOrders(list);
     if (!list.length) { setOrderItems([]); return; }
-    const { data: its } = await supabase.from('order_items').select('order_id,beer_id,package_id,quantity').in('order_id', list.map((o) => o.id));
+    const { data: its } = await fetchAllRows('order_items', 'order_id,beer_id,package_id,quantity').in('order_id', list.map((o) => o.id));
     setOrderItems((its as OrderItemRow[]) ?? []);
   }
   useEffect(() => { loadOrders(); }, []);

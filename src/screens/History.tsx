@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { supabase, Beer, Package, Place, useRealtime, beerBg, beerBorder, beerName, formatPackageLabel } from '../lib/supabase';
+import { Beer, Package, Place, beerBg, beerBorder, beerName, fetchAllRows, formatPackageLabel, supabase, useRealtime } from '../lib/supabase';
 import { Spinner, EmptyState } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { orderWeightKg, fmtKg } from '../lib/weight';
@@ -213,7 +213,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
     setDelPackages((p as Package[]) ?? []);
     setPlaces((pl as Place[]) ?? []);
     if (ords.length) {
-      const { data: it } = await supabase.from('order_items').select('*').in('order_id', ords.map((x) => x.id));
+      const { data: it } = await fetchAllRows('order_items', '*').in('order_id', ords.map((x) => x.id));
       const map: Record<string, DeliveryItem[]> = {};
       (it as DeliveryItem[])?.forEach((i) => { (map[i.order_id] ??= []).push(i); });
       setDelItems(map);

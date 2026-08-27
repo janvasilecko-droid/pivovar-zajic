@@ -7,7 +7,7 @@
 //
 // Výpočet zůstává v zavozUkoly.ts bez závislosti na databázi, aby se dal
 // testovat bez připojení.
-import { supabase } from './supabase';
+import { supabase, fetchAllRows } from './supabase';
 import type { UkolKlic } from './zavozUkoly';
 
 /** Klíč do množiny splněných úkolů. Objednávka + druh úkolu. */
@@ -23,19 +23,17 @@ export function klicUkolu(orderId: string, klic: UkolKlic | string): string {
 export async function nactiHotoveUkoly(orderIds: string[]): Promise<Set<string>> {
   if (orderIds.length === 0) return new Set();
 
-  // Supabase vrací nejvýš 1000 řádků na dotaz a zbytek TIŠE zahodí, proto
-  // se objednávky posílají po dávkách. Úkolů je na objednávku pár, ale
-  // týden závozů se k tisícovce dostat může.
+  // Přes fetchAllRows, ne přímo: Supabase vrací nejvýš 1000 řádků na dotaz
+  // a zbytek TIŠE zahodí. Na objednávku můžou být až tři úkoly, takže by se
+  // hranice dala přerazit — a odškrtnuté úkoly by se vrátily jako neodškrtnuté.
+  const { data, error } = await fetchAllRows<{ order_id: string; klic: string }>(
+    'zavoz_ukoly_hotovo',
+    'order_id,klic',
+  ).in('order_id', orderIds);
+  if (error) throw error;
+
   const hotove = new Set<string>();
-  for (let i = 0; i < orderIds.length; i += 200) {
-    const davka = orderIds.slice(i, i + 200);
-    const { data, error } = await supabase
-      .from('zavoz_ukoly_hotovo')
-      .select('order_id,klic')
-      .in('order_id', davka);
-    if (error) throw error;
-    for (const r of data ?? []) hotove.add(klicUkolu(r.order_id as string, r.klic as string));
-  }
+  for (const r of data ?? []) hotove.add(klicUkolu(r.order_id, r.klic));
   return hotove;
 }
 

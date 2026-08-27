@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { supabase, Package, Beer, Place, useRealtime, formatPackageLabel } from '../lib/supabase';
+import { Beer, Package, Place, fetchAllRows, formatPackageLabel, supabase, useRealtime } from '../lib/supabase';
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { orderWeightKg, fmtKg } from '../lib/weight';
 import { DAYS } from '../lib/shared';
@@ -82,7 +82,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
     setBeers((b as Beer[]) ?? []);
     setPlaces((pl as Place[]) ?? []);
     if (ords.length) {
-      const { data: it } = await supabase.from('order_items').select('*').in('order_id', ords.map((x) => x.id));
+      const { data: it } = await fetchAllRows('order_items', '*').in('order_id', ords.map((x) => x.id));
       const map: Record<string, OrderItem[]> = {};
       (it as OrderItem[])?.forEach((i) => { (map[i.order_id] ??= []).push(i); });
       setItems(map);

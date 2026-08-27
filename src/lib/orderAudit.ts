@@ -1,4 +1,4 @@
-import { supabase, Beer, Package } from './supabase';
+import { Beer, Package, fetchAllRows, supabase } from './supabase';
 import { WhatsAppIncoming } from './whatsappApi';
 import { parseFreeTextEntries, emptyAliasMap, loadAliasMap } from './orderParser';
 
@@ -136,10 +136,10 @@ export async function runOrderAudit({
 
   let orderItems: any[] = [];
   if (orderIds.length > 0) {
-    const { data: itemsData, error: itemsErr } = await supabase
-      .from('order_items')
-      .select('id, order_id, beer_id, package_id, quantity, beer_name, package_label, is_prepared')
-      .in('order_id', orderIds);
+    const { data: itemsData, error: itemsErr } = await fetchAllRows(
+      'order_items',
+      'id, order_id, beer_id, package_id, quantity, beer_name, package_label, is_prepared',
+    ).in('order_id', orderIds);
     if (itemsErr) {
       console.error('Audit: Chyba při načítání položek objednávek:', itemsErr);
     }

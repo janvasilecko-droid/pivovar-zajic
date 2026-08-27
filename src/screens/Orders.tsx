@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 
 import { AlertTriangle, ArrowRight, Ban, Beer as BeerIcon, Bell, Building2, Calculator, Calendar, CalendarDays, Camera, Check, CheckCircle2, CheckSquare, ClipboardList, Copy, FilePlus, Hourglass, ListOrdered, Mail, MessageCircle, NotebookPen, Package as PackageIcon, PackageCheck, Pencil, Phone, Plus, RotateCcw, Scroll, ShieldAlert, Trash2, Truck, User, Zap } from 'lucide-react';
-import { supabase, Beer, Package, Place, EntryRow, useRealtime, beerBg, beerText, beerName, formatPackageLabel, pkgBg } from '../lib/supabase';
+import { Beer, EntryRow, Package, Place, beerBg, beerName, beerText, fetchAllRows, formatPackageLabel, pkgBg, supabase, useRealtime } from '../lib/supabase';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { consumeOrdersItemFilter, consumeOrdersAutoImportRequest } from '../lib/ordersFilter';
@@ -767,7 +767,7 @@ export default function Orders({
     setAkceRows((ak as AkceRow[]) ?? []);
     const ids = (o as Order[])?.map((x) => x.id) ?? [];
     if (ids.length) {
-      const { data: it } = await supabase.from('order_items').select('*').in('order_id', ids);
+      const { data: it } = await fetchAllRows('order_items', '*').in('order_id', ids);
       const map: Record<string, OrderItem[]> = {};
       (it as OrderItem[])?.forEach((i) => { (map[i.order_id] ??= []).push(i); });
       setItems(map);

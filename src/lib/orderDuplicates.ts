@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { fetchAllRows, supabase } from './supabase';
 import { businessDateISO } from './businessDate';
 
 // ⚠️ Kontrola duplicit objednávek při čtení do aplikace.
@@ -93,10 +93,10 @@ export async function findDuplicateOrders(input: DuplicateCheckInput): Promise<D
   if (candidates.length === 0) return null;
 
   const ids = candidates.map((o: any) => o.id);
-  const { data: existingItems } = await supabase
-    .from('order_items')
-    .select('order_id, beer_id, package_id, quantity')
-    .in('order_id', ids);
+  const { data: existingItems } = await fetchAllRows(
+    'order_items',
+    'order_id, beer_id, package_id, quantity',
+  ).in('order_id', ids);
 
   const itemsByOrder = new Map<string, any[]>();
   for (const it of existingItems || []) {

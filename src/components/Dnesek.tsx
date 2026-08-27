@@ -7,7 +7,7 @@
 // Dlaždicový launcher zůstává pod tím beze změny.
 import { useEffect, useState } from 'react';
 import { ChevronRight, Truck, ClipboardList, MessageCircle, Wine, CheckCircle2, ArrowLeftRight } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { fetchAllRows, supabase } from '../lib/supabase';
 import { businessDateISO } from '../lib/businessDate';
 import { fetchPendingWhatsAppCount } from '../lib/whatsappApi';
 import { souhrnUkolu, ukolyZPoznamky } from '../lib/zavozUkoly';
@@ -53,10 +53,7 @@ export default function Dnesek({ setPage }: { setPage: (p: Page) => void }) {
           .neq('status', 'storno');
         const ids = (obj ?? []).map((o: any) => o.id);
         if (!ids.length) return null;
-        const { data: polozky } = await supabase
-          .from('order_items')
-          .select('quantity')
-          .in('order_id', ids);
+        const { data: polozky } = await fetchAllRows('order_items', 'quantity').in('order_id', ids);
         const kusu = (polozky ?? []).reduce((s: number, p: any) => s + Number(p.quantity || 0), 0);
         // Poznámky nesou i požadavky typu „ještě vyzvednout sudy". Ty se
         // nejsnáz zapomenou, protože se nedají naložit dopředu v pivovaru.

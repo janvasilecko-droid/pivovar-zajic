@@ -645,6 +645,12 @@ export type AuditEntry = {
  * tempu zhruba 250 odečtů měsíčně se hranice překročí během pár měsíců.
  *
  * `select` je stejný řetězec jako u supabase.from(t).select(...).
+ *
+ * `.in(sloupec, hodnoty)` je tu taky, a je to nejzákeřnější případ: dotaz
+ * typu „položky těchhle objednávek" vypadá omezeně, ale položek může být
+ * násobně víc než objednávek, takže tisícovku přeroste dřív než tabulka
+ * sama. Seznam hodnot se posílá po stovkách kvůli délce URL a každá dávka
+ * se navíc stránkuje.
  */
 export function fetchAllRows<T = any>(
   table: string,
@@ -654,16 +660,22 @@ export function fetchAllRows<T = any>(
   gte: (col: string, val: any) => any;
   lte: (col: string, val: any) => any;
   eq: (col: string, val: any) => any;
+  in: (col: string, vals: any[]) => any;
 } {
   // Modifikátory (order/eq/gte/…) se posbírají a použijí na každou stránku.
   const kroky: ((q: any) => any)[] = [];
+  // `in` se drží zvlášť: dlouhý seznam hodnot se musí rozsekat, aby se URL
+  // dotazu vešlo do limitu serveru.
+  let inFiltr: { col: string; vals: any[] } | null = null;
 
-  const nacti = async () => {
+  /** Jedna stránkovaná dávka — vrátí VŠECHNY řádky, které dotazu odpovídají. */
+  const nactiStranky = async (uprav: (q: any) => any) => {
     const PAGE = 1000;
     const out: T[] = [];
     for (let from = 0; ; from += PAGE) {
       let q: any = supabase.from(table).select(select);
       for (const k of kroky) q = k(q);
+      q = uprav(q);
       const { data, error } = await q.range(from, from + PAGE - 1);
       if (error) {
         console.error(`fetchAllRows(${table}) selhalo:`, error.message);
@@ -674,7 +686,28 @@ export function fetchAllRows<T = any>(
       if (batch.length < PAGE) break;
       if (out.length > 500_000) break; // pojistka proti nekonečné smyčce
     }
-    return { data: out, error: null };
+    return { data: out, error: null as any };
+  };
+
+  const nacti = async () => {
+    if (!inFiltr) return nactiStranky((q) => q);
+
+    // Prázdný seznam by bez téhle zkratky poslal dotaz `in.()`, na který
+    // PostgREST odpoví chybou — přitom správná odpověď je „žádné řádky".
+    if (inFiltr.vals.length === 0) return { data: [] as T[], error: null as any };
+
+    // Hodnoty po stovkách kvůli délce URL; každá dávka se pak sama stránkuje,
+    // takže na počtu hodnot v dávce nezáleží — sto objednávek může mít klidně
+    // dva tisíce položek a všechny se načtou.
+    const CHUNK = 100;
+    const out: T[] = [];
+    for (let i = 0; i < inFiltr.vals.length; i += CHUNK) {
+      const cast = inFiltr.vals.slice(i, i + CHUNK);
+      const { data, error } = await nactiStranky((q) => q.in(inFiltr!.col, cast));
+      out.push(...data);
+      if (error) return { data: out, error };
+    }
+    return { data: out, error: null as any };
   };
 
   const api: any = {
@@ -683,6 +716,7 @@ export function fetchAllRows<T = any>(
     gte: (col: string, val: any) => { kroky.push((q) => q.gte(col, val)); return api; },
     lte: (col: string, val: any) => { kroky.push((q) => q.lte(col, val)); return api; },
     eq: (col: string, val: any) => { kroky.push((q) => q.eq(col, val)); return api; },
+    in: (col: string, vals: any[]) => { inFiltr = { col, vals }; return api; },
   };
   return api;
 }
