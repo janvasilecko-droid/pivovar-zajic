@@ -22,6 +22,7 @@ const BottlingScreen = lazy(() => import('./screens/BottlingScreen'));
 const ProdejnaScreen = lazy(() => import('./screens/ProdejnaScreen'));
 const AkceScreen = lazy(() => import('./screens/Akce'));
 const Statistika = lazy(() => import('./screens/Statistika'));
+const ExportExcelScreen = lazy(() => import('./screens/ExportExcelScreen'));
 const PriceListScreen = lazy(() => import('./screens/PriceList'));
 const CellarScreen = lazy(() => import('./screens/Cellar'));
 const SrotovaniScreen = lazy(() => import('./screens/BreweryScreens').then((m) => ({ default: m.SrotovaniScreen })));
@@ -243,6 +244,7 @@ export default function App() {
         />
       )}
       {page === 'history' && <Statistika setPage={setPage} initialSubTab={pageSubTab} />}
+      {page === 'export_excel' && <ExportExcelScreen />}
       {(page === 'pricelist' || page === 'places' || page === 'beers' || page === 'packages' || page === 'depozitar') && (
         <DepozitarTabbed
           initialTab={

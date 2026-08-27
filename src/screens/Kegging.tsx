@@ -21,7 +21,6 @@ import { chyba, potvrd } from '../lib/toast';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { IkonaSud } from '../components/ikony';
 import { zavibruj } from '../lib/haptika';
-import PrehledVydejeModal from '../components/PrehledVydejeModal';
 
 
 const ROW_COUNT = 12;
@@ -32,23 +31,12 @@ const emptyRows = (): RowInput[] => Array.from({ length: ROW_COUNT }, emptyItem)
 // Rychlé hodnoty počtu sudů v rozbalovacím poli (6/12/18/24/30/36 ks)
 const QUICK_KEG_QTY = [6, 12, 18, 24];
 
-// List „Zápis stáčení KEG": Datum │ Druh piva │ Stočené množství(5).
-const ZDROJE_STACENI_KEG = [
-  {
-    tabulka: 'kegging',
-    popis: 'Stáčení sudů',
-    // cellar_tank_id se v modálu překládá na označení tanku (viz níž).
-    sloupce: 'entry_date,beer_name,package_id,quantity,note,cellar_tank_id',
-  },
-];
-
 export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; mode?: 'entry_only' | 'overviews_only' | 'all'; initialSubTab?: string } = {}) {
   const [rows, setRows] = useState<EntryRow[]>([]);
   // Úkoly zadané sládkem/šéfem (tabulka bottling_plans). Dřív je viděli jen
   // stáčeči lahví — u sudů se zadaná práce nikde neukazovala, i když v úkolu
   // sudová část byla.
   const [plany, setPlany] = useState<BottlingPlan[]>([]);
-  const [prehledOtevren, setPrehledOtevren] = useState(false);
   const [cellarTanks, setCellarTanks] = useState<CellarTank[]>([]);
   const [beers, setBeers] = useState<Beer[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
@@ -808,14 +796,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             </button>
             <button
               type="button"
-              onClick={() => setPrehledOtevren(true)}
-              className="btn-ghost !rounded !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs"
-            >
-              <Copy className="ikona-text" /> Přehled k vykopírování
-            </button>
-
-            <button
-              type="button"
               onClick={() => selectTab('prehled')}
               className={`px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[44px] ${tab === 'prehled' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
             >
@@ -875,34 +855,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
       {/* Export Excel a foto/hlas — schválně NEUKOTVENO (viz komentář u sticky lišty výše). */}
       <div className="flex items-center gap-1.5 flex-wrap">
-          <div className="relative group">
-
-            <button className="btn-ghost !rounded !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs" disabled={!rows.length}><BarChart3 className="ikona-text" /> Export Excel ▾</button>
-            {rows.length > 0 && (
-              <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-neutral-200 rounded shadow-lg py-1 min-w-[180px] hidden group-hover:block group-focus-within:block">
-                <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
-                  const now = new Date();
-                  const m = now.toISOString().slice(0, 7);
-                  const filtered = rows.filter((r) => r.entry_date?.startsWith(m));
-                  exportKeggingToExcel(filtered.map((r) => ({ ...r, cellar_tank_label: cellarTanks.find((t) => t.id === r.cellar_tank_id)?.label ?? '', hl: ((Number(r.quantity) * (packages.find((p) => p.id === r.package_id)?.volume_l ?? 0)) / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 }) })), cellarTanks, beers);
-                }}><Calendar className="ikona-text" /> Tento měsíc</button>
-                <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
-                  const d = new Date(); d.setMonth(d.getMonth() - 1);
-                  const m = d.toISOString().slice(0, 7);
-                  const filtered = rows.filter((r) => r.entry_date?.startsWith(m));
-                  exportKeggingToExcel(filtered.map((r) => ({ ...r, cellar_tank_label: cellarTanks.find((t) => t.id === r.cellar_tank_id)?.label ?? '', hl: ((Number(r.quantity) * (packages.find((p) => p.id === r.package_id)?.volume_l ?? 0)) / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 }) })), cellarTanks, beers);
-                }}><Calendar className="ikona-text" /> Minulý měsíc</button>
-                <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
-                  const wk = recordsView === 'week' ? recordsWeekKey : weekKey;
-                  const filtered = rows.filter((r) => isoWeekKey(r.entry_date) === wk);
-                  exportKeggingToExcel(filtered.map((r) => ({ ...r, cellar_tank_label: cellarTanks.find((t) => t.id === r.cellar_tank_id)?.label ?? '', hl: ((Number(r.quantity) * (packages.find((p) => p.id === r.package_id)?.volume_l ?? 0)) / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 }) })), cellarTanks, beers);
-                }}><Calendar className="ikona-text" /> Tento týden</button>
-                <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
-                  exportKeggingToExcel(rows.map((r) => ({ ...r, cellar_tank_label: cellarTanks.find((t) => t.id === r.cellar_tank_id)?.label ?? '', hl: ((Number(r.quantity) * (packages.find((p) => p.id === r.package_id)?.volume_l ?? 0)) / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 }) })), cellarTanks, beers);
-                }}><Calendar className="ikona-text" /> Všechno</button>
-              </div>
-            )}
-          </div>
 
           {tab === 'zapis' && mode !== 'overviews_only' && isStartChecklistCompleteForKeg(businessDateISO()) && (
             <>
@@ -2152,15 +2104,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
           </div>
         </Modal>
       )}
-      <PrehledVydejeModal
-        open={prehledOtevren}
-        onClose={() => setPrehledOtevren(false)}
-        obaly={packages as any}
-        nadpis="Zápis stáčení KEG"
-        varianta="staceni_keg"
-        zdroje={ZDROJE_STACENI_KEG}
-        tanky={cellarTanks as any}
-      />
     </div>
   );
 }

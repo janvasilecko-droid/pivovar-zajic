@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, formatPackageLabel } from '../lib/supabase';
 import { EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey } from '../components/WeeklyOrderSummaryCard';
-import { exportProdejnaToExcel } from '../lib/excel';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { ProdejnaFromImage } from '../components/ProdejnaFromImage';
 import { BarChart3, Calendar, Camera, ClipboardList, Package as PackageIcon, Trash2, Copy } from 'lucide-react';
@@ -13,7 +12,6 @@ import type { TapReservation } from './VycepyScreen';
 import { BeerTileGrid, BeerTilePanel, TileTotalBar } from '../components/BeerTileGrid';
 import { potvrd } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
-import PrehledVydejeModal from '../components/PrehledVydejeModal';
 
 // Tři podoby jednoho výdeje ze skladu. Klíč je tabulka, do které se zapisuje.
 const DRUHY_VYDEJE = [
@@ -28,15 +26,6 @@ type RowInput = { beerId: string; pkgId: string; qty: string; vycep: boolean; wh
 const emptyItem = (): RowInput => ({ beerId: '', pkgId: '', qty: '', vycep: false, who: '' });
 const emptyRows = (count: number): RowInput[] => Array.from({ length: count }, emptyItem);
 
-// Tři listy se stejným rozvržením (Datum │ Odběratel │ Druh piva │ obaly).
-// Pole je mimo komponentu, aby se neměnilo při každém překreslení a modál
-// kvůli tomu nenačítal data znovu.
-const ZDROJE_VYDEJE = [
-  { tabulka: 'fasovani', popis: 'Personál' },
-  { tabulka: 'fasovani_private', popis: 'Prodejna' },
-  { tabulka: 'writeoffs', popis: 'Odpis' },
-];
-
 export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovani_private', title = 'Prodejna — Fasování na prodejnu', icon = '🏪', showVycep = false }: { setPage?: (p: any, sec?: string) => void; mode?: 'entry_only' | 'overviews_only' | 'all'; table?: string; title?: string; icon?: string; showVycep?: boolean } = {}) {
   const [rows, setRows] = useState<EntryRow[]>([]);
   const [beers, setBeers] = useState<Beer[]>([]);
@@ -50,7 +39,6 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   const [expandedProdejnaBeerId, setExpandedProdejnaBeerId] = useState<string | null>(null);
   const expandedProdejnaBeer = beers.find((b) => b.id === expandedProdejnaBeerId) ?? null;
   const [saving, setSaving] = useState(false);
-  const [prehledOtevren, setPrehledOtevren] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
   const [aliasMap, setAliasMap] = useState<ParserAliasMap>(emptyAliasMap());
@@ -304,43 +292,6 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
               <span>{title}</span>
             </span>
           )}
-          {/* Přehled k vykopírování do tabulky — sloupce podle objemů obalů. */}
-          <button
-            type="button"
-            onClick={() => setPrehledOtevren(true)}
-            className="btn-ghost !rounded !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs"
-          >
-            <Copy className="ikona-text" /> Přehled k vykopírování
-          </button>
-
-          {/* Export do Excelu */}
-          <div className="relative group">
-            <button className="btn-ghost !rounded !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs" disabled={!rows.length}><BarChart3 className="ikona-text" /> Export Excel ▾</button>
-            {rows.length > 0 && (
-              <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-neutral-200 rounded shadow-lg py-1 min-w-[180px] hidden group-hover:block group-focus-within:block">
-                <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
-                  const now = new Date();
-                  const m = now.toISOString().slice(0, 7);
-                  const filtered = rows.filter((r) => r.entry_date?.startsWith(m));
-                  exportProdejnaToExcel(filtered);
-                }}><Calendar className="ikona-text" /> Tento měsíc</button>
-                <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
-                  const d = new Date(); d.setMonth(d.getMonth() - 1);
-                  const m = d.toISOString().slice(0, 7);
-                  const filtered = rows.filter((r) => r.entry_date?.startsWith(m));
-                  exportProdejnaToExcel(filtered);
-                }}><Calendar className="ikona-text" /> Minulý měsíc</button>
-                <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
-                  const wk = isoWeekKey(new Date().toISOString().slice(0, 10));
-                  const filtered = rows.filter((r) => isoWeekKey(r.entry_date) === wk);
-                  exportProdejnaToExcel(filtered);
-                }}><Calendar className="ikona-text" /> Tento týden</button>
-                <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
-                  exportProdejnaToExcel(rows);
-                }}><Calendar className="ikona-text" /> Všechno</button>
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
@@ -691,14 +642,6 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
         />
       )}
 
-      <PrehledVydejeModal
-        open={prehledOtevren}
-        onClose={() => setPrehledOtevren(false)}
-        obaly={packages as any}
-        nadpis="Odběr personál / prodejna / odpis"
-        varianta="odberatel"
-        zdroje={ZDROJE_VYDEJE}
-      />
     </div>
   );
 }

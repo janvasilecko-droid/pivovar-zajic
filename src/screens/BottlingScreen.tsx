@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, beerText, formatPackageLabel, fetchAllRows } from '../lib/supabase';
 import { EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
-import { exportBottlingToExcel } from '../lib/excel';
 import { ImportBottlingFromImage } from '../components/ImportBottlingFromImage';
 import { AlertTriangle, BarChart3, Beer as BeerIcon, Calendar, CalendarDays, Camera, ClipboardList, Copy, Cylinder, Lightbulb, ListChecks, Package as PackageIcon, Pencil, Plus, RefreshCw, Sparkles, Trash2, Wine } from 'lucide-react';
 import { useAuth } from '../lib/auth';
@@ -24,7 +23,6 @@ import KeggingDayPlan from '../components/KeggingDayPlan';
 import { chyba, potvrd } from '../lib/toast';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
-import PrehledVydejeModal from '../components/PrehledVydejeModal';
 
 
 const ROW_COUNT = 12;
@@ -38,30 +36,6 @@ const ALLOWED_BOTTLE_VOLUMES = [1.5, 1, 0.5, 0.33];
 // Velikosti KEG sudů
 const KEG_SIZES = [50, 30, 20, 15, 10];
 
-
-// List „Zápis stáčení lahve": Datum │ Druh piva │ Z sudů(5) │ Stočeno lahví(4).
-// Sloupce „Z sudů" nejsou obal zápisu, ale sudy SPOTŘEBOVANÉ na stočení
-// (kegs_used) — proto se z jednoho řádku dělají dvě položky.
-const ZDROJE_STACENI_LAHVE = [
-  {
-    tabulka: 'bottling',
-    popis: 'Stáčení lahví',
-    sloupce: 'entry_date,beer_name,package_id,quantity,note,kegs_used,kegs_used_package_id',
-    prevod: (r: any) => {
-      const out: any[] = [{
-        entry_date: r.entry_date, beer_name: r.beer_name,
-        package_id: r.package_id, quantity: r.quantity, note: r.note,
-      }];
-      if (Number(r.kegs_used) > 0 && r.kegs_used_package_id) {
-        out.push({
-          entry_date: r.entry_date, beer_name: r.beer_name,
-          package_id: r.kegs_used_package_id, quantity: r.kegs_used, note: r.note,
-        });
-      }
-      return out;
-    },
-  },
-];
 
 export default function BottlingScreen({
   setPage,
@@ -243,7 +217,6 @@ export default function BottlingScreen({
   const [orderItems, setOrderItems] = useState<any[]>([]);
   const [inventoryRows, setInventoryRows] = useState<any[]>([]);
   const [planCheckRows, setPlanCheckRows] = useState<any[]>([]);
-  const [prehledOtevren, setPrehledOtevren] = useState(false);
   const [keggingRows, setKeggingRows] = useState<any[]>([]);
   const [fasovaniRows, setFasovaniRows] = useState<any[]>([]);
   const [prodejnaRows, setProdejnaRows] = useState<any[]>([]);
@@ -862,14 +835,6 @@ export default function BottlingScreen({
             </button>
             <button
               type="button"
-              onClick={() => setPrehledOtevren(true)}
-              className="btn-ghost !rounded !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs"
-            >
-              <Copy className="ikona-text" /> Přehled k vykopírování
-            </button>
-
-            <button
-              type="button"
               onClick={() => selectTab('potreba')}
               className={`px-3.5 py-2 rounded text-xs font-black transition flex items-center gap-1.5 shrink-0 min-h-[44px] ${tab === 'potreba' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
             >
@@ -910,33 +875,6 @@ export default function BottlingScreen({
 
           {/* Export do Excelu — vedle názvu */}
           <div className="flex items-center gap-1.5 flex-wrap">
-          <div className="relative group">
-            <button className="btn-ghost !rounded !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs" disabled={!rows.length}><BarChart3 className="ikona-text" /> Export Excel ▾</button>
-            {rows.length > 0 && (
-              <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-neutral-200 rounded shadow-lg py-1 min-w-[180px] hidden group-hover:block group-focus-within:block">
-                <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
-                  const now = new Date();
-                  const m = now.toISOString().slice(0, 7);
-                  const filtered = rows.filter((r) => r.entry_date?.startsWith(m));
-                  exportBottlingToExcel(filtered);
-                }}><Calendar className="ikona-text" /> Tento měsíc</button>
-                <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
-                  const d = new Date(); d.setMonth(d.getMonth() - 1);
-                  const m = d.toISOString().slice(0, 7);
-                  const filtered = rows.filter((r) => r.entry_date?.startsWith(m));
-                  exportBottlingToExcel(filtered);
-                }}><Calendar className="ikona-text" /> Minulý měsíc</button>
-                <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
-                  const wk = recordsView === 'week' ? recordsWeekKey : isoWeekKey(new Date().toISOString().slice(0, 10));
-                  const filtered = rows.filter((r) => isoWeekKey(r.entry_date) === wk);
-                  exportBottlingToExcel(filtered);
-                }}><Calendar className="ikona-text" /> Tento týden</button>
-                <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
-                  exportBottlingToExcel(rows);
-                }}><Calendar className="ikona-text" /> Všechno</button>
-              </div>
-            )}
-          </div>
 
           {(mode === 'entry_only' || (mode === 'all' && tab === 'zapis')) && isStartChecklistCompleteForDate(businessDateISO()) && (
             <>
@@ -2055,14 +1993,6 @@ export default function BottlingScreen({
           </div>
         </Modal>
       )}
-      <PrehledVydejeModal
-        open={prehledOtevren}
-        onClose={() => setPrehledOtevren(false)}
-        obaly={packages as any}
-        nadpis="Zápis stáčení lahve"
-        varianta="staceni_lahve"
-        zdroje={ZDROJE_STACENI_LAHVE}
-      />
     </div>
   );
 }

@@ -181,6 +181,9 @@ export const PRESET_ROLES: { name: string; icon: string; permissions: UserPermis
  */
 export const PAGE_TO_MODULE: Record<string, ModuleKey> = {
   dashboard: 'dashboard',
+  // Měsíční export čte zápisy stáčení a výdeje — spadá pod stejný modul
+  // jako ony, aby ho neviděl někdo, kdo na ta data nemá právo.
+  export_excel: 'entry',
   kegging: 'entry',
   bottling: 'entry',
   bottling_entry: 'entry',
