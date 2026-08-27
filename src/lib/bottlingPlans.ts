@@ -71,18 +71,32 @@ export async function setPlanStatus(id: string, status: BottlingPlanStatus) {
 // ---- Zobrazení úkolu: řádky „obal × počet" ----
 export type PlanLine = { label: string; qty: number };
 
-export function planLines(plan: BottlingPlan, packages: Package[]): PlanLine[] {
+export function planLines(plan: BottlingPlan, packages: Package[], druh: 'vse' | 'lahve' | 'kegy' = 'vse'): PlanLine[] {
   const lines: PlanLine[] = [];
   const add = (pkgId: string | null, qty: number) => {
     if (!pkgId || qty <= 0) return;
     const pkg = packages.find((p) => p.id === pkgId);
     lines.push({ label: pkg?.label || '?', qty });
   };
-  add(plan.pkg_id, plan.qty);
-  add(plan.pkg2_id, plan.qty2);
-  add(plan.pkg3_id, plan.qty3);
-  add(plan.keg_pkg_id, plan.keg_qty);
+  // Úkol může nést lahve i sudy najednou. Stáčeč lahví ale nepotřebuje vidět
+  // sudovou část a naopak — proto se dá vyfiltrovat podle druhu.
+  if (druh !== 'kegy') {
+    add(plan.pkg_id, plan.qty);
+    add(plan.pkg2_id, plan.qty2);
+    add(plan.pkg3_id, plan.qty3);
+  }
+  if (druh !== 'lahve') add(plan.keg_pkg_id, plan.keg_qty);
   return lines;
+}
+
+/** Nese úkol sudovou část? Podle toho se ukáže stáčeči KEGů. */
+export function maKegovouCast(plan: BottlingPlan): boolean {
+  return !!plan.keg_pkg_id && plan.keg_qty > 0;
+}
+
+/** Nese úkol lahvovou část? */
+export function maLahvovouCast(plan: BottlingPlan): boolean {
+  return (!!plan.pkg_id && plan.qty > 0) || (!!plan.pkg2_id && plan.qty2 > 0) || (!!plan.pkg3_id && plan.qty3 > 0);
 }
 
 // ---- Odznáček „nové úkoly" pro stáčeče (localStorage) ----

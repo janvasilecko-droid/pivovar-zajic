@@ -4,12 +4,15 @@ import { AlertTriangle, Calendar, ClipboardList, MessageCircle, Plus } from 'luc
 // do formuláře zápisu (onFill) a přepnout na „hotovo".
 import { useMemo } from 'react';
 import { Beer, Package, beerBg } from '../lib/supabase';
-import { BottlingPlan, planLines, setPlanStatus } from '../lib/bottlingPlans';
+import { BottlingPlan, planLines, setPlanStatus, maKegovouCast, maLahvovouCast } from '../lib/bottlingPlans';
+import { IkonaSud } from '../components/ikony';
 import { chyba } from '../lib/toast';
 import { IkonaLahev } from '../components/ikony';
 
 type Props = {
   plans: BottlingPlan[];
+  /** Které úkoly ukázat — u sudů se lahvová část skryje a naopak. */
+  druh?: 'lahve' | 'kegy';
   beers: Beer[];
   packages: Package[];
   isManager: boolean;
@@ -38,8 +41,10 @@ function PlanItem({
   isLate,
   onFill,
   onChanged,
+  druh,
 }: {
   plan: BottlingPlan;
+  druh: 'lahve' | 'kegy';
   beers: Beer[];
   packages: Package[];
   isManager: boolean;
@@ -49,7 +54,7 @@ function PlanItem({
   onChanged: () => void;
 }) {
   const beer = beers.find((b) => b.id === plan.beer_id);
-  const lines = planLines(plan, packages);
+  const lines = planLines(plan, packages, druh);
 
   async function handleDone() {
     const { error } = await setPlanStatus(plan.id, 'done');
@@ -129,17 +134,21 @@ function PlanItem({
 }
 
 
-export function BottlingPlanBottler({ plans, beers, packages, isManager, onChanged, onFill }: Props) {
+export function BottlingPlanBottler({ plans, beers, packages, isManager, onChanged, onFill, druh = 'lahve' }: Props) {
   const todayStr = new Date().toISOString().slice(0, 10);
 
   const groups = useMemo(() => {
-    const active = plans.filter((p) => p.status !== 'cancelled');
+    // Stáčeč sudů nemá koukat na úkoly, které jsou čistě lahvové, a naopak —
+    // jinak by se v seznamu probíral cizí prací.
+    const active = plans
+      .filter((p) => p.status !== 'cancelled')
+      .filter((p) => (druh === 'kegy' ? maKegovouCast(p) : maLahvovouCast(p)));
     return {
       late: active.filter((p) => p.status === 'planned' && p.planned_date < todayStr),
       today: active.filter((p) => p.planned_date === todayStr),
       upcoming: active.filter((p) => p.planned_date > todayStr),
     };
-  }, [plans, todayStr]);
+  }, [plans, todayStr, druh]);
 
   const total = groups.late.length + groups.today.length + groups.upcoming.length;
 
@@ -147,7 +156,7 @@ export function BottlingPlanBottler({ plans, beers, packages, isManager, onChang
     <div className="card p-3 mb-5 border-2 border-amber-300/80 bg-white">
       <div className="flex items-center justify-between gap-2 mb-2.5 flex-wrap">
         <span className="font-display font-black text-amber-950 text-xs flex items-center gap-1.5">
-          <ClipboardList className="ikona-text" /> Úkoly ke stočení
+          <ClipboardList className="ikona-text" /> {druh === 'kegy' ? 'Úkoly ke stočení sudů' : 'Úkoly ke stočení lahví'}
           {groups.today.length > 0 && (
             <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-amber-500 text-neutral-950 animate-pulse">DNES: {groups.today.length}</span>
           )}
@@ -159,7 +168,8 @@ export function BottlingPlanBottler({ plans, beers, packages, isManager, onChang
 
       {total === 0 && (
         <p className="text-xs text-neutral-500 py-1">
-          Žádné úkoly ke stočení. Když je admin/sládek/šéf zadá, objeví se tady zvýrazněné. <IkonaLahev className="ikona-text" />
+          Žádné úkoly ke stočení. Když je admin/sládek/šéf zadá, objeví se tady zvýrazněné.{' '}
+          {druh === 'kegy' ? <IkonaSud className="ikona-text" /> : <IkonaLahev className="ikona-text" />}
         </p>
       )}
 
@@ -167,7 +177,7 @@ export function BottlingPlanBottler({ plans, beers, packages, isManager, onChang
         <div className="space-y-2 mb-3">
           <div className="text-[10px] font-black text-rose-700 uppercase tracking-wide"><AlertTriangle className="ikona-text" /> Zpožděné úkoly</div>
           {groups.late.map((p) => (
-            <PlanItem key={p.id} plan={p} beers={beers} packages={packages} isManager={isManager} isToday={false} isLate onFill={onFill} onChanged={onChanged} />
+            <PlanItem key={p.id} plan={p} beers={beers} packages={packages} isManager={isManager} isToday={false} isLate onFill={onFill} onChanged={onChanged} druh={druh} />
           ))}
         </div>
       )}
@@ -176,7 +186,7 @@ export function BottlingPlanBottler({ plans, beers, packages, isManager, onChang
         <div className="space-y-2 mb-3">
           <div className="text-[10px] font-black text-amber-700 uppercase tracking-wide"><Calendar className="ikona-text" /> Na dnes</div>
           {groups.today.map((p) => (
-            <PlanItem key={p.id} plan={p} beers={beers} packages={packages} isManager={isManager} isToday isLate={false} onFill={onFill} onChanged={onChanged} />
+            <PlanItem key={p.id} plan={p} beers={beers} packages={packages} isManager={isManager} isToday isLate={false} onFill={onFill} onChanged={onChanged} druh={druh} />
           ))}
         </div>
       )}
@@ -185,7 +195,7 @@ export function BottlingPlanBottler({ plans, beers, packages, isManager, onChang
         <div className="space-y-2">
           <div className="text-[10px] font-black text-neutral-500 uppercase tracking-wide">📆 Připravované</div>
           {groups.upcoming.map((p) => (
-            <PlanItem key={p.id} plan={p} beers={beers} packages={packages} isManager={isManager} isToday={false} isLate={false} onFill={onFill} onChanged={onChanged} />
+            <PlanItem key={p.id} plan={p} beers={beers} packages={packages} isManager={isManager} isToday={false} isLate={false} onFill={onFill} onChanged={onChanged} druh={druh} />
           ))}
         </div>
       )}

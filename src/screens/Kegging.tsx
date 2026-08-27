@@ -11,6 +11,8 @@ import { VoiceRecorder } from '../components/VoiceRecorder';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
 import { computeKeggingPlan } from '../lib/keggingPlan';
+import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
+import { markPlanSeenAt, type BottlingPlan } from '../lib/bottlingPlans';
 import KeggingDayPlan from '../components/KeggingDayPlan';
 import { AlertTriangle, BarChart3, Beer as BeerIcon, Calendar, CalendarDays, Camera, ClipboardList, Cylinder, Loader2, Package as PackageIcon, Pencil, Plus, RefreshCw, Scroll, Sparkles, Trash2 } from 'lucide-react';
 import { ImportKeggingFromImage } from '../components/ImportKeggingFromImage';
@@ -18,6 +20,7 @@ import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { chyba, potvrd } from '../lib/toast';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { IkonaSud } from '../components/ikony';
+import { zavibruj } from '../lib/haptika';
 
 
 const ROW_COUNT = 12;
@@ -30,6 +33,10 @@ const QUICK_KEG_QTY = [6, 12, 18, 24];
 
 export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; mode?: 'entry_only' | 'overviews_only' | 'all'; initialSubTab?: string } = {}) {
   const [rows, setRows] = useState<EntryRow[]>([]);
+  // Úkoly zadané sládkem/šéfem (tabulka bottling_plans). Dřív je viděli jen
+  // stáčeči lahví — u sudů se zadaná práce nikde neukazovala, i když v úkolu
+  // sudová část byla.
+  const [plany, setPlany] = useState<BottlingPlan[]>([]);
   const [cellarTanks, setCellarTanks] = useState<CellarTank[]>([]);
   const [beers, setBeers] = useState<Beer[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
@@ -283,7 +290,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   async function load(silent = false) {
     const loadId = ++loadCountRef.current;
     if (!silent && !rows.length) setLoading(true);
-    const [kg, ct, b, p, ords, oi, inv, fa, fp, wo, pf, zd, bt, adj, ak, pc] = await Promise.all([
+    const [kg, ct, b, p, ords, oi, inv, fa, fp, wo, pf, zd, bt, adj, ak, pc, ukoly] = await Promise.all([
       fetchAllRows('kegging', '*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
       supabase.from('cellar_tanks').select('*').order('label'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
@@ -303,9 +310,11 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       fetchAllRows('inventory_adjustments', 'entry_date,beer_id,package_id,quantity'),
       supabase.from('akce').select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
       supabase.from('kegging_plan_checks').select('week_key,day,beer_id,package_id,qty'),
+      supabase.from('bottling_plans').select('*').order('planned_date'),
     ]);
     if (loadId !== loadCountRef.current) return;
     setRows((kg.data as EntryRow[]) ?? []);
+    setPlany((ukoly.data as BottlingPlan[]) ?? []);
     setCellarTanks((ct.data as CellarTank[]) ?? []);
     if (b.data) setBeers(b.data as Beer[]);
     if (p.data) setPackages(p.data as Package[]);
@@ -346,6 +355,24 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   }), [beers, packages, orders, orderItems, rows, zavozDeductionRows, fasovaniRows, prodejnaRows, writeoffsRows, planCheckRows, weekKey]);
 
   const planMissingTotal = useMemo(() => keggingPlan.reduce((s, p) => s + p.totalMissing, 0), [keggingPlan]);
+
+  // „Naplnit do zápisu" — sudová část úkolu se předepíše do prvního řádku
+  // a ostatní se vyprázdní, ať je zápis vždycky jen o jednom úkolu.
+  function naplnZUkolu(plan: BottlingPlan) {
+    if (plan.planned_date) setDate(plan.planned_date);
+    setEntryRows(() => {
+      const dalsi = emptyRows();
+      dalsi[0] = {
+        beerId: plan.beer_id || '',
+        pkgId: plan.keg_pkg_id || '',
+        qty: plan.keg_qty > 0 ? String(plan.keg_qty) : '',
+        tankId: '',
+      };
+      return dalsi;
+    });
+    markPlanSeenAt();
+    zavibruj('hotovo');
+  }
 
   // ✅ Odškrtnutí v denním plánu. POZOR: NEZAPISUJE stáčení — je to jen
   // pracovní pomůcka, aby stáčeč viděl, co už má hotové. Skutečné stáčení se
@@ -895,6 +922,19 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             🚀 Zahájit stáčení
           </button>
         </div>
+      )}
+
+      {/* Úkoly zadané sládkem — stejná tabule jako u lahví, jen sudová část. */}
+      {(mode === 'entry_only' || (mode === 'all' && tab === 'zapis')) && (
+        <BottlingPlanBottler
+          plans={plany}
+          beers={beers}
+          packages={packages}
+          isManager={isManager}
+          onChanged={() => load(true)}
+          onFill={naplnZUkolu}
+          druh="kegy"
+        />
       )}
 
       {/* Zápis stáčení — multi-row (12 řádků pivo+obal+množství najednou) */}
