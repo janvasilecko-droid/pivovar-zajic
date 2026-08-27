@@ -4,6 +4,10 @@
 // tento týden / měsíc / rok, jak to vypadá proti loňsku, které pivo táhne
 // a kdo je největší odběratel.
 //
+// VÝSTAV JSOU JEN SUDY. Lahvuje se z už stočených sudů, takže lahve do výstavu
+// nepatří — jinak by se tentýž objem počítal dvakrát. Lahvování se ukazuje
+// zvlášť jako „přestočeno do lahví": kam pivo z výstavu putovalo.
+//
 // K barvám: řada barev je pevná a přiřazuje se podle POŘADÍ položky, ne podle
 // aktuálního umístění v žebříčku — když se změní filtr, pivo si nechá svoji
 // barvu. Paleta prošla kontrolou na barvosleposti (nejhorší sousední dvojice
@@ -101,8 +105,9 @@ export default function StatistikaVystav({
   bottlingRows, keggingRows, obaly, piva, orders, orderItems, dnes, obdobi, onObdobi,
 }: Props) {
   const mapaObalu = useMemo(() => new Map(obaly.map((o) => [o.id, o])), [obaly]);
-  // Výstav = lahve i sudy dohromady; obojí je stočené pivo, jen jiný obal.
-  const vyroba = useMemo(() => [...bottlingRows, ...keggingRows], [bottlingRows, keggingRows]);
+  // Výstav = stočené SUDY. Lahvování se sleduje zvlášť (viz komentář nahoře).
+  const vyroba = keggingRows;
+  const lahvovani = bottlingRows;
 
   const { od, do: doKdy } = rozsahObdobi(obdobi, dnes);
   const predchozi = predchoziRozsah(obdobi, dnes);
@@ -157,6 +162,15 @@ export default function StatistikaVystav({
     () => podilPodleObalu(vyroba, mapaObalu, od, doKdy),
     [vyroba, mapaObalu, od, doKdy],
   );
+  // Kam pivo z výstavu putovalo — lahve a PET. Do výstavu se to nepřičítá.
+  const podleLahvi = useMemo(
+    () => podilPodleObalu(lahvovani, mapaObalu, od, doKdy),
+    [lahvovani, mapaObalu, od, doKdy],
+  );
+  const litryDoLahvi = useMemo(
+    () => litryVRozsahu(lahvovani, mapaObalu, od, doKdy),
+    [lahvovani, mapaObalu, od, doKdy],
+  );
   const odberatele = useMemo(
     () => podleOdberatelu(orders, orderItems, mapaObalu, od, doKdy).slice(0, 10),
     [orders, orderItems, mapaObalu, od, doKdy],
@@ -184,13 +198,13 @@ export default function StatistikaVystav({
         <Dlazdice popis="Tento týden" litry={soucty.tyden.ted} zmena={soucty.tyden.zmena} protiCemu="minulému týdnu" />
         <Dlazdice popis="Tento měsíc" litry={soucty.mesic.ted} zmena={soucty.mesic.zmena} protiCemu="minulému měsíci" />
         <Dlazdice popis="Letos" litry={soucty.rok.ted} zmena={soucty.rok.zmena} protiCemu="loňsku" />
-        <Dlazdice popis="Celkem" litry={soucty.vse.ted} zmena={null} />
+        <Dlazdice popis="Výstav celkem" litry={soucty.vse.ted} zmena={null} />
       </div>
 
       {/* Porovnání měsíců — dvě řady ve stejné jednotce, jedna osa. */}
       <section className="card p-3.5 sm:p-5">
         <Nadpis
-          text="Výstav po měsících"
+          text="Výstav po měsících (sudy)"
           popis={maLonskaData ? `Hektolitry — ${dnes.slice(0, 4)} proti ${Number(dnes.slice(0, 4)) - 1}` : `Hektolitry za rok ${dnes.slice(0, 4)}`}
         />
         <div className="h-[240px] sm:h-[300px] -ml-3">
@@ -274,7 +288,7 @@ export default function StatistikaVystav({
 
         {/* Podíl obalů */}
         <section className="card p-3.5 sm:p-5">
-          <Nadpis text="Do čeho se stáčí" popis={`Podíl obalů ${POPIS_OBDOBI[obdobi]}`} />
+          <Nadpis text="Do jakých sudů" popis={`Rozpad výstavu podle velikosti sudu ${POPIS_OBDOBI[obdobi]}`} />
           {podleObalu.length === 0 ? (
             <p className="text-sm text-neutral-500 font-semibold py-8 text-center">V tomhle období se nic nestočilo.</p>
           ) : (
@@ -303,6 +317,39 @@ export default function StatistikaVystav({
           )}
         </section>
       </div>
+
+      {/* Přestočeno do lahví — údaj o tom, kam pivo z výstavu šlo dál. */}
+      <section className="card p-3.5 sm:p-5">
+        <Nadpis
+          text="Přestočeno do lahví"
+          popis={`${POPIS_OBDOBI[obdobi]} — lahvuje se z už stočených sudů, do výstavu se to proto NEpřičítá`}
+        />
+        {podleLahvi.length === 0 ? (
+          <p className="text-sm text-neutral-500 font-semibold py-6 text-center">V tomhle období se nelahvovalo.</p>
+        ) : (
+          <>
+            <div className="flex items-baseline gap-2 mb-3">
+              <span className="font-display font-extrabold text-2xl text-neutral-900 tabular-nums">{formatHl(litryDoLahvi)}</span>
+              <span className="text-base font-bold text-neutral-400">hl</span>
+              {litryObdobi > 0 && (
+                <span className="text-xs font-semibold text-neutral-500">
+                  = {((litryDoLahvi / litryObdobi) * 100).toFixed(0)} % výstavu
+                </span>
+              )}
+            </div>
+            <div className="space-y-1">
+              {podleLahvi.map((p) => (
+                <div key={p.id} className="flex items-center gap-2.5 text-sm">
+                  <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: barvaObalu.get(p.id) }} />
+                  <span className="flex-1 min-w-0 truncate font-bold text-neutral-800">{p.nazev}</span>
+                  <span className="tabular-nums font-black text-neutral-900">{p.kusy} ks</span>
+                  <span className="tabular-nums font-semibold text-neutral-400 w-16 text-right">{formatHl(p.litry)} hl</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </section>
 
       {/* Odběratelé */}
       <section className="card p-3.5 sm:p-5">
@@ -378,8 +425,10 @@ export default function StatistikaVystav({
       )}
 
       <p className="text-[11px] text-neutral-400 font-semibold px-1">
-        Výstav se počítá ze zápisů stáčení (lahve i sudy) × objem obalu. Objednávky se do něj nepočítají —
-        objednané pivo nemusí být stočené a stočené nemusí být objednané. Data od {posunMesicu(dnes.slice(0, 7), -24)}.
+        Výstav = objem stočených <strong>sudů</strong> (množství × objem obalu). Lahve se do něj nepočítají —
+        lahvuje se z už stočených sudů, takže pivo v lahvi do výstavu vstoupilo už jako sud; přičítat ho znovu
+        by tentýž objem počítalo dvakrát. Ze skladu se sudy na lahvování odečítají (viz Sklad → „Sud spotřebován
+        na lahve"). Objednávky se do výstavu nepočítají — objednané pivo nemusí být stočené a naopak.
       </p>
     </div>
   );

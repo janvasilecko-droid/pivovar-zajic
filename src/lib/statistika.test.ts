@@ -48,7 +48,10 @@ describe('výstav v litrech', () => {
     expect(litryVRozsahu(radky, OBALY, '2026-08-03', '2026-08-03')).toBe(300);
   });
 
-  it('sčítá lahve i sudy dohromady — obojí je výroba', () => {
+  // Funkce sečte řádky, které dostane — CO je výstav, rozhoduje volající.
+  // Do výstavu jdou jen sudy (lahvuje se z už stočených sudů, jinak by se
+  // tentýž objem počítal dvakrát) — viz komentář v lib/statistika.ts.
+  it('sečte všechny předané řádky v rozsahu', () => {
     expect(litryVRozsahu(radky, OBALY, '2026-08-01', '2026-08-31')).toBe(600);
   });
 

@@ -1,9 +1,19 @@
 // 📊 Výpočty pro Statistiku — výstav podle období, piv, obalů a odběratelů.
 // ---------------------------------------------------------------------------
-// Výstav = kolik piva se skutečně stočilo, v litrech: množství × objem obalu.
-// Bere se ze stáčení lahví (`bottling`) i sudů (`kegging`) — obojí je výroba,
-// jen do jiného obalu. Objednávky se do výstavu nepočítají: objednané pivo
-// nemusí být stočené a stočené nemusí být objednané.
+// VÝSTAV = objem STOČENÝCH SUDŮ (`kegging`), v litrech: množství × objem obalu.
+//
+// Lahve se do výstavu NEPOČÍTAJÍ. V tomhle pivovaru se lahvuje z už stočených
+// sudů — pivo v lahvi tedy do výstavu vstoupilo už ve chvíli, kdy šlo do sudu.
+// Kdyby se přičítalo i lahvování, tentýž objem by se počítal dvakrát a výstav
+// by vycházel nafouknutý. Skladově je to podchycené už dřív: řádek stáčení
+// lahví nese `kegs_used` a skladová kniha z něj dělá pohyb 'sud_na_lahve',
+// tedy odečet sudů (viz lib/stockLedger.ts).
+//
+// Lahvování se proto sleduje zvlášť jako „přestočeno do lahví" — je to údaj
+// o tom, kam pivo z výstavu putovalo, ne další výroba.
+//
+// Objednávky se do výstavu nepočítají taky: objednané pivo nemusí být stočené
+// a stočené nemusí být objednané.
 export type VyrobniRadek = {
   entry_date: string | null;
   beer_id: string | null;

@@ -46,11 +46,21 @@ function vykresli() {
 }
 
 describe('Statistika — Výstav', () => {
-  it('spočítá souhrn v hektolitrech ze stáčení lahví i sudů', () => {
+  it('výstav bere JEN sudy — lahve se do něj nepřičítají', () => {
     vykresli();
-    // Srpen: 600 l sudy + 200 l lahve = 800 l = 8 hl.
+    // Srpen: 20 sudů × 30 l = 600 l = 6 hl. Lahvování (400 × 0,5 l = 200 l)
+    // se NEpřičítá — lahvuje se z už stočených sudů, jinak by se tentýž
+    // objem počítal dvakrát a vyšlo by 8 hl.
     expect(screen.getByText('Tento měsíc')).toBeTruthy();
-    expect(screen.getAllByText('8').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('6').length).toBeGreaterThan(0);
+    expect(screen.queryAllByText('8').length).toBe(0);
+  });
+
+  it('lahvování se ukazuje zvlášť a řekne, jaký je to podíl výstavu', () => {
+    vykresli();
+    expect(screen.getByText('Přestočeno do lahví')).toBeTruthy();
+    // 200 l ze 600 l výstavu = 33 %.
+    expect(screen.getByText(/33 % výstavu/)).toBeTruthy();
   });
 
   it('ukáže rozpad podle piv i podle obalů, ne jen barevný graf', () => {
@@ -76,6 +86,7 @@ describe('Statistika — Výstav', () => {
       />,
     );
     expect(screen.getAllByText(/V tomhle období se nic nestočilo/).length).toBe(2);
+    expect(screen.getByText(/V tomhle období se nelahvovalo/)).toBeTruthy();
     expect(screen.getByText(/V tomhle období není žádná objednávka/)).toBeTruthy();
   });
 });
