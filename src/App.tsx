@@ -211,11 +211,21 @@ export default function App() {
       {page === 'srotovani' && <SrotovaniScreen setPage={setPage} />}
 
       {page === 'kegging' && <KeggingScreen mode="all" setPage={setPage} initialSubTab={pageSubTab} />}
-      {page === 'fasovani' && <ProdejnaScreen setPage={setPage} table="fasovani" title="Fasování personál" icon="📦" showVycep />}
-      {page === 'writeoffs' && (
-        <ProdejnaScreen setPage={setPage} table="writeoffs" title="Odpis" icon="📉" />
+      {/* Fasování, Odpis a Prodejna jsou tentýž formulář, liší se jen tabulkou,
+          do které zapisuje. Schválně se vykresluje z JEDNOHO místa: kdyby to
+          byly tři samostatné větve, React by při přepnutí druhu komponentu
+          odmountoval a rozepsané řádky by se ztratily. Takhle zůstanou —
+          když někdo zjistí, že to měl být odpis, přepne a uloží. */}
+      {(page === 'fasovani' || page === 'writeoffs' || page === 'prodejna') && (
+        <ProdejnaScreen
+          setPage={setPage}
+          {...(page === 'fasovani'
+            ? { table: 'fasovani', title: 'Fasování personál', icon: '📦', showVycep: true }
+            : page === 'writeoffs'
+            ? { table: 'writeoffs', title: 'Odpis', icon: '📉' }
+            : {})}
+        />
       )}
-      {page === 'prodejna' && <ProdejnaScreen setPage={setPage} />}
       {(page === 'akce' || page === 'exkurze' || page === 'marketing') && (
         <MarketingTabbed
           initialTab={

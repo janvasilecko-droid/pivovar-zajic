@@ -12,6 +12,14 @@ import { detectTapType } from '../lib/tapReservations';
 import type { TapReservation } from './VycepyScreen';
 import { BeerTileGrid, BeerTilePanel, TileTotalBar } from '../components/BeerTileGrid';
 import { potvrd } from '../lib/toast';
+import { zavibruj } from '../lib/haptika';
+
+// Tři podoby jednoho výdeje ze skladu. Klíč je tabulka, do které se zapisuje.
+const DRUHY_VYDEJE = [
+  { tabulka: 'fasovani', stranka: 'fasovani', popis: 'Fasování' },
+  { tabulka: 'fasovani_private', stranka: 'prodejna', popis: 'Prodejna' },
+  { tabulka: 'writeoffs', stranka: 'writeoffs', popis: 'Odpis' },
+] as const;
 
 const ROW_COUNT = 12;
 const FASOVANI_ROW_COUNT = 6;
@@ -101,7 +109,11 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
     if (p.data) setPackages(p.data as Package[]);
     setLoading(false);
   }
-  useEffect(() => { load(); }, []);
+  // Přepnutí druhu výdeje mění tabulku, ze které se čte. Komponenta se přitom
+  // schválně NEodmountuje (viz App.tsx), aby se neztratily rozepsané řádky —
+  // proto se musí načíst znovu podle table, jinak by v přehledu zůstal
+  // seznam z předchozí tabulky.
+  useEffect(() => { load(); }, [table]);
   useRealtime([table, 'beers', 'packages'], () => load(true));
 
   function setRowField(i: number, field: keyof RowInput, value: string | boolean) {
@@ -257,11 +269,30 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
     <div className="space-y-6 pb-12">
       {/* Top Action Bar — bez ukotvení (žádný prvek na téhle obrazovce nezůstává přilepený). */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded border border-neutral-200 shadow-2xs">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-display font-black text-amber-950 flex items-center gap-1.5">
-            <span>{icon}</span>
-            <span>{title}</span>
-          </span>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Přepínač druhu výdeje — je to pořád tentýž formulář, mění se jen
+              tabulka, do které se zapisuje. Dřív se muselo přes menu ven. */}
+          {setPage && mode === 'all' ? (
+            <div className="flex items-center gap-1 p-1 rounded-2xl bg-neutral-100 border border-neutral-200">
+              {DRUHY_VYDEJE.map((d) => (
+                <button
+                  key={d.tabulka}
+                  type="button"
+                  onClick={() => { if (d.tabulka !== table) { zavibruj('klik'); setPage(d.stranka); } }}
+                  className={`min-h-[40px] px-3 rounded-xl text-xs font-black transition ${
+                    d.tabulka === table ? 'bg-amber-500 text-neutral-950 shadow-sm' : 'text-neutral-600 hover:bg-white'
+                  }`}
+                >
+                  {d.popis}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <span className="text-sm font-display font-black text-amber-950 flex items-center gap-1.5">
+              <span>{icon}</span>
+              <span>{title}</span>
+            </span>
+          )}
           {/* Export do Excelu */}
           <div className="relative group">
             <button className="btn-ghost !rounded !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs" disabled={!rows.length}><BarChart3 className="ikona-text" /> Export Excel ▾</button>
