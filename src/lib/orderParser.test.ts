@@ -481,6 +481,15 @@ describe('detectOrderNotes', () => {
   it('vrátí prázdný řetězec, když žádná poznámka není', () => {
     expect(detectOrderNotes('2x50 12sv desitka')).toBe('');
   });
+
+  it('pozná požadavek na vyzvednutí prázdných sudů', () => {
+    // Přesně takhle to přišlo ve skupině 27. 8. 2026.
+    expect(detectOrderNotes('ještě vyzvednout sudy v ASI')).toBe('vyzvednout prázdné sudy');
+    expect(detectOrderNotes('odvezt prazdne sudy')).toBe('vyzvednout prázdné sudy');
+    expect(detectOrderNotes('sebrat 3 kegy')).toBe('vyzvednout prázdné sudy');
+    // Objednávka sudů piva požadavkem na vyzvednutí není.
+    expect(detectOrderNotes('2x50 12sv')).toBe('');
+  });
 });
 
 describe('parseGeminiItems — raw_line degree overrides AI beer_name', () => {

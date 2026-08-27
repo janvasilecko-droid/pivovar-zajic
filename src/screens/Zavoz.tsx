@@ -17,6 +17,7 @@ import { openNavigation, buildCustomerDeliveryWhatsAppText, openCustomerWhatsApp
 import { printDeliveryList } from '../lib/safePrint';
 import { chyba, oznam } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
+import { UkolyObjednavky, UkolyDne } from '../components/ZavozUkoly';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -859,6 +860,10 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                         </div>
                       </div>
 
+                      <UkolyDne
+                        objednavky={group.orders.flatMap((e: any) => (e.isGroup ? e.orders : [e]))}
+                      />
+
                       {/* Orders Cards List */}
                       <div className="space-y-4">
                         {group.orders.map((orderOrGroup, index) => {
@@ -896,6 +901,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                           <div>
                                             <a onClick={() => setPage && setPage('orders', o.id)} className="font-bold text-sm text-neutral-900 hover:underline cursor-pointer">{o.place_name}</a>
                                             {o.note && <div className="text-xs text-neutral-600 font-medium mt-1 bg-amber-100/60 px-2.5 py-1 rounded italic flex items-start gap-1"><StickyNote size={12} className="mt-0.5 shrink-0" /> {o.note}</div>}
+                                            <UkolyObjednavky poznamka={o.note} />
                                           </div>
                                           <div className="flex items-center gap-1.5">
                                             <button
@@ -985,6 +991,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                       <StickyNote size={12} className="mt-0.5 shrink-0" /> {o.note}
                                     </div>
                                   )}
+                                  <UkolyObjednavky poznamka={o.note} />
                                 </div>
                               </div>
 

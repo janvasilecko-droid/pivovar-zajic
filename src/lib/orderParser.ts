@@ -1526,6 +1526,11 @@ const NOTE_PATTERNS: { re: RegExp; label: string | ((m: RegExpMatchArray) => str
   { re: /\betiket[a]?\s*mm\b/i, label: 'etiketa MM' },
   { re: /\betiket[a]?\s*m\b(?!\w)/i, label: 'etiketa M' },
   { re: /\betiket[a]?\s*xxl\b/i, label: 'etiketa XXL' },
+  // 🛢️ VYZVEDNOUT PRÁZDNÉ SUDY — chodí to jako věta mezi objednávkou
+  // („ještě vyzvednout sudy v ASI"). Bez tohohle se požadavek do poznámky
+  // nedostal vůbec a při závozu se na sudy zapomnělo.
+  { re: /\b(vyzvedn|nabra|sebra|stahn|odvez|odv[eé]z|svez|sv[eé]z)\w*\b(?:\W+\w+){0,3}?\W+(sud|keg|pr[aá]zdn)/i, label: 'vyzvednout prázdné sudy' },
+  { re: /\bpr[aá]zdn\w*\W+(sud|keg)/i, label: 'vyzvednout prázdné sudy' },
   { re: /\bvraceni\s*lahvi\b|\bvratne\s*lahve\b|\bvratne\b/i, label: 'vrácení lahví' },
   { re: /\bspotak(y)?\b/i, label: 'spoták' },
   { re: /\bplaceno\b|\bzaplaceno\b/i, label: 'zaplaceno' },

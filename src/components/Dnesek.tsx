@@ -6,10 +6,11 @@
 //
 // Dlaždicový launcher zůstává pod tím beze změny.
 import { useEffect, useState } from 'react';
-import { ChevronRight, Truck, ClipboardList, MessageCircle, Wine, CheckCircle2 } from 'lucide-react';
+import { ChevronRight, Truck, ClipboardList, MessageCircle, Wine, CheckCircle2, ArrowLeftRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { businessDateISO } from '../lib/businessDate';
 import { fetchPendingWhatsAppCount } from '../lib/whatsappApi';
+import { souhrnUkolu } from '../lib/zavozUkoly';
 import type { Page } from './Layout';
 
 type Radek = {
@@ -43,10 +44,10 @@ export default function Dnesek({ setPage }: { setPage: (p: Page) => void }) {
       const out: Radek[] = [];
 
       // Objednávky na jeden konkrétní den závozu + kolik je to celkem kusů.
-      const zavozNaDen = async (den: string) => {
+      const nactiZavoz = async (den: string) => {
         const { data: obj } = await supabase
           .from('orders')
-          .select('id')
+          .select('id,note,place_name')
           .eq('delivery_date', den)
           .neq('status', 'storno');
         const ids = (obj ?? []).map((o: any) => o.id);
@@ -56,7 +57,20 @@ export default function Dnesek({ setPage }: { setPage: (p: Page) => void }) {
           .select('quantity')
           .in('order_id', ids);
         const kusu = (polozky ?? []).reduce((s: number, p: any) => s + Number(p.quantity || 0), 0);
-        return { objednavek: ids.length, kusu };
+        // Poznámky nesou i požadavky typu „ještě vyzvednout sudy". Ty se
+        // nejsnáz zapomenou, protože se nedají naložit dopředu v pivovaru.
+        const ukoly = souhrnUkolu(
+          (obj ?? []).map((o: any) => ({ poznamka: o.note, odberatel: o.place_name })),
+        );
+        return { objednavek: ids.length, kusu, ukoly };
+      };
+
+      // Každý den se čte jednou. Závoz a úkoly k němu jsou dva řádky, ale
+      // pořád jedna a tatáž data — bez tohohle by se stahovala dvakrát.
+      const nactene = new Map<string, Awaited<ReturnType<typeof nactiZavoz>>>();
+      const zavozNaDen = async (den: string) => {
+        if (!nactene.has(den)) nactene.set(den, await nactiZavoz(den));
+        return nactene.get(den)!;
       };
 
       // 1) ZÍTŘEJŠÍ závoz — to je to, co se dnes chystá. Proto je první.
@@ -75,6 +89,24 @@ export default function Dnesek({ setPage }: { setPage: (p: Page) => void }) {
         }
       } catch { /* řádek se prostě neukáže */ }
 
+      // 1b) Úkoly k zítřejšímu závozu — co kromě piva naložit nebo přivézt
+      //     zpátky. Do poznámky objednávky se to sice zapíše, ale tam je to
+      //     jeden řádek kurzívy mezi ostatními a při nakládání se přehlédne.
+      try {
+        const z = await zavozNaDen(zitra);
+        if (z?.ukoly.length) {
+          out.push({
+            klic: 'ukoly-zitra',
+            pocet: z.ukoly.length,
+            popis: z.ukoly.length === 1 ? 'úkol k zítřejšímu závozu' : 'úkoly k zítřejšímu závozu',
+            detail: z.ukoly.map((u) => `${u.popis} — ${u.odberatele.join(', ')}`).join(' · '),
+            ikona: ArrowLeftRight,
+            barva: 'text-rose-700 bg-rose-50 border-rose-200',
+            kam: 'orders_zavoz',
+          });
+        }
+      } catch { /* nevadí */ }
+
       // 2) Dnešní závoz — co dneska vyjíždí, ať to řidič vidí taky.
       try {
         const z = await zavozNaDen(dnes);
@@ -86,6 +118,22 @@ export default function Dnesek({ setPage }: { setPage: (p: Page) => void }) {
             detail: z.kusu ? `${z.kusu} ks celkem` : undefined,
             ikona: Truck,
             barva: 'text-neutral-600 bg-neutral-100 border-neutral-200',
+            kam: 'orders_zavoz',
+          });
+        }
+      } catch { /* nevadí */ }
+
+      // 2b) Úkoly k dnešnímu závozu.
+      try {
+        const z = await zavozNaDen(dnes);
+        if (z?.ukoly.length) {
+          out.push({
+            klic: 'ukoly-dnes',
+            pocet: z.ukoly.length,
+            popis: z.ukoly.length === 1 ? 'úkol k dnešnímu závozu' : 'úkoly k dnešnímu závozu',
+            detail: z.ukoly.map((u) => `${u.popis} — ${u.odberatele.join(', ')}`).join(' · '),
+            ikona: ArrowLeftRight,
+            barva: 'text-rose-700 bg-rose-50 border-rose-200',
             kam: 'orders_zavoz',
           });
         }
