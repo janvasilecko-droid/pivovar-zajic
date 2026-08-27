@@ -12,6 +12,10 @@ import {
 import { AlertTriangle, ArrowRight, Beer as BeerIcon, Calendar, CheckCircle, ChevronDown, ChevronUp, Copy, Eye, FileCheck, Layers, MessageSquare, Phone, RefreshCw, Search, ShieldCheck, Sparkles, Trash2, X } from 'lucide-react';
 import { Spinner } from './ui';
 import { potvrd } from '../lib/toast';
+import {
+  tichoUOdberatelu, vypadkyPrijmu, pokrytiTydne,
+  type TichoRadek, type VypadekRadek, type PokrytiRadek,
+} from '../lib/kontrolaObjednavek';
 
 interface OrderAuditModalProps {
   isOpen: boolean;
@@ -24,7 +28,7 @@ interface OrderAuditModalProps {
   onRefreshOrders?: () => void;
 }
 
-type TabType = 'all' | 'items_dup' | 'wa_mismatch' | 'order_dup' | 'unprocessed';
+type TabType = 'all' | 'items_dup' | 'wa_mismatch' | 'order_dup' | 'unprocessed' | 'prislo';
 
 export function OrderAuditModal({
   isOpen,
@@ -43,6 +47,40 @@ export function OrderAuditModal({
   const [activeTab, setActiveTab] = useState<TabType>('all');
   const [msgFeedback, setMsgFeedback] = useState<string | null>(null);
   const [expandedMsgIds, setExpandedMsgIds] = useState<Set<string>>(new Set());
+  // „Přišlo všechno?" — kontrola toho, co v databázi NENÍ. Chybějící zprávu
+  // nejde najít přímo, dá se ale poznat z rytmu odesílatelů, z výpadků příjmu
+  // a ze zpráv, které trigger odmítl (viz lib/kontrolaObjednavek.ts).
+  const [ticho, setTicho] = useState<TichoRadek[]>([]);
+  const [vypadky, setVypadky] = useState<VypadekRadek[]>([]);
+  const [pokryti, setPokryti] = useState<{ chybi: PokrytiRadek[]; noviTentoTyden: string[] }>({ chybi: [], noviTentoTyden: [] });
+  const [odmitnute, setOdmitnute] = useState<any[]>([]);
+
+  async function nactiKontroluPrijmu() {
+    try {
+      const pred = new Date();
+      pred.setDate(pred.getDate() - 180);
+      const odIso = pred.toISOString().slice(0, 10);
+      const [zpravy, objednavky, zamitnute] = await Promise.all([
+        supabase.from('whatsapp_incoming').select('id,sender_name,created_at,status').gte('created_at', odIso),
+        supabase.from('orders').select('id,place_name,delivery_date,order_date,status').gte('order_date', odIso),
+        // Tabulka vzniká migrací 20261216000000 — dokud není nasazená, chyba
+        // se spolkne a zbytek kontroly funguje dál.
+        supabase.from('whatsapp_rejected').select('*').is('acknowledged_at', null).order('created_at', { ascending: false }).limit(50),
+      ]);
+      const seznamZprav = (zpravy.data as any[]) ?? [];
+      setTicho(tichoUOdberatelu(seznamZprav, new Date()));
+      setVypadky(vypadkyPrijmu(seznamZprav).slice(0, 5));
+      const dnes = new Date();
+      const pondeli = new Date(dnes);
+      pondeli.setDate(dnes.getDate() - ((dnes.getDay() + 6) % 7));
+      setPokryti(pokrytiTydne((objednavky.data as any[]) ?? [], pondeli.toISOString().slice(0, 10)));
+      setOdmitnute((zamitnute.data as any[]) ?? []);
+    } catch {
+      // Kontrola je doplněk — když se nenačte, zbytek auditu funguje dál.
+    }
+  }
+
+  const podezreniCelkem = pokryti.chybi.length + odmitnute.length + ticho.length + vypadky.length;
 
   async function loadAudit() {
     setLoading(true);
@@ -54,6 +92,7 @@ export function OrderAuditModal({
         packages,
       });
       setReport(rep);
+      await nactiKontroluPrijmu();
     } catch (e: any) {
       console.error('Audit failed:', e);
       setMsgFeedback('Chyba při spuštění auditu: ' + (e.message || String(e)));
@@ -323,6 +362,30 @@ export function OrderAuditModal({
                 <span className="text-[10px] font-bold text-neutral-500">nezadaných</span>
               </div>
             </button>
+
+            {/* Card 5: Přišlo všechno? — jediná kontrola, která hledá to,
+                co v databázi CHYBÍ, ne co v ní je špatně. */}
+            <button
+              onClick={() => setActiveTab(activeTab === 'prislo' ? 'all' : 'prislo')}
+              className={`p-2.5 sm:p-3 rounded border-2 text-left transition flex flex-col justify-between select-none ${
+                activeTab === 'prislo'
+                  ? 'bg-violet-100 border-violet-500 ring-2 ring-violet-400 shadow-sm'
+                  : podezreniCelkem > 0
+                  ? 'bg-violet-50/80 border-violet-200 hover:border-violet-300'
+                  : 'bg-neutral-50 border-neutral-200 opacity-60'
+              }`}
+            >
+              <div className="flex items-center justify-between text-violet-800 mb-1">
+                <span className="text-[11px] font-black uppercase tracking-wider">Přišlo všechno?</span>
+                <Search size={15} />
+              </div>
+              <div className="flex items-baseline gap-1.5">
+                <span className={`text-xl sm:text-2xl font-black ${podezreniCelkem > 0 ? 'text-violet-700' : 'text-neutral-500'}`}>
+                  {podezreniCelkem}
+                </span>
+                <span className="text-[10px] font-bold text-neutral-500">podezření</span>
+              </div>
+            </button>
           </div>
         </div>
 
@@ -356,6 +419,117 @@ export function OrderAuditModal({
             <div className="space-y-4">
 
               {/* 1. SEKCIE: ZDVOJENÉ ŘÁDKY POLOŽIEK (např. 2x 12% 50l) */}
+              {(activeTab === 'all' || activeTab === 'prislo') && (
+                <div className="space-y-3">
+                  {/* 1) Kdo objednal minulý týden a tenhle ne — nejpraktičtější
+                         kontrola, dá se podle ní rovnou zavolat. */}
+                  <div className="rounded-xl border-2 border-violet-200 bg-violet-50/60 p-3.5">
+                    <div className="font-display font-black text-violet-950 text-sm mb-1">
+                      Chybí proti minulému týdnu
+                    </div>
+                    {pokryti.chybi.length === 0 ? (
+                      <p className="text-xs font-bold text-violet-900/70">
+                        Všichni, kdo objednali minulý týden, objednali i tenhle.
+                      </p>
+                    ) : (
+                      <>
+                        <p className="text-xs font-bold text-violet-900/70 mb-2">
+                          Tihle objednali minulý týden a tenhle zatím ne. Nemusí to nic znamenat — ale je to
+                          jediné místo, kde se pozná zpráva, která nedorazila.
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {pokryti.chybi.map((r) => (
+                            <span key={r.odberatel} className="px-2 py-1 rounded-lg bg-white border border-violet-300 text-[11px] font-black text-violet-950">
+                              {r.odberatel}
+                            </span>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* 2) Zprávy od odesílatele mimo seznam — dřív mizely beze stopy. */}
+                  {odmitnute.length > 0 && (
+                    <div className="rounded-xl border-2 border-rose-300 bg-rose-50/70 p-3.5">
+                      <div className="font-display font-black text-rose-950 text-sm mb-1">
+                        {odmitnute.length} {odmitnute.length === 1 ? 'zpráva' : odmitnute.length < 5 ? 'zprávy' : 'zpráv'} od neznámého odesílatele
+                      </div>
+                      <p className="text-xs font-bold text-rose-900/80 mb-2">
+                        Nedostaly se do objednávek, protože odesílatel není v seznamu povolených. Když hospoda
+                        píše z nového čísla, vypadá to přesně takhle — přidejte ji do povolených v Nastavení.
+                      </p>
+                      <div className="space-y-1.5">
+                        {odmitnute.slice(0, 8).map((z) => (
+                          <div key={z.id} className="rounded-lg bg-white border border-rose-200 p-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-black text-rose-950 truncate">{z.sender_name}</span>
+                              <span className="text-[10px] font-bold text-neutral-500 shrink-0">
+                                {String(z.created_at).slice(0, 16).replace('T', ' ')}
+                              </span>
+                            </div>
+                            {z.message_preview && (
+                              <p className="text-[11px] text-neutral-600 mt-0.5 line-clamp-2">{z.message_preview}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 3) Ticho u pravidelného odesílatele. */}
+                  {ticho.length > 0 && (
+                    <div className="rounded-xl border-2 border-amber-300 bg-amber-50/70 p-3.5">
+                      <div className="font-display font-black text-amber-950 text-sm mb-1">
+                        Neobvykle dlouho mlčí ({ticho.length})
+                      </div>
+                      <p className="text-xs font-bold text-amber-900/80 mb-2">
+                        Porovnáno s vlastním rytmem každého odesílatele, ne paušálně.
+                      </p>
+                      <div className="space-y-1">
+                        {ticho.slice(0, 10).map((t) => (
+                          <div key={t.odesilatel} className="flex items-center justify-between gap-2 text-xs bg-white rounded-lg border border-amber-200 px-2 py-1.5">
+                            <span className="font-black text-amber-950 truncate">{t.odesilatel}</span>
+                            <span className="font-bold text-neutral-600 shrink-0 tabular-nums">
+                              {t.tichoDnu} dní ticho · obvykle po {t.obvykleDnu} dnech
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 4) Výpadek příjmu — nejspíš neběžel most. */}
+                  {vypadky.length > 0 && (
+                    <div className="rounded-xl border-2 border-neutral-300 bg-white p-3.5">
+                      <div className="font-display font-black text-neutral-900 text-sm mb-1">
+                        Okna bez jediné zprávy ({vypadky.length})
+                      </div>
+                      <p className="text-xs font-bold text-neutral-600 mb-2">
+                        Podstatně delší ticho, než je v provozu obvyklé — typicky neběžel most na WhatsApp.
+                        Co lidé poslali mezitím, se do aplikace nedostalo.
+                      </p>
+                      <div className="space-y-1">
+                        {vypadky.map((v, i) => (
+                          <div key={i} className="flex items-center justify-between gap-2 text-xs bg-neutral-50 rounded-lg border border-neutral-200 px-2 py-1.5">
+                            <span className="font-bold text-neutral-700 truncate">{v.od} → {v.do}</span>
+                            <span className="font-black text-neutral-900 shrink-0 tabular-nums">{v.hodin} h</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {podezreniCelkem === 0 && (
+                    <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50/60 p-4 flex items-center gap-3">
+                      <CheckCircle size={20} className="text-emerald-600 shrink-0" />
+                      <p className="text-xs font-bold text-emerald-900">
+                        Nic nenasvědčuje tomu, že by některá zpráva nedorazila.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {(activeTab === 'all' || activeTab === 'items_dup') && itemsDupCount > 0 && (
                 <div className="space-y-3">
                   <div className="text-xs font-black uppercase tracking-wider text-rose-900 flex items-center justify-between px-1">
