@@ -10,7 +10,7 @@ import { TapReservationModal } from '../components/TapReservationModal';
 import { detectTapType } from '../lib/tapReservations';
 import type { TapReservation } from './VycepyScreen';
 import { BeerTileGrid, BeerTilePanel, TileTotalBar } from '../components/BeerTileGrid';
-import { potvrd } from '../lib/toast';
+import { chyba, toastZpet } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
 
 // Tři podoby jednoho výdeje ze skladu. Klíč je tabulka, do které se zapisuje.
@@ -212,9 +212,24 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   }
 
   async function del(id: string) {
-    await supabase.from(table).delete().eq('id', id);
+    const row = rows.find((r) => r.id === id);
+    const { error } = await supabase.from(table).delete().eq('id', id);
+    if (error) { chyba(error); return; }
     setRows((r) => r.filter((x) => x.id !== id));
     load(true);
+    if (!row) return;
+
+    zavibruj('odskrtnuto');
+    toastZpet(
+      `Smazáno: ${row.beer_name ?? 'pivo'} ${row.package_label ?? ''} × ${row.quantity} ks`,
+      async () => {
+        // Zapisuje se zpátky do TÉŽE tabulky, ze které se mazalo — kdyby se
+        // mezitím přepnul druh výdeje, řádek by jinak skončil jinde.
+        const { error: chybaVraceni } = await supabase.from(table).insert(row);
+        if (chybaVraceni) throw chybaVraceni;
+        load(true);
+      },
+    );
   }
 
   async function increment(id: string, delta: number) {
@@ -590,11 +605,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                                   <button
                                     type="button"
                                     className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition"
-                                    onClick={async () => {
-                                      if (await potvrd(`Smazat záznam: ${r.beer_name ?? beer?.name ?? '—'} ${vol}L × ${r.quantity} ks?`)) {
-                                        del(r.id);
-                                      }
-                                    }}
+                                    onClick={() => del(r.id)}
                                     title="Smazat záznam"
                                   >✕</button>
                                 </div>

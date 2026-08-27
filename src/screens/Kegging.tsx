@@ -17,7 +17,7 @@ import KeggingDayPlan from '../components/KeggingDayPlan';
 import { AlertTriangle, BarChart3, Beer as BeerIcon, Calendar, CalendarDays, Camera, ClipboardList, Copy, Cylinder, Loader2, Package as PackageIcon, Pencil, Plus, RefreshCw, Scroll, Sparkles, Trash2 } from 'lucide-react';
 import { ImportKeggingFromImage } from '../components/ImportKeggingFromImage';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
-import { chyba, potvrd } from '../lib/toast';
+import { chyba, potvrd, toastZpet } from '../lib/toast';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { IkonaSud } from '../components/ikony';
 import { zavibruj } from '../lib/haptika';
@@ -655,12 +655,31 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
   async function del(id: string) {
     const row = rows.find((r) => r.id === id);
-    await supabase.from('kegging').delete().eq('id', id);
+    const { error } = await supabase.from('kegging').delete().eq('id', id);
+    if (error) { chyba(error); return; }
     setRows((r) => r.filter((x) => x.id !== id));
     if (row?.cellar_tank_id && row.source_volume_l) {
       await adjustTankVolume(row.cellar_tank_id, Number(row.source_volume_l));
       load(true);
     }
+    if (!row) return;
+
+    // Místo ptaní se předem: smaž a pár vteřin nabídni návrat. Na telefonu je
+    // to o klepnutí míň pokaždé, i když se člověk nespletl.
+    zavibruj('odskrtnuto');
+    toastZpet(
+      `Smazáno: ${row.beer_name ?? 'pivo'} ${row.package_label ?? ''} × ${row.quantity} ks`,
+      async () => {
+        const { error: chybaVraceni } = await supabase.from('kegging').insert(row);
+        if (chybaVraceni) throw chybaVraceni;
+        // Objem, který se mazáním vrátil do tanku, se musí zase odečíst —
+        // jinak by tank po smazání a vrácení ukazoval víc, než v něm je.
+        if (row.cellar_tank_id && row.source_volume_l) {
+          await adjustTankVolume(row.cellar_tank_id, -Number(row.source_volume_l));
+        }
+        load(true);
+      },
+    );
   }
 
   async function increment(id: string, delta: number) {
@@ -1209,7 +1228,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                             </select>
                             <button
                               type="button"
-                              onClick={async () => { if ((await potvrd(`Smazat záznam: ${r.beer_name ?? beer?.name ?? '—'} ${vol}L × ${r.quantity} ks?`))) del(r.id); }}
+                              onClick={() => del(r.id)}
                               className="w-11 min-h-[44px] grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-lg transition"
                             >✕</button>
                           </div>
@@ -1316,11 +1335,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                                   <button
                                     type="button"
                                     className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition"
-                                    onClick={async () => {
-                                      if ((await potvrd(`Smazat záznam: ${r.beer_name ?? beer?.name ?? '—'} ${vol}L × ${r.quantity} ks?`))) {
-                                        del(r.id);
-                                      }
-                                    }}
+                                    onClick={() => del(r.id)}
                                     title="Smazat záznam"
                                   >✕</button>
                                 </div>
@@ -1548,7 +1563,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                           </select>
                           <button
                             type="button"
-                            onClick={async () => { if ((await potvrd(`Smazat záznam: ${r.beer_name ?? beer?.name ?? '—'} ${vol}L × ${r.quantity} ks?`))) del(r.id); }}
+                            onClick={() => del(r.id)}
                             className="w-11 min-h-[44px] grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-lg transition"
                           >✕</button>
                         </div>
@@ -1661,11 +1676,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                                 <button
                                   type="button"
                                   className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition"
-                                  onClick={async () => {
-                                    if ((await potvrd(`Smazat záznam: ${r.beer_name ?? beer?.name ?? '—'} ${vol}L × ${r.quantity} ks?`))) {
-                                      del(r.id);
-                                    }
-                                  }}
+                                  onClick={() => del(r.id)}
                                   title="Smazat záznam"
                                 >✕</button>
                               </div>

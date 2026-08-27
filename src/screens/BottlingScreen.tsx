@@ -20,7 +20,8 @@ import { stackingQuickQtys } from '../lib/quickQty';
 import { computePackageNeeds } from '../lib/packageNeeds';
 import { computeKeggingPlan } from '../lib/keggingPlan';
 import KeggingDayPlan from '../components/KeggingDayPlan';
-import { chyba, potvrd } from '../lib/toast';
+import { chyba, potvrd, toastZpet } from '../lib/toast';
+import { zavibruj } from '../lib/haptika';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
 
@@ -618,18 +619,28 @@ export default function BottlingScreen({
 
 
   async function del(id: string) {
-    // Dřív se mazalo bez ptaní a bez kontroly chyby — křížek přitom sousedí
-    // s „+" a tužkou, takže jedno chybné klepnutí nenávratně smazalo zápis
-    // stáčení. U KEGů a fasování se appka ptá, tady se nechovala stejně.
+    // Křížek sousedí s „+" a tužkou, takže jedno chybné klepnutí smaže zápis.
+    // Dřív se proto před smazáním ptalo. Ptát se pokaždé je ale otrava —
+    // spolehlivější i rychlejší je smazat a pár vteřin nabídnout návrat.
     const row = rows.find((r) => r.id === id);
-    const popis = row ? `${row.beer_name ?? 'pivo'} ${row.package_label ?? ''} — ${row.quantity} ks (${row.entry_date})` : 'tento záznam';
-    if (!(await potvrd(`Opravdu smazat záznam stáčení?\n\n${popis}`))) return;
     const { error } = await supabase.from('bottling').delete().eq('id', id);
     if (error) {
       setErr('Smazání se nepovedlo: ' + error.message);
       return;
     }
     setRows((r) => r.filter((x) => x.id !== id));
+    if (!row) return;
+
+    zavibruj('odskrtnuto');
+    toastZpet(
+      `Smazáno: ${row.beer_name ?? 'pivo'} ${row.package_label ?? ''} × ${row.quantity} ks`,
+      async () => {
+        const { error: chybaVraceni } = await supabase.from('bottling').insert(row);
+        if (chybaVraceni) throw chybaVraceni;
+        setRows((r) => [row, ...r]);
+        load(true);
+      },
+    );
   }
 
   async function increment(id: string, delta: number) {
