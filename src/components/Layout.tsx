@@ -2,6 +2,7 @@ import { ReactNode, useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Bell, BellOff, BookOpen, Calculator, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Cylinder, Download, FilePlus, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Hourglass, LogOut, MapPin, MessageCircle, Package as PackageIcon, PlusCircle, Receipt, Search, Settings, Shield, ShieldCheck, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Timer, TrendingDown, Truck, Users, Wheat, Wine, X, XCircle, type LucideIcon } from 'lucide-react';
 
 import { useAuth } from '../lib/auth';
+import { potvrd } from '../lib/toast';
 import { Modal } from './ui';
 import { supabase, Beer, Package, Place } from '../lib/supabase';
 import { autoReserveTapIfNeeded } from '../lib/tapReservations';
@@ -867,12 +868,12 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
 
 function OfflineStatus({ online, pending, syncing, syncMsg, onSync }: { online: boolean; pending: number; syncing: boolean; syncMsg: string | null; onSync: () => void }) {
   const [showInfo, setShowInfo] = useState(false);
-  const [queueItems, setQueueItems] = useState<{ id: string; table: string; op: string; ts: number }[]>([]);
+  const [queueItems, setQueueItems] = useState<{ id: string; popis: string; ts: number }[]>([]);
   const [failures, setFailures] = useState<{ id: string; table: string; op: string; error: string }[]>([]);
 
   async function refreshQueueDetail() {
-    const { getQueue, getLastSyncFailures } = await import('../lib/offline');
-    setQueueItems(getQueue().map((o) => ({ id: o.id, table: o.table, op: o.op, ts: o.ts })));
+    const { getQueue, getLastSyncFailures, popisOperace } = await import('../lib/offline');
+    setQueueItems(getQueue().map((o) => ({ id: o.id, popis: popisOperace(o), ts: o.ts })));
     setFailures(getLastSyncFailures());
   }
 
@@ -921,18 +922,23 @@ function OfflineStatus({ online, pending, syncing, syncMsg, onSync }: { online: 
                   return (
                     <div key={item.id} className={`flex items-center justify-between gap-2 px-3 py-2 rounded border text-[11px] font-bold ${failure ? 'bg-rose-50 border-rose-300 text-rose-950' : 'bg-neutral-100 border-neutral-200 text-neutral-700'}`}>
                       <div className="min-w-0">
-                        <div className="truncate">{item.table} · {item.op} · {new Date(item.ts).toLocaleString('cs-CZ')}</div>
+                        <div className="truncate" title={item.popis}>{item.popis}</div>
+                        <div className="text-[10px] font-semibold text-neutral-500">{new Date(item.ts).toLocaleString('cs-CZ')}</div>
                         {failure && <div className="text-[10px] font-semibold text-rose-700 truncate" title={failure.error}><XCircle className="ikona-text" /> {failure.error}</div>}
                       </div>
-                      {failure && (
-                        <button
-                          onClick={() => discardOp(item.id)}
-                          title="Zahodit tento zápis natrvalo (nepovede se uložit)"
-                          className="shrink-0 px-2 py-1 rounded bg-rose-600 hover:bg-rose-500 text-white font-black"
-                        >
-                          Zahodit
-                        </button>
-                      )}
+                      <button
+                        onClick={async () => {
+                          if (await potvrd(`Zahodit tento zápis?
+
+${item.popis}
+
+Do databáze se už neuloží.`)) discardOp(item.id);
+                        }}
+                        title="Zahodit tento zápis natrvalo — do databáze se neuloží"
+                        className={`shrink-0 min-h-[44px] px-3 rounded font-black ${failure ? 'bg-rose-600 hover:bg-rose-500 text-white' : 'bg-white border border-neutral-300 text-neutral-600 hover:bg-neutral-50'}`}
+                      >
+                        Zahodit
+                      </button>
                     </div>
                   );
                 })}
