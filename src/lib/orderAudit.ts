@@ -211,12 +211,50 @@ export async function runOrderAudit({
   }
 
   // --- KONTROLA 2: Křížová kontrola s WhatsApp zprávou ---
+  //
+  // Kontrola hlásila spoustu falešných nálezů, protože každý rozdíl mezi
+  // zprávou a objednávkou brala jako chybu. Rozdíl je přitom často správně:
+  //
+  //   • objednávku někdo po importu ručně opravil (zákazník zavolal, doplnil
+  //     se sud) — oprava se pak hlásila pořád dokola jako „nesouhlasí",
+  //   • na zprávu navazoval dodatek („ještě dvě dvanáctky") — porovnávalo se
+  //     jen s původní zprávou, takže doplněk vypadal jako přebytek,
+  //   • u zprávy chybí uložený rozbor od AI, takže se text přeparsoval
+  //     slabším lokálním parserem a rozdíl vznikl tímhle přeparsováním.
+  //
+  // Nově se hlásí jen to, kde rozdíl opravdu znamená špatně přečtenou zprávu.
   const whatsappMismatchIssues: WhatsAppMismatchIssue[] = [];
+
+  // Zprávy, na které navazuje dodatek — objednávka u nich legitimně obsahuje
+  // víc než původní zpráva.
+  const maDodatek = new Set<string>();
+  for (const m of waMessages as any[]) {
+    if (m?.amends_message_id) maDodatek.add(String(m.amends_message_id));
+  }
+
+  const UPRAVENO_PO_MS = 10 * 60 * 1000; // víc než doběh importu = zásah člověka
 
   for (const o of orders) {
     if (!o.whatsapp_message_id) continue;
     const waMsg = waMap.get(o.whatsapp_message_id);
     if (!waMsg) continue;
+    if (maDodatek.has(String(o.whatsapp_message_id))) continue;
+
+    // Ruční úprava po importu: nejnovější položka vznikla znatelně později než
+    // objednávka. To není chyba čtení, ale vědomá oprava člověkem.
+    const polozkyObjednavky: any[] = itemsByOrder.get(o.id) ?? [];
+    const vznikObjednavky = new Date((o as any).created_at || o.order_date).getTime();
+    const nejnovejsiPolozka = polozkyObjednavky.reduce((max: number, it: any) => {
+      const t = new Date(it.created_at || 0).getTime();
+      return Number.isFinite(t) && t > max ? t : max;
+    }, 0);
+    if (
+      nejnovejsiPolozka > 0 &&
+      Number.isFinite(vznikObjednavky) &&
+      nejnovejsiPolozka - vznikObjednavky > UPRAVENO_PO_MS
+    ) {
+      continue;
+    }
 
     // Extrahujeme položky z WhatsApp zprávy (buď z parsed_items nebo rozparsováním textu)
     let expectedItems: Array<{ beerId: string; pkgId: string; qty: number; beerName?: string; packageLabel?: string }> = [];
@@ -235,21 +273,13 @@ export async function runOrderAudit({
             packageLabel: p?.label || pi.package_label || 'Obal',
           };
         });
-    } else if (waMsg.message_text || waMsg.parsed_raw_text) {
-      const parsed = parseFreeTextEntries(waMsg.parsed_raw_text || waMsg.message_text, beers, packages, aliasMap);
-      expectedItems = parsed
-        .filter((pi) => pi.beer_id && pi.package_id && Number(pi.quantity) > 0)
-        .map((pi) => {
-          const b = beers.find((x) => x.id === pi.beer_id);
-          const p = packages.find((x) => x.id === pi.package_id);
-          return {
-            beerId: pi.beer_id!,
-            pkgId: pi.package_id!,
-            qty: Number(pi.quantity),
-            beerName: b?.name || 'Pivo',
-            packageLabel: p?.label || 'Obal',
-          };
-        });
+    } else {
+      // Bez uloženého rozboru (parsed_items) se neví, co z té zprávy
+      // aplikace skutečně vyčetla. Přeparsovat text lokálním parserem
+      // a rozdíl vydávat za chybu čtení je nepoctivé — parser je slabší
+      // než AI, která objednávku zakládala, takže by to hlásilo hlavně
+      // vlastní nedostatky.
+      continue;
     }
 
     if (expectedItems.length === 0) continue;
