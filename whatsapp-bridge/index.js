@@ -20,6 +20,7 @@ import pino from 'pino';
 import { getSupabase, useSupabaseAuthState, clearSession } from './lib/supabaseAuth.js';
 import { createMessageGate } from './lib/filter.js';
 import { HistoryCollector, normTs } from './lib/history.js';
+import { spustTep, spustPrikazy } from './lib/stav.js';
 import { forwardToWebhook } from './lib/webhook.js';
 import { prepareImageForForwarding, ensureMediaBucket, getImageMessage } from './lib/media.js';
 
@@ -67,6 +68,7 @@ const qrState = {
   connected: false,
   updatedAt: null,
   sock: null, // aktuální živý Baileys socket (přepisuje se při každém (re)připojení) — čte ho POST /send
+  poznamka: null, // poslední důvod odpojení / stav — píše se do tepu
 };
 
 /** Bezpečné porovnání tajemství (stejná odolnost proti timing útoku jako u webhooku). */
@@ -469,6 +471,7 @@ async function start() {
 
     if (connection === 'open') {
       qrState.connected = true;
+      qrState.poznamka = 'spojení navázáno';
       logger.info('[conn] OPEN — spárováno a online ✔');
     }
 
@@ -476,6 +479,7 @@ async function start() {
       qrState.connected = false;
       const code = lastDisconnect?.error?.output?.statusCode;
       const loggedOut = code === DisconnectReason.loggedOut;
+      qrState.poznamka = loggedOut ? 'odhlášeno ve WhatsAppu' : `spojení zavřeno (kód ${code ?? '?'})`;
       logger.warn(`[conn] připojení zavřeno (statusCode=${code}, loggedOut=${loggedOut})`);
       if (loggedOut) {
         // Uživatel odpojil zařízení v WhatsAppu → smažeme session; start() pak
@@ -538,4 +542,33 @@ start().catch((e) => {
 });
 
 startHttpServer(qrState);
+
+// 💓 Tep — každou minutu „žiju" do databáze. Bez toho se v aplikaci nedá
+// odlišit „nikdo nic neposlal" od „most neběžel": obojí vypadá stejně, tedy
+// prázdno. Na bezplatném Renderu je to podstatné, instance po ~15 minutách
+// nečinnosti usne a spící most zprávy živě nedostane.
+spustTep(
+  supabase,
+  () => ({ pripojeno: qrState.connected, poznamka: qrState.poznamka }),
+  logger,
+  process.env.RENDER_GIT_COMMIT?.slice(0, 7) || '',
+);
+
+// 📥 Příkazy z aplikace. Jediný je „srovnat": zavřít spojení a nechat most
+// znovu se připojit — WhatsApp při tom pošle historii skupiny a chybějící
+// zprávy projdou stejnou cestou jako živé (dedup podle key.id je nezdvojí).
+// Reconnect obstará existující větev connection.close, nic dalšího netřeba.
+spustPrikazy(
+  supabase,
+  async () => {
+    if (!qrState.sock) throw new Error('most zatím nemá spojení, není co znovu navázat');
+    try {
+      qrState.sock.end(new Error('srovnání na žádost z aplikace'));
+    } catch (e) {
+      logger.warn({ err: e }, '[prikazy] zavření socketu selhalo, zkusím pokračovat');
+    }
+    return 'Most se znovu připojuje; historie skupiny se dopočítá během pár minut.';
+  },
+  logger,
+);
 

@@ -57,13 +57,47 @@ export function OrderAuditModal({
   // Deník příjmu: kolik zpráv došlo na webhook a kolik z nich se uložilo.
   // Tohle je jediné místo, kde jde ověřit „na WhatsAppu je 12, v appce 11".
   const [denik, setDenik] = useState<any[]>([]);
+  // Stav mostu: bez tepu nejde odlišit „nikdo nic neposlal" od „most neběžel" —
+  // obojí vypadá v databázi stejně, tedy prázdno.
+  const [most, setMost] = useState<any | null>(null);
+  const [srovnavam, setSrovnavam] = useState(false);
+
+  /**
+   * Požádá most, ať se znovu připojí a nechá si od WhatsAppu poslat historii
+   * skupiny. Chybějící zprávy tím projdou stejnou cestou jako živé; duplicity
+   * odchytí dedup podle WhatsApp key.id.
+   *
+   * Na most se nevolá přímo — spící instance na bezplatném Renderu by
+   * neodpověděla. Příkaz se zapíše do tabulky a most si ho vyzvedne. Ping na
+   * jeho adresu je jen probuzení, na jeho výsledku nezáleží (proto no-cors).
+   */
+  async function srovnatSWhatsAppem() {
+    setSrovnavam(true);
+    setMsgFeedback(null);
+    try {
+      if (most?.url) {
+        try {
+          await fetch(`${most.url.replace(/\/$/, '')}/health`, { mode: 'no-cors', cache: 'no-store' });
+        } catch {
+          // Probuzení je pokus navíc — když se nepovede, příkaz počká v tabulce.
+        }
+      }
+      const { error } = await supabase.from('whatsapp_prikazy').insert({ prikaz: 'srovnat', stav: 'ceka' });
+      if (error) throw error;
+      setMsgFeedback('Požádáno o srovnání. Most se znovu připojí a chybějící zprávy dopočítá — obvykle do pár minut.');
+    } catch (e: any) {
+      setMsgFeedback('Srovnání se nepodařilo zadat: ' + (e?.message || String(e)));
+    } finally {
+      setSrovnavam(false);
+    }
+  }
 
   async function nactiKontroluPrijmu() {
     try {
       const pred = new Date();
       pred.setDate(pred.getDate() - 180);
       const odIso = pred.toISOString().slice(0, 10);
-      const [zpravy, objednavky, zamitnute, denikDennne] = await Promise.all([
+      const [zpravy, objednavky, zamitnute, denikDennne, stavMostu] = await Promise.all([
         supabase.from('whatsapp_incoming').select('id,sender_name,created_at,status').gte('created_at', odIso),
         supabase.from('orders').select('id,place_name,delivery_date,order_date,status').gte('order_date', odIso),
         // Tabulka vzniká migrací 20261216000000 — dokud není nasazená, chyba
@@ -72,6 +106,7 @@ export function OrderAuditModal({
         // Pohled vzniká migrací 20261217000000; dokud není nasazená, spolkne
         // se chyba a zbytek kontroly funguje dál.
         supabase.from('whatsapp_prijem_denne').select('*').limit(30),
+        supabase.from('whatsapp_most_stav').select('*').eq('id', 'most').maybeSingle(),
       ]);
       const seznamZprav = (zpravy.data as any[]) ?? [];
       setTicho(tichoUOdberatelu(seznamZprav, new Date()));
@@ -82,6 +117,7 @@ export function OrderAuditModal({
       setPokryti(pokrytiTydne((objednavky.data as any[]) ?? [], pondeli.toISOString().slice(0, 10)));
       setOdmitnute((zamitnute.data as any[]) ?? []);
       setDenik((denikDennne.data as any[]) ?? []);
+      setMost(stavMostu.data ?? null);
     } catch {
       // Kontrola je doplněk — když se nenačte, zbytek auditu funguje dál.
     }
@@ -428,6 +464,56 @@ export function OrderAuditModal({
               {/* 1. SEKCIE: ZDVOJENÉ ŘÁDKY POLOŽIEK (např. 2x 12% 50l) */}
               {(activeTab === 'all' || activeTab === 'prislo') && (
                 <div className="space-y-3">
+                  {/* Stav mostu — první věc, na kterou se má člověk podívat.
+                      Když most neběžel, nemá smysl řešit nic dalšího. */}
+                  {(() => {
+                    const naposledy = most?.naposledy ? new Date(most.naposledy) : null;
+                    const minut = naposledy ? Math.floor((Date.now() - naposledy.getTime()) / 60000) : null;
+                    // Tep chodí po minutě; pět minut ticha znamená, že most neběží
+                    // (na bezplatném Renderu typicky uspaná instance).
+                    const bezi = minut !== null && minut < 5;
+                    const popisStari = minut === null ? 'nikdy'
+                      : minut < 2 ? 'právě teď'
+                      : minut < 90 ? `před ${minut} min`
+                      : `před ${Math.floor(minut / 60)} h`;
+                    return (
+                      <div className={`rounded-xl border-2 p-3.5 ${bezi ? 'border-emerald-300 bg-emerald-50/70' : 'border-rose-300 bg-rose-50/70'}`}>
+                        <div className="flex items-start justify-between gap-3 flex-wrap">
+                          <div className="min-w-0">
+                            <div className={`font-display font-black text-sm ${bezi ? 'text-emerald-950' : 'text-rose-950'}`}>
+                              {bezi
+                                ? (most?.pripojeno ? 'Most běží a je spojený s WhatsAppem' : 'Most běží, ale nemá spojení s WhatsAppem')
+                                : 'Most se neozývá'}
+                            </div>
+                            <p className={`text-xs font-bold mt-0.5 ${bezi ? 'text-emerald-900/80' : 'text-rose-900/80'}`}>
+                              Naposledy {popisStari}
+                              {most?.poznamka ? ` · ${most.poznamka}` : ''}
+                            </p>
+                            {!bezi && (
+                              <p className="text-[11px] font-semibold text-rose-900/70 mt-1">
+                                Dokud most neběží, zprávy se živě nedoručují — přijdou až při dalším připojení.
+                                Bezplatný Render uspí instanci po ~15 minutách nečinnosti.
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={srovnatSWhatsAppem}
+                            disabled={srovnavam}
+                            className="shrink-0 btn-primary !rounded-xl !min-h-[44px] text-xs disabled:opacity-60"
+                          >
+                            <RefreshCw size={15} className={srovnavam ? 'animate-spin' : ''} />
+                            {srovnavam ? 'Zadávám…' : 'Srovnat s WhatsAppem'}
+                          </button>
+                        </div>
+                        <p className="text-[11px] font-semibold text-neutral-500 mt-2">
+                          Srovnání znovu naváže spojení a nechá si od WhatsAppu poslat historii skupiny.
+                          Chybějící zprávy projdou stejnou cestou jako živé; co už v aplikaci je, se nezdvojí.
+                        </p>
+                      </div>
+                    );
+                  })()}
+
                   {/* 0) Deník příjmu — jediný TVRDÝ údaj. Ostatní kontroly níž
                          jsou odhady z chování; tohle je počítadlo. */}
                   {denik.length > 0 && (
