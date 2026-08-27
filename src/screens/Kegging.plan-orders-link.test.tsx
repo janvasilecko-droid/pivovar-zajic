@@ -120,7 +120,7 @@ describe('Plán stáčení — odkaz do Objednávek a odškrtnutí', () => {
     const setPage = vi.fn();
     render(<KeggingScreen mode="all" setPage={setPage} initialSubTab="plan" />);
 
-    const odkaz = await screen.findByRole('button', { name: /Zobrazit objednávky/ });
+    const odkaz = await screen.findByRole('button', { name: /^Objednávky/ });
     fireEvent.click(odkaz);
 
     await waitFor(() => expect(setPage).toHaveBeenCalledWith('orders'));
@@ -131,15 +131,15 @@ describe('Plán stáčení — odkaz do Objednávek a odškrtnutí', () => {
 
   it('den ukazuje, kolik sudů chybí, a nabídne odškrtnutí', async () => {
     await otevriPlan();
-    expect(await screen.findByRole('button', { name: /Mám \(3\)/ })).toBeTruthy();
-    expect(screen.getByText('0 / 3 ks')).toBeTruthy();
+    expect(await screen.findByRole('button', { name: /Mám všech 3/ })).toBeTruthy();
+    expect(screen.getByText('0 / 3 ks hotovo', { exact: false })).toBeTruthy();
   });
 
   it('stočené sudy z tohoto týdne položku pokryjí — mizí tlačítko i odkaz', async () => {
     h.DB.kegging = [{ id: 'k1', entry_date: '2026-01-06', beer_id: 'beer-12', package_id: 'pkg-30', quantity: 3 }];
     await otevriPlan();
-    await waitFor(() => expect(screen.getByText('3 / 3 ks')).toBeTruthy());
-    expect(screen.queryByRole('button', { name: /Mám \(/ })).toBeNull();
+    await waitFor(() => expect(screen.getByText('3 / 3 ks hotovo', { exact: false })).toBeTruthy());
+    expect(screen.queryByRole('button', { name: /Mám všech/ })).toBeNull();
   });
 
   // Sudy nachystané a odečtené ze skladu se stáčet nemusí, i když objednávka
@@ -147,14 +147,14 @@ describe('Plán stáčení — odkaz do Objednávek a odškrtnutí', () => {
   it('nachystané sudy s odečtem ze skladu položku pokryjí', async () => {
     h.DB.zavoz_deductions = [{ deduct_date: '2026-01-06', beer_id: 'beer-12', package_id: 'pkg-30', quantity: 3, order_item_id: 'oi-1' }];
     await otevriPlan();
-    await waitFor(() => expect(screen.getByText('3 / 3 ks')).toBeTruthy());
-    expect(screen.queryByRole('button', { name: /Mám \(/ })).toBeNull();
+    await waitFor(() => expect(screen.getByText('3 / 3 ks hotovo', { exact: false })).toBeTruthy());
+    expect(screen.queryByRole('button', { name: /Mám všech/ })).toBeNull();
   });
 
   it('"Celý týden" sečte všechny dny', async () => {
     await otevriPlan();
     fireEvent.click(screen.getByRole('button', { name: /Celý týden/ }));
     expect(await screen.findByText(/Stočit za celý týden/)).toBeTruthy();
-    expect(screen.getByText('0 / 3 ks')).toBeTruthy();
+    expect(screen.getByText('0 / 3 ks hotovo', { exact: false })).toBeTruthy();
   });
 });

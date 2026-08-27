@@ -4,7 +4,7 @@ import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, beerT
 import { EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { ImportBottlingFromImage } from '../components/ImportBottlingFromImage';
-import { AlertTriangle, BarChart3, Beer as BeerIcon, Calendar, CalendarDays, Camera, ClipboardList, Copy, Cylinder, Lightbulb, ListChecks, Package as PackageIcon, Pencil, Plus, RefreshCw, Sparkles, Trash2, Wine } from 'lucide-react';
+import { AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Calendar, CalendarDays, Camera, ClipboardList, Copy, Cylinder, Lightbulb, ListChecks, Package as PackageIcon, Pencil, Plus, RefreshCw, Sparkles, Trash2, Wine } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { BottlingPlan, getPlanSeenAt, markPlanSeenAt, isPlanUnseen, isBottlingManager, setPlanStatus } from '../lib/bottlingPlans';
 import { BottlingPlanPlanner } from '../components/BottlingPlanPlanner';
@@ -1701,7 +1701,9 @@ export default function BottlingScreen({
                 projeví okamžitě po uložení, v novém týdnu se počítá znovu z nových objednávek.
               </p>
 
-              <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 bg-white py-1.5 -mx-4 px-4 sm:mx-0 sm:px-0">
+            </div>
+
+            <div className="sticky top-0 z-20 flex flex-wrap items-center gap-2 bg-white py-2 -mx-4 px-4 border-b border-neutral-200/70 sm:mx-0 sm:px-0 sm:border-b-0">
                 {/* Filtr Pivo */}
                 <select
                   value={reqBeerFilter}
@@ -1736,16 +1738,69 @@ export default function BottlingScreen({
                       : 'bg-neutral-100 text-neutral-700 border-neutral-200 hover:bg-neutral-200'
                   }`}
                 >
-                  {reqOnlyMissing ? '⚠️ Jen chybějící (> 0)' : '📦 Všechny položky'}
-                </button>
-              </div>
+                {reqOnlyMissing ? '⚠️ Jen chybějící (> 0)' : '📦 Všechny položky'}
+              </button>
             </div>
 
             {/* Tabulka */}
             {filteredRequirements.length === 0 ? (
               <EmptyState text={reqOnlyMissing ? 'Žádné chybějící lahve! Všechny objednané lahve jsou pokryté na skladě.' : 'Žádné položky k zobrazení.'} icon="🎉" />
             ) : (
-              <div className="overflow-x-auto scrollbar-thin rounded border border-neutral-200">
+              <>
+              {/* Na telefonu karty: osm sloupců se do 375 px nevejde a
+                  vodorovné rolování v tabulce znamená, že „kolik stočit"
+                  je schované za okrajem — přitom je to jediné číslo,
+                  kvůli kterému se sem chodí. */}
+              <ul className="sm:hidden space-y-2">
+                {filteredRequirements.map((r) => {
+                  const beer = beers.find((b) => b.id === r.beer_id);
+                  const chybi = r.neededQty > 0;
+                  return (
+                    <li
+                      key={`m-${r.beer_id}__${r.package_id}`}
+                      className={`rounded border p-3 ${chybi ? 'border-rose-300 bg-rose-50/60' : 'border-neutral-200 bg-white'}`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="font-display font-black text-sm text-neutral-950 flex items-center gap-1.5 flex-wrap">
+                            <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
+                            <span>{r.beer_name}</span>
+                            <span className="px-1.5 py-0.5 rounded-md bg-neutral-100 text-neutral-800 font-black text-xs">{r.package_label}</span>
+                          </div>
+                          <div className="text-[11px] font-bold text-neutral-600 mt-1">
+                            Skladem <span className="font-mono text-emerald-800">{r.stockQty}</span>
+                            {' · '}objednáno <span className="font-mono text-sky-800">{r.orderedQty}</span>
+                          </div>
+                          <div className="text-[10px] font-bold text-neutral-400 mt-0.5 font-mono">
+                            {r.invQty} poč. +{r.bottledQty} stočeno −{r.outgoingQty} výdej
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className={`font-mono font-black text-2xl leading-none ${chybi ? 'text-rose-700' : 'text-emerald-600'}`}>
+                            {chybi ? r.neededQty : '✓'}
+                          </div>
+                          {chybi && <div className="text-[10px] font-black text-rose-700 uppercase mt-0.5">stočit</div>}
+                        </div>
+                      </div>
+                      {chybi && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            requestOrdersItemFilter({ beerId: r.beer_id, packageId: r.package_id });
+                            setPage?.('orders');
+                          }}
+                          className="w-full mt-2.5 min-h-[44px] rounded bg-rose-100 text-rose-800 font-black text-xs border border-rose-300 hover:bg-rose-200 active:bg-rose-300 inline-flex items-center justify-center gap-1.5"
+                        >
+                          Kam to jde — zobrazit objednávky
+                          <ArrowRight size={14} />
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+
+              <div className="hidden sm:block overflow-x-auto scrollbar-thin rounded border border-neutral-200">
                 <table className="table text-xs w-full">
                   <thead>
                     <tr className="bg-neutral-100 border-b border-neutral-200 shadow-xs">
@@ -1813,6 +1868,7 @@ export default function BottlingScreen({
                   </tbody>
                 </table>
               </div>
+              </>
             )}
             {filteredRequirements.length > 0 && (
               <p className="text-[11px] text-neutral-500 pt-1">
