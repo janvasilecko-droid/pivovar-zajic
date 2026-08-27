@@ -118,6 +118,12 @@ export default {
         glass: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
       },
       borderRadius: {
+        // Holé `rounded` je v aplikaci na 1600+ místech a Tailwind mu dává 4 px —
+        // vedle karet (1,25 rem) a tlačítek (0,875 rem) to působilo tvrdě
+        // a nesourodě. Změna výchozí hodnoty sjednotí vzhled naráz, bez
+        // přepisování těch 1600 tříd.
+        DEFAULT: '0.625rem',
+        md: '0.5rem',
         xl: '0.875rem',
         '2xl': '1.25rem',
         '3xl': '1.5rem',

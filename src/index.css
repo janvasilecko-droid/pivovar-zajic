@@ -190,6 +190,44 @@ html, body, #root {
   }
 }
 
+@media (max-width: 640px) {
+  [class*="text-[8px]"],
+  [class*="text-[9px]"],
+  [class*="text-[10px]"] {
+    font-size: 11px;
+    line-height: 1.35;
+  }
+}
+
+/* Vodorovné rolování tabulek — okraj musí říct, že vpravo něco je.
+   Tabulka širší než displej vypadá na telefonu jen useknutá a lidi pak
+   nevědí, že chybí sloupce. Stín se objeví jen tam, kde se dá rolovat,
+   a na konci zmizí: první dvě vrstvy jsou bílé kryty posouvající se
+   s obsahem (background-attachment: local), druhé dvě jsou samotné stíny
+   přilepené ke kontejneru (scroll).
+
+   Cílí se přes :has(table), aby se stín nelepil i na vodorovné pruhy
+   záložek, které mají overflow-x-auto taky. Kde prohlížeč :has() neumí,
+   pravidlo se prostě přeskočí a chová se to jako dřív. */
+.overflow-x-auto:has(table) {
+  -webkit-overflow-scrolling: touch;
+  background-image:
+    linear-gradient(to right, #fff 30%, hsla(0, 0%, 100%, 0)),
+    linear-gradient(to right, hsla(0, 0%, 100%, 0), #fff 70%),
+    linear-gradient(to right, rgba(15, 23, 42, 0.10), rgba(15, 23, 42, 0)),
+    linear-gradient(to left, rgba(15, 23, 42, 0.10), rgba(15, 23, 42, 0));
+  background-position: left center, right center, left center, right center;
+  background-repeat: no-repeat;
+  background-size: 32px 100%, 32px 100%, 14px 100%, 14px 100%;
+  background-attachment: local, local, scroll, scroll;
+}
+
+/* Řádky tabulek se na telefonu trefují prstem — potřebují výšku.
+   Na počítači zůstávají hutné, tam se míří myší. */
+@media (max-width: 640px) {
+  table td { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+}
+
 /* Mobile screen scaling & touch optimization */
 @media (max-width: 640px) {
   html {
