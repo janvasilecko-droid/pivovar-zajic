@@ -1606,7 +1606,10 @@ export default function Orders({
                   }
                 }}
               />
-              <span className="text-[11px] text-black dark:text-black font-bold">upřesnění data dodání</span>
+              {/* Bylo `text-black dark:text-black` — černá vynucená i v tmavém
+                  režimu, z doby, kdy pozadí karet zůstávalo světlé. Teď je
+                  karta tmavá a popisek na ní byl černý na černém. */}
+              <span className="text-[11px] text-neutral-600 font-bold">upřesnění data dodání</span>
             </div>
           </div>
 

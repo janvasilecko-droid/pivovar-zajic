@@ -342,16 +342,49 @@ export const BEER_COLOR_PRESETS = [
 export function beerBg(beer: { beer_color?: string | null } | null | undefined): string {
   return beer?.beer_color ?? '#F3F4F6';
 }
-export function beerText(beer: { beer_color?: string | null } | null | undefined): string {
+/** Je barva piva tmavá natolik, že na ní musí být světlé písmo? */
+function beerJeTmave(beer: { beer_color?: string | null } | null | undefined): boolean {
   const c = beer?.beer_color;
-  if (!c) return 'text-primary-900';
+  if (!c) return false;
   const hex = c.replace('#', '');
-  if (hex.length !== 6) return 'text-primary-900';
+  if (hex.length !== 6) return false;
   const r = parseInt(hex.slice(0, 2), 16) / 255;
   const g = parseInt(hex.slice(2, 4), 16) / 255;
   const b = parseInt(hex.slice(4, 6), 16) / 255;
-  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  return lum < 0.55 ? 'text-white' : 'text-primary-900';
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.55;
+}
+
+/**
+ * Barva písma na dlaždici piva — podle jasu barvy, kterou má pivo uložené
+ * v databázi.
+ *
+ * Tmavý odstín je schválně zapsaný natvrdo (`text-[#451f10]`), ne jako
+ * `text-primary-900`: pozadí dlaždice je barva piva z databáze a ta se
+ * s režimem aplikace NEMĚNÍ. Kdyby se použila třída z palety, v tmavém
+ * režimu by zesvětlala (viz proměnné v index.css) a na světle zelené
+ * „Desítce" by pak svítilo světlé písmo v poměru 1,1 : 1.
+ * Rozhodnutí „tohle pozadí je světlé, písmo musí být tmavé" padlo tady
+ * a nesmí ho nic dodatečně otočit. Hodnota odpovídá primary-900.
+ */
+export function beerText(beer: { beer_color?: string | null } | null | undefined): string {
+  return beerJeTmave(beer) ? 'text-white' : 'text-[#451f10]';
+}
+
+/**
+ * Totéž jako beerText, ale jako hodnota do CSS proměnné `--ink-plochy`.
+ *
+ * Je to pro řádky a pruhy, které mají barvu piva jako pozadí, ale text v nich
+ * sedí v potomcích s VLASTNÍMI barvami (`text-rose-800`, `text-amber-900`…) —
+ * ty by třídu z beerText přebily. Proměnnou si přečte pravidlo v index.css
+ * a přebije jí celý podstrom.
+ *
+ * Nešlo to udělat jedním pevným pravidlem v CSS: barvy piv nejsou jen světlé
+ * pastely, „Krvavý pomeranč" má tmavě vínovou. Pevně tmavý text by na ní byl
+ * stejně nečitelný jako pevně světlý na žluté — o barvě musí rozhodnout jas,
+ * a ten zná jen JavaScript.
+ */
+export function beerInk(beer: { beer_color?: string | null } | null | undefined): string {
+  return beerJeTmave(beer) ? '#ffffff' : '#0f172a';
 }
 export function beerBorder(beer: { beer_color?: string | null } | null | undefined): string {
   return beer?.beer_color ?? '#E5E7EB';

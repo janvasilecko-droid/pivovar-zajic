@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Beer, beerBg, beerText, beerBorder, pkgBg, pkgText, formatPackageLabel, Package } from '../lib/supabase';
+import { Beer, beerBg, beerBorder, beerInk, beerText, formatPackageLabel, Package, pkgBg, pkgText } from '../lib/supabase';
 import { AlertCircle, Beer as BeerIcon, Calendar, CheckCircle2, ChevronLeft, ChevronRight, Hourglass, LayoutGrid, ListFilter, Package as PackageIcon } from 'lucide-react';
 
 export type WeeklyOrderItem = {
@@ -313,8 +313,8 @@ export function WeeklyOrderSummaryCard({
                     return (
                       <tr
                         key={`${r.beerKey}|${r.volume}|${idx}`}
-                        className={`transition-colors hover:brightness-95 ${onItemClick ? 'cursor-pointer' : ''}`}
-                        style={{ backgroundColor: bgColor }}
+                        className={`plocha-z-dat transition-colors hover:brightness-95 ${onItemClick ? 'cursor-pointer' : ''}`}
+                        style={{ backgroundColor: bgColor, ['--ink-plochy' as any]: beerInk(rowBeerObj) }}
                         onClick={() => onItemClick?.(r.beerId, r.packageId)}
                       >
                         <td className="py-3.5 px-4 font-black">

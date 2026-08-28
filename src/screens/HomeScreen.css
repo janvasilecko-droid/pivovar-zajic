@@ -461,3 +461,33 @@
 .hs-fixed-color input[type="color"] {
   width: 28px; height: 28px; border-radius: 50%; border: 2px solid rgba(43,36,56,0.2); cursor: pointer; padding: 0; background: none;
 }
+
+/* ───────────────────────────────────────────────────────────────────────
+   SCÉNA V TMAVÉM REŽIMU
+   ───────────────────────────────────────────────────────────────────────
+   Barevná scéna se od jisté doby kreslí na VŠECH stránkách, ne jen na Domů
+   (viz Layout.tsx) — je to fixed vrstva se z-indexem -1 pod celou aplikací.
+   Jenže scény jsou světlé, takže v tmavém režimu prosvítala krémová plocha
+   skrz skleněnou hlavičku i spodní lištu a světlé písmo v nich bylo
+   neviditelné. Tmavé karty nad tím zároveň vypadaly jako díry.
+
+   Řeší to jeden tmavý závoj místo přepisování jedenácti scén: barva zůstane
+   prosvítat na 12 %, takže je pořád poznat, jestli má člověk vybranou
+   Levanduli nebo Les — jen v noční síle. Funguje i pro scénu "Vlastní",
+   kde si barvu volí uživatel a vypsat by se nedala.
+
+   ::after, ne filter na kontejneru: bubliny uvnitř (.b1–.b4) jsou rozmazané
+   přes blur(70px) a filter by je přepočítával při každém překreslení. */
+:root.dark .hs-fullscreen-scene::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgb(15 23 42 / 0.88);
+}
+
+/* Skleněná hlavička a spodní lišta jsou bílý závoj — nad tmavou scénou musí
+   být slabší, jinak z nich je světlý pruh uprostřed tmavé aplikace. */
+:root.dark .hs-glass-chrome {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}

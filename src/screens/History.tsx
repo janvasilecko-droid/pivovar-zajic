@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Beer, Package, Place, beerBg, beerBorder, beerName, fetchAllRows, formatPackageLabel, supabase, useRealtime } from '../lib/supabase';
+import { Beer, beerBg, beerBorder, beerInk, beerName, fetchAllRows, formatPackageLabel, Package, Place, supabase, useRealtime } from '../lib/supabase';
 import { Spinner, EmptyState } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { orderWeightKg, fmtKg } from '../lib/weight';
@@ -1429,13 +1429,14 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                       {beerHlList.map((b) => {
                         const beer = beers.find(be => be.id === b.id);
                         const bg = beer ? beerBg(beer) : '#fef3c7';
+                        const ink = beerInk(beer);
                         return (
                           <div key={b.id} className="flex items-center gap-3">
                             <div className="w-32 text-xs font-extrabold text-neutral-700 shrink-0 truncate">{b.name}</div>
                             <div className="flex-1 bg-neutral-100 rounded h-7 overflow-hidden border border-neutral-200/80">
                               <div
-                                className="h-full rounded flex items-center justify-end pr-2.5 transition-all shadow-2xs"
-                                style={{ width: `${Math.max((b.hl / maxHl) * 100, 2)}%`, backgroundColor: bg }}
+                                className="plocha-z-dat h-full rounded flex items-center justify-end pr-2.5 transition-all shadow-2xs"
+                                style={{ width: `${Math.max((b.hl / maxHl) * 100, 2)}%`, backgroundColor: bg, ['--ink-plochy' as any]: ink }}
                               >
                                 <span className="text-[11px] font-black text-neutral-950">{b.hl.toFixed(2)} hl</span>
                               </div>
@@ -1460,13 +1461,14 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                       {beerKegHlList.map((b) => {
                         const beer = beers.find(be => be.id === b.id);
                         const bg = beer ? beerBg(beer) : '#fef3c7';
+                        const ink = beerInk(beer);
                         return (
                           <div key={b.id} className="flex items-center gap-3">
                             <div className="w-32 text-xs font-extrabold text-neutral-700 shrink-0 truncate">{b.name}</div>
                             <div className="flex-1 bg-neutral-100 rounded h-7 overflow-hidden border border-neutral-200/80">
                               <div
-                                className="h-full rounded flex items-center justify-end pr-2.5 transition-all shadow-2xs"
-                                style={{ width: `${Math.max((b.hl / Math.max(...beerKegHlList.map(x => x.hl), 1)) * 100, 2)}%`, backgroundColor: bg }}
+                                className="plocha-z-dat h-full rounded flex items-center justify-end pr-2.5 transition-all shadow-2xs"
+                                style={{ width: `${Math.max((b.hl / Math.max(...beerKegHlList.map(x => x.hl), 1)) * 100, 2)}%`, backgroundColor: bg, ['--ink-plochy' as any]: ink }}
                               >
                                 <span className="text-[11px] font-black text-neutral-950">{b.hl.toFixed(2)} hl</span>
                               </div>
@@ -1491,13 +1493,14 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                       {beerBottleHlList.map((b) => {
                         const beer = beers.find(be => be.id === b.id);
                         const bg = beer ? beerBg(beer) : '#fef3c7';
+                        const ink = beerInk(beer);
                         return (
                           <div key={b.id} className="flex items-center gap-3">
                             <div className="w-32 text-xs font-extrabold text-neutral-700 shrink-0 truncate">{b.name}</div>
                             <div className="flex-1 bg-neutral-100 rounded h-7 overflow-hidden border border-neutral-200/80">
                               <div
-                                className="h-full rounded flex items-center justify-end pr-2.5 transition-all shadow-2xs"
-                                style={{ width: `${Math.max((b.hl / Math.max(...beerBottleHlList.map(x => x.hl), 1)) * 100, 2)}%`, backgroundColor: bg }}
+                                className="plocha-z-dat h-full rounded flex items-center justify-end pr-2.5 transition-all shadow-2xs"
+                                style={{ width: `${Math.max((b.hl / Math.max(...beerBottleHlList.map(x => x.hl), 1)) * 100, 2)}%`, backgroundColor: bg, ['--ink-plochy' as any]: ink }}
                               >
                                 <span className="text-[11px] font-black text-neutral-950">{b.hl.toFixed(2)} hl</span>
                               </div>

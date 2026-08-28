@@ -639,6 +639,67 @@ html.density-large .btn {
   background-image: none;
 }
 
+/* Plocha obarvená barvou z databáze — barvou piva (beerBg v lib/supabase.ts).
+   Ta se s režimem aplikace NEMĚNÍ, takže se v ní nesmí obracet ani písmo:
+   v tmavém režimu by jinak na světle žlutém „Citronu" svítil světlý text
+   v poměru 1,0 : 1.
+
+   Konkrétní barvu ale nelze zapsat sem. Barvy piv nejsou jen světlé pastely
+   — některá mají tmavě vínovou —, takže pevně tmavý text by byl na jedněch
+   řádcích stejně nečitelný jako pevně světlý na druhých. O barvě rozhoduje
+   jas, a ten spočítá až beerInk() v lib/supabase.ts a pošle ji sem
+   proměnnou --ink-plochy. Záložní hodnota platí, kdyby ji někdo zapomněl
+   nastavit.
+
+   Značkovací třída je nutná proto, že pozadí jde inline stylem a na „prvek
+   s inline pozadím" se v CSS zacílit nedá.
+
+   Potomci s VLASTNÍM pozadím (`:not([class*="bg-"])`) jsou z toho vyjmutí —
+   třeba tlačítka −/+ a ⟳ v řádcích inventury (`bg-sky-200/70 text-sky-950`).
+   Ta si kontrast řeší sama: jejich pozadí je z palety, takže v tmavém režimu
+   ztmavne a jejich `text-*` zesvětlá s ním. Přebít je barvou řádku by z nich
+   udělalo tmavé písmo na tmavě modrém tlačítku. */
+:root.dark .plocha-z-dat,
+:root.dark .plocha-z-dat *:not([class*="bg-"]) {
+  color: var(--ink-plochy, #0f172a);
+}
+
+/* Sytá jantarová výplň je značka aplikace a v tmavém režimu se nemění (je
+   mezi odstíny 400–500, které zůstávají). Popisek na ní proto musí zůstat
+   TMAVÝ — i když se `text-neutral-950` všude jinde správně obrací na světlý.
+   Bez tohohle pravidla svítí na 111 jantarových tlačítkách světlé písmo
+   v poměru 2,5 : 1, což je pod čitelnou hranicí.
+
+   Dvojitý [class~=] má vyšší specificitu než samotná .text-neutral-950,
+   takže není potřeba !important.
+
+   Platí i pro potomky: v HACCP je jantarová dlaždice s popiskem ve vnořeném
+   <span class="text-amber-950">, kde třída pozadí a třída písma nesedí na
+   témž prvku. Jantarové výplně jsou v aplikaci vždycky drobné (tlačítka,
+   štítky, číselné dlaždice), takže se tím nedá zasáhnout nic velkého. */
+:root.dark
+  :is(
+    [class~="bg-amber-300"], [class~="bg-amber-400"], [class~="bg-amber-500"],
+    [class~="!bg-amber-300"], [class~="!bg-amber-400"], [class~="!bg-amber-500"]
+  ):is(
+    [class*="text-neutral-8"], [class*="text-neutral-9"],
+    [class*="text-amber-7"], [class*="text-amber-8"], [class*="text-amber-9"]
+  ),
+:root.dark
+  :is(
+    [class~="bg-amber-300"], [class~="bg-amber-400"], [class~="bg-amber-500"],
+    [class~="!bg-amber-300"], [class~="!bg-amber-400"], [class~="!bg-amber-500"]
+  )
+  :is(
+    [class*="text-neutral-8"], [class*="text-neutral-9"],
+    [class*="text-amber-7"], [class*="text-amber-8"], [class*="text-amber-9"]
+  ) {
+  /* !important je tu kvůli variantám s vykřičníkem: `!text-neutral-950`
+     vygeneruje `color: … !important` a bez stejné váhy by ho nešlo přebít.
+     Substring [class*="text-neutral-9"] chytá obě podoby najednou. */
+  color: #0f172a !important;
+}
+
 /* Stíny na tmavém pozadí nejsou vidět — nahradí je jemný světlý okraj. */
 :root.dark [class~="shadow-card"],
 :root.dark [class~="shadow-xs"],
