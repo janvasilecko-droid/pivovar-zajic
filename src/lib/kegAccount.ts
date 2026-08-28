@@ -9,7 +9,7 @@
  * Ukládá se do databáze (tabulka keg_returns), ne do prohlížeče — evidence
  * dlužných sudů musí být vidět všem a přežít vymazání dat prohlížeče.
  */
-import { supabase } from './supabase';
+import { fetchAllRows, supabase } from './supabase';
 import { businessDateISO } from './businessDate';
 
 export type KegMovement = {
@@ -41,9 +41,7 @@ export function parseKegSize(size: string): number {
 }
 
 export async function fetchKegMovements(): Promise<KegMovement[]> {
-  const { data, error } = await supabase
-    .from('keg_returns')
-    .select('*')
+  const { data, error } = await fetchAllRows('keg_returns', '*')
     .order('entry_date', { ascending: false });
   if (error) throw new Error(error.message);
   return (data ?? []) as KegMovement[];

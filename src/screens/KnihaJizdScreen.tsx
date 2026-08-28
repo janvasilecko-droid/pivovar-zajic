@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { supabase, useRealtime } from '../lib/supabase';
+import { fetchAllRows, supabase, useRealtime } from '../lib/supabase';
 import { Spinner } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { AlertTriangle, Calendar, Car, CheckCircle2, Download, MapPin, Navigation, Plus, Printer, Scale, ShieldCheck, Sparkles, Trash2, User, Zap } from 'lucide-react';
@@ -112,7 +112,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
   }
 
   async function loadEntries() {
-    const { data } = await supabase.from('logbook_entries').select('*').order('entry_date', { ascending: false }).order('created_at', { ascending: false });
+    const { data } = await fetchAllRows('logbook_entries', '*').order('entry_date', { ascending: false }).order('created_at', { ascending: false });
     setEntries(((data as any[]) ?? []).map(rowToEntry));
   }
 
@@ -256,9 +256,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
       const bufEnd = addDaysISO(monthEnd, 7);
 
       const [{ data: rawOrders }, { data: rawPlaces }] = await Promise.all([
-        supabase
-          .from('orders')
-          .select('*')
+        fetchAllRows('orders', '*')
           .neq('status', 'storno')
           .or(
             `and(delivery_date.gte.${monthStart},delivery_date.lte.${monthEnd}),and(order_date.gte.${bufStart},order_date.lte.${bufEnd})`

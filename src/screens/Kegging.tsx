@@ -308,8 +308,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity,order_item_id'),
       fetchAllRows('bottling', 'entry_date,beer_id,package_id,quantity,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
       fetchAllRows('inventory_adjustments', 'entry_date,beer_id,package_id,quantity'),
-      supabase.from('akce').select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
-      supabase.from('kegging_plan_checks').select('week_key,day,beer_id,package_id,qty'),
+      fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
+      fetchAllRows('kegging_plan_checks', 'week_key,day,beer_id,package_id,qty'),
       supabase.from('bottling_plans').select('*').order('planned_date'),
     ]);
     if (loadId !== loadCountRef.current) return;

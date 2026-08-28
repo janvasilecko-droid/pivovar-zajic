@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Beer, Package, supabase, beerBg, beerText } from '../lib/supabase';
+import { Beer, Package, beerBg, beerText, fetchAllRows, supabase } from '../lib/supabase';
 import {
   AuditReport,
   runOrderAudit,
@@ -99,7 +99,7 @@ export function OrderAuditModal({
       const odIso = pred.toISOString().slice(0, 10);
       const [zpravy, objednavky, zamitnute, denikDennne, stavMostu] = await Promise.all([
         supabase.from('whatsapp_incoming').select('id,sender_name,created_at,status').gte('created_at', odIso),
-        supabase.from('orders').select('id,place_name,delivery_date,order_date,status').gte('order_date', odIso),
+        fetchAllRows('orders', 'id,place_name,delivery_date,order_date,status').gte('order_date', odIso),
         // Tabulka vzniká migrací 20261216000000 — dokud není nasazená, chyba
         // se spolkne a zbytek kontroly funguje dál.
         supabase.from('whatsapp_rejected').select('*').is('acknowledged_at', null).order('created_at', { ascending: false }).limit(50),

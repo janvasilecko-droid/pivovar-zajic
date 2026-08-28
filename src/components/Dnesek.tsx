@@ -46,9 +46,7 @@ export default function Dnesek({ setPage }: { setPage: (p: Page) => void }) {
 
       // Objednávky na jeden konkrétní den závozu + kolik je to celkem kusů.
       const nactiZavoz = async (den: string) => {
-        const { data: obj } = await supabase
-          .from('orders')
-          .select('id,note,place_name')
+        const { data: obj } = await fetchAllRows('orders', 'id,note,place_name')
           .eq('delivery_date', den)
           .neq('status', 'storno');
         const ids = (obj ?? []).map((o: any) => o.id);

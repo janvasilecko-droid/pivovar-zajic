@@ -4,7 +4,7 @@ import { AlertTriangle, Calculator, Calendar, CalendarDays, ClipboardList, Messa
 // naplánovaných úkolů v týdnu a tabulky potřeby (objednávky týdne vs. sklad
 // vs. naplánováno vs. odhad fasování).
 import { useEffect, useMemo, useState } from 'react';
-import { Beer, Package, beerBg, supabase, useRealtime } from '../lib/supabase';
+import { Beer, Package, beerBg, fetchAllRows, supabase, useRealtime } from '../lib/supabase';
 import { isoWeekKey, weekRange, shiftWeek } from './WeeklyOrderSummaryCard';
 import { flattenAkceNet } from '../lib/inventoryHelper';
 import { buildMovements, stockAsOf } from '../lib/stockLedger';
@@ -120,15 +120,11 @@ export function BottlingPlanPlanner({
   // objednávky (viz komentáře u stockMap a weekOrdered níže).
   const [zavozDeductionRows, setZavozDeductionRows] = useState<any[]>([]);
   useEffect(() => {
-    supabase
-      .from('zavoz_deductions')
-      .select('deduct_date,beer_id,package_id,quantity,order_item_id')
+    fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity,order_item_id')
       .then(({ data }) => setZavozDeductionRows(data ?? []));
   }, []);
   useRealtime(['zavoz_deductions'], () => {
-    supabase
-      .from('zavoz_deductions')
-      .select('deduct_date,beer_id,package_id,quantity,order_item_id')
+    fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity,order_item_id')
       .then(({ data }) => setZavozDeductionRows(data ?? []));
   });
 
@@ -139,9 +135,9 @@ export function BottlingPlanPlanner({
   const [prefukRows, setPrefukRows] = useState<any[]>([]);
   const [adjustmentRows, setAdjustmentRows] = useState<any[]>([]);
   const nactiPrefukADorovnani = () => {
-    supabase.from('keg_prefuk').select('entry_date,beer_id,from_package_id,from_count,to_package_id,to_count')
+    fetchAllRows('keg_prefuk', 'entry_date,beer_id,from_package_id,from_count,to_package_id,to_count')
       .then(({ data }) => setPrefukRows(data ?? []));
-    supabase.from('inventory_adjustments').select('entry_date,beer_id,package_id,quantity')
+    fetchAllRows('inventory_adjustments', 'entry_date,beer_id,package_id,quantity')
       .then(({ data }) => setAdjustmentRows(data ?? []));
   };
   useEffect(nactiPrefukADorovnani, []);
@@ -151,15 +147,11 @@ export function BottlingPlanPlanner({
   // pivo odvezené na akci pořád za dostupné.
   const [akceRows, setAkceRows] = useState<any[]>([]);
   useEffect(() => {
-    supabase
-      .from('akce')
-      .select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)')
+    fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)')
       .then(({ data }) => setAkceRows(data ?? []));
   }, []);
   useRealtime(['akce', 'akce_items'], () => {
-    supabase
-      .from('akce')
-      .select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)')
+    fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)')
       .then(({ data }) => setAkceRows(data ?? []));
   });
 

@@ -115,9 +115,7 @@ export async function runOrderAudit({
   const aliasMap = await loadAliasMap().catch(() => emptyAliasMap());
 
   // 1. Načíst objednávky a položky
-  let ordersQuery = supabase
-    .from('orders')
-    .select('id, order_date, delivery_date, delivery_day, place_id, place_name, status, whatsapp_message_id, created_at')
+  let ordersQuery = fetchAllRows('orders', 'id, order_date, delivery_date, delivery_day, place_id, place_name, status, whatsapp_message_id, created_at')
     .not('status', 'eq', 'storno')
     .order('delivery_date', { ascending: false, nullsFirst: false })
     .order('order_date', { ascending: false });

@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { fetchAllRows, supabase } from './supabase';
 
 // Sdílená hranice "kriticky málo etiket" — dřív byla natvrdo (a nekonzistentně)
 // zapsaná zvlášť v SkloPromoScreen (200), Dashboard (200) a
@@ -34,7 +34,7 @@ export async function fetchLabelBalances(): Promise<LabelBalance[]> {
   const [beersRes, purchasesRes, bottlingRes, packagesRes] = await Promise.all([
     supabase.from('beers').select('name').eq('is_active', true),
     supabase.from('label_purchases').select('beer_name, quantity'),
-    supabase.from('bottling').select('beer_name, quantity, note, package_id'),
+    fetchAllRows('bottling', 'beer_name, quantity, note, package_id'),
     supabase.from('packages').select('id, volume_l'),
   ]);
 

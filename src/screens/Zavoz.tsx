@@ -64,7 +64,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
   async function load(silent = false) {
     if (!silent && !orders.length) setLoading(true);
     const [{ data: o }, { data: p }, { data: b }, { data: pl }] = await Promise.all([
-      supabase.from('orders').select('*').neq('status', 'storno').order('order_date', { ascending: false }),
+      fetchAllRows('orders', '*').neq('status', 'storno').order('order_date', { ascending: false }),
       supabase.from('packages').select('*'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('places').select('*').order('name'),

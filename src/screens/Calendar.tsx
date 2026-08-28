@@ -15,7 +15,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Bell, CalendarDays, ChevronLeft, ChevronRight, List, Plus, Trash2, Truck, X,
 } from 'lucide-react';
-import { supabase, CalendarEvent, useRealtime } from '../lib/supabase';
+import { CalendarEvent, fetchAllRows, supabase, useRealtime } from '../lib/supabase';
 import { Spinner } from '../components/ui';
 import { chyba, toastZpet, uspech } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
@@ -82,7 +82,7 @@ export default function CalendarScreen() {
       const doKdy = posun(dnes, 62);
       try {
         const [{ data: obj }, { data: plany }] = await Promise.all([
-          supabase.from('orders').select('delivery_date, place_name, status')
+          fetchAllRows('orders', 'delivery_date, place_name, status')
             .gte('delivery_date', od).lte('delivery_date', doKdy).neq('status', 'storno'),
           supabase.from('bottling_plans').select('planned_date, note, status')
             .gte('planned_date', od).lte('planned_date', doKdy).eq('status', 'planned'),

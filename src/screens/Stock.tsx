@@ -130,7 +130,7 @@ export default function Stock() {
         fetchAllRows('order_items', '*'),
         fetchAllRows('orders', 'id, order_date, delivery_date, status, is_delivered'),
         fetchAllRows('writeoffs', '*'),
-        supabase.from('akce').select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
+        fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
         fetchAllRows('fasovani', '*'),
         fetchAllRows('fasovani_private', '*'),
         fetchAllRows('keg_prefuk', '*'),

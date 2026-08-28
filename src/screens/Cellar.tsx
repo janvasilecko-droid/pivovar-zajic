@@ -79,7 +79,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
       supabase.from('cellar_tanks').select('*').order('label'),
       supabase.from('cellar_transfers').select('*').order('transfer_date', { ascending: false }).order('created_at', { ascending: false }).limit(50),
       supabase.from('cellar_tank_cycles').select('*').order('ended_at', { ascending: false }).limit(200),
-      supabase.from('kegging').select('id,entry_date,beer_id,beer_name,package_id,package_label,quantity,cellar_tank_id,source_volume_l,loss_l,tank_id,created_at').order('created_at', { ascending: false }),
+      fetchAllRows('kegging', 'id,entry_date,beer_id,beer_name,package_id,package_label,quantity,cellar_tank_id,source_volume_l,loss_l,tank_id,created_at').order('created_at', { ascending: false }),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
     ]);
@@ -169,7 +169,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
 
   // Objednávky bez storna — pro propojení s aktuálním pivem v tanku
   async function loadOrders() {
-    const { data: ords } = await supabase.from('orders').select('id,order_date,delivery_date,status').neq('status', 'storno');
+    const { data: ords } = await fetchAllRows('orders', 'id,order_date,delivery_date,status').neq('status', 'storno');
     const list = (ords as OrderRow[]) ?? [];
     setOrders(list);
     if (!list.length) { setOrderItems([]); return; }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 
-import { supabase, useRealtime, Place, Beer, Package } from '../lib/supabase';
+import { Beer, Package, Place, fetchAllRows, supabase, useRealtime } from '../lib/supabase';
 import { LABELS_LOW_STOCK_THRESHOLD } from '../lib/labelStock';
 import { Spinner, EmptyState } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
@@ -141,7 +141,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
       supabase.from('places').select('*').order('name'),
       supabase.from('beers').select('*').eq('is_active', true).order('name'),
       supabase.from('packages').select('*').order('kind'),
-      supabase.from('bottling').select('beer_name, package_label, quantity'),
+      fetchAllRows('bottling', 'beer_name, package_label, quantity'),
       supabase.from('label_purchases').select('id, beer_name, entry_date, quantity, note').order('entry_date', { ascending: false }),
     ]);
 

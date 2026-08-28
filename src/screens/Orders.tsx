@@ -738,18 +738,18 @@ export default function Orders({
   async function load(silent = false) {
     if (!silent && !orders.length) setLoading(true);
     const [{ data: o }, { data: pl }, { data: b }, { data: pk }, { data: bt }, { data: kg }, { data: inv }, { data: wo }, { data: zd }, { data: fa }, { data: fp }, { data: ak }] = await Promise.all([
-      supabase.from('orders').select('*').order('order_date', { ascending: false }).order('created_at', { ascending: false }),
+      fetchAllRows('orders', '*').order('order_date', { ascending: false }).order('created_at', { ascending: false }),
       supabase.from('places').select('*').order('name'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
-      supabase.from('bottling').select('entry_date,beer_id,quantity'),
-      supabase.from('kegging').select('entry_date,beer_id,quantity'),
-      supabase.from('inventory').select('entry_date,beer_id,quantity'),
-      supabase.from('writeoffs').select('entry_date,beer_id,quantity'),
-      supabase.from('zavoz_deductions').select('order_item_id'),
-      supabase.from('fasovani').select('entry_date,beer_id,quantity'),
-      supabase.from('fasovani_private').select('entry_date,beer_id,quantity'),
-      supabase.from('akce').select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
+      fetchAllRows('bottling', 'entry_date,beer_id,quantity'),
+      fetchAllRows('kegging', 'entry_date,beer_id,quantity'),
+      fetchAllRows('inventory', 'entry_date,beer_id,quantity'),
+      fetchAllRows('writeoffs', 'entry_date,beer_id,quantity'),
+      fetchAllRows('zavoz_deductions', 'order_item_id'),
+      fetchAllRows('fasovani', 'entry_date,beer_id,quantity'),
+      fetchAllRows('fasovani_private', 'entry_date,beer_id,quantity'),
+      fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
     ]);
     const rawPk = (pk as Package[]) ?? [];
     const sortedPk = [...rawPk].sort((a, b) => {

@@ -170,7 +170,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       // Odpočet objednávek — stejný zdroj (zavoz_deductions) jako obrazovka Sklad, aby se
       // čísla shodovala i po dodatečné změně data doručení objednávky (viz Stock.tsx).
       fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity'),
-      supabase.from('akce').select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
+      fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
       fetchAllRows('keg_prefuk', 'entry_date,beer_id,from_package_id,from_count,to_package_id,to_count'),
     ]);
 

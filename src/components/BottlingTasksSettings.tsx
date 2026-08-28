@@ -116,7 +116,7 @@ export function BottlingTasksSettings() {
       fetchAllRows('fasovani_private', 'entry_date,beer_id,package_id,quantity'),
       fetchAllRows('writeoffs', 'entry_date,beer_id,package_id,quantity'),
       fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity,order_item_id'),
-      supabase.from('akce').select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
+      fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
       fetchAllRows('keg_prefuk', 'entry_date,beer_id,from_package_id,from_count,to_package_id,to_count'),
       fetchAllRows('inventory_adjustments', 'entry_date,beer_id,package_id,quantity'),
     ]);

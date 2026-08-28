@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { fetchAllRows, supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { fetchLabelBalances, LabelBalance } from '../lib/labelStock';
 import { CheckCircle2, ShieldAlert, Siren } from 'lucide-react';
@@ -30,7 +30,7 @@ export function CriticalMaterialAlertModal() {
     Promise.all([
       fetchLabelBalances(),
       supabase.from('packages').select('label,kind'),
-      supabase.from('bottling').select('beer_name,package_label,quantity'),
+      fetchAllRows('bottling', 'beer_name,package_label,quantity'),
     ]).then(([labelBalances, pRes, botRes]) => {
       const pkgs = (pRes.data as any[]) ?? [];
       const bot = (botRes.data as any[]) ?? [];

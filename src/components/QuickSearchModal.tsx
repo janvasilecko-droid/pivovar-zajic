@@ -10,7 +10,7 @@
 //    „11" nenašlo „11°". Teď se porovnává bez diakritiky.
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { Search, ArrowRight, MapPin, Beer as BeerIcon, ClipboardList } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { fetchAllRows, supabase } from '../lib/supabase';
 import { NAV, EXTRA_NAV, Page } from './Layout';
 
 interface QuickSearchModalProps {
@@ -82,9 +82,7 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
         supabase.from('places').select('id, name, city').order('name'),
         supabase.from('beers').select('id, name, category').eq('is_active', true).order('name'),
         // Jen posledních 300 — starší objednávka se hledá přes odběratele.
-        supabase
-          .from('orders')
-          .select('id, place_name, delivery_date, order_date, status')
+        supabase.from('orders').select('id, place_name, delivery_date, order_date, status')
           .order('order_date', { ascending: false })
           .limit(300),
       ]);

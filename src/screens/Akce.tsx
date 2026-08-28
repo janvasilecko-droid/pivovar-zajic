@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { supabase, Beer, Package, useRealtime, beerBg, beerText, pkgBg, pkgText, formatPackageLabel } from '../lib/supabase';
+import { Beer, Package, beerBg, beerText, fetchAllRows, formatPackageLabel, pkgBg, pkgText, supabase, useRealtime } from '../lib/supabase';
 import { Spinner, EmptyState } from '../components/ui';
 import { createReminder } from '../lib/reminders';
 import { AlertTriangle, Beer as BeerIcon, Bell, Calendar, Check, CheckCircle2, ClipboardList, DollarSign, MapPin, Plus, RotateCcw, Sparkles, Star, ThumbsDown, ThumbsUp, Trash2, User } from 'lucide-react';
@@ -120,9 +120,7 @@ export default function AkceScreen() {
     const [{ data: b }, { data: pk }, { data: ak }] = await Promise.all([
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
-      supabase
-        .from('akce')
-        .select('*, items:akce_items(id,beer_id,beer_name,package_id,package_label,quantity_taken,quantity_returned)')
+      fetchAllRows('akce', '*, items:akce_items(id,beer_id,beer_name,package_id,package_label,quantity_taken,quantity_returned)')
         .order('entry_date', { ascending: false }),
     ]);
     setBeers((b as Beer[]) ?? []);

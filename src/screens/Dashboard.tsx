@@ -114,7 +114,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
       fetchAllRows('inventory', 'entry_date,beer_id,beer_name,package_id,package_label,quantity,note'),
       fetchAllRows('order_items', 'beer_id,package_id,quantity,order_id'),
       fetchAllRows('orders', 'id,order_date,delivery_date,status'),
-      supabase.from('akce').select('entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
+      fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
       fetchAllRows('fasovani', 'entry_date,beer_id,package_id,quantity'),
       fetchAllRows('fasovani_private', 'entry_date,beer_id,package_id,quantity'),
       fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity'),

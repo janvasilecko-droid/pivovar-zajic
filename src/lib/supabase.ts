@@ -660,6 +660,13 @@ export function fetchAllRows<T = any>(
   gte: (col: string, val: any) => any;
   lte: (col: string, val: any) => any;
   eq: (col: string, val: any) => any;
+  neq: (col: string, val: any) => any;
+  lt: (col: string, val: any) => any;
+  gt: (col: string, val: any) => any;
+  is: (col: string, val: any) => any;
+  not: (col: string, op: string, val: any) => any;
+  or: (vyraz: string) => any;
+  filter: (col: string, op: string, val: any) => any;
   in: (col: string, vals: any[]) => any;
 } {
   // Modifikátory (order/eq/gte/…) se posbírají a použijí na každou stránku.
@@ -716,6 +723,13 @@ export function fetchAllRows<T = any>(
     gte: (col: string, val: any) => { kroky.push((q) => q.gte(col, val)); return api; },
     lte: (col: string, val: any) => { kroky.push((q) => q.lte(col, val)); return api; },
     eq: (col: string, val: any) => { kroky.push((q) => q.eq(col, val)); return api; },
+    neq: (col: string, val: any) => { kroky.push((q) => q.neq(col, val)); return api; },
+    lt: (col: string, val: any) => { kroky.push((q) => q.lt(col, val)); return api; },
+    gt: (col: string, val: any) => { kroky.push((q) => q.gt(col, val)); return api; },
+    is: (col: string, val: any) => { kroky.push((q) => q.is(col, val)); return api; },
+    not: (col: string, op: string, val: any) => { kroky.push((q) => q.not(col, op, val)); return api; },
+    or: (vyraz: string) => { kroky.push((q) => q.or(vyraz)); return api; },
+    filter: (col: string, op: string, val: any) => { kroky.push((q) => q.filter(col, op, val)); return api; },
     in: (col: string, vals: any[]) => { inFiltr = { col, vals }; return api; },
   };
   return api;

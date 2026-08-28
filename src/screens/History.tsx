@@ -204,7 +204,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
 
   async function loadDeliveries() {
     const [{ data: o }, { data: p }, { data: pl }] = await Promise.all([
-      supabase.from('orders').select('*').neq('status', 'storno').order('order_date', { ascending: false }),
+      fetchAllRows('orders', '*').neq('status', 'storno').order('order_date', { ascending: false }),
       supabase.from('packages').select('*'),
       supabase.from('places').select('*').order('name'),
     ]);
@@ -273,13 +273,13 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
   async function load() {
     setLoading(true);
     const [{ data: bt }, { data: kg }, { data: fa }, { data: wo }, { data: ak }, { data: oi }, { data: ord }, { data: b }, { data: pk }] = await Promise.all([
-      supabase.from('bottling').select('entry_date,beer_id,package_id,quantity'),
-      supabase.from('kegging').select('entry_date,beer_id,package_id,quantity'),
-      supabase.from('fasovani').select('entry_date,beer_id,package_id,quantity'),
-      supabase.from('writeoffs').select('entry_date,beer_id,package_id,quantity'),
-      supabase.from('akce').select('entry_date,revenue,items:akce_items(beer_id,quantity_taken,quantity_returned,quantity)'),
-      supabase.from('order_items').select('beer_id,package_id,quantity,order_id'),
-      supabase.from('orders').select('id,order_date,delivery_date,status,place_name'),
+      fetchAllRows('bottling', 'entry_date,beer_id,package_id,quantity'),
+      fetchAllRows('kegging', 'entry_date,beer_id,package_id,quantity'),
+      fetchAllRows('fasovani', 'entry_date,beer_id,package_id,quantity'),
+      fetchAllRows('writeoffs', 'entry_date,beer_id,package_id,quantity'),
+      fetchAllRows('akce', 'entry_date,revenue,items:akce_items(beer_id,quantity_taken,quantity_returned,quantity)'),
+      fetchAllRows('order_items', 'beer_id,package_id,quantity,order_id'),
+      fetchAllRows('orders', 'id,order_date,delivery_date,status,place_name'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
     ]);
@@ -457,7 +457,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
 
     // Detailní hledání data
     setDetailLoading(true);
-    const { data: faPriv } = await supabase.from('fasovani_private').select('entry_date,beer_id,package_id,quantity');
+    const { data: faPriv } = await fetchAllRows('fasovani_private', 'entry_date,beer_id,package_id,quantity');
     const faPrivRows = (faPriv as FilterableEntry[]) ?? [];
     const ordDateById = new Map(ordRows.map((o) => [o.id, o.order_date] as const));
     const ordStatusById = new Map(ordRows.map((o) => [o.id, o.status] as const));
