@@ -1261,7 +1261,7 @@ function exportInventoryExcel() {
                           <td className={`font-extrabold text-[11px] px-3 py-2 ${textColor}`}>{formatPackageLabel(r.package_label)}</td>
                           <td className={`text-right font-black text-[11px] px-2 py-2 ${textColor}`}>{r.initialQty} ks</td>
                           <td className={`text-right font-black text-[11px] px-2 py-2 text-amber-900 font-black`}>+{r.stacenoQty}</td>
-                          <td className={`text-right font-black text-[11px] px-2 py-2 text-rose-850 font-black`}>{r.odpisQty > 0 ? `-${r.odpisQty}` : '-0'}</td>
+                          <td className={`text-right font-black text-[11px] px-2 py-2 text-rose-800 font-black`}>{r.odpisQty > 0 ? `-${r.odpisQty}` : '-0'}</td>
                           <td className={`text-right font-black text-[11px] px-2 py-2 text-amber-900 font-black`}>-{r.vydejQty}</td>
                           <td className={`text-right border-x font-mono font-black text-xs px-3 py-2 ${
                             r.expectedQty < 0
@@ -1745,13 +1745,13 @@ function EndStockTab({
                       <td className={`font-black text-[11px] ${textColor}`}>{r.beer_name}</td>
                       <td className={`font-extrabold text-[11px] ${textColor}`}>{formatPackageLabel(r.package_label)}</td>
                       <td className={`text-right font-black text-[11px] ${textColor}`}>{r.initialQty}</td>
-                      <td className={`text-right font-black text-[11px] text-emerald-850 font-black`}>+{r.stacenoKegQty}</td>
-                      <td className={`text-right font-black text-[11px] text-rose-850 font-black`}>−{r.objednavkyQty}</td>
-                      <td className={`text-right font-black text-[11px] text-rose-850 font-black`}>−{r.stacenoLahveQty}</td>
-                      <td className={`text-right font-black text-[11px] text-rose-850 font-black`}>−{r.fasovaniQty}</td>
-                      <td className={`text-right font-black text-[11px] text-rose-850 font-black`}>−{r.prodejnaQty}</td>
-                      <td className={`text-right font-black text-[11px] text-rose-850 font-black`}>−{r.akceQty}</td>
-                      <td className={`text-right font-black text-[11px] text-rose-850 font-black`}>−{r.odpisyQty}</td>
+                      <td className={`text-right font-black text-[11px] text-emerald-800 font-black`}>+{r.stacenoKegQty}</td>
+                      <td className={`text-right font-black text-[11px] text-rose-800 font-black`}>−{r.objednavkyQty}</td>
+                      <td className={`text-right font-black text-[11px] text-rose-800 font-black`}>−{r.stacenoLahveQty}</td>
+                      <td className={`text-right font-black text-[11px] text-rose-800 font-black`}>−{r.fasovaniQty}</td>
+                      <td className={`text-right font-black text-[11px] text-rose-800 font-black`}>−{r.prodejnaQty}</td>
+                      <td className={`text-right font-black text-[11px] text-rose-800 font-black`}>−{r.akceQty}</td>
+                      <td className={`text-right font-black text-[11px] text-rose-800 font-black`}>−{r.odpisyQty}</td>
                       <td className={`text-right font-mono font-black text-[11px] bg-amber-100/90 border-x border-amber-300 ${r.endStockQty < 0 ? 'text-rose-800' : 'text-neutral-950'}`}>
                         {r.endStockQty} ks
                         {r.endStockQty < 0 && <span className="block text-[11px] text-rose-700 font-black"><AlertTriangle className="ikona-text" /> chybí {Math.abs(r.endStockQty)}</span>}

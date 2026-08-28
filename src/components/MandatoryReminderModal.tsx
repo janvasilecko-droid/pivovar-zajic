@@ -20,8 +20,8 @@ export function MandatoryReminderModal({ reminder, currentUserEmail, onDismiss }
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-950/80 backdrop-blur-md animate-fadeIn">
-      <div className="card w-full max-w-lg p-6 sm:p-8 bg-white border-2 border-amber-500 rounded shadow-2xl space-y-5 animate-scaleUp">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-950/80 backdrop-blur-md animate-fade-in">
+      <div className="card w-full max-w-lg p-6 sm:p-8 bg-white border-2 border-amber-500 rounded shadow-2xl space-y-5 animate-scale-in">
         {/* Header Icon */}
         <div className="flex items-center gap-3 border-b border-amber-200 pb-4">
           <div className="w-12 h-12 rounded bg-amber-500 text-neutral-950 flex items-center justify-center font-black text-xl shadow-md shrink-0">
@@ -65,7 +65,7 @@ export function MandatoryReminderModal({ reminder, currentUserEmail, onDismiss }
         <div>
           <button
             onClick={handleConfirm}
-            className="w-full py-4 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-sm transition shadow-lg flex items-center justify-center gap-2 active:scale-98 cursor-pointer"
+            className="w-full py-4 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-sm transition shadow-lg flex items-center justify-center gap-2 active:scale-[0.98] cursor-pointer"
           >
             <CheckCircle2 size={20} />
             <span>Rozumím, beru na vědomí (Odkliknout)</span>

@@ -5,8 +5,12 @@ export function Spinner({ className = '' }: { className?: string }) {
   return (
     <div className={`flex items-center justify-center py-12 ${className}`}>
       <div className="relative w-9 h-9">
-        <div className="w-9 h-9 border-3 border-neutral-200 border-t-primary-600 rounded-full animate-spin" />
-        <div className="absolute inset-0 w-9 h-9 border-3 border-transparent border-b-amber-500 rounded-full animate-spin opacity-70" style={{ animationDirection: 'reverse', animationDuration: '1.2s' }} />
+        {/* border-[3px], ne border-3: Tailwind zná jen 0/2/4/8 a `border-3`
+            se nevygeneruje. Preflight přitom všem prvkům nastavuje
+            border-width: 0 — takže kolečko nemělo žádný okraj a spinner byl
+            po celou dobu načítání neviditelný. */}
+        <div className="w-9 h-9 border-[3px] border-neutral-200 border-t-primary-600 rounded-full animate-spin" />
+        <div className="absolute inset-0 w-9 h-9 border-[3px] border-transparent border-b-amber-500 rounded-full animate-spin opacity-70" style={{ animationDirection: 'reverse', animationDuration: '1.2s' }} />
       </div>
     </div>
   );
@@ -89,7 +93,7 @@ export function Modal({ open, onClose, title, children, wide, maxWidth }: {
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
       <div className="absolute inset-0 bg-neutral-950/60 backdrop-blur-md transition-opacity" onClick={onClose} />
       <div className={`relative card shadow-2xl w-full ${maxWidth ?? (wide ? 'max-w-3xl' : 'max-w-md')} max-h-[92vh] flex flex-col animate-slide-up rounded-b-none sm:rounded border-neutral-200`}>
-        <div className="flex items-center justify-between px-6 py-4.5 border-b border-neutral-100 sticky top-0 bg-white/95 backdrop-blur-md rounded-t-2xl z-10">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100 sticky top-0 bg-white/95 backdrop-blur-md rounded-t-2xl z-10">
           <h3 className="font-display font-bold text-lg text-neutral-900 tracking-tight">{title}</h3>
           <button
             onClick={onClose}

@@ -283,11 +283,11 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
         <div className="hidden sm:flex p-3 bg-neutral-50 border-t border-neutral-100 items-center justify-between text-xs text-neutral-500 font-bold px-4">
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 bg-white border border-neutral-300 rounded-xs text-[11px]">↑</kbd>
-              <kbd className="px-1.5 py-0.5 bg-white border border-neutral-300 rounded-xs text-[11px]">↓</kbd> Navigace
+              <kbd className="px-1.5 py-0.5 bg-white border border-neutral-300 rounded-sm text-[11px]">↑</kbd>
+              <kbd className="px-1.5 py-0.5 bg-white border border-neutral-300 rounded-sm text-[11px]">↓</kbd> Navigace
             </span>
             <span className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 bg-white border border-neutral-300 rounded-xs text-[11px]">↵</kbd> Otevřít
+              <kbd className="px-1.5 py-0.5 bg-white border border-neutral-300 rounded-sm text-[11px]">↵</kbd> Otevřít
             </span>
           </div>
           <span className="text-[11px] text-amber-700 font-extrabold">Pivovar Zajíc</span>

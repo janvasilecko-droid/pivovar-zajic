@@ -69,6 +69,14 @@ export default {
         },
       },
       boxShadow: {
+        // `shadow-xs` a `shadow-2xs` jsou jména z Tailwindu v4. Tady běží v3,
+        // který je nezná — na 78 souborech (karty, štítky, malá tlačítka,
+        // hlavičky tabulek) se tedy negenerovalo vůbec nic a prvky zůstaly
+        // úplně ploché. Doplňujeme je pod stejným jménem, ať se těch 78 míst
+        // nemusí přepisovat; hodnoty jsou z v4, jen přebarvené do stejného
+        // teplého hnědého tónu jako `card` níž.
+        '2xs': '0 1px 1px 0 rgba(69, 31, 16, 0.05)',
+        xs: '0 1px 2px 0 rgba(69, 31, 16, 0.07)',
         // Jemně teplý (hnědý, ne studeně šedý) odstín stínu — sedí s jantarovým
         // brandem líp než neutrální slate, aniž by byl nápadný.
         card: '0 2px 10px -2px rgba(69, 31, 16, 0.06), 0 1px 4px -1px rgba(69, 31, 16, 0.04)',
@@ -89,17 +97,40 @@ export default {
         '2xl': '1.25rem',
         '3xl': '1.5rem',
       },
+      backdropBlur: {
+        // Zase jméno z v4 (`backdrop-blur-xs`), na 15 místech — hlavně
+        // ztmavená pozadí pod modály. Bez definice se rozmazání nedělo vůbec.
+        xs: '4px',
+      },
       animation: {
         'fade-in': 'fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
         'slide-up': 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
         'scale-in': 'scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
         'pulse-subtle': 'pulseSubtle 3s infinite',
+        // Chybové hlášky u přihlášení a u změny hesla se na `animate-shake`
+        // odvolávaly, ale nikde nebyl definovaný — zpráva jen tiše naskočila.
+        shake: 'shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97)',
+        // Pruh „je nová verze" nahoře (Layout.tsx). Třikrát poskočí a přestane;
+        // věčné poskakování by u lišty, která zůstává na obrazovce, otravovalo.
+        'bounce-short': 'bounceShort 1.1s ease-in-out 3',
       },
       keyframes: {
         fadeIn:  { from: { opacity: '0', transform: 'translateY(4px)' }, to: { opacity: '1', transform: 'translateY(0)' } },
         slideUp: { from: { opacity: '0', transform: 'translateY(12px)' }, to: { opacity: '1', transform: 'translateY(0)' } },
         scaleIn: { from: { opacity: '0', transform: 'scale(0.96)' }, to: { opacity: '1', transform: 'scale(1)' } },
         pulseSubtle: { '0%, 100%': { opacity: '1' }, '50%': { opacity: '0.6' } },
+        shake: {
+          '0%, 100%': { transform: 'translateX(0)' },
+          '20%, 60%': { transform: 'translateX(-4px)' },
+          '40%, 80%': { transform: 'translateX(4px)' },
+        },
+        // Pruh je vodorovně vystředěný přes -translate-x-1/2, takže si posun
+        // o -50 % musí nést i klíčové snímky — jinak by ho animace na dobu
+        // svého běhu přetáhla doprava.
+        bounceShort: {
+          '0%, 100%': { transform: 'translate(-50%, 0)' },
+          '50%': { transform: 'translate(-50%, -6px)' },
+        },
       },
     },
   },

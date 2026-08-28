@@ -1,4 +1,4 @@
-import { AlertTriangle, Calculator, Calendar, CalendarDays, ClipboardList, Check, MessageCircle, Package as PackageIcon, Pencil, ShoppingCart, Trash2 } from 'lucide-react';
+import { AlertTriangle, Calculator, Calendar, CalendarDays, Check, ClipboardList, MessageCircle, Package as PackageIcon, Pencil, ShoppingCart, Trash2, Undo2 } from 'lucide-react';
 // 🗓️ Plánování stáčení — „Co je potřeba stočit" (pouze admin/sládek/šéf).
 // Zadání úkolu (pivo + lahve až 3 velikosti + KEG sudy + datum), přehled
 // naplánovaných úkolů v týdnu a tabulky potřeby (objednávky týdne vs. sklad
@@ -673,7 +673,7 @@ export function BottlingPlanPlanner({
                   )}
                   {plan.status !== 'planned' && (
                     <button type="button" onClick={() => handleStatus(plan, 'planned')} className="px-2.5 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[11px] font-black transition">
-                      ↩️ Zpět
+                      <Undo2 className="ikona-text" /> Zpět
                     </button>
                   )}
                   <button type="button" onClick={() => handleDelete(plan)} className="px-2.5 py-1.5 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 text-[11px] font-black transition">

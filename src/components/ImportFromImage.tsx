@@ -1,4 +1,4 @@
-import { AlertTriangle, Camera, FileText, Check, Image as ImageIcon, Lightbulb, Lock, NotebookPen, Siren, Unlock } from 'lucide-react';
+import { AlertTriangle, Camera, Check, FileText, Image as ImageIcon, Lightbulb, Lock, NotebookPen, Siren, SkipForward, Unlock } from 'lucide-react';
 import{ useState, useRef, useEffect } from 'react';
 import { Modal, Spinner } from './ui';
 import { PlaceCombobox } from './PlaceCombobox';
@@ -937,7 +937,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
               {dupOrders.length > 0 && <span className="chip bg-rose-100 text-rose-700 font-black"><AlertTriangle className="ikona-text" /> {dupOrders.length === 1 ? 'možný dupl. odběratel' : `${dupOrders.length} možní dupl. odběratelé`}</span>}
               <button className="btn-ghost !rounded text-xs !py-1 !px-2" onClick={addLine}>+ Přidat řádek</button>
               {pendingFiles.length > 0 && (
-                <button className="btn-ghost !rounded text-xs !py-1 !px-2" onClick={() => { advanceToNextPhoto(); }}>⏭ Přeskočit fotku</button>
+                <button className="btn-ghost !rounded text-xs !py-1 !px-2" onClick={() => { advanceToNextPhoto(); }}><SkipForward className="ikona-text" /> Přeskočit fotku</button>
               )}
               <button className="btn-ghost !rounded text-xs !py-1 !px-2" onClick={() => { setParsed(null); setConfirmed(false); setPaused(true); }}>← Zpět na fotky</button>
 

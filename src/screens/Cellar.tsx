@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../lib/auth';
-import { AlertTriangle, Beer as BeerIcon, CalendarDays, ClipboardList, Droplet, Factory, FlaskConical, Check, ChevronLeft, ChevronRight, NotebookPen, Play, SprayCan, Warehouse } from 'lucide-react';
+import { AlertTriangle, Beer as BeerIcon, CalendarDays, Check, ChevronLeft, ChevronRight, ClipboardList, Droplet, Factory, FlaskConical, NotebookPen, Play, SprayCan, Square, Warehouse } from 'lucide-react';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 
 import { Beer, CellarTank, CellarTankCycle, CellarTransfer, EntryRow, Package, beerBorder, fetchAllRows, supabase, useRealtime } from '../lib/supabase';
@@ -854,7 +854,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                           onClick={() => stopKegging(t)}
                           title="Zastaví odebírání piva z tohoto tanku při stáčení keg"
                         >
-                          <span>⏹</span>
+                          <Square size={16} />
                           <span>Ukončit stáčení</span>
                         </button>
                       ) : (
@@ -863,7 +863,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                           onClick={() => startKegging(t)}
                           title="Aktivuje tento tank jako zdroj pro stáčení keg — pivo se bude odebírat z něj"
                         >
-                          <span>▶️</span>
+                          <Play size={16} />
                           <span>Zahájit stáčení</span>
                         </button>
                       )

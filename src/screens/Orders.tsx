@@ -56,14 +56,17 @@ const STATUS: Record<string, { label: string; cls: string }> = {
 
 // Per-day color coding for deliveries. Each day has a distinct hue so you can see
 // at a glance which orders go out together and that none was forgotten.
-const DAY_COLORS: Record<string, { bg: string; bar: string; chip: string; text: string; dot: string }> = {
-  po: { bg: 'bg-sky-50/70', bar: 'bg-sky-600', chip: 'bg-sky-700 text-white font-black shadow-2xs', text: 'text-sky-950 font-bold', dot: 'bg-sky-600' },
-  ut: { bg: 'bg-emerald-50/70', bar: 'bg-emerald-600', chip: 'bg-emerald-700 text-white font-black shadow-2xs', text: 'text-emerald-950 font-bold', dot: 'bg-emerald-600' },
-  st: { bg: 'bg-amber-100/60', bar: 'bg-amber-600', chip: 'bg-amber-600 text-white font-black shadow-2xs', text: 'text-amber-800 font-bold', dot: 'bg-amber-600' },
-  ct: { bg: 'bg-rose-50/70', bar: 'bg-rose-600', chip: 'bg-rose-700 text-white font-black shadow-2xs', text: 'text-rose-950 font-bold', dot: 'bg-rose-600' },
-  pa: { bg: 'bg-violet-50/70', bar: 'bg-violet-600', chip: 'bg-violet-700 text-white font-black shadow-2xs', text: 'text-violet-950 font-bold', dot: 'bg-violet-600' },
-  so: { bg: 'bg-primary-50/70', bar: 'bg-primary-600', chip: 'bg-primary-700 text-white font-black shadow-2xs', text: 'text-primary-900 font-bold', dot: 'bg-primary-600' },
-  ne: { bg: 'bg-neutral-100', bar: 'bg-neutral-600', chip: 'bg-neutral-700 text-white font-black shadow-2xs', text: 'text-neutral-800 font-bold', dot: 'bg-neutral-600' },
+// `border` se musí psát celé, ne skládat z `bar` řetězcovou náhradou — Tailwind
+// čte zdrojáky jako text a třídu, která v nich nikde celá nestojí, negeneruje.
+// Rámeček detailu objednávky proto vycházel v šedé místo v barvě dne.
+const DAY_COLORS: Record<string, { bg: string; bar: string; border: string; chip: string; text: string; dot: string }> = {
+  po: { bg: 'bg-sky-50/70', bar: 'bg-sky-600', border: 'border-sky-600/40', chip: 'bg-sky-700 text-white font-black shadow-2xs', text: 'text-sky-950 font-bold', dot: 'bg-sky-600' },
+  ut: { bg: 'bg-emerald-50/70', bar: 'bg-emerald-600', border: 'border-emerald-600/40', chip: 'bg-emerald-700 text-white font-black shadow-2xs', text: 'text-emerald-950 font-bold', dot: 'bg-emerald-600' },
+  st: { bg: 'bg-amber-100/60', bar: 'bg-amber-600', border: 'border-amber-600/40', chip: 'bg-amber-600 text-white font-black shadow-2xs', text: 'text-amber-800 font-bold', dot: 'bg-amber-600' },
+  ct: { bg: 'bg-rose-50/70', bar: 'bg-rose-600', border: 'border-rose-600/40', chip: 'bg-rose-700 text-white font-black shadow-2xs', text: 'text-rose-950 font-bold', dot: 'bg-rose-600' },
+  pa: { bg: 'bg-violet-50/70', bar: 'bg-violet-600', border: 'border-violet-600/40', chip: 'bg-violet-700 text-white font-black shadow-2xs', text: 'text-violet-950 font-bold', dot: 'bg-violet-600' },
+  so: { bg: 'bg-primary-50/70', bar: 'bg-primary-600', border: 'border-primary-600/40', chip: 'bg-primary-700 text-white font-black shadow-2xs', text: 'text-primary-900 font-bold', dot: 'bg-primary-600' },
+  ne: { bg: 'bg-neutral-100', bar: 'bg-neutral-600', border: 'border-neutral-600/40', chip: 'bg-neutral-700 text-white font-black shadow-2xs', text: 'text-neutral-800 font-bold', dot: 'bg-neutral-600' },
 };
 function dayColor(d: string | null | undefined) { return d ? DAY_COLORS[d] : null; }
 // Posun měsíce o delta měsíců (YYYY-MM) — pro šipky ‹ › v přehledu objednávek
@@ -2040,7 +2043,7 @@ export default function Orders({
               >
                 <span>{d.label}</span>
                 {hasOrders && (
-                  <span className={`px-1.5 py-0.2 rounded-full text-[11px] ${deliveryDayFilter === d.v ? 'bg-neutral-900/10 text-neutral-900' : 'bg-white/25'}`}>
+                  <span className={`px-1.5 py-0.5 rounded-full text-[11px] ${deliveryDayFilter === d.v ? 'bg-neutral-900/10 text-neutral-900' : 'bg-white/25'}`}>
                     {count}
                   </span>
                 )}
@@ -2898,7 +2901,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
           </button>
         </div>
 
-        <div className={`card p-5 mb-4 border-2 ${dc ? 'border-' + dc.bar.replace('bg-', '') + '/40' : 'border-primary-100'}`}>
+        <div className={`card p-5 mb-4 border-2 ${dc ? dc.border : 'border-primary-100'}`}>
           <div className="flex items-center gap-2 text-sm text-primary-500 flex-wrap mb-2">
             <span>{order.order_date}</span>
             <span>·</span>

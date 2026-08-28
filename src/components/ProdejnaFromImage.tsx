@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Modal } from './ui';
 import type { Beer, Package } from '../lib/supabase';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
-import { AlertCircle, Camera, Check, Folder, Hourglass, Sparkles, Upload } from 'lucide-react';
+import { AlertCircle, Camera, Check, ChevronLeft, ChevronRight, Folder, Hourglass, Sparkles, Upload } from 'lucide-react';
 
 type PhotoEntry = { dataUrl: string; name: string };
 
@@ -229,7 +229,7 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onTextExtr
               }}
               disabled={activeIndex === 0 || busy}
             >
-              ◀ Předchozí fotka
+              <ChevronLeft className="ikona-text" /> Předchozí fotka
             </button>
             <span className="font-extrabold text-xs sm:text-sm">
               <Camera className="ikona-text" /> Fotka {activeIndex + 1} z {photos.length} {photos[activeIndex]?.name ? `(${photos[activeIndex].name})` : ''}
@@ -245,7 +245,7 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onTextExtr
               }}
               disabled={activeIndex === photos.length - 1 || busy}
             >
-              Další fotka ▶
+              Další fotka <ChevronRight className="ikona-text" />
             </button>
           </div>
         )}
@@ -294,7 +294,7 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onTextExtr
               >
                 <Check size={14} />
                 {activeIndex < photos.length - 1
-                  ? `Vložit a další fotka (${activeIndex + 2}/${photos.length}) ▶`
+                  ? `Vložit a další fotka (${activeIndex + 2}/${photos.length})`
                   : `Vložit VŠECHNO do tabulky (${photos.length || 1} fotek)`}
               </button>
             </div>

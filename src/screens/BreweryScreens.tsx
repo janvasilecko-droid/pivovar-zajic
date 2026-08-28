@@ -831,7 +831,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
           </div>
 
           <div className="card p-6 bg-white border-2 border-emerald-200 rounded space-y-4 shadow-sm">
-            <h4 className="font-display font-black text-base text-emerald-950"><FlaskConical className="ikona-text" /> Stupňovitost (°P) ↔ Hustota (SG)</h4>
+            <h4 className="font-display font-black text-base text-emerald-950"><FlaskConical className="ikona-text" /> Stupňovitost (°P) a hustota (SG)</h4>
             <NumberStepper value={platoInput} onChange={setPlatoInput} step={0.5} min={0} />
             <div className="p-4 rounded bg-neutral-900 text-emerald-300 font-mono text-xs space-y-1">
               <div>• Specific Gravity: <strong>{sgExact.toFixed(3)} SG</strong></div>

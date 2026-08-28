@@ -1,4 +1,4 @@
-import { Settings } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Settings } from 'lucide-react';
 // Jedna dlaždice přizpůsobitelného launcheru (src/screens/HomeScreen.tsx).
 // Mimo edit mód je to prostý navigační button. V edit módu klik na dlaždici
 // ji jen OZNAČÍ (viz `selected`/`onSelect`) — ovládání (čtyři šipky pro
@@ -125,10 +125,10 @@ export default function LauncherTile({
         // overflow:visible + vyšší z-index, ať panel nic neoseká).
         <div className="hs-tile-controls" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
           <div className="hs-move-dpad">
-            <button type="button" className="hs-dpad-btn hs-dpad-up" title="Přesunout nahoru" onClick={() => onMoveStep('up')}>▲</button>
-            <button type="button" className="hs-dpad-btn hs-dpad-left" title="Přesunout doleva" onClick={() => onMoveStep('left')}>◀</button>
-            <button type="button" className="hs-dpad-btn hs-dpad-down" title="Přesunout dolů" onClick={() => onMoveStep('down')}>▼</button>
-            <button type="button" className="hs-dpad-btn hs-dpad-right" title="Přesunout doprava" onClick={() => onMoveStep('right')}>▶</button>
+            <button type="button" className="hs-dpad-btn hs-dpad-up" title="Přesunout nahoru" onClick={() => onMoveStep('up')}><ChevronUp size={16} /></button>
+            <button type="button" className="hs-dpad-btn hs-dpad-left" title="Přesunout doleva" onClick={() => onMoveStep('left')}><ChevronLeft size={16} /></button>
+            <button type="button" className="hs-dpad-btn hs-dpad-down" title="Přesunout dolů" onClick={() => onMoveStep('down')}><ChevronDown size={16} /></button>
+            <button type="button" className="hs-dpad-btn hs-dpad-right" title="Přesunout doprava" onClick={() => onMoveStep('right')}><ChevronRight size={16} /></button>
           </div>
           <button type="button" className="hs-gear-btn" title="Barva, velikost a další nastavení" onClick={onOpenEditor}><Settings className="ikona-text" /></button>
         </div>

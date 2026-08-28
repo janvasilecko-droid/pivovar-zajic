@@ -173,6 +173,33 @@ html, body, #root {
   .scrollbar-none::-webkit-scrollbar { display: none; }
   @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
 
+  /* `outline-hidden` je jméno z Tailwindu v4 (v3 má `outline-none`), takže se
+     z devíti výskytů nevygenerovalo nic. Pole, která si focus kreslí vlastním
+     prstencem (ring + barevný rámeček), tak dostávala navrch ještě obrys
+     z :focus-visible výš — dva prstence přes sebe, každý jinou barvou.
+     Význam držíme stejný jako ve v4: obrys zůstane, jen průhledný, aby ho
+     bylo vidět ve Windows v režimu vysokého kontrastu. */
+  .outline-hidden { outline: 2px solid transparent; outline-offset: 2px; }
+
+  /* Nástupní animace modálů (`animate-in fade-in zoom-in`) na 13 místech
+     pocházejí z pluginu tailwindcss-animate, který ale v projektu není —
+     modály tedy naskakovaly bez ničeho. Tohle je jeho princip v malém: jedny
+     klíčové snímky, které si počáteční stav berou z proměnných, takže se
+     `fade-in` a `zoom-in` dají skládat, aniž by si přebíjely animation-name.
+     Plugin umí navíc přenastavit délku přes `duration-*`; to tady neděláme,
+     rozdíl mezi 150 a 200 ms nikdo nepozná, tak platí jedna hodnota. */
+  @keyframes enter {
+    from {
+      opacity: var(--enter-opacity, 1);
+      transform: translate3d(var(--enter-x, 0), var(--enter-y, 0), 0) scale(var(--enter-scale, 1));
+    }
+  }
+  .animate-in {
+    animation: enter 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .fade-in { --enter-opacity: 0; }
+  .zoom-in { --enter-scale: 0.95; }
+
   /* Oznámení a potvrzovací list (components/ToastHost.tsx). Vlastní @keyframes,
      ne přes Tailwind — používají se přes animate-[...] a Tailwind by je
      v takovém zápisu do CSS nevygeneroval. */
@@ -211,6 +238,16 @@ html, body, #root {
     min-height: 44px;
   }
 }
+
+/* Spodní lišta na Domů (Layout.tsx) sedí zapřená o spodní hranu displeje —
+   jenže na telefonech s gestovým ovládáním přes ni vede systémový pruh pro
+   „domů" a poslední řádek ikon se pod ním schovával. `pb-safe` v ní bylo
+   napsané, ale nikde definované.
+
+   Schválně mimo @layer utilities: uvnitř by mělo pravidlo stejnou váhu jako
+   `py-1.5` na téže liště a záleželo by na pořadí, ve kterém je Tailwind
+   vysype. Tady je to jisté. */
+.pb-safe { padding-bottom: calc(0.375rem + env(safe-area-inset-bottom, 0px)); }
 
 /* Vodorovné rolování tabulek — okraj musí říct, že vpravo něco je.
    Tabulka širší než displej vypadá na telefonu jen useknutá a lidi pak

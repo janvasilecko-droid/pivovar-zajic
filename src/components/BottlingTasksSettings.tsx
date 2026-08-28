@@ -22,7 +22,7 @@ import {
   planLines,
 } from '../lib/bottlingPlans';
 import { Modal } from './ui';
-import { AlertTriangle, Calendar, ClipboardList, Check, ChevronLeft, ChevronRight, Lightbulb, MessageCircle, Package as PackageIcon, Pencil, ShoppingCart, Trash2 } from 'lucide-react';
+import { AlertTriangle, Calendar, Check, ChevronLeft, ChevronRight, ClipboardList, Lightbulb, MessageCircle, Package as PackageIcon, Pencil, ShoppingCart, Trash2, Undo2 } from 'lucide-react';
 import { chyba, potvrd } from '../lib/toast';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
 
@@ -523,7 +523,7 @@ export function BottlingTasksSettings() {
                   )}
                   {plan.status !== 'planned' && (
                     <button type="button" onClick={() => handleStatus(plan, 'planned')} className="px-2.5 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[11px] font-black transition">
-                      ↩️ Zpět
+                      <Undo2 className="ikona-text" /> Zpět
                     </button>
                   )}
                   <button type="button" onClick={() => handleDelete(plan)} className="px-2.5 py-1.5 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 text-[11px] font-black transition">

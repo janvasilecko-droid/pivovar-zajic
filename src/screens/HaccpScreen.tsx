@@ -480,7 +480,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
             onClick={() => selectTab('bozp_prvni_pomoc')}
             className={`px-4 py-2.5 rounded text-xs font-black transition flex items-center gap-2 shrink-0 ${
               activeTab === 'bozp_prvni_pomoc'
-                ? 'bg-rose-600 text-white shadow-md ring-2 ring-rose-300 scale-102'
+                ? 'bg-rose-600 text-white shadow-md ring-2 ring-rose-300 scale-[1.02]'
                 : 'bg-rose-50 text-rose-950 hover:bg-rose-100 border border-rose-200'
             }`}
           >

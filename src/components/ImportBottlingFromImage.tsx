@@ -4,7 +4,7 @@ import { PhotoReviewPane } from './PhotoReviewPane';
 import { ImageEditor } from './ImageEditor';
 import type { Beer, Package } from '../lib/supabase';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
-import { AlertCircle, Camera, Check, FilePlus, Folder, Lightbulb, Plus, RotateCcw, Sparkles, Trash2, Upload } from 'lucide-react';
+import { AlertCircle, Camera, Check, ChevronLeft, ChevronRight, FilePlus, Folder, Lightbulb, Plus, RotateCcw, Sparkles, Trash2, Upload } from 'lucide-react';
 
 type RowInput = { beerId: string; pkgId: string; pkg2Id: string; pkg3Id: string; kegPkgId: string; kegQty: string; qty: string; qty2: string; qty3: string; _removed?: boolean; _manual?: boolean };
 type PhotoEntry = { dataUrl: string; name: string };
@@ -336,7 +336,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                 }}
                 disabled={activeIndex === 0 || busy}
               >
-                ◀ Předchozí fotka
+                <ChevronLeft className="ikona-text" /> Předchozí fotka
               </button>
               <span className="font-extrabold text-xs sm:text-sm">
                 <Camera className="ikona-text" /> Fotka {activeIndex + 1} z {photos.length} {photos[activeIndex]?.name ? `(${photos[activeIndex].name})` : ''}
@@ -352,7 +352,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                 }}
                 disabled={activeIndex === photos.length - 1 || busy}
               >
-                Další fotka ▶
+                Další fotka <ChevronRight className="ikona-text" />
               </button>
             </div>
           )}
@@ -592,7 +592,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
             disabled={busy || !entryRows}
           >
             {activeIndex < photos.length - 1
-              ? `Vložit a další fotka (${activeIndex + 2}/${photos.length}) ▶`
+              ? `Vložit a další fotka (${activeIndex + 2}/${photos.length})`
               : `Vložit VŠECHNO do tabulky stočení lahví (${photos.length} fotek)`}
           </button>
                 </div>

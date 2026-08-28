@@ -1,4 +1,4 @@
-import { AlertTriangle, Calendar, CalendarDays, ClipboardList, Check, MessageCircle, Plus } from 'lucide-react';
+import { AlertTriangle, Calendar, CalendarDays, Check, ClipboardList, MessageCircle, Plus, Undo2 } from 'lucide-react';
 // 📋 Úkoly na stáčení — pohled pro stáčeče v zápisu stáčení (BottlingScreen).
 // Zobrazuje úkoly (dnes + připravované + zpožděné), umožňuje je „naplnit"
 // do formuláře zápisu (onFill) a přepnout na „hotovo".
@@ -125,7 +125,7 @@ function PlanItem({
             onClick={() => setPlanStatus(plan.id, 'planned').then(({ error }) => { if (error) chyba(error.message); else onChanged(); })}
             className="px-3 py-1.5 rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 text-[11px] font-black transition"
           >
-            ↩️ Zpět
+            <Undo2 className="ikona-text" /> Zpět
           </button>
         )}
       </div>
