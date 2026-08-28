@@ -190,12 +190,25 @@ html, body, #root {
   }
 }
 
-@media (max-width: 640px) {
-  [class*="text-[8px]"],
-  [class*="text-[9px]"],
-  [class*="text-[10px]"] {
-    font-size: 11px;
-    line-height: 1.35;
+/* ───────────────────────────────────────────────────────────────────────
+   DOTYKOVÉ CÍLE
+   ───────────────────────────────────────────────────────────────────────
+   Z 892 tlačítek v aplikaci jich 628 nemá zadanou žádnou výšku — vyjde jim
+   z odsazení a velikosti písma, takže při text-xs a py-2 mají kolem 32 px.
+   Doporučená velikost pro palec je 44 px a v pivovaru se appka ovládá
+   prstem, často v rukavici.
+
+   Řeší se to jedním pravidlem místo 628 zásahů do zdrojáků, a jen na
+   dotykových zařízeních (pointer: coarse). U myši je 32 px v pohodě
+   a hlavně by povinná výška rozhodila hustotu tabulek na počítači.
+
+   Tlačítka, která výšku VÝSLOVNĚ mají (h-6, min-h-[44px]…), se nechávají
+   být — to je vědomé rozhodnutí autora, ne opomenutí. Malá tlačítka
+   v tabulkách jsou navíc na telefonu schovaná, tam se ukazují karty. */
+@media (pointer: coarse) {
+  button:not([class*="h-"]):not([class*="min-h-"]),
+  [role="button"]:not([class*="h-"]):not([class*="min-h-"]) {
+    min-height: 44px;
   }
 }
 
