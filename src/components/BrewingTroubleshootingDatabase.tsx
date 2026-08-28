@@ -154,7 +154,7 @@ export function BrewingTroubleshootingDatabase() {
               </div>
 
               <div className="text-right shrink-0">
-                <div className="text-[10px] font-black uppercase text-neutral-400">Prah vnímání:</div>
+                <div className="text-[11px] font-black uppercase text-neutral-400">Prah vnímání:</div>
                 <div className="text-xs font-mono font-bold text-neutral-700">{item.threshold}</div>
               </div>
             </div>

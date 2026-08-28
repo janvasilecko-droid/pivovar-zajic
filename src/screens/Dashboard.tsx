@@ -581,7 +581,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                           {kegs.map((p) => (
                             <tr key={p.package_id}>
                               <td className="py-1 pr-2 whitespace-nowrap text-neutral-500 text-xs font-bold">{p.label}</td>
-                              <td className="py-1 px-2 text-center font-extrabold text-sky-900 bg-sky-100 rounded-md">{p.quantity}{p.rawQuantity < 0 && <span className="block text-[9px] font-black text-rose-600 font-mono" title="Vydáno víc, než evidence zná — schodek">({p.rawQuantity})</span>}</td>
+                              <td className="py-1 px-2 text-center font-extrabold text-sky-900 bg-sky-100 rounded-md">{p.quantity}{p.rawQuantity < 0 && <span className="block text-[11px] font-black text-rose-600 font-mono" title="Vydáno víc, než evidence zná — schodek">({p.rawQuantity})</span>}</td>
                               <td className={`py-1 px-2 text-center font-extrabold rounded-md ${p.orderedRemaining > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-600'}`}>{p.orderedRemaining > 0 ? `-${p.orderedRemaining}` : '0'}</td>
                               <td className={`py-1 pl-2 text-center font-extrabold rounded-md ${p.remaining < 0 ? 'bg-rose-50 text-rose-600' : p.remaining === 0 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>{p.remaining}</td>
                             </tr>
@@ -606,7 +606,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                           {bottles.map((p) => (
                             <tr key={p.package_id}>
                               <td className="py-1 pr-2 whitespace-nowrap text-neutral-500 text-xs font-bold">{p.label}</td>
-                              <td className="py-1 px-2 text-center font-extrabold text-sky-900 bg-sky-100 rounded-md">{p.quantity}{p.rawQuantity < 0 && <span className="block text-[9px] font-black text-rose-600 font-mono" title="Vydáno víc, než evidence zná — schodek">({p.rawQuantity})</span>}</td>
+                              <td className="py-1 px-2 text-center font-extrabold text-sky-900 bg-sky-100 rounded-md">{p.quantity}{p.rawQuantity < 0 && <span className="block text-[11px] font-black text-rose-600 font-mono" title="Vydáno víc, než evidence zná — schodek">({p.rawQuantity})</span>}</td>
                               <td className={`py-1 px-2 text-center font-extrabold rounded-md ${p.orderedRemaining > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-600'}`}>{p.orderedRemaining > 0 ? `-${p.orderedRemaining}` : '0'}</td>
                               <td className={`py-1 pl-2 text-center font-extrabold rounded-md ${p.remaining < 0 ? 'bg-rose-50 text-rose-600' : p.remaining === 0 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>{p.remaining}</td>
                             </tr>
@@ -645,19 +645,19 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-center">
                       <div className="rounded-lg bg-sky-100 py-1.5 border border-sky-300">
-                        <div className="text-[9px] font-black uppercase text-sky-700">Sklad (AKT)</div>
+                        <div className="text-[11px] font-black uppercase text-sky-700">Sklad (AKT)</div>
                         <div className="text-sm font-black text-sky-900">{p.quantity}</div>
                       </div>
                       <div className="rounded-lg bg-rose-50 py-1.5">
-                        <div className="text-[9px] font-black uppercase text-rose-600">Objednáno celkem</div>
+                        <div className="text-[11px] font-black uppercase text-rose-600">Objednáno celkem</div>
                         <div className="text-sm font-black text-rose-700">{p.orderedWeek || 0}</div>
                       </div>
                       <div className="rounded-lg bg-rose-100 py-1.5">
-                        <div className="text-[9px] font-black uppercase text-rose-700">Zbývá zavézt</div>
+                        <div className="text-[11px] font-black uppercase text-rose-700">Zbývá zavézt</div>
                         <div className="text-sm font-black text-rose-800">{p.orderedRemaining || 0}</div>
                       </div>
                       <div className="rounded-lg bg-amber-50 py-1.5">
-                        <div className="text-[9px] font-black uppercase text-amber-700">Odpočet celkem</div>
+                        <div className="text-[11px] font-black uppercase text-amber-700">Odpočet celkem</div>
                         <div className="text-sm font-black text-amber-800">{p.odpocet || 0}</div>
                       </div>
                     </div>
@@ -676,7 +676,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
             </div>
 
             <div className="hidden md:block overflow-x-auto scrollbar-thin">
-              <table className="table text-[10px] w-full border-collapse">
+              <table className="table text-[11px] w-full border-collapse">
                 <thead>
                   <tr className="bg-neutral-100 border-b border-neutral-200">
                     <th className="p-2 text-left">Obal</th>
@@ -685,7 +685,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                     <th className="p-2 text-right text-sky-900 font-black" title="Aktuální fyzický stav na skladě (Poč. + Stoč. − vše, co už fyzicky odešlo)">AKT</th>
                     <th className="p-2 text-right text-rose-700 font-bold" title="Objednávky celkem tento měsíc">OBJ</th>
                     <th className="p-2 text-right text-rose-800 font-bold" title="Objednáno − co už fyzicky odjelo (zavoz) = ještě čeká na odvoz">ZBÝVÁ ZAVÉZT</th>
-                    <th className="p-2 text-right text-purple-700 font-bold" title="Sudy spotřebované na plnění lahví">Stáč. lahví</th>
+                    <th className="p-2 text-right text-violet-700 font-bold" title="Sudy spotřebované na plnění lahví">Stáč. lahví</th>
                     <th className="p-2 text-right text-rose-600" title="Fasování zaměstnanců / privátní">Fasování</th>
                     <th className="p-2 text-right text-rose-600" title="Prodejna (výdej prodejny)">Prodejna</th>
                     <th className="p-2 text-right text-rose-600" title="Čisté vyfasování na akce (odvezeno - vráceno)">Akce</th>
@@ -705,7 +705,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                         <td className="p-2 text-right font-black text-sky-900 bg-sky-100">{p.quantity}</td>
                         <td className="p-2 text-right font-bold text-rose-700">{p.orderedWeek ? `-${p.orderedWeek}` : '—'}</td>
                         <td className="p-2 text-right font-bold text-rose-800 bg-rose-50/50">{p.orderedRemaining ? `-${p.orderedRemaining}` : '—'}</td>
-                        <td className="p-2 text-right font-bold text-purple-700">{p.kegsUsedWeek ? `-${p.kegsUsedWeek}` : '—'}</td>
+                        <td className="p-2 text-right font-bold text-violet-700">{p.kegsUsedWeek ? `-${p.kegsUsedWeek}` : '—'}</td>
                         <td className="p-2 text-right font-medium text-neutral-600">{p.fasovaniWeek ? `-${p.fasovaniWeek}` : '—'}</td>
                         <td className="p-2 text-right font-medium text-neutral-600">{p.prodejnaWeek ? `-${p.prodejnaWeek}` : '—'}</td>
                         <td className="p-2 text-right font-medium text-neutral-600">{akceNet ? `-${akceNet}` : '—'}</td>

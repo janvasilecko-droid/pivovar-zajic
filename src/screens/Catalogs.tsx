@@ -362,7 +362,7 @@ export function PlacesScreen() {
                 <div className="flex items-start justify-between gap-1">
                   <div className="font-display font-black text-base text-neutral-900">{p.name}</div>
                   {!p.address && (
-                    <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 font-extrabold text-[10px] shrink-0 border border-amber-300">
+                    <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 font-extrabold text-[11px] shrink-0 border border-amber-300">
                       <AlertTriangle className="ikona-text" /> Bez adresy
                     </span>
                   )}
@@ -730,7 +730,7 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
                   className="w-full text-left p-2 rounded text-xs hover:bg-amber-50 font-medium text-neutral-800 transition flex items-center justify-between gap-2 border border-transparent hover:border-amber-300"
                 >
                   <span className="truncate">{cand.address}</span>
-                  <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md shrink-0">
+                  <span className="text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md shrink-0">
                     Zvolit
                   </span>
                 </button>
@@ -871,7 +871,7 @@ export function VehiclesScreen() {
   return (
     <div className="space-y-6 pb-12">
       <div className="flex justify-end">
-        <button className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition shadow-md flex items-center gap-1.5" onClick={() => { setEdit(null); setShow(true); }}>
+        <button className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md flex items-center gap-1.5" onClick={() => { setEdit(null); setShow(true); }}>
           <Plus size={16} /> Přidat auto
         </button>
       </div>
@@ -899,7 +899,7 @@ export function VehiclesScreen() {
                 <div className="space-y-4">
                   <div className="flex items-start justify-between gap-3 pb-3 border-b border-neutral-200/80">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded bg-slate-900 text-amber-400 flex items-center justify-center font-black text-xl shadow-md">
+                      <div className="w-12 h-12 rounded bg-neutral-900 text-amber-400 flex items-center justify-center font-black text-xl shadow-md">
                         <Car className="ikona-text" />
                       </div>
                       <div>
@@ -910,7 +910,7 @@ export function VehiclesScreen() {
 
                     {(hasExpired || hasWarning) && (
                       <span className={`px-3 py-1 rounded text-xs font-black flex items-center gap-1 shadow-xs ${
-                        hasExpired ? 'bg-rose-600 text-white animate-pulse' : 'bg-amber-500 text-slate-950'
+                        hasExpired ? 'bg-rose-600 text-white animate-pulse' : 'bg-amber-500 text-neutral-950'
                       }`}>
                         <AlertTriangle size={15} />
                         <span>{hasExpired ? 'EXPIROVÁNO' : 'Pozor: Vyprší brzy'}</span>
@@ -928,7 +928,7 @@ export function VehiclesScreen() {
                         ? 'bg-amber-500/20 border-amber-500 text-amber-950 font-extrabold'
                         : 'bg-emerald-50 border-emerald-200 text-emerald-950'
                     }`}>
-                      <div className="text-[10px] font-black uppercase tracking-wider text-neutral-500 mb-0.5">🛠️ Technická (STK)</div>
+                      <div className="text-[11px] font-black uppercase tracking-wider text-neutral-500 mb-0.5">🛠️ Technická (STK)</div>
                       <div className="text-xs font-black flex items-center gap-1.5 mt-1">
                         {stkStatus.status === 'expired' && <ShieldAlert size={16} className="text-rose-600 shrink-0" />}
                         {stkStatus.status === 'warning' && <AlertTriangle size={16} className="text-amber-600 shrink-0" />}
@@ -945,7 +945,7 @@ export function VehiclesScreen() {
                         ? 'bg-amber-500/20 border-amber-500 text-amber-950 font-extrabold'
                         : 'bg-emerald-50 border-emerald-200 text-emerald-950'
                     }`}>
-                      <div className="text-[10px] font-black uppercase tracking-wider text-neutral-500 mb-0.5">🛣️ Dálniční známka</div>
+                      <div className="text-[11px] font-black uppercase tracking-wider text-neutral-500 mb-0.5">🛣️ Dálniční známka</div>
                       <div className="text-xs font-black flex items-center gap-1.5 mt-1">
                         {tollStatus.status === 'expired' && <ShieldAlert size={16} className="text-rose-600 shrink-0" />}
                         {tollStatus.status === 'warning' && <AlertTriangle size={16} className="text-amber-600 shrink-0" />}
@@ -963,7 +963,7 @@ export function VehiclesScreen() {
                 </div>
 
                 <div className="flex items-center gap-2 mt-5 pt-3 border-t border-neutral-200/80">
-                  <button className="flex-1 px-4 py-2 rounded bg-neutral-900 text-amber-300 font-extrabold text-xs hover:bg-slate-800 transition shadow-xs" onClick={() => { setEdit(v); setShow(true); }}>
+                  <button className="flex-1 px-4 py-2 rounded bg-neutral-900 text-amber-300 font-extrabold text-xs hover:bg-neutral-800 transition shadow-xs" onClick={() => { setEdit(v); setShow(true); }}>
                     Upravit termíny & SPZ
                   </button>
                   <button className="p-2 rounded bg-rose-50 hover:bg-rose-500 text-rose-600 hover:text-white font-bold text-xs transition" onClick={() => del(v.id)}>

@@ -549,17 +549,17 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
       {/* Stats Header */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="card p-4 bg-white border border-neutral-200 rounded space-y-1">
-          <span className="text-[10px] font-black uppercase text-neutral-500">Ujeté km za měsíc</span>
+          <span className="text-[11px] font-black uppercase text-neutral-500">Ujeté km za měsíc</span>
           <div className="font-display font-black text-2xl text-amber-600">{totalKmMonth} km</div>
           <span className="text-[11px] text-neutral-600">Celkový nájezd měsíce {filterMonth}</span>
         </div>
         <div className="card p-4 bg-white border border-neutral-200 rounded space-y-1">
-          <span className="text-[10px] font-black uppercase text-neutral-500">Počet služebních jízd</span>
+          <span className="text-[11px] font-black uppercase text-neutral-500">Počet služebních jízd</span>
           <div className="font-display font-black text-2xl text-neutral-900">{filteredEntries.length} jízd</div>
           <span className="text-[11px] text-neutral-600">Rozvozy & Svozy</span>
         </div>
         <div className="card p-4 bg-white border border-neutral-200 rounded space-y-1">
-          <span className="text-[10px] font-black uppercase text-neutral-500">Pivovarský vozový park</span>
+          <span className="text-[11px] font-black uppercase text-neutral-500">Pivovarský vozový park</span>
           <div className="font-display font-black text-xl text-neutral-900">{vehicles.length || 1} vozidel</div>
           <span className="text-[11px] text-neutral-600">Primárně Velké auto (Kynšperk)</span>
         </div>
@@ -769,15 +769,15 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-black text-xs text-neutral-900 flex items-center gap-1.5">
                           {new Date(d.date).toLocaleDateString('cs-CZ')}
-                          <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase ${d.isKachna ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                          <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-black uppercase ${d.isKachna ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
                             {d.isKachna ? '🦆 Kačena' : '🚐 Velké auto'}
                           </span>
                         </span>
-                        <span className="text-[10px] font-bold text-neutral-500">{d.stopsCount} zastávek</span>
+                        <span className="text-[11px] font-bold text-neutral-500">{d.stopsCount} zastávek</span>
                       </div>
                       <div className="text-[11px] text-neutral-600 font-medium leading-snug">{d.routeTo}</div>
                       {d.missingCoords.length > 0 && (
-                        <div className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 font-semibold leading-snug">
+                        <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 font-semibold leading-snug">
                           <AlertTriangle className="ikona-text" /> Chybí souřadnice u: {d.missingCoords.join(', ')} — km je jen odhad zbylých zastávek, doplň v Odběratelích nebo uprav ručně.
                         </div>
                       )}
@@ -940,7 +940,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                     className="input font-mono font-bold text-xs"
                   />
                   {lastKmEndByVehicle[vehicleName] != null && Number(kmStart) !== lastKmEndByVehicle[vehicleName] && (
-                    <p className="text-[10px] text-amber-700 font-bold mt-1 leading-snug">
+                    <p className="text-[11px] text-amber-700 font-bold mt-1 leading-snug">
                       <AlertTriangle className="ikona-text" /> Poslední záznam tohoto vozidla končí na {lastKmEndByVehicle[vehicleName].toLocaleString('cs-CZ')} km — nenavazuje.
                     </p>
                   )}

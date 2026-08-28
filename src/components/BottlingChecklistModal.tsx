@@ -425,7 +425,7 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
                               {item.text}
                             </span>
                             {item.required && !isChecked && (
-                              <span className="ml-1.5 text-[10px] text-amber-700 font-bold bg-amber-100 px-1.5 py-0.5 rounded">
+                              <span className="ml-1.5 text-[11px] text-amber-700 font-bold bg-amber-100 px-1.5 py-0.5 rounded">
                                 Důležité
                               </span>
                             )}
@@ -465,7 +465,7 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
                     localStorage.setItem(storageKey, JSON.stringify(next));
                     onClose();
                   }}
-                  className="btn-ghost !rounded flex items-center justify-center gap-1 text-[10px] font-black text-rose-600 hover:bg-rose-50 border border-dashed border-rose-200 px-2.5 py-1.5 rounded"
+                  className="btn-ghost !rounded flex items-center justify-center gap-1 text-[11px] font-black text-rose-600 hover:bg-rose-50 border border-dashed border-rose-200 px-2.5 py-1.5 rounded"
                 >
                   <span><Unlock className="ikona-text" /> Přeskočit (Admin)</span>
                 </button>
@@ -487,7 +487,7 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
                 localStorage.setItem(storageKey, JSON.stringify(next));
                 onClose();
               }}
-              className="btn-ghost !rounded flex items-center justify-center gap-1 text-[10px] font-black text-rose-600 hover:bg-rose-50 border border-dashed border-rose-200 px-2.5 py-1.5 rounded"
+              className="btn-ghost !rounded flex items-center justify-center gap-1 text-[11px] font-black text-rose-600 hover:bg-rose-50 border border-dashed border-rose-200 px-2.5 py-1.5 rounded"
             >
               <span><Unlock className="ikona-text" /> Přeskočit (Admin)</span>
             </button>

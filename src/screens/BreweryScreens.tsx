@@ -149,7 +149,7 @@ export function SrotovaniScreen({ setPage }: { setPage?: (p: any, sec?: string) 
                   {r.note && <p className="text-xs text-neutral-600 font-medium mt-1"><NotebookPen className="ikona-text" /> {r.note}</p>}
                 </div>
                 <div className="shrink-0">
-                  <span className="px-3.5 py-1.5 rounded bg-amber-500 text-slate-950 font-mono font-black text-sm shadow-2xs">
+                  <span className="px-3.5 py-1.5 rounded bg-amber-500 text-neutral-950 font-mono font-black text-sm shadow-2xs">
                     {r.weight_kg} kg sladu
                   </span>
                 </div>
@@ -621,16 +621,16 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
             <h3 className="font-display font-black text-lg text-amber-950"><IkonaSud className="ikona-text" /> Varianty v sudování</h3>
             <div className="space-y-3 font-mono text-xs">
               <div className="p-3 rounded bg-white border border-amber-300 space-y-1">
-                <span className="text-[10px] font-black uppercase text-amber-900">1 Typ sudů:</span>
+                <span className="text-[11px] font-black uppercase text-amber-900">1 Typ sudů:</span>
                 <div>• {pure50}× 50L (zb. {rem50.toFixed(0)}l)</div>
                 <div>• {pure30}× 30L (zb. {rem30.toFixed(0)}l)</div>
               </div>
               <div className="p-3 rounded bg-neutral-900 text-amber-300 space-y-1">
-                <div className="text-[10px] font-black text-white uppercase">MIX 1 (Max 50L):</div>
+                <div className="text-[11px] font-black text-white uppercase">MIX 1 (Max 50L):</div>
                 <div>• {mix1_50}× 50L + {mix1_30}× 30L</div>
               </div>
               <div className="p-3 rounded bg-neutral-900 text-emerald-300 space-y-1">
-                <div className="text-[10px] font-black text-white uppercase">MIX 2 (50% / 50%):</div>
+                <div className="text-[11px] font-black text-white uppercase">MIX 2 (50% / 50%):</div>
                 <div>• {mix2_50}× 50L + {mix2_30}× 30L</div>
               </div>
             </div>
@@ -647,7 +647,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
               <span>Plán šrotování — kolik sladu se šrotuje</span>
             </h3>
 
-            <div className="grid grid-cols-[1fr_auto_auto] items-center gap-3 px-1 text-[10px] font-black uppercase tracking-widest text-neutral-500">
+            <div className="grid grid-cols-[1fr_auto_auto] items-center gap-3 px-1 text-[11px] font-black uppercase tracking-widest text-neutral-500">
               <span>Pivo</span>
               <span className="w-36 text-center">Slad (kg)</span>
               <span className="w-24 text-center">Pytlů 25 kg</span>
@@ -712,16 +712,16 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
             <h3 className="font-display font-black text-lg text-neutral-900">1. Výběr chemické látky & Parametry</h3>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              <button type="button" onClick={() => selectPreset('louh')} className={`p-3 rounded font-black text-xs transition shadow-2xs flex flex-col items-center gap-1 ${chemType === 'louh' ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-400 scale-[1.02]' : 'bg-neutral-50 text-neutral-800 hover:bg-neutral-100 border border-neutral-200'}`}>
+              <button type="button" onClick={() => selectPreset('louh')} className={`p-3 rounded font-black text-xs transition shadow-2xs flex flex-col items-center gap-1 ${chemType === 'louh' ? 'bg-amber-500 text-neutral-950 ring-2 ring-amber-400 scale-[1.02]' : 'bg-neutral-50 text-neutral-800 hover:bg-neutral-100 border border-neutral-200'}`}>
                 <span className="text-lg"><FlaskConical className="ikona-text" /></span><span>Louh 100%</span>
               </button>
-              <button type="button" onClick={() => selectPreset('persteril')} className={`p-3 rounded font-black text-xs transition shadow-2xs flex flex-col items-center gap-1 ${chemType === 'persteril' ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-400 scale-[1.02]' : 'bg-neutral-50 text-neutral-800 hover:bg-neutral-100 border border-neutral-200'}`}>
+              <button type="button" onClick={() => selectPreset('persteril')} className={`p-3 rounded font-black text-xs transition shadow-2xs flex flex-col items-center gap-1 ${chemType === 'persteril' ? 'bg-amber-500 text-neutral-950 ring-2 ring-amber-400 scale-[1.02]' : 'bg-neutral-50 text-neutral-800 hover:bg-neutral-100 border border-neutral-200'}`}>
                 <span className="text-lg"><SprayCan className="ikona-text" /></span><span>Persteril 15%</span>
               </button>
-              <button type="button" onClick={() => selectPreset('dusicna')} className={`p-3 rounded font-black text-xs transition shadow-2xs flex flex-col items-center gap-1 ${chemType === 'dusicna' ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-400 scale-[1.02]' : 'bg-neutral-50 text-neutral-800 hover:bg-neutral-100 border border-neutral-200'}`}>
+              <button type="button" onClick={() => selectPreset('dusicna')} className={`p-3 rounded font-black text-xs transition shadow-2xs flex flex-col items-center gap-1 ${chemType === 'dusicna' ? 'bg-amber-500 text-neutral-950 ring-2 ring-amber-400 scale-[1.02]' : 'bg-neutral-50 text-neutral-800 hover:bg-neutral-100 border border-neutral-200'}`}>
                 <span className="text-lg">⚗️</span><span>Kyselina dusičná 53%</span>
               </button>
-              <button type="button" onClick={() => selectPreset('chlornan')} className={`p-3 rounded font-black text-xs transition shadow-2xs flex flex-col items-center gap-1 ${chemType === 'chlornan' ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-400 scale-[1.02]' : 'bg-neutral-50 text-neutral-800 hover:bg-neutral-100 border border-neutral-200'}`}>
+              <button type="button" onClick={() => selectPreset('chlornan')} className={`p-3 rounded font-black text-xs transition shadow-2xs flex flex-col items-center gap-1 ${chemType === 'chlornan' ? 'bg-amber-500 text-neutral-950 ring-2 ring-amber-400 scale-[1.02]' : 'bg-neutral-50 text-neutral-800 hover:bg-neutral-100 border border-neutral-200'}`}>
                 <span className="text-lg">🧽</span><span>Chlornan 15%</span>
               </button>
             </div>
@@ -752,9 +752,9 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
                 </div>
               </div>
 
-              <div className="p-3.5 rounded bg-white border border-blue-200 shadow-2xs">
+              <div className="p-3.5 rounded bg-white border border-sky-200 shadow-2xs">
                 <div className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Množství vody k doplnění</div>
-                <div className="text-2xl font-mono font-black text-blue-950 mt-1">
+                <div className="text-2xl font-mono font-black text-sky-950 mt-1">
                   {vWater.toFixed(2)} L
                 </div>
               </div>
@@ -804,11 +804,11 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
             <h3 className="font-display font-black text-lg text-amber-950"><Zap className="ikona-text" /> Výsledné náklady</h3>
             <div className="space-y-3 font-mono">
               <div className="p-4 rounded bg-neutral-900 border border-neutral-800">
-                <div className="text-[10px] text-neutral-400 uppercase">Celkem na 1 várku ({bHl} hl)</div>
+                <div className="text-[11px] text-neutral-400 uppercase">Celkem na 1 várku ({bHl} hl)</div>
                 <div className="text-2xl font-black text-amber-400">{totalEnergyCostBatch.toLocaleString('cs-CZ')} Kč</div>
               </div>
               <div className="p-4 rounded bg-amber-500 text-neutral-950">
-                <div className="text-[10px] font-black uppercase">Na 1 PŮLLITR (0.5 l)</div>
+                <div className="text-[11px] font-black uppercase">Na 1 PŮLLITR (0.5 l)</div>
                 <div className="text-3xl font-black">{costPerPint.toFixed(2)} Kč</div>
               </div>
             </div>

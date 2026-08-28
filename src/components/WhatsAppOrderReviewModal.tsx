@@ -338,12 +338,12 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             seg.highlighted ? (
               <span
                 key={si}
-                className={seg.tone === 'warn' ? 'bg-amber-200/80 rounded px-0.5' : 'bg-green-200/80 rounded px-0.5'}
+                className={seg.tone === 'warn' ? 'bg-amber-200/80 rounded px-0.5' : 'bg-emerald-200/80 rounded px-0.5'}
                 title={`AI četla odtud — položka ${seg.badges.join(', ')}`}
               >
                 {seg.text}
                 {seg.badges.map((b) => (
-                  <sup key={b} className="text-[9px] font-bold text-neutral-700 ml-0.5">#{b}</sup>
+                  <sup key={b} className="text-[11px] font-bold text-neutral-700 ml-0.5">#{b}</sup>
                 ))}
               </span>
             ) : (
@@ -616,14 +616,14 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         )}
 
         {/* Informace o zprávě */}
-        <div className="border rounded p-4 bg-blue-50">
+        <div className="border rounded p-4 bg-sky-50">
           <div className="flex items-center gap-2 mb-2">
             {isImage ? (
-              <ImageIcon size={18} className="text-blue-600" />
+              <ImageIcon size={18} className="text-sky-600" />
             ) : (
-              <MessageSquare size={18} className="text-blue-600" />
+              <MessageSquare size={18} className="text-sky-600" />
             )}
-            <div className="font-medium text-blue-800">Nová WhatsApp objednávka</div>
+            <div className="font-medium text-sky-800">Nová WhatsApp objednávka</div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -656,7 +656,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               <div className="text-sm text-neutral-600">Stav zpracování</div>
               <div className="font-medium">
                 {isParsed ? (
-                  <span className="text-green-600 flex items-center gap-1">
+                  <span className="text-emerald-600 flex items-center gap-1">
                     <Check size={14} /> Rozparsováno AI
                   </span>
                 ) : isPending ? (
@@ -671,7 +671,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                   <button
                     onClick={handleReparse}
                     disabled={reparsing || loading}
-                    className="mt-1.5 flex items-center gap-1.5 px-2.5 py-1 rounded bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="mt-1.5 flex items-center gap-1.5 px-2.5 py-1 rounded bg-sky-600 text-white text-xs font-semibold hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Ručně spustit AI parsování této zprávy"
                   >
                     {reparsing ? <RefreshCw size={13} className="animate-spin" /> : <RefreshCw size={13} />}
@@ -692,7 +692,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           {message.media_url ? (
             <div className="mt-3">
               {!useFullscreenPhotoLayout && (
-                <div className="h-[45vh] sm:h-96 rounded overflow-hidden border border-blue-200 shadow-lg">
+                <div className="h-[45vh] sm:h-96 rounded overflow-hidden border border-sky-200 shadow-lg">
                   <PhotoReviewPane
                     photos={[{ dataUrl: message.media_url, name: 'Fotka objednávky' }]}
                     activeIndex={0}
@@ -705,7 +705,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                   href={message.media_url}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold"
                 >
                   <ExternalLink size={14} /> Otevřít fotografii
                 </a>
@@ -730,16 +730,16 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         <div className="border rounded p-4 bg-neutral-50">
           <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
             <div className="text-sm font-medium flex items-center gap-2">
-              <Eye size={16} className="text-blue-600" />
+              <Eye size={16} className="text-sky-600" />
               Kontrola čtení — originál vs. přepis AI
             </div>
             <div className="flex items-center gap-3 flex-wrap">
               {readback.score != null && (
                 <span
                   className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                    readback.score >= 90 ? 'bg-green-100 text-green-800' :
+                    readback.score >= 90 ? 'bg-emerald-100 text-emerald-800' :
                     readback.score >= 60 ? 'bg-amber-100 text-amber-800' :
-                    'bg-red-100 text-red-800'
+                    'bg-rose-100 text-rose-800'
                   }`}
                   title={`Skóre důvěryhodnosti přečtení: ${readback.score} %`}
                 >
@@ -749,7 +749,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               <span className="text-xs">
                 {readback.items.length > 0 ? (
                   readback.mismatchCount === 0 ? (
-                    <span className="text-green-700 font-medium">
+                    <span className="text-emerald-700 font-medium">
                       ✓ Všechny položky sedí ({readback.matchedCount}/{readback.items.length})
                     </span>
                   ) : (
@@ -789,7 +789,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                 {transcriptSegments.length > 0 ? (
                   transcriptSegments.map((seg, si) => {
                     if (seg.op === 'same') return <span key={si}>{seg.text} </span>;
-                    if (seg.op === 'added') return <span key={si} className="bg-red-100 text-red-700 rounded px-0.5">{seg.text}</span>;
+                    if (seg.op === 'added') return <span key={si} className="bg-rose-100 text-rose-700 rounded px-0.5">{seg.text}</span>;
                     return <span key={si} className="bg-amber-100 text-amber-700 rounded px-0.5 line-through">{seg.text}</span>;
                   })
                 ) : message.parsed_raw_text ? (
@@ -808,7 +808,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                   </span>
                 )}
               </div>
-              <div className="text-[10px] text-neutral-400 mt-1">
+              <div className="text-[11px] text-neutral-400 mt-1">
                 zeleně = čteno z originálu · červeně = AI přidala (není v originálu) · přeškrtnuto = AI přehlédla
               </div>
             </div>
@@ -829,7 +829,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               <div className="mt-2 border rounded p-3 bg-white font-mono text-xs max-h-48 overflow-y-auto">
                 {diffWords(prevRawText, message.parsed_raw_text).map((seg, si) => {
                   if (seg.op === 'same') return <span key={si}>{seg.text} </span>;
-                  if (seg.op === 'added') return <span key={si} className="bg-red-100 text-red-700 rounded px-0.5">{seg.text}</span>;
+                  if (seg.op === 'added') return <span key={si} className="bg-rose-100 text-rose-700 rounded px-0.5">{seg.text}</span>;
                   return <span key={si} className="bg-amber-100 text-amber-700 rounded px-0.5 line-through">{seg.text}</span>;
                 })}
               </div>
@@ -841,12 +841,12 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         {hasParsedData && (
           <div>
             <div className="text-sm font-medium mb-2 flex items-center gap-2">
-              <Check size={16} className="text-green-600" />
+              <Check size={16} className="text-emerald-600" />
               AI rozpoznalo z objednávky
               <button
                 onClick={handleReparse}
                 disabled={reparsing || loading}
-                className="ml-auto px-2.5 py-1 rounded bg-blue-50 text-blue-700 text-xs font-medium hover:bg-blue-100 disabled:opacity-50 flex items-center gap-1.5"
+                className="ml-auto px-2.5 py-1 rounded bg-sky-50 text-sky-700 text-xs font-medium hover:bg-sky-100 disabled:opacity-50 flex items-center gap-1.5"
                 title="Znovu spustit AI čtení zprávy — nový přepis nahradí ten stávající (a porovná se s ním)"
               >
                 {reparsing ? <RefreshCw size={13} className="animate-spin" /> : <RefreshCw size={13} />}
@@ -854,7 +854,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               </button>
             </div>
 
-            <div className="border rounded p-4 bg-green-50 space-y-3">
+            <div className="border rounded p-4 bg-emerald-50 space-y-3">
               <div>
                 <div className="text-sm text-neutral-600 mb-1 flex items-center gap-1">
                   Odběratel
@@ -934,7 +934,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                               onClick={() => deleteItem(index)}
                               aria-label="Smazat položku"
                               title="Smazat položku z objednávky"
-                              className="p-1 rounded-md text-red-500 hover:bg-red-50 hover:text-red-700 transition-colors shrink-0"
+                              className="p-1 rounded-md text-rose-500 hover:bg-rose-50 hover:text-rose-700 transition-colors shrink-0"
                             >
                               <X size={16} />
                             </button>
@@ -944,8 +944,8 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                             if (rbItem?.status === 'unmatched') {
                               return (
                                 <div className="text-xs mt-1 flex items-start gap-1">
-                                  <AlertCircle size={12} className="text-red-600 mt-0.5 shrink-0" />
-                                  <span className="text-red-700">
+                                  <AlertCircle size={12} className="text-rose-600 mt-0.5 shrink-0" />
+                                  <span className="text-rose-700">
                                     AI četla: „{item.rawLine}" — <b>v originální zprávě se nenašlo</b>, zkontrolujte přečtení!
                                   </span>
                                 </div>
@@ -964,8 +964,8 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                             if (rbItem?.status === 'matched') {
                               return (
                                 <div className="text-xs mt-1 flex items-start gap-1">
-                                  <Check size={12} className="text-green-600 mt-0.5 shrink-0" />
-                                  <span className="text-green-700">AI četla z originálu: „{item.rawLine}" ✓</span>
+                                  <Check size={12} className="text-emerald-600 mt-0.5 shrink-0" />
+                                  <span className="text-emerald-700">AI četla z originálu: „{item.rawLine}" ✓</span>
                                 </div>
                               );
                             }
@@ -981,7 +981,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                                 <span
                                   key={pi}
                                   className={`px-1.5 py-0.5 rounded text-[11px] flex items-center gap-1 ${
-                                    p.found ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
+                                    p.found ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
                                   }`}
                                   title={p.found
                                     ? `${partKindLabel(p.part.kind)} ${p.part.display} se v originálu našlo ✓`
@@ -1011,17 +1011,17 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
 
         {/* Informace o stavu */}
         {statusMessage && (
-          <div className={`p-3 rounded ${statusMessage.includes('Chyba') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+          <div className={`p-3 rounded ${statusMessage.includes('Chyba') ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`}>
             {statusMessage}
           </div>
         )}
 
         {/* Akce */}
         {isImported ? (
-          <div className="p-3 rounded bg-green-50 border border-green-200 text-sm text-green-800">
+          <div className="p-3 rounded bg-emerald-50 border border-emerald-200 text-sm text-emerald-800">
             <CheckCircle2 className="ikona-text" /> Zpráva už byla importována do objednávky — prohlížíte archiv originálu a kontrolu čtení.
             {message.readback_checked_at && (
-              <span className="block text-xs text-green-700 mt-1">
+              <span className="block text-xs text-emerald-700 mt-1">
                 Zkontrolováno {new Date(message.readback_checked_at).toLocaleString('cs-CZ')}
                 {message.readback_checked_by ? ` · ${message.readback_checked_by.slice(0, 8)}` : ''}
               </span>
@@ -1035,7 +1035,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                 onClick={() => setPhotoChecked((v) => !v)}
                 className={`self-start flex items-center gap-2 px-3.5 py-2 rounded text-sm font-semibold border transition ${
                   photoChecked
-                    ? 'bg-green-50 border-green-300 text-green-800'
+                    ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
                     : 'bg-amber-50 border-amber-300 text-amber-800 animate-pulse'
                 }`}
               >
@@ -1056,7 +1056,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               <button
                 onClick={handleReject}
                 disabled={rejecting || loading}
-                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
+                className="px-4 py-2 bg-rose-600 text-white rounded hover:bg-rose-700 disabled:opacity-50 flex items-center gap-2"
               >
                 {rejecting ? <ButtonSpinner /> : <X size={16} />}
                 Zamítnout objednávku
@@ -1066,7 +1066,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             <button
               onClick={handleApprove}
               disabled={approving || loading || !isParsed || items.length === 0 || hasUnmatchedItems || (isImage ? (!!message.media_url && !photoChecked) : (strictReadback && readback.mismatchCount > 0))}
-              className="px-6 py-2.5 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 flex items-center gap-2 font-medium"
+              className="px-6 py-2.5 bg-emerald-600 text-white rounded hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2 font-medium"
               title={
                 isImage && !!message.media_url && !photoChecked
                   ? 'Nejprve potvrďte, že jste fotku zkontroloval/a (tlačítko výše).'
@@ -1127,7 +1127,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             ✕
           </button>
         </div>
-        <div className="h-[42vh] sm:h-[45vh] shrink-0 border-b border-blue-200">
+        <div className="h-[42vh] sm:h-[45vh] shrink-0 border-b border-sky-200">
           <PhotoReviewPane
             photos={[{ dataUrl: message.media_url, name: 'Fotka objednávky' }]}
             activeIndex={0}
@@ -1156,7 +1156,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             ✕
           </button>
         </div>
-        <div className="max-h-[38vh] sm:max-h-[42vh] shrink-0 border-b border-blue-200 bg-blue-50/40 p-3 overflow-y-auto scrollbar-thin">
+        <div className="max-h-[38vh] sm:max-h-[42vh] shrink-0 border-b border-sky-200 bg-sky-50/40 p-3 overflow-y-auto scrollbar-thin">
           {originalMessageBlock}
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin p-4 sm:p-6">

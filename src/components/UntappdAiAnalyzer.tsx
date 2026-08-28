@@ -100,7 +100,7 @@ export function UntappdAiAnalyzer() {
         <div className="space-y-4 animate-in fade-in duration-200">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="card p-5 bg-white border border-amber-200 rounded space-y-1 shadow-xs">
-              <div className="text-[10px] font-black uppercase text-neutral-400">Průměrné Untappd Skóre:</div>
+              <div className="text-[11px] font-black uppercase text-neutral-400">Průměrné Untappd Skóre:</div>
               <div className="text-3xl font-display font-black text-amber-600 flex items-baseline gap-1">
                 <span>{analysis.overallRating}</span>
                 <span className="text-xs text-neutral-400 font-bold">/ 5.0 ⭐</span>
@@ -108,15 +108,15 @@ export function UntappdAiAnalyzer() {
             </div>
 
             <div className="card p-5 bg-white border border-emerald-200 rounded space-y-1 shadow-xs">
-              <div className="text-[10px] font-black uppercase text-neutral-400">Sentiment hodnocení:</div>
+              <div className="text-[11px] font-black uppercase text-neutral-400">Sentiment hodnocení:</div>
               <div className="text-3xl font-display font-black text-emerald-600">
                 {analysis.sentimentScorePct}% <span className="text-xs font-bold text-neutral-500">Pozitivní</span>
               </div>
             </div>
 
-            <div className="card p-5 bg-white border border-purple-200 rounded space-y-1 shadow-xs">
-              <div className="text-[10px] font-black uppercase text-neutral-400">Počet recenzí:</div>
-              <div className="text-3xl font-display font-black text-purple-600">
+            <div className="card p-5 bg-white border border-violet-200 rounded space-y-1 shadow-xs">
+              <div className="text-[11px] font-black uppercase text-neutral-400">Počet recenzí:</div>
+              <div className="text-3xl font-display font-black text-violet-600">
                 {analysis.totalReviewsAnalyzed} <span className="text-xs font-bold text-neutral-500">záznamů</span>
               </div>
             </div>
@@ -136,7 +136,7 @@ export function UntappdAiAnalyzer() {
                   className="px-3.5 py-2 rounded bg-amber-100 text-amber-950 font-extrabold text-xs border border-amber-300 flex items-center gap-1.5 shadow-2xs"
                 >
                   <span>🍃 {note.note}</span>
-                  <span className="bg-amber-500 text-neutral-950 px-2 py-0.5 rounded-full text-[10px] font-black">
+                  <span className="bg-amber-500 text-neutral-950 px-2 py-0.5 rounded-full text-[11px] font-black">
                     {note.count}×
                   </span>
                 </span>

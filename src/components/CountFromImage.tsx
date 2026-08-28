@@ -272,10 +272,10 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
         {/* Datum + info v jednom kompaktním řádku */}
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 px-2.5 py-1.5 rounded">
-            <label className="text-[10px] font-black text-neutral-700"><Calendar className="ikona-text" /></label>
+            <label className="text-[11px] font-black text-neutral-700"><Calendar className="ikona-text" /></label>
             <input type="date" className="input !py-0.5 !px-1.5 font-mono font-bold text-[11px] max-w-[130px]" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
-          <span className="text-[10px] text-neutral-500 font-medium leading-tight">
+          <span className="text-[11px] text-neutral-500 font-medium leading-tight">
             {isKegMode ? 'Nfoť kegy na paletě' : 'Nfoť přepravky s lahvemi'}
           </span>
         </div>
@@ -283,24 +283,24 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
         {/* RYCHLÝ KALKULÁTOR — kompaktní */}
         {!isKegMode && (
         <div className="bg-amber-50 border border-amber-200 rounded px-2.5 py-2 space-y-1.5">
-          <div className="text-[9px] font-black text-amber-950 uppercase tracking-wider flex items-center gap-1">
+          <div className="text-[11px] font-black text-amber-950 uppercase tracking-wider flex items-center gap-1">
             <PackageIcon size={12} className="text-amber-600" />
             <span>Rychlý kalkulátor (přepravky/kartony)</span>
           </div>
           <div className="flex flex-wrap gap-1">
-            <button type="button" onClick={() => addPresetCrate(20, '1 přepravka (20 ks)')} className="px-2 py-1 rounded bg-amber-200 hover:bg-amber-300 text-amber-950 text-[10px] font-black border border-amber-300 transition">
+            <button type="button" onClick={() => addPresetCrate(20, '1 přepravka (20 ks)')} className="px-2 py-1 rounded bg-amber-200 hover:bg-amber-300 text-amber-950 text-[11px] font-black border border-amber-300 transition">
               +20
             </button>
-            <button type="button" onClick={() => addPresetCrate(40, '2 přepravky (40 ks)')} className="px-2 py-1 rounded bg-amber-200 hover:bg-amber-300 text-amber-950 text-[10px] font-black border border-amber-300 transition">
+            <button type="button" onClick={() => addPresetCrate(40, '2 přepravky (40 ks)')} className="px-2 py-1 rounded bg-amber-200 hover:bg-amber-300 text-amber-950 text-[11px] font-black border border-amber-300 transition">
               +40
             </button>
-            <button type="button" onClick={() => addPresetCrate(100, '5 přepravek (100 ks)')} className="px-2 py-1 rounded bg-amber-200 hover:bg-amber-300 text-amber-950 text-[10px] font-black border border-amber-300 transition">
+            <button type="button" onClick={() => addPresetCrate(100, '5 přepravek (100 ks)')} className="px-2 py-1 rounded bg-amber-200 hover:bg-amber-300 text-amber-950 text-[11px] font-black border border-amber-300 transition">
               +100
             </button>
-            <button type="button" onClick={() => addPresetCrate(12, '1 karton (12 ks)')} className="px-2 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-900 text-[10px] font-black border border-amber-200 transition">
+            <button type="button" onClick={() => addPresetCrate(12, '1 karton (12 ks)')} className="px-2 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-900 text-[11px] font-black border border-amber-200 transition">
               +12
             </button>
-            <button type="button" onClick={() => addPresetCrate(6, '1 karton (6 ks)')} className="px-2 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-900 text-[10px] font-black border border-amber-200 transition">
+            <button type="button" onClick={() => addPresetCrate(6, '1 karton (6 ks)')} className="px-2 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-900 text-[11px] font-black border border-amber-200 transition">
               +6
             </button>
           </div>
@@ -312,7 +312,7 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
           <button className="px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[11px] transition shadow-xs flex items-center gap-1.5" onClick={() => fileRef.current?.click()} disabled={busyAny}>
             <Camera size={14} /> {isKegMode ? 'Přidat fotky' : 'Přidat fotky'}
           </button>
-          <span className="text-[10px] text-neutral-500 font-medium">lze i více najednou</span>
+          <span className="text-[11px] text-neutral-500 font-medium">lze i více najednou</span>
         </div>
 
         {/* Editors for photos being cropped */}
@@ -331,7 +331,7 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {photos.map((p) => (
               <div key={p.id} className="rounded border border-amber-200 bg-neutral-900 overflow-hidden relative shadow-xs">
-                <div className="px-2 py-1 bg-neutral-800 text-amber-300 text-[10px] font-black flex items-center justify-between">
+                <div className="px-2 py-1 bg-neutral-800 text-amber-300 text-[11px] font-black flex items-center justify-between">
                   <span><Camera className="ikona-text" /></span>
                   <button className="text-neutral-400 hover:text-rose-400 text-sm font-bold leading-none" onClick={() => removePhoto(p.id)}>×</button>
                 </div>
@@ -339,9 +339,9 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
                   {p.preview ? (
                     <img src={p.preview} alt="fotka" className="block max-w-full max-h-[20vh] object-contain" />
                   ) : p.busy ? (
-                    <div className="text-amber-400 text-[10px] p-2 text-center"><Spinner /></div>
+                    <div className="text-amber-400 text-[11px] p-2 text-center"><Spinner /></div>
                   ) : (
-                    <div className="text-neutral-500 text-[10px] p-2 text-center"><Hourglass className="ikona-text" /></div>
+                    <div className="text-neutral-500 text-[11px] p-2 text-center"><Hourglass className="ikona-text" /></div>
                   )}
                   {p.busy && (
                     <div className="absolute bottom-0 left-0 right-0 h-1 bg-neutral-800">
@@ -350,13 +350,13 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
                   )}
                 </div>
                 {p.rawText && (
-                  <div className="px-2 py-1 bg-amber-50 text-[9px] text-amber-950 font-bold leading-tight truncate">{p.rawText}</div>
+                  <div className="px-2 py-1 bg-amber-50 text-[11px] text-amber-950 font-bold leading-tight truncate">{p.rawText}</div>
                 )}
                 {p.err && (
-                  <div className="px-2 py-1 bg-rose-50 text-[9px] text-rose-700 font-bold leading-tight">{p.err}</div>
+                  <div className="px-2 py-1 bg-rose-50 text-[11px] text-rose-700 font-bold leading-tight">{p.err}</div>
                 )}
                 {!p.busy && p.preview && (
-                  <button className="w-full text-[10px] py-1 bg-neutral-800 text-amber-300 hover:bg-neutral-700 font-bold transition" onClick={() => retakePhoto(p.id)}><RefreshCw className="ikona-text" /></button>
+                  <button className="w-full text-[11px] py-1 bg-neutral-800 text-amber-300 hover:bg-neutral-700 font-bold transition" onClick={() => retakePhoto(p.id)}><RefreshCw className="ikona-text" /></button>
                 )}
               </div>
             ))}
@@ -370,7 +370,7 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-black text-neutral-900"><ClipboardList className="ikona-text" /> Rozpoznané položky ({results.length})</span>
-              <span className="text-[10px] font-bold text-amber-800">Doplň pivo a obal</span>
+              <span className="text-[11px] font-bold text-amber-800">Doplň pivo a obal</span>
             </div>
             <div className="space-y-1.5">
               {results.map((r, i) => {
@@ -380,11 +380,11 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
                     {/* Řádek: co AI přečetlo + smazat */}
                     <div className="flex items-center justify-between gap-1">
                       {photo?.rawText ? (
-                        <span className="text-[9px] font-mono font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded truncate" title={photo.rawText}>
+                        <span className="text-[11px] font-mono font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded truncate" title={photo.rawText}>
                           🤖 {photo.rawText}
                         </span>
                       ) : (
-                        <span className="text-[9px] text-neutral-400 italic">AI nepřečetla text</span>
+                        <span className="text-[11px] text-neutral-400 italic">AI nepřečetla text</span>
                       )}
                       <button className="text-rose-400 hover:text-rose-600 text-[11px] font-bold leading-none shrink-0 px-1" onClick={() => removeResult(i)}>✕</button>
                     </div>
@@ -413,7 +413,7 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
                         onChange={(e) => updateResult(i, { quantity: e.target.value ? Number(e.target.value) : null })}
                       />
                       <select
-                        className="input !py-1.5 !px-1.5 text-sm sm:text-[10px] font-bold min-w-[70px]"
+                        className="input !py-1.5 !px-1.5 text-sm sm:text-[11px] font-bold min-w-[70px]"
                         value={r.package_id}
                         onChange={(e) => {
                           const pkg = packages.find((p) => p.id === e.target.value);
@@ -426,7 +426,7 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
                     </div>
                     {/* Poznámka */}
                     {r.note && (
-                      <div className="text-[9px] text-neutral-500 font-medium leading-tight"><NotebookPen className="ikona-text" /> {r.note}</div>
+                      <div className="text-[11px] text-neutral-500 font-medium leading-tight"><NotebookPen className="ikona-text" /> {r.note}</div>
                     )}
                   </div>
                 );

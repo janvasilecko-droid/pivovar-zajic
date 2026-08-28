@@ -238,7 +238,7 @@ export default function VycepyScreen() {
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <span className="font-display font-black text-base text-neutral-950 block">{t.name}</span>
-                        <span className="px-2.5 py-0.5 rounded-full bg-neutral-900 text-amber-300 font-extrabold text-[10px] uppercase tracking-wider inline-block mt-1">
+                        <span className="px-2.5 py-0.5 rounded-full bg-neutral-900 text-amber-300 font-extrabold text-[11px] uppercase tracking-wider inline-block mt-1">
                           {t.tap_type === 'jednokohout' ? '🚰 Jednokohout' : t.tap_type === 'dvojkohout' ? '🚰🚰 Dvojkohout' : t.tap_type === 'trojkohout' ? '🚰🚰🚰 Trojkohout' : '🚰🚰🚰🚰🚰🚰 Šestikohout'}
                         </span>
                       </div>
@@ -341,11 +341,11 @@ export default function VycepyScreen() {
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-black text-sm text-neutral-950">{r.tap_name}</span>
                     {isReturned ? (
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-950 font-black text-[10px] border border-emerald-300">✓ Vráceno</span>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-950 font-black text-[11px] border border-emerald-300">✓ Vráceno</span>
                     ) : isOverdue ? (
-                      <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white font-black text-[10px] animate-pulse"><AlertTriangle className="ikona-text" /> Po termínu</span>
+                      <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white font-black text-[11px] animate-pulse"><AlertTriangle className="ikona-text" /> Po termínu</span>
                     ) : (
-                      <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-950 font-black text-[10px] border border-amber-300">Půjčeno</span>
+                      <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-950 font-black text-[11px] border border-amber-300">Půjčeno</span>
                     )}
                   </div>
                   <div className="font-mono font-bold text-xs text-amber-950">
@@ -354,7 +354,7 @@ export default function VycepyScreen() {
                   <div className="flex items-center justify-between gap-2">
                     <div>
                       <div className="font-black text-xs text-neutral-900">{r.customer_name}</div>
-                      {r.phone && <a href={`tel:${r.phone}`} className="text-xs text-blue-700 font-bold hover:underline"><Phone className="ikona-text" /> {r.phone}</a>}
+                      {r.phone && <a href={`tel:${r.phone}`} className="text-xs text-sky-700 font-bold hover:underline"><Phone className="ikona-text" /> {r.phone}</a>}
                     </div>
                     {r.deposit_czk ? <span className="font-mono font-bold text-xs text-neutral-700 shrink-0">{r.deposit_czk.toLocaleString('cs-CZ')} Kč</span> : null}
                   </div>
@@ -400,15 +400,15 @@ export default function VycepyScreen() {
                     <tr key={r.id} className={`hover:bg-neutral-50/80 transition-colors ${isOverdue ? 'bg-rose-50/60' : ''}`}>
                       <td>
                         {isReturned ? (
-                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-950 font-black text-[10px] border border-emerald-300">
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-950 font-black text-[11px] border border-emerald-300">
                             ✓ Vráceno
                           </span>
                         ) : isOverdue ? (
-                          <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white font-black text-[10px] animate-pulse">
+                          <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white font-black text-[11px] animate-pulse">
                             <AlertTriangle className="ikona-text" /> Po termínu
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-950 font-black text-[10px] border border-amber-300">
+                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-950 font-black text-[11px] border border-amber-300">
                             Půjčeno
                           </span>
                         )}
@@ -420,7 +420,7 @@ export default function VycepyScreen() {
                       <td>
                         <div className="font-black text-xs text-neutral-900">{r.customer_name}</div>
                         {r.phone && (
-                          <a href={`tel:${r.phone}`} className="text-[11px] text-blue-700 font-bold hover:underline">
+                          <a href={`tel:${r.phone}`} className="text-[11px] text-sky-700 font-bold hover:underline">
                             <Phone className="ikona-text" /> {r.phone}
                           </a>
                         )}

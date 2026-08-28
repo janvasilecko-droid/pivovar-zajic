@@ -336,7 +336,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
 
       {/* ===== ZÁPIS ===== */}
       {tab === 'zapis' && mode !== 'overviews_only' && (
-        <form onSubmit={add} className={`card px-2 py-3 mb-5 transition-all duration-200 ${flash ? 'ring-4 ring-success-500/20' : ''}`}>
+        <form onSubmit={add} className={`card px-2 py-3 mb-5 transition-all duration-200 ${flash ? 'ring-4 ring-emerald-500/20' : ''}`}>
           {/* Kam výdej jde. Je to pořád tentýž formulář — podle volby se mění
               jen tabulka, do které se zapisuje, a jedno pole navíc. Sedí to
               hned nad tím polem, aby bylo vidět, co volba způsobí. */}

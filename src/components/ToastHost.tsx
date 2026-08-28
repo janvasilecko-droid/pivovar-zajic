@@ -77,7 +77,7 @@ export default function ToastHost() {
             <h2 className="text-lg font-display font-extrabold text-neutral-900 mb-2">
               {p.titulek ?? 'Potvrzení'}
             </h2>
-            <p className="text-[15px] text-neutral-700 leading-relaxed whitespace-pre-line mb-6">{p.text}</p>
+            <p className="text-sm text-neutral-700 leading-relaxed whitespace-pre-line mb-6">{p.text}</p>
             {/* Na telefonu pod sebou a přes celou šířku — nejjistější trefa. */}
             <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
               <button

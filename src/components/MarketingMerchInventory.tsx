@@ -103,11 +103,11 @@ export function MarketingMerchInventory() {
           <div key={item.id} className="card p-5 bg-white border border-neutral-200 rounded space-y-3 shadow-xs hover:shadow-md transition flex flex-col justify-between">
             <div>
               <div className="flex items-start justify-between gap-2 border-b border-neutral-100 pb-2">
-                <span className="text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-950 px-2.5 py-0.5 rounded-full border border-amber-200">
+                <span className="text-[11px] font-black uppercase tracking-wider bg-amber-100 text-amber-950 px-2.5 py-0.5 rounded-full border border-amber-200">
                   {item.category === 'sklo' ? '🍺 Sklo' : item.category === 'tacky' ? '📦 Tácky' : item.category === 'obleceni' ? '👕 Oblečení' : '🏷️ Merch'}
                 </span>
                 {item.stockQty <= item.minAlertQty && (
-                  <span className="chip bg-rose-100 text-rose-950 font-black border border-rose-300 text-[10px]">
+                  <span className="chip bg-rose-100 text-rose-950 font-black border border-rose-300 text-[11px]">
                     <AlertTriangle className="ikona-text" /> Dochází
                   </span>
                 )}

@@ -125,7 +125,7 @@ export function BottlingLineMaintenance() {
         </div>
       </div>
 
-      {err && <div className="text-sm text-danger-600 bg-danger-500/10 rounded px-3 py-2">{err}</div>}
+      {err && <div className="text-sm text-rose-600 bg-rose-500/10 rounded px-3 py-2">{err}</div>}
 
       {tasks.length === 0 && (
         <div className="text-sm text-neutral-500 font-medium py-8 text-center">
@@ -151,7 +151,7 @@ export function BottlingLineMaintenance() {
             <div>
               <div className="flex items-start justify-between gap-2 border-b border-neutral-100 pb-3">
                 <div>
-                  <span className="text-[10px] font-black uppercase tracking-wider bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded-md border border-neutral-200">
+                  <span className="text-[11px] font-black uppercase tracking-wider bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded-md border border-neutral-200">
                     Interval: každých {task.interval_days} dní
                   </span>
                   <h4 className="font-display font-black text-base text-neutral-900 mt-1">{task.equipment_name}</h4>

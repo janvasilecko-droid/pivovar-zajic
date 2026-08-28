@@ -185,7 +185,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
           <div className="p-3.5 rounded border-2 border-rose-300 bg-rose-50 text-rose-900 text-xs leading-relaxed flex items-start gap-3">
             <AlertTriangle size={18} className="shrink-0 text-rose-600 mt-0.5" />
             <div className="space-y-1">
-              <p className="font-black text-rose-700 uppercase tracking-wider text-[10px]"><AlertTriangle className="ikona-text" /> Poslední týden v měsíci — povinná měsíční údržba</p>
+              <p className="font-black text-rose-700 uppercase tracking-wider text-[11px]"><AlertTriangle className="ikona-text" /> Poslední týden v měsíci — povinná měsíční údržba</p>
               <p className="font-medium">
                 Je nutné <b>kompletně rozebrat všechny narážeče a rychlospojky</b>, naložit je do louhu NaOH,
                 po 24 hodinách vyčistit kartáčem, důkladně opláchnout čistou vodou a provést vizuální kontrolu čistoty a těsnění.
@@ -208,7 +208,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
                 <button
                   key={cat}
                   onClick={() => setActiveCategory(cat)}
-                  className={`px-3 py-1.5 rounded text-[10px] font-black tracking-wide uppercase transition ${
+                  className={`px-3 py-1.5 rounded text-[11px] font-black tracking-wide uppercase transition ${
                     isSelected
                       ? 'bg-white text-neutral-950 shadow-xs'
                       : isDone
@@ -309,7 +309,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
                     {item.text}
                   </span>
                   {isWeeklySatisfied && (
-                    <span className="block text-[9px] text-emerald-700 font-extrabold mt-1">
+                    <span className="block text-[11px] text-emerald-700 font-extrabold mt-1">
                       🛡️ Splněno v tomto týdnu (není vyžadováno)
                     </span>
                   )}
@@ -324,7 +324,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
           <div className="flex gap-2 items-center flex-wrap">
             <button
               onClick={handleReset}
-              className="btn-ghost !rounded flex items-center justify-center gap-1 text-[10px] font-black text-rose-600 hover:bg-rose-50"
+              className="btn-ghost !rounded flex items-center justify-center gap-1 text-[11px] font-black text-rose-600 hover:bg-rose-50"
             >
               <RotateCcw size={12} />
               <span>Resetovat checklist</span>
@@ -340,7 +340,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
                   localStorage.setItem('keg_checklist_' + dateKey, JSON.stringify(next));
                   onDone?.();
                 }}
-                className="btn-ghost !rounded flex items-center justify-center gap-1 text-[10px] font-black text-rose-600 hover:bg-rose-50 border border-dashed border-rose-200 px-2.5 py-1.5 rounded"
+                className="btn-ghost !rounded flex items-center justify-center gap-1 text-[11px] font-black text-rose-600 hover:bg-rose-50 border border-dashed border-rose-200 px-2.5 py-1.5 rounded"
               >
                 <span><Unlock className="ikona-text" /> Přeskočit (Admin)</span>
               </button>

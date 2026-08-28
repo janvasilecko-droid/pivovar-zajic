@@ -438,17 +438,17 @@ export default function BottleSanitationDiary() {
                       <Calendar size={14} className="text-amber-600 shrink-0" />
                       <span>{new Date(e.sanitation_date).toLocaleDateString('cs-CZ')}</span>
                       {e.sanitation_time && (
-                        <span className="text-neutral-500 font-medium flex items-center gap-0.5 text-[10px] bg-neutral-100 px-1.5 py-0.5 rounded">
+                        <span className="text-neutral-500 font-medium flex items-center gap-0.5 text-[11px] bg-neutral-100 px-1.5 py-0.5 rounded">
                           <Clock size={10} /> {e.sanitation_time}
                         </span>
                       )}
                     </div>
                     {isProblem ? (
-                      <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-50 text-red-700 text-[10px] font-bold border border-red-200">
+                      <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-50 text-rose-700 text-[11px] font-bold border border-rose-200">
                         <ShieldAlert size={10} /> Neshoda
                       </span>
                     ) : (
-                      <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
+                      <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[11px] font-bold border border-emerald-200">
                         <CheckCircle2 size={10} /> V pořádku
                       </span>
                     )}
@@ -466,7 +466,7 @@ export default function BottleSanitationDiary() {
                             <span className="truncate">{r.label}</span>
                           </span>
                           <span className="shrink-0 text-neutral-600 flex items-center gap-1">
-                            <Beaker size={10} className="text-blue-500" />
+                            <Beaker size={10} className="text-sky-500" />
                             {r.chemical}{r.concentration ? ` · ${r.concentration}` : ''}
                           </span>
                         </div>
@@ -478,14 +478,14 @@ export default function BottleSanitationDiary() {
                     Zařízení: {eqList || <span className="text-neutral-400 italic">žádné</span>}
                   </div>
                   {isProblem && (
-                    <div className="text-[11px] text-red-600">{e.mismatch_note}</div>
+                    <div className="text-[11px] text-rose-600">{e.mismatch_note}</div>
                   )}
 
                   <div className="flex items-center gap-1 text-neutral-700 font-semibold text-xs">
                     <User size={13} className="text-neutral-400 shrink-0" />
                     {e.performed_by ?? '—'}
                     {e.approved_by && (
-                      <span className="flex items-center gap-1 text-emerald-700 text-[10px] font-bold ml-1.5">
+                      <span className="flex items-center gap-1 text-emerald-700 text-[11px] font-bold ml-1.5">
                         <UserCheck size={11} /> Schválil: {e.approved_by}
                       </span>
                     )}
@@ -550,13 +550,13 @@ export default function BottleSanitationDiary() {
                         {/* Co bylo provedeno */}
                         <td className="py-3 px-4 align-top">
                           <div className="font-bold text-neutral-900">{r.label}</div>
-                          {isNewGroup && <div className="text-[10px] text-neutral-500 font-semibold mt-0.5">{reasonLabel}</div>}
+                          {isNewGroup && <div className="text-[11px] text-neutral-500 font-semibold mt-0.5">{reasonLabel}</div>}
                         </td>
 
                         {/* Čím */}
                         <td className="py-3 px-4 align-top text-neutral-700 font-semibold">
                           <span className="flex items-center gap-1">
-                            <Beaker size={11} className="text-blue-500 shrink-0" />
+                            <Beaker size={11} className="text-sky-500 shrink-0" />
                             {r.chemical}
                           </span>
                         </td>
@@ -582,7 +582,7 @@ export default function BottleSanitationDiary() {
                                 {r.entry.performed_by ?? '—'}
                               </div>
                               {r.entry.approved_by && (
-                                <div className="flex items-center gap-1 text-emerald-700 text-[10px] font-bold">
+                                <div className="flex items-center gap-1 text-emerald-700 text-[11px] font-bold">
                                   <UserCheck size={11} />
                                   <span>Schválil: {r.entry.approved_by}</span>
                                 </div>
@@ -596,15 +596,15 @@ export default function BottleSanitationDiary() {
                           {isNewGroup && (
                             isProblem ? (
                               <div className="space-y-1 max-w-xs">
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-50 text-red-700 text-[10px] font-bold border border-red-200">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-50 text-rose-700 text-[11px] font-bold border border-rose-200">
                                   <ShieldAlert size={10} /> Neshoda
                                 </span>
-                                <div className="text-[10px] text-red-600 truncate" title={r.entry.mismatch_note!}>
+                                <div className="text-[11px] text-rose-600 truncate" title={r.entry.mismatch_note!}>
                                   {r.entry.mismatch_note}
                                 </div>
                               </div>
                             ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[11px] font-bold border border-emerald-200">
                                 <CheckCircle2 size={10} /> V pořádku
                               </span>
                             )
@@ -737,8 +737,8 @@ export default function BottleSanitationDiary() {
 
               {/* Right Column: Chemie a Postup */}
               <div className="space-y-4">
-                <div className="bg-blue-50/50 p-4 rounded border border-blue-100 space-y-3">
-                  <h4 className="font-bold text-xs text-blue-900 uppercase tracking-wider flex items-center gap-1.5">
+                <div className="bg-sky-50/50 p-4 rounded border border-sky-100 space-y-3">
+                  <h4 className="font-bold text-xs text-sky-900 uppercase tracking-wider flex items-center gap-1.5">
                     <Beaker size={13} /> 2. Použitá chemie (Zásadní pro HACCP)
                   </h4>
                   
@@ -857,17 +857,17 @@ export default function BottleSanitationDiary() {
                 </div>
               </div>
 
-              <div className="bg-red-50/50 p-4 rounded border border-red-100 space-y-3">
-                <h4 className="font-bold text-xs text-red-900 uppercase tracking-wider flex items-center gap-1.5">
+              <div className="bg-rose-50/50 p-4 rounded border border-rose-100 space-y-3">
+                <h4 className="font-bold text-xs text-rose-900 uppercase tracking-wider flex items-center gap-1.5">
                   <ShieldAlert size={13} /> 5. Neshody a nápravná opatření
                 </h4>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="label !text-[10px] !mb-1">Co bylo špatně</label>
+                    <label className="label !text-[11px] !mb-1">Co bylo špatně</label>
                     <input type="text" value={mismatchNote} onChange={(e) => setMismatchNote(e.target.value)} placeholder="Zápach, pěnění, špína..." className="input w-full text-xs bg-white" />
                   </div>
                   <div>
-                    <label className="label !text-[10px] !mb-1">Opatření</label>
+                    <label className="label !text-[11px] !mb-1">Opatření</label>
                     <input type="text" value={mismatchAction} onChange={(e) => setMismatchAction(e.target.value)} placeholder="Opakovaná sanitace..." className="input w-full text-xs bg-white" />
                   </div>
                 </div>

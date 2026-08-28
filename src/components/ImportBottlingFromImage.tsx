@@ -441,7 +441,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2 mb-2 pb-1 border-b border-neutral-100">
-                        <span className="text-[10px] font-black uppercase text-neutral-500">Řádek #{i + 1}</span>
+                        <span className="text-[11px] font-black uppercase text-neutral-500">Řádek #{i + 1}</span>
                         {r._removed ? (
                           <button
                             type="button"
@@ -466,7 +466,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                           {/* Beer selector */}
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <div>
-                              <label className="text-[9px] font-black uppercase text-neutral-500">Pivo</label>
+                              <label className="text-[11px] font-black uppercase text-neutral-500">Pivo</label>
                               <select
                                 className="input text-sm sm:text-xs font-bold w-full bg-white border border-neutral-200"
                                 value={r.beerId}
@@ -481,7 +481,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                             {/* KEG barrel - empty if not parsed */}
                             <div className="grid grid-cols-2 gap-1.5">
                               <div>
-                                <label className="text-[9px] font-black uppercase text-amber-800">Zdrojový KEG</label>
+                                <label className="text-[11px] font-black uppercase text-amber-800">Zdrojový KEG</label>
                                 <select
                                   className="input text-sm sm:text-xs font-bold w-full bg-white border border-amber-200"
                                   value={r.kegPkgId}
@@ -494,7 +494,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                                 </select>
                               </div>
                               <div>
-                                <label className="text-[9px] font-black uppercase text-amber-800">Počet KEGů</label>
+                                <label className="text-[11px] font-black uppercase text-amber-800">Počet KEGů</label>
                                 <input
                                   type="text"
                                   inputMode="numeric"
@@ -511,7 +511,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                           <div className="grid grid-cols-3 gap-1.5 pt-1.5 border-t border-dashed border-neutral-100">
                             {/* Bottle 1 */}
                             <div className="space-y-1">
-                              <label className="text-[9px] font-black uppercase text-neutral-500">1. Lahve</label>
+                              <label className="text-[11px] font-black uppercase text-neutral-500">1. Lahve</label>
                               <select
                                 className="input text-sm sm:text-[11px] font-bold w-full p-1.5 bg-neutral-50"
                                 value={r.pkgId}
@@ -532,7 +532,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                             </div>
                             {/* Bottle 2 */}
                             <div className="space-y-1">
-                              <label className="text-[9px] font-black uppercase text-neutral-500">2. Lahve</label>
+                              <label className="text-[11px] font-black uppercase text-neutral-500">2. Lahve</label>
                               <select
                                 className="input text-sm sm:text-[11px] font-bold w-full p-1.5 bg-neutral-50"
                                 value={r.pkg2Id}
@@ -554,7 +554,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                             </div>
                             {/* Bottle 3 */}
                             <div className="space-y-1">
-                              <label className="text-[9px] font-black uppercase text-neutral-500">3. Lahve</label>
+                              <label className="text-[11px] font-black uppercase text-neutral-500">3. Lahve</label>
                               <select
                                 className="input text-sm sm:text-[11px] font-bold w-full p-1.5 bg-neutral-50"
                                 value={r.pkg3Id}

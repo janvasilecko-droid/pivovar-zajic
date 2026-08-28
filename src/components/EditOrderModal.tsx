@@ -231,21 +231,21 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
             ) : (
               <div key={r.id ?? `new-${i}`} className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:items-center p-2.5 sm:p-0 rounded-none border border-neutral-200 sm:border-none bg-neutral-50/60 sm:bg-transparent">
                 <div className="sm:col-span-5">
-                  <label className="sm:hidden text-[10px] font-black uppercase text-neutral-500 mb-1 block">Pivo</label>
+                  <label className="sm:hidden text-[11px] font-black uppercase text-neutral-500 mb-1 block">Pivo</label>
                   <select className="input !py-2 text-sm" value={r.beerId} onChange={(e) => setRow(i, 'beerId', e.target.value)}>
                     <option value="">— pivo —</option>
                     {beers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </select>
                 </div>
                 <div className="sm:col-span-3">
-                  <label className="sm:hidden text-[10px] font-black uppercase text-neutral-500 mb-1 block">Obal</label>
+                  <label className="sm:hidden text-[11px] font-black uppercase text-neutral-500 mb-1 block">Obal</label>
                   <select className="input !py-2 text-sm" value={r.pkgId} onChange={(e) => setRow(i, 'pkgId', e.target.value)}>
                     <option value="">— obal —</option>
                     {packages.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
                   </select>
                 </div>
                 <div className="sm:col-span-3">
-                  <label className="sm:hidden text-[10px] font-black uppercase text-neutral-500 mb-1 block">Množství</label>
+                  <label className="sm:hidden text-[11px] font-black uppercase text-neutral-500 mb-1 block">Množství</label>
                   <div className="flex items-center gap-1.5">
                     <button type="button" onClick={() => setRow(i, 'qty', String(Math.max(0, (Number(r.qty) || 0) - 1)))} className="w-10 h-10 sm:w-7 sm:h-7 shrink-0 grid place-items-center rounded bg-neutral-100 hover:bg-amber-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition" title="Odečíst 1">−</button>
                     <span className="flex-1 min-w-[2.5rem] text-center text-base sm:text-sm font-black bg-white border border-neutral-200 rounded py-2 px-1">
@@ -260,7 +260,7 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
                   </div>
                 </div>
                 <div className="flex justify-end sm:col-span-1">
-                  <button type="button" className="text-danger-400 hover:text-danger-600 px-2 py-1.5 sm:py-0" onClick={() => removeRow(i)} title="Odstranit položku">✕ Odstranit</button>
+                  <button type="button" className="text-rose-400 hover:text-rose-600 px-2 py-1.5 sm:py-0" onClick={() => removeRow(i)} title="Odstranit položku">✕ Odstranit</button>
                 </div>
               </div>
             ))}
@@ -306,7 +306,7 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
           </div>
         </div>
 
-        {err && <div className="text-sm text-danger-600 bg-danger-500/10 rounded px-3 py-2">{err}</div>}
+        {err && <div className="text-sm text-rose-600 bg-rose-500/10 rounded px-3 py-2">{err}</div>}
 
         <div className="flex justify-end gap-2">
           <button className="btn-ghost !rounded" onClick={onClose} disabled={saving}>Zrušit</button>

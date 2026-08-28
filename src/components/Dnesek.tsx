@@ -195,7 +195,7 @@ export default function Dnesek({ setPage }: { setPage: (p: Page) => void }) {
             pocet: cekajici,
             popis: cekajici === 1 ? 'zpráva z WhatsAppu ke kontrole' : 'zpráv z WhatsAppu ke kontrole',
             ikona: MessageCircle,
-            barva: 'text-teal-700 bg-teal-50 border-teal-200',
+            barva: 'text-emerald-700 bg-emerald-50 border-emerald-200',
             kam: 'orders',
           });
         }

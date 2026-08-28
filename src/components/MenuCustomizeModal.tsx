@@ -82,7 +82,7 @@ export function MenuCustomizeModal({
 
                 <div className="flex items-center gap-2">
                   <span className={`chip text-xs font-black ${
-                    isHidden ? 'bg-neutral-200 text-neutral-600' : 'bg-success-100 text-success-800'
+                    isHidden ? 'bg-neutral-200 text-neutral-600' : 'bg-emerald-100 text-emerald-800'
                   }`}>
                     {isHidden ? '👁️‍🗨️ Skryto v menu' : '✓ Viditelné'}
                   </span>

@@ -313,7 +313,7 @@ export default function AppSettingsScreen() {
               }`}
             >
               <span className="text-base">{opt.label}</span>
-              <span className="text-[10px] font-medium mt-0.5 opacity-70">{opt.desc}</span>
+              <span className="text-[11px] font-medium mt-0.5 opacity-70">{opt.desc}</span>
             </button>
           ))}
         </div>
@@ -704,7 +704,7 @@ function AdminVersionSyncSection() {
       <h2 className="font-display font-bold text-lg flex items-center gap-2">
         <RefreshCw size={20} className="text-amber-600" />
         <span><RefreshCw className="ikona-text" /> Verze & Synchronizace dat</span>
-        <span className="ml-auto px-2.5 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-black text-[10px] uppercase tracking-wider">
+        <span className="ml-auto px-2.5 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-black text-[11px] uppercase tracking-wider">
           ADMIN
         </span>
       </h2>
@@ -713,11 +713,11 @@ function AdminVersionSyncSection() {
       {/* Verze a datum */}
       <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="p-4 rounded bg-neutral-900 text-white border border-neutral-700 shadow-inner">
-          <div className="text-[10px] font-black uppercase tracking-wider text-amber-400">Verze kódu</div>
+          <div className="text-[11px] font-black uppercase tracking-wider text-amber-400">Verze kódu</div>
           <div className="text-2xl font-display font-black mt-1">v{APP_VERSION}</div>
         </div>
         <div className="p-4 rounded bg-neutral-900 text-white border border-neutral-700 shadow-inner">
-          <div className="text-[10px] font-black uppercase tracking-wider text-amber-400">Poslední změna kódu</div>
+          <div className="text-[11px] font-black uppercase tracking-wider text-amber-400">Poslední změna kódu</div>
           <div className="text-lg font-display font-black mt-1">{APP_VERSION_DATE}</div>
         </div>
       </div>

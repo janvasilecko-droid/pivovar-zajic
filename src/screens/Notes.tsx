@@ -7,10 +7,10 @@ import { potvrd } from '../lib/toast';
 
 const NOTE_COLORS: Record<string, string> = {
   primary: 'bg-primary-500',
-  accent: 'bg-accent-500',
-  success: 'bg-success-500',
-  warning: 'bg-warning-500',
-  danger: 'bg-danger-500',
+  accent: 'bg-primary-500',
+  success: 'bg-emerald-500',
+  warning: 'bg-amber-500',
+  danger: 'bg-rose-500',
 };
 
 export default function Notes() {
@@ -200,7 +200,7 @@ export default function Notes() {
                         </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 pt-2 border-t border-neutral-100 mt-2 text-[10px] font-bold text-neutral-400">
+                    <div className="flex items-center gap-2 pt-2 border-t border-neutral-100 mt-2 text-[11px] font-bold text-neutral-400">
                       <span>{n.created_by || '—'}</span>
                       <span>•</span>
                       <span>{formatDate(n.created_at)}</span>

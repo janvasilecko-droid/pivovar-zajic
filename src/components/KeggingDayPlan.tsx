@@ -156,7 +156,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
             <CalendarDays size={14} />
             <span>Celý týden</span>
             {weekTotals.missing > 0 && (
-              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${isWeek ? 'bg-neutral-950 text-amber-300' : 'bg-amber-300 text-amber-950'}`}>
+              <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-black ${isWeek ? 'bg-neutral-950 text-amber-300' : 'bg-amber-300 text-amber-950'}`}>
                 {weekTotals.missing}
               </span>
             )}
@@ -185,10 +185,10 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                     {p.day === todayDay && <span className="w-1.5 h-1.5 rounded-full bg-current" title="Dnes" />}
                     {p.label}
                   </span>
-                  <span className="text-[10px] font-bold opacity-70">{fmtDate(p.date)}</span>
+                  <span className="text-[11px] font-bold opacity-70">{fmtDate(p.date)}</span>
                 </div>
                 {p.totalMissing > 0 ? (
-                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${isSel ? 'bg-neutral-950 text-amber-300' : 'bg-amber-300 text-amber-950'}`}>
+                  <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-black ${isSel ? 'bg-neutral-950 text-amber-300' : 'bg-amber-300 text-amber-950'}`}>
                     {p.totalMissing}
                   </span>
                 ) : hotovo ? (
@@ -325,7 +325,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                         <div className={`font-mono font-black text-2xl leading-none ${hotovo ? 'text-emerald-600' : 'text-amber-700'}`}>
                           {hotovo ? '✓' : it.missing}
                         </div>
-                        {!hotovo && <div className="text-[10px] font-black text-neutral-400 uppercase mt-0.5">zbývá</div>}
+                        {!hotovo && <div className="text-[11px] font-black text-neutral-400 uppercase mt-0.5">zbývá</div>}
                       </div>
                     </div>
 

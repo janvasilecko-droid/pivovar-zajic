@@ -383,7 +383,7 @@ export default function RemindersScreen() {
                               <UsersIcon size={14} className="text-neutral-400 shrink-0" />
                               <span className="font-black text-neutral-800">{u.display_name || u.email.split('@')[0]}</span>
                               <span className="text-neutral-400 truncate">{u.email}</span>
-                              <span className="ml-auto text-[10px] font-bold uppercase text-neutral-400 shrink-0">{u.role}</span>
+                              <span className="ml-auto text-[11px] font-bold uppercase text-neutral-400 shrink-0">{u.role}</span>
                             </label>
                           );
                         })}
@@ -560,16 +560,16 @@ export default function RemindersScreen() {
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                          <span className={`px-2 py-0.5 rounded text-[11px] font-black uppercase ${
                             r.display_mode === 'desktop_push'
-                              ? 'bg-blue-100 text-blue-900 border border-blue-200'
+                              ? 'bg-sky-100 text-sky-900 border border-sky-200'
                               : r.display_mode === 'login_modal'
                               ? 'bg-amber-100 text-amber-950 border border-amber-300'
                               : 'bg-emerald-100 text-emerald-950 border border-emerald-300'
                           }`}>
                             {r.display_mode === 'desktop_push' ? '📲 Push' : r.display_mode === 'login_modal' ? '🔒 Okno po přihlášení' : '🔔 Okno + Push'}
                           </span>
-                          <span className="text-[10px] font-bold text-neutral-500">
+                          <span className="text-[11px] font-bold text-neutral-500">
                             Cíl: <strong className="text-neutral-800">{formatRecipients(r)}</strong>
                           </span>
                         </div>

@@ -428,15 +428,15 @@ export default function Stock() {
           {/* Top summary stats */}
           <div className="grid grid-cols-3 gap-3 text-center mb-4">
             <div className="p-3 rounded bg-white border border-amber-300/80 shadow-xs">
-              <div className="text-[10px] font-black uppercase text-amber-800">Na skladě</div>
+              <div className="text-[11px] font-black uppercase text-amber-800">Na skladě</div>
               <div className="text-xl font-display font-black text-neutral-900">{fmtHl(grandLiters)} <span className="text-xs text-neutral-500 font-normal">hl</span></div>
             </div>
             <div className="p-3 rounded bg-white border border-amber-300/80 shadow-xs">
-              <div className="text-[10px] font-black uppercase text-amber-800">Sudů</div>
+              <div className="text-[11px] font-black uppercase text-amber-800">Sudů</div>
               <div className="text-xl font-display font-black text-neutral-900">{grandKegs} <span className="text-xs text-neutral-500 font-normal">ks</span></div>
             </div>
             <div className="p-3 rounded bg-white border border-amber-300/80 shadow-xs">
-              <div className="text-[10px] font-black uppercase text-amber-800">Lahví</div>
+              <div className="text-[11px] font-black uppercase text-amber-800">Lahví</div>
               <div className="text-xl font-display font-black text-neutral-900">{grandBottles} <span className="text-xs text-neutral-500 font-normal">ks</span></div>
             </div>
           </div>
@@ -524,11 +524,11 @@ export default function Stock() {
 
                     <div className="grid grid-cols-2 gap-2 my-3">
                       <div className="p-2.5 rounded bg-white/70 border border-black/10">
-                        <div className="text-[10px] font-black uppercase text-neutral-500"><IkonaSud className="ikona-text" /> Sudy</div>
+                        <div className="text-[11px] font-black uppercase text-neutral-500"><IkonaSud className="ikona-text" /> Sudy</div>
                         <div className={`text-base font-mono font-black ${r.stockKegs < 0 ? 'text-rose-600' : 'text-neutral-900'}`}>{r.stockKegs} ks</div>
                       </div>
                       <div className="p-2.5 rounded bg-white/70 border border-black/10">
-                        <div className="text-[10px] font-black uppercase text-neutral-500"><IkonaLahev className="ikona-text" /> Lahve</div>
+                        <div className="text-[11px] font-black uppercase text-neutral-500"><IkonaLahev className="ikona-text" /> Lahve</div>
                         <div className={`text-base font-mono font-black ${r.stockBottles < 0 ? 'text-rose-600' : 'text-neutral-900'}`}>{r.stockBottles} ks</div>
                       </div>
                     </div>
@@ -540,7 +540,7 @@ export default function Stock() {
                           <div className="text-xs font-bold uppercase tracking-wider text-amber-700 mb-1.5 flex items-center gap-1"><IkonaSud className="ikona-text" /> Sudy</div>
                           <table className="w-full text-xs font-semibold border-collapse">
                             <thead>
-                              <tr className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">
+                              <tr className="text-[11px] font-bold uppercase tracking-wide text-neutral-400">
                                 <th className="text-left pb-1 pr-1">Obal</th>
                                 <th className="text-center pb-1 px-1" title="Aktuální stav">Stav</th>
                                 <th className="text-center pb-1 px-1" title="Objednáno tento týden, ještě nezavezeno">Objedn.</th>
@@ -570,7 +570,7 @@ export default function Stock() {
                                       className="w-full min-h-[36px] py-1 px-1 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md hover:bg-amber-100 active:scale-95 transition underline decoration-dotted decoration-neutral-400 underline-offset-2"
                                     >
                                       {p.currentStock}
-                                      {p.rawStock < 0 && <span className="block text-[9px] font-black text-rose-600 font-mono" title="Vydáno víc, než evidence zná">({p.rawStock})</span>}
+                                      {p.rawStock < 0 && <span className="block text-[11px] font-black text-rose-600 font-mono" title="Vydáno víc, než evidence zná">({p.rawStock})</span>}
                                     </button>
                                   </td>
                                   <td className={`py-1 px-1 text-center font-extrabold rounded-md ${p.outgoing > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-400'}`}>{p.outgoing > 0 ? `-${p.outgoing}` : '0'}</td>
@@ -586,7 +586,7 @@ export default function Stock() {
                           <div className="text-xs font-bold uppercase tracking-wider text-primary-700 mb-1.5 flex items-center gap-1"><IkonaLahev className="ikona-text" /> Lahve</div>
                           <table className="w-full text-xs font-semibold border-collapse">
                             <thead>
-                              <tr className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">
+                              <tr className="text-[11px] font-bold uppercase tracking-wide text-neutral-400">
                                 <th className="text-left pb-1 pr-1">Obal</th>
                                 <th className="text-center pb-1 px-1" title="Aktuální stav">Stav</th>
                                 <th className="text-center pb-1 px-1" title="Objednáno tento týden, ještě nezavezeno">Objedn.</th>
@@ -616,7 +616,7 @@ export default function Stock() {
                                       className="w-full min-h-[36px] py-1 px-1 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md hover:bg-amber-100 active:scale-95 transition underline decoration-dotted decoration-neutral-400 underline-offset-2"
                                     >
                                       {p.currentStock}
-                                      {p.rawStock < 0 && <span className="block text-[9px] font-black text-rose-600 font-mono" title="Vydáno víc, než evidence zná">({p.rawStock})</span>}
+                                      {p.rawStock < 0 && <span className="block text-[11px] font-black text-rose-600 font-mono" title="Vydáno víc, než evidence zná">({p.rawStock})</span>}
                                     </button>
                                   </td>
                                   <td className={`py-1 px-1 text-center font-extrabold rounded-md ${p.outgoing > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-400'}`}>{p.outgoing > 0 ? `-${p.outgoing}` : '0'}</td>
@@ -630,7 +630,7 @@ export default function Stock() {
                     </div>
 
                     <div className="flex items-center justify-between mt-2 pt-2 border-t border-black/10">
-                      <span className="text-[10px] font-black uppercase text-neutral-500">Zbývá</span>
+                      <span className="text-[11px] font-black uppercase text-neutral-500">Zbývá</span>
                       <span className={`text-sm font-mono font-black ${isDeficit ? 'text-rose-600' : isZero ? 'text-amber-600' : 'text-emerald-600'}`}>
                         {r.remaining > 0 ? `+${r.remaining}` : r.remaining} ks
                       </span>
@@ -663,11 +663,11 @@ export default function Stock() {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-2">
                   <div className="p-3 rounded bg-neutral-50 border border-neutral-200">
-                    <div className="text-[10px] font-black uppercase text-neutral-500">Na skladě</div>
+                    <div className="text-[11px] font-black uppercase text-neutral-500">Na skladě</div>
                     <div className="text-lg font-mono font-black text-neutral-900">{fmtHl(detail.stockLiters)} hl</div>
                   </div>
                   <div className="p-3 rounded bg-neutral-50 border border-neutral-200">
-                    <div className="text-[10px] font-black uppercase text-neutral-500">Zbývá</div>
+                    <div className="text-[11px] font-black uppercase text-neutral-500">Zbývá</div>
                     <div className={`text-lg font-mono font-black ${detail.remaining < 0 ? 'text-rose-600' : detail.remaining === 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
                       {detail.remaining > 0 ? `+${detail.remaining}` : detail.remaining} ks
                     </div>
@@ -685,50 +685,50 @@ export default function Stock() {
                         </div>
                         <div className="p-3 grid grid-cols-3 gap-1.5 text-center">
                           <div className="rounded bg-neutral-50 py-1.5">
-                            <div className="text-[9px] font-black uppercase text-neutral-500">Počáteční</div>
+                            <div className="text-[11px] font-black uppercase text-neutral-500">Počáteční</div>
                             <div className="text-sm font-black text-neutral-800">{p.fromInv}</div>
                           </div>
                           <div className="rounded bg-emerald-50 py-1.5">
-                            <div className="text-[9px] font-black uppercase text-emerald-700">Stočeno</div>
+                            <div className="text-[11px] font-black uppercase text-emerald-700">Stočeno</div>
                             <div className="text-sm font-black text-emerald-800">+{p.brewedW}</div>
                           </div>
                           <div className="rounded bg-sky-50 py-1.5">
-                            <div className="text-[9px] font-black uppercase text-sky-700">Objednáno (týden)</div>
+                            <div className="text-[11px] font-black uppercase text-sky-700">Objednáno (týden)</div>
                             <div className="text-sm font-black text-sky-800">{p.orderedW}</div>
                           </div>
                           <div className="rounded bg-rose-50 py-1.5">
-                            <div className="text-[9px] font-black uppercase text-rose-700">Odečteno závozem</div>
+                            <div className="text-[11px] font-black uppercase text-rose-700">Odečteno závozem</div>
                             <div className="text-sm font-black text-rose-800">−{p.zdW}</div>
                           </div>
                           <div className="rounded bg-rose-50 py-1.5">
-                            <div className="text-[9px] font-black uppercase text-rose-700">Fasování (personál)</div>
+                            <div className="text-[11px] font-black uppercase text-rose-700">Fasování (personál)</div>
                             <div className="text-sm font-black text-rose-800">−{p.fasovaniW}</div>
                           </div>
                           <div className="rounded bg-rose-50 py-1.5">
-                            <div className="text-[9px] font-black uppercase text-rose-700">Prodejna</div>
+                            <div className="text-[11px] font-black uppercase text-rose-700">Prodejna</div>
                             <div className="text-sm font-black text-rose-800">−{p.prodejnaW}</div>
                           </div>
                           <div className="rounded bg-rose-50 py-1.5">
-                            <div className="text-[9px] font-black uppercase text-rose-700">Akce</div>
+                            <div className="text-[11px] font-black uppercase text-rose-700">Akce</div>
                             <div className="text-sm font-black text-rose-800">−{p.akceWeek}</div>
                           </div>
                           <div className="rounded bg-rose-50 py-1.5">
-                            <div className="text-[9px] font-black uppercase text-rose-700">Odpisy</div>
+                            <div className="text-[11px] font-black uppercase text-rose-700">Odpisy</div>
                             <div className="text-sm font-black text-rose-800">−{p.woW}</div>
                           </div>
-                          <div className="rounded bg-purple-50 py-1.5">
-                            <div className="text-[9px] font-black uppercase text-purple-700">Sudy na lahve</div>
-                            <div className="text-sm font-black text-purple-800">−{p.kegsUsedW}</div>
+                          <div className="rounded bg-violet-50 py-1.5">
+                            <div className="text-[11px] font-black uppercase text-violet-700">Sudy na lahve</div>
+                            <div className="text-sm font-black text-violet-800">−{p.kegsUsedW}</div>
                           </div>
                           {(p.prefukFrom > 0 || p.prefukTo > 0) && (
                             <div className="rounded bg-neutral-50 py-1.5">
-                              <div className="text-[9px] font-black uppercase text-neutral-500">Přefuk ZE/DO</div>
+                              <div className="text-[11px] font-black uppercase text-neutral-500">Přefuk ZE/DO</div>
                               <div className="text-sm font-black text-neutral-800">−{p.prefukFrom} / +{p.prefukTo}</div>
                             </div>
                           )}
                           {p.adjW !== 0 && (
                             <div className="rounded bg-amber-50 py-1.5">
-                              <div className="text-[9px] font-black uppercase text-amber-700">Dorovnání inventury</div>
+                              <div className="text-[11px] font-black uppercase text-amber-700">Dorovnání inventury</div>
                               <div className="text-sm font-black text-amber-800">{p.adjW > 0 ? '+' : ''}{p.adjW}</div>
                             </div>
                           )}
@@ -791,7 +791,7 @@ export default function Stock() {
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-[10px] font-bold uppercase text-neutral-400 border-b border-neutral-200">
+                  <tr className="text-[11px] font-bold uppercase text-neutral-400 border-b border-neutral-200">
                     <th className="text-left py-2 pr-2">Pivo</th>
                     <th className="text-right py-2 px-2">Sudů</th>
                     <th className="text-right py-2 px-2">Lahví</th>
@@ -837,15 +837,15 @@ export default function Stock() {
 
             <div className="grid grid-cols-3 gap-3 text-center mb-4">
               <div className="p-3 rounded bg-amber-50 border border-amber-200">
-                <div className="text-[10px] font-black uppercase text-amber-800">Sudů</div>
+                <div className="text-[11px] font-black uppercase text-amber-800">Sudů</div>
                 <div className="text-xl font-display font-black text-neutral-900">{brewTotalKegs} <span className="text-xs text-neutral-500 font-normal">ks</span></div>
               </div>
               <div className="p-3 rounded bg-primary-50 border border-primary-200">
-                <div className="text-[10px] font-black uppercase text-primary-800">Lahví</div>
+                <div className="text-[11px] font-black uppercase text-primary-800">Lahví</div>
                 <div className="text-xl font-display font-black text-neutral-900">{brewTotalBottles} <span className="text-xs text-neutral-500 font-normal">ks</span></div>
               </div>
               <div className="p-3 rounded bg-emerald-50 border border-emerald-200">
-                <div className="text-[10px] font-black uppercase text-emerald-800">Celkem</div>
+                <div className="text-[11px] font-black uppercase text-emerald-800">Celkem</div>
                 <div className="text-xl font-display font-black text-neutral-900">{fmtHl(brewTotalLiters)} <span className="text-xs text-neutral-500 font-normal">hl</span></div>
               </div>
             </div>
@@ -860,11 +860,11 @@ export default function Stock() {
                     </div>
                     <div className="grid grid-cols-2 gap-2 mb-2">
                       <div className="p-2 rounded bg-amber-50 border border-amber-200 text-center">
-                        <div className="text-[9px] font-black uppercase text-amber-800">Sudy</div>
+                        <div className="text-[11px] font-black uppercase text-amber-800">Sudy</div>
                         <div className="text-sm font-mono font-black text-neutral-900">{s.totalKegs}</div>
                       </div>
                       <div className="p-2 rounded bg-primary-50 border border-primary-200 text-center">
-                        <div className="text-[9px] font-black uppercase text-primary-800">Lahve</div>
+                        <div className="text-[11px] font-black uppercase text-primary-800">Lahve</div>
                         <div className="text-sm font-mono font-black text-neutral-900">{s.totalBottles}</div>
                       </div>
                     </div>

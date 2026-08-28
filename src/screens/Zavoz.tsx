@@ -525,7 +525,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
             <button
               onClick={() => printDeliveryListForOrders(filteredOrders, `týden ${weekKey}`)}
               disabled={!activeOrders.length}
-              className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-black text-xs transition shadow-md flex items-center gap-2"
+              className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-neutral-950 font-black text-xs transition shadow-md flex items-center gap-2"
             >
               <Printer size={15} />
               <span>Tisk rozvozového listu</span>
@@ -551,9 +551,9 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <span className="font-display font-black text-amber-950 text-xs"><Truck className="ikona-text" /> Závoz na tento týden</span>
-                <span className="text-[10px] text-amber-800/70">{wr.label}</span>
+                <span className="text-[11px] text-amber-800/70">{wr.label}</span>
               </div>
-              <span className="chip bg-amber-500 text-slate-950 font-mono font-black text-xs">
+              <span className="chip bg-amber-500 text-neutral-950 font-mono font-black text-xs">
                 {activeOrders.length} objednávek
               </span>
             </div>
@@ -833,7 +833,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                           title={`Změnit den závozu — přesunout ${group.label} na jiný den`}
                           className="flex items-center gap-3 cursor-pointer group select-none"
                         >
-                          <div className="w-10 h-10 rounded bg-amber-500 text-slate-950 font-black text-lg flex items-center justify-center shadow-md group-hover:bg-amber-600 transition">
+                          <div className="w-10 h-10 rounded bg-amber-500 text-neutral-950 font-black text-lg flex items-center justify-center shadow-md group-hover:bg-amber-600 transition">
                             <Truck size={20} />
                           </div>
                           <div>
@@ -846,7 +846,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                         </div>
 
                         <div className="flex items-center gap-2.5 flex-wrap justify-end">
-                          <span className="chip bg-amber-500 text-slate-950 font-mono font-black text-xs">
+                          <span className="chip bg-amber-500 text-neutral-950 font-mono font-black text-xs">
                             {group.orders.reduce((s, o) => s + (items[o.id] ?? []).reduce((x, i) => x + Number(i.quantity), 0), 0)} ks celkem
                           </span>
                           <button
@@ -859,7 +859,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                 : 'bg-white border-neutral-300 text-neutral-700 hover:bg-emerald-50'
                             }`}
                           >
-                            <span className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] ${
+                            <span className={`w-4 h-4 rounded border flex items-center justify-center text-[11px] ${
                               gOrderIds.some((id) => secondCarOrderIds.includes(id))
                                 ? 'bg-white text-emerald-700 border-white'
                                 : 'bg-white border-neutral-300'
@@ -913,7 +913,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                     <h4 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
                                       <span className="text-emerald-700">SPOLEČNÝ ZÁVOZ:</span>
                                       <span>{groupName}</span>
-                                      {allDelivered && <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white font-extrabold text-[10px]">✓ Vše zavezeno</span>}
+                                      {allDelivered && <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white font-extrabold text-[11px]">✓ Vše zavezeno</span>}
                                     </h4>
                                     <div className="text-xs text-neutral-600 font-medium mt-1">
                                       {groupOrders.map((o: Order) => o.place_name).join(', ')}
@@ -947,7 +947,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                             >
                                               🦆 {secondCarOrderIds.includes(o.id) ? 'Kačena' : ''}
                                             </button>
-                                            <button onClick={() => toggleDelivered(o)} className={`px-3 py-1.5 rounded font-black text-xs transition shadow-xs flex items-center gap-1.5 ${o.is_delivered ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-slate-950 hover:bg-amber-400'}`}>
+                                            <button onClick={() => toggleDelivered(o)} className={`px-3 py-1.5 rounded font-black text-xs transition shadow-xs flex items-center gap-1.5 ${o.is_delivered ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-neutral-950 hover:bg-amber-400'}`}>
                                               {o.is_delivered ? '✓ Zavezeno' : 'Označit'}
                                             </button>
                                           </div>
@@ -956,7 +956,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                           {orderItems.map(it => (
                                             <div key={it.id} className="flex items-center justify-between text-xs py-1 px-2 rounded bg-white/80 border border-neutral-100">
                                               <button onClick={() => toggleItemPrepared(o, it)} className={`flex items-center gap-2 text-left font-bold transition ${it.is_prepared ? 'text-emerald-700 line-through' : 'text-neutral-900'}`}>
-                                                <span className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] ${it.is_prepared ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white border-neutral-300'}`}>{it.is_prepared ? '✓' : ''}</span>
+                                                <span className={`w-4 h-4 rounded border flex items-center justify-center text-[11px] ${it.is_prepared ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white border-neutral-300'}`}>{it.is_prepared ? '✓' : ''}</span>
                                                 <span>{it.beer_name ?? '—'}</span>
                                               </button>
                                               <div className="flex items-center gap-3 font-mono">
@@ -1003,7 +1003,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                         || 'Neznámý odběratel'}
                                     </span>
                                     {o.is_delivered && (
-                                      <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white font-extrabold text-[10px]">
+                                      <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white font-extrabold text-[11px]">
                                         ✓ Zavezeno
                                       </span>
                                     )}
@@ -1135,7 +1135,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                     className={`px-3.5 py-1.5 rounded font-black text-xs transition shadow-xs flex items-center gap-1.5 ${
                                       o.is_delivered
                                         ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                                        : 'bg-amber-500 text-slate-950 hover:bg-amber-400'
+                                        : 'bg-amber-500 text-neutral-950 hover:bg-amber-400'
                                     }`}
                                   >
                                     <span>{o.is_delivered ? '✓ Zavezeno' : 'Označit jako zavezené'}</span>
@@ -1191,13 +1191,13 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                       onClick={() => setMoveTarget(d.v)}
                       className={`flex items-center justify-between gap-1 px-3 py-2.5 rounded border font-black text-xs transition shadow-xs ${
                         active
-                          ? 'bg-amber-500 text-slate-950 border-amber-600 ring-2 ring-amber-300'
+                          ? 'bg-amber-500 text-neutral-950 border-amber-600 ring-2 ring-amber-300'
                           : 'bg-white text-neutral-800 hover:bg-amber-50 border-neutral-200'
                       }`}
                     >
                       <span>{d.label}</span>
                       {cnt > 0 && (
-                        <span className={`px-1.5 py-0.5 rounded-md font-mono text-[10px] ${active ? 'bg-white/30 text-slate-900' : 'bg-neutral-100 text-neutral-500'}`}>
+                        <span className={`px-1.5 py-0.5 rounded-md font-mono text-[11px] ${active ? 'bg-white/30 text-neutral-900' : 'bg-neutral-100 text-neutral-500'}`}>
                           {cnt}
                         </span>
                       )}
@@ -1209,12 +1209,12 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                     onClick={() => setMoveTarget('_none')}
                     className={`flex items-center justify-between gap-1 px-3 py-2.5 rounded border font-black text-xs transition shadow-xs ${
                       moveTarget === '_none'
-                        ? 'bg-amber-500 text-slate-950 border-amber-600 ring-2 ring-amber-300'
+                        ? 'bg-amber-500 text-neutral-950 border-amber-600 ring-2 ring-amber-300'
                         : 'bg-white text-neutral-800 hover:bg-amber-50 border-neutral-200'
                     }`}
                   >
                     <span>Bez dne</span>
-                    {(() => { const cnt = dayStats.get('_none')?.count ?? 0; return cnt > 0 ? <span className="px-1.5 py-0.5 rounded-md font-mono text-[10px] bg-neutral-100 text-neutral-500">{cnt}</span> : null; })()}
+                    {(() => { const cnt = dayStats.get('_none')?.count ?? 0; return cnt > 0 ? <span className="px-1.5 py-0.5 rounded-md font-mono text-[11px] bg-neutral-100 text-neutral-500">{cnt}</span> : null; })()}
                   </button>
                 )}
               </div>

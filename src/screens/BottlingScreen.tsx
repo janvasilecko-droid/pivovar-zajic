@@ -834,7 +834,7 @@ export default function BottlingScreen({
             >
               <span className="inline-flex items-center gap-1.5"><IkonaLahev size={14} /> Začátek stáčení</span>
               {unseenCount > 0 && (
-                <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black animate-pulse">{unseenCount}</span>
+                <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[11px] font-black animate-pulse">{unseenCount}</span>
               )}
             </button>
             <button
@@ -851,7 +851,7 @@ export default function BottlingScreen({
             >
               <span className="inline-flex items-center gap-1.5"><ListChecks size={14} /> Potřeba stočit lahve</span>
               {bottleRequirements.some((r) => r.neededQty > 0) && (
-                <span className="px-1.5 py-0.5 rounded-full bg-amber-300 text-amber-950 text-[10px] font-black animate-pulse">
+                <span className="px-1.5 py-0.5 rounded-full bg-amber-300 text-amber-950 text-[11px] font-black animate-pulse">
                   {bottleRequirements.filter((r) => r.neededQty > 0).length}
                 </span>
               )}
@@ -947,7 +947,7 @@ export default function BottlingScreen({
             </button>
           </div>
         ) : (
-        <form onSubmit={add} className={`card px-2 py-3 mb-5 transition-all duration-200 ${flash ? 'ring-4 ring-success-500/20' : ''}`}>
+        <form onSubmit={add} className={`card px-2 py-3 mb-5 transition-all duration-200 ${flash ? 'ring-4 ring-emerald-500/20' : ''}`}>
           <div className="flex items-center gap-2 mb-4">
             <label className="label !mb-0 shrink-0">Datum</label>
             <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -1060,7 +1060,7 @@ export default function BottlingScreen({
                   ))}
                 </select>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-extrabold uppercase text-neutral-500">Počet sudů</span>
+                  <span className="text-[11px] font-extrabold uppercase text-neutral-500">Počet sudů</span>
                   <div className="flex items-center gap-1">
                     <button type="button" onClick={() => bumpTile('kegQty', -1)} className="w-9 h-9 grid place-items-center rounded bg-sky-100 hover:bg-sky-200 text-sky-800 font-black text-xl transition select-none">−</button>
                     <input
@@ -1180,7 +1180,7 @@ export default function BottlingScreen({
         <div className="card p-3 mb-4 border-2 border-emerald-300/80 bg-white">
           <div className="flex items-center justify-between mb-2">
             <span className="font-display font-black text-amber-950 text-xs"><IkonaLahev className="ikona-text" /> Přehled stočených lahví</span>
-            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">
+            <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wide">
               {recordsView === 'week' ? weekRange(recordsWeekKey).label : recordsMonthKey}
             </span>
           </div>
@@ -1189,7 +1189,7 @@ export default function BottlingScreen({
               <div key={b.size} className="flex items-center gap-1 bg-emerald-100/80 rounded px-2.5 py-1.5 border border-emerald-300/60 shadow-2xs">
                 <span className="text-[11px] font-bold text-emerald-950 whitespace-nowrap">{b.size}L</span>
                 <span className="text-xs font-black text-emerald-800">{b.count} ks</span>
-                <span className="text-[10px] text-emerald-700/70">({b.liters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L)</span>
+                <span className="text-[11px] text-emerald-700/70">({b.liters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L)</span>
               </div>
             ))}
             {otherCount > 0 && (
@@ -1201,7 +1201,7 @@ export default function BottlingScreen({
             <div className="flex items-center gap-1 bg-emerald-200/80 rounded px-2.5 py-1.5 border border-emerald-400/60 shadow-2xs">
               <span className="text-[11px] font-bold text-emerald-950 whitespace-nowrap"><PackageIcon className="ikona-text" /> Celkem</span>
               <span className="text-xs font-black text-emerald-800">{totalCount} ks</span>
-              <span className="text-[10px] text-emerald-700/70">({totalLiters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L)</span>
+              <span className="text-[11px] text-emerald-700/70">({totalLiters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L)</span>
             </div>
           </div>
         </div>
@@ -1212,7 +1212,7 @@ export default function BottlingScreen({
         <div className="card p-3 mb-4 border-2 border-amber-300/80 bg-white">
           <div className="flex items-center justify-between mb-2">
             <span className="font-display font-black text-amber-950 text-xs"><IkonaSud className="ikona-text" /> Přehled stočených KEG</span>
-            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">
+            <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wide">
               {recordsView === 'week' ? weekRange(recordsWeekKey).label : recordsMonthKey}
             </span>
           </div>
@@ -1221,7 +1221,7 @@ export default function BottlingScreen({
               <div key={b.size} className="flex items-center gap-1 bg-amber-100/80 rounded px-2.5 py-1.5 border border-amber-300/60 shadow-2xs">
                 <span className="text-[11px] font-bold text-amber-950 whitespace-nowrap">KEG {b.size}L</span>
                 <span className="text-xs font-black text-amber-800">{b.count} ks</span>
-                <span className="text-[10px] text-amber-700/70">({b.liters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L)</span>
+                <span className="text-[11px] text-amber-700/70">({b.liters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L)</span>
               </div>
             ))}
           </div>
@@ -1472,7 +1472,7 @@ export default function BottlingScreen({
                       </div>
                       <div className="grid grid-cols-2 gap-1.5 text-center">
                         <div className="rounded bg-amber-100/70 py-1.5">
-                          <div className="text-[9px] font-black uppercase text-amber-700">Litry</div>
+                          <div className="text-[11px] font-black uppercase text-amber-700">Litry</div>
                           <div className="text-sm font-black text-amber-900">{liters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })}</div>
                         </div>
                         <div className="rounded bg-amber-100/70 py-1.5 flex items-center justify-center gap-1">
@@ -1483,7 +1483,7 @@ export default function BottlingScreen({
                               <button type="button" onClick={() => incrementKegs(r.id, 1)} className="w-7 h-7 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-900 font-black text-sm transition">+</button>
                             </>
                           ) : (
-                            <span className="text-[10px] font-bold text-amber-600">〃 stejná dávka</span>
+                            <span className="text-[11px] font-bold text-amber-600">〃 stejná dávka</span>
                           )}
                         </div>
                       </div>
@@ -1620,7 +1620,7 @@ export default function BottlingScreen({
                             <div className="flex items-center gap-1 justify-end">
                               <button type="button" onClick={() => increment(r.id, -1)} className="w-6 h-6 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold text-xs transition">−</button>
                               <button type="button" onClick={() => increment(r.id, 1)} className="w-6 h-6 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-900 font-bold text-xs transition">+</button>
-                              <button type="button" onClick={() => setEditingRow(r)} className="w-6 h-6 grid place-items-center rounded bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold text-xs transition" title="Upravit detail"><Pencil size={11} /></button>
+                              <button type="button" onClick={() => setEditingRow(r)} className="w-6 h-6 grid place-items-center rounded bg-sky-100 hover:bg-sky-200 text-sky-700 font-bold text-xs transition" title="Upravit detail"><Pencil size={11} /></button>
                               <button type="button" onClick={() => del(r.id)} className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition">✕</button>
                             </div>
                           </td>
@@ -1665,17 +1665,17 @@ export default function BottlingScreen({
           {/* Souhrnné karty */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="card p-4 bg-white border border-neutral-200 rounded space-y-1">
-              <span className="text-[10px] font-black uppercase text-neutral-500">Objednáno tento týden</span>
+              <span className="text-[11px] font-black uppercase text-neutral-500">Objednáno tento týden</span>
               <div className="font-display font-black text-xl text-sky-700">{reqTotals.ordered} ks</div>
               <span className="text-[11px] text-neutral-500">Aktivní objednávky s dovozem {weekLabel}</span>
             </div>
             <div className="card p-4 bg-white border border-neutral-200 rounded space-y-1">
-              <span className="text-[10px] font-black uppercase text-neutral-500">Na skladě</span>
+              <span className="text-[11px] font-black uppercase text-neutral-500">Na skladě</span>
               <div className="font-display font-black text-xl text-emerald-700">{reqTotals.stock} ks</div>
               <span className="text-[11px] text-neutral-500">Disponibilní zásoby</span>
             </div>
             <div className="card p-4 bg-white border border-neutral-200 rounded space-y-1">
-              <span className="text-[10px] font-black uppercase text-neutral-500">Potřeba stočit tento týden (chybí)</span>
+              <span className="text-[11px] font-black uppercase text-neutral-500">Potřeba stočit tento týden (chybí)</span>
               <div className="font-display font-black text-xl text-neutral-900 flex items-baseline gap-1.5">
                 {reqTotals.needed > 0 ? (
                   <span className="px-2 py-0.5 rounded bg-rose-600 text-white">{reqTotals.needed} ks</span>
@@ -1771,7 +1771,7 @@ export default function BottlingScreen({
                             Skladem <span className="font-mono text-emerald-800">{r.stockQty}</span>
                             {' · '}objednáno <span className="font-mono text-sky-800">{r.orderedQty}</span>
                           </div>
-                          <div className="text-[10px] font-bold text-neutral-400 mt-0.5 font-mono">
+                          <div className="text-[11px] font-bold text-neutral-400 mt-0.5 font-mono">
                             {r.invQty} poč. +{r.bottledQty} stočeno −{r.outgoingQty} výdej
                           </div>
                         </div>
@@ -1779,7 +1779,7 @@ export default function BottlingScreen({
                           <div className={`font-mono font-black text-2xl leading-none ${chybi ? 'text-rose-700' : 'text-emerald-600'}`}>
                             {chybi ? r.neededQty : '✓'}
                           </div>
-                          {chybi && <div className="text-[10px] font-black text-rose-700 uppercase mt-0.5">stočit</div>}
+                          {chybi && <div className="text-[11px] font-black text-rose-700 uppercase mt-0.5">stočit</div>}
                         </div>
                       </div>
                       {chybi && (

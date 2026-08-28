@@ -149,7 +149,7 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
           {(Object.keys(STATUS_LABEL) as WhatsAppIncoming['status'][]).map((s) => (
             <div key={s} className={`rounded border px-2 py-1.5 text-center ${STATUS_STYLE[s]}`}>
               <div className="text-lg font-black leading-none">{counts[s] || 0}</div>
-              <div className="text-[9px] font-bold uppercase leading-tight mt-0.5">{STATUS_LABEL[s]}</div>
+              <div className="text-[11px] font-bold uppercase leading-tight mt-0.5">{STATUS_LABEL[s]}</div>
             </div>
           ))}
         </div>
@@ -196,10 +196,10 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-xs font-black text-neutral-900">{m.sender_name}</span>
-                      <span className="text-[10px] text-neutral-400 font-mono">
+                      <span className="text-[11px] text-neutral-400 font-mono">
                         {new Date(m.message_timestamp || m.created_at).toLocaleString('cs-CZ')}
                       </span>
-                      <span className={`px-2 py-0.5 rounded-full border text-[10px] font-black ${STATUS_STYLE[m.status]}`}>
+                      <span className={`px-2 py-0.5 rounded-full border text-[11px] font-black ${STATUS_STYLE[m.status]}`}>
                         {STATUS_LABEL[m.status]}
                       </span>
                     </div>

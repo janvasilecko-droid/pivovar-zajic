@@ -28,7 +28,7 @@ export function MandatoryReminderModal({ reminder, currentUserEmail, onDismiss }
             <Bell className="ikona-text" />
           </div>
           <div>
-            <div className="text-[10px] font-black uppercase text-amber-700 tracking-wider">
+            <div className="text-[11px] font-black uppercase text-amber-700 tracking-wider">
               DŮLEŽITÁ UPOMÍNKA K ODKLIKNUTÍ
             </div>
             <h2 className="font-display font-black text-xl text-neutral-950 tracking-tight">

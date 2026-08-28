@@ -15,12 +15,12 @@ const STATUS_LABELS: Record<CellarTank['status'], string> = {
 };
 const STATUS_COLORS: Record<CellarTank['status'], string> = {
   empty: 'bg-primary-100 text-primary-600',
-  filling: 'bg-warning-50 text-warning-700',
-  active: 'bg-success-50 text-success-700',
-  emptying: 'bg-accent-50 text-accent-700',
+  filling: 'bg-amber-50 text-amber-700',
+  active: 'bg-emerald-50 text-emerald-700',
+  emptying: 'bg-primary-50 text-primary-700',
   sanitizing: 'bg-primary-50 text-primary-700',
   rinsing: 'bg-neutral-100 text-neutral-600',
-  cleaning: 'bg-danger-50 text-danger-700',
+  cleaning: 'bg-rose-50 text-rose-700',
 };
 
 
@@ -567,7 +567,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
             </button>
             <div className="px-2 text-xs font-bold text-amber-800 text-center min-w-[90px]">
               Týden {weekKey.split('-')[1]}
-              <div className="text-[10px] text-neutral-500 font-normal">
+              <div className="text-[11px] text-neutral-500 font-normal">
                 ({weekRange(weekKey).label})
               </div>
             </div>
@@ -610,7 +610,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
               const recentCycles = (cyclesByTank.get(t.id) ?? []).slice(0, 3);
 
               return (
-                <div key={t.id} className={`card border-2 p-4 flex flex-col ${isLow ? 'ring-2 ring-warning-400' : ''}`}
+                <div key={t.id} className={`card border-2 p-4 flex flex-col ${isLow ? 'ring-2 ring-amber-400' : ''}`}
                   style={{
                     borderColor: beerBorder(t.current_beer_name ? beers.find((b) => b.name === t.current_beer_name) : null),
                   }}>
@@ -620,16 +620,16 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                       <div className="text-xs text-primary-500">Kapacita {t.capacity_l.toLocaleString('cs-CZ')} l</div>
                     </div>
                     <div className="flex flex-col items-end gap-1">
-                      <span className={`chip text-[10px] ${STATUS_COLORS[t.status]}`}>{STATUS_LABELS[t.status]}</span>
+                      <span className={`chip text-[11px] ${STATUS_COLORS[t.status]}`}>{STATUS_LABELS[t.status]}</span>
                       {t.kegging_active && (
-                        <span className="chip text-[10px] bg-amber-100 text-amber-800 border border-amber-300"><IkonaSud className="ikona-text" /> Stáčení aktivní</span>
+                        <span className="chip text-[11px] bg-amber-100 text-amber-800 border border-amber-300"><IkonaSud className="ikona-text" /> Stáčení aktivní</span>
                       )}
                     </div>
                   </div>
 
                   {/* Fáze sanitace tanku — zvýraznění aktuálního kroku */}
                   {t.status === 'sanitizing' && (
-                    <div className="mt-2 text-xs font-bold text-danger-700 bg-danger-50 rounded px-2.5 py-1.5 flex items-center gap-1.5 animate-pulse border border-danger-200">
+                    <div className="mt-2 text-xs font-bold text-rose-700 bg-rose-50 rounded px-2.5 py-1.5 flex items-center gap-1.5 animate-pulse border border-rose-200">
                       <AlertTriangle className="ikona-text" /> Po uzavření tanku — MUSÍ SE OPLÁCHNOUT
                     </div>
                   )}
@@ -648,18 +648,18 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                   {inlineEditId === t.id ? (
                     <div className="mt-2 space-y-2">
                       <div>
-                        <div className="text-[10px] font-extrabold uppercase tracking-wider text-primary-400 mb-1">Pivo</div>
+                        <div className="text-[11px] font-extrabold uppercase tracking-wider text-primary-400 mb-1">Pivo</div>
                         <select className="input" value={inlineBeerId} onChange={(e) => setInlineBeerId(e.target.value)}>
                           <option value="">— vyber pivo —</option>
                           {beers.map((b) => <option key={b.id} value={b.id}>{b.name}{b.degree ? ` (${b.degree})` : ''}</option>)}
                         </select>
                       </div>
                       <div>
-                        <div className="text-[10px] font-extrabold uppercase tracking-wider text-primary-400 mb-1">Počáteční objem (l)</div>
+                        <div className="text-[11px] font-extrabold uppercase tracking-wider text-primary-400 mb-1">Počáteční objem (l)</div>
                         <input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} step="0.1" className="input" value={inlineVolume} onChange={(e) => setInlineVolume(e.target.value)} placeholder={`např. ${t.capacity_l}`} />
                       </div>
                       <div className="flex gap-1.5">
-                        <button className="text-xs px-2.5 py-1 rounded bg-success-600 text-white font-bold hover:bg-success-500 disabled:opacity-50" disabled={inlineBusy} onClick={() => saveInlineTank(t)}>
+                        <button className="text-xs px-2.5 py-1 rounded bg-emerald-600 text-white font-bold hover:bg-emerald-500 disabled:opacity-50" disabled={inlineBusy} onClick={() => saveInlineTank(t)}>
                           {inlineBusy ? 'Ukládám…' : '💾 Uložit pivo'}
                         </button>
                         <button className="text-xs px-2.5 py-1 rounded bg-neutral-200 text-neutral-700 hover:bg-neutral-300 font-medium" onClick={() => setInlineEditId(null)}>Zrušit</button>
@@ -672,7 +672,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                         {t.current_beer_name && (
                           <div className="text-[11px] text-primary-500 mt-0.5">
                             Počáteční objem: <span className="font-semibold text-primary-700">{(initialVol / 100).toFixed(2)} hl</span>
-                            {' · '}Zbývá: <span className={`font-semibold ${remaining <= 0 ? 'text-danger-600' : 'text-success-700'}`}>{(remaining / 100).toFixed(2)} hl</span>
+                            {' · '}Zbývá: <span className={`font-semibold ${remaining <= 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{(remaining / 100).toFixed(2)} hl</span>
                           </div>
                         )}
                         {t.kegging_active && t.kegging_started_at && (
@@ -701,7 +701,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                   )}
 
                   {isLow && (
-                    <div className="mt-2 text-xs font-semibold text-warning-700 bg-warning-50 rounded px-2.5 py-1.5 flex items-center gap-1.5 animate-pulse">
+                    <div className="mt-2 text-xs font-semibold text-amber-700 bg-amber-50 rounded px-2.5 py-1.5 flex items-center gap-1.5 animate-pulse">
                       <AlertTriangle className="ikona-text" /> Blíží se konec — zbývá {remaining.toFixed(0)} l
                     </div>
                   )}
@@ -715,14 +715,14 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                         <AlertTriangle className="ikona-text" /> Objednáno {orderedHlForBeer.toFixed(1)} hl (v tanku chybí {missingHl.toFixed(1)} hl, nutno stočit z jiného tanku)
                       </div>
                     ) : (
-                      <div className="mt-2 text-xs text-accent-700 bg-accent-50 rounded px-2.5 py-1.5 font-bold">
+                      <div className="mt-2 text-xs text-primary-700 bg-primary-50 rounded px-2.5 py-1.5 font-bold">
                         <ClipboardList className="ikona-text" /> Objednáno {orderedHlForBeer.toFixed(1)} hl tohoto piva (nestočeno)
                       </div>
                     );
                   })()}
 
                   {/* Grafické znázornění nerezového ležáckého tanku */}
-                  <div className="my-3 p-3 bg-slate-900/90 rounded border border-slate-800 text-white flex items-center gap-4 shadow-inner">
+                  <div className="my-3 p-3 bg-neutral-900/90 rounded border border-neutral-800 text-white flex items-center gap-4 shadow-inner">
                     {/* SVG 3D Tank Cylindrical Graphic */}
                     <div className="relative w-14 h-24 shrink-0 flex items-center justify-center">
                       <svg viewBox="0 0 60 100" className="w-full h-full drop-shadow-md">
@@ -774,7 +774,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                       </svg>
 
                       {/* Percentage Badge */}
-                      <span className={`absolute text-[10px] font-black font-mono px-1.5 py-0.5 rounded border ${remaining === 0 || isEmpty ? 'bg-slate-800 text-slate-300 border-slate-600' : 'bg-slate-950/90 text-amber-300 border-slate-700'}`}>
+                      <span className={`absolute text-[11px] font-black font-mono px-1.5 py-0.5 rounded border ${remaining === 0 || isEmpty ? 'bg-neutral-800 text-neutral-300 border-neutral-600' : 'bg-neutral-950/90 text-amber-300 border-neutral-700'}`}>
                         {isEmpty ? '0%' : `${Math.round((remaining / initialVol) * 100)}%`}
                       </span>
                     </div>
@@ -782,19 +782,19 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                     {/* Right details panel inside tank graphic */}
                     <div className="flex-1 space-y-1">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-400 font-medium">Stav náplně:</span>
-                        <span className={`font-bold font-mono ${remaining === 0 || isEmpty ? 'text-slate-300' : 'text-amber-400'}`}>
+                        <span className="text-neutral-400 font-medium">Stav náplně:</span>
+                        <span className={`font-bold font-mono ${remaining === 0 || isEmpty ? 'text-neutral-300' : 'text-amber-400'}`}>
                           {isEmpty ? '0 %' : `${Math.round((remaining / initialVol) * 100)} %`}
-                          <span className="ml-1 text-slate-400">· {isEmpty ? '0 hl' : `${(remaining / 100).toFixed(2)} hl`}</span>
+                          <span className="ml-1 text-neutral-400">· {isEmpty ? '0 hl' : `${(remaining / 100).toFixed(2)} hl`}</span>
                         </span>
                       </div>
-                      <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden border border-slate-700">
+                      <div className="w-full bg-neutral-800 h-2 rounded-full overflow-hidden border border-neutral-700">
                         <div
-                          className={`h-full rounded-full transition-all duration-500 ${isEmpty ? 'bg-slate-600' : isLow ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                          className={`h-full rounded-full transition-all duration-500 ${isEmpty ? 'bg-neutral-600' : isLow ? 'bg-amber-500' : 'bg-emerald-500'}`}
                           style={{ width: isEmpty ? '0%' : `${Math.max(Math.round((remaining / initialVol) * 100), 2)}%` }}
                         />
                       </div>
-                      <div className="flex items-center justify-between text-[11px] text-slate-300 font-medium pt-0.5">
+                      <div className="flex items-center justify-between text-[11px] text-neutral-300 font-medium pt-0.5">
                         <span>Výstav {t.current_beer_name ? `${(initialVol / 100).toFixed(1)} hl` : `z ${t.capacity_l.toLocaleString('cs-CZ')} l`}</span>
                       </div>
                     </div>
@@ -820,7 +820,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                       {sizeKeys.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1">
                           {sizeKeys.map((sz) => (
-                            <span key={sz} className="chip bg-primary-100 text-primary-700 text-[10px]">{sz}l × {s.bySize[sz]} ks</span>
+                            <span key={sz} className="chip bg-primary-100 text-primary-700 text-[11px]">{sz}l × {s.bySize[sz]} ks</span>
                           ))}
                         </div>
                       )}
@@ -831,13 +831,13 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                   {/* Mini historie posledních cyklů */}
                   {recentCycles.length > 0 && (
                     <div className="mt-3 pt-3 border-t border-primary-100">
-                      <div className="text-[10px] uppercase tracking-wider text-primary-400 mb-1">Poslední cykly</div>
+                      <div className="text-[11px] uppercase tracking-wider text-primary-400 mb-1">Poslední cykly</div>
                       <div className="space-y-1">
                         {recentCycles.map((c) => (
                           <div key={c.id} className="flex items-center justify-between text-[11px]">
                             <span className="text-primary-600 truncate max-w-[45%]">{c.beer_name ?? '—'}</span>
                             <span className="text-primary-700 font-medium">{(Number(c.kegged_volume_l) / 100).toFixed(1)} hl</span>
-                            <span className={`font-medium ${Number(c.loss_pct) > 3 ? 'text-danger-600' : 'text-success-600'}`}>{Number(c.loss_pct).toFixed(1)}%</span>
+                            <span className={`font-medium ${Number(c.loss_pct) > 3 ? 'text-rose-600' : 'text-emerald-600'}`}>{Number(c.loss_pct).toFixed(1)}%</span>
                             <span className="text-primary-400">{fmtHours(c.duration_hours)}</span>
                           </div>
                         ))}
@@ -870,19 +870,19 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                     )}
 
                     {t.status === 'empty' && (
-                      <button className="w-full min-h-[48px] text-sm px-3 py-3 rounded bg-success-600 text-white hover:bg-success-500 font-black shadow-md flex items-center justify-center gap-2" onClick={() => setShowStart(t)}>
+                      <button className="w-full min-h-[48px] text-sm px-3 py-3 rounded bg-emerald-600 text-white hover:bg-emerald-500 font-black shadow-md flex items-center justify-center gap-2" onClick={() => setShowStart(t)}>
                         <span>🚀</span><span>Spustit tank</span>
                       </button>
                     )}
                     {(t.status === 'active' || t.status === 'emptying' || t.status === 'filling') && (
-                      <button className="w-full min-h-[48px] text-sm px-3 py-3 rounded bg-danger-600 text-white hover:bg-danger-500 font-black shadow-md flex items-center justify-center gap-2" onClick={() => endTank(t)}>
+                      <button className="w-full min-h-[48px] text-sm px-3 py-3 rounded bg-rose-600 text-white hover:bg-rose-500 font-black shadow-md flex items-center justify-center gap-2" onClick={() => endTank(t)}>
                         <span>✓</span><span>Zavřít tank</span>
                       </button>
                     )}
 
                     {/* Sanitace tanku — postup: oplach → louh → kyselina */}
                     <div className="pt-1">
-                      <div className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-400 mb-1"><SprayCan className="ikona-text" /> Sanitace tanku</div>
+                      <div className="text-[11px] font-extrabold uppercase tracking-wider text-neutral-400 mb-1"><SprayCan className="ikona-text" /> Sanitace tanku</div>
                       <div className="grid grid-cols-3 gap-1.5">
                         <button
                           className="min-h-[44px] text-xs px-1.5 py-2 rounded bg-sky-100 text-sky-900 font-bold hover:bg-sky-200 shadow-xs border border-sky-300 flex flex-col items-center justify-center gap-0.5"
@@ -1115,7 +1115,7 @@ function StartTankForm({ tank, beers, onClose, onSaved }: { tank: CellarTank; be
           <input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} step="0.1" className="input" value={volume} onChange={(e) => setVolume(e.target.value)} />
         </Field>
         <Field label="Poznámka"><input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="poznámka" /></Field>
-        {err && <div className="text-sm text-danger-600 bg-danger-500/10 rounded px-3 py-2">{err}</div>}
+        {err && <div className="text-sm text-rose-600 bg-rose-500/10 rounded px-3 py-2">{err}</div>}
         <div className="flex justify-end gap-2 pt-2">
           <button className="btn-ghost !rounded" onClick={onClose}>Zrušit</button>
           <button className="btn-primary !rounded" disabled={busy} onClick={save}>{busy ? 'Ukládám…' : '🚀 Spustit'}</button>
@@ -1222,7 +1222,7 @@ function TransferForm({ tanks, beers, initialFromId, initialBeerId, initialVolum
           <Field label="Ztráta (l)"><input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} step="0.1" className="input" value={loss} onChange={(e) => setLoss(e.target.value)} placeholder="např. 2" /></Field>
         </div>
         <Field label="Poznámka"><input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="poznámka" /></Field>
-        {err && <div className="text-sm text-danger-600 bg-danger-500/10 rounded px-3 py-2">{err}</div>}
+        {err && <div className="text-sm text-rose-600 bg-rose-500/10 rounded px-3 py-2">{err}</div>}
         <div className="flex justify-end gap-2 pt-2">
           <button className="btn-ghost !rounded" onClick={onClose}>Zrušit</button>
           <button className="btn-primary !rounded" disabled={busy} onClick={save}>{busy ? 'Ukládám…' : 'Uložit'}</button>

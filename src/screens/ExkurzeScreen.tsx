@@ -258,7 +258,7 @@ export default function ExkurzeScreen() {
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="label !mb-0">Průvodce (Kdo prováděl)</label>
-                <span className="text-[10px] font-bold text-neutral-500">Primárně: František</span>
+                <span className="text-[11px] font-bold text-neutral-500">Primárně: František</span>
               </div>
               <input
                 type="text"
@@ -480,7 +480,7 @@ export default function ExkurzeScreen() {
                         <div className="font-mono font-black text-lg text-emerald-800">
                           {gs.revenueTotal.toLocaleString('cs-CZ')} Kč
                         </div>
-                        <div className="text-[10px] text-neutral-400 font-bold uppercase">Celková tržba</div>
+                        <div className="text-[11px] text-neutral-400 font-bold uppercase">Celková tržba</div>
                       </div>
                       {isExpanded ? <ChevronUp size={20} className="text-amber-700" /> : <ChevronDown size={20} className="text-neutral-400" />}
                     </div>
@@ -517,7 +517,7 @@ export default function ExkurzeScreen() {
                                 </td>
                                 <td className="text-neutral-600 font-medium">{it.note || '—'}</td>
                                 <td>
-                                  <span className={`px-2 py-0.5 rounded text-[10px] font-black border ${
+                                  <span className={`px-2 py-0.5 rounded text-[11px] font-black border ${
                                     it.archived_month
                                       ? 'bg-neutral-100 text-neutral-600 border-neutral-200'
                                       : 'bg-emerald-100 text-emerald-950 border-emerald-300'
@@ -551,17 +551,17 @@ export default function ExkurzeScreen() {
         {/* 4 Karty souhrnů */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="card p-5 bg-white border border-neutral-200 rounded shadow-xs space-y-1">
-            <span className="text-[10px] font-black uppercase text-neutral-500 tracking-wider">Celkem exkurzí</span>
+            <span className="text-[11px] font-black uppercase text-neutral-500 tracking-wider">Celkem exkurzí</span>
             <div className="font-display font-black text-3xl text-neutral-950">{totalTours} exkurzí</div>
           </div>
 
           <div className="card p-5 bg-white border border-neutral-200 rounded shadow-xs space-y-1">
-            <span className="text-[10px] font-black uppercase text-neutral-500 tracking-wider">Celkem návštěvníků</span>
+            <span className="text-[11px] font-black uppercase text-neutral-500 tracking-wider">Celkem návštěvníků</span>
             <div className="font-display font-black text-3xl text-amber-600">{totalPeople.toLocaleString('cs-CZ')} lidí</div>
           </div>
 
           <div className="card p-5 bg-white border border-neutral-200 rounded shadow-xs space-y-1">
-            <span className="text-[10px] font-black uppercase text-neutral-500 tracking-wider">Celková tržba</span>
+            <span className="text-[11px] font-black uppercase text-neutral-500 tracking-wider">Celková tržba</span>
             <div className="font-display font-black text-3xl text-emerald-700">{totalRevenue.toLocaleString('cs-CZ')} Kč</div>
           </div>
         </div>

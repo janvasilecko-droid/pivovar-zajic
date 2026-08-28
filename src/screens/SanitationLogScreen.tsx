@@ -11,7 +11,7 @@ const METHOD_BADGES: Record<string, { label: string; bg: string; text: string; i
   kyselina_dusicna: { label: 'Kyselina dusičná', bg: 'bg-rose-100 border-rose-300', text: 'text-rose-950', icon: '🧪' },
   louh: { label: 'Louh (NaOH)', bg: 'bg-amber-100 border-amber-300', text: 'text-amber-950', icon: '🧼' },
   oplach_vodou: { label: 'Oplach vodou', bg: 'bg-sky-100 border-sky-300', text: 'text-sky-950', icon: '💧' },
-  persteril: { label: 'Persteril', bg: 'bg-purple-100 border-purple-300', text: 'text-purple-950', icon: '✨' },
+  persteril: { label: 'Persteril', bg: 'bg-violet-100 border-violet-300', text: 'text-violet-950', icon: '✨' },
   kombinovana: { label: 'Kombinovaná sanitace', bg: 'bg-emerald-100 border-emerald-300', text: 'text-emerald-950', icon: '🛡️' },
 };
 

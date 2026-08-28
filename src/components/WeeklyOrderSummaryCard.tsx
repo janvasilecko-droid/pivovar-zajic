@@ -209,7 +209,7 @@ export function WeeklyOrderSummaryCard({
                 onClick={() => setSelectedVolume(selectedVolume === s.volume ? 'all' : s.volume)}
                 className={`px-3.5 py-1.5 rounded font-extrabold text-xs transition-all shadow-xs flex items-center gap-1.5 ${
                   selectedVolume === s.volume
-                    ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-400 scale-105 font-black'
+                    ? 'bg-amber-500 text-neutral-950 ring-2 ring-amber-400 scale-105 font-black'
                     : 'bg-rose-600 hover:bg-rose-700 text-white'
                 }`}
               >

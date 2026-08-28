@@ -1025,27 +1025,27 @@ function exportInventoryExcel() {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <div className="card p-3.5 bg-white border border-neutral-200 rounded space-y-1">
-              <span className="text-[10px] font-black uppercase text-neutral-500">Počáteční stav</span>
+              <span className="text-[11px] font-black uppercase text-neutral-500">Počáteční stav</span>
               <div className="font-display font-black text-lg text-neutral-900">{totals.initial} ks</div>
-              <span className="text-[10px] text-neutral-500">Převedeno z minulého měsíce</span>
+              <span className="text-[11px] text-neutral-500">Převedeno z minulého měsíce</span>
             </div>
             <div className="card p-3.5 bg-white border border-neutral-200 rounded space-y-1">
-              <span className="text-[10px] font-black uppercase text-amber-700">Nově stočeno (+)</span>
+              <span className="text-[11px] font-black uppercase text-amber-700">Nově stočeno (+)</span>
               <div className="font-display font-black text-lg text-amber-600">+{totals.staceno} ks</div>
-              <span className="text-[10px] text-neutral-500">Zapsáno ve Stáčení</span>
+              <span className="text-[11px] text-neutral-500">Zapsáno ve Stáčení</span>
             </div>
             <div className="card p-3.5 bg-white border border-rose-200 rounded space-y-1">
-              <span className="text-[10px] font-black uppercase text-rose-600">Odpisy (− odpis)</span>
+              <span className="text-[11px] font-black uppercase text-rose-600">Odpisy (− odpis)</span>
               <div className="font-display font-black text-lg text-rose-700">-{totals.odpis} ks</div>
-              <span className="text-[10px] text-neutral-500">Zapsáno v Odpisech</span>
+              <span className="text-[11px] text-neutral-500">Zapsáno v Odpisech</span>
             </div>
             <div className="card p-3.5 bg-white border border-neutral-200 rounded space-y-1">
-              <span className="text-[10px] font-black uppercase text-amber-800">Vytočeno/Výdej (−)</span>
+              <span className="text-[11px] font-black uppercase text-amber-800">Vytočeno/Výdej (−)</span>
               <div className="font-display font-black text-lg text-amber-800">-{totals.vydej} ks</div>
-              <span className="text-[10px] text-neutral-500">Fasování + Prodejna + Objednávky</span>
+              <span className="text-[11px] text-neutral-500">Fasování + Prodejna + Objednávky</span>
             </div>
             <div className="card p-3.5 bg-white border border-neutral-200 rounded space-y-1">
-              <span className="text-[10px] font-black uppercase text-neutral-500"><PackageIcon className="ikona-text" /> ZBYDE SKLADEM (Oček.)</span>
+              <span className="text-[11px] font-black uppercase text-neutral-500"><PackageIcon className="ikona-text" /> ZBYDE SKLADEM (Oček.)</span>
               <div className="font-display font-black text-xl">
                 {totals.expected < 0 ? (
                   <span className="px-2 py-0.5 rounded bg-rose-600 text-white">{totals.expected} ks</span>
@@ -1053,21 +1053,21 @@ function exportInventoryExcel() {
                   <span className="text-emerald-700">{totals.expected} ks</span>
                 )}
               </div>
-              <span className="text-[10px] text-neutral-500">Teoretický zůstatek</span>
+              <span className="text-[11px] text-neutral-500">Teoretický zůstatek</span>
             </div>
             <div className="card p-3.5 bg-white border border-neutral-200 rounded space-y-1">
-              <span className="text-[10px] font-black uppercase text-neutral-500">Celkové Manko/Přebytek</span>
+              <span className="text-[11px] font-black uppercase text-neutral-500">Celkové Manko/Přebytek</span>
               <div className={`font-display font-black text-lg ${totals.diffQty < 0 ? 'text-rose-700' : totals.diffQty > 0 ? 'text-emerald-700' : 'text-neutral-900'}`}>
                 {totals.diffQty > 0 ? `+${totals.diffQty}` : totals.diffQty} ks ({totals.diffCzk.toLocaleString('cs-CZ')} Kč)
               </div>
-              <span className="text-[10px] text-neutral-500">Fyzický vs Systémový stav</span>
-              <span className="block pt-1 border-t border-neutral-200 text-[10px] font-bold text-neutral-600">
+              <span className="text-[11px] text-neutral-500">Fyzický vs Systémový stav</span>
+              <span className="block pt-1 border-t border-neutral-200 text-[11px] font-bold text-neutral-600">
                 Dorovnáno: {totals.dorovnat > 0 ? `+${totals.dorovnat}` : totals.dorovnat} ks ·
                 <span className={totals.diffAfterQty === 0 ? 'text-emerald-700' : totals.diffAfterQty < 0 ? 'text-rose-700' : 'text-amber-700'}>
                   {' '}po dorovnání: {totals.diffAfterQty > 0 ? `+${totals.diffAfterQty}` : totals.diffAfterQty} ks ({totals.diffAfterCzk.toLocaleString('cs-CZ')} Kč)
                 </span>
               </span>
-              <span className="text-[9px] text-neutral-500">Dorovnání se ukládá bokem a nepočítá se do stáčení ani odpočtů.</span>
+              <span className="text-[11px] text-neutral-500">Dorovnání se ukládá bokem a nepočítá se do stáčení ani odpočtů.</span>
             </div>
           </div>
 
@@ -1131,7 +1131,7 @@ function exportInventoryExcel() {
                       }`}
                     >
                       {popis}
-                      <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                      <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-black ${
                         pocitaniFiltr === id ? 'bg-neutral-950/15' : 'bg-white'
                       }`}>{pocet}</span>
                     </button>
@@ -1157,7 +1157,7 @@ function exportInventoryExcel() {
 
                         <div className="grid grid-cols-2 gap-2">
                           <label className="block">
-                            <span className="text-[10px] font-black uppercase text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded-md inline-block mb-1">Inventura</span>
+                            <span className="text-[11px] font-black uppercase text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded-md inline-block mb-1">Inventura</span>
                             <div className="flex items-stretch gap-1">
                               <button
                                 type="button"
@@ -1185,7 +1185,7 @@ function exportInventoryExcel() {
                             </div>
                           </label>
                           <label className="block">
-                            <span className="text-[10px] font-black uppercase text-sky-800 bg-sky-50 px-1.5 py-0.5 rounded-md inline-block mb-1">Dorovnat (±)</span>
+                            <span className="text-[11px] font-black uppercase text-sky-800 bg-sky-50 px-1.5 py-0.5 rounded-md inline-block mb-1">Dorovnat (±)</span>
                             <div className="flex items-center gap-1">
                               <input
                                 type="number" onWheel={(e) => e.currentTarget.blur()}
@@ -1218,7 +1218,7 @@ function exportInventoryExcel() {
                           )}
                         </div>
 
-                        <div className="text-[10px] text-neutral-500 flex flex-wrap gap-x-2.5 gap-y-0.5 pt-1 border-t border-black/10">
+                        <div className="text-[11px] text-neutral-500 flex flex-wrap gap-x-2.5 gap-y-0.5 pt-1 border-t border-black/10">
                           <span>Poč. {r.initialQty}</span>
                           <span>Stočeno +{r.stacenoQty}</span>
                           <span>Odpis −{r.odpisQty}</span>
@@ -1305,14 +1305,14 @@ function exportInventoryExcel() {
                               <button
                                 type="button"
                                 onClick={() => setDorovnatMap((prev) => ({ ...prev, [k]: String(r.diffQty) }))}
-                                className="shrink-0 p-1 rounded bg-sky-200/70 hover:bg-sky-300 text-sky-950 font-black text-[10px] leading-none transition"
+                                className="shrink-0 p-1 rounded bg-sky-200/70 hover:bg-sky-300 text-sky-950 font-black text-[11px] leading-none transition"
                                 title={`Dorovnat dle manka (nastavit na ${r.diffQty} ks)`}
                               >
                                 ⟳
                               </button>
                             </div>
                             {r.dorovnatQty !== 0 && (
-                              <div className="mt-0.5 text-[9px] font-black text-sky-800">
+                              <div className="mt-0.5 text-[11px] font-black text-sky-800">
                                 Dorovnáno: {r.reconciledQty} ks
                               </div>
                             )}
@@ -1327,7 +1327,7 @@ function exportInventoryExcel() {
                           }`}>
                             {r.diffAfterQty > 0 ? `+${r.diffAfterQty}` : r.diffAfterQty} ks
                             {r.diffAfterQty === 0 && r.dorovnatQty !== 0 && (
-                              <span className="ml-1 text-[9px] font-black text-emerald-700">✓ dorovnáno</span>
+                              <span className="ml-1 text-[11px] font-black text-emerald-700">✓ dorovnáno</span>
                             )}
                           </td>
                           <td className={`text-right font-black text-[11px] px-3 py-2 ${
@@ -1340,9 +1340,9 @@ function exportInventoryExcel() {
                     })}
                   </tbody>
                   <tfoot>
-                    <tr className="bg-neutral-200 text-slate-950 font-black text-xs border-t-2 border-neutral-300">
+                    <tr className="bg-neutral-200 text-neutral-950 font-black text-xs border-t-2 border-neutral-300">
                       <td colSpan={2} className="px-3 py-2.5 text-amber-400 font-display">CELKEM SOUHRN</td>
-                      <td className="text-right px-2 py-2.5 text-slate-950">{totals.initial} ks</td>
+                      <td className="text-right px-2 py-2.5 text-neutral-950">{totals.initial} ks</td>
                       <td className="text-right px-2 py-2.5 text-amber-400">+{totals.staceno}</td>
                       <td className="text-right px-2 py-2.5 text-rose-900">-{totals.odpis}</td>
                       <td className="text-right px-2 py-2.5 text-amber-950">-{totals.vydej}</td>
@@ -1355,13 +1355,13 @@ function exportInventoryExcel() {
                       <td className={`text-right px-3 py-2.5 font-mono text-sm bg-sky-950/80 border-x border-sky-700 ${totals.dorovnat === 0 ? 'text-sky-300' : totals.dorovnat < 0 ? 'text-rose-300' : 'text-sky-200'}`}>
                         {totals.dorovnat > 0 ? `+${totals.dorovnat}` : totals.dorovnat} ks
                       </td>
-                      <td className={`text-right px-2 py-2.5 font-mono text-sm ${totals.diffQty < 0 ? 'text-rose-900' : totals.diffQty > 0 ? 'text-emerald-900' : 'text-slate-950'}`}>
+                      <td className={`text-right px-2 py-2.5 font-mono text-sm ${totals.diffQty < 0 ? 'text-rose-900' : totals.diffQty > 0 ? 'text-emerald-900' : 'text-neutral-950'}`}>
                         {totals.diffQty > 0 ? `+${totals.diffQty}` : totals.diffQty} ks
                       </td>
-                      <td className={`text-right px-2 py-2.5 font-mono text-sm ${totals.diffAfterQty < 0 ? 'text-rose-900' : totals.diffAfterQty > 0 ? 'text-emerald-900' : 'text-slate-950'}`}>
+                      <td className={`text-right px-2 py-2.5 font-mono text-sm ${totals.diffAfterQty < 0 ? 'text-rose-900' : totals.diffAfterQty > 0 ? 'text-emerald-900' : 'text-neutral-950'}`}>
                         {totals.diffAfterQty > 0 ? `+${totals.diffAfterQty}` : totals.diffAfterQty} ks
                       </td>
-                      <td className={`text-right px-3 py-2.5 ${totals.diffCzk < 0 ? 'text-rose-900' : totals.diffCzk > 0 ? 'text-emerald-900' : 'text-slate-950'}`}>
+                      <td className={`text-right px-3 py-2.5 ${totals.diffCzk < 0 ? 'text-rose-900' : totals.diffCzk > 0 ? 'text-emerald-900' : 'text-neutral-950'}`}>
                         {totals.diffCzk.toLocaleString('cs-CZ')} Kč
                       </td>
                     </tr>
@@ -1416,7 +1416,7 @@ function exportInventoryExcel() {
                           <input
                             type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
                             min="0"
-                            className="input inventory-input !py-1.5 font-mono font-black text-sm text-slate-900 bg-white"
+                            className="input inventory-input !py-1.5 font-mono font-black text-sm text-neutral-900 bg-white"
                             placeholder="0 ks"
                             value={initialStock[k] ?? ''}
                             onChange={(e) => {
@@ -1629,19 +1629,19 @@ function EndStockTab({
       {/* Souhrn */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="card p-4 bg-white border border-neutral-200 rounded space-y-1">
-          <span className="text-[10px] font-black uppercase text-neutral-500">Počáteční stav</span>
+          <span className="text-[11px] font-black uppercase text-neutral-500">Počáteční stav</span>
           <div className="font-display font-black text-xl text-neutral-900">{totals.initial} ks</div>
         </div>
         <div className="card p-4 bg-white border border-neutral-200 rounded space-y-1">
-          <span className="text-[10px] font-black uppercase text-neutral-500">Stáčení KEG (+)</span>
+          <span className="text-[11px] font-black uppercase text-neutral-500">Stáčení KEG (+)</span>
           <div className="font-display font-black text-xl text-emerald-600">+{totals.stacenoKeg} ks</div>
         </div>
         <div className="card p-4 bg-white border border-neutral-200 rounded space-y-1">
-          <span className="text-[10px] font-black uppercase text-neutral-500">Výdeje (−)</span>
+          <span className="text-[11px] font-black uppercase text-neutral-500">Výdeje (−)</span>
           <div className="font-display font-black text-xl text-rose-600">−{totals.objednavky + totals.stacenoLahve + totals.fasovani + totals.prodejna + totals.akce + totals.odpisy} ks</div>
         </div>
         <div className="card p-4 bg-white border border-neutral-200 rounded space-y-1">
-          <span className="text-[10px] font-black uppercase text-neutral-500">Stav na konci měsíce</span>
+          <span className="text-[11px] font-black uppercase text-neutral-500">Stav na konci měsíce</span>
           <div className="font-display font-black text-xl">
             {totals.endStock < 0 ? (
               <span className="px-2 py-0.5 rounded bg-rose-600 text-white">{totals.endStock} ks</span>
@@ -1692,18 +1692,18 @@ function EndStockTab({
                   <div className="grid grid-cols-3 gap-1.5 text-center">
                     {metrics.map((m) => (
                       <div key={m.label} className={`rounded py-1.5 ${m.cls}`}>
-                        <div className="text-[8px] font-black uppercase opacity-80">{m.label}</div>
+                        <div className="text-[11px] font-black uppercase opacity-80">{m.label}</div>
                         <div className="text-xs font-black">{m.value} ks</div>
                       </div>
                     ))}
                   </div>
-                  {r.endStockQty < 0 && <div className="text-[10px] text-rose-700 font-black"><AlertTriangle className="ikona-text" /> Chybí {Math.abs(r.endStockQty)} ks!</div>}
+                  {r.endStockQty < 0 && <div className="text-[11px] text-rose-700 font-black"><AlertTriangle className="ikona-text" /> Chybí {Math.abs(r.endStockQty)} ks!</div>}
                 </div>
               );
             })}
             <div className="rounded bg-neutral-200 p-3 space-y-2">
               <div className="font-black text-sm text-neutral-900"><PackageIcon className="ikona-text" /> CELKEM</div>
-              <div className="grid grid-cols-3 gap-1.5 text-center text-[10px] font-bold text-neutral-800">
+              <div className="grid grid-cols-3 gap-1.5 text-center text-[11px] font-bold text-neutral-800">
                 <div>Počátek {totals.initial}</div>
                 <div className="text-emerald-700">+{totals.stacenoKeg} KEG</div>
                 <div className="text-rose-700">−{totals.objednavky} obj.</div>
@@ -1754,14 +1754,14 @@ function EndStockTab({
                       <td className={`text-right font-black text-[11px] text-rose-850 font-black`}>−{r.odpisyQty}</td>
                       <td className={`text-right font-mono font-black text-[11px] bg-amber-100/90 border-x border-amber-300 ${r.endStockQty < 0 ? 'text-rose-800' : 'text-neutral-950'}`}>
                         {r.endStockQty} ks
-                        {r.endStockQty < 0 && <span className="block text-[9px] text-rose-700 font-black"><AlertTriangle className="ikona-text" /> chybí {Math.abs(r.endStockQty)}</span>}
+                        {r.endStockQty < 0 && <span className="block text-[11px] text-rose-700 font-black"><AlertTriangle className="ikona-text" /> chybí {Math.abs(r.endStockQty)}</span>}
                       </td>
                     </tr>
                   );
                 })}
               </tbody>
               <tfoot>
-                <tr className="bg-neutral-200 text-slate-950 font-black text-xs border-t-2 border-neutral-300">
+                <tr className="bg-neutral-200 text-neutral-950 font-black text-xs border-t-2 border-neutral-300">
                   <td colSpan={2} className="text-neutral-900">CELKEM</td>
                   <td className="text-right text-neutral-900">{totals.initial}</td>
                   <td className="text-right text-emerald-700">+{totals.stacenoKeg}</td>

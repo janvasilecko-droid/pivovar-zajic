@@ -48,10 +48,10 @@ type OrderItem = {
 };
 
 const STATUS: Record<string, { label: string; cls: string }> = {
-  nova: { label: 'Nová', cls: 'bg-accent-50 text-accent-700' },
-  pripravena: { label: 'Připravená', cls: 'bg-warning-50 text-warning-700' },
-  expedovana: { label: 'Expedovaná', cls: 'bg-success-50 text-success-700' },
-  storno: { label: 'Storno', cls: 'bg-danger-50 text-danger-700' },
+  nova: { label: 'Nová', cls: 'bg-primary-50 text-primary-700' },
+  pripravena: { label: 'Připravená', cls: 'bg-amber-50 text-amber-700' },
+  expedovana: { label: 'Expedovaná', cls: 'bg-emerald-50 text-emerald-700' },
+  storno: { label: 'Storno', cls: 'bg-rose-50 text-rose-700' },
 };
 
 // Per-day color coding for deliveries. Each day has a distinct hue so you can see
@@ -61,8 +61,8 @@ const DAY_COLORS: Record<string, { bg: string; bar: string; chip: string; text: 
   ut: { bg: 'bg-emerald-50/70', bar: 'bg-emerald-600', chip: 'bg-emerald-700 text-white font-black shadow-2xs', text: 'text-emerald-950 font-bold', dot: 'bg-emerald-600' },
   st: { bg: 'bg-amber-100/60', bar: 'bg-amber-600', chip: 'bg-amber-600 text-white font-black shadow-2xs', text: 'text-amber-800 font-bold', dot: 'bg-amber-600' },
   ct: { bg: 'bg-rose-50/70', bar: 'bg-rose-600', chip: 'bg-rose-700 text-white font-black shadow-2xs', text: 'text-rose-950 font-bold', dot: 'bg-rose-600' },
-  pa: { bg: 'bg-teal-50/70', bar: 'bg-teal-600', chip: 'bg-teal-700 text-white font-black shadow-2xs', text: 'text-teal-950 font-bold', dot: 'bg-teal-600' },
-  so: { bg: 'bg-cyan-50/70', bar: 'bg-cyan-600', chip: 'bg-cyan-700 text-white font-black shadow-2xs', text: 'text-cyan-950 font-bold', dot: 'bg-cyan-600' },
+  pa: { bg: 'bg-violet-50/70', bar: 'bg-violet-600', chip: 'bg-violet-700 text-white font-black shadow-2xs', text: 'text-violet-950 font-bold', dot: 'bg-violet-600' },
+  so: { bg: 'bg-primary-50/70', bar: 'bg-primary-600', chip: 'bg-primary-700 text-white font-black shadow-2xs', text: 'text-primary-900 font-bold', dot: 'bg-primary-600' },
   ne: { bg: 'bg-neutral-100', bar: 'bg-neutral-600', chip: 'bg-neutral-700 text-white font-black shadow-2xs', text: 'text-neutral-800 font-bold', dot: 'bg-neutral-600' },
 };
 function dayColor(d: string | null | undefined) { return d ? DAY_COLORS[d] : null; }
@@ -1468,7 +1468,7 @@ export default function Orders({
             >
               <MessageCircle size={14} /> WhatsApp
               {newWhatsAppCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-black rounded-full w-4 h-4 flex items-center justify-center">
+                <span className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[11px] font-black rounded-full w-4 h-4 flex items-center justify-center">
                   {newWhatsAppCount}
                 </span>
               )}
@@ -1486,7 +1486,7 @@ export default function Orders({
           "karty" kolem, ať dlaždice piv i zbytek formuláře sedí přímo na
           pozadí stránky, ne uvnitř dalšího ohraničeného panelu navíc. */}
       {mode !== 'overviews_only' && viewMode === 'summary' && (
-        <form onSubmit={addOrder} className={`mb-5 transition-all duration-200 ${flash ? 'ring-4 ring-success-500/20 rounded' : ''}`}>
+        <form onSubmit={addOrder} className={`mb-5 transition-all duration-200 ${flash ? 'ring-4 ring-emerald-500/20 rounded' : ''}`}>
           {/* Odběratel */}
           <div className="mb-4">
             <label className="label dark:text-white">Odběratel</label>
@@ -1815,7 +1815,7 @@ export default function Orders({
             {err && <span className="text-xs font-bold text-rose-700">{err}</span>}
           </div>
 
-          {err && <div className="text-sm text-danger-600 mt-3 bg-danger-500/10 rounded-lg px-3 py-2 font-bold">{err}</div>}
+          {err && <div className="text-sm text-rose-600 mt-3 bg-rose-500/10 rounded-lg px-3 py-2 font-bold">{err}</div>}
           
           {flash && (
             <div className="mt-4 p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 font-bold flex items-center justify-between shadow-xs">
@@ -2040,7 +2040,7 @@ export default function Orders({
               >
                 <span>{d.label}</span>
                 {hasOrders && (
-                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${deliveryDayFilter === d.v ? 'bg-neutral-900/10 text-neutral-900' : 'bg-white/25'}`}>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[11px] ${deliveryDayFilter === d.v ? 'bg-neutral-900/10 text-neutral-900' : 'bg-white/25'}`}>
                     {count}
                   </span>
                 )}
@@ -2072,7 +2072,7 @@ export default function Orders({
             <option value="keg">🛢️ Pouze sudy (KEG)</option>
             <option value="bottle">🍾 Pouze lahve / Sklo / PET</option>
           </select>
-          <select className={`input w-auto font-bold text-xs ${itemFilterBeerId ? 'border-blue-500 ring-2 ring-blue-500/30 dark:border-blue-500' : 'border-blue-300 dark:border-blue-300'} focus:border-blue-500 focus:ring-blue-500/25 dark:focus:border-blue-500 dark:focus:ring-blue-500/25`} value={itemFilterBeerId ?? ''} onChange={(e) => setItemFilterBeerId(e.target.value || null)}>
+          <select className={`input w-auto font-bold text-xs ${itemFilterBeerId ? 'border-sky-500 ring-2 ring-sky-500/30 dark:border-sky-500' : 'border-sky-300 dark:border-sky-300'} focus:border-sky-500 focus:ring-sky-500/25 dark:focus:border-sky-500 dark:focus:ring-sky-500/25`} value={itemFilterBeerId ?? ''} onChange={(e) => setItemFilterBeerId(e.target.value || null)}>
             <option value="">🍺 Všechna piva</option>
             {beers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
@@ -2097,11 +2097,11 @@ export default function Orders({
         {selectedIds.size > 0 ? (
           <div className="flex flex-wrap items-center gap-2 bg-primary-50 rounded-xl px-3 py-2">
             <span className="text-sm font-semibold text-primary-800">{selectedIds.size} vybráno</span>
-            <button className="chip bg-success-100 text-success-700 hover:bg-success-200" onClick={() => bulkToggleFlag('is_prepared')}>✓ Připraveno</button>
+            <button className="chip bg-emerald-100 text-emerald-700 hover:bg-emerald-200" onClick={() => bulkToggleFlag('is_prepared')}>✓ Připraveno</button>
             <button className="chip bg-primary-200 text-primary-800 hover:bg-primary-300 flex items-center gap-1" onClick={() => bulkToggleFlag('is_packaged')}><PackageCheck size={12} /> Fasování</button>
-            <button className="chip bg-success-200 text-success-800 hover:bg-success-300 flex items-center gap-1" onClick={() => bulkToggleFlag('is_delivered')}><Truck size={12} /> Zavezenné</button>
-            <button className="chip bg-warning-100 text-warning-700 hover:bg-warning-200" onClick={() => bulkSetStatus('expedovana')}>Expedovat</button>
-            <button className="chip bg-danger-50 text-danger-700 hover:bg-danger-100 flex items-center gap-1" onClick={bulkDelete}><Trash2 size={12} /> Smazat</button>
+            <button className="chip bg-emerald-200 text-emerald-800 hover:bg-emerald-300 flex items-center gap-1" onClick={() => bulkToggleFlag('is_delivered')}><Truck size={12} /> Zavezenné</button>
+            <button className="chip bg-amber-100 text-amber-700 hover:bg-amber-200" onClick={() => bulkSetStatus('expedovana')}>Expedovat</button>
+            <button className="chip bg-rose-50 text-rose-700 hover:bg-rose-100 flex items-center gap-1" onClick={bulkDelete}><Trash2 size={12} /> Smazat</button>
             <button className="chip bg-white border border-primary-200 text-primary-500 hover:bg-primary-50" onClick={clearSelection}>✕ Zrušit výběr</button>
           </div>
         ) : (
@@ -2515,7 +2515,7 @@ function VariantTotalsPanel({ totals, beers, packages, timeScope, onPick }: {
                   {beerName(beer)}
                 </span>
                 <span className="font-black text-xl text-amber-700 shrink-0">
-                  {t.qty} <span className="text-[10px] font-bold text-neutral-500">ks</span>
+                  {t.qty} <span className="text-[11px] font-bold text-neutral-500">ks</span>
                 </span>
               </div>
               <div className="flex items-center justify-between gap-2 min-w-0">
@@ -2620,7 +2620,7 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
               <Truck size={11} /> {DAYS.find((d) => d.v === o.delivery_day)?.label ?? o.delivery_day}
             </span>
           )}
-          <span className="text-[10px] font-bold text-neutral-500 bg-white/80 border border-neutral-200 rounded-md px-1.5 py-0.5 shadow-2xs shrink-0 flex items-center gap-1" title="Datum zadání">
+          <span className="text-[11px] font-bold text-neutral-500 bg-white/80 border border-neutral-200 rounded-md px-1.5 py-0.5 shadow-2xs shrink-0 flex items-center gap-1" title="Datum zadání">
             <Calendar size={11} /> {new Date(o.order_date).toLocaleDateString('cs-CZ')}
           </span>
           <div className="ml-auto flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -2659,7 +2659,7 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
                     : isBeerMatch && isPkgMatch ? 'both' : isBeerMatch ? 'beer' : isPkgMatch ? 'pkg' : null;
                 const chipCls =
                   matchKind === 'beer'
-                    ? 'bg-blue-400 text-neutral-900 border-blue-600 ring-2 ring-blue-500 shadow-md scale-105'
+                    ? 'bg-sky-400 text-neutral-900 border-sky-600 ring-2 ring-sky-500 shadow-md scale-105'
                     : matchKind === 'pkg'
                       ? 'bg-emerald-400 text-neutral-900 border-emerald-600 ring-2 ring-emerald-500 shadow-md scale-105'
                       : matchKind === 'both'
@@ -2667,7 +2667,7 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
                         : 'bg-white text-neutral-800 border-neutral-200 shadow-xs';
                 const qtyCls =
                   matchKind === 'beer'
-                    ? 'bg-neutral-950 text-blue-300'
+                    ? 'bg-neutral-950 text-sky-300'
                     : matchKind === 'pkg'
                       ? 'bg-neutral-950 text-emerald-300'
                       : matchKind === 'both'
@@ -2705,18 +2705,18 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
           {o.whatsapp_message_id && (
             <button
               onClick={(e) => { e.stopPropagation(); onOpenWhatsApp && onOpenWhatsApp(o.whatsapp_message_id!); }}
-              className="text-[11px] font-extrabold shrink-0 text-green-900 bg-green-100 border border-green-300 rounded-md px-1.5 py-0.5 hover:bg-green-200 flex items-center gap-1"
+              className="text-[11px] font-extrabold shrink-0 text-emerald-900 bg-emerald-100 border border-emerald-300 rounded-md px-1.5 py-0.5 hover:bg-emerald-200 flex items-center gap-1"
               title="Otevřít originální WhatsApp zprávu a kontrolu čtení (#18)"
             >
               <MessageCircle size={11} /> WhatsApp
             </button>
           )}
           {(() => { const _ph = places.find(p => p.id === o.place_id)?.phone; return _ph ? (
-            <a href={`tel:${_ph}`} className="text-[11px] text-blue-700 font-bold flex items-center gap-0.5 hover:underline shrink-0">
+            <a href={`tel:${_ph}`} className="text-[11px] text-sky-700 font-bold flex items-center gap-0.5 hover:underline shrink-0">
               <Phone size={11} /> <span>{_ph}</span>
             </a>
           ) : null; })()}
-          {o.is_delivered && <span className="chip bg-purple-700 text-white font-black shadow-2xs flex items-center gap-1"><Check size={11} /> Zavez.</span>}
+          {o.is_delivered && <span className="chip bg-violet-700 text-white font-black shadow-2xs flex items-center gap-1"><Check size={11} /> Zavez.</span>}
         </div>
 
         {/* Řádek 3: sklad + připraveno + den + akce */}
@@ -2745,7 +2745,7 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
               <option value="">—</option>
               {DAYS.map((d) => <option key={d.v} value={d.v}>{d.label}</option>)}
             </select>
-            <button className="px-2 py-1 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[11px] shadow-md transition flex items-center gap-1" onClick={() => onEdit(o)} title="Upravit objednávku">
+            <button className="px-2 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[11px] shadow-md transition flex items-center gap-1" onClick={() => onEdit(o)} title="Upravit objednávku">
               <Pencil size={12} /> Upravit
             </button>
             <button className="btn-ghost !rounded text-[11px] font-bold !py-1 !px-2 !bg-emerald-50 text-emerald-950 border border-emerald-300 shadow-2xs hover:bg-emerald-100 flex items-center gap-1" onClick={() => shareOrderToWhatsApp(o, items)} title="Sdílet tuto objednávku na WhatsApp">
@@ -2903,9 +2903,9 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
             <span>{order.order_date}</span>
             <span>·</span>
             <span className={`chip ${STATUS[order.status]?.cls ?? ''}`}>{STATUS[order.status]?.label}</span>
-            {order.is_prepared && <span className="chip bg-success-100 text-success-700">✓ Připraveno</span>}
+            {order.is_prepared && <span className="chip bg-emerald-100 text-emerald-700">✓ Připraveno</span>}
             {order.is_packaged && <span className="chip bg-primary-200 text-primary-800"><PackageIcon className="ikona-text" /> Fasování</span>}
-            {order.is_delivered && <span className="chip bg-success-200 text-success-800">✓ Zavezenné</span>}
+            {order.is_delivered && <span className="chip bg-emerald-200 text-emerald-800">✓ Zavezenné</span>}
           </div>
           <a
             onClick={() => order.place_id && setPage && setPage('places', order.place_id)}
@@ -2919,14 +2919,14 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
             </span>
           </a>
           {(() => { const _ph = places.find(p => p.id === order.place_id)?.phone; return _ph ? (
-            <a href={`tel:${_ph}`} className="text-sm text-blue-700 font-bold mt-1.5 flex items-center gap-1 hover:underline">
+            <a href={`tel:${_ph}`} className="text-sm text-sky-700 font-bold mt-1.5 flex items-center gap-1 hover:underline">
               <Phone size={14} /> <span>{_ph}</span>
             </a>
           ) : null; })()}
 
           {placeHistory.length > 0 && (
             <div className="mb-3 rounded-xl bg-primary-50/60 border border-primary-100 p-3">
-              <div className="text-[10px] uppercase tracking-wider text-primary-500 mb-1.5"><Scroll className="ikona-text" /> Historie odběratele — poslední objednávky</div>
+              <div className="text-[11px] uppercase tracking-wider text-primary-500 mb-1.5"><Scroll className="ikona-text" /> Historie odběratele — poslední objednávky</div>
               <div className="space-y-1">
                 {placeHistory.map((h) => {
                   const hItems = allItems[h.id] ?? [];
@@ -2967,7 +2967,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
             </Field>
           </div>
           {deliveryDate && (
-            <div className="mt-2 text-xs text-accent-700">
+            <div className="mt-2 text-xs text-primary-700">
               <Bell className="ikona-text" /> Upomínka se automaticky vytvoří v kalendáři na <strong>{new Date(new Date(deliveryDate).getTime() - 3 * 86400000).toLocaleDateString('cs-CZ')}</strong> v 8:45.
             </div>
           )}
@@ -2989,14 +2989,14 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
               const isEditing = editingItemId === i.id;
               const beer = beers.find((b) => b.id === i.beer_id);
               return (
-                <div key={i.id} className={`rounded-2xl border p-3 space-y-2 ${i.is_prepared ? 'bg-success-50/50 border-success-200' : missing > 0 ? 'bg-danger-50/40 border-danger-200' : 'bg-white border-neutral-200'}`}>
+                <div key={i.id} className={`rounded-2xl border p-3 space-y-2 ${i.is_prepared ? 'bg-emerald-50/50 border-emerald-200' : missing > 0 ? 'bg-rose-50/40 border-rose-200' : 'bg-white border-neutral-200'}`}>
                   <div className="flex items-center justify-between gap-2">
                     <label className="flex items-center gap-2 min-w-0 flex-1 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={i.is_prepared}
                         onChange={() => toggleItemPrepared(i)}
-                        className="w-5 h-5 rounded text-success-600 cursor-pointer shrink-0"
+                        className="w-5 h-5 rounded text-emerald-600 cursor-pointer shrink-0"
                         title={i.is_prepared ? 'Připraveno' : 'Označit jako připravené'}
                       />
                       <span className="inline-block rounded-md px-2 py-0.5 font-bold text-sm truncate" style={{ backgroundColor: beerBg(beer), color: beerText(beer) === 'text-white' ? '#fff' : undefined }}>{i.beer_name ?? '—'}</span>
@@ -3013,15 +3013,15 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                           setEditQty(String(i.quantity));
                         }}
                       >✎</button>
-                      <button className="text-danger-400 hover:text-danger-600 min-w-[40px] min-h-[40px] flex items-center justify-center text-xl rounded hover:bg-danger-50" onClick={() => rmItem(i.id)}>×</button>
+                      <button className="text-rose-400 hover:text-rose-600 min-w-[40px] min-h-[40px] flex items-center justify-center text-xl rounded hover:bg-rose-50" onClick={() => rmItem(i.id)}>×</button>
                     </div>
                   </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-primary-600 font-bold">{i.package_label ?? '—'}</span>
                     <span className="font-black text-base text-neutral-900">{i.quantity} ks</span>
                   </div>
-                  {missing > 0 && <span className="block text-xs text-danger-600 font-bold"><AlertTriangle className="ikona-text" /> Chybí {missing} ks ve skladu</span>}
-                  {inStock && <span className="block text-xs text-success-600 font-bold">✓ Skladem ({rem} ks)</span>}
+                  {missing > 0 && <span className="block text-xs text-rose-600 font-bold"><AlertTriangle className="ikona-text" /> Chybí {missing} ks ve skladu</span>}
+                  {inStock && <span className="block text-xs text-emerald-600 font-bold">✓ Skladem ({rem} ks)</span>}
                   {isEditing && (
                     <div className="pt-2 border-t border-neutral-200 grid grid-cols-2 gap-2 items-end">
                       <div className="col-span-2">
@@ -3075,24 +3075,24 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                   const beer = beers.find((b) => b.id === i.beer_id);
                   return (
                     <>
-                    <tr key={i.id} className={i.is_prepared ? 'bg-success-50/50' : (missing > 0 ? 'bg-danger-50/40' : '')}>
+                    <tr key={i.id} className={i.is_prepared ? 'bg-emerald-50/50' : (missing > 0 ? 'bg-rose-50/40' : '')}>
                       <td className="align-middle">
                         <input
                           type="checkbox"
                           checked={i.is_prepared}
                           onChange={() => toggleItemPrepared(i)}
-                          className="w-5 h-5 rounded text-success-600 cursor-pointer"
+                          className="w-5 h-5 rounded text-emerald-600 cursor-pointer"
                           title={i.is_prepared ? 'Připraveno' : 'Označit jako připravené'}
                         />
                       </td>
                       <td className="font-medium">
                         <span className="inline-block rounded-md px-2 py-0.5" style={{ backgroundColor: beerBg(beer), color: beerText(beer) === 'text-white' ? '#fff' : undefined }}>{i.beer_name ?? '—'}</span>
-                        {missing > 0 && <span className="block text-xs text-danger-600 mt-0.5"><AlertTriangle className="ikona-text" /> Chybí {missing} ks ve skladu</span>}
-                        {inStock && <span className="block text-xs text-success-600 mt-0.5">✓ Skladem ({rem} ks)</span>}
+                        {missing > 0 && <span className="block text-xs text-rose-600 mt-0.5"><AlertTriangle className="ikona-text" /> Chybí {missing} ks ve skladu</span>}
+                        {inStock && <span className="block text-xs text-emerald-600 mt-0.5">✓ Skladem ({rem} ks)</span>}
                       </td>
                       <td className="text-primary-600">{i.package_label ?? '—'}</td>
                       <td className="text-right font-semibold">{i.quantity}</td>
-                      <td>{missing > 0 ? <span className="chip bg-danger-50 text-danger-700">!</span> : (inStock && <span className="chip bg-success-100 text-success-700">✓</span>)}</td>
+                      <td>{missing > 0 ? <span className="chip bg-rose-50 text-rose-700">!</span> : (inStock && <span className="chip bg-emerald-100 text-emerald-700">✓</span>)}</td>
                       <td className="text-right">
                         <button
                           className="text-primary-400 hover:text-primary-700 px-1"
@@ -3106,7 +3106,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                           }}
                         >✎</button>
                       </td>
-                      <td className="text-right"><button className="text-danger-400 hover:text-danger-600" onClick={() => rmItem(i.id)}>×</button></td>
+                      <td className="text-right"><button className="text-rose-400 hover:text-rose-600" onClick={() => rmItem(i.id)}>×</button></td>
                     </tr>
                     {isEditing && (
                       <tr className="bg-primary-50/60">
@@ -3236,14 +3236,14 @@ function WhatsAppOriginalBlock({ messageId }: { messageId: string }) {
   }, [messageId]);
 
   return (
-    <div className="card p-4 mb-4 border-2 border-green-200">
+    <div className="card p-4 mb-4 border-2 border-emerald-200">
       <button
         type="button"
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between gap-3 text-left"
       >
-        <span className="flex items-center gap-2 font-display font-extrabold text-green-800 text-sm sm:text-base">
-          <MessageCircle size={18} className="text-green-600 shrink-0" />
+        <span className="flex items-center gap-2 font-display font-extrabold text-emerald-800 text-sm sm:text-base">
+          <MessageCircle size={18} className="text-emerald-600 shrink-0" />
           Původní WhatsApp zpráva
         </span>
         <span className="text-[11px] font-bold text-neutral-400">{open ? 'Sbalit ▲' : 'Zobrazit ▼'}</span>
@@ -3255,7 +3255,7 @@ function WhatsAppOriginalBlock({ messageId }: { messageId: string }) {
             <div className="py-5 flex justify-center"><Spinner /></div>
           )}
           {error && (
-            <p className="text-sm text-danger-600 font-semibold">
+            <p className="text-sm text-rose-600 font-semibold">
               Nepodařilo se načíst WhatsApp zprávu: {error}
             </p>
           )}

@@ -104,7 +104,7 @@ export default function AppVersionsScreen() {
 
       {/* Chyba */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 rounded p-4 text-sm">
+        <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded p-4 text-sm">
           {error}
         </div>
       )}

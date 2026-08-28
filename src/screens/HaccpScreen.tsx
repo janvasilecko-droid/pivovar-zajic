@@ -566,7 +566,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
                   <input className="input !py-1.5 text-xs font-mono font-bold text-neutral-900 bg-white mt-1" value={calcC} onChange={(e) => setCalcC(e.target.value)} placeholder="100" />
                 </div>
                 <div className="p-3 rounded bg-amber-500 text-neutral-950 font-mono flex flex-col justify-center">
-                  <span className="text-[10px] uppercase font-black tracking-wider text-amber-950">M — Hmotnost chemikálie</span>
+                  <span className="text-[11px] uppercase font-black tracking-wider text-amber-950">M — Hmotnost chemikálie</span>
                   <span className="font-display font-black text-2xl">{calcM ? `${calcM} kg` : '—'}</span>
                 </div>
               </div>
@@ -750,7 +750,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
                         {doc.icon}
                       </span>
                       <div>
-                        <span className="text-[10px] font-mono font-black uppercase text-amber-600 tracking-wider">Bod {doc.num}</span>
+                        <span className="text-[11px] font-mono font-black uppercase text-amber-600 tracking-wider">Bod {doc.num}</span>
                         <h3 className="font-display font-black text-base text-neutral-900 leading-tight">{doc.title}</h3>
                       </div>
                     </div>
@@ -877,19 +877,19 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center font-mono">
               <div className="p-3 rounded bg-white/10 border border-white/20">
-                <div className="text-[10px] text-rose-200 font-bold uppercase">Záchranka (ZZS)</div>
+                <div className="text-[11px] text-rose-200 font-bold uppercase">Záchranka (ZZS)</div>
                 <div className="text-2xl font-black text-white">155</div>
               </div>
               <div className="p-3 rounded bg-white/10 border border-white/20">
-                <div className="text-[10px] text-rose-200 font-bold uppercase">Hasiči (HZS)</div>
+                <div className="text-[11px] text-rose-200 font-bold uppercase">Hasiči (HZS)</div>
                 <div className="text-2xl font-black text-white">150</div>
               </div>
               <div className="p-3 rounded bg-white/10 border border-white/20">
-                <div className="text-[10px] text-rose-200 font-bold uppercase">Toxikologie (TIS)</div>
+                <div className="text-[11px] text-rose-200 font-bold uppercase">Toxikologie (TIS)</div>
                 <div className="text-base font-black text-amber-300">224 919 293</div>
               </div>
               <div className="p-3 rounded bg-white/10 border border-white/20">
-                <div className="text-[10px] text-rose-200 font-bold uppercase">Tísňové volání</div>
+                <div className="text-[11px] text-rose-200 font-bold uppercase">Tísňové volání</div>
                 <div className="text-2xl font-black text-white">112</div>
               </div>
             </div>
@@ -963,18 +963,18 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
             </div>
 
             {/* 🚰 Požití chemikálie */}
-            <div className="card p-6 bg-white border-2 border-purple-200 rounded space-y-4 shadow-sm">
-              <div className="flex items-center gap-3 border-b border-purple-100 pb-3">
-                <div className="w-10 h-10 rounded bg-purple-100 text-purple-700 flex items-center justify-center font-black text-xl">
+            <div className="card p-6 bg-white border-2 border-violet-200 rounded space-y-4 shadow-sm">
+              <div className="flex items-center gap-3 border-b border-violet-100 pb-3">
+                <div className="w-10 h-10 rounded bg-violet-100 text-violet-700 flex items-center justify-center font-black text-xl">
                   <IkonaVycep className="ikona-text" />
                 </div>
                 <div>
-                  <h3 className="font-display font-black text-base text-purple-950">4. Požití kyseliny nebo louhu</h3>
-                  <span className="text-[11px] font-bold text-purple-700">Náhodné požití sanitačního roztoku</span>
+                  <h3 className="font-display font-black text-base text-violet-950">4. Požití kyseliny nebo louhu</h3>
+                  <span className="text-[11px] font-bold text-violet-700">Náhodné požití sanitačního roztoku</span>
                 </div>
               </div>
               <ul className="space-y-2.5 text-xs text-neutral-800 font-medium">
-                <li className="p-2.5 rounded bg-purple-50 border border-purple-200 font-bold text-purple-950">
+                <li className="p-2.5 rounded bg-violet-50 border border-violet-200 font-bold text-violet-950">
                   🚫 <strong>NEVYVOLÁVAT ZVRACENÍ!</strong> Zvratky by znovu poleptaly jícen a hrozí proděravění žaludku.
                 </li>
                 <li>• Postiženému dát ihned vypít 2–5 dcl čisté chladné vody pro rozředění chemikálie.</li>

@@ -827,7 +827,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             >
               <span className="inline-flex items-center gap-1.5"><CalendarDays size={14} /> Co stočit na který den</span>
               {planMissingTotal > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full bg-amber-300 text-amber-950 text-[10px] font-black">
+                <span className="px-1.5 py-0.5 rounded-full bg-amber-300 text-amber-950 text-[11px] font-black">
                   {planMissingTotal}
                 </span>
               )}
@@ -839,7 +839,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             >
               <span className="inline-flex items-center gap-1.5"><RefreshCw size={14} /> Přefuk KEG</span>
               {prefukRows.length > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full bg-sky-200 text-sky-900 text-[10px] font-black">{prefukRows.length}</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-sky-200 text-sky-900 text-[11px] font-black">{prefukRows.length}</span>
               )}
             </button>
             <button
@@ -849,7 +849,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             >
               <span className="inline-flex items-center gap-1.5"><ClipboardList size={14} /> Checklist</span>
               {isLastWeekOfMonth() && !isMonthlyChecklistCompleteForKeg(businessDateISO()) && (
-                <span className="px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black animate-pulse">1</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[11px] font-black animate-pulse">1</span>
               )}
             </button>
             <button
@@ -930,7 +930,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
       {/* Zápis stáčení — multi-row (12 řádků pivo+obal+množství najednou) */}
       {tab === 'zapis' && mode !== 'overviews_only' && isStartChecklistCompleteForKeg(businessDateISO()) && (
-        <form onSubmit={add} className={`card px-1 py-3 mb-5 transition-all duration-200 ${flash ? 'ring-4 ring-success-500/20' : ''}`}>
+        <form onSubmit={add} className={`card px-1 py-3 mb-5 transition-all duration-200 ${flash ? 'ring-4 ring-emerald-500/20' : ''}`}>
 
           <div className="grid grid-cols-2 gap-3 items-end mb-4">
           <div className="flex items-center gap-2">
@@ -1029,7 +1029,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                     </div>
                     {qty > 0 && rowTanks.length > 1 && (
                       <div>
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 border border-amber-300 text-amber-900 text-[10px] font-black whitespace-nowrap"><AlertTriangle className="ikona-text" /> {rowTanks.length} aktivní tanky — vyber</span>
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 border border-amber-300 text-amber-900 text-[11px] font-black whitespace-nowrap"><AlertTriangle className="ikona-text" /> {rowTanks.length} aktivní tanky — vyber</span>
                         <select
                           className="input !py-1 !px-1.5 text-xs font-bold w-full mt-1"
                           value={currentTankId}
@@ -1043,10 +1043,10 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                       </div>
                     )}
                     {qty > 0 && rowTanks.length === 1 && (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-900 text-[10px] font-black whitespace-nowrap"><IkonaSud className="ikona-text" /> {rowTanks[0].label}</span>
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-900 text-[11px] font-black whitespace-nowrap"><IkonaSud className="ikona-text" /> {rowTanks[0].label}</span>
                     )}
                     {qty > 0 && rowTanks.length === 0 && (
-                      <span className="text-[10px] text-neutral-400 font-semibold">žádný aktivní tank — objem se neodečte</span>
+                      <span className="text-[11px] text-neutral-400 font-semibold">žádný aktivní tank — objem se neodečte</span>
                     )}
                   </div>
                 );
@@ -1539,11 +1539,11 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                       </div>
                       <div className="grid grid-cols-2 gap-1.5 text-center">
                         <div className="rounded bg-amber-100/70 py-1.5">
-                          <div className="text-[9px] font-black uppercase text-amber-700">Litry</div>
+                          <div className="text-[11px] font-black uppercase text-amber-700">Litry</div>
                           <div className="text-sm font-black text-amber-900">{liters.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })}</div>
                         </div>
                         <div className="rounded bg-amber-100/70 py-1.5">
-                          <div className="text-[9px] font-black uppercase text-amber-700">HL</div>
+                          <div className="text-[11px] font-black uppercase text-amber-700">HL</div>
                           <div className="text-sm font-black text-amber-900">{(liters / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 })}</div>
                         </div>
                       </div>
@@ -1864,7 +1864,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               </div>
             )}
 
-            {pfErr && <p className="text-xs text-danger-600 font-bold mt-3">{pfErr}</p>}
+            {pfErr && <p className="text-xs text-rose-600 font-bold mt-3">{pfErr}</p>}
 
             <div className="flex justify-end mt-4">
               <button type="submit" className="btn-primary !rounded" disabled={pfSaving}>
@@ -1920,7 +1920,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                             <button
                               type="button"
                               onClick={() => deletePrefuk(r.id)}
-                              className="px-2 py-1 rounded text-neutral-400 hover:text-danger-600 hover:bg-danger-50 transition"
+                              className="px-2 py-1 rounded text-neutral-400 hover:text-rose-600 hover:bg-rose-50 transition"
                               title="Smazat přefuk"
                             >
                               <Trash2 className="ikona-text" />

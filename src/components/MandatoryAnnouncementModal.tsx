@@ -77,11 +77,11 @@ export function MandatoryAnnouncementModal() {
     <div className="fixed inset-0 bg-neutral-950/85 backdrop-blur-md flex items-center justify-center p-4 z-[9999] animate-in fade-in duration-200">
       <div className="bg-white rounded max-w-xl w-full p-6 sm:p-8 space-y-6 shadow-2xl border-4 border-amber-500 relative overflow-hidden">
         {/* Decorative Top Accent Line */}
-        <div className={`h-3 w-full absolute top-0 left-0 right-0 ${isTech ? 'bg-amber-500' : isImp ? 'bg-rose-600' : 'bg-blue-600'}`} />
+        <div className={`h-3 w-full absolute top-0 left-0 right-0 ${isTech ? 'bg-amber-500' : isImp ? 'bg-rose-600' : 'bg-sky-600'}`} />
 
         <div className="flex items-start gap-4 pt-2">
           <div className={`w-14 h-14 rounded flex items-center justify-center text-white shrink-0 shadow-lg ${
-            isTech ? 'bg-amber-500' : isImp ? 'bg-rose-600' : 'bg-blue-600'
+            isTech ? 'bg-amber-500' : isImp ? 'bg-rose-600' : 'bg-sky-600'
           }`}>
             {isTech ? <AlertTriangle size={32} /> : isImp ? <ShieldAlert size={32} /> : <BellRing size={32} />}
           </div>

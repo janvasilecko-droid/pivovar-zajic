@@ -194,7 +194,7 @@ export function FestivalEquipmentTracker() {
             <div>
               <div className="flex items-start justify-between gap-2 border-b border-neutral-100 pb-3">
                 <div>
-                  <span className="text-[10px] font-black uppercase tracking-wider bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded-md border border-neutral-200">
+                  <span className="text-[11px] font-black uppercase tracking-wider bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded-md border border-neutral-200">
                     Kód: {item.serialCode}
                   </span>
                   <h4 className="font-display font-black text-base text-neutral-900 mt-1">{item.name}</h4>

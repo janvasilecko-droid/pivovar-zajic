@@ -24,7 +24,7 @@ import { IkonaLahev } from '../components/ikony';
 
 const BARVY: Record<string, { tecka: string; pruh: string; popis: string }> = {
   primary: { tecka: 'bg-primary-500', pruh: 'bg-primary-500', popis: 'Modrá' },
-  accent: { tecka: 'bg-accent-500', pruh: 'bg-accent-500', popis: 'Tyrkysová' },
+  accent: { tecka: 'bg-primary-500', pruh: 'bg-primary-500', popis: 'Tyrkysová' },
   success: { tecka: 'bg-emerald-500', pruh: 'bg-emerald-500', popis: 'Zelená' },
   warning: { tecka: 'bg-amber-500', pruh: 'bg-amber-500', popis: 'Oranžová' },
   danger: { tecka: 'bg-rose-500', pruh: 'bg-rose-500', popis: 'Červená' },

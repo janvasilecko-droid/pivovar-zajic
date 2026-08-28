@@ -125,7 +125,7 @@ export function PlaceCombobox({ value, onChange, places, onPlacesChanged, placeh
               onClick={() => pick(p)}
             >
               <span className="text-primary-800">{p.name}</span>
-              {exactDup && exactDup.id === p.id && <span className="chip bg-warning-100 text-warning-700 text-[10px]">existuje</span>}
+              {exactDup && exactDup.id === p.id && <span className="chip bg-amber-100 text-amber-700 text-[11px]">existuje</span>}
             </button>
           ))}
           {isNew && (
@@ -135,7 +135,7 @@ export function PlaceCombobox({ value, onChange, places, onPlacesChanged, placeh
               onMouseEnter={() => setActive(matches.length)}
               onClick={() => ensurePlace()}
             >
-              <span className="text-success-600 font-bold">+ Uložit nového odběratele:</span>
+              <span className="text-emerald-600 font-bold">+ Uložit nového odběratele:</span>
               <span className="text-primary-800 font-medium">{text.trim()}</span>
             </button>
           )}
@@ -145,7 +145,7 @@ export function PlaceCombobox({ value, onChange, places, onPlacesChanged, placeh
       {isNew && (
         <button
           type="button"
-          className="mt-1.5 w-full px-3 py-2 rounded bg-success-600 hover:bg-success-500 text-white font-black text-xs transition shadow-sm flex items-center justify-center gap-1.5"
+          className="mt-1.5 w-full px-3 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs transition shadow-sm flex items-center justify-center gap-1.5"
           onClick={() => ensurePlace()}
           disabled={creating}
         >
@@ -154,13 +154,13 @@ export function PlaceCombobox({ value, onChange, places, onPlacesChanged, placeh
       )}
 
       {exactDup && (
-        <div className="text-[11px] text-warning-700 mt-1 flex items-center gap-1">
+        <div className="text-[11px] text-amber-700 mt-1 flex items-center gap-1">
           <span><AlertTriangle className="ikona-text" /></span> Odběratel „{exactDup.name}“ už existuje — bude použit stávající záznam.
         </div>
       )}
 
       {msg && (
-        <div className={`text-[11px] mt-1 font-semibold ${msg.type === 'ok' ? 'text-success-700' : 'text-danger-600'}`}>
+        <div className={`text-[11px] mt-1 font-semibold ${msg.type === 'ok' ? 'text-emerald-700' : 'text-rose-600'}`}>
           {msg.text}
         </div>
       )}

@@ -163,11 +163,11 @@ export function TapReservationModal({ orderDate, customerName, orderId, tapTypeH
                     <div className="flex items-center justify-between">
                       <div>
                         <span className="font-black text-sm text-neutral-900">{t.name}</span>
-                        <span className="ml-2 px-2 py-0.5 rounded-full bg-neutral-900 text-amber-300 font-extrabold text-[10px] uppercase">
+                        <span className="ml-2 px-2 py-0.5 rounded-full bg-neutral-900 text-amber-300 font-extrabold text-[11px] uppercase">
                           {t.tap_type === 'jednokohout' ? '🚰 1K' : t.tap_type === 'dvojkohout' ? '🚰🚰 2K' : t.tap_type === 'trojkohout' ? '🚰🚰🚰 3K' : '🚰🚰🚰🚰🚰🚰 6K'}
                         </span>
                       </div>
-                      {!available && <span className="text-[10px] font-bold text-rose-600"><XCircle className="ikona-text" /> Rezervováno</span>}
+                      {!available && <span className="text-[11px] font-bold text-rose-600"><XCircle className="ikona-text" /> Rezervováno</span>}
                       {isSelected && <span className="text-amber-600 font-black text-sm">✓</span>}
                     </div>
                   </button>
@@ -227,7 +227,7 @@ export function TapReservationModal({ orderDate, customerName, orderId, tapTypeH
         </div>
 
         {err && (
-          <div className="text-sm text-danger-600 bg-danger-500/10 rounded px-3 py-2 font-bold">{err}</div>
+          <div className="text-sm text-rose-600 bg-rose-500/10 rounded px-3 py-2 font-bold">{err}</div>
         )}
 
         <div className="flex justify-end gap-2 pt-2 border-t border-neutral-100">

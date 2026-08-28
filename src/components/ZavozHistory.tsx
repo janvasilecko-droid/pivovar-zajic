@@ -246,7 +246,7 @@ export default function ZavozHistory() {
                     <div key={o.id} className="p-3.5 rounded bg-neutral-50 border border-neutral-200/80 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="font-black text-sm text-neutral-900 truncate">{o.place_name}</span>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${o.is_delivered ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' : 'bg-amber-100 text-amber-900'}`}>
+                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-black ${o.is_delivered ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' : 'bg-amber-100 text-amber-900'}`}>
                           {o.is_delivered ? '✓ Zavezeno' : 'Čeká'}
                         </span>
                       </div>
@@ -260,7 +260,7 @@ export default function ZavozHistory() {
                         ))}
                       </div>
 
-                      <div className="text-[10px] text-neutral-500 font-bold text-right pt-1 border-t border-neutral-200/60">
+                      <div className="text-[11px] text-neutral-500 font-bold text-right pt-1 border-t border-neutral-200/60">
                         Váha: {fmtKg(wKg)} kg
                       </div>
                     </div>

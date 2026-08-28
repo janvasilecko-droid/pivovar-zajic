@@ -125,7 +125,7 @@ export default function PriceListScreen() {
                       <div className="p-3 space-y-2.5">
                         <span className={`text-sm font-black ${txt}`}>{b.name}{b.degree ? ` (${b.degree})` : ''}</span>
                         <label className="block">
-                          <span className="text-[10px] font-black uppercase text-neutral-600 bg-white/70 px-1.5 py-0.5 rounded-md inline-block mb-1">Cena za 1 litr</span>
+                          <span className="text-[11px] font-black uppercase text-neutral-600 bg-white/70 px-1.5 py-0.5 rounded-md inline-block mb-1">Cena za 1 litr</span>
                           <input
                             type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} step="0.01" min={0}
                             className="input w-full text-right font-mono font-black text-base bg-white border border-neutral-300 shadow-xs"
@@ -241,7 +241,7 @@ export default function PriceListScreen() {
                             const cellKey = `${b.id}:${p.id}`;
                             return (
                               <label key={p.id} className="block">
-                                <span className="text-[10px] font-black uppercase text-neutral-600 bg-white/70 px-1.5 py-0.5 rounded-md inline-block mb-1">{formatPackageLabel(p.label)}</span>
+                                <span className="text-[11px] font-black uppercase text-neutral-600 bg-white/70 px-1.5 py-0.5 rounded-md inline-block mb-1">{formatPackageLabel(p.label)}</span>
                                 <input
                                   type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} step="0.01" min={0}
                                   className="input w-full text-right font-mono font-black text-sm bg-white border border-neutral-300 shadow-xs"

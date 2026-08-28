@@ -234,13 +234,13 @@ export default function TapSanitationDiary() {
                 <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-neutral-100">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-black text-sm text-neutral-900">{e.tap_name || e.tap_id}</span>
-                    <span className="text-[10px] font-black text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded">{formatDate(e.sanitation_date)}</span>
+                    <span className="text-[11px] font-black text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded">{formatDate(e.sanitation_date)}</span>
                     {e.sanitation_time && (
-                      <span className="text-[10px] font-mono font-black text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded flex items-center gap-1">
+                      <span className="text-[11px] font-mono font-black text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded flex items-center gap-1">
                         <Clock size={10} /> {e.sanitation_time}
                       </span>
                     )}
-                    <span className="text-[10px] font-bold text-neutral-500">{TAP_SAN_REASON_LABELS[e.reason] || e.reason}</span>
+                    <span className="text-[11px] font-bold text-neutral-500">{TAP_SAN_REASON_LABELS[e.reason] || e.reason}</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <button
@@ -268,13 +268,13 @@ export default function TapSanitationDiary() {
                       <div key={s.id} className="flex items-center gap-2">
                         <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
                         <span className="text-[11px] text-neutral-700 font-semibold flex-1">{s.text}</span>
-                        {s.completedAt && <span className="text-[10px] font-mono font-black text-amber-800"><Timer className="ikona-text" /> {s.completedAt}</span>}
+                        {s.completedAt && <span className="text-[11px] font-mono font-black text-amber-800"><Timer className="ikona-text" /> {s.completedAt}</span>}
                       </div>
                     ))
                   )}
                 </div>
 
-                <div className="text-[10px] text-neutral-400 mt-2">
+                <div className="text-[11px] text-neutral-400 mt-2">
                   Hotovo <b className="text-neutral-600">{done.length}/{total}</b> · {e.performed_by ? `Provádí: ${e.performed_by}` : 'bez provádějící osoby'}
                 </div>
               </div>

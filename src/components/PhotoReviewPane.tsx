@@ -194,7 +194,7 @@ export function PhotoReviewPane({ photos, activeIndex, onChangeIndex, activeBbox
               />
               {activeBbox && (
                 <div
-                  className="absolute border-2 border-red-500/90 pointer-events-none"
+                  className="absolute border-2 border-rose-500/90 pointer-events-none"
                   style={{
                     left: `${activeBbox.x0}%`,
                     top: `${activeBbox.y0}%`,

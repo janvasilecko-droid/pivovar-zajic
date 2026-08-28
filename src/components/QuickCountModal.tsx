@@ -111,7 +111,7 @@ export function QuickCountModal({
                 >
                   <span>{formatPackageLabel(pkg.label)}</span>
                   {c > 0 && (
-                    <span className="px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold bg-emerald-100 text-emerald-950">
+                    <span className="px-1.5 py-0.5 rounded-md text-[11px] font-mono font-bold bg-emerald-100 text-emerald-950">
                       {c} ks
                     </span>
                   )}

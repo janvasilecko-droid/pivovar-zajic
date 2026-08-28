@@ -48,7 +48,7 @@ export function AuditLogViewer() {
           <div key={log.id} className="p-4 rounded bg-white border border-neutral-200 shadow-2xs flex items-center justify-between gap-4">
             <div className="space-y-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="px-2.5 py-0.5 rounded-md bg-amber-100 text-amber-950 font-black text-[10px] border border-amber-200">
+                <span className="px-2.5 py-0.5 rounded-md bg-amber-100 text-amber-950 font-black text-[11px] border border-amber-200">
                   {log.module}
                 </span>
                 <span className="font-display font-black text-xs text-neutral-900">{log.action}</span>

@@ -434,16 +434,16 @@ export default function KegSanitationDiary() {
                       <Calendar size={14} className="text-amber-600 shrink-0" />
                       <span>{new Date(e.sanitation_date).toLocaleDateString('cs-CZ')}</span>
                       {e.sanitation_time && (
-                        <span className="text-neutral-500 font-medium flex items-center gap-0.5 text-[10px] bg-neutral-100 px-1.5 py-0.5 rounded">
+                        <span className="text-neutral-500 font-medium flex items-center gap-0.5 text-[11px] bg-neutral-100 px-1.5 py-0.5 rounded">
                           <Clock size={10} /> {e.sanitation_time}
                         </span>
                       )}
                     </div>
-                    <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded border font-bold text-[10px] shadow-xs ${
+                    <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded border font-bold text-[11px] shadow-xs ${
                       e.reason === 'mesicni'
                         ? 'bg-rose-100 border-rose-300 text-rose-950'
                         : e.reason === 'po_staceni'
-                          ? 'bg-purple-100 border-purple-300 text-purple-950'
+                          ? 'bg-violet-100 border-violet-300 text-violet-950'
                           : 'bg-sky-100 border-sky-300 text-sky-950'
                     }`}>
                       {reasonLabel}
@@ -454,7 +454,7 @@ export default function KegSanitationDiary() {
                     <User size={13} className="text-neutral-400 shrink-0" />
                     {e.performed_by ?? '—'}
                     {e.approved_by && (
-                      <span className="flex items-center gap-1 text-emerald-700 text-[10px] font-bold ml-1.5">
+                      <span className="flex items-center gap-1 text-emerald-700 text-[11px] font-bold ml-1.5">
                         <UserCheck size={11} /> Schválil: {e.approved_by}
                       </span>
                     )}
@@ -538,11 +538,11 @@ export default function KegSanitationDiary() {
                         <td className="py-3 px-4 align-top">
                           <div className="font-bold text-neutral-900">{r.label}</div>
                           {isNewGroup && (
-                            <span className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded border font-bold text-[10px] shadow-xs ${
+                            <span className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded border font-bold text-[11px] shadow-xs ${
                               r.entry.reason === 'mesicni'
                                 ? 'bg-rose-100 border-rose-300 text-rose-950'
                                 : r.entry.reason === 'po_staceni'
-                                  ? 'bg-purple-100 border-purple-300 text-purple-950'
+                                  ? 'bg-violet-100 border-violet-300 text-violet-950'
                                   : 'bg-sky-100 border-sky-300 text-sky-950'
                             }`}>
                               {reasonLabel}
@@ -574,7 +574,7 @@ export default function KegSanitationDiary() {
                                 {r.entry.performed_by ?? '—'}
                               </div>
                               {r.entry.approved_by && (
-                                <div className="flex items-center gap-1 text-emerald-700 text-[10px] font-bold">
+                                <div className="flex items-center gap-1 text-emerald-700 text-[11px] font-bold">
                                   <UserCheck size={11} />
                                   <span>Schválil: {r.entry.approved_by}</span>
                                 </div>
@@ -703,7 +703,7 @@ export default function KegSanitationDiary() {
                       **Nebo** proplach **Persteril 0.2%** (10 minut)
                     </SanitationStepRow>
                     <div className="border-t border-neutral-200/80 my-2 pt-2 space-y-1.5">
-                      <span className="block text-[10px] font-bold text-neutral-500 uppercase">Sanitace klapek:</span>
+                      <span className="block text-[11px] font-bold text-neutral-500 uppercase">Sanitace klapek:</span>
                       <SanitationStepRow
                         field="proc_spray_valves_persteril_02_10"
                         checked={procSprayValvesPersteril}
@@ -736,7 +736,7 @@ export default function KegSanitationDiary() {
                 </div>
 
                 {/* Section B: Po stáčení */}
-                <div className={`p-4 rounded border transition ${reason === 'po_staceni' ? 'bg-purple-50/50 border-purple-300 shadow-sm' : 'bg-neutral-50/50 border-neutral-200 opacity-60'}`}>
+                <div className={`p-4 rounded border transition ${reason === 'po_staceni' ? 'bg-violet-50/50 border-violet-300 shadow-sm' : 'bg-neutral-50/50 border-neutral-200 opacity-60'}`}>
                   <h4 className="font-black text-xs text-neutral-800 uppercase tracking-wider flex items-center gap-1.5 mb-2.5">
                     🌙 Část B: Po stáčení / Po konci
                   </h4>

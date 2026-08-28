@@ -333,7 +333,7 @@ export function OrderAuditModal({
                 <span className={`text-xl sm:text-2xl font-black ${itemsDupCount > 0 ? 'text-rose-700' : 'text-neutral-500'}`}>
                   {itemsDupCount}
                 </span>
-                <span className="text-[10px] font-bold text-neutral-500">v objednávkách</span>
+                <span className="text-[11px] font-bold text-neutral-500">v objednávkách</span>
               </div>
             </button>
 
@@ -356,7 +356,7 @@ export function OrderAuditModal({
                 <span className={`text-xl sm:text-2xl font-black ${waMismatchCount > 0 ? 'text-amber-700' : 'text-neutral-500'}`}>
                   {waMismatchCount}
                 </span>
-                <span className="text-[10px] font-bold text-neutral-500">rozdílných ks</span>
+                <span className="text-[11px] font-bold text-neutral-500">rozdílných ks</span>
               </div>
             </button>
 
@@ -365,21 +365,21 @@ export function OrderAuditModal({
               onClick={() => setActiveTab(activeTab === 'order_dup' ? 'all' : 'order_dup')}
               className={`p-2.5 sm:p-3 rounded border-2 text-left transition flex flex-col justify-between select-none ${
                 activeTab === 'order_dup'
-                  ? 'bg-purple-100 border-purple-500 ring-2 ring-purple-400 shadow-sm'
+                  ? 'bg-violet-100 border-violet-500 ring-2 ring-violet-400 shadow-sm'
                   : orderDupCount > 0
-                  ? 'bg-purple-50/80 border-purple-200 hover:border-purple-300'
+                  ? 'bg-violet-50/80 border-violet-200 hover:border-violet-300'
                   : 'bg-neutral-50 border-neutral-200 opacity-60'
               }`}
             >
-              <div className="flex items-center justify-between text-purple-800 mb-1">
+              <div className="flex items-center justify-between text-violet-800 mb-1">
                 <span className="text-[11px] font-black uppercase tracking-wider">Duplicitní obj.</span>
                 <Copy size={15} />
               </div>
               <div className="flex items-baseline gap-1.5">
-                <span className={`text-xl sm:text-2xl font-black ${orderDupCount > 0 ? 'text-purple-700' : 'text-neutral-500'}`}>
+                <span className={`text-xl sm:text-2xl font-black ${orderDupCount > 0 ? 'text-violet-700' : 'text-neutral-500'}`}>
                   {orderDupCount}
                 </span>
-                <span className="text-[10px] font-bold text-neutral-500">stejný zákazník</span>
+                <span className="text-[11px] font-bold text-neutral-500">stejný zákazník</span>
               </div>
             </button>
 
@@ -388,21 +388,21 @@ export function OrderAuditModal({
               onClick={() => setActiveTab(activeTab === 'unprocessed' ? 'all' : 'unprocessed')}
               className={`p-2.5 sm:p-3 rounded border-2 text-left transition flex flex-col justify-between select-none ${
                 activeTab === 'unprocessed'
-                  ? 'bg-blue-100 border-blue-500 ring-2 ring-blue-400 shadow-sm'
+                  ? 'bg-sky-100 border-sky-500 ring-2 ring-sky-400 shadow-sm'
                   : unprocessedCount > 0
-                  ? 'bg-blue-50/80 border-blue-200 hover:border-blue-300'
+                  ? 'bg-sky-50/80 border-sky-200 hover:border-sky-300'
                   : 'bg-neutral-50 border-neutral-200 opacity-60'
               }`}
             >
-              <div className="flex items-center justify-between text-blue-800 mb-1">
+              <div className="flex items-center justify-between text-sky-800 mb-1">
                 <span className="text-[11px] font-black uppercase tracking-wider">Čekající zprávy</span>
                 <Sparkles size={15} />
               </div>
               <div className="flex items-baseline gap-1.5">
-                <span className={`text-xl sm:text-2xl font-black ${unprocessedCount > 0 ? 'text-blue-700' : 'text-neutral-500'}`}>
+                <span className={`text-xl sm:text-2xl font-black ${unprocessedCount > 0 ? 'text-sky-700' : 'text-neutral-500'}`}>
                   {unprocessedCount}
                 </span>
-                <span className="text-[10px] font-bold text-neutral-500">nezadaných</span>
+                <span className="text-[11px] font-bold text-neutral-500">nezadaných</span>
               </div>
             </button>
 
@@ -426,7 +426,7 @@ export function OrderAuditModal({
                 <span className={`text-xl sm:text-2xl font-black ${podezreniCelkem > 0 ? 'text-violet-700' : 'text-neutral-500'}`}>
                   {podezreniCelkem}
                 </span>
-                <span className="text-[10px] font-bold text-neutral-500">podezření</span>
+                <span className="text-[11px] font-bold text-neutral-500">podezření</span>
               </div>
             </button>
           </div>
@@ -526,7 +526,7 @@ export function OrderAuditModal({
                       <div className="overflow-x-auto">
                         <table className="w-full text-xs">
                           <thead>
-                            <tr className="text-[10px] font-black uppercase tracking-wider text-neutral-500 border-b border-neutral-200">
+                            <tr className="text-[11px] font-black uppercase tracking-wider text-neutral-500 border-b border-neutral-200">
                               <th className="text-left py-1.5">Den</th>
                               <th className="text-right py-1.5">Došlo</th>
                               <th className="text-right py-1.5">Uloženo</th>
@@ -602,7 +602,7 @@ export function OrderAuditModal({
                           <div key={z.id} className="rounded-lg bg-white border border-rose-200 p-2">
                             <div className="flex items-center justify-between gap-2">
                               <span className="text-xs font-black text-rose-950 truncate">{z.sender_name}</span>
-                              <span className="text-[10px] font-bold text-neutral-500 shrink-0">
+                              <span className="text-[11px] font-bold text-neutral-500 shrink-0">
                                 {String(z.created_at).slice(0, 16).replace('T', ' ')}
                               </span>
                             </div>
@@ -816,7 +816,7 @@ export function OrderAuditModal({
                               <MessageSquare size={13} />
                               <span>Původní WhatsApp zpráva</span>
                             </span>
-                            <span className="flex items-center gap-1 text-neutral-500 text-[10px]">
+                            <span className="flex items-center gap-1 text-neutral-500 text-[11px]">
                               {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                               {isExpanded ? 'Sbalit' : 'Zobrazit text'}
                             </span>
@@ -847,7 +847,7 @@ export function OrderAuditModal({
                                     ? 'bg-amber-50 text-amber-950 border-amber-300'
                                     : m.kind === 'missing_in_order'
                                     ? 'bg-rose-50 text-rose-950 border-rose-300'
-                                    : 'bg-purple-50 text-purple-950 border-purple-300'
+                                    : 'bg-violet-50 text-violet-950 border-violet-300'
                                 }`}
                               >
                                 <div>
@@ -882,33 +882,33 @@ export function OrderAuditModal({
               {/* 3. SEKCIE: DUPLICITNÍ CELÉ OBJEDNÁVKY */}
               {(activeTab === 'all' || activeTab === 'order_dup') && orderDupCount > 0 && (
                 <div className="space-y-3">
-                  <div className="text-xs font-black uppercase tracking-wider text-purple-900 flex items-center justify-between px-1">
+                  <div className="text-xs font-black uppercase tracking-wider text-violet-900 flex items-center justify-between px-1">
                     <span className="flex items-center gap-1.5">
-                      <Copy size={15} className="text-purple-600" />
+                      <Copy size={15} className="text-violet-600" />
                       <span>Podezřelé duplicitní objednávky ({orderDupCount})</span>
                     </span>
-                    <span className="text-[11px] font-normal text-purple-700">Stejný zákazník v témže týdnu</span>
+                    <span className="text-[11px] font-normal text-violet-700">Stejný zákazník v témže týdnu</span>
                   </div>
 
                   {report?.duplicateOrderIssues.map((issue, idx) => (
                     <div
                       key={idx}
-                      className="p-3.5 sm:p-4 rounded bg-white border-2 border-purple-300 shadow-xs space-y-3"
+                      className="p-3.5 sm:p-4 rounded bg-white border-2 border-violet-300 shadow-xs space-y-3"
                     >
-                      <div className="flex items-center justify-between border-b border-purple-100 pb-2">
+                      <div className="flex items-center justify-between border-b border-violet-100 pb-2">
                         <span className="font-display font-black text-sm sm:text-base text-neutral-950">
                           {issue.placeName}
                         </span>
-                        <span className="text-xs text-purple-900 font-bold bg-purple-100 px-2 py-0.5 rounded">
+                        <span className="text-xs text-violet-900 font-bold bg-violet-100 px-2 py-0.5 rounded">
                           Týden od {issue.deliveryWeek}
                         </span>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                         {issue.orders.map((o) => (
-                          <div key={o.id} className="p-3 rounded bg-purple-50/70 border border-purple-200 text-xs space-y-2">
+                          <div key={o.id} className="p-3 rounded bg-violet-50/70 border border-violet-200 text-xs space-y-2">
                             <div className="flex items-center justify-between">
-                              <span className="font-black text-purple-950">
+                              <span className="font-black text-violet-950">
                                 {o.orderNumber ? `Objednávka #${o.orderNumber}` : 'Objednávka'}
                               </span>
                               <span className="text-[11px] font-bold text-neutral-500">
@@ -918,7 +918,7 @@ export function OrderAuditModal({
                             <div className="text-[11px] text-neutral-700">
                               <strong>Položky:</strong> {o.itemsSummary}
                             </div>
-                            <div className="flex items-center justify-between pt-1 border-t border-purple-200/50">
+                            <div className="flex items-center justify-between pt-1 border-t border-violet-200/50">
                               <span className="text-[11px] font-bold text-neutral-600">
                                 Celkem: {o.totalLiters} L
                               </span>
@@ -926,7 +926,7 @@ export function OrderAuditModal({
                                 {onOpenOrder && (
                                   <button
                                     onClick={() => { onOpenOrder(o.id); onClose(); }}
-                                    className="p-1.5 rounded bg-white hover:bg-purple-100 text-purple-900 border border-purple-200 text-xs font-bold"
+                                    className="p-1.5 rounded bg-white hover:bg-violet-100 text-violet-900 border border-violet-200 text-xs font-bold"
                                     title="Zobrazit"
                                   >
                                     <Eye size={13} />
@@ -953,25 +953,25 @@ export function OrderAuditModal({
               {/* 4. SEKCIE: ČEKAJÍCÍ / NEPROPADLÉ ZPRÁVY */}
               {(activeTab === 'all' || activeTab === 'unprocessed') && unprocessedCount > 0 && (
                 <div className="space-y-3">
-                  <div className="text-xs font-black uppercase tracking-wider text-blue-900 flex items-center justify-between px-1">
+                  <div className="text-xs font-black uppercase tracking-wider text-sky-900 flex items-center justify-between px-1">
                     <span className="flex items-center gap-1.5">
-                      <Sparkles size={15} className="text-blue-600" />
+                      <Sparkles size={15} className="text-sky-600" />
                       <span>Čekající / Nepropadlé zprávy ({unprocessedCount})</span>
                     </span>
-                    <span className="text-[11px] font-normal text-blue-700">Zprávy s pivem bez objednávky</span>
+                    <span className="text-[11px] font-normal text-sky-700">Zprávy s pivem bez objednávky</span>
                   </div>
 
                   {report?.unprocessedWhatsAppIssues.map((issue) => (
                     <div
                       key={issue.messageId}
-                      className="p-3.5 sm:p-4 rounded bg-white border-2 border-blue-300 shadow-xs space-y-3"
+                      className="p-3.5 sm:p-4 rounded bg-white border-2 border-sky-300 shadow-xs space-y-3"
                     >
-                      <div className="flex items-center justify-between border-b border-blue-100 pb-2">
+                      <div className="flex items-center justify-between border-b border-sky-100 pb-2">
                         <div className="flex items-center gap-2">
                           <span className="font-display font-black text-sm text-neutral-950">
                             {issue.placeName || issue.senderName || 'Neznámý odběratel'}
                           </span>
-                          <span className="text-[11px] font-bold text-blue-900 bg-blue-100 px-2 py-0.5 rounded">
+                          <span className="text-[11px] font-bold text-sky-900 bg-sky-100 px-2 py-0.5 rounded">
                             {issue.status}
                           </span>
                         </div>
@@ -980,11 +980,11 @@ export function OrderAuditModal({
                         </span>
                       </div>
 
-                      <div className="p-2.5 rounded bg-blue-50/70 border border-blue-200 text-xs font-mono whitespace-pre-wrap max-h-24 overflow-y-auto">
+                      <div className="p-2.5 rounded bg-sky-50/70 border border-sky-200 text-xs font-mono whitespace-pre-wrap max-h-24 overflow-y-auto">
                         {issue.messageText || '(pouze foto / příloha)'}
                       </div>
 
-                      <div className="text-xs text-blue-950 font-bold">
+                      <div className="text-xs text-sky-950 font-bold">
                         Detekované pivo: <span className="font-normal text-neutral-800">{issue.itemsSummary}</span>
                       </div>
 

@@ -22,16 +22,16 @@ type FeedbackNote = {
 };
 
 const CATEGORY_META: Record<Category, { label: string; icon: string; chip: string }> = {
-  bug: { label: 'Chyba', icon: '🐛', chip: 'bg-danger-100 text-danger-700' },
-  feature: { label: 'Nápad na vylepšení', icon: '💡', chip: 'bg-warning-100 text-warning-700' },
+  bug: { label: 'Chyba', icon: '🐛', chip: 'bg-rose-100 text-rose-700' },
+  feature: { label: 'Nápad na vylepšení', icon: '💡', chip: 'bg-amber-100 text-amber-700' },
   question: { label: 'Otázka', icon: '❓', chip: 'bg-primary-100 text-primary-700' },
   other: { label: 'Jiné', icon: '📝', chip: 'bg-neutral-100 text-neutral-700' },
 };
 
 const STATUS_META: Record<Status, { label: string; chip: string }> = {
   open: { label: 'Nové', chip: 'bg-primary-100 text-primary-700' },
-  in_progress: { label: 'V řešení', chip: 'bg-warning-100 text-warning-700' },
-  done: { label: 'Hotovo', chip: 'bg-success-100 text-success-700' },
+  in_progress: { label: 'V řešení', chip: 'bg-amber-100 text-amber-700' },
+  done: { label: 'Hotovo', chip: 'bg-emerald-100 text-emerald-700' },
   rejected: { label: 'Zamítnuto', chip: 'bg-neutral-200 text-neutral-600' },
 };
 
@@ -151,7 +151,7 @@ export default function Feedback({ setPage, initialSubTab }: { setPage?: (p: any
             </button>
           </div>
 
-      {err && <div className="text-sm text-danger-600 bg-danger-500/10 rounded px-3 py-2 mb-4">{err}</div>}
+      {err && <div className="text-sm text-rose-600 bg-rose-500/10 rounded px-3 py-2 mb-4">{err}</div>}
 
       {showForm && (
         <form onSubmit={add} className="card p-4 mb-5 animate-fade-in">
@@ -217,7 +217,7 @@ export default function Feedback({ setPage, initialSubTab }: { setPage?: (p: any
                             {n.author_name ?? 'neznámý'} · {new Date(n.created_at).toLocaleDateString('cs-CZ')}
                           </div>
                         </div>
-                        <span className={`chip text-[10px] ${cat.chip}`}>{cat.label}</span>
+                        <span className={`chip text-[11px] ${cat.chip}`}>{cat.label}</span>
                       </div>
                       {n.body && (() => {
                         const match = n.body.match(/\[FOTO\]:(data:image\/[a-zA-Z0-9+.-]+;base64,[a-zA-Z0-9\+\/=]+)/);
@@ -253,7 +253,7 @@ export default function Feedback({ setPage, initialSubTab }: { setPage?: (p: any
                           {STATUS_ORDER.map((s) => <option key={s} value={s}>{STATUS_META[s].label}</option>)}
                         </select>
                         {(isAdmin || mine) && (
-                          <button className="text-danger-400 hover:text-danger-600 text-sm px-2" title="Smazat" onClick={() => del(n.id)}>×</button>
+                          <button className="text-rose-400 hover:text-rose-600 text-sm px-2" title="Smazat" onClick={() => del(n.id)}>×</button>
                         )}
                       </div>
                     </div>

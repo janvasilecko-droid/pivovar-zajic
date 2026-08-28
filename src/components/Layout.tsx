@@ -680,7 +680,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
               >
                 <Search size={15} />
                 <span className="hidden sm:inline">Hledat</span>
-                <kbd className="hidden sm:inline-block text-[10px] bg-white px-1.5 py-0.5 rounded border border-neutral-300 text-neutral-500 font-mono">⌘K</kbd>
+                <kbd className="hidden sm:inline-block text-[11px] bg-white px-1.5 py-0.5 rounded border border-neutral-300 text-neutral-500 font-mono">⌘K</kbd>
               </button>
             )}
 
@@ -692,7 +692,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                 className="relative w-9 h-9 grid place-items-center rounded bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm border border-emerald-700 active:scale-95 transition"
               >
                 <ClipboardList size={16} />
-                <span className="absolute -top-1.5 -right-1.5 bg-white text-emerald-700 text-[10px] font-black rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center shadow border border-emerald-200">
+                <span className="absolute -top-1.5 -right-1.5 bg-white text-emerald-700 text-[11px] font-black rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center shadow border border-emerald-200">
                   {newOrdersCount > 99 ? '99+' : newOrdersCount}
                 </span>
               </button>
@@ -706,7 +706,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                 className="relative w-9 h-9 grid place-items-center rounded bg-[#25D366] hover:bg-[#1da851] text-white shadow-sm border border-[#1da851] active:scale-95 transition"
               >
                 <MessageCircle size={16} />
-                <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[10px] font-black rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center shadow animate-pulse" title="Zpráv čeká na schválení">
+                <span className="absolute -top-1.5 -right-1.5 bg-rose-600 text-white text-[11px] font-black rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center shadow animate-pulse" title="Zpráv čeká na schválení">
                   {pendingWhatsAppCount > 99 ? '99+' : pendingWhatsAppCount}
                 </span>
               </button>
@@ -850,12 +850,12 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                 <div className="relative">
                   <DockIcon size={20} strokeWidth={isActive ? 2.5 : 2} />
                   {dockId === 'orders' && pendingWhatsAppCount > 0 && (
-                    <span className="absolute -top-1 -right-2 bg-red-600 text-white text-[9px] font-black rounded-full min-w-[14px] h-3.5 px-0.5 flex items-center justify-center shadow">
+                    <span className="absolute -top-1 -right-2 bg-rose-600 text-white text-[11px] font-black rounded-full min-w-[14px] h-3.5 px-0.5 flex items-center justify-center shadow">
                       {pendingWhatsAppCount > 9 ? '9+' : pendingWhatsAppCount}
                     </span>
                   )}
                 </div>
-                <span className="text-[10px] mt-0.5 tracking-tight truncate max-w-[64px]">{info.label}</span>
+                <span className="text-[11px] mt-0.5 tracking-tight truncate max-w-[64px]">{info.label}</span>
               </button>
             );
           })}
@@ -923,8 +923,8 @@ function OfflineStatus({ online, pending, syncing, syncMsg, onSync }: { online: 
                     <div key={item.id} className={`flex items-center justify-between gap-2 px-3 py-2 rounded border text-[11px] font-bold ${failure ? 'bg-rose-50 border-rose-300 text-rose-950' : 'bg-neutral-100 border-neutral-200 text-neutral-700'}`}>
                       <div className="min-w-0">
                         <div className="truncate" title={item.popis}>{item.popis}</div>
-                        <div className="text-[10px] font-semibold text-neutral-500">{new Date(item.ts).toLocaleString('cs-CZ')}</div>
-                        {failure && <div className="text-[10px] font-semibold text-rose-700 truncate" title={failure.error}><XCircle className="ikona-text" /> {failure.error}</div>}
+                        <div className="text-[11px] font-semibold text-neutral-500">{new Date(item.ts).toLocaleString('cs-CZ')}</div>
+                        {failure && <div className="text-[11px] font-semibold text-rose-700 truncate" title={failure.error}><XCircle className="ikona-text" /> {failure.error}</div>}
                       </div>
                       <button
                         onClick={async () => {

@@ -900,7 +900,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                         </span>
                         <button
                           type="button"
-                          className="text-xs font-bold text-neutral-500 hover:text-red-600"
+                          className="text-xs font-bold text-neutral-500 hover:text-rose-600"
                           onClick={() => handleRemoveFromGroup(editingTileId as GroupId, mid)}
                         >
                           Vyjmout
@@ -942,9 +942,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
 
             <div className="flex justify-between items-center pt-2 border-t border-neutral-100">
               {editingGroup ? (
-                <button type="button" className="text-sm font-semibold text-red-600" onClick={() => handleDeleteGroup(editingTileId as GroupId)}>Zrušit skupinu</button>
+                <button type="button" className="text-sm font-semibold text-rose-600" onClick={() => handleDeleteGroup(editingTileId as GroupId)}>Zrušit skupinu</button>
               ) : (
-                <button type="button" className="text-sm font-semibold text-red-600" onClick={() => handleHideTile(editingTileId)}>Skrýt dlaždici</button>
+                <button type="button" className="text-sm font-semibold text-rose-600" onClick={() => handleHideTile(editingTileId)}>Skrýt dlaždici</button>
               )}
               <button type="button" className="text-sm font-bold bg-amber-500 hover:bg-amber-600 text-neutral-950 rounded px-4 py-2" onClick={() => setEditingTileId(null)}>Hotovo</button>
             </div>

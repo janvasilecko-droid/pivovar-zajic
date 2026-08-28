@@ -47,7 +47,7 @@ export function TabBar({
             <span>{item.label}</span>
             {item.badge !== undefined && (
               <span
-                className="ml-0.5 text-[10px] font-black rounded-full px-1.5 py-0.5"
+                className="ml-0.5 text-[11px] font-black rounded-full px-1.5 py-0.5"
                 style={{ background: active ? `${color}22` : 'rgba(120,113,108,0.14)', color: active ? color : '#78716c' }}
               >
                 {item.badge}

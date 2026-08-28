@@ -253,7 +253,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
             Nový přístup: v záložce „📧 E-maily" přidejte e-mail a pak ho schvalte. Uživatel se přihlásí odkazem na e-mail.
           </p>
 
-      {err && <div className="text-sm text-danger-600 bg-danger-500/10 rounded px-3.5 py-2.5 mb-4 font-bold">{err}</div>}
+      {err && <div className="text-sm text-rose-600 bg-rose-500/10 rounded px-3.5 py-2.5 mb-4 font-bold">{err}</div>}
       {loading ? <Spinner /> : users.length === 0 ? <EmptyState text="Žádní uživatelé." icon="👥" /> : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {users.map((u) => (
@@ -350,7 +350,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
               <div className="overflow-x-auto rounded border border-neutral-100">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-neutral-50 text-neutral-500 text-[10px] font-black uppercase tracking-wider border-b border-neutral-100">
+                    <tr className="bg-neutral-50 text-neutral-500 text-[11px] font-black uppercase tracking-wider border-b border-neutral-100">
                       <th className="p-4">E-mailová adresa</th>
                       <th className="p-4">Datum přidání</th>
                       <th className="p-4 text-right">Akce</th>
@@ -367,7 +367,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
                           <div className="flex gap-2 justify-end">
                             <button
                               onClick={() => handleApproveAllowedEmail(e.email)}
-                              className="btn-primary !rounded !py-1 !px-2.5 text-[10px] font-black flex items-center gap-1 cursor-pointer"
+                              className="btn-primary !rounded !py-1 !px-2.5 text-[11px] font-black flex items-center gap-1 cursor-pointer"
                               title="Schválit přístup"
                             >
                               <CheckCircle2 size={12} />
@@ -375,7 +375,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
                             </button>
                             <button
                               onClick={() => handleDeleteAllowedEmail(e.email)}
-                              className="btn-danger !rounded !py-1 !px-2.5 text-[10px] font-black flex items-center gap-1 cursor-pointer"
+                              className="btn-danger !rounded !py-1 !px-2.5 text-[11px] font-black flex items-center gap-1 cursor-pointer"
                               title="Odebrat e-mail"
                             >
                               <Trash2 size={12} />
@@ -418,7 +418,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
               <div className="overflow-x-auto rounded border border-neutral-100">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-neutral-50 text-neutral-500 text-[10px] font-black uppercase tracking-wider border-b border-neutral-100">
+                    <tr className="bg-neutral-50 text-neutral-500 text-[11px] font-black uppercase tracking-wider border-b border-neutral-100">
                       <th className="p-4">E-mailová adresa</th>
                       <th className="p-4">Datum schválení</th>
                       <th className="p-4 text-right">Akce</th>
@@ -434,7 +434,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
                         <td className="p-4 text-right">
                           <button
                             onClick={() => handleDeleteAllowedEmail(e.email)}
-                            className="btn-danger !rounded !py-1 !px-2.5 text-[10px] font-black flex items-center gap-1 ml-auto cursor-pointer"
+                            className="btn-danger !rounded !py-1 !px-2.5 text-[11px] font-black flex items-center gap-1 ml-auto cursor-pointer"
                             title="Odebrat schválení"
                           >
                             <Trash2 size={12} />
@@ -519,7 +519,7 @@ function UserForm({ user, onClose, onSaved }: { user: UserRow | null; onClose: (
           </label>
         </div>
 
-        {err && <div className="text-sm text-danger-600 bg-danger-500/10 rounded px-3.5 py-2.5 font-bold">{err}</div>}
+        {err && <div className="text-sm text-rose-600 bg-rose-500/10 rounded px-3.5 py-2.5 font-bold">{err}</div>}
         <div className="flex justify-end gap-2 pt-2">
           <button className="btn-ghost !rounded" onClick={onClose}>Zrušit</button>
           <button className="btn-primary !rounded" disabled={busy} onClick={save}>{busy ? 'Ukládám…' : 'Uložit'}</button>
