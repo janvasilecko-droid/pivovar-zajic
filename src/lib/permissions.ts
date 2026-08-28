@@ -1,3 +1,6 @@
+import { BarChart3, Bell, BookOpen, Car, ClipboardList, Landmark, Package as PackageIcon, PartyPopper, PenLine, Settings, ShieldCheck, ShoppingCart, Tag, Truck, Warehouse, Wheat, Wine, type LucideIcon } from 'lucide-react';
+import { IkonaSud, IkonaVycep } from '../components/ikony';
+
 export type ModuleKey =
   | 'dashboard'
   | 'entry'
@@ -26,26 +29,26 @@ export type ModuleAccess = {
 
 export type UserPermissions = Record<ModuleKey, ModuleAccess>;
 
-export const MODULE_DEFINITIONS: { id: ModuleKey; label: string; icon: string; desc: string }[] = [
-  { id: 'dashboard', label: 'Sklad', icon: '📊', desc: 'Přehled týdnů, zásoby piv na skladě, vyčerpání a STK vozidel.' },
-  { id: 'entry', label: 'Zápis výroby (Stáčení & Prodejna)', icon: '📝', desc: 'Moduly pro stáčení piv, převod na prodejnu, vydání řidičům a odpisy.' },
-  { id: 'orders', label: 'Objednávky & Kalendář týdnů', icon: '🛒', desc: 'Příjem objednávek hospod, zadávání počtů sudů a lahví.' },
-  { id: 'zavoz', label: 'Rozvoz & Trasy', icon: '🚚', desc: 'Plánování tras rozvozu piva k zákazníkům a historie tras podle dnů.' },
-  { id: 'kniha_jizd', label: 'Kniha jízd (Daňová evidence)', icon: '🚘', desc: 'Evidence služebních cest vozidel, stav tachometru a km pro daňové účetnictví.' },
-  { id: 'stock', label: 'Skladové zásoby (Detail)', icon: '📦', desc: 'Podrobný přehled počtu sudů a lahví na skladě podle šarží.' },
-  { id: 'cellar', label: 'Sklep', icon: '🏚️', desc: 'Kvasné tanky CCT, ležácké tanky 1-8, sanitace a plánovač zrání.' },
-  { id: 'kegging', label: 'Stáčení piva & Historie', icon: '🛢️', desc: 'Evidence stočeného piva z tanků do KEG sudů a lahví.' },
-  { id: 'inventory', label: 'Měsíční inventura skladu', icon: '📋', desc: 'Fyzické počítání zásob na začátku a konci měsíce, manka a přebytky.' },
-  { id: 'srotovani', label: 'Šrotování sladu', icon: '🌾', desc: 'Zápis šrotování sladu pro vaření piva.' },
-  { id: 'haccp', label: 'Sanitační řád', icon: '🛡️', desc: 'Sanitační příručka pivovaru, normy SVHP, zásady BOZP a první pomoci.' },
-  { id: 'catalogs', label: 'Číselníky (Piva, Obaly, Odběratelé)', icon: '📚', desc: 'Katalog piv, cen obalů, seznam odběratelů a evidence vozidel.' },
-  { id: 'sklo_promo', label: 'Sklad lahve, sklo, etikety...', icon: '🍷', desc: 'Evidence pivního skla, podtácků, etiket a prázdných lahví s varováním.' },
-  { id: 'vycepy', label: 'Výčepy & Rezervace zařazení', icon: '🍺', desc: 'Evidence výčepních zařízení, kontrola čistoty, sanitací a kalendář rezervací.' },
-  { id: 'exkurze', label: 'Exkurze & Prohlídky pivovaru', icon: '🏰', desc: 'Rezervační kalendář exkurzí, počet návštěvníků, průvodci a měsíční archiv.' },
-  { id: 'reminders', label: 'Upomínky & Upozornění', icon: '🔔', desc: 'Vytváření upomínek s možností zobrazení na ploše (Push) nebo po přihlášení.' },
-  { id: 'akce', label: 'Akce & Výjezdní prodej', icon: '🎪', desc: 'Plánování výjezdních akcí, rozvoz piva a naskladnění neprodaných kusů.' },
-  { id: 'pricelist', label: 'Ceník pivovaru', icon: '🏷️', desc: 'Ceník piva pro odběratele, velkoobchodní i maloobchodní ceny.' },
-  { id: 'app_settings', label: 'Aplikace & Nastavení', icon: '⚙️', desc: 'Instalace aplikace, přizpůsobení menu a nastavení vzhledu.' },
+export const MODULE_DEFINITIONS: { id: ModuleKey; label: string; icon: LucideIcon; desc: string }[] = [
+  { id: 'dashboard', label: 'Sklad', icon: BarChart3, desc: 'Přehled týdnů, zásoby piv na skladě, vyčerpání a STK vozidel.' },
+  { id: 'entry', label: 'Zápis výroby (Stáčení & Prodejna)', icon: PenLine, desc: 'Moduly pro stáčení piv, převod na prodejnu, vydání řidičům a odpisy.' },
+  { id: 'orders', label: 'Objednávky & Kalendář týdnů', icon: ShoppingCart, desc: 'Příjem objednávek hospod, zadávání počtů sudů a lahví.' },
+  { id: 'zavoz', label: 'Rozvoz & Trasy', icon: Truck, desc: 'Plánování tras rozvozu piva k zákazníkům a historie tras podle dnů.' },
+  { id: 'kniha_jizd', label: 'Kniha jízd (Daňová evidence)', icon: Car, desc: 'Evidence služebních cest vozidel, stav tachometru a km pro daňové účetnictví.' },
+  { id: 'stock', label: 'Skladové zásoby (Detail)', icon: PackageIcon, desc: 'Podrobný přehled počtu sudů a lahví na skladě podle šarží.' },
+  { id: 'cellar', label: 'Sklep', icon: Warehouse, desc: 'Kvasné tanky CCT, ležácké tanky 1-8, sanitace a plánovač zrání.' },
+  { id: 'kegging', label: 'Stáčení piva & Historie', icon: IkonaSud, desc: 'Evidence stočeného piva z tanků do KEG sudů a lahví.' },
+  { id: 'inventory', label: 'Měsíční inventura skladu', icon: ClipboardList, desc: 'Fyzické počítání zásob na začátku a konci měsíce, manka a přebytky.' },
+  { id: 'srotovani', label: 'Šrotování sladu', icon: Wheat, desc: 'Zápis šrotování sladu pro vaření piva.' },
+  { id: 'haccp', label: 'Sanitační řád', icon: ShieldCheck, desc: 'Sanitační příručka pivovaru, normy SVHP, zásady BOZP a první pomoci.' },
+  { id: 'catalogs', label: 'Číselníky (Piva, Obaly, Odběratelé)', icon: BookOpen, desc: 'Katalog piv, cen obalů, seznam odběratelů a evidence vozidel.' },
+  { id: 'sklo_promo', label: 'Sklad lahve, sklo, etikety...', icon: Wine, desc: 'Evidence pivního skla, podtácků, etiket a prázdných lahví s varováním.' },
+  { id: 'vycepy', label: 'Výčepy & Rezervace zařazení', icon: IkonaVycep, desc: 'Evidence výčepních zařízení, kontrola čistoty, sanitací a kalendář rezervací.' },
+  { id: 'exkurze', label: 'Exkurze & Prohlídky pivovaru', icon: Landmark, desc: 'Rezervační kalendář exkurzí, počet návštěvníků, průvodci a měsíční archiv.' },
+  { id: 'reminders', label: 'Upomínky & Upozornění', icon: Bell, desc: 'Vytváření upomínek s možností zobrazení na ploše (Push) nebo po přihlášení.' },
+  { id: 'akce', label: 'Akce & Výjezdní prodej', icon: PartyPopper, desc: 'Plánování výjezdních akcí, rozvoz piva a naskladnění neprodaných kusů.' },
+  { id: 'pricelist', label: 'Ceník pivovaru', icon: Tag, desc: 'Ceník piva pro odběratele, velkoobchodní i maloobchodní ceny.' },
+  { id: 'app_settings', label: 'Aplikace & Nastavení', icon: Settings, desc: 'Instalace aplikace, přizpůsobení menu a nastavení vzhledu.' },
 ];
 
 export const DEFAULT_FULL_PERMISSIONS: UserPermissions = {

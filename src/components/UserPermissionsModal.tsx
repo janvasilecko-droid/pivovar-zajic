@@ -165,7 +165,7 @@ export function UserPermissionsModal({
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-2xl">{mod.icon}</span>
+                    <span className="text-neutral-500"><mod.icon size={22} /></span>
                     <div>
                       <div className="font-display font-black text-sm text-neutral-900">{mod.label}</div>
                       <div className="text-[11px] text-neutral-500 font-medium">{mod.desc}</div>
