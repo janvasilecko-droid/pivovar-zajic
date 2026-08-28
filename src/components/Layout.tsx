@@ -32,7 +32,7 @@ export const NAV: NavItem[] = [
   { id: 'kegging', label: 'KEG', icon: IkonaSud, group: 'Výroba' },
   { id: 'bottling', label: 'Lahve (Stáčení)', icon: IkonaLahev, group: 'Výroba' },
   { id: 'orders', label: 'Objednávky', icon: ClipboardList, group: 'Výroba' },
-  { id: 'fasovani', label: 'Fasování personál', icon: Users, group: 'Výroba' },
+  { id: 'fasovani', label: 'Fasování', icon: Users, group: 'Výroba' },
   { id: 'prodejna', label: 'Prodejna', icon: Store, group: 'Výroba' },
   { id: 'writeoffs', label: 'Odpis', icon: TrendingDown, group: 'Výroba' },
   { id: 'akce', label: 'Akce, Exkurze', icon: Sparkles, group: 'Výroba' },

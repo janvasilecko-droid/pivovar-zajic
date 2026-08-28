@@ -4,7 +4,7 @@ import { EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey } from '../components/WeeklyOrderSummaryCard';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { ProdejnaFromImage } from '../components/ProdejnaFromImage';
-import { BarChart3, Calendar, Camera, ClipboardList, Package as PackageIcon, Trash2, Copy } from 'lucide-react';
+import { BarChart3, Check, Calendar, Camera, ClipboardList, Package as PackageIcon, Trash2, Copy } from 'lucide-react';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { TapReservationModal } from '../components/TapReservationModal';
 import { detectTapType } from '../lib/tapReservations';
@@ -13,12 +13,35 @@ import { BeerTileGrid, BeerTilePanel, TileTotalBar } from '../components/BeerTil
 import { chyba, toastZpet } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
 
-// Tři podoby jednoho výdeje ze skladu. Klíč je tabulka, do které se zapisuje.
+// Tři podoby jednoho výdeje ze skladu — formulář je pořád stejný, mění se
+// jen tabulka, do které se zapisuje, a jedno pole navíc. Podle toho se pak
+// zápis dostane do správného listu měsíčního exportu:
+//   fasovani_private → „Fasování prodejna"
+//   fasovani         → „Odběr personál"
+//   writeoffs        → „Vzorky promo a PR"
+//
+// Pojmenované jsou podle toho, KAM výdej jde, ne podle názvu tabulky —
+// fasovani_private je historicky prodejna, ne personál.
 const DRUHY_VYDEJE = [
-  { tabulka: 'fasovani', stranka: 'fasovani', popis: 'Fasování' },
-  { tabulka: 'fasovani_private', stranka: 'prodejna', popis: 'Prodejna' },
-  { tabulka: 'writeoffs', stranka: 'writeoffs', popis: 'Odpis' },
+  {
+    tabulka: 'fasovani_private', stranka: 'prodejna', popis: 'Prodejna',
+    poleNavic: null, popisek: '', napoveda: '',
+  },
+  {
+    tabulka: 'fasovani', stranka: 'fasovani', popis: 'Personál',
+    poleNavic: 'jmeno', popisek: 'Pro koho',
+    napoveda: 'Jméno — komu se fasuje',
+  },
+  {
+    tabulka: 'writeoffs', stranka: 'writeoffs', popis: 'Odpis',
+    poleNavic: 'duvod', popisek: 'Důvod odpisu',
+    napoveda: 'Proč se odepisuje (zkažené, rozbitá láhev…)',
+  },
 ] as const;
+
+/** Nastavení právě zvoleného druhu výdeje. */
+const druhVydeje = (tabulka: string) =>
+  DRUHY_VYDEJE.find((d) => d.tabulka === tabulka) ?? DRUHY_VYDEJE[0];
 
 const ROW_COUNT = 12;
 const FASOVANI_ROW_COUNT = 6;
@@ -26,7 +49,7 @@ type RowInput = { beerId: string; pkgId: string; qty: string; vycep: boolean; wh
 const emptyItem = (): RowInput => ({ beerId: '', pkgId: '', qty: '', vycep: false, who: '' });
 const emptyRows = (count: number): RowInput[] => Array.from({ length: count }, emptyItem);
 
-export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovani_private', title = 'Prodejna — Fasování na prodejnu', icon = '🏪', showVycep = false }: { setPage?: (p: any, sec?: string) => void; mode?: 'entry_only' | 'overviews_only' | 'all'; table?: string; title?: string; icon?: string; showVycep?: boolean } = {}) {
+export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovani_private', title = 'Fasování', icon = '🏪', showVycep = false }: { setPage?: (p: any, sec?: string) => void; mode?: 'entry_only' | 'overviews_only' | 'all'; table?: string; title?: string; icon?: string; showVycep?: boolean } = {}) {
   const [rows, setRows] = useState<EntryRow[]>([]);
   const [beers, setBeers] = useState<Beer[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
@@ -57,7 +80,9 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [tapModalRowIndex, setTapModalRowIndex] = useState<number | undefined>(undefined);
 
-  const showWhoColumn = table === 'fasovani' || table === 'writeoffs';
+  // Prodejna nemá pole navíc; personál má jméno, odpis důvod.
+  const druh = druhVydeje(table);
+  const showWhoColumn = druh.poleNavic !== null;
 
   const filteredRows = useMemo(() => {
     const whoNeedle = overviewWho.trim().toLowerCase();
@@ -284,29 +309,10 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
       {/* Top Action Bar — bez ukotvení (žádný prvek na téhle obrazovce nezůstává přilepený). */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded border border-neutral-200 shadow-2xs">
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Přepínač druhu výdeje — je to pořád tentýž formulář, mění se jen
-              tabulka, do které se zapisuje. Dřív se muselo přes menu ven. */}
-          {setPage && mode === 'all' ? (
-            <div className="flex items-center gap-1 p-1 rounded-2xl bg-neutral-100 border border-neutral-200">
-              {DRUHY_VYDEJE.map((d) => (
-                <button
-                  key={d.tabulka}
-                  type="button"
-                  onClick={() => { if (d.tabulka !== table) { zavibruj('klik'); setPage(d.stranka); } }}
-                  className={`min-h-[40px] px-3 rounded-xl text-xs font-black transition ${
-                    d.tabulka === table ? 'bg-amber-500 text-neutral-950 shadow-sm' : 'text-neutral-600 hover:bg-white'
-                  }`}
-                >
-                  {d.popis}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <span className="text-sm font-display font-black text-amber-950 flex items-center gap-1.5">
-              <span>{icon}</span>
-              <span>{title}</span>
-            </span>
-          )}
+          <span className="text-sm font-display font-black text-amber-950 flex items-center gap-1.5">
+            <span>{icon}</span>
+            <span>{setPage && mode === 'all' ? 'Fasování' : title}</span>
+          </span>
         </div>
       </div>
 
@@ -331,6 +337,42 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
       {/* ===== ZÁPIS ===== */}
       {tab === 'zapis' && mode !== 'overviews_only' && (
         <form onSubmit={add} className={`card px-2 py-3 mb-5 transition-all duration-200 ${flash ? 'ring-4 ring-success-500/20' : ''}`}>
+          {/* Kam výdej jde. Je to pořád tentýž formulář — podle volby se mění
+              jen tabulka, do které se zapisuje, a jedno pole navíc. Sedí to
+              hned nad tím polem, aby bylo vidět, co volba způsobí. */}
+          {setPage && mode === 'all' && (
+            <div className="mb-4">
+              <label className="label">Kam se vydává</label>
+              <div className="grid grid-cols-3 gap-2">
+                {DRUHY_VYDEJE.map((d) => {
+                  const zvoleno = d.tabulka === table;
+                  return (
+                    <button
+                      key={d.tabulka}
+                      type="button"
+                      onClick={() => { if (!zvoleno) { zavibruj('klik'); setPage(d.stranka); } }}
+                      aria-pressed={zvoleno}
+                      className={`min-h-[52px] px-3 rounded border-2 font-black text-sm transition inline-flex items-center justify-center gap-2 ${
+                        zvoleno
+                          ? 'bg-amber-500 border-amber-600 text-neutral-950 shadow-xs'
+                          : 'bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50'
+                      }`}
+                    >
+                      <span
+                        className={`w-5 h-5 rounded-full border-2 grid place-items-center shrink-0 ${
+                          zvoleno ? 'bg-neutral-950 border-neutral-950 text-amber-400' : 'border-neutral-300'
+                        }`}
+                      >
+                        {zvoleno ? <Check size={12} strokeWidth={4} /> : null}
+                      </span>
+                      {d.popis}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end mb-4">
             <div>
               <label className="label">Datum</label>
@@ -338,13 +380,13 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
             </div>
             {showWhoColumn && (
               <div>
-                <label className="label">{table === 'writeoffs' ? 'Důvod odpisu' : 'Kdo / Pro koho'}</label>
+                <label className="label">{druh.popisek}</label>
                 <input
                   type="text"
                   className="input text-xs"
                   value={who}
                   onChange={(e) => setWho(e.target.value)}
-                  placeholder={table === 'writeoffs' ? 'Zapiš důvod odpisu (např. Zkažené, Rozbitá lahev...)' : 'Kdo / pro koho (ruční zápis)'}
+                  placeholder={druh.napoveda}
                 />
               </div>
             )}
@@ -407,7 +449,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                         className="input text-xs w-full"
                         value={rowWho}
                         onChange={(e) => setTileRow(expandedProdejnaBeer.id, p.id, { who: e.target.value })}
-                        placeholder={who || (table === 'writeoffs' ? 'Důvod odpisu (nepovinné, jinak společný)' : 'Kdo / pro koho (nepovinné, jinak společný)')}
+                        placeholder={who || `${druh.popisek} — nepovinné, jinak platí společný`}
                       />
                     )}
                     {showVycep && (
@@ -615,7 +657,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                           <th className="text-left py-1.5 px-2 font-black text-amber-950">Datum</th>
                           {showWhoColumn && (
                             <th className="text-left py-1.5 px-2 font-black text-amber-950">
-                              {table === 'writeoffs' ? 'Důvod' : 'Kdo'}
+                              {druh.popisek}
                             </th>
                           )}
                           <th className="text-left py-1.5 px-2 font-black text-amber-950">Pivo</th>

@@ -221,7 +221,7 @@ export default function App() {
         <ProdejnaScreen
           setPage={setPage}
           {...(page === 'fasovani'
-            ? { table: 'fasovani', title: 'Fasování personál', icon: '📦', showVycep: true }
+            ? { table: 'fasovani', title: 'Fasování', icon: '📦', showVycep: true }
             : page === 'writeoffs'
             ? { table: 'writeoffs', title: 'Odpis', icon: '📉' }
             : {})}
