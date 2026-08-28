@@ -32,6 +32,13 @@ type StockByPkg = {
   adjWeek: number;
   /** Objednáno celkem mínus to, co už fyzicky odjelo (zavoz_deductions) tento měsíc — kolik ještě čeká na odvoz. */
   orderedRemaining: number;
+  /**
+   * Automatický odpočet závozu za tento měsíc (zavoz_deductions) — tedy to, co
+   * už fyzicky odjelo k odběrateli. Je součástí `odpocet`, ale dlouho neměl
+   * v tabulce vlastní sloupec, takže řádek nešlo sečíst: u 30l 12° Světlé
+   * ukazoval „Odp. celkem −98", zatímco viditelné sloupce daly dohromady −1.
+   */
+  zavezenoWeek?: number;
   /** Objednáno s dovozem do konce TOHOTO týdne (ne celý měsíc) — základ pro "Zbyde". */
   orderedThisWeek: number;
 };
@@ -260,6 +267,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
         const zdThisWeek = zdRows
           .filter((r) => r.beer_id === beer.id && r.package_id === p.package_id && isThisWeek(r.deduct_date))
           .reduce((s, r) => s + Number(r.quantity), 0);
+        p.zavezenoWeek = zdWeek;
         p.odpocet = p.writeoffsWeek + p.fasovaniWeek + p.prodejnaWeek + akceNet + (p.kegsUsedWeek || 0) + zdWeek;
         p.adjWeek = adjRows
           .filter((r) => r.beer_id === beer.id && r.package_id === p.package_id && monthKey(r.entry_date) === curMonth && r.entry_date <= todayISO())
@@ -685,6 +693,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                     <th className="p-2 text-right text-sky-900 font-black" title="Aktuální fyzický stav na skladě (Poč. + Stoč. − vše, co už fyzicky odešlo)">AKT</th>
                     <th className="p-2 text-right text-rose-700 font-bold" title="Objednávky celkem tento měsíc">OBJ</th>
                     <th className="p-2 text-right text-rose-800 font-bold" title="Objednáno − co už fyzicky odjelo (zavoz) = ještě čeká na odvoz">ZBÝVÁ ZAVÉZT</th>
+                    <th className="p-2 text-right text-rose-700 font-bold" title="Už fyzicky odvezeno k odběrateli (automatický odpočet závozu). Bývá to největší část sloupce „Odp. celkem“.">Zavezeno</th>
                     <th className="p-2 text-right text-violet-700 font-bold" title="Sudy spotřebované na plnění lahví">Stáč. lahví</th>
                     <th className="p-2 text-right text-rose-600" title="Fasování zaměstnanců / privátní">Fasování</th>
                     <th className="p-2 text-right text-rose-600" title="Prodejna (výdej prodejny)">Prodejna</th>
@@ -705,6 +714,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                         <td className="p-2 text-right font-black text-sky-900 bg-sky-100">{p.quantity}</td>
                         <td className="p-2 text-right font-bold text-rose-700">{p.orderedWeek ? `-${p.orderedWeek}` : '—'}</td>
                         <td className="p-2 text-right font-bold text-rose-800 bg-rose-50/50">{p.orderedRemaining ? `-${p.orderedRemaining}` : '—'}</td>
+                        <td className="p-2 text-right font-bold text-rose-700">{p.zavezenoWeek ? `-${p.zavezenoWeek}` : '—'}</td>
                         <td className="p-2 text-right font-bold text-violet-700">{p.kegsUsedWeek ? `-${p.kegsUsedWeek}` : '—'}</td>
                         <td className="p-2 text-right font-medium text-neutral-600">{p.fasovaniWeek ? `-${p.fasovaniWeek}` : '—'}</td>
                         <td className="p-2 text-right font-medium text-neutral-600">{p.prodejnaWeek ? `-${p.prodejnaWeek}` : '—'}</td>
@@ -722,9 +732,10 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
             </div>
             <div className="p-3 rounded-xl bg-neutral-50 border border-neutral-200 text-[11px] text-neutral-600 space-y-1">
               <p className="font-bold text-neutral-800"><Pin className="ikona-text" /> Vysvětlivky výpočtu:</p>
-              <p>• <strong>AKT (Sklad)</strong> = Počáteční stav na začátku měsíce (Poč.) + Stočeno v měsíci (Stoč.)</p>
-              <p>• <strong>Odp. celkem</strong> = Sudy spotřebované na stáčení lahví + Fasování + Prodejna + Akce + Odpisy</p>
-              <p>• <strong>ZBYDE</strong> = AKT (Sklad) − OBJ (Objednávky) − Odp. celkem</p>
+              <p>• <strong>AKT (Sklad)</strong> = Poč. + Stoč. − Odp. celkem (+ dorovnání z inventury)</p>
+              <p>• <strong>Odp. celkem</strong> = Zavezeno + Stáč. lahví + Fasování + Prodejna + Akce + Odpisy</p>
+              <p>• <strong>ZBYDE</strong> = AKT − objednávky tohoto týdne, které ještě NEodjely. Objednávky, co už odjely, se neodečítají znovu — jsou započítané v „Zavezeno“, tedy už v AKT.</p>
+              <p className="text-neutral-500">Proto se <strong>OBJ</strong> (objednávky za celý měsíc) nerovná tomu, co se odečítá: OBJ je informace „kolik se toho tento měsíc má odvézt“, kdežto do AKT vstupuje jen skutečně odvezené.</p>
               </div>
           </div>
         </Modal>
