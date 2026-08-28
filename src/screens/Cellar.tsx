@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../lib/auth';
-import { AlertTriangle, Beer as BeerIcon, CalendarDays, Check, ChevronLeft, ChevronRight, ClipboardList, Droplet, Factory, FlaskConical, NotebookPen, Play, SprayCan, Square, Warehouse } from 'lucide-react';
+import { AlertTriangle, ArrowLeftRight, Beer as BeerIcon, CalendarDays, Check, ChevronLeft, ChevronRight, ClipboardList, Droplet, Factory, FlaskConical, NotebookPen, Play, SprayCan, Square, Warehouse } from 'lucide-react';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 
 import { Beer, CellarTank, CellarTankCycle, CellarTransfer, EntryRow, Package, beerBorder, fetchAllRows, supabase, useRealtime } from '../lib/supabase';
@@ -581,7 +581,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
             </button>
           </div>
 
-          <button className="btn-primary !rounded" onClick={() => setShowTransfer(true)}>⇄ Přetáčení (Přefuk ze Spilky)</button>
+          <button className="btn-primary !rounded" onClick={() => setShowTransfer(true)}><ArrowLeftRight className="ikona-text" /> Přetáčení (Přefuk ze Spilky)</button>
         </div>
       </div>
 
@@ -966,7 +966,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                             setShowTransfer(true);
                           }}
                         >
-                          <span>⇄ Přefouknout do ležáku</span>
+                          <span><ArrowLeftRight className="ikona-text" /> Přefouknout do ležáku</span>
                         </button>
                       )}
                     </div>

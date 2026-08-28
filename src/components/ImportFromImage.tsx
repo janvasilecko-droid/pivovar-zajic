@@ -1,4 +1,4 @@
-import { AlertTriangle, Camera, Check, FileText, Image as ImageIcon, Lightbulb, Lock, NotebookPen, Siren, SkipForward, Unlock } from 'lucide-react';
+import { AlertTriangle, Camera, Check, ChevronLeft, FileText, Image as ImageIcon, Lightbulb, Lock, NotebookPen, Siren, SkipForward, Unlock } from 'lucide-react';
 import{ useState, useRef, useEffect } from 'react';
 import { Modal, Spinner } from './ui';
 import { PlaceCombobox } from './PlaceCombobox';
@@ -939,7 +939,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
               {pendingFiles.length > 0 && (
                 <button className="btn-ghost !rounded text-xs !py-1 !px-2" onClick={() => { advanceToNextPhoto(); }}><SkipForward className="ikona-text" /> Přeskočit fotku</button>
               )}
-              <button className="btn-ghost !rounded text-xs !py-1 !px-2" onClick={() => { setParsed(null); setConfirmed(false); setPaused(true); }}>← Zpět na fotky</button>
+              <button className="btn-ghost !rounded text-xs !py-1 !px-2" onClick={() => { setParsed(null); setConfirmed(false); setPaused(true); }}><ChevronLeft className="ikona-text" /> Zpět na fotky</button>
 
             </div>
           </div>

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 
-import { AlertTriangle, ArrowRight, Ban, Beer as BeerIcon, Bell, Bot, Building2, Calculator, Calendar, CalendarDays, Camera, Check, CheckCircle2, CheckSquare, ClipboardList, Clock, Copy, FilePlus, Globe, Hourglass, ListOrdered, Mail, MessageCircle, NotebookPen, Package as PackageIcon, PackageCheck, Pencil, Phone, Plus, Receipt, RotateCcw, Scroll, Search, ShieldAlert, Trash2, Truck, User, X, Zap } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Ban, ChevronLeft, ChevronRight, Beer as BeerIcon, Bell, Bot, Building2, Calculator, Calendar, CalendarDays, Camera, Check, CheckCircle2, CheckSquare, ClipboardList, Clock, Copy, FilePlus, Globe, Hourglass, ListOrdered, Mail, MessageCircle, NotebookPen, Package as PackageIcon, PackageCheck, Pencil, Phone, Plus, Receipt, RotateCcw, Scroll, Search, ShieldAlert, Trash2, Truck, User, X, Zap } from 'lucide-react';
 import { Beer, EntryRow, Package, Place, beerBg, beerName, beerText, fetchAllRows, formatPackageLabel, pkgBg, supabase, useRealtime } from '../lib/supabase';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
@@ -1905,8 +1905,9 @@ export default function Orders({
               <button
                 onClick={() => setWeekKey(shiftWeek(weekKey, -1))}
                 className="btn-ghost !rounded !py-1.5 !px-2.5 text-xs font-black hover:bg-amber-100 transition"
+                title="Předchozí týden"
               >
-                ←
+                <ChevronLeft size={16} />
               </button>
               <div className="text-center flex items-center gap-1.5">
                 <span className="text-xs font-bold text-amber-700">Týden</span>
@@ -1916,8 +1917,9 @@ export default function Orders({
               <button
                 onClick={() => setWeekKey(shiftWeek(weekKey, 1))}
                 className="btn-ghost !rounded !py-1.5 !px-2.5 text-xs font-black hover:bg-amber-100 transition"
+                title="Další týden"
               >
-                →
+                <ChevronRight size={16} />
               </button>
             </div>
           )}
@@ -1929,7 +1931,7 @@ export default function Orders({
                 onClick={() => setSelectedMonth(shiftMonth(selectedMonth, -1))}
                 className="btn-ghost !rounded !py-1 !px-2 text-xs font-black hover:bg-amber-100 transition"
                 title="Předchozí měsíc"
-              >←</button>
+              ><ChevronLeft size={15} /></button>
               <Calendar size={15} className="text-amber-800" />
               <span className="text-xs font-black text-amber-900">Měsíc:</span>
               <input
@@ -1943,7 +1945,7 @@ export default function Orders({
                 onClick={() => setSelectedMonth(shiftMonth(selectedMonth, 1))}
                 className="btn-ghost !rounded !py-1 !px-2 text-xs font-black hover:bg-amber-100 transition"
                 title="Další měsíc"
-              >→</button>
+              ><ChevronRight size={15} /></button>
             </div>
           )}
         </div>
@@ -2885,8 +2887,9 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
           <button
             onClick={() => setWeekKey(shiftWeek(weekKey, -1))}
             className="btn-ghost !rounded !py-1.5 !px-3 text-xs font-black flex items-center gap-1 hover:bg-amber-100 transition"
+            title="Předchozí týden"
           >
-            ←
+            <ChevronLeft size={16} />
           </button>
           <div className="text-center flex items-center gap-2">
             <span className="text-xs font-bold text-amber-700">Týden</span>
@@ -2896,8 +2899,9 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
           <button
             onClick={() => setWeekKey(shiftWeek(weekKey, 1))}
             className="btn-ghost !rounded !py-1.5 !px-3 text-xs font-black flex items-center gap-1 hover:bg-amber-100 transition"
+            title="Další týden"
           >
-            →
+            <ChevronRight size={16} />
           </button>
         </div>
 

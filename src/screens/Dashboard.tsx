@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase, Beer, Package, useRealtime, beerBorder, fetchAllRows } from '../lib/supabase';
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { useAuth } from '../lib/auth';
-import { AlertTriangle, BarChart3, Beer as BeerIcon, Calculator, ClipboardList, Check, Layers, Package as PackageIcon, PackageCheck, Pin, Sparkles } from 'lucide-react';
+import { AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Calculator, ClipboardList, Check, Layers, Package as PackageIcon, PackageCheck, Pin, Sparkles } from 'lucide-react';
 import { AnnouncementManagerModal } from '../components/AnnouncementManagerModal';
 import SkloPromoScreen from './SkloPromoScreen';
 import { buildMovements, stockAsOf, stockKey } from '../lib/stockLedger';
@@ -470,7 +470,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
             onClick={() => (setPage ? setPage('sklo_promo') : setActiveTab('sklo_promo'))}
             className="px-4 py-2.5 rounded bg-white text-amber-900 border border-amber-300 hover:bg-amber-50 font-extrabold text-xs shadow-md transition shrink-0"
           >
-            Přejít do evidence etiket & lahví →
+            Přejít do evidence etiket & lahví <ArrowRight className="ikona-text" />
           </button>
         </div>
       )}

@@ -4,7 +4,7 @@ import { Spinner, EmptyState } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { orderWeightKg, fmtKg } from '../lib/weight';
 import { DAYS } from '../lib/shared';
-import { AlertOctagon, AlertTriangle, ArrowDown, ArrowDownRight, ArrowUp, ArrowUpRight, BarChart3, Beer as BeerIcon, Boxes, Building, Calendar, CheckCircle2, ChevronsUpDown, Clock, Cylinder, DollarSign, Download, Droplet, Eye, EyeOff, Filter, GitCompare, History as HistoryIcon, Maximize2, Minimize2, Package as PackageIcon, PartyPopper, Percent, PieChart as PieChartIcon, Printer, Receipt, Save, Search, ShieldAlert, ShoppingCart, Smartphone, Star, Store, TrendingDown, TrendingUp, Trophy, Truck, Undo2, X, Zap, type LucideIcon } from 'lucide-react';
+import { AlertOctagon, AlertTriangle, ArrowDown, ChevronDown, ChevronUp, ArrowDownRight, ArrowUp, ArrowUpRight, BarChart3, Beer as BeerIcon, Boxes, Building, Calendar, CheckCircle2, ChevronsUpDown, Clock, Cylinder, DollarSign, Download, Droplet, Eye, EyeOff, Filter, GitCompare, History as HistoryIcon, Maximize2, Minimize2, Package as PackageIcon, PartyPopper, Percent, PieChart as PieChartIcon, Printer, Receipt, Save, Search, ShieldAlert, ShoppingCart, Smartphone, Star, Store, TrendingDown, TrendingUp, Trophy, Truck, Undo2, X, Zap, type LucideIcon } from 'lucide-react';
 import { WeeklyOrderSummaryCard, WeeklyOrderItem, isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { PieChart as RePieChart, Pie, Cell, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { EditOrderModal } from '../components/EditOrderModal';
@@ -105,7 +105,8 @@ function fmtHoursShort(h: number | null | undefined): string {
 type SortDir = 'asc' | 'desc';
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
   if (!active) return <ChevronsUpDown size={13} className="inline text-neutral-300 ml-1" />;
-  return <span className="text-neutral-900 ml-1">{dir === 'asc' ? '↑' : '↓'}</span>;
+  const Sipka = dir === 'asc' ? ChevronUp : ChevronDown;
+  return <Sipka size={13} className="inline text-neutral-900 ml-1" />;
 }
 function sortRows<T>(rows: T[], key: keyof T | null, dir: SortDir): T[] {
   if (!key) return rows;

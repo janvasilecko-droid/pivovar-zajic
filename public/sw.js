@@ -1,12 +1,23 @@
 // Minimal offline-first service worker for the Minipivovar PWA.
 // Cache version is fetched from version.json at install time so that
 // every deploy automatically invalidates the old cache.
-// SW_VERSION: 1.514 — change this to force SW update in browser
+// SW_VERSION: 1.515 — change this to force SW update in browser
 const CACHE_PREFIX = 'pivovar-';
 const CACHE_META = `${CACHE_PREFIX}meta`;
 const CACHE_META_KEY = new URL('./__installed-cache__', self.registration.scope).href;
 
-const PRECACHE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './logo copy.jpg', './version.json'];
+// Písma jsou v precache schválně: bez nich appka offline spadne na systémové
+// písmo a vypadá jako cizí. Jsou vlastní (ne z Googlu) právě proto, že
+// fetch handler níž cizí domény vůbec nechytá — viz `url.origin !== ...`.
+// Čtyři variabilní soubory, dohromady 96 kB.
+const PRECACHE = [
+  './', './index.html', './manifest.webmanifest',
+  './icon-192.png', './icon-512.png', './logo copy.jpg', './version.json',
+  './fonts/plus-jakarta-sans-latin-wght-normal.woff2',
+  './fonts/plus-jakarta-sans-latin-ext-wght-normal.woff2',
+  './fonts/outfit-latin-wght-normal.woff2',
+  './fonts/outfit-latin-ext-wght-normal.woff2',
+];
 
 async function getCacheVersion() {
   try {

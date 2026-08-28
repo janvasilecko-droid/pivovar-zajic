@@ -29,6 +29,20 @@ function applyTheme(theme: Theme) {
   const tmavy = theme === 'dark' || (theme === 'system' && systemChceTmu());
   root.classList.toggle('dark', tmavy);
   root.dataset.theme = tmavy ? 'dark' : 'light';
+  obarviListuProhlizece(tmavy);
+}
+
+/**
+ * Barva lišty prohlížeče / stavového řádku na Androidu. V index.html je jen
+ * výchozí světlá hodnota pro dobu, než se rozběhne JS — pak rozhoduje tahle
+ * funkce, protože režim si volí uživatel v Nastavení a systémová media query
+ * (prefers-color-scheme) by o jeho volbě nevěděla.
+ */
+function obarviListuProhlizece(tmavy: boolean) {
+  try {
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', tmavy ? '#0f172a' : '#fef9ec');
+  } catch {}
 }
 
 /** Když je zvolené „podle systému", reaguj na jeho přepnutí za běhu. */

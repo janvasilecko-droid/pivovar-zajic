@@ -42,12 +42,18 @@ export default function AuthScreen() {
           
           <div className="relative card p-7 sm:p-10 backdrop-blur-2xl bg-white/95 border border-amber-200/90 shadow-2xl rounded-[2.2rem] text-neutral-900">
             
-            {/* Header / Logo Badge (Transparent Background Logo without gold frame) */}
+            {/* Logo. Soubor má bílé pozadí napečené v obrázku (průhledný kanál
+                sice má, ale nevyužitý), takže na tmavém podkladu vždycky
+                vznikne bílý obdélník. Místo boje s tím je z něj udělaný
+                záměrný bílý štítek se zaoblením — vypadá stejně v obou
+                režimech. Poměr stran 546×280 se drží; dřív se obrázek cpal
+                do čtverce, takže kolem něj zbývalo prázdné místo. */}
             <div className="flex flex-col items-center mb-6 text-center">
-              <div className="relative mb-3">
-                <div className="w-28 h-28 sm:w-36 sm:h-36 flex items-center justify-center">
-                  <img src="/logo.png" alt="Pivovar Zajíc" className="w-full h-full object-contain filter drop-shadow-lg" />
-                </div>
+              {/* bg-[#fff], ne bg-white: `white` je od zavedení proměnných
+                  barva povrchu a v tmavém režimu ztmavne — tady je ale
+                  potřeba doopravdy bílá, aby na ni bílé pozadí loga sedlo. */}
+              <div className="mb-4 rounded-2xl bg-[#fff] px-4 py-2.5 shadow-lg shadow-black/10 ring-1 ring-black/5">
+                <img src="/logo.png" alt="Pivovar Zajíc" className="h-16 sm:h-20 w-auto object-contain" />
               </div>
 
               <h1 className="text-2xl sm:text-3xl font-display font-black tracking-tight text-amber-950 flex items-center gap-2">

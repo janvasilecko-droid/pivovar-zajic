@@ -1,4 +1,56 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+/* ───────────────────────────────────────────────────────────────────────
+   PÍSMA — vlastní, ne z Google Fonts
+   ───────────────────────────────────────────────────────────────────────
+   Appka je stavěná jako offline-first, ale písma se tahala z Googlu — a ta
+   service worker nikdy neuloží, protože si v public/sw.js hlídá
+   `url.origin !== self.location.origin` a cizí domény pouští mimo sebe.
+   Bez signálu (sklep, chladné startování APK) tak celá appka spadla na
+   systémové písmo. Navíc se stahovala dvakrát: jednou přes <link>
+   v index.html, podruhé přes @import tady, pokaždé s jinou sadou řezů.
+
+   Teď jsou soubory v public/fonts/ — vlastní doména, takže je service
+   worker bere jako každý jiný statický soubor, a navíc jsou v jeho
+   PRECACHE, aby byly k dispozici hned po instalaci.
+
+   Variabilní řezy: jeden soubor pokryje celou škálu tučnosti, takže místo
+   deseti souborů stačí čtyři a dohromady mají 96 kB. `latin-ext` je
+   povinný, jsou v něm ě š č ř ž ů — bez něj by čeština vypadla na
+   náhradní písmo uprostřed slova.
+
+   Plus Jakarta Sans končí na 800, ale appka hojně používá font-black (900);
+   prohlížeč si ho dopočítá stejně, jako si ho dopočítával dřív. */
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url('/fonts/plus-jakarta-sans-latin-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url('/fonts/plus-jakarta-sans-latin-ext-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('/fonts/outfit-latin-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('/fonts/outfit-latin-ext-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
 
 /* Native pinch zoom support: pinch zoom allowed, double-tap zoom disabled */
 html, body, #root {
@@ -26,14 +78,6 @@ html, body, #root {
       radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.015), transparent 50%);
     background-attachment: fixed;
   }
-  html.dark body {
-    @apply bg-neutral-50 text-neutral-900;
-    background-image:
-      radial-gradient(circle at 10% 0%, rgba(200, 95, 30, 0.05), transparent 35%),
-      radial-gradient(circle at 90% 100%, rgba(212, 144, 15, 0.05), transparent 35%),
-      radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.015), transparent 50%);
-  }
-
   * { -webkit-tap-highlight-color: transparent; }
   ::selection { @apply bg-primary-200 text-primary-950; }
 
@@ -49,23 +93,18 @@ html, body, #root {
 @layer components {
   .card {
     @apply bg-white rounded-2xl shadow-card border border-neutral-200/80 transition-all duration-200;
-    @apply dark:bg-neutral-900 dark:border-neutral-700/80;
   }
   .card-glass {
     @apply bg-white/80 backdrop-blur-md rounded-2xl shadow-card border border-white/60 transition-all duration-200;
-    @apply dark:bg-neutral-900/80 dark:border-neutral-700/60;
   }
   .card-hover {
     @apply card hover:shadow-cardHover hover:-translate-y-0.5 hover:border-neutral-300/80;
-    @apply dark:hover:border-neutral-700;
   }
   .input {
     @apply w-full rounded-xl border border-neutral-200 bg-white px-3.5 py-2.5 text-base sm:text-sm
            text-neutral-900 placeholder:text-neutral-400
            focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/15
-           transition-all duration-150 min-h-[44px] sm:min-h-[38px]
-           dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500
-           dark:focus:border-amber-500 dark:focus:ring-amber-500/20;
+           transition-all duration-150 min-h-[44px] sm:min-h-[38px];
   }
   /* Systémové šipky u číselných polí jsou na telefonu netrefitelné (12 px)
      a na počítači je omylem posune kolečko. Pryč s nimi — přidávat/ubírat
@@ -106,34 +145,48 @@ html, body, #root {
   }
   .btn-ghost {
     @apply btn bg-transparent text-neutral-700 border border-neutral-200
-           hover:bg-neutral-100/70 hover:border-neutral-300 hover:text-neutral-900
-           dark:text-neutral-300 dark:border-neutral-700 dark:hover:bg-neutral-800 dark:hover:border-neutral-600 dark:hover:text-white;
+           hover:bg-neutral-100/70 hover:border-neutral-300 hover:text-neutral-900;
   }
   .btn-danger {
     @apply btn bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 hover:border-rose-400;
   }
+  /* Vedlejší akce („Zrušit", „Vybrat soubor"). Bylo to napsané na 16 místech,
+     ale nikde definované — a protože preflight bere tlačítkům pozadí
+     i rámeček, kreslila se jako holý text bez odsazení. */
+  .btn-secondary {
+    @apply btn bg-neutral-100 text-neutral-700 border border-neutral-200
+           hover:bg-neutral-200 hover:border-neutral-300 hover:text-neutral-900;
+  }
+  /* Potvrzení hotové práce (údržba stáčecí linky) — zelená sestra .btn-amber. */
+  .btn-emerald {
+    @apply btn bg-gradient-to-r from-emerald-600 to-emerald-700 text-white shadow-sm shadow-emerald-600/30
+           hover:from-emerald-500 hover:to-emerald-600 hover:shadow-md hover:shadow-emerald-600/40;
+  }
+  /* Zdrobnělina tlačítka. Musí stát AŽ ZA .btn-ghost a spol., jinak by ji
+     jejich vlastní @apply btn přebilo zpátky na plnou velikost. */
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs min-h-[36px] sm:min-h-[30px];
+  }
   /* Unifikovaný kontejner pro všechny tabulky */
   .table-container {
-    @apply w-full overflow-x-auto scrollbar-thin border border-neutral-200/90 rounded-2xl sm:rounded-3xl bg-white shadow-xs dark:border-neutral-800 dark:bg-neutral-900;
+    @apply w-full overflow-x-auto scrollbar-thin border border-neutral-200/90 rounded-2xl sm:rounded-3xl bg-white shadow-xs;
   }
 
   .table { @apply w-full text-xs sm:text-sm border-collapse text-left; }
   .table thead tr {
-    @apply bg-neutral-100/90 border-b border-neutral-200 text-neutral-800 dark:bg-neutral-900 dark:border-neutral-800 dark:text-neutral-300;
+    @apply bg-neutral-100/90 border-b border-neutral-200 text-neutral-800;
   }
   .table thead th {
     @apply text-left text-xs font-black text-neutral-600 uppercase tracking-wider
-           px-3 sm:px-4 py-2.5 sm:py-3 border-b border-neutral-200/90 sticky top-0 backdrop-blur-sm
-           dark:bg-neutral-900/90 dark:text-neutral-400 dark:border-neutral-800;
+           px-3 sm:px-4 py-2.5 sm:py-3 border-b border-neutral-200/90 sticky top-0 backdrop-blur-sm;
   }
-  .table tbody td { @apply px-3 sm:px-4 py-2.5 sm:py-3 border-b border-neutral-100 text-neutral-800 font-medium dark:border-neutral-800 dark:text-neutral-200; }
+  .table tbody td { @apply px-3 sm:px-4 py-2.5 sm:py-3 border-b border-neutral-100 text-neutral-800 font-medium; }
   .table tbody tr:last-child td { @apply border-b-0; }
   .table tbody tr:hover td {
     @apply bg-neutral-50/90;
-    @apply dark:bg-neutral-800/50;
   }
   .table tfoot tr {
-    @apply bg-neutral-900 text-white font-black text-xs border-t-2 border-neutral-800 dark:bg-neutral-950;
+    @apply bg-neutral-900 text-white font-black text-xs border-t-2 border-neutral-800;
   }
   .table tfoot td {
     @apply px-3 sm:px-4 py-2.5 sm:py-3;
@@ -141,10 +194,10 @@ html, body, #root {
 
   /* Unifikované navigační záložky pro oddělení Přehledů a Zápisů */
   .nav-tab {
-    @apply px-4 py-2.5 rounded-2xl font-black text-xs sm:text-sm transition-all flex items-center gap-2 select-none min-h-[44px] sm:min-h-[38px] text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100/80 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800;
+    @apply px-4 py-2.5 rounded-2xl font-black text-xs sm:text-sm transition-all flex items-center gap-2 select-none min-h-[44px] sm:min-h-[38px] text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100/80;
   }
   .nav-tab-active {
-    @apply bg-white text-amber-900 shadow-md ring-2 ring-amber-300 dark:bg-neutral-800 dark:text-amber-100 dark:ring-amber-400;
+    @apply bg-white text-amber-900 shadow-md ring-2 ring-amber-300;
   }
 
   .chip {
@@ -470,166 +523,134 @@ html.density-large .btn {
   color: #f5f5f5 !important; /* neutral-100 */
 }
 
-/* Světlé pozadí -> tmavý text (bezpečná pojistka; text-* má přednost) */
-.bg-white:not([class*="text-"]),
-.bg-neutral-50:not([class*="text-"]),
-.bg-neutral-100:not([class*="text-"]),
-.bg-neutral-200:not([class*="text-"]),
-.bg-amber-50:not([class*="text-"]),
-.bg-amber-100:not([class*="text-"]),
-.bg-sky-50:not([class*="text-"]),
-.bg-emerald-50:not([class*="text-"]),
-.bg-rose-50:not([class*="text-"]),
-.bg-violet-50:not([class*="text-"]),
-.bg-primary-50:not([class*="text-"]) {
+/* Světlé pozadí -> tmavý text (bezpečná pojistka; text-* má přednost).
+   Musí být omezené na světlý režim: v tmavém jsou tyhle třídy naopak tmavé
+   plochy (viz proměnné dole) a natvrdo tmavý text s !important by na nich
+   byl neviditelný — pojistka proti nečitelnosti by nečitelnost způsobila. */
+:root:not(.dark) .bg-white:not([class*="text-"]),
+:root:not(.dark) .bg-neutral-50:not([class*="text-"]),
+:root:not(.dark) .bg-neutral-100:not([class*="text-"]),
+:root:not(.dark) .bg-neutral-200:not([class*="text-"]),
+:root:not(.dark) .bg-amber-50:not([class*="text-"]),
+:root:not(.dark) .bg-amber-100:not([class*="text-"]),
+:root:not(.dark) .bg-sky-50:not([class*="text-"]),
+:root:not(.dark) .bg-emerald-50:not([class*="text-"]),
+:root:not(.dark) .bg-rose-50:not([class*="text-"]),
+:root:not(.dark) .bg-violet-50:not([class*="text-"]),
+:root:not(.dark) .bg-primary-50:not([class*="text-"]) {
   color: #0f172a !important; /* slate-900 */
+}
+
+/* Tytéž plochy v tmavém režimu — stejná pojistka, obrácená. */
+:root.dark .bg-white:not([class*="text-"]),
+:root.dark .bg-neutral-50:not([class*="text-"]),
+:root.dark .bg-neutral-100:not([class*="text-"]),
+:root.dark .bg-neutral-200:not([class*="text-"]),
+:root.dark .bg-amber-50:not([class*="text-"]),
+:root.dark .bg-amber-100:not([class*="text-"]),
+:root.dark .bg-sky-50:not([class*="text-"]),
+:root.dark .bg-emerald-50:not([class*="text-"]),
+:root.dark .bg-rose-50:not([class*="text-"]),
+:root.dark .bg-violet-50:not([class*="text-"]),
+:root.dark .bg-primary-50:not([class*="text-"]) {
+  color: #f1f5f9 !important;
 }
 
 
 /* ───────────────────────────────────────────────────────────────────────
    TMAVÝ REŽIM
    ───────────────────────────────────────────────────────────────────────
-   V aplikaci je přes čtyři tisíce míst s natvrdo zapsanou světlou barvou
-   (bg-white, text-neutral-900, border-neutral-200 …) ve 108 různých třídách.
-   Dopisovat ke každé z nich dark: variantu by znamenalo přepsat je všechny
-   a u každé nově napsané na to zapomenout.
+   Dřív tu stála ruční převodní tabulka: ke každé světlé třídě jeden řádek
+   `:root.dark [class~="bg-amber-50"] { … }`. Nešlo do ní ale vypsat
+   varianty s průhledností — bg-white/95, bg-amber-50/90 a dalších 907
+   použití zůstávalo světlých, včetně hlavičky každého modálu a všech
+   barevných rámečků. A každá nově napsaná třída ten seznam obcházela.
 
-   Proto se v tmavém režimu přemapují samotné třídy — jedno místo, které drží
-   i pro kód, co teprve vznikne, a čte se jako převodní tabulka: povrchy
-   ztmavnou, písmo zesvětlá, rámečky se ztlumí.
+   Barvy jsou proto od téhle chvíle CSS proměnné (jména a rozdělení do tří
+   rolí vznikají v tailwind.config.js) a tady se mění jen jejich HODNOTY.
+   Průhlednost si Tailwind dopočítá sám, takže /90 i /15 fungují zadarmo
+   a stejně tak kód, který teprve vznikne.
 
-   Míří se přes [class~="…"], ne přes .třídu. Přepis .bg-neutral-50 by Tailwind
-   pochopil jako předefinování utility a @apply bg-neutral-50 v komponentových
-   třídách výš by spadl na kruhové závislosti.
-
-   Barvy jsou ze stejné neutrální škály jako světlý režim, jen otočené, takže
-   na sebe odstíny sedí a nevznikají šedivé skvrny.
+   Zapisuje se jako trojice čísel bez rgb() — jinak by nebylo kam vložit
+   průhlednost. Světlé hodnoty se musí uvést taky: barva už není konstanta,
+   je to proměnná a ta potřebuje výchozí hodnotu.
    ─────────────────────────────────────────────────────────────────────── */
-:root.dark {
-  --povrch: #0f172a;        /* pozadí stránky */
-  --povrch-karta: #172033;  /* karta nad pozadím */
-  --povrch-vyssi: #1e293b;  /* pruhy, hlavičky tabulek, vybrané řádky */
-  --ram: #334155;
-  --ram-jemny: #263449;
-  --ink: #f1f5f9;
-  --ink-tlumeny: #cbd5e1;
-  --ink-slaby: #94a3b8;
+:root {
+  /* povrchy */
+  --bg-white: 255 255 255;
+  --bg-neutral-50: 248 250 252; --bg-neutral-100: 241 245 249; --bg-neutral-200: 226 232 240; --bg-neutral-300: 203 213 225; --bg-neutral-700: 51 65 85; --bg-neutral-800: 30 41 59; --bg-neutral-900: 15 23 42; --bg-neutral-950: 6 10 18;
+  --bg-amber-50: 254 249 236; --bg-amber-100: 252 239 199; --bg-amber-200: 248 221 138; --bg-amber-300: 242 197 85;
+  --bg-primary-50: 253 244 236; --bg-primary-100: 251 227 204; --bg-primary-200: 246 196 148; --bg-primary-300: 239 158 92;
+  --bg-emerald-50: 236 253 245; --bg-emerald-100: 209 250 229; --bg-emerald-200: 167 243 208; --bg-emerald-300: 110 231 183;
+  --bg-rose-50: 255 241 242; --bg-rose-100: 255 228 230; --bg-rose-200: 254 205 211; --bg-rose-300: 253 164 175;
+  --bg-sky-50: 240 249 255; --bg-sky-100: 224 242 254; --bg-sky-200: 186 230 253; --bg-sky-300: 125 211 252;
+  --bg-violet-50: 245 243 255; --bg-violet-100: 237 233 254; --bg-violet-200: 221 214 254; --bg-violet-300: 196 181 253;
+  /* rámečky */
+  --bd-neutral-100: 241 245 249; --bd-neutral-200: 226 232 240; --bd-neutral-300: 203 213 225;
+  --bd-amber-100: 252 239 199; --bd-amber-200: 248 221 138; --bd-amber-300: 242 197 85;
+  --bd-primary-100: 251 227 204; --bd-primary-200: 246 196 148; --bd-primary-300: 239 158 92;
+  --bd-emerald-100: 209 250 229; --bd-emerald-200: 167 243 208; --bd-emerald-300: 110 231 183;
+  --bd-rose-100: 255 228 230; --bd-rose-200: 254 205 211; --bd-rose-300: 253 164 175;
+  --bd-sky-100: 224 242 254; --bd-sky-200: 186 230 253; --bd-sky-300: 125 211 252;
+  --bd-violet-100: 237 233 254; --bd-violet-200: 221 214 254; --bd-violet-300: 196 181 253;
+  /* písmo */
+  --ink-neutral-400: 148 163 184; --ink-neutral-500: 100 116 139; --ink-neutral-600: 71 85 105; --ink-neutral-700: 51 65 85; --ink-neutral-800: 30 41 59; --ink-neutral-900: 15 23 42; --ink-neutral-950: 6 10 18;
+  --ink-amber-600: 179 115 10; --ink-amber-700: 140 90 8; --ink-amber-800: 107 69 8; --ink-amber-900: 74 47 8; --ink-amber-950: 46 29 5;
+  --ink-primary-600: 166 71 20; --ink-primary-700: 127 54 18; --ink-primary-800: 95 42 18; --ink-primary-900: 69 31 16; --ink-primary-950: 39 17 9;
+  --ink-emerald-600: 5 150 105; --ink-emerald-700: 4 120 87; --ink-emerald-800: 6 95 70; --ink-emerald-900: 6 78 59; --ink-emerald-950: 2 44 34;
+  --ink-rose-600: 225 29 72; --ink-rose-700: 190 18 60; --ink-rose-800: 159 18 57; --ink-rose-900: 136 19 55; --ink-rose-950: 76 5 25;
+  --ink-sky-600: 2 132 199; --ink-sky-700: 3 105 161; --ink-sky-800: 7 89 133; --ink-sky-900: 12 74 110; --ink-sky-950: 8 47 73;
+  --ink-violet-600: 124 58 237; --ink-violet-700: 109 40 217; --ink-violet-800: 91 33 182; --ink-violet-900: 76 29 149; --ink-violet-950: 46 16 101;
 }
 
-:root.dark body { background-color: var(--povrch); color: var(--ink); }
+:root.dark {
+  /* povrchy */
+  --bg-white: 23 32 51;
+  --bg-neutral-50: 23 32 51; --bg-neutral-100: 30 41 59; --bg-neutral-200: 43 58 82; --bg-neutral-300: 58 74 99; --bg-neutral-700: 43 58 82; --bg-neutral-800: 36 48 74; --bg-neutral-900: 27 36 56; --bg-neutral-950: 19 27 44;
+  --bg-amber-50: 51 40 14; --bg-amber-100: 64 50 15; --bg-amber-200: 85 66 15; --bg-amber-300: 107 83 22;
+  --bg-primary-50: 53 32 15; --bg-primary-100: 66 40 17; --bg-primary-200: 87 52 24; --bg-primary-300: 107 64 29;
+  --bg-emerald-50: 13 42 28; --bg-emerald-100: 17 53 34; --bg-emerald-200: 23 69 44; --bg-emerald-300: 29 82 54;
+  --bg-rose-50: 53 19 28; --bg-rose-100: 66 23 34; --bg-rose-200: 86 29 43; --bg-rose-300: 107 36 52;
+  --bg-sky-50: 12 37 55; --bg-sky-100: 15 46 68; --bg-sky-200: 20 58 86; --bg-sky-300: 26 74 107;
+  --bg-violet-50: 36 21 54; --bg-violet-100: 45 26 66; --bg-violet-200: 58 34 85; --bg-violet-300: 74 42 107;
+  /* rámečky */
+  --bd-neutral-100: 38 52 73; --bd-neutral-200: 51 65 85; --bd-neutral-300: 61 77 102;
+  --bd-amber-100: 74 58 18; --bd-amber-200: 107 83 22; --bd-amber-300: 133 104 28;
+  --bd-primary-100: 77 47 20; --bd-primary-200: 107 64 29; --bd-primary-300: 133 80 37;
+  --bd-emerald-100: 23 69 44; --bd-emerald-200: 29 82 54; --bd-emerald-300: 38 104 69;
+  --bd-rose-100: 76 26 38; --bd-rose-200: 107 36 52; --bd-rose-300: 133 44 65;
+  --bd-sky-100: 20 58 86; --bd-sky-200: 26 74 107; --bd-sky-300: 34 93 133;
+  --bd-violet-100: 58 34 85; --bd-violet-200: 74 42 107; --bd-violet-300: 91 52 132;
+  /* písmo */
+  --ink-neutral-400: 125 139 161; --ink-neutral-500: 148 163 184; --ink-neutral-600: 182 194 210; --ink-neutral-700: 203 213 225; --ink-neutral-800: 226 232 240; --ink-neutral-900: 241 245 249; --ink-neutral-950: 241 245 249;
+  --ink-amber-600: 230 166 46; --ink-amber-700: 238 182 63; --ink-amber-800: 245 203 92; --ink-amber-900: 248 221 138; --ink-amber-950: 252 239 199;
+  --ink-primary-600: 226 124 51; --ink-primary-700: 239 158 92; --ink-primary-800: 240 168 104; --ink-primary-900: 246 196 148; --ink-primary-950: 251 227 204;
+  --ink-emerald-600: 52 211 153; --ink-emerald-700: 82 223 168; --ink-emerald-800: 110 231 168; --ink-emerald-900: 134 239 172; --ink-emerald-950: 187 247 208;
+  --ink-rose-600: 251 113 133; --ink-rose-700: 253 164 175; --ink-rose-800: 253 164 175; --ink-rose-900: 254 205 211; --ink-rose-950: 255 228 230;
+  --ink-sky-600: 56 189 248; --ink-sky-700: 125 211 252; --ink-sky-800: 125 211 252; --ink-sky-900: 186 230 253; --ink-sky-950: 224 242 254;
+  --ink-violet-600: 167 139 250; --ink-violet-700: 196 181 253; --ink-violet-800: 196 181 253; --ink-violet-900: 216 180 254; --ink-violet-950: 237 233 254;
+}
 
-/* Komponentní třídy mají vlastní dark: varianty a ty by přebily přemapování
-   níž. .card měla dark:bg-neutral-900, což je v téhle paletě #0f172a — přesně
-   barva pozadí stránky, takže karty splývaly s podkladem a nebylo poznat, kde
-   která začíná. Proto se jim barva určuje tady, natvrdo. */
-:root.dark .card,
-:root.dark .card-hover { background-color: var(--povrch-karta); border-color: var(--ram); }
-:root.dark .card-glass { background-color: rgb(23 32 51 / 0.85); border-color: var(--ram); }
-:root.dark .input { background-color: #131c2e; border-color: var(--ram); color: var(--ink); }
-:root.dark .input::placeholder { color: var(--ink-slaby); }
-:root.dark .table thead th { background-color: var(--povrch-vyssi); color: var(--ink-tlumeny); }
-:root.dark .table tbody tr:hover td { background-color: rgb(30 41 59 / 0.6); }
+/* Pozadí stránky. Teplé nádechy z světlého režimu se v tmavém nehodí —
+   na tmavém podkladu z nich zbývají špinavé skvrny —, tak jsou pryč. */
+:root.dark body {
+  background-color: rgb(var(--bg-neutral-900));
+  color: rgb(var(--ink-neutral-900));
+  background-image: none;
+}
 
-/* ── Povrchy ─────────────────────────────────────────────────────────── */
-:root.dark [class~="bg-white"] { background-color: var(--povrch-karta); }
-:root.dark [class~="bg-white/80"],
-:root.dark [class~="bg-white/70"],
-:root.dark [class~="bg-white/60"],
-:root.dark [class~="bg-white/50"] { background-color: rgb(23 32 51 / 0.85); }
-:root.dark [class~="bg-neutral-50"],
-:root.dark [class~="bg-neutral-50/90"] { background-color: var(--povrch-karta); }
-:root.dark [class~="bg-neutral-100"],
-:root.dark [class~="bg-neutral-100/90"],
-:root.dark [class~="bg-neutral-100/80"] { background-color: var(--povrch-vyssi); }
-:root.dark [class~="bg-neutral-200"] { background-color: #2b3a52; }
-:root.dark [class~="bg-neutral-300"] { background-color: #3a4a63; }
-
-/* Tmavé plochy zůstávají tmavé, jen se odliší od pozadí. Otočit je na světlé
-   by z tmavého tlačítka udělalo bílý obdélník s bílým textem. */
-:root.dark [class~="bg-neutral-700"] { background-color: #2b3a52; }
-:root.dark [class~="bg-neutral-800"] { background-color: #24304a; }
-:root.dark [class~="bg-neutral-900"] { background-color: #1b2438; }
-:root.dark [class~="bg-neutral-950"] { background-color: #131b2c; }
-
-/* ── Písmo ───────────────────────────────────────────────────────────── */
-:root.dark [class~="text-neutral-950"],
-:root.dark [class~="text-neutral-900"] { color: var(--ink); }
-:root.dark [class~="text-neutral-800"] { color: #e2e8f0; }
-:root.dark [class~="text-neutral-700"] { color: var(--ink-tlumeny); }
-:root.dark [class~="text-neutral-600"] { color: #b6c2d2; }
-:root.dark [class~="text-neutral-500"] { color: var(--ink-slaby); }
-:root.dark [class~="text-neutral-400"] { color: #7d8ba1; }
-
-/* ── Rámečky a oddělovače ────────────────────────────────────────────── */
-:root.dark [class~="border-neutral-100"],
-:root.dark [class~="border-neutral-100/90"] { border-color: var(--ram-jemny); }
-:root.dark [class~="border-neutral-200"],
-:root.dark [class~="border-neutral-200/90"],
-:root.dark [class~="border-neutral-200/80"],
-:root.dark [class~="border-neutral-200/60"],
-:root.dark [class~="border-neutral-200/50"] { border-color: var(--ram); }
-:root.dark [class~="border-neutral-300"],
-:root.dark [class~="border-neutral-300/90"] { border-color: #3d4d66; }
-:root.dark [class~="divide-neutral-100"] > * + * { border-color: var(--ram-jemny); }
-:root.dark [class~="divide-neutral-200"] > * + * { border-color: var(--ram); }
-
-/* ── Barevné podklady ────────────────────────────────────────────────── */
-/* Světlé podbarvení (amber-50, rose-50 …) by v tmavém svítilo jako reflektor.
-   Ztlumí se, ale barevný tón zůstane — nese význam: výstraha, hotovo, chyba. */
-:root.dark [class~="bg-amber-50"],
-:root.dark [class~="bg-amber-100"],
-:root.dark [class~="bg-amber-50/80"],
-:root.dark [class~="bg-amber-100/70"],
-:root.dark [class~="bg-amber-50/60"],
-:root.dark [class~="bg-amber-50/50"] { background-color: rgb(180 115 10 / 0.16); }
-:root.dark [class~="bg-emerald-50"],
-:root.dark [class~="bg-emerald-100"],
-:root.dark [class~="bg-emerald-50/70"],
-:root.dark [class~="bg-emerald-50/60"],
-:root.dark [class~="bg-emerald-100/70"] { background-color: rgb(21 128 61 / 0.18); }
-:root.dark [class~="bg-rose-50"],
-:root.dark [class~="bg-rose-100"],
-:root.dark [class~="bg-rose-50/90"],
-:root.dark [class~="bg-rose-50/70"],
-:root.dark [class~="bg-rose-50/60"] { background-color: rgb(190 18 60 / 0.18); }
-:root.dark [class~="bg-sky-50"],
-:root.dark [class~="bg-sky-100"],
-:root.dark [class~="bg-sky-50/70"] { background-color: rgb(3 105 161 / 0.18); }
-:root.dark [class~="bg-primary-50"],
-:root.dark [class~="bg-primary-100"] { background-color: rgb(200 95 30 / 0.16); }
-:root.dark [class~="bg-violet-50"],
-:root.dark [class~="bg-violet-100"],
-:root.dark [class~="bg-violet-50/60"] { background-color: rgb(126 34 206 / 0.18); }
-:root.dark [class~="bg-sky-50/80"] { background-color: rgb(3 105 161 / 0.18); }
-
-/* Text v barevných plochách musí zesvětlat, jinak zůstane tmavý na tmavém. */
-:root.dark [class~="text-amber-800"],
-:root.dark [class~="text-amber-900"],
-:root.dark [class~="text-amber-950"] { color: #fcd34d; }
-:root.dark [class~="text-emerald-800"],
-:root.dark [class~="text-emerald-900"],
-:root.dark [class~="text-emerald-950"] { color: #6ee7a8; }
-:root.dark [class~="text-rose-800"],
-:root.dark [class~="text-rose-900"],
-:root.dark [class~="text-rose-950"] { color: #fda4af; }
-:root.dark [class~="text-sky-800"],
-:root.dark [class~="text-sky-900"] { color: #7dd3fc; }
-:root.dark [class~="text-primary-700"],
-:root.dark [class~="text-primary-900"] { color: #f0a868; }
-:root.dark [class~="text-violet-900"],
-:root.dark [class~="text-violet-950"] { color: #d8b4fe; }
-:root.dark [class~="text-sky-700"] { color: #7dd3fc; }
-
-/* ── Drobnosti ───────────────────────────────────────────────────────── */
 /* Stíny na tmavém pozadí nejsou vidět — nahradí je jemný světlý okraj. */
 :root.dark [class~="shadow-card"],
+:root.dark [class~="shadow-xs"],
+:root.dark [class~="shadow-2xs"],
 :root.dark [class~="shadow-sm"],
 :root.dark [class~="shadow-md"],
 :root.dark [class~="shadow-lg"] {
   box-shadow: 0 1px 0 0 rgb(255 255 255 / 0.04), 0 8px 24px -12px rgb(0 0 0 / 0.6);
 }
 
-/* Bílé kryty u rolovacích tabulek by v tmavém režimu svítily. */
+/* Kryty u vodorovně rolovaných tabulek jsou natvrdo bílé (jsou to přechody
+   v background-image, ne třída), takže je nutné je přebarvit zvlášť. */
 :root.dark .overflow-x-auto:has(table) {
   background-image:
     linear-gradient(to right, #172033 30%, rgb(23 32 51 / 0)),

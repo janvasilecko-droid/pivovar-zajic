@@ -3,7 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=0.5, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover" />
-    <meta name="theme-color" content="#090909" />
+    <!-- Barva lišty prohlížeče / stavového řádku na Androidu. Byla #090909 —
+         skoro černý pruh nad krémovou aplikací. Tuhle hodnotu drží jen do
+         chvíle, než se rozběhne JS; pak ji podle zvoleného režimu přepíše
+         applyTheme() v src/lib/theme.ts. -->
+    <meta name="theme-color" content="#fef9ec" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png" />
     <link rel="icon" type="image/png" sizes="512x512" href="./icon-512.png" />
@@ -11,9 +15,12 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Zajíc" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+    <!-- Písma jsou vlastní (public/fonts, @font-face v src/index.css) — appka
+         nesmí být závislá na Googlu, protože service worker cizí domény
+         necachuje a offline by zůstala bez písma. Předsazené načtení jen
+         u základní latinky; latin-ext (háčky a čárky) si prohlížeč vyžádá
+         sám hned vzápětí. -->
+    <link rel="preload" href="/fonts/plus-jakarta-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
     <title>Zajíc — Minipivovar</title>
   </head>
   <body>

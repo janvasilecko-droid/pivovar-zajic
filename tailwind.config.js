@@ -1,3 +1,50 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   BARVY, KTERÉ SE OTÁČEJÍ V TMAVÉM REŽIMU
+   ─────────────────────────────────────────────────────────────────────────
+   Dřív to řešila v index.css ruční převodní tabulka `[class~="bg-amber-50"]`
+   — jeden řádek na každou třídu. Měla dvě slabiny, které se nedaly zalepit:
+   nešlo do ní vypsat varianty s průhledností (bg-amber-50/90, bg-white/95…),
+   protože každá je pro Tailwind samostatná třída s napečenou barvou, a
+   nepokrývala barevné rámečky vůbec. Chybělo v ní 907 použití — mimo jiné
+   bílá hlavička každého modálu a 170× border-amber-200 svítící kolem tmavých
+   karet.
+
+   Teď je barva schovaná za CSS proměnnou a v tmavém režimu se mění jen její
+   HODNOTA (viz :root.dark v index.css). Průhlednost si Tailwind dopočítá
+   sám přes <alpha-value>, takže /90 i /15 fungují zadarmo — a co se napíše
+   příště, funguje taky.
+
+   Klíčové je, že se NEOTÁČÍ celá škála. Z čísel v kódu vyplývají tři role
+   a každá se chová jinak:
+     50–300   povrchy a rámečky (bg-amber-50, border-amber-200) → ztmavnou
+     400–500  syté výplně (bg-amber-500 = hlavní tlačítko)      → beze změny
+     600–950  písmo na podbarvení (text-rose-700)               → zesvětlá
+   Proto se sahá zvlášť na backgroundColor, borderColor a textColor — kdyby
+   šla přes jednu proměnnou celá paleta, `text-neutral-900` by zesvětlalo
+   správně, ale `bg-neutral-900` (tmavé patičky tabulek) by se změnilo na
+   bílý obdélník s bílým textem.
+   ───────────────────────────────────────────────────────────────────────── */
+const prom = (jmeno) => `rgb(var(--${jmeno}) / <alpha-value>)`;
+
+const RODINY = ['neutral', 'amber', 'primary', 'emerald', 'rose', 'sky', 'violet'];
+
+/** Odstíny, které v tmavém režimu slouží jako povrch (pozadí) — ztmavnou. */
+const POVRCHY = ['50', '100', '200', '300'];
+/** Tmavé plochy, které tmavé zůstávají, jen se musí odlišit od pozadí stránky. */
+const TMAVE_PLOCHY = ['700', '800', '900', '950'];
+/** Odstíny, které v tmavém režimu slouží jako rámeček — ztmavnou. */
+const RAMECKY = ['100', '200', '300'];
+/** Odstíny používané jako písmo — zesvětlají. */
+const INKOUSTY = ['600', '700', '800', '900', '950'];
+
+const skalaProm = (role, rodina, odstiny) =>
+  Object.fromEntries(odstiny.map((o) => [o, prom(`${role}-${rodina}-${o}`)]));
+
+const proRodiny = (role, odstiny, navic = {}) => ({
+  ...Object.fromEntries(RODINY.map((r) => [r, skalaProm(role, r, odstiny)])),
+  ...navic,
+});
+
 /** @type {import('tailwindcss').Config} */
 export default {
   // Tmavý režim se řídí třídou .dark na <html>, ne nastavením systému.
@@ -10,8 +57,12 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"Plus Jakarta Sans"', 'Inter', 'system-ui', 'sans-serif'],
-        display: ['Outfit', 'Sora', 'system-ui', 'sans-serif'],
+        // Inter a Sora tu stály jako záloha a v index.html se kvůli nim
+        // stahovaly další dva soubory z Googlu — přitom se nikdy nepoužily,
+        // protože první písmo v řadě je vždy k dispozici. Teď jsou obě
+        // rodiny vlastní (public/fonts), takže záloha je jen systémová.
+        sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+        display: ['Outfit', 'system-ui', 'sans-serif'],
       },
       colors: {
         // Barvy jsou schválně JEN tyhle. Dřív tu vedle sebe stály dvě sady:
@@ -68,6 +119,28 @@ export default {
           950: '#060a12',
         },
       },
+
+      // Tři role, tři samostatné mapy — vysvětlení nahoře u definice `prom`.
+      // Hodnoty proměnných (světlé i tmavé) jsou v src/index.css.
+      backgroundColor: proRodiny('bg', POVRCHY, {
+        // Tmavé plochy (patičky tabulek, tmavá tlačítka) musejí zůstat tmavé,
+        // ale odlišit se od pozadí stránky — v tmavém režimu by jinak splynuly.
+        neutral: skalaProm('bg', 'neutral', [...POVRCHY, ...TMAVE_PLOCHY]),
+        // Kvůli tomuhle jednomu řádku funguje bg-white/95 (hlavička modálu),
+        // bg-white/80 (skleněné lišty) i všechny ostatní varianty najednou.
+        white: prom('bg-white'),
+      }),
+      borderColor: proRodiny('bd', RAMECKY),
+      textColor: proRodiny('ink', INKOUSTY, {
+        // U šedé je jako písmo v provozu i 400 a 500 (tlumené popisky).
+        neutral: skalaProm('ink', 'neutral', ['400', '500', ...INKOUSTY]),
+      }),
+      // Přechody na kartách a na přihlašovací obrazovce (from-amber-100/90
+      // via-amber-50/80 to-white) jsou plocha jako každá jiná — musí ztmavnout
+      // se zbytkem, jinak zůstane svítit celé pozadí za kartami.
+      // Sytější konce (from-amber-500/10) se neuvádějí schválně: ty jsou
+      // barevný akcent a v tmavém režimu fungují stejně dobře.
+      gradientColorStops: proRodiny('bg', POVRCHY, { white: prom('bg-white') }),
       boxShadow: {
         // `shadow-xs` a `shadow-2xs` jsou jména z Tailwindu v4. Tady běží v3,
         // který je nezná — na 78 souborech (karty, štítky, malá tlačítka,

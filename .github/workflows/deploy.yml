@@ -43,6 +43,14 @@ jobs:
       - name: Run tests
         run: npm test
 
+      # Chybějící třída není v Tailwindu chyba — prostě se z ní nevygeneruje
+      # nic a prvek zůstane bez efektu, tiše. Takhle se do aplikace naráz
+      # dostalo ~200 mrtvých stylů (jména z Tailwindu v4 ve v3 projektu,
+      # neviditelný spinner, 78 souborů bez stínu). Tohle to zastaví dřív,
+      # než se to nasadí.
+      - name: Kontrola tříd Tailwindu
+        run: npm run zkontroluj-tridy
+
   build-and-deploy:
     runs-on: ubuntu-latest
     needs: test

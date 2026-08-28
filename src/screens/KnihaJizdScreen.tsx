@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { fetchAllRows, supabase, useRealtime } from '../lib/supabase';
 import { Spinner } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
-import { AlertTriangle, Bird, Calendar, Car, CheckCircle2, Download, MapPin, Navigation, Plus, Printer, Scale, ShieldCheck, Sparkles, Trash2, User, X, Zap } from 'lucide-react';
+import { AlertTriangle, Bird, ChevronLeft, Calendar, Car, CheckCircle2, Download, MapPin, Navigation, Plus, Printer, Scale, ShieldCheck, Sparkles, Trash2, User, X, Zap } from 'lucide-react';
 import { isOrderKachna } from '../lib/zavozSecondCar';
 import { printTable } from '../lib/safePrint';
 import { computeRouteDistanceKm } from '../lib/routeDistance';
@@ -812,7 +812,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                     onClick={() => setAutoStep('form')}
                     className="px-4 py-2 rounded bg-neutral-100 text-neutral-700 font-extrabold text-xs"
                   >
-                    ← Zpět
+                    <ChevronLeft className="ikona-text" /> Zpět
                   </button>
                   <button
                     type="button"
