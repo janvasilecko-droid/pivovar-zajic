@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 
-import { AlertTriangle, ArrowRight, Ban, Beer as BeerIcon, Bell, Building2, Calculator, Calendar, CalendarDays, Camera, Check, CheckCircle2, CheckSquare, ClipboardList, Copy, FilePlus, Hourglass, ListOrdered, Mail, MessageCircle, NotebookPen, Package as PackageIcon, PackageCheck, Pencil, Phone, Plus, Receipt, RotateCcw, Scroll, ShieldAlert, Trash2, Truck, User, Zap } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Ban, Beer as BeerIcon, Bell, Bot, Building2, Calculator, Calendar, CalendarDays, Camera, Check, CheckCircle2, CheckSquare, ClipboardList, Clock, Copy, FilePlus, Globe, Hourglass, ListOrdered, Mail, MessageCircle, NotebookPen, Package as PackageIcon, PackageCheck, Pencil, Phone, Plus, Receipt, RotateCcw, Scroll, Search, ShieldAlert, Trash2, Truck, User, X, Zap } from 'lucide-react';
 import { Beer, EntryRow, Package, Place, beerBg, beerName, beerText, fetchAllRows, formatPackageLabel, pkgBg, supabase, useRealtime } from '../lib/supabase';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
@@ -1734,7 +1734,7 @@ export default function Orders({
                           title="Napiš počet ručně"
                         />
                         <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, 1)} className="w-10 h-10 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none">+</button>
-                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, -Number(r.qty))} className="w-10 h-10 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-xl transition select-none" title="Odebrat položku">✕</button>
+                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, -Number(r.qty))} className="w-10 h-10 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-xl transition select-none" title="Odebrat položku"><X size={18} /></button>
                       </div>
                     </li>
                   );
@@ -1957,7 +1957,7 @@ export default function Orders({
           {(itemFilterBeerId || itemFilterPackageId || packageKindFilter !== 'all' || timeScope !== 'week' || searchText.trim()) && (
             <div className="mb-3 p-3.5 rounded-2xl bg-amber-100/90 border-2 border-amber-400 text-amber-800 text-xs font-bold shadow-xs flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-base">🔎</span>
+                <Search className="ikona-text" />
                 <span>
                   Aktivní filtry:{' '}
                   {timeScope === 'month' ? `[Měsíc: ${selectedMonth}] ` : timeScope === 'all' ? '[Všechny objednávky] ' : ''}
@@ -1992,7 +1992,7 @@ export default function Orders({
                     }}
                     className="btn-primary !rounded !py-1 !px-3 text-xs font-black shadow-md shrink-0 bg-amber-600 hover:bg-amber-700 text-white"
                   >
-                    🌐 Zobrazit všech {itemAuditStats.allOrdersQty} ks
+                    <Globe className="ikona-text" /> Zobrazit všech {itemAuditStats.allOrdersQty} ks
                   </button>
                 )}
 
@@ -2005,7 +2005,7 @@ export default function Orders({
                   }}
                   className="btn-ghost !rounded !py-1 !px-2.5 text-xs font-black text-rose-900 bg-rose-100 hover:bg-rose-200 border border-rose-300"
                 >
-                  ✕ Zrušit filtry
+                  <X className="ikona-text" /> Zrušit filtry
                 </button>
               </div>
             </div>
@@ -2097,12 +2097,12 @@ export default function Orders({
         {selectedIds.size > 0 ? (
           <div className="flex flex-wrap items-center gap-2 bg-primary-50 rounded-xl px-3 py-2">
             <span className="text-sm font-semibold text-primary-800">{selectedIds.size} vybráno</span>
-            <button className="chip bg-emerald-100 text-emerald-700 hover:bg-emerald-200" onClick={() => bulkToggleFlag('is_prepared')}>✓ Připraveno</button>
+            <button className="chip bg-emerald-100 text-emerald-700 hover:bg-emerald-200" onClick={() => bulkToggleFlag('is_prepared')}><Check className="ikona-text" /> Připraveno</button>
             <button className="chip bg-primary-200 text-primary-800 hover:bg-primary-300 flex items-center gap-1" onClick={() => bulkToggleFlag('is_packaged')}><PackageCheck size={12} /> Fasování</button>
             <button className="chip bg-emerald-200 text-emerald-800 hover:bg-emerald-300 flex items-center gap-1" onClick={() => bulkToggleFlag('is_delivered')}><Truck size={12} /> Zavezenné</button>
             <button className="chip bg-amber-100 text-amber-700 hover:bg-amber-200" onClick={() => bulkSetStatus('expedovana')}>Expedovat</button>
             <button className="chip bg-rose-50 text-rose-700 hover:bg-rose-100 flex items-center gap-1" onClick={bulkDelete}><Trash2 size={12} /> Smazat</button>
-            <button className="chip bg-white border border-primary-200 text-primary-500 hover:bg-primary-50" onClick={clearSelection}>✕ Zrušit výběr</button>
+            <button className="chip bg-white border border-primary-200 text-primary-500 hover:bg-primary-50" onClick={clearSelection}><X className="ikona-text" /> Zrušit výběr</button>
           </div>
         ) : (
           searchedFiltered.length > 0 && <button className="btn-ghost !rounded !py-1.5 text-xs flex items-center gap-1" onClick={selectAll}><CheckSquare size={13} /> Vybrat vše ({searchedFiltered.length})</button>
@@ -2903,9 +2903,9 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
             <span>{order.order_date}</span>
             <span>·</span>
             <span className={`chip ${STATUS[order.status]?.cls ?? ''}`}>{STATUS[order.status]?.label}</span>
-            {order.is_prepared && <span className="chip bg-emerald-100 text-emerald-700">✓ Připraveno</span>}
+            {order.is_prepared && <span className="chip bg-emerald-100 text-emerald-700"><Check className="ikona-text" /> Připraveno</span>}
             {order.is_packaged && <span className="chip bg-primary-200 text-primary-800"><PackageIcon className="ikona-text" /> Fasování</span>}
-            {order.is_delivered && <span className="chip bg-emerald-200 text-emerald-800">✓ Zavezenné</span>}
+            {order.is_delivered && <span className="chip bg-emerald-200 text-emerald-800"><Check className="ikona-text" /> Zavezenné</span>}
           </div>
           <a
             onClick={() => order.place_id && setPage && setPage('places', order.place_id)}
@@ -3012,7 +3012,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                           setEditPkgId(i.package_id ?? '');
                           setEditQty(String(i.quantity));
                         }}
-                      >✎</button>
+                      ><Pencil size={14} /></button>
                       <button className="text-rose-400 hover:text-rose-600 min-w-[40px] min-h-[40px] flex items-center justify-center text-xl rounded hover:bg-rose-50" onClick={() => rmItem(i.id)}>×</button>
                     </div>
                   </div>
@@ -3021,7 +3021,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                     <span className="font-black text-base text-neutral-900">{i.quantity} ks</span>
                   </div>
                   {missing > 0 && <span className="block text-xs text-rose-600 font-bold"><AlertTriangle className="ikona-text" /> Chybí {missing} ks ve skladu</span>}
-                  {inStock && <span className="block text-xs text-emerald-600 font-bold">✓ Skladem ({rem} ks)</span>}
+                  {inStock && <span className="block text-xs text-emerald-600 font-bold"><Check className="ikona-text" /> Skladem ({rem} ks)</span>}
                   {isEditing && (
                     <div className="pt-2 border-t border-neutral-200 grid grid-cols-2 gap-2 items-end">
                       <div className="col-span-2">
@@ -3052,8 +3052,8 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                             if (qtyNum && qtyNum !== i.quantity) await updateItemQty(i, qtyNum);
                             setEditingItemId(null);
                           }}
-                        >✓ Uložit</button>
-                        <button className="btn-ghost !rounded !py-2 !px-3" onClick={() => setEditingItemId(null)}>✕</button>
+                        ><Check size={14} /> Uložit</button>
+                        <button className="btn-ghost !rounded !py-2 !px-3" onClick={() => setEditingItemId(null)} title="Zrušit"><X size={14} /></button>
                       </div>
                     </div>
                   )}
@@ -3088,11 +3088,11 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                       <td className="font-medium">
                         <span className="inline-block rounded-md px-2 py-0.5" style={{ backgroundColor: beerBg(beer), color: beerText(beer) === 'text-white' ? '#fff' : undefined }}>{i.beer_name ?? '—'}</span>
                         {missing > 0 && <span className="block text-xs text-rose-600 mt-0.5"><AlertTriangle className="ikona-text" /> Chybí {missing} ks ve skladu</span>}
-                        {inStock && <span className="block text-xs text-emerald-600 mt-0.5">✓ Skladem ({rem} ks)</span>}
+                        {inStock && <span className="block text-xs text-emerald-600 mt-0.5"><Check className="ikona-text" /> Skladem ({rem} ks)</span>}
                       </td>
                       <td className="text-primary-600">{i.package_label ?? '—'}</td>
                       <td className="text-right font-semibold">{i.quantity}</td>
-                      <td>{missing > 0 ? <span className="chip bg-rose-50 text-rose-700">!</span> : (inStock && <span className="chip bg-emerald-100 text-emerald-700">✓</span>)}</td>
+                      <td>{missing > 0 ? <span className="chip bg-rose-50 text-rose-700">!</span> : (inStock && <span className="chip bg-emerald-100 text-emerald-700"><Check size={12} /></span>)}</td>
                       <td className="text-right">
                         <button
                           className="text-primary-400 hover:text-primary-700 px-1"
@@ -3104,7 +3104,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                             setEditPkgId(i.package_id ?? '');
                             setEditQty(String(i.quantity));
                           }}
-                        >✎</button>
+                        ><Pencil size={14} /></button>
                       </td>
                       <td className="text-right"><button className="text-rose-400 hover:text-rose-600" onClick={() => rmItem(i.id)}>×</button></td>
                     </tr>
@@ -3140,8 +3140,8 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                                   if (qtyNum && qtyNum !== i.quantity) await updateItemQty(i, qtyNum);
                                   setEditingItemId(null);
                                 }}
-                              >✓ Uložit</button>
-                              <button className="btn-ghost !rounded !py-2 !px-3" onClick={() => setEditingItemId(null)}>✕</button>
+                              ><Check size={14} /> Uložit</button>
+                              <button className="btn-ghost !rounded !py-2 !px-3" onClick={() => setEditingItemId(null)} title="Zrušit"><X size={14} /></button>
                             </div>
                           </div>
                         </td>
@@ -3178,14 +3178,14 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
               </select>
             </div>
             <div className="col-span-2 sm:col-span-1 lg:col-span-2 flex gap-2">
-              <button className="btn-primary !rounded flex-1 !py-2 text-sm" onClick={addItem}>✓ Přidat</button>
-              <button className="btn-ghost !rounded !py-2 !px-3" onClick={() => setAdding(false)}>✕</button>
+              <button className="btn-primary !rounded flex-1 !py-2 text-sm" onClick={addItem}><Check size={14} /> Přidat</button>
+              <button className="btn-ghost !rounded !py-2 !px-3" onClick={() => setAdding(false)} title="Zrušit"><X size={14} /></button>
             </div>
           </div>
         ) : (
           <div className="flex gap-2">
             <button className="btn-ghost !rounded text-sm" onClick={() => setAdding(true)}>+ Přidat položku</button>
-            <button className="btn-ghost !rounded text-sm" onClick={() => onImportImage(order)}>📸 Načíst z fotky</button>
+            <button className="btn-ghost !rounded text-sm" onClick={() => onImportImage(order)}><Camera className="ikona-text" /> Načíst z fotky</button>
           </div>
         )}
 
@@ -3268,7 +3268,7 @@ function WhatsAppOriginalBlock({ messageId }: { messageId: string }) {
             <>
               <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-bold text-neutral-500">
                 <span className="flex items-center gap-1"><User className="ikona-text" /> {msg.sender_name || 'Neznámý odesílatel'}</span>
-                <span>🕒 {formatWATime(msg.message_timestamp || msg.created_at)}</span>
+                <span><Clock className="ikona-text" /> {formatWATime(msg.message_timestamp || msg.created_at)}</span>
                 {msg.readback_unmatched_count ? (
                   <span className="text-amber-700"><AlertTriangle className="ikona-text" /> {msg.readback_unmatched_count} položek AI přečetlo jinak</span>
                 ) : null}
@@ -3278,7 +3278,7 @@ function WhatsAppOriginalBlock({ messageId }: { messageId: string }) {
               </div>
               {msg.parsed_raw_text && (
                 <div className="rounded-xl bg-amber-50/70 border border-amber-200 p-3 text-xs text-neutral-600 whitespace-pre-wrap leading-relaxed">
-                  <span className="font-black text-amber-700 block mb-1">🤖 Přepis AI (raw_text) — kontrola čtení:</span>
+                  <span className="font-black text-amber-700 block mb-1"><Bot className="ikona-text" /> Přepis AI (raw_text) — kontrola čtení:</span>
                   {msg.parsed_raw_text}
                 </div>
               )}

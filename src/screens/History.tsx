@@ -4,7 +4,7 @@ import { Spinner, EmptyState } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { orderWeightKg, fmtKg } from '../lib/weight';
 import { DAYS } from '../lib/shared';
-import { AlertOctagon, AlertTriangle, ArrowDown, ArrowDownRight, ArrowUp, ArrowUpRight, BarChart3, Beer as BeerIcon, Boxes, Building, Calendar, CheckCircle2, Clock, Cylinder, DollarSign, Download, Droplet, Eye, EyeOff, Filter, GitCompare, History as HistoryIcon, Maximize2, Minimize2, Package as PackageIcon, PartyPopper, Percent, PieChart as PieChartIcon, Printer, Receipt, Save, Search, ShieldAlert, ShoppingCart, Smartphone, TrendingDown, TrendingUp, Trophy, Truck, Undo2, Zap, type LucideIcon } from 'lucide-react';
+import { AlertOctagon, AlertTriangle, ArrowDown, ArrowDownRight, ArrowUp, ArrowUpRight, BarChart3, Beer as BeerIcon, Boxes, Building, Calendar, CheckCircle2, Clock, Cylinder, DollarSign, Download, Droplet, Eye, EyeOff, Filter, GitCompare, History as HistoryIcon, Maximize2, Minimize2, Package as PackageIcon, PartyPopper, Percent, PieChart as PieChartIcon, Printer, Receipt, Save, Search, ShieldAlert, ShoppingCart, Smartphone, Star, Store, TrendingDown, TrendingUp, Trophy, Truck, Undo2, X, Zap, type LucideIcon } from 'lucide-react';
 import { WeeklyOrderSummaryCard, WeeklyOrderItem, isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { PieChart as RePieChart, Pie, Cell, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { EditOrderModal } from '../components/EditOrderModal';
@@ -54,13 +54,13 @@ function addDaysISO(iso: string, delta: number): string {
 
 // ---- Detailní hledání: definice zdrojů aktivit ----
 type ActivitySourceKey = 'bottling' | 'kegging' | 'fasovani' | 'fasovani_private' | 'writeoffs' | 'order_items';
-const ACTIVITY_SOURCES: { key: ActivitySourceKey; label: string; icon: string; dateField: 'entry_date' | 'order_date'; hasVolume: boolean }[] = [
-  { key: 'bottling', label: 'Stáčení lahví', icon: '🍾', dateField: 'entry_date', hasVolume: true },
-  { key: 'kegging', label: 'Stáčení kegů', icon: '🛢️', dateField: 'entry_date', hasVolume: true },
-  { key: 'fasovani', label: 'Fasování', icon: '📦', dateField: 'entry_date', hasVolume: true },
-  { key: 'fasovani_private', label: 'Prodejna', icon: '🏪', dateField: 'entry_date', hasVolume: true },
-  { key: 'writeoffs', label: 'Odpisy', icon: '📉', dateField: 'entry_date', hasVolume: true },
-  { key: 'order_items', label: 'Objednávky', icon: '🧾', dateField: 'order_date', hasVolume: true },
+const ACTIVITY_SOURCES: { key: ActivitySourceKey; label: string; icon: LucideIcon; dateField: 'entry_date' | 'order_date'; hasVolume: boolean }[] = [
+  { key: 'bottling', label: 'Stáčení lahví', icon: IkonaLahev, dateField: 'entry_date', hasVolume: true },
+  { key: 'kegging', label: 'Stáčení kegů', icon: IkonaSud, dateField: 'entry_date', hasVolume: true },
+  { key: 'fasovani', label: 'Fasování', icon: PackageIcon, dateField: 'entry_date', hasVolume: true },
+  { key: 'fasovani_private', label: 'Prodejna', icon: Store, dateField: 'entry_date', hasVolume: true },
+  { key: 'writeoffs', label: 'Odpisy', icon: TrendingDown, dateField: 'entry_date', hasVolume: true },
+  { key: 'order_items', label: 'Objednávky', icon: Receipt, dateField: 'order_date', hasVolume: true },
 ];
 
 type DetailRow = {
@@ -1160,7 +1160,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
 
                     {d.akce_revenue > 0 && (
                       <div className="pt-2 border-t border-neutral-100 flex items-center justify-between">
-                        <span className="text-xs text-neutral-600 font-bold">💰 Vyděláno na akcích</span>
+                        <span className="text-xs text-neutral-600 font-bold"><DollarSign className="ikona-text" /> Vyděláno na akcích</span>
                         <span className="font-display font-black text-emerald-700 text-base">{d.akce_revenue.toLocaleString('cs-CZ')} Kč</span>
                       </div>
                     )}
@@ -1547,7 +1547,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
             <div className="rounded border border-amber-300/80 bg-amber-50/50 p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-black uppercase tracking-wider text-amber-950 flex items-center gap-1.5">
-                  <span>⭐ Uložené filtry</span>
+                  <span><Star className="ikona-text" /> Uložené filtry</span>
                 </label>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -1555,7 +1555,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                 {savedFilters.map((f) => (
                   <span key={f.name} className="px-3 py-1.5 rounded bg-white border border-amber-300 text-amber-950 text-xs font-bold shadow-2xs flex items-center gap-2">
                     <button type="button" className="hover:underline" onClick={() => applyFilter(f)}>{f.name}</button>
-                    <button type="button" className="text-rose-600 hover:text-rose-800 font-bold" onClick={() => deleteFilter(f.name)}>✕</button>
+                    <button type="button" className="text-rose-600 hover:text-rose-800 font-bold" onClick={() => deleteFilter(f.name)} title="Smazat filtr"><X size={14} /></button>
                   </span>
                 ))}
               </div>
@@ -1580,7 +1580,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                         onClick={() => setSelSources((set) => toggleSet(set, s.key))}
                         className={`px-3 py-1.5 rounded text-xs font-black transition ${active ? 'bg-amber-500 text-neutral-950 shadow-md' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
                       >
-                        {s.icon} {s.label}
+                        <s.icon className="ikona-text" /> {s.label}
                       </button>
                     );
                   })}
@@ -1659,7 +1659,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                       </div>
                       <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs font-bold text-neutral-700">
                         {ACTIVITY_SOURCES.filter((s) => selSources.has(s.key)).map((s) => (
-                          <span key={s.key}>{s.icon} {r.qtyBySource[s.key] || 0}</span>
+                          <span key={s.key}><s.icon className="ikona-text" /> {r.qtyBySource[s.key] || 0}</span>
                         ))}
                         <span>· {r.totalLiters.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} l</span>
                       </div>
@@ -1675,7 +1675,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                       <th className="cursor-pointer select-none" onClick={() => onSortDetail('beer_name')}>Pivo<SortIcon active={detailSortKey === 'beer_name'} dir={detailSortDir} /></th>
                       <th className="cursor-pointer select-none" onClick={() => onSortDetail('package_label')}>Obal<SortIcon active={detailSortKey === 'package_label'} dir={detailSortDir} /></th>
                       {ACTIVITY_SOURCES.filter((s) => selSources.has(s.key)).map((s) => (
-                        <th key={s.key} className="text-right">{s.icon} {s.label}</th>
+                        <th key={s.key} className="text-right"><s.icon className="ikona-text" /> {s.label}</th>
                       ))}
                       <th className="text-right cursor-pointer select-none" onClick={() => onSortDetail('totalQty')}>Celkem<SortIcon active={detailSortKey === 'totalQty'} dir={detailSortDir} /></th>
                       <th className="text-right cursor-pointer select-none" onClick={() => onSortDetail('totalLiters')}>Litrů<SortIcon active={detailSortKey === 'totalLiters'} dir={detailSortDir} /></th>
@@ -1959,8 +1959,9 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
               <button
                 onClick={() => setShowPrintModal(false)}
                 className="w-9 h-9 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-black grid place-items-center"
+                title="Zavřít"
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
 

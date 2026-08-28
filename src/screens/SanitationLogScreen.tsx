@@ -1,18 +1,18 @@
 import { useEffect, useState } from 'react';
 import { supabase, SanitationLog } from '../lib/supabase';
 import { Spinner, EmptyState } from '../components/ui';
-import { Calendar, Clock, Droplets, Edit3, FileSpreadsheet, MessageSquare, Pencil, Plus, Search, ShieldCheck, SprayCan, User } from 'lucide-react';
+import { BookOpen, Calendar, Clock, Droplets, Edit3, FileSpreadsheet, FlaskConical, MessageSquare, Pencil, Plus, Search, ShieldCheck, Sparkles, SprayCan, User, X, type LucideIcon } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 import { useAuth } from '../lib/auth';
 
 
-const METHOD_BADGES: Record<string, { label: string; bg: string; text: string; icon: string }> = {
-  kyselina_dusicna: { label: 'Kyselina dusičná', bg: 'bg-rose-100 border-rose-300', text: 'text-rose-950', icon: '🧪' },
-  louh: { label: 'Louh (NaOH)', bg: 'bg-amber-100 border-amber-300', text: 'text-amber-950', icon: '🧼' },
-  oplach_vodou: { label: 'Oplach vodou', bg: 'bg-sky-100 border-sky-300', text: 'text-sky-950', icon: '💧' },
-  persteril: { label: 'Persteril', bg: 'bg-violet-100 border-violet-300', text: 'text-violet-950', icon: '✨' },
-  kombinovana: { label: 'Kombinovaná sanitace', bg: 'bg-emerald-100 border-emerald-300', text: 'text-emerald-950', icon: '🛡️' },
+const METHOD_BADGES: Record<string, { label: string; bg: string; text: string; icon: LucideIcon }> = {
+  kyselina_dusicna: { label: 'Kyselina dusičná', bg: 'bg-rose-100 border-rose-300', text: 'text-rose-950', icon: FlaskConical },
+  louh: { label: 'Louh (NaOH)', bg: 'bg-amber-100 border-amber-300', text: 'text-amber-950', icon: SprayCan },
+  oplach_vodou: { label: 'Oplach vodou', bg: 'bg-sky-100 border-sky-300', text: 'text-sky-950', icon: Droplets },
+  persteril: { label: 'Persteril', bg: 'bg-violet-100 border-violet-300', text: 'text-violet-950', icon: Sparkles },
+  kombinovana: { label: 'Kombinovaná sanitace', bg: 'bg-emerald-100 border-emerald-300', text: 'text-emerald-950', icon: ShieldCheck },
 };
 
 // Skutečná ID ze Supabase (sanitation_logs.id) jsou UUID; lokální záznamy
@@ -252,7 +252,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
               onClick={() => setPage('haccp')}
               className="px-3.5 py-2.5 rounded bg-neutral-800 hover:bg-neutral-700 text-amber-300 font-extrabold text-xs border border-neutral-700 transition shadow-xs flex items-center gap-1.5"
             >
-              📖 Sanitační řád (SOP)
+              <BookOpen className="ikona-text" /> Sanitační řád (SOP)
             </button>
           )}
           <button
@@ -319,7 +319,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
               label: log.method_label || log.method,
               bg: 'bg-neutral-100 border-neutral-300',
               text: 'text-neutral-900',
-              icon: '🧴',
+              icon: FlaskConical,
             };
             const displayTime = log.sanitation_time || (log.created_at ? log.created_at.slice(11, 16) : null);
             const displayDuration = log.duration_minutes ?? 20;
@@ -344,7 +344,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
                 </div>
                 <div className="flex items-center flex-wrap gap-1.5">
                   <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded border font-bold text-xs shadow-xs ${badge.bg} ${badge.text}`}>
-                    <span>{badge.icon}</span><span>{badge.label}</span>
+                    <span><badge.icon className="ikona-text" /></span><span>{badge.label}</span>
                     {displayConc !== null && <span className="ml-1 font-black px-1.5 py-0.5 rounded-md bg-black/10 text-[11px]">{displayConc} %</span>}
                   </span>
                   <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-amber-100/80 text-amber-900 border border-amber-300 font-bold text-[11px]">
@@ -393,7 +393,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
                     label: log.method_label || log.method,
                     bg: 'bg-neutral-100 border-neutral-300',
                     text: 'text-neutral-900',
-                    icon: '🧴',
+                    icon: FlaskConical,
                   };
                   const displayTime = log.sanitation_time || (log.created_at ? log.created_at.slice(11, 16) : null);
                   const displayDuration = log.duration_minutes ?? 20;
@@ -425,7 +425,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
                       </td>
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded border font-bold text-xs shadow-xs ${badge.bg} ${badge.text}`}>
-                          <span>{badge.icon}</span>
+                          <span><badge.icon className="ikona-text" /></span>
                           <span>{badge.label}</span>
                           {displayConc !== null && (
                             <span className="ml-1 font-black px-1.5 py-0.5 rounded-md bg-black/10 text-[11px]">
@@ -487,7 +487,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
                 <span><Pencil className="ikona-text" /> Upravit záznam o sanitaci</span>
               </h3>
-              <button type="button" onClick={() => setEditingLog(null)} className="text-neutral-400 hover:text-neutral-800 text-lg font-bold">✕</button>
+              <button type="button" onClick={() => setEditingLog(null)} className="text-neutral-400 hover:text-neutral-800 text-lg font-bold" title="Zavřít"><X size={18} /></button>
             </div>
 
             <div className="bg-neutral-50 p-3 rounded border border-neutral-200 text-xs space-y-1">
@@ -565,7 +565,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
                 <span><SprayCan className="ikona-text" /> Zapsat novou sanitaci</span>
               </h3>
-              <button type="button" onClick={() => setShowAddModal(false)} className="text-neutral-400 hover:text-neutral-800 text-lg font-bold">✕</button>
+              <button type="button" onClick={() => setShowAddModal(false)} className="text-neutral-400 hover:text-neutral-800 text-lg font-bold" title="Zavřít"><X size={18} /></button>
             </div>
 
             <div>

@@ -9,7 +9,7 @@ import {
   DuplicateOrderIssue,
   UnprocessedWhatsAppIssue,
 } from '../lib/orderAudit';
-import { AlertTriangle, ArrowRight, Beer as BeerIcon, Calendar, CheckCircle, ChevronDown, ChevronUp, Copy, Eye, FileCheck, Layers, MessageSquare, Phone, RefreshCw, Search, ShieldCheck, Sparkles, Trash2, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Beer as BeerIcon, Calendar, Check, CheckCircle, ChevronDown, ChevronUp, Copy, Eye, FileCheck, Globe, Layers, MessageSquare, MinusCircle, Phone, PlusCircle, RefreshCw, Search, ShieldCheck, Sparkles, Trash2, X } from 'lucide-react';
 import { Spinner } from './ui';
 import { potvrd } from '../lib/toast';
 import {
@@ -166,7 +166,7 @@ export function OrderAuditModal({
     try {
       const res = await mergeDuplicateItemRows(issue.rows, targetQty);
       if (res.success) {
-        setMsgFeedback(`✓ Položka ${issue.beerName} ${issue.packageLabel} byla upravena na ${targetQty} ks.`);
+        setMsgFeedback(`Položka ${issue.beerName} ${issue.packageLabel} byla upravena na ${targetQty} ks.`);
         await loadAudit();
         onRefreshOrders && onRefreshOrders();
       } else {
@@ -187,7 +187,7 @@ export function OrderAuditModal({
       if (error) {
         setMsgFeedback('Chyba při stornování: ' + error.message);
       } else {
-        setMsgFeedback('✓ Objednávka byla stornována.');
+        setMsgFeedback('Objednávka byla stornována.');
         await loadAudit();
         onRefreshOrders && onRefreshOrders();
       }
@@ -203,7 +203,7 @@ export function OrderAuditModal({
       if (error) {
         setMsgFeedback('Chyba: ' + error.message);
       } else {
-        setMsgFeedback('✓ Zpráva byla označena jako vyřízená / ignorovaná.');
+        setMsgFeedback('Zpráva byla označena jako vyřízená / ignorovaná.');
         await loadAudit();
       }
     } finally {
@@ -291,7 +291,7 @@ export function OrderAuditModal({
                     : 'text-amber-200 hover:text-white'
                 }`}
               >
-                🌐 Všechny aktivní
+                <Globe className="ikona-text" /> Všechny aktivní
               </button>
             </div>
 
@@ -307,7 +307,7 @@ export function OrderAuditModal({
         {msgFeedback && (
           <div className="px-4 py-2.5 bg-amber-100 text-amber-950 text-xs font-black border-b border-amber-300 flex items-center justify-between animate-in fade-in">
             <span>{msgFeedback}</span>
-            <button onClick={() => setMsgFeedback(null)} className="text-amber-800 hover:text-amber-950 font-bold p-1">✕</button>
+            <button onClick={() => setMsgFeedback(null)} className="text-amber-800 hover:text-amber-950 font-bold p-1" title="Zavřít"><X size={16} /></button>
           </div>
         )}
 
@@ -445,7 +445,7 @@ export function OrderAuditModal({
           ) : totalIssues === 0 ? (
             <div className="py-16 px-4 text-center max-w-md mx-auto">
               <div className="w-20 h-20 rounded-full bg-emerald-100 text-emerald-600 grid place-items-center text-4xl mx-auto mb-4 border-2 border-emerald-300 shadow-md">
-                ✓
+                <Check size={40} />
               </div>
               <h3 className="font-display font-black text-xl text-emerald-950">Vše je 100% v pořádku!</h3>
               <p className="text-xs text-emerald-900/80 mt-1.5 leading-relaxed">
@@ -853,19 +853,26 @@ export function OrderAuditModal({
                                 <div>
                                   <div className="font-black text-xs flex items-center gap-1.5">
                                     <span>
-                                      {m.kind === 'qty_diff' ? '🟡' : m.kind === 'missing_in_order' ? '🔴' : '🟣'}
+                                      {/* Značka nese druh neshody tvarem, ne jen barvou — barevná
+                                          kolečka se od sebe nedala rozeznat na černobílém tisku
+                                          ani při barvosleposti. */}
+                                      {m.kind === 'qty_diff'
+                                        ? <AlertTriangle className="ikona-text" />
+                                        : m.kind === 'missing_in_order'
+                                          ? <MinusCircle className="ikona-text" />
+                                          : <PlusCircle className="ikona-text" />}
                                     </span>
                                     <span>{m.beerName} ({m.packageLabel})</span>
                                   </div>
                                   <div className="text-[11px] mt-1 font-medium">
                                     {m.kind === 'qty_diff' && (
-                                      <span>Ve zprávě <strong>{m.expectedQty} ks</strong> ➔ v objednávce <strong>{m.actualQty} ks</strong></span>
+                                      <span>Ve zprávě <strong>{m.expectedQty} ks</strong> → v objednávce <strong>{m.actualQty} ks</strong></span>
                                     )}
                                     {m.kind === 'missing_in_order' && (
-                                      <span>Ve zprávě <strong>{m.expectedQty} ks</strong> ➔ v objednávce <strong className="text-rose-700">CHYBÍ</strong></span>
+                                      <span>Ve zprávě <strong>{m.expectedQty} ks</strong> → v objednávce <strong className="text-rose-700">CHYBÍ</strong></span>
                                     )}
                                     {m.kind === 'extra_in_order' && (
-                                      <span>V objednávce <strong>{m.actualQty} ks</strong> ➔ ve zprávě nebylo</span>
+                                      <span>V objednávce <strong>{m.actualQty} ks</strong> → ve zprávě nebylo</span>
                                     )}
                                   </div>
                                 </div>
