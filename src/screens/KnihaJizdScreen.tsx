@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { fetchAllRows, supabase, useRealtime } from '../lib/supabase';
 import { Spinner } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
-import { AlertTriangle, Calendar, Car, CheckCircle2, Download, MapPin, Navigation, Plus, Printer, Scale, ShieldCheck, Sparkles, Trash2, User, Zap } from 'lucide-react';
+import { AlertTriangle, Bird, Calendar, Car, CheckCircle2, Download, MapPin, Navigation, Plus, Printer, Scale, ShieldCheck, Sparkles, Trash2, User, X, Zap } from 'lucide-react';
 import { isOrderKachna } from '../lib/zavozSecondCar';
 import { printTable } from '../lib/safePrint';
 import { computeRouteDistanceKm } from '../lib/routeDistance';
@@ -17,7 +17,7 @@ export type LogbookEntry = {
   vehicle_name: string;  // e.g. Velké auto (Peugeot Boxer)
   driver: string;        // e.g. Petr Bednář
   route_from: string;    // Kynšperk nad Ohří (Pivovar)
-  route_to: string;      // e.g. Sokolov ➔ Karlovy Vary ➔ Kynšperk nad Ohří
+  route_to: string;      // e.g. Sokolov → Karlovy Vary → Kynšperk nad Ohří
   purpose: string;       // Rozvoz piva z objednávek & Svoz obalů
   km_start: number;      // Stav tachometru začátek
   km_end: number;        // Stav tachometru konec
@@ -154,7 +154,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
   const HOME_BASE = 'Kynšperk nad Ohří (Pivovar)';
   function ensureEndsAtHomeBase(routeToRaw: string): string {
     const r = routeToRaw.trim() || 'Okruh po odběratelích';
-    return /kynšperk/i.test(r) ? r : `${r} ➔ Kynšperk nad Ohří`;
+    return /kynšperk/i.test(r) ? r : `${r} → Kynšperk nad Ohří`;
   }
 
   async function handleAddEntry(e: React.FormEvent) {
@@ -316,7 +316,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
 
       const buildRoute = (dayOrders: any[]) => {
         const placeNames = Array.from(new Set(dayOrders.map((o) => o.place_name || 'Místní odběratel')));
-        return placeNames.length > 0 ? `${placeNames.join(' ➔ ')} ➔ Kynšperk nad Ohří` : 'Kynšperk nad Ohří (Okruh)';
+        return placeNames.length > 0 ? `${placeNames.join(' → ')} → Kynšperk nad Ohří` : 'Kynšperk nad Ohří (Okruh)';
       };
 
       // Zastávky dne v pořadí prvního výskytu — pro OSRM výpočet reálné jízdní
@@ -465,7 +465,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
         { label: 'Datum' },
         { label: 'Vozidlo' },
         { label: 'Řidič' },
-        { label: 'Trasa (Odkud ➔ Kam)' },
+        { label: 'Trasa (Odkud → Kam)' },
         { label: 'Účel jízdy' },
         { label: 'Start (km)', align: 'right' },
         { label: 'Konec (km)', align: 'right' },
@@ -475,7 +475,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
         new Date(entry.date).toLocaleDateString('cs-CZ'),
         entry.vehicle_name,
         entry.driver,
-        `${entry.route_from} ➔ ${entry.route_to}`,
+        `${entry.route_from} → ${entry.route_to}`,
         entry.purpose,
         `${entry.km_start} km`,
         `${entry.km_end} km`,
@@ -620,7 +620,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                   </div>
                 </div>
                 <div className="text-xs text-neutral-700 font-medium">
-                  <span className="text-neutral-500">{e.route_from}</span> ➔ <strong className="text-amber-900">{e.route_to}</strong>
+                  <span className="text-neutral-500">{e.route_from}</span> → <strong className="text-amber-900">{e.route_to}</strong>
                 </div>
                 <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-neutral-500 font-mono">
                   <span>{e.purpose}</span>
@@ -637,7 +637,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                   <th>Datum</th>
                   <th>Vozidlo</th>
                   <th>Řidič</th>
-                  <th>Trasa (Odkud ➔ Kam)</th>
+                  <th>Trasa (Odkud → Kam)</th>
                   <th>Účel jízdy</th>
                   <th className="text-right">Tachometr Start</th>
                   <th className="text-right">Tachometr Konec</th>
@@ -654,7 +654,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                     <td className="font-black text-xs text-neutral-950">{e.vehicle_name}</td>
                     <td className="font-bold text-xs text-neutral-700">{e.driver}</td>
                     <td className="font-medium text-xs text-neutral-900">
-                      <span className="text-neutral-500">{e.route_from}</span> ➔ <strong className="text-amber-900">{e.route_to}</strong>
+                      <span className="text-neutral-500">{e.route_from}</span> → <strong className="text-amber-900">{e.route_to}</strong>
                     </td>
                     <td className="text-xs text-neutral-600 font-medium">{e.purpose}</td>
                     <td className="text-right font-mono text-xs text-neutral-700">{e.km_start.toLocaleString('cs-CZ')} km</td>
@@ -689,7 +689,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                 <Zap className="text-amber-500 fill-current" size={20} />
                 <span>Generovat Knihu jízd z objednávek</span>
               </h3>
-              <button onClick={() => setShowAutoModal(false)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg">✕</button>
+              <button onClick={() => setShowAutoModal(false)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít"><X size={18} /></button>
             </div>
 
             {autoStep === 'form' ? (
@@ -697,7 +697,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded text-xs text-amber-950 font-medium space-y-1">
                   <p className="font-bold flex items-center gap-1 text-amber-900">
                     <CheckCircle2 size={14} className="text-amber-600" />
-                    <span>Trasa Kynšperk ➔ Zastávky ➔ Kynšperk</span>
+                    <span>Trasa Kynšperk → Zastávky → Kynšperk</span>
                   </p>
                   <p>
                     Načtou se dny, které mají v objednávkách nastavený <strong>den závozu</strong>. V dalším kroku pro každý den zvolíš vozidlo (výchozí Velké auto, nebo zaškrtneš Kachnu) a doplníš skutečně ujeté km.
@@ -760,7 +760,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
             ) : (
               <div className="space-y-3">
                 <p className="text-[11px] text-neutral-500 font-bold leading-snug">
-                  Nalezeno <strong>{previewDays.length}</strong> {previewDays.length === 1 ? 'jízda' : 'jízd'} se závozem v {autoMonth} — vozidlo je předvyplněné podle značení <strong>🦆 Kačena</strong> u jednotlivých objednávek v Závozu (smíšený den = dvě jízdy). Klidně přeškrtni, jinak se použije <strong>{bigVehicleLabel}</strong>. Km jsou předvyplněná reálnou jízdní vzdálenostní trasy pivovar → zastávky → pivovar — klidně uprav podle tachometru, pokud se liší.
+                  Nalezeno <strong>{previewDays.length}</strong> {previewDays.length === 1 ? 'jízda' : 'jízd'} se závozem v {autoMonth} — vozidlo je předvyplněné podle značení <strong><Bird className="ikona-text" /> Kačena</strong> u jednotlivých objednávek v Závozu (smíšený den = dvě jízdy). Klidně přeškrtni, jinak se použije <strong>{bigVehicleLabel}</strong>. Km jsou předvyplněná reálnou jízdní vzdálenostní trasy pivovar → zastávky → pivovar — klidně uprav podle tachometru, pokud se liší.
                 </p>
 
                 <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
@@ -789,7 +789,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                             onChange={(e) => setPreviewDays((rs) => rs.map((r, j) => j === i ? { ...r, isKachna: e.target.checked } : r))}
                             className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 accent-amber-500"
                           />
-                          🦆 Kachna
+                          <Bird className="ikona-text" /> Kachna
                         </label>
                         <input
                           type="number" onWheel={(e) => e.currentTarget.blur()}
@@ -838,7 +838,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                 <Car className="text-amber-600" size={20} />
                 <span>Zapsat ruční jízdu do Knihy jízd</span>
               </h3>
-              <button onClick={() => setShowModal(false)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg">✕</button>
+              <button onClick={() => setShowModal(false)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít"><X size={18} /></button>
             </div>
 
             <form onSubmit={handleAddEntry} className="space-y-3">
@@ -912,7 +912,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                     required
                     value={routeTo}
                     onChange={(e) => setRouteTo(e.target.value)}
-                    placeholder="Např. Sokolov ➔ Karlovy Vary (vrátí se automaticky do Kynšperku)"
+                    placeholder="Např. Sokolov → Karlovy Vary (vrátí se automaticky do Kynšperku)"
                     className="input font-bold text-xs"
                   />
                 </div>

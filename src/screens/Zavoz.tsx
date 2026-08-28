@@ -3,7 +3,7 @@ import { Beer, Package, Place, fetchAllRows, formatPackageLabel, supabase, useRe
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { orderWeightKg, fmtKg } from '../lib/weight';
 import { DAYS } from '../lib/shared';
-import { AlertTriangle, ArrowRightCircle, ArrowRightLeft, BarChart3, Calendar, CalendarDays, Car, CheckCircle2, Cylinder, FileText, MapPin, MessageCircle, Package as PackageIcon, PenTool, Pencil, Phone, Plus, Printer, Scale, Search, Share2, StickyNote, Truck, Wine } from 'lucide-react';
+import { AlertTriangle, ArrowRightCircle, ArrowRightLeft, BarChart3, Bird, Calendar, CalendarDays, Car, Check, CheckCircle2, Cylinder, FileText, Map as MapIcon, MapPin, MessageCircle, Package as PackageIcon, PenTool, Pencil, Phone, Plus, Printer, Scale, Search, Share2, StickyNote, TreePine, Truck, Wine } from 'lucide-react';
 import { shareDeliveryListToWhatsApp } from '../lib/whatsapp';
 import { exportZavozToExcel } from '../lib/excel';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
@@ -765,7 +765,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                               <div className="flex items-center gap-2 min-w-0">
                                 <span className={`w-5 h-5 rounded border-2 flex items-center justify-center text-[11px] shrink-0 ${
                                   allPrepared ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-neutral-300'
-                                }`}>{allPrepared ? '✓' : ''}</span>
+                                }`}>{allPrepared ? <Check className="ikona-text" /> : ''}</span>
                                 <span className={`font-extrabold text-xs truncate ${
                                   allPrepared ? 'text-emerald-800 line-through' : 'text-neutral-900'
                                 }`}>{k.label}</span>
@@ -804,7 +804,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                               <div className="flex items-center gap-2 min-w-0">
                                 <span className={`w-5 h-5 rounded border-2 flex items-center justify-center text-[11px] shrink-0 ${
                                   allPrepared ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-neutral-300'
-                                }`}>{allPrepared ? '✓' : ''}</span>
+                                }`}>{allPrepared ? <Check className="ikona-text" /> : ''}</span>
                                 <span className={`font-extrabold text-xs truncate ${
                                   allPrepared ? 'text-emerald-800 line-through' : 'text-neutral-900'
                                 }`}>{b.label}</span>
@@ -864,7 +864,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                 ? 'bg-white text-emerald-700 border-white'
                                 : 'bg-white border-neutral-300'
                             }`}>
-                              {gOrderIds.some((id) => secondCarOrderIds.includes(id)) ? '✓' : ''}
+                              {gOrderIds.some((id) => secondCarOrderIds.includes(id)) ? <Check className="ikona-text" /> : ''}
                             </span>
                             <span>Druhé auto (Kačena) — celý den</span>
                           </button>
@@ -913,7 +913,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                     <h4 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
                                       <span className="text-emerald-700">SPOLEČNÝ ZÁVOZ:</span>
                                       <span>{groupName}</span>
-                                      {allDelivered && <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white font-extrabold text-[11px]">✓ Vše zavezeno</span>}
+                                      {allDelivered && <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white font-extrabold text-[11px]"><Check className="ikona-text" /> Vše zavezeno</span>}
                                     </h4>
                                     <div className="text-xs text-neutral-600 font-medium mt-1">
                                       {groupOrders.map((o: Order) => o.place_name).join(', ')}
@@ -945,10 +945,13 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                                   : 'bg-white border-neutral-300 text-neutral-500 hover:bg-emerald-50'
                                               }`}
                                             >
-                                              🦆 {secondCarOrderIds.includes(o.id) ? 'Kačena' : ''}
+                                              {/* Popisek je tu vždycky: dřív se při nevybraném druhém autě
+                                                  vykreslovalo jen 🦆 a po jeho odstranění by zůstalo prázdné
+                                                  tlačítko. Vybráno/nevybráno nese barva, ne text. */}
+                                              <Bird className="ikona-text" /> Kačena
                                             </button>
                                             <button onClick={() => toggleDelivered(o)} className={`px-3 py-1.5 rounded font-black text-xs transition shadow-xs flex items-center gap-1.5 ${o.is_delivered ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-neutral-950 hover:bg-amber-400'}`}>
-                                              {o.is_delivered ? '✓ Zavezeno' : 'Označit'}
+                                              {o.is_delivered ? <><Check className="ikona-text" /> Zavezeno</> : 'Označit'}
                                             </button>
                                           </div>
                                         </div>
@@ -956,7 +959,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                           {orderItems.map(it => (
                                             <div key={it.id} className="flex items-center justify-between text-xs py-1 px-2 rounded bg-white/80 border border-neutral-100">
                                               <button onClick={() => toggleItemPrepared(o, it)} className={`flex items-center gap-2 text-left font-bold transition ${it.is_prepared ? 'text-emerald-700 line-through' : 'text-neutral-900'}`}>
-                                                <span className={`w-4 h-4 rounded border flex items-center justify-center text-[11px] ${it.is_prepared ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white border-neutral-300'}`}>{it.is_prepared ? '✓' : ''}</span>
+                                                <span className={`w-4 h-4 rounded border flex items-center justify-center text-[11px] ${it.is_prepared ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white border-neutral-300'}`}>{it.is_prepared ? <Check className="ikona-text" /> : ''}</span>
                                                 <span>{it.beer_name ?? '—'}</span>
                                               </button>
                                               <div className="flex items-center gap-3 font-mono">
@@ -1004,7 +1007,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                     </span>
                                     {o.is_delivered && (
                                       <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white font-extrabold text-[11px]">
-                                        ✓ Zavezeno
+                                        <Check className="ikona-text" /> Zavezeno
                                       </span>
                                     )}
                                   </a>
@@ -1036,7 +1039,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                       className={`flex items-center gap-2.5 text-left font-bold transition ${it.is_prepared ? 'text-emerald-800 line-through' : 'text-neutral-900'}`}
                                     >
                                       <span className={`w-5 h-5 rounded-md border-2 flex items-center justify-center text-xs font-black ${it.is_prepared ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white border-neutral-300'}`}>
-                                        {it.is_prepared ? '✓' : ''}
+                                        {it.is_prepared ? <Check className="ikona-text" /> : ''}
                                       </span>
                                       <span>{it.beer_name ?? '—'}</span>
                                     </button>
@@ -1120,7 +1123,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                         : 'bg-white text-neutral-600 border-neutral-300 hover:bg-emerald-50'
                                     }`}
                                   >
-                                    🦆 Kačena
+                                    <Bird className="ikona-text" /> Kačena
                                   </button>
 
                                   <button
@@ -1138,7 +1141,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                         : 'bg-amber-500 text-neutral-950 hover:bg-amber-400'
                                     }`}
                                   >
-                                    <span>{o.is_delivered ? '✓ Zavezeno' : 'Označit jako zavezené'}</span>
+                                    <span>{o.is_delivered ? <><Check className="ikona-text" /> Zavezeno</> : 'Označit jako zavezené'}</span>
                                   </button>
                                 </div>
                               </div>
@@ -1255,7 +1258,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                 }}
                 className="p-4 rounded bg-white hover:bg-neutral-50 border-2 border-neutral-200 hover:border-amber-400 font-black text-xs text-neutral-900 shadow-sm flex flex-col items-center justify-center gap-2"
               >
-                <span className="text-2xl">🗺️</span>
+                <span className="text-2xl"><MapIcon className="ikona-text" /></span>
                 <span>Google Mapy</span>
               </button>
 
@@ -1279,7 +1282,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                 }}
                 className="p-4 rounded bg-white hover:bg-neutral-50 border-2 border-neutral-200 hover:border-emerald-400 font-black text-xs text-neutral-900 shadow-sm flex flex-col items-center justify-center gap-2"
               >
-                <span className="text-2xl">🌲</span>
+                <span className="text-2xl"><TreePine className="ikona-text" /></span>
                 <span>Mapy.cz</span>
               </button>
             </div>

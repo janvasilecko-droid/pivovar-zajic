@@ -14,7 +14,7 @@ import { computeKeggingPlan } from '../lib/keggingPlan';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
 import { markPlanSeenAt, type BottlingPlan } from '../lib/bottlingPlans';
 import KeggingDayPlan from '../components/KeggingDayPlan';
-import { AlertTriangle, BarChart3, Beer as BeerIcon, Calendar, CalendarDays, Camera, ClipboardList, Copy, Cylinder, Loader2, Package as PackageIcon, PenLine, Pencil, Plus, RefreshCw, Scroll, Sparkles, Trash2 } from 'lucide-react';
+import { AlertTriangle, BarChart3, Beer as BeerIcon, Brush, Calendar, CalendarDays, Camera, Check, ClipboardList, Copy, Cylinder, Loader2, Minus, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Scroll, Sparkles, Trash2, X } from 'lucide-react';
 import { ImportKeggingFromImage } from '../components/ImportKeggingFromImage';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { chyba, potvrd, toastZpet } from '../lib/toast';
@@ -910,7 +910,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             onClick={() => { setChecklistPhase('start'); setChecklistGate(true); setShowChecklistModal(true); }}
             className="mx-auto flex items-center gap-3 px-8 py-5 sm:px-10 sm:py-6 rounded bg-amber-500 hover:bg-amber-600 text-neutral-950 font-black text-lg sm:text-xl shadow-xl active:scale-[0.97] transition"
           >
-            🚀 Zahájit stáčení
+            <Play className="ikona-text" /> Zahájit stáčení
           </button>
         </div>
       )}
@@ -1091,7 +1091,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                             title="Napiš počet ručně"
                           />
                           <button type="button" onClick={() => setTileRow(r.beerId, r.pkgId, { qty: String(Number(r.qty) + 1) })} className="w-10 h-10 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none">+</button>
-                          <button type="button" onClick={() => setTileRow(r.beerId, r.pkgId, { qty: '0' })} className="w-10 h-10 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-xl transition select-none" title="Odebrat položku">✕</button>
+                          <button type="button" onClick={() => setTileRow(r.beerId, r.pkgId, { qty: '0' })} className="w-10 h-10 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-xl transition select-none" title="Odebrat položku"><X size={18} /></button>
                         </div>
                       </li>
                     );
@@ -1204,8 +1204,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                                   onChange={(e) => setEditQty(e.target.value)}
                                   onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') { setEditingId(null); setEditQty(''); } }}
                                 />
-                                <button type="button" onClick={saveEdit} className="px-3 h-10 rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xs transition">✓</button>
-                                <button type="button" onClick={() => { setEditingId(null); setEditQty(''); }} className="px-3 h-10 rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-black text-xs transition">✕</button>
+                                <button type="button" onClick={saveEdit} className="px-3 h-10 rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xs transition"><Check size={14} /></button>
+                                <button type="button" onClick={() => { setEditingId(null); setEditQty(''); }} className="px-3 h-10 rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-black text-xs transition"><X size={14} /></button>
                               </div>
                             ) : (
                               <span className="font-display font-black text-xl text-emerald-950">{r.quantity} ks</span>
@@ -1230,7 +1230,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                               type="button"
                               onClick={() => del(r.id)}
                               className="w-11 min-h-[44px] grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-lg transition"
-                            >✕</button>
+                            ><X size={18} /></button>
                           </div>
                         )}
                       </div>
@@ -1292,13 +1292,13 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                                     className="px-2 h-6 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-xs transition"
                                     onClick={saveEdit}
                                     title="Uložit"
-                                  >✓</button>
+                                  ><Check size={14} /></button>
                                   <button
                                     type="button"
                                     className="px-2 h-6 grid place-items-center rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-bold text-xs transition"
                                     onClick={() => { setEditingId(null); setEditQty(''); }}
                                     title="Zrušit"
-                                  >✕</button>
+                                  ><X size={14} /></button>
                                 </div>
                               ) : (
                                 <div className="flex items-center justify-end gap-1">
@@ -1337,7 +1337,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                                     className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition"
                                     onClick={() => del(r.id)}
                                     title="Smazat záznam"
-                                  >✕</button>
+                                  ><X size={14} /></button>
                                 </div>
                               )}
                             </td>
@@ -1529,8 +1529,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                                 onChange={(e) => setEditQty(e.target.value)}
                                 onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') { setEditingId(null); setEditQty(''); } }}
                               />
-                              <button type="button" onClick={saveEdit} className="px-3 h-10 rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xs transition">✓</button>
-                              <button type="button" onClick={() => { setEditingId(null); setEditQty(''); }} className="px-3 h-10 rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-black text-xs transition">✕</button>
+                              <button type="button" onClick={saveEdit} className="px-3 h-10 rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xs transition"><Check size={14} /></button>
+                              <button type="button" onClick={() => { setEditingId(null); setEditQty(''); }} className="px-3 h-10 rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-black text-xs transition"><X size={14} /></button>
                             </div>
                           ) : (
                             <span className="font-display font-black text-xl text-amber-950">{r.quantity} ks</span>
@@ -1565,7 +1565,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                             type="button"
                             onClick={() => del(r.id)}
                             className="w-11 min-h-[44px] grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-lg transition"
-                          >✕</button>
+                          ><X size={18} /></button>
                         </div>
                       )}
                     </div>
@@ -1633,13 +1633,13 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                                   className="px-2 h-6 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-xs transition"
                                   onClick={saveEdit}
                                   title="Uložit"
-                                >✓</button>
+                                ><Check size={14} /></button>
                                 <button
                                   type="button"
                                   className="px-2 h-6 grid place-items-center rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-bold text-xs transition"
                                   onClick={() => { setEditingId(null); setEditQty(''); }}
                                   title="Zrušit"
-                                >✕</button>
+                                ><X size={14} /></button>
                               </div>
                             ) : (
                               <div className="flex items-center justify-end gap-1">
@@ -1678,7 +1678,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                                   className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition"
                                   onClick={() => del(r.id)}
                                   title="Smazat záznam"
-                                >✕</button>
+                                ><X size={14} /></button>
                               </div>
                             )}
                           </td>
@@ -1785,7 +1785,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               {/* ZE — odečet */}
               <div className="rounded border-2 border-rose-300 bg-white p-3">
                 <div className="text-[11px] font-black text-rose-700 uppercase tracking-wider mb-2">
-                  ➖ ZE sudů <span className="normal-case font-bold">(odečte se ze skladu)</span>
+                  <Minus className="ikona-text" /> ZE sudů <span className="normal-case font-bold">(odečte se ze skladu)</span>
                 </div>
                 <div className="grid grid-cols-2 gap-3 items-end">
                   <div>
@@ -2109,7 +2109,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 }}
                 className="px-5 py-3 rounded bg-sky-500 hover:bg-sky-600 text-white font-black text-xs transition shadow-md"
               >
-                🧹 Končím (otevřít Úklidový checklist)
+                <Brush className="ikona-text" /> Končím (otevřít Úklidový checklist)
               </button>
             </div>
           </div>

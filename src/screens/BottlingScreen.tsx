@@ -4,7 +4,7 @@ import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, beerT
 import { EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { ImportBottlingFromImage } from '../components/ImportBottlingFromImage';
-import { AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Calendar, CalendarDays, Camera, CheckCircle2, ClipboardList, Copy, Cylinder, Lightbulb, ListChecks, Package as PackageIcon, PenLine, Pencil, Plus, RefreshCw, Sparkles, Trash2, Wine } from 'lucide-react';
+import { AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Brush, Calendar, CalendarDays, Camera, Check, CheckCircle2, ClipboardList, Copy, Cylinder, Lightbulb, ListChecks, Megaphone, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Sparkles, Trash2, Wine, X } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { BottlingPlan, getPlanSeenAt, markPlanSeenAt, isPlanUnseen, isBottlingManager, setPlanStatus } from '../lib/bottlingPlans';
 import { BottlingPlanPlanner } from '../components/BottlingPlanPlanner';
@@ -915,13 +915,13 @@ export default function BottlingScreen({
         />
         {unseenCount > 0 && (
           <div className="card p-3 mb-4 border-2 border-rose-300 bg-rose-50/90 flex items-center justify-between gap-3">
-            <span className="text-xs font-black text-rose-900">📣 {unseenCount} {unseenCount === 1 ? 'nový úkol' : 'nové úkoly'} ke stočení</span>
+            <span className="text-xs font-black text-rose-900"><Megaphone className="ikona-text" /> {unseenCount} {unseenCount === 1 ? 'nový úkol' : 'nové úkoly'} ke stočení</span>
             <button
               type="button"
               onClick={() => { markPlanSeenAt(); setPlanSeenAt(Date.now()); }}
               className="px-3 py-1.5 rounded bg-rose-600 hover:bg-rose-700 text-white text-xs font-black transition"
             >
-              ✓ Vím
+              <Check className="ikona-text" /> Vím
             </button>
           </div>
         )}
@@ -943,7 +943,7 @@ export default function BottlingScreen({
               onClick={() => { setChecklistPhase('start'); setChecklistGate(true); setShowChecklistModal(true); }}
               className="mx-auto flex items-center gap-3 px-8 py-5 sm:px-10 sm:py-6 rounded bg-amber-500 hover:bg-amber-600 text-neutral-950 font-black text-lg sm:text-xl shadow-xl active:scale-[0.97] transition"
             >
-              🚀 Zahájit stáčení
+              <Play className="ikona-text" /> Zahájit stáčení
             </button>
           </div>
         ) : (
@@ -1130,7 +1130,7 @@ export default function BottlingScreen({
                           title="Napiš počet ručně"
                         />
                         <button type="button" onClick={() => updateQty(l.rowIndex, l.field, String(l.qty + 1))} className="w-10 h-10 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none">+</button>
-                        <button type="button" onClick={() => updateQty(l.rowIndex, l.field, '0')} className="w-10 h-10 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-xl transition select-none" title="Odebrat položku">✕</button>
+                        <button type="button" onClick={() => updateQty(l.rowIndex, l.field, '0')} className="w-10 h-10 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-xl transition select-none" title="Odebrat položku"><X size={18} /></button>
                       </div>
                     </li>
                   ))}
@@ -1393,7 +1393,7 @@ export default function BottlingScreen({
                 onClick={() => { setRecordsBeerFilter(''); setRecordsPkgFilter(''); }}
                 className="text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2.5 py-1 rounded transition shrink-0 ml-auto whitespace-nowrap"
               >
-                ✕ Vymazat filtry
+                <X className="ikona-text" /> Vymazat filtry
               </button>
             )}
           </div>
@@ -1502,7 +1502,7 @@ export default function BottlingScreen({
                         <button type="button" onClick={() => increment(r.id, -1)} className="w-11 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-lg transition">−</button>
                         <button type="button" onClick={() => increment(r.id, 1)} className="w-11 min-h-[44px] grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-lg transition">+</button>
                         <button type="button" onClick={() => setEditingRow(r)} className="flex-1 min-h-[44px] rounded bg-sky-100 hover:bg-sky-200 text-sky-800 font-black text-xs transition"><Pencil className="ikona-text" /> Upravit</button>
-                        <button type="button" onClick={() => del(r.id)} className="w-11 min-h-[44px] grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-lg transition">✕</button>
+                        <button type="button" onClick={() => del(r.id)} className="w-11 min-h-[44px] grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-lg transition"><X size={18} /></button>
                       </div>
                     </div>
                   );
@@ -1621,7 +1621,7 @@ export default function BottlingScreen({
                               <button type="button" onClick={() => increment(r.id, -1)} className="w-6 h-6 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold text-xs transition">−</button>
                               <button type="button" onClick={() => increment(r.id, 1)} className="w-6 h-6 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-900 font-bold text-xs transition">+</button>
                               <button type="button" onClick={() => setEditingRow(r)} className="w-6 h-6 grid place-items-center rounded bg-sky-100 hover:bg-sky-200 text-sky-700 font-bold text-xs transition" title="Upravit detail"><Pencil size={11} /></button>
-                              <button type="button" onClick={() => del(r.id)} className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition">✕</button>
+                              <button type="button" onClick={() => del(r.id)} className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition"><X size={14} /></button>
                             </div>
                           </td>
                         </tr>
@@ -1684,7 +1684,7 @@ export default function BottlingScreen({
                 )}
                 <span className="text-sm font-bold text-neutral-500">({reqTotals.neededLiters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L)</span>
               </div>
-              <span className="text-[11px] text-neutral-500">{reqTotals.needed > 0 ? 'Objednáno víc, než je na skladě' : '✓ Všechny objednávky týdne pokryty'}</span>
+              <span className="text-[11px] text-neutral-500">{reqTotals.needed > 0 ? 'Objednáno víc, než je na skladě' : <><Check className="ikona-text" /> Všechny objednávky týdne pokryty</>}</span>
             </div>
           </div>
 
@@ -1777,7 +1777,7 @@ export default function BottlingScreen({
                         </div>
                         <div className="text-right shrink-0">
                           <div className={`font-mono font-black text-2xl leading-none ${chybi ? 'text-rose-700' : 'text-emerald-600'}`}>
-                            {chybi ? r.neededQty : '✓'}
+                            {chybi ? r.neededQty : <Check className="ikona-text" />}
                           </div>
                           {chybi && <div className="text-[11px] font-black text-rose-700 uppercase mt-0.5">stočit</div>}
                         </div>
@@ -1858,7 +1858,7 @@ export default function BottlingScreen({
                               </button>
                             ) : (
                               <span className="px-2.5 py-1 rounded bg-emerald-100 text-emerald-800 font-bold text-[11px] border border-emerald-300 whitespace-nowrap">
-                                ✓ Pokryto
+                                <Check className="ikona-text" /> Pokryto
                               </span>
                             )}
                           </td>
@@ -2054,7 +2054,7 @@ export default function BottlingScreen({
                 }}
                 className="px-5 py-3 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border border-neutral-300 font-black text-xs transition shadow-md"
               >
-                🧹 Končím (otevřít Úklidový checklist)
+                <Brush className="ikona-text" /> Končím (otevřít Úklidový checklist)
               </button>
             </div>
           </div>
