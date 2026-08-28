@@ -1144,7 +1144,7 @@ function exportInventoryExcel() {
                   const k = `${r.beer_id}__${r.package_id}`;
                   const beer = beers.find((b) => b.id === r.beer_id);
                   return (
-                    <div key={k} className="plocha-z-dat rounded border border-neutral-200 overflow-hidden" style={beer ? { backgroundColor: beerBg(beer), ['--ink-plochy' as any]: beerInk(beer) } : undefined}>
+                    <div key={k} className="plocha-z-dat plocha-z-dat-tlumena rounded border border-neutral-200 overflow-hidden" style={beer ? { backgroundColor: beerBg(beer), ['--ink-plochy' as any]: beerInk(beer) } : undefined}>
                       <div className="p-3 space-y-2">
                         <div className="flex items-center justify-between gap-2">
                           <div className={`font-black text-sm ${beer && beerText(beer) === 'text-white' ? 'text-white' : 'text-neutral-950'}`}>
@@ -1242,7 +1242,7 @@ function exportInventoryExcel() {
                       <th className="py-2.5 px-2 text-right text-amber-800">Výdej (−)</th>
                       <th className="py-2.5 px-3 text-right bg-emerald-600 !text-white font-black rounded-t-lg">ZBYDE (Oček.)</th>
                       <th className="py-2.5 px-3 text-right bg-amber-500 text-neutral-950 font-black rounded-t-lg">INVENTURA</th>
-                      <th className="py-2.5 px-3 text-right bg-sky-500 !text-white font-black rounded-t-lg" title="Dorovnání (±) — přičti nebo uber k očekávanému stavu, aby seděl s fyzickou realitou. Ukládá se BOKEM a NEpočítá se do stáčení ani odpočtů.">DOROVNAT (±)</th>
+                      <th className="py-2.5 px-3 text-right bg-sky-600 !text-white font-black rounded-t-lg" title="Dorovnání (±) — přičti nebo uber k očekávanému stavu, aby seděl s fyzickou realitou. Ukládá se BOKEM a NEpočítá se do stáčení ani odpočtů.">DOROVNAT (±)</th>
                       <th className="py-2.5 px-2 text-right font-black">MANKO</th>
                       <th className="py-2.5 px-2 text-right font-black" title="Manko po započtení dorovnání (INVENTURA − Dorovnaný stav)">PO DOROVNÁNÍ</th>
                       <th className="py-2.5 px-3 text-right font-black">ROZDÍL (Kč)</th>
@@ -1256,7 +1256,7 @@ function exportInventoryExcel() {
                       const textColor = isDark ? 'text-white' : 'text-neutral-950';
 
                       return (
-                        <tr key={k} className="plocha-z-dat hover:brightness-95 transition-colors border-b border-neutral-200/60" style={beer ? { backgroundColor: beerBg(beer), ['--ink-plochy' as any]: beerInk(beer) } : undefined}>
+                        <tr key={k} className="plocha-z-dat plocha-z-dat-tlumena hover:brightness-95 transition-colors border-b border-neutral-200/60" style={beer ? { backgroundColor: beerBg(beer), ['--ink-plochy' as any]: beerInk(beer) } : undefined}>
                           <td className={`font-black text-[11px] px-3 py-2 ${textColor}`}>{r.beer_name}</td>
                           <td className={`font-extrabold text-[11px] px-3 py-2 ${textColor}`}>{formatPackageLabel(r.package_label)}</td>
                           <td className={`text-right font-black text-[11px] px-2 py-2 ${textColor}`}>{r.initialQty} ks</td>
@@ -1684,7 +1684,7 @@ function EndStockTab({
                 { label: 'Konec', value: String(r.endStockQty), cls: r.endStockQty < 0 ? 'bg-rose-600 text-white' : 'bg-amber-500 text-neutral-950' },
               ];
               return (
-                <div key={`${r.beer_id}__${r.package_id}`} className="plocha-z-dat rounded border border-neutral-200 p-3 space-y-2" style={beer ? { backgroundColor: beerBg(beer), ['--ink-plochy' as any]: beerInk(beer) } : undefined}>
+                <div key={`${r.beer_id}__${r.package_id}`} className="plocha-z-dat plocha-z-dat-tlumena rounded border border-neutral-200 p-3 space-y-2" style={beer ? { backgroundColor: beerBg(beer), ['--ink-plochy' as any]: beerInk(beer) } : undefined}>
                   <div className="flex items-center justify-between gap-2">
                     <span className={`font-black text-sm ${textColor}`}>{r.beer_name}</span>
                     <span className={`font-bold text-xs ${textColor} opacity-80`}>{formatPackageLabel(r.package_label)}</span>
@@ -1741,7 +1741,7 @@ function EndStockTab({
                   const textColor = isDark ? 'text-white' : 'text-neutral-950';
 
                   return (
-                    <tr key={`${r.beer_id}__${r.package_id}`} className="plocha-z-dat hover:brightness-95 transition-colors border-b border-neutral-200/60" style={beer ? { backgroundColor: beerBg(beer), ['--ink-plochy' as any]: beerInk(beer) } : undefined}>
+                    <tr key={`${r.beer_id}__${r.package_id}`} className="plocha-z-dat plocha-z-dat-tlumena hover:brightness-95 transition-colors border-b border-neutral-200/60" style={beer ? { backgroundColor: beerBg(beer), ['--ink-plochy' as any]: beerInk(beer) } : undefined}>
                       <td className={`font-black text-[11px] ${textColor}`}>{r.beer_name}</td>
                       <td className={`font-extrabold text-[11px] ${textColor}`}>{formatPackageLabel(r.package_label)}</td>
                       <td className={`text-right font-black text-[11px] ${textColor}`}>{r.initialQty}</td>

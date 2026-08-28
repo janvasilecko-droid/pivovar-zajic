@@ -1441,7 +1441,7 @@ export default function Orders({
           <div className="flex gap-2 items-center flex-wrap justify-end">
             {mode !== 'entry_only' && (
               <button
-                className={`btn-ghost !rounded font-black text-xs shadow-xs flex items-center gap-1.5 ${viewMode === 'summary' ? '!bg-amber-500 !border-amber-500 !text-neutral-950' : '!bg-amber-50 !border-amber-200 !text-amber-900 hover:!bg-amber-100'}`}
+                className={`btn-ghost !rounded font-black text-xs shadow-xs flex items-center gap-1.5 ${viewMode === 'summary' ? '!bg-amber-500 !border-amber-500 !text-[#0f172a]' : '!bg-amber-50 !border-amber-200 !text-amber-900 hover:!bg-amber-100'}`}
                 onClick={() => setViewMode('summary')}
               >
                 <Plus size={14} /> Nové
@@ -1456,7 +1456,7 @@ export default function Orders({
             />
             {mode !== 'entry_only' && (
               <button
-                className={`btn-ghost !rounded font-black text-xs shadow-xs flex items-center gap-1.5 ${viewMode === 'text' ? '!bg-amber-500 !border-amber-500 !text-neutral-950' : '!bg-amber-50 !border-amber-200 !text-amber-900 hover:!bg-amber-100'}`}
+                className={`btn-ghost !rounded font-black text-xs shadow-xs flex items-center gap-1.5 ${viewMode === 'text' ? '!bg-amber-500 !border-amber-500 !text-[#0f172a]' : '!bg-amber-50 !border-amber-200 !text-amber-900 hover:!bg-amber-100'}`}
                 onClick={() => setViewMode('text')}
               >
                 <Mail size={14} /> Text
@@ -1465,7 +1465,7 @@ export default function Orders({
             {/* Klik rovnou otevře čtení/zpracování příchozích zpráv — ne
                 mezikrok navíc (kontrola je samostatné tlačítko vedle). */}
             <button
-              className="btn-ghost !rounded !bg-[#25D366] !border-[#25D366] !text-white font-black text-xs shadow-xs flex items-center gap-1.5 hover:!bg-[#1da851] relative"
+              className="btn-ghost !rounded !bg-[#25D366] !border-[#25D366] !text-[#0f172a] font-black text-xs shadow-xs flex items-center gap-1.5 hover:!bg-[#1da851] relative"
               title="WhatsApp — čtení a zpracování příchozích zpráv"
               onClick={() => setShowWhatsAppAutoProcessor(true)}
             >
@@ -1806,7 +1806,7 @@ export default function Orders({
 
               <button
                 type="button"
-                className="!bg-[#25D366] hover:!bg-[#1da851] !border-[#25D366] !text-white text-xs font-black shadow-md flex items-center gap-1.5 px-3.5 py-2 rounded transition disabled:opacity-40"
+                className="!bg-[#25D366] hover:!bg-[#1da851] !border-[#25D366] !text-[#0f172a] text-xs font-black shadow-md flex items-center gap-1.5 px-3.5 py-2 rounded transition disabled:opacity-40"
                 disabled={saving || (!filledBeerRows.length && !manualText.trim())}
                 onClick={() => addOrder(undefined, true)}
                 title="Vytvoří objednávku a otevře WhatsApp s předvyplněnou zprávou"

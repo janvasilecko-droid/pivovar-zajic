@@ -545,7 +545,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-lg bg-neutral-900 border-2 border-amber-400 text-white rounded p-4 sm:p-5 shadow-2xl shadow-amber-500/20 animate-bounce-short flex flex-col gap-3">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
-              <div className={`w-11 h-11 rounded text-neutral-950 font-black text-2xl flex items-center justify-center animate-pulse ${activeNewOrderBanner.kind === 'whatsapp' ? 'bg-[#25D366]' : 'bg-amber-500'}`}>
+              <div className={`w-11 h-11 rounded text-[#0f172a] font-black text-2xl flex items-center justify-center animate-pulse ${activeNewOrderBanner.kind === 'whatsapp' ? 'bg-[#25D366]' : 'bg-amber-500'}`}>
                 {activeNewOrderBanner.kind === 'whatsapp' ? <MessageCircle className="ikona-text" /> : <BeerIcon className="ikona-text" />}
               </div>
               <div>
@@ -703,7 +703,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                 type="button"
                 onClick={openWhatsApp}
                 title="WhatsApp — zkontroluje příchozí objednávky"
-                className="relative w-9 h-9 grid place-items-center rounded bg-[#25D366] hover:bg-[#1da851] text-white shadow-sm border border-[#1da851] active:scale-95 transition"
+                className="relative w-9 h-9 grid place-items-center rounded bg-[#25D366] hover:bg-[#1da851] text-[#0f172a] shadow-sm border border-[#1da851] active:scale-95 transition"
               >
                 <MessageCircle size={16} />
                 <span className="absolute -top-1.5 -right-1.5 bg-rose-600 text-white text-[11px] font-black rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center shadow animate-pulse" title="Zpráv čeká na schválení">

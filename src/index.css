@@ -664,6 +664,31 @@ html.density-large .btn {
   color: var(--ink-plochy, #0f172a);
 }
 
+/* Ztlumená varianta — pro velké plochy, ne pro drobné akcenty.
+   Barva piva jde přes celý řádek tabulky, a v plné sytosti (jasně oranžová
+   „dvanáctka" přes celou šířku) v jinak tmavé aplikaci pálí do očí. Vrstva
+   noční modři přes ni ubere sytost, ale rozdíl mezi pivy zůstane čitelný.
+
+   Přes background-image, ne filter ani opacity: obojí by ztlumilo i text
+   uvnitř. Takhle se překrývá jen podklad — background-color je napíchnutá
+   inline stylem a background-image se maluje NAD ni.
+
+   Na ztlumeném podkladu už musí být písmo světlé — a nastavuje se rovnou
+   `color`, ne přepsáním --ink-plochy: tu posílá beerInk() inline stylem
+   a inline zápis proměnné by jakékoli pravidlo odsud přebil.
+   Váha je stejná jako u pravidla výš, takže rozhoduje pořadí — proto to
+   musí zůstat POD ním.
+
+   Pruhy v Historii tuhle variantu schválně nemají: jsou to úzké proužky
+   v tmavé drážce, kde je sytá barva to jediné, co je vidět. */
+:root.dark .plocha-z-dat-tlumena {
+  background-image: linear-gradient(rgb(15 23 42 / 0.74), rgb(15 23 42 / 0.74));
+}
+:root.dark .plocha-z-dat-tlumena,
+:root.dark .plocha-z-dat-tlumena *:not([class*="bg-"]) {
+  color: rgb(var(--ink-neutral-900));
+}
+
 /* Sytá jantarová výplň je značka aplikace a v tmavém režimu se nemění (je
    mezi odstíny 400–500, které zůstávají). Popisek na ní proto musí zůstat
    TMAVÝ — i když se `text-neutral-950` všude jinde správně obrací na světlý.

@@ -313,7 +313,7 @@ export function WeeklyOrderSummaryCard({
                     return (
                       <tr
                         key={`${r.beerKey}|${r.volume}|${idx}`}
-                        className={`plocha-z-dat transition-colors hover:brightness-95 ${onItemClick ? 'cursor-pointer' : ''}`}
+                        className={`plocha-z-dat plocha-z-dat-tlumena transition-colors hover:brightness-95 ${onItemClick ? 'cursor-pointer' : ''}`}
                         style={{ backgroundColor: bgColor, ['--ink-plochy' as any]: beerInk(rowBeerObj) }}
                         onClick={() => onItemClick?.(r.beerId, r.packageId)}
                       >
