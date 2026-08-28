@@ -283,7 +283,7 @@ function KegRackingTimerTool() {
             <div className="text-4xl font-black tabular-nums text-neutral-900 mb-3">{formatDurationMs(elapsedMs)}</div>
             {remainingMs !== null && (
               <div className={`text-sm font-black ${overdue ? 'text-rose-700' : 'text-emerald-700'}`}>
-                {overdue ? '⏰ Sud by měl být stočený!' : `Zbývá odhadem ${formatDurationMs(remainingMs)}`}
+                {overdue ? 'Sud by měl být stočený!' : `Zbývá odhadem ${formatDurationMs(remainingMs)}`}
               </div>
             )}
           </div>

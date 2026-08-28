@@ -114,7 +114,7 @@ export function SignatureModal({
   if (!isOpen) return null;
 
   return (
-    <Modal open={isOpen} onClose={onClose} title="✍️ Podpis převzetí závozu" maxWidth="max-w-md">
+    <Modal open={isOpen} onClose={onClose} title="Podpis převzetí závozu" maxWidth="max-w-md">
       <div className="space-y-4">
         <div>
           <label className="block text-xs font-black text-neutral-700 mb-1">

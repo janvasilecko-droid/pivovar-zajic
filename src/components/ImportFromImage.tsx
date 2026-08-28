@@ -407,7 +407,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
         if (isDuplicate && rawTextFromGemini.trim().length > 30) {
           // Text je příliš podobný předchozímu -> pravděpodobně odpověď s kopií objednávky
           console.log('Duplicitní text detekován (pravděpodobně odpověď s kopií objednávky):', rawTextFromGemini.substring(0, 100));
-          setSkipReason(`⚠️ Fotka může obsahovat odpověď s kopií původní objednávky. Zkontrolujte, jestli neobsahuje víckrát stejné položky.`);
+          setSkipReason(`Fotka může obsahovat odpověď s kopií původní objednávky. Zkontrolujte, jestli neobsahuje víckrát stejné položky.`);
           
           // Pokud jde o přidání dalších fotek (append), quietly skip
           if (append && geminiItems.length === 0) {
@@ -1268,7 +1268,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                     return;
                   }
                   if (dupOrders.length > 0 && !dupOrdersConfirmed) {
-                    setErr('⚠️ Upozornění na možnou duplicitní objednávku: stejný odběratel se už v této relaci importoval. Porovnej obě objednávky nahoře a potvrď zaškrtnutím, že chceš pokračovat.');
+                    setErr('Upozornění na možnou duplicitní objednávku: stejný odběratel se už v této relaci importoval. Porovnej obě objednávky nahoře a potvrď zaškrtnutím, že chceš pokračovat.');
                     return;
                   }
                   if (!confirmed) {

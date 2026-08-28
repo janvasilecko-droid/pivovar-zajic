@@ -132,7 +132,7 @@ function BeerForm({ beer, onClose, onSaved }: { beer: Beer | null; onClose: () =
     }
     setBusy(false);
     if (error) {
-      chyba(`❌ Nepodařilo se uložit pivo: ${error.message}`);
+      chyba(`Nepodařilo se uložit pivo: ${error.message}`);
       return;
     }
     onSaved();
@@ -207,7 +207,7 @@ export function PackagesScreen() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="font-display font-black text-lg text-neutral-900">{p.label}</div>
                   <span className={`px-2.5 py-1 rounded text-xs font-black ${p.kind === 'keg' ? 'bg-amber-500/20 text-amber-900 border border-amber-400/30' : 'bg-emerald-500/20 text-emerald-900 border border-emerald-400/30'}`}>
-                    {p.kind === 'keg' ? '🛢️ KEG' : '🍾 Lahev'}
+                    {p.kind === 'keg' ? 'KEG' : 'Lahev'}
                   </span>
                 </div>
                 <div className="text-sm font-extrabold text-amber-700 mt-2 font-mono">{p.volume_l} litrů</div>
@@ -481,7 +481,7 @@ function GpsBackfillModal({ places, onClose, onSaved }: { places: Place[]; onClo
   const selectedCount = Object.entries(selected).filter(([id, v]) => v && results[id]).length;
 
   return (
-    <Modal open={true} onClose={onClose} title="📍 Doplnit chybějící GPS">
+    <Modal open={true} onClose={onClose} title="Doplnit chybějící GPS">
       <div className="space-y-4 text-xs">
         {!running && !done && (
           <>
@@ -599,7 +599,7 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
     setSearchingAddress(false);
 
     if (results.length === 0) {
-      setLookupMsg('❌ Adresa nebyla nalezena. Můžete ji zadat ručně, nebo do názvu připsat město (např. „U Zajíce Cheb“).');
+      setLookupMsg('Adresa nebyla nalezena. Můžete ji zadat ručně, nebo do názvu připsat město (např. „U Zajíce Cheb“).');
     } else if (results.length === 1) {
       setAddress(results[0].address);
       if (results[0].phone && !phone) setPhone(results[0].phone);
@@ -677,7 +677,7 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
 
     setBusy(false);
     if (error) {
-      chyba(`❌ Nepodařilo se uložit odběratele: ${error.message || JSON.stringify(error)}`);
+      chyba(`Nepodařilo se uložit odběratele: ${error.message || JSON.stringify(error)}`);
       return;
     }
     onSaved();
@@ -702,7 +702,7 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
                 className="btn-secondary text-xs font-black shrink-0 flex items-center gap-1 shadow-2xs"
                 title="Automaticky načíst adresu z Google / Map"
               >
-                {searchingAddress ? '⏳ Hledám…' : '🔍 Načíst adresu'}
+                {searchingAddress ? 'Hledám…' : 'Načíst adresu'}
               </button>
             </div>
           </Field>

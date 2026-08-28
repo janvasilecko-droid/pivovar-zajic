@@ -153,7 +153,7 @@ export function formatDuplicateMessage(dup: DuplicateOrderCandidate): string {
     ? new Date(when + 'T00:00:00').toLocaleDateString('cs-CZ')
     : '—';
   return (
-    `⚠️ Duplicitní objednávka: ${dup.placeName ?? 'odběratel'} už má objednávku na ${whenLabel}` +
+    `Duplicitní objednávka: ${dup.placeName ?? 'odběratel'} už má objednávku na ${whenLabel}` +
     ` (všech ${dup.totalItems} položek se shoduje). Pokud ji přesto chcete zadat (např. zákazník přidal další pivo), pokračujte — jinak import zrušte.`
   );
 }

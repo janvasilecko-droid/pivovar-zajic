@@ -646,7 +646,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                 vynechá se na stránkách, co mají vlastní TabBar (viz
                 TABBED_PAGES níže): záložka nahoře už jméno sekce ukazuje,
                 duplicitní popisek by byl zbytečný (viz Objednávky —
-                "🛒 Objednávky" v kartě + tahle hlavička + záložka = 3× to samé). */}
+                "Objednávky" v kartě + tahle hlavička + záložka = 3× to samé). */}
             {!TABBED_PAGES.has(navPageFor(page)) && (
               <span className="font-display font-black text-sm sm:text-base text-neutral-900 truncate">
                 {(NAV.find((n) => n.id === navPageFor(page)) ?? EXTRA_NAV.find((n) => n.id === navPageFor(page)))?.label ?? ''}
@@ -817,7 +817,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                   {pending > 0 && <span className="opacity-90">— {pending} zápisů čeká v telefonu</span>}
                 </>
               ) : (
-                <span>{syncing ? '⏳ Odesílám zápisy…' : `🔄 ${pending} zápisů čeká na odeslání — klepněte pro odeslání`}</span>
+                <span>{syncing ? 'Odesílám zápisy…' : `🔄 ${pending} zápisů čeká na odeslání — klepněte pro odeslání`}</span>
               )}
             </button>
           </div>
@@ -891,7 +891,7 @@ function OfflineStatus({ online, pending, syncing, syncMsg, onSync }: { online: 
   return (
     <div className="flex items-center gap-2">
       {showInfo && (
-        <Modal open={true} onClose={() => setShowInfo(false)} title="📡 Offline Režim & Synchronizace">
+        <Modal open={true} onClose={() => setShowInfo(false)} title="Offline Režim & Synchronizace">
           <div className="space-y-4 text-xs text-neutral-800 font-medium">
             <div className={`p-4 rounded border-2 flex items-center gap-3 ${online ? 'bg-emerald-50 border-emerald-300 text-emerald-950' : 'bg-amber-50 border-amber-300 text-amber-950'}`}>
               <div className="text-2xl">{online ? '🟢' : '⚠️'}</div>
@@ -951,7 +951,7 @@ Do databáze se už neuloží.`)) discardOp(item.id);
                 disabled={syncing || pending === 0}
                 className="px-4 py-2.5 rounded bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-black text-xs shadow-md transition flex items-center gap-2"
               >
-                <span>{syncing ? '⏳ Odesílám zápisy…' : `🔄 Ručně synchronizovat (${pending})`}</span>
+                <span>{syncing ? 'Odesílám zápisy…' : `Ručně synchronizovat (${pending})`}</span>
               </button>
               <button onClick={() => setShowInfo(false)} className="btn-amber !rounded text-xs font-black">
                 Zavřít
@@ -977,7 +977,7 @@ Do databáze se už neuloží.`)) discardOp(item.id);
           disabled={syncing}
           className="px-2.5 py-1 rounded bg-sky-500 hover:bg-sky-400 text-white font-black text-[11px] border border-sky-400 transition flex items-center gap-1 shadow-xs animate-pulse"
         >
-          <span>{syncing ? '⏳ Sync…' : `🔄 Čeká ${pending} změn`}</span>
+          <span>{syncing ? 'Sync…' : `Čeká ${pending} změn`}</span>
         </button>
       )}
     </div>
@@ -986,7 +986,7 @@ Do databáze se už neuloží.`)) discardOp(item.id);
 
 function InstallModal({ installPrompt, setInstallPrompt, setInstalled, setShowInstallModal }: any) {
   return (
-    <Modal open={true} onClose={() => setShowInstallModal(false)} title="📱 Instalace aplikace Pivovar Zajíc">
+    <Modal open={true} onClose={() => setShowInstallModal(false)} title="Instalace aplikace Pivovar Zajíc">
       <div className="space-y-4 text-xs font-medium text-neutral-800">
         <p className="text-sm">Nainstalujte si aplikaci Pivovar Zajíc přímo na plochu mobilu nebo počítače pro okamžitá upozornění a rychlé offline zadávání.</p>
         

@@ -1167,7 +1167,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   }
 
   return (
-    <Modal open={props.isOpen} onClose={props.onClose} title="🛒 Kontrola WhatsApp objednávky" wide>
+    <Modal open={props.isOpen} onClose={props.onClose} title="Kontrola WhatsApp objednávky" wide>
       {body}
     </Modal>
   );

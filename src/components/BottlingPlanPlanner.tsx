@@ -85,7 +85,7 @@ const STATUS_CHIP: Record<string, string> = {
 };
 
 const STATUS_TEXT: Record<string, string> = {
-  planned: '⏳ Naplánováno',
+  planned: 'Naplánováno',
   done: '✓ Hotovo',
   cancelled: '✕ Zrušeno',
 };
@@ -544,7 +544,7 @@ export function BottlingPlanPlanner({
       {/* Formulář zadání úkolu */}
       <form onSubmit={handleSubmit} className={`card p-3.5 border-2 border-amber-300/70 transition-all duration-200 ${flash ? 'ring-4 ring-emerald-500/20' : ''}`}>
         <div className="flex items-center justify-between mb-3">
-          <span className="font-display font-black text-amber-950 text-xs">{editingId ? '✏️ Upravit úkol' : '➕ Zadat nový úkol'}</span>
+          <span className="font-display font-black text-amber-950 text-xs">{editingId ? 'Upravit úkol' : 'Zadat nový úkol'}</span>
           {editingId && (
             <button type="button" onClick={() => { setEditingId(null); setForm(emptyForm()); setErr(null); }} className="text-[11px] font-black text-neutral-500 hover:text-neutral-800 underline">
               zrušit úpravu
@@ -613,7 +613,7 @@ export function BottlingPlanPlanner({
         {err && <p className="text-[11px] font-black text-rose-700 mt-2">{err}</p>}
         <div className="flex items-center justify-end gap-2 mt-3">
           <button type="submit" disabled={saving} className="btn-primary !rounded px-5 py-2.5 text-xs font-black shadow-md">
-            {saving ? 'Ukládám…' : editingId ? '💾 Uložit změny' : '➕ Přidat úkol'}
+            {saving ? 'Ukládám…' : editingId ? 'Uložit změny' : 'Přidat úkol'}
           </button>
         </div>
       </form>

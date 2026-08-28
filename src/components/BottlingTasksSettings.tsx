@@ -38,7 +38,7 @@ const STATUS_CHIP: Record<string, string> = {
 };
 
 const STATUS_TEXT: Record<string, string> = {
-  planned: '⏳ Naplánováno',
+  planned: 'Naplánováno',
   done: '✓ Hotovo',
   cancelled: '✕ Zrušeno',
 };
@@ -296,7 +296,7 @@ export function BottlingTasksSettings() {
       setModalOpen(false);
       setEditPlan(null);
       setFlash(true);
-      setMsg('✅ Úkol stáčení uložen — automaticky se propíše do formuláře stáčení (Lahve), kde ho stáčeč „Naplní“.');
+      setMsg('Úkol stáčení uložen — automaticky se propíše do formuláře stáčení (Lahve), kde ho stáčeč „Naplní“.');
       setTimeout(() => setFlash(false), 2500);
       load();
     } catch (e: any) {
@@ -348,7 +348,7 @@ export function BottlingTasksSettings() {
               <th className="text-right font-black px-2 py-1.5"><ShoppingCart className="ikona-text" /> Objednávky</th>
               <th className="text-right font-black px-2 py-1.5"><PackageIcon className="ikona-text" /> Fasování</th>
               <th className="text-right font-black px-2 py-1.5"><ClipboardList className="ikona-text" /> Naplánováno</th>
-              <th className="text-right font-black px-2 py-1.5">{isKeg ? '🛢️ Sudy na skladě' : '🍾 Lahve na skladě'}</th>
+              <th className="text-right font-black px-2 py-1.5">{isKeg ? 'Sudy na skladě' : 'Lahve na skladě'}</th>
               <th className="text-right font-black px-2 py-1.5"><AlertTriangle className="ikona-text" /> Chybí stočit</th>
               <th className="text-right font-black px-2 py-1.5"><Calendar className="ikona-text" /> Konec týdne</th>
               <th className="text-right font-black px-2 py-1.5"><IkonaLahev className="ikona-text" /> Stočit</th>
@@ -556,7 +556,7 @@ export function BottlingTasksSettings() {
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editPlan ? '✏️ Upravit úkol stáčení' : '🍾 Stočit — nastavení obalů'}
+        title={editPlan ? 'Upravit úkol stáčení' : 'Stočit — nastavení obalů'}
         wide
       >
         <form onSubmit={handleSave} className="space-y-3">
@@ -634,7 +634,7 @@ export function BottlingTasksSettings() {
           <div className="flex items-center justify-end gap-2 pt-1">
             <button type="button" onClick={() => setModalOpen(false)} className="btn-ghost !rounded text-sm font-black">Zrušit</button>
             <button type="submit" disabled={saving} className="btn-primary !rounded px-5 py-2.5 text-xs font-black shadow-md">
-              {saving ? 'Ukládám…' : editPlan ? '💾 Uložit změny' : '✅ Uložit úkol'}
+              {saving ? 'Ukládám…' : editPlan ? 'Uložit změny' : 'Uložit úkol'}
             </button>
           </div>
         </form>

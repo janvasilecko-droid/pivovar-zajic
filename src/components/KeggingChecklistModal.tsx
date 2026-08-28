@@ -409,10 +409,10 @@ export function KeggingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, b
       open
       onClose={effectiveOnClose}
       title={phase === 'start'
-        ? '📋 Oficiální checklist stáčení KEGů — příprava pracoviště'
+        ? 'Oficiální checklist stáčení KEGů — příprava pracoviště'
         : phase === 'monthly'
-          ? '📋 Oficiální checklist stáčení KEGů — měsíční údržba'
-          : '📋 Oficiální checklist stáčení KEGů — konec stáčení (úklid)'}
+          ? 'Oficiální checklist stáčení KEGů — měsíční údržba'
+          : 'Oficiální checklist stáčení KEGů — konec stáčení (úklid)'}
       wide
     >
       <KeggingChecklistBody

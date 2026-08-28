@@ -83,7 +83,7 @@ export function UserPermissionsModal({
       }
     } catch (e: any) {
       setBusy(false);
-      setMsg(`⚠️ Uloženo jen lokálně na tomto zařízení — na server se práva neuložila (${e?.message ?? 'neznámá chyba'}). Zkus to prosím znovu.`);
+      setMsg(`Uloženo jen lokálně na tomto zařízení — na server se práva neuložila (${e?.message ?? 'neznámá chyba'}). Zkus to prosím znovu.`);
       return;
     }
 
@@ -200,7 +200,7 @@ export function UserPermissionsModal({
                           : 'bg-neutral-100 text-neutral-600 border-neutral-200'
                       }`}
                     >
-                      <span>{access.edit ? '✏️ Může upravovat' : '👁️ Jen čtení'}</span>
+                      <span>{access.edit ? 'Může upravovat' : 'Jen čtení'}</span>
                     </button>
                   </div>
                 </div>

@@ -353,7 +353,7 @@ export default function TapSanitationDiary() {
               <div className="flex justify-end gap-2 border-t border-neutral-100 pt-3">
                 <button type="button" onClick={() => setShowModal(false)} className="btn-ghost !rounded text-xs font-bold">Zrušit</button>
                 <button type="submit" disabled={saving} className="btn-primary !rounded text-xs font-black shadow-md bg-amber-500 hover:bg-amber-600 border-none text-neutral-950">
-                  {saving ? 'Ukládám…' : '✅ Uložit do sanitačního deníku'}
+                  {saving ? 'Ukládám…' : 'Uložit do sanitačního deníku'}
                 </button>
               </div>
             </form>

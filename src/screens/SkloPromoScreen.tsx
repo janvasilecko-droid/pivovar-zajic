@@ -272,7 +272,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
     };
     saveEntries([newE, ...entries]);
     setInQty(''); setInNote('');
-    oznam(`✅ Zapsán příjem ${qty} ks (${finalName}) na sklad!`);
+    oznam(`Zapsán příjem ${qty} ks (${finalName}) na sklad!`);
   }
 
   function handleAddOut(e: React.FormEvent) {
@@ -288,7 +288,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
     };
     saveEntries([newE, ...entries]);
     setOutQty(''); setOutNote('');
-    oznam(`✅ Zapsán výdej ${qty} ks (${outItemName}) pro ${dest}!`);
+    oznam(`Zapsán výdej ${qty} ks (${outItemName}) pro ${dest}!`);
   }
 
   async function handleDeletePromo(id: string) {
@@ -312,7 +312,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
 
     await loadData();
     setLabelQty('1000'); setLabelNote('');
-    oznam(`✅ Zapsán nákup ${qty} ks etiket pro pivo "${labelBeerName}"!`);
+    oznam(`Zapsán nákup ${qty} ks etiket pro pivo "${labelBeerName}"!`);
   }
 
   async function handleDeleteLabelPurchase(id: string) {
@@ -333,7 +333,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
     };
     saveBottlePurchases([newBP, ...bottlePurchases]);
     setBottleQty('1200'); setBottleNote('');
-    oznam(`✅ Zapsán nákup ${qty} ks prázdných lahví "${bottlePkgLabel}"!`);
+    oznam(`Zapsán nákup ${qty} ks prázdných lahví "${bottlePkgLabel}"!`);
   }
 
   async function handleDeleteBottlePurchase(id: string) {
@@ -357,7 +357,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
   function exportExcel() {
     const dataToExport = filteredEntries.map((e) => ({
       Datum: new Date(e.entry_date).toLocaleDateString('cs-CZ'),
-      Pohyb: e.entry_type === 'in' ? '📥 Příjem do skladu' : '📤 Výdej odběrateli',
+      Pohyb: e.entry_type === 'in' ? 'Příjem do skladu' : 'Výdej odběrateli',
       'Předmět / Obal': e.item_name,
       'Počet (ks)': e.quantity,
       'Cíl / Odběratel': e.destination || '—',
@@ -472,10 +472,10 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                   <div>
                     <label className="block text-xs font-black text-neutral-700 mb-1">Kategorie</label>
                     <select value={inCategory} onChange={(e) => setInCategory(e.target.value as any)} className="input font-bold text-xs">
-                      <option value="sklenice">🥛 Sklo & Džbány</option>
-                      <option value="podtacky">📜 Podtácky</option>
-                      <option value="kelimky">🥤 Kelímky (vratné/jednorázové)</option>
-                      <option value="promo">🎁 Promo & Oblečení & Cedule</option>
+                      <option value="sklenice">Sklo & Džbány</option>
+                      <option value="podtacky">Podtácky</option>
+                      <option value="kelimky">Kelímky (vratné/jednorázové)</option>
+                      <option value="promo">Promo & Oblečení & Cedule</option>
                     </select>
                   </div>
                 </div>
@@ -486,7 +486,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                     {DEFAULT_ITEMS.map((item) => (
                       <option key={item.name} value={item.name}>{item.name}</option>
                     ))}
-                    <option value="__custom__">➕ Jiný předmět (vlastní název)…</option>
+                    <option value="__custom__">Jiný předmět (vlastní název)…</option>
                   </select>
                 </div>
 
@@ -536,10 +536,10 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                   <div>
                     <label className="block text-xs font-black text-neutral-700 mb-1">Kategorie</label>
                     <select value={outCategory} onChange={(e) => setOutCategory(e.target.value as any)} className="input font-bold text-xs">
-                      <option value="sklenice">🥛 Sklo & Džbány</option>
-                      <option value="podtacky">📜 Podtácky</option>
-                      <option value="kelimky">🥤 Kelímky</option>
-                      <option value="promo">🎁 Promo & Oblečení</option>
+                      <option value="sklenice">Sklo & Džbány</option>
+                      <option value="podtacky">Podtácky</option>
+                      <option value="kelimky">Kelímky</option>
+                      <option value="promo">Promo & Oblečení</option>
                     </select>
                   </div>
                 </div>

@@ -14,7 +14,7 @@ export type Announcement = {
 
 const DEFAULT_ANNOUNCEMENT: Announcement = {
   id: 'announcement_2026_07_27_01',
-  title: '⚠️ Technické upozornění: Odstávka sanity a údržba stáčecí linky',
+  title: 'Technické upozornění: Odstávka sanity a údržba stáčecí linky',
   body: 'V úterý 28. 7. od 8:00 do 12:00 proběhne plánovaná profilaktická sanitace a výměna těsnění na stáčecí lince KEG sudů. V této době nestáčet a dodržovat BOZP pokyny sládka!',
   type: 'technical',
   author: 'Ing. Petr Bednář (Sládek)',

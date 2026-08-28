@@ -41,7 +41,7 @@ export function KegReturnModal({
     <Modal
       open={isOpen}
       onClose={onClose}
-      title={`🛢️ Vrácené prázdné sudy — ${customerName}`}
+      title={`Vrácené prázdné sudy — ${customerName}`}
       maxWidth="max-w-md"
     >
       <div className="space-y-4">

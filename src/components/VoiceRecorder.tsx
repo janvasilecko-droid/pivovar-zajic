@@ -90,9 +90,9 @@ export function VoiceRecorder({
           if (!mountedRef.current) return;
           setRecording(false);
           if (event.error === 'not-allowed') {
-            setErr('⚠️ Mikrofon není povolen. Povol ho v prohlížeči (🔒 v adresním řádku) a zkus to znovu.');
+            setErr('Mikrofon není povolen. Povol ho v prohlížeči (🔒 v adresním řádku) a zkus to znovu.');
           } else if (event.error === 'no-speech') {
-            setErr('⚠️ Nebyl detekován žádný hlas. Zkus mluvit blíž k mikrofonu.');
+            setErr('Nebyl detekován žádný hlas. Zkus mluvit blíž k mikrofonu.');
           } else if (event.error === 'aborted') {
             // Uživatel zrušil — žádná chyba
           } else {

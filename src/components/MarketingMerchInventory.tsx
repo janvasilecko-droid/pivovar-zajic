@@ -104,7 +104,7 @@ export function MarketingMerchInventory() {
             <div>
               <div className="flex items-start justify-between gap-2 border-b border-neutral-100 pb-2">
                 <span className="text-[11px] font-black uppercase tracking-wider bg-amber-100 text-amber-950 px-2.5 py-0.5 rounded-full border border-amber-200">
-                  {item.category === 'sklo' ? '🍺 Sklo' : item.category === 'tacky' ? '📦 Tácky' : item.category === 'obleceni' ? '👕 Oblečení' : '🏷️ Merch'}
+                  {item.category === 'sklo' ? 'Sklo' : item.category === 'tacky' ? 'Tácky' : item.category === 'obleceni' ? 'Oblečení' : 'Merch'}
                 </span>
                 {item.stockQty <= item.minAlertQty && (
                   <span className="chip bg-rose-100 text-rose-950 font-black border border-rose-300 text-[11px]">
@@ -161,11 +161,11 @@ export function MarketingMerchInventory() {
               <div>
                 <label className="block text-xs font-black text-neutral-700 mb-1">Kategorie</label>
                 <select className="input font-bold text-sm" value={category} onChange={(e) => setCategory(e.target.value as any)}>
-                  <option value="sklo">🍺 Značkové sklo</option>
-                  <option value="tacky">📦 Pivní tácky</option>
-                  <option value="obleceni">👕 Oblečení & Trička</option>
-                  <option value="doplnky">🔑 Otvíráky & Doplňky</option>
-                  <option value="reklama">🖼️ Reklamní cedule</option>
+                  <option value="sklo">Značkové sklo</option>
+                  <option value="tacky">Pivní tácky</option>
+                  <option value="obleceni">Oblečení & Trička</option>
+                  <option value="doplnky">Otvíráky & Doplňky</option>
+                  <option value="reklama">Reklamní cedule</option>
                 </select>
               </div>
               <div className="grid grid-cols-3 gap-2">

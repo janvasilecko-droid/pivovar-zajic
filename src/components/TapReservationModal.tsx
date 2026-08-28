@@ -73,7 +73,7 @@ export function TapReservationModal({ orderDate, customerName, orderId, tapTypeH
 
     if (!isTapAvailable(selectedTapId, dateFrom, reservations) ||
         !isTapAvailable(selectedTapId, dateTo, reservations)) {
-      setErr('❌ Tento výčep je v tomto termínu již zarezervovaný!');
+      setErr('Tento výčep je v tomto termínu již zarezervovaný!');
       return;
     }
 
@@ -85,7 +85,7 @@ export function TapReservationModal({ orderDate, customerName, orderId, tapTypeH
       date_from: dateFrom,
       date_to: dateTo,
       customer_name: customer.trim(),
-      note: note.trim() || `🍺 Automaticky z objednávky${orderId ? ` #${orderId.slice(0, 8)}` : ''}`,
+      note: note.trim() || `Automaticky z objednávky${orderId ? ` #${orderId.slice(0, 8)}` : ''}`,
       order_id: orderId,
     };
 
@@ -164,7 +164,7 @@ export function TapReservationModal({ orderDate, customerName, orderId, tapTypeH
                       <div>
                         <span className="font-black text-sm text-neutral-900">{t.name}</span>
                         <span className="ml-2 px-2 py-0.5 rounded-full bg-neutral-900 text-amber-300 font-extrabold text-[11px] uppercase">
-                          {t.tap_type === 'jednokohout' ? '🚰 1K' : t.tap_type === 'dvojkohout' ? '🚰🚰 2K' : t.tap_type === 'trojkohout' ? '🚰🚰🚰 3K' : '🚰🚰🚰🚰🚰🚰 6K'}
+                          {t.tap_type === 'jednokohout' ? '1K' : t.tap_type === 'dvojkohout' ? '2K' : t.tap_type === 'trojkohout' ? '3K' : '6K'}
                         </span>
                       </div>
                       {!available && <span className="text-[11px] font-bold text-rose-600"><XCircle className="ikona-text" /> Rezervováno</span>}

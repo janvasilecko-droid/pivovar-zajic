@@ -119,7 +119,7 @@ export default function ZavozHistory() {
   function printDeliveryListForOrders(toPrint: Order[], titleLabel: string) {
     printDeliveryList({
       title: `Zavážecí list — ${titleLabel}`,
-      heading: `🚚 Zavážecí list — ${titleLabel}`,
+      heading: `Zavážecí list — ${titleLabel}`,
       summary: `Celkem objednávek: ${toPrint.length}`,
       emptyMessage: 'Žádné objednávky k vytištění.',
       orders: toPrint.map((order) => ({
@@ -182,7 +182,7 @@ export default function ZavozHistory() {
             onChange={(e) => setHistPlaceId(e.target.value)}
             className="input !py-1.5 text-xs font-bold w-auto min-w-[150px]"
           >
-            <option value="">🏪 Všechna odběrná místa</option>
+            <option value="">Všechna odběrná místa</option>
             {places.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
           <select
@@ -190,7 +190,7 @@ export default function ZavozHistory() {
             onChange={(e) => setHistBeerId(e.target.value)}
             className="input !py-1.5 text-xs font-bold w-auto min-w-[150px]"
           >
-            <option value="">🍺 Všechna piva</option>
+            <option value="">Všechna piva</option>
             {beers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
           <select
@@ -198,7 +198,7 @@ export default function ZavozHistory() {
             onChange={(e) => setHistPackageId(e.target.value)}
             className="input !py-1.5 text-xs font-bold w-auto min-w-[150px]"
           >
-            <option value="">🛢️ Všechny obaly</option>
+            <option value="">Všechny obaly</option>
             {packages.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
           </select>
           {(histPeriod !== 'all' || histPlaceId || histBeerId || histPackageId) && (

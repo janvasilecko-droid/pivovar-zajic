@@ -660,7 +660,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                       </div>
                       <div className="flex gap-1.5">
                         <button className="text-xs px-2.5 py-1 rounded bg-emerald-600 text-white font-bold hover:bg-emerald-500 disabled:opacity-50" disabled={inlineBusy} onClick={() => saveInlineTank(t)}>
-                          {inlineBusy ? 'Ukládám…' : '💾 Uložit pivo'}
+                          {inlineBusy ? 'Ukládám…' : 'Uložit pivo'}
                         </button>
                         <button className="text-xs px-2.5 py-1 rounded bg-neutral-200 text-neutral-700 hover:bg-neutral-300 font-medium" onClick={() => setInlineEditId(null)}>Zrušit</button>
                       </div>
@@ -689,7 +689,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                           setInlineVolume(String(t.initial_volume_l ?? t.capacity_l));
                         }}
                       >
-                        {t.current_beer_name ? '✏️ Změnit pivo' : '🍺 Nastavit pivo'}
+                        {t.current_beer_name ? 'Změnit pivo' : 'Nastavit pivo'}
                       </button>
                     </div>
                   )}
@@ -890,7 +890,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                             await recordSanitation('oplach_vodou', t, 'Rychlý oplach vodou z karty tanku', undefined, 10);
                             await supabase.from('cellar_tanks').update({ status: 'rinsing', updated_at: new Date().toISOString() }).eq('id', t.id);
                             load();
-                            oznam(`💧 Oplach vodou pro ${t.label} byl zapsán (Provedl: ${userName})`);
+                            oznam(`Oplach vodou pro ${t.label} byl zapsán (Provedl: ${userName})`);
                           }}
                         >
                           <span className="text-base leading-none"><Droplet className="ikona-text" /></span>
@@ -902,7 +902,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                             await recordSanitation('louh', t, 'Sanitace louhem NaOH z karty tanku', 2, 20);
                             await supabase.from('cellar_tanks').update({ status: 'cleaning', updated_at: new Date().toISOString() }).eq('id', t.id);
                             load();
-                            oznam(`🧼 Sanitace louhem pro ${t.label} byla zapsána (Provedl: ${userName})`);
+                            oznam(`Sanitace louhem pro ${t.label} byla zapsána (Provedl: ${userName})`);
                           }}
                         >
                           <span className="text-base leading-none"><SprayCan className="ikona-text" /></span>
@@ -925,11 +925,11 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                               started_at: null, initial_volume_l: null, updated_at: new Date().toISOString(),
                             }).eq('id', t.id);
                             if (error) {
-                              chyba(`⚠️ Sanitace se zapsala, ale vyprázdnění tanku selhalo: ${error.message}`);
+                              chyba(`Sanitace se zapsala, ale vyprázdnění tanku selhalo: ${error.message}`);
                               return;
                             }
                             load();
-                            oznam(`🧪 Kyselina dusičná pro ${t.label} byla zapsána (Provedl: ${userName})`);
+                            oznam(`Kyselina dusičná pro ${t.label} byla zapsána (Provedl: ${userName})`);
                           }}
                         >
                           <span className="text-base leading-none"><FlaskConical className="ikona-text" /></span>
@@ -1004,15 +1004,15 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
       {showStart && <StartTankForm tank={showStart} beers={beers} onClose={() => setShowStart(null)} onSaved={() => { setShowStart(null); load(); }} />}
       {editTank && <TankForm tank={editTank} beers={beers} onClose={() => setEditTank(null)} onSaved={() => { setEditTank(null); load(); }} />}
       {sanitationModalTank && (
-        <Modal open onClose={() => setSanitationModalTank(null)} title={`🧼 Zapsat sanitaci — ${sanitationModalTank.label}`}>
+        <Modal open onClose={() => setSanitationModalTank(null)} title={`Zapsat sanitaci — ${sanitationModalTank.label}`}>
           <div className="space-y-4">
             <Field label="Metoda sanitace / Chemie">
               <select className="input w-full font-bold" value={sanitationMethod} onChange={(e: any) => setSanitationMethod(e.target.value)}>
-                <option value="louh">🧼 Louh (NaOH)</option>
-                <option value="kyselina_dusicna">🧪 Kyselina dusičná</option>
-                <option value="oplach_vodou">💧 Oplach vodou</option>
-                <option value="persteril">✨ Persteril</option>
-                <option value="kombinovana">🛡️ Kombinovaná sanitace</option>
+                <option value="louh">Louh (NaOH)</option>
+                <option value="kyselina_dusicna">Kyselina dusičná</option>
+                <option value="oplach_vodou">Oplach vodou</option>
+                <option value="persteril">Persteril</option>
+                <option value="kombinovana">Kombinovaná sanitace</option>
               </select>
             </Field>
 
@@ -1051,10 +1051,10 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                   setSanitationModalTank(null);
                   setSanitationNote('');
                   setSanitationConcentration('');
-                  oznam(`✅ Sanitace (${sanitationModalTank.label}) byla zapsána do Sanitačního deníku!`);
+                  oznam(`Sanitace (${sanitationModalTank.label}) byla zapsána do Sanitačního deníku!`);
                 }}
               >
-                {sanitationBusy ? 'Ukládám…' : '✅ Uložit do Sanitačního deníku'}
+                {sanitationBusy ? 'Ukládám…' : 'Uložit do Sanitačního deníku'}
               </button>
             </div>
           </div>
@@ -1118,7 +1118,7 @@ function StartTankForm({ tank, beers, onClose, onSaved }: { tank: CellarTank; be
         {err && <div className="text-sm text-rose-600 bg-rose-500/10 rounded px-3 py-2">{err}</div>}
         <div className="flex justify-end gap-2 pt-2">
           <button className="btn-ghost !rounded" onClick={onClose}>Zrušit</button>
-          <button className="btn-primary !rounded" disabled={busy} onClick={save}>{busy ? 'Ukládám…' : '🚀 Spustit'}</button>
+          <button className="btn-primary !rounded" disabled={busy} onClick={save}>{busy ? 'Ukládám…' : 'Spustit'}</button>
         </div>
       </div>
     </Modal>

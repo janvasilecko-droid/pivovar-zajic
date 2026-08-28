@@ -550,7 +550,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
                 disabled={updatingNote}
                 className="btn-primary !rounded text-xs font-black shadow-md"
               >
-                {updatingNote ? 'Ukládám…' : '✅ Uložit změny'}
+                {updatingNote ? 'Ukládám…' : 'Uložit změny'}
               </button>
             </div>
           </div>
@@ -588,10 +588,10 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
                 }}
                 className="input w-full font-bold"
               >
-                <option value="louh">🧼 Louh NaOH (výchozí 2%)</option>
-                <option value="kyselina_dusicna">🧪 Kyselina dusičná (výchozí 2%)</option>
-                <option value="oplach_vodou">💧 Oplach vodou</option>
-                <option value="kombinovana">🛡️ Kombinovaná sanitace (2%)</option>
+                <option value="louh">Louh NaOH (výchozí 2%)</option>
+                <option value="kyselina_dusicna">Kyselina dusičná (výchozí 2%)</option>
+                <option value="oplach_vodou">Oplach vodou</option>
+                <option value="kombinovana">Kombinovaná sanitace (2%)</option>
               </select>
             </div>
 
@@ -635,7 +635,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" onClick={() => setShowAddModal(false)} className="btn-ghost !rounded text-xs font-bold">Zrušit</button>
               <button type="submit" disabled={saving} className="btn-primary !rounded text-xs font-black shadow-md">
-                {saving ? 'Ukládám…' : '✅ Uložit do Sanitačního deníku'}
+                {saving ? 'Ukládám…' : 'Uložit do Sanitačního deníku'}
               </button>
             </div>
           </form>

@@ -306,7 +306,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
   if (!props.isOpen) return null;
 
   return (
-    <Modal open={props.isOpen} onClose={props.onClose} title="🤖 Automatické zpracování WhatsApp" wide>
+    <Modal open={props.isOpen} onClose={props.onClose} title="Automatické zpracování WhatsApp" wide>
       <div className="space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="text-sm text-neutral-600">

@@ -300,10 +300,10 @@ export default function Orders({
           // Whitelist odesílatelů — zprávy od nepovolených se automaticky nenačítají
           // (zůstanou v seznamu pro ruční zpracování).
           if (!isSenderAllowed(allowedSendersRef.current, message.sender_name)) {
-            console.log('🚫 Zpráva od nepovoleného odesílatele přeskočena:', message.sender_name);
+            console.log('Zpráva od nepovoleného odesílatele přeskočena:', message.sender_name);
             return;
           }
-          console.log('📱 Nová WhatsApp zpráva přijata:', message.id);
+          console.log('Nová WhatsApp zpráva přijata:', message.id);
           
           // Aktualizovat počítadlo
           setNewWhatsAppCount(prev => prev + 1);
@@ -354,7 +354,7 @@ export default function Orders({
         const allowed = pending.filter((m) => isSenderAllowed(allowedSendersRef.current, m.sender_name));
         if (allowed.length === 0) return;
 
-        console.log('📱 Dočteno', allowed.length, 'čekajících WhatsApp zpráv');
+        console.log('Dočteno', allowed.length, 'čekajících WhatsApp zpráv');
         setNewWhatsAppCount((prev) => prev + allowed.length);
 
         // Pokud je mezi nimi nějaká 'pending', spustíme serverové parsování.
@@ -1000,7 +1000,7 @@ export default function Orders({
             return `${beer?.name ?? '?'} ${pkg?.volume_l ?? '?'}L × ${r.qty}ks`;
           }).join(', ');
           await createReminder({
-            title: `🚚 Závoz: ${placeName}`,
+            title: `Závoz: ${placeName}`,
             note: `Objednávka na ${deliveryDate}\n${itemsSummary}${note ? `\nPoznámka: ${note}` : ''}`,
             date_time: reminderDateTime,
             target_role: 'all',
@@ -1042,7 +1042,7 @@ export default function Orders({
                   return `${beer?.name ?? '?'} ${pkg?.volume_l ?? '?'}L × ${r.qty}ks`;
                 }).join(', ');
                 await createReminder({
-                  title: `🚚 Závoz tento týden: ${placeNameWk}`,
+                  title: `Závoz tento týden: ${placeNameWk}`,
                   note: `Závoz proběhne v týdnu od ${startOfWeekIso} (datum: ${deliveryDate}).\n${itemsSummaryWk}${note ? `\nPoznámka: ${note}` : ''}`,
                   date_time: `${startOfWeekIso}T09:00`,
                   target_role: 'all',
@@ -1795,7 +1795,7 @@ export default function Orders({
           <div className="flex items-center justify-between mt-4 gap-2 flex-wrap">
             <div className="flex items-center gap-2">
               <button type="submit" className="btn-primary !rounded text-xs font-black shadow-md" disabled={saving || (!filledBeerRows.length && !manualText.trim())}>
-                {saving ? '⏳ Ukládám…' : `💾 Vytvořit objednávku${filledBeerRows.length ? ` (${filledBeerRows.length} pol. / ${filledBeerRows.reduce((s, r) => s + Number(r.qty || 0), 0)} ks)` : manualText.trim() ? ' (z textu)' : ''}`}
+                {saving ? 'Ukládám…' : `Vytvořit objednávku${filledBeerRows.length ? ` (${filledBeerRows.length} pol. / ${filledBeerRows.reduce((s, r) => s + Number(r.qty || 0), 0)} ks)` : manualText.trim() ? ' (z textu)' : ''}`}
               </button>
 
               <button
@@ -1805,7 +1805,7 @@ export default function Orders({
                 onClick={() => addOrder(undefined, true)}
                 title="Vytvoří objednávku a otevře WhatsApp s předvyplněnou zprávou"
               >
-                <MessageCircle size={14} /> {saving ? '⏳ Ukládám…' : '📤 Vytvořit a odeslat na WhatsApp'}
+                <MessageCircle size={14} /> {saving ? 'Ukládám…' : 'Vytvořit a odeslat na WhatsApp'}
               </button>
 
               <button type="button" className="btn-ghost !rounded text-xs" onClick={() => { setBeerRows(Array.from({ length: 4 }, () => ({ beerId: '', pkgId: '', qty: '', placeId: '', placeNameFree: '' }))); setExpandedBeerId(null); }}>
@@ -2068,16 +2068,16 @@ export default function Orders({
             {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
           <select className="input w-auto font-bold text-xs" value={packageKindFilter} onChange={(e) => setPackageKindFilter(e.target.value as any)}>
-            <option value="all">📦 Všechny druhy obalů</option>
-            <option value="keg">🛢️ Pouze sudy (KEG)</option>
-            <option value="bottle">🍾 Pouze lahve / Sklo / PET</option>
+            <option value="all">Všechny druhy obalů</option>
+            <option value="keg">Pouze sudy (KEG)</option>
+            <option value="bottle">Pouze lahve / Sklo / PET</option>
           </select>
           <select className={`input w-auto font-bold text-xs ${itemFilterBeerId ? 'border-sky-500 ring-2 ring-sky-500/30 dark:border-sky-500' : 'border-sky-300 dark:border-sky-300'} focus:border-sky-500 focus:ring-sky-500/25 dark:focus:border-sky-500 dark:focus:ring-sky-500/25`} value={itemFilterBeerId ?? ''} onChange={(e) => setItemFilterBeerId(e.target.value || null)}>
-            <option value="">🍺 Všechna piva</option>
+            <option value="">Všechna piva</option>
             {beers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
           <select className={`input w-auto font-bold text-xs ${itemFilterPackageId ? 'border-emerald-500 ring-2 ring-emerald-500/30 dark:border-emerald-500' : 'border-emerald-300 dark:border-emerald-300'} focus:border-emerald-500 focus:ring-emerald-500/25 dark:focus:border-emerald-500 dark:focus:ring-emerald-500/25`} value={itemFilterPackageId ?? ''} onChange={(e) => setItemFilterPackageId(e.target.value || null)}>
-            <option value="">🏷️ Konkrétní obal</option>
+            <option value="">Konkrétní obal</option>
             {packages.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
           </select>
           <label className="flex items-center gap-2 text-sm text-primary-700 cursor-pointer px-2.5 py-1 rounded hover:bg-primary-50">

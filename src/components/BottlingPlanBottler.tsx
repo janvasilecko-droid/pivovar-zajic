@@ -27,7 +27,7 @@ const STATUS_CHIP: Record<string, string> = {
 };
 
 const STATUS_TEXT: Record<string, string> = {
-  planned: '⏳ Naplánováno',
+  planned: 'Naplánováno',
   done: '✓ Hotovo',
   cancelled: '✕ Zrušeno',
 };

@@ -308,10 +308,10 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
       open
       onClose={effectiveOnClose}
       title={phase === 'start'
-        ? '📋 Oficiální kontrolní seznam (Checklist) stáčení lahví — příprava pracoviště'
+        ? 'Oficiální kontrolní seznam (Checklist) stáčení lahví — příprava pracoviště'
         : phase === 'monthly'
-          ? '📋 Oficiální kontrolní seznam (Checklist) stáčení lahví — měsíční údržba'
-          : '📋 Oficiální kontrolní seznam (Checklist) stáčení lahví — konec stáčení (úklid)'}
+          ? 'Oficiální kontrolní seznam (Checklist) stáčení lahví — měsíční údržba'
+          : 'Oficiální kontrolní seznam (Checklist) stáčení lahví — konec stáčení (úklid)'}
       wide
     >
       <div className="space-y-4">

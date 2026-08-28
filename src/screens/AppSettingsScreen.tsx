@@ -434,7 +434,7 @@ export default function AppSettingsScreen() {
                       : 'bg-white border-neutral-200 text-neutral-700 hover:border-amber-300'
                   }`}
                 >
-                  {secs === 0 ? '🔒 Nikdy (ručně)' : `${secs} s`}
+                  {secs === 0 ? 'Nikdy (ručně)' : `${secs} s`}
                 </button>
               ))}
             </div>
@@ -545,7 +545,7 @@ export default function AppSettingsScreen() {
             disabled={nameBusy}
             className="btn-primary !rounded text-sm font-black flex items-center justify-center gap-1.5 w-full sm:w-auto"
           >
-            {nameBusy ? 'Ukládám…' : '✅ Uložit jméno'}
+            {nameBusy ? 'Ukládám…' : 'Uložit jméno'}
           </button>
         </form>
       </div>
@@ -572,7 +572,7 @@ export default function AppSettingsScreen() {
             disabled={passwordBusy}
             className="btn-primary !rounded text-sm font-black flex items-center justify-center gap-1.5 w-full sm:w-auto"
           >
-            {passwordBusy ? 'Ukládám…' : '✅ Uložit nové heslo'}
+            {passwordBusy ? 'Ukládám…' : 'Uložit nové heslo'}
           </button>
         </form>
       </div>
@@ -628,8 +628,8 @@ function AdminVersionSyncSection() {
       setCleanOk(failedCount === 0);
       setCleanMsg(
         failedCount === 0
-          ? `✅ Všechna data byla úspěšně vymazána (${result.ok.length} tabulek + ${removedLocal.length} lokálních klíčů). Stránka se nyní znovu načte…`
-          : `⚠️ Vymazáno ${result.ok.length} tabulek, ${failedCount} selhalo. Stránka se nyní znovu načte…`
+          ? `Všechna data byla úspěšně vymazána (${result.ok.length} tabulek + ${removedLocal.length} lokálních klíčů). Stránka se nyní znovu načte…`
+          : `Vymazáno ${result.ok.length} tabulek, ${failedCount} selhalo. Stránka se nyní znovu načte…`
       );
       setCleaning(false);
 
@@ -638,7 +638,7 @@ function AdminVersionSyncSection() {
       }, 2000);
     } catch (err) {
       setCleanOk(false);
-      setCleanMsg(`❌ Chyba při čištění: ${err instanceof Error ? err.message : 'neznámá chyba'}`);
+      setCleanMsg(`Chyba při čištění: ${err instanceof Error ? err.message : 'neznámá chyba'}`);
       setCleaning(false);
     }
   }
@@ -686,7 +686,7 @@ function AdminVersionSyncSection() {
 
       // 5. Znovu načteme stránku pro kompletní refresh
       setRefreshOk(true);
-      setRefreshMsg('✅ Data byla úspěšně obnovena! Stránka se nyní znovu načte…');
+      setRefreshMsg('Data byla úspěšně obnovena! Stránka se nyní znovu načte…');
       setRefreshing(false);
 
       setTimeout(() => {
@@ -694,7 +694,7 @@ function AdminVersionSyncSection() {
       }, 1500);
     } catch (err) {
       setRefreshOk(false);
-      setRefreshMsg(`❌ Chyba při obnově: ${err instanceof Error ? err.message : 'neznámá chyba'}`);
+      setRefreshMsg(`Chyba při obnově: ${err instanceof Error ? err.message : 'neznámá chyba'}`);
       setRefreshing(false);
     }
   }

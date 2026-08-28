@@ -207,7 +207,7 @@ export function FestivalEquipmentTracker() {
                       : 'bg-amber-100 text-amber-950 border border-amber-300 font-extrabold'
                   }`}
                 >
-                  {item.status === 'available' ? '✅ Na skladě' : '🎪 Zapůjčeno'}
+                  {item.status === 'available' ? 'Na skladě' : 'Zapůjčeno'}
                 </span>
               </div>
 
@@ -351,11 +351,11 @@ export function FestivalEquipmentTracker() {
               <div>
                 <label className="block text-xs font-black text-neutral-700 mb-1">Kategorie</label>
                 <select className="input font-bold text-sm" value={category} onChange={(e) => setCategory(e.target.value as any)}>
-                  <option value="chlazeni">🍺 Chlazení & Výčep</option>
-                  <option value="stan">⛺ Stánky & Stany</option>
-                  <option value="vycepni_stojan">🚰 Výčepní stojany</option>
-                  <option value="narážeč">🛢️ Narážeče</option>
-                  <option value="pivni_sety">🪑 Pivní sety (Lavice & Stoly)</option>
+                  <option value="chlazeni">Chlazení & Výčep</option>
+                  <option value="stan">Stánky & Stany</option>
+                  <option value="vycepni_stojan">Výčepní stojany</option>
+                  <option value="narážeč">Narážeče</option>
+                  <option value="pivni_sety">Pivní sety (Lavice & Stoly)</option>
                 </select>
               </div>
             </div>

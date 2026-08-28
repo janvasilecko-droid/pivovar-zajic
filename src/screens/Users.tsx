@@ -241,11 +241,11 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
           <div className="flex justify-end gap-2 flex-wrap">
             <button className="btn-amber !rounded text-xs font-black shadow-md flex items-center gap-1.5" onClick={handleBackupGoogleSheets} disabled={backingUp}>
               <Table size={16} className="text-emerald-800" />
-              <span>{backingUp ? 'Generuji…' : '📊 Týdenní záloha pro Google Tabulky (.xlsx)'}</span>
+              <span>{backingUp ? 'Generuji…' : 'Týdenní záloha pro Google Tabulky (.xlsx)'}</span>
             </button>
             <button className="btn-ghost !rounded !bg-white border-amber-300 text-xs font-black shadow-xs flex items-center gap-1.5" onClick={handleBackupJSON} disabled={backingUp}>
               <Download size={15} />
-              <span>{backingUp ? 'Zálohuji…' : '💾 JSON Záloha'}</span>
+              <span>{backingUp ? 'Zálohuji…' : 'JSON Záloha'}</span>
             </button>
             <button className="btn-primary !rounded text-xs font-black shadow-md" onClick={() => selectTab('emails')}><Plus className="ikona-text" /> Přidat e-mail ke schválení</button>
           </div>
@@ -262,7 +262,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
                 <div className="flex items-start justify-between gap-2">
                   <div className="font-display font-bold text-base text-neutral-900">{u.display_name ?? u.email}</div>
                   <span className={`chip ${u.role === 'admin' ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-neutral-100 text-neutral-700'}`}>
-                    {u.role === 'admin' ? '👑 Admin' : '👤 Uživatel'}
+                    {u.role === 'admin' ? 'Admin' : 'Uživatel'}
                   </span>
                 </div>
                 <div className="text-xs text-neutral-500 mt-1 font-medium">{u.email}</div>

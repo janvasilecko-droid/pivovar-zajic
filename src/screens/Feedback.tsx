@@ -163,10 +163,10 @@ export default function Feedback({ setPage, initialSubTab }: { setPage?: (p: any
             <div>
               <label className="label">Kategorie</label>
               <select className="input" value={category} onChange={(e) => setCategory(e.target.value as Category)}>
-                <option value="feature">💡 Nápad na vylepšení</option>
-                <option value="bug">🐛 Chyba</option>
-                <option value="question">❓ Otázka</option>
-                <option value="other">📝 Jiné</option>
+                <option value="feature">Nápad na vylepšení</option>
+                <option value="bug">Chyba</option>
+                <option value="question">Otázka</option>
+                <option value="other">Jiné</option>
               </select>
             </div>
           </div>

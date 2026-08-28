@@ -683,9 +683,9 @@ export default function BottleSanitationDiary() {
                   <div>
                     <label className="label !text-[11px] !mb-1">Důvod sanitace</label>
                     <select value={reason} onChange={(e) => setReason(e.target.value)} className="input w-full text-xs font-semibold">
-                      <option value="pred_stacenim">🧼 Před stáčením</option>
-                      <option value="po_staceni">🧼 Po stáčení</option>
-                      <option value="pravidelna">🧼 Měsíční sanitace</option>
+                      <option value="pred_stacenim">Před stáčením</option>
+                      <option value="po_staceni">Po stáčení</option>
+                      <option value="pravidelna">Měsíční sanitace</option>
                     </select>
                   </div>
                 </div>
@@ -891,7 +891,7 @@ export default function BottleSanitationDiary() {
             <div className="flex justify-end gap-2 border-t border-neutral-100 pt-3">
               <button type="button" onClick={() => setShowModal(false)} className="btn-ghost !rounded text-xs font-bold">Zrušit</button>
               <button type="submit" disabled={saving} className="btn-primary !rounded text-xs font-black shadow-md bg-amber-500 hover:bg-amber-600 border-none text-neutral-950">
-                {saving ? 'Ukládám…' : '✅ Uložit do sanitačního deníku'}
+                {saving ? 'Ukládám…' : 'Uložit do sanitačního deníku'}
               </button>
             </div>
           </form>

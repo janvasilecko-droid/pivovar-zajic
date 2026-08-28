@@ -166,7 +166,7 @@ export function BottlingLineMaintenance() {
                       : 'bg-emerald-100 text-emerald-950 font-extrabold border border-emerald-300'
                   }`}
                 >
-                  {status === 'overdue' ? '⚠️ Po termínu!' : status === 'due' ? '⏳ Připravit servis' : '✅ V pořádku'}
+                  {status === 'overdue' ? 'Po termínu!' : status === 'due' ? 'Připravit servis' : 'V pořádku'}
                 </span>
               </div>
 
@@ -217,11 +217,11 @@ export function BottlingLineMaintenance() {
               <div>
                 <label className="block text-xs font-black text-neutral-700 mb-1">Typ údržby</label>
                 <select className="input font-bold text-sm" value={taskType} onChange={(e) => setTaskType(e.target.value as any)}>
-                  <option value="o_rings">🔧 Výměna těsnění a O-kroužků</option>
-                  <option value="sanitation">🧼 CIP Sanitace & Proplach</option>
-                  <option value="lubrication">🛢️ Mazání čerpadel a ložisek</option>
-                  <option value="pressure_test">💨 Tlaková zkouška CO₂ a ventilů</option>
-                  <option value="valve_replacement">⚙️ Servis plnících jehel</option>
+                  <option value="o_rings">Výměna těsnění a O-kroužků</option>
+                  <option value="sanitation">CIP Sanitace & Proplach</option>
+                  <option value="lubrication">Mazání čerpadel a ložisek</option>
+                  <option value="pressure_test">Tlaková zkouška CO₂ a ventilů</option>
+                  <option value="valve_replacement">Servis plnících jehel</option>
                 </select>
               </div>
 

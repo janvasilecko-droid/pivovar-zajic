@@ -503,7 +503,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
           <div className="flex items-center justify-between mt-4">
             <div className="flex items-center gap-2">
               <button type="submit" disabled={saving} className="btn-primary !rounded !from-emerald-600 !to-emerald-700 hover:!from-emerald-500 hover:!to-emerald-600 !shadow-emerald-600/30 text-xs font-black shadow-md">
-                {saving ? '⏳ Ukládám…' : '💾 Uložit fasování'}
+                {saving ? 'Ukládám…' : 'Uložit fasování'}
               </button>
               <button type="button" className="btn-ghost !rounded text-xs" onClick={() => setEntryRows(emptyRows(table === 'fasovani' ? FASOVANI_ROW_COUNT : ROW_COUNT))}><Trash2 className="ikona-text" /> Vymazat vše</button>
             </div>

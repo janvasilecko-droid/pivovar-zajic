@@ -60,19 +60,19 @@ export type AkceRecord = {
 
 // Výchozí seznam vybavení, které je potřeba na akci připravit
 const DEFAULT_EQUIPMENT = [
-  '🍺 Sudy s pivem (dle fasování)',
-  '🪣 Výčepní zařízení (pípa, hadice, CO2)',
-  '🥛 Sklo: Tübinger 0,5L',
-  '🥛 Sklo: Tübinger 0,3L',
-  '🥛 Sklo: Willy 0,5L',
-  '🥛 Sklo: Willy 0,3L',
-  '💰 Kasa / pokladna + drobné',
-  '🧾 Faktury a doklady',
-  '🪑 Stoly a židle',
-  '⛱️ Stánek / slunečník',
-  '🛒 Vozík na převoz',
-  '🧊 Lednice / led na chlazení',
-  '🗑️ Odpadkové koše',
+  'Sudy s pivem (dle fasování)',
+  'Výčepní zařízení (pípa, hadice, CO2)',
+  'Sklo: Tübinger 0,5L',
+  'Sklo: Tübinger 0,3L',
+  'Sklo: Willy 0,5L',
+  'Sklo: Willy 0,3L',
+  'Kasa / pokladna + drobné',
+  'Faktury a doklady',
+  'Stoly a židle',
+  'Stánek / slunečník',
+  'Vozík na převoz',
+  'Lednice / led na chlazení',
+  'Odpadkové koše',
 ];
 
 type FormRow = { beer_id: string; package_id: string; qty: string };
@@ -301,7 +301,7 @@ export default function AkceScreen() {
       const remindDateTime = `${remindDate.getFullYear()}-${String(remindDate.getMonth() + 1).padStart(2, '0')}-${String(remindDate.getDate()).padStart(2, '0')}T08:00`;
 
       await createReminder({
-        title: `🎪 Akce: ${newRecord.name}`,
+        title: `Akce: ${newRecord.name}`,
         note: `Za 3 dny je akce "${newRecord.name}" (${new Date(entryDate).toLocaleDateString('cs-CZ')}). Nezapomeň: říct Denisovi o kašu!`,
         date_time: remindDateTime,
         target_role: newRecord.who.trim() || 'all',
@@ -310,7 +310,7 @@ export default function AkceScreen() {
       });
     } catch {}
 
-    oznam(`✅ Akce "${newRecord.name}" byla úspěšně uložena s ${validItems.length} položkami! Upomínka pro ${newRecord.who} přijde 3 dny před akcí.`);
+    oznam(`Akce "${newRecord.name}" byla úspěšně uložena s ${validItems.length} položkami! Upomínka pro ${newRecord.who} přijde 3 dny před akcí.`);
   }
 
   // Přepnutí stavu "Připraveno na akci"
@@ -337,7 +337,7 @@ export default function AkceScreen() {
     ];
     if (!(await saveRecord({ ...equipRecord, equipment: selected }))) return;
     setEquipRecord(null);
-    oznam(`✅ Vybavení na akci "${equipRecord.name}" uloženo (${selected.length} položek).`);
+    oznam(`Vybavení na akci "${equipRecord.name}" uloženo (${selected.length} položek).`);
   }
 
   function addCustomEquipItem() {
@@ -389,7 +389,7 @@ export default function AkceScreen() {
 
     if (!(await saveRecord(updatedRec))) return;
     setEvalRecord(null);
-    oznam(`🎉 Vyhodnocení akce "${updatedRec.name}" uloženo! Neprodané sudy/lahve byly vráceny do skladu.`);
+    oznam(`Vyhodnocení akce "${updatedRec.name}" uloženo! Neprodané sudy/lahve byly vráceny do skladu.`);
   }
 
   async function handleDeleteAkce(id: string) {
@@ -593,7 +593,7 @@ export default function AkceScreen() {
                       }`}
                     >
                       <CheckCircle2 size={16} />
-                      <span>{isDone ? '✏️ Upravit vyhodnocení (Po akci)' : '🍺 PO AKCI — Vyhodnotit a vrátit neprodané'}</span>
+                      <span>{isDone ? 'Upravit vyhodnocení (Po akci)' : 'PO AKCI — Vyhodnotit a vrátit neprodané'}</span>
                     </button>
                   </div>
                 </div>

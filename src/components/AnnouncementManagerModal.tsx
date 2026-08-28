@@ -12,7 +12,7 @@ export function AnnouncementManagerModal({ onClose }: { onClose: () => void }) {
     } catch { return []; }
   });
 
-  const [title, setTitle] = useState('⚠️ Technické upozornění: Odstávka a sanitace varny');
+  const [title, setTitle] = useState('Technické upozornění: Odstávka a sanitace varny');
   const [body, setBody] = useState('V úterý od 8:00 do 12:00 proběhne plánovaná údržba. V této době nestáčet!');
   const [type, setType] = useState<'technical' | 'important' | 'info'>('technical');
   const [author, setAuthor] = useState('Ing. Petr Bednář (Sládek)');
@@ -89,9 +89,9 @@ export function AnnouncementManagerModal({ onClose }: { onClose: () => void }) {
               onChange={(e) => setType(e.target.value as any)}
               className="input font-bold text-xs"
             >
-              <option value="technical">⚠️ Technické upozornění / Odstávka</option>
-              <option value="important">❗ Důležité provozní hlášení</option>
-              <option value="info">💡 Provozní oznam</option>
+              <option value="technical">Technické upozornění / Odstávka</option>
+              <option value="important">Důležité provozní hlášení</option>
+              <option value="info">Provozní oznam</option>
             </select>
           </div>
 

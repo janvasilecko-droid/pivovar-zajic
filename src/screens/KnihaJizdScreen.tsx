@@ -143,7 +143,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
     }));
     const { error } = await supabase.from('logbook_entries').insert(payload);
     if (error) {
-      chyba(`❌ Nepodařilo se uložit jízdu/jízdy do Knihy jízd: ${error.message}`);
+      chyba(`Nepodařilo se uložit jízdu/jízdy do Knihy jízd: ${error.message}`);
       return;
     }
     setEntries((prev) => [...newEntries, ...prev].sort((a, b) => b.date.localeCompare(a.date)));
@@ -186,7 +186,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
     if (!(await potvrd('Opravdu smazat tento záznam z Knihy jízd?'))) return;
     const { error } = await supabase.from('logbook_entries').delete().eq('id', id);
     if (error) {
-      chyba(`❌ Nepodařilo se smazat záznam: ${error.message}`);
+      chyba(`Nepodařilo se smazat záznam: ${error.message}`);
       return;
     }
     setEntries((prev) => prev.filter((e) => e.id !== id));
@@ -421,7 +421,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
     const affectedDates = Array.from(new Set(previewDays.map((d) => d.date)));
     const { error: delError } = await supabase.from('logbook_entries').delete().in('entry_date', affectedDates);
     if (delError) {
-      chyba(`❌ Nepodařilo se nahradit stávající záznamy: ${delError.message}`);
+      chyba(`Nepodařilo se nahradit stávající záznamy: ${delError.message}`);
       return;
     }
     setEntries((prev) => prev.filter((e) => !affectedDates.includes(e.date)));
@@ -431,7 +431,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
     setShowAutoModal(false);
     setAutoStep('form');
     setPreviewDays([]);
-    oznam(`✅ Úspěšně vygenerováno ${generatedEntries.length} závozových jízd!`);
+    oznam(`Úspěšně vygenerováno ${generatedEntries.length} závozových jízd!`);
   }
 
   function exportExcelLogbook() {
@@ -459,7 +459,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
   function printLogbook() {
     printTable({
       title: `Kniha jízd — ${filterMonth}`,
-      heading: `🚚 Kniha jízd pivovaru — Měsíc ${filterMonth}`,
+      heading: `Kniha jízd pivovaru — Měsíc ${filterMonth}`,
       summary: `Kynšperský pivovar s.r.o. · Celkem ujeto v měsíci: ${totalKmMonth} km`,
       columns: [
         { label: 'Datum' },
@@ -770,7 +770,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                         <span className="font-black text-xs text-neutral-900 flex items-center gap-1.5">
                           {new Date(d.date).toLocaleDateString('cs-CZ')}
                           <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-black uppercase ${d.isKachna ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-                            {d.isKachna ? '🦆 Kačena' : '🚐 Velké auto'}
+                            {d.isKachna ? 'Kačena' : 'Velké auto'}
                           </span>
                         </span>
                         <span className="text-[11px] font-bold text-neutral-500">{d.stopsCount} zastávek</span>

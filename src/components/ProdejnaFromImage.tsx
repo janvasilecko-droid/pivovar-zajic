@@ -172,7 +172,7 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onTextExtr
   if (!isOpen) return null;
 
   return (
-    <Modal open onClose={onClose} title="📷 Číst z fotky / fotoaparátu (Fasování, Odchod, Prodejna)" wide>
+    <Modal open onClose={onClose} title="Číst z fotky / fotoaparátu (Fasování, Odchod, Prodejna)" wide>
       <div className="space-y-4">
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap gap-3 items-center">

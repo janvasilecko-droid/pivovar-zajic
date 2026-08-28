@@ -131,7 +131,7 @@ export default function VycepyScreen() {
     if (resDateTo < resDateFrom) { oznam('Konec rezervace nesmí být před začátkem.'); return; }
 
     if (!isTapAvailable(resTapId, resDateFrom, resDateTo)) {
-      oznam('❌ Tento výčep je v tomto termínu již zarezervovaný!');
+      oznam('Tento výčep je v tomto termínu již zarezervovaný!');
       return;
     }
 
@@ -239,7 +239,7 @@ export default function VycepyScreen() {
                       <div>
                         <span className="font-display font-black text-base text-neutral-950 block">{t.name}</span>
                         <span className="px-2.5 py-0.5 rounded-full bg-neutral-900 text-amber-300 font-extrabold text-[11px] uppercase tracking-wider inline-block mt-1">
-                          {t.tap_type === 'jednokohout' ? '🚰 Jednokohout' : t.tap_type === 'dvojkohout' ? '🚰🚰 Dvojkohout' : t.tap_type === 'trojkohout' ? '🚰🚰🚰 Trojkohout' : '🚰🚰🚰🚰🚰🚰 Šestikohout'}
+                          {t.tap_type === 'jednokohout' ? 'Jednokohout' : t.tap_type === 'dvojkohout' ? 'Dvojkohout' : t.tap_type === 'trojkohout' ? 'Trojkohout' : 'Šestikohout'}
                         </span>
                       </div>
                       <button onClick={() => handleDeleteTap(t.id)} className="text-neutral-400 hover:text-rose-600 p-1" title="Smazat výčep">
@@ -486,10 +486,10 @@ export default function VycepyScreen() {
                   onChange={(e) => setNewTapType(e.target.value as any)}
                   className="input font-bold text-xs"
                 >
-                  <option value="jednokohout">🚰 Jednokohout</option>
-                  <option value="dvojkohout">🚰🚰 Dvojkohout</option>
-                  <option value="trojkohout">🚰🚰🚰 Trojkohout</option>
-                  <option value="sestikohout">🚰🚰🚰🚰🚰🚰 Šestikohout (akce)</option>
+                  <option value="jednokohout">Jednokohout</option>
+                  <option value="dvojkohout">Dvojkohout</option>
+                  <option value="trojkohout">Trojkohout</option>
+                  <option value="sestikohout">Šestikohout (akce)</option>
                 </select>
               </div>
 

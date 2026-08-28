@@ -68,7 +68,7 @@ export function PlaceCombobox({ value, onChange, places, onPlacesChanged, placeh
       const place = await getOrCreatePlace(name, places);
       setCreating(false);
       if (!place) {
-        setMsg({ type: 'err', text: `❌ Nepodařilo se uložit ani vyhledat odběratele.` });
+        setMsg({ type: 'err', text: `Nepodařilo se uložit ani vyhledat odběratele.` });
         return null;
       }
       onPlacesChanged?.();
@@ -79,7 +79,7 @@ export function PlaceCombobox({ value, onChange, places, onPlacesChanged, placeh
       return place;
     } catch (err: any) {
       setCreating(false);
-      setMsg({ type: 'err', text: `❌ Chyba při ukládání: ${err?.message ?? String(err)}` });
+      setMsg({ type: 'err', text: `Chyba při ukládání: ${err?.message ?? String(err)}` });
       return null;
     }
   }

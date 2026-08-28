@@ -267,7 +267,7 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
   const busyAny = photos.some((p) => p.busy);
 
   return (
-    <Modal open onClose={onClose} title={isKegMode ? "🛢️ Kegy z fotky" : "📷 Spočítat z fotek"} wide>
+    <Modal open onClose={onClose} title={isKegMode ? "Kegy z fotky" : "Spočítat z fotek"} wide>
       <div className="space-y-3">
         {/* Datum + info v jednom kompaktním řádku */}
         <div className="flex items-center gap-2 flex-wrap">
@@ -438,7 +438,7 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
         <div className="flex justify-end gap-1.5 pt-1.5 border-t border-neutral-100">
           <button className="px-3 py-1.5 rounded text-neutral-500 hover:bg-neutral-100 font-bold text-[11px] transition" onClick={onClose}>Zrušit</button>
           <button className="px-3.5 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[11px] transition shadow-xs" disabled={busyAny || saving || readyCount === 0} onClick={save}>
-            {saving ? '⏳' : isKegMode ? `🛢️ Uložit (${readyCount})` : `📦 Přičíst (${readyCount})`}
+            {saving ? '⏳' : isKegMode ? `Uložit (${readyCount})` : `Přičíst (${readyCount})`}
           </button>
         </div>
       </div>

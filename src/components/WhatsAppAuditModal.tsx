@@ -105,7 +105,7 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
   }
 
   return (
-    <Modal open={isOpen} onClose={onClose} title="🔍 Kontrola WhatsApp zpráv" wide>
+    <Modal open={isOpen} onClose={onClose} title="Kontrola WhatsApp zpráv" wide>
       <div className="space-y-4">
         <p className="text-xs text-neutral-500 font-medium">
           Zobrazuje VŠECHNY přijaté zprávy za zvolené období bez ohledu na stav — i ty, co uvízly
@@ -222,7 +222,7 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
                       disabled={retrying === m.id}
                       className="shrink-0 px-2.5 py-1.5 rounded bg-sky-100 hover:bg-sky-200 text-sky-900 text-[11px] font-black transition disabled:opacity-50"
                     >
-                      {retrying === m.id ? '…' : '↩ Vrátit do fronty'}
+                      {retrying === m.id ? '…' : 'Vrátit do fronty'}
                     </button>
                   )}
                 </div>

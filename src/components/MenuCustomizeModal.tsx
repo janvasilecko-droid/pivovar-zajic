@@ -37,7 +37,7 @@ export function MenuCustomizeModal({
   }
 
   return (
-    <Modal open={true} onClose={onClose} title="👁️ Přizpůsobení osobního menu" wide>
+    <Modal open={true} onClose={onClose} title="Přizpůsobení osobního menu" wide>
       <div className="space-y-4">
         <div className="bg-amber-50 p-4 rounded border border-amber-200 text-xs text-amber-950 leading-relaxed">
           <strong>Osobní skrytí položek:</strong> Zde si můžete sami vypnout sekce, které v denním provozu nepoužíváte. Vaše přístupová práva od administrátora tím zůstanou nedotčena. Skryté sekce se nebudou zobrazovat v bočním menu ani v navigaci.
@@ -84,7 +84,7 @@ export function MenuCustomizeModal({
                   <span className={`chip text-xs font-black ${
                     isHidden ? 'bg-neutral-200 text-neutral-600' : 'bg-emerald-100 text-emerald-800'
                   }`}>
-                    {isHidden ? '👁️‍🗨️ Skryto v menu' : '✓ Viditelné'}
+                    {isHidden ? 'Skryto v menu' : '✓ Viditelné'}
                   </span>
                   <input
                     type="checkbox"

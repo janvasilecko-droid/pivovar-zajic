@@ -1142,7 +1142,7 @@ export default function BottlingScreen({
           <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-2 border-t border-neutral-100">
             <div className="flex items-center gap-2 flex-wrap">
               <button type="submit" disabled={saving} className="btn-primary !rounded !from-emerald-600 !to-emerald-700 hover:!from-emerald-500 hover:!to-emerald-600 !shadow-emerald-600/30 text-xs font-black shadow-md min-h-[44px] px-5">
-                {saving ? '⏳ Ukládám…' : '💾 Uložit stáčení lahví'}
+                {saving ? 'Ukládám…' : 'Uložit stáčení lahví'}
               </button>
               <button type="button" className="btn-ghost !rounded text-xs font-bold min-h-[44px] px-3.5" onClick={() => setEntryRows(emptyRows())}><Trash2 className="ikona-text" /> Vymazat vše</button>
             </div>
@@ -1684,7 +1684,7 @@ export default function BottlingScreen({
                 )}
                 <span className="text-sm font-bold text-neutral-500">({reqTotals.neededLiters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L)</span>
               </div>
-              <span className="text-[11px] text-neutral-500">{reqTotals.needed > 0 ? '⚠️ Objednáno víc, než je na skladě' : '✓ Všechny objednávky týdne pokryty'}</span>
+              <span className="text-[11px] text-neutral-500">{reqTotals.needed > 0 ? 'Objednáno víc, než je na skladě' : '✓ Všechny objednávky týdne pokryty'}</span>
             </div>
           </div>
 
@@ -1710,7 +1710,7 @@ export default function BottlingScreen({
                   onChange={(e) => setReqBeerFilter(e.target.value)}
                   className="input text-xs font-bold px-2.5 py-1.5 rounded border border-neutral-200 bg-white text-neutral-800 shrink-0"
                 >
-                  <option value="">🍺 Všechna piva</option>
+                  <option value="">Všechna piva</option>
                   {beers.map((b) => (
                     <option key={b.id} value={b.id}>{b.name}</option>
                   ))}
@@ -1722,7 +1722,7 @@ export default function BottlingScreen({
                   onChange={(e) => setReqPkgFilter(e.target.value)}
                   className="input text-xs font-bold px-2.5 py-1.5 rounded border border-neutral-200 bg-white text-neutral-800 shrink-0"
                 >
-                  <option value="">🍾 Všechny obaly</option>
+                  <option value="">Všechny obaly</option>
                   {packages.filter((p) => p.kind !== 'keg').map((p) => (
                     <option key={p.id} value={p.id}>{p.label}</option>
                   ))}
@@ -1738,7 +1738,7 @@ export default function BottlingScreen({
                       : 'bg-neutral-100 text-neutral-700 border-neutral-200 hover:bg-neutral-200'
                   }`}
                 >
-                {reqOnlyMissing ? '⚠️ Jen chybějící (> 0)' : '📦 Všechny položky'}
+                {reqOnlyMissing ? 'Jen chybějící (> 0)' : 'Všechny položky'}
               </button>
             </div>
 
@@ -1935,7 +1935,7 @@ export default function BottlingScreen({
         />
       )}
       {editingRow && (
-        <Modal open={true} onClose={() => setEditingRow(null)} title="✏️ Upravit záznam stáčení lahví">
+        <Modal open={true} onClose={() => setEditingRow(null)} title="Upravit záznam stáčení lahví">
           <form onSubmit={saveEditedRow} className="space-y-4">
             <div>
               <label className="label">Datum</label>
@@ -2028,7 +2028,7 @@ export default function BottlingScreen({
         </Modal>
       )}
       {showEndConfirm && (
-        <Modal open onClose={() => setShowEndConfirm(false)} title="❓ Dokončeno stáčení lahví">
+        <Modal open onClose={() => setShowEndConfirm(false)} title="Dokončeno stáčení lahví">
           <div className="space-y-4 text-center py-2">
             <p className="text-sm font-semibold text-neutral-700">
               Stáčení lahví bylo úspěšně uloženo do databáze.

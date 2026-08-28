@@ -69,7 +69,7 @@ export default function ExkurzeScreen() {
     setPeopleCount('1');
     setRevenue('');
     setNote('');
-    oznam(`✅ Exkurze pro ${count} ${count === 1 ? 'osobu' : count < 5 ? 'osoby' : 'osob'} (průvodce ${guideName}) byla úspěšně naplánována na ${new Date(tourDate).toLocaleDateString('cs-CZ')} v ${tourTime}!`);
+    oznam(`Exkurze pro ${count} ${count === 1 ? 'osobu' : count < 5 ? 'osoby' : 'osob'} (průvodce ${guideName}) byla úspěšně naplánována na ${new Date(tourDate).toLocaleDateString('cs-CZ')} v ${tourTime}!`);
   }
 
   async function handleDelete(id: string) {
@@ -137,7 +137,7 @@ export default function ExkurzeScreen() {
     });
 
     saveEntries(next);
-    oznam(`📦 Měsíc ${currentMonth} byl úspěšně přesunut do statistiky! Použijte jiný měsíc nebo přidejte nové exkurze.`);
+    oznam(`Měsíc ${currentMonth} byl úspěšně přesunut do statistiky! Použijte jiný měsíc nebo přidejte nové exkurze.`);
   }
 
   function exportExcel() {

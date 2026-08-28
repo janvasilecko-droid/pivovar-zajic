@@ -131,11 +131,11 @@ export function BrewingTroubleshootingDatabase() {
             value={selectedCat}
             onChange={(e) => setSelectedCat(e.target.value)}
           >
-            <option value="all">🔍 Všechny kategorie vad</option>
-            <option value="fermentation">🧫 Vady kvašení & Kvasnic</option>
-            <option value="lautering">🌾 Varny, Slad & Scazování</option>
-            <option value="sanitation">🧼 Sanitace & Kontaminace</option>
-            <option value="packaging">🛢️ Stáčení, Oxidace & Plyn</option>
+            <option value="all">Všechny kategorie vad</option>
+            <option value="fermentation">Vady kvašení & Kvasnic</option>
+            <option value="lautering">Varny, Slad & Scazování</option>
+            <option value="sanitation">Sanitace & Kontaminace</option>
+            <option value="packaging">Stáčení, Oxidace & Plyn</option>
           </select>
         </div>
       </div>
@@ -147,7 +147,7 @@ export function BrewingTroubleshootingDatabase() {
             <div className="flex items-start justify-between gap-3 border-b border-neutral-100 pb-3">
               <div>
                 <span className="text-xs font-black text-amber-700 uppercase tracking-wider bg-amber-100 px-2.5 py-1 rounded-full border border-amber-200">
-                  {item.category === 'fermentation' ? '🧫 Kvašení' : item.category === 'lautering' ? '🌾 Varna & Scazování' : item.category === 'sanitation' ? '🧼 Sanitace' : '🛢️ Stáčení & Balení'}
+                  {item.category === 'fermentation' ? 'Kvašení' : item.category === 'lautering' ? 'Varna & Scazování' : item.category === 'sanitation' ? 'Sanitace' : 'Stáčení & Balení'}
                 </span>
                 <h4 className="font-display font-black text-lg text-neutral-900 mt-2">{item.name}</h4>
                 <div className="text-xs font-mono text-neutral-500 font-bold">Chemická sloučenina / Vadný stav: {item.chemicalName}</div>

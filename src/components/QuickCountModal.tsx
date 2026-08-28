@@ -50,7 +50,7 @@ export function QuickCountModal({
     <Modal
       open={isOpen}
       onClose={onClose}
-      title="📦 Rychlé mobilní sčítadlo skladu"
+      title="Rychlé mobilní sčítadlo skladu"
       maxWidth="max-w-lg"
     >
       <div className="space-y-4">

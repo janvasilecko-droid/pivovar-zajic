@@ -1150,7 +1150,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                           const rozdilPct = d.kegged > 0 ? ((rozdil / d.kegged) * 100) : 0;
                           return (
                             <div className={`p-2 rounded border text-xs font-bold flex items-center justify-between ${rozdil > 0 ? 'bg-rose-100 border-rose-300 text-rose-800' : 'bg-emerald-100 border-emerald-300 text-emerald-800'}`}>
-                              <span>{rozdil > 0 ? '⚠️ Nerozpočteno (ztráta)' : '✅ Vše pokryto'}</span>
+                              <span>{rozdil > 0 ? 'Nerozpočteno (ztráta)' : 'Vše pokryto'}</span>
                               <span className="font-mono font-black">{rozdil} ks ({rozdilPct.toFixed(1)}%)</span>
                             </div>
                           );

@@ -14,7 +14,7 @@ interface BugReportModalProps {
 export function BugReportModal({ isOpen, onClose }: BugReportModalProps) {
   const { profile, user } = useAuth();
   const [category, setCategory] = useState<Category>('bug');
-  const [defectType, setDefectType] = useState('📦 Chybný stav skladu');
+  const [defectType, setDefectType] = useState('Chybný stav skladu');
   const [customTitle, setCustomTitle] = useState('');
   const [description, setDescription] = useState('');
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
@@ -25,12 +25,12 @@ export function BugReportModal({ isOpen, onClose }: BugReportModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const commonDefects = [
-    '📦 Chybný stav skladu',
-    '💾 Chyba při ukládání / načítání',
-    '📝 Nesedí data v objednávce',
-    '⚡ Aplikace se seká / neodpovídá',
-    '💡 Nápad na nové vylepšení',
-    '⚙️ Jiná závada (popište níže)'
+    'Chybný stav skladu',
+    'Chyba při ukládání / načítání',
+    'Nesedí data v objednávce',
+    'Aplikace se seká / neodpovídá',
+    'Nápad na nové vylepšení',
+    'Jiná závada (popište níže)'
   ];
 
   function compressImage(file: File): Promise<string> {
@@ -118,7 +118,7 @@ export function BugReportModal({ isOpen, onClose }: BugReportModalProps) {
         onClose();
         // Reset state
         setCategory('bug');
-        setDefectType('📦 Chybný stav skladu');
+        setDefectType('Chybný stav skladu');
         setCustomTitle('');
         setDescription('');
         setPhotoDataUrl(null);
@@ -132,7 +132,7 @@ export function BugReportModal({ isOpen, onClose }: BugReportModalProps) {
   }
 
   return (
-    <Modal open={isOpen} onClose={onClose} title="⚠️ Nahlásit chybu / vylepšení">
+    <Modal open={isOpen} onClose={onClose} title="Nahlásit chybu / vylepšení">
       {success ? (
         <div className="text-center py-8 space-y-3 animate-fade-in">
           <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-3xl mx-auto border border-emerald-200">

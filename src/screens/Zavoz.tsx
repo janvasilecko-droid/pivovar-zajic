@@ -378,7 +378,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
   function printDeliveryListForOrders(toPrint: Order[], titleLabel: string) {
     printDeliveryList({
       title: `Zavážecí list — ${titleLabel}`,
-      heading: `🚚 Zavážecí list — ${titleLabel}`,
+      heading: `Zavážecí list — ${titleLabel}`,
       summary: `Celkem objednávek: ${toPrint.length}`,
       emptyMessage: 'Žádné objednávky k vytištění.',
       orders: toPrint.map((order) => ({
@@ -1169,7 +1169,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
       )}
 
       {moveDay && (
-        <Modal open onClose={() => setMoveDay(null)} title={`↔ Přesunout den závozu — ${moveDay.label}`}>
+        <Modal open onClose={() => setMoveDay(null)} title={`Přesunout den závozu — ${moveDay.label}`}>
           <div className="space-y-4">
             <div className="text-xs font-bold text-neutral-700 bg-amber-50 border border-amber-200/80 rounded px-3.5 py-2.5 flex items-start gap-2">
               <AlertTriangle size={14} className="text-amber-600 mt-0.5 shrink-0" />
@@ -1240,7 +1240,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
 
       {/* Modal pro výběr Navigační aplikace */}
       {navTarget && (
-        <Modal open onClose={() => setNavTarget(null)} title={`🧭 Spustit navigaci — ${navTarget.name}`}>
+        <Modal open onClose={() => setNavTarget(null)} title={`Spustit navigaci — ${navTarget.name}`}>
           <div className="space-y-4">
             <p className="text-xs text-neutral-600 font-medium">
               Zvolte navigační aplikaci pro trasu k odběrateli <strong>{navTarget.destination}</strong>:
@@ -1300,7 +1300,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
               is_delivered: true,
               delivered_at: new Date().toISOString(),
             }).eq('id', signOrder.id);
-            oznam(`✅ Podpis ${signerName} úspěšně zaznamenán!`);
+            oznam(`Podpis ${signerName} úspěšně zaznamenán!`);
             load();
           }}
         />
@@ -1324,11 +1324,11 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
               recordedBy: profile?.display_name || null,
             });
             if (err) {
-              chyba(`⚠️ Vrácené sudy se NEPODAŘILO uložit: ${err}\n\nZkuste to prosím znovu.`);
+              chyba(`Vrácené sudy se NEPODAŘILO uložit: ${err}\n\nZkuste to prosím znovu.`);
               return;
             }
             const summaryStr = returns.filter((r) => r.count > 0).map((r) => `${r.count}x ${r.size}`).join(', ');
-            oznam(`✅ Zaznamenáno vrácení prázdných sudů pro ${kegReturnOrder.place_name}: ${summaryStr}`);
+            oznam(`Zaznamenáno vrácení prázdných sudů pro ${kegReturnOrder.place_name}: ${summaryStr}`);
             setKegReturnOrder(null);
           }}
         />

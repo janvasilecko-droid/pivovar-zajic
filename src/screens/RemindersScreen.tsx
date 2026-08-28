@@ -143,7 +143,7 @@ export default function RemindersScreen() {
       setCustomEmails('');
       setSendNow(false);
       await loadData();
-      oznam('✅ Zpráva / upomínka byla úspěšně odeslána!');
+      oznam('Zpráva / upomínka byla úspěšně odeslána!');
     } catch (e: any) {
       chyba('Chyba při vytváření upomínky: ' + (e?.message ?? String(e)));
     } finally {
@@ -336,11 +336,11 @@ export default function RemindersScreen() {
                     onChange={(e) => setTargetRole(e.target.value as ReminderTarget)}
                     className="input font-bold mt-1"
                   >
-                    <option value="admin">👑 Pouze Administrátoři</option>
-                    <option value="sef">👔 Pouze Šéf a vedení</option>
-                    <option value="sladek">🍺 Pouze Sládek</option>
-                    <option value="vyroba">🏭 Výroba a sklep</option>
-                    <option value="obchod">💼 Obchod a rozvoz</option>
+                    <option value="admin">Pouze Administrátoři</option>
+                    <option value="sef">Pouze Šéf a vedení</option>
+                    <option value="sladek">Pouze Sládek</option>
+                    <option value="vyroba">Výroba a sklep</option>
+                    <option value="obchod">Obchod a rozvoz</option>
                   </select>
                 )}
 
@@ -567,7 +567,7 @@ export default function RemindersScreen() {
                               ? 'bg-amber-100 text-amber-950 border border-amber-300'
                               : 'bg-emerald-100 text-emerald-950 border border-emerald-300'
                           }`}>
-                            {r.display_mode === 'desktop_push' ? '📲 Push' : r.display_mode === 'login_modal' ? '🔒 Okno po přihlášení' : '🔔 Okno + Push'}
+                            {r.display_mode === 'desktop_push' ? 'Push' : r.display_mode === 'login_modal' ? 'Okno po přihlášení' : 'Okno + Push'}
                           </span>
                           <span className="text-[11px] font-bold text-neutral-500">
                             Cíl: <strong className="text-neutral-800">{formatRecipients(r)}</strong>

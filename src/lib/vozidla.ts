@@ -21,9 +21,9 @@ export function getVehicleExpiryStatus(dateStr: string | null | undefined): {
   const fmtDate = new Date(dateStr).toLocaleDateString('cs-CZ');
 
   if (daysLeft < 0) {
-    return { daysLeft, status: 'expired', label: `🚨 EXPIROVALO před ${Math.abs(daysLeft)} dny (${fmtDate})` };
+    return { daysLeft, status: 'expired', label: `EXPIROVALO před ${Math.abs(daysLeft)} dny (${fmtDate})` };
   } else if (daysLeft <= 30) {
-    return { daysLeft, status: 'warning', label: `⚠️ Vyprší za ${daysLeft} dní (${fmtDate})` };
+    return { daysLeft, status: 'warning', label: `Vyprší za ${daysLeft} dní (${fmtDate})` };
   } else {
     return { daysLeft, status: 'ok', label: `Platné do ${fmtDate}` };
   }

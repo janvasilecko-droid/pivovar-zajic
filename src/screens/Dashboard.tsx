@@ -98,7 +98,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
     if (error) {
       chyba(`Chyba při ukládání inventury: ${error.message}`);
     } else {
-      oznam(`✅ Inventura (${items.length} položek) úspěšně uložena!`);
+      oznam(`Inventura (${items.length} položek) úspěšně uložena!`);
       load();
     }
   }
@@ -560,7 +560,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                     <div className="font-display font-extrabold text-lg sm:text-xl text-neutral-900">{s.beer.name}</div>
                   </div>
                   <span className={`chip ${badgeClass}`}>
-                    {st === 'deficit' ? '⚠️ Deficit' : st === 'empty' ? 'Vyprodáno' : st === 'low' ? 'Nízký stav' : '✓ Skladem'}
+                    {st === 'deficit' ? 'Deficit' : st === 'empty' ? 'Vyprodáno' : st === 'low' ? 'Nízký stav' : '✓ Skladem'}
                   </span>
                 </div>
 

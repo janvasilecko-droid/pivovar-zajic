@@ -1035,7 +1035,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                           value={currentTankId}
                           onChange={(e) => setTileRow(expandedKegBeer.id, p.id, { tankId: e.target.value })}
                         >
-                          <option value="">⚡ {largestTank(rowTanks)?.label}</option>
+                          <option value="">{largestTank(rowTanks)?.label}</option>
                           {rowTanks.map((t) => (
                             <option key={t.id} value={t.id}>{t.label} ({Number(t.current_volume_l).toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} L)</option>
                           ))}
@@ -1108,7 +1108,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 disabled={saving || !isStartChecklistCompleteForKeg(businessDateISO())}
                 className="btn-primary !rounded !from-emerald-600 !to-emerald-700 hover:!from-emerald-500 hover:!to-emerald-600 !shadow-emerald-600/30 text-xs font-black shadow-md disabled:opacity-40 min-h-[44px]"
               >
-                {saving ? '⏳ Ukládám…' : '💾 Uložit stáčení'}
+                {saving ? 'Ukládám…' : 'Uložit stáčení'}
               </button>
               {!isStartChecklistCompleteForKeg(businessDateISO()) && (
                 <span className="text-[11px] font-bold text-amber-600 animate-pulse bg-amber-50 border border-amber-200 rounded px-2.5 py-1">
@@ -1157,7 +1157,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                         onChange={(e) => setWeekBeerFilter(e.target.value)}
                         className="input text-xs font-bold py-1 px-2 rounded bg-white border-emerald-300 text-emerald-950 shrink-0"
                       >
-                        <option value="">🍺 Všechna piva</option>
+                        <option value="">Všechna piva</option>
                         {weekBeers.map((b) => (
                           <option key={b.id} value={b.id}>{beerName(b)}</option>
                         ))}
@@ -1169,7 +1169,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                         onChange={(e) => setWeekPkgFilter(e.target.value)}
                         className="input text-xs font-bold py-1 px-2 rounded bg-white border-emerald-300 text-emerald-950 shrink-0"
                       >
-                        <option value="">📦 Všechny obaly</option>
+                        <option value="">Všechny obaly</option>
                         {weekPkgs.map((p) => (
                           <option key={p.id} value={p.id}>{formatPackageLabel(p.label)}</option>
                         ))}
@@ -1223,7 +1223,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                               onChange={(e) => { const v = e.target.value; if (v !== '') setQty(r.id, Number(v)); }}
                               title="Rychlé nastavení počtu sudů"
                             >
-                              <option value="" disabled>⚡</option>
+                              <option value="" disabled>ks</option>
                               {QUICK_KEG_QTY.map((q) => (<option key={q} value={q}>{q} ks</option>))}
                             </select>
                             <button
@@ -1327,7 +1327,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                                     onChange={(e) => { const v = e.target.value; if (v !== '') setQty(r.id, Number(v)); }}
                                     title="Rychlé nastavení počtu sudů (6/12/18/24/30/36)"
                                   >
-                                    <option value="" disabled>⚡</option>
+                                    <option value="" disabled>ks</option>
                                     {QUICK_KEG_QTY.map((q) => (
                                       <option key={q} value={q}>{q} ks</option>
                                     ))}
@@ -1383,7 +1383,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                   onChange={(e) => setBeerFilter(e.target.value)}
                   className="input text-xs font-bold px-2 py-1 rounded border border-neutral-200 bg-white text-neutral-700 max-w-[140px]"
                 >
-                  <option value="">🍺 Všechna piva</option>
+                  <option value="">Všechna piva</option>
                   {beers.map((b) => (
                     <option key={b.id} value={b.id}>{b.name}</option>
                   ))}
@@ -1395,7 +1395,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                   onChange={(e) => setRecordPkgFilter(e.target.value)}
                   className="input text-xs font-bold px-2 py-1 rounded border border-neutral-200 bg-white text-neutral-700 max-w-[140px]"
                 >
-                  <option value="">📦 Všechny obaly</option>
+                  <option value="">Všechny obaly</option>
                   {kegPackages.map((p) => (
                     <option key={p.id} value={p.id}>{p.label}</option>
                   ))}
@@ -1558,7 +1558,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                             onChange={(e) => { const v = e.target.value; if (v !== '') setQty(r.id, Number(v)); }}
                             title="Rychlé nastavení počtu sudů"
                           >
-                            <option value="" disabled>⚡</option>
+                            <option value="" disabled>ks</option>
                             {QUICK_KEG_QTY.map((q) => (<option key={q} value={q}>{q} ks</option>))}
                           </select>
                           <button
@@ -1668,7 +1668,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                                   onChange={(e) => { const v = e.target.value; if (v !== '') setQty(r.id, Number(v)); }}
                                   title="Rychlé nastavení počtu sudů (6/12/18/24/30/36)"
                                 >
-                                  <option value="" disabled>⚡</option>
+                                  <option value="" disabled>ks</option>
                                   {QUICK_KEG_QTY.map((q) => (
                                     <option key={q} value={q}>{q} ks</option>
                                   ))}
@@ -1868,7 +1868,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
             <div className="flex justify-end mt-4">
               <button type="submit" className="btn-primary !rounded" disabled={pfSaving}>
-                {pfSaving ? '⏳ Ukládám…' : '💾 Uložit přefuk'}
+                {pfSaving ? 'Ukládám…' : 'Uložit přefuk'}
               </button>
             </div>
           </form>
@@ -1950,7 +1950,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       )}
 
       {editingRow && (
-        <Modal open={true} onClose={() => setEditingRow(null)} title="✏️ Upravit záznam stáčení KEG">
+        <Modal open={true} onClose={() => setEditingRow(null)} title="Upravit záznam stáčení KEG">
           <form onSubmit={saveEditedRow} className="space-y-4">
             <div>
               <label className="label">Datum</label>
@@ -2083,7 +2083,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
         showSkip={isManager}
       />
       {showEndConfirm && (
-        <Modal open onClose={() => setShowEndConfirm(false)} title="❓ Dokončeno stáčení KEG">
+        <Modal open onClose={() => setShowEndConfirm(false)} title="Dokončeno stáčení KEG">
           <div className="space-y-4 text-center py-2">
             <p className="text-sm font-semibold text-neutral-700">
               Stáčení KEGů bylo úspěšně uloženo do databáze.
