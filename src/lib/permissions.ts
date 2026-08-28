@@ -74,25 +74,21 @@ export const DEFAULT_FULL_PERMISSIONS: UserPermissions = {
 };
 
 // Rychlé předvolby rolí
-export const PRESET_ROLES: { name: string; icon: string; permissions: UserPermissions }[] = [
+export const PRESET_ROLES: { name: string; permissions: UserPermissions }[] = [
   {
     name: 'Administrátor (Plný přístup ke všemu)',
-    icon: '👑',
     permissions: DEFAULT_FULL_PERMISSIONS,
   },
   {
     name: 'Šéf / Vedení (Plný přístup ke všemu)',
-    icon: '👔',
     permissions: DEFAULT_FULL_PERMISSIONS,
   },
   {
     name: 'Sládek (Plný přístup ke všemu)',
-    icon: '🍺',
     permissions: DEFAULT_FULL_PERMISSIONS,
   },
   {
     name: 'Výroba (Omezený přístup)',
-    icon: '🏭',
     permissions: {
       dashboard: { view: true, edit: true },
       entry: { view: true, edit: true },
@@ -117,7 +113,6 @@ export const PRESET_ROLES: { name: string; icon: string; permissions: UserPermis
   },
   {
     name: 'Obchod / Prodej (Obchodní přístup)',
-    icon: '💼',
     permissions: {
       dashboard: { view: true, edit: false },
       entry: { view: true, edit: false },
@@ -142,7 +137,6 @@ export const PRESET_ROLES: { name: string; icon: string; permissions: UserPermis
   },
   {
     name: 'Vlastní nastavení práv (Kombinuji manuálně)',
-    icon: '⚙️',
     permissions: {
       dashboard: { view: true, edit: false },
       entry: { view: false, edit: false },
