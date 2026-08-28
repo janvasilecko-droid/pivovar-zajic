@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { Beer, Package, beerBg, beerText, fetchAllRows, formatPackageLabel, pkgBg, pkgText, supabase, useRealtime } from '../lib/supabase';
 import { Spinner, EmptyState } from '../components/ui';
 import { createReminder } from '../lib/reminders';
-import { AlertTriangle, Beer as BeerIcon, Bell, Calendar, Check, CheckCircle2, ClipboardList, DollarSign, MapPin, Plus, RotateCcw, Sparkles, Star, ThumbsDown, ThumbsUp, Trash2, User } from 'lucide-react';
+import { AlertTriangle, Beer as BeerIcon, Bell, Calendar, Check, CheckCircle2, ClipboardList, Clock, DollarSign, MapPin, Plus, RotateCcw, Sparkles, Star, Tent, ThumbsDown, ThumbsUp, Trash2, User, X } from 'lucide-react';
 import { oznam, potvrd } from '../lib/toast';
 
 /** Řádky z DB (akce + vnořené akce_items) → tvar, se kterým pracuje obrazovka. */
@@ -418,7 +418,7 @@ export default function AkceScreen() {
             <span>Slavnosti, Festivaly & Akce</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-display font-black tracking-tight text-white flex items-center gap-2">
-            <span>🎪 Správa akcí a výjezdního prodeje</span>
+            <Tent className="ikona-text" /> <span>Správa akcí a výjezdního prodeje</span>
           </h1>
           <p className="text-xs text-neutral-400 font-medium mt-1">
             Zadej odvezená piva na akce a po skončení klikni na "Po akci" pro vyúčtování vrácených sudů, tržby a hodnocení.
@@ -463,9 +463,9 @@ export default function AkceScreen() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-display font-black text-lg text-neutral-950">{r.name}</span>
                           {isDone ? (
-                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white font-extrabold text-xs shadow-2xs">✓ Dokončeno (Po akci)</span>
+                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white font-extrabold text-xs shadow-2xs"><Check className="ikona-text" /> Dokončeno (Po akci)</span>
                           ) : (
-                            <span className="px-2.5 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-black text-xs shadow-2xs">🟡 Plánovaná / Probíhá</span>
+                            <span className="px-2.5 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-black text-xs shadow-2xs"><Clock className="ikona-text" /> Plánovaná / Probíhá</span>
                           )}
                           {!isDone && r.ready && (
                             <span className="px-2.5 py-0.5 rounded-full bg-emerald-500 text-white font-extrabold text-xs shadow-2xs"><CheckCircle2 className="ikona-text" /> Připraveno na akci</span>
@@ -492,7 +492,7 @@ export default function AkceScreen() {
                           }`}
                         >
                           <Check size={15} />
-                          {r.ready ? 'Připraveno na akci ✓' : 'Označit jako připraveno'}
+                          {r.ready ? <>Připraveno na akci <Check className="ikona-text" /></> : 'Označit jako připraveno'}
                         </button>
                       )}
                       <button
@@ -541,7 +541,7 @@ export default function AkceScreen() {
                         <div className="flex items-center justify-between flex-wrap gap-2">
                           {r.revenue != null && (
                             <span className="px-3 py-1 rounded bg-emerald-700 text-white font-mono font-black text-xs shadow-xs">
-                              💰 Tržba: {r.revenue.toLocaleString('cs-CZ')} Kč
+                              <DollarSign className="ikona-text" /> Tržba: {r.revenue.toLocaleString('cs-CZ')} Kč
                             </span>
                           )}
                           {r.rating && (
@@ -574,7 +574,7 @@ export default function AkceScreen() {
                         <div className="flex flex-wrap gap-1.5 mt-1">
                           {(r.equipment || []).map((eq, idx) => (
                             <span key={idx} className="px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-950">
-                              ✓ {eq}
+                              <Check className="ikona-text" /> {eq}
                             </span>
                           ))}
                         </div>
@@ -612,7 +612,7 @@ export default function AkceScreen() {
                 <Sparkles className="text-amber-500 fill-current" size={20} />
                 <span>Zadat novou výjezdní akci / festival</span>
               </h3>
-              <button onClick={() => setShowAddModal(false)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg">✕</button>
+              <button onClick={() => setShowAddModal(false)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít"><X size={18} /></button>
             </div>
 
             <form onSubmit={handleCreateAkce} className="space-y-4">
@@ -710,8 +710,8 @@ export default function AkceScreen() {
                           className="w-11 h-11 shrink-0 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-lg transition"
                           onClick={() => handleRowChange(i, 'qty', String(Number(r.qty || 0) + 1))}
                         >+</button>
-                        <button type="submit" className="min-h-[44px] px-3 shrink-0 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-black text-lg transition" title="Potvrdit / uložit vše">✓</button>
-                        <button type="button" className="w-11 min-h-[44px] shrink-0 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-lg transition" onClick={() => clearRow(i)} title="Zrušit řádek">✕</button>
+                        <button type="submit" className="min-h-[44px] px-3 shrink-0 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-black text-lg transition" title="Potvrdit / uložit vše"><Check size={18} /></button>
+                        <button type="button" className="w-11 min-h-[44px] shrink-0 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-lg transition" onClick={() => clearRow(i)} title="Zrušit řádek"><X size={18} /></button>
                       </div>
                     </div>
                   ))}
@@ -771,8 +771,8 @@ export default function AkceScreen() {
                           </td>
                           <td className="py-1">
                             <div className="flex items-center gap-1">
-                              <button type="submit" className="w-7 h-7 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-bold text-sm transition" title="Potvrdit / uložit vše">✓</button>
-                              <button type="button" className="w-7 h-7 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-sm transition" onClick={() => clearRow(i)} title="Zrušit řádek">✕</button>
+                              <button type="submit" className="w-7 h-7 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-bold text-sm transition" title="Potvrdit / uložit vše"><Check size={18} /></button>
+                              <button type="button" className="w-7 h-7 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-sm transition" onClick={() => clearRow(i)} title="Zrušit řádek"><X size={18} /></button>
                             </div>
                           </td>
                         </tr>
@@ -804,7 +804,7 @@ export default function AkceScreen() {
                 <CheckCircle2 className="text-emerald-600" size={22} />
                 <span>Vyhodnocení PO AKCI — {evalRecord.name}</span>
               </h3>
-              <button onClick={() => setEvalRecord(null)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg">✕</button>
+              <button onClick={() => setEvalRecord(null)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít"><X size={18} /></button>
             </div>
 
             <form onSubmit={handleSaveEval} className="space-y-4">
@@ -915,7 +915,7 @@ export default function AkceScreen() {
                   Zrušit
                 </button>
                 <button type="submit" className="px-5 py-2.5 rounded bg-emerald-700 hover:bg-emerald-600 text-white font-black text-xs shadow-md">
-                  ✓ Uložit vyhodnocení Po akci
+                  <Check className="ikona-text" /> Uložit vyhodnocení Po akci
                 </button>
               </div>
             </form>
@@ -932,7 +932,7 @@ export default function AkceScreen() {
                 <ClipboardList className="text-amber-500" size={22} />
                 <span>Vybavení na akci — {equipRecord.name}</span>
               </h3>
-              <button onClick={() => setEquipRecord(null)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg">✕</button>
+              <button onClick={() => setEquipRecord(null)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít"><X size={18} /></button>
             </div>
 
             <p className="text-xs text-neutral-600 font-medium bg-amber-50 border border-amber-200 p-3 rounded">
@@ -962,7 +962,7 @@ export default function AkceScreen() {
               {/* Vlastní položky */}
               {equipCustomItems.map((item, idx) => (
                 <div key={`custom-${idx}`} className="flex items-center gap-3 p-2.5 rounded border bg-amber-50 border-amber-300">
-                  <span className="text-sm font-bold text-amber-950 flex-1">✓ {item}</span>
+                  <span className="text-sm font-bold text-amber-950 flex-1"><Check className="ikona-text" /> {item}</span>
                   <button
                     type="button"
                     onClick={() => setEquipCustomItems((prev) => prev.filter((_, i) => i !== idx))}
@@ -998,7 +998,7 @@ export default function AkceScreen() {
                 Zrušit
               </button>
               <button type="button" onClick={saveEquipment} className="px-5 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md">
-                ✓ Uložit vybavení
+                <Check className="ikona-text" /> Uložit vybavení
               </button>
             </div>
           </div>

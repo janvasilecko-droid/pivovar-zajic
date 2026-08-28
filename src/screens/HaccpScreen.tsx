@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { AlertTriangle, Beer as BeerIcon, BookOpen, Calculator, CheckCircle2, ClipboardList, Cog, Cylinder, Droplets, Factory, FileText, FlaskConical, ScrollText, Search, Settings, Shield, Snowflake, Sparkles, SprayCan, Truck, Wheat, Wrench, Zap } from 'lucide-react';
+import { AlertTriangle, Ambulance, Ban, Beer as BeerIcon, BookOpen, Brush, Cable, Calculator, CheckCircle2, ClipboardList, Cog, Cylinder, Dna, Droplets, Eye, Factory, FileText, Flame, FlaskConical, Leaf, Package, Plug, ScrollText, Search, Settings, Shield, Shirt, ShowerHead, Snowflake, Sparkles, SprayCan, Thermometer, Truck, Warehouse, Wheat, Wind, Wrench, Zap } from 'lucide-react';
 import { BrewingTroubleshootingDatabase } from '../components/BrewingTroubleshootingDatabase';
 import { BottlingLineMaintenance } from '../components/BottlingLineMaintenance';
-import { IkonaSud, IkonaVycep } from '../components/ikony';
+import { IkonaLahev, IkonaSud, IkonaVycep } from '../components/ikony';
 
 interface HaccpScreenProps {
   initialSection?: string;
@@ -18,7 +18,8 @@ interface HaccpItem {
   num: string;
   cat: CategoryKey;
   title: string;
-  icon: string;
+  /** Kreslená ikona, ne emoji — stejný typ, jaký už používají `categories` níž. */
+  icon: typeof BookOpen;
   content: string;
 }
 
@@ -57,7 +58,7 @@ const HACCP_DOCUMENTS: HaccpItem[] = [
     num: 'A',
     cat: 'uvod',
     title: 'A. Úvod — Kynšperský pivovar s.r.o.',
-    icon: '📜',
+    icon: ScrollText,
     content: `Jelikož pivo je ze své podstaty produktem, při jehož výrobě nevzniká veliké riziko ohrožení zdravotní nezávadnosti produktu, pravidla popsaná v této příručce jsou nastaveny nejen z pohledu zajištění zdravotní nezávadnosti produktu, ale hlavně pak taktéž jeho jakosti.
 
 V celém provozu je zajištěna deratizace a dezinsekce odbornou firmou. V jednotlivých částech provozu je sledován výskyt škůdců a o případném nálezu je vždy veden záznam včetně popisu nápravných opatření.
@@ -69,7 +70,7 @@ V celém provozu je zajištěna deratizace a dezinsekce odbornou firmou. V jedno
     num: '1.1, 1.3, 1.4',
     cat: 'suroviny',
     title: '1.1. Přejímka sladu, 1.3. Přejímka chmelu, 1.4. Přejímka kvasnic',
-    icon: '🌾',
+    icon: Wheat,
     content: `Suroviny jsou nakupovány od ověřených dodavatelů, kteří deklarují jejich nezávadnost (prohlášení o shodě). Slad, chmel a kvasnice jsou nakupovány u dodavatelů a převáženy do pivovaru firemním automobilem zaměstnancem pivovaru. Při přejímce a během transportu a vykládce se dbá na to, aby nebyly obaly porušeny, nebo aby nenavlhnuly (v případě sladu) a nebyly jinak znečištěny.
 
 Při přejímání surovin se kontroluje neporušenost obalů. Nejvyšší zřetel je třeba brát na balíčky se sušenými kvasnicemi. Při přejímce tekutých živých kvasnic se kontroluje pečetní samolepka na víčku barelu.
@@ -81,7 +82,7 @@ Společně s touto příručkou jsou uchovávány osvědčení o nezávadnosti s
     num: '1.2',
     cat: 'suroviny',
     title: '1.2. Pitná voda',
-    icon: '💧',
+    icon: Droplets,
     content: `Pitná voda je odebírána od VAK Sokolov, který dodává pravidelné rozbory vody, které jsou archivovány společně s touto příručkou.`
   },
   {
@@ -89,7 +90,7 @@ Společně s touto příručkou jsou uchovávány osvědčení o nezávadnosti s
     num: '2.1',
     cat: 'uskladneni',
     title: '2.1. Uskladnění sladu',
-    icon: '🏭',
+    icon: Factory,
     content: `Slad je uskladněn v suchém skladu na prvním podlaží vedle místnosti se šrotovníkem. V prostoru je sledována relativní vlhkost vzduchu, která by neměla přesáhnout 60%.
 
 Skladovací prostory jsou zajištěny proti vniknutí škůdců (striktní zavírání dveří a ostatní způsoby zamezení vniknutí) a zároveň probíhá kontrola jejich výskytu (výkaly, „prokousaný pytel“), která je součástí harmonogramu pravidelných operací (viz Sanitační řád). Udržování čistoty skladovacích prostor jakožto celého prostoru šrotovníku probíhá dle sanitačního řádu.
@@ -103,7 +104,7 @@ V případě, že je část surovin skladována déle, jsou tyto suroviny označ
     num: '2.2',
     cat: 'uskladneni',
     title: '2.2. Uskladnění chmelu',
-    icon: '🌿',
+    icon: Leaf,
     content: `Chmel je uskladněn ve sklepě pivovaru při teplotě do 8°C. Většina používaných chmelů se ihned po otevření zužitkují.
 
 U pytlů, které zůstanou „načaté“ se zaznamená datum uskladnění a datum otevření a už nejsou používány pro studené chmelení.
@@ -115,7 +116,7 @@ Sledovatelnost je zajištěna zužitkováním suroviny pro danou šarži, kdy su
     num: '2.3',
     cat: 'uskladneni',
     title: '2.3. Uskladnění kvasnic',
-    icon: '🧪',
+    icon: FlaskConical,
     content: `Pro první násadu pivovarských kvasnic se používají nakupované tekuté kvasnice, které se před upotřebením neskladují déle než tři dny od data výroby při teplotě 4°C.
 
 Po prvním nasazení se pak kvasnice sbírají vystříkáním vodou z kvasného tanku a zbavují se hrubých kalů přecezením přes nerezové sítko. Celý proces je detailněji popsán v bodu 4.2. Kvašení piva.
@@ -129,7 +130,7 @@ Veškerá práce s kvasnicemi probíhá ve sterilních rukavicích se sterilním
     num: '3.1',
     cat: 'varna',
     title: '3.1. Šrotování sladu',
-    icon: '⚙️',
+    icon: Cog,
     content: `Během první fáze výroby, kterou je šrotování se provádí smyslová kontrola každého otevíraného pytle sladu. Vlastnosti sladu lze posuzovat již při prvním kontaktu se zrnem sladu, když ho člověk nabírá do ruky, poté následuje přivonění a ochutnání několika zrnek, přičemž mimo chuti a vůně lze zkoumat i strukturu zrna při jeho skusu.
 
 Sleduje se i barva, která by měla u světlých sladů být obilně nažloutlá u tmavších sladů pak v závislosti na druhu sladu. Zrna by neměla být zašedlá a neměla by mít černé špičky, což jsou indikátory přítomnosti plísní. Slad by neměl jevit známky zvlhnutí ani zatuchlosti a neměl by obsahovat žádné příměsi.
@@ -143,7 +144,7 @@ Doba mezi našrotováním a vystíráním (sypáním na várku) je maximálně 2
     num: '3.2–3.5',
     cat: 'varna',
     title: '3.2–3.5. Vystírání, Rmutování, Scezování, Chmelovar, Vířivá káď',
-    icon: '🔥',
+    icon: Flame,
     content: `Před začátkem várky se provede sanitace varny dle postupu v sanitačním řádu, zpravidla se ale varna sanituje koncem týdne předešlého. Sanitace probíhá dle sanitačního řádu, poslední oplach je kontrolován na neutrální pH lakmusovým papírkem. Před napouštěním vody na várku se provede ještě jeden proplach všech potrubí a nádob varny.
 
 Pro každou várku je zaznamenáván varní list, kam se zapisují použité suroviny a jednotlivé kroky varného postupu. Součástí varnního listu je i kvasný list - záznam o kvašení (teploty, extrakt, použité kvasnice apod.) a následně i záznam o dokvašení v ležáckém tanku.
@@ -155,7 +156,7 @@ Voda na vyslazení mláta po scezování má mít teplotu 78°C. Každá várka 
     num: '6.2',
     cat: 'varna',
     title: '6.2. Mláto',
-    icon: '🌾',
+    icon: Wheat,
     content: `Ihned po scezování se nechá mláto vykapat a vyhrnuje se pomocí kypřidla scezovací kádě do šachty pro výhoz mláta, odkud se jímá do nádoby a pomocí výtahu posílá ven z pivovaru.
 
 Po výhozu následuje řádný oplach všech podlah a znečištěných prostor, zbytky mláta jsou četnými zdroji kontaminující, pivu škodící mikroflóry.`
@@ -165,7 +166,7 @@ Po výhozu následuje řádný oplach všech podlah a znečištěných prostor, 
     num: '4.1',
     cat: 'kvaseni',
     title: '4.1. Spílání',
-    icon: '❄️',
+    icon: Snowflake,
     content: `Spíláním je horká mladina průtokově zchlazována v deskovém chladiči na zákvasnou teplotu. Na vířivé kádi je ještě mladina sterilní účinkem vysoké teploty. Po zchlazení je z pohledu perfektní jakosti hotového piva naprosto elementárním faktorem čistota všech povrchů zařízení a pomůcek, přicházejících do styku s produktem. Je kladen důraz na svědomité dodržování sanitačního řádu a zásad správné výrobní a hygienické praxe.
 
 Deskový chladič včetně spílací cesty je před každou první várkou v týdnu vždy vysvitován horkým roztokem hydroxidu sodného, mezi jednotlivými várkami je pak spílací cesta alespoň vysterilována horkou vodou (viz Sanitační řád) a před samotným spíláním je propláchnuta studenou vodou. Mladina se čerpá potrubím zaplaveným vodou, protláčka z trubek se odpouští na kanál „těčkem“ včetně cca prvních 10ti litrů mladiny, která se cestou smíchala s vodou.
@@ -181,7 +182,7 @@ V průběhu spílání se mladina zakvašuje kulturou pivovarských kvasinek. Vo
     num: '4.2',
     cat: 'kvaseni',
     title: '4.2. Kvašení piva & Sběr kvasnic',
-    icon: '🧬',
+    icon: Dna,
     content: `Do 24 hodin od zakvašení se začíná tvořit CO2. Maximální teplota kvašení je hlídána teplotním čidlem. Termostat pak ovládá otevírání elektroventilu přívodu chladící kapaliny do duplikátoru chlazení kvasného tanku a tím je udržována teplota kvašení. Spodně kvašená piva mají maximální teplotu kvašení 12°C a svrchně kvašená piva 21°C, pokud není specifikováno jinak.
 
 Průběh kvašení se kontroluje. Probíhá kontrola teploty kvašení a úbytku extraktu sacharometrem, případně hradícího protitlaku. Hradící protitlak je ideální nechat vystoupat z nuly na 1,1 bar ve chvíli, kdy je zdánlivý stupeň prokvašení cca 50%. Hradící protitlak by po zahrazení neměl klesnout pod 1,0 bar, minimální hodnota je pak 0,8 bar. Zároveň však nesmí hodnota protitlaku dosáhnout více než 1,4 bar.
@@ -201,7 +202,7 @@ Kvasnice se sbírají z výpustě kvasného tanku do nerezového kýble vystří
     num: '4.3',
     cat: 'kvaseni',
     title: '4.3. Dokvašování',
-    icon: '🧊',
+    icon: Thermometer,
     content: `V průběhu zrání piva se kontroluje teplota a tlak. Teplota zrání je od +4°C do +2°C. Hradícím ventilem je udržován přetlak během ležení piva na hodnotě 0,8 bar přetlak by neměl klesnout pod 0,7 baru.
 
 Po dané době zrání v závislosti na typu piva je pivo hotové a připravené ke stáčení do KEG sudů. Narážecí klapka (výpust tanku, případně i vzorkovací ventil) je udržován v perfektně čistém stavu, a to nejen jeho vnitřní část, ale také jeho vnější části, hlavně pak i spodní části.
@@ -215,7 +216,7 @@ V prostorách ležáckého sklepa je udržována čistota všech povrchů a podl
     num: '2.4',
     cat: 'staceni',
     title: '2.4. Příjem a uskladnění prázdných KEG sudů',
-    icon: '🛢️',
+    icon: IkonaSud,
     content: `Prázdné sudy jsou po vyložení/vrácení odváženy k myčce sudů. Vadné sudy se pak před jejich opravou skladují odděleně, aby nedošlo k jejich používání při výrobě, než dojde k jejich opravě.
 
 Sudy, které jsou před mytím skladovány déle jak 8 týdnů, nebo je známo, že byly po delší čas nepoužívány, se řádně označí, aby byly umyty dvojitým průchodem mycích cyklů.`
@@ -225,7 +226,7 @@ Sudy, které jsou před mytím skladovány déle jak 8 týdnů, nebo je známo, 
     num: '7.1',
     cat: 'staceni',
     title: '7.1. Mytí KEG sudů & Obsluha myčky sudů',
-    icon: '🧼',
+    icon: SprayCan,
     content: `Před mytím vnitřních částí povrchů na automatické myčce se myjí vnější povrchy sudů. Vnitřní části KEG sudů se myjí na rotační automatické myčce, kde probíhá mytí a sterilace v několika krocích. V prvních třech krocích jsou nejdříve sudy po proplachu vodou umyty dvěma kroky alkalického mytí s časovou prodlevou v jednom kroku mezi kroky alkalického mytí. Následuje další krok, ve kterém je sud opláchnut horkou vodou. Posledním krokem je sterilace párou. Detailněji je postup mytí KEG sudů popsán v sanitačním řádu.
 
 Kontrola umytých sudů je prováděna na výstupu z myčky. Kontroluje se teplota – sud musí být horký a také jestli je sud prázdný – neobsahuje zbytky kapaliny. Pokud je sud studený, zkontroluje se funkčnost fittingu a pokud fitting nejeví známky poškození, nechá se sud projet dalším mycím cyklem. Pokud sud obsahuje zbytky kapaliny zkoumá se při vypouštění přebytku ze sudu, zda-li je alkalické povahy, či nikoliv. Pokud má kapalina neutrální reakci (pH) sud se po vyprázdnění může použít pro stáčení, pokud má kapalina v sudu alkalickou reakci, nechá se sud projet ještě jedním mycím cyklem znovu.
@@ -242,7 +243,7 @@ Sudy jsou nejprve omyty z venkovní části kartáčem alkalickým roztokem chlo
     num: '4.4',
     cat: 'staceni',
     title: '4.4. Stáčení do KEG sudů',
-    icon: '🛢️',
+    icon: IkonaSud,
     content: `Před naražením tanku se stáčecí kohout vysteriluje roztokem persterilu. Čistota stáčecího aparátu se udržuje dle sanitačního řádu (sterilace před stáčením, sterilace na konci týdne).
 
 Při prvním naražení tanku se vždy odstřelí prvních cca 10 litrů piva s kvasnicemi. Do umytého sudu (viz výše a sanitační řád) a předfouknutého sterilním vzduchem, se mírným rozdílem tlaků (např. v sudu 0,8, na tanku 1,0) přetláčí pivo z tanku. Rozdíl tlaků nesmí být příliš velký, jelikož by rychlým prouděním piva docházelo k přílišnému pěnění piva a k větším výtratám v odcházející pěně. Zároveň tlak v sudu NESMÍ být vyšší než je tlak na tanku, jelikož by došlo k obrácení proudění a potenciální kontaminaci celé šarže v ležáckém tanku!!!
@@ -256,7 +257,7 @@ Většina sudů se stáčí dle objednávek jeden až dva dny předem. Některé
     num: '2.5',
     cat: 'staceni',
     title: '2.5. Příjem a uskladnění prázdných lahví',
-    icon: '🍾',
+    icon: IkonaLahev,
     content: `Lahve se nakupují nové a jsou dodavatelem zaváženy na paletách do provozovny pivovaru. Při přejímce je mimo průvodní dokumentace kontrolován stav dodávky, zejména neporušenost obalů.
 
 Lahve jsou uskladněny na původních paletách tak, aby nedocházelo k jejich kontaminaci z prostředí. V prostorách skladu je prováděna deratizace a sleduje se výskyt škůdců. V měsíčních intervalech se sleduje stav zásob prázdných lahví. Stejně tak i víčka lahve jsou skladována tak, aby nedocházelo k jejich kontaminaci.`
@@ -266,7 +267,7 @@ Lahve jsou uskladněny na původních paletách tak, aby nedocházelo k jejich k
     num: '7.2',
     cat: 'staceni',
     title: '7.2. Kontrola lahví',
-    icon: '🔍',
+    icon: Search,
     content: `Vizuálně se kontroluje čistota a neporušenost lahví. Tento krok je ve výrobním diagramu v příručce HACCP součástí kroku 5.1. Stáčení do lahví.`
   },
   {
@@ -274,7 +275,7 @@ Lahve jsou uskladněny na původních paletách tak, aby nedocházelo k jejich k
     num: '5.1',
     cat: 'staceni',
     title: '5.1. Stáčení do lahví',
-    icon: '🍾',
+    icon: IkonaLahev,
     content: `Stáčení piva do lahví se provádí na stáčecím aparátu, do kterého je po vysanitování a proplachu (viz Sanitační řád) přetlačeno pivo z KEG sudu.
 
 Lahev se po nasazení na stáčecí aparát natlakuje na stejný tlak jako je v sudu (maximum 2 bary!). Otevře se přívod piva a pozvolným odpouštěním tlaku z lahve se nechá pivo přetlačit ze sudu do lahve, dbá se na to, aby rychlost proudění byla taková, aby nedocházelo k přepěňování piva a velkým ztrátám. Po naplnění lahve se nejdříve zavře ventil pro odpouštění tlaku, tím se proudění piva zastaví a teprve potom se zavírá přívod piva do aparátu. Tlak z lahve se pak pozvolna odpouští až je v lahvi nulový přetlak. Po vyjmutí plné lahve je lahev IHNED uzavřena víčkem.
@@ -286,7 +287,7 @@ Po naplnění lahve dle předepsaného pracovního postupu je lahev označena et
     num: '8.1',
     cat: 'expedice',
     title: '8.1. Uskladnění stočeného piva',
-    icon: '🏬',
+    icon: Warehouse,
     content: `Stočené pivo v lahvích a v sudech je uskladněno v chladných prostorách pivovaru. Teplota i v letních měsících zde nepřevyšuje 12°C a je pravidelně kontrolována.`
   },
   {
@@ -294,7 +295,7 @@ Po naplnění lahve dle předepsaného pracovního postupu je lahev označena et
     num: '9.1',
     cat: 'expedice',
     title: '9.1. Výdej stočeného piva',
-    icon: '📦',
+    icon: Package,
     content: `Při odebírání sudů ze skladu je třeba dbát na to aby byla šarže řádně označena datem minimální trvanlivosti. Sledovatelnost lahví je zajištěna skrze datum trvanlivosti.`
   },
   {
@@ -302,7 +303,7 @@ Po naplnění lahve dle předepsaného pracovního postupu je lahev označena et
     num: '10.1',
     cat: 'expedice',
     title: '10.1. Přeprava k zákazníkovi',
-    icon: '🚚',
+    icon: Truck,
     content: `Během přepravy a předání piva zákazníkovi probíhá mimo kontroly průvodní dokumentace i kontrola správnosti označení výrobní šarže (DMT).
 
 Pro veškeré množství převáženého piva musí být v převozní dokumentaci vyčíslena odvedená spotřební daň z piva.`
@@ -312,7 +313,7 @@ Pro veškeré množství převáženého piva musí být v převozní dokumentac
     num: 'C',
     cat: 'pravidla',
     title: 'C. Obecná pravidla SVHP — Hygiena, Sledovatelnost & Trvanlivost',
-    icon: '🛡️',
+    icon: Shield,
     content: `--- Provozní hygiena ---
 Pro správnou výrobní a hygienickou praxi je také nutné zajistit, aby výrobní prostory splňovaly požadavky na nároky potravinářského provozu a to jak konstrukční ale hlavně pak i nároky na čistotu provozu. V prvé řadě se jedná o prostory ležáckého sklepa, ve kterém probíhá kvašení v otevřených nádobách a uskladnění kvasnic v otevřených nádobách. Pivo se stáčí v ležáckém sklepě nefiltrované a nepasterované je tedy naprosto nezbytné aby pivo obsahovalo pouze kulturní kvasinky.
 
@@ -527,11 +528,11 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
                   <span className="text-neutral-700">Kyselina dusičná a fosforečná. Odstraňuje anorganické usazeniny a pivní kámen.</span>
                 </div>
                 <div className="p-3 rounded bg-white border border-rose-200 text-xs">
-                  <strong className="block text-rose-900 font-black mb-1">✨ Finální sterilace</strong>
+                  <strong className="block text-rose-900 font-black mb-1"><Sparkles className="ikona-text" /> Finální sterilace</strong>
                   <span className="text-neutral-700">Kyselina peroxyoctová (Persteril) pro stáčecí aparáty, kvasnice a sudy.</span>
                 </div>
                 <div className="p-3 rounded bg-white border border-rose-200 text-xs">
-                  <strong className="block text-rose-900 font-black mb-1">🧹 Sanitace podlah</strong>
+                  <strong className="block text-rose-900 font-black mb-1"><Brush className="ikona-text" /> Sanitace podlah</strong>
                   <span className="text-neutral-700">Chlorové vápno (chlornan vápenatý) pro hrubou sterilaci podlah.</span>
                 </div>
               </div>
@@ -581,7 +582,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
               <ul className="text-xs text-neutral-800 font-medium space-y-2 list-disc pl-5">
                 <li><strong>Okamžitý proplach po alkalické sanitaci:</strong> Zařízení po alkalické sanitaci je potřeba IHNED propláchnout čistou vodou, jinak hrozí tvorba anorganických usazenin!</li>
                 <li><strong>Důkladné spláchnutí nečistot před sanitací:</strong> Před sanitací výrobního zařízení je třeba vždy řádně vypláchnout co možná všechny zbytky piva, kvasnic apod. Proplach a oplachy čistou vodou jsou nezbytným předpokladem funkční sanitace.</li>
-                <li><strong>Volba parametrů sanitace:</strong> Vyšší teplotu může nahradit vyšší koncentrace a delší doba sanitace a naopak. Organické usazeniny ➔ alkalická sanitace (+ oxidační činidlo). Anorganické usazeniny ➔ kyselá sanitace.</li>
+                <li><strong>Volba parametrů sanitace:</strong> Vyšší teplotu může nahradit vyšší koncentrace a delší doba sanitace a naopak. Organické usazeniny → alkalická sanitace (+ oxidační činidlo). Anorganické usazeniny → kyselá sanitace.</li>
                 <li><strong>Rozlišení kartáčů:</strong> Používáme vizuálně odlišitelné druhy kartáčů pro čištění povrchů v kontaktu s pivem (vysoká sterilita) a jiné pro znečištěnější části provozu (podlahy apod.).</li>
               </ul>
             </div>
@@ -675,7 +676,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
               <div className="card p-5 bg-white border border-neutral-200 rounded space-y-3 shadow-2xs">
                 <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
                   <h4 className="font-display font-black text-base text-neutral-900 flex items-center gap-2">
-                    <span>🔌 Stáčecí aparát pro KEG sudy</span>
+                    <Plug className="ikona-text" /> <span>Stáčecí aparát pro KEG sudy</span>
                   </h4>
                 </div>
                 <div className="text-xs text-neutral-700 font-medium leading-relaxed space-y-2">
@@ -747,7 +748,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
                   <div className="flex items-start justify-between gap-3 border-b border-neutral-100 pb-3 flex-wrap">
                     <div className="flex items-center gap-2.5">
                       <span className="w-9 h-9 rounded bg-amber-100 text-amber-900 font-bold grid place-items-center text-base shrink-0 border border-amber-300">
-                        {doc.icon}
+                        <doc.icon size={18} />
                       </span>
                       <div>
                         <span className="text-[11px] font-mono font-black uppercase text-amber-600 tracking-wider">Bod {doc.num}</span>
@@ -836,7 +837,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
               {/* 3. Pivní a sanitační hadice */}
               <div className="p-5 rounded bg-white border border-amber-200 space-y-3 shadow-2xs">
                 <div className="flex items-center gap-2 text-amber-900 font-black text-sm border-b border-amber-100 pb-2">
-                  <span>🐍 Pivní a sanitační vedení (Hadice)</span>
+                  <Cable className="ikona-text" /> <span>Pivní a sanitační vedení (Hadice)</span>
                 </div>
                 <ul className="space-y-2 text-xs text-neutral-700 font-medium leading-relaxed">
                   <li>• <strong>Sanitace vedení:</strong> Při sanitaci prohnat pivním vedením sanitační kuličky za použití sanitačního roztoku (Persteril / Kyselina).</li>
@@ -858,7 +859,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
             <div className="flex items-center justify-between flex-wrap gap-4 border-b border-rose-500/50 pb-4">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded bg-white text-rose-600 flex items-center justify-center font-black text-2xl shadow-md">
-                  🚑
+                  <Ambulance className="ikona-text" />
                 </div>
                 <div>
                   <h2 className="text-xl font-display font-black text-white">Nouzové telefonní kontakty – První Pomoc</h2>
@@ -901,7 +902,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
             <div className="card p-6 bg-white border-2 border-rose-200 rounded space-y-4 shadow-sm">
               <div className="flex items-center gap-3 border-b border-rose-100 pb-3">
                 <div className="w-10 h-10 rounded bg-rose-100 text-rose-700 flex items-center justify-center font-black text-xl">
-                  👀
+                  <Eye className="ikona-text" />
                 </div>
                 <div>
                   <h3 className="font-display font-black text-base text-rose-950">1. Zasažení očí chemikálií (Kyselina / Louh)</h3>
@@ -923,7 +924,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
             <div className="card p-6 bg-white border-2 border-amber-200 rounded space-y-4 shadow-sm">
               <div className="flex items-center gap-3 border-b border-amber-100 pb-3">
                 <div className="w-10 h-10 rounded bg-amber-100 text-amber-700 flex items-center justify-center font-black text-xl">
-                  🧴
+                  <ShowerHead className="ikona-text" />
                 </div>
                 <div>
                   <h3 className="font-display font-black text-base text-amber-950">2. Poleptání kůže a těla</h3>
@@ -932,7 +933,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
               </div>
               <ul className="space-y-2.5 text-xs text-neutral-800 font-medium">
                 <li className="p-2.5 rounded bg-amber-50 border border-amber-200 font-bold text-amber-950">
-                  👕 <strong>Ihned svléknout potřísněný oděv</strong> (oděv drží chemikálii na kůži).
+                  <Shirt className="ikona-text" /> <strong>Ihned svléknout potřísněný oděv</strong> (oděv drží chemikálii na kůži).
                 </li>
                 <li>• Oplachovat postižené místo silným proudem studené vody po dobu 10–15 minut.</li>
                 <li>• <strong>Zásah kyselinou:</strong> Po důkladném opláchnutí vodou lze omýt mýdlovou vodou nebo 1% roztokem jedlé sody.</li>
@@ -945,7 +946,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
             <div className="card p-6 bg-white border-2 border-sky-200 rounded space-y-4 shadow-sm">
               <div className="flex items-center gap-3 border-b border-sky-100 pb-3">
                 <div className="w-10 h-10 rounded bg-sky-100 text-sky-700 flex items-center justify-center font-black text-xl">
-                  💨
+                  <Wind className="ikona-text" />
                 </div>
                 <div>
                   <h3 className="font-display font-black text-base text-sky-950">3. Nadhýchání výparů & Nebezpečí CO₂</h3>
@@ -975,7 +976,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
               </div>
               <ul className="space-y-2.5 text-xs text-neutral-800 font-medium">
                 <li className="p-2.5 rounded bg-violet-50 border border-violet-200 font-bold text-violet-950">
-                  🚫 <strong>NEVYVOLÁVAT ZVRACENÍ!</strong> Zvratky by znovu poleptaly jícen a hrozí proděravění žaludku.
+                  <Ban className="ikona-text" /> <strong>NEVYVOLÁVAT ZVRACENÍ!</strong> Zvratky by znovu poleptaly jícen a hrozí proděravění žaludku.
                 </li>
                 <li>• Postiženému dát ihned vypít 2–5 dcl čisté chladné vody pro rozředění chemikálie.</li>
                 <li>• Nepodávat živočišné uhlí ani jídlo!</li>

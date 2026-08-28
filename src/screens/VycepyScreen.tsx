@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase, useRealtime } from '../lib/supabase';
 import { Spinner, EmptyState } from '../components/ui';
 import { PlaceCombobox } from '../components/PlaceCombobox';
-import { AlertTriangle, Calendar, CheckCircle2, Droplet, Droplets, Flame, FlaskConical, Phone, Plus, RefreshCw, ShieldAlert, Sparkles, Tag, Trash2, User, Wrench } from 'lucide-react';
+import { AlertTriangle, Calendar, Check, CheckCircle2, Droplet, Droplets, Flame, FlaskConical, Phone, Plus, RefreshCw, ShieldAlert, Sparkles, Tag, Trash2, User, Wrench, X } from 'lucide-react';
 import { oznam, potvrd } from '../lib/toast';
 import { IkonaVycep } from '../components/ikony';
 
@@ -193,7 +193,7 @@ export default function VycepyScreen() {
             <span>Půjčovna & Sanitace výčepů</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-display font-black tracking-tight text-white flex items-center gap-2">
-            <span>🍻 Půjčovna výčepních zařízení & Sanitace</span>
+            <IkonaVycep className="ikona-text" /> <span>Půjčovna výčepních zařízení & Sanitace</span>
           </h1>
           <p className="text-xs text-neutral-400 font-medium mt-1">
             Evidence výčepů (1–6 kohouty), sanitace louhem/vodou a rezervační kalendář pro zápůjčky.
@@ -268,7 +268,9 @@ export default function VycepyScreen() {
                         <div className="flex justify-between">
                           <span><Wrench className="ikona-text" /> Rozebrané kohouty:</span>
                           <strong className={t.taps_disassembled ? 'text-emerald-700' : 'text-rose-600'}>
-                            {t.taps_disassembled ? '✓ Ano' : '✕ Ne'}
+                            {t.taps_disassembled
+                              ? <><Check className="ikona-text" /> Ano</>
+                              : <><X className="ikona-text" /> Ne</>}
                           </strong>
                         </div>
                       </div>
@@ -341,7 +343,7 @@ export default function VycepyScreen() {
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-black text-sm text-neutral-950">{r.tap_name}</span>
                     {isReturned ? (
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-950 font-black text-[11px] border border-emerald-300">✓ Vráceno</span>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-950 font-black text-[11px] border border-emerald-300"><Check className="ikona-text" /> Vráceno</span>
                     ) : isOverdue ? (
                       <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white font-black text-[11px] animate-pulse"><AlertTriangle className="ikona-text" /> Po termínu</span>
                     ) : (
@@ -367,7 +369,7 @@ export default function VycepyScreen() {
                         r.is_returned ? 'bg-neutral-200 text-neutral-800 hover:bg-neutral-300' : 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-2xs'
                       }`}
                     >
-                      {r.is_returned ? 'Zrušit vrácení' : '✓ Vrátit'}
+                      {r.is_returned ? 'Zrušit vrácení' : <><Check className="ikona-text" /> Vrátit</>}
                     </button>
                     <button onClick={() => handleDeleteReservation(r.id)} className="w-10 h-10 grid place-items-center rounded hover:bg-rose-100 text-rose-600 transition shrink-0" title="Smazat rezervaci">
                       <Trash2 size={16} />
@@ -401,7 +403,7 @@ export default function VycepyScreen() {
                       <td>
                         {isReturned ? (
                           <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-950 font-black text-[11px] border border-emerald-300">
-                            ✓ Vráceno
+                            <Check className="ikona-text" /> Vráceno
                           </span>
                         ) : isOverdue ? (
                           <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white font-black text-[11px] animate-pulse">
@@ -440,7 +442,7 @@ export default function VycepyScreen() {
                                 : 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-2xs'
                             }`}
                           >
-                            {r.is_returned ? 'Zrušit vrácení' : '✓ Vrátit'}
+                            {r.is_returned ? 'Zrušit vrácení' : <><Check className="ikona-text" /> Vrátit</>}
                           </button>
                           <button onClick={() => handleDeleteReservation(r.id)} className="p-1.5 rounded hover:bg-rose-100 text-rose-600 transition" title="Smazat rezervaci">
                             <Trash2 size={14} />
@@ -463,7 +465,7 @@ export default function VycepyScreen() {
           <div className="bg-white rounded max-w-md w-full p-6 space-y-4 shadow-2xl border border-neutral-200">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
               <h3 className="font-display font-black text-lg text-neutral-900">Přidat výčepní zařízení</h3>
-              <button onClick={() => setShowAddTapModal(false)} className="text-neutral-400 font-bold">✕</button>
+              <button onClick={() => setShowAddTapModal(false)} className="text-neutral-400 font-bold" title="Zavřít"><X size={18} /></button>
             </div>
 
             <form onSubmit={handleAddTap} className="space-y-3">
@@ -519,7 +521,7 @@ export default function VycepyScreen() {
           <div className="bg-white rounded max-w-md w-full p-6 space-y-4 shadow-2xl border border-neutral-200">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
               <h3 className="font-display font-black text-lg text-neutral-900">Vytvořit výpůjčku výčepu</h3>
-              <button onClick={() => setShowResModal(false)} className="text-neutral-400 font-bold">✕</button>
+              <button onClick={() => setShowResModal(false)} className="text-neutral-400 font-bold" title="Zavřít"><X size={18} /></button>
             </div>
 
             <form onSubmit={handleAddReservation} className="space-y-3">
