@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { Beer, Package, beerBg, beerText, fetchAllRows, formatPackageLabel, pkgBg, pkgText, supabase, useRealtime } from '../lib/supabase';
 import { Spinner, EmptyState } from '../components/ui';
 import { createReminder } from '../lib/reminders';
-import { AlertTriangle, Beer as BeerIcon, Bell, Calendar, Check, CheckCircle2, ClipboardList, Clock, DollarSign, MapPin, Plus, RotateCcw, Sparkles, Star, Tent, ThumbsDown, ThumbsUp, Trash2, User, X } from 'lucide-react';
+import { AlertTriangle, Beer as BeerIcon, Bell, Calendar, Check, CheckCircle2, ClipboardList, Clock, DollarSign, MapPin, PartyPopper, Plus, RotateCcw, Sparkles, Star, Tent, ThumbsDown, ThumbsUp, Trash2, User, X } from 'lucide-react';
 import { oznam, potvrd } from '../lib/toast';
 
 /** Řádky z DB (akce + vnořené akce_items) → tvar, se kterým pracuje obrazovka. */
@@ -440,7 +440,7 @@ export default function AkceScreen() {
         </div>
 
         {records.length === 0 ? (
-          <EmptyState text="Zatím nemáš zadané žádné akce. Naplánuj první akci tlačítkem nahoře!" icon="🎪" />
+          <EmptyState text="Zatím nemáš zadané žádné akce. Naplánuj první akci tlačítkem nahoře!" icon={PartyPopper} />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {records.map((r) => {

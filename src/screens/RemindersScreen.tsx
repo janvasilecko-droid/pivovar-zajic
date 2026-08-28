@@ -539,7 +539,7 @@ export default function RemindersScreen() {
           {loading ? (
             <div className="py-12 flex justify-center"><Spinner /></div>
           ) : filteredReminders.length === 0 ? (
-            <EmptyState text="Zatím žádné aktivní upomínky v tomto zobrazení." icon="🔔" />
+            <EmptyState text="Zatím žádné aktivní upomínky v tomto zobrazení." icon={Bell} />
           ) : (
             <div className="space-y-3">
               {filteredReminders.map((r) => {

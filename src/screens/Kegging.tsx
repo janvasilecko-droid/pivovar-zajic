@@ -14,7 +14,7 @@ import { computeKeggingPlan } from '../lib/keggingPlan';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
 import { markPlanSeenAt, type BottlingPlan } from '../lib/bottlingPlans';
 import KeggingDayPlan from '../components/KeggingDayPlan';
-import { AlertTriangle, BarChart3, Beer as BeerIcon, Calendar, CalendarDays, Camera, ClipboardList, Copy, Cylinder, Loader2, Package as PackageIcon, Pencil, Plus, RefreshCw, Scroll, Sparkles, Trash2 } from 'lucide-react';
+import { AlertTriangle, BarChart3, Beer as BeerIcon, Calendar, CalendarDays, Camera, ClipboardList, Copy, Cylinder, Loader2, Package as PackageIcon, PenLine, Pencil, Plus, RefreshCw, Scroll, Sparkles, Trash2 } from 'lucide-react';
 import { ImportKeggingFromImage } from '../components/ImportKeggingFromImage';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { chyba, potvrd, toastZpet } from '../lib/toast';
@@ -1475,9 +1475,9 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
         {loading ? (
           <Spinner />
         ) : rows.length === 0 ? (
-          <EmptyState text="Zatím žádné záznamy. Přidej první výše." icon="📝" />
+          <EmptyState text="Zatím žádné záznamy. Přidej první výše." icon={PenLine} />
         ) : filteredRows.length === 0 ? (
-          <EmptyState text="Žádné záznamy pro toto období." icon="📅" />
+          <EmptyState text="Žádné záznamy pro toto období." icon={CalendarDays} />
         ) : (() => {
           // Jednotlivé záznamy s datem (den a měsíc)
           const sortedRows = [...filteredRows].sort((a, b) => {
@@ -1879,7 +1879,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               <Scroll className="ikona-text" /> Historie přefuků ({prefukRows.length})
             </div>
             {prefukRows.length === 0 ? (
-              <EmptyState text="Zatím žádný přefuk. Přefukem se ze skladu odečtou sudy ZE a přičtou sudy DO." icon="🔄" />
+              <EmptyState text="Zatím žádný přefuk. Přefukem se ze skladu odečtou sudy ZE a přičtou sudy DO." icon={RefreshCw} />
             ) : (
               <div className="overflow-x-auto scrollbar-thin rounded border border-neutral-200">
                 <table className="table text-xs w-full">

@@ -4,7 +4,7 @@ import { EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey } from '../components/WeeklyOrderSummaryCard';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { ProdejnaFromImage } from '../components/ProdejnaFromImage';
-import { BarChart3, Check, Calendar, Camera, ClipboardList, Package as PackageIcon, Trash2, Copy } from 'lucide-react';
+import { BarChart3, Calendar, CalendarDays, Camera, Check, ClipboardList, Copy, Package as PackageIcon, PenLine, Trash2 } from 'lucide-react';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { TapReservationModal } from '../components/TapReservationModal';
 import { detectTapType } from '../lib/tapReservations';
@@ -580,9 +580,9 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
             {loading ? (
               <Spinner />
             ) : rows.length === 0 ? (
-              <EmptyState text="Zatím žádné záznamy. Přidej první v záložce Zápis." icon="📝" />
+              <EmptyState text="Zatím žádné záznamy. Přidej první v záložce Zápis." icon={PenLine} />
             ) : filteredRows.length === 0 ? (
-              <EmptyState text="Žádné záznamy pro toto období / filtr." icon="📅" />
+              <EmptyState text="Žádné záznamy pro toto období / filtr." icon={CalendarDays} />
             ) : (() => {
               const sortedRows = [...filteredRows].sort((a, b) => {
                 const dateCmp = (b.entry_date ?? '').localeCompare(a.entry_date ?? '');

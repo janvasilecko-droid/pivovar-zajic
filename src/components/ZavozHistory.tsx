@@ -3,7 +3,7 @@ import { Beer, Package, Place, fetchAllRows, formatPackageLabel, supabase, useRe
 import { Spinner, EmptyState } from './ui';
 import { orderWeightKg, fmtKg } from '../lib/weight';
 import { DAYS } from '../lib/shared';
-import { CalendarDays, Filter, History as HistoryIcon, Printer } from 'lucide-react';
+import { CalendarDays, Filter, History as HistoryIcon, Printer, Truck } from 'lucide-react';
 import { printDeliveryList } from '../lib/safePrint';
 
 type Order = {
@@ -213,7 +213,7 @@ export default function ZavozHistory() {
       </div>
 
       {filteredHistoryByDate.length === 0 ? (
-        <EmptyState text="Žádné závozové trasy neodpovídají zvoleným filtrům." icon="🚚" />
+        <EmptyState text="Žádné závozové trasy neodpovídají zvoleným filtrům." icon={Truck} />
       ) : (
       <div className="space-y-6">
         {filteredHistoryByDate.map((hGroup) => {

@@ -5,7 +5,7 @@ import { supabase, Beer, Package, KegPrefuk, useRealtime, beerBorder, fetchAllRo
 import { buildMovements, stockAsOf, stockKey, type Movement } from '../lib/stockLedger';
 import PohybyModal from '../components/PohybyModal';
 import { Spinner, EmptyState, Modal } from '../components/ui';
-import { Warehouse, Calendar, BarChart2, PackageCheck, Download, ShoppingBag, Tent, AlertTriangle, ChevronDown } from 'lucide-react';
+import { AlertTriangle, BarChart2, Beer as BeerIcon, Calendar, ChevronDown, Download, Package as PackageIcon, PackageCheck, ShoppingBag, Tent, Warehouse } from 'lucide-react';
 import { exportExciseTaxReportToExcel } from '../lib/excel';
 import { FestivalEquipmentTracker } from '../components/FestivalEquipmentTracker';
 import { MarketingMerchInventory } from '../components/MarketingMerchInventory';
@@ -494,7 +494,7 @@ export default function Stock() {
           </div>
 
           {/* Stock Cards Grid */}
-          {loading ? <Spinner /> : rows.length === 0 ? <EmptyState text="Žádná piva na skladě." icon="📦" /> : (
+          {loading ? <Spinner /> : rows.length === 0 ? <EmptyState text="Žádná piva na skladě." icon={PackageIcon} /> : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {rows.map((r) => {
                 const isDeficit = r.remaining < 0;
@@ -850,7 +850,7 @@ export default function Stock() {
               </div>
             </div>
 
-            {brewLoading ? <Spinner /> : brewStats.length === 0 ? <EmptyState text="Žádné stočení v tomto období." icon="🍺" /> : (
+            {brewLoading ? <Spinner /> : brewStats.length === 0 ? <EmptyState text="Žádné stočení v tomto období." icon={BeerIcon} /> : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {brewStats.map((s) => (
                   <div key={s.beer.id} className="bg-white rounded border-2 border-neutral-200 p-4" style={{ borderColor: beerBorder(s.beer) }}>

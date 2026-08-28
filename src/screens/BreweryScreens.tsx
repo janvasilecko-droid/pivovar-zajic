@@ -135,7 +135,7 @@ export function SrotovaniScreen({ setPage }: { setPage?: (p: any, sec?: string) 
       </form>
 
       {/* List */}
-      {loading ? <Spinner /> : rows.length === 0 ? <EmptyState text="Zatím žádné záznamy o šrotování." icon="🌾" /> : (
+      {loading ? <Spinner /> : rows.length === 0 ? <EmptyState text="Zatím žádné záznamy o šrotování." icon={Wheat} /> : (
         <div className="card p-5 bg-white border border-neutral-200 shadow-sm rounded space-y-3">
           <h3 className="font-display font-black text-lg text-neutral-900">Historie šrotování</h3>
           <div className="space-y-2">

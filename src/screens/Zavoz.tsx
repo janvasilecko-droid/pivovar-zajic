@@ -678,7 +678,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
           {loading ? (
             <Spinner />
           ) : activeOrders.length === 0 ? (
-            <EmptyState text="Žádné objednávky k závozu pro zvolený filtr." icon="🚚" />
+            <EmptyState text="Žádné objednávky k závozu pro zvolený filtr." icon={Truck} />
           ) : (
             <>
               {/* Mobile Tab Switcher — ukotvený hned pod dnovým filtrem výše. */}

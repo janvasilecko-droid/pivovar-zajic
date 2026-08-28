@@ -1,4 +1,5 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
+import { Inbox, type LucideIcon } from 'lucide-react';
 
 export function Spinner({ className = '' }: { className?: string }) {
   return (
@@ -11,11 +12,22 @@ export function Spinner({ className = '' }: { className?: string }) {
   );
 }
 
-export function EmptyState({ text, icon = '📭' }: { text: string; icon?: string }) {
+/**
+ * Prázdný stav — „tady zatím nic není" s ikonou a vysvětlením.
+ *
+ * `icon` bere kreslenou ikonu (lucide nebo z components/ikony.tsx) i obyčejný
+ * řetězec. Řetězec zůstává schválně: dokud se všech 39 volání nepřevede,
+ * musí obojí fungovat vedle sebe — a párkrát se hodí napsat rovnou znak.
+ */
+export function EmptyState({ text, icon = Inbox }: { text: string; icon?: string | LucideIcon }) {
+  // Dvě proměnné, ne jedna: TypeScript pak ví, že ve větvi bez ikony
+  // zbývá řetězec, a nesnaží se vykreslit komponentu jako text.
+  const Ikona = typeof icon === 'string' ? null : icon;
+  const znak = typeof icon === 'string' ? icon : null;
   return (
     <div className="card p-10 text-center animate-fade-in border-dashed border-2 border-neutral-200 bg-neutral-50/50">
-      <div className="w-14 h-14 mx-auto mb-3.5 rounded bg-white shadow-sm border border-neutral-200/80 grid place-items-center text-3xl">
-        {icon}
+      <div className="w-14 h-14 mx-auto mb-3.5 rounded bg-white shadow-sm border border-neutral-200/80 grid place-items-center text-3xl text-neutral-400">
+        {Ikona ? <Ikona size={26} /> : znak}
       </div>
       <p className="text-neutral-600 text-sm font-medium">{text}</p>
     </div>
@@ -92,9 +104,12 @@ export function Modal({ open, onClose, title, children, wide, maxWidth }: {
   );
 }
 
+/** Číselná dlaždice. `icon` bere kreslenou ikonu i řetězec — viz EmptyState. */
 export function Stat({ label, value, icon, tone = 'primary' }: {
-  label: string; value: ReactNode; icon: string; tone?: 'primary' | 'accent' | 'amber' | 'success' | 'warning' | 'danger';
+  label: string; value: ReactNode; icon: string | LucideIcon; tone?: 'primary' | 'accent' | 'amber' | 'success' | 'warning' | 'danger';
 }) {
+  const Ikona = typeof icon === 'string' ? null : icon;
+  const znak = typeof icon === 'string' ? icon : null;
   const tones: Record<string, { bg: string; iconBg: string; text: string; border: string }> = {
     primary: { bg: 'hover:border-primary-200', iconBg: 'bg-primary-50 text-primary-600 border-primary-100', text: 'text-neutral-900', border: 'border-neutral-200/80' },
     accent: { bg: 'hover:border-neutral-400', iconBg: 'bg-neutral-900 text-white border-neutral-800', text: 'text-neutral-900', border: 'border-neutral-200/80' },
@@ -110,7 +125,7 @@ export function Stat({ label, value, icon, tone = 'primary' }: {
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">{label}</span>
         <span className={`w-10 h-10 rounded border grid place-items-center text-xl shadow-xs transition-transform group-hover:scale-105 ${t.iconBg}`}>
-          {icon}
+          {Ikona ? <Ikona size={20} /> : znak}
         </span>
       </div>
       <div className={`text-2xl sm:text-3xl font-display font-extrabold tracking-tight ${t.text}`}>{value}</div>

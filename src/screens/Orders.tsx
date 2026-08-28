@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 
-import { AlertTriangle, ArrowRight, Ban, Beer as BeerIcon, Bell, Building2, Calculator, Calendar, CalendarDays, Camera, Check, CheckCircle2, CheckSquare, ClipboardList, Copy, FilePlus, Hourglass, ListOrdered, Mail, MessageCircle, NotebookPen, Package as PackageIcon, PackageCheck, Pencil, Phone, Plus, RotateCcw, Scroll, ShieldAlert, Trash2, Truck, User, Zap } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Ban, Beer as BeerIcon, Bell, Building2, Calculator, Calendar, CalendarDays, Camera, Check, CheckCircle2, CheckSquare, ClipboardList, Copy, FilePlus, Hourglass, ListOrdered, Mail, MessageCircle, NotebookPen, Package as PackageIcon, PackageCheck, Pencil, Phone, Plus, Receipt, RotateCcw, Scroll, ShieldAlert, Trash2, Truck, User, Zap } from 'lucide-react';
 import { Beer, EntryRow, Package, Place, beerBg, beerName, beerText, fetchAllRows, formatPackageLabel, pkgBg, supabase, useRealtime } from '../lib/supabase';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
@@ -2118,7 +2118,7 @@ export default function Orders({
       {/* Při načítání se dřív nezobrazovalo nic — na pomalém připojení bylo pod
           filtry prázdno a objednávky se pak „samy objevily". Nešlo poznat,
           jestli se načítá, nebo je opravdu prázdno. */}
-      {viewMode !== 'celkem' && viewMode !== 'text' && (loading ? <Spinner /> : searchedFiltered.length === 0 ? <EmptyState text="Žádné objednávky pro zvolené filtry." icon="🧾" /> : (viewMode === 'detail' && groupedByDay) ? (
+      {viewMode !== 'celkem' && viewMode !== 'text' && (loading ? <Spinner /> : searchedFiltered.length === 0 ? <EmptyState text="Žádné objednávky pro zvolené filtry." icon={Receipt} /> : (viewMode === 'detail' && groupedByDay) ? (
         <div className="space-y-6">
           {groupedByDay.map((grp) => (
             <div key={grp.key}>
@@ -2463,7 +2463,7 @@ function VariantTotalsPanel({ totals, beers, packages, timeScope, onPick }: {
   onPick: (beerId: string, packageId: string) => void;
 }) {
   if (!totals.totalKs) {
-    return <EmptyState text="Žádné objednávky v tomto rozsahu — zatím není co sčítat." icon="🧮" />;
+    return <EmptyState text="Žádné objednávky v tomto rozsahu — zatím není co sčítat." icon={Calculator} />;
   }
   const scopeLabel = timeScope === 'week' ? 'tento týden' : timeScope === 'month' ? 'celý měsíc' : 'všechny objednávky';
   const sorted = [...totals.totals].sort((a, b) => {

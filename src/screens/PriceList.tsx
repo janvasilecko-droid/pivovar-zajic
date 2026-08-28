@@ -113,7 +113,7 @@ export default function PriceListScreen() {
               </div>
             </div>
 
-            {beers.length === 0 ? <EmptyState text="Žádná piva v katalogu." icon="🍺" /> : (
+            {beers.length === 0 ? <EmptyState text="Žádná piva v katalogu." icon={BeerIcon} /> : (
               <>
               {/* Mobilní karty */}
               <div className="grid grid-cols-1 gap-2.5 md:hidden">
@@ -221,9 +221,9 @@ export default function PriceListScreen() {
             </div>
 
             {bottlePackages.length === 0 ? (
-              <EmptyState text="V katalogu obalů nejsou žádné lahve." icon="🍾" />
+              <EmptyState text="V katalogu obalů nejsou žádné lahve." icon={IkonaLahev} />
             ) : beers.length === 0 ? (
-              <EmptyState text="Žádná piva v katalogu." icon="🍺" />
+              <EmptyState text="Žádná piva v katalogu." icon={BeerIcon} />
             ) : (
               <>
               {/* Mobilní karty */}

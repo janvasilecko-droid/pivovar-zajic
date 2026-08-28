@@ -194,7 +194,7 @@ export default function Feedback({ setPage, initialSubTab }: { setPage?: (p: any
       </div>
 
       {loading ? <Spinner /> : grouped.length === 0 ? (
-        <EmptyState text="Zatím žádné poznámky. Napiš první výše." icon="💬" />
+        <EmptyState text="Zatím žádné poznámky. Napiš první výše." icon={MessageCircle} />
       ) : (
         <div className="space-y-6 animate-fade-in">
           {grouped.map((g) => (

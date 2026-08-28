@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase, Note, useRealtime } from '../lib/supabase';
 import { EmptyState, Spinner } from '../components/ui';
 import { useAuth } from '../lib/auth';
-import { Check, NotebookPen, Pencil, Plus, StickyNote, Trash2, X } from 'lucide-react';
+import { Check, NotebookPen, PenLine, Pencil, Plus, StickyNote, Trash2, X } from 'lucide-react';
 import { potvrd } from '../lib/toast';
 
 const NOTE_COLORS: Record<string, string> = {
@@ -137,7 +137,7 @@ export default function Notes() {
       {loading ? (
         <div className="py-6 flex justify-center"><Spinner /></div>
       ) : notes.length === 0 ? (
-        <EmptyState text="Zatím žádné poznámky. Napište první!" icon="📝" />
+        <EmptyState text="Zatím žádné poznámky. Napište první!" icon={PenLine} />
       ) : (
         <div className="space-y-2.5">
           {notes.map((n) => {

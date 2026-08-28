@@ -4,7 +4,7 @@ import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, beerT
 import { EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { ImportBottlingFromImage } from '../components/ImportBottlingFromImage';
-import { AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Calendar, CalendarDays, Camera, ClipboardList, Copy, Cylinder, Lightbulb, ListChecks, Package as PackageIcon, Pencil, Plus, RefreshCw, Sparkles, Trash2, Wine } from 'lucide-react';
+import { AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Calendar, CalendarDays, Camera, CheckCircle2, ClipboardList, Copy, Cylinder, Lightbulb, ListChecks, Package as PackageIcon, PenLine, Pencil, Plus, RefreshCw, Sparkles, Trash2, Wine } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { BottlingPlan, getPlanSeenAt, markPlanSeenAt, isPlanUnseen, isBottlingManager, setPlanStatus } from '../lib/bottlingPlans';
 import { BottlingPlanPlanner } from '../components/BottlingPlanPlanner';
@@ -1402,9 +1402,9 @@ export default function BottlingScreen({
         {loading ? (
           <Spinner />
         ) : rows.length === 0 ? (
-          <EmptyState text="Zatím žádné záznamy. Přidej první výše." icon="📝" />
+          <EmptyState text="Zatím žádné záznamy. Přidej první výše." icon={PenLine} />
         ) : filteredRows.length === 0 ? (
-          <EmptyState text="Žádné záznamy pro toto období." icon="📅" />
+          <EmptyState text="Žádné záznamy pro toto období." icon={CalendarDays} />
         ) : (() => {
           const sortedRows = [...filteredRows].sort((a, b) => {
             const dateCmp = (b.entry_date ?? '').localeCompare(a.entry_date ?? '');
@@ -1744,7 +1744,7 @@ export default function BottlingScreen({
 
             {/* Tabulka */}
             {filteredRequirements.length === 0 ? (
-              <EmptyState text={reqOnlyMissing ? 'Žádné chybějící lahve! Všechny objednané lahve jsou pokryté na skladě.' : 'Žádné položky k zobrazení.'} icon="🎉" />
+              <EmptyState text={reqOnlyMissing ? 'Žádné chybějící lahve! Všechny objednané lahve jsou pokryté na skladě.' : 'Žádné položky k zobrazení.'} icon={CheckCircle2} />
             ) : (
               <>
               {/* Na telefonu karty: osm sloupců se do 375 px nevejde a

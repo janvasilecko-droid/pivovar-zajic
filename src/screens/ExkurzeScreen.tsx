@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase, useRealtime } from '../lib/supabase';
 import { Spinner, EmptyState } from '../components/ui';
-import { Users, Plus, Trash2, Calendar, Clock, UserCheck, CheckCircle2, Archive, BarChart3, Download, ChevronDown, ChevronUp, User } from 'lucide-react';
+import { Archive, BarChart3, Calendar, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, Landmark, Plus, Trash2, User, UserCheck, UserRound, Users } from 'lucide-react';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { oznam, potvrd } from '../lib/toast';
 
@@ -343,7 +343,7 @@ export default function ExkurzeScreen() {
           </div>
 
           {activeEntries.length === 0 ? (
-            <EmptyState text={`Pro měsíc ${currentMonth} nejsou žádné aktivní nearchivované exkurze.`} icon="🏰" />
+            <EmptyState text={`Pro měsíc ${currentMonth} nejsou žádné aktivní nearchivované exkurze.`} icon={Landmark} />
           ) : (
             <>
             {/* Mobilní karty */}
@@ -442,7 +442,7 @@ export default function ExkurzeScreen() {
         </div>
 
         {guideStats.length === 0 ? (
-          <EmptyState text="Zatím nebyly zapsány žádné exkurze s průvodci." icon="👨‍💼" />
+          <EmptyState text="Zatím nebyly zapsány žádné exkurze s průvodci." icon={UserRound} />
         ) : (
           <div className="space-y-3">
             {guideStats.map((gs) => {
@@ -571,7 +571,7 @@ export default function ExkurzeScreen() {
           <h3 className="font-display font-black text-base text-neutral-900">Přehled exkurzí podle měsíců</h3>
 
           {monthStats.length === 0 ? (
-            <EmptyState text="Zatím žádná historie." icon="📊" />
+            <EmptyState text="Zatím žádná historie." icon={BarChart3} />
           ) : (
             <div className="overflow-x-auto scrollbar-thin">
               <table className="table">

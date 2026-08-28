@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase, SanitationLog } from '../lib/supabase';
 import { Spinner, EmptyState } from '../components/ui';
-import { Calendar, Clock, Edit3, FileSpreadsheet, MessageSquare, Pencil, Plus, Search, ShieldCheck, SprayCan, User } from 'lucide-react';
+import { Calendar, Clock, Droplets, Edit3, FileSpreadsheet, MessageSquare, Pencil, Plus, Search, ShieldCheck, SprayCan, User } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 import { useAuth } from '../lib/auth';
@@ -310,7 +310,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
       {loading ? (
         <Spinner />
       ) : filtered.length === 0 ? (
-        <EmptyState text="Zatím žádné záznamy o sanitaci tanků." icon="🧼" />
+        <EmptyState text="Zatím žádné záznamy o sanitaci tanků." icon={Droplets} />
       ) : (
         <>
         <div className="space-y-2.5 md:hidden">

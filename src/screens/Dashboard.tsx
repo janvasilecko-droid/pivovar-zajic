@@ -535,7 +535,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
       </div>
 
       {/* Beer cards with package breakdown */}
-      {stats.length === 0 ? <EmptyState text="Žádná piva v evidenci." icon="🍺" /> : (
+      {stats.length === 0 ? <EmptyState text="Žádná piva v evidenci." icon={BeerIcon} /> : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mb-8">
           {stats.map((s) => {
             const st = statusOf(s);

@@ -4,7 +4,7 @@ import { Spinner, EmptyState } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { orderWeightKg, fmtKg } from '../lib/weight';
 import { DAYS } from '../lib/shared';
-import { AlertOctagon, AlertTriangle, ArrowDown, ArrowDownRight, ArrowUp, ArrowUpRight, BarChart3, Beer as BeerIcon, Boxes, Building, Calendar, CheckCircle2, Clock, Cylinder, DollarSign, Download, Droplet, Eye, EyeOff, Filter, GitCompare, History as HistoryIcon, Maximize2, Minimize2, Package as PackageIcon, Percent, PieChart as PieChartIcon, Printer, Save, Search, ShieldAlert, ShoppingCart, Smartphone, TrendingDown, TrendingUp, Trophy, Truck, Zap } from 'lucide-react';
+import { AlertOctagon, AlertTriangle, ArrowDown, ArrowDownRight, ArrowUp, ArrowUpRight, BarChart3, Beer as BeerIcon, Boxes, Building, Calendar, CheckCircle2, Clock, Cylinder, DollarSign, Download, Droplet, Eye, EyeOff, Filter, GitCompare, History as HistoryIcon, Maximize2, Minimize2, Package as PackageIcon, PartyPopper, Percent, PieChart as PieChartIcon, Printer, Receipt, Save, Search, ShieldAlert, ShoppingCart, Smartphone, TrendingDown, TrendingUp, Trophy, Truck, Undo2, Zap, type LucideIcon } from 'lucide-react';
 import { WeeklyOrderSummaryCard, WeeklyOrderItem, isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { PieChart as RePieChart, Pie, Cell, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { EditOrderModal } from '../components/EditOrderModal';
@@ -996,18 +996,18 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                      <Stat label="Stočeno" value={d.brewed} icon="🍺" tone="amber" />
-                      <Stat label="Lahve" value={d.bottled} icon="🍾" />
-                      <Stat label="Sudy" value={d.kegged} icon="🛢️" tone="amber" />
+                      <Stat label="Stočeno" value={d.brewed} icon={BeerIcon} tone="amber" />
+                      <Stat label="Lahve" value={d.bottled} icon={IkonaLahev} />
+                      <Stat label="Sudy" value={d.kegged} icon={IkonaSud} tone="amber" />
                       <div className="col-span-2 sm:col-span-4 rounded p-3 border shadow-2xs bg-white">
                         <div className="flex items-center gap-1.5 mb-1"><span className="w-6 h-6 rounded grid place-items-center text-xs font-bold border text-amber-900 bg-amber-100/80 border-amber-300"><Droplet className="ikona-text" /></span><span className="text-[11px] font-black uppercase tracking-wider text-neutral-600 truncate">Stočeno celkem (hl)</span></div>
                         <div className="text-base font-display font-black text-neutral-900">{d.brewed_hl.toFixed(2)} hl</div>
                       </div>
-                      <Stat label="Fasování" value={d.fasovani} icon="📦" />
-                      <Stat label="Odpisy" value={d.writeoffs} icon="📉" tone="danger" />
-                      <Stat label="Objednáno" value={d.ordered} icon="🧾" tone="amber" />
-                      <Stat label="Akce odvezeno" value={d.akce_taken} icon="🎪" tone="warning" />
-                      <Stat label="Akce vráceno" value={d.akce_returned} icon="↩️" tone="success" />
+                      <Stat label="Fasování" value={d.fasovani} icon={PackageIcon} />
+                      <Stat label="Odpisy" value={d.writeoffs} icon={TrendingDown} tone="danger" />
+                      <Stat label="Objednáno" value={d.ordered} icon={Receipt} tone="amber" />
+                      <Stat label="Akce odvezeno" value={d.akce_taken} icon={PartyPopper} tone="warning" />
+                      <Stat label="Akce vráceno" value={d.akce_returned} icon={Undo2} tone="success" />
                     </div>
 
                     {/* 📦 KONKRÉTNÍ ROZPAS STOČENÝCH OBALŮ: 50, 30, 20, 15, 10, 1.5, 1, 0.5, 0.33 */}
@@ -2052,7 +2052,9 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
   );
 }
 
-function Stat({ label, value, icon, tone }: { label: string; value: number; icon: string; tone?: string }) {
+function Stat({ label, value, icon, tone }: { label: string; value: number; icon: string | LucideIcon; tone?: string }) {
+  const Ikona = typeof icon === 'string' ? null : icon;
+  const znak = typeof icon === 'string' ? icon : null;
   const c = tone === 'amber' ? 'text-amber-900 bg-amber-100/80 border-amber-300'
     : tone === 'danger' ? 'text-rose-900 bg-rose-100/80 border-rose-300'
     : tone === 'success' ? 'text-emerald-900 bg-emerald-100/80 border-emerald-300'
@@ -2061,7 +2063,7 @@ function Stat({ label, value, icon, tone }: { label: string; value: number; icon
   return (
     <div className="rounded p-3 border shadow-2xs bg-white">
       <div className="flex items-center gap-1.5 mb-1">
-        <span className={`w-6 h-6 rounded grid place-items-center text-xs font-bold border ${c}`}>{icon}</span>
+        <span className={`w-6 h-6 rounded grid place-items-center text-xs font-bold border ${c}`}>{Ikona ? <Ikona size={14} /> : znak}</span>
         <span className="text-[11px] font-black uppercase tracking-wider text-neutral-600 truncate">{label}</span>
       </div>
       <div className="text-base font-display font-black text-neutral-900">{value} ks</div>

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase, useRealtime } from '../lib/supabase';
 import { Spinner, EmptyState } from '../components/ui';
 import { PlaceCombobox } from '../components/PlaceCombobox';
-import { AlertTriangle, Calendar, Check, CheckCircle2, Droplet, Droplets, Flame, FlaskConical, Phone, Plus, RefreshCw, ShieldAlert, Sparkles, Tag, Trash2, User, Wrench, X } from 'lucide-react';
+import { AlertTriangle, Calendar, CalendarDays, Check, CheckCircle2, Droplet, Droplets, Flame, FlaskConical, Phone, Plus, RefreshCw, ShieldAlert, Sparkles, Tag, Trash2, User, Wrench, X } from 'lucide-react';
 import { oznam, potvrd } from '../lib/toast';
 import { IkonaVycep } from '../components/ikony';
 
@@ -215,7 +215,7 @@ export default function VycepyScreen() {
         </h2>
 
         {taps.length === 0 ? (
-          <EmptyState text="Zatím nemáte přidané žádné výčepy." icon="🚰" />
+          <EmptyState text="Zatím nemáte přidané žádné výčepy." icon={IkonaVycep} />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {taps.map((t) => {
@@ -330,7 +330,7 @@ export default function VycepyScreen() {
         </div>
 
         {reservations.length === 0 ? (
-          <EmptyState text="Žádné aktivní rezervace výčepů." icon="📅" />
+          <EmptyState text="Žádné aktivní rezervace výčepů." icon={CalendarDays} />
         ) : (
           <>
           {/* Mobilní karty */}

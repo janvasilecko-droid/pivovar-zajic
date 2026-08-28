@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import { createFullBackup, downloadBackupJSON, downloadGoogleSheetsExcelBackup } from '../lib/backup';
-import { Car, CheckCircle2, Download, History, Hourglass, Mail, Plus, Search, Shield, Table, Trash2 } from 'lucide-react';
+import { Car, CheckCircle2, Download, History, Hourglass, Mail, Plus, Search, Shield, Table, Trash2, Users as UsersIcon } from 'lucide-react';
 import { UserPermissionsModal } from '../components/UserPermissionsModal';
 import { AuditLogViewer } from '../components/AuditLogViewer';
 import { isAdminEmail } from '../lib/config';
@@ -254,7 +254,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
           </p>
 
       {err && <div className="text-sm text-rose-600 bg-rose-500/10 rounded px-3.5 py-2.5 mb-4 font-bold">{err}</div>}
-      {loading ? <Spinner /> : users.length === 0 ? <EmptyState text="Žádní uživatelé." icon="👥" /> : (
+      {loading ? <Spinner /> : users.length === 0 ? <EmptyState text="Žádní uživatelé." icon={UsersIcon} /> : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {users.map((u) => (
             <div key={u.id} className="card-hover p-5 border border-amber-200/90 rounded bg-white flex flex-col justify-between space-y-3">
@@ -345,7 +345,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
             {loadingEmails ? (
               <Spinner />
             ) : pendingEmails.length === 0 ? (
-              <EmptyState text="Žádné e-maily nečekají na schválení." icon="⏳" />
+              <EmptyState text="Žádné e-maily nečekají na schválení." icon={Hourglass} />
             ) : (
               <div className="overflow-x-auto rounded border border-neutral-100">
                 <table className="w-full text-left border-collapse">
@@ -413,7 +413,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
             {loadingEmails ? (
               <Spinner />
             ) : approvedEmails.length === 0 ? (
-              <EmptyState text="Žádné schválené e-maily neodpovídají hledání." icon="✅" />
+              <EmptyState text="Žádné schválené e-maily neodpovídají hledání." icon={CheckCircle2} />
             ) : (
               <div className="overflow-x-auto rounded border border-neutral-100">
                 <table className="w-full text-left border-collapse">

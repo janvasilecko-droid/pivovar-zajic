@@ -3,7 +3,7 @@ import { supabase, Beer, Package, Place, Vehicle, useRealtime, BEER_COLOR_PRESET
 import { getVehicleExpiryStatus } from '../lib/vozidla';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import ExcelImportModal from '../components/ExcelImportModal';
-import { AlertTriangle, Beer as BeerIcon, Car, Edit, Eye, EyeOff, FileSpreadsheet, Mail, MapPin, NotebookPen, Package as PackageIcon, Phone, Plus, Search, ShieldAlert, ShieldCheck, Trash2 } from 'lucide-react';
+import { AlertTriangle, Beer as BeerIcon, Car, Edit, Eye, EyeOff, FileSpreadsheet, Mail, MapPin, NotebookPen, Package as PackageIcon, Phone, Plus, Search, ShieldAlert, ShieldCheck, Store, Trash2 } from 'lucide-react';
 import { lookupPlaceOnline } from '../lib/placeLookup';
 import { chyba, oznam, potvrd } from '../lib/toast';
 
@@ -72,7 +72,7 @@ export function BeersScreen() {
 
       {showImport && <ExcelImportModal open={showImport} onClose={() => setShowImport(false)} targetTable="beers" onSuccess={load} />}
 
-      {loading ? <Spinner /> : filtered.length === 0 ? <EmptyState text="Žádná piva v katalogu." icon="🍺" /> : (
+      {loading ? <Spinner /> : filtered.length === 0 ? <EmptyState text="Žádná piva v katalogu." icon={BeerIcon} /> : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((b) => (
             <div key={b.id} className="card p-5 border-2 shadow-sm transition-all hover:shadow-md flex flex-col justify-between" style={{ borderColor: beerBorder(b) }}>
@@ -199,7 +199,7 @@ export function PackagesScreen() {
         </button>
       </div>
 
-      {loading ? <Spinner /> : rows.length === 0 ? <EmptyState text="Žádné obaly v katalogu." icon="📦" /> : (
+      {loading ? <Spinner /> : rows.length === 0 ? <EmptyState text="Žádné obaly v katalogu." icon={PackageIcon} /> : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {rows.map((p) => (
             <div key={p.id} className="card p-5 shadow-sm hover:shadow-md border border-neutral-200/90 bg-white rounded flex flex-col justify-between">
@@ -354,7 +354,7 @@ export function PlacesScreen() {
 
       {showImport && <ExcelImportModal open={showImport} onClose={() => setShowImport(false)} targetTable="places" onSuccess={load} />}
 
-      {loading ? <Spinner /> : filtered.length === 0 ? <EmptyState text="Žádní odběratelé." icon="🏪" /> : (
+      {loading ? <Spinner /> : filtered.length === 0 ? <EmptyState text="Žádní odběratelé." icon={Store} /> : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((p) => (
             <div key={p.id} className="card p-5 shadow-sm hover:shadow-md border border-neutral-200/90 bg-white rounded flex flex-col justify-between">
@@ -876,7 +876,7 @@ export function VehiclesScreen() {
         </button>
       </div>
 
-      {loading ? <Spinner /> : rows.length === 0 ? <EmptyState text="Žádná vozidla." icon="🚗" /> : (
+      {loading ? <Spinner /> : rows.length === 0 ? <EmptyState text="Žádná vozidla." icon={Car} /> : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {rows.map((v) => {
             const stkStatus = getVehicleExpiryStatus(v.stk_valid_until);
