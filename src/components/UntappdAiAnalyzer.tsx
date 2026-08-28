@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Sparkles, MessageSquare, Star, ThumbsUp, Tag, Award, RefreshCw } from 'lucide-react';
+import { Award, Leaf, MessageSquare, RefreshCw, Sparkles, Star, Tag, ThumbsUp } from 'lucide-react';
 
 type ReviewAnalysisResult = {
   overallRating: number;
@@ -58,7 +58,7 @@ export function UntappdAiAnalyzer() {
       <div className="card p-6 bg-gradient-to-r from-neutral-900 via-neutral-950 to-neutral-900 text-white rounded space-y-4 shadow-xl border border-neutral-800">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded bg-amber-500 text-neutral-950 flex items-center justify-center font-black text-2xl shadow-lg">
-            ⭐
+            <Star className="ikona-text" />
           </div>
           <div>
             <h3 className="font-display font-black text-xl text-amber-400">
@@ -103,7 +103,7 @@ export function UntappdAiAnalyzer() {
               <div className="text-[11px] font-black uppercase text-neutral-400">Průměrné Untappd Skóre:</div>
               <div className="text-3xl font-display font-black text-amber-600 flex items-baseline gap-1">
                 <span>{analysis.overallRating}</span>
-                <span className="text-xs text-neutral-400 font-bold">/ 5.0 ⭐</span>
+                <span className="text-xs text-neutral-400 font-bold">/ 5.0 <Star className="ikona-text" /></span>
               </div>
             </div>
 
@@ -135,7 +135,7 @@ export function UntappdAiAnalyzer() {
                   key={note.note}
                   className="px-3.5 py-2 rounded bg-amber-100 text-amber-950 font-extrabold text-xs border border-amber-300 flex items-center gap-1.5 shadow-2xs"
                 >
-                  <span>🍃 {note.note}</span>
+                  <span><Leaf className="ikona-text" /> {note.note}</span>
                   <span className="bg-amber-500 text-neutral-950 px-2 py-0.5 rounded-full text-[11px] font-black">
                     {note.count}×
                   </span>

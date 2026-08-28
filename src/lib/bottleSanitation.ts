@@ -50,11 +50,14 @@ export type BottleSanitationEntry = {
   step_times: Record<string, string>;
 };
 
-export const BOTTLE_SAN_FIELDS: { id: BottleSanField; icon: string; label: string; hint?: string }[] = [
-  { id: 'louh', icon: '🧼', label: 'Louh NaOH — proplach stáčecích cest louhem', hint: 'každý den stáčení' },
-  { id: 'proplach_vodou', icon: '💧', label: 'Proplach čistou vodou', hint: 'pivní cesty, stáčečky, hadice' },
-  { id: 'cela_cesta_na_louhu', icon: '🛢️', label: 'Celá cesta včetně vzduchové na louhu s opláchem', hint: 'pokud se dělá louhování (nechat do dalšího stáčení na louhu)' },
-  { id: 'prostory', icon: '🧹', label: 'Úklid prostor stáčení', hint: 'podlahy, stoly, stěny, odkládací plochy' },
+// Pole `icon` bylo zrušeno: drželo emoji, které se nikde nevykreslovalo.
+// Kdyby u kroků měla být ikona, patří sem LucideIcon jako u ostatních
+// číselníků (viz METHOD_BADGES v SanitationLogScreen), ne text.
+export const BOTTLE_SAN_FIELDS: { id: BottleSanField; label: string; hint?: string }[] = [
+  { id: 'louh', label: 'Louh NaOH — proplach stáčecích cest louhem', hint: 'každý den stáčení' },
+  { id: 'proplach_vodou', label: 'Proplach čistou vodou', hint: 'pivní cesty, stáčečky, hadice' },
+  { id: 'cela_cesta_na_louhu', label: 'Celá cesta včetně vzduchové na louhu s opláchem', hint: 'pokud se dělá louhování (nechat do dalšího stáčení na louhu)' },
+  { id: 'prostory', label: 'Úklid prostor stáčení', hint: 'podlahy, stoly, stěny, odkládací plochy' },
 ];
 
 export const BOTTLE_SAN_STORAGE_KEY = 'bottle_sanitation_logs';

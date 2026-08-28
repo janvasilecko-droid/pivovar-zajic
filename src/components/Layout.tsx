@@ -1,5 +1,5 @@
 import { ReactNode, useState, useEffect, useRef, lazy, Suspense } from 'react';
-import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Bell, BellOff, BookOpen, Calculator, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Cylinder, Download, FilePlus, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Hourglass, LogOut, MapPin, MessageCircle, Package as PackageIcon, PlusCircle, Receipt, Search, Settings, Shield, ShieldCheck, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Timer, TrendingDown, Truck, Users, Wheat, Wine, X, XCircle, type LucideIcon } from 'lucide-react';
+import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Bell, BellOff, BookOpen, Calculator, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Cylinder, Download, FilePlus, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Hourglass, LogOut, MapPin, MessageCircle, Package as PackageIcon, PlusCircle, Receipt, Search, Settings, Shield, ShieldCheck, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Timer, TrendingDown, Truck, Users, Wheat, Wifi, WifiOff, Wine, X, XCircle, type LucideIcon } from 'lucide-react';
 
 import { useAuth } from '../lib/auth';
 import { potvrd } from '../lib/toast';
@@ -546,7 +546,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
               <div className={`w-11 h-11 rounded text-neutral-950 font-black text-2xl flex items-center justify-center animate-pulse ${activeNewOrderBanner.kind === 'whatsapp' ? 'bg-[#25D366]' : 'bg-amber-500'}`}>
-                {activeNewOrderBanner.kind === 'whatsapp' ? '💬' : '🍺'}
+                {activeNewOrderBanner.kind === 'whatsapp' ? <MessageCircle className="ikona-text" /> : <BeerIcon className="ikona-text" />}
               </div>
               <div>
                 <div className="text-[11px] font-black uppercase tracking-wider text-amber-400">
@@ -813,11 +813,11 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             >
               {!online ? (
                 <>
-                  <span>📴 Jste offline</span>
+                  <span><WifiOff className="ikona-text" /> Jste offline</span>
                   {pending > 0 && <span className="opacity-90">— {pending} zápisů čeká v telefonu</span>}
                 </>
               ) : (
-                <span>{syncing ? 'Odesílám zápisy…' : `🔄 ${pending} zápisů čeká na odeslání — klepněte pro odeslání`}</span>
+                <span>{syncing ? 'Odesílám zápisy…' : `${pending} zápisů čeká na odeslání — klepněte pro odeslání`}</span>
               )}
             </button>
           </div>
@@ -894,7 +894,7 @@ function OfflineStatus({ online, pending, syncing, syncMsg, onSync }: { online: 
         <Modal open={true} onClose={() => setShowInfo(false)} title="Offline Režim & Synchronizace">
           <div className="space-y-4 text-xs text-neutral-800 font-medium">
             <div className={`p-4 rounded border-2 flex items-center gap-3 ${online ? 'bg-emerald-50 border-emerald-300 text-emerald-950' : 'bg-amber-50 border-amber-300 text-amber-950'}`}>
-              <div className="text-2xl">{online ? '🟢' : '⚠️'}</div>
+              <div className="text-2xl">{online ? <Wifi className="ikona-text" /> : <AlertTriangle className="ikona-text" />}</div>
               <div>
                 <div className="font-black text-sm">{online ? 'Jste ONLINE (Připojeno k internetu)' : 'Jste OFFLINE (Bez připojení k síti)'}</div>
                 <p className="text-[11px] mt-0.5 font-bold">
@@ -1003,7 +1003,7 @@ function InstallModal({ installPrompt, setInstallPrompt, setInstalled, setShowIn
               }}
               className="btn-primary !rounded w-full !py-3 text-sm font-black shadow-lg"
             >
-              📲 Spustit přímou instalaci na plochu
+              <Smartphone className="ikona-text" /> Spustit přímou instalaci na plochu
             </button>
           </div>
         )}

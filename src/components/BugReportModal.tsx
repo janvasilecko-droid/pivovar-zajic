@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { Modal } from './ui';
-import { Camera, Image as ImageIcon, Lightbulb, Loader2 } from 'lucide-react';
+import { Bug, Camera, Check, Image as ImageIcon, Lightbulb, Loader2 } from 'lucide-react';
 
 type Category = 'bug' | 'feature' | 'question' | 'other';
 
@@ -136,7 +136,7 @@ export function BugReportModal({ isOpen, onClose }: BugReportModalProps) {
       {success ? (
         <div className="text-center py-8 space-y-3 animate-fade-in">
           <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-3xl mx-auto border border-emerald-200">
-            ✓
+            <Check size={28} />
           </div>
           <h4 className="font-bold text-emerald-950 text-base">Hlášení odesláno!</h4>
           <p className="text-xs text-neutral-600">Děkujeme, zprávu najdete v přehledu poznámek.</p>
@@ -161,7 +161,7 @@ export function BugReportModal({ isOpen, onClose }: BugReportModalProps) {
                     : 'bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50'
                 }`}
               >
-                🐛 Chyba / Vada
+                <Bug className="ikona-text" /> Chyba / Vada
               </button>
               <button
                 type="button"

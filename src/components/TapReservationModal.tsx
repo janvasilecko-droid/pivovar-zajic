@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
+import { AlertTriangle, Check, CheckCircle2, X, XCircle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import type { TapEquipment, TapReservation } from '../screens/VycepyScreen';
 import type { TapTypeHint } from '../lib/tapReservations';
@@ -107,7 +107,7 @@ export function TapReservationModal({ orderDate, customerName, orderId, tapTypeH
         <div className="bg-white rounded max-w-md w-full p-6 space-y-4 shadow-2xl border border-neutral-200">
           <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
             <h3 className="font-display font-black text-lg text-neutral-900"><IkonaVycep className="ikona-text" /> Rezervace výčepu</h3>
-            <button onClick={onSkip} className="text-neutral-400 font-bold">✕</button>
+            <button onClick={onSkip} className="text-neutral-400 font-bold" title="Zavřít"><X size={18} /></button>
           </div>
           <p className="text-sm text-neutral-600">Nemáte vytvořené žádné výčepy. Nejprve je přidejte v sekci Výčepy.</p>
           <div className="flex justify-end gap-2 pt-2">
@@ -126,7 +126,7 @@ export function TapReservationModal({ orderDate, customerName, orderId, tapTypeH
             <span><IkonaVycep className="ikona-text" /></span>
             <span>Rezervace výčepu k objednávce</span>
           </h3>
-          <button onClick={onSkip} className="text-neutral-400 font-bold">✕</button>
+          <button onClick={onSkip} className="text-neutral-400 font-bold" title="Zavřít"><X size={18} /></button>
         </div>
 
         <p className="text-xs text-neutral-500 font-medium">
@@ -168,7 +168,7 @@ export function TapReservationModal({ orderDate, customerName, orderId, tapTypeH
                         </span>
                       </div>
                       {!available && <span className="text-[11px] font-bold text-rose-600"><XCircle className="ikona-text" /> Rezervováno</span>}
-                      {isSelected && <span className="text-amber-600 font-black text-sm">✓</span>}
+                      {isSelected && <span className="text-amber-600 font-black text-sm"><Check size={14} /></span>}
                     </div>
                   </button>
                 );

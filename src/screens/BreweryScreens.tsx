@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase, Beer, useRealtime } from '../lib/supabase';
 import { Spinner, EmptyState, Field } from '../components/ui';
-import { Calculator, CheckSquare, Cylinder, FileText, Flame, FlaskConical, NotebookPen, Plus, SprayCan, Truck, User, Wheat, Zap } from 'lucide-react';
+import { BookOpen, Calculator, Cylinder, FileText, Flame, FlaskConical, Check, CheckSquare, NotebookPen, Plus, Scale, Sliders, SprayCan, Truck, User, Wheat, Zap } from 'lucide-react';
 import { IkonaSud } from '../components/ikony';
 
 type SrotovaniRow = {
@@ -95,7 +95,7 @@ export function SrotovaniScreen({ setPage }: { setPage?: (p: any, sec?: string) 
         <div className="flex flex-wrap items-center gap-2">
           {setPage && (
             <button onClick={() => setPage('haccp', 'sec-3-1')} className="px-3.5 py-2 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md transition">
-              📖 Šrotování sladu (3.1)
+              <BookOpen className="ikona-text" /> Šrotování sladu (3.1)
             </button>
           )}
         </div>
@@ -217,7 +217,7 @@ export function ChecklistsScreen() {
               >
                 <div className="flex items-center gap-3">
                   <span className={`w-5 h-5 rounded border-2 grid place-items-center font-black text-xs ${t.completed ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-neutral-300'}`}>
-                    {t.completed ? '✓' : ''}
+                    {t.completed ? <Check className="ikona-text" /> : ''}
                   </span>
                   <span className={`font-extrabold text-sm ${t.completed ? 'line-through' : ''}`}>{t.title}</span>
                 </div>
@@ -576,7 +576,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
             {/* Simulátor */}
             <div className="p-5 rounded bg-amber-50/80 border-2 border-amber-300 space-y-4">
               <div className="flex items-center justify-between border-b border-amber-200 pb-2">
-                <h4 className="font-display font-black text-base text-amber-950">🎛️ Ruční volba sudů (30L vs 50L)</h4>
+                <h4 className="font-display font-black text-base text-amber-950"><Sliders className="ikona-text" /> Ruční volba sudů (30L vs 50L)</h4>
                 <div className="flex items-center gap-1 bg-white p-1 rounded border border-amber-300">
                   <button type="button" onClick={() => setCalcMode('fix30')} className={`px-3 py-1 rounded text-xs font-black ${calcMode === 'fix30' ? 'bg-white text-amber-900 ring-2 ring-amber-300' : 'text-neutral-600'}`}>Zadám 30L</button>
                   <button type="button" onClick={() => setCalcMode('fix50')} className={`px-3 py-1 rounded text-xs font-black ${calcMode === 'fix50' ? 'bg-white text-amber-900 ring-2 ring-amber-300' : 'text-neutral-600'}`}>Zadám 50L</button>
@@ -719,10 +719,10 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
                 <span className="text-lg"><SprayCan className="ikona-text" /></span><span>Persteril 15%</span>
               </button>
               <button type="button" onClick={() => selectPreset('dusicna')} className={`p-3 rounded font-black text-xs transition shadow-2xs flex flex-col items-center gap-1 ${chemType === 'dusicna' ? 'bg-amber-500 text-neutral-950 ring-2 ring-amber-400 scale-[1.02]' : 'bg-neutral-50 text-neutral-800 hover:bg-neutral-100 border border-neutral-200'}`}>
-                <span className="text-lg">⚗️</span><span>Kyselina dusičná 53%</span>
+                <FlaskConical className="ikona-text" /><span>Kyselina dusičná 53%</span>
               </button>
               <button type="button" onClick={() => selectPreset('chlornan')} className={`p-3 rounded font-black text-xs transition shadow-2xs flex flex-col items-center gap-1 ${chemType === 'chlornan' ? 'bg-amber-500 text-neutral-950 ring-2 ring-amber-400 scale-[1.02]' : 'bg-neutral-50 text-neutral-800 hover:bg-neutral-100 border border-neutral-200'}`}>
-                <span className="text-lg">🧽</span><span>Chlornan 15%</span>
+                <SprayCan className="ikona-text" /><span>Chlornan 15%</span>
               </button>
             </div>
 
@@ -741,7 +741,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
 
           <div className="card p-5 bg-white border-2 border-amber-300 rounded shadow-md space-y-4">
             <h3 className="font-display font-black text-lg text-amber-950 flex items-center gap-2">
-              <span>⚖️ Výsledek dávkování</span>
+              <span><Scale className="ikona-text" /> Výsledek dávkování</span>
             </h3>
 
             <div className="space-y-3">

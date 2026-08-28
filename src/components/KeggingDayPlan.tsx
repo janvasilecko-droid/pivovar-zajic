@@ -219,7 +219,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
             </div>
             {active.totalOrdered > 0 && (
               <span className={`px-3 py-1 rounded-full font-mono font-black text-sm shrink-0 ${active.totalMissing > 0 ? 'bg-amber-500 text-neutral-950' : 'bg-emerald-500 text-white'}`}>
-                {active.totalMissing > 0 ? `${active.totalMissing} ks` : '✓'}
+                {active.totalMissing > 0 ? `${active.totalMissing} ks` : <Check className="ikona-text" />}
               </span>
             )}
           </div>
@@ -315,7 +315,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                           {it.done} / {it.ordered} ks hotovo
                           {it.checked > 0 && (
                             <span className="text-emerald-700" title="Ručně odškrtnuto — nezapisuje se do stáčení">
-                              {' '}· ✓ {it.checked} odškrtnuto
+                              {' '}· <Check className="ikona-text" /> {it.checked} odškrtnuto
                             </span>
                           )}
                         </div>
@@ -323,7 +323,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
 
                       <div className="text-right shrink-0">
                         <div className={`font-mono font-black text-2xl leading-none ${hotovo ? 'text-emerald-600' : 'text-amber-700'}`}>
-                          {hotovo ? '✓' : it.missing}
+                          {hotovo ? <Check className="ikona-text" /> : it.missing}
                         </div>
                         {!hotovo && <div className="text-[11px] font-black text-neutral-400 uppercase mt-0.5">zbývá</div>}
                       </div>

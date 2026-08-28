@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import { createFullBackup, downloadBackupJSON, downloadGoogleSheetsExcelBackup } from '../lib/backup';
-import { Car, CheckCircle2, Download, History, Hourglass, Mail, Plus, Search, Shield, Table, Trash2, Users as UsersIcon } from 'lucide-react';
+import { Car, CheckCircle2, Crown, Download, History, Hourglass, Mail, Plus, Search, Shield, Table, Trash2, Users as UsersIcon } from 'lucide-react';
 import { UserPermissionsModal } from '../components/UserPermissionsModal';
 import { AuditLogViewer } from '../components/AuditLogViewer';
 import { isAdminEmail } from '../lib/config';
@@ -250,7 +250,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
             <button className="btn-primary !rounded text-xs font-black shadow-md" onClick={() => selectTab('emails')}><Plus className="ikona-text" /> Přidat e-mail ke schválení</button>
           </div>
           <p className="text-xs text-neutral-500 font-medium -mt-2 mb-1 text-right">
-            Nový přístup: v záložce „📧 E-maily" přidejte e-mail a pak ho schvalte. Uživatel se přihlásí odkazem na e-mail.
+            Nový přístup: v záložce „Schválené e-maily" přidejte e-mail a pak ho schvalte. Uživatel se přihlásí odkazem na e-mail.
           </p>
 
       {err && <div className="text-sm text-rose-600 bg-rose-500/10 rounded px-3.5 py-2.5 mb-4 font-bold">{err}</div>}
@@ -291,7 +291,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
                   className="w-full py-2 px-3 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-xs transition flex items-center justify-center gap-1.5"
                 >
                   <Shield size={14} />
-                  <span>🔐 Nastavit práva (Vidět / Upravit)</span>
+                  <span><Shield className="ikona-text" /> Nastavit práva (Vidět / Upravit)</span>
                 </button>
 
                 <div className="flex gap-2">
@@ -510,7 +510,7 @@ function UserForm({ user, onClose, onSaved }: { user: UserRow | null; onClose: (
         <div className="p-3.5 rounded bg-amber-50/60 border border-amber-200/80 space-y-3">
           <label className="flex items-center gap-2.5 cursor-pointer">
             <input type="checkbox" checked={isAdmin} onChange={(e) => setIsAdmin(e.target.checked)} className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 accent-amber-500" />
-            <span className="text-sm font-bold text-neutral-900">👑 Admin (má plná práva spravovat uživatele a systém)</span>
+            <span className="text-sm font-bold text-neutral-900"><Crown className="ikona-text" /> Admin (má plná práva spravovat uživatele a systém)</span>
           </label>
 
           <label className="flex items-center gap-2.5 cursor-pointer">

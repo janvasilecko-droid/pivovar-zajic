@@ -9,7 +9,7 @@ import {
   saveUserPermissions,
   ModuleKey,
 } from '../lib/permissions';
-import { Shield, CheckCircle2, Lock, Unlock, Zap, Save } from 'lucide-react';
+import { CheckCircle2, Lock, Save, Shield, Unlock, X, Zap } from 'lucide-react';
 
 export function UserPermissionsModal({
   user,
@@ -102,7 +102,7 @@ export function UserPermissionsModal({
         <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded bg-amber-500 text-neutral-950 flex items-center justify-center font-black text-2xl shadow-md">
-              🔐
+              <Lock className="ikona-text" />
             </div>
             <div>
               <h3 className="font-display font-black text-xl text-neutral-950">
@@ -113,7 +113,7 @@ export function UserPermissionsModal({
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600 font-black text-xl">✕</button>
+          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600 font-black text-xl" title="Zavřít"><X size={18} /></button>
         </div>
 
         {msg && (

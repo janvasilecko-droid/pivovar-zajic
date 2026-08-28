@@ -373,7 +373,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
               className="select !py-0.5 !px-1.5 text-xs"
             >
               <option value="newest">nejnovější</option>
-              <option value="mismatch">podle počtu ⚠</option>
+              <option value="mismatch">podle počtu</option>
             </select>
           </label>
         </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { AlertCircle, AlertTriangle, Beer as BeerIcon, Bell, BellOff, CheckCircle2, CloudDownload, Download, Eraser, Eye, Factory, Lightbulb, Lock, MessageSquare, Monitor, Moon, Palette, Plus, RefreshCw, Settings, Smartphone, Sun, Timer, Trash2, Users, Vibrate, Volume2, VolumeX } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Beer as BeerIcon, Bell, BellOff, BookOpen, Brush, CloudDownload, Download, Eraser, Eye, Factory, FolderOpen, CheckCircle2, Lightbulb, Lock, MessageSquare, Monitor, Moon, Palette, Plus, RefreshCw, Settings, Smartphone, Sparkles, Sun, Timer, Trash2, Users, Vibrate, Volume2, VolumeX } from 'lucide-react';
 
 import { DENSITY_OPTIONS, DensityMode, getDensity, setDensity } from '../lib/density';
 import { haptikaZapnuta, nastavHaptiku, zavibruj } from '../lib/haptika';
@@ -215,7 +215,7 @@ export default function AppSettingsScreen() {
       <div className="card p-6 border-2 border-amber-400/60 bg-gradient-to-br from-amber-50/50 to-white rounded shadow-sm">
         <div className="flex items-center justify-between cursor-pointer" onClick={() => setShowGuide(!showGuide)}>
           <h2 className="font-display font-black text-lg text-amber-950 flex items-center gap-2">
-            <span>📖</span> Návod k použití & Přehled funkcí
+            <BookOpen className="ikona-text" /> Návod k použití & Přehled funkcí
           </h2>
           <button className="text-xs font-bold text-amber-800 bg-amber-100 hover:bg-amber-200 px-3 py-1.5 rounded transition">
             {showGuide ? 'Skrýt návod ▲' : 'Zobrazit návod ▼'}
@@ -260,7 +260,7 @@ export default function AppSettingsScreen() {
 
             <div>
               <h3 className="font-display font-extrabold text-neutral-900 flex items-center gap-1.5 text-sm uppercase tracking-wider mb-2">
-                <span>🗂️</span> Číselníky (Depozitář)
+                <FolderOpen className="ikona-text" /> Číselníky (Depozitář)
               </h3>
               <ul className="list-disc list-inside space-y-1.5 pl-2">
                 <li><strong>Depozitář:</strong> Správa <em>Odběratelů</em>, <em>Piv</em>, <em>Obalů</em> a hlavního <em>Ceníku</em> na jednom místě pod záložkami.</li>
@@ -735,7 +735,7 @@ function AdminVersionSyncSection() {
       {APP_CHANGELOG.length > 0 && (
         <div className="mt-5 p-4 rounded bg-emerald-50 border border-emerald-200 space-y-2">
           <div className="flex items-center gap-2">
-            <span className="text-sm">✨</span>
+            <Sparkles className="ikona-text" />
             <span className="text-xs font-black uppercase tracking-wider text-emerald-800">Co je nového ve verzi v{APP_VERSION}</span>
           </div>
           <ul className="space-y-1">
@@ -795,7 +795,7 @@ function AdminVersionSyncSection() {
         <div className="flex items-start gap-3">
           <Eraser size={20} className="text-rose-600 shrink-0 mt-0.5" />
           <div>
-            <div className="text-sm font-black text-rose-900">🧹 Vyčistit všechna data (příprava na ostrý provoz)</div>
+            <div className="text-sm font-black text-rose-900"><Brush className="ikona-text" /> Vyčistit všechna data (příprava na ostrý provoz)</div>
             <p className="text-xs text-rose-800 font-medium mt-0.5">
               Tato akce SMAŽE všechna uživatelská data z databáze i z prohlížeče
               (objednávky, stáčení, inventury, akce, kalendář, odběratele, ceník, audit, rezervace výčepů…).

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { fetchAllRows, supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { fetchLabelBalances, LabelBalance } from '../lib/labelStock';
-import { CheckCircle2, ShieldAlert, Siren } from 'lucide-react';
+import { Check, CheckCircle2, ShieldAlert, Siren } from 'lucide-react';
 
 type LowItem = {
   name: string;
@@ -141,7 +141,7 @@ export function CriticalMaterialAlertModal() {
             className="w-full py-4 px-6 rounded bg-rose-600 hover:bg-rose-500 text-white font-black text-base transition shadow-xl hover:shadow-rose-600/30 active:scale-[0.98] flex items-center justify-center gap-3 ring-4 ring-rose-300"
           >
             <CheckCircle2 size={24} />
-            <span>✓ Potvrzuji, že beru na vědomí kritický stav (&lt; 100 ks)</span>
+            <span><Check className="ikona-text" /> Potvrzuji, že beru na vědomí kritický stav (&lt; 100 ks)</span>
           </button>
           <p className="text-center text-[11px] font-bold text-neutral-400">
             Před pokračováním do aplikace musíte výslovně potvrdit přečtení této výstrahy.

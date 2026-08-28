@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertCircle, Calendar, CheckCircle2, ClipboardList, Download, Package, Phone, Plus, Search, Shield, Truck, User } from 'lucide-react';
+import { AlertCircle, Calendar, ClipboardList, DollarSign, Download, CheckCircle2, Package, Phone, Plus, Search, Shield, Tent, Truck, User } from 'lucide-react';
 import { potvrd } from '../lib/toast';
 
 type EquipmentItem = {
@@ -154,7 +154,7 @@ export function FestivalEquipmentTracker() {
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded bg-amber-500 text-neutral-950 flex items-center justify-center font-black text-2xl shadow-lg">
-              🎪
+              <Tent className="ikona-text" />
             </div>
             <div>
               <h3 className="font-display font-black text-xl text-amber-400">
@@ -221,7 +221,7 @@ export function FestivalEquipmentTracker() {
                   <div><Phone className="ikona-text" /> Telefon: <strong>{item.borrowerPhone}</strong></div>
                   <div><Calendar className="ikona-text" /> Datum vracení: <strong className="text-rose-600">{item.expectedReturnAt}</strong></div>
                   {item.depositKic !== undefined && (
-                    <div>💰 Vratná kauce: <strong className="text-emerald-700">{item.depositKic.toLocaleString('cs-CZ')} Kč</strong></div>
+                    <div><DollarSign className="ikona-text" /> Vratná kauce: <strong className="text-emerald-700">{item.depositKic.toLocaleString('cs-CZ')} Kč</strong></div>
                   )}
                 </div>
               )}

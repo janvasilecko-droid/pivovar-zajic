@@ -10,7 +10,7 @@ import {
 } from '../lib/kegSanitation';
 import { SanitationStepRow, currentTimeStr } from './SanitationStepRow';
 import { Spinner } from './ui';
-import { AlertTriangle, Calendar, CalendarDays, Check, CheckCircle2, Clock, Edit3, FileSpreadsheet, FileText, Plus, Settings, ShieldAlert, SprayCan, Trash2, User, UserCheck } from 'lucide-react';
+import { AlertTriangle, Calendar, CalendarDays, Clock, Edit3, FileSpreadsheet, FileText, Check, CheckCircle2, Moon, Plus, Settings, ShieldAlert, SprayCan, Sun, Trash2, User, UserCheck, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { potvrd } from '../lib/toast';
 
@@ -623,7 +623,7 @@ export default function KegSanitationDiary() {
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
                 <span><SprayCan className="ikona-text" /> {editing ? `Upravit sanitaci KEGů — ${editing.sanitation_date}` : 'Záznam sanitace stáčecí linky KEGů'}</span>
               </h3>
-              <button type="button" onClick={() => setShowModal(false)} className="text-neutral-400 hover:text-neutral-800 text-lg font-bold">✕</button>
+              <button type="button" onClick={() => setShowModal(false)} className="text-neutral-400 hover:text-neutral-800 text-lg font-bold" title="Zavřít"><X size={18} /></button>
             </div>
 
             {/* Grid Layout */}
@@ -681,7 +681,7 @@ export default function KegSanitationDiary() {
                 {/* Section A: Před stáčením */}
                 <div className={`p-4 rounded border transition ${reason === 'pred_stacenim' ? 'bg-sky-50/50 border-sky-300 shadow-sm' : 'bg-neutral-50/50 border-neutral-200 opacity-60'}`}>
                   <h4 className="font-black text-xs text-neutral-800 uppercase tracking-wider flex items-center gap-1.5 mb-2.5">
-                    ☀️ Část A: Před stáčením
+                    <Sun className="ikona-text" /> Část A: Před stáčením
                   </h4>
                   <div className="space-y-2">
                     <SanitationStepRow
@@ -738,7 +738,7 @@ export default function KegSanitationDiary() {
                 {/* Section B: Po stáčení */}
                 <div className={`p-4 rounded border transition ${reason === 'po_staceni' ? 'bg-violet-50/50 border-violet-300 shadow-sm' : 'bg-neutral-50/50 border-neutral-200 opacity-60'}`}>
                   <h4 className="font-black text-xs text-neutral-800 uppercase tracking-wider flex items-center gap-1.5 mb-2.5">
-                    🌙 Část B: Po stáčení / Po konci
+                    <Moon className="ikona-text" /> Část B: Po stáčení / Po konci
                   </h4>
                   <div className="space-y-2">
                     <SanitationStepRow

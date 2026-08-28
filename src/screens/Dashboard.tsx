@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase, Beer, Package, useRealtime, beerBorder, fetchAllRows } from '../lib/supabase';
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { useAuth } from '../lib/auth';
-import { AlertTriangle, BarChart3, Beer as BeerIcon, Calculator, ClipboardList, Layers, Package as PackageIcon, PackageCheck, Pin, Sparkles } from 'lucide-react';
+import { AlertTriangle, BarChart3, Beer as BeerIcon, Calculator, ClipboardList, Check, Layers, Package as PackageIcon, PackageCheck, Pin, Sparkles } from 'lucide-react';
 import { AnnouncementManagerModal } from '../components/AnnouncementManagerModal';
 import SkloPromoScreen from './SkloPromoScreen';
 import { buildMovements, stockAsOf, stockKey } from '../lib/stockLedger';
@@ -560,7 +560,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                     <div className="font-display font-extrabold text-lg sm:text-xl text-neutral-900">{s.beer.name}</div>
                   </div>
                   <span className={`chip ${badgeClass}`}>
-                    {st === 'deficit' ? 'Deficit' : st === 'empty' ? 'Vyprodáno' : st === 'low' ? 'Nízký stav' : '✓ Skladem'}
+                    {st === 'deficit' ? 'Deficit' : st === 'empty' ? 'Vyprodáno' : st === 'low' ? 'Nízký stav' : <><Check className="ikona-text" /> Skladem</>}
                   </span>
                 </div>
 

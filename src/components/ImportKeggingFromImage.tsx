@@ -247,7 +247,7 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
                 <Camera size={16} /> <Camera className="ikona-text" /> Spustit fotoaparát
               </button>
               <button className="btn-secondary flex items-center gap-2 border-neutral-300 text-neutral-800 bg-white hover:bg-neutral-50" onClick={() => fileRef.current?.click()} disabled={busy}>
-                <Upload size={16} /> 🖼 Vybrat fotku z galerie
+                <Upload size={16} /> Vybrat fotku z galerie
               </button>
               <label className="flex items-center gap-2 text-xs text-primary-600 cursor-pointer select-none">
                 <input type="checkbox" checked={editBeforeOcr} onChange={(e) => setEditBeforeOcr(e.target.checked)} className="accent-primary-600" />
@@ -329,7 +329,7 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
           >
             {activeIndex < photos.length - 1
               ? `Vložit a další fotka (${activeIndex + 2}/${photos.length}) ▶`
-              : `Vložit VŠECHNO do tabulky stočení (${photos.length} fotek) ✓`}
+              : `Vložit VŠECHNO do tabulky stočení (${photos.length} fotek)`}
           </button>
                 </div>
               </div>

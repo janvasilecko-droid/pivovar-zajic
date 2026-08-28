@@ -12,7 +12,7 @@ import {
 } from '../lib/tapSanitation';
 import { SanitationStepRow, currentTimeStr } from './SanitationStepRow';
 import { Spinner } from './ui';
-import { CheckCircle2, ChevronLeft, ChevronRight, Clock, Edit3, FileSpreadsheet, Plus, Timer, Trash2 } from 'lucide-react';
+import { Clock, Edit3, FileSpreadsheet, CheckCircle2, ChevronLeft, ChevronRight, Plus, Timer, Trash2, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { potvrd } from '../lib/toast';
 
@@ -196,7 +196,7 @@ export default function TapSanitationDiary() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 className="font-display font-black text-xl text-neutral-900">🗜️ Sanitární deník výčepů</h3>
+          <h3 className="font-display font-black text-xl text-neutral-900">Sanitární deník výčepů</h3>
           <p className="text-xs text-neutral-500 font-semibold">Sanitace kohoutů a výčepních vedení s časem každého kroku.</p>
         </div>
         <div className="flex items-center gap-2">
@@ -290,7 +290,7 @@ export default function TapSanitationDiary() {
               <h3 className="font-display font-black text-lg text-neutral-900">
                 {editingId ? 'Upravit záznam sanitace výčepu' : 'Nový záznam sanitace výčepu'}
               </h3>
-              <button onClick={() => setShowModal(false)} className="text-neutral-400 font-bold">✕</button>
+              <button onClick={() => setShowModal(false)} className="text-neutral-400 font-bold" title="Zavřít"><X size={18} /></button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">

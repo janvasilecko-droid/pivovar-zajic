@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { AlertTriangle, CheckCircle2, ShieldAlert, BellRing } from 'lucide-react';
+import { AlertTriangle, BellRing, Check, CheckCircle2, Megaphone, ShieldAlert } from 'lucide-react';
 import { isNotificationSupported, playOrderChime } from '../lib/notifications';
 
 export type Announcement = {
@@ -104,7 +104,7 @@ export function MandatoryAnnouncementModal() {
         {/* Notice Body Box */}
         <div className="p-5 rounded bg-amber-50/90 border border-amber-300 text-neutral-900 font-medium text-sm leading-relaxed space-y-2">
           <div className="font-black text-xs uppercase text-amber-950 flex items-center gap-1.5 border-b border-amber-200/80 pb-2">
-            <span>📢 Znění technického upozornění:</span>
+            <span><Megaphone className="ikona-text" /> Znění technického upozornění:</span>
           </div>
           <p className="whitespace-pre-wrap font-bold text-neutral-900">{currentAnnouncement.body}</p>
         </div>
@@ -117,7 +117,7 @@ export function MandatoryAnnouncementModal() {
             className="w-full py-4 px-6 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-base transition shadow-xl hover:shadow-amber-500/20 active:scale-[0.98] flex items-center justify-center gap-3 ring-4 ring-amber-300"
           >
             <CheckCircle2 size={24} />
-            <span>✓ Přečetl jsem a rozumím (Potvrdit přečtení)</span>
+            <span><Check className="ikona-text" /> Přečetl jsem a rozumím (Potvrdit přečtení)</span>
           </button>
           <p className="text-center text-[11px] font-bold text-neutral-400">
             Pro pokračování do aplikace musíte výslovně potvrdit přečtení tohoto pokynu.

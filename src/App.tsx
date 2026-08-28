@@ -1,4 +1,5 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
+import { Package as PackageIcon, TrendingDown } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
 import { useAuth } from './lib/auth';
@@ -221,9 +222,9 @@ export default function App() {
         <ProdejnaScreen
           setPage={setPage}
           {...(page === 'fasovani'
-            ? { table: 'fasovani', title: 'Fasování', icon: '📦', showVycep: true }
+            ? { table: 'fasovani', title: 'Fasování', Ikona: PackageIcon, showVycep: true }
             : page === 'writeoffs'
-            ? { table: 'writeoffs', title: 'Odpis', icon: '📉' }
+            ? { table: 'writeoffs', title: 'Odpis', Ikona: TrendingDown }
             : {})}
         />
       )}

@@ -1,4 +1,4 @@
-import { AlertTriangle, Camera, Lightbulb, Lock, NotebookPen, Siren, Unlock } from 'lucide-react';
+import { AlertTriangle, Camera, FileText, Check, Image as ImageIcon, Lightbulb, Lock, NotebookPen, Siren, Unlock } from 'lucide-react';
 import{ useState, useRef, useEffect } from 'react';
 import { Modal, Spinner } from './ui';
 import { PlaceCombobox } from './PlaceCombobox';
@@ -788,7 +788,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                 title="Vybrat objednávku z fotogalerie"
                 className="w-11 h-11 grid place-items-center rounded bg-amber-700 hover:bg-amber-800 text-white text-xl shadow-md transition active:scale-95 disabled:opacity-50"
               >
-                🖼️
+                <ImageIcon className="ikona-text" />
               </button>
               <button
                 type="button"
@@ -797,7 +797,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                 title="Vybrat soubor (např. PDF objednávky)"
                 className="h-11 px-2.5 rounded bg-white border border-neutral-300 text-neutral-800 text-xs font-black shadow-sm transition active:scale-95 disabled:opacity-50"
               >
-                📄 PDF
+                <FileText className="ikona-text" /> PDF
               </button>
             </div>
             {busy && <span className="text-xs font-bold text-amber-700">Čtu z fotky… {progress}%</span>}
@@ -984,7 +984,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-rose-100">
                     <div className="p-3">
-                      <div className="text-[11px] uppercase tracking-wider font-bold text-emerald-700 mb-1.5">✔ Již importováno (předchozí fotka)</div>
+                      <div className="text-[11px] uppercase tracking-wider font-bold text-emerald-700 mb-1.5"><Check className="ikona-text" /> Již importováno (předchozí fotka)</div>
                       {w.prev.items.length > 0 ? (
                         <ul className="space-y-1.5">
                           {w.prev.items.map((it, ii) => (

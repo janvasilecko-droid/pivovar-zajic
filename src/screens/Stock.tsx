@@ -680,7 +680,7 @@ export default function Stock() {
                     .map((p) => (
                       <div key={p.package_id} className="rounded border border-neutral-200 overflow-hidden">
                         <div className={`px-3 py-2 flex items-center justify-between gap-2 text-xs font-black uppercase tracking-wider ${p.kind === 'keg' ? 'bg-amber-100 text-amber-800' : 'bg-primary-100 text-primary-800'}`}>
-                          <span>{p.kind === 'keg' ? '🛢' : '🍾'} {p.label}</span>
+                          <span>{p.kind === 'keg' ? <IkonaSud className="ikona-text" /> : <IkonaLahev className="ikona-text" />} {p.label}</span>
                           <span className="font-mono">Aktuální stav: {p.currentStock} ks</span>
                         </div>
                         <div className="p-3 grid grid-cols-3 gap-1.5 text-center">

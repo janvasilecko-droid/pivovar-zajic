@@ -22,7 +22,7 @@ import {
   planLines,
 } from '../lib/bottlingPlans';
 import { Modal } from './ui';
-import { AlertTriangle, Calendar, ChevronLeft, ChevronRight, ClipboardList, Lightbulb, MessageCircle, Package as PackageIcon, Pencil, ShoppingCart, Trash2 } from 'lucide-react';
+import { AlertTriangle, Calendar, ClipboardList, Check, ChevronLeft, ChevronRight, Lightbulb, MessageCircle, Package as PackageIcon, Pencil, ShoppingCart, Trash2 } from 'lucide-react';
 import { chyba, potvrd } from '../lib/toast';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
 
@@ -39,8 +39,8 @@ const STATUS_CHIP: Record<string, string> = {
 
 const STATUS_TEXT: Record<string, string> = {
   planned: 'Naplánováno',
-  done: '✓ Hotovo',
-  cancelled: '✕ Zrušeno',
+  done: 'Hotovo',
+  cancelled: 'Zrušeno',
 };
 
 type StocitForm = {
@@ -371,7 +371,7 @@ export function BottlingTasksSettings() {
                   <td className="px-2 py-1.5 text-right font-semibold text-amber-800">{fmt(r.planned)}</td>
                   <td className="px-2 py-1.5 text-right font-black text-emerald-800">{fmt(r.stock)}</td>
                   <td className={`px-2 py-1.5 text-right font-black ${r.missing > 0 ? 'bg-rose-100 text-rose-800' : 'text-neutral-600 font-semibold'}`}>
-                    {r.missing > 0 ? `${fmt(r.missing)} ⚠️` : '0'}
+                    {r.missing > 0 ? `${fmt(r.missing)}` : '0'}
                   </td>
                   <td className={`px-2 py-1.5 text-right font-black ${r.afterOutgoing < 0 ? 'bg-rose-100 text-rose-800' : 'text-neutral-900'}`}>
                     {fmt(r.afterOutgoing)}
@@ -518,7 +518,7 @@ export function BottlingTasksSettings() {
                   </button>
                   {plan.status === 'planned' && (
                     <button type="button" onClick={() => handleStatus(plan, 'done')} className="px-2.5 py-1.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black transition">
-                      ✓ Hotovo
+                      <Check className="ikona-text" /> Hotovo
                     </button>
                   )}
                   {plan.status !== 'planned' && (

@@ -1,4 +1,4 @@
-import { Save } from 'lucide-react';
+import { Check, Save } from 'lucide-react';
 import { Modal } from './ui';
 import type { NavItem } from './Layout';
 
@@ -84,7 +84,7 @@ export function MenuCustomizeModal({
                   <span className={`chip text-xs font-black ${
                     isHidden ? 'bg-neutral-200 text-neutral-600' : 'bg-emerald-100 text-emerald-800'
                   }`}>
-                    {isHidden ? 'Skryto v menu' : '✓ Viditelné'}
+                    {isHidden ? 'Skryto v menu' : <><Check className="ikona-text" /> Viditelné</>}
                   </span>
                   <input
                     type="checkbox"

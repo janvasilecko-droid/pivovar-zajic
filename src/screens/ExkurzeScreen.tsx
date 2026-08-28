@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase, useRealtime } from '../lib/supabase';
 import { Spinner, EmptyState } from '../components/ui';
-import { Archive, BarChart3, Calendar, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, Landmark, Plus, Trash2, User, UserCheck, UserRound, Users } from 'lucide-react';
+import { Archive, BarChart3, Calendar, Castle, Clock, Download, CheckCircle2, ChevronDown, ChevronUp, Landmark, Plus, Trash2, User, UserCheck, UserRound, Users } from 'lucide-react';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { oznam, potvrd } from '../lib/toast';
 
@@ -169,7 +169,7 @@ export default function ExkurzeScreen() {
             <span>Pivovarská turistika & Prohlídky</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-display font-black tracking-tight text-white flex items-center gap-2">
-            <span>🏰 Exkurze v pivovaru & Rezervace</span>
+            <span><Castle className="ikona-text" /> Exkurze v pivovaru & Rezervace</span>
           </h1>
           <p className="text-xs text-neutral-400 font-medium mt-1">
             Plánování termínů exkurzí s ochutnávkou, počty návštěvníků, evidencí průvodců a měsíční statistikou.
@@ -423,12 +423,12 @@ export default function ExkurzeScreen() {
         </div>
       </div>
 
-      {/* 👨‍💼 ROZKLIKÁVACÍ STATISTIKA PODLE PRŮVODCŮ */}
+      {/* <UserRound className="ikona-text" /> ROZKLIKÁVACÍ STATISTIKA PODLE PRŮVODCŮ */}
       <div className="card p-6 bg-white border border-amber-200 rounded shadow-sm space-y-4">
         <div className="flex items-center justify-between border-b border-amber-100 pb-3">
           <div className="flex items-center gap-2.5">
             <div className="w-10 h-10 rounded bg-amber-500 text-neutral-950 flex items-center justify-center font-black text-lg shadow-sm">
-              👨‍💼
+              <UserRound className="ikona-text" />
             </div>
             <div>
               <h3 className="font-display font-black text-lg text-neutral-900">

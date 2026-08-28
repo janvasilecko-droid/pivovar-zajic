@@ -4,7 +4,7 @@ import { ImageEditor } from './ImageEditor';
 import type { Beer, Package } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
-import { AlertCircle, Calendar, Camera, CheckCircle2, ChevronDown, ChevronUp, ClipboardList, Hourglass, NotebookPen, Package as PackageIcon, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { AlertCircle, Bot, Calendar, Camera, ClipboardList, Hourglass, CheckCircle2, ChevronDown, ChevronUp, NotebookPen, Package as PackageIcon, Plus, RefreshCw, Trash2, X } from 'lucide-react';
 
 type CountItem = {
   package_label: string | null;
@@ -381,12 +381,12 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
                     <div className="flex items-center justify-between gap-1">
                       {photo?.rawText ? (
                         <span className="text-[11px] font-mono font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded truncate" title={photo.rawText}>
-                          🤖 {photo.rawText}
+                          <Bot className="ikona-text" /> {photo.rawText}
                         </span>
                       ) : (
                         <span className="text-[11px] text-neutral-400 italic">AI nepřečetla text</span>
                       )}
-                      <button className="text-rose-400 hover:text-rose-600 text-[11px] font-bold leading-none shrink-0 px-1" onClick={() => removeResult(i)}>✕</button>
+                      <button className="text-rose-400 hover:text-rose-600 text-[11px] font-bold leading-none shrink-0 px-1" onClick={() => removeResult(i)} title="Odebrat"><X size={12} /></button>
                     </div>
                     {/* Zápis jako ručně: název piva / obal / množství */}
                     <div className="flex items-center gap-1.5 flex-wrap">

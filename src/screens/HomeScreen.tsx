@@ -6,7 +6,7 @@
 // zobrazuje se jen komu je nastaveno (Uživatelé → "Dostává upozornění na
 // vozidla") a musí ho jednou potvrdit, pak zmizí (dokud se stav nezmění).
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { Search, MessageCircle, SlidersHorizontal, ChevronLeft, ChevronRight, Plus, Trash2, TriangleAlert, Download, CalendarX2, LogOut, Check } from 'lucide-react';
+import { CalendarX2, Download, Check, ChevronLeft, ChevronRight, LogOut, MessageCircle, Palette, Plus, Search, SlidersHorizontal, Trash2, TriangleAlert, X } from 'lucide-react';
 import { NAV, EXTRA_NAV, type Page, type NavItem } from '../components/Layout';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import LauncherTile from '../components/LauncherTile';
@@ -530,7 +530,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
             )}
             <div className="hs-controls-group">
               <button className="hs-reset-btn" onClick={handleUnifyColors} title="Přebarví dlaždice tak, aby všechny ve stejné kategorii (Výroba/Pivovar/Nástroje/Číselníky/Nastavení) měly stejnou barvu">
-                🎨 Sjednotit barvy dle kategorie
+                <Palette className="ikona-text" /> Sjednotit barvy dle kategorie
               </button>
             </div>
             <div className="hs-controls-group">
@@ -590,7 +590,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                     ))}
                   </select>
                   {layout.dock.length > MIN_DOCK && (
-                    <button type="button" className="hs-dock-remove" title="Odebrat tenhle slot" onClick={() => handleRemoveDockSlot(i)}>✕</button>
+                    <button type="button" className="hs-dock-remove" title="Odebrat tenhle slot" onClick={() => handleRemoveDockSlot(i)}><X size={13} /></button>
                   )}
                 </span>
               ))}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Modal } from './ui';
+import { X } from 'lucide-react';
 import { PlaceCombobox } from './PlaceCombobox';
 import { supabase, Beer, Package, Place } from '../lib/supabase';
 import { saveAlias, canLearnBeerAlias, savePlaceAlias, getOrCreatePlace } from '../lib/orderParser';
@@ -196,7 +197,7 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
   }
 
   return (
-    <Modal open onClose={onClose} title="✎ Upravit objednávku" wide>
+    <Modal open onClose={onClose} title="Upravit objednávku" wide>
       <div className="space-y-4">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 items-end">
           <div className="col-span-2 sm:col-span-1">
@@ -260,7 +261,7 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
                   </div>
                 </div>
                 <div className="flex justify-end sm:col-span-1">
-                  <button type="button" className="text-rose-400 hover:text-rose-600 px-2 py-1.5 sm:py-0" onClick={() => removeRow(i)} title="Odstranit položku">✕ Odstranit</button>
+                  <button type="button" className="text-rose-400 hover:text-rose-600 px-2 py-1.5 sm:py-0" onClick={() => removeRow(i)} title="Odstranit položku"><X className="ikona-text" /> Odstranit</button>
                 </div>
               </div>
             ))}

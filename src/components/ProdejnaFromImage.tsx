@@ -295,7 +295,7 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onTextExtr
                 <Check size={14} />
                 {activeIndex < photos.length - 1
                   ? `Vložit a další fotka (${activeIndex + 2}/${photos.length}) ▶`
-                  : `Vložit VŠECHNO do tabulky (${photos.length || 1} fotek) ✓`}
+                  : `Vložit VŠECHNO do tabulky (${photos.length || 1} fotek)`}
               </button>
             </div>
           </div>

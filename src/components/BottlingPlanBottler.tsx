@@ -1,4 +1,4 @@
-import { AlertTriangle, Calendar, ClipboardList, MessageCircle, Plus } from 'lucide-react';
+import { AlertTriangle, Calendar, CalendarDays, ClipboardList, Check, MessageCircle, Plus } from 'lucide-react';
 // 📋 Úkoly na stáčení — pohled pro stáčeče v zápisu stáčení (BottlingScreen).
 // Zobrazuje úkoly (dnes + připravované + zpožděné), umožňuje je „naplnit"
 // do formuláře zápisu (onFill) a přepnout na „hotovo".
@@ -28,8 +28,8 @@ const STATUS_CHIP: Record<string, string> = {
 
 const STATUS_TEXT: Record<string, string> = {
   planned: 'Naplánováno',
-  done: '✓ Hotovo',
-  cancelled: '✕ Zrušeno',
+  done: 'Hotovo',
+  cancelled: 'Zrušeno',
 };
 
 function PlanItem({
@@ -115,7 +115,7 @@ function PlanItem({
               onClick={handleDone}
               className="px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-600 text-neutral-950 text-[11px] font-black transition shadow-sm"
             >
-              ✓ Hotovo
+              <Check className="ikona-text" /> Hotovo
             </button>
           </>
         )}
@@ -162,7 +162,7 @@ export function BottlingPlanBottler({ plans, beers, packages, isManager, onChang
           )}
         </span>
         <span className="text-[11px] font-bold text-amber-900/60">
-          {total === 0 ? 'nic k dispozici 🎉' : `${total} ${total === 1 ? 'úkol' : total < 5 ? 'úkoly' : 'úkolů'}`}
+          {total === 0 ? 'nic k dispozici' : `${total} ${total === 1 ? 'úkol' : total < 5 ? 'úkoly' : 'úkolů'}`}
         </span>
       </div>
 
@@ -193,7 +193,7 @@ export function BottlingPlanBottler({ plans, beers, packages, isManager, onChang
 
       {groups.upcoming.length > 0 && (
         <div className="space-y-2">
-          <div className="text-[11px] font-black text-neutral-500 uppercase tracking-wide">📆 Připravované</div>
+          <div className="text-[11px] font-black text-neutral-500 uppercase tracking-wide"><CalendarDays className="ikona-text" /> Připravované</div>
           {groups.upcoming.map((p) => (
             <PlanItem key={p.id} plan={p} beers={beers} packages={packages} isManager={isManager} isToday={false} isLate={false} onFill={onFill} onChanged={onChanged} druh={druh} />
           ))}

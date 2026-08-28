@@ -338,7 +338,7 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
               className="btn-ghost !rounded !py-1 !px-2.5 text-xs font-bold text-amber-900 hover:bg-amber-100"
               onClick={selectAll}
             >
-              ✓ Označit vše jako splněné
+              <Check className="ikona-text" /> Označit vše jako splněné
             </button>
             <button
               type="button"
@@ -444,7 +444,7 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
           {gateActive ? (
             <div className="text-[11px] font-bold text-neutral-500 leading-snug">
               {startDone ? (
-                <span className="text-emerald-700">✔ Příprava pracoviště splněna — můžete pokračovat.</span>
+                <span className="text-emerald-700"><Check className="ikona-text" /> Příprava pracoviště splněna — můžete pokračovat.</span>
                ) : (
                 <span>
                   Odškrtněte celou sekci <b>„1. Začátek stáčení"</b> (zbývá {startItems.length - startCheckedCount} položek), abyste mohli vstoupit do zápisu stáčení.

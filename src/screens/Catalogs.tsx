@@ -3,7 +3,7 @@ import { supabase, Beer, Package, Place, Vehicle, useRealtime, BEER_COLOR_PRESET
 import { getVehicleExpiryStatus } from '../lib/vozidla';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import ExcelImportModal from '../components/ExcelImportModal';
-import { AlertTriangle, Beer as BeerIcon, Car, Edit, Eye, EyeOff, FileSpreadsheet, Mail, MapPin, NotebookPen, Package as PackageIcon, Phone, Plus, Search, ShieldAlert, ShieldCheck, Store, Trash2 } from 'lucide-react';
+import { AlertTriangle, Beer as BeerIcon, Car, Edit, Eye, EyeOff, FileSpreadsheet, Check, Mail, MapPin, Milestone, NotebookPen, Package as PackageIcon, Phone, Plus, Search, ShieldAlert, ShieldCheck, Store, Trash2, Wrench } from 'lucide-react';
 import { lookupPlaceOnline } from '../lib/placeLookup';
 import { chyba, oznam, potvrd } from '../lib/toast';
 
@@ -542,10 +542,10 @@ function GpsBackfillModal({ places, onClose, onSaved }: { places: Place[]; onClo
                       <div className="text-[11px] text-neutral-500 truncate">{addresses[p.id]}</div>
                       {r ? (
                         <div className="text-[11px] text-emerald-700 font-bold truncate" title={r.displayName}>
-                          ✓ {r.lat.toFixed(6)}, {r.lng.toFixed(6)} — {r.displayName}
+                          <Check className="ikona-text" /> {r.lat.toFixed(6)}, {r.lng.toFixed(6)} — {r.displayName}
                         </div>
                       ) : (
-                        <div className="text-[11px] text-rose-600 font-bold">✗ Nenalezeno</div>
+                        <div className="text-[11px] text-rose-600 font-bold">Nenalezeno</div>
                       )}
                     </div>
                   </label>
@@ -605,7 +605,7 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
       if (results[0].phone && !phone) setPhone(results[0].phone);
       if (results[0].lat != null) setLat(results[0].lat);
       if (results[0].lng != null) setLng(results[0].lng);
-      setLookupMsg(`✓ Adresa načtena: ${results[0].address}`);
+      setLookupMsg(`Adresa načtena: ${results[0].address}`);
     } else {
       setAddressCandidates(results);
       setLookupMsg(`Nalezeno ${results.length} možných adres — zvolte správnou:`);
@@ -725,7 +725,7 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
                     if (cand.lat != null) setLat(cand.lat);
                     if (cand.lng != null) setLng(cand.lng);
                     setAddressCandidates([]);
-                    setLookupMsg(`✓ Vybrána adresa: ${cand.address}`);
+                    setLookupMsg(`Vybrána adresa: ${cand.address}`);
                   }}
                   className="w-full text-left p-2 rounded text-xs hover:bg-amber-50 font-medium text-neutral-800 transition flex items-center justify-between gap-2 border border-transparent hover:border-amber-300"
                 >
@@ -928,7 +928,7 @@ export function VehiclesScreen() {
                         ? 'bg-amber-500/20 border-amber-500 text-amber-950 font-extrabold'
                         : 'bg-emerald-50 border-emerald-200 text-emerald-950'
                     }`}>
-                      <div className="text-[11px] font-black uppercase tracking-wider text-neutral-500 mb-0.5">🛠️ Technická (STK)</div>
+                      <div className="text-[11px] font-black uppercase tracking-wider text-neutral-500 mb-0.5"><Wrench className="ikona-text" /> Technická (STK)</div>
                       <div className="text-xs font-black flex items-center gap-1.5 mt-1">
                         {stkStatus.status === 'expired' && <ShieldAlert size={16} className="text-rose-600 shrink-0" />}
                         {stkStatus.status === 'warning' && <AlertTriangle size={16} className="text-amber-600 shrink-0" />}
@@ -945,7 +945,7 @@ export function VehiclesScreen() {
                         ? 'bg-amber-500/20 border-amber-500 text-amber-950 font-extrabold'
                         : 'bg-emerald-50 border-emerald-200 text-emerald-950'
                     }`}>
-                      <div className="text-[11px] font-black uppercase tracking-wider text-neutral-500 mb-0.5">🛣️ Dálniční známka</div>
+                      <div className="text-[11px] font-black uppercase tracking-wider text-neutral-500 mb-0.5"><Milestone className="ikona-text" /> Dálniční známka</div>
                       <div className="text-xs font-black flex items-center gap-1.5 mt-1">
                         {tollStatus.status === 'expired' && <ShieldAlert size={16} className="text-rose-600 shrink-0" />}
                         {tollStatus.status === 'warning' && <AlertTriangle size={16} className="text-amber-600 shrink-0" />}

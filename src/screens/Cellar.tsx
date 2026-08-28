@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../lib/auth';
-import { AlertTriangle, Beer as BeerIcon, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Droplet, Factory, FlaskConical, NotebookPen, SprayCan } from 'lucide-react';
+import { AlertTriangle, Beer as BeerIcon, CalendarDays, ClipboardList, Droplet, Factory, FlaskConical, Check, ChevronLeft, ChevronRight, NotebookPen, Play, SprayCan, Warehouse } from 'lucide-react';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 
 import { Beer, CellarTank, CellarTankCycle, CellarTransfer, EntryRow, Package, beerBorder, fetchAllRows, supabase, useRealtime } from '../lib/supabase';
@@ -519,7 +519,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
         <div>
-          <h1 className="text-2xl font-display font-bold text-primary-900">🏚️ Sklep & Spilka — tanky</h1>
+          <h1 className="text-2xl font-display font-bold text-primary-900"><Warehouse className="ikona-text" /> Sklep & Spilka — tanky</h1>
           <p className="text-sm text-primary-500 mt-1">Kvasné tanky na Spilce (Spilka 1–3) & Ležácké tanky (Tanky 1–8).</p>
         </div>
 
@@ -871,12 +871,12 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
 
                     {t.status === 'empty' && (
                       <button className="w-full min-h-[48px] text-sm px-3 py-3 rounded bg-emerald-600 text-white hover:bg-emerald-500 font-black shadow-md flex items-center justify-center gap-2" onClick={() => setShowStart(t)}>
-                        <span>🚀</span><span>Spustit tank</span>
+                        <Play className="ikona-text" /><span>Spustit tank</span>
                       </button>
                     )}
                     {(t.status === 'active' || t.status === 'emptying' || t.status === 'filling') && (
                       <button className="w-full min-h-[48px] text-sm px-3 py-3 rounded bg-rose-600 text-white hover:bg-rose-500 font-black shadow-md flex items-center justify-center gap-2" onClick={() => endTank(t)}>
-                        <span>✓</span><span>Zavřít tank</span>
+                        <Check className="ikona-text" /><span>Zavřít tank</span>
                       </button>
                     )}
 

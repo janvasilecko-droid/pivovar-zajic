@@ -4,7 +4,7 @@ import { EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey } from '../components/WeeklyOrderSummaryCard';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { ProdejnaFromImage } from '../components/ProdejnaFromImage';
-import { BarChart3, Calendar, CalendarDays, Camera, Check, ClipboardList, Copy, Package as PackageIcon, PenLine, Trash2 } from 'lucide-react';
+import { BarChart3, Calendar, CalendarDays, Camera, Check, ClipboardList, Copy, Package as PackageIcon, PenLine, Store, Trash2, X, type LucideIcon } from 'lucide-react';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { TapReservationModal } from '../components/TapReservationModal';
 import { detectTapType } from '../lib/tapReservations';
@@ -49,7 +49,7 @@ type RowInput = { beerId: string; pkgId: string; qty: string; vycep: boolean; wh
 const emptyItem = (): RowInput => ({ beerId: '', pkgId: '', qty: '', vycep: false, who: '' });
 const emptyRows = (count: number): RowInput[] => Array.from({ length: count }, emptyItem);
 
-export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovani_private', title = 'Fasování', icon = '🏪', showVycep = false }: { setPage?: (p: any, sec?: string) => void; mode?: 'entry_only' | 'overviews_only' | 'all'; table?: string; title?: string; icon?: string; showVycep?: boolean } = {}) {
+export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovani_private', title = 'Fasování', Ikona = Store, showVycep = false }: { setPage?: (p: any, sec?: string) => void; mode?: 'entry_only' | 'overviews_only' | 'all'; table?: string; title?: string; Ikona?: LucideIcon; showVycep?: boolean } = {}) {
   const [rows, setRows] = useState<EntryRow[]>([]);
   const [beers, setBeers] = useState<Beer[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
@@ -310,7 +310,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded border border-neutral-200 shadow-2xs">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-display font-black text-amber-950 flex items-center gap-1.5">
-            <span>{icon}</span>
+            <Ikona className="ikona-text" />
             <span>{setPage && mode === 'all' ? 'Fasování' : title}</span>
           </span>
         </div>
@@ -323,7 +323,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
           onClick={() => setTab('zapis')}
           className={`px-4 py-1.5 rounded text-xs font-black transition ${tab === 'zapis' ? 'bg-neutral-700 text-white shadow-xs' : 'bg-white text-neutral-900 hover:bg-neutral-100'}`}
         >
-          ✍️ Zápis
+          <PenLine className="ikona-text" /> Zápis
         </button>
         <button
           type="button"
@@ -638,8 +638,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                               type="button"
                               className="w-12 min-h-[44px] ml-2 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black transition"
                               onClick={() => del(r.id)}
-                              title="Smazat záznam"
-                            >✕</button>
+                              title="Smazat záznam"><X size={18} /></button>
                           </div>
                         </li>
                       );
@@ -702,8 +701,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                                     type="button"
                                     className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition"
                                     onClick={() => del(r.id)}
-                                    title="Smazat záznam"
-                                  >✕</button>
+                                    title="Smazat záznam"><X size={18} /></button>
                                 </div>
                               </td>
                             </tr>

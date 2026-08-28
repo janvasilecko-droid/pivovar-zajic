@@ -64,7 +64,7 @@ export function MarketingMerchInventory() {
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded bg-amber-500 text-neutral-950 flex items-center justify-center font-black text-2xl shadow-lg">
-              🛍️
+              <ShoppingBag className="ikona-text" />
             </div>
             <div>
               <h3 className="font-display font-black text-xl text-amber-400">

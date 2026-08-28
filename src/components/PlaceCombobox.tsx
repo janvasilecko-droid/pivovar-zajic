@@ -75,7 +75,7 @@ export function PlaceCombobox({ value, onChange, places, onPlacesChanged, placeh
       onChange(place.id, place.name);
       setText(place.name);
       setOpen(false);
-      setMsg({ type: 'ok', text: `✓ Odběratel „${place.name}“ byl uložen.` });
+      setMsg({ type: 'ok', text: `Odběratel „${place.name}“ byl uložen.` });
       return place;
     } catch (err: any) {
       setCreating(false);

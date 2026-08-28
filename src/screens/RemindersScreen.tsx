@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { ReminderItem, ReminderTarget, ReminderDisplayMode, fetchReminders, createReminder, deleteReminder, acknowledgeReminder, isReminderForUser, normalizeTargetEmails } from '../lib/reminders';
 import { isNotificationSupported, requestNotificationPermission, playOrderChime } from '../lib/notifications';
-import { AlertCircle, Bell, Calendar, CheckCircle2, Clock, Filter, Lock, Monitor, PhoneCall, Plus, Send, Shield, Trash2, Upload, User, Users as UsersIcon } from 'lucide-react';
+import { AlertCircle, Bell, Calendar, Clock, Filter, CheckCircle2, Lock, Mail, Monitor, PhoneCall, Plus, Send, Shield, Smartphone, Target, Trash2, Upload, User, Users as UsersIcon } from 'lucide-react';
 import { EmptyState, Spinner } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { getAdminEmail, DEFAULT_ROLE } from '../lib/config';
@@ -309,7 +309,7 @@ export default function RemindersScreen() {
                     className="mt-0.5 w-5 h-5 shrink-0 accent-amber-500"
                   />
                   <div className="text-xs">
-                    <div className="font-black text-neutral-900">👥 Všichni uživatelé pivovaru</div>
+                    <div className="font-black text-neutral-900"><UsersIcon className="ikona-text" /> Všichni uživatelé pivovaru</div>
                     <div className="text-[11px] text-neutral-500">Zobrazí se každému, kdo používá aplikaci.</div>
                   </div>
                 </label>
@@ -326,7 +326,7 @@ export default function RemindersScreen() {
                     className="mt-0.5 w-5 h-5 shrink-0 accent-amber-500"
                   />
                   <div className="text-xs">
-                    <div className="font-black text-neutral-900">🎯 Podle role / pracovní pozice</div>
+                    <div className="font-black text-neutral-900"><Target className="ikona-text" /> Podle role / pracovní pozice</div>
                     <div className="text-[11px] text-neutral-500">Např. pouze sládek, výroba, obchod…</div>
                   </div>
                 </label>
@@ -414,7 +414,7 @@ export default function RemindersScreen() {
                     className="mt-0.5 w-5 h-5 shrink-0 accent-amber-500"
                   />
                   <div className="text-xs">
-                    <div className="font-black text-neutral-900">✉️ Vlastní e-maily</div>
+                    <div className="font-black text-neutral-900"><Mail className="ikona-text" /> Vlastní e-maily</div>
                     <div className="text-[11px] text-neutral-500">Napište e-maily příjemců ručně (více oddělte čárkou).</div>
                   </div>
                 </label>
@@ -480,7 +480,7 @@ export default function RemindersScreen() {
                     className="mt-0.5 w-5 h-5 shrink-0 accent-amber-500"
                   />
                   <div className="text-xs">
-                    <div className="font-black text-neutral-900">📲 Na ploše telefonu / počítače (Push alert)</div>
+                    <div className="font-black text-neutral-900"><Smartphone className="ikona-text" /> Na ploše telefonu / počítače (Push alert)</div>
                     <div className="text-[11px] text-neutral-500">Systémové upozornění na displeji telefonu nebo monitoru PC.</div>
                   </div>
                 </label>

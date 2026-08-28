@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { CellarTank, Beer, CellarTankCycle } from '../lib/supabase';
-import { AlertTriangle, BarChart3, Calendar, CheckCircle2, Clock, Plus, ShieldAlert, Sparkles } from 'lucide-react';
+import { AlertTriangle, BarChart3, Calendar, Circle, Clock, Check, CheckCircle2, Plus, ShieldAlert, Sparkles, X } from 'lucide-react';
 
 export type PlannedBatch = {
   id: string;
@@ -236,14 +236,14 @@ export function TankOccupancyPlanner({
 
                   <div className="flex items-center gap-2">
                     {!hasBeer ? (
-                      <span className="chip bg-neutral-200 text-neutral-700 text-xs">⚪ Volno / Pripraveno</span>
+                      <span className="chip bg-neutral-200 text-neutral-700 text-xs"><Circle className="ikona-text" /> Volno / Připraveno</span>
                     ) : isReady ? (
                       <span className="chip bg-emerald-500 text-white font-black text-xs animate-pulse">
-                        🟢 Připraveno ke stočení (Leží {daysInTank} dní)
+                        <Check className="ikona-text" /> Připraveno ke stočení (Leží {daysInTank} dní)
                       </span>
                     ) : (
                       <span className="chip bg-amber-500 text-neutral-950 font-black text-xs">
-                        🟡 Zrání: {daysInTank} z {targetDaysCount} dní (Stoční cca {endDateStr})
+                        <Clock className="ikona-text" /> Zrání: {daysInTank} z {targetDaysCount} dní (Stoční cca {endDateStr})
                       </span>
                     )}
                   </div>
@@ -292,7 +292,7 @@ export function TankOccupancyPlanner({
                             onClick={() => handleRemovePlannedBatch(pb.id)}
                             className="text-rose-600 hover:text-rose-800 font-bold text-xs"
                           >
-                            ✕ Zrušit
+                            <X className="ikona-text" /> Zrušit
                           </button>
                         </div>
                       );
@@ -313,7 +313,7 @@ export function TankOccupancyPlanner({
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
                 <span><Plus className="ikona-text" /> Naplánovat novou várku na tank</span>
               </h3>
-              <button onClick={() => setShowAddModal(false)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg">✕</button>
+              <button onClick={() => setShowAddModal(false)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít"><X size={18} /></button>
             </div>
 
             <form onSubmit={handleAddPlannedBatch} className="space-y-3">

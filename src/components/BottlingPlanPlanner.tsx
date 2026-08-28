@@ -1,4 +1,4 @@
-import { AlertTriangle, Calculator, Calendar, CalendarDays, ClipboardList, MessageCircle, Package as PackageIcon, Pencil, ShoppingCart, Trash2 } from 'lucide-react';
+import { AlertTriangle, Calculator, Calendar, CalendarDays, ClipboardList, Check, MessageCircle, Package as PackageIcon, Pencil, ShoppingCart, Trash2 } from 'lucide-react';
 // 🗓️ Plánování stáčení — „Co je potřeba stočit" (pouze admin/sládek/šéf).
 // Zadání úkolu (pivo + lahve až 3 velikosti + KEG sudy + datum), přehled
 // naplánovaných úkolů v týdnu a tabulky potřeby (objednávky týdne vs. sklad
@@ -86,8 +86,8 @@ const STATUS_CHIP: Record<string, string> = {
 
 const STATUS_TEXT: Record<string, string> = {
   planned: 'Naplánováno',
-  done: '✓ Hotovo',
-  cancelled: '✕ Zrušeno',
+  done: 'Hotovo',
+  cancelled: 'Zrušeno',
 };
 
 function fmt(n: number): string {
@@ -489,7 +489,7 @@ export function BottlingPlanPlanner({
                   <td className="px-2 py-1.5 text-right font-semibold text-neutral-800">{fmt(r.stock)}</td>
                   <td className="px-2 py-1.5 text-right font-semibold text-amber-800">{fmt(r.planned)}</td>
                   <td className={`px-2 py-1.5 text-right font-black ${r.afterBottling < r.ordered ? 'text-rose-700' : 'text-emerald-800'}`}>{fmt(r.afterBottling)}</td>
-                  <td className={`px-2 py-1.5 text-right font-black ${r.missing > 0 ? 'bg-rose-100 text-rose-800' : 'text-neutral-600 font-semibold'}`}>{r.missing > 0 ? `${fmt(r.missing)} ⚠️` : '0'}</td>
+                  <td className={`px-2 py-1.5 text-right font-black ${r.missing > 0 ? 'bg-rose-100 text-rose-800' : 'text-neutral-600 font-semibold'}`}>{r.missing > 0 ? `${fmt(r.missing)}` : '0'}</td>
                   <td className={`px-2 py-1.5 text-right font-black ${r.afterOutgoing < 0 ? 'bg-rose-100 text-rose-800' : 'text-neutral-900'}`}>{fmt(r.afterOutgoing)}</td>
                   <td className="px-2 py-1.5 text-right whitespace-nowrap">
                     <button
@@ -668,7 +668,7 @@ export function BottlingPlanPlanner({
                   </button>
                   {plan.status === 'planned' && (
                     <button type="button" onClick={() => handleStatus(plan, 'done')} className="px-2.5 py-1.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black transition">
-                      ✓ Hotovo
+                      <Check className="ikona-text" /> Hotovo
                     </button>
                   )}
                   {plan.status !== 'planned' && (

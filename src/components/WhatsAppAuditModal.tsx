@@ -6,7 +6,7 @@ import {
   triggerAutoParse,
 } from '../lib/whatsappApi';
 import { Modal, Spinner } from './ui';
-import { AlertTriangle, MessageSquare, RefreshCw, ShieldAlert, Zap } from 'lucide-react';
+import { AlertTriangle, Check, MessageSquare, RefreshCw, ShieldAlert, Zap } from 'lucide-react';
 import { chyba } from '../lib/toast';
 
 interface WhatsAppAuditModalProps {
@@ -176,7 +176,7 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
         ) : shown.length === 0 ? (
           <div className="py-10 text-center text-neutral-500">
             <MessageSquare size={40} className="mx-auto mb-2 opacity-30" />
-            <p className="text-sm font-bold">{onlyNeedsAttention ? 'Nic nečeká na vyřízení. 🎉' : 'Za zvolené období nejsou žádné zprávy.'}</p>
+            <p className="text-sm font-bold">{onlyNeedsAttention ? 'Nic nečeká na vyřízení.' : 'Za zvolené období nejsou žádné zprávy.'}</p>
           </div>
         ) : (
           <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
@@ -211,7 +211,7 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
                     )}
                     {m.status === 'imported' && (
                       <div className="text-[11px] text-emerald-700 font-bold mt-1">
-                        ✓ Vytvořeno {m.imported_at ? new Date(m.imported_at).toLocaleString('cs-CZ') : ''}
+                        <Check className="ikona-text" /> Vytvořeno {m.imported_at ? new Date(m.imported_at).toLocaleString('cs-CZ') : ''}
                       </div>
                     )}
                   </div>

@@ -5,7 +5,7 @@ import { LABELS_LOW_STOCK_THRESHOLD } from '../lib/labelStock';
 import { Spinner, EmptyState } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { PlaceCombobox } from '../components/PlaceCombobox';
-import { AlertTriangle, ArrowDownCircle, ArrowUpCircle, Boxes, CheckCircle2, Download, Plus, Printer, Search, Tag, Trash2, Upload, Wine } from 'lucide-react';
+import { AlertTriangle, ArrowDownCircle, ArrowUpCircle, Boxes, Download, Check, CheckCircle2, Plus, Printer, Search, Tag, Trash2, Upload, Wine } from 'lucide-react';
 import { chyba, oznam, potvrd } from '../lib/toast';
 import { IkonaLahev } from '../components/ikony';
 
@@ -384,7 +384,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
             <span>Skladové zásoby & Materiál</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-display font-black tracking-tight text-white flex items-center gap-2">
-            <span>🍷 Sklo, Podtácky, Etikety & Lahve</span>
+            <span><Wine className="ikona-text" /> Sklo, Podtácky, Etikety & Lahve</span>
           </h1>
           <p className="text-xs text-neutral-400 font-medium mt-1">
             Kompletní evidence pivního skla, podtácků, etiket a prázdných lahví s automatickým odečítáním ze stočených piv.
@@ -744,7 +744,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                       </span>
                     ) : (
                       <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 font-bold text-[11px]">
-                        🟢 DOSTATEK
+                        <Check className="ikona-text" /> DOSTATEK
                       </span>
                     )}
                   </div>
@@ -880,7 +880,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                       </span>
                     ) : (
                       <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 font-bold text-[11px]">
-                        🟢 SKLADEM
+                        <Check className="ikona-text" /> SKLADEM
                       </span>
                     )}
                   </div>

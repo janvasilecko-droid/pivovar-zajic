@@ -11,7 +11,7 @@ import {
 } from '../lib/bottleSanitation';
 import { Spinner } from './ui';
 import { SanitationStepRow, currentTimeStr } from './SanitationStepRow';
-import { Beaker, Calendar, CalendarDays, Check, CheckCircle2, ClipboardCheck, Clock, Edit3, FileSpreadsheet, FileText, Plus, Settings, ShieldAlert, SprayCan, Trash2, User, UserCheck } from 'lucide-react';
+import { Beaker, Calendar, CalendarDays, ClipboardCheck, Clock, Edit3, FileSpreadsheet, FileText, Check, CheckCircle2, Plus, Settings, ShieldAlert, SprayCan, Trash2, User, UserCheck, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { potvrd } from '../lib/toast';
 
@@ -651,7 +651,7 @@ export default function BottleSanitationDiary() {
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
                 <span><SprayCan className="ikona-text" /> {editing ? `Upravit sanitaci — ${editing.sanitation_date}` : 'Záznam sanitace stáčecí linky lahví'}</span>
               </h3>
-              <button type="button" onClick={() => setShowModal(false)} className="text-neutral-400 hover:text-neutral-800 text-lg font-bold">✕</button>
+              <button type="button" onClick={() => setShowModal(false)} className="text-neutral-400 hover:text-neutral-800 text-lg font-bold" title="Zavřít"><X size={18} /></button>
             </div>
 
             {/* Grid layout */}

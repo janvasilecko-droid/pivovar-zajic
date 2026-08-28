@@ -593,7 +593,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
           >
             {activeIndex < photos.length - 1
               ? `Vložit a další fotka (${activeIndex + 2}/${photos.length}) ▶`
-              : `Vložit VŠECHNO do tabulky stočení lahví (${photos.length} fotek) ✓`}
+              : `Vložit VŠECHNO do tabulky stočení lahví (${photos.length} fotek)`}
           </button>
                 </div>
               </div>

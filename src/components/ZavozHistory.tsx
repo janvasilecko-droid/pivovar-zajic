@@ -3,7 +3,7 @@ import { Beer, Package, Place, fetchAllRows, formatPackageLabel, supabase, useRe
 import { Spinner, EmptyState } from './ui';
 import { orderWeightKg, fmtKg } from '../lib/weight';
 import { DAYS } from '../lib/shared';
-import { CalendarDays, Filter, History as HistoryIcon, Printer, Truck } from 'lucide-react';
+import { CalendarDays, Filter, History as HistoryIcon, Check, Printer, Truck, X } from 'lucide-react';
 import { printDeliveryList } from '../lib/safePrint';
 
 type Order = {
@@ -206,7 +206,7 @@ export default function ZavozHistory() {
               onClick={() => { setHistPeriod('all'); setHistPlaceId(''); setHistBeerId(''); setHistPackageId(''); }}
               className="btn-ghost !rounded !py-1.5 text-xs font-black text-amber-900"
             >
-              ✕ Zrušit filtr
+              <X className="ikona-text" /> Zrušit filtr
             </button>
           )}
         </div>
@@ -247,7 +247,7 @@ export default function ZavozHistory() {
                       <div className="flex items-center justify-between">
                         <span className="font-black text-sm text-neutral-900 truncate">{o.place_name}</span>
                         <span className={`px-2 py-0.5 rounded-full text-[11px] font-black ${o.is_delivered ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' : 'bg-amber-100 text-amber-900'}`}>
-                          {o.is_delivered ? '✓ Zavezeno' : 'Čeká'}
+                          {o.is_delivered ? <><Check className="ikona-text" /> Zavezeno</> : 'Čeká'}
                         </span>
                       </div>
 

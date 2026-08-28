@@ -3,7 +3,7 @@ import { supabase, useRealtime } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { EmptyState, Spinner } from '../components/ui';
 import { UntappdAiAnalyzer } from '../components/UntappdAiAnalyzer';
-import { MessageCircle, MessageSquare, Sparkles } from 'lucide-react';
+import { Bug, HelpCircle, Lightbulb, MessageCircle, MessageSquare, NotebookPen, Sparkles, type LucideIcon } from 'lucide-react';
 import { potvrd } from '../lib/toast';
 
 type Category = 'bug' | 'feature' | 'question' | 'other';
@@ -21,11 +21,11 @@ type FeedbackNote = {
   updated_at: string;
 };
 
-const CATEGORY_META: Record<Category, { label: string; icon: string; chip: string }> = {
-  bug: { label: 'Chyba', icon: '🐛', chip: 'bg-rose-100 text-rose-700' },
-  feature: { label: 'Nápad na vylepšení', icon: '💡', chip: 'bg-amber-100 text-amber-700' },
-  question: { label: 'Otázka', icon: '❓', chip: 'bg-primary-100 text-primary-700' },
-  other: { label: 'Jiné', icon: '📝', chip: 'bg-neutral-100 text-neutral-700' },
+const CATEGORY_META: Record<Category, { label: string; icon: LucideIcon; chip: string }> = {
+  bug: { label: 'Chyba', icon: Bug, chip: 'bg-rose-100 text-rose-700' },
+  feature: { label: 'Nápad na vylepšení', icon: Lightbulb, chip: 'bg-amber-100 text-amber-700' },
+  question: { label: 'Otázka', icon: HelpCircle, chip: 'bg-primary-100 text-primary-700' },
+  other: { label: 'Jiné', icon: NotebookPen, chip: 'bg-neutral-100 text-neutral-700' },
 };
 
 const STATUS_META: Record<Status, { label: string; chip: string }> = {
@@ -187,7 +187,7 @@ export default function Feedback({ setPage, initialSubTab }: { setPage?: (p: any
           const count = notes.filter((n) => n.category === c).length;
           return (
             <button key={c} onClick={() => setFilter(c)} className={`chip transition-colors ${filter === c ? 'bg-primary-900 text-white' : `${CATEGORY_META[c].chip} hover:opacity-80`}`}>
-              {CATEGORY_META[c].icon} {CATEGORY_META[c].label} ({count})
+              {(() => { const I = CATEGORY_META[c].icon; return <I className="ikona-text" />; })()} {CATEGORY_META[c].label} ({count})
             </button>
           );
         })}
@@ -210,7 +210,7 @@ export default function Feedback({ setPage, initialSubTab }: { setPage?: (p: any
                   return (
                     <div key={n.id} className="card p-4 flex flex-col gap-2">
                       <div className="flex items-start gap-2">
-                        <span className="text-lg leading-none mt-0.5">{cat.icon}</span>
+                        <span className="text-lg leading-none mt-0.5"><cat.icon className="ikona-text" /></span>
                         <div className="flex-1 min-w-0">
                           <div className="font-semibold text-primary-900 break-words">{n.title}</div>
                           <div className="text-[11px] text-primary-400 mt-0.5">

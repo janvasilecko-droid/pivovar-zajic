@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase, Beer, Package, useRealtime, formatPackageLabel, beerBg, beerText, beerName, fetchAllRows } from '../lib/supabase';
 import { Spinner } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
-import { AlertCircle, AlertTriangle, Beer as BeerIcon, Calendar, Camera, CheckCircle2, ClipboardCheck, ClipboardList, Download, Lock, Package as PackageIcon, Plus, RefreshCw, RotateCcw, Save } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Beer as BeerIcon, Calendar, Camera, ClipboardCheck, ClipboardList, Download, Check, CheckCircle2, Lock, Package as PackageIcon, Plus, RefreshCw, RotateCcw, Save } from 'lucide-react';
 import { CountFromImage } from '../components/CountFromImage';
 import { computeInventoryReconciliation } from '../lib/inventoryHelper';
 import { buildMovements, expectedForMonth, stockAtStartOfDay, type StockLine } from '../lib/stockLedger';
@@ -1213,7 +1213,7 @@ function exportInventoryExcel() {
                           </span>
                           {r.dorovnatQty !== 0 && (
                             <span className={r.diffAfterQty === 0 ? 'text-emerald-700' : r.diffAfterQty < 0 ? 'text-rose-700' : 'text-amber-700'}>
-                              Po dorovnání: {r.diffAfterQty > 0 ? `+${r.diffAfterQty}` : r.diffAfterQty} ks{r.diffAfterQty === 0 ? ' ✓' : ''}
+                              Po dorovnání: {r.diffAfterQty > 0 ? `+${r.diffAfterQty}` : r.diffAfterQty} ks{r.diffAfterQty === 0 ? '' : ''}
                             </span>
                           )}
                         </div>
@@ -1327,7 +1327,7 @@ function exportInventoryExcel() {
                           }`}>
                             {r.diffAfterQty > 0 ? `+${r.diffAfterQty}` : r.diffAfterQty} ks
                             {r.diffAfterQty === 0 && r.dorovnatQty !== 0 && (
-                              <span className="ml-1 text-[11px] font-black text-emerald-700">✓ dorovnáno</span>
+                              <span className="ml-1 text-[11px] font-black text-emerald-700"><Check className="ikona-text" /> dorovnáno</span>
                             )}
                           </td>
                           <td className={`text-right font-black text-[11px] px-3 py-2 ${

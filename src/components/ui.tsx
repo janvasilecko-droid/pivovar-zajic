@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
-import { Inbox, type LucideIcon } from 'lucide-react';
+import { Inbox, X, type LucideIcon } from 'lucide-react';
 
 export function Spinner({ className = '' }: { className?: string }) {
   return (
@@ -94,8 +94,9 @@ export function Modal({ open, onClose, title, children, wide, maxWidth }: {
           <button
             onClick={onClose}
             className="w-8 h-8 grid place-items-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition"
+            title="Zavřít"
           >
-            ✕
+            <X size={18} />
           </button>
         </div>
         <div className="p-6 overflow-y-auto scrollbar-thin">{children}</div>

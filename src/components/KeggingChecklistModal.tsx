@@ -274,7 +274,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
                           onClick={(e) => { e.stopPropagation(); if (choiceVal === 'persteril') unpick(); else pick('persteril'); }}
                           className={`px-3 py-2 rounded border-2 text-[11px] font-black transition flex items-center gap-1.5 ${choiceVal === 'persteril' ? 'bg-amber-500 border-amber-600 text-neutral-950 shadow-sm' : 'bg-white border-neutral-300 hover:border-amber-400 text-neutral-700'}`}
                         >
-                          🫧 Persteril 0.2% (10 minut)
+                          Persteril 0.2% (10 minut)
                         </button>
                       </div>
                     </div>
@@ -310,7 +310,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
                   </span>
                   {isWeeklySatisfied && (
                     <span className="block text-[11px] text-emerald-700 font-extrabold mt-1">
-                      🛡️ Splněno v tomto týdnu (není vyžadováno)
+                      Splněno v tomto týdnu (není vyžadováno)
                     </span>
                   )}
                 </div>

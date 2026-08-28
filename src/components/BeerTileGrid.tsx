@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
 import { Beer, beerBg, beerText, beerName } from '../lib/supabase';
+import { Check, X } from 'lucide-react';
 
 type TileSummary = {
   filled: boolean;
@@ -91,14 +92,13 @@ export function BeerTilePanel({ beer, onClose, children, headerRight, footer }: 
               type="button"
               onClick={onClose}
               className="shrink-0 w-10 h-10 grid place-items-center rounded bg-black/25 hover:bg-black/40 text-white font-black text-xl transition select-none"
-              title="Zavřít a vrátit se k dlaždicím"
-            >✕</button>
+              title="Zavřít a vrátit se k dlaždicím"><X size={18} /></button>
           </div>
           <div className="p-3 bg-white dark:bg-neutral-800 space-y-2 overflow-y-auto">
             {children}
             {footer ?? (
               <div className="flex justify-end pt-1">
-                <button type="button" onClick={onClose} className="btn-primary !rounded font-black shadow-md">Hotovo ✓</button>
+                <button type="button" onClick={onClose} className="btn-primary !rounded font-black shadow-md">Hotovo <Check className="ikona-text" /></button>
               </div>
             )}
           </div>
