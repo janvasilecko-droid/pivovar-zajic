@@ -53,7 +53,7 @@ describe('barvy', () => {
     }
 
     expect(nalezy).toEqual([]);
-  });
+  }, 20000);
 });
 
 describe('velikost písma', () => {

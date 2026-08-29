@@ -1,6 +1,21 @@
 import { oznam } from '../lib/toast';
 // PWA & Browser Mobile Push Notifications & Web Audio Chime for New Orders
 
+/**
+ * Konfigurace AudioSession pro mobilní Safari a Chrome, aby zvuky aplikace
+ * (upozornění, alarmy, časovače) nepřerušovaly hudbu běžící na pozadí (Spotify, Apple Music, YouTube Music).
+ */
+export function setupAudioSessionForBackgroundMusic() {
+  if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+    try {
+      (navigator as any).audioSession.type = 'ambient';
+    } catch {}
+  }
+}
+
+// Spustit ihned při načtení modulu
+setupAudioSessionForBackgroundMusic();
+
 export function isNotificationSupported(): boolean {
   return typeof window !== 'undefined' && 'Notification' in window;
 }

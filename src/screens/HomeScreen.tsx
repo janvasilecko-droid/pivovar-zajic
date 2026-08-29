@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import {
   CalendarX2, Download, Check, ChevronLeft, ChevronRight, LogOut, Palette, Plus, Search, SlidersHorizontal, Trash2, TriangleAlert, X,
   Truck, ClipboardList, MessageCircle, PlusCircle, Snowflake, FlaskConical, CalendarDays, BarChart3, Package as PackageIcon, TrendingDown, GlassWater, BookOpen, Droplet, Car, FileText, ClipboardCheck, Shield, Store, Receipt, MapPin, Beer as BeerIcon, Tag, Sparkles, Compass, Wheat, Zap, ArrowLeftRight, StickyNote,
-  AlarmClock, Play, Pause, RotateCcw, Pin
+  AlarmClock, Play, Pause, RotateCcw, Pin, Radio, SkipForward
 } from 'lucide-react';
 import { NAV, EXTRA_NAV, type Page, type NavItem } from '../components/Layout';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
@@ -28,6 +28,9 @@ import { HomeNotesModal } from '../components/HomeNotesModal';
 import { HomeChecklistModal } from '../components/HomeChecklistModal';
 import { getHomeNotes, HOME_NOTES_CHANGED_EVENT, type HomeNote } from '../lib/homeNotes';
 import { getDailyTasks, DAILY_CHECKLIST_CHANGED_EVENT, type DailyTask } from '../lib/homeChecklist';
+import {
+  getRadioState, toggleRadio, nextStation, RADIO_STATIONS, RADIO_STATE_EVENT, type RadioState,
+} from '../lib/breweryRadio';
 import {
   getHomeLayout, saveHomeLayout, addPage, removePage, moveTileToPage, hideTile, addTile,
   mergeTiles, addToGroup, removeFromGroup, deleteGroup, isGroupId, isCountdownId, ensurePositions, ensureTrailingEmptyPage, unifyColorsByCategory, moveTileToCell, stepTileCell,
@@ -395,6 +398,10 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       toggleCountdown(timerId);
       return;
     }
+    if (id === 'radio') {
+      toggleRadio();
+      return;
+    }
     if (id === 'signout') {
       if ((await potvrd('Odhlásit se z appky?'))) signOut();
       return;
@@ -416,6 +423,14 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // Modály pro rychlé poznámky a denní checklist
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [showChecklistModal, setShowChecklistModal] = useState(false);
+
+  // ---- Pivovarské Rádio na ploše ----
+  const [radioState, setRadioState] = useState<RadioState>(() => getRadioState());
+  useEffect(() => {
+    const handleRadio = () => setRadioState(getRadioState());
+    window.addEventListener(RADIO_STATE_EVENT, handleRadio);
+    return () => window.removeEventListener(RADIO_STATE_EVENT, handleRadio);
+  }, []);
 
   // ---- Vlastní odpočty & časovače na ploše ----
   const [, forceTick] = useState(0);
@@ -586,7 +601,12 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       { id: 'kalkulacka', label: 'Kalkulačka ředění & koncentrace', sublabel: 'Výpočty pro mladinu a sanitaci', icon: FlaskConical, onClick: () => setPage('concentration') },
       { id: 'srotovani', label: 'Šrotování sladu', sublabel: 'Sypání a poměry sladů', icon: Wheat, onClick: () => setPage('srotovani') },
     ],
-  }), [setPage]);
+    radio: [
+      { id: 'toggle', label: radioState.playing ? 'Pozastavit rádio' : 'Spustit rádio', sublabel: 'Přehrávání hudby na pozadí', icon: radioState.playing ? Pause : Play, onClick: () => toggleRadio() },
+      { id: 'next', label: 'Další stanice', sublabel: 'Přepnout na další stanici', icon: SkipForward, onClick: () => nextStation() },
+      { id: 'modal', label: 'Vybrat stanici', sublabel: 'Otevřít seznam stanic a nastavení', icon: Radio, onClick: () => window.dispatchEvent(new CustomEvent('pivovar:open-radio')) },
+    ],
+  }), [setPage, radioState.playing]);
 
   // ---- Hledat a WhatsApp — přesunuté z hlavičky (Layout.tsx) sem jako
   // dlaždice, ať jsou na Domů ve stejném stylu jako zbytek launcheru.
@@ -1004,6 +1024,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               : (id === 'timer' || id === 'stopwatch') && doneTimers.length > 0 ? '⏰ Hotovo!'
               : (id === 'timer' || id === 'stopwatch') && runningTimers.length === 1 ? `⏱️ ${formatDurationMs(countdownRemainingMs(runningTimers[0]))}`
               : (id === 'timer' || id === 'stopwatch') && runningTimers.length > 1 ? `⏱️ ${runningTimers.length} běží (${formatDurationMs(countdownRemainingMs(shortestRunning!))})`
+              : id === 'radio' && radioState.playing ? `📻 ${RADIO_STATIONS.find((s) => s.id === radioState.stationId)?.name || 'Hraje'}`
               : id === 'keg_timer' && kegLastDuration ? kegLastDuration
               : undefined;
 
@@ -1089,6 +1110,54 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   </div>
                 </div>
               );
+            }
+
+            // Widget Pivovarské Rádio (radio):
+            if (id === 'radio') {
+              const st = RADIO_STATIONS.find((s) => s.id === radioState.stationId) || RADIO_STATIONS[0];
+              if ((override.w ?? 1) >= 2 || (override.h ?? 1) >= 2) {
+                customContent = (
+                  <div className="w-full h-full flex flex-col justify-between p-3 text-left select-none overflow-hidden">
+                    <div className="flex items-center justify-between gap-2 border-b border-black/10 pb-1">
+                      <span className="font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 opacity-90">
+                        <Radio size={14} /> Pivovarské Rádio
+                      </span>
+                      <span className="text-[11px] font-bold opacity-75">{radioState.playing ? 'Hraje na pozadí' : 'Vypnuto'}</span>
+                    </div>
+                    <div className="my-auto py-1 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-2xl shrink-0">{st.icon}</span>
+                        <div className="min-w-0">
+                          <div className="font-black text-sm truncate">{st.name}</div>
+                          <div className="text-[11px] opacity-75 font-semibold truncate">{st.genre}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); toggleRadio(); }}
+                          className="p-2 rounded-full bg-black/15 hover:bg-black/25 active:scale-95 transition"
+                          title={radioState.playing ? 'Pozastavit' : 'Přehrát'}
+                        >
+                          {radioState.playing ? <Pause size={15} className="fill-current" /> : <Play size={15} className="fill-current ml-0.5" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); nextStation(); }}
+                          className="p-2 rounded-full bg-black/15 hover:bg-black/25 active:scale-95 transition"
+                          title="Další stanice"
+                        >
+                          <SkipForward size={15} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="text-[11px] font-bold opacity-60 flex items-center justify-between pt-1 border-t border-black/10">
+                      <span>{radioState.playing ? 'Přehrává se' : 'Klepnutím spustit'}</span>
+                      <span onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent('pivovar:open-radio')); }}>Změnit stanici ➔</span>
+                    </div>
+                  </div>
+                );
+              }
             }
 
             // Widget Poznámky (notes):

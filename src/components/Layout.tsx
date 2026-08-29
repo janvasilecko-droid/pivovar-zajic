@@ -1,5 +1,7 @@
 import { ReactNode, useState, useEffect, useRef, lazy, Suspense } from 'react';
-import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Bell, BellOff, BookOpen, Calculator, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Cylinder, Download, FilePlus, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Hourglass, LogOut, MapPin, MessageCircle, Package as PackageIcon, PlusCircle, Receipt, Search, Settings, Shield, ShieldCheck, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Timer, TrendingDown, Truck, Users, Wheat, Wifi, WifiOff, Wine, X, XCircle, type LucideIcon } from 'lucide-react';
+import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Bell, BellOff, BookOpen, Calculator, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Cylinder, Download, FilePlus, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Hourglass, LogOut, MapPin, MessageCircle, Package as PackageIcon, PlusCircle, Radio, Receipt, Search, Settings, Shield, ShieldCheck, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Timer, TrendingDown, Truck, Users, Wheat, Wifi, WifiOff, Wine, X, XCircle, type LucideIcon } from 'lucide-react';
+import { BreweryRadioBar } from './BreweryRadioBar';
+import { BreweryRadioModal } from './BreweryRadioModal';
 
 import { useAuth } from '../lib/auth';
 import { potvrd } from '../lib/toast';
@@ -25,7 +27,7 @@ import '../screens/HomeScreen.css';
 
 export type NavItem = { id: Page; label: string; icon: LucideIcon; group: string };
 
-export type Page = 'export_excel' | 'home' | 'sanitace' | 'marketing' | 'planning' | 'depozitar' | 'dashboard' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'sanitace_lahve' | 'sanitace_kegy' | 'sanitace_vycepy' | 'history' | 'orders_entry' | 'orders' | 'orders_detail' | 'orders_celkem' | 'orders_zavoz' | 'zavoz' | 'kniha_jizd' | 'stock' | 'bottling' | 'bottling_entry' | 'bottling_overview' | 'kegging' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'notes' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs' | 'stopwatch' | 'timer' | 'keg_timer' | 'signout';
+export type Page = 'export_excel' | 'home' | 'sanitace' | 'marketing' | 'planning' | 'depozitar' | 'dashboard' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'sanitace_lahve' | 'sanitace_kegy' | 'sanitace_vycepy' | 'history' | 'orders_entry' | 'orders' | 'orders_detail' | 'orders_celkem' | 'orders_zavoz' | 'zavoz' | 'kniha_jizd' | 'stock' | 'bottling' | 'bottling_entry' | 'bottling_overview' | 'kegging' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'notes' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs' | 'stopwatch' | 'timer' | 'keg_timer' | 'radio' | 'signout';
 
 export const NAV: NavItem[] = [
   // --- VÝROBA ---
@@ -49,6 +51,7 @@ export const NAV: NavItem[] = [
   // --- NÁSTROJE ---
   { id: 'concentration', label: 'Kalkulačky', icon: FlaskConical, group: 'Nástroje' },
   { id: 'calendar', label: 'Kalendář & Upozornění', icon: CalendarDays, group: 'Nástroje' },
+  { id: 'timer', label: 'Časovač', icon: AlarmClock, group: 'Nástroje' },
   { id: 'haccp', label: 'Sanitační deníky', icon: Shield, group: 'Nástroje' },
   { id: 'vehicles', label: 'Auta', icon: Car, group: 'Nástroje' },
 
@@ -92,8 +95,8 @@ export const EXTRA_NAV: NavItem[] = [
   { id: 'bottling_entry', label: 'Lahve — zápis', icon: IkonaLahev, group: 'Výroba' },
   { id: 'bottling_overview', label: 'Lahve — přehled', icon: BarChart3, group: 'Výroba' },
   { id: 'stopwatch', label: 'Stopky', icon: Timer, group: 'Nástroje' },
-  { id: 'timer', label: 'Časovač', icon: AlarmClock, group: 'Nástroje' },
   { id: 'keg_timer', label: 'Stočení sudu', icon: Hourglass, group: 'Nástroje' },
+  { id: 'radio', label: 'Pivovarské Rádio', icon: Radio, group: 'Nástroje' },
 ];
 
 // Interní záložky uvnitř "Tabbed" obrazovek (viz App.tsx) mají vlastní Page
@@ -531,6 +534,14 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
     setNotifPermission(getNotificationPermission());
   };
 
+  // Modál pro pivovarské rádio a hudbu na pozadí
+  const [showRadioModal, setShowRadioModal] = useState(false);
+  useEffect(() => {
+    const onOpenRadio = () => setShowRadioModal(true);
+    window.addEventListener('pivovar:open-radio', onOpenRadio);
+    return () => window.removeEventListener('pivovar:open-radio', onOpenRadio);
+  }, []);
+
   // Bez neprůhledného pozadí (dřív bg-neutral-50) — jinak tenhle wrapper, i
   // když je position:static, svým vlastním pozadím vždycky přemaloval
   // barevnou scénu (.hs-fullscreen-scene, position:fixed, z-index:-1) přes
@@ -723,6 +734,17 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             {/* Stav offline fronty a upozornění — dřív v patičce staré
                 postranní nabídky, teď v hlavičce (vidět na každé stránce). */}
             <OfflineStatus online={online} pending={pending} syncing={syncing} syncMsg={syncMsg} onSync={async () => { const { syncQueue, queueLength } = await import('../lib/offline'); if (queueLength() === 0) { setSyncMsg('Fronta je prázdná — nic k synchronizaci'); setTimeout(() => setSyncMsg(null), 3000); return; } setSyncing(true); const r = await syncQueue(); setSyncing(false); setSyncMsg(r.remaining === 0 ? `Synchronizováno ${r.ok} změn` : `OK ${r.ok}, selhalo ${r.failed}`); setTimeout(() => setSyncMsg(null), 4000); }} />
+            
+            {/* Rádio button */}
+            <button
+              type="button"
+              onClick={() => setShowRadioModal(true)}
+              title="Pivovarské Rádio & Hudba na pozadí"
+              className="hidden sm:flex px-2.5 py-1.5 rounded text-xs font-bold transition items-center gap-1.5 border border-amber-300 bg-amber-100/80 hover:bg-amber-200 text-amber-950 shrink-0 active:scale-95 shadow-xs"
+            >
+              <Radio size={15} /> Rádio
+            </button>
+
             {/* Bug report button */}
             <button
               type="button"
@@ -741,6 +763,9 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           onClose={() => setShowSearchModal(false)}
           onSelectPage={setPage}
         />
+
+        <BreweryRadioBar onOpenModal={() => setShowRadioModal(true)} />
+        <BreweryRadioModal open={showRadioModal} onClose={() => setShowRadioModal(false)} />
 
         {showQuickAddOrder && (
           <Suspense fallback={null}>

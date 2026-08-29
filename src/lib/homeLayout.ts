@@ -220,7 +220,7 @@ export const PAGE_CATEGORY: Partial<Record<Page, Category>> = {
   concentration: 'Nástroje', calendar: 'Nástroje', haccp: 'Nástroje', vehicles: 'Nástroje', kniha_jizd: 'Nástroje',
   sanitace_lahve: 'Nástroje', sanitace_kegy: 'Nástroje', sanitace_vycepy: 'Nástroje', sanitace: 'Nástroje',
   checklists: 'Nástroje', sanitation_log: 'Nástroje', reminders: 'Nástroje', notes: 'Nástroje', feedback: 'Nástroje',
-  stopwatch: 'Nástroje', timer: 'Nástroje', keg_timer: 'Nástroje', srotovani: 'Nástroje',
+  stopwatch: 'Nástroje', timer: 'Nástroje', keg_timer: 'Nástroje', srotovani: 'Nástroje', radio: 'Nástroje',
   // Číselníky
   depozitar: 'Číselníky', places: 'Číselníky', beers: 'Číselníky', packages: 'Číselníky', pricelist: 'Číselníky',
   // Nastavení

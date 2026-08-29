@@ -14,9 +14,9 @@ describe('PAGE_TO_MODULE — mapa obrazovka → modul', () => {
       //  • users    — řešeno zvlášť, jen admin
       //  • signout  — odhlášení, ne obrazovka
       //  • home     — úvodní plocha
-      //  • stopwatch/timer/keg_timer — pomůcky (stopky, časovač, stočení sudu),
+      //  • stopwatch/timer/keg_timer/radio — pomůcky (stopky, časovač, stočení sudu, rádio),
       //    nepracují s žádnými daty, takže je nemá smysl zamykat
-      .filter((id) => !['users', 'signout', 'home', 'stopwatch', 'timer', 'keg_timer'].includes(id))
+      .filter((id) => !['users', 'signout', 'home', 'stopwatch', 'timer', 'keg_timer', 'radio'].includes(id))
       .filter((id) => !PAGE_TO_MODULE[id]);
     expect(chybi).toEqual([]);
   });
