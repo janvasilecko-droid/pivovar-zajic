@@ -49,3 +49,20 @@ export function consumeOrdersAutoImportRequest(): boolean {
   pendingAutoImport = false;
   return req;
 }
+
+// 🔀 „Dnešek" na Domů hlásí počet nevyřízených objednávek po termínu, ale
+// kliknutí dřív jen přepnulo na Objednávky s výchozím pohledem (aktuální
+// týden, bez filtru stavu) — člověk tak nikdy neviděl přímo těch pár
+// konkrétních objednávek, které řádek počítal. Stejný modulový vzorec jako
+// requestOrdersItemFilter výše.
+let pendingOverdueFilter = false;
+
+export function requestOrdersOverdueFilter(): void {
+  pendingOverdueFilter = true;
+}
+
+export function consumeOrdersOverdueFilter(): boolean {
+  const req = pendingOverdueFilter;
+  pendingOverdueFilter = false;
+  return req;
+}

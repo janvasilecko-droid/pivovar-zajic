@@ -6,7 +6,8 @@ import { AlertTriangle, ArrowRight, Ban, ChevronLeft, ChevronRight, Beer as Beer
 import { Beer, EntryRow, Package, Place, beerBg, beerName, beerText, fetchAllRows, formatPackageLabel, pkgBg, supabase, useRealtime } from '../lib/supabase';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
-import { consumeOrdersItemFilter, consumeOrdersAutoImportRequest, ORDERS_AUTO_IMPORT_EVENT } from '../lib/ordersFilter';
+import { consumeOrdersItemFilter, consumeOrdersAutoImportRequest, consumeOrdersOverdueFilter, ORDERS_AUTO_IMPORT_EVENT } from '../lib/ordersFilter';
+import { businessDateISO } from '../lib/businessDate';
 import { computeVariantTotals, type VariantTotalsResult } from '../lib/variantTotals';
 import { ImportFromImage } from '../components/ImportFromImage';
 import { WhatsAppOrderReviewModal } from '../components/WhatsAppOrderReviewModal';
@@ -813,6 +814,24 @@ export default function Orders({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 🔀 Řádek „Dnešek" → „X nevyřízených objednávek po termínu" dřív jen
+  // přepnul na Objednávky s výchozím pohledem (aktuální týden, bez filtru
+  // stavu), takže se ty konkrétní objednávky ztratily v celém seznamu.
+  // Otevřeme rovnou filtrováno na přesně to, co ten řádek počítal (stejná
+  // podmínka jako v Dnesek.tsx: status Nová, závoz dnes nebo dřív).
+  useEffect(() => {
+    if (!consumeOrdersOverdueFilter()) return;
+    setOverdueOnly(true);
+    setTimeScope('all');
+    setStatusFilter('nova');
+    setDeliveryDayFilter('all');
+    setSearchText('');
+    setItemFilterBeerId(null);
+    setItemFilterPackageId(null);
+    window.scrollTo({ top: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [timeScope, setTimeScope] = useState<'week' | 'month' | 'all'>('week');
   const [selectedMonth, setSelectedMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
   const [packageKindFilter, setPackageKindFilter] = useState<'all' | 'keg' | 'bottle'>('all');
@@ -1164,6 +1183,7 @@ export default function Orders({
   }
 
   const [zavozOnly, setZavozOnly] = useState(false);
+  const [overdueOnly, setOverdueOnly] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [deliveryDayFilter, setDeliveryDayFilter] = useState<string>('all');
@@ -1193,8 +1213,11 @@ export default function Orders({
 
   const searchedFiltered = useMemo(() => {
     const q = norm(searchText);
+    const dnes = businessDateISO();
     return filtered.filter((o) => {
       if (zavozOnly && o.is_delivered) return false;
+      // Stejná podmínka jako řádek „nevyřízené objednávky po termínu" v Dnesek.tsx.
+      if (overdueOnly && (o.status !== 'nova' || !o.delivery_date || o.delivery_date > dnes)) return false;
       if (statusFilter && o.status !== statusFilter) return false;
       if (deliveryDayFilter !== 'all') {
         if (deliveryDayFilter === '_none' && o.delivery_day) return false;
@@ -1212,7 +1235,7 @@ export default function Orders({
       }
       return true;
     });
-  }, [filtered, zavozOnly, statusFilter, deliveryDayFilter, searchText, items, itemFilterBeerId, itemFilterPackageId, packageKindFilter, packages]);
+  }, [filtered, zavozOnly, overdueOnly, statusFilter, deliveryDayFilter, searchText, items, itemFilterBeerId, itemFilterPackageId, packageKindFilter, packages]);
 
   // 🧮 Záložka „Celkem“ — souhrn objednaného množství podle varianty (pivo + obal)
   // v aktuálně zvoleném rozsahu (týden / měsíc / vše). Storno se nepočítá.
@@ -2076,6 +2099,13 @@ export default function Orders({
           </button>
         </div>
 
+        {overdueOnly && (
+          <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-sm font-semibold">
+            <span><AlertTriangle className="ikona-text" /> Zobrazeny jen nevyřízené objednávky po termínu (závoz dnes nebo dřív)</span>
+            <button className="btn-ghost !rounded !py-1 text-xs font-bold text-amber-900" onClick={() => setOverdueOnly(false)}>Zobrazit vše</button>
+          </div>
+        )}
+
         <div className="card p-2.5 flex flex-wrap items-center gap-2.5 shadow-sm">
           <input
             type="text" placeholder="Hledat odběratele, pivo nebo poznámku"
@@ -2103,8 +2133,8 @@ export default function Orders({
             <input type="checkbox" checked={groupByDay} onChange={(e) => setGroupByDay(e.target.checked)} className="w-4 h-4 rounded text-primary-600" />
             <Calendar className="ikona-text" /> Seskupit dle dne
           </label>
-          {(searchText || statusFilter || deliveryDayFilter !== 'all' || itemFilterBeerId || itemFilterPackageId) && (
-            <button className="btn-ghost !rounded !py-1.5 text-xs font-bold text-amber-900" onClick={() => { setSearchText(''); setStatusFilter(''); setDeliveryDayFilter('all'); setItemFilterBeerId(null); setItemFilterPackageId(null); }}>Zrušit filtr</button>
+          {(searchText || statusFilter || deliveryDayFilter !== 'all' || itemFilterBeerId || itemFilterPackageId || overdueOnly) && (
+            <button className="btn-ghost !rounded !py-1.5 text-xs font-bold text-amber-900" onClick={() => { setSearchText(''); setStatusFilter(''); setDeliveryDayFilter('all'); setItemFilterBeerId(null); setItemFilterPackageId(null); setOverdueOnly(false); }}>Zrušit filtr</button>
           )}
         </div>
 

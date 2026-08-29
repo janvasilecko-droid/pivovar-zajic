@@ -10,7 +10,7 @@ import { ChevronRight, Truck, ClipboardList, MessageCircle, Wine, CheckCircle2, 
 import { fetchAllRows, supabase } from '../lib/supabase';
 import { businessDateISO } from '../lib/businessDate';
 import { fetchPendingWhatsAppCount } from '../lib/whatsappApi';
-import { requestOrdersAutoImport } from '../lib/ordersFilter';
+import { requestOrdersAutoImport, requestOrdersOverdueFilter } from '../lib/ordersFilter';
 import { souhrnUkolu, ukolyZPoznamky } from '../lib/zavozUkoly';
 import { nactiHotoveUkoly, klicUkolu } from '../lib/zavozUkolyDb';
 import type { Page } from './Layout';
@@ -243,6 +243,7 @@ export default function Dnesek({ setPage }: { setPage: (p: Page) => void }) {
                   // s objednávkami ke kontrole — dosud jen přepnulo na
                   // Objednávky a člověk skončil u obyčejného seznamu.
                   if (r.klic === 'whatsapp') requestOrdersAutoImport();
+                  if (r.klic === 'nevyrizene') requestOrdersOverdueFilter();
                   setPage(r.kam);
                 }}
                 className="w-full flex items-center gap-3 p-3 rounded-xl border border-neutral-200/80 bg-white hover:bg-neutral-50 active:scale-[0.99] transition text-left min-h-[60px]"
