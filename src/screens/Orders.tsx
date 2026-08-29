@@ -6,7 +6,7 @@ import { AlertTriangle, ArrowRight, Ban, ChevronLeft, ChevronRight, Beer as Beer
 import { Beer, EntryRow, Package, Place, beerBg, beerName, beerText, fetchAllRows, formatPackageLabel, pkgBg, supabase, useRealtime } from '../lib/supabase';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
-import { consumeOrdersItemFilter, consumeOrdersAutoImportRequest, consumeOrdersOverdueFilter, ORDERS_AUTO_IMPORT_EVENT } from '../lib/ordersFilter';
+import { consumeOrdersItemFilter, consumeOrdersAutoImportRequest, consumeOrdersOverdueFilter, consumeOrdersPendingFilter, ORDERS_AUTO_IMPORT_EVENT } from '../lib/ordersFilter';
 import { businessDateISO } from '../lib/businessDate';
 import { computeVariantTotals, type VariantTotalsResult } from '../lib/variantTotals';
 import { ImportFromImage } from '../components/ImportFromImage';
@@ -48,10 +48,18 @@ type OrderItem = {
   is_prepared: boolean;
 };
 
+// U reálných dat má naprostá většina objednávek stav 'vyrizeno_zavoz' (nastaví
+// ho automaticky Rozvoz objednávek při odbavení) — bez vlastního popisku se
+// zobrazoval syrový název stavu, který svou délkou navíc na užší obrazovce
+// vytlačoval jméno odběratele mimo viditelnou část řádku.
 const STATUS: Record<string, { label: string; cls: string }> = {
   nova: { label: 'Nová', cls: 'bg-primary-50 text-primary-700' },
   pripravena: { label: 'Připravená', cls: 'bg-amber-50 text-amber-700' },
   expedovana: { label: 'Expedovaná', cls: 'bg-emerald-50 text-emerald-700' },
+  vyrizeno_zavoz: { label: 'Zavezeno', cls: 'bg-emerald-50 text-emerald-700' },
+  vyrizeno: { label: 'Vyřízeno', cls: 'bg-emerald-50 text-emerald-700' },
+  vyrizena: { label: 'Vyřízeno', cls: 'bg-emerald-50 text-emerald-700' },
+  hotova: { label: 'Vyřízeno', cls: 'bg-emerald-50 text-emerald-700' },
   storno: { label: 'Storno', cls: 'bg-rose-50 text-rose-700' },
 };
 
@@ -137,6 +145,12 @@ export default function Orders({
   const [placeNameFree, setPlaceNameFree] = useState('');
   const [deliveryDay, setDeliveryDay] = useState('');
   const [deliveryDate, setDeliveryDate] = useState('');
+  // Potvrzení, že závoz spadá do jiného (příštího) měsíce — viz banner u
+  // výběru data níž. Musí se zaškrtnout znovu pokaždé, když se datum závozu
+  // změní, ať nezůstane omylem zaškrtnuté z předchozí objednávky.
+  const [confirmNextMonth, setConfirmNextMonth] = useState(false);
+  const deliveryInFutureMonth = !!deliveryDate && deliveryDate.slice(0, 7) > new Date().toISOString().slice(0, 7);
+  useEffect(() => { setConfirmNextMonth(false); }, [deliveryDate]);
   type BeerRowItem = { beerId: string; pkgId: string; qty: string; placeId?: string; placeNameFree?: string };
   const [beerRows, setBeerRows] = useState<BeerRowItem[]>([
     { beerId: '', pkgId: '', qty: '', placeId: '', placeNameFree: '' },
@@ -832,6 +846,22 @@ export default function Orders({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 🔀 Odznak s počtem na dlaždici „Objednávky" na Domů (nevyřízené tento
+  // týden) — kliknutí na dlaždici dřív jen otevřelo obyčejný seznam bez
+  // filtru stavu. Rozsah (aktuální týden) je stejný jako výchozí pohled,
+  // stačí tedy navíc dofiltrovat na status Nová.
+  useEffect(() => {
+    if (!consumeOrdersPendingFilter()) return;
+    setStatusFilter('nova');
+    setTimeScope('week');
+    setDeliveryDayFilter('all');
+    setSearchText('');
+    setItemFilterBeerId(null);
+    setItemFilterPackageId(null);
+    window.scrollTo({ top: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [timeScope, setTimeScope] = useState<'week' | 'month' | 'all'>('week');
   const [selectedMonth, setSelectedMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
   const [packageKindFilter, setPackageKindFilter] = useState<'all' | 'keg' | 'bottle'>('all');
@@ -938,6 +968,7 @@ export default function Orders({
     }
     const filled = rows.filter((r) => r.beerId && r.pkgId && Number(r.qty) > 0);
     if (!filled.length) { setErr('Vyplň alespoň jednu položku (pivo, obal, množství) nebo napiš objednávku textem výše.'); return; }
+    if (deliveryInFutureMonth && !confirmNextMonth) { setErr('Potvrď zaškrtnutím výše, že závoz spadá do jiného měsíce, nebo uprav datum závozu.'); return; }
     setSaving(true);
 
 
@@ -1645,6 +1676,29 @@ export default function Orders({
                   karta tmavá a popisek na ní byl černý na černém. */}
               <span className="text-[11px] text-neutral-600 font-bold">upřesnění data dodání</span>
             </div>
+
+            {/* Výchozí den závozu je st/čt/pá, ale ke konci měsíce (např.
+                objednávka zadaná v pondělí poslední týden měsíce) může
+                nejbližší středa/čtvrtek už spadat do PŘÍŠTÍHO měsíce —
+                a to na první pohled není vidět. Objednávky se do měsíční
+                uzávěrky počítají podle data závozu (viz zavoz_deductions),
+                takže je potřeba to vidět a POTVRDIT hned při zadávání, ne
+                až u uzávěrky. Zaškrtnutí se vynucuje v addOrder() níž a
+                resetuje se při každé změně data (viz useEffect výš). */}
+            {deliveryInFutureMonth && (
+              <label className="mt-2 flex items-start gap-2 p-2.5 rounded-xl bg-rose-50 border-2 border-rose-300 text-rose-900 text-xs font-bold cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={confirmNextMonth}
+                  onChange={(e) => setConfirmNextMonth(e.target.checked)}
+                  className="w-4 h-4 mt-0.5 rounded text-rose-600 focus:ring-rose-500 accent-rose-600 shrink-0"
+                />
+                <span className="flex items-center gap-1.5">
+                  <AlertTriangle className="ikona-text" />
+                  Potvrzuji, že závoz {new Date(deliveryDate + 'T00:00:00Z').toLocaleDateString('cs-CZ')} spadá do {new Date(deliveryDate + 'T00:00:00Z').toLocaleDateString('cs-CZ', { month: 'long', year: 'numeric' })} — objednávka se bude počítat do skladu/uzávěrky od 1. dne toho měsíce, ne do aktuálního.
+                </span>
+              </label>
+            )}
           </div>
 
           {/* 🍺 Piva — dlaždice (klikni na pivo → obaly a množství) */}
@@ -2641,7 +2695,7 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
         <div className="flex items-center gap-1.5 min-w-0">
           <input type="checkbox" checked={selected} onClick={(e) => e.stopPropagation()} onChange={onToggleSelect}
             className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 accent-amber-500 shrink-0" />
-          <span className="font-display font-black text-sm sm:text-base text-neutral-800 break-words truncate">
+          <span className="font-display font-black text-sm sm:text-base text-neutral-800 break-words truncate min-w-0 flex-1">
             {/* o.place_name je denormalizovaná kopie jména odběratele — u pár
                 objednávek (podle zdroje vzniku) zůstala prázdná i když
                 place_id na skutečného odběratele ukazuje. Dřív se v takovém
@@ -2658,7 +2712,7 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
               <BeerIcon className="ikona-text" /> {tn}
             </span>
           ) : null; })()}
-          <span className={`chip font-black ${STATUS[o.status]?.cls ?? ''}`}>{STATUS[o.status]?.label ?? o.status}</span>
+          <span className={`chip font-black shrink-0 ${STATUS[o.status]?.cls ?? ''}`}>{STATUS[o.status]?.label ?? o.status}</span>
           {o.delivery_date && (
             <span className="chip bg-amber-700 text-white font-black shadow-2xs shrink-0 flex items-center gap-1" title="Datum akce / závozu">
               <Calendar size={11} /> {new Date(o.delivery_date).toLocaleDateString('cs-CZ')}

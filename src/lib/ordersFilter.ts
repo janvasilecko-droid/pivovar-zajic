@@ -66,3 +66,19 @@ export function consumeOrdersOverdueFilter(): boolean {
   pendingOverdueFilter = false;
   return req;
 }
+
+// 🔀 Dlaždice „Objednávky" na Domů má odznak s počtem nevyřízených (status
+// Nová) objednávek tento týden, ale kliknutí na dlaždici dřív jen otevřelo
+// obyčejný seznam bez filtru stavu — ty nevyřízené se ztratily mezi
+// vyřízenými/zrušenými. Stejný modulový vzorec jako výše.
+let pendingPendingFilter = false;
+
+export function requestOrdersPendingFilter(): void {
+  pendingPendingFilter = true;
+}
+
+export function consumeOrdersPendingFilter(): boolean {
+  const req = pendingPendingFilter;
+  pendingPendingFilter = false;
+  return req;
+}

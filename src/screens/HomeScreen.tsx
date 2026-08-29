@@ -32,6 +32,7 @@ import { getKegTimerState, formatDurationMs } from '../lib/stopwatchTimers';
 import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
 import { isMonthlyCleanupPending, MONTHLY_CLEANUP_CHANGED_EVENT } from '../lib/monthlyCleanup';
 import { potvrd } from '../lib/toast';
+import { requestOrdersPendingFilter } from '../lib/ordersFilter';
 import './HomeScreen.css';
 
 /** true = jméno přednastaveného odstínu (CSS třída c-*); false = vlastní hex barva (inline styl). */
@@ -383,6 +384,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
       if ((await potvrd('Odhlásit se z appky?'))) signOut();
       return;
     }
+    // Odznak na dlaždici počítá nevyřízené (status Nová) objednávky tento
+    // týden — ať se po kliknutí rovnou zobrazí ty, ne obyčejný seznam všeho.
+    if (id === 'orders' && pendingOrders) requestOrdersPendingFilter();
     setPage(id);
   }
 
