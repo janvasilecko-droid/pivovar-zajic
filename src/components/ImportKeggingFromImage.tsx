@@ -4,6 +4,7 @@ import { PhotoReviewPane } from './PhotoReviewPane';
 import { ImageEditor } from './ImageEditor';
 import type { Beer, Package } from '../lib/supabase';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
+import { typObrazku } from '../lib/obrazek';
 import { AlertCircle, AlertTriangle, Beer as BeerIcon, Camera, Check, Plus, RotateCcw, Sparkles, Trash2, Upload } from 'lucide-react';
 import { IkonaSud } from '../components/ikony';
 
@@ -79,7 +80,7 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
       return;
     }
     const base64 = currentPhoto.dataUrl.split(',')[1] ?? '';
-    runOcrFromBase64(base64, 'image/jpeg', activeIndex);
+    runOcrFromBase64(base64, typObrazku(currentPhoto.dataUrl), activeIndex);
   }, [photos, activeIndex]);
 
   const loadMultipleFiles = (files: File[]) => {
@@ -216,7 +217,7 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
     setEditingImage(null);
     setPhotos([{ dataUrl: editedDataUrl, name: 'foto' }]);
     const base64 = editedDataUrl.split(',')[1] ?? '';
-    runOcrFromBase64(base64, 'image/jpeg');
+    runOcrFromBase64(base64, typObrazku(editedDataUrl));
   };
 
   if (!isOpen) return null;
@@ -271,12 +272,45 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
             </div>
           )}
 
-          {entryRows !== null && (
+          {/* Náhled fotky se ukazuje hned po načtení, ne až po úspěšném čtení —
+              jinak při nezdařeném čtení zmizí i fotka a vypadá to, jako by se
+              nestalo nic (viz stejná oprava v ImportBottlingFromImage). */}
+          {photos.length > 0 && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
               <div className="border border-neutral-200 rounded overflow-hidden bg-neutral-50 min-h-[350px] flex flex-col">
                 <PhotoReviewPane photos={photos} activeIndex={Math.min(activeIndex, Math.max(0, photos.length - 1))} onChangeIndex={setActiveIndex} />
               </div>
 
+              {entryRows === null ? (
+                <div className="flex flex-col items-center justify-center gap-3 text-center border border-dashed border-neutral-300 rounded p-6 min-h-[350px]">
+                  {busy ? (
+                    <div className="text-sm font-bold text-neutral-700">Čtu fotku…</div>
+                  ) : (
+                    <>
+                      <AlertCircle size={22} className="text-rose-600" />
+                      <div className="text-sm font-bold text-neutral-700">
+                        {err ? 'Z fotky se nepodařilo nic přečíst.' : 'Fotka zatím není přečtená.'}
+                      </div>
+                      <div className="flex flex-wrap items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          className="btn-secondary !rounded text-xs"
+                          onClick={() => {
+                            const foto = photos[activeIndex];
+                            if (!foto) return;
+                            runOcrFromBase64(foto.dataUrl.split(',')[1] ?? '', typObrazku(foto.dataUrl), activeIndex);
+                          }}
+                        >
+                          <RotateCcw className="ikona-text" /> Zkusit přečíst znovu
+                        </button>
+                        <button type="button" className="btn-primary !rounded text-xs" onClick={() => { setErr(null); setEntryRows([]); addLine(); }}>
+                          <Plus className="ikona-text" /> Zapsat ručně podle fotky
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : (
               <div className="flex flex-col space-y-3 max-h-[500px] overflow-y-auto scrollbar-thin pr-1">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-black text-neutral-900 flex items-center gap-1.5"><Sparkles size={14} className="text-primary-600" /> Rozpoznané řádky stáčení KEG</h3>
@@ -333,6 +367,7 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
           </button>
                 </div>
               </div>
+              )}
             </div>
           )}
         </div>

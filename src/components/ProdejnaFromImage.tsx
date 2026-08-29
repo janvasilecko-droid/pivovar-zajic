@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Modal } from './ui';
 import type { Beer, Package } from '../lib/supabase';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
+import { typObrazku } from '../lib/obrazek';
 import { AlertCircle, Camera, Check, ChevronLeft, ChevronRight, Folder, Hourglass, Sparkles, Upload } from 'lucide-react';
 
 type PhotoEntry = { dataUrl: string; name: string };
@@ -61,7 +62,7 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onTextExtr
     const currentPhoto = photos[activeIndex];
     if (!currentPhoto) return;
     const base64 = currentPhoto.dataUrl.split(',')[1] ?? '';
-    runOcrFromBase64(base64, 'image/jpeg', activeIndex);
+    runOcrFromBase64(base64, typObrazku(currentPhoto.dataUrl), activeIndex);
   }, [photos, activeIndex]);
 
   const loadMultipleFiles = (files: File[]) => {

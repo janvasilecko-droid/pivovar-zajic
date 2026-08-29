@@ -4,6 +4,7 @@ import { PhotoReviewPane } from './PhotoReviewPane';
 import { ImageEditor } from './ImageEditor';
 import type { Beer, Package } from '../lib/supabase';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
+import { typObrazku } from '../lib/obrazek';
 import { AlertCircle, Camera, Check, ChevronLeft, ChevronRight, FilePlus, Folder, Lightbulb, Plus, RotateCcw, Sparkles, Trash2, Upload } from 'lucide-react';
 
 type RowInput = { beerId: string; pkgId: string; pkg2Id: string; pkg3Id: string; kegPkgId: string; kegQty: string; qty: string; qty2: string; qty3: string; _removed?: boolean; _manual?: boolean };
@@ -82,7 +83,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
       return;
     }
     const base64 = currentPhoto.dataUrl.split(',')[1] ?? '';
-    runOcrFromBase64(base64, 'image/jpeg', activeIndex);
+    runOcrFromBase64(base64, typObrazku(currentPhoto.dataUrl), activeIndex);
   }, [photos, activeIndex]);
 
   const loadMultipleFiles = (files: File[]) => {
@@ -256,7 +257,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
     setEditingImage(null);
     setPhotos([{ dataUrl: editedDataUrl, name: 'foto' }]);
     const base64 = editedDataUrl.split(',')[1] ?? '';
-    runOcrFromBase64(base64, 'image/jpeg');
+    runOcrFromBase64(base64, typObrazku(editedDataUrl));
   };
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -409,8 +410,12 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
             </div>
           )}
 
-          {/* Side-by-side view */}
-          {entryRows !== null && (
+          {/* Side-by-side view.
+              Náhled fotky se ukazuje HNED po načtení, ne až když se čtení
+              povede. Dřív viselo celé zobrazení na `entryRows !== null`,
+              takže při nezdařeném čtení zmizela i fotka a obrazovka
+              vypadala, jako by se nestalo vůbec nic. */}
+          {photos.length > 0 && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
               {/* Left Column: Photo Review Pane */}
               <div className="border border-neutral-200 rounded overflow-hidden bg-neutral-50 min-h-[350px] flex flex-col">
@@ -421,7 +426,42 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                 />
               </div>
 
-              {/* Right Column: Interactive Editor Table */}
+              {entryRows === null ? (
+                /* Fotka je načtená, řádky ještě ne — čte se, nebo čtení selhalo. */
+                <div className="flex flex-col items-center justify-center gap-3 text-center border border-dashed border-neutral-300 rounded p-6 min-h-[350px]">
+                  {busy ? (
+                    <>
+                      <Spinner />
+                      <div className="text-sm font-bold text-neutral-700">Čtu fotku…</div>
+                      <div className="text-xs text-neutral-500">Ruční zápis chvíli trvá, počkej pár vteřin.</div>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle size={22} className="text-rose-600" />
+                      <div className="text-sm font-bold text-neutral-700">
+                        {err ? 'Z fotky se nepodařilo nic přečíst.' : 'Fotka zatím není přečtená.'}
+                      </div>
+                      <div className="flex flex-wrap items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          className="btn-secondary !rounded text-xs"
+                          onClick={() => {
+                            const foto = photos[activeIndex];
+                            if (!foto) return;
+                            runOcrFromBase64(foto.dataUrl.split(',')[1] ?? '', typObrazku(foto.dataUrl), activeIndex);
+                          }}
+                        >
+                          <RotateCcw className="ikona-text" /> Zkusit přečíst znovu
+                        </button>
+                        <button type="button" className="btn-primary !rounded text-xs" onClick={() => { setErr(null); setEntryRows([]); addLine(); }}>
+                          <Plus className="ikona-text" /> Zapsat ručně podle fotky
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : (
+              /* Right Column: Interactive Editor Table */
               <div className="flex flex-col space-y-3 max-h-[500px] overflow-y-auto scrollbar-thin pr-1">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-black text-neutral-900">Rozpoznané řádky stočení</h3>
@@ -597,6 +637,7 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
           </button>
                 </div>
               </div>
+              )}
             </div>
           )}
         </div>
