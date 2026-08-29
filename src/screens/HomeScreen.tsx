@@ -605,7 +605,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
             <>
             <button
               type="button"
-              className="hs-pager-arrow"
+              className="hs-pager-arrow vlastni-vyska"
               disabled={currentPageIndex === 0}
               onClick={() => setCurrentPageIndex((i) => Math.max(0, i - 1))}
             >
@@ -616,7 +616,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                 <button
                   key={i}
                   type="button"
-                  className={`hs-pager-dot ${i === currentPageIndex ? 'active' : ''}`}
+                  className={`hs-pager-dot vlastni-vyska ${i === currentPageIndex ? 'active' : ''}`}
                   onClick={() => setCurrentPageIndex(i)}
                   title={`Stránka ${i + 1}`}
                 />
@@ -624,7 +624,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
             </div>
             <button
               type="button"
-              className="hs-pager-arrow"
+              className="hs-pager-arrow vlastni-vyska"
               disabled={currentPageIndex === layout.pages.length - 1}
               onClick={() => setCurrentPageIndex((i) => Math.min(layout.pages.length - 1, i + 1))}
             >
@@ -635,7 +635,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
             {/* Ovládání launcheru — malé ikony místo velkých dlaždic. */}
             <button
               type="button"
-              className="hs-pager-manage"
+              className="hs-pager-manage vlastni-vyska"
               title="Hledat"
               aria-label="Hledat"
               onClick={() => setShowSearchModal(true)}
@@ -644,7 +644,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
             </button>
             <button
               type="button"
-              className={`hs-pager-manage ${editMode ? 'hs-pager-manage-on' : ''}`}
+              className={`hs-pager-manage vlastni-vyska ${editMode ? 'hs-pager-manage-on' : ''}`}
               title={editMode ? 'Hotovo' : 'Upravit rozložení'}
               aria-label={editMode ? 'Hotovo' : 'Upravit rozložení'}
               onClick={() => { setEditMode((v) => !v); setSelectedTileId(null); }}
@@ -653,7 +653,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
             </button>
             <button
               type="button"
-              className="hs-pager-manage"
+              className="hs-pager-manage vlastni-vyska"
               title="Odhlásit se"
               aria-label="Odhlásit se"
               onClick={async () => { if (await potvrd('Odhlásit se z aplikace?', { potvrdit: 'Odhlásit' })) signOut(); }}
@@ -662,16 +662,16 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
             </button>
             {editMode && (
               <>
-                <button type="button" className="hs-pager-manage hs-pager-manage-labeled" onClick={handleAddPage}>
+                <button type="button" className="hs-pager-manage hs-pager-manage-labeled vlastni-vyska" onClick={handleAddPage}>
                   <Plus size={15} /> Přidat stránku
                 </button>
                 {layout.pages.length > 1 && (
-                  <button type="button" className="hs-pager-manage" title="Smazat tuhle stránku" onClick={handleRemoveCurrentPage}>
+                  <button type="button" className="hs-pager-manage vlastni-vyska" title="Smazat tuhle stránku" onClick={handleRemoveCurrentPage}>
                     <Trash2 size={15} />
                   </button>
                 )}
                 {addableItems.length > 0 && (
-                  <button type="button" className="hs-pager-manage hs-pager-manage-labeled" onClick={() => setShowAddTileModal(true)}>
+                  <button type="button" className="hs-pager-manage hs-pager-manage-labeled vlastni-vyska" onClick={() => setShowAddTileModal(true)}>
                     <Plus size={15} /> Přidat dlaždici
                   </button>
                 )}

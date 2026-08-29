@@ -284,10 +284,16 @@ html, body, #root {
 
    Tlačítka, která výšku VÝSLOVNĚ mají (h-6, min-h-[44px]…), se nechávají
    být — to je vědomé rozhodnutí autora, ne opomenutí. Malá tlačítka
-   v tabulkách jsou navíc na telefonu schovaná, tam se ukazují karty. */
+   v tabulkách jsou navíc na telefonu schovaná, tam se ukazují karty.
+
+   Výšku „výslovně mít" ale umí jen tlačítka stylovaná Tailwindem — pravidlo
+   se dívá na názvy tříd. Prvek, který si velikost určuje ve vlastním CSS
+   (kolečka a tečky přepínání stránek na Domů, HomeScreen.css), o tom takhle
+   říct nemůže a natahoval se do svislé pilulky. Od toho je třída
+   `vlastni-vyska`: „velikost je tady schválně, nesahej na ni". */
 @media (pointer: coarse) {
-  button:not([class*="h-"]):not([class*="min-h-"]),
-  [role="button"]:not([class*="h-"]):not([class*="min-h-"]) {
+  button:not([class*="h-"]):not([class*="min-h-"]):not(.vlastni-vyska),
+  [role="button"]:not([class*="h-"]):not([class*="min-h-"]):not(.vlastni-vyska) {
     min-height: 44px;
   }
 }
