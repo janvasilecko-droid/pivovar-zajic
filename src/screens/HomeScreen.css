@@ -255,6 +255,29 @@
   font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 999px; font-variant-numeric: tabular-nums;
 }
 
+/* Popisky delších dlaždic ("Vozidla — STK/známka", "Odběratelé, Piva, Obaly,
+   Ceník", "Kalendář & Upozornění", "Rozvoz objednávek"…) na telefonu
+   přetékaly ven z dlaždice — text se nezalamoval (dlouhá slova jako
+   "STK/známka" se bez overflow-wrap nezalomí vůbec) a byl useknutý spodním
+   okrajem, nebo šel mimo dlaždici do sousední řady.
+   Řešení je trojí: menší písmo, zalomení kdekoli, a menší ikona + vycpávka,
+   ať zbyde víc místa na text (na 74px vysoké dlaždici to jinak nešlo srovnat
+   jen úpravou písma). Strop na 3 řádky navíc ořízne opravdu dlouhý text
+   výpustkou, ať i tak nepřeteče přes okraj dlaždice do sousední řady. */
+@media (max-width: 640px) {
+  .hs-tile { padding: 7px 8px; }
+  .hs-tile svg { width: 19px; height: 19px; }
+  .hs-tile .hs-lbl {
+    font-size: 11px;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
 /* Přepínání stránek launcheru (jako Android home screen) */
 .hs-pager { position: relative; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; margin-bottom: 12px; }
 .hs-pager-arrow {
@@ -283,7 +306,10 @@
    tileGridStyle), protože jde o libovolnou škálu, ne pár pevných tříd. */
 .hs-tile.xs { align-self: start; height: 58px; padding: 6px; border-radius: 6px; }
 .hs-tile.xs svg { width: 16px; height: 16px; }
-.hs-tile.xs .hs-lbl { font-size: 8.5px; line-height: 1.1; }
+.hs-tile.xs .hs-lbl {
+  font-size: 8.5px; line-height: 1.1; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
 .hs-tile.xs .hs-badge { display: none; }
 
 .hs-tile.c-coral   { background: rgba(255,107,107,var(--hs-tile-alpha, 0.62)); }
