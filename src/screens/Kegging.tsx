@@ -3,6 +3,7 @@ import { supabase, Beer, Package, EntryRow, CellarTank, KegPrefuk, useRealtime, 
 import { useAuth } from '../lib/auth';
 import { KeggingChecklistModal, KeggingChecklistBody, isStartChecklistCompleteForKeg, isMonthlyChecklistCompleteForKeg } from '../components/KeggingChecklistModal';
 import { autoLogKegSanitationFromChecklist, isLastWeekOfMonth } from '../lib/kegSanitation';
+import { getMonthKey, writeMonthlyCleanupStage } from '../lib/monthlyCleanup';
 import { businessDateISO } from '../lib/businessDate';
 import { EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
@@ -2073,6 +2074,11 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               performedBy: profile?.display_name || '',
               phase: checklistPhase,
             });
+            // Viz stejné místo v BottlingScreen: hotová měsíční údržba umlčí
+            // upozornění na měsíční úklid i dlaždici na Domů do dalšího měsíce.
+            if (isMonthlyChecklistCompleteForKeg(businessDateISO())) {
+              writeMonthlyCleanupStage(getMonthKey(), 'done');
+            }
           }
         }}
         dateStr={businessDateISO()}

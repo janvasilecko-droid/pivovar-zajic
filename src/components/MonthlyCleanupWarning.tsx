@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, CalendarClock, CalendarX2, ClipboardList, PartyPopper } from 'lucide-react';
+import { AlertTriangle, CalendarClock, CalendarX2, Check, ClipboardList, PartyPopper, Play } from 'lucide-react';
 import {
   isLastWeekOfMonth, getMonthKey,
   readMonthlyCleanupStage, writeMonthlyCleanupStage,
@@ -41,6 +41,39 @@ function shouldShow(monthKey: string): boolean {
   return false;
 }
 
+// Měsíční položky obou linek. Sedí na stejné položky, jaké ukazuje checklist
+// ve stáčení lahví a v KEGu — jen sesbírané na jedno místo, ať se úklid dá
+// odškrtat rovnou z upozornění (tlačítko „Začít"), bez proklikávání se na
+// jinou obrazovku.
+const MESICNI_LAHVE = DEFAULT_ITEMS.filter((it) => it.category.startsWith(MONTHLY_CATEGORY_PREFIX));
+const MESICNI_KEG = KEG_DEFAULT_ITEMS.filter((it) => it.category.startsWith(KEG_MONTHLY_CATEGORY_PREFIX));
+
+/** Odškrtnuté položky z obou uložených checklistů daného dne. */
+function nactiOdskrtnuta(dateStr: string): Record<string, boolean> {
+  const spoj = (klic: string) => {
+    try {
+      const raw = localStorage.getItem(klic + dateStr);
+      return raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
+    } catch {
+      return {};
+    }
+  };
+  // Id se nekříží (month_* vs. keg_month_*), takže je lze držet v jedné mapě.
+  return { ...spoj('bottling_checklist_'), ...spoj('keg_checklist_') };
+}
+
+/** Zapíše jednu odškrtnutou položku do checklistu daného dne. */
+function ulozOdskrtnuti(klicPrefix: string, dateStr: string, id: string, hodnota: boolean) {
+  try {
+    const klic = klicPrefix + dateStr;
+    const raw = localStorage.getItem(klic);
+    const mapa = raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
+    if (hodnota) mapa[id] = true;
+    else delete mapa[id];
+    localStorage.setItem(klic, JSON.stringify(mapa));
+  } catch {}
+}
+
 // Sloučí do uloženého checklistu daného dne VŠECHNY položky kategorie
 // „4. Měsíční údržba" jako odškrtnuté (ostatní kategorie/dny nechá být) a
 // vrátí kompletní seznam odškrtnutých položek pro autolog do deníku —
@@ -74,10 +107,44 @@ function markMonthlyDone<T extends { id: string; text: string; category: string 
 export function MonthlyCleanupWarning({ onOpenMonthlyChecklist, onOpenKegMonthlyChecklist }: Props) {
   const { profile } = useAuth();
   const monthKey = getMonthKey();
+  const dnes = businessDateISO();
   const [open, setOpen] = useState(() => shouldShow(monthKey));
   const [done, setDone] = useState(false);
+  // Checklist rozbalený rovnou v upozornění (tlačítko „Začít").
+  const [checklist, setChecklist] = useState(false);
+  const [odskrtnuto, setOdskrtnuto] = useState<Record<string, boolean>>(() => nactiOdskrtnuta(dnes));
 
   if (!open) return null;
+
+  const vsechnyPolozky = [...MESICNI_LAHVE, ...MESICNI_KEG];
+  const hotovoKusu = vsechnyPolozky.filter((it) => odskrtnuto[it.id]).length;
+  const vseHotovo = hotovoKusu === vsechnyPolozky.length;
+
+  const prepni = (id: string, keg: boolean) => {
+    setOdskrtnuto((prev) => {
+      const dalsi = { ...prev, [id]: !prev[id] };
+      ulozOdskrtnuti(keg ? 'keg_checklist_' : 'bottling_checklist_', dnes, id, dalsi[id]);
+      return dalsi;
+    });
+  };
+
+  // Dokončení odškrtaného checklistu — zapíše do obou sanitárních deníků jen
+  // to, co je opravdu odškrtnuté, a umlčí upozornění do dalšího měsíce.
+  const dokoncitChecklist = () => {
+    const performedBy = profile?.display_name || '';
+    const lahve = MESICNI_LAHVE.filter((it) => odskrtnuto[it.id]).map((it) => ({ id: it.id, text: it.text }));
+    const kegMapa: Record<string, boolean> = {};
+    MESICNI_KEG.forEach((it) => { if (odskrtnuto[it.id]) kegMapa[it.id] = true; });
+    if (lahve.length > 0) {
+      void autoLogBottleSanitationFromChecklist({ dateStr: dnes, checkedItems: lahve, performedBy });
+    }
+    if (Object.keys(kegMapa).length > 0) {
+      void autoLogKegSanitationFromChecklist({ dateStr: dnes, checkedMap: kegMapa, performedBy, phase: 'monthly' });
+    }
+    writeMonthlyCleanupStage(monthKey, 'done');
+    setDone(true);
+    setTimeout(() => setOpen(false), 1600);
+  };
 
   const dismiss = () => {
     writeMonthlyCleanupStage(monthKey, isFridayOrLater() ? 'friday' : 'week_start');
@@ -113,6 +180,72 @@ export function MonthlyCleanupWarning({ onOpenMonthlyChecklist, onOpenKegMonthly
             <h2 className="text-xl font-display font-black text-neutral-950">Zapsáno do sanitárních deníků</h2>
             <p className="text-sm text-neutral-600">Měsíční údržba je označená jako hotová pro lahve i KEGy.</p>
           </div>
+        ) : checklist ? (
+          /* Checklist rovnou tady — „Začít" nikam neodnaviguje. Odškrtává se
+             do stejných uložených checklistů, jaké má stáčení lahví a KEG,
+             takže odškrtnuté položky tam pak sedí a nedělá se práce dvakrát. */
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-3 pt-2">
+              <h2 className="text-lg sm:text-xl font-display font-black text-neutral-950 leading-tight">
+                Měsíční údržba — odškrtej, co je hotové
+              </h2>
+              <span className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-black ${vseHotovo ? 'bg-emerald-700 text-white' : 'bg-neutral-200 text-neutral-600'}`}>
+                {hotovoKusu}/{vsechnyPolozky.length}
+              </span>
+            </div>
+
+            <div className="max-h-[55vh] overflow-y-auto scrollbar-thin space-y-4 pr-1">
+              {([
+                ['Stáčení lahví', MESICNI_LAHVE, false],
+                ['Stáčení KEGů', MESICNI_KEG, true],
+              ] as const).map(([nadpis, polozky, jeKeg]) => (
+                <div key={nadpis} className="space-y-2">
+                  <div className="text-xs font-black uppercase tracking-widest text-neutral-500">{nadpis}</div>
+                  {polozky.map((it) => {
+                    const zaskrtnuto = !!odskrtnuto[it.id];
+                    return (
+                      <button
+                        key={it.id}
+                        type="button"
+                        onClick={() => prepni(it.id, jeKeg)}
+                        className={`w-full text-left p-3 rounded border-2 flex items-start gap-3 transition ${
+                          zaskrtnuto ? 'bg-emerald-50 border-emerald-300' : 'bg-white border-neutral-200 hover:border-neutral-300'
+                        }`}
+                      >
+                        <span className={`w-6 h-6 shrink-0 rounded grid place-items-center border-2 ${
+                          zaskrtnuto ? 'bg-emerald-700 border-emerald-700 text-white' : 'border-neutral-300 text-transparent'
+                        }`}>
+                          <Check size={16} />
+                        </span>
+                        <span className={`text-xs leading-relaxed ${zaskrtnuto ? 'text-emerald-900 font-bold' : 'text-neutral-800'}`}>
+                          {it.text}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-2 space-y-2 border-t border-neutral-200">
+              <button
+                type="button"
+                onClick={dokoncitChecklist}
+                disabled={!vseHotovo}
+                className="w-full py-3.5 px-6 rounded bg-emerald-700 hover:bg-emerald-800 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-base transition flex items-center justify-center gap-3"
+              >
+                <PartyPopper size={20} />
+                <span>{vseHotovo ? 'Hotovo — zapsat do deníků' : `Zbývá ${vsechnyPolozky.length - hotovoKusu} položek`}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setChecklist(false)}
+                className="w-full py-2.5 px-6 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-bold text-sm transition"
+              >
+                Zpátky (odškrtnuté se uloží)
+              </button>
+            </div>
+          </div>
         ) : (
         <>
         <div className="flex items-start gap-4 pt-2">
@@ -145,10 +278,18 @@ export function MonthlyCleanupWarning({ onOpenMonthlyChecklist, onOpenKegMonthly
         <div className="pt-2 space-y-2">
           <button
             type="button"
-            onClick={dismiss}
-            className="w-full py-3.5 px-6 rounded bg-rose-600 hover:bg-rose-700 text-white font-black text-base transition shadow-xl hover:shadow-rose-500/20 active:scale-[0.98] flex items-center justify-center gap-3 ring-4 ring-rose-300"
+            onClick={() => setChecklist(true)}
+            className="w-full py-3.5 px-6 rounded bg-emerald-700 hover:bg-emerald-800 text-white font-black text-base transition shadow-xl active:scale-[0.98] flex items-center justify-center gap-3 ring-4 ring-emerald-300"
           >
-            <CalendarClock size={22} />
+            <Play size={20} />
+            <span>Začít{hotovoKusu > 0 ? ` (${hotovoKusu}/${vsechnyPolozky.length} hotovo)` : ''}</span>
+          </button>
+          <button
+            type="button"
+            onClick={dismiss}
+            className="w-full py-3 px-6 rounded bg-rose-600 hover:bg-rose-700 text-white font-black text-sm transition active:scale-[0.98] flex items-center justify-center gap-3"
+          >
+            <CalendarClock size={20} />
             <span>Udělám na konci týdne</span>
           </button>
           <button

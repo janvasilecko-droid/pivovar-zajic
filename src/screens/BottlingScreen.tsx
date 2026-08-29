@@ -9,7 +9,7 @@ import { useAuth } from '../lib/auth';
 import { BottlingPlan, getPlanSeenAt, markPlanSeenAt, isPlanUnseen, isBottlingManager, setPlanStatus } from '../lib/bottlingPlans';
 import { BottlingPlanPlanner } from '../components/BottlingPlanPlanner';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
-import { isLastWeekOfMonth } from '../lib/monthlyCleanup';
+import { isLastWeekOfMonth, getMonthKey, writeMonthlyCleanupStage } from '../lib/monthlyCleanup';
 import { businessDateISO } from '../lib/businessDate';
 import { autoLogBottleSanitationFromChecklist } from '../lib/bottleSanitation';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
@@ -1914,6 +1914,14 @@ export default function BottlingScreen({
                 checkedItems,
                 performedBy: profile?.display_name || '',
               });
+            }
+            // Měsíční údržba odškrtaná tady umlčí i upozornění „V tomto týdnu
+            // je potřeba udělat měsíční úklid" a připomínkovou dlaždici na
+            // Domů. Dřív se stav 'done' zapisoval JEN z tlačítka v tom
+            // upozornění, takže kdo úklid poctivě prošel ve stáčení, dostával
+            // připomínku pořád dokola.
+            if (isMonthlyChecklistCompleteForDate(businessDateISO())) {
+              writeMonthlyCleanupStage(getMonthKey(), 'done');
             }
           }
         }}
