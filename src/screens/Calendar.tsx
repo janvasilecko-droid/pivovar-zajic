@@ -405,7 +405,7 @@ export default function CalendarScreen() {
                     type="button"
                     onClick={() => setForm({ ...form, reminder: !form.reminder })}
                     className={`min-h-[44px] px-3 rounded-xl text-xs font-black border inline-flex items-center gap-1.5 transition ${
-                      form.reminder ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white border-neutral-200 text-neutral-600'
+                      form.reminder ? 'bg-amber-500 border-amber-500 text-neutral-950' : 'bg-white border-neutral-200 text-neutral-600'
                     }`}
                   >
                     <Bell className="w-4 h-4" /> Upomínka

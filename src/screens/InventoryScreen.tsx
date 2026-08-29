@@ -925,14 +925,14 @@ function exportInventoryExcel() {
           </button>
           <button
             onClick={exportInventoryExcel}
-            className="px-3.5 py-2.5 rounded bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs transition shadow-xs flex items-center gap-1.5"
+            className="px-3.5 py-2.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs transition shadow-xs flex items-center gap-1.5"
           >
             <Download size={16} /> Export Excel
           </button>
 
           <button
             onClick={handleLockAndTransferNextMonth}
-            className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-600 text-neutral-950 font-black text-xs transition shadow-md flex items-center gap-1.5"
+            className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md flex items-center gap-1.5"
           >
             <Lock size={16} /> Schválit & Převést do nového měsíce
           </button>
@@ -1240,9 +1240,9 @@ function exportInventoryExcel() {
                       <th className="py-2.5 px-2 text-right text-amber-700">Stočeno (+)</th>
                       <th className="py-2.5 px-2 text-right text-rose-700">Odpis (−)</th>
                       <th className="py-2.5 px-2 text-right text-amber-800">Výdej (−)</th>
-                      <th className="py-2.5 px-3 text-right bg-emerald-600 !text-white font-black rounded-t-lg">ZBYDE (Oček.)</th>
+                      <th className="py-2.5 px-3 text-right bg-emerald-700 !text-white font-black rounded-t-lg">ZBYDE (Oček.)</th>
                       <th className="py-2.5 px-3 text-right bg-amber-500 text-neutral-950 font-black rounded-t-lg">INVENTURA</th>
-                      <th className="py-2.5 px-3 text-right bg-sky-600 !text-white font-black rounded-t-lg" title="Dorovnání (±) — přičti nebo uber k očekávanému stavu, aby seděl s fyzickou realitou. Ukládá se BOKEM a NEpočítá se do stáčení ani odpočtů.">DOROVNAT (±)</th>
+                      <th className="py-2.5 px-3 text-right bg-sky-700 !text-white font-black rounded-t-lg" title="Dorovnání (±) — přičti nebo uber k očekávanému stavu, aby seděl s fyzickou realitou. Ukládá se BOKEM a NEpočítá se do stáčení ani odpočtů.">DOROVNAT (±)</th>
                       <th className="py-2.5 px-2 text-right font-black">MANKO</th>
                       <th className="py-2.5 px-2 text-right font-black" title="Manko po započtení dorovnání (INVENTURA − Dorovnaný stav)">PO DOROVNÁNÍ</th>
                       <th className="py-2.5 px-3 text-right font-black">ROZDÍL (Kč)</th>
@@ -1348,10 +1348,10 @@ function exportInventoryExcel() {
                       <td className="text-right px-2 py-2.5 text-amber-950">-{totals.vydej}</td>
                       <td className={`text-right px-3 py-2.5 font-mono text-sm border-x ${
                         totals.expected < 0
-                          ? 'bg-rose-950/90 text-rose-900 border-rose-700 font-black'
-                          : 'bg-emerald-950/80 text-emerald-900 border-emerald-700 font-black'
+                          ? 'bg-rose-950/90 text-rose-300 border-rose-700 font-black'
+                          : 'bg-emerald-950/80 text-emerald-300 border-emerald-700 font-black'
                       }`}>{totals.expected} ks</td>
-                      <td className="text-right px-3 py-2.5 text-amber-950 font-mono text-sm bg-amber-950/80 border-x border-amber-700">{totals.actual} ks</td>
+                      <td className="text-right px-3 py-2.5 text-amber-300 font-mono text-sm bg-amber-950/80 border-x border-amber-700">{totals.actual} ks</td>
                       <td className={`text-right px-3 py-2.5 font-mono text-sm bg-sky-950/80 border-x border-sky-700 ${totals.dorovnat === 0 ? 'text-sky-300' : totals.dorovnat < 0 ? 'text-rose-300' : 'text-sky-200'}`}>
                         {totals.dorovnat > 0 ? `+${totals.dorovnat}` : totals.dorovnat} ks
                       </td>

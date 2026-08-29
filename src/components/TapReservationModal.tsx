@@ -227,7 +227,7 @@ export function TapReservationModal({ orderDate, customerName, orderId, tapTypeH
         </div>
 
         {err && (
-          <div className="text-sm text-rose-600 bg-rose-500/10 rounded px-3 py-2 font-bold">{err}</div>
+          <div className="text-sm text-rose-700 bg-rose-500/10 rounded px-3 py-2 font-bold">{err}</div>
         )}
 
         <div className="flex justify-end gap-2 pt-2 border-t border-neutral-100">

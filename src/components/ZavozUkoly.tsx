@@ -85,7 +85,7 @@ export function UkolyObjednavky({ poznamka, orderId, hotove, onPrepni }: UkolyPr
           >
             <span
               className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${
-                splneno ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white/70 border-current'
+                splneno ? 'bg-emerald-700 border-emerald-600 text-white' : 'bg-white/70 border-current'
               }`}
             >
               {splneno ? <Check size={12} strokeWidth={4} /> : <Ikona size={12} />}

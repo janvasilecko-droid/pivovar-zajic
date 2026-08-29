@@ -164,7 +164,7 @@ export default function Notes() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => saveEdit(n.id)}
-                        className="px-3 py-1.5 rounded bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs flex items-center gap-1 transition"
+                        className="px-3 py-1.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs flex items-center gap-1 transition"
                       >
                         <Check size={14} /> Uložit
                       </button>

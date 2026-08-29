@@ -23,7 +23,7 @@ type Props = {
 const STATUS_CHIP: Record<string, string> = {
   planned: 'bg-amber-100 text-amber-900 border-amber-300',
   done: 'bg-emerald-100 text-emerald-900 border-emerald-300',
-  cancelled: 'bg-neutral-100 text-neutral-500 border-neutral-300',
+  cancelled: 'bg-neutral-100 text-neutral-600 border-neutral-300',
 };
 
 const STATUS_TEXT: Record<string, string> = {
@@ -85,9 +85,9 @@ function PlanItem({
         </div>
         <div className="flex items-center gap-1.5 flex-wrap shrink-0">
           {isToday && <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-amber-500 text-neutral-950">DNES</span>}
-          {isLate && <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-rose-500 text-white">POZDĚ</span>}
+          {isLate && <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-rose-600 text-white">POZDĚ</span>}
           {plan.planned_date && (
-            <span className="text-[11px] font-bold text-neutral-500 bg-neutral-100 rounded px-2 py-1 whitespace-nowrap">
+            <span className="text-[11px] font-bold text-neutral-600 bg-neutral-100 rounded px-2 py-1 whitespace-nowrap">
               <Calendar className="ikona-text" /> {plan.planned_date}
             </span>
           )}
@@ -106,14 +106,14 @@ function PlanItem({
             <button
               type="button"
               onClick={() => onFill(plan)}
-              className="px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black transition shadow-sm"
+              className="px-3 py-1.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-black transition shadow-sm"
             >
               <Plus className="ikona-text" /> Naplnit do zápisu
             </button>
             <button
               type="button"
               onClick={handleDone}
-              className="px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-600 text-neutral-950 text-[11px] font-black transition shadow-sm"
+              className="px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 text-[11px] font-black transition shadow-sm"
             >
               <Check className="ikona-text" /> Hotovo
             </button>

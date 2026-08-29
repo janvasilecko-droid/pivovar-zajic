@@ -238,7 +238,7 @@ export function TankOccupancyPlanner({
                     {!hasBeer ? (
                       <span className="chip bg-neutral-200 text-neutral-700 text-xs"><Circle className="ikona-text" /> Volno / Připraveno</span>
                     ) : isReady ? (
-                      <span className="chip bg-emerald-500 text-white font-black text-xs animate-pulse">
+                      <span className="chip bg-emerald-700 text-white font-black text-xs animate-pulse">
                         <Check className="ikona-text" /> Připraveno ke stočení (Leží {daysInTank} dní)
                       </span>
                     ) : (

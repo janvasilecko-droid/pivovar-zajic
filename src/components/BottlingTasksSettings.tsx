@@ -34,7 +34,7 @@ const KEG_SIZES = [50, 30, 20, 15, 10];
 const STATUS_CHIP: Record<string, string> = {
   planned: 'bg-amber-100 text-amber-900 border-amber-300',
   done: 'bg-emerald-100 text-emerald-900 border-emerald-300',
-  cancelled: 'bg-neutral-100 text-neutral-500 border-neutral-300',
+  cancelled: 'bg-neutral-100 text-neutral-600 border-neutral-300',
 };
 
 const STATUS_TEXT: Record<string, string> = {
@@ -381,7 +381,7 @@ export function BottlingTasksSettings() {
                       type="button"
                       onClick={() => openStocit(r)}
                       title={r.missing > 0 ? 'Stočit chybějící množství' : 'Stočit (pokrytí objednávek)'}
-                      className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-600 text-neutral-950 text-[11px] font-black transition shadow-xs"
+                      className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 text-[11px] font-black transition shadow-xs"
                     >
                       <IkonaLahev className="ikona-text" /> Stočit
                     </button>
@@ -498,7 +498,7 @@ export function BottlingTasksSettings() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-black text-neutral-950">{beer?.name || '—'}</span>
-                      <span className="text-[11px] font-bold text-neutral-500 bg-neutral-100 rounded px-2 py-0.5 whitespace-nowrap"><Calendar className="ikona-text" /> {plan.planned_date}</span>
+                      <span className="text-[11px] font-bold text-neutral-600 bg-neutral-100 rounded px-2 py-0.5 whitespace-nowrap"><Calendar className="ikona-text" /> {plan.planned_date}</span>
                       <span className={`text-[11px] font-black px-2 py-0.5 rounded border ${STATUS_CHIP[plan.status] || ''}`}>{STATUS_TEXT[plan.status] || plan.status}</span>
                     </div>
                     <div className="flex items-center gap-1.5 flex-wrap mt-1">
@@ -517,7 +517,7 @@ export function BottlingTasksSettings() {
                     <Pencil className="ikona-text" /> Upravit
                   </button>
                   {plan.status === 'planned' && (
-                    <button type="button" onClick={() => handleStatus(plan, 'done')} className="px-2.5 py-1.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black transition">
+                    <button type="button" onClick={() => handleStatus(plan, 'done')} className="px-2.5 py-1.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-black transition">
                       <Check className="ikona-text" /> Hotovo
                     </button>
                   )}

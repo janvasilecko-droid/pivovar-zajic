@@ -105,7 +105,7 @@ export function WeeklyOrderSummaryCard({
       <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-amber-200/80">
         <div>
           <h3 className="font-display font-black text-xl text-amber-950 flex items-center gap-2.5">
-            <span className="p-2 rounded bg-amber-500 text-white shadow-md text-lg"><BeerIcon className="ikona-text" /></span>
+            <span className="p-2 rounded bg-amber-500 text-neutral-950 shadow-md text-lg"><BeerIcon className="ikona-text" /></span>
             <span>{title}</span>
           </h3>
           <p className="text-xs text-amber-900/80 mt-1 font-bold">{subtitle}</p>
@@ -138,7 +138,7 @@ export function WeeklyOrderSummaryCard({
 
           <button
             onClick={() => onWeekChange(isoWeekKey(new Date().toISOString().slice(0,10)))}
-            className="px-3.5 py-2 rounded bg-amber-500 hover:bg-amber-600 text-neutral-950 font-black text-xs transition shadow-md shadow-amber-500/20"
+            className="px-3.5 py-2 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md shadow-amber-500/20"
             > 
             Aktuální týden
           </button>
@@ -193,7 +193,7 @@ export function WeeklyOrderSummaryCard({
       {remainingBySize.length > 0 ? (
         <div className="p-4 rounded bg-rose-50 border-2 border-rose-200 my-3 flex flex-wrap items-center justify-between gap-3 shadow-sm">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+            <div className="w-8 h-8 rounded bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-xs">
               <AlertCircle size={18} />
             </div>
             <div>
@@ -332,7 +332,7 @@ export function WeeklyOrderSummaryCard({
                         <td className="py-3.5 px-4 text-right font-mono font-black text-neutral-900 text-sm">{r.ordered} ks</td>
                         <td className="py-3.5 px-4 text-center">
                           {done ? (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-600 text-white text-xs font-black shadow-xs">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-700 text-white text-xs font-black shadow-xs">
                               <CheckCircle2 size={14} /> Hotovo (100%)
                             </span>
                           ) : (
@@ -352,7 +352,7 @@ export function WeeklyOrderSummaryCard({
             </div>
           </div>
         ) : (
-        <div className="py-10 text-center bg-white/5 rounded border border-white/10 text-neutral-400 text-sm font-medium">
+        <div className="py-10 text-center bg-white/5 rounded border border-white/10 text-neutral-500 text-sm font-medium">
           Žádné položky neodpovídají zvolenému filtru.
         </div>
       )}

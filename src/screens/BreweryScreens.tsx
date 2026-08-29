@@ -216,7 +216,7 @@ export function ChecklistsScreen() {
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <span className={`w-5 h-5 rounded border-2 grid place-items-center font-black text-xs ${t.completed ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-neutral-300'}`}>
+                  <span className={`w-5 h-5 rounded border-2 grid place-items-center font-black text-xs ${t.completed ? 'bg-emerald-700 border-emerald-600 text-white' : 'bg-white border-neutral-300'}`}>
                     {t.completed ? <Check className="ikona-text" /> : ''}
                   </span>
                   <span className={`font-extrabold text-sm ${t.completed ? 'line-through' : ''}`}>{t.title}</span>

@@ -30,7 +30,7 @@ const STATUS_STYLE: Record<WhatsAppIncoming['status'], string> = {
   parsed: 'bg-violet-100 text-violet-900 border-violet-300',
   imported: 'bg-emerald-100 text-emerald-800 border-emerald-300',
   error: 'bg-rose-100 text-rose-900 border-rose-300',
-  ignored: 'bg-neutral-100 text-neutral-500 border-neutral-300',
+  ignored: 'bg-neutral-100 text-neutral-600 border-neutral-300',
 };
 
 const DAY_OPTIONS = [7, 14, 30, 90];
@@ -133,7 +133,7 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
               type="button"
               onClick={handleRunAutoParse}
               disabled={runningAutoParse}
-              className="px-3 py-1.5 rounded bg-sky-600 hover:bg-sky-500 text-white text-xs font-black shadow-xs flex items-center gap-1.5 disabled:opacity-50"
+              className="px-3 py-1.5 rounded bg-sky-700 hover:bg-sky-800 text-white text-xs font-black shadow-xs flex items-center gap-1.5 disabled:opacity-50"
               title="Spustit AI zpracování nevyřízených zpráv"
             >
               <Zap size={14} /> {runningAutoParse ? 'Zpracovávám…' : 'Zpracovat nevyřízené'}

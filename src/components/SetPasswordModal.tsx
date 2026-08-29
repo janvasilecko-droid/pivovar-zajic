@@ -74,7 +74,7 @@ export function SetPasswordModal() {
         <div className="h-3 w-full absolute top-0 left-0 right-0 bg-amber-500" />
 
         <div className="flex items-start gap-4 pt-2">
-          <div className="w-14 h-14 rounded flex items-center justify-center text-white shrink-0 shadow-lg bg-amber-500">
+          <div className="w-14 h-14 rounded flex items-center justify-center text-neutral-950 shrink-0 shadow-lg bg-amber-500">
             <Lock size={30} />
           </div>
 

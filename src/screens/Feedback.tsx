@@ -151,7 +151,7 @@ export default function Feedback({ setPage, initialSubTab }: { setPage?: (p: any
             </button>
           </div>
 
-      {err && <div className="text-sm text-rose-600 bg-rose-500/10 rounded px-3 py-2 mb-4">{err}</div>}
+      {err && <div className="text-sm text-rose-700 bg-rose-500/10 rounded px-3 py-2 mb-4">{err}</div>}
 
       {showForm && (
         <form onSubmit={add} className="card p-4 mb-5 animate-fade-in">

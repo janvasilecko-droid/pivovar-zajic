@@ -406,7 +406,7 @@ export default function BottleSanitationDiary() {
           </button>
           <button
             onClick={openNew}
-            className="btn-primary !rounded flex items-center gap-1.5 text-xs font-black shadow-md bg-amber-500 hover:bg-amber-600 border-none text-neutral-950"
+            className="btn-primary !rounded flex items-center gap-1.5 text-xs font-black shadow-md bg-amber-500 hover:bg-amber-400 border-none text-neutral-950"
           >
             <Plus size={15} />
             <span>Zapsat sanitaci lahví</span>
@@ -419,7 +419,7 @@ export default function BottleSanitationDiary() {
           <Spinner />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="card p-12 bg-white text-center text-neutral-400 border border-neutral-200/60 rounded">
+        <div className="card p-12 bg-white text-center text-neutral-500 border border-neutral-200/60 rounded">
           <Calendar size={48} className="mx-auto mb-3 opacity-20 text-neutral-600" />
           <p className="font-medium text-sm">V tomto měsíci zatím nebyly zapsány žádné sanitace lahví.</p>
         </div>
@@ -438,7 +438,7 @@ export default function BottleSanitationDiary() {
                       <Calendar size={14} className="text-amber-600 shrink-0" />
                       <span>{new Date(e.sanitation_date).toLocaleDateString('cs-CZ')}</span>
                       {e.sanitation_time && (
-                        <span className="text-neutral-500 font-medium flex items-center gap-0.5 text-[11px] bg-neutral-100 px-1.5 py-0.5 rounded">
+                        <span className="text-neutral-600 font-medium flex items-center gap-0.5 text-[11px] bg-neutral-100 px-1.5 py-0.5 rounded">
                           <Clock size={10} /> {e.sanitation_time}
                         </span>
                       )}
@@ -890,7 +890,7 @@ export default function BottleSanitationDiary() {
             {/* Actions */}
             <div className="flex justify-end gap-2 border-t border-neutral-100 pt-3">
               <button type="button" onClick={() => setShowModal(false)} className="btn-ghost !rounded text-xs font-bold">Zrušit</button>
-              <button type="submit" disabled={saving} className="btn-primary !rounded text-xs font-black shadow-md bg-amber-500 hover:bg-amber-600 border-none text-neutral-950">
+              <button type="submit" disabled={saving} className="btn-primary !rounded text-xs font-black shadow-md bg-amber-500 hover:bg-amber-400 border-none text-neutral-950">
                 {saving ? 'Ukládám…' : 'Uložit do sanitačního deníku'}
               </button>
             </div>

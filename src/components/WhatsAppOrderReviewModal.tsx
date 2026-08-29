@@ -671,7 +671,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                   <button
                     onClick={handleReparse}
                     disabled={reparsing || loading}
-                    className="mt-1.5 flex items-center gap-1.5 px-2.5 py-1 rounded bg-sky-600 text-white text-xs font-semibold hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="mt-1.5 flex items-center gap-1.5 px-2.5 py-1 rounded bg-sky-700 text-white text-xs font-semibold hover:bg-sky-800 disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Ručně spustit AI parsování této zprávy"
                   >
                     {reparsing ? <RefreshCw size={13} className="animate-spin" /> : <RefreshCw size={13} />}
@@ -705,7 +705,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                   href={message.media_url}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-sky-700 hover:bg-sky-800 text-white text-xs font-semibold"
                 >
                   <ExternalLink size={14} /> Otevřít fotografii
                 </a>
@@ -1066,7 +1066,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             <button
               onClick={handleApprove}
               disabled={approving || loading || !isParsed || items.length === 0 || hasUnmatchedItems || (isImage ? (!!message.media_url && !photoChecked) : (strictReadback && readback.mismatchCount > 0))}
-              className="px-6 py-2.5 bg-emerald-600 text-white rounded hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2 font-medium"
+              className="px-6 py-2.5 bg-emerald-700 text-white rounded hover:bg-emerald-800 disabled:opacity-50 flex items-center gap-2 font-medium"
               title={
                 isImage && !!message.media_url && !photoChecked
                   ? 'Nejprve potvrďte, že jste fotku zkontroloval/a (tlačítko výše).'

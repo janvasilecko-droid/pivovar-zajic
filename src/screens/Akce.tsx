@@ -463,12 +463,12 @@ export default function AkceScreen() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-display font-black text-lg text-neutral-950">{r.name}</span>
                           {isDone ? (
-                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white font-extrabold text-xs shadow-2xs"><Check className="ikona-text" /> Dokončeno (Po akci)</span>
+                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-700 text-white font-extrabold text-xs shadow-2xs"><Check className="ikona-text" /> Dokončeno (Po akci)</span>
                           ) : (
                             <span className="px-2.5 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-black text-xs shadow-2xs"><Clock className="ikona-text" /> Plánovaná / Probíhá</span>
                           )}
                           {!isDone && r.ready && (
-                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500 text-white font-extrabold text-xs shadow-2xs"><CheckCircle2 className="ikona-text" /> Připraveno na akci</span>
+                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-700 text-white font-extrabold text-xs shadow-2xs"><CheckCircle2 className="ikona-text" /> Připraveno na akci</span>
                           )}
                         </div>
                         <div className="flex items-center gap-3 text-xs text-neutral-600 font-bold mt-1">
@@ -488,7 +488,7 @@ export default function AkceScreen() {
                         <button
                           onClick={(e) => { e.stopPropagation(); toggleReady(r); }}
                           className={`px-3 py-1.5 rounded font-black text-xs transition shadow-sm flex items-center gap-1.5 ${
-                            r.ready ? 'bg-emerald-600 text-white' : 'bg-neutral-100 text-neutral-700 hover:bg-emerald-100'
+                            r.ready ? 'bg-emerald-700 text-white' : 'bg-neutral-100 text-neutral-700 hover:bg-emerald-100'
                           }`}
                         >
                           <Check size={15} />
@@ -545,7 +545,7 @@ export default function AkceScreen() {
                             </span>
                           )}
                           {r.rating && (
-                            <div className="flex items-center gap-1 text-amber-500 font-bold bg-amber-50 px-2.5 py-1 rounded border border-amber-200">
+                            <div className="flex items-center gap-1 text-amber-700 font-bold bg-amber-50 px-2.5 py-1 rounded border border-amber-200">
                               <span>Hodnocení:</span>
                               {Array.from({ length: r.rating }, (_, i) => (
                                 <Star key={i} size={14} className="fill-amber-400 text-amber-500" />
@@ -554,7 +554,7 @@ export default function AkceScreen() {
                           )}
                           {r.recommend && (
                             <span className={`px-3 py-1 rounded font-black text-xs shadow-xs flex items-center gap-1 ${
-                              r.recommend === 'yes' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+                              r.recommend === 'yes' ? 'bg-emerald-700 text-white' : 'bg-rose-600 text-white'
                             }`}>
                               {r.recommend === 'yes' ? <ThumbsUp size={13} /> : <ThumbsDown size={13} />}
                               {r.recommend === 'yes' ? 'Doporučeno jet i za rok' : 'Nedoporučeno jet za rok'}
@@ -893,7 +893,7 @@ export default function AkceScreen() {
                     type="button"
                     onClick={() => setEvalRecommend('yes')}
                     className={`flex-1 px-4 py-2.5 rounded font-black text-xs transition shadow-sm flex items-center justify-center gap-1.5 ${
-                      evalRecommend === 'yes' ? 'bg-emerald-600 text-white ring-2 ring-emerald-300' : 'bg-neutral-100 text-neutral-700 hover:bg-emerald-100'
+                      evalRecommend === 'yes' ? 'bg-emerald-700 text-white ring-2 ring-emerald-300' : 'bg-neutral-100 text-neutral-700 hover:bg-emerald-100'
                     }`}
                   >
                     <ThumbsUp size={16} /> Ano, jet i za rok
@@ -914,7 +914,7 @@ export default function AkceScreen() {
                 <button type="button" onClick={() => setEvalRecord(null)} className="px-4 py-2 rounded bg-neutral-100 text-neutral-700 font-extrabold text-xs">
                   Zrušit
                 </button>
-                <button type="submit" className="px-5 py-2.5 rounded bg-emerald-700 hover:bg-emerald-600 text-white font-black text-xs shadow-md">
+                <button type="submit" className="px-5 py-2.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs shadow-md">
                   <Check className="ikona-text" /> Uložit vyhodnocení Po akci
                 </button>
               </div>

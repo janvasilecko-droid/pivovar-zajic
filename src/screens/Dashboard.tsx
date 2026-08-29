@@ -590,8 +590,8 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                             <tr key={p.package_id}>
                               <td className="py-1 pr-2 whitespace-nowrap text-neutral-500 text-xs font-bold">{p.label}</td>
                               <td className="py-1 px-2 text-center font-extrabold text-sky-900 bg-sky-100 rounded-md">{p.quantity}{p.rawQuantity < 0 && <span className="block text-[11px] font-black text-rose-600 font-mono" title="Vydáno víc, než evidence zná — schodek">({p.rawQuantity})</span>}</td>
-                              <td className={`py-1 px-2 text-center font-extrabold rounded-md ${p.orderedRemaining > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-600'}`}>{p.orderedRemaining > 0 ? `-${p.orderedRemaining}` : '0'}</td>
-                              <td className={`py-1 pl-2 text-center font-extrabold rounded-md ${p.remaining < 0 ? 'bg-rose-50 text-rose-600' : p.remaining === 0 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>{p.remaining}</td>
+                              <td className={`py-1 px-2 text-center font-extrabold rounded-md ${p.orderedRemaining > 0 ? 'bg-rose-50 text-rose-700' : 'bg-neutral-50 text-neutral-600'}`}>{p.orderedRemaining > 0 ? `-${p.orderedRemaining}` : '0'}</td>
+                              <td className={`py-1 pl-2 text-center font-extrabold rounded-md ${p.remaining < 0 ? 'bg-rose-50 text-rose-700' : p.remaining === 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>{p.remaining}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -615,8 +615,8 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                             <tr key={p.package_id}>
                               <td className="py-1 pr-2 whitespace-nowrap text-neutral-500 text-xs font-bold">{p.label}</td>
                               <td className="py-1 px-2 text-center font-extrabold text-sky-900 bg-sky-100 rounded-md">{p.quantity}{p.rawQuantity < 0 && <span className="block text-[11px] font-black text-rose-600 font-mono" title="Vydáno víc, než evidence zná — schodek">({p.rawQuantity})</span>}</td>
-                              <td className={`py-1 px-2 text-center font-extrabold rounded-md ${p.orderedRemaining > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-600'}`}>{p.orderedRemaining > 0 ? `-${p.orderedRemaining}` : '0'}</td>
-                              <td className={`py-1 pl-2 text-center font-extrabold rounded-md ${p.remaining < 0 ? 'bg-rose-50 text-rose-600' : p.remaining === 0 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>{p.remaining}</td>
+                              <td className={`py-1 px-2 text-center font-extrabold rounded-md ${p.orderedRemaining > 0 ? 'bg-rose-50 text-rose-700' : 'bg-neutral-50 text-neutral-600'}`}>{p.orderedRemaining > 0 ? `-${p.orderedRemaining}` : '0'}</td>
+                              <td className={`py-1 pl-2 text-center font-extrabold rounded-md ${p.remaining < 0 ? 'bg-rose-50 text-rose-700' : p.remaining === 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>{p.remaining}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -627,7 +627,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
 
                 {s.stockByPkg.length === 0 && <p className="text-xs text-neutral-400 py-3 italic">Žádné volné obaly na skladě.</p>}
 
-                <button className="w-full text-sm text-neutral-950 font-extrabold mt-2 py-1.5 rounded bg-amber-500 hover:bg-amber-600 flex items-center justify-center gap-1.5 transition" onClick={() => setDetail(s)}>
+                <button className="w-full text-sm text-neutral-950 font-extrabold mt-2 py-1.5 rounded bg-amber-500 hover:bg-amber-400 flex items-center justify-center gap-1.5 transition" onClick={() => setDetail(s)}>
                   <ClipboardList size={16} /> Detailní přehled
                 </button>
               </div>

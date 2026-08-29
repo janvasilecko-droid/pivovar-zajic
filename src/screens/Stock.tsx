@@ -573,8 +573,8 @@ export default function Stock() {
                                       {p.rawStock < 0 && <span className="block text-[11px] font-black text-rose-600 font-mono" title="Vydáno víc, než evidence zná">({p.rawStock})</span>}
                                     </button>
                                   </td>
-                                  <td className={`py-1 px-1 text-center font-extrabold rounded-md ${p.outgoing > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-400'}`}>{p.outgoing > 0 ? `-${p.outgoing}` : '0'}</td>
-                                  <td className={`py-1 pl-1 text-center font-extrabold rounded-md ${p.difference < 0 ? 'bg-rose-50 text-rose-600' : p.difference === 0 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>{p.difference}</td>
+                                  <td className={`py-1 px-1 text-center font-extrabold rounded-md ${p.outgoing > 0 ? 'bg-rose-50 text-rose-700' : 'bg-neutral-50 text-neutral-500'}`}>{p.outgoing > 0 ? `-${p.outgoing}` : '0'}</td>
+                                  <td className={`py-1 pl-1 text-center font-extrabold rounded-md ${p.difference < 0 ? 'bg-rose-50 text-rose-700' : p.difference === 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>{p.difference}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -619,8 +619,8 @@ export default function Stock() {
                                       {p.rawStock < 0 && <span className="block text-[11px] font-black text-rose-600 font-mono" title="Vydáno víc, než evidence zná">({p.rawStock})</span>}
                                     </button>
                                   </td>
-                                  <td className={`py-1 px-1 text-center font-extrabold rounded-md ${p.outgoing > 0 ? 'bg-rose-50 text-rose-600' : 'bg-neutral-50 text-neutral-400'}`}>{p.outgoing > 0 ? `-${p.outgoing}` : '0'}</td>
-                                  <td className={`py-1 pl-1 text-center font-extrabold rounded-md ${p.difference < 0 ? 'bg-rose-50 text-rose-600' : p.difference === 0 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>{p.difference}</td>
+                                  <td className={`py-1 px-1 text-center font-extrabold rounded-md ${p.outgoing > 0 ? 'bg-rose-50 text-rose-700' : 'bg-neutral-50 text-neutral-500'}`}>{p.outgoing > 0 ? `-${p.outgoing}` : '0'}</td>
+                                  <td className={`py-1 pl-1 text-center font-extrabold rounded-md ${p.difference < 0 ? 'bg-rose-50 text-rose-700' : p.difference === 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>{p.difference}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -766,7 +766,7 @@ export default function Stock() {
                   })),
                   `${brewFrom} – ${brewTo}`
                 )}
-                className="flex items-center gap-1.5 px-3 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black shadow-sm transition"
+                className="flex items-center gap-1.5 px-3 py-2 rounded bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black shadow-sm transition"
               >
 
                 <Download size={14} />

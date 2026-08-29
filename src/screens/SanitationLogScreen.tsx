@@ -406,7 +406,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
                           <Calendar size={14} className="text-amber-600 shrink-0" />
                           <span>{new Date(log.sanitation_date).toLocaleDateString('cs-CZ')}</span>
                           {displayTime && (
-                            <span className="text-neutral-500 font-normal text-[11px] bg-neutral-100 px-1.5 py-0.5 rounded-md border border-neutral-200">
+                            <span className="text-neutral-600 font-normal text-[11px] bg-neutral-100 px-1.5 py-0.5 rounded-md border border-neutral-200">
                               {displayTime}
                             </span>
                           )}

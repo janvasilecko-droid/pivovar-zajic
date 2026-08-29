@@ -194,7 +194,7 @@ export function UserPermissionsModal({
                       disabled={!access.view}
                       className={`px-3 py-1.5 rounded text-xs font-black border transition flex items-center gap-1 ${
                         !access.view
-                          ? 'opacity-40 cursor-not-allowed bg-neutral-100 text-neutral-400 border-neutral-200'
+                          ? 'opacity-40 cursor-not-allowed bg-neutral-100 text-neutral-600 border-neutral-200'
                           : access.edit
                           ? 'bg-amber-500 text-neutral-950 border-amber-400 shadow-2xs'
                           : 'bg-neutral-100 text-neutral-600 border-neutral-200'

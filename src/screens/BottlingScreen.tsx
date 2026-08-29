@@ -834,7 +834,7 @@ export default function BottlingScreen({
             >
               <span className="inline-flex items-center gap-1.5"><IkonaLahev size={14} /> Začátek stáčení</span>
               {unseenCount > 0 && (
-                <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[11px] font-black animate-pulse">{unseenCount}</span>
+                <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[11px] font-black animate-pulse">{unseenCount}</span>
               )}
             </button>
             <button
@@ -859,7 +859,7 @@ export default function BottlingScreen({
             <button
               type="button"
               onClick={() => { setChecklistPhase('start'); setChecklistGate(false); setShowChecklistModal(true); }}
-              className="px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[44px] bg-amber-500 hover:bg-amber-600 text-neutral-950 flex items-center gap-1.5 shadow-2xs"
+              className="px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[44px] bg-amber-500 hover:bg-amber-400 text-neutral-950 flex items-center gap-1.5 shadow-2xs"
             >
               <ClipboardList size={14} />
               <span>Příprava (Checklist)</span>
@@ -867,7 +867,7 @@ export default function BottlingScreen({
             <button
               type="button"
               onClick={() => { setChecklistPhase('end'); setChecklistGate(false); setShowChecklistModal(true); }}
-              className="px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[44px] bg-amber-500 hover:bg-amber-600 text-neutral-950 flex items-center gap-1.5 shadow-2xs"
+              className="px-3.5 py-2 rounded text-xs font-black transition shrink-0 min-h-[44px] bg-amber-500 hover:bg-amber-400 text-neutral-950 flex items-center gap-1.5 shadow-2xs"
             >
               <Sparkles size={14} />
               <span>Konec stáčení (úklid)</span>
@@ -941,7 +941,7 @@ export default function BottlingScreen({
             <button
               type="button"
               onClick={() => { setChecklistPhase('start'); setChecklistGate(true); setShowChecklistModal(true); }}
-              className="mx-auto flex items-center gap-3 px-8 py-5 sm:px-10 sm:py-6 rounded bg-amber-500 hover:bg-amber-600 text-neutral-950 font-black text-lg sm:text-xl shadow-xl active:scale-[0.97] transition"
+              className="mx-auto flex items-center gap-3 px-8 py-5 sm:px-10 sm:py-6 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-lg sm:text-xl shadow-xl active:scale-[0.97] transition"
             >
               <Play className="ikona-text" /> Zahájit stáčení
             </button>
@@ -1023,7 +1023,7 @@ export default function BottlingScreen({
                               type="button"
                               onClick={() => setTile(slot.qty, String(q))}
                               title="Rychlá volba množství"
-                              className={`h-7 min-w-[1.75rem] px-1.5 rounded text-[11px] font-black transition ${Number(qtyStr) === q ? 'bg-emerald-500 text-white' : 'bg-neutral-100 dark:bg-neutral-700 hover:bg-emerald-200 text-neutral-600 dark:text-neutral-200 hover:text-emerald-950'}`}
+                              className={`h-7 min-w-[1.75rem] px-1.5 rounded text-[11px] font-black transition ${Number(qtyStr) === q ? 'bg-emerald-700 text-white' : 'bg-neutral-100 dark:bg-neutral-700 hover:bg-emerald-200 text-neutral-600 dark:text-neutral-200 hover:text-emerald-950'}`}
                             >
                               {q}
                             </button>
@@ -2041,7 +2041,7 @@ export default function BottlingScreen({
                 onClick={() => {
                   setShowEndConfirm(false);
                 }}
-                className="px-5 py-3 rounded bg-amber-500 hover:bg-amber-600 text-neutral-950 font-black text-xs transition shadow-md"
+                className="px-5 py-3 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md"
               >
                 <RefreshCw className="ikona-text" /> Budu pokračovat ve stáčení
               </button>

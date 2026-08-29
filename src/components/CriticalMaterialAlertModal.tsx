@@ -138,7 +138,7 @@ export function CriticalMaterialAlertModal() {
           <button
             type="button"
             onClick={handleConfirm}
-            className="w-full py-4 px-6 rounded bg-rose-600 hover:bg-rose-500 text-white font-black text-base transition shadow-xl hover:shadow-rose-600/30 active:scale-[0.98] flex items-center justify-center gap-3 ring-4 ring-rose-300"
+            className="w-full py-4 px-6 rounded bg-rose-600 hover:bg-rose-700 text-white font-black text-base transition shadow-xl hover:shadow-rose-600/30 active:scale-[0.98] flex items-center justify-center gap-3 ring-4 ring-rose-300"
           >
             <CheckCircle2 size={24} />
             <span><Check className="ikona-text" /> Potvrzuji, že beru na vědomí kritický stav (&lt; 100 ks)</span>

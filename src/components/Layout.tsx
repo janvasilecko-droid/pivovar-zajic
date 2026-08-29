@@ -689,7 +689,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                 type="button"
                 onClick={() => setPage('orders')}
                 title="Nové objednávky k vyřízení"
-                className="relative w-9 h-9 grid place-items-center rounded bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm border border-emerald-700 active:scale-95 transition"
+                className="relative w-9 h-9 grid place-items-center rounded bg-emerald-700 hover:bg-emerald-800 text-white shadow-sm border border-emerald-700 active:scale-95 transition"
               >
                 <ClipboardList size={16} />
                 <span className="absolute -top-1.5 -right-1.5 bg-white text-emerald-700 text-[11px] font-black rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center shadow border border-emerald-200">
@@ -720,7 +720,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
               type="button"
               onClick={() => setShowBugModal(true)}
               title="Nahlásit chybu nebo nápad"
-              className="hidden sm:flex px-3 py-1.5 rounded text-xs font-black transition items-center gap-1.5 shadow-sm border border-rose-300 bg-rose-600 hover:bg-rose-500 text-white shrink-0 active:scale-95"
+              className="hidden sm:flex px-3 py-1.5 rounded text-xs font-black transition items-center gap-1.5 shadow-sm border border-rose-300 bg-rose-600 hover:bg-rose-700 text-white shrink-0 active:scale-95"
             >
               <AlertTriangle className="ikona-text" /> Chyby
             </button>
@@ -808,7 +808,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
               className={`pointer-events-auto w-full rounded-lg px-3 py-2 text-xs font-black shadow-lg border flex items-center justify-center gap-2 transition ${
                 !online
                   ? 'bg-amber-500 border-amber-600 text-neutral-950'
-                  : 'bg-sky-600 border-sky-700 text-white hover:bg-sky-500'
+                  : 'bg-sky-700 border-sky-700 text-white hover:bg-sky-800'
               }`}
             >
               {!online ? (
@@ -935,7 +935,7 @@ ${item.popis}
 Do databáze se už neuloží.`)) discardOp(item.id);
                         }}
                         title="Zahodit tento zápis natrvalo — do databáze se neuloží"
-                        className={`shrink-0 min-h-[44px] px-3 rounded font-black ${failure ? 'bg-rose-600 hover:bg-rose-500 text-white' : 'bg-white border border-neutral-300 text-neutral-600 hover:bg-neutral-50'}`}
+                        className={`shrink-0 min-h-[44px] px-3 rounded font-black ${failure ? 'bg-rose-600 hover:bg-rose-700 text-white' : 'bg-white border border-neutral-300 text-neutral-600 hover:bg-neutral-50'}`}
                       >
                         Zahodit
                       </button>
@@ -949,7 +949,7 @@ Do databáze se už neuloží.`)) discardOp(item.id);
               <button
                 onClick={onSync}
                 disabled={syncing || pending === 0}
-                className="px-4 py-2.5 rounded bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-black text-xs shadow-md transition flex items-center gap-2"
+                className="px-4 py-2.5 rounded bg-sky-700 hover:bg-sky-800 disabled:opacity-50 text-white font-black text-xs shadow-md transition flex items-center gap-2"
               >
                 <span>{syncing ? 'Odesílám zápisy…' : `Ručně synchronizovat (${pending})`}</span>
               </button>
@@ -975,7 +975,7 @@ Do databáze se už neuloží.`)) discardOp(item.id);
         <button
           onClick={onSync}
           disabled={syncing}
-          className="px-2.5 py-1 rounded bg-sky-500 hover:bg-sky-400 text-white font-black text-[11px] border border-sky-400 transition flex items-center gap-1 shadow-xs animate-pulse"
+          className="px-2.5 py-1 rounded bg-sky-700 hover:bg-sky-800 text-white font-black text-[11px] border border-sky-400 transition flex items-center gap-1 shadow-xs animate-pulse"
         >
           <span>{syncing ? 'Sync…' : `Čeká ${pending} změn`}</span>
         </button>

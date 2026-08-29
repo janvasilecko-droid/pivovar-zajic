@@ -95,7 +95,7 @@ function StopwatchTool() {
         <button onClick={lap} disabled={!state.running} className="px-5 py-3 rounded font-black bg-neutral-200 text-neutral-700 disabled:opacity-40 flex items-center gap-2">
           <Flag size={16} /> Mezičas
         </button>
-        <button onClick={reset} className="px-5 py-3 rounded font-black bg-neutral-100 text-neutral-500 flex items-center gap-2">
+        <button onClick={reset} className="px-5 py-3 rounded font-black bg-neutral-100 text-neutral-600 flex items-center gap-2">
           <RotateCcw size={16} /> Reset
         </button>
       </div>
@@ -291,7 +291,7 @@ function KegRackingTimerTool() {
             <button onClick={finish} className="btn-primary !rounded px-8 py-3 rounded font-black flex items-center gap-2">
               <CheckCircle2 size={18} /> Stočeno
             </button>
-            <button onClick={cancel} className="px-5 py-3 rounded font-black bg-neutral-100 text-neutral-500 flex items-center gap-2">
+            <button onClick={cancel} className="px-5 py-3 rounded font-black bg-neutral-100 text-neutral-600 flex items-center gap-2">
               <Square size={16} /> Zrušit
             </button>
           </div>

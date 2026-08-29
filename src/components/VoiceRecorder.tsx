@@ -226,7 +226,7 @@ export function VoiceRecorder({
           recording
             ? 'bg-rose-600 text-white animate-pulse shadow-md shadow-rose-500/30'
             : busy
-              ? dark ? 'bg-neutral-200 text-neutral-500 cursor-not-allowed' : 'bg-amber-100 text-amber-700 cursor-not-allowed border border-amber-300'
+              ? dark ? 'bg-neutral-200 text-neutral-600 cursor-not-allowed' : 'bg-amber-100 text-amber-700 cursor-not-allowed border border-amber-300'
               : dark ? 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100 active:scale-95' : 'bg-amber-50 text-amber-900 border border-amber-300/80 hover:bg-amber-100/90 active:scale-95'
         }`}
       >

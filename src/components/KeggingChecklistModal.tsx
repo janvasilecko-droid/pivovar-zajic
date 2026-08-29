@@ -373,7 +373,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
                   }
                   onDone();
                 }}
-                className="btn-primary !rounded text-xs font-black shadow-md bg-amber-500 hover:bg-amber-600 border-none text-neutral-950"
+                className="btn-primary !rounded text-xs font-black shadow-md bg-amber-500 hover:bg-amber-400 border-none text-neutral-950"
               >
                 <span>{phase === 'start' ? 'Pokračovat na stáčení' : 'Ukončit a uložit'}</span>
               </button>

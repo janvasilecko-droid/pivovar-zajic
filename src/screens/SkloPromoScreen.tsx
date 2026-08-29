@@ -394,7 +394,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={exportExcel}
-            className="px-3.5 py-2.5 rounded bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs transition shadow-xs flex items-center gap-1.5"
+            className="px-3.5 py-2.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs transition shadow-xs flex items-center gap-1.5"
           >
             <Download size={16} /> Excel
           </button>
@@ -512,7 +512,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                   </div>
                 </div>
 
-                <button type="submit" className="w-full px-5 py-2.5 rounded bg-emerald-700 hover:bg-emerald-600 text-white font-black text-xs transition shadow-md flex items-center justify-center gap-2">
+                <button type="submit" className="w-full px-5 py-2.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs transition shadow-md flex items-center justify-center gap-2">
                   <Plus size={16} /> Zapsat příjem na sklad
                 </button>
               </form>
@@ -858,7 +858,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
 
               <div className="flex items-center gap-2">
                 <input type="text" value={bottleNote} onChange={(e) => setBottleNote(e.target.value)} placeholder="Poznámka / Paleta" className="input text-xs font-medium flex-1" />
-                <button type="submit" className="px-4 py-2.5 rounded bg-emerald-700 hover:bg-emerald-600 text-white font-black text-xs transition shadow-md shrink-0">
+                <button type="submit" className="px-4 py-2.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs transition shadow-md shrink-0">
                   + Zapsat nákup lahví
                 </button>
               </div>

@@ -870,7 +870,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
                 <span className="px-3 py-1.5 rounded bg-white/20 text-white text-xs font-mono font-black border border-white/30">
                   TIS: 224 919 293
                 </span>
-                <span className="px-3 py-1.5 rounded bg-rose-500 text-white text-xs font-mono font-black border border-rose-300">
+                <span className="px-3 py-1.5 rounded bg-rose-600 text-white text-xs font-mono font-black border border-rose-300">
                   ZZS: 155
                 </span>
               </div>

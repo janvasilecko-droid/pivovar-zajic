@@ -107,7 +107,7 @@ export function MonthlyCleanupWarning({ onOpenMonthlyChecklist, onOpenKegMonthly
 
         {done ? (
           <div className="flex flex-col items-center text-center gap-3 py-4">
-            <div className="w-14 h-14 rounded-full flex items-center justify-center text-white shrink-0 shadow-lg bg-emerald-600">
+            <div className="w-14 h-14 rounded-full flex items-center justify-center text-white shrink-0 shadow-lg bg-emerald-700">
               <PartyPopper size={30} />
             </div>
             <h2 className="text-xl font-display font-black text-neutral-950">Zapsáno do sanitárních deníků</h2>
@@ -146,7 +146,7 @@ export function MonthlyCleanupWarning({ onOpenMonthlyChecklist, onOpenKegMonthly
           <button
             type="button"
             onClick={dismiss}
-            className="w-full py-3.5 px-6 rounded bg-rose-600 hover:bg-rose-500 text-white font-black text-base transition shadow-xl hover:shadow-rose-500/20 active:scale-[0.98] flex items-center justify-center gap-3 ring-4 ring-rose-300"
+            className="w-full py-3.5 px-6 rounded bg-rose-600 hover:bg-rose-700 text-white font-black text-base transition shadow-xl hover:shadow-rose-500/20 active:scale-[0.98] flex items-center justify-center gap-3 ring-4 ring-rose-300"
           >
             <CalendarClock size={22} />
             <span>Udělám na konci týdne</span>
@@ -154,7 +154,7 @@ export function MonthlyCleanupWarning({ onOpenMonthlyChecklist, onOpenKegMonthly
           <button
             type="button"
             onClick={markAlreadyDone}
-            className="w-full py-3 px-6 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm transition flex items-center justify-center gap-2"
+            className="w-full py-3 px-6 rounded bg-emerald-700 hover:bg-emerald-800 text-white font-black text-sm transition flex items-center justify-center gap-2"
           >
             <PartyPopper size={18} />
             <span>Už je to provedeno — zapsat do deníku</span>

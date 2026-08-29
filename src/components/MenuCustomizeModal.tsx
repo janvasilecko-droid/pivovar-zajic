@@ -70,7 +70,7 @@ export function MenuCustomizeModal({
               >
                 <div className="flex items-center gap-3">
                   <div className={`w-9 h-9 rounded flex items-center justify-center ${
-                    isHidden ? 'bg-neutral-200 text-neutral-500' : 'bg-amber-500 text-neutral-950 font-bold'
+                    isHidden ? 'bg-neutral-200 text-neutral-600' : 'bg-amber-500 text-neutral-950 font-bold'
                   }`}>
                     <Icon size={18} />
                   </div>

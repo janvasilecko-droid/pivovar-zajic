@@ -326,14 +326,14 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
             <button
               onClick={() => processMessages()}
               disabled={processing || messages.length === 0}
-              className="px-3 py-1.5 rounded bg-sky-600 text-white text-sm font-medium hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 rounded bg-sky-700 text-white text-sm font-medium hover:bg-sky-800 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {processing ? 'Zpracovává se...' : 'Zpracovat automaticky'}
             </button>
             <button
               onClick={() => processMessages(messages.filter((m) => selectedIds.has(m.id)))}
               disabled={processing || selectedIds.size === 0}
-              className="px-3 py-1.5 rounded bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 rounded bg-emerald-700 text-white text-sm font-medium hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Načíst vybrané ({selectedIds.size})
             </button>
@@ -542,7 +542,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
                           className={`px-2 py-0.5 rounded-full text-xs flex items-center gap-1 ${
                             isMismatch && Date.now() - new Date(message.message_timestamp || message.created_at).getTime() > 60 * 60 * 1000
                               ? 'bg-rose-50 text-rose-700'
-                              : 'bg-neutral-100 text-neutral-500'
+                              : 'bg-neutral-100 text-neutral-600'
                           }`}
                           title="Čas čekání na zpracování"
                         >

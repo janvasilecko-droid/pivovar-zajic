@@ -245,7 +245,7 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
                   <div className="flex items-center gap-3 min-w-0">
                     <div
                       className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                        isSelected ? 'bg-amber-600 text-neutral-950' : 'bg-amber-100 text-amber-800'
+                        isSelected ? 'bg-amber-500 text-neutral-950' : 'bg-amber-100 text-amber-800'
                       }`}
                     >
                       <Icon size={18} />
@@ -266,7 +266,7 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
                     <span
                       className={`hidden sm:inline text-[11px] font-black uppercase px-2 py-0.5 rounded border ${
                         isSelected
-                          ? 'bg-amber-600 text-neutral-950 border-amber-700'
+                          ? 'bg-amber-500 text-neutral-950 border-amber-700'
                           : 'bg-neutral-100 text-neutral-600 border-neutral-200'
                       }`}
                     >

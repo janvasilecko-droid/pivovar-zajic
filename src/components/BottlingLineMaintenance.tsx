@@ -125,7 +125,7 @@ export function BottlingLineMaintenance() {
         </div>
       </div>
 
-      {err && <div className="text-sm text-rose-600 bg-rose-500/10 rounded px-3 py-2">{err}</div>}
+      {err && <div className="text-sm text-rose-700 bg-rose-500/10 rounded px-3 py-2">{err}</div>}
 
       {tasks.length === 0 && (
         <div className="text-sm text-neutral-500 font-medium py-8 text-center">
@@ -160,7 +160,7 @@ export function BottlingLineMaintenance() {
                 <span
                   className={`chip shrink-0 ${
                     status === 'overdue'
-                      ? 'bg-rose-500 text-white font-black animate-pulse'
+                      ? 'bg-rose-600 text-white font-black animate-pulse'
                       : status === 'due'
                       ? 'bg-amber-500 text-neutral-950 font-black'
                       : 'bg-emerald-100 text-emerald-950 font-extrabold border border-emerald-300'

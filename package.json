@@ -11,6 +11,7 @@
     "watch-deploy": "node watch-deploy.mjs",
     "test": "vitest",
     "zkontroluj-tridy": "node scripts/zkontroluj-tridy.mjs",
+    "zkontroluj-kontrast": "node scripts/zkontroluj-kontrast.mjs",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
     "test:watch": "vitest --watch"

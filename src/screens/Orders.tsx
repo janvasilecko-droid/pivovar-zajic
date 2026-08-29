@@ -62,7 +62,7 @@ const STATUS: Record<string, { label: string; cls: string }> = {
 const DAY_COLORS: Record<string, { bg: string; bar: string; border: string; chip: string; text: string; dot: string }> = {
   po: { bg: 'bg-sky-50/70', bar: 'bg-sky-600', border: 'border-sky-600/40', chip: 'bg-sky-700 text-white font-black shadow-2xs', text: 'text-sky-950 font-bold', dot: 'bg-sky-600' },
   ut: { bg: 'bg-emerald-50/70', bar: 'bg-emerald-600', border: 'border-emerald-600/40', chip: 'bg-emerald-700 text-white font-black shadow-2xs', text: 'text-emerald-950 font-bold', dot: 'bg-emerald-600' },
-  st: { bg: 'bg-amber-100/60', bar: 'bg-amber-600', border: 'border-amber-600/40', chip: 'bg-amber-600 text-white font-black shadow-2xs', text: 'text-amber-800 font-bold', dot: 'bg-amber-600' },
+  st: { bg: 'bg-amber-100/60', bar: 'bg-amber-600', border: 'border-amber-600/40', chip: 'bg-amber-700 text-white font-black shadow-2xs', text: 'text-amber-800 font-bold', dot: 'bg-amber-600' },
   ct: { bg: 'bg-rose-50/70', bar: 'bg-rose-600', border: 'border-rose-600/40', chip: 'bg-rose-700 text-white font-black shadow-2xs', text: 'text-rose-950 font-bold', dot: 'bg-rose-600' },
   pa: { bg: 'bg-violet-50/70', bar: 'bg-violet-600', border: 'border-violet-600/40', chip: 'bg-violet-700 text-white font-black shadow-2xs', text: 'text-violet-950 font-bold', dot: 'bg-violet-600' },
   so: { bg: 'bg-primary-50/70', bar: 'bg-primary-600', border: 'border-primary-600/40', chip: 'bg-primary-700 text-white font-black shadow-2xs', text: 'text-primary-900 font-bold', dot: 'bg-primary-600' },
@@ -1471,7 +1471,7 @@ export default function Orders({
             >
               <MessageCircle size={14} /> WhatsApp
               {newWhatsAppCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[11px] font-black rounded-full w-4 h-4 flex items-center justify-center">
+                <span className="absolute -top-1.5 -right-1.5 bg-rose-600 text-white text-[11px] font-black rounded-full w-4 h-4 flex items-center justify-center">
                   {newWhatsAppCount}
                 </span>
               )}
@@ -1651,7 +1651,7 @@ export default function Orders({
                           type="button"
                           onClick={() => setPkgAbsolute(expandedBeer.id, p.id, q)}
                           title="Rychlá volba množství"
-                          className={`h-9 min-w-[1.75rem] px-1.5 rounded text-[11px] font-black transition ${qty === q ? 'bg-emerald-500 text-white' : 'bg-neutral-100 hover:bg-emerald-200 text-neutral-600 hover:text-emerald-950'}`}
+                          className={`h-9 min-w-[1.75rem] px-1.5 rounded text-[11px] font-black transition ${qty === q ? 'bg-emerald-700 text-white' : 'bg-neutral-100 hover:bg-emerald-200 text-neutral-600 hover:text-emerald-950'}`}
                         >
                           {q}
                         </button>
@@ -1821,7 +1821,7 @@ export default function Orders({
             {err && <span className="text-xs font-bold text-rose-700">{err}</span>}
           </div>
 
-          {err && <div className="text-sm text-rose-600 mt-3 bg-rose-500/10 rounded-lg px-3 py-2 font-bold">{err}</div>}
+          {err && <div className="text-sm text-rose-700 mt-3 bg-rose-500/10 rounded-lg px-3 py-2 font-bold">{err}</div>}
           
           {flash && (
             <div className="mt-4 p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 font-bold flex items-center justify-between shadow-xs">
@@ -1998,7 +1998,7 @@ export default function Orders({
                       setDeliveryDayFilter('all');
                       setZavozOnly(false);
                     }}
-                    className="btn-primary !rounded !py-1 !px-3 text-xs font-black shadow-md shrink-0 bg-amber-600 hover:bg-amber-700 text-white"
+                    className="btn-primary !rounded !py-1 !px-3 text-xs font-black shadow-md shrink-0 bg-amber-700 hover:bg-amber-800 text-white"
                   >
                     <Globe className="ikona-text" /> Zobrazit všech {itemAuditStats.allOrdersQty} ks
                   </button>
@@ -2043,7 +2043,7 @@ export default function Orders({
                     ? 'bg-amber-500 text-neutral-950 shadow-xs'
                     : hasOrders
                       ? 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
-                      : 'bg-neutral-100 text-neutral-400 border border-neutral-200 hover:bg-neutral-200'
+                      : 'bg-neutral-100 text-neutral-600 border border-neutral-200 hover:bg-neutral-200'
                 }`}
               >
                 <span>{d.label}</span>
@@ -2110,7 +2110,7 @@ export default function Orders({
             <button className="chip bg-emerald-200 text-emerald-800 hover:bg-emerald-300 flex items-center gap-1" onClick={() => bulkToggleFlag('is_delivered')}><Truck size={12} /> Zavezenné</button>
             <button className="chip bg-amber-100 text-amber-700 hover:bg-amber-200" onClick={() => bulkSetStatus('expedovana')}>Expedovat</button>
             <button className="chip bg-rose-50 text-rose-700 hover:bg-rose-100 flex items-center gap-1" onClick={bulkDelete}><Trash2 size={12} /> Smazat</button>
-            <button className="chip bg-white border border-primary-200 text-primary-500 hover:bg-primary-50" onClick={clearSelection}><X className="ikona-text" /> Zrušit výběr</button>
+            <button className="chip bg-white border border-primary-200 text-primary-600 hover:bg-primary-50" onClick={clearSelection}><X className="ikona-text" /> Zrušit výběr</button>
           </div>
         ) : (
           searchedFiltered.length > 0 && <button className="btn-ghost !rounded !py-1.5 text-xs flex items-center gap-1" onClick={selectAll}><CheckSquare size={13} /> Vybrat vše ({searchedFiltered.length})</button>
@@ -2619,7 +2619,7 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
           ) : null; })()}
           <span className={`chip font-black ${STATUS[o.status]?.cls ?? ''}`}>{STATUS[o.status]?.label ?? o.status}</span>
           {o.delivery_date && (
-            <span className="chip bg-amber-600 text-white font-black shadow-2xs shrink-0 flex items-center gap-1" title="Datum akce / závozu">
+            <span className="chip bg-amber-700 text-white font-black shadow-2xs shrink-0 flex items-center gap-1" title="Datum akce / závozu">
               <Calendar size={11} /> {new Date(o.delivery_date).toLocaleDateString('cs-CZ')}
             </span>
           )}
@@ -2636,7 +2636,7 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
               onClick={() => onToggleFlag(o, 'is_prepared')}
               className={`px-2 py-1 rounded text-[11px] font-black transition flex items-center gap-1 shadow-2xs ${
                 o.is_prepared
-                  ? 'bg-emerald-600 text-white border border-emerald-700 shadow-xs'
+                  ? 'bg-emerald-700 text-white border border-emerald-700 shadow-xs'
                   : 'bg-white text-neutral-800 border border-neutral-300 hover:bg-emerald-50'
               }`}
               title="Označit jako připraveno"

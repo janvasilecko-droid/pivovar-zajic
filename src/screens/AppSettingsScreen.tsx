@@ -808,7 +808,7 @@ function AdminVersionSyncSection() {
         <button
           onClick={() => setConfirmingClean(true)}
           disabled={cleaning || confirmingClean}
-          className="w-full py-3 rounded bg-rose-600 hover:bg-rose-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-black text-sm shadow-md transition flex items-center justify-center gap-2"
+          className="w-full py-3 rounded bg-rose-600 hover:bg-rose-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-black text-sm shadow-md transition flex items-center justify-center gap-2"
         >
           {cleaning ? (
             <>
@@ -849,7 +849,7 @@ function AdminVersionSyncSection() {
               <button
                 onClick={handleClearData}
                 disabled={confirmText !== CLEAN_CONFIRM_TEXT || cleaning}
-                className="flex-1 py-2.5 rounded bg-rose-700 hover:bg-rose-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-sm shadow transition flex items-center justify-center gap-2"
+                className="flex-1 py-2.5 rounded bg-rose-700 hover:bg-rose-800 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-sm shadow transition flex items-center justify-center gap-2"
               >
                 {cleaning ? (
                   <>

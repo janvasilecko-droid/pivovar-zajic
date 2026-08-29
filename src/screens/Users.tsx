@@ -253,7 +253,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
             Nový přístup: v záložce „Schválené e-maily" přidejte e-mail a pak ho schvalte. Uživatel se přihlásí odkazem na e-mail.
           </p>
 
-      {err && <div className="text-sm text-rose-600 bg-rose-500/10 rounded px-3.5 py-2.5 mb-4 font-bold">{err}</div>}
+      {err && <div className="text-sm text-rose-700 bg-rose-500/10 rounded px-3.5 py-2.5 mb-4 font-bold">{err}</div>}
       {loading ? <Spinner /> : users.length === 0 ? <EmptyState text="Žádní uživatelé." icon={UsersIcon} /> : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {users.map((u) => (
@@ -274,7 +274,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
                       <Car className="ikona-text" /> Upozornění na auta
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-neutral-100 text-neutral-500 font-medium text-[11px]">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-neutral-100 text-neutral-600 font-medium text-[11px]">
                       <Car className="ikona-text" /> Bez upozornění
                     </span>
                   )}
@@ -519,7 +519,7 @@ function UserForm({ user, onClose, onSaved }: { user: UserRow | null; onClose: (
           </label>
         </div>
 
-        {err && <div className="text-sm text-rose-600 bg-rose-500/10 rounded px-3.5 py-2.5 font-bold">{err}</div>}
+        {err && <div className="text-sm text-rose-700 bg-rose-500/10 rounded px-3.5 py-2.5 font-bold">{err}</div>}
         <div className="flex justify-end gap-2 pt-2">
           <button className="btn-ghost !rounded" onClick={onClose}>Zrušit</button>
           <button className="btn-primary !rounded" disabled={busy} onClick={save}>{busy ? 'Ukládám…' : 'Uložit'}</button>

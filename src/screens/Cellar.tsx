@@ -659,7 +659,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                         <input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} step="0.1" className="input" value={inlineVolume} onChange={(e) => setInlineVolume(e.target.value)} placeholder={`např. ${t.capacity_l}`} />
                       </div>
                       <div className="flex gap-1.5">
-                        <button className="text-xs px-2.5 py-1 rounded bg-emerald-600 text-white font-bold hover:bg-emerald-500 disabled:opacity-50" disabled={inlineBusy} onClick={() => saveInlineTank(t)}>
+                        <button className="text-xs px-2.5 py-1 rounded bg-emerald-700 text-white font-bold hover:bg-emerald-800 disabled:opacity-50" disabled={inlineBusy} onClick={() => saveInlineTank(t)}>
                           {inlineBusy ? 'Ukládám…' : 'Uložit pivo'}
                         </button>
                         <button className="text-xs px-2.5 py-1 rounded bg-neutral-200 text-neutral-700 hover:bg-neutral-300 font-medium" onClick={() => setInlineEditId(null)}>Zrušit</button>
@@ -850,7 +850,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                     {(t.status === 'active' || t.status === 'emptying' || t.status === 'filling') && t.current_beer_id && (
                       t.kegging_active ? (
                         <button
-                          className="w-full min-h-[48px] text-sm px-3 py-3 rounded bg-rose-600 text-white hover:bg-rose-500 font-black border border-rose-700 shadow-md flex items-center justify-center gap-2 transition-all"
+                          className="w-full min-h-[48px] text-sm px-3 py-3 rounded bg-rose-600 text-white hover:bg-rose-700 font-black border border-rose-700 shadow-md flex items-center justify-center gap-2 transition-all"
                           onClick={() => stopKegging(t)}
                           title="Zastaví odebírání piva z tohoto tanku při stáčení keg"
                         >
@@ -859,7 +859,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                         </button>
                       ) : (
                         <button
-                          className="w-full min-h-[48px] text-sm px-3 py-3 rounded bg-emerald-600 text-white hover:bg-emerald-500 font-black border border-emerald-700 shadow-md flex items-center justify-center gap-2 transition-all"
+                          className="w-full min-h-[48px] text-sm px-3 py-3 rounded bg-emerald-700 text-white hover:bg-emerald-800 font-black border border-emerald-700 shadow-md flex items-center justify-center gap-2 transition-all"
                           onClick={() => startKegging(t)}
                           title="Aktivuje tento tank jako zdroj pro stáčení keg — pivo se bude odebírat z něj"
                         >
@@ -870,12 +870,12 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                     )}
 
                     {t.status === 'empty' && (
-                      <button className="w-full min-h-[48px] text-sm px-3 py-3 rounded bg-emerald-600 text-white hover:bg-emerald-500 font-black shadow-md flex items-center justify-center gap-2" onClick={() => setShowStart(t)}>
+                      <button className="w-full min-h-[48px] text-sm px-3 py-3 rounded bg-emerald-700 text-white hover:bg-emerald-800 font-black shadow-md flex items-center justify-center gap-2" onClick={() => setShowStart(t)}>
                         <Play className="ikona-text" /><span>Spustit tank</span>
                       </button>
                     )}
                     {(t.status === 'active' || t.status === 'emptying' || t.status === 'filling') && (
-                      <button className="w-full min-h-[48px] text-sm px-3 py-3 rounded bg-rose-600 text-white hover:bg-rose-500 font-black shadow-md flex items-center justify-center gap-2" onClick={() => endTank(t)}>
+                      <button className="w-full min-h-[48px] text-sm px-3 py-3 rounded bg-rose-600 text-white hover:bg-rose-700 font-black shadow-md flex items-center justify-center gap-2" onClick={() => endTank(t)}>
                         <Check className="ikona-text" /><span>Zavřít tank</span>
                       </button>
                     )}
@@ -958,7 +958,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                       <button className="min-h-[40px] text-xs px-3 py-2 rounded bg-neutral-200/80 text-neutral-800 hover:bg-neutral-300 font-medium" onClick={() => setEditTank(t)}>Upravit</button>
                       {t.label.toLowerCase().includes('spilka') && (t.status === 'active' || t.status === 'filling' || Number(t.current_volume_l) > 0) && (
                         <button
-                          className="min-h-[40px] text-xs px-3 py-2 rounded bg-sky-600 text-white font-black hover:bg-sky-500 shadow-xs flex items-center gap-1"
+                          className="min-h-[40px] text-xs px-3 py-2 rounded bg-sky-700 text-white font-black hover:bg-sky-800 shadow-xs flex items-center gap-1"
                           onClick={() => {
                             setTransferFromId(t.id);
                             if (t.current_beer_id) setTransferBeerId(t.current_beer_id);
@@ -1115,7 +1115,7 @@ function StartTankForm({ tank, beers, onClose, onSaved }: { tank: CellarTank; be
           <input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} step="0.1" className="input" value={volume} onChange={(e) => setVolume(e.target.value)} />
         </Field>
         <Field label="Poznámka"><input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="poznámka" /></Field>
-        {err && <div className="text-sm text-rose-600 bg-rose-500/10 rounded px-3 py-2">{err}</div>}
+        {err && <div className="text-sm text-rose-700 bg-rose-500/10 rounded px-3 py-2">{err}</div>}
         <div className="flex justify-end gap-2 pt-2">
           <button className="btn-ghost !rounded" onClick={onClose}>Zrušit</button>
           <button className="btn-primary !rounded" disabled={busy} onClick={save}>{busy ? 'Ukládám…' : 'Spustit'}</button>
@@ -1222,7 +1222,7 @@ function TransferForm({ tanks, beers, initialFromId, initialBeerId, initialVolum
           <Field label="Ztráta (l)"><input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} step="0.1" className="input" value={loss} onChange={(e) => setLoss(e.target.value)} placeholder="např. 2" /></Field>
         </div>
         <Field label="Poznámka"><input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="poznámka" /></Field>
-        {err && <div className="text-sm text-rose-600 bg-rose-500/10 rounded px-3 py-2">{err}</div>}
+        {err && <div className="text-sm text-rose-700 bg-rose-500/10 rounded px-3 py-2">{err}</div>}
         <div className="flex justify-end gap-2 pt-2">
           <button className="btn-ghost !rounded" onClick={onClose}>Zrušit</button>
           <button className="btn-primary !rounded" disabled={busy} onClick={save}>{busy ? 'Ukládám…' : 'Uložit'}</button>

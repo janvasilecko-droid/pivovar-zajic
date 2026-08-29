@@ -30,7 +30,7 @@ export function EmptyState({ text, icon = Inbox }: { text: string; icon?: string
   const znak = typeof icon === 'string' ? icon : null;
   return (
     <div className="card p-10 text-center animate-fade-in border-dashed border-2 border-neutral-200 bg-neutral-50/50">
-      <div className="w-14 h-14 mx-auto mb-3.5 rounded bg-white shadow-sm border border-neutral-200/80 grid place-items-center text-3xl text-neutral-400">
+      <div className="w-14 h-14 mx-auto mb-3.5 rounded bg-white shadow-sm border border-neutral-200/80 grid place-items-center text-3xl text-neutral-500">
         {Ikona ? <Ikona size={26} /> : znak}
       </div>
       <p className="text-neutral-600 text-sm font-medium">{text}</p>
@@ -118,10 +118,10 @@ export function Stat({ label, value, icon, tone = 'primary' }: {
   const tones: Record<string, { bg: string; iconBg: string; text: string; border: string }> = {
     primary: { bg: 'hover:border-primary-200', iconBg: 'bg-primary-50 text-primary-600 border-primary-100', text: 'text-neutral-900', border: 'border-neutral-200/80' },
     accent: { bg: 'hover:border-neutral-400', iconBg: 'bg-neutral-900 text-white border-neutral-800', text: 'text-neutral-900', border: 'border-neutral-200/80' },
-    amber: { bg: 'hover:border-amber-300', iconBg: 'bg-amber-50 text-amber-600 border-amber-200/60', text: 'text-neutral-900', border: 'border-amber-200/50' },
-    success: { bg: 'hover:border-emerald-300', iconBg: 'bg-emerald-50 text-emerald-600 border-emerald-200/60', text: 'text-neutral-900', border: 'border-emerald-200/50' },
-    warning: { bg: 'hover:border-amber-300', iconBg: 'bg-amber-50 text-amber-600 border-amber-200/60', text: 'text-neutral-900', border: 'border-amber-200/50' },
-    danger: { bg: 'hover:border-rose-300', iconBg: 'bg-rose-50 text-rose-600 border-rose-200/60', text: 'text-neutral-900', border: 'border-rose-200/50' },
+    amber: { bg: 'hover:border-amber-300', iconBg: 'bg-amber-50 text-amber-700 border-amber-200/60', text: 'text-neutral-900', border: 'border-amber-200/50' },
+    success: { bg: 'hover:border-emerald-300', iconBg: 'bg-emerald-50 text-emerald-700 border-emerald-200/60', text: 'text-neutral-900', border: 'border-emerald-200/50' },
+    warning: { bg: 'hover:border-amber-300', iconBg: 'bg-amber-50 text-amber-700 border-amber-200/60', text: 'text-neutral-900', border: 'border-amber-200/50' },
+    danger: { bg: 'hover:border-rose-300', iconBg: 'bg-rose-50 text-rose-700 border-rose-200/60', text: 'text-neutral-900', border: 'border-rose-200/50' },
   };
   const t = tones[tone] || tones.primary;
 

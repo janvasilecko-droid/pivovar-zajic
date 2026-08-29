@@ -689,35 +689,64 @@ html.density-large .btn {
   color: rgb(var(--ink-neutral-900));
 }
 
-/* Sytá jantarová výplň je značka aplikace a v tmavém režimu se nemění (je
-   mezi odstíny 400–500, které zůstávají). Popisek na ní proto musí zůstat
-   TMAVÝ — i když se `text-neutral-950` všude jinde správně obrací na světlý.
+/* Syté výplně (odstíny 400–500) se v tmavém režimu NEMĚNÍ — v paletě nahoře
+   pro ně žádná proměnná není. Popisek na nich proto musí zůstat TMAVÝ,
+   i když se `text-neutral-950` všude jinde správně obrací na světlý.
    Bez tohohle pravidla svítí na 111 jantarových tlačítkách světlé písmo
    v poměru 2,5 : 1, což je pod čitelnou hranicí.
+
+   Odstín 300 tu původně byl taky — chybně: ten mezi povrchy PATŘÍ (viz
+   POVRCHY v tailwind.config.js), v tmavém režimu ztmavne, a tmavé písmo
+   na něm pak vycházelo 2,4 : 1. Zvýrazněné štítky v plánu stáčení a v KEGu
+   tím byly hůř čitelné než bez pravidla. Zůstávají jen 400 a 500.
+
+   Barev je tu šest, ne jen jantarová: stejnou pastí jsou zvýrazňovací
+   štítky v Objednávkách (`bg-sky-400 text-neutral-900`), kde je výplň taky
+   z konstantní části palety.
 
    Dvojitý [class~=] má vyšší specificitu než samotná .text-neutral-950,
    takže není potřeba !important.
 
    Platí i pro potomky: v HACCP je jantarová dlaždice s popiskem ve vnořeném
    <span class="text-amber-950">, kde třída pozadí a třída písma nesedí na
-   témž prvku. Jantarové výplně jsou v aplikaci vždycky drobné (tlačítka,
+   témž prvku. Syté výplně jsou v aplikaci vždycky drobné (tlačítka,
    štítky, číselné dlaždice), takže se tím nedá zasáhnout nic velkého. */
 :root.dark
   :is(
-    [class~="bg-amber-300"], [class~="bg-amber-400"], [class~="bg-amber-500"],
-    [class~="!bg-amber-300"], [class~="!bg-amber-400"], [class~="!bg-amber-500"]
+    [class~="bg-amber-400"], [class~="bg-amber-500"],
+    [class~="!bg-amber-400"], [class~="!bg-amber-500"],
+    [class~="bg-primary-400"], [class~="bg-primary-500"],
+    [class~="bg-emerald-400"], [class~="bg-emerald-500"],
+    [class~="bg-sky-400"], [class~="bg-sky-500"],
+    [class~="bg-rose-400"], [class~="bg-rose-500"],
+    [class~="bg-violet-400"], [class~="bg-violet-500"]
   ):is(
     [class*="text-neutral-8"], [class*="text-neutral-9"],
-    [class*="text-amber-7"], [class*="text-amber-8"], [class*="text-amber-9"]
+    [class*="text-amber-7"], [class*="text-amber-8"], [class*="text-amber-9"],
+    [class*="text-primary-7"], [class*="text-primary-8"], [class*="text-primary-9"],
+    [class*="text-emerald-8"], [class*="text-emerald-9"],
+    [class*="text-sky-8"], [class*="text-sky-9"],
+    [class*="text-rose-8"], [class*="text-rose-9"],
+    [class*="text-violet-8"], [class*="text-violet-9"]
   ),
 :root.dark
   :is(
-    [class~="bg-amber-300"], [class~="bg-amber-400"], [class~="bg-amber-500"],
-    [class~="!bg-amber-300"], [class~="!bg-amber-400"], [class~="!bg-amber-500"]
+    [class~="bg-amber-400"], [class~="bg-amber-500"],
+    [class~="!bg-amber-400"], [class~="!bg-amber-500"],
+    [class~="bg-primary-400"], [class~="bg-primary-500"],
+    [class~="bg-emerald-400"], [class~="bg-emerald-500"],
+    [class~="bg-sky-400"], [class~="bg-sky-500"],
+    [class~="bg-rose-400"], [class~="bg-rose-500"],
+    [class~="bg-violet-400"], [class~="bg-violet-500"]
   )
   :is(
     [class*="text-neutral-8"], [class*="text-neutral-9"],
-    [class*="text-amber-7"], [class*="text-amber-8"], [class*="text-amber-9"]
+    [class*="text-amber-7"], [class*="text-amber-8"], [class*="text-amber-9"],
+    [class*="text-primary-7"], [class*="text-primary-8"], [class*="text-primary-9"],
+    [class*="text-emerald-8"], [class*="text-emerald-9"],
+    [class*="text-sky-8"], [class*="text-sky-9"],
+    [class*="text-rose-8"], [class*="text-rose-9"],
+    [class*="text-violet-8"], [class*="text-violet-9"]
   ) {
   /* !important je tu kvůli variantám s vykřičníkem: `!text-neutral-950`
      vygeneruje `color: … !important` a bez stejné váhy by ho nešlo přebít.

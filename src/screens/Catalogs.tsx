@@ -53,7 +53,7 @@ export function BeersScreen() {
         <button className="px-3.5 py-2.5 rounded bg-white border border-amber-300/80 text-amber-950 hover:bg-amber-50 font-extrabold text-xs transition flex items-center gap-1.5 shadow-xs" onClick={() => setShowImport(true)}>
           <FileSpreadsheet size={16} /> Import z Excelu
         </button>
-        <button className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-600 text-neutral-950 font-black text-xs transition shadow-md flex items-center gap-1.5" onClick={() => { setEdit(null); setShow(true); }}>
+        <button className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md flex items-center gap-1.5" onClick={() => { setEdit(null); setShow(true); }}>
           <Plus size={16} /> Přidat pivo
         </button>
       </div>
@@ -194,7 +194,7 @@ export function PackagesScreen() {
   return (
     <div className="space-y-6 pb-12">
       <div className="flex justify-end">
-        <button className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-600 text-neutral-950 font-black text-xs transition shadow-md flex items-center gap-1.5" onClick={() => { setEdit(null); setShow(true); }}>
+        <button className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md flex items-center gap-1.5" onClick={() => { setEdit(null); setShow(true); }}>
           <Plus size={16} /> Přidat obal
         </button>
       </div>
@@ -218,7 +218,7 @@ export function PackagesScreen() {
                 <button className="flex-1 px-3 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-900 font-extrabold text-xs transition" onClick={() => { setEdit(p); setShow(true); }}>
                   Upravit
                 </button>
-                <button className="p-1.5 rounded bg-rose-50 hover:bg-rose-500 text-rose-600 hover:text-white font-bold text-xs transition" onClick={() => del(p.id)}>
+                <button className="p-1.5 rounded bg-rose-50 hover:bg-rose-500 text-rose-700 hover:text-white font-bold text-xs transition" onClick={() => del(p.id)}>
                   <Trash2 size={15} />
                 </button>
               </div>
@@ -336,7 +336,7 @@ export function PlacesScreen() {
         <button className="px-3.5 py-2.5 rounded bg-white border border-amber-300/80 text-amber-950 hover:bg-amber-50 font-extrabold text-xs transition flex items-center gap-1.5 shadow-xs" onClick={() => setShowImport(true)}>
           <FileSpreadsheet size={16} /> Import z Excelu
         </button>
-        <button className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-600 text-neutral-950 font-black text-xs transition shadow-md flex items-center gap-1.5" onClick={() => { setEdit(null); setShow(true); }}>
+        <button className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md flex items-center gap-1.5" onClick={() => { setEdit(null); setShow(true); }}>
           <Plus size={16} /> Přidat odběratele
         </button>
       </div>
@@ -396,7 +396,7 @@ export function PlacesScreen() {
                 <button className="flex-1 px-3 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-900 font-extrabold text-xs transition" onClick={() => { setEdit(p); setShow(true); }}>
                   Upravit
                 </button>
-                <button className="p-1.5 rounded bg-rose-50 hover:bg-rose-500 text-rose-600 hover:text-white font-bold text-xs transition" onClick={() => del(p.id)}>
+                <button className="p-1.5 rounded bg-rose-50 hover:bg-rose-500 text-rose-700 hover:text-white font-bold text-xs transition" onClick={() => del(p.id)}>
                   <Trash2 size={15} />
                 </button>
               </div>
@@ -966,7 +966,7 @@ export function VehiclesScreen() {
                   <button className="flex-1 px-4 py-2 rounded bg-neutral-900 text-amber-300 font-extrabold text-xs hover:bg-neutral-800 transition shadow-xs" onClick={() => { setEdit(v); setShow(true); }}>
                     Upravit termíny & SPZ
                   </button>
-                  <button className="p-2 rounded bg-rose-50 hover:bg-rose-500 text-rose-600 hover:text-white font-bold text-xs transition" onClick={() => del(v.id)}>
+                  <button className="p-2 rounded bg-rose-50 hover:bg-rose-500 text-rose-700 hover:text-white font-bold text-xs transition" onClick={() => del(v.id)}>
                     <Trash2 size={16} />
                   </button>
                 </div>

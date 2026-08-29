@@ -234,7 +234,7 @@ export default function TapSanitationDiary() {
                 <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-neutral-100">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-black text-sm text-neutral-900">{e.tap_name || e.tap_id}</span>
-                    <span className="text-[11px] font-black text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded">{formatDate(e.sanitation_date)}</span>
+                    <span className="text-[11px] font-black text-neutral-600 bg-neutral-100 px-1.5 py-0.5 rounded">{formatDate(e.sanitation_date)}</span>
                     {e.sanitation_time && (
                       <span className="text-[11px] font-mono font-black text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded flex items-center gap-1">
                         <Clock size={10} /> {e.sanitation_time}
@@ -352,7 +352,7 @@ export default function TapSanitationDiary() {
 
               <div className="flex justify-end gap-2 border-t border-neutral-100 pt-3">
                 <button type="button" onClick={() => setShowModal(false)} className="btn-ghost !rounded text-xs font-bold">Zrušit</button>
-                <button type="submit" disabled={saving} className="btn-primary !rounded text-xs font-black shadow-md bg-amber-500 hover:bg-amber-600 border-none text-neutral-950">
+                <button type="submit" disabled={saving} className="btn-primary !rounded text-xs font-black shadow-md bg-amber-500 hover:bg-amber-400 border-none text-neutral-950">
                   {saving ? 'Ukládám…' : 'Uložit do sanitačního deníku'}
                 </button>
               </div>

@@ -391,7 +391,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
               </div>
             )}
             <div className={`flex items-end justify-end ${!showWhoColumn ? 'sm:col-span-2' : ''}`}>
-              <span className="text-xs font-bold text-neutral-500 bg-neutral-100 rounded px-3 py-2">
+              <span className="text-xs font-bold text-neutral-600 bg-neutral-100 rounded px-3 py-2">
                 <PackageIcon className="ikona-text" /> {rowsSummary.totalQty} ks · {rowsSummary.totalL.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L
               </span>
             </div>

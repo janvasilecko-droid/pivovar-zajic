@@ -1041,7 +1041,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                                 {[50, 30, 20, 15, 10].map((v) => {
                                   const qty = kegQtyMap[v] || 0;
                                   return (
-                                    <div key={v} className={`p-1 rounded border transition-all ${qty > 0 ? 'bg-amber-100/90 border-amber-400 text-amber-950 font-black shadow-2xs' : 'bg-neutral-50/80 border-neutral-200 text-neutral-400'}`}>
+                                    <div key={v} className={`p-1 rounded border transition-all ${qty > 0 ? 'bg-amber-100/90 border-amber-400 text-amber-950 font-black shadow-2xs' : 'bg-neutral-50/80 border-neutral-200 text-neutral-500'}`}>
                                       <div className="text-[11px] font-black uppercase text-neutral-500">{v} L</div>
                                       <div className="font-mono text-[11px] font-black">{qty}</div>
                                     </div>
@@ -1060,7 +1060,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                                 {[1.5, 1.0, 0.5, 0.33].map((v) => {
                                   const qty = bottleQtyMap[v] || 0;
                                   return (
-                                    <div key={v} className={`p-1 rounded border transition-all ${qty > 0 ? 'bg-sky-100/90 border-sky-400 text-sky-950 font-black shadow-2xs' : 'bg-neutral-50/80 border-neutral-200 text-neutral-400'}`}>
+                                    <div key={v} className={`p-1 rounded border transition-all ${qty > 0 ? 'bg-sky-100/90 border-sky-400 text-sky-950 font-black shadow-2xs' : 'bg-neutral-50/80 border-neutral-200 text-neutral-500'}`}>
                                       <div className="text-[11px] font-black uppercase text-neutral-500">{v === 1 ? '1 L' : `${v} L`}</div>
                                       <div className="font-mono text-[11px] font-black">{qty}</div>
                                     </div>
@@ -1383,7 +1383,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                               {[50, 30, 20, 15, 10].map((v) => {
                                 const qty = rangeKegQtyMap[v] || 0;
                                 return (
-                                  <div key={v} className={`p-1.5 rounded border transition-all ${qty > 0 ? 'bg-amber-100/90 border-amber-400 text-amber-950 font-black shadow-2xs' : 'bg-neutral-50/80 border-neutral-200 text-neutral-400'}`}>
+                                  <div key={v} className={`p-1.5 rounded border transition-all ${qty > 0 ? 'bg-amber-100/90 border-amber-400 text-amber-950 font-black shadow-2xs' : 'bg-neutral-50/80 border-neutral-200 text-neutral-500'}`}>
                                     <div className="text-[11px] font-black uppercase text-neutral-600">{v} L</div>
                                     <div className="font-mono text-xs font-black">{qty}</div>
                                   </div>
@@ -1402,7 +1402,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                               {[1.5, 1.0, 0.5, 0.33].map((v) => {
                                 const qty = rangeBottleQtyMap[v] || 0;
                                 return (
-                                  <div key={v} className={`p-1.5 rounded border transition-all ${qty > 0 ? 'bg-sky-100/90 border-sky-400 text-sky-950 font-black shadow-2xs' : 'bg-neutral-50/80 border-neutral-200 text-neutral-400'}`}>
+                                  <div key={v} className={`p-1.5 rounded border transition-all ${qty > 0 ? 'bg-sky-100/90 border-sky-400 text-sky-950 font-black shadow-2xs' : 'bg-neutral-50/80 border-neutral-200 text-neutral-500'}`}>
                                     <div className="text-[11px] font-black uppercase text-neutral-600">{v === 1 ? '1 L' : `${v} L`}</div>
                                     <div className="font-mono text-xs font-black">{qty}</div>
                                   </div>
@@ -1625,7 +1625,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
               <button
                 type="button"
                 onClick={exportDetailExcel}
-                className="px-4 py-2.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black shadow-md transition flex items-center gap-2"
+                className="px-4 py-2.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black shadow-md transition flex items-center gap-2"
               >
                 <Download size={16} />
                 <span>Exportovat do Excelu</span>
@@ -1789,7 +1789,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
               <button
                 type="button"
                 onClick={exportCyclesExcel}
-                className="px-3.5 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black shadow-md transition flex items-center gap-1.5"
+                className="px-3.5 py-2 rounded bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black shadow-md transition flex items-center gap-1.5"
               >
                 <Download size={15} />
                 <span>Export cyklů</span>

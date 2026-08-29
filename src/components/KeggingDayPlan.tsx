@@ -177,7 +177,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                     ? 'bg-white text-amber-900 border border-amber-200 hover:bg-amber-50'
                     : hotovo
                     ? 'bg-white text-emerald-800 border border-emerald-200 hover:bg-emerald-50'
-                    : 'bg-neutral-200 text-neutral-400'
+                    : 'bg-neutral-200 text-neutral-600'
                 }`}
               >
                 <div className="flex flex-col items-start leading-tight">
@@ -218,7 +218,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
               </p>
             </div>
             {active.totalOrdered > 0 && (
-              <span className={`px-3 py-1 rounded-full font-mono font-black text-sm shrink-0 ${active.totalMissing > 0 ? 'bg-amber-500 text-neutral-950' : 'bg-emerald-500 text-white'}`}>
+              <span className={`px-3 py-1 rounded-full font-mono font-black text-sm shrink-0 ${active.totalMissing > 0 ? 'bg-amber-500 text-neutral-950' : 'bg-emerald-700 text-white'}`}>
                 {active.totalMissing > 0 ? `${active.totalMissing} ks` : <Check className="ikona-text" />}
               </span>
             )}
@@ -303,7 +303,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                         tlačítka jsou pod tím na celou šířku, aby se do nich
                         dalo trefit palcem. */}
                     <div className="flex items-start gap-3 p-3.5 pb-2.5">
-                      <div className={`w-10 h-10 rounded grid place-items-center shrink-0 ${hotovo ? 'bg-emerald-500 text-white' : 'bg-amber-100 text-amber-700'}`}>
+                      <div className={`w-10 h-10 rounded grid place-items-center shrink-0 ${hotovo ? 'bg-emerald-700 text-white' : 'bg-amber-100 text-amber-700'}`}>
                         {hotovo ? <Check size={20} /> : <Cylinder size={19} />}
                       </div>
 
@@ -357,7 +357,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                             type="button"
                             disabled={busy === it.key}
                             onClick={() => setCheck(it, it.ordered)}
-                            className="flex-1 min-h-[44px] rounded bg-emerald-600 text-white font-black text-xs hover:bg-emerald-700 disabled:opacity-40 inline-flex items-center justify-center gap-1.5"
+                            className="flex-1 min-h-[44px] rounded bg-emerald-700 text-white font-black text-xs hover:bg-emerald-800 disabled:opacity-40 inline-flex items-center justify-center gap-1.5"
                             title="Odškrtnout celou položku — nezapisuje se do stáčení"
                           >
                             <Check size={15} />

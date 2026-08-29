@@ -777,7 +777,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                 onClick={() => cameraRef.current?.click()}
                 disabled={busy}
                 title="Vyfotit objednávku fotoaparátem"
-                className="w-11 h-11 grid place-items-center rounded bg-amber-500 hover:bg-amber-600 text-white text-xl shadow-md transition active:scale-95 disabled:opacity-50"
+                className="w-11 h-11 grid place-items-center rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xl shadow-md transition active:scale-95 disabled:opacity-50"
               >
                 <Camera className="ikona-text" />
               </button>
@@ -883,7 +883,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
           </div>
         )}
 
-        {err && <div className="text-sm text-rose-600 bg-rose-500/10 rounded px-3 py-2">{err}</div>}
+        {err && <div className="text-sm text-rose-700 bg-rose-500/10 rounded px-3 py-2">{err}</div>}
 
         <div>
           <label className="label">Text objednávky (z fotky nebo e-mailu)</label>
@@ -945,7 +945,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
           </div>
 
           <div className="flex-1 overflow-y-auto scrollbar-thin px-4 py-3 space-y-3">
-            {err && <div className="text-sm text-rose-600 bg-rose-500/10 rounded px-3 py-2">{err}</div>}
+            {err && <div className="text-sm text-rose-700 bg-rose-500/10 rounded px-3 py-2">{err}</div>}
 
             {busy && pendingFiles.length > 0 && (
               <div className="bg-primary-900 text-primary-50 px-4 py-3 rounded flex items-center gap-3 shadow-md animate-pulse">
@@ -1047,7 +1047,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
           )}
           {parsed.map((p, i) => (
               p.line._removed ? (
-                <div key={i} className="rounded border-2 border-dashed border-primary-200 bg-primary-50/30 px-4 py-2 flex items-center justify-between text-xs text-primary-500">
+                <div key={i} className="rounded border-2 border-dashed border-primary-200 bg-primary-50/30 px-4 py-2 flex items-center justify-between text-xs text-primary-600">
                   <span>Řádek odstraněn (nebude se importovat)</span>
                   <button className="btn-ghost !rounded text-xs !py-1 !px-2" onClick={() => restoreLine(i)}>Vrátit</button>
                 </div>
@@ -1209,7 +1209,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                       <div className="flex items-end col-span-1 justify-end">
                         <button
                           type="button"
-                          className="w-10 h-10 rounded bg-rose-100 hover:bg-rose-200 text-rose-600 flex items-center justify-center transition text-base font-bold"
+                          className="w-10 h-10 rounded bg-rose-100 hover:bg-rose-200 text-rose-700 flex items-center justify-center transition text-base font-bold"
                           title="Odstranit řádek"
                           onClick={(e) => { e.stopPropagation(); removeLine(i); }}
                         >×</button>

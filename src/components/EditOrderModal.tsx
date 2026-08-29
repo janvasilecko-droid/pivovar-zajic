@@ -225,7 +225,7 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
           <div className="text-xs font-semibold uppercase tracking-wider text-primary-400 mb-2">Položky piva ({filledCount} vyplněno)</div>
           <div className="space-y-2">
             {rows.map((r, i) => r.removed ? (
-              <div key={r.id ?? `new-${i}`} className="flex items-center justify-between rounded border-2 border-dashed border-primary-200 bg-primary-50/40 px-3 py-2 text-xs text-primary-500">
+              <div key={r.id ?? `new-${i}`} className="flex items-center justify-between rounded border-2 border-dashed border-primary-200 bg-primary-50/40 px-3 py-2 text-xs text-primary-600">
                 <span>Položka bude odstraněna</span>
                 <button type="button" className="btn-ghost !rounded text-xs !py-1 !px-2" onClick={() => restoreRow(i)}>Vrátit</button>
               </div>
@@ -307,7 +307,7 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
           </div>
         </div>
 
-        {err && <div className="text-sm text-rose-600 bg-rose-500/10 rounded px-3 py-2">{err}</div>}
+        {err && <div className="text-sm text-rose-700 bg-rose-500/10 rounded px-3 py-2">{err}</div>}
 
         <div className="flex justify-end gap-2">
           <button className="btn-ghost !rounded" onClick={onClose} disabled={saving}>Zrušit</button>

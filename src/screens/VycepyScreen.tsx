@@ -285,7 +285,7 @@ export default function VycepyScreen() {
                         last_water_rinse: new Date().toLocaleDateString('cs-CZ') + ' ' + new Date().toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' }),
                         taps_disassembled: true
                       })}
-                      className="px-2.5 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold shadow-2xs flex items-center justify-center gap-1"
+                      className="px-2.5 py-1.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold shadow-2xs flex items-center justify-center gap-1"
                       title="Provést Oplach vodou a zaznamenat čistotu"
                     >
                       <Droplets size={13} /> Opláchnuto
@@ -366,7 +366,7 @@ export default function VycepyScreen() {
                       type="button"
                       onClick={() => handleToggleReturnReservation(r)}
                       className={`flex-1 min-h-[40px] px-3 py-2 rounded text-xs font-black transition ${
-                        r.is_returned ? 'bg-neutral-200 text-neutral-800 hover:bg-neutral-300' : 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-2xs'
+                        r.is_returned ? 'bg-neutral-200 text-neutral-800 hover:bg-neutral-300' : 'bg-emerald-700 text-white hover:bg-emerald-800 shadow-2xs'
                       }`}
                     >
                       {r.is_returned ? 'Zrušit vrácení' : <><Check className="ikona-text" /> Vrátit</>}
@@ -439,7 +439,7 @@ export default function VycepyScreen() {
                             className={`px-2.5 py-1 rounded text-[11px] font-black transition ${
                               r.is_returned
                                 ? 'bg-neutral-200 text-neutral-800 hover:bg-neutral-300'
-                                : 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-2xs'
+                                : 'bg-emerald-700 text-white hover:bg-emerald-800 shadow-2xs'
                             }`}
                           >
                             {r.is_returned ? 'Zrušit vrácení' : <><Check className="ikona-text" /> Vrátit</>}
