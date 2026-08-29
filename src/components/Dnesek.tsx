@@ -6,7 +6,7 @@
 //
 // Dlaždicový launcher zůstává pod tím beze změny.
 import { useEffect, useState } from 'react';
-import { ChevronRight, Truck, ClipboardList, MessageCircle, Wine, CheckCircle2, ArrowLeftRight } from 'lucide-react';
+import { ChevronRight, Truck, ClipboardList, MessageCircle, Wine, ArrowLeftRight } from 'lucide-react';
 import { fetchAllRows, supabase } from '../lib/supabase';
 import { businessDateISO } from '../lib/businessDate';
 import { fetchPendingWhatsAppCount } from '../lib/whatsappApi';
@@ -211,6 +211,11 @@ export default function Dnesek({ setPage }: { setPage: (p: Page) => void }) {
   const datum = new Date(dnes + 'T00:00:00Z');
   const nadpis = `${DNY[datum.getUTCDay()]} ${datum.getUTCDate()}. ${datum.getUTCMonth() + 1}.`;
 
+  // Když není co hlásit, sekce se radši úplně schová, než aby zabírala místo
+  // hláškou „Nic nečeká" — Dnešek má být aktivní jen tehdy, když je opravdu
+  // na co upozornit.
+  if (radky !== null && radky.length === 0) return null;
+
   return (
     <section className="card p-4 sm:p-5" aria-label="Dnešek">
       <div className="flex items-baseline justify-between gap-3 mb-3">
@@ -225,11 +230,6 @@ export default function Dnesek({ setPage }: { setPage: (p: Page) => void }) {
           {[0, 1].map((i) => (
             <div key={i} className="h-[60px] rounded-xl bg-neutral-100 animate-pulse" />
           ))}
-        </div>
-      ) : radky.length === 0 ? (
-        <div className="flex items-center gap-3 py-3 text-neutral-600">
-          <CheckCircle2 className="w-6 h-6 text-emerald-500 shrink-0" />
-          <p className="text-sm font-semibold">Nic nečeká — na zítra není co chystat a žádná objednávka není po termínu.</p>
         </div>
       ) : (
         <div className="space-y-2">

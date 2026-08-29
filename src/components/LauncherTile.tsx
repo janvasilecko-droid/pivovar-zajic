@@ -76,18 +76,11 @@ export default function LauncherTile({
 
   return (
     <div
-      className={`hs-tile ${isPresetColor ? `c-${color}` : ''} ${w === 0 ? 'xs' : ''} ${editing ? 'hs-editing' : ''} ${editing && selected ? 'hs-selected' : ''} ${isDragging ? 'hs-picked-up' : ''} ${isPriming ? 'hs-priming' : ''} ${dragOver ? 'hs-drag-over' : ''} ${jiggling ? 'hs-jiggle' : ''}`}
+      className={`hs-tile vlastni-vyska ${isPresetColor ? `c-${color}` : ''} ${w === 0 ? 'xs' : ''} ${w >= 2 && h === 1 ? 'hs-tile-wide' : ''} ${h >= 2 ? 'hs-tile-tall' : ''} ${editing ? 'hs-editing' : ''} ${editing && selected ? 'hs-selected' : ''} ${isDragging ? 'hs-picked-up' : ''} ${isPriming ? 'hs-priming' : ''} ${dragOver ? 'hs-drag-over' : ''} ${jiggling ? 'hs-jiggle' : ''}`}
       style={{
         ...tileGridStyle(x, y, w, h),
         ...(isPresetColor ? {} : { background: hexToRgba(color, tileOpacity) }),
         color: textColor,
-        // touch-action:none jen na dlaždici, co je PRÁVĚ zvednutá (isDragging)
-        // — ne hned od prvního dotyku (isPriming) a ne na všechny dlaždice jen
-        // proto, že je zapnutý edit mód. Dřív to blokovalo scroll stránky
-        // úplně (dotyk čehokoliv v mřížce = žádný posun); teď jde normálně
-        // scrollovat, dokud dlaždice fakticky nepodrží ~400ms bez pohybu —
-        // delší tažení dřív se prostě rozpozná jako scroll (viz
-        // handleTileDragPointerDown: pohyb >18px zruší čekání na podržení).
         touchAction: isDragging ? 'none' : undefined,
       }}
       data-tile-id={id}
@@ -97,22 +90,24 @@ export default function LauncherTile({
       tabIndex={0}
       onKeyDown={editing ? (e) => { if (e.key === 'Enter') onSelect(); } : (e) => { if (e.key === 'Enter') onClick(); }}
     >
-      {groupItems ? (
-        <div className="hs-tile-group-icons">
-          {groupItems.slice(0, 4).map((gi, i) => {
-            const GIcon = gi.icon;
-            const isLastCell = i === 3 && groupItems.length > 4;
-            return (
-              <span key={gi.id}>
-                {isLastCell ? <span className="hs-group-more">+{groupItems.length - 3}</span> : <GIcon />}
-              </span>
-            );
-          })}
-        </div>
-      ) : (
-        Icon && <Icon />
-      )}
-      <div className="hs-lbl">{label}</div>
+      <div className="hs-tile-icon-box">
+        {groupItems ? (
+          <div className="hs-tile-group-icons">
+            {groupItems.slice(0, 4).map((gi, i) => {
+              const GIcon = gi.icon;
+              const isLastCell = i === 3 && groupItems.length > 4;
+              return (
+                <span key={gi.id}>
+                  {isLastCell ? <span className="hs-group-more">+{groupItems.length - 3}</span> : <GIcon />}
+                </span>
+              );
+            })}
+          </div>
+        ) : (
+          Icon && <Icon />
+        )}
+      </div>
+      <div className="hs-lbl" title={label}>{label}</div>
       {badge !== undefined && <span className="hs-badge">{badge}</span>}
 
       {editing && selected && (

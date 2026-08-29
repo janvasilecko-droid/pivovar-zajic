@@ -612,6 +612,8 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
               className="hs-pager-arrow vlastni-vyska"
               disabled={currentPageIndex === 0}
               onClick={() => setCurrentPageIndex((i) => Math.max(0, i - 1))}
+              title="Předchozí stránka"
+              aria-label="Předchozí stránka"
             >
               <ChevronLeft size={18} />
             </button>
@@ -631,6 +633,8 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
               className="hs-pager-arrow vlastni-vyska"
               disabled={currentPageIndex === layout.pages.length - 1}
               onClick={() => setCurrentPageIndex((i) => Math.min(layout.pages.length - 1, i + 1))}
+              title="Další stránka"
+              aria-label="Další stránka"
             >
               <ChevronRight size={18} />
             </button>
@@ -644,7 +648,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
               aria-label="Hledat"
               onClick={() => setShowSearchModal(true)}
             >
-              <Search size={16} />
+              <Search size={17} />
             </button>
             <button
               type="button"
@@ -653,7 +657,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
               aria-label={editMode ? 'Hotovo' : 'Upravit rozložení'}
               onClick={() => { setEditMode((v) => !v); setSelectedTileId(null); }}
             >
-              {editMode ? <Check size={16} /> : <SlidersHorizontal size={16} />}
+              {editMode ? <Check size={17} /> : <SlidersHorizontal size={17} />}
             </button>
             <button
               type="button"
@@ -662,21 +666,21 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
               aria-label="Odhlásit se"
               onClick={async () => { if (await potvrd('Odhlásit se z aplikace?', { potvrdit: 'Odhlásit' })) signOut(); }}
             >
-              <LogOut size={16} />
+              <LogOut size={17} />
             </button>
             {editMode && (
               <>
                 <button type="button" className="hs-pager-manage hs-pager-manage-labeled vlastni-vyska" onClick={handleAddPage}>
-                  <Plus size={15} /> Přidat stránku
+                  <Plus size={16} /> Přidat stránku
                 </button>
                 {layout.pages.length > 1 && (
                   <button type="button" className="hs-pager-manage vlastni-vyska" title="Smazat tuhle stránku" onClick={handleRemoveCurrentPage}>
-                    <Trash2 size={15} />
+                    <Trash2 size={16} />
                   </button>
                 )}
                 {addableItems.length > 0 && (
                   <button type="button" className="hs-pager-manage hs-pager-manage-labeled vlastni-vyska" onClick={() => setShowAddTileModal(true)}>
-                    <Plus size={15} /> Přidat dlaždici
+                    <Plus size={16} /> Přidat dlaždici
                   </button>
                 )}
               </>
@@ -701,19 +705,11 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
         <div className="hs-fixed-row" style={{ ['--hs-tile-alpha' as any]: layout.tileOpacity, ['--hs-tile-gap' as any]: `${layout.tileGap}px` }}>
           {currentPageIndex === 0 && (
             <>
-              {/* Dlaždice „Objednávky k parsování" je pryč — nová WhatsApp
-                  objednávka se hlásí sama upozorněním nahoře (Layout.tsx,
-                  activeNewOrderBanner) a jeho tlačítko otevře rovnou okno
-                  s objednávkami ke kontrole. Dlaždice tedy dělala potřetí
-                  totéž co upozornění a ikona WhatsApp v hlavičce. */}
               {vehicleAlerts.length > 0 && (
-                // Tichý ukazatel místo dřívějšího banneru přes celou
-                // obrazovku, co bylo nutné potvrdit — dlaždice prostě zmizí
-                // sama, až se STK/známka skutečně vyřeší (aktualizuje datum).
-                // Barva zůstává natvrdo červeno-žlutá (upozornění), aby si ji
-                // nešlo přebarvit tak, že přestane jako upozornění vypadat.
-                <button type="button" className="hs-tile hs-tile-alert" onClick={() => setPage('vehicles')}>
-                  <TriangleAlert />
+                <button type="button" className="hs-tile hs-tile-alert vlastni-vyska" onClick={() => setPage('vehicles')}>
+                  <div className="hs-tile-icon-box">
+                    <TriangleAlert />
+                  </div>
                   <div className="hs-lbl">Vozidla — STK/známka</div>
                   <span className="hs-badge">{vehicleAlerts.length}</span>
                 </button>
@@ -721,20 +717,21 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
               {newVersionInfo && (
                 <button
                   type="button"
-                  className="hs-tile hs-tile-alert"
+                  className="hs-tile hs-tile-alert vlastni-vyska"
                   onClick={() => { void forceRefresh(); }}
                   title={`Nová verze v${newVersionInfo.version} (${newVersionInfo.date}) — klikni pro aktualizaci`}
                 >
-                  <Download />
+                  <div className="hs-tile-icon-box">
+                    <Download />
+                  </div>
                   <div className="hs-lbl">Nová aktualizace v{newVersionInfo.version}</div>
                 </button>
               )}
               {monthlyCleanupPending && (
-                // Zůstává i po odkliknutí modálu MonthlyCleanupWarning
-                // (App.tsx) — "Udělám na konci týdne" ho jen na chvíli
-                // schová, tahle dlaždice tu jako připomínka zůstává dál.
-                <button type="button" className="hs-tile hs-tile-alert" onClick={() => setPage('bottling')}>
-                  <CalendarX2 />
+                <button type="button" className="hs-tile hs-tile-alert vlastni-vyska" onClick={() => setPage('bottling')}>
+                  <div className="hs-tile-icon-box">
+                    <CalendarX2 />
+                  </div>
                   <div className="hs-lbl">Měsíční úklid — checklist</div>
                 </button>
               )}

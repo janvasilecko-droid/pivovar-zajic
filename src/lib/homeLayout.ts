@@ -154,17 +154,10 @@ export const COLOR_HEX: Record<TileColor, string> = {
   charcoal: '#343a40',
 };
 
-// Výchozí velikost pro pár dlaždic, aby mřížka hned po zapnutí launcheru
-// ukázala rozmanitost velikostí (ne samé stejné čtverce) — uživatel si to
-// pak stejně může v edit módu přeskládat/zvětšit/zmenšit podle sebe.
-const DEFAULT_SIZE: Partial<Record<Page, { w: number; h: number }>> = {
-  orders: { w: 2, h: 1 },
-  kegging: { w: 1, h: 2 },
-  dashboard: { w: 2, h: 1 },
-  app_settings: { w: 0, h: 1 },
-  users: { w: 0, h: 1 },
-  calendar: { w: 0, h: 1 },
-};
+// Výchozí velikost pro dlaždice — standardně jednotné čtvercové dlaždice 1x1,
+// které tvoří čistou, zarovnanou a přehlednou mřížku. Uživatel si je v edit módu
+// může dle potřeby libovolně zvětšit nebo zmenšit.
+const DEFAULT_SIZE: Partial<Record<Page, { w: number; h: number }>> = {};
 
 export const DEFAULT_DOCK: Page[] = ['orders', 'kegging', 'bottling', 'home'];
 export const DOCK_SIZE = DEFAULT_DOCK.length;
