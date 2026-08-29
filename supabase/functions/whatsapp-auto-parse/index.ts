@@ -227,15 +227,44 @@ function matchBeerId(
   // Přednost má PŮVODNÍ text objednávky (raw_line) — to je to, co zákazník
   // skutečně napsal. Název od AI (beer_name) může být špatně rozpoznaný,
   // proto ho zkoušíme až jako záložní zdroj.
+  //
+  // ⚠️ raw_line ale může patřit VÍC položkám najednou — u zprávy psané na
+  // jeden řádek ("Restaurace 1x50 12, 1x50 10 a 1x50 tm, terasa 2x50 12 2x50
+  // osma") vrátí AI pět položek se stejným raw_line, celým řádkem. Shoda
+  // podle názvu piva kdekoli v tom řádku pak vyhraje u VŠECH položek — 28. 8.
+  // 2026 se takhle slovo „osma" na konci propsalo i do položek se stupněm 12°
+  // a 10°. Proto nález z raw_line neplatí, když odporuje stupni, který AI
+  // přiřadila téhle konkrétní položce. (Stejnou pojistku má matchPackageId
+  // níž — jen řešenou tím, že raw_line bere až jako zálohu.)
+  const ownDegree = (item.degree || "").replace("°", "").trim();
+  const neodporuje = (beerId: string | null): string | null => {
+    if (!beerId || !ownDegree) return beerId;
+    const b = beers.find((x) => x.id === beerId);
+    const beerDegree = (b?.degree || "").replace("°", "").trim();
+    if (beerDegree && beerDegree !== ownDegree) return null;
+    return beerId;
+  };
+
   const rawText = normText([item.raw_line, item.degree].filter(Boolean).join(" "));
   if (rawText) {
-    const hit = matchBeerInText(rawText, beers, aliasMap, item.degree);
+    const hit = neodporuje(matchBeerInText(rawText, beers, aliasMap, item.degree));
     if (hit) return hit;
   }
   const aiName = normText(item.beer_name || "");
   if (aiName) {
-    const hit = matchBeerInText(aiName, beers, aliasMap, item.degree);
+    const hit = neodporuje(matchBeerInText(aiName, beers, aliasMap, item.degree));
     if (hit) return hit;
+  }
+  // Poslední záchrana: podle stupně samotné položky. Barvu (světlá/tmavá)
+  // NEbereme ze sdíleného raw_line — „tm" u jedné objednávky na řádku nesmí
+  // ztmavit i ostatní; neoznačený stupeň znamená v pivovaru světlé.
+  if (ownDegree) {
+    const candidates = beers.filter((b) => (b.degree || "").replace("°", "").trim() === ownDegree);
+    if (candidates.length === 1) return candidates[0].id;
+    if (candidates.length > 1) {
+      const light = candidates.find((b) => /svetl|svet|light/.test(normText(b.name)));
+      if (light) return light.id;
+    }
   }
   return null;
 }

@@ -220,6 +220,22 @@ export function matchBeerFromHints(norm: string, beers: Beer[], aliasMap: Parser
     const s = scores.get(beer.id) ?? 0;
     if (s > bestScore) { bestScore = s; best = beer; }
   }
+  // Remízu mezi pivy stejného stupně (holé „12" sedí na 12° Světlou i na 12°
+  // Tmavou) rozhodovalo pořadí, v jakém piva přišla z databáze — výsledek se
+  // tím měnil zprávu od zprávy a nešlo o něm nic tvrdit. Rozhoduje se podle
+  // zvyku pivovaru: tmavé se v objednávce VŽDY označí ("tm", "tmavá"), takže
+  // neoznačený stupeň znamená světlé.
+  if (best && bestScore > 0) {
+    const remiza = beers.filter((b) => (scores.get(b.id) ?? 0) === bestScore);
+    if (remiza.length > 1) {
+      const chceTmave = /tmav|dark|cern/.test(norm);
+      const vybrane = remiza.find((b) =>
+        chceTmave
+          ? b.color === 'tmavé' || /tmav|dark/.test(normalize(b.name))
+          : b.color === 'světlé' || /svetl/.test(normalize(b.name)));
+      if (vybrane) best = vybrane;
+    }
+  }
   if (bestScore >= 0.4) return { beer: best, score: bestScore, alias: null };
 
   let fuzzyBest: Beer | null = null;
@@ -420,6 +436,22 @@ function extractGlobalDegree(text: string): { degree: string | null; color: stri
 // v textu žádný samostatný stupeň nevyskytuje.
 // Používá se k opravě AI: stupeň napsaný PŘÍMO v textu té položky má přednost
 // před stupněm, který AI mohlo špatně převzít z JINÉ položky na fotografii.
+/** Stupeň piva jako holé číslo („12°" → „12", „8" → „8"); null, když ho pivo nemá. */
+function stupenCislo(degree?: string | null): string | null {
+  const d = (degree || '').replace('°', '').trim();
+  return d || null;
+}
+
+// Odporuje nalezené pivo stupni, který AI přiřadila TÉHLE položce? Piva bez
+// stupně v katalogu (Jantar, Summer Ale) nikdy neodporují — u nich číslo
+// v textu ke stupni nepatří.
+function odporujeStupni(beer: Beer | null, degree?: string | null): boolean {
+  if (!beer || !degree) return false;
+  const stupenPiva = stupenCislo(beer.degree);
+  const stupenPolozky = stupenCislo(degree);
+  return !!stupenPiva && !!stupenPolozky && stupenPiva !== stupenPolozky;
+}
+
 function extractDegreeFromRaw(text: string): string | null {
   if (!text) return null;
   // Stupeň u piva: číslo 8–16, případně s ° a/nebo barvou (sv/tm/dark/...).
@@ -719,9 +751,20 @@ export function parseGeminiItems(
   // 🧠 ROZDĚLENÍ POLOŽEK SE SLOVEM "a":
   // Pokud AI vrátila jednu položku s více objednávkami na jednom řádku
   // (např. "2x50 12sv a 2x50 vosma"), rozděl ji na samostatné položky.
+  // Dělit se ale smí JEN tehdy, když AI položku sama nerozdělila. U zprávy
+  // psané na jeden řádek ("Restaurace 1x50 12, 1x50 10 a 1x50 tm, terasa
+  // 2x50 12 2x50 osma") vrátí AI pět položek se stejným raw_line — celým
+  // řádkem. Dělení podle slova "a" by z každé z nich udělalo dvě a text
+  // jedné objednávky rozkopírovalo do všech.
+  const polozekNaRadek = new Map<string, number>();
+  for (const item of items) {
+    const klic = item.raw_line || '';
+    polozekNaRadek.set(klic, (polozekNaRadek.get(klic) ?? 0) + 1);
+  }
   const expandedItems: GeminiItem[] = [];
   for (const item of items) {
-    expandedItems.push(...splitGeminiItemOnA(item));
+    if ((polozekNaRadek.get(item.raw_line || '') ?? 0) > 1) expandedItems.push(item);
+    else expandedItems.push(...splitGeminiItemOnA(item));
   }
   items = expandedItems;
 
@@ -851,7 +894,17 @@ export function parseGeminiItems(
     // vlastního stupně v katalogu, jako sezonní "Summer Ale") by jinak
     // shoda podle degree přebila jménem správně určené pivo.
     if (!beer) {
-      ({ beer, alias } = matchBeerFromHints(normalize(raw), beers, aliases));
+      const zRadku = matchBeerFromHints(normalize(raw), beers, aliases);
+      // …ale jen když to neodporuje stupni TÉHLE položky. U jednořádkové
+      // zprávy s víc objednávkami mají všechny položky stejný raw_line (celý
+      // řádek), takže název piva zmíněný kdekoli v něm by vyhrál úplně u
+      // všech. Přesně to se stalo 28. 8. u „Restaurace 1x50 12, 1x50 10 a
+      // 1x50 tm, terasa 2x50 12 2x50 osma": slovo „osma" na konci přepsalo
+      // na Osmu i položky se stupněm 12° a 10°.
+      if (!odporujeStupni(zRadku.beer, item.degree)) {
+        beer = zRadku.beer;
+        alias = zRadku.alias;
+      }
     }
     if (!beer && item.degree) {
       ({ beer, alias } = matchBeerFromHints(normalize(item.degree), beers, aliases));
