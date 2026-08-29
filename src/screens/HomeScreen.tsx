@@ -6,7 +6,10 @@
 // zobrazuje se jen komu je nastaveno (Uživatelé → "Dostává upozornění na
 // vozidla") a musí ho jednou potvrdit, pak zmizí (dokud se stav nezmění).
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { CalendarX2, Download, Check, ChevronLeft, ChevronRight, LogOut, Palette, Plus, Search, SlidersHorizontal, Trash2, TriangleAlert, X } from 'lucide-react';
+import {
+  CalendarX2, Download, Check, ChevronLeft, ChevronRight, LogOut, Palette, Plus, Search, SlidersHorizontal, Trash2, TriangleAlert, X,
+  Truck, ClipboardList, MessageCircle, PlusCircle, Snowflake, FlaskConical, CalendarDays, BarChart3, Package as PackageIcon, TrendingDown, GlassWater, BookOpen, Droplet, Car, FileText, ClipboardCheck, Shield, Store, Receipt, MapPin, Beer as BeerIcon, Tag, Sparkles, Compass, Wheat, Zap, ArrowLeftRight
+} from 'lucide-react';
 import { NAV, EXTRA_NAV, type Page, type NavItem } from '../components/Layout';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import LauncherTile from '../components/LauncherTile';
@@ -16,8 +19,10 @@ import { Modal } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { canUserView, getUserPermissions, PAGE_TO_MODULE, ModuleKey } from '../lib/permissions';
 import { isAdminEmail } from '../lib/config';
-import { supabase, Vehicle } from '../lib/supabase';
+import { supabase, Vehicle, fetchAllRows } from '../lib/supabase';
 import { getVehicleExpiryStatus } from '../lib/vozidla';
+import { businessDateISO } from '../lib/businessDate';
+import { IkonaSud, IkonaLahev, IkonaVycep } from '../components/ikony';
 import {
   getHomeLayout, saveHomeLayout, addPage, removePage, moveTileToPage, hideTile, addTile,
   mergeTiles, addToGroup, removeFromGroup, deleteGroup, isGroupId, ensurePositions, ensureTrailingEmptyPage, unifyColorsByCategory, moveTileToCell, stepTileCell,
@@ -32,7 +37,7 @@ import { getKegTimerState, formatDurationMs } from '../lib/stopwatchTimers';
 import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
 import { isMonthlyCleanupPending, MONTHLY_CLEANUP_CHANGED_EVENT } from '../lib/monthlyCleanup';
 import { potvrd } from '../lib/toast';
-import { requestOrdersPendingFilter } from '../lib/ordersFilter';
+import { requestOrdersPendingFilter, requestOrdersAutoImport } from '../lib/ordersFilter';
 import './HomeScreen.css';
 
 /** true = jméno přednastaveného odstínu (CSS třída c-*); false = vlastní hex barva (inline styl). */
@@ -59,7 +64,7 @@ const SCENE_LABELS: Record<string, string> = {
   custom: 'Vlastní',
 };
 
-export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) {
+export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSection?: string, subTab?: string) => void }) {
   const { profile, user, patchProfile, signOut } = useAuth();
   const isAdmin = profile?.role === 'admin' || isAdminEmail(user?.email);
   const userPerms = getUserPermissions(user?.id ?? '', (profile as any)?.permissions);
@@ -391,8 +396,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
   }
 
   // ---- Živá dlaždice: počet nevyřízených objednávek PRO TENTO TÝDEN ----
-  // Týden objednávky se (stejně jako v Objednávkách/Knize jízd) počítá z
-  // delivery_date, a když ten není vyplněný, z order_date.
   const [pendingOrders, setPendingOrders] = useState<number | null>(null);
   useEffect(() => {
     if (!visibleIds.includes('orders')) return;
@@ -404,6 +407,132 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
       .or(`and(delivery_date.gte.${startIso},delivery_date.lte.${endIso}),and(delivery_date.is.null,order_date.gte.${startIso},order_date.lte.${endIso})`)
       .then(({ count }) => setPendingOrders(count ?? 0));
   }, [visibleIds]);
+
+  // ---- Živá dlaždice: Sklep (objem ležícího piva v hl a plné tanky) ----
+  const [cellarLiveStats, setCellarLiveStats] = useState<{ activeTanks: number; totalHl: number } | null>(null);
+  useEffect(() => {
+    if (!visibleIds.includes('cellar')) return;
+    supabase.from('cellar_tanks').select('status,current_volume_l').then(({ data }) => {
+      const rows = data ?? [];
+      const active = rows.filter((t: any) => t.status !== 'empty' && (t.current_volume_l || 0) > 0);
+      const sumL = active.reduce((acc: number, t: any) => acc + (t.current_volume_l || 0), 0);
+      if (active.length > 0) {
+        setCellarLiveStats({ activeTanks: active.length, totalHl: Math.round(sumL / 100) });
+      }
+    });
+  }, [visibleIds]);
+
+  // ---- Živá dlaždice: Závoz (počet míst a sudů na zítřejší závoz) ----
+  const [zavozLiveStats, setZavozLiveStats] = useState<{ count: number; pieces: number } | null>(null);
+  useEffect(() => {
+    if (!visibleIds.includes('zavoz') && !visibleIds.includes('orders_zavoz')) return;
+    const dnes = businessDateISO();
+    const d = new Date(dnes + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + 1);
+    const zitra = d.toISOString().slice(0, 10);
+    (async () => {
+      const { data: obj } = await fetchAllRows('orders', 'id').eq('delivery_date', zitra).neq('status', 'storno');
+      const ids = (obj ?? []).map((o: any) => o.id);
+      if (!ids.length) { setZavozLiveStats(null); return; }
+      const { data: polozky } = await fetchAllRows('order_items', 'quantity').in('order_id', ids);
+      const kusu = (polozky ?? []).reduce((s: number, p: any) => s + Number(p.quantity || 0), 0);
+      setZavozLiveStats({ count: ids.length, pieces: kusu });
+    })();
+  }, [visibleIds]);
+
+  // ---- Živá dlaždice: Dnešní plánované stáčení lahví ----
+  const [bottlingTodayCount, setBottlingTodayCount] = useState<number | null>(null);
+  useEffect(() => {
+    if (!visibleIds.includes('bottling') && !visibleIds.includes('bottling_needs')) return;
+    const dnes = businessDateISO();
+    supabase.from('bottling_plans').select('id', { count: 'exact', head: true })
+      .eq('planned_date', dnes)
+      .eq('status', 'planned')
+      .then(({ count }) => setBottlingTodayCount(count && count > 0 ? count : null));
+  }, [visibleIds]);
+
+  // Modál rychlých akcí (Quick Actions)
+  const [quickActionsTile, setQuickActionsTile] = useState<Page | null>(null);
+
+  const QUICK_ACTIONS: Partial<Record<Page, { id: string; label: string; sublabel?: string; icon: any; onClick: () => void }[]>> = useMemo(() => ({
+    kegging: [
+      { id: 'zapis', label: 'Nové stočení sudů', sublabel: 'Zápis stočení KEG piva', icon: IkonaSud, onClick: () => setPage('kegging', undefined, 'zapis') },
+      { id: 'prehled', label: 'Přehled stočení', sublabel: 'Historie a statistika stočených sudů', icon: BarChart3, onClick: () => setPage('kegging', undefined, 'prehled') },
+      { id: 'potreba', label: 'Potřeba sudů na závoz', sublabel: 'Výpočet chybějících sudů pro závozy', icon: TrendingDown, onClick: () => setPage('kegging', undefined, 'potreba') },
+      { id: 'prefuk', label: 'Přefukování sudů', sublabel: 'Zápis a evidence přefuků', icon: ArrowLeftRight, onClick: () => setPage('kegging', undefined, 'prefuk') },
+    ],
+    bottling: [
+      { id: 'zapis', label: 'Nové lahvování', sublabel: 'Zápis stočených lahví do skladu', icon: IkonaLahev, onClick: () => setPage('bottling', undefined, 'zapis') },
+      { id: 'prehled', label: 'Přehled stočených lahví', sublabel: 'Historie a šarže lahvování', icon: BarChart3, onClick: () => setPage('bottling', undefined, 'prehled') },
+      { id: 'potreby', label: 'Potřeby a plánování', sublabel: 'Plán stáčení lahví a materiál', icon: CalendarDays, onClick: () => setPage('bottling_needs') },
+    ],
+    orders: [
+      { id: 'vse', label: 'Seznam objednávek', sublabel: 'Přehled všech aktivních objednávek', icon: ClipboardList, onClick: () => setPage('orders') },
+      { id: 'zavoz', label: 'Rozvoz & Závozový list', sublabel: 'Plánování tras a závozů odběratelům', icon: Truck, onClick: () => setPage('orders_zavoz') },
+      { id: 'whatsapp', label: 'Importovat WhatsApp zprávy', sublabel: 'Automatický převod zpráv na objednávky', icon: MessageCircle, onClick: () => { requestOrdersAutoImport(); setPage('orders'); } },
+    ],
+    orders_zavoz: [
+      { id: 'zavoz', label: 'Závozový plánovač', sublabel: 'Rozvoz objednávek a plán tras', icon: Truck, onClick: () => setPage('orders_zavoz') },
+      { id: 'objednavky', label: 'Všechny objednávky', sublabel: 'Přehled objednávek', icon: ClipboardList, onClick: () => setPage('orders') },
+    ],
+    cellar: [
+      { id: 'lezacke', label: 'Ležácké tanky', sublabel: 'Stav tanků, stupňovitost, objemy a ležení', icon: Snowflake, onClick: () => setPage('cellar', undefined, 'lezacke') },
+      { id: 'spilka', label: 'Spilka (hlavní kvašení)', sublabel: 'Kvasné tanky, mladina a kvašení', icon: FlaskConical, onClick: () => setPage('cellar', undefined, 'spilka') },
+      { id: 'planovac', label: 'Plánovač obsazenosti', sublabel: 'Přehled obsazení sklepa v čase', icon: CalendarDays, onClick: () => setPage('cellar', undefined, 'planovac') },
+    ],
+    dashboard: [
+      { id: 'sklad', label: 'Přehled skladu', sublabel: 'Kompletní stav piv a zásob', icon: BarChart3, onClick: () => setPage('dashboard') },
+      { id: 'vratky', label: 'Evidence vratek sudů', sublabel: 'Příjem a evidence prázdných kegů', icon: IkonaSud, onClick: () => setPage('stock') },
+      { id: 'odpis', label: 'Odpis ze skladu', sublabel: 'Zápis vadných nebo vylitých zásob', icon: TrendingDown, onClick: () => setPage('writeoffs') },
+      { id: 'sklo', label: 'Sklo, etikety, podtáčky', sublabel: 'Materiály a promo předměty', icon: GlassWater, onClick: () => setPage('sklo_promo') },
+    ],
+    stock: [
+      { id: 'vratky', label: 'Vratky sudů', sublabel: 'Příjem a vracení kegů od odběratelů', icon: IkonaSud, onClick: () => setPage('stock') },
+      { id: 'sklad', label: 'Stav skladu piva', sublabel: 'Přehled naskladněných sudů a lahví', icon: BarChart3, onClick: () => setPage('dashboard') },
+    ],
+    vehicles: [
+      { id: 'jizdy', label: 'Kniha jízd — nová jízda', sublabel: 'Záznam trasy a ujetých kilometrů', icon: BookOpen, onClick: () => setPage('kniha_jizd', undefined, 'jizdy') },
+      { id: 'tankovani', label: 'Zapsat tankování PHM', sublabel: 'Litrů, cena a účtenky za naftu/benzín', icon: Droplet, onClick: () => setPage('kniha_jizd', undefined, 'tankovani') },
+      { id: 'auta', label: 'Správa aut & STK', sublabel: 'Platnosti STK a dálničních známek', icon: Car, onClick: () => setPage('vehicles') },
+    ],
+    kniha_jizd: [
+      { id: 'jizda', label: 'Zapsat novou jízdu', sublabel: 'Cíl cesty, řidič a kilometry', icon: BookOpen, onClick: () => setPage('kniha_jizd', undefined, 'jizdy') },
+      { id: 'tank', label: 'Zapsat tankování PHM', sublabel: 'Účtenka a stav nádrže', icon: Droplet, onClick: () => setPage('kniha_jizd', undefined, 'tankovani') },
+      { id: 'auta', label: 'Přehled vozidel', sublabel: 'Seznam aut v pivovaru', icon: Car, onClick: () => setPage('vehicles') },
+    ],
+    haccp: [
+      { id: 'denik', label: 'Sanitační deník', sublabel: 'Zápis a protokoly sanitací', icon: FileText, onClick: () => setPage('sanitation_log') },
+      { id: 'checklists', label: 'Kontrolní checklisty', sublabel: 'Denní a týdenní kontrolní seznamy', icon: ClipboardCheck, onClick: () => setPage('checklists') },
+      { id: 'haccp', label: 'Sanitace výčepů a kegů', sublabel: 'HACCP evidence sanitačních cyklů', icon: Shield, onClick: () => setPage('haccp') },
+    ],
+    sanitation_log: [
+      { id: 'denik', label: 'Nový zápis sanitace', sublabel: 'Záznam provedené sanitace', icon: FileText, onClick: () => setPage('sanitation_log') },
+      { id: 'checklists', label: 'Checklisty', sublabel: 'Kontroly v pivovaru', icon: ClipboardCheck, onClick: () => setPage('checklists') },
+    ],
+    prodejna: [
+      { id: 'pokladna', label: 'Nový prodej na prodejně', sublabel: 'Přímý nákup zákazníka', icon: Store, onClick: () => setPage('prodejna') },
+      { id: 'historie', label: 'Přehled tržeb a historie', sublabel: 'Uzávěrky a souhrny prodeje', icon: Receipt, onClick: () => setPage('prodejna', undefined, 'historie') },
+    ],
+    depozitar: [
+      { id: 'odberatele', label: 'Odběratelé', sublabel: 'Adresy, kontakty a závozy hospod', icon: MapPin, onClick: () => setPage('places') },
+      { id: 'piva', label: 'Katalog piv', sublabel: 'Druhy piv, EPM, IBU a barvy', icon: BeerIcon, onClick: () => setPage('beers') },
+      { id: 'obaly', label: 'Číselník obalů', sublabel: 'Sudy, lahve, přepravky a zálohy', icon: Tag, onClick: () => setPage('packages') },
+      { id: 'cenik', label: 'Ceník piva a obalů', sublabel: 'Aktuální ceny a sazby', icon: Receipt, onClick: () => setPage('pricelist') },
+    ],
+    places: [
+      { id: 'odberatele', label: 'Seznam odběratelů', sublabel: 'Správa hospod a kontaktů', icon: MapPin, onClick: () => setPage('places') },
+      { id: 'cenik', label: 'Ceník', sublabel: 'Ceník pro odběratele', icon: Receipt, onClick: () => setPage('pricelist') },
+    ],
+    akce: [
+      { id: 'akce', label: 'Pivní akce a festivaly', sublabel: 'Zapůjčené výčepy, piva a stánky', icon: Sparkles, onClick: () => setPage('akce') },
+      { id: 'exkurze', label: 'Exkurze pivovaru', sublabel: 'Prohlídky a degustace', icon: Compass, onClick: () => setPage('exkurze') },
+      { id: 'vycepy', label: 'Půjčovna výčepů', sublabel: 'Evidence zapůjčených chlazení', icon: IkonaVycep, onClick: () => setPage('vycepy') },
+    ],
+    concentration: [
+      { id: 'kalkulacka', label: 'Kalkulačka ředění & koncentrace', sublabel: 'Výpočty pro mladinu a sanitaci', icon: FlaskConical, onClick: () => setPage('concentration') },
+      { id: 'srotovani', label: 'Šrotování sladu', sublabel: 'Sypání a poměry sladů', icon: Wheat, onClick: () => setPage('srotovani') },
+    ],
+  }), [setPage]);
 
   // ---- Hledat a WhatsApp — přesunuté z hlavičky (Layout.tsx) sem jako
   // dlaždice, ať jsou na Domů ve stejném stylu jako zbytek launcheru.
@@ -774,7 +903,14 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
             }
             const item = navById.get(id);
             if (!item) return null;
-            const badge = id === 'orders' && pendingOrders ? pendingOrders : id === 'keg_timer' && kegLastDuration ? kegLastDuration : undefined;
+            const badge =
+              id === 'orders' && pendingOrders ? `${pendingOrders} nových`
+              : (id === 'zavoz' || id === 'orders_zavoz') && zavozLiveStats ? `${zavozLiveStats.count} míst`
+              : id === 'cellar' && cellarLiveStats ? `${cellarLiveStats.totalHl} hl`
+              : (id === 'bottling' || id === 'bottling_needs') && bottlingTodayCount ? `${bottlingTodayCount} plán`
+              : id === 'vehicles' && vehicleAlerts.length > 0 ? `${vehicleAlerts.length} STK`
+              : id === 'keg_timer' && kegLastDuration ? kegLastDuration
+              : undefined;
             return (
               <LauncherTile
                 key={id}
@@ -795,6 +931,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                 jiggling={editMode && draggingId !== null && draggingId !== id}
                 onMoveStep={(dir) => handleMoveTileStep(id, dir)}
                 onOpenEditor={() => setEditingTileId(id)}
+                onOpenQuickActions={() => setQuickActionsTile(id)}
               />
             );
           })}
@@ -991,6 +1128,48 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
             <div className="flex justify-end pt-2 border-t border-neutral-100">
               <button type="button" className="text-sm font-bold bg-amber-500 hover:bg-amber-400 text-neutral-950 rounded px-4 py-2" onClick={() => setShowAddTileModal(false)}>Hotovo</button>
             </div>
+          </div>
+        </Modal>
+      )}
+
+      {quickActionsTile && (
+        <Modal
+          open
+          onClose={() => setQuickActionsTile(null)}
+          title={`Rychlé akce — ${navById.get(quickActionsTile)?.label ?? 'Modul'}`}
+        >
+          <div className="space-y-2 pt-1 pb-1">
+            {(QUICK_ACTIONS[quickActionsTile] ?? [
+              {
+                id: 'open',
+                label: `Otevřít ${navById.get(quickActionsTile)?.label ?? ''}`,
+                sublabel: 'Přejít na hlavní stránku modulu',
+                icon: navById.get(quickActionsTile)?.icon ?? PlusCircle,
+                onClick: () => setPage(quickActionsTile),
+              },
+            ]).map((qa) => {
+              const QAIcon = qa.icon;
+              return (
+                <button
+                  key={qa.id}
+                  type="button"
+                  onClick={() => {
+                    setQuickActionsTile(null);
+                    qa.onClick();
+                  }}
+                  className="w-full flex items-center gap-3.5 p-3 rounded-xl border border-neutral-200/80 bg-neutral-50/70 hover:bg-white hover:border-amber-400/80 hover:shadow-sm active:scale-[0.99] transition text-left"
+                >
+                  <span className="w-10 h-10 shrink-0 grid place-items-center rounded-xl bg-amber-50 text-amber-900 border border-amber-200/60 shadow-xs">
+                    <QAIcon size={20} />
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block font-bold text-sm text-neutral-900 leading-snug">{qa.label}</span>
+                    {qa.sublabel && <span className="block text-xs text-neutral-500 font-medium mt-0.5 leading-tight">{qa.sublabel}</span>}
+                  </span>
+                  <ChevronRight size={18} className="text-neutral-400 shrink-0" />
+                </button>
+              );
+            })}
           </div>
         </Modal>
       )}

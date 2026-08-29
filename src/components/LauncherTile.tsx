@@ -1,24 +1,9 @@
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Settings } from 'lucide-react';
-// Jedna dlaždice přizpůsobitelného launcheru (src/screens/HomeScreen.tsx).
-// Mimo edit mód je to prostý navigační button. V edit módu klik na dlaždici
-// ji jen OZNAČÍ (viz `selected`/`onSelect`) — ovládání (čtyři šipky pro
-// garantovaně funkční přesun + tlačítko ⚙, které otevře sdílený modál s
-// plnohodnotným výběrem velikosti/barvy/popisku/stránky/skrytí) se objeví
-// centrovaně nad OZNAČENOU dlaždicí, ne nad všemi najednou — dřív každá
-// dlaždice v edit módu pořád zobrazovala svoje vlastní šipky+kolečko, což na
-// malém displeji bylo přeplácané a na "mini" dlaždicích se to kvůli
-// overflow:hidden vůbec nevešlo (kolečko zmizelo úplně mimo dlaždici).
-//
-// Dlouhé podržení (long-press, jako na Androidu) navíc pořád funguje pro
-// rychlejší přesun na zařízeních, kde to gesto spolehlivě rozezná prohlížeč.
-//
-// Skupinová dlaždice ("složka", styl Windows Phone/iOS, viz homeLayout.ts
-// mergeTiles) — `item` je null a místo něj se předá `groupItems` (2+ členů):
-// vykreslí se mini 2×2 mřížka ikon místo jedné velké, jinak sdílí veškerou
-// stejnou edit-mode "chrome" (dpad, ozubené kolo, jiggle, drag, výběr).
+import { useRef } from 'react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Settings, Zap } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import type { NavItem } from './Layout';
 import { hexToRgba, tileTextColor, COLOR_HEX, UNIT_COLS, type TileColor, type TileId, type TileOverride } from '../lib/homeLayout';
+import { zavibruj } from '../lib/haptika';
 
 /** Explicitní pozice+rozestup (grid-column/-row) pro danou volnou pozici/velikost —
  *  dlaždice sedí přesně na uložené buňce (x,y), ne jen "další volné místo". */
@@ -30,6 +15,7 @@ export function tileGridStyle(x: number, y: number, w: number, h: number): CSSPr
 export default function LauncherTile({
   id, item, groupItems, override, isPresetColor, editing, selected, badge, tileOpacity,
   onClick, onSelect, onDragPointerDown, isDragging, isPriming, dragOver, jiggling, onMoveStep, onOpenEditor,
+  onOpenQuickActions,
 }: {
   id: TileId;
   /** null pro skupinovou dlaždici — viz groupItems. */
@@ -60,6 +46,8 @@ export default function LauncherTile({
   onMoveStep: (direction: 'left' | 'right' | 'up' | 'down') => void;
   /** Otevře sdílený modál s plným nastavením téhle dlaždice. */
   onOpenEditor: () => void;
+  /** Otevře rychlé akce (quick actions) pro daný modul. */
+  onOpenQuickActions?: () => void;
 }) {
   const color = override.color ?? 'coral';
   const w = override.w ?? 1;
@@ -68,11 +56,54 @@ export default function LauncherTile({
   const y = override.y ?? 0;
   const label = override.label || item?.label || 'Skupina';
   const Icon = item?.icon;
-  // Popisek/ikona nemůže být natvrdo bílá — na světlých odstínech (citrus,
-  // honey, peach, mustard, blush...), obzvlášť nad taky světlými scénami
-  // pozadí, by byl skoro neviditelný (viz tileTextColor).
   const resolvedHex = isPresetColor ? COLOR_HEX[color as TileColor] : color;
   const textColor = tileTextColor(resolvedHex);
+
+  const lpTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didLongPress = useRef(false);
+  const pointerStartPos = useRef<{ x: number; y: number } | null>(null);
+
+  function handlePointerDown(e: React.PointerEvent) {
+    if (editing) {
+      onDragPointerDown(e);
+      return;
+    }
+    if (!onOpenQuickActions) return;
+    pointerStartPos.current = { x: e.clientX, y: e.clientY };
+    didLongPress.current = false;
+    if (lpTimer.current) clearTimeout(lpTimer.current);
+    lpTimer.current = setTimeout(() => {
+      didLongPress.current = true;
+      try { zavibruj('odskrtnuto'); } catch {}
+      onOpenQuickActions();
+    }, 420);
+  }
+
+  function handlePointerMove(e: React.PointerEvent) {
+    if (editing || !pointerStartPos.current) return;
+    if (Math.hypot(e.clientX - pointerStartPos.current.x, e.clientY - pointerStartPos.current.y) > 12) {
+      if (lpTimer.current) clearTimeout(lpTimer.current);
+      lpTimer.current = null;
+    }
+  }
+
+  function handlePointerUp() {
+    if (lpTimer.current) clearTimeout(lpTimer.current);
+    lpTimer.current = null;
+    pointerStartPos.current = null;
+  }
+
+  function handleClick() {
+    if (editing) {
+      onSelect();
+      return;
+    }
+    if (didLongPress.current) {
+      didLongPress.current = false;
+      return;
+    }
+    onClick();
+  }
 
   return (
     <div
@@ -84,8 +115,17 @@ export default function LauncherTile({
         touchAction: isDragging ? 'none' : undefined,
       }}
       data-tile-id={id}
-      onPointerDown={editing ? onDragPointerDown : undefined}
-      onClick={editing ? onSelect : onClick}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      onClick={handleClick}
+      onContextMenu={(e) => {
+        if (!editing && onOpenQuickActions) {
+          e.preventDefault();
+          onOpenQuickActions();
+        }
+      }}
       role="button"
       tabIndex={0}
       onKeyDown={editing ? (e) => { if (e.key === 'Enter') onSelect(); } : (e) => { if (e.key === 'Enter') onClick(); }}
