@@ -265,11 +265,22 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
     runOcrFromBase64(editedDataUrl.split(',')[1] ?? '', typObrazku(editedDataUrl), idx);
   };
 
+    // Přepnutí na jinou fotku (tečky/šipky v náhledu): rozepsané řádky té
+  // současné se uloží do rowsMap, ať se po návratu neztratí — stejná oprava
+  // jako v ImportBottlingFromImage.
+  function goToPhoto(idx: number) {
+    const next = Math.max(0, Math.min(photos.length - 1, idx));
+    if (next === activeIndex) return;
+    if (entryRows) setRowsMap((prev) => ({ ...prev, [activeIndex]: entryRows }));
+    setActiveIndex(next);
+    setEntryRows(rowsMap[next] ?? null);
+  }
+
   if (!isOpen) return null;
 
   return (
     <>
-      <Modal open onClose={onClose} title="Zadání stočení KEG z fotky / WhatsAppu" wide>
+      <Modal open onClose={onClose} title="Zadání stočení KEG z fotky / WhatsAppu" wide maxWidth={photos.length > 0 ? 'max-w-5xl' : undefined}>
         <div className="space-y-4">
           <div className="card !bg-primary-50/50 p-4 space-y-3">
             <div className="text-sm font-semibold text-primary-800">Datum a poznámka stočení šarže</div>
@@ -320,15 +331,19 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
             </div>
           )}
 
-          {/* Náhled fotky se ukazuje hned po načtení, ne až po úspěšném čtení —
-              jinak při nezdařeném čtení zmizí i fotka a vypadá to, jako by se
-              nestalo nic (viz stejná oprava v ImportBottlingFromImage). */}
+          {/* Ukotvená fotka nahoře — stejně jako u lahví (ImportBottlingFromImage)
+              a u kontroly WhatsApp objednávek. Zůstává na místě i při scrollování
+              v přečtených řádcích, ať jde průběžně porovnávat se zapsanými daty. */}
           {photos.length > 0 && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
-              <div className="border border-neutral-200 rounded overflow-hidden bg-neutral-50 min-h-[350px] flex flex-col">
-                <PhotoReviewPane photos={photos} activeIndex={Math.min(activeIndex, Math.max(0, photos.length - 1))} onChangeIndex={setActiveIndex} />
+            <div className="sticky top-0 z-20 -mx-6 -mt-6 bg-white border-b-2 border-primary-200 shadow-md">
+              <div className="h-[42vh] sm:h-[45vh]">
+                <PhotoReviewPane photos={photos} activeIndex={Math.min(activeIndex, Math.max(0, photos.length - 1))} onChangeIndex={goToPhoto} />
               </div>
+            </div>
+          )}
 
+          {photos.length > 0 && (
+            <div className="space-y-4">
               {entryRows === null ? (
                 <div className="flex flex-col items-center justify-center gap-3 text-center border border-dashed border-neutral-300 rounded p-6 min-h-[350px]">
                   {busy ? (
@@ -359,7 +374,7 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
                   )}
                 </div>
               ) : (
-              <div className="flex flex-col space-y-3 max-h-[500px] overflow-y-auto scrollbar-thin pr-1">
+              <div className="flex flex-col space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-black text-neutral-900 flex items-center gap-1.5"><Sparkles size={14} className="text-primary-600" /> Rozpoznané řádky stáčení KEG</h3>
                   <button type="button" className="btn-ghost !rounded !py-1 text-xs font-bold text-primary-700" onClick={addLine}>+ Přidat řádek</button>
