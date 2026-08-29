@@ -112,9 +112,9 @@ function volToPackage(volStr: string, packages: Package[], norm?: string): Packa
 // Rozšířené zkratky a vzory pro rozpoznávání piv
 const BEER_ALIASES: { pattern: RegExp; degree?: string; color?: string; namePart?: string }[] = [
   { pattern: /\bcykl\.?\s*vosm(a|u|e|y|icka|ička)?\b|\bcykl\.?\s*osm(a|u|e|y|icka|ička)?\b|\bvosm(a|u|e|y|icka|ička)?\b|\bosm(a|u|e|y|icka|ička)?\b|\bcyklo\s*osm(a|u)?\b|\bcykloosm(a|u)?\b|\bcyklo\b|\b8\s*°?\b|\b8st\b|\bosma\b|\bvosma\b/i, degree: '8°' },
-  { pattern: /\bdesitk(a|u|e|y)?\b|\bdesit(k)?\b|\bdesitku\b|\b10\s*°?\b|\b10\s*st\b|\b10sv\b|\bsvetle\s*vcepni\b|\bvycepni\s*svetle\b|\bdesitka\b|\bvycep\b|\bvýčep\b|\bvycepni\b|\bvýčepní\b/, degree: '10°', color: 'světlé' },
-  { pattern: /\b11\s*(sv|svet|svetl|sl)\b|\b11sv\b|\b11\s*sl\b|\bsl\s*11\b|\bsv\s*11\b|\bsvetl[ay]\s*11\b|\b11\s*svetly\s*lezak\b|\bsvetly\s*lezak\s*11\b|\bjedenact(k)?(a|u|y)?\b|\bjedenactku\b|\bjedenactka\b/, degree: '11°', color: 'světlé' },
-  { pattern: /\b12\s*(sv|svet|swet|svetl|light|sl)\b|\b12sv\b|\b12\s*sl\b|\bsl\s*12\b|\bsv\s*12\b|\bsv12\b|\bsvetl[ay]\s*12\b|\b12\s*svetly\s*lezak\b|\bsvetly\s*lezak\s*12\b|\bdvanactk(a|u|e|y)?\b|\bdvanactka\b|\bsvetla 12\b|\bsvetly 12\b|\bsvetly\s*lezak\b|\blezak\s*svetly\b/i, degree: '12°', color: 'světlé' },
+  { pattern: /\bdesitk(a|u|e|y)?\b|\b10\s*(cky|ky)\b|\bdesit(k)?\b|\bdesitku\b|\b10\s*°?\b|\b10\s*st\b|\b10sv\b|\bsvetle\s*vcepni\b|\bvycepni\s*svetle\b|\bdesitka\b|\bvycep\b|\bvýčep\b|\bvycepni\b|\bvýčepní\b/, degree: '10°', color: 'světlé' },
+  { pattern: /\b11\s*(sv|svet|svetl|sl)\b|\b11sv\b|\b11\s*sl\b|\bsl\s*11\b|\bsv\s*11\b|\bsvetl[ay]\s*11\b|\b11\s*svetly\s*lezak\b|\bsvetly\s*lezak\s*11\b|\bjedenact(k)?(a|u|y)?\b|\b11\s*(cky|ky)\b|\bjedenactku\b|\bjedenactka\b/, degree: '11°', color: 'světlé' },
+  { pattern: /\b12\s*(sv|svet|swet|svetl|light|sl)\b|\b12sv\b|\b12\s*sl\b|\bsl\s*12\b|\bsv\s*12\b|\bsv12\b|\bsvetl[ay]\s*12\b|\b12\s*svetly\s*lezak\b|\bsvetly\s*lezak\s*12\b|\bdvanactk(a|u|e|y)?\b|\b12\s*(cky|ky)\b|\bdvanactka\b|\bsvetla 12\b|\bsvetly 12\b|\bsvetly\s*lezak\b|\blezak\s*svetly\b/i, degree: '12°', color: 'světlé' },
   // Holé "sl" bez čísla = světlý ležák 12° (výchozí). Vzory s číslem výše mají
   // přednost, protože se v poli vyhodnocují dřív — "sl 11" tak spadne na 11°.
   { pattern: /\bsl\b|\bsv\s*l\b|\bsvetl[ée]\s*l\b|\bsvetl[ýy]\s*l\b|\bsvetle\s*l\b/, degree: '12°', color: 'světlé' },
