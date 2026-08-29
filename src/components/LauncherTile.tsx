@@ -15,7 +15,7 @@ export function tileGridStyle(x: number, y: number, w: number, h: number): CSSPr
 export default function LauncherTile({
   id, item, groupItems, override, isPresetColor, editing, selected, badge, tileOpacity,
   onClick, onSelect, onDragPointerDown, isDragging, isPriming, dragOver, jiggling, onMoveStep, onOpenEditor,
-  onOpenQuickActions,
+  onOpenQuickActions, customContent,
 }: {
   id: TileId;
   /** null pro skupinovou dlaždici — viz groupItems. */
@@ -48,6 +48,8 @@ export default function LauncherTile({
   onOpenEditor: () => void;
   /** Otevře rychlé akce (quick actions) pro daný modul. */
   onOpenQuickActions?: () => void;
+  /** Vlastní bohatý obsah pro mini-widget dlaždice (poznámky, checklisty, kalendář). */
+  customContent?: React.ReactNode;
 }) {
   const color = override.color ?? 'coral';
   const w = override.w ?? 1;
@@ -130,24 +132,30 @@ export default function LauncherTile({
       tabIndex={0}
       onKeyDown={editing ? (e) => { if (e.key === 'Enter') onSelect(); } : (e) => { if (e.key === 'Enter') onClick(); }}
     >
-      <div className="hs-tile-icon-box">
-        {groupItems ? (
-          <div className="hs-tile-group-icons">
-            {groupItems.slice(0, 4).map((gi, i) => {
-              const GIcon = gi.icon;
-              const isLastCell = i === 3 && groupItems.length > 4;
-              return (
-                <span key={gi.id}>
-                  {isLastCell ? <span className="hs-group-more">+{groupItems.length - 3}</span> : <GIcon />}
-                </span>
-              );
-            })}
+      {customContent ? (
+        customContent
+      ) : (
+        <>
+          <div className="hs-tile-icon-box">
+            {groupItems ? (
+              <div className="hs-tile-group-icons">
+                {groupItems.slice(0, 4).map((gi, i) => {
+                  const GIcon = gi.icon;
+                  const isLastCell = i === 3 && groupItems.length > 4;
+                  return (
+                    <span key={gi.id}>
+                      {isLastCell ? <span className="hs-group-more">+{groupItems.length - 3}</span> : <GIcon />}
+                    </span>
+                  );
+                })}
+              </div>
+            ) : (
+              Icon && <Icon />
+            )}
           </div>
-        ) : (
-          Icon && <Icon />
-        )}
-      </div>
-      <div className="hs-lbl" title={label}>{label}</div>
+          <div className="hs-lbl" title={label}>{label}</div>
+        </>
+      )}
       {badge !== undefined && <span className="hs-badge">{badge}</span>}
 
       {editing && selected && (

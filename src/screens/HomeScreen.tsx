@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import {
   CalendarX2, Download, Check, ChevronLeft, ChevronRight, LogOut, Palette, Plus, Search, SlidersHorizontal, Trash2, TriangleAlert, X,
-  Truck, ClipboardList, MessageCircle, PlusCircle, Snowflake, FlaskConical, CalendarDays, BarChart3, Package as PackageIcon, TrendingDown, GlassWater, BookOpen, Droplet, Car, FileText, ClipboardCheck, Shield, Store, Receipt, MapPin, Beer as BeerIcon, Tag, Sparkles, Compass, Wheat, Zap, ArrowLeftRight
+  Truck, ClipboardList, MessageCircle, PlusCircle, Snowflake, FlaskConical, CalendarDays, BarChart3, Package as PackageIcon, TrendingDown, GlassWater, BookOpen, Droplet, Car, FileText, ClipboardCheck, Shield, Store, Receipt, MapPin, Beer as BeerIcon, Tag, Sparkles, Compass, Wheat, Zap, ArrowLeftRight, StickyNote
 } from 'lucide-react';
 import { NAV, EXTRA_NAV, type Page, type NavItem } from '../components/Layout';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
@@ -23,6 +23,10 @@ import { supabase, Vehicle, fetchAllRows } from '../lib/supabase';
 import { getVehicleExpiryStatus } from '../lib/vozidla';
 import { businessDateISO } from '../lib/businessDate';
 import { IkonaSud, IkonaLahev, IkonaVycep } from '../components/ikony';
+import { HomeNotesModal } from '../components/HomeNotesModal';
+import { HomeChecklistModal } from '../components/HomeChecklistModal';
+import { getHomeNotes, HOME_NOTES_CHANGED_EVENT, type HomeNote } from '../lib/homeNotes';
+import { getDailyTasks, DAILY_CHECKLIST_CHANGED_EVENT, type DailyTask } from '../lib/homeChecklist';
 import {
   getHomeLayout, saveHomeLayout, addPage, removePage, moveTileToPage, hideTile, addTile,
   mergeTiles, addToGroup, removeFromGroup, deleteGroup, isGroupId, ensurePositions, ensureTrailingEmptyPage, unifyColorsByCategory, moveTileToCell, stepTileCell,
@@ -389,11 +393,39 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       if ((await potvrd('Odhlásit se z appky?'))) signOut();
       return;
     }
+    if (id === 'notes') {
+      setShowNotesModal(true);
+      return;
+    }
+    if (id === 'checklists') {
+      setShowChecklistModal(true);
+      return;
+    }
     // Odznak na dlaždici počítá nevyřízené (status Nová) objednávky tento
     // týden — ať se po kliknutí rovnou zobrazí ty, ne obyčejný seznam všeho.
     if (id === 'orders' && pendingOrders) requestOrdersPendingFilter();
     setPage(id);
   }
+
+  // Modály pro rychlé poznámky a denní checklist
+  const [showNotesModal, setShowNotesModal] = useState(false);
+  const [showChecklistModal, setShowChecklistModal] = useState(false);
+
+  // ---- Rychlé poznámky & Nástěnka na ploše ----
+  const [homeNotes, setHomeNotes] = useState<HomeNote[]>(() => getHomeNotes());
+  useEffect(() => {
+    const handleUpdate = () => setHomeNotes(getHomeNotes());
+    window.addEventListener(HOME_NOTES_CHANGED_EVENT, handleUpdate);
+    return () => window.removeEventListener(HOME_NOTES_CHANGED_EVENT, handleUpdate);
+  }, []);
+
+  // ---- Denní checklist na ploše ----
+  const [dailyTasks, setDailyTasks] = useState<DailyTask[]>(() => getDailyTasks().tasks);
+  useEffect(() => {
+    const handleUpdate = () => setDailyTasks(getDailyTasks().tasks);
+    window.addEventListener(DAILY_CHECKLIST_CHANGED_EVENT, handleUpdate);
+    return () => window.removeEventListener(DAILY_CHECKLIST_CHANGED_EVENT, handleUpdate);
+  }, []);
 
   // ---- Živá dlaždice: počet nevyřízených objednávek PRO TENTO TÝDEN ----
   const [pendingOrders, setPendingOrders] = useState<number | null>(null);
@@ -903,14 +935,117 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
             }
             const item = navById.get(id);
             if (!item) return null;
+
+            const activeNotesList = homeNotes.filter((n) => !n.completed);
+            const doneTasksCount = dailyTasks.filter((t) => t.completed).length;
+
             const badge =
               id === 'orders' && pendingOrders ? `${pendingOrders} nových`
               : (id === 'zavoz' || id === 'orders_zavoz') && zavozLiveStats ? `${zavozLiveStats.count} míst`
               : id === 'cellar' && cellarLiveStats ? `${cellarLiveStats.totalHl} hl`
               : (id === 'bottling' || id === 'bottling_needs') && bottlingTodayCount ? `${bottlingTodayCount} plán`
               : id === 'vehicles' && vehicleAlerts.length > 0 ? `${vehicleAlerts.length} STK`
+              : id === 'notes' && activeNotesList.length > 0 ? `${activeNotesList.length} vzkazů`
+              : id === 'checklists' && dailyTasks.length > 0 ? `${doneTasksCount}/${dailyTasks.length}`
               : id === 'keg_timer' && kegLastDuration ? kegLastDuration
               : undefined;
+
+            let customContent: React.ReactNode = undefined;
+
+            // Widget Poznámky (notes):
+            if (id === 'notes' && ((override.w ?? 1) >= 2 || (override.h ?? 1) >= 2)) {
+              const topNote = activeNotesList[0] || homeNotes[0];
+              customContent = (
+                <div className="w-full h-full flex flex-col justify-between p-3 text-left select-none overflow-hidden">
+                  <div className="flex items-center justify-between gap-2 border-b border-black/10 pb-1">
+                    <span className="font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 opacity-90">
+                      <StickyNote size={14} /> Poznámky
+                    </span>
+                    <span className="text-[11px] font-bold opacity-75">{activeNotesList.length} aktivní</span>
+                  </div>
+                  <div className="my-auto py-1">
+                    {topNote ? (
+                      <p className={`text-xs font-bold leading-snug line-clamp-2 ${topNote.completed ? 'line-through opacity-60' : ''}`}>
+                        📌 {topNote.text}
+                      </p>
+                    ) : (
+                      <p className="text-xs font-semibold opacity-70 italic">+ Klepnutím přidáte vzkaz</p>
+                    )}
+                  </div>
+                  <div className="text-[11px] font-bold opacity-60 flex items-center justify-between pt-1 border-t border-black/10">
+                    <span>Nástěnka</span>
+                    <span>Klepnutím otevřít ➔</span>
+                  </div>
+                </div>
+              );
+            }
+
+            // Widget Checklist (checklists):
+            if (id === 'checklists' && ((override.w ?? 1) >= 2 || (override.h ?? 1) >= 2)) {
+              const allDone = dailyTasks.length > 0 && doneTasksCount === dailyTasks.length;
+              customContent = (
+                <div className="w-full h-full flex flex-col justify-between p-3 text-left select-none overflow-hidden">
+                  <div className="flex items-center justify-between gap-2 border-b border-black/10 pb-1">
+                    <span className="font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 opacity-90">
+                      <ClipboardCheck size={14} /> Denní úkoly
+                    </span>
+                    <span className={`text-[11px] font-bold ${allDone ? 'text-emerald-950 font-black' : 'opacity-80'}`}>
+                      {doneTasksCount}/{dailyTasks.length} {allDone && '✓'}
+                    </span>
+                  </div>
+                  <div className="my-auto py-1 space-y-1">
+                    {dailyTasks.slice(0, 2).map((t) => (
+                      <div key={t.id} className="flex items-center gap-2 text-xs font-bold truncate">
+                        <span className={`w-3.5 h-3.5 rounded-xs border border-current grid place-items-center shrink-0 ${t.completed ? 'bg-current text-white font-black' : ''}`}>
+                          {t.completed && <Check size={10} className="stroke-[3]" />}
+                        </span>
+                        <span className={`truncate ${t.completed ? 'line-through opacity-60' : ''}`}>{t.title}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-[11px] font-bold opacity-60 flex items-center justify-between pt-1 border-t border-black/10">
+                    <span>{allDone ? 'Vše splněno 🎉' : 'Dnešní rutina'}</span>
+                    <span>Odškrtnout ➔</span>
+                  </div>
+                </div>
+              );
+            }
+
+            // Widget Kalendář (calendar):
+            if (id === 'calendar' && ((override.w ?? 1) >= 2 || (override.h ?? 1) >= 2)) {
+              const now = new Date();
+              const dayNum = now.getDate();
+              const dayName = now.toLocaleDateString('cs-CZ', { weekday: 'long' });
+              const monthName = now.toLocaleDateString('cs-CZ', { month: 'short' });
+              customContent = (
+                <div className="w-full h-full flex flex-col justify-between p-3 text-left select-none overflow-hidden">
+                  <div className="flex items-center justify-between gap-2 border-b border-black/10 pb-1">
+                    <span className="font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 opacity-90">
+                      <CalendarDays size={14} /> {dayName}
+                    </span>
+                    <span className="text-[11px] font-bold opacity-80">{dayNum}. {monthName}</span>
+                  </div>
+                  <div className="my-auto py-1 text-xs font-bold leading-snug">
+                    {zavozLiveStats ? (
+                      <span className="flex items-center gap-1.5">
+                        <Truck size={14} className="shrink-0" /> Zítra: {zavozLiveStats.count} závozů ({zavozLiveStats.pieces} ks)
+                      </span>
+                    ) : bottlingTodayCount ? (
+                      <span className="flex items-center gap-1.5">
+                        <IkonaLahev className="shrink-0" /> Dnes: {bottlingTodayCount} šarže stáčení
+                      </span>
+                    ) : (
+                      <span className="opacity-80">Žádné naléhavé události</span>
+                    )}
+                  </div>
+                  <div className="text-[11px] font-bold opacity-60 flex items-center justify-between pt-1 border-t border-black/10">
+                    <span>Plánovač</span>
+                    <span>Kalendář ➔</span>
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <LauncherTile
                 key={id}
@@ -922,6 +1057,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                 selected={selectedTileId === id}
                 onSelect={() => setSelectedTileId((cur) => (cur === id ? null : id))}
                 badge={badge}
+                customContent={customContent}
                 tileOpacity={layout.tileOpacity}
                 onClick={() => handleTileClick(id)}
                 onDragPointerDown={(e) => handleTileDragPointerDown(id, e)}
@@ -1173,6 +1309,16 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
           </div>
         </Modal>
       )}
+
+      <HomeNotesModal
+        isOpen={showNotesModal}
+        onClose={() => setShowNotesModal(false)}
+      />
+
+      <HomeChecklistModal
+        isOpen={showChecklistModal}
+        onClose={() => setShowChecklistModal(false)}
+      />
 
       <QuickSearchModal
         isOpen={showSearchModal}
