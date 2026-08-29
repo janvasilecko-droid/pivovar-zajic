@@ -346,43 +346,58 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
     onClose();
   };
 
+  // Přepnutí na jinou fotku: rozepsané řádky té současné se schovají do
+  // rowsMap, ať se po návratu neztratí. Uměly to jen šipky vlevo/vpravo —
+  // tečky uvnitř náhledu fotky přepínaly index bez uložení.
+  function goToPhoto(idx: number) {
+    const next = Math.max(0, Math.min(photos.length - 1, idx));
+    if (next === activeIndex) return;
+    if (entryRows) setRowsMap((prev) => ({ ...prev, [activeIndex]: entryRows }));
+    setActiveIndex(next);
+    setEntryRows(rowsMap[next] ?? null);
+  }
+
   if (!isOpen) return null;
 
   return (
     <>
-      <Modal open onClose={onClose} title="Zadání stočení lahví z fotky / WhatsAppu" wide>
+      <Modal open onClose={onClose} title="Zadání stočení lahví z fotky / WhatsAppu" wide maxWidth={photos.length > 0 ? 'max-w-5xl' : undefined}>
         <div className="space-y-4">
-{photos.length > 1 && (
-            <div className="flex items-center justify-between bg-amber-50 p-2.5 rounded border border-amber-300 text-xs font-semibold text-amber-950 mb-3 shadow-xs">
-              <button
-                type="button"
-                className="btn-secondary !py-1 !px-2 text-xs"
-                onClick={() => {
-                  if (entryRows) setRowsMap((prev) => ({ ...prev, [activeIndex]: entryRows }));
-                  const prevIdx = Math.max(0, activeIndex - 1);
-                  setActiveIndex(prevIdx);
-                  setEntryRows(rowsMap[prevIdx] ?? null);
-                }}
-                disabled={activeIndex === 0 || busy}
-              >
-                <ChevronLeft className="ikona-text" /> Předchozí fotka
-              </button>
-              <span className="font-extrabold text-xs sm:text-sm">
-                <Camera className="ikona-text" /> Fotka {activeIndex + 1} z {photos.length} {photos[activeIndex]?.name ? `(${photos[activeIndex].name})` : ''}
-              </span>
-              <button
-                type="button"
-                className="btn-secondary !py-1 !px-2 text-xs"
-                onClick={() => {
-                  if (entryRows) setRowsMap((prev) => ({ ...prev, [activeIndex]: entryRows }));
-                  const nextIdx = Math.min(photos.length - 1, activeIndex + 1);
-                  setActiveIndex(nextIdx);
-                  setEntryRows(rowsMap[nextIdx] ?? null);
-                }}
-                disabled={activeIndex === photos.length - 1 || busy}
-              >
-                Další fotka <ChevronRight className="ikona-text" />
-              </button>
+          {/* Ukotvená fotka nahoře — stejně jako u kontroly WhatsApp objednávek.
+              Zůstává na místě i při scrollování v přečtených řádcích, takže jde
+              průběžně porovnávat zapsaná data s tím, co je na fotce. */}
+          {photos.length > 0 && (
+            <div className="sticky top-0 z-20 -mx-6 -mt-6 bg-white border-b-2 border-primary-200 shadow-md">
+              <div className="h-[42vh] sm:h-[45vh]">
+                <PhotoReviewPane
+                  photos={photos}
+                  activeIndex={Math.min(activeIndex, Math.max(0, photos.length - 1))}
+                  onChangeIndex={goToPhoto}
+                />
+              </div>
+              {photos.length > 1 && (
+                <div className="flex items-center justify-between bg-amber-50 p-2 border-t border-amber-300 text-xs font-semibold text-amber-950">
+                  <button
+                    type="button"
+                    className="btn-secondary !py-1 !px-2 text-xs"
+                    onClick={() => goToPhoto(activeIndex - 1)}
+                    disabled={activeIndex === 0 || busy}
+                  >
+                    <ChevronLeft className="ikona-text" /> Předchozí fotka
+                  </button>
+                  <span className="font-extrabold text-xs sm:text-sm">
+                    <Camera className="ikona-text" /> Fotka {activeIndex + 1} z {photos.length} {photos[activeIndex]?.name ? `(${photos[activeIndex].name})` : ''}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn-secondary !py-1 !px-2 text-xs"
+                    onClick={() => goToPhoto(activeIndex + 1)}
+                    disabled={activeIndex === photos.length - 1 || busy}
+                  >
+                    Další fotka <ChevronRight className="ikona-text" />
+                  </button>
+                </div>
+              )}
             </div>
           )}
           {/* Top panel with Date & Note */}
@@ -438,22 +453,12 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
             </div>
           )}
 
-          {/* Side-by-side view.
-              Náhled fotky se ukazuje HNED po načtení, ne až když se čtení
-              povede. Dřív viselo celé zobrazení na `entryRows !== null`,
-              takže při nezdařeném čtení zmizela i fotka a obrazovka
-              vypadala, jako by se nestalo vůbec nic. */}
+          {/* Přečtené řádky pod fotkou. Ukazují se (nebo se ukáže hláška
+              o nezdařeném čtení) hned po načtení fotky — dřív viselo celé
+              zobrazení na `entryRows !== null`, takže při nezdařeném čtení
+              zmizela i fotka a obrazovka vypadala, jako by se nestalo nic. */}
           {photos.length > 0 && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
-              {/* Left Column: Photo Review Pane */}
-              <div className="border border-neutral-200 rounded overflow-hidden bg-neutral-50 min-h-[350px] flex flex-col">
-                <PhotoReviewPane
-                  photos={photos}
-                  activeIndex={Math.min(activeIndex, Math.max(0, photos.length - 1))}
-                  onChangeIndex={setActiveIndex}
-                />
-              </div>
-
+            <div className="space-y-4">
               {entryRows === null ? (
                 /* Fotka je načtená, řádky ještě ne — čte se, nebo čtení selhalo. */
                 <div className="flex flex-col items-center justify-center gap-3 text-center border border-dashed border-neutral-300 rounded p-6 min-h-[350px]">
@@ -489,8 +494,9 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
                   )}
                 </div>
               ) : (
-              /* Right Column: Interactive Editor Table */
-              <div className="flex flex-col space-y-3 max-h-[500px] overflow-y-auto scrollbar-thin pr-1">
+              /* Přečtené řádky — scrollují se pod ukotvenou fotkou, vlastní
+                 vnitřní scroll by je zbytečně mačkal do okénka. */
+              <div className="flex flex-col space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-black text-neutral-900">Rozpoznané řádky stočení</h3>
                   <button type="button" className="btn-ghost !rounded !py-1 text-xs font-bold text-primary-700" onClick={addLine}>
