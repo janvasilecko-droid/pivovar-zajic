@@ -676,7 +676,7 @@ export default function Stock() {
 
                 <div className="space-y-2.5">
                   {detail.stockByPkg
-                    .filter((p) => p.currentStock > 0 || p.outgoing > 0 || p.fromInv > 0 || p.brewedW > 0)
+                    .filter((p) => p.currentStock > 0 || p.outgoing > 0 || p.fromInv > 0 || p.brewedW > 0 || p.rawStock !== 0)
                     .map((p) => (
                       <div key={p.package_id} className="rounded border border-neutral-200 overflow-hidden">
                         <div className={`px-3 py-2 flex items-center justify-between gap-2 text-xs font-black uppercase tracking-wider ${p.kind === 'keg' ? 'bg-amber-100 text-amber-800' : 'bg-primary-100 text-primary-800'}`}>
@@ -730,6 +730,23 @@ export default function Stock() {
                             <div className="rounded bg-amber-50 py-1.5">
                               <div className="text-[11px] font-black uppercase text-amber-700">Dorovnání inventury</div>
                               <div className="text-sm font-black text-amber-800">{p.adjW > 0 ? '+' : ''}{p.adjW}</div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Kontrolní vzorec se skutečnými čísly — aby šlo ověřit,
+                            jestli aktuální stav sedí, i když se výše ukazuje
+                            jen zaokrouhlené (na nulu) číslo. */}
+                        <div className="px-3 pb-3 pt-1 border-t border-neutral-100 bg-neutral-50/60">
+                          <div className="text-[11px] font-black uppercase text-neutral-400 mb-1">Kontrolní výpočet</div>
+                          <div className="font-mono text-[11px] text-neutral-700 leading-relaxed break-words">
+                            {p.fromInv} (počáteční) + {p.brewedW} (stočeno) − {p.kegsUsedW} (sudy na lahve) − {p.fasovaniW} (fasování) − {p.prodejnaW} (prodejna) − {p.akceWeek} (akce) − {p.woW} (odpisy) − {p.zdW} (závoz) − {p.prefukFrom} (přefuk ze) + {p.prefukTo} (přefuk do) + {p.adjW} (dorovnání) = {' '}
+                            <strong className={p.rawStock < 0 ? 'text-rose-700' : 'text-emerald-700'}>{p.rawStock}</strong>
+                          </div>
+                          {p.rawStock < 0 && (
+                            <div className="mt-1.5 text-[11px] font-bold text-rose-700 flex items-start gap-1.5">
+                              <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+                              <span>Evidence vychází do mínusu o {Math.abs(p.rawStock)} ks — vydalo se víc, než kolik se kdy naskladnilo. Na skladě výše se to ukazuje jako 0, rozdíl je potřeba dohledat (chybějící stočení, špatně zapsaný počáteční stav, nebo duplicitní odpočet).</span>
                             </div>
                           )}
                         </div>
