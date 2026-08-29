@@ -6,7 +6,7 @@
 // zobrazuje se jen komu je nastaveno (Uživatelé → "Dostává upozornění na
 // vozidla") a musí ho jednou potvrdit, pak zmizí (dokud se stav nezmění).
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { CalendarX2, Download, Check, ChevronLeft, ChevronRight, LogOut, MessageCircle, Palette, Plus, Search, SlidersHorizontal, Trash2, TriangleAlert, X } from 'lucide-react';
+import { CalendarX2, Download, Check, ChevronLeft, ChevronRight, LogOut, Palette, Plus, Search, SlidersHorizontal, Trash2, TriangleAlert, X } from 'lucide-react';
 import { NAV, EXTRA_NAV, type Page, type NavItem } from '../components/Layout';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import LauncherTile from '../components/LauncherTile';
@@ -17,8 +17,6 @@ import { useAuth } from '../lib/auth';
 import { canUserView, getUserPermissions, PAGE_TO_MODULE, ModuleKey } from '../lib/permissions';
 import { isAdminEmail } from '../lib/config';
 import { supabase, Vehicle } from '../lib/supabase';
-import { fetchPendingWhatsAppCount } from '../lib/whatsappApi';
-import { requestOrdersAutoImport } from '../lib/ordersFilter';
 import { getVehicleExpiryStatus } from '../lib/vozidla';
 import {
   getHomeLayout, saveHomeLayout, addPage, removePage, moveTileToPage, hideTile, addTile,
@@ -407,14 +405,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
   // dlaždice, ať jsou na Domů ve stejném stylu jako zbytek launcheru.
   // Hlavička je schovává jen na téhle stránce (viz Layout.tsx, isHome). ----
   const [showSearchModal, setShowSearchModal] = useState(false);
-  const [pendingWhatsApp, setPendingWhatsApp] = useState(0);
-  useEffect(() => {
-    fetchPendingWhatsAppCount().then(setPendingWhatsApp).catch(() => {});
-  }, []);
-  function openWhatsAppFromTile() {
-    requestOrdersAutoImport();
-    setPage('orders');
-  }
 
   // Upozornění na STK / dálniční známku vozidel — jen komu je to nastaveno
   // v Uživatelích (nebo admin), a jen dokud to ten člověk jednou nepotvrdí.
@@ -606,10 +596,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
                 <input type="color" value={colorInputValue(fixedColor('search', 'slate'))} onChange={(e) => handleFixedColorChange('search', e.target.value)} />
                 <span>Hledat</span>
               </label>
-              <label className="hs-fixed-color" title="Objednávky k parsování">
-                <input type="color" value={colorInputValue(fixedColor('parse', 'mint'))} onChange={(e) => handleFixedColorChange('parse', e.target.value)} />
-                <span>Parsování</span>
-              </label>
             </div>
           </div>
         )}
@@ -711,16 +697,11 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page) => void }) 
         <div className="hs-fixed-row" style={{ ['--hs-tile-alpha' as any]: layout.tileOpacity, ['--hs-tile-gap' as any]: `${layout.tileGap}px` }}>
           {currentPageIndex === 0 && (
             <>
-              <button
-                type="button"
-                className={isPresetColor(fixedColor('parse', 'mint')) ? `hs-tile c-${fixedColor('parse', 'mint')}` : 'hs-tile'}
-                style={isPresetColor(fixedColor('parse', 'mint')) ? undefined : { background: hexToRgba(fixedColor('parse', 'mint'), layout.tileOpacity) }}
-                onClick={openWhatsAppFromTile}
-              >
-                <MessageCircle />
-                <div className="hs-lbl">Objednávky k parsování</div>
-                {pendingWhatsApp > 0 && <span className="hs-badge">{pendingWhatsApp > 99 ? '99+' : pendingWhatsApp}</span>}
-              </button>
+              {/* Dlaždice „Objednávky k parsování" je pryč — nová WhatsApp
+                  objednávka se hlásí sama upozorněním nahoře (Layout.tsx,
+                  activeNewOrderBanner) a jeho tlačítko otevře rovnou okno
+                  s objednávkami ke kontrole. Dlaždice tedy dělala potřetí
+                  totéž co upozornění a ikona WhatsApp v hlavičce. */}
               {vehicleAlerts.length > 0 && (
                 // Tichý ukazatel místo dřívějšího banneru přes celou
                 // obrazovku, co bylo nutné potvrdit — dlaždice prostě zmizí

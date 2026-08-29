@@ -6,7 +6,7 @@ import { AlertTriangle, ArrowRight, Ban, ChevronLeft, ChevronRight, Beer as Beer
 import { Beer, EntryRow, Package, Place, beerBg, beerName, beerText, fetchAllRows, formatPackageLabel, pkgBg, supabase, useRealtime } from '../lib/supabase';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
-import { consumeOrdersItemFilter, consumeOrdersAutoImportRequest } from '../lib/ordersFilter';
+import { consumeOrdersItemFilter, consumeOrdersAutoImportRequest, ORDERS_AUTO_IMPORT_EVENT } from '../lib/ordersFilter';
 import { computeVariantTotals, type VariantTotalsResult } from '../lib/variantTotals';
 import { ImportFromImage } from '../components/ImportFromImage';
 import { WhatsAppOrderReviewModal } from '../components/WhatsAppOrderReviewModal';
@@ -289,6 +289,17 @@ export default function Orders({
   // appka skončila na obyčejném seznamu objednávek (viz lib/ordersFilter.ts).
   useEffect(() => {
     if (consumeOrdersAutoImportRequest()) setShowWhatsAppAutoProcessor(true);
+  }, []);
+
+  // A pro případ, že je tahle obrazovka už otevřená (kliknutí na WhatsApp
+  // v hlavičce přímo na Objednávkách) — mount efekt výše se znovu nespustí.
+  useEffect(() => {
+    const otevri = () => {
+      consumeOrdersAutoImportRequest();
+      setShowWhatsAppAutoProcessor(true);
+    };
+    window.addEventListener(ORDERS_AUTO_IMPORT_EVENT, otevri);
+    return () => window.removeEventListener(ORDERS_AUTO_IMPORT_EVENT, otevri);
   }, []);
   
   // Automatické sledování nových WhatsApp zpráv

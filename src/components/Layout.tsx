@@ -590,12 +590,20 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             </button>
             <button
               onClick={() => {
+                // U WhatsApp objednávky se má otevřít rovnou okno „objednávky
+                // ke kontrole" (hromadné zpracování příchozích zpráv), ne
+                // obyčejný seznam objednávek — z upozornění „NOVÁ WHATSAPP
+                // OBJEDNÁVKA K OVĚŘENÍ" je to jediný krok, který dává smysl.
+                // Dřív se jen přepnula stránka, takže se muselo ke kontrole
+                // proklikat ručně. Stejná cesta jako ikona WhatsApp
+                // v hlavičce a dlaždice na Domů (viz requestOrdersAutoImport).
+                if (activeNewOrderBanner.kind === 'whatsapp') requestOrdersAutoImport();
                 setActiveNewOrderBanner(null);
                 setPage('orders');
               }}
               className="px-4 py-2 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md transition flex items-center gap-1.5"
             >
-              <span>Zobrazit v Objednávkách</span>
+              <span>{activeNewOrderBanner.kind === 'whatsapp' ? 'Zkontrolovat objednávku' : 'Zobrazit v Objednávkách'}</span>
               <ArrowRight size={14} />
             </button>
           </div>

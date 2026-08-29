@@ -30,8 +30,18 @@ export function consumeOrdersItemFilter(): OrdersItemFilterRequest | null {
 // zpráv k parsování. Modulová proměnná to řeší stejně jako filtr piva/obalu.
 let pendingAutoImport = false;
 
+// Modulová proměnná pokrývá případ „Orders se teprve montuje". Opačný případ
+// — Orders je UŽ namontovaný (kliknutí na WhatsApp v hlavičce, když je člověk
+// zrovna na Objednávkách) — mount efekt znovu nespustí, a tak by se okno
+// nikdy neotevřelo. Na to je tenhle event; posluchač si příznak spotřebuje,
+// aby okno nevyskočilo podruhé při příštím otevření Objednávek.
+export const ORDERS_AUTO_IMPORT_EVENT = 'pivovar:open-auto-import';
+
 export function requestOrdersAutoImport(): void {
   pendingAutoImport = true;
+  try {
+    window.dispatchEvent(new CustomEvent(ORDERS_AUTO_IMPORT_EVENT));
+  } catch {}
 }
 
 export function consumeOrdersAutoImportRequest(): boolean {
