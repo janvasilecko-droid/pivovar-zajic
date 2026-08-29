@@ -51,3 +51,36 @@ export function isMonthlyCleanupPending(): boolean {
   if (!isLastWeekOfMonth()) return false;
   return readMonthlyCleanupStage(getMonthKey()) !== 'done';
 }
+
+// ── Měsíční úklid je MĚSÍČNÍ, ne denní ──────────────────────────────────────
+// Odškrtnuté checklisty se ukládají po DNECH ('bottling_checklist_<datum>'),
+// takže „hotovo" platilo jen pro ten jeden den — druhý den v posledním týdnu
+// se okno s měsíční údržbou otevřelo znovu, i když byl úklid dávno udělaný a
+// zapsaný do sanitárního deníku. Proto se dokončení drží zvlášť, na měsíc a
+// linku (lahve / KEG): jakmile je linka za daný měsíc hotová, nepřipomíná se
+// znovu — až zase v posledním týdnu dalšího měsíce.
+export type CleanupLine = 'bottle' | 'keg';
+const LINE_DONE_PREFIX = 'monthly_cleanup_line_done_';
+const lineKey = (line: CleanupLine, monthKey: string) => LINE_DONE_PREFIX + line + '_' + monthKey;
+
+export function isMonthlyLineDone(line: CleanupLine, monthKey: string = getMonthKey()): boolean {
+  try {
+    return localStorage.getItem(lineKey(line, monthKey)) === '1';
+  } catch {
+    return false;
+  }
+}
+
+// Označí linku za hotovou pro daný měsíc. Když jsou hotové obě, umlčí se i
+// samotné upozornění (stage 'done') — jinak by se pořád hlásilo, že úklid
+// čeká, přestože obě linky mají odškrtnuto a zapsáno v deníku.
+export function markMonthlyLineDone(line: CleanupLine, monthKey: string = getMonthKey()) {
+  try {
+    localStorage.setItem(lineKey(line, monthKey), '1');
+  } catch {}
+  if (isMonthlyLineDone('bottle', monthKey) && isMonthlyLineDone('keg', monthKey)) {
+    writeMonthlyCleanupStage(monthKey, 'done');
+    return;
+  }
+  window.dispatchEvent(new CustomEvent(MONTHLY_CLEANUP_CHANGED_EVENT));
+}

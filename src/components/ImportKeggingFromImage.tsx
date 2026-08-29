@@ -44,8 +44,10 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [rowsMap, setRowsMap] = useState<Record<number, KegRow[]>>({});
-  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [editingImage, setEditingImage] = useState<string | null>(null);
+  // Fotky, které už prošly (nebo vědomě neprošly) editorem — viz
+  // ImportBottlingFromImage.
+  const [upraveno, setUpraveno] = useState<Record<number, boolean>>({});
   const [editBeforeOcr, setEditBeforeOcr] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
@@ -77,6 +79,11 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
     if (!currentPhoto) return;
     if (rowsMap[activeIndex]) {
       setEntryRows(rowsMap[activeIndex]);
+      return;
+    }
+    // Zaškrtnuté „Oříznout / Otočit fotku před čtením" se dřív nikde nečetlo.
+    if (editBeforeOcr && !upraveno[activeIndex] && !editingImage) {
+      setEditingImage(currentPhoto.dataUrl);
       return;
     }
     const base64 = currentPhoto.dataUrl.split(',')[1] ?? '';
@@ -150,11 +157,25 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
         if (!matchedBeer && itemBeerName) matchedBeer = beers.find((b) => norm(b.name).includes(norm(itemBeerName)) || norm(itemBeerName).includes(norm(b.name)));
         if (!matchedBeer && itemDegree) matchedBeer = beers.find((b) => b.degree && norm(b.degree) === norm(itemDegree));
 
-        // KEG obal — podle objemu z textu (nejspolehlivější), jinak z label
+        // KEG obal — podle objemu z textu (nejspolehlivější), jinak z label.
+        // Dřív se objem hledal jako `\b(50|30|20|15|10)\b`, jenže ve zdaleka
+        // nejběžnějších zápisech („4x50", „2x30l", „50l") kolem čísla žádná
+        // hranice slova není (písmeno i „x" jsou znaky slova) — regulár tedy
+        // nesedl skoro nikdy a obal zůstával prázdný. Nově se bere v pořadí
+        // spolehlivosti: číslo s litry („50l"), číslo za „x" („4x50") a
+        // teprve pak holé číslo, a vždy jen takové, které je v katalogu KEGů.
         let matchedPkg: Package | undefined;
-        const kegVol = raw.match(/\b(50|30|20|15|10)\b/);
-        if (kegVol) {
-          matchedPkg = kegPackages.find((p) => Math.abs(Number(p.volume_l) - Number(kegVol[1])) < 0.5);
+        const objemyKegu = kegPackages.map((p) => Number(p.volume_l)).filter((v) => !isNaN(v));
+        const najdiObjem = (re: RegExp): number | undefined =>
+          [...raw.matchAll(re)]
+            .map((m) => Number(m[1]))
+            .find((n) => objemyKegu.some((v) => Math.abs(v - n) < 0.5));
+        const kegVol =
+          najdiObjem(/(\d+)\s*l\b/gi) ??
+          najdiObjem(/[x×]\s*(\d+)/gi) ??
+          najdiObjem(/(\d+)(?![\d,.])/g);
+        if (kegVol != null) {
+          matchedPkg = kegPackages.find((p) => Math.abs(Number(p.volume_l) - kegVol) < 0.5);
         }
         if (!matchedPkg && itemPkgLabel) {
           matchedPkg = kegPackages.find((p) => norm(p.label) === norm(itemPkgLabel))
@@ -199,25 +220,49 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
     }
   };
 
+  // Viz stejné místo v ImportBottlingFromImage: řádky bez piva se dřív
+  // potichu zahodily a okno se zavřelo, takže to vypadalo, že se nic nestalo.
   const applyAll = () => {
     const updatedMap = { ...rowsMap, [activeIndex]: entryRows ?? [] };
     const allRows: KegRow[] = [];
+    const bezPiva: number[] = [];
     Object.values(updatedMap).forEach((rList) => {
-      rList.forEach((r) => {
-        if (!r._removed && r.beerId) allRows.push(r);
+      rList.forEach((r, i) => {
+        if (r._removed) return;
+        if (!r.beerId) { bezPiva.push(i + 1); return; }
+        allRows.push(r);
       });
     });
-    if (allRows.length > 0) {
-      onImport(allRows, date, note);
+    if (bezPiva.length > 0) {
+      setErr(
+        `U ${bezPiva.length === 1 ? 'řádku' : 'řádků'} #${bezPiva.join(', #')} není vybrané pivo — doplň ho, ` +
+        'nebo řádek odstraň. Bez piva by se stáčení nezapsalo.',
+      );
+      return;
     }
+    if (allRows.length === 0) {
+      setErr('Není co zapsat — všechny řádky jsou odstraněné.');
+      return;
+    }
+    onImport(allRows, date, note);
     onClose();
   };
-  const onEditorCancel = () => { setEditingImage(null); processingRef.current = false; };
-  const onEditorConfirm = (editedDataUrl: string) => {
+  // Zrušený ořez = fotka se přečte tak, jak přišla.
+  const onEditorCancel = () => {
+    const idx = activeIndex;
+    const foto = photos[idx];
     setEditingImage(null);
-    setPhotos([{ dataUrl: editedDataUrl, name: 'foto' }]);
-    const base64 = editedDataUrl.split(',')[1] ?? '';
-    runOcrFromBase64(base64, typObrazku(editedDataUrl));
+    setUpraveno((prev) => ({ ...prev, [idx]: true }));
+    processingRef.current = false;
+    if (foto) runOcrFromBase64(foto.dataUrl.split(',')[1] ?? '', typObrazku(foto.dataUrl), idx);
+  };
+  // Upravená fotka nahradí JEN tu právě otevřenou (dřív přepsala celé pole).
+  const onEditorConfirm = (editedDataUrl: string) => {
+    const idx = activeIndex;
+    setEditingImage(null);
+    setUpraveno((prev) => ({ ...prev, [idx]: true }));
+    setPhotos((prev) => prev.map((f, i) => (i === idx ? { ...f, dataUrl: editedDataUrl } : f)));
+    runOcrFromBase64(editedDataUrl.split(',')[1] ?? '', typObrazku(editedDataUrl), idx);
   };
 
   if (!isOpen) return null;
@@ -243,7 +288,10 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
           <div className="flex flex-col gap-2">
             <div className="flex flex-wrap gap-3 items-center">
               <input ref={fileRef} type="file" accept="image/*,.png,.jpg,.jpeg,.webp" multiple onChange={(e) => { const files = Array.from(e.target.files ?? []); if (files.length) loadMultipleFiles(files); e.target.value = ''; }} className="hidden" />
-              <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={(e) => { const files = Array.from(e.target.files ?? []); if (files.length) setPendingFiles((q) => [...q, ...files]); e.target.value = ''; }} className="hidden" />
+              {/* Vyfocený snímek se dřív ukládal do fronty `pendingFiles`,
+                  kterou nikdo nikdy nečetl — „Spustit fotoaparát" tedy
+                  neudělalo vůbec nic. Jde stejnou cestou jako galerie. */}
+              <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={(e) => { const files = Array.from(e.target.files ?? []); if (files.length) loadMultipleFiles(files); e.target.value = ''; }} className="hidden" />
               <button className="btn-primary !rounded flex items-center gap-2" onClick={() => cameraRef.current?.click()} disabled={busy}>
                 <Camera size={16} /> <Camera className="ikona-text" /> Spustit fotoaparát
               </button>

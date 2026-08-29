@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { AlertTriangle, CalendarClock, CalendarX2, Check, ClipboardList, PartyPopper, Play } from 'lucide-react';
 import {
   isLastWeekOfMonth, getMonthKey,
-  readMonthlyCleanupStage, writeMonthlyCleanupStage,
+  readMonthlyCleanupStage, writeMonthlyCleanupStage, markMonthlyLineDone,
 } from '../lib/monthlyCleanup';
 import { businessDateISO } from '../lib/businessDate';
 import { useAuth } from '../lib/auth';
@@ -48,30 +48,58 @@ function shouldShow(monthKey: string): boolean {
 const MESICNI_LAHVE = DEFAULT_ITEMS.filter((it) => it.category.startsWith(MONTHLY_CATEGORY_PREFIX));
 const MESICNI_KEG = KEG_DEFAULT_ITEMS.filter((it) => it.category.startsWith(KEG_MONTHLY_CATEGORY_PREFIX));
 
-/** Odškrtnuté položky z obou uložených checklistů daného dne. */
-function nactiOdskrtnuta(dateStr: string): Record<string, boolean> {
-  const spoj = (klic: string) => {
-    try {
-      const raw = localStorage.getItem(klic + dateStr);
-      return raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
-    } catch {
-      return {};
-    }
-  };
-  // Id se nekříží (month_* vs. keg_month_*), takže je lze držet v jedné mapě.
-  return { ...spoj('bottling_checklist_'), ...spoj('keg_checklist_') };
+/** Dny posledního týdne měsíce až po `dateStr` (nikdy nepřeteče do minulého měsíce). */
+function dnyPoslednihoTydne(dateStr: string): string[] {
+  const konec = new Date(dateStr + 'T00:00:00');
+  const mesic = konec.getMonth();
+  const dny: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(konec);
+    d.setDate(konec.getDate() - i);
+    if (d.getMonth() !== mesic) break;
+    dny.push(
+      d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'),
+    );
+  }
+  return dny;
 }
 
-/** Zapíše jednu odškrtnutou položku do checklistu daného dne. */
+// Odškrtnuté měsíční položky z obou checklistů. Čte se přes CELÝ poslední
+// týden, ne jen za dnešek: měsíční úklid se běžně dělá na dvakrát (dnes
+// stáčečky, zítra podlahy a stěny) a checklisty se ukládají po dnech — dokud
+// se četl jen dnešek, včerejší odškrtnutí zmizela a počítadlo začínalo od nuly.
+function nactiOdskrtnuta(dateStr: string): Record<string, boolean> {
+  const vysledek: Record<string, boolean> = {};
+  // Id se nekříží (month_* vs. keg_month_*), takže je lze držet v jedné mapě.
+  for (const den of dnyPoslednihoTydne(dateStr)) {
+    for (const prefix of ['bottling_checklist_', 'keg_checklist_']) {
+      try {
+        const raw = localStorage.getItem(prefix + den);
+        if (!raw) continue;
+        const mapa = JSON.parse(raw) as Record<string, boolean>;
+        Object.keys(mapa).forEach((id) => { if (mapa[id]) vysledek[id] = true; });
+      } catch {}
+    }
+  }
+  return vysledek;
+}
+
+// Zapíše odškrtnutí do dnešního checklistu. Odškrtnutí ZPĚT (odklik) se musí
+// promítnout do všech dnů posledního týdne — jinak by ho zobrazení, které čte
+// celý týden, hned vrátilo zpátky jako odškrtnuté.
 function ulozOdskrtnuti(klicPrefix: string, dateStr: string, id: string, hodnota: boolean) {
-  try {
-    const klic = klicPrefix + dateStr;
-    const raw = localStorage.getItem(klic);
-    const mapa = raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
-    if (hodnota) mapa[id] = true;
-    else delete mapa[id];
-    localStorage.setItem(klic, JSON.stringify(mapa));
-  } catch {}
+  const dny = hodnota ? [dateStr] : dnyPoslednihoTydne(dateStr);
+  for (const den of dny) {
+    try {
+      const klic = klicPrefix + den;
+      const raw = localStorage.getItem(klic);
+      if (!raw && !hodnota) continue;
+      const mapa = raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
+      if (hodnota) mapa[id] = true;
+      else delete mapa[id];
+      localStorage.setItem(klic, JSON.stringify(mapa));
+    } catch {}
+  }
 }
 
 // Sloučí do uloženého checklistu daného dne VŠECHNY položky kategorie
@@ -141,6 +169,10 @@ export function MonthlyCleanupWarning({ onOpenMonthlyChecklist, onOpenKegMonthly
     if (Object.keys(kegMapa).length > 0) {
       void autoLogKegSanitationFromChecklist({ dateStr: dnes, checkedMap: kegMapa, performedBy, phase: 'monthly' });
     }
+    // Obě linky jsou tím pádem za tenhle měsíc hotové — ani stáčení lahví,
+    // ani KEG už nebude po „1. Začátek stáčení" otevírat měsíční checklist.
+    markMonthlyLineDone('bottle', monthKey);
+    markMonthlyLineDone('keg', monthKey);
     writeMonthlyCleanupStage(monthKey, 'done');
     setDone(true);
     setTimeout(() => setOpen(false), 1600);
@@ -162,6 +194,8 @@ export function MonthlyCleanupWarning({ onOpenMonthlyChecklist, onOpenKegMonthly
     if (keg.checkedItems.length > 0) {
       void autoLogKegSanitationFromChecklist({ dateStr: today, checkedMap: keg.map, performedBy, phase: 'monthly' });
     }
+    markMonthlyLineDone('bottle', monthKey);
+    markMonthlyLineDone('keg', monthKey);
     writeMonthlyCleanupStage(monthKey, 'done');
     setDone(true);
     setTimeout(() => setOpen(false), 1600);

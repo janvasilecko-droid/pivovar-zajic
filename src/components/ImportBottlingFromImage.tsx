@@ -39,8 +39,10 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
   }, []);
 
 
-  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [editingImage, setEditingImage] = useState<string | null>(null);
+  // Fotky, které už prošly (nebo vědomě neprošly) editorem — ať se ořez
+  // nenabízí pořád dokola u té samé fotky.
+  const [upraveno, setUpraveno] = useState<Record<number, boolean>>({});
   const [editBeforeOcr, setEditBeforeOcr] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -80,6 +82,13 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
     if (!currentPhoto) return;
     if (rowsMap[activeIndex]) {
       setEntryRows(rowsMap[activeIndex]);
+      return;
+    }
+    // Zaškrtnuté „Oříznout / Otočit fotku před čtením" se dřív nikde
+    // nečetlo — fotka šla do AI rovnou tak, jak byla. Teď se před čtením
+    // otevře editor.
+    if (editBeforeOcr && !upraveno[activeIndex] && !editingImage) {
+      setEditingImage(currentPhoto.dataUrl);
       return;
     }
     const base64 = currentPhoto.dataUrl.split(',')[1] ?? '';
@@ -253,11 +262,14 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
     }
   };
 
+  // Upravená fotka nahradí JEN tu právě otevřenou — dřív se `setPhotos`
+  // přepsalo celé pole, takže ořez jedné fotky zahodil všechny ostatní.
   const onEditorConfirm = (editedDataUrl: string) => {
+    const idx = activeIndex;
     setEditingImage(null);
-    setPhotos([{ dataUrl: editedDataUrl, name: 'foto' }]);
-    const base64 = editedDataUrl.split(',')[1] ?? '';
-    runOcrFromBase64(base64, typObrazku(editedDataUrl));
+    setUpraveno((prev) => ({ ...prev, [idx]: true }));
+    setPhotos((prev) => prev.map((f, i) => (i === idx ? { ...f, dataUrl: editedDataUrl } : f)));
+    runOcrFromBase64(editedDataUrl.split(',')[1] ?? '', typObrazku(editedDataUrl), idx);
   };
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -304,17 +316,33 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
     }
   };
 
+  // Potvrzení celého importu. Řádky bez vybraného piva se DŘÍV potichu
+  // zahodily a okno se prostě zavřelo — když AI pivo nespárovala (jiný název,
+  // ruční zápis), vypadalo to, že tlačítko nic nedělá a fotka se nezapsala.
+  // Teď takový řádek zápis zastaví a řekne, u kterého řádku chybí pivo.
   const applyAll = () => {
     const updatedMap = { ...rowsMap, [activeIndex]: entryRows ?? [] };
     const allRows: RowInput[] = [];
+    const bezPiva: number[] = [];
     Object.values(updatedMap).forEach((rList) => {
-      rList.forEach((r) => {
-        if (!r._removed && r.beerId) allRows.push(r);
+      rList.forEach((r, i) => {
+        if (r._removed) return;
+        if (!r.beerId) { bezPiva.push(i + 1); return; }
+        allRows.push(r);
       });
     });
-    if (allRows.length > 0) {
-      onImport(allRows, date, note);
+    if (bezPiva.length > 0) {
+      setErr(
+        `U ${bezPiva.length === 1 ? 'řádku' : 'řádků'} #${bezPiva.join(', #')} není vybrané pivo — doplň ho, ` +
+        'nebo řádek odstraň. Bez piva by se stočení nezapsalo.',
+      );
+      return;
     }
+    if (allRows.length === 0) {
+      setErr('Není co zapsat — všechny řádky jsou odstraněné.');
+      return;
+    }
+    onImport(allRows, date, note);
     onClose();
   };
 
@@ -654,8 +682,13 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
     </>
   );
 
+  // Zrušený ořez neznamená „fotku zahodit" — přečte se tak, jak přišla.
   function onEditorCancel() {
+    const idx = activeIndex;
+    const foto = photos[idx];
     setEditingImage(null);
+    setUpraveno((prev) => ({ ...prev, [idx]: true }));
     processingRef.current = false;
+    if (foto) runOcrFromBase64(foto.dataUrl.split(',')[1] ?? '', typObrazku(foto.dataUrl), idx);
   }
 }

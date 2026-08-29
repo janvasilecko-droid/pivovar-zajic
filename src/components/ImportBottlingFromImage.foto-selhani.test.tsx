@@ -76,4 +76,22 @@ describe('Stáčení lahví z fotky — když se čtení nepovede', () => {
     const telo = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(telo.imageMimeType).toBe('image/png');
   });
+
+  // Řádky bez rozpoznaného piva se při potvrzení POTICHU zahodily a okno se
+  // zavřelo — z pohledu obsluhy tlačítko „Vložit VŠECHNO" nedělalo nic.
+  it('řádek bez piva se potichu nezahodí — řekne, co doplnit', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({
+        items: [{ quantity: 20, degree: null, beer_name: 'Kdovíco', package_label: 'Lahve 0.5l', raw_line: '20x0,5 kdovíco' }],
+        raw_text: '',
+      }), { status: 200 }),
+    ));
+    vykresli();
+    vlozFotku();
+
+    const potvrdit = await screen.findByText(/Vložit VŠECHNO|Vložit a další fotka/i);
+    fireEvent.click(potvrdit);
+
+    expect(await screen.findByText(/není vybrané pivo/i)).toBeTruthy();
+  });
 });

@@ -9,7 +9,7 @@ import { useAuth } from '../lib/auth';
 import { BottlingPlan, getPlanSeenAt, markPlanSeenAt, isPlanUnseen, isBottlingManager, setPlanStatus } from '../lib/bottlingPlans';
 import { BottlingPlanPlanner } from '../components/BottlingPlanPlanner';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
-import { isLastWeekOfMonth, getMonthKey, writeMonthlyCleanupStage } from '../lib/monthlyCleanup';
+import { isLastWeekOfMonth, getMonthKey, writeMonthlyCleanupStage, isMonthlyLineDone, markMonthlyLineDone } from '../lib/monthlyCleanup';
 import { businessDateISO } from '../lib/businessDate';
 import { autoLogBottleSanitationFromChecklist } from '../lib/bottleSanitation';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
@@ -1887,8 +1887,12 @@ export default function BottlingScreen({
           // Po splnění brány „1. Začátek stáčení" se v posledním týdnu měsíce
           // automaticky otevře okno s měsíčním checklistem („4. Měsíční údržba"),
           // dokud není pro dané datum kompletně odškrtnutý.
+          // Podmínka je MĚSÍČNÍ, ne denní. Odškrtnuté checklisty se ukládají po
+          // dnech, takže „hotovo" dřív platilo jen pro ten jeden den a druhý
+          // den posledního týdne se okno s měsíční údržbou otevřelo znovu.
+          // Nově se ozve až v posledním týdnu dalšího měsíce.
           if (checklistGate && checklistPhase === 'start' && isLastWeekOfMonth(businessDateISO())) {
-            if (!isMonthlyChecklistCompleteForDate(businessDateISO())) {
+            if (!isMonthlyLineDone('bottle') && !isMonthlyChecklistCompleteForDate(businessDateISO())) {
               setChecklistPhase('monthly');
               setChecklistInitialCategory(MONTHLY_CATEGORY);
               setShowChecklistModal(true);
@@ -1921,6 +1925,7 @@ export default function BottlingScreen({
             // upozornění, takže kdo úklid poctivě prošel ve stáčení, dostával
             // připomínku pořád dokola.
             if (isMonthlyChecklistCompleteForDate(businessDateISO())) {
+              markMonthlyLineDone('bottle');
               writeMonthlyCleanupStage(getMonthKey(), 'done');
             }
           }
