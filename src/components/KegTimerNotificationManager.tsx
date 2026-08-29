@@ -1,16 +1,12 @@
-// Globální hlídač časovačů (TimersScreen.tsx) — mount v App.tsx vedle
-// ReminderNotificationManager, stejný vzor (poll + porovnání s Date.now()).
-// Funguje napříč celou appkou (i mimo obrazovku Stopky/Časovač/Stočení sudu),
-// ať uživatel dostane upozornění, i když mezitím přejde jinam. Žádné UI —
-// jen zvuk/vibrace/systémová notifikace (viz notifyTimerDone).
 import { useEffect, useRef } from 'react';
 import {
   getKegTimerState, markKegTimerNotified,
   getCountdowns, saveCountdowns, countdownRemainingMs,
+  COUNTDOWN_CHANGED_EVENT,
 } from '../lib/stopwatchTimers';
 import { notifyTimerDone } from '../lib/notifications';
 
-const POLL_MS = 4000;
+const POLL_MS = 1000;
 
 export function KegTimerNotificationManager() {
   const checkingRef = useRef(false);
@@ -36,7 +32,7 @@ export function KegTimerNotificationManager() {
         const next = countdowns.map((t) => {
           if (t.targetAt === null || t.notifiedAt) return t;
           if (countdownRemainingMs(t) > 0) return t;
-          notifyTimerDone('⏰ Časovač vypršel', t.label || 'Odpočet doběhl.');
+          notifyTimerDone('Časovač vypršel', t.label || 'Odpočet doběhl.');
           changed = true;
           return { ...t, notifiedAt: Date.now() };
         });
@@ -48,7 +44,11 @@ export function KegTimerNotificationManager() {
 
     check();
     const interval = setInterval(check, POLL_MS);
-    return () => clearInterval(interval);
+    window.addEventListener(COUNTDOWN_CHANGED_EVENT, check);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener(COUNTDOWN_CHANGED_EVENT, check);
+    };
   }, []);
 
   return null;

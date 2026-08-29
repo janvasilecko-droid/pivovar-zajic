@@ -987,6 +987,11 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
 
             const activeNotesList = homeNotes.filter((n) => !n.completed);
             const doneTasksCount = dailyTasks.filter((t) => t.completed).length;
+            const runningTimers = countdowns.filter((c) => c.targetAt !== null && countdownRemainingMs(c) > 0);
+            const doneTimers = countdowns.filter((c) => c.targetAt !== null && countdownRemainingMs(c) === 0);
+            const shortestRunning = runningTimers.length > 0
+              ? runningTimers.reduce((min, cur) => (countdownRemainingMs(cur) < countdownRemainingMs(min) ? cur : min))
+              : null;
 
             const badge =
               id === 'orders' && pendingOrders ? `${pendingOrders} nových`
@@ -996,6 +1001,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               : id === 'vehicles' && vehicleAlerts.length > 0 ? `${vehicleAlerts.length} STK`
               : id === 'notes' && activeNotesList.length > 0 ? `${activeNotesList.length} vzkazů`
               : id === 'checklists' && dailyTasks.length > 0 ? `${doneTasksCount}/${dailyTasks.length}`
+              : (id === 'timer' || id === 'stopwatch') && doneTimers.length > 0 ? '⏰ Hotovo!'
+              : (id === 'timer' || id === 'stopwatch') && runningTimers.length === 1 ? `⏱️ ${formatDurationMs(countdownRemainingMs(runningTimers[0]))}`
+              : (id === 'timer' || id === 'stopwatch') && runningTimers.length > 1 ? `⏱️ ${runningTimers.length} běží (${formatDurationMs(countdownRemainingMs(shortestRunning!))})`
               : id === 'keg_timer' && kegLastDuration ? kegLastDuration
               : undefined;
 
@@ -1018,7 +1026,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                     <AlarmClock size={13} className={`shrink-0 ${running && !done ? 'animate-pulse text-amber-900' : ''}`} />
                     <span className="truncate">{timerLabel}</span>
                   </div>
-                  <div className={`text-xl sm:text-2xl font-black tabular-nums tracking-tight leading-none my-1 ${done ? 'text-rose-600 font-extrabold' : ''}`}>
+                  <div className={`text-xl sm:text-2xl font-black tabular-nums tracking-tight leading-none my-1 ${done ? 'text-rose-600 font-extrabold animate-pulse' : ''}`}>
                     {displayTime}
                   </div>
                   <div className="flex items-center justify-center gap-1 text-[11px] font-bold opacity-75">
@@ -1036,6 +1044,48 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                         <Play size={10} /> Spustit
                       </span>
                     )}
+                  </div>
+                </div>
+              );
+            }
+
+            // Widget Stopky & Časovač (timer):
+            if ((id === 'timer' || id === 'stopwatch') && ((override.w ?? 1) >= 2 || (override.h ?? 1) >= 2)) {
+              customContent = (
+                <div className="w-full h-full flex flex-col justify-between p-3 text-left select-none overflow-hidden">
+                  <div className="flex items-center justify-between gap-2 border-b border-black/10 pb-1">
+                    <span className="font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 opacity-90">
+                      <AlarmClock size={14} /> Časovače & Stopky
+                    </span>
+                    <span className="text-[11px] font-bold opacity-75">
+                      {runningTimers.length > 0 ? `${runningTimers.length} běží` : `${countdowns.length} nastaveno`}
+                    </span>
+                  </div>
+                  <div className="my-auto py-1 space-y-1">
+                    {countdowns.length === 0 ? (
+                      <p className="text-xs font-semibold opacity-70 italic">Klepnutím nastavíte časovač</p>
+                    ) : (
+                      countdowns.slice(0, 2).map((c) => {
+                        const rem = countdownRemainingMs(c);
+                        const isRun = c.targetAt !== null;
+                        const isDone = isRun && rem === 0;
+                        return (
+                          <div key={c.id} className="flex items-center justify-between gap-2 text-xs font-bold">
+                            <span className="truncate flex items-center gap-1">
+                              <span className={`w-2 h-2 rounded-full ${isDone ? 'bg-rose-500 animate-ping' : isRun ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-400'}`} />
+                              {c.label}
+                            </span>
+                            <span className={`tabular-nums font-black ${isDone ? 'text-rose-700' : ''}`}>
+                              {formatDurationMs(rem)}
+                            </span>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                  <div className="text-[11px] font-bold opacity-60 flex items-center justify-between pt-1 border-t border-black/10">
+                    <span>{runningTimers.length > 0 ? 'Aktivní odpočty' : 'Časovač'}</span>
+                    <span>Otevřít ➔</span>
                   </div>
                 </div>
               );

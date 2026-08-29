@@ -107,6 +107,37 @@ export function resetCountdown(id: string) {
   saveCountdowns(next);
 }
 
+export function startAllCountdowns() {
+  const list = getCountdowns();
+  const next = list.map((t) => {
+    if (t.targetAt !== null) return t;
+    let dur = t.durationMs;
+    if (dur <= 0) dur = t.initialDurationMs || 120000;
+    return { ...t, durationMs: dur, targetAt: Date.now() + dur, notifiedAt: null };
+  });
+  saveCountdowns(next);
+}
+
+export function pauseAllCountdowns() {
+  const list = getCountdowns();
+  const next = list.map((t) => {
+    if (t.targetAt === null) return t;
+    return { ...t, durationMs: countdownRemainingMs(t), targetAt: null };
+  });
+  saveCountdowns(next);
+}
+
+export function resetAllCountdowns() {
+  const list = getCountdowns();
+  const next = list.map((t) => ({
+    ...t,
+    durationMs: t.initialDurationMs || t.durationMs,
+    targetAt: null,
+    notifiedAt: null,
+  }));
+  saveCountdowns(next);
+}
+
 // ---- Stočení sudu — pamatuje si, jak dlouho stáčení naposledy trvalo, a při
 // příštím stáčení stačí stisknout tlačítko: sám odhadne, kdy by měl být sud
 // hotový, a upozorní (viz KegTimerNotificationManager.tsx). ----

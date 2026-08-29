@@ -88,9 +88,8 @@ export function playOrderChime() {
   }
 }
 
-// Alarm pro vypršelý časovač/stočení sudu — odlišný od playOrderChime (nová
-// objednávka), ať jde zvukem poznat, o jaké upozornění jde: 3× stejný dvojtón
-// (ne stoupající melodie), jako běžný kuchyňský časovač.
+// Alarm pro vypršelý časovač/stočení sudu — výrazný stoupající i klesající signál
+// jako průmyslový pivovarský časovač (dobře slyšitelný i v hlučném provozu).
 export function playAlarmSound() {
   let ctx: AudioContext | null = null;
   try {
@@ -100,7 +99,16 @@ export function playAlarmSound() {
     const audioContext = new AudioContextClass() as AudioContext;
     ctx = audioContext;
     const now = audioContext.currentTime;
-    const beepAt = [0, 0.3, 0.6];
+    const beeps = [
+      { t: 0, f: 987.77 },     // B5
+      { t: 0.12, f: 1318.51 }, // E6
+      { t: 0.32, f: 987.77 },
+      { t: 0.44, f: 1318.51 },
+      { t: 0.64, f: 987.77 },
+      { t: 0.76, f: 1318.51 },
+      { t: 0.96, f: 987.77 },
+      { t: 1.08, f: 1567.98 }, // G6 finální akcent
+    ];
 
     let closeTimer: ReturnType<typeof setTimeout> | null = null;
     const closeContext = () => {
@@ -109,37 +117,41 @@ export function playAlarmSound() {
       void ctx.close().catch(() => undefined);
     };
 
-    beepAt.forEach((offset, idx) => {
+    beeps.forEach(({ t: offset, f: freq }, idx) => {
       const osc = audioContext.createOscillator();
       const gain = audioContext.createGain();
-      osc.type = 'square';
-      osc.frequency.setValueAtTime(880, now + offset);
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, now + offset);
       gain.gain.setValueAtTime(0.001, now + offset);
-      gain.gain.exponentialRampToValueAtTime(0.22, now + offset + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.22);
+      gain.gain.exponentialRampToValueAtTime(0.35, now + offset + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.10);
       osc.connect(gain);
       gain.connect(audioContext.destination);
       osc.start(now + offset);
-      osc.stop(now + offset + 0.24);
-      if (idx === beepAt.length - 1) osc.onended = closeContext;
+      osc.stop(now + offset + 0.11);
+      if (idx === beeps.length - 1) osc.onended = closeContext;
     });
-    closeTimer = setTimeout(closeContext, 1500);
+    closeTimer = setTimeout(closeContext, 2000);
   } catch (e) {
     if (ctx && ctx.state !== 'closed') void ctx.close().catch(() => undefined);
     console.warn('Web Audio Playback muted or unavailable:', e);
   }
 }
 
-/** Obecné upozornění "časovač vypršel" — zvuk + vibrace + systémová notifikace
+/** Obecné upozornění "časovač vypršel" — zvuk + vibrace + systémová notifikace + in-app toast
  *  (pokud povolená). Používá Stopky/Časovač i Stočení sudu (viz stopwatchTimers.ts). */
 export function notifyTimerDone(title: string, body: string) {
   playAlarmSound();
-  try { navigator.vibrate?.([200, 100, 200, 100, 200]); } catch {}
+  try {
+    // Výrazná vibrační sekvence pro mobil v kapse
+    navigator.vibrate?.([350, 100, 350, 100, 500, 150, 700]);
+  } catch {}
   if (isNotificationSupported() && Notification.permission === 'granted') {
     try {
       new Notification(title, { body, icon: '/favicon.ico', tag: 'timer-done', requireInteraction: true });
     } catch {}
   }
+  oznam(`⏰ ${title}: ${body}`);
 }
 
 export interface NotificationSettings {

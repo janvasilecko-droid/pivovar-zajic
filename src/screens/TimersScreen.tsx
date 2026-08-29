@@ -10,6 +10,7 @@ import {
 import {
   getStopwatchState, saveStopwatchState, stopwatchElapsedMs, type StopwatchState,
   getCountdowns, saveCountdowns, countdownRemainingMs, type CountdownTimer,
+  startAllCountdowns, pauseAllCountdowns, resetAllCountdowns,
   getKegTimerState, startKegTimer, finishKegTimer, cancelKegTimer, removeKegHistoryEntry, getKegEstimateMs,
   formatDurationMs,
 } from '../lib/stopwatchTimers';
@@ -17,6 +18,7 @@ import { TabBar, type TabBarItem } from '../components/TabBar';
 import { useAuth } from '../lib/auth';
 import { getHomeLayout, saveHomeLayout, addTile, hideTile, type CountdownTileId } from '../lib/homeLayout';
 import { potvrd, oznam } from '../lib/toast';
+import { notifyTimerDone } from '../lib/notifications';
 
 type TimersTab = 'stopwatch' | 'timer' | 'keg';
 
@@ -218,6 +220,25 @@ function CountdownTimersTool() {
     }
   }
 
+  function handleStartAll() {
+    startAllCountdowns();
+    setList(getCountdowns());
+    oznam('Všechny odpočty byly spuštěny');
+  }
+  function handlePauseAll() {
+    pauseAllCountdowns();
+    setList(getCountdowns());
+    oznam('Všechny odpočty byly pozastaveny');
+  }
+  function handleResetAll() {
+    resetAllCountdowns();
+    setList(getCountdowns());
+    oznam('Všechny odpočty byly resetovány');
+  }
+  function handleTestAlert() {
+    notifyTimerDone('Test upozornění', 'Zvuk i vibrace fungují na 100 %');
+  }
+
   const PRESETS = [
     { label: 'Kotel', min: '2' },
     { label: 'Chmelení', min: '15' },
@@ -225,6 +246,8 @@ function CountdownTimersTool() {
     { label: 'Máčení kvasnic', min: '10' },
     { label: 'Pauza', min: '5' },
   ];
+
+  const hasRunning = list.some((t) => t.targetAt !== null);
 
   return (
     <div className="space-y-5">
@@ -283,6 +306,45 @@ function CountdownTimersTool() {
           </button>
         </form>
       </div>
+
+      {list.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 bg-neutral-50 p-3 rounded-xl border border-neutral-200">
+          <div className="flex flex-wrap items-center gap-2">
+            {!hasRunning ? (
+              <button
+                type="button"
+                onClick={handleStartAll}
+                className="btn-primary !rounded px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1"
+              >
+                <Play size={13} /> Spustit všechny
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handlePauseAll}
+                className="px-3 py-1.5 rounded text-xs font-bold bg-amber-500 hover:bg-amber-400 text-neutral-950 flex items-center gap-1"
+              >
+                <Pause size={13} /> Pozastavit všechny
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleResetAll}
+              className="px-3 py-1.5 rounded text-xs font-bold bg-white hover:bg-neutral-100 border border-neutral-200 text-neutral-700 flex items-center gap-1"
+            >
+              <RotateCcw size={13} /> Resetovat vše
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={handleTestAlert}
+            className="px-3 py-1.5 rounded text-xs font-bold bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 flex items-center gap-1"
+            title="Přehraje alarm a zavibruje pro otestování"
+          >
+            🔔 Vyzkoušet zvuk a vibrace
+          </button>
+        </div>
+      )}
 
       {list.length === 0 && (
         <p className="text-sm text-neutral-500 text-center py-8">Zatím žádný časovač — přidej si první nahoře.</p>
