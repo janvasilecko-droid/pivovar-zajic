@@ -33,11 +33,17 @@ export type TileOverride = { w?: number; h?: number; color?: string; label?: str
 
 /** Syntetické id skupinové dlaždice (viz `groups`) — jinak normální dlaždice má id = Page. */
 export type GroupId = `grp_${string}`;
-/** Cokoliv, co může sedět jako jeden prvek v `pages[i]`: reálná stránka, nebo skupina. */
-export type TileId = Page | GroupId;
+/** Syntetické id dlaždice vlastního odpočtu (např. cd_t_123) */
+export type CountdownTileId = `cd_${string}`;
+/** Cokoliv, co může sedět jako jeden prvek v `pages[i]`: reálná stránka, skupina, nebo vlastní odpočet. */
+export type TileId = Page | GroupId | CountdownTileId;
 
 export function isGroupId(id: string): id is GroupId {
   return id.startsWith('grp_');
+}
+
+export function isCountdownId(id: string): id is CountdownTileId {
+  return id.startsWith('cd_');
 }
 
 /** Skupina víc dlaždic sloučených do jedné ("složka", styl Windows Phone/iOS). Vzhled
@@ -254,6 +260,10 @@ function resolveTileId(
     members.forEach((m) => seen.add(m));
     if (members.length === 1) return members[0];
     resolvedGroups[id] = { memberIds: members };
+    return id;
+  }
+  if (isCountdownId(id)) {
+    seen.add(id);
     return id;
   }
   if (!fullVisibleSet.has(id as Page)) return null;
@@ -565,8 +575,8 @@ export function unhideTile(layout: HomeLayout, tileId: TileId): HomeLayout {
   return { ...layout, pages, hidden: layout.hidden.filter((id) => id !== tileId) };
 }
 
-/** Přidá dosud neumístěnou dlaždici (schovanou, nebo z EXTRA_NAV registru) na danou stránku. */
-export function addTile(layout: HomeLayout, tileId: Page, pageIndex: number): HomeLayout {
+/** Přidá dosud neumístěnou dlaždici (schovanou, z EXTRA_NAV registru nebo vlastní odpočet) na danou stránku. */
+export function addTile(layout: HomeLayout, tileId: TileId, pageIndex: number): HomeLayout {
   if (!layout.pages[pageIndex]) return layout;
   const pages = layout.pages
     .map((p) => p.filter((id) => id !== tileId))

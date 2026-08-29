@@ -8,7 +8,8 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import {
   CalendarX2, Download, Check, ChevronLeft, ChevronRight, LogOut, Palette, Plus, Search, SlidersHorizontal, Trash2, TriangleAlert, X,
-  Truck, ClipboardList, MessageCircle, PlusCircle, Snowflake, FlaskConical, CalendarDays, BarChart3, Package as PackageIcon, TrendingDown, GlassWater, BookOpen, Droplet, Car, FileText, ClipboardCheck, Shield, Store, Receipt, MapPin, Beer as BeerIcon, Tag, Sparkles, Compass, Wheat, Zap, ArrowLeftRight, StickyNote
+  Truck, ClipboardList, MessageCircle, PlusCircle, Snowflake, FlaskConical, CalendarDays, BarChart3, Package as PackageIcon, TrendingDown, GlassWater, BookOpen, Droplet, Car, FileText, ClipboardCheck, Shield, Store, Receipt, MapPin, Beer as BeerIcon, Tag, Sparkles, Compass, Wheat, Zap, ArrowLeftRight, StickyNote,
+  AlarmClock, Play, Pause, RotateCcw, Pin
 } from 'lucide-react';
 import { NAV, EXTRA_NAV, type Page, type NavItem } from '../components/Layout';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
@@ -29,15 +30,15 @@ import { getHomeNotes, HOME_NOTES_CHANGED_EVENT, type HomeNote } from '../lib/ho
 import { getDailyTasks, DAILY_CHECKLIST_CHANGED_EVENT, type DailyTask } from '../lib/homeChecklist';
 import {
   getHomeLayout, saveHomeLayout, addPage, removePage, moveTileToPage, hideTile, addTile,
-  mergeTiles, addToGroup, removeFromGroup, deleteGroup, isGroupId, ensurePositions, ensureTrailingEmptyPage, unifyColorsByCategory, moveTileToCell, stepTileCell,
+  mergeTiles, addToGroup, removeFromGroup, deleteGroup, isGroupId, isCountdownId, ensurePositions, ensureTrailingEmptyPage, unifyColorsByCategory, moveTileToCell, stepTileCell,
   addDockSlot, removeDockSlot,
   hexToRgba,
   PAGE_CATEGORY, CATEGORY_ORDER, CATEGORY_SHADES, type Category,
   SCENES, MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX,
   GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK,
-  type HomeLayout, type TileColor, type TileId, type GroupId,
+  type HomeLayout, type TileColor, type TileId, type GroupId, type CountdownTileId,
 } from '../lib/homeLayout';
-import { getKegTimerState, formatDurationMs } from '../lib/stopwatchTimers';
+import { getKegTimerState, formatDurationMs, getCountdowns, countdownRemainingMs, toggleCountdown, resetCountdown, COUNTDOWN_CHANGED_EVENT, type CountdownTimer } from '../lib/stopwatchTimers';
 import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
 import { isMonthlyCleanupPending, MONTHLY_CLEANUP_CHANGED_EVENT } from '../lib/monthlyCleanup';
 import { potvrd } from '../lib/toast';
@@ -350,18 +351,18 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     const trimmed = label.trim();
     persist({ ...layout, overrides: { ...layout.overrides, [id]: { ...layout.overrides[id], label: trimmed || undefined } } });
   }
-  // Dlaždice dosud nikde umístěná (schovaná, nebo z EXTRA_NAV registru) —
+  // Dlaždice dosud nikde umístěná (schovaná, z EXTRA_NAV registru nebo vlastní odpočet) —
   // viz addableItems níže, otevírá se přes "+ Přidat dlaždici".
-  function handleAddTile(id: Page) {
+  function handleAddTile(id: TileId) {
     persist(addTile(layout, id, currentPageIndex));
   }
   // Sloučení dlaždice `editingTileId` s jinou dlaždicí/skupinou na stejné
   // stránce — vybráno v editor-modálu (sekce "Sloučit s…").
   function handleMergeInto(targetId: string) {
-    if (!editingTileId || isGroupId(editingTileId) || !targetId) return;
+    if (!editingTileId || isGroupId(editingTileId) || isCountdownId(editingTileId) || !targetId) return;
     const next = isGroupId(targetId)
-      ? addToGroup(layout, targetId, editingTileId)
-      : mergeTiles(layout, editingTileId, targetId as Page, currentPageIndex);
+      ? addToGroup(layout, targetId, editingTileId as Page)
+      : mergeTiles(layout, editingTileId as Page, targetId as Page, currentPageIndex);
     persist(next);
     setEditingTileId(null);
     setMergeTarget('');
@@ -388,7 +389,12 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // skutečná routovaná stránka (viz Layout.tsx NAV), je to jen dlaždice,
   // co se dá stejně jako ostatní přesouvat/přebarvit/dát do skupiny; klik
   // na ni se tu zvlášť odchytí a spustí odhlášení místo setPage.
-  async function handleTileClick(id: Page) {
+  async function handleTileClick(id: TileId) {
+    if (isCountdownId(id)) {
+      const timerId = id.slice(3);
+      toggleCountdown(timerId);
+      return;
+    }
     if (id === 'signout') {
       if ((await potvrd('Odhlásit se z appky?'))) signOut();
       return;
@@ -404,12 +410,28 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     // Odznak na dlaždici počítá nevyřízené (status Nová) objednávky tento
     // týden — ať se po kliknutí rovnou zobrazí ty, ne obyčejný seznam všeho.
     if (id === 'orders' && pendingOrders) requestOrdersPendingFilter();
-    setPage(id);
+    setPage(id as Page);
   }
 
   // Modály pro rychlé poznámky a denní checklist
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [showChecklistModal, setShowChecklistModal] = useState(false);
+
+  // ---- Vlastní odpočty & časovače na ploše ----
+  const [, forceTick] = useState(0);
+  const [countdowns, setCountdowns] = useState<CountdownTimer[]>(() => getCountdowns());
+  useEffect(() => {
+    const handleUpdate = () => setCountdowns(getCountdowns());
+    window.addEventListener(COUNTDOWN_CHANGED_EVENT, handleUpdate);
+    return () => window.removeEventListener(COUNTDOWN_CHANGED_EVENT, handleUpdate);
+  }, []);
+
+  const hasRunningCountdowns = countdowns.some((c) => c.targetAt !== null);
+  useEffect(() => {
+    if (!hasRunningCountdowns) return;
+    const id = setInterval(() => forceTick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [hasRunningCountdowns]);
 
   // ---- Rychlé poznámky & Nástěnka na ploše ----
   const [homeNotes, setHomeNotes] = useState<HomeNote[]>(() => getHomeNotes());
@@ -484,7 +506,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   }, [visibleIds]);
 
   // Modál rychlých akcí (Quick Actions)
-  const [quickActionsTile, setQuickActionsTile] = useState<Page | null>(null);
+  const [quickActionsTile, setQuickActionsTile] = useState<TileId | null>(null);
 
   const QUICK_ACTIONS: Partial<Record<Page, { id: string; label: string; sublabel?: string; icon: any; onClick: () => void }[]>> = useMemo(() => ({
     kegging: [
@@ -614,47 +636,74 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   }, []);
 
   const editingGroup = editingTileId && isGroupId(editingTileId) ? layout.groups[editingTileId] : null;
-  const editingItem = editingTileId && !isGroupId(editingTileId) ? navById.get(editingTileId) : null;
+  const editingItem = editingTileId && !isGroupId(editingTileId)
+    ? (navById.get(editingTileId as Page) ?? (isCountdownId(editingTileId) ? ({ id: editingTileId as any, label: countdowns.find((c) => c.id === editingTileId.slice(3))?.label ?? 'Odpočet', icon: AlarmClock, group: 'Nástroje' as const } as NavItem) : null))
+    : null;
   const editingOverride = editingTileId ? (layout.overrides[editingTileId] ?? {}) : null;
 
   // Dlaždice, co jde přidat přes "+ Přidat dlaždici": schované (layout.hidden)
-  // + EXTRA_NAV položky, co ještě nejsou na žádné stránce ani ve skupině.
+  // + EXTRA_NAV položky, co ještě nejsou na žádné stránce ani ve skupině
+  // + vlastní odpočty (countdowns).
   // Sjednocené v jednom seznamu — addTile() zvládne oba případy stejně
   // (odebere ze staré pozice, ať už to byla stránka nebo hidden).
   const placedSet = useMemo(() => {
-    const s = new Set<Page>();
-    layout.pages.flat().forEach((id) => { if (!isGroupId(id)) s.add(id as Page); });
+    const s = new Set<TileId>();
+    layout.pages.flat().forEach((id) => { s.add(id); });
     Object.values(layout.groups).forEach((g) => g.memberIds.forEach((m) => s.add(m)));
     return s;
   }, [layout.pages, layout.groups]);
+
   // Dlaždice, co jsou už na TÉTO stránce, se v seznamu nenabízí (nedává
   // smysl přidávat je znovu) — ale dlaždice umístěné na JINÉ stránce se
   // nabízí taky (výběr ji sem PŘESUNE, viz addTile), jen se zeleně
   // odznakují jako "už někde je", ať je jasné, co se stane.
   const currentPageSet = useMemo(() => new Set(layout.pages[currentPageIndex] ?? []), [layout.pages, currentPageIndex]);
-  const addableItems = useMemo(
-    () => [...visible, ...extraVisible]
-      .filter((n) => !currentPageSet.has(n.id))
-      .map((n) => ({ item: n, alreadyPlaced: placedSet.has(n.id) })),
-    [visible, extraVisible, currentPageSet, placedSet]
+
+  const addableCountdowns = useMemo(
+    () => countdowns
+      .filter((c) => !currentPageSet.has(`cd_${c.id}`))
+      .map((c) => ({
+        item: {
+          id: `cd_${c.id}` as any,
+          label: `${c.label} (${formatDurationMs(c.initialDurationMs || c.durationMs)})`,
+          icon: AlarmClock,
+          group: 'Nástroje' as const,
+        } as NavItem,
+        alreadyPlaced: placedSet.has(`cd_${c.id}`),
+        category: 'Odpočty' as const,
+      })),
+    [countdowns, currentPageSet, placedSet]
   );
+
+  const addableItems = useMemo(
+    () => [
+      ...[...visible, ...extraVisible]
+        .filter((n) => !currentPageSet.has(n.id))
+        .map((n) => ({ item: n, alreadyPlaced: placedSet.has(n.id), category: (PAGE_CATEGORY[n.id] ?? 'Ostatní') as Category | 'Ostatní' | 'Odpočty' })),
+      ...addableCountdowns,
+    ],
+    [visible, extraVisible, currentPageSet, placedSet, addableCountdowns]
+  );
+
   // Seskupené podle kategorie (stejné pořadí a rodina barev jako hlavní
   // mřížka, viz CATEGORY_ORDER/CATEGORY_SHADES) — v každé kategorii má
   // položka vlastní odstín (jen pro rozlišení v seznamu), ne nutně stejnou
   // barvu jako její skutečná dlaždice v mřížce.
   const addableGroups = useMemo(() => {
-    const byCategory = new Map<Category | 'Ostatní', typeof addableItems>();
+    const byCategory = new Map<Category | 'Ostatní' | 'Odpočty', typeof addableItems>();
     addableItems.forEach((entry) => {
-      const cat = PAGE_CATEGORY[entry.item.id] ?? 'Ostatní';
+      const cat = entry.category;
       if (!byCategory.has(cat)) byCategory.set(cat, []);
       byCategory.get(cat)!.push(entry);
     });
-    const order: (Category | 'Ostatní')[] = [...CATEGORY_ORDER, 'Ostatní'];
+    const order: (Category | 'Ostatní' | 'Odpočty')[] = [...CATEGORY_ORDER, 'Odpočty', 'Ostatní'];
     return order
       .filter((cat) => byCategory.has(cat))
       .map((cat) => ({ category: cat, items: byCategory.get(cat)! }));
   }, [addableItems]);
-  function shadeFor(cat: Category | 'Ostatní', indexInCategory: number): string {
+
+  function shadeFor(cat: Category | 'Ostatní' | 'Odpočty', indexInCategory: number): string {
+    if (cat === 'Odpočty') return COLOR_HEX.violet;
     if (cat === 'Ostatní') return COLOR_HEX.slate;
     const shades = CATEGORY_SHADES[cat];
     return COLOR_HEX[shades[indexInCategory % shades.length]];
@@ -933,7 +982,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                 />
               );
             }
-            const item = navById.get(id);
+            const item = navById.get(id as Page) ?? (isCountdownId(id) ? ({ id: id as any, label: countdowns.find((c) => c.id === id.slice(3))?.label ?? 'Odpočet', icon: AlarmClock, group: 'Nástroje' as const } as NavItem) : null);
             if (!item) return null;
 
             const activeNotesList = homeNotes.filter((n) => !n.completed);
@@ -951,6 +1000,46 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               : undefined;
 
             let customContent: React.ReactNode = undefined;
+
+            // Vlastní widget Odpočtu (cd_*):
+            if (isCountdownId(id)) {
+              const timerId = id.slice(3);
+              const timer = countdowns.find((c) => c.id === timerId);
+              const remaining = timer ? countdownRemainingMs(timer) : 0;
+              const running = timer?.targetAt !== null;
+              const done = running && remaining === 0;
+
+              const timerLabel = timer?.label || 'Odpočet';
+              const displayTime = formatDurationMs(remaining);
+
+              customContent = (
+                <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center select-none overflow-hidden relative">
+                  <div className="flex items-center justify-center gap-1 opacity-80 text-xs font-black uppercase tracking-wider mb-0.5 max-w-full px-1">
+                    <AlarmClock size={13} className={`shrink-0 ${running && !done ? 'animate-pulse text-amber-900' : ''}`} />
+                    <span className="truncate">{timerLabel}</span>
+                  </div>
+                  <div className={`text-xl sm:text-2xl font-black tabular-nums tracking-tight leading-none my-1 ${done ? 'text-rose-600 font-extrabold' : ''}`}>
+                    {displayTime}
+                  </div>
+                  <div className="flex items-center justify-center gap-1 text-[11px] font-bold opacity-75">
+                    {done ? (
+                      <span className="text-rose-700 font-black flex items-center gap-0.5">
+                        <Check size={12} className="stroke-[3]" /> Hotovo!
+                      </span>
+                    ) : running ? (
+                      <span className="flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-ping" />
+                        Běží…
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1">
+                        <Play size={10} /> Spustit
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            }
 
             // Widget Poznámky (notes):
             if (id === 'notes' && ((override.w ?? 1) >= 2 || (override.h ?? 1) >= 2)) {
@@ -1177,8 +1266,8 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                     onChange={(e) => setMergeTarget(e.target.value)}
                   >
                     <option value="">Vyber dlaždici…</option>
-                    {(layout.pages[currentPageIndex] ?? []).filter((id) => id !== editingTileId).map((id) => {
-                      const label = isGroupId(id) ? (layout.overrides[id]?.label || 'Skupina') : navById.get(id)?.label;
+                    {(layout.pages[currentPageIndex] ?? []).filter((id) => id !== editingTileId && !isCountdownId(id)).map((id) => {
+                      const label = isGroupId(id) ? (layout.overrides[id]?.label || 'Skupina') : navById.get(id as Page)?.label;
                       if (!label) return null;
                       return <option key={id} value={id}>{label}</option>;
                     })}
@@ -1272,18 +1361,59 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
         <Modal
           open
           onClose={() => setQuickActionsTile(null)}
-          title={`Rychlé akce — ${navById.get(quickActionsTile)?.label ?? 'Modul'}`}
+          title={`Rychlé akce — ${
+            isCountdownId(quickActionsTile)
+              ? countdowns.find((c) => c.id === quickActionsTile.slice(3))?.label ?? 'Odpočet'
+              : navById.get(quickActionsTile as Page)?.label ?? 'Modul'
+          }`}
         >
           <div className="space-y-2 pt-1 pb-1">
-            {(QUICK_ACTIONS[quickActionsTile] ?? [
-              {
-                id: 'open',
-                label: `Otevřít ${navById.get(quickActionsTile)?.label ?? ''}`,
-                sublabel: 'Přejít na hlavní stránku modulu',
-                icon: navById.get(quickActionsTile)?.icon ?? PlusCircle,
-                onClick: () => setPage(quickActionsTile),
-              },
-            ]).map((qa) => {
+            {(isCountdownId(quickActionsTile)
+              ? (() => {
+                  const timerId = quickActionsTile.slice(3);
+                  const timer = countdowns.find((c) => c.id === timerId);
+                  const running = timer?.targetAt !== null;
+                  return [
+                    {
+                      id: 'toggle',
+                      label: running ? 'Pozastavit odpočet' : 'Spustit odpočet',
+                      sublabel: running ? 'Zastaví běžící čas' : 'Spustí zbývající čas',
+                      icon: running ? Pause : Play,
+                      onClick: () => toggleCountdown(timerId),
+                    },
+                    {
+                      id: 'reset',
+                      label: 'Resetovat odpočet',
+                      sublabel: 'Nastaví původní čas',
+                      icon: RotateCcw,
+                      onClick: () => resetCountdown(timerId),
+                    },
+                    {
+                      id: 'open_timers',
+                      label: 'Otevřít Časovač',
+                      sublabel: 'Všechny stopky a odpočty',
+                      icon: AlarmClock,
+                      onClick: () => setPage('timer'),
+                    },
+                    {
+                      id: 'remove',
+                      label: 'Odebrat z plochy',
+                      sublabel: 'Schová dlaždici z domovské obrazovky',
+                      icon: Trash2,
+                      onClick: () => handleHideTile(quickActionsTile),
+                    },
+                  ];
+                })()
+              : QUICK_ACTIONS[quickActionsTile as Page] ?? [
+                  {
+                    id: 'open',
+                    label: `Otevřít ${navById.get(quickActionsTile as Page)?.label ?? ''}`,
+                    sublabel: 'Přejít na hlavní stránku modulu',
+                    icon: navById.get(quickActionsTile as Page)?.icon ?? PlusCircle,
+                    onClick: () => setPage(quickActionsTile as Page),
+                  },
+                ]
+            ).map((qa) => {
               const QAIcon = qa.icon;
               return (
                 <button

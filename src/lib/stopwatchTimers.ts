@@ -42,28 +42,69 @@ export type CountdownTimer = {
   id: string;
   label: string;
   durationMs: number;
+  initialDurationMs?: number;
   /** Date.now() cíl konce; null = zatím nespuštěno / pozastaveno. */
   targetAt: number | null;
   notifiedAt: number | null;
 };
 
 const COUNTDOWNS_KEY = 'timers_countdowns_v1';
+export const COUNTDOWN_CHANGED_EVENT = 'timers_countdown_changed';
 
 export function getCountdowns(): CountdownTimer[] {
   try {
     const saved = localStorage.getItem(COUNTDOWNS_KEY);
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        return parsed.map((t) => ({
+          ...t,
+          initialDurationMs: t.initialDurationMs || t.durationMs,
+        }));
+      }
+    }
   } catch {}
   return [];
 }
 
 export function saveCountdowns(list: CountdownTimer[]) {
-  try { localStorage.setItem(COUNTDOWNS_KEY, JSON.stringify(list)); } catch {}
+  try {
+    localStorage.setItem(COUNTDOWNS_KEY, JSON.stringify(list));
+    window.dispatchEvent(new CustomEvent(COUNTDOWN_CHANGED_EVENT, { detail: list }));
+  } catch {}
 }
 
 export function countdownRemainingMs(t: CountdownTimer): number {
   if (t.targetAt === null) return t.durationMs;
   return Math.max(0, t.targetAt - Date.now());
+}
+
+export function toggleCountdown(id: string) {
+  const list = getCountdowns();
+  const next = list.map((t) => {
+    if (t.id !== id) return t;
+    if (t.targetAt !== null) {
+      // Pause
+      return { ...t, durationMs: countdownRemainingMs(t), targetAt: null };
+    }
+    // Start / Resume
+    let dur = t.durationMs;
+    if (dur <= 0) {
+      dur = t.initialDurationMs || 120000;
+    }
+    return { ...t, durationMs: dur, targetAt: Date.now() + dur, notifiedAt: null };
+  });
+  saveCountdowns(next);
+}
+
+export function resetCountdown(id: string) {
+  const list = getCountdowns();
+  const next = list.map((t) => {
+    if (t.id !== id) return t;
+    const dur = t.initialDurationMs || t.durationMs;
+    return { ...t, durationMs: dur, targetAt: null, notifiedAt: null };
+  });
+  saveCountdowns(next);
 }
 
 // ---- Stočení sudu — pamatuje si, jak dlouho stáčení naposledy trvalo, a při

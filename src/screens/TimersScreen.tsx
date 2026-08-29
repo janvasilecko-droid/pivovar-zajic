@@ -5,7 +5,7 @@
 // pomůcku na jednom zařízení, ne o data ke sdílení mezi uživateli.
 import { useState, useEffect } from 'react';
 import {
-  Timer, AlarmClock, Hourglass, Play, Pause, RotateCcw, Flag, Plus, Trash2, Square, CheckCircle2,
+  Timer, AlarmClock, Hourglass, Play, Pause, RotateCcw, Flag, Plus, Trash2, Square, CheckCircle2, Pin,
 } from 'lucide-react';
 import {
   getStopwatchState, saveStopwatchState, stopwatchElapsedMs, type StopwatchState,
@@ -14,7 +14,9 @@ import {
   formatDurationMs,
 } from '../lib/stopwatchTimers';
 import { TabBar, type TabBarItem } from '../components/TabBar';
-import { potvrd } from '../lib/toast';
+import { useAuth } from '../lib/auth';
+import { getHomeLayout, saveHomeLayout, addTile, hideTile, type CountdownTileId } from '../lib/homeLayout';
+import { potvrd, oznam } from '../lib/toast';
 
 type TimersTab = 'stopwatch' | 'timer' | 'keg';
 
@@ -100,7 +102,8 @@ function StopwatchTool() {
         </button>
       </div>
       {state.laps.length > 0 && (
-        <div className="w-full max-w-sm space-y-1">
+        <div className="w-full max-w-sm space-y-1.5 pt-4 border-t border-neutral-200">
+          <div className="text-xs font-bold text-neutral-400 uppercase tracking-wide px-1">Mezičasy ({state.laps.length})</div>
           {state.laps.slice().reverse().map((lapMs, i) => {
             const idx = state.laps.length - i;
             const prevMs = idx > 1 ? state.laps[idx - 2] : 0;
@@ -122,10 +125,17 @@ function StopwatchTool() {
 // 2. ČASOVAČ
 // ==========================================
 function CountdownTimersTool() {
+  const { user, profile, patchProfile } = useAuth();
   const [list, setList] = useState<CountdownTimer[]>(() => getCountdowns());
+  const [layout, setLayout] = useState(() => getHomeLayout(profile?.home_layout, [], []));
   const [, forceTick] = useState(0);
-  const [newLabel, setNewLabel] = useState('');
-  const [newMin, setNewMin] = useState('10');
+  const [newLabel, setNewLabel] = useState('Kotel');
+  const [newMin, setNewMin] = useState('2');
+  const [pinToHome, setPinToHome] = useState(true);
+
+  useEffect(() => {
+    setLayout(getHomeLayout(profile?.home_layout, [], []));
+  }, [profile?.home_layout]);
 
   useEffect(() => {
     const id = setInterval(() => forceTick((n) => n + 1), 1000);
@@ -137,20 +147,55 @@ function CountdownTimersTool() {
     saveCountdowns(next);
   }
 
+  function isPinned(timerId: string) {
+    const cid: CountdownTileId = `cd_${timerId}`;
+    return layout.pages.some((page) => page.includes(cid));
+  }
+
+  function togglePin(t: CountdownTimer) {
+    const cid: CountdownTileId = `cd_${t.id}`;
+    let nextLayout: ReturnType<typeof addTile>;
+    if (isPinned(t.id)) {
+      nextLayout = hideTile(layout, cid);
+      oznam(`Odpočet "${t.label}" byl odebrán z plochy`);
+    } else {
+      nextLayout = addTile(layout, cid, 0);
+      oznam(`Odpočet "${t.label}" byl přidán na plochu (Domů)`);
+    }
+    setLayout(nextLayout);
+    patchProfile({ home_layout: nextLayout as any });
+    if (user?.id) saveHomeLayout(user.id, nextLayout);
+  }
+
   function addTimer(e: React.FormEvent) {
     e.preventDefault();
     const minutes = Number(newMin);
     if (!minutes || minutes <= 0) return;
+    const durationMs = Math.round(minutes * 60000);
+    const newId = `t_${Math.random().toString(36).slice(2, 9)}`;
     const t: CountdownTimer = {
-      id: `t_${Math.random().toString(36).slice(2, 9)}`,
+      id: newId,
       label: newLabel.trim() || `${minutes} min`,
-      durationMs: minutes * 60000,
+      durationMs,
+      initialDurationMs: durationMs,
       targetAt: null,
       notifiedAt: null,
     };
     persist([...list, t]);
+
+    if (pinToHome) {
+      const cid: CountdownTileId = `cd_${newId}`;
+      const nextLayout = addTile(layout, cid, 0);
+      setLayout(nextLayout);
+      patchProfile({ home_layout: nextLayout as any });
+      if (user?.id) saveHomeLayout(user.id, nextLayout);
+      oznam(`Odpočet "${t.label}" byl vytvořen a přidán na plochu`);
+    } else {
+      oznam(`Odpočet "${t.label}" byl vytvořen`);
+    }
+
     setNewLabel('');
-    setNewMin('10');
+    setNewMin('2');
   }
 
   function start(id: string) {
@@ -159,36 +204,85 @@ function CountdownTimersTool() {
   function pause(id: string) {
     persist(list.map((t) => (t.id === id ? { ...t, durationMs: countdownRemainingMs(t), targetAt: null } : t)));
   }
+  function reset(id: string) {
+    persist(list.map((t) => (t.id === id ? { ...t, durationMs: t.initialDurationMs || t.durationMs, targetAt: null, notifiedAt: null } : t)));
+  }
   function remove(id: string) {
     persist(list.filter((t) => t.id !== id));
+    if (isPinned(id)) {
+      const cid: CountdownTileId = `cd_${id}`;
+      const nextLayout = hideTile(layout, cid);
+      setLayout(nextLayout);
+      patchProfile({ home_layout: nextLayout as any });
+      if (user?.id) saveHomeLayout(user.id, nextLayout);
+    }
   }
+
+  const PRESETS = [
+    { label: 'Kotel', min: '2' },
+    { label: 'Chmelení', min: '15' },
+    { label: 'Chmelovar', min: '60' },
+    { label: 'Máčení kvasnic', min: '10' },
+    { label: 'Pauza', min: '5' },
+  ];
 
   return (
     <div className="space-y-5">
-      <form onSubmit={addTimer} className="flex flex-wrap items-end gap-2 bg-white p-4 rounded border border-neutral-200">
-        <div>
-          <label className="block text-[11px] font-bold text-neutral-500 mb-1">Název</label>
-          <input
-            value={newLabel}
-            onChange={(e) => setNewLabel(e.target.value)}
-            placeholder="např. Chmelení"
-            className="border border-neutral-300 rounded px-3 py-2 text-sm w-40"
-          />
+      <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-xs space-y-3">
+        <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide">
+          Rychlé předvolby odpočtu
         </div>
-        <div>
-          <label className="block text-[11px] font-bold text-neutral-500 mb-1">Minuty</label>
-          <input
-            type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
-            min={1}
-            value={newMin}
-            onChange={(e) => setNewMin(e.target.value)}
-            className="border border-neutral-300 rounded px-3 py-2 text-sm w-24"
-          />
+        <div className="flex flex-wrap gap-2">
+          {PRESETS.map((p) => (
+            <button
+              key={p.label}
+              type="button"
+              onClick={() => {
+                setNewLabel(p.label);
+                setNewMin(p.min);
+              }}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-neutral-100 hover:bg-amber-100 hover:text-amber-950 border border-neutral-200 transition"
+            >
+              ⏱️ {p.label} ({p.min} min)
+            </button>
+          ))}
         </div>
-        <button type="submit" className="btn-primary !rounded px-4 py-2 rounded font-black flex items-center gap-1.5">
-          <Plus size={16} /> Přidat časovač
-        </button>
-      </form>
+
+        <form onSubmit={addTimer} className="flex flex-wrap items-end gap-3 pt-2 border-t border-neutral-100">
+          <div className="flex-1 min-w-[140px]">
+            <label className="block text-[11px] font-bold text-neutral-500 mb-1">Název odpočtu</label>
+            <input
+              value={newLabel}
+              onChange={(e) => setNewLabel(e.target.value)}
+              placeholder="např. Kotel, Chmelení…"
+              className="w-full border border-neutral-300 rounded px-3 py-2 text-sm font-semibold"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-bold text-neutral-500 mb-1">Délka (minuty)</label>
+            <input
+              type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
+              min={0.1}
+              step={0.5}
+              value={newMin}
+              onChange={(e) => setNewMin(e.target.value)}
+              className="w-24 border border-neutral-300 rounded px-3 py-2 text-sm font-bold"
+            />
+          </div>
+          <label className="flex items-center gap-2 text-xs font-bold text-neutral-700 select-none pb-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={pinToHome}
+              onChange={(e) => setPinToHome(e.target.checked)}
+              className="rounded text-amber-500 focus:ring-amber-400"
+            />
+            <span>📌 Přidat na plochu</span>
+          </label>
+          <button type="submit" className="btn-primary !rounded px-4 py-2 rounded font-black flex items-center gap-1.5">
+            <Plus size={16} /> Přidat časovač
+          </button>
+        </form>
+      </div>
 
       {list.length === 0 && (
         <p className="text-sm text-neutral-500 text-center py-8">Zatím žádný časovač — přidej si první nahoře.</p>
@@ -199,18 +293,38 @@ function CountdownTimersTool() {
           const remaining = countdownRemainingMs(t);
           const running = t.targetAt !== null;
           const done = running && remaining === 0;
+          const pinned = isPinned(t.id);
+
           return (
-            <div key={t.id} className={`p-4 rounded border-2 ${done ? 'bg-rose-50 border-rose-300' : 'bg-white border-neutral-200'}`}>
+            <div key={t.id} className={`p-4 rounded-xl border-2 transition ${done ? 'bg-rose-50 border-rose-300 shadow-sm' : 'bg-white border-neutral-200'}`}>
               <div className="flex items-center justify-between gap-2 mb-2">
-                <div className="font-black text-sm text-neutral-800 truncate">{t.label}</div>
-                <button onClick={() => remove(t.id)} className="text-neutral-400 hover:text-rose-600 shrink-0">
-                  <Trash2 size={15} />
-                </button>
+                <div className="font-black text-base text-neutral-800 truncate flex items-center gap-1.5">
+                  <AlarmClock size={16} className={running && !done ? 'animate-pulse text-amber-600' : 'text-neutral-500'} />
+                  <span className="truncate">{t.label}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => togglePin(t)}
+                    title={pinned ? 'Odebrat z domovské plochy' : 'Přidat na domovskou plochu jako dlaždici'}
+                    className={`p-1.5 rounded-lg border text-xs font-bold flex items-center gap-1 transition ${
+                      pinned ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-neutral-50 text-neutral-500 border-neutral-200 hover:bg-neutral-100'
+                    }`}
+                  >
+                    <Pin size={13} className={pinned ? 'rotate-45 fill-current' : ''} />
+                    <span>{pinned ? 'Na ploše' : 'Plocha'}</span>
+                  </button>
+                  <button onClick={() => remove(t.id)} className="p-1.5 text-neutral-400 hover:text-rose-600 rounded-lg shrink-0">
+                    <Trash2 size={15} />
+                  </button>
+                </div>
               </div>
-              <div className={`text-3xl font-black tabular-nums mb-3 ${done ? 'text-rose-600' : 'text-neutral-900'}`}>
+
+              <div className={`text-4xl font-black tabular-nums my-3 ${done ? 'text-rose-600 animate-pulse' : 'text-neutral-900'}`}>
                 {formatDurationMs(remaining)}
               </div>
-              <div className="flex gap-2">
+
+              <div className="flex items-center gap-2 pt-2 border-t border-neutral-100">
                 {!running ? (
                   <button onClick={() => start(t.id)} className="btn-primary !rounded px-4 py-2 rounded text-xs font-black flex items-center gap-1.5">
                     <Play size={14} /> Start
@@ -222,6 +336,14 @@ function CountdownTimersTool() {
                     <Pause size={14} /> Pauza
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={() => reset(t.id)}
+                  title="Resetovat na původní čas"
+                  className="px-3 py-2 rounded text-xs font-bold bg-neutral-100 hover:bg-neutral-200 text-neutral-700 flex items-center gap-1"
+                >
+                  <RotateCcw size={13} /> Reset
+                </button>
               </div>
             </div>
           );
