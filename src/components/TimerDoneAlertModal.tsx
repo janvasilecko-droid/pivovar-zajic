@@ -22,6 +22,24 @@ export function TimerDoneAlertModal() {
     return () => window.removeEventListener('timer-done-alert', onAlert);
   }, []);
 
+  // Opakovaný alarm a vibrace každých 2,5 s dokud uživatel okno nezavře
+  useEffect(() => {
+    if (!alertData) return;
+    playAlarmSound();
+    try {
+      navigator.vibrate?.([500, 150, 500, 150, 700]);
+    } catch {}
+
+    const interval = setInterval(() => {
+      playAlarmSound();
+      try {
+        navigator.vibrate?.([500, 150, 500, 150, 700]);
+      } catch {}
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [alertData]);
+
   if (!alertData) return null;
 
   function dismiss() {
@@ -32,7 +50,7 @@ export function TimerDoneAlertModal() {
   function replay() {
     playAlarmSound();
     try {
-      navigator.vibrate?.([400, 150, 400, 150, 600]);
+      navigator.vibrate?.([500, 150, 500, 150, 700]);
     } catch {}
   }
 

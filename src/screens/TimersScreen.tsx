@@ -207,7 +207,12 @@ function CountdownTimersTool() {
   }
 
   function start(id: string) {
-    persist(list.map((t) => (t.id === id ? { ...t, targetAt: Date.now() + countdownRemainingMs(t), notifiedAt: null } : t)));
+    persist(list.map((t) => {
+      if (t.id !== id) return t;
+      const rem = countdownRemainingMs(t);
+      const dur = rem > 0 ? rem : (t.initialDurationMs || t.durationMs || 120000);
+      return { ...t, durationMs: dur, targetAt: Date.now() + dur, notifiedAt: null };
+    }));
   }
   function pause(id: string) {
     persist(list.map((t) => (t.id === id ? { ...t, durationMs: countdownRemainingMs(t), targetAt: null } : t)));
@@ -550,12 +555,17 @@ function CountdownTimersTool() {
               </div>
 
               <div className="flex items-center gap-2 pt-2 border-t border-neutral-100">
-                {!running ? (
+                {done ? (
+                  <button
+                    onClick={() => start(t.id)}
+                    className="px-4 py-2 rounded text-xs font-black bg-rose-600 hover:bg-rose-500 text-white flex items-center gap-1.5 animate-pulse shadow-sm"
+                  >
+                    <RotateCcw size={14} /> Spustit znovu
+                  </button>
+                ) : !running ? (
                   <button onClick={() => start(t.id)} className="btn-primary !rounded px-4 py-2 rounded text-xs font-black flex items-center gap-1.5">
                     <Play size={14} /> Start
                   </button>
-                ) : done ? (
-                  <span className="text-xs font-black text-rose-700 flex items-center gap-1"><CheckCircle2 size={14} /> Hotovo</span>
                 ) : (
                   <button onClick={() => pause(t.id)} className="px-4 py-2 rounded text-xs font-black bg-amber-500 hover:bg-amber-400 text-neutral-950 flex items-center gap-1.5">
                     <Pause size={14} /> Pauza

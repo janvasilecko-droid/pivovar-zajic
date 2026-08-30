@@ -52,8 +52,67 @@ export async function requestNotificationPermission(): Promise<boolean> {
   }
 }
 
-// ---- Globální Web Audio odemčení a podpora pro mobilní prohlížeče ----
+// ---- Globální Web Audio & HTML5 Audio odemčení pro mobilní zařízení ----
 let globalAudioCtx: AudioContext | null = null;
+
+// Generates a base64 PCM WAV beep data URI for guaranteed mobile HTML5 audio playback
+function generateAlarmWavUri(): string {
+  const sampleRate = 22050;
+  const numSamples = Math.floor(sampleRate * 1.4);
+  const buffer = new Uint8Array(44 + numSamples * 2);
+  const view = new DataView(buffer.buffer);
+
+  // RIFF header
+  view.setUint32(0, 0x52494646, false); // "RIFF"
+  view.setUint32(4, 36 + numSamples * 2, true);
+  view.setUint32(8, 0x57415645, false); // "WAVE"
+  // "fmt " subchunk
+  view.setUint32(12, 0x666d7420, false);
+  view.setUint32(16, 16, true); // PCM format length
+  view.setUint16(20, 1, true); // Linear PCM
+  view.setUint16(22, 1, true); // Mono
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true); // 16 bits per sample
+  // "data" subchunk
+  view.setUint32(36, 0x64617461, false);
+  view.setUint32(40, numSamples * 2, true);
+
+  // Generate a distinct loud pulsating industrial chime sequence
+  for (let i = 0; i < numSamples; i++) {
+    const t = i / sampleRate;
+    const pulseIdx = Math.floor(t * 7);
+    const freqs = [1046.5, 1318.5, 1568.0, 2093.0, 1568.0, 2093.0, 2093.0];
+    const freq = freqs[pulseIdx % freqs.length] || 1500;
+    const phase = (t * freq) % 1;
+    const sample = phase < 0.4 ? 0.7 : -0.7;
+    const pulseT = (t * 7) % 1;
+    const env = pulseT < 0.08 ? pulseT / 0.08 : Math.max(0, 1 - (pulseT - 0.08) / 0.92);
+    const val = Math.max(-32767, Math.min(32767, Math.floor(sample * env * 32767)));
+    view.setInt16(44 + i * 2, val, true);
+  }
+
+  let binary = '';
+  const len = buffer.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(buffer[i]);
+  }
+  return 'data:audio/wav;base64,' + btoa(binary);
+}
+
+let cachedAlarmAudio: HTMLAudioElement | null = null;
+function getAlarmAudioElement(): HTMLAudioElement | null {
+  if (typeof window === 'undefined') return null;
+  if (!cachedAlarmAudio) {
+    try {
+      const uri = generateAlarmWavUri();
+      cachedAlarmAudio = new Audio(uri);
+      cachedAlarmAudio.volume = 1.0;
+    } catch {}
+  }
+  return cachedAlarmAudio;
+}
 
 export function getSharedAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null;
@@ -72,12 +131,25 @@ export function getSharedAudioContext(): AudioContext | null {
   return globalAudioCtx;
 }
 
-/** Odemkne Web Audio na první dotek/klik uživatele na obrazovku. */
+/** Odemkne Web Audio i HTML5 Audio na první dotek/klik uživatele na obrazovku. */
 export function unlockAudioContext() {
   const ctx = getSharedAudioContext();
   if (ctx && ctx.state === 'suspended') {
     void ctx.resume().catch(() => {});
   }
+  // Inicializovat a odemknout HTML5 Audio element
+  try {
+    const audioEl = getAlarmAudioElement();
+    if (audioEl && (audioEl as any)._unlocked !== true) {
+      audioEl.muted = true;
+      audioEl.play().then(() => {
+        audioEl.pause();
+        audioEl.currentTime = 0;
+        audioEl.muted = false;
+        (audioEl as any)._unlocked = true;
+      }).catch(() => {});
+    }
+  } catch {}
 }
 
 if (typeof window !== 'undefined') {
@@ -93,6 +165,9 @@ export function playOrderChime() {
   try {
     const audioContext = getSharedAudioContext();
     if (!audioContext) return;
+    if (audioContext.state === 'suspended') {
+      void audioContext.resume().catch(() => {});
+    }
     const now = audioContext.currentTime;
 
     // Frequencies: C5 = 523.25Hz, E5 = 659.25Hz, G5 = 783.99Hz, C6 = 1046.50Hz
@@ -120,12 +195,25 @@ export function playOrderChime() {
   }
 }
 
-// Alarm pro vypršelý časovač/stočení sudu — výrazný stoupající i klesající signál
-// jako průmyslový pivovarský časovač (dobře slyšitelný i v hlučném provozu varny).
+// Alarm pro vypršelý časovač/stočení sudu — duální přehrávání: Web Audio + HTML5 Audio fallback
 export function playAlarmSound() {
+  // 1. Zkusit HTML5 Audio fallback
+  try {
+    const audioEl = getAlarmAudioElement();
+    if (audioEl) {
+      audioEl.currentTime = 0;
+      audioEl.volume = 1.0;
+      void audioEl.play().catch(() => {});
+    }
+  } catch {}
+
+  // 2. Syntetizovaný Web Audio alarm (stoupající industriální tóny)
   try {
     const audioContext = getSharedAudioContext();
     if (!audioContext) return;
+    if (audioContext.state === 'suspended') {
+      void audioContext.resume().catch(() => {});
+    }
     const now = audioContext.currentTime;
 
     const beeps = [
@@ -143,15 +231,15 @@ export function playAlarmSound() {
     beeps.forEach(({ t: offset, f: freq }, idx) => {
       const osc = audioContext.createOscillator();
       const gain = audioContext.createGain();
-      osc.type = idx % 2 === 0 ? 'square' : 'triangle';
+      osc.type = idx % 2 === 0 ? 'square' : 'sawtooth';
       osc.frequency.setValueAtTime(freq, now + offset);
       gain.gain.setValueAtTime(0.001, now + offset);
-      gain.gain.exponentialRampToValueAtTime(0.4, now + offset + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + offset + (idx === beeps.length - 1 ? 0.25 : 0.08));
+      gain.gain.exponentialRampToValueAtTime(0.6, now + offset + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + offset + (idx === beeps.length - 1 ? 0.30 : 0.08));
       osc.connect(gain);
       gain.connect(audioContext.destination);
       osc.start(now + offset);
-      osc.stop(now + offset + (idx === beeps.length - 1 ? 0.28 : 0.09));
+      osc.stop(now + offset + (idx === beeps.length - 1 ? 0.32 : 0.09));
     });
   } catch (e) {
     console.warn('Web Audio Playback muted or unavailable:', e);

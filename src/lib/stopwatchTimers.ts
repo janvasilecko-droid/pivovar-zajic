@@ -97,13 +97,14 @@ export function toggleCountdown(id: string) {
   const list = getCountdowns();
   const next = list.map((t) => {
     if (t.id !== id) return t;
-    if (t.targetAt !== null) {
-      // Pause
-      return { ...t, durationMs: countdownRemainingMs(t), targetAt: null };
+    const rem = countdownRemainingMs(t);
+    // If it's running AND has time left -> pause it
+    if (t.targetAt !== null && rem > 0) {
+      return { ...t, durationMs: rem, targetAt: null };
     }
-    // Start / Resume
+    // If it's not running, OR if it's already finished (rem === 0) -> start / restart!
     let dur = t.durationMs;
-    if (dur <= 0) {
+    if (dur <= 0 || rem === 0) {
       dur = t.initialDurationMs || 120000;
     }
     return { ...t, durationMs: dur, targetAt: Date.now() + dur, notifiedAt: null };
@@ -115,8 +116,18 @@ export function resetCountdown(id: string) {
   const list = getCountdowns();
   const next = list.map((t) => {
     if (t.id !== id) return t;
-    const dur = t.initialDurationMs || t.durationMs;
+    const dur = t.initialDurationMs || t.durationMs || 120000;
     return { ...t, durationMs: dur, targetAt: null, notifiedAt: null };
+  });
+  saveCountdowns(next);
+}
+
+export function restartCountdown(id: string) {
+  const list = getCountdowns();
+  const next = list.map((t) => {
+    if (t.id !== id) return t;
+    const dur = t.initialDurationMs || t.durationMs || 120000;
+    return { ...t, durationMs: dur, targetAt: Date.now() + dur, notifiedAt: null };
   });
   saveCountdowns(next);
 }

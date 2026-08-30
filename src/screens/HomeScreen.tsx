@@ -1104,8 +1104,8 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   {/* Spodní akční tlačítko / stav */}
                   <div className="flex items-center justify-center max-w-full">
                     {done ? (
-                      <span className="inline-flex items-center justify-center gap-1 px-2 py-0.5 rounded-full bg-rose-600 text-white text-[9px] font-black shadow-xs animate-bounce">
-                        🔔 Hotovo (reset)
+                      <span className="inline-flex items-center justify-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-600 text-white text-[9.5px] font-black shadow-xs animate-bounce">
+                        <Play size={10} className="fill-current shrink-0" /> Spustit znovu
                       </span>
                     ) : running ? (
                       <span className="inline-flex items-center justify-center gap-1 px-2 py-0.5 rounded-full bg-emerald-700 text-white text-[9px] font-black shadow-xs">
@@ -1775,7 +1775,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                               }`}
                             >
                               {isDone ? (
-                                <><RotateCcw size={12} /> Reset</>
+                                <><Play size={12} className="fill-current" /> Spustit znovu</>
                               ) : isRun ? (
                                 <><Pause size={12} /> Pauza</>
                               ) : (
