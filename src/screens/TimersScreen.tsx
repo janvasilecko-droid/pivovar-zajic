@@ -6,6 +6,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   Timer, AlarmClock, Hourglass, Play, Pause, RotateCcw, Flag, Plus, Trash2, Square, CheckCircle2, Pin,
+  Volume2, VolumeX, Smartphone, Bell, BellRing, Settings2, Sparkles,
 } from 'lucide-react';
 import {
   getStopwatchState, saveStopwatchState, stopwatchElapsedMs, type StopwatchState,
@@ -19,7 +20,10 @@ import { NAV, EXTRA_NAV } from '../components/Layout';
 import { useAuth } from '../lib/auth';
 import { getHomeLayout, saveHomeLayout, addTile, hideTile, type CountdownTileId } from '../lib/homeLayout';
 import { potvrd, oznam } from '../lib/toast';
-import { notifyTimerDone } from '../lib/notifications';
+import {
+  notifyTimerDone, getTimerAlertSettings, saveTimerAlertSettings, type TimerAlertSettings,
+  unlockAudioContext, requestNotificationPermission, getNotificationPermission, isNotificationSupported,
+} from '../lib/notifications';
 
 type TimersTab = 'stopwatch' | 'timer' | 'keg';
 
@@ -275,9 +279,120 @@ function CountdownTimersTool() {
   }
 
   const [autoStart, setAutoStart] = useState(true);
+  const [alertSettings, setAlertSettings] = useState<TimerAlertSettings>(() => getTimerAlertSettings());
+  const [notifPerm, setNotifPerm] = useState(() => getNotificationPermission());
+
+  function updateAlertSettings(patch: Partial<TimerAlertSettings>) {
+    unlockAudioContext();
+    const next = { ...alertSettings, ...patch };
+    setAlertSettings(next);
+    saveTimerAlertSettings(next);
+  }
+
+  async function handleEnablePushNotifs() {
+    unlockAudioContext();
+    const ok = await requestNotificationPermission();
+    setNotifPerm(getNotificationPermission());
+    if (ok) {
+      updateAlertSettings({ screenNotif: true });
+      oznam('🔔 Notifikace na displej povoleny');
+    }
+  }
 
   return (
     <div className="space-y-5">
+      {/* Nastavení signalizace při vypršení času (Zvuk + Vibrace) */}
+      <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent p-4 rounded-2xl border-2 border-amber-400/80 shadow-xs space-y-3">
+        <div className="flex items-center justify-between gap-2 border-b border-amber-300/40 pb-2">
+          <div className="flex items-center gap-2">
+            <span className="w-8 h-8 rounded-lg bg-amber-500 text-neutral-950 grid place-items-center font-black">
+              <BellRing size={18} />
+            </span>
+            <div>
+              <h3 className="font-extrabold text-sm text-neutral-900 leading-tight">Signalizace při vypršení odpočtu</h3>
+              <p className="text-[11px] text-neutral-500 font-semibold">Upozornění při dosažení 0:00 (i na pozadí)</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleTestAlert}
+            className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-neutral-950 text-xs font-black shadow-xs transition flex items-center gap-1.5 shrink-0"
+            title="Okamžitě přehraje alarm a zavibruje"
+          >
+            <Volume2 size={14} /> Vyzkoušet
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+          {/* Zvuk */}
+          <button
+            type="button"
+            onClick={() => updateAlertSettings({ sound: !alertSettings.sound })}
+            className={`p-3 rounded-xl border-2 text-left transition flex items-center justify-between gap-3 ${
+              alertSettings.sound
+                ? 'bg-amber-50/90 border-amber-400 text-amber-950 shadow-xs'
+                : 'bg-white/80 border-neutral-200 text-neutral-500'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              {alertSettings.sound ? <Volume2 size={20} className="text-amber-600" /> : <VolumeX size={20} className="opacity-40" />}
+              <div>
+                <div className="text-xs font-black">Zvukový alarm</div>
+                <div className="text-[10px] font-bold opacity-75">{alertSettings.sound ? 'Hlasité pípání' : 'Vypnuto'}</div>
+              </div>
+            </div>
+            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${alertSettings.sound ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-200 text-neutral-600'}`}>
+              {alertSettings.sound ? 'ZAP' : 'VYP'}
+            </span>
+          </button>
+
+          {/* Vibrace */}
+          <button
+            type="button"
+            onClick={() => updateAlertSettings({ vibrate: !alertSettings.vibrate })}
+            className={`p-3 rounded-xl border-2 text-left transition flex items-center justify-between gap-3 ${
+              alertSettings.vibrate
+                ? 'bg-amber-50/90 border-amber-400 text-amber-950 shadow-xs'
+                : 'bg-white/80 border-neutral-200 text-neutral-500'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <Smartphone size={20} className={alertSettings.vibrate ? 'text-amber-600' : 'opacity-40'} />
+              <div>
+                <div className="text-xs font-black">Vibrace telefonu</div>
+                <div className="text-[10px] font-bold opacity-75">{alertSettings.vibrate ? 'Dlouhá sekvence' : 'Vypnuto'}</div>
+              </div>
+            </div>
+            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${alertSettings.vibrate ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-200 text-neutral-600'}`}>
+              {alertSettings.vibrate ? 'ZAP' : 'VYP'}
+            </span>
+          </button>
+
+          {/* Notifikace na displej */}
+          <button
+            type="button"
+            onClick={notifPerm === 'granted' ? () => updateAlertSettings({ screenNotif: !alertSettings.screenNotif }) : handleEnablePushNotifs}
+            className={`p-3 rounded-xl border-2 text-left transition flex items-center justify-between gap-3 ${
+              alertSettings.screenNotif && notifPerm === 'granted'
+                ? 'bg-amber-50/90 border-amber-400 text-amber-950 shadow-xs'
+                : 'bg-white/80 border-neutral-200 text-neutral-500'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <Bell size={20} className={alertSettings.screenNotif && notifPerm === 'granted' ? 'text-amber-600' : 'opacity-40'} />
+              <div>
+                <div className="text-xs font-black">Notifikace na displej</div>
+                <div className="text-[10px] font-bold opacity-75">
+                  {notifPerm === 'granted' ? (alertSettings.screenNotif ? 'Povoleno' : 'Vypnuto') : 'Klepni pro povolení'}
+                </div>
+              </div>
+            </div>
+            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${alertSettings.screenNotif && notifPerm === 'granted' ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-200 text-neutral-600'}`}>
+              {notifPerm === 'granted' ? (alertSettings.screenNotif ? 'ZAP' : 'VYP') : 'POVOLIT'}
+            </span>
+          </button>
+        </div>
+      </div>
       {/* Rychlý start jedním klepnutím */}
       <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-xs space-y-3">
         <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide">

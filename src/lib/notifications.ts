@@ -52,29 +52,51 @@ export async function requestNotificationPermission(): Promise<boolean> {
   }
 }
 
+// ---- Globální Web Audio odemčení a podpora pro mobilní prohlížeče ----
+let globalAudioCtx: AudioContext | null = null;
+
+export function getSharedAudioContext(): AudioContext | null {
+  if (typeof window === 'undefined') return null;
+  const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+  if (!AudioContextClass) return null;
+  if (!globalAudioCtx || globalAudioCtx.state === 'closed') {
+    try {
+      globalAudioCtx = new AudioContextClass();
+    } catch {
+      return null;
+    }
+  }
+  if (globalAudioCtx.state === 'suspended') {
+    void globalAudioCtx.resume().catch(() => {});
+  }
+  return globalAudioCtx;
+}
+
+/** Odemkne Web Audio na první dotek/klik uživatele na obrazovku. */
+export function unlockAudioContext() {
+  const ctx = getSharedAudioContext();
+  if (ctx && ctx.state === 'suspended') {
+    void ctx.resume().catch(() => {});
+  }
+}
+
+if (typeof window !== 'undefined') {
+  const unlockEvents = ['pointerdown', 'touchstart', 'click', 'keydown'];
+  const handleUnlock = () => {
+    unlockAudioContext();
+  };
+  unlockEvents.forEach((ev) => window.addEventListener(ev, handleUnlock, { passive: true }));
+}
+
 // Audio chime using Web Audio API (Synthesized ascending 3-note chime: C5 -> E5 -> G5)
 export function playOrderChime() {
-  let ctx: AudioContext | null = null;
   try {
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContextClass) return;
-
-    const audioContext = new AudioContextClass() as AudioContext;
-    ctx = audioContext;
+    const audioContext = getSharedAudioContext();
+    if (!audioContext) return;
     const now = audioContext.currentTime;
 
     // Frequencies: C5 = 523.25Hz, E5 = 659.25Hz, G5 = 783.99Hz, C6 = 1046.50Hz
     const freqs = [523.25, 659.25, 783.99, 1046.50];
-
-    let closeTimer: ReturnType<typeof setTimeout> | null = null;
-    const closeContext = () => {
-      if (closeTimer) {
-        clearTimeout(closeTimer);
-        closeTimer = null;
-      }
-      if (!ctx || ctx.state === 'closed') return;
-      void ctx.close().catch(() => undefined);
-    };
 
     freqs.forEach((freq, idx) => {
       const osc = audioContext.createOscillator();
@@ -92,80 +114,107 @@ export function playOrderChime() {
 
       osc.start(now + idx * 0.12);
       osc.stop(now + idx * 0.12 + 0.38);
-      if (idx === freqs.length - 1) osc.onended = closeContext;
     });
-    // Fallback pro prohlížeče, které při suspendovaném audio kontextu
-    // nevyvolají onended. Každý vytvořený kontext se vždy uzavře.
-    closeTimer = setTimeout(closeContext, 1500);
   } catch (e) {
-    if (ctx && ctx.state !== 'closed') void ctx.close().catch(() => undefined);
     console.warn('Web Audio Playback muted or unavailable:', e);
   }
 }
 
 // Alarm pro vypršelý časovač/stočení sudu — výrazný stoupající i klesající signál
-// jako průmyslový pivovarský časovač (dobře slyšitelný i v hlučném provozu).
+// jako průmyslový pivovarský časovač (dobře slyšitelný i v hlučném provozu varny).
 export function playAlarmSound() {
-  let ctx: AudioContext | null = null;
   try {
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContextClass) return;
-
-    const audioContext = new AudioContextClass() as AudioContext;
-    ctx = audioContext;
+    const audioContext = getSharedAudioContext();
+    if (!audioContext) return;
     const now = audioContext.currentTime;
-    const beeps = [
-      { t: 0, f: 987.77 },     // B5
-      { t: 0.12, f: 1318.51 }, // E6
-      { t: 0.32, f: 987.77 },
-      { t: 0.44, f: 1318.51 },
-      { t: 0.64, f: 987.77 },
-      { t: 0.76, f: 1318.51 },
-      { t: 0.96, f: 987.77 },
-      { t: 1.08, f: 1567.98 }, // G6 finální akcent
-    ];
 
-    let closeTimer: ReturnType<typeof setTimeout> | null = null;
-    const closeContext = () => {
-      if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
-      if (!ctx || ctx.state === 'closed') return;
-      void ctx.close().catch(() => undefined);
-    };
+    const beeps = [
+      { t: 0, f: 1046.50 },     // C6
+      { t: 0.10, f: 1318.51 },  // E6
+      { t: 0.20, f: 1567.98 },  // G6
+      { t: 0.35, f: 2093.00 },  // C7
+      { t: 0.55, f: 1046.50 },
+      { t: 0.65, f: 1318.51 },
+      { t: 0.75, f: 1567.98 },
+      { t: 0.90, f: 2093.00 },
+      { t: 1.15, f: 2093.00 },  // Dlouhé závěrečné pípnutí
+    ];
 
     beeps.forEach(({ t: offset, f: freq }, idx) => {
       const osc = audioContext.createOscillator();
       const gain = audioContext.createGain();
-      osc.type = 'triangle';
+      osc.type = idx % 2 === 0 ? 'square' : 'triangle';
       osc.frequency.setValueAtTime(freq, now + offset);
       gain.gain.setValueAtTime(0.001, now + offset);
-      gain.gain.exponentialRampToValueAtTime(0.35, now + offset + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.10);
+      gain.gain.exponentialRampToValueAtTime(0.4, now + offset + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + offset + (idx === beeps.length - 1 ? 0.25 : 0.08));
       osc.connect(gain);
       gain.connect(audioContext.destination);
       osc.start(now + offset);
-      osc.stop(now + offset + 0.11);
-      if (idx === beeps.length - 1) osc.onended = closeContext;
+      osc.stop(now + offset + (idx === beeps.length - 1 ? 0.28 : 0.09));
     });
-    closeTimer = setTimeout(closeContext, 2000);
   } catch (e) {
-    if (ctx && ctx.state !== 'closed') void ctx.close().catch(() => undefined);
     console.warn('Web Audio Playback muted or unavailable:', e);
   }
 }
 
-/** Obecné upozornění "časovač vypršel" — zvuk + vibrace + systémová notifikace + in-app toast
- *  (pokud povolená). Používá Stopky/Časovač i Stočení sudu (viz stopwatchTimers.ts). */
-export function notifyTimerDone(title: string, body: string) {
-  playAlarmSound();
+export interface TimerAlertSettings {
+  sound: boolean;
+  vibrate: boolean;
+  screenNotif: boolean;
+}
+
+const TIMER_ALERT_SETTINGS_KEY = 'timers_alert_settings_v1';
+const DEFAULT_TIMER_ALERT_SETTINGS: TimerAlertSettings = {
+  sound: true,
+  vibrate: true,
+  screenNotif: true,
+};
+
+export function getTimerAlertSettings(): TimerAlertSettings {
   try {
-    // Výrazná vibrační sekvence pro mobil v kapse
-    navigator.vibrate?.([350, 100, 350, 100, 500, 150, 700]);
+    const raw = localStorage.getItem(TIMER_ALERT_SETTINGS_KEY);
+    if (raw) return { ...DEFAULT_TIMER_ALERT_SETTINGS, ...JSON.parse(raw) };
   } catch {}
-  if (isNotificationSupported() && Notification.permission === 'granted') {
+  return DEFAULT_TIMER_ALERT_SETTINGS;
+}
+
+export function saveTimerAlertSettings(settings: TimerAlertSettings) {
+  try {
+    localStorage.setItem(TIMER_ALERT_SETTINGS_KEY, JSON.stringify(settings));
+    window.dispatchEvent(new CustomEvent('timers_alert_settings_changed', { detail: settings }));
+  } catch {}
+}
+
+/** Obecné upozornění "časovač vypršel" — zvuk + vibrace + systémová notifikace + vizuální modal popup */
+export function notifyTimerDone(title: string, body: string) {
+  const settings = getTimerAlertSettings();
+
+  // 1. Zvuk
+  if (settings.sound) {
+    playAlarmSound();
+  }
+
+  // 2. Vibrace na telefonu
+  if (settings.vibrate && typeof navigator !== 'undefined' && 'vibrate' in navigator) {
     try {
-      new Notification(title, { body, icon: '/favicon.ico', tag: 'timer-done', requireInteraction: true });
+      // Výrazná sekvence vibrací
+      navigator.vibrate([400, 150, 400, 150, 600, 200, 800, 200, 1200]);
     } catch {}
   }
+
+  // 3. Systémová push notifikace na displej
+  if (settings.screenNotif && isNotificationSupported() && Notification.permission === 'granted') {
+    try {
+      new Notification(`⏰ ${title}`, { body, icon: '/favicon.ico', tag: 'timer-done', requireInteraction: true });
+    } catch {}
+  }
+
+  // 4. In-app vizuální okno přes celou obrazovku
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('timer-done-alert', { detail: { title, body } }));
+  }
+
   oznam(`⏰ ${title}: ${body}`);
 }
 

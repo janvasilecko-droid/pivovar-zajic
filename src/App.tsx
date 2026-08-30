@@ -34,6 +34,15 @@ const KnihaJizdScreen = lazy(() => import('./screens/KnihaJizdScreen'));
 const SkloPromoScreen = lazy(() => import('./screens/SkloPromoScreen'));
 const VycepyScreen = lazy(() => import('./screens/VycepyScreen'));
 const ExkurzeScreen = lazy(() => import('./screens/ExkurzeScreen'));
+const VehiclesTabbed = lazy(() => import('./screens/VehiclesTabbed'));
+const DepozitarTabbed = lazy(() => import('./screens/DepozitarTabbed'));
+const SanitaceTabbed = lazy(() => import('./screens/SanitaceTabbed'));
+const PlanningTabbed = lazy(() => import('./screens/PlanningTabbed'));
+const MarketingTabbed = lazy(() => import('./screens/MarketingTabbed'));
+const OrdersTabbed = lazy(() => import('./screens/OrdersTabbed'));
+const TimersScreen = lazy(() => import('./screens/TimersScreen'));
+import { KegTimerNotificationManager } from './components/KegTimerNotificationManager';
+import { TimerDoneAlertModal } from './components/TimerDoneAlertModal';
 import { ReminderNotificationManager } from './components/ReminderNotificationManager';
 import { MandatoryAnnouncementModal } from './components/MandatoryAnnouncementModal';
 import { CriticalMaterialAlertModal } from './components/CriticalMaterialAlertModal';
@@ -60,17 +69,6 @@ function readSubTabFromHistory(): string {
 function wasOpenedViaShare(): boolean {
   return window.location.pathname === '/share';
 }
-
-const HaccpScreen = lazy(() => import('./screens/HaccpScreen'));
-const SanitationLogScreen = lazy(() => import('./screens/SanitationLogScreen'));
-const VehiclesTabbed = lazy(() => import('./screens/VehiclesTabbed'));
-const DepozitarTabbed = lazy(() => import('./screens/DepozitarTabbed'));
-const SanitaceTabbed = lazy(() => import('./screens/SanitaceTabbed'));
-const PlanningTabbed = lazy(() => import('./screens/PlanningTabbed'));
-const MarketingTabbed = lazy(() => import('./screens/MarketingTabbed'));
-const OrdersTabbed = lazy(() => import('./screens/OrdersTabbed'));
-const TimersScreen = lazy(() => import('./screens/TimersScreen'));
-import { KegTimerNotificationManager } from './components/KegTimerNotificationManager';
 
 export default function App() {
   const { session, loading } = useAuth();
@@ -160,6 +158,7 @@ export default function App() {
       <SetPasswordModal />
       <ReminderNotificationManager />
       <KegTimerNotificationManager />
+      <TimerDoneAlertModal />
       <MandatoryAnnouncementModal />
       <CriticalMaterialAlertModal />
       <MonthlyCleanupWarning
