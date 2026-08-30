@@ -1,13 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Modal } from './ui';
-import { Plus, Check, Trash2, StickyNote, CheckSquare, Sparkles } from 'lucide-react';
+import { Plus, Check, Trash2, StickyNote, CheckSquare, Sparkles, LayoutGrid } from 'lucide-react';
 import { getHomeNotes, addHomeNote, toggleHomeNote, deleteHomeNote, clearCompletedNotes, HOME_NOTES_CHANGED_EVENT, type HomeNote } from '../lib/homeNotes';
+import { useAuth } from '../lib/auth';
+import { getHomeLayout, saveHomeLayout, addTile } from '../lib/homeLayout';
+import { NAV, EXTRA_NAV } from './Layout';
 
 export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const { user, profile, patchProfile } = useAuth();
   const [notes, setNotes] = useState<HomeNote[]>(() => getHomeNotes());
   const [newText, setNewText] = useState('');
   const [selectedColor, setSelectedColor] = useState<HomeNote['color']>('yellow');
   const [showCompleted, setShowCompleted] = useState(true);
+  const [pinToHome, setPinToHome] = useState(true);
 
   useEffect(() => {
     const handleUpdate = () => setNotes(getHomeNotes());
@@ -20,6 +25,17 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
     if (!newText.trim()) return;
     addHomeNote(newText, undefined, selectedColor);
     setNewText('');
+
+    if (pinToHome) {
+      const allNavIds = [...NAV.map((n) => n.id), ...EXTRA_NAV.map((n) => n.id)];
+      const layout = getHomeLayout(profile?.home_layout, allNavIds, []);
+      const isPinned = layout.pages.some((page) => page.includes('notes'));
+      if (!isPinned) {
+        const nextLayout = addTile(layout, 'notes', 0);
+        patchProfile({ home_layout: nextLayout as any });
+        if (user?.id) void saveHomeLayout(user.id, nextLayout);
+      }
+    }
   }
 
   const activeNotes = notes.filter((n) => !n.completed);
@@ -51,7 +67,7 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
               }
             }}
           />
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
             <div className="flex items-center gap-1.5">
               {(['yellow', 'blue', 'green', 'rose', 'amber'] as const).map((c) => (
                 <button
@@ -62,10 +78,20 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
                 />
               ))}
             </div>
+            <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-neutral-600 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={pinToHome}
+                onChange={(e) => setPinToHome(e.target.checked)}
+                className="rounded text-amber-500 focus:ring-amber-400"
+              />
+              <LayoutGrid size={13} className="text-neutral-500" />
+              <span>Umístit dlaždici na plochu</span>
+            </label>
             <button
               type="submit"
               disabled={!newText.trim()}
-              className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-bold text-xs px-3.5 py-2 rounded-lg shadow-xs transition"
+              className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-bold text-xs px-3.5 py-2 rounded-lg shadow-xs transition ml-auto"
             >
               <Plus size={15} /> Přidat poznámku
             </button>

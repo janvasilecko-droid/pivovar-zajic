@@ -25,7 +25,7 @@ import { businessDateISO } from '../lib/businessDate';
 import { IkonaSud, IkonaLahev, IkonaVycep } from '../components/ikony';
 import { HomeNotesModal } from '../components/HomeNotesModal';
 import { HomeChecklistModal } from '../components/HomeChecklistModal';
-import { getHomeNotes, HOME_NOTES_CHANGED_EVENT, type HomeNote } from '../lib/homeNotes';
+import { getHomeNotes, toggleHomeNote, HOME_NOTES_CHANGED_EVENT, type HomeNote } from '../lib/homeNotes';
 import { getDailyTasks, DAILY_CHECKLIST_CHANGED_EVENT, type DailyTask } from '../lib/homeChecklist';
 import {
   getRadioState, toggleRadio, nextStation, RADIO_STATIONS, RADIO_STATE_EVENT, type RadioState,
@@ -496,23 +496,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     });
   }, [visibleIds]);
 
-  // ---- Živá dlaždice: Závoz (počet míst a sudů na zítřejší závoz) ----
-  const [zavozLiveStats, setZavozLiveStats] = useState<{ count: number; pieces: number } | null>(null);
-  useEffect(() => {
-    if (!visibleIds.includes('zavoz') && !visibleIds.includes('orders_zavoz')) return;
-    const dnes = businessDateISO();
-    const d = new Date(dnes + 'T00:00:00Z');
-    d.setUTCDate(d.getUTCDate() + 1);
-    const zitra = d.toISOString().slice(0, 10);
-    (async () => {
-      const { data: obj } = await fetchAllRows('orders', 'id').eq('delivery_date', zitra).neq('status', 'storno');
-      const ids = (obj ?? []).map((o: any) => o.id);
-      if (!ids.length) { setZavozLiveStats(null); return; }
-      const { data: polozky } = await fetchAllRows('order_items', 'quantity').in('order_id', ids);
-      const kusu = (polozky ?? []).reduce((s: number, p: any) => s + Number(p.quantity || 0), 0);
-      setZavozLiveStats({ count: ids.length, pieces: kusu });
-    })();
-  }, [visibleIds]);
 
   // ---- Živá dlaždice: Dnešní plánované stáčení lahví ----
   const [bottlingTodayCount, setBottlingTodayCount] = useState<number | null>(null);
@@ -1017,7 +1000,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
 
             const badge =
               id === 'orders' && pendingOrders ? `${pendingOrders} nových`
-              : (id === 'zavoz' || id === 'orders_zavoz') && zavozLiveStats ? `${zavozLiveStats.count} míst`
               : id === 'cellar' && cellarLiveStats ? `${cellarLiveStats.totalHl} hl`
               : (id === 'bottling' || id === 'bottling_needs') && bottlingTodayCount ? `${bottlingTodayCount} plán`
               : id === 'vehicles' && vehicleAlerts.length > 0 ? `${vehicleAlerts.length} STK`
@@ -1172,31 +1154,110 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
             }
 
             // Widget Poznámky (notes):
-            if (id === 'notes' && ((override.w ?? 1) >= 2 || (override.h ?? 1) >= 2)) {
-              const topNote = activeNotesList[0] || homeNotes[0];
-              customContent = (
-                <div className="w-full h-full flex flex-col justify-between p-3 text-left select-none overflow-hidden">
-                  <div className="flex items-center justify-between gap-2 border-b border-black/10 pb-1">
-                    <span className="font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 opacity-90">
-                      <StickyNote size={14} /> Poznámky
-                    </span>
-                    <span className="text-[11px] font-bold opacity-75">{activeNotesList.length} aktivní</span>
+            if (id === 'notes') {
+              const isWideOrTall = (override.w ?? 1) >= 2 || (override.h ?? 1) >= 2;
+              if (isWideOrTall) {
+                customContent = (
+                  <div className="w-full h-full flex flex-col justify-between p-3 text-left select-none overflow-hidden">
+                    <div className="flex items-center justify-between gap-2 border-b border-black/10 pb-1">
+                      <span className="font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 opacity-90">
+                        <StickyNote size={14} /> Poznámky
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] font-bold opacity-75">{activeNotesList.length} aktivní</span>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setShowNotesModal(true); }}
+                          className="w-5 h-5 rounded-md bg-black/10 hover:bg-black/20 grid place-items-center transition"
+                          title="Přidat poznámku"
+                        >
+                          <Plus size={12} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="my-auto py-1 space-y-1.5 overflow-hidden">
+                      {activeNotesList.length === 0 ? (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setShowNotesModal(true); }}
+                          className="w-full text-center py-2 text-xs font-bold opacity-80 hover:opacity-100 italic"
+                        >
+                          + Klepnutím přidáte poznámku
+                        </button>
+                      ) : (
+                        activeNotesList.slice(0, 3).map((note) => (
+                          <div
+                            key={note.id}
+                            className="flex items-center gap-2 group/note cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleHomeNote(note.id);
+                            }}
+                          >
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleHomeNote(note.id);
+                              }}
+                              className="w-4 h-4 rounded-md border-2 border-current bg-white/80 grid place-items-center shrink-0 hover:bg-white transition"
+                              title="Odškrtnout hotovo"
+                            >
+                              {note.completed && <Check size={10} className="text-emerald-700 font-bold stroke-[3]" />}
+                            </button>
+                            <span className={`text-xs font-bold truncate leading-tight flex-1 ${note.completed ? 'line-through opacity-50' : ''}`}>
+                              {note.text}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <div className="text-[11px] font-bold opacity-60 flex items-center justify-between pt-1 border-t border-black/10">
+                      <span>Nástěnka</span>
+                      <span onClick={(e) => { e.stopPropagation(); setShowNotesModal(true); }}>Spravovat ➔</span>
+                    </div>
                   </div>
-                  <div className="my-auto py-1">
-                    {topNote ? (
-                      <p className={`text-xs font-bold leading-snug line-clamp-2 ${topNote.completed ? 'line-through opacity-60' : ''}`}>
-                        📌 {topNote.text}
-                      </p>
-                    ) : (
-                      <p className="text-xs font-semibold opacity-70 italic">+ Klepnutím přidáte vzkaz</p>
-                    )}
+                );
+              } else if (activeNotesList.length > 0) {
+                const topNote = activeNotesList[0];
+                customContent = (
+                  <div className="w-full h-full flex flex-col justify-between p-2.5 text-left select-none overflow-hidden relative">
+                    <div className="flex items-center justify-between gap-1 border-b border-black/10 pb-0.5">
+                      <span className="font-extrabold text-[10px] uppercase tracking-wider flex items-center gap-1 opacity-90">
+                        <StickyNote size={11} /> Poznámky
+                      </span>
+                      <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-black/15">{activeNotesList.length}</span>
+                    </div>
+                    <div className="my-auto py-0.5">
+                      <p className="text-xs font-bold leading-tight line-clamp-2">{topNote.text}</p>
+                    </div>
+                    <div className="flex items-center justify-between pt-1 border-t border-black/10">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleHomeNote(topNote.id);
+                        }}
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-black/15 hover:bg-black/25 text-[10px] font-black transition"
+                        title="Odškrtnout"
+                      >
+                        <Check size={9} className="stroke-[3]" /> Hotovo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowNotesModal(true);
+                        }}
+                        className="text-[11px] font-black opacity-60 hover:opacity-100"
+                        title="Přidat"
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
-                  <div className="text-[11px] font-bold opacity-60 flex items-center justify-between pt-1 border-t border-black/10">
-                    <span>Nástěnka</span>
-                    <span>Klepnutím otevřít ➔</span>
-                  </div>
-                </div>
-              );
+                );
+              }
             }
 
             // Widget Checklist (checklists):
@@ -1245,16 +1306,12 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                     <span className="text-[11px] font-bold opacity-80">{dayNum}. {monthName}</span>
                   </div>
                   <div className="my-auto py-1 text-xs font-bold leading-snug">
-                    {zavozLiveStats ? (
-                      <span className="flex items-center gap-1.5">
-                        <Truck size={14} className="shrink-0" /> Zítra: {zavozLiveStats.count} závozů ({zavozLiveStats.pieces} ks)
-                      </span>
-                    ) : bottlingTodayCount ? (
+                    {bottlingTodayCount ? (
                       <span className="flex items-center gap-1.5">
                         <IkonaLahev className="shrink-0" /> Dnes: {bottlingTodayCount} šarže stáčení
                       </span>
                     ) : (
-                      <span className="opacity-80">Žádné naléhavé události</span>
+                      <span className="opacity-80">Plánovač & události</span>
                     )}
                   </div>
                   <div className="text-[11px] font-bold opacity-60 flex items-center justify-between pt-1 border-t border-black/10">
