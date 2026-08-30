@@ -3,6 +3,8 @@ import type { Session, User } from '@supabase/supabase-js';
 import { supabase, Profile } from './supabase';
 import { reportAppVersion } from './appVersionTracker';
 import { isAdminEmail, getAdminName } from './config';
+import { saveCountdowns } from './stopwatchTimers';
+import { saveHomeNotes } from './homeNotes';
 
 type AuthCtx = {
   session: Session | null;
@@ -37,6 +39,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       prof = { id: user.id, display_name: getAdminName(), role: 'user', created_at: new Date().toISOString() };
     }
 
+    if (prof) {
+      const hl = (prof.home_layout as any) || {};
+      if (hl?.countdowns && Array.isArray(hl.countdowns)) {
+        saveCountdowns(hl.countdowns);
+      }
+      if (hl?.notes && Array.isArray(hl.notes)) {
+        saveHomeNotes(hl.notes);
+      }
+    }
+
     setProfile(prof);
   }
 
@@ -64,8 +76,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(null);
       }
     });
+
     return () => sub.subscription.unsubscribe();
   }, [session?.user?.id]); // Dependency array matches sessions
+
+  // Realtime synchronizace profilu (plocha, lišta, poznámky, odpočty) mezi zařízeními
+  useEffect(() => {
+    const uid = session?.user?.id;
+    if (!uid) return;
+
+    const channel = supabase
+      .channel(`realtime-profile-${uid}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${uid}` },
+        (payload) => {
+          const updatedProf = payload.new as Profile;
+          if (updatedProf) {
+            setProfile(updatedProf);
+            const hl = (updatedProf.home_layout as any) || {};
+            if (hl?.countdowns && Array.isArray(hl.countdowns)) {
+              saveCountdowns(hl.countdowns);
+            }
+            if (hl?.notes && Array.isArray(hl.notes)) {
+              saveHomeNotes(hl.notes);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void channel.unsubscribe();
+    };
+  }, [session?.user?.id]);
 
   const signIn = async (email: string, password: string) => {
     const doSignIn = () => supabase.auth.signInWithPassword({ email, password });

@@ -3,6 +3,8 @@
 // (jsonb, per uživatel, synchronizuje se napříč zařízeními).
 import { supabase } from './supabase';
 import type { Page } from '../components/Layout';
+import { getCountdowns, saveCountdowns, type CountdownTimer } from './stopwatchTimers';
+import { getHomeNotes, saveHomeNotes, type HomeNote } from './homeNotes';
 
 // Víc odstínů na barvu (modré/zelené/červené/oranžové/fialové po 6-8), ať jde
 // tematicky odlišit skupiny dlaždic barvou (např. "vše z pivovaru" modře,
@@ -71,6 +73,10 @@ export type HomeLayout = {
   hidden: TileId[];
   /** Vlastní barvy pevných utilitních dlaždic (Hledat, Odhlásit se...), klíč = FixedTileKey. */
   fixedColors: Partial<Record<string, string>>;
+  /** Synchronizované odpočty/časovače mezi zařízeními. */
+  countdowns?: CountdownTimer[];
+  /** Synchronizované rychlé poznámky mezi zařízeními. */
+  notes?: HomeNote[];
 };
 
 /** Převede "#rrggbb" (nebo "#rgb") na "rgba(r, g, b, alpha)". Neplatný vstup spadne na šedou. */
@@ -254,7 +260,7 @@ function resolveTileId(
   if (isGroupId(id)) {
     const raw = rawGroups[id];
     const members = (Array.isArray(raw?.memberIds) ? (raw!.memberIds as unknown[]) : [])
-      .filter((m): m is Page => typeof m === 'string' && fullVisibleSet.has(m as Page) && !seen.has(m));
+      .filter((m): m is Page => typeof m === 'string' && (fullVisibleSet.size === 0 || fullVisibleSet.has(m as Page)) && !seen.has(m));
     seen.add(id);
     if (members.length === 0) return null;
     members.forEach((m) => seen.add(m));
@@ -266,7 +272,7 @@ function resolveTileId(
     seen.add(id);
     return id;
   }
-  if (!fullVisibleSet.has(id as Page)) return null;
+  if (fullVisibleSet.size > 0 && !fullVisibleSet.has(id as Page)) return null;
   seen.add(id);
   return id as Page;
 }
@@ -471,21 +477,60 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
   // Spodní lišta: počet slotů je teď volitelný (MIN_DOCK–MAX_DOCK, ne napevno
   // 4) — viz addDockSlot/removeDockSlot. Každý slot musí být buď 'home' (vždy
   // platné), nebo modul, na který má uživatel právo — jinak spadne na 'home'.
-  const savedDock = Array.isArray(saved.dock) && saved.dock.length > 0 ? (saved.dock as Page[]) : DEFAULT_DOCK;
+  const rawSavedDock = Array.isArray(saved.dock) && saved.dock.length > 0 ? (saved.dock as Page[]) : DEFAULT_DOCK;
+  // Auto-oprava: pokud se dříve poškozením do profilu uložily samé 'home' ikony, obnovíme výchozí lištu.
+  const isAllHome = rawSavedDock.length > 1 && rawSavedDock.every((d) => d === 'home');
+  const savedDock = isAllHome ? DEFAULT_DOCK : rawSavedDock;
   const dockLen = Math.min(MAX_DOCK, Math.max(MIN_DOCK, savedDock.length));
   const dock: Page[] = Array.from({ length: dockLen }, (_, i) => {
     const candidate = savedDock[i] ?? DEFAULT_DOCK[i % DEFAULT_DOCK.length];
-    return candidate === 'home' || fullVisibleSet.has(candidate) ? candidate : 'home';
+    return candidate === 'home' || fullVisibleSet.size === 0 || fullVisibleSet.has(candidate) ? candidate : 'home';
   });
 
   const fixedColors = (saved.fixedColors && typeof saved.fixedColors === 'object' ? saved.fixedColors : {}) as Partial<Record<string, string>>;
 
-  const layout: HomeLayout = { pages, overrides: filledOverrides, groups: resolvedGroups, scene, tileOpacity, tileGap, customAccent, dock, hidden, fixedColors };
+  // Synchronizace odpočtů a poznámek z profilu do lokálního stavu
+  if (Array.isArray(saved.countdowns) && saved.countdowns.length > 0) {
+    try {
+      const local = getCountdowns();
+      if (JSON.stringify(local) !== JSON.stringify(saved.countdowns)) {
+        saveCountdowns(saved.countdowns);
+      }
+    } catch {}
+  }
+  if (Array.isArray(saved.notes) && saved.notes.length > 0) {
+    try {
+      const local = getHomeNotes();
+      if (JSON.stringify(local) !== JSON.stringify(saved.notes)) {
+        saveHomeNotes(saved.notes);
+      }
+    } catch {}
+  }
+
+  const layout: HomeLayout = {
+    pages,
+    overrides: filledOverrides,
+    groups: resolvedGroups,
+    scene,
+    tileOpacity,
+    tileGap,
+    customAccent,
+    dock,
+    hidden,
+    fixedColors,
+    countdowns: saved.countdowns || getCountdowns(),
+    notes: saved.notes || getHomeNotes(),
+  };
   return ensureTrailingEmptyPage(ensurePositions(layout, cols));
 }
 
 export async function saveHomeLayout(userId: string, layout: HomeLayout): Promise<void> {
-  await supabase.from('profiles').update({ home_layout: layout as any }).eq('id', userId);
+  const fullLayout: HomeLayout = {
+    ...layout,
+    countdowns: getCountdowns(),
+    notes: getHomeNotes(),
+  };
+  await supabase.from('profiles').update({ home_layout: fullLayout as any }).eq('id', userId);
 }
 
 /** Přidá další slot do spodní lišty (výchozí 'home', uživatel si ho pak přenastaví). */

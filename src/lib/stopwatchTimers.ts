@@ -2,7 +2,7 @@
 // (TimersScreen.tsx) — čistě localStorage, žádná synchronizace přes Supabase.
 // Jde o efemérní pracovní nástroj používaný přímo na místě ve sklepě/na
 // stáčírně, ne o data, která by měla smysl sdílet mezi uživateli/zařízeními
-// (na rozdíl od home_layout, viz homeLayout.ts).
+import { supabase } from './supabase';
 
 // ---- Stopky ----
 export type StopwatchState = {
@@ -72,6 +72,15 @@ export function saveCountdowns(list: CountdownTimer[]) {
     localStorage.setItem(COUNTDOWNS_KEY, JSON.stringify(list));
     window.dispatchEvent(new CustomEvent(COUNTDOWN_CHANGED_EVENT, { detail: list }));
   } catch {}
+  // Cloud sync na pozadí pro synchronizaci mezi mobilem a PC
+  supabase.auth.getUser().then(({ data }) => {
+    if (data?.user?.id) {
+      supabase.from('profiles').select('home_layout').eq('id', data.user.id).maybeSingle().then(({ data: prof }) => {
+        const cur = (prof?.home_layout as any) || {};
+        void supabase.from('profiles').update({ home_layout: { ...cur, countdowns: list } }).eq('id', data.user.id);
+      });
+    }
+  }).catch(() => {});
 }
 
 export function countdownRemainingMs(t: CountdownTimer): number {

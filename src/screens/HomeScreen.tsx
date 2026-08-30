@@ -15,7 +15,6 @@ import { NAV, EXTRA_NAV, type Page, type NavItem } from '../components/Layout';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import LauncherTile from '../components/LauncherTile';
 import { QuickSearchModal } from '../components/QuickSearchModal';
-import Dnesek from '../components/Dnesek';
 import { Modal } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { canUserView, getUserPermissions, PAGE_TO_MODULE, ModuleKey } from '../lib/permissions';
@@ -395,7 +394,13 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   async function handleTileClick(id: TileId) {
     if (isCountdownId(id)) {
       const timerId = id.slice(3);
-      toggleCountdown(timerId);
+      const timer = countdowns.find((c) => c.id === timerId);
+      const isDone = timer && timer.targetAt !== null && countdownRemainingMs(timer) === 0;
+      if (isDone) {
+        resetCountdown(timerId);
+      } else {
+        toggleCountdown(timerId);
+      }
       return;
     }
     if (id === 'radio') {
@@ -741,9 +746,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
 
   return (
     <div className="flex flex-col gap-4 min-h-full">
-      {/* Co je dneska potřeba — dlaždice pod tím zůstávají beze změny.
-          V editaci rozložení se skrývá, ať nepřekáží přesouvání dlaždic. */}
-      {!editMode && <Dnesek setPage={setPage} />}
       <div className="hs-launcher">
         {editMode && (
           <div className="hs-controls">
@@ -1037,32 +1039,41 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               const remaining = timer ? countdownRemainingMs(timer) : 0;
               const running = timer?.targetAt !== null;
               const done = running && remaining === 0;
+              const totalMs = timer?.initialDurationMs || timer?.durationMs || 1;
+              const progress = running && !done ? Math.max(0, Math.min(1, 1 - remaining / totalMs)) : done ? 1 : 0;
 
               const timerLabel = timer?.label || 'Odpočet';
               const displayTime = formatDurationMs(remaining);
 
               customContent = (
                 <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center select-none overflow-hidden relative">
-                  <div className="flex items-center justify-center gap-1 opacity-80 text-xs font-black uppercase tracking-wider mb-0.5 max-w-full px-1">
-                    <AlarmClock size={13} className={`shrink-0 ${running && !done ? 'animate-pulse text-amber-900' : ''}`} />
+                  {/* Progress bar na pozadí */}
+                  {running && !done && (
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/10 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-500 transition-all duration-1000 ease-linear rounded-full" style={{ width: `${progress * 100}%` }} />
+                    </div>
+                  )}
+                  {done && <div className="absolute inset-0 bg-rose-500/10 animate-pulse rounded-xl pointer-events-none" />}
+
+                  <div className="flex items-center justify-center gap-1 opacity-80 text-[10px] sm:text-xs font-black uppercase tracking-wider mb-0.5 max-w-full px-1">
+                    <AlarmClock size={12} className={`shrink-0 ${running && !done ? 'text-emerald-700' : done ? 'text-rose-600' : ''}`} />
                     <span className="truncate">{timerLabel}</span>
                   </div>
-                  <div className={`text-xl sm:text-2xl font-black tabular-nums tracking-tight leading-none my-1 ${done ? 'text-rose-600 font-extrabold animate-pulse' : ''}`}>
+                  <div className={`text-2xl sm:text-3xl font-black tabular-nums tracking-tight leading-none my-1.5 ${done ? 'text-rose-600 animate-pulse' : running ? 'text-emerald-800' : ''}`}>
                     {displayTime}
                   </div>
-                  <div className="flex items-center justify-center gap-1 text-[11px] font-bold opacity-75">
+                  <div className="flex items-center justify-center gap-2 mt-0.5">
                     {done ? (
-                      <span className="text-rose-700 font-black flex items-center gap-0.5">
-                        <Check size={12} className="stroke-[3]" /> Hotovo!
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-600 text-white text-[10px] font-black shadow-sm">
+                        🔔 Hotovo! Klepni = reset
                       </span>
                     ) : running ? (
-                      <span className="flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-ping" />
-                        Běží…
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-600/90 text-white text-[10px] font-black shadow-sm">
+                        <Pause size={10} /> Klepni = pauza
                       </span>
                     ) : (
-                      <span className="flex items-center gap-1">
-                        <Play size={10} /> Spustit
+                      <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-emerald-600 text-white text-xs font-black shadow-md animate-pulse">
+                        <Play size={12} className="fill-current" /> Spustit
                       </span>
                     )}
                   </div>

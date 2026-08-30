@@ -24,6 +24,18 @@ class DebugErrorBoundary extends React.Component<{ children: React.ReactNode }, 
   }
   componentDidCatch(error: any, info: any) {
     console.error('DEBUG ErrorBoundary caught:', error, info);
+    // Auto-recovery pro stale chunk errory (po deployi)
+    const msg = String(error?.message || error || '');
+    if (msg.includes('dynamically imported module') || msg.includes('Failed to fetch')) {
+      const reloadKey = '__chunk_reload';
+      if (!sessionStorage.getItem(reloadKey)) {
+        sessionStorage.setItem(reloadKey, '1');
+        console.warn('[auto-recovery] Stale chunk in ErrorBoundary, reloading…');
+        void forceRefresh();
+        return;
+      }
+      sessionStorage.removeItem(reloadKey);
+    }
   }
   componentDidMount() {
     window.addEventListener('popstate', this.handleReset);
@@ -70,6 +82,22 @@ window.addEventListener('error', (e) => {
   if (el) renderFatalError(el, 'Globální chyba', e.error?.stack || e.message);
 });
 window.addEventListener('unhandledrejection', (e) => {
+  // Automatická oprava: po novém deployi se změní chunk hashe a prohlížeč
+  // s cachem se pokusí načíst starý soubor → „Failed to fetch dynamically
+  // imported module". Jednou automaticky reloadneme; při opakovaném selhání
+  // zobrazíme chybu uživateli (aby nevznikla nekonečná smyčka).
+  const msg = String(e.reason?.message || e.reason || '');
+  if (msg.includes('dynamically imported module') || msg.includes('Failed to fetch')) {
+    const reloadKey = '__chunk_reload';
+    if (!sessionStorage.getItem(reloadKey)) {
+      sessionStorage.setItem(reloadKey, '1');
+      console.warn('[auto-recovery] Stale chunk detected, reloading…');
+      void forceRefresh();
+      return;
+    }
+    // Druhý pokus selhal — propadne do renderFatalError níže
+    sessionStorage.removeItem(reloadKey);
+  }
   const el = document.getElementById('root');
   if (el) renderFatalError(el, 'Nezachycená chyba (Promise)', e.reason?.stack || e.reason);
 });

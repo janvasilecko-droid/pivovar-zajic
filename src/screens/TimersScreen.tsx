@@ -3,7 +3,7 @@
 // setPage(tab), ať funguje tlačítko Zpět). Stav je čistě lokální
 // (localStorage, viz lib/stopwatchTimers.ts) — jde o efemérní pracovní
 // pomůcku na jednom zařízení, ne o data ke sdílení mezi uživateli.
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Timer, AlarmClock, Hourglass, Play, Pause, RotateCcw, Flag, Plus, Trash2, Square, CheckCircle2, Pin,
 } from 'lucide-react';
@@ -15,6 +15,7 @@ import {
   formatDurationMs,
 } from '../lib/stopwatchTimers';
 import { TabBar, type TabBarItem } from '../components/TabBar';
+import { NAV, EXTRA_NAV } from '../components/Layout';
 import { useAuth } from '../lib/auth';
 import { getHomeLayout, saveHomeLayout, addTile, hideTile, type CountdownTileId } from '../lib/homeLayout';
 import { potvrd, oznam } from '../lib/toast';
@@ -128,16 +129,17 @@ function StopwatchTool() {
 // ==========================================
 function CountdownTimersTool() {
   const { user, profile, patchProfile } = useAuth();
+  const allNavIds = useMemo(() => [...NAV.map((n) => n.id), ...EXTRA_NAV.map((n) => n.id)], []);
   const [list, setList] = useState<CountdownTimer[]>(() => getCountdowns());
-  const [layout, setLayout] = useState(() => getHomeLayout(profile?.home_layout, [], []));
+  const [layout, setLayout] = useState(() => getHomeLayout(profile?.home_layout, allNavIds, []));
   const [, forceTick] = useState(0);
   const [newLabel, setNewLabel] = useState('Kotel');
   const [newMin, setNewMin] = useState('2');
   const [pinToHome, setPinToHome] = useState(true);
 
   useEffect(() => {
-    setLayout(getHomeLayout(profile?.home_layout, [], []));
-  }, [profile?.home_layout]);
+    setLayout(getHomeLayout(profile?.home_layout, allNavIds, []));
+  }, [profile?.home_layout, allNavIds]);
 
   useEffect(() => {
     const id = setInterval(() => forceTick((n) => n + 1), 1000);
@@ -178,9 +180,9 @@ function CountdownTimersTool() {
     const t: CountdownTimer = {
       id: newId,
       label: newLabel.trim() || `${minutes} min`,
-      durationMs,
+      durationMs: autoStart ? 0 : durationMs,
       initialDurationMs: durationMs,
-      targetAt: null,
+      targetAt: autoStart ? Date.now() + durationMs : null,
       notifiedAt: null,
     };
     persist([...list, t]);
@@ -191,9 +193,9 @@ function CountdownTimersTool() {
       setLayout(nextLayout);
       patchProfile({ home_layout: nextLayout as any });
       if (user?.id) saveHomeLayout(user.id, nextLayout);
-      oznam(`Odpočet "${t.label}" byl vytvořen a přidán na plochu`);
+      oznam(`⏱️ „${t.label}" ${autoStart ? 'spuštěn a ' : ''}přidán na plochu`);
     } else {
-      oznam(`Odpočet "${t.label}" byl vytvořen`);
+      oznam(`⏱️ „${t.label}" ${autoStart ? 'spuštěn' : 'vytvořen'}`);
     }
 
     setNewLabel('');
@@ -249,29 +251,64 @@ function CountdownTimersTool() {
 
   const hasRunning = list.some((t) => t.targetAt !== null);
 
+  /** Vytvoří nový odpočet, spustí ho a připne na plochu jedním kliknutím. */
+  function quickStart(label: string, minutes: number) {
+    const durationMs = Math.round(minutes * 60000);
+    const newId = `t_${Math.random().toString(36).slice(2, 9)}`;
+    const t: CountdownTimer = {
+      id: newId,
+      label: label.trim() || `${minutes} min`,
+      durationMs: 0,
+      initialDurationMs: durationMs,
+      targetAt: Date.now() + durationMs,
+      notifiedAt: null,
+    };
+    persist([...list, t]);
+
+    // Automaticky připnout na plochu
+    const cid: CountdownTileId = `cd_${newId}`;
+    const nextLayout = addTile(layout, cid, 0);
+    setLayout(nextLayout);
+    patchProfile({ home_layout: nextLayout as any });
+    if (user?.id) saveHomeLayout(user.id, nextLayout);
+    oznam(`⏱️ „${t.label}" spuštěn a přidán na plochu`);
+  }
+
+  const [autoStart, setAutoStart] = useState(true);
+
   return (
     <div className="space-y-5">
+      {/* Rychlý start jedním klepnutím */}
       <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-xs space-y-3">
         <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide">
-          Rychlé předvolby odpočtu
+          ⚡ Rychlý start — klepni a běží
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {PRESETS.map((p) => (
             <button
               key={p.label}
               type="button"
-              onClick={() => {
-                setNewLabel(p.label);
-                setNewMin(p.min);
-              }}
-              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-neutral-100 hover:bg-amber-100 hover:text-amber-950 border border-neutral-200 transition"
+              onClick={() => quickStart(p.label, Number(p.min))}
+              className="flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-black bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white border border-emerald-700 shadow-sm transition"
             >
-              ⏱️ {p.label} ({p.min} min)
+              <Play size={16} className="fill-current shrink-0" />
+              <span className="truncate">{p.label}</span>
+              <span className="text-emerald-200 text-xs font-bold shrink-0">{p.min}′</span>
             </button>
           ))}
         </div>
+        <p className="text-[11px] text-neutral-400 leading-relaxed">
+          Klepnutím na tlačítko se odpočet okamžitě <strong>vytvoří, spustí a připne na plochu</strong> —
+          běží i na pozadí.
+        </p>
+      </div>
 
-        <form onSubmit={addTimer} className="flex flex-wrap items-end gap-3 pt-2 border-t border-neutral-100">
+      {/* Vlastní odpočet */}
+      <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-xs space-y-3">
+        <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide">
+          ＋ Vlastní odpočet
+        </div>
+        <form onSubmit={addTimer} className="flex flex-wrap items-end gap-3">
           <div className="flex-1 min-w-[140px]">
             <label className="block text-[11px] font-bold text-neutral-500 mb-1">Název odpočtu</label>
             <input
@@ -292,17 +329,28 @@ function CountdownTimersTool() {
               className="w-24 border border-neutral-300 rounded px-3 py-2 text-sm font-bold"
             />
           </div>
-          <label className="flex items-center gap-2 text-xs font-bold text-neutral-700 select-none pb-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={pinToHome}
-              onChange={(e) => setPinToHome(e.target.checked)}
-              className="rounded text-amber-500 focus:ring-amber-400"
-            />
-            <span>📌 Přidat na plochu</span>
-          </label>
+          <div className="flex flex-col gap-1.5 pb-1">
+            <label className="flex items-center gap-2 text-xs font-bold text-neutral-700 select-none cursor-pointer">
+              <input
+                type="checkbox"
+                checked={pinToHome}
+                onChange={(e) => setPinToHome(e.target.checked)}
+                className="rounded text-amber-500 focus:ring-amber-400"
+              />
+              <span>📌 Na plochu</span>
+            </label>
+            <label className="flex items-center gap-2 text-xs font-bold text-neutral-700 select-none cursor-pointer">
+              <input
+                type="checkbox"
+                checked={autoStart}
+                onChange={(e) => setAutoStart(e.target.checked)}
+                className="rounded text-emerald-500 focus:ring-emerald-400"
+              />
+              <span>▶ Hned spustit</span>
+            </label>
+          </div>
           <button type="submit" className="btn-primary !rounded px-4 py-2 rounded font-black flex items-center gap-1.5">
-            <Plus size={16} /> Přidat časovač
+            <Plus size={16} /> Přidat
           </button>
         </form>
       </div>

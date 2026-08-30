@@ -1,6 +1,7 @@
 // Správce rychlých poznámek na domovské obrazovce (Pivovarská nástěnka).
-// Ukládá se lokálně a vysílá event pro okamžitou reaktivní aktualizaci dlaždice na Domů.
+// Ukládá se lokálně a synchronizuje přes Supabase profiles.home_layout napříč zařízeními.
 import { zavibruj } from './haptika';
+import { supabase } from './supabase';
 
 export type HomeNote = {
   id: string;
@@ -45,13 +46,22 @@ export function getHomeNotes(): HomeNote[] {
   }
 }
 
-function saveHomeNotes(notes: HomeNote[]) {
+export function saveHomeNotes(notes: HomeNote[]) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
     window.dispatchEvent(new CustomEvent(HOME_NOTES_CHANGED_EVENT, { detail: notes }));
   } catch (e) {
     console.error('Chyba při ukládání poznámek:', e);
   }
+  // Cloud sync na pozadí pro synchronizaci mezi mobilem a PC
+  supabase.auth.getUser().then(({ data }) => {
+    if (data?.user?.id) {
+      supabase.from('profiles').select('home_layout').eq('id', data.user.id).maybeSingle().then(({ data: prof }) => {
+        const cur = (prof?.home_layout as any) || {};
+        void supabase.from('profiles').update({ home_layout: { ...cur, notes } }).eq('id', data.user.id);
+      });
+    }
+  }).catch(() => {});
 }
 
 export function addHomeNote(text: string, author?: string, color: HomeNote['color'] = 'yellow'): HomeNote {

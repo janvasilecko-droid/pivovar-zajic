@@ -338,9 +338,101 @@ export function BottlingTasksSettings() {
         </p>
       );
     }
-    return (
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs border-collapse min-w-[880px]">
+
+    // ----- Mobilní kartičkové zobrazení (< md) -----
+    const mobileCards = (
+      <div className="md:hidden space-y-3">
+        {list.map((r) => {
+          const beer = beers.find((b) => b.id === r.beer_id);
+          return (
+            <div
+              key={`m-${r.beer_id}-${r.package_id}`}
+              className={`rounded-xl border bg-white shadow-xs overflow-hidden ${r.missing > 0 ? 'border-rose-300' : 'border-neutral-200'}`}
+            >
+              {/* Hlavička kartičky — pivo + obal */}
+              <div className="flex items-center gap-2.5 px-3.5 pt-3 pb-2">
+                <span className="w-3 h-8 rounded-full shrink-0" style={{ backgroundColor: beer ? beerBg(beer) : '#a8a29e' }} />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-black text-neutral-950 truncate">{r.beer_name}</div>
+                  <div className="text-xs font-semibold text-neutral-500 mt-0.5">{r.package_label}{isKeg ? '' : ` (${r.volume_l} L)`}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openStocit(r)}
+                  title={r.missing > 0 ? 'Stočit chybějící množství' : 'Stočit (pokrytí objednávek)'}
+                  className="px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-neutral-950 text-xs font-black transition shadow-sm shrink-0"
+                >
+                  <IkonaLahev className="ikona-text" /> Stočit
+                </button>
+              </div>
+
+              {/* Datová mřížka 2×3 */}
+              <div className="grid grid-cols-3 gap-px bg-neutral-100 border-t border-neutral-200">
+                <div className="bg-white px-2.5 py-2">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 leading-tight"><ShoppingCart size={10} className="inline -mt-0.5 mr-0.5" />Obj.</div>
+                  <div className="text-sm font-black text-neutral-800 mt-0.5">{fmt(r.ordered)}</div>
+                </div>
+                <div className="bg-white px-2.5 py-2">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 leading-tight"><PackageIcon size={10} className="inline -mt-0.5 mr-0.5" />Fas.</div>
+                  <div className="text-sm font-black text-neutral-800 mt-0.5">{fmt(r.fasovani)}</div>
+                </div>
+                <div className="bg-white px-2.5 py-2">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-amber-600 leading-tight"><ClipboardList size={10} className="inline -mt-0.5 mr-0.5" />Plán</div>
+                  <div className="text-sm font-black text-amber-800 mt-0.5">{fmt(r.planned)}</div>
+                </div>
+                <div className="bg-white px-2.5 py-2">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 leading-tight">{isKeg ? 'Sklad' : 'Sklad'}</div>
+                  <div className="text-sm font-black text-emerald-800 mt-0.5">{fmt(r.stock)}</div>
+                </div>
+                <div className={`px-2.5 py-2 ${r.missing > 0 ? 'bg-rose-50' : 'bg-white'}`}>
+                  <div className={`text-[10px] font-bold uppercase tracking-wider leading-tight ${r.missing > 0 ? 'text-rose-600' : 'text-neutral-400'}`}><AlertTriangle size={10} className="inline -mt-0.5 mr-0.5" />Chybí</div>
+                  <div className={`text-sm font-black mt-0.5 ${r.missing > 0 ? 'text-rose-800' : 'text-neutral-500'}`}>{r.missing > 0 ? fmt(r.missing) : '0'}</div>
+                </div>
+                <div className={`px-2.5 py-2 ${r.afterOutgoing < 0 ? 'bg-rose-50' : 'bg-white'}`}>
+                  <div className={`text-[10px] font-bold uppercase tracking-wider leading-tight ${r.afterOutgoing < 0 ? 'text-rose-600' : 'text-neutral-400'}`}><Calendar size={10} className="inline -mt-0.5 mr-0.5" />Kon.týd.</div>
+                  <div className={`text-sm font-black mt-0.5 ${r.afterOutgoing < 0 ? 'text-rose-800' : 'text-neutral-800'}`}>{fmt(r.afterOutgoing)}</div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        {/* Mobilní souhrn */}
+        <div className="rounded-xl border-2 border-amber-400 bg-amber-50 px-3.5 py-3">
+          <div className="text-xs font-black text-amber-950 uppercase tracking-wider mb-2">Celkem</div>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <div className="text-[10px] font-bold text-amber-700 uppercase">Obj.</div>
+              <div className="text-base font-black text-amber-950">{fmt(t.ordered)}</div>
+            </div>
+            <div>
+              <div className="text-[10px] font-bold text-amber-700 uppercase">Fas.</div>
+              <div className="text-base font-black text-amber-950">{fmt(t.fasovani)}</div>
+            </div>
+            <div>
+              <div className="text-[10px] font-bold text-amber-700 uppercase">Plán</div>
+              <div className="text-base font-black text-amber-950">{fmt(t.planned)}</div>
+            </div>
+            <div>
+              <div className="text-[10px] font-bold text-emerald-700 uppercase">Sklad</div>
+              <div className="text-base font-black text-emerald-900">{fmt(t.stock)}</div>
+            </div>
+            <div>
+              <div className={`text-[10px] font-bold uppercase ${t.missing > 0 ? 'text-rose-700' : 'text-amber-700'}`}>Chybí</div>
+              <div className={`text-base font-black ${t.missing > 0 ? 'text-rose-800' : 'text-amber-950'}`}>{fmt(t.missing)}</div>
+            </div>
+            <div>
+              <div className={`text-[10px] font-bold uppercase ${t.afterOutgoing < 0 ? 'text-rose-700' : 'text-amber-700'}`}>Kon.týd.</div>
+              <div className={`text-base font-black ${t.afterOutgoing < 0 ? 'text-rose-800' : 'text-amber-950'}`}>{fmt(t.afterOutgoing)}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+
+    // ----- Desktopová tabulka (>= md) -----
+    const desktopTable = (
+      <div className="hidden md:block overflow-x-auto">
+        <table className="w-full text-xs border-collapse">
           <thead>
             <tr className="text-[11px] uppercase tracking-wide text-neutral-500">
               <th className="text-left font-black px-2 py-1.5">Pivo</th>
@@ -403,6 +495,13 @@ export function BottlingTasksSettings() {
         </table>
       </div>
     );
+
+    return (
+      <>
+        {mobileCards}
+        {desktopTable}
+      </>
+    );
   }
 
   if (loading && beers.length === 0) {
@@ -417,37 +516,37 @@ export function BottlingTasksSettings() {
   }
 
   return (
-    <div className={`card p-6 border-2 border-amber-400/60 bg-gradient-to-br from-amber-50/80 to-white rounded shadow-md transition-all duration-200 ${flash ? 'ring-4 ring-emerald-500/20' : ''}`}>
+    <div className={`card p-3.5 sm:p-6 border-2 border-amber-400/60 bg-gradient-to-br from-amber-50/80 to-white rounded shadow-md transition-all duration-200 ${flash ? 'ring-4 ring-emerald-500/20' : ''}`}>
       {/* Hlavička */}
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <h2 className="font-display font-bold text-base sm:text-lg flex items-center gap-2">
           <span className="text-xl"><IkonaLahev className="ikona-text" /></span>
-          <span>Zadávání stáčení lahví</span>
-          <span className="ml-1 px-2.5 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-black text-[11px] uppercase tracking-wider">ADMIN</span>
+          <span>Potřeby stáčení</span>
+          <span className="ml-1 px-2 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-black text-[10px] sm:text-[11px] uppercase tracking-wider">ADMIN</span>
         </h2>
         <div className="flex items-center gap-1.5">
           <button
             type="button"
             onClick={() => setWeekKey(shiftWeek(weekKey, -1))}
-            className="w-8 h-8 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 transition"
+            className="w-9 h-9 sm:w-8 sm:h-8 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 active:bg-neutral-300 text-neutral-700 transition"
             title="Předchozí týden"
           >
             <ChevronLeft size={16} />
           </button>
-          <span className="text-xs font-black text-neutral-800 bg-white border border-neutral-200 rounded px-3 py-1.5 whitespace-nowrap">
-            <Calendar className="ikona-text" /> Týden {weekKey} ({weekLabel})
+          <span className="text-xs font-black text-neutral-800 bg-white border border-neutral-200 rounded px-2.5 sm:px-3 py-1.5 whitespace-nowrap">
+            <Calendar className="ikona-text" /> {weekKey} <span className="hidden sm:inline">({weekLabel})</span>
           </span>
           <button
             type="button"
             onClick={() => setWeekKey(shiftWeek(weekKey, 1))}
-            className="w-8 h-8 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 transition"
+            className="w-9 h-9 sm:w-8 sm:h-8 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 active:bg-neutral-300 text-neutral-700 transition"
             title="Další týden"
           >
             <ChevronRight size={16} />
           </button>
         </div>
       </div>
-      <p className="text-xs text-neutral-600 mt-1.5 leading-relaxed">
+      <p className="hidden sm:block text-xs text-neutral-600 mt-1.5 leading-relaxed">
         Přehled potřeby stáčení pro vybraný týden. Tlačítkem <strong>„<IkonaLahev className="ikona-text" /> Stočit“</strong> otevřete menu, kde
         nastavíte velikosti obalů a počet KEG sudů — úkol se uloží a <strong>automaticky propíše do formuláře
         stáčení</strong> (Lahve → „Úkoly ke stočení“ → „Naplnit“).
@@ -456,7 +555,7 @@ export function BottlingTasksSettings() {
       {msg && <div className="mt-3 p-3 rounded bg-emerald-100 text-emerald-900 font-bold text-xs border border-emerald-300">{msg}</div>}
 
       {/* Souhrn */}
-      <div className="mt-4 grid grid-cols-2 md:grid-cols-5 gap-2.5">
+      <div className="mt-3 sm:mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
         <div className="p-3 rounded bg-white border border-emerald-200 shadow-xs">
           <div className="text-[11px] font-black uppercase tracking-wider text-emerald-700"><IkonaLahev className="ikona-text" /> Lahve na skladě</div>
           <div className="text-xl font-display font-black text-emerald-900 mt-0.5">{fmt(totals.bottleStock)}</div>
