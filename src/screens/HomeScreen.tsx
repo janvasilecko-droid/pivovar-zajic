@@ -12,7 +12,6 @@ import {
   AlarmClock, Play, Pause, RotateCcw, Pin, Radio, SkipForward, Flame,
 } from 'lucide-react';
 import { NAV, EXTRA_NAV, type Page, type NavItem } from '../components/Layout';
-import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import LauncherTile from '../components/LauncherTile';
 import { QuickSearchModal } from '../components/QuickSearchModal';
 import { Modal } from '../components/ui';
@@ -47,7 +46,7 @@ import {
 import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
 import { isMonthlyCleanupPending, MONTHLY_CLEANUP_CHANGED_EVENT } from '../lib/monthlyCleanup';
 import { potvrd } from '../lib/toast';
-import { requestOrdersPendingFilter, requestOrdersAutoImport } from '../lib/ordersFilter';
+import { requestOrdersAutoImport } from '../lib/ordersFilter';
 import './HomeScreen.css';
 
 /** true = jméno přednastaveného odstínu (CSS třída c-*); false = vlastní hex barva (inline styl). */
@@ -422,9 +421,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       setShowChecklistModal(true);
       return;
     }
-    // Odznak na dlaždici počítá nevyřízené (status Nová) objednávky tento
-    // týden — ať se po kliknutí rovnou zobrazí ty, ne obyčejný seznam všeho.
-    if (id === 'orders' && pendingOrders) requestOrdersPendingFilter();
     setPage(id as Page);
   }
 
@@ -480,19 +476,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     window.addEventListener(DAILY_CHECKLIST_CHANGED_EVENT, handleUpdate);
     return () => window.removeEventListener(DAILY_CHECKLIST_CHANGED_EVENT, handleUpdate);
   }, []);
-
-  // ---- Živá dlaždice: počet nevyřízených objednávek PRO TENTO TÝDEN ----
-  const [pendingOrders, setPendingOrders] = useState<number | null>(null);
-  useEffect(() => {
-    if (!visibleIds.includes('orders')) return;
-    const { start, end } = weekRange(isoWeekKey(new Date().toISOString().slice(0, 10)));
-    const startIso = start.toISOString().slice(0, 10);
-    const endIso = end.toISOString().slice(0, 10);
-    supabase.from('orders').select('id', { count: 'exact', head: true })
-      .eq('status', 'nova')
-      .or(`and(delivery_date.gte.${startIso},delivery_date.lte.${endIso}),and(delivery_date.is.null,order_date.gte.${startIso},order_date.lte.${endIso})`)
-      .then(({ count }) => setPendingOrders(count ?? 0));
-  }, [visibleIds]);
 
   // ---- Živá dlaždice: Sklep (objem ležícího piva v hl a plné tanky) ----
   const [cellarLiveStats, setCellarLiveStats] = useState<{ activeTanks: number; totalHl: number } | null>(null);
@@ -1018,8 +1001,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               : null;
 
             const badge =
-              id === 'orders' && pendingOrders ? `${pendingOrders} nových`
-              : id === 'cellar' && cellarLiveStats ? `${cellarLiveStats.totalHl} hl`
+              id === 'cellar' && cellarLiveStats ? `${cellarLiveStats.totalHl} hl`
               : (id === 'bottling' || id === 'bottling_needs') && bottlingTodayCount ? `${bottlingTodayCount} plán`
               : id === 'vehicles' && vehicleAlerts.length > 0 ? `${vehicleAlerts.length} STK`
               : id === 'notes' && activeNotesList.length > 0 ? `${activeNotesList.length} vzkazů`

@@ -16,9 +16,8 @@ export const DAILY_CHECKLIST_CHANGED_EVENT = 'pivovar_daily_checklist_changed';
 
 const DEFAULT_TASKS: DailyTask[] = [
   { id: 'dt-1', title: 'Kontrola tlaku CO2 a teploty ve sklepě', completed: false, category: 'Sklep' },
-  { id: 'dt-2', title: 'Ranní kontrola a odvzdušnění stáčecí linky', completed: false, category: 'Výroba' },
-  { id: 'dt-3', title: 'Kontrola čistých KEG sudů na zítřejší závoz', completed: false, category: 'Expedice' },
-  { id: 'dt-4', title: 'Pravidelný odkalovací cyklus CKT / tanků', completed: false, category: 'Sklep' },
+  { id: 'dt-2', title: 'Ranní kontrola stáčecí linky', completed: false, category: 'Výroba' },
+  { id: 'dt-4', title: 'Pravidelný odkalovací cyklus tanků', completed: false, category: 'Sklep' },
 ];
 
 export function getDailyTasks(): { tasks: DailyTask[]; date: string } {

@@ -15,22 +15,7 @@ export type HomeNote = {
 const STORAGE_KEY = 'pivovar_home_notes_v1';
 export const HOME_NOTES_CHANGED_EVENT = 'pivovar_home_notes_changed';
 
-const DEFAULT_NOTES: HomeNote[] = [
-  {
-    id: 'note-1',
-    text: 'Zkontrolovat tlak CO2 a teplotu ve sklepě',
-    completed: false,
-    createdAt: new Date().toISOString(),
-    color: 'yellow',
-  },
-  {
-    id: 'note-2',
-    text: 'Příjem sladu a chmele zítra v 10:00',
-    completed: false,
-    createdAt: new Date().toISOString(),
-    color: 'blue',
-  },
-];
+const DEFAULT_NOTES: HomeNote[] = [];
 
 export function getHomeNotes(): HomeNote[] {
   try {
