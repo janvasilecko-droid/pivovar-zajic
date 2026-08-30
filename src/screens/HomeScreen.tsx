@@ -1047,34 +1047,39 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               const displayTime = formatDurationMs(remaining);
 
               customContent = (
-                <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center select-none overflow-hidden relative">
-                  {/* Progress bar na pozadí */}
+                <div className="w-full h-full flex flex-col items-center justify-between p-1.5 py-2 text-center select-none overflow-hidden relative">
+                  {/* Progress bar na spodním okraji dlaždice */}
                   {running && !done && (
-                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/10 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 transition-all duration-1000 ease-linear rounded-full" style={{ width: `${progress * 100}%` }} />
+                    <div className="absolute bottom-0 inset-x-0 h-1 bg-black/15 overflow-hidden">
+                      <div className="h-full bg-emerald-500 transition-all duration-1000 ease-linear" style={{ width: `${progress * 100}%` }} />
                     </div>
                   )}
-                  {done && <div className="absolute inset-0 bg-rose-500/10 animate-pulse rounded-xl pointer-events-none" />}
+                  {done && <div className="absolute inset-0 bg-rose-500/15 animate-pulse rounded-xl pointer-events-none" />}
 
-                  <div className="flex items-center justify-center gap-1 opacity-80 text-[10px] sm:text-xs font-black uppercase tracking-wider mb-0.5 max-w-full px-1">
-                    <AlarmClock size={12} className={`shrink-0 ${running && !done ? 'text-emerald-700' : done ? 'text-rose-600' : ''}`} />
+                  {/* Horní titulek odpočtu */}
+                  <div className="flex items-center justify-center gap-1 opacity-85 text-[10px] font-black uppercase tracking-wider max-w-full px-1 truncate leading-tight">
+                    <AlarmClock size={11} className={`shrink-0 ${running && !done ? 'text-emerald-700' : done ? 'text-rose-600' : ''}`} />
                     <span className="truncate">{timerLabel}</span>
                   </div>
-                  <div className={`text-2xl sm:text-3xl font-black tabular-nums tracking-tight leading-none my-1.5 ${done ? 'text-rose-600 animate-pulse' : running ? 'text-emerald-800' : ''}`}>
+
+                  {/* Velký digitální čas */}
+                  <div className={`text-xl sm:text-2xl font-mono font-black tabular-nums tracking-tight leading-none my-0.5 ${done ? 'text-rose-600 animate-pulse' : running ? 'text-emerald-800' : ''}`}>
                     {displayTime}
                   </div>
-                  <div className="flex items-center justify-center gap-2 mt-0.5">
+
+                  {/* Spodní akční tlačítko / stav */}
+                  <div className="flex items-center justify-center max-w-full">
                     {done ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-600 text-white text-[10px] font-black shadow-sm">
-                        🔔 Hotovo! Klepni = reset
+                      <span className="inline-flex items-center justify-center gap-1 px-2 py-0.5 rounded-full bg-rose-600 text-white text-[9px] font-black shadow-xs animate-bounce">
+                        🔔 Hotovo (reset)
                       </span>
                     ) : running ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-600/90 text-white text-[10px] font-black shadow-sm">
-                        <Pause size={10} /> Klepni = pauza
+                      <span className="inline-flex items-center justify-center gap-1 px-2 py-0.5 rounded-full bg-emerald-700 text-white text-[9px] font-black shadow-xs">
+                        <Pause size={9} className="shrink-0" /> Pauza
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-emerald-600 text-white text-xs font-black shadow-md animate-pulse">
-                        <Play size={12} className="fill-current" /> Spustit
+                      <span className="inline-flex items-center justify-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black shadow-xs active:scale-95">
+                        <Play size={10} className="fill-current shrink-0 ml-0.5" /> Spustit
                       </span>
                     )}
                   </div>
