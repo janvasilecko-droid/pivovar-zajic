@@ -40,12 +40,13 @@ import {
   type HomeLayout, type TileColor, type TileId, type GroupId, type CountdownTileId,
 } from '../lib/homeLayout';
 import {
-  getKegTimerState, formatDurationMs, getCountdowns, countdownRemainingMs, toggleCountdown, resetCountdown, COUNTDOWN_CHANGED_EVENT, type CountdownTimer,
+  getKegTimerState, formatDurationMs, getCountdowns, saveCountdowns, countdownRemainingMs, toggleCountdown, resetCountdown,
+  startAllCountdowns, pauseAllCountdowns, resetAllCountdowns, COUNTDOWN_CHANGED_EVENT, type CountdownTimer,
   getStopwatchState, saveStopwatchState, stopwatchElapsedMs, STOPWATCH_CHANGED_EVENT, type StopwatchState,
 } from '../lib/stopwatchTimers';
 import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
 import { isMonthlyCleanupPending, MONTHLY_CLEANUP_CHANGED_EVENT } from '../lib/monthlyCleanup';
-import { potvrd } from '../lib/toast';
+import { potvrd, oznam } from '../lib/toast';
 import { requestOrdersAutoImport } from '../lib/ordersFilter';
 import './HomeScreen.css';
 
@@ -460,6 +461,57 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     const id = setInterval(() => forceTick((n) => n + 1), 500);
     return () => clearInterval(id);
   }, [isAnyTimerRunning]);
+
+  function isCountdownPinned(timerId: string) {
+    const cid: CountdownTileId = `cd_${timerId}`;
+    return layout.pages.some((page) => page.includes(cid));
+  }
+
+  function toggleCountdownPin(t: CountdownTimer) {
+    const cid: CountdownTileId = `cd_${t.id}`;
+    let nextLayout: ReturnType<typeof addTile>;
+    if (isCountdownPinned(t.id)) {
+      nextLayout = hideTile(layout, cid);
+      oznam(`Odpočet "${t.label}" byl odebrán z plochy`);
+    } else {
+      nextLayout = addTile(layout, cid, 0);
+      oznam(`Odpočet "${t.label}" byl připnut na plochu`);
+    }
+    setLayout(nextLayout);
+    patchProfile({ home_layout: nextLayout as any });
+    if (user?.id) saveHomeLayout(user.id, nextLayout);
+  }
+
+  function quickCreateCountdown(label: string, minutes: number, autoStart = true, pin = false) {
+    const durationMs = Math.round(minutes * 60000);
+    const newId = `t_${Math.random().toString(36).slice(2, 9)}`;
+    const t: CountdownTimer = {
+      id: newId,
+      label: label.trim() || `${minutes} min`,
+      durationMs: autoStart ? 0 : durationMs,
+      initialDurationMs: durationMs,
+      targetAt: autoStart ? Date.now() + durationMs : null,
+      notifiedAt: null,
+    };
+    const nextList = [...countdowns, t];
+    saveCountdowns(nextList);
+    setCountdowns(nextList);
+
+    if (pin) {
+      const cid: CountdownTileId = `cd_${newId}`;
+      const nextLayout = addTile(layout, cid, 0);
+      setLayout(nextLayout);
+      patchProfile({ home_layout: nextLayout as any });
+      if (user?.id) saveHomeLayout(user.id, nextLayout);
+      oznam(`⏱️ „${t.label}" ${autoStart ? 'spuštěn a ' : ''}přidán na plochu`);
+    } else {
+      oznam(`⏱️ „${t.label}" ${autoStart ? 'spuštěn' : 'vytvořen'}`);
+    }
+  }
+
+  const [qaNewTimerLabel, setQaNewTimerLabel] = useState('');
+  const [qaNewTimerMin, setQaNewTimerMin] = useState('2');
+  const [qaShowAddForm, setQaShowAddForm] = useState(false);
 
   // ---- Rychlé poznámky & Nástěnka na ploše ----
   const [homeNotes, setHomeNotes] = useState<HomeNote[]>(() => getHomeNotes());
@@ -1553,83 +1605,306 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       {quickActionsTile && (
         <Modal
           open
-          onClose={() => setQuickActionsTile(null)}
-          title={`Rychlé akce — ${
+          onClose={() => {
+            setQuickActionsTile(null);
+            setQaShowAddForm(false);
+          }}
+          title={
             isCountdownId(quickActionsTile)
-              ? countdowns.find((c) => c.id === quickActionsTile.slice(3))?.label ?? 'Odpočet'
-              : navById.get(quickActionsTile as Page)?.label ?? 'Modul'
-          }`}
+              ? `Odpočet — ${countdowns.find((c) => c.id === quickActionsTile.slice(3))?.label ?? 'Odpočet'}`
+              : quickActionsTile === 'timer' || quickActionsTile === 'stopwatch'
+              ? '⏱️ Moje odpočty & Časovač'
+              : `Rychlé akce — ${navById.get(quickActionsTile as Page)?.label ?? 'Modul'}`
+          }
         >
-          <div className="space-y-2 pt-1 pb-1">
-            {(isCountdownId(quickActionsTile)
-              ? (() => {
-                  const timerId = quickActionsTile.slice(3);
-                  const timer = countdowns.find((c) => c.id === timerId);
-                  const running = timer?.targetAt !== null;
-                  return [
-                    {
-                      id: 'toggle',
-                      label: running ? 'Pozastavit odpočet' : 'Spustit odpočet',
-                      sublabel: running ? 'Zastaví běžící čas' : 'Spustí zbývající čas',
-                      icon: running ? Pause : Play,
-                      onClick: () => toggleCountdown(timerId),
-                    },
-                    {
-                      id: 'reset',
-                      label: 'Resetovat odpočet',
-                      sublabel: 'Nastaví původní čas',
-                      icon: RotateCcw,
-                      onClick: () => resetCountdown(timerId),
-                    },
-                    {
-                      id: 'open_timers',
-                      label: 'Otevřít Časovač',
-                      sublabel: 'Všechny stopky a odpočty',
-                      icon: AlarmClock,
-                      onClick: () => setPage('timer'),
-                    },
-                    {
-                      id: 'remove',
-                      label: 'Odebrat z plochy',
-                      sublabel: 'Schová dlaždici z domovské obrazovky',
-                      icon: Trash2,
-                      onClick: () => handleHideTile(quickActionsTile),
-                    },
-                  ];
-                })()
-              : QUICK_ACTIONS[quickActionsTile as Page] ?? [
-                  {
-                    id: 'open',
-                    label: `Otevřít ${navById.get(quickActionsTile as Page)?.label ?? ''}`,
-                    sublabel: 'Přejít na hlavní stránku modulu',
-                    icon: navById.get(quickActionsTile as Page)?.icon ?? PlusCircle,
-                    onClick: () => setPage(quickActionsTile as Page),
-                  },
-                ]
-            ).map((qa) => {
-              const QAIcon = qa.icon;
-              return (
+          {quickActionsTile === 'timer' || quickActionsTile === 'stopwatch' ? (
+            <div className="space-y-4 pt-1 pb-1">
+              {/* Rychlý start předvolby */}
+              <div className="space-y-1.5">
+                <div className="text-[11px] font-black uppercase tracking-wider text-neutral-500 flex items-center justify-between">
+                  <span>⚡ Rychlý start odpočtu</span>
+                  <button
+                    type="button"
+                    onClick={() => setQaShowAddForm(!qaShowAddForm)}
+                    className="text-amber-700 hover:text-amber-800 font-bold"
+                  >
+                    {qaShowAddForm ? '✕ Zavřít' : '＋ Vlastní'}
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                  {[
+                    { label: 'Kotel', min: 2 },
+                    { label: 'Chmelení', min: 15 },
+                    { label: 'Chmelovar', min: 60 },
+                    { label: 'Máčení kvasnic', min: 10 },
+                    { label: 'Pauza', min: 5 },
+                  ].map((p) => (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => {
+                        quickCreateCountdown(p.label, p.min, true, false);
+                      }}
+                      className="flex items-center justify-between gap-1.5 px-2.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-950 font-bold text-xs shadow-xs transition active:scale-95 text-left"
+                    >
+                      <span className="truncate">{p.label}</span>
+                      <span className="text-[11px] font-black text-amber-700 bg-amber-200/70 px-1.5 py-0.5 rounded">{p.min}′</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Formulář pro rychlé vytvoření nového odpočtu */}
+              {qaShowAddForm && (
+                <div className="p-3 rounded-xl bg-neutral-50 border border-neutral-200 space-y-2">
+                  <div className="text-xs font-bold text-neutral-800">＋ Nový vlastní odpočet</div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Název (např. Varna)"
+                      value={qaNewTimerLabel}
+                      onChange={(e) => setQaNewTimerLabel(e.target.value)}
+                      className="flex-1 min-w-0 border border-neutral-300 rounded-lg px-2.5 py-1.5 text-xs bg-white"
+                    />
+                    <input
+                      type="number"
+                      min="1"
+                      max="300"
+                      value={qaNewTimerMin}
+                      onChange={(e) => setQaNewTimerMin(e.target.value)}
+                      className="w-16 border border-neutral-300 rounded-lg px-2 py-1.5 text-xs text-center font-bold bg-white"
+                      title="Minuty"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const m = Number(qaNewTimerMin);
+                        if (!m || m <= 0) return;
+                        quickCreateCountdown(qaNewTimerLabel || `${m} min`, m, true, false);
+                        setQaNewTimerLabel('');
+                        setQaNewTimerMin('2');
+                        setQaShowAddForm(false);
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-black shrink-0"
+                    >
+                      Spustit
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Seznam nastavených odpočtů */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-wider text-neutral-500">
+                  <span>Moje aktivní a nastavené odpočty ({countdowns.length})</span>
+                  {countdowns.length > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          startAllCountdowns();
+                          setCountdowns(getCountdowns());
+                          oznam('Všechny odpočty spuštěny');
+                        }}
+                        className="text-[10px] text-emerald-700 hover:underline font-black"
+                      >
+                        Spustit vše
+                      </button>
+                      <span>•</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          pauseAllCountdowns();
+                          setCountdowns(getCountdowns());
+                          oznam('Všechny odpočty pozastaveny');
+                        }}
+                        className="text-[10px] text-amber-700 hover:underline font-black"
+                      >
+                        Pauza vše
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {countdowns.length === 0 ? (
+                  <div className="p-4 rounded-xl border border-dashed border-neutral-300 text-center text-xs text-neutral-500 bg-neutral-50">
+                    Zatím nemáš vytvořený žádný odpočet. Vyber si nahoře rychlý start nebo klepni na <strong>＋ Vlastní</strong>.
+                  </div>
+                ) : (
+                  <div className="space-y-1.5 max-h-[45vh] overflow-y-auto pr-0.5">
+                    {countdowns.map((t) => {
+                      const rem = countdownRemainingMs(t);
+                      const isRun = t.targetAt !== null;
+                      const isDone = isRun && rem === 0;
+                      const pinned = isCountdownPinned(t.id);
+
+                      return (
+                        <div
+                          key={t.id}
+                          className={`flex items-center justify-between gap-2 p-2.5 rounded-xl border transition ${
+                            isDone
+                              ? 'bg-rose-50 border-rose-300 shadow-xs'
+                              : isRun
+                              ? 'bg-amber-50/80 border-amber-300 shadow-xs'
+                              : 'bg-white border-neutral-200'
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="font-black text-xs text-neutral-900 truncate flex items-center gap-1.5">
+                              <AlarmClock size={14} className={isRun && !isDone ? 'text-amber-600 animate-pulse' : 'text-neutral-500'} />
+                              <span className="truncate">{t.label}</span>
+                            </div>
+                            <div className={`text-sm font-mono font-black tabular-nums mt-0.5 ${isDone ? 'text-rose-600 animate-pulse' : isRun ? 'text-amber-700' : 'text-neutral-600'}`}>
+                              {formatDurationMs(rem)}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                toggleCountdown(t.id);
+                                setCountdowns(getCountdowns());
+                              }}
+                              className={`px-2.5 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 shadow-xs transition ${
+                                isDone
+                                  ? 'bg-rose-600 text-white hover:bg-rose-500'
+                                  : isRun
+                                  ? 'bg-amber-500 text-neutral-950 hover:bg-amber-400'
+                                  : 'bg-emerald-600 text-white hover:bg-emerald-500'
+                              }`}
+                            >
+                              {isDone ? (
+                                <><RotateCcw size={12} /> Reset</>
+                              ) : isRun ? (
+                                <><Pause size={12} /> Pauza</>
+                              ) : (
+                                <><Play size={12} className="fill-current" /> Start</>
+                              )}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                resetCountdown(t.id);
+                                setCountdowns(getCountdowns());
+                              }}
+                              title="Resetovat čas"
+                              className="p-1.5 text-neutral-500 hover:text-neutral-800 bg-neutral-100 hover:bg-neutral-200 rounded-lg"
+                            >
+                              <RotateCcw size={13} />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => toggleCountdownPin(t)}
+                              title={pinned ? 'Odebrat z domovské plochy' : 'Připnout na domovskou plochu jako dlaždici'}
+                              className={`p-1.5 rounded-lg border text-xs font-bold transition ${
+                                pinned ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-neutral-50 text-neutral-400 border-neutral-200 hover:bg-neutral-100'
+                              }`}
+                            >
+                              <Pin size={13} className={pinned ? 'rotate-45 fill-current text-amber-700' : ''} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Odkaz do celé obrazovky */}
+              <div className="pt-2 border-t border-neutral-100 flex items-center justify-between">
                 <button
-                  key={qa.id}
                   type="button"
                   onClick={() => {
                     setQuickActionsTile(null);
-                    qa.onClick();
+                    setPage('timer');
                   }}
-                  className="w-full flex items-center gap-3.5 p-3 rounded-xl border border-neutral-200/80 bg-neutral-50/70 hover:bg-white hover:border-amber-400/80 hover:shadow-sm active:scale-[0.99] transition text-left"
+                  className="text-xs font-bold text-neutral-700 hover:text-neutral-950 flex items-center gap-1.5"
                 >
-                  <span className="w-10 h-10 shrink-0 grid place-items-center rounded-xl bg-amber-50 text-amber-900 border border-amber-200/60 shadow-xs">
-                    <QAIcon size={20} />
-                  </span>
-                  <span className="flex-1 min-w-0">
-                    <span className="block font-bold text-sm text-neutral-900 leading-snug">{qa.label}</span>
-                    {qa.sublabel && <span className="block text-xs text-neutral-500 font-medium mt-0.5 leading-tight">{qa.sublabel}</span>}
-                  </span>
-                  <ChevronRight size={18} className="text-neutral-400 shrink-0" />
+                  <AlarmClock size={15} /> Otevřít celé nastavení časovačů ➔
                 </button>
-              );
-            })}
-          </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2 pt-1 pb-1">
+              {(isCountdownId(quickActionsTile)
+                ? (() => {
+                    const timerId = quickActionsTile.slice(3);
+                    const timer = countdowns.find((c) => c.id === timerId);
+                    const running = timer?.targetAt !== null;
+                    return [
+                      {
+                        id: 'toggle',
+                        label: running ? 'Pozastavit odpočet' : 'Spustit odpočet',
+                        sublabel: running ? 'Zastaví běžící čas' : 'Spustí zbývající čas',
+                        icon: running ? Pause : Play,
+                        onClick: () => {
+                          toggleCountdown(timerId);
+                          setCountdowns(getCountdowns());
+                        },
+                      },
+                      {
+                        id: 'reset',
+                        label: 'Resetovat odpočet',
+                        sublabel: 'Nastaví původní čas',
+                        icon: RotateCcw,
+                        onClick: () => {
+                          resetCountdown(timerId);
+                          setCountdowns(getCountdowns());
+                        },
+                      },
+                      {
+                        id: 'open_timers',
+                        label: 'Otevřít Časovač',
+                        sublabel: 'Všechny stopky a odpočty',
+                        icon: AlarmClock,
+                        onClick: () => setPage('timer'),
+                      },
+                      {
+                        id: 'remove',
+                        label: 'Odebrat z plochy',
+                        sublabel: 'Schová dlaždici z domovské obrazovky',
+                        icon: Trash2,
+                        onClick: () => handleHideTile(quickActionsTile),
+                      },
+                    ];
+                  })()
+                : QUICK_ACTIONS[quickActionsTile as Page] ?? [
+                    {
+                      id: 'open',
+                      label: `Otevřít ${navById.get(quickActionsTile as Page)?.label ?? ''}`,
+                      sublabel: 'Přejít na hlavní stránku modulu',
+                      icon: navById.get(quickActionsTile as Page)?.icon ?? PlusCircle,
+                      onClick: () => setPage(quickActionsTile as Page),
+                    },
+                  ]
+              ).map((qa) => {
+                const QAIcon = qa.icon;
+                return (
+                  <button
+                    key={qa.id}
+                    type="button"
+                    onClick={() => {
+                      setQuickActionsTile(null);
+                      qa.onClick();
+                    }}
+                    className="w-full flex items-center gap-3.5 p-3 rounded-xl border border-neutral-200/80 bg-neutral-50/70 hover:bg-white hover:border-amber-400/80 hover:shadow-sm active:scale-[0.99] transition text-left"
+                  >
+                    <span className="w-10 h-10 shrink-0 grid place-items-center rounded-xl bg-amber-50 text-amber-900 border border-amber-200/60 shadow-xs">
+                      <QAIcon size={20} />
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block font-bold text-sm text-neutral-900 leading-snug">{qa.label}</span>
+                      {qa.sublabel && <span className="block text-xs text-neutral-500 font-medium mt-0.5 leading-tight">{qa.sublabel}</span>}
+                    </span>
+                    <ChevronRight size={18} className="text-neutral-400 shrink-0" />
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </Modal>
       )}
 
