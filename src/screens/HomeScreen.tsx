@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import {
   CalendarX2, Download, Check, ChevronLeft, ChevronRight, LogOut, Palette, Plus, Search, SlidersHorizontal, Trash2, TriangleAlert, X,
   Truck, ClipboardList, MessageCircle, PlusCircle, Snowflake, FlaskConical, CalendarDays, BarChart3, Package as PackageIcon, TrendingDown, GlassWater, BookOpen, Droplet, Car, FileText, ClipboardCheck, Shield, Store, Receipt, MapPin, Beer as BeerIcon, Tag, Sparkles, Compass, Wheat, Zap, ArrowLeftRight, StickyNote,
-  AlarmClock, Play, Pause, RotateCcw, Pin, Radio, SkipForward
+  AlarmClock, Play, Pause, RotateCcw, Pin, Radio, SkipForward, Flame,
 } from 'lucide-react';
 import { NAV, EXTRA_NAV, type Page, type NavItem } from '../components/Layout';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
@@ -40,7 +40,10 @@ import {
   GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK,
   type HomeLayout, type TileColor, type TileId, type GroupId, type CountdownTileId,
 } from '../lib/homeLayout';
-import { getKegTimerState, formatDurationMs, getCountdowns, countdownRemainingMs, toggleCountdown, resetCountdown, COUNTDOWN_CHANGED_EVENT, type CountdownTimer } from '../lib/stopwatchTimers';
+import {
+  getKegTimerState, formatDurationMs, getCountdowns, countdownRemainingMs, toggleCountdown, resetCountdown, COUNTDOWN_CHANGED_EVENT, type CountdownTimer,
+  getStopwatchState, saveStopwatchState, stopwatchElapsedMs, STOPWATCH_CHANGED_EVENT, type StopwatchState,
+} from '../lib/stopwatchTimers';
 import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
 import { isMonthlyCleanupPending, MONTHLY_CLEANUP_CHANGED_EVENT } from '../lib/monthlyCleanup';
 import { potvrd } from '../lib/toast';
@@ -446,12 +449,21 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     return () => window.removeEventListener(COUNTDOWN_CHANGED_EVENT, handleUpdate);
   }, []);
 
-  const hasRunningCountdowns = countdowns.some((c) => c.targetAt !== null);
+  // ---- Stopky na ploše ----
+  const [stopwatchState, setStopwatchState] = useState<StopwatchState>(() => getStopwatchState());
   useEffect(() => {
-    if (!hasRunningCountdowns) return;
-    const id = setInterval(() => forceTick((n) => n + 1), 1000);
+    const handleUpdate = () => setStopwatchState(getStopwatchState());
+    window.addEventListener(STOPWATCH_CHANGED_EVENT, handleUpdate);
+    return () => window.removeEventListener(STOPWATCH_CHANGED_EVENT, handleUpdate);
+  }, []);
+
+  const hasRunningCountdowns = countdowns.some((c) => c.targetAt !== null);
+  const isAnyTimerRunning = hasRunningCountdowns || stopwatchState.running;
+  useEffect(() => {
+    if (!isAnyTimerRunning) return;
+    const id = setInterval(() => forceTick((n) => n + 1), 500);
     return () => clearInterval(id);
-  }, [hasRunningCountdowns]);
+  }, [isAnyTimerRunning]);
 
   // ---- Rychlé poznámky & Nástěnka na ploše ----
   const [homeNotes, setHomeNotes] = useState<HomeNote[]>(() => getHomeNotes());
@@ -729,6 +741,13 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
 
   return (
     <div className="flex flex-col gap-4 min-h-full">
+      {/* Živý pruh varny / stopky / odpočet — zobrazí se nahoře jen když běží stopky nebo odpočet */}
+      <BrewKettleTopBanner
+        stopwatchState={stopwatchState}
+        countdowns={countdowns}
+        setPage={setPage}
+      />
+
       <div className="hs-launcher">
         {editMode && (
           <div className="hs-controls">
@@ -1642,6 +1661,156 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
         onClose={() => setShowSearchModal(false)}
         onSelectPage={setPage}
       />
+    </div>
+  );
+}
+
+/**
+ * Živý pruh varny / kotel a odpočet na domovské obrazovce:
+ * Zobrazuje se nahoře pouze tehdy, když běží stopky nebo odpočet.
+ * Obsahuje ikonu pivovarského kotle s animací páry/plamene,
+ * velký digitální čas, progress bar a přímá tlačítka Pauza/Start.
+ */
+function BrewKettleTopBanner({
+  stopwatchState,
+  countdowns,
+  setPage,
+}: {
+  stopwatchState: StopwatchState;
+  countdowns: CountdownTimer[];
+  setPage: (p: Page) => void;
+}) {
+  const isStopwatchActive = stopwatchState.running || stopwatchState.elapsedBeforeMs > 0;
+  const runningCountdown = countdowns.find((c) => c.targetAt !== null);
+  const doneCountdown = countdowns.find((c) => c.targetAt !== null && countdownRemainingMs(c) === 0);
+
+  if (!isStopwatchActive && !runningCountdown && !doneCountdown) return null;
+
+  return (
+    <div
+      onClick={() => setPage(runningCountdown || doneCountdown ? 'timer' : 'stopwatch')}
+      className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-950/90 via-neutral-900/95 to-amber-950/90 border-2 border-amber-500/50 p-3.5 shadow-xl backdrop-blur-md cursor-pointer hover:border-amber-400 transition group select-none text-white animate-in fade-in duration-300"
+    >
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/15 via-transparent to-transparent pointer-events-none" />
+      <div className="relative flex items-center justify-between gap-3">
+        {/* Kotel ikona a animace plamene/pary */}
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="relative flex items-center justify-center w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-400/50 shrink-0 shadow-inner group-hover:scale-105 transition-transform">
+            <svg
+              viewBox="0 0 24 24"
+              className="w-7 h-7 text-amber-400 fill-amber-400/20"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M8 3c0 1.5-1 2-1 3" className="animate-pulse opacity-80" />
+              <path d="M12 2c0 1.5-1 2-1 3" className="animate-bounce opacity-100 text-amber-300" />
+              <path d="M16 3c0 1.5-1 2-1 3" className="animate-pulse opacity-80" />
+              <path d="M5 8h14" />
+              <path d="M10 8V6a2 2 0 0 1 4 0v2" />
+              <path d="M5 8v6a6 6 0 0 0 6 6h2a6 6 0 0 0 6-6V8" />
+              <path d="M3 10h2" />
+              <path d="M19 10h2" />
+            </svg>
+            <span className="absolute -top-1 -right-1 flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500" />
+            </span>
+          </div>
+
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 font-black text-xs uppercase tracking-wider text-amber-300">
+              <Flame size={14} className="text-orange-400 animate-pulse shrink-0" />
+              <span className="truncate">
+                {doneCountdown
+                  ? `⏰ ${doneCountdown.label} — HOTOVO!`
+                  : runningCountdown
+                  ? `Varna / Kotel: ${runningCountdown.label}`
+                  : stopwatchState.running
+                  ? 'Varna / Kotel: Stopky běží'
+                  : 'Stopky pozastaveny'}
+              </span>
+            </div>
+            <div className="text-[11px] text-neutral-300 font-semibold truncate">
+              {doneCountdown
+                ? 'Čas vypršel, klepnutím otevřít'
+                : runningCountdown
+                ? 'Živý odpočet na pozadí'
+                : 'Měření času varny na pozadí'}
+            </div>
+          </div>
+        </div>
+
+        {/* Velký digitální čas a rychlé akce */}
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="text-right">
+            <div className={`font-mono font-black text-xl sm:text-2xl tracking-tight tabular-nums ${doneCountdown ? 'text-rose-400 animate-pulse' : 'text-amber-200'}`}>
+              {doneCountdown
+                ? '00:00'
+                : runningCountdown
+                ? formatDurationMs(countdownRemainingMs(runningCountdown))
+                : formatDurationMs(stopwatchElapsedMs(stopwatchState))}
+            </div>
+            {runningCountdown && (runningCountdown.initialDurationMs || runningCountdown.durationMs) && (
+              <div className="w-24 sm:w-32 bg-white/20 rounded-full h-1.5 mt-1 overflow-hidden">
+                <div
+                  className="bg-amber-400 h-full rounded-full transition-all duration-300"
+                  style={{
+                    width: `${Math.max(0, Math.min(100, (1 - countdownRemainingMs(runningCountdown) / (runningCountdown.initialDurationMs || runningCountdown.durationMs)) * 100))}%`,
+                  }}
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+            {runningCountdown ? (
+              <button
+                type="button"
+                onClick={() => toggleCountdown(runningCountdown.id)}
+                className="p-2 rounded-xl bg-amber-500/30 hover:bg-amber-500/50 text-amber-200 border border-amber-500/40 transition active:scale-95"
+                title="Pozastavit / Spustit odpočet"
+              >
+                <Pause size={16} />
+              </button>
+            ) : isStopwatchActive ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (stopwatchState.running) {
+                    saveStopwatchState({
+                      ...stopwatchState,
+                      running: false,
+                      elapsedBeforeMs: stopwatchElapsedMs(stopwatchState),
+                      startedAt: null,
+                    });
+                  } else {
+                    saveStopwatchState({
+                      ...stopwatchState,
+                      running: true,
+                      startedAt: Date.now(),
+                    });
+                  }
+                }}
+                className="p-2 rounded-xl bg-amber-500/30 hover:bg-amber-500/50 text-amber-200 border border-amber-500/40 transition active:scale-95"
+                title={stopwatchState.running ? 'Pozastavit' : 'Pokračovat'}
+              >
+                {stopwatchState.running ? <Pause size={16} /> : <Play size={16} />}
+              </button>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={() => setPage(runningCountdown || doneCountdown ? 'timer' : 'stopwatch')}
+              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition active:scale-95"
+              title="Otevřít stopky / časovač"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

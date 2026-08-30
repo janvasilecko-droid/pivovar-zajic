@@ -18,6 +18,8 @@ export type StopwatchState = {
 const STOPWATCH_KEY = 'timers_stopwatch_v1';
 const DEFAULT_STOPWATCH: StopwatchState = { running: false, startedAt: null, elapsedBeforeMs: 0, laps: [] };
 
+export const STOPWATCH_CHANGED_EVENT = 'timers_stopwatch_changed';
+
 export function getStopwatchState(): StopwatchState {
   try {
     const saved = localStorage.getItem(STOPWATCH_KEY);
@@ -27,7 +29,10 @@ export function getStopwatchState(): StopwatchState {
 }
 
 export function saveStopwatchState(state: StopwatchState) {
-  try { localStorage.setItem(STOPWATCH_KEY, JSON.stringify(state)); } catch {}
+  try {
+    localStorage.setItem(STOPWATCH_KEY, JSON.stringify(state));
+    window.dispatchEvent(new CustomEvent(STOPWATCH_CHANGED_EVENT, { detail: state }));
+  } catch {}
 }
 
 /** Aktuální nasčítaný čas v ms — počítá se z reálného času, funguje i bez re-renderu. */
