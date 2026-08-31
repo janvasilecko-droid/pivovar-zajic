@@ -861,3 +861,18 @@
 @media (prefers-reduced-motion: reduce) {
   .hs-tile.hs-picked-up { transition: none !important; }
 }
+
+/* 💬 Dlaždice „WhatsApp — k parsování" v horní řadě plochy.
+   Zelená WhatsAppu, ať je poznat na první pohled; ukazuje se jen když
+   nějaká zpráva čeká, takže si tu barvu může dovolit. */
+.hs-tile.hs-tile-whatsapp {
+  background: #25D366 !important;
+  color: #0f172a !important;
+  border-color: #1da851 !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+.hs-tile.hs-tile-whatsapp .hs-badge {
+  background: #e11d48;
+  color: #fff;
+}

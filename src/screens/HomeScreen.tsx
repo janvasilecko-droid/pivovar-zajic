@@ -49,6 +49,7 @@ import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionChec
 import { isMonthlyCleanupPending, MONTHLY_CLEANUP_CHANGED_EVENT } from '../lib/monthlyCleanup';
 import { potvrd, oznam } from '../lib/toast';
 import { requestOrdersAutoImport } from '../lib/ordersFilter';
+import { fetchPendingWhatsAppCount, subscribeToWhatsAppMessages } from '../lib/whatsappApi';
 import './HomeScreen.css';
 
 /** true = jméno přednastaveného odstínu (CSS třída c-*); false = vlastní hex barva (inline styl). */
@@ -519,6 +520,18 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     const otevri = () => { if (consumeOpenHomeNotesRequest()) setShowNotesModal(true); };
     window.addEventListener(OPEN_HOME_NOTES_EVENT, otevri);
     return () => window.removeEventListener(OPEN_HOME_NOTES_EVENT, otevri);
+  }, []);
+
+  // 💬 Kolik WhatsApp zpráv čeká na převod na objednávku. Hlásí to dlaždice
+  // v horní řadě (viz níž) — dřív odznak v hlavičce, ta je pryč.
+  const [pendingWhatsApp, setPendingWhatsApp] = useState(0);
+  useEffect(() => {
+    const nacti = () => { void fetchPendingWhatsAppCount().then(setPendingWhatsApp).catch(() => {}); };
+    nacti();
+    // Zpráva může přijít kdykoli — realtime na tabulku příchozích zpráv.
+    // Funkce vrací rovnou odhlašovací callback, ne kanál.
+    const odhlas = subscribeToWhatsAppMessages(() => nacti());
+    return odhlas;
   }, []);
 
   // ---- Pivovarské Rádio na ploše ----
@@ -1071,6 +1084,25 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
         <div className="hs-fixed-row" style={{ ['--hs-tile-alpha' as any]: layout.tileOpacity, ['--hs-tile-gap' as any]: `${layout.tileGap}px` }}>
           {currentPageIndex === 0 && (
             <>
+              {/* 💬 Nové WhatsApp zprávy čekající na parsování. Dřív to hlásil
+                  odznak v hlavičce na každé obrazovce; hlavička je pryč, a
+                  tohle je jediná věc z ní, která se opravdu hodí vidět —
+                  objednávka, která přišla a ještě není zpracovaná. Ukáže se
+                  jen když nějaká čeká, jinak nezabírá místo. */}
+              {pendingWhatsApp > 0 && (
+                <button
+                  type="button"
+                  className="hs-tile hs-tile-whatsapp vlastni-vyska"
+                  onClick={() => { requestOrdersAutoImport(); setPage('orders'); }}
+                  title="Nové zprávy k převodu na objednávky"
+                >
+                  <div className="hs-tile-icon-box">
+                    <MessageCircle />
+                  </div>
+                  <div className="hs-lbl">WhatsApp — k parsování</div>
+                  <span className="hs-badge">{pendingWhatsApp > 99 ? '99+' : pendingWhatsApp}</span>
+                </button>
+              )}
               {vehicleAlerts.length > 0 && (
                 <button type="button" className="hs-tile hs-tile-alert vlastni-vyska" onClick={() => setPage('vehicles')}>
                   <div className="hs-tile-icon-box">
