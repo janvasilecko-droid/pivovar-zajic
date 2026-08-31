@@ -7,7 +7,7 @@ import { exportHistoryDetailToExcel } from '../lib/excel';
 import { AlertCircle, AlertTriangle, Beer as BeerIcon, Calendar, Camera, ClipboardCheck, ClipboardList, Download, Check, CheckCircle2, Lock, Package as PackageIcon, Plus, RefreshCw, RotateCcw, Save } from 'lucide-react';
 import { CountFromImage } from '../components/CountFromImage';
 import { computeInventoryReconciliation } from '../lib/inventoryHelper';
-import { akceProRozdil, datumDoplnku, jeSud, planDostaceni, stoceniZapis } from '../lib/inventoryFix';
+import { akceProRozdil, datumDoplnku, jeSud, nabidnoutMinulyMesic, nazevMesice, planDostaceni, stoceniZapis } from '../lib/inventoryFix';
 import { saveBottlingPlan } from '../lib/bottlingPlans';
 import { businessDateISO } from '../lib/businessDate';
 import { buildMovements, expectedForMonth, stockAtStartOfDay, type StockLine } from '../lib/stockLedger';
@@ -793,7 +793,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       if (!zapis) return;
       const kam = zapis.table === 'kegging' ? 'Stáčení KEG' : 'Stáčení lahví';
       const ok = await potvrd(
-        `${popis}\n\nNapočítáno o ${r.diffQty} ks víc, než sklad čeká — nejspíš se stočilo a nezapsalo.\n\nZapsat ${r.diffQty} ks do „${kam}" k datu ${zapis.row.entry_date}?`,
+        `${popis}\n\nNapočítáno o ${r.diffQty} ks víc, než sklad čeká — nejspíš se stočilo a nezapsalo.\n\nZapsat ${r.diffQty} ks do „${kam}" k ${zapis.row.entry_date} — tedy do inventury za ${nazevMesice(currentMonth)}?`,
         { titulek: 'Doplnit chybějící stočení', potvrdit: 'Ano, zapsat' },
       );
       if (!ok) return;
@@ -1058,6 +1058,36 @@ function exportInventoryExcel() {
       {/* TAB 1: FYZICKÁ INVENTURA & ROZDÍLY */}
       {activeTab === 'inventory' && (
         <div className="space-y-6">
+          {/* 📅 Obrazovka se otevírá na dnešním měsíci, ale první dny v měsíci
+              se skoro vždycky dopočítává ten předchozí. Bez upozornění by
+              srpnová inventura zadaná 3. 9. spadla do září — a doplněné
+              stáčení s ní. */}
+          {(() => {
+            const minuly = nabidnoutMinulyMesic(currentMonth, businessDateISO());
+            if (!minuly) return null;
+            return (
+              <div className="rounded border-2 border-sky-400 bg-sky-50 p-4 flex items-start gap-3">
+                <Calendar size={20} className="text-sky-600 shrink-0 mt-0.5" />
+                <div className="min-w-0 flex-1">
+                  <div className="font-display font-black text-sky-900 text-sm">
+                    Počítáš inventuru za {nazevMesice(currentMonth)} — nechtěl jsi {nazevMesice(minuly)}?
+                  </div>
+                  <p className="text-[11px] font-bold text-sky-800 mt-1">
+                    {nazevMesice(currentMonth)} ještě neskončil. Inventura se obvykle dělá za měsíc,
+                    který právě skončil — a doplněné stáčení se připisuje k jeho poslednímu dni.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentMonth(minuly)}
+                    className="mt-2.5 px-3 py-2 rounded bg-sky-600 hover:bg-sky-700 text-white font-black text-xs transition"
+                  >
+                    Přepnout na {nazevMesice(minuly)}
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* ⚠️ Nespočítané položky. Právě tohle stálo za deficitem u 34 z 56
               položek: schválená inventura za červenec 2026 měla jen 19 řádků,
               zbytek se nikdy nespočítal a skladová kniha u nich dál odečítala

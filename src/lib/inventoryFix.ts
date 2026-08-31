@@ -53,6 +53,33 @@ export function datumDoplnku(monthKey: string): string {
   return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
 }
 
+const MESICE = [
+  'leden', 'únor', 'březen', 'duben', 'květen', 'červen',
+  'červenec', 'srpen', 'září', 'říjen', 'listopad', 'prosinec',
+];
+
+/** „2026-08" → „srpen 2026". Do potvrzení, ať je omyl v měsíci vidět na první pohled. */
+export function nazevMesice(monthKey: string): string {
+  const [y, m] = monthKey.split('-').map(Number);
+  return `${MESICE[m - 1] ?? monthKey} ${y}`;
+}
+
+/**
+ * Dělá se inventura za měsíc, který ještě neskončil, přestože ten minulý je
+ * čerstvě za námi? Obrazovka se otevírá na dnešním měsíci, ale první dny v
+ * měsíci se skoro vždycky dopočítává ten předchozí — a kdyby si toho nikdo
+ * nevšiml, doplněné stáčení by spadlo do špatného měsíce.
+ */
+export function nabidnoutMinulyMesic(vybranyMesic: string, dnesISO: string): string | null {
+  const dnesMesic = dnesISO.slice(0, 7);
+  if (vybranyMesic !== dnesMesic) return null;
+  const den = Number(dnesISO.slice(8, 10));
+  if (den > 10) return null;
+  const [y, m] = dnesMesic.split('-').map(Number);
+  const predchozi = new Date(Date.UTC(y, m - 2, 1));
+  return `${predchozi.getUTCFullYear()}-${String(predchozi.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
 export type StoceniZapis = {
   /** Do které tabulky záznam patří — sudy do `kegging`, lahve do `bottling`. */
   table: 'kegging' | 'bottling';

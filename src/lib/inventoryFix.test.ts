@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { akceProRozdil, datumDoplnku, jeSud, planDostaceni, stoceniZapis, type InventuraPolozka } from './inventoryFix';
+import { akceProRozdil, datumDoplnku, jeSud, nabidnoutMinulyMesic, nazevMesice, planDostaceni, stoceniZapis, type InventuraPolozka } from './inventoryFix';
 
 const lahev: InventuraPolozka = {
   beer_id: 'b1', beer_name: 'Ležák 12°',
@@ -47,6 +47,35 @@ describe('datumDoplnku', () => {
 
   it('nezáleží na tom, kdy se inventura doklikala', () => {
     expect(datumDoplnku('2026-12')).toBe('2026-12-31');
+  });
+
+  // Pravidlo od uživatele: rozhoduje INVENTOVANÝ měsíc, ne den zápisu.
+  // Inventura za srpen se připíše k srpnu, ať se dodělá 31. 8. nebo 3. 9.
+  it('inventura za srpen dodělaná v září pořád patří k srpnu', () => {
+    expect(datumDoplnku('2026-08')).toBe('2026-08-31');
+  });
+});
+
+describe('nazevMesice', () => {
+  it('píše měsíc česky, ať je omyl vidět', () => {
+    expect(nazevMesice('2026-08')).toBe('srpen 2026');
+    expect(nazevMesice('2026-01')).toBe('leden 2026');
+    expect(nazevMesice('2026-12')).toBe('prosinec 2026');
+  });
+});
+
+describe('nabidnoutMinulyMesic', () => {
+  it('první dny měsíce upozorní, že jde nejspíš o ten minulý', () => {
+    expect(nabidnoutMinulyMesic('2026-09', '2026-09-03')).toBe('2026-08');
+    expect(nabidnoutMinulyMesic('2026-01', '2026-01-02')).toBe('2025-12');
+  });
+
+  it('mlčí, když je vybraný jiný měsíc než dnešní', () => {
+    expect(nabidnoutMinulyMesic('2026-08', '2026-09-03')).toBeNull();
+  });
+
+  it('mlčí i v druhé polovině měsíce — to už se počítá ten probíhající', () => {
+    expect(nabidnoutMinulyMesic('2026-09', '2026-09-20')).toBeNull();
   });
 });
 
