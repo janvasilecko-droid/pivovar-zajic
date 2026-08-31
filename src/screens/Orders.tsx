@@ -6,6 +6,8 @@ import { AlertTriangle, ArrowRight, Ban, ChevronLeft, ChevronRight, Beer as Beer
 import { Beer, EntryRow, Package, Place, beerBg, beerName, beerText, fetchAllRows, formatPackageLabel, pkgBg, supabase, useRealtime } from '../lib/supabase';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
+import { schodkyObjednavky, zbytekKeKonciTydne } from '../lib/tydenniZbytek';
+import type { StockSources } from '../lib/stockLedger';
 import { consumeOrdersItemFilter, consumeOrdersAutoImportRequest, consumeOrdersOverdueFilter, consumeOrdersPendingFilter, ORDERS_AUTO_IMPORT_EVENT } from '../lib/ordersFilter';
 import { businessDateISO } from '../lib/businessDate';
 import { computeVariantTotals, type VariantTotalsResult } from '../lib/variantTotals';
@@ -121,7 +123,15 @@ export default function Orders({
   const [fasovaniRows, setFasovaniRows] = useState<EntryRow[]>([]);
   const [prodejnaRows, setProdejnaRows] = useState<EntryRow[]>([]);
   const [akceRows, setAkceRows] = useState<AkceRow[]>([]);
-  const [zavozDeductionRows, setZavozDeductionRows] = useState<{ order_item_id: string | null }[]>([]);
+  // Přefuk a dorovnání inventury: odznak „Chybí skladem" bez nich ukazoval
+  // vyšší sklad, než jaký byl. Přefuk 20× 50l na 33× 30l se v něm neprojevil
+  // vůbec, dorovnané manko taky ne.
+  const [prefukRows, setPrefukRows] = useState<any[]>([]);
+  const [adjustmentRows, setAdjustmentRows] = useState<any[]>([]);
+  // Nese i beer_id/package_id/quantity/deduct_date — skladová kniha z toho
+  // počítá výdej na objednávku, `order_item_id` slouží k poznání, že položka
+  // už fyzicky odjela.
+  const [zavozDeductionRows, setZavozDeductionRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<Order | null>(null);
 
@@ -771,13 +781,19 @@ export default function Orders({
       supabase.from('places').select('*').order('name'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
-      fetchAllRows('bottling', 'entry_date,beer_id,quantity'),
-      fetchAllRows('kegging', 'entry_date,beer_id,quantity'),
-      fetchAllRows('inventory', 'entry_date,beer_id,quantity'),
-      fetchAllRows('writeoffs', 'entry_date,beer_id,quantity'),
-      fetchAllRows('zavoz_deductions', 'order_item_id'),
-      fetchAllRows('fasovani', 'entry_date,beer_id,quantity'),
-      fetchAllRows('fasovani_private', 'entry_date,beer_id,quantity'),
+      // Sloupce musí stačit SKLADOVÉ KNIZE (lib/stockLedger.ts) — ta bez
+      // `package_id` řádek zahodí. Dřív se tu načítalo jen `beer_id`, protože
+      // starý odznak sčítal všechny obaly jednoho piva dohromady; po přechodu
+      // na skladovou knihu by tím odznak tiše přestal vidět cokoli.
+      // Inventura potřebuje i `note` (rozlišuje počáteční stav od napočítaného),
+      // stáčení lahví `kegs_used*` (sudy spotřebované na lahve).
+      fetchAllRows('bottling', 'entry_date,beer_id,package_id,quantity,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
+      fetchAllRows('kegging', 'entry_date,beer_id,package_id,quantity'),
+      fetchAllRows('inventory', 'entry_date,beer_id,package_id,quantity,note'),
+      fetchAllRows('writeoffs', 'entry_date,beer_id,package_id,quantity'),
+      fetchAllRows('zavoz_deductions', 'order_item_id,deduct_date,beer_id,package_id,quantity'),
+      fetchAllRows('fasovani', 'entry_date,beer_id,package_id,quantity'),
+      fetchAllRows('fasovani_private', 'entry_date,beer_id,package_id,quantity'),
       fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
     ]);
     const rawPk = (pk as Package[]) ?? [];
@@ -794,6 +810,15 @@ export default function Orders({
     setZavozDeductionRows((zd as { order_item_id: string | null }[]) ?? []);
     setFasovaniRows((fa as EntryRow[]) ?? []); setProdejnaRows((fp as EntryRow[]) ?? []);
     setAkceRows((ak as AkceRow[]) ?? []);
+    // Přefuk a dorovnání se dotahují zvlášť — odznak „Chybí skladem" je
+    // potřebuje, ale zbytek obrazovky ne, tak ať nezdržují první vykreslení.
+    void Promise.all([
+      fetchAllRows('keg_prefuk', 'beer_id,from_package_id,to_package_id,from_count,to_count,entry_date'),
+      fetchAllRows('inventory_adjustments', 'beer_id,package_id,entry_date,quantity'),
+    ]).then(([pf, adj]) => {
+      setPrefukRows((pf.data as any[]) ?? []);
+      setAdjustmentRows((adj.data as any[]) ?? []);
+    }).catch(() => { /* odznak se dopočítá bez nich, appka kvůli tomu nepadá */ });
     const ids = (o as Order[])?.map((x) => x.id) ?? [];
     if (ids.length) {
       const { data: it } = await fetchAllRows('order_items', '*').in('order_id', ids);
@@ -879,66 +904,40 @@ export default function Orders({
   }, [orders, timeScope, selectedMonth, weekKey]);
   const wr = weekRange(weekKey);
 
-  function monthKey(dateStr: string): string { return dateStr.slice(0, 7); }
+  // 📦 „Chybí skladem" — stav ke konci týdne závozu, ze SKLADOVÉ KNIHY.
+  //
+  // Dřív tu byl vlastní výpočet (poslední inventura z měsíce před aktuálním +
+  // stočené tenhle týden − objednané − výdeje). Byl to sedmý nezávislý způsob,
+  // jak spočítat sklad, a jediný mimo skladovou knihu: chyběl mu přefuk, sudy
+  // spotřebované na lahve i dorovnání inventury, míchal měsíc starý základ s
+  // týdenní výrobou a sčítal všechny obaly jednoho piva do jednoho čísla —
+  // takže sto lahví „přebilo" schodek tří sudů a odznak nesvítil.
+  // Podrobnosti a testy: lib/tydenniZbytek.ts.
+  const pohybySkladu = useMemo<StockSources>(() => ({
+    inventoryRows: inventory,
+    bottlingRows: bottling,
+    keggingRows: kegging,
+    fasovaniRows,
+    prodejnaRows,
+    writeoffsRows: writeoffs,
+    zavozDeductionRows,
+    akceRows,
+    prefukRows,
+    adjustmentRows,
+    packages,
+  }), [inventory, bottling, kegging, fasovaniRows, prodejnaRows, writeoffs, zavozDeductionRows, akceRows, prefukRows, adjustmentRows, packages]);
 
-  // Per-beer remaining stock for a given ISO week:
-  //   brewed this week + last month's inventory − all orders this week (non-storno)
-  //   − writeoffs/fasování/prodejna/akce this week
-  // Negative = deficit (chybí ve skladu).
+  // Počítá se jednou za týden, ne pro každou kartu zvlášť — karet bývá v
+  // seznamu desítky a starý výpočet se pro každou z nich spouštěl celý znovu.
+  const zbytkyPodleTydne = useRef(new Map<string, Map<string, number>>());
+  useEffect(() => { zbytkyPodleTydne.current = new Map(); }, [pohybySkladu]);
   function stockRemainingForWeek(wk: string): Map<string, number> {
-    const now = new Date();
-    const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const invMonths = [...new Set(inventory.map((r) => monthKey(r.entry_date)))].filter((m) => m < curMonth).sort().reverse();
-    const lastInvMonth = invMonths[0];
-    const invByBeer = new Map<string, number>();
-    if (lastInvMonth) {
-      inventory.filter((r) => monthKey(r.entry_date) === lastInvMonth && r.beer_id).forEach((r) => {
-        invByBeer.set(r.beer_id!, (invByBeer.get(r.beer_id!) ?? 0) + Number(r.quantity));
-      });
-    }
-
-    const brewedByBeer = new Map<string, number>();
-    [...bottling, ...kegging].filter((r) => r.beer_id && isoWeekKey(r.entry_date) === wk).forEach((r) => {
-      brewedByBeer.set(r.beer_id!, (brewedByBeer.get(r.beer_id!) ?? 0) + Number(r.quantity));
-    });
-
-    const woByBeer = new Map<string, number>();
-    [...writeoffs, ...fasovaniRows, ...prodejnaRows, ...flattenAkceNet(akceRows)]
-      .filter((r) => r.beer_id && isoWeekKey(r.entry_date) === wk)
-      .forEach((r) => {
-      woByBeer.set(r.beer_id!, (woByBeer.get(r.beer_id!) ?? 0) + Number(r.quantity));
-    });
-
-    // Položky, které už mají svůj vlastní odpočet závozu (ráno v 01:00, viz
-    // zavoz_deductions) — autoritativní zdroj, že pivo fyzicky odjelo, i když se
-    // status/is_delivered ještě neaktualizoval (řidič odklikne až po dojetí trasy).
-    const deductedItemIds = new Set(zavozDeductionRows.map((r) => r.order_item_id).filter(Boolean));
-
-    // Odečet sudů/lahví ze skladu se provede u HOTOVÉ / VYŘÍZENÉ objednávky, nebo pokud
-    // má aspoň jednu položku už odečtenou přes zavoz_deductions (viz výše).
-    // Používáme týden DORUČENÍ (datum akce), ne týden zadání — objednávka se odečte ve skladu v týdnu, kdy se závozí.
-    const ordIdsThisWeek = new Set(
-      orders
-        .filter((o) => {
-          if (isoWeekKey(o.delivery_date || o.order_date) !== wk) return false;
-          if (o.status === 'vyrizena' || o.status === 'hotova' || o.status === 'vyrizeno' || o.is_delivered) return true;
-          return (items[o.id] ?? []).some((i) => deductedItemIds.has(i.id));
-        })
-        .map((o) => o.id)
-    );
-    const ordByBeer = new Map<string, number>();
-    Object.entries(items).forEach(([oid, arr]) => {
-      if (!ordIdsThisWeek.has(oid)) return;
-      arr.forEach((i) => { if (i.beer_id) ordByBeer.set(i.beer_id, (ordByBeer.get(i.beer_id) ?? 0) + Number(i.quantity)); });
-    });
-
-    const beerIds = new Set<string>([...invByBeer.keys(), ...brewedByBeer.keys(), ...ordByBeer.keys(), ...woByBeer.keys()]);
-    const remaining = new Map<string, number>();
-    beerIds.forEach((id) => {
-      const total = (brewedByBeer.get(id) ?? 0) + (invByBeer.get(id) ?? 0);
-      remaining.set(id, total - (ordByBeer.get(id) ?? 0) - (woByBeer.get(id) ?? 0));
-    });
-    return remaining;
+    const hotove = zbytkyPodleTydne.current.get(wk);
+    if (hotove) return hotove;
+    const konec = weekRange(wk).end.toISOString().slice(0, 10);
+    const spocitane = zbytekKeKonciTydne(pohybySkladu, konec);
+    zbytkyPodleTydne.current.set(wk, spocitane);
+    return spocitane;
   }
 
   async function addOrder(e?: React.FormEvent, sendWhatsApp = false) {
@@ -2658,12 +2657,18 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
 }) {
 
   const total = items.reduce((s, i) => s + Number(i.quantity), 0);
+  // Schodek se posuzuje podle PIVA A OBALU: chybějící sudy nevykryjí lahve,
+  // i když je v nich totéž pivo (viz lib/tydenniZbytek.ts).
   const remaining = stockRemainingForWeek(isoWeekKey(o.delivery_date || o.order_date));
-  const deficits = items
-    .filter((i) => i.beer_id && (remaining.get(i.beer_id) ?? 0) < 0)
-    .map((i) => ({ name: i.beer_name ?? '?', missing: -(remaining.get(i.beer_id!) ?? 0) }));
-  const seenDef = new Set<string>();
-  const uniqueDeficits = deficits.filter((d) => !seenDef.has(d.name) && !seenDef.add(d.name));
+  // Obal patří do popisku: schodek se počítá po pivu A obalu, takže bez něj by
+  // dvě velikosti téhož piva vypadaly jako tentýž údaj napsaný dvakrát.
+  const uniqueDeficits = schodkyObjednavky(items, remaining).map((s) => {
+    const obal = packages.find((p) => p.id === s.package_id);
+    return {
+      name: obal ? `${s.beer_name} ${formatPackageLabel(obal.label)}` : s.beer_name,
+      missing: s.chybi,
+    };
+  });
   
   // Seřadit položky: nejdříve kegy, pak lahve podle názvu
   const sortedItems = [...items].sort((a, b) => {
