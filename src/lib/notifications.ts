@@ -161,10 +161,17 @@ if (typeof window !== 'undefined') {
 }
 
 // Audio chime using Web Audio API (Synthesized ascending 3-note chime: C5 -> E5 -> G5)
+// Používá vlastní dočasný AudioContext, který se po přehrání zavře — tím se
+// uvolní audio zdroje a zároveň umožní testovatelnost (close() se dá ověřit).
 export function playOrderChime() {
   try {
-    const audioContext = getSharedAudioContext();
-    if (!audioContext) return;
+    const AudioContextClass = typeof window !== 'undefined'
+      ? (window.AudioContext || (window as any).webkitAudioContext)
+      : undefined;
+    if (!AudioContextClass) return;
+
+    const audioContext: AudioContext = new AudioContextClass();
+
     if (audioContext.state === 'suspended') {
       void audioContext.resume().catch(() => {});
     }
@@ -190,6 +197,12 @@ export function playOrderChime() {
       osc.start(now + idx * 0.12);
       osc.stop(now + idx * 0.12 + 0.38);
     });
+
+    // Délka chime: poslední nota začíná na 3*0.12=0.36 s a trvá 0.38 s → 0.74 s.
+    // Zavřeme po 1 s — dost na přehrání, ale dost brzy na uvolnění zdrojů.
+    setTimeout(() => {
+      audioContext.close().catch(() => {});
+    }, 1000);
   } catch (e) {
     console.warn('Web Audio Playback muted or unavailable:', e);
   }

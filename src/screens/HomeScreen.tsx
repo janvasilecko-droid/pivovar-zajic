@@ -1088,10 +1088,15 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                       <div className="h-full bg-emerald-500 transition-all duration-1000 ease-linear" style={{ width: `${progress * 100}%` }} />
                     </div>
                   )}
+                  {done && (
+                    <span className="inline-flex items-center justify-center gap-1 px-2 py-0.5 rounded-full bg-rose-600 text-white text-[11px] font-black shadow-xs animate-bounce">
+                      🔔 Hotovo (reset)
+                    </span>
+                  )}
                   {done && <div className="absolute inset-0 bg-rose-500/15 animate-pulse rounded-xl pointer-events-none" />}
 
                   {/* Horní titulek odpočtu */}
-                  <div className="flex items-center justify-center gap-1 opacity-85 text-[10px] font-black uppercase tracking-wider max-w-full px-1 truncate leading-tight">
+                  <div className="flex items-center justify-center gap-1 opacity-85 text-[11px] font-black uppercase tracking-wider max-w-full px-1 truncate leading-tight">
                     <AlarmClock size={11} className={`shrink-0 ${running && !done ? 'text-emerald-700' : done ? 'text-rose-600' : ''}`} />
                     <span className="truncate">{timerLabel}</span>
                   </div>
@@ -1104,15 +1109,15 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   {/* Spodní akční tlačítko / stav */}
                   <div className="flex items-center justify-center max-w-full">
                     {done ? (
-                      <span className="inline-flex items-center justify-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-600 text-white text-[9.5px] font-black shadow-xs animate-bounce">
-                        <Play size={10} className="fill-current shrink-0" /> Spustit znovu
-                      </span>
+                      <span className="inline-flex items-center justify-center gap-1 px-2 py-0.5 rounded-full bg-rose-600 text-white text-[11px] font-black shadow-xs animate-bounce">🔔 Hotovo</span>
+
+
                     ) : running ? (
-                      <span className="inline-flex items-center justify-center gap-1 px-2 py-0.5 rounded-full bg-emerald-700 text-white text-[9px] font-black shadow-xs">
+                      <span className="inline-flex items-center justify-center gap-1 px-2 py-0.5 rounded-full bg-emerald-700 text-white text-[11px] font-black shadow-xs">
                         <Pause size={9} className="shrink-0" /> Pauza
                       </span>
                     ) : (
-                      <span className="inline-flex items-center justify-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black shadow-xs active:scale-95">
+                      <span className="inline-flex items-center justify-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[11px] font-black shadow-xs active:scale-95">
                         <Play size={10} className="fill-current shrink-0 ml-0.5" /> Spustit
                       </span>
                     )}
@@ -1281,10 +1286,10 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                 customContent = (
                   <div className="w-full h-full flex flex-col justify-between p-2.5 text-left select-none overflow-hidden relative">
                     <div className="flex items-center justify-between gap-1 border-b border-black/10 pb-0.5">
-                      <span className="font-extrabold text-[10px] uppercase tracking-wider flex items-center gap-1 opacity-90">
+                      <span className="font-extrabold text-[11px] uppercase tracking-wider flex items-center gap-1 opacity-90">
                         <StickyNote size={11} /> Poznámky
                       </span>
-                      <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-black/15">{activeNotesList.length}</span>
+                      <span className="text-[11px] font-black px-1.5 py-0.2 rounded-full bg-black/15">{activeNotesList.length}</span>
                     </div>
                     <div className="my-auto py-0.5">
                       <p className="text-xs font-bold leading-tight line-clamp-2">{topNote.text}</p>
@@ -1296,7 +1301,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                           e.stopPropagation();
                           toggleHomeNote(topNote.id);
                         }}
-                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-black/15 hover:bg-black/25 text-[10px] font-black transition"
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-black/15 hover:bg-black/25 text-[11px] font-black transition"
                         title="Odškrtnout"
                       >
                         <Check size={9} className="stroke-[3]" /> Hotovo
@@ -1706,7 +1711,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                           setCountdowns(getCountdowns());
                           oznam('Všechny odpočty spuštěny');
                         }}
-                        className="text-[10px] text-emerald-700 hover:underline font-black"
+                        className="text-[11px] text-emerald-700 hover:underline font-black"
                       >
                         Spustit vše
                       </button>
@@ -1718,7 +1723,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                           setCountdowns(getCountdowns());
                           oznam('Všechny odpočty pozastaveny');
                         }}
-                        className="text-[10px] text-amber-700 hover:underline font-black"
+                        className="text-[11px] text-amber-700 hover:underline font-black"
                       >
                         Pauza vše
                       </button>
@@ -1754,35 +1759,30 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                               <AlarmClock size={14} className={isRun && !isDone ? 'text-amber-600 animate-pulse' : 'text-neutral-500'} />
                               <span className="truncate">{t.label}</span>
                             </div>
-                            <div className={`text-sm font-mono font-black tabular-nums mt-0.5 ${isDone ? 'text-rose-600 animate-pulse' : isRun ? 'text-amber-700' : 'text-neutral-600'}`}>
-                              {formatDurationMs(rem)}
+                            <div className="flex items-center gap-2 mt-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  toggleCountdown(t.id);
+                                  setCountdowns(getCountdowns());
+                                }}
+                                className={`inline-flex items-center justify-center gap-1 rounded-full text-[11px] font-black shadow-xs transition ${
+                                  isDone
+                                    ? 'px-2 py-0.5 bg-rose-600 text-white animate-bounce hover:bg-rose-500'
+                                    : isRun
+                                    ? 'px-2 py-0.5 bg-amber-500 text-neutral-950 hover:bg-amber-400'
+                                    : 'px-2.5 py-0.5 bg-emerald-600 text-white hover:bg-emerald-500'
+                                }`}
+                              >
+                                {isDone ? '🔔 Spustit znovu' : isRun ? 'Pauza' : 'Start'}
+                              </button>
+                              <span className={`text-sm font-mono font-black tabular-nums ${isDone ? 'text-rose-600 animate-pulse' : isRun ? 'text-amber-700' : 'text-neutral-600'}`}>
+                                {formatDurationMs(rem)}
+                              </span>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                toggleCountdown(t.id);
-                                setCountdowns(getCountdowns());
-                              }}
-                              className={`px-2.5 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 shadow-xs transition ${
-                                isDone
-                                  ? 'bg-rose-600 text-white hover:bg-rose-500'
-                                  : isRun
-                                  ? 'bg-amber-500 text-neutral-950 hover:bg-amber-400'
-                                  : 'bg-emerald-600 text-white hover:bg-emerald-500'
-                              }`}
-                            >
-                              {isDone ? (
-                                <><Play size={12} className="fill-current" /> Spustit znovu</>
-                              ) : isRun ? (
-                                <><Pause size={12} /> Pauza</>
-                              ) : (
-                                <><Play size={12} className="fill-current" /> Start</>
-                              )}
-                            </button>
-
+                          <div className="flex items-center gap-1">
                             <button
                               type="button"
                               onClick={() => {
@@ -1983,7 +1983,7 @@ function BrewKettleTopBanner({
 
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 font-black text-xs uppercase tracking-wider text-amber-300">
-              <Flame size={14} className="text-orange-400 animate-pulse shrink-0" />
+              <Flame size={14} className="text-primary-400 animate-pulse shrink-0" />
               <span className="truncate">
                 {doneCountdown
                   ? `⏰ ${doneCountdown.label} — HOTOVO!`

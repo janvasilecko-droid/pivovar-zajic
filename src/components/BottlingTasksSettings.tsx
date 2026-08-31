@@ -369,27 +369,27 @@ export function BottlingTasksSettings() {
               {/* Datová mřížka 2×3 */}
               <div className="grid grid-cols-3 gap-px bg-neutral-100 border-t border-neutral-200">
                 <div className="bg-white px-2.5 py-2">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 leading-tight"><ShoppingCart size={10} className="inline -mt-0.5 mr-0.5" />Obj.</div>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 leading-tight"><ShoppingCart size={10} className="inline -mt-0.5 mr-0.5" />Obj.</div>
                   <div className="text-sm font-black text-neutral-800 mt-0.5">{fmt(r.ordered)}</div>
                 </div>
                 <div className="bg-white px-2.5 py-2">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 leading-tight"><PackageIcon size={10} className="inline -mt-0.5 mr-0.5" />Fas.</div>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 leading-tight"><PackageIcon size={10} className="inline -mt-0.5 mr-0.5" />Fas.</div>
                   <div className="text-sm font-black text-neutral-800 mt-0.5">{fmt(r.fasovani)}</div>
                 </div>
                 <div className="bg-white px-2.5 py-2">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-amber-600 leading-tight"><ClipboardList size={10} className="inline -mt-0.5 mr-0.5" />Plán</div>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-amber-600 leading-tight"><ClipboardList size={10} className="inline -mt-0.5 mr-0.5" />Plán</div>
                   <div className="text-sm font-black text-amber-800 mt-0.5">{fmt(r.planned)}</div>
                 </div>
                 <div className="bg-white px-2.5 py-2">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 leading-tight">{isKeg ? 'Sklad' : 'Sklad'}</div>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 leading-tight">{isKeg ? 'Sklad' : 'Sklad'}</div>
                   <div className="text-sm font-black text-emerald-800 mt-0.5">{fmt(r.stock)}</div>
                 </div>
                 <div className={`px-2.5 py-2 ${r.missing > 0 ? 'bg-rose-50' : 'bg-white'}`}>
-                  <div className={`text-[10px] font-bold uppercase tracking-wider leading-tight ${r.missing > 0 ? 'text-rose-600' : 'text-neutral-400'}`}><AlertTriangle size={10} className="inline -mt-0.5 mr-0.5" />Chybí</div>
+                  <div className={`text-[11px] font-bold uppercase tracking-wider leading-tight ${r.missing > 0 ? 'text-rose-600' : 'text-neutral-400'}`}><AlertTriangle size={10} className="inline -mt-0.5 mr-0.5" />Chybí</div>
                   <div className={`text-sm font-black mt-0.5 ${r.missing > 0 ? 'text-rose-800' : 'text-neutral-500'}`}>{r.missing > 0 ? fmt(r.missing) : '0'}</div>
                 </div>
                 <div className={`px-2.5 py-2 ${r.afterOutgoing < 0 ? 'bg-rose-50' : 'bg-white'}`}>
-                  <div className={`text-[10px] font-bold uppercase tracking-wider leading-tight ${r.afterOutgoing < 0 ? 'text-rose-600' : 'text-neutral-400'}`}><Calendar size={10} className="inline -mt-0.5 mr-0.5" />Kon.týd.</div>
+                  <div className={`text-[11px] font-bold uppercase tracking-wider leading-tight ${r.afterOutgoing < 0 ? 'text-rose-600' : 'text-neutral-400'}`}><Calendar size={10} className="inline -mt-0.5 mr-0.5" />Kon.týd.</div>
                   <div className={`text-sm font-black mt-0.5 ${r.afterOutgoing < 0 ? 'text-rose-800' : 'text-neutral-800'}`}>{fmt(r.afterOutgoing)}</div>
                 </div>
               </div>
@@ -401,27 +401,27 @@ export function BottlingTasksSettings() {
           <div className="text-xs font-black text-amber-950 uppercase tracking-wider mb-2">Celkem</div>
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <div className="text-[10px] font-bold text-amber-700 uppercase">Obj.</div>
+              <div className="text-[11px] font-bold text-amber-700 uppercase">Obj.</div>
               <div className="text-base font-black text-amber-950">{fmt(t.ordered)}</div>
             </div>
             <div>
-              <div className="text-[10px] font-bold text-amber-700 uppercase">Fas.</div>
+              <div className="text-[11px] font-bold text-amber-700 uppercase">Fas.</div>
               <div className="text-base font-black text-amber-950">{fmt(t.fasovani)}</div>
             </div>
             <div>
-              <div className="text-[10px] font-bold text-amber-700 uppercase">Plán</div>
+              <div className="text-[11px] font-bold text-amber-700 uppercase">Plán</div>
               <div className="text-base font-black text-amber-950">{fmt(t.planned)}</div>
             </div>
             <div>
-              <div className="text-[10px] font-bold text-emerald-700 uppercase">Sklad</div>
+              <div className="text-[11px] font-bold text-emerald-700 uppercase">Sklad</div>
               <div className="text-base font-black text-emerald-900">{fmt(t.stock)}</div>
             </div>
             <div>
-              <div className={`text-[10px] font-bold uppercase ${t.missing > 0 ? 'text-rose-700' : 'text-amber-700'}`}>Chybí</div>
+              <div className={`text-[11px] font-bold uppercase ${t.missing > 0 ? 'text-rose-700' : 'text-amber-700'}`}>Chybí</div>
               <div className={`text-base font-black ${t.missing > 0 ? 'text-rose-800' : 'text-amber-950'}`}>{fmt(t.missing)}</div>
             </div>
             <div>
-              <div className={`text-[10px] font-bold uppercase ${t.afterOutgoing < 0 ? 'text-rose-700' : 'text-amber-700'}`}>Kon.týd.</div>
+              <div className={`text-[11px] font-bold uppercase ${t.afterOutgoing < 0 ? 'text-rose-700' : 'text-amber-700'}`}>Kon.týd.</div>
               <div className={`text-base font-black ${t.afterOutgoing < 0 ? 'text-rose-800' : 'text-amber-950'}`}>{fmt(t.afterOutgoing)}</div>
             </div>
           </div>
@@ -522,7 +522,7 @@ export function BottlingTasksSettings() {
         <h2 className="font-display font-bold text-base sm:text-lg flex items-center gap-2">
           <span className="text-xl"><IkonaLahev className="ikona-text" /></span>
           <span>Potřeby stáčení</span>
-          <span className="ml-1 px-2 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-black text-[10px] sm:text-[11px] uppercase tracking-wider">ADMIN</span>
+          <span className="ml-1 px-2 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-black text-[11px] uppercase tracking-wider">ADMIN</span>
         </h2>
         <div className="flex items-center gap-1.5">
           <button

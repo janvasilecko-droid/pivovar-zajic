@@ -5,14 +5,17 @@
 import { supabase } from './supabase';
 
 // ---- Stopky ----
+/** Jeden mezičas — ms od startu + nepovinný popis (pojmenované mezičasy). */
+export type LapEntry = { ms: number; label?: string };
+
 export type StopwatchState = {
   running: boolean;
   /** Date.now() při posledním spuštění/pokračování, null když neběží. */
   startedAt: number | null;
   /** Nasčítaný čas (ms) před posledním spuštěním. */
   elapsedBeforeMs: number;
-  /** Uložené mezičasy — celkový čas od startu (ms) v okamžiku kliknutí na Mezičas. */
-  laps: number[];
+  /** Uložené mezičasy — celkový čas od startu v okamžiku kliknutí na Mezičas. */
+  laps: LapEntry[];
 };
 
 const STOPWATCH_KEY = 'timers_stopwatch_v1';
@@ -23,7 +26,15 @@ export const STOPWATCH_CHANGED_EVENT = 'timers_stopwatch_changed';
 export function getStopwatchState(): StopwatchState {
   try {
     const saved = localStorage.getItem(STOPWATCH_KEY);
-    if (saved) return { ...DEFAULT_STOPWATCH, ...JSON.parse(saved) };
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Zpětná kompatibilita: starý formát laps byl number[] (čistá čísla ms).
+      // Nový formát je LapEntry[]. Převedeme čísla na objekty.
+      const laps: LapEntry[] = (parsed.laps ?? []).map((l: number | LapEntry) =>
+        typeof l === 'number' ? { ms: l } : l
+      );
+      return { ...DEFAULT_STOPWATCH, ...parsed, laps };
+    }
   } catch {}
   return DEFAULT_STOPWATCH;
 }

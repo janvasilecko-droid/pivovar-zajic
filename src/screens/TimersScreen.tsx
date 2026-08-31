@@ -3,13 +3,13 @@
 // setPage(tab), ať funguje tlačítko Zpět). Stav je čistě lokální
 // (localStorage, viz lib/stopwatchTimers.ts) — jde o efemérní pracovní
 // pomůcku na jednom zařízení, ne o data ke sdílení mezi uživateli.
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Timer, AlarmClock, Hourglass, Play, Pause, RotateCcw, Flag, Plus, Trash2, Square, CheckCircle2, Pin,
-  Volume2, VolumeX, Smartphone, Bell, BellRing, Settings2, Sparkles,
+  Volume2, VolumeX, Smartphone, Bell, BellRing, Settings2, Sparkles, Copy, Check,
 } from 'lucide-react';
 import {
-  getStopwatchState, saveStopwatchState, stopwatchElapsedMs, type StopwatchState,
+  getStopwatchState, saveStopwatchState, stopwatchElapsedMs, type StopwatchState, type LapEntry,
   getCountdowns, saveCountdowns, countdownRemainingMs, type CountdownTimer,
   startAllCountdowns, pauseAllCountdowns, resetAllCountdowns,
   getKegTimerState, startKegTimer, finishKegTimer, cancelKegTimer, removeKegHistoryEntry, getKegEstimateMs,
@@ -69,6 +69,9 @@ export default function TimersScreen({ initialTab = 'stopwatch', setPage }: Time
 function StopwatchTool() {
   const [state, setState] = useState<StopwatchState>(() => getStopwatchState());
   const [, forceTick] = useState(0);
+  const [lapLabel, setLapLabel] = useState('');
+  const [copied, setCopied] = useState(false);
+  const lapInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!state.running) return;
@@ -83,14 +86,54 @@ function StopwatchTool() {
 
   function start() { persist({ ...state, running: true, startedAt: Date.now() }); }
   function pause() { persist({ ...state, running: false, startedAt: null, elapsedBeforeMs: stopwatchElapsedMs(state) }); }
-  function reset() { persist({ running: false, startedAt: null, elapsedBeforeMs: 0, laps: [] }); }
-  function lap() { persist({ ...state, laps: [...state.laps, stopwatchElapsedMs(state)] }); }
+  function reset() { persist({ running: false, startedAt: null, elapsedBeforeMs: 0, laps: [] }); setLapLabel(''); }
+
+  function lap() {
+    const entry: LapEntry = { ms: stopwatchElapsedMs(state), label: lapLabel.trim() || undefined };
+    persist({ ...state, laps: [...state.laps, entry] });
+    setLapLabel('');
+    lapInputRef.current?.focus();
+  }
+
+  function deleteLap(idx: number) {
+    persist({ ...state, laps: state.laps.filter((_, i) => i !== idx) });
+  }
 
   const elapsed = stopwatchElapsedMs(state);
 
+  // Delty (trvání jednotlivých úseků)
+  const deltas = state.laps.map((lap, i) => lap.ms - (i > 0 ? state.laps[i - 1].ms : 0));
+
+  // Statistika — jen pokud ≥3 mezičasy
+  const stats = deltas.length >= 3 ? {
+    min: Math.min(...deltas),
+    max: Math.max(...deltas),
+    avg: Math.round(deltas.reduce((a, b) => a + b, 0) / deltas.length),
+  } : null;
+
+  function copyLaps() {
+    const now = new Date().toLocaleString('cs-CZ', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const lines = [
+      `Stopky — ${now}`,
+      ...state.laps.map((lap, i) => {
+        const delta = lap.ms - (i > 0 ? state.laps[i - 1].ms : 0);
+        const name = lap.label ? `${i + 1}. ${lap.label}` : `Mezičas ${i + 1}`;
+        return `${name}: ${formatDurationMs(delta, true)}  (celkem ${formatDurationMs(lap.ms, true)})`;
+      }),
+      ...(state.laps.length > 0 ? [`Celkem: ${formatDurationMs(state.laps[state.laps.length - 1].ms, true)}`] : []),
+    ];
+    navigator.clipboard.writeText(lines.join('\n')).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  }
+
   return (
     <div className="flex flex-col items-center gap-6 py-6">
+      {/* Velký displej */}
       <div className="text-6xl font-black tabular-nums text-neutral-900">{formatDurationMs(elapsed, true)}</div>
+
+      {/* Hlavní ovládání */}
       <div className="flex flex-wrap justify-center gap-3">
         {!state.running ? (
           <button onClick={start} className="btn-primary !rounded px-8 py-3 rounded font-black flex items-center gap-2">
@@ -101,27 +144,93 @@ function StopwatchTool() {
             <Pause size={18} /> Pauza
           </button>
         )}
-        <button onClick={lap} disabled={!state.running} className="px-5 py-3 rounded font-black bg-neutral-200 text-neutral-700 disabled:opacity-40 flex items-center gap-2">
-          <Flag size={16} /> Mezičas
-        </button>
         <button onClick={reset} className="px-5 py-3 rounded font-black bg-neutral-100 text-neutral-600 flex items-center gap-2">
           <RotateCcw size={16} /> Reset
         </button>
       </div>
+
+      {/* Pojmenovaný mezičas — vstup + tlačítko */}
+      <div className="w-full max-w-sm flex gap-2">
+        <input
+          ref={lapInputRef}
+          type="text"
+          value={lapLabel}
+          onChange={(e) => setLapLabel(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && state.running) { e.preventDefault(); lap(); } }}
+          placeholder="Popis mezičasu (nepovinné)"
+          className="input flex-1 text-sm"
+          disabled={!state.running}
+        />
+        <button
+          onClick={lap}
+          disabled={!state.running}
+          className="px-4 py-2 rounded font-black bg-neutral-200 text-neutral-700 disabled:opacity-40 flex items-center gap-1.5 shrink-0"
+        >
+          <Flag size={15} /> Mezičas
+        </button>
+      </div>
+
+      {/* Seznam mezičasů */}
       {state.laps.length > 0 && (
         <div className="w-full max-w-sm space-y-1.5 pt-4 border-t border-neutral-200">
-          <div className="text-xs font-bold text-neutral-400 uppercase tracking-wide px-1">Mezičasy ({state.laps.length})</div>
-          {state.laps.slice().reverse().map((lapMs, i) => {
-            const idx = state.laps.length - i;
-            const prevMs = idx > 1 ? state.laps[idx - 2] : 0;
+          <div className="flex items-center justify-between px-1 mb-2">
+            <span className="text-xs font-bold text-neutral-400 uppercase tracking-wide">Mezičasy ({state.laps.length})</span>
+            <button
+              onClick={copyLaps}
+              className="flex items-center gap-1.5 text-xs font-bold text-neutral-500 hover:text-neutral-900 transition px-2 py-1 rounded hover:bg-neutral-100"
+              title="Kopírovat mezičasy do schránky"
+            >
+              {copied ? <><Check size={13} className="text-emerald-600" /> Zkopírováno!</> : <><Copy size={13} /> Kopírovat</>}
+            </button>
+          </div>
+
+          {state.laps.slice().reverse().map((lapEntry, i) => {
+            const idx = state.laps.length - i;  // 1-based index od konce
+            const realIdx = idx - 1;              // 0-based index v originálním poli
+            const prevMs = realIdx > 0 ? state.laps[realIdx - 1].ms : 0;
+            const delta = lapEntry.ms - prevMs;
             return (
-              <div key={idx} className="flex items-center justify-between text-sm font-bold bg-white rounded px-3 py-2 border border-neutral-200">
-                <span className="text-neutral-500">Mezičas {idx}</span>
-                <span className="tabular-nums">{formatDurationMs(lapMs - prevMs, true)}</span>
-                <span className="tabular-nums text-neutral-400">{formatDurationMs(lapMs, true)}</span>
+              <div key={idx} className="flex items-center justify-between text-sm font-bold bg-white rounded-xl px-3 py-2.5 border border-neutral-200 gap-2">
+                <div className="min-w-0 flex-1">
+                  {lapEntry.label ? (
+                    <div className="font-black text-neutral-900 truncate">{lapEntry.label}</div>
+                  ) : (
+                    <div className="font-bold text-neutral-400">Mezičas {idx}</div>
+                  )}
+                </div>
+                <span className="tabular-nums text-neutral-900 shrink-0">{formatDurationMs(delta, true)}</span>
+                <span className="tabular-nums text-neutral-400 shrink-0 text-xs">{formatDurationMs(lapEntry.ms, true)}</span>
+                <button
+                  onClick={() => deleteLap(realIdx)}
+                  className="p-1 text-neutral-300 hover:text-rose-600 rounded transition shrink-0"
+                  title="Smazat mezičas"
+                >
+                  <Trash2 size={13} />
+                </button>
               </div>
             );
           })}
+
+          {/* Statistika — min/max/průměr delta, jen od 3 mezičasů */}
+          {stats && (
+            <div className="mt-3 p-3 rounded-xl bg-neutral-50 border border-neutral-200">
+              <div className="text-xs font-black text-neutral-500 uppercase tracking-wide mb-2">Statistika úseků</div>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <div className="text-[11px] font-bold text-emerald-700 uppercase">Nejrychlejší</div>
+                  <div className="text-sm font-black text-emerald-800 tabular-nums">{formatDurationMs(stats.min, true)}</div>
+                </div>
+                <div>
+                  <div className="text-[11px] font-bold text-neutral-500 uppercase">Průměr</div>
+                  <div className="text-sm font-black text-neutral-700 tabular-nums">{formatDurationMs(stats.avg, true)}</div>
+                </div>
+                <div>
+                  <div className="text-[11px] font-bold text-rose-600 uppercase">Nejpomalejší</div>
+                  <div className="text-sm font-black text-rose-700 tabular-nums">{formatDurationMs(stats.max, true)}</div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -343,10 +452,10 @@ function CountdownTimersTool() {
               {alertSettings.sound ? <Volume2 size={20} className="text-amber-600" /> : <VolumeX size={20} className="opacity-40" />}
               <div>
                 <div className="text-xs font-black">Zvukový alarm</div>
-                <div className="text-[10px] font-bold opacity-75">{alertSettings.sound ? 'Hlasité pípání' : 'Vypnuto'}</div>
+                <div className="text-[11px] font-bold opacity-75">{alertSettings.sound ? 'Hlasité pípání' : 'Vypnuto'}</div>
               </div>
             </div>
-            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${alertSettings.sound ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-200 text-neutral-600'}`}>
+            <span className={`text-[11px] font-black px-2 py-0.5 rounded-full ${alertSettings.sound ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-200 text-neutral-600'}`}>
               {alertSettings.sound ? 'ZAP' : 'VYP'}
             </span>
           </button>
@@ -365,10 +474,10 @@ function CountdownTimersTool() {
               <Smartphone size={20} className={alertSettings.vibrate ? 'text-amber-600' : 'opacity-40'} />
               <div>
                 <div className="text-xs font-black">Vibrace telefonu</div>
-                <div className="text-[10px] font-bold opacity-75">{alertSettings.vibrate ? 'Dlouhá sekvence' : 'Vypnuto'}</div>
+                <div className="text-[11px] font-bold opacity-75">{alertSettings.vibrate ? 'Dlouhá sekvence' : 'Vypnuto'}</div>
               </div>
             </div>
-            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${alertSettings.vibrate ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-200 text-neutral-600'}`}>
+            <span className={`text-[11px] font-black px-2 py-0.5 rounded-full ${alertSettings.vibrate ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-200 text-neutral-600'}`}>
               {alertSettings.vibrate ? 'ZAP' : 'VYP'}
             </span>
           </button>
@@ -387,12 +496,12 @@ function CountdownTimersTool() {
               <Bell size={20} className={alertSettings.screenNotif && notifPerm === 'granted' ? 'text-amber-600' : 'opacity-40'} />
               <div>
                 <div className="text-xs font-black">Notifikace na displej</div>
-                <div className="text-[10px] font-bold opacity-75">
+                <div className="text-[11px] font-bold opacity-75">
                   {notifPerm === 'granted' ? (alertSettings.screenNotif ? 'Povoleno' : 'Vypnuto') : 'Klepni pro povolení'}
                 </div>
               </div>
             </div>
-            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${alertSettings.screenNotif && notifPerm === 'granted' ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-200 text-neutral-600'}`}>
+            <span className={`text-[11px] font-black px-2 py-0.5 rounded-full ${alertSettings.screenNotif && notifPerm === 'granted' ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-200 text-neutral-600'}`}>
               {notifPerm === 'granted' ? (alertSettings.screenNotif ? 'ZAP' : 'VYP') : 'POVOLIT'}
             </span>
           </button>
@@ -555,22 +664,22 @@ function CountdownTimersTool() {
               </div>
 
               <div className="flex items-center gap-2 pt-2 border-t border-neutral-100">
-                {done ? (
-                  <button
-                    onClick={() => start(t.id)}
-                    className="px-4 py-2 rounded text-xs font-black bg-rose-600 hover:bg-rose-500 text-white flex items-center gap-1.5 animate-pulse shadow-sm"
-                  >
-                    <RotateCcw size={14} /> Spustit znovu
-                  </button>
-                ) : !running ? (
-                  <button onClick={() => start(t.id)} className="btn-primary !rounded px-4 py-2 rounded text-xs font-black flex items-center gap-1.5">
-                    <Play size={14} /> Start
-                  </button>
-                ) : (
-                  <button onClick={() => pause(t.id)} className="px-4 py-2 rounded text-xs font-black bg-amber-500 hover:bg-amber-400 text-neutral-950 flex items-center gap-1.5">
-                    <Pause size={14} /> Pauza
-                  </button>
-                )}
+                    {done ? (
+                      <button
+                        onClick={() => start(t.id)}
+                        className="px-4 py-2 rounded text-xs font-black bg-rose-600 hover:bg-rose-500 text-white flex items-center gap-1.5 animate-pulse shadow-sm"
+                      >
+                        <RotateCcw size={14} /> Spustit znovu
+                      </button>
+                    ) : !running ? (
+                      <button onClick={() => start(t.id)} className="btn-primary !rounded px-4 py-2 rounded text-xs font-black flex items-center gap-1.5">
+                        <Play size={14} /> Start
+                      </button>
+                    ) : (
+                      <button onClick={() => pause(t.id)} className="px-4 py-2 rounded text-xs font-black bg-amber-500 hover:bg-amber-400 text-neutral-950 flex items-center gap-1.5">
+                        <Pause size={14} /> Pauza
+                      </button>
+                    )}
                 <button
                   type="button"
                   onClick={() => reset(t.id)}
