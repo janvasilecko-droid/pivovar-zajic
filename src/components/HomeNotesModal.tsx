@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Modal } from './ui';
-import { Plus, Check, Trash2, StickyNote, CheckSquare, Sparkles, LayoutGrid, AlertTriangle } from 'lucide-react';
+import { Plus, Check, Trash2, StickyNote, CheckSquare, Sparkles, LayoutGrid, AlertTriangle, Users } from 'lucide-react';
 import { getHomeNotes, addHomeNote, toggleHomeNote, toggleHomeNoteImportant, deleteHomeNote, clearCompletedNotes, HOME_NOTES_CHANGED_EVENT, type HomeNote } from '../lib/homeNotes';
 import { useAuth } from '../lib/auth';
+import { useRealtime } from '../lib/supabase';
+import { chyba as chybaOznam, oznam } from '../lib/toast';
+import { nactiSdilene, pridejSdilenou, prepniHotovo, smazSdilenou, SDILENE_POZNAMKY_ZMENA, type SdilenaPoznamka } from '../lib/sdilenePoznamky';
 import { getHomeLayout, saveHomeLayout, addTile } from '../lib/homeLayout';
 import { NAV, EXTRA_NAV } from './Layout';
 
@@ -13,16 +16,45 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
   const [selectedColor, setSelectedColor] = useState<HomeNote['color']>('yellow');
   const [showCompleted, setShowCompleted] = useState(true);
   const [pinToHome, setPinToHome] = useState(true);
+  // 📌 Vzkaz pro celou směnu. Běžná poznámka je OSOBNÍ (jen moje, přenese se
+  // mi mezi mými zařízeními); tohle ji pošle všem do společné nástěnky.
+  const [proVsechny, setProVsechny] = useState(false);
+  const [sdilene, setSdilene] = useState<SdilenaPoznamka[]>([]);
+
+  const jmeno = (profile as any)?.display_name || user?.email || null;
+
+  async function nactiSpolecne() { setSdilene(await nactiSdilene()); }
 
   useEffect(() => {
     const handleUpdate = () => setNotes(getHomeNotes());
     window.addEventListener(HOME_NOTES_CHANGED_EVENT, handleUpdate);
-    return () => window.removeEventListener(HOME_NOTES_CHANGED_EVENT, handleUpdate);
+    window.addEventListener(SDILENE_POZNAMKY_ZMENA, nactiSpolecne);
+    return () => {
+      window.removeEventListener(HOME_NOTES_CHANGED_EVENT, handleUpdate);
+      window.removeEventListener(SDILENE_POZNAMKY_ZMENA, nactiSpolecne);
+    };
   }, []);
+
+  // Společná nástěnka se načte při otevření okna a při změně od kolegy.
+  useEffect(() => { if (isOpen) void nactiSpolecne(); }, [isOpen]);
+  useRealtime(['sdilene_poznamky'], () => { void nactiSpolecne(); });
 
   function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     if (!newText.trim()) return;
+
+    if (proVsechny) {
+      // Vzkaz pro směnu se neukládá mezi moje osobní poznámky — jinak by ho
+      // pisatel viděl dvakrát, jednou jako svůj a jednou jako společný.
+      const text = newText;
+      setNewText('');
+      void pridejSdilenou(text, jmeno).then((chyba) => {
+        if (chyba) chybaOznam('Vzkaz se nepodařilo odeslat: ' + chyba);
+        else oznam('Vzkaz vidí celá směna.');
+      });
+      return;
+    }
+
     addHomeNote(newText, undefined, selectedColor);
     setNewText('');
 
@@ -89,15 +121,74 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
               <LayoutGrid size={13} className="text-neutral-500" />
               <span>Umístit dlaždici na plochu</span>
             </label>
+            {/* 📌 Vzkaz pro celou směnu. Barva ani dlaždice se u něj neuplatní —
+                je to společná nástěnka, ne moje poznámka. */}
+            <label className={`inline-flex items-center gap-1.5 text-xs font-bold cursor-pointer select-none px-2 py-1 rounded-lg border transition ${
+              proVsechny ? 'bg-sky-50 border-sky-300 text-sky-800' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-100'
+            }`}>
+              <input
+                type="checkbox"
+                checked={proVsechny}
+                onChange={(e) => setProVsechny(e.target.checked)}
+                className="rounded text-sky-500 focus:ring-sky-400"
+              />
+              <Users size={13} />
+              <span>Poslat všem</span>
+            </label>
             <button
               type="submit"
               disabled={!newText.trim()}
               className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-bold text-xs px-3.5 py-2 rounded-lg shadow-xs transition ml-auto"
             >
-              <Plus size={15} /> Přidat poznámku
+              <Plus size={15} /> {proVsechny ? 'Poslat všem' : 'Přidat poznámku'}
             </button>
           </div>
         </form>
+
+        {/* 📌 Společná nástěnka — vzkazy, které poslal někdo celé směně.
+            Stojí NAD osobními poznámkami schválně: „došly korunky" se týká
+            všech a nemá být schované pod mým vlastním seznamem.
+            Odškrtnutí tady platí pro všechny, je to společný úkol. */}
+        {sdilene.length > 0 && (
+          <div className="rounded-xl border-2 border-sky-200 bg-sky-50/60 p-3 space-y-2">
+            <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-sky-800">
+              <Users size={13} /> Pro celou směnu
+            </div>
+            {sdilene.map((p) => (
+              <div
+                key={p.id}
+                className={`flex items-start gap-2 rounded-lg bg-white border border-sky-200 p-2 ${p.hotovo ? 'opacity-55' : ''}`}
+              >
+                <button
+                  type="button"
+                  onClick={() => void prepniHotovo(p, jmeno)}
+                  className="w-5 h-5 shrink-0 mt-0.5 rounded-md border-2 border-sky-400 grid place-items-center hover:bg-sky-100 transition"
+                  title={p.hotovo ? 'Vrátit jako nesplněné' : 'Odškrtnout pro všechny'}
+                >
+                  {p.hotovo && <Check size={12} className="text-emerald-700 stroke-[3]" />}
+                </button>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-semibold leading-snug break-words ${p.hotovo ? 'line-through' : ''}`}>
+                    {p.dulezite && <span className="text-rose-600 font-black mr-1">!</span>}
+                    {p.text}
+                  </p>
+                  <div className="text-[11px] text-neutral-500 font-medium mt-0.5">
+                    {p.autor || 'Neznámý'}
+                    {p.hotovo && p.hotovo_kdo ? ` · odškrtl ${p.hotovo_kdo}` : ''}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void smazSdilenou(p.id)}
+                  className="p-1 rounded text-neutral-400 hover:text-rose-600 hover:bg-rose-50 transition shrink-0"
+                  title="Smazat vzkaz pro všechny"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Seznam aktivnich poznamek */}
         <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
