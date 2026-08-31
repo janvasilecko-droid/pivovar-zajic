@@ -88,12 +88,20 @@ export function saveCountdowns(list: CountdownTimer[]) {
     localStorage.setItem(COUNTDOWNS_KEY, JSON.stringify(list));
     window.dispatchEvent(new CustomEvent(COUNTDOWN_CHANGED_EVENT, { detail: list }));
   } catch {}
-  // Cloud sync na pozadí pro synchronizaci mezi mobilem a PC
-  supabase.auth.getUser().then(({ data }) => {
+  // Cloud sync na pozadí pro synchronizaci mezi mobilem a PC.
+  //
+  // Stejná souběhová chyba jako v homeNotes.ts (saveHomeNotes): mezi
+  // přečtením `cur` a zápisem zpátky může jiný zápis (např. přidání
+  // poznámky) uložit čerstvé `notes` — tenhle zápis by je jinak přepsal
+  // starou hodnotou z `cur.notes`. Poznámky se proto berou čerstvě z
+  // lokálního stavu (dynamický import kvůli cyklické závislosti
+  // homeNotes.ts ↔ stopwatchTimers.ts), ne z toho, co se přečetlo z cloudu.
+  supabase.auth.getUser().then(async ({ data }) => {
     if (data?.user?.id) {
+      const { getHomeNotes } = await import('./homeNotes');
       supabase.from('profiles').select('home_layout').eq('id', data.user.id).maybeSingle().then(({ data: prof }) => {
         const cur = (prof?.home_layout as any) || {};
-        void supabase.from('profiles').update({ home_layout: { ...cur, countdowns: list } }).eq('id', data.user.id);
+        void supabase.from('profiles').update({ home_layout: { ...cur, countdowns: list, notes: getHomeNotes() } }).eq('id', data.user.id);
       });
     }
   }).catch(() => {});

@@ -2,6 +2,7 @@
 // Ukládá se lokálně a synchronizuje přes Supabase profiles.home_layout napříč zařízeními.
 import { zavibruj } from './haptika';
 import { supabase } from './supabase';
+import { getCountdowns } from './stopwatchTimers';
 
 export type HomeNote = {
   id: string;
@@ -40,12 +41,29 @@ export function saveHomeNotes(notes: HomeNote[]) {
   } catch (e) {
     console.error('Chyba při ukládání poznámek:', e);
   }
-  // Cloud sync na pozadí pro synchronizaci mezi mobilem a PC
+  // Cloud sync na pozadí pro synchronizaci mezi mobilem a PC.
+  //
+  // BUG, který tohle opravuje: mezi přečtením `cur` (aktuální cloudový
+  // home_layout) a zápisem zpátky uběhne čas (dva síťové round-tripy), a
+  // pokud si mezitím JINÝ zápis (např. saveHomeLayout() při připnutí dlaždice
+  // z HomeNotesModal) uložil čerstvé `countdowns`, tenhle zápis by je přepsal
+  // zpátky na `cur.countdowns` — STARou hodnotou. Realtime synchronizace
+  // profilu (auth.tsx) tu starou hodnotu pak natvrdo vrátí přes
+  // saveCountdowns() i do TOHOTO zařízení, takže se "vzkřísí" už dokončený
+  // a oznámený odpočet a hned se znovu spustí zvukový alarm — přesně to, co
+  // uživatel hlásil: alarm se spouští při každém přidání poznámky (protože
+  // "Umístit dlaždici na plochu" je ve výchozím stavu zaškrtnuté a volá
+  // saveHomeLayout() souběžně s tímhle zápisem).
+  //
+  // Řešení: countdowns se do zápisu vždy berou ČERSTVĚ z lokálního stavu
+  // (getCountdowns()), ne z toho, co se přečetlo z cloudu — i kdyby `cur`
+  // bylo zastaralé, tenhle zápis ho přepíše aktuálními daty místo toho, aby
+  // starým datům věřil.
   supabase.auth.getUser().then(({ data }) => {
     if (data?.user?.id) {
       supabase.from('profiles').select('home_layout').eq('id', data.user.id).maybeSingle().then(({ data: prof }) => {
         const cur = (prof?.home_layout as any) || {};
-        void supabase.from('profiles').update({ home_layout: { ...cur, notes } }).eq('id', data.user.id);
+        void supabase.from('profiles').update({ home_layout: { ...cur, notes, countdowns: getCountdowns() } }).eq('id', data.user.id);
       });
     }
   }).catch(() => {});
