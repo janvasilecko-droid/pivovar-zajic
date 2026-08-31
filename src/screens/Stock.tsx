@@ -10,7 +10,7 @@ import { exportExciseTaxReportToExcel } from '../lib/excel';
 import { FestivalEquipmentTracker } from '../components/FestivalEquipmentTracker';
 import { MarketingMerchInventory } from '../components/MarketingMerchInventory';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
-import { requestKegFix } from '../lib/stockFixSignal';
+import { requestKegFix, requestBottlingFix } from '../lib/stockFixSignal';
 import type { Page } from '../components/Layout';
 
 type StockByPkg = {
@@ -418,7 +418,7 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                           {r.baselineDate ? `inventura ${r.baselineDate} = ${r.baselineQty}` : 'bez inventury'}
                         </span>
                         <span className="text-rose-700 font-black text-sm tabular-nums">{r.qty} ks</span>
-                        {r.kind === 'keg' && setPage && (
+                        {setPage && (r.kind === 'keg' ? (
                           <button
                             type="button"
                             onClick={() => { requestKegFix(r.beerId); setPage('kegging'); }}
@@ -427,7 +427,16 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                           >
                             + Doplnit stočení
                           </button>
-                        )}
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => { requestBottlingFix(r.beerId); setPage('bottling'); }}
+                            className="px-2 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white font-black text-[11px] shrink-0"
+                            title="Otevřít Stáčení lahví s tímhle pivem rozbaleným, ať jde chybějící stočení rovnou doplnit"
+                          >
+                            + Doplnit stočení
+                          </button>
+                        ))}
                       </span>
                     </div>
                   ))}

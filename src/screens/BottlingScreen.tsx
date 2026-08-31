@@ -24,6 +24,7 @@ import { chyba, potvrd, toastZpet } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
+import { consumeBottlingFixRequest } from '../lib/stockFixSignal';
 
 
 const ROW_COUNT = 12;
@@ -135,6 +136,24 @@ export default function BottlingScreen({
     setTileBeer(b);
   };
   const closeTile = () => setTileBeer(null);
+
+  // 🔀 „Sklad" → „Nesedí evidence" → „Doplnit stočení" (Stock.tsx). Rovnou
+  // rozbalí to pivo v dlaždicové mřížce, ať ho člověk nemusí sám hledat.
+  // Čeká na načtení `beers` (na mountu ještě prázdné), request se
+  // spotřebuje jen jednou.
+  useEffect(() => {
+    if (beers.length === 0) return;
+    const beerId = consumeBottlingFixRequest();
+    if (!beerId) return;
+    const beer = beers.find((b) => b.id === beerId);
+    if (!beer) return;
+    // Výchozí záložka u mode="all" je "prehled" (Přehled), ale dlaždicový
+    // panel se vykresluje jen pod záložkou "zapis" — bez přepnutí by se
+    // pivo rozbalilo neviditelně.
+    setTab('zapis');
+    openTile(beer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [beers.length]);
   const setTile = (field: keyof typeof tileDraft, value: string) =>
     setTileDraft((d) => ({ ...d, [field]: value }));
   const bumpTile = (field: 'qty' | 'qty2' | 'qty3' | 'kegQty', delta: number) =>
