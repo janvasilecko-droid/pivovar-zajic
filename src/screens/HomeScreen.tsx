@@ -35,6 +35,7 @@ import {
   addDockSlot, removeDockSlot,
   hexToRgba,
   PAGE_CATEGORY, CATEGORY_ORDER, CATEGORY_SHADES, type Category,
+  moveTileToPageCell, okrajProPrepnuti, dalsiStranka, type OkrajTazeni,
   SCENES, MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX, defaultTileColor,
   GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK,
   type HomeLayout, type TileColor, type TileId, type GroupId, type CountdownTileId,
@@ -197,6 +198,23 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // moveTileToCell) — jinak leze dlaždice přesně tam, kam ukazuješ.
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFired = useRef(false);
+  // Tažení mezi stránkami: obsluha myši/prstu běží v closure, takže by jinak
+  // viděla stránku a layout takové, jaké byly při stisku. Během tažení se
+  // ale obojí mění (stránka se přetáčí), proto refy.
+  const pageIndexRef = useRef(currentPageIndex);
+  useEffect(() => { pageIndexRef.current = currentPageIndex; }, [currentPageIndex]);
+  const layoutRef = useRef(layout);
+  useEffect(() => { layoutRef.current = layout; }, [layout]);
+  /** Časovač přetočení stránky, když se dlaždice drží u okraje. */
+  const edgeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const edgeSide = useRef<OkrajTazeni>(null);
+  const [edgeHint, setEdgeHint] = useState<OkrajTazeni>(null);
+  function clearEdge() {
+    if (edgeTimer.current) clearTimeout(edgeTimer.current);
+    edgeTimer.current = null;
+    edgeSide.current = null;
+    setEdgeHint(null);
+  }
   const rowHeight = cols === GRID_COLS_MOBILE ? ROW_HEIGHT_MOBILE : ROW_HEIGHT_DESKTOP;
   function cellFromPoint(clientX: number, clientY: number): { x: number; y: number } | null {
     const gridEl = document.querySelector('.hs-grid') as HTMLElement | null;
@@ -224,9 +242,35 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       window.removeEventListener('pointercancel', onUp);
       if (longPressTimer.current) clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
+      clearEdge();
       setPrimingId(null);
       setDraggingId(null);
       setDragOverId(null);
+    }
+    // Držení u kraje = přetočit stránku a nechat dlaždici „v ruce". Po
+    // přetočení se časovač nasadí znovu, takže držením u kraje se dá projít
+    // přes několik stránek za sebou — jako na ploše Androidu.
+    function sledujOkraj(clientX: number) {
+      const gridEl = document.querySelector('.hs-grid') as HTMLElement | null;
+      if (!gridEl) return;
+      const strana = okrajProPrepnuti(clientX, gridEl.getBoundingClientRect());
+      if (!strana) { clearEdge(); return; }
+      // Na krajní stránce se dál přetáčet nedá — ať se nesvítí nápověda,
+      // která nic neudělá.
+      const cil = dalsiStranka(pageIndexRef.current, strana, layoutRef.current.pages.length);
+      if (cil === pageIndexRef.current) { clearEdge(); return; }
+      if (edgeSide.current === strana) return; // časovač už běží pro tuhle stranu
+      clearEdge();
+      edgeSide.current = strana;
+      setEdgeHint(strana);
+      edgeTimer.current = setTimeout(function pretoc() {
+        const dalsi = dalsiStranka(pageIndexRef.current, strana, layoutRef.current.pages.length);
+        if (dalsi === pageIndexRef.current) { clearEdge(); return; }
+        setCurrentPageIndex(dalsi);
+        pageIndexRef.current = dalsi;
+        try { navigator.vibrate?.(10); } catch {}
+        edgeTimer.current = setTimeout(pretoc, 700);
+      }, 500);
     }
     function onMove(ev: PointerEvent) {
       if (!longPressFired.current) {
@@ -240,11 +284,16 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       // ne prázdnou buňkou (tam se nemá co "vysvítit").
       const overId = findTileIdAtPoint(ev.clientX, ev.clientY);
       setDragOverId(overId && overId !== id ? overId : null);
+      sledujOkraj(ev.clientX);
     }
     function onUp(ev: PointerEvent) {
       if (longPressFired.current) {
         const cell = cellFromPoint(ev.clientX, ev.clientY);
-        if (cell) persist(moveTileToCell(layout, id, cell.x, cell.y, cols));
+        // Layout i stránka se braly z refů — během tažení se stránka mohla
+        // přetočit (viz sledujOkraj) a hodnoty z closure by byly zastaralé.
+        if (cell) {
+          persist(moveTileToPageCell(layoutRef.current, id, pageIndexRef.current, cell.x, cell.y, cols));
+        }
       }
       cleanup();
     }
@@ -970,6 +1019,11 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
 
         {/* Přejetí prstem kdekoliv nad dlaždicemi (mimo edit mód) přepíná
             stránku launcheru — viz handleSwipePointerDown/Up výš. */}
+        {/* Nápověda při tažení dlaždice k okraji — svislý pruh, který ukáže,
+            že se za okamžik přetočí stránka. Bez něj vypadá první přetočení
+            jako by appka „ujela sama". */}
+        {edgeHint && <div className={`hs-edge-hint ${edgeHint === 'vlevo' ? 'vlevo' : 'vpravo'}`} aria-hidden="true" />}
+
         <div
           key={currentPageIndex}
           className="hs-swipe-area hs-page-enter"

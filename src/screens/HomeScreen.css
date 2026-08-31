@@ -798,3 +798,32 @@
   background: rgba(255, 255, 255, 0.06) !important;
   border-color: rgba(255, 255, 255, 0.10) !important;
 }
+
+/* ⇄ Tažení dlaždice mezi stránkami — nápověda u okraje.
+   Když se dlaždice v edit módu podrží u kraje mřížky, za půl vteřiny se
+   přetočí stránka. Tenhle pruh to ohlásí dopředu, ať to nevypadá, že se
+   plocha přepnula sama od sebe. */
+.hs-edge-hint {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: 56px;
+  z-index: 20;
+  pointer-events: none;
+  animation: hs-edge-puls 0.7s ease-in-out infinite;
+}
+.hs-edge-hint.vlevo {
+  left: 0;
+  background: linear-gradient(to right, rgba(43, 36, 56, 0.32), transparent);
+}
+.hs-edge-hint.vpravo {
+  right: 0;
+  background: linear-gradient(to left, rgba(43, 36, 56, 0.32), transparent);
+}
+@keyframes hs-edge-puls {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hs-edge-hint { animation: none; opacity: 0.8; }
+}

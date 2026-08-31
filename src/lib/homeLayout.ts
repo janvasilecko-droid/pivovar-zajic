@@ -621,6 +621,64 @@ export function moveTileToPage(layout: HomeLayout, tileId: TileId, targetPageInd
   return { ...layout, pages };
 }
 
+/**
+ * Přesun dlaždice na JINOU STRÁNKU a rovnou na konkrétní buňku — pro tažení
+ * přes okraj obrazovky (viz HomeScreen.tsx). Musí to být jeden krok: kdyby se
+ * volalo moveTileToPage a moveTileToCell zvlášť, druhé volání by dostalo
+ * layout bez té první změny a dlaždice by skončila na staré pozici.
+ *
+ * Pozice se z původní stránky nepřenáší — na nové stránce může být obsazená,
+ * a padnout „někam pod sebe" je horší než padnout tam, kam ukazuje prst.
+ */
+export function moveTileToPageCell(
+  layout: HomeLayout,
+  id: TileId,
+  targetPageIndex: number,
+  targetX: number,
+  targetY: number,
+  cols: number,
+): HomeLayout {
+  if (!layout.pages[targetPageIndex]) return layout;
+  const soucasnaStranka = layout.pages.findIndex((p) => p.includes(id));
+  if (soucasnaStranka < 0) return layout;
+  const naStrance = soucasnaStranka === targetPageIndex
+    ? layout
+    : moveTileToPage(layout, id, targetPageIndex);
+  return moveTileToCell(naStrance, id, targetX, targetY, cols);
+}
+
+/** Strana, ke které se dlaždice při tažení dostala. */
+export type OkrajTazeni = 'vlevo' | 'vpravo' | null;
+
+/** Jak široký je u okraje pruh, který spustí přepnutí stránky (px). */
+export const SIRKA_OKRAJE_PX = 56;
+
+/**
+ * U kterého okraje mřížky prst právě je? Tohle je celý vzorec pro přesun
+ * dlaždice mezi stránkami tažením — držíš ji u kraje a stránky se přetáčejí,
+ * jako na ploše Androidu.
+ */
+export function okrajProPrepnuti(
+  clientX: number,
+  rect: { left: number; right: number },
+  sirkaZony: number = SIRKA_OKRAJE_PX,
+): OkrajTazeni {
+  if (clientX <= rect.left + sirkaZony) return 'vlevo';
+  if (clientX >= rect.right - sirkaZony) return 'vpravo';
+  return null;
+}
+
+/**
+ * Index stránky po přetočení. Na koncích se zastaví — dokola to schválně
+ * nejde: při tažení by se dlaždice po dosažení poslední stránky vrátila na
+ * první a člověk by ztratil přehled, kde vlastně je.
+ */
+export function dalsiStranka(soucasny: number, smer: OkrajTazeni, pocetStranek: number): number {
+  if (!smer) return soucasny;
+  const posun = smer === 'vpravo' ? 1 : -1;
+  return Math.max(0, Math.min(pocetStranek - 1, soucasny + posun));
+}
+
 /** Schová dlaždici (nebo skupinu vč. všech členů) z mřížky — modul zůstává dostupný jinde, jen nezabírá místo v launcheru. */
 export function hideTile(layout: HomeLayout, tileId: TileId): HomeLayout {
   const pages = layout.pages.map((p) => p.filter((id) => id !== tileId));
