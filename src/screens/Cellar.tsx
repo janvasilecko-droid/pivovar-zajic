@@ -3,6 +3,7 @@ import { useAuth } from '../lib/auth';
 import { AlertTriangle, ArrowLeftRight, Beer as BeerIcon, CalendarDays, Check, ChevronLeft, ChevronRight, ClipboardList, Droplet, Factory, FlaskConical, NotebookPen, Play, SprayCan, Square, Warehouse } from 'lucide-react';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 
+import { nesedici, zkontrolujTanky } from '../lib/tankKontrola';
 import { Beer, CellarTank, CellarTankCycle, CellarTransfer, EntryRow, Package, beerBorder, fetchAllRows, supabase, useRealtime } from '../lib/supabase';
 import { Modal, Field, Spinner } from '../components/ui';
 import { TankOccupancyPlanner } from '../components/TankOccupancyPlanner';
@@ -77,7 +78,12 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
     if (!silent && !tanks.length) setLoading(true);
     const [t, tr, cy, kg, b, pkg] = await Promise.all([
       supabase.from('cellar_tanks').select('*').order('label'),
-      supabase.from('cellar_transfers').select('*').order('transfer_date', { ascending: false }).order('created_at', { ascending: false }).limit(50),
+      // Přečerpávání se načítá CELÉ, ne posledních 50: kontrola objemu tanků
+      // (nesediciTanky níž) potřebuje všechna přečerpání aktuálního cyklu.
+      // S oříznutím na 50 chyběla starší odchozí přečerpání, takže tank
+      // vycházel plnější, než je, a upozornění hlásilo schodek u tanků,
+      // které ve skutečnosti sedí.
+      fetchAllRows('cellar_transfers', '*').order('transfer_date', { ascending: false }).order('created_at', { ascending: false }),
       supabase.from('cellar_tank_cycles').select('*').order('ended_at', { ascending: false }).limit(200),
       fetchAllRows('kegging', 'id,entry_date,beer_id,beer_name,package_id,package_label,quantity,cellar_tank_id,source_volume_l,loss_l,tank_id,created_at').order('created_at', { ascending: false }),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
@@ -145,14 +151,21 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
       }
     }
 
-    // Úprava kapacit pro zobrazení podle požadavku: Spilka 8000 l, Ležácké tanky 7500 l
+    // Úprava kapacit pro zobrazení podle požadavku: Spilka 8000 l, Ležácké tanky 7500 l.
+    //
+    // POZOR na initial_volume_l: tady stálo `tk.initial_volume_l ? targetCap : targetCap`
+    // — ternární výraz se dvěma stejnými větvemi, takže se skutečný počáteční
+    // objem VŽDYCKY přepsal nominální kapacitou. Tank naplněný 3 000 l se pak
+    // po celý cyklus tvářil jako 7 500 l, což křivilo „% vystočeno“ i ztrátu
+    // dopočítanou při ukončení tanku. Kapacita je vlastnost nádoby, počáteční
+    // objem je to, co se do ní skutečně napustilo — plést je dohromady nejde.
     const adjustedTankList = tankList.map((tk) => {
       const isSpilka = tk.label.toLowerCase().includes('spilka');
       const targetCap = isSpilka ? 8000 : 7500;
       return {
         ...tk,
         capacity_l: targetCap,
-        initial_volume_l: tk.initial_volume_l ? targetCap : targetCap,
+        initial_volume_l: tk.initial_volume_l ?? targetCap,
       };
     });
 
@@ -291,6 +304,14 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
     });
     return m;
   }, [tanks]);
+  // Tanky, u kterých evidovaný objem nesedí s tím, co vychází ze zapsaných
+  // pohybů. Kontrolují se jen tanky s živým cyklem — u vymytého by schodek
+  // svítil pořád (viz tankKontrola.ts).
+  const nesediciTanky = useMemo(
+    () => nesedici(zkontrolujTanky(tanks, kegging as any[], transfers as any[])),
+    [tanks, kegging, transfers],
+  );
+
   const tankSummary = useMemo(() => {
     const m = new Map<string, { kegCount: number; sourceL: number; lossL: number; bySize: Record<number, number> }>();
     kegging.forEach((r) => {
@@ -517,6 +538,40 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
 
   return (
     <div>
+      {/* 🛢️ Tanky, u kterých nesedí objem. Odečet z tanku běží zvlášť od
+          zápisu stáčení (RPC adjust_tank_volume), takže když selže, stáčení
+          se uloží a tank zůstane plný — a nikde se to už nepřipomene.
+          Tohle to připomene. Viz lib/tankKontrola.ts. */}
+      {nesediciTanky.length > 0 && (
+        <div className="mb-4 rounded border-2 border-amber-400 bg-amber-50 p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle size={20} className="text-amber-600 shrink-0 mt-0.5" />
+            <div className="min-w-0 flex-1">
+              <div className="font-display font-black text-amber-900 text-sm">
+                {nesediciTanky.length === 1 ? 'U jednoho tanku nesedí objem' : `U ${nesediciTanky.length} tanků nesedí objem`}
+              </div>
+              <p className="text-[11px] font-bold text-amber-800 mt-1">
+                Evidovaný objem se liší od toho, co vychází ze zapsaného stáčení a přečerpávání.
+                Obvyklá příčina: stáčení se uložilo, ale odečet z tanku neprošel.
+                Zkontroluj a sroven objem ručně v úpravě tanku.
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-1.5">
+                {nesediciTanky.map((t) => (
+                  <span key={t.id} className="px-2 py-1 rounded bg-white border border-amber-300 text-[11px] font-bold text-neutral-800">
+                    {t.label}: <span className="font-mono">{t.evidovanoL} l</span>
+                    <span className="text-neutral-500"> místo </span>
+                    <span className="font-mono">{t.dopocitanoL} l</span>
+                    <span className={t.rozdilL < 0 ? 'text-rose-700' : 'text-emerald-700'}>
+                      {' '}({t.rozdilL > 0 ? '+' : ''}{t.rozdilL} l)
+                    </span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
         <div>
           <h1 className="text-2xl font-display font-bold text-primary-900"><Warehouse className="ikona-text" /> Sklep & Spilka — tanky</h1>
