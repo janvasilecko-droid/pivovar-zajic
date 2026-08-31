@@ -4,7 +4,7 @@ import { Spinner, EmptyState } from '../components/ui';
 import { PlaceCombobox } from '../components/PlaceCombobox';
 import { AlertTriangle, Calendar, CalendarDays, Check, CheckCircle2, Droplet, Droplets, Flame, FlaskConical, Phone, Plus, RefreshCw, ShieldAlert, Sparkles, Tag, Trash2, User, Wrench, X } from 'lucide-react';
 import { chyba as chybaOznam, oznam, potvrd } from '../lib/toast';
-import { KLIC_REZERVACE, KLIC_VYCEPY, nactiRezervace, nactiVycepy, prenesZProhlizece, smazRezervaci, smazVycep, ulozRezervaci, ulozVycep } from '../lib/vycepyData';
+import { KLIC_REZERVACE, KLIC_VYCEPY, nactiRezervace, nactiVycepy, prenesZProhlizece, rozdilProUlozeni, smazRezervaci, smazVycep, ulozRezervaci, ulozVycep } from '../lib/vycepyData';
 import { IkonaVycep } from '../components/ikony';
 
 export type TapSanitationStatus = 'clean' | 'dirty_beer' | 'needs_louh';
@@ -95,14 +95,11 @@ export default function VycepyScreen() {
     setTaps(newTaps);
     localStorage.setItem(KLIC_VYCEPY, JSON.stringify(newTaps));
     void (async () => {
-      const noveId = new Set(newTaps.map((t) => t.id));
-      for (const s of stare) if (!noveId.has(s.id)) await smazVycep(s.id);
-      for (let i = 0; i < newTaps.length; i++) {
-        const puvodni = stare.find((x) => x.id === newTaps[i].id);
-        if (!puvodni || JSON.stringify(puvodni) !== JSON.stringify(newTaps[i])) {
-          const chyba = await ulozVycep(newTaps[i], i);
-          if (chyba) chybaOznam('Výčep se nepodařilo uložit: ' + chyba);
-        }
+      const { kUlozeni, kSmazani } = rozdilProUlozeni(stare, newTaps);
+      for (const id of kSmazani) await smazVycep(id);
+      for (const v of kUlozeni) {
+        const chyba = await ulozVycep(v, newTaps.indexOf(v));
+        if (chyba) chybaOznam('Výčep se nepodařilo uložit: ' + chyba);
       }
     })();
   }
@@ -112,14 +109,11 @@ export default function VycepyScreen() {
     setReservations(newRes);
     localStorage.setItem(KLIC_REZERVACE, JSON.stringify(newRes));
     void (async () => {
-      const noveId = new Set(newRes.map((r) => r.id));
-      for (const s of stare) if (!noveId.has(s.id)) await smazRezervaci(s.id);
-      for (const r of newRes) {
-        const puvodni = stare.find((x) => x.id === r.id);
-        if (!puvodni || JSON.stringify(puvodni) !== JSON.stringify(r)) {
-          const chyba = await ulozRezervaci(r);
-          if (chyba) chybaOznam('Rezervaci se nepodařilo uložit: ' + chyba);
-        }
+      const { kUlozeni, kSmazani } = rozdilProUlozeni(stare, newRes);
+      for (const id of kSmazani) await smazRezervaci(id);
+      for (const r of kUlozeni) {
+        const chyba = await ulozRezervaci(r);
+        if (chyba) chybaOznam('Rezervaci se nepodařilo uložit: ' + chyba);
       }
     })();
   }

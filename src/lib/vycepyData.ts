@@ -136,6 +136,30 @@ export async function nactiRezervace(): Promise<TapReservation[]> {
   return rezervace;
 }
 
+// ── Co poslat do databáze ──────────────────────────────────────────────────
+
+/**
+ * Porovná starý a nový seznam a řekne, co se má uložit a co smazat.
+ *
+ * Obrazovka pracuje s celým seznamem naráz (přidání i smazání vrací nové
+ * pole), ale posílat při každé drobnosti všechny řádky by z jednoho
+ * přejmenování udělalo desítky zbytečných zápisů. Porovnává se hodnotou:
+ * co se nezměnilo, se nepřepisuje.
+ */
+export function rozdilProUlozeni<T extends { id: string }>(
+  stare: T[], nove: T[],
+): { kUlozeni: T[]; kSmazani: string[] } {
+  const noveId = new Set(nove.map((x) => x.id));
+  const podleId = new Map(stare.map((x) => [x.id, x]));
+  return {
+    kSmazani: stare.filter((s) => !noveId.has(s.id)).map((s) => s.id),
+    kUlozeni: nove.filter((n) => {
+      const puvodni = podleId.get(n.id);
+      return !puvodni || JSON.stringify(puvodni) !== JSON.stringify(n);
+    }),
+  };
+}
+
 // ── Zápis ──────────────────────────────────────────────────────────────────
 
 export async function ulozVycep(v: TapEquipment, poradi = 0): Promise<string | null> {
