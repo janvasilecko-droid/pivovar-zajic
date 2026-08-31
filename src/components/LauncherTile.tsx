@@ -15,7 +15,7 @@ export function tileGridStyle(x: number, y: number, w: number, h: number): CSSPr
 export default function LauncherTile({
   id, item, groupItems, override, isPresetColor, editing, selected, badge, tileOpacity,
   onClick, onSelect, onDragPointerDown, isDragging, isPriming, dragOver, jiggling, onMoveStep, onOpenEditor,
-  onOpenQuickActions, customContent, dragOffset,
+  onOpenQuickActions, customContent,
 }: {
   id: TileId;
   /** null pro skupinovou dlaždici — viz groupItems. */
@@ -50,12 +50,6 @@ export default function LauncherTile({
   onOpenQuickActions?: () => void;
   /** Vlastní bohatý obsah pro mini-widget dlaždice (poznámky, checklisty, kalendář). */
   customContent?: React.ReactNode;
-  /**
-   * O kolik je dlaždice posunutá proti své buňce, když ji držíš v ruce.
-   * Díky tomu jde ZA PRSTEM jako na ploše Androidu — bez toho jen zvětší a
-   * zůstane na místě, takže není vidět, co vlastně přesouváš.
-   */
-  dragOffset?: { dx: number; dy: number } | null;
 }) {
   const color = override.color ?? defaultTileColor(id);
   const w = override.w ?? 1;
@@ -121,18 +115,19 @@ export default function LauncherTile({
         ...(isPresetColor ? {} : { background: hexToRgba(color, tileOpacity) }),
         color: textColor,
         touchAction: isDragging ? 'none' : undefined,
-        // Dlaždice v ruce jde za prstem. `pointerEvents: none` je nutné —
-        // jinak by si stála pod kurzorem sama sobě v cestě a hledání cílové
-        // buňky (elementFromPoint) by pod prstem našlo pořád ji.
-        ...(isDragging && dragOffset
-          ? {
-              transform: `translate(${dragOffset.dx}px, ${dragOffset.dy}px) scale(1.08)`,
-              pointerEvents: 'none' as const,
-              // Krátký přechod dělá ten „cvak" mezi buňkami. Bez něj dlaždice
-              // mezi místy skáče natvrdo a vypadá to jako zasekávání, ne jako
-              // chytání na mřížku.
-              transition: 'transform 0.11s cubic-bezier(0.2, 0.9, 0.3, 1)',
-            }
+        // Dlaždice v ruce jde plynule za prstem. `pointerEvents: none` je
+        // nutné — jinak by si stála pod kurzorem sama sobě v cestě a hledání
+        // cílové buňky (elementFromPoint) by pod prstem našlo pořád ji.
+        //
+        // Posun zvednuté dlaždice sem ZÁMĚRNĚ nepatří: zapisuje ho přímo do
+        // DOM obsluha tažení v HomeScreen.tsx. Kdyby šel přes React, muselo
+        // by se při každém pohybu prstu překreslit všech ~26 dlaždic a
+        // dlaždice by za prstem viditelně kulhala.
+        //
+        // `transition` musí být `none` — jakýkoli přechod znamená, že
+        // dlaždice dobíhá tam, kde prst už dávno není.
+        ...(isDragging
+          ? { pointerEvents: 'none' as const, transition: 'none', willChange: 'transform' }
           : {}),
       }}
       data-tile-id={id}

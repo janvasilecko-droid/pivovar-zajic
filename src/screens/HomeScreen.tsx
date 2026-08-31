@@ -151,8 +151,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   const [draggingId, setDraggingId] = useState<TileId | null>(null);
   const [dragOverId, setDragOverId] = useState<TileId | null>(null);
   const [primingId, setPrimingId] = useState<TileId | null>(null);
-  /** O kolik je zvednutá dlaždice posunutá proti své buňce — jde za prstem. */
-  const [dragOffset, setDragOffset] = useState<{ dx: number; dy: number } | null>(null);
   /** Buňka, na kterou dlaždice spadne, když prst pustíš — obrys pod ní. */
   const [dropCell, setDropCell] = useState<{ x: number; y: number } | null>(null);
   // Dlaždice, jejíž plný editor (velikost/barva/popisek/stránka/skrytí/skupina) je
@@ -247,10 +245,14 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       if (longPressTimer.current) clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
       clearEdge();
+      // Posun se zapisoval PŘÍMO do DOM (kvůli plynulosti), takže ho React
+      // při překreslení sám nesmaže — dlaždice by po puštění zůstala odsunutá
+      // vedle své buňky. Musí se uklidit ručně.
+      const el = document.querySelector(`.hs-grid [data-tile-id="${id}"]`) as HTMLElement | null;
+      if (el) el.style.transform = '';
       setPrimingId(null);
       setDraggingId(null);
       setDragOverId(null);
-      setDragOffset(null);
       setDropCell(null);
     }
     // Držení u kraje = přetočit stránku a nechat dlaždici „v ruce". Po
@@ -286,29 +288,30 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
         if (Math.hypot(ev.clientX - startX, ev.clientY - startY) > 18) cleanup();
         return;
       }
-      // Dlaždice se CHYTÁ NA BUŇKY mřížky, nejde za prstem plynule — přesně
-      // jako ikona na ploše Androidu, která mezi místy přeskakuje. Volné
-      // plavání vypadalo hezky, ale nebylo z něj poznat, do které buňky to
-      // vlastně padne; teď dlaždice sama sedne tam, kam spadne.
-      const cell = cellFromPoint(ev.clientX, ev.clientY);
-      setDropCell(cell);
-      const gridEl = document.querySelector('.hs-grid') as HTMLElement | null;
-      const puvodni = layoutRef.current.overrides[id];
-      if (cell && gridEl && puvodni) {
-        const sirkaBunky = gridEl.getBoundingClientRect().width / cols;
-        setDragOffset({
-          dx: (cell.x - (puvodni.x ?? 0)) * sirkaBunky,
-          dy: (cell.y - (puvodni.y ?? 0)) * rowHeight,
-        });
-      } else {
-        // Mimo mřížku (prst u kraje kvůli přetočení stránky) — ať dlaždice
-        // nezůstane viset na staré buňce, drží se prstu.
-        setDragOffset({ dx: ev.clientX - startX, dy: ev.clientY - startY });
+      // Dlaždice jde PLYNULE ZA PRSTEM, přesně jako ikona na ploše Androidu.
+      // Mřížka se uplatní až při puštění a průběžně ji ukazuje obrys cílové
+      // buňky — dlaždice sama po buňkách neskáče. Chytání na buňky jsem
+      // zkoušel a je to horší: prst a dlaždice se rozejdou a člověk pak
+      // netrefí, kam chce.
+      //
+      // Posun se zapisuje PŘÍMO DO DOM, ne přes stav Reactu. Při pohybu prstu
+      // přijde desítky událostí za vteřinu a překreslovat kvůli každé všech
+      // ~26 dlaždic znamenalo, že dlaždice za prstem viditelně kulhala.
+      const el = document.querySelector(`.hs-grid [data-tile-id="${id}"]`) as HTMLElement | null;
+      if (el) {
+        el.style.transform = `translate(${ev.clientX - startX}px, ${ev.clientY - startY}px) scale(1.08)`;
       }
-      // Vizuální zvýraznění: jen když by šlo o výměnu s existující dlaždicí,
-      // ne prázdnou buňkou (tam se nemá co "vysvítit").
+
+      // Do stavu Reactu jde jen to, co se MĚNÍ SKOKEM — cílová buňka a
+      // zvýraznění dlaždice pod prstem. Díky tomu se překresluje jen při
+      // přechodu mezi buňkami, ne při každém pixelu.
+      const cell = cellFromPoint(ev.clientX, ev.clientY);
+      setDropCell((prev) =>
+        prev?.x === cell?.x && prev?.y === cell?.y ? prev : cell,
+      );
       const overId = findTileIdAtPoint(ev.clientX, ev.clientY);
-      setDragOverId(overId && overId !== id ? overId : null);
+      const novyOver = overId && overId !== id ? overId : null;
+      setDragOverId((prev) => (prev === novyOver ? prev : novyOver));
       sledujOkraj(ev.clientX);
     }
     function onUp(ev: PointerEvent) {
@@ -1142,7 +1145,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   isPriming={primingId === id}
                   dragOver={dragOverId === id}
                   jiggling={editMode && draggingId !== null && draggingId !== id}
-                  dragOffset={draggingId === id ? dragOffset : null}
                   onMoveStep={(dir) => handleMoveTileStep(id, dir)}
                   onOpenEditor={() => setEditingTileId(id)}
                 />
@@ -1429,7 +1431,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                 isPriming={primingId === id}
                 dragOver={dragOverId === id}
                 jiggling={editMode && draggingId !== null && draggingId !== id}
-                dragOffset={draggingId === id ? dragOffset : null}
                 onMoveStep={(dir) => handleMoveTileStep(id, dir)}
                 onOpenEditor={() => setEditingTileId(id)}
                 onOpenQuickActions={() => setQuickActionsTile(id)}
