@@ -116,7 +116,12 @@ export function stoceniZapis(
     package_id: p.package_id,
     package_label: p.package_label,
     quantity: p.diffQty,
-    note: `Doplněno z inventury ${monthKey} (přebytek ${p.diffQty} ks)`,
+    // Obal patří do poznámky schválně: skladová kniha slučuje sourozenecké
+    // řádky jednoho zápisu stáčení mimo jiné podle poznámky (viz `dedupe` v
+    // stockLedger.ts). Dva samostatné doplňky téhož piva ke stejnému datu se
+    // stejným počtem kusů by jinak mohly splynout v jeden a odečet sudů by se
+    // u jednoho z nich ztratil.
+    note: `Doplněno z inventury ${monthKey} — ${p.package_label} (přebytek ${p.diffQty} ks)`,
   };
   if (sud) {
     return { table: 'kegging', row: { ...spolecne, cellar_tank_id: null, source_volume_l: null } };
