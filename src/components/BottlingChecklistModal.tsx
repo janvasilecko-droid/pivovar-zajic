@@ -1,3 +1,4 @@
+import { synchronizuj, ulozStav } from '../lib/checklistData';
 import { useState, useEffect } from 'react';
 import { Modal } from './ui';
 import { Check, CheckSquare, Lock, RotateCcw, ShieldCheck, Square, Unlock } from 'lucide-react';
@@ -229,44 +230,55 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
     }
   }, [isOpen, initialCategory]);
 
+  // Stav se při otevření srovná s databází — checklist proklikaný na tabletu
+  // tak platí i na mobilu (viz lib/checklistData.ts). Nejdřív se ukáže lokální
+  // zrcadlo, ať okno nečeká na síť, a hned poté sloučený stav.
   useEffect(() => {
     if (!isOpen) return;
     try {
       const saved = localStorage.getItem(storageKey);
-      if (saved) {
-        setCheckedMap(JSON.parse(saved));
-      } else {
-        setCheckedMap({});
-      }
+      setCheckedMap(saved ? JSON.parse(saved) : {});
     } catch {
       setCheckedMap({});
     }
-  }, [isOpen, storageKey]);
+    let platne = true;
+    // Checklist lahví zná jen ano/ne (na rozdíl od KEGů, kde krok sanitace
+    // nese volbu NaOH/Persteril), takže se sloučený stav převede na booleany.
+    void synchronizuj('lahve', dateKey).then((slouceno) => {
+      if (!platne) return;
+      const jenBooleany: Record<string, boolean> = {};
+      Object.entries(slouceno).forEach(([k, v]) => { jenBooleany[k] = typeof v === 'string' ? v.length > 0 : !!v; });
+      setCheckedMap(jenBooleany);
+    });
+    return () => { platne = false; };
+  }, [isOpen, storageKey, dateKey]);
+
+  // Zápis: stav v okně se překreslí hned, databáze i zrcadlo se dorovnají na
+  // pozadí. Odznačené položky se schválně drží jako `false` (ne mazáním
+  // klíče), aby ulozStav vědělo, co má z databáze odebrat.
+  const zapis = (next: Record<string, boolean>) => {
+    void ulozStav('lahve', dateKey, next);
+    return next;
+  };
 
   const toggleItem = (id: string) => {
     zavibruj('odskrtnuto');
-    setCheckedMap((prev) => {
-      const next = { ...prev, [id]: !prev[id] };
-      localStorage.setItem(storageKey, JSON.stringify(next));
-      return next;
-    });
+    setCheckedMap((prev) => zapis({ ...prev, [id]: !prev[id] }));
   };
 
   const selectAll = () => {
     setCheckedMap((prev) => {
       const next = { ...prev };
       items.forEach((it) => { next[it.id] = true; });
-      localStorage.setItem(storageKey, JSON.stringify(next));
-      return next;
+      return zapis(next);
     });
   };
 
   const resetAll = () => {
     setCheckedMap((prev) => {
       const next = { ...prev };
-      items.forEach((it) => { delete next[it.id]; });
-      localStorage.setItem(storageKey, JSON.stringify(next));
-      return next;
+      items.forEach((it) => { next[it.id] = false; });
+      return zapis(next);
     });
   };
 

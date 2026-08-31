@@ -1,3 +1,4 @@
+import { synchronizuj } from '../lib/checklistData';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { supabase, Beer, Package, EntryRow, CellarTank, KegPrefuk, useRealtime, beerBg, beerText, beerName, pkgBg, pkgText, formatPackageLabel, fetchAllRows } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
@@ -74,6 +75,14 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   const [note, setNote] = useState('');
 
   const [entryRows, setEntryRows] = useState<RowInput[]>(emptyRows());
+  // ✅ Brána „bez checklistu nezapíšeš stáčení" čte lokální zrcadlo synchronně.
+  // Bez tohohle srovnání by na zařízení, kde dnes checklist nikdo neotevřel,
+  // tvrdila, že chybí — i když ho kolega proklikal jinde.
+  const [checklistSrovnan, setChecklistSrovnan] = useState(0);
+  useEffect(() => {
+    void synchronizuj('kegy', businessDateISO()).then(() => setChecklistSrovnan((n) => n + 1));
+  }, []);
+
   const [expandedKegBeerId, setExpandedKegBeerId] = useState<string | null>(null);
   const expandedKegBeer = beers.find((b) => b.id === expandedKegBeerId) ?? null;
   const [saving, setSaving] = useState(false);

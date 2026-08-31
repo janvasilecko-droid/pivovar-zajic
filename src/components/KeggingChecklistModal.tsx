@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Modal } from './ui';
 import { AlertTriangle, Check, CheckSquare, FlaskConical, Lock, RotateCcw, ShieldCheck, Square, Unlock } from 'lucide-react';
 import { potvrd } from '../lib/toast';
+import { synchronizuj, ulozStav } from '../lib/checklistData';
 import { zavibruj } from '../lib/haptika';
 
 export type ChecklistPhase = 'start' | 'end' | 'monthly' | 'all';
@@ -129,15 +130,26 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
   const dateKey = dateStr || new Date().toISOString().slice(0, 10);
   const [checks, setChecks] = useState<Record<string, boolean | string>>({});
 
+  // Stav se srovná s databází, takže checklist proklikaný na tabletu platí i
+  // na mobilu (viz lib/checklistData.ts). Nejdřív lokální zrcadlo, ať okno
+  // nečeká na síť, hned poté sloučený stav.
   useEffect(() => {
     try {
       const raw = localStorage.getItem('keg_checklist_' + dateKey);
-      if (raw) setChecks(JSON.parse(raw));
-      else setChecks({});
+      setChecks(raw ? JSON.parse(raw) : {});
     } catch {
       setChecks({});
     }
+    let platne = true;
+    void synchronizuj('kegy', dateKey).then((slouceno) => { if (platne) setChecks(slouceno); });
+    return () => { platne = false; };
   }, [dateKey]);
+
+  /** Zapíše stav do zrcadla i do databáze. Vrací ho, ať jde řetězit do setChecks. */
+  function zapis(next: Record<string, boolean | string>) {
+    void ulozStav('kegy', dateKey, next);
+    return next;
+  }
 
   const items = getFilteredKegItems(phase);
 
@@ -167,15 +179,17 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
 
   function toggleItem(id: string) {
     zavibruj('odskrtnuto');
-    const next = { ...checks, [id]: !checks[id] };
-    setChecks(next);
-    localStorage.setItem('keg_checklist_' + dateKey, JSON.stringify(next));
+    setChecks(zapis({ ...checks, [id]: !checks[id] }));
   }
 
   async function handleReset() {
     if (!(await potvrd('Opravdu resetovat všechny odškrtnuté položky pro tento den?'))) return;
-    setChecks({});
-    localStorage.removeItem('keg_checklist_' + dateKey);
+    // Odznačené položky se drží jako false (ne smazáním klíče), aby ulozStav
+    // vědělo, které řádky má z databáze odebrat — jinak by reset zmizel jen
+    // na tomhle zařízení a z cloudu by se při dalším otevření vrátil.
+    const vynulovane: Record<string, boolean | string> = {};
+    Object.keys(checks).forEach((k) => { vynulovane[k] = false; });
+    setChecks(zapis(vynulovane));
   }
 
   return (
@@ -239,16 +253,10 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
               const choiceKey = 'keg_start_1_choice';
               const choiceVal = (checks[choiceKey] as string) || (isChecked ? 'naoh' : '');
               const pick = (val: 'naoh' | 'persteril') => {
-                const next = { ...checks, ['keg_start_1']: true, [choiceKey]: val };
-                setChecks(next);
-                localStorage.setItem('keg_checklist_' + dateKey, JSON.stringify(next));
+                setChecks(zapis({ ...checks, ['keg_start_1']: true, [choiceKey]: val }));
               };
               const unpick = () => {
-                const next = { ...checks };
-                delete next['keg_start_1'];
-                delete next[choiceKey];
-                setChecks(next);
-                localStorage.setItem('keg_checklist_' + dateKey, JSON.stringify(next));
+                setChecks(zapis({ ...checks, ['keg_start_1']: false, [choiceKey]: '' }));
               };
               return (
                 <div
@@ -336,8 +344,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
                   items.forEach((it) => {
                     next[it.id] = true;
                   });
-                  setChecks(next);
-                  localStorage.setItem('keg_checklist_' + dateKey, JSON.stringify(next));
+                  setChecks(zapis(next));
                   onDone?.();
                 }}
                 className="btn-ghost !rounded flex items-center justify-center gap-1 text-[11px] font-black text-rose-600 hover:bg-rose-50 border border-dashed border-rose-200 px-2.5 py-1.5 rounded"

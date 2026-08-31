@@ -18,6 +18,7 @@ import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap 
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { stackingQuickQtys } from '../lib/quickQty';
 import { navrhSudu } from '../lib/bottlingYield';
+import { synchronizuj } from '../lib/checklistData';
 import { computePackageNeeds } from '../lib/packageNeeds';
 import { computeKeggingPlan } from '../lib/keggingPlan';
 import KeggingDayPlan from '../components/KeggingDayPlan';
@@ -137,6 +138,15 @@ export default function BottlingScreen({
     setTileBeer(b);
   };
   const closeTile = () => setTileBeer(null);
+
+  // ✅ Brána „bez checklistu nezapíšeš stáčení" se vyhodnocuje SYNCHRONNĚ z
+  // lokálního zrcadla. Na zařízení, kde dnes ještě nikdo checklist neotevřel,
+  // by proto tvrdila, že chybí — i když ho kolega proklikal na tabletu.
+  // Tohle zrcadlo srovná hned po otevření obrazovky a překreslí bránu.
+  const [checklistSrovnan, setChecklistSrovnan] = useState(0);
+  useEffect(() => {
+    void synchronizuj('lahve', businessDateISO()).then(() => setChecklistSrovnan((n) => n + 1));
+  }, []);
 
   // 🔀 „Sklad" → „Nesedí evidence" → „Doplnit stočení" (Stock.tsx). Rovnou
   // rozbalí to pivo v dlaždicové mřížce, ať ho člověk nemusí sám hledat.
