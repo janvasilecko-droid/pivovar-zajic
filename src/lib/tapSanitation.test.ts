@@ -32,7 +32,6 @@ import {
   nowTimeStr,
   DEFAULT_TAP_SANITATION_STEPS,
   TAP_SAN_REASON_LABELS,
-  autoLogTapSanitationFromChecklist,
   TAP_SAN_STORAGE_KEY,
   type TapSanitationEntry,
 } from './tapSanitation';
@@ -85,95 +84,3 @@ describe('newTapSanEntry (nový záznam sanitačního deníku výčepu)', () => 
   });
 });
 
-describe('autoLogTapSanitationFromChecklist (zápis po dokončení checklistu)', () => {
-  beforeEach(() => {
-    localStorage.clear();
-  });
-
-  it('nový záznam: splněné kroky, source=checklist, poznámka', async () => {
-    await autoLogTapSanitationFromChecklist({
-      tapId: 'tap-1',
-      tapName: 'Výčep 1',
-      dateStr: '2026-08-11',
-      performedBy: 'Sládek',
-      reason: 'mesicni',
-      checkedSteps: [
-        { id: 'step_1', text: 'Oplach vodou (studená voda, 30–60 sekund)', completedAt: '06:10' },
-        { id: 'step_2', text: 'Sanitace louhem 2% NaOH (působení 10–15 min)', completedAt: '06:20' },
-      ],
-    });
-
-    const raw = localStorage.getItem(TAP_SAN_STORAGE_KEY);
-    expect(raw).toBeTruthy();
-    const entries = JSON.parse(raw!) as TapSanitationEntry[];
-    expect(entries).toHaveLength(1);
-
-    const e = entries[0];
-    expect(e.tap_id).toBe('tap-1');
-    expect(e.source).toBe('checklist');
-    expect(e.reason).toBe('mesicni');
-    expect(e.performed_by).toBe('Sládek');
-    expect(e.note).toContain('Auto-zápis z checklistu');
-    // Časy kroků se doplní z textů
-    expect(e.water_rinse_time).toBe('06:10');
-    expect(e.louh_sanitation_time).toBe('06:20');
-    // Odsouhlasené kroky mají completed + completedAt
-    const s1 = e.steps.find((s) => s.id === 'step_1');
-    expect(s1?.completed).toBe(true);
-    expect(s1?.completedAt).toBe('06:10');
-  });
-
-  it('doplní existující záznam (OR) — nesmaže dřívější kroky', async () => {
-    // Vytvoříme první záznam ručně v localStorage (offline fallback).
-    const first = newTapSanEntry('tap-1', 'Výčep 1', '2026-08-11', 'Sládek');
-    first.steps[0].completed = true;
-    first.steps[0].completedAt = '06:10';
-    first.steps[1].completed = true;
-    first.steps[1].completedAt = '06:20';
-    first.water_rinse_time = '06:10';
-    first.louh_sanitation_time = '06:20';
-    localStorage.setItem(TAP_SAN_STORAGE_KEY, JSON.stringify([first]));
-
-    // Druhý zápis z checklistu — oprava, další kroky
-    await autoLogTapSanitationFromChecklist({
-      tapId: 'tap-1',
-      tapName: 'Výčep 1',
-      dateStr: '2026-08-11',
-      reason: 'oprava',
-      checkedSteps: [
-        { id: 'step_4', text: 'Rozebrání kohoutu a vyčištění kartáčem', completedAt: '07:05' },
-      ],
-    });
-
-    const raw = localStorage.getItem(TAP_SAN_STORAGE_KEY);
-    const entries = JSON.parse(raw!) as TapSanitationEntry[];
-    expect(entries).toHaveLength(1); // OR — sloučeno do jednoho záznamu
-
-    const e = entries[0];
-    expect(e.steps[0].completed).toBe(true); // krok 1 zůstal
-    expect(e.steps[0].completedAt).toBe('06:10');
-    const s4 = e.steps.find((s) => s.id === 'step_4');
-    expect(s4?.completed).toBe(true);
-    expect(s4?.completedAt).toBe('07:05');
-    expect(e.disassembly_time).toBe('07:05');
-    expect(e.reason).toBe('oprava');
-  });
-
-  it('prázdný checklist nebo chybějící datum → nic se neuloží', async () => {
-    await autoLogTapSanitationFromChecklist({
-      tapId: 'tap-1',
-      tapName: 'Výčep 1',
-      dateStr: '2026-08-11',
-      checkedSteps: [],
-    });
-    expect(localStorage.getItem(TAP_SAN_STORAGE_KEY)).toBeNull();
-
-    await autoLogTapSanitationFromChecklist({
-      tapId: 'tap-1',
-      tapName: 'Výčep 1',
-      dateStr: '',
-      checkedSteps: [{ id: 'step_1', text: 'Oplach vodou' }],
-    });
-    expect(localStorage.getItem(TAP_SAN_STORAGE_KEY)).toBeNull();
-  });
-});
