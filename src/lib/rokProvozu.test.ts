@@ -92,6 +92,10 @@ function simulujRok() {
   const konecDne = new Map<string, Record<string, number>>();
   const ranoDne = new Map<string, Record<string, number>>();
   const mesicniDelty = new Map<string, Record<string, number>>();
+  // Dorovnání se drží zvlášť: do skutečného skladu patří jako každý jiný
+  // pohyb, ale do OČEKÁVANÉHO stavu svého měsíce ne — je to oprava, se
+  // kterou se očekávaný stav teprve porovnává (viz expectedForMonth).
+  const mesicniDorovnani = new Map<string, Record<string, number>>();
   const inventuraKPrvnimu = new Map<string, Record<string, number>>();
 
   const pohyb = (den: string, klic: string, delta: number) => {
@@ -266,6 +270,10 @@ function simulujRok() {
       const ks = cislo(-4, 4) || 1;
       adjustmentRows.push({ entry_date: den, beer_id, package_id, quantity: ks, note: 'dorovnání' });
       pohyb(den, klic, ks);
+      const mesic = den.slice(0, 7);
+      const d = mesicniDorovnani.get(mesic) ?? {};
+      d[klic] = (d[klic] ?? 0) + ks;
+      mesicniDorovnani.set(mesic, d);
     }
 
     konecDne.set(den, { ...stav });
@@ -276,7 +284,7 @@ function simulujRok() {
     writeoffsRows, zavozDeductionRows, akceRows, prefukRows, adjustmentRows,
     packages: OBALY,
   };
-  return { zdroje, orders, orderItems, konecDne, ranoDne, mesicniDelty, inventuraKPrvnimu };
+  return { zdroje, orders, orderItems, konecDne, ranoDne, mesicniDelty, mesicniDorovnani, inventuraKPrvnimu };
 }
 
 const ROK = simulujRok();
@@ -348,18 +356,33 @@ describe('rok provozu — skladová kniha', () => {
 });
 
 describe('rok provozu — očekávaný stav pro inventuru', () => {
-  it('měsíční očekávaný stav = počáteční stav + pohyby měsíce, a to každý měsíc roku', () => {
+  // Očekávaný stav je ČISTÁ TEORIE: co má podle papírů být, než se cokoli
+  // opraví. Proto se do něj nepočítají opravy pořízené při téhle inventuře —
+  // ani napočítaný stav, ani dorovnání. Obrazovka Inventura si dorovnání
+  // přičítá sama („Po dorovnání"), takže kdyby ho nesl i očekávaný stav,
+  // sedělo by dvakrát a k nule by se nikdy nedopočítalo.
+  it('měsíční očekávaný stav = počáteční stav + pohyby měsíce bez dorovnání, a to každý měsíc roku', () => {
     const mesice = [...ROK.inventuraKPrvnimu.keys()];
     expect(mesice.length).toBe(12);
     for (const mesic of mesice) {
       const ocekavano = expectedForMonth(POHYBY, mesic);
       const zaklad = ROK.inventuraKPrvnimu.get(mesic)!;
       const delty = ROK.mesicniDelty.get(mesic) ?? {};
+      const dorovnani = ROK.mesicniDorovnani.get(mesic) ?? {};
       for (const klic of KLICE) {
         expect(`${mesic} ${klic}: ${ocekavano.get(klic)?.qty ?? 0}`)
-          .toBe(`${mesic} ${klic}: ${zaklad[klic] + (delty[klic] ?? 0)}`);
+          .toBe(`${mesic} ${klic}: ${zaklad[klic] + (delty[klic] ?? 0) - (dorovnani[klic] ?? 0)}`);
       }
     }
+  });
+
+  it('dorovnání se přesto někde stalo — jinak test výše nic nehlídá', () => {
+    // Pojistka proti tomu, aby simulace jednou přestala dorovnání generovat
+    // a předchozí test začal procházet jen proto, že odečítá samé nuly.
+    const celkem = [...ROK.mesicniDorovnani.values()]
+      .flatMap((m) => Object.values(m))
+      .filter((v) => v !== 0).length;
+    expect(celkem).toBeGreaterThan(0);
   });
 
   it('inventura uprostřed měsíce se do očekávaného stavu NEpromítne (jinak by manko vyšlo vždy nula)', () => {

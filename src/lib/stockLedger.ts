@@ -96,6 +96,18 @@ function inventoryPriority(note: string | null | undefined): number {
   return 0;
 }
 
+/**
+ * Je to NAPOČÍTANÝ STAV (fyzická/schválená inventura), nebo VÝCHOZÍ ZÁKLAD
+ * (počáteční stav převedený z minulého měsíce)?
+ *
+ * Rozdíl je zásadní pro expectedForMonth: obojí se ukládá k PRVNÍMU DNI
+ * měsíce, ale očekávaný stav se musí počítat od základu — kdyby vycházel z
+ * napočítaného stavu, porovnával by se sám se sebou.
+ */
+function jeNapocitanyStav(note: string | null | undefined): boolean {
+  return inventoryPriority(note) >= 2;
+}
+
 // Sud spotřebovaný jako zdroj stáčení lahví. Řádek stáčení nese kegs_used,
 // ale ne vždy i kegs_used_package_id — pak se obal dopočítá z objemu.
 function resolveKegsUsed(
@@ -131,12 +143,18 @@ export function buildMovements(src: StockSources): Movement[] {
     out.push({ date: String(date).slice(0, 10), beer_id: beer, package_id: pkg, qty, kind, note: note ?? null });
   };
 
-  // Inventura — reset stavu. Při shodném datu vyhraje řádek s vyšší prioritou.
+  // Inventura — reset stavu. Při shodném datu vyhraje řádek s vyšší prioritou,
+  // ALE napočítaný stav a počáteční základ se drží ZVLÁŠŤ, i když mají stejné
+  // datum (a ony ho mají — obojí se ukládá k prvnímu dni měsíce). Kdyby se
+  // slily do jednoho, přebil by napočítaný stav ten počáteční a
+  // expectedForMonth by neměl od čeho počítat: očekávaný stav by vycházel z
+  // právě napočítané skutečnosti a manko by se o celý měsíc pohybů rozjelo.
   const invByKeyDate = new Map<string, { qty: number; prio: number; note: string | null }>();
   (src.inventoryRows ?? []).forEach((r) => {
     if (!r.beer_id || !r.package_id || !r.entry_date) return;
     const date = String(r.entry_date).slice(0, 10);
-    const k = `${date}|${stockKey(r.beer_id, r.package_id)}`;
+    const trida = jeNapocitanyStav(r.note) ? 'pocet' : 'zaklad';
+    const k = `${date}|${stockKey(r.beer_id, r.package_id)}|${trida}`;
     const prio = inventoryPriority(r.note);
     const prev = invByKeyDate.get(k);
     if (prev && prev.prio > prio) return;
@@ -224,13 +242,19 @@ export function stockAsOf(movements: Movement[], dateISO: string): Map<string, S
   const out = new Map<string, StockLine>();
   byKey.forEach((list, key) => {
     // Poslední inventura k datu.
+    // Poslední inventura k datu. Na jednom datu můžou ležet dvě (napočítaný
+    // stav i počáteční základ — viz buildMovements); pak rozhoduje priorita,
+    // ať výsledek nezávisí na pořadí řádků z databáze.
     let baselineDate: string | null = null;
     let baselineQty = 0;
+    let baselinePrio = -1;
     for (const m of list) {
       if (m.kind !== 'inventura') continue;
-      if (baselineDate === null || m.date >= baselineDate) {
+      const prio = inventoryPriority(m.note);
+      if (baselineDate === null || m.date > baselineDate || (m.date === baselineDate && prio > baselinePrio)) {
         baselineDate = m.date;
         baselineQty = m.qty;
+        baselinePrio = prio;
       }
     }
 
@@ -282,14 +306,32 @@ export function stockMapAsOf(movements: Movement[], dateISO: string): Record<str
  * po uložení fyzické inventury vždycky vyšel nula a manko by nešlo zjistit.
  * Výchozím bodem je poslední inventura K PRVNÍMU DNI MĚSÍCE nebo starší
  * (typicky „Počáteční stav" převedený z minulého měsíce).
+ *
+ * Pozor na datum: fyzická i schválená inventura se ukládá k PRVNÍMU dni
+ * měsíce, ne k poslednímu (viz handleSaveActualStock v InventoryScreen.tsx).
+ * Nestačí proto vyřadit inventury s datem VĚTŠÍM než první den — napočítaný
+ * stav leží přesně na něm a stal by se výchozím bodem sám sobě. Očekávaný
+ * stav by pak po uložení inventury poskočil přesně o pohyby za daný měsíc
+ * a manko by ukázalo nesmysl.
  */
 export function expectedForMonth(movements: Movement[], monthKey: string): Map<string, StockLine> {
   const monthStart = `${monthKey}-01`;
   const [y, m] = monthKey.split('-').map(Number);
   const monthEnd = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
-  const bezInventurVMesici = movements.filter(
-    (mv) => !(mv.kind === 'inventura' && mv.date > monthStart && mv.date <= monthEnd)
-  );
+  const vMesici = (d: string) => d >= monthStart && d <= monthEnd;
+  const bezInventurVMesici = movements.filter((mv) => {
+    // Dorovnání zadané při TÉHLE inventuře taky ne. Obrazovka ho k
+    // očekávanému stavu přičítá sama („Po dorovnání"), takže kdyby ho
+    // započítala i skladová kniha, sedělo by dvakrát: po uložení a načtení
+    // by „po dorovnání" ukázalo přesně tolik, o kolik se dorovnávalo, a
+    // člověk by dorovnával pořád dokola. Pro skutečný sklad (stockAsOf) i
+    // pro další měsíce se dorovnání počítá normálně.
+    if (mv.kind === 'dorovnani') return !vMesici(mv.date);
+    if (mv.kind !== 'inventura') return true;
+    if (!vMesici(mv.date)) return true;
+    // Uvnitř měsíce zůstane jen počáteční základ na jeho prvním dni.
+    return mv.date === monthStart && !jeNapocitanyStav(mv.note);
+  });
   return stockAsOf(bezInventurVMesici, monthEnd);
 }
 
