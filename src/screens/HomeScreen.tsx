@@ -35,7 +35,7 @@ import {
   addDockSlot, removeDockSlot,
   hexToRgba,
   PAGE_CATEGORY, CATEGORY_ORDER, CATEGORY_SHADES, type Category,
-  SCENES, MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX,
+  SCENES, MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX, defaultTileColor,
   GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK,
   type HomeLayout, type TileColor, type TileId, type GroupId, type CountdownTileId,
 } from '../lib/homeLayout';
@@ -1037,7 +1037,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   item={null}
                   groupItems={groupItems}
                   override={override}
-                  isPresetColor={isPresetColor(override.color ?? 'coral')}
+                  isPresetColor={isPresetColor(override.color ?? defaultTileColor(id))}
                   editing={editMode}
                   selected={selectedTileId === id}
                   onSelect={() => setSelectedTileId((cur) => (cur === id ? null : id))}
@@ -1410,7 +1410,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                 id={id}
                 item={item}
                 override={override}
-                isPresetColor={isPresetColor(override.color ?? 'coral')}
+                isPresetColor={isPresetColor(override.color ?? defaultTileColor(id))}
                 editing={editMode}
                 selected={selectedTileId === id}
                 onSelect={() => setSelectedTileId((cur) => (cur === id ? null : id))}
@@ -1479,7 +1479,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   />
                 ))}
                 <label className="hs-modal-swatch hs-modal-swatch-custom" title="Vlastní barva">
-                  <input type="color" value={colorInputValue(editingOverride.color ?? 'coral')} onChange={(e) => handleRecolor(editingTileId, e.target.value)} />
+                  <input type="color" value={colorInputValue(editingOverride.color ?? defaultTileColor(editingTileId))} onChange={(e) => handleRecolor(editingTileId, e.target.value)} />
                 </label>
               </div>
             </div>

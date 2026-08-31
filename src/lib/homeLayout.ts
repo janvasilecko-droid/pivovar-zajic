@@ -166,6 +166,15 @@ export const COLOR_HEX: Record<TileColor, string> = {
   charcoal: '#343a40',
 };
 
+// Výchozí barva dlaždice, dokud si ji uživatel sám nepřebarví — dlaždice
+// časovačů/odpočtů (Časovač, Stopky, Stočení sudu i vlastní připnuté
+// odpočty cd_*) dostanou jinou barvu než zbytek launcheru, ať jsou na
+// první pohled odlišitelné od běžných dlaždic.
+export function defaultTileColor(id: string): TileColor {
+  if (id === 'timer' || id === 'stopwatch' || id === 'keg_timer' || isCountdownId(id)) return 'indigo';
+  return 'coral';
+}
+
 // Výchozí velikost pro dlaždice — standardně jednotné čtvercové dlaždice 1x1,
 // které tvoří čistou, zarovnanou a přehlednou mřížku. Uživatel si je v edit módu
 // může dle potřeby libovolně zvětšit nebo zmenšit.

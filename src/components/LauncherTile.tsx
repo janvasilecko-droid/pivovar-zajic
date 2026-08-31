@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Settings, Zap } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import type { NavItem } from './Layout';
-import { hexToRgba, tileTextColor, COLOR_HEX, UNIT_COLS, type TileColor, type TileId, type TileOverride } from '../lib/homeLayout';
+import { hexToRgba, tileTextColor, COLOR_HEX, UNIT_COLS, defaultTileColor, type TileColor, type TileId, type TileOverride } from '../lib/homeLayout';
 import { zavibruj } from '../lib/haptika';
 
 /** Explicitní pozice+rozestup (grid-column/-row) pro danou volnou pozici/velikost —
@@ -51,7 +51,7 @@ export default function LauncherTile({
   /** Vlastní bohatý obsah pro mini-widget dlaždice (poznámky, checklisty, kalendář). */
   customContent?: React.ReactNode;
 }) {
-  const color = override.color ?? 'coral';
+  const color = override.color ?? defaultTileColor(id);
   const w = override.w ?? 1;
   const h = override.h ?? 1;
   const x = override.x ?? 0;
