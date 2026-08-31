@@ -67,6 +67,11 @@ export type HomeLayout = {
   tileOpacity: number;
   /** Mezera mezi dlaždicemi v px (viz MIN/MAX_TILE_GAP). */
   tileGap: number;
+  /**
+   * Zesvětlení pozadí 0–0,85. Přes scénu se položí bílý závoj — barevné
+   * pozadí se dá ztlumit, aniž by se muselo měnit na bílou scénu.
+   */
+  bgSvetlost: number;
   /** 4 zástupci ve spodní mobilní liště (Layout.tsx) — 'home' je vždy platná volba. */
   dock: Page[];
   /** Dlaždice schované z mřížky (modul zůstává dostupný, jen nezabírá místo). */
@@ -191,6 +196,10 @@ export const MAX_DOCK = 6;
 const DEFAULT_SCENE: Scene = 'warm';
 const DEFAULT_OPACITY = 0.62;
 export const MIN_OPACITY = 0.3;
+/** Zesvětlení pozadí: 0 = scéna beze změny, 0,85 = skoro bílá. */
+export const MIN_SVETLOST = 0;
+export const MAX_SVETLOST = 0.85;
+const DEFAULT_SVETLOST = 0;
 export const MAX_OPACITY = 0.9;
 
 const DEFAULT_TILE_GAP = 4;
@@ -479,6 +488,8 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
   const tileOpacity = Math.min(MAX_OPACITY, Math.max(MIN_OPACITY, rawOpacity));
   const rawGap = typeof saved.tileGap === 'number' ? saved.tileGap : DEFAULT_TILE_GAP;
   const tileGap = Math.min(MAX_TILE_GAP, Math.max(MIN_TILE_GAP, rawGap));
+  const rawSvetlost = typeof (saved as any).bgSvetlost === 'number' ? (saved as any).bgSvetlost : DEFAULT_SVETLOST;
+  const bgSvetlost = Math.min(MAX_SVETLOST, Math.max(MIN_SVETLOST, rawSvetlost));
   const customAccent = typeof saved.customAccent === 'string' && /^#[0-9a-fA-F]{3,6}$/.test(saved.customAccent)
     ? saved.customAccent
     : DEFAULT_CUSTOM_ACCENT;
@@ -523,6 +534,7 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
     scene,
     tileOpacity,
     tileGap,
+    bgSvetlost,
     customAccent,
     dock,
     hidden,

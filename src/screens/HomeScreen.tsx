@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import {
   CalendarX2, Download, Check, ChevronLeft, ChevronRight, LogOut, Palette, Plus, Search, SlidersHorizontal, Trash2, TriangleAlert, X,
   Truck, ClipboardList, MessageCircle, PlusCircle, Snowflake, FlaskConical, CalendarDays, BarChart3, Package as PackageIcon, TrendingDown, GlassWater, BookOpen, Droplet, Car, FileText, ClipboardCheck, Shield, Store, Receipt, MapPin, Beer as BeerIcon, Tag, Sparkles, Compass, Wheat, Zap, ArrowLeftRight, StickyNote,
-  AlarmClock, Play, Pause, RotateCcw, Pin, Radio, SkipForward, Flame,
+  AlarmClock, Play, Pause, RotateCcw, Pin, Radio, SkipForward, Flame, Sun,
 } from 'lucide-react';
 import { NAV, EXTRA_NAV, type Page, type NavItem } from '../components/Layout';
 import LauncherTile, { tileGridStyle } from '../components/LauncherTile';
@@ -36,6 +36,7 @@ import {
   hexToRgba,
   PAGE_CATEGORY, CATEGORY_ORDER, CATEGORY_SHADES, type Category,
   moveTileToPageCell, okrajProPrepnuti, dalsiStranka, type OkrajTazeni,
+  MIN_SVETLOST, MAX_SVETLOST,
   SCENES, MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX, defaultTileColor,
   GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK,
   type HomeLayout, type TileColor, type TileId, type GroupId, type CountdownTileId,
@@ -49,6 +50,7 @@ import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionChec
 import { isMonthlyCleanupPending, MONTHLY_CLEANUP_CHANGED_EVENT } from '../lib/monthlyCleanup';
 import { potvrd, oznam } from '../lib/toast';
 import { requestOrdersAutoImport } from '../lib/ordersFilter';
+import { getTheme, setTheme, type Theme } from '../lib/theme';
 import { fetchPendingWhatsAppCount, subscribeToWhatsAppMessages } from '../lib/whatsappApi';
 import './HomeScreen.css';
 
@@ -148,6 +150,8 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   useEffect(() => { setSelectedTileId(null); }, [currentPageIndex]);
 
   const [editMode, setEditMode] = useState(false);
+  // Světlý/tmavý režim se přepíná i tady, v úpravě plochy (viz níž).
+  const [tema, setTema] = useState<Theme>(() => getTheme());
   // Dlaždice právě označená klikem v edit módu — jen ona zobrazuje plovoucí
   // panel s ovládáním (šipky + ⚙), viz LauncherTile.tsx `selected`/`onSelect`.
   // Klik na jinou dlaždici označení přepne, klik na tu samou ho zruší.
@@ -901,6 +905,27 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                 <Palette className="ikona-text" /> Sjednotit barvy dle kategorie
               </button>
             </div>
+            {/* 🌗 Světlý / tmavý režim. Dřív byl jen v „Aplikace & Nastavení",
+                kde ho při úpravě vzhledu plochy nikdo nehledal — patří sem,
+                mezi ostatní volby vzhledu. */}
+            <div className="hs-controls-group">
+              <span className="hs-controls-label">Režim</span>
+              {([
+                ['light', 'Světlý'],
+                ['dark', 'Tmavý'],
+                ['system', 'Podle systému'],
+              ] as const).map(([hodnota, popis]) => (
+                <button
+                  key={hodnota}
+                  type="button"
+                  className={`hs-tema-btn ${tema === hodnota ? 'active' : ''}`}
+                  onClick={() => { setTheme(hodnota); setTema(hodnota); }}
+                >
+                  {popis}
+                </button>
+              ))}
+            </div>
+
             <div className="hs-controls-group">
               <span className="hs-controls-label">Pozadí</span>
               {SCENES.filter((s) => s !== 'custom').map((s) => (
@@ -911,6 +936,22 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   onClick={() => handleSceneChange(s)}
                 />
               ))}
+              {/* Zesvětlení pozadí — přes scénu se položí bílý závoj. Dřív se
+                  barevné pozadí dalo ztlumit jen tím, že se přepnulo na bílou
+                  scénu, čímž se ztratil odstín, který si člověk vybral. */}
+              <label className="hs-svetlost" title="Zesvětlit pozadí">
+                <Sun size={13} />
+                <input
+                  type="range"
+                  min={MIN_SVETLOST}
+                  max={MAX_SVETLOST}
+                  step={0.05}
+                  value={layout.bgSvetlost}
+                  onChange={(e) => persist({ ...layout, bgSvetlost: Number(e.target.value) })}
+                  className="hs-opacity-slider"
+                  aria-label="Zesvětlit pozadí"
+                />
+              </label>
               <label className="hs-bg-custom" title="Vlastní barva pozadí">
                 <input
                   type="color"

@@ -161,6 +161,10 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   // jako jemné pozadí; průhledná verze dá stejný efekt jako přednastavené
   // scény (viz HomeScreen.css .hs-fullscreen-scene[data-scene]).
   const homeCustomWash = hexToRgba(homeCustomAccent, 0.55);
+  // Zesvětlení pozadí — bílý závoj přes scénu. Nastavuje se v úpravě
+  // rozložení plochy (HomeScreen.tsx) a platí i mimo Domů, protože scéna je
+  // celoobrazovková.
+  const homeBgSvetlost: number = Number((profile as any)?.home_layout?.bgSvetlost) || 0;
   const savedDock = (profile as any)?.home_layout?.dock;
   const dockPages: Page[] = Array.isArray(savedDock) && savedDock.length > 0 ? savedDock : DEFAULT_DOCK;
   // Barva ikony+popisku spodní lišty na Domů = stejná barva, jakou má
@@ -647,7 +651,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
         {/* Barevné pozadí (scéna) — dřív jen na Domů, teď na všech
             stránkách, ať appka vypadá jednotně (viz homeScene/customAccent
             výše, nastavuje se v HomeScreen.tsx "Upravit rozložení" → POZADÍ). */}
-        <div className="hs-fullscreen-scene" data-scene={homeScene} style={{ ['--hs-custom' as any]: homeCustomAccent, ['--hs-custom-wash' as any]: homeCustomWash }}>
+        <div className="hs-fullscreen-scene" data-scene={homeScene} style={{ ['--hs-custom' as any]: homeCustomAccent, ['--hs-custom-wash' as any]: homeCustomWash, ['--hs-svetlost' as any]: homeBgSvetlost }}>
           <i className="b1" /><i className="b2" /><i className="b3" /><i className="b4" />
         </div>
         {/* Top Header - Desktop & Mobile. Na Domů a na stránkách s vlastní

@@ -907,3 +907,50 @@
   margin-top: 1px;
   color: #e11d48;
 }
+
+/* 🔆 Zesvětlení pozadí — bílý závoj přes scénu.
+   Dřív se barevné pozadí dalo ztlumit jen přepnutím na bílou scénu, čímž
+   se ztratil odstín, který si člověk vybral. Takhle zůstane a jen zesvětlí. */
+.hs-fullscreen-scene::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: var(--hs-svetlost, 0);
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+/* Kolečka výběru pozadí byla ŠIŠATÁ: ve flex řádku plném ovládacích prvků
+   je flexbox smrskl na šířku, výška zůstala, a z kruhu byl ovál.
+   `flex-shrink: 0` je drží kulaté. */
+.hs-scene-swatch { flex-shrink: 0; }
+
+/* Posuvník zesvětlení vedle koleček pozadí. */
+.hs-svetlost {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  color: #2b2438;
+}
+.hs-svetlost svg { flex-shrink: 0; }
+
+/* Přepínač světlý / tmavý / podle systému přímo v úpravě plochy — dřív byl
+   jen v Aplikace & Nastavení, kde ho při úpravě vzhledu nikdo nehledal. */
+.hs-tema-btn {
+  flex-shrink: 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 5px 9px;
+  border-radius: 8px;
+  border: 1px solid rgba(43, 36, 56, 0.18);
+  background: rgba(255, 255, 255, 0.7);
+  color: #2b2438;
+  cursor: pointer;
+}
+.hs-tema-btn.active {
+  background: #2b2438;
+  color: #fff;
+  border-color: #2b2438;
+}
