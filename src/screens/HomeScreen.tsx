@@ -1324,117 +1324,28 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
             }
 
             // Widget Poznámky (notes):
+            //
+            // Lísteček ZÁMĚRNĚ neukazuje seznam poznámek ani jejich text.
+            // Dřív ho ukazoval, ale jen na zvětšené dlaždici — na běžné
+            // velikosti 1×1 se zadaná poznámka nezobrazila vůbec a vypadalo
+            // to jako by se neuložila. Místo dvou různých podob podle
+            // velikosti je tu jedna: lísteček je vstup do poznámek, číst a
+            // odškrtávat se dá v okně. Kolik jich čeká, říká odznak na
+            // dlaždici (proměnná `badge` výš).
             if (id === 'notes') {
-              const tileW = override.w ?? 1;
-              const tileH = override.h ?? 1;
-              const isWideOrTall = tileW >= 2 || tileH >= 2;
-              // Kolik poznámek se vejde, škáluje s plochou dlaždice — "libovolně
-              // velká" dlaždice má ukázat víc, ne pořád jen ty samé 3.
-              const maxShown = Math.max(3, tileW * tileH * 2);
-              if (isWideOrTall) {
-                customContent = (
-                  <div className="w-full h-full flex flex-col justify-between p-3 text-left select-none overflow-hidden">
-                    <div className="flex items-center justify-between gap-2 border-b border-black/10 pb-1">
-                      <span className="font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 opacity-90">
-                        <StickyNote size={14} /> Poznámky
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] font-bold opacity-75">{activeNotesList.length} aktivní</span>
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); setShowNotesModal(true); }}
-                          className="w-5 h-5 rounded-md bg-black/10 hover:bg-black/20 grid place-items-center transition"
-                          title="Přidat poznámku"
-                        >
-                          <Plus size={12} />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="my-auto py-1 space-y-1.5 overflow-hidden">
-                      {activeNotesList.length === 0 ? (
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); setShowNotesModal(true); }}
-                          className="w-full text-center py-2 text-xs font-bold opacity-80 hover:opacity-100 italic"
-                        >
-                          + Klepnutím přidáte poznámku
-                        </button>
-                      ) : (
-                        activeNotesList.slice(0, maxShown).map((note) => (
-                          <div
-                            key={note.id}
-                            className="flex items-center gap-2 group/note cursor-pointer"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleHomeNote(note.id);
-                            }}
-                          >
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleHomeNote(note.id);
-                              }}
-                              className="w-4 h-4 rounded-md border-2 border-current bg-white/80 grid place-items-center shrink-0 hover:bg-white transition"
-                              title="Odškrtnout hotovo"
-                            >
-                              {note.completed && <Check size={10} className="text-emerald-700 font-bold stroke-[3]" />}
-                            </button>
-                            {note.important && <TriangleAlert size={11} className="text-rose-600 shrink-0" />}
-                            <span className={`text-xs font-bold truncate leading-tight flex-1 ${note.completed ? 'line-through opacity-50' : ''}`}>
-                              {note.text}
-                            </span>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                    <div className="text-[11px] font-bold opacity-60 flex items-center justify-between pt-1 border-t border-black/10">
-                      <span>Nástěnka</span>
-                      <span onClick={(e) => { e.stopPropagation(); setShowNotesModal(true); }}>Spravovat ➔</span>
-                    </div>
-                  </div>
-                );
-              } else if (activeNotesList.length > 0) {
-                const topNote = activeNotesList[0];
-                customContent = (
-                  <div className="w-full h-full flex flex-col justify-between p-2.5 text-left select-none overflow-hidden relative">
-                    <div className="flex items-center justify-between gap-1 border-b border-black/10 pb-0.5">
-                      <span className="font-extrabold text-[11px] uppercase tracking-wider flex items-center gap-1 opacity-90">
-                        <StickyNote size={11} /> Poznámky
-                      </span>
-                      <span className="text-[11px] font-black px-1.5 py-0.2 rounded-full bg-black/15">{activeNotesList.length}</span>
-                    </div>
-                    <div className="my-auto py-0.5 flex items-start gap-1">
-                      {topNote.important && <TriangleAlert size={12} className="text-rose-600 shrink-0 mt-0.5" />}
-                      <p className="text-xs font-bold leading-tight line-clamp-2">{topNote.text}</p>
-                    </div>
-                    <div className="flex items-center justify-between pt-1 border-t border-black/10">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleHomeNote(topNote.id);
-                        }}
-                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-black/15 hover:bg-black/25 text-[11px] font-black transition"
-                        title="Odškrtnout"
-                      >
-                        <Check size={9} className="stroke-[3]" /> Hotovo
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowNotesModal(true);
-                        }}
-                        className="text-[11px] font-black opacity-60 hover:opacity-100"
-                        title="Přidat"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                );
-              }
+              customContent = (
+                <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 p-2 text-center select-none">
+                  <StickyNote size={20} className="opacity-80" />
+                  <span className="text-xs font-black leading-tight">
+                    {activeNotesList.length > 0
+                      ? `${activeNotesList.length} ${activeNotesList.length === 1 ? 'poznámka' : activeNotesList.length < 5 ? 'poznámky' : 'poznámek'}`
+                      : 'Poznámky'}
+                  </span>
+                  <span className="text-[11px] font-bold opacity-70 leading-tight">
+                    Klepnutím přidáte poznámku
+                  </span>
+                </div>
+              );
             }
 
             // Widget Checklist (checklists):

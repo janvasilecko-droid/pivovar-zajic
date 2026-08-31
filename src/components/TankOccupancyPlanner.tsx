@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
-import { CellarTank, Beer, CellarTankCycle } from '../lib/supabase';
+import { CellarTank, Beer, CellarTankCycle, useRealtime } from '../lib/supabase';
+import { KLIC_VARKY, nactiVarky, prenesZProhlizece, smazVarku, ulozVarku } from '../lib/varkyData';
+import { rozdilProUlozeni } from '../lib/vycepyData';
+import { chyba as chybaOznam } from '../lib/toast';
 import { AlertTriangle, BarChart3, Calendar, Circle, Clock, Check, CheckCircle2, Plus, ShieldAlert, Sparkles, X } from 'lucide-react';
 
 export type PlannedBatch = {
@@ -38,13 +41,40 @@ export function TankOccupancyPlanner({
   const [targetDays, setTargetDays] = useState('30');
   const [note, setNote] = useState('');
 
+  // 🌐 Načtení z databáze. Do 31. 8. 2026 žily plánované várky jen v
+  // prohlížeči, takže kdo plánoval na tabletu, na mobilu to neviděl.
+  // Co komu zůstalo v prohlížeči, se při prvním načtení přenese.
+  async function nactiZCloudu() {
+    await prenesZProhlizece(new Set(tanks.map((t) => t.id)));
+    setPlannedBatches(await nactiVarky());
+  }
+  useEffect(() => { void nactiZCloudu(); }, [tanks.length]);
+  useRealtime(['planovane_varky'], () => { void nactiZCloudu(); });
+
+  /** Zapíše seznam do zrcadla i do databáze; posílá jen skutečné změny. */
+  function ulozVse(updated: PlannedBatch[]) {
+    const stare = plannedBatches;
+    setPlannedBatches(updated);
+    localStorage.setItem(KLIC_VARKY, JSON.stringify(updated));
+    void (async () => {
+      const { kUlozeni, kSmazani } = rozdilProUlozeni(stare, updated);
+      for (const id of kSmazani) await smazVarku(id);
+      for (const v of kUlozeni) {
+        const chyba = await ulozVarku(v);
+        if (chyba) chybaOznam('Várku se nepodařilo uložit: ' + chyba);
+      }
+    })();
+  }
+
   // Uložení plánované várky
   function handleAddPlannedBatch(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedTankId || !selectedBeerName) return;
 
     const newBatch: PlannedBatch = {
-      id: `planned_${Date.now()}`,
+      // uuid, ne `planned_${Date.now()}` — databáze má id jako uuid a starý
+      // tvar by odmítla.
+      id: crypto.randomUUID(),
       tankId: selectedTankId,
       beerName: selectedBeerName,
       volumeHl: Number(volumeHl) || 10,
@@ -53,17 +83,13 @@ export function TankOccupancyPlanner({
       note,
     };
 
-    const updated = [newBatch, ...plannedBatches];
-    setPlannedBatches(updated);
-    localStorage.setItem('cellar_planned_brews_data', JSON.stringify(updated));
+    ulozVse([newBatch, ...plannedBatches]);
     setShowAddModal(false);
     setNote('');
   }
 
   function handleRemovePlannedBatch(id: string) {
-    const updated = plannedBatches.filter((b) => b.id !== id);
-    setPlannedBatches(updated);
-    localStorage.setItem('cellar_planned_brews_data', JSON.stringify(updated));
+    ulozVse(plannedBatches.filter((b) => b.id !== id));
   }
 
   // Funkce pro získání doporučené doby ležení podle pivního stylu
