@@ -3,7 +3,9 @@ import { supabase, useRealtime } from '../lib/supabase';
 import { Spinner, EmptyState } from '../components/ui';
 import { Archive, BarChart3, Calendar, Castle, Clock, Download, CheckCircle2, ChevronDown, ChevronUp, Landmark, Plus, Trash2, User, UserCheck, UserRound, Users } from 'lucide-react';
 import { exportHistoryDetailToExcel } from '../lib/excel';
-import { oznam, potvrd } from '../lib/toast';
+import { chyba as chybaOznam, oznam, potvrd } from '../lib/toast';
+import { KLIC_EXKURZE, nactiExkurze, prenesZProhlizece, smazExkurzi, ulozExkurzi } from '../lib/exkurzeData';
+import { rozdilProUlozeni } from '../lib/vycepyData';
 
 export type ExkurzeEntry = {
   id: string;
@@ -38,9 +40,31 @@ export default function ExkurzeScreen() {
   // Selected guide for drilldown stats
   const [expandedGuide, setExpandedGuide] = useState<string | null>(null);
 
+  // 🌐 Načtení z databáze. Do 31. 8. 2026 žily exkurze jen v prohlížeči —
+  // rezervace zadaná na tabletu nebyla na mobilu a s ní ani tržba, což je
+  // účetní údaj. Co komu zůstalo v prohlížeči, se při prvním načtení přenese.
+  async function nactiZCloudu() {
+    await prenesZProhlizece();
+    setEntries(await nactiExkurze());
+  }
+  useEffect(() => { void nactiZCloudu(); }, []);
+  // Zápis z jiného zařízení se projeví hned.
+  useRealtime(['exkurze'], () => { void nactiZCloudu(); });
+
+  // Stav v appce se překreslí hned, databáze se dorovná na pozadí. Posílá se
+  // jen to, co se opravdu změnilo (viz rozdilProUlozeni).
   function saveEntries(newEntries: ExkurzeEntry[]) {
+    const stare = entries;
     setEntries(newEntries);
-    localStorage.setItem('exkurze_entries_v1', JSON.stringify(newEntries));
+    localStorage.setItem(KLIC_EXKURZE, JSON.stringify(newEntries));
+    void (async () => {
+      const { kUlozeni, kSmazani } = rozdilProUlozeni(stare, newEntries);
+      for (const id of kSmazani) await smazExkurzi(id);
+      for (const e of kUlozeni) {
+        const chyba = await ulozExkurzi(e);
+        if (chyba) chybaOznam('Exkurzi se nepodařilo uložit: ' + chyba);
+      }
+    })();
   }
 
   function handleAddExkurze(e: React.FormEvent) {

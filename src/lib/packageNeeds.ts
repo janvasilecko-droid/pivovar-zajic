@@ -11,7 +11,8 @@
 //   • bottledQty  – stočeno OD PONDĚLÍ DO TEĎ (tento týden)
 //   • outgoingQty – výdej OD PONDĚLÍ DO TEĎ (fasování + prodejna + odpisy +
 //                   Akce/festivaly (odvezeno − vráceno) + fyzicky zavezené objednávky)
-//   • stockQty    – sklad TEĎ = max(0, invQty + bottledQty − outgoingQty − přefuk ZE + přefuk DO)
+//   • stockQty    – sklad TEĎ = invQty + bottledQty − outgoingQty − přefuk ZE + přefuk DO
+//                   (může být ZÁPORNÝ — schodek se neořezává, viz komentář u výpočtu)
 //   • orderedQty  – VŠECHNY objednávky v AKTUÁLNÍM TÝDNU — bez ohledu na to,
 //                   jestli jsou už zavezené, ať je vidět celková týdenní
 //                   potřeba, ne jen to, co ještě nevyjelo
@@ -211,7 +212,15 @@ export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind
       const outgoingQty = Number(outgoingMap[k] || 0);
       // Fyzický sklad ke konci týdne (sloupec "Sklad") — zavezené objednávky
       // už fyzicky odešly a skladová kniha je má odečtené.
-      const stockQty = Math.max(0, Number(weekEndStockMap[k] || 0));
+      //
+      // ZÁPORNÉ ČÍSLO SE NEOŘEZÁVÁ. Dřív tu bylo Math.max(0, …), takže kde
+      // Sklad ukazoval −12, tady stála nula a dvě obrazovky tvrdily o tomtéž
+      // pivu něco jiného. Schodek je platná odpověď a patří na oči.
+      //
+      // Pozor na rozdíl: u `neededQty` níž se ořezává DÁL a je to správně —
+      // schodek z evidence nemá nafukovat, kolik se má stočit (viz komentář
+      // v keggingPlan.ts). Tady jde jen o zobrazený stav.
+      const stockQty = Number(weekEndStockMap[k] || 0);
       const orderedQty = Number(orderedMap[k] || 0);
       // Kolik ještě chybí dotočit do konce týdne — porovnává CELKOVOU
       // týdenní poptávku (orderedQty, viz výše) s tím, co bylo k dispozici
@@ -219,7 +228,9 @@ export function computePackageNeeds(input: PackageNeedsInput, isTargetPkg: (kind
       // součást poptávky, viz komentář u weekEndBezZavozuMap).
       const neededQty = Math.max(0, orderedQty - Math.max(0, Number(weekEndBezZavozuMap[k] || 0)));
 
-      if (orderedQty > 0 || stockQty > 0 || invQty > 0 || bottledQty > 0) {
+      // `stockQty !== 0`, ne `> 0`: položka v mínusu je zrovna ta, kterou je
+      // potřeba vidět. S ořezáváním na nulu se z výpisu tiše vypadla.
+      if (orderedQty > 0 || stockQty !== 0 || invQty > 0 || bottledQty > 0) {
         list.push({
           beer_id: b.id,
           beer_name: b.name,
