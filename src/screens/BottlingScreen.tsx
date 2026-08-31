@@ -17,6 +17,7 @@ import { VoiceRecorder } from '../components/VoiceRecorder';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { stackingQuickQtys } from '../lib/quickQty';
+import { navrhSudu } from '../lib/bottlingYield';
 import { computePackageNeeds } from '../lib/packageNeeds';
 import { computeKeggingPlan } from '../lib/keggingPlan';
 import KeggingDayPlan from '../components/KeggingDayPlan';
@@ -162,6 +163,21 @@ export default function BottlingScreen({
       const next = Math.max(0, cur + delta);
       return { ...d, [field]: next === 0 ? '' : String(next) };
     });
+
+  // 🍾 Dopočet zdrojových sudů z nastáčených lahví (10% ztráta — viz
+  // bottlingYield.ts). Jen NÁVRH: kolik sudů se opravdu načalo ví stáčeč,
+  // proto se nikdy nepřepisuje samo a jde ho přeťukat.
+  const navrhZdrojovychSudu = useMemo(() => {
+    const kegPkg = tileDraft.kegPkgId ? packages.find((p) => p.id === tileDraft.kegPkgId) : null;
+    if (!kegPkg) return null;
+    const polozky = tileSlots
+      .map((slot) => {
+        const pkg = packages.find((p) => p.id === tileDraft[slot.pkg]);
+        return { volumeL: Number(pkg?.volume_l ?? 0), qty: Number(tileDraft[slot.qty] || 0) };
+      })
+      .filter((p) => p.volumeL > 0 && p.qty > 0);
+    return navrhSudu(polozky, Number(kegPkg.volume_l ?? 0));
+  }, [tileDraft, packages]);
   // Kolik kusů (lahve + KEG) už je v zápisu pro dané pivo — pro popisek na dlaždici.
   const tileQtyFor = (beerId: string) =>
     entryRows
@@ -1094,6 +1110,30 @@ export default function BottlingScreen({
                     <button type="button" onClick={() => bumpTile('kegQty', 1)} className="w-9 h-9 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-black text-xl transition select-none">+</button>
                   </div>
                 </div>
+
+                {/* 🍾 Dopočet z nastáčených lahví (10% ztráta). Nikdy se
+                    nevyplní samo — kolik sudů se opravdu načalo ví jen
+                    stáčeč, tohle je návrh na jedno kliknutí. */}
+                {navrhZdrojovychSudu && (
+                  <div className="rounded bg-white/80 border border-sky-200 p-2 space-y-1.5">
+                    <div className="text-[11px] font-bold text-sky-900 leading-snug">
+                      {navrhZdrojovychSudu.nalahvovanoL} l v lahvích + 10 % ztráta ={' '}
+                      <strong>{navrhZdrojovychSudu.zdrojL} l</strong> ze sudů
+                      <span className="text-sky-700"> · {navrhZdrojovychSudu.sudyPresne} sudu</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setTile('kegQty', String(navrhZdrojovychSudu.sudy))}
+                      disabled={String(navrhZdrojovychSudu.sudy) === tileDraft.kegQty}
+                      className="w-full min-h-[36px] rounded bg-sky-600 hover:bg-sky-700 disabled:opacity-40 disabled:hover:bg-sky-600 text-white font-black text-[11px] transition"
+                      title="Dopočítat počet sudů z nastáčených lahví — načatý sud se počítá celý"
+                    >
+                      {String(navrhZdrojovychSudu.sudy) === tileDraft.kegQty
+                        ? `✓ Sedí s dopočtem (${navrhZdrojovychSudu.sudy} ks)`
+                        : `Dopočítat sudy → ${navrhZdrojovychSudu.sudy} ks`}
+                    </button>
+                  </div>
+                )}
               </div>
             </BeerTilePanel>
           )}
