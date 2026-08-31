@@ -109,7 +109,7 @@ export default function LauncherTile({
 
   return (
     <div
-      className={`hs-tile vlastni-vyska ${isPresetColor ? `c-${color}` : ''} ${w === 0 ? 'xs' : ''} ${w >= 2 && h === 1 ? 'hs-tile-wide' : ''} ${h >= 2 && w < 2 ? 'hs-tile-tall' : ''} ${w >= 2 && h >= 2 ? 'hs-tile-large' : ''} ${editing ? 'hs-editing' : ''} ${editing && selected ? 'hs-selected' : ''} ${isDragging ? 'hs-picked-up' : ''} ${isPriming ? 'hs-priming' : ''} ${dragOver ? 'hs-drag-over' : ''} ${jiggling ? 'hs-jiggle' : ''}`}
+      className={`hs-tile vlastni-vyska ${isPresetColor ? `c-${color}` : ''} ${id === 'notes' ? 'hs-tile-sticky' : ''} ${w === 0 ? 'xs' : ''} ${w >= 2 && h === 1 ? 'hs-tile-wide' : ''} ${h >= 2 && w < 2 ? 'hs-tile-tall' : ''} ${w >= 2 && h >= 2 ? 'hs-tile-large' : ''} ${editing ? 'hs-editing' : ''} ${editing && selected ? 'hs-selected' : ''} ${isDragging ? 'hs-picked-up' : ''} ${isPriming ? 'hs-priming' : ''} ${dragOver ? 'hs-drag-over' : ''} ${jiggling ? 'hs-jiggle' : ''}`}
       style={{
         ...tileGridStyle(x, y, w, h),
         ...(isPresetColor ? {} : { background: hexToRgba(color, tileOpacity) }),

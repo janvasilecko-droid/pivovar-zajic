@@ -369,6 +369,40 @@
   font-size: 12.5px !important;
 }
 
+/* 📝 Dlaždice poznámek jako skutečný papírový lísteček nalepený na plochu —
+   mírné natočení, plná barva místo skla (Post-it není průhledný) a
+   odchlípnutý roh vpravo dole. Natočení je fixní (ne náhodné), ať dlaždice
+   při každém renderu neposkakuje. */
+.hs-tile-sticky {
+  transform: rotate(-2.5deg);
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 2px 6px 14px rgba(43, 36, 56, 0.28), 0 1px 0 rgba(255, 255, 255, 0.4) inset !important;
+  border-radius: 3px 3px 3px 14px / 3px 3px 3px 30px;
+}
+.hs-tile-sticky:not(.hs-editing):hover {
+  transform: rotate(-2.5deg) scale(1.03);
+  box-shadow: 3px 10px 20px rgba(43, 36, 56, 0.34), 0 1px 0 rgba(255, 255, 255, 0.4) inset !important;
+}
+.hs-tile-sticky:active {
+  transform: rotate(-2.5deg) scale(0.97);
+}
+/* Odchlípnutý roh — malý papírový trojúhelník vpravo dole, jako by se
+   lísteček mírně odlepoval od plochy. */
+.hs-tile-sticky::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 0 16px 16px;
+  border-color: transparent transparent rgba(0, 0, 0, 0.16) transparent;
+  pointer-events: none;
+}
+
 /* Odznáček s číslem / stavem */
 .hs-tile .hs-badge {
   position: absolute;
