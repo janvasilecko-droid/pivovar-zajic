@@ -1397,18 +1397,22 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                         <div key={note.id} className="flex items-start gap-1.5 min-w-0">
                           {/* Odškrtnutí přímo z plochy — kvůli tomu se nesmí
                               probublat klepnutí na dlaždici, které otevírá okno. */}
+                          {/* Vlastní třídy místo velikostí z Tailwindu: v
+                              HomeScreen.css je globální `.hs-tile svg { width:
+                              24px; height: 24px }`, které nafoukne každou
+                              ikonu v dlaždici — fajfka pak leze mimo rámeček. */}
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); toggleHomeNote(note.id); }}
                             onPointerDown={(e) => e.stopPropagation()}
-                            className="w-3.5 h-3.5 mt-0.5 shrink-0 rounded border-2 border-current bg-white/70 grid place-items-center"
+                            className="hs-note-check"
                             title={note.completed ? 'Vrátit jako nesplněné' : 'Odškrtnout'}
                             aria-label={note.completed ? 'Vrátit jako nesplněné' : 'Odškrtnout'}
                           >
-                            {note.completed && <Check size={9} className="text-emerald-700 stroke-[3]" />}
+                            {note.completed && <Check />}
                           </button>
                           {note.important && !note.completed && (
-                            <TriangleAlert size={10} className="text-rose-600 shrink-0 mt-0.5" />
+                            <TriangleAlert className="hs-note-vykricnik" />
                           )}
                           <span className={`text-[11px] font-bold leading-tight line-clamp-2 min-w-0 ${note.completed ? 'line-through opacity-45' : ''}`}>
                             {note.text}
