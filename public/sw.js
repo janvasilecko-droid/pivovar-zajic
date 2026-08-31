@@ -12,7 +12,7 @@ const CACHE_META_KEY = new URL('./__installed-cache__', self.registration.scope)
 // Čtyři variabilní soubory, dohromady 96 kB.
 const PRECACHE = [
   './', './index.html', './manifest.webmanifest',
-  './icon-192.png', './icon-512.png', './logo copy.jpg', './version.json',
+  './icon-192.png', './icon-512.png', './favicon.ico', './version.json',
   './fonts/plus-jakarta-sans-latin-wght-normal.woff2',
   './fonts/plus-jakarta-sans-latin-ext-wght-normal.woff2',
   './fonts/outfit-latin-wght-normal.woff2',

@@ -11,7 +11,7 @@ import {
 import { SanitationStepRow, currentTimeStr } from './SanitationStepRow';
 import { Spinner } from './ui';
 import { AlertTriangle, Calendar, CalendarDays, Clock, Edit3, FileSpreadsheet, FileText, Check, CheckCircle2, Moon, Plus, Settings, ShieldAlert, SprayCan, Sun, Trash2, User, UserCheck, X } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 import { potvrd } from '../lib/toast';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);

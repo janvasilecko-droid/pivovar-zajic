@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 
 export interface DatabaseBackup {
   version: string;

@@ -84,18 +84,18 @@ export default function ExcelImportModal({
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
-        const XLSX = await import('xlsx');
+        const XLSX = await import('xlsx-js-style');
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
         const wsName = wb.SheetNames[0];
         const ws = wb.Sheets[wsName];
-        const json = XLSX.utils.sheet_to_json<any>(ws, { header: 1 });
+        const json = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[];
 
         if (json.length > 0) {
           const headers = (json[0] as string[]).map((h) => String(h).trim());
           setExcelHeaders(headers);
           
-          const rows = XLSX.utils.sheet_to_json<any>(ws);
+          const rows = XLSX.utils.sheet_to_json(ws) as any[];
           setRawData(rows);
 
           // Auto-match headers by similarity

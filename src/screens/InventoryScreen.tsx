@@ -890,9 +890,9 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     setBusy(true);
     try {
       const buffer = await file.arrayBuffer();
-      const XLSX = await import('xlsx');
+      const XLSX = await import('xlsx-js-style');
       const wb = XLSX.read(buffer, { type: 'array' });
-      const targetSheetName = wb.SheetNames.find((s) => /červenec|cervenec|inventura|lahve|sklo|stáčení|keg/i.test(s)) || wb.SheetNames[0];
+      const targetSheetName = wb.SheetNames.find((s: string) => /červenec|cervenec|inventura|lahve|sklo|stáčení|keg/i.test(s)) || wb.SheetNames[0];
       const sheet = wb.Sheets[targetSheetName];
       const jsonRows: any[] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 

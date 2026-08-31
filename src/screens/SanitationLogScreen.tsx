@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase, SanitationLog } from '../lib/supabase';
 import { Spinner, EmptyState } from '../components/ui';
 import { BookOpen, Calendar, Clock, Droplets, Edit3, FileSpreadsheet, FlaskConical, MessageSquare, Pencil, Plus, Search, ShieldCheck, Sparkles, SprayCan, User, X, type LucideIcon } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 
 import { useAuth } from '../lib/auth';
 
