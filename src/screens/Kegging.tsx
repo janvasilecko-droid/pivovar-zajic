@@ -22,6 +22,7 @@ import { chyba, potvrd, toastZpet } from '../lib/toast';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { IkonaSud } from '../components/ikony';
 import { zavibruj } from '../lib/haptika';
+import { consumeKegFixRequest } from '../lib/stockFixSignal';
 
 
 const ROW_COUNT = 12;
@@ -76,6 +77,14 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   const [expandedKegBeerId, setExpandedKegBeerId] = useState<string | null>(null);
   const expandedKegBeer = beers.find((b) => b.id === expandedKegBeerId) ?? null;
   const [saving, setSaving] = useState(false);
+
+  // 🔀 „Sklad" → „Nesedí evidence" → „Doplnit stočení" (Stock.tsx). Rovnou
+  // rozbalí to pivo v dlaždicové mřížce, ať ho člověk nemusí sám hledat.
+  useEffect(() => {
+    const beerId = consumeKegFixRequest();
+    if (beerId) setExpandedKegBeerId(beerId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [err, setErr] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
   const [showCount, setShowCount] = useState(false);

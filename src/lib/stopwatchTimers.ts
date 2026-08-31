@@ -1,8 +1,9 @@
-// Lokální (per-zařízení) uložiště pro Stopky / Časovač / Stočení sudu
-// (TimersScreen.tsx) — čistě localStorage, žádná synchronizace přes Supabase.
-// Jde o efemérní pracovní nástroj používaný přímo na místě ve sklepě/na
-// stáčírně, ne o data, která by měla smysl sdílet mezi uživateli/zařízeními
-import { supabase } from './supabase';
+// Primárně lokální (localStorage) uložiště pro Stopky / Časovač / Stočení
+// sudu (TimersScreen.tsx) — jde hlavně o efemérní pracovní nástroj používaný
+// přímo na místě ve sklepě/na stáčírně. Odpočty (countdowns) se navíc na
+// pozadí synchronizují přes profiles.home_layout (viz lib/profileSync.ts),
+// aby stejné odpočty viděl uživatel na mobilu i na PC.
+import { queueHomeLayoutPatch } from './profileSync';
 
 // ---- Stopky ----
 /** Jeden mezičas — ms od startu + nepovinný popis (pojmenované mezičasy). */
@@ -88,23 +89,11 @@ export function saveCountdowns(list: CountdownTimer[]) {
     localStorage.setItem(COUNTDOWNS_KEY, JSON.stringify(list));
     window.dispatchEvent(new CustomEvent(COUNTDOWN_CHANGED_EVENT, { detail: list }));
   } catch {}
-  // Cloud sync na pozadí pro synchronizaci mezi mobilem a PC.
-  //
-  // Stejná souběhová chyba jako v homeNotes.ts (saveHomeNotes): mezi
-  // přečtením `cur` a zápisem zpátky může jiný zápis (např. přidání
-  // poznámky) uložit čerstvé `notes` — tenhle zápis by je jinak přepsal
-  // starou hodnotou z `cur.notes`. Poznámky se proto berou čerstvě z
-  // lokálního stavu (dynamický import kvůli cyklické závislosti
-  // homeNotes.ts ↔ stopwatchTimers.ts), ne z toho, co se přečetlo z cloudu.
-  supabase.auth.getUser().then(async ({ data }) => {
-    if (data?.user?.id) {
-      const { getHomeNotes } = await import('./homeNotes');
-      supabase.from('profiles').select('home_layout').eq('id', data.user.id).maybeSingle().then(({ data: prof }) => {
-        const cur = (prof?.home_layout as any) || {};
-        void supabase.from('profiles').update({ home_layout: { ...cur, countdowns: list, notes: getHomeNotes() } }).eq('id', data.user.id);
-      });
-    }
-  }).catch(() => {});
+  // Cloud sync — viz lib/profileSync.ts (sériový zápis, slučuje souběžné
+  // změny místo dvou zápisů, co si mohly navzájem přepsat čerstvá data —
+  // odsud pramenil bug, kdy se při přidání poznámky "vzkřísil" už oznámený
+  // odpočet a spustil se zvukový alarm znovu).
+  queueHomeLayoutPatch({ countdowns: list });
 }
 
 export function countdownRemainingMs(t: CountdownTimer): number {

@@ -1,10 +1,10 @@
 // Přizpůsobitelný launcher (domovská obrazovka) — pořadí, velikost, barva
 // dlaždic a zvolená barevná scéna pozadí, uložené v profiles.home_layout
 // (jsonb, per uživatel, synchronizuje se napříč zařízeními).
-import { supabase } from './supabase';
 import type { Page } from '../components/Layout';
 import { getCountdowns, saveCountdowns, type CountdownTimer } from './stopwatchTimers';
 import { getHomeNotes, saveHomeNotes, type HomeNote } from './homeNotes';
+import { queueHomeLayoutPatch } from './profileSync';
 
 // Víc odstínů na barvu (modré/zelené/červené/oranžové/fialové po 6-8), ať jde
 // tematicky odlišit skupiny dlaždic barvou (např. "vše z pivovaru" modře,
@@ -534,12 +534,16 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
 }
 
 export async function saveHomeLayout(userId: string, layout: HomeLayout): Promise<void> {
-  const fullLayout: HomeLayout = {
+  // `userId` se dřív používalo přímo pro dotaz — teď ho za appku zjišťuje
+  // queueHomeLayoutPatch (vždy podle AKTUÁLNĚ přihlášeného uživatele), ale
+  // parametr zůstává v signatuře, ať volající kód nemusí měnit (a ať volání
+  // nejde omylem použít bez přihlášení).
+  void userId;
+  queueHomeLayoutPatch({
     ...layout,
     countdowns: getCountdowns(),
     notes: getHomeNotes(),
-  };
-  await supabase.from('profiles').update({ home_layout: fullLayout as any }).eq('id', userId);
+  });
 }
 
 /** Přidá další slot do spodní lišty (výchozí 'home', uživatel si ho pak přenastaví). */

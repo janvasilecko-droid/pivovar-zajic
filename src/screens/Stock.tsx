@@ -10,6 +10,8 @@ import { exportExciseTaxReportToExcel } from '../lib/excel';
 import { FestivalEquipmentTracker } from '../components/FestivalEquipmentTracker';
 import { MarketingMerchInventory } from '../components/MarketingMerchInventory';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
+import { requestKegFix } from '../lib/stockFixSignal';
+import type { Page } from '../components/Layout';
 
 type StockByPkg = {
   package_id: string; label: string; volume_l: number; kind: string;
@@ -25,7 +27,8 @@ type StockByPkg = {
 
 // Položka, u které skladová kniha vychází záporně — evidence u ní nesedí.
 type NesediRow = {
-  key: string; beerName: string; pkgLabel: string;
+  key: string; beerId: string; pkgLabel: string; kind: string;
+  beerName: string;
   qty: number; baselineDate: string | null; baselineQty: number;
 };
 
@@ -86,7 +89,7 @@ function addDaysISO(iso: string, delta: number): string {
 function startOfMonthISO(iso: string): string { return iso.slice(0, 7) + '-01'; }
 function startOfYearISO(iso: string): string { return iso.slice(0, 4) + '-01-01'; }
 
-export default function Stock() {
+export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, sub?: string) => void } = {}) {
   const [beers, setBeers] = useState<Beer[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [rows, setRows] = useState<StockRow[]>([]);
@@ -258,8 +261,10 @@ export default function Stock() {
       if (!beer || !pkg) return;
       nesedi.push({
         key: line.key,
+        beerId: beer.id,
         beerName: beer.name,
         pkgLabel: String(pkg.label).trim(),
+        kind: pkg.kind,
         qty: line.qty,
         baselineDate: line.baselineDate,
         baselineQty: line.baselineQty,
@@ -413,6 +418,16 @@ export default function Stock() {
                           {r.baselineDate ? `inventura ${r.baselineDate} = ${r.baselineQty}` : 'bez inventury'}
                         </span>
                         <span className="text-rose-700 font-black text-sm tabular-nums">{r.qty} ks</span>
+                        {r.kind === 'keg' && setPage && (
+                          <button
+                            type="button"
+                            onClick={() => { requestKegFix(r.beerId); setPage('kegging'); }}
+                            className="px-2 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white font-black text-[11px] shrink-0"
+                            title="Otevřít Stáčení KEG s tímhle pivem rozbaleným, ať jde chybějící stočení rovnou doplnit"
+                          >
+                            + Doplnit stočení
+                          </button>
+                        )}
                       </span>
                     </div>
                   ))}
