@@ -16,9 +16,6 @@ const cols = (rows: any[], headers: string[], keys: string[]) => {
   return XLSX.utils.json_to_sheet(data);
 };
 
-export const exportBottlingToExcel = (rows: EntryRow[]) =>
-  download(cols(rows, ['Datum', 'Pivo', 'Obal', 'Množství', 'Poznámka'], ['entry_date', 'beer_name', 'package_label', 'quantity', 'note']), 'staceni-lahve.xlsx');
-
 export const exportKeggingToExcel = (
   rows: EntryRow[],
   cellarTanks: { id: string; label: string }[],
@@ -102,9 +99,6 @@ export const exportKeggingToExcel = (
 
   download(ws, 'staceni-keg.xlsx');
 };
-
-export const exportProdejnaToExcel = (rows: EntryRow[]) =>
-  download(cols(rows, ['Datum', 'Kdo', 'Pivo', 'Obal', 'Množství', 'Poznámka'], ['entry_date', 'who', 'beer_name', 'package_label', 'quantity', 'note']), 'prodejna.xlsx');
 
 export const exportHistoryDetailToExcel = (rows: any[], headers: string[], keys: string[], filename: string) =>
   download(cols(rows, headers, keys), filename);

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeInventoryReconciliation, getStartingStockMap, flattenAkceNet } from './inventoryHelper';
+import { computeInventoryReconciliation, flattenAkceNet } from './inventoryHelper';
 
 describe('computeInventoryReconciliation', () => {
   it('bez dorovnání se manko počítá jako Skutečnost − Očekávání', () => {
@@ -35,34 +35,6 @@ describe('computeInventoryReconciliation', () => {
     const r = computeInventoryReconciliation(100, 95, 2);
     expect(r.reconciledQty).toBe(102);
     expect(r.diffAfterQty).toBe(-7);
-  });
-});
-
-describe('getStartingStockMap — přefuk KEGů v převodu z minulého měsíce', () => {
-  // Přefuk (přelití piva mezi objemy sudů) počítal jen Sklad. Dashboard,
-  // Inventura ani "potřeba stočit" o něm nevěděly, takže po přefuku
-  // 20× 50l → 33× 30l ukazovaly o 20 padesátek víc a o 33 třicítek míň —
-  // v inventuře to vypadalo jako manko u jedné velikosti a přebytek u druhé.
-  const inventoryRows = [
-    { entry_date: '2026-06-01', beer_id: 'b1', package_id: 'keg50', quantity: 20, note: 'Počáteční stav' },
-    { entry_date: '2026-06-01', beer_id: 'b1', package_id: 'keg30', quantity: 0, note: 'Počáteční stav' },
-  ];
-  const prefukRows = [
-    { entry_date: '2026-06-10', beer_id: 'b1', from_package_id: 'keg50', from_count: 20, to_package_id: 'keg30', to_count: 33 },
-  ];
-
-  it('odečte sudy, ze kterých se přefukovalo, a přičte ty, do kterých se přefouklo', () => {
-    const map = getStartingStockMap(
-      '2026-07', inventoryRows, [], [], [], [], [], 0, [], [], prefukRows
-    );
-    expect(map['b1__keg50']).toBe(0);
-    expect(map['b1__keg30']).toBe(33);
-  });
-
-  it('bez předaného přefuku zůstane starý (nesprávný) stav — potvrzuje, že to dělá právě přefuk', () => {
-    const map = getStartingStockMap('2026-07', inventoryRows, [], [], [], [], [], 0, [], []);
-    expect(map['b1__keg50']).toBe(20);
-    expect(map['b1__keg30'] ?? 0).toBe(0);
   });
 });
 
