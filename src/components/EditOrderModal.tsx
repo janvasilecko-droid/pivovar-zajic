@@ -170,7 +170,7 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
       // If user confirmed in modal, reservation was already saved by the modal itself
       // If user skipped, fall back to silent auto-reserve (original behavior)
       if (!wasConfirmed) {
-        autoReserveTapIfNeeded(customerName, dateStr, noteText, orderId);
+        void autoReserveTapIfNeeded(customerName, dateStr, noteText, orderId);
       }
       onSaved();
       onClose();

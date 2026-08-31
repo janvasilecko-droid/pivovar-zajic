@@ -483,7 +483,7 @@ export default function Orders({
       }
 
       // Fallback: silent auto-reserve (original behavior)
-      autoReserveTapIfNeeded(data.placeNameFree, today, data.note, newOrder.id);
+      void autoReserveTapIfNeeded(data.placeNameFree, today, data.note, newOrder.id);
     }
 
     setWeekKey(isoWeekKey(today));
@@ -2429,7 +2429,7 @@ export default function Orders({
                 if (itemErr) throw new Error(itemErr.message);
                 created.push(order.id);
                 // 🚰 Rezervace výčepu — spáruj s vytvořenou objednávkou (order_id)
-                autoReserveTapIfNeeded(placeName || meta.placeName, orderDate, meta.note, order.id);
+                void autoReserveTapIfNeeded(placeName || meta.placeName, orderDate, meta.note, order.id);
                 if (meta.note && isTapMentioned(meta.note)) {
                   setTapModalOrderId(order.id);
                   setTapModalCustomer(placeName || meta.placeName || '');
@@ -2453,7 +2453,7 @@ export default function Orders({
               const { error: itemErr } = await supabase.from('order_items').insert(rows);
               if (itemErr) throw new Error(itemErr.message);
               // 🚰 Rezervace výčepu — spáruj s existující objednávkou (orderId)
-              autoReserveTapIfNeeded(meta.placeName, targetDate, meta.note, orderId);
+              void autoReserveTapIfNeeded(meta.placeName, targetDate, meta.note, orderId);
               if (meta.note && isTapMentioned(meta.note)) {
                 setTapModalOrderId(orderId);
                 setTapModalCustomer(meta.placeName || '');

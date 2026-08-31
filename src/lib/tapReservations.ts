@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { nactiRezervace, nactiVycepy, ulozRezervaci } from './vycepyData';
 import type { TapEquipment, TapReservation } from '../screens/VycepyScreen';
 
 /**
@@ -51,32 +51,39 @@ export function detectTapType(noteText?: string): TapTypeHint {
   return null;
 }
 
-export function autoReserveTapIfNeeded(customerName: string, dateStr: string, noteText?: string, orderId?: string): void {
+/**
+ * Zamluví výčep, když ho poznámka objednávky zmiňuje.
+ *
+ * Zapisuje do DATABÁZE (dřív jen do localStorage, takže rezervace vzniklá na
+ * jednom zařízení nikde jinde neexistovala — a na zařízení, kde si nikdo
+ * výčepy nezaložil, se nestala vůbec).
+ *
+ * Dvojí rezervaci téže objednávky hlídá unikátní index na `order_id`, ne jen
+ * kontrola níž: ukládá se při každém uložení objednávky a dvě uložení hned po
+ * sobě by se přes samotnou kontrolu prosmýkla.
+ */
+export async function autoReserveTapIfNeeded(
+  customerName: string, dateStr: string, noteText?: string, orderId?: string,
+): Promise<void> {
   if (!isTapMentioned(noteText)) return;
 
   try {
-    const savedTaps = localStorage.getItem('vycepy_equipment_v1');
-    const taps: TapEquipment[] = savedTaps ? JSON.parse(savedTaps) : [
-      { id: 't1', name: 'Výčep #1 — Lindr Pygmy 25', tap_type: 'jednokohout', status: 'clean' },
-      { id: 't2', name: 'Výčep #2 — Kontaktní Dvojkohout 50', tap_type: 'dvojkohout', status: 'clean' },
-      { id: 't3', name: 'Výčep #3 — Trojkohout Master', tap_type: 'trojkohout', status: 'clean' },
-      { id: 't4', name: 'Výčep #4 — Šestikohout na akce', tap_type: 'sestikohout', status: 'clean' },
-    ];
-    const savedRes = localStorage.getItem('vycepy_reservations_v1');
-    const resList: TapReservation[] = savedRes ? JSON.parse(savedRes) : [];
+    const [taps, resList] = await Promise.all([nactiVycepy(), nactiRezervace()]);
+    // Bez založených výčepů není co rezervovat. Dřív se tu vyráběly čtyři
+    // ukázkové — a ty pak vypadaly jako skutečné vybavení pivovaru.
+    if (taps.length === 0) return;
 
-    // Check if reservation already exists for this orderId
     if (orderId && resList.some((r) => r.order_id === orderId)) return;
 
-    // Prefer a tap matching the requested type, otherwise first available
+    const jeVolny = (t: TapEquipment) =>
+      !resList.some((r) => r.tap_id === t.id && r.date_from <= dateStr && r.date_to >= dateStr);
+
+    // Přednost má výčep požadovaného typu; jinak první volný, jinak první.
     const typeHint = detectTapType(noteText);
-    let availableTap = taps.find((t) =>
-      typeHint && t.tap_type === typeHint &&
-      !resList.some((r) => r.tap_id === t.id && r.date_from <= dateStr && r.date_to >= dateStr)
-    );
-    if (!availableTap) {
-      availableTap = taps.find((t) => !resList.some((r) => r.tap_id === t.id && r.date_from <= dateStr && r.date_to >= dateStr)) ?? taps[0];
-    }
+    const availableTap =
+      (typeHint ? taps.find((t) => t.tap_type === typeHint && jeVolny(t)) : undefined)
+      ?? taps.find(jeVolny)
+      ?? taps[0];
 
     const newReservation: TapReservation = {
       id: crypto.randomUUID(),
@@ -89,8 +96,7 @@ export function autoReserveTapIfNeeded(customerName: string, dateStr: string, no
       order_id: orderId,
     };
 
-    const nextResList = [newReservation, ...resList];
-    localStorage.setItem('vycepy_reservations_v1', JSON.stringify(nextResList));
+    await ulozRezervaci(newReservation);
   } catch (e) {
     console.warn('Auto tap reservation warning:', e);
   }

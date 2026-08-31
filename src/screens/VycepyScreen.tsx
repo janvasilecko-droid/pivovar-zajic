@@ -3,7 +3,8 @@ import { supabase, useRealtime } from '../lib/supabase';
 import { Spinner, EmptyState } from '../components/ui';
 import { PlaceCombobox } from '../components/PlaceCombobox';
 import { AlertTriangle, Calendar, CalendarDays, Check, CheckCircle2, Droplet, Droplets, Flame, FlaskConical, Phone, Plus, RefreshCw, ShieldAlert, Sparkles, Tag, Trash2, User, Wrench, X } from 'lucide-react';
-import { oznam, potvrd } from '../lib/toast';
+import { chyba as chybaOznam, oznam, potvrd } from '../lib/toast';
+import { KLIC_REZERVACE, KLIC_VYCEPY, nactiRezervace, nactiVycepy, prenesZProhlizece, smazRezervaci, smazVycep, ulozRezervaci, ulozVycep } from '../lib/vycepyData';
 import { IkonaVycep } from '../components/ikony';
 
 export type TapSanitationStatus = 'clean' | 'dirty_beer' | 'needs_louh';
@@ -71,14 +72,56 @@ export default function VycepyScreen() {
   const [resDeposit, setResDeposit] = useState<number | ''>(2000);
   const [resNote, setResNote] = useState('');
 
+  // 🌐 Načtení z databáze. Do 31. 8. 2026 žily výčepy jen v localStorage, takže
+  // rezervace zadaná na mobilu nebyla vidět na tabletu. Teď je originál v
+  // cloudu; co komu zůstalo v prohlížeči, se při prvním načtení přenese
+  // (prenesZProhlizece), ať lidem „nezmizí“ výčepy, které si roky vedli.
+  async function nactiZCloudu() {
+    await prenesZProhlizece();
+    const [v, r] = await Promise.all([nactiVycepy(), nactiRezervace()]);
+    setTaps(v);
+    setReservations(r);
+  }
+  useEffect(() => { void nactiZCloudu(); }, []);
+  // Změna z jiného zařízení se projeví hned, bez ručního obnovení.
+  useRealtime(['vycepy', 'vycepy_rezervace'], () => { void nactiZCloudu(); });
+
+  // Zápis: stav v appce se překreslí hned, databáze se dorovná na pozadí.
+  // Porovnává se se STAREM seznamem, ať se posílá jen to, co se opravdu
+  // změnilo — přepisovat při každé drobnosti všechny řádky by z jednoho
+  // přejmenování udělalo desítky zbytečných zápisů.
   function saveTaps(newTaps: TapEquipment[]) {
+    const stare = taps;
     setTaps(newTaps);
-    localStorage.setItem('vycepy_equipment_v1', JSON.stringify(newTaps));
+    localStorage.setItem(KLIC_VYCEPY, JSON.stringify(newTaps));
+    void (async () => {
+      const noveId = new Set(newTaps.map((t) => t.id));
+      for (const s of stare) if (!noveId.has(s.id)) await smazVycep(s.id);
+      for (let i = 0; i < newTaps.length; i++) {
+        const puvodni = stare.find((x) => x.id === newTaps[i].id);
+        if (!puvodni || JSON.stringify(puvodni) !== JSON.stringify(newTaps[i])) {
+          const chyba = await ulozVycep(newTaps[i], i);
+          if (chyba) chybaOznam('Výčep se nepodařilo uložit: ' + chyba);
+        }
+      }
+    })();
   }
 
   function saveReservations(newRes: TapReservation[]) {
+    const stare = reservations;
     setReservations(newRes);
-    localStorage.setItem('vycepy_reservations_v1', JSON.stringify(newRes));
+    localStorage.setItem(KLIC_REZERVACE, JSON.stringify(newRes));
+    void (async () => {
+      const noveId = new Set(newRes.map((r) => r.id));
+      for (const s of stare) if (!noveId.has(s.id)) await smazRezervaci(s.id);
+      for (const r of newRes) {
+        const puvodni = stare.find((x) => x.id === r.id);
+        if (!puvodni || JSON.stringify(puvodni) !== JSON.stringify(r)) {
+          const chyba = await ulozRezervaci(r);
+          if (chyba) chybaOznam('Rezervaci se nepodařilo uložit: ' + chyba);
+        }
+      }
+    })();
   }
 
   function handleAddTap(e: React.FormEvent) {
