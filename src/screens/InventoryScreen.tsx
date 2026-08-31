@@ -7,6 +7,9 @@ import { exportHistoryDetailToExcel } from '../lib/excel';
 import { AlertCircle, AlertTriangle, Beer as BeerIcon, Calendar, Camera, ClipboardCheck, ClipboardList, Download, Check, CheckCircle2, Lock, Package as PackageIcon, Plus, RefreshCw, RotateCcw, Save } from 'lucide-react';
 import { CountFromImage } from '../components/CountFromImage';
 import { computeInventoryReconciliation } from '../lib/inventoryHelper';
+import { akceProRozdil, datumDoplnku, jeSud, planDostaceni, stoceniZapis } from '../lib/inventoryFix';
+import { saveBottlingPlan } from '../lib/bottlingPlans';
+import { businessDateISO } from '../lib/businessDate';
 import { buildMovements, expectedForMonth, stockAtStartOfDay, type StockLine } from '../lib/stockLedger';
 import { chyba, oznam, potvrd } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
@@ -141,6 +144,11 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   // Režim počítání — ve skladu se prochází s telefonem a všech 99 kombinací
   // pivo × obal je nepřehledných. Filtr zúží seznam na to, co se opravdu řeší.
   const [pocitaniFiltr, setPocitaniFiltr] = useState<'vse' | 'nespocitane' | 'pohyb' | 'nesedi'>('vse');
+  // Lahve a sudy se ve skladu počítají zvlášť (jiné regály, jiný člověk), tak
+  // ať se nemíchají v jednom dlouhém seznamu. Skládá se s filtrem výše.
+  const [druhFiltr, setDruhFiltr] = useState<'vse' | 'lahve' | 'sudy'>('vse');
+  /** Klíč řádku, u kterého právě běží zápis doplňku — blokuje dvojklik. */
+  const [doplnujeSe, setDoplnujeSe] = useState<string | null>(null);
 
   // Data pro "Stav na konci měsíce" (bilanční konto sudů)
   const [objednavkyMap, setObjednavkyMap] = useState<Record<string, number>>({}); // Objednávky (kegy)
@@ -726,18 +734,21 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   // Seznam podle zvoleného filtru. Platí pro mobilní karty i tabulku,
   // aby se obojí chovalo stejně.
   const zobrazeneRadky = useMemo(() => {
+    let vybrane = rows;
     if (pocitaniFiltr === 'nespocitane') {
-      return rows.filter((r) =>
+      vybrane = rows.filter((r) =>
         !jeSpocitana(r.beer_id, r.package_id) &&
         (r.initialQty !== 0 || r.stacenoQty !== 0 || r.vydejQty !== 0 || r.odpisQty !== 0)
       );
+    } else if (pocitaniFiltr === 'pohyb') {
+      vybrane = rows.filter((r) => r.stacenoQty !== 0 || r.vydejQty !== 0 || r.odpisQty !== 0);
+    } else if (pocitaniFiltr === 'nesedi') {
+      vybrane = rows.filter((r) => r.expectedQty < 0);
     }
-    if (pocitaniFiltr === 'pohyb') {
-      return rows.filter((r) => r.stacenoQty !== 0 || r.vydejQty !== 0 || r.odpisQty !== 0);
-    }
-    if (pocitaniFiltr === 'nesedi') return rows.filter((r) => r.expectedQty < 0);
-    return rows;
-  }, [rows, pocitaniFiltr, actualStock]);
+    if (druhFiltr === 'vse') return vybrane;
+    const chceSudy = druhFiltr === 'sudy';
+    return vybrane.filter((r) => jeSud(r.package_kind, r.package_label) === chceSudy);
+  }, [rows, pocitaniFiltr, druhFiltr, actualStock]);
 
   /** Položky, které se letos hýbaly, ale při inventuře se nespočítaly. */
   // Počítání po kusech: „+" a „−" u inventurního pole. Při ručním počítání
@@ -751,6 +762,64 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       return { ...prev, [klic]: String(nova) };
     });
     zavibruj('odskrtnuto');
+  }
+
+  /**
+   * Srovná rozdíl tam, kam patří — místo dorovnání, které ho jen schová:
+   *  • PŘEBYTEK → doplní chybějící zápis stočení (`bottling`/`kegging`).
+   *    Rozdíl se pak srovná sám, protože očekávaný stav ho začne počítat.
+   *  • MANKO → založí úkol „dostáčet" do plánu stáčení. Nic se nevyrobilo,
+   *    takže do evidence výroby nesmí přibýt ani kus.
+   */
+  async function srovnatRozdil(r: InventoryRow) {
+    const k = `${r.beer_id}__${r.package_id}`;
+    if (doplnujeSe) return;
+    const akce = akceProRozdil(r.diffQty);
+    if (akce === 'zadna') return;
+
+    const polozka = {
+      beer_id: r.beer_id,
+      beer_name: r.beer_name,
+      package_id: r.package_id,
+      package_label: r.package_label,
+      package_kind: r.package_kind,
+      diffQty: r.diffQty,
+    };
+    const popis = `${r.beer_name} · ${formatPackageLabel(r.package_label)}`;
+    const dnes = businessDateISO();
+
+    if (akce === 'zapsat_staceni') {
+      const zapis = stoceniZapis(polozka, datumDoplnku(currentMonth), currentMonth);
+      if (!zapis) return;
+      const kam = zapis.table === 'kegging' ? 'Stáčení KEG' : 'Stáčení lahví';
+      const ok = await potvrd(
+        `${popis}\n\nNapočítáno o ${r.diffQty} ks víc, než sklad čeká — nejspíš se stočilo a nezapsalo.\n\nZapsat ${r.diffQty} ks do „${kam}" k datu ${zapis.row.entry_date}?`,
+        { titulek: 'Doplnit chybějící stočení', potvrdit: 'Ano, zapsat' },
+      );
+      if (!ok) return;
+      setDoplnujeSe(k);
+      const { error } = await supabase.from(zapis.table).insert(zapis.row);
+      setDoplnujeSe(null);
+      if (error) { chyba('Nepodařilo se zapsat stočení: ' + error.message); return; }
+      oznam(`Zapsáno ${r.diffQty} ks do „${kam}".`);
+      forceReloadRef.current = true;
+      await loadData();
+      return;
+    }
+
+    const plan = planDostaceni(polozka, dnes, currentMonth);
+    if (!plan) return;
+    const chybi = Math.abs(r.diffQty);
+    const ok = await potvrd(
+      `${popis}\n\nChybí ${chybi} ks oproti očekávanému stavu.\n\nZaložit úkol „dostáčet ${chybi} ks" do plánu stáčení na dnešek?`,
+      { titulek: 'Naplánovat dostáčení', potvrdit: 'Ano, naplánovat' },
+    );
+    if (!ok) return;
+    setDoplnujeSe(k);
+    const { error } = await saveBottlingPlan(plan);
+    setDoplnujeSe(null);
+    if (error) { chyba('Nepodařilo se založit úkol: ' + error.message); return; }
+    oznam(`Úkol na ${chybi} ks přidán do plánu stáčení.`);
   }
 
   const nespocitane = useMemo(
@@ -1075,7 +1144,7 @@ function exportInventoryExcel() {
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3 flex-wrap gap-2">
               <div>
                 <h3 className="font-display font-black text-lg text-neutral-900">Bilanční tabulka piva & Obalů k datu</h3>
-                <p className="text-xs text-neutral-500 font-bold">Do sloupce Inventura zadej ručně přesný spočítaný stav na konci měsíce (výchozí 0 ks). Sloupec DOROVNAT (±) přičte/ubírá k očekávanému stavu, aby seděl s realitou — ukládá se bokem a nepočítá se do stáčení ani odpočtů.</p>
+                <p className="text-xs text-neutral-500 font-bold">Do sloupce Inventura zadej ručně přesný spočítaný stav na konci měsíce (výchozí 0 ks). Když rozdíl vznikne, srovnej ho tlačítkem ve sloupci SROVNAT — <strong>přebytek</strong> se zapíše jako chybějící stočení, <strong>manko</strong> založí úkol dostáčet. Sloupec DOROVNAT (±) použij jen na rozdíly, které stáčením nevznikly (rozbité, ztracené) — ukládá se bokem a nepočítá se do stáčení ani odpočtů.</p>
               </div>
               <button
                 onClick={handleSaveActualStock}
@@ -1112,6 +1181,31 @@ function exportInventoryExcel() {
                     className="h-full bg-emerald-500 rounded-full transition-all"
                     style={{ width: `${postup.celkem > 0 ? Math.round((postup.hotovo / postup.celkem) * 100) : 0}%` }}
                   />
+                </div>
+                {/* Druh obalu — lahve a sudy se počítají zvlášť, ať se v seznamu
+                    nemíchají. Skládá se s filtrem postupu pod tím. */}
+                <div className="flex flex-wrap gap-1.5 pb-2 border-b border-neutral-100">
+                  {([
+                    ['vse', 'Vše', rows.length],
+                    ['lahve', 'Lahve', rows.filter((r) => !jeSud(r.package_kind, r.package_label)).length],
+                    ['sudy', 'Sudy', rows.filter((r) => jeSud(r.package_kind, r.package_label)).length],
+                  ] as const).map(([id, popis, pocet]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setDruhFiltr(id)}
+                      className={`px-3 py-2 rounded font-black text-xs transition min-h-[44px] flex items-center gap-1.5 ${
+                        druhFiltr === id
+                          ? 'bg-neutral-900 text-white shadow-xs'
+                          : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                      }`}
+                    >
+                      {popis}
+                      <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-black ${
+                        druhFiltr === id ? 'bg-white/20' : 'bg-white'
+                      }`}>{pocet}</span>
+                    </button>
+                  ))}
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {([
@@ -1218,6 +1312,31 @@ function exportInventoryExcel() {
                           )}
                         </div>
 
+                        {/* Srovnat rozdíl tam, kam patří — na rozdíl od dorovnání,
+                            které ho jen schová bokem. Ukáže se jen když je co řešit
+                            a položka je opravdu spočítaná. */}
+                        {jeSpocitana(r.beer_id, r.package_id) && r.diffQty !== 0 && (
+                          <button
+                            type="button"
+                            onClick={() => srovnatRozdil(r)}
+                            disabled={doplnujeSe !== null}
+                            className={`w-full min-h-[44px] rounded font-black text-xs transition flex items-center justify-center gap-1.5 disabled:opacity-50 ${
+                              r.diffQty > 0
+                                ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                : 'bg-rose-600 hover:bg-rose-700 text-white'
+                            }`}
+                            title={r.diffQty > 0
+                              ? 'Napočítáno víc, než sklad čeká — doplnit chybějící zápis stočení'
+                              : 'Chybí kusy — založit úkol do plánu stáčení'}
+                          >
+                            {r.diffQty > 0 ? (
+                              <><Plus size={15} /> Zapsat {r.diffQty} ks jako stočení</>
+                            ) : (
+                              <><ClipboardList size={15} /> Naplánovat stočit {Math.abs(r.diffQty)} ks</>
+                            )}
+                          </button>
+                        )}
+
                         <div className="text-[11px] text-neutral-500 flex flex-wrap gap-x-2.5 gap-y-0.5 pt-1 border-t border-black/10">
                           <span>Poč. {r.initialQty}</span>
                           <span>Stočeno +{r.stacenoQty}</span>
@@ -1246,6 +1365,7 @@ function exportInventoryExcel() {
                       <th className="py-2.5 px-2 text-right font-black">MANKO</th>
                       <th className="py-2.5 px-2 text-right font-black" title="Manko po započtení dorovnání (INVENTURA − Dorovnaný stav)">PO DOROVNÁNÍ</th>
                       <th className="py-2.5 px-3 text-right font-black">ROZDÍL (Kč)</th>
+                      <th className="py-2.5 px-2 text-center font-black" title="Srovnat rozdíl tam, kam patří: přebytek = chybějící zápis stočení, manko = úkol dostáčet.">SROVNAT</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1335,6 +1455,25 @@ function exportInventoryExcel() {
                           }`}>
                             {r.diffCzk.toLocaleString('cs-CZ')} Kč
                           </td>
+                          <td className="text-center px-2 py-2">
+                            {jeSpocitana(r.beer_id, r.package_id) && r.diffQty !== 0 && (
+                              <button
+                                type="button"
+                                onClick={() => srovnatRozdil(r)}
+                                disabled={doplnujeSe !== null}
+                                className={`px-2 py-1.5 rounded font-black text-[11px] whitespace-nowrap transition disabled:opacity-50 ${
+                                  r.diffQty > 0
+                                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                    : 'bg-rose-600 hover:bg-rose-700 text-white'
+                                }`}
+                                title={r.diffQty > 0
+                                  ? `Napočítáno o ${r.diffQty} ks víc — doplnit chybějící zápis stočení`
+                                  : `Chybí ${Math.abs(r.diffQty)} ks — založit úkol do plánu stáčení`}
+                              >
+                                {r.diffQty > 0 ? `+ Zapsat ${r.diffQty} ks` : `Naplánovat ${Math.abs(r.diffQty)} ks`}
+                              </button>
+                            )}
+                          </td>
                         </tr>
                       );
                     })}
@@ -1364,6 +1503,7 @@ function exportInventoryExcel() {
                       <td className={`text-right px-3 py-2.5 ${totals.diffCzk < 0 ? 'text-rose-900' : totals.diffCzk > 0 ? 'text-emerald-900' : 'text-neutral-950'}`}>
                         {totals.diffCzk.toLocaleString('cs-CZ')} Kč
                       </td>
+                      <td />
                     </tr>
                   </tfoot>
                 </table>
