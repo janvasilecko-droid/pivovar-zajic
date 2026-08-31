@@ -12,7 +12,46 @@ export type HomeNote = {
   color?: 'yellow' | 'blue' | 'green' | 'rose' | 'amber';
   /** Důležitá/naléhavá poznámka — zvýrazní se vykřičníkem a řadí se první. */
   important?: boolean;
+  /**
+   * Kdy se poznámka odškrtla. Po 24 hodinách se sama smaže — viz
+   * uklidStareOdskrtnute. Odškrtnutí se dá vzít zpět, pak se čas zase zruší.
+   */
+  completedAt?: string;
 };
+
+/** Jak dlouho odškrtnutá poznámka ještě zůstane, než sama zmizí. */
+export const SMAZAT_PO_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Vyhodí odškrtnuté poznámky starší než 24 hodin.
+ *
+ * Maže se NATVRDO — nikam se nic nearchivuje. Odškrtnutá poznámka je hotová
+ * věc a nemá po sobě nechávat stopu; den navíc je jen na to, aby šlo
+ * odškrtnutí vzít zpět, když někdo klepne vedle.
+ *
+ * Odškrtnuté BEZ času (z doby před touhle úpravou) se nemažou hned — dostanou
+ * razítko teď a zmizí za den. Smazat je rovnou by lidem sebralo něco, co jim
+ * na nástěnce leželo; nechat je bez času navždy by zase znamenalo, že na
+ * lístečku zůstanou přeškrtnuté už napořád.
+ */
+export function uklidStareOdskrtnute(
+  notes: HomeNote[], ted = Date.now(),
+): { notes: HomeNote[]; zmeneno: boolean } {
+  let zmeneno = false;
+  const out: HomeNote[] = [];
+  for (const n of notes) {
+    if (!n.completed) { out.push(n); continue; }
+    const kdy = n.completedAt ? Date.parse(n.completedAt) : NaN;
+    if (Number.isNaN(kdy)) {
+      out.push({ ...n, completedAt: new Date(ted).toISOString() });
+      zmeneno = true;
+      continue;
+    }
+    if (ted - kdy < SMAZAT_PO_MS) out.push(n);
+    else zmeneno = true;
+  }
+  return { notes: out, zmeneno };
+}
 
 const STORAGE_KEY = 'pivovar_home_notes_v1';
 export const HOME_NOTES_CHANGED_EVENT = 'pivovar_home_notes_changed';
@@ -27,7 +66,14 @@ export function getHomeNotes(): HomeNote[] {
       return DEFAULT_NOTES;
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : DEFAULT_NOTES;
+    if (!Array.isArray(parsed)) return DEFAULT_NOTES;
+    // Úklid probíhá při čtení, ne časovačem: appka běží v prohlížeči, který
+    // se klidně na dva dny zavře, a časovač by se k tomu nikdy nedostal.
+    // Zapisuje se JEN když se opravdu něco smazalo — jinak by každé čtení
+    // zbytečně přepisovalo úložiště i cloud.
+    const { notes: uklizene, zmeneno } = uklidStareOdskrtnute(parsed as HomeNote[]);
+    if (zmeneno) saveHomeNotes(uklizene);
+    return uklizene;
   } catch {
     return DEFAULT_NOTES;
   }
@@ -67,7 +113,11 @@ export function toggleHomeNote(id: string): boolean {
   const updated = notes.map((n) => {
     if (n.id === id) {
       nextState = !n.completed;
-      return { ...n, completed: nextState };
+      // Čas odškrtnutí rozhoduje, kdy poznámka zmizí. Při vrácení zpět se
+      // musí zrušit, jinak by se smazala podle starého odškrtnutí.
+      return nextState
+        ? { ...n, completed: true, completedAt: new Date().toISOString() }
+        : { ...n, completed: false, completedAt: undefined };
     }
     return n;
   });

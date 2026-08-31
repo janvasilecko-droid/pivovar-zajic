@@ -69,6 +69,9 @@ function colorInputValue(c: string): string {
 
 type VehicleAlert = { vehicleName: string; label: string; status: 'warning' | 'expired' };
 
+/** Zavřený pruh časovače na ploše — volba se pamatuje i po zavření appky. */
+export const KLIC_PRUH_CASOVACE = 'pivovar_pruh_casovace_skryt';
+
 const SCENE_LABELS: Record<string, string> = {
   warm: 'Teplá', sunset: 'Západ', ocean: 'Oceán', forest: 'Les', night: 'Noc',
   white: 'Bílá', sky: 'Modrá', mint: 'Máta', lavender: 'Levandule', slate: 'Šedá',
@@ -1154,6 +1157,10 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
             if (!item) return null;
 
             const activeNotesList = homeNotes.filter((n) => !n.completed).sort((a, b) => (b.important ? 1 : 0) - (a.important ? 1 : 0));
+            // Na lístečku jsou i čerstvě odškrtnuté — přeškrtnuté, ať je vidět,
+            // že se odškrtnutí povedlo, a dá se vzít zpět. Sama zmizí do 24 h
+            // (viz uklidStareOdskrtnute), takže se lísteček nezanese.
+            const notesTileList = [...activeNotesList, ...homeNotes.filter((n) => n.completed)];
             const doneTasksCount = dailyTasks.filter((t) => t.completed).length;
             const runningTimers = countdowns.filter((c) => c.targetAt !== null && countdownRemainingMs(c) > 0);
             const doneTimers = countdowns.filter((c) => c.targetAt !== null && countdownRemainingMs(c) === 0);
@@ -1335,17 +1342,49 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
             // odškrtávat se dá v okně. Kolik jich čeká, říká odznak na
             // dlaždici (proměnná `badge` výš).
             if (id === 'notes') {
+              // Kolik se jich vejde — roste s plochou dlaždice, ať zvětšení
+              // něco přineslo. Na nejmenší se vejde jedna, ale ta se ukáže
+              // VŽDYCKY: dřív se na velikosti 1×1 nezobrazila žádná a
+              // vypadalo to, jako by se poznámka neuložila.
+              const kolikSeVejde = Math.max(1, (override.w ?? 1) * (override.h ?? 1) * 2);
+              const kZobrazeni = notesTileList.slice(0, kolikSeVejde);
               customContent = (
-                <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 p-2 text-center select-none">
-                  <StickyNote size={20} className="opacity-80" />
-                  <span className="text-xs font-black leading-tight">
-                    {activeNotesList.length > 0
-                      ? `${activeNotesList.length} ${activeNotesList.length === 1 ? 'poznámka' : activeNotesList.length < 5 ? 'poznámky' : 'poznámek'}`
-                      : 'Poznámky'}
-                  </span>
-                  <span className="text-[11px] font-bold opacity-70 leading-tight">
-                    Klepnutím přidáte poznámku
-                  </span>
+                <div className="w-full h-full flex flex-col p-2 gap-1 text-left select-none overflow-hidden">
+                  <div className="flex items-center gap-1 shrink-0 opacity-80">
+                    <StickyNote size={11} className="shrink-0" />
+                    <span className="text-[11px] font-black uppercase tracking-wider truncate">Poznámky</span>
+                  </div>
+
+                  {kZobrazeni.length === 0 ? (
+                    <div className="flex-1 grid place-items-center text-[11px] font-bold opacity-70 leading-tight px-1 text-center">
+                      Klepnutím přidáte poznámku
+                    </div>
+                  ) : (
+                    <div className="flex-1 flex flex-col gap-1 overflow-hidden">
+                      {kZobrazeni.map((note) => (
+                        <div key={note.id} className="flex items-start gap-1.5 min-w-0">
+                          {/* Odškrtnutí přímo z plochy — kvůli tomu se nesmí
+                              probublat klepnutí na dlaždici, které otevírá okno. */}
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); toggleHomeNote(note.id); }}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            className="w-3.5 h-3.5 mt-0.5 shrink-0 rounded border-2 border-current bg-white/70 grid place-items-center"
+                            title={note.completed ? 'Vrátit jako nesplněné' : 'Odškrtnout'}
+                            aria-label={note.completed ? 'Vrátit jako nesplněné' : 'Odškrtnout'}
+                          >
+                            {note.completed && <Check size={9} className="text-emerald-700 stroke-[3]" />}
+                          </button>
+                          {note.important && !note.completed && (
+                            <TriangleAlert size={10} className="text-rose-600 shrink-0 mt-0.5" />
+                          )}
+                          <span className={`text-[11px] font-bold leading-tight line-clamp-2 min-w-0 ${note.completed ? 'line-through opacity-45' : ''}`}>
+                            {note.text}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             }
@@ -1973,6 +2012,19 @@ function BrewKettleTopBanner({
   const runningCountdown = countdowns.find((c) => c.targetAt !== null);
   const doneCountdown = countdowns.find((c) => c.targetAt !== null && countdownRemainingMs(c) === 0);
 
+  const [pruhCasovaceSkryt, setPruhCasovaceSkryt] = useState(
+    () => { try { return localStorage.getItem(KLIC_PRUH_CASOVACE) === '1'; } catch { return false; } },
+  );
+  function skryjPruh() {
+    try { localStorage.setItem(KLIC_PRUH_CASOVACE, '1'); } catch { /* plná paměť */ }
+    setPruhCasovaceSkryt(true);
+    try { navigator.vibrate?.(10); } catch {}
+  }
+
+  // Jednou zavřený pruh se už nevrací. Časovač patří na svou dlaždici — ta
+  // ukazuje odpočet i stav — a ne přes celou šířku plochy na každé otevření.
+  // Volba se pamatuje (localStorage), takže platí i po zavření appky.
+  if (pruhCasovaceSkryt) return null;
   if (!isStopwatchActive && !runningCountdown && !doneCountdown) return null;
 
   return (
@@ -2098,25 +2150,24 @@ function BrewKettleTopBanner({
               <ChevronRight size={16} />
             </button>
 
-            {/* Odklizení doběhnutého odpočtu. Bez něj se pruh „HOTOVO!" nedal
-                z plochy dostat jinak než přes obrazovku časovače — svítil pořád
-                a zabíral místo, i když už si ho člověk dávno přečetl.
-                Odpočet se NEMAŽE: resetCountdown ho jen vrátí na výchozí dobu,
-                takže se dá hned spustit znovu. */}
-            {doneCountdown && (
-              <button
-                type="button"
-                onClick={() => {
-                  resetCountdown(doneCountdown.id);
-                  try { navigator.vibrate?.(10); } catch {}
-                }}
-                className="p-2 rounded-xl bg-white/10 hover:bg-rose-500/40 text-white transition active:scale-95"
-                title="Odklidit — odpočet se vrátí na výchozí dobu"
-                aria-label="Odklidit doběhnutý odpočet"
-              >
-                <X size={16} />
-              </button>
-            )}
+            {/* Zavření pruhu — NATRVALO. Časovač patří na svou dlaždici, ta
+                ukazuje odpočet i to, že doběhl; pruh přes celou šířku plochy
+                jen zabíral místo. Doběhnutý odpočet se u toho vrátí na
+                výchozí dobu (resetCountdown ho NEMAŽE), ať pruh nezmizí a
+                nenechá po sobě viset „HOTOVO!" ve stavu.
+                Zpátky se pruh dá zapnout v nastavení plochy. */}
+            <button
+              type="button"
+              onClick={() => {
+                if (doneCountdown) resetCountdown(doneCountdown.id);
+                skryjPruh();
+              }}
+              className="p-2 rounded-xl bg-white/10 hover:bg-rose-500/40 text-white transition active:scale-95"
+              title="Skrýt pruh — časovač zůstane na dlaždici"
+              aria-label="Skrýt pruh časovače"
+            >
+              <X size={16} />
+            </button>
           </div>
         </div>
       </div>

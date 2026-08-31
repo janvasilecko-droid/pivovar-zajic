@@ -684,76 +684,19 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             <Search size={18} />
           </button>
 
-          {/* Pravá strana hlavičky (Hledat/odznaky/offline stav/Chyby) — jen
-              na desktopu (sm a víc). Na mobilu appka zbytečně nezabírala
-              místo hlavičkou plnou tlačítek na každé stránce — Hledat a
-              WhatsApp jsou dostupné jako dlaždice na Domů (HomeScreen.tsx),
-              zbytek je jen "nice to have", ne nutný na každé obrazovce. */}
-          <div className="hidden sm:flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
-            {!isHome && (
-              <button
-                type="button"
-                onClick={() => setShowSearchModal(true)}
-                title="Hledat (Ctrl+K)"
-                className="w-9 h-9 sm:w-auto sm:px-2.5 sm:py-1.5 rounded text-xs font-bold transition flex items-center justify-center gap-1.5 border border-neutral-200 bg-neutral-100/80 hover:bg-neutral-200 text-neutral-700 active:scale-95"
-              >
-                <Search size={15} />
-                <span className="hidden sm:inline">Hledat</span>
-                <kbd className="hidden sm:inline-block text-[11px] bg-white px-1.5 py-0.5 rounded border border-neutral-300 text-neutral-500 font-mono">⌘K</kbd>
-              </button>
-            )}
+          {/* Hlavička je ZÁMĚRNĚ prázdná až na název stránky a stav
+              synchronizace. Dřív tu na každé obrazovce sedělo Hledat,
+              odznaky objednávek a WhatsAppu, Rádio a Chyby — pruh tlačítek,
+              který zabíral místo a s prací na dané stránce nesouvisel.
+              Hledat je dlaždice na Domů (a Ctrl+K funguje dál), Rádio i
+              hlášení chyb taky; nové WhatsApp zprávy k parsování ohlásí
+              ikona na ploše (viz HomeScreen.tsx).
 
-            {!isHome && newOrdersCount > 0 && (
-              <button
-                type="button"
-                onClick={() => setPage('orders')}
-                title="Nové objednávky k vyřízení"
-                className="relative w-9 h-9 grid place-items-center rounded bg-emerald-700 hover:bg-emerald-800 text-white shadow-sm border border-emerald-700 active:scale-95 transition"
-              >
-                <ClipboardList size={16} />
-                <span className="absolute -top-1.5 -right-1.5 bg-white text-emerald-700 text-[11px] font-black rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center shadow border border-emerald-200">
-                  {newOrdersCount > 99 ? '99+' : newOrdersCount}
-                </span>
-              </button>
-            )}
-
-            {!isHome && pendingWhatsAppCount > 0 && (
-              <button
-                type="button"
-                onClick={openWhatsApp}
-                title="WhatsApp — zkontroluje příchozí objednávky"
-                className="relative w-9 h-9 grid place-items-center rounded bg-[#25D366] hover:bg-[#1da851] text-[#0f172a] shadow-sm border border-[#1da851] active:scale-95 transition"
-              >
-                <MessageCircle size={16} />
-                <span className="absolute -top-1.5 -right-1.5 bg-rose-600 text-white text-[11px] font-black rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center shadow animate-pulse" title="Zpráv čeká na schválení">
-                  {pendingWhatsAppCount > 99 ? '99+' : pendingWhatsAppCount}
-                </span>
-              </button>
-            )}
-
-            {/* Stav offline fronty a upozornění — dřív v patičce staré
-                postranní nabídky, teď v hlavičce (vidět na každé stránce). */}
+              Stav synchronizace zůstává: je to jen tečka a jako jediný
+              ukazuje, že něco ještě neodešlo do cloudu. Bez něj by se
+              neodeslaná data ztratila potichu. */}
+          <div className="flex items-center gap-2 shrink-0 ml-auto">
             <OfflineStatus online={online} pending={pending} syncing={syncing} syncMsg={syncMsg} onSync={async () => { const { syncQueue, queueLength } = await import('../lib/offline'); if (queueLength() === 0) { setSyncMsg('Fronta je prázdná — nic k synchronizaci'); setTimeout(() => setSyncMsg(null), 3000); return; } setSyncing(true); const r = await syncQueue(); setSyncing(false); setSyncMsg(r.remaining === 0 ? `Synchronizováno ${r.ok} změn` : `OK ${r.ok}, selhalo ${r.failed}`); setTimeout(() => setSyncMsg(null), 4000); }} />
-            
-            {/* Rádio button */}
-            <button
-              type="button"
-              onClick={() => setShowRadioModal(true)}
-              title="Pivovarské Rádio & Hudba na pozadí"
-              className="hidden sm:flex px-2.5 py-1.5 rounded text-xs font-bold transition items-center gap-1.5 border border-amber-300 bg-amber-100/80 hover:bg-amber-200 text-amber-950 shrink-0 active:scale-95 shadow-xs"
-            >
-              <Radio size={15} /> Rádio
-            </button>
-
-            {/* Bug report button */}
-            <button
-              type="button"
-              onClick={() => setShowBugModal(true)}
-              title="Nahlásit chybu nebo nápad"
-              className="hidden sm:flex px-3 py-1.5 rounded text-xs font-black transition items-center gap-1.5 shadow-sm border border-rose-300 bg-rose-600 hover:bg-rose-700 text-white shrink-0 active:scale-95"
-            >
-              <AlertTriangle className="ikona-text" /> Chyby
-            </button>
           </div>
         </header>
         )}
