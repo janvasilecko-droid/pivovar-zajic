@@ -3,6 +3,7 @@ import { Package as PackageIcon, TrendingDown } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
 import { useAuth } from './lib/auth';
+import { requestOpenHomeNotes } from './lib/homeNotes';
 const AppSettingsScreen = lazy(() => import('./screens/AppSettingsScreen'));
 const AppVersionsScreen = lazy(() => import('./screens/AppVersionsScreen'));
 
@@ -95,6 +96,14 @@ export default function App() {
   // ať si nová stránka neponese cizí záložku z předchozí. Kliknutí na vnitřní
   // záložku volá setPage(stejná stránka, undefined, 'nazev-zalozky').
   function setPage(p: Page, targetSection?: string, subTab?: string) {
+    // 'notes' bývalo dvoje — samostatná stránka (sdílená nástěnka bez
+    // zaškrtávání) a dlaždice na Domů (se zaškrtáváním). Sjednoceno na jedno:
+    // kdokoli zavolá setPage('notes') odkudkoli (vyhledávání, menu, záložky),
+    // skončí na Domů s otevřeným oknem poznámek — viz lib/homeNotes.ts.
+    if (p === 'notes') {
+      requestOpenHomeNotes();
+      p = 'home';
+    }
     if (targetSection) {
       setHaccpSection(targetSection);
     }

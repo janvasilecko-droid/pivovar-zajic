@@ -24,7 +24,7 @@ import { businessDateISO } from '../lib/businessDate';
 import { IkonaSud, IkonaLahev, IkonaVycep } from '../components/ikony';
 import { HomeNotesModal } from '../components/HomeNotesModal';
 import { HomeChecklistModal } from '../components/HomeChecklistModal';
-import { getHomeNotes, toggleHomeNote, HOME_NOTES_CHANGED_EVENT, type HomeNote } from '../lib/homeNotes';
+import { getHomeNotes, toggleHomeNote, toggleHomeNoteImportant, HOME_NOTES_CHANGED_EVENT, OPEN_HOME_NOTES_EVENT, consumeOpenHomeNotesRequest, type HomeNote } from '../lib/homeNotes';
 import { getDailyTasks, DAILY_CHECKLIST_CHANGED_EVENT, type DailyTask } from '../lib/homeChecklist';
 import {
   getRadioState, toggleRadio, nextStation, RADIO_STATIONS, RADIO_STATE_EVENT, type RadioState,
@@ -428,6 +428,18 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // Modály pro rychlé poznámky a denní checklist
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [showChecklistModal, setShowChecklistModal] = useState(false);
+
+  // 🔀 Kdokoli zavolá setPage('notes') (vyhledávání, menu, záložky —
+  // App.tsx to přesměruje sem, viz lib/homeNotes.ts), skončí tady s otevřeným
+  // oknem poznámek. Mount efekt pokrývá "Domů se teprve montuje", event
+  // pokrývá "na Domů už jsem" (stejný dvojitý vzorec jako
+  // requestOrdersAutoImport/ORDERS_AUTO_IMPORT_EVENT v ordersFilter.ts).
+  useEffect(() => {
+    if (consumeOpenHomeNotesRequest()) setShowNotesModal(true);
+    const otevri = () => { if (consumeOpenHomeNotesRequest()) setShowNotesModal(true); };
+    window.addEventListener(OPEN_HOME_NOTES_EVENT, otevri);
+    return () => window.removeEventListener(OPEN_HOME_NOTES_EVENT, otevri);
+  }, []);
 
   // ---- Pivovarské Rádio na ploše ----
   const [radioState, setRadioState] = useState<RadioState>(() => getRadioState());
@@ -1044,7 +1056,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
             const item = navById.get(id as Page) ?? (isCountdownId(id) ? ({ id: id as any, label: countdowns.find((c) => c.id === id.slice(3))?.label ?? 'Odpočet', icon: AlarmClock, group: 'Nástroje' as const } as NavItem) : null);
             if (!item) return null;
 
-            const activeNotesList = homeNotes.filter((n) => !n.completed);
+            const activeNotesList = homeNotes.filter((n) => !n.completed).sort((a, b) => (b.important ? 1 : 0) - (a.important ? 1 : 0));
             const doneTasksCount = dailyTasks.filter((t) => t.completed).length;
             const runningTimers = countdowns.filter((c) => c.targetAt !== null && countdownRemainingMs(c) > 0);
             const doneTimers = countdowns.filter((c) => c.targetAt !== null && countdownRemainingMs(c) === 0);
@@ -1218,7 +1230,12 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
 
             // Widget Poznámky (notes):
             if (id === 'notes') {
-              const isWideOrTall = (override.w ?? 1) >= 2 || (override.h ?? 1) >= 2;
+              const tileW = override.w ?? 1;
+              const tileH = override.h ?? 1;
+              const isWideOrTall = tileW >= 2 || tileH >= 2;
+              // Kolik poznámek se vejde, škáluje s plochou dlaždice — "libovolně
+              // velká" dlaždice má ukázat víc, ne pořád jen ty samé 3.
+              const maxShown = Math.max(3, tileW * tileH * 2);
               if (isWideOrTall) {
                 customContent = (
                   <div className="w-full h-full flex flex-col justify-between p-3 text-left select-none overflow-hidden">
@@ -1248,7 +1265,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                           + Klepnutím přidáte poznámku
                         </button>
                       ) : (
-                        activeNotesList.slice(0, 3).map((note) => (
+                        activeNotesList.slice(0, maxShown).map((note) => (
                           <div
                             key={note.id}
                             className="flex items-center gap-2 group/note cursor-pointer"
@@ -1268,6 +1285,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                             >
                               {note.completed && <Check size={10} className="text-emerald-700 font-bold stroke-[3]" />}
                             </button>
+                            {note.important && <TriangleAlert size={11} className="text-rose-600 shrink-0" />}
                             <span className={`text-xs font-bold truncate leading-tight flex-1 ${note.completed ? 'line-through opacity-50' : ''}`}>
                               {note.text}
                             </span>
@@ -1291,7 +1309,8 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                       </span>
                       <span className="text-[11px] font-black px-1.5 py-0.2 rounded-full bg-black/15">{activeNotesList.length}</span>
                     </div>
-                    <div className="my-auto py-0.5">
+                    <div className="my-auto py-0.5 flex items-start gap-1">
+                      {topNote.important && <TriangleAlert size={12} className="text-rose-600 shrink-0 mt-0.5" />}
                       <p className="text-xs font-bold leading-tight line-clamp-2">{topNote.text}</p>
                     </div>
                     <div className="flex items-center justify-between pt-1 border-t border-black/10">

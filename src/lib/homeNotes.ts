@@ -10,6 +10,8 @@ export type HomeNote = {
   createdAt: string;
   author?: string;
   color?: 'yellow' | 'blue' | 'green' | 'rose' | 'amber';
+  /** Důležitá/naléhavá poznámka — zvýrazní se vykřičníkem a řadí se první. */
+  important?: boolean;
 };
 
 const STORAGE_KEY = 'pivovar_home_notes_v1';
@@ -80,6 +82,21 @@ export function toggleHomeNote(id: string): boolean {
   return nextState;
 }
 
+export function toggleHomeNoteImportant(id: string): boolean {
+  const notes = getHomeNotes();
+  let nextState = false;
+  const updated = notes.map((n) => {
+    if (n.id === id) {
+      nextState = !n.important;
+      return { ...n, important: nextState };
+    }
+    return n;
+  });
+  saveHomeNotes(updated);
+  try { zavibruj(nextState ? 'odskrtnuto' : 'klik'); } catch {}
+  return nextState;
+}
+
 export function deleteHomeNote(id: string) {
   const notes = getHomeNotes();
   const updated = notes.filter((n) => n.id !== id);
@@ -92,4 +109,28 @@ export function clearCompletedNotes() {
   const updated = notes.filter((n) => !n.completed);
   saveHomeNotes(updated);
   try { zavibruj('klik'); } catch {}
+}
+
+// 🔀 Appka mívala DVOJE „Poznámky" — dlaždici na Domů (tenhle systém, se
+// zaškrtáváním) a samostatnou stránku v postranním menu/vyhledávání
+// (sdílená nástěnka bez zaškrtávání, App.tsx page 'notes'). Aby „Poznámky"
+// všude znamenaly totéž, App.tsx teď každý pokus o setPage('notes') přesměruje
+// na Domů a rovnou zavolá requestOpenHomeNotes() — HomeScreen si to při mountu
+// vyzvedne a otevře tenhle modal. Modulová proměnná + CustomEvent stejně jako
+// requestOrdersAutoImport v ordersFilter.ts (Domů se může teprve montovat,
+// nebo tam už člověk je).
+export const OPEN_HOME_NOTES_EVENT = 'pivovar_open_home_notes';
+let pendingOpen = false;
+
+export function requestOpenHomeNotes(): void {
+  pendingOpen = true;
+  try {
+    window.dispatchEvent(new CustomEvent(OPEN_HOME_NOTES_EVENT));
+  } catch {}
+}
+
+export function consumeOpenHomeNotesRequest(): boolean {
+  const req = pendingOpen;
+  pendingOpen = false;
+  return req;
 }

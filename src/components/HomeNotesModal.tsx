@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Modal } from './ui';
-import { Plus, Check, Trash2, StickyNote, CheckSquare, Sparkles, LayoutGrid } from 'lucide-react';
-import { getHomeNotes, addHomeNote, toggleHomeNote, deleteHomeNote, clearCompletedNotes, HOME_NOTES_CHANGED_EVENT, type HomeNote } from '../lib/homeNotes';
+import { Plus, Check, Trash2, StickyNote, CheckSquare, Sparkles, LayoutGrid, AlertTriangle } from 'lucide-react';
+import { getHomeNotes, addHomeNote, toggleHomeNote, toggleHomeNoteImportant, deleteHomeNote, clearCompletedNotes, HOME_NOTES_CHANGED_EVENT, type HomeNote } from '../lib/homeNotes';
 import { useAuth } from '../lib/auth';
 import { getHomeLayout, saveHomeLayout, addTile } from '../lib/homeLayout';
 import { NAV, EXTRA_NAV } from './Layout';
@@ -38,7 +38,8 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
     }
   }
 
-  const activeNotes = notes.filter((n) => !n.completed);
+  // Důležité poznámky první, ať na ně člověk hned narazí, ne až dole v seznamu.
+  const activeNotes = notes.filter((n) => !n.completed).sort((a, b) => (b.important ? 1 : 0) - (a.important ? 1 : 0));
   const completedNotes = notes.filter((n) => n.completed);
 
   const COLOR_STYLES: Record<NonNullable<HomeNote['color']>, { bg: string; border: string; text: string; badge: string }> = {
@@ -112,7 +113,9 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
                 return (
                   <div
                     key={note.id}
-                    className={`flex items-start justify-between gap-3 p-3 rounded-xl border ${style.bg} ${style.border} ${style.text} shadow-xs transition`}
+                    className={`flex items-start justify-between gap-3 p-3 rounded-xl border shadow-xs transition ${
+                      note.important ? 'bg-rose-50 border-rose-300 text-rose-950' : `${style.bg} ${style.border} ${style.text}`
+                    }`}
                   >
                     <button
                       type="button"
@@ -125,6 +128,14 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold whitespace-pre-wrap leading-snug">{note.text}</p>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => toggleHomeNoteImportant(note.id)}
+                      className={`p-1 shrink-0 transition rounded ${note.important ? 'text-rose-600' : 'text-neutral-300 hover:text-rose-500'}`}
+                      title={note.important ? 'Zrušit důležitost' : 'Označit jako důležité'}
+                    >
+                      <AlertTriangle size={16} className={note.important ? 'fill-rose-200' : ''} />
+                    </button>
                     <button
                       type="button"
                       onClick={() => deleteHomeNote(note.id)}
