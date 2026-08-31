@@ -827,3 +827,37 @@
 @media (prefers-reduced-motion: reduce) {
   .hs-edge-hint { animation: none; opacity: 0.8; }
 }
+
+/* ⬚ Obrys buňky, kam přesouvaná dlaždice spadne.
+   Bez něj bylo tažení „naslepo": dlaždice se zvětšila, ale kam přesně
+   dosedne, se člověk dozvěděl až po puštění. */
+.hs-drop-ghost {
+  border: 2px dashed rgba(43, 36, 56, 0.55);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.18);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Zvednutá dlaždice si nese stín, ať je nad plochou vidět jako v ruce.
+   Posun a zvětšení nastavuje HomeScreen inline (jde za prstem), tady tedy
+   žádný transform — jinak by se navzájem přebily. */
+.hs-tile.hs-picked-up {
+  z-index: 30;
+  box-shadow: 0 14px 34px rgba(43, 36, 56, 0.42);
+  opacity: 0.95;
+  cursor: grabbing;
+}
+
+/* ⠿ Body mřížky během tažení — místa, na která se dlaždice chytá.
+   Kreslí se až ve chvíli, kdy někdo dlaždici drží: jinak by z plochy
+   udělaly milimetrový papír. Tečka sedí v levém horním rohu každé buňky,
+   takže je vidět rastr, po kterém dlaždice přeskakuje. */
+.hs-grid.hs-mrizka-viditelna {
+  background-image: radial-gradient(circle, rgba(43, 36, 56, 0.28) 1.5px, transparent 1.5px);
+  background-size: calc(100% / var(--hs-sloupcu, 12)) var(--hs-radek, 92px);
+  background-position: 0 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hs-tile.hs-picked-up { transition: none !important; }
+}

@@ -12,7 +12,7 @@ import {
   AlarmClock, Play, Pause, RotateCcw, Pin, Radio, SkipForward, Flame,
 } from 'lucide-react';
 import { NAV, EXTRA_NAV, type Page, type NavItem } from '../components/Layout';
-import LauncherTile from '../components/LauncherTile';
+import LauncherTile, { tileGridStyle } from '../components/LauncherTile';
 import { QuickSearchModal } from '../components/QuickSearchModal';
 import { Modal } from '../components/ui';
 import { useAuth } from '../lib/auth';
@@ -151,6 +151,10 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   const [draggingId, setDraggingId] = useState<TileId | null>(null);
   const [dragOverId, setDragOverId] = useState<TileId | null>(null);
   const [primingId, setPrimingId] = useState<TileId | null>(null);
+  /** O kolik je zvednutá dlaždice posunutá proti své buňce — jde za prstem. */
+  const [dragOffset, setDragOffset] = useState<{ dx: number; dy: number } | null>(null);
+  /** Buňka, na kterou dlaždice spadne, když prst pustíš — obrys pod ní. */
+  const [dropCell, setDropCell] = useState<{ x: number; y: number } | null>(null);
   // Dlaždice, jejíž plný editor (velikost/barva/popisek/stránka/skrytí/skupina) je
   // teď otevřený v modálu — řešení cramování všech ovládacích prvků přímo
   // na dlaždici (nešly vidět všechny barvy, popisky byly nečitelné apod.).
@@ -246,6 +250,8 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       setPrimingId(null);
       setDraggingId(null);
       setDragOverId(null);
+      setDragOffset(null);
+      setDropCell(null);
     }
     // Držení u kraje = přetočit stránku a nechat dlaždici „v ruce". Po
     // přetočení se časovač nasadí znovu, takže držením u kraje se dá projít
@@ -279,6 +285,25 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
         // zrušit bez zásahu.
         if (Math.hypot(ev.clientX - startX, ev.clientY - startY) > 18) cleanup();
         return;
+      }
+      // Dlaždice se CHYTÁ NA BUŇKY mřížky, nejde za prstem plynule — přesně
+      // jako ikona na ploše Androidu, která mezi místy přeskakuje. Volné
+      // plavání vypadalo hezky, ale nebylo z něj poznat, do které buňky to
+      // vlastně padne; teď dlaždice sama sedne tam, kam spadne.
+      const cell = cellFromPoint(ev.clientX, ev.clientY);
+      setDropCell(cell);
+      const gridEl = document.querySelector('.hs-grid') as HTMLElement | null;
+      const puvodni = layoutRef.current.overrides[id];
+      if (cell && gridEl && puvodni) {
+        const sirkaBunky = gridEl.getBoundingClientRect().width / cols;
+        setDragOffset({
+          dx: (cell.x - (puvodni.x ?? 0)) * sirkaBunky,
+          dy: (cell.y - (puvodni.y ?? 0)) * rowHeight,
+        });
+      } else {
+        // Mimo mřížku (prst u kraje kvůli přetočení stránky) — ať dlaždice
+        // nezůstane viset na staré buňce, drží se prstu.
+        setDragOffset({ dx: ev.clientX - startX, dy: ev.clientY - startY });
       }
       // Vizuální zvýraznění: jen když by šlo o výměnu s existující dlaždicí,
       // ne prázdnou buňkou (tam se nemá co "vysvítit").
@@ -1074,7 +1099,22 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
           )}
         </div>
 
-        <div className="hs-grid" style={{ ['--hs-tile-alpha' as any]: layout.tileOpacity, ['--hs-tile-gap' as any]: `${layout.tileGap}px` }}>
+        <div className={`hs-grid ${draggingId ? 'hs-mrizka-viditelna' : ''}`} style={{ ['--hs-tile-alpha' as any]: layout.tileOpacity, ['--hs-tile-gap' as any]: `${layout.tileGap}px`, ['--hs-sloupcu' as any]: cols, ['--hs-radek' as any]: `${rowHeight}px` }}>
+          {/* Obrys buňky, kam dlaždice spadne. Kreslí se ve stejné velikosti
+              jako přesouvaná dlaždice, aby bylo předem vidět, jestli se tam
+              vejde — ne jen „někam sem". */}
+          {draggingId && dropCell && (
+            <div
+              className="hs-drop-ghost"
+              aria-hidden="true"
+              style={tileGridStyle(
+                dropCell.x,
+                dropCell.y,
+                layout.overrides[draggingId]?.w ?? 1,
+                layout.overrides[draggingId]?.h ?? 1,
+              )}
+            />
+          )}
           {/* 'signout' se nevykresluje — odhlášení je nahoře u šipek jako
               ikona. V uloženém rozložení zůstává, ať jde vrátit beze ztráty. */}
           {(layout.pages[currentPageIndex] ?? []).filter((id) => id !== 'signout').map((id) => {
@@ -1102,6 +1142,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   isPriming={primingId === id}
                   dragOver={dragOverId === id}
                   jiggling={editMode && draggingId !== null && draggingId !== id}
+                  dragOffset={draggingId === id ? dragOffset : null}
                   onMoveStep={(dir) => handleMoveTileStep(id, dir)}
                   onOpenEditor={() => setEditingTileId(id)}
                 />
@@ -1477,6 +1518,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                 isPriming={primingId === id}
                 dragOver={dragOverId === id}
                 jiggling={editMode && draggingId !== null && draggingId !== id}
+                dragOffset={draggingId === id ? dragOffset : null}
                 onMoveStep={(dir) => handleMoveTileStep(id, dir)}
                 onOpenEditor={() => setEditingTileId(id)}
                 onOpenQuickActions={() => setQuickActionsTile(id)}
@@ -2143,6 +2185,26 @@ function BrewKettleTopBanner({
             >
               <ChevronRight size={16} />
             </button>
+
+            {/* Odklizení doběhnutého odpočtu. Bez něj se pruh „HOTOVO!" nedal
+                z plochy dostat jinak než přes obrazovku časovače — svítil pořád
+                a zabíral místo, i když už si ho člověk dávno přečetl.
+                Odpočet se NEMAŽE: resetCountdown ho jen vrátí na výchozí dobu,
+                takže se dá hned spustit znovu. */}
+            {doneCountdown && (
+              <button
+                type="button"
+                onClick={() => {
+                  resetCountdown(doneCountdown.id);
+                  try { navigator.vibrate?.(10); } catch {}
+                }}
+                className="p-2 rounded-xl bg-white/10 hover:bg-rose-500/40 text-white transition active:scale-95"
+                title="Odklidit — odpočet se vrátí na výchozí dobu"
+                aria-label="Odklidit doběhnutý odpočet"
+              >
+                <X size={16} />
+              </button>
+            )}
           </div>
         </div>
       </div>
