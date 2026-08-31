@@ -95,15 +95,37 @@ describe('stoceniZapis (přebytek)', () => {
     expect(z?.row.quantity).toBe(7);
   });
 
-  it('nevyplňuje zdroj — jinak by srovnání jednoho rozdílu vyrobilo další', () => {
+  it('u sudů se zdrojový tank nehádá', () => {
+    const sudy = stoceniZapis({ ...sud, diffQty: 7 }, '2026-08-31', '2026-08');
+    expect(sudy?.row.cellar_tank_id).toBeNull();
+    expect(sudy?.row.source_volume_l).toBeNull();
+  });
+
+  it('u lahví bez zadaného zdroje zůstane odečet sudů prázdný', () => {
     const lahve = stoceniZapis({ ...lahev, diffQty: 48 }, '2026-08-31', '2026-08');
     expect(lahve?.row.kegs_used).toBeNull();
     expect(lahve?.row.kegs_used_package_id).toBeNull();
     expect(lahve?.row.source_volume_l).toBeNull();
+  });
 
-    const sudy = stoceniZapis({ ...sud, diffQty: 7 }, '2026-08-31', '2026-08');
-    expect(sudy?.row.cellar_tank_id).toBeNull();
-    expect(sudy?.row.source_volume_l).toBeNull();
+  it('u lahví se zadanými sudy je odečte i s objemem', () => {
+    const lahve = stoceniZapis(
+      { ...lahev, diffQty: 90 }, '2026-08-31', '2026-08',
+      { kegPkgId: 'keg50', kegQty: 1, kegVolumeL: 50 },
+    );
+    expect(lahve?.row.kegs_used).toBe(1);
+    expect(lahve?.row.kegs_used_package_id).toBe('keg50');
+    // Litry z NAČATÝCH sudů, ne z dopočtu — stejně jako v zápisu stáčení.
+    expect(lahve?.row.source_volume_l).toBe(50);
+  });
+
+  it('nulový počet sudů se bere jako „neodečítat"', () => {
+    const lahve = stoceniZapis(
+      { ...lahev, diffQty: 48 }, '2026-08-31', '2026-08',
+      { kegPkgId: 'keg50', kegQty: 0, kegVolumeL: 50 },
+    );
+    expect(lahve?.row.kegs_used).toBeNull();
+    expect(lahve?.row.source_volume_l).toBeNull();
   });
 
   it('u manka ani nuly nevznikne žádný zápis výroby', () => {

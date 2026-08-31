@@ -86,19 +86,26 @@ export type StoceniZapis = {
   row: Record<string, unknown>;
 };
 
+/** Zdrojové sudy u doplňku LAHVÍ — dopočítané z objemu a ztráty, viz bottlingYield.ts. */
+export type ZdrojoveSudy = { kegPkgId: string; kegQty: number; kegVolumeL: number };
+
 /**
  * Zápis chybějícího stočení pro PŘEBYTEK. Množství = velikost přebytku.
  *
- * Zdroj se schválně nevyplňuje (u sudů `cellar_tank_id`, u lahví `kegs_used`):
- * u dodatečně dohledaného stáčení nikdo neví, ze kterého tanku nebo z kolika
- * sudů se to stočilo. Kdyby se to odhadlo, ubral by se objem tanku nebo sudy
- * ze skladu, které ve skutečnosti nikdo nespotřeboval — jeden srovnaný rozdíl
- * by tak vyrobil dva nové. Původ nese poznámka.
+ * U SUDŮ se zdrojový tank nevyplňuje: u dodatečně dohledaného stáčení nikdo
+ * neví, ze kterého tanku se stáčelo, a odhad by ubral objem tanku, který ve
+ * skutečnosti nikdo nespotřeboval.
+ *
+ * U LAHVÍ se naopak zdrojové sudy vyplnit MAJÍ — bez nich by sudy zůstaly ve
+ * skladu ležet, i když se z nich stáčelo. Kolik jich bylo se dá spočítat z
+ * objemu lahví a ~10% ztráty; velikost sudu ale vybírá člověk, protože se
+ * případ od případu liší. Když ji nezná, předá se `null` a odečet se vynechá.
  */
 export function stoceniZapis(
   p: InventuraPolozka,
   entryDate: string,
   monthKey: string,
+  zdroj: ZdrojoveSudy | null = null,
 ): StoceniZapis | null {
   if (p.diffQty <= 0) return null;
   const sud = jeSud(p.package_kind, p.package_label);
@@ -109,13 +116,23 @@ export function stoceniZapis(
     package_id: p.package_id,
     package_label: p.package_label,
     quantity: p.diffQty,
-    source_volume_l: null,
     note: `Doplněno z inventury ${monthKey} (přebytek ${p.diffQty} ks)`,
   };
   if (sud) {
-    return { table: 'kegging', row: { ...spolecne, cellar_tank_id: null } };
+    return { table: 'kegging', row: { ...spolecne, cellar_tank_id: null, source_volume_l: null } };
   }
-  return { table: 'bottling', row: { ...spolecne, kegs_used: null, kegs_used_package_id: null } };
+  const maZdroj = !!zdroj && zdroj.kegQty > 0;
+  return {
+    table: 'bottling',
+    row: {
+      ...spolecne,
+      kegs_used: maZdroj ? zdroj!.kegQty : null,
+      kegs_used_package_id: maZdroj ? zdroj!.kegPkgId : null,
+      // Litry se počítají z NAČATÝCH sudů, ne z dopočtu — přesně jako v
+      // BottlingScreen.tsx (kegsUsed × objem sudu), ať sedí skladová kniha.
+      source_volume_l: maZdroj ? zdroj!.kegQty * zdroj!.kegVolumeL : null,
+    },
+  };
 }
 
 /**

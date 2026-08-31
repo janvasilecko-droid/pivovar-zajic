@@ -10,6 +10,7 @@ import { computeInventoryReconciliation } from '../lib/inventoryHelper';
 import { akceProRozdil, datumDoplnku, jeSud, nabidnoutMinulyMesic, nazevMesice, planDostaceni, stoceniZapis } from '../lib/inventoryFix';
 import { saveBottlingPlan } from '../lib/bottlingPlans';
 import { businessDateISO } from '../lib/businessDate';
+import { DoplnitStoceniModal, type DoplnitStoceniVysledek } from '../components/DoplnitStoceniModal';
 import { buildMovements, expectedForMonth, stockAtStartOfDay, type StockLine } from '../lib/stockLedger';
 import { chyba, oznam, potvrd } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
@@ -149,6 +150,8 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   const [druhFiltr, setDruhFiltr] = useState<'vse' | 'lahve' | 'sudy'>('vse');
   /** Klíč řádku, u kterého právě běží zápis doplňku — blokuje dvojklik. */
   const [doplnujeSe, setDoplnujeSe] = useState<string | null>(null);
+  /** Otevřený dialog doplnění stočení LAHVÍ (výběr zdrojových sudů). */
+  const [doplnekLahvi, setDoplnekLahvi] = useState<InventoryRow | null>(null);
 
   // Data pro "Stav na konci měsíce" (bilanční konto sudů)
   const [objednavkyMap, setObjednavkyMap] = useState<Record<string, number>>({}); // Objednávky (kegy)
@@ -789,11 +792,17 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     const dnes = businessDateISO();
 
     if (akce === 'zapsat_staceni') {
+      // U LAHVÍ je potřeba doplnit i sudy, ze kterých se stáčelo — na to
+      // obyčejné potvrzení nestačí, otevře se dialog s výběrem velikosti
+      // sudu a dopočtem podle 10% ztráty.
+      if (!jeSud(r.package_kind, r.package_label)) {
+        setDoplnekLahvi(r);
+        return;
+      }
       const zapis = stoceniZapis(polozka, datumDoplnku(currentMonth), currentMonth);
       if (!zapis) return;
-      const kam = zapis.table === 'kegging' ? 'Stáčení KEG' : 'Stáčení lahví';
       const ok = await potvrd(
-        `${popis}\n\nNapočítáno o ${r.diffQty} ks víc, než sklad čeká — nejspíš se stočilo a nezapsalo.\n\nZapsat ${r.diffQty} ks do „${kam}" k ${zapis.row.entry_date} — tedy do inventury za ${nazevMesice(currentMonth)}?`,
+        `${popis}\n\nNapočítáno o ${r.diffQty} ks víc, než sklad čeká — nejspíš se stočilo a nezapsalo.\n\nZapsat ${r.diffQty} ks do „Stáčení KEG" k ${zapis.row.entry_date} — tedy do inventury za ${nazevMesice(currentMonth)}?`,
         { titulek: 'Doplnit chybějící stočení', potvrdit: 'Ano, zapsat' },
       );
       if (!ok) return;
@@ -801,7 +810,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       const { error } = await supabase.from(zapis.table).insert(zapis.row);
       setDoplnujeSe(null);
       if (error) { chyba('Nepodařilo se zapsat stočení: ' + error.message); return; }
-      oznam(`Zapsáno ${r.diffQty} ks do „${kam}".`);
+      oznam(`Zapsáno ${r.diffQty} ks do „Stáčení KEG".`);
       forceReloadRef.current = true;
       await loadData();
       return;
@@ -820,6 +829,42 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     setDoplnujeSe(null);
     if (error) { chyba('Nepodařilo se založit úkol: ' + error.message); return; }
     oznam(`Úkol na ${chybi} ks přidán do plánu stáčení.`);
+  }
+
+  /** Potvrzení dialogu doplnění stočení lahví — se zdrojovými sudy z dopočtu. */
+  async function zapisDoplnekLahvi(vysledek: DoplnitStoceniVysledek) {
+    const r = doplnekLahvi;
+    if (!r) return;
+    const kegPkg = vysledek.kegPkgId ? packages.find((p) => p.id === vysledek.kegPkgId) : null;
+    const zapis = stoceniZapis(
+      {
+        beer_id: r.beer_id,
+        beer_name: r.beer_name,
+        package_id: r.package_id,
+        package_label: r.package_label,
+        package_kind: r.package_kind,
+        diffQty: r.diffQty,
+      },
+      datumDoplnku(currentMonth),
+      currentMonth,
+      kegPkg && vysledek.kegQty > 0
+        ? { kegPkgId: kegPkg.id, kegQty: vysledek.kegQty, kegVolumeL: Number(kegPkg.volume_l ?? 0) }
+        : null,
+    );
+    if (!zapis) { setDoplnekLahvi(null); return; }
+
+    setDoplnujeSe(`${r.beer_id}__${r.package_id}`);
+    const { error } = await supabase.from(zapis.table).insert(zapis.row);
+    setDoplnujeSe(null);
+    if (error) { chyba('Nepodařilo se zapsat stočení: ' + error.message); return; }
+    setDoplnekLahvi(null);
+    oznam(
+      vysledek.kegQty > 0
+        ? `Zapsáno ${r.diffQty} ks lahví a odečteno ${vysledek.kegQty} ks sudů.`
+        : `Zapsáno ${r.diffQty} ks do „Stáčení lahví".`,
+    );
+    forceReloadRef.current = true;
+    await loadData();
   }
 
   const nespocitane = useMemo(
@@ -1054,6 +1099,21 @@ function exportInventoryExcel() {
         </button>
       </div>
 
+
+      {doplnekLahvi && (
+        <DoplnitStoceniModal
+          open
+          onClose={() => setDoplnekLahvi(null)}
+          onConfirm={zapisDoplnekLahvi}
+          popis={`${doplnekLahvi.beer_name} · ${formatPackageLabel(doplnekLahvi.package_label)}`}
+          kusy={doplnekLahvi.diffQty}
+          objemLahveL={Number(doplnekLahvi.package_volume ?? 0)}
+          kegPackages={packages.filter((p) => jeSud(p.kind, p.label))}
+          mesic={currentMonth}
+          datum={datumDoplnku(currentMonth)}
+          ukladaSe={doplnujeSe !== null}
+        />
+      )}
 
       {/* TAB 1: FYZICKÁ INVENTURA & ROZDÍLY */}
       {activeTab === 'inventory' && (
