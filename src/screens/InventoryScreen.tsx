@@ -11,6 +11,7 @@ import { akceProRozdil, datumDoplnku, doplnekVBudoucnu, jeSud, kegovaniZapisy, l
 import { davkySrovnani, zapisyDavky, type DavkaPiva, type SmerSudu, type ZdrojovaSkupina } from '../lib/srovnaniDavka';
 import { zapamatujPozici } from '../lib/drzPozici';
 import { vyrovnaniZaMesic } from '../lib/vyrovnani';
+import { lzeUlozitKoncept, slucInventuru } from '../lib/rozepsanaInventura';
 import { normalizujCislo } from '../lib/cisloVstup';
 import { popisRozdeleni, rozdelSudyDoTanku, zmenaOtevreni, type RozdeleniSudu, type TankProRozdeleni } from '../lib/tankRozdeleni';
 import { saveBottlingPlan } from '../lib/bottlingPlans';
@@ -258,7 +259,11 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     // 🔍 Tatáž kniha očima Skladu — měsíční rozpad, ne od začátku evidence.
     setSkladLedger(stockForMonth(pohyby, currentMonth));
 
-    const shouldReloadState = loadedMonthRef.current !== currentMonth || forceReloadRef.current;
+    // Přepnutí měsíce a přenačtení po zápisu se chovají JINAK: při přepnutí
+    // se musí načíst všechno znovu, po zápisu se nesmí přepsat rozepsaná
+    // čísla (viz lib/rozepsanaInventura.ts).
+    const zmenaMesice = loadedMonthRef.current !== currentMonth;
+    const shouldReloadState = zmenaMesice || forceReloadRef.current;
 
     // 1. POČÁTEČNÍ STAVY pro aktuální měsíc (currentMonth) s automatickou kontinuitou z předchozího měsíce
     const invAcc = computeInitialStockForMonth(
@@ -299,7 +304,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       try { localStorage.setItem(`actual_inventory_${currentMonth}`, JSON.stringify(dbActualMap)); } catch {}
     }
     if (shouldReloadState) {
-      setActualStock(curActual);
+      setActualStock((prev) => slucInventuru(curActual, prev, zmenaMesice));
     }
 
     // 3. DOROVNÁNÍ (±) — uchovává se BOKEM (mimo stáčení a odpočty)
@@ -323,7 +328,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       try { localStorage.setItem(`inventory_adjustments_${currentMonth}`, JSON.stringify(dbAdjMap)); } catch {}
     }
     if (shouldReloadState) {
-      setDorovnatMap(curAdj);
+      setDorovnatMap((prev) => slucInventuru(curAdj, prev, zmenaMesice));
     }
 
     loadedMonthRef.current = currentMonth;
@@ -505,6 +510,21 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   // „když kliknu odečíst, vrací mě to vždycky nahoru." Vlastní zápis stránku
   // srovná kotvou (lib/drzPozici.ts), jenže 400 ms po něm dorazí realtime
   // událost o tomtéž zápisu a celou práci zahodí.
+  // 💾 Rozepsaná inventura a dorovnání se ukládají průběžně, ne až při
+  // „Uložit". Inventura se dělá v chlaďáku na telefonu a ten uspí obrazovku
+  // nebo appku vyhodí z paměti — bez tohohle by hodina počítání zmizela.
+  // Ukládá se až po prvním načtení měsíce, jinak by prázdný stav při
+  // otevírání přepsal uložený koncept dřív, než se stihne načíst.
+  useEffect(() => {
+    if (!lzeUlozitKoncept(loadedMonthRef.current, currentMonth)) return;
+    try { localStorage.setItem(`actual_inventory_${currentMonth}`, JSON.stringify(actualStock)); } catch {}
+  }, [actualStock, currentMonth]);
+
+  useEffect(() => {
+    if (!lzeUlozitKoncept(loadedMonthRef.current, currentMonth)) return;
+    try { localStorage.setItem(`inventory_adjustments_${currentMonth}`, JSON.stringify(dorovnatMap)); } catch {}
+  }, [dorovnatMap, currentMonth]);
+
   useRealtime(['beers', 'packages', 'bottling', 'kegging', 'fasovani', 'fasovani_private', 'writeoffs', 'inventory', 'inventory_adjustments', 'zavoz_deductions', 'akce', 'akce_items', 'keg_prefuk'], () => loadData(true));
 
 
