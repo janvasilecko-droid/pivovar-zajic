@@ -1,9 +1,9 @@
-// Doplnění stočení lahví: kolik sudů se odečte musí jít přepsat.
+// Doplnění stočení lahví: kolik sudů se odečte zadává ČLOVĚK.
 //
-// Z provozu: „u toho kolik se odečte sudů od lahví ukaž detailní množství
-// sudů, které se bude moct opravit, a poté se teprve potvrdí odpis ze skladu."
-// Dopočet z 10% ztráty je návrh — kolik sudů se opravdu načalo ví jenom
-// stáčeč.
+// Z provozu: „ty odpočty sudů mi dej jen orientačně, ale já si to vypočítám"
+// a „dej možnost 50 a 30 l". Jedno stáčení běžně načne obě velikosti
+// dohromady a dopočet neví, kolik sudů se opravdu načalo — proto pole
+// začínají prázdná a nic se nepředvyplňuje.
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { DoplnitStoceniModal } from './DoplnitStoceniModal';
@@ -32,62 +32,68 @@ function vykresli(onConfirm = vi.fn(), kusy = 781) {
   return onConfirm;
 }
 
-const poleSudu = () => screen.getByLabelText('Počet sudů k odečtení') as HTMLInputElement;
+const pole50 = () => screen.getByLabelText('Počet sudů 50 l') as HTMLInputElement;
+const pole30 = () => screen.getByLabelText('Počet sudů 30 l') as HTMLInputElement;
 
 describe('DoplnitStoceniModal', () => {
-  it('nabídne dopočet: 781 lahví × 1 l → 18 padesátek', () => {
+  it('pole začínají prázdná — nic se nepředvyplňuje', () => {
     vykresli();
-    // 781 l ÷ 0,9 = 867,8 l ÷ 50 = 17,36 → nahoru na 18.
-    expect(poleSudu().value).toBe('18');
+    expect(pole50().value).toBe('');
+    expect(pole30().value).toBe('');
   });
 
-  it('počet jde přepsat a potvrdí se přepsaná hodnota, ne dopočet', () => {
-    const onConfirm = vykresli();
-    fireEvent.change(poleSudu(), { target: { value: '15' } });
-    expect(poleSudu().value).toBe('15');
-    fireEvent.click(screen.getByRole('button', { name: /Zapsat a odečíst 15 sudů/ }));
-    expect(onConfirm).toHaveBeenCalledWith({ kegPkgId: 'k50', kegQty: 15 });
-  });
-
-  it('tlačítko říká, co se stane — kolik sudů se odečte', () => {
+  it('dopočet ukáže jen orientačně, jako číslo k porovnání', () => {
     vykresli();
-    expect(screen.getByRole('button', { name: /Zapsat a odečíst 18 sudů/ })).toBeTruthy();
+    // 781 l ÷ 0,9 = 867,8 l ÷ 50 = 17,36 → 18.
+    expect(screen.getByText(/Orientačně/)).toBeTruthy();
+    expect(screen.getByText(/18×50/)).toBeTruthy();
   });
 
-  it('nula znamená neodečítat — a je to vidět', () => {
+  it('padesátky i třicítky jdou zadat naráz', () => {
     const onConfirm = vykresli();
-    fireEvent.change(poleSudu(), { target: { value: '0' } });
-    expect(screen.getByText(/Nula = sudy se neodečtou/)).toBeTruthy();
+    fireEvent.change(pole50(), { target: { value: '15' } });
+    fireEvent.change(pole30(), { target: { value: '5' } });
+    fireEvent.click(screen.getByRole('button', { name: /Zapsat a odečíst 20 sudů/ }));
+    expect(onConfirm).toHaveBeenCalledWith({
+      sudy: [
+        { kegPkgId: 'k50', kegQty: 15, kegVolumeL: 50 },
+        { kegPkgId: 'k30', kegQty: 5, kegVolumeL: 30 },
+      ],
+    });
+  });
+
+  it('jen jedna velikost taky projde', () => {
+    const onConfirm = vykresli();
+    fireEvent.change(pole30(), { target: { value: '7' } });
+    fireEvent.click(screen.getByRole('button', { name: /Zapsat a odečíst 7 sudů/ }));
+    expect(onConfirm).toHaveBeenCalledWith({ sudy: [{ kegPkgId: 'k30', kegQty: 7, kegVolumeL: 30 }] });
+  });
+
+  it('ukáže litry, které se odečtou', () => {
+    vykresli();
+    fireEvent.change(pole50(), { target: { value: '15' } });
+    fireEvent.change(pole30(), { target: { value: '5' } });
+    expect(screen.getByText(/15×50 \+ 5×30 = 900 l/)).toBeTruthy();
+  });
+
+  it('prázdné pole = sudy se neodečtou', () => {
+    const onConfirm = vykresli();
+    expect(screen.getByText(/prázdné znamená, že se sudy neodečtou/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /Zapsat 781 ks lahví/ }));
-    expect(onConfirm).toHaveBeenCalledWith({ kegPkgId: null, kegQty: 0 });
-  });
-
-  it('po přepsání jde vrátit se k dopočtu', () => {
-    vykresli();
-    fireEvent.change(poleSudu(), { target: { value: '3' } });
-    fireEvent.click(screen.getByRole('button', { name: /Zpět na 18/ }));
-    expect(poleSudu().value).toBe('18');
-  });
-
-  it('přepnutí na 30l sudy přepočítá návrh', () => {
-    vykresli();
-    fireEvent.click(screen.getByRole('button', { name: '30 l' }));
-    // 867,8 l ÷ 30 = 28,9 → 29.
-    expect(poleSudu().value).toBe('29');
-  });
-
-  it('„Neodečítat" pole schová a potvrdí bez sudů', () => {
-    const onConfirm = vykresli();
-    fireEvent.click(screen.getByRole('button', { name: 'Neodečítat' }));
-    expect(screen.queryByLabelText('Počet sudů k odečtení')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: /Zapsat 781 ks lahví/ }));
-    expect(onConfirm).toHaveBeenCalledWith({ kegPkgId: null, kegQty: 0 });
+    expect(onConfirm).toHaveBeenCalledWith({ sudy: [] });
   });
 
   it('nesmysl v poli neshodí dialog ani nepošle NaN', () => {
     const onConfirm = vykresli();
-    fireEvent.change(poleSudu(), { target: { value: 'abc' } });
+    fireEvent.change(pole50(), { target: { value: 'abc' } });
     fireEvent.click(screen.getByRole('button', { name: /Zapsat/ }));
-    expect(onConfirm).toHaveBeenCalledWith({ kegPkgId: null, kegQty: 0 });
+    expect(onConfirm).toHaveBeenCalledWith({ sudy: [] });
+  });
+
+  it('nula se chová jako prázdno, ne jako zápis nula sudů', () => {
+    const onConfirm = vykresli();
+    fireEvent.change(pole50(), { target: { value: '0' } });
+    fireEvent.click(screen.getByRole('button', { name: /Zapsat 781 ks lahví/ }));
+    expect(onConfirm).toHaveBeenCalledWith({ sudy: [] });
   });
 });

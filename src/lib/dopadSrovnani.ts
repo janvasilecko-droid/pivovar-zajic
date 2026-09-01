@@ -46,7 +46,13 @@ export type DopadPiva = {
   beer_name: string;
   lahve: LahvovyDopad[];
   litryCelkem: number;
-  /** Součet sudů spotřebovaných lahvemi (po řádcích, každý zvlášť nahoru). */
+  /**
+   * Orientační počet sudů na VŠECHNY lahve dohromady.
+   *
+   * Počítá se ze součtu litrů, ne jako součet zaokrouhlených řádků: všechny
+   * velikosti lahví se stáčejí z jedněch sudů, takže sečíst zaokrouhlené
+   * řádky počet nadsazuje (z 1017 l vyjde 23 sudů, po řádcích 25).
+   */
   sudyZLahvi: number;
   sudove: SudovyDopad[];
 };
@@ -84,7 +90,12 @@ export function dopadSrovnani(
     const d = dej(r);
     d.lahve.push({ package_label: r.package_label, kusy: r.diffQty, litry: navrh.nalahvovanoL, sudy: navrh.sudy });
     d.litryCelkem = Math.round((d.litryCelkem + navrh.nalahvovanoL) * 10) / 10;
-    d.sudyZLahvi += navrh.sudy;
+  }
+
+  // Sudy až ze SOUČTU litrů — sčítat zaokrouhlené řádky by počet nadsadilo.
+  for (const d of podlePiva.values()) {
+    const navrh = navrhSudu([{ volumeL: 1, qty: d.litryCelkem }], objemSuduL, vytecnost);
+    d.sudyZLahvi = navrh?.sudy ?? 0;
   }
 
   // 2. kolo — sudy. Odečet z lahví se přičte JEN k sudu té velikosti, ze které

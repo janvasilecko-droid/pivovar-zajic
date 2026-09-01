@@ -141,6 +141,66 @@ export function stoceniZapis(
   };
 }
 
+/** Jedna skupina zdrojových sudů: kolik kusů které velikosti se načalo. */
+export type ZdrojovaSkupina = { kegPkgId: string; kegQty: number; kegVolumeL: number };
+
+/**
+ * Doplněné stáčení LAHVÍ — jeden zápis na každou velikost zdrojového sudu.
+ *
+ * Jedno stáčení běžně načne padesátky i třicítky dohromady, ale řádek stáčení
+ * unese jen jednu velikost (kegs_used + kegs_used_package_id). Rozdělí se tedy
+ * na víc řádků a lahve se mezi ně rozpočítají PODLE LITRŮ ze sudů — kusy tak
+ * odpovídají tomu, z čeho se opravdu stáčely.
+ *
+ * Zbytek po dělení padne na první řádek, aby součet kusů seděl na přebytek
+ * přesně; zaokrouhlováním po řádcích by jinak pár lahví zmizelo nebo přibylo.
+ */
+export function lahvoveZapisy(
+  p: InventuraPolozka,
+  entryDate: string,
+  monthKey: string,
+  zdroje: ZdrojovaSkupina[],
+): Record<string, unknown>[] {
+  if (p.diffQty <= 0) return [];
+  const zaklad = {
+    entry_date: entryDate,
+    beer_id: p.beer_id,
+    beer_name: p.beer_name,
+    package_id: p.package_id,
+    package_label: p.package_label,
+  };
+
+  const platne = zdroje.filter((z) => z.kegQty > 0 && z.kegVolumeL > 0);
+  if (platne.length === 0) {
+    return [{
+      ...zaklad,
+      quantity: p.diffQty,
+      kegs_used: null,
+      kegs_used_package_id: null,
+      source_volume_l: null,
+      note: `Doplněno z inventury ${monthKey} — ${p.package_label} (přebytek ${p.diffQty} ks)`,
+    }];
+  }
+
+  const litry = platne.map((z) => z.kegQty * z.kegVolumeL);
+  const litryCelkem = litry.reduce((s, l) => s + l, 0);
+
+  const kusy = litry.map((l) => Math.floor((p.diffQty * l) / litryCelkem));
+  kusy[0] += p.diffQty - kusy.reduce((s, k) => s + k, 0);
+
+  return platne.map((z, i) => ({
+    ...zaklad,
+    quantity: kusy[i],
+    kegs_used: z.kegQty,
+    kegs_used_package_id: z.kegPkgId,
+    source_volume_l: litry[i],
+    // Velikost sudu do poznámky: skladová kniha slučuje sourozenecké řádky
+    // jednoho zápisu mimo jiné podle poznámky (viz `dedupe` v stockLedger.ts)
+    // a odečet druhé velikosti by se jinak ztratil.
+    note: `Doplněno z inventury ${monthKey} — ${p.package_label} z ${z.kegQty}×${z.kegVolumeL} l (přebytek ${p.diffQty} ks)`,
+  }));
+}
+
 /**
  * Doplněné kegování rozpuštěné do tanků — jeden zápis na každý tank.
  *

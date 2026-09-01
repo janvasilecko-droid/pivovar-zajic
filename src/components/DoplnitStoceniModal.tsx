@@ -14,9 +14,8 @@ import type { Package } from '../lib/supabase';
 import { IkonaSud } from './ikony';
 
 export type DoplnitStoceniVysledek = {
-  /** Sudy, ze kterých se stáčelo — null = nezapisovat žádný odečet. */
-  kegPkgId: string | null;
-  kegQty: number;
+  /** Sudy, ze kterých se stáčelo. Prázdné = neodečítat nic. */
+  sudy: { kegPkgId: string; kegQty: number; kegVolumeL: number }[];
 };
 
 export function DoplnitStoceniModal({
@@ -37,33 +36,31 @@ export function DoplnitStoceniModal({
   datum: string;
   ukladaSe: boolean;
 }) {
-  // Výchozí je 50l sud — z něj se stáčí nejčastěji. Přepnout jde na kterýkoli
-  // jiný (30l a spol.), protože to se případ od případu liší.
-  const vychoziKeg = useMemo(() => {
-    if (kegPackages.length === 0) return '';
-    const padesatka = kegPackages.find((p) => Number(p.volume_l) === 50);
-    if (padesatka) return padesatka.id;
-    return [...kegPackages].sort((a, z) => Number(z.volume_l) - Number(a.volume_l))[0].id;
-  }, [kegPackages]);
+  // Sudy se zadávají po velikostech — jedno stáčení běžně načne padesátky
+  // i třicítky dohromady, takže to není volba jedné velikosti, ale počty
+  // u každé.
+  const sudoveObaly = useMemo(
+    () => [...kegPackages].sort((a, z) => Number(z.volume_l) - Number(a.volume_l)),
+    [kegPackages],
+  );
 
-  const [kegPkgId, setKegPkgId] = useState<string>(vychoziKeg);
-  // Modal se odmountovává mezi otevřeními, ale kdyby se seznam obalů dorovnal
-  // později, ať se výchozí volba nezasekne na prázdné.
-  const vybranyKeg = kegPkgId || vychoziKeg;
+  // Počet sudů zadává ČLOVĚK. Dopočet je jen ORIENTACE: kolik sudů se opravdu
+  // načalo ví jenom stáčeč a program to nemá čím zjistit. Pole proto začínají
+  // prázdná a nic se nepředvyplňuje.
+  const [pocty, setPocty] = useState<Record<string, string>>({});
+  const pocet = (id: string) => Math.max(0, Math.floor(Number(pocty[id]) || 0));
 
-  const navrh = useMemo(() => {
-    const keg = kegPackages.find((p) => p.id === vybranyKeg);
-    if (!keg) return null;
-    return navrhSudu([{ volumeL: objemLahveL, qty: kusy }], Number(keg.volume_l ?? 0));
-  }, [vybranyKeg, kegPackages, objemLahveL, kusy]);
+  const sudy = sudoveObaly
+    .map((p) => ({ kegPkgId: p.id, kegQty: pocet(p.id), kegVolumeL: Number(p.volume_l ?? 0) }))
+    .filter((z) => z.kegQty > 0 && z.kegVolumeL > 0);
+  const zadanoL = sudy.reduce((s, z) => s + z.kegQty * z.kegVolumeL, 0);
 
-  const [bezSudu, setBezSudu] = useState(false);
-  // Ručně přepsaný počet sudů. null = drž se dopočtu (i když se přepne
-  // velikost sudu a dopočet se změní).
-  const [rucneSudy, setRucneSudy] = useState<string | null>(null);
-  const sudyKZapisu = rucneSudy !== null
-    ? Math.max(0, Math.floor(Number(rucneSudy) || 0))
-    : (navrh?.sudy ?? 0);
+  // Orientační dopočet z celkového objemu lahví a ~10% ztráty — kolik by to
+  // zhruba mělo být, kdyby se to stáčelo jen z jedné velikosti.
+  const orientace = useMemo(
+    () => navrhSudu([{ volumeL: objemLahveL, qty: kusy }], 50),
+    [objemLahveL, kusy],
+  );
 
   return (
     <Modal open={open} onClose={onClose} title="Doplnit chybějící stočení">
@@ -81,95 +78,46 @@ export function DoplnitStoceniModal({
             <IkonaSud className="ikona-text" /> Z kolika sudů se stáčelo
           </div>
 
-          <div className="flex flex-wrap gap-1.5">
-            {kegPackages.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => { setKegPkgId(p.id); setBezSudu(false); }}
-                className={`px-3 py-2 rounded font-black text-xs transition min-h-[40px] ${
-                  !bezSudu && vybranyKeg === p.id
-                    ? 'bg-sky-600 text-white shadow-xs'
-                    : 'bg-white text-sky-900 border border-sky-300 hover:bg-sky-100'
-                }`}
-              >
-                {p.volume_l} l
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => setBezSudu(true)}
-              className={`px-3 py-2 rounded font-black text-xs transition min-h-[40px] ${
-                bezSudu
-                  ? 'bg-neutral-800 text-white shadow-xs'
-                  : 'bg-white text-neutral-700 border border-neutral-300 hover:bg-neutral-100'
-              }`}
-              title="Sudy se neodečtou — použij, když nevíš, z čeho se stáčelo"
-            >
-              Neodečítat
-            </button>
-          </div>
-
-          {bezSudu ? (
-            <p className="text-[11px] font-bold text-neutral-600">
-              Zapíše se jen {kusy} ks lahví. Sudy zůstanou ve skladu beze změny — použij, jen když
-              opravdu nevíš, z čeho se stáčelo.
+          {/* Orientace, ne rozhodnutí. Dopočet neví, kolik sudů se opravdu
+              načalo, a když se stáčí víc velikostí lahví z jedněch sudů,
+              nadsazuje. Počty proto zadává člověk. */}
+          {orientace && (
+            <p className="text-[11px] font-bold text-sky-800">
+              Orientačně: {kusy} ks × {objemLahveL} l = {orientace.nalahvovanoL} l,
+              {' '}+ 10 % ztráta = {orientace.zdrojL} l ≈ <strong>{orientace.sudy}×50</strong>.
+              {' '}Kolik sudů se opravdu načalo víš jenom ty — zadej to níž.
             </p>
-          ) : navrh ? (
-            <div className="text-xs font-bold text-sky-900 leading-relaxed">
-              {kusy} ks × {objemLahveL} l = <strong>{navrh.nalahvovanoL} l</strong> v lahvích
-              <br />
-              + 10 % ztráta = <strong>{navrh.zdrojL} l</strong> ze sudů
-              <br />
-              <span className="text-sky-700">= {navrh.sudyPresne} sudu</span>
-              {navrh.sudy !== navrh.sudyPresne && (
-                <span className="block text-[11px] font-bold text-sky-700 mt-1">
-                  Zaokrouhleno nahoru — načatý sud je ze skladu pryč celý.
-                </span>
-              )}
+          )}
 
-              {/* 🛢️ Počet jde přepsat. Kolik sudů se opravdu načalo ví jenom
-                  stáčeč — dopočet je návrh, ne rozsudek. Odečet ze skladu se
-                  potvrdí až tímhle číslem. */}
-              <div className="mt-2.5 pt-2.5 border-t border-sky-200">
-                <label className="block text-[11px] font-black uppercase tracking-wider text-sky-900 mb-1.5">
-                  Odečte se ze skladu
-                </label>
-                <div className="flex items-center gap-2 flex-wrap">
+          {sudoveObaly.length === 0 ? (
+            <p className="text-[11px] font-bold text-neutral-600">Žádné sudové obaly k výběru.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {sudoveObaly.map((p) => (
+                <div key={p.id} className="flex items-center gap-2">
                   <input
                     type="text"
                     inputMode="numeric"
-                    value={rucneSudy ?? String(navrh.sudy)}
-                    onChange={(e) => setRucneSudy(normalizujCislo(e.target.value, false))}
+                    value={pocty[p.id] ?? ''}
+                    placeholder="0"
+                    onChange={(e) => setPocty((v) => ({ ...v, [p.id]: normalizujCislo(e.target.value, false) }))}
                     className="w-20 px-2.5 py-2 rounded border-2 border-sky-300 bg-white text-center font-black text-base text-sky-900 focus:border-sky-500 focus:outline-hidden"
-                    aria-label="Počet sudů k odečtení"
+                    aria-label={`Počet sudů ${p.volume_l} l`}
                   />
-                  <span className="font-black text-base text-sky-900">
-                    × {kegPackages.find((p) => p.id === vybranyKeg)?.volume_l} l
-                  </span>
-                  <span className="text-[11px] font-bold text-sky-700">
-                    = {(sudyKZapisu * Number(kegPackages.find((p) => p.id === vybranyKeg)?.volume_l ?? 0))
-                      .toLocaleString('cs-CZ')} l
-                  </span>
-                  {rucneSudy !== null && Number(rucneSudy) !== navrh.sudy && (
-                    <button
-                      type="button"
-                      onClick={() => setRucneSudy(null)}
-                      className="px-2 py-1 rounded bg-white border border-sky-300 text-sky-800 font-black text-[11px] hover:bg-sky-100"
-                    >
-                      Zpět na {navrh.sudy}
-                    </button>
+                  <span className="font-black text-sm text-sky-900">× {p.volume_l} l</span>
+                  {pocet(p.id) > 0 && (
+                    <span className="text-[11px] font-bold text-sky-700">
+                      = {(pocet(p.id) * Number(p.volume_l)).toLocaleString('cs-CZ')} l
+                    </span>
                   )}
                 </div>
-                {sudyKZapisu === 0 && (
-                  <p className="text-[11px] font-bold text-neutral-600 mt-1.5">
-                    Nula = sudy se neodečtou, zapíšou se jen lahve.
-                  </p>
-                )}
+              ))}
+              <div className="text-xs font-black text-sky-900 border-t border-sky-200 pt-1.5">
+                {zadanoL > 0
+                  ? `Odečte se ${sudy.map((z) => `${z.kegQty}×${z.kegVolumeL}`).join(' + ')} = ${zadanoL.toLocaleString('cs-CZ')} l`
+                  : 'Zatím nic — prázdné znamená, že se sudy neodečtou.'}
               </div>
             </div>
-          ) : (
-            <p className="text-[11px] font-bold text-neutral-600">Žádné sudové obaly k výběru.</p>
           )}
         </div>
 
@@ -184,19 +132,15 @@ export function DoplnitStoceniModal({
           </button>
           <button
             type="button"
-            onClick={() => onConfirm(
-              bezSudu || !navrh || sudyKZapisu <= 0
-                ? { kegPkgId: null, kegQty: 0 }
-                : { kegPkgId: vybranyKeg, kegQty: sudyKZapisu },
-            )}
+            onClick={() => onConfirm({ sudy })}
             disabled={ukladaSe}
             className="px-4 py-2.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition disabled:opacity-50"
           >
             {ukladaSe
               ? 'Zapisuji…'
-              : bezSudu || sudyKZapisu <= 0
+              : sudy.length === 0
                 ? `Zapsat ${kusy} ks lahví`
-                : `Zapsat a odečíst ${sudyKZapisu} sudů`}
+                : `Zapsat a odečíst ${sudy.reduce((s, z) => s + z.kegQty, 0)} sudů`}
           </button>
         </div>
       </div>

@@ -7,7 +7,7 @@ import { exportHistoryDetailToExcel } from '../lib/excel';
 import { AlertCircle, AlertTriangle, Beer as BeerIcon, Calendar, Camera, ClipboardCheck, ClipboardList, Download, Check, CheckCircle2, Lock, Package as PackageIcon, Plus, RefreshCw, RotateCcw, Save } from 'lucide-react';
 import { CountFromImage } from '../components/CountFromImage';
 import { computeInventoryReconciliation } from '../lib/inventoryHelper';
-import { akceProRozdil, datumDoplnku, jeSud, kegovaniZapisy, nabidnoutMinulyMesic, nazevMesice, planDostaceni, stoceniZapis } from '../lib/inventoryFix';
+import { akceProRozdil, datumDoplnku, jeSud, kegovaniZapisy, lahvoveZapisy, nabidnoutMinulyMesic, nazevMesice, planDostaceni, stoceniZapis } from '../lib/inventoryFix';
 import { dopadSrovnani } from '../lib/dopadSrovnani';
 import { popisRozdeleni, rozdelSudyDoTanku, zmenaOtevreni, type RozdeleniSudu, type TankProRozdeleni } from '../lib/tankRozdeleni';
 import { saveBottlingPlan } from '../lib/bottlingPlans';
@@ -908,8 +908,9 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   async function zapisDoplnekLahvi(vysledek: DoplnitStoceniVysledek) {
     const r = doplnekLahvi;
     if (!r) return;
-    const kegPkg = vysledek.kegPkgId ? packages.find((p) => p.id === vysledek.kegPkgId) : null;
-    const zapis = stoceniZapis(
+    // Jedno stáčení může načít padesátky i třicítky dohromady — řádek stáčení
+    // ale unese jen jednu velikost, takže se to rozdělí na víc zápisů.
+    const rady = lahvoveZapisy(
       {
         beer_id: r.beer_id,
         beer_name: r.beer_name,
@@ -920,20 +921,19 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       },
       datumDoplnku(currentMonth),
       currentMonth,
-      kegPkg && vysledek.kegQty > 0
-        ? { kegPkgId: kegPkg.id, kegQty: vysledek.kegQty, kegVolumeL: Number(kegPkg.volume_l ?? 0) }
-        : null,
+      vysledek.sudy,
     );
-    if (!zapis) { setDoplnekLahvi(null); return; }
+    if (rady.length === 0) { setDoplnekLahvi(null); return; }
 
     setDoplnujeSe(`${r.beer_id}__${r.package_id}`);
-    const { error } = await supabase.from(zapis.table).insert(zapis.row);
+    const { error } = await supabase.from('bottling').insert(rady);
     setDoplnujeSe(null);
     if (error) { chyba('Nepodařilo se zapsat stočení: ' + error.message); return; }
     setDoplnekLahvi(null);
+    const sudyCelkem = vysledek.sudy.reduce((s, z) => s + z.kegQty, 0);
     oznam(
-      vysledek.kegQty > 0
-        ? `Zapsáno ${r.diffQty} ks lahví a odečteno ${vysledek.kegQty} ks sudů.`
+      sudyCelkem > 0
+        ? `Zapsáno ${r.diffQty} ks lahví a odečteno ${vysledek.sudy.map((z) => `${z.kegQty}×${z.kegVolumeL}`).join(' + ')}.`
         : `Zapsáno ${r.diffQty} ks do „Stáčení lahví".`,
     );
     forceReloadRef.current = true;
@@ -1327,8 +1327,8 @@ function exportInventoryExcel() {
                   </span>
                   <span className="text-[11px] font-bold text-sky-700">
                     {dopadOtevren
-                      ? 'Počítáno z 50l sudů · srovnávej NEJDŘÍV lahve, pak sudy'
-                      : `Lahve spotřebují ${dopad.reduce((s, d) => s + d.sudyZLahvi, 0)} sudů — rozepsat`}
+                      ? 'Sudy jen orientačně (50 l) · srovnávej NEJDŘÍV lahve, pak sudy'
+                      : `Lahve spotřebují ≈ ${dopad.reduce((s, d) => s + d.sudyZLahvi, 0)} sudů — rozepsat`}
                   </span>
                 </button>
                 {dopadOtevren && dopad.map((d) => (
@@ -1339,13 +1339,13 @@ function exportInventoryExcel() {
                         {d.lahve.map((l) => (
                           <div key={l.package_label} className="flex justify-between gap-2">
                             <span>{formatPackageLabel(l.package_label)} × {l.kusy} ks = {l.litry} l</span>
-                            <span className="text-sky-800 whitespace-nowrap">→ {l.sudy}×50</span>
+                            <span className="text-sky-800 whitespace-nowrap">≈ {l.sudy}×50</span>
                           </div>
                         ))}
                         <div className="flex justify-between gap-2 border-t border-neutral-200 mt-1 pt-1">
                           <span>Celkem {d.litryCelkem} l</span>
                           <span className="text-sky-900 font-black whitespace-nowrap">
-                            → spotřebuje {d.sudyZLahvi}×50
+                            ≈ {d.sudyZLahvi}×50
                           </span>
                         </div>
                       </div>

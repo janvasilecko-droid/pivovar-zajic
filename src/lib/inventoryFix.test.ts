@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { kegovaniZapisy, akceProRozdil, datumDoplnku, jeSud, nabidnoutMinulyMesic, nazevMesice, planDostaceni, stoceniZapis, type InventuraPolozka } from './inventoryFix';
+import { kegovaniZapisy, lahvoveZapisy, akceProRozdil, datumDoplnku, jeSud, nabidnoutMinulyMesic, nazevMesice, planDostaceni, stoceniZapis, type InventuraPolozka } from './inventoryFix';
 
 const lahev: InventuraPolozka = {
   beer_id: 'b1', beer_name: 'Ležák 12°',
@@ -213,5 +213,75 @@ describe('kegovaniZapisy — doplněné kegování se rozpustí do tanků', () =
     const r = kegovaniZapisy(polozka, '2026-08-31', '2026-08', { dily: [], nepokrytoSudu: 35 });
     expect(r).toHaveLength(1);
     expect(r[0]).toMatchObject({ quantity: 35, cellar_tank_id: null });
+  });
+});
+
+describe('lahvoveZapisy — stáčení lahví z víc velikostí sudů', () => {
+  const polozka = {
+    beer_id: 'b1', beer_name: '12° Světlá',
+    package_id: 'p1', package_label: '1 L', package_kind: 'bottle',
+    diffQty: 781,
+  };
+  const D = '2026-08-31';
+
+  it('jedna velikost = jeden zápis', () => {
+    const r = lahvoveZapisy(polozka, D, '2026-08', [{ kegPkgId: 'k50', kegQty: 18, kegVolumeL: 50 }]);
+    expect(r).toHaveLength(1);
+    expect(r[0]).toMatchObject({ quantity: 781, kegs_used: 18, kegs_used_package_id: 'k50', source_volume_l: 900 });
+  });
+
+  it('padesátky i třicítky = zápis na každou velikost', () => {
+    const r = lahvoveZapisy(polozka, D, '2026-08', [
+      { kegPkgId: 'k50', kegQty: 15, kegVolumeL: 50 },
+      { kegPkgId: 'k30', kegQty: 5, kegVolumeL: 30 },
+    ]);
+    expect(r).toHaveLength(2);
+    expect(r[0]).toMatchObject({ kegs_used: 15, kegs_used_package_id: 'k50', source_volume_l: 750 });
+    expect(r[1]).toMatchObject({ kegs_used: 5, kegs_used_package_id: 'k30', source_volume_l: 150 });
+  });
+
+  it('lahve se rozpočítají podle litrů ze sudů', () => {
+    // 750 l z padesátek, 150 l z třicítek → 5/6 a 1/6 z 781 kusů.
+    const r = lahvoveZapisy(polozka, D, '2026-08', [
+      { kegPkgId: 'k50', kegQty: 15, kegVolumeL: 50 },
+      { kegPkgId: 'k30', kegQty: 5, kegVolumeL: 30 },
+    ]);
+    expect(Number(r[1].quantity)).toBe(130); // floor(781 × 150/900)
+    expect(Number(r[0].quantity)).toBe(651); // zbytek, ať součet sedí
+  });
+
+  it('součet kusů sedí na přebytek přesně — ani lahev navíc', () => {
+    const r = lahvoveZapisy(polozka, D, '2026-08', [
+      { kegPkgId: 'k50', kegQty: 7, kegVolumeL: 50 },
+      { kegPkgId: 'k30', kegQty: 3, kegVolumeL: 30 },
+    ]);
+    expect(r.reduce((s, x) => s + Number(x.quantity), 0)).toBe(781);
+  });
+
+  it('bez zadaných sudů se zapíšou jen lahve, bez odečtu', () => {
+    const r = lahvoveZapisy(polozka, D, '2026-08', []);
+    expect(r).toHaveLength(1);
+    expect(r[0]).toMatchObject({ quantity: 781, kegs_used: null, kegs_used_package_id: null });
+  });
+
+  it('nulové a neplatné skupiny se zahodí', () => {
+    const r = lahvoveZapisy(polozka, D, '2026-08', [
+      { kegPkgId: 'k50', kegQty: 0, kegVolumeL: 50 },
+      { kegPkgId: 'k30', kegQty: 4, kegVolumeL: 0 },
+    ]);
+    expect(r).toHaveLength(1);
+    expect(r[0].kegs_used).toBeNull();
+  });
+
+  it('poznámka nese velikost sudu — jinak by se řádky slily ve skladové knize', () => {
+    const r = lahvoveZapisy(polozka, D, '2026-08', [
+      { kegPkgId: 'k50', kegQty: 5, kegVolumeL: 50 },
+      { kegPkgId: 'k30', kegQty: 5, kegVolumeL: 30 },
+    ]);
+    expect(r[0].note).not.toBe(r[1].note);
+  });
+
+  it('manko nic nezapíše — nic se nevyrobilo', () => {
+    expect(lahvoveZapisy({ ...polozka, diffQty: -5 }, D, '2026-08', [])).toEqual([]);
   });
 });

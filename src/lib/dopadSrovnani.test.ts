@@ -20,9 +20,10 @@ describe('dopadSrovnani', () => {
     expect(d[0].sudove[0]).toEqual({ package_label: '50 L', ted: 10, poLahvich: 28 });
   });
 
-  it('každý lahvový řádek se zaokrouhluje nahoru zvlášť — načatý sud je pryč celý', () => {
-    // 174 l → 4 sudy, 781 l → 18, 55,5 l → 2, 6,6 l → 1. Dohromady 25.
-    // Ze součtu litrů (1017 l) by vyšlo 23 — a to by byla chyba.
+  it('celkový počet sudů se počítá ze SOUČTU litrů, ne sečtením zaokrouhlených řádků', () => {
+    // Všechny velikosti lahví se stáčejí z jedněch sudů. Sečíst zaokrouhlené
+    // řádky (4 + 18 + 2 + 1 = 25) počet nadsazuje — jako by se pro každou
+    // velikost lahve načínaly vlastní sudy. Z 1017 l vyjde 23.
     const d = dopadSrovnani([
       lahev('1.5 L', 1.5, 116),
       lahev('1 L', 1, 781),
@@ -30,9 +31,9 @@ describe('dopadSrovnani', () => {
       lahev('0.33 L', 0.33, 20),
       sud('50 L', 50, 10),
     ]);
-    expect(d[0].lahve.map((l) => l.sudy)).toEqual([4, 18, 2, 1]);
-    expect(d[0].sudyZLahvi).toBe(25);
-    expect(d[0].sudove[0].poLahvich).toBe(35);
+    expect(d[0].litryCelkem).toBe(1017.1);
+    expect(d[0].sudyZLahvi).toBe(23);
+    expect(d[0].sudove[0].poLahvich).toBe(33);
   });
 
   it('sečte litry přes všechny lahvové řádky', () => {
