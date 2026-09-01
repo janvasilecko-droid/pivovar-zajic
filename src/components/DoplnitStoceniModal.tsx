@@ -8,6 +8,7 @@
 import { useMemo, useState } from 'react';
 import { Modal } from './ui';
 import { navrhSudu } from '../lib/bottlingYield';
+import { normalizujCislo } from '../lib/cisloVstup';
 import { nazevMesice } from '../lib/inventoryFix';
 import type { Package } from '../lib/supabase';
 import { IkonaSud } from './ikony';
@@ -57,6 +58,12 @@ export function DoplnitStoceniModal({
   }, [vybranyKeg, kegPackages, objemLahveL, kusy]);
 
   const [bezSudu, setBezSudu] = useState(false);
+  // Ručně přepsaný počet sudů. null = drž se dopočtu (i když se přepne
+  // velikost sudu a dopočet se změní).
+  const [rucneSudy, setRucneSudy] = useState<string | null>(null);
+  const sudyKZapisu = rucneSudy !== null
+    ? Math.max(0, Math.floor(Number(rucneSudy) || 0))
+    : (navrh?.sudy ?? 0);
 
   return (
     <Modal open={open} onClose={onClose} title="Doplnit chybějící stočení">
@@ -114,13 +121,52 @@ export function DoplnitStoceniModal({
               <br />
               + 10 % ztráta = <strong>{navrh.zdrojL} l</strong> ze sudů
               <br />
-              <span className="text-sky-700">= {navrh.sudyPresne} sudu →</span>{' '}
-              <strong className="text-base">odečte se {navrh.sudy} ks</strong>
+              <span className="text-sky-700">= {navrh.sudyPresne} sudu</span>
               {navrh.sudy !== navrh.sudyPresne && (
                 <span className="block text-[11px] font-bold text-sky-700 mt-1">
                   Zaokrouhleno nahoru — načatý sud je ze skladu pryč celý.
                 </span>
               )}
+
+              {/* 🛢️ Počet jde přepsat. Kolik sudů se opravdu načalo ví jenom
+                  stáčeč — dopočet je návrh, ne rozsudek. Odečet ze skladu se
+                  potvrdí až tímhle číslem. */}
+              <div className="mt-2.5 pt-2.5 border-t border-sky-200">
+                <label className="block text-[11px] font-black uppercase tracking-wider text-sky-900 mb-1.5">
+                  Odečte se ze skladu
+                </label>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={rucneSudy ?? String(navrh.sudy)}
+                    onChange={(e) => setRucneSudy(normalizujCislo(e.target.value, false))}
+                    className="w-20 px-2.5 py-2 rounded border-2 border-sky-300 bg-white text-center font-black text-base text-sky-900 focus:border-sky-500 focus:outline-hidden"
+                    aria-label="Počet sudů k odečtení"
+                  />
+                  <span className="font-black text-base text-sky-900">
+                    × {kegPackages.find((p) => p.id === vybranyKeg)?.volume_l} l
+                  </span>
+                  <span className="text-[11px] font-bold text-sky-700">
+                    = {(sudyKZapisu * Number(kegPackages.find((p) => p.id === vybranyKeg)?.volume_l ?? 0))
+                      .toLocaleString('cs-CZ')} l
+                  </span>
+                  {rucneSudy !== null && Number(rucneSudy) !== navrh.sudy && (
+                    <button
+                      type="button"
+                      onClick={() => setRucneSudy(null)}
+                      className="px-2 py-1 rounded bg-white border border-sky-300 text-sky-800 font-black text-[11px] hover:bg-sky-100"
+                    >
+                      Zpět na {navrh.sudy}
+                    </button>
+                  )}
+                </div>
+                {sudyKZapisu === 0 && (
+                  <p className="text-[11px] font-bold text-neutral-600 mt-1.5">
+                    Nula = sudy se neodečtou, zapíšou se jen lahve.
+                  </p>
+                )}
+              </div>
             </div>
           ) : (
             <p className="text-[11px] font-bold text-neutral-600">Žádné sudové obaly k výběru.</p>
@@ -139,14 +185,18 @@ export function DoplnitStoceniModal({
           <button
             type="button"
             onClick={() => onConfirm(
-              bezSudu || !navrh
+              bezSudu || !navrh || sudyKZapisu <= 0
                 ? { kegPkgId: null, kegQty: 0 }
-                : { kegPkgId: vybranyKeg, kegQty: navrh.sudy },
+                : { kegPkgId: vybranyKeg, kegQty: sudyKZapisu },
             )}
             disabled={ukladaSe}
             className="px-4 py-2.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition disabled:opacity-50"
           >
-            {ukladaSe ? 'Zapisuji…' : 'Ano, zapsat'}
+            {ukladaSe
+              ? 'Zapisuji…'
+              : bezSudu || sudyKZapisu <= 0
+                ? `Zapsat ${kusy} ks lahví`
+                : `Zapsat a odečíst ${sudyKZapisu} sudů`}
           </button>
         </div>
       </div>

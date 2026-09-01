@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { akceProRozdil, datumDoplnku, jeSud, nabidnoutMinulyMesic, nazevMesice, planDostaceni, stoceniZapis, type InventuraPolozka } from './inventoryFix';
+import { kegovaniZapisy, akceProRozdil, datumDoplnku, jeSud, nabidnoutMinulyMesic, nazevMesice, planDostaceni, stoceniZapis, type InventuraPolozka } from './inventoryFix';
 
 const lahev: InventuraPolozka = {
   beer_id: 'b1', beer_name: 'Ležák 12°',
@@ -154,5 +154,64 @@ describe('planDostaceni (manko)', () => {
   it('u přebytku ani nuly nevznikne úkol', () => {
     expect(planDostaceni({ ...sud, diffQty: 3 }, '2026-08-31', '2026-08')).toBeNull();
     expect(planDostaceni({ ...sud, diffQty: 0 }, '2026-08-31', '2026-08')).toBeNull();
+  });
+});
+
+describe('kegovaniZapisy — doplněné kegování se rozpustí do tanků', () => {
+  const polozka = {
+    beer_id: 'b1', beer_name: '12° Světlá',
+    package_id: 'p50', package_label: '50 L', package_kind: 'keg',
+    diffQty: 35,
+  };
+
+  it('udělá jeden zápis na každý tank a odečte z něj litry', () => {
+    const r = kegovaniZapisy(polozka, '2026-08-31', '2026-08', {
+      dily: [
+        { tankId: 't3', label: 'Tank 3', sudy: 28, litry: 1400 },
+        { tankId: 't5', label: 'Tank 5', sudy: 7, litry: 350 },
+      ],
+      nepokrytoSudu: 0,
+    });
+    expect(r).toHaveLength(2);
+    expect(r[0]).toMatchObject({ quantity: 28, cellar_tank_id: 't3', source_volume_l: 1400 });
+    expect(r[1]).toMatchObject({ quantity: 7, cellar_tank_id: 't5', source_volume_l: 350 });
+  });
+
+  it('součet kusů sedí na přebytek — ani kus navíc, ani míň', () => {
+    const r = kegovaniZapisy(polozka, '2026-08-31', '2026-08', {
+      dily: [{ tankId: 't3', label: 'Tank 3', sudy: 20, litry: 1000 }],
+      nepokrytoSudu: 15,
+    });
+    expect(r.reduce((s, x) => s + Number(x.quantity), 0)).toBe(35);
+  });
+
+  it('co sklep nepokryje, zapíše se bez tanku — ne že se to ztratí', () => {
+    const r = kegovaniZapisy(polozka, '2026-08-31', '2026-08', {
+      dily: [{ tankId: 't3', label: 'Tank 3', sudy: 20, litry: 1000 }],
+      nepokrytoSudu: 15,
+    });
+    expect(r[1]).toMatchObject({ quantity: 15, cellar_tank_id: null, source_volume_l: null });
+    expect(String(r[1].note)).toContain('bez tanku');
+  });
+
+  it('poznámka nese tank — jinak by se sourozenecké řádky slily ve skladové knize', () => {
+    const r = kegovaniZapisy(polozka, '2026-08-31', '2026-08', {
+      dily: [
+        { tankId: 't3', label: 'Tank 3', sudy: 10, litry: 500 },
+        { tankId: 't5', label: 'Tank 5', sudy: 10, litry: 500 },
+      ],
+      nepokrytoSudu: 0,
+    });
+    expect(r[0].note).not.toBe(r[1].note);
+  });
+
+  it('manko nic nezapíše — nic se nevyrobilo', () => {
+    expect(kegovaniZapisy({ ...polozka, diffQty: -5 }, '2026-08-31', '2026-08', { dily: [], nepokrytoSudu: 0 })).toEqual([]);
+  });
+
+  it('prázdný sklep zapíše všechno bez tanku', () => {
+    const r = kegovaniZapisy(polozka, '2026-08-31', '2026-08', { dily: [], nepokrytoSudu: 35 });
+    expect(r).toHaveLength(1);
+    expect(r[0]).toMatchObject({ quantity: 35, cellar_tank_id: null });
   });
 });

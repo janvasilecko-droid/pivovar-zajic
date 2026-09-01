@@ -7,7 +7,9 @@ import { exportHistoryDetailToExcel } from '../lib/excel';
 import { AlertCircle, AlertTriangle, Beer as BeerIcon, Calendar, Camera, ClipboardCheck, ClipboardList, Download, Check, CheckCircle2, Lock, Package as PackageIcon, Plus, RefreshCw, RotateCcw, Save } from 'lucide-react';
 import { CountFromImage } from '../components/CountFromImage';
 import { computeInventoryReconciliation } from '../lib/inventoryHelper';
-import { akceProRozdil, datumDoplnku, jeSud, nabidnoutMinulyMesic, nazevMesice, planDostaceni, stoceniZapis } from '../lib/inventoryFix';
+import { akceProRozdil, datumDoplnku, jeSud, kegovaniZapisy, nabidnoutMinulyMesic, nazevMesice, planDostaceni, stoceniZapis } from '../lib/inventoryFix';
+import { dopadSrovnani } from '../lib/dopadSrovnani';
+import { popisRozdeleni, rozdelSudyDoTanku, zmenaOtevreni, type RozdeleniSudu, type TankProRozdeleni } from '../lib/tankRozdeleni';
 import { saveBottlingPlan } from '../lib/bottlingPlans';
 import { businessDateISO } from '../lib/businessDate';
 import { DoplnitStoceniModal, type DoplnitStoceniVysledek } from '../components/DoplnitStoceniModal';
@@ -163,12 +165,14 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   const [stacenoKegMap, setStacenoKegMap] = useState<Record<string, number>>({}); // Stáčení KEG
   // 📒 Očekávaný stav ze skladové knihy — jediný zdroj pravdy pro sklad.
   const [expectedLedger, setExpectedLedger] = useState<Map<string, StockLine>>(new Map());
+  // 🛢️ Tanky pro odečet doplněného kegování.
+  const [tanky, setTanky] = useState<TankProRozdeleni[]>([]);
 
   async function loadData() {
     const loadId = ++loadCountRef.current;
     setLoading(true);
 
-    const [{ data: b }, { data: pk }, { data: bt }, { data: kg }, { data: fa }, { data: fp }, { data: wo }, { data: inv }, { data: adj }, { data: zd }, { data: ak }, { data: pf }] = await Promise.all([
+    const [{ data: b }, { data: pk }, { data: bt }, { data: kg }, { data: fa }, { data: fp }, { data: wo }, { data: inv }, { data: adj }, { data: zd }, { data: ak }, { data: pf }, { data: tk }] = await Promise.all([
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
       fetchAllRows('bottling', 'beer_id,package_id,quantity,entry_date,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
@@ -183,12 +187,16 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity'),
       fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
       fetchAllRows('keg_prefuk', 'entry_date,beer_id,from_package_id,from_count,to_package_id,to_count'),
+      // 🛢️ Tanky — doplněné kegování z inventury z nich odečítá objem, aby
+      // sklep nezůstal nafouklý (viz tankRozdeleni.ts).
+      supabase.from('cellar_tanks').select('id,label,current_beer_id,current_volume_l,status,started_at,kegging_active'),
     ]);
 
     if (loadId !== loadCountRef.current) return;
 
     setBeers((b as Beer[]) ?? []);
     setPackages((pk as Package[]) ?? []);
+    setTanky((tk as TankProRozdeleni[]) ?? []);
 
     const invRowsAll = ((inv as any[]) ?? []);
 
@@ -774,6 +782,54 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
    *  • MANKO → založí úkol „dostáčet" do plánu stáčení. Nic se nevyrobilo,
    *    takže do evidence výroby nesmí přibýt ani kus.
    */
+  // 🔗 Dopad srovnání — kolik sudů lahve spotřebují a kolik jich pak bude
+  // na sudovém řádku k zapsání (viz lib/dopadSrovnani.ts).
+  const dopad = useMemo(() => dopadSrovnani(rows), [rows]);
+  const [dopadOtevren, setDopadOtevren] = useState(true);
+
+  /**
+   * Odečte objem z tanků. Relativní RPC (stejná jako v Kegging.tsx), ne
+   * absolutní hodnota — jinak by se dva odečty ve stejnou chvíli přepsaly.
+   * Vrací text chyby, když se některý tank nepovedlo upravit.
+   */
+  async function odectiZTanku(rozdeleni: RozdeleniSudu, beerId: string): Promise<string | null> {
+    const nepovedlo: string[] = [];
+    for (const d of rozdeleni.dily) {
+      const { error } = await supabase.rpc('adjust_tank_volume', { p_tank_id: d.tankId, p_delta_l: -d.litry });
+      if (error) nepovedlo.push(`${d.label} (${error.message})`);
+    }
+
+    // 🛢️ Když tank odečtem došel, ukonči na něm stáčení a otevři další se
+    // stejným pivem — jinak by zůstal otevřený prázdný tank a stáčeč by musel
+    // ručně hledat, ze kterého pokračovat.
+    const zmena = zmenaOtevreni(tanky, beerId, rozdeleni);
+    const ted = new Date().toISOString();
+    if (zmena.dojely.length > 0) {
+      await supabase.from('cellar_tanks')
+        .update({ kegging_active: false, kegging_ended_at: ted, updated_at: ted })
+        .in('id', zmena.dojely.map((d) => d.tankId));
+    }
+    if (zmena.otevrit) {
+      // Stáčecí zdroj smí být na jedno pivo jen jeden (viz startKegging v
+      // Cellar.tsx), takže ostatní se stejným pivem se nejdřív zavřou.
+      const ostatni = tanky
+        .filter((t) => t.current_beer_id === beerId && t.id !== zmena.otevrit!.tankId)
+        .map((t) => t.id);
+      if (ostatni.length > 0) {
+        await supabase.from('cellar_tanks')
+          .update({ kegging_active: false, kegging_ended_at: ted, updated_at: ted })
+          .in('id', ostatni);
+      }
+      await supabase.from('cellar_tanks')
+        .update({ kegging_active: true, kegging_started_at: ted, kegging_ended_at: null, updated_at: ted })
+        .eq('id', zmena.otevrit.tankId);
+    }
+
+    return nepovedlo.length > 0
+      ? `Stáčení je zapsané, ale objem se nepodařilo odečíst z: ${nepovedlo.join(', ')}. Oprav objem ve Sklepě ručně.`
+      : null;
+  }
+
   async function srovnatRozdil(r: InventoryRow) {
     const k = `${r.beer_id}__${r.package_id}`;
     if (doplnujeSe) return;
@@ -799,18 +855,35 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
         setDoplnekLahvi(r);
         return;
       }
-      const zapis = stoceniZapis(polozka, datumDoplnku(currentMonth), currentMonth);
-      if (!zapis) return;
+      // 🛢️ Sudy se berou z tanků se stejným pivem; když jeden dojde,
+      // pokračuje se dalším. Bez toho zůstal sklep nafouklý o pivo, které
+      // dávno odteklo — z toho jsou ty velké rozdíly na tancích.
+      const objemSuduL = Number(packages.find((p) => p.id === r.package_id)?.volume_l ?? 0);
+      const rozdeleni = rozdelSudyDoTanku(tanky, r.beer_id, r.diffQty, objemSuduL);
+      const rady = kegovaniZapisy(polozka, datumDoplnku(currentMonth), currentMonth, rozdeleni);
+      if (rady.length === 0) return;
       const ok = await potvrd(
-        `${popis}\n\nNapočítáno o ${r.diffQty} ks víc, než sklad čeká — nejspíš se stočilo a nezapsalo.\n\nZapsat ${r.diffQty} ks do „Stáčení KEG" k ${zapis.row.entry_date} — tedy do inventury za ${nazevMesice(currentMonth)}?`,
+        `${popis}\n\nNapočítáno o ${r.diffQty} ks víc, než sklad čeká — nejspíš se stočilo a nezapsalo.\n\n`
+        + `Zapsat ${r.diffQty} ks do „Stáčení KEG" k ${datumDoplnku(currentMonth)} — tedy do inventury za ${nazevMesice(currentMonth)}?\n\n`
+        + `Odečte se z tanků:\n${popisRozdeleni(rozdeleni)}`,
         { titulek: 'Doplnit chybějící stočení', potvrdit: 'Ano, zapsat' },
       );
       if (!ok) return;
       setDoplnujeSe(k);
-      const { error } = await supabase.from(zapis.table).insert(zapis.row);
+      const { error } = await supabase.from('kegging').insert(rady);
+      if (error) { setDoplnujeSe(null); chyba('Nepodařilo se zapsat stočení: ' + error.message); return; }
+      // Objem tanků až PO úspěšném zápisu — kdyby se zápis nepovedl, sklep by
+      // jinak zůstal odečtený o pivo, které se nikam nezapsalo.
+      const tankChyby = await odectiZTanku(rozdeleni, r.beer_id);
       setDoplnujeSe(null);
-      if (error) { chyba('Nepodařilo se zapsat stočení: ' + error.message); return; }
-      oznam(`Zapsáno ${r.diffQty} ks do „Stáčení KEG".`);
+      const otevreny = zmenaOtevreni(tanky, r.beer_id, rozdeleni).otevrit;
+      oznam(
+        rozdeleni.dily.length === 0
+          ? `Zapsáno ${r.diffQty} ks do „Stáčení KEG" (bez tanku — ve sklepě není z čeho).`
+          : `Zapsáno ${r.diffQty} ks do „Stáčení KEG", odečteno z ${rozdeleni.dily.map((d) => d.label).join(' + ')}`
+            + (otevreny ? `. Stáčí se dál z ${otevreny.label}.` : '.'),
+      );
+      if (tankChyby) chyba(tankChyby);
       forceReloadRef.current = true;
       await loadData();
       return;
@@ -1237,6 +1310,70 @@ function exportInventoryExcel() {
                 <Save size={16} /> Uložit fyzické stavy
               </button>
             </div>
+
+            {/* 🔗 Co se srovnáním stane — spočítané dopředu. Srovnání lahví
+                spotřebuje sudy a tím zvětší přebytek na SUDOVÉM řádku; bez
+                tohohle přehledu to nebylo vidět a člověk srovnal sudy první,
+                pak lahve, a divil se, že sudy zase nesedí. */}
+            {dopad.length > 0 && (
+              <div className="rounded border-2 border-sky-200 bg-sky-50 p-3.5 space-y-3">
+                <button
+                  type="button"
+                  onClick={() => setDopadOtevren((v) => !v)}
+                  className="w-full flex items-baseline gap-2 flex-wrap text-left"
+                >
+                  <span className="text-[11px] font-black uppercase tracking-wider text-sky-900">
+                    {dopadOtevren ? '▾' : '▸'} Co se srovnáním stane
+                  </span>
+                  <span className="text-[11px] font-bold text-sky-700">
+                    {dopadOtevren
+                      ? 'Počítáno z 50l sudů · srovnávej NEJDŘÍV lahve, pak sudy'
+                      : `Lahve spotřebují ${dopad.reduce((s, d) => s + d.sudyZLahvi, 0)} sudů — rozepsat`}
+                  </span>
+                </button>
+                {dopadOtevren && dopad.map((d) => (
+                  <div key={d.beer_id} className="rounded bg-white border border-sky-200 p-2.5">
+                    <div className="font-black text-sm text-neutral-900">{d.beer_name}</div>
+                    {d.lahve.length > 0 && (
+                      <div className="text-[11px] font-bold text-neutral-700 mt-1 leading-relaxed">
+                        {d.lahve.map((l) => (
+                          <div key={l.package_label} className="flex justify-between gap-2">
+                            <span>{formatPackageLabel(l.package_label)} × {l.kusy} ks = {l.litry} l</span>
+                            <span className="text-sky-800 whitespace-nowrap">→ {l.sudy}×50</span>
+                          </div>
+                        ))}
+                        <div className="flex justify-between gap-2 border-t border-neutral-200 mt-1 pt-1">
+                          <span>Celkem {d.litryCelkem} l</span>
+                          <span className="text-sky-900 font-black whitespace-nowrap">
+                            → spotřebuje {d.sudyZLahvi}×50
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    {d.sudove.map((s) => (
+                      <div
+                        key={s.package_label}
+                        className="text-[11px] font-bold mt-1.5 flex justify-between gap-2 items-baseline"
+                      >
+                        <span className="text-neutral-700">
+                          {formatPackageLabel(s.package_label)} k zapsání
+                        </span>
+                        <span className="whitespace-nowrap">
+                          {s.ted !== s.poLahvich && (
+                            <span className="text-neutral-500 line-through mr-1.5">
+                              {s.ted > 0 ? `+${s.ted}` : s.ted} ks
+                            </span>
+                          )}
+                          <strong className="text-sky-900 text-sm">
+                            {s.poLahvich > 0 ? `+${s.poLahvich}` : s.poLahvich} ks
+                          </strong>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
 
             {rows.length === 0 ? (
               <div className="text-center py-10 text-xs font-bold text-neutral-500 space-y-2">

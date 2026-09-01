@@ -11,6 +11,7 @@
 // dostáčet. Z toho se nedělá zápis výroby (nic se nevyrobilo!), ale úkol do
 // plánu stáčení (`bottling_plans`, viz bottlingPlans.ts).
 import type { BottlingPlanInput } from './bottlingPlans';
+import type { RozdeleniSudu } from './tankRozdeleni';
 
 /** Co nabídnout u řádku inventury podle znaménka rozdílu. */
 export type RozdilAkce = 'zapsat_staceni' | 'naplanovat' | 'zadna';
@@ -138,6 +139,55 @@ export function stoceniZapis(
       source_volume_l: maZdroj ? zdroj!.kegQty * zdroj!.kegVolumeL : null,
     },
   };
+}
+
+/**
+ * Doplněné kegování rozpuštěné do tanků — jeden zápis na každý tank.
+ *
+ * Dřív se sudy zapisovaly s `cellar_tank_id: null`, aby se neubral objem
+ * tanku, který ve skutečnosti nikdo nevypustil. Jenže pivo z tanků odteklo a
+ * bez zápisu zůstaly tanky nafouklé — právě z toho jsou ty velké rozdíly ve
+ * sklepě. Teď se objem bere z tanků se stejným pivem a když jeden dojde,
+ * pokračuje se dalším (viz tankRozdeleni.ts).
+ *
+ * Co se do sklepa nevejde, se pořád zapíše BEZ tanku: kusy fyzicky existují,
+ * takže do výroby patří, ale vymýšlet si k nim zápornou ležáckou zásobu by
+ * bylo horší než přiznat, že zdroj není známý.
+ */
+export function kegovaniZapisy(
+  p: InventuraPolozka,
+  entryDate: string,
+  monthKey: string,
+  rozdeleni: RozdeleniSudu,
+): Record<string, unknown>[] {
+  if (p.diffQty <= 0) return [];
+  const zaklad = {
+    entry_date: entryDate,
+    beer_id: p.beer_id,
+    beer_name: p.beer_name,
+    package_id: p.package_id,
+    package_label: p.package_label,
+  };
+  const rady: Record<string, unknown>[] = rozdeleni.dily.map((d) => ({
+    ...zaklad,
+    quantity: d.sudy,
+    cellar_tank_id: d.tankId,
+    source_volume_l: d.litry,
+    // Tank v poznámce: sourozenecké řádky jednoho doplňku by se jinak ve
+    // skladové knize slily v jeden (viz `dedupe` v stockLedger.ts) a odečet
+    // z druhého tanku by se ztratil.
+    note: `Doplněno z inventury ${monthKey} — ${p.package_label} z ${d.label} (přebytek ${p.diffQty} ks)`,
+  }));
+  if (rozdeleni.nepokrytoSudu > 0) {
+    rady.push({
+      ...zaklad,
+      quantity: rozdeleni.nepokrytoSudu,
+      cellar_tank_id: null,
+      source_volume_l: null,
+      note: `Doplněno z inventury ${monthKey} — ${p.package_label} bez tanku (přebytek ${p.diffQty} ks)`,
+    });
+  }
+  return rady;
 }
 
 /**
