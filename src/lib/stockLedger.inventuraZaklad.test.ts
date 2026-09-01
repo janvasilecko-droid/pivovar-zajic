@@ -86,9 +86,19 @@ describe('expectedForMonth — dorovnání se nesmí započítat dvakrát', () =
     expect(stockAsOf(buildMovements(sDorovnanim), '2026-08-31').get('b__pkg')?.qty).toBe(110);
   });
 
-  it('a v dalším měsíci se počítá normálně', () => {
-    const line = expectedForMonth(buildMovements(sDorovnanim), '2026-09').get('b__pkg')!;
-    expect(line.byKind.dorovnani).toBe(-10);
+  it('do dalšího měsíce se nepřelije — patří srpnu', () => {
+    // Srpnové dorovnání je srpnový pohyb. Do zářijového rozpadu nepatří;
+    // do září se dostane přes zapsaný „Počáteční stav", jako každý jiný
+    // srpnový pohyb. Dřív se objevovalo v obou měsících.
+    expect(expectedForMonth(buildMovements(sDorovnanim), '2026-09').get('b__pkg')?.byKind.dorovnani).toBeUndefined();
+  });
+
+  it('karta Auditu si ho vyžádá zvlášť — tam ho počítají obě strany', () => {
+    // Obrazovka inventury dorovnání přičítá sama ve sloupci „Po dorovnání",
+    // proto ho expectedForMonth ve výchozím stavu nemá. V auditu by ale jeho
+    // chybění vypadalo jako rozdíl proti Skladu, který ho počítá.
+    expect(expectedForMonth(buildMovements(sDorovnanim), '2026-08', true).get('b__pkg')!.byKind.dorovnani).toBe(-10);
+    expect(expectedForMonth(buildMovements(sDorovnanim), '2026-08').get('b__pkg')!.byKind.dorovnani).toBeUndefined();
   });
 });
 

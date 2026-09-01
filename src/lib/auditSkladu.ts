@@ -112,7 +112,7 @@ export type PorovnaniPolozky = {
   /** Nesedí řádku vlastní součet? Pak chybí sloupec, ne data. */
   soucetNesedi: boolean;
   /**
-   * Počáteční stav není za tenhle měsíc zadaný a Inventura počítá od nuly.
+   * Počáteční stav není za tenhle měsíc zadaný A CHYBÍ TO.
    *
    * Nastane, když k prvnímu dni měsíce leží jen NAPOČÍTANÁ inventura
    * („Fyzická" / „Schválená") a chybí „Počáteční stav". Napočítanou hodnotu
@@ -120,6 +120,11 @@ export type PorovnaniPolozky = {
    * a místo ní dosadí nulu (ZAKLAD_NEZADAN). Sklad si napočítanou hodnotu
    * vezme jako základ, takže se řádky liší v POČÁTEČNÍM stavu. Sloupce pohybů
    * sedět musí; rozdíl v nich by byl skutečná chyba.
+   *
+   * Hlásí se JEN když ten chybějící řádek doopravdy mění výsledek. Většina
+   * kombinací pivo × obal počáteční stav zapsaný nemá a ani ho mít nemusí —
+   * nic na skladě neležalo. Kdyby se hlásily i ty, svítilo by 37 z 57
+   * položek a mezi nimi by zaniklo těch pár, kde jde o skutečné kusy.
    */
   chybiZaklad: boolean;
 };
@@ -146,7 +151,9 @@ export function porovnejPolozku(
     soucetNesedi:
       konecZeSloupcu(inventura) !== inventura.konec ||
       konecZeSloupcu(sklad) !== sklad.konec,
-    chybiZaklad: inventuraLine?.baselineNote === ZAKLAD_NEZADAN,
+    chybiZaklad:
+      inventuraLine?.baselineNote === ZAKLAD_NEZADAN &&
+      inventura.pocatecni !== sklad.pocatecni,
   };
 }
 

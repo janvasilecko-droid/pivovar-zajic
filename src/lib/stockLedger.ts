@@ -318,75 +318,103 @@ export function stockMapAsOf(movements: Movement[], dateISO: string): Record<str
 }
 
 /**
- * Očekávaný (teoretický) stav ke konci měsíce — základ pro inventuru.
+ * MĚSÍČNÍ ROZPAD — společné jádro pro Inventuru i Sklad.
  *
- * Proti stockAsOf() je tu jeden zásadní rozdíl: inventury zapsané UVNITŘ
- * počítaného měsíce se do výpočtu nezahrnou. Ony jsou totiž právě to, s čím
- * se očekávaný stav porovnává — kdyby se braly jako výchozí bod, rozdíl by
- * po uložení fyzické inventury vždycky vyšel nula a manko by nešlo zjistit.
- * Výchozím bodem je poslední inventura K PRVNÍMU DNI MĚSÍCE nebo starší
- * (typicky „Počáteční stav" převedený z minulého měsíce).
+ * Vzorec je jeden a stejný pro obě strany:
  *
- * Pozor na datum: fyzická i schválená inventura se ukládá k PRVNÍMU dni
- * měsíce, ne k poslednímu (viz handleSaveActualStock v InventoryScreen.tsx).
- * Nestačí proto vyřadit inventury s datem VĚTŠÍM než první den — napočítaný
- * stav leží přesně na něm a stal by se výchozím bodem sám sobě. Očekávaný
- * stav by pak po uložení inventury poskočil přesně o pohyby za daný měsíc
- * a manko by ukázalo nesmysl.
+ *     stav na konci měsíce
+ *       = počátek k PRVNÍMU dni měsíce
+ *       + stáčení od 1. do posledního dne
+ *       − objednávky − fasování − prodejna − akce − odpisy − sudy na lahve
+ *       ± přefuk ± dorovnání
+ *
+ * Okno je VŽDY jeden měsíc. Dřív se rozpad bral od poslední inventury, což
+ * mohl být klidně první den PŘEDMINULÉHO měsíce — a sloupec „Stočeno" pak
+ * v srpnové tabulce ukazoval i červencovou výrobu. Summer Ale 15 l: v srpnu
+ * 2026 stočeno 2×, tabulka psala 5, protože přičetla tři červencové sudy.
+ * Do srpna se nic nepřepsalo, jen se totéž počítalo podruhé.
+ *
+ * Liší se JEN počátek:
+ *   'zapsany'    — z řádku „Počáteční stav" k prvnímu dni měsíce. Když
+ *                  chybí, je NULA (a řádek se označí ZAKLAD_NEZADAN, ať se
+ *                  chybějící údaj nepoplete s chybou výpočtu). Napočítaná
+ *                  inventura se ZÁMĚRNĚ nebere — je to právě to, s čím se
+ *                  očekávaný stav porovnává; jinak by manko vždycky vyšlo
+ *                  nula. Tohle používá Inventura.
+ *   'dopocitany' — skutečný stav k prvnímu dni, dopočítaný z celé historie
+ *                  včetně inventur. Tohle používá Sklad.
+ *
+ * Když se ty dva počátky liší, chybí nebo nesedí zápis počátečního stavu.
+ * Karta Auditu to ukáže v jednom sloupci místo hádání z výsledku.
  */
-export function expectedForMonth(movements: Movement[], monthKey: string): Map<string, StockLine> {
+type ZakladMesice = 'zapsany' | 'dopocitany';
+
+function rozpadMesice(
+  movements: Movement[],
+  monthKey: string,
+  zaklad: ZakladMesice,
+  sDorovnanim: boolean,
+): Map<string, StockLine> {
   const monthStart = `${monthKey}-01`;
   const [y, m] = monthKey.split('-').map(Number);
   const monthEnd = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
-  const vMesici = (d: string) => d >= monthStart && d <= monthEnd;
-  const bezInventurVMesici = movements.filter((mv) => {
-    // Dorovnání zadané při TÉHLE inventuře taky ne. Obrazovka ho k
-    // očekávanému stavu přičítá sama („Po dorovnání"), takže kdyby ho
-    // započítala i skladová kniha, sedělo by dvakrát: po uložení a načtení
-    // by „po dorovnání" ukázalo přesně tolik, o kolik se dorovnávalo, a
-    // člověk by dorovnával pořád dokola. Pro skutečný sklad (stockAsOf) i
-    // pro další měsíce se dorovnání počítá normálně.
-    if (mv.kind === 'dorovnani') return !vMesici(mv.date);
-    if (mv.kind !== 'inventura') return true;
-    if (!vMesici(mv.date)) return true;
-    // Uvnitř měsíce zůstane jen počáteční základ na jeho prvním dni.
-    return mv.date === monthStart && !jeNapocitanyStav(mv.note);
-  });
 
-  // CHYBĚJÍCÍ POČÁTEČNÍ STAV JE NULA.
-  //
-  // Když k prvnímu dni měsíce leží jen NAPOČÍTANÁ inventura a „Počáteční stav"
-  // chybí, filtr výše ji vyhodí a položce nezbude žádný výchozí bod. stockAsOf
-  // pak sčítá pohyby od úplného začátku evidence — kdežto Sklad si napočítanou
-  // inventuru vezme jako základ a počítá jen od ní. Obě obrazovky tak ukázaly
-  // JINÉ POHYBY, přestože čtou tatáž data: v červenci 2026 hlásila Inventura
-  // u Jantaru 1 l stočeno +115 a Sklad +92; těch 23 lahví bylo z června.
-  //
-  // Náhradou je nulový základ k prvnímu dni měsíce. Očekávaný stav se tím
-  // počítá ze stejného okna jako Sklad, takže sloupce pohybů sedí a rozdíl
-  // zůstane jen tam, kam patří — v počátečním stavu. Karta Auditu ho podle
-  // poznámky ZAKLAD_NEZADAN pojmenuje jako chybějící údaj, ne jako chybu.
-  const napocitaneVMesici = new Set<string>();
+  const out = new Map<string, StockLine>();
+  const zaloz = (beer_id: string, package_id: string): StockLine => {
+    const key = stockKey(beer_id, package_id);
+    let line = out.get(key);
+    if (!line) {
+      line = { key, beer_id, package_id, qty: 0, baselineDate: monthStart, baselineQty: 0, baselineNote: null, byKind: {} };
+      out.set(key, line);
+    }
+    return line;
+  };
+
+  if (zaklad === 'dopocitany') {
+    stockAtStartOfDay(movements, monthStart).forEach((l) => {
+      const line = zaloz(l.beer_id, l.package_id);
+      line.baselineQty = l.qty;
+      line.qty = l.qty;
+    });
+  } else {
+    for (const mv of movements) {
+      if (mv.kind !== 'inventura' || mv.date !== monthStart || jeNapocitanyStav(mv.note)) continue;
+      const line = zaloz(mv.beer_id, mv.package_id);
+      line.baselineQty = mv.qty;
+      line.qty = mv.qty;
+      line.baselineNote = mv.note ?? null;
+    }
+  }
+
   for (const mv of movements) {
-    if (mv.kind !== 'inventura' || !vMesici(mv.date) || !jeNapocitanyStav(mv.note)) continue;
-    napocitaneVMesici.add(stockKey(mv.beer_id, mv.package_id));
+    if (mv.kind === 'inventura') continue;
+    if (!sDorovnanim && mv.kind === 'dorovnani') continue;
+    if (mv.date < monthStart || mv.date > monthEnd) continue;
+    const line = zaloz(mv.beer_id, mv.package_id);
+    line.qty += mv.qty;
+    line.byKind[mv.kind] = (line.byKind[mv.kind] ?? 0) + mv.qty;
   }
-  const maZaklad = new Set<string>();
-  for (const mv of bezInventurVMesici) {
-    if (mv.kind !== 'inventura' || mv.date > monthStart) continue;
-    maZaklad.add(stockKey(mv.beer_id, mv.package_id));
-  }
-  const nahradniZaklad: Movement[] = [];
-  napocitaneVMesici.forEach((k) => {
-    if (maZaklad.has(k)) return;
-    const [beer_id, package_id] = k.split('__');
-    nahradniZaklad.push({ date: monthStart, beer_id, package_id, qty: 0, kind: 'inventura', note: ZAKLAD_NEZADAN });
-  });
 
-  return stockAsOf(
-    nahradniZaklad.length === 0 ? bezInventurVMesici : [...bezInventurVMesici, ...nahradniZaklad],
-    monthEnd,
-  );
+  if (zaklad === 'zapsany') {
+    out.forEach((line) => { if (line.baselineNote === null) line.baselineNote = ZAKLAD_NEZADAN; });
+  }
+  return out;
+}
+
+/**
+ * Očekávaný (teoretický) stav ke konci měsíce — základ pro inventuru.
+ *
+ * @param sDorovnanim Započítat ruční dorovnání? Obrazovka inventury ho
+ *   přičítá sama ve sloupci „Po dorovnání", takže si ho tady NEPŘEJE — jinak
+ *   by sedělo dvakrát a člověk by dorovnával pořád dokola. Karta Auditu ho
+ *   naopak chce, aby šly obě strany porovnat kus na kus.
+ */
+export function expectedForMonth(
+  movements: Movement[],
+  monthKey: string,
+  sDorovnanim = false,
+): Map<string, StockLine> {
+  return rozpadMesice(movements, monthKey, 'zapsany', sDorovnanim);
 }
 
 /**
@@ -404,4 +432,8 @@ export function movementsFor(
     .filter((m) => m.beer_id === beerId && m.package_id === packageId)
     .filter((m) => (!fromISO || m.date >= fromISO) && (!toISO || m.date <= toISO))
     .sort((a, z) => (z.date < a.date ? -1 : z.date > a.date ? 1 : 0));
+}
+/** Tentýž měsíc očima Skladu — počátek dopočítaný z celé historie. */
+export function stockForMonth(movements: Movement[], monthKey: string): Map<string, StockLine> {
+  return rozpadMesice(movements, monthKey, 'dopocitany', true);
 }

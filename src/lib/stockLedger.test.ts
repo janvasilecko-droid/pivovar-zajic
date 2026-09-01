@@ -228,15 +228,47 @@ describe('expectedForMonth — základ pro inventuru', () => {
     expect(stockMapAsOf(buildMovements(src), '2026-08-31')[K]).toBe(15);
   });
 
-  it('navazuje na inventuru z minulého měsíce', () => {
+  it('bez zapsaného počátečního stavu počítá měsíc od NULY', () => {
+    // Napočítaná inventura z minulého měsíce základem pro tenhle NENÍ. Uzávěrka
+    // měsíce zapisuje „Počáteční stav" na první den toho dalšího a teprve ten
+    // je výchozím bodem. Když chybí, je počátek nula — a karta Auditu to
+    // pojmenuje jako chybějící údaj (viz lib/auditSkladu.ts).
+    //
+    // Dřív se bral jako základ poslední inventurní řádek, ať ležel kdekoli.
+    // Rozpad pak sahal až k němu a sloupec „Stočeno" ukazoval i výrobu
+    // předchozích měsíců: Summer Ale 15 l se v srpnu 2026 stočil 2×, tabulka
+    // psala 5.
     const src = {
       packages,
       inventoryRows: [{ entry_date: '2026-07-31', beer_id: B, package_id: P30, quantity: 8, note: 'Schválená inventura' }],
-      keggingRows: [{ entry_date: '2026-08-05', beer_id: B, package_id: P30, quantity: 2 }],
+      keggingRows: [
+        { entry_date: '2026-07-20', beer_id: B, package_id: P30, quantity: 5 },
+        { entry_date: '2026-08-05', beer_id: B, package_id: P30, quantity: 2 },
+      ],
     };
     const e = expectedForMonth(buildMovements(src), '2026-08');
+    expect(e.get(K)!.baselineQty).toBe(0);
+    expect(e.get(K)!.byKind.kegovani).toBe(2); // jen srpen, ne 5 z července
+    expect(e.get(K)!.qty).toBe(2);
+    expect(e.get(K)!.baselineDate).toBe('2026-08-01');
+  });
+
+  it('se zapsaným počátečním stavem na něj naváže', () => {
+    const src = {
+      packages,
+      inventoryRows: [
+        { entry_date: '2026-07-01', beer_id: B, package_id: P30, quantity: 8, note: 'Schválená inventura' },
+        { entry_date: '2026-08-01', beer_id: B, package_id: P30, quantity: 8, note: 'Počáteční stav (převod z inventury)' },
+      ],
+      keggingRows: [
+        { entry_date: '2026-07-20', beer_id: B, package_id: P30, quantity: 5 },
+        { entry_date: '2026-08-05', beer_id: B, package_id: P30, quantity: 2 },
+      ],
+    };
+    const e = expectedForMonth(buildMovements(src), '2026-08');
+    expect(e.get(K)!.baselineQty).toBe(8);
+    expect(e.get(K)!.byKind.kegovani).toBe(2);
     expect(e.get(K)!.qty).toBe(10);
-    expect(e.get(K)!.baselineDate).toBe('2026-07-31');
   });
 
   it('nezapočítá pohyby z dalšího měsíce', () => {

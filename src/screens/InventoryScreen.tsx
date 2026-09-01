@@ -15,7 +15,7 @@ import { popisRozdeleni, rozdelSudyDoTanku, zmenaOtevreni, type RozdeleniSudu, t
 import { saveBottlingPlan } from '../lib/bottlingPlans';
 import { businessDateISO } from '../lib/businessDate';
 import { DoplnitStoceniModal, type DoplnitStoceniVysledek } from '../components/DoplnitStoceniModal';
-import { buildMovements, expectedForMonth, stockAsOf, stockAtStartOfDay, type StockLine } from '../lib/stockLedger';
+import { buildMovements, expectedForMonth, stockAtStartOfDay, stockForMonth, type StockLine } from '../lib/stockLedger';
 import { AUDIT_NADPISY, AUDIT_SLOUPCE, bunkaAuditu, maCoUkazat, porovnejPolozku, type AuditSloupec } from '../lib/auditSkladu';
 import { chyba, oznam, potvrd, toastZpet, uspech } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
@@ -176,10 +176,16 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   const [stacenoKegMap, setStacenoKegMap] = useState<Record<string, number>>({}); // Stáčení KEG
   // 📒 Očekávaný stav ze skladové knihy — jediný zdroj pravdy pro sklad.
   const [expectedLedger, setExpectedLedger] = useState<Map<string, StockLine>>(new Map());
-  // 🔍 Druhá strana auditu: stav ke KONCI měsíce tak, jak ho počítá Sklad.
-  // Proti expectedLedger se liší jen tím, že fyzickou inventuru zapsanou
-  // uvnitř měsíce bere jako nový výchozí bod (viz lib/auditSkladu.ts).
+  // 🔍 Druhá strana auditu: tentýž měsíc očima Skladu — počátek k prvnímu
+  // dni dopočítaný z celé historie a k němu pohyby OD 1. DO POSLEDNÍHO.
+  // Stejné okno jako u Inventury, aby se sloupce daly porovnat kus na kus;
+  // rozdíl smí být jen v tom počátku (viz lib/auditSkladu.ts).
   const [skladLedger, setSkladLedger] = useState<Map<string, StockLine>>(new Map());
+  // Inventurní strana auditu se od expectedLedger liší jedinou věcí: má
+  // započítané dorovnání. Obrazovka ho přičítá sama ve sloupci „Po dorovnání",
+  // takže ho v expectedLedger mít nesmí — v auditu by ale jeho chybění
+  // vypadalo jako rozdíl proti Skladu, který ho počítá.
+  const [auditInventura, setAuditInventura] = useState<Map<string, StockLine>>(new Map());
   // 🛢️ Tanky pro odečet doplněného kegování.
   const [tanky, setTanky] = useState<TankProRozdeleni[]>([]);
 
@@ -243,8 +249,9 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     // 📒 Očekávaný (teoretický) stav ke konci měsíce ze skladové knihy —
     // stejná matematika jako Sklad, Dashboard a „co stočit na který den".
     setExpectedLedger(expectedForMonth(pohyby, currentMonth));
-    // 🔍 Tatáž kniha očima Skladu — poslední den měsíce.
-    setSkladLedger(stockAsOf(pohyby, datumDoplnku(currentMonth)));
+    setAuditInventura(expectedForMonth(pohyby, currentMonth, true));
+    // 🔍 Tatáž kniha očima Skladu — měsíční rozpad, ne od začátku evidence.
+    setSkladLedger(stockForMonth(pohyby, currentMonth));
 
     const shouldReloadState = loadedMonthRef.current !== currentMonth || forceReloadRef.current;
 
@@ -538,9 +545,28 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
 
   // Uložení fyzické inventury do Supabase i localStorage
   /** Byla tahle položka při inventuře skutečně spočítaná? (i „0" je výsledek) */
-  function jeSpocitana(beerId: string, packageId: string): boolean {
-    const raw = actualStock[`${beerId}__${packageId}`];
-    return raw !== undefined && String(raw).trim() !== '';
+  /**
+   * PRÁZDNÉ POLE JE NULA.
+   *
+   * Z provozu: „pokud v inventuře není nic, tak je to 0 — vyplňuju jen řádky,
+   * kde nějaký počet na skladě je." Dřív se prázdné pole bralo jako „o téhle
+   * položce nic nevím": řádek neměl tlačítko na srovnání, jen pokyn „← Zadej
+   * inventuru", a při ukládání se vůbec nezapsal.
+   *
+   * Jenže tak to člověk nepoužívá. Projde chlaďák, vyplní, co našel, a zbytek
+   * nechá prázdný právě proto, že tam nic není. Napočítaná nula je
+   * plnohodnotný výsledek a pevný základ pro další měsíc — chybějící řádek
+   * naopak nechá skladovou knihu sáhnout po starší inventuře a odečítat od ní
+   * dál. Schválená inventura za červenec 2026 měla kvůli tomu jen 19 řádků
+   * z 56 možných.
+   *
+   * Zůstává jediné omezení: ukládají se řádky, které dávají smysl — něco
+   * na nich leželo, něco se hýbalo, nebo je člověk vyplnil. Kombinace
+   * pivo × obal, která nikdy neexistovala, se nezapisuje.
+   */
+  function maSeUlozit(r: InventoryRow): boolean {
+    const vyplneno = String(actualStock[`${r.beer_id}__${r.package_id}`] ?? '').trim() !== '';
+    return vyplneno || r.initialQty !== 0 || r.stacenoQty !== 0 || r.vydejQty !== 0 || r.odpisQty !== 0 || r.expectedQty !== 0;
   }
 
   /**
@@ -556,7 +582,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
    */
   function spocitaneRadky() {
     return rows
-      .filter((r) => jeSpocitana(r.beer_id, r.package_id))
+      .filter(maSeUlozit)
       .map((r) => ({
         beer_id: r.beer_id,
         beer_name: r.beer_name,
@@ -766,7 +792,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       r.initialQty !== 0 || r.stacenoQty !== 0 || r.vydejQty !== 0 || r.odpisQty !== 0
     );
     return {
-      hotovo: relevantni.filter((r) => jeSpocitana(r.beer_id, r.package_id)).length,
+      hotovo: relevantni.filter((r) => String(actualStock[`${r.beer_id}__${r.package_id}`] ?? '').trim() !== '').length,
       celkem: relevantni.length,
     };
   }, [rows, actualStock]);
@@ -777,7 +803,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     let vybrane = rows;
     if (pocitaniFiltr === 'nespocitane') {
       vybrane = rows.filter((r) =>
-        !jeSpocitana(r.beer_id, r.package_id) &&
+        String(actualStock[`${r.beer_id}__${r.package_id}`] ?? '').trim() === '' &&
         (r.initialQty !== 0 || r.stacenoQty !== 0 || r.vydejQty !== 0 || r.odpisQty !== 0)
       );
     } else if (pocitaniFiltr === 'pohyb') {
@@ -808,7 +834,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   // Bere jen řádky, kde je napočítaný stav vyplněný: bez něj není rozdíl
   // rozdílem, jen nevyplněnou položkou.
   const davky = useMemo(
-    () => davkySrovnani(rows.filter((r) => jeSpocitana(r.beer_id, r.package_id))),
+    () => davkySrovnani(rows),
     [rows, actualStock],
   );
   /** Zadané počty sudů, klíč `beerId__kegPkgId`. */
@@ -1195,13 +1221,13 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     beers.forEach((b) => {
       packages.forEach((pkg) => {
         const k = `${b.id}__${pkg.id}`;
-        const porovnani = porovnejPolozku(expectedLedger.get(k), skladLedger.get(k));
+        const porovnani = porovnejPolozku(auditInventura.get(k), skladLedger.get(k));
         if (!maCoUkazat(porovnani)) return;
         out.push({ beer_id: b.id, beer_name: b.name, package_id: pkg.id, package_label: pkg.label, porovnani });
       });
     });
     return out;
-  }, [beers, packages, expectedLedger, skladLedger]);
+  }, [beers, packages, auditInventura, skladLedger]);
 
   const auditChybiZaklad = useMemo(
     () => auditPolozky.filter((p) => p.porovnani.chybiZaklad),
@@ -1213,9 +1239,16 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   );
   const [auditJenRozdily, setAuditJenRozdily] = useState(false);
 
+  /**
+   * Položky s pohybem, u kterých zůstalo pole INVENTURA prázdné.
+   *
+   * Není to zámek — prázdné pole se ukládá jako napočítaná nula a tlačítko
+   * na srovnání je u nich stejně. Je to jen připomínka, ať se nula nezapíše
+   * omylem u něčeho, co se ještě nestihlo spočítat.
+   */
   const nespocitane = useMemo(
     () => rows.filter((r) =>
-      !jeSpocitana(r.beer_id, r.package_id) &&
+      String(actualStock[`${r.beer_id}__${r.package_id}`] ?? '').trim() === '' &&
       (r.initialQty !== 0 || r.stacenoQty !== 0 || r.vydejQty !== 0 || r.odpisQty !== 0)
     ),
     [rows, actualStock]
@@ -1780,12 +1813,7 @@ function exportInventoryExcel() {
                         {/* Bez vyplněné INVENTURY se tlačítko nevykreslí a v
                             řádku zbyde jen pole DOROVNAT — lidi tam pak píšou
                             počty a diví se, že se sudy neodečetly. */}
-                        {!jeSpocitana(r.beer_id, r.package_id) && (
-                          <div className="text-[11px] font-bold text-neutral-500 text-center py-1">
-                            Vyplň <strong>Inventuru</strong> (napočítaný stav) a objeví se tlačítko na srovnání.
-                          </div>
-                        )}
-                        {jeSpocitana(r.beer_id, r.package_id) && r.diffQty !== 0 && (
+                        {r.diffQty !== 0 && (
                           <button
                             type="button"
                             onClick={() => srovnatRozdil(r)}
@@ -1937,12 +1965,7 @@ function exportInventoryExcel() {
                                 DOROVNAT. Lidi tam pak píšou počty a diví se, že
                                 se sudy neodečetly. Prázdná buňka to nevysvětlí,
                                 tak sem patří pokyn. */}
-                            {!jeSpocitana(r.beer_id, r.package_id) && (
-                              <span className="text-[11px] font-bold text-neutral-500 whitespace-nowrap">
-                                ← Zadej inventuru
-                              </span>
-                            )}
-                            {jeSpocitana(r.beer_id, r.package_id) && r.diffQty !== 0 && (
+                            {r.diffQty !== 0 && (
                               <button
                                 type="button"
                                 onClick={() => srovnatRozdil(r)}
@@ -2102,13 +2125,18 @@ function exportInventoryExcel() {
                 ? `Inventura a Sklad sedí u všech ${auditPolozky.length} položek za ${nazevMesice(currentMonth)}.`
                 : `${auditNesedi.length} z ${auditPolozky.length} položek se rozchází.`}
             </div>
+            <p className="mt-1 text-[11px] font-black text-neutral-900">
+              Kontroluje pohyby od {new Date(`${currentMonth}-01`).toLocaleDateString('cs-CZ')} do{' '}
+              {new Date(datumDoplnku(currentMonth)).toLocaleDateString('cs-CZ')} — počátek je stav
+              k ránu {new Date(`${currentMonth}-01`).toLocaleDateString('cs-CZ')}.
+            </p>
             <p className="mt-1 text-[11px] font-bold text-neutral-700 leading-relaxed">
-              Obě řady čísel vycházejí z téže skladové knihy, jen jinou cestou: <strong>Inventura</strong> počítá
-              očekávaný stav ke konci měsíce a fyzickou inventuru zapsanou uvnitř měsíce záměrně nezapočítává —
-              je to právě to, s čím se porovnává. <strong>Sklad</strong> ji naopak bere jako nový výchozí bod.
-              Dokud za měsíc není uložená fyzická inventura, musí být oba řádky shodné na kus.
-              Když uložená je, smí se lišit <strong>jen sloupec Počáteční</strong>, a to přesně o napočítané manko.
-              Rozdíl v kterémkoli jiném sloupci je chyba.
+              Obě řady počítají <strong>stejné okno</strong> a stejným vzorcem: počátek k prvnímu dni
+              + stáčení za měsíc − objednávky − fasování − prodejna − akce − odpisy − sudy na lahve.
+              Liší se jedinou věcí — <strong>odkud berou počátek</strong>: Inventura ze zapsaného
+              „Počátečního stavu" (chybí-li, je nula), Sklad si ho dopočítá z celé historie.
+              Rozdíl proto smí být <strong>jen ve sloupci Počáteční</strong> (a v Konci, který z něj plyne).
+              Rozdíl v kterémkoli sloupci pohybů je chyba.
             </p>
             {auditChybiZaklad.length > 0 && (
               <p className="mt-2 p-2.5 rounded bg-amber-100 border border-amber-300 text-[11px] font-bold text-amber-950 leading-relaxed">

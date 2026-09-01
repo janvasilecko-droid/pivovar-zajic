@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AUDIT_SLOUPCE, auditRadek, bunkaAuditu, konecZeSloupcu, maCoUkazat, porovnejPolozku } from './auditSkladu';
-import { buildMovements, expectedForMonth, stockAsOf, stockKey } from './stockLedger';
+import { buildMovements, expectedForMonth, stockAsOf, stockForMonth, stockKey } from './stockLedger';
 import type { StockLine } from './stockLedger';
 
 function radek(baselineQty: number, byKind: StockLine['byKind'], qty: number): StockLine {
@@ -215,15 +215,35 @@ describe('chybějící počáteční stav', () => {
     expect(p2.rozdilne).toEqual(['pocatecni', 'konec']);
   });
 
-  it('bez jediné inventury se nedosazuje nic a obě strany se shodnou', () => {
-    // Nové pivo: ani napočítaná inventura, ani počáteční stav. Sklad i
-    // Inventura sčítají od nuly od začátku evidence — a shodnou se.
-    const nove = buildMovements({
-      bottlingRows: [{ beer_id: B, package_id: P, entry_date: '2026-06-20', quantity: 12 }],
+  it('MĚSÍČNÍ SLOUPCE POPISUJÍ MĚSÍC, i když položka nebyla nikdy inventovaná', () => {
+    // Z provozu: Summer Ale 15 l nemá jediný inventurní řádek. V srpnu 2026
+    // se stočil 2×, ale inventura psala 5 — připočetla i tři červencové sudy.
+    // Do srpna se nic nepřepsalo, jen se totéž počítalo podruhé.
+    const bezInventury = buildMovements({
+      keggingRows: [
+        { beer_id: B, package_id: P, entry_date: '2026-07-13', quantity: 1 },
+        { beer_id: B, package_id: P, entry_date: '2026-07-21', quantity: 1 },
+        { beer_id: B, package_id: P, entry_date: '2026-07-27', quantity: 1 },
+        { beer_id: B, package_id: P, entry_date: '2026-08-12', quantity: 2 },
+      ],
     });
-    const p3 = porovnejPolozku(expectedForMonth(nove, '2026-07').get(k), stockAsOf(nove, '2026-07-31').get(k));
-    expect(p3.chybiZaklad).toBe(false);
-    expect(p3.rozdilne).toEqual([]);
-    expect(p3.sklad.konec).toBe(12);
+    const srpen = porovnejPolozku(
+      expectedForMonth(bezInventury, '2026-08', true).get(k),
+      stockForMonth(bezInventury, '2026-08').get(k),
+    );
+
+    // Obě strany počítají TÝŽ měsíc — sloupce pohybů musí sedět na kus.
+    expect(srpen.inventura.stoceno).toBe(2);
+    expect(srpen.sklad.stoceno).toBe(2);
+    expect(srpen.rozdilne).toEqual(['pocatecni', 'konec']);
+
+    // Liší se jen počátek: Inventura ho zapsaný nemá (nula), Sklad si ho
+    // dopočítal z července. Přesně tohle je ta chybějící informace.
+    expect(srpen.inventura.pocatecni).toBe(0);
+    expect(srpen.sklad.pocatecni).toBe(3);
+    expect(srpen.chybiZaklad).toBe(true);
+
+    // A červenec vidí své tři, ne dva ani pět.
+    expect(expectedForMonth(bezInventury, '2026-07', true).get(k)!.byKind.kegovani).toBe(3);
   });
 });
