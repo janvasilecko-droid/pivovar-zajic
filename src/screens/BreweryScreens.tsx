@@ -67,21 +67,6 @@ export function SrotovaniScreen({ setPage }: { setPage?: (p: any, sec?: string) 
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Top Banner */}
-      <div className="bg-neutral-900 text-white p-5 sm:p-7 rounded border border-amber-500/30 shadow-xl flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-amber-400 font-extrabold text-xs uppercase tracking-widest mb-1">
-            <FileText size={18} />
-            <span>Šrotování & Slad</span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-display font-black tracking-tight text-white flex items-center gap-2">
-            <span><Wheat className="ikona-text" /> Šrotování sladu — HACCP norma 3.1</span>
-          </h1>
-          <p className="text-xs text-neutral-400 font-medium mt-1">
-            Zápis šrotování sladu pro jednotlivé várky piv dle HACCP bodu 3.1 (Smyslová kontrola sladu)
-          </p>
-        </div>
-      </div>
 
       {/* HACCP & WhatsApp Banner */}
       <div className="bg-amber-500/10 border border-amber-500/30 p-4 rounded flex flex-wrap items-center justify-between gap-3 shadow-xs">
@@ -464,21 +449,10 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Top Banner */}
-      <div className="bg-neutral-900 text-white p-5 sm:p-7 rounded border border-amber-500/30 shadow-xl flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-amber-400 font-extrabold text-xs uppercase tracking-widest mb-1">
-            <FlaskConical size={18} />
-            <span>Pivovarské kalkulačky</span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-display font-black tracking-tight text-white flex items-center gap-2">
-            <span><Calculator className="ikona-text" /> Kalkulačky pro sládka & technologa</span>
-          </h1>
-          <p className="text-xs text-neutral-400 font-medium mt-1">
-            Dotáčení KEG sudů z tanků, ředění sanitační chemie, náklady na várku a přepočty jednotek
-          </p>
-        </div>
-      </div>
+      {/* Uvítací banner (nadpis „Kalkulačky pro sládka & technologa" a popis
+          toho, co obrazovka umí) je pryč. Na telefonu zabíral půl displeje a
+          neříkal nic, co by uživatel nevěděl — přišel sem schválně a názvy
+          jednotlivých kalkulaček jsou hned pod tím. */}
 
       {/* Tabs — přilepené nahoře, ať jde přepínat záložku i uprostřed scrollování. */}
       <div className="sticky top-0 z-20 bg-neutral-100 pt-1 flex items-center gap-2 overflow-x-auto scrollbar-thin pb-2 border-b border-neutral-200">

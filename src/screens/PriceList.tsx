@@ -71,16 +71,9 @@ export default function PriceListScreen() {
       {/* Banner matching Inventory & Logbook style */}
       <div className="bg-neutral-900 text-white p-5 sm:p-7 rounded border border-amber-500/30 shadow-xl flex flex-wrap items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-amber-400 font-extrabold text-xs uppercase tracking-widest mb-1">
-            <Tag size={18} />
-            <span>Prodejní ceny & Finanční kalkulace</span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-display font-black tracking-tight text-white flex items-center gap-2">
-            <span><Tag className="ikona-text" /> Ceník piva a obalů pro měsíc {currentMonth}</span>
-          </h1>
-          <p className="text-xs text-neutral-400 font-medium mt-1">
-            Zde zadej prodejní ceny piva za litr a ceny jednotlivých obalů pro prodejnu a odběratele. Tyto ceny se AUTOMATICKY používají pro výpočty tržeb, hodnoty skladu a fakturaci!
-          </p>
+          {/* Popisný nadpis obrazovky odstraněn — na telefonu zabíral
+              půl displeje a neříkal nic, co by uživatel nevěděl. Ovládací
+              prvky banneru zůstávají. */}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">

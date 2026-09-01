@@ -190,16 +190,9 @@ export default function RemindersScreen() {
       {/* Banner */}
       <div className="bg-neutral-900 text-white p-5 sm:p-7 rounded border border-amber-500/30 shadow-xl flex flex-wrap items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-amber-400 font-extrabold text-xs uppercase tracking-widest mb-1">
-            <Bell size={18} />
-            <span>Chytré plánování & Notifikace</span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-display font-black tracking-tight text-white flex items-center gap-2">
-            <span><Bell className="ikona-text" /> Upozornění — posílejte zprávy kolegům</span>
-          </h1>
-          <p className="text-xs text-neutral-400 font-medium mt-1">
-            Napište zprávu nebo upomínku a vyberte příjemce — všechny, roli nebo konkrétní uživatele. Odešlete ihned nebo naplánujte na termín. Uživatelé dostanou push notifikaci a/nebo okno k potvrzení.
-          </p>
+          {/* Popisný nadpis obrazovky odstraněn — na telefonu zabíral
+              půl displeje a neříkal nic, co by uživatel nevěděl. Ovládací
+              prvky banneru zůstávají. */}
         </div>
 
         <button

@@ -413,16 +413,9 @@ export default function AkceScreen() {
       {/* Top Banner */}
       <div className="bg-neutral-900 text-white p-5 sm:p-7 rounded border border-amber-500/30 shadow-xl flex flex-wrap items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-amber-400 font-extrabold text-xs uppercase tracking-widest mb-1">
-            <Sparkles size={18} />
-            <span>Slavnosti, Festivaly & Akce</span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-display font-black tracking-tight text-white flex items-center gap-2">
-            <Tent className="ikona-text" /> <span>Správa akcí a výjezdního prodeje</span>
-          </h1>
-          <p className="text-xs text-neutral-400 font-medium mt-1">
-            Zadej odvezená piva na akce a po skončení klikni na "Po akci" pro vyúčtování vrácených sudů, tržby a hodnocení.
-          </p>
+          {/* Popisný nadpis obrazovky odstraněn — na telefonu zabíral
+              půl displeje a neříkal nic, co by uživatel nevěděl. Ovládací
+              prvky banneru zůstávají. */}
         </div>
 
         <button

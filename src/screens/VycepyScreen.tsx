@@ -225,16 +225,9 @@ export default function VycepyScreen() {
       {/* Top Banner */}
       <div className="bg-neutral-900 text-white p-5 sm:p-7 rounded border border-amber-500/30 shadow-xl flex flex-wrap items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-amber-400 font-extrabold text-xs uppercase tracking-widest mb-1">
-            <Flame size={18} />
-            <span>Půjčovna & Sanitace výčepů</span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-display font-black tracking-tight text-white flex items-center gap-2">
-            <IkonaVycep className="ikona-text" /> <span>Půjčovna výčepních zařízení & Sanitace</span>
-          </h1>
-          <p className="text-xs text-neutral-400 font-medium mt-1">
-            Evidence výčepů (1–6 kohouty), sanitace louhem/vodou a rezervační kalendář pro zápůjčky.
-          </p>
+          {/* Popisný nadpis obrazovky odstraněn — na telefonu zabíral
+              půl displeje a neříkal nic, co by uživatel nevěděl. Ovládací
+              prvky banneru zůstávají. */}
         </div>
 
         <button

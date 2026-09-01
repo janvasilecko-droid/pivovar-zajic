@@ -492,16 +492,9 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
       {/* Banner */}
       <div className="bg-neutral-900 text-white p-6 rounded border border-amber-500/30 shadow-xl flex flex-wrap items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-amber-400 font-extrabold text-xs uppercase tracking-widest mb-1">
-            <Car size={18} />
-            <span>Doprava & Logistika</span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-display font-black tracking-tight text-white flex items-center gap-2">
-            <span><Car className="ikona-text" /> Kniha jízd pro daňové účetnictví</span>
-          </h1>
-          <p className="text-xs text-neutral-400 font-medium mt-1">
-            Automatické i ruční generování evidencí jízd z rozvozových tras pro finanční úřad
-          </p>
+          {/* Popisný nadpis obrazovky odstraněn — na telefonu zabíral
+              půl displeje a neříkal nic, co by uživatel nevěděl. Ovládací
+              prvky banneru zůstávají. */}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
