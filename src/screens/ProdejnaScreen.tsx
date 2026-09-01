@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, formatPackageLabel } from '../lib/supabase';
 import { EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey } from '../components/WeeklyOrderSummaryCard';
@@ -59,6 +59,41 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   const [who, setWho] = useState('');
   const [note, setNote] = useState('');
   const [entryRows, setEntryRows] = useState<RowInput[]>(() => emptyRows(table === 'fasovani' ? FASOVANI_ROW_COUNT : ROW_COUNT));
+
+  // 💾 Rozepsaný zápis přežije zavření aplikace.
+  // Na telefonu se z appky vypadne kdykoli — přijde hovor, přepne se okno,
+  // systém ji uspí. Dřív se tím rozdělaný výdej ztratil a člověk počítal
+  // znovu. Drží se zvlášť pro každý druh výdeje, ať si personál a odpis
+  // nepřepisují rozdělanou práci navzájem.
+  const klicRozdelane = `rozdelany_vydej_${table}`;
+  const obnovenoRef = useRef(false);
+
+  useEffect(() => {
+    obnovenoRef.current = false;
+    try {
+      const ulozene = localStorage.getItem(klicRozdelane);
+      if (!ulozene) return;
+      const d = JSON.parse(ulozene);
+      if (Array.isArray(d?.entryRows) && d.entryRows.some((r: RowInput) => r?.pkgId && Number(r?.qty) > 0)) {
+        setEntryRows(d.entryRows);
+        if (typeof d.who === 'string') setWho(d.who);
+        if (typeof d.note === 'string') setNote(d.note);
+        if (typeof d.date === 'string' && d.date) setDate(d.date);
+      }
+    } catch { /* rozbitý záznam radši zahodit než spadnout */ }
+    finally { obnovenoRef.current = true; }
+  }, [table]);
+
+  useEffect(() => {
+    // Ukládat až po pokusu o obnovu, jinak by prázdný výchozí stav přepsal
+    // to, co se právě chystáme načíst.
+    if (!obnovenoRef.current) return;
+    try {
+      const jeCo = entryRows.some((r) => r.pkgId && Number(r.qty) > 0) || who.trim() || note.trim();
+      if (jeCo) localStorage.setItem(klicRozdelane, JSON.stringify({ entryRows, who, note, date }));
+      else localStorage.removeItem(klicRozdelane);
+    } catch { /* plné úložiště nesmí shodit zápis */ }
+  }, [entryRows, who, note, date, klicRozdelane]);
   const [expandedProdejnaBeerId, setExpandedProdejnaBeerId] = useState<string | null>(null);
   const expandedProdejnaBeer = beers.find((b) => b.id === expandedProdejnaBeerId) ?? null;
   const [saving, setSaving] = useState(false);
@@ -232,6 +267,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
     if (error) { setErr(error.message); return; }
 
     setEntryRows(emptyRows(table === 'fasovani' ? FASOVANI_ROW_COUNT : ROW_COUNT)); setWho(''); setNote(''); setErr(null);
+    try { localStorage.removeItem(klicRozdelane); } catch { /* uklizeno i tak */ }
     setFlash(true); setTimeout(() => setFlash(false), 800);
     load(true);
   }
@@ -373,7 +409,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end mb-4">
+          <div className="grid grid-cols-2 gap-2 items-end mb-2">
             <div>
               <label className="label">Datum</label>
               <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -383,18 +419,31 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                 <label className="label">{druh.popisek}</label>
                 <input
                   type="text"
-                  className="input text-xs"
+                  className="input"
                   value={who}
                   onChange={(e) => setWho(e.target.value)}
                   placeholder={druh.napoveda}
                 />
               </div>
             )}
-            <div className={`flex items-end justify-end ${!showWhoColumn ? 'sm:col-span-2' : ''}`}>
-              <span className="text-xs font-bold text-neutral-600 bg-neutral-100 rounded px-3 py-2">
-                <PackageIcon className="ikona-text" /> {rowsSummary.totalQty} ks · {rowsSummary.totalL.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L
-              </span>
-            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
+            <span className="text-xs font-bold text-neutral-600 bg-neutral-100 rounded px-3 py-2">
+              <PackageIcon className="ikona-text" /> {rowsSummary.totalQty} ks · {rowsSummary.totalL.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L
+            </span>
+            {/* Rezervace výčepu patří sem, ne k jednotlivým obalům: rezervuje
+                se výčep, ne konkrétní velikost sudu, a u každého obalu to jen
+                zabíralo místo a otevíralo dialog omylem. */}
+            {showVycep && (
+              <button
+                type="button"
+                onClick={() => { setTapModalRowIndex(undefined); setShowTapModal(true); }}
+                className="px-3 py-2 rounded bg-amber-100 hover:bg-amber-200 text-amber-900 font-black text-xs transition"
+              >
+                Rezervovat výčep
+              </button>
+            )}
           </div>
 
           <TileTotalBar label="Zatím zapsáno" value={`${rowsSummary.totalQty} ks · ${rowsSummary.totalL.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L`} />
@@ -420,14 +469,27 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
           </div>
 
           {expandedProdejnaBeer && (
-            <BeerTilePanel beer={expandedProdejnaBeer} onClose={() => setExpandedProdejnaBeerId(null)}>
+            <BeerTilePanel
+              beer={expandedProdejnaBeer}
+              onClose={() => setExpandedProdejnaBeerId(null)}
+              headerRight={showWhoColumn ? (
+                /* „Pro koho" patří do lišty, ne k jednotlivým obalům: fasuje se
+                   jednomu člověku najednou a pole u každé velikosti dělalo z
+                   panelu na telefonu nekonečný sloupec. */
+                <input
+                  type="text"
+                  className="min-w-0 flex-1 px-2 py-1.5 rounded bg-white/90 border border-black/10 text-sm font-bold text-neutral-900 placeholder:font-medium placeholder:text-neutral-500"
+                  value={who}
+                  onChange={(e) => setWho(e.target.value)}
+                  placeholder={druh.popisek}
+                  aria-label={druh.popisek}
+                />
+              ) : undefined}
+            >
               {shopPackages.map((p) => {
                 const qty = tileQtyFor(expandedProdejnaBeer.id, p.id);
-                const rowWho = entryRows.find((r) => r.beerId === expandedProdejnaBeer.id && r.pkgId === p.id)?.who ?? '';
-                const rowVycep = entryRows.find((r) => r.beerId === expandedProdejnaBeer.id && r.pkgId === p.id)?.vycep ?? false;
                 return (
-                  <div key={p.id} className="rounded border border-neutral-200 dark:border-neutral-700 py-1.5 px-2 space-y-1.5">
-                    <div className="flex items-center justify-between gap-2">
+                  <div key={p.id} className="rounded border border-neutral-200 dark:border-neutral-700 py-1 px-2 flex items-center justify-between gap-2">
                       <span className="text-sm font-bold text-neutral-700 dark:text-neutral-200 truncate">{formatPackageLabel(p.label)}</span>
                       <div className="flex items-center gap-1">
                         <button type="button" onClick={() => setTileRow(expandedProdejnaBeer.id, p.id, { qty: String(Math.max(0, qty - 1)) })} className="w-10 h-10 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={qty <= 0}>−</button>
@@ -442,31 +504,6 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                         />
                         <button type="button" onClick={() => setTileRow(expandedProdejnaBeer.id, p.id, { qty: String(qty + 1) })} className="w-10 h-10 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none">+</button>
                       </div>
-                    </div>
-                    {showWhoColumn && (
-                      <input
-                        type="text"
-                        className="input text-xs w-full"
-                        value={rowWho}
-                        onChange={(e) => setTileRow(expandedProdejnaBeer.id, p.id, { who: e.target.value })}
-                        placeholder={who || `${druh.popisek} — nepovinné, jinak platí společný`}
-                      />
-                    )}
-                    {showVycep && (
-                      <label className="flex items-center gap-2 text-xs font-bold text-neutral-600 dark:text-neutral-300">
-                        <input
-                          type="checkbox"
-                          checked={rowVycep}
-                          onChange={(e) => {
-                            const checked = e.target.checked;
-                            setTileRow(expandedProdejnaBeer.id, p.id, { vycep: checked });
-                            if (checked) { setTapModalRowIndex(undefined); setShowTapModal(true); }
-                          }}
-                          className="w-5 h-5 rounded text-amber-600 focus:ring-amber-500 accent-amber-500"
-                        />
-                        Výčep (rezervovat)
-                      </label>
-                    )}
                   </div>
                 );
               })}

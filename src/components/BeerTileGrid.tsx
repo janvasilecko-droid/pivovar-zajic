@@ -82,19 +82,29 @@ export function BeerTilePanel({ beer, onClose, children, headerRight, footer }: 
     <div className="fixed inset-0 z-50 bg-black/60 p-2 sm:p-4 flex items-center justify-center overflow-hidden" onClick={onClose}>
       <div className="w-full max-w-xl m-auto" onClick={(e) => e.stopPropagation()}>
         <div className="rounded overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-          <div className="px-4 py-3 flex items-center justify-between gap-2 shrink-0" style={{ backgroundColor: beerBg(beer) }}>
-            <div className="flex items-center gap-2 min-w-0 flex-wrap">
-              <span className={`font-black text-lg leading-tight truncate drop-shadow ${beerText(beer)}`}>{beerName(beer)}</span>
+          <div className="px-3 py-2.5 flex items-center justify-between gap-2 shrink-0" style={{ backgroundColor: beerBg(beer) }}>
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <span className={`font-black text-base leading-tight truncate drop-shadow ${beerText(beer)}`}>{beerName(beer)}</span>
               <span className={`text-sm font-bold shrink-0 opacity-80 ${beerText(beer)}`}>{beer.degree ?? ''}</span>
               {headerRight}
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="shrink-0 w-10 h-10 grid place-items-center rounded bg-black/25 hover:bg-black/40 text-white font-black text-xl transition select-none"
-              title="Zavřít a vrátit se k dlaždicím"><X size={18} /></button>
+            {/* Fajfka vedle křížku: potvrdit jde rovnou z lišty, bez
+                scrollování na konec panelu. Obojí zavírá — zapsané kusy
+                jsou v rozepsaném zápisu okamžitě, není tu co zahazovat. */}
+            <div className="shrink-0 flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-11 h-11 grid place-items-center rounded bg-emerald-500 hover:bg-emerald-400 text-white font-black transition select-none shadow-sm"
+                title="Hotovo — potvrdit a zavřít"><Check size={20} /></button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-11 h-11 grid place-items-center rounded bg-black/25 hover:bg-black/40 text-white font-black text-xl transition select-none"
+                title="Zavřít a vrátit se k dlaždicím"><X size={18} /></button>
+            </div>
           </div>
-          <div className="p-3 bg-white dark:bg-neutral-800 space-y-2 overflow-y-auto">
+          <div className="p-2.5 bg-white dark:bg-neutral-800 space-y-1.5 overflow-y-auto">
             {children}
             {footer ?? (
               <div className="flex justify-end pt-1">
