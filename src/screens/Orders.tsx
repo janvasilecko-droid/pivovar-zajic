@@ -1342,7 +1342,16 @@ export default function Orders({
   function clearSelection() { setSelectedIds(new Set()); }
   async function bulkSetStatus(status: string) {
     if (!selectedIds.size) return;
-    await supabase.from('orders').update({ status }).in('id', [...selectedIds]);
+    // Přes RPC po jedné, stejně jako setStatus(). Hromadný UPDATE měnil jen
+    // stav a při stornu nechával odpočet zavozu ležet — sklad pak zůstal
+    // trvale nižší o zrušené zboží a v inventuře z toho byl nevysvětlitelný
+    // přebytek. Hromadné RPC neexistuje a objednávek je málo, takže smyčka.
+    const nepovedlo: string[] = [];
+    for (const id of [...selectedIds]) {
+      const { error } = await supabase.rpc('set_order_status', { p_order_id: id, p_status: status });
+      if (error) nepovedlo.push(error.message);
+    }
+    if (nepovedlo.length) setErr(`Změna stavu se nepovedla u ${nepovedlo.length} objednávek: ${nepovedlo[0]}`);
     clearSelection(); load();
   }
   async function bulkToggleFlag(key: 'is_prepared' | 'is_packaged' | 'is_delivered') {

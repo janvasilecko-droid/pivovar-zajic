@@ -141,3 +141,20 @@ export function najdiRozjeteOdpocty(
 
   return nalezene;
 }
+
+/**
+ * Odpočty, které patří stornované objednávce.
+ *
+ * Storno musí sklad uvolnit — zrušené sudy nikdo neodvezl. Databáze na to má
+ * `set_order_status` (migrace 20261210000000), která odpočty v jedné transakci
+ * smaže. Jenže hromadná změna stavu a storno z auditu měnily `orders.status`
+ * přímo, takže odpočet zůstal a sklad byl trvale nižší o zrušené zboží —
+ * v inventuře pak nevysvětlitelný přebytek.
+ */
+export function odpoctyStornovanych<T extends { order_id: string }>(
+  stornovaneObjednavky: Iterable<string>,
+  odpocty: T[],
+): T[] {
+  const storno = new Set(stornovaneObjednavky);
+  return odpocty.filter((o) => storno.has(o.order_id));
+}

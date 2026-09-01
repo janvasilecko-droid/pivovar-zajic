@@ -190,7 +190,9 @@ export function OrderAuditModal({
     if (!(await potvrd('Opravdu chcete tuto duplicitní objednávku stornovat?'))) return;
     setActionLoading(true);
     try {
-      const { error } = await supabase.from('orders').update({ status: 'storno' }).eq('id', orderId);
+      // Přes RPC, ať se se stornem uklidí i odpočet zavozu — přímý UPDATE
+      // nechával sklad odepsaný za zboží, které nikdo neodvezl.
+      const { error } = await supabase.rpc('set_order_status', { p_order_id: orderId, p_status: 'storno' });
       if (error) {
         setMsgFeedback('Chyba při stornování: ' + error.message);
       } else {
@@ -233,6 +235,33 @@ Skladové výpočty se tím rovnou přepočítají.`,
         setMsgFeedback('Odpočet se nepodařilo srovnat: ' + error.message);
       } else {
         setMsgFeedback(`Odpočet srovnán podle objednávky (${popis}).`);
+        await loadAudit();
+        onRefreshOrders && onRefreshOrders();
+      }
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  /**
+   * Uvolní sklad u stornované objednávky.
+   *
+   * Znovu nastaví stav 'storno' přes RPC — ta v jedné transakci smaže
+   * odpočty. Přímý UPDATE stavu, kterým řádek vznikl, to nedělal.
+   */
+  async function handleUvolnitStorno(issue: ZavozDeductionIssue) {
+    if (!(await potvrd(
+      `Objednávka je stornovaná, ale sklad je pořád odepsaný o ${issue.odepsano.quantity} ks `
+      + `(${issue.odepsano.beerName} ${issue.odepsano.packageLabel}). Uvolnit zpátky do skladu?`,
+      { titulek: 'Uvolnit odpočet u storna', potvrdit: 'Ano, uvolnit' },
+    ))) return;
+    setActionLoading(true);
+    try {
+      const { error } = await supabase.rpc('set_order_status', { p_order_id: issue.orderId, p_status: 'storno' });
+      if (error) {
+        setMsgFeedback('Odpočet se nepodařilo uvolnit: ' + error.message);
+      } else {
+        setMsgFeedback(`Uvolněno ${issue.odepsano.quantity} ks ${issue.odepsano.beerName} ${issue.odepsano.packageLabel} zpátky do skladu.`);
         await loadAudit();
         onRefreshOrders && onRefreshOrders();
       }
@@ -1119,16 +1148,20 @@ Skladové výpočty se tím rovnou přepočítají.`,
                           <div className="font-mono font-black text-sm text-rose-900">{issue.odepsano.quantity} ks</div>
                         </div>
                         <div className="p-2.5 rounded bg-emerald-50/70 border border-emerald-200">
-                          <div className="text-[11px] font-black uppercase tracking-wider text-emerald-900 mb-1">V objednávce</div>
+                          <div className="text-[11px] font-black uppercase tracking-wider text-emerald-900 mb-1">
+                            {issue.duvod === 'storno' ? 'Skutečně odvezeno' : 'V objednávce'}
+                          </div>
                           <div className="font-bold text-neutral-900">
-                            {issue.objednano.beerName} · {issue.objednano.packageLabel}
+                            {issue.duvod === 'storno' ? 'Objednávka stornovaná' : `${issue.objednano.beerName} · ${issue.objednano.packageLabel}`}
                           </div>
                           <div className="font-mono font-black text-sm text-emerald-900">{issue.objednano.quantity} ks</div>
                         </div>
                       </div>
 
                       <div className="text-xs font-bold text-neutral-800">
-                        {issue.jinePivoNeboObal
+                        {issue.duvod === 'storno'
+                          ? `Objednávka je zrušená, ale sklad je pořád odepsaný o ${issue.odepsano.quantity} ks — v inventuře to vyjde jako přebytek.`
+                          : issue.jinePivoNeboObal
                           ? 'Odpočet je na jiné pivo nebo obal, než co je dnes v objednávce.'
                           : issue.rozdilKusu > 0
                             ? `Ze skladu je odepsáno o ${issue.rozdilKusu} ks víc, než se objednalo — v inventuře to vyjde jako manko.`
@@ -1146,10 +1179,10 @@ Skladové výpočty se tím rovnou přepočítají.`,
                         )}
                         <button
                           disabled={actionLoading}
-                          onClick={() => handleSrovnatOdpocet(issue)}
+                          onClick={() => issue.duvod === 'storno' ? handleUvolnitStorno(issue) : handleSrovnatOdpocet(issue)}
                           className="btn-primary !rounded !py-1.5 !px-4 text-xs font-black shadow-sm disabled:opacity-50"
                         >
-                          Srovnat podle objednávky
+                          {issue.duvod === 'storno' ? 'Uvolnit zpátky do skladu' : 'Srovnat podle objednávky'}
                         </button>
                       </div>
                     </div>

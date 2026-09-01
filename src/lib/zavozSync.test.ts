@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { najdiRozjeteOdpocty, srovnaniPoUprave, type PolozkaObjednavky } from './zavozSync';
+import { najdiRozjeteOdpocty, odpoctyStornovanych, srovnaniPoUprave, type PolozkaObjednavky } from './zavozSync';
 
 const polozka: PolozkaObjednavky = {
   id: 'oi-1',
@@ -128,5 +128,30 @@ describe('najdiRozjeteOdpocty', () => {
     expect(najdiRozjeteOdpocty(polozky, [
       { order_item_id: null, order_id: 'o-9', beer_id: 'summer', package_id: 'keg30', quantity: 4 },
     ])).toEqual([]);
+  });
+});
+
+describe('odpoctyStornovanych', () => {
+  const odpocty = [
+    { order_id: 'o-1', quantity: 3 },
+    { order_id: 'o-2', quantity: 5 },
+    { order_id: 'o-3', quantity: 1 },
+  ];
+
+  it('vrátí odpočty, které visí na stornované objednávce', () => {
+    // Zrušené zboží nikdo neodvezl — sklad ho nesmí mít odepsané.
+    expect(odpoctyStornovanych(['o-2'], odpocty)).toEqual([{ order_id: 'o-2', quantity: 5 }]);
+  });
+
+  it('bez stornovaných objednávek nevrací nic', () => {
+    expect(odpoctyStornovanych([], odpocty)).toEqual([]);
+  });
+
+  it('stornovaná objednávka bez odpočtu je v pořádku', () => {
+    expect(odpoctyStornovanych(['o-9'], odpocty)).toEqual([]);
+  });
+
+  it('zvládne víc stornovaných najednou', () => {
+    expect(odpoctyStornovanych(['o-1', 'o-3'], odpocty)).toHaveLength(2);
   });
 });

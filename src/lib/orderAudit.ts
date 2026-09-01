@@ -1,7 +1,7 @@
 import { Beer, Package, fetchAllRows, supabase } from './supabase';
 import { WhatsAppIncoming } from './whatsappApi';
 import { parseFreeTextEntries, emptyAliasMap, loadAliasMap } from './orderParser';
-import { najdiRozjeteOdpocty } from './zavozSync';
+import { najdiRozjeteOdpocty, odpoctyStornovanych } from './zavozSync';
 
 export interface OrderItemDuplicateIssue {
   type: 'duplicate_item_rows';
@@ -86,6 +86,12 @@ export interface UnprocessedWhatsAppIssue {
  */
 export interface ZavozDeductionIssue {
   type: 'zavoz_deduction_mismatch';
+  /**
+   * 'nesedi' — objednávka se po zavozu opravila, odpočet zůstal na starém.
+   * 'storno' — objednávka je zrušená, ale sklad je pořád odepsaný. Uklidit
+   *            to umí set_order_status; přímý UPDATE stavu ji obcházel.
+   */
+  duvod: 'nesedi' | 'storno';
   orderId: string;
   orderItemId: string;
   placeName: string;
@@ -516,6 +522,7 @@ export async function runOrderAudit({
       const d: any = podleItemId.get(r.order_item_id);
       zavozDeductionIssues.push({
         type: 'zavoz_deduction_mismatch',
+        duvod: 'nesedi',
         orderId: r.order_id,
         orderItemId: r.order_item_id,
         placeName: o?.place_name || 'Neznámý podnik',
@@ -537,6 +544,42 @@ export async function runOrderAudit({
         rozdilKusu: r.rozdilKusu,
         jinePivoNeboObal: r.jinePivoNeboObal,
       });
+    }
+  }
+
+  // Stornované objednávky se do auditu nenačítají (dotaz je vylučuje), ale
+  // právě u nich je nejhorší případ: zrušené zboží nikdo neodvezl a sklad
+  // ho má pořád odepsané. Dotaz je proto vlastní a úzký.
+  {
+    const { data: stornoData } = await fetchAllRows('orders', 'id, place_name, order_date, delivery_date')
+      .eq('status', 'storno');
+    const stornoOrders = (stornoData || []) as any[];
+    if (stornoOrders.length > 0) {
+      const { data: stornoDed } = await fetchAllRows(
+        'zavoz_deductions',
+        'order_id, order_item_id, beer_id, package_id, quantity, deduct_date',
+      ).in('order_id', stornoOrders.map((o) => o.id));
+      const visici = odpoctyStornovanych(stornoOrders.map((o) => o.id), (stornoDed || []) as any[]);
+      const stornoById = new Map(stornoOrders.map((o) => [o.id, o]));
+      for (const d of visici) {
+        const o: any = stornoById.get(d.order_id);
+        const beerName = beers.find((b) => b.id === d.beer_id)?.name ?? '?';
+        const packageLabel = packages.find((p) => p.id === d.package_id)?.label ?? '?';
+        zavozDeductionIssues.push({
+          type: 'zavoz_deduction_mismatch',
+          duvod: 'storno',
+          orderId: d.order_id,
+          orderItemId: d.order_item_id,
+          placeName: o?.place_name || 'Neznámý podnik',
+          orderDate: o?.order_date || '',
+          deliveryDate: o?.delivery_date ?? null,
+          deductDate: d.deduct_date || '',
+          odepsano: { beerName, packageLabel, quantity: Number(d.quantity) },
+          objednano: { beerId: d.beer_id, packageId: d.package_id, beerName, packageLabel, quantity: 0 },
+          rozdilKusu: Number(d.quantity),
+          jinePivoNeboObal: false,
+        });
+      }
     }
   }
 
