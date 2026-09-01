@@ -115,8 +115,8 @@ export default function AkceScreen() {
   const [equipCustom, setEquipCustom] = useState<string>('');
   const [equipCustomItems, setEquipCustomItems] = useState<string[]>([]);
 
-  async function loadData() {
-    setLoading(true);
+  async function loadData(tiche = false) {
+    if (!tiche) setLoading(true);
     const [{ data: b }, { data: pk }, { data: ak }] = await Promise.all([
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
@@ -132,7 +132,13 @@ export default function AkceScreen() {
   useEffect(() => { loadData(); }, []);
   // Akce se čtou i na Skladu/Dashboardu/Inventuře (spotřeba piva na akci),
   // proto posloucháme i změny z jiných zařízení.
-  useRealtime(['beers', 'packages', 'akce', 'akce_items'], loadData);
+  // 🔇 Realtime přenačítá TIŠE. Bez toho zavolá loadData() bez parametru,
+  // rozsvítí se spinner přes celou obrazovku (`if (loading) return <Spinner/>`),
+  // obsah se odmountuje — a s ním spadne odrolování na nulu. Z provozu:
+  // „když kliknu odečíst, vrací mě to vždycky nahoru." Vlastní zápis stránku
+  // srovná kotvou (lib/drzPozici.ts), jenže 400 ms po něm dorazí realtime
+  // událost o tomtéž zápisu a celou práci zahodí.
+  useRealtime(['beers', 'packages', 'akce', 'akce_items'], () => loadData(true));
 
   // 🚚 Jednorázový převod akcí zadaných dřív, kdy se ukládaly jen do tohoto
   // prohlížeče. Bez toho by po přechodu na databázi historické akce zmizely.

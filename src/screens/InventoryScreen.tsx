@@ -499,7 +499,13 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     loadData();
   }, [currentMonth]);
 
-  useRealtime(['beers', 'packages', 'bottling', 'kegging', 'fasovani', 'fasovani_private', 'writeoffs', 'inventory', 'inventory_adjustments', 'zavoz_deductions', 'akce', 'akce_items', 'keg_prefuk'], loadData);
+  // 🔇 Realtime přenačítá TIŠE. Bez toho zavolá loadData() bez parametru,
+  // rozsvítí se spinner přes celou obrazovku (`if (loading) return <Spinner/>`),
+  // obsah se odmountuje — a s ním spadne odrolování na nulu. Z provozu:
+  // „když kliknu odečíst, vrací mě to vždycky nahoru." Vlastní zápis stránku
+  // srovná kotvou (lib/drzPozici.ts), jenže 400 ms po něm dorazí realtime
+  // událost o tomtéž zápisu a celou práci zahodí.
+  useRealtime(['beers', 'packages', 'bottling', 'kegging', 'fasovani', 'fasovani_private', 'writeoffs', 'inventory', 'inventory_adjustments', 'zavoz_deductions', 'akce', 'akce_items', 'keg_prefuk'], () => loadData(true));
 
 
 

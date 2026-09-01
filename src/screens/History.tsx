@@ -271,8 +271,8 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
     else { setCycleSortKey(key); setCycleSortDir('desc'); }
   }
 
-  async function load() {
-    setLoading(true);
+  async function load(tiche = false) {
+    if (!tiche) setLoading(true);
     const [{ data: bt }, { data: kg }, { data: fa }, { data: wo }, { data: ak }, { data: oi }, { data: ord }, { data: b }, { data: pk }] = await Promise.all([
       fetchAllRows('bottling', 'entry_date,beer_id,package_id,quantity'),
       fetchAllRows('kegging', 'entry_date,beer_id,package_id,quantity'),
@@ -489,7 +489,13 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
   }
 
   useEffect(() => { load(); loadTankCycles(); }, []);
-  useRealtime(['bottling', 'kegging', 'fasovani', 'fasovani_private', 'writeoffs', 'orders', 'order_items', 'akce', 'akce_items', 'beers', 'packages'], load);
+  // 🔇 Realtime přenačítá TIŠE. Bez toho zavolá loadData() bez parametru,
+  // rozsvítí se spinner přes celou obrazovku (`if (loading) return <Spinner/>`),
+  // obsah se odmountuje — a s ním spadne odrolování na nulu. Z provozu:
+  // „když kliknu odečíst, vrací mě to vždycky nahoru." Vlastní zápis stránku
+  // srovná kotvou (lib/drzPozici.ts), jenže 400 ms po něm dorazí realtime
+  // událost o tomtéž zápisu a celou práci zahodí.
+  useRealtime(['bottling', 'kegging', 'fasovani', 'fasovani_private', 'writeoffs', 'orders', 'order_items', 'akce', 'akce_items', 'beers', 'packages'], () => load(true));
   useRealtime(['cellar_tank_cycles'], loadTankCycles);
 
   // ---- Tydenny prehled objednavek ----

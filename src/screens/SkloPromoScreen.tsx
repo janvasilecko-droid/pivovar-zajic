@@ -135,8 +135,8 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
   const [bottleQty, setBottleQty] = useState<string>('1200');
   const [bottleNote, setBottleNote] = useState('');
 
-  async function loadData() {
-    setLoading(true);
+  async function loadData(tiche = false) {
+    if (!tiche) setLoading(true);
     const [pRes, bRes, pkgRes, botRes, lpRes] = await Promise.all([
       supabase.from('places').select('*').order('name'),
       supabase.from('beers').select('*').eq('is_active', true).order('name'),
@@ -159,7 +159,13 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
   }
 
   useEffect(() => { loadData(); }, []);
-  useRealtime(['places', 'beers', 'packages', 'bottling', 'label_purchases'], loadData);
+  // 🔇 Realtime přenačítá TIŠE. Bez toho zavolá loadData() bez parametru,
+  // rozsvítí se spinner přes celou obrazovku (`if (loading) return <Spinner/>`),
+  // obsah se odmountuje — a s ním spadne odrolování na nulu. Z provozu:
+  // „když kliknu odečíst, vrací mě to vždycky nahoru." Vlastní zápis stránku
+  // srovná kotvou (lib/drzPozici.ts), jenže 400 ms po něm dorazí realtime
+  // událost o tomtéž zápisu a celou práci zahodí.
+  useRealtime(['places', 'beers', 'packages', 'bottling', 'label_purchases'], () => loadData(true));
 
   function saveEntries(newEntries: PromoEntry[]) {
     setEntries(newEntries);
