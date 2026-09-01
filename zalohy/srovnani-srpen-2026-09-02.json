@@ -1,0 +1,213 @@
+HTTP 201
+[
+ {
+  "tabulka": "bottling",
+  "id": "1c2152b3-e661-4b2a-9b7a-79188a81c488",
+  "pivo": "Osma",
+  "obal": "LAHEV15",
+  "ks": "2",
+  "sudy": "",
+  "created_at": "2026-09-01 21:45:22.558083+00",
+  "note": "Doplněno z inventury 2026-08 — 1.5l z 50l sudů (dávka)"
+ },
+ {
+  "tabulka": "bottling",
+  "id": "8656b3e5-9f11-43e7-8633-95338ea41051",
+  "pivo": "Osma",
+  "obal": "LAHEV1",
+  "ks": "45",
+  "sudy": "1",
+  "created_at": "2026-09-01 21:45:22.558083+00",
+  "note": "Doplněno z inventury 2026-08 — 1l z 50l sudů (dávka)"
+ },
+ {
+  "tabulka": "kegging",
+  "id": "cba10fda-5085-4360-9456-42219f9d41b5",
+  "pivo": "Osma",
+  "obal": "KEG30",
+  "ks": "3",
+  "sudy": "",
+  "created_at": "2026-09-01 21:45:35.040491+00",
+  "note": "Doplněno z inventury 2026-08 — 30l z Tank 3 (přebytek 3 ks)"
+ },
+ {
+  "tabulka": "kegging",
+  "id": "1b660889-a878-4245-9e88-8a2042f5b336",
+  "pivo": "Osma",
+  "obal": "KEG50",
+  "ks": "5",
+  "sudy": "",
+  "created_at": "2026-09-01 21:45:36.518267+00",
+  "note": "Doplněno z inventury 2026-08 —  50l z Tank 3 (přebytek 5 ks)"
+ },
+ {
+  "tabulka": "bottling",
+  "id": "9ceee03d-f020-45a9-9c17-39e3c83d5276",
+  "pivo": "Summer Ale",
+  "obal": "LAHEV1",
+  "ks": "717",
+  "sudy": "17",
+  "created_at": "2026-09-01 21:46:07.249016+00",
+  "note": "Doplněno z inventury 2026-08 — 1l z 50l sudů (dávka)"
+ },
+ {
+  "tabulka": "bottling",
+  "id": "47aac4a3-4c90-4797-8afa-2cff03af97e4",
+  "pivo": "Summer Ale",
+  "obal": "LAHEV15",
+  "ks": "15",
+  "sudy": "1",
+  "created_at": "2026-09-01 21:46:07.249016+00",
+  "note": "Doplněno z inventury 2026-08 — 1.5l z 50l sudů (dávka)"
+ },
+ {
+  "tabulka": "bottling",
+  "id": "8a00830c-6349-43ef-b702-fd73166a2f49",
+  "pivo": "Summer Ale",
+  "obal": "LAHEV05",
+  "ks": "10",
+  "sudy": "",
+  "created_at": "2026-09-01 21:46:07.249016+00",
+  "note": "Doplněno z inventury 2026-08 — 0.5l z 50l sudů (dávka)"
+ },
+ {
+  "tabulka": "bottling",
+  "id": "1165ff75-643a-4647-b026-cbefab4153a0",
+  "pivo": "Summer Ale",
+  "obal": "LAHEV033",
+  "ks": "10",
+  "sudy": "",
+  "created_at": "2026-09-01 21:46:07.249016+00",
+  "note": "Doplněno z inventury 2026-08 — 0.33l z 50l sudů (dávka)"
+ },
+ {
+  "tabulka": "kegging",
+  "id": "8842605c-3106-43ab-9c95-2ccfc8fcab39",
+  "pivo": "Summer Ale",
+  "obal": "KEG50",
+  "ks": "5",
+  "sudy": "",
+  "created_at": "2026-09-01 21:49:46.516812+00",
+  "note": "Doplněno z inventury 2026-08 —  50l z Tank 6 (přebytek 6 ks)"
+ },
+ {
+  "tabulka": "kegging",
+  "id": "8bba0fdc-cd92-4970-b375-52b120699d26",
+  "pivo": "Summer Ale",
+  "obal": "KEG50",
+  "ks": "1",
+  "sudy": "",
+  "created_at": "2026-09-01 21:49:46.516812+00",
+  "note": "Doplněno z inventury 2026-08 —  50l bez tanku (přebytek 6 ks)"
+ },
+ {
+  "tabulka": "kegging",
+  "id": "435c278f-ff9b-488a-8022-fca002cbb745",
+  "pivo": "Summer Ale",
+  "obal": "KEG30",
+  "ks": "5",
+  "sudy": "",
+  "created_at": "2026-09-01 21:49:50.960781+00",
+  "note": "Doplněno z inventury 2026-08 — 30l bez tanku (přebytek 5 ks)"
+ },
+ {
+  "tabulka": "kegging",
+  "id": "764ace27-5487-4369-a0c5-b9e3126b1729",
+  "pivo": "Summer Ale",
+  "obal": "KEG15",
+  "ks": "-1",
+  "sudy": "",
+  "created_at": "2026-09-01 21:50:01.528598+00",
+  "note": "Odečteno z inventury 2026-08 —  15l (manko -1 ks)"
+ },
+ {
+  "tabulka": "bottling",
+  "id": "0f225eef-e770-4d67-94a4-73ab9ef91d4f",
+  "pivo": "Jantar",
+  "obal": "LAHEV1",
+  "ks": "-38",
+  "sudy": "",
+  "created_at": "2026-09-01 21:51:08.794657+00",
+  "note": "Odečteno z inventury 2026-08 — 1l (manko 38 ks)"
+ },
+ {
+  "tabulka": "kegging",
+  "id": "b1b779c1-957e-48e6-95f8-577185da3d21",
+  "pivo": "Jantar",
+  "obal": "KEG50",
+  "ks": "2",
+  "sudy": "",
+  "created_at": "2026-09-01 21:51:19.548218+00",
+  "note": "Doplněno z inventury 2026-08 —  50l bez tanku (přebytek 2 ks)"
+ },
+ {
+  "tabulka": "kegging",
+  "id": "3de71a2b-105d-4a4e-a442-ea462850188a",
+  "pivo": "Jantar",
+  "obal": "KEG30",
+  "ks": "9",
+  "sudy": "",
+  "created_at": "2026-09-01 21:51:20.368992+00",
+  "note": "Doplněno z inventury 2026-08 — 30l bez tanku (přebytek 9 ks)"
+ },
+ {
+  "tabulka": "bottling",
+  "id": "d9499c6e-1cfd-4c59-abb5-3c199c126000",
+  "pivo": "12° Tmavá",
+  "obal": "LAHEV1",
+  "ks": "3",
+  "sudy": "",
+  "created_at": "2026-09-01 21:52:44.418889+00",
+  "note": "Doplněno z inventury 2026-08 — 1l z 50l sudů (dávka)"
+ },
+ {
+  "tabulka": "bottling",
+  "id": "1d9ec8a3-b71b-4276-9660-f6a0c1bdba37",
+  "pivo": "12° Tmavá",
+  "obal": "LAHEV05",
+  "ks": "1",
+  "sudy": "",
+  "created_at": "2026-09-01 21:52:44.418889+00",
+  "note": "Doplněno z inventury 2026-08 — 0.5l z 50l sudů (dávka)"
+ },
+ {
+  "tabulka": "bottling",
+  "id": "6f46c000-c803-4f63-b29d-f3f0ee744358",
+  "pivo": "12° Tmavá",
+  "obal": "LAHEV033",
+  "ks": "60",
+  "sudy": "1",
+  "created_at": "2026-09-01 21:52:44.418889+00",
+  "note": "Doplněno z inventury 2026-08 — 0.33l z 50l sudů (dávka)"
+ },
+ {
+  "tabulka": "bottling",
+  "id": "60ee3bc9-d368-4d82-9fe3-46d2e8881044",
+  "pivo": "12° Tmavá",
+  "obal": "LAHEV15",
+  "ks": "18",
+  "sudy": "1",
+  "created_at": "2026-09-01 21:52:44.418889+00",
+  "note": "Doplněno z inventury 2026-08 — 1.5l z 50l sudů (dávka)"
+ },
+ {
+  "tabulka": "kegging",
+  "id": "d7acd7eb-f2a7-4ef6-97b0-5f536cd72772",
+  "pivo": "12° Tmavá",
+  "obal": "KEG30",
+  "ks": "3",
+  "sudy": "",
+  "created_at": "2026-09-01 21:53:05.84204+00",
+  "note": "Doplněno z inventury 2026-08 — 30l z Tank 1 (přebytek 3 ks)"
+ },
+ {
+  "tabulka": "kegging",
+  "id": "6f6e4c9e-3fe2-4d29-817f-18436ccd6dbf",
+  "pivo": "12° Tmavá",
+  "obal": "KEG50",
+  "ks": "1",
+  "sudy": "",
+  "created_at": "2026-09-01 21:53:06.80707+00",
+  "note": "Doplněno z inventury 2026-08 —  50l z Tank 1 (přebytek 1 ks)"
+ }
+]

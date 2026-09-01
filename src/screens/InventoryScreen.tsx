@@ -1395,6 +1395,50 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   );
   const [auditJenRozdily, setAuditJenRozdily] = useState(false);
 
+  /**
+   * Smaže VŠECHNA srovnání zapsaná z inventury tohoto měsíce.
+   *
+   * Srovnání je jednosměrná past: jakmile se zapíše, rozdíl spadne na nulu a
+   * není co znovu vyrovnávat — takže špatně zadané srovnání nešlo opravit
+   * jinak než zásahem do databáze. Poznávají se podle podpisu v poznámce
+   * („Doplněno/Odečteno z inventury {měsíc}"), který nic jiného nemá, takže
+   * se nesmaže nic z běžné výroby.
+   *
+   * Objem se do tanků nevrací: u dodatečné opravy se nedá poznat, ze kterého
+   * se bralo, a vracet naslepo by lhalo podruhé.
+   */
+  async function smazatSrovnaniMesice() {
+    const popis = `Smazat všechna srovnání zapsaná z inventury za ${nazevMesice(currentMonth)}?
+
+`
+      + 'Zůstane běžné stáčení, objednávky, fasování i počáteční stavy — smaže se jen to, '
+      + 'co vzniklo tlačítky Vyrovnat. Tabulka se tím vrátí do stavu před srovnáváním '
+      + 'a jde ho udělat znovu a správně.';
+    if (!(await potvrd(popis, { titulek: 'Vrátit srovnání za měsíc', potvrdit: 'Ano, smazat' }))) return;
+
+    // Jeden vzor místo dvou přes .or(): „Doplněno z inventury 2026-08 — …"
+    // i „Odečteno z inventury 2026-08 — …" obsahují tentýž kus textu a nic
+    // jiného v tabulkách ho nemá. Skládat .or() s mezerami v hodnotě je
+    // zbytečně křehké.
+    const podpis = `%z inventury ${currentMonth}%`;
+    await sZamkem('smazat-srovnani', async () => {
+      const [lahve, kegy] = await Promise.all([
+        supabase.from('bottling').delete().like('note', podpis).select('id'),
+        supabase.from('kegging').delete().like('note', podpis).select('id'),
+      ]);
+      if (lahve.error || kegy.error) {
+        chyba('Nepodařilo se smazat: ' + (lahve.error?.message ?? kegy.error?.message));
+        return;
+      }
+      const kolik = (lahve.data?.length ?? 0) + (kegy.data?.length ?? 0);
+      uspech(kolik === 0
+        ? `Za ${nazevMesice(currentMonth)} žádné srovnání nebylo.`
+        : `Smazáno ${kolik} řádků srovnání za ${nazevMesice(currentMonth)}. Můžeš srovnávat znovu.`);
+      forceReloadRef.current = true;
+      await loadData(true);
+    });
+  }
+
   /** Kolik řádků má naťukanou inventuru, která zatím leží jen v prohlížeči. */
   const rozepsanychRadku = useMemo(
     () => Object.values(actualStock).filter((v) => String(v).trim() !== '').length,
@@ -1862,13 +1906,27 @@ function exportInventoryExcel() {
                 <h3 className="font-display font-black text-lg text-neutral-900">Bilanční tabulka piva & Obalů k datu</h3>
                 <p className="text-xs text-neutral-500 font-bold">Do sloupce Inventura zadej ručně přesný spočítaný stav na konci měsíce (výchozí 0 ks). Když rozdíl vznikne, srovnej ho tlačítkem ve sloupci SROVNAT — <strong>přebytek</strong> se zapíše jako chybějící stočení, <strong>manko</strong> se ze stáčení odečte. Sloupec ZTRÁTY (±) je jen poznámka na rozbité a ztracené kusy — <strong>se stavem skladu nehne</strong> a stáčení nezaloží.</p>
               </div>
-              <button
-                onClick={handleSaveActualStock}
-                disabled={busy}
-                className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md transition flex items-center gap-1.5"
-              >
-                <Save size={16} /> Uložit fyzické stavy
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Vrácení srovnání. Srovnání je jednosměrné — po zápisu je
+                    rozdíl nula a není co znovu vyrovnávat, takže špatně
+                    zadané srovnání šlo dřív opravit jedině zásahem do
+                    databáze. */}
+                <button
+                  onClick={smazatSrovnaniMesice}
+                  disabled={doplnujeSe !== null || busy}
+                  className="px-3 py-2.5 rounded bg-white border-2 border-rose-300 hover:bg-rose-50 text-rose-800 font-black text-xs transition disabled:opacity-50 flex items-center gap-1.5"
+                  title="Smaže všechny zápisy, které v tomhle měsíci vznikly tlačítky Vyrovnat. Běžné stáčení, objednávky ani fasování se nedotkne."
+                >
+                  <RotateCcw size={15} /> Vrátit srovnání
+                </button>
+                <button
+                  onClick={handleSaveActualStock}
+                  disabled={busy}
+                  className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md transition flex items-center gap-1.5"
+                >
+                  <Save size={16} /> Uložit fyzické stavy
+                </button>
+              </div>
             </div>
 
             {rows.length === 0 ? (
