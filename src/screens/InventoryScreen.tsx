@@ -191,6 +191,8 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   // stejně, ať se srovnávalo, nebo to sedělo od začátku. Tenhle sloupec ten
   // rozdíl ukáže (viz lib/vyrovnani.ts).
   const [vyrovnaniMap, setVyrovnaniMap] = useState<Map<string, number>>(new Map());
+  /** Leží za tenhle měsíc v databázi uložená fyzická (nebo schválená) inventura? */
+  const [inventuraUlozena, setInventuraUlozena] = useState(false);
   // 🛢️ Tanky pro odečet doplněného kegování.
   const [tanky, setTanky] = useState<TankProRozdeleni[]>([]);
 
@@ -293,6 +295,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     } catch {}
     // 2b. Pokud je v DB uložená fyzická/schválená inventura, má přednost a uloží i do localStorage.
     const actualRowsForCurMonth = invRowsAll.filter((r) => r.entry_date?.slice(0, 7) === currentMonth && (r.note?.includes('Fyzická') || r.note?.includes('Schválená')));
+    setInventuraUlozena(actualRowsForCurMonth.length > 0);
     if (actualRowsForCurMonth.length > 0) {
       const dbActualMap: Record<string, string> = {};
       actualRowsForCurMonth.forEach((r) => {
@@ -1300,6 +1303,12 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   );
   const [auditJenRozdily, setAuditJenRozdily] = useState(false);
 
+  /** Kolik řádků má naťukanou inventuru, která zatím leží jen v prohlížeči. */
+  const rozepsanychRadku = useMemo(
+    () => Object.values(actualStock).filter((v) => String(v).trim() !== '').length,
+    [actualStock],
+  );
+
   /** Kolik řádků má vyplněné dorovnání — kvůli přehledu a hromadnému smazání. */
   const dorovnaneRadky = useMemo(
     () => Object.entries(dorovnatMap).filter(([, v]) => String(v).trim() !== '' && Number(v) !== 0).length,
@@ -1601,6 +1610,36 @@ function exportInventoryExcel() {
               přitom se stav skladu nezměnil. Tenhle pruh to řekne narovinu a
               dá je smazat najednou. Ukládají se průběžně do prohlížeče, takže
               samy nezmizí ani po přenačtení. */}
+          {/* ⚠️ Rozepsáno, ale NEULOŽENO. Napočítané stavy se od 2.173 drží
+              v prohlížeči, aby se hodina počítání neztratila při uspání
+              telefonu — jenže tím taky vypadají jako hotová věc. Do databáze
+              se dostanou až tlačítkem „Uložit fyzické stavy" a bez něj je
+              jiné zařízení neuvidí a měsíc se nedá uzavřít. Z provozu: „ta
+              inventura je tam už zadaná, ty jsou uloženy" — a přitom za srpen
+              2026 neležel v databázi ani jeden řádek. */}
+          {rozepsanychRadku > 0 && !inventuraUlozena && (
+            <div className="rounded border-2 border-rose-400 bg-rose-50 p-3.5 flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="font-display font-black text-rose-900 text-sm">
+                  Rozepsáno {rozepsanychRadku} položek — ale ZATÍM NEULOŽENO
+                </div>
+                <p className="text-[11px] font-bold text-rose-800 mt-1 leading-relaxed">
+                  Napočítané stavy zatím leží jen v tomhle prohlížeči. Drží se tam, aby se
+                  neztratily, ale do databáze se dostanou <strong>až tlačítkem „Uložit fyzické
+                  stavy"</strong> — do té doby je jiné zařízení neuvidí a měsíc nejde uzavřít.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleSaveActualStock}
+                disabled={busy}
+                className="shrink-0 px-3 py-2 rounded bg-rose-600 hover:bg-rose-700 text-white font-black text-xs transition disabled:opacity-50 flex items-center gap-1.5"
+              >
+                <Save size={15} /> Uložit fyzické stavy
+              </button>
+            </div>
+          )}
+
           {dorovnaneRadky > 0 && (
             <div className="rounded border-2 border-sky-300 bg-sky-50 p-3.5 flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
@@ -1633,10 +1672,10 @@ function exportInventoryExcel() {
                     {nespocitane.length} {nespocitane.length === 1 ? 'položka nemá' : nespocitane.length < 5 ? 'položky nemají' : 'položek nemá'} vyplněnou inventuru
                   </div>
                   <p className="text-[11px] font-bold text-amber-800 mt-1">
-                    Tyhle položky se tenhle měsíc hýbaly (stáčely nebo vydávaly), ale nikdo u nich nezapsal
-                    napočítaný stav. Dokud zůstanou prázdné, nepřevedou se do dalšího měsíce a jejich
-                    schodek poroste dál. <strong>Když jich fyzicky nula je, zapište nulu</strong> — i ta je
-                    plnohodnotný výsledek a uloží se.
+                    Tyhle položky se tenhle měsíc hýbaly (stáčely nebo vydávaly) a pole INVENTURA u nich
+                    zůstalo prázdné. <strong>Prázdné se bere jako nula a jako nula se i uloží</strong> —
+                    takže když jich fyzicky nula je, není co dělat. Tenhle seznam je jen připomínka, ať
+                    se nula nezapíše omylem u něčeho, co se ještě nestihlo spočítat.
                   </p>
                   <div className="mt-2.5 flex flex-wrap gap-1.5">
                     {nespocitane.slice(0, 24).map((r) => (
