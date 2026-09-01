@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { srovnaniPoUprave, type PolozkaObjednavky } from './zavozSync';
+import { najdiRozjeteOdpocty, srovnaniPoUprave, type PolozkaObjednavky } from './zavozSync';
 
 const polozka: PolozkaObjednavky = {
   id: 'oi-1',
@@ -68,5 +68,65 @@ describe('srovnaniPoUprave', () => {
     const bezPiva = srovnaniPoUprave({ ...polozka, beer_id: null }, { quantity: 9 });
     expect(bezPiva).not.toBeNull();
     expect(bezPiva!.p_beer_id).toBeNull();
+  });
+});
+
+describe('najdiRozjeteOdpocty', () => {
+  const polozky = [
+    { id: 'oi-1', beer_id: 'summer', package_id: 'keg30', quantity: 9 },
+    { id: 'oi-2', beer_id: 'osma', package_id: 'lahev1', quantity: 30 },
+    { id: 'oi-3', beer_id: 'jantar', package_id: 'keg50', quantity: 5 },
+  ];
+
+  it('najde odpočet, který odepisuje víc, než se objednalo', () => {
+    const nalez = najdiRozjeteOdpocty(polozky, [
+      { order_item_id: 'oi-1', order_id: 'o-1', beer_id: 'summer', package_id: 'keg30', quantity: 15 },
+    ]);
+    expect(nalez).toHaveLength(1);
+    expect(nalez[0].rozdilKusu).toBe(6);
+    expect(nalez[0].jinePivoNeboObal).toBe(false);
+  });
+
+  it('najde i odpočet, který odepisuje míň (Jona: odpočet 10, objednávka 30)', () => {
+    const nalez = najdiRozjeteOdpocty(polozky, [
+      { order_item_id: 'oi-2', order_id: 'o-2', beer_id: 'osma', package_id: 'lahev1', quantity: 10 },
+    ]);
+    expect(nalez[0].rozdilKusu).toBe(-20);
+  });
+
+  it('pozná i změnu piva nebo obalu při stejném počtu', () => {
+    const nalez = najdiRozjeteOdpocty(polozky, [
+      { order_item_id: 'oi-3', order_id: 'o-3', beer_id: 'jantar', package_id: 'keg30', quantity: 5 },
+    ]);
+    expect(nalez).toHaveLength(1);
+    expect(nalez[0].jinePivoNeboObal).toBe(true);
+    expect(nalez[0].rozdilKusu).toBe(0);
+  });
+
+  it('sedící odpočty nehlásí', () => {
+    expect(najdiRozjeteOdpocty(polozky, [
+      { order_item_id: 'oi-1', order_id: 'o-1', beer_id: 'summer', package_id: 'keg30', quantity: 9 },
+      { order_item_id: 'oi-3', order_id: 'o-3', beer_id: 'jantar', package_id: 'keg50', quantity: 5 },
+    ])).toEqual([]);
+  });
+
+  it('množství jako text z databáze porovná jako číslo', () => {
+    expect(najdiRozjeteOdpocty(polozky, [
+      { order_item_id: 'oi-1', order_id: 'o-1', beer_id: 'summer', package_id: 'keg30', quantity: '9' },
+    ])).toEqual([]);
+  });
+
+  it('položku mimo načtený rozsah netvrdí za rozjetou', () => {
+    // Audit umí běžet jen nad jedním týdnem — odpočet k objednávce, která se
+    // nenačetla, by jinak vyšel jako chyba pokaždé.
+    expect(najdiRozjeteOdpocty(polozky, [
+      { order_item_id: 'oi-neznama', order_id: 'o-9', beer_id: 'summer', package_id: 'keg30', quantity: 4 },
+    ])).toEqual([]);
+  });
+
+  it('odpočet bez vazby na položku přeskočí', () => {
+    expect(najdiRozjeteOdpocty(polozky, [
+      { order_item_id: null, order_id: 'o-9', beer_id: 'summer', package_id: 'keg30', quantity: 4 },
+    ])).toEqual([]);
   });
 });

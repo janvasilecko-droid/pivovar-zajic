@@ -1,6 +1,7 @@
 import { Beer, Package, fetchAllRows, supabase } from './supabase';
 import { WhatsAppIncoming } from './whatsappApi';
 import { parseFreeTextEntries, emptyAliasMap, loadAliasMap } from './orderParser';
+import { najdiRozjeteOdpocty } from './zavozSync';
 
 export interface OrderItemDuplicateIssue {
   type: 'duplicate_item_rows';
@@ -75,6 +76,31 @@ export interface UnprocessedWhatsAppIssue {
   itemsSummary: string;
 }
 
+/**
+ * Skladový odpočet zavozu se rozešel s objednávkou.
+ *
+ * Objednávka je pravda; odpočet je jen její otisk k okamžiku zavozu. Když se
+ * po zavozu opraví množství, pivo nebo obal, sklad zůstane odepsaný podle
+ * starého zadání. Dřív to nikdo nenašel — vyplavalo to až v inventuře jako
+ * manko bez původu ve výrobě, o měsíce později.
+ */
+export interface ZavozDeductionIssue {
+  type: 'zavoz_deduction_mismatch';
+  orderId: string;
+  orderItemId: string;
+  placeName: string;
+  orderDate: string;
+  deliveryDate?: string | null;
+  deductDate: string;
+  /** Podle čeho je sklad odepsaný. */
+  odepsano: { beerName: string; packageLabel: string; quantity: number };
+  /** Jak to má být podle objednávky. */
+  objednano: { beerId: string | null; packageId: string | null; beerName: string; packageLabel: string; quantity: number };
+  /** Kladné = odepsáno o tolik kusů víc, než se objednalo. */
+  rozdilKusu: number;
+  jinePivoNeboObal: boolean;
+}
+
 export interface AuditReport {
   weekKey?: string;
   scannedOrdersCount: number;
@@ -83,6 +109,7 @@ export interface AuditReport {
   whatsappMismatchIssues: WhatsAppMismatchIssue[];
   duplicateOrderIssues: DuplicateOrderIssue[];
   unprocessedWhatsAppIssues: UnprocessedWhatsAppIssue[];
+  zavozDeductionIssues: ZavozDeductionIssue[];
   cleanOrdersCount: number;
   totalIssuesCount: number;
 }
@@ -455,11 +482,70 @@ export async function runOrderAudit({
     }
   }
 
+  // --- KONTROLA 5: Skladový odpočet zavozu nesedí s objednávkou ---
+  // Hlídač, ne oprava. Od 2.158 se odpočet po úpravě položky srovnává sám
+  // (lib/zavozSync.ts), ale řádky rozešlé dřív — a cokoli, co by tu cestu
+  // v budoucnu zase obešlo — musí appka umět sama najít.
+  const zavozDeductionIssues: ZavozDeductionIssue[] = [];
+  if (orderIds.length > 0) {
+    const { data: dedData, error: dedErr } = await fetchAllRows(
+      'zavoz_deductions',
+      'order_id, order_item_id, beer_id, package_id, quantity, deduct_date',
+    ).in('order_id', orderIds);
+    if (dedErr) {
+      console.error('Audit: Chyba při načítání odpočtů zavozu:', dedErr);
+    }
+    const odpocty = (dedData || []) as any[];
+    const podleItemId = new Map(odpocty.map((d) => [d.order_item_id, d]));
+    const orderById = new Map(orders.map((o: any) => [o.id, o]));
+    const jmenoPiva = (id: string | null) => beers.find((b) => b.id === id)?.name ?? '?';
+    const jmenoObalu = (id: string | null) => packages.find((p) => p.id === id)?.label ?? '?';
+
+    const rozjete = najdiRozjeteOdpocty(
+      orderItems.map((it: any) => ({
+        id: it.id,
+        beer_id: it.beer_id ?? null,
+        package_id: it.package_id ?? null,
+        quantity: Number(it.quantity || 0),
+      })),
+      odpocty,
+    );
+
+    for (const r of rozjete) {
+      const o: any = orderById.get(r.order_id);
+      const d: any = podleItemId.get(r.order_item_id);
+      zavozDeductionIssues.push({
+        type: 'zavoz_deduction_mismatch',
+        orderId: r.order_id,
+        orderItemId: r.order_item_id,
+        placeName: o?.place_name || 'Neznámý podnik',
+        orderDate: o?.order_date || '',
+        deliveryDate: o?.delivery_date ?? null,
+        deductDate: d?.deduct_date || '',
+        odepsano: {
+          beerName: jmenoPiva(r.odpocet.beer_id),
+          packageLabel: jmenoObalu(r.odpocet.package_id),
+          quantity: r.odpocet.quantity,
+        },
+        objednano: {
+          beerId: r.objednavka.beer_id,
+          packageId: r.objednavka.package_id,
+          beerName: jmenoPiva(r.objednavka.beer_id),
+          packageLabel: jmenoObalu(r.objednavka.package_id),
+          quantity: r.objednavka.quantity,
+        },
+        rozdilKusu: r.rozdilKusu,
+        jinePivoNeboObal: r.jinePivoNeboObal,
+      });
+    }
+  }
+
   const totalIssuesCount =
     duplicateItemIssues.length +
     whatsappMismatchIssues.length +
     duplicateOrderIssues.length +
-    unprocessedWhatsAppIssues.length;
+    unprocessedWhatsAppIssues.length +
+    zavozDeductionIssues.length;
 
   const cleanOrdersCount = Math.max(0, orders.length - (duplicateItemIssues.length + whatsappMismatchIssues.length));
 
@@ -471,6 +557,7 @@ export async function runOrderAudit({
     whatsappMismatchIssues,
     duplicateOrderIssues,
     unprocessedWhatsAppIssues,
+    zavozDeductionIssues,
     cleanOrdersCount,
     totalIssuesCount,
   };

@@ -75,3 +75,69 @@ export function srovnaniPoUprave(
     p_quantity: nova.quantity,
   };
 }
+
+/** Odpočet, který se rozešel se svou položkou objednávky. */
+export type RozjetyOdpocet = {
+  order_item_id: string;
+  order_id: string;
+  /** Co říká skladový odpočet (podle čeho je sklad odepsaný). */
+  odpocet: { beer_id: string | null; package_id: string | null; quantity: number };
+  /** Co říká objednávka (jak to má být). */
+  objednavka: { beer_id: string | null; package_id: string | null; quantity: number };
+  /** Rozdíl v kusech: kladné = odepsáno víc, než se objednalo. */
+  rozdilKusu: number;
+  /** Změnilo se i pivo nebo obal, ne jenom počet? */
+  jinePivoNeboObal: boolean;
+};
+
+type OdpocetRadek = {
+  order_item_id: string | null;
+  order_id: string;
+  beer_id: string | null;
+  package_id: string | null;
+  quantity: number | string;
+};
+
+/**
+ * Najde odpočty, které nesedí s objednávkou.
+ *
+ * Tohle je hlídač, ne oprava: appka má sama poznat, že se sklad odepisuje
+ * podle něčeho, co v objednávce dávno nestojí. Bez něj takové řádky nikdo
+ * nenajde — vyplavou až v inventuře jako manko bez původu ve výrobě, o měsíce
+ * později a bez stopy, odkud se vzalo.
+ *
+ * Odpočet bez `order_item_id` se přeskakuje: nemá se s čím porovnat.
+ */
+export function najdiRozjeteOdpocty(
+  polozky: PolozkaObjednavky[],
+  odpocty: OdpocetRadek[],
+): RozjetyOdpocet[] {
+  const podleId = new Map(polozky.map((p) => [p.id, p]));
+  const nalezene: RozjetyOdpocet[] = [];
+
+  for (const o of odpocty) {
+    if (!o.order_item_id) continue;
+    const polozka = podleId.get(o.order_item_id);
+    if (!polozka) continue; // položka není v načteném rozsahu — netvrdit nic
+
+    const odpocetKs = Number(o.quantity);
+    const objednanoKs = Number(polozka.quantity);
+    if (!Number.isFinite(odpocetKs) || !Number.isFinite(objednanoKs)) continue;
+
+    const jinePivoNeboObal =
+      (o.beer_id ?? null) !== (polozka.beer_id ?? null) ||
+      (o.package_id ?? null) !== (polozka.package_id ?? null);
+    if (odpocetKs === objednanoKs && !jinePivoNeboObal) continue;
+
+    nalezene.push({
+      order_item_id: o.order_item_id,
+      order_id: o.order_id,
+      odpocet: { beer_id: o.beer_id ?? null, package_id: o.package_id ?? null, quantity: odpocetKs },
+      objednavka: { beer_id: polozka.beer_id ?? null, package_id: polozka.package_id ?? null, quantity: objednanoKs },
+      rozdilKusu: odpocetKs - objednanoKs,
+      jinePivoNeboObal,
+    });
+  }
+
+  return nalezene;
+}

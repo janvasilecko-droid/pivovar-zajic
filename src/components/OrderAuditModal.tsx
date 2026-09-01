@@ -8,6 +8,7 @@ import {
   WhatsAppMismatchIssue,
   DuplicateOrderIssue,
   UnprocessedWhatsAppIssue,
+  ZavozDeductionIssue,
 } from '../lib/orderAudit';
 import { AlertTriangle, ArrowRight, Beer as BeerIcon, Calendar, Check, CheckCircle, ChevronDown, ChevronUp, Copy, Eye, FileCheck, Globe, Layers, MessageSquare, MinusCircle, Phone, PlusCircle, RefreshCw, Search, ShieldCheck, Sparkles, Trash2, X } from 'lucide-react';
 import { Spinner } from './ui';
@@ -30,7 +31,7 @@ interface OrderAuditModalProps {
   onRefreshOrders?: () => void;
 }
 
-type TabType = 'all' | 'items_dup' | 'wa_mismatch' | 'order_dup' | 'unprocessed' | 'prislo';
+type TabType = 'all' | 'items_dup' | 'wa_mismatch' | 'order_dup' | 'unprocessed' | 'prislo' | 'odpocty';
 
 export function OrderAuditModal({
   isOpen,
@@ -202,6 +203,44 @@ export function OrderAuditModal({
     }
   }
 
+  /**
+   * Srovná skladový odpočet podle objednávky.
+   *
+   * Volá stejnou funkci v databázi, kterou od 2.158 používají i úpravy
+   * položek — objednávka je pravda, odpočet je jen její otisk.
+   */
+  async function handleSrovnatOdpocet(issue: ZavozDeductionIssue) {
+    const popis = issue.jinePivoNeboObal
+      ? `${issue.odepsano.beerName} ${issue.odepsano.packageLabel} × ${issue.odepsano.quantity} → ${issue.objednano.beerName} ${issue.objednano.packageLabel} × ${issue.objednano.quantity}`
+      : `${issue.objednano.beerName} ${issue.objednano.packageLabel}: ${issue.odepsano.quantity} → ${issue.objednano.quantity} ks`;
+    if (!(await potvrd(
+      `Sklad je odepsaný podle starého zadání. Srovnat odpočet podle objednávky?
+
+${popis}
+
+Skladové výpočty se tím rovnou přepočítají.`,
+      { titulek: 'Srovnat odpočet podle objednávky', potvrdit: 'Ano, srovnat' },
+    ))) return;
+    setActionLoading(true);
+    try {
+      const { error } = await supabase.rpc('reconcile_zavoz_deduction_for_item', {
+        p_order_item_id: issue.orderItemId,
+        p_beer_id: issue.objednano.beerId,
+        p_package_id: issue.objednano.packageId,
+        p_quantity: issue.objednano.quantity,
+      });
+      if (error) {
+        setMsgFeedback('Odpočet se nepodařilo srovnat: ' + error.message);
+      } else {
+        setMsgFeedback(`Odpočet srovnán podle objednávky (${popis}).`);
+        await loadAudit();
+        onRefreshOrders && onRefreshOrders();
+      }
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
   async function handleIgnoreWhatsApp(messageId: string) {
     setActionLoading(true);
     try {
@@ -221,6 +260,7 @@ export function OrderAuditModal({
   const waMismatchCount = report?.whatsappMismatchIssues.length || 0;
   const orderDupCount = report?.duplicateOrderIssues.length || 0;
   const unprocessedCount = report?.unprocessedWhatsAppIssues.length || 0;
+  const odpoctyCount = report?.zavozDeductionIssues.length || 0;
   const totalIssues = report?.totalIssuesCount || 0;
 
   return (
@@ -412,7 +452,32 @@ export function OrderAuditModal({
               </div>
             </button>
 
-            {/* Card 5: Přišlo všechno? — jediná kontrola, která hledá to,
+            {/* Card 5: Sklad podle starého zadání — objednávka se po zavozu
+                opravila, skladový odpočet zůstal. Dřív to nikdo nenašel a
+                vyplavalo to až v inventuře jako manko bez původu ve výrobě. */}
+            <button
+              onClick={() => setActiveTab(activeTab === 'odpocty' ? 'all' : 'odpocty')}
+              className={`p-2.5 sm:p-3 rounded border-2 text-left transition flex flex-col justify-between select-none ${
+                activeTab === 'odpocty'
+                  ? 'bg-rose-100 border-rose-500 ring-2 ring-rose-400 shadow-sm'
+                  : odpoctyCount > 0
+                  ? 'bg-rose-50/80 border-rose-200 hover:border-rose-300'
+                  : 'bg-neutral-50 border-neutral-200 opacity-60'
+              }`}
+            >
+              <div className="flex items-center justify-between text-rose-800 mb-1">
+                <span className="text-[11px] font-black uppercase tracking-wider">Sklad vs. objednávka</span>
+                <Layers size={15} />
+              </div>
+              <div className="flex items-baseline gap-1.5">
+                <span className={`text-xl sm:text-2xl font-black ${odpoctyCount > 0 ? 'text-rose-700' : 'text-neutral-500'}`}>
+                  {odpoctyCount}
+                </span>
+                <span className="text-[11px] font-bold text-neutral-500">rozjetých odpočtů</span>
+              </div>
+            </button>
+
+            {/* Card 6: Přišlo všechno? — jediná kontrola, která hledá to,
                 co v databázi CHYBÍ, ne co v ní je špatně. */}
             <button
               onClick={() => setActiveTab(activeTab === 'prislo' ? 'all' : 'prislo')}
@@ -1019,6 +1084,73 @@ export function OrderAuditModal({
                             <ArrowRight size={14} />
                           </button>
                         )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 5. SEKCE: SKLADOVÝ ODPOČET NESEDÍ S OBJEDNÁVKOU */}
+              {(activeTab === 'all' || activeTab === 'odpocty') && odpoctyCount > 0 && (
+                <div className="space-y-3">
+                  <div className="text-xs font-black uppercase tracking-wider text-rose-900 flex items-center justify-between px-1">
+                    <span className="flex items-center gap-1.5">
+                      <AlertTriangle size={15} className="text-rose-600" />
+                      <span>Sklad odepsaný podle starého zadání ({odpoctyCount})</span>
+                    </span>
+                    <span className="text-[11px] font-normal text-rose-700">Objednávka se po zavozu opravila, odpočet ne</span>
+                  </div>
+
+                  {report?.zavozDeductionIssues.map((issue) => (
+                    <div key={issue.orderItemId} className="p-3.5 sm:p-4 rounded bg-white border-2 border-rose-300 shadow-xs space-y-3">
+                      <div className="flex items-center justify-between border-b border-rose-100 pb-2">
+                        <span className="font-display font-black text-sm text-neutral-950">{issue.placeName}</span>
+                        <span className="text-[11px] text-neutral-500 font-medium">
+                          zavezeno {issue.deductDate ? new Date(issue.deductDate).toLocaleDateString('cs-CZ') : '—'}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="p-2.5 rounded bg-rose-50/70 border border-rose-200">
+                          <div className="text-[11px] font-black uppercase tracking-wider text-rose-900 mb-1">Sklad odepsán</div>
+                          <div className="font-bold text-neutral-900">
+                            {issue.odepsano.beerName} · {issue.odepsano.packageLabel}
+                          </div>
+                          <div className="font-mono font-black text-sm text-rose-900">{issue.odepsano.quantity} ks</div>
+                        </div>
+                        <div className="p-2.5 rounded bg-emerald-50/70 border border-emerald-200">
+                          <div className="text-[11px] font-black uppercase tracking-wider text-emerald-900 mb-1">V objednávce</div>
+                          <div className="font-bold text-neutral-900">
+                            {issue.objednano.beerName} · {issue.objednano.packageLabel}
+                          </div>
+                          <div className="font-mono font-black text-sm text-emerald-900">{issue.objednano.quantity} ks</div>
+                        </div>
+                      </div>
+
+                      <div className="text-xs font-bold text-neutral-800">
+                        {issue.jinePivoNeboObal
+                          ? 'Odpočet je na jiné pivo nebo obal, než co je dnes v objednávce.'
+                          : issue.rozdilKusu > 0
+                            ? `Ze skladu je odepsáno o ${issue.rozdilKusu} ks víc, než se objednalo — v inventuře to vyjde jako manko.`
+                            : `Ze skladu je odepsáno o ${Math.abs(issue.rozdilKusu)} ks míň, než se objednalo — v inventuře to vyjde jako přebytek.`}
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2 pt-1">
+                        {onOpenOrder && (
+                          <button
+                            onClick={() => { onOpenOrder(issue.orderId); onClose(); }}
+                            className="btn-secondary !py-1.5 !px-3 text-xs font-bold text-neutral-600"
+                          >
+                            Otevřít objednávku
+                          </button>
+                        )}
+                        <button
+                          disabled={actionLoading}
+                          onClick={() => handleSrovnatOdpocet(issue)}
+                          className="btn-primary !rounded !py-1.5 !px-4 text-xs font-black shadow-sm disabled:opacity-50"
+                        >
+                          Srovnat podle objednávky
+                        </button>
                       </div>
                     </div>
                   ))}
