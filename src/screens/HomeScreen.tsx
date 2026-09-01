@@ -52,6 +52,9 @@ import { potvrd, oznam } from '../lib/toast';
 import { requestOrdersAutoImport } from '../lib/ordersFilter';
 import { getTheme, setTheme, type Theme } from '../lib/theme';
 import { fetchPendingWhatsAppCount, subscribeToWhatsAppMessages } from '../lib/whatsappApi';
+import { nactiRezervace } from '../lib/vycepyData';
+import { stariInventury, type StariInventury } from '../lib/inventuraStari';
+import { kauceVenku, vycepyVenku, type VycepVenku } from '../lib/vycepyVenku';
 import './HomeScreen.css';
 
 /** true = jméno přednastaveného odstínu (CSS třída c-*); false = vlastní hex barva (inline styl). */
@@ -536,6 +539,27 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     // Funkce vrací rovnou odhlašovací callback, ne kanál.
     const odhlas = subscribeToWhatsAppMessages(() => nacti());
     return odhlas;
+  }, []);
+
+  // 🍺 Výčepy po termínu, které se ještě nevrátily (viz lib/vycepyVenku.ts).
+  const [vycepyPoTerminu, setVycepyPoTerminu] = useState<VycepVenku[]>([]);
+  useEffect(() => {
+    void nactiRezervace()
+      .then((r) => setVycepyPoTerminu(vycepyVenku(r, businessDateISO())))
+      .catch(() => {});
+  }, []);
+
+  // 📅 Jak dávno se dělala napočítaná inventura (viz lib/inventuraStari.ts).
+  // Patří to sem, ne na obrazovku skladu: schodek roste tichem, a upozornění,
+  // které je vidět jen když si na sklad vzpomenu, přesně tuhle díru nezacpe.
+  const [stariInv, setStariInv] = useState<StariInventury | null>(null);
+  useEffect(() => {
+    void (async () => {
+      try {
+        const { data } = await fetchAllRows('inventory', 'entry_date,note');
+        setStariInv(stariInventury((data as any[]) ?? [], businessDateISO()));
+      } catch { /* upozornění není kritické — radši mlčet než rozbít plochu */ }
+    })();
   }, []);
 
   // ---- Pivovarské Rádio na ploše ----
@@ -1142,6 +1166,48 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   </div>
                   <div className="hs-lbl">WhatsApp — k parsování</div>
                   <span className="hs-badge">{pendingWhatsApp > 99 ? '99+' : pendingWhatsApp}</span>
+                </button>
+              )}
+              {/* 🍺 Výčepy, které jsou pořád u zákazníka po skončení rezervace.
+                  Leží u nich kauce i vybavení a dosud to nikde nesvítilo —
+                  přišlo se na to, až když výčep někdo potřeboval. */}
+              {vycepyPoTerminu.length > 0 && (
+                <button
+                  type="button"
+                  className="hs-tile hs-tile-alert vlastni-vyska"
+                  onClick={() => setPage('vycepy')}
+                  title={vycepyPoTerminu
+                    .map((v) => `${v.rezervace.tap_name || 'Výčep'} — ${v.rezervace.customer_name}, ${v.dniPoTerminu} dní`)
+                    .join('\n')}
+                >
+                  <div className="hs-tile-icon-box">
+                    <IkonaVycep />
+                  </div>
+                  <div className="hs-lbl">
+                    Výčep u zákazníka
+                    {kauceVenku(vycepyPoTerminu) > 0 && ` · ${kauceVenku(vycepyPoTerminu).toLocaleString('cs-CZ')} Kč`}
+                  </div>
+                  <span className="hs-badge">{vycepyPoTerminu[0].dniPoTerminu} dní</span>
+                </button>
+              )}
+              {/* 📅 Dlouho se nedělala inventura. Ukáže se až po 40 dnech,
+                  takže při běžném měsíčním rytmu mlčí. */}
+              {stariInv?.pripomenout && (
+                <button
+                  type="button"
+                  className={`hs-tile ${stariInv.naléhavé ? 'hs-tile-alert' : ''} vlastni-vyska`}
+                  onClick={() => setPage('inventory')}
+                  title={stariInv.posledni
+                    ? `Poslední napočítaná inventura: ${stariInv.posledni}`
+                    : 'Zatím není žádná napočítaná inventura'}
+                >
+                  <div className="hs-tile-icon-box">
+                    <ClipboardCheck />
+                  </div>
+                  {/* Popisek krátký schválně — na téhle šířce se delší ořízne
+                      (viz „Vozidla — STK/známka"). Dny nese odznak. */}
+                  <div className="hs-lbl">Inventura</div>
+                  <span className="hs-badge">{stariInv.dni === null ? 'chybí' : `${stariInv.dni} dní`}</span>
                 </button>
               )}
               {vehicleAlerts.length > 0 && (
