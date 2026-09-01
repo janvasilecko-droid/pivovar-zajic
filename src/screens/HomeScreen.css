@@ -125,9 +125,17 @@
    [data-home-chrome]), teď stejný vzhled na VŠECH stránkách (viz
    Layout.tsx), ať skrz ně prosvítá barevná scéna .hs-fullscreen-scene i
    mimo launcher. */
+/* Závoj musí být hustý. Při 18 % prosvítala barevná scéna a popisky v liště
+   se ztrácely: neutral-500 měl nad modrou scénou kontrast 1,67 : 1 a nad
+   vínovou 1,85 : 1 — čitelná hranice je 4,5 : 1. Z provozu: „ten spodní
+   banner udělej čitelnější, jak je průhledný, nejde moc vidět."
+
+   0,86 sráží nejhorší případ (vínová scéna) na 7,8 : 1 a rozostření pod ním
+   pořád dělá dojem skla. Rámeček se z bílého mění na tmavý — bílý na skoro
+   bílém pruhu nebylo vidět, takže lišta splývala s obsahem. */
 .hs-glass-chrome {
-  background: rgba(255,255,255,0.18) !important;
-  border-color: rgba(255,255,255,0.4) !important;
+  background: rgba(255,255,255,0.86) !important;
+  border-color: rgba(0,0,0,0.10) !important;
   -webkit-backdrop-filter: blur(16px) saturate(160%);
   backdrop-filter: blur(16px) saturate(160%);
 }
@@ -801,11 +809,13 @@
   background: rgb(15 23 42 / 0.88);
 }
 
-/* Skleněná hlavička a spodní lišta jsou bílý závoj — nad tmavou scénou musí
-   být slabší, jinak z nich je světlý pruh uprostřed tmavé aplikace. */
+/* V tmavém režimu NENÍ řešením slabší bílý závoj, ale TMAVÉ sklo. Bílý závoj
+   se musel držet na 6 %, aby z lišty nebyl světlý pruh — jenže tím zůstala
+   skoro průhledná a popisky měly kontrast 3,2 : 1 (nad vínovou scénou 2,65).
+   Tmavá slate na 88 % vyjde na 12 : 1 a světlý pruh z toho není. */
 :root.dark .hs-glass-chrome {
-  background: rgba(255, 255, 255, 0.06) !important;
-  border-color: rgba(255, 255, 255, 0.10) !important;
+  background: rgba(15, 23, 42, 0.88) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
 }
 
 /* ⇄ Tažení dlaždice mezi stránkami — nápověda u okraje.

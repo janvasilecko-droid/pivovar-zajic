@@ -69,6 +69,16 @@ export function posunPodleKotvy(predTop: number, poTop: number): number {
   return Math.abs(posun) < PRAH_PX ? 0 : posun;
 }
 
+/**
+ * Za jak dlouho se pozice srovná podruhé.
+ *
+ * Realtime přenačítá se zdržením 400 ms (viz useRealtime v lib/supabase.ts) a
+ * událost přijde i o VLASTNÍM zápisu. I když se přenačte tiše, může se
+ * rozložení ještě jednou hnout — čerstvá data mění výšky řádků. Druhý pokus
+ * po doznění té vlny to dorovná.
+ */
+const DRUHY_POKUS_MS = 700;
+
 /** Počká, až React překreslí A prohlížeč spočítá rozložení. */
 function poPrekresleni(fn: () => void) {
   if (typeof requestAnimationFrame !== 'function') { setTimeout(fn, 0); return; }
@@ -100,12 +110,24 @@ export function zapamatujPozici(selektor: string): () => void {
   if (!scroller) return () => {};
   const predTop = el.getBoundingClientRect().top;
 
+  const srovnej = (): number | null => {
+    const znovu = najdiKotvu(selektor);
+    if (!znovu) return null; // řádek mezitím zmizel — není podle čeho rovnat
+    const posun = posunPodleKotvy(predTop, znovu.getBoundingClientRect().top);
+    if (posun !== 0) scroller.scrollTop += posun;
+    return scroller.scrollTop;
+  };
+
   return () => {
     poPrekresleni(() => {
-      const znovu = najdiKotvu(selektor);
-      if (!znovu) return; // řádek mezitím zmizel — není podle čeho rovnat
-      const posun = posunPodleKotvy(predTop, znovu.getBoundingClientRect().top);
-      if (posun !== 0) scroller.scrollTop += posun;
+      const poPrvnim = srovnej();
+      if (poPrvnim === null) return;
+      // Druhý pokus po doznění realtime vlny — ale JEN když se mezitím
+      // neposouvalo ručně. Jinak by to člověku vzalo scroll pod rukama.
+      setTimeout(() => {
+        if (Math.abs(scroller.scrollTop - poPrvnim) > 2) return;
+        srovnej();
+      }, DRUHY_POKUS_MS);
     });
   };
 }

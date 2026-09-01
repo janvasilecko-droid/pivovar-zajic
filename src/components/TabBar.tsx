@@ -39,7 +39,7 @@ export function TabBar({
             type="button"
             onClick={() => onSelect(item.id)}
             className={`relative px-2 py-1 rounded text-[11px] font-black transition flex items-center gap-1 shrink-0 ${
-              active ? 'bg-white shadow-sm' : 'text-neutral-500 hover:bg-white/70 hover:text-neutral-700'
+              active ? 'bg-white shadow-sm' : 'text-neutral-700 hover:bg-white/70 hover:text-neutral-900'
             }`}
             style={active ? { color } : undefined}
           >

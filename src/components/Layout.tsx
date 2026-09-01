@@ -824,7 +824,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                 title={predchoziStranka.current ? 'Podržením se vrátíte na předchozí obrazovku' : undefined}
                 style={isActive ? { color: accent } : undefined}
                 className={`flex flex-col items-center justify-center py-1 px-2.5 rounded transition-all relative flex-1 font-bold ${
-                  isActive ? 'bg-white/60 shadow-sm scale-105' : 'text-neutral-500 hover:text-neutral-700'
+                  isActive ? 'bg-white/60 shadow-sm scale-105' : 'text-neutral-700 hover:text-neutral-900'
                 }`}
               >
                 <div className="relative">

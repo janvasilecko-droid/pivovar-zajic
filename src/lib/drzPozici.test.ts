@@ -130,3 +130,53 @@ describe('zapamatujPozici', () => {
     expect(s.scrollTop).toBe(1000);
   });
 });
+
+describe('druhý pokus po realtime vlně', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    // Pořadí je důležité: vi.useFakeTimers() si bere i requestAnimationFrame,
+    // takže se stub musí nasadit AŽ po něm, jinak se překreslení nikdy nespustí.
+    vi.useFakeTimers();
+    vi.stubGlobal('requestAnimationFrame', (fn: FrameRequestCallback) => { fn(0); return 0; });
+  });
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
+
+  function pripravit() {
+    const s = udelejScroller();
+    const radek = document.createElement('div');
+    radek.setAttribute('data-inv-radek', 'b1__p1');
+    s.appendChild(radek);
+    nastavRect(radek, 400);
+    return { s, radek };
+  }
+
+  it('srovná znovu, když se rozložení hne až po přenačtení', () => {
+    // Realtime přijde se zdržením 400 ms i o vlastním zápisu; čerstvá data
+    // můžou ještě jednou změnit výšky řádků.
+    const { s, radek } = pripravit();
+    const vrat = zapamatujPozici('[data-inv-radek="b1__p1"]');
+    nastavRect(radek, 150);   // obsah nad kotvou se scvrkl o 250 px
+    vrat();
+    expect(s.scrollTop).toBe(750);
+
+    // Po srovnání kotva zase leží tam, kde ležela předtím.
+    nastavRect(radek, 400);
+    // …a pak dorazí realtime vlna a posune ji o dalších 20 px nahoru.
+    nastavRect(radek, 380);
+    vi.advanceTimersByTime(1000);
+    expect(s.scrollTop).toBe(730);
+  });
+
+  it('když si člověk mezitím odroloval sám, druhý pokus mu to nevezme', () => {
+    const { s, radek } = pripravit();
+    const vrat = zapamatujPozici('[data-inv-radek="b1__p1"]');
+    nastavRect(radek, 150);
+    vrat();
+    expect(s.scrollTop).toBe(750);
+
+    s.scrollTop = 2000;   // ruční posun
+    nastavRect(radek, 380);
+    vi.advanceTimersByTime(1000);
+    expect(s.scrollTop).toBe(2000);
+  });
+});
