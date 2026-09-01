@@ -10,6 +10,7 @@ import { computeInventoryReconciliation } from '../lib/inventoryHelper';
 import { akceProRozdil, datumDoplnku, doplnekVBudoucnu, jeSud, kegovaniZapisy, lahvoveZapisy, nabidnoutMinulyMesic, nazevMesice, odectiZeStoceni, vychoziMesicInventury, stoceniZapis } from '../lib/inventoryFix';
 import { dopadSrovnani } from '../lib/dopadSrovnani';
 import { davkySrovnani, zapisyDavky, type DavkaPiva, type ZdrojovaSkupina } from '../lib/srovnaniDavka';
+import { zapamatujPozici } from '../lib/drzPozici';
 import { normalizujCislo } from '../lib/cisloVstup';
 import { popisRozdeleni, rozdelSudyDoTanku, zmenaOtevreni, type RozdeleniSudu, type TankProRozdeleni } from '../lib/tankRozdeleni';
 import { saveBottlingPlan } from '../lib/bottlingPlans';
@@ -946,6 +947,10 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     const rady = zapisyDavky(d, datumDoplnku(currentMonth), currentMonth, zadano);
     if (rady.length === 0) return;
 
+    // Zelený panel pod pivem po zápisu zmizí (už není co srovnávat) a všechno
+    // pod ním vyskočí nahoru. Kotvou je první řádek toho piva — ten zůstává.
+    const vratPozici = zapamatujPozici(`[data-inv-radek^="${d.beer_id}__"]`);
+
     setDoplnujeSe(`davka__${d.beer_id}`);
     const { error } = await supabase.from('bottling').insert(rady);
     setDoplnujeSe(null);
@@ -965,6 +970,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     );
     forceReloadRef.current = true;
     await loadData(true);
+    vratPozici();
   }
 
   /**
@@ -1050,6 +1056,8 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
         { titulek: 'Doplnit chybějící stočení', potvrdit: 'Ano, zapsat' },
       );
       if (!ok) return;
+      // Ať obrazovka po zápisu zůstane u toho řádku, u kterého se klikalo.
+      const vratPozici = zapamatujPozici(`[data-inv-radek="${k}"]`);
       setDoplnujeSe(k);
       const { error } = await supabase.from('kegging').insert(rady);
       if (error) { setDoplnujeSe(null); chyba('Nepodařilo se zapsat stočení: ' + error.message); return; }
@@ -1067,6 +1075,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       if (tankChyby) chyba(tankChyby);
       forceReloadRef.current = true;
       await loadData(true);
+      vratPozici();
       return;
     }
 
@@ -1097,6 +1106,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       { titulek: 'Odečíst ze stáčení', potvrdit: 'Ano, odečíst' },
     );
     if (!ok) return;
+    const vratPozici = zapamatujPozici(`[data-inv-radek="${k}"]`);
     setDoplnujeSe(k);
     const { error } = await supabase.from('kegging').insert(rady.map((x) => x.row));
     setDoplnujeSe(null);
@@ -1104,6 +1114,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     oznam(`Odečteno ${chybi} ks ze „Stáčení KEG".`);
     forceReloadRef.current = true;
     await loadData(true);
+    vratPozici();
   }
 
   /**
@@ -1130,6 +1141,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       : lahvoveZapisy(polozka, datumDoplnku(currentMonth), currentMonth, vysledek.sudy);
     if (rady.length === 0) { setDoplnekLahvi(null); return; }
 
+    const vratPozici = zapamatujPozici(`[data-inv-radek="${r.beer_id}__${r.package_id}"]`);
     setDoplnujeSe(`${r.beer_id}__${r.package_id}`);
     const { error } = await supabase.from('bottling').insert(rady);
     setDoplnujeSe(null);
@@ -1146,6 +1158,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
         : `Zapsáno ${r.diffQty} ks do „Stáčení lahví".`));
     forceReloadRef.current = true;
     await loadData(true);
+    vratPozici();
   }
 
   const nespocitane = useMemo(
@@ -1670,7 +1683,7 @@ function exportInventoryExcel() {
                   const posledniPiva = zobrazeneRadky[i + 1]?.beer_id !== r.beer_id;
                   return (
                     <Fragment key={k}>
-                    <div className="plocha-z-dat plocha-z-dat-tlumena rounded border border-neutral-200 overflow-hidden" style={beer ? { backgroundColor: beerBg(beer), ['--ink-plochy' as any]: beerInk(beer) } : undefined}>
+                    <div data-inv-radek={k} className="plocha-z-dat plocha-z-dat-tlumena rounded border border-neutral-200 overflow-hidden" style={beer ? { backgroundColor: beerBg(beer), ['--ink-plochy' as any]: beerInk(beer) } : undefined}>
                       <div className="p-3 space-y-2">
                         <div className="flex items-center justify-between gap-2">
                           <div className={`font-black text-sm ${beer && beerText(beer) === 'text-white' ? 'text-white' : 'text-neutral-950'}`}>
@@ -1833,7 +1846,8 @@ function exportInventoryExcel() {
 
                       return (
                         <Fragment key={k}>
-                        <tr className="plocha-z-dat plocha-z-dat-tlumena hover:brightness-95 transition-colors border-b border-neutral-200/60" style={beer ? { backgroundColor: beerBg(beer), ['--ink-plochy' as any]: beerInk(beer) } : undefined}>
+                        {/* data-inv-radek = kotva, aby obrazovka po zápisu neodskočila (lib/drzPozici.ts) */}
+                        <tr data-inv-radek={k} className="plocha-z-dat plocha-z-dat-tlumena hover:brightness-95 transition-colors border-b border-neutral-200/60" style={beer ? { backgroundColor: beerBg(beer), ['--ink-plochy' as any]: beerInk(beer) } : undefined}>
                           <td className={`font-black text-[11px] px-3 py-2 ${textColor}`}>{r.beer_name}</td>
                           <td className={`font-extrabold text-[11px] px-3 py-2 ${textColor}`}>{formatPackageLabel(r.package_label)}</td>
                           <td className={`text-right font-black text-[11px] px-2 py-2 ${textColor}`}>{r.initialQty} ks</td>
