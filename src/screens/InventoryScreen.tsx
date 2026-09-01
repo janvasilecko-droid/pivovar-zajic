@@ -1862,11 +1862,16 @@ function exportInventoryExcel() {
                           </div>
                         )}
 
-                        {/* Srovnat rozdíl tam, kam patří — na rozdíl od dorovnání,
-                            které ho jen schová bokem. Prázdné pole INVENTURA
-                            znamená napočítanou nulu, takže se tlačítko ukáže
-                            všude, kde je rozdíl. */}
-                        {r.diffQty !== 0 && (
+                        {/* Srovnat rozdíl tam, kam patří — na rozdíl od
+                            dorovnání, které ho jen schová bokem. U LAHVÍ tu
+                            tlačítko není: zapsalo by je bez sudů a panel pod
+                            pivem, který se na sudy ptá, by tím zmizel. */}
+                        {r.diffQty !== 0 && !jeSud(r.package_kind, r.package_label) && (
+                          <div className="text-[11px] font-bold text-neutral-600 text-center py-1">
+                            Lahve se vyrovnávají <strong>v panelu pod pivem</strong> — tam se zadávají i sudy.
+                          </div>
+                        )}
+                        {r.diffQty !== 0 && jeSud(r.package_kind, r.package_label) && (
                           <button
                             type="button"
                             onClick={() => srovnatRozdil(r)}
@@ -2023,12 +2028,19 @@ function exportInventoryExcel() {
                             {r.diffCzk.toLocaleString('cs-CZ')} Kč
                           </td>
                           <td className="text-center px-2 py-2">
-                            {/* Dokud není vyplněná INVENTURA, tlačítko tu není —
-                                a jediné, na co jde v řádku sáhnout, je pole
-                                DOROVNAT. Lidi tam pak píšou počty a diví se, že
-                                se sudy neodečetly. Prázdná buňka to nevysvětlí,
-                                tak sem patří pokyn. */}
-                            {r.diffQty !== 0 && (
+                            {/* U LAHVÍ se tady nesrovnává. Řádkové tlačítko
+                                zapsalo lahve BEZ sudů, rozdíl tím spadl na
+                                nulu, panel pod pivem zmizel — a sudy, ze
+                                kterých se ty lahve stáčely, už nebylo kam
+                                zadat. 1. 9. 2026 tak vzniklo 20 lahvových
+                                zápisů bez jediného sudu. Lahve proto patří
+                                výhradně do panelu, který se na sudy ptá. */}
+                            {r.diffQty !== 0 && !jeSud(r.package_kind, r.package_label) && (
+                              <span className="text-[11px] font-bold text-neutral-600 whitespace-nowrap">
+                                ↓ v panelu pod pivem
+                              </span>
+                            )}
+                            {r.diffQty !== 0 && jeSud(r.package_kind, r.package_label) && (
                               <button
                                 type="button"
                                 onClick={() => srovnatRozdil(r)}

@@ -1,0 +1,237 @@
+HTTP 201
+[
+ {
+  "id": "b243e4fb-3be7-4215-bd8d-b32489dd5ebe",
+  "entry_date": "2026-08-31",
+  "pivo": "12° Světlá",
+  "obal": "LAHEV033",
+  "ks": "100",
+  "vytvoreno": "2026-09-01 20:32:59.73229+00",
+  "note": "Doplněno z inventury 2026-08 — 0.33l (přebytek 100 ks)"
+ },
+ {
+  "id": "f17a7b79-4560-4fa4-8e2f-ad2934270eee",
+  "entry_date": "2026-08-31",
+  "pivo": "12° Světlá",
+  "obal": "LAHEV05",
+  "ks": "112",
+  "vytvoreno": "2026-09-01 20:33:01.352816+00",
+  "note": "Doplněno z inventury 2026-08 — 0.5l (přebytek 112 ks)"
+ },
+ {
+  "id": "a923738f-1528-4a5e-9674-e4dbd79ecc0e",
+  "entry_date": "2026-08-31",
+  "pivo": "12° Světlá",
+  "obal": "LAHEV1",
+  "ks": "699",
+  "vytvoreno": "2026-09-01 20:33:03.088877+00",
+  "note": "Doplněno z inventury 2026-08 — 1l (přebytek 699 ks)"
+ },
+ {
+  "id": "20cfc2ca-c173-48b8-a1c7-984905fd6a8e",
+  "entry_date": "2026-08-31",
+  "pivo": "12° Světlá",
+  "obal": "LAHEV15",
+  "ks": "37",
+  "vytvoreno": "2026-09-01 20:33:04.775405+00",
+  "note": "Doplněno z inventury 2026-08 — 1.5l (přebytek 37 ks)"
+ },
+ {
+  "id": "5756e0da-1179-4207-b41a-287d141f0c8a",
+  "entry_date": "2026-08-31",
+  "pivo": "11° Světlá",
+  "obal": "LAHEV1",
+  "ks": "477",
+  "vytvoreno": "2026-09-01 20:30:06.693882+00",
+  "note": "Doplněno z inventury 2026-08 — 1l (přebytek 477 ks)"
+ },
+ {
+  "id": "9d5ffcb0-3b59-4b75-9d23-8adebd7eada5",
+  "entry_date": "2026-08-31",
+  "pivo": "11° Světlá",
+  "obal": "LAHEV05",
+  "ks": "19",
+  "vytvoreno": "2026-09-01 20:30:14.349723+00",
+  "note": "Doplněno z inventury 2026-08 — 0.5l (přebytek 19 ks)"
+ },
+ {
+  "id": "20c69377-f6fa-4c3d-a59e-c2aa35402650",
+  "entry_date": "2026-08-31",
+  "pivo": "11° Světlá",
+  "obal": "LAHEV033",
+  "ks": "10",
+  "vytvoreno": "2026-09-01 20:30:16.219425+00",
+  "note": "Doplněno z inventury 2026-08 — 0.33l (přebytek 10 ks)"
+ },
+ {
+  "id": "7806953a-08ce-4ac8-9a88-75cc3a111ad2",
+  "entry_date": "2026-08-31",
+  "pivo": "11° Světlá",
+  "obal": "LAHEV15",
+  "ks": "67",
+  "vytvoreno": "2026-09-01 20:30:18.706236+00",
+  "note": "Doplněno z inventury 2026-08 — 1.5l (přebytek 67 ks)"
+ },
+ {
+  "id": "fa2aaa33-a78d-4bc5-a111-a8e580db8db3",
+  "entry_date": "2026-08-31",
+  "pivo": "10° Desítka",
+  "obal": "LAHEV05",
+  "ks": "21",
+  "vytvoreno": "2026-09-01 20:28:34.641513+00",
+  "note": "Doplněno z inventury 2026-08 — 0.5l (přebytek 21 ks)"
+ },
+ {
+  "id": "3e34dacf-17c8-47b2-aece-aa1a4928ee49",
+  "entry_date": "2026-08-31",
+  "pivo": "10° Desítka",
+  "obal": "LAHEV1",
+  "ks": "-74",
+  "vytvoreno": "2026-09-01 20:28:37.273874+00",
+  "note": "Odečteno z inventury 2026-08 — 1l (manko -74 ks)"
+ },
+ {
+  "id": "6b4645c3-ad15-43c8-b8fb-4a60c446df2b",
+  "entry_date": "2026-08-31",
+  "pivo": "10° Desítka",
+  "obal": "LAHEV15",
+  "ks": "-29",
+  "vytvoreno": "2026-09-01 20:28:37.916814+00",
+  "note": "Odečteno z inventury 2026-08 — 1.5l (manko -29 ks)"
+ },
+ {
+  "id": "23d83ca8-7023-4aa8-9b32-839978fb5cb1",
+  "entry_date": "2026-08-31",
+  "pivo": "10° Desítka",
+  "obal": "LAHEV033",
+  "ks": "-20",
+  "vytvoreno": "2026-09-01 20:28:38.825178+00",
+  "note": "Odečteno z inventury 2026-08 — 0.33l (manko -20 ks)"
+ },
+ {
+  "id": "a4089abf-995f-4e37-8fd0-186265b31cff",
+  "entry_date": "2026-08-31",
+  "pivo": "12° Tmavá",
+  "obal": "LAHEV05",
+  "ks": "1",
+  "vytvoreno": "2026-09-01 20:26:34.378655+00",
+  "note": "Doplněno z inventury 2026-08 — 0.5l (přebytek 1 ks)"
+ },
+ {
+  "id": "f5e92f5a-ff86-455a-86bb-5790b71a7eb3",
+  "entry_date": "2026-08-31",
+  "pivo": "12° Tmavá",
+  "obal": "LAHEV15",
+  "ks": "18",
+  "vytvoreno": "2026-09-01 20:27:08.53793+00",
+  "note": "Doplněno z inventury 2026-08 — 1.5l (přebytek 18 ks)"
+ },
+ {
+  "id": "01f036f2-0329-413d-9343-e921a3f78352",
+  "entry_date": "2026-08-31",
+  "pivo": "12° Tmavá",
+  "obal": "LAHEV1",
+  "ks": "3",
+  "vytvoreno": "2026-09-01 20:27:11.760624+00",
+  "note": "Doplněno z inventury 2026-08 — 1l (přebytek 3 ks)"
+ },
+ {
+  "id": "2c715ec9-d067-4b00-873f-b7414fe1a5eb",
+  "entry_date": "2026-08-31",
+  "pivo": "12° Tmavá",
+  "obal": "LAHEV033",
+  "ks": "60",
+  "vytvoreno": "2026-09-01 20:27:12.919964+00",
+  "note": "Doplněno z inventury 2026-08 — 0.33l (přebytek 60 ks)"
+ },
+ {
+  "id": "9f904f0d-5410-48b6-926a-6e70ea52345e",
+  "entry_date": "2026-08-31",
+  "pivo": "Jantar",
+  "obal": "LAHEV033",
+  "ks": "10",
+  "vytvoreno": "2026-09-01 20:23:39.593306+00",
+  "note": "Doplněno z inventury 2026-08 — 0.33l (přebytek 10 ks)"
+ },
+ {
+  "id": "ed86cb03-2afb-4696-b9ce-03b53bc4e4f1",
+  "entry_date": "2026-08-31",
+  "pivo": "Jantar",
+  "obal": "LAHEV1",
+  "ks": "-58",
+  "vytvoreno": "2026-09-01 20:24:38.350531+00",
+  "note": "Odečteno z inventury 2026-08 — 1l (manko -58 ks)"
+ },
+ {
+  "id": "52d2021a-1b21-4212-86d4-d7b0ca027e48",
+  "entry_date": "2026-08-31",
+  "pivo": "Jantar",
+  "obal": "LAHEV1",
+  "ks": "24",
+  "vytvoreno": "2026-09-01 20:25:47.97051+00",
+  "note": "Doplněno z inventury 2026-08 — 1l (přebytek 24 ks)"
+ },
+ {
+  "id": "91949554-3aee-4b76-ada8-f5bb84b7bb92",
+  "entry_date": "2026-08-31",
+  "pivo": "Jantar",
+  "obal": "LAHEV15",
+  "ks": "18",
+  "vytvoreno": "2026-09-01 20:25:51.401852+00",
+  "note": "Doplněno z inventury 2026-08 — 1.5l (přebytek 18 ks)"
+ },
+ {
+  "id": "04cd915c-edb2-4e05-b7b9-d60015c7588c",
+  "entry_date": "2026-08-31",
+  "pivo": "Summer Ale",
+  "obal": "LAHEV1",
+  "ks": "717",
+  "vytvoreno": "2026-09-01 20:19:36.372745+00",
+  "note": "Doplněno z inventury 2026-08 — 1l (přebytek 717 ks)"
+ },
+ {
+  "id": "f03c72e4-8c59-47be-8730-1b3387fe1cdf",
+  "entry_date": "2026-08-31",
+  "pivo": "Summer Ale",
+  "obal": "LAHEV15",
+  "ks": "15",
+  "vytvoreno": "2026-09-01 20:19:53.305286+00",
+  "note": "Doplněno z inventury 2026-08 — 1.5l (přebytek 15 ks)"
+ },
+ {
+  "id": "6e863fdf-e8e8-4bfb-8272-8d47c466c5c8",
+  "entry_date": "2026-08-31",
+  "pivo": "Summer Ale",
+  "obal": "LAHEV05",
+  "ks": "10",
+  "vytvoreno": "2026-09-01 20:19:55.787527+00",
+  "note": "Doplněno z inventury 2026-08 — 0.5l (přebytek 10 ks)"
+ },
+ {
+  "id": "cc272dd0-cd36-47ef-9343-cc8f31914ca8",
+  "entry_date": "2026-08-31",
+  "pivo": "Summer Ale",
+  "obal": "LAHEV033",
+  "ks": "10",
+  "vytvoreno": "2026-09-01 20:19:57.117858+00",
+  "note": "Doplněno z inventury 2026-08 — 0.33l (přebytek 10 ks)"
+ },
+ {
+  "id": "62c522d4-9962-4d5c-9c70-5b48c4571b82",
+  "entry_date": "2026-08-31",
+  "pivo": "Osma",
+  "obal": "LAHEV1",
+  "ks": "45",
+  "vytvoreno": "2026-09-01 19:46:44.872597+00",
+  "note": "Doplněno z inventury 2026-08 — 1l (přebytek 45 ks)"
+ },
+ {
+  "id": "c4e03a14-f8b5-4934-ab57-36f1edcc634d",
+  "entry_date": "2026-08-31",
+  "pivo": "Osma",
+  "obal": "LAHEV15",
+  "ks": "2",
+  "vytvoreno": "2026-09-01 19:58:29.928838+00",
+  "note": "Doplněno z inventury 2026-08 — 1.5l (přebytek 2 ks)"
+ }
+]
