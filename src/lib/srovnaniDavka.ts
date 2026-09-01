@@ -30,10 +30,23 @@ export type LahvovaPolozkaDavky = {
   litry: number;
 };
 
+/**
+ * Kterým směrem se vyrovnává.
+ *   'prebytek' — napočítalo se VÍC, než sklad čeká: stočilo se a nezapsalo,
+ *                takže se stočení doplní (kladné řádky).
+ *   'manko'    — napočítalo se MÍŇ: zapsalo se víc, než se stočilo, takže se
+ *                zápis výroby o rozdíl sníží (záporné řádky).
+ */
+export type SmerSrovnani = 'prebytek' | 'manko';
+
+/** Co se má stát se sudy — určuje to člověk, ne dopočet. */
+export type SmerSudu = 'odecist' | 'vratit';
+
 export type DavkaPiva = {
   beer_id: string;
   beer_name: string;
-  /** Lahvové přebytky k zapsání, od největšího objemu. */
+  smer: SmerSrovnani;
+  /** Lahvové řádky k vyrovnání, od největšího objemu. Kusy jsou VŽDY KLADNÉ — směr nese `smer`. */
   lahve: LahvovaPolozkaDavky[];
   litryCelkem: number;
   /** Orientační počet 50l sudů ze SOUČTU litrů (ne součet zaokrouhlených řádků). */
@@ -44,10 +57,15 @@ export type DavkaPiva = {
 export type ZdrojovaSkupina = { kegPkgId: string; kegQty: number; kegVolumeL: number };
 
 /**
- * Sesbírá lahvové přebytky po pivech.
+ * Sesbírá lahvové rozdíly po pivech a směrech.
  *
- * Bere jen PŘEBYTKY (napočítáno víc, než sklad čeká) — manko znamená, že se
- * nic nevyrobilo, a patří do plánu dostáčení, ne do zápisu výroby.
+ * Bere OBA směry. Přebytek i manko se řeší v zápisu výroby — přebytek ho
+ * doplní, manko sníží. (Dřív se braly jen přebytky a manko mířilo do plánu
+ * dostáčení; ten model padl, protože nechával sklad nafouklý a rozdíl se
+ * táhl do dalšího měsíce.)
+ *
+ * Jedno pivo může mít obě strany naráz — pak vzniknou dvě dávky, ať se
+ * nemíchají litry, které jdou proti sobě.
  */
 export function davkySrovnani(
   radky: RadekSrovnani[],
@@ -57,21 +75,24 @@ export function davkySrovnani(
   const podlePiva = new Map<string, DavkaPiva>();
 
   for (const r of radky) {
-    if (r.diffQty <= 0) continue;
+    if (r.diffQty === 0) continue;
     if (jeSud(r.package_kind, r.package_label)) continue;
     const objem = Number(r.package_volume) || 0;
     if (objem <= 0) continue;
 
-    let d = podlePiva.get(r.beer_id);
+    const smer: SmerSrovnani = r.diffQty > 0 ? 'prebytek' : 'manko';
+    const kusy = Math.abs(r.diffQty);
+    const klic = `${r.beer_id}|${smer}`;
+    let d = podlePiva.get(klic);
     if (!d) {
-      d = { beer_id: r.beer_id, beer_name: r.beer_name, lahve: [], litryCelkem: 0, orientacneSudu: 0 };
-      podlePiva.set(r.beer_id, d);
+      d = { beer_id: r.beer_id, beer_name: r.beer_name, smer, lahve: [], litryCelkem: 0, orientacneSudu: 0 };
+      podlePiva.set(klic, d);
     }
     d.lahve.push({
       package_id: r.package_id,
       package_label: r.package_label,
-      kusy: r.diffQty,
-      litry: Math.round(objem * r.diffQty * 10) / 10,
+      kusy,
+      litry: Math.round(objem * kusy * 10) / 10,
     });
   }
 
@@ -133,26 +154,39 @@ export function rozdelSudyMeziRadky(
  * Vznikne řádek pro každou kombinaci obal lahví × velikost sudu, u které
  * nějaké sudy vyšly, plus řádek bez sudů pro lahve, na které se nedostalo.
  * Bez zadaných sudů se zapíšou jen lahve a sklad sudů se nehne.
+ *
+ * ZNAMÉNKA jsou dvě a nastavují se nezávisle:
+ *  • lahve podle `d.smer` — přebytek se přičte, manko odečte,
+ *  • sudy podle `smerSudu` — 'odecist' je ubere ze skladu (stočilo se z nich),
+ *    'vratit' je vrátí (nenačaly se, protože se ty lahve nestáčely).
+ * Nesvazují se schválně: který směr sudů dává smysl, ví jenom člověk. Skladová
+ * kniha záporné `kegs_used` čte jako vratku (viz resolveKegsUsed).
  */
 export function zapisyDavky(
   d: DavkaPiva,
   entryDate: string,
   monthKey: string,
   sudy: ZdrojovaSkupina[],
+  smerSudu: SmerSudu = 'odecist',
 ): Record<string, unknown>[] {
   const platne = sudy.filter((z) => z.kegQty > 0 && z.kegVolumeL > 0);
   const zaklad = { entry_date: entryDate, beer_id: d.beer_id, beer_name: d.beer_name };
+  const manko = d.smer === 'manko';
+  const znamenkoLahvi = manko ? -1 : 1;
+  const znamenkoSudu = smerSudu === 'vratit' ? -1 : 1;
+  const slovo = manko ? 'Odečteno' : 'Doplněno';
+  const duvod = manko ? 'manko' : 'přebytek';
 
   if (platne.length === 0) {
     return d.lahve.map((l) => ({
       ...zaklad,
       package_id: l.package_id,
       package_label: l.package_label,
-      quantity: l.kusy,
+      quantity: znamenkoLahvi * l.kusy,
       kegs_used: null,
       kegs_used_package_id: null,
       source_volume_l: null,
-      note: `Doplněno z inventury ${monthKey} — ${l.package_label} (přebytek ${l.kusy} ks)`,
+      note: `${slovo} z inventury ${monthKey} — ${l.package_label} (${duvod} ${l.kusy} ks)`,
     }));
   }
 
@@ -171,14 +205,14 @@ export function zapisyDavky(
         ...zaklad,
         package_id: l.package_id,
         package_label: l.package_label,
-        quantity: kusy,
-        kegs_used: sudyNaRadky[li] || null,
+        quantity: znamenkoLahvi * kusy,
+        kegs_used: sudyNaRadky[li] ? znamenkoSudu * sudyNaRadky[li] : null,
         kegs_used_package_id: sudyNaRadky[li] > 0 ? skupina.kegPkgId : null,
-        source_volume_l: sudyNaRadky[li] > 0 ? sudyNaRadky[li] * skupina.kegVolumeL : null,
+        source_volume_l: sudyNaRadky[li] > 0 ? znamenkoSudu * sudyNaRadky[li] * skupina.kegVolumeL : null,
         // Obal i velikost sudu do poznámky: skladová kniha slučuje sourozenecké
         // řádky jednoho zápisu podle poznámky (viz `dedupe` v stockLedger.ts) a
         // část odečtu by se jinak ztratila.
-        note: `Doplněno z inventury ${monthKey} — ${l.package_label} z ${skupina.kegVolumeL}l sudů (dávka)`,
+        note: `${slovo} z inventury ${monthKey} — ${l.package_label} z ${skupina.kegVolumeL}l sudů (dávka)`,
       });
     }
   }
@@ -189,7 +223,7 @@ export function zapisyDavky(
     const moje = rady.filter((r) => r.package_id === l.package_id);
     if (moje.length === 0) continue;
     const soucet = moje.reduce((s, r) => s + Number(r.quantity), 0);
-    moje[0].quantity = Number(moje[0].quantity) + (l.kusy - soucet);
+    moje[0].quantity = Number(moje[0].quantity) + (znamenkoLahvi * l.kusy - soucet);
   }
 
   return rady.filter((r) => Number(r.quantity) !== 0 || r.kegs_used !== null);

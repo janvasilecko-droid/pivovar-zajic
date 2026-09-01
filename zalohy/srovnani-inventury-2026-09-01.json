@@ -1,0 +1,201 @@
+HTTP 201
+[
+ {
+  "tabulka": "bottling",
+  "id": "48c390b4-d9d2-40ec-941e-21d957decaa5",
+  "entry_date": "2026-08-31",
+  "pivo": "Summer Ale",
+  "obal": "LAHEV15",
+  "quantity": "12",
+  "kegs_used": "",
+  "kegs_obal": "",
+  "note": "Doplněno z inventury 2026-08 — 1.5l z 50l sudů (dávka)"
+ },
+ {
+  "tabulka": "bottling",
+  "id": "13da9c37-e270-44c7-b0db-0ec6507b6177",
+  "entry_date": "2026-08-31",
+  "pivo": "Summer Ale",
+  "obal": "LAHEV1",
+  "quantity": "717",
+  "kegs_used": "17",
+  "kegs_obal": "KEG50",
+  "note": "Doplněno z inventury 2026-08 — 1l z 50l sudů (dávka)"
+ },
+ {
+  "tabulka": "bottling",
+  "id": "8e3820af-03d5-462b-bdcb-e4cbc276809f",
+  "entry_date": "2026-08-31",
+  "pivo": "Summer Ale",
+  "obal": "LAHEV033",
+  "quantity": "9",
+  "kegs_used": "",
+  "kegs_obal": "",
+  "note": "Doplněno z inventury 2026-08 — 0.33l z 50l sudů (dávka)"
+ },
+ {
+  "tabulka": "bottling",
+  "id": "e3d09fb1-02a2-4e93-86e5-7b2ccb8420b1",
+  "entry_date": "2026-08-31",
+  "pivo": "Osma",
+  "obal": "LAHEV1",
+  "quantity": "84",
+  "kegs_used": "2",
+  "kegs_obal": "KEG50",
+  "note": "Doplněno z inventury 2026-08 — 1l z 50l sudů (dávka)"
+ },
+ {
+  "tabulka": "bottling",
+  "id": "d8053e53-1c37-4a28-841b-84f4f2ca2760",
+  "entry_date": "2026-08-31",
+  "pivo": "Osma",
+  "obal": "LAHEV15",
+  "quantity": "2",
+  "kegs_used": "",
+  "kegs_obal": "",
+  "note": "Doplněno z inventury 2026-08 — 1.5l (přebytek 2 ks)"
+ },
+ {
+  "tabulka": "bottling",
+  "id": "eeaab7fd-97a9-4a68-8c18-ebe70a452ec8",
+  "entry_date": "2026-08-31",
+  "pivo": "12° Tmavá",
+  "obal": "LAHEV033",
+  "quantity": "60",
+  "kegs_used": "1",
+  "kegs_obal": "KEG50",
+  "note": "Doplněno z inventury 2026-08 — 0.33l z 50l sudů (dávka)"
+ },
+ {
+  "tabulka": "bottling",
+  "id": "5be537b2-5a00-4856-bdc8-6ec89debc72d",
+  "entry_date": "2026-08-31",
+  "pivo": "12° Tmavá",
+  "obal": "LAHEV15",
+  "quantity": "8",
+  "kegs_used": "",
+  "kegs_obal": "",
+  "note": "Doplněno z inventury 2026-08 — 1.5l z 50l sudů (dávka)"
+ },
+ {
+  "tabulka": "bottling",
+  "id": "10329534-9eda-4f6d-b56e-fd27c516c565",
+  "entry_date": "2026-08-31",
+  "pivo": "12° Tmavá",
+  "obal": "LAHEV1",
+  "quantity": "9",
+  "kegs_used": "",
+  "kegs_obal": "",
+  "note": "Doplněno z inventury 2026-08 — 1l z 50l sudů (dávka)"
+ },
+ {
+  "tabulka": "bottling",
+  "id": "27d043c9-f620-41c2-a9da-74e9125d4638",
+  "entry_date": "2026-08-31",
+  "pivo": "12° Tmavá",
+  "obal": "LAHEV05",
+  "quantity": "1",
+  "kegs_used": "",
+  "kegs_obal": "",
+  "note": "Doplněno z inventury 2026-08 — 0.5l z 50l sudů (dávka)"
+ },
+ {
+  "tabulka": "bottling",
+  "id": "f78c3ac6-f236-443f-a728-b64ffca8f4b9",
+  "entry_date": "2026-08-31",
+  "pivo": "10° Desítka",
+  "obal": "LAHEV05",
+  "quantity": "21",
+  "kegs_used": "",
+  "kegs_obal": "",
+  "note": "Doplněno z inventury 2026-08 — 0.5l (přebytek 21 ks)"
+ },
+ {
+  "tabulka": "bottling",
+  "id": "bc20df2f-e6fd-4dd9-880a-aa5e1a6a15f9",
+  "entry_date": "2026-08-31",
+  "pivo": "Osma",
+  "obal": "LAHEV1",
+  "quantity": "20",
+  "kegs_used": "1",
+  "kegs_obal": "KEG50",
+  "note": "Doplněno z inventury 2026-08 — 1l z 1×50 l (přebytek 20 ks)"
+ },
+ {
+  "tabulka": "kegging",
+  "id": "00527335-7514-49d9-a2c9-1b953ddb5a3a",
+  "entry_date": "2026-08-31",
+  "pivo": "Osma",
+  "obal": "KEG30",
+  "quantity": "3",
+  "kegs_used": "",
+  "kegs_obal": "",
+  "note": "Doplněno z inventury 2026-08 — 30l z Tank 3 (přebytek 3 ks)"
+ },
+ {
+  "tabulka": "kegging",
+  "id": "a02287a3-40cb-43aa-ab38-6fdcffc6e8df",
+  "entry_date": "2026-08-31",
+  "pivo": "Osma",
+  "obal": "KEG50",
+  "quantity": "3",
+  "kegs_used": "",
+  "kegs_obal": "",
+  "note": "Doplněno z inventury 2026-08 —  50l z Tank 3 (přebytek 3 ks)"
+ },
+ {
+  "tabulka": "kegging",
+  "id": "a7b870ba-aa2e-4b32-bb48-79d12b12273b",
+  "entry_date": "2026-08-31",
+  "pivo": "12° Tmavá",
+  "obal": "KEG30",
+  "quantity": "3",
+  "kegs_used": "",
+  "kegs_obal": "",
+  "note": "Doplněno z inventury 2026-08 — 30l z Tank 1 (přebytek 3 ks)"
+ },
+ {
+  "tabulka": "kegging",
+  "id": "602ebd02-faef-403c-acee-bee9044ab609",
+  "entry_date": "2026-08-31",
+  "pivo": "10° Desítka",
+  "obal": "KEG10",
+  "quantity": "3",
+  "kegs_used": "",
+  "kegs_obal": "",
+  "note": "Doplněno z inventury 2026-08 —  10l z Tank 4 (přebytek 3 ks)"
+ },
+ {
+  "tabulka": "kegging",
+  "id": "164ce281-2eb8-481f-b060-3290cdc8b503",
+  "entry_date": "2026-08-31",
+  "pivo": "Summer Ale",
+  "obal": "KEG50",
+  "quantity": "6",
+  "kegs_used": "",
+  "kegs_obal": "",
+  "note": "Doplněno z inventury 2026-08 —  50l z Tank 6 (přebytek 6 ks)"
+ },
+ {
+  "tabulka": "kegging",
+  "id": "31069ded-e4ff-4e01-b154-0cbdc38e2a1f",
+  "entry_date": "2026-08-31",
+  "pivo": "Summer Ale",
+  "obal": "KEG30",
+  "quantity": "5",
+  "kegs_used": "",
+  "kegs_obal": "",
+  "note": "Doplněno z inventury 2026-08 — 30l z Tank 6 (přebytek 5 ks)"
+ },
+ {
+  "tabulka": "kegging",
+  "id": "c9cc19d1-aa77-4dc4-8036-cfff38254a90",
+  "entry_date": "2026-08-31",
+  "pivo": "Osma",
+  "obal": "KEG50",
+  "quantity": "3",
+  "kegs_used": "",
+  "kegs_obal": "",
+  "note": "Doplněno z inventury 2026-08 —  50l z Tank 3 (přebytek 3 ks)"
+ }
+]

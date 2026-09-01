@@ -28,8 +28,20 @@ describe('davkySrovnani', () => {
     expect(d[0].orientacneSudu).toBe(23);
   });
 
-  it('manko se nesbírá — nic se nevyrobilo', () => {
-    expect(davkySrovnani([lahev('1 L', 1, -300)])).toEqual([]);
+  it('manko se sbírá taky — jen opačným směrem', () => {
+    // Dřív se manko zahazovalo a mířilo do plánu dostáčení. Ten model padl:
+    // nechával sklad nafouklý a rozdíl se táhl do dalšího měsíce. Kusy
+    // zůstávají KLADNÉ, směr nese pole `smer`.
+    const d = davkySrovnani([lahev('1 L', 1, -300)]);
+    expect(d).toHaveLength(1);
+    expect(d[0].smer).toBe('manko');
+    expect(d[0].lahve[0].kusy).toBe(300);
+    expect(d[0].litryCelkem).toBe(300);
+  });
+
+  it('pivo s oběma stranami dá dvě dávky, ať se litry nemíchají', () => {
+    const d = davkySrovnani([lahev('1 L', 1, 100), lahev('0.5 L', 0.5, -40)]);
+    expect(d.map((x) => x.smer).sort()).toEqual(['manko', 'prebytek']);
   });
 
   it('sudové řádky do lahvové dávky nepatří', () => {
@@ -129,5 +141,58 @@ describe('zapisyDavky', () => {
   it('nulové skupiny se ignorují', () => {
     const r = zapisyDavky(davka, D, '2026-08', [{ kegPkgId: 'k50', kegQty: 0, kegVolumeL: 50 }]);
     expect(r.every((x) => x.kegs_used === null)).toBe(true);
+  });
+});
+
+describe('zapisyDavky — znaménka lahví a sudů', () => {
+  const davkaManko = davkySrovnani([lahev('1 L', 1, -59)])[0];
+  const davkaPrebytek = davkySrovnani([lahev('1 L', 1, 59)])[0];
+  const sudy = [{ kegPkgId: 'k50', kegQty: 1, kegVolumeL: 50 }];
+
+  it('MANKO zapíše lahve záporně — bez toho odečet nikdy neprošel', () => {
+    // Tabulka bottling měla CHECK (quantity > 0) a každý odečet skončil na
+    // "violates check constraint bottling_quantity_positive". Migrace
+    // 20261225000000 to povolila; tenhle test hlídá, že se záporný řádek
+    // opravdu tvoří.
+    const rady = zapisyDavky(davkaManko, '2026-08-31', '2026-08', []);
+    expect(rady).toHaveLength(1);
+    expect(rady[0].quantity).toBe(-59);
+    expect(String(rady[0].note)).toContain('Odečteno z inventury 2026-08');
+  });
+
+  it('PŘEBYTEK zapíše lahve kladně', () => {
+    const rady = zapisyDavky(davkaPrebytek, '2026-08-31', '2026-08', []);
+    expect(rady[0].quantity).toBe(59);
+    expect(String(rady[0].note)).toContain('Doplněno z inventury 2026-08');
+  });
+
+  it('sudy „odečíst" ubírají ze skladu, „vrátit" je vracejí', () => {
+    const odecist = zapisyDavky(davkaManko, '2026-08-31', '2026-08', sudy, 'odecist');
+    expect(odecist[0].kegs_used).toBe(1);
+    expect(odecist[0].source_volume_l).toBe(50);
+
+    const vratit = zapisyDavky(davkaManko, '2026-08-31', '2026-08', sudy, 'vratit');
+    expect(vratit[0].kegs_used).toBe(-1);
+    expect(vratit[0].source_volume_l).toBe(-50);
+  });
+
+  it('směr sudů je NEZÁVISLÝ na směru lahví — rozhoduje člověk', () => {
+    // Přebytek lahví se sudy vrácenými dává smysl stejně jako manko se sudy
+    // odečtenými; svazovat to natvrdo by některé opravy znemožnilo.
+    const rady = zapisyDavky(davkaPrebytek, '2026-08-31', '2026-08', sudy, 'vratit');
+    expect(rady[0].quantity).toBe(59);
+    expect(rady[0].kegs_used).toBe(-1);
+  });
+
+  it('součet kusů sedí přesně na napočítaný rozdíl i se znaménkem', () => {
+    const davka = davkySrovnani([lahev('1 L', 1, -100), lahev('0.5 L', 0.5, -40)])[0];
+    const rady = zapisyDavky(davka, '2026-08-31', '2026-08', [
+      { kegPkgId: 'k50', kegQty: 1, kegVolumeL: 50 },
+      { kegPkgId: 'k30', kegQty: 1, kegVolumeL: 30 },
+    ], 'vratit');
+    const soucet = (pkg: string) => rady.filter((r) => r.package_label === pkg).reduce((s, r) => s + Number(r.quantity), 0);
+    expect(soucet('1 L')).toBe(-100);
+    expect(soucet('0.5 L')).toBe(-40);
+    expect(rady.reduce((s, r) => s + Number(r.kegs_used ?? 0), 0)).toBe(-2);
   });
 });

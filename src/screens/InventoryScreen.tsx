@@ -8,14 +8,13 @@ import { AlertCircle, AlertTriangle, Beer as BeerIcon, Calendar, Camera, Clipboa
 import { CountFromImage } from '../components/CountFromImage';
 import { computeInventoryReconciliation } from '../lib/inventoryHelper';
 import { akceProRozdil, datumDoplnku, doplnekVBudoucnu, jeSud, kegovaniZapisy, lahvoveZapisy, nabidnoutMinulyMesic, nazevMesice, odectiZeStoceni, vychoziMesicInventury, stoceniZapis } from '../lib/inventoryFix';
-import { davkySrovnani, zapisyDavky, type DavkaPiva, type ZdrojovaSkupina } from '../lib/srovnaniDavka';
+import { davkySrovnani, zapisyDavky, type DavkaPiva, type SmerSudu, type ZdrojovaSkupina } from '../lib/srovnaniDavka';
 import { zapamatujPozici } from '../lib/drzPozici';
 import { vyrovnaniZaMesic } from '../lib/vyrovnani';
 import { normalizujCislo } from '../lib/cisloVstup';
 import { popisRozdeleni, rozdelSudyDoTanku, zmenaOtevreni, type RozdeleniSudu, type TankProRozdeleni } from '../lib/tankRozdeleni';
 import { saveBottlingPlan } from '../lib/bottlingPlans';
 import { businessDateISO } from '../lib/businessDate';
-import { DoplnitStoceniModal, type DoplnitStoceniVysledek } from '../components/DoplnitStoceniModal';
 import { buildMovements, expectedForMonth, stockAtStartOfDay, stockForMonth, type StockLine } from '../lib/stockLedger';
 import { AUDIT_NADPISY, AUDIT_SLOUPCE, bunkaAuditu, maCoUkazat, porovnejPolozku, type AuditSloupec } from '../lib/auditSkladu';
 import { chyba, oznam, potvrd, toastZpet, uspech } from '../lib/toast';
@@ -165,7 +164,6 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   /** Klíč řádku, u kterého právě běží zápis doplňku — blokuje dvojklik. */
   const [doplnujeSe, setDoplnujeSe] = useState<string | null>(null);
   /** Otevřený dialog doplnění stočení LAHVÍ (výběr zdrojových sudů). */
-  const [doplnekLahvi, setDoplnekLahvi] = useState<InventoryRow | null>(null);
 
   // Data pro "Stav na konci měsíce" (bilanční konto sudů)
   const [objednavkyMap, setObjednavkyMap] = useState<Record<string, number>>({}); // Objednávky (kegy)
@@ -845,8 +843,10 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     () => davkySrovnani(rows),
     [rows, actualStock],
   );
-  /** Zadané počty sudů, klíč `beerId__kegPkgId`. */
+  /** Zadané počty sudů, klíč `beerId__smer__kegPkgId`. */
   const [davkaSudy, setDavkaSudy] = useState<Record<string, string>>({});
+  /** Co se sudy — přičíst do skladu, nebo odečíst. Klíč `beerId__smer`. */
+  const [davkaSmerSudu, setDavkaSmerSudu] = useState<Record<string, SmerSudu>>({});
   const sudoveObaly = useMemo(
     () => packages
       .filter((p) => jeSud(p.kind, p.label))
@@ -863,40 +863,81 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
    * přebytku by to jen zabíralo místo.
    */
   function panelDavky(beerId: string) {
-    const d = davky.find((x) => x.beer_id === beerId);
-    if (!d) return null;
+    const proPivo = davky.filter((x) => x.beer_id === beerId);
+    if (proPivo.length === 0) return null;
+    return <>{proPivo.map((d) => <PanelVyrovnani key={`${d.beer_id}__${d.smer}`} d={d} />)}</>;
+  }
+
+  /**
+   * Panel „Vyrovnat" pod pivem — jeden na každý směr.
+   *
+   * Nahradil vyskakovací okno u každého řádku. Sudy se načínají pro celé
+   * stáčení, ne pro jednu velikost lahve, takže se zadávají jednou pro celé
+   * pivo — a člověk u toho rovnou vidí, kolik litrů to dělá.
+   *
+   * Směr sudů je VLASTNÍ přepínač, ne odvozenina ze směru lahví: u přebytku
+   * se sudy obvykle odečtou (stočilo se z nich), u manka vrátí (nenačaly se),
+   * ale výjimky existují a rozhodnout to může jen člověk.
+   */
+  function PanelVyrovnani({ d }: { d: DavkaPiva }) {
+    const manko = d.smer === 'manko';
+    const klic = `${d.beer_id}__${d.smer}`;
+    const smerSudu: SmerSudu = davkaSmerSudu[klic] ?? (manko ? 'vratit' : 'odecist');
     const zadano = sudoveObaly
       .map((p) => ({
         kegPkgId: p.id,
-        kegQty: Math.max(0, Math.floor(Number(davkaSudy[`${d.beer_id}__${p.id}`]) || 0)),
+        kegQty: Math.max(0, Math.floor(Number(davkaSudy[`${klic}__${p.id}`]) || 0)),
         kegVolumeL: Number(p.volume_l ?? 0),
       }))
       .filter((z) => z.kegQty > 0 && z.kegVolumeL > 0);
     const zadanoL = zadano.reduce((s, z) => s + z.kegQty * z.kegVolumeL, 0);
+    const suduCelkem = zadano.reduce((s, z) => s + z.kegQty, 0);
+    const kusuCelkem = d.lahve.reduce((s, l) => s + l.kusy, 0);
+    const barva = manko
+      ? { ram: 'border-rose-300 bg-rose-50/70', nadpis: 'text-rose-900', text: 'text-rose-900', tlacitko: 'bg-rose-600 hover:bg-rose-700', pole: 'border-rose-400 focus:border-rose-600' }
+      : { ram: 'border-emerald-300 bg-emerald-50/70', nadpis: 'text-emerald-900', text: 'text-emerald-900', tlacitko: 'bg-emerald-600 hover:bg-emerald-700', pole: 'border-emerald-400 focus:border-emerald-600' };
 
     return (
-      <div className="rounded border-2 border-emerald-300 bg-emerald-50/70 p-3 space-y-2.5">
-        <div className="text-[11px] font-black uppercase tracking-wider text-emerald-900">
-          {d.beer_name} — dopočet lahví na sudy
+      <div className={`rounded border-2 p-3 space-y-2.5 ${barva.ram}`}>
+        <div className={`text-[11px] font-black uppercase tracking-wider ${barva.nadpis}`}>
+          {d.beer_name} — vyrovnat {manko ? 'MANKO (odečíst lahve)' : 'PŘEBYTEK (zapsat lahve)'}
         </div>
 
         <div className="text-xs font-bold text-neutral-800 space-y-0.5">
           {d.lahve.map((l) => (
             <div key={l.package_id} className="flex justify-between gap-2">
-              <span>{formatPackageLabel(l.package_label)} × {l.kusy} ks</span>
+              <span>{formatPackageLabel(l.package_label)} × {manko ? '−' : '+'}{l.kusy} ks</span>
               <span className="font-mono tabular-nums">{l.litry.toLocaleString('cs-CZ')} l</span>
             </div>
           ))}
-          <div className="flex justify-between gap-2 border-t border-emerald-300 pt-1 font-black">
+          <div className="flex justify-between gap-2 border-t border-neutral-300 pt-1 font-black">
             <span>Celkem</span>
             <span className="font-mono tabular-nums">{d.litryCelkem.toLocaleString('cs-CZ')} l</span>
           </div>
         </div>
 
-        <p className="text-[11px] font-bold text-emerald-900">
-          Orientačně + 10 % ztráta ≈ <strong>{d.orientacneSudu}×50 l</strong>. Kolik sudů se
-          opravdu načalo víš jenom ty — potvrď níž.
+        <p className={`text-[11px] font-bold ${barva.text}`}>
+          Orientačně + 10 % ztráta ≈ <strong>{d.orientacneSudu}×50 l</strong>. Kolik sudů se toho
+          doopravdy týká víš jenom ty — zadej níž, nebo nech prázdné.
         </p>
+
+        {/* Směr sudů zvlášť. Bez toho nešlo vrátit sudy u manka ani odečíst
+            u výjimečného přebytku — a právě o to šlo z provozu. */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] font-black uppercase text-neutral-600">Se sudy:</span>
+          {([['odecist', '− Odečíst ze skladu'], ['vratit', '+ Vrátit do skladu']] as [SmerSudu, string][]).map(([hodnota, popis]) => (
+            <button
+              key={hodnota}
+              type="button"
+              onClick={() => setDavkaSmerSudu((v) => ({ ...v, [klic]: hodnota }))}
+              className={`px-2.5 py-1.5 rounded font-black text-[11px] transition ${
+                smerSudu === hodnota ? 'bg-neutral-900 text-white' : 'bg-white border border-neutral-300 text-neutral-700 hover:bg-neutral-100'
+              }`}
+            >
+              {popis}
+            </button>
+          ))}
+        </div>
 
         <div className="flex flex-wrap items-center gap-2">
           {sudoveObaly.map((p) => (
@@ -905,36 +946,32 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
                 type="text"
                 inputMode="numeric"
                 placeholder="0"
-                value={davkaSudy[`${d.beer_id}__${p.id}`] ?? ''}
-                onChange={(e) => setDavkaSudy((v) => ({
-                  ...v,
-                  [`${d.beer_id}__${p.id}`]: normalizujCislo(e.target.value, false),
-                }))}
-                className="w-16 px-2 py-2 rounded border-2 border-emerald-400 bg-white text-center font-black text-base text-neutral-900 focus:border-emerald-600 focus:outline-hidden"
+                value={davkaSudy[`${klic}__${p.id}`] ?? ''}
+                onChange={(e) => setDavkaSudy((v) => ({ ...v, [`${klic}__${p.id}`]: normalizujCislo(e.target.value, false) }))}
+                className={`w-16 px-2 py-2 rounded border-2 bg-white text-center font-black text-base text-neutral-900 focus:outline-hidden ${barva.pole}`}
                 aria-label={`${d.beer_name} — počet sudů ${p.volume_l} l`}
               />
-              <span className="font-black text-xs text-emerald-900">× {p.volume_l} l</span>
+              <span className={`font-black text-xs ${barva.text}`}>× {p.volume_l} l</span>
             </div>
           ))}
         </div>
 
-        <div className="text-[11px] font-black text-emerald-900">
+        <div className={`text-[11px] font-black ${barva.text}`}>
           {zadanoL > 0
-            ? `Odečte se ${zadano.map((z) => `${z.kegQty}×${z.kegVolumeL}`).join(' + ')} = ${zadanoL.toLocaleString('cs-CZ')} l`
-            : 'Prázdné = sudy se neodečtou.'}
+            ? `${smerSudu === 'vratit' ? 'Vrátí' : 'Odečte'} se ${zadano.map((z) => `${z.kegQty}×${z.kegVolumeL}`).join(' + ')} = ${zadanoL.toLocaleString('cs-CZ')} l`
+            : 'Prázdné = sudy se nehnou.'}
         </div>
 
         <button
           type="button"
-          onClick={() => zapsatDavku(d, zadano)}
+          onClick={() => zapsatDavku(d, zadano, smerSudu)}
           disabled={doplnujeSe !== null}
-          className="w-full min-h-[44px] rounded bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition disabled:opacity-50"
+          className={`w-full min-h-[44px] rounded text-white font-black text-xs transition disabled:opacity-50 ${barva.tlacitko}`}
         >
-          {doplnujeSe === `davka__${d.beer_id}`
+          {doplnujeSe === `davka__${klic}`
             ? 'Zapisuji…'
-            : zadano.length > 0
-              ? `Zapsat lahve a odečíst ${zadano.reduce((s, z) => s + z.kegQty, 0)} sudů`
-              : 'Zapsat jen lahve (sudy se neodečtou)'}
+            : `${manko ? 'Odečíst' : 'Zapsat'} ${kusuCelkem} ks lahví`
+              + (suduCelkem > 0 ? ` a ${smerSudu === 'vratit' ? 'vrátit' : 'odečíst'} ${suduCelkem} sudů` : ' (sudy se nehnou)')}
         </button>
       </div>
     );
@@ -959,34 +996,37 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   }
 
   /** Zapíše celou dávku jednoho piva: lahve do stáčení, sudy dolů ze skladu. */
-  async function zapsatDavku(d: DavkaPiva, zadano: ZdrojovaSkupina[]) {
+  /** Zapíše celé vyrovnání jednoho piva: lahve se znaménkem, sudy podle zvoleného směru. */
+  async function zapsatDavku(d: DavkaPiva, zadano: ZdrojovaSkupina[], smerSudu: SmerSudu) {
     if (doplnujeSe) return;
     if (odmitniBudoucnost()) return;
+    const manko = d.smer === 'manko';
+    const klic = `${d.beer_id}__${d.smer}`;
     const suduCelkem = zadano.reduce((s, z) => s + z.kegQty, 0);
+    const kusuCelkem = d.lahve.reduce((s, l) => s + l.kusy, 0);
 
-    const rady = zapisyDavky(d, datumDoplnku(currentMonth), currentMonth, zadano);
+    const rady = zapisyDavky(d, datumDoplnku(currentMonth), currentMonth, zadano, smerSudu);
     if (rady.length === 0) return;
 
-    // Zelený panel pod pivem po zápisu zmizí (už není co srovnávat) a všechno
-    // pod ním vyskočí nahoru. Kotvou je první řádek toho piva — ten zůstává.
+    // Panel pod pivem po zápisu zmizí (už není co vyrovnávat) a všechno pod
+    // ním vyskočí nahoru. Kotvou je první řádek toho piva — ten zůstává.
     const vratPozici = zapamatujPozici(`[data-inv-radek^="${d.beer_id}__"]`);
 
-    setDoplnujeSe(`davka__${d.beer_id}`);
+    setDoplnujeSe(`davka__${klic}`);
     const { data: vlozene, error } = await supabase.from('bottling').insert(rady).select('id');
     setDoplnujeSe(null);
-    if (error) { chyba('Nepodařilo se zapsat stočení: ' + error.message); return; }
+    if (error) { chyba(`Nepodařilo se ${manko ? 'odečíst' : 'zapsat'} stočení: ` + error.message); return; }
 
-    // Zadané počty pro tohle pivo uklidit, ať se po znovunačtení nenabízí
-    // znovu k odečtení něco, co je už zapsané.
+    // Zadané počty pro tenhle směr uklidit, ať se po znovunačtení nenabízí
+    // znovu něco, co je už zapsané.
     setDavkaSudy((v) => {
       const dal = { ...v };
-      for (const k of Object.keys(dal)) if (k.startsWith(`${d.beer_id}__`)) delete dal[k];
+      for (const kk of Object.keys(dal)) if (kk.startsWith(`${klic}__`)) delete dal[kk];
       return dal;
     });
     toastZpet(
-      suduCelkem > 0
-        ? `${d.beer_name}: zapsáno ${d.lahve.reduce((s, l) => s + l.kusy, 0)} ks lahví a odečteno ${suduCelkem} sudů.`
-        : `${d.beer_name}: zapsáno ${d.lahve.reduce((s, l) => s + l.kusy, 0)} ks lahví.`,
+      `${d.beer_name}: ${manko ? 'odečteno' : 'zapsáno'} ${kusuCelkem} ks lahví`
+        + (suduCelkem > 0 ? ` a ${smerSudu === 'vratit' ? 'vráceno' : 'odečteno'} ${suduCelkem} sudů.` : '.'),
       () => vratZpetStaceni(vlozene),
     );
     forceReloadRef.current = true;
@@ -1101,11 +1141,25 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     const dnes = businessDateISO();
 
     if (akce === 'zapsat_staceni') {
-      // U LAHVÍ je potřeba doplnit i sudy, ze kterých se stáčelo — na to
-      // obyčejné potvrzení nestačí, otevře se dialog s výběrem velikosti
-      // sudu a dopočtem podle 10% ztráty.
+      // LAHVE: zapíšou se rovnou, bez ptaní a BEZ sudů. Kolik sudů se
+      // načalo, se zadává v panelu pod pivem — tam je na to místo pro
+      // všechny velikosti a dělá se to pro celé pivo najednou, ne řádek po
+      // řádku. Dřív se tu otevíralo okno u každého řádku zvlášť.
       if (!jeSud(r.package_kind, r.package_label)) {
-        setDoplnekLahvi(r);
+        const radyLahvi = lahvoveZapisy(polozka, datumDoplnku(currentMonth), currentMonth, []);
+        if (radyLahvi.length === 0) return;
+        const vratPoziciL = zapamatujPozici(`[data-inv-radek="${k}"]`);
+        setDoplnujeSe(k);
+        const { data: vlozeneL, error: chybaL } = await supabase.from('bottling').insert(radyLahvi).select('id');
+        setDoplnujeSe(null);
+        if (chybaL) { chyba('Nepodařilo se zapsat stočení: ' + chybaL.message); return; }
+        toastZpet(
+          `Zapsáno ${r.diffQty} ks do „Stáčení lahví" (sudy se neodečetly — zadej je v panelu pod pivem).`,
+          () => vratZpetStaceni(vlozeneL),
+        );
+        forceReloadRef.current = true;
+        await loadData(true);
+        vratPoziciL();
         return;
       }
       // 🛢️ Sudy se berou z tanků se stejným pivem; když jeden dojde,
@@ -1149,10 +1203,23 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     // se přenáší jako počáteční stav do dalšího měsíce.
     if (odmitniBudoucnost()) return;
 
-    // U LAHVÍ se ptáme na sudy stejně jako u přebytku, jen opačným směrem:
-    // když se lahve nenastáčely, sudy se nenačaly a vracejí se do skladu.
+    // LAHVE: odečtou se rovnou, bez ptaní a BEZ vracení sudů. Kolik sudů se
+    // nenačalo, se zadává v panelu pod pivem.
     if (!jeSud(r.package_kind, r.package_label)) {
-      setDoplnekLahvi(r);
+      const radyLahvi = odectiZeStoceni(polozka, datumDoplnku(currentMonth), currentMonth).map((x) => x.row);
+      if (radyLahvi.length === 0) return;
+      const vratPoziciL = zapamatujPozici(`[data-inv-radek="${k}"]`);
+      setDoplnujeSe(k);
+      const { data: vlozeneL, error: chybaL } = await supabase.from('bottling').insert(radyLahvi).select('id');
+      setDoplnujeSe(null);
+      if (chybaL) { chyba('Nepodařilo se odečíst ze stáčení: ' + chybaL.message); return; }
+      toastZpet(
+        `Odečteno ${Math.abs(r.diffQty)} ks ze „Stáčení lahví" (sudy se nevrátily — zadej je v panelu pod pivem).`,
+        () => vratZpetStaceni(vlozeneL),
+      );
+      forceReloadRef.current = true;
+      await loadData(true);
+      vratPoziciL();
       return;
     }
 
@@ -1171,50 +1238,6 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     vratPozici();
   }
 
-  /**
-   * Potvrzení dialogu u LAHVÍ — pro obojí směr.
-   *
-   * PŘEBYTEK: nastáčelo se a nezapsalo → lahve nahoru, sudy dolů ze skladu.
-   * MANKO: nenastáčelo se, ačkoli se zapsalo → lahve dolů a sudy se VRACEJÍ,
-   * protože se nenačaly. Je to jeden a ten samý zápis, jen se znaménkem.
-   */
-  async function zapisDoplnekLahvi(vysledek: DoplnitStoceniVysledek) {
-    const r = doplnekLahvi;
-    if (!r) return;
-    const polozka = {
-      beer_id: r.beer_id,
-      beer_name: r.beer_name,
-      package_id: r.package_id,
-      package_label: r.package_label,
-      package_kind: r.package_kind,
-      diffQty: r.diffQty,
-    };
-    const manko = r.diffQty < 0;
-    const rady = manko
-      ? odectiZeStoceni(polozka, datumDoplnku(currentMonth), currentMonth, vysledek.sudy).map((x) => x.row)
-      : lahvoveZapisy(polozka, datumDoplnku(currentMonth), currentMonth, vysledek.sudy);
-    if (rady.length === 0) { setDoplnekLahvi(null); return; }
-
-    const vratPozici = zapamatujPozici(`[data-inv-radek="${r.beer_id}__${r.package_id}"]`);
-    setDoplnujeSe(`${r.beer_id}__${r.package_id}`);
-    const { data: vlozene, error } = await supabase.from('bottling').insert(rady).select('id');
-    setDoplnujeSe(null);
-    if (error) { chyba('Nepodařilo se zapsat: ' + error.message); return; }
-    setDoplnekLahvi(null);
-    const sudyCelkem = vysledek.sudy.reduce((s, z) => s + z.kegQty, 0);
-    const rozpis = vysledek.sudy.map((z) => `${z.kegQty}×${z.kegVolumeL}`).join(' + ');
-    toastZpet(manko
-      ? (sudyCelkem > 0
-        ? `Odečteno ${Math.abs(r.diffQty)} ks lahví a vráceno ${rozpis} do skladu.`
-        : `Odečteno ${Math.abs(r.diffQty)} ks ze „Stáčení lahví".`)
-      : (sudyCelkem > 0
-        ? `Zapsáno ${r.diffQty} ks lahví a odečteno ${rozpis}.`
-        : `Zapsáno ${r.diffQty} ks do „Stáčení lahví".`),
-      () => vratZpetStaceni(vlozene));
-    forceReloadRef.current = true;
-    await loadData(true);
-    vratPozici();
-  }
 
   /**
    * 🔍 Podklad karty Audit: pro každé pivo × obal dvojice řádků
@@ -1527,20 +1550,6 @@ function exportInventoryExcel() {
 
 
 
-      {doplnekLahvi && (
-        <DoplnitStoceniModal
-          open
-          onClose={() => setDoplnekLahvi(null)}
-          onConfirm={zapisDoplnekLahvi}
-          popis={`${doplnekLahvi.beer_name} · ${formatPackageLabel(doplnekLahvi.package_label)}`}
-          kusy={doplnekLahvi.diffQty}
-          objemLahveL={Number(doplnekLahvi.package_volume ?? 0)}
-          kegPackages={packages.filter((p) => jeSud(p.kind, p.label))}
-          mesic={currentMonth}
-          datum={datumDoplnku(currentMonth)}
-          ukladaSe={doplnujeSe !== null}
-        />
-      )}
 
       {/* TAB 1: FYZICKÁ INVENTURA & ROZDÍLY */}
       {activeTab === 'inventory' && (
