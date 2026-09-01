@@ -460,3 +460,25 @@ export async function fetchRecentWhatsAppMessages(limit = 100): Promise<WhatsApp
   }
   return data || [];
 }
+
+/**
+ * Kdy naposledy něco DORAZILO z telefonu — napříč všemi stavy, včetně
+ * odfiltrovaných.
+ *
+ * Čte se deník příjmu (`whatsapp_prijem_log`), ne uložené zprávy: když
+ * filtr zprávu zahodí, v `whatsapp_incoming` být nemusí, ale příjem
+ * evidentně funguje. Pro otázku „chodí to ještě?" je tohle správný zdroj.
+ */
+export async function fetchLastWhatsAppAt(): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('whatsapp_prijem_log')
+    .select('created_at')
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (error) {
+    console.error('Error fetching last WhatsApp arrival:', error);
+    return null;
+  }
+  return data?.[0]?.created_at ?? null;
+}

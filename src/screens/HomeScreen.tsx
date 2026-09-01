@@ -51,7 +51,8 @@ import { isMonthlyCleanupPending, MONTHLY_CLEANUP_CHANGED_EVENT } from '../lib/m
 import { potvrd, oznam } from '../lib/toast';
 import { requestOrdersAutoImport } from '../lib/ordersFilter';
 import { getTheme, setTheme, type Theme } from '../lib/theme';
-import { fetchPendingWhatsAppCount, subscribeToWhatsAppMessages } from '../lib/whatsappApi';
+import { fetchLastWhatsAppAt, fetchPendingWhatsAppCount, subscribeToWhatsAppMessages } from '../lib/whatsappApi';
+import { tichoWhatsApp, type TichoWhatsApp } from '../lib/whatsappTicho';
 import { nactiRezervace } from '../lib/vycepyData';
 import { stariInventury, type StariInventury } from '../lib/inventuraStari';
 import { nazevMesice } from '../lib/inventoryFix';
@@ -537,8 +538,18 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // 💬 Kolik WhatsApp zpráv čeká na převod na objednávku. Hlásí to dlaždice
   // v horní řadě (viz níž) — dřív odznak v hlavičce, ta je pryč.
   const [pendingWhatsApp, setPendingWhatsApp] = useState(0);
+  // 📵 Kdy naposledy něco dorazilo z telefonu. Když Tasker přestane posílat,
+  // odznak jen zamrzne na starém čísle a vypadá to úplně normálně — stalo se
+  // to 1. 9. 2026 a přišlo se na to až tím, že odeslané objednávky nikde
+  // nebyly. Viz lib/whatsappTicho.ts.
+  const [ticho, setTicho] = useState<TichoWhatsApp | null>(null);
   useEffect(() => {
-    const nacti = () => { void fetchPendingWhatsAppCount().then(setPendingWhatsApp).catch(() => {}); };
+    const nacti = () => {
+      void fetchPendingWhatsAppCount().then(setPendingWhatsApp).catch(() => {});
+      void fetchLastWhatsAppAt()
+        .then((kdy) => setTicho(tichoWhatsApp(kdy, new Date())))
+        .catch(() => {});
+    };
     nacti();
     // Zpráva může přijít kdykoli — realtime na tabulku příchozích zpráv.
     // Funkce vrací rovnou odhlašovací callback, ne kanál.
@@ -1164,13 +1175,34 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   type="button"
                   className="hs-tile hs-tile-whatsapp vlastni-vyska"
                   onClick={() => { requestOrdersAutoImport(); setPage('orders'); }}
-                  title="Nové zprávy k převodu na objednávky"
+                  title={ticho?.posledni
+                    ? `Nové zprávy k převodu na objednávky\nPoslední zpráva dorazila: ${new Date(ticho.posledni).toLocaleString('cs-CZ')}`
+                    : 'Nové zprávy k převodu na objednávky'}
                 >
                   <div className="hs-tile-icon-box">
                     <MessageCircle />
                   </div>
                   <div className="hs-lbl">WhatsApp — k parsování</div>
                   <span className="hs-badge">{pendingWhatsApp > 99 ? '99+' : pendingWhatsApp}</span>
+                </button>
+              )}
+              {/* 📵 Z telefonu dlouho nic nedorazilo. Odznak výš zamrzne na
+                  starém čísle a tváří se normálně, takže výpadek příjmu se
+                  jinak pozná až tím, že objednávka někde chybí. */}
+              {ticho?.varovat && (
+                <button
+                  type="button"
+                  className="hs-tile hs-tile-alert vlastni-vyska"
+                  onClick={() => setPage('orders')}
+                  title={`Poslední zpráva dorazila ${new Date(ticho.posledni!).toLocaleString('cs-CZ')}.\nZkontroluj Tasker na telefonu — nejspíš přestal odesílat.`}
+                >
+                  <div className="hs-tile-icon-box">
+                    <MessageCircle />
+                  </div>
+                  <div className="hs-lbl">WhatsApp nechodí</div>
+                  <span className="hs-badge">
+                    {new Date(ticho.posledni!).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' })}
+                  </span>
                 </button>
               )}
               {/* 🍺 Výčepy, které jsou pořád u zákazníka po skončení rezervace.
