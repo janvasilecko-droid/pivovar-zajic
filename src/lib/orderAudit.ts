@@ -1,7 +1,7 @@
 import { Beer, Package, fetchAllRows, supabase } from './supabase';
 import { WhatsAppIncoming } from './whatsappApi';
 import { parseFreeTextEntries, emptyAliasMap, loadAliasMap } from './orderParser';
-import { najdiRozjeteOdpocty, odpoctyStornovanych } from './zavozSync';
+import { najdiRozjeteOdpocty, najdiRozjetaData, odpoctyStornovanych } from './zavozSync';
 
 export interface OrderItemDuplicateIssue {
   type: 'duplicate_item_rows';
@@ -90,8 +90,10 @@ export interface ZavozDeductionIssue {
    * 'nesedi' — objednávka se po zavozu opravila, odpočet zůstal na starém.
    * 'storno' — objednávka je zrušená, ale sklad je pořád odepsaný. Uklidit
    *            to umí set_order_status; přímý UPDATE stavu ji obcházel.
+   * 'datum'  — sklad ubyl k jinému dni, než se vezlo. Objednávka se přesunula
+   *            až potom, co noční odpočet proběhl.
    */
-  duvod: 'nesedi' | 'storno';
+  duvod: 'nesedi' | 'storno' | 'datum';
   orderId: string;
   orderItemId: string;
   placeName: string;
@@ -105,6 +107,11 @@ export interface ZavozDeductionIssue {
   /** Kladné = odepsáno o tolik kusů víc, než se objednalo. */
   rozdilKusu: number;
   jinePivoNeboObal: boolean;
+  /** Jen u duvod === 'datum'. */
+  denZavozu?: string;
+  rozdilDnu?: number;
+  /** Přesun přes konec měsíce — pak nesedí i inventura, ne jen týdenní pohled. */
+  jinyMesic?: boolean;
 }
 
 export interface AuditReport {
@@ -516,6 +523,45 @@ export async function runOrderAudit({
       })),
       odpocty,
     );
+
+    // Datum odpočtu musí sedět na den zavozu. Uvnitř měsíce to inventuru
+    // nerozhodí, ale týdenní pohled na sklad ukazuje výdej v jiný den, než
+    // se doopravdy vezlo; přes konec měsíce se rozjede i inventura.
+    const rozjetaData = najdiRozjetaData(
+      orders.map((o: any) => ({
+        id: o.id,
+        order_date: o.order_date,
+        delivery_day: o.delivery_day ?? null,
+        delivery_date: o.delivery_date ?? null,
+      })),
+      odpocty,
+    );
+    const rozjeteItemIds = new Set(rozjete.map((r) => r.order_item_id));
+    for (const d of rozjetaData) {
+      // Řádek, který nesedí i množstvím, se hlásí jednou — jako 'nesedi'.
+      if (rozjeteItemIds.has(d.order_item_id)) continue;
+      const o: any = orderById.get(d.order_id);
+      const zd: any = podleItemId.get(d.order_item_id);
+      const beerName = jmenoPiva(zd?.beer_id ?? null);
+      const packageLabel = jmenoObalu(zd?.package_id ?? null);
+      zavozDeductionIssues.push({
+        type: 'zavoz_deduction_mismatch',
+        duvod: 'datum',
+        orderId: d.order_id,
+        orderItemId: d.order_item_id,
+        placeName: o?.place_name || 'Neznámý podnik',
+        orderDate: o?.order_date || '',
+        deliveryDate: o?.delivery_date ?? null,
+        deductDate: d.deductDate,
+        odepsano: { beerName, packageLabel, quantity: Number(zd?.quantity ?? 0) },
+        objednano: { beerId: zd?.beer_id ?? null, packageId: zd?.package_id ?? null, beerName, packageLabel, quantity: Number(zd?.quantity ?? 0) },
+        rozdilKusu: 0,
+        jinePivoNeboObal: false,
+        denZavozu: d.denZavozu,
+        rozdilDnu: d.rozdilDnu,
+        jinyMesic: d.jinyMesic,
+      });
+    }
 
     for (const r of rozjete) {
       const o: any = orderById.get(r.order_id);

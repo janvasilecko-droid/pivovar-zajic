@@ -270,6 +270,35 @@ Skladové výpočty se tím rovnou přepočítají.`,
     }
   }
 
+  /**
+   * Přerovná celý skladový otisk objednávky — množství, pivo, obal i DATUM.
+   *
+   * Datum umí srovnat jenom tohle: reconcile_zavoz_deduction_for_item se
+   * dne nedotýká. Funkce vzniká migrací 20261224000000; dokud není nasazená,
+   * vrátí databáze „function does not exist" a hláška to řekne narovinu.
+   */
+  async function handleSrovnatDatum(issue: ZavozDeductionIssue) {
+    if (!(await potvrd(
+      `Sklad ubyl k ${new Date(issue.deductDate).toLocaleDateString('cs-CZ')}, `
+      + `ale podle objednávky se vezlo ${issue.denZavozu ? new Date(issue.denZavozu).toLocaleDateString('cs-CZ') : '—'}. `
+      + `Přesunout odpočet na den zavozu?`,
+      { titulek: 'Srovnat datum odpočtu', potvrdit: 'Ano, přesunout' },
+    ))) return;
+    setActionLoading(true);
+    try {
+      const { error } = await supabase.rpc('srovnat_odpocty_objednavky_rucne', { p_order_id: issue.orderId });
+      if (error) {
+        setMsgFeedback('Datum se nepodařilo srovnat: ' + error.message);
+      } else {
+        setMsgFeedback('Odpočet přesunut na den zavozu.');
+        await loadAudit();
+        onRefreshOrders && onRefreshOrders();
+      }
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
   async function handleIgnoreWhatsApp(messageId: string) {
     setActionLoading(true);
     try {
@@ -1131,7 +1160,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
                   </div>
 
                   {report?.zavozDeductionIssues.map((issue) => (
-                    <div key={issue.orderItemId} className="p-3.5 sm:p-4 rounded bg-white border-2 border-rose-300 shadow-xs space-y-3">
+                    <div key={`${issue.duvod}__${issue.orderItemId}`} className="p-3.5 sm:p-4 rounded bg-white border-2 border-rose-300 shadow-xs space-y-3">
                       <div className="flex items-center justify-between border-b border-rose-100 pb-2">
                         <span className="font-display font-black text-sm text-neutral-950">{issue.placeName}</span>
                         <span className="text-[11px] text-neutral-500 font-medium">
@@ -1149,18 +1178,29 @@ Skladové výpočty se tím rovnou přepočítají.`,
                         </div>
                         <div className="p-2.5 rounded bg-emerald-50/70 border border-emerald-200">
                           <div className="text-[11px] font-black uppercase tracking-wider text-emerald-900 mb-1">
-                            {issue.duvod === 'storno' ? 'Skutečně odvezeno' : 'V objednávce'}
+                            {issue.duvod === 'storno' ? 'Skutečně odvezeno' : issue.duvod === 'datum' ? 'Vezlo se' : 'V objednávce'}
                           </div>
                           <div className="font-bold text-neutral-900">
-                            {issue.duvod === 'storno' ? 'Objednávka stornovaná' : `${issue.objednano.beerName} · ${issue.objednano.packageLabel}`}
+                            {issue.duvod === 'storno'
+                              ? 'Objednávka stornovaná'
+                              : issue.duvod === 'datum'
+                                ? (issue.denZavozu ? new Date(issue.denZavozu).toLocaleDateString('cs-CZ') : '—')
+                                : `${issue.objednano.beerName} · ${issue.objednano.packageLabel}`}
                           </div>
-                          <div className="font-mono font-black text-sm text-emerald-900">{issue.objednano.quantity} ks</div>
+                          <div className="font-mono font-black text-sm text-emerald-900">
+                            {issue.duvod === 'datum' ? `${issue.odepsano.quantity} ks` : `${issue.objednano.quantity} ks`}
+                          </div>
                         </div>
                       </div>
 
                       <div className="text-xs font-bold text-neutral-800">
                         {issue.duvod === 'storno'
                           ? `Objednávka je zrušená, ale sklad je pořád odepsaný o ${issue.odepsano.quantity} ks — v inventuře to vyjde jako přebytek.`
+                          : issue.duvod === 'datum'
+                          ? `Sklad ubyl o ${Math.abs(issue.rozdilDnu ?? 0)} dní ${(issue.rozdilDnu ?? 0) < 0 ? 'dřív' : 'později'}, než se vezlo.`
+                            + (issue.jinyMesic
+                              ? ' Přesahuje to konec měsíce, takže nesedí i inventura.'
+                              : ' Uvnitř měsíce inventura sedí, rozjetý je jen týdenní pohled na sklad.')
                           : issue.jinePivoNeboObal
                           ? 'Odpočet je na jiné pivo nebo obal, než co je dnes v objednávce.'
                           : issue.rozdilKusu > 0
@@ -1179,10 +1219,10 @@ Skladové výpočty se tím rovnou přepočítají.`,
                         )}
                         <button
                           disabled={actionLoading}
-                          onClick={() => issue.duvod === 'storno' ? handleUvolnitStorno(issue) : handleSrovnatOdpocet(issue)}
+                          onClick={() => issue.duvod === 'storno' ? handleUvolnitStorno(issue) : issue.duvod === 'datum' ? handleSrovnatDatum(issue) : handleSrovnatOdpocet(issue)}
                           className="btn-primary !rounded !py-1.5 !px-4 text-xs font-black shadow-sm disabled:opacity-50"
                         >
-                          {issue.duvod === 'storno' ? 'Uvolnit zpátky do skladu' : 'Srovnat podle objednávky'}
+                          {issue.duvod === 'storno' ? 'Uvolnit zpátky do skladu' : issue.duvod === 'datum' ? 'Přesunout na den zavozu' : 'Srovnat podle objednávky'}
                         </button>
                       </div>
                     </div>

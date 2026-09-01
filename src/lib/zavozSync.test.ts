@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { najdiRozjeteOdpocty, odpoctyStornovanych, srovnaniPoUprave, type PolozkaObjednavky } from './zavozSync';
+import { najdiRozjetaData, najdiRozjeteOdpocty, odpoctyStornovanych, srovnaniPoUprave, type PolozkaObjednavky } from './zavozSync';
 
 const polozka: PolozkaObjednavky = {
   id: 'oi-1',
@@ -153,5 +153,54 @@ describe('odpoctyStornovanych', () => {
 
   it('zvládne víc stornovaných najednou', () => {
     expect(odpoctyStornovanych(['o-1', 'o-3'], odpocty)).toHaveLength(2);
+  });
+});
+
+describe('najdiRozjetaData', () => {
+  const objednavky = [
+    // Přesunutá o týden: odpočet proběhl 5. 8., ale vezlo se až 12. 8.
+    { id: 'o-1', order_date: '2026-08-03', delivery_day: 'st', delivery_date: '2026-08-12' },
+    { id: 'o-2', order_date: '2026-08-10', delivery_day: 'ct', delivery_date: '2026-08-13' },
+    // Bez delivery_date — den se dopočítá z dne v týdnu (čt = 4. den od pondělí)
+    { id: 'o-3', order_date: '2026-08-17', delivery_day: 'ct', delivery_date: null },
+  ];
+
+  it('najde odpočet zapsaný o týden dřív, než se vezlo', () => {
+    const nalez = najdiRozjetaData(objednavky, [
+      { order_id: 'o-1', order_item_id: 'oi-1', deduct_date: '2026-08-05' },
+    ]);
+    expect(nalez).toHaveLength(1);
+    expect(nalez[0].denZavozu).toBe('2026-08-12');
+    expect(nalez[0].rozdilDnu).toBe(-7);
+    expect(nalez[0].jinyMesic).toBe(false);
+  });
+
+  it('pozná přesun přes konec měsíce — tam se rozjede i inventura', () => {
+    const nalez = najdiRozjetaData(
+      [{ id: 'o-9', order_date: '2026-08-24', delivery_day: 'st', delivery_date: '2026-09-02' }],
+      [{ order_id: 'o-9', order_item_id: 'oi-9', deduct_date: '2026-08-26' }],
+    );
+    expect(nalez[0].jinyMesic).toBe(true);
+  });
+
+  it('sedící datum nehlásí', () => {
+    expect(najdiRozjetaData(objednavky, [
+      { order_id: 'o-2', order_item_id: 'oi-2', deduct_date: '2026-08-13' },
+    ])).toEqual([]);
+  });
+
+  it('den se bez delivery_date dopočítá stejným vzorcem jako appka', () => {
+    // 17. 8. 2026 je pondělí, čtvrtek téhož týdne je 20. 8.
+    expect(najdiRozjetaData(objednavky, [
+      { order_id: 'o-3', order_item_id: 'oi-3', deduct_date: '2026-08-20' },
+    ])).toEqual([]);
+  });
+
+  it('objednávku mimo načtený rozsah ani odpočet bez data netvrdí za rozjeté', () => {
+    expect(najdiRozjetaData(objednavky, [
+      { order_id: 'o-neznama', order_item_id: 'oi-x', deduct_date: '2026-08-05' },
+      { order_id: 'o-1', order_item_id: 'oi-1', deduct_date: null },
+      { order_id: 'o-1', order_item_id: null, deduct_date: '2026-08-05' },
+    ])).toEqual([]);
   });
 });

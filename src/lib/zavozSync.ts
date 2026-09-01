@@ -16,6 +16,8 @@
 // jdou obyčejným UPDATE na `order_items` a RPC míjejí. Tenhle soubor spočítá,
 // co se má té funkci poslat.
 
+import { computeDeliveryDateISO } from './zavozDeduction';
+
 /** Položka objednávky v rozsahu, který se propisuje do skladu. */
 export type PolozkaObjednavky = {
   id: string;
@@ -157,4 +159,71 @@ export function odpoctyStornovanych<T extends { order_id: string }>(
 ): T[] {
   const storno = new Set(stornovaneObjednavky);
   return odpocty.filter((o) => storno.has(o.order_id));
+}
+
+/** Objednávka v rozsahu, který určuje DEN skladového odpočtu. */
+export type ObjednavkaProOdpocet = {
+  id: string;
+  order_date: string;
+  delivery_day: string | null;
+  delivery_date: string | null;
+};
+
+/** Odpočet zapsaný k jinému dni, než se doopravdy vezlo. */
+export type RozjeteDatum = {
+  order_id: string;
+  order_item_id: string;
+  /** Den, ke kterému sklad ubyl. */
+  deductDate: string;
+  /** Den, kdy se podle objednávky vezlo. */
+  denZavozu: string;
+  /** O kolik dní je odpočet vedle (kladné = odepsáno později než se vezlo). */
+  rozdilDnu: number;
+  /** Spadne kvůli tomu výdej do jiného měsíce? Pak nesedí i inventura. */
+  jinyMesic: boolean;
+};
+
+const denRozdil = (a: string, b: string) =>
+  Math.round((Date.parse(a + 'T00:00:00Z') - Date.parse(b + 'T00:00:00Z')) / 86400000);
+
+/**
+ * Najde odpočty zapsané k jinému dni, než na který objednávka vyšla.
+ *
+ * Vzniká to přesunutím objednávky na jiný týden POTÉ, co noční odpočet
+ * proběhl — datum odpočtu zůstalo na původním dni. Uvnitř měsíce to
+ * inventuru nerozhodí, ale týdenní pohled na sklad ukazuje výdej dřív (nebo
+ * později), než se doopravdy vezlo. Když přesun překročí konec měsíce,
+ * rozjede se i inventura.
+ *
+ * Den zavozu se počítá stejným vzorcem jako v databázi (ucinny_den_zavozu)
+ * i na obrazovkách — computeDeliveryDateISO. Jiný vzorec by hlásil rozdíly,
+ * které nejsou.
+ */
+export function najdiRozjetaData(
+  objednavky: ObjednavkaProOdpocet[],
+  odpocty: { order_id: string; order_item_id: string | null; deduct_date: string | null }[],
+): RozjeteDatum[] {
+  const podleId = new Map(objednavky.map((o) => [o.id, o]));
+  const nalezene: RozjeteDatum[] = [];
+
+  for (const d of odpocty) {
+    if (!d.order_item_id || !d.deduct_date) continue;
+    const o = podleId.get(d.order_id);
+    if (!o) continue; // objednávka mimo načtený rozsah — netvrdit nic
+
+    const denZavozu = computeDeliveryDateISO(o.order_date, o.delivery_day, o.delivery_date);
+    const deductDate = d.deduct_date.slice(0, 10);
+    if (!denZavozu || denZavozu === deductDate) continue;
+
+    nalezene.push({
+      order_id: d.order_id,
+      order_item_id: d.order_item_id,
+      deductDate,
+      denZavozu,
+      rozdilDnu: denRozdil(deductDate, denZavozu),
+      jinyMesic: deductDate.slice(0, 7) !== denZavozu.slice(0, 7),
+    });
+  }
+
+  return nalezene;
 }
