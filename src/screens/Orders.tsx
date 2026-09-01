@@ -33,6 +33,7 @@ import { TapReservationModal } from '../components/TapReservationModal';
 import { createReminder, getLocalReminders } from '../lib/reminders';
 import { flattenAkceNet, type AkceRow } from '../lib/inventoryHelper';
 import { chyba, oznam, potvrd } from '../lib/toast';
+import { srovnaniPoUprave, type UpravaPolozky } from '../lib/zavozSync';
 import { IkonaVycep } from '../components/ikony';
 
 type Order = {
@@ -2921,8 +2922,35 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
     setBeerId(''); setPkgId(''); setQty(''); setAdding(false); onChanged();
   }
   async function rmItem(id: string) {
-    await supabase.from('order_items').delete().eq('id', id); onChanged();
+    // Už zavezenou položku databáze smazat nedá (cizí klíč na zavoz_deductions
+    // je RESTRICT) — bez téhle hlášky chyba propadla, seznam se přenačetl a
+    // řádek se beze slova vrátil.
+    const { error } = await supabase.from('order_items').delete().eq('id', id);
+    if (error) {
+      chyba('Položku nejde smazat — je už zavezená a odepsaná ze skladu. Oprav množství, nebo zruš celou objednávku.');
+      return;
+    }
+    onChanged();
   }
+
+  /**
+   * Objednávka je pravda — skladový odpočet se musí srovnat podle ní.
+   *
+   * Rychlé úpravy tady jdou obyčejným UPDATE na order_items a míjejí RPC
+   * replace_order_with_items, které odpočet srovnává. Bez tohohle volání
+   * zůstal sklad odepsaný podle původního zadání a rozdíl vyplaval až
+   * v inventuře jako manko bez původu ve výrobě (viz lib/zavozSync.ts).
+   */
+  async function srovnejOdpocet(it: OrderItem, zmena: UpravaPolozky) {
+    const parametry = srovnaniPoUprave(
+      { id: it.id, beer_id: it.beer_id ?? null, package_id: it.package_id ?? null, quantity: Number(it.quantity) },
+      zmena,
+    );
+    if (!parametry) return;
+    const { error } = await supabase.rpc('reconcile_zavoz_deduction_for_item', parametry);
+    if (error) chyba('Změna se uložila, ale skladový odpočet se nepodařilo srovnat: ' + error.message);
+  }
+
   async function updateItemQty(it: OrderItem, newQty: number) {
     if (!Number.isFinite(newQty) || newQty <= 0) return;
     setItems((map) => ({
@@ -2930,6 +2958,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
       [order.id]: (map[order.id] ?? []).map((x) => x.id === it.id ? { ...x, quantity: newQty } : x),
     }));
     await supabase.from('order_items').update({ quantity: newQty }).eq('id', it.id);
+    await srovnejOdpocet(it, { quantity: newQty });
   }
   async function updateItemBeer(it: OrderItem, newBeerId: string) {
     const b = beers.find((x) => x.id === newBeerId);
@@ -2938,6 +2967,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
       [order.id]: (map[order.id] ?? []).map((x) => x.id === it.id ? { ...x, beer_id: newBeerId, beer_name: b?.name ?? null } : x),
     }));
     await supabase.from('order_items').update({ beer_id: newBeerId, beer_name: b?.name ?? null }).eq('id', it.id);
+    await srovnejOdpocet(it, { beer_id: newBeerId });
   }
   async function updateItemPkg(it: OrderItem, newPkgId: string) {
     const p = packages.find((x) => x.id === newPkgId);
@@ -2946,6 +2976,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
       [order.id]: (map[order.id] ?? []).map((x) => x.id === it.id ? { ...x, package_id: newPkgId, package_label: p?.label ?? null } : x),
     }));
     await supabase.from('order_items').update({ package_id: newPkgId, package_label: p?.label ?? null }).eq('id', it.id);
+    await srovnejOdpocet(it, { package_id: newPkgId });
   }
 
   async function saveMeta() {
