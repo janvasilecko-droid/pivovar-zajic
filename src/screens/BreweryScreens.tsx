@@ -4,6 +4,55 @@ import { Spinner, EmptyState, Field } from '../components/ui';
 import { BookOpen, Calculator, Cylinder, FileText, Flame, FlaskConical, Check, CheckSquare, NotebookPen, Plus, Scale, Sliders, SprayCan, Truck, User, Wheat, Zap } from 'lucide-react';
 import { IkonaSud } from '../components/ikony';
 
+/**
+ * Krokovací číselník kalkulaček.
+ *
+ * VEN z komponenty schválně: funkce deklarovaná uvnitř jiné komponenty vzniká
+ * při každém překreslení znovu, takže ji React nepozná jako tutéž a celý její
+ * podstrom zahodí a postaví od nuly (viz lib/komponentaUvnitrKomponenty.test.ts).
+ */
+function NumberStepper({
+  value,
+  onChange,
+  step = 1,
+  min = 0,
+  placeholder,
+  className = '',
+}: {
+  value: string | number;
+  onChange: (val: string) => void;
+  step?: number;
+  min?: number;
+  placeholder?: string;
+  className?: string;
+}) {
+  const numVal = Number(value) || 0;
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        type="button"
+        onClick={() => onChange(String(Math.max(min, Number((numVal - step).toFixed(2)))))}
+        className="w-8 h-8 shrink-0 grid place-items-center rounded bg-neutral-200 hover:bg-amber-200 text-neutral-900 font-black text-sm select-none active:scale-95 transition"
+        title={`- ${step}`}
+      >
+        −
+      </button>
+      <span className={`w-20 min-w-[4rem] px-2 text-center font-mono font-black bg-white border border-neutral-200 rounded py-2 shadow-2xs ${className ?? ''}`}>
+        {value || '0'}
+      </span>
+      <button
+        type="button"
+        onClick={() => onChange(String(Number((numVal + step).toFixed(2))))}
+        className="w-8 h-8 shrink-0 grid place-items-center rounded bg-amber-950 hover:bg-amber-900 text-white font-black text-sm select-none active:scale-95 transition"
+        title={`+ ${step}`}
+      >
+        +
+      </button>
+    </div>
+  );
+}
+
+
 type SrotovaniRow = {
   id?: string;
   entry_date: string;
@@ -255,47 +304,6 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
     else setActiveTab(t);
   }
 
-  // --- Helper Stepper Input Component ---
-  function NumberStepper({
-    value,
-    onChange,
-    step = 1,
-    min = 0,
-    placeholder,
-    className = '',
-  }: {
-    value: string | number;
-    onChange: (val: string) => void;
-    step?: number;
-    min?: number;
-    placeholder?: string;
-    className?: string;
-  }) {
-    const numVal = Number(value) || 0;
-    return (
-      <div className="flex items-center gap-1">
-        <button
-          type="button"
-          onClick={() => onChange(String(Math.max(min, Number((numVal - step).toFixed(2)))))}
-          className="w-8 h-8 shrink-0 grid place-items-center rounded bg-neutral-200 hover:bg-amber-200 text-neutral-900 font-black text-sm select-none active:scale-95 transition"
-          title={`- ${step}`}
-        >
-          −
-        </button>
-        <span className={`w-20 min-w-[4rem] px-2 text-center font-mono font-black bg-white border border-neutral-200 rounded py-2 shadow-2xs ${className ?? ''}`}>
-          {value || '0'}
-        </span>
-        <button
-          type="button"
-          onClick={() => onChange(String(Number((numVal + step).toFixed(2))))}
-          className="w-8 h-8 shrink-0 grid place-items-center rounded bg-amber-950 hover:bg-amber-900 text-white font-black text-sm select-none active:scale-95 transition"
-          title={`+ ${step}`}
-        >
-          +
-        </button>
-      </div>
-    );
-  }
 
   // --- 1. KEG Kalkulačka dotáčení z tanku ---
   const [tankVolumeHl, setTankVolumeHl] = useState<string>('15');

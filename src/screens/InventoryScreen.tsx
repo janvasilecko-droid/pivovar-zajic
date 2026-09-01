@@ -891,7 +891,11 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   function panelDavky(beerId: string) {
     const proPivo = davky.filter((x) => x.beer_id === beerId);
     if (proPivo.length === 0) return null;
-    return <>{proPivo.map((d) => <PanelVyrovnani key={`${d.beer_id}__${d.smer}`} d={d} />)}</>;
+    // Volá se jako obyčejná funkce, NE jako <PanelVyrovnani/>. Komponenta
+    // deklarovaná uvnitř obrazovky má při každém překreslení novou identitu,
+    // takže ji React zahodí a postaví znovu — a políčko na počet sudů přitom
+    // ztratí kurzor po každé napsané číslici. Vypadalo to, že panel nereaguje.
+    return <>{proPivo.map((d) => vykresliVyrovnani(d))}</>;
   }
 
   /**
@@ -905,7 +909,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
    * se sudy obvykle odečtou (stočilo se z nich), u manka vrátí (nenačaly se),
    * ale výjimky existují a rozhodnout to může jen člověk.
    */
-  function PanelVyrovnani({ d }: { d: DavkaPiva }) {
+  function vykresliVyrovnani(d: DavkaPiva) {
     const manko = d.smer === 'manko';
     const klic = `${d.beer_id}__${d.smer}`;
     const smerSudu: SmerSudu = davkaSmerSudu[klic] ?? (manko ? 'vratit' : 'odecist');
@@ -924,7 +928,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       : { ram: 'border-emerald-300 bg-emerald-50/70', nadpis: 'text-emerald-900', text: 'text-emerald-900', tlacitko: 'bg-emerald-600 hover:bg-emerald-700', pole: 'border-emerald-400 focus:border-emerald-600' };
 
     return (
-      <div className={`rounded border-2 p-3 space-y-2.5 ${barva.ram}`}>
+      <div key={klic} className={`rounded border-2 p-3 space-y-2.5 ${barva.ram}`}>
         <div className={`text-[11px] font-black uppercase tracking-wider ${barva.nadpis}`}>
           {d.beer_name} — vyrovnat {manko ? 'MANKO (odečíst lahve)' : 'PŘEBYTEK (zapsat lahve)'}
         </div>
