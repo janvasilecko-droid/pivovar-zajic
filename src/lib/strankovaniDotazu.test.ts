@@ -37,6 +37,12 @@ const VYJIMKY: { soubor: string; duvod: RegExp }[] = [
   { soubor: '', duvod: /\.limit\(/ },
   // Jeden řádek podle id.
   { soubor: '', duvod: /\.maybeSingle\(\)|\.single\(\)/ },
+  // Zápis, který si nechá vrátit VLASTNÍ vložené řádky — `insert(...).select('id')`.
+  // Tabulku to nečte; vrací se jen to, co právě vzniklo, takže víc řádků, než
+  // kolik se vložilo, přijít nemůže. Používá se na vzetí zápisu zpět
+  // (toastZpet v InventoryScreen) — id jsou jediná cesta, jak smazat právě
+  // ten zápis a nic jiného.
+  { soubor: '', duvod: /\.(insert|update|upsert|delete)\([\s\S]*\)\s*\.select\(/ },
 ];
 
 function souboryVeZdroji(dir: string): string[] {

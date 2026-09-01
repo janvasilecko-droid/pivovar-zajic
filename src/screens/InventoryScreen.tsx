@@ -17,7 +17,7 @@ import { businessDateISO } from '../lib/businessDate';
 import { DoplnitStoceniModal, type DoplnitStoceniVysledek } from '../components/DoplnitStoceniModal';
 import { buildMovements, expectedForMonth, stockAsOf, stockAtStartOfDay, type StockLine } from '../lib/stockLedger';
 import { AUDIT_NADPISY, AUDIT_SLOUPCE, bunkaAuditu, maCoUkazat, porovnejPolozku, type AuditSloupec } from '../lib/auditSkladu';
-import { chyba, oznam, potvrd, uspech } from '../lib/toast';
+import { chyba, oznam, potvrd, toastZpet, uspech } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
 import { IkonaSud } from '../components/ikony';
 
@@ -929,17 +929,6 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     if (doplnujeSe) return;
     if (odmitniBudoucnost()) return;
     const suduCelkem = zadano.reduce((s, z) => s + z.kegQty, 0);
-    const ok = await potvrd(
-      `${d.beer_name}\n\n`
-      + d.lahve.map((l) => `${formatPackageLabel(l.package_label)} — ${l.kusy} ks (${l.litry} l)`).join('\n')
-      + `\n\nCelkem ${d.litryCelkem} l.\n\n`
-      + (suduCelkem > 0
-        ? `Odečte se ze skladu: ${zadano.map((z) => `${z.kegQty}×${z.kegVolumeL}`).join(' + ')}.`
-        : 'Sudy se NEODEČTOU — nezadal jsi žádné.')
-      + `\n\nZapsat k ${datumDoplnku(currentMonth)}, tedy do inventury za ${nazevMesice(currentMonth)}?`,
-      { titulek: 'Srovnat lahve → sudy', potvrdit: 'Ano, zapsat' },
-    );
-    if (!ok) return;
 
     const rady = zapisyDavky(d, datumDoplnku(currentMonth), currentMonth, zadano);
     if (rady.length === 0) return;
@@ -949,7 +938,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     const vratPozici = zapamatujPozici(`[data-inv-radek^="${d.beer_id}__"]`);
 
     setDoplnujeSe(`davka__${d.beer_id}`);
-    const { error } = await supabase.from('bottling').insert(rady);
+    const { data: vlozene, error } = await supabase.from('bottling').insert(rady).select('id');
     setDoplnujeSe(null);
     if (error) { chyba('Nepodařilo se zapsat stočení: ' + error.message); return; }
 
@@ -960,14 +949,53 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       for (const k of Object.keys(dal)) if (k.startsWith(`${d.beer_id}__`)) delete dal[k];
       return dal;
     });
-    oznam(
+    toastZpet(
       suduCelkem > 0
         ? `${d.beer_name}: zapsáno ${d.lahve.reduce((s, l) => s + l.kusy, 0)} ks lahví a odečteno ${suduCelkem} sudů.`
         : `${d.beer_name}: zapsáno ${d.lahve.reduce((s, l) => s + l.kusy, 0)} ks lahví.`,
+      () => vratZpetStaceni(vlozene),
     );
     forceReloadRef.current = true;
     await loadData(true);
     vratPozici();
+  }
+
+  /**
+   * Vezme zpátky doplněné kegování — smaže zapsané řádky a vrátí objem do
+   * tanků, ze kterých se odečetl.
+   *
+   * Tohle je protějšek k tomu, že se před zápisem už neptáme. Vzorec je
+   * z lib/toast.ts: udělat to hned a pár vteřin nechat vzít zpět je pro
+   * stovku řádků inventury o dost méně klikání než dialog u každého —
+   * a chybu to opraví stejně spolehlivě.
+   */
+  async function vratZpetKegovani(vlozene: { id: string }[] | null, rozdeleni: RozdeleniSudu | null) {
+    const ids = (vlozene ?? []).map((x) => x.id);
+    if (ids.length > 0) {
+      const { error } = await supabase.from('kegging').delete().in('id', ids);
+      if (error) { chyba('Nepodařilo se vzít zpět: ' + error.message); return; }
+    }
+    // Objem zpátky do tanků. Kladné delta = přidat, tedy opak odečtu.
+    for (const d of rozdeleni?.dily ?? []) {
+      await supabase.rpc('adjust_tank_volume', { p_tank_id: d.tankId, p_delta_l: d.litry });
+    }
+    forceReloadRef.current = true;
+    await loadData(true);
+  }
+
+  /**
+   * Vezme zpátky doplněné stáčení lahví — smaže zapsané řádky. Sudy se
+   * vracet nemusí: stáčení je nese jako kegs_used na svých řádcích, takže
+   * se smazáním vrátí do skladu samy (viz stockLedger.resolveKegsUsed).
+   */
+  async function vratZpetStaceni(vlozene: { id: string }[] | null) {
+    const ids = (vlozene ?? []).map((x) => x.id);
+    if (ids.length > 0) {
+      const { error } = await supabase.from('bottling').delete().in('id', ids);
+      if (error) { chyba('Nepodařilo se vzít zpět: ' + error.message); return; }
+    }
+    forceReloadRef.current = true;
+    await loadData(true);
   }
 
   /**
@@ -1053,28 +1081,25 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       const rozdeleni = rozdelSudyDoTanku(tanky, r.beer_id, r.diffQty, objemSuduL);
       const rady = kegovaniZapisy(polozka, datumDoplnku(currentMonth), currentMonth, rozdeleni);
       if (rady.length === 0) return;
-      const ok = await potvrd(
-        `${popis}\n\nNapočítáno o ${r.diffQty} ks víc, než sklad čeká — nejspíš se stočilo a nezapsalo.\n\n`
-        + `Zapsat ${r.diffQty} ks do „Stáčení KEG" k ${datumDoplnku(currentMonth)} — tedy do inventury za ${nazevMesice(currentMonth)}?\n\n`
-        + `Odečte se z tanků:\n${popisRozdeleni(rozdeleni)}`,
-        { titulek: 'Doplnit chybějící stočení', potvrdit: 'Ano, zapsat' },
-      );
-      if (!ok) return;
       // Ať obrazovka po zápisu zůstane u toho řádku, u kterého se klikalo.
       const vratPozici = zapamatujPozici(`[data-inv-radek="${k}"]`);
       setDoplnujeSe(k);
-      const { error } = await supabase.from('kegging').insert(rady);
+      // Bez ptaní předem — inventura je stovka řádků a dvojklik u každého
+      // zdržuje. Zápis jde rovnou a pár vteřin se dá vzít zpět. Datum do
+      // budoucna hlídá odmitniBudoucnost() výš; to je tvrdý zákaz, ne otázka.
+      const { data: vlozene, error } = await supabase.from('kegging').insert(rady).select('id');
       if (error) { setDoplnujeSe(null); chyba('Nepodařilo se zapsat stočení: ' + error.message); return; }
       // Objem tanků až PO úspěšném zápisu — kdyby se zápis nepovedl, sklep by
       // jinak zůstal odečtený o pivo, které se nikam nezapsalo.
       const tankChyby = await odectiZTanku(rozdeleni, r.beer_id);
       setDoplnujeSe(null);
       const otevreny = zmenaOtevreni(tanky, r.beer_id, rozdeleni).otevrit;
-      oznam(
+      toastZpet(
         rozdeleni.dily.length === 0
           ? `Zapsáno ${r.diffQty} ks do „Stáčení KEG" (bez tanku — ve sklepě není z čeho).`
           : `Zapsáno ${r.diffQty} ks do „Stáčení KEG", odečteno z ${rozdeleni.dily.map((d) => d.label).join(' + ')}`
             + (otevreny ? `. Stáčí se dál z ${otevreny.label}.` : '.'),
+        () => vratZpetKegovani(vlozene, rozdeleni),
       );
       if (tankChyby) chyba(tankChyby);
       forceReloadRef.current = true;
@@ -1100,22 +1125,13 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     const rady = odectiZeStoceni(polozka, datumDoplnku(currentMonth), currentMonth);
     if (rady.length === 0) return;
     const chybi = Math.abs(r.diffQty);
-    const ok = await potvrd(
-      [
-        popis,
-        `Napočítáno o ${chybi} ks míň, než sklad čeká — nejspíš se zapsalo víc, než se stočilo.`,
-        `Odečíst ${chybi} ks ze „Stáčení KEG" k ${datumDoplnku(currentMonth)}, tedy do inventury za ${nazevMesice(currentMonth)}?`,
-        'Tank se nedotkne — u dodatečné opravy se neví, ze kterého se stáčelo.',
-      ].join('\n\n'),
-      { titulek: 'Odečíst ze stáčení', potvrdit: 'Ano, odečíst' },
-    );
-    if (!ok) return;
     const vratPozici = zapamatujPozici(`[data-inv-radek="${k}"]`);
     setDoplnujeSe(k);
-    const { error } = await supabase.from('kegging').insert(rady.map((x) => x.row));
+    const { data: vlozene, error } = await supabase.from('kegging').insert(rady.map((x) => x.row)).select('id');
     setDoplnujeSe(null);
     if (error) { chyba('Nepodařilo se odečíst ze stáčení: ' + error.message); return; }
-    oznam(`Odečteno ${chybi} ks ze „Stáčení KEG".`);
+    // Tank se nedotkne — u dodatečné opravy se neví, ze kterého se stáčelo.
+    toastZpet(`Odečteno ${chybi} ks ze „Stáčení KEG".`, () => vratZpetKegovani(vlozene, null));
     forceReloadRef.current = true;
     await loadData(true);
     vratPozici();
@@ -1147,19 +1163,20 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
 
     const vratPozici = zapamatujPozici(`[data-inv-radek="${r.beer_id}__${r.package_id}"]`);
     setDoplnujeSe(`${r.beer_id}__${r.package_id}`);
-    const { error } = await supabase.from('bottling').insert(rady);
+    const { data: vlozene, error } = await supabase.from('bottling').insert(rady).select('id');
     setDoplnujeSe(null);
     if (error) { chyba('Nepodařilo se zapsat: ' + error.message); return; }
     setDoplnekLahvi(null);
     const sudyCelkem = vysledek.sudy.reduce((s, z) => s + z.kegQty, 0);
     const rozpis = vysledek.sudy.map((z) => `${z.kegQty}×${z.kegVolumeL}`).join(' + ');
-    oznam(manko
+    toastZpet(manko
       ? (sudyCelkem > 0
         ? `Odečteno ${Math.abs(r.diffQty)} ks lahví a vráceno ${rozpis} do skladu.`
         : `Odečteno ${Math.abs(r.diffQty)} ks ze „Stáčení lahví".`)
       : (sudyCelkem > 0
         ? `Zapsáno ${r.diffQty} ks lahví a odečteno ${rozpis}.`
-        : `Zapsáno ${r.diffQty} ks do „Stáčení lahví".`));
+        : `Zapsáno ${r.diffQty} ks do „Stáčení lahví".`),
+      () => vratZpetStaceni(vlozene));
     forceReloadRef.current = true;
     await loadData(true);
     vratPozici();
@@ -2153,7 +2170,7 @@ function exportInventoryExcel() {
                   );
                   return (
                     <Fragment key={`${it.beer_id}__${it.package_id}`}>
-                      <tr className={`border-t-2 ${nesedi ? 'border-rose-300' : 'border-neutral-200'}`}
+                      <tr className={`plocha-z-dat plocha-z-dat-tlumena border-t-2 ${nesedi ? 'border-rose-300' : 'border-neutral-200'}`}
                           style={beer ? { backgroundColor: beerBg(beer), ['--ink-plochy' as any]: beerInk(beer) } : undefined}>
                         <td rowSpan={2} className="px-3 py-2 align-top font-black text-[11px] text-neutral-950 whitespace-nowrap">
                           {it.beer_name}

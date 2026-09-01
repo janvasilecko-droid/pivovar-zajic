@@ -687,6 +687,25 @@ html.density-large .btn {
 
    Pruhy v Historii tuhle variantu schválně nemají: jsou to úzké proužky
    v tmavé drážce, kde je sytá barva to jediné, co je vidět. */
+/* SVĚTLÝ REŽIM: závoj bílé, ne noční modři.
+   Tady ztlumení dlouho chybělo a barva piva šla přes celý řádek v plné
+   sytosti. U tmavých piv to znamenalo tmavé písmo na tmavém podkladu:
+   Jantar (#540f0f) měl s text-neutral-950 kontrast 1,37 : 1 a 12° Tmavá
+   (#44403B) 1,93 : 1 — pod hranicí čitelnosti 4,5 : 1 se nedalo přečíst
+   vůbec nic. Špatně na tom byly i Summer Ale a 12° Světlá.
+
+   Bílý závoj řeší obojí najednou: podklad zesvětlá natolik, že tmavé písmo
+   je čitelné, a přitom si řádky NECHAJÍ SVÉ BAREVNÉ AKCENTY — červené manko
+   a zelený přebytek zůstanou červené a zelené. Kdyby se místo toho pouštěla
+   proměnná --ink-plochy i ve světlém režimu (jako v tmavém), obrátila by
+   všechno na jednu barvu a ten rozdíl by zmizel.
+
+   0,76 je nejmenší hodnota, při které projde 4,5 : 1 u VŠECH deseti piv
+   napříč používanými barvami textu; nejhorší případ je Jantar × rose-800
+   (4,63 : 1). Míň neprojde, víc zbytečně smaže rozdíl mezi pivy. */
+.plocha-z-dat-tlumena {
+  background-image: linear-gradient(rgb(255 255 255 / 0.76), rgb(255 255 255 / 0.76));
+}
 :root.dark .plocha-z-dat-tlumena {
   background-image: linear-gradient(rgb(15 23 42 / 0.74), rgb(15 23 42 / 0.74));
 }
