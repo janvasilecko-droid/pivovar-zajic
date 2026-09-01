@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { Fragment, useState, useEffect, useMemo, useRef } from 'react';
 
 
 import { Beer, beerBg, beerInk, beerName, beerText, fetchAllRows, formatPackageLabel, Package, supabase, useRealtime } from '../lib/supabase';
@@ -9,6 +9,8 @@ import { CountFromImage } from '../components/CountFromImage';
 import { computeInventoryReconciliation } from '../lib/inventoryHelper';
 import { akceProRozdil, datumDoplnku, jeSud, kegovaniZapisy, lahvoveZapisy, nabidnoutMinulyMesic, nazevMesice, planDostaceni, stoceniZapis } from '../lib/inventoryFix';
 import { dopadSrovnani } from '../lib/dopadSrovnani';
+import { davkySrovnani, zapisyDavky, type DavkaPiva, type ZdrojovaSkupina } from '../lib/srovnaniDavka';
+import { normalizujCislo } from '../lib/cisloVstup';
 import { popisRozdeleni, rozdelSudyDoTanku, zmenaOtevreni, type RozdeleniSudu, type TankProRozdeleni } from '../lib/tankRozdeleni';
 import { saveBottlingPlan } from '../lib/bottlingPlans';
 import { businessDateISO } from '../lib/businessDate';
@@ -101,10 +103,16 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   const [beers, setBeers] = useState<Beer[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'inventory' | 'initial_stock' | 'end_stock'>((initialSubTab as any) || 'inventory');
+  // Záložka se drží v adrese stránky (setPage), takže může přijít i hodnota,
+  // která už neexistuje — třeba zrušená záložka z minulé verze. Neznámou
+  // proto srazíme na inventuru, jinak by se vykreslilo prázdno.
+  const zalozka = (t: unknown): 'inventory' | 'initial_stock' | 'end_stock' =>
+    t === 'initial_stock' || t === 'end_stock' ? t : 'inventory';
+
+  const [activeTab, setActiveTab] = useState(() => zalozka(initialSubTab));
 
   useEffect(() => {
-    setActiveTab((initialSubTab as any) || 'inventory');
+    setActiveTab(zalozka(initialSubTab));
   }, [initialSubTab]);
 
   function selectTab(t: 'inventory' | 'initial_stock' | 'end_stock') {
@@ -787,6 +795,148 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   const dopad = useMemo(() => dopadSrovnani(rows), [rows]);
   const [dopadOtevren, setDopadOtevren] = useState(true);
 
+  // 🧺 Dávkové srovnání lahví — sběrná tabulka na vlastní záložce.
+  // Bere jen řádky, kde je napočítaný stav vyplněný: bez něj není rozdíl
+  // rozdílem, jen nevyplněnou položkou.
+  const davky = useMemo(
+    () => davkySrovnani(rows.filter((r) => jeSpocitana(r.beer_id, r.package_id))),
+    [rows, actualStock],
+  );
+  /** Zadané počty sudů, klíč `beerId__kegPkgId`. */
+  const [davkaSudy, setDavkaSudy] = useState<Record<string, string>>({});
+  const sudoveObaly = useMemo(
+    () => packages
+      .filter((p) => jeSud(p.kind, p.label))
+      .sort((a, z) => Number(z.volume_l) - Number(a.volume_l)),
+    [packages],
+  );
+
+  /**
+   * Panel „lahve → sudy" pod posledním řádkem daného piva.
+   *
+   * Patří sem, a ne na vlastní stránku: člověk projde pivo, vidí rovnou pod
+   * ním, kolik lahví a litrů z toho je, potvrdí sudy a hned vidí, jak se to
+   * v inventuře propsalo. Ukáže se jen když je z čeho — u piva bez lahvového
+   * přebytku by to jen zabíralo místo.
+   */
+  function panelDavky(beerId: string) {
+    const d = davky.find((x) => x.beer_id === beerId);
+    if (!d) return null;
+    const zadano = sudoveObaly
+      .map((p) => ({
+        kegPkgId: p.id,
+        kegQty: Math.max(0, Math.floor(Number(davkaSudy[`${d.beer_id}__${p.id}`]) || 0)),
+        kegVolumeL: Number(p.volume_l ?? 0),
+      }))
+      .filter((z) => z.kegQty > 0 && z.kegVolumeL > 0);
+    const zadanoL = zadano.reduce((s, z) => s + z.kegQty * z.kegVolumeL, 0);
+
+    return (
+      <div className="rounded border-2 border-emerald-300 bg-emerald-50/70 p-3 space-y-2.5">
+        <div className="text-[11px] font-black uppercase tracking-wider text-emerald-900">
+          {d.beer_name} — dopočet lahví na sudy
+        </div>
+
+        <div className="text-xs font-bold text-neutral-800 space-y-0.5">
+          {d.lahve.map((l) => (
+            <div key={l.package_id} className="flex justify-between gap-2">
+              <span>{formatPackageLabel(l.package_label)} × {l.kusy} ks</span>
+              <span className="font-mono tabular-nums">{l.litry.toLocaleString('cs-CZ')} l</span>
+            </div>
+          ))}
+          <div className="flex justify-between gap-2 border-t border-emerald-300 pt-1 font-black">
+            <span>Celkem</span>
+            <span className="font-mono tabular-nums">{d.litryCelkem.toLocaleString('cs-CZ')} l</span>
+          </div>
+        </div>
+
+        <p className="text-[11px] font-bold text-emerald-900">
+          Orientačně + 10 % ztráta ≈ <strong>{d.orientacneSudu}×50 l</strong>. Kolik sudů se
+          opravdu načalo víš jenom ty — potvrď níž.
+        </p>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {sudoveObaly.map((p) => (
+            <div key={p.id} className="flex items-center gap-1.5">
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="0"
+                value={davkaSudy[`${d.beer_id}__${p.id}`] ?? ''}
+                onChange={(e) => setDavkaSudy((v) => ({
+                  ...v,
+                  [`${d.beer_id}__${p.id}`]: normalizujCislo(e.target.value, false),
+                }))}
+                className="w-16 px-2 py-2 rounded border-2 border-emerald-400 bg-white text-center font-black text-base text-neutral-900 focus:border-emerald-600 focus:outline-hidden"
+                aria-label={`${d.beer_name} — počet sudů ${p.volume_l} l`}
+              />
+              <span className="font-black text-xs text-emerald-900">× {p.volume_l} l</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="text-[11px] font-black text-emerald-900">
+          {zadanoL > 0
+            ? `Odečte se ${zadano.map((z) => `${z.kegQty}×${z.kegVolumeL}`).join(' + ')} = ${zadanoL.toLocaleString('cs-CZ')} l`
+            : 'Prázdné = sudy se neodečtou.'}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => zapsatDavku(d, zadano)}
+          disabled={doplnujeSe !== null}
+          className="w-full min-h-[44px] rounded bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition disabled:opacity-50"
+        >
+          {doplnujeSe === `davka__${d.beer_id}`
+            ? 'Zapisuji…'
+            : zadano.length > 0
+              ? `Zapsat lahve a odečíst ${zadano.reduce((s, z) => s + z.kegQty, 0)} sudů`
+              : 'Zapsat jen lahve (sudy se neodečtou)'}
+        </button>
+      </div>
+    );
+  }
+
+  /** Zapíše celou dávku jednoho piva: lahve do stáčení, sudy dolů ze skladu. */
+  async function zapsatDavku(d: DavkaPiva, zadano: ZdrojovaSkupina[]) {
+    if (doplnujeSe) return;
+    const suduCelkem = zadano.reduce((s, z) => s + z.kegQty, 0);
+    const ok = await potvrd(
+      `${d.beer_name}\n\n`
+      + d.lahve.map((l) => `${formatPackageLabel(l.package_label)} — ${l.kusy} ks (${l.litry} l)`).join('\n')
+      + `\n\nCelkem ${d.litryCelkem} l.\n\n`
+      + (suduCelkem > 0
+        ? `Odečte se ze skladu: ${zadano.map((z) => `${z.kegQty}×${z.kegVolumeL}`).join(' + ')}.`
+        : 'Sudy se NEODEČTOU — nezadal jsi žádné.')
+      + `\n\nZapsat k ${datumDoplnku(currentMonth)}, tedy do inventury za ${nazevMesice(currentMonth)}?`,
+      { titulek: 'Srovnat lahve → sudy', potvrdit: 'Ano, zapsat' },
+    );
+    if (!ok) return;
+
+    const rady = zapisyDavky(d, datumDoplnku(currentMonth), currentMonth, zadano);
+    if (rady.length === 0) return;
+
+    setDoplnujeSe(`davka__${d.beer_id}`);
+    const { error } = await supabase.from('bottling').insert(rady);
+    setDoplnujeSe(null);
+    if (error) { chyba('Nepodařilo se zapsat stočení: ' + error.message); return; }
+
+    // Zadané počty pro tohle pivo uklidit, ať se po znovunačtení nenabízí
+    // znovu k odečtení něco, co je už zapsané.
+    setDavkaSudy((v) => {
+      const dal = { ...v };
+      for (const k of Object.keys(dal)) if (k.startsWith(`${d.beer_id}__`)) delete dal[k];
+      return dal;
+    });
+    oznam(
+      suduCelkem > 0
+        ? `${d.beer_name}: zapsáno ${d.lahve.reduce((s, l) => s + l.kusy, 0)} ks lahví a odečteno ${suduCelkem} sudů.`
+        : `${d.beer_name}: zapsáno ${d.lahve.reduce((s, l) => s + l.kusy, 0)} ks lahví.`,
+    );
+    forceReloadRef.current = true;
+    await loadData();
+  }
+
   /**
    * Odečte objem z tanků. Relativní RPC (stejná jako v Kegging.tsx), ne
    * absolutní hodnota — jinak by se dva odečty ve stejnou chvíli přepsaly.
@@ -1454,11 +1604,15 @@ function exportInventoryExcel() {
               </div>
               {/* Mobilní karty — editace inventury a dorovnání bez vodorovného scrollování */}
               <div className="grid grid-cols-1 gap-2.5 md:hidden">
-                {zobrazeneRadky.map((r) => {
+                {zobrazeneRadky.map((r, i) => {
                   const k = `${r.beer_id}__${r.package_id}`;
                   const beer = beers.find((b) => b.id === r.beer_id);
+                  // Panel se vykreslí pod POSLEDNÍM řádkem piva, ať se dopočet
+                  // ukáže až po všech jeho obalech.
+                  const posledniPiva = zobrazeneRadky[i + 1]?.beer_id !== r.beer_id;
                   return (
-                    <div key={k} className="plocha-z-dat plocha-z-dat-tlumena rounded border border-neutral-200 overflow-hidden" style={beer ? { backgroundColor: beerBg(beer), ['--ink-plochy' as any]: beerInk(beer) } : undefined}>
+                    <Fragment key={k}>
+                    <div className="plocha-z-dat plocha-z-dat-tlumena rounded border border-neutral-200 overflow-hidden" style={beer ? { backgroundColor: beerBg(beer), ['--ink-plochy' as any]: beerInk(beer) } : undefined}>
                       <div className="p-3 space-y-2">
                         <div className="flex items-center justify-between gap-2">
                           <div className={`font-black text-sm ${beer && beerText(beer) === 'text-white' ? 'text-white' : 'text-neutral-950'}`}>
@@ -1585,6 +1739,8 @@ function exportInventoryExcel() {
                         </div>
                       </div>
                     </div>
+                    {posledniPiva && panelDavky(r.beer_id)}
+                    </Fragment>
                   );
                 })}
               </div>
@@ -1609,14 +1765,17 @@ function exportInventoryExcel() {
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((r) => {
+                    {rows.map((r, i) => {
                       const k = `${r.beer_id}__${r.package_id}`;
                       const beer = beers.find((b) => b.id === r.beer_id);
                       const isDark = beer && beerText(beer) === 'text-white';
                       const textColor = isDark ? 'text-white' : 'text-neutral-950';
+                      // Panel pod POSLEDNÍM řádkem piva — až po všech jeho obalech.
+                      const posledniPiva = rows[i + 1]?.beer_id !== r.beer_id;
 
                       return (
-                        <tr key={k} className="plocha-z-dat plocha-z-dat-tlumena hover:brightness-95 transition-colors border-b border-neutral-200/60" style={beer ? { backgroundColor: beerBg(beer), ['--ink-plochy' as any]: beerInk(beer) } : undefined}>
+                        <Fragment key={k}>
+                        <tr className="plocha-z-dat plocha-z-dat-tlumena hover:brightness-95 transition-colors border-b border-neutral-200/60" style={beer ? { backgroundColor: beerBg(beer), ['--ink-plochy' as any]: beerInk(beer) } : undefined}>
                           <td className={`font-black text-[11px] px-3 py-2 ${textColor}`}>{r.beer_name}</td>
                           <td className={`font-extrabold text-[11px] px-3 py-2 ${textColor}`}>{formatPackageLabel(r.package_label)}</td>
                           <td className={`text-right font-black text-[11px] px-2 py-2 ${textColor}`}>{r.initialQty} ks</td>
@@ -1725,6 +1884,14 @@ function exportInventoryExcel() {
                             )}
                           </td>
                         </tr>
+                        {posledniPiva && davky.some((x) => x.beer_id === r.beer_id) && (
+                          <tr>
+                            <td colSpan={13} className="px-3 py-2 bg-white">
+                              {panelDavky(r.beer_id)}
+                            </td>
+                          </tr>
+                        )}
+                        </Fragment>
                       );
                     })}
                   </tbody>
