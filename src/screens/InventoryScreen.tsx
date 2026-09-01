@@ -915,7 +915,9 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   function vykresliVyrovnani(d: DavkaPiva) {
     const manko = d.smer === 'manko';
     const klic = `${d.beer_id}__${d.smer}`;
-    const smerSudu: SmerSudu = davkaSmerSudu[klic] ?? (manko ? 'vratit' : 'odecist');
+    // Výchozí volba: u přebytku lahví se sudy nejčastěji teprve nastáčely
+    // (proto ta lahvová výroba v knize chybí), u manka se naopak nenačaly.
+    const smerSudu: SmerSudu = davkaSmerSudu[klic] ?? (manko ? 'vratit' : 'nastocit');
     const zadano = sudoveObaly
       .map((p) => ({
         kegPkgId: p.id,
@@ -963,14 +965,18 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
         <div className="rounded bg-white/70 border border-neutral-300 p-2">
           <div className="text-[11px] font-black uppercase text-neutral-600 mb-1">Co se sudy</div>
           <div className="flex flex-wrap gap-x-4 gap-y-1">
-            {([['odecist', 'Odečíst ze skladu (stáčelo se z nich)'], ['vratit', 'Vrátit do skladu (nenačaly se)']] as [SmerSudu, string][]).map(([hodnota, popis]) => (
-              <label key={hodnota} className="flex items-center gap-1.5 text-[11px] font-bold text-neutral-800 cursor-pointer">
+            {([
+              ['nastocit', 'Nastáčely se kvůli těmhle lahvím — zapiš je do Stáčení KEG a hned spotřebuj'],
+              ['odecist', 'Byly nastáčené už dřív — jen je odečti ze skladu'],
+              ['vratit', 'Nenačaly se — vrať je do skladu'],
+            ] as [SmerSudu, string][]).map(([hodnota, popis]) => (
+              <label key={hodnota} className="flex items-start gap-1.5 text-[11px] font-bold text-neutral-800 cursor-pointer w-full">
                 <input
                   type="radio"
                   name={`smer-sudu-${klic}`}
                   checked={smerSudu === hodnota}
                   onChange={() => setDavkaSmerSudu((v) => ({ ...v, [klic]: hodnota }))}
-                  className="w-4 h-4 accent-neutral-900"
+                  className="w-4 h-4 accent-neutral-900 mt-0.5 shrink-0"
                 />
                 <span>{popis}</span>
               </label>
@@ -997,7 +1003,9 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
 
         <div className={`text-[11px] font-black ${barva.text}`}>
           {zadanoL > 0
-            ? `${smerSudu === 'vratit' ? 'Vrátí' : 'Odečte'} se ${zadano.map((z) => `${z.kegQty}×${z.kegVolumeL}`).join(' + ')} = ${zadanoL.toLocaleString('cs-CZ')} l`
+            ? (smerSudu === 'nastocit'
+                ? `Zapíše se ${zadano.map((z) => `${z.kegQty}×${z.kegVolumeL}`).join(' + ')} = ${zadanoL.toLocaleString('cs-CZ')} l do Stáčení KEG a hned se spotřebuje — stav skladu sudů zůstane stejný`
+                : `${smerSudu === 'vratit' ? 'Vrátí' : 'Odečte'} se ${zadano.map((z) => `${z.kegQty}×${z.kegVolumeL}`).join(' + ')} = ${zadanoL.toLocaleString('cs-CZ')} l`)
             : 'Prázdné = sudy se nehnou.'}
         </div>
 
@@ -1010,7 +1018,9 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
           {doplnujeSe === `davka__${klic}`
             ? 'Zapisuji…'
             : `${manko ? 'Odečíst' : 'Zapsat'} ${kusuCelkem} ks lahví`
-              + (suduCelkem > 0 ? ` a ${smerSudu === 'vratit' ? 'vrátit' : 'odečíst'} ${suduCelkem} sudů` : ' (sudy se nehnou)')}
+              + (suduCelkem > 0
+                ? ` a ${smerSudu === 'vratit' ? 'vrátit' : smerSudu === 'nastocit' ? 'nastáčet' : 'odečíst'} ${suduCelkem} sudů`
+                : ' (sudy se nehnou)')}
         </button>
       </div>
     );
@@ -1052,11 +1062,38 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     const vratPozici = zapamatujPozici(`[data-inv-radek^="${d.beer_id}__"]`);
 
     let vlozene: { id: string }[] | null = null;
+    let vlozeneKegy: { id: string }[] | null = null;
     let selhalo = false;
     await sZamkem(`davka__${klic}`, async () => {
       const { data, error } = await supabase.from('bottling').insert(rady).select('id');
       if (error) { selhalo = true; chyba(`Nepodařilo se ${manko ? 'odečíst' : 'zapsat'} stočení: ` + error.message); return; }
       vlozene = data;
+
+      // „Nastáčet a hned spotřebovat": sudy se kvůli těm lahvím teprve
+      // nastáčely, takže patří i do VÝROBY — jinak kniha tvrdí, že se
+      // spotřebovalo víc sudů, než se kdy nastáčelo (Summer Ale 50 l: 15
+      // nastáčených proti 19 spotřebovaným = −6). Objem jde z tanků stejně
+      // jako u běžného kegování, ať sklep nezůstane nafouklý.
+      if (smerSudu !== 'nastocit') return;
+      const kegRady: Record<string, unknown>[] = [];
+      const rozdeleniCelkem: RozdeleniSudu = { dily: [], nepokrytoSudu: 0 };
+      for (const z of zadano) {
+        const pkg = packages.find((x) => x.id === z.kegPkgId);
+        if (!pkg) continue;
+        const rozdeleni = rozdelSudyDoTanku(tanky, d.beer_id, z.kegQty, z.kegVolumeL);
+        kegRady.push(...kegovaniZapisy(
+          { beer_id: d.beer_id, beer_name: d.beer_name, package_id: pkg.id, package_label: pkg.label, package_kind: pkg.kind, diffQty: z.kegQty },
+          datumDoplnku(currentMonth), currentMonth, rozdeleni,
+        ));
+        rozdeleniCelkem.dily.push(...rozdeleni.dily);
+        rozdeleniCelkem.nepokrytoSudu += rozdeleni.nepokrytoSudu;
+      }
+      if (kegRady.length === 0) return;
+      const { data: kegData, error: kegChyba } = await supabase.from('kegging').insert(kegRady).select('id');
+      if (kegChyba) { chyba('Lahve se zapsaly, ale stáčení sudů ne: ' + kegChyba.message); return; }
+      vlozeneKegy = kegData;
+      const tankChyba = await odectiZTanku(rozdeleniCelkem, d.beer_id);
+      if (tankChyba) chyba(tankChyba);
     });
     if (selhalo) return;
 
@@ -1067,10 +1104,11 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       for (const kk of Object.keys(dal)) if (kk.startsWith(`${klic}__`)) delete dal[kk];
       return dal;
     });
+    const coSeSudy = smerSudu === 'vratit' ? 'vráceno' : smerSudu === 'nastocit' ? 'nastáčeno a spotřebováno' : 'odečteno';
     toastZpet(
       `${d.beer_name}: ${manko ? 'odečteno' : 'zapsáno'} ${kusuCelkem} ks lahví`
-        + (suduCelkem > 0 ? ` a ${smerSudu === 'vratit' ? 'vráceno' : 'odečteno'} ${suduCelkem} sudů.` : '.'),
-      () => vratZpetStaceni(vlozene),
+        + (suduCelkem > 0 ? ` a ${coSeSudy} ${suduCelkem} sudů.` : '.'),
+      () => vratZpetDavku(vlozene, vlozeneKegy),
     );
     forceReloadRef.current = true;
     await loadData(true);
@@ -1125,6 +1163,21 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
    * vracet nemusí: stáčení je nese jako kegs_used na svých řádcích, takže
    * se smazáním vrátí do skladu samy (viz stockLedger.resolveKegsUsed).
    */
+  /**
+   * Vezme zpátky celé vyrovnání dávky — lahve i případně zapsané stáčení
+   * sudů. Objem do tanků se nevrací: u „nastáčet a hned spotřebovat" se
+   * nedá poznat, ze kterého tanku se to vzalo zpětně, a vracet ho naslepo
+   * by lhalo dvakrát.
+   */
+  async function vratZpetDavku(lahve: { id: string }[] | null, kegy: { id: string }[] | null) {
+    const kegIds = (kegy ?? []).map((x) => x.id);
+    if (kegIds.length > 0) {
+      const { error } = await supabase.from('kegging').delete().in('id', kegIds);
+      if (error) { chyba('Nepodařilo se vzít zpět stáčení sudů: ' + error.message); return; }
+    }
+    await vratZpetStaceni(lahve);
+  }
+
   async function vratZpetStaceni(vlozene: { id: string }[] | null) {
     const ids = (vlozene ?? []).map((x) => x.id);
     if (ids.length > 0) {

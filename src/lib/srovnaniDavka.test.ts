@@ -196,3 +196,24 @@ describe('zapisyDavky — znaménka lahví a sudů', () => {
     expect(rady.reduce((s, r) => s + Number(r.kegs_used ?? 0), 0)).toBe(-2);
   });
 });
+
+describe('směr sudů „nastocit"', () => {
+  const davka = davkySrovnani([lahev('1 L', 1, 717), lahev('1.5 L', 1.5, 15)])[0];
+  const sudy = [{ kegPkgId: 'k50', kegQty: 17, kegVolumeL: 50 }];
+
+  it('spotřebu sudů zapisuje stejně jako „odecist" — výrobu řeší obrazovka zvlášť', () => {
+    // Z provozu: „musí se to vepsat do stáčení KEG, protože to jsou stočený
+    // sudy." Sud se nejdřív nastáčel a hned se z něj stáčely lahve — jsou to
+    // DVA pohyby. Řádek stáčení lahví nese jen tu spotřebu; výroba jde do
+    // tabulky kegging a tu zakládá InventoryScreen.
+    const jakoOdecist = zapisyDavky(davka, '2026-08-31', '2026-08', sudy, 'odecist');
+    const jakoNastocit = zapisyDavky(davka, '2026-08-31', '2026-08', sudy, 'nastocit');
+    expect(jakoNastocit).toEqual(jakoOdecist);
+    expect(jakoNastocit.reduce((s, r) => s + Number(r.kegs_used ?? 0), 0)).toBe(17);
+  });
+
+  it('„vratit" je pořád jediný směr, který sudy vrací', () => {
+    const vratit = zapisyDavky(davka, '2026-08-31', '2026-08', sudy, 'vratit');
+    expect(vratit.reduce((s, r) => s + Number(r.kegs_used ?? 0), 0)).toBe(-17);
+  });
+});

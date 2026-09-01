@@ -39,8 +39,19 @@ export type LahvovaPolozkaDavky = {
  */
 export type SmerSrovnani = 'prebytek' | 'manko';
 
-/** Co se má stát se sudy — určuje to člověk, ne dopočet. */
-export type SmerSudu = 'odecist' | 'vratit';
+/**
+ * Co se má stát se sudy — určuje to člověk, ne dopočet.
+ *
+ * 'odecist'  — sudy už byly nastáčené dřív a teď se z nich stáčely lahve:
+ *              ze skladu ubudou, do výroby se nic nepřidává.
+ * 'nastocit' — sudy se kvůli těm lahvím TEPRVE nastáčely a hned se z nich
+ *              stáčelo. Zapíše se výroba (Stáčení KEG) i spotřeba, takže
+ *              stav skladu zůstane stejný, ale výroba je vidět. Z provozu:
+ *              „musí se to vepsat do stáčení KEG, protože to jsou stočený
+ *              sudy."
+ * 'vratit'   — sudy se nenačaly, vracejí se do skladu (u manka lahví).
+ */
+export type SmerSudu = 'odecist' | 'nastocit' | 'vratit';
 
 export type DavkaPiva = {
   beer_id: string;
@@ -173,7 +184,7 @@ export function zapisyDavky(
   const zaklad = { entry_date: entryDate, beer_id: d.beer_id, beer_name: d.beer_name };
   const manko = d.smer === 'manko';
   const znamenkoLahvi = manko ? -1 : 1;
-  const znamenkoSudu = smerSudu === 'vratit' ? -1 : 1;
+  const znamenkoSudu = smerSudu === 'vratit' ? -1 : 1; // 'odecist' i 'nastocit' spotřebovávají
   const slovo = manko ? 'Odečteno' : 'Doplněno';
   const duvod = manko ? 'manko' : 'přebytek';
 
