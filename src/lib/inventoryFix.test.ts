@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { kegovaniZapisy, lahvoveZapisy, akceProRozdil, datumDoplnku, jeSud, nabidnoutMinulyMesic, nazevMesice, planDostaceni, stoceniZapis, type InventuraPolozka } from './inventoryFix';
+import { doplnekVBudoucnu, vychoziMesicInventury, kegovaniZapisy, lahvoveZapisy, akceProRozdil, datumDoplnku, jeSud, nabidnoutMinulyMesic, nazevMesice, planDostaceni, stoceniZapis, type InventuraPolozka } from './inventoryFix';
 
 const lahev: InventuraPolozka = {
   beer_id: 'b1', beer_name: 'Ležák 12°',
@@ -283,5 +283,48 @@ describe('lahvoveZapisy — stáčení lahví z víc velikostí sudů', () => {
 
   it('manko nic nezapíše — nic se nevyrobilo', () => {
     expect(lahvoveZapisy({ ...polozka, diffQty: -5 }, D, '2026-08', [])).toEqual([]);
+  });
+});
+
+describe('vychoziMesicInventury — inventura se řídí kalendářem', () => {
+  it('prvního v měsíci se počítá měsíc PŘEDCHOZÍ', () => {
+    // Přesně tenhle den se stalo, že 17 sudů Summer Ale spadlo na 30. 9.
+    expect(vychoziMesicInventury('2026-09-01')).toBe('2026-08');
+  });
+
+  it('do desátého pořád ten předchozí — dodělává se uzávěrka', () => {
+    expect(vychoziMesicInventury('2026-09-10')).toBe('2026-08');
+  });
+
+  it('od jedenáctého už běžící měsíc', () => {
+    expect(vychoziMesicInventury('2026-09-11')).toBe('2026-09');
+    expect(vychoziMesicInventury('2026-09-25')).toBe('2026-09');
+  });
+
+  it('přes Nový rok se vrátí do prosince loňska', () => {
+    expect(vychoziMesicInventury('2026-01-03')).toBe('2025-12');
+  });
+
+  it('poškozené datum nespadne', () => {
+    expect(vychoziMesicInventury('nesmysl')).toBe('nesmysl');
+  });
+});
+
+describe('doplnekVBudoucnu — zápis výroby nesmí do budoucna', () => {
+  it('běžící měsíc má datum doplňku v budoucnosti', () => {
+    // Inventura za září zapisuje na 30. 9.; 1. 9. je to tři neděle dopředu.
+    expect(doplnekVBudoucnu('2026-09', '2026-09-01')).toBe(true);
+  });
+
+  it('uzavřený měsíc je v pořádku', () => {
+    expect(doplnekVBudoucnu('2026-08', '2026-09-01')).toBe(false);
+  });
+
+  it('poslední den měsíce už projde — měsíc končí dnes', () => {
+    expect(doplnekVBudoucnu('2026-09', '2026-09-30')).toBe(false);
+  });
+
+  it('bez data se nic neblokuje', () => {
+    expect(doplnekVBudoucnu('2026-09', '')).toBe(false);
   });
 });

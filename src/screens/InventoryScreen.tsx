@@ -7,7 +7,7 @@ import { exportHistoryDetailToExcel } from '../lib/excel';
 import { AlertCircle, AlertTriangle, Beer as BeerIcon, Calendar, Camera, ClipboardCheck, ClipboardList, Download, Check, CheckCircle2, Lock, Package as PackageIcon, Plus, RefreshCw, RotateCcw, Save } from 'lucide-react';
 import { CountFromImage } from '../components/CountFromImage';
 import { computeInventoryReconciliation } from '../lib/inventoryHelper';
-import { akceProRozdil, datumDoplnku, jeSud, kegovaniZapisy, lahvoveZapisy, nabidnoutMinulyMesic, nazevMesice, planDostaceni, stoceniZapis } from '../lib/inventoryFix';
+import { akceProRozdil, datumDoplnku, doplnekVBudoucnu, jeSud, kegovaniZapisy, lahvoveZapisy, nabidnoutMinulyMesic, nazevMesice, vychoziMesicInventury, planDostaceni, stoceniZapis } from '../lib/inventoryFix';
 import { dopadSrovnani } from '../lib/dopadSrovnani';
 import { davkySrovnani, zapisyDavky, type DavkaPiva, type ZdrojovaSkupina } from '../lib/srovnaniDavka';
 import { normalizujCislo } from '../lib/cisloVstup';
@@ -125,7 +125,10 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   const excelFileRef = useRef<HTMLInputElement>(null);
 
 
-  const [currentMonth, setCurrentMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
+  // Otevírá se na měsíci, který se uzavírá — prvních deset dní tedy na tom
+  // předchozím (viz vychoziMesicInventury). Dřív to byl vždycky dnešní měsíc
+  // a doplněné stáčení padalo do budoucnosti.
+  const [currentMonth, setCurrentMonth] = useState<string>(() => vychoziMesicInventury(businessDateISO()));
 
   // Počáteční stavy zadané ručně sládkem na začátku měsíce (načítané z inventory tabulky)
   const [initialStock, setInitialStock] = useState<InitialStockMap>({});
@@ -897,9 +900,28 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     );
   }
 
+  /**
+   * Nepustí zápis výroby do budoucnosti.
+   *
+   * Doplněk se datuje na poslední den inventovaného měsíce. Když je obrazovka
+   * omylem na běžícím měsíci, spadne zápis o týdny dopředu — v uzavíraném
+   * měsíci pak není vidět a ve statistice se objeví výroba, která se ještě
+   * nestala. Takhle zmizelo 17 sudů Summer Ale na 30. 9. 2026.
+   */
+  function odmitniBudoucnost(): boolean {
+    if (!doplnekVBudoucnu(currentMonth, businessDateISO())) return false;
+    chyba(
+      `Počítáš inventuru za ${nazevMesice(currentMonth)}, který ještě neskončil. `
+      + `Zápis by dostal datum ${datumDoplnku(currentMonth)} — to je v budoucnosti a `
+      + 'v uzavíraném měsíci by ho nikdo neviděl. Přepni nahoře měsíc na ten, který uzavíráš.',
+    );
+    return true;
+  }
+
   /** Zapíše celou dávku jednoho piva: lahve do stáčení, sudy dolů ze skladu. */
   async function zapsatDavku(d: DavkaPiva, zadano: ZdrojovaSkupina[]) {
     if (doplnujeSe) return;
+    if (odmitniBudoucnost()) return;
     const suduCelkem = zadano.reduce((s, z) => s + z.kegQty, 0);
     const ok = await potvrd(
       `${d.beer_name}\n\n`
@@ -985,6 +1007,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     if (doplnujeSe) return;
     const akce = akceProRozdil(r.diffQty);
     if (akce === 'zadna') return;
+    if (akce === 'zapsat_staceni' && odmitniBudoucnost()) return;
 
     const polozka = {
       beer_id: r.beer_id,

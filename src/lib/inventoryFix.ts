@@ -54,6 +54,22 @@ export function datumDoplnku(monthKey: string): string {
   return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
 }
 
+/**
+ * Leží doplněk v budoucnosti?
+ *
+ * Doplněk se datuje na poslední den inventovaného měsíce. Když je obrazovka
+ * omylem přepnutá na běžící měsíc, spadne zápis výroby o týdny dopředu —
+ * v uzavíraném měsíci pak není vidět a ve statistikách se objeví jako výroba,
+ * která se ještě nestala. Přesně tak zmizelo 17 sudů Summer Ale na 30. 9.
+ *
+ * Navíc to skoro vždycky znamená, že se počítá jiný měsíc, než člověk myslí:
+ * měsíc, který ještě neskončil, se uzavřít nedá.
+ */
+export function doplnekVBudoucnu(monthKey: string, dnesISO: string): boolean {
+  const datum = datumDoplnku(monthKey);
+  return !!datum && !!dnesISO && datum > dnesISO;
+}
+
 const MESICE = [
   'leden', 'únor', 'březen', 'duben', 'květen', 'červen',
   'červenec', 'srpen', 'září', 'říjen', 'listopad', 'prosinec',
@@ -77,6 +93,24 @@ export function nabidnoutMinulyMesic(vybranyMesic: string, dnesISO: string): str
   const den = Number(dnesISO.slice(8, 10));
   if (den > 10) return null;
   const [y, m] = dnesMesic.split('-').map(Number);
+  const predchozi = new Date(Date.UTC(y, m - 2, 1));
+  return `${predchozi.getUTCFullYear()}-${String(predchozi.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+/**
+ * Za který měsíc se inventura dělá — podle kalendáře.
+ *
+ * Inventura je uzávěrka měsíce, takže se vždycky dělá ten, který skončil.
+ * Prvních pár dní v měsíci se tedy počítá PŘEDCHOZÍ měsíc, ne ten běžící.
+ * Obrazovka se dřív otevírala na dnešním měsíci a doplněné stáčení pak
+ * spadlo do budoucnosti — takhle zmizelo 17 sudů Summer Ale na 30. 9. 2026.
+ */
+export function vychoziMesicInventury(dnesISO: string, doDne = 10): string {
+  const mesic = dnesISO.slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(mesic)) return mesic;
+  const den = Number(dnesISO.slice(8, 10));
+  if (!(den >= 1 && den <= doDne)) return mesic;
+  const [y, m] = mesic.split('-').map(Number);
   const predchozi = new Date(Date.UTC(y, m - 2, 1));
   return `${predchozi.getUTCFullYear()}-${String(predchozi.getUTCMonth() + 1).padStart(2, '0')}`;
 }
