@@ -1513,12 +1513,24 @@ function exportInventoryExcel() {
                                 type="button"
                                 onClick={() => setDorovnatMap((prev) => ({ ...prev, [k]: String(r.diffQty) }))}
                                 className="shrink-0 w-10 h-10 grid place-items-center rounded bg-sky-200/70 hover:bg-sky-300 text-sky-950 font-black text-sm transition"
-                                title={`Dorovnat dle manka (nastavit na ${r.diffQty} ks)`}
+                                title={`Předvyplnit dorovnání dle manka (${r.diffQty} ks). POZOR: sudy tím neodečteš — na to je zelené tlačítko níž.`}
                               >
                                 ⟳
                               </button>
                             </div>
                           </label>
+                          {/* Tohle tlačítko ⟳ vypadá jako „srovnej to" a sedí
+                              hned u jediného pole, na které jde v řádku sáhnout.
+                              Jenže dorovnání je jen zápis bokem — stáčení
+                              nezaloží a sudy neodečte. Bez téhle věty to z
+                              obrazovky nikdo nepozná. */}
+                          {(dorovnatMap[k] ?? '') !== '' && Number(dorovnatMap[k]) !== 0 && (
+                            <p className="text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-300 rounded px-2 py-1.5 mt-1.5">
+                              Dorovnání <strong>nezaloží stáčení ani neodečte sudy</strong> — je na ztráty
+                              a rozbité kusy. Když se to stočilo a jen se to nezapsalo, smaž tohle pole
+                              a použij zelené tlačítko níž.
+                            </p>
+                          )}
                         </div>
 
                         <div className="flex items-center justify-between gap-2 text-xs font-bold">
@@ -1535,6 +1547,14 @@ function exportInventoryExcel() {
                         {/* Srovnat rozdíl tam, kam patří — na rozdíl od dorovnání,
                             které ho jen schová bokem. Ukáže se jen když je co řešit
                             a položka je opravdu spočítaná. */}
+                        {/* Bez vyplněné INVENTURY se tlačítko nevykreslí a v
+                            řádku zbyde jen pole DOROVNAT — lidi tam pak píšou
+                            počty a diví se, že se sudy neodečetly. */}
+                        {!jeSpocitana(r.beer_id, r.package_id) && (
+                          <div className="text-[11px] font-bold text-neutral-500 text-center py-1">
+                            Vyplň <strong>Inventuru</strong> (napočítaný stav) a objeví se tlačítko na srovnání.
+                          </div>
+                        )}
                         {jeSpocitana(r.beer_id, r.package_id) && r.diffQty !== 0 && (
                           <button
                             type="button"
@@ -1676,6 +1696,16 @@ function exportInventoryExcel() {
                             {r.diffCzk.toLocaleString('cs-CZ')} Kč
                           </td>
                           <td className="text-center px-2 py-2">
+                            {/* Dokud není vyplněná INVENTURA, tlačítko tu není —
+                                a jediné, na co jde v řádku sáhnout, je pole
+                                DOROVNAT. Lidi tam pak píšou počty a diví se, že
+                                se sudy neodečetly. Prázdná buňka to nevysvětlí,
+                                tak sem patří pokyn. */}
+                            {!jeSpocitana(r.beer_id, r.package_id) && (
+                              <span className="text-[11px] font-bold text-neutral-500 whitespace-nowrap">
+                                ← Zadej inventuru
+                              </span>
+                            )}
                             {jeSpocitana(r.beer_id, r.package_id) && r.diffQty !== 0 && (
                               <button
                                 type="button"
