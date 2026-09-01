@@ -1668,14 +1668,38 @@ function exportInventoryExcel() {
                   stavy"</strong> — do té doby je jiné zařízení neuvidí a měsíc nejde uzavřít.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={handleSaveActualStock}
-                disabled={busy}
-                className="shrink-0 px-3 py-2 rounded bg-rose-600 hover:bg-rose-700 text-white font-black text-xs transition disabled:opacity-50 flex items-center gap-1.5"
-              >
-                <Save size={15} /> Uložit fyzické stavy
-              </button>
+              <div className="shrink-0 flex flex-wrap items-center gap-2">
+                {/* Zahození rozepsaného. Napočítané stavy se drží v prohlížeči,
+                    aby se neztratily — jenže když se inventura dělá znovu od
+                    začátku, stará čísla překážejí a jinak než po jednom se
+                    smazat nedala. */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!(await potvrd(
+                      `Zahodit ${rozepsanychRadku} rozepsaných čísel a začít inventuru za ${nazevMesice(currentMonth)} znovu?
+
+`
+                      + 'Týká se jen toho, co je naťukané v prohlížeči — zapsané stáčení, objednávky ani fasování se nedotkne.',
+                      { titulek: 'Zahodit rozepsanou inventuru', potvrdit: 'Ano, zahodit' },
+                    ))) return;
+                    setActualStock({});
+                    setDorovnatMap({});
+                    oznam('Rozepsaná inventura zahozena — můžeš začít znovu.');
+                  }}
+                  className="px-3 py-2 rounded bg-white border border-rose-300 hover:bg-rose-100 text-rose-800 font-black text-xs transition"
+                >
+                  Zahodit rozepsané
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveActualStock}
+                  disabled={busy}
+                  className="px-3 py-2 rounded bg-rose-600 hover:bg-rose-700 text-white font-black text-xs transition disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <Save size={15} /> Uložit fyzické stavy
+                </button>
+              </div>
             </div>
           )}
 
