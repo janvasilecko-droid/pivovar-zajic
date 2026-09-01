@@ -1683,13 +1683,13 @@ function exportInventoryExcel() {
             <div className="rounded border-2 border-sky-300 bg-sky-50 p-3.5 flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="font-display font-black text-sky-900 text-sm">
-                  Dorovnání je vyplněné u {dorovnaneRadky} {dorovnaneRadky === 1 ? 'položky' : dorovnaneRadky < 5 ? 'položek' : 'položek'}
+                  Ztráty jsou vyplněné u {dorovnaneRadky} položek
                 </div>
                 <p className="text-[11px] font-bold text-sky-800 mt-1 leading-relaxed">
-                  Dorovnání <strong>se stavem skladu nehne</strong> — je to poznámka bokem na ztráty
-                  a rozbité kusy a mění jen sloupec „PO DOROVNÁNÍ". Když se zboží doopravdy stočilo
-                  nebo nestočilo, patří to do <strong>Vyrovnat</strong> (panel pod pivem u lahví,
-                  tlačítko v řádku u sudů) — jedině to sáhne na sklad.
+                  Sloupec ZTRÁTY <strong>se stavem skladu nehne</strong> — je to poznámka na rozbité
+                  a ztracené kusy a mění jen sloupec vedle. Když se zboží doopravdy stočilo nebo
+                  nestočilo, patří to do <strong>Vyrovnat</strong> (panel pod pivem u lahví, tlačítko
+                  v řádku u sudů) — jedině to sáhne na sklad a zvedne počet nastáčených.
                 </p>
               </div>
               <button
@@ -1697,7 +1697,7 @@ function exportInventoryExcel() {
                 onClick={() => setDorovnatMap({})}
                 className="shrink-0 px-3 py-2 rounded bg-sky-600 hover:bg-sky-700 text-white font-black text-xs transition"
               >
-                Vymazat všechna dorovnání
+                Vymazat všechny ztráty
               </button>
             </div>
           )}
@@ -1770,12 +1770,12 @@ function exportInventoryExcel() {
               </div>
               <span className="text-[11px] text-neutral-500">Fyzický vs Systémový stav</span>
               <span className="block pt-1 border-t border-neutral-200 text-[11px] font-bold text-neutral-600">
-                Dorovnáno: {totals.dorovnat > 0 ? `+${totals.dorovnat}` : totals.dorovnat} ks ·
+                Ztráty: {totals.dorovnat > 0 ? `+${totals.dorovnat}` : totals.dorovnat} ks ·
                 <span className={totals.diffAfterQty === 0 ? 'text-emerald-700' : totals.diffAfterQty < 0 ? 'text-rose-700' : 'text-amber-700'}>
-                  {' '}po dorovnání: {totals.diffAfterQty > 0 ? `+${totals.diffAfterQty}` : totals.diffAfterQty} ks ({totals.diffAfterCzk.toLocaleString('cs-CZ')} Kč)
+                  {' '}po ztrátách: {totals.diffAfterQty > 0 ? `+${totals.diffAfterQty}` : totals.diffAfterQty} ks ({totals.diffAfterCzk.toLocaleString('cs-CZ')} Kč)
                 </span>
               </span>
-              <span className="text-[11px] text-neutral-500">Dorovnání se ukládá bokem a nepočítá se do stáčení ani odpočtů.</span>
+              <span className="text-[11px] text-neutral-500">Ztráty se ukládají bokem a nepočítají se do stáčení ani odpočtů.</span>
             </div>
           </div>
 
@@ -1783,7 +1783,7 @@ function exportInventoryExcel() {
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3 flex-wrap gap-2">
               <div>
                 <h3 className="font-display font-black text-lg text-neutral-900">Bilanční tabulka piva & Obalů k datu</h3>
-                <p className="text-xs text-neutral-500 font-bold">Do sloupce Inventura zadej ručně přesný spočítaný stav na konci měsíce (výchozí 0 ks). Když rozdíl vznikne, srovnej ho tlačítkem ve sloupci SROVNAT — <strong>přebytek</strong> se zapíše jako chybějící stočení, <strong>manko</strong> se ze stáčení odečte. Sloupec DOROVNAT (±) použij jen na rozdíly, které stáčením nevznikly (rozbité, ztracené) — ukládá se bokem a nepočítá se do stáčení ani odpočtů.</p>
+                <p className="text-xs text-neutral-500 font-bold">Do sloupce Inventura zadej ručně přesný spočítaný stav na konci měsíce (výchozí 0 ks). Když rozdíl vznikne, srovnej ho tlačítkem ve sloupci SROVNAT — <strong>přebytek</strong> se zapíše jako chybějící stočení, <strong>manko</strong> se ze stáčení odečte. Sloupec ZTRÁTY (±) je jen poznámka na rozbité a ztracené kusy — <strong>se stavem skladu nehne</strong> a stáčení nezaloží.</p>
               </div>
               <button
                 onClick={handleSaveActualStock}
@@ -1922,7 +1922,7 @@ function exportInventoryExcel() {
                             </div>
                           </label>
                           <label className="block">
-                            <span className="text-[11px] font-black uppercase text-sky-800 bg-sky-50 px-1.5 py-0.5 rounded-md inline-block mb-1">Dorovnat (±)</span>
+                            <span className="text-[11px] font-black uppercase text-sky-800 bg-sky-50 px-1.5 py-0.5 rounded-md inline-block mb-1">Ztráty (±)</span>
                             <div className="flex items-center gap-1">
                               <input
                                 type="number" onWheel={(e) => e.currentTarget.blur()}
@@ -1932,14 +1932,6 @@ function exportInventoryExcel() {
                                 value={dorovnatMap[k] !== undefined ? dorovnatMap[k] : ''}
                                 onChange={(e) => setDorovnatMap((prev) => ({ ...prev, [k]: e.target.value }))}
                               />
-                              <button
-                                type="button"
-                                onClick={() => setDorovnatMap((prev) => ({ ...prev, [k]: String(r.diffQty) }))}
-                                className="shrink-0 w-10 h-10 grid place-items-center rounded bg-sky-200/70 hover:bg-sky-300 text-sky-950 font-black text-sm transition"
-                                title={`Předvyplnit dorovnání dle manka (${r.diffQty} ks). POZOR: sudy tím neodečteš — na to je zelené tlačítko níž.`}
-                              >
-                                ⟳
-                              </button>
                             </div>
                           </label>
                           {/* Tohle tlačítko ⟳ vypadá jako „srovnej to" a sedí
@@ -1949,9 +1941,9 @@ function exportInventoryExcel() {
                               obrazovky nikdo nepozná. */}
                           {(dorovnatMap[k] ?? '') !== '' && Number(dorovnatMap[k]) !== 0 && (
                             <p className="text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-300 rounded px-2 py-1.5 mt-1.5">
-                              Dorovnání <strong>nezaloží stáčení ani neodečte sudy</strong> — je na ztráty
-                              a rozbité kusy. Když se to stočilo a jen se to nezapsalo, smaž tohle pole
-                              a použij zelené tlačítko níž.
+                              Ztráty <strong>nezaloží stáčení ani neodečtou sudy</strong> — jsou na rozbité
+                              a ztracené kusy. Když se to stočilo a jen se to nezapsalo, smaž tohle pole
+                              a vyrovnej to v panelu pod pivem.
                             </p>
                           )}
                         </div>
@@ -1962,7 +1954,7 @@ function exportInventoryExcel() {
                           </span>
                           {r.dorovnatQty !== 0 && (
                             <span className={r.diffAfterQty === 0 ? 'text-emerald-700' : r.diffAfterQty < 0 ? 'text-rose-700' : 'text-amber-700'}>
-                              Po dorovnání: {r.diffAfterQty > 0 ? `+${r.diffAfterQty}` : r.diffAfterQty} ks{r.diffAfterQty === 0 ? '' : ''}
+                              Po ztrátách: {r.diffAfterQty > 0 ? `+${r.diffAfterQty}` : r.diffAfterQty} ks
                             </span>
                           )}
                         </div>
@@ -2036,10 +2028,10 @@ function exportInventoryExcel() {
                       <th className="py-2.5 px-2 text-right text-amber-800">Výdej (−)</th>
                       <th className="py-2.5 px-3 text-right bg-emerald-700 !text-white font-black rounded-t-lg">ZBYDE (Oček.)</th>
                       <th className="py-2.5 px-3 text-right bg-amber-500 text-neutral-950 font-black rounded-t-lg">INVENTURA</th>
-                      <th className="py-2.5 px-3 text-right bg-sky-700 !text-white font-black rounded-t-lg" title="Dorovnání (±) — přičti nebo uber k očekávanému stavu, aby seděl s fyzickou realitou. Ukládá se BOKEM a NEpočítá se do stáčení ani odpočtů.">DOROVNAT (±)</th>
+                      <th className="py-2.5 px-3 text-right bg-sky-700 !text-white font-black rounded-t-lg" title="Ztráty a rozbité kusy (±). Poznámka bokem — NEZAKLÁDÁ stáčení, neodečítá sudy a se stavem skladu nehne. Na to je sloupec VYROVNAT.">ZTRÁTY (±)</th>
                       <th className="py-2.5 px-2 text-right font-black" title="Kolik kusů se u téhle položky už srovnalo z inventury tohoto měsíce. Prázdné = nesrovnávalo se.">VYROVNÁNO</th>
                       <th className="py-2.5 px-2 text-right font-black">MANKO</th>
-                      <th className="py-2.5 px-2 text-right font-black" title="Manko po započtení dorovnání (INVENTURA − Dorovnaný stav)">PO DOROVNÁNÍ</th>
+                      <th className="py-2.5 px-2 text-right font-black" title="Manko po započtení ztrát (INVENTURA − očekávaný stav se ztrátami)">PO ZTRÁTÁCH</th>
                       <th className="py-2.5 px-3 text-right font-black">ROZDÍL (Kč)</th>
                       <th className="py-2.5 px-2 text-center font-black" title="Srovnat rozdíl tam, kam patří: přebytek = chybějící zápis stočení, manko = odečet ze stáčení.">SROVNAT</th>
                     </tr>
@@ -2102,18 +2094,10 @@ function exportInventoryExcel() {
                                 onChange={(e) => setDorovnatMap((prev) => ({ ...prev, [k]: e.target.value }))}
                                 title="Zadej, o kolik kusů se má očekávaný stav dorovnat (+ přidat, − ubrat), aby seděl s realitou. Ukládá se bokem a nepočítá se do stáčení ani odpočtů."
                               />
-                              <button
-                                type="button"
-                                onClick={() => setDorovnatMap((prev) => ({ ...prev, [k]: String(r.diffQty) }))}
-                                className="shrink-0 p-1 rounded bg-sky-200/70 hover:bg-sky-300 text-sky-950 font-black text-[11px] leading-none transition"
-                                title={`Dorovnat dle manka (nastavit na ${r.diffQty} ks)`}
-                              >
-                                ⟳
-                              </button>
                             </div>
                             {r.dorovnatQty !== 0 && (
                               <div className="mt-0.5 text-[11px] font-black text-sky-800">
-                                Očekáváno po dorovnání: {r.reconciledQty} ks
+                                Očekáváno po ztrátách: {r.reconciledQty} ks
                               </div>
                             )}
                           </td>
@@ -2136,7 +2120,7 @@ function exportInventoryExcel() {
                           }`}>
                             {r.diffAfterQty > 0 ? `+${r.diffAfterQty}` : r.diffAfterQty} ks
                             {r.diffAfterQty === 0 && r.dorovnatQty !== 0 && (
-                              <span className="ml-1 text-[11px] font-black text-emerald-700"><Check className="ikona-text" /> dorovnáno</span>
+                              <span className="ml-1 text-[11px] font-black text-emerald-700"><Check className="ikona-text" /> sedí se ztrátami</span>
                             )}
                           </td>
                           <td className={`text-right font-black text-[11px] px-3 py-2 ${
