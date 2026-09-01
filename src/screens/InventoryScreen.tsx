@@ -1300,6 +1300,12 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   );
   const [auditJenRozdily, setAuditJenRozdily] = useState(false);
 
+  /** Kolik řádků má vyplněné dorovnání — kvůli přehledu a hromadnému smazání. */
+  const dorovnaneRadky = useMemo(
+    () => Object.entries(dorovnatMap).filter(([, v]) => String(v).trim() !== '' && Number(v) !== 0).length,
+    [dorovnatMap],
+  );
+
   /**
    * Položky s pohybem, u kterých zůstalo pole INVENTURA prázdné.
    *
@@ -1589,6 +1595,35 @@ function exportInventoryExcel() {
               zbytek se nikdy nespočítal a skladová kniha u nich dál odečítala
               závozy od starého (nebo žádného) základu. Napočítat nulu je
               plnohodnotný výsledek a od 1.906 se ukládá. */}
+          {/* 🧾 Dorovnání je zápis BOKEM — se skladem nehne. Když jich je na
+              obrazovce hodně (třeba po klikání na ⟳ u jednotlivých řádků),
+              tabulka je plná modrých hlášek a vypadá to, že se něco zapsalo,
+              přitom se stav skladu nezměnil. Tenhle pruh to řekne narovinu a
+              dá je smazat najednou. Ukládají se průběžně do prohlížeče, takže
+              samy nezmizí ani po přenačtení. */}
+          {dorovnaneRadky > 0 && (
+            <div className="rounded border-2 border-sky-300 bg-sky-50 p-3.5 flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="font-display font-black text-sky-900 text-sm">
+                  Dorovnání je vyplněné u {dorovnaneRadky} {dorovnaneRadky === 1 ? 'položky' : dorovnaneRadky < 5 ? 'položek' : 'položek'}
+                </div>
+                <p className="text-[11px] font-bold text-sky-800 mt-1 leading-relaxed">
+                  Dorovnání <strong>se stavem skladu nehne</strong> — je to poznámka bokem na ztráty
+                  a rozbité kusy a mění jen sloupec „PO DOROVNÁNÍ". Když se zboží doopravdy stočilo
+                  nebo nestočilo, patří to do <strong>Vyrovnat</strong> (panel pod pivem u lahví,
+                  tlačítko v řádku u sudů) — jedině to sáhne na sklad.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDorovnatMap({})}
+                className="shrink-0 px-3 py-2 rounded bg-sky-600 hover:bg-sky-700 text-white font-black text-xs transition"
+              >
+                Vymazat všechna dorovnání
+              </button>
+            </div>
+          )}
+
           {nespocitane.length > 0 && (
             <div className="rounded border-2 border-amber-400 bg-amber-50 p-4">
               <div className="flex items-start gap-3">
@@ -2000,7 +2035,7 @@ function exportInventoryExcel() {
                             </div>
                             {r.dorovnatQty !== 0 && (
                               <div className="mt-0.5 text-[11px] font-black text-sky-800">
-                                Dorovnáno: {r.reconciledQty} ks
+                                Očekáváno po dorovnání: {r.reconciledQty} ks
                               </div>
                             )}
                           </td>
