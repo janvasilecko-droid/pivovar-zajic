@@ -952,24 +952,30 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
         <p className={`text-[11px] font-bold ${barva.text}`}>
           Orientačně + 10 % ztráta ≈ <strong>{d.orientacneSudu}×50 l</strong>. Kolik sudů se toho
           doopravdy týká víš jenom ty — zadej níž, nebo nech prázdné.
+          <br />
+          <span className="text-neutral-600">Volby nic nezapisují — zápis udělá až tlačítko úplně dole.</span>
         </p>
 
-        {/* Směr sudů zvlášť. Bez toho nešlo vrátit sudy u manka ani odečíst
-            u výjimečného přebytku — a právě o to šlo z provozu. */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[11px] font-black uppercase text-neutral-600">Se sudy:</span>
-          {([['odecist', '− Odečíst ze skladu'], ['vratit', '+ Vrátit do skladu']] as [SmerSudu, string][]).map(([hodnota, popis]) => (
-            <button
-              key={hodnota}
-              type="button"
-              onClick={() => setDavkaSmerSudu((v) => ({ ...v, [klic]: hodnota }))}
-              className={`px-2.5 py-1.5 rounded font-black text-[11px] transition ${
-                smerSudu === hodnota ? 'bg-neutral-900 text-white' : 'bg-white border border-neutral-300 text-neutral-700 hover:bg-neutral-100'
-              }`}
-            >
-              {popis}
-            </button>
-          ))}
+        {/* Směr sudů zvlášť — bez toho nešlo vrátit sudy u manka ani odečíst
+            u výjimečného přebytku. Schválně jako PŘEPÍNAČ s kolečky, ne jako
+            tlačítka: vypadala jako akce a čekalo se, že samy něco zapíšou.
+            Zapisuje až velké tlačítko dole. */}
+        <div className="rounded bg-white/70 border border-neutral-300 p-2">
+          <div className="text-[11px] font-black uppercase text-neutral-600 mb-1">Co se sudy</div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1">
+            {([['odecist', 'Odečíst ze skladu (stáčelo se z nich)'], ['vratit', 'Vrátit do skladu (nenačaly se)']] as [SmerSudu, string][]).map(([hodnota, popis]) => (
+              <label key={hodnota} className="flex items-center gap-1.5 text-[11px] font-bold text-neutral-800 cursor-pointer">
+                <input
+                  type="radio"
+                  name={`smer-sudu-${klic}`}
+                  checked={smerSudu === hodnota}
+                  onChange={() => setDavkaSmerSudu((v) => ({ ...v, [klic]: hodnota }))}
+                  className="w-4 h-4 accent-neutral-900"
+                />
+                <span>{popis}</span>
+              </label>
+            ))}
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -1045,10 +1051,14 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     // ním vyskočí nahoru. Kotvou je první řádek toho piva — ten zůstává.
     const vratPozici = zapamatujPozici(`[data-inv-radek^="${d.beer_id}__"]`);
 
-    setDoplnujeSe(`davka__${klic}`);
-    const { data: vlozene, error } = await supabase.from('bottling').insert(rady).select('id');
-    setDoplnujeSe(null);
-    if (error) { chyba(`Nepodařilo se ${manko ? 'odečíst' : 'zapsat'} stočení: ` + error.message); return; }
+    let vlozene: { id: string }[] | null = null;
+    let selhalo = false;
+    await sZamkem(`davka__${klic}`, async () => {
+      const { data, error } = await supabase.from('bottling').insert(rady).select('id');
+      if (error) { selhalo = true; chyba(`Nepodařilo se ${manko ? 'odečíst' : 'zapsat'} stočení: ` + error.message); return; }
+      vlozene = data;
+    });
+    if (selhalo) return;
 
     // Zadané počty pro tenhle směr uklidit, ať se po znovunačtení nenabízí
     // znovu něco, co je už zapsané.
@@ -1076,6 +1086,26 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
    * stovku řádků inventury o dost méně klikání než dialog u každého —
    * a chybu to opraví stejně spolehlivě.
    */
+  /**
+   * Spustí zápis a VŽDY uvolní zámek tlačítek.
+   *
+   * doplnujeSe zakazuje všechna tlačítka na obrazovce. Kdyby mezi jeho
+   * nastavením a uvolněním něco spadlo — výpadek sítě, chyba RPC na tanku —,
+   * zůstal by viset a od té chvíle by „se nic nestalo" úplně všude, dokud by
+   * člověk appku nezavřel. finally to vyloučí.
+   */
+  async function sZamkem(klic: string, prace: () => Promise<void>) {
+    setDoplnujeSe(klic);
+    try {
+      await prace();
+    } catch (e) {
+      console.error(e);
+      chyba('Zápis se nepovedl: ' + (e instanceof Error ? e.message : String(e)));
+    } finally {
+      setDoplnujeSe(null);
+    }
+  }
+
   async function vratZpetKegovani(vlozene: { id: string }[] | null, rozdeleni: RozdeleniSudu | null) {
     const ids = (vlozene ?? []).map((x) => x.id);
     if (ids.length > 0) {
@@ -1204,16 +1234,21 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       if (rady.length === 0) return;
       // Ať obrazovka po zápisu zůstane u toho řádku, u kterého se klikalo.
       const vratPozici = zapamatujPozici(`[data-inv-radek="${k}"]`);
-      setDoplnujeSe(k);
       // Bez ptaní předem — inventura je stovka řádků a dvojklik u každého
       // zdržuje. Zápis jde rovnou a pár vteřin se dá vzít zpět. Datum do
       // budoucna hlídá odmitniBudoucnost() výš; to je tvrdý zákaz, ne otázka.
-      const { data: vlozene, error } = await supabase.from('kegging').insert(rady).select('id');
-      if (error) { setDoplnujeSe(null); chyba('Nepodařilo se zapsat stočení: ' + error.message); return; }
-      // Objem tanků až PO úspěšném zápisu — kdyby se zápis nepovedl, sklep by
-      // jinak zůstal odečtený o pivo, které se nikam nezapsalo.
-      const tankChyby = await odectiZTanku(rozdeleni, r.beer_id);
-      setDoplnujeSe(null);
+      let vlozene: { id: string }[] | null = null;
+      let tankChyby: string | null = null;
+      let selhalo = false;
+      await sZamkem(k, async () => {
+        const { data, error } = await supabase.from('kegging').insert(rady).select('id');
+        if (error) { selhalo = true; chyba('Nepodařilo se zapsat stočení: ' + error.message); return; }
+        vlozene = data;
+        // Objem tanků až PO úspěšném zápisu — kdyby se zápis nepovedl, sklep
+        // by jinak zůstal odečtený o pivo, které se nikam nezapsalo.
+        tankChyby = await odectiZTanku(rozdeleni, r.beer_id);
+      });
+      if (selhalo) return;
       const otevreny = zmenaOtevreni(tanky, r.beer_id, rozdeleni).otevrit;
       toastZpet(
         rozdeleni.dily.length === 0
@@ -1260,10 +1295,14 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     if (rady.length === 0) return;
     const chybi = Math.abs(r.diffQty);
     const vratPozici = zapamatujPozici(`[data-inv-radek="${k}"]`);
-    setDoplnujeSe(k);
-    const { data: vlozene, error } = await supabase.from('kegging').insert(rady.map((x) => x.row)).select('id');
-    setDoplnujeSe(null);
-    if (error) { chyba('Nepodařilo se odečíst ze stáčení: ' + error.message); return; }
+    let vlozene: { id: string }[] | null = null;
+    let selhalo = false;
+    await sZamkem(k, async () => {
+      const { data, error } = await supabase.from('kegging').insert(rady.map((x) => x.row)).select('id');
+      if (error) { selhalo = true; chyba('Nepodařilo se odečíst ze stáčení: ' + error.message); return; }
+      vlozene = data;
+    });
+    if (selhalo) return;
     // Tank se nedotkne — u dodatečné opravy se neví, ze kterého se stáčelo.
     toastZpet(`Odečteno ${chybi} ks ze „Stáčení KEG".`, () => vratZpetKegovani(vlozene, null));
     forceReloadRef.current = true;
