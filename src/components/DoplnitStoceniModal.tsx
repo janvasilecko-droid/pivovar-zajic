@@ -48,6 +48,11 @@ export function DoplnitStoceniModal({
   // načalo ví jenom stáčeč a program to nemá čím zjistit. Pole proto začínají
   // prázdná a nic se nepředvyplňuje.
   const [pocty, setPocty] = useState<Record<string, string>>({});
+  // Záporný počet kusů = manko: lahve se nenastáčely, takže se sudy nenačaly
+  // a VRACEJÍ se do skladu. Je to tentýž zápis, jen se znaménkem — dialog to
+  // ale musí říct opačně, jinak by tvrdil, že se sudy odečtou.
+  const manko = kusy < 0;
+  const kusuAbs = Math.abs(kusy);
   const pocet = (id: string) => Math.max(0, Math.floor(Number(pocty[id]) || 0));
 
   const sudy = sudoveObaly
@@ -58,7 +63,7 @@ export function DoplnitStoceniModal({
   // Orientační dopočet z celkového objemu lahví a ~10% ztráty — kolik by to
   // zhruba mělo být, kdyby se to stáčelo jen z jedné velikosti.
   const orientace = useMemo(
-    () => navrhSudu([{ volumeL: objemLahveL, qty: kusy }], 50),
+    () => navrhSudu([{ volumeL: objemLahveL, qty: Math.abs(kusy) }], 50),
     [objemLahveL, kusy],
   );
 
@@ -68,14 +73,17 @@ export function DoplnitStoceniModal({
         <div>
           <div className="font-black text-sm text-neutral-900">{popis}</div>
           <p className="text-xs font-bold text-neutral-600 mt-1">
-            Napočítáno o <strong>{kusy} ks</strong> víc, než sklad čeká — nejspíš se stočilo a nezapsalo.
-            Zapíše se do „Stáčení lahví" k {datum}, tedy do inventury za {nazevMesice(mesic)}.
+            {manko
+              ? <>Napočítáno o <strong>{kusuAbs} ks</strong> míň, než sklad čeká — nejspíš se zapsalo víc, než se stočilo.
+                Odečte se ze „Stáčení lahví" k {datum}, tedy z inventury za {nazevMesice(mesic)}.</>
+              : <>Napočítáno o <strong>{kusy} ks</strong> víc, než sklad čeká — nejspíš se stočilo a nezapsalo.
+                Zapíše se do „Stáčení lahví" k {datum}, tedy do inventury za {nazevMesice(mesic)}.</>}
           </p>
         </div>
 
         <div className="rounded border border-sky-200 bg-sky-50 p-3 space-y-2.5">
           <div className="text-[11px] font-black uppercase tracking-wider text-sky-900 flex items-center gap-1.5">
-            <IkonaSud className="ikona-text" /> Z kolika sudů se stáčelo
+            <IkonaSud className="ikona-text" /> {manko ? 'Kolik sudů se vrátí do skladu' : 'Z kolika sudů se stáčelo'}
           </div>
 
           {/* Orientace, ne rozhodnutí. Dopočet neví, kolik sudů se opravdu
@@ -83,9 +91,9 @@ export function DoplnitStoceniModal({
               nadsazuje. Počty proto zadává člověk. */}
           {orientace && (
             <p className="text-[11px] font-bold text-sky-800">
-              Orientačně: {kusy} ks × {objemLahveL} l = {orientace.nalahvovanoL} l,
+              Orientačně: {kusuAbs} ks × {objemLahveL} l = {orientace.nalahvovanoL} l,
               {' '}+ 10 % ztráta = {orientace.zdrojL} l ≈ <strong>{orientace.sudy}×50</strong>.
-              {' '}Kolik sudů se opravdu načalo víš jenom ty — zadej to níž.
+              {' '}{manko ? 'Kolik sudů se doopravdy nenačalo víš jenom ty' : 'Kolik sudů se opravdu načalo víš jenom ty'} — zadej to níž.
             </p>
           )}
 
@@ -114,8 +122,8 @@ export function DoplnitStoceniModal({
               ))}
               <div className="text-xs font-black text-sky-900 border-t border-sky-200 pt-1.5">
                 {zadanoL > 0
-                  ? `Odečte se ${sudy.map((z) => `${z.kegQty}×${z.kegVolumeL}`).join(' + ')} = ${zadanoL.toLocaleString('cs-CZ')} l`
-                  : 'Zatím nic — prázdné znamená, že se sudy neodečtou.'}
+                  ? `${manko ? 'Vrátí' : 'Odečte'} se ${sudy.map((z) => `${z.kegQty}×${z.kegVolumeL}`).join(' + ')} = ${zadanoL.toLocaleString('cs-CZ')} l`
+                  : `Zatím nic — prázdné znamená, že se sudy ${manko ? 'nevrátí' : 'neodečtou'}.`}
               </div>
             </div>
           )}
@@ -139,8 +147,10 @@ export function DoplnitStoceniModal({
             {ukladaSe
               ? 'Zapisuji…'
               : sudy.length === 0
-                ? `Zapsat ${kusy} ks lahví`
-                : `Zapsat a odečíst ${sudy.reduce((s, z) => s + z.kegQty, 0)} sudů`}
+                ? (manko ? `Odečíst ${kusuAbs} ks lahví` : `Zapsat ${kusy} ks lahví`)
+                : (manko
+                  ? `Odečíst lahve a vrátit ${sudy.reduce((s, z) => s + z.kegQty, 0)} sudů`
+                  : `Zapsat a odečíst ${sudy.reduce((s, z) => s + z.kegQty, 0)} sudů`)}
           </button>
         </div>
       </div>

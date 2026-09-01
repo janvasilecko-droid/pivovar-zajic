@@ -270,3 +270,60 @@ describe('stockAtStartOfDay — stav k ránu', () => {
     expect(stockAtStartOfDay(mv, '2026-08-24').get(K)!.qty).toBe(12);
   });
 });
+
+describe('vracení sudů při opravě manka lahví', () => {
+  const packages = [
+    { id: 'k50', kind: 'keg', volume_l: 50 },
+    { id: 'p1', kind: 'bottle', volume_l: 1 },
+  ];
+
+  it('záporné kegs_used vrátí sudy do skladu', () => {
+    // Lahve se nenastáčely, takže se sudy nenačaly a pořád leží ve skladu.
+    // Dřív se takový řádek zahodil (podmínka `kegsUsed <= 0`) a sudy zůstaly
+    // odepsané, i když se z nich nestáčelo.
+    const mv = buildMovements({
+      bottlingRows: [{
+        entry_date: '2026-08-31', beer_id: 'b1', package_id: 'p1',
+        quantity: -45, kegs_used: -1, kegs_used_package_id: 'k50', source_volume_l: -50,
+      }],
+      packages,
+    } as any);
+    const sudy = mv.filter((m) => m.kind === 'sud_na_lahve');
+    expect(sudy).toHaveLength(1);
+    expect(sudy[0].qty).toBe(1);          // + = zpátky do skladu
+    expect(sudy[0].package_id).toBe('k50');
+  });
+
+  it('kladné kegs_used pořád odečítá', () => {
+    const mv = buildMovements({
+      bottlingRows: [{
+        entry_date: '2026-08-31', beer_id: 'b1', package_id: 'p1',
+        quantity: 45, kegs_used: 1, kegs_used_package_id: 'k50', source_volume_l: 50,
+      }],
+      packages,
+    } as any);
+    expect(mv.find((m) => m.kind === 'sud_na_lahve')?.qty).toBe(-1);
+  });
+
+  it('nula sudů nedělá žádný pohyb', () => {
+    const mv = buildMovements({
+      bottlingRows: [{
+        entry_date: '2026-08-31', beer_id: 'b1', package_id: 'p1',
+        quantity: 45, kegs_used: 0, kegs_used_package_id: 'k50',
+      }],
+      packages,
+    } as any);
+    expect(mv.filter((m) => m.kind === 'sud_na_lahve')).toHaveLength(0);
+  });
+
+  it('záporné bez určeného obalu se nedopočítává — nemá z čeho', () => {
+    const mv = buildMovements({
+      bottlingRows: [{
+        entry_date: '2026-08-31', beer_id: 'b1', package_id: 'p1',
+        quantity: -45, kegs_used: -1, source_volume_l: -50,
+      }],
+      packages,
+    } as any);
+    expect(mv.filter((m) => m.kind === 'sud_na_lahve')).toHaveLength(0);
+  });
+});

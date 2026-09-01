@@ -303,8 +303,9 @@ export function odectiZeStoceni(
   p: InventuraPolozka,
   entryDate: string,
   monthKey: string,
-): StoceniZapis | null {
-  if (p.diffQty >= 0) return null;
+  vraceneSudy: ZdrojovaSkupina[] = [],
+): StoceniZapis[] {
+  if (p.diffQty >= 0) return [];
   const sud = jeSud(p.package_kind, p.package_label);
   const spolecne = {
     entry_date: entryDate,
@@ -312,10 +313,55 @@ export function odectiZeStoceni(
     beer_name: p.beer_name,
     package_id: p.package_id,
     package_label: p.package_label,
-    quantity: p.diffQty,
-    note: `Odečteno z inventury ${monthKey} — ${p.package_label} (manko ${p.diffQty} ks)`,
   };
-  return sud
-    ? { table: 'kegging', row: { ...spolecne, cellar_tank_id: null, source_volume_l: null } }
-    : { table: 'bottling', row: { ...spolecne, kegs_used: null, kegs_used_package_id: null, source_volume_l: null } };
+
+  if (sud) {
+    return [{
+      table: 'kegging',
+      row: {
+        ...spolecne,
+        quantity: p.diffQty,
+        cellar_tank_id: null,
+        source_volume_l: null,
+        note: `Odečteno z inventury ${monthKey} — ${p.package_label} (manko ${p.diffQty} ks)`,
+      },
+    }];
+  }
+
+  const platne = vraceneSudy.filter((z) => z.kegQty > 0 && z.kegVolumeL > 0);
+  if (platne.length === 0) {
+    return [{
+      table: 'bottling',
+      row: {
+        ...spolecne,
+        quantity: p.diffQty,
+        kegs_used: null,
+        kegs_used_package_id: null,
+        source_volume_l: null,
+        note: `Odečteno z inventury ${monthKey} — ${p.package_label} (manko ${p.diffQty} ks)`,
+      },
+    }];
+  }
+
+  // Lahve se rozdělí mezi velikosti sudů poměrně podle litrů, stejně jako u
+  // přebytku; zbytek padne na první řádek, ať součet sedí přesně na manko.
+  const litry = platne.map((z) => z.kegQty * z.kegVolumeL);
+  const litryCelkem = litry.reduce((s, l) => s + l, 0);
+  const chybi = Math.abs(p.diffQty);
+  const kusy = litry.map((l) => Math.floor((chybi * l) / litryCelkem));
+  kusy[0] += chybi - kusy.reduce((s, k) => s + k, 0);
+
+  return platne.map((z, i) => ({
+    table: 'bottling' as const,
+    row: {
+      ...spolecne,
+      quantity: -kusy[i],
+      // ZÁPORNÉ kegs_used = sudy se vracejí do skladu. Lahve se nenastáčely,
+      // takže se sudy nenačaly a pořád leží ve skladu.
+      kegs_used: -z.kegQty,
+      kegs_used_package_id: z.kegPkgId,
+      source_volume_l: -litry[i],
+      note: `Odečteno z inventury ${monthKey} — ${p.package_label}, vráceno ${z.kegQty}×${z.kegVolumeL} l (manko ${p.diffQty} ks)`,
+    },
+  }));
 }

@@ -115,8 +115,14 @@ function resolveKegsUsed(
   packages: { id: string; kind: string; volume_l: number }[]
 ): { kegPkgId: string; kegsUsed: number } | null {
   const kegsUsed = Number(row.kegs_used || 0);
-  if (kegsUsed <= 0) return null;
+  if (kegsUsed === 0) return null;
+  // ZÁPORNÁ hodnota = oprava manka: lahve se nenastáčely, takže se sudy
+  // nenačaly a vracejí se do skladu. Dřív se takový řádek zahodil (podmínka
+  // byla `<= 0`) a sudy zůstaly odepsané, i když se z nich nestáčelo.
   if (row.kegs_used_package_id) return { kegPkgId: row.kegs_used_package_id, kegsUsed };
+  // Bez určeného obalu se vratka dopočítat nedá — dělení záporným počtem by
+  // hledalo obal se záporným objemem.
+  if (kegsUsed < 0) return null;
   const sourceL = Number(row.source_volume_l || 0);
   if (sourceL > 0) {
     const singleVol = sourceL / kegsUsed;

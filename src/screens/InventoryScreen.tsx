@@ -1076,61 +1076,74 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     // INVENTURY, ne dnešek — po opravě má sedět stav ke dni inventury a ten
     // se přenáší jako počáteční stav do dalšího měsíce.
     if (odmitniBudoucnost()) return;
-    const odecet = odectiZeStoceni(polozka, datumDoplnku(currentMonth), currentMonth);
-    if (!odecet) return;
+
+    // U LAHVÍ se ptáme na sudy stejně jako u přebytku, jen opačným směrem:
+    // když se lahve nenastáčely, sudy se nenačaly a vracejí se do skladu.
+    if (!jeSud(r.package_kind, r.package_label)) {
+      setDoplnekLahvi(r);
+      return;
+    }
+
+    const rady = odectiZeStoceni(polozka, datumDoplnku(currentMonth), currentMonth);
+    if (rady.length === 0) return;
     const chybi = Math.abs(r.diffQty);
-    const kam = odecet.table === 'kegging' ? 'Stáčení KEG' : 'Stáčení lahví';
     const ok = await potvrd(
       [
         popis,
         `Napočítáno o ${chybi} ks míň, než sklad čeká — nejspíš se zapsalo víc, než se stočilo.`,
-        `Odečíst ${chybi} ks z „${kam}" k ${datumDoplnku(currentMonth)}, tedy do inventury za ${nazevMesice(currentMonth)}?`,
+        `Odečíst ${chybi} ks ze „Stáčení KEG" k ${datumDoplnku(currentMonth)}, tedy do inventury za ${nazevMesice(currentMonth)}?`,
         'Tank se nedotkne — u dodatečné opravy se neví, ze kterého se stáčelo.',
       ].join('\n\n'),
       { titulek: 'Odečíst ze stáčení', potvrdit: 'Ano, odečíst' },
     );
     if (!ok) return;
     setDoplnujeSe(k);
-    const { error } = await supabase.from(odecet.table).insert(odecet.row);
+    const { error } = await supabase.from('kegging').insert(rady.map((x) => x.row));
     setDoplnujeSe(null);
     if (error) { chyba('Nepodařilo se odečíst ze stáčení: ' + error.message); return; }
-    oznam(`Odečteno ${chybi} ks z „${kam}".`);
+    oznam(`Odečteno ${chybi} ks ze „Stáčení KEG".`);
     forceReloadRef.current = true;
     await loadData(true);
   }
 
-  /** Potvrzení dialogu doplnění stočení lahví — se zdrojovými sudy z dopočtu. */
+  /**
+   * Potvrzení dialogu u LAHVÍ — pro obojí směr.
+   *
+   * PŘEBYTEK: nastáčelo se a nezapsalo → lahve nahoru, sudy dolů ze skladu.
+   * MANKO: nenastáčelo se, ačkoli se zapsalo → lahve dolů a sudy se VRACEJÍ,
+   * protože se nenačaly. Je to jeden a ten samý zápis, jen se znaménkem.
+   */
   async function zapisDoplnekLahvi(vysledek: DoplnitStoceniVysledek) {
     const r = doplnekLahvi;
     if (!r) return;
-    // Jedno stáčení může načít padesátky i třicítky dohromady — řádek stáčení
-    // ale unese jen jednu velikost, takže se to rozdělí na víc zápisů.
-    const rady = lahvoveZapisy(
-      {
-        beer_id: r.beer_id,
-        beer_name: r.beer_name,
-        package_id: r.package_id,
-        package_label: r.package_label,
-        package_kind: r.package_kind,
-        diffQty: r.diffQty,
-      },
-      datumDoplnku(currentMonth),
-      currentMonth,
-      vysledek.sudy,
-    );
+    const polozka = {
+      beer_id: r.beer_id,
+      beer_name: r.beer_name,
+      package_id: r.package_id,
+      package_label: r.package_label,
+      package_kind: r.package_kind,
+      diffQty: r.diffQty,
+    };
+    const manko = r.diffQty < 0;
+    const rady = manko
+      ? odectiZeStoceni(polozka, datumDoplnku(currentMonth), currentMonth, vysledek.sudy).map((x) => x.row)
+      : lahvoveZapisy(polozka, datumDoplnku(currentMonth), currentMonth, vysledek.sudy);
     if (rady.length === 0) { setDoplnekLahvi(null); return; }
 
     setDoplnujeSe(`${r.beer_id}__${r.package_id}`);
     const { error } = await supabase.from('bottling').insert(rady);
     setDoplnujeSe(null);
-    if (error) { chyba('Nepodařilo se zapsat stočení: ' + error.message); return; }
+    if (error) { chyba('Nepodařilo se zapsat: ' + error.message); return; }
     setDoplnekLahvi(null);
     const sudyCelkem = vysledek.sudy.reduce((s, z) => s + z.kegQty, 0);
-    oznam(
-      sudyCelkem > 0
-        ? `Zapsáno ${r.diffQty} ks lahví a odečteno ${vysledek.sudy.map((z) => `${z.kegQty}×${z.kegVolumeL}`).join(' + ')}.`
-        : `Zapsáno ${r.diffQty} ks do „Stáčení lahví".`,
-    );
+    const rozpis = vysledek.sudy.map((z) => `${z.kegQty}×${z.kegVolumeL}`).join(' + ');
+    oznam(manko
+      ? (sudyCelkem > 0
+        ? `Odečteno ${Math.abs(r.diffQty)} ks lahví a vráceno ${rozpis} do skladu.`
+        : `Odečteno ${Math.abs(r.diffQty)} ks ze „Stáčení lahví".`)
+      : (sudyCelkem > 0
+        ? `Zapsáno ${r.diffQty} ks lahví a odečteno ${rozpis}.`
+        : `Zapsáno ${r.diffQty} ks do „Stáčení lahví".`));
     forceReloadRef.current = true;
     await loadData(true);
   }
