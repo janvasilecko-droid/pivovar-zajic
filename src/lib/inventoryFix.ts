@@ -7,18 +7,18 @@
 // odpočtů NEpočítá — schová rozdíl z inventury, ale výroba, spotřeba sudů a
 // statistika se tím s realitou rozejdou natrvalo.
 //
-// MANKO (napočítáno MÍŇ) je opačný případ: kusy fyzicky chybí a je potřeba je
-// dostáčet. Z toho se nedělá zápis výroby (nic se nevyrobilo!), ale úkol do
-// plánu stáčení (`bottling_plans`, viz bottlingPlans.ts).
-import type { BottlingPlanInput } from './bottlingPlans';
+// MANKO (napočítáno MÍŇ) je zrcadlový případ: vyrobilo se o tolik MÍŇ, než se
+// zapsalo. Když sklad čeká 2 sudy a fyzicky je jeden, musí zápis výroby o ten
+// sud dolů. Dřív se z manka dělal jen úkol „dostáčet" do plánu — jenže to je
+// plán do budoucna, sklad zůstal nafouklý a rozdíl se táhl do dalšího měsíce.
 import type { RozdeleniSudu } from './tankRozdeleni';
 
 /** Co nabídnout u řádku inventury podle znaménka rozdílu. */
-export type RozdilAkce = 'zapsat_staceni' | 'naplanovat' | 'zadna';
+export type RozdilAkce = 'zapsat_staceni' | 'odecist_staceni' | 'zadna';
 
 export function akceProRozdil(diffQty: number): RozdilAkce {
   if (diffQty > 0) return 'zapsat_staceni';
-  if (diffQty < 0) return 'naplanovat';
+  if (diffQty < 0) return 'odecist_staceni';
   return 'zadna';
 }
 
@@ -285,29 +285,37 @@ export function kegovaniZapisy(
 }
 
 /**
- * Úkol „dostáčet" pro MANKO. Chybějící kusy se zapíšou do plánu stáčení —
- * sudy do sudové části úkolu (keg_pkg_id/keg_qty), lahve do lahvové (pkg_id/qty),
- * ať se úkol ukáže tomu správnému stáčeči (viz maKegovouCast/maLahvovouCast).
+ * MANKO → odečet ze stáčení.
+ *
+ * Když sklad čeká 2 sudy a fyzicky je jeden, nevyrobilo se o jeden míň, než
+ * se zapsalo — a zápis výroby to musí přiznat. Dřív se z manka dělal jen úkol
+ * „dostáčet", což je ale plán do budoucna: sklad zůstal nafouklý a rozdíl
+ * vydržel do dalšího měsíce.
+ *
+ * Zapisuje se ZÁPORNÝ řádek do stejné tabulky (skladová kniha bere množství
+ * se znaménkem, viz buildMovements). Oprava je tak vidět vedle původního
+ * zápisu místo aby se do něj tiše sáhlo, a jde ji zpětně dohledat.
+ *
+ * Tank se nedotýká: u dodatečné opravy nikdo neví, ze kterého tanku se
+ * stáčelo, a vracet objem do tanku, který je mezitím vymytý, by lhalo dvakrát.
  */
-export function planDostaceni(
+export function odectiZeStoceni(
   p: InventuraPolozka,
-  plannedDate: string,
+  entryDate: string,
   monthKey: string,
-): BottlingPlanInput | null {
+): StoceniZapis | null {
   if (p.diffQty >= 0) return null;
-  const chybi = Math.abs(p.diffQty);
   const sud = jeSud(p.package_kind, p.package_label);
-  return {
+  const spolecne = {
+    entry_date: entryDate,
     beer_id: p.beer_id,
-    keg_pkg_id: sud ? p.package_id : null,
-    keg_qty: sud ? chybi : 0,
-    pkg_id: sud ? null : p.package_id,
-    qty: sud ? 0 : chybi,
-    pkg2_id: null,
-    qty2: 0,
-    pkg3_id: null,
-    qty3: 0,
-    planned_date: plannedDate,
-    note: `Chybí z inventury ${monthKey} (manko ${p.diffQty} ks)`,
+    beer_name: p.beer_name,
+    package_id: p.package_id,
+    package_label: p.package_label,
+    quantity: p.diffQty,
+    note: `Odečteno z inventury ${monthKey} — ${p.package_label} (manko ${p.diffQty} ks)`,
   };
+  return sud
+    ? { table: 'kegging', row: { ...spolecne, cellar_tank_id: null, source_volume_l: null } }
+    : { table: 'bottling', row: { ...spolecne, kegs_used: null, kegs_used_package_id: null, source_volume_l: null } };
 }

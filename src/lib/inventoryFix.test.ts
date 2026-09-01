@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { doplnekVBudoucnu, vychoziMesicInventury, kegovaniZapisy, lahvoveZapisy, akceProRozdil, datumDoplnku, jeSud, nabidnoutMinulyMesic, nazevMesice, planDostaceni, stoceniZapis, type InventuraPolozka } from './inventoryFix';
+import { doplnekVBudoucnu, vychoziMesicInventury, kegovaniZapisy, lahvoveZapisy, akceProRozdil, datumDoplnku, jeSud, nabidnoutMinulyMesic, nazevMesice, odectiZeStoceni, stoceniZapis, type InventuraPolozka } from './inventoryFix';
 
 const lahev: InventuraPolozka = {
   beer_id: 'b1', beer_name: 'Ležák 12°',
@@ -12,13 +12,6 @@ const sud: InventuraPolozka = {
   diffQty: 0,
 };
 
-describe('akceProRozdil', () => {
-  it('přebytek se dopisuje do stáčení, manko se plánuje', () => {
-    expect(akceProRozdil(48)).toBe('zapsat_staceni');
-    expect(akceProRozdil(-12)).toBe('naplanovat');
-    expect(akceProRozdil(0)).toBe('zadna');
-  });
-});
 
 describe('jeSud', () => {
   it('rozhoduje podle kind', () => {
@@ -134,28 +127,6 @@ describe('stoceniZapis (přebytek)', () => {
   });
 });
 
-describe('planDostaceni (manko)', () => {
-  it('chybějící lahve jdou do lahvové části úkolu', () => {
-    const p = planDostaceni({ ...lahev, diffQty: -48 }, '2026-08-31', '2026-08');
-    expect(p?.pkg_id).toBe('p1');
-    expect(p?.qty).toBe(48);
-    expect(p?.keg_pkg_id).toBeNull();
-    expect(p?.keg_qty).toBe(0);
-  });
-
-  it('chybějící sudy jdou do sudové části úkolu', () => {
-    const p = planDostaceni({ ...sud, diffQty: -12 }, '2026-08-31', '2026-08');
-    expect(p?.keg_pkg_id).toBe('p2');
-    expect(p?.keg_qty).toBe(12);
-    expect(p?.pkg_id).toBeNull();
-    expect(p?.qty).toBe(0);
-  });
-
-  it('u přebytku ani nuly nevznikne úkol', () => {
-    expect(planDostaceni({ ...sud, diffQty: 3 }, '2026-08-31', '2026-08')).toBeNull();
-    expect(planDostaceni({ ...sud, diffQty: 0 }, '2026-08-31', '2026-08')).toBeNull();
-  });
-});
 
 describe('kegovaniZapisy — doplněné kegování se rozpustí do tanků', () => {
   const polozka = {
@@ -326,5 +297,62 @@ describe('doplnekVBudoucnu — zápis výroby nesmí do budoucna', () => {
 
   it('bez data se nic neblokuje', () => {
     expect(doplnekVBudoucnu('2026-09', '')).toBe(false);
+  });
+});
+
+describe('odectiZeStoceni — manko opraví zápis výroby', () => {
+  it('sklad čeká 2, fyzicky je 1 → jeden sud dolů ze stáčení KEG', () => {
+    // Přesně případ z provozu: „pokud je na skladě 2 a reálně má být 1,
+    // tak to ze stáčení musí jeden sud odečíst."
+    const z = odectiZeStoceni({ ...sud, diffQty: -1 }, '2026-08-31', '2026-08');
+    expect(z?.table).toBe('kegging');
+    expect(z?.row.quantity).toBe(-1);
+  });
+
+  it('datum je datum INVENTURY, ne dnešek', () => {
+    // Po opravě má sedět stav ke dni inventury — ten se přenáší jako
+    // počáteční stav do dalšího měsíce.
+    const z = odectiZeStoceni({ ...sud, diffQty: -3 }, '2026-08-31', '2026-08');
+    expect(z?.row.entry_date).toBe('2026-08-31');
+  });
+
+  it('lahve jdou do stáčení lahví, ne do kegování', () => {
+    const z = odectiZeStoceni({ ...lahev, diffQty: -48 }, '2026-08-31', '2026-08');
+    expect(z?.table).toBe('bottling');
+    expect(z?.row.quantity).toBe(-48);
+  });
+
+  it('tanku se to nedotkne — u dodatečné opravy se neví, ze kterého se stáčelo', () => {
+    const z = odectiZeStoceni({ ...sud, diffQty: -2 }, '2026-08-31', '2026-08');
+    expect(z?.row.cellar_tank_id).toBeNull();
+    expect(z?.row.source_volume_l).toBeNull();
+  });
+
+  it('u lahví se nevrací žádné sudy', () => {
+    const z = odectiZeStoceni({ ...lahev, diffQty: -5 }, '2026-08-31', '2026-08');
+    expect(z?.row.kegs_used).toBeNull();
+    expect(z?.row.kegs_used_package_id).toBeNull();
+  });
+
+  it('poznámka řekne, odkud oprava je', () => {
+    const z = odectiZeStoceni({ ...sud, diffQty: -1 }, '2026-08-31', '2026-08');
+    expect(String(z?.row.note)).toContain('Odečteno z inventury 2026-08');
+  });
+
+  it('přebytek ani nula se neodečítá', () => {
+    expect(odectiZeStoceni({ ...sud, diffQty: 3 }, '2026-08-31', '2026-08')).toBeNull();
+    expect(odectiZeStoceni({ ...sud, diffQty: 0 }, '2026-08-31', '2026-08')).toBeNull();
+  });
+});
+
+describe('akceProRozdil — manko opravuje výrobu, ne plán', () => {
+  it('manko → odečet ze stáčení', () => {
+    expect(akceProRozdil(-1)).toBe('odecist_staceni');
+  });
+  it('přebytek → zápis stáčení', () => {
+    expect(akceProRozdil(5)).toBe('zapsat_staceni');
+  });
+  it('nula → nic', () => {
+    expect(akceProRozdil(0)).toBe('zadna');
   });
 });

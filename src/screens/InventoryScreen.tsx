@@ -4,10 +4,10 @@ import { Fragment, useState, useEffect, useMemo, useRef } from 'react';
 import { Beer, beerBg, beerInk, beerName, beerText, fetchAllRows, formatPackageLabel, Package, supabase, useRealtime } from '../lib/supabase';
 import { Spinner } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
-import { AlertCircle, AlertTriangle, Beer as BeerIcon, Calendar, Camera, ClipboardCheck, ClipboardList, Download, Check, CheckCircle2, Lock, Package as PackageIcon, Plus, RefreshCw, RotateCcw, Save } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Beer as BeerIcon, Calendar, Camera, ClipboardCheck, ClipboardList, Download, Check, CheckCircle2, Lock, MinusCircle, Package as PackageIcon, Plus, RefreshCw, RotateCcw, Save } from 'lucide-react';
 import { CountFromImage } from '../components/CountFromImage';
 import { computeInventoryReconciliation } from '../lib/inventoryHelper';
-import { akceProRozdil, datumDoplnku, doplnekVBudoucnu, jeSud, kegovaniZapisy, lahvoveZapisy, nabidnoutMinulyMesic, nazevMesice, vychoziMesicInventury, planDostaceni, stoceniZapis } from '../lib/inventoryFix';
+import { akceProRozdil, datumDoplnku, doplnekVBudoucnu, jeSud, kegovaniZapisy, lahvoveZapisy, nabidnoutMinulyMesic, nazevMesice, odectiZeStoceni, vychoziMesicInventury, stoceniZapis } from '../lib/inventoryFix';
 import { dopadSrovnani } from '../lib/dopadSrovnani';
 import { davkySrovnani, zapisyDavky, type DavkaPiva, type ZdrojovaSkupina } from '../lib/srovnaniDavka';
 import { normalizujCislo } from '../lib/cisloVstup';
@@ -798,7 +798,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
    * Srovná rozdíl tam, kam patří — místo dorovnání, které ho jen schová:
    *  • PŘEBYTEK → doplní chybějící zápis stočení (`bottling`/`kegging`).
    *    Rozdíl se pak srovná sám, protože očekávaný stav ho začne počítat.
-   *  • MANKO → založí úkol „dostáčet" do plánu stáčení. Nic se nevyrobilo,
+   *  • MANKO → odečte rozdíl ze zápisu výroby (záporný řádek). Vyrobilo se
    *    takže do evidence výroby nesmí přibýt ani kus.
    */
   // 🔗 Dopad srovnání — kolik sudů lahve spotřebují a kolik jich pak bude
@@ -1070,19 +1070,33 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       return;
     }
 
-    const plan = planDostaceni(polozka, dnes, currentMonth);
-    if (!plan) return;
+    // MANKO — vyrobilo se o tolik MÍŇ, než se zapsalo. Oprava jde do zápisu
+    // výroby (záporný řádek), ne do plánu na příště: plán by nechal sklad
+    // nafouklý a rozdíl by se táhl do dalšího měsíce. Datum je datum
+    // INVENTURY, ne dnešek — po opravě má sedět stav ke dni inventury a ten
+    // se přenáší jako počáteční stav do dalšího měsíce.
+    if (odmitniBudoucnost()) return;
+    const odecet = odectiZeStoceni(polozka, datumDoplnku(currentMonth), currentMonth);
+    if (!odecet) return;
     const chybi = Math.abs(r.diffQty);
+    const kam = odecet.table === 'kegging' ? 'Stáčení KEG' : 'Stáčení lahví';
     const ok = await potvrd(
-      `${popis}\n\nChybí ${chybi} ks oproti očekávanému stavu.\n\nZaložit úkol „dostáčet ${chybi} ks" do plánu stáčení na dnešek?`,
-      { titulek: 'Naplánovat dostáčení', potvrdit: 'Ano, naplánovat' },
+      [
+        popis,
+        `Napočítáno o ${chybi} ks míň, než sklad čeká — nejspíš se zapsalo víc, než se stočilo.`,
+        `Odečíst ${chybi} ks z „${kam}" k ${datumDoplnku(currentMonth)}, tedy do inventury za ${nazevMesice(currentMonth)}?`,
+        'Tank se nedotkne — u dodatečné opravy se neví, ze kterého se stáčelo.',
+      ].join('\n\n'),
+      { titulek: 'Odečíst ze stáčení', potvrdit: 'Ano, odečíst' },
     );
     if (!ok) return;
     setDoplnujeSe(k);
-    const { error } = await saveBottlingPlan(plan);
+    const { error } = await supabase.from(odecet.table).insert(odecet.row);
     setDoplnujeSe(null);
-    if (error) { chyba('Nepodařilo se založit úkol: ' + error.message); return; }
-    oznam(`Úkol na ${chybi} ks přidán do plánu stáčení.`);
+    if (error) { chyba('Nepodařilo se odečíst ze stáčení: ' + error.message); return; }
+    oznam(`Odečteno ${chybi} ks z „${kam}".`);
+    forceReloadRef.current = true;
+    await loadData(true);
   }
 
   /** Potvrzení dialogu doplnění stočení lahví — se zdrojovými sudy z dopočtu. */
@@ -1481,7 +1495,7 @@ function exportInventoryExcel() {
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3 flex-wrap gap-2">
               <div>
                 <h3 className="font-display font-black text-lg text-neutral-900">Bilanční tabulka piva & Obalů k datu</h3>
-                <p className="text-xs text-neutral-500 font-bold">Do sloupce Inventura zadej ručně přesný spočítaný stav na konci měsíce (výchozí 0 ks). Když rozdíl vznikne, srovnej ho tlačítkem ve sloupci SROVNAT — <strong>přebytek</strong> se zapíše jako chybějící stočení, <strong>manko</strong> založí úkol dostáčet. Sloupec DOROVNAT (±) použij jen na rozdíly, které stáčením nevznikly (rozbité, ztracené) — ukládá se bokem a nepočítá se do stáčení ani odpočtů.</p>
+                <p className="text-xs text-neutral-500 font-bold">Do sloupce Inventura zadej ručně přesný spočítaný stav na konci měsíce (výchozí 0 ks). Když rozdíl vznikne, srovnej ho tlačítkem ve sloupci SROVNAT — <strong>přebytek</strong> se zapíše jako chybějící stočení, <strong>manko</strong> se ze stáčení odečte. Sloupec DOROVNAT (±) použij jen na rozdíly, které stáčením nevznikly (rozbité, ztracené) — ukládá se bokem a nepočítá se do stáčení ani odpočtů.</p>
               </div>
               <button
                 onClick={handleSaveActualStock}
@@ -1752,12 +1766,12 @@ function exportInventoryExcel() {
                             }`}
                             title={r.diffQty > 0
                               ? 'Napočítáno víc, než sklad čeká — doplnit chybějící zápis stočení'
-                              : 'Chybí kusy — založit úkol do plánu stáčení'}
+                              : 'Napočítáno míň — odečíst rozdíl ze stáčení'}
                           >
                             {r.diffQty > 0 ? (
                               <><Plus size={15} /> Zapsat {r.diffQty} ks jako stočení</>
                             ) : (
-                              <><ClipboardList size={15} /> Naplánovat stočit {Math.abs(r.diffQty)} ks</>
+                              <><MinusCircle size={15} /> Odečíst {Math.abs(r.diffQty)} ks ze stáčení</>
                             )}
                           </button>
                         )}
@@ -1792,7 +1806,7 @@ function exportInventoryExcel() {
                       <th className="py-2.5 px-2 text-right font-black">MANKO</th>
                       <th className="py-2.5 px-2 text-right font-black" title="Manko po započtení dorovnání (INVENTURA − Dorovnaný stav)">PO DOROVNÁNÍ</th>
                       <th className="py-2.5 px-3 text-right font-black">ROZDÍL (Kč)</th>
-                      <th className="py-2.5 px-2 text-center font-black" title="Srovnat rozdíl tam, kam patří: přebytek = chybějící zápis stočení, manko = úkol dostáčet.">SROVNAT</th>
+                      <th className="py-2.5 px-2 text-center font-black" title="Srovnat rozdíl tam, kam patří: přebytek = chybějící zápis stočení, manko = odečet ze stáčení.">SROVNAT</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1908,9 +1922,9 @@ function exportInventoryExcel() {
                                 }`}
                                 title={r.diffQty > 0
                                   ? `Napočítáno o ${r.diffQty} ks víc — doplnit chybějící zápis stočení`
-                                  : `Chybí ${Math.abs(r.diffQty)} ks — založit úkol do plánu stáčení`}
+                                  : `Napočítáno o ${Math.abs(r.diffQty)} ks míň — odečíst rozdíl ze stáčení`}
                               >
-                                {r.diffQty > 0 ? `+ Zapsat ${r.diffQty} ks` : `Naplánovat ${Math.abs(r.diffQty)} ks`}
+                                {r.diffQty > 0 ? `+ Zapsat ${r.diffQty} ks` : `− Odečíst ${Math.abs(r.diffQty)} ks`}
                               </button>
                             )}
                           </td>
