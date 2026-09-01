@@ -4,7 +4,7 @@ import { Fragment, useState, useEffect, useMemo, useRef } from 'react';
 import { Beer, beerBg, beerInk, beerName, beerText, fetchAllRows, formatPackageLabel, Package, supabase, useRealtime } from '../lib/supabase';
 import { Spinner } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
-import { AlertCircle, AlertTriangle, Beer as BeerIcon, Calendar, Camera, ClipboardCheck, ClipboardList, Download, Check, CheckCircle2, Lock, MinusCircle, Package as PackageIcon, Plus, RefreshCw, RotateCcw, Save } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Beer as BeerIcon, Calendar, Camera, ClipboardCheck, ClipboardList, Download, Check, CheckCircle2, Lock, MinusCircle, Package as PackageIcon, Plus, RefreshCw, RotateCcw, Save, Search } from 'lucide-react';
 import { CountFromImage } from '../components/CountFromImage';
 import { computeInventoryReconciliation } from '../lib/inventoryHelper';
 import { akceProRozdil, datumDoplnku, doplnekVBudoucnu, jeSud, kegovaniZapisy, lahvoveZapisy, nabidnoutMinulyMesic, nazevMesice, odectiZeStoceni, vychoziMesicInventury, stoceniZapis } from '../lib/inventoryFix';
@@ -16,7 +16,8 @@ import { popisRozdeleni, rozdelSudyDoTanku, zmenaOtevreni, type RozdeleniSudu, t
 import { saveBottlingPlan } from '../lib/bottlingPlans';
 import { businessDateISO } from '../lib/businessDate';
 import { DoplnitStoceniModal, type DoplnitStoceniVysledek } from '../components/DoplnitStoceniModal';
-import { buildMovements, expectedForMonth, stockAtStartOfDay, type StockLine } from '../lib/stockLedger';
+import { buildMovements, expectedForMonth, stockAsOf, stockAtStartOfDay, type StockLine } from '../lib/stockLedger';
+import { AUDIT_NADPISY, AUDIT_SLOUPCE, bunkaAuditu, maCoUkazat, porovnejPolozku, type AuditSloupec } from '../lib/auditSkladu';
 import { chyba, oznam, potvrd } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
 import { IkonaSud } from '../components/ikony';
@@ -107,8 +108,8 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   // Záložka se drží v adrese stránky (setPage), takže může přijít i hodnota,
   // která už neexistuje — třeba zrušená záložka z minulé verze. Neznámou
   // proto srazíme na inventuru, jinak by se vykreslilo prázdno.
-  const zalozka = (t: unknown): 'inventory' | 'initial_stock' | 'end_stock' =>
-    t === 'initial_stock' || t === 'end_stock' ? t : 'inventory';
+  const zalozka = (t: unknown): 'inventory' | 'initial_stock' | 'end_stock' | 'audit' =>
+    t === 'initial_stock' || t === 'end_stock' || t === 'audit' ? t : 'inventory';
 
   const [activeTab, setActiveTab] = useState(() => zalozka(initialSubTab));
 
@@ -116,7 +117,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     setActiveTab(zalozka(initialSubTab));
   }, [initialSubTab]);
 
-  function selectTab(t: 'inventory' | 'initial_stock' | 'end_stock') {
+  function selectTab(t: 'inventory' | 'initial_stock' | 'end_stock' | 'audit') {
     if (setPage) setPage('inventory', undefined, t);
     else setActiveTab(t);
   }
@@ -177,6 +178,10 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   const [stacenoKegMap, setStacenoKegMap] = useState<Record<string, number>>({}); // Stáčení KEG
   // 📒 Očekávaný stav ze skladové knihy — jediný zdroj pravdy pro sklad.
   const [expectedLedger, setExpectedLedger] = useState<Map<string, StockLine>>(new Map());
+  // 🔍 Druhá strana auditu: stav ke KONCI měsíce tak, jak ho počítá Sklad.
+  // Proti expectedLedger se liší jen tím, že fyzickou inventuru zapsanou
+  // uvnitř měsíce bere jako nový výchozí bod (viz lib/auditSkladu.ts).
+  const [skladLedger, setSkladLedger] = useState<Map<string, StockLine>>(new Map());
   // 🛢️ Tanky pro odečet doplněného kegování.
   const [tanky, setTanky] = useState<TankProRozdeleni[]>([]);
 
@@ -220,26 +225,28 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
 
     const invRowsAll = ((inv as any[]) ?? []);
 
+    // 📒 Skladová kniha se postaví JEDNOU a obě strany auditu z ní berou.
+    // Kdyby se stavěla dvakrát z jiných dat, karta Auditu by porovnávala
+    // jablka s hruškami a rozdíl by nic neznamenal.
+    const pohyby = buildMovements({
+      inventoryRows: invRowsAll,
+      bottlingRows: (bt as any[]) ?? [],
+      keggingRows: (kg as any[]) ?? [],
+      fasovaniRows: (fa as any[]) ?? [],
+      prodejnaRows: (fp as any[]) ?? [],
+      writeoffsRows: (wo as any[]) ?? [],
+      zavozDeductionRows: (zd as any[]) ?? [],
+      akceRows: (ak as any[]) ?? [],
+      prefukRows: (pf as any[]) ?? [],
+      adjustmentRows: (adj as any[]) ?? [],
+      packages: (pk as Package[]) ?? [],
+    });
+
     // 📒 Očekávaný (teoretický) stav ke konci měsíce ze skladové knihy —
     // stejná matematika jako Sklad, Dashboard a „co stočit na který den".
-    setExpectedLedger(
-      expectedForMonth(
-        buildMovements({
-          inventoryRows: invRowsAll,
-          bottlingRows: (bt as any[]) ?? [],
-          keggingRows: (kg as any[]) ?? [],
-          fasovaniRows: (fa as any[]) ?? [],
-          prodejnaRows: (fp as any[]) ?? [],
-          writeoffsRows: (wo as any[]) ?? [],
-          zavozDeductionRows: (zd as any[]) ?? [],
-          akceRows: (ak as any[]) ?? [],
-          prefukRows: (pf as any[]) ?? [],
-          adjustmentRows: (adj as any[]) ?? [],
-          packages: (pk as Package[]) ?? [],
-        }),
-        currentMonth
-      )
-    );
+    setExpectedLedger(expectedForMonth(pohyby, currentMonth));
+    // 🔍 Tatáž kniha očima Skladu — poslední den měsíce.
+    setSkladLedger(stockAsOf(pohyby, datumDoplnku(currentMonth)));
 
     const shouldReloadState = loadedMonthRef.current !== currentMonth || forceReloadRef.current;
 
@@ -1161,6 +1168,37 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     vratPozici();
   }
 
+  /**
+   * 🔍 Podklad karty Audit: pro každé pivo × obal dvojice řádků
+   * (Inventura / Sklad) rozložená na sloupce.
+   *
+   * Položky, kde jsou obě strany na nule, se vyhazují — prázdné řádky by
+   * kartu natáhly na stovky řádků a rozdíl by se v nich ztratil.
+   */
+  const auditPolozky = useMemo(() => {
+    const out: { beer_id: string; beer_name: string; package_id: string; package_label: string;
+                 porovnani: ReturnType<typeof porovnejPolozku> }[] = [];
+    beers.forEach((b) => {
+      packages.forEach((pkg) => {
+        const k = `${b.id}__${pkg.id}`;
+        const porovnani = porovnejPolozku(expectedLedger.get(k), skladLedger.get(k));
+        if (!maCoUkazat(porovnani)) return;
+        out.push({ beer_id: b.id, beer_name: b.name, package_id: pkg.id, package_label: pkg.label, porovnani });
+      });
+    });
+    return out;
+  }, [beers, packages, expectedLedger, skladLedger]);
+
+  const auditChybiZaklad = useMemo(
+    () => auditPolozky.filter((p) => p.porovnani.chybiZaklad),
+    [auditPolozky],
+  );
+  const auditNesedi = useMemo(
+    () => auditPolozky.filter((p) => p.porovnani.rozdilne.length > 0 || p.porovnani.soucetNesedi),
+    [auditPolozky],
+  );
+  const [auditJenRozdily, setAuditJenRozdily] = useState(false);
+
   const nespocitane = useMemo(
     () => rows.filter((r) =>
       !jeSpocitana(r.beer_id, r.package_id) &&
@@ -1383,6 +1421,25 @@ function exportInventoryExcel() {
         >
           <ClipboardCheck size={16} />
           <span>Stav sudů na konci měsíce</span>
+        </button>
+
+        <button
+          onClick={() => selectTab('audit')}
+          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
+            activeTab === 'audit'
+              ? 'bg-amber-500 text-neutral-950 shadow-md'
+              : auditNesedi.length > 0
+                ? 'bg-rose-50 text-rose-900 border border-rose-300 hover:bg-rose-100'
+                : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
+          }`}
+        >
+          <Search size={16} />
+          <span>Audit — Inventura vs. Sklad</span>
+          {auditNesedi.length > 0 && (
+            <span className="px-1.5 py-0.5 rounded bg-rose-600 text-white text-[11px] font-black">
+              {auditNesedi.length}
+            </span>
+          )}
         </button>
       </div>
 
@@ -2082,6 +2139,119 @@ function exportInventoryExcel() {
           odpisyMap={odpisyMap}
           objednavkyMap={objednavkyMap}
         />
+      )}
+
+      {/* === TAB: AUDIT — INVENTURA vs. SKLAD ===
+          Dva řádky pod sebou u každého piva a obalu: nahoře čísla, ze kterých
+          počítá Inventura, dole ta, ze kterých počítá Sklad. Musí být stejná;
+          jediná povolená výjimka je uložená fyzická inventura, která posune
+          POČÁTEČNÍ stav (viz lib/auditSkladu.ts). Rozdílné buňky svítí, takže
+          je hned vidět, KTERÝ sloupec se rozešel — ne jen že výsledek nesedí. */}
+      {activeTab === 'audit' && (
+        <div className="space-y-3">
+          <div className={`rounded border-2 p-3.5 ${auditNesedi.length === 0 ? 'border-emerald-300 bg-emerald-50/70' : 'border-rose-300 bg-rose-50/70'}`}>
+            <div className={`font-display font-black text-sm ${auditNesedi.length === 0 ? 'text-emerald-950' : 'text-rose-950'}`}>
+              {auditNesedi.length === 0
+                ? `Inventura a Sklad sedí u všech ${auditPolozky.length} položek za ${nazevMesice(currentMonth)}.`
+                : `${auditNesedi.length} z ${auditPolozky.length} položek se rozchází.`}
+            </div>
+            <p className="mt-1 text-[11px] font-bold text-neutral-700 leading-relaxed">
+              Obě řady čísel vycházejí z téže skladové knihy, jen jinou cestou: <strong>Inventura</strong> počítá
+              očekávaný stav ke konci měsíce a fyzickou inventuru zapsanou uvnitř měsíce záměrně nezapočítává —
+              je to právě to, s čím se porovnává. <strong>Sklad</strong> ji naopak bere jako nový výchozí bod.
+              Dokud za měsíc není uložená fyzická inventura, musí být oba řádky shodné na kus.
+              Když uložená je, smí se lišit <strong>jen sloupec Počáteční</strong>, a to přesně o napočítané manko.
+              Rozdíl v kterémkoli jiném sloupci je chyba.
+            </p>
+            {auditChybiZaklad.length > 0 && (
+              <p className="mt-2 p-2.5 rounded bg-amber-100 border border-amber-300 text-[11px] font-bold text-amber-950 leading-relaxed">
+                <strong>{auditChybiZaklad.length}</strong> {auditChybiZaklad.length === 1 ? 'položce' : 'položkám'} chybí
+                za {nazevMesice(currentMonth)} řádek <strong>„Počáteční stav"</strong> — leží tu jen napočítaná
+                inventura. Tu Inventura záměrně nezapočítává (je to to, s čím se porovnává), takže jí nezbude
+                od čeho počítat a sčítá pohyby od úplného začátku evidence. Sklad si napočítanou hodnotu vezme
+                jako základ. Proto se u nich rozejdou i sloupce pohybů — <strong>není to chyba výpočtu, chybí
+                řádek v datech.</strong> Doplní se na záložce „Nastavit Počáteční stav zásoby".
+              </p>
+            )}
+            {auditNesedi.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setAuditJenRozdily((v) => !v)}
+                className="mt-2 px-3 py-1.5 rounded bg-rose-600 hover:bg-rose-700 text-white font-black text-[11px] transition"
+              >
+                {auditJenRozdily ? 'Ukázat všechny položky' : `Ukázat jen rozdíly (${auditNesedi.length})`}
+              </button>
+            )}
+          </div>
+
+          <div className="overflow-x-auto rounded border border-neutral-200 bg-white">
+            <table className="w-full border-collapse min-w-[900px]">
+              <thead>
+                <tr className="bg-neutral-900 text-amber-300 text-[11px] font-black uppercase tracking-wider">
+                  <th className="text-left px-3 py-2.5">Pivo · obal</th>
+                  <th className="text-left px-3 py-2.5">Zdroj</th>
+                  {AUDIT_SLOUPCE.map((sl) => (
+                    <th key={sl} className={`text-right px-2 py-2.5 whitespace-nowrap ${sl === 'konec' ? 'bg-neutral-800' : ''}`}>
+                      {AUDIT_NADPISY[sl]}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(auditJenRozdily ? auditNesedi : auditPolozky).map((it) => {
+                  const beer = beers.find((b) => b.id === it.beer_id);
+                  const { porovnani } = it;
+                  const nesedi = porovnani.rozdilne.length > 0 || porovnani.soucetNesedi;
+                  const bunka = (sl: AuditSloupec, hodnota: number, radek: 'inventura' | 'sklad') => (
+                    <td
+                      key={sl}
+                      className={`text-right font-mono font-black text-[11px] px-2 py-2 whitespace-nowrap ${
+                        porovnani.rozdilne.includes(sl)
+                          ? (radek === 'sklad' ? 'bg-rose-200 text-rose-950' : 'bg-amber-200 text-amber-950')
+                          : sl === 'konec' ? 'bg-neutral-100 text-neutral-950' : 'text-neutral-800'
+                      }`}
+                    >
+                      {bunkaAuditu(sl, hodnota)}
+                    </td>
+                  );
+                  return (
+                    <Fragment key={`${it.beer_id}__${it.package_id}`}>
+                      <tr className={`border-t-2 ${nesedi ? 'border-rose-300' : 'border-neutral-200'}`}
+                          style={beer ? { backgroundColor: beerBg(beer), ['--ink-plochy' as any]: beerInk(beer) } : undefined}>
+                        <td rowSpan={2} className="px-3 py-2 align-top font-black text-[11px] text-neutral-950 whitespace-nowrap">
+                          {it.beer_name}
+                          <span className="block font-bold opacity-80">{formatPackageLabel(it.package_label)}</span>
+                          {nesedi && (
+                            <span className="mt-1 block px-1.5 py-0.5 rounded bg-rose-600 text-white text-[11px] font-black w-fit">
+                              {porovnani.soucetNesedi ? 'součet nesedí' : `rozdíl ${porovnani.rozdilKonec > 0 ? '+' : ''}${porovnani.rozdilKonec} ks`}
+                            </span>
+                          )}
+                          {porovnani.chybiZaklad && (
+                            <span className="mt-1 block px-1.5 py-0.5 rounded bg-amber-200 text-amber-950 text-[11px] font-black w-fit">
+                              chybí počáteční stav
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 font-black text-[11px] text-amber-900 whitespace-nowrap">Inventura</td>
+                        {AUDIT_SLOUPCE.map((sl) => bunka(sl, porovnani.inventura[sl], 'inventura'))}
+                      </tr>
+                      <tr className="border-b border-neutral-200 bg-white/60">
+                        <td className="px-3 py-2 font-black text-[11px] text-sky-900 whitespace-nowrap">Sklad</td>
+                        {AUDIT_SLOUPCE.map((sl) => bunka(sl, porovnani.sklad[sl], 'sklad'))}
+                      </tr>
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {auditPolozky.length === 0 && (
+            <div className="p-4 text-center text-xs font-bold text-neutral-500">
+              Za {nazevMesice(currentMonth)} není u žádného piva ani obalu zásoba ani pohyb.
+            </div>
+          )}
+        </div>
       )}
 
 
