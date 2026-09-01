@@ -11,6 +11,8 @@ import {
 } from '../lib/orderAudit';
 import { AlertTriangle, ArrowRight, Beer as BeerIcon, Calendar, Check, CheckCircle, ChevronDown, ChevronUp, Copy, Eye, FileCheck, Globe, Layers, MessageSquare, MinusCircle, Phone, PlusCircle, RefreshCw, Search, ShieldCheck, Sparkles, Trash2, X } from 'lucide-react';
 import { Spinner } from './ui';
+import { stavPrijmu } from '../lib/stavPrijmu';
+import { fetchLastWhatsAppAt } from '../lib/whatsappApi';
 import { potvrd } from '../lib/toast';
 import {
   tichoUOdberatelu, vypadkyPrijmu, pokrytiTydne,
@@ -60,6 +62,7 @@ export function OrderAuditModal({
   // Stav mostu: bez tepu nejde odlišit „nikdo nic neposlal" od „most neběžel" —
   // obojí vypadá v databázi stejně, tedy prázdno.
   const [most, setMost] = useState<any | null>(null);
+  const [posledniPrijem, setPosledniPrijem] = useState<string | null>(null);
   const [srovnavam, setSrovnavam] = useState(false);
 
   /**
@@ -118,6 +121,9 @@ export function OrderAuditModal({
       setOdmitnute((zamitnute.data as any[]) ?? []);
       setDenik((denikDennne.data as any[]) ?? []);
       setMost(stavMostu.data ?? null);
+      // 🚦 Kdy naposledy něco DORAZILO. Tep mostu říká jen to, že běží proces;
+      // důkaz, že příjem funguje, je až doručená zpráva (viz stavPrijmu.ts).
+      setPosledniPrijem(await fetchLastWhatsAppAt());
     } catch {
       // Kontrola je doplněk — když se nenačte, zbytek auditu funguje dál.
     }
@@ -467,47 +473,48 @@ export function OrderAuditModal({
                   {/* Stav mostu — první věc, na kterou se má člověk podívat.
                       Když most neběžel, nemá smysl řešit nic dalšího. */}
                   {(() => {
-                    const naposledy = most?.naposledy ? new Date(most.naposledy) : null;
-                    const minut = naposledy ? Math.floor((Date.now() - naposledy.getTime()) / 60000) : null;
-                    // Tep chodí po minutě; pět minut ticha znamená, že most neběží
-                    // (na bezplatném Renderu typicky uspaná instance).
-                    const bezi = minut !== null && minut < 5;
-                    const popisStari = minut === null ? 'nikdy'
-                      : minut < 2 ? 'právě teď'
-                      : minut < 90 ? `před ${minut} min`
-                      : `před ${Math.floor(minut / 60)} h`;
+                    // Tep mostu říká jen to, že běží PROCES. Že jím něco
+                    // proteklo, dokáže až doručená zpráva — proto se vyhodnocuje
+                    // obojí zvlášť (viz lib/stavPrijmu.ts).
+                    const s = stavPrijmu(most?.naposledy, !!most?.pripojeno, posledniPrijem, new Date());
+                    const barvy = s.uroven === 'ok'
+                      ? { ram: 'border-emerald-300 bg-emerald-50/70', nadpis: 'text-emerald-950', text: 'text-emerald-900/80' }
+                      : s.uroven === 'pozor'
+                        ? { ram: 'border-amber-300 bg-amber-50/70', nadpis: 'text-amber-950', text: 'text-amber-900/80' }
+                        : { ram: 'border-rose-300 bg-rose-50/70', nadpis: 'text-rose-950', text: 'text-rose-900/80' };
+                    const popisTepu = s.mostMinut === null ? 'nikdy'
+                      : s.mostMinut < 2 ? 'právě teď'
+                      : s.mostMinut < 90 ? `před ${s.mostMinut} min`
+                      : `před ${Math.floor(s.mostMinut / 60)} h`;
                     return (
-                      <div className={`rounded-xl border-2 p-3.5 ${bezi ? 'border-emerald-300 bg-emerald-50/70' : 'border-rose-300 bg-rose-50/70'}`}>
+                      <div className={`rounded-xl border-2 p-3.5 ${barvy.ram}`}>
                         <div className="flex items-start justify-between gap-3 flex-wrap">
                           <div className="min-w-0">
-                            <div className={`font-display font-black text-sm ${bezi ? 'text-emerald-950' : 'text-rose-950'}`}>
-                              {bezi
-                                ? (most?.pripojeno ? 'Most běží a je spojený s WhatsAppem' : 'Most běží, ale nemá spojení s WhatsAppem')
-                                : 'Most se neozývá'}
+                            <div className={`font-display font-black text-sm ${barvy.nadpis}`}>
+                              {s.hlaska}
                             </div>
-                            <p className={`text-xs font-bold mt-0.5 ${bezi ? 'text-emerald-900/80' : 'text-rose-900/80'}`}>
-                              Naposledy {popisStari}
+                            <p className={`text-xs font-bold mt-0.5 ${barvy.text}`}>
+                              Poslední zpráva:{' '}
+                              {s.posledniZprava
+                                ? new Date(s.posledniZprava).toLocaleString('cs-CZ')
+                                : 'zatím žádná'}
+                              {' · '}tep mostu {popisTepu}
                               {most?.poznamka ? ` · ${most.poznamka}` : ''}
                             </p>
-                            {!bezi && (
-                              <p className="text-[11px] font-semibold text-rose-900/70 mt-1">
-                                Dokud most neběží, zprávy se živě nedoručují — přijdou až při dalším připojení.
-                                Bezplatný Render uspí instanci po ~15 minutách nečinnosti.
-                              </p>
-                            )}
+                            <p className={`text-[11px] font-semibold mt-1 ${barvy.text}`}>{s.rada}</p>
                           </div>
                           <button
                             type="button"
                             onClick={srovnatSWhatsAppem}
                             disabled={srovnavam}
-                            className="shrink-0 btn-primary !rounded-xl !min-h-[44px] text-xs disabled:opacity-60"
+                            className="shrink-0 btn-primary !rounded-xl !min-h-[44px] text-xs disabled:opacity-50"
                           >
                             <RefreshCw size={15} className={srovnavam ? 'animate-spin' : ''} />
                             {srovnavam ? 'Zadávám…' : 'Srovnat s WhatsAppem'}
                           </button>
                         </div>
                         <p className="text-[11px] font-semibold text-neutral-500 mt-2">
-                          Srovnání znovu naváže spojení a nechá si od WhatsAppu poslat historii skupiny.
+                          Srovnání znovu naváže spojení a nechá si od WhatsAppu poslat historii.
                           Chybějící zprávy projdou stejnou cestou jako živé; co už v aplikaci je, se nezdvojí.
                         </p>
                       </div>
