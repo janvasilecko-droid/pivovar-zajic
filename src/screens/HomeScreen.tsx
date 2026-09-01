@@ -54,6 +54,11 @@ import { getTheme, setTheme, type Theme } from '../lib/theme';
 import { fetchPendingWhatsAppCount, subscribeToWhatsAppMessages } from '../lib/whatsappApi';
 import { nactiRezervace } from '../lib/vycepyData';
 import { stariInventury, type StariInventury } from '../lib/inventuraStari';
+import { nazevMesice } from '../lib/inventoryFix';
+
+/** Na odznak dlaždice se vejde jen krátký název měsíce. */
+const MESICE_KRATCE = ['leden', 'únor', 'březen', 'duben', 'květen', 'červen',
+  'červenec', 'srpen', 'září', 'říjen', 'listopad', 'prosinec'];
 import { kauceVenku, vycepyVenku, type VycepVenku } from '../lib/vycepyVenku';
 import './HomeScreen.css';
 
@@ -1195,19 +1200,26 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               {stariInv?.pripomenout && (
                 <button
                   type="button"
-                  className={`hs-tile ${stariInv.naléhavé ? 'hs-tile-alert' : ''} vlastni-vyska`}
+                  className={`hs-tile ${stariInv.naléhavé ? 'hs-tile-alert' : 'hs-tile-warn'} vlastni-vyska`}
                   onClick={() => setPage('inventory')}
-                  title={stariInv.posledni
-                    ? `Poslední napočítaná inventura: ${stariInv.posledni}`
+                  title={stariInv.posledniMesic
+                    ? `Chybí inventura za: ${stariInv.chybejiciMesice.map(nazevMesice).join(', ')}\nPoslední napočítaná: ${nazevMesice(stariInv.posledniMesic)}`
                     : 'Zatím není žádná napočítaná inventura'}
                 >
                   <div className="hs-tile-icon-box">
                     <ClipboardCheck />
                   </div>
                   {/* Popisek krátký schválně — na téhle šířce se delší ořízne
-                      (viz „Vozidla — STK/známka"). Dny nese odznak. */}
+                      (viz „Vozidla — STK/známka"). Odznak nese chybějící měsíc:
+                      „srpen" řekne víc než počet dní a je to i pokyn, co udělat. */}
                   <div className="hs-lbl">Inventura</div>
-                  <span className="hs-badge">{stariInv.dni === null ? 'chybí' : `${stariInv.dni} dní`}</span>
+                  <span className="hs-badge">
+                    {stariInv.chybejiciMesice.length === 0
+                      ? 'chybí'
+                      : stariInv.chybejiciMesice.length === 1
+                        ? MESICE_KRATCE[Number(stariInv.chybejiciMesice[0].slice(5, 7)) - 1]
+                        : `${stariInv.chybejiciMesice.length} měs.`}
+                  </span>
                 </button>
               )}
               {vehicleAlerts.length > 0 && (

@@ -1,64 +1,81 @@
 import { describe, expect, it } from 'vitest';
-import { NALEHAVE_PO_DNECH, PRIPOMENOUT_PO_DNECH, stariInventury } from './inventuraStari';
+import { stariInventury } from './inventuraStari';
 
-const DNES = '2026-09-01';
-const predDny = (n: number) => new Date(Date.parse(`${DNES}T00:00:00Z`) - n * 86400000).toISOString().slice(0, 10);
+const fyz = (entry_date: string) => ({ entry_date, note: 'Fyzická inventura' });
+const schv = (entry_date: string) => ({ entry_date, note: 'Schválená inventura' });
 
 describe('stariInventury', () => {
-  it('čerstvá inventura se nepřipomíná', () => {
-    const s = stariInventury([{ entry_date: predDny(10), note: 'Fyzická inventura' }], DNES);
-    expect(s.dni).toBe(10);
+  it('uprostřed měsíce mlčí — běžící měsíc se ještě spočítat nedá', () => {
+    // Inventura za červenec, je 15. 8. Srpen běží, nikdo ho zatím uzavřít nemůže.
+    const s = stariInventury([schv('2026-07-01')], '2026-08-15');
+    expect(s.chybejiciMesice).toEqual([]);
     expect(s.pripomenout).toBe(false);
   });
 
-  it('po 40 dnech se ozve', () => {
-    const s = stariInventury([{ entry_date: predDny(PRIPOMENOUT_PO_DNECH), note: 'Fyzická inventura' }], DNES);
+  it('inventura za červenec se v den zadání netváří jako měsíc stará', () => {
+    // Jádro opravy: inventura ZA červenec je uložená na 2026-07-01, ale
+    // napočítá se až začátkem srpna. Počítání ve dnech od entry_date z ní
+    // udělalo „31 dní" hned v okamžiku, kdy ji někdo zadal.
+    const s = stariInventury([schv('2026-07-01')], '2026-08-05');
+    expect(s.pripomenout).toBe(false);
+  });
+
+  it('první den dalšího měsíce se ozve — minulý měsíc nikdo neuzavřel', () => {
+    const s = stariInventury([schv('2026-07-01')], '2026-09-01');
+    expect(s.chybejiciMesice).toEqual(['2026-08']);
     expect(s.pripomenout).toBe(true);
     expect(s.naléhavé).toBe(false);
   });
 
-  it('po 60 dnech je to naléhavé', () => {
-    const s = stariInventury([{ entry_date: predDny(NALEHAVE_PO_DNECH), note: 'Schválená inventura' }], DNES);
+  it('dva neuzavřené měsíce už jsou naléhavé', () => {
+    const s = stariInventury([schv('2026-07-01')], '2026-10-10');
+    expect(s.chybejiciMesice).toEqual(['2026-08', '2026-09']);
     expect(s.naléhavé).toBe(true);
   });
 
-  it('bere nejnovější, ne první nalezenou', () => {
+  it('POČÁTEČNÍ STAV se nepočítá — je to kopie minulého měsíce', () => {
+    // Přesně tahle data jsou v ostrém provozu: „Počáteční stav" na 1. 8. má
+    // stejných 19 řádků a 321 kusů jako červencová inventura. Kdyby se
+    // počítal, tvrdil by, že srpen je uzavřený, aniž by kdokoli něco spočítal.
     const s = stariInventury([
-      { entry_date: predDny(90), note: 'Fyzická inventura' },
-      { entry_date: predDny(5), note: 'Schválená inventura' },
-      { entry_date: predDny(50), note: 'Fyzická inventura' },
-    ], DNES);
-    expect(s.posledni).toBe(predDny(5));
+      schv('2026-07-01'),
+      { entry_date: '2026-08-01', note: 'Počáteční stav' },
+      { entry_date: '2026-07-01', note: 'Počáteční stav (převod z inventury)' },
+    ], '2026-09-01');
+    expect(s.posledniMesic).toBe('2026-07');
+    expect(s.chybejiciMesice).toEqual(['2026-08']);
+  });
+
+  it('bere nejnovější měsíc, ne první nalezený', () => {
+    const s = stariInventury([fyz('2026-06-01'), schv('2026-08-01'), fyz('2026-07-01')], '2026-09-01');
+    expect(s.posledniMesic).toBe('2026-08');
     expect(s.pripomenout).toBe(false);
   });
 
-  it('POČÁTEČNÍ STAV se nepočítá — převádí se sám a nikdo u něj nic nespočítal', () => {
-    // Tohle je jádro věci: kdyby se počítal, upozornění by umlčel automatický
-    // převod z minulého měsíce a schodek by rostl dál v tichosti.
-    const s = stariInventury([
-      { entry_date: predDny(2), note: 'Počáteční stav' },
-      { entry_date: predDny(80), note: 'Fyzická inventura' },
-    ], DNES);
-    expect(s.posledni).toBe(predDny(80));
-    expect(s.naléhavé).toBe(true);
+  it('přes konec roku počítá správně', () => {
+    const s = stariInventury([schv('2025-11-01')], '2026-02-01');
+    expect(s.chybejiciMesice).toEqual(['2025-12', '2026-01']);
   });
 
-  it('řádek bez poznámky se taky nepočítá', () => {
-    const s = stariInventury([{ entry_date: predDny(1), note: null }], DNES);
-    expect(s.posledni).toBeNull();
+  it('řádek bez poznámky se nepočítá', () => {
+    expect(stariInventury([{ entry_date: '2026-08-01', note: null }], '2026-09-01').posledniMesic).toBeNull();
   });
 
   it('žádná inventura — připomene se, ale ne jako naléhavé', () => {
-    const s = stariInventury([], DNES);
-    expect(s.posledni).toBeNull();
-    expect(s.dni).toBeNull();
+    const s = stariInventury([], '2026-09-01');
+    expect(s.posledniMesic).toBeNull();
     expect(s.pripomenout).toBe(true);
     expect(s.naléhavé).toBe(false);
   });
 
-  it('poškozené datum nespadne', () => {
-    const s = stariInventury([{ entry_date: 'nesmysl', note: 'Fyzická inventura' }], DNES);
-    expect(s.dni).toBeNull();
+  it('poškozené datum nespadne ani neumlčí ostatní', () => {
+    const s = stariInventury([fyz('nesmysl'), schv('2026-07-01')], '2026-09-01');
+    expect(s.posledniMesic).toBe('2026-07');
+  });
+
+  it('inventura z budoucnosti nevyrobí záporný výčet', () => {
+    const s = stariInventury([schv('2026-12-01')], '2026-09-01');
+    expect(s.chybejiciMesice).toEqual([]);
     expect(s.pripomenout).toBe(false);
   });
 });

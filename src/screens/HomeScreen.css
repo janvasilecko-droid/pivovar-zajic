@@ -356,7 +356,8 @@
 }
 
 /* Alert dlaždice v horním řádku */
-.hs-tile-alert {
+.hs-tile-alert,
+.hs-tile-warn {
   flex-direction: row !important;
   align-items: center !important;
   justify-content: center !important;
@@ -364,7 +365,8 @@
   padding: 10px 14px !important;
   text-align: left !important;
 }
-.hs-tile-alert .hs-lbl {
+.hs-tile-alert .hs-lbl,
+.hs-tile-warn .hs-lbl {
   text-align: left !important;
   font-size: 12.5px !important;
 }
@@ -630,6 +632,13 @@
 @media (prefers-reduced-motion: reduce) {
   .hs-tile-alert { animation: none; }
 }
+
+/* 🟡 Mírnější stupeň než hs-tile-alert: „něco se blíží", ne „hoří".
+   Bez pulzování — kdyby blikalo i tohle, přestane si člověk všímat i toho
+   červeného. Používá to dlaždice chybějící inventury v prvním měsíci. */
+.hs-tile-warn { background: rgba(180,83,9,0.80); border-color: rgba(253,224,71,0.45); }
+.hs-tile-warn svg { color: #fde047; }
+.hs-tile-warn .hs-badge { background: #fde047; color: #451a03; }
 
 /* touch-action:none je nutné, jinak prst na dotykovém displeji posune
    stránku (scroll) místo aby přesunul dlaždici (pointermove eventy).
