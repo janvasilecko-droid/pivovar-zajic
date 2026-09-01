@@ -2184,14 +2184,21 @@ function exportInventoryExcel() {
             )}
           </div>
 
-          <div className="overflow-x-auto rounded border border-neutral-200 bg-white">
+          {/* Vlastní rolovací box, ne jen vodorovný posuv. Sticky hlavička se
+              drží nejbližšího rolovacího předka — v obyčejném overflow-x-auto
+              divu (kterému prohlížeč dopočítá overflow-y: auto) by to byl
+              právě on, jenže ten se svisle neroluje, takže by se hlavička
+              nepřilepila vůbec. S vlastní výškou se lepí přesně tady.
+              Barva pozadí musí být na <th>, ne na <tr> — pozadí řádku se pod
+              přilepenou buňkou nevykreslí a text by prosvítal přes data. */}
+          <div className="overflow-auto rounded border border-neutral-200 bg-white max-h-[70vh]">
             <table className="w-full border-collapse min-w-[900px]">
               <thead>
-                <tr className="bg-neutral-900 text-amber-300 text-[11px] font-black uppercase tracking-wider">
-                  <th className="text-left px-3 py-2.5">Pivo · obal</th>
-                  <th className="text-left px-3 py-2.5">Zdroj</th>
+                <tr className="text-amber-300 text-[11px] font-black uppercase tracking-wider">
+                  <th className="sticky top-0 z-10 bg-neutral-900 text-left px-3 py-2.5">Pivo · obal</th>
+                  <th className="sticky top-0 z-10 bg-neutral-900 text-left px-3 py-2.5">Zdroj</th>
                   {AUDIT_SLOUPCE.map((sl) => (
-                    <th key={sl} className={`text-right px-2 py-2.5 whitespace-nowrap ${sl === 'konec' ? 'bg-neutral-800' : ''}`}>
+                    <th key={sl} className={`sticky top-0 z-10 text-right px-2 py-2.5 whitespace-nowrap ${sl === 'konec' ? 'bg-neutral-800' : 'bg-neutral-900'}`}>
                       {AUDIT_NADPISY[sl]}
                     </th>
                   ))}
