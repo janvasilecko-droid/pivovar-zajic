@@ -179,9 +179,17 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   // 🛢️ Tanky pro odečet doplněného kegování.
   const [tanky, setTanky] = useState<TankProRozdeleni[]>([]);
 
-  async function loadData() {
+  /**
+   * @param tiche Nechá obrazovku vykreslenou a jen aktualizuje čísla.
+   *
+   * Po srovnání řádku se dřív vždycky rozsvítil spinner přes celou obrazovku,
+   * stránka odskočila nahoru a hledalo se, kde člověk přestal. Při srovnávání
+   * pěti obalů jednoho piva za sebou to bylo pětkrát. Data se přenačíst musí
+   * (mění se očekávaný stav), ale rozbourat kvůli tomu celou obrazovku ne.
+   */
+  async function loadData(tiche = false) {
     const loadId = ++loadCountRef.current;
-    setLoading(true);
+    if (!tiche) setLoading(true);
 
     const [{ data: b }, { data: pk }, { data: bt }, { data: kg }, { data: fa }, { data: fp }, { data: wo }, { data: inv }, { data: adj }, { data: zd }, { data: ak }, { data: pf }, { data: tk }] = await Promise.all([
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
@@ -511,7 +519,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       } catch {}
       setSaveMsg('Počáteční stavy skladu byly v pořádku uloženy!');
       forceReloadRef.current = true;
-      await loadData();
+      await loadData(true);
     } catch (e) {
       console.error(e);
       setSaveMsg('Chyba při ukládání počátečních stavů!');
@@ -586,7 +594,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
 
       setSaveMsg('Fyzická inventura i dorovnání byla v pořádku uložena do databáze!');
       forceReloadRef.current = true;
-      await loadData();
+      await loadData(true);
     } catch (e) {
       console.error(e);
       setSaveMsg('Chyba při ukládání fyzické inventury!');
@@ -956,7 +964,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
         : `${d.beer_name}: zapsáno ${d.lahve.reduce((s, l) => s + l.kusy, 0)} ks lahví.`,
     );
     forceReloadRef.current = true;
-    await loadData();
+    await loadData(true);
   }
 
   /**
@@ -1058,7 +1066,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       );
       if (tankChyby) chyba(tankChyby);
       forceReloadRef.current = true;
-      await loadData();
+      await loadData(true);
       return;
     }
 
@@ -1110,7 +1118,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
         : `Zapsáno ${r.diffQty} ks do „Stáčení lahví".`,
     );
     forceReloadRef.current = true;
-    await loadData();
+    await loadData(true);
   }
 
   const nespocitane = useMemo(
