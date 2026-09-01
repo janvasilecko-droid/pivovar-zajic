@@ -4,7 +4,7 @@ import { Fragment, useState, useEffect, useMemo, useRef } from 'react';
 import { Beer, beerBg, beerInk, beerName, beerText, fetchAllRows, formatPackageLabel, Package, supabase, useRealtime } from '../lib/supabase';
 import { Spinner } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
-import { AlertCircle, AlertTriangle, Beer as BeerIcon, Calendar, Camera, ClipboardCheck, ClipboardList, Download, Check, CheckCircle2, Lock, MinusCircle, Package as PackageIcon, Plus, RefreshCw, RotateCcw, Save, Search } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Beer as BeerIcon, Calendar, Camera, ClipboardCheck, ClipboardList, Download, Check, Lock, MinusCircle, Package as PackageIcon, Plus, RefreshCw, RotateCcw, Save, Search } from 'lucide-react';
 import { CountFromImage } from '../components/CountFromImage';
 import { computeInventoryReconciliation } from '../lib/inventoryHelper';
 import { akceProRozdil, datumDoplnku, doplnekVBudoucnu, jeSud, kegovaniZapisy, lahvoveZapisy, nabidnoutMinulyMesic, nazevMesice, odectiZeStoceni, vychoziMesicInventury, stoceniZapis } from '../lib/inventoryFix';
@@ -17,7 +17,7 @@ import { businessDateISO } from '../lib/businessDate';
 import { DoplnitStoceniModal, type DoplnitStoceniVysledek } from '../components/DoplnitStoceniModal';
 import { buildMovements, expectedForMonth, stockAsOf, stockAtStartOfDay, type StockLine } from '../lib/stockLedger';
 import { AUDIT_NADPISY, AUDIT_SLOUPCE, bunkaAuditu, maCoUkazat, porovnejPolozku, type AuditSloupec } from '../lib/auditSkladu';
-import { chyba, oznam, potvrd } from '../lib/toast';
+import { chyba, oznam, potvrd, uspech } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
 import { IkonaSud } from '../components/ikony';
 
@@ -154,7 +154,6 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   const [stacenoMap, setStacenoMap] = useState<Record<string, number>>({});
   const [vydejMap, setVydejMap] = useState<Record<string, number>>({});
   const [busy, setBusy] = useState(false);
-  const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [showPhotoCounter, setShowPhotoCounter] = useState(false);
   // Režim počítání — ve skladu se prochází s telefonem a všech 99 kombinací
   // pivo × obal je nepřehledných. Filtr zúží seznam na to, co se opravdu řeší.
@@ -494,6 +493,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
 
   // Uložení počátečního stavu z rozjetého měsíce do databáze (inventory tabulka)
   async function handleSaveInitialStock() {
+    const vratPozici = zapamatujPozici('[data-inv-kotva="pocatecni"]');
     setBusy(true);
     try {
       const entryDate = currentMonth + '-01';
@@ -524,14 +524,14 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
         Object.entries(initialStock).forEach(([key, qty]) => { if (Number(qty) > 0) lsMap[key] = Number(qty); });
         localStorage.setItem(`initial_stock_${currentMonth}`, JSON.stringify(lsMap));
       } catch {}
-      setSaveMsg('Počáteční stavy skladu byly v pořádku uloženy!');
+      uspech('Počáteční stavy skladu byly v pořádku uloženy!');
       forceReloadRef.current = true;
       await loadData(true);
+      vratPozici();
     } catch (e) {
       console.error(e);
-      setSaveMsg('Chyba při ukládání počátečních stavů!');
+      chyba('Chyba při ukládání počátečních stavů!');
     }
-    setTimeout(() => setSaveMsg(null), 3000);
     setBusy(false);
   }
 
@@ -567,6 +567,9 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   }
 
   async function handleSaveActualStock() {
+    // Ať po uložení zůstane tabulka přesně tam, kde je — jde se rovnou
+    // zkontrolovat, jestli se dorovnání propsalo (viz lib/drzPozici.ts).
+    const vratPozici = zapamatujPozici('[data-inv-kotva="bilance"]');
     setBusy(true);
     try {
       const entryDate = currentMonth + '-01';
@@ -599,14 +602,14 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       localStorage.setItem(`actual_inventory_${currentMonth}`, JSON.stringify(actualStock));
       localStorage.setItem(`inventory_adjustments_${currentMonth}`, JSON.stringify(dorovnatMap));
 
-      setSaveMsg('Fyzická inventura i dorovnání byla v pořádku uložena do databáze!');
+      uspech('Fyzická inventura i dorovnání byla v pořádku uložena do databáze!');
       forceReloadRef.current = true;
       await loadData(true);
+      vratPozici();
     } catch (e) {
       console.error(e);
-      setSaveMsg('Chyba při ukládání fyzické inventury!');
+      chyba('Chyba při ukládání fyzické inventury!');
     }
-    setTimeout(() => setSaveMsg(null), 3000);
     setBusy(false);
   }
 
@@ -1372,13 +1375,6 @@ function exportInventoryExcel() {
         </div>
       </div>
 
-      {saveMsg && (
-        <div className="p-4 rounded bg-emerald-100 border border-emerald-300 text-emerald-950 text-xs font-black flex items-center gap-2">
-          <CheckCircle2 size={18} className="text-emerald-700" />
-          <span>{saveMsg}</span>
-        </div>
-      )}
-
       {/* Tabs — přilepené nahoře, ať jde přepínat záložku i uprostřed scrollování. */}
       <div className="sticky top-0 z-20 bg-neutral-100 pt-1 flex items-center gap-2 border-b border-neutral-200 pb-2 overflow-x-auto scrollbar-thin">
         <button
@@ -1573,7 +1569,7 @@ function exportInventoryExcel() {
             </div>
           </div>
 
-          <div className="card p-5 bg-white border border-neutral-200/90 rounded shadow-xs space-y-4">
+          <div data-inv-kotva="bilance" className="card p-5 bg-white border border-neutral-200/90 rounded shadow-xs space-y-4">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3 flex-wrap gap-2">
               <div>
                 <h3 className="font-display font-black text-lg text-neutral-900">Bilanční tabulka piva & Obalů k datu</h3>
@@ -1997,7 +1993,7 @@ function exportInventoryExcel() {
 
       {/* TAB 2: POČÁTEČNÍ STAVY SE ZADÁVÁNÍM RUČNĚ */}
       {activeTab === 'initial_stock' && (
-        <div className="card p-6 bg-white border border-neutral-200 rounded space-y-5 shadow-xs">
+        <div data-inv-kotva="pocatecni" className="card p-6 bg-white border border-neutral-200 rounded space-y-5 shadow-xs">
           <div className="flex items-center justify-between border-b border-neutral-100 pb-3 flex-wrap gap-2">
             <div>
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
