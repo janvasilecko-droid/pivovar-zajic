@@ -17,6 +17,7 @@
 // Jakýkoli JINÝ rozdíl znamená, že se do jednoho z výpočtů propsalo něco, co
 // ve druhém není. Tahle karta ho ukáže ve sloupci, kde vznikl, místo aby se
 // hádalo z jednoho výsledného čísla.
+import { ZAKLAD_NEZADAN } from './stockLedger';
 import type { MovementKind, StockLine } from './stockLedger';
 
 /**
@@ -111,15 +112,14 @@ export type PorovnaniPolozky = {
   /** Nesedí řádku vlastní součet? Pak chybí sloupec, ne data. */
   soucetNesedi: boolean;
   /**
-   * Inventura nemá za tenhle měsíc od čeho počítat.
+   * Počáteční stav není za tenhle měsíc zadaný a Inventura počítá od nuly.
    *
    * Nastane, když k prvnímu dni měsíce leží jen NAPOČÍTANÁ inventura
    * („Fyzická" / „Schválená") a chybí „Počáteční stav". Napočítanou hodnotu
    * expectedForMonth záměrně vyřazuje — je to právě to, s čím se porovnává —
-   * a bez počátečního stavu jí pak nezbude žádný výchozí bod, takže sčítá
-   * pohyby od úplného začátku evidence. Sklad si mezitím napočítanou hodnotu
-   * vezme jako základ. Oba řádky se tím rozejdou i ve sloupcích pohybů, a to
-   * není chyba výpočtu — chybí ten jeden řádek v datech.
+   * a místo ní dosadí nulu (ZAKLAD_NEZADAN). Sklad si napočítanou hodnotu
+   * vezme jako základ, takže se řádky liší v POČÁTEČNÍM stavu. Sloupce pohybů
+   * sedět musí; rozdíl v nich by byl skutečná chyba.
    */
   chybiZaklad: boolean;
 };
@@ -146,7 +146,7 @@ export function porovnejPolozku(
     soucetNesedi:
       konecZeSloupcu(inventura) !== inventura.konec ||
       konecZeSloupcu(sklad) !== sklad.konec,
-    chybiZaklad: !inventuraLine?.baselineDate && !!skladLine?.baselineDate,
+    chybiZaklad: inventuraLine?.baselineNote === ZAKLAD_NEZADAN,
   };
 }
 

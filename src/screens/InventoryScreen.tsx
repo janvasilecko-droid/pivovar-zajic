@@ -2167,10 +2167,10 @@ function exportInventoryExcel() {
               <p className="mt-2 p-2.5 rounded bg-amber-100 border border-amber-300 text-[11px] font-bold text-amber-950 leading-relaxed">
                 <strong>{auditChybiZaklad.length}</strong> {auditChybiZaklad.length === 1 ? 'položce' : 'položkám'} chybí
                 za {nazevMesice(currentMonth)} řádek <strong>„Počáteční stav"</strong> — leží tu jen napočítaná
-                inventura. Tu Inventura záměrně nezapočítává (je to to, s čím se porovnává), takže jí nezbude
-                od čeho počítat a sčítá pohyby od úplného začátku evidence. Sklad si napočítanou hodnotu vezme
-                jako základ. Proto se u nich rozejdou i sloupce pohybů — <strong>není to chyba výpočtu, chybí
-                řádek v datech.</strong> Doplní se na záložce „Nastavit Počáteční stav zásoby".
+                inventura. Tu Inventura záměrně nezapočítává (je to to, s čím se porovnává), takže počítá
+                od <strong>nuly</strong>; Sklad si napočítanou hodnotu bere jako základ. <strong>Sloupce pohybů
+                sedí</strong> — obě strany počítají stejný měsíc — a rozdíl je jen v Počátečním stavu a v Konci.
+                Není to chyba výpočtu, chybí údaj. Doplní se na záložce „Nastavit Počáteční stav zásoby".
               </p>
             )}
             {auditNesedi.length > 0 && (

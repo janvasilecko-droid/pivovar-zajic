@@ -214,6 +214,16 @@ export function buildMovements(src: StockSources): Movement[] {
   return out;
 }
 
+/**
+ * Poznámka náhradního počátečního stavu, který dosazuje expectedForMonth.
+ *
+ * „Nezadaný" je tu schválně napsané: v tabulce žádný takový řádek neleží,
+ * dosadila ho aplikace jako nulu, aby měla od čeho počítat. Karta Auditu
+ * podle toho pozná, že rozdíl v počátečním stavu není chyba výpočtu, ale
+ * chybějící údaj (viz lib/auditSkladu.ts).
+ */
+export const ZAKLAD_NEZADAN = 'Počáteční stav (nezadaný)';
+
 export type StockLine = {
   key: string;
   beer_id: string;
@@ -224,6 +234,8 @@ export type StockLine = {
   baselineDate: string | null;
   /** Stav podle té inventury. */
   baselineQty: number;
+  /** Poznámka té inventury. ZAKLAD_NEZADAN = dosazená nula, ne řádek z tabulky. */
+  baselineNote?: string | null;
   /** Rozpad pohybů od inventury po zadané datum, po druzích. */
   byKind: Partial<Record<MovementKind, number>>;
 };
@@ -254,6 +266,7 @@ export function stockAsOf(movements: Movement[], dateISO: string): Map<string, S
     let baselineDate: string | null = null;
     let baselineQty = 0;
     let baselinePrio = -1;
+    let baselineNote: string | null = null;
     for (const m of list) {
       if (m.kind !== 'inventura') continue;
       const prio = inventoryPriority(m.note);
@@ -261,6 +274,7 @@ export function stockAsOf(movements: Movement[], dateISO: string): Map<string, S
         baselineDate = m.date;
         baselineQty = m.qty;
         baselinePrio = prio;
+        baselineNote = m.note ?? null;
       }
     }
 
@@ -276,7 +290,7 @@ export function stockAsOf(movements: Movement[], dateISO: string): Map<string, S
     }
 
     const [beer_id, package_id] = key.split('__');
-    out.set(key, { key, beer_id, package_id, qty, baselineDate, baselineQty, byKind });
+    out.set(key, { key, beer_id, package_id, qty, baselineDate, baselineQty, baselineNote, byKind });
   });
 
   return out;
@@ -338,7 +352,41 @@ export function expectedForMonth(movements: Movement[], monthKey: string): Map<s
     // Uvnitř měsíce zůstane jen počáteční základ na jeho prvním dni.
     return mv.date === monthStart && !jeNapocitanyStav(mv.note);
   });
-  return stockAsOf(bezInventurVMesici, monthEnd);
+
+  // CHYBĚJÍCÍ POČÁTEČNÍ STAV JE NULA.
+  //
+  // Když k prvnímu dni měsíce leží jen NAPOČÍTANÁ inventura a „Počáteční stav"
+  // chybí, filtr výše ji vyhodí a položce nezbude žádný výchozí bod. stockAsOf
+  // pak sčítá pohyby od úplného začátku evidence — kdežto Sklad si napočítanou
+  // inventuru vezme jako základ a počítá jen od ní. Obě obrazovky tak ukázaly
+  // JINÉ POHYBY, přestože čtou tatáž data: v červenci 2026 hlásila Inventura
+  // u Jantaru 1 l stočeno +115 a Sklad +92; těch 23 lahví bylo z června.
+  //
+  // Náhradou je nulový základ k prvnímu dni měsíce. Očekávaný stav se tím
+  // počítá ze stejného okna jako Sklad, takže sloupce pohybů sedí a rozdíl
+  // zůstane jen tam, kam patří — v počátečním stavu. Karta Auditu ho podle
+  // poznámky ZAKLAD_NEZADAN pojmenuje jako chybějící údaj, ne jako chybu.
+  const napocitaneVMesici = new Set<string>();
+  for (const mv of movements) {
+    if (mv.kind !== 'inventura' || !vMesici(mv.date) || !jeNapocitanyStav(mv.note)) continue;
+    napocitaneVMesici.add(stockKey(mv.beer_id, mv.package_id));
+  }
+  const maZaklad = new Set<string>();
+  for (const mv of bezInventurVMesici) {
+    if (mv.kind !== 'inventura' || mv.date > monthStart) continue;
+    maZaklad.add(stockKey(mv.beer_id, mv.package_id));
+  }
+  const nahradniZaklad: Movement[] = [];
+  napocitaneVMesici.forEach((k) => {
+    if (maZaklad.has(k)) return;
+    const [beer_id, package_id] = k.split('__');
+    nahradniZaklad.push({ date: monthStart, beer_id, package_id, qty: 0, kind: 'inventura', note: ZAKLAD_NEZADAN });
+  });
+
+  return stockAsOf(
+    nahradniZaklad.length === 0 ? bezInventurVMesici : [...bezInventurVMesici, ...nahradniZaklad],
+    monthEnd,
+  );
 }
 
 /**

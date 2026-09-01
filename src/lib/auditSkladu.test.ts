@@ -164,27 +164,66 @@ describe('bunkaAuditu', () => {
   });
 });
 
-describe('chybiZaklad', () => {
-  const sPohyby = (baselineDate: string | null, baselineQty: number, qty: number): StockLine =>
-    ({ key: 'b__p', beer_id: 'b', package_id: 'p', qty, baselineDate, baselineQty, byKind: { kegovani: qty - baselineQty } });
+describe('chybějící počáteční stav', () => {
+  const B = 'pivo', P = 'lahev1';
+  // Přesně červenec 2026 u Jantaru 1 l: k 1. 7. leží jen „Schválená
+  // inventura" (3 ks), „Počáteční stav" chybí, a v červnu se stáčelo.
+  const pohyby = buildMovements({
+    inventoryRows: [{ beer_id: B, package_id: P, entry_date: '2026-07-01', quantity: 3, note: 'Schválená inventura' }],
+    bottlingRows: [
+      { beer_id: B, package_id: P, entry_date: '2026-06-20', quantity: 23 },
+      { beer_id: B, package_id: P, entry_date: '2026-07-15', quantity: 92 },
+    ],
+    zavozDeductionRows: [{ beer_id: B, package_id: P, deduct_date: '2026-07-20', quantity: 43 }],
+  });
+  const k = stockKey(B, P);
+  const por = porovnejPolozku(expectedForMonth(pohyby, '2026-07').get(k), stockAsOf(pohyby, '2026-07-31').get(k));
 
-  it('pozná, že Inventura nemá od čeho počítat', () => {
-    // Přesně červenec 2026: u části položek leží k 1. 7. jen „Schválená
-    // inventura" a chybí „Počáteční stav". Inventura pak sčítá od začátku
-    // evidence, Sklad počítá od té schválené — rozejdou se i v pohybech.
-    const p = porovnejPolozku(sPohyby(null, 0, 55), sPohyby('2026-07-01', 3, 35));
-    expect(p.chybiZaklad).toBe(true);
+  it('SLOUPCE POHYBŮ MUSÍ SEDĚT — o to celé jde', () => {
+    // Dřív Inventura sčítala od začátku evidence (+115 = 23 z června + 92)
+    // a Sklad jen od schválené inventury (+92). Obrazovky ukazovaly jiná
+    // čísla ze stejných dat. Chybějící počáteční stav je teď nula, takže se
+    // počítá stejné okno.
+    expect(por.inventura.stoceno).toBe(92);
+    expect(por.sklad.stoceno).toBe(92);
+    expect(por.inventura.objednavky).toBe(43);
+    expect(por.sklad.objednavky).toBe(43);
   });
 
-  it('když základ mají obě strany, nehlásí nic', () => {
-    const p = porovnejPolozku(sPohyby('2026-08-01', 3, 20), sPohyby('2026-08-01', 3, 20));
-    expect(p.chybiZaklad).toBe(false);
-    expect(p.rozdilne).toEqual([]);
+  it('rozdíl zůstane JEN v počátečním stavu a v konci', () => {
+    expect(por.rozdilne).toEqual(['pocatecni', 'konec']);
+    expect(por.inventura.pocatecni).toBe(0);
+    expect(por.sklad.pocatecni).toBe(3);
   });
 
-  it('když nemá základ ani jedna strana, není to tenhle případ', () => {
-    // Nové pivo bez jediné inventury — obě strany počítají od nuly a shodnou se.
-    const p = porovnejPolozku(sPohyby(null, 0, 12), sPohyby(null, 0, 12));
-    expect(p.chybiZaklad).toBe(false);
+  it('pojmenuje se jako chybějící údaj, ne jako chyba výpočtu', () => {
+    expect(por.chybiZaklad).toBe(true);
+  });
+
+  it('se zadaným počátečním stavem se nehlásí nic', () => {
+    const sZakladem = buildMovements({
+      inventoryRows: [
+        { beer_id: B, package_id: P, entry_date: '2026-07-01', quantity: 3, note: 'Schválená inventura' },
+        { beer_id: B, package_id: P, entry_date: '2026-07-01', quantity: 26, note: 'Počáteční stav' },
+      ],
+      bottlingRows: [{ beer_id: B, package_id: P, entry_date: '2026-07-15', quantity: 92 }],
+    });
+    const p2 = porovnejPolozku(expectedForMonth(sZakladem, '2026-07').get(k), stockAsOf(sZakladem, '2026-07-31').get(k));
+    expect(p2.chybiZaklad).toBe(false);
+    expect(p2.inventura.pocatecni).toBe(26);
+    expect(p2.sklad.pocatecni).toBe(3);
+    expect(p2.rozdilne).toEqual(['pocatecni', 'konec']);
+  });
+
+  it('bez jediné inventury se nedosazuje nic a obě strany se shodnou', () => {
+    // Nové pivo: ani napočítaná inventura, ani počáteční stav. Sklad i
+    // Inventura sčítají od nuly od začátku evidence — a shodnou se.
+    const nove = buildMovements({
+      bottlingRows: [{ beer_id: B, package_id: P, entry_date: '2026-06-20', quantity: 12 }],
+    });
+    const p3 = porovnejPolozku(expectedForMonth(nove, '2026-07').get(k), stockAsOf(nove, '2026-07-31').get(k));
+    expect(p3.chybiZaklad).toBe(false);
+    expect(p3.rozdilne).toEqual([]);
+    expect(p3.sklad.konec).toBe(12);
   });
 });
