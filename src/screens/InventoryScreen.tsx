@@ -10,6 +10,7 @@ import { computeInventoryReconciliation } from '../lib/inventoryHelper';
 import { akceProRozdil, datumDoplnku, doplnekVBudoucnu, jeSud, kegovaniZapisy, lahvoveZapisy, nabidnoutMinulyMesic, nazevMesice, odectiZeStoceni, vychoziMesicInventury, stoceniZapis } from '../lib/inventoryFix';
 import { davkySrovnani, zapisyDavky, type DavkaPiva, type ZdrojovaSkupina } from '../lib/srovnaniDavka';
 import { zapamatujPozici } from '../lib/drzPozici';
+import { vyrovnaniZaMesic } from '../lib/vyrovnani';
 import { normalizujCislo } from '../lib/cisloVstup';
 import { popisRozdeleni, rozdelSudyDoTanku, zmenaOtevreni, type RozdeleniSudu, type TankProRozdeleni } from '../lib/tankRozdeleni';
 import { saveBottlingPlan } from '../lib/bottlingPlans';
@@ -186,6 +187,11 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   // takže ho v expectedLedger mít nesmí — v auditu by ale jeho chybění
   // vypadalo jako rozdíl proti Skladu, který ho počítá.
   const [auditInventura, setAuditInventura] = useState<Map<string, StockLine>>(new Map());
+  // ⚖️ Kolik kusů se u které položky už srovnalo z inventury tohoto měsíce.
+  // Po srovnání spadne rozdíl na nulu a tlačítko zmizí — jenže nula vypadá
+  // stejně, ať se srovnávalo, nebo to sedělo od začátku. Tenhle sloupec ten
+  // rozdíl ukáže (viz lib/vyrovnani.ts).
+  const [vyrovnaniMap, setVyrovnaniMap] = useState<Map<string, number>>(new Map());
   // 🛢️ Tanky pro odečet doplněného kegování.
   const [tanky, setTanky] = useState<TankProRozdeleni[]>([]);
 
@@ -205,7 +211,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
       fetchAllRows('bottling', 'beer_id,package_id,quantity,entry_date,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
-      fetchAllRows('kegging', 'beer_id,package_id,quantity,entry_date'),
+      fetchAllRows('kegging', 'beer_id,package_id,quantity,entry_date,note'),
       fetchAllRows('fasovani', 'beer_id,package_id,quantity,entry_date'),
       fetchAllRows('fasovani_private', 'beer_id,package_id,quantity,entry_date'),
       fetchAllRows('writeoffs', 'beer_id,package_id,quantity,entry_date'),
@@ -250,6 +256,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     // stejná matematika jako Sklad, Dashboard a „co stočit na který den".
     setExpectedLedger(expectedForMonth(pohyby, currentMonth));
     setAuditInventura(expectedForMonth(pohyby, currentMonth, true));
+    setVyrovnaniMap(vyrovnaniZaMesic(pohyby, currentMonth));
     // 🔍 Tatáž kniha očima Skladu — měsíční rozpad, ne od začátku evidence.
     setSkladLedger(stockForMonth(pohyby, currentMonth));
 
@@ -780,11 +787,12 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
         acc.dorovnat += r.dorovnatQty;
         acc.diffAfterQty += r.diffAfterQty;
         acc.diffAfterCzk += r.diffAfterCzk;
+        acc.vyrovnano += vyrovnaniMap.get(`${r.beer_id}__${r.package_id}`) ?? 0;
         return acc;
       },
-      { initial: 0, staceno: 0, odpis: 0, vydej: 0, expected: 0, actual: 0, diffQty: 0, diffCzk: 0, dorovnat: 0, diffAfterQty: 0, diffAfterCzk: 0 }
+      { initial: 0, staceno: 0, odpis: 0, vydej: 0, expected: 0, actual: 0, diffQty: 0, diffCzk: 0, dorovnat: 0, diffAfterQty: 0, diffAfterCzk: 0, vyrovnano: 0 }
     );
-  }, [rows]);
+  }, [rows, vyrovnaniMap]);
 
   // Kolik položek už je spočítaných — ukazatel postupu při inventuře.
   const postup = useMemo(() => {
@@ -1807,12 +1815,22 @@ function exportInventoryExcel() {
                           )}
                         </div>
 
+                        {/* Že už se tahle položka srovnávala. Bez toho vypadá
+                            srovnaná nula stejně jako nula, která seděla sama. */}
+                        {vyrovnaniMap.has(k) && (
+                          <div className="px-2 py-1.5 rounded bg-emerald-600 text-white text-[11px] font-black flex items-center gap-1.5">
+                            <Check className="ikona-text" />
+                            <span>
+                              Vyrovnáno {vyrovnaniMap.get(k)! > 0 ? '+' : ''}{vyrovnaniMap.get(k)} ks
+                              {vyrovnaniMap.get(k)! > 0 ? ' — doplněno stočení' : ' — odečteno ze stáčení'}
+                            </span>
+                          </div>
+                        )}
+
                         {/* Srovnat rozdíl tam, kam patří — na rozdíl od dorovnání,
-                            které ho jen schová bokem. Ukáže se jen když je co řešit
-                            a položka je opravdu spočítaná. */}
-                        {/* Bez vyplněné INVENTURY se tlačítko nevykreslí a v
-                            řádku zbyde jen pole DOROVNAT — lidi tam pak píšou
-                            počty a diví se, že se sudy neodečetly. */}
+                            které ho jen schová bokem. Prázdné pole INVENTURA
+                            znamená napočítanou nulu, takže se tlačítko ukáže
+                            všude, kde je rozdíl. */}
                         {r.diffQty !== 0 && (
                           <button
                             type="button"
@@ -1862,6 +1880,7 @@ function exportInventoryExcel() {
                       <th className="py-2.5 px-3 text-right bg-emerald-700 !text-white font-black rounded-t-lg">ZBYDE (Oček.)</th>
                       <th className="py-2.5 px-3 text-right bg-amber-500 text-neutral-950 font-black rounded-t-lg">INVENTURA</th>
                       <th className="py-2.5 px-3 text-right bg-sky-700 !text-white font-black rounded-t-lg" title="Dorovnání (±) — přičti nebo uber k očekávanému stavu, aby seděl s fyzickou realitou. Ukládá se BOKEM a NEpočítá se do stáčení ani odpočtů.">DOROVNAT (±)</th>
+                      <th className="py-2.5 px-2 text-right font-black" title="Kolik kusů se u téhle položky už srovnalo z inventury tohoto měsíce. Prázdné = nesrovnávalo se.">VYROVNÁNO</th>
                       <th className="py-2.5 px-2 text-right font-black">MANKO</th>
                       <th className="py-2.5 px-2 text-right font-black" title="Manko po započtení dorovnání (INVENTURA − Dorovnaný stav)">PO DOROVNÁNÍ</th>
                       <th className="py-2.5 px-3 text-right font-black">ROZDÍL (Kč)</th>
@@ -1941,6 +1960,15 @@ function exportInventoryExcel() {
                               </div>
                             )}
                           </td>
+                          <td className="text-right font-mono font-black text-[11px] px-2 py-2">
+                            {vyrovnaniMap.has(k) ? (
+                              <span className="px-1.5 py-0.5 rounded bg-emerald-600 text-white whitespace-nowrap">
+                                <Check className="ikona-text" /> {vyrovnaniMap.get(k)! > 0 ? '+' : ''}{vyrovnaniMap.get(k)} ks
+                              </span>
+                            ) : (
+                              <span className="text-neutral-400">—</span>
+                            )}
+                          </td>
                           <td className={`text-right font-mono font-black text-[11px] px-2 py-2 ${
                             r.diffQty < 0 ? (isDark ? 'text-rose-900' : 'text-rose-800') : r.diffQty > 0 ? (isDark ? 'text-emerald-900' : 'text-emerald-800') : textColor
                           }`}>
@@ -1986,7 +2014,7 @@ function exportInventoryExcel() {
                         </tr>
                         {posledniPiva && davky.some((x) => x.beer_id === r.beer_id) && (
                           <tr>
-                            <td colSpan={13} className="px-3 py-2 bg-white">
+                            <td colSpan={14} className="px-3 py-2 bg-white">
                               {panelDavky(r.beer_id)}
                             </td>
                           </tr>
@@ -2010,6 +2038,9 @@ function exportInventoryExcel() {
                       <td className="text-right px-3 py-2.5 text-amber-300 font-mono text-sm bg-amber-950/80 border-x border-amber-700">{totals.actual} ks</td>
                       <td className={`text-right px-3 py-2.5 font-mono text-sm bg-sky-950/80 border-x border-sky-700 ${totals.dorovnat === 0 ? 'text-sky-300' : totals.dorovnat < 0 ? 'text-rose-300' : 'text-sky-200'}`}>
                         {totals.dorovnat > 0 ? `+${totals.dorovnat}` : totals.dorovnat} ks
+                      </td>
+                      <td className="text-right px-2 py-2.5 font-mono text-sm text-emerald-900">
+                        {totals.vyrovnano === 0 ? '—' : `${totals.vyrovnano > 0 ? '+' : ''}${totals.vyrovnano} ks`}
                       </td>
                       <td className={`text-right px-2 py-2.5 font-mono text-sm ${totals.diffQty < 0 ? 'text-rose-900' : totals.diffQty > 0 ? 'text-emerald-900' : 'text-neutral-950'}`}>
                         {totals.diffQty > 0 ? `+${totals.diffQty}` : totals.diffQty} ks

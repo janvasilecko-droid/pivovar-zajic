@@ -177,8 +177,11 @@ export function buildMovements(src: StockSources): Movement[] {
     out.push({ date, beer_id, package_id, qty: v.qty, kind: 'inventura', note: v.note });
   });
 
-  (src.keggingRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, Number(r.quantity || 0), 'kegovani'));
-  (src.bottlingRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, Number(r.quantity || 0), 'staceni'));
+  // Poznámka se u stáčení nese dál — podle ní se pozná zápis, který vznikl
+  // srovnáním inventury (viz lib/vyrovnani.ts). Bez ní by se srovnaný kus
+  // nedal odlišit od běžné výroby.
+  (src.keggingRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, Number(r.quantity || 0), 'kegovani', r.note));
+  (src.bottlingRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, Number(r.quantity || 0), 'staceni', r.note));
   (src.fasovaniRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'fasovani'));
   (src.prodejnaRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'prodejna'));
   (src.writeoffsRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'odpis'));
@@ -208,7 +211,9 @@ export function buildMovements(src: StockSources): Movement[] {
     const dedupe = `${r.entry_date}|${r.beer_id}|${res.kegsUsed}|${res.kegPkgId}|${r.created_at || r.note || ''}`;
     if (seen.has(dedupe)) return;
     seen.add(dedupe);
-    push(r.entry_date, r.beer_id, res.kegPkgId, -res.kegsUsed, 'sud_na_lahve');
+    // Poznámka je z řádku STÁČENÍ — díky ní je vidět, že sud ubyl (nebo se
+    // vrátil) kvůli srovnání inventury, ne kvůli běžnému stáčení.
+    push(r.entry_date, r.beer_id, res.kegPkgId, -res.kegsUsed, 'sud_na_lahve', r.note);
   });
 
   return out;
