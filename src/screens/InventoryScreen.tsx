@@ -8,7 +8,6 @@ import { AlertCircle, AlertTriangle, Beer as BeerIcon, Calendar, Camera, Clipboa
 import { CountFromImage } from '../components/CountFromImage';
 import { computeInventoryReconciliation } from '../lib/inventoryHelper';
 import { akceProRozdil, datumDoplnku, doplnekVBudoucnu, jeSud, kegovaniZapisy, lahvoveZapisy, nabidnoutMinulyMesic, nazevMesice, odectiZeStoceni, vychoziMesicInventury, stoceniZapis } from '../lib/inventoryFix';
-import { dopadSrovnani } from '../lib/dopadSrovnani';
 import { davkySrovnani, zapisyDavky, type DavkaPiva, type ZdrojovaSkupina } from '../lib/srovnaniDavka';
 import { zapamatujPozici } from '../lib/drzPozici';
 import { normalizujCislo } from '../lib/cisloVstup';
@@ -802,18 +801,6 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     zavibruj('odskrtnuto');
   }
 
-  /**
-   * Srovná rozdíl tam, kam patří — místo dorovnání, které ho jen schová:
-   *  • PŘEBYTEK → doplní chybějící zápis stočení (`bottling`/`kegging`).
-   *    Rozdíl se pak srovná sám, protože očekávaný stav ho začne počítat.
-   *  • MANKO → odečte rozdíl ze zápisu výroby (záporný řádek). Vyrobilo se
-   *    takže do evidence výroby nesmí přibýt ani kus.
-   */
-  // 🔗 Dopad srovnání — kolik sudů lahve spotřebují a kolik jich pak bude
-  // na sudovém řádku k zapsání (viz lib/dopadSrovnani.ts).
-  const dopad = useMemo(() => dopadSrovnani(rows), [rows]);
-  const [dopadOtevren, setDopadOtevren] = useState(true);
-
   // 🧺 Dávkové srovnání lahví — sběrná tabulka na vlastní záložce.
   // Bere jen řádky, kde je napočítaný stav vyplněný: bez něj není rozdíl
   // rozdílem, jen nevyplněnou položkou.
@@ -1023,6 +1010,13 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       : null;
   }
 
+  /**
+   * Srovná rozdíl tam, kam patří — místo dorovnání, které ho jen schová:
+   *  • PŘEBYTEK → doplní chybějící zápis stočení (`bottling`/`kegging`).
+   *    Rozdíl se pak srovná sám, protože očekávaný stav ho začne počítat.
+   *  • MANKO → odečte rozdíl ze zápisu výroby (záporný řádek). Vyrobilo se
+   *    míň, než se zapsalo, takže do evidence výroby nesmí přibýt ani kus.
+   */
   async function srovnatRozdil(r: InventoryRow) {
     const k = `${r.beer_id}__${r.package_id}`;
     if (doplnujeSe) return;
@@ -1443,6 +1437,41 @@ function exportInventoryExcel() {
         </button>
       </div>
 
+      {/* 📅 Měsíc se vybírá JEN v banneru nahoře a upozorňuje se na něj JEN
+          tady — platí pro všechny záložky stejně. Dřív měla „Stav sudů"
+          vlastní druhý volič a upozornění viselo jen na první záložce, takže
+          se měsíc na jedné záložce přepnul a na druhé o tom nikdo nevěděl.
+
+          Obrazovka se otevírá na dnešním měsíci, ale první dny v měsíci se
+          skoro vždycky dopočítává ten předchozí. Bez upozornění by srpnová
+          inventura zadaná 3. 9. spadla do září — a doplněné stáčení s ní. */}
+      {(() => {
+        const minuly = nabidnoutMinulyMesic(currentMonth, businessDateISO());
+        if (!minuly) return null;
+        return (
+          <div className="rounded border-2 border-sky-400 bg-sky-50 p-4 flex items-start gap-3">
+            <Calendar size={20} className="text-sky-600 shrink-0 mt-0.5" />
+            <div className="min-w-0 flex-1">
+              <div className="font-display font-black text-sky-900 text-sm">
+                Počítáš inventuru za {nazevMesice(currentMonth)} — nechtěl jsi {nazevMesice(minuly)}?
+              </div>
+              <p className="text-[11px] font-bold text-sky-800 mt-1">
+                {nazevMesice(currentMonth)} ještě neskončil. Inventura se obvykle dělá za měsíc,
+                který právě skončil — a doplněné stáčení se připisuje k jeho poslednímu dni.
+              </p>
+              <button
+                type="button"
+                onClick={() => setCurrentMonth(minuly)}
+                className="mt-2.5 px-3 py-2 rounded bg-sky-600 hover:bg-sky-700 text-white font-black text-xs transition"
+              >
+                Přepnout na {nazevMesice(minuly)}
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
+
 
       {doplnekLahvi && (
         <DoplnitStoceniModal
@@ -1462,36 +1491,6 @@ function exportInventoryExcel() {
       {/* TAB 1: FYZICKÁ INVENTURA & ROZDÍLY */}
       {activeTab === 'inventory' && (
         <div className="space-y-6">
-          {/* 📅 Obrazovka se otevírá na dnešním měsíci, ale první dny v měsíci
-              se skoro vždycky dopočítává ten předchozí. Bez upozornění by
-              srpnová inventura zadaná 3. 9. spadla do září — a doplněné
-              stáčení s ní. */}
-          {(() => {
-            const minuly = nabidnoutMinulyMesic(currentMonth, businessDateISO());
-            if (!minuly) return null;
-            return (
-              <div className="rounded border-2 border-sky-400 bg-sky-50 p-4 flex items-start gap-3">
-                <Calendar size={20} className="text-sky-600 shrink-0 mt-0.5" />
-                <div className="min-w-0 flex-1">
-                  <div className="font-display font-black text-sky-900 text-sm">
-                    Počítáš inventuru za {nazevMesice(currentMonth)} — nechtěl jsi {nazevMesice(minuly)}?
-                  </div>
-                  <p className="text-[11px] font-bold text-sky-800 mt-1">
-                    {nazevMesice(currentMonth)} ještě neskončil. Inventura se obvykle dělá za měsíc,
-                    který právě skončil — a doplněné stáčení se připisuje k jeho poslednímu dni.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setCurrentMonth(minuly)}
-                    className="mt-2.5 px-3 py-2 rounded bg-sky-600 hover:bg-sky-700 text-white font-black text-xs transition"
-                  >
-                    Přepnout na {nazevMesice(minuly)}
-                  </button>
-                </div>
-              </div>
-            );
-          })()}
-
           {/* ⚠️ Nespočítané položky. Právě tohle stálo za deficitem u 34 z 56
               položek: schválená inventura za červenec 2026 měla jen 19 řádků,
               zbytek se nikdy nespočítal a skladová kniha u nich dál odečítala
@@ -1588,70 +1587,6 @@ function exportInventoryExcel() {
                 <Save size={16} /> Uložit fyzické stavy
               </button>
             </div>
-
-            {/* 🔗 Co se srovnáním stane — spočítané dopředu. Srovnání lahví
-                spotřebuje sudy a tím zvětší přebytek na SUDOVÉM řádku; bez
-                tohohle přehledu to nebylo vidět a člověk srovnal sudy první,
-                pak lahve, a divil se, že sudy zase nesedí. */}
-            {dopad.length > 0 && (
-              <div className="rounded border-2 border-sky-200 bg-sky-50 p-3.5 space-y-3">
-                <button
-                  type="button"
-                  onClick={() => setDopadOtevren((v) => !v)}
-                  className="w-full flex items-baseline gap-2 flex-wrap text-left"
-                >
-                  <span className="text-[11px] font-black uppercase tracking-wider text-sky-900">
-                    {dopadOtevren ? '▾' : '▸'} Co se srovnáním stane
-                  </span>
-                  <span className="text-[11px] font-bold text-sky-700">
-                    {dopadOtevren
-                      ? 'Sudy jen orientačně (50 l) · srovnávej NEJDŘÍV lahve, pak sudy'
-                      : `Lahve spotřebují ≈ ${dopad.reduce((s, d) => s + d.sudyZLahvi, 0)} sudů — rozepsat`}
-                  </span>
-                </button>
-                {dopadOtevren && dopad.map((d) => (
-                  <div key={d.beer_id} className="rounded bg-white border border-sky-200 p-2.5">
-                    <div className="font-black text-sm text-neutral-900">{d.beer_name}</div>
-                    {d.lahve.length > 0 && (
-                      <div className="text-[11px] font-bold text-neutral-700 mt-1 leading-relaxed">
-                        {d.lahve.map((l) => (
-                          <div key={l.package_label} className="flex justify-between gap-2">
-                            <span>{formatPackageLabel(l.package_label)} × {l.kusy} ks = {l.litry} l</span>
-                            <span className="text-sky-800 whitespace-nowrap">≈ {l.sudy}×50</span>
-                          </div>
-                        ))}
-                        <div className="flex justify-between gap-2 border-t border-neutral-200 mt-1 pt-1">
-                          <span>Celkem {d.litryCelkem} l</span>
-                          <span className="text-sky-900 font-black whitespace-nowrap">
-                            ≈ {d.sudyZLahvi}×50
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                    {d.sudove.map((s) => (
-                      <div
-                        key={s.package_label}
-                        className="text-[11px] font-bold mt-1.5 flex justify-between gap-2 items-baseline"
-                      >
-                        <span className="text-neutral-700">
-                          {formatPackageLabel(s.package_label)} k zapsání
-                        </span>
-                        <span className="whitespace-nowrap">
-                          {s.ted !== s.poLahvich && (
-                            <span className="text-neutral-500 line-through mr-1.5">
-                              {s.ted > 0 ? `+${s.ted}` : s.ted} ks
-                            </span>
-                          )}
-                          <strong className="text-sky-900 text-sm">
-                            {s.poLahvich > 0 ? `+${s.poLahvich}` : s.poLahvich} ks
-                          </strong>
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            )}
 
             {rows.length === 0 ? (
               <div className="text-center py-10 text-xs font-bold text-neutral-500 space-y-2">
@@ -2129,7 +2064,6 @@ function exportInventoryExcel() {
           beers={beers}
           packages={packages}
           currentMonth={currentMonth}
-          onMonthChange={setCurrentMonth}
           initialStock={initialStock}
           stacenoKegMap={stacenoKegMap}
           stacenoLahveMap={stacenoLahveMap}
@@ -2304,7 +2238,6 @@ function EndStockTab({
   beers,
   packages,
   currentMonth,
-  onMonthChange,
   initialStock,
   stacenoKegMap,
   stacenoLahveMap,
@@ -2317,7 +2250,6 @@ function EndStockTab({
   beers: Beer[];
   packages: Package[];
   currentMonth: string;
-  onMonthChange: (m: string) => void;
   initialStock: InitialStockMap;
   stacenoKegMap: Record<string, number>;
   stacenoLahveMap: Record<string, number>;
@@ -2395,34 +2327,10 @@ function EndStockTab({
     <div className="space-y-6">
       {/* Vysvětlení bilance */}
       <div className="p-4 rounded bg-sky-50 border border-sky-200 text-xs text-sky-950 font-medium space-y-1">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="font-black text-sky-900"><IkonaSud className="ikona-text" /> Bilanční konto sudů za {monthLabel}</p>
-          <div className="flex items-center gap-1 bg-white border border-sky-300 px-2 py-1 rounded text-xs font-bold">
-            <button
-              onClick={() => onMonthChange(shiftMonth(currentMonth, -1))}
-              className="px-2 py-0.5 rounded bg-sky-100 hover:bg-sky-200 text-sky-900 font-black transition"
-              title="Předchozí měsíc"
-            >
-              ‹
-            </button>
-            <div className="flex items-center gap-1 px-1">
-              <Calendar size={14} className="text-sky-700" />
-              <input
-                type="month"
-                value={currentMonth}
-                onChange={(e) => onMonthChange(e.target.value)}
-                className="bg-transparent text-sky-900 font-mono font-black border-none focus:outline-none"
-              />
-            </div>
-            <button
-              onClick={() => onMonthChange(shiftMonth(currentMonth, 1))}
-              className="px-2 py-0.5 rounded bg-sky-100 hover:bg-sky-200 text-sky-900 font-black transition"
-              title="Následující měsíc"
-            >
-              ›
-            </button>
-          </div>
-        </div>
+        {/* Měsíc se přepíná JEN v banneru nahoře — ten je vidět na všech
+            záložkách. Druhý volič přímo tady vypadal jako samostatné
+            nastavení, přitom měnil totéž. */}
+        <p className="font-black text-sky-900"><IkonaSud className="ikona-text" /> Bilanční konto sudů za {monthLabel}</p>
         <p>
           <strong>Stav na konci měsíce</strong> = Počáteční stav + Stáčení KEG − (Objednávky + Stáčení lahví + Fasování + Prodejna + Akce + Odpisy)
         </p>
