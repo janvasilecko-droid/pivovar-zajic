@@ -69,6 +69,7 @@ const qrState = {
   updatedAt: null,
   sock: null, // aktuální živý Baileys socket (přepisuje se při každém (re)připojení) — čte ho POST /send
   poznamka: null, // poslední důvod odpojení / stav — píše se do tepu
+  posledniUdalost: null, // kdy naposledy něco přišlo z WhatsAppu (diagnostika hluché session)
 };
 
 /** Bezpečné porovnání tajemství (stejná odolnost proti timing útoku jako u webhooku). */
@@ -419,6 +420,8 @@ async function handleMessage(sock, gate, supabase, msg, opts = {}) {
 // --- Globální instance pro znovupoužití --------------------------------------
 const supabase = getSupabase();
 let gate = null;
+/** Instance dostala SIGTERM — nesmí se už znovu připojovat (viz `ukonci`). */
+let koncim = false;
 
 // --- Hlavní smyčka -----------------------------------------------------------
 async function start() {
@@ -484,6 +487,12 @@ async function start() {
 
     if (connection === 'close') {
       qrState.connected = false;
+      // Instance, kterou Render odepsal, se už nikdy nesmí připojit zpátky —
+      // jinak vykope tu novou (viz `ukonci`).
+      if (koncim) {
+        logger.info('[conn] spojení zavřeno během ukončování — nepřipojuji se');
+        return;
+      }
       const code = lastDisconnect?.error?.output?.statusCode;
       const loggedOut = code === DisconnectReason.loggedOut;
       qrState.poznamka = loggedOut ? 'odhlášeno ve WhatsAppu' : `spojení zavřeno (kód ${code ?? '?'})`;
@@ -502,15 +511,46 @@ async function start() {
           start().catch((e) => logger.error({ err: e }, 'Fatal chyba při znovupřipojení'));
         }, 1000);
       } else {
-        logger.info('[conn] Restartuji připojení za 3 sekundy...');
+        // KONFLIKT (statusCode 440, `stream:error` s `conflict type="replaced"`)
+        // znamená, že se na TUTÉŽ session připojil někdo další — na Renderu
+        // typicky druhá instance mostu, která při nasazení nebo probouzení
+        // chvíli běží souběžně se starou. WhatsApp pustí ke schránce vždycky
+        // jen jednu, tu druhou vyhodí.
+        //
+        // Připojit se po 3 vteřinách zpátky je v té situaci to nejhorší
+        // možné: vyhozená instance vykopne tu, která zrovna vyhrála, ta se
+        // za 3 s vrátí a vykopne ji — a takhle donekonečna. 31. 8. 2026
+        // večer se takhle obě instance přetahovaly celou noc a session z
+        // toho vyšla „přihlášená, ale hluchá": spojení se navázalo, ale
+        // WhatsApp na tohle zařízení přestal doručovat (žádná zpráva ani
+        // historie od 31. 8. 13:21). Most to nepoznal, protože `open`
+        // přišlo normálně, a hlásil do tepu `pripojeno: true`.
+        //
+        // Proto se po konfliktu čeká podstatně dýl. Souběžná instance je
+        // vždycky krátkodobá (dobíhající deploy), takže než tenhle pokus
+        // vyprší, zůstane naživu jen jedna — a přetahovaná nezačne.
+        const konflikt = code === DisconnectReason.connectionReplaced || code === 440;
+        const zaMs = konflikt ? 60_000 : 3000;
+        if (konflikt) {
+          qrState.poznamka = 'konflikt — připojila se druhá instance, čekám minutu';
+          logger.warn('[conn] KONFLIKT (jiná instance převzala session) — čekám 60 s, ať se přetahovaná nerozjede');
+        } else {
+          logger.info('[conn] Restartuji připojení za 3 sekundy...');
+        }
         setTimeout(() => {
           start().catch((e) => logger.error({ err: e }, 'Fatal chyba při znovupřipojení'));
-        }, 3000);
+        }, zaMs);
       }
     }
   });
 
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
+    // Značka „naposledy jsem něco slyšel" se zapisuje PŘED filtrem typu i
+    // whitelistu — jde o diagnostiku spojení, ne o obsah. Právě tohle
+    // odlišuje „nikdo nic nenapsal" od „session je přihlášená, ale hluchá"
+    // (viz konflikt v connection.update výš): v druhém případě je
+    // `pripojeno: true`, ale tahle značka celé dny nehne.
+    qrState.posledniUdalost = new Date().toISOString();
     if (type !== 'notify') return;
     for (const msg of messages) {
       try {
@@ -548,6 +588,30 @@ start().catch((e) => {
   process.exit(1);
 });
 
+// 🛑 Řízené ukončení. Render při nasazení pošle staré instanci SIGTERM a dá
+// jí ještě desítky vteřin na doběhnutí — a přesně v tom okně vznikala
+// přetahovaná o session: doběhávající instance měla pořád otevřený socket
+// a naplánovaný `start()` z posledního odpojení, takže novou instanci
+// vykopla ještě potom, co ji Render odepsal.
+//
+// `koncim` proto zastaví plánované znovupřipojení (kontroluje ho
+// connection.update) a socket zavře hned, ne až se proces sám ukončí.
+process.on('SIGTERM', () => ukonci('SIGTERM'));
+process.on('SIGINT', () => ukonci('SIGINT'));
+
+function ukonci(signal) {
+  if (koncim) return;
+  koncim = true;
+  logger.info(`[konec] ${signal} — zavírám spojení a už se nepřipojuji (uvolňuji session pro novou instanci)`);
+  try {
+    qrState.sock?.end(new Error('ukončení instance'));
+  } catch (e) {
+    logger.warn({ err: e }, '[konec] socket se nepodařilo zavřít');
+  }
+  // Krátká chvíle na doposlání rozdělané zprávy na webhook, pak konec.
+  setTimeout(() => process.exit(0), 2000).unref?.();
+}
+
 startHttpServer(qrState);
 
 // 💓 Tep — každou minutu „žiju" do databáze. Bez toho se v aplikaci nedá
@@ -556,7 +620,23 @@ startHttpServer(qrState);
 // nečinnosti usne a spící most zprávy živě nedostane.
 spustTep(
   supabase,
-  () => ({ pripojeno: qrState.connected, poznamka: qrState.poznamka }),
+  () => {
+    // „Přihlášená, ale hluchá" session (viz konflikt v connection.update):
+    // `pripojeno` je true, ale z WhatsAppu celé hodiny nic nepřijde. Samotný
+    // příznak připojení to neprozradí — tep proto nese i to, jak dlouho je
+    // ticho po drátě, ať je v databázi vidět rozdíl mezi „nikdo nepíše" a
+    // „most nic nedostává, spraví to jen nové spárování".
+    const ticho = qrState.posledniUdalost
+      ? Math.round((Date.now() - Date.parse(qrState.posledniUdalost)) / 60000)
+      : null;
+    const hluchy = qrState.connected && ticho !== null && ticho > 180;
+    return {
+      pripojeno: qrState.connected,
+      poznamka: hluchy
+        ? `připojeno, ale ${Math.floor(ticho / 60)} h nic nepřišlo — nejspíš ztracené spárování, načti QR znovu`
+        : qrState.poznamka,
+    };
+  },
   logger,
   process.env.RENDER_GIT_COMMIT?.slice(0, 7) || '',
 );

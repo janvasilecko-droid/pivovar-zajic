@@ -1194,7 +1194,14 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   type="button"
                   className="hs-tile hs-tile-alert vlastni-vyska"
                   onClick={() => setPage('orders')}
-                  title={`Poslední zpráva dorazila ${new Date(ticho.posledni!).toLocaleString('cs-CZ')}.\nZkontroluj Tasker na telefonu — nejspíš přestal odesílat.`}
+                  // Rada „zkontroluj Tasker" je z doby, kdy zprávy posílal
+                  // Tasker z telefonu. Ten je pryč od verze 1.8xx, zprávy
+                  // vozí WhatsApp most na Renderu — a jeho typická porucha
+                  // je jiná: session zůstane přihlášená (most hlásí
+                  // „připojeno"), ale WhatsApp na zařízení přestane
+                  // doručovat. Sám se z toho nedostane, protože nikdy
+                  // nepřijde `loggedOut`; spraví to jen nové spárování.
+                  title={`Poslední zpráva dorazila ${new Date(ticho.posledni!).toLocaleString('cs-CZ')}.\nWhatsApp most nejspíš ztratil spárování — otevři https://whatsapp-bridge-g1v0.onrender.com/qr a načti QR ve WhatsAppu (Nastavení → Propojená zařízení).`}
                 >
                   <div className="hs-tile-icon-box">
                     <MessageCircle />
