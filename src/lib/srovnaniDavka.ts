@@ -119,47 +119,6 @@ export function davkySrovnani(
 }
 
 /**
- * Rozdělí zadané sudy mezi lahvové řádky podle jejich objemu.
- *
- * Řádek stáčení unese jen jednu velikost sudu a jeden obal lahví, takže se
- * musí rozhodnout, který řádek nese který sud. Dělí se poměrně podle litrů
- * metodou největšího zbytku, aby součet kusů sudů seděl PŘESNĚ na zadané
- * číslo — prosté zaokrouhlování po řádcích sud přidá nebo ubere.
- */
-export function rozdelSudyMeziRadky(
-  lahve: LahvovaPolozkaDavky[],
-  skupina: ZdrojovaSkupina,
-): number[] {
-  const n = lahve.length;
-  if (n === 0 || skupina.kegQty <= 0) return new Array(n).fill(0);
-
-  const litryCelkem = lahve.reduce((s, l) => s + l.litry, 0);
-  if (litryCelkem <= 0) {
-    // Bez objemu není podle čeho dělit — všechno na první řádek, ať se
-    // odečet neztratí.
-    const out = new Array(n).fill(0);
-    out[0] = skupina.kegQty;
-    return out;
-  }
-
-  const presne = lahve.map((l) => (skupina.kegQty * l.litry) / litryCelkem);
-  const cele = presne.map((x) => Math.floor(x));
-  let zbyva = skupina.kegQty - cele.reduce((s, x) => s + x, 0);
-
-  // Zbylé sudy tam, kde byl zbytek po dělení největší.
-  const poradi = presne
-    .map((x, i) => ({ i, zbytek: x - Math.floor(x) }))
-    .sort((a, b) => b.zbytek - a.zbytek);
-  for (const { i } of poradi) {
-    if (zbyva <= 0) break;
-    cele[i] += 1;
-    zbyva -= 1;
-  }
-
-  return cele;
-}
-
-/**
  * Řádky do tabulky `bottling` pro celou dávku jednoho piva.
  *
  * Vznikne řádek pro každou kombinaci obal lahví × velikost sudu, u které
@@ -208,28 +167,47 @@ export function zapisyDavky(
 
   const rady: Record<string, unknown>[] = [];
   for (const [si, skupina] of platne.entries()) {
-    const sudyNaRadky = rozdelSudyMeziRadky(d.lahve, skupina);
-    for (const [li, l] of d.lahve.entries()) {
+    // 🛢️ POČET SUDŮ PATŘÍ CELÉ SKUPINĚ, NE JEDNOTLIVÉMU OBALU.
+    //
+    // Dřív se sudy rozpočítávaly mezi velikosti lahví podle litrů a
+    // zaokrouhlovaly na celé kusy. U malých balení vedle velkých to skončilo
+    // nulou: Summer Ale za srpen 2026 měl u 0,33 l a 0,5 l (po deseti kusech)
+    // nula sudů, zatímco 717 kusů litrovek si vzalo 16 ze 17. V přehledu
+    // stáčení pak u těch řádků nebyl žádný sud — vypadalo to, že se ty lahve
+    // vzaly odnikud.
+    //
+    // Sudy se proto zapisují CELÝM číslem skupiny ke každému obalu, který
+    // z ní něco dostal — přesně jak to dělá ruční zápis stáčení, kde se počet
+    // načatých sudů zadá jednou pro celou dávku. Dvakrát se nespočítají:
+    // skladová kniha je slučuje podle (datum, pivo, počet, obal sudu, čas
+    // vzniku) a ty jsou u sourozeneckých řádků shodné (viz `dedupe`
+    // v stockLedger.ts).
+    const zdrojovyObjem = skupina.kegQty * skupina.kegVolumeL;
+    for (const l of d.lahve) {
       const kusy = Math.round((l.kusy * litryPodleSkupiny[si]) / litryZdroje);
-      if (kusy <= 0 && sudyNaRadky[li] <= 0) continue;
+      if (kusy <= 0) continue;
       rady.push({
         ...zaklad,
         package_id: l.package_id,
         package_label: l.package_label,
         quantity: znamenkoLahvi * kusy,
-        kegs_used: sudyNaRadky[li] ? znamenkoSudu * sudyNaRadky[li] : null,
-        kegs_used_package_id: sudyNaRadky[li] > 0 ? skupina.kegPkgId : null,
-        source_volume_l: sudyNaRadky[li] > 0 ? znamenkoSudu * sudyNaRadky[li] * skupina.kegVolumeL : null,
-        // Obal i velikost sudu do poznámky: skladová kniha slučuje sourozenecké
-        // řádky jednoho zápisu podle poznámky (viz `dedupe` v stockLedger.ts) a
-        // část odečtu by se jinak ztratila.
-        note: `${slovo} z inventury ${monthKey} — ${l.package_label} z ${skupina.kegVolumeL}l sudů (dávka)`,
+        kegs_used: znamenkoSudu * skupina.kegQty,
+        kegs_used_package_id: skupina.kegPkgId,
+        source_volume_l: znamenkoSudu * zdrojovyObjem,
+        // Poznámka je STEJNÁ pro celou skupinu, ne pro obal. Skladová kniha
+        // slučuje sourozenecké řádky podle (datum, pivo, počet sudů, obal
+        // sudu, čas vzniku — a když čas chybí, podle poznámky; viz `dedupe`
+        // v stockLedger.ts). Sdílené číslo sudů se tak započítá jednou i tam,
+        // kde se čas vzniku neukládá. Který obal lahví řádek nese, je vidět
+        // ve sloupci package_label — do poznámky to patřit nemusí.
+        note: `${slovo} z inventury ${monthKey} — z ${skupina.kegVolumeL}l sudů (dávka)`,
       });
     }
   }
 
-  // Zaokrouhlování mezi skupinami mohlo pár lahví ubrat nebo přidat — dorovná
-  // se na prvním řádku každého obalu, ať součet sedí na napočítaný přebytek.
+  // Zaokrouhlování MNOŽSTVÍ LAHVÍ mezi skupinami mohlo pár kusů ubrat nebo
+  // přidat — dorovná se na prvním řádku každého obalu, ať součet sedí na
+  // napočítaný přebytek. Počtu sudů se to netýká, ten patří celé skupině.
   for (const l of d.lahve) {
     const moje = rady.filter((r) => r.package_id === l.package_id);
     if (moje.length === 0) continue;
@@ -237,5 +215,5 @@ export function zapisyDavky(
     moje[0].quantity = Number(moje[0].quantity) + (znamenkoLahvi * l.kusy - soucet);
   }
 
-  return rady.filter((r) => Number(r.quantity) !== 0 || r.kegs_used !== null);
+  return rady;
 }
