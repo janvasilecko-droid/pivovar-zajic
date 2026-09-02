@@ -20,6 +20,7 @@ import { AlertTriangle, BarChart3, Beer as BeerIcon, Brush, Calendar, CalendarDa
 import { ImportKeggingFromImage } from '../components/ImportKeggingFromImage';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { chyba, potvrd, toastZpet } from '../lib/toast';
+import { nejvetsiTank, radkyBezTanku, tankRadku, tankyProPivo } from '../lib/tankUZapisu';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { IkonaSud } from '../components/ikony';
 import { zavibruj } from '../lib/haptika';
@@ -193,17 +194,14 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // které se nabízejí v poli "Číslo tanku" (stáčení se odečítá JEN z nich).
   const keggingActiveTanks = useMemo(() => cellarTanks.filter((t) => t.kegging_active === true), [cellarTanks]);
 
-  // Aktivní stáčecí tanky s daným pivem (kegging_active = true) — jediný zdroj odečtu.
-  // "Zahájit stáčení" v Cellar.tsx povoluje vždy jen jeden aktivní tank na pivo; kdyby jich
-  // bylo víc (např. stará data), řádek na to upozorní a nechá vybrat, ze kterého odečítat.
+  // Pravidlo „ze kterého tanku se stáčí" bydlí v lib/tankUZapisu.ts — obrazovka
+  // ho jen volá. Bylo rozepsané na dvou místech a rozejít se nesmí: podle něj
+  // se řádku přiřadí tank A ZÁROVEŇ se z tanku odečte objem.
   function activeTanksForBeer(beerId: string): CellarTank[] {
-    if (!beerId) return [];
-    return activeCellarTanks.filter((t) => t.current_beer_id === beerId && t.kegging_active === true);
+    return tankyProPivo(cellarTanks, beerId);
   }
-  // Největší objem z daných tanků — výchozí volba, když je aktivních tanků se stejným pivem víc.
   function largestTank(tanks: CellarTank[]): CellarTank | undefined {
-    if (tanks.length === 0) return undefined;
-    return tanks.reduce((best, t) => Number(t.current_volume_l) > Number(best.current_volume_l) ? t : best);
+    return nejvetsiTank(tanks);
   }
 
   // Zadávání přes dlaždice piv: čte/zapisuje do stejného pole entryRows (fixní
@@ -564,6 +562,22 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       if (dotaz && !(await potvrd(dotaz, { titulek: 'Zkontrolujte množství', potvrdit: 'Ano, uložit' }))) return;
     }
 
+    // 🛢️ Zápis bez tanku se dřív uložil TIŠE — a spolu s číslem tanku zmizel
+    // i odečet objemu ze sklepa. Takhle se ztratil tank u 82 ze 198 zápisů
+    // stáčení a Spilka 1 s Tankem 6 se rozešly o 2 000 a 5 400 litrů. Nikde to
+    // nesvítilo: řádek vypadal uloženě, protože uložený byl.
+    const bezTanku = radkyBezTanku(filled, cellarTanks, (r) => r.tankId);
+    if (bezTanku.length > 0) {
+      const seznam = bezTanku
+        .map((r) => `• ${beers.find((b) => b.id === r.beerId)?.name ?? 'Pivo'} ${packages.find((p) => p.id === r.pkgId)?.label ?? ''} — ${r.qty} ks`)
+        .join('\n');
+      const dotaz =
+        `Tyhle řádky nemají tank, ze kterého se stáčelo:\n\n${seznam}\n\n` +
+        'Uloží se bez čísla tanku a ze žádného tanku se neodečte objem — sklep pak ukazuje víc piva, než v něm je.\n\n' +
+        'Stáčelo se z tanku? Zavři tohle, ve Sklepě u něj dej „Zahájit stáčení" a ulož znovu.';
+      if (!(await potvrd(dotaz, { titulek: 'Chybí tank', potvrdit: 'Uložit bez tanku' }))) return;
+    }
+
     setSaving(true);
 
     // Každý řádek si najde svůj vlastní zdrojový tank podle piva na řádku (ne podle globálně
@@ -576,8 +590,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       const n = Number(r.qty);
       // Zdrojový tank řádku: přednost má ručně vybraný (r.tankId), jinak se automaticky
       // přiřadí největší aktivní tank se stejným pivem (largestTank).
-      const rowTanks = r.beerId ? activeTanksForBeer(r.beerId) : [];
-      const tank = (r.tankId ? rowTanks.find((t) => t.id === r.tankId) : undefined) ?? largestTank(rowTanks);
+      const tank = tankRadku(cellarTanks, r.beerId, r.tankId);
       const sourceL = pkg && tank ? n * Number(pkg.volume_l) : 0;
       return {
         entry_date: date, beer_id: r.beerId || null, beer_name: beer?.name ?? null,
@@ -2028,14 +2041,20 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 className="input"
               >
                 <option value="">— Vyber tank —</option>
+                {/* Kromě tanků se zahájeným stáčením i ty, které tohle pivo
+                    DRŽÍ — bez nich by u staršího zápisu nešlo tank doplnit,
+                    protože stáčení už na něm dávno skončilo. */}
                 {Array.from(
                   new Map(
                     [...keggingActiveTanks,
+                     ...cellarTanks.filter((t) => editingRow.beer_id && t.current_beer_id === editingRow.beer_id),
                      ...(editingRow.cellar_tank_id ? cellarTanks.filter((t) => t.id === editingRow.cellar_tank_id) : [])]
                       .map((t) => [t.id, t] as const)
                   ).values()
                 ).map((t) => (
-                  <option key={t.id} value={t.id}>{t.label}</option>
+                  <option key={t.id} value={t.id}>
+                    {t.label}{t.kegging_active === true ? '' : ' (bez zahájeného stáčení)'}
+                  </option>
                 ))}
               </select>
             </div>
