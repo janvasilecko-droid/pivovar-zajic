@@ -3,7 +3,10 @@ import { Beer, Package, Place, fetchAllRows, supabase } from '../lib/supabase';
 import { WhatsAppIncoming, ignoreWhatsAppMessage, updateWhatsAppParsedData } from '../lib/whatsappApi';
 import { parseWhatsAppOrderMessageWithAI } from '../lib/whatsappParser';
 import { loadAliasMap, saveAlias, canLearnBeerAlias, matchBeerFromHints, matchPackage, matchPlaceFromText, savePlaceAlias, normalize, type ParserAliasMap } from '../lib/orderParser';
-import { diffOrderItems, type DiffRow } from '../lib/whatsappAmendment';
+import {
+  diffOrderItems, rozsahOdpovedi, slozNavrh,
+  type DiffRow, type RozsahOdpovedi, type SkupinaObalu,
+} from '../lib/whatsappAmendment';
 import { PlaceCombobox } from './PlaceCombobox';
 import { QuickQtySelect } from './QuickQtySelect';
 import { Modal } from './ui';
@@ -20,6 +23,16 @@ import {
 } from '../lib/whatsappReadback';
 import { AlertCircle, AlertTriangle, ArrowDown, Check, CheckCircle2, ChevronDown, Download, ExternalLink, Eye, FileText, Image as ImageIcon, MessageSquare, RefreshCw, ShieldAlert, ShieldCheck, ShoppingCart, UserCheck, X } from 'lucide-react';
 import { potvrd } from '../lib/toast';
+
+/** Jak se skupiny obalů pojmenují v přehledu úpravy. */
+const NAZVY_SKUPIN: Record<SkupinaObalu, string> = {
+  maly_sud: 'Malé sudy (10–20 l)',
+  tricitka: 'Třicítky',
+  padesatka: 'Padesátky',
+  petka: 'Petky (PET)',
+  lahev: 'Lahve',
+  jine: 'Ostatní',
+};
 
 interface WhatsAppOrderReviewModalProps {
   isOpen: boolean;
@@ -81,6 +94,14 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   const [amendDiff, setAmendDiff] = useState<DiffRow[]>([]);
   const [amendPlace, setAmendPlace] = useState<string | null>(null);
   const [amendLoading, setAmendLoading] = useState(false);
+  // Původní zpráva, ze které objednávka vznikla — vedle odpovědi se ukazuje
+  // k porovnání. Bez ní obsluha nemá podle čeho poznat, jestli „malé soudky
+  // budou…" nahradilo to, co mělo.
+  const [amendOriginalMsg, setAmendOriginalMsg] = useState<
+    { message_text: string | null; media_url: string | null; created_at: string } | null
+  >(null);
+  // Které skupiny obalů odpověď diktuje znovu a které jen potvrzuje.
+  const [amendRozsah, setAmendRozsah] = useState<RozsahOdpovedi>({ nahradit: [], potvrzeno: [] });
 
   // Synchronizace s prop (otevření nové zprávy).
   useEffect(() => {
@@ -170,28 +191,62 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   // a porovnej s tím, co z odpovědi vyšlo — obsluha pak vidí celou objednávku
   // se zvýrazněnými změnami, ne jen samotnou odpověď.
   useEffect(() => {
-    if (!props.isOpen || !msg?.amends_order_id) { setAmendDiff([]); setAmendPlace(null); return; }
+    if (!props.isOpen || !msg?.amends_order_id) {
+      setAmendDiff([]); setAmendPlace(null); setAmendOriginalMsg(null);
+      setAmendRozsah({ nahradit: [], potvrzeno: [] });
+      return;
+    }
     let zruseno = false;
     setAmendLoading(true);
     (async () => {
-      const { data } = await supabase
-        .from('orders')
-        .select('place_name, items:order_items(beer_id, package_id, quantity)')
-        .eq('id', msg.amends_order_id!)
-        .maybeSingle();
+      // Celá původní objednávka + zpráva, ze které vznikla. Obojí naráz:
+      // objednávka kvůli obsahu, zpráva kvůli náhledu k porovnání.
+      const [{ data }, { data: puvodni }] = await Promise.all([
+        supabase
+          .from('orders')
+          .select('place_name, items:order_items(beer_id, package_id, quantity)')
+          .eq('id', msg.amends_order_id!)
+          .maybeSingle(),
+        supabase
+          .from('whatsapp_incoming')
+          .select('message_text, media_url, created_at')
+          .eq('imported_order_id', msg.amends_order_id!)
+          .order('created_at', { ascending: true })
+          .limit(1),
+      ]);
       if (zruseno) return;
       setAmendPlace((data as any)?.place_name ?? null);
+      setAmendOriginalMsg((((puvodni as any[]) ?? [])[0] as any) ?? null);
+
       const soucasne = (((data as any)?.items ?? []) as any[]).map((i) => ({
         beer_id: i.beer_id, package_id: i.package_id, quantity: Number(i.quantity || 0),
       }));
-      setAmendDiff(diffOrderItems(soucasne, items.map((it) => ({
+      const zOdpovedi = items.map((it) => ({
         beer_id: it.beerId || null, package_id: it.pkgId || null, quantity: Number(it.qty) || 0,
-      }))));
+      }));
+
+      // ↩️ Odpověď mluví o ČÁSTI objednávky. „Ty male soudky budou … Tricitky
+      //    a petky sedi" nahrazuje jen malé sudy; třicítky a petky zůstávají.
+      //    Dřív se návrh z odpovědi bral jako celý nový obsah, takže všechno
+      //    nejmenované vyšlo jako „odebrat" — u téhle zprávy by z objednávky
+      //    spadly 2 třicítky a 24 petek, o kterých odběratel napsal, že sedí.
+      const rozsah = rozsahOdpovedi(msg.message_text);
+      setAmendRozsah(rozsah);
+      const navrh = slozNavrh({
+        soucasne,
+        zOdpovedi,
+        text: msg.message_text,
+        obaly: props.packages.map((p) => ({
+          id: p.id, label: p.label, kind: (p as any).kind, volume_l: (p as any).volume_l,
+        })),
+      });
+
+      setAmendDiff(diffOrderItems(soucasne, navrh));
       setAmendLoading(false);
     })();
     return () => { zruseno = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.isOpen, msg?.amends_order_id, items]);
+  }, [props.isOpen, msg?.amends_order_id, msg?.message_text, items, props.packages]);
 
   const beerNameById = (id: string | null) => props.beers.find((b) => b.id === id)?.name ?? '(neurčené pivo)';
   const pkgLabelById = (id: string | null) => String(props.packages.find((p) => p.id === id)?.label ?? '').trim();
@@ -577,6 +632,75 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               <div className="text-xs font-bold text-violet-700 mt-1">
                 {amendPlace ? `Odběratel: ${amendPlace}. ` : ''}
                 Schválením se objednávka přepíše podle níže uvedeného stavu. Nová objednávka se nezaloží.
+              </div>
+
+              {/* Co odpověď přepisuje a co nechává být — bez tohohle není z
+                  výpisu poznat, proč některé položky zůstaly nedotčené. */}
+              {(amendRozsah.nahradit.length > 0 || amendRozsah.potvrzeno.length > 0) && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {amendRozsah.nahradit.map((s) => (
+                    <span key={`n-${s}`} className="chip bg-amber-100 text-amber-900 border-amber-300">
+                      {NAZVY_SKUPIN[s]} — přepisuje se
+                    </span>
+                  ))}
+                  {amendRozsah.potvrzeno.map((s) => (
+                    <span key={`p-${s}`} className="chip bg-emerald-100 text-emerald-900 border-emerald-300">
+                      {NAZVY_SKUPIN[s]} — zůstávají
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 👀 Obě zprávy k porovnání: původní objednávka a odpověď na ni.
+                Odpověď sama („ty male soudky budou…") nedává smysl bez toho,
+                co upravuje — obsluha musí vidět obojí, aby poznala, jestli se
+                přepsalo to, co se přepsat mělo. */}
+            <div className="grid gap-3 sm:grid-cols-2 p-4 pt-0">
+              <div>
+                <div className="text-[11px] font-black uppercase tracking-wider text-violet-700 mb-1">
+                  Původní objednávka
+                </div>
+                {amendOriginalMsg ? (
+                  <div className="border border-violet-200 rounded p-2.5 bg-white text-xs font-mono whitespace-pre-wrap max-h-56 overflow-y-auto lze-vybrat">
+                    {amendOriginalMsg.media_url && (
+                      <a
+                        href={amendOriginalMsg.media_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block mb-2"
+                      >
+                        <img
+                          src={amendOriginalMsg.media_url}
+                          alt="Původní objednávka — příloha"
+                          className="max-h-40 rounded border border-violet-200"
+                        />
+                      </a>
+                    )}
+                    {amendOriginalMsg.message_text || (
+                      <span className="font-sans text-neutral-500">
+                        {amendOriginalMsg.media_url ? '(jen příloha, bez textu)' : '(bez textu)'}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="border border-violet-200 rounded p-2.5 bg-white/60 text-xs font-bold text-neutral-500">
+                    {amendLoading
+                      ? 'Načítám…'
+                      : 'Původní zprávu nemám — objednávka nevznikla z WhatsAppu, nebo se zpráva smazala.'}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <div className="text-[11px] font-black uppercase tracking-wider text-violet-700 mb-1">
+                  Tato odpověď
+                </div>
+                <div className="border border-violet-200 rounded p-2.5 bg-white text-xs font-mono whitespace-pre-wrap max-h-56 overflow-y-auto lze-vybrat">
+                  {msg?.message_text || (
+                    <span className="font-sans text-neutral-500">(bez textu)</span>
+                  )}
+                </div>
               </div>
             </div>
 

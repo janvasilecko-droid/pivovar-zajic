@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { findQuotedMessage, findAmendedOrderId, diffOrderItems, maZmeny, type WhatsAppMsgRef } from './whatsappAmendment';
+import { findQuotedMessage, findAmendedOrderId, diffOrderItems, maZmeny, rozsahOdpovedi, skupinaObalu, slozNavrh, type WhatsAppMsgRef } from './whatsappAmendment';
 
 const m = (id: string, created_at: string, message_text: string, extra: Partial<WhatsAppMsgRef> = {}): WhatsAppMsgRef =>
   ({ id, created_at, message_text, ...extra });
@@ -97,5 +97,118 @@ describe('diffOrderItems — původní objednávka se zvýrazněnými změnami',
   it('stejnou položku na víc řádcích sečte', () => {
     const d = diffOrderItems([p('a', 'k30', 2), p('a', 'k30', 3)], [p('a', 'k30', 5)]);
     expect(d).toEqual([{ beer_id: 'a', package_id: 'k30', before: 5, after: 5, zmena: 'beze_zmeny' }]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Rozsah odpovědi — o které části objednávky zpráva mluví.
+//
+// Podle skutečného případu z 1. 9. 2026 (odběratel Maneo): objednávka přišla
+// jako PDF se šesti položkami a druhá zpráva zněla:
+//
+//   Ty male soudky budou
+//   Desitka 2x 20l
+//   11sv 1x15l
+//   Tricitky a petky sedi
+//
+// Malé sudy z PDF (3× 15l, 3× 10l, 3× 10l) se mají NAHRADIT dvěma novými.
+// Třicítky a petky zůstat — odběratel o nich napsal, že sedí.
+// ---------------------------------------------------------------------------
+describe('rozsahOdpovedi / slozNavrh — odpověď mluví o části objednávky', () => {
+  const OBALY = [
+    { id: 'keg50', label: 'KEG 50l', kind: 'keg', volume_l: 50 },
+    { id: 'keg30', label: 'KEG 30l', kind: 'keg', volume_l: 30 },
+    { id: 'keg20', label: 'KEG 20l', kind: 'keg', volume_l: 20 },
+    { id: 'keg15', label: 'KEG 15l', kind: 'keg', volume_l: 15 },
+    { id: 'keg10', label: 'KEG 10l', kind: 'keg', volume_l: 10 },
+    { id: 'pet1', label: 'PET 1l', kind: 'pet', volume_l: 1 },
+    { id: 'lah05', label: 'Lahev 0,5l', kind: 'bottle', volume_l: 0.5 },
+  ];
+
+  const ZPRAVA_MANEO = 'Ty male soudky budou\nDesitka 2x 20l\n11sv 1x15l\nTricitky a petky sedi';
+
+  // Objednávka z PDF (OV2604293): malé sudy, třicítky a petky.
+  const MANEO_PDF = [
+    { beer_id: 'des', package_id: 'keg15', quantity: 3 },
+    { beer_id: 'des', package_id: 'keg10', quantity: 3 },
+    { beer_id: '11sv', package_id: 'keg10', quantity: 3 },
+    { beer_id: 'jantar', package_id: 'pet1', quantity: 12 },
+    { beer_id: 'des', package_id: 'keg30', quantity: 2 },
+    { beer_id: '11sv', package_id: 'pet1', quantity: 12 },
+  ];
+
+  it('petka je PET, ne sud 15 l', () => {
+    // Kdyby se „petka" zařadila k sudům, věta „petky sedi" by ochránila
+    // špatnou skupinu a malé sudy by se nenahradily. Appka to samé pravidlo
+    // hlídá i na vstupu (viz parse-order-image).
+    expect(skupinaObalu({ id: 'pet1', label: 'PET 1l', kind: 'pet', volume_l: 1 })).toBe('petka');
+    expect(skupinaObalu({ id: 'keg15', label: 'KEG 15l', kind: 'keg', volume_l: 15 })).toBe('maly_sud');
+    expect(skupinaObalu({ id: 'keg30', label: 'KEG 30l', kind: 'keg', volume_l: 30 })).toBe('tricitka');
+    expect(skupinaObalu({ id: 'keg50', label: 'KEG 50l', kind: 'keg', volume_l: 50 })).toBe('padesatka');
+  });
+
+  it('z Maneo zprávy přečte: nahradit malé sudy, ponechat třicítky a petky', () => {
+    const r = rozsahOdpovedi(ZPRAVA_MANEO);
+    expect(r.nahradit).toEqual(['maly_sud']);
+    expect(r.potvrzeno.sort()).toEqual(['petka', 'tricitka']);
+  });
+
+  it('nahradí malé sudy a nechá být třicítky i petky', () => {
+    const zOdpovedi = [
+      { beer_id: 'des', package_id: 'keg20', quantity: 2 },
+      { beer_id: '11sv', package_id: 'keg15', quantity: 1 },
+    ];
+    const navrh = slozNavrh({ soucasne: MANEO_PDF, zOdpovedi, text: ZPRAVA_MANEO, obaly: OBALY });
+
+    // Malé sudy z PDF jsou pryč, nové jsou tam.
+    expect(navrh.filter((i) => i.package_id === 'keg10')).toEqual([]);
+    expect(navrh).toEqual(expect.arrayContaining([
+      { beer_id: 'des', package_id: 'keg20', quantity: 2 },
+      { beer_id: '11sv', package_id: 'keg15', quantity: 1 },
+    ]));
+
+    // Třicítky a petky zůstaly v původním množství.
+    expect(navrh.find((i) => i.package_id === 'keg30')).toEqual({ beer_id: 'des', package_id: 'keg30', quantity: 2 });
+    expect(navrh.filter((i) => i.package_id === 'pet1')).toHaveLength(2);
+
+    // A v porovnání se tedy 24 petek ani 2 třicítky NESMÍ objevit jako
+    // „odebráno" — právě tohle dřív z objednávky spadlo.
+    const diff = diffOrderItems(MANEO_PDF, navrh);
+    const odebrane = diff
+      .filter((d) => d.zmena === 'odebrano')
+      .map((d) => `${d.beer_id}/${d.package_id}`)
+      .sort();
+    // Tři řádky malých sudů z PDF — 10l je tam dvakrát (Desítka i 11sv).
+    expect(odebrane).toEqual(['11sv/keg10', 'des/keg10', 'des/keg15']);
+    expect(odebrane.some((k) => k.endsWith('/pet1'))).toBe(false);
+    expect(odebrane.some((k) => k.endsWith('/keg30'))).toBe(false);
+  });
+
+  it('bez jmenované skupiny se chová jako dřív (odpověď = celá objednávka)', () => {
+    // „Nakonec summer 9x30" opravdu popisuje celý obsah — nesmí se z toho
+    // stát částečná úprava, jinak by v objednávce zůstalo staré množství.
+    const zOdpovedi = [{ beer_id: 'summer', package_id: 'keg30', quantity: 9 }];
+    const navrh = slozNavrh({
+      soucasne: [{ beer_id: 'summer', package_id: 'keg30', quantity: 15 }],
+      zOdpovedi,
+      text: 'Nakonec summer 9x30',
+      obaly: OBALY,
+    });
+    expect(navrh).toEqual(zOdpovedi);
+  });
+
+  it('dodatek mimo nahrazovanou skupinu se přidá, nezahodí', () => {
+    const navrh = slozNavrh({
+      soucasne: MANEO_PDF,
+      zOdpovedi: [
+        { beer_id: 'des', package_id: 'keg20', quantity: 2 },
+        { beer_id: 'summer', package_id: 'keg50', quantity: 1 },
+      ],
+      text: 'Male soudky budou desitka 2x20l a jeste 1x50 summer',
+      obaly: OBALY,
+    });
+    expect(navrh).toEqual(expect.arrayContaining([
+      { beer_id: 'summer', package_id: 'keg50', quantity: 1 },
+    ]));
   });
 });
