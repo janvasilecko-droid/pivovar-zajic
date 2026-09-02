@@ -214,14 +214,17 @@ export function VoiceRecorder({
   }
 
   return (
-    <div className="inline-flex items-center gap-2">
+    // `dark` = varianta do horní lišty Objednávek, kde tlačítka na telefonu
+    // sedí v mřížce 2×N — obal i tlačítko tam musí vyplnit celou kolonku,
+    // jinak by „Hlasové zadání" bylo jediné užší a řada by se rozjela.
+    <div className={`inline-flex items-center gap-2 ${dark ? 'w-full sm:w-auto' : ''}`}>
       <button
         type="button"
         onClick={recording ? stop : start}
         disabled={busy}
         title={recording ? 'Zastavit nahrávání' : 'Hlasové zadávání / Diktování'}
         className={`rounded flex items-center gap-1.5 text-xs font-bold transition-all shadow-xs ${
-          dark ? 'px-4 py-3 sm:py-2.5 min-h-[44px] sm:min-h-[44px]' : 'px-3 py-1.5'
+          dark ? 'px-4 py-3 sm:py-2.5 min-h-[44px] sm:min-h-[44px] w-full sm:w-auto justify-center sm:justify-start' : 'px-3 py-1.5'
         } ${
           recording
             ? 'bg-rose-600 text-white animate-pulse shadow-md shadow-rose-500/30'

@@ -215,9 +215,13 @@ export const MAX_TILE_GAP = 16;
 // homeLayout.ts je importováno DO Layout.tsx — opačný import by byl cyklický.
 export type Category = 'Výroba' | 'Pivovar' | 'Nástroje' | 'Číselníky' | 'Nastavení';
 export const CATEGORY_ORDER: Category[] = ['Výroba', 'Pivovar', 'Nástroje', 'Číselníky', 'Nastavení'];
+// Pivovar byl 'teal' (#0ca5b0) — od 'forest' (#2f9e64) u Číselníků ho dělilo
+// jen 36° odstínu a při výchozí průhlednosti dlaždic 0,62 splývaly do jedné
+// zelenomodré. 'cobalt' je jednoznačně modrá, takže pět kategorií = pět
+// rozeznatelných barev: oranžová / modrá / fialová / zelená / šedá.
 export const CATEGORY_COLOR: Record<Category, TileColor> = {
   'Výroba': 'amber2',
-  'Pivovar': 'teal',
+  'Pivovar': 'cobalt',
   'Nástroje': 'indigo',
   'Číselníky': 'forest',
   'Nastavení': 'slate',
@@ -228,8 +232,8 @@ export const CATEGORY_COLOR: Record<Category, TileColor> = {
 // poli odpovídá CATEGORY_COLOR, ať je to konzistentní s hlavní mřížkou.
 export const CATEGORY_SHADES: Record<Category, TileColor[]> = {
   'Výroba': ['amber2', 'citrus', 'gold', 'tangerine', 'honey', 'peach', 'mustard'],
-  'Pivovar': ['teal', 'mint', 'emerald', 'jade', 'sky', 'azure'],
-  'Nástroje': ['indigo', 'cobalt', 'navy', 'periwinkle', 'violet', 'plum'],
+  'Pivovar': ['cobalt', 'azure', 'sky', 'navy', 'teal', 'periwinkle'],
+  'Nástroje': ['indigo', 'violet', 'plum', 'grape', 'lavender', 'magenta'],
   'Číselníky': ['forest', 'sage', 'olive', 'lime'],
   'Nastavení': ['slate', 'charcoal'],
 };
@@ -238,13 +242,16 @@ export const PAGE_CATEGORY: Partial<Record<Page, Category>> = {
   kegging: 'Výroba', bottling: 'Výroba', orders: 'Výroba', fasovani: 'Výroba', prodejna: 'Výroba',
   writeoffs: 'Výroba', akce: 'Výroba', vycepy: 'Výroba', orders_zavoz: 'Výroba', zavoz: 'Výroba',
   exkurze: 'Výroba', bottling_entry: 'Výroba', bottling_overview: 'Výroba', orders_entry: 'Výroba', orders_detail: 'Výroba', orders_celkem: 'Výroba',
+  marketing: 'Výroba',
   // Pivovar
   dashboard: 'Pivovar', sklo_promo: 'Pivovar', cellar: 'Pivovar', bottling_needs: 'Pivovar', inventory: 'Pivovar', history: 'Pivovar', stock: 'Pivovar',
+  export_excel: 'Pivovar',
   // Nástroje
   concentration: 'Nástroje', calendar: 'Nástroje', haccp: 'Nástroje', vehicles: 'Nástroje', kniha_jizd: 'Nástroje',
   sanitace_lahve: 'Nástroje', sanitace_kegy: 'Nástroje', sanitace_vycepy: 'Nástroje', sanitace: 'Nástroje',
   checklists: 'Nástroje', sanitation_log: 'Nástroje', reminders: 'Nástroje', notes: 'Nástroje', feedback: 'Nástroje',
   stopwatch: 'Nástroje', timer: 'Nástroje', keg_timer: 'Nástroje', srotovani: 'Nástroje', radio: 'Nástroje',
+  planning: 'Nástroje',
   // Číselníky
   depozitar: 'Číselníky', places: 'Číselníky', beers: 'Číselníky', packages: 'Číselníky', pricelist: 'Číselníky',
   // Nastavení

@@ -1497,9 +1497,9 @@ export default function Orders({
     <div className="space-y-6 pb-12">
       {/* Top Action Bar — bez nadpisu "Objednávky": to už říká záložka nahoře, duplicitní popisek by byl zbytečný. */}
       <div className="flex flex-wrap items-center justify-end gap-3 bg-white p-3.5 rounded-3xl border border-neutral-200 shadow-2xs">
-        <div className="flex flex-col gap-2 items-end">
+        <div className="flex flex-col gap-2 items-stretch sm:items-end w-full sm:w-auto">
           {mode === 'overviews_only' && setPage && (
-            <div className="flex gap-1.5 items-center flex-nowrap justify-end w-full sm:w-auto">
+            <div className="grid grid-cols-2 gap-1.5 sm:flex sm:items-center sm:flex-nowrap sm:justify-end w-full sm:w-auto">
               <button className="btn-primary !rounded text-xs font-black shadow-md" onClick={() => setPage('orders_entry')}>
                 <FilePlus size={14} /> + Zadávání objednávek
               </button>
@@ -1511,8 +1511,13 @@ export default function Orders({
 
           {/* Nové / Hlasové zadání / Text / WhatsApp / Kontrola / Audit / Fotka —
               jeden řádek, jednotná velikost a styl (černé pozadí, bílý text),
-              jedinou výjimkou zůstává zelený WhatsApp. */}
-          <div className="flex gap-2 items-center flex-wrap justify-end">
+              jedinou výjimkou zůstává zelený WhatsApp.
+
+              Na telefonu mřížka 2×N, ne zalamovaný `flex justify-end`: ten
+              každý zalomený řádek zarovnával doprava, takže sedm různě
+              širokých tlačítek vytvořilo schody a nešlo v nich najet očima.
+              V mřížce mají všechna stejnou šířku a hrany sedí pod sebou. */}
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2 sm:items-center sm:flex-wrap sm:justify-end [&>*]:w-full sm:[&>*]:w-auto">
             {mode !== 'entry_only' && (
               <button
                 className={`btn-ghost !rounded font-black text-xs shadow-xs flex items-center gap-1.5 ${viewMode === 'summary' ? '!bg-amber-500 !border-amber-500 !text-[#0f172a]' : '!bg-amber-50 !border-amber-200 !text-amber-900 hover:!bg-amber-100'}`}

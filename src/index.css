@@ -296,6 +296,77 @@ html, body, #root {
   [role="button"]:not([class*="h-"]):not([class*="min-h-"]):not(.vlastni-vyska) {
     min-height: 44px;
   }
+
+  /* Totéž pro ŠÍŘKU. Pravidlo výše dělalo z šipkových přepínačů („‹ ›" u
+     měsíce, týdne, stránky) svislé pilulky: 44 px vysoké, ale 21–28 px
+     široké, protože kolem jediného znaku je jen `p-1.5`. Prstem se do nich
+     trefit nedalo. Text psaná tlačítka jsou přirozeně širší, takže pravidlo
+     kousne přesně tam, kde má — u ikonových. Stejné výjimky jako u výšky:
+     kdo si šířku zadal sám (`w-8`, `min-w-…`), ví, co dělá. */
+  button:not([class*="w-"]):not([class*="min-w-"]):not(.vlastni-vyska),
+  [role="button"]:not([class*="w-"]):not([class*="min-w-"]):not(.vlastni-vyska) {
+    min-width: 44px;
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────
+   ZAŠKRTÁVACÍ POLÍČKA A KOLEČKA
+   ───────────────────────────────────────────────────────────────────────
+   Byla po appce rozházená ve třech velikostech (w-4, w-5, bez ničeho) a
+   dvě věci je pravidelně rozhazovaly:
+
+   1. Globální `input { min-height: 44px }` pro mobil (viz výš) — políčko
+      široké 13 px se natáhlo na 13 × 44 px, tedy svislou nudli.
+   2. Chybějící `shrink-0` v řádcích `flex`. Vedle dlouhého popisku se
+      políčko smrsklo na pár pixelů a symbol z něj vylezl ven.
+
+   3. Chybějící výška v řádku `flex`. Bez ní má políčko cross-size `auto`,
+      takže ho `align-items: stretch` (výchozí!) natáhne na výšku nejvyššího
+      sourozence — vedle 44px pole z něj byl ovál. Proto je velikost zadaná
+      PEVNĚ (width i height), ne přes min-*: definitivní výška je jediné,
+      co natahování spolehlivě zastaví, a přitom nechá zarovnání
+      (`items-start`, `mt-0.5`) na autorovi.
+
+   Jedna velikost pro celou appku — sjednocení je tu záměr, ne vedlejší
+   účinek: element+atribut (0,1,1) přebije Tailwindí `w-4 h-4` i `w-5 h-5`. */
+input[type='checkbox'],
+input[type='radio'] {
+  flex: 0 0 auto;          /* v řádku flex se nesmrští vedle dlouhého textu */
+  width: 20px;
+  height: 20px;
+  min-height: 0;           /* pojistka proti zděděné výšce z pravidel pro pole */
+  vertical-align: middle;
+  accent-color: theme('colors.primary.600');
+  cursor: pointer;
+}
+
+/* Prstem se míří hůř než myší — na dotykových zařízeních jsou o kus větší. */
+@media (pointer: coarse) {
+  input[type='checkbox'],
+  input[type='radio'] {
+    width: 24px;
+    height: 24px;
+  }
+
+  /* Posuvníky (průhlednost dlaždic, mezery, hlasitost rádia) mají po vyjmutí
+     z pravidla pro textová pole jen výšku dráhy — 16 px, do kterých se prstem
+     netrefí nikdo. Výšku dostanou vlastní, bez vodorovného odsazení, aby
+     dráha zabírala celou šířku, kterou jí layout dává. */
+  input[type='range'] {
+    min-height: 44px;
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
+/* Popisek u zaškrtávátka je taky dotyková plocha (kliknutí na text přepne
+   políčko) — ať má aspoň výšku palce a text se needíruje na dva řádky
+   nezarovnaně vůči políčku. */
+@media (pointer: coarse) {
+  label:has(> input[type='checkbox']),
+  label:has(> input[type='radio']) {
+    min-height: 44px;
+  }
 }
 
 /* Spodní lišta na Domů (Layout.tsx) sedí zapřená o spodní hranu displeje —
@@ -337,6 +408,27 @@ html, body, #root {
   table td { padding-top: 0.5rem; padding-bottom: 0.5rem; }
 }
 
+/* ───────────────────────────────────────────────────────────────────────
+   ZALAMOVANÉ ŘADY TLAČÍTEK („řádky nejsou vyrovnané")
+   ───────────────────────────────────────────────────────────────────────
+   Vzor `flex flex-wrap justify-end` je v appce na dvanácti místech (horní
+   lišty Objednávek, Skladu, Závozu, Uživatelů, Číselníků…). Na širokém
+   displeji je to jedna úhledná řada vpravo. Na telefonu se ale rozláme na
+   tři čtyři řádky a KAŽDÝ se zarovná zvlášť doprava — tlačítka mají různou
+   šířku, takže levé hrany tvoří schody a oko nemá kde začít číst.
+
+   `flex: 1 1 auto` nechá tlačítka na každém zalomeném řádku dorůst do plné
+   šířky. Řádek se dvěma je půl na půl, řádek s jedním je přes celou šířku,
+   levé hrany sedí pod sebou. Roste se jen tlačítkům a odkazům — štítky,
+   popisky a odznaky ve stejné řadě si nechají svou velikost. */
+@media (max-width: 640px) {
+  .flex.flex-wrap.justify-end > button,
+  .flex.flex-wrap.justify-end > a,
+  .flex.flex-wrap.justify-end > [role="button"] {
+    flex: 1 1 auto;
+  }
+}
+
 /* Mobile screen scaling & touch optimization */
 @media (max-width: 640px) {
   html {
@@ -348,9 +440,33 @@ html, body, #root {
   .card {
     @apply rounded-2xl p-3.5 shadow-sm border-neutral-300/90;
   }
-  .input, select, input {
-    @apply px-3 py-2.5 text-sm font-bold min-h-[44px];
+  /* :not(...) na zaškrtávátka je tu POVINNÉ. Holé `input` bere i
+     type=checkbox/radio — a ta jsou 13 px široká, takže jim min-height: 44px
+     udělalo svislou nudli 13 × 44 px s puntíkem uprostřed a rámečkem
+     ustřeleným mimo text. Přesně to je „políčka jsou mimo" a „kolečka jsou
+     roztažená". Jejich vlastní velikost a dotyková plocha se řeší níž
+     v sekci ZAŠKRTÁVACÍ POLÍČKA A KOLEČKA.
+
+     Stejný důvod u `color` a `range`: `min-height` PŘEBIJE `height` bez
+     ohledu na specifičnost, takže barevný vzorek 28×28 s border-radius:50 %
+     (.hs-fixed-color v HomeScreen.css) se kreslil jako svislý ovál 28×44
+     a posuvníky průhlednosti/mezer měly čtyřnásobnou dotykovou výšku
+     než dráhu, po které jezdí. */
+  .input, select,
+  input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='range']) {
+    @apply py-2.5 text-sm font-bold min-h-[44px];
     font-size: 15px !important; /* Prevents unwanted auto-zoom on iOS Safari & Chrome Mobile */
+  }
+
+  /* Vodorovné odsazení jen tam, kde si ho pole nezadalo samo. Tohle pravidlo
+     stojí mimo @layer, takže přebíjí i utility zapsané přímo u pole — a
+     šestnácti polím s ikonou uvnitř (`pl-10` u vyhledávacích řádků
+     v Odběratelích, Uživatelích, Prodejně, Auditu…) tím bralo místo pro
+     tu ikonu. Lupa se pak kreslila přes první písmeno hledaného textu. */
+  .input:not([class*="px-"]):not([class*="pl-"]):not([class*="pr-"]),
+  select:not([class*="px-"]):not([class*="pl-"]):not([class*="pr-"]),
+  input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='range']):not([class*="px-"]):not([class*="pl-"]):not([class*="pr-"]) {
+    @apply px-3;
   }
   .btn {
     @apply px-4 py-2.5 text-xs min-h-[44px] font-black active:scale-[0.97];
@@ -368,9 +484,11 @@ html, body, #root {
 html.density-xs {
   font-size: 12px !important;
 }
+/* Stejné :not(...) jako u mobilního pravidla výš — hustota zobrazení nesmí
+   deformovat zaškrtávátka, jen textová pole. */
 html.density-xs .input,
 html.density-xs select,
-html.density-xs input {
+html.density-xs input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='range']) {
   padding-top: 0.15rem !important;
   padding-bottom: 0.15rem !important;
   padding-left: 0.3rem !important;
@@ -396,7 +514,7 @@ html.density-compact {
 }
 html.density-compact .input,
 html.density-compact select,
-html.density-compact input {
+html.density-compact input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='range']) {
   padding-top: 0.2rem !important;
   padding-bottom: 0.2rem !important;
   padding-left: 0.4rem !important;
@@ -418,7 +536,7 @@ html.density-large {
 }
 html.density-large .input,
 html.density-large select,
-html.density-large input {
+html.density-large input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='range']) {
   padding-top: 0.5rem !important;
   padding-bottom: 0.5rem !important;
   min-height: 44px !important;
@@ -430,7 +548,7 @@ html.density-xl {
 }
 html.density-xl .input,
 html.density-xl select,
-html.density-xl input {
+html.density-xl input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='range']) {
   padding-top: 0.6rem !important;
   padding-bottom: 0.6rem !important;
   min-height: 48px !important;
@@ -461,7 +579,11 @@ html.density-large .btn {
 :root { color-scheme: light; }
 :root.dark { color-scheme: dark; }
 
-:root:not(.dark) input,
+/* Zaškrtávátka, kolečka, posuvníky a výběr barvy jsou z tohohle pravidla
+   vyňaté: `background-color: #ffffff !important` jim přebíjelo VÝPLŇ, takže
+   zaškrtnuté políčko zůstalo bílé a nebylo poznat, že je zaškrtnuté.
+   Barvu si berou z accent-color níž. */
+:root:not(.dark) input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),
 :root:not(.dark) select,
 :root:not(.dark) textarea,
 :root:not(.dark) .input {
@@ -473,7 +595,7 @@ html.density-large .btn {
 
 /* Tmavý režim má vlastní hodnoty — ale taky s !important, jinak by je přebily
    utility bg-white/text-neutral-900 zapsané přímo u polí. */
-:root.dark input,
+:root.dark input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),
 :root.dark select,
 :root.dark textarea,
 :root.dark .input {

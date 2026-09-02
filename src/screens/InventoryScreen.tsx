@@ -1583,28 +1583,37 @@ function exportInventoryExcel() {
               prvky banneru zůstávají. */}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Na telefonu svislý sloupec přes celou šířku, ne zalamovaný `flex`:
+            čtyři různě široká tlačítka se jinak nalámou do schodů a mezi
+            popisky se nedá jet okem shora dolů. */}
+        <div className="flex flex-col items-stretch gap-2 w-full sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
           <div className="flex items-center gap-1 bg-neutral-800 border border-neutral-700 px-2 py-1.5 rounded text-xs font-bold">
+            {/* w-11 = 44 px: šipky měly jen `px-2` kolem jednoho znaku, tedy
+                21 px šířky — na svislou pilulku vysokou 44 px se prstem
+                mířilo jako na nit. */}
             <button
               onClick={() => setCurrentMonth(shiftMonth(currentMonth, -1))}
-              className="px-2 py-1 rounded bg-neutral-700 hover:bg-amber-500 hover:text-neutral-950 text-white font-black transition"
+              className="w-11 shrink-0 grid place-items-center py-1 rounded bg-neutral-700 hover:bg-amber-500 hover:text-neutral-950 text-white font-black transition"
               title="Předchozí měsíc"
             >
               ‹
             </button>
-            <div className="flex items-center gap-1.5 px-1">
-              <Calendar size={15} className="text-amber-400" />
-              <span>Měsíc:</span>
+            <div className="flex items-center gap-1.5 px-1 min-w-0 flex-1">
+              <Calendar size={15} className="text-amber-400 shrink-0" />
+              {/* Popisek „Měsíc:" na telefonu ubíral místo poli, ve kterém se
+                  pak ořezával rok („srpen 202"). Ikona kalendáře vedle už
+                  říká totéž. */}
+              <span className="shrink-0 hidden sm:inline">Měsíc:</span>
               <input
                 type="month"
                 value={currentMonth}
                 onChange={(e) => setCurrentMonth(e.target.value)}
-                className="bg-transparent text-amber-950 font-mono font-black border-none focus:outline-none"
+                className="bg-transparent text-amber-950 font-mono font-black border-none focus:outline-none min-w-0 flex-1"
               />
             </div>
             <button
               onClick={() => setCurrentMonth(shiftMonth(currentMonth, 1))}
-              className="px-2 py-1 rounded bg-neutral-700 hover:bg-amber-500 hover:text-neutral-950 text-white font-black transition"
+              className="w-11 shrink-0 grid place-items-center py-1 rounded bg-neutral-700 hover:bg-amber-500 hover:text-neutral-950 text-white font-black transition"
               title="Následující měsíc"
             >
               ›
@@ -1614,7 +1623,7 @@ function exportInventoryExcel() {
 
           <button
             onClick={() => setShowPhotoCounter(true)}
-            className="px-3.5 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md flex items-center gap-1.5"
+            className="px-3.5 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md flex items-center justify-center sm:justify-start gap-1.5"
           >
             <Camera size={16} /> Spočítat z fotek (Bedny & Lahve)
           </button>
@@ -1629,20 +1638,20 @@ function exportInventoryExcel() {
           <button
             type="button"
             onClick={() => excelFileRef.current?.click()}
-            className="px-3.5 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-amber-950 font-black text-xs transition shadow-xs flex items-center gap-1.5"
+            className="px-3.5 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-amber-950 font-black text-xs transition shadow-xs flex items-center justify-center sm:justify-start gap-1.5"
           >
             <span><Download className="ikona-text" /> Import Excel / Google Tabulky</span>
           </button>
           <button
             onClick={exportInventoryExcel}
-            className="px-3.5 py-2.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs transition shadow-xs flex items-center gap-1.5"
+            className="px-3.5 py-2.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs transition shadow-xs flex items-center justify-center sm:justify-start gap-1.5"
           >
             <Download size={16} /> Export Excel
           </button>
 
           <button
             onClick={handleLockAndTransferNextMonth}
-            className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md flex items-center gap-1.5"
+            className="px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-md flex items-center justify-center sm:justify-start gap-1.5"
           >
             <Lock size={16} /> Schválit & Převést do nového měsíce
           </button>
