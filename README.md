@@ -176,6 +176,13 @@ přímo ve stránce, „Telefon (390)" jen zúžil rámeček a uvnitř zůstalo
 desktopové rozložení — takže se právě to, kvůli čemu náhled vznikl, nedalo
 vidět. Iframe má vlastní okno, takže zadaná šířka platí.
 
+Na `/plocha.html` je druhá stránka: srovnání rozložení domovské plochy na
+telefonu (390 px) ve třech variantách vedle sebe, s přepínačem upozornění.
+Není to obrazovka Domů z aplikace — ta se bez databáze nespustí — ale mřížka
+ze stejného CSS (`HomeScreen.css`), takže na otázky rozvržení (kolik dlaždic
+na řádek, co dělají upozornění s výškou) odpovídá věrně. Na cokoliv, co
+závisí na obsahu, se tím spoléhat nedá.
+
 Do produkčního buildu to nechodí — ten bere `index.html` v korenu. Nová data
 patří do `nahled/mock/data.ts`, náhrada Supabase je v `nahled/mock/supabase.ts`.
 Rámování stránky je schválně v `style`, ne v Tailwindu: `tailwind.config.js`
