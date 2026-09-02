@@ -1,21 +1,19 @@
 // 📥 Podklady pro hloubkový audit — jedno načtení, ze kterého žijí všechny kontroly.
 // ---------------------------------------------------------------------------
 // Odděleno od hloubkovyAudit.ts schválně: tam jsou samé čisté funkce, které
-// jdou otestovat na vymyšlených datech. Tady je jediné místo, kde se sahá do
-// databáze — takže když se změní název sloupce, opravuje se to na jednom
+// jdou otestovat na vymyšlených datech. Tady je jediné místo, kde audit sahá
+// do databáze — takže když se změní název sloupce, opravuje se to na jednom
 // místě a testy kontrol to nerozhodí.
 //
-// Načítá se přes fetchAllRows, ne přes obyčejný select: Supabase vrátí nejvýš
-// 1000 řádků a zbytek ZAHODÍ BEZ CHYBY. Audit, kterému chybí půlka pohybů,
-// je horší než žádný — tvářil by se, že je všechno v pořádku.
+// Skladovou knihu si audit NENAČÍTÁ SÁM (viz skladovaKnihaData.ts). Kdyby si
+// psal vlastní seznam sloupců, mohl by se rozejít s tím, co čtou obrazovky —
+// a audit, který porovnává jiná data než ta, co má kontrolovat, neznamená nic.
 import { supabase, fetchAllRows } from './supabase';
-import { buildMovements, expectedForMonth, stockForMonth } from './stockLedger';
+import { expectedForMonth, stockForMonth } from './stockLedger';
+import { nactiSkladovouKnihu } from './skladovaKnihaData';
 import { obdobiAuditu, type VstupAuditu } from './hloubkovyAudit';
 
 export type RezimAuditu = 'tyden' | 'mesic';
-
-type PivoProAudit = { id: string; name: string };
-type ObalProAudit = { id: string; label: string; kind: string; volume_l: number };
 
 /**
  * Načte všechno, co audit potřebuje, a poskládá z toho vstup.
@@ -27,29 +25,12 @@ export async function nactiPodkladyAuditu(rezim: RezimAuditu, dnesISO: string): 
   const { od, do: doDne, mesic } = obdobiAuditu(rezim, dnesISO);
 
   const [
-    { data: beers }, { data: packages },
-    { data: bt }, { data: kg }, { data: fa }, { data: fp }, { data: wo },
-    { data: inv }, { data: adj }, { data: zd }, { data: ak }, { data: pf },
+    kniha,
     { data: objednavky }, { data: polozky },
     { data: zpravy }, { data: prijemLog },
     { data: most }, { count: neodeslane }, { data: posledniPrijem },
   ] = await Promise.all([
-    supabase.from('beers').select('id,name').order('sort_order'),
-    supabase.from('packages').select('id,label,kind,volume_l').order('sort_order'),
-
-    // Skladová kniha — přesně tytéž zdroje a sloupce jako Inventura a Sklad.
-    // Kdyby se lišily, audit by porovnával jiná data než obrazovky, které má
-    // kontrolovat, a jeho výsledek by nic neznamenal.
-    fetchAllRows('bottling', 'beer_id,package_id,quantity,entry_date,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
-    fetchAllRows('kegging', 'beer_id,package_id,quantity,entry_date,note,cellar_tank_id'),
-    fetchAllRows('fasovani', 'beer_id,package_id,quantity,entry_date'),
-    fetchAllRows('fasovani_private', 'beer_id,package_id,quantity,entry_date'),
-    fetchAllRows('writeoffs', 'beer_id,package_id,quantity,entry_date'),
-    fetchAllRows('inventory', 'beer_id,package_id,quantity,entry_date,note'),
-    fetchAllRows('inventory_adjustments', 'beer_id,package_id,quantity,entry_date,created_at'),
-    fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity'),
-    fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
-    fetchAllRows('keg_prefuk', 'entry_date,beer_id,from_package_id,from_count,to_package_id,to_count'),
+    nactiSkladovouKnihu(),
 
     // Objednávky — širší okno než období, aby šlo počítat rytmus odběratelů
     // a pokrytí proti minulému týdnu.
@@ -66,35 +47,14 @@ export async function nactiPodkladyAuditu(rezim: RezimAuditu, dnesISO: string): 
     supabase.from('whatsapp_prijem_log').select('created_at').order('created_at', { ascending: false }).limit(1),
   ]);
 
-  // Ne celý `Package`/`Beer` — z číselníků se tahají jen sloupce, které audit
-  // potřebuje (jméno pro popisek a kind/volume_l pro dohledání sudu
-  // spotřebovaného na lahve). Vlastní typ je proto poctivější než přetypování
-  // na plný katalogový záznam, který by tu z poloviny chyběl.
-  const piva: PivoProAudit[] = (beers as PivoProAudit[]) ?? [];
-  const obaly: ObalProAudit[] = (packages as ObalProAudit[]) ?? [];
-
-  const pohyby = buildMovements({
-    inventoryRows: (inv as any[]) ?? [],
-    bottlingRows: (bt as any[]) ?? [],
-    keggingRows: (kg as any[]) ?? [],
-    fasovaniRows: (fa as any[]) ?? [],
-    prodejnaRows: (fp as any[]) ?? [],
-    writeoffsRows: (wo as any[]) ?? [],
-    zavozDeductionRows: (zd as any[]) ?? [],
-    akceRows: (ak as any[]) ?? [],
-    prefukRows: (pf as any[]) ?? [],
-    adjustmentRows: (adj as any[]) ?? [],
-    packages: obaly as any,
-  });
-
   // Počet položek na objednávku — prázdná objednávka se jinak nepozná.
   const polozekNaObjednavku = new Map<string, number>();
   for (const p of ((polozky as any[]) ?? [])) {
     polozekNaObjednavku.set(p.order_id, (polozekNaObjednavku.get(p.order_id) ?? 0) + 1);
   }
 
-  const jmenoPiva = new Map(piva.map((b) => [b.id, b.name]));
-  const jmenoObalu = new Map(obaly.map((p) => [p.id, p.label]));
+  const jmenoPiva = new Map(kniha.piva.map((b) => [b.id, b.name]));
+  const jmenoObalu = new Map(kniha.obaly.map((p) => [p.id, p.label]));
 
   return {
     od,
@@ -120,20 +80,20 @@ export async function nactiPodkladyAuditu(rezim: RezimAuditu, dnesISO: string): 
     })),
     zacatekTydne: rezim === 'tyden' ? od : undefined,
 
-    kegging: ((kg as any[]) ?? []),
-    bottling: ((bt as any[]) ?? []),
-    znamaPiva: new Set(piva.map((b) => b.id)),
-    znameObaly: new Set(obaly.map((p) => p.id)),
+    kegging: kniha.kegging,
+    bottling: kniha.bottling,
+    znamaPiva: new Set(kniha.piva.map((b) => b.id)),
+    znameObaly: new Set(kniha.obaly.map((p) => p.id)),
 
     // Obě strany porovnání ze stejné knihy — viz auditSkladu.ts.
-    inventuraLedger: expectedForMonth(pohyby, mesic, true),
-    skladLedger: stockForMonth(pohyby, mesic),
+    inventuraLedger: expectedForMonth(kniha.pohyby, mesic, true),
+    skladLedger: stockForMonth(kniha.pohyby, mesic),
     popisPolozky: (klic: string) => {
       const [beerId, pkgId] = klic.split('__');
       return `${jmenoPiva.get(beerId) ?? 'neznámé pivo'} ${jmenoObalu.get(pkgId) ?? 'neznámý obal'}`;
     },
 
-    inventurniRadky: ((inv as any[]) ?? []).map((r) => ({ entry_date: r.entry_date, note: r.note })),
+    inventurniRadky: kniha.inventura.map((r) => ({ entry_date: r.entry_date, note: r.note })),
   };
 }
 

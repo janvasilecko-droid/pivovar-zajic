@@ -339,24 +339,25 @@ export function stockMapAsOf(movements: Movement[], dateISO: string): Record<str
 }
 
 /**
- * MĚSÍČNÍ ROZPAD — společné jádro pro Inventuru i Sklad.
+ * ROZPAD ZA OBDOBÍ — společné jádro pro Inventuru i Sklad.
  *
  * Vzorec je jeden a stejný pro obě strany:
  *
- *     stav na konci měsíce
- *       = počátek k PRVNÍMU dni měsíce
- *       + stáčení od 1. do posledního dne
+ *     stav na konci období
+ *       = počátek k PRVNÍMU dni období
+ *       + stáčení od prvního do posledního dne
  *       − objednávky − fasování − prodejna − akce − odpisy − sudy na lahve
  *       ± přefuk ± dorovnání
  *
- * Okno je VŽDY jeden měsíc. Dřív se rozpad bral od poslední inventury, což
+ * Okno je VŽDY jen zadané období — měsíc u uzávěrky, týden u týdenní
+ * kontroly. Dřív se rozpad bral od poslední inventury, což
  * mohl být klidně první den PŘEDMINULÉHO měsíce — a sloupec „Stočeno" pak
  * v srpnové tabulce ukazoval i červencovou výrobu. Summer Ale 15 l: v srpnu
  * 2026 stočeno 2×, tabulka psala 5, protože přičetla tři červencové sudy.
  * Do srpna se nic nepřepsalo, jen se totéž počítalo podruhé.
  *
  * Liší se JEN počátek:
- *   'zapsany'    — z řádku „Počáteční stav" k prvnímu dni měsíce. Když
+ *   'zapsany'    — z řádku „Počáteční stav" k prvnímu dni období. Když
  *                  chybí, je NULA (a řádek se označí ZAKLAD_NEZADAN, ať se
  *                  chybějící údaj nepoplete s chybou výpočtu). Napočítaná
  *                  inventura se ZÁMĚRNĚ nebere — je to právě to, s čím se
@@ -370,36 +371,33 @@ export function stockMapAsOf(movements: Movement[], dateISO: string): Record<str
  */
 type ZakladMesice = 'zapsany' | 'dopocitany';
 
-function rozpadMesice(
+function rozpadObdobi(
   movements: Movement[],
-  monthKey: string,
+  od: string,
+  doDne: string,
   zaklad: ZakladMesice,
   sDorovnanim: boolean,
 ): Map<string, StockLine> {
-  const monthStart = `${monthKey}-01`;
-  const [y, m] = monthKey.split('-').map(Number);
-  const monthEnd = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
-
   const out = new Map<string, StockLine>();
   const zaloz = (beer_id: string, package_id: string): StockLine => {
     const key = stockKey(beer_id, package_id);
     let line = out.get(key);
     if (!line) {
-      line = { key, beer_id, package_id, qty: 0, baselineDate: monthStart, baselineQty: 0, baselineNote: null, byKind: {} };
+      line = { key, beer_id, package_id, qty: 0, baselineDate: od, baselineQty: 0, baselineNote: null, byKind: {} };
       out.set(key, line);
     }
     return line;
   };
 
   if (zaklad === 'dopocitany') {
-    stockAtStartOfDay(movements, monthStart).forEach((l) => {
+    stockAtStartOfDay(movements, od).forEach((l) => {
       const line = zaloz(l.beer_id, l.package_id);
       line.baselineQty = l.qty;
       line.qty = l.qty;
     });
   } else {
     for (const mv of movements) {
-      if (mv.kind !== 'inventura' || mv.date !== monthStart || jeNapocitanyStav(mv.note)) continue;
+      if (mv.kind !== 'inventura' || mv.date !== od || jeNapocitanyStav(mv.note)) continue;
       const line = zaloz(mv.beer_id, mv.package_id);
       line.baselineQty = mv.qty;
       line.qty = mv.qty;
@@ -410,7 +408,7 @@ function rozpadMesice(
   for (const mv of movements) {
     if (mv.kind === 'inventura') continue;
     if (!sDorovnanim && mv.kind === 'dorovnani') continue;
-    if (mv.date < monthStart || mv.date > monthEnd) continue;
+    if (mv.date < od || mv.date > doDne) continue;
     const line = zaloz(mv.beer_id, mv.package_id);
     line.qty += mv.qty;
     line.byKind[mv.kind] = (line.byKind[mv.kind] ?? 0) + mv.qty;
@@ -435,7 +433,13 @@ export function expectedForMonth(
   monthKey: string,
   sDorovnanim = false,
 ): Map<string, StockLine> {
-  return rozpadMesice(movements, monthKey, 'zapsany', sDorovnanim);
+  return rozpadObdobi(movements, `${monthKey}-01`, konecMesice(monthKey), 'zapsany', sDorovnanim);
+}
+
+/** Poslední den měsíce, YYYY-MM-DD. */
+export function konecMesice(monthKey: string): string {
+  const [y, m] = monthKey.split('-').map(Number);
+  return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
 }
 
 /**
@@ -456,5 +460,18 @@ export function movementsFor(
 }
 /** Tentýž měsíc očima Skladu — počátek dopočítaný z celé historie. */
 export function stockForMonth(movements: Movement[], monthKey: string): Map<string, StockLine> {
-  return rozpadMesice(movements, monthKey, 'dopocitany', true);
+  return rozpadObdobi(movements, `${monthKey}-01`, konecMesice(monthKey), 'dopocitany', true);
+}
+
+/**
+ * Rozpad za LIBOVOLNÉ okno — používá týdenní inventura.
+ *
+ * Počátek se vždycky dopočítá z historie: na začátku týdne žádný řádek
+ * „Počáteční stav" neleží (ten se zapisuje jen k prvnímu dni měsíce), takže
+ * varianta 'zapsany' by u týdne nasadila nulu a manko by vyšlo do posledního
+ * kusu falešně. Dorovnání se počítá — týdenní kontrola porovnává proti tomu,
+ * co sklad ve skutečnosti ukazuje, ne proti teoretické verzi bez oprav.
+ */
+export function stockForObdobi(movements: Movement[], od: string, doDne: string): Map<string, StockLine> {
+  return rozpadObdobi(movements, od, doDne, 'dopocitany', true);
 }

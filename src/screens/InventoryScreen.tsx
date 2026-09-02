@@ -15,6 +15,7 @@ import { vyrovnaniZaMesic } from '../lib/vyrovnani';
 import { lzeUlozitKoncept, slucInventuru } from '../lib/rozepsanaInventura';
 import { normalizujCislo } from '../lib/cisloVstup';
 import { popisRozdeleni, rozdelSudyDoTanku, zmenaOtevreni, type RozdeleniSudu, type TankProRozdeleni } from '../lib/tankRozdeleni';
+import { odectiZTanku as odectiZTankuDB, vratDoTanku } from '../lib/tankZapis';
 import { saveBottlingPlan } from '../lib/bottlingPlans';
 import { businessDateISO } from '../lib/businessDate';
 import { buildMovements, expectedForMonth, stockAtStartOfDay, stockForMonth, type StockLine } from '../lib/stockLedger';
@@ -1163,10 +1164,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       const { error } = await supabase.from('kegging').delete().in('id', ids);
       if (error) { chyba('Nepodařilo se vzít zpět: ' + error.message); return; }
     }
-    // Objem zpátky do tanků. Kladné delta = přidat, tedy opak odečtu.
-    for (const d of rozdeleni?.dily ?? []) {
-      await supabase.rpc('adjust_tank_volume', { p_tank_id: d.tankId, p_delta_l: d.litry });
-    }
+    await vratDoTanku(rozdeleni);
     forceReloadRef.current = true;
     await loadData(true);
   }
@@ -1201,48 +1199,9 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     await loadData(true);
   }
 
-  /**
-   * Odečte objem z tanků. Relativní RPC (stejná jako v Kegging.tsx), ne
-   * absolutní hodnota — jinak by se dva odečty ve stejnou chvíli přepsaly.
-   * Vrací text chyby, když se některý tank nepovedlo upravit.
-   */
-  async function odectiZTanku(rozdeleni: RozdeleniSudu, beerId: string): Promise<string | null> {
-    const nepovedlo: string[] = [];
-    for (const d of rozdeleni.dily) {
-      const { error } = await supabase.rpc('adjust_tank_volume', { p_tank_id: d.tankId, p_delta_l: -d.litry });
-      if (error) nepovedlo.push(`${d.label} (${error.message})`);
-    }
-
-    // 🛢️ Když tank odečtem došel, ukonči na něm stáčení a otevři další se
-    // stejným pivem — jinak by zůstal otevřený prázdný tank a stáčeč by musel
-    // ručně hledat, ze kterého pokračovat.
-    const zmena = zmenaOtevreni(tanky, beerId, rozdeleni);
-    const ted = new Date().toISOString();
-    if (zmena.dojely.length > 0) {
-      await supabase.from('cellar_tanks')
-        .update({ kegging_active: false, kegging_ended_at: ted, updated_at: ted })
-        .in('id', zmena.dojely.map((d) => d.tankId));
-    }
-    if (zmena.otevrit) {
-      // Stáčecí zdroj smí být na jedno pivo jen jeden (viz startKegging v
-      // Cellar.tsx), takže ostatní se stejným pivem se nejdřív zavřou.
-      const ostatni = tanky
-        .filter((t) => t.current_beer_id === beerId && t.id !== zmena.otevrit!.tankId)
-        .map((t) => t.id);
-      if (ostatni.length > 0) {
-        await supabase.from('cellar_tanks')
-          .update({ kegging_active: false, kegging_ended_at: ted, updated_at: ted })
-          .in('id', ostatni);
-      }
-      await supabase.from('cellar_tanks')
-        .update({ kegging_active: true, kegging_started_at: ted, kegging_ended_at: null, updated_at: ted })
-        .eq('id', zmena.otevrit.tankId);
-    }
-
-    return nepovedlo.length > 0
-      ? `Stáčení je zapsané, ale objem se nepodařilo odečíst z: ${nepovedlo.join(', ')}. Oprav objem ve Sklepě ručně.`
-      : null;
-  }
+  /** Odečet objemu z tanků — společný s týdenní inventurou (lib/tankZapis.ts). */
+  const odectiZTanku = (rozdeleni: RozdeleniSudu, beerId: string) =>
+    odectiZTankuDB(tanky, rozdeleni, beerId);
 
   /**
    * Srovná rozdíl tam, kam patří — místo dorovnání, které ho jen schová:
