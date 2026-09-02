@@ -255,12 +255,35 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     const startY = e.clientY;
     longPressFired.current = false;
 
+    // Bez tohohle rozjede myš nativní výběr textu: prohlížeč táhne označený
+    // popisek dlaždice a dlaždice sama zůstane stát. Popisky mají sice
+    // `select-none`, ale výběr začatý na dlaždici se ochotně rozlije na text
+    // okolo. Rušíme i výběr, který na obrazovce zůstal z dřívějška — jinak
+    // se táhne on místo dlaždice.
+    e.preventDefault();
+    try { window.getSelection()?.removeAllRanges(); } catch {}
+
+    // Posun dlaždice a hledání cílové buňky se sesypou do JEDNOHO snímku.
+    // Prst pošle desítky `pointermove` za sekundu a každý z nich sahal na
+    // `getBoundingClientRect` a `elementFromPoint` — to jsou vynucené
+    // přepočty layoutu, tedy přesně ta práce, kvůli které dlaždice za prstem
+    // kulhala. Na jeden snímek stačí poslední známá pozice.
+    let radek: number | null = null;
+    let poslednePozice: { x: number; y: number } | null = null;
+
+    function zrusRadek() {
+      if (radek !== null) cancelAnimationFrame(radek);
+      radek = null;
+      poslednePozice = null;
+    }
+
     function cleanup() {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onUp);
       if (longPressTimer.current) clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
+      zrusRadek();
       clearEdge();
       // Posun se zapisoval PŘÍMO do DOM (kvůli plynulosti), takže ho React
       // při překreslení sám nesmaže — dlaždice by po puštění zůstala odsunutá
@@ -311,25 +334,35 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       // zkoušel a je to horší: prst a dlaždice se rozejdou a člověk pak
       // netrefí, kam chce.
       //
-      // Posun se zapisuje PŘÍMO DO DOM, ne přes stav Reactu. Při pohybu prstu
-      // přijde desítky událostí za vteřinu a překreslovat kvůli každé všech
-      // ~26 dlaždic znamenalo, že dlaždice za prstem viditelně kulhala.
-      const el = document.querySelector(`.hs-grid [data-tile-id="${id}"]`) as HTMLElement | null;
-      if (el) {
-        el.style.transform = `translate(${ev.clientX - startX}px, ${ev.clientY - startY}px) scale(1.08)`;
-      }
+      // Zapamatuj pozici a zbytek nech na snímku. Události chodí častěji, než
+      // se stihne kreslit; počítat je všechny je práce, kterou nikdo neuvidí.
+      poslednePozice = { x: ev.clientX, y: ev.clientY };
+      if (radek !== null) return;
+      radek = requestAnimationFrame(() => {
+        radek = null;
+        const p = poslednePozice;
+        if (!p || !longPressFired.current) return;
 
-      // Do stavu Reactu jde jen to, co se MĚNÍ SKOKEM — cílová buňka a
-      // zvýraznění dlaždice pod prstem. Díky tomu se překresluje jen při
-      // přechodu mezi buňkami, ne při každém pixelu.
-      const cell = cellFromPoint(ev.clientX, ev.clientY);
-      setDropCell((prev) =>
-        prev?.x === cell?.x && prev?.y === cell?.y ? prev : cell,
-      );
-      const overId = findTileIdAtPoint(ev.clientX, ev.clientY);
-      const novyOver = overId && overId !== id ? overId : null;
-      setDragOverId((prev) => (prev === novyOver ? prev : novyOver));
-      sledujOkraj(ev.clientX);
+        // Posun se zapisuje PŘÍMO DO DOM, ne přes stav Reactu — překreslovat
+        // kvůli pohybu prstu všech ~26 dlaždic znamenalo, že dlaždice za
+        // prstem viditelně kulhala.
+        const el = document.querySelector(`.hs-grid [data-tile-id="${id}"]`) as HTMLElement | null;
+        if (el) {
+          el.style.transform = `translate(${p.x - startX}px, ${p.y - startY}px) scale(1.08)`;
+        }
+
+        // Do stavu Reactu jde jen to, co se MĚNÍ SKOKEM — cílová buňka a
+        // zvýraznění dlaždice pod prstem. Díky tomu se překresluje jen při
+        // přechodu mezi buňkami, ne při každém pixelu.
+        const cell = cellFromPoint(p.x, p.y);
+        setDropCell((prev) =>
+          prev?.x === cell?.x && prev?.y === cell?.y ? prev : cell,
+        );
+        const overId = findTileIdAtPoint(p.x, p.y);
+        const novyOver = overId && overId !== id ? overId : null;
+        setDragOverId((prev) => (prev === novyOver ? prev : novyOver));
+        sledujOkraj(p.x);
+      });
     }
     function onUp(ev: PointerEvent) {
       if (longPressFired.current) {

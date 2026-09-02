@@ -114,7 +114,13 @@ export default function LauncherTile({
         ...tileGridStyle(x, y, w, h),
         ...(isPresetColor ? {} : { background: hexToRgba(color, tileOpacity) }),
         color: textColor,
-        touchAction: isDragging ? 'none' : undefined,
+        // `none` už v EDIT MÓDU, ne teprve při tažení. Prohlížeč se rozhoduje,
+        // jestli je gesto scroll nebo něco jiného, hned při prvním dotyku —
+        // dokud tu stálo `isDragging`, přišlo to o 400 ms podržení pozdě:
+        // prst se pohnul, prohlížeč si gesto vzal na scroll, poslal
+        // `pointercancel` a tažení umřelo. Dlaždicí pak nešlo hnout.
+        // Mimo edit mód zůstává scroll i přejíždění mezi stránkami.
+        touchAction: editing || isDragging ? 'none' : undefined,
         // Dlaždice v ruce jde plynule za prstem. `pointerEvents: none` je
         // nutné — jinak by si stála pod kurzorem sama sobě v cestě a hledání
         // cílové buňky (elementFromPoint) by pod prstem našlo pořád ji.

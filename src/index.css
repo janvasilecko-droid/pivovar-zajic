@@ -81,6 +81,34 @@ html, body, #root {
   * { -webkit-tap-highlight-color: transparent; }
   ::selection { @apply bg-primary-200 text-primary-950; }
 
+  /* 🖐️ Text se nedá chytit — kromě míst, kde se s ním opravdu pracuje.
+     Appka se ovládá prstem: dlaždice na Domů se přesouvají podržením a
+     tažením, mezi stránkami se přejíždí. Jakmile se přitom rozjede výběr
+     textu, prohlížeč táhne označený popisek a prvek zůstane stát — přesně
+     to bránilo přesunu dlaždic.
+
+     `user-select` se dědí, takže stačí zakázat ho na `body` a zpátky
+     povolit tam, kde se text čte, kopíruje a píše: v polích, v
+     editovatelném obsahu a v poznámkách (`.lze-vybrat`).
+
+     POZOR: nové místo, kde má jít text označit, musí dostat `.lze-vybrat`
+     — jinak se označit nedá. Platí to i pro Tailwind: `select-text` je
+     utilita, takže tenhle základ přebije sama. */
+  body {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  input,
+  textarea,
+  select,
+  [contenteditable],
+  [contenteditable] *,
+  .lze-vybrat,
+  .lze-vybrat * {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
   /* Viditelný, ale nerušivý focus prstenec pro klávesnicové ovládání — modernější
      než výchozí prohlížečový obrys a konzistentní napříč appkou. */
   :focus-visible {

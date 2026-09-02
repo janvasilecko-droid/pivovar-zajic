@@ -180,8 +180,8 @@ export default function Notes() {
                   <>
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        {n.title && <div className="font-black text-sm text-neutral-900 mb-0.5">{n.title}</div>}
-                        <p className="text-xs text-neutral-700 font-medium whitespace-pre-wrap leading-relaxed">{n.body}</p>
+                        {n.title && <div className="lze-vybrat font-black text-sm text-neutral-900 mb-0.5">{n.title}</div>}
+                        <p className="lze-vybrat text-xs text-neutral-700 font-medium whitespace-pre-wrap leading-relaxed">{n.body}</p>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         <button

@@ -668,10 +668,15 @@
 .hs-tile-warn svg { color: #fde047; }
 .hs-tile-warn .hs-badge { background: #fde047; color: #451a03; }
 
-/* touch-action:none je nutné, jinak prst na dotykovém displeji posune
-   stránku (scroll) místo aby přesunul dlaždici (pointermove eventy).
-   Popisek zůstává v edit módu na plnou viditelnost (dřív byl ztlumený,
-   nešlo za pohybu poznat, co přesně se přesouvá). */
+/* Popisek zůstává v edit módu na plnou viditelnost (dřív byl ztlumený,
+   nešlo za pohybu poznat, co přesně se přesouvá).
+
+   POZOR: `touch-action: none` (bez kterého prst stránku odscrolluje místo
+   přesunu dlaždice) se nastavuje INLINE v LauncherTile.tsx, ne tady —
+   `* { touch-action: manipulation }` v index.css platí na každý element a
+   inline styl je jediný způsob, jak ho spolehlivě přebít. Tenhle komentář
+   tu dřív stál nad pravidlem, které se cestou ztratilo: popsané to bylo,
+   nastavené ne. */
 .hs-tile.hs-editing { cursor: grab; }
 /* "Zvednutá" dlaždice po dlouhém podržení (jako na Androidu) — vizuálně
    se odlepí od mřížky (větší, stín, mírně průhledná), dokud ji uživatel

@@ -217,7 +217,7 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
                       {note.completed && <Check size={14} className="text-emerald-700 font-bold" />}
                     </button>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold whitespace-pre-wrap leading-snug">{note.text}</p>
+                      <p className="lze-vybrat text-sm font-semibold whitespace-pre-wrap leading-snug">{note.text}</p>
                     </div>
                     <button
                       type="button"
