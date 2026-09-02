@@ -481,6 +481,11 @@ async function start() {
 
     if (connection === 'open') {
       qrState.connected = true;
+      // Použitý QR musí zmizet. Je jednorázový, takže po spárování už k
+      // ničemu není — ale `/qr` i `/qr/raw` jsou veřejné bez přihlášení a
+      // servírovaly ho dál. Kdo stránku otevřel, viděl mrtvý kód a marně
+      // ho skenoval; navíc nebylo poznat, jestli je most spárovaný.
+      qrState.qr = null;
       qrState.poznamka = 'spojení navázáno';
       logger.info('[conn] OPEN — spárováno a online ✔');
     }
