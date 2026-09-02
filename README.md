@@ -155,3 +155,22 @@ Test, který nemůže selhat, je horší než žádný — vypadá jako pojistka
   dokládají, že sanitace proběhla.
 - **Checklist „Začátek stáčení" odemyká zápis stáčení.** Brána se kontroluje i
   při ukládání, ne jen v UI.
+
+## Náhled obrazovek bez databáze
+
+Ladit vzhled se dá jen tak, že ho člověk vidí — appka se ale bez přístupu k
+Supabase zastaví na přihlášení. Proto je tu náhledová stránka: vykreslí panel
+samostatně, nad vymyšlenými daty a s podstrčenou náhradou Supabase.
+
+```bash
+npx vite --config vite.nahled.config.ts    # http://localhost:5199
+```
+
+Přepíná se šířka (telefon / tablet / počítač), zápisy do „databáze" se vypisují
+vedle panelu a „Začít znovu" vrátí data do výchozího stavu. Zápisy MĚNÍ data
+v paměti, takže srovnání rozdílu jde vyzkoušet celé.
+
+Do produkčního buildu to nechodí — ten bere `index.html` v korenu. Nová data
+patří do `nahled/mock/data.ts`, náhrada Supabase je v `nahled/mock/supabase.ts`.
+Rámování stránky je schválně v `style`, ne v Tailwindu: `tailwind.config.js`
+prochází jen `src/`, takže třídy napsané v `nahled/` by se nevygenerovaly.
