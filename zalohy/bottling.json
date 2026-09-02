@@ -15,6 +15,21 @@
   "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
  },
  {
+  "id": "006b90b5-21fc-4e01-b957-019000ac98d0",
+  "entry_date": "2026-08-31",
+  "beer_id": "8823be77-b372-4636-a43c-70b8d1400fd7",
+  "beer_name": "Jantar",
+  "package_id": "10b091f7-fa29-4f70-aa1b-d6d7614a105e",
+  "package_label": "1l",
+  "quantity": 27,
+  "note": null,
+  "created_by": null,
+  "created_at": "2026-09-01T19:02:26.259587+00:00",
+  "source_volume_l": 30,
+  "kegs_used": 1,
+  "kegs_used_package_id": "16adfff0-50c0-482e-9338-1eb4632cfc14"
+ },
+ {
   "id": "010d9a1e-7b2d-4b01-a8f7-1bd2bfda0211",
   "entry_date": "2026-07-08",
   "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
@@ -45,6 +60,21 @@
   "kegs_used_package_id": "16adfff0-50c0-482e-9338-1eb4632cfc14"
  },
  {
+  "id": "02c9bb89-066e-445e-8cde-538f16016b6d",
+  "entry_date": "2026-08-31",
+  "beer_id": "93f7be38-e176-46af-9da3-47a14ffdedfa",
+  "beer_name": "11° Světlá",
+  "package_id": "10b091f7-fa29-4f70-aa1b-d6d7614a105e",
+  "package_label": "1l",
+  "quantity": 477,
+  "note": "Doplněno z inventury 2026-08 — 1l z 50l sudů (dávka)",
+  "created_by": null,
+  "created_at": "2026-09-01T22:12:26.270416+00:00",
+  "source_volume_l": 550,
+  "kegs_used": 11,
+  "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
+ },
+ {
   "id": "04c6e4a1-3e50-40fd-accb-3cc4f1bc5cd2",
   "entry_date": "2026-08-29",
   "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
@@ -60,6 +90,21 @@
   "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
  },
  {
+  "id": "07a27c1e-1c22-47d2-bef2-600e4aa4fd2b",
+  "entry_date": "2026-08-31",
+  "beer_id": "93f7be38-e176-46af-9da3-47a14ffdedfa",
+  "beer_name": "11° Světlá",
+  "package_id": "7e5f77a9-38b0-42ff-bb0d-972e295191c3",
+  "package_label": "0.33l",
+  "quantity": 10,
+  "note": "Doplněno z inventury 2026-08 — 0.33l z 50l sudů (dávka)",
+  "created_by": null,
+  "created_at": "2026-09-01T22:12:26.270416+00:00",
+  "source_volume_l": null,
+  "kegs_used": null,
+  "kegs_used_package_id": null
+ },
+ {
   "id": "11842c91-09ee-4b65-867c-1628a5e7da5a",
   "entry_date": "2026-07-22",
   "beer_id": "d4f7a9f0-ef4f-4729-b889-321a4509d2e1",
@@ -73,6 +118,36 @@
   "source_volume_l": null,
   "kegs_used": null,
   "kegs_used_package_id": null
+ },
+ {
+  "id": "16bcef41-ca7a-41d2-b4ac-b3681547424f",
+  "entry_date": "2026-08-31",
+  "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
+  "beer_name": "12° Světlá",
+  "package_id": "10b091f7-fa29-4f70-aa1b-d6d7614a105e",
+  "package_label": "1l",
+  "quantity": 90,
+  "note": null,
+  "created_by": null,
+  "created_at": "2026-09-01T11:28:15.616126+00:00",
+  "source_volume_l": 100,
+  "kegs_used": 2,
+  "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
+ },
+ {
+  "id": "18b5e8e2-2036-4744-b132-5781eca8dacc",
+  "entry_date": "2026-08-31",
+  "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
+  "beer_name": "12° Světlá",
+  "package_id": "7fe0ce80-8310-4d38-98ce-cff8261e59a3",
+  "package_label": "1.5l",
+  "quantity": 37,
+  "note": "Doplněno z inventury 2026-08 — 1.5l z 50l sudů (dávka)",
+  "created_by": null,
+  "created_at": "2026-09-01T22:13:33.422278+00:00",
+  "source_volume_l": 50,
+  "kegs_used": 1,
+  "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
  },
  {
   "id": "1c03f2e0-ddfe-45d4-b6bc-a2ea7d0b9ad4",
@@ -225,6 +300,21 @@
   "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
  },
  {
+  "id": "2d7f0029-8dff-46c2-8dc8-5cf0d788c787",
+  "entry_date": "2026-08-31",
+  "beer_id": "93f7be38-e176-46af-9da3-47a14ffdedfa",
+  "beer_name": "11° Světlá",
+  "package_id": "6c981d1b-2796-4984-89eb-af9dd51aa5c0",
+  "package_label": "0.5l",
+  "quantity": 19,
+  "note": "Doplněno z inventury 2026-08 — 0.5l z 50l sudů (dávka)",
+  "created_by": null,
+  "created_at": "2026-09-01T22:12:26.270416+00:00",
+  "source_volume_l": null,
+  "kegs_used": null,
+  "kegs_used_package_id": null
+ },
+ {
   "id": "34e1a75a-56cd-40d1-9522-afe1e2b13446",
   "entry_date": "2026-07-27",
   "beer_id": "8823be77-b372-4636-a43c-70b8d1400fd7",
@@ -297,6 +387,81 @@
   "created_at": "2026-08-29T15:59:27.798282+00:00",
   "source_volume_l": 50,
   "kegs_used": 1,
+  "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
+ },
+ {
+  "id": "3e39c5b4-1cba-436d-a540-d6fdd8de09b4",
+  "entry_date": "2026-08-31",
+  "beer_id": "6e226b00-6297-4ef0-abd1-88c06d8ccad1",
+  "beer_name": "12° Tmavá",
+  "package_id": "7fe0ce80-8310-4d38-98ce-cff8261e59a3",
+  "package_label": "1.5l",
+  "quantity": 11,
+  "note": "Doplněno z inventury 2026-08 — 1.5l z 50l sudů (dávka)",
+  "created_by": null,
+  "created_at": "2026-09-01T22:10:37.889754+00:00",
+  "source_volume_l": 50,
+  "kegs_used": 1,
+  "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
+ },
+ {
+  "id": "42995122-295f-40dc-8b4d-9ebd4333f331",
+  "entry_date": "2026-08-31",
+  "beer_id": "f26c4f2b-12cd-40e5-97d6-55063c5514b2",
+  "beer_name": "Summer Ale",
+  "package_id": "7fe0ce80-8310-4d38-98ce-cff8261e59a3",
+  "package_label": "1.5l",
+  "quantity": 15,
+  "note": "Doplněno z inventury 2026-08 — 1.5l z 50l sudů (dávka)",
+  "created_by": null,
+  "created_at": "2026-09-01T22:08:00.740268+00:00",
+  "source_volume_l": 50,
+  "kegs_used": 1,
+  "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
+ },
+ {
+  "id": "475c760a-a345-4f1e-9155-4da25f8b3fab",
+  "entry_date": "2026-08-31",
+  "beer_id": "6e226b00-6297-4ef0-abd1-88c06d8ccad1",
+  "beer_name": "12° Tmavá",
+  "package_id": "7fe0ce80-8310-4d38-98ce-cff8261e59a3",
+  "package_label": "1.5l",
+  "quantity": 28,
+  "note": null,
+  "created_by": null,
+  "created_at": "2026-09-01T11:27:34.336385+00:00",
+  "source_volume_l": 50,
+  "kegs_used": 1,
+  "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
+ },
+ {
+  "id": "4bf0edb3-4c96-4aff-a279-aa78ddd6ba25",
+  "entry_date": "2026-08-31",
+  "beer_id": "6e226b00-6297-4ef0-abd1-88c06d8ccad1",
+  "beer_name": "12° Tmavá",
+  "package_id": "7e5f77a9-38b0-42ff-bb0d-972e295191c3",
+  "package_label": "0.33l",
+  "quantity": 37,
+  "note": "Doplněno z inventury 2026-08 — 0.33l z 50l sudů (dávka)",
+  "created_by": null,
+  "created_at": "2026-09-01T22:10:37.889754+00:00",
+  "source_volume_l": null,
+  "kegs_used": null,
+  "kegs_used_package_id": null
+ },
+ {
+  "id": "4fc624c1-f829-473a-ade6-cf616caebf37",
+  "entry_date": "2026-08-31",
+  "beer_id": "93f7be38-e176-46af-9da3-47a14ffdedfa",
+  "beer_name": "11° Světlá",
+  "package_id": "10b091f7-fa29-4f70-aa1b-d6d7614a105e",
+  "package_label": "1l",
+  "quantity": 90,
+  "note": null,
+  "created_by": null,
+  "created_at": "2026-09-01T11:28:15.616126+00:00",
+  "source_volume_l": 100,
+  "kegs_used": 2,
   "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
  },
  {
@@ -390,6 +555,21 @@
   "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
  },
  {
+  "id": "6668e04b-c408-4e12-8d7f-5eaf4c3faf6c",
+  "entry_date": "2026-08-31",
+  "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
+  "beer_name": "12° Světlá",
+  "package_id": "7fe0ce80-8310-4d38-98ce-cff8261e59a3",
+  "package_label": "1.5l",
+  "quantity": 62,
+  "note": null,
+  "created_by": null,
+  "created_at": "2026-09-01T19:02:26.259587+00:00",
+  "source_volume_l": 100,
+  "kegs_used": 2,
+  "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
+ },
+ {
   "id": "671e512c-703e-409c-817b-6651bb61854e",
   "entry_date": "2026-08-29",
   "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
@@ -435,6 +615,21 @@
   "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
  },
  {
+  "id": "6c29ba3d-74ce-45a6-83e0-4a19efec3790",
+  "entry_date": "2026-08-31",
+  "beer_id": "d4f7a9f0-ef4f-4729-b889-321a4509d2e1",
+  "beer_name": "Osma",
+  "package_id": "10b091f7-fa29-4f70-aa1b-d6d7614a105e",
+  "package_label": "1l",
+  "quantity": 45,
+  "note": "Doplněno z inventury 2026-08 — 1l z 50l sudů (dávka)",
+  "created_by": null,
+  "created_at": "2026-09-01T22:07:23.721173+00:00",
+  "source_volume_l": 50,
+  "kegs_used": 1,
+  "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
+ },
+ {
   "id": "6ca86430-f0fa-4213-b6af-d9bda00bdaa6",
   "entry_date": "2026-07-27",
   "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
@@ -448,6 +643,36 @@
   "source_volume_l": 150,
   "kegs_used": 3,
   "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
+ },
+ {
+  "id": "6da1048d-1f27-4af8-87c0-61aef9fa312d",
+  "entry_date": "2026-08-31",
+  "beer_id": "d4f7a9f0-ef4f-4729-b889-321a4509d2e1",
+  "beer_name": "Osma",
+  "package_id": "7fe0ce80-8310-4d38-98ce-cff8261e59a3",
+  "package_label": "1.5l",
+  "quantity": 4,
+  "note": "Doplněno z inventury 2026-08 — 1.5l z 50l sudů (dávka)",
+  "created_by": null,
+  "created_at": "2026-09-01T22:07:23.721173+00:00",
+  "source_volume_l": null,
+  "kegs_used": null,
+  "kegs_used_package_id": null
+ },
+ {
+  "id": "6f60c6f8-fcb6-4985-bcb8-add20e86eb53",
+  "entry_date": "2026-08-31",
+  "beer_id": "8823be77-b372-4636-a43c-70b8d1400fd7",
+  "beer_name": "Jantar",
+  "package_id": "7fe0ce80-8310-4d38-98ce-cff8261e59a3",
+  "package_label": "1.5l",
+  "quantity": 20,
+  "note": "Doplněno z inventury 2026-08 — 1.5l (přebytek 20 ks)",
+  "created_by": null,
+  "created_at": "2026-09-01T22:09:38.38364+00:00",
+  "source_volume_l": null,
+  "kegs_used": null,
+  "kegs_used_package_id": null
  },
  {
   "id": "7216f12f-c970-4e26-8fbf-30664cdc8eb7",
@@ -495,6 +720,36 @@
   "kegs_used_package_id": null
  },
  {
+  "id": "79eca64a-2121-4c85-9464-f408728c39b6",
+  "entry_date": "2026-08-31",
+  "beer_id": "d4f7a9f0-ef4f-4729-b889-321a4509d2e1",
+  "beer_name": "Osma",
+  "package_id": "10b091f7-fa29-4f70-aa1b-d6d7614a105e",
+  "package_label": "1l",
+  "quantity": 45,
+  "note": null,
+  "created_by": null,
+  "created_at": "2026-09-01T19:02:26.259587+00:00",
+  "source_volume_l": 50,
+  "kegs_used": 1,
+  "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
+ },
+ {
+  "id": "7bfebc74-9cad-47ba-97cd-0aec8b20e41d",
+  "entry_date": "2026-08-31",
+  "beer_id": "f26c4f2b-12cd-40e5-97d6-55063c5514b2",
+  "beer_name": "Summer Ale",
+  "package_id": "6c981d1b-2796-4984-89eb-af9dd51aa5c0",
+  "package_label": "0.5l",
+  "quantity": 10,
+  "note": "Doplněno z inventury 2026-08 — 0.5l z 50l sudů (dávka)",
+  "created_by": null,
+  "created_at": "2026-09-01T22:08:00.740268+00:00",
+  "source_volume_l": null,
+  "kegs_used": null,
+  "kegs_used_package_id": null
+ },
+ {
   "id": "7ca8ceec-2e40-4e45-a7bf-a28e51c385a0",
   "entry_date": "2026-07-08",
   "beer_id": "f26c4f2b-12cd-40e5-97d6-55063c5514b2",
@@ -507,6 +762,21 @@
   "created_at": "2026-08-04T17:42:21.424074+00:00",
   "source_volume_l": 150,
   "kegs_used": 3,
+  "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
+ },
+ {
+  "id": "81aaef20-afd5-4531-9272-8d6eb317038b",
+  "entry_date": "2026-08-31",
+  "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
+  "beer_name": "12° Světlá",
+  "package_id": "6c981d1b-2796-4984-89eb-af9dd51aa5c0",
+  "package_label": "0.5l",
+  "quantity": 112,
+  "note": "Doplněno z inventury 2026-08 — 0.5l z 50l sudů (dávka)",
+  "created_by": null,
+  "created_at": "2026-09-01T22:13:33.422278+00:00",
+  "source_volume_l": 50,
+  "kegs_used": 1,
   "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
  },
  {
@@ -535,6 +805,21 @@
   "note": "100-svetly-0.33\n100-tmavy-0.33\n7-tmavy-1l\nVisen-20x0.5\nGrap-40x0.5\nKiwi-40x0.5\nCitron-40x0.5\n46-jant",
   "created_by": null,
   "created_at": "2026-08-29T15:59:27.798282+00:00",
+  "source_volume_l": 50,
+  "kegs_used": 1,
+  "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
+ },
+ {
+  "id": "89ebb2e3-8b4d-40b7-9013-18164447a086",
+  "entry_date": "2026-08-31",
+  "beer_id": "8823be77-b372-4636-a43c-70b8d1400fd7",
+  "beer_name": "Jantar",
+  "package_id": "6c981d1b-2796-4984-89eb-af9dd51aa5c0",
+  "package_label": "0.5l",
+  "quantity": 10,
+  "note": null,
+  "created_by": null,
+  "created_at": "2026-09-01T11:27:34.336385+00:00",
   "source_volume_l": 50,
   "kegs_used": 1,
   "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
@@ -585,6 +870,21 @@
   "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
  },
  {
+  "id": "8d21061d-5b4c-4758-ab49-cd75cd295efc",
+  "entry_date": "2026-08-31",
+  "beer_id": "6e226b00-6297-4ef0-abd1-88c06d8ccad1",
+  "beer_name": "12° Tmavá",
+  "package_id": "7fe0ce80-8310-4d38-98ce-cff8261e59a3",
+  "package_label": "1.5l",
+  "quantity": 7,
+  "note": "Doplněno z inventury 2026-08 — 1.5l z 30l sudů (dávka)",
+  "created_by": null,
+  "created_at": "2026-09-01T22:10:37.889754+00:00",
+  "source_volume_l": 30,
+  "kegs_used": 1,
+  "kegs_used_package_id": "16adfff0-50c0-482e-9338-1eb4632cfc14"
+ },
+ {
   "id": "9608b5a9-9812-4cce-a78b-2e2cb33193f7",
   "entry_date": "2026-07-27",
   "beer_id": "93f7be38-e176-46af-9da3-47a14ffdedfa",
@@ -600,6 +900,21 @@
   "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
  },
  {
+  "id": "96721d25-bd1b-412d-8c89-72be10a436a0",
+  "entry_date": "2026-08-31",
+  "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
+  "beer_name": "10° Desítka",
+  "package_id": "7fe0ce80-8310-4d38-98ce-cff8261e59a3",
+  "package_label": "1.5l",
+  "quantity": -30,
+  "note": "Odečteno z inventury 2026-08 — 1.5l (manko 30 ks)",
+  "created_by": null,
+  "created_at": "2026-09-01T22:11:24.024481+00:00",
+  "source_volume_l": null,
+  "kegs_used": null,
+  "kegs_used_package_id": null
+ },
+ {
   "id": "969522b2-36ce-42c9-bc16-be7528d92e25",
   "entry_date": "2026-07-11",
   "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
@@ -612,6 +927,21 @@
   "created_at": "2026-08-04T17:47:03.33091+00:00",
   "source_volume_l": 50,
   "kegs_used": 1,
+  "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
+ },
+ {
+  "id": "985c0fd2-455a-475f-bb23-fbbb1fe979ac",
+  "entry_date": "2026-08-31",
+  "beer_id": "93f7be38-e176-46af-9da3-47a14ffdedfa",
+  "beer_name": "11° Světlá",
+  "package_id": "7fe0ce80-8310-4d38-98ce-cff8261e59a3",
+  "package_label": "1.5l",
+  "quantity": 58,
+  "note": "Doplněno z inventury 2026-08 — 1.5l z 50l sudů (dávka)",
+  "created_by": null,
+  "created_at": "2026-09-01T22:12:26.270416+00:00",
+  "source_volume_l": 100,
+  "kegs_used": 2,
   "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
  },
  {
@@ -675,6 +1005,36 @@
   "kegs_used_package_id": "16adfff0-50c0-482e-9338-1eb4632cfc14"
  },
  {
+  "id": "a1c725be-9419-4460-996f-ee4839d0c8e3",
+  "entry_date": "2026-08-31",
+  "beer_id": "93f7be38-e176-46af-9da3-47a14ffdedfa",
+  "beer_name": "11° Světlá",
+  "package_id": "10b091f7-fa29-4f70-aa1b-d6d7614a105e",
+  "package_label": "1l",
+  "quantity": 27,
+  "note": null,
+  "created_by": null,
+  "created_at": "2026-09-01T11:27:34.336385+00:00",
+  "source_volume_l": 30,
+  "kegs_used": 1,
+  "kegs_used_package_id": "16adfff0-50c0-482e-9338-1eb4632cfc14"
+ },
+ {
+  "id": "a3fec3b0-c196-4168-b9cc-aa97283f646d",
+  "entry_date": "2026-08-31",
+  "beer_id": "8823be77-b372-4636-a43c-70b8d1400fd7",
+  "beer_name": "Jantar",
+  "package_id": "7e5f77a9-38b0-42ff-bb0d-972e295191c3",
+  "package_label": "0.33l",
+  "quantity": 10,
+  "note": "Doplněno z inventury 2026-08 — 0.33l (přebytek 10 ks)",
+  "created_by": null,
+  "created_at": "2026-09-01T22:09:38.38364+00:00",
+  "source_volume_l": null,
+  "kegs_used": null,
+  "kegs_used_package_id": null
+ },
+ {
   "id": "a552abbb-dbd7-48bd-812e-71e8a581f9d9",
   "entry_date": "2026-06-08",
   "beer_id": "f26c4f2b-12cd-40e5-97d6-55063c5514b2",
@@ -688,6 +1048,21 @@
   "source_volume_l": 50,
   "kegs_used": 1,
   "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
+ },
+ {
+  "id": "a6efcf1f-ef0d-4c37-9531-b942b0c129b1",
+  "entry_date": "2026-08-31",
+  "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
+  "beer_name": "10° Desítka",
+  "package_id": "10b091f7-fa29-4f70-aa1b-d6d7614a105e",
+  "package_label": "1l",
+  "quantity": -74,
+  "note": "Odečteno z inventury 2026-08 — 1l (manko 74 ks)",
+  "created_by": null,
+  "created_at": "2026-09-01T22:11:24.024481+00:00",
+  "source_volume_l": null,
+  "kegs_used": null,
+  "kegs_used_package_id": null
  },
  {
   "id": "a815cee6-2857-4485-9fcc-6a8f9f3f8e71",
@@ -750,6 +1125,21 @@
   "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
  },
  {
+  "id": "adafcbd6-b689-44a1-a437-8ea36368d470",
+  "entry_date": "2026-08-31",
+  "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
+  "beer_name": "10° Desítka",
+  "package_id": "7e5f77a9-38b0-42ff-bb0d-972e295191c3",
+  "package_label": "0.33l",
+  "quantity": -20,
+  "note": "Odečteno z inventury 2026-08 — 0.33l (manko 20 ks)",
+  "created_by": null,
+  "created_at": "2026-09-01T22:11:24.024481+00:00",
+  "source_volume_l": null,
+  "kegs_used": null,
+  "kegs_used_package_id": null
+ },
+ {
   "id": "ae760aa5-f2cf-4c59-8864-431c2a378177",
   "entry_date": "2026-07-27",
   "beer_id": "f26c4f2b-12cd-40e5-97d6-55063c5514b2",
@@ -793,6 +1183,21 @@
   "source_volume_l": 100,
   "kegs_used": 2,
   "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
+ },
+ {
+  "id": "b7d71478-2295-4c46-86a7-a912288bbaa2",
+  "entry_date": "2026-08-31",
+  "beer_id": "6e226b00-6297-4ef0-abd1-88c06d8ccad1",
+  "beer_name": "12° Tmavá",
+  "package_id": "10b091f7-fa29-4f70-aa1b-d6d7614a105e",
+  "package_label": "1l",
+  "quantity": 2,
+  "note": "Doplněno z inventury 2026-08 — 1l z 50l sudů (dávka)",
+  "created_by": null,
+  "created_at": "2026-09-01T22:10:37.889754+00:00",
+  "source_volume_l": null,
+  "kegs_used": null,
+  "kegs_used_package_id": null
  },
  {
   "id": "bb7decec-26c2-4a3b-a867-154304d21f5d",
@@ -930,6 +1335,21 @@
   "kegs_used_package_id": "16adfff0-50c0-482e-9338-1eb4632cfc14"
  },
  {
+  "id": "cc0d403a-23d0-48d3-8e10-5b0382c1665e",
+  "entry_date": "2026-08-31",
+  "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
+  "beer_name": "12° Světlá",
+  "package_id": "10b091f7-fa29-4f70-aa1b-d6d7614a105e",
+  "package_label": "1l",
+  "quantity": 699,
+  "note": "Doplněno z inventury 2026-08 — 1l z 50l sudů (dávka)",
+  "created_by": null,
+  "created_at": "2026-09-01T22:13:33.422278+00:00",
+  "source_volume_l": 800,
+  "kegs_used": 16,
+  "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
+ },
+ {
   "id": "cc3209b1-d7e6-44e0-b021-83f2559f501f",
   "entry_date": "2026-07-27",
   "beer_id": "6e226b00-6297-4ef0-abd1-88c06d8ccad1",
@@ -960,6 +1380,81 @@
   "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
  },
  {
+  "id": "cd569375-9924-4195-92bb-c55d63fb6196",
+  "entry_date": "2026-08-31",
+  "beer_id": "6e226b00-6297-4ef0-abd1-88c06d8ccad1",
+  "beer_name": "12° Tmavá",
+  "package_id": "7e5f77a9-38b0-42ff-bb0d-972e295191c3",
+  "package_label": "0.33l",
+  "quantity": 23,
+  "note": "Doplněno z inventury 2026-08 — 0.33l z 30l sudů (dávka)",
+  "created_by": null,
+  "created_at": "2026-09-01T22:10:37.889754+00:00",
+  "source_volume_l": null,
+  "kegs_used": null,
+  "kegs_used_package_id": null
+ },
+ {
+  "id": "ce210359-5476-48c7-8fd3-bbce0d6785b2",
+  "entry_date": "2026-08-31",
+  "beer_id": "6e226b00-6297-4ef0-abd1-88c06d8ccad1",
+  "beer_name": "12° Tmavá",
+  "package_id": "10b091f7-fa29-4f70-aa1b-d6d7614a105e",
+  "package_label": "1l",
+  "quantity": 1,
+  "note": "Doplněno z inventury 2026-08 — 1l z 30l sudů (dávka)",
+  "created_by": null,
+  "created_at": "2026-09-01T22:10:37.889754+00:00",
+  "source_volume_l": null,
+  "kegs_used": null,
+  "kegs_used_package_id": null
+ },
+ {
+  "id": "ce6e6bc6-138a-4ebe-975d-9c12069963b3",
+  "entry_date": "2026-08-31",
+  "beer_id": "8823be77-b372-4636-a43c-70b8d1400fd7",
+  "beer_name": "Jantar",
+  "package_id": "10b091f7-fa29-4f70-aa1b-d6d7614a105e",
+  "package_label": "1l",
+  "quantity": -38,
+  "note": "Odečteno z inventury 2026-08 — 1l (manko 38 ks)",
+  "created_by": null,
+  "created_at": "2026-09-01T22:08:53.967555+00:00",
+  "source_volume_l": null,
+  "kegs_used": null,
+  "kegs_used_package_id": null
+ },
+ {
+  "id": "d8f6ea0c-3248-4355-887d-64f5cd719464",
+  "entry_date": "2026-08-31",
+  "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
+  "beer_name": "12° Světlá",
+  "package_id": "7e5f77a9-38b0-42ff-bb0d-972e295191c3",
+  "package_label": "0.33l",
+  "quantity": 100,
+  "note": "Doplněno z inventury 2026-08 — 0.33l z 50l sudů (dávka)",
+  "created_by": null,
+  "created_at": "2026-09-01T22:13:33.422278+00:00",
+  "source_volume_l": 50,
+  "kegs_used": 1,
+  "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
+ },
+ {
+  "id": "db190d8a-8fc8-4e8b-8a3c-faad084fe5c0",
+  "entry_date": "2026-08-31",
+  "beer_id": "8823be77-b372-4636-a43c-70b8d1400fd7",
+  "beer_name": "Jantar",
+  "package_id": "7fe0ce80-8310-4d38-98ce-cff8261e59a3",
+  "package_label": "1.5l",
+  "quantity": 26,
+  "note": null,
+  "created_by": null,
+  "created_at": "2026-09-01T11:27:34.336385+00:00",
+  "source_volume_l": 50,
+  "kegs_used": 1,
+  "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
+ },
+ {
   "id": "dc294640-5eb9-4b19-bcb0-eda66e55e537",
   "entry_date": "2026-07-08",
   "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
@@ -987,6 +1482,36 @@
   "created_at": "2026-08-04T18:10:59.829252+00:00",
   "source_volume_l": 250,
   "kegs_used": 5,
+  "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
+ },
+ {
+  "id": "ea45dab4-c243-449e-8cbd-ee8867b13e01",
+  "entry_date": "2026-08-31",
+  "beer_id": "6e226b00-6297-4ef0-abd1-88c06d8ccad1",
+  "beer_name": "12° Tmavá",
+  "package_id": "6c981d1b-2796-4984-89eb-af9dd51aa5c0",
+  "package_label": "0.5l",
+  "quantity": 1,
+  "note": "Doplněno z inventury 2026-08 — 0.5l z 50l sudů (dávka)",
+  "created_by": null,
+  "created_at": "2026-09-01T22:10:37.889754+00:00",
+  "source_volume_l": null,
+  "kegs_used": null,
+  "kegs_used_package_id": null
+ },
+ {
+  "id": "ea5d4e0d-d4c6-4321-b9be-b6b174951ebe",
+  "entry_date": "2026-08-31",
+  "beer_id": "f26c4f2b-12cd-40e5-97d6-55063c5514b2",
+  "beer_name": "Summer Ale",
+  "package_id": "10b091f7-fa29-4f70-aa1b-d6d7614a105e",
+  "package_label": "1l",
+  "quantity": 717,
+  "note": "Doplněno z inventury 2026-08 — 1l z 50l sudů (dávka)",
+  "created_by": null,
+  "created_at": "2026-09-01T22:08:00.740268+00:00",
+  "source_volume_l": 800,
+  "kegs_used": 16,
   "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
  },
  {
@@ -1035,6 +1560,21 @@
   "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
  },
  {
+  "id": "f8717d84-35f9-4b0e-8edd-1ee9dcb9b400",
+  "entry_date": "2026-08-31",
+  "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
+  "beer_name": "10° Desítka",
+  "package_id": "6c981d1b-2796-4984-89eb-af9dd51aa5c0",
+  "package_label": "0.5l",
+  "quantity": 21,
+  "note": "Doplněno z inventury 2026-08 — 0.5l z 50l sudů (dávka)",
+  "created_by": null,
+  "created_at": "2026-09-01T22:11:39.755367+00:00",
+  "source_volume_l": 50,
+  "kegs_used": 1,
+  "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
+ },
+ {
   "id": "fa72ea17-0d4b-441a-947e-259b06e50c68",
   "entry_date": "2026-07-08",
   "beer_id": "8823be77-b372-4636-a43c-70b8d1400fd7",
@@ -1078,5 +1618,20 @@
   "source_volume_l": 200,
   "kegs_used": 4,
   "kegs_used_package_id": "10593bad-6a48-4653-8506-cada96205c7e"
+ },
+ {
+  "id": "fef70323-2c53-450f-a8af-05cdd3fc4945",
+  "entry_date": "2026-08-31",
+  "beer_id": "f26c4f2b-12cd-40e5-97d6-55063c5514b2",
+  "beer_name": "Summer Ale",
+  "package_id": "7e5f77a9-38b0-42ff-bb0d-972e295191c3",
+  "package_label": "0.33l",
+  "quantity": 10,
+  "note": "Doplněno z inventury 2026-08 — 0.33l z 50l sudů (dávka)",
+  "created_by": null,
+  "created_at": "2026-09-01T22:08:00.740268+00:00",
+  "source_volume_l": null,
+  "kegs_used": null,
+  "kegs_used_package_id": null
  }
 ]
