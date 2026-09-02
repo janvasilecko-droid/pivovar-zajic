@@ -14,7 +14,11 @@ const C: Page = 'dashboard';
 describe('getHomeLayout', () => {
   it('vrátí výchozí layout pro prázdný/null vstup', () => {
     const layout = getHomeLayout(null, [A, B, C]);
-    expect(layout.pages).toEqual([[A, B, C], []]);
+    // Nová plocha se zakládá rozdělená do stránek podle STRANKY_PLOCHY, takže
+    // pořadí určuje TA TABULKA, ne pořadí ve visibleIds. Všechny tři jsou
+    // výrobní, tedy skončí na jedné stránce: kegging, dashboard (Sklad),
+    // orders — v tom pořadí, v jakém je vypsaná stránka „Výroba".
+    expect(layout.pages).toEqual([[A, C, B], []]);
     expect(layout.scene).toBe('warm');
     expect(layout.tileOpacity).toBeCloseTo(0.62);
     // 'bottling' není v visibleIds, takže i výchozí slot spodní lišty se

@@ -45,6 +45,7 @@ function Srovnani() {
         }}
       >
         <strong style={{ fontSize: 13 }}>NÁHLED — rozložení plochy na telefonu</strong>
+        <span style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b' }}>hotovo: varianta C</span>
         <span style={{ fontSize: 12, color: '#a3a3a3' }}>
           {SIRKA_TELEFONU} px · skutečné CSS aplikace · vymyšlené dlaždice
         </span>

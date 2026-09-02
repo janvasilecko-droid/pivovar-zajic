@@ -228,20 +228,42 @@
   to { opacity: 1; transform: translateX(0); }
 }
 @media (max-width: 640px) {
-  .hs-grid { grid-template-columns: repeat(12, 1fr); grid-auto-rows: 74px; }
+  /* 9 sloupců = tři dlaždice na řádek (viz GRID_COLS_MOBILE v homeLayout.ts —
+     tahle dvě čísla si MUSÍ odpovídat, jinak přepočet prstu na buňku při
+     tažení míří jinam, než co je vidět). Bylo 12, tedy čtyři na řádek, a
+     popisky se do ~90 px nevešly. */
+  .hs-grid { grid-template-columns: repeat(9, 1fr); grid-auto-rows: 74px; }
 }
 
-/* Pevné utilitní dlaždice (Hledat, Objednávky k parsování, Vozidla-upozornění,
-   Upravit rozložení) — samostatná mřížka NAD .hs-grid (stejné sloupce/mezery),
-   ať nemusí soupeřit o volné buňky s přesouvatelnými dlaždicemi. */
+/* Upozornění (výčepy po termínu, stáří inventury, vozidla, nová verze,
+   měsíční úklid, WhatsApp) — VODOROVNÝ PÁSEK PEVNÉ VÝŠKY nad plochou.
+   Výška se drží i když žádné upozornění nesvítí, a to je celý smysl: dřív
+   to byla mřížka, která rostla po řádkách, takže ve dnech se třemi
+   upozorněními se celá plocha posunula o 78 px dolů a dlaždice, po které
+   prst sahá automaticky, byla někde jinde. Naměřeno, ne odhadnuto.
+   Když se jich nevejde víc, pásek se roluje vodorovně — plocha stojí. */
 .hs-fixed-row {
   position: relative; z-index: 1;
-  display: grid; grid-template-columns: repeat(18, 1fr); grid-auto-rows: 84px;
+  height: 84px;
+  display: flex;
   gap: var(--hs-tile-gap, 4px);
   margin-bottom: var(--hs-tile-gap, 4px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.hs-fixed-row::-webkit-scrollbar { display: none; }
+/* V pásku neplatí sloupce mřížky — dlaždice mají vlastní minimální šířku,
+   ať se popisek („Vozidla — STK/známka") vešel a daly se odlišit od sebe. */
+.hs-fixed-row > .hs-tile {
+  grid-column: unset;
+  flex: 0 0 auto;
+  min-width: 132px;
 }
 @media (max-width: 640px) {
-  .hs-fixed-row { grid-template-columns: repeat(12, 1fr); grid-auto-rows: 74px; }
+  .hs-fixed-row { height: 74px; }
+  .hs-fixed-row > .hs-tile { min-width: 118px; }
 }
 
 .hs-tile {

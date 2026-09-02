@@ -132,17 +132,10 @@ function Ram() {
         </div>
       )}
 
-      {/* Pevná řada: Hledat, Upravit rozložení — a ve variantách A a B i
-          všechna upozornění, takže roste po celých řádkách. */}
+      {/* Pásek upozornění. Hledat, Nastavení a Upravit rozložení tu SCHVÁLNĚ
+          nejsou — v aplikaci jsou to malé ikony v řádku se šipkami stránek,
+          ne dlaždice. */}
       <div className="hs-fixed-row" style={{ ['--hs-tile-alpha' as any]: 0.62, ['--hs-tile-gap' as any]: '4px' }}>
-        <button type="button" className="hs-tile c-slate vlastni-vyska" style={{ gridColumn: `span ${SPAN}` }}>
-          <div className="hs-tile-icon-box"><Gauge /></div>
-          <div className="hs-lbl">Hledat</div>
-        </button>
-        <button type="button" className="hs-tile c-charcoal vlastni-vyska" style={{ gridColumn: `span ${SPAN}` }}>
-          <div className="hs-tile-icon-box"><Settings /></div>
-          <div className="hs-lbl">Upravit rozložení</div>
-        </button>
         {varianta !== 'C' && sUpozornenim && UPOZORNENI.map((u) => (
           <button
             key={u.popis}

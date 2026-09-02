@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import {
   CalendarX2, Download, Check, ChevronLeft, ChevronRight, LogOut, Palette, Plus, Search, SlidersHorizontal, Trash2, TriangleAlert, X,
   Truck, ClipboardList, MessageCircle, PlusCircle, Snowflake, FlaskConical, CalendarDays, BarChart3, Package as PackageIcon, TrendingDown, GlassWater, BookOpen, Droplet, Car, FileText, ClipboardCheck, Shield, Store, Receipt, MapPin, Beer as BeerIcon, Tag, Sparkles, Compass, Wheat, Zap, ArrowLeftRight, StickyNote,
-  AlarmClock, Play, Pause, RotateCcw, Pin, Radio, SkipForward, Flame, Sun,
+  AlarmClock, Play, Pause, RotateCcw, Pin, Radio, SkipForward, Flame, Sun, Settings,
 } from 'lucide-react';
 import { NAV, EXTRA_NAV, type Page, type NavItem } from '../components/Layout';
 import LauncherTile, { tileGridStyle } from '../components/LauncherTile';
@@ -35,7 +35,7 @@ import {
   addDockSlot, removeDockSlot,
   hexToRgba,
   PAGE_CATEGORY, CATEGORY_ORDER, CATEGORY_SHADES, type Category,
-  moveTileToPageCell, okrajProPrepnuti, dalsiStranka, type OkrajTazeni,
+  moveTileToPageCell, okrajProPrepnuti, dalsiStranka, rozdelVseDoStranek, VYCHOZI_STRANKA, type OkrajTazeni,
   MIN_SVETLOST, MAX_SVETLOST,
   SCENES, MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX, defaultTileColor,
   GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK,
@@ -137,6 +137,12 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // ---- Launcher: stránky / velikost / barva / scéna, uložené v profilu ----
   const [layout, setLayout] = useState<HomeLayout>(() => getHomeLayout((profile as any)?.home_layout, visibleIds, extraVisibleIds, cols));
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  // Plocha se otevírá na PROSTŘEDNÍ stránce (výroba) — z ní je to na nástroje
+  // vlevo i na zbytek vpravo jedno přejetí prstem. Nasadí se to až podle
+  // skutečného počtu stránek (uživatel může mít práva jen na část modulů) a
+  // JEN JEDNOU při otevření: kdyby se to dělalo při každé změně rozložení,
+  // přeskládání dlaždic by člověka odhodilo ze stránky, na které zrovna je.
+  const uvodniStrankaNasazena = useRef(false);
   useEffect(() => {
     setLayout((prev) => getHomeLayout(prev, visibleIds, extraVisibleIds, cols));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -157,6 +163,16 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // Označení dlaždice patří k jedné konkrétní stránce launcheru — při
   // přepnutí stránky by jinak zůstalo "viset" na neviditelné dlaždici jinde.
   useEffect(() => { setSelectedTileId(null); }, [currentPageIndex]);
+
+  useEffect(() => {
+    if (uvodniStrankaNasazena.current) return;
+    // Prázdná stránka na konci se nepočítá — tu appka drží jen jako místo,
+    // kam přidávat dlaždice (ensureTrailingEmptyPage).
+    const sObsahem = layout.pages.filter((p) => p.length > 0).length;
+    if (sObsahem === 0) return;
+    uvodniStrankaNasazena.current = true;
+    setCurrentPageIndex(Math.min(VYCHOZI_STRANKA, sObsahem - 1));
+  }, [layout.pages]);
 
   const [editMode, setEditMode] = useState(false);
   // Světlý/tmavý režim se přepíná i tady, v úpravě plochy (viz níž).
@@ -547,12 +563,35 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     setEditingTileId(null);
   }
   function handleReset() {
-    const next = getHomeLayout(null, visibleIds, [], cols);
+    // I rozšiřující dlaždice (EXTRA_NAV): obnovení má rozmístit všechno,
+    // na co má uživatel právo, ne jen základní sadu — jinak by se zbytek
+    // musel dohledávat po jednom v „Přidat dlaždici".
+    const next = getHomeLayout(null, visibleIds, extraVisibleIds, cols);
     setLayout(next);
     setHasCustomLayout(false);
     patchProfile({ home_layout: {} as any });
     if (user?.id) saveHomeLayout(user.id, {} as any);
   }
+  /**
+   * Přeskládá plochu do tří stránek (nástroje / výroba / zbytek) a doplní
+   * dlaždice, které na ní ještě nejsou — včetně rozšiřujících.
+   *
+   * Je to výslovná akce, ne nic automatického: nová plocha se rozdělená
+   * zakládá sama, ale komu už plocha leží v profilu (tedy všem, kdo appku
+   * používají), tomu ji nikdo nesmí přepsat bez zeptání.
+   */
+  async function handleRozdelitDoStranek() {
+    const ok = await potvrd(
+      'Přeskládat dlaždice do tří stránek — nástroje vlevo, výroba uprostřed, zbytek vpravo?\n\n'
+      + 'Doplní se i dlaždice, které na ploše ještě nejsou. Barvy, velikosti a popisky zůstanou; '
+      + 'schované dlaždice zůstanou schované. Tvoje dosavadní rozmístění se tím ztratí.',
+      { potvrdit: 'Přeskládat' },
+    );
+    if (!ok) return;
+    persist(rozdelVseDoStranek(layout, [...visibleIds, ...extraVisibleIds] as TileId[]));
+    setCurrentPageIndex(VYCHOZI_STRANKA);
+  }
+
   function handleUnifyColors() {
     persist(unifyColorsByCategory(layout));
   }
@@ -1014,6 +1053,15 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               </div>
             )}
             <div className="hs-controls-group">
+              <button
+                className="hs-reset-btn"
+                onClick={handleRozdelitDoStranek}
+                title="Rozdělí dlaždice na tři stránky: vlevo nástroje a výpočty, uprostřed výroba, vpravo zbytek. Doplní i dlaždice, které na ploše ještě nejsou."
+              >
+                <ArrowLeftRight className="ikona-text" /> Rozdělit do tří stránek
+              </button>
+            </div>
+            <div className="hs-controls-group">
               <button className="hs-reset-btn" onClick={handleUnifyColors} title="Přebarví dlaždice tak, aby všechny ve stejné kategorii (Výroba/Pivovar/Nástroje/Číselníky/Nastavení) měly stejnou barvu">
                 <Palette className="ikona-text" /> Sjednotit barvy dle kategorie
               </button>
@@ -1187,6 +1235,20 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
             >
               {editMode ? <Check size={17} /> : <SlidersHorizontal size={17} />}
             </button>
+            {/* Nastavení je malá ikona, ne dlaždice — sahá se na ně jednou za
+                měsíc a v mřížce zabíralo místo, které si zaslouží něco, co
+                člověk otevírá denně. Z uloženého rozložení se NEVYHAZUJE (jen
+                se nevykresluje v mřížce), takže se dá kdykoliv vrátit —
+                stejným postupem jako „Odhlásit se". */}
+            <button
+              type="button"
+              className="hs-pager-manage vlastni-vyska"
+              title="Aplikace & Nastavení"
+              aria-label="Aplikace & Nastavení"
+              onClick={() => setPage('app_settings')}
+            >
+              <Settings size={17} />
+            </button>
             <button
               type="button"
               className="hs-pager-manage vlastni-vyska"
@@ -1236,8 +1298,10 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
             odznak přímo na běžné dlaždici Objednávky (layout.pages), ne
             samostatná dlaždice navíc. */}
         <div className="hs-fixed-row" style={{ ['--hs-tile-alpha' as any]: layout.tileOpacity, ['--hs-tile-gap' as any]: `${layout.tileGap}px` }}>
-          {currentPageIndex === 0 && (
-            <>
+          {/* Upozornění platí pro celou appku, ne pro jednu stránku plochy —
+              dřív se kreslila jen na stránce 0, což přestalo stačit ve chvíli,
+              kdy se plocha otevírá na prostřední (výroba). Tam by o výčepu po
+              termínu nebo o vozidle po STK nikdo nevěděl. */}
               {/* 💬 Nové WhatsApp zprávy čekající na parsování. Dřív to hlásil
                   odznak v hlavičce na každé obrazovce; hlavička je pryč, a
                   tohle je jediná věc z ní, která se opravdu hodí vidět —
@@ -1364,8 +1428,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   <div className="hs-lbl">Měsíční úklid — checklist</div>
                 </button>
               )}
-            </>
-          )}
         </div>
 
         <div className={`hs-grid ${draggingId ? 'hs-mrizka-viditelna' : ''}`} style={{ ['--hs-tile-alpha' as any]: layout.tileOpacity, ['--hs-tile-gap' as any]: `${layout.tileGap}px`, ['--hs-sloupcu' as any]: cols, ['--hs-radek' as any]: `${rowHeight}px` }}>
@@ -1388,7 +1450,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               uhnuly. Mimo tažení je `nahledLayout` null a platí uložený stav. */}
           {/* 'signout' se nevykresluje — odhlášení je nahoře u šipek jako
               ikona. V uloženém rozložení zůstává, ať jde vrátit beze ztráty. */}
-          {((nahledLayout ?? layout).pages[currentPageIndex] ?? []).filter((id) => id !== 'signout').map((id) => {
+          {((nahledLayout ?? layout).pages[currentPageIndex] ?? []).filter((id) => id !== 'signout' && id !== 'app_settings').map((id) => {
             const override = (nahledLayout ?? layout).overrides[id] ?? {};
             if (isGroupId(id)) {
               const group = layout.groups[id];

@@ -113,9 +113,13 @@ export function tileTextColor(hex: string): string {
 
 // Volná velikost dlaždice: w v jednotkách po UNIT_COLS sloupcích 18sloupcové
 // mřížky (0 = kompaktní "mini" dlaždice o 1 sloupci, viz HomeScreen.css
-// .hs-tile.xs), h v řádcích. Horní mez w=4 (12 sloupců) je schválně stejná
-// jako celkový počet sloupců mobilní mřížky (viz media query), aby ani
-// nejširší dlaždice nepřetekla přes okraj na malém displeji.
+// .hs-tile.xs), h v řádcích.
+//
+// Horní mez w=4 je 12 surových sloupců, tedy VÍC, než má mobilní mřížka
+// (GRID_COLS_MOBILE = 9). Na počítači se taková dlaždice vykreslí, na
+// telefonu se při načtení zúží na 3 — hlídá to ensurePositions. Dřív tu
+// stálo, že mez je schválně stejná jako mobilní mřížka; to platilo, dokud
+// byla mobilní mřížka dvanáctisloupcová.
 export const MIN_W = 0;
 export const MAX_W = 4;
 export const DEFAULT_W = 1;
@@ -129,7 +133,13 @@ export const UNIT_COLS = 3;
 // HomeScreen.tsx (výpočet cílové buňky při přetažení). MOBILE_BREAKPOINT_PX
 // je stejná hranice jako v CSS `@media (max-width: 640px)`.
 export const GRID_COLS_DESKTOP = 18;
-export const GRID_COLS_MOBILE = 12;
+// 9 = tři dlaždice na řádek (9 / UNIT_COLS). Bylo 12, tedy čtyři — na 390px
+// displeji z toho bylo ~90 px na dlaždici a popisky se nevešly: „Voz id…",
+// „Lahve (Stá…". Odtud se ta oprava pořád vracela. Tři dají ~120 px.
+//
+// POZOR: dlaždice šířky 4 (MAX_W = 12 surových sloupců) se sem nevejde.
+// Uložené takové se při načtení zúží — viz ensurePositions.
+export const GRID_COLS_MOBILE = 9;
 export const MOBILE_BREAKPOINT_PX = 640;
 // Výška jednoho řádku mřížky v px — musí odpovídat HomeScreen.css
 // (.hs-grid grid-auto-rows), potřeba v HomeScreen.tsx pro přepočet
@@ -184,6 +194,109 @@ export function defaultTileColor(id: string): TileColor {
 // které tvoří čistou, zarovnanou a přehlednou mřížku. Uživatel si je v edit módu
 // může dle potřeby libovolně zvětšit nebo zmenšit.
 const DEFAULT_SIZE: Partial<Record<Page, { w: number; h: number }>> = {};
+
+/**
+ * 🗂️ Tři stránky plochy podle toho, co člověk zrovna dělá.
+ *
+ * Dřív žádné rozdělení neexistovalo: bez uloženého rozložení se všech ~44
+ * dlaždic naskládalo na JEDNU stránku a hledalo se v nich očima. Nově se
+ * plocha zakládá rozdělená a otevírá se PROSTŘEDNÍ (výroba) — z ní je to na
+ * obě strany jedno přejetí prstem.
+ *
+ * Pořadí v seznamu je zároveň pořadím na stránce. Co v tabulce není (nový
+ * modul, vlastní odpočet, skupina), padá na poslední stránku — „zbytek" je
+ * schválně poslední, aby měl kam.
+ *
+ * Není to zámek: dlaždici jde přetáhnout kamkoliv i mezi stránkami a tohle
+ * platí jen pro nově zakládanou (nebo obnovenou) plochu.
+ */
+export const STRANKY_PLOCHY: Array<{ nazev: string; ids: Page[] }> = [
+  {
+    nazev: 'Nástroje a výpočty',
+    ids: [
+      'concentration', 'timer', 'stopwatch', 'keg_timer', 'calendar', 'reminders',
+      'export_excel', 'history', 'kniha_jizd', 'vehicles', 'radio', 'feedback',
+    ],
+  },
+  {
+    nazev: 'Výroba',
+    ids: [
+      'notes', 'kegging', 'bottling', 'bottling_entry', 'bottling_overview',
+      'bottling_needs', 'inventory', 'cellar', 'dashboard', 'orders', 'orders_zavoz',
+      'writeoffs', 'fasovani', 'prodejna', 'haccp', 'checklists', 'sanitation_log',
+    ],
+  },
+  {
+    nazev: 'Zbytek',
+    ids: [
+      'akce', 'exkurze', 'vycepy', 'sklo_promo',
+      'sanitace_lahve', 'sanitace_kegy', 'sanitace_vycepy',
+      'depozitar', 'places', 'beers', 'packages', 'pricelist',
+      'users', 'app_settings', 'signout',
+    ],
+  },
+];
+
+/** Stránka, na které se plocha otevírá — prostřední, tedy výroba. */
+export const VYCHOZI_STRANKA = 1;
+
+/**
+ * Rozdělí dlaždice do stránek podle STRANKY_PLOCHY.
+ *
+ * Bere jen to, co dostane — dlaždice, na které uživatel nemá právo, se sem
+ * vůbec nedostanou, takže na jeho ploše nevznikne prázdné místo po něčem,
+ * co nesmí vidět. Prázdná stránka se nezakládá: kdo má práva jen na výrobu,
+ * dostane jednu stránku, ne tři s dvěma prázdnými.
+ */
+export function rozdelDoStranek(ids: TileId[]): TileId[][] {
+  const zbyva = new Set(ids);
+  const stranky: TileId[][] = STRANKY_PLOCHY.map((s) => {
+    const naStrance: TileId[] = [];
+    for (const id of s.ids) {
+      if (zbyva.has(id as TileId)) {
+        naStrance.push(id as TileId);
+        zbyva.delete(id as TileId);
+      }
+    }
+    return naStrance;
+  });
+
+  // Co v tabulce není, jde na „zbytek" — poslední neprázdnou stránku, nebo
+  // na tu poslední, když jsou všechny prázdné.
+  const zbytek = [...zbyva];
+  if (zbytek.length > 0) stranky[stranky.length - 1].push(...zbytek);
+
+  const neprazdne = stranky.filter((s) => s.length > 0);
+  return neprazdne.length > 0 ? neprazdne : [[]];
+}
+
+/**
+ * Přeskládá STÁVAJÍCÍ plochu do stránek podle STRANKY_PLOCHY a doplní
+ * dlaždice, které na ní ještě nejsou — včetně rozšiřujících (EXTRA_NAV).
+ *
+ * Tohle je výslovná akce uživatele („Rozdělit dlaždice do stránek" v úpravě
+ * rozložení), ne nic automatického. Automaticky by to bylo špatně dvakrát:
+ * přepsalo by to plochu, kterou si někdo naskládal, a nasypalo by nováčkovi
+ * všech ~44 dlaždic. Velikosti, barvy a popisky dlaždic zůstávají — mění se
+ * jen to, na které stránce a v jakém pořadí leží.
+ */
+export function rozdelVseDoStranek(layout: HomeLayout, vsechnyDostupne: TileId[]): HomeLayout {
+  const naplose = new Set(layout.pages.flat());
+  const schovane = new Set(layout.hidden ?? []);
+  // Co je schované, zůstane schované — schování je taky rozhodnutí.
+  const kRozdeleni = [
+    ...layout.pages.flat(),
+    ...vsechnyDostupne.filter((id) => !naplose.has(id) && !schovane.has(id)),
+  ];
+  // Pozice se zahodí, ať se dlaždice na nových stránkách poskládají odshora;
+  // ensurePositions je pak dopočítá (volá ho persist i getHomeLayout).
+  const overrides = { ...layout.overrides };
+  for (const id of kRozdeleni) {
+    const o = overrides[id];
+    if (o) overrides[id] = { ...o, x: undefined, y: undefined };
+  }
+  return { ...layout, pages: rozdelDoStranek(kRozdeleni), overrides };
+}
 
 export const DEFAULT_DOCK: Page[] = ['orders', 'kegging', 'bottling', 'home'];
 export const DOCK_SIZE = DEFAULT_DOCK.length;
@@ -352,6 +465,21 @@ function rectOverlapsOccupied(occupied: Set<string>, x: number, y: number, w: nu
  */
 export function ensurePositions(layout: HomeLayout, cols: number): HomeLayout {
   const overrides = { ...layout.overrides };
+
+  // Dlaždice širší než mřížka se zúží. `findFreeCell` si šířku ořezává jen
+  // při HLEDÁNÍ místa, ale uloží ji nezměněnou — na užší mřížce (telefon má
+  // 9 sloupců, počítač 18) by pak dlaždice šířky 4 přetekla o tři sloupce
+  // a rozhodila celý řádek. Zúžení je jen do stavu obrazovky; v profilu
+  // zůstává původní šířka, takže na počítači je dlaždice zase velká.
+  layout.pages.flat().forEach((id) => {
+    const o = overrides[id];
+    if (!o) return;
+    const w = o.w ?? DEFAULT_W;
+    if (w > 0 && widthCols(w) > cols) {
+      overrides[id] = { ...o, w: Math.max(MIN_W, Math.floor(cols / UNIT_COLS)) };
+    }
+  });
+
   const pages = layout.pages.map((pageTiles) => {
     const occupied = new Set<string>();
     const missing: TileId[] = [];
@@ -564,8 +692,20 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
     .filter((id): id is TileId => id !== null));
 
   const newIds = visibleIds.filter((id) => !seen.has(id) && !hiddenSet.has(id));
-  if (pages.length === 0) pages.push([]);
-  if (newIds.length > 0) pages[pages.length - 1] = [...pages[pages.length - 1], ...newIds];
+  if (pages.length === 0) {
+    // Nová plocha se zakládá ROZDĚLENÁ na stránky (nástroje / výroba /
+    // zbytek), ne jako jedna hromada, ve které se hledá očima.
+    //
+    // Rozšiřující dlaždice (EXTRA_NAV) se sem SCHVÁLNĚ NEBEROU — zůstávají
+    // opt-in, jak byly. Jsou to většinou podzáložky (Lahve — zápis, Sanitace
+    // výčepů, Rozvoz objednávek), ke kterým se dá dostat z hlavních dlaždic;
+    // nový člověk v pivovaru by jinak dostal 44 dlaždic hned první den.
+    // Kdo chce rozmístit doopravdy všechno, má na to tlačítko v úpravě
+    // rozložení (viz rozdelVseDoStranek).
+    pages.push(...rozdelDoStranek(newIds));
+  } else if (newIds.length > 0) {
+    pages[pages.length - 1] = [...pages[pages.length - 1], ...newIds];
+  }
 
   const overrides = (saved.overrides && typeof saved.overrides === 'object' ? saved.overrides : {}) as Partial<Record<TileId, TileOverride>>;
 
