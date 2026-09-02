@@ -56,7 +56,10 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
   const [allowedSenders, setAllowedSenders] = useState<WhatsAppSender[]>([]);
   // Filtr „jen ⚠" a řazení (#8)
   const [filterMismatchOnly, setFilterMismatchOnly] = useState(false);
-  const [sortMode, setSortMode] = useState<'newest' | 'mismatch'>('newest');
+  // Výchozí je OD NEJSTARŠÍCH — je to fronta práce, ne zpravodajství: nejdřív
+  // má odpadnout objednávka, která čeká nejdéle (načítá se tak už z databáze,
+  // viz fetchPendingWhatsAppMessages). „nejnovější" zůstává jako volba.
+  const [sortMode, setSortMode] = useState<'oldest' | 'newest' | 'mismatch'>('oldest');
 
   useEffect(() => {
     fetchWhatsAppSenders().then(setAllowedSenders).catch(() => {});
@@ -136,13 +139,17 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
     if (filterMismatchOnly) {
       list = list.filter((m) => mismatchCountFor(m) > 0);
     }
-    if (sortMode === 'mismatch') {
+    // `messages` chodí z databáze od nejstarších, takže 'oldest' nic nedělá.
+    const kdy = (m: WhatsAppIncoming) =>
+      new Date(m.message_timestamp || m.created_at).getTime();
+    if (sortMode === 'newest') {
+      list = [...list].sort((a, b) => kdy(b) - kdy(a));
+    } else if (sortMode === 'mismatch') {
       list = [...list].sort((a, b) => {
         const diff = mismatchCountFor(b) - mismatchCountFor(a);
         if (diff !== 0) return diff;
-        const timeB = new Date(b.message_timestamp || b.created_at).getTime();
-        const timeA = new Date(a.message_timestamp || a.created_at).getTime();
-        return timeB - timeA;
+        // Při stejném počtu nesouladů rozhoduje, co čeká dýl.
+        return kdy(a) - kdy(b);
       });
     }
     return list;
@@ -369,9 +376,10 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
             Řadit:
             <select
               value={sortMode}
-              onChange={(e) => setSortMode(e.target.value as 'newest' | 'mismatch')}
+              onChange={(e) => setSortMode(e.target.value as 'oldest' | 'newest' | 'mismatch')}
               className="select !py-0.5 !px-1.5 text-xs"
             >
+              <option value="oldest">nejstarší</option>
               <option value="newest">nejnovější</option>
               <option value="mismatch">podle počtu</option>
             </select>

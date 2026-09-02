@@ -95,7 +95,13 @@ export async function fetchPendingWhatsAppMessages(): Promise<WhatsAppIncoming[]
     // ji do odznaku počítá a WhatsAppAutoProcessorModal na ni má hotové UI (červený
     // štítek "Chyba"), které se tak nikdy nezobrazí.
     .in('status', ['pending', 'parsed', 'error'])
-    .order('created_at', { ascending: false });
+    // OD NEJSTARŠÍCH. Je to fronta práce, ne zpravodajství: nejdřív má
+    // odpadnout to, co čeká nejdéle. Když se řadilo od nejnovějších,
+    // objednávka z pondělí se propadala pod každou novou zprávou a zbyla na
+    // konec — a u objednávky, která má termín závozu, je zdržení tím dražší,
+    // čím dýl leží. Řazení v seznamu se dá přepnout (viz
+    // WhatsAppAutoProcessorModal), tohle je výchozí stav.
+    .order('created_at', { ascending: true });
 
   if (error) {
     console.error('Error fetching WhatsApp messages:', error);

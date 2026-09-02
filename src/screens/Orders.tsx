@@ -732,7 +732,9 @@ export default function Orders({
       const pending = await fetchPendingWhatsAppMessages();
       // Whitelist — prázdný seznam = povoleno vše.
       const allowed = pending.filter((m) => isSenderAllowed(allowedSendersRef.current, m.sender_name));
-      // Přednost má rozparsovaná zpráva; jinak nejnovější čekající (parsování běží na pozadí).
+      // Přednost má rozparsovaná zpráva; jinak nejstarší čekající (parsování
+      // běží na pozadí). Seznam chodí od nejstarších, takže `allowed[0]` i
+      // první nalezená 'parsed' je ta, co čeká nejdéle.
       const next = allowed.find((m) => m.status === 'parsed') ?? allowed[0];
       setNewWhatsAppCount(0);
       if (next) {
