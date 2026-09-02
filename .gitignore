@@ -86,3 +86,6 @@ scripts/test-month-output.txt
 
 # Klíč servisního účtu Google (vkládání do Tabulek) — nikdy do repozitáře.
 google-klic.json
+
+# Vyexportované tabulky pro ruční přepis do Excelu — nepatří do repozitáře.
+staceni-keg-*.xlsx
