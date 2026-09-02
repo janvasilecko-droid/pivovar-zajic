@@ -632,7 +632,19 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     const vratPozici = zapamatujPozici('[data-inv-kotva="bilance"]');
     setBusy(true);
     try {
-      const entryDate = currentMonth + '-01';
+      // NAPOČÍTANÝ STAV PATŘÍ K POSLEDNÍMU DNI MĚSÍCE, ne k prvnímu.
+      //
+      // Ukládal se k prvnímu dni a Sklad ho pak četl jako POČÁTEK měsíce —
+      // k napočítanému stavu tedy přičetl ještě celý ten měsíc pohybů.
+      // 12° Světlá 50 l za srpen 2026: napočítány 4 sudy, Sklad z nich udělal
+      // 4 + 95 − 77 − 25 = −3, kdežto Inventura počítala od zapsaného počátku
+      // 11 a vyšla na 4. Dvě strany téhož měsíce si přímo odporovaly.
+      //
+      // K poslednímu dni sedí obojí: Sklad má napočítaný stav jako závěr
+      // měsíce (stockLedger.ts ho bere jako závěr dne, takže se doplněné
+      // stáčení z téhož dne nepřičte podruhé) a expectedForMonth ho dál
+      // vyřazuje, protože inventurní řádky do rozpadu měsíce nevstupují.
+      const entryDate = datumDoplnku(currentMonth);
       const snapshotRows = spocitaneRadky();
       const adjustmentRows = Object.entries(dorovnatMap)
         .map(([key, value]) => {
@@ -680,8 +692,8 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     const [y, m] = currentMonth.split('-').map(Number);
     const nextDate = new Date(y, m, 1);
     const nextMonthKey = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}`;
-    const nextEntryDate = nextMonthKey + '-01';
-    const curEntryDate = currentMonth + '-01';
+    const nextEntryDate = nextMonthKey + '-01';    // ráno prvního dne dalšího měsíce
+    const curEntryDate = datumDoplnku(currentMonth); // závěr měsíce, který se schvaluje
 
     setBusy(true);
     try {

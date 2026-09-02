@@ -100,9 +100,14 @@ function inventoryPriority(note: string | null | undefined): number {
  * Je to NAPOČÍTANÝ STAV (fyzická/schválená inventura), nebo VÝCHOZÍ ZÁKLAD
  * (počáteční stav převedený z minulého měsíce)?
  *
- * Rozdíl je zásadní pro expectedForMonth: obojí se ukládá k PRVNÍMU DNI
- * měsíce, ale očekávaný stav se musí počítat od základu — kdyby vycházel z
- * napočítaného stavu, porovnával by se sám se sebou.
+ * Rozdíl rozhoduje o DVOU věcech:
+ *
+ *  1. expectedForMonth počítá od základu k prvnímu dni. Kdyby vycházel z
+ *     napočítaného stavu, porovnával by se sám se sebou a manko by vždycky
+ *     vyšlo nula.
+ *  2. stockAsOf bere napočítaný stav jako ZÁVĚR svého dne (co se ten den
+ *     stalo, už v něm je), kdežto počáteční základ jako RÁNO (co se ten den
+ *     stane, se teprve přičte).
  */
 function jeNapocitanyStav(note: string | null | undefined): boolean {
   return inventoryPriority(note) >= 2;
@@ -151,10 +156,12 @@ export function buildMovements(src: StockSources): Movement[] {
 
   // Inventura — reset stavu. Při shodném datu vyhraje řádek s vyšší prioritou,
   // ALE napočítaný stav a počáteční základ se drží ZVLÁŠŤ, i když mají stejné
-  // datum (a ony ho mají — obojí se ukládá k prvnímu dni měsíce). Kdyby se
-  // slily do jednoho, přebil by napočítaný stav ten počáteční a
-  // expectedForMonth by neměl od čeho počítat: očekávaný stav by vycházel z
-  // právě napočítané skutečnosti a manko by se o celý měsíc pohybů rozjelo.
+  // datum. Napočítaný stav dnes leží na POSLEDNÍM dni měsíce a počáteční na
+  // prvním, jenže data z dřívějška mají obojí na prvním — a stejné datum
+  // dostanou i tam, kde se inventura dělá k prvnímu dni. Kdyby se slily do
+  // jednoho, přebil by napočítaný stav ten počáteční a expectedForMonth by
+  // neměl od čeho počítat: očekávaný stav by vycházel z právě napočítané
+  // skutečnosti a manko by se o celý měsíc pohybů rozjelo.
   const invByKeyDate = new Map<string, { qty: number; prio: number; note: string | null }>();
   (src.inventoryRows ?? []).forEach((r) => {
     if (!r.beer_id || !r.package_id || !r.entry_date) return;
@@ -285,11 +292,20 @@ export function stockAsOf(movements: Movement[], dateISO: string): Map<string, S
 
     const byKind: Partial<Record<MovementKind, number>> = {};
     let qty = baselineQty;
+    // NAPOČÍTANÝ STAV JE ZÁVĚR SVÉHO DNE, počáteční základ jeho RÁNO.
+    //
+    // Fyzická i schválená inventura se ukládá k POSLEDNÍMU dni měsíce a říká,
+    // co toho dne ve skladu opravdu leželo — všechno, co se ten den stočilo a
+    // vydalo, v tom čísle už je. K témuž dni se datuje i stáčení doplněné
+    // z inventury (datumDoplnku), takže kdyby se pohyby toho dne přičetly,
+    // srovnaný rozdíl by ve skladu naskočil DVAKRÁT.
+    //
+    // „Počáteční stav" popisuje naopak ráno prvního dne měsíce: co se ten den
+    // stočí nebo vydá, teprve přijde a přičíst se musí.
+    const zaverDne = jeNapocitanyStav(baselineNote);
     for (const m of list) {
       if (m.kind === 'inventura') continue;
-      // Pohyby v den inventury i po něm. Inventura se dělá k ránu, takže co se
-      // ten den stočilo/vydalo, se do stavu promítne.
-      if (baselineDate !== null && m.date < baselineDate) continue;
+      if (baselineDate !== null && (zaverDne ? m.date <= baselineDate : m.date < baselineDate)) continue;
       qty += m.qty;
       byKind[m.kind] = (byKind[m.kind] ?? 0) + m.qty;
     }
