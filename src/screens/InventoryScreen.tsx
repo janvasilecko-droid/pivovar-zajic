@@ -4,9 +4,10 @@ import { Fragment, useState, useEffect, useMemo, useRef } from 'react';
 import { Beer, beerBg, beerInk, beerName, beerText, fetchAllRows, formatPackageLabel, Package, supabase, useRealtime } from '../lib/supabase';
 import { Spinner } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
-import { AlertCircle, AlertTriangle, Beer as BeerIcon, Calendar, Camera, ClipboardCheck, ClipboardList, Download, Check, Lock, MinusCircle, Package as PackageIcon, Plus, RefreshCw, RotateCcw, Save, Search, ShieldCheck } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Beer as BeerIcon, Calendar, CalendarRange, Camera, ClipboardCheck, ClipboardList, Download, Check, Lock, MinusCircle, Package as PackageIcon, Plus, RefreshCw, RotateCcw, Save, Search, ShieldCheck } from 'lucide-react';
 import { CountFromImage } from '../components/CountFromImage';
 import HloubkovyAuditPanel from '../components/HloubkovyAuditPanel';
+import TydenniInventuraPanel from '../components/TydenniInventuraPanel';
 import { computeInventoryReconciliation } from '../lib/inventoryHelper';
 import { akceProRozdil, datumDoplnku, doplnekVBudoucnu, jeSud, kegovaniZapisy, lahvoveZapisy, nabidnoutMinulyMesic, nazevMesice, odectiZeStoceni, vychoziMesicInventury, stoceniZapis } from '../lib/inventoryFix';
 import { davkySrovnani, zapisyDavky, type DavkaPiva, type SmerSudu, type ZdrojovaSkupina } from '../lib/srovnaniDavka';
@@ -110,8 +111,8 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   // Záložka se drží v adrese stránky (setPage), takže může přijít i hodnota,
   // která už neexistuje — třeba zrušená záložka z minulé verze. Neznámou
   // proto srazíme na inventuru, jinak by se vykreslilo prázdno.
-  const zalozka = (t: unknown): 'inventory' | 'initial_stock' | 'end_stock' | 'audit' | 'hloubkovy' =>
-    t === 'initial_stock' || t === 'end_stock' || t === 'audit' || t === 'hloubkovy' ? t : 'inventory';
+  const zalozka = (t: unknown): 'inventory' | 'initial_stock' | 'end_stock' | 'audit' | 'hloubkovy' | 'tydenni' =>
+    t === 'initial_stock' || t === 'end_stock' || t === 'audit' || t === 'hloubkovy' || t === 'tydenni' ? t : 'inventory';
 
   const [activeTab, setActiveTab] = useState(() => zalozka(initialSubTab));
 
@@ -119,7 +120,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     setActiveTab(zalozka(initialSubTab));
   }, [initialSubTab]);
 
-  function selectTab(t: 'inventory' | 'initial_stock' | 'end_stock' | 'audit' | 'hloubkovy') {
+  function selectTab(t: 'inventory' | 'initial_stock' | 'end_stock' | 'audit' | 'hloubkovy' | 'tydenni') {
     if (setPage) setPage('inventory', undefined, t);
     else setActiveTab(t);
   }
@@ -1632,6 +1633,22 @@ function exportInventoryExcel() {
           <span>Fyzická inventura & Manko/Přebytek</span>
         </button>
 
+        {/* 🗓️ Týdenní inventura — stejné počítání, jen po týdnech. Měsíční
+            uzávěrka najde rozdíl až po čtyřech týdnech, kdy si ho už nikdo
+            nepamatuje; tady je smyčka sedmidenní. Vlastní volbu týdne si
+            záložka řeší sama, s voličem měsíce v banneru nepracuje. */}
+        <button
+          onClick={() => selectTab('tydenni')}
+          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
+            activeTab === 'tydenni'
+              ? 'bg-amber-500 text-neutral-950 shadow-md'
+              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
+          }`}
+        >
+          <CalendarRange size={16} />
+          <span>Týdenní inventura</span>
+        </button>
+
         <button
           onClick={() => selectTab('initial_stock')}
           className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
@@ -2427,6 +2444,8 @@ function exportInventoryExcel() {
           POČÁTEČNÍ stav (viz lib/auditSkladu.ts). Rozdílné buňky svítí, takže
           je hned vidět, KTERÝ sloupec se rozešel — ne jen že výsledek nesedí. */}
       {activeTab === 'hloubkovy' && <HloubkovyAuditPanel />}
+
+      {activeTab === 'tydenni' && <TydenniInventuraPanel />}
 
       {activeTab === 'audit' && (
         <div className="space-y-3">

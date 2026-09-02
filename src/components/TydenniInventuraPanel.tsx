@@ -317,14 +317,14 @@ export default function TydenniInventuraPanel() {
                   </div>
 
                   <div className="text-center shrink-0">
-                    <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Čeká se</p>
+                    <p className="text-[11px] font-black uppercase tracking-wider text-neutral-400">Čeká se</p>
                     <p className={`font-display font-black text-base tabular-nums ${r.ocekavano < 0 ? 'text-rose-600' : 'text-neutral-800'}`}>
                       {r.ocekavano}
                     </p>
                   </div>
 
                   <div className="text-center shrink-0">
-                    <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Napočítáno</p>
+                    <p className="text-[11px] font-black uppercase tracking-wider text-neutral-400">Napočítáno</p>
                     {/* Desetinné ANO: lahve se počítají po kusech, ale načatý
                         sud se běžně zapisuje na půlky. */}
                     <input
@@ -337,7 +337,7 @@ export default function TydenniInventuraPanel() {
                   </div>
 
                   <div className="text-center shrink-0 w-16">
-                    <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Rozdíl</p>
+                    <p className="text-[11px] font-black uppercase tracking-wider text-neutral-400">Rozdíl</p>
                     <p className={`font-display font-black text-base tabular-nums ${
                       !jeRozdil ? 'text-neutral-300' : r.rozdil > 0 ? 'text-sky-700' : 'text-rose-700'
                     }`}>
