@@ -65,3 +65,77 @@ export async function forwardToWebhook(payload, logger) {
   );
   return { ok: false, error: lastErr?.message };
 }
+
+/**
+ * Odloží zprávu, kterou se nepodařilo předat webhooku, do fronty
+ * `whatsapp_neodeslane` (migrace 20261226060000).
+ *
+ * Do téhle chvíle končila taková zpráva jen v logu na Renderu — ten nikdo
+ * nečte a po čase zmizí, takže objednávka se ztratila beze stopy a v aplikaci
+ * to vypadalo, že ji zákazník nikdy neposlal.
+ *
+ * `upsert` podle webhook_id: opakovaně padající zpráva má pořád jeden řádek,
+ * jen se zvyšuje počítadlo pokusů.
+ */
+export async function odloZpravu(supabase, payload, chyba, logger) {
+  try {
+    const { data: stary } = await supabase
+      .from('whatsapp_neodeslane')
+      .select('pokusu')
+      .eq('webhook_id', payload.webhookId)
+      .maybeSingle();
+    const { error } = await supabase.from('whatsapp_neodeslane').upsert(
+      {
+        webhook_id: payload.webhookId,
+        payload,
+        sender_name: payload.sender ?? null,
+        message_preview: (payload.message || '').slice(0, 200),
+        chyba: (chyba || '').slice(0, 500),
+        pokusu: (stary?.pokusu ?? 0) + 1,
+        posledni_pokus: new Date().toISOString(),
+      },
+      { onConflict: 'webhook_id' },
+    );
+    if (error) throw error;
+    logger?.warn?.(`[fronta] zpráva ${payload.webhookId} odložena do whatsapp_neodeslane — pošle se znovu`);
+  } catch (e) {
+    // Odkladiště je záchranná síť; když selže i ono, nesmí to shodit most.
+    logger?.error?.({ err: e }, '[fronta] zprávu se nepodařilo odložit — TEĎ je opravdu ztracená');
+  }
+}
+
+/**
+ * Zkusí znovu odeslat, co ve frontě čeká. Volá se po připojení a pak
+ * pravidelně — výpadek webhooku (nasazení edge funkce, výpadek Supabase)
+ * trvá typicky minuty, takže se zprávy doženou samy, bez zásahu člověka.
+ *
+ * Vrací počet úspěšně doposlaných.
+ */
+export async function posliOdlozene(supabase, logger) {
+  let hotovo = 0;
+  try {
+    const { data, error } = await supabase
+      .from('whatsapp_neodeslane')
+      .select('id, payload')
+      .is('odeslano_at', null)
+      .order('created_at', { ascending: true })
+      .limit(50);
+    if (error) throw error;
+    if (!data?.length) return 0;
+
+    logger?.info?.(`[fronta] ve frontě čeká ${data.length} zpráv — zkouším doposlat`);
+    for (const radek of data) {
+      const res = await forwardToWebhook(radek.payload, logger);
+      if (!res.ok) break; // webhook pořád nefunguje, zbytek nemá cenu zkoušet
+      await supabase
+        .from('whatsapp_neodeslane')
+        .update({ odeslano_at: new Date().toISOString() })
+        .eq('id', radek.id);
+      hotovo += 1;
+    }
+    if (hotovo) logger?.info?.(`[fronta] doposláno ${hotovo} zpráv`);
+  } catch (e) {
+    logger?.warn?.({ err: e }, '[fronta] doposlání selhalo');
+  }
+  return hotovo;
+}

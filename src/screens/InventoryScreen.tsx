@@ -4,8 +4,9 @@ import { Fragment, useState, useEffect, useMemo, useRef } from 'react';
 import { Beer, beerBg, beerInk, beerName, beerText, fetchAllRows, formatPackageLabel, Package, supabase, useRealtime } from '../lib/supabase';
 import { Spinner } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
-import { AlertCircle, AlertTriangle, Beer as BeerIcon, Calendar, Camera, ClipboardCheck, ClipboardList, Download, Check, Lock, MinusCircle, Package as PackageIcon, Plus, RefreshCw, RotateCcw, Save, Search } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Beer as BeerIcon, Calendar, Camera, ClipboardCheck, ClipboardList, Download, Check, Lock, MinusCircle, Package as PackageIcon, Plus, RefreshCw, RotateCcw, Save, Search, ShieldCheck } from 'lucide-react';
 import { CountFromImage } from '../components/CountFromImage';
+import HloubkovyAuditPanel from '../components/HloubkovyAuditPanel';
 import { computeInventoryReconciliation } from '../lib/inventoryHelper';
 import { akceProRozdil, datumDoplnku, doplnekVBudoucnu, jeSud, kegovaniZapisy, lahvoveZapisy, nabidnoutMinulyMesic, nazevMesice, odectiZeStoceni, vychoziMesicInventury, stoceniZapis } from '../lib/inventoryFix';
 import { davkySrovnani, zapisyDavky, type DavkaPiva, type SmerSudu, type ZdrojovaSkupina } from '../lib/srovnaniDavka';
@@ -108,8 +109,8 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   // Záložka se drží v adrese stránky (setPage), takže může přijít i hodnota,
   // která už neexistuje — třeba zrušená záložka z minulé verze. Neznámou
   // proto srazíme na inventuru, jinak by se vykreslilo prázdno.
-  const zalozka = (t: unknown): 'inventory' | 'initial_stock' | 'end_stock' | 'audit' =>
-    t === 'initial_stock' || t === 'end_stock' || t === 'audit' ? t : 'inventory';
+  const zalozka = (t: unknown): 'inventory' | 'initial_stock' | 'end_stock' | 'audit' | 'hloubkovy' =>
+    t === 'initial_stock' || t === 'end_stock' || t === 'audit' || t === 'hloubkovy' ? t : 'inventory';
 
   const [activeTab, setActiveTab] = useState(() => zalozka(initialSubTab));
 
@@ -117,7 +118,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     setActiveTab(zalozka(initialSubTab));
   }, [initialSubTab]);
 
-  function selectTab(t: 'inventory' | 'initial_stock' | 'end_stock' | 'audit') {
+  function selectTab(t: 'inventory' | 'initial_stock' | 'end_stock' | 'audit' | 'hloubkovy') {
     if (setPage) setPage('inventory', undefined, t);
     else setActiveTab(t);
   }
@@ -1714,6 +1715,20 @@ function exportInventoryExcel() {
             </span>
           )}
         </button>
+
+        {/* 🔬 Hloubkový audit — kontrola za celý týden/měsíc přes všechny
+            moduly, ne jen Sklad × Inventura vedle. */}
+        <button
+          onClick={() => selectTab('hloubkovy')}
+          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 shrink-0 ${
+            activeTab === 'hloubkovy'
+              ? 'bg-amber-500 text-neutral-950 shadow-md'
+              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
+          }`}
+        >
+          <ShieldCheck size={16} />
+          <span>Hloubkový audit (týden / měsíc)</span>
+        </button>
       </div>
 
       {/* 📅 Měsíc se vybírá JEN v banneru nahoře a upozorňuje se na něj JEN
@@ -2452,6 +2467,8 @@ function exportInventoryExcel() {
           jediná povolená výjimka je uložená fyzická inventura, která posune
           POČÁTEČNÍ stav (viz lib/auditSkladu.ts). Rozdílné buňky svítí, takže
           je hned vidět, KTERÝ sloupec se rozešel — ne jen že výsledek nesedí. */}
+      {activeTab === 'hloubkovy' && <HloubkovyAuditPanel />}
+
       {activeTab === 'audit' && (
         <div className="space-y-3">
           <div className={`rounded border-2 p-3.5 ${auditNesedi.length === 0 ? 'border-emerald-300 bg-emerald-50/70' : 'border-rose-300 bg-rose-50/70'}`}>

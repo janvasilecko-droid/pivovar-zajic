@@ -21,7 +21,7 @@ import { getSupabase, useSupabaseAuthState, clearSession } from './lib/supabaseA
 import { createMessageGate } from './lib/filter.js';
 import { HistoryCollector, normTs } from './lib/history.js';
 import { spustTep, spustPrikazy } from './lib/stav.js';
-import { forwardToWebhook } from './lib/webhook.js';
+import { forwardToWebhook, odloZpravu, posliOdlozene } from './lib/webhook.js';
 import { prepareImageForForwarding, ensureMediaBucket, getImageMessage } from './lib/media.js';
 
 // sync:true → logy se okamžitě zapíší (nespoléháme na flush bufferu při killu/exit)
@@ -413,7 +413,13 @@ async function handleMessage(sock, gate, supabase, msg, opts = {}) {
       .slice(0, 60)
       .replace(/\n/g, ' ')}"`
   );
-  await forwardToWebhook(payload, logger);
+  const vysledek = await forwardToWebhook(payload, logger);
+  // Neúspěch nesmí zprávu zahodit. Do téhle chvíle skončila jen v logu na
+  // Renderu — ten nikdo nečte a po čase zmizí, takže objednávka se ztratila
+  // beze stopy a vypadalo to, že ji zákazník nikdy neposlal.
+  if (!vysledek?.ok) {
+    await odloZpravu(supabase, payload, vysledek?.body || vysledek?.error || 'neznámá chyba', logger);
+  }
 }
 
 
@@ -488,6 +494,10 @@ async function start() {
       qrState.qr = null;
       qrState.poznamka = 'spojení navázáno';
       logger.info('[conn] OPEN — spárováno a online ✔');
+      // Co se během výpadku webhooku nepodařilo předat, jde ven hned, jak je
+      // zase spojení. Typický výpadek (nasazení edge funkce) trvá minuty,
+      // takže se fronta dožene sama a nikdo o ní nemusí vědět.
+      posliOdlozene(supabase, logger);
     }
 
     if (connection === 'close') {
@@ -645,6 +655,11 @@ spustTep(
   logger,
   process.env.RENDER_GIT_COMMIT?.slice(0, 7) || '',
 );
+
+// 📮 Fronta neodeslaných zpráv — pravidelný pokus o doposlání. Připojení ji
+// zkusí taky (viz connection.update), ale webhook může spadnout i za běhu,
+// kdy k žádnému novému připojení nedojde.
+setInterval(() => { posliOdlozene(supabase, logger); }, 10 * 60 * 1000).unref?.();
 
 // 📥 Příkazy z aplikace. Jediný je „srovnat": zavřít spojení a nechat most
 // znovu se připojit — WhatsApp při tom pošle historii skupiny a chybějící
