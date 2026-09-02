@@ -95,7 +95,7 @@ export function BeerTilePanel({ beer, onClose, children, headerRight, footer }: 
               <button
                 type="button"
                 onClick={onClose}
-                className="w-11 h-11 grid place-items-center rounded bg-emerald-500 hover:bg-emerald-400 text-white font-black transition select-none shadow-sm"
+                className="w-11 h-11 grid place-items-center rounded bg-emerald-700 hover:bg-emerald-400 text-white font-black transition select-none shadow-sm"
                 title="Hotovo — potvrdit a zavřít"><Check size={20} /></button>
               <button
                 type="button"

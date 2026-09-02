@@ -1732,7 +1732,7 @@ function exportInventoryExcel() {
               <button
                 type="button"
                 onClick={() => setCurrentMonth(minuly)}
-                className="mt-2.5 px-3 py-2 rounded bg-sky-600 hover:bg-sky-700 text-white font-black text-xs transition"
+                className="mt-2.5 px-3 py-2 rounded bg-sky-700 hover:bg-sky-700 text-white font-black text-xs transition"
               >
                 Přepnout na {nazevMesice(minuly)}
               </button>
@@ -1828,7 +1828,7 @@ function exportInventoryExcel() {
               <button
                 type="button"
                 onClick={() => setDorovnatMap({})}
-                className="shrink-0 px-3 py-2 rounded bg-sky-600 hover:bg-sky-700 text-white font-black text-xs transition"
+                className="shrink-0 px-3 py-2 rounded bg-sky-700 hover:bg-sky-700 text-white font-black text-xs transition"
               >
                 Vymazat všechny ztráty
               </button>
@@ -2109,7 +2109,7 @@ function exportInventoryExcel() {
                         {/* Že už se tahle položka srovnávala. Bez toho vypadá
                             srovnaná nula stejně jako nula, která seděla sama. */}
                         {vyrovnaniMap.has(k) && (
-                          <div className="px-2 py-1.5 rounded bg-emerald-600 text-white text-[11px] font-black flex items-center gap-1.5">
+                          <div className="px-2 py-1.5 rounded bg-emerald-700 text-white text-[11px] font-black flex items-center gap-1.5">
                             <Check className="ikona-text" />
                             <span>
                               Vyrovnáno {vyrovnaniMap.get(k)! > 0 ? '+' : ''}{vyrovnaniMap.get(k)} ks
@@ -2134,7 +2134,7 @@ function exportInventoryExcel() {
                             disabled={doplnujeSe !== null}
                             className={`w-full min-h-[44px] rounded font-black text-xs transition flex items-center justify-center gap-1.5 disabled:opacity-50 ${
                               r.diffQty > 0
-                                ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                ? 'bg-emerald-700 hover:bg-emerald-700 text-white'
                                 : 'bg-rose-600 hover:bg-rose-700 text-white'
                             }`}
                             title={r.diffQty > 0
@@ -2250,7 +2250,7 @@ function exportInventoryExcel() {
                           </td>
                           <td className="text-right font-mono font-black text-[11px] px-2 py-2">
                             {vyrovnaniMap.has(k) ? (
-                              <span className="px-1.5 py-0.5 rounded bg-emerald-600 text-white whitespace-nowrap">
+                              <span className="px-1.5 py-0.5 rounded bg-emerald-700 text-white whitespace-nowrap">
                                 <Check className="ikona-text" /> {vyrovnaniMap.get(k)! > 0 ? '+' : ''}{vyrovnaniMap.get(k)} ks
                               </span>
                             ) : (
@@ -2295,7 +2295,7 @@ function exportInventoryExcel() {
                                 disabled={doplnujeSe !== null}
                                 className={`px-2 py-1.5 rounded font-black text-[11px] whitespace-nowrap transition disabled:opacity-50 ${
                                   r.diffQty > 0
-                                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                    ? 'bg-emerald-700 hover:bg-emerald-700 text-white'
                                     : 'bg-rose-600 hover:bg-rose-700 text-white'
                                 }`}
                                 title={r.diffQty > 0

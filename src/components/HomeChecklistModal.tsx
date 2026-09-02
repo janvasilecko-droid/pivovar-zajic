@@ -79,7 +79,7 @@ export function HomeChecklistModal({ isOpen, onClose }: { isOpen: boolean; onClo
               <div className="flex items-center gap-3 min-w-0">
                 <span
                   className={`w-5 h-5 rounded-md border-2 grid place-items-center shrink-0 transition ${
-                    task.completed ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-neutral-300'
+                    task.completed ? 'bg-emerald-700 border-emerald-600 text-white' : 'bg-white border-neutral-300'
                   }`}
                 >
                   {task.completed && <Check size={14} className="font-bold" />}

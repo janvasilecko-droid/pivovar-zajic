@@ -571,7 +571,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
                             href={message.media_url}
                             download
                             onClick={(e) => e.stopPropagation()}
-                            className="p-1.5 rounded text-neutral-500 hover:bg-neutral-100 hover:text-sky-600"
+                            className="p-1.5 rounded text-neutral-600 hover:bg-neutral-100 hover:text-sky-600"
                             title="Stáhnout fotografii"
                           >
                             <Download size={16} />
@@ -622,7 +622,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); ignoreMessage(message.id); }}
-                        className="p-1.5 rounded text-neutral-500 hover:bg-neutral-100"
+                        className="p-1.5 rounded text-neutral-600 hover:bg-neutral-100"
                         title="Ignorovat zprávu"
                       >
                         <Trash2 size={16} />

@@ -268,7 +268,7 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
                           <button
                             type="button"
                             onClick={() => toggleHomeNote(note.id)}
-                            className="w-5 h-5 rounded-md bg-emerald-600 text-white grid place-items-center shrink-0"
+                            className="w-5 h-5 rounded-md bg-emerald-700 text-white grid place-items-center shrink-0"
                             title="Vrátit mezi aktivní"
                           >
                             <Check size={14} />

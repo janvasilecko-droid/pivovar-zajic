@@ -615,7 +615,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
             <button
               type="button"
               onClick={() => setWeekKey(shiftWeek(weekKey, -1))}
-              className="p-1.5 rounded text-neutral-500 hover:bg-neutral-100"
+              className="p-1.5 rounded text-neutral-600 hover:bg-neutral-100"
               title="Předchozí týden"
             >
               <ChevronLeft size={16} />
@@ -629,7 +629,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
             <button
               type="button"
               onClick={() => setWeekKey(shiftWeek(weekKey, 1))}
-              className="p-1.5 rounded text-neutral-500 hover:bg-neutral-100"
+              className="p-1.5 rounded text-neutral-600 hover:bg-neutral-100"
               title="Následující týden"
             >
               <ChevronRight size={16} />

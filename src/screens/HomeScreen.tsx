@@ -1498,7 +1498,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                         <Pause size={9} className="shrink-0" /> Pauza
                       </span>
                     ) : (
-                      <span className="inline-flex items-center justify-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[11px] font-black shadow-xs active:scale-95">
+                      <span className="inline-flex items-center justify-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-700 text-white text-[11px] font-black shadow-xs active:scale-95">
                         <Play size={10} className="fill-current shrink-0 ml-0.5" /> Spustit
                       </span>
                     )}
@@ -1674,7 +1674,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   <div className="my-auto py-1 space-y-1">
                     {dailyTasks.slice(0, 2).map((t) => (
                       <div key={t.id} className="flex items-center gap-2 text-xs font-bold truncate">
-                        <span className={`w-3.5 h-3.5 rounded-xs border border-current grid place-items-center shrink-0 ${t.completed ? 'bg-current text-white font-black' : ''}`}>
+                        <span className={`w-3.5 h-3.5 rounded-sm border border-current grid place-items-center shrink-0 ${t.completed ? 'bg-current text-white font-black' : ''}`}>
                           {t.completed && <Check size={10} className="stroke-[3]" />}
                         </span>
                         <span className={`truncate ${t.completed ? 'line-through opacity-60' : ''}`}>{t.title}</span>
@@ -2106,7 +2106,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                                     ? 'px-2 py-0.5 bg-rose-600 text-white animate-bounce hover:bg-rose-500'
                                     : isRun
                                     ? 'px-2 py-0.5 bg-amber-500 text-neutral-950 hover:bg-amber-400'
-                                    : 'px-2.5 py-0.5 bg-emerald-600 text-white hover:bg-emerald-500'
+                                    : 'px-2.5 py-0.5 bg-emerald-700 text-white hover:bg-emerald-500'
                                 }`}
                               >
                                 {isDone ? '🔔 Spustit znovu' : isRun ? 'Pauza' : 'Start'}
@@ -2125,7 +2125,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                                 setCountdowns(getCountdowns());
                               }}
                               title="Resetovat čas"
-                              className="p-1.5 text-neutral-500 hover:text-neutral-800 bg-neutral-100 hover:bg-neutral-200 rounded-lg"
+                              className="p-1.5 text-neutral-600 hover:text-neutral-800 bg-neutral-100 hover:bg-neutral-200 rounded-lg"
                             >
                               <RotateCcw size={13} />
                             </button>
@@ -2135,7 +2135,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                               onClick={() => toggleCountdownPin(t)}
                               title={pinned ? 'Odebrat z domovské plochy' : 'Připnout na domovskou plochu jako dlaždici'}
                               className={`p-1.5 rounded-lg border text-xs font-bold transition ${
-                                pinned ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-neutral-50 text-neutral-400 border-neutral-200 hover:bg-neutral-100'
+                                pinned ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-neutral-50 text-neutral-600 border-neutral-200 hover:bg-neutral-100'
                               }`}
                             >
                               <Pin size={13} className={pinned ? 'rotate-45 fill-current text-amber-700' : ''} />

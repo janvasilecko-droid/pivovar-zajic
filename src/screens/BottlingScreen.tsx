@@ -1135,7 +1135,7 @@ export default function BottlingScreen({
                       type="button"
                       onClick={() => setTile('kegQty', String(navrhZdrojovychSudu.sudy))}
                       disabled={String(navrhZdrojovychSudu.sudy) === tileDraft.kegQty}
-                      className="w-full min-h-[36px] rounded bg-sky-600 hover:bg-sky-700 disabled:opacity-40 disabled:hover:bg-sky-600 text-white font-black text-[11px] transition"
+                      className="w-full min-h-[36px] rounded bg-sky-700 hover:bg-sky-700 disabled:opacity-40 disabled:hover:bg-sky-600 text-white font-black text-[11px] transition"
                       title="Dopočítat počet sudů z nastáčených lahví — načatý sud se počítá celý"
                     >
                       {String(navrhZdrojovychSudu.sudy) === tileDraft.kegQty

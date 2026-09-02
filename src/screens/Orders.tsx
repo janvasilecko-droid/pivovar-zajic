@@ -72,8 +72,8 @@ const STATUS: Record<string, { label: string; cls: string }> = {
 // čte zdrojáky jako text a třídu, která v nich nikde celá nestojí, negeneruje.
 // Rámeček detailu objednávky proto vycházel v šedé místo v barvě dne.
 const DAY_COLORS: Record<string, { bg: string; bar: string; border: string; chip: string; text: string; dot: string }> = {
-  po: { bg: 'bg-sky-50/70', bar: 'bg-sky-600', border: 'border-sky-600/40', chip: 'bg-sky-700 text-white font-black shadow-2xs', text: 'text-sky-950 font-bold', dot: 'bg-sky-600' },
-  ut: { bg: 'bg-emerald-50/70', bar: 'bg-emerald-600', border: 'border-emerald-600/40', chip: 'bg-emerald-700 text-white font-black shadow-2xs', text: 'text-emerald-950 font-bold', dot: 'bg-emerald-600' },
+  po: { bg: 'bg-sky-50/70', bar: 'bg-sky-700', border: 'border-sky-600/40', chip: 'bg-sky-700 text-white font-black shadow-2xs', text: 'text-sky-950 font-bold', dot: 'bg-sky-700' },
+  ut: { bg: 'bg-emerald-50/70', bar: 'bg-emerald-700', border: 'border-emerald-600/40', chip: 'bg-emerald-700 text-white font-black shadow-2xs', text: 'text-emerald-950 font-bold', dot: 'bg-emerald-700' },
   st: { bg: 'bg-amber-100/60', bar: 'bg-amber-600', border: 'border-amber-600/40', chip: 'bg-amber-700 text-white font-black shadow-2xs', text: 'text-amber-800 font-bold', dot: 'bg-amber-600' },
   ct: { bg: 'bg-rose-50/70', bar: 'bg-rose-600', border: 'border-rose-600/40', chip: 'bg-rose-700 text-white font-black shadow-2xs', text: 'text-rose-950 font-bold', dot: 'bg-rose-600' },
   pa: { bg: 'bg-violet-50/70', bar: 'bg-violet-600', border: 'border-violet-600/40', chip: 'bg-violet-700 text-white font-black shadow-2xs', text: 'text-violet-950 font-bold', dot: 'bg-violet-600' },

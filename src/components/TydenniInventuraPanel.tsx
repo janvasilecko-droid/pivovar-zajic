@@ -251,7 +251,7 @@ export default function TydenniInventuraPanel() {
             onClick={() => setJenRozdily((v) => !v)}
             className={`px-3.5 py-2.5 rounded font-black text-xs transition min-h-[44px] ${
               jenRozdily
-                ? 'bg-rose-500 text-white shadow-md'
+                ? 'bg-rose-600 text-white shadow-md'
                 : 'bg-neutral-100 text-neutral-700 border border-neutral-200 hover:bg-neutral-200'
             }`}
           >

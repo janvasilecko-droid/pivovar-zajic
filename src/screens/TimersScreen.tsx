@@ -177,7 +177,7 @@ function StopwatchTool() {
             <span className="text-xs font-bold text-neutral-400 uppercase tracking-wide">Mezičasy ({state.laps.length})</span>
             <button
               onClick={copyLaps}
-              className="flex items-center gap-1.5 text-xs font-bold text-neutral-500 hover:text-neutral-900 transition px-2 py-1 rounded hover:bg-neutral-100"
+              className="flex items-center gap-1.5 text-xs font-bold text-neutral-600 hover:text-neutral-900 transition px-2 py-1 rounded hover:bg-neutral-100"
               title="Kopírovat mezičasy do schránky"
             >
               {copied ? <><Check size={13} className="text-emerald-600" /> Zkopírováno!</> : <><Copy size={13} /> Kopírovat</>}
@@ -518,7 +518,7 @@ function CountdownTimersTool() {
               key={p.label}
               type="button"
               onClick={() => quickStart(p.label, Number(p.min))}
-              className="flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-black bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white border border-emerald-700 shadow-sm transition"
+              className="flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-black bg-emerald-700 hover:bg-emerald-500 active:bg-emerald-700 text-white border border-emerald-700 shadow-sm transition"
             >
               <Play size={16} className="fill-current shrink-0" />
               <span className="truncate">{p.label}</span>
@@ -647,7 +647,7 @@ function CountdownTimersTool() {
                     onClick={() => togglePin(t)}
                     title={pinned ? 'Odebrat z domovské plochy' : 'Přidat na domovskou plochu jako dlaždici'}
                     className={`p-1.5 rounded-lg border text-xs font-bold flex items-center gap-1 transition ${
-                      pinned ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-neutral-50 text-neutral-500 border-neutral-200 hover:bg-neutral-100'
+                      pinned ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-neutral-50 text-neutral-600 border-neutral-200 hover:bg-neutral-100'
                     }`}
                   >
                     <Pin size={13} className={pinned ? 'rotate-45 fill-current' : ''} />
