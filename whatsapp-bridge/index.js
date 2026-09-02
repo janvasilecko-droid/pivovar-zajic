@@ -310,20 +310,27 @@ async function handleMessage(sock, gate, supabase, msg, opts = {}) {
   // 2) Filtr čtení — stejná pravidla jako brána webhooku (název NEBO chat_id).
   //    Whitelist = whatsapp_senders (z aplikace) sjednocený s env proměnnými;
   //    přejmenovaná skupina projde přes registrované chat_id (viz lib/filter.js).
-  //    Vlastní zprávy (fromMe) whitelist OBEJDOU — píše je sám majitel ze
+  //
+  //    VLASTNÍ ZPRÁVY (fromMe) WHITELIST OBCHÁZEJÍ — píše je sám majitel ze
   //    spárovaného telefonu (do skupiny i soukromě), takže projdou vždy.
+  //    Bylo to tu napsané v komentáři, ale `isOwn` se v podmínkách nikdy
+  //    nepoužilo: most si do logu poznamenal „vlastní zpráva — vyhodnocuji
+  //    (fromMe)" a hned na dalším řádku ji zahodil jako nepovoleného kontakta.
+  //    Objednávka napsaná z vlastního telefonu se tím nikdy nedostala dál —
+  //    webhook (whatsapp-webhook/index.ts ř. 322) i trigger v databázi ji
+  //    přitom čekají a rozliší ji příznakem from_me.
   const isOwn = key.fromMe === true;
   let sender;
   if (isGroup) {
     const groupName = await getGroupSubject(sock, remoteJid);
-    if (!gate.isGroupAllowed(groupName, remoteJid)) {
+    if (!isOwn && !gate.isGroupAllowed(groupName, remoteJid)) {
       logger.info(`[msg] skupina „${groupName}“ (${remoteJid}) není povolená — ignoruji`);
       return;
     }
     sender = groupName;
   } else {
     sender = pushName || senderNumber || remoteJid;
-    if (!gate.isContactAllowed(sender, senderNumber)) {
+    if (!isOwn && !gate.isContactAllowed(sender, senderNumber)) {
       logger.info(`[msg] kontakt „${sender}“ (${senderNumber}) není povolený — ignoruji`);
       return;
     }
