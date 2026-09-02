@@ -1,4 +1,4 @@
-// Náhled panelu týdenní inventury bez Supabase a bez přihlášení.
+// Náhled panelů bez Supabase a bez přihlášení.
 //
 // K čemu to je: ladit vzhled a ovládání se dá jen tak, že je člověk vidí.
 // Appka se ale bez přístupu k databázi zastaví na přihlašovací obrazovce,
@@ -8,16 +8,19 @@
 // NENÍ SOUČÁSTÍ APLIKACE. Produkční build bere `index.html` v korenu
 // projektu, tudy nechodí — spouští se `npx vite --config vite.nahled.config.ts`.
 //
-// Rámování stránky je schválně v `style`, ne v Tailwindu: `tailwind.config.js`
-// prochází jen `src/`, takže třídy napsané tady by se nevygenerovaly a
-// stránka by se rozsypala. Panel sám je v `src/`, ten své třídy má.
-import { useEffect, useState } from 'react';
+// PANEL BĚŽÍ V IFRAME (`panel.html`), a to schválně: Tailwind rozhoduje
+// o `sm:`/`md:` podle šířky OKNA, ne rodičovského prvku. Dokud se vykresloval
+// přímo tady, „Telefon (390)" jen zúžil rámeček a uvnitř zůstalo desktopové
+// rozložení — takže se právě ta věc, kvůli které náhled vznikl, nedala vidět.
+// Iframe má vlastní okno, takže 390 px platí.
+//
+// Rámování stránky je v `style`, ne v Tailwindu: `tailwind.config.js` prochází
+// jen `src/`, takže třídy napsané tady by se nevygenerovaly. Panel sám je
+// v `src/`, ten své třídy má.
+import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import '../src/index.css';
-import TydenniInventuraPanel from '../src/components/TydenniInventuraPanel';
-import ToastHost from '../src/components/ToastHost';
-import { resetNahledu, sledujZapisy, stavTanku, zapisy } from './mock/supabase';
 import { POPIS } from './mock/data';
+import type { Zapis } from './mock/supabase';
 
 /** Šířky, na kterých se appka opravdu používá. */
 const SIRKY = [
@@ -26,15 +29,28 @@ const SIRKY = [
   { klic: 'pocitac', popis: 'Počítač', px: 1280 },
 ] as const;
 
+type Tank = { label: string; pivo: string; objem: number; stacise: boolean };
+
 function Nahled() {
   const [sirka, setSirka] = useState<(typeof SIRKY)[number]>(SIRKY[0]);
-  const [, prekresli] = useState(0);
-  // Klíčem se panel po „Začít znovu" nasadí znovu, aby si znovu načetl data.
+  const [zapisy, setZapisy] = useState<Zapis[]>([]);
+  const [tanky, setTanky] = useState<Tank[]>([]);
+  // Změna klíče nahradí iframe novým — a s ním i celý běh skriptu, takže se
+  // vymyšlená data vrátí do výchozího stavu. Reset přes zprávu dovnitř by
+  // musel řešit, co všechno má panel zapomenout; nový rámeček to má zdarma.
   const [verze, setVerze] = useState(0);
+  const ramRef = useRef<HTMLIFrameElement | null>(null);
 
-  useEffect(() => sledujZapisy(() => prekresli((n) => n + 1)), []);
-
-  const tanky = stavTanku();
+  useEffect(() => {
+    function prijmi(e: MessageEvent) {
+      if (e.origin !== window.location.origin) return;
+      if (e.data?.typ !== 'nahled-stav') return;
+      setZapisy(e.data.zapisy ?? []);
+      setTanky(e.data.tanky ?? []);
+    }
+    window.addEventListener('message', prijmi);
+    return () => window.removeEventListener('message', prijmi);
+  }, []);
 
   return (
     <div style={{ minHeight: '100vh', background: '#e5e5e5', fontFamily: 'system-ui, sans-serif' }}>
@@ -69,7 +85,7 @@ function Nahled() {
         </span>
 
         <button
-          onClick={() => { resetNahledu(); setVerze((v) => v + 1); }}
+          onClick={() => { setZapisy([]); setVerze((v) => v + 1); }}
           style={{
             padding: '7px 12px', borderRadius: 4, fontSize: 12, fontWeight: 700, cursor: 'pointer',
             border: '1px solid #525252', background: 'transparent', color: '#e5e5e5',
@@ -81,17 +97,17 @@ function Nahled() {
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, padding: 16, alignItems: 'flex-start' }}>
         {/* Appka v zadané šířce. Rám napovídá, kde končí displej. */}
-        <div
+        <iframe
+          key={verze}
+          ref={ramRef}
+          src="/panel.html"
+          title={`Panel v šířce ${sirka.px} px`}
           style={{
-            width: sirka.px, maxWidth: '100%', flexShrink: 0,
-            border: '1px solid #a3a3a3', borderRadius: 6, overflow: 'hidden',
+            width: sirka.px, maxWidth: '100%', height: 900, flexShrink: 0,
+            border: '1px solid #a3a3a3', borderRadius: 6,
             background: '#f5f5f5', boxShadow: '0 8px 24px rgba(0,0,0,.12)',
           }}
-        >
-          <div style={{ padding: 12 }}>
-            <TydenniInventuraPanel key={verze} />
-          </div>
-        </div>
+        />
 
         {/* Co panel zapsal — bez toho není poznat, jestli tlačítko něco udělalo. */}
         <div style={{ flex: '1 1 280px', minWidth: 260, display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -132,8 +148,6 @@ function Nahled() {
           </div>
         </div>
       </div>
-
-      <ToastHost />
     </div>
   );
 }

@@ -170,6 +170,12 @@ Přepíná se šířka (telefon / tablet / počítač), zápisy do „databáze"
 vedle panelu a „Začít znovu" vrátí data do výchozího stavu. Zápisy MĚNÍ data
 v paměti, takže srovnání rozdílu jde vyzkoušet celé.
 
+Panel běží v `iframe` (`nahled/panel.html`), a to schválně: Tailwind rozhoduje
+o `sm:`/`md:` podle šířky OKNA, ne rodičovského prvku. Dokud se vykresloval
+přímo ve stránce, „Telefon (390)" jen zúžil rámeček a uvnitř zůstalo
+desktopové rozložení — takže se právě to, kvůli čemu náhled vznikl, nedalo
+vidět. Iframe má vlastní okno, takže zadaná šířka platí.
+
 Do produkčního buildu to nechodí — ten bere `index.html` v korenu. Nová data
 patří do `nahled/mock/data.ts`, náhrada Supabase je v `nahled/mock/supabase.ts`.
 Rámování stránky je schválně v `style`, ne v Tailwindu: `tailwind.config.js`

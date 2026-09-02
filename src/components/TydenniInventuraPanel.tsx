@@ -310,39 +310,50 @@ export default function TydenniInventuraPanel() {
                     : sedi ? 'border-emerald-200' : 'border-neutral-200'
                 }`}
               >
+                {/* Na telefonu má název piva CELÝ ŘÁDEK, čísla jdou pod něj.
+                    Tři sloupečky s pevnou šířkou (~210 px i s mezerami) jinak
+                    ukrojí ze 390px displeje tolik, že na jméno zbude 150 —
+                    a ořízne se přesně tam, kde se pivo pozná: „12° Světlý…",
+                    „12° Tmav…". Přitom podle jména se řádek hledá. Od `sm`
+                    výš se místa dost, tak zůstávají v jedné řadě. */}
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-black text-sm text-neutral-900 truncate">{r.beer_name}</p>
+                  <div className="min-w-0 basis-full sm:basis-auto sm:flex-1">
+                    <p className="font-black text-sm text-neutral-900 break-words">{r.beer_name}</p>
                     <p className="text-xs font-bold text-neutral-500">{formatPackageLabel(r.package_label)}</p>
                   </div>
 
-                  <div className="text-center shrink-0">
-                    <p className="text-[11px] font-black uppercase tracking-wider text-neutral-400">Čeká se</p>
-                    <p className={`font-display font-black text-base tabular-nums ${r.ocekavano < 0 ? 'text-rose-600' : 'text-neutral-800'}`}>
-                      {r.ocekavano}
-                    </p>
-                  </div>
+                  {/* Čísla drží pohromadě: na telefonu roztažená přes šířku,
+                      ať políčko „napočítáno" padne pod palec a nelepí se
+                      k okraji. */}
+                  <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                    <div className="text-center shrink-0">
+                      <p className="text-[11px] font-black uppercase tracking-wider text-neutral-400">Čeká se</p>
+                      <p className={`font-display font-black text-base tabular-nums ${r.ocekavano < 0 ? 'text-rose-600' : 'text-neutral-800'}`}>
+                        {r.ocekavano}
+                      </p>
+                    </div>
 
-                  <div className="text-center shrink-0">
-                    <p className="text-[11px] font-black uppercase tracking-wider text-neutral-400">Napočítáno</p>
-                    {/* Desetinné ANO: lahve se počítají po kusech, ale načatý
-                        sud se běžně zapisuje na půlky. */}
-                    <input
-                      inputMode="decimal"
-                      value={napocitano[r.klic] ?? ''}
-                      onChange={(e) => setNapocitano((m) => ({ ...m, [r.klic]: normalizujCislo(e.target.value, true) }))}
-                      placeholder="—"
-                      className="input !w-20 !px-2 text-center font-black tabular-nums min-h-[44px]"
-                    />
-                  </div>
+                    <div className="text-center shrink-0">
+                      <p className="text-[11px] font-black uppercase tracking-wider text-neutral-400">Napočítáno</p>
+                      {/* Desetinné ANO: lahve se počítají po kusech, ale načatý
+                          sud se běžně zapisuje na půlky. */}
+                      <input
+                        inputMode="decimal"
+                        value={napocitano[r.klic] ?? ''}
+                        onChange={(e) => setNapocitano((m) => ({ ...m, [r.klic]: normalizujCislo(e.target.value, true) }))}
+                        placeholder="—"
+                        className="input !w-20 !px-2 text-center font-black tabular-nums min-h-[44px]"
+                      />
+                    </div>
 
-                  <div className="text-center shrink-0 w-16">
-                    <p className="text-[11px] font-black uppercase tracking-wider text-neutral-400">Rozdíl</p>
-                    <p className={`font-display font-black text-base tabular-nums ${
-                      !jeRozdil ? 'text-neutral-300' : r.rozdil > 0 ? 'text-sky-700' : 'text-rose-700'
-                    }`}>
-                      {r.napocitano === null ? '—' : r.rozdil > 0 ? `+${r.rozdil}` : r.rozdil}
-                    </p>
+                    <div className="text-center shrink-0 w-16">
+                      <p className="text-[11px] font-black uppercase tracking-wider text-neutral-400">Rozdíl</p>
+                      <p className={`font-display font-black text-base tabular-nums ${
+                        !jeRozdil ? 'text-neutral-300' : r.rozdil > 0 ? 'text-sky-700' : 'text-rose-700'
+                      }`}>
+                        {r.napocitano === null ? '—' : r.rozdil > 0 ? `+${r.rozdil}` : r.rozdil}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
