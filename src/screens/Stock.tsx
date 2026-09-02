@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ZavozDeductionRow } from '../lib/zavozDeduction';
 
 import { supabase, Beer, Package, KegPrefuk, useRealtime, beerBorder, fetchAllRows } from '../lib/supabase';
-import { buildMovements, stockAsOf, stockKey, type Movement } from '../lib/stockLedger';
+import { buildMovements, stockForMonth, stockKey, type Movement } from '../lib/stockLedger';
 import PohybyModal from '../components/PohybyModal';
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { AlertTriangle, BarChart2, Beer as BeerIcon, Calendar, ChevronDown, ClipboardCheck, Download, Package as PackageIcon, PackageCheck, ShoppingBag, Tent, Warehouse } from 'lucide-react';
@@ -193,7 +193,25 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
       const dnes = todayISO();
       return last > dnes ? dnes : last;
     })();
-    const ledger = stockAsOf(movements, monthEnd);
+    // 📒 MĚSÍČNÍ ROZPAD, ne „stav od poslední inventury".
+    //
+    // Sloupce pod tabulkou se čtou jako „počáteční + stočeno − výdeje = stav",
+    // což je rozpad měsíce — a přesně tak počítá i Inventura. stockAsOf ale
+    // sčítá pohyby OD POSLEDNÍ INVENTURY, a od chvíle, co napočítaný stav leží
+    // na posledním dni měsíce, by v inventovaném měsíci nezbyl žádný pohyb:
+    // Sklad by ukázal napočítané číslo a všechny sloupce nuly. Dřív, s
+    // inventurou na prvním dni, to měsíční rozpad jen připomínalo — a k
+    // napočítanému stavu přičítalo celý měsíc, takže 12° Světlá 50 l vycházela
+    // na −3 proti čtyřem napočítaným.
+    //
+    // stockForMonth počítá stejné okno jako Inventura (od prvního do
+    // posledního dne měsíce) a liší se jediným: počátek si dopočítá z historie,
+    // místo aby ho vzal ze zapsaného „Počátečního stavu". Kartu Auditu tenhle
+    // rozdíl zajímá, sloupce Skladu ne.
+    //
+    // Ořez na dnešek zůstává — v běžícím měsíci se nemá ukazovat závoz, který
+    // se teprve stane.
+    const ledger = stockForMonth(movements.filter((m) => m.date <= monthEnd), curMonth);
     setPohyby(movements);
     setPohybyKDatu(monthEnd);
 
@@ -416,7 +434,7 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                       </span>
                       <span className="flex items-center gap-3 shrink-0 font-mono font-bold text-neutral-600">
                         <span className="hidden sm:inline text-[11px]">
-                          {r.baselineDate ? `inventura ${r.baselineDate} = ${r.baselineQty}` : 'bez inventury'}
+                          {r.baselineDate ? `počátek ${r.baselineDate} = ${r.baselineQty}` : 'bez počátku'}
                         </span>
                         <span className="text-rose-700 font-black text-sm tabular-nums">{r.qty} ks</span>
                         {setPage && (r.kind === 'keg' ? (

@@ -12,7 +12,8 @@
 // a stockAsOf ho čte jako závěr toho dne: co se ten den stalo, v napočítaném
 // čísle už je.
 import { describe, expect, it } from 'vitest';
-import { buildMovements, expectedForMonth, stockAsOf, stockAtStartOfDay } from './stockLedger';
+import { readFileSync } from 'node:fs';
+import { buildMovements, expectedForMonth, stockAsOf, stockAtStartOfDay, stockForMonth } from './stockLedger';
 
 const PACKAGES = [{ id: 'keg50', kind: 'keg', volume_l: 50 }];
 const KLIC = 'b__keg50';
@@ -86,5 +87,38 @@ describe('„Počáteční stav" si drží ranní chování', () => {
 
   it('stáčení z prvního dne se k počátku přičte', () => {
     expect(stockAsOf(buildMovements(prvniDen), '2026-09-01').get(KLIC)?.qty).toBe(10);
+  });
+});
+
+describe('Sklad a Inventura ukazují tentýž měsíc stejně', () => {
+  // Sloupce Skladu se čtou jako „počáteční + stočeno − výdeje = stav", což je
+  // rozpad měsíce. Dřív je stavěl stockAsOf, který sčítá pohyby OD POSLEDNÍ
+  // INVENTURY — a jakmile napočítaný stav sedí na posledním dni měsíce, nezbyl
+  // by v inventovaném měsíci žádný pohyb: samé nuly a napočítané číslo.
+  it('pohyby měsíce zůstanou vidět i po uložené inventuře', () => {
+    const sklad = stockForMonth(buildMovements(srpen), '2026-08').get(KLIC)!;
+    expect(sklad.byKind.kegovani).toBe(95);
+    expect(sklad.byKind.zavoz).toBe(-77);
+    expect(sklad.byKind.sud_na_lahve).toBe(-25);
+  });
+
+  it('sloupce sedí s Inventurou kus na kus', () => {
+    const mv = buildMovements(srpen);
+    expect(stockForMonth(mv, '2026-08').get(KLIC)!.byKind)
+      .toEqual(expectedForMonth(mv, '2026-08', true).get(KLIC)!.byKind);
+  });
+
+  it('a počátek taky, když je „Počáteční stav" za měsíc zapsaný', () => {
+    const mv = buildMovements(srpen);
+    expect(stockForMonth(mv, '2026-08').get(KLIC)!.baselineQty)
+      .toBe(expectedForMonth(mv, '2026-08').get(KLIC)!.baselineQty);
+  });
+
+  it('Sklad si tabulku opravdu staví z měsíčního rozpadu', () => {
+    // Pojistka proti návratu k stockAsOf — chyba by se projevila až tím, že
+    // Sklad ukáže jiná čísla než Inventura, což z testů knihovny vidět není.
+    const zdroj = readFileSync('src/screens/Stock.tsx', 'utf8');
+    expect(zdroj).toContain('stockForMonth(');
+    expect(zdroj).not.toContain('stockAsOf(');
   });
 });
