@@ -5,7 +5,7 @@ import { ImageEditor } from './ImageEditor';
 import type { Beer, Package } from '../lib/supabase';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
 import { typObrazku } from '../lib/obrazek';
-import { AlertCircle, Camera, Check, ChevronLeft, ChevronRight, FilePlus, Folder, Lightbulb, Plus, RotateCcw, Sparkles, Trash2, Upload } from 'lucide-react';
+import { AlertCircle, Camera, Check, ChevronLeft, ChevronRight, FilePlus, Lightbulb, Plus, RotateCcw, Sparkles, Trash2, Upload } from 'lucide-react';
 
 type RowInput = { beerId: string; pkgId: string; pkg2Id: string; pkg3Id: string; kegPkgId: string; kegQty: string; qty: string; qty2: string; qty3: string; _removed?: boolean; _manual?: boolean };
 type PhotoEntry = { dataUrl: string; name: string };
@@ -422,11 +422,11 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
               <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={onFile} className="hidden" />
               
               <button className="btn-primary !rounded flex items-center gap-2" onClick={() => cameraRef.current?.click()} disabled={busy}>
-                <Camera size={16} /> <Camera className="ikona-text" /> Spustit fotoaparát
+                <Camera size={16} /> Spustit fotoaparát
               </button>
 
               <button className="btn-secondary flex items-center gap-2 border-neutral-300 text-neutral-800 bg-white hover:bg-neutral-50" onClick={() => fileRef.current?.click()} disabled={busy}>
-                <Upload size={16} /> <Folder className="ikona-text" /> Vybrat fotku / soubor z galerie
+                <Upload size={16} /> Vybrat fotku / soubor z galerie
               </button>
 
               <label className="flex items-center gap-2 text-xs text-primary-600 cursor-pointer select-none">

@@ -3,7 +3,7 @@ import { Modal } from './ui';
 import type { Beer, Package } from '../lib/supabase';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
 import { typObrazku } from '../lib/obrazek';
-import { AlertCircle, Camera, Check, ChevronLeft, ChevronRight, Folder, Hourglass, Sparkles, Upload } from 'lucide-react';
+import { AlertCircle, Camera, Check, ChevronLeft, ChevronRight, Hourglass, Sparkles, Upload } from 'lucide-react';
 
 type PhotoEntry = { dataUrl: string; name: string };
 
@@ -202,14 +202,14 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onTextExtr
               className="hidden"
             />
             <button className="btn-primary !rounded flex items-center gap-2" onClick={() => cameraRef.current?.click()} disabled={busy}>
-              <Camera size={16} /> <Camera className="ikona-text" /> Spustit fotoaparát
+              <Camera size={16} /> Spustit fotoaparát
             </button>
             <button
               className="btn-secondary flex items-center gap-2 border-neutral-300 text-neutral-800 bg-white hover:bg-neutral-50"
               onClick={() => fileRef.current?.click()}
               disabled={busy}
             >
-              <Upload size={16} /> <Folder className="ikona-text" /> Vybrat fotku / fotky z galerie
+              <Upload size={16} /> Vybrat fotku / fotky z galerie
             </button>
           </div>
           <span className="text-[11px] text-neutral-500">

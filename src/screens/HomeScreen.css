@@ -379,6 +379,26 @@
   font-size: 12.5px !important;
 }
 
+/* Na JEDNOTKOVÉ dlaždici (w=1) se řádkové uspořádání nevejde: ikona plus
+   odsazení sebraly z 84 px celkem 61 a na popisek zbylo 23 px. „Vozidla —
+   STK/známka" se pak s `overflow-wrap: anywhere` zlomilo doprostřed slova
+   na „Voz id…" a nešlo přečíst, co vlastně hlásí. Ikona proto jde nad
+   text, stejně jako u ostatních jednotkových dlaždic — popisek tím dostane
+   celou šířku a tři řádky. Široké a velké dlaždice si řádek nechávají,
+   tam je místa dost. */
+.hs-tile-alert:not(.hs-tile-wide):not(.hs-tile-large),
+.hs-tile-warn:not(.hs-tile-wide):not(.hs-tile-large) {
+  flex-direction: column !important;
+  gap: 4px !important;
+  padding: 8px 6px !important;
+}
+.hs-tile-alert:not(.hs-tile-wide):not(.hs-tile-large) .hs-lbl,
+.hs-tile-warn:not(.hs-tile-wide):not(.hs-tile-large) .hs-lbl {
+  text-align: center !important;
+  font-size: 11px !important;
+  -webkit-line-clamp: 3;
+}
+
 /* 📝 Dlaždice poznámek jako skutečný papírový lísteček nalepený na plochu —
    mírné natočení, plná barva místo skla (Post-it není průhledný) a
    odchlípnutý roh vpravo dole. Natočení je fixní (ne náhodné), ať dlaždice

@@ -823,7 +823,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                 onContextMenu={(e) => e.preventDefault()}
                 title={predchoziStranka.current ? 'Podržením se vrátíte na předchozí obrazovku' : undefined}
                 style={isActive ? { color: accent } : undefined}
-                className={`flex flex-col items-center justify-center py-1 px-2.5 rounded transition-all relative flex-1 font-bold ${
+                className={`flex flex-col items-center justify-center py-1 px-1 sm:px-2.5 rounded transition-all relative flex-1 font-bold ${
                   isActive ? 'bg-white/60 shadow-sm scale-105' : 'text-neutral-700 hover:text-neutral-900'
                 }`}
               >
@@ -835,7 +835,13 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                     </span>
                   )}
                 </div>
-                <span className="text-[11px] mt-0.5 tracking-tight truncate max-w-[64px]">{info.label}</span>
+                {/* `max-w-[64px]` byla pevná hodnota z doby čtyř slotů na
+                    úzkém displeji — jenže slot je široký 89 px, takže si
+                    popisek sám ořezával 25 px, které měl k dispozici
+                    („Lahve (Stá…" místo „Lahve (Stáčení)"). `w-full`
+                    respektuje skutečnou šířku slotu, ať jsou v liště dva
+                    zástupci nebo šest. */}
+                <span className="text-[11px] mt-0.5 tracking-tight truncate w-full text-center">{info.label}</span>
               </button>
             );
           })}

@@ -802,8 +802,13 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
           uzávěrky je mimo přilepený pruh, ať má pruh pořád stejnou výšku a
           nepřekrývá se s filtry pod ním). Na mobilu kratší popisky, ať se
           vejde víc záložek na obrazovku a je míň nutné vodorovně scrollovat. */}
-      <div className="sticky top-0 z-20 bg-neutral-100 pt-1 flex items-center gap-2 border-b border-neutral-200 pb-2">
-        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-thin">
+      {/* Na telefonu se pruh ZALAMUJE a není přilepený nahoře. Osm záložek
+          mělo dohromady 876 px, ale pruh jich má 347 — vidět byly necelé tři
+          a na zbytek se muselo naslepo rolovat do strany. Zalomené jsou
+          všechny vidět naráz; přilepení se pouští až od `sm`, kde se pruh
+          vejde na jeden řádek a nezabírá tak třetinu displeje. */}
+      <div className="sm:sticky top-0 z-20 bg-neutral-100 pt-1 flex items-center gap-2 border-b border-neutral-200 pb-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap sm:flex-nowrap sm:overflow-x-auto scrollbar-thin">
           <button
             onClick={() => selectTab('vystav')}
             className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded font-black text-xs transition flex items-center gap-1.5 sm:gap-2 shrink-0 min-h-[44px] ${
@@ -837,7 +842,11 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
             }`}
           >
             <TrendingUp size={16} />
-            <span><span className="sm:hidden">Výstav</span><span className="hidden sm:inline">Výstav (HL) & KEG/PET</span></span>
+            {/* Zkrácený popisek nesmí být „Výstav" — tak se jmenuje už první
+                záložka vlevo a na telefonu (kde se dlouhé popisky schovávají)
+                pak stály v pruhu dvě tlačítka se stejným nápisem a nešlo
+                poznat, které otevře co. */}
+            <span><span className="sm:hidden">HL & KEG/PET</span><span className="hidden sm:inline">Výstav (HL) & KEG/PET</span></span>
           </button>
 
           <button
@@ -910,7 +919,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
           className="px-3 sm:px-4 py-2 sm:py-2.5 rounded bg-neutral-900 hover:bg-neutral-800 text-amber-300 font-black text-xs transition shadow-md flex items-center gap-1.5 shrink-0"
         >
           <Printer size={16} />
-          <span><Printer className="ikona-text" /> <span className="sm:hidden">Uzávěrka</span><span className="hidden sm:inline">Měsíční uzávěrka (PDF/Tisk)</span></span>
+          <span><span className="sm:hidden">Uzávěrka</span><span className="hidden sm:inline">Měsíční uzávěrka (PDF/Tisk)</span></span>
         </button>
       </div>
 

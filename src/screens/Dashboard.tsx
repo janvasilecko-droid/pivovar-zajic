@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase, Beer, Package, useRealtime, beerBorder, fetchAllRows } from '../lib/supabase';
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { useAuth } from '../lib/auth';
-import { AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Calculator, ClipboardList, Check, Layers, Package as PackageIcon, PackageCheck, Pin, Sparkles } from 'lucide-react';
+import { AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Calculator, ClipboardList, Check, Layers, PackageCheck, Pin, Sparkles } from 'lucide-react';
 import { AnnouncementManagerModal } from '../components/AnnouncementManagerModal';
 import SkloPromoScreen from './SkloPromoScreen';
 import { buildMovements, stockAsOf, stockKey } from '../lib/stockLedger';
@@ -425,7 +425,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
           onClick={() => setShowQuickCount(true)}
           className="btn-primary !rounded !py-2 !px-3.5 text-xs font-black shadow-sm"
         >
-          <Calculator size={15} /> <PackageIcon className="ikona-text" /> Rychlé sčítadlo skladu
+          <Calculator size={15} /> Rychlé sčítadlo skladu
         </button>
         <button
           onClick={() => setShowAnnouncementManager(true)}

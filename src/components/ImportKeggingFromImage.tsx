@@ -304,7 +304,7 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
                   neudělalo vůbec nic. Jde stejnou cestou jako galerie. */}
               <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={(e) => { const files = Array.from(e.target.files ?? []); if (files.length) loadMultipleFiles(files); e.target.value = ''; }} className="hidden" />
               <button className="btn-primary !rounded flex items-center gap-2" onClick={() => cameraRef.current?.click()} disabled={busy}>
-                <Camera size={16} /> <Camera className="ikona-text" /> Spustit fotoaparát
+                <Camera size={16} /> Spustit fotoaparát
               </button>
               <button className="btn-secondary flex items-center gap-2 border-neutral-300 text-neutral-800 bg-white hover:bg-neutral-50" onClick={() => fileRef.current?.click()} disabled={busy}>
                 <Upload size={16} /> Vybrat fotku z galerie
