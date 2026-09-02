@@ -438,7 +438,7 @@ Deno.serve(async (req: Request) => {
     // NEBO chat_id odpovídá zaregistrovanému. Název-filtr funguje vždy, chat_id
     // je dobrovolná pojistka (Tasker %anwhatsappchatid často neposílá).
     // Ostatní se označí 'ignored', aby neležely v aplikaci jako 'pending'.
-    // Vlastní zprávy (from_me) whitelist obcházejí — píše je sám majitel.
+    // Platí i na vlastní zprávy majitele (from_me) — viz isSenderAllowed.
     const { data: senderRows } = await supabase
       .from("whatsapp_senders")
       .select("sender_name, chat_id");
@@ -449,9 +449,10 @@ Deno.serve(async (req: Request) => {
       .map((s: any) => (s.chat_id || "").trim().toLowerCase())
       .filter(Boolean);
     const isSenderAllowed = (message: any): boolean => {
-      // Vlastní zprávy (from_me) se zpracovávají VŽDY — píše je sám majitel
-      // (do skupiny i soukromě), whitelist na ně neplatí.
-      if (message.from_me === true) return true;
+      // `from_me` tu bránu NEOBCHÁZÍ. Obcházelo — a do appky se tím dostaly
+      // všechny majitelovy zprávy, i soukromé. Objednávka napsaná z vlastního
+      // telefonu do objednávkové skupiny projde podle chat_id nebo názvu
+      // skupiny, výjimku k tomu nepotřebuje.
       // Prázdný whitelist = povoleno vše (zpětně kompatibilní chování).
       if ((senderRows || []).length === 0) return true;
       const chat = (message.chat_id || "").trim().toLowerCase();

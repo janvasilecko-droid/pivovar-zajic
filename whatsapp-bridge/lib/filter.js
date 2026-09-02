@@ -73,6 +73,52 @@ export function buildGate({ allowedGroups = [], allowedContacts = [], senders = 
 }
 
 /**
+ * Rozhodne o JEDNÉ zprávě: pustit dál, nebo zahodit?
+ *
+ * Čistá funkce schválně — tohle rozhodování bylo rozepsané v podmínkách uvnitř
+ * `handleMessage`, kde ho nešlo otestovat, a dvakrát se v něm otevřela tatáž
+ * díra: vlastní zprávy majitele obcházely whitelist a do provozní aplikace se
+ * nahrála i jeho soukromá pošta. Jednou to zavřela migrace, podruhé se to
+ * vrátilo. Tady na to jdou napsat testy.
+ *
+ * DVĚ PRAVIDLA, KTERÁ SE NESMÍ ZTRATIT:
+ *
+ *  1. VLASTNÍ ZPRÁVA (from_me) NENÍ VÝJIMKA. Objednávka napsaná z majitelova
+ *     telefonu do objednávkové skupiny projde proto, že ta skupina je ve
+ *     whitelistu — ne proto, že ji psal majitel. Výjimka by nepustila dál nic
+ *     navíc, co má projít, jen všechno ostatní.
+ *  2. SOUKROMÁ ZPRÁVA SE NESPOLÉHÁ NA PRÁZDNÝ WHITELIST. „Prázdný seznam =
+ *     povoleno vše" je zpětná kompatibilita kvůli skupinám; u konverzace
+ *     jednoho s jedním by to znamenalo sypat do appky osobní poštu, dokud si
+ *     někdo nevzpomene whitelist vyplnit. Nevyplněný whitelist je
+ *     nedopatření, ne pokyn ke čtení všeho.
+ *
+ * @returns {{ pustit: boolean, duvod: string }} `duvod` jde do logu.
+ */
+export function smiProjit(gate, zprava) {
+  // `isOwn` (from_me) se tu SCHVÁLNĚ PŘIJÍMÁ A IGNORUJE. Kdyby ho funkce
+  // nebrala vůbec, nedalo by se testem doložit, že na rozhodnutí nemá vliv —
+  // a nic by nezabránilo tomu, aby si výjimku někdo příště napsal u volajícího
+  // (přesně tak vznikl ten únik). Takhle na to existuje test, který spadne.
+  const { isGroup, groupName = '', chatId = '', senderName = '', senderNumber = '' } = zprava || {};
+
+  if (isGroup) {
+    if (!gate.isGroupAllowed(groupName, chatId)) {
+      return { pustit: false, duvod: `skupina „${groupName}“ (${chatId}) není povolená` };
+    }
+    return { pustit: true, duvod: 'skupina je ve whitelistu' };
+  }
+
+  if (gate.isEmpty) {
+    return { pustit: false, duvod: `soukromá zpráva od „${senderName}“ a prázdný whitelist` };
+  }
+  if (!gate.isContactAllowed(senderName, senderNumber)) {
+    return { pustit: false, duvod: `kontakt „${senderName}“ (${senderNumber}) není povolený` };
+  }
+  return { pustit: true, duvod: 'kontakt je ve whitelistu' };
+}
+
+/**
  * Vytvoří bránu napojenou na Supabase: při startu načte `whatsapp_senders`
  * a sjednotí ji s env whitelisty. `load()` lze volat opakovaně (refresh) — změny
  * provedené v aplikaci se projeví do ~5 minut bez restartu služby.

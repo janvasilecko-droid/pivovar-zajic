@@ -18,7 +18,7 @@ import makeWASocket, { DisconnectReason } from '@whiskeysockets/baileys';
 import qrcodeTerminal from 'qrcode-terminal';
 import pino from 'pino';
 import { getSupabase, useSupabaseAuthState, clearSession } from './lib/supabaseAuth.js';
-import { createMessageGate } from './lib/filter.js';
+import { createMessageGate, smiProjit } from './lib/filter.js';
 import { HistoryCollector, normTs } from './lib/history.js';
 import { spustTep, spustPrikazy } from './lib/stav.js';
 import { forwardToWebhook, odloZpravu, posliOdlozene } from './lib/webhook.js';
@@ -312,29 +312,33 @@ async function handleMessage(sock, gate, supabase, msg, opts = {}) {
   //    Whitelist = whatsapp_senders (z aplikace) sjednocený s env proměnnými;
   //    přejmenovaná skupina projde přes registrované chat_id (viz lib/filter.js).
   //
-  //    VLASTNÍ ZPRÁVY (fromMe) WHITELIST OBCHÁZEJÍ — píše je sám majitel ze
-  //    spárovaného telefonu (do skupiny i soukromě), takže projdou vždy.
-  //    Bylo to tu napsané v komentáři, ale `isOwn` se v podmínkách nikdy
-  //    nepoužilo: most si do logu poznamenal „vlastní zpráva — vyhodnocuji
-  //    (fromMe)" a hned na dalším řádku ji zahodil jako nepovoleného kontakta.
-  //    Objednávka napsaná z vlastního telefonu se tím nikdy nedostala dál —
-  //    webhook (whatsapp-webhook/index.ts ř. 322) i trigger v databázi ji
-  //    přitom čekají a rozliší ji příznakem from_me.
-  const isOwn = key.fromMe === true;
-  let sender;
-  if (isGroup) {
-    const groupName = await getGroupSubject(sock, remoteJid);
-    if (!isOwn && !gate.isGroupAllowed(groupName, remoteJid)) {
-      logger.info(`[msg] skupina „${groupName}“ (${remoteJid}) není povolená — ignoruji`);
-      return;
-    }
-    sender = groupName;
-  } else {
-    sender = pushName || senderNumber || remoteJid;
-    if (!isOwn && !gate.isContactAllowed(sender, senderNumber)) {
-      logger.info(`[msg] kontakt „${sender}“ (${senderNumber}) není povolený — ignoruji`);
-      return;
-    }
+  //    VLASTNÍ ZPRÁVY (fromMe) WHITELIST NEOBCHÁZEJÍ. Obcházely, a stálo to
+  //    majiteli za to, že se do appky nahrály VŠECHNY jeho zprávy — i čistě
+  //    soukromé konverzace, které pak v provozním systému viděli všichni.
+  //    Bypass měl řešit objednávku napsanou z vlastního telefonu do skupiny;
+  //    na to ale žádná výjimka není potřeba, protože objednávková skupina je
+  //    ve whitelistu a projde jako každá jiná zpráva z ní. Výjimka tedy
+  //    nepouštěla dál nic navíc, co by mělo projít — jen všechno ostatní.
+  //
+  //    Příznak `from_me` zůstává: aplikace podle něj vlastní zprávu odliší
+  //    od zákaznické. Rozhoduje o POPISKU, ne o vstupu.
+  //    Samo rozhodnutí je v `lib/filter.js` (smiProjit) — čistá funkce, na
+  //    kterou jdou napsat testy. Rozepsané v podmínkách tady se tahle brána
+  //    už dvakrát protrhla.
+  const sender = isGroup
+    ? await getGroupSubject(sock, remoteJid)
+    : pushName || senderNumber || remoteJid;
+  const rozhodnuti = smiProjit(gate, {
+    isGroup,
+    groupName: isGroup ? sender : '',
+    chatId: remoteJid,
+    senderName: isGroup ? '' : sender,
+    isOwn: key.fromMe === true,
+    senderNumber,
+  });
+  if (!rozhodnuti.pustit) {
+    logger.info(`[msg] ${rozhodnuti.duvod} — ignoruji`);
+    return;
   }
 
   // Dedup podle stabilního key.id

@@ -2,7 +2,7 @@
 // Spuštění: npm test   (v whatsapp-bridge/)
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { norm, buildGate, createMessageGate } from '../lib/filter.js';
+import { norm, buildGate, createMessageGate, smiProjit } from '../lib/filter.js';
 
 test('norm: diakritika, velikost písmen a mezery', () => {
   assert.equal(norm('Objednávky pivovar'), 'objednavky pivovar');
@@ -132,4 +132,103 @@ test('createMessageGate: pravidla brány jde volat přímo na wrapperu (regresn�
   assert.equal(gate.isContactAllowed('Ala Milacek Milacek', ''), true);
   assert.equal(gate.isContactAllowed('Někdo jiný', ''), false);
   gate.stopRefresh();
+});
+
+// ---------------------------------------------------------------------------
+// smiProjit — rozhodnutí o jedné zprávě.
+//
+// Tady se hlídá díra, která už dvakrát pustila do provozní aplikace soukromou
+// poštu majitele: vlastní zprávy (from_me) obcházely whitelist. Testy jsou
+// napsané tak, aby spadly, kdyby se výjimka vrátila potřetí.
+// ---------------------------------------------------------------------------
+
+/** Brána, jakou má most doopravdy: objednávková skupina + jeden kontakt. */
+function provozniBrana() {
+  return buildGate({
+    allowedGroups: ['Objednávky pivovar'],
+    allowedContacts: ['Ala Milacek Milacek'],
+    senders: [{ sender_name: 'Objednávky pivovar', chat_id: '120363111111111111@g.us' }],
+  });
+}
+
+test('smiProjit: objednávka ze skupiny projde', () => {
+  const r = smiProjit(provozniBrana(), {
+    isGroup: true,
+    groupName: 'Objednávky pivovar',
+    chatId: '120363111111111111@g.us',
+  });
+  assert.equal(r.pustit, true);
+});
+
+test('smiProjit: majitelova vlastní zpráva ve skupině projde (podle skupiny, ne podle autora)', () => {
+  // Objednávka napsaná z vlastního telefonu do objednávkové skupiny — musí
+  // projít, a to BEZ jakékoli výjimky pro from_me. Kdyby procházela jen díky
+  // výjimce, propadla by s ní i soukromá pošta (viz další test).
+  const r = smiProjit(provozniBrana(), {
+    isGroup: true,
+    isOwn: true,
+    groupName: 'Objednávky pivovar',
+    chatId: '120363111111111111@g.us',
+  });
+  assert.equal(r.pustit, true);
+});
+
+test('smiProjit: soukromá zpráva mimo whitelist NEPROJDE, i když ji píše majitel', () => {
+  // ⚠️ Přesně tohle se stalo: do aplikace se nahrály všechny majitelovy
+  // zprávy včetně osobních konverzací, protože from_me obcházelo whitelist.
+  // `isOwn` se funkci předává, aby šlo doložit, že na rozhodnutí NEMÁ vliv —
+  // kdo tu výjimku vrátí, rozbije tenhle test.
+  const soukroma = { isGroup: false, senderName: 'Manželka', senderNumber: '420600111222' };
+
+  const cizi = smiProjit(provozniBrana(), soukroma);
+  assert.equal(cizi.pustit, false);
+  assert.match(cizi.duvod, /není povolený/);
+
+  const vlastni = smiProjit(provozniBrana(), { ...soukroma, isOwn: true });
+  assert.equal(vlastni.pustit, false, 'vlastní zpráva nesmí obejít whitelist');
+  assert.deepEqual(vlastni, cizi, 'from_me nesmí rozhodnutí nijak změnit');
+});
+
+test('smiProjit: povolený kontakt v soukromé zprávě projde', () => {
+  const r = smiProjit(provozniBrana(), {
+    isGroup: false,
+    senderName: 'Ala Milacek Milacek',
+    senderNumber: '420600333444',
+  });
+  assert.equal(r.pustit, true);
+});
+
+test('smiProjit: neznámá skupina neprojde', () => {
+  const r = smiProjit(provozniBrana(), {
+    isGroup: true,
+    groupName: 'Fotbal parta',
+    chatId: '120363999999999999@g.us',
+  });
+  assert.equal(r.pustit, false);
+  assert.match(r.duvod, /není povolená/);
+});
+
+test('smiProjit: přejmenovaná objednávková skupina projde podle chat_id', () => {
+  const r = smiProjit(provozniBrana(), {
+    isGroup: true,
+    groupName: 'Objednávky pivovar 2027',
+    chatId: '120363111111111111@g.us',
+  });
+  assert.equal(r.pustit, true);
+});
+
+test('smiProjit: prázdný whitelist pouští skupiny, ale NE soukromé zprávy', () => {
+  // „Prázdný seznam = povoleno vše" je zpětná kompatibilita kvůli skupinám.
+  // U konverzace jednoho s jedním by to znamenalo sypat do provozní appky
+  // osobní poštu, dokud si někdo nevzpomene whitelist vyplnit — nevyplněný
+  // whitelist je nedopatření, ne pokyn ke čtení všeho.
+  const brana = buildGate({});
+  assert.equal(brana.isEmpty, true);
+
+  const skupina = smiProjit(brana, { isGroup: true, groupName: 'Cokoliv', chatId: 'x@g.us' });
+  assert.equal(skupina.pustit, true);
+
+  const soukroma = smiProjit(brana, { isGroup: false, senderName: 'Kdokoliv', senderNumber: '420600555666' });
+  assert.equal(soukroma.pustit, false);
+  assert.match(soukroma.duvod, /prázdný whitelist/);
 });

@@ -415,7 +415,13 @@ Deno.serve(async (req: Request) => {
     // přejmenovat — chat_id je stabilní). Stejná pravidla jako DB trigger
     // (check_whatsapp_sender_allowed) a whatsapp-auto-parse.
     const chatAllowed = chatId !== "" && allowedChatIds.includes(chatId.toLowerCase());
-    if (!fromMe && senders.length > 0 && !senderRow && !chatAllowed) {
+    // POZOR: `fromMe` tu dřív bránu OBCHÁZELO a nahrálo do appky všechny
+    // majitelovy zprávy včetně soukromých. Objednávka z vlastního telefonu
+    // žádnou výjimku nepotřebuje — objednávková skupina je ve whitelistu,
+    // takže projde podle chat_id nebo názvu jako každá jiná zpráva z ní.
+    // `from_me` se dál UKLÁDÁ (aplikace podle něj zprávu odliší), jen už
+    // nerozhoduje o tom, jestli se uloží.
+    if (senders.length > 0 && !senderRow && !chatAllowed) {
       console.log(
         `[whatsapp-webhook] IGNOROVÁNO — odesílatel "${record.sender_name}" (chat_id="${chatId}") není v whitelistu.`
       );
