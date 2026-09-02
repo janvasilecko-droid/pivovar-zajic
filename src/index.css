@@ -97,6 +97,12 @@ html, body, #root {
   body {
     -webkit-user-select: none;
     user-select: none;
+    /* Na DOTYKU má dlouhé přidržení vlastní spínač. `user-select` řeší tažení
+       myší, ale prst podržený na textu vyvolá v Androidu i iOS nabídku
+       „Kopírovat / Vybrat vše" a lupu — a ta si gesto vezme, takže dlaždice
+       zůstane stát. Bez tohohle řádku se text při podržení pořád označoval,
+       přestože `user-select: none` platil. */
+    -webkit-touch-callout: none;
   }
   input,
   textarea,

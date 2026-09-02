@@ -416,6 +416,104 @@ export function moveTileToCell(layout: HomeLayout, id: TileId, targetX: number, 
   return { ...layout, overrides };
 }
 
+/**
+ * 🪄 Dlaždice uhnou tažené dlaždici z cesty.
+ *
+ * `moveTileToCell` řeší kolizi VÝMĚNOU: dlaždice, která na cílovém místě
+ * stojí, skočí tam, odkud tažená přišla. Na prohození dvou dlaždic to stačí,
+ * ale při skládání plochy je to k ničemu — člověk míří do konkrétního místa,
+ * ne aby si dvě dlaždice vyměnily role. A když je tažená dlaždice větší,
+ * překryje víc sousedů a vymění se jen jeden; ostatní by zůstaly pod ní.
+ *
+ * Tady místo toho každá zasažená dlaždice UHNE na nejbližší volnou pozici.
+ * Co v cestě nestojí, se nehne — plocha se nepřeskládá celá a mezery, které
+ * si někdo udělal schválně, zůstanou. (Volné rozmístění je záměr, viz
+ * poznámka u čtení pozic výš.)
+ *
+ * Pořadí: uhýbá se po jedné a každá další už počítá s tím, kam se posunula
+ * ta předchozí — dvě uhýbající dlaždice tedy nemůžou skončit na sobě.
+ * Když se pro některou volné místo nenajde (plocha je nacpaná), vrátí se
+ * `null` a volající zůstane u výměny.
+ */
+export function uvolniMisto(
+  layout: HomeLayout,
+  id: TileId,
+  targetX: number,
+  targetY: number,
+  cols: number,
+): HomeLayout | null {
+  const pageIndex = layout.pages.findIndex((p) => p.includes(id));
+  if (pageIndex < 0) return null;
+
+  const current = layout.overrides[id];
+  const w = widthCols(current?.w ?? DEFAULT_W);
+  const h = current?.h ?? DEFAULT_H;
+  const x = Math.max(0, Math.min(targetX, cols - w));
+  const y = Math.max(0, targetY);
+
+  type Obdelnik = { x: number; y: number; w: number; h: number };
+  const prekryv = (a: Obdelnik, b: Obdelnik) =>
+    a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
+  const pageTiles = layout.pages[pageIndex];
+  const overrides = { ...layout.overrides };
+
+  /** Kde která dlaždice stránky stojí (bez tažené). Mění se, jak uhýbají. */
+  const mista = new Map<TileId, Obdelnik>();
+  for (const jinaId of pageTiles) {
+    if (jinaId === id) continue;
+    const o = overrides[jinaId];
+    if (!o || typeof o.x !== 'number' || typeof o.y !== 'number') continue;
+    mista.set(jinaId, { x: o.x, y: o.y, w: widthCols(o.w ?? DEFAULT_W), h: o.h ?? DEFAULT_H });
+  }
+
+  const cil: Obdelnik = { x, y, w, h };
+  const zasazene = [...mista.entries()].filter(([, r]) => prekryv(r, cil));
+  if (zasazene.length === 0) {
+    // Nikdo v cestě nestojí — prosté položení.
+    if (current?.x === x && current?.y === y) return layout;
+    overrides[id] = { ...current, x, y };
+    return { ...layout, overrides };
+  }
+
+  // Kam až se smí uhýbat. Pod nejnižší dlaždici se vejde vždycky ještě jedna
+  // řada navíc, takže hledání nikdy neskončí jen proto, že je plno dole.
+  let maxY = y + h;
+  mista.forEach((r) => { maxY = Math.max(maxY, r.y + r.h); });
+  const dnoHledani = maxY + 2;
+
+  // Uhýbá se odshora dolů a zleva doprava — výsledek pak nezávisí na tom,
+  // v jakém pořadí jsou dlaždice uložené ve stránce.
+  zasazene.sort(([, a], [, z]) => (a.y - z.y) || (a.x - z.x));
+
+  for (const [uhybaId, puvodni] of zasazene) {
+    mista.delete(uhybaId); // sama sobě v cestě nestojí
+    let nejlepsi: Obdelnik | null = null;
+    let nejlepsiCena = Infinity;
+
+    for (let cy = 0; cy <= dnoHledani; cy++) {
+      for (let cx = 0; cx + puvodni.w <= cols; cx++) {
+        const kandidat = { x: cx, y: cy, w: puvodni.w, h: puvodni.h };
+        if (prekryv(kandidat, cil)) continue;
+        let volno = true;
+        mista.forEach((r) => { if (volno && prekryv(kandidat, r)) volno = false; });
+        if (!volno) continue;
+        // Nejbližší místo, svislý posun se počítá dvojnásob: uhnout vedle je
+        // pro oko menší zásah než skok o řadu jinam.
+        const cena = Math.abs(cy - puvodni.y) * 2 + Math.abs(cx - puvodni.x);
+        if (cena < nejlepsiCena) { nejlepsiCena = cena; nejlepsi = kandidat; }
+      }
+    }
+
+    if (!nejlepsi) return null; // nemá kam — ať se použije výměna
+    mista.set(uhybaId, nejlepsi);
+    overrides[uhybaId] = { ...(overrides[uhybaId] ?? {}), x: nejlepsi.x, y: nejlepsi.y };
+  }
+
+  overrides[id] = { ...current, x, y };
+  return { ...layout, overrides };
+}
+
 /** Posune dlaždici o jednu buňku daným směrem (záložní šipky v edit módu) — stejná logika (výměna při kolizi) jako moveTileToCell. */
 export function stepTileCell(layout: HomeLayout, id: TileId, direction: 'left' | 'right' | 'up' | 'down', cols: number): HomeLayout {
   const current = layout.overrides[id];
@@ -663,7 +761,14 @@ export function moveTileToPageCell(
   const naStrance = soucasnaStranka === targetPageIndex
     ? layout
     : moveTileToPage(layout, id, targetPageIndex);
-  return moveTileToCell(naStrance, id, targetX, targetY, cols);
+  // Přednost má UHÝBÁNÍ: dlaždice, které stojí v cestě, se posunou stranou a
+  // tažená sedne přesně tam, kam člověk mířil. Výměna zůstává jako záloha pro
+  // případ, že se pro některou uhýbající nenajde volné místo (nacpaná plocha)
+  // — pak je prohození pořád lepší než „nestalo se nic".
+  return (
+    uvolniMisto(naStrance, id, targetX, targetY, cols)
+    ?? moveTileToCell(naStrance, id, targetX, targetY, cols)
+  );
 }
 
 /** Strana, ke které se dlaždice při tažení dostala. */

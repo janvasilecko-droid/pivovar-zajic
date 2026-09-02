@@ -168,6 +168,14 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   const [draggingId, setDraggingId] = useState<TileId | null>(null);
   const [dragOverId, setDragOverId] = useState<TileId | null>(null);
   const [primingId, setPrimingId] = useState<TileId | null>(null);
+  // 🪄 Živý náhled uhýbání: rozložení, jak by vypadalo, kdyby se dlaždice
+  // pustila TEĎ. Ostatní se rozestoupí už během tažení, takže je vidět, kam
+  // to sedne — ne až po puštění.
+  //
+  // Tažená dlaždice si v náhledu DRŽÍ PŮVODNÍ pozici. Pod prstem ji posouvá
+  // `transform`, který se počítá vůči jejímu původnímu slotu; kdyby jí náhled
+  // změnil i slot, sečetlo by se to a dlaždice by prstu poskočila pryč.
+  const [nahledLayout, setNahledLayout] = useState<HomeLayout | null>(null);
   /** Buňka, na kterou dlaždice spadne, když prst pustíš — obrys pod ní. */
   const [dropCell, setDropCell] = useState<{ x: number; y: number } | null>(null);
   // Dlaždice, jejíž plný editor (velikost/barva/popisek/stránka/skrytí/skupina) je
@@ -215,6 +223,11 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // prohodit pořadí, žádné skutečně volné rozmístění). Když je cílová buňka
   // obsazená, obě dlaždice si prostě vymění místo (viz homeLayout.ts
   // moveTileToCell) — jinak leze dlaždice přesně tam, kam ukazuješ.
+  /**
+   * O kolik se musí prst pohnout, aby to bylo tažení a ne klepnutí.
+   * Pár pixelů je přirozený třes ruky; víc už je úmysl.
+   */
+  const PRAH_TAZENI = 6;
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFired = useRef(false);
   // Tažení mezi stránkami: obsluha myši/prstu běží v closure, takže by jinak
@@ -270,6 +283,18 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     // kulhala. Na jeden snímek stačí poslední známá pozice.
     let radek: number | null = null;
     let poslednePozice: { x: number; y: number } | null = null;
+    let nahledBunka: { x: number; y: number } | null = null;
+
+    /** Zvedne dlaždici „do ruky" — pohybem přes práh, nebo podržením na místě. */
+    function zvedni() {
+      if (longPressFired.current) return;
+      longPressFired.current = true;
+      if (longPressTimer.current) clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+      setPrimingId(null);
+      setDraggingId(id);
+      try { navigator.vibrate?.(15); } catch {}
+    }
 
     function zrusRadek() {
       if (radek !== null) cancelAnimationFrame(radek);
@@ -294,6 +319,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       setDraggingId(null);
       setDragOverId(null);
       setDropCell(null);
+      setNahledLayout(null);
     }
     // Držení u kraje = přetočit stránku a nechat dlaždici „v ruce". Po
     // přetočení se časovač nasadí znovu, takže držením u kraje se dá projít
@@ -322,11 +348,15 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     }
     function onMove(ev: PointerEvent) {
       if (!longPressFired.current) {
-        // Dokud se čeká na podržení, výraznější pohyb (přirozený třes prstu
-        // je pár px) = uživatel chtěl scrollovat/přejet, ne přesouvat —
-        // zrušit bez zásahu.
-        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) > 18) cleanup();
-        return;
+        // TAŽENÍ ZAČÍNÁ POHYBEM, ne čekáním. Dřív se muselo 400 ms držet
+        // bez hnutí a pohyb přes 18 px do té doby tažení ZRUŠIL — takže kdo
+        // dlaždici chytil a rovnou s ní jel (což je to, co člověk udělá),
+        // nedosáhl ničeho: dlaždice zůstala stát a nedalo se poznat proč.
+        //
+        // Práh je jen tak velký, aby se klepnutí (výběr dlaždice) neproměnilo
+        // v přesun o pixel — přirozený třes prstu je pár px.
+        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) > PRAH_TAZENI) zvedni();
+        else return;
       }
       // Dlaždice jde PLYNULE ZA PRSTEM, přesně jako ikona na ploše Androidu.
       // Mřížka se uplatní až při puštění a průběžně ji ukazuje obrys cílové
@@ -358,6 +388,19 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
         setDropCell((prev) =>
           prev?.x === cell?.x && prev?.y === cell?.y ? prev : cell,
         );
+
+        // Přepočítává se jen při přechodu mezi buňkami, ne při každém pixelu.
+        if (cell && (cell.x !== nahledBunka?.x || cell.y !== nahledBunka?.y)) {
+          nahledBunka = cell;
+          const puvodni = layoutRef.current.overrides[id];
+          const navrh = moveTileToPageCell(
+            layoutRef.current, id, pageIndexRef.current, cell.x, cell.y, cols,
+          );
+          setNahledLayout({
+            ...navrh,
+            overrides: { ...navrh.overrides, [id]: { ...navrh.overrides[id], x: puvodni?.x, y: puvodni?.y } },
+          });
+        }
         const overId = findTileIdAtPoint(p.x, p.y);
         const novyOver = overId && overId !== id ? overId : null;
         setDragOverId((prev) => (prev === novyOver ? prev : novyOver));
@@ -380,15 +423,12 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onUp);
     // "Nabíjecí" vizuální stav hned od dotyku (viz LauncherTile — jemné
-    // zvětšení, co roste po dobu čekání), ať je jasné, že se něco děje,
-    // ne až po plných 400ms ticha.
+    // zvětšení), ať je jasné, že dlaždice reaguje.
     setPrimingId(id);
-    longPressTimer.current = setTimeout(() => {
-      longPressFired.current = true;
-      setPrimingId(null);
-      setDraggingId(id);
-      try { navigator.vibrate?.(15); } catch {}
-    }, 400);
+    // Podržení na místě zvedne dlaždici i bez pohybu — je to druhá cesta,
+    // ne jediná. Hodí se, když si člověk chce dlaždici „vzít do ruky" a teprve
+    // pak se rozhodnout kam; bez toho by musel hned jet prstem.
+    longPressTimer.current = setTimeout(zvedni, 400);
   }
   // Volná velikost — +/- krok šířky nebo výšky (žádné pevné předvolby),
   // ať si uživatel důležité dlaždice zvětší a nedůležité zmenší podle sebe.
@@ -1344,10 +1384,12 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               )}
             />
           )}
+          {/* Během tažení se kreslí z náhledu — ostatní dlaždice v něm už
+              uhnuly. Mimo tažení je `nahledLayout` null a platí uložený stav. */}
           {/* 'signout' se nevykresluje — odhlášení je nahoře u šipek jako
               ikona. V uloženém rozložení zůstává, ať jde vrátit beze ztráty. */}
-          {(layout.pages[currentPageIndex] ?? []).filter((id) => id !== 'signout').map((id) => {
-            const override = layout.overrides[id] ?? {};
+          {((nahledLayout ?? layout).pages[currentPageIndex] ?? []).filter((id) => id !== 'signout').map((id) => {
+            const override = (nahledLayout ?? layout).overrides[id] ?? {};
             if (isGroupId(id)) {
               const group = layout.groups[id];
               if (!group) return null;

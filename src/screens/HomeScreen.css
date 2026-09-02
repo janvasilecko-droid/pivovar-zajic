@@ -245,6 +245,14 @@
 }
 
 .hs-tile {
+  /* Dlaždice se TÁHNE, nečte se z ní. Zákaz výběru i dotykové nabídky je tu
+     ještě jednou napřímo, i když totéž dědí z `body`: tohle je jediné místo
+     v appce, kde přidržení prstu MUSÍ znamenat „beru tě", a stačilo by jedno
+     přebíjející pravidlo někde po cestě, aby se místo přesunu zase označoval
+     popisek. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
   grid-column: span 3;
   border-radius: 12px;
   display: flex;
