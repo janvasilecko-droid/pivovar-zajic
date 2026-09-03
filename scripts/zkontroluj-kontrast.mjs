@@ -162,12 +162,30 @@ function pomer(a, b) {
 }
 
 /** Řetězce tříd ve zdrojáku — hledáme jen ty, co vypadají jako className. */
+/**
+ * Poloprůhledný podklad (`bg-white/10`) leží na rodiči, kterého skript
+ * nezná — a bez něj se kontrast spočítat nedá. Element proto může říct,
+ * na čem leží, komentářem těsně nad sebou:
+ *
+ *   {/* podklad: bg-neutral-900 *\/}
+ *   <div className="bg-white/10 text-white">…
+ *
+ * Je to i dokumentace pro člověka: „tenhle prvek počítá s tmavým rodičem".
+ * Když se rodič přebarví a komentář zůstane, kontrola začne hlásit chybu —
+ * což je přesně to, co se má stát.
+ */
+const DEKLAROVANY_PODKLAD = /podklad:\s*(bg-[\w[\]#./%-]+)/;
+
 function retezceTrid(text) {
   const nalezy = [];
   for (const m of text.matchAll(/['"`]([^'"`\n]{4,400})['"`]/g)) {
     const s = m[1];
     if (!/(^|\s)!?(?:dark:)?(?:bg|text)-[\w[\]#./%-]+(\s|$)/.test(s)) continue;
-    nalezy.push({ retezec: s, index: m.index });
+    // Hledá se v 300 znacích před řetězcem tříd, tedy zhruba v pár řádcích
+    // nad ním — dál už by to chytalo cizí komentáře.
+    const okoli = text.slice(Math.max(0, m.index - 300), m.index);
+    const d = okoli.match(DEKLAROVANY_PODKLAD);
+    nalezy.push({ retezec: s, index: m.index, deklarovanyPodklad: d ? d[1] : null });
   }
   return nalezy;
 }
@@ -236,12 +254,22 @@ function barvyProRezim(retezec, rezim) {
 const nalezy = [];
 for (const soubor of zdrojaky()) {
   const obsah = fs.readFileSync(soubor, 'utf8');
-  for (const { retezec, index } of retezceTrid(obsah)) {
+  for (const { retezec, index, deklarovanyPodklad } of retezceTrid(obsah)) {
     const radek = obsah.slice(0, index).split('\n').length;
     for (const rezim of ['svetly', 'tmavy']) {
       const { text, pozadi, tridaText, tridaPozadi } = barvyProRezim(retezec, rezim);
       if (!text || !pozadi) continue;
-      const podklad = nalozNaPodklad(pozadi, STRANKA[rezim]);
+      // Deklarovaný rodič (komentář „podklad: bg-…" nad prvkem) se použije
+      // místo pozadí stránky — jinak se poloprůhledná vrstva počítá proti
+      // bílé, což u prvku v tmavém modálu nesedí ani náhodou.
+      let zaklad = STRANKA[rezim];
+      let znamyRodic = false;
+      if (deklarovanyPodklad) {
+        const z = barvy.get(deklarovanyPodklad) || barvy.get(deklarovanyPodklad.replace(/^!/, ''));
+        const b = z && z.pozadi !== undefined ? barvaZDeklarace(z.pozadi, vars[rezim]) : null;
+        if (b) { zaklad = nalozNaPodklad(b, STRANKA[rezim]); znamyRodic = true; }
+      }
+      const podklad = nalozNaPodklad(pozadi, zaklad);
       const pismo = nalozNaPodklad(text, podklad);
       const p = pomer(pismo, podklad);
       const mez = velkePismo(retezec) ? MEZ_VELKE : MEZ;
@@ -253,7 +281,7 @@ for (const soubor of zdrojaky()) {
         // Poloprůhledný podklad leží na rodiči, kterého skript nezná — počítá
         // se přes pozadí stránky, což u prvků v tmavé hlavičce nesedí. Takové
         // nálezy se hlásí zvlášť a build kvůli nim nepadá.
-        jiste: pozadi[3] >= 0.8,
+        jiste: pozadi[3] >= 0.8 || znamyRodic,
       });
     }
   }

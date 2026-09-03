@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from './ui';
-import { Plus, Minus, CheckCircle2, Cylinder, RotateCcw } from 'lucide-react';
+import { Plus, Minus, CheckCircle2, RotateCcw } from 'lucide-react';
+import { IkonaSud } from './ikony';
 
 type KegReturnModalProps = {
   isOpen: boolean;
@@ -58,7 +59,7 @@ export function KegReturnModal({
                 className="flex items-center justify-between p-3 rounded bg-neutral-50 border border-neutral-200"
               >
                 <div className="flex items-center gap-2">
-                  <Cylinder size={18} className="text-amber-600" />
+                  <IkonaSud size={18} className="text-amber-600" />
                   <span className="font-display font-black text-sm text-neutral-900">
                     KEG {size}
                   </span>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { AlertTriangle, Ambulance, Ban, Beer as BeerIcon, BookOpen, Brush, Cable, Calculator, CheckCircle2, ClipboardList, Cog, Cylinder, Dna, Droplets, Eye, Factory, FileText, Flame, FlaskConical, Leaf, Package, Plug, ScrollText, Search, Settings, Shield, Shirt, ShowerHead, Snowflake, Sparkles, SprayCan, Thermometer, Truck, Warehouse, Wheat, Wind, Wrench, Zap } from 'lucide-react';
+import { AlertTriangle, Ambulance, Ban, Beer as BeerIcon, BookOpen, Brush, Cable, Calculator, CheckCircle2, ClipboardList, Cog, Dna, Droplets, Eye, Factory, FileText, Flame, FlaskConical, Leaf, Package, Plug, ScrollText, Search, Settings, Shield, Shirt, ShowerHead, Snowflake, Sparkles, SprayCan, Thermometer, Truck, Warehouse, Wheat, Wind, Wrench, Zap } from 'lucide-react';
 import { BrewingTroubleshootingDatabase } from '../components/BrewingTroubleshootingDatabase';
 import { BottlingLineMaintenance } from '../components/BottlingLineMaintenance';
 import { IkonaLahev, IkonaSud, IkonaVycep } from '../components/ikony';
@@ -381,7 +381,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
     { id: 'uskladneni', label: '2. Uskladnění surovin', icon: Factory },
     { id: 'varna', label: '3. Varna & Mláto', icon: Cog },
     { id: 'kvaseni', label: '4. Kvašení & Spílání', icon: Snowflake },
-    { id: 'staceni', label: '5. Stáčení & Myčka', icon: Cylinder },
+    { id: 'staceni', label: '5. Stáčení & Myčka', icon: IkonaSud },
     { id: 'expedice', label: '6. Expedice & Sklad', icon: Truck },
     { id: 'pravidla', label: 'Pravidla SVHP & Hygiena', icon: Shield },
   ];

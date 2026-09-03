@@ -67,7 +67,8 @@ export function TimerDoneAlertModal() {
           <X size={20} />
         </button>
 
-        {/* Animovaná ikona kotle / alarmu */}
+        {/* Animovaná ikona kotle / alarmu.
+            podklad: bg-neutral-900 — panel modálu výš. */}
         <div className="w-20 h-20 rounded-2xl bg-amber-500/20 border-2 border-amber-400 flex items-center justify-center text-amber-400 mb-4 animate-pulse relative">
           <BellRing size={40} className="animate-bounce" />
           <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-rose-600 text-white font-black text-xs flex items-center justify-center animate-ping" />

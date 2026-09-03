@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase, Beer, useRealtime } from '../lib/supabase';
 import { Spinner, EmptyState, Field } from '../components/ui';
-import { BookOpen, Calculator, Cylinder, FileText, Flame, FlaskConical, Check, CheckSquare, NotebookPen, Plus, Scale, Sliders, SprayCan, Truck, User, Wheat, Zap } from 'lucide-react';
+import { BookOpen, Calculator, FileText, Flame, FlaskConical, Check, CheckSquare, NotebookPen, Plus, Scale, Sliders, SprayCan, Truck, User, Wheat, Zap } from 'lucide-react';
 import { IkonaSud } from '../components/ikony';
 
 /**
@@ -472,7 +472,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
               : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
           }`}
         >
-          <Cylinder size={16} />
+          <IkonaSud size={16} />
           <span>Dotáčení KEG sudů</span>
         </button>
 
@@ -530,7 +530,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 card p-6 bg-white border border-neutral-200 rounded space-y-5 shadow-sm">
             <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-              <Cylinder className="text-amber-600" size={20} />
+              <IkonaSud className="text-amber-600" size={20} />
               <span>Kalkulačka potřebných sudů na stáčení z tanku</span>
             </h3>
 

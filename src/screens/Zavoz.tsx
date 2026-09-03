@@ -3,7 +3,7 @@ import { Beer, Package, Place, fetchAllRows, formatPackageLabel, supabase, useRe
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { orderWeightKg, fmtKg } from '../lib/weight';
 import { DAYS } from '../lib/shared';
-import { AlertTriangle, ArrowRightCircle, ArrowRightLeft, BarChart3, Bird, Calendar, CalendarDays, Car, Check, CheckCircle2, Cylinder, FileText, Map as MapIcon, MapPin, MessageCircle, Package as PackageIcon, PenTool, Pencil, Phone, Plus, Printer, Scale, Search, Share2, StickyNote, TreePine, Truck, Wine } from 'lucide-react';
+import { AlertTriangle, ArrowRightCircle, ArrowRightLeft, BarChart3, Bird, Calendar, CalendarDays, Car, Check, CheckCircle2, FileText, Map as MapIcon, MapPin, MessageCircle, Package as PackageIcon, PenTool, Pencil, Phone, Plus, Printer, Scale, Search, Share2, StickyNote, TreePine, Truck, Wine } from 'lucide-react';
 import { shareDeliveryListToWhatsApp } from '../lib/whatsapp';
 import { exportZavozToExcel } from '../lib/excel';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
@@ -20,6 +20,7 @@ import { zavibruj } from '../lib/haptika';
 import { UkolyObjednavky, UkolyDne } from '../components/ZavozUkoly';
 import { nactiHotoveUkoly, nastavUkolHotovo, klicUkolu } from '../lib/zavozUkolyDb';
 import type { UkolKlic } from '../lib/zavozUkoly';
+import { IkonaSud } from '../components/ikony';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -473,7 +474,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
             className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-sky-50 hover:bg-sky-100 transition text-left"
           >
             <span className="flex items-center gap-2 font-black text-sm text-sky-950">
-              <Cylinder size={16} className="text-sky-700" />
+              <IkonaSud size={16} className="text-sky-700" />
               Konto sudů — u odběratelů je {kegBalances.reduce((s, b) => s + b.total, 0)} prázdných KEGů
             </span>
             <span className="text-xs font-bold text-sky-800 shrink-0">
@@ -745,7 +746,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                   {loadingListBreakdown.kegs.length > 0 && (
                     <div>
                       <div className="flex items-center justify-between text-xs font-black uppercase tracking-wider text-neutral-900 mb-2.5 pb-1 border-b border-amber-200/80">
-                        <span className="flex items-center gap-1.5"><Cylinder size={14} className="text-amber-700" /> Sudy & Kegy</span>
+                        <span className="flex items-center gap-1.5"><IkonaSud size={14} className="text-amber-700" /> Sudy & Kegy</span>
                         <span className="font-mono text-neutral-950 bg-amber-200 px-2 py-0.5 rounded-md font-bold">{loadingListBreakdown.totalKegs} ks</span>
                       </div>
 
@@ -1096,7 +1097,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                     className="btn-ghost !rounded !py-1.5 !px-2.5 text-xs font-black flex items-center gap-1 bg-sky-50 text-sky-950 border border-sky-300 shadow-2xs hover:bg-sky-100"
                                     title="Zaznamenat vrácené prázdné KEG sudy"
                                   >
-                                    <Cylinder size={13} className="text-sky-700" /> Sudy
+                                    <IkonaSud size={13} className="text-sky-700" /> Sudy
                                   </button>
 
                                   {/* ✍️ Podpis zákazníka */}

@@ -4,7 +4,7 @@ import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, beerT
 import { EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { ImportBottlingFromImage } from '../components/ImportBottlingFromImage';
-import { AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Brush, Calendar, CalendarDays, Camera, Check, CheckCircle2, ClipboardList, Copy, Cylinder, Lightbulb, ListChecks, Megaphone, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Sparkles, Trash2, Wine, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Brush, Calendar, CalendarDays, Camera, Check, CheckCircle2, ClipboardList, Copy, Lightbulb, ListChecks, Megaphone, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Sparkles, Trash2, Wine, X } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { BottlingPlan, getPlanSeenAt, markPlanSeenAt, isPlanUnseen, isBottlingManager, setPlanStatus } from '../lib/bottlingPlans';
 import { BottlingPlanPlanner } from '../components/BottlingPlanPlanner';
@@ -1367,7 +1367,7 @@ export default function BottlingScreen({
                       : 'bg-white border-neutral-200 text-neutral-600'
                   }`}
                 >
-                  <Cylinder size={13} /> KEG
+                  <IkonaSud size={13} /> KEG
                 </button>
                 <button
                   type="button"

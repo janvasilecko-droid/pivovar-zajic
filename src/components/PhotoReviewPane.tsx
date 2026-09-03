@@ -208,6 +208,7 @@ export function PhotoReviewPane({ photos, activeIndex, onChangeIndex, activeBbox
         )}
       </div>
 
+      {/* podklad: bg-primary-900 — lišta pod fotkou. */}
       {photos.length > 1 && (
         <div className="flex items-center justify-center gap-3 py-2 bg-primary-900/80 shrink-0 z-10">
           <button

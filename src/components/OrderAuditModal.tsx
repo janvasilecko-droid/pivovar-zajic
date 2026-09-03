@@ -337,11 +337,14 @@ Skladové výpočty se tím rovnou přepočítají.`,
                   <h2 className="font-display font-black text-base sm:text-xl text-white tracking-tight">
                     Kontrola & Audit objednávek
                   </h2>
+                  {/* podklad: bg-amber-900 — hlavička modálu je tmavý přechod
+                      from-amber-950 via-amber-900 (viz obal výš). */}
                   {totalIssues === 0 && !loading && (
                     <span className="text-[11px] bg-emerald-500/30 text-emerald-300 border border-emerald-400/40 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
                       <ShieldCheck size={13} /> 100% V pořádku
                     </span>
                   )}
+                  {/* podklad: bg-amber-900 */}
                   {totalIssues > 0 && !loading && (
                     <span className="text-[11px] bg-rose-500/30 text-rose-300 border border-rose-400/40 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
                       <AlertTriangle size={12} /> {totalIssues} k prověření

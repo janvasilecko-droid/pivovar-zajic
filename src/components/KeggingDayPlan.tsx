@@ -15,9 +15,10 @@
 // Odškrtnutí se ukládá do kegging_plan_checks a s doloženým stavem se skládá
 // přes MAX — viz lib/keggingPlan.ts.
 import { useMemo, useState } from 'react';
-import { CalendarDays, Check, Cylinder, Beer, Truck, ChevronDown, ArrowRight, Search, X } from 'lucide-react';
+import { CalendarDays, Check, Beer, Truck, ChevronDown, ArrowRight, Search, X } from 'lucide-react';
 import type { DayPlan, PlanItem } from '../lib/keggingPlan';
 import { dayKeyFromISO, mergeWeekPlan } from '../lib/keggingPlan';
+import { IkonaSud } from './ikony';
 
 type Props = {
   plans: DayPlan[];
@@ -304,7 +305,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                         dalo trefit palcem. */}
                     <div className="flex items-start gap-3 p-3.5 pb-2.5">
                       <div className={`w-10 h-10 rounded grid place-items-center shrink-0 ${hotovo ? 'bg-emerald-700 text-white' : 'bg-amber-100 text-amber-700'}`}>
-                        {hotovo ? <Check size={20} /> : <Cylinder size={19} />}
+                        {hotovo ? <Check size={20} /> : <IkonaSud size={19} />}
                       </div>
 
                       <div className="flex-1 min-w-0">

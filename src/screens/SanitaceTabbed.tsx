@@ -5,15 +5,16 @@ import { ChecklistsScreen } from './BreweryScreens';
 import BottleSanitationDiary from '../components/BottleSanitationDiary';
 import KegSanitationDiary from '../components/KegSanitationDiary';
 import TapSanitationDiary from '../components/TapSanitationDiary';
-import { FlaskConical, Shield, CheckSquare, Wine, Cylinder, SlidersHorizontal } from 'lucide-react';
+import { FlaskConical, Shield, CheckSquare, Wine, SlidersHorizontal } from 'lucide-react';
 import { TabBar, type TabBarItem } from '../components/TabBar';
+import { IkonaSud, IkonaLahev } from '../components/ikony';
 
 type SanitaceTab = 'tanks' | 'lahve' | 'kegy' | 'vycepy' | 'haccp' | 'checklists';
 
 const TABS: (TabBarItem & { id: SanitaceTab })[] = [
   { id: 'tanks', label: 'Deník tanků & zařízení', icon: FlaskConical, color: '#4dabf7' },
-  { id: 'lahve', label: 'Deník lahví (stáčení)', icon: Wine, color: '#f5487f' },
-  { id: 'kegy', label: 'Deník KEGů (stáčení)', icon: Cylinder, color: '#ffa94d' },
+  { id: 'lahve', label: 'Deník lahví (stáčení)', icon: IkonaLahev, color: '#f5487f' },
+  { id: 'kegy', label: 'Deník KEGů (stáčení)', icon: IkonaSud, color: '#ffa94d' },
   { id: 'vycepy', label: 'Deník výčepů', icon: SlidersHorizontal, color: '#7c5cff' },
   { id: 'haccp', label: 'Sanitační postupy & Řád', icon: Shield, color: '#2f9e64' },
   { id: 'checklists', label: 'Check-listy & Návody', icon: CheckSquare, color: '#d4a017' },

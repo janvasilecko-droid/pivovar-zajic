@@ -15,7 +15,7 @@
  * takže tenhle stav je normální provoz, ne porucha.
  */
 import { useEffect, useState } from 'react';
-import { AlertTriangle, Check, Cylinder, Database, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Check, Database, RefreshCw } from 'lucide-react';
 // `fetchAllRows` se tu ZÁMĚRNĚ nepoužívá: oba dotazy mají malý pevný rozsah
 // (posledních 50 chyb, seznam migrací) a přehled diagnostiky nemá stahovat
 // desetitisíce řádků. Stránkování patří tam, kde se čtou VŠECHNY řádky.
@@ -30,6 +30,7 @@ import {
 import { spustFrontuTanku } from '../lib/tankFrontaBeh';
 import { oznam, potvrd } from '../lib/toast';
 import { litry } from '../lib/cisla';
+import { IkonaSud } from './ikony';
 
 type ChybaRadek = {
   id: string;
@@ -299,7 +300,7 @@ function TankFrontaBlok() {
   return (
     <div className="mt-6 pt-5 border-t border-neutral-200">
       <div className="flex items-center gap-2">
-        <Cylinder className="ikona-text" />
+        <IkonaSud className="ikona-text" />
         <span className="text-xs font-black uppercase tracking-wider text-neutral-700">Nedokončené odečty z tanků</span>
         <span className={`ml-auto px-2.5 py-0.5 rounded-full font-black text-[11px] ${fronta.length > 0 ? 'bg-amber-100 text-amber-950' : 'bg-emerald-100 text-emerald-900'}`}>
           {fronta.length > 0 ? `${fronta.length} čeká` : 'nic nečeká'}

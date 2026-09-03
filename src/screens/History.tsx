@@ -4,7 +4,7 @@ import { Spinner, EmptyState } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { orderWeightKg, fmtKg } from '../lib/weight';
 import { DAYS } from '../lib/shared';
-import { AlertOctagon, AlertTriangle, ArrowDown, ChevronDown, ChevronUp, ArrowDownRight, ArrowUp, ArrowUpRight, BarChart3, Beer as BeerIcon, Boxes, Building, Calendar, CheckCircle2, ChevronsUpDown, Clock, Cylinder, DollarSign, Download, Droplet, Eye, EyeOff, Filter, GitCompare, History as HistoryIcon, Maximize2, Minimize2, Package as PackageIcon, PartyPopper, Percent, PieChart as PieChartIcon, Printer, Receipt, Save, Search, ShieldAlert, ShoppingCart, Smartphone, Star, Store, TrendingDown, TrendingUp, Trophy, Truck, Undo2, X, Zap, type LucideIcon } from 'lucide-react';
+import { AlertOctagon, AlertTriangle, ArrowDown, ChevronDown, ChevronUp, ArrowDownRight, ArrowUp, ArrowUpRight, BarChart3, Beer as BeerIcon, Boxes, Building, Calendar, CheckCircle2, ChevronsUpDown, Clock, DollarSign, Download, Droplet, Eye, EyeOff, Filter, GitCompare, History as HistoryIcon, Maximize2, Minimize2, Package as PackageIcon, PartyPopper, Percent, PieChart as PieChartIcon, Printer, Receipt, Save, Search, ShieldAlert, ShoppingCart, Smartphone, Star, Store, TrendingDown, TrendingUp, Trophy, Truck, Undo2, X, Zap, type LucideIcon } from 'lucide-react';
 import { WeeklyOrderSummaryCard, WeeklyOrderItem, isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { PieChart as RePieChart, Pie, Cell, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { EditOrderModal } from '../components/EditOrderModal';
@@ -869,7 +869,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                 : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
             }`}
           >
-            <Cylinder size={16} />
+            <IkonaSud size={16} />
             <span><span className="sm:hidden">Cykly ({tankCycles.length})</span><span className="hidden sm:inline">Cykly tanků & Ztráty ({tankCycles.length})</span></span>
           </button>
 
@@ -1796,7 +1796,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
             <div className="flex items-center justify-between pb-3 border-b border-neutral-200">
               <div>
                 <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-                  <Cylinder size={20} className="text-amber-600" />
+                  <IkonaSud size={20} className="text-amber-600" />
                   <span>Detailní historie cyklů tanků</span>
                 </h3>
                 <p className="text-xs text-neutral-500 font-medium mt-0.5">Přehled stočeného objemu, sudů a procenta ztrát pro každý cyklus tanku</p>
