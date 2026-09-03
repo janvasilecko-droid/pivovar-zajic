@@ -33,4 +33,10 @@ npm run --silent zkontroluj-tridy
 echo "pre-commit: kontrola kontrastu…"
 npm run --silent zkontroluj-kontrast
 
+# Neplatný workflow je ještě tišší než spadlý test: GitHub ho zahodí celý,
+# nespustí ani jeden job a v seznamu běhů se místo jména ukáže cesta
+# k souboru. Nasazení tím stojí a nikde není vidět proč.
+echo "pre-commit: kontrola workflow…"
+npm run --silent zkontroluj-workflow
+
 echo "pre-commit: v pořádku"

@@ -244,8 +244,9 @@
    Když se jich nevejde víc, pásek se roluje vodorovně — plocha stojí. */
 .hs-fixed-row {
   position: relative; z-index: 1;
-  height: 84px;
+  height: 44px;
   display: flex;
+  align-items: stretch;
   gap: var(--hs-tile-gap, 4px);
   margin-bottom: var(--hs-tile-gap, 4px);
   overflow-x: auto;
@@ -254,16 +255,95 @@
   -ms-overflow-style: none;
 }
 .hs-fixed-row::-webkit-scrollbar { display: none; }
-/* V pásku neplatí sloupce mřížky — dlaždice mají vlastní minimální šířku,
-   ať se popisek („Vozidla — STK/známka") vešel a daly se odlišit od sebe. */
-.hs-fixed-row > .hs-tile {
+/* Upozornění v pásku jsou ŠTÍTKY NA JEDNU ŘÁDKU, ne dlaždice: ikona, text a
+   číslo vedle sebe. Pevných 84 px držel pásek i ve dnech, kdy nesvítí vůbec
+   nic — a to je většina dnů, takže se to místo ztrácelo denně. Na řádku
+   44 px se text vejde celý a je VĚTŠÍ než dřív (12 px místo 11), protože
+   popisek nemusí být na tři řádky ve sloupci pod ikonou.
+   Pásek si dál drží výšku, i když je prázdný — to je celý smysl (plocha se
+   pod ním nesmí posouvat, viz komentář výš). */
+.hs-fixed-row > .hs-tile,
+.hs-fixed-row > .hs-tile-alert:not(.hs-tile-wide):not(.hs-tile-large),
+.hs-fixed-row > .hs-tile-warn:not(.hs-tile-wide):not(.hs-tile-large) {
   grid-column: unset;
   flex: 0 0 auto;
-  min-width: 132px;
+  flex-direction: row !important;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 7px !important;
+  padding: 0 11px !important;
+  border-radius: 10px;
+  max-width: 62vw;
+}
+.hs-fixed-row > .hs-tile svg { width: 17px; height: 17px; }
+.hs-fixed-row > .hs-tile .hs-lbl,
+.hs-fixed-row > .hs-tile-alert:not(.hs-tile-wide):not(.hs-tile-large) .hs-lbl,
+.hs-fixed-row > .hs-tile-warn:not(.hs-tile-wide):not(.hs-tile-large) .hs-lbl {
+  font-size: 12px !important;
+  text-align: left !important;
+  -webkit-line-clamp: 1;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+/* Číslo je v řádku ZA textem, ne přilepené do rohu — na 44 px vysokém
+   štítku by roh přetínal popisek. */
+.hs-fixed-row > .hs-tile .hs-badge {
+  position: static;
+  top: auto;
+  right: auto;
+  flex: 0 0 auto;
 }
 @media (max-width: 640px) {
-  .hs-fixed-row { height: 74px; }
-  .hs-fixed-row > .hs-tile { min-width: 118px; }
+  .hs-fixed-row > .hs-tile,
+  .hs-fixed-row > .hs-tile-alert:not(.hs-tile-wide):not(.hs-tile-large),
+  .hs-fixed-row > .hs-tile-warn:not(.hs-tile-wide):not(.hs-tile-large) {
+    padding: 0 9px !important;
+    max-width: 78vw;
+  }
+  .hs-fixed-row > .hs-tile svg { width: 16px; height: 16px; }
+}
+
+/* 💡 Jednorázová nápověda ke gestům plochy (viz napovedy.ts). Je to řádek
+   nad mřížkou, který po odklepnutí zmizí navždy — proto smí plochu jednou
+   posunout dolů, na rozdíl od upozornění v pásku výš. */
+.hs-napoveda {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: var(--hs-tile-gap, 4px);
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(43, 36, 56, 0.12);
+  box-shadow: 0 2px 8px rgba(43, 36, 56, 0.1);
+  color: #2b2438;
+  font-size: 12px;
+  line-height: 1.3;
+}
+.hs-napoveda svg { flex-shrink: 0; }
+.hs-napoveda > span { flex: 1 1 auto; min-width: 0; }
+.hs-napoveda-ok {
+  flex: 0 0 auto;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  background: #2b2438;
+  color: #fff;
+  cursor: pointer;
+}
+.hs-napoveda-ok:active { transform: scale(0.97); }
+/* Tmavý režim — stejný postup jako u lišty výš: tmavé sklo, ne slabší bílý
+   závoj. Bílý podklad by v tmavém režimu svítil jako lampa nad plochou. */
+:root.dark .hs-napoveda {
+  background: rgba(15, 23, 42, 0.9);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: #f8fafc;
+}
+:root.dark .hs-napoveda-ok {
+  background: #f8fafc;
+  color: #1e293b;
 }
 
 .hs-tile {

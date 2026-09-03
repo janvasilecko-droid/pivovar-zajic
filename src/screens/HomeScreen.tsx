@@ -7,7 +7,7 @@
 // vozidla") a musí ho jednou potvrdit, pak zmizí (dokud se stav nezmění).
 import { useEffect, useMemo, useState, useRef } from 'react';
 import {
-  CalendarX2, Download, Check, ChevronLeft, ChevronRight, LogOut, Palette, Plus, Search, SlidersHorizontal, Trash2, TriangleAlert, X,
+  CalendarX2, CloudUpload, Download, Check, ChevronLeft, ChevronRight, Lightbulb, LogOut, Palette, Plus, Search, SlidersHorizontal, Trash2, TriangleAlert, X,
   Truck, ClipboardList, MessageCircle, PlusCircle, Snowflake, FlaskConical, CalendarDays, BarChart3, Package as PackageIcon, TrendingDown, GlassWater, BookOpen, Droplet, Car, FileText, ClipboardCheck, Shield, Store, Receipt, MapPin, Beer as BeerIcon, Tag, Sparkles, Compass, Wheat, Zap, ArrowLeftRight, StickyNote,
   AlarmClock, Play, Pause, RotateCcw, Pin, Radio, SkipForward, Flame, Sun, Settings, LayoutGrid,
 } from 'lucide-react';
@@ -47,6 +47,9 @@ import {
   getStopwatchState, saveStopwatchState, stopwatchElapsedMs, STOPWATCH_CHANGED_EVENT, type StopwatchState,
 } from '../lib/stopwatchTimers';
 import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
+import { vyhodnotGesto, rychlostPosunu } from '../lib/gestaPlochy';
+import { maSeZobrazit, oznacZobrazenou } from '../lib/napovedy';
+import { queueLength, onQueueChange } from '../lib/offline';
 import { isMonthlyCleanupPending, MONTHLY_CLEANUP_CHANGED_EVENT } from '../lib/monthlyCleanup';
 import { potvrd, oznam } from '../lib/toast';
 import { requestOrdersAutoImport } from '../lib/ordersFilter';
@@ -279,6 +282,23 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     const tileEl = el?.closest('[data-tile-id]') as HTMLElement | null;
     return (tileEl?.dataset.tileId as TileId | undefined) ?? null;
   }
+  /**
+   * Prvek, který plochu roluje (v Layout.tsx je to obal obsahu stránky).
+   * Hledá se od mřížky nahoru, ne podle třídy — třída v Layoutu se může
+   * přejmenovat a plocha by o rolování tiše přišla.
+   *
+   * `scrollHeight > clientHeight` je součást podmínky schválně: když se
+   * plocha vejde celá, není co posouvat a vrací se null.
+   */
+  function najdiRolovac(): HTMLElement | null {
+    let el = document.querySelector('.hs-grid')?.parentElement as HTMLElement | null;
+    while (el) {
+      const styl = getComputedStyle(el);
+      if (/(auto|scroll|overlay)/.test(styl.overflowY) && el.scrollHeight > el.clientHeight + 1) return el;
+      el = el.parentElement;
+    }
+    return null;
+  }
   function handleTileDragPointerDown(id: TileId, e: React.PointerEvent) {
     const startX = e.clientX;
     const startY = e.clientY;
@@ -300,6 +320,11 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     let radek: number | null = null;
     let poslednePozice: { x: number; y: number } | null = null;
     let nahledBunka: { x: number; y: number } | null = null;
+    /** Rolující obal plochy a jeho poloha při zvednutí dlaždice. */
+    let rolovac: HTMLElement | null = null;
+    let scrollPriZvednuti = 0;
+    /** Vlastní snímková smyčka samoposunu (běží i když prst stojí). */
+    let posunRadek: number | null = null;
 
     /** Zvedne dlaždici „do ruky" — pohybem přes práh, nebo podržením na místě. */
     function zvedni() {
@@ -310,11 +335,20 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       setPrimingId(null);
       setDraggingId(id);
       try { navigator.vibrate?.(15); } catch {}
+      rolovac = najdiRolovac();
+      scrollPriZvednuti = rolovac?.scrollTop ?? 0;
+      // Samoposun musí mít VLASTNÍ smyčku, ne se svézt na `pointermove`:
+      // když prst dojede k dolní hraně a zastaví se (což je právě to gesto
+      // „posuň mi plochu"), žádné další události nechodí a bez téhle smyčky
+      // by se plocha ani nehnula.
+      if (rolovac && posunRadek === null) posunRadek = requestAnimationFrame(smyckaPosunu);
     }
 
     function zrusRadek() {
       if (radek !== null) cancelAnimationFrame(radek);
       radek = null;
+      if (posunRadek !== null) cancelAnimationFrame(posunRadek);
+      posunRadek = null;
       poslednePozice = null;
     }
 
@@ -362,6 +396,75 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
         edgeTimer.current = setTimeout(pretoc, 700);
       }, 500);
     }
+    /**
+     * Jeden překreslovací krok tažení: posun dlaždice pod prst, obrys cílové
+     * buňky, náhled uhýbání a hlídání okrajů. Volá se ze snímku po pohybu
+     * prstu A po každém samoposunu — po posunu plochy totiž prst míří na
+     * jinou buňku, i když se sám nepohnul.
+     */
+    function prekresli() {
+      const p = poslednePozice;
+      if (!p || !longPressFired.current) return;
+
+      // Posun se zapisuje PŘÍMO DO DOM, ne přes stav Reactu — překreslovat
+      // kvůli pohybu prstu všech ~26 dlaždic znamenalo, že dlaždice za
+      // prstem viditelně kulhala.
+      //
+      // K posunu prstu se přičítá, o kolik se mezitím odrolovala plocha:
+      // dlaždice sedí V rolovaném obsahu, takže by se jinak při samoposunu
+      // prstu vysmekla a odjela s obsahem nahoru.
+      const el = document.querySelector(`.hs-grid [data-tile-id="${id}"]`) as HTMLElement | null;
+      if (el) {
+        const nascrollovano = rolovac ? rolovac.scrollTop - scrollPriZvednuti : 0;
+        el.style.transform = `translate(${p.x - startX}px, ${p.y - startY + nascrollovano}px) scale(1.08)`;
+      }
+
+      // Do stavu Reactu jde jen to, co se MĚNÍ SKOKEM — cílová buňka a
+      // zvýraznění dlaždice pod prstem. Díky tomu se překresluje jen při
+      // přechodu mezi buňkami, ne při každém pixelu.
+      const cell = cellFromPoint(p.x, p.y);
+      setDropCell((prev) =>
+        prev?.x === cell?.x && prev?.y === cell?.y ? prev : cell,
+      );
+
+      // Přepočítává se jen při přechodu mezi buňkami, ne při každém pixelu.
+      if (cell && (cell.x !== nahledBunka?.x || cell.y !== nahledBunka?.y)) {
+        nahledBunka = cell;
+        const puvodni = layoutRef.current.overrides[id];
+        const navrh = moveTileToPageCell(
+          layoutRef.current, id, pageIndexRef.current, cell.x, cell.y, cols,
+        );
+        setNahledLayout({
+          ...navrh,
+          overrides: { ...navrh.overrides, [id]: { ...navrh.overrides[id], x: puvodni?.x, y: puvodni?.y } },
+        });
+      }
+      const overId = findTileIdAtPoint(p.x, p.y);
+      const novyOver = overId && overId !== id ? overId : null;
+      setDragOverId((prev) => (prev === novyOver ? prev : novyOver));
+      sledujOkraj(p.x);
+    }
+
+    /**
+     * Držení dlaždice u horní/dolní hrany posouvá plochu — svislý dvojník
+     * přetáčení stránek u levého a pravého kraje. V edit módu mají dlaždice
+     * `touch-action: none`, takže prstem položeným na dlaždici se rolovat
+     * nedá a bez tohohle se s dlaždicí v ruce nedalo dostat na část plochy
+     * pod displejem.
+     */
+    function smyckaPosunu() {
+      posunRadek = requestAnimationFrame(smyckaPosunu);
+      const p = poslednePozice;
+      if (!p || !longPressFired.current || !rolovac) return;
+      const rychlost = rychlostPosunu(p.y, rolovac.getBoundingClientRect());
+      if (rychlost === 0) return;
+      const pred = rolovac.scrollTop;
+      rolovac.scrollTop = pred + rychlost;
+      // Na začátku ani na konci se nic nestalo — nemá cenu překreslovat.
+      if (rolovac.scrollTop === pred) return;
+      prekresli();
+    }
+
     function onMove(ev: PointerEvent) {
       if (!longPressFired.current) {
         // TAŽENÍ ZAČÍNÁ POHYBEM, ne čekáním. Dřív se muselo 400 ms držet
@@ -386,41 +489,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       if (radek !== null) return;
       radek = requestAnimationFrame(() => {
         radek = null;
-        const p = poslednePozice;
-        if (!p || !longPressFired.current) return;
-
-        // Posun se zapisuje PŘÍMO DO DOM, ne přes stav Reactu — překreslovat
-        // kvůli pohybu prstu všech ~26 dlaždic znamenalo, že dlaždice za
-        // prstem viditelně kulhala.
-        const el = document.querySelector(`.hs-grid [data-tile-id="${id}"]`) as HTMLElement | null;
-        if (el) {
-          el.style.transform = `translate(${p.x - startX}px, ${p.y - startY}px) scale(1.08)`;
-        }
-
-        // Do stavu Reactu jde jen to, co se MĚNÍ SKOKEM — cílová buňka a
-        // zvýraznění dlaždice pod prstem. Díky tomu se překresluje jen při
-        // přechodu mezi buňkami, ne při každém pixelu.
-        const cell = cellFromPoint(p.x, p.y);
-        setDropCell((prev) =>
-          prev?.x === cell?.x && prev?.y === cell?.y ? prev : cell,
-        );
-
-        // Přepočítává se jen při přechodu mezi buňkami, ne při každém pixelu.
-        if (cell && (cell.x !== nahledBunka?.x || cell.y !== nahledBunka?.y)) {
-          nahledBunka = cell;
-          const puvodni = layoutRef.current.overrides[id];
-          const navrh = moveTileToPageCell(
-            layoutRef.current, id, pageIndexRef.current, cell.x, cell.y, cols,
-          );
-          setNahledLayout({
-            ...navrh,
-            overrides: { ...navrh.overrides, [id]: { ...navrh.overrides[id], x: puvodni?.x, y: puvodni?.y } },
-          });
-        }
-        const overId = findTileIdAtPoint(p.x, p.y);
-        const novyOver = overId && overId !== id ? overId : null;
-        setDragOverId((prev) => (prev === novyOver ? prev : novyOver));
-        sledujOkraj(p.x);
+        prekresli();
       });
     }
     function onUp(ev: PointerEvent) {
@@ -470,9 +539,21 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     if (!start || editMode) return;
     const dx = e.clientX - start.x;
     const dy = e.clientY - start.y;
-    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-    if (dx < 0) setCurrentPageIndex((i) => Math.min(layout.pages.length - 1, i + 1));
-    else setCurrentPageIndex((i) => Math.max(0, i - 1));
+    // Tah dolů od horního konce plochy otevře hledání (jako Spotlight na
+    // telefonu). Při 23 dlaždicích je napsat tři písmena často rychlejší než
+    // hledat očima, ale dosud to znamenalo najít prstem ikonu lupy nahoře —
+    // tedy přehmátnout z palce na druhou ruku. Podmínka „jsme na vrcholu"
+    // je nutná, jinak by prst, kterým člověk roluje zpátky nahoru, hledání
+    // otvíral pořád (viz gestaPlochy.ts).
+    const rolovac = najdiRolovac();
+    const naVrcholu = (rolovac?.scrollTop ?? 0) <= 2;
+    const gesto = vyhodnotGesto(dx, dy, naVrcholu);
+    if (gesto === 'stranka-dalsi') setCurrentPageIndex((i) => Math.min(layout.pages.length - 1, i + 1));
+    else if (gesto === 'stranka-predchozi') setCurrentPageIndex((i) => Math.max(0, i - 1));
+    else if (gesto === 'hledat') {
+      try { navigator.vibrate?.(10); } catch {}
+      setShowSearchModal(true);
+    }
   }
   function handleRecolor(id: TileId, color: string) {
     persist({ ...layout, overrides: { ...layout.overrides, [id]: { ...layout.overrides[id], color } } });
@@ -962,6 +1043,23 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     return () => window.removeEventListener(MONTHLY_CLEANUP_CHANGED_EVENT, recheck);
   }, []);
 
+  // Offline fronta — kolik zápisů čeká na odeslání do cloudu. Zápisy bez
+  // signálu se ukládají do prohlížeče a odešlou se samy, jen to dosud nikde
+  // nesvítilo: kolik jich čeká poznal jen ten, kdo otevřel Nastavení. Když
+  // se telefon dlouho nepotká se sítí (nebo synchronizace tiše padá), je to
+  // nejdřív vidět tady, ne až tím, že data někde nejsou.
+  const [frontaCeka, setFrontaCeka] = useState(() => { try { return queueLength(); } catch { return 0; } });
+  useEffect(() => onQueueChange((n) => setFrontaCeka(n)), []);
+
+  // Jednorázová nápověda na dvě věci, které se nedají uhádnout: přidržení
+  // dlaždice (rychlé akce) a tah dolů (hledání). Ukáže se jednou a po
+  // odklepnutí už nikdy — viz napovedy.ts.
+  const [ukazNapovedu, setUkazNapovedu] = useState(() => maSeZobrazit('plocha-gesta'));
+  function zavriNapovedu() {
+    oznacZobrazenou('plocha-gesta');
+    setUkazNapovedu(false);
+  }
+
   const editingGroup = editingTileId && isGroupId(editingTileId) ? layout.groups[editingTileId] : null;
   const editingItem = editingTileId && !isGroupId(editingTileId)
     ? (navById.get(editingTileId as Page) ?? (isCountdownId(editingTileId) ? ({ id: editingTileId as any, label: countdowns.find((c) => c.id === editingTileId.slice(3))?.label ?? 'Odpočet', icon: AlarmClock, group: 'Nástroje' as const } as NavItem) : null))
@@ -1448,7 +1546,37 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   <div className="hs-lbl">Měsíční úklid — checklist</div>
                 </button>
               )}
+              {/* ☁️ Zápisy pořízené bez signálu čekají ve frontě v prohlížeči.
+                  Odešlou se samy, ale dokud čekají, nejsou v cloudu ani pro
+                  nikoho jiného — a to dosud bylo vidět jen v Nastavení. */}
+              {frontaCeka > 0 && (
+                <button
+                  type="button"
+                  className="hs-tile hs-tile-warn vlastni-vyska"
+                  onClick={() => setPage('app_settings')}
+                  title={`${frontaCeka} zápisů čeká na odeslání do cloudu. Odešlou se samy, jakmile bude signál — v Nastavení jdou odeslat ručně.`}
+                >
+                  <div className="hs-tile-icon-box">
+                    <CloudUpload />
+                  </div>
+                  <div className="hs-lbl">Čeká na odeslání</div>
+                  <span className="hs-badge">{frontaCeka > 99 ? '99+' : frontaCeka}</span>
+                </button>
+              )}
         </div>
+
+        {/* 💡 Jednorázová nápověda. Ukáže se jednou v životě plochy a po
+            odklepnutí zmizí navždy — trvalý pruh s tipem je po druhém dni
+            šum a zabíral by místo přesně tam, kde ho je nejmíň. */}
+        {ukazNapovedu && !editMode && (
+          <div className="hs-napoveda">
+            <Lightbulb size={16} aria-hidden="true" />
+            <span>
+              <b>Přidrž dlaždici</b> — otevřou se rychlé akce. <b>Táhni dolů</b> — otevře se hledání.
+            </span>
+            <button type="button" onClick={zavriNapovedu} className="hs-napoveda-ok">Rozumím</button>
+          </div>
+        )}
 
         <div className={`hs-grid ${draggingId ? 'hs-mrizka-viditelna' : ''}`} style={{ ['--hs-tile-alpha' as any]: layout.tileOpacity, ['--hs-tile-gap' as any]: `${layout.tileGap}px`, ['--hs-sloupcu' as any]: cols, ['--hs-radek' as any]: `${rowHeight}px` }}>
           {/* Obrys buňky, kam dlaždice spadne. Kreslí se ve stejné velikosti

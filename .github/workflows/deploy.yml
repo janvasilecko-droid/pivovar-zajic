@@ -60,6 +60,13 @@ jobs:
       - name: Kontrola kontrastu
         run: npm run zkontroluj-kontrast
 
+      # Kontrola workflow souborů. Tady je to jen pojistka pro budoucí změny
+      # — neplatný workflow se totiž nespustí VŮBEC, takže tenhle krok by
+      # u něj nikdy neproběhl. Hlavní místo, kde se to musí chytit, je hook
+      # před commitem (.githooks/pre-commit).
+      - name: Kontrola workflow
+        run: npm run zkontroluj-workflow
+
   build-and-deploy:
     runs-on: ubuntu-latest
     needs: test
@@ -235,11 +242,26 @@ jobs:
 
       # Volitelně i do WhatsAppu. Bez klíčů se krok přeskočí, ne že spadne —
       # upozornění na selhání nemá selhat kvůli chybějícímu nastavení.
+      #
+      # POZOR: `secrets` se v `if:` použít NESMÍ. GitHub kontroluje výrazy už
+      # při čtení souboru a workflow s `secrets.X` v `if` celý zahodí jako
+      # neplatný — nespustí se ani jeden job, jen se běh objeví červený a
+      # bez jobů. Přesně tohle tady jednou stálo dvě nasazení. Klíč se proto
+      # předá do `env` (tam povolený je) a prázdnota se ověří v shellu;
+      # v `if` zůstanou jen `vars`.
       - name: Napsat do WhatsApp skupiny (jen když je nastaveno)
-        if: ${{ secrets.SEND_TOKEN != '' && vars.BRIDGE_URL != '' && vars.BRIDGE_CHAT_ID != '' }}
+        if: ${{ vars.BRIDGE_URL != '' && vars.BRIDGE_CHAT_ID != '' }}
         continue-on-error: true
+        env:
+          SEND_TOKEN: ${{ secrets.SEND_TOKEN }}
+          BRIDGE_URL: ${{ vars.BRIDGE_URL }}
+          BRIDGE_CHAT_ID: ${{ vars.BRIDGE_CHAT_ID }}
         run: |
-          curl -sS -m 20 -X POST "${{ vars.BRIDGE_URL }}/send" \
+          if [ -z "$SEND_TOKEN" ]; then
+            echo "SEND_TOKEN není nastaven — WhatsApp hlášku přeskakuji (issue výš přišlo)."
+            exit 0
+          fi
+          curl -sS -m 20 -X POST "$BRIDGE_URL/send" \
             -H "Content-Type: application/json" \
-            -H "x-send-token: ${{ secrets.SEND_TOKEN }}" \
-            -d "{\"chatId\":\"${{ vars.BRIDGE_CHAT_ID }}\",\"text\":\"Nasazení pivovarské aplikace SELHALO (běh #${{ github.run_number }}). Na webu zustala predchozi verze.\"}"
+            -H "x-send-token: $SEND_TOKEN" \
+            -d "{\"chatId\":\"$BRIDGE_CHAT_ID\",\"text\":\"Nasazeni pivovarske aplikace SELHALO (beh #${{ github.run_number }}). Na webu zustala predchozi verze.\"}"

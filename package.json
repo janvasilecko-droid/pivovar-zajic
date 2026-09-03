@@ -12,6 +12,7 @@
     "test": "vitest",
     "zkontroluj-tridy": "node scripts/zkontroluj-tridy.mjs",
     "zkontroluj-kontrast": "node scripts/zkontroluj-kontrast.mjs",
+    "zkontroluj-workflow": "node scripts/zkontroluj-workflow.mjs",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
     "test:watch": "vitest --watch"

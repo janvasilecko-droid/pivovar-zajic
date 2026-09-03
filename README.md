@@ -65,6 +65,14 @@ git config core.hooksPath .githooks   # jednou na každém klonu
 
 Když potřebuješ commitnout rozpracované, `git commit --no-verify`.
 
+Hook pouští i `zkontroluj-workflow`. Ten hlídá chybu, která je ještě tišší než
+spadlý test: GitHub kontroluje výrazy `${{ }}` už při čtení workflow souboru, a
+když v nich najde kontext, který na daném místě nesmí být (typicky `secrets`
+ve `if:`), **zahodí celý soubor** — běh se objeví červený, bez jediného jobu, a
+v seznamu se místo jména workflow ukáže cesta k souboru. Soubor je přitom
+platné YAML, takže ověření YAML tuhle chybu nenajde. `secrets` patří do `env:`,
+`with:` nebo `run:`; ve `if:` smí být jen `vars`.
+
 ## Databázové migrace
 
 Migrace jsou v `supabase/migrations/`. Na produkci se pouští přes Management

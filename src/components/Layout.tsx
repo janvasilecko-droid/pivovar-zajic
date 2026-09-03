@@ -20,6 +20,7 @@ import { QuickSearchModal } from './QuickSearchModal';
 import { isAdminEmail } from '../lib/config';
 import { BugReportModal } from './BugReportModal';
 import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
+import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
 import { SCENES, DEFAULT_DOCK, hexToRgba, COLOR_HEX, type Scene, type TileColor } from '../lib/homeLayout';
 import { zavibruj } from '../lib/haptika';
 import { IkonaSud, IkonaLahev, IkonaVycep } from './ikony';
@@ -188,6 +189,12 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   // Banner "offline → zobrazená data nemusí být aktuální" (událost z supabase.ts serveCached).
   const [showStaleBanner, setShowStaleBanner] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
+  // Nová verze appky — lišta nad obsahem na každé obrazovce (viz níže).
+  // `zavrenaVerze` si pamatuje, kterou verzi uživatel odklepl: až přijde
+  // další, lišta se ozve znovu.
+  const [novaVerze, setNovaVerze] = useState<VersionInfo | null>(null);
+  const [zavrenaVerze, setZavrenaVerze] = useState<string | null>(null);
+  useEffect(() => onNewVersion((info) => setNovaVerze(info)), []);
   // Předchozí navštívená obrazovka — dlouhý stisk na spodní liště se na ni
   // vrátí. Přeskakování mezi dvěma místy (třeba Závoz ↔ Objednávky) je
   // v provozu nejčastější pohyb a přes menu je to pokaždé tři klepnutí.
@@ -258,6 +265,18 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setShowSearchModal((prev) => !prev);
+        return;
+      }
+      // Samotné „/" otevře hledání — na klávesnici je to jedna klávesa místo
+      // dvou a na české klávesnici se Ctrl+K mačká přes Shift+7… zkrátka
+      // rychleji. Nesmí to ale střílet, když člověk zrovna píše: ve
+      // vstupních polích, v textarea ani v editovatelném prvku ne.
+      if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const cil = e.target as HTMLElement | null;
+        const tag = cil?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || cil?.isContentEditable) return;
+        e.preventDefault();
+        setShowSearchModal(true);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -647,6 +666,38 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
       )}
 
       <main className="flex-1 min-w-0 flex flex-col h-screen overflow-hidden text-neutral-900">
+        {/* Nová verze — LIŠTA NA KAŽDÉ OBRAZOVCE, ne jen dlaždice na Domů.
+            Dlaždice tam zůstává, ale kdo pracuje v Objednávkách nebo ve
+            Stáčení, na Domů se za celou směnu nedostane a o aktualizaci se
+            nedozví — projevilo se to tím, že „appka nechce aktualizovat",
+            přitom nová verze čekala. Lišta je záměrně MIMO hlavičku
+            (hlavička se na Domů a na záložkových stránkách vůbec nekreslí)
+            a nechá se zavřít; do příštího spuštění nebo příští verze pak
+            mlčí. Aktualizace je vždy klik uživatele — nikdy se sama
+            nereloaduje rozdělaná obrazovka (viz versionCheck.ts). */}
+        {novaVerze && novaVerze.version !== zavrenaVerze && (
+          <div className="shrink-0 flex items-center gap-2 px-3 sm:px-8 py-1.5 bg-amber-100 border-b border-amber-300 text-amber-950">
+            <Download size={15} className="shrink-0" />
+            <p className="text-[12px] font-bold leading-snug flex-1 min-w-0 truncate">
+              Nová verze v{novaVerze.version} je k dispozici
+            </p>
+            <button
+              type="button"
+              onClick={() => { void forceRefresh(); }}
+              className="shrink-0 px-3 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[12px] transition"
+            >
+              Aktualizovat
+            </button>
+            <button
+              type="button"
+              onClick={() => setZavrenaVerze(novaVerze.version)}
+              aria-label="Zavřít upozornění na novou verzi"
+              className="shrink-0 p-1 rounded hover:bg-amber-200/70 text-amber-900/80 hover:text-amber-950 transition"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        )}
         {/* Barevné pozadí (scéna) — dřív jen na Domů, teď na všech
             stránkách, ať appka vypadá jednotně (viz homeScene/customAccent
             výše, nastavuje se v HomeScreen.tsx "Upravit rozložení" → POZADÍ). */}
