@@ -639,6 +639,41 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     setEntryRows(emptyRows()); setNote(''); setErr(null);
     setFlash(true); setTimeout(() => setFlash(false), 800);
     load(true);
+
+    // ↩️ Vrátit zpět i po ULOŽENÍ, ne jen po smazání. Nebezpečný překlep je
+    // ten, který něco PŘIDÁ: omylem uložené stočení přičte sudy do skladu
+    // A ubere pivo z tanku, a najde se to až u inventury.
+    //
+    // Vrací se OBOJÍ — řádky i objem do tanku, přesně opačně, než se to
+    // právě provedlo (deductByTank). Půlka vrácení by byla horší než žádné.
+    const kusuCelkem = payloads.reduce((a, p) => a + Number(p.quantity), 0);
+    const vraceniTanku = [...deductByTank.entries()];
+    toastZpet(
+      `Uloženo ${payloads.length} ${payloads.length === 1 ? 'řádek' : 'řádky'} — ${kusuCelkem} ks.`,
+      async () => {
+        for (const p of payloads) {
+          const { data: nalezene } = await supabase
+            .from('kegging')
+            .select('id')
+            .eq('entry_date', p.entry_date)
+            .eq('beer_id', p.beer_id)
+            .eq('package_id', p.package_id)
+            .eq('quantity', p.quantity)
+            .order('created_at', { ascending: false })
+            .limit(1);
+          const id = ((nalezene as any[]) ?? [])[0]?.id;
+          if (id) {
+            const { error: chybaMazani } = await supabase.from('kegging').delete().eq('id', id);
+            if (chybaMazani) throw chybaMazani;
+          }
+        }
+        for (const [tankId, odectenoL] of vraceniTanku) {
+          await adjustTankVolume(tankId, odectenoL);
+        }
+        load(true);
+      },
+    );
+
     setShowEndConfirm(true);
   }
 
@@ -814,12 +849,25 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     load(true);
   }
 
-  // Smazání přefuku — sklad se vrátí do stavu před přefukem
+  // Smazání přefuku — sklad se vrátí do stavu před přefukem.
+  //
+  // Bez modálu, stejně jako mazání zápisu stáčení výš: akce je VRATNÁ, tak
+  // se udělá hned a pár vteřin se nabídne návrat. Ptát se předem na něco,
+  // co jde vzít zpět, je klepnutí navíc pokaždé — i tomu, kdo se nespletl —
+  // a nic to nechrání.
   async function deletePrefuk(id: string) {
-    if (!(await potvrd('Smazat tento přefuk? Sklad se vrátí do původního stavu.'))) return;
+    const row = prefukRows.find((r) => r.id === id);
     const { error } = await supabase.from('keg_prefuk').delete().eq('id', id);
     if (error) { chyba('Chyba při mazání: ' + error.message); return; }
     load(true);
+    if (!row) return;
+
+    zavibruj('odskrtnuto');
+    toastZpet('Přefuk smazán.', async () => {
+      const { error: chybaVraceni } = await supabase.from('keg_prefuk').insert(row);
+      if (chybaVraceni) throw chybaVraceni;
+      load(true);
+    });
   }
 
   return (

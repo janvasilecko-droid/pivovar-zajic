@@ -10,7 +10,8 @@ import { TapReservationModal } from '../components/TapReservationModal';
 import { detectTapType } from '../lib/tapReservations';
 import type { TapReservation } from './VycepyScreen';
 import { BeerTileGrid, BeerTilePanel, TileTotalBar } from '../components/BeerTileGrid';
-import { chyba, toastZpet } from '../lib/toast';
+import { chyba, potvrd, toastZpet } from '../lib/toast';
+import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { zavibruj } from '../lib/haptika';
 
 // Tři podoby jednoho výdeje ze skladu — formulář je pořád stejný, mění se
@@ -222,6 +223,19 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
     }
     const filled = entryRows.filter((r) => r.beerId && r.pkgId && Number(r.qty) > 0);
     if (filled.length === 0) { setErr('Vyplň alespoň jeden řádek (pivo, obal a množství).'); return; }
+
+    // Přehmat o řád (12 → 120) — stejná pojistka jako ve Stáčení KEG
+    // a v Lahvích. Výdej a odpis hýbou skladem úplně stejně, takže tady
+    // chyběla bez důvodu. Neblokuje: velká akce je legitimní, jen se zeptá.
+    for (const r of filled) {
+      const historie = rows
+        .filter((x) => x.beer_id === r.beerId && x.package_id === r.pkgId)
+        .map((x) => Number(x.quantity || 0));
+      const popis = `${beers.find((b) => b.id === r.beerId)?.name ?? 'Pivo'} · ${packages.find((p) => p.id === r.pkgId)?.label ?? 'obal'}`;
+      const dotaz = podezreleMnozstvi(Number(r.qty), historie, popis);
+      if (dotaz && !(await potvrd(dotaz, { titulek: 'Zkontrolujte množství', potvrdit: 'Ano, uložit' }))) return;
+    }
+
     setSaving(true);
 
     // Tabulka `writeoffs` nemá sloupec `note` (jen `who` a `reason`) — na
@@ -270,6 +284,36 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
     try { localStorage.removeItem(klicRozdelane); } catch { /* uklizeno i tak */ }
     setFlash(true); setTimeout(() => setFlash(false), 800);
     load(true);
+
+    // ↩️ Vrátit zpět i po ULOŽENÍ, ne jen po smazání. Nebezpečný překlep je
+    // ten, který něco PŘIDÁ — omylem uložený výdej odečte pivo ze skladu a
+    // najde se to až u inventury. Maže se přesně to, co se právě vložilo
+    // (podle data, piva, obalu a množství), vždy nejnovější řádek a nejvýš
+    // jeden na položku — kdyby někdo mezitím zapsal totéž znovu, jeho
+    // řádek zůstane.
+    const kusuCelkem = filled.reduce((a, r) => a + Number(r.qty), 0);
+    toastZpet(
+      `Uloženo ${filled.length} ${filled.length === 1 ? 'řádek' : 'řádky'} — ${kusuCelkem} ks.`,
+      async () => {
+        for (const r of filled) {
+          const { data: nalezene } = await supabase
+            .from(table)
+            .select('id')
+            .eq('entry_date', date)
+            .eq('beer_id', r.beerId)
+            .eq('package_id', r.pkgId)
+            .eq('quantity', Number(r.qty))
+            .order('created_at', { ascending: false })
+            .limit(1);
+          const id = ((nalezene as any[]) ?? [])[0]?.id;
+          if (id) {
+            const { error: chybaMazani } = await supabase.from(table).delete().eq('id', id);
+            if (chybaMazani) throw chybaMazani;
+          }
+        }
+        load(true);
+      },
+    );
   }
 
   async function del(id: string) {

@@ -659,6 +659,35 @@ export default function BottlingScreen({
     setEntryRows(emptyRows()); setNote(''); setErr(null);
     setFlash(true); setTimeout(() => setFlash(false), 800);
     load(true);
+
+    // ↩️ Vrátit zpět i po ULOŽENÍ, ne jen po smazání — omylem uložené
+    // lahvování přičte lahve do skladu a odečte sudy, které se „spotřebovaly".
+    // Maže se přesně to, co se právě vložilo, vždy nejnovější řádek.
+    const kusuCelkem = payloads.reduce((a, p) => a + Number(p.quantity), 0);
+    const vlozene = payloads;
+    toastZpet(
+      `Uloženo ${vlozene.length} ${vlozene.length === 1 ? 'řádek' : 'řádky'} — ${kusuCelkem} ks.`,
+      async () => {
+        for (const p of vlozene) {
+          const { data: nalezene } = await supabase
+            .from('bottling')
+            .select('id')
+            .eq('entry_date', p.entry_date)
+            .eq('beer_id', p.beer_id)
+            .eq('package_id', p.package_id)
+            .eq('quantity', p.quantity)
+            .order('created_at', { ascending: false })
+            .limit(1);
+          const id = ((nalezene as any[]) ?? [])[0]?.id;
+          if (id) {
+            const { error: chybaMazani } = await supabase.from('bottling').delete().eq('id', id);
+            if (chybaMazani) throw chybaMazani;
+          }
+        }
+        load(true);
+      },
+    );
+
     setShowEndConfirm(true);
   }
 
