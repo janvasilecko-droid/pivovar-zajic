@@ -4,6 +4,7 @@ import { AlertCircle, AlertTriangle, Beer as BeerIcon, Bell, BellOff, BookOpen, 
 import { DENSITY_OPTIONS, DensityMode, getDensity, setDensity } from '../lib/density';
 import { haptikaZapnuta, nastavHaptiku, zavibruj } from '../lib/haptika';
 import { MenuCustomizeModal } from '../components/MenuCustomizeModal';
+import AdminDiagnostika from '../components/AdminDiagnostika';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import { NAV, NavItem } from '../components/Layout';
@@ -580,6 +581,11 @@ export default function AppSettingsScreen() {
       {isAdmin && (
         <>
           <AdminVersionSyncSection />
+          {/* Chyby aplikace, stav migrací a nedokončené odečty z tanků.
+              Jen pro admina: jsou to čísla, se kterými se nic nedělá při
+              běžné práci, ale bez kterých se o rozbité obrazovce nebo
+              čekající migraci dozvíš až telefonátem. */}
+          <AdminDiagnostika />
         </>
       )}
     </div>

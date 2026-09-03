@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync, readdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -31,6 +31,26 @@ try {
   writeFileSync(versionJsonPath, JSON.stringify({ version: appVersion, date: appDate }, null, 2));
 } catch (e) {
   // public/ nemusí existovat při clean checkout, nevadí
+}
+
+// Seznam migračních souborů do public/migrace.json (stejný postup jako
+// version.json výš). Nastavení pak umí říct „tyhle dvě migrace čekají" —
+// bez toho soubory v supabase/migrations/ o produkci nevypovídají nic a
+// čekající migrace se poznala jen tím, že nová obrazovka „nefunguje".
+//
+// Do bundlu se nedostane obsah SQL, jen jména souborů: obsah je zbytečný
+// (nikdo ho v prohlížeči nepustí) a přidal by stovky kilobajtů.
+try {
+  const migraceDir = resolve(__dirname, 'supabase/migrations');
+  const soubory = readdirSync(migraceDir).filter((j) => j.endsWith('.sql')).sort();
+  writeFileSync(
+    resolve(__dirname, 'public/migrace.json'),
+    JSON.stringify({ soubory }, null, 2),
+  );
+} catch {
+  // Bez složky s migracemi (nebo bez public/) se jen přeskočí — přehled
+  // migrací pak řekne, že seznam není k dispozici. Build kvůli tomu padat
+  // nemá.
 }
 
 export default defineConfig({

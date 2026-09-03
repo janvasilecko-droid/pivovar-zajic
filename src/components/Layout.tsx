@@ -21,6 +21,7 @@ import { isAdminEmail } from '../lib/config';
 import { BugReportModal } from './BugReportModal';
 import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
 import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
+import { nastavObrazovkuProChyby } from '../lib/chybyHlaseni';
 import { SCENES, DEFAULT_DOCK, hexToRgba, COLOR_HEX, type Scene, type TileColor } from '../lib/homeLayout';
 import { zavibruj } from '../lib/haptika';
 import { IkonaSud, IkonaLahev, IkonaVycep } from './ikony';
@@ -208,6 +209,9 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
       aktualniStranka.current = page;
     }
   }, [page]);
+  // Do hlášení chyb (lib/chybyHlaseni.ts) patří i to, na které obrazovce se
+  // chyba stala — jinak je „TypeError: undefined" nedohledatelný.
+  useEffect(() => { nastavObrazovkuProChyby(page); }, [page]);
   const zacniStisk = () => {
     dlouhyStiskRef.current = false;
     casovacStiskuRef.current = setTimeout(() => {

@@ -8,11 +8,17 @@
 // přesun sem — dvě kopie se rozejdou a jedna z nich pak sklep rozhodí.
 import { supabase } from './supabase';
 import { zmenaOtevreni, type RozdeleniSudu, type TankProRozdeleni } from './tankRozdeleni';
+import { zaradOdecet, novyKlic } from './tankFronta';
 
 /**
  * Odečte objem z tanků. Relativní RPC (stejná jako v Kegging.tsx), ne
  * absolutní hodnota — jinak by se dva odečty ve stejnou chvíli přepsaly.
  * Vrací text chyby, když se některý tank nepovedlo upravit.
+ *
+ * Když odečet selže, zařadí se do fronty (lib/tankFronta.ts) a zkusí se
+ * znovu při startu aplikace a po návratu sítě. Dřív z toho byla jen hláška
+ * „oprav to ve Sklepě ručně" — a když na to člověk zapomněl, zůstal tank
+ * nafouknutý o pivo, které dávno odteklo, a našlo se to až na inventuře.
  */
 export async function odectiZTanku(
   tanky: TankProRozdeleni[],
@@ -22,7 +28,21 @@ export async function odectiZTanku(
   const nepovedlo: string[] = [];
   for (const d of rozdeleni.dily) {
     const { error } = await supabase.rpc('adjust_tank_volume', { p_tank_id: d.tankId, p_delta_l: -d.litry });
-    if (error) nepovedlo.push(`${d.label} (${error.message})`);
+    if (error) {
+      nepovedlo.push(`${d.label} (${error.message})`);
+      // Do fronty jde VŽDY nový klíč: o původním pokusu nevíme, jestli
+      // na serveru proběhl, nebo ne. Opakování běží přes
+      // `adjust_tank_volume_once`, takže případný dvojí odečet zastaví
+      // klíč idempotence, ne naše hádání (viz migrace 20261227020000).
+      zaradOdecet({
+        klic: novyKlic(),
+        tankId: d.tankId,
+        label: d.label,
+        deltaL: -d.litry,
+        zdroj: 'staceni',
+        chyba: error.message,
+      });
+    }
   }
 
   // 🛢️ Když tank odečtem došel, ukonči na něm stáčení a otevři další se
@@ -52,7 +72,9 @@ export async function odectiZTanku(
   }
 
   return nepovedlo.length > 0
-    ? `Stáčení je zapsané, ale objem se nepodařilo odečíst z: ${nepovedlo.join(', ')}. Oprav objem ve Sklepě ručně.`
+    ? `Stáčení je zapsané, ale objem se teď nepodařilo odečíst z: ${nepovedlo.join(', ')}.`
+      + ' Odečet čeká ve frontě a appka ho zkusí znovu sama (při dalším spuštění a po návratu signálu).'
+      + ' Zkontroluj to potom ve Sklepě.'
     : null;
 }
 

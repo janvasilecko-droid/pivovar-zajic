@@ -10,9 +10,22 @@ import { initTheme } from './lib/theme';
 import { reportAppVersion } from './lib/appVersionTracker';
 import { checkVersion, forceRefresh, startVersionCheck } from './lib/versionCheck';
 import { renderFatalError } from './lib/safeDom';
+import { nahlasChybu, zapniHlaseniChyb } from './lib/chybyHlaseni';
+import { zapniFrontuTanku } from './lib/tankFrontaBeh';
 
 
 initDensity();
+
+// Neodchycené chyby a promisy se zapisují do tabulky app_errors (viz
+// lib/chybyHlaseni.ts). Dřív o nich nevěděl nikdo — rozbitá obrazovka se
+// poznala telefonátem. Hlášení nikdy nic neshodí a když tabulka ještě
+// neexistuje (migrace se pouští ručně), tiše se přestane zkoušet.
+zapniHlaseniChyb();
+
+// Nedokončené odečty objemu z tanků se zkusí znovu při startu a po návratu
+// sítě (viz lib/tankFronta.ts). Opakování je bezpečné díky klíči
+// idempotence — relativní odečet by se jinak mohl provést dvakrát.
+zapniFrontuTanku();
 
 class DebugErrorBoundary extends React.Component<{ children: React.ReactNode }, { error: any }> {
   constructor(props: { children: React.ReactNode }) {
@@ -24,6 +37,10 @@ class DebugErrorBoundary extends React.Component<{ children: React.ReactNode }, 
   }
   componentDidCatch(error: any, info: any) {
     console.error('DEBUG ErrorBoundary caught:', error, info);
+    // Bílá obrazovka je ta nejdražší chyba — uživatel nemůže pokračovat.
+    // Zapíše se s verzí aplikace a obrazovkou, ať se pozná, jestli ji
+    // přivezlo poslední nasazení.
+    nahlasChybu('boundary', error);
     // Auto-recovery pro stale chunk errory (po deployi)
     const msg = String(error?.message || error || '');
     if (msg.includes('dynamically imported module') || msg.includes('Failed to fetch')) {
