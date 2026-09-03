@@ -27,6 +27,7 @@ import { zavibruj } from '../lib/haptika';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
 import { consumeBottlingFixRequest } from '../lib/stockFixSignal';
+import { klicVyberu, nactiNaposled, zapamatujVyber, serazPodleNaposled } from '../lib/naposledyPouzite';
 
 
 const ROW_COUNT = 12;
@@ -100,6 +101,11 @@ export default function BottlingScreen({
   }
 
   const { profile } = useAuth();
+  // 🔁 Naposledy použitá piva u TOHOTO člověka jdou v dlaždicích dopředu
+  // (viz lib/naposledyPouzite.ts). Zbytek zůstává v pořadí číselníku.
+  const klicPiv = klicVyberu('bottling', profile?.id);
+  const [naposledPiva, setNaposledPiva] = useState<string[]>(() => nactiNaposled(klicPiv));
+
   const isManager = isBottlingManager(profile?.role);
 
   // Plánování stáčení („co je potřeba stočit") — úkoly zadává admin/sládek/šéf
@@ -1035,8 +1041,8 @@ export default function BottlingScreen({
           </div>
           <div className="mb-4">
             <BeerTileGrid
-              beers={beers.filter((b) => b.is_active)}
-              onSelect={openTile}
+              beers={serazPodleNaposled(beers.filter((b) => b.is_active), (b) => b.id, naposledPiva)}
+              onSelect={(b) => { setNaposledPiva(zapamatujVyber(klicPiv, b.id)); openTile(b); }}
               summaryFor={(b) => {
                 const row = entryRows.find((r) => r.beerId === b.id);
                 if (!row) return { filled: false, label: '' };
@@ -1218,7 +1224,7 @@ export default function BottlingScreen({
                         <span className="truncate">{l.label}</span>
                       </button>
                       <div className="flex items-center gap-1 shrink-0">
-                        <button type="button" onClick={() => updateQty(l.rowIndex, l.field, String(Math.max(0, l.qty - 1)))} className="w-10 h-10 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={l.qty <= 1}>−</button>
+                        <button type="button" onClick={() => updateQty(l.rowIndex, l.field, String(Math.max(0, l.qty - 1)))} className="w-11 h-11 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={l.qty <= 1}>−</button>
                         <input
                           type="number" onWheel={(e) => e.currentTarget.blur()}
                           min={0}
@@ -1229,7 +1235,10 @@ export default function BottlingScreen({
                           className="w-14 h-10 text-center text-base font-black text-neutral-800 dark:text-neutral-100 bg-white dark:bg-neutral-900/60 border-2 border-amber-200 dark:border-neutral-700 rounded"
                           title="Napiš počet ručně"
                         />
-                        <button type="button" onClick={() => updateQty(l.rowIndex, l.field, String(l.qty + 1))} className="w-10 h-10 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none">+</button>
+                        <button type="button" onClick={() => updateQty(l.rowIndex, l.field, String(l.qty + 1))} className="w-11 h-11 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none">+</button>
+                        {/* +5: po jednom se přidává jen zbytek, celé pády sudů
+                            jdou po pěti. Dvě klepnutí místo deseti. */}
+                        <button type="button" onClick={() => updateQty(l.rowIndex, l.field, String(l.qty + 5))} className="w-11 h-11 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-950 font-black text-sm transition select-none">+5</button>
                         <button type="button" onClick={() => updateQty(l.rowIndex, l.field, '0')} className="w-10 h-10 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-xl transition select-none" title="Odebrat položku"><X size={18} /></button>
                       </div>
                     </li>

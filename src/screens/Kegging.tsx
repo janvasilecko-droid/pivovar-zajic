@@ -25,6 +25,7 @@ import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { IkonaSud } from '../components/ikony';
 import { zavibruj } from '../lib/haptika';
 import { consumeKegFixRequest } from '../lib/stockFixSignal';
+import { klicVyberu, nactiNaposled, zapamatujVyber, serazPodleNaposled } from '../lib/naposledyPouzite';
 
 
 const ROW_COUNT = 12;
@@ -50,6 +51,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
   const { profile } = useAuth();
   const isManager = profile?.role === 'admin' || (profile?.role as any) === 'sladek' || (profile?.role as any) === 'sef';
+  // 🔁 Naposledy použitá piva u TOHOTO člověka jdou v dlaždicích dopředu
+  // (viz lib/naposledyPouzite.ts). Zbytek zůstává v pořadí číselníku, ať
+  // se pivo, které naposledy nepoužil, hledá tam, kde ho vždycky měl.
+  const klicPiv = klicVyberu('kegging', profile?.id);
+  const [naposledPiva, setNaposledPiva] = useState<string[]>(() => nactiNaposled(klicPiv));
+
 
   // Zápis / Přehled / Potřeba stočit KEGy / Přefuk KEG / Checklist záložky
   const [tab, setTab] = useState<'zapis' | 'prehled' | 'plan' | 'prefuk' | 'checklist'>((initialSubTab as any) || 'zapis');
@@ -1055,8 +1062,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
           </div>
           <div className="mb-4">
             <BeerTileGrid
-              beers={beers.filter((b) => b.is_active)}
-              onSelect={(b) => setExpandedKegBeerId(b.id)}
+              beers={serazPodleNaposled(beers.filter((b) => b.is_active), (b) => b.id, naposledPiva)}
+              onSelect={(b) => { setNaposledPiva(zapamatujVyber(klicPiv, b.id)); setExpandedKegBeerId(b.id); }}
               summaryFor={(b) => {
                 const beerRows = entryRows.filter((r) => r.beerId === b.id && Number(r.qty) > 0);
                 const label = beerRows
@@ -1094,7 +1101,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                             {q}
                           </button>
                         ))}
-                        <button type="button" onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(Math.max(0, qty - 1)) })} className="w-10 h-10 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={qty <= 0}>−</button>
+                        <button type="button" onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(Math.max(0, qty - 1)) })} className="w-11 h-11 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={qty <= 0}>−</button>
                         <input
                           type="number" onWheel={(e) => e.currentTarget.blur()}
                           min={0}
@@ -1104,7 +1111,10 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                           onChange={(e) => setTileRow(expandedKegBeer.id, p.id, { qty: e.target.value.replace(/[^0-9]/g, '') })}
                           className="w-14 h-10 text-center text-lg font-black text-neutral-800 dark:text-neutral-100 bg-white dark:bg-neutral-900/60 border-2 border-amber-200 dark:border-neutral-700 rounded"
                         />
-                        <button type="button" onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(qty + 1) })} className="w-10 h-10 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none">+</button>
+                        <button type="button" onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(qty + 1) })} className="w-11 h-11 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none">+</button>
+                        {/* +5: po jednom se přidává jen zbytek, celé pády sudů
+                            jdou po pěti. Dvě klepnutí místo deseti. */}
+                        <button type="button" onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(qty + 5) })} className="w-11 h-11 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-950 font-black text-sm transition select-none">+5</button>
                       </div>
                     </div>
                     {qty > 0 && rowTanks.length > 1 && (
@@ -1159,7 +1169,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                           <span className="truncate">{formatPackageLabel(pkg?.label)} · {beerName(beer)}</span>
                         </button>
                         <div className="flex items-center gap-1 shrink-0">
-                          <button type="button" onClick={() => setTileRow(r.beerId, r.pkgId, { qty: String(Math.max(0, Number(r.qty) - 1)) })} className="w-10 h-10 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={Number(r.qty) <= 1}>−</button>
+                          <button type="button" onClick={() => setTileRow(r.beerId, r.pkgId, { qty: String(Math.max(0, Number(r.qty) - 1)) })} className="w-11 h-11 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={Number(r.qty) <= 1}>−</button>
                           <input
                             type="number" onWheel={(e) => e.currentTarget.blur()}
                             min={0}
@@ -1170,7 +1180,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                             className="w-14 h-10 text-center text-base font-black text-neutral-800 dark:text-neutral-100 bg-white dark:bg-neutral-900/60 border-2 border-amber-200 dark:border-neutral-700 rounded"
                             title="Napiš počet ručně"
                           />
-                          <button type="button" onClick={() => setTileRow(r.beerId, r.pkgId, { qty: String(Number(r.qty) + 1) })} className="w-10 h-10 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none">+</button>
+                          <button type="button" onClick={() => setTileRow(r.beerId, r.pkgId, { qty: String(Number(r.qty) + 1) })} className="w-11 h-11 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none">+</button>
                           <button type="button" onClick={() => setTileRow(r.beerId, r.pkgId, { qty: '0' })} className="w-10 h-10 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-xl transition select-none" title="Odebrat položku"><X size={18} /></button>
                         </div>
                       </li>

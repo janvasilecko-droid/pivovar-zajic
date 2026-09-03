@@ -32,7 +32,7 @@ import { findDuplicateOrders, formatDuplicateMessage } from '../lib/orderDuplica
 import { TapReservationModal } from '../components/TapReservationModal';
 import { createReminder, getLocalReminders } from '../lib/reminders';
 import { flattenAkceNet, type AkceRow } from '../lib/inventoryHelper';
-import { chyba, oznam, potvrd } from '../lib/toast';
+import { chyba, oznam, potvrd, toastZpet } from '../lib/toast';
 import { srovnaniPoUprave, type UpravaPolozky } from '../lib/zavozSync';
 import { IkonaVycep } from '../components/ikony';
 import { poctyPolozek } from '../lib/objednavkyStatistika';
@@ -1420,6 +1420,81 @@ export default function Orders({
   }
 
 
+  /**
+   * ↻ Zopakovat celý závozový den. Objednávky se týden po týdnu opakují
+   * skoro totožně, ale duplikovat se dala jen JEDNA — u dvaceti objednávek
+   * je to dvacet klepnutí a snadno se na některou zapomene.
+   *
+   * Kopírují se VŠECHNY objednávky, které jsou právě vidět (tedy i s
+   * filtrem, kdyby si někdo chtěl zopakovat jen část) a mají aspoň jednu
+   * položku. Storno se vynechává — zrušená objednávka se opakovat nemá.
+   * Nová objednávka vzniká vždy jako „nová" a nezavezená, ať projde
+   * normální kontrolou; datum závozu se nechává prázdné a den v týdnu
+   * zůstane, takže se objednávka objeví ve stejný den nového týdne.
+   */
+  const [kopirujiDen, setKopirujiDen] = useState(false);
+  async function zopakujDen() {
+    const kZopakovani = searchedFiltered
+      .filter((o) => o.status !== 'storno')
+      .filter((o) => (items[o.id] ?? []).length > 0);
+    if (kZopakovani.length === 0) {
+      oznam('Není co zopakovat — žádná z viditelných objednávek nemá položky.');
+      return;
+    }
+    const kusu = kZopakovani.reduce(
+      (a, o) => a + (items[o.id] ?? []).reduce((b, i) => b + Number(i.quantity || 0), 0), 0,
+    );
+    const ok = await potvrd(
+      `Zopakovat ${kZopakovani.length} objednávek (${kusu} ks) k dnešnímu dni?`
+      + ' Vzniknou nové objednávky ve stavu „nová"; ty původní zůstanou, jak jsou.',
+      { titulek: 'Zopakovat celý závoz', potvrdit: `Zopakovat ${kZopakovani.length}` },
+    );
+    if (!ok) return;
+
+    setKopirujiDen(true);
+    const dnes = new Date().toISOString().slice(0, 10);
+    const vznikle: string[] = [];
+    let selhalo = 0;
+    for (const o of kZopakovani) {
+      const { data: nova, error } = await supabase.from('orders').insert({
+        order_date: dnes, place_id: o.place_id, place_name: o.place_name,
+        source: 'duplikat', status: 'nova', delivery_day: o.delivery_day,
+        delivery_date: null, is_prepared: false, is_packaged: false, is_delivered: false,
+        note: o.note,
+      }).select().single();
+      if (error || !nova) { selhalo += 1; continue; }
+      const radky = (items[o.id] ?? []).map((i) => ({
+        order_id: nova.id, beer_id: i.beer_id, beer_name: i.beer_name,
+        package_id: i.package_id, package_label: i.package_label, quantity: i.quantity,
+      }));
+      const { error: chybaRadku } = await supabase.from('order_items').insert(radky);
+      // Objednávka bez položek je horší než žádná — kdyby se položky
+      // nevložily, hlavička se hned uklidí, ať nezůstane prázdná.
+      if (chybaRadku) {
+        await supabase.from('orders').delete().eq('id', nova.id);
+        selhalo += 1;
+        continue;
+      }
+      vznikle.push(nova.id);
+    }
+    setKopirujiDen(false);
+    setWeekKey(isoWeekKey(dnes));
+    load();
+
+    if (selhalo > 0) {
+      chyba(`Zopakováno ${vznikle.length} z ${kZopakovani.length} objednávek, ${selhalo} se nepovedlo.`);
+      return;
+    }
+    // Vrátit zpět: smažou se PRÁVĚ VZNIKLÉ objednávky podle id, ne podle
+    // data — jinak by se smazalo i to, co dnes někdo zapsal ručně.
+    toastZpet(`Zopakováno ${vznikle.length} objednávek.`, async () => {
+      await supabase.from('order_items').delete().in('order_id', vznikle);
+      const { error } = await supabase.from('orders').delete().in('id', vznikle);
+      if (error) throw error;
+      load();
+    });
+  }
+
   const openDetail = (o: Order) => {
     setDetail(o);
     setTimeout(() => {
@@ -2028,6 +2103,22 @@ export default function Orders({
               }`}
             >
               <span className="inline-flex items-center gap-1.5"><PackageIcon size={14} /> Všechny</span>
+            </button>
+
+            {/* ↻ Zopakovat celý závoz — objednávky se týden po týdnu
+                opakují skoro totožně a duplikovat se dala jen jedna.
+                Ptá se předem, protože to zakládá dvacet nových
+                objednávek naráz; vrátit zpět jde stejně. */}
+            <button
+              type="button"
+              onClick={() => { void zopakujDen(); }}
+              disabled={kopirujiDen || searchedFiltered.length === 0}
+              className="px-3 py-1.5 rounded font-black text-xs transition bg-white text-neutral-800 border border-neutral-300 hover:bg-neutral-100 disabled:opacity-40"
+              title="Založí kopie všech právě zobrazených objednávek k dnešnímu dni"
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <Copy size={14} /> {kopirujiDen ? 'Kopíruji…' : 'Zopakovat závoz'}
+              </span>
             </button>
           </div>
 

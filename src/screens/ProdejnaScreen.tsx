@@ -12,7 +12,8 @@ import type { TapReservation } from './VycepyScreen';
 import { BeerTileGrid, BeerTilePanel, TileTotalBar } from '../components/BeerTileGrid';
 import { chyba, potvrd, toastZpet } from '../lib/toast';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
-import { zavibruj } from '../lib/haptika';
+import { zavibruj } from '../lib/haptika';
+import { klicVyberu, nactiNaposled, zapamatujVyber, serazPodleNaposled } from '../lib/naposledyPouzite';
 
 // Tři podoby jednoho výdeje ze skladu — formulář je pořád stejný, mění se
 // jen tabulka, do které se zapisuje, a jedno pole navíc. Podle toho se pak
@@ -52,6 +53,16 @@ const emptyRows = (count: number): RowInput[] => Array.from({ length: count }, e
 
 export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovani_private', title = 'Fasování', Ikona = Store, showVycep = false }: { setPage?: (p: any, sec?: string) => void; mode?: 'entry_only' | 'overviews_only' | 'all'; table?: string; title?: string; Ikona?: LucideIcon; showVycep?: boolean } = {}) {
   const [rows, setRows] = useState<EntryRow[]>([]);
+  // 🔁 Naposledy použitá piva jdou v dlaždicích dopředu (viz
+  // lib/naposledyPouzite.ts). Zbytek zůstává v pořadí číselníku.
+  //
+  // Klíč je tady podle DRUHU VÝDEJE (fasování / odpis / prodejna), ne podle
+  // uživatele: tuhle obrazovku obsluhuje pár lidí ze společného tabletu a
+  // odpisují se jiná piva než se fasují — dělení podle druhu výdeje proto
+  // pomůže víc než dělení podle toho, kdo je právě přihlášený.
+  const klicPiv = klicVyberu('vydej', table);
+  const [naposledPiva, setNaposledPiva] = useState<string[]>(() => nactiNaposled(klicPiv));
+
   const [beers, setBeers] = useState<Beer[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
@@ -496,8 +507,8 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
           </div>
           <div className="mb-4">
             <BeerTileGrid
-              beers={beers.filter((b) => b.is_active)}
-              onSelect={(b) => setExpandedProdejnaBeerId(b.id)}
+              beers={serazPodleNaposled(beers.filter((b) => b.is_active), (b) => b.id, naposledPiva)}
+              onSelect={(b) => { setNaposledPiva(zapamatujVyber(klicPiv, b.id)); setExpandedProdejnaBeerId(b.id); }}
               summaryFor={(b) => {
                 const beerRows = entryRows.filter((r) => r.beerId === b.id && Number(r.qty) > 0);
                 const label = beerRows
@@ -536,7 +547,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                   <div key={p.id} className="rounded border border-neutral-200 dark:border-neutral-700 py-1 px-2 flex items-center justify-between gap-2">
                       <span className="text-sm font-bold text-neutral-700 dark:text-neutral-200 truncate">{formatPackageLabel(p.label)}</span>
                       <div className="flex items-center gap-1">
-                        <button type="button" onClick={() => setTileRow(expandedProdejnaBeer.id, p.id, { qty: String(Math.max(0, qty - 1)) })} className="w-10 h-10 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={qty <= 0}>−</button>
+                        <button type="button" onClick={() => setTileRow(expandedProdejnaBeer.id, p.id, { qty: String(Math.max(0, qty - 1)) })} className="w-11 h-11 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={qty <= 0}>−</button>
                         <input
                           type="number" onWheel={(e) => e.currentTarget.blur()}
                           min={0}
@@ -546,7 +557,10 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                           onChange={(e) => setTileRow(expandedProdejnaBeer.id, p.id, { qty: e.target.value.replace(/[^0-9]/g, '') })}
                           className="w-14 h-10 text-center text-lg font-black text-neutral-800 dark:text-neutral-100 bg-white dark:bg-neutral-900/60 border-2 border-amber-200 dark:border-neutral-700 rounded"
                         />
-                        <button type="button" onClick={() => setTileRow(expandedProdejnaBeer.id, p.id, { qty: String(qty + 1) })} className="w-10 h-10 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none">+</button>
+                        <button type="button" onClick={() => setTileRow(expandedProdejnaBeer.id, p.id, { qty: String(qty + 1) })} className="w-11 h-11 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none">+</button>
+                        {/* +5: po jednom se přidává jen zbytek, celé pády sudů
+                            a přepravek jdou po pěti. Dvě klepnutí místo deseti. */}
+                        <button type="button" onClick={() => setTileRow(expandedProdejnaBeer.id, p.id, { qty: String(qty + 5) })} className="w-11 h-11 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-950 font-black text-sm transition select-none">+5</button>
                       </div>
                   </div>
                 );
