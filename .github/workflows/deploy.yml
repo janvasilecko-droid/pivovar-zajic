@@ -5,9 +5,11 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# Vyžadováno, aby GITHUB_TOKEN mohl pushnout „chore: bump version" commit.
+# contents: write — aby GITHUB_TOKEN mohl pushnout „chore: bump version" commit.
+# issues: write — aby při selhání šlo založit issue (viz job `oznam-selhani`).
 permissions:
   contents: write
+  issues: write
 
 jobs:
   # Testy (vitest) běží PŘED deployem — bez nich by se rozbitý kód dostal
@@ -183,3 +185,61 @@ jobs:
         with:
           name: pivovar-zajic-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
+
+  # ❗ SELHÁNÍ NESMÍ BÝT TICHÉ.
+  #
+  # Když spadne `test` (testy, kontrola tříd, kontrast), deploy job se přes
+  # `needs` ani nezaloží — a protože nic nekřičí, projeví se to jen tím, že
+  # „appka nechce aktualizovat". Takhle skončily tři pushe za sebou a přišlo
+  # se na to až po dvou dnech.
+  #
+  # Issue je schválně: funguje BEZ jakéhokoliv nového klíče (stačí vestavěný
+  # GITHUB_TOKEN) a GitHub o něm pošle e-mail. Kdo chce hlášku i do WhatsAppu,
+  # doplní v Nastavení repozitáře klíč SEND_TOKEN a proměnnou BRIDGE_URL —
+  # druhý krok se pak sám zapne.
+  oznam-selhani:
+    runs-on: ubuntu-latest
+    needs: [test, build-and-deploy, build-apk]
+    if: failure()
+
+    steps:
+      - name: Založit issue o selhání
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const beh = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const telo = [
+              '**Nasazení neproběhlo.** Na webu zůstala předchozí verze, takže',
+              'se v aplikaci nenabídne aktualizace — to je ten příznak, po kterém',
+              'se to nejčastěji pozná.',
+              '',
+              `Běh: ${beh}`,
+              `Commit: ${context.sha}`,
+              '',
+              'Nejčastější příčiny (v tomhle pořadí):',
+              '1. `npm test` — spadl test,',
+              '2. `zkontroluj-tridy` — třída, kterou Tailwind nezná (nevygeneruje se z ní nic),',
+              '3. `zkontroluj-kontrast` — dvojice písmo/podklad pod 4,5 : 1,',
+              '4. `Deploy to Cloudflare Pages` — neplatný CF_API_TOKEN.',
+              '',
+              'Obojí z bodů 2 a 3 jde pustit lokálně: `npm run zkontroluj-tridy`,',
+              '`npm run zkontroluj-kontrast` (a `git config core.hooksPath .githooks`,',
+              'ať to příště chytne už před commitem).',
+            ].join('\n');
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Nasazení selhalo — běh #${context.runNumber}`,
+              body: telo,
+            });
+
+      # Volitelně i do WhatsAppu. Bez klíčů se krok přeskočí, ne že spadne —
+      # upozornění na selhání nemá selhat kvůli chybějícímu nastavení.
+      - name: Napsat do WhatsApp skupiny (jen když je nastaveno)
+        if: ${{ secrets.SEND_TOKEN != '' && vars.BRIDGE_URL != '' && vars.BRIDGE_CHAT_ID != '' }}
+        continue-on-error: true
+        run: |
+          curl -sS -m 20 -X POST "${{ vars.BRIDGE_URL }}/send" \
+            -H "Content-Type: application/json" \
+            -H "x-send-token: ${{ secrets.SEND_TOKEN }}" \
+            -d "{\"chatId\":\"${{ vars.BRIDGE_CHAT_ID }}\",\"text\":\"Nasazení pivovarské aplikace SELHALO (běh #${{ github.run_number }}). Na webu zustala predchozi verze.\"}"

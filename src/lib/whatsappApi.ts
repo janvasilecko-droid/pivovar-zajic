@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase, fetchAllRows } from './supabase';
 import { authenticatedFunctionHeaders } from './functionAuth';
 
 // Interface for WhatsApp incoming message
@@ -87,9 +87,12 @@ export interface CreateOrderFromWhatsApp {
  */
 export async function fetchPendingWhatsAppMessages(): Promise<WhatsAppIncoming[]> {
   
-  const { data, error } = await supabase
-    .from('whatsapp_incoming')
-    .select('*')
+  // Stránkovaně (fetchAllRows), ne obyčejným selectem: Supabase vrátí nejvýš
+  // 1000 řádků a zbytek ZAHODÍ BEZ CHYBY. U fronty ke kontrole by to
+  // znamenalo, že objednávka nad tisícovkou tiše zmizí ze seznamu — nic
+  // nespadne a přijde se na to, až bude někomu chybět pivo. Tohle byl
+  // poslední dotaz na rostoucí tabulku, který se nestránkoval.
+  const { data, error } = await fetchAllRows<WhatsAppIncoming>('whatsapp_incoming', '*')
     // 'error' (AI parsování selhalo) musí zůstat viditelné — jinak zpráva po
     // neúspěšném pokusu ze seznamu zmizí beze stopy, i když fetchPendingWhatsAppCount
     // ji do odznaku počítá a WhatsAppAutoProcessorModal na ni má hotové UI (červený
@@ -119,9 +122,9 @@ export async function fetchPendingWhatsAppMessages(): Promise<WhatsAppIncoming[]
  * zprávy neuloží) — každá je potenciální objednávka.
  */
 export async function fetchPendingWhatsAppCount(): Promise<number> {
-  const { data, error } = await supabase
-    .from('whatsapp_incoming')
-    .select('id')
+  // Taky stránkovaně — jinak by odznak nad tisícovkou přestal růst a tvářil
+  // by se, že práce ubyla.
+  const { data, error } = await fetchAllRows<{ id: string }>('whatsapp_incoming', 'id')
     // 'error' (AI parsování selhalo) počítáme taky — jinak taková zpráva
     // nikde v appce nesvítí a vypadá, že se ztratila.
     .in('status', ['pending', 'parsed', 'error']);
@@ -140,9 +143,10 @@ export async function fetchPendingWhatsAppCount(): Promise<number> {
  * není omezená počtem řádků a zahrnuje i 'error'/'processing'.
  */
 export async function fetchAllWhatsAppMessagesSince(sinceISO: string): Promise<WhatsAppIncoming[]> {
-  const { data, error } = await supabase
-    .from('whatsapp_incoming')
-    .select('*')
+  // Taky stránkovaně: „od zadaného data" je u rušného měsíce klidně přes
+  // tisíc zpráv a přehled „nezmizela nějaká objednávka?" by pak sám tiše
+  // zamlčel část toho, na co se ptá.
+  const { data, error } = await fetchAllRows<WhatsAppIncoming>('whatsapp_incoming', '*')
     .gte('created_at', sinceISO)
     .order('created_at', { ascending: false });
 

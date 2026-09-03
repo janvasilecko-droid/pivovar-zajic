@@ -50,6 +50,21 @@ Po nasazení appka chvíli ukazuje starou verzi — service worker servíruje z
 cache a novou verzi nabídne až po kontrole `version.json`. Není to vada
 nasazení; uživatel musí kliknout na „Aktualizovat", nebo appku zavřít a otevřít.
 
+## Kontroly před commitem
+
+`zkontroluj-tridy` a `zkontroluj-kontrast` jsou v CI **podmínkou nasazení** —
+`build-and-deploy` na nich visí přes `needs: test`. Když spadnou, deploy job se
+ani nezaloží a nic nekřičí; pozná se to jen tím, že „appka nechce aktualizovat".
+Takhle skončily tři pushe za sebou.
+
+Obě běží pár sekund, takže je má smysl pustit už před commitem:
+
+```bash
+git config core.hooksPath .githooks   # jednou na každém klonu
+```
+
+Když potřebuješ commitnout rozpracované, `git commit --no-verify`.
+
 ## Databázové migrace
 
 Migrace jsou v `supabase/migrations/`. Na produkci se pouští přes Management

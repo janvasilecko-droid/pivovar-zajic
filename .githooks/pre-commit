@@ -1,0 +1,36 @@
+#!/bin/sh
+# Kontroly vzhledu PŘED commitem, ne až v CI.
+#
+# Proč: `zkontroluj-tridy` a `zkontroluj-kontrast` jsou v CI podmínkou
+# nasazení (job `test`, na kterém visí `build-and-deploy` přes `needs`).
+# Když spadnou, deploy job se ani nezaloží — a protože nic nekřičí,
+# projeví se to jen tím, že „appka nechce aktualizovat". Takhle skončily
+# tři pushe za sebou. Obě kontroly běží pár sekund; tady stojí za to.
+#
+# Zapnutí (jednou na každém klonu):
+#   git config core.hooksPath .githooks
+#
+# Přeskočení, když opravdu potřebuješ commitnout rozpracované:
+#   git commit --no-verify
+
+set -e
+
+if [ -n "$PRESKOCIT_KONTROLY" ]; then
+  echo "pre-commit: přeskočeno (PRESKOCIT_KONTROLY)"
+  exit 0
+fi
+
+# Bez nainstalovaných závislostí kontroly pustit nejdou — to není chyba
+# commitu, tak se jen ozveme a pustíme dál.
+if [ ! -d node_modules ]; then
+  echo "pre-commit: node_modules chybí, kontroly přeskočeny (spusť npm install)"
+  exit 0
+fi
+
+echo "pre-commit: kontrola tříd Tailwindu…"
+npm run --silent zkontroluj-tridy
+
+echo "pre-commit: kontrola kontrastu…"
+npm run --silent zkontroluj-kontrast
+
+echo "pre-commit: v pořádku"
