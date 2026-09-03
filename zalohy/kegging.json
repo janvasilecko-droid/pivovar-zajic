@@ -32,6 +32,22 @@
   "loss_l": 0
  },
  {
+  "id": "03d405d5-4e8b-49a8-b26a-475246f6a591",
+  "entry_date": "2026-08-31",
+  "beer_id": "89611b63-865f-4ed1-9166-e6309f35d3b6",
+  "beer_name": "Grep ",
+  "package_id": "16adfff0-50c0-482e-9338-1eb4632cfc14",
+  "package_label": "30l",
+  "quantity": 1,
+  "note": "Doplněno z inventury 2026-08 — 30l bez tanku (přebytek 1 ks)",
+  "created_by": null,
+  "created_at": "2026-09-02T08:30:44.881201+00:00",
+  "tank_id": null,
+  "cellar_tank_id": null,
+  "source_volume_l": null,
+  "loss_l": 0
+ },
+ {
   "id": "04600d4d-31ff-4c3e-a87f-387537f77f0a",
   "entry_date": "2026-08-04",
   "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
@@ -176,6 +192,22 @@
   "loss_l": 0
  },
  {
+  "id": "0eb0fb40-e735-4376-bd5c-f5e8b282bc39",
+  "entry_date": "2026-08-31",
+  "beer_id": "8823be77-b372-4636-a43c-70b8d1400fd7",
+  "beer_name": "Jantar",
+  "package_id": "10593bad-6a48-4653-8506-cada96205c7e",
+  "package_label": " 50l",
+  "quantity": -1,
+  "note": "Odečteno z inventury 2026-08 —  50l (manko -1 ks)",
+  "created_by": null,
+  "created_at": "2026-09-02T09:18:11.204594+00:00",
+  "tank_id": null,
+  "cellar_tank_id": null,
+  "source_volume_l": null,
+  "loss_l": 0
+ },
+ {
   "id": "0fd05bd3-ac6b-421e-aff5-0ef96378142e",
   "entry_date": "2026-07-06",
   "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
@@ -304,6 +336,22 @@
   "loss_l": 0
  },
  {
+  "id": "1764485d-4c8a-4ae7-937a-f8dac86dd4ae",
+  "entry_date": "2026-08-31",
+  "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
+  "beer_name": "10° Desítka",
+  "package_id": "10593bad-6a48-4653-8506-cada96205c7e",
+  "package_label": " 50l",
+  "quantity": -1,
+  "note": "Odečteno z inventury 2026-08 —  50l (manko -1 ks)",
+  "created_by": null,
+  "created_at": "2026-09-02T09:51:38.044824+00:00",
+  "tank_id": null,
+  "cellar_tank_id": null,
+  "source_volume_l": null,
+  "loss_l": 0
+ },
+ {
   "id": "1a330b8e-9f5d-42bd-81b4-fabf462609ce",
   "entry_date": "2026-08-31",
   "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
@@ -378,6 +426,22 @@
   "note": null,
   "created_by": null,
   "created_at": "2026-08-02T20:21:31.508449+00:00",
+  "tank_id": null,
+  "cellar_tank_id": null,
+  "source_volume_l": null,
+  "loss_l": 0
+ },
+ {
+  "id": "1db47f59-336a-43f4-b069-5bf394718954",
+  "entry_date": "2026-08-31",
+  "beer_id": "89611b63-865f-4ed1-9166-e6309f35d3b6",
+  "beer_name": "Grep ",
+  "package_id": "16adfff0-50c0-482e-9338-1eb4632cfc14",
+  "package_label": "30l",
+  "quantity": -1,
+  "note": "Odečteno z inventury 2026-08 — 30l (manko -1 ks)",
+  "created_by": null,
+  "created_at": "2026-09-02T09:18:24.462618+00:00",
   "tank_id": null,
   "cellar_tank_id": null,
   "source_volume_l": null,
@@ -736,6 +800,22 @@
   "loss_l": 0
  },
  {
+  "id": "398980ab-1328-47dd-ae83-e3cc14c25d96",
+  "entry_date": "2026-08-31",
+  "beer_id": "d4f7a9f0-ef4f-4729-b889-321a4509d2e1",
+  "beer_name": "Osma",
+  "package_id": "10593bad-6a48-4653-8506-cada96205c7e",
+  "package_label": " 50l",
+  "quantity": 1,
+  "note": "Doplněno z inventury 2026-08 —  50l bez tanku (přebytek 1 ks)",
+  "created_by": null,
+  "created_at": "2026-09-02T08:49:37.604927+00:00",
+  "tank_id": null,
+  "cellar_tank_id": null,
+  "source_volume_l": null,
+  "loss_l": 0
+ },
+ {
   "id": "3a9553e7-429c-4243-bc7f-5fb8445718a3",
   "entry_date": "2026-07-05",
   "beer_id": "f26c4f2b-12cd-40e5-97d6-55063c5514b2",
@@ -749,6 +829,22 @@
   "tank_id": null,
   "cellar_tank_id": null,
   "source_volume_l": null,
+  "loss_l": 0
+ },
+ {
+  "id": "3f98ceea-f83b-4cae-b3d4-b4a3d2368c71",
+  "entry_date": "2026-08-31",
+  "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
+  "beer_name": "12° Světlá",
+  "package_id": "10593bad-6a48-4653-8506-cada96205c7e",
+  "package_label": " 50l",
+  "quantity": 2,
+  "note": "Doplněno z inventury 2026-08 —  50l z Spilka 1 (přebytek 2 ks)",
+  "created_by": null,
+  "created_at": "2026-09-02T09:51:34.238459+00:00",
+  "tank_id": null,
+  "cellar_tank_id": "b57cadba-29ed-4748-ae8e-5e023596d8f4",
+  "source_volume_l": 100,
   "loss_l": 0
  },
  {
@@ -960,6 +1056,22 @@
   "loss_l": 0
  },
  {
+  "id": "54adde25-eac5-4225-b3eb-342c79a6756d",
+  "entry_date": "2026-08-31",
+  "beer_id": "f26c4f2b-12cd-40e5-97d6-55063c5514b2",
+  "beer_name": "Summer Ale",
+  "package_id": "10593bad-6a48-4653-8506-cada96205c7e",
+  "package_label": " 50l",
+  "quantity": 1,
+  "note": "Doplněno z inventury 2026-08 —  50l bez tanku (přebytek 1 ks)",
+  "created_by": null,
+  "created_at": "2026-09-02T08:49:37.604927+00:00",
+  "tank_id": null,
+  "cellar_tank_id": null,
+  "source_volume_l": null,
+  "loss_l": 0
+ },
+ {
   "id": "54e0b44e-ad8b-4356-a87b-a8f7fb915059",
   "entry_date": "2026-07-13",
   "beer_id": "6e226b00-6297-4ef0-abd1-88c06d8ccad1",
@@ -1101,6 +1213,22 @@
   "tank_id": null,
   "cellar_tank_id": "c0930d13-63e5-45e5-b522-cc16cf6a92e8",
   "source_volume_l": 20,
+  "loss_l": 0
+ },
+ {
+  "id": "627ce0dc-18c9-47af-b55c-f592c807d3cd",
+  "entry_date": "2026-08-31",
+  "beer_id": "d4f7a9f0-ef4f-4729-b889-321a4509d2e1",
+  "beer_name": "Osma",
+  "package_id": "10593bad-6a48-4653-8506-cada96205c7e",
+  "package_label": " 50l",
+  "quantity": -1,
+  "note": "Odečteno z inventury 2026-08 —  50l (manko -1 ks)",
+  "created_by": null,
+  "created_at": "2026-09-02T09:18:21.218346+00:00",
+  "tank_id": null,
+  "cellar_tank_id": null,
+  "source_volume_l": null,
   "loss_l": 0
  },
  {
@@ -1248,6 +1376,22 @@
   "loss_l": 0
  },
  {
+  "id": "71fadb5a-9092-4061-827a-981063b8ea85",
+  "entry_date": "2026-08-31",
+  "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
+  "beer_name": "12° Světlá",
+  "package_id": "10593bad-6a48-4653-8506-cada96205c7e",
+  "package_label": " 50l",
+  "quantity": 5,
+  "note": "Doplněno z inventury 2026-08 —  50l bez tanku (přebytek 5 ks)",
+  "created_by": null,
+  "created_at": "2026-09-02T08:49:37.604927+00:00",
+  "tank_id": null,
+  "cellar_tank_id": null,
+  "source_volume_l": null,
+  "loss_l": 0
+ },
+ {
   "id": "76cd8c41-b672-4ec9-968f-335c6986c14a",
   "entry_date": "2026-07-27",
   "beer_id": "93f7be38-e176-46af-9da3-47a14ffdedfa",
@@ -1258,6 +1402,22 @@
   "note": null,
   "created_by": null,
   "created_at": "2026-08-04T18:30:22.194142+00:00",
+  "tank_id": null,
+  "cellar_tank_id": null,
+  "source_volume_l": null,
+  "loss_l": 0
+ },
+ {
+  "id": "782cc602-34a5-42ac-9438-f43a3c57f779",
+  "entry_date": "2026-08-31",
+  "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
+  "beer_name": "10° Desítka",
+  "package_id": "10593bad-6a48-4653-8506-cada96205c7e",
+  "package_label": " 50l",
+  "quantity": 4,
+  "note": "Doplněno z inventury 2026-08 —  50l bez tanku (přebytek 4 ks)",
+  "created_by": null,
+  "created_at": "2026-09-02T08:49:37.604927+00:00",
   "tank_id": null,
   "cellar_tank_id": null,
   "source_volume_l": null,
@@ -1408,6 +1568,22 @@
   "loss_l": 0
  },
  {
+  "id": "876b5c1b-7239-4a25-8ea2-a1d1be27faf3",
+  "entry_date": "2026-08-31",
+  "beer_id": "f26c4f2b-12cd-40e5-97d6-55063c5514b2",
+  "beer_name": "Summer Ale",
+  "package_id": "10593bad-6a48-4653-8506-cada96205c7e",
+  "package_label": " 50l",
+  "quantity": -1,
+  "note": "Odečteno z inventury 2026-08 —  50l (manko -1 ks)",
+  "created_by": null,
+  "created_at": "2026-09-02T09:18:15.7736+00:00",
+  "tank_id": null,
+  "cellar_tank_id": null,
+  "source_volume_l": null,
+  "loss_l": 0
+ },
+ {
   "id": "877ee055-9440-422d-bda3-0570cc98d552",
   "entry_date": "2026-08-12",
   "beer_id": "93f7be38-e176-46af-9da3-47a14ffdedfa",
@@ -1498,6 +1674,22 @@
   "note": null,
   "created_by": null,
   "created_at": "2026-08-03T07:13:25.816299+00:00",
+  "tank_id": null,
+  "cellar_tank_id": null,
+  "source_volume_l": null,
+  "loss_l": 0
+ },
+ {
+  "id": "8b6c8dee-891a-40fd-9971-749425435c6b",
+  "entry_date": "2026-08-31",
+  "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
+  "beer_name": "10° Desítka",
+  "package_id": "10593bad-6a48-4653-8506-cada96205c7e",
+  "package_label": " 50l",
+  "quantity": -4,
+  "note": "Odečteno z inventury 2026-08 —  50l (manko -4 ks)",
+  "created_by": null,
+  "created_at": "2026-09-02T09:17:53.638427+00:00",
   "tank_id": null,
   "cellar_tank_id": null,
   "source_volume_l": null,
@@ -1802,6 +1994,22 @@
   "note": null,
   "created_by": null,
   "created_at": "2026-08-02T20:21:31.508449+00:00",
+  "tank_id": null,
+  "cellar_tank_id": null,
+  "source_volume_l": null,
+  "loss_l": 0
+ },
+ {
+  "id": "a2bfd0f4-64d0-4ede-9b96-3a790d76aee5",
+  "entry_date": "2026-08-31",
+  "beer_id": "6e226b00-6297-4ef0-abd1-88c06d8ccad1",
+  "beer_name": "12° Tmavá",
+  "package_id": "10593bad-6a48-4653-8506-cada96205c7e",
+  "package_label": " 50l",
+  "quantity": 1,
+  "note": "Doplněno z inventury 2026-08 —  50l bez tanku (přebytek 1 ks)",
+  "created_by": null,
+  "created_at": "2026-09-02T08:49:37.604927+00:00",
   "tank_id": null,
   "cellar_tank_id": null,
   "source_volume_l": null,
@@ -2336,6 +2544,22 @@
   "loss_l": 0
  },
  {
+  "id": "ce87f59e-0fcb-4878-8be0-c35cdcd9a229",
+  "entry_date": "2026-08-31",
+  "beer_id": "6e226b00-6297-4ef0-abd1-88c06d8ccad1",
+  "beer_name": "12° Tmavá",
+  "package_id": "10593bad-6a48-4653-8506-cada96205c7e",
+  "package_label": " 50l",
+  "quantity": -1,
+  "note": "Odečteno z inventury 2026-08 —  50l (manko -1 ks)",
+  "created_by": null,
+  "created_at": "2026-09-02T09:18:05.18944+00:00",
+  "tank_id": null,
+  "cellar_tank_id": null,
+  "source_volume_l": null,
+  "loss_l": 0
+ },
+ {
   "id": "cfd26661-2fda-44ea-b433-7efae3b64cb8",
   "entry_date": "2026-08-18",
   "beer_id": "f26c4f2b-12cd-40e5-97d6-55063c5514b2",
@@ -2592,6 +2816,22 @@
   "loss_l": 0
  },
  {
+  "id": "dd58b9aa-5881-4183-b3fb-4eac088a39b4",
+  "entry_date": "2026-08-31",
+  "beer_id": "68c92abd-93b6-4241-b3ad-984c303716f8",
+  "beer_name": "12° Světlá",
+  "package_id": "10593bad-6a48-4653-8506-cada96205c7e",
+  "package_label": " 50l",
+  "quantity": -5,
+  "note": "Odečteno z inventury 2026-08 —  50l (manko -5 ks)",
+  "created_by": null,
+  "created_at": "2026-09-02T09:17:46.254355+00:00",
+  "tank_id": null,
+  "cellar_tank_id": null,
+  "source_volume_l": null,
+  "loss_l": 0
+ },
+ {
   "id": "df987aaa-c3f3-4eb2-84dc-74b6786e43d4",
   "entry_date": "2026-07-22",
   "beer_id": "d4f7a9f0-ef4f-4729-b889-321a4509d2e1",
@@ -2704,6 +2944,22 @@
   "loss_l": 0
  },
  {
+  "id": "e99f5d1e-4f36-4f03-92a0-f4a41056808a",
+  "entry_date": "2026-08-31",
+  "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
+  "beer_name": "10° Desítka",
+  "package_id": "10593bad-6a48-4653-8506-cada96205c7e",
+  "package_label": " 50l",
+  "quantity": 1,
+  "note": "Doplněno z inventury 2026-08 —  50l z Tank 4 (přebytek 1 ks)",
+  "created_by": null,
+  "created_at": "2026-09-02T09:17:58.185125+00:00",
+  "tank_id": null,
+  "cellar_tank_id": "d4fec39c-d0e5-47b9-afd4-97faa1c23c7d",
+  "source_volume_l": 50,
+  "loss_l": 0
+ },
+ {
   "id": "e9e4c3c6-0ea6-47d9-9c2e-6d605a3675bb",
   "entry_date": "2026-08-04",
   "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
@@ -2733,6 +2989,22 @@
   "tank_id": null,
   "cellar_tank_id": null,
   "source_volume_l": null,
+  "loss_l": 0
+ },
+ {
+  "id": "ee98be13-d721-4cc6-8512-120f253195e4",
+  "entry_date": "2026-08-31",
+  "beer_id": "80cb2ddc-7fc8-4883-ad0a-c51411980326",
+  "beer_name": "10° Desítka",
+  "package_id": "10593bad-6a48-4653-8506-cada96205c7e",
+  "package_label": " 50l",
+  "quantity": 1,
+  "note": "Doplněno z inventury 2026-08 —  50l z Tank 4 (přebytek 1 ks)",
+  "created_by": null,
+  "created_at": "2026-09-02T09:51:45.778272+00:00",
+  "tank_id": null,
+  "cellar_tank_id": "d4fec39c-d0e5-47b9-afd4-97faa1c23c7d",
+  "source_volume_l": 50,
   "loss_l": 0
  },
  {
@@ -2845,6 +3117,22 @@
   "tank_id": null,
   "cellar_tank_id": "6b80ff8d-7ec7-48c9-be42-acb1dd19caa1",
   "source_volume_l": 300,
+  "loss_l": 0
+ },
+ {
+  "id": "f61586aa-a46d-4cca-bc93-2276f5cff5e8",
+  "entry_date": "2026-08-31",
+  "beer_id": "8823be77-b372-4636-a43c-70b8d1400fd7",
+  "beer_name": "Jantar",
+  "package_id": "10593bad-6a48-4653-8506-cada96205c7e",
+  "package_label": " 50l",
+  "quantity": 1,
+  "note": "Doplněno z inventury 2026-08 —  50l bez tanku (přebytek 1 ks)",
+  "created_by": null,
+  "created_at": "2026-09-02T08:49:37.604927+00:00",
+  "tank_id": null,
+  "cellar_tank_id": null,
+  "source_volume_l": null,
   "loss_l": 0
  },
  {
