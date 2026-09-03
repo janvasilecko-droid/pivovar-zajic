@@ -1473,7 +1473,7 @@ export default function BottlingScreen({
         {loading ? (
           <Spinner />
         ) : rows.length === 0 ? (
-          <EmptyState text="Zatím žádné záznamy. Přidej první výše." icon={PenLine} />
+          <EmptyState text="Zatím žádné stočení do lahví." icon={PenLine} akce={{ popis: 'Zapsat lahvování', onClick: () => setTab('zapis') }} />
         ) : filteredRows.length === 0 ? (
           <EmptyState text="Žádné záznamy pro toto období." icon={CalendarDays} />
         ) : (() => {

@@ -1507,7 +1507,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
         {loading ? (
           <Spinner />
         ) : rows.length === 0 ? (
-          <EmptyState text="Zatím žádné záznamy. Přidej první výše." icon={PenLine} />
+          <EmptyState text="Zatím žádné stočení do sudů." icon={PenLine} akce={{ popis: 'Zapsat stočení', onClick: () => setTab('zapis') }} />
         ) : filteredRows.length === 0 ? (
           <EmptyState text="Žádné záznamy pro toto období." icon={CalendarDays} />
         ) : (() => {

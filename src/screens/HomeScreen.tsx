@@ -50,6 +50,7 @@ import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionChec
 import { vyhodnotGesto, rychlostPosunu } from '../lib/gestaPlochy';
 import { maSeZobrazit, oznacZobrazenou } from '../lib/napovedy';
 import { queueLength, onQueueChange } from '../lib/offline';
+import { litry, litryJakoHl, kusy } from '../lib/cisla';
 import { isMonthlyCleanupPending, MONTHLY_CLEANUP_CHANGED_EVENT } from '../lib/monthlyCleanup';
 import { potvrd, oznam } from '../lib/toast';
 import { requestOrdersAutoImport } from '../lib/ordersFilter';
@@ -2002,14 +2003,14 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               const kolik = (override.h ?? 1) >= 3 ? 6 : 3;
               const vidno = tankyNaPlochu.slice(0, kolik);
               const zbyva = tankyNaPlochu.length - vidno.length;
-              const celkemHl = Math.round(tankyNaPlochu.reduce((a, t) => a + t.litry, 0) / 100);
+              const celkemLitru = tankyNaPlochu.reduce((a, t) => a + t.litry, 0);
               customContent = (
                 <div className="w-full h-full flex flex-col justify-between p-3 text-left select-none overflow-hidden">
                   <div className="flex items-center justify-between gap-2 border-b border-black/10 pb-1">
                     <span className="font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 opacity-90">
                       <Snowflake size={14} /> Sklep
                     </span>
-                    <span className="text-[11px] font-bold opacity-80">{celkemHl} hl</span>
+                    <span className="text-[11px] font-bold opacity-80">{litryJakoHl(celkemLitru)}</span>
                   </div>
                   <div className="my-auto py-1 space-y-0.5">
                     {vidno.map((t) => (
@@ -2019,7 +2020,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                         <span className="shrink-0 tabular-nums">{t.staci ? '🍺' : '•'}</span>
                         <span className="truncate">{t.label}</span>
                         <span className="opacity-70 truncate">{t.pivo}</span>
-                        <span className="ml-auto shrink-0 tabular-nums">{t.litry} l</span>
+                        <span className="ml-auto shrink-0 tabular-nums">{litry(t.litry)}</span>
                       </div>
                     ))}
                     {zbyva > 0 && <div className="text-[11px] font-bold opacity-70">+{zbyva} další</div>}
@@ -2042,7 +2043,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                     <span className="font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 opacity-90">
                       <Truck size={14} /> Dnešní závoz
                     </span>
-                    <span className="text-[11px] font-bold opacity-80">{dnesniZavoz.kusu} ks</span>
+                    <span className="text-[11px] font-bold opacity-80">{kusy(dnesniZavoz.kusu)}</span>
                   </div>
                   <div className="my-auto py-1 space-y-0.5">
                     {mista.map((m) => (
@@ -2349,6 +2350,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                     />
                     <input
                       type="number"
+                      inputMode="numeric"
                       min="1"
                       max="300"
                       value={qaNewTimerMin}

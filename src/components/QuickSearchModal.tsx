@@ -9,9 +9,10 @@
 //  • hledalo se přesně na znak, takže „kynsperk" nenašlo „Kynšperk" a
 //    „11" nenašlo „11°". Teď se porovnává bez diakritiky.
 import { useEffect, useState, useRef, useMemo } from 'react';
-import { Search, ArrowRight, MapPin, Beer as BeerIcon, ClipboardList } from 'lucide-react';
+import { Search, ArrowRight, MapPin, Beer as BeerIcon, ClipboardList, Package as PackageIcon } from 'lucide-react';
 import { fetchAllRows, supabase } from '../lib/supabase';
 import { NAV, EXTRA_NAV, Page } from './Layout';
+import { requestOrdersHledani } from '../lib/ordersFilter';
 
 interface QuickSearchModalProps {
   isOpen: boolean;
@@ -57,6 +58,7 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
   const [query, setQuery] = useState('');
   const [places, setPlaces] = useState<{ id: string; name: string; city: string | null }[]>([]);
   const [beers, setBeers] = useState<{ id: string; name: string; category: string | null }[]>([]);
+  const [packages, setPackages] = useState<{ id: string; label: string; volume_l: number | null }[]>([]);
   const [orders, setOrders] = useState<
     { id: string; place_name: string | null; delivery_date: string | null; order_date: string; status: string }[]
   >([]);
@@ -76,9 +78,10 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
 
   async function loadSearchData() {
     try {
-      const [{ data: pData }, { data: bData }, { data: oData }] = await Promise.all([
+      const [{ data: pData }, { data: bData }, { data: obData }, { data: oData }] = await Promise.all([
         supabase.from('places').select('id, name, city').order('name'),
         supabase.from('beers').select('id, name, category').eq('is_active', true).order('name'),
+        supabase.from('packages').select('id, label, volume_l').order('sort_order'),
         // Jen posledních 300 — starší objednávka se hledá přes odběratele.
         supabase.from('orders').select('id, place_name, delivery_date, order_date, status')
           .order('order_date', { ascending: false })
@@ -86,6 +89,7 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
       ]);
       setPlaces(pData || []);
       setBeers(bData || []);
+      setPackages(obData || []);
       setOrders(oData || []);
     } catch {
       // Hledání obrazovek funguje i bez dat — ta se dotahují jen jako bonus.
@@ -131,7 +135,22 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
       subtitle: p.city ? `Město: ${p.city}` : 'Odběratel / hospoda',
       category: 'Odběratel',
       icon: MapPin,
-      action: () => { onSelectPage('places'); onClose(); },
+      // Klepnutí jde na JEHO OBJEDNÁVKY, ne do číselníku odběratelů. Dřív
+      // se otevřel seznam odběratelů a člověk musel toho samého odběratele
+      // hledat podruhé — kvůli tomu se hledání skoro nepoužívalo.
+      action: () => { requestOrdersHledani(p.name); onSelectPage('orders'); onClose(); },
+    }));
+
+  const filteredPackages: SearchItem[] = !dostDlouhy ? [] : packages
+    .filter((p) => sedi(p.label))
+    .slice(0, 6)
+    .map((p) => ({
+      id: `pkg-${p.id}`,
+      title: p.label,
+      subtitle: p.volume_l ? `Obal · ${p.volume_l} l` : 'Obal',
+      category: 'Obal',
+      icon: PackageIcon,
+      action: () => { onSelectPage('packages'); onClose(); },
     }));
 
   const filteredBeers: SearchItem[] = !dostDlouhy ? [] : beers
@@ -162,11 +181,13 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
         subtitle: `Závoz ${datum} · ${stav}`,
         category: 'Objednávka',
         icon: ClipboardList,
-        action: () => { onSelectPage('orders'); onClose(); },
+        // Otevře Objednávky vyfiltrované na tohohle odběratele (a s rozsahem
+        // „vše", jinak by starší objednávka v pohledu na týden nebyla).
+        action: () => { if (o.place_name) requestOrdersHledani(o.place_name); onSelectPage('orders'); onClose(); },
       };
     });
 
-  const allItems: SearchItem[] = [...filteredPages, ...filteredPlaces, ...filteredBeers, ...filteredOrders];
+  const allItems: SearchItem[] = [...filteredPages, ...filteredPlaces, ...filteredBeers, ...filteredPackages, ...filteredOrders];
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'ArrowDown') {

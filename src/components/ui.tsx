@@ -23,7 +23,17 @@ export function Spinner({ className = '' }: { className?: string }) {
  * řetězec. Řetězec zůstává schválně: dokud se všech 39 volání nepřevede,
  * musí obojí fungovat vedle sebe — a párkrát se hodí napsat rovnou znak.
  */
-export function EmptyState({ text, icon = Inbox }: { text: string; icon?: string | LucideIcon }) {
+export function EmptyState({ text, icon = Inbox, akce }: {
+  text: string;
+  icon?: string | LucideIcon;
+  /**
+   * Co se dá udělat, když je prázdno. Prázdná obrazovka bez tlačítka nechává
+   * člověka hádat, kde se zapisuje — nový člověk v pivovaru se to jinak učí
+   * od někoho, kdo má práci. Nepovinné: kde není zřejmá jedna akce, je lepší
+   * nenabízet žádnou než špatnou.
+   */
+  akce?: { popis: string; onClick: () => void };
+}) {
   // Dvě proměnné, ne jedna: TypeScript pak ví, že ve větvi bez ikony
   // zbývá řetězec, a nesnaží se vykreslit komponentu jako text.
   const Ikona = typeof icon === 'string' ? null : icon;
@@ -34,6 +44,15 @@ export function EmptyState({ text, icon = Inbox }: { text: string; icon?: string
         {Ikona ? <Ikona size={26} /> : znak}
       </div>
       <p className="text-neutral-600 text-sm font-medium">{text}</p>
+      {akce && (
+        <button
+          type="button"
+          onClick={akce.onClick}
+          className="mt-3.5 px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md transition"
+        >
+          {akce.popis}
+        </button>
+      )}
     </div>
   );
 }

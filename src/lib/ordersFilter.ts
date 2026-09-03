@@ -82,3 +82,30 @@ export function consumeOrdersPendingFilter(): boolean {
   pendingPendingFilter = false;
   return req;
 }
+
+// 🔀 Rychlé hledání (QuickSearchModal) najde odběratele nebo objednávku, ale
+// klepnutí dřív jen otevřelo obrazovku Odběratelé, respektive obyčejný
+// seznam objednávek — člověk pak musel toho odběratele hledat podruhé, už
+// v Objednávkách. Tohle předá hledaný text, takže „Maneo" v hledání skončí
+// přímo na jeho objednávkách.
+//
+// Stejný modulový vzorec jako výše: Orders se montuje AŽ PO přepnutí
+// stránky, takže by CustomEvent proletěl dřív, než se posluchač zaregistruje.
+// Event je tu navíc pro případ, že Orders už namontovaný JE (hledání
+// otevřené přímo z Objednávek) — tam se mount efekt znovu nespustí.
+export const ORDERS_HLEDANI_EVENT = 'pivovar:orders-hledani';
+
+let pendingHledani: string | null = null;
+
+export function requestOrdersHledani(text: string): void {
+  pendingHledani = text;
+  try {
+    window.dispatchEvent(new CustomEvent(ORDERS_HLEDANI_EVENT, { detail: text }));
+  } catch {}
+}
+
+export function consumeOrdersHledani(): string | null {
+  const req = pendingHledani;
+  pendingHledani = null;
+  return req;
+}

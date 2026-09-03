@@ -351,7 +351,12 @@ export function rozdelVseDoStranek(layout: HomeLayout, vsechnyDostupne: TileId[]
   return { ...layout, pages: rozdelDoStranek(kRozdeleni), overrides };
 }
 
-export const DEFAULT_DOCK: Page[] = ['orders', 'kegging', 'bottling', 'home'];
+// Pět míst, ne čtyři: spodní lišta je jediné místo, kam palec dosáhne bez
+// přehmátnutí, a Poznámky jsou to, na co se sahá stejně často jako na
+// stáčení. Šest je strop (MAX_DOCK) — víc už jsou na telefonu nečitelně
+// malí zástupci. Platí pro plochu, která se zakládá od nuly; kdo má plochu
+// uloženou, přidá si slot v úpravě rozložení (addDockSlot).
+export const DEFAULT_DOCK: Page[] = ['orders', 'kegging', 'bottling', 'notes', 'home'];
 export const DOCK_SIZE = DEFAULT_DOCK.length;
 // Počet slotů spodní lišty jde měnit (viz addDockSlot/removeDockSlot) — MIN,
 // ať lišta nikdy nezůstane prázdná/zbytečná, MAX, ať se na mobilu nenacpe

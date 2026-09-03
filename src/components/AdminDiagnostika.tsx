@@ -29,6 +29,7 @@ import {
 } from '../lib/tankFronta';
 import { spustFrontuTanku } from '../lib/tankFrontaBeh';
 import { oznam, potvrd } from '../lib/toast';
+import { litry } from '../lib/cisla';
 
 type ChybaRadek = {
   id: string;
@@ -286,7 +287,7 @@ function TankFrontaBlok() {
 
   async function zahod(p: OdecetVeFronte) {
     const ok = await potvrd(
-      `Zahodit odečet ${p.deltaL} l z ${p.label}?`
+      `Zahodit odečet ${litry(p.deltaL)} z ${p.label}?`
       + ' Použij to jen když jsi objem opravil ručně ve Sklepě — jinak zůstane tank'
       + ' nafouknutý o pivo, které už odteklo.',
       { titulek: 'Zahodit odečet', potvrdit: 'Zahodit', nebezpecne: true },
@@ -330,7 +331,7 @@ function TankFrontaBlok() {
                 {fronta.map((p) => (
                   <tr key={p.klic} className={`border-t border-neutral-200 ${p.vzdano ? 'text-rose-900' : 'text-neutral-900'}`}>
                     <td className="py-1.5 pr-2 whitespace-nowrap font-black">{p.label}</td>
-                    <td className="py-1.5 pr-2 whitespace-nowrap">{p.deltaL} l</td>
+                    <td className="py-1.5 pr-2 whitespace-nowrap tabular-nums">{litry(p.deltaL)}</td>
                     <td className="py-1.5 pr-2 whitespace-nowrap">{p.pokusu}{p.vzdano ? ' (vzdáno)' : ''}</td>
                     <td className="py-1.5 pr-2 whitespace-nowrap">{cas(p.poslednePokus)}</td>
                     <td className="py-1.5 pr-2 lze-vybrat">{p.chyba ?? '—'}</td>

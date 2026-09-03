@@ -27,9 +27,11 @@ describe('getHomeLayout', () => {
     expect(layout.pages).toEqual([[A, C], [B], []]);
     expect(layout.scene).toBe('warm');
     expect(layout.tileOpacity).toBeCloseTo(0.62);
-    // 'bottling' není v visibleIds, takže i výchozí slot spodní lišty se
-    // ověří a spadne na 'home' — viz "spodní lišta: home je vždy platné" níže.
-    expect(layout.dock).toEqual(['orders', 'kegging', 'home', 'home']);
+    // 'bottling' ani 'notes' nejsou v visibleIds, takže i výchozí slot
+    // spodní lišty se ověří a spadne na 'home' — viz "spodní lišta: home je
+    // vždy platné" níže. Výchozí lišta má PĚT slotů (dřív čtyři): palec na
+    // ni dosáhne bez přehmátnutí, takže se do ní vešly i Poznámky.
+    expect(layout.dock).toEqual(['orders', 'kegging', 'home', 'home', 'home']);
     [A, B, C].forEach((id) => expect(layout.overrides[id]?.color).toBeTruthy());
   });
 
@@ -87,6 +89,8 @@ describe('getHomeLayout', () => {
   it('spodní lišta: "home" je vždy platné, modul bez práva spadne na "home"', () => {
     const layout = getHomeLayout({ dock: ['home', B, C, 'writeoffs'] }, [B]);
     expect(layout.dock).toEqual(['home', B, 'home', 'home']);
+    // Uložená délka se respektuje (tady 4), i když výchozí je nově 5.
+    expect(layout.dock.length).toBe(4);
   });
 
   it('spodní lišta: počet slotů je volitelný (ne napevno 4), respektuje se uložená délka v mezích MIN/MAX_DOCK', () => {
@@ -377,7 +381,7 @@ describe('addDockSlot / removeDockSlot', () => {
   it('removeDockSlot odebere slot na indexu, respektuje MIN_DOCK', () => {
     const layout = getHomeLayout(null, allDockPages);
     const next = removeDockSlot(layout, 1);
-    expect(next.dock).toEqual([DEFAULT_DOCK[0], DEFAULT_DOCK[2], DEFAULT_DOCK[3]]);
+    expect(next.dock).toEqual(DEFAULT_DOCK.filter((_, i) => i !== 1));
     let minned = layout;
     for (let i = 0; i < 10; i++) minned = removeDockSlot(minned, 0);
     expect(minned.dock.length).toBe(MIN_DOCK);

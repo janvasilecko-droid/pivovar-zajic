@@ -8,7 +8,7 @@ import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { schodkyObjednavky, zbytekKeKonciTydne } from '../lib/tydenniZbytek';
 import type { StockSources } from '../lib/stockLedger';
-import { consumeOrdersItemFilter, consumeOrdersAutoImportRequest, consumeOrdersOverdueFilter, consumeOrdersPendingFilter, ORDERS_AUTO_IMPORT_EVENT } from '../lib/ordersFilter';
+import { consumeOrdersItemFilter, consumeOrdersAutoImportRequest, consumeOrdersOverdueFilter, consumeOrdersPendingFilter, consumeOrdersHledani, ORDERS_AUTO_IMPORT_EVENT, ORDERS_HLEDANI_EVENT } from '../lib/ordersFilter';
 import { businessDateISO } from '../lib/businessDate';
 import { computeVariantTotals, type VariantTotalsResult } from '../lib/variantTotals';
 import { ImportFromImage } from '../components/ImportFromImage';
@@ -1221,6 +1221,40 @@ export default function Orders({
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [deliveryDayFilter, setDeliveryDayFilter] = useState<string>('all');
+
+  // 🔎 Přišli jsme z rychlého hledání („Maneo" → jeho objednávky).
+  // Kromě textu se musí uvolnit i ostatní filtry a rozsah času na „vše" —
+  // jinak by hledaný odběratel vypadal, že žádné objednávky nemá, protože
+  // výchozí pohled je jen tenhle týden a to je nejčastější případ, kdy se
+  // hledá objednávka starší.
+  function nastavHledani(text: string) {
+    setSearchText(text);
+    setStatusFilter('');
+    setDeliveryDayFilter('all');
+    setItemFilterBeerId(null);
+    setItemFilterPackageId(null);
+    setPackageKindFilter('all');
+    setZavozOnly(false);
+    setOverdueOnly(false);
+    setTimeScope('all');
+  }
+  useEffect(() => {
+    const text = consumeOrdersHledani();
+    if (text) nastavHledani(text);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // Pro případ, že obrazovka UŽ je otevřená (hledání spuštěné z Objednávek) —
+  // mount efekt výše se znovu nespustí.
+  useEffect(() => {
+    const naHledani = (e: Event) => {
+      consumeOrdersHledani();
+      const text = (e as CustomEvent).detail;
+      if (typeof text === 'string' && text) nastavHledani(text);
+    };
+    window.addEventListener(ORDERS_HLEDANI_EVENT, naHledani);
+    return () => window.removeEventListener(ORDERS_HLEDANI_EVENT, naHledani);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [groupByDay, setGroupByDay] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -2227,7 +2261,7 @@ export default function Orders({
       {/* Při načítání se dřív nezobrazovalo nic — na pomalém připojení bylo pod
           filtry prázdno a objednávky se pak „samy objevily". Nešlo poznat,
           jestli se načítá, nebo je opravdu prázdno. */}
-      {viewMode !== 'celkem' && viewMode !== 'text' && (loading ? <Spinner /> : searchedFiltered.length === 0 ? <EmptyState text="Žádné objednávky pro zvolené filtry." icon={Receipt} /> : (viewMode === 'detail' && groupedByDay) ? (
+      {viewMode !== 'celkem' && viewMode !== 'text' && (loading ? <Spinner /> : searchedFiltered.length === 0 ? <EmptyState text="Žádné objednávky pro zvolené filtry." icon={Receipt} akce={{ popis: 'Zrušit filtry a hledání', onClick: () => { setSearchText(''); setStatusFilter(''); setDeliveryDayFilter('all'); setItemFilterBeerId(null); setItemFilterPackageId(null); setPackageKindFilter('all'); setZavozOnly(false); setOverdueOnly(false); } }} /> : (viewMode === 'detail' && groupedByDay) ? (
         <div className="space-y-6">
           {groupedByDay.map((grp) => (
             <div key={grp.key}>
