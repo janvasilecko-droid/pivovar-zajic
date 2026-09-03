@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import XLSX from 'xlsx-js-style';
 import { nazevSouboru, poctyRadku, postavSesit, type ListExportu } from './mesicniExport';
+import { nactiXlsx } from './xlsxLazy';
 import type { ObalPrehled, VydejRadek } from './prehledVydeje';
 
 const OBALY: ObalPrehled[] = [
@@ -30,6 +31,13 @@ function bunka(ws: any, adresa: string) {
 }
 
 describe('měsíční export do jednoho sešitu', () => {
+  // Knihovna na Excel se v aplikaci stahuje až při kliknutí na export
+  // (628 kB, viz lib/xlsxLazy.ts) — `postavSesit` ji tedy najde načtenou
+  // jen tehdy, když ji někdo načte. V testu to musíme udělat explicitně.
+  // Kdyby se na to zapomnělo, `xlsx()` vyhodí výjimku hned; právě proto ji
+  // vyhazuje, místo aby vracelo undefined a padalo někde uvnitř sešitu.
+  beforeAll(async () => { await nactiXlsx(); });
+
   it('každý zápis má vlastní list', () => {
     const wb = postavSesit(vstup)!;
     expect(wb.SheetNames).toContain('Odběr personál');

@@ -14,7 +14,7 @@
 // počet kusů, hektolitry se přepočítají samy — stejně jako v listech, které
 // pivovar používá. Vzorec je SUMPRODUCT přes objemy sloupců, takže se nemusí
 // psát ručně pro každý řádek.
-import XLSX from 'xlsx-js-style';
+import { nactiXlsx, xlsx } from './xlsxLazy';
 import {
   SLOUPCE_LAHVE, SLOUPCE_SUDY, VARIANTY, formatDatum, popisSloupce, popisneSloupce,
   sestavPrehled, sloupceVarianty,
@@ -137,7 +137,7 @@ function postavList(list: ListExportu, obaly: ObalPrehled[], radky: PrehledRadek
     data.push(soucet);
   }
 
-  const ws = XLSX.utils.aoa_to_sheet(data);
+  const ws = xlsx().utils.aoa_to_sheet(data);
 
   // Sloučení skupin nad objemy.
   const merges: any[] = [
@@ -160,10 +160,10 @@ function postavList(list: ListExportu, obaly: ObalPrehled[], radky: PrehledRadek
   ws['!freeze'] = { xSplit: 0, ySplit: 2 };
 
   // Styly.
-  const rozsah = XLSX.utils.decode_range(ws['!ref']!);
+  const rozsah = xlsx().utils.decode_range(ws['!ref']!);
   for (let R = rozsah.s.r; R <= rozsah.e.r; R++) {
     for (let C = rozsah.s.c; C <= rozsah.e.c; C++) {
-      const adresa = XLSX.utils.encode_cell({ r: R, c: C });
+      const adresa = xlsx().utils.encode_cell({ r: R, c: C });
       const bunka = ws[adresa];
       if (!bunka) continue;
       if (R === 0) bunka.s = styl.skupina;
@@ -206,13 +206,13 @@ export function poctyRadku(vstup: MesicniExportVstup): { nazev: string; pocet: n
  * kartami jen mate; když nezbude nic, vrátí null a volající to řekne uživateli.
  */
 export function postavSesit(vstup: MesicniExportVstup): any | null {
-  const wb = XLSX.utils.book_new();
+  const wb = xlsx().utils.book_new();
   let neco = false;
 
   for (const list of vstup.listy) {
     const radky = sestavPrehled(list.radky, vstup.obaly, { od: vstup.od, do: vstup.do });
     if (!radky.length) continue;
-    XLSX.utils.book_append_sheet(wb, postavList(list, vstup.obaly, radky), list.nazev.slice(0, 31));
+    xlsx().utils.book_append_sheet(wb, postavList(list, vstup.obaly, radky), list.nazev.slice(0, 31));
     neco = true;
   }
 
@@ -220,9 +220,10 @@ export function postavSesit(vstup: MesicniExportVstup): any | null {
 }
 
 /** Postaví sešit a nabídne ho ke stažení. Vrací false, když není co stahovat. */
-export function stahniSesit(vstup: MesicniExportVstup): boolean {
+export async function stahniSesit(vstup: MesicniExportVstup): Promise<boolean> {
+  await nactiXlsx();
   const wb = postavSesit(vstup);
   if (!wb) return false;
-  XLSX.writeFile(wb, nazevSouboru(vstup.od, vstup.do));
+  xlsx().writeFile(wb, nazevSouboru(vstup.od, vstup.do));
   return true;
 }

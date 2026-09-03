@@ -897,6 +897,70 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   }, [visibleIds]);
 
 
+  // ---- Živá dlaždice Sklep: jednotlivé tanky s objemem ----
+  // Odznak výš říká jen „6 tanků, 84 hl". Když je dlaždice zvětšená, vejde
+  // se to, na co se člověk ve sklepě opravdu dívá: KTERÝ tank, JAKÉ pivo a
+  // KOLIK v něm zbývá. Byla to jedna z věcí, pro kterou se chodilo do
+  // Sklepa a hned zpátky.
+  const [tankyNaPlochu, setTankyNaPlochu] = useState<{ label: string; pivo: string; litry: number; staci: boolean }[]>([]);
+  useEffect(() => {
+    if (!visibleIds.includes('cellar')) return;
+    let zruseno = false;
+    void (async () => {
+      const [{ data: tanky }, { data: piva }] = await Promise.all([
+        supabase.from('cellar_tanks').select('label,current_beer_id,current_volume_l,status,kegging_active'),
+        supabase.from('beers').select('id,name'),
+      ]);
+      if (zruseno) return;
+      const jmenoPiva = new Map(((piva as any[]) ?? []).map((b) => [b.id, b.name as string]));
+      const radky = (((tanky as any[]) ?? [])
+        .filter((t) => t.status !== 'empty' && Number(t.current_volume_l || 0) > 0)
+        .map((t) => ({
+          label: String(t.label ?? '?'),
+          pivo: jmenoPiva.get(t.current_beer_id) ?? '—',
+          litry: Math.round(Number(t.current_volume_l || 0)),
+          // Tank, ze kterého se právě stáčí — ten je ze všech nejzajímavější.
+          staci: !!t.kegging_active,
+        }))
+        // Stáčený tank nahoru, pak podle objemu — nejvíc piva první.
+        .sort((a, b) => (Number(b.staci) - Number(a.staci)) || (b.litry - a.litry)));
+      setTankyNaPlochu(radky);
+    })();
+    return () => { zruseno = true; };
+  }, [visibleIds]);
+
+  // ---- Živá dlaždice Objednávky: co se dnes veze ----
+  const [dnesniZavoz, setDnesniZavoz] = useState<{ objednavek: number; kusu: number; mista: string[] } | null>(null);
+  useEffect(() => {
+    if (!visibleIds.includes('orders')) return;
+    let zruseno = false;
+    void (async () => {
+      const dnes = businessDateISO();
+      // Objednávky na dnešní závoz. Storno se nepočítá — nechystá se.
+      //
+      // `fetchAllRows` i na jeden den schválně: `orders` je rostoucí tabulka
+      // a Supabase zahodí všechno nad tisícovkou bez chyby. Za jeden den se
+      // tisíc objednávek nesejde, ale tohle je přesně ten druh úvahy, po
+      // které za rok chybí v součtu kusy a nikdo neví proč (hlídá to test
+      // strankovaniDotazu).
+      const { data } = await fetchAllRows<any>('orders', 'id, place_name, status, order_items(quantity)')
+        .eq('delivery_date', dnes)
+        .neq('status', 'storno');
+      if (zruseno) return;
+      const rows = ((data as any[]) ?? []);
+      if (rows.length === 0) { setDnesniZavoz(null); return; }
+      const kusu = rows.reduce(
+        (acc, o) => acc + (((o.order_items as any[]) ?? []).reduce((s, i) => s + (Number(i.quantity) || 0), 0)),
+        0,
+      );
+      const mista = rows
+        .map((o) => String(o.place_name ?? '').trim())
+        .filter((m) => m.length > 0);
+      setDnesniZavoz({ objednavek: rows.length, kusu, mista });
+    })();
+    return () => { zruseno = true; };
+  }, [visibleIds]);
+
   // ---- Živá dlaždice: Dnešní plánované stáčení lahví ----
   const [bottlingTodayCount, setBottlingTodayCount] = useState<number | null>(null);
   useEffect(() => {
@@ -1925,6 +1989,73 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   <div className="text-[11px] font-bold opacity-60 flex items-center justify-between pt-1 border-t border-black/10">
                     <span>Plánovač</span>
                     <span>Kalendář ➔</span>
+                  </div>
+                </div>
+              );
+            }
+
+            // Widget Sklep (cellar) — objemy v jednotlivých tancích.
+            if (id === 'cellar' && ((override.w ?? 1) >= 2 || (override.h ?? 1) >= 2) && tankyNaPlochu.length > 0) {
+              // Kolik řádků se vejde: na dvouřádkové dlaždici tři, na vyšší
+              // víc. Zbytek se sečte do „+3 další", ať nic nevypadne beze
+              // stopy — číslo v součtu je pořád informace.
+              const kolik = (override.h ?? 1) >= 3 ? 6 : 3;
+              const vidno = tankyNaPlochu.slice(0, kolik);
+              const zbyva = tankyNaPlochu.length - vidno.length;
+              const celkemHl = Math.round(tankyNaPlochu.reduce((a, t) => a + t.litry, 0) / 100);
+              customContent = (
+                <div className="w-full h-full flex flex-col justify-between p-3 text-left select-none overflow-hidden">
+                  <div className="flex items-center justify-between gap-2 border-b border-black/10 pb-1">
+                    <span className="font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 opacity-90">
+                      <Snowflake size={14} /> Sklep
+                    </span>
+                    <span className="text-[11px] font-bold opacity-80">{celkemHl} hl</span>
+                  </div>
+                  <div className="my-auto py-1 space-y-0.5">
+                    {vidno.map((t) => (
+                      <div key={t.label} className="flex items-baseline gap-1.5 text-xs font-bold leading-snug">
+                        {/* Stáčený tank je označený, ne jen seřazený nahoru —
+                            pořadí samo o sobě nic neřekne. */}
+                        <span className="shrink-0 tabular-nums">{t.staci ? '🍺' : '•'}</span>
+                        <span className="truncate">{t.label}</span>
+                        <span className="opacity-70 truncate">{t.pivo}</span>
+                        <span className="ml-auto shrink-0 tabular-nums">{t.litry} l</span>
+                      </div>
+                    ))}
+                    {zbyva > 0 && <div className="text-[11px] font-bold opacity-70">+{zbyva} další</div>}
+                  </div>
+                  <div className="text-[11px] font-bold opacity-60 flex items-center justify-between pt-1 border-t border-black/10">
+                    <span>{tankyNaPlochu.some((t) => t.staci) ? 'Stáčí se z 🍺' : 'Nestáčí se'}</span>
+                    <span>Sklep ➔</span>
+                  </div>
+                </div>
+              );
+            }
+
+            // Widget Objednávky (orders) — co se dnes veze.
+            if (id === 'orders' && ((override.w ?? 1) >= 2 || (override.h ?? 1) >= 2) && dnesniZavoz) {
+              const mista = dnesniZavoz.mista.slice(0, (override.h ?? 1) >= 3 ? 5 : 2);
+              const dalsi = dnesniZavoz.mista.length - mista.length;
+              customContent = (
+                <div className="w-full h-full flex flex-col justify-between p-3 text-left select-none overflow-hidden">
+                  <div className="flex items-center justify-between gap-2 border-b border-black/10 pb-1">
+                    <span className="font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 opacity-90">
+                      <Truck size={14} /> Dnešní závoz
+                    </span>
+                    <span className="text-[11px] font-bold opacity-80">{dnesniZavoz.kusu} ks</span>
+                  </div>
+                  <div className="my-auto py-1 space-y-0.5">
+                    {mista.map((m) => (
+                      <div key={m} className="text-xs font-bold leading-snug truncate">• {m}</div>
+                    ))}
+                    {dalsi > 0 && <div className="text-[11px] font-bold opacity-70">+{dalsi} další</div>}
+                    {mista.length === 0 && (
+                      <div className="text-xs font-bold opacity-80">{dnesniZavoz.objednavek} objednávek</div>
+                    )}
+                  </div>
+                  <div className="text-[11px] font-bold opacity-60 flex items-center justify-between pt-1 border-t border-black/10">
+                    <span>{dnesniZavoz.objednavek} obj.</span>
+                    <span>Objednávky ➔</span>
                   </div>
                 </div>
               );

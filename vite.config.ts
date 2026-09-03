@@ -72,6 +72,12 @@ export default defineConfig({
           'vendor-react': ['react', 'react-dom'],
           'vendor-supabase': ['@supabase/supabase-js'],
           'vendor-icons': ['lucide-react'],
+          // Grafy (recharts) mají vlastní kus schválně. Byly zapečené
+          // v chunku Statistiky, takže každá úprava History.tsx — tedy
+          // i změna popisku — nutila každého stáhnout znovu celých
+          // 501 kB. Jako samostatný kus se stáhnou jednou a při dalších
+          // nasazeních zůstanou v mezipaměti prohlížeče.
+          'vendor-charts': ['recharts'],
         },
       },
     },

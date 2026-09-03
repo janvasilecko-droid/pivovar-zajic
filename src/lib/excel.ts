@@ -1,10 +1,10 @@
-import XLSX from 'xlsx-js-style';
+import { nactiXlsx, xlsx } from './xlsxLazy';
 import { EntryRow, Beer } from './supabase';
 
 function download(ws: any, name: string) {
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Data');
-  XLSX.writeFile(wb, name);
+  const wb = xlsx().utils.book_new();
+  xlsx().utils.book_append_sheet(wb, ws, 'Data');
+  xlsx().writeFile(wb, name);
 }
 
 const cols = (rows: any[], headers: string[], keys: string[]) => {
@@ -13,14 +13,15 @@ const cols = (rows: any[], headers: string[], keys: string[]) => {
     headers.forEach((h, i) => { o[h] = r[keys[i]] ?? ''; });
     return o;
   });
-  return XLSX.utils.json_to_sheet(data);
+  return xlsx().utils.json_to_sheet(data);
 };
 
-export const exportKeggingToExcel = (
+export const exportKeggingToExcel = async (
   rows: EntryRow[],
   cellarTanks: { id: string; label: string }[],
   beers: Beer[]
 ) => {
+  await nactiXlsx();
   // Sort rows chronologically by date
   const sortedRows = [...rows].sort((a, b) => (a.entry_date || '').localeCompare(b.entry_date || ''));
 
@@ -33,7 +34,7 @@ export const exportKeggingToExcel = (
     return o;
   });
 
-  const ws = XLSX.utils.json_to_sheet(data);
+  const ws = xlsx().utils.json_to_sheet(data);
 
   // Set up autofilter for columns A-G
   ws['!autofilter'] = { ref: `A1:G${sortedRows.length + 1}` };
@@ -100,10 +101,13 @@ export const exportKeggingToExcel = (
   download(ws, 'staceni-keg.xlsx');
 };
 
-export const exportHistoryDetailToExcel = (rows: any[], headers: string[], keys: string[], filename: string) =>
+export const exportHistoryDetailToExcel = async (rows: any[], headers: string[], keys: string[], filename: string) => {
+  await nactiXlsx();
   download(cols(rows, headers, keys), filename);
+};
 
-export const exportExciseTaxReportToExcel = (rows: { beer_name: string; degree: string; liters: number; hl: number; keg_count: number; bottle_count: number }[], periodLabel: string) => {
+export const exportExciseTaxReportToExcel = async (rows: { beer_name: string; degree: string; liters: number; hl: number; keg_count: number; bottle_count: number }[], periodLabel: string) => {
+  await nactiXlsx();
   const ws = cols(
     rows,
     ['Druh Piva', 'Stupňovitost (EPM)', 'Stočeno (l)', 'Stočeno (hl)', 'Počet sudů', 'Počet lahví'],
@@ -112,7 +116,8 @@ export const exportExciseTaxReportToExcel = (rows: { beer_name: string; degree: 
   download(ws, `vykaz-spotrebni-dan-${periodLabel.replace(/\s+/g, '-')}.xlsx`);
 };
 
-export const exportZavozToExcel = (rows: { order_date: string; place_name: string | null; delivery_day: string | null; beer_name: string | null; package_label: string | null; quantity: number; is_delivered: boolean }[], weekLabel: string) => {
+export const exportZavozToExcel = async (rows: { order_date: string; place_name: string | null; delivery_day: string | null; beer_name: string | null; package_label: string | null; quantity: number; is_delivered: boolean }[], weekLabel: string) => {
+  await nactiXlsx();
   const ws = cols(
     rows,
     ['Datum', 'Odběratel', 'Den', 'Pivo', 'Obal', 'Množství', 'Zavezeno'],

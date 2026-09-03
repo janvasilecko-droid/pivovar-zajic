@@ -11,7 +11,6 @@ import {
 import { SanitationStepRow, currentTimeStr } from './SanitationStepRow';
 import { Spinner } from './ui';
 import { AlertTriangle, Calendar, CalendarDays, Clock, Edit3, FileSpreadsheet, FileText, Check, CheckCircle2, Moon, Plus, Settings, ShieldAlert, SprayCan, Sun, Trash2, User, UserCheck, X } from 'lucide-react';
-import * as XLSX from 'xlsx-js-style';
 import { potvrd } from '../lib/toast';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -291,7 +290,11 @@ export default function KegSanitationDiary() {
     await load();
   }
 
-  function exportExcel() {
+  async function exportExcel() {
+    // Knihovna na Excel váží 628 kB — načte se teprve tady, při kliknutí na
+    // export. Dřív se importovala staticky, takže se stahovala s obrazovkou
+    // i tomu, kdo nikdy nic neexportuje.
+    const XLSX = await import('xlsx-js-style');
     const rows = filtered.map((e) => {
       const st = e.step_times || {};
       const t = (key: string) => (st[key] ? ` (${st[key]})` : '');

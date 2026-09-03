@@ -13,7 +13,6 @@ import {
 import { SanitationStepRow, currentTimeStr } from './SanitationStepRow';
 import { Spinner } from './ui';
 import { Clock, Edit3, FileSpreadsheet, CheckCircle2, ChevronLeft, ChevronRight, Plus, Timer, Trash2, X } from 'lucide-react';
-import * as XLSX from 'xlsx-js-style';
 import { potvrd } from '../lib/toast';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -168,7 +167,11 @@ export default function TapSanitationDiary() {
     await load();
   }
 
-  function exportExcel() {
+  async function exportExcel() {
+    // Knihovna na Excel váží 628 kB — načte se teprve tady, při kliknutí na
+    // export. Dřív se importovala staticky, takže se stahovala s obrazovkou
+    // i tomu, kdo nikdy nic neexportuje.
+    const XLSX = await import('xlsx-js-style');
     const rows = entries
       .filter((e) => e.sanitation_date.slice(0, 7) === filterMonth)
       .map((e) => {

@@ -145,11 +145,14 @@ export default function ExportExcelScreen() {
     }
   }
 
-  function stahni() {
+  // Knihovna na Excel (628 kB) se stahuje až tady, při kliknutí na stažení
+  // sešitu — proto je funkce async (viz lib/xlsxLazy.ts). Ukazatel „Stahuji…"
+  // (setStahuji) tím dostal i skutečný důvod existovat.
+  async function stahni() {
     if (!data) return;
     setStahuji(true);
     try {
-      const povedlo = stahniSesit({ listy, obaly: data.packages as any, od, do: doKdy });
+      const povedlo = await stahniSesit({ listy, obaly: data.packages as any, od, do: doKdy });
       if (povedlo) {
         zavibruj('hotovo');
         uspech(`Staženo — ${nazevSouboru(od, doKdy)}`);

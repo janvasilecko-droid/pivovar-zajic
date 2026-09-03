@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import * as XLSX from 'xlsx-js-style';
+import { nactiXlsx, xlsx } from './xlsxLazy';
 
 export interface DatabaseBackup {
   version: string;
@@ -111,18 +111,19 @@ export function downloadBackupJSON(backup: DatabaseBackup) {
   localStorage.setItem('last_backup_date', new Date().toISOString());
 }
 
-export function downloadGoogleSheetsExcelBackup(backup: DatabaseBackup, monthLabel?: string) {
+export async function downloadGoogleSheetsExcelBackup(backup: DatabaseBackup, monthLabel?: string) {
+  await nactiXlsx();
   const dateStr = new Date().toISOString().slice(0, 10);
-  const wb = XLSX.utils.book_new();
+  const wb = xlsx().utils.book_new();
 
   const addSheet = (sheetName: string, dataArray: any[]) => {
     if (!dataArray || dataArray.length === 0) {
-      const emptyWs = XLSX.utils.json_to_sheet([{ Zprava: 'Žádné záznamy pro tento měsíc / modul' }]);
-      XLSX.utils.book_append_sheet(wb, emptyWs, sheetName);
+      const emptyWs = xlsx().utils.json_to_sheet([{ Zprava: 'Žádné záznamy pro tento měsíc / modul' }]);
+      xlsx().utils.book_append_sheet(wb, emptyWs, sheetName);
       return;
     }
-    const ws = XLSX.utils.json_to_sheet(dataArray);
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    const ws = xlsx().utils.json_to_sheet(dataArray);
+    xlsx().utils.book_append_sheet(wb, ws, sheetName);
   };
 
   // Local storage items fallback
@@ -153,7 +154,7 @@ export function downloadGoogleSheetsExcelBackup(backup: DatabaseBackup, monthLab
   addSheet('Vycepy_Rezervace', vycepy);
 
   const filePrefix = monthLabel ? `Zaloha-Pivovar-${monthLabel}` : `Zaloha-Pivovar-Komplet-${dateStr}`;
-  XLSX.writeFile(wb, `${filePrefix}.xlsx`);
+  xlsx().writeFile(wb, `${filePrefix}.xlsx`);
   localStorage.setItem('last_backup_date', new Date().toISOString());
 }
 

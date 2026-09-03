@@ -35,6 +35,7 @@ import { flattenAkceNet, type AkceRow } from '../lib/inventoryHelper';
 import { chyba, oznam, potvrd } from '../lib/toast';
 import { srovnaniPoUprave, type UpravaPolozky } from '../lib/zavozSync';
 import { IkonaVycep } from '../components/ikony';
+import { poctyPolozek } from '../lib/objednavkyStatistika';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -1274,6 +1275,10 @@ export default function Orders({
   // v aktuálně zvoleném rozsahu (týden / měsíc / vše). Storno se nepočítá.
   const variantTotals = useMemo(() => computeVariantTotals(filtered, items), [filtered, items]);
 
+  // Počítání vytažené do lib/objednavkyStatistika.ts (má vlastní testy).
+  // Tady zůstalo jen to, co bez obrazovky nemá smysl: KTERÉ položky filtru
+  // vyhovují. Součty samotné se daly zkazit tiše — „NaN ks" nebo započtené
+  // storno — a přitom je to číslo, podle kterého se chystá pivo.
   const itemAuditStats = useMemo(() => {
     if (!itemFilterBeerId && !itemFilterPackageId && packageKindFilter === 'all' && !searchText.trim()) {
       return null;
@@ -1289,37 +1294,22 @@ export default function Orders({
       return true;
     };
 
-    let currentViewQty = 0;
-    let currentViewOrdersCount = 0;
-    let currentViewItemsCount = 0;
-    searchedFiltered.forEach((o) => {
-      const its = items[o.id] ?? [];
-      const matchingIts = its.filter(matchItem);
-      if (matchingIts.length > 0) {
-        currentViewOrdersCount++;
-        currentViewItemsCount += matchingIts.length;
-        matchingIts.forEach((i) => { currentViewQty += Number(i.quantity); });
-      }
+    const p = poctyPolozek({
+      videne: searchedFiltered,
+      vsechny: orders,
+      polozky: items,
+      vyhovuje: matchItem,
     });
 
-    let allOrdersQty = 0;
-    let allOrdersCount = 0;
-    orders.filter(o => o.status !== 'storno').forEach((o) => {
-      const its = items[o.id] ?? [];
-      const matchingIts = its.filter(matchItem);
-      if (matchingIts.length > 0) {
-        allOrdersCount++;
-        matchingIts.forEach((i) => { allOrdersQty += Number(i.quantity); });
-      }
-    });
-
+    // Jména polí zůstávají, jak byla — obrazovka je má na šesti místech
+    // a přejmenovat je není součástí téhle úpravy.
     return {
-      currentViewQty,
-      currentViewOrdersCount,
-      currentViewItemsCount,
-      allOrdersQty,
-      allOrdersCount,
-      hasHiddenOrders: allOrdersQty > currentViewQty
+      currentViewQty: p.kusyVeVyberu,
+      currentViewOrdersCount: p.objednavekVeVyberu,
+      currentViewItemsCount: p.polozekVeVyberu,
+      allOrdersQty: p.kusyCelkem,
+      allOrdersCount: p.objednavekCelkem,
+      hasHiddenOrders: p.jsouSkryteObjednavky,
     };
   }, [itemFilterBeerId, itemFilterPackageId, packageKindFilter, searchText, searchedFiltered, orders, items, packages]);
 

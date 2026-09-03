@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { supabase, SanitationLog } from '../lib/supabase';
 import { Spinner, EmptyState } from '../components/ui';
 import { BookOpen, Calendar, Clock, Droplets, Edit3, FileSpreadsheet, FlaskConical, MessageSquare, Pencil, Plus, Search, ShieldCheck, Sparkles, SprayCan, User, X, type LucideIcon } from 'lucide-react';
-import * as XLSX from 'xlsx-js-style';
 
 import { useAuth } from '../lib/auth';
 
@@ -204,7 +203,11 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
     return true;
   });
 
-  const exportExcel = () => {
+  const exportExcel = async () => {
+    // Knihovna na Excel váží 628 kB — načte se teprve tady, při kliknutí na
+    // export. Dřív se importovala staticky, takže se stahovala s obrazovkou
+    // i tomu, kdo nikdy nic neexportuje.
+    const XLSX = await import('xlsx-js-style');
     const rows = filtered.map((l) => ({
       'Datum sanitace': l.sanitation_date,
       'Čas sanitace': l.sanitation_time ?? (l.created_at ? l.created_at.slice(11, 16) : '—'),
