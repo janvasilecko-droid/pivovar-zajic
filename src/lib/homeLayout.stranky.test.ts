@@ -22,13 +22,20 @@ describe('rozdelDoStranek — tři stránky podle toho, co člověk dělá', () 
     expect([...vsechnyVeStrankach].sort()).toEqual([...VSECHNY].sort());
   });
 
-  it('prostřední stránka je výroba a je na ní poznámkový lísteček', () => {
+  it('úvodní stránka je krátká a je na ní to, na co se sahá denně', () => {
+    // Schválně jen pět dlaždic: stočit (KEG, Lahve), vzkazy, sklad, inventura.
+    // Čím víc se sem přidá, tím hůř se to hledá — zbytek je jedno přejetí
+    // prstem daleko. Objednávky tu nejsou proto, že sedí ve spodní liště.
     const stranky = rozdelDoStranek(VSECHNY as TileId[]);
-    expect(STRANKY_PLOCHY[VYCHOZI_STRANKA].nazev).toBe('Výroba');
-    const vyroba = stranky[VYCHOZI_STRANKA];
-    for (const id of ['notes', 'kegging', 'bottling', 'inventory', 'cellar']) {
-      expect(vyroba, `${id} chybí na stránce Výroba`).toContain(id);
-    }
+    expect(STRANKY_PLOCHY[VYCHOZI_STRANKA].nazev).toBe('Úvod');
+    const uvod = stranky[VYCHOZI_STRANKA];
+    expect(uvod).toEqual(['kegging', 'bottling', 'notes', 'dashboard', 'inventory']);
+  });
+
+  it('úvodní stránka se nesmí rozjet do seznamu — nejvýš šest dlaždic', () => {
+    // Pojistka proti tomu, aby se sem postupně naskládalo všechno; tak
+    // vypadala plocha předtím, než se rozdělila.
+    expect(STRANKY_PLOCHY[VYCHOZI_STRANKA].ids.length).toBeLessThanOrEqual(6);
   });
 
   it('vlevo jsou výpočty a nástroje, vpravo číselníky a nastavení', () => {

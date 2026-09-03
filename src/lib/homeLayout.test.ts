@@ -20,10 +20,11 @@ describe('getHomeLayout', () => {
   it('vrátí výchozí layout pro prázdný/null vstup', () => {
     const layout = getHomeLayout(null, [A, B, C]);
     // Nová plocha se zakládá rozdělená do stránek podle STRANKY_PLOCHY, takže
-    // pořadí určuje TA TABULKA, ne pořadí ve visibleIds. Všechny tři jsou
-    // výrobní, tedy skončí na jedné stránce: kegging, dashboard (Sklad),
-    // orders — v tom pořadí, v jakém je vypsaná stránka „Výroba".
-    expect(layout.pages).toEqual([[A, C, B], []]);
+    // rozmístění i pořadí určuje TA TABULKA, ne pořadí ve visibleIds:
+    // kegging a dashboard (Sklad) patří na úvodní stránku, orders na
+    // „Zbytek" (v appce jsou objednávky ve spodní liště). Poslední prázdná
+    // stránka je místo na přidávání (ensureTrailingEmptyPage).
+    expect(layout.pages).toEqual([[A, C], [B], []]);
     expect(layout.scene).toBe('warm');
     expect(layout.tileOpacity).toBeCloseTo(0.62);
     // 'bottling' není v visibleIds, takže i výchozí slot spodní lišty se
@@ -44,10 +45,16 @@ describe('getHomeLayout', () => {
     expect(layout.pages).toEqual([[A], [C], []]);
   });
 
-  it('čte starý plochý formát "order" jako jednu stránku (zpětná kompatibilita)', () => {
+  it('čte starý plochý formát "order" a nic z něj neztratí (zpětná kompatibilita)', () => {
+    // Starý formát je jedna plochá řada dlaždic. Načte se jako jedna stránka,
+    // ale protože nenese značku rozdělení (`rozlozeniVerze`), plocha se
+    // vzápětí jednou přeskládá do stránek — to je záměr, aby staré rozložení
+    // dostalo nové rozdělení. Testuje se tedy to, na čem záleží: že se žádná
+    // dlaždice neztratí ani nezdvojí.
     const raw = { order: [A, B], overrides: {}, scene: 'warm', tileOpacity: 0.42 };
     const layout = getHomeLayout(raw, [A, B]);
-    expect(layout.pages).toEqual([[A, B], []]);
+    expect(layout.pages.flat().sort()).toEqual([A, B].sort());
+    expect(layout.pages[layout.pages.length - 1]).toEqual([]);
   });
 
   it('zachová existující barvu a velikost override, nepřepíše je výchozí', () => {
