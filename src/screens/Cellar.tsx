@@ -5,7 +5,7 @@ import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSumma
 
 import { nesedici, zkontrolujTanky } from '../lib/tankKontrola';
 import { Beer, CellarTank, CellarTankCycle, CellarTransfer, EntryRow, Package, beerBorder, fetchAllRows, supabase, useRealtime } from '../lib/supabase';
-import { Modal, Field, Spinner } from '../components/ui';
+import { Modal, Field, Spinner, UkazatelPlnosti } from '../components/ui';
 import { TankOccupancyPlanner } from '../components/TankOccupancyPlanner';
 import { chyba, oznam, potvrd } from '../lib/toast';
 import { IkonaSud } from '../components/ikony';
@@ -747,6 +747,14 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                         {t.current_beer_name ? 'Změnit pivo' : 'Nastavit pivo'}
                       </button>
                     </div>
+                  )}
+
+                  {/* 🛢️ Plnost tanku pruhem — dřív tu byly jen litry a to,
+                      jestli je tank skoro plný nebo na dojezdu, se dopočítávalo
+                      v hlavě. Kreslí se jen u tanku, ve kterém něco je: u
+                      prázdného nebo sanitovaného by prázdný pruh nic neřekl. */}
+                  {!isEmpty && t.capacity_l > 0 && (
+                    <UkazatelPlnosti zbyvaLitru={remaining} kapacitaLitru={Number(t.capacity_l)} />
                   )}
 
                   {t.started_at && (

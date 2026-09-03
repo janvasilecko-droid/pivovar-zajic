@@ -1,5 +1,7 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { Inbox, X, type LucideIcon } from 'lucide-react';
+import { plnostTanku, popisPlnosti } from '../lib/tankPlnost';
+import { litry } from '../lib/cisla';
 
 export function Spinner({ className = '' }: { className?: string }) {
   return (
@@ -165,5 +167,47 @@ export function ConfirmButton({ onConfirm, children, className = '' }: {
       className={className}
       onClick={async (e) => { e.preventDefault(); await onConfirm(); }}
     >{children}</button>
+  );
+}
+
+/**
+ * 🛢️ Ukazatel plnosti tanku — vodorovný pruh, který na první pohled řekne
+ * „skoro plný / na dojezdu", místo aby to člověk počítal z litrů v hlavě.
+ *
+ * Barva NENESE informaci sama: pod pruhem (nebo v `title`) je vždy popis
+ * slovy, takže se to dá přečíst i bez plného vnímání barev.
+ */
+export function UkazatelPlnosti({ zbyvaLitru, kapacitaLitru, popisek = true }: {
+  zbyvaLitru: number;
+  kapacitaLitru: number;
+  /** false = jen pruh (do dlaždice, kde na text není místo). */
+  popisek?: boolean;
+}) {
+  const p = plnostTanku(zbyvaLitru, kapacitaLitru);
+  const barva =
+    p.stav === 'prazdny' ? 'bg-neutral-300'
+    : p.stav === 'dojezd' ? 'bg-rose-500'
+    : p.stav === 'stred' ? 'bg-amber-500'
+    : 'bg-emerald-500';
+  const popis = popisPlnosti(p);
+  return (
+    <div className="mt-2" title={`Plnost tanku: ${popis}`}>
+      <div
+        className="h-2.5 w-full rounded-full bg-neutral-200 overflow-hidden"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={p.procent}
+        aria-label={`Plnost tanku: ${popis}`}
+      >
+        <div className={`h-full ${barva} transition-all duration-500`} style={{ width: `${p.procent}%` }} />
+      </div>
+      {popisek && (
+        <div className="mt-1 flex items-center justify-between text-[11px] font-bold text-neutral-600">
+          <span className="tabular-nums">{litry(zbyvaLitru)} z {litry(kapacitaLitru)}</span>
+          <span>{popis}</span>
+        </div>
+      )}
+    </div>
   );
 }

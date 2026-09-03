@@ -954,3 +954,62 @@ html.density-large .btn {
     linear-gradient(to right, rgb(0 0 0 / 0.45), rgb(0 0 0 / 0)),
     linear-gradient(to left, rgb(0 0 0 / 0.45), rgb(0 0 0 / 0));
 }
+
+/* 🖨️ TISK — obrazovky, které se tisknou přímo přes window.print().
+   ---------------------------------------------------------------------------
+   Závozový a rozvozový list se tiskne ve vlastním okně s vlastním CSS
+   (lib/safePrint.ts) a tohle se ho netýká. Tady jde o měsíční uzávěrku ve
+   Statistice: `window.print()` na obyčejné obrazovce vytisknul CELOU appku
+   včetně navigace, dlaždic a poloprůhledného překryvu — na papíře pak byl
+   šedý přeblik a doklad k ničemu.
+
+   Prvek, který se má vytisknout, dostane třídu `tisk-oblast`; tlačítka
+   uvnitř `tisk-skryt`. Celé je to schované za `body:has(.tisk-oblast)`, aby
+   se pravidla uplatnila JEN když se tiskne opravdový tiskový list. Kdyby
+   `:has()` prohlížeč neznal, pravidla se přeskočí a tisk se chová jako dřív
+   — tedy nikdy ne prázdná stránka. */
+@media print {
+  @page { size: A4; margin: 14mm; }
+
+  body:has(.tisk-oblast) {
+    background: #fff !important;
+  }
+  /* `visibility` (ne `display`) schválně: `display: none` na rodiči by
+     schoval i tiskovou oblast uvnitř něj. Takhle zmizí všechno kromě
+     oblasti a jejího obsahu, ať je ve stromu jakkoli hluboko. */
+  body:has(.tisk-oblast) * {
+    visibility: hidden !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+  body:has(.tisk-oblast) .tisk-oblast,
+  body:has(.tisk-oblast) .tisk-oblast * {
+    visibility: visible !important;
+  }
+  /* Oblast se vytáhne z modálního překryvu na začátek stránky a pustí se
+     jí výška — jinak by se vytiskla jen ta část, co se vešla do okna. */
+  body:has(.tisk-oblast) .tisk-oblast {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
+  /* Tlačítka (Zavřít, Vytisknout) na papír nepatří. */
+  .tisk-skryt { display: none !important; }
+  /* Řádek tabulky ani blok odběratele se nesmí rozseknout mezi stránky;
+     hlavička tabulky se naopak opakuje na každé. */
+  .tisk-oblast tr,
+  .tisk-oblast .tisk-blok { page-break-inside: avoid; break-inside: avoid; }
+  .tisk-oblast thead { display: table-header-group; }
+}

@@ -162,14 +162,36 @@ const LEGACY_SIZE_TO_WH: Record<string, { w: number; h: number }> = {
 // Seskupené podle barevné rodiny (modré, zelené, červené/růžové,
 // oranžové/žluté, fialové, neutrální) — ve výběru pak jdou "varianty jedné
 // barvy" najít vedle sebe, ne rozházené náhodně.
+/**
+ * Barvy VYHRAZENÉ pro upozornění — z palety pro uživatele jsou vyňaté.
+ *
+ * `hs-tile-alert` má podklad `rgba(193,18,31,.82)`, tedy #c1121f — a to byla
+ * do teď zároveň volitelná barva `crimson`. Dlaždice, kterou si někdo
+ * přebarvil na crimson, tak vypadala jako „výčep u zákazníka po termínu" a
+ * naopak: plná plocha vypadala stejně naléhavě jako prázdná, protože červená
+ * nic neznamenala. `ruby` (#e03131) je od té červené nerozeznatelná na
+ * telefonu za světla, `hs-tile-warn` je #b45309. `maroon` (#a61e4d) vyšel v testu 55 daleko od
+ * červené upozornění, což je pod hranicí rozlišitelnosti na telefonu za
+ * světla — vyhrazený je proto taky.
+ *
+ * Barvy tu ZŮSTÁVAJÍ v COLOR_HEX: kdo je má uložené z dřívějška, nesmí mu
+ * dlaždice zčernat. Jen se už nedají vybrat.
+ */
+export const BARVY_UPOZORNENI: TileColor[] = ['crimson', 'ruby', 'maroon'];
+
 export const TILE_COLORS: TileColor[] = [
   'sky', 'azure', 'cobalt', 'navy', 'indigo', 'periwinkle',
   'mint', 'forest', 'lime', 'emerald', 'sage', 'olive', 'jade', 'teal',
-  'coral', 'rose', 'crimson', 'salmon', 'ruby', 'maroon', 'blush',
+  'coral', 'rose', 'salmon', 'blush',
   'amber2', 'citrus', 'gold', 'tangerine', 'honey', 'peach', 'mustard',
   'orchid', 'plum', 'lavender', 'violet', 'grape', 'magenta',
   'slate', 'charcoal',
 ];
+
+/** Podklad dlaždice upozornění (hs-tile-alert v HomeScreen.css). */
+export const HEX_UPOZORNENI = '#c1121f';
+/** Podklad dlaždice „blíží se" (hs-tile-warn v HomeScreen.css). */
+export const HEX_VAROVANI = '#b45309';
 export const SCENES: Scene[] = ['warm', 'sunset', 'ocean', 'forest', 'night', 'white', 'sky', 'mint', 'lavender', 'slate', 'custom'];
 const DEFAULT_CUSTOM_ACCENT = '#ff6b6b';
 

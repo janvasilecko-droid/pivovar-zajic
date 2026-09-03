@@ -1968,7 +1968,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
       {/* 🖨️ MODAL PRO TISK MĚSÍČNÍ UZÁVĚRKY SLÁDKA */}
       {showPrintModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 space-y-6 shadow-2xl">
+          <div className="tisk-oblast bg-white rounded max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 space-y-6 shadow-2xl">
             <div className="flex items-center justify-between border-b border-neutral-200 pb-4">
               <div>
                 <span className="text-[11px] font-mono font-black uppercase tracking-widest text-amber-600">Formátovaný protokol sládka</span>
@@ -1977,7 +1977,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
               </div>
               <button
                 onClick={() => setShowPrintModal(false)}
-                className="w-9 h-9 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-black grid place-items-center"
+                className="tisk-skryt w-9 h-9 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-black grid place-items-center"
                 title="Zavřít"
               >
                 <X size={18} />
@@ -2039,13 +2039,13 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
             <div className="flex justify-end gap-3 pt-4 border-t border-neutral-100">
               <button
                 onClick={() => setShowPrintModal(false)}
-                className="px-4 py-2.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-xs font-bold"
+                className="tisk-skryt px-4 py-2.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-xs font-bold"
               >
                 Zavřít
               </button>
               <button
                 onClick={() => window.print()}
-                className="px-5 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md flex items-center gap-2"
+                className="tisk-skryt px-5 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md flex items-center gap-2"
               >
                 <Printer size={16} />
                 <span>Vytisknout / Uložit do PDF</span>

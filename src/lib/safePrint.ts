@@ -53,7 +53,29 @@ const BASE_STYLES = `
   .print-table th { background: #f3f4f6; padding: 8px; border: 1px solid #ccc; text-align: left; }
   .print-table td { padding: 6px; border: 1px solid #ccc; }
   .print-empty { text-align: center; padding: 20px; color: #555; }
+
+  /* Hlavička dokladu — bez ní to byl výpis z webu, ne list, který řidič
+     odevzdá a zákazník podepíše. */
+  .print-hlavicka { display: flex; justify-content: space-between; align-items: flex-end;
+    border-bottom: 3px solid #111; padding-bottom: 8px; margin-bottom: 14px; }
+  .print-pivovar { font-weight: 900; font-size: 15px; letter-spacing: 0.02em; }
+  .print-pivovar-radek { font-size: 11px; color: #444; margin-top: 2px; }
+  .print-vytisteno { font-size: 11px; color: #444; text-align: right; }
+
+  /* Podpis převzetí u každého odběratele. Papír bez podpisu nic nedokládá. */
+  .print-podpis { display: flex; gap: 24px; margin-top: 14px; padding-top: 6px; }
+  .print-podpis > div { flex: 1; border-top: 1px solid #666; padding-top: 3px;
+    font-size: 10px; color: #555; }
+
+  /* Číslo stránky a patička se opakují na každé stránce. */
+  @page { size: A4; margin: 14mm; }
 `;
+
+/** Kdo doklad vydal. Mění se jednou za život firmy, proto natvrdo. */
+const PIVOVAR = {
+  nazev: 'Kynšperský pivovar s.r.o.',
+  radek: 'Výroba piva Zajíc · Kynšperk nad Ohří',
+};
 
 function valueText(value: PrintableValue, fallback = '—'): string {
   if (value === null || value === undefined || value === '') return fallback;
@@ -112,8 +134,38 @@ export function openSafePrintWindow(
   return true;
 }
 
+/**
+ * Hlavička dokladu: kdo ho vydal a kdy se tiskl. Datum tisku je tam
+ * schválně — na papíře bez data se za týden nedá poznat, ke kterému
+ * závozu patřil.
+ */
+function vlozHlavicku(document: Document, body: HTMLElement): void {
+  const hlavicka = document.createElement('div');
+  hlavicka.className = 'print-hlavicka';
+  const vlevo = document.createElement('div');
+  appendTextElement(document, vlevo, 'div', PIVOVAR.nazev, 'print-pivovar');
+  appendTextElement(document, vlevo, 'div', PIVOVAR.radek, 'print-pivovar-radek');
+  hlavicka.appendChild(vlevo);
+  appendTextElement(
+    document, hlavicka, 'div',
+    `Vytištěno ${new Date().toLocaleString('cs-CZ')}`,
+    'print-vytisteno',
+  );
+  body.appendChild(hlavicka);
+}
+
+/** Dva podpisové řádky — kdo vydal a kdo převzal. */
+function vlozPodpis(document: Document, card: HTMLElement): void {
+  const podpis = document.createElement('div');
+  podpis.className = 'print-podpis';
+  appendTextElement(document, podpis, 'div', 'Vydal (pivovar)');
+  appendTextElement(document, podpis, 'div', 'Převzal (odběratel)');
+  card.appendChild(podpis);
+}
+
 export function printDeliveryList(options: DeliveryPrintOptions): boolean {
   return openSafePrintWindow(options.title, (document, body) => {
+    vlozHlavicku(document, body);
     appendTextElement(document, body, 'h1', options.heading);
     if (options.summary) appendTextElement(document, body, 'p', options.summary, 'print-summary');
 
@@ -151,6 +203,7 @@ export function printDeliveryList(options: DeliveryPrintOptions): boolean {
       card.appendChild(list);
 
       if (order.note) appendTextElement(document, card, 'div', `Poznámka: ${valueText(order.note)}`, 'print-note');
+      vlozPodpis(document, card);
       body.appendChild(card);
     }
   });
@@ -158,6 +211,7 @@ export function printDeliveryList(options: DeliveryPrintOptions): boolean {
 
 export function printTable(options: PrintTableOptions): boolean {
   return openSafePrintWindow(options.title, (document, body) => {
+    vlozHlavicku(document, body);
     appendTextElement(document, body, 'h1', options.heading);
     if (options.summary) appendTextElement(document, body, 'p', options.summary, 'print-summary');
 
