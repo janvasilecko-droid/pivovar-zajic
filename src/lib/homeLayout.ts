@@ -686,6 +686,45 @@ export function uvolniMisto(
   return { ...layout, overrides };
 }
 
+/**
+ * 📏 Vyrovná dlaždice na JEDNÉ stránce — srazí je k sobě odshora, bez mezer.
+ *
+ * Volné rozmístění je záměr (dlaždici jde pustit i doprostřed prázdna), ale
+ * po delším přeskládávání z toho bývá roztroušená plocha s dírami. Tohle je
+ * výslovná akce: uklidí, co si člověk nastrkal, a pořadí přitom nechá být —
+ * bere je tak, JAK JE VIDÍ, tedy shora dolů a zleva doprava.
+ *
+ * Mezery, které někdo udělal schválně, tím zmizí. Proto je to tlačítko, ne
+ * nic automatického; vrátit se dá přetažením zpátky.
+ */
+export function vyrovnejStranku(layout: HomeLayout, pageIndex: number, cols: number): HomeLayout {
+  const pageTiles = layout.pages[pageIndex];
+  if (!pageTiles || pageTiles.length === 0) return layout;
+
+  const overrides = { ...layout.overrides };
+  const poradi = [...pageTiles].sort((a, z) => {
+    const oa = overrides[a] ?? {};
+    const oz = overrides[z] ?? {};
+    return (oa.y ?? 0) - (oz.y ?? 0) || (oa.x ?? 0) - (oz.x ?? 0);
+  });
+
+  const occupied = new Set<string>();
+  for (const id of poradi) {
+    const o = overrides[id] ?? {};
+    const w = widthCols(o.w ?? DEFAULT_W);
+    const h = o.h ?? DEFAULT_H;
+    const cell = findFreeCell(occupied, w, h, cols);
+    occupyCell(occupied, cell.x, cell.y, w, h);
+    overrides[id] = { ...o, x: cell.x, y: cell.y };
+  }
+
+  // Pořadí ve stránce se srovná podle toho, jak dlaždice doopravdy leží —
+  // jinak by se `pages` a viditelné rozmístění rozešly a další operace
+  // (přidání dlaždice, smazání stránky) by pracovaly s jiným pořadím.
+  const pages = layout.pages.map((p, i) => (i === pageIndex ? poradi : p));
+  return { ...layout, pages, overrides };
+}
+
 /** Posune dlaždici o jednu buňku daným směrem (záložní šipky v edit módu) — stejná logika (výměna při kolizi) jako moveTileToCell. */
 export function stepTileCell(layout: HomeLayout, id: TileId, direction: 'left' | 'right' | 'up' | 'down', cols: number): HomeLayout {
   const current = layout.overrides[id];

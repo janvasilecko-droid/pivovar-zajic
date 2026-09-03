@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import {
   CalendarX2, Download, Check, ChevronLeft, ChevronRight, LogOut, Palette, Plus, Search, SlidersHorizontal, Trash2, TriangleAlert, X,
   Truck, ClipboardList, MessageCircle, PlusCircle, Snowflake, FlaskConical, CalendarDays, BarChart3, Package as PackageIcon, TrendingDown, GlassWater, BookOpen, Droplet, Car, FileText, ClipboardCheck, Shield, Store, Receipt, MapPin, Beer as BeerIcon, Tag, Sparkles, Compass, Wheat, Zap, ArrowLeftRight, StickyNote,
-  AlarmClock, Play, Pause, RotateCcw, Pin, Radio, SkipForward, Flame, Sun, Settings,
+  AlarmClock, Play, Pause, RotateCcw, Pin, Radio, SkipForward, Flame, Sun, Settings, LayoutGrid,
 } from 'lucide-react';
 import { NAV, EXTRA_NAV, type Page, type NavItem } from '../components/Layout';
 import LauncherTile, { tileGridStyle } from '../components/LauncherTile';
@@ -35,7 +35,7 @@ import {
   addDockSlot, removeDockSlot,
   hexToRgba,
   PAGE_CATEGORY, CATEGORY_ORDER, CATEGORY_SHADES, type Category,
-  moveTileToPageCell, okrajProPrepnuti, dalsiStranka, rozdelVseDoStranek, idsKRozmisteni, VYCHOZI_STRANKA, type OkrajTazeni,
+  moveTileToPageCell, okrajProPrepnuti, dalsiStranka, rozdelVseDoStranek, idsKRozmisteni, vyrovnejStranku, VYCHOZI_STRANKA, type OkrajTazeni,
   MIN_SVETLOST, MAX_SVETLOST,
   SCENES, MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX, defaultTileColor,
   GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK,
@@ -592,6 +592,17 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     setCurrentPageIndex(VYCHOZI_STRANKA);
   }
 
+  /**
+   * Srazí dlaždice na TÉHLE stránce k sobě odshora, bez děr.
+   *
+   * Bez dotazu: je to malá, hned viditelná změna a vrátit se dá přetažením.
+   * Platí jen na stránku, na které člověk zrovna je — ostatní se nesahá,
+   * aby jedno klepnutí nepřeskládalo celou appku.
+   */
+  function handleVyrovnat() {
+    persist(vyrovnejStranku(layout, currentPageIndex, cols));
+  }
+
   function handleUnifyColors() {
     persist(unifyColorsByCategory(layout));
   }
@@ -1052,6 +1063,15 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                 <button className="hs-reset-btn" onClick={handleReset}>Obnovit výchozí</button>
               </div>
             )}
+            <div className="hs-controls-group">
+              <button
+                className="hs-reset-btn"
+                onClick={handleVyrovnat}
+                title="Srazí dlaždice na téhle stránce k sobě odshora a zaplní díry. Pořadí zůstane, ostatní stránky se nemění."
+              >
+                <LayoutGrid className="ikona-text" /> Vyrovnat dlaždice
+              </button>
+            </div>
             <div className="hs-controls-group">
               <button
                 className="hs-reset-btn"

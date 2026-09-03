@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest';
 import { NAV, EXTRA_NAV, PAGE_GROUP_PARENT } from '../components/Layout';
 import {
   ensurePositions, getHomeLayout, rozdelDoStranek, rozdelVseDoStranek, STRANKY_PLOCHY, VYCHOZI_STRANKA,
-  DLAZDICE_MIMO_TABULKU_ZAMERNE, ROZLOZENI_VERZE, idsKRozmisteni,
+  DLAZDICE_MIMO_TABULKU_ZAMERNE, ROZLOZENI_VERZE, idsKRozmisteni, vyrovnejStranku,
   GRID_COLS_MOBILE, GRID_COLS_DESKTOP, MAX_W, UNIT_COLS,
   type HomeLayout, type TileId,
 } from './homeLayout';
@@ -259,5 +259,76 @@ describe('jednorázové přeskládání plochy (ROZLOZENI_VERZE)', () => {
     const layout = getHomeLayout(sSchovanou, viditelne, [], GRID_COLS_MOBILE);
     expect(layout.pages.flat()).not.toContain('app_settings');
     expect(layout.hidden).toContain('app_settings');
+  });
+});
+
+describe('vyrovnejStranku — srazit dlaždice k sobě', () => {
+  const l = (kusy: Array<[string, number, number, number?, number?]>, stranek = 1): HomeLayout => {
+    const overrides: any = {};
+    for (const [id, x, y, w, h] of kusy) overrides[id] = { x, y, w: w ?? 1, h: h ?? 1 };
+    const pages: any[] = [kusy.map(([id]) => id)];
+    for (let i = 1; i < stranek; i++) pages.push([]);
+    return { pages, overrides, groups: {}, dock: [], hidden: [], fixedColors: {} } as any;
+  };
+  const kde = (layout: HomeLayout, id: string) => {
+    const o = layout.overrides[id as TileId]!;
+    return { x: o.x, y: o.y };
+  };
+
+  it('zaplní díry a srazí dlaždice odshora', () => {
+    // Tři dlaždice rozeseté po ploše s mezerami → mají sednout do prvního
+    // řádku vedle sebe (9 sloupců / 3 = tři na řádek).
+    const po = vyrovnejStranku(l([['a', 0, 3], ['b', 6, 5], ['c', 3, 8]]), 0, GRID_COLS_MOBILE);
+    expect(kde(po, 'a')).toEqual({ x: 0, y: 0 });
+    expect(kde(po, 'b')).toEqual({ x: 3, y: 0 });
+    expect(kde(po, 'c')).toEqual({ x: 6, y: 0 });
+  });
+
+  it('zachová pořadí, jak ho člověk vidí — shora dolů a zleva doprava', () => {
+    // Ve `pages` jsou naschvál v jiném pořadí, než jak leží na ploše.
+    const layout = l([['pozdejsi', 6, 0], ['prvni', 0, 0], ['druhy', 3, 0]]);
+    const po = vyrovnejStranku(layout, 0, GRID_COLS_MOBILE);
+    expect(po.pages[0]).toEqual(['prvni', 'druhy', 'pozdejsi']);
+    expect(kde(po, 'prvni')).toEqual({ x: 0, y: 0 });
+    expect(kde(po, 'pozdejsi')).toEqual({ x: 6, y: 0 });
+  });
+
+  it('poradí si s velkou dlaždicí — nepřekryje ji ani ji nerozseká', () => {
+    const po = vyrovnejStranku(l([['velka', 0, 4, 2, 2], ['a', 6, 9], ['b', 3, 12]]), 0, GRID_COLS_MOBILE);
+    const v = kde(po, 'velka');
+    expect(v).toEqual({ x: 0, y: 0 });
+    // Malé dlaždice nesmí ležet v obdélníku té velké (6 sloupců × 2 řádky).
+    for (const id of ['a', 'b']) {
+      const p = kde(po, id)!;
+      const prekryva = p.x! < 6 && p.y! < 2;
+      expect(prekryva, `${id} leží pod velkou dlaždicí`).toBe(false);
+    }
+  });
+
+  it('sáhne JEN na zvolenou stránku', () => {
+    const layout: HomeLayout = {
+      ...l([['a', 0, 5]], 2),
+      pages: [['a'], ['b']],
+      overrides: { a: { x: 0, y: 5, w: 1, h: 1 }, b: { x: 6, y: 7, w: 1, h: 1 } },
+    } as any;
+    const po = vyrovnejStranku(layout, 0, GRID_COLS_MOBILE);
+    expect(kde(po, 'a')).toEqual({ x: 0, y: 0 });
+    expect(kde(po, 'b')).toEqual({ x: 6, y: 7 });
+  });
+
+  it('prázdná ani neexistující stránka nic nerozbije', () => {
+    const layout = l([['a', 0, 0]], 2);
+    expect(vyrovnejStranku(layout, 1, GRID_COLS_MOBILE)).toBe(layout);
+    expect(vyrovnejStranku(layout, 9, GRID_COLS_MOBILE)).toBe(layout);
+  });
+
+  it('barvy, velikosti a popisky zůstanou', () => {
+    const layout = l([['a', 3, 4, 2, 2]]);
+    layout.overrides.a = { ...layout.overrides.a, color: 'sky', label: 'Moje' };
+    const po = vyrovnejStranku(layout, 0, GRID_COLS_MOBILE);
+    expect(po.overrides.a?.color).toBe('sky');
+    expect(po.overrides.a?.label).toBe('Moje');
+    expect(po.overrides.a?.w).toBe(2);
+    expect(po.overrides.a?.h).toBe(2);
   });
 });
