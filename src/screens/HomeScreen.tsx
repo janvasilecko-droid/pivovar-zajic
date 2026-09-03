@@ -35,7 +35,7 @@ import {
   addDockSlot, removeDockSlot,
   hexToRgba,
   PAGE_CATEGORY, CATEGORY_ORDER, CATEGORY_SHADES, type Category,
-  moveTileToPageCell, okrajProPrepnuti, dalsiStranka, rozdelVseDoStranek, VYCHOZI_STRANKA, type OkrajTazeni,
+  moveTileToPageCell, okrajProPrepnuti, dalsiStranka, rozdelVseDoStranek, idsKRozmisteni, VYCHOZI_STRANKA, type OkrajTazeni,
   MIN_SVETLOST, MAX_SVETLOST,
   SCENES, MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX, defaultTileColor,
   GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK,
@@ -583,12 +583,12 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   async function handleRozdelitDoStranek() {
     const ok = await potvrd(
       'Přeskládat dlaždice do tří stránek — nástroje vlevo, výroba uprostřed, zbytek vpravo?\n\n'
-      + 'Doplní se i dlaždice, které na ploše ještě nejsou. Barvy, velikosti a popisky zůstanou; '
+      + 'Doplní se hlavní moduly, které na ploše ještě nejsou (podzáložky ne). Barvy, velikosti a popisky zůstanou; '
       + 'schované dlaždice zůstanou schované. Tvoje dosavadní rozmístění se tím ztratí.',
       { potvrdit: 'Přeskládat' },
     );
     if (!ok) return;
-    persist(rozdelVseDoStranek(layout, [...visibleIds, ...extraVisibleIds] as TileId[]));
+    persist(rozdelVseDoStranek(layout, idsKRozmisteni(visibleIds, extraVisibleIds) as TileId[]));
     setCurrentPageIndex(VYCHOZI_STRANKA);
   }
 

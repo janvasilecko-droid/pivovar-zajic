@@ -103,7 +103,10 @@ export const EXTRA_NAV: NavItem[] = [
 // hodnotu, aby zapisovaly do historie (tlačítko Zpět vrací záložku, ne celé
 // menu) — v menu/hlavičce se ale mají pořád tvářit jako svoje nadřazená
 // položka NAV. Tahle mapa říká, pod kterou položku NAV daná dílčí záložka patří.
-const PAGE_GROUP_PARENT: Partial<Record<Page, Page>> = {
+// Exportovaná, ať jde v testech doložit, že se na plochu nedostane dlaždice,
+// která je jen vnitřní záložkou jiné (viz homeLayout.stranky.test.ts) — přesně
+// tak tam skončily „Lahve — zápis" a „Lahve — přehled" vedle „Lahve".
+export const PAGE_GROUP_PARENT: Partial<Record<Page, Page>> = {
   sanitation_log: 'haccp',
   checklists: 'haccp',
   sanitace: 'haccp',

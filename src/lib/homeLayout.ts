@@ -82,6 +82,12 @@ export type HomeLayout = {
   countdowns?: CountdownTimer[];
   /** Synchronizované rychlé poznámky mezi zařízeními. */
   notes?: HomeNote[];
+  /**
+   * Verze výchozího rozdělení do stránek, podle které se plocha naposledy
+   * přeskládala (viz ROZLOZENI_VERZE). Chybí-li, plocha rozdělení ještě
+   * nezná a při načtení se jednou přeskládá.
+   */
+  rozlozeniVerze?: number;
 };
 
 /** Převede "#rrggbb" (nebo "#rgb") na "rgba(r, g, b, alpha)". Neplatný vstup spadne na šedou. */
@@ -213,29 +219,67 @@ const DEFAULT_SIZE: Partial<Record<Page, { w: number; h: number }>> = {};
 export const STRANKY_PLOCHY: Array<{ nazev: string; ids: Page[] }> = [
   {
     nazev: 'Nástroje a výpočty',
-    ids: [
-      'concentration', 'timer', 'stopwatch', 'keg_timer', 'calendar', 'reminders',
-      'export_excel', 'history', 'kniha_jizd', 'vehicles', 'radio', 'feedback',
-    ],
+    ids: ['concentration', 'timer', 'calendar', 'export_excel', 'history', 'vehicles'],
   },
   {
     nazev: 'Výroba',
     ids: [
-      'notes', 'kegging', 'bottling', 'bottling_entry', 'bottling_overview',
-      'bottling_needs', 'inventory', 'cellar', 'dashboard', 'orders', 'orders_zavoz',
-      'writeoffs', 'fasovani', 'prodejna', 'haccp', 'checklists', 'sanitation_log',
+      'notes', 'kegging', 'bottling', 'bottling_needs', 'inventory', 'cellar',
+      'dashboard', 'orders', 'writeoffs', 'fasovani', 'prodejna', 'haccp',
     ],
   },
   {
     nazev: 'Zbytek',
-    ids: [
-      'akce', 'exkurze', 'vycepy', 'sklo_promo',
-      'sanitace_lahve', 'sanitace_kegy', 'sanitace_vycepy',
-      'depozitar', 'places', 'beers', 'packages', 'pricelist',
-      'users', 'app_settings', 'signout',
-    ],
+    ids: ['akce', 'sklo_promo', 'depozitar', 'users', 'app_settings', 'signout'],
   },
 ];
+
+/**
+ * JEDNA VĚC = JEDNA DLAŽDICE — ŽÁDNÉ PODZÁLOŽKY.
+ *
+ * V tabulce výš jsou jen HLAVNÍ moduly (NAV z Layout.tsx). Nepatří tam nic
+ * z EXTRA_NAV: to jsou podle vlastního popisu „stránky, co dnes existují jen
+ * jako vnitřní záložka jiné obrazovky".
+ *
+ * Poprvé jsem je tam nasypal a bylo to hned vidět: vedle „Lahve (Stáčení)"
+ * stály „Lahve — zápis" a „Lahve — přehled", tedy tři dlaždice na jednu věc.
+ * Totéž Sanitace (5 dlaždic), Odběratelé (5) a Kalendář (4). Dostat se k nim
+ * jde z jejich nadřazené obrazovky; kdo je chce mít na ploše, přidá si je
+ * ručně přes „Přidat dlaždici" — pak tam zůstanou a přeskládání je nesundá.
+ *
+ * VÝJIMKA: `notes`. Formálně patří pod Kalendář, ale na ploše to není
+ * záložka — je to lísteček se vzkazy, tedy widget, který jinde než na ploše
+ * nemá smysl. Další výjimky patří sem, ať je poznat, že je to rozhodnutí a
+ * ne nedopatření.
+ */
+export const DLAZDICE_MIMO_TABULKU_ZAMERNE: Page[] = ['notes'];
+
+/**
+ * Které dlaždice smí rozdělení rozmístit: hlavní moduly, na které má
+ * uživatel právo, plus záměrné výjimky (lísteček s poznámkami).
+ *
+ * Jedno místo pro všechny tři cesty, kudy se rozdělení spouští — zakládání
+ * plochy, jednorázové přeskládání a tlačítko v úpravě rozložení. Kdyby si to
+ * každá počítala po svém, rozešly by se.
+ */
+export function idsKRozmisteni(visibleIds: Page[], extraIds: Page[] = []): Page[] {
+  const vyjimky = extraIds.filter((id) => DLAZDICE_MIMO_TABULKU_ZAMERNE.includes(id));
+  return [...visibleIds, ...vyjimky];
+}
+
+/**
+ * Verze výchozího rozdělení plochy.
+ *
+ * Zvýšení znamená: každému uživateli se plocha JEDNOU přeskládá podle
+ * STRANKY_PLOCHY, i když si ji předtím naskládal sám. Barvy, velikosti,
+ * popisky a schované dlaždice zůstávají — mění se jen stránka a pořadí.
+ * Jakmile pak s plochou kdokoliv pohne, uloží se i tahle značka a víc už se
+ * nic nepřeskládá.
+ *
+ * Použij to jen tehdy, když se rozdělení mění pro VŠECHNY schválně. Cizí
+ * rozmístění se tím zahazuje a nejde vzít zpět.
+ */
+export const ROZLOZENI_VERZE = 1;
 
 /** Stránka, na které se plocha otevírá — prostřední, tedy výroba. */
 export const VYCHOZI_STRANKA = 1;
@@ -702,7 +746,7 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
     // nový člověk v pivovaru by jinak dostal 44 dlaždic hned první den.
     // Kdo chce rozmístit doopravdy všechno, má na to tlačítko v úpravě
     // rozložení (viz rozdelVseDoStranek).
-    pages.push(...rozdelDoStranek(newIds));
+    pages.push(...rozdelDoStranek(idsKRozmisteni(newIds, extraIds.filter((id) => !seen.has(id) && !hiddenSet.has(id)))));
   } else if (newIds.length > 0) {
     pages[pages.length - 1] = [...pages[pages.length - 1], ...newIds];
   }
@@ -786,8 +830,26 @@ export function getHomeLayout(raw: unknown, visibleIds: Page[], extraIds: Page[]
     fixedColors,
     countdowns: saved.countdowns || getCountdowns(),
     notes: saved.notes || getHomeNotes(),
+    rozlozeniVerze: ROZLOZENI_VERZE,
   };
-  return ensureTrailingEmptyPage(ensurePositions(layout, cols));
+
+  // 🗂️ Jednorázové přeskládání do stránek. Kdo má plochu uloženou z doby před
+  // rozdělením, dostane ho taky — jinak by nové rozdělení viděl jen ten, kdo
+  // si appku instaluje čerstvě, tedy nikdo z těch, co ji používají.
+  //
+  // Běží jen dokud se značka neuloží (uloží ji `persist` při první změně
+  // plochy). Do té doby se opakuje, ale výsledek je stejný, takže to nikomu
+  // nic nerozhodí; jakmile s plochou kdokoliv pohne, je to jednou provždy.
+  const zname = typeof (saved as any).rozlozeniVerze === 'number'
+    ? (saved as any).rozlozeniVerze
+    : 0;
+  const uzRozdeleno = zname >= ROZLOZENI_VERZE;
+  const jenZalozena = rawPages.length === 0;
+  const kRozdeleni = uzRozdeleno || jenZalozena
+    ? layout
+    : rozdelVseDoStranek(layout, idsKRozmisteni(visibleIds, extraIds).filter((id) => !hiddenSet.has(id)));
+
+  return ensureTrailingEmptyPage(ensurePositions(kRozdeleni, cols));
 }
 
 export async function saveHomeLayout(userId: string, layout: HomeLayout): Promise<void> {
