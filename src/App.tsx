@@ -215,9 +215,7 @@ export default function App() {
       {page === 'vycepy' && <VycepyScreen />}
       {(page === 'zavoz' || page === 'orders_zavoz') && <Zavoz setPage={setPage} />}
       {page === 'stock' && <Stock setPage={setPage} />}
-      {page === 'bottling' && <BottlingScreen mode="all" setPage={setPage} initialSubTab={pageSubTab} />}
-      {page === 'bottling_entry' && <BottlingScreen mode="entry_only" setPage={setPage} initialSubTab={pageSubTab} />}
-      {page === 'bottling_overview' && <BottlingScreen mode="overviews_only" setPage={setPage} initialSubTab={pageSubTab} />}
+      {page === 'bottling' && <BottlingScreen setPage={setPage} initialSubTab={pageSubTab} />}
       {page === 'srotovani' && <SrotovaniScreen setPage={setPage} />}
 
       {page === 'kegging' && <KeggingScreen mode="all" setPage={setPage} initialSubTab={pageSubTab} />}

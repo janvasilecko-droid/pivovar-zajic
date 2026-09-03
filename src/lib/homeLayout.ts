@@ -398,7 +398,7 @@ export const PAGE_CATEGORY: Partial<Record<Page, Category>> = {
   // Výroba
   kegging: 'Výroba', bottling: 'Výroba', orders: 'Výroba', fasovani: 'Výroba', prodejna: 'Výroba',
   writeoffs: 'Výroba', akce: 'Výroba', vycepy: 'Výroba', orders_zavoz: 'Výroba', zavoz: 'Výroba',
-  exkurze: 'Výroba', bottling_entry: 'Výroba', bottling_overview: 'Výroba', orders_entry: 'Výroba', orders_detail: 'Výroba', orders_celkem: 'Výroba',
+  exkurze: 'Výroba', orders_entry: 'Výroba', orders_detail: 'Výroba', orders_celkem: 'Výroba',
   marketing: 'Výroba',
   // Pivovar
   dashboard: 'Pivovar', sklo_promo: 'Pivovar', cellar: 'Pivovar', bottling_needs: 'Pivovar', inventory: 'Pivovar', history: 'Pivovar', stock: 'Pivovar',

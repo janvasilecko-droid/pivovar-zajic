@@ -43,16 +43,18 @@ const KEG_SIZES = [50, 30, 20, 15, 10];
 
 export default function BottlingScreen({
   setPage,
-  mode = 'all',
   initialTab,
   initialSubTab,
 }: {
   setPage?: (p: any, sec?: string, sub?: string) => void;
-  mode?: 'entry_only' | 'overviews_only' | 'all';
   initialTab?: 'zapis' | 'prehled' | 'potreba';
   initialSubTab?: string;
 } = {}) {
-  const pageValue = mode === 'entry_only' ? 'bottling_entry' : mode === 'overviews_only' ? 'bottling_overview' : 'bottling';
+  // Obrazovka je jedna — dřív měla ještě zúžené režimy „jen zápis" a „jen
+  // přehled", dostupné přes vlastní dlaždice „Lahve — zápis" a „Lahve —
+  // přehled". Ty jsou pryč: na jednu věc má být jedna dlaždice, a co v nich
+  // bylo, je tady v záložkách.
+  const pageValue = 'bottling';
   const [rows, setRows] = useState<EntryRow[]>([]);
   const [beers, setBeers] = useState<Beer[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
@@ -81,7 +83,7 @@ export default function BottlingScreen({
 
   // Záložky: Stáčení / Přehled / Potřeba stočit lahve
   // Z menu se otevře nejprve Přehled stočených; tlačítko „Stáčení lahví" otevře zápis stáčení.
-  const defaultTab: 'zapis' | 'prehled' | 'potreba' | 'plan' = mode === 'all' ? 'prehled' : 'zapis';
+  const defaultTab: 'zapis' | 'prehled' | 'potreba' | 'plan' = 'prehled';
   const [tab, setTab] = useState<'zapis' | 'prehled' | 'potreba' | 'plan'>((initialSubTab as any) || initialTab || defaultTab);
 
   useEffect(() => {
@@ -158,7 +160,7 @@ export default function BottlingScreen({
     if (!beerId) return;
     const beer = beers.find((b) => b.id === beerId);
     if (!beer) return;
-    // Výchozí záložka u mode="all" je "prehled" (Přehled), ale dlaždicový
+    // Výchozí záložka je "prehled" (Přehled), ale dlaždicový
     // panel se vykresluje jen pod záložkou "zapis" — bez přepnutí by se
     // pivo rozbalilo neviditelně.
     setTab('zapis');
@@ -865,12 +867,12 @@ export default function BottlingScreen({
         <div className="hidden sm:flex items-center justify-between gap-2">
           <span className="text-sm sm:text-base font-display font-black text-amber-950 flex items-center gap-1.5 shrink-0">
             <span><IkonaLahev className="ikona-text" /></span>
-            <span>{mode === 'entry_only' ? 'Lahve (Stáčení)' : mode === 'overviews_only' ? 'Lahve (Přehled)' : 'Lahve (Stáčení & Přehled)'}</span>
+            <span>Lahve</span>
           </span>
         </div>
 
         {/* Záložky: Stáčení / Přehled / Potřeba stočit lahve / Potřeba stočit KEGy */}
-        {mode === 'all' && (
+        {(
           <div className="flex items-center gap-1.5 p-1 rounded w-full sm:w-fit overflow-x-auto scrollbar-none flex-nowrap shrink-0">
             <button
               type="button"
@@ -932,7 +934,7 @@ export default function BottlingScreen({
           {/* Export do Excelu — vedle názvu */}
           <div className="flex items-center gap-1.5 flex-wrap">
 
-          {(mode === 'entry_only' || (mode === 'all' && tab === 'zapis')) && isStartChecklistCompleteForDate(businessDateISO()) && (
+          {tab === 'zapis' && isStartChecklistCompleteForDate(businessDateISO()) && (
             <>
               <button
                 type="button"
@@ -948,7 +950,7 @@ export default function BottlingScreen({
         </div>
 
       {/* Zápis stáčení — multi-row (12 řádků pivo+obal+množství najednou) */}
-      {(mode === 'entry_only' || (mode === 'all' && tab === 'zapis')) && (
+      {tab === 'zapis' && (
         <>
         <BottlingPlanBottler
           plans={plans}
@@ -1223,7 +1225,7 @@ export default function BottlingScreen({
       )}
 
       {/* Plánování stáčení — zadání úkolů „co je potřeba stočit" (admin/sládek/šéf) */}
-      {mode === 'all' && tab === 'plan' && (
+      {tab === 'plan' && (
         isManager ? (
           <BottlingPlanPlanner
             plans={plans}
@@ -1245,7 +1247,7 @@ export default function BottlingScreen({
       )}
 
       {/* Přehled: Stočeno lahví — velikosti */}
-      {(mode === 'overviews_only' || (mode === 'all' && tab === 'prehled')) && rows.length > 0 && (
+      {tab === 'prehled' && rows.length > 0 && (
         <div className="card p-3 mb-4 border-2 border-emerald-300/80 bg-white">
           <div className="flex items-center justify-between mb-2">
             <span className="font-display font-black text-amber-950 text-xs"><IkonaLahev className="ikona-text" /> Přehled stočených lahví</span>
@@ -1277,7 +1279,7 @@ export default function BottlingScreen({
       )}
 
       {/* Přehled: Stočeno KEG — velikosti + ztráta */}
-      {(mode === 'overviews_only' || (mode === 'all' && tab === 'prehled')) && rows.length > 0 && kegBuckets.some((b) => b.count > 0) && (
+      {tab === 'prehled' && rows.length > 0 && kegBuckets.some((b) => b.count > 0) && (
         <div className="card p-3 mb-4 border-2 border-amber-300/80 bg-white">
           <div className="flex items-center justify-between mb-2">
             <span className="font-display font-black text-amber-950 text-xs"><IkonaSud className="ikona-text" /> Přehled stočených KEG</span>
@@ -1328,7 +1330,7 @@ export default function BottlingScreen({
       )}
 
       {/* Všechny záznamy stáčení lahví / KEG */}
-      {(mode === 'overviews_only' || (mode === 'all' && tab === 'prehled')) && (
+      {tab === 'prehled' && (
         <div className="mt-0 space-y-3">
         {/* Přilepeno pod hlavní listou záložek, ať jde přepínat obdobi/filtry i uprostřed scrollování dlouhé tabulky níže. */}
         <div className="sticky top-0 z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-neutral-100 py-1.5 -mx-4 px-4 sm:mx-0 sm:px-0">
@@ -1717,7 +1719,7 @@ export default function BottlingScreen({
       )}
 
       {/* TAB 3: POTŘEBA STOČIT LAHVE */}
-      {(mode === 'overviews_only' || (mode === 'all' && tab === 'potreba')) && (
+      {tab === 'potreba' && (
         <div className="space-y-4">
           {/* Tabule po dnech — stejná jako u sudů. Odpovídá na „co stočit
               dnes", ne jen „kolik chybí za celý týden". */}

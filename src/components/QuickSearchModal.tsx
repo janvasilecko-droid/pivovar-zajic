@@ -31,8 +31,6 @@ type SearchItem = {
 /** Doplňující popis u obrazovek, kde samotný název nestačí. */
 const POPISY: Partial<Record<Page, string>> = {
   dashboard: 'Stav piv v KEG sudech a lahvích',
-  bottling_entry: 'Záznam stočení do lahví a PET',
-  bottling_overview: 'Historie a přehled stočených lahví',
   orders: 'Zadávání a přehled objednávek hospod a prodejen',
   zavoz: 'Plánování závozu a rozvozu piva',
   orders_zavoz: 'Plánování závozu a rozvozu piva',

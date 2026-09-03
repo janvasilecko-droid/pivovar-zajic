@@ -27,12 +27,12 @@ import '../screens/HomeScreen.css';
 
 export type NavItem = { id: Page; label: string; icon: LucideIcon; group: string };
 
-export type Page = 'export_excel' | 'home' | 'sanitace' | 'marketing' | 'planning' | 'depozitar' | 'dashboard' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'sanitace_lahve' | 'sanitace_kegy' | 'sanitace_vycepy' | 'history' | 'orders_entry' | 'orders' | 'orders_detail' | 'orders_celkem' | 'orders_zavoz' | 'zavoz' | 'kniha_jizd' | 'stock' | 'bottling' | 'bottling_entry' | 'bottling_overview' | 'kegging' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'notes' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs' | 'stopwatch' | 'timer' | 'keg_timer' | 'radio' | 'signout';
+export type Page = 'export_excel' | 'home' | 'sanitace' | 'marketing' | 'planning' | 'depozitar' | 'dashboard' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'sanitace_lahve' | 'sanitace_kegy' | 'sanitace_vycepy' | 'history' | 'orders_entry' | 'orders' | 'orders_detail' | 'orders_celkem' | 'orders_zavoz' | 'zavoz' | 'kniha_jizd' | 'stock' | 'bottling' | 'kegging' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'notes' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs' | 'stopwatch' | 'timer' | 'keg_timer' | 'radio' | 'signout';
 
 export const NAV: NavItem[] = [
   // --- VÝROBA ---
   { id: 'kegging', label: 'KEG', icon: IkonaSud, group: 'Výroba' },
-  { id: 'bottling', label: 'Lahve (Stáčení)', icon: IkonaLahev, group: 'Výroba' },
+  { id: 'bottling', label: 'Lahve', icon: IkonaLahev, group: 'Výroba' },
   { id: 'orders', label: 'Objednávky', icon: ClipboardList, group: 'Výroba' },
   { id: 'fasovani', label: 'Fasování', icon: Users, group: 'Výroba' },
   { id: 'prodejna', label: 'Prodejna', icon: Store, group: 'Výroba' },
@@ -92,8 +92,6 @@ export const EXTRA_NAV: NavItem[] = [
   { id: 'notes', label: 'Poznámky', icon: StickyNote, group: 'Nástroje' },
   { id: 'feedback', label: 'Zpětná vazba', icon: MessageCircle, group: 'Nástroje' },
   { id: 'exkurze', label: 'Exkurze', icon: Compass, group: 'Výroba' },
-  { id: 'bottling_entry', label: 'Lahve — zápis', icon: IkonaLahev, group: 'Výroba' },
-  { id: 'bottling_overview', label: 'Lahve — přehled', icon: BarChart3, group: 'Výroba' },
   { id: 'stopwatch', label: 'Stopky', icon: Timer, group: 'Nástroje' },
   { id: 'keg_timer', label: 'Stočení sudu', icon: Hourglass, group: 'Nástroje' },
   { id: 'radio', label: 'Pivovarské Rádio', icon: Radio, group: 'Nástroje' },
@@ -127,8 +125,6 @@ export const PAGE_GROUP_PARENT: Partial<Record<Page, Page>> = {
   notes: 'calendar',
   exkurze: 'akce',
   marketing: 'akce',
-  bottling_entry: 'bottling',
-  bottling_overview: 'bottling',
 };
 
 /** Vrátí Page, pod kterou se má daná stránka zvýraznit/pojmenovat v menu. */
