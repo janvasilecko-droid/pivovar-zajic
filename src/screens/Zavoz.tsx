@@ -9,7 +9,7 @@ import { exportZavozToExcel } from '../lib/excel';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { EditOrderModal } from '../components/EditOrderModal';
 import { getSecondCarOrderIds, toggleOrderKachna, toggleOrdersKachna, migrateSecondCarDatesToOrders } from '../lib/zavozSecondCar';
-import { SignatureModal } from '../components/SignatureModal';
+import { PodpisModal } from '../components/PodpisModal';
 import { KegReturnModal } from '../components/KegReturnModal';
 import { saveKegReturns, fetchKegMovements, computeKegBalances, type KegBalance } from '../lib/kegAccount';
 import { useAuth } from '../lib/auth';
@@ -1293,18 +1293,21 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
 
       {/* Modal pro podpis zákazníka na sklo */}
       {signOrder && (
-        <SignatureModal
-          isOpen={!!signOrder}
+        <PodpisModal
+          open={!!signOrder}
           onClose={() => setSignOrder(null)}
-          customerName={signOrder.place_name || ''}
-          onSaveSignature={async (signatureDataUrl, signerName) => {
-            await supabase.from('orders').update({
-              signature_url: signatureDataUrl,
-              signature_name: signerName,
+          nazev={signOrder.place_name || 'Objednávka'}
+          predvolenyPodpis={signOrder.place_name || ''}
+          onUlozit={async ({ png, prevzal }) => {
+            const { error } = await supabase.from('orders').update({
+              signature_url: png,
+              signature_name: prevzal || null,
               is_delivered: true,
               delivered_at: new Date().toISOString(),
             }).eq('id', signOrder.id);
-            oznam(`Podpis ${signerName} úspěšně zaznamenán!`);
+            // Dřív se úspěch hlásil i tehdy, když zápis spadl.
+            if (error) { chyba(`Podpis se nepodařilo uložit: ${error.message}`); return; }
+            oznam(prevzal ? `Podpis ${prevzal} zaznamenán.` : 'Podpis převzetí zaznamenán.');
             load();
           }}
         />

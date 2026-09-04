@@ -14,6 +14,7 @@ import { chyba, potvrd, toastZpet } from '../lib/toast';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { zavibruj } from '../lib/haptika';
 import { klicVyberu, nactiNaposled, zapamatujVyber, serazPodleNaposled } from '../lib/naposledyPouzite';
+import { FotkyZaznamu } from '../components/FotkyZaznamu';
 
 // Tři podoby jednoho výdeje ze skladu — formulář je pořád stejný, mění se
 // jen tabulka, do které se zapisuje, a jedno pole navíc. Podle toho se pak
@@ -729,6 +730,10 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                               onClick={() => increment(r.id, 1)}
                               title="Přidat 1 ks"
                             >+ 1 ks</button>
+                            {/* 📷 Fotka k odpisu — „zkažené, rozbitá láhev" je dnes
+                                jediný doklad a po měsíci si nikdo nevzpomene, jak to
+                                vypadalo. */}
+                            {table === 'writeoffs' && <FotkyZaznamu typ="odpis" zaznamId={r.id} kompaktni />}
                             <button
                               type="button"
                               className="w-12 min-h-[44px] ml-2 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black transition"
@@ -792,6 +797,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                                     onClick={() => increment(r.id, 1)}
                                     title="Přidat 1 ks"
                                   >+</button>
+                                  {table === 'writeoffs' && <FotkyZaznamu typ="odpis" zaznamId={r.id} kompaktni />}
                                   <button
                                     type="button"
                                     className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition"

@@ -39,13 +39,16 @@ import { poctyPolozek } from '../lib/objednavkyStatistika';
 import { kartaOdberatele } from '../lib/kartaOdberatele';
 import { kusy } from '../lib/cisla';
 import { PodpisModal } from '../components/PodpisModal';
+import { FotkyZaznamu } from '../components/FotkyZaznamu';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
   source: string; status: string; note: string | null; created_at: string;
   delivery_day: string | null; delivery_date: string | null;
   is_prepared: boolean; is_packaged: boolean;
-  is_delivered: boolean; delivered_at: string | null; 
+  is_delivered: boolean; delivered_at: string | null;
+  /** Podpis převzetí (data URL) a jméno toho, kdo přebíral — píše Závoz i detail objednávky. */
+  signature_url?: string | null; signature_name?: string | null; 
   place_phone?: string | null; // Add place_phone to Order type
   whatsapp_message_id?: string | null; // WhatsApp zpráva, ze které objednávka vznikla (#18)
 };
@@ -3132,37 +3135,24 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
       .slice(0, 5);
   }, [allOrders, order]);
 
-  // ✍️ Podpis převzetí. Načítá se zvlášť a jen tady, ne se seznamem
-  // objednávek — obrázek podpisu by se jinak posílal do telefonu i tehdy,
-  // když se žádný detail neotevře.
-  const [podpis, setPodpis] = useState<{ podpis_png: string; prevzal: string | null; podepsano_at: string } | null>(null);
+  // ✍️ Podpis převzetí. Ukládá se tam, kam ho ukládá i Závoz — do
+  // `orders.signature_url` a `signature_name`. Dvě různá místa na jeden
+  // podpis by znamenala, že se v Závozu podepíše a v Objednávkách žádný
+  // podpis není (a naopak).
   const [podpisOtevren, setPodpisOtevren] = useState(false);
-  const [podpisChybi, setPodpisChybi] = useState(false);
-  useEffect(() => {
-    let zruseno = false;
-    supabase.from('objednavka_podpisy')
-      .select('podpis_png, prevzal, podepsano_at').eq('order_id', order.id).maybeSingle()
-      .then(({ data, error }) => {
-        if (zruseno) return;
-        // Tabulka nemusí být, dokud se nepustí migrace — obrazovka pak jede
-        // dál a jen řekne, co chybí.
-        setPodpisChybi(!!error && error.code === '42P01');
-        setPodpis((data as any) ?? null);
-      });
-    return () => { zruseno = true; };
-  }, [order.id]);
 
   async function ulozPodpis(p: { png: string; prevzal: string; sirka: number; vyska: number }) {
-    const { error } = await supabase.from('objednavka_podpisy').upsert({
-      order_id: order.id, podpis_png: p.png, prevzal: p.prevzal || null,
-      sirka: p.sirka, vyska: p.vyska, podepsano_at: new Date().toISOString(),
-    });
+    const { error } = await supabase.from('orders').update({
+      signature_url: p.png,
+      signature_name: p.prevzal || null,
+      // Podepsané převzetí znamená zavezeno — jinak by se to muselo
+      // odklepnout ještě jednou a na to se zapomene.
+      is_delivered: true,
+      delivered_at: new Date().toISOString(),
+    }).eq('id', order.id);
     if (error) { chyba(`Podpis se nepodařilo uložit: ${error.message}`); return; }
-    setPodpis({ podpis_png: p.png, prevzal: p.prevzal || null, podepsano_at: new Date().toISOString() });
-    // Podepsané převzetí znamená zavezeno — jinak by se to muselo
-    // odklepnout ještě jednou a na to se zapomene.
-    if (!order.is_delivered) onToggleFlag(order, 'is_delivered');
     oznam('Podpis převzetí uložen.');
+    onChanged();
   }
 
   const [adding, setAdding] = useState(false);
@@ -3363,35 +3353,41 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
               <input type="checkbox" checked={order.is_delivered} onChange={() => onToggleFlag(order, 'is_delivered')} className="w-4 h-4 rounded text-primary-600" /> Závoz
             </label>
 
-            {/* ✍️ Podpis převzetí — místo papíru, který se do pivovaru vrací
-                až za týden (a do té doby není jak doložit, co bylo předáno). */}
-            {!podpisChybi && (
-              <button
-                type="button"
-                onClick={() => setPodpisOtevren(true)}
-                className="px-3 py-2 rounded font-black text-xs transition bg-white text-neutral-800 border border-neutral-300 hover:bg-neutral-100"
-              >
-                <span className="inline-flex items-center gap-1.5">
-                  <Pencil size={14} /> {podpis ? 'Podepsat znovu' : 'Podpis převzetí'}
-                </span>
-              </button>
-            )}
+            {/* ✍️ Podpis převzetí. V Závozu se podepisovalo už dřív, tady
+                ne — a přitom právě tady se objednávka řeší, když se pak
+                někdo ptá, co bylo dovezeno. */}
+            <button
+              type="button"
+              onClick={() => setPodpisOtevren(true)}
+              className="px-3 py-2 rounded font-black text-xs transition bg-white text-neutral-800 border border-neutral-300 hover:bg-neutral-100"
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <Pencil size={14} /> {order.signature_url ? 'Podepsat znovu' : 'Podpis převzetí'}
+              </span>
+            </button>
           </div>
 
-          {podpis && (
+          {order.signature_url && (
             <div className="mt-3 rounded-xl border border-neutral-300 bg-white p-3 inline-block">
               <div className="text-[11px] uppercase tracking-wider text-neutral-500 mb-1">
-                Převzato {new Date(podpis.podepsano_at).toLocaleString('cs-CZ')}
-                {podpis.prevzal ? ` · ${podpis.prevzal}` : ''}
+                Převzato{order.delivered_at ? ` ${new Date(order.delivered_at).toLocaleString('cs-CZ')}` : ''}
+                {order.signature_name ? ` · ${order.signature_name}` : ''}
               </div>
-              <img src={podpis.podpis_png} alt="Podpis převzetí" className="max-h-24" />
+              <img src={order.signature_url} alt="Podpis převzetí" className="max-h-24" />
             </div>
           )}
+
+          {/* 📷 Fotky k objednávce — poškozené zboží, stav při předání.
+              Bez fotky je jediným dokladem věta v poznámce. */}
+          <div className="mt-3">
+            <FotkyZaznamu typ="objednavka" zaznamId={order.id} />
+          </div>
 
           <PodpisModal
             open={podpisOtevren}
             onClose={() => setPodpisOtevren(false)}
             nazev={(order.place_name ?? '').trim() || 'Objednávka'}
+            predvolenyPodpis={(order.place_name ?? '').trim()}
             onUlozit={ulozPodpis}
           />
 

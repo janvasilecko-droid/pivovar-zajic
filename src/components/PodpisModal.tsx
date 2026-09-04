@@ -16,11 +16,13 @@ import {
  * Prázdný podpis se neuloží: tečka jako doklad o převzetí je horší než
  * nemít nic.
  */
-export function PodpisModal({ open, onClose, nazev, onUlozit }: {
+export function PodpisModal({ open, onClose, nazev, predvolenyPodpis, onUlozit }: {
   open: boolean;
   onClose: () => void;
   /** Komu se veze — ať je na plátně vidět, u čeho se podepisuje. */
   nazev: string;
+  /** Předvyplněné jméno toho, kdo přebírá (typicky jméno odběratele). */
+  predvolenyPodpis?: string;
   onUlozit: (podpis: { png: string; prevzal: string; sirka: number; vyska: number }) => Promise<void> | void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -36,12 +38,12 @@ export function PodpisModal({ open, onClose, nazev, onUlozit }: {
     tahyRef.current = [];
     setMaInkoust(false);
     setChyba(null);
-    setPrevzal('');
+    setPrevzal(predvolenyPodpis ?? '');
     // Plátno se nastavuje po otevření — dřív má nulovou velikost a
     // podpis by se kreslil do ničeho.
     const t = setTimeout(() => nastavPlatno(), 30);
     return () => clearTimeout(t);
-  }, [open]);
+  }, [open, predvolenyPodpis]);
 
   function nastavPlatno() {
     const c = canvasRef.current;
