@@ -51,6 +51,8 @@ import { vyhodnotGesto, rychlostPosunu } from '../lib/gestaPlochy';
 import { maSeZobrazit, oznacZobrazenou } from '../lib/napovedy';
 import { queueLength, onQueueChange } from '../lib/offline';
 import { litry, litryJakoHl, kusy } from '../lib/cisla';
+import { souhrnDne, type SouhrnDne } from '../lib/souhrnDne';
+import { buildMovements } from '../lib/stockLedger';
 import { isMonthlyCleanupPending, MONTHLY_CLEANUP_CHANGED_EVENT } from '../lib/monthlyCleanup';
 import { potvrd, oznam } from '../lib/toast';
 import { requestOrdersAutoImport } from '../lib/ordersFilter';
@@ -958,6 +960,44 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
         .map((o) => String(o.place_name ?? '').trim())
         .filter((m) => m.length > 0);
       setDnesniZavoz({ objednavek: rows.length, kusu, mista });
+    })();
+    return () => { zruseno = true; };
+  }, [visibleIds]);
+
+  // ---- Živá dlaždice Sklad: co se dnes stalo ----
+  // Dosud se to skládalo z pěti obrazovek (KEG, Lahve, Fasování, Odpis,
+  // Závoz) a nikdo to nedělal. Sčítají se POHYBY dne po druzích — stav
+  // skladu se tu nepočítá, ten umí jedině lib/stockLedger.ts.
+  const [souhrn, setSouhrn] = useState<SouhrnDne | null>(null);
+  useEffect(() => {
+    if (!visibleIds.includes('dashboard')) return;
+    let zruseno = false;
+    void (async () => {
+      const dnes = businessDateISO();
+      // Čte se jen dnešek: souhrn dne nepotřebuje historii a stahovat
+      // celý sklad kvůli jedné dlaždici by plochu zdrželo.
+      // `fetchAllRows` i u jednodenního dotazu: jsou to rostoucí tabulky a
+      // Supabase zahodí všechno nad tisícovkou bez chyby. Za jeden den se
+      // tisíc zápisů nesejde, ale tohle je přesně ta úvaha, po které za rok
+      // v souhrnu chybí kusy a nikdo neví proč (hlídá test strankovaniDotazu).
+      const [bot, keg, fa, fp, wo, zd] = await Promise.all([
+        fetchAllRows<any>('bottling', 'entry_date,beer_id,package_id,quantity').eq('entry_date', dnes),
+        fetchAllRows<any>('kegging', 'entry_date,beer_id,package_id,quantity,kegs_used,kegs_used_package_id').eq('entry_date', dnes),
+        fetchAllRows<any>('fasovani', 'entry_date,beer_id,package_id,quantity').eq('entry_date', dnes),
+        fetchAllRows<any>('fasovani_private', 'entry_date,beer_id,package_id,quantity').eq('entry_date', dnes),
+        fetchAllRows<any>('writeoffs', 'entry_date,beer_id,package_id,quantity').eq('entry_date', dnes),
+        fetchAllRows<any>('zavoz_deductions', 'deducted_date,beer_id,package_id,quantity').eq('deducted_date', dnes),
+      ]);
+      if (zruseno) return;
+      const pohyby = buildMovements({
+        bottlingRows: (bot.data as any[]) ?? [],
+        keggingRows: (keg.data as any[]) ?? [],
+        fasovaniRows: (fa.data as any[]) ?? [],
+        prodejnaRows: (fp.data as any[]) ?? [],
+        writeoffsRows: (wo.data as any[]) ?? [],
+        zavozDeductionRows: (zd.data as any[]) ?? [],
+      });
+      setSouhrn(souhrnDne(pohyby, dnes));
     })();
     return () => { zruseno = true; };
   }, [visibleIds]);
@@ -2028,6 +2068,50 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   <div className="text-[11px] font-bold opacity-60 flex items-center justify-between pt-1 border-t border-black/10">
                     <span>{tankyNaPlochu.some((t) => t.staci) ? 'Stáčí se z 🍺' : 'Nestáčí se'}</span>
                     <span>Sklep ➔</span>
+                  </div>
+                </div>
+              );
+            }
+
+            // Widget Sklad (dashboard) — co se dnes stalo.
+            if (id === 'dashboard' && ((override.w ?? 1) >= 2 || (override.h ?? 1) >= 2) && souhrn) {
+              const kolik = (override.h ?? 1) >= 3 ? 5 : 3;
+              const vidno = souhrn.radky.slice(0, kolik);
+              const zbyva = souhrn.radky.length - vidno.length;
+              customContent = (
+                <div className="w-full h-full flex flex-col justify-between p-3 text-left select-none overflow-hidden">
+                  <div className="flex items-center justify-between gap-2 border-b border-black/10 pb-1">
+                    <span className="font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 opacity-90">
+                      <BarChart3 size={14} /> Dnes
+                    </span>
+                    {!souhrn.prazdny && (
+                      <span className="text-[11px] font-bold opacity-80 tabular-nums">
+                        +{souhrn.pribyloCelkem} / −{souhrn.ubyloCelkem}
+                      </span>
+                    )}
+                  </div>
+                  <div className="my-auto py-1 space-y-0.5">
+                    {souhrn.prazdny ? (
+                      <div className="text-xs font-bold opacity-80">Dnes zatím žádný zápis</div>
+                    ) : (
+                      <>
+                        {vidno.map((r) => (
+                          <div key={r.kind} className="flex items-baseline gap-1.5 text-xs font-bold leading-snug">
+                            {/* Znaménko, ne barva: na barevné dlaždici, kterou
+                                si uživatel může přebarvit, je zelená/červená
+                                nespolehlivá. */}
+                            <span className="shrink-0 tabular-nums">{r.smer === 'pribylo' ? '+' : '−'}</span>
+                            <span className="truncate">{r.popis}</span>
+                            <span className="ml-auto shrink-0 tabular-nums">{kusy(r.kusu)}</span>
+                          </div>
+                        ))}
+                        {zbyva > 0 && <div className="text-[11px] font-bold opacity-70">+{zbyva} další</div>}
+                      </>
+                    )}
+                  </div>
+                  <div className="text-[11px] font-bold opacity-60 flex items-center justify-between pt-1 border-t border-black/10">
+                    <span>{souhrn.prazdny ? 'Souhrn dne' : `${souhrn.radky.reduce((a, r) => a + r.zapisu, 0)} zápisů`}</span>
+                    <span>Sklad ➔</span>
                   </div>
                 </div>
               );

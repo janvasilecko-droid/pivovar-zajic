@@ -3,6 +3,7 @@ import { ZavozDeductionRow } from '../lib/zavozDeduction';
 
 import { supabase, Beer, Package, KegPrefuk, useRealtime, beerBorder, fetchAllRows } from '../lib/supabase';
 import { buildMovements, stockForMonth, stockKey, type Movement } from '../lib/stockLedger';
+import { predpovedDojiti, type Predpoved } from '../lib/predpovedDojiti';
 import PohybyModal from '../components/PohybyModal';
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { AlertTriangle, BarChart2, Beer as BeerIcon, Calendar, ChevronDown, ClipboardCheck, Download, Package as PackageIcon, PackageCheck, ShoppingBag, Tent, Warehouse } from 'lucide-react';
@@ -24,6 +25,8 @@ type StockByPkg = {
   fromInv: number; brewedW: number; woW: number; fasovaniW: number; prodejnaW: number;
   akceWeek: number; kegsUsedW: number; zdW: number; prefukFrom: number; prefukTo: number; adjW: number;
   orderedW: number;
+  /** 📉 Za kolik dní dojde při obvyklé spotřebě (viz lib/predpovedDojiti.ts). */
+  predpoved: Predpoved;
 };
 
 // Položka, u které skladová kniha vychází záporně — evidence u ní nesedí.
@@ -239,6 +242,15 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
         const rawStock = line?.qty ?? 0;
         const currentStock = Math.max(0, rawStock);
 
+        // 📉 Za kolik dní dojde. Bere se RAW stav (i záporný — to je platná
+        // odpověď skladové knihy) a pohyby TÉHOŽ piva a obalu za poslední
+        // čtyři týdny. Předpověď si sklad NEPOČÍTÁ, dostane ho hotový.
+        const predpoved = predpovedDojiti(
+          rawStock,
+          movements.filter((m) => m.beer_id === beer.id && m.package_id === pkg.id),
+          todayISO(),
+        );
+
         // Objednáno (zobrazený sloupec) = celý týden, i to už zavezené — informace
         // "kolik se má tento týden celkem odeslat".
         const orderedW = ordItems.filter((i) => validOrdIdsWeek.has(i.order_id) && i.beer_id === beer.id && i.package_id === pkg.id).reduce((s, i) => s + Number(i.quantity), 0);
@@ -255,6 +267,7 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
           currentStock, rawStock, outgoing, difference,
           baselineDate: line?.baselineDate ?? null, baselineQty: line?.baselineQty ?? 0,
           fromInv, brewedW, woW, fasovaniW, prodejnaW, akceWeek, kegsUsedW, zdW, prefukFrom, prefukTo, adjW, orderedW,
+          predpoved,
         };
       });
 
@@ -614,6 +627,16 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                                     >
                                       {p.currentStock}
                                       {p.rawStock < 0 && <span className="block text-[11px] font-black text-rose-600 font-mono" title="Vydáno víc, než evidence zná">({p.rawStock})</span>}
+                                      {/* 📉 Za kolik dní dojde. Píše se jen když
+                                          DOCHÁZÍ — u dobře zásobeného piva by to
+                                          byl jen šum a to podstatné by se v něm
+                                          ztratilo. Když se to spočítat nedá,
+                                          nepíše se nic (viz predpovedDojiti). */}
+                                      {p.predpoved.stav === 'dochazi' && (
+                                        <span className="block text-[11px] font-black text-amber-700" title={p.predpoved.popis}>
+                                          {p.predpoved.dni === 0 ? 'dnes' : `${p.predpoved.dni} dní`}
+                                        </span>
+                                      )}
                                     </button>
                                   </td>
                                   <td className={`py-1 px-1 text-center font-extrabold rounded-md ${p.outgoing > 0 ? 'bg-rose-50 text-rose-700' : 'bg-neutral-50 text-neutral-500'}`}>{p.outgoing > 0 ? `-${p.outgoing}` : '0'}</td>
@@ -660,6 +683,16 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                                     >
                                       {p.currentStock}
                                       {p.rawStock < 0 && <span className="block text-[11px] font-black text-rose-600 font-mono" title="Vydáno víc, než evidence zná">({p.rawStock})</span>}
+                                      {/* 📉 Za kolik dní dojde. Píše se jen když
+                                          DOCHÁZÍ — u dobře zásobeného piva by to
+                                          byl jen šum a to podstatné by se v něm
+                                          ztratilo. Když se to spočítat nedá,
+                                          nepíše se nic (viz predpovedDojiti). */}
+                                      {p.predpoved.stav === 'dochazi' && (
+                                        <span className="block text-[11px] font-black text-amber-700" title={p.predpoved.popis}>
+                                          {p.predpoved.dni === 0 ? 'dnes' : `${p.predpoved.dni} dní`}
+                                        </span>
+                                      )}
                                     </button>
                                   </td>
                                   <td className={`py-1 px-1 text-center font-extrabold rounded-md ${p.outgoing > 0 ? 'bg-rose-50 text-rose-700' : 'bg-neutral-50 text-neutral-500'}`}>{p.outgoing > 0 ? `-${p.outgoing}` : '0'}</td>
