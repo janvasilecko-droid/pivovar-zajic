@@ -52,6 +52,7 @@ import { maSeZobrazit, oznacZobrazenou } from '../lib/napovedy';
 import { queueLength, onQueueChange } from '../lib/offline';
 import { litry, litryJakoHl, kusy } from '../lib/cisla';
 import { souhrnDne, type SouhrnDne } from '../lib/souhrnDne';
+import { dnuOdZalohy, isWeeklyBackupDue } from '../lib/backup';
 import { buildMovements } from '../lib/stockLedger';
 import { isMonthlyCleanupPending, MONTHLY_CLEANUP_CHANGED_EVENT } from '../lib/monthlyCleanup';
 import { potvrd, oznam } from '../lib/toast';
@@ -1148,6 +1149,21 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     return () => window.removeEventListener(MONTHLY_CLEANUP_CHANGED_EVENT, recheck);
   }, []);
 
+  // 💾 Připomínka zálohy. Denní záloha jde do GITHUBU, tedy tam, kde je
+  // i kód — se ztrátou přístupu k účtu by zmizelo obojí naráz. Jediná
+  // kopie mimo něj je ta, kterou si někdo stáhne (Uživatelé → Záloha), a
+  // appka si datum zapisovala, ale nikomu ho neřekla.
+  //
+  // Jen pro admina: stahovat zálohu může jen on, tak nemá cenu strašit
+  // ostatní něčím, co nespraví.
+  const [zalohaDnu, setZalohaDnu] = useState<number | null>(null);
+  const [zalohaChybi, setZalohaChybi] = useState(false);
+  useEffect(() => {
+    if (!isAdmin) return;
+    setZalohaDnu(dnuOdZalohy());
+    setZalohaChybi(isWeeklyBackupDue());
+  }, [isAdmin]);
+
   // Offline fronta — kolik zápisů čeká na odeslání do cloudu. Zápisy bez
   // signálu se ukládají do prohlížeče a odešlou se samy, jen to dosud nikde
   // nesvítilo: kolik jich čeká poznal jen ten, kdo otevřel Nastavení. Když
@@ -1649,6 +1665,25 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                     <CalendarX2 />
                   </div>
                   <div className="hs-lbl">Měsíční úklid — checklist</div>
+                </button>
+              )}
+              {/* 💾 Dlouho se nestahovala záloha. Ta v GitHubu je ve stejném
+                  účtu jako kód, takže kopie mimo něj je jediná skutečná
+                  pojistka — a nikdo si na ni sám nevzpomene. */}
+              {zalohaChybi && (
+                <button
+                  type="button"
+                  className="hs-tile hs-tile-warn vlastni-vyska"
+                  onClick={() => setPage('users')}
+                  title={zalohaDnu === null
+                    ? 'Záloha se do tohohle zařízení ještě nikdy nestahovala. Denní záloha v GitHubu je ve stejném účtu jako kód — kopie u sebe je jediná pojistka pro případ, že by se přístup k účtu ztratil.'
+                    : `Poslední stažená záloha byla před ${zalohaDnu} dny.`}
+                >
+                  <div className="hs-tile-icon-box">
+                    <Download />
+                  </div>
+                  <div className="hs-lbl">Stáhnout zálohu</div>
+                  <span className="hs-badge">{zalohaDnu === null ? 'nikdy' : `${zalohaDnu} dní`}</span>
                 </button>
               )}
               {/* ☁️ Zápisy pořízené bez signálu čekají ve frontě v prohlížeči.

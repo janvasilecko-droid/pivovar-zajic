@@ -108,7 +108,7 @@ export function downloadBackupJSON(backup: DatabaseBackup) {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  localStorage.setItem('last_backup_date', new Date().toISOString());
+  oznacZalohu();
 }
 
 export async function downloadGoogleSheetsExcelBackup(backup: DatabaseBackup, monthLabel?: string) {
@@ -155,12 +155,59 @@ export async function downloadGoogleSheetsExcelBackup(backup: DatabaseBackup, mo
 
   const filePrefix = monthLabel ? `Zaloha-Pivovar-${monthLabel}` : `Zaloha-Pivovar-Komplet-${dateStr}`;
   xlsx().writeFile(wb, `${filePrefix}.xlsx`);
-  localStorage.setItem('last_backup_date', new Date().toISOString());
+  oznacZalohu();
 }
 
-export function isWeeklyBackupDue(): boolean {
-  const last = localStorage.getItem('last_backup_date');
-  if (!last) return true;
-  const diffDays = (Date.now() - new Date(last).getTime()) / (1000 * 3600 * 24);
-  return diffDays >= 7;
+/** Klíč, pod kterým se drží datum poslední stažené zálohy. */
+export const KLIC_POSLEDNI_ZALOHA = 'last_backup_date';
+/** Po kolika dnech se záloha připomíná. */
+export const ZALOHA_PO_DNECH = 7;
+
+export type UlozisteZalohy = Pick<Storage, 'getItem' | 'setItem'>;
+
+function vychoziUloziste(): UlozisteZalohy | null {
+  try {
+    return typeof localStorage === 'undefined' ? null : localStorage;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Kolik dní uplynulo od poslední stažené zálohy.
+ * `null` = ještě nikdy, nebo se to nedá zjistit.
+ *
+ * ZÁLOHA STAŽENÁ DO TELEFONU/POČÍTAČE je jediná kopie mimo GitHub a mimo
+ * Supabase. Denní záloha v `zalohy/` leží ve stejném repozitáři jako kód,
+ * takže se ztrátou přístupu k účtu zmizí obojí naráz — a záloha na jednom
+ * účtu není záloha.
+ */
+export function dnuOdZalohy(uloziste?: UlozisteZalohy | null): number | null {
+  const store = uloziste === undefined ? vychoziUloziste() : uloziste;
+  if (!store) return null;
+  try {
+    const last = store.getItem(KLIC_POSLEDNI_ZALOHA);
+    if (!last) return null;
+    const kdy = new Date(last).getTime();
+    if (!Number.isFinite(kdy)) return null;
+    const dnu = (Date.now() - kdy) / (1000 * 3600 * 24);
+    // Datum v budoucnosti (přenastavené hodiny) se bere jako „dnes",
+    // ne jako záporný počet dní.
+    return Math.max(0, Math.floor(dnu));
+  } catch {
+    return null;
+  }
+}
+
+/** Je čas na zálohu? Když se to nedá zjistit, radši ANO než mlčet. */
+export function isWeeklyBackupDue(uloziste?: UlozisteZalohy | null): boolean {
+  const dnu = dnuOdZalohy(uloziste);
+  return dnu === null || dnu >= ZALOHA_PO_DNECH;
+}
+
+/** Zapíše, že se právě stáhla záloha. Chyba úložiště nesmí shodit stahování. */
+export function oznacZalohu(uloziste?: UlozisteZalohy | null): void {
+  const store = uloziste === undefined ? vychoziUloziste() : uloziste;
+  if (!store) return;
+  try { store.setItem(KLIC_POSLEDNI_ZALOHA, new Date().toISOString()); } catch { /* plné úložiště */ }
 }

@@ -36,6 +36,8 @@ import { chyba, oznam, potvrd, toastZpet } from '../lib/toast';
 import { srovnaniPoUprave, type UpravaPolozky } from '../lib/zavozSync';
 import { IkonaVycep } from '../components/ikony';
 import { poctyPolozek } from '../lib/objednavkyStatistika';
+import { kartaOdberatele } from '../lib/kartaOdberatele';
+import { kusy } from '../lib/cisla';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -1495,6 +1497,50 @@ export default function Orders({
     });
   }
 
+  /**
+   * 🏠 Karta odběratele. Ukáže se jen tehdy, když je ve výběru JEDEN
+   * odběratel — tedy typicky po hledání („Maneo") nebo po klepnutí na
+   * odběratele v rychlém hledání. Jinak by to byl panel bez obsahu nad
+   * seznamem dvaceti hospod.
+   *
+   * Bere se ze VŠECH objednávek toho odběratele (ne z právě zobrazených),
+   * protože rytmus a „co bere" se z jednoho týdne poznat nedá.
+   */
+  const karta = useMemo(() => {
+    const jmena = new Set(
+      searchedFiltered.map((o) => (o.place_name ?? '').trim()).filter((x) => x.length > 0),
+    );
+    if (jmena.size !== 1) return null;
+    const jmeno = [...jmena][0];
+    const jehoObjednavky = orders.filter((o) => (o.place_name ?? '').trim() === jmeno);
+    if (jehoObjednavky.length === 0) return null;
+    const jehoPolozky = jehoObjednavky.flatMap((o) => (items[o.id] ?? []).map((i) => ({
+      order_id: o.id,
+      beer_id: i.beer_id,
+      beer_name: i.beer_name,
+      package_id: i.package_id,
+      package_label: i.package_label,
+      quantity: i.quantity,
+    })));
+    const data = kartaOdberatele(
+      jehoObjednavky.map((o) => ({
+        id: o.id,
+        datum: o.delivery_date || o.order_date,
+        status: o.status,
+      })),
+      jehoPolozky,
+      businessDateISO(),
+    );
+    // Poslední objednávka jako celý řádek — z ní se dělá „to co posledně"
+    // a duplikuje se úplně stejně jako klepnutím na kopírování v kartě.
+    const posledniRadek = data.posledni
+      ? jehoObjednavky.find(
+        (o) => o.status !== 'storno' && (o.delivery_date || o.order_date) === data.posledni,
+      ) ?? null
+      : null;
+    return { jmeno, data, posledniRadek };
+  }, [searchedFiltered, orders, items]);
+
   const openDetail = (o: Order) => {
     setDetail(o);
     setTimeout(() => {
@@ -2343,6 +2389,63 @@ export default function Orders({
         )}
       </div>
         </>
+      )}
+
+      {/* 🏠 Karta odběratele — ukáže se jen tehdy, když je ve výběru jeden
+          odběratel. Odpovídá na to, na co se u telefonu ptá nejčastěji:
+          kdy bral naposledy, jak často bere a co bere. */}
+      {karta && mode !== 'entry_only' && (
+        <div className="card p-3 mb-2.5 shadow-sm">
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <span className="chip bg-amber-100 text-amber-900"><User className="ikona-text" /> {karta.jmeno}</span>
+            <span className="text-xs font-bold text-neutral-700">
+              {karta.data.objednavek} {karta.data.objednavek === 1 ? 'objednávka' : karta.data.objednavek < 5 ? 'objednávky' : 'objednávek'}
+            </span>
+            {karta.data.posledni && (
+              <span className="text-xs font-bold text-neutral-700">
+                <Calendar className="ikona-text" /> naposledy {new Date(`${karta.data.posledni}T00:00:00Z`).toLocaleDateString('cs-CZ')}
+                {karta.data.dnuOdPosledni !== null && (
+                  karta.data.dnuOdPosledni === 0 ? ' (dnes)' : ` (před ${karta.data.dnuOdPosledni} dny)`
+                )}
+              </span>
+            )}
+            <span className="text-xs font-bold text-neutral-700">
+              <Clock className="ikona-text" />
+              {karta.data.prumerneKazdychDni === null
+                // Z jedné objednávky se rytmus vymyslet nedá a podle „bere
+                // každých 7 dní" se plánuje závoz.
+                ? ' rytmus zatím neznámý'
+                : ` bere průměrně každých ${karta.data.prumerneKazdychDni} dní`}
+            </span>
+          </div>
+
+          {karta.data.oblibene.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs font-black text-neutral-600">Co bere:</span>
+              {karta.data.oblibene.map((o) => (
+                <span key={`${o.beer_id ?? '-'}__${o.package_id ?? '-'}`} className="chip bg-neutral-100 text-neutral-800">
+                  {o.popis} · {kusy(o.kusu)} / {o.objednavek}×
+                </span>
+              ))}
+            </div>
+          )}
+
+          {karta.posledniRadek && karta.data.posledniObjednavka.length > 0 && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => { void duplicateOrder(karta.posledniRadek!); }}
+                className="px-3 py-1.5 rounded font-black text-xs transition bg-amber-500 text-neutral-950 hover:bg-amber-400"
+                title="Založí k dnešnímu dni novou objednávku se stejnými položkami jako posledně"
+              >
+                <span className="inline-flex items-center gap-1.5"><Copy size={14} /> To co posledně</span>
+              </button>
+              <span className="text-xs text-neutral-600">
+                {karta.data.posledniObjednavka.map((p) => `${p.popis} ${kusy(p.kusu)}`).join(', ')}
+              </span>
+            </div>
+          )}
+        </div>
       )}
 
       {viewMode === 'celkem' && mode !== 'entry_only' && (

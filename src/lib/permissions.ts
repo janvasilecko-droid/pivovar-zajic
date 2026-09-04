@@ -136,6 +136,36 @@ export const PRESET_ROLES: { name: string; permissions: UserPermissions }[] = [
     },
   },
   {
+    // Řidič vozí a zapisuje závoz — do sklepa, inventury ani do stáčení
+    // nesahá. Dřív se mu muselo naklikat devatenáct modulů ručně a snadno
+    // mu zůstalo víc, než měl mít.
+    name: 'Řidič (Závoz a kniha jízd)',
+    permissions: {
+      dashboard: { view: true, edit: false },
+      entry: { view: false, edit: false },
+      // Objednávky vidí (co veze), ale nezakládá je.
+      orders: { view: true, edit: false },
+      zavoz: { view: true, edit: true },
+      kniha_jizd: { view: true, edit: true },
+      stock: { view: true, edit: false },
+      cellar: { view: false, edit: false },
+      kegging: { view: false, edit: false },
+      inventory: { view: false, edit: false },
+      srotovani: { view: false, edit: false },
+      haccp: { view: false, edit: false },
+      // Odběratelé a kontakty — musí vědět, kam veze a komu zavolat.
+      catalogs: { view: true, edit: false },
+      sklo_promo: { view: false, edit: false },
+      // Výčepy odváží a přiváží zpátky, takže je i zapisuje.
+      vycepy: { view: true, edit: true },
+      exkurze: { view: false, edit: false },
+      reminders: { view: true, edit: true },
+      akce: { view: true, edit: false },
+      pricelist: { view: false, edit: false },
+      app_settings: { view: false, edit: false },
+    },
+  },
+  {
     name: 'Vlastní nastavení práv (Kombinuji manuálně)',
     permissions: {
       dashboard: { view: true, edit: false },
