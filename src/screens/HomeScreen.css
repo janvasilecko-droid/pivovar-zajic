@@ -773,12 +773,13 @@
 .hs-tile-alert { background: rgba(193,18,31,0.82); border-color: rgba(250,204,21,0.75); animation: hs-tile-alert-pulse-kf 1.25s ease-in-out infinite; }
 .hs-tile-alert svg { color: #facc15; }
 .hs-tile-alert .hs-badge { background: #facc15; color: #451a03; }
-/* Výraznější blikání: větší skok barvy (tmavě → jasně červená) a k tomu
-   svítící prstenec, ať upozornění „bije do očí" i koutkem oka. Rychlejší
-   (1,25 s) než dřív (2,2 s), aby působilo naléhavěji. */
+/* Výrazné probliknutí: velký skok JASU (tmavě → jasně červená) plus
+   zesvětlení celého štítku. Prstenec (box-shadow) se v pásu ořízne
+   (overflow: hidden), takže blikání nese hlavně ta změna barvy — proto
+   je skok velký, ať je vidět i na malém štítku a za světla venku. */
 @keyframes hs-tile-alert-pulse-kf {
-  0%, 100% { background: rgba(159,7,24,0.92); box-shadow: 0 0 0 0 rgba(239,68,68,0); }
-  50% { background: rgba(244,63,63,0.98); box-shadow: 0 0 0 5px rgba(239,68,68,0.45); }
+  0%, 100% { background: rgba(193,18,31,0.95); filter: brightness(1); }
+  50% { background: rgba(255,120,120,1); filter: brightness(1.18); }
 }
 @media (prefers-reduced-motion: reduce) {
   .hs-tile-alert { animation: none; }
@@ -1088,8 +1089,8 @@
   animation: hs-tile-whatsapp-pulse-kf 1.25s ease-in-out infinite;
 }
 @keyframes hs-tile-whatsapp-pulse-kf {
-  0%, 100% { background: #16a34a; box-shadow: 0 0 0 0 rgba(37,211,102,0); }
-  50% { background: #2fe07a; box-shadow: 0 0 0 5px rgba(37,211,102,0.5); }
+  0%, 100% { background: #128a44; filter: brightness(1); }
+  50% { background: #6bf3a3; filter: brightness(1.15); }
 }
 @media (prefers-reduced-motion: reduce) {
   .hs-tile.hs-tile-whatsapp { animation: none; }
