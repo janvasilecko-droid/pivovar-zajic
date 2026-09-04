@@ -770,12 +770,15 @@
 /* Upozornění (STK/dálniční známka) — sytě červená s výrazným žlutým
    vykřičníkem, ať je na první pohled jasné, že je co řešit. Objevuje se
    jen dokud je co hlásit, mizí sama po opravě data, žádné potvrzování. */
-.hs-tile-alert { background: rgba(193,18,31,0.82); border-color: rgba(250,204,21,0.5); animation: hs-tile-alert-pulse-kf 2.2s ease-in-out infinite; }
+.hs-tile-alert { background: rgba(193,18,31,0.82); border-color: rgba(250,204,21,0.75); animation: hs-tile-alert-pulse-kf 1.25s ease-in-out infinite; }
 .hs-tile-alert svg { color: #facc15; }
 .hs-tile-alert .hs-badge { background: #facc15; color: #451a03; }
+/* Výraznější blikání: větší skok barvy (tmavě → jasně červená) a k tomu
+   svítící prstenec, ať upozornění „bije do očí" i koutkem oka. Rychlejší
+   (1,25 s) než dřív (2,2 s), aby působilo naléhavěji. */
 @keyframes hs-tile-alert-pulse-kf {
-  0%, 100% { background: rgba(193,18,31,0.82); }
-  50% { background: rgba(220,60,70,0.82); }
+  0%, 100% { background: rgba(159,7,24,0.92); box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+  50% { background: rgba(244,63,63,0.98); box-shadow: 0 0 0 5px rgba(239,68,68,0.45); }
 }
 @media (prefers-reduced-motion: reduce) {
   .hs-tile-alert { animation: none; }
@@ -787,6 +790,50 @@
 .hs-tile-warn { background: rgba(180,83,9,0.80); border-color: rgba(253,224,71,0.45); }
 .hs-tile-warn svg { color: #fde047; }
 .hs-tile-warn .hs-badge { background: #fde047; color: #451a03; }
+
+/* 💾 Připomínka zálohy jako plná dlaždice na vlastním řádku pod pásem
+   upozornění — ne tenký štítek. Ikona vlevo, popisek + „kdy naposledy"
+   uprostřed, počet dní vpravo; přebíjí řádkový (pill) styl pásu, protože
+   tahle dlaždice v pásu není. */
+.hs-tile.hs-zaloha-tile {
+  width: 100%;
+  height: auto;
+  min-height: 62px;
+  grid-column: unset;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 12px !important;
+  padding: 12px 16px !important;
+  margin-bottom: var(--hs-tile-gap, 4px);
+  border-radius: 14px;
+  text-align: left !important;
+}
+.hs-tile.hs-zaloha-tile svg { width: 26px !important; height: 26px !important; }
+.hs-tile.hs-zaloha-tile .hs-tile-icon-box { flex: 0 0 auto; }
+.hs-zaloha-text { flex: 1 1 auto; min-width: 0; text-align: left; }
+.hs-tile.hs-zaloha-tile .hs-lbl {
+  font-size: 15px !important;
+  text-align: left !important;
+  -webkit-line-clamp: 1 !important;
+  line-height: 1.2 !important;
+}
+.hs-zaloha-sub {
+  font-size: 11.5px;
+  font-weight: 600;
+  opacity: 0.9;
+  line-height: 1.2;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hs-tile.hs-zaloha-tile .hs-badge {
+  position: static;
+  top: auto;
+  right: auto;
+  flex: 0 0 auto;
+}
 
 /* Popisek zůstává v edit módu na plnou viditelnost (dřív byl ztlumený,
    nešlo za pohybu poznat, co přesně se přesouvá).
@@ -1035,6 +1082,17 @@
   border-color: #1da851 !important;
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
+  /* Bliká zeleně jako upozornění — nová objednávka na WhatsApp se nesmí
+     přehlédnout. Animace přebíjí i background !important výš (běžící
+     animace má přednost před author !important). */
+  animation: hs-tile-whatsapp-pulse-kf 1.25s ease-in-out infinite;
+}
+@keyframes hs-tile-whatsapp-pulse-kf {
+  0%, 100% { background: #16a34a; box-shadow: 0 0 0 0 rgba(37,211,102,0); }
+  50% { background: #2fe07a; box-shadow: 0 0 0 5px rgba(37,211,102,0.5); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hs-tile.hs-tile-whatsapp { animation: none; }
 }
 .hs-tile.hs-tile-whatsapp .hs-badge {
   background: #e11d48;

@@ -1671,25 +1671,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   <div className="hs-lbl">Měsíční úklid</div>
                 </button>
               )}
-              {/* 💾 Dlouho se nestahovala záloha. Ta v GitHubu je ve stejném
-                  účtu jako kód, takže kopie mimo něj je jediná skutečná
-                  pojistka — a nikdo si na ni sám nevzpomene. */}
-              {zalohaChybi && (
-                <button
-                  type="button"
-                  className="hs-tile hs-tile-warn vlastni-vyska"
-                  onClick={() => setPage('users')}
-                  title={zalohaDnu === null
-                    ? 'Záloha se do tohohle zařízení ještě nikdy nestahovala. Denní záloha v GitHubu je ve stejném účtu jako kód — kopie u sebe je jediná pojistka pro případ, že by se přístup k účtu ztratil.'
-                    : `Poslední stažená záloha byla před ${zalohaDnu} dny.`}
-                >
-                  <div className="hs-tile-icon-box">
-                    <Download />
-                  </div>
-                  <div className="hs-lbl">Stáhnout zálohu</div>
-                  <span className="hs-badge">{zalohaDnu === null ? 'nikdy' : `${zalohaDnu} dní`}</span>
-                </button>
-              )}
               {/* ☁️ Zápisy pořízené bez signálu čekají ve frontě v prohlížeči.
                   Odešlou se samy, ale dokud čekají, nejsou v cloudu ani pro
                   nikoho jiného — a to dosud bylo vidět jen v Nastavení. */}
@@ -1708,6 +1689,34 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                 </button>
               )}
         </div>
+
+        {/* 💾 Připomínka zálohy jako PLNÁ dlaždice, ne tenký štítek v pásku:
+            stáhnout kopii je akce, kterou má admin opravdu udělat (denní
+            záloha jde do GitHubu, tedy tam, kde je i kód — kopie u sebe je
+            jediná pojistka), a v pruhu drobných upozornění zanikala. Vlastní
+            řádek pod pásem, ikona vlevo, popisek a „kdy naposledy" vpravo. */}
+        {zalohaChybi && (
+          <button
+            type="button"
+            className="hs-tile hs-tile-warn hs-zaloha-tile"
+            style={{ ['--hs-tile-alpha' as any]: layout.tileOpacity }}
+            onClick={() => setPage('users')}
+            title={zalohaDnu === null
+              ? 'Záloha se do tohohle zařízení ještě nikdy nestahovala. Denní záloha v GitHubu je ve stejném účtu jako kód — kopie u sebe je jediná pojistka pro případ, že by se přístup k účtu ztratil.'
+              : `Poslední stažená záloha byla před ${zalohaDnu} dny.`}
+          >
+            <div className="hs-tile-icon-box">
+              <Download />
+            </div>
+            <div className="hs-zaloha-text">
+              <div className="hs-lbl">Stáhnout zálohu</div>
+              <div className="hs-zaloha-sub">
+                {zalohaDnu === null ? 'ještě nikdy nestažená — stáhni si kopii' : `naposledy před ${zalohaDnu} dny`}
+              </div>
+            </div>
+            <span className="hs-badge">{zalohaDnu === null ? 'nikdy' : `${zalohaDnu} dní`}</span>
+          </button>
+        )}
 
         {/* 💡 Jednorázová nápověda. Ukáže se jednou v životě plochy a po
             odklepnutí zmizí navždy — trvalý pruh s tipem je po druhém dni
