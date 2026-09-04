@@ -2971,17 +2971,19 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
             <Calendar size={11} /> {new Date(o.order_date).toLocaleDateString('cs-CZ')}
           </span>
           <div className="ml-auto flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+            {/* Připraveno: stejný formát jako akce dole — ikona 32×32,
+                stav nese barva (zelená = připraveno, bílá = čeká). */}
             <button
               onClick={() => onToggleFlag(o, 'is_prepared')}
-              className={`px-2 py-1 rounded text-[11px] font-black transition flex items-center gap-1 shadow-2xs ${
+              className={`btn-ikona ${
                 o.is_prepared
-                  ? 'bg-emerald-700 text-white border border-emerald-700 shadow-xs'
+                  ? 'bg-emerald-700 text-white border border-emerald-700'
                   : 'bg-white text-neutral-800 border border-neutral-300 hover:bg-emerald-50'
               }`}
-              title="Označit jako připraveno"
+              title={o.is_prepared ? 'Připraveno — klepnutím zrušit' : 'Označit jako připraveno'}
+              aria-label={o.is_prepared ? 'Připraveno' : 'Označit jako připraveno'}
             >
-              {o.is_prepared ? <Check size={12} /> : <span className="text-[11px]"><Hourglass className="ikona-text" /></span>}
-              <span>{o.is_prepared ? 'Připr.' : 'Příprava'}</span>
+              {o.is_prepared ? <Check size={14} /> : <Hourglass size={14} />}
             </button>
           </div>
         </div>
@@ -3092,20 +3094,25 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
               <option value="">—</option>
               {DAYS.map((d) => <option key={d.v} value={d.v}>{d.label}</option>)}
             </select>
-            <button className="px-2 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[11px] shadow-md transition flex items-center gap-1" onClick={() => onEdit(o)} title="Upravit objednávku">
-              <Pencil size={12} /> Upravit
+            {/* 🔸 Akce jsou jen ikony (32×32), jednotně ve všech kartách —
+                dřív měly texty (Upravit / WhatsApp / Duplik. / Zrušit /
+                Smazat) a zalamovaly se přes celou šířku, takže na položky
+                a ikony piv nad nimi zbývalo místo na jeden řádek. Význam
+                nese barva a `title`/`aria-label`; ikona je 14 px, cíl 32. */}
+            <button className="btn-ikona bg-amber-500 hover:bg-amber-400 text-neutral-950" onClick={() => onEdit(o)} title="Upravit objednávku" aria-label="Upravit objednávku">
+              <Pencil size={14} />
             </button>
-            <button className="btn-ghost !rounded text-[11px] font-bold !py-1 !px-2 !bg-emerald-50 text-emerald-950 border border-emerald-300 shadow-2xs hover:bg-emerald-100 flex items-center gap-1" onClick={() => shareOrderToWhatsApp(o, items)} title="Sdílet tuto objednávku na WhatsApp">
-              <MessageCircle size={12} /> WhatsApp
+            <button className="btn-ikona bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300" onClick={() => shareOrderToWhatsApp(o, items)} title="Sdílet objednávku na WhatsApp" aria-label="Sdílet objednávku na WhatsApp">
+              <MessageCircle size={14} />
             </button>
-            <button className="btn-ghost !rounded text-[11px] font-bold !py-1 !px-2 !bg-white border border-neutral-300 shadow-2xs flex items-center gap-1" onClick={() => onDuplicate(o)} title="Vytvořit stejnou objednávku znovu"><Copy size={12} /> Duplik.</button>
+            <button className="btn-ikona bg-white hover:bg-neutral-100 text-neutral-700 border border-neutral-300" onClick={() => onDuplicate(o)} title="Vytvořit stejnou objednávku znovu" aria-label="Duplikovat objednávku"><Copy size={14} /></button>
             {o.status !== 'storno' && (
-              <button className="btn-ghost !rounded text-[11px] font-extrabold !py-1 !px-2 !bg-rose-50 text-rose-800 border border-rose-200 shadow-2xs hover:bg-rose-100 flex items-center gap-1" onClick={() => onSetStatus(o, 'storno')} title="Zrušit / Stornovat objednávku"><Ban size={12} /> Zrušit</button>
+              <button className="btn-ikona bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200" onClick={() => onSetStatus(o, 'storno')} title="Zrušit / stornovat objednávku" aria-label="Zrušit objednávku"><Ban size={14} /></button>
             )}
             {o.status === 'storno' && (
-              <button className="btn-ghost !rounded text-[11px] font-extrabold !py-1 !px-2 !bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs flex items-center gap-1" onClick={() => onSetStatus(o, 'nova')} title="Obnovit objednávku"><RotateCcw size={12} /> Obnovit</button>
+              <button className="btn-ikona bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200" onClick={() => onSetStatus(o, 'nova')} title="Obnovit objednávku" aria-label="Obnovit objednávku"><RotateCcw size={14} /></button>
             )}
-            <button className="btn-danger !rounded text-[11px] font-bold !py-1 !px-2 shadow-2xs" onClick={() => onDelete(o.id)}>Smazat</button>
+            <button className="btn-ikona bg-rose-100 hover:bg-rose-200 text-rose-700 border border-rose-300" onClick={() => onDelete(o.id)} title="Smazat objednávku" aria-label="Smazat objednávku"><Trash2 size={14} /></button>
           </div>
         </div>
       </div>

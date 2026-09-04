@@ -218,6 +218,18 @@ html, body { overscroll-behavior-y: contain; }
            hover:bg-neutral-200 hover:border-neutral-300;
   }
 
+  /* Hustá ikonová akce v řádku seznamu (32×32). Karta objednávky má šest
+     akcí vedle sebe (upravit, WhatsApp, duplikovat, zrušit, smazat,
+     připravit) a role s 44px cílem by se na telefon nevešly — na jednu
+     kartu chceme vidět i položky a ikony piv nad tlačítky. Tvar a velikost
+     sjednocuje tahle třída, VÝZNAM nese doplněná barva (amber = upravit,
+     zelená = WhatsApp/hotové, růžová = mazání) a `title`/`aria-label`.
+     Používá se ve všech kartách stejně, ať vypadají jednotně. */
+  .btn-ikona {
+    @apply w-8 h-8 grid place-items-center rounded shadow-2xs transition shrink-0
+           active:scale-95;
+  }
+
   /* Lišta akcí pod nadpisem: hlavní akce vidět, zbytek pod „⋯".
      Nahrazuje tmavý panel se čtyřmi pruhy, který sežral celou první
      obrazovku telefonu (Inventura, Kniha jízd, Sklo). */
