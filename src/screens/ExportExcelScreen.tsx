@@ -106,11 +106,18 @@ export default function ExportExcelScreen() {
       return out;
     });
 
-    const kegRadky: VydejRadek[] = data.kegging.map((r: any) => ({
-      entry_date: r.entry_date, beer_name: r.beer_name,
-      package_id: r.package_id, quantity: r.quantity, note: r.note,
-      tank: r.cellar_tank_id ? (mapaTanku.get(r.cellar_tank_id) ?? '') : '',
-    }));
+    // Záporné řádky ve Stáčení KEG jsou ruční opravy přepočtu (někdo omylem
+    // zapsal moc a "vrátil" to novým záznamem se záporným počtem, místo aby
+    // opravil ten původní přes „Upravit"). Do listu Stáčení KEG nepatří —
+    // je to list toho, co se doopravdy nastočilo, ne účetní deník oprav.
+    // Databázi se to nedotýká, mění se jen export.
+    const kegRadky: VydejRadek[] = data.kegging
+      .filter((r: any) => Number(r.quantity) > 0)
+      .map((r: any) => ({
+        entry_date: r.entry_date, beer_name: r.beer_name,
+        package_id: r.package_id, quantity: r.quantity, note: r.note,
+        tank: r.cellar_tank_id ? (mapaTanku.get(r.cellar_tank_id) ?? '') : '',
+      }));
 
     return [
       { nazev: 'Odběr personál', varianta: 'odberatel', radky: data.fasovani },
