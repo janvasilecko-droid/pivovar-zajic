@@ -67,13 +67,20 @@ funguje:
 20261228030000_push_odbery.sql
 ```
 
+**Všechno v jednom souboru:** `docs/spustit-vsechny-migrace.sql` — jedno
+vložení do Supabase → SQL Editor → Run. Jde to pustit i opakovaně, nic se
+nezdvojí (`IF NOT EXISTS`, `ON CONFLICT DO NOTHING`).
+
 Stav se dá zkontrolovat v **Nastavení → Diagnostika** (seznam „migrace
 čekají"). Po spuštění se každá zapíše sama do evidence.
 
 ### 2. VAPID klíče pro push (bod 27)
 
-Postup je v `docs/push-upozorneni-navod.md`. Deset minut, dělá se jednou.
-Soukromý klíč nikam neposílej — ani do chatu, ani do repozitáře.
+Klíče jsou už vygenerované: **veřejný je v kódu** (je veřejný z podstaty),
+**soukromý** patří do projektových secrets Supabase — do repozitáře nikdy.
+Zbývá ho tam vložit a nasadit funkci `posli-push`; postup v
+`docs/push-upozorneni-navod.md`. Push zatím nic neposílá automaticky, takže
+tohle může počkat na počítač.
 
 ### 3. Nepovinné: WhatsApp hláška při pádu CI
 

@@ -15,8 +15,19 @@
  */
 import { supabase } from './supabase';
 
-/** Veřejný VAPID klíč. Prázdný = push není nastavený. */
-export const VAPID_KLIC: string = (import.meta.env?.VITE_VAPID_PUBLIC_KEY as string) ?? '';
+/**
+ * Veřejný VAPID klíč pivovaru.
+ *
+ * Je tady natvrdo schválně: veřejný klíč je z podstaty veřejný (stejně by
+ * skončil v JS bundlu) a takhle nemusí nikdo nic nastavovat v prostředí
+ * buildu. Soukromý klíč z téhle dvojice žije JEN v projektových secrets
+ * Supabase (VAPID_PRIVATE_KEY) a nikde v repozitáři není.
+ *
+ * Přebít se dá proměnnou VITE_VAPID_PUBLIC_KEY (třeba po výměně klíčů) —
+ * pak se ale musí vyměnit i ten soukromý, dvojice patří k sobě.
+ */
+const VAPID_VYCHOZI = 'BJ-YC0Rwvk25boqlYbxKcufzUQllA_y_G0-8sjis0og-pJ6On-Q4CYH0Iwz2vW3D3dQmYBMS2mAhXszIavepX08';
+export const VAPID_KLIC: string = (import.meta.env?.VITE_VAPID_PUBLIC_KEY as string) || VAPID_VYCHOZI;
 
 export type StavPushu = {
   /** Věta pro člověka — proč to jde nebo nejde zapnout. */

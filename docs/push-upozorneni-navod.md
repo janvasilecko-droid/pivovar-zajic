@@ -19,48 +19,41 @@ postup, jak je vyrobit a zadat. Trvá to asi deset minut a dělá se to jednou.
 | Uložení zařízení | migrace `20261228030000_push_odbery.sql` | **spustit** |
 | Odeslání ze serveru | edge funkce `posli-push` | **nasadit** |
 | Zapínání v Nastavení | Nastavení → Upozornění | hotové |
-| VAPID klíče | projektové secrets + `.env` | **udělat** |
+| VAPID klíče | veřejný v kódu, soukromý do secrets | **vložit soukromý** |
 
 Dokud klíče nejsou, přepínač v Nastavení je **schválně vypnutý a napíše
 proč** — mlčící vypnutý zvonek by vypadal jako rozbitá funkce.
 
 ---
 
-## 1. Vyrobit VAPID klíče
+## 1. Klíče jsou už vyrobené
 
-Na počítači, kde je Node:
+Dvojici klíčů jsem vygeneroval 4. 9. 2026.
 
-```bash
-npx web-push generate-vapid-keys
-```
+**Veřejný** klíč je přímo v kódu (`src/lib/pushOdber.ts`) — je z podstaty
+veřejný, stejně by skončil v JS bundlu, takže se nemusí nikde nastavovat.
 
-Vypíše dva řetězce — `Public Key` a `Private Key`.
+**Soukromý** klíč v repozitáři NENÍ a nikdy tam být nesmí. Dostal jsi ho
+v chatu; patří jen do projektových secrets Supabase. Kdybys ho někdy chtěl
+vyměnit, `npx web-push generate-vapid-keys` vyrobí novou dvojici — pak se
+musí vyměnit OBA (patří k sobě) a všechna zařízení se přihlásí znovu.
 
-> **Soukromý klíč nikam neposílej**, ani do chatu, ani do repozitáře.
-> Kdo ho má, může posílat upozornění do vašich telefonů.
-
-## 2. Zadat je na server
+## 2. Zadat klíče na server
 
 V Supabase (Dashboard → Project Settings → Edge Functions → Secrets):
 
 ```
-VAPID_PUBLIC_KEY  = <public key>
-VAPID_PRIVATE_KEY = <private key>
+VAPID_PUBLIC_KEY  = BJ-YC0Rwvk25boqlYbxKcufzUQllA_y_G0-8sjis0og-pJ6On-Q4CYH0Iwz2vW3D3dQmYBMS2mAhXszIavepX08
+VAPID_PRIVATE_KEY = <soukromý klíč z chatu>
 ```
 
-## 3. Zadat veřejný klíč do aplikace
+## 3. (nepovinné) Vlastní klíč pro web
 
-Veřejný klíč patří i do buildu webu (Cloudflare Pages → Settings →
-Environment variables) a do lokálního `.env`:
+Nic nastavovat netřeba. Jen kdyby se klíče měnily a nechtělo se sahat do
+kódu, dá se veřejný klíč přebít proměnnou `VITE_VAPID_PUBLIC_KEY`
+v prostředí buildu.
 
-```
-VITE_VAPID_PUBLIC_KEY=<public key>
-```
-
-Je to **veřejný** klíč — je v JS bundlu a to je v pořádku, přesně takhle
-je to myšlené.
-
-## 4. Pustit migraci a nasadit funkci
+## 4. Pustit migraci a nasadit funkci (potřebuje počítač)
 
 ```bash
 node scripts/apply-migration.mjs supabase/migrations/20261228030000_push_odbery.sql
