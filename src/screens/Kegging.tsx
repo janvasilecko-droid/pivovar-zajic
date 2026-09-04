@@ -1304,7 +1304,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                         </div>
                         {!isEditing && (
                           <div className="flex items-center gap-1.5 pt-2 border-t border-emerald-100">
-                            <button type="button" onClick={() => setEditingRow(r)} className="btn-ghost !flex-1 !min-h-[44px] !text-xs"><Pencil className="ikona-text" /> Upravit</button>
+                            <button type="button" onClick={() => setEditingRow(r)} className="btn-ghost !flex-none !w-11 !px-0 !min-h-[44px]" title="Upravit záznam" aria-label="Upravit záznam"><Pencil size={16} /></button>
                             <button type="button" onClick={() => increment(r.id, -1)} disabled={Number(r.quantity) <= 0} className="btn-pocet !min-h-[44px]" aria-label="Ubrat sud">−</button>
                             <button type="button" onClick={() => increment(r.id, 1)} className="btn-pocet !min-h-[44px]" aria-label="Přidat sud">+</button>
                             <select
@@ -1643,7 +1643,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                       </div>
                       {!isEditing && (
                         <div className="flex items-center gap-1.5 pt-2 border-t border-amber-100">
-                          <button type="button" onClick={() => setEditingRow(r)} className="btn-ghost !flex-1 !min-h-[44px] !text-xs"><Pencil className="ikona-text" /> Upravit</button>
+                          <button type="button" onClick={() => setEditingRow(r)} className="btn-ghost !flex-none !w-11 !px-0 !min-h-[44px]" title="Upravit záznam" aria-label="Upravit záznam"><Pencil size={16} /></button>
                           <button type="button" onClick={() => increment(r.id, -1)} disabled={Number(r.quantity) <= 0} className="btn-pocet !min-h-[44px]" aria-label="Ubrat sud">−</button>
                           <button type="button" onClick={() => increment(r.id, 1)} className="btn-pocet !min-h-[44px]" aria-label="Přidat sud">+</button>
                           <select

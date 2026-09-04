@@ -1615,8 +1615,8 @@ export default function BottlingScreen({
                       <div className="flex items-center gap-1.5 pt-1 border-t border-amber-100">
                         <button type="button" onClick={() => increment(r.id, -1)} className="w-11 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-lg transition">−</button>
                         <button type="button" onClick={() => increment(r.id, 1)} className="w-11 min-h-[44px] grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-lg transition">+</button>
-                        <button type="button" onClick={() => setEditingRow(r)} className="flex-1 min-h-[44px] rounded bg-sky-100 hover:bg-sky-200 text-sky-800 font-black text-xs transition"><Pencil className="ikona-text" /> Upravit</button>
-                        <button type="button" onClick={() => del(r.id)} className="w-11 min-h-[44px] grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-lg transition"><X size={18} /></button>
+                        <button type="button" onClick={() => setEditingRow(r)} className="btn-ghost !flex-none !w-11 !px-0 !min-h-[44px]" title="Upravit záznam" aria-label="Upravit záznam"><Pencil size={16} /></button>
+                        <button type="button" onClick={() => del(r.id)} className="btn-danger !flex-none !w-11 !px-0 !min-h-[44px] ml-2" title="Smazat záznam" aria-label="Smazat záznam"><X size={18} /></button>
                       </div>
                     </div>
                   );

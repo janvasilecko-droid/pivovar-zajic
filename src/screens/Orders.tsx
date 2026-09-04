@@ -1644,9 +1644,16 @@ export default function Orders({
     setPackageKindFilter('all'); // Filtrujeme přesně pivo+obal, ne jen druh obalu
   }
 
+  // Panel akcí (Nové / Hlasové / Text / WhatsApp / Kontrola / Audit / Fotka)
+  // patří jen do zadávání nové objednávky, ne do Přehledu a Celkem — tam
+  // je to jen clutter nad seznamem. „Nové" a „Text" jsou dva vstupní
+  // režimy, oba panel ukazují; detail (Přehled) a celkem ne.
+  const zadaniViditelne = viewMode === 'summary' || viewMode === 'text';
+
   return (
     <div className="space-y-6 pb-12">
       {/* Top Action Bar — bez nadpisu "Objednávky": to už říká záložka nahoře, duplicitní popisek by byl zbytečný. */}
+      {(zadaniViditelne || (mode === 'overviews_only' && setPage)) && (
       <div className="flex flex-wrap items-center justify-end gap-2 bg-white p-2.5 rounded-2xl border border-neutral-200 shadow-2xs">
         <div className="flex flex-col gap-2 items-stretch sm:items-end w-full sm:w-auto">
           {mode === 'overviews_only' && setPage && (
@@ -1668,6 +1675,7 @@ export default function Orders({
               každý zalomený řádek zarovnával doprava, takže sedm různě
               širokých tlačítek vytvořilo schody a nešlo v nich najet očima.
               V mřížce mají všechna stejnou šířku a hrany sedí pod sebou. */}
+          {zadaniViditelne && (
           <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2 sm:items-center sm:flex-wrap sm:justify-end [&>*]:w-full sm:[&>*]:w-auto">
             {mode !== 'entry_only' && (
               <button
@@ -1710,8 +1718,10 @@ export default function Orders({
             <button className="btn-ghost !rounded !min-h-[36px] !py-1.5 !bg-amber-50 !border-amber-200 !text-amber-900 font-extrabold text-xs shadow-xs flex items-center gap-1.5 hover:!bg-amber-100" title="Audit objednávek — najde duplicitní položky, nesrovnalosti proti WhatsAppu a nezpracované zprávy" onClick={() => setShowOrderAudit(true)}><ShieldAlert size={14} /> Audit objednávek</button>
             <button className="btn-ghost !rounded !min-h-[36px] !py-1.5 !bg-amber-50 !border-amber-200 !text-amber-900 font-extrabold text-xs shadow-xs flex items-center gap-1.5 hover:!bg-amber-100" title="Načíst z fotky/e-mailu" onClick={() => { setImportTarget(null); setShowImport(true); }}><Camera size={14} /> Fotka/AI</button>
           </div>
+          )}
         </div>
       </div>
+      )}
 
 
 
