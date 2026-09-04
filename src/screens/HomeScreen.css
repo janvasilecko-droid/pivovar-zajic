@@ -266,21 +266,28 @@
 .hs-fixed-row > .hs-tile-alert:not(.hs-tile-wide):not(.hs-tile-large),
 .hs-fixed-row > .hs-tile-warn:not(.hs-tile-wide):not(.hs-tile-large) {
   grid-column: unset;
-  flex: 0 0 auto;
+  /* 0 1 auto + min-width:0: štítky se SMRSKNOU, aby se vešly na jednu
+     řádku displeje (dřív 0 0 auto = nesmrskly se a přetékaly do
+     vodorovného scrollu, takže třetí upozornění bylo za hranou). Když je
+     místa dost, drží šířku obsahu; když ne, popisek se zkrátí tečkami. */
+  flex: 0 1 auto;
+  min-width: 0;
   flex-direction: row !important;
   align-items: center;
   justify-content: flex-start;
-  gap: 7px !important;
-  padding: 0 11px !important;
+  gap: 5px !important;
+  padding: 0 9px !important;
   border-radius: 10px;
   max-width: 62vw;
 }
-.hs-fixed-row > .hs-tile svg { width: 17px; height: 17px; }
+.hs-fixed-row > .hs-tile svg { width: 14px; height: 14px; }
 .hs-fixed-row > .hs-tile .hs-lbl,
 .hs-fixed-row > .hs-tile-alert:not(.hs-tile-wide):not(.hs-tile-large) .hs-lbl,
 .hs-fixed-row > .hs-tile-warn:not(.hs-tile-wide):not(.hs-tile-large) .hs-lbl {
   font-size: 12px !important;
   text-align: left !important;
+  min-width: 0;
+  overflow: hidden;
   -webkit-line-clamp: 1;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -297,10 +304,13 @@
   .hs-fixed-row > .hs-tile,
   .hs-fixed-row > .hs-tile-alert:not(.hs-tile-wide):not(.hs-tile-large),
   .hs-fixed-row > .hs-tile-warn:not(.hs-tile-wide):not(.hs-tile-large) {
-    padding: 0 9px !important;
-    max-width: 78vw;
+    padding: 0 7px !important;
+    /* Nižší strop než dřív (78vw): jedno upozornění nesmí zabrat skoro
+       celou šířku, aby vedle něj zbylo místo na další. Se smrsknutím výš
+       se tak dvě až tři štítky vejdou na jednu řádku. */
+    max-width: 52vw;
   }
-  .hs-fixed-row > .hs-tile svg { width: 16px; height: 16px; }
+  .hs-fixed-row > .hs-tile svg { width: 13px; height: 13px; }
 }
 
 /* 💡 Jednorázová nápověda ke gestům plochy (viz napovedy.ts). Je to řádek

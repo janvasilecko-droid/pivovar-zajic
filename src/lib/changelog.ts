@@ -8,6 +8,7 @@
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 
 export const APP_CHANGELOG: string[] = [
+  '🔔 Upozornění na ploše (WhatsApp, STK, nová verze, inventura…) jsou menší a vejdou se na jednu řádku. Štítky měly větší ikony a nesmršťovaly se, takže při třech naráz přetékaly do vodorovného scrollu a třetí bylo za hranou displeje. Teď mají menší ikonu, těsnější okraje a hlavně se smrsknou, aby se vešly na šířku obrazovky vedle sebe — když je místa málo, popisek se zkrátí tečkami, číslo/datum na konci zůstává vždy vidět.',
   '🍺 Zadané pivo je vidět na první pohled — vyplněná dlaždice se zvětší. Když se do piva něco zadá, dlaždice se roztáhne přes celou šířku a velkým čitelným písmem ukáže celý rozpis (kolik a jakých obalů) — nemusí se otevírat detail, aby se zjistilo, co už je nachystané. Nezadaná piva zůstávají malá a tři na řádek, ať se rychle klikají a vejdou se všechna naráz. Platí to všude, kde se piva zadávají přes dlaždice: Objednávky, Stáčení KEG i Lahve a Fasování/Prodejna — komponenta je sdílená, takže se chová všude stejně.',
   '🔢 Čísla v tabulkách už neposkakují. Sloupce s počty (Sklad, evidenční listy, součty) dostaly tabulární číslice — „1" je nově stejně široká jako „8", takže se sloupec kusů při každém přepočtu neposouvá do stran a součtový řádek „netancuje".',
   '📋 Panel s akcemi (Nové / Hlasové / Text / WhatsApp / Kontrola / Audit / Fotka) je jen v zadávání nové objednávky. V záložkách Přehled a Celkem nad seznamem překážel — patří k zakládání objednávky, ne k jejímu prohlížení, tak se tam nekreslí.',
