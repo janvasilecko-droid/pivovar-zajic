@@ -867,7 +867,10 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className="px-3 py-1.5 rounded bg-white/20 text-white text-xs font-mono font-black border border-white/30">
+                {/* Plná barva, ne bílá s průhledností: štítek leží na
+                    přechodu rose-600 → neutral-900, takže se bílý text na
+                    světlejším konci ztrácel. */}
+                <span className="px-3 py-1.5 rounded bg-rose-900 text-white text-xs font-mono font-black border border-rose-300">
                   TIS: 224 919 293
                 </span>
                 <span className="px-3 py-1.5 rounded bg-rose-600 text-white text-xs font-mono font-black border border-rose-300">
@@ -990,6 +993,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
             <div className="font-black text-white text-sm uppercase flex items-center gap-2">
               <span><AlertTriangle className="ikona-text" /> ZÁKLADNÍ BEZPEČNOSTNÍ PRAVIDLO ŘEDĚNÍ KYSELIN:</span>
             </div>
+            {/* podklad: bg-neutral-900 — panel pravidla výš. */}
             <div className="text-base font-black text-amber-400 p-3 rounded bg-black/50 border border-amber-500/40 text-center">
               „KYSELINU VŽDY LIJEME DO VODY! NIKDY VODU DO KYSELINY!“
             </div>

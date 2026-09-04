@@ -60,8 +60,11 @@ export function BreweryRadioModal({ open, onClose }: BreweryRadioModalProps) {
             )}
           </div>
 
+          {/* Chybová hláška patří na plný podklad: rose-900 s průhledností
+              vyšla na bílém panelu světle růžová a světlý text v ní zmizel —
+              tedy zpráva o chybě byla nečitelná právě tehdy, kdy je potřeba. */}
           {state.error && (
-            <p className="text-xs text-rose-200 bg-rose-900/60 p-2 rounded-lg mb-3">
+            <p className="text-xs text-rose-900 bg-rose-50 border border-rose-300 dark:text-rose-200 dark:bg-rose-950 dark:border-rose-800 p-2 rounded-lg mb-3">
               {state.error}
             </p>
           )}
@@ -72,7 +75,10 @@ export function BreweryRadioModal({ open, onClose }: BreweryRadioModalProps) {
               type="button"
               onClick={prevStation}
               title="Předchozí stanice"
-              className="p-2.5 rounded-full bg-white/15 hover:bg-white/25 active:scale-95 transition text-white"
+              // Plná tmavá, ne bílá s průhledností: karta má barvu stanice
+              // (inline přechod) a na světlejší stanici se bílá ikona na
+              // 15% bílé neztrácela jen trochu — nebyla vidět vůbec.
+              className="p-2.5 rounded-full bg-neutral-900 hover:bg-neutral-800 active:scale-95 transition text-white"
             >
               <SkipBack size={20} />
             </button>
@@ -96,7 +102,7 @@ export function BreweryRadioModal({ open, onClose }: BreweryRadioModalProps) {
               type="button"
               onClick={nextStation}
               title="Další stanice"
-              className="p-2.5 rounded-full bg-white/15 hover:bg-white/25 active:scale-95 transition text-white"
+              className="p-2.5 rounded-full bg-neutral-900 hover:bg-neutral-800 active:scale-95 transition text-white"
             >
               <SkipForward size={20} />
             </button>

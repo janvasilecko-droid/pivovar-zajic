@@ -227,6 +227,7 @@ export function PhotoReviewPane({ photos, activeIndex, onChangeIndex, activeBbox
               />
             ))}
           </div>
+          {/* podklad: bg-primary-900 — lišta pod fotkou. */}
           <button
             className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center disabled:opacity-30"
             onClick={() => goTo(activeIndex + 1)}

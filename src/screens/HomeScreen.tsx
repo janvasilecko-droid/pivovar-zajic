@@ -2841,7 +2841,10 @@ function BrewKettleTopBanner({
               <button
                 type="button"
                 onClick={() => toggleCountdown(runningCountdown.id)}
-                className="p-2 rounded-xl bg-amber-500/30 hover:bg-amber-500/50 text-amber-200 border border-amber-500/40 transition active:scale-95"
+                // podklad: bg-neutral-900 — tmavý přechod pruhu časovače. Text je
+              // amber-100, ne amber-200: na 30% amber přes tmavý podklad
+              // vycházel kontrast 4,3 — pod hranicí 4,5.
+              className="p-2 rounded-xl bg-amber-500/30 hover:bg-amber-500/50 text-amber-100 border border-amber-500/40 transition active:scale-95"
                 title="Pozastavit / Spustit odpočet"
               >
                 <Pause size={16} />
@@ -2865,13 +2868,18 @@ function BrewKettleTopBanner({
                     });
                   }
                 }}
-                className="p-2 rounded-xl bg-amber-500/30 hover:bg-amber-500/50 text-amber-200 border border-amber-500/40 transition active:scale-95"
+                // podklad: bg-neutral-900 — tmavý přechod pruhu časovače. Text je
+              // amber-100, ne amber-200: na 30% amber přes tmavý podklad
+              // vycházel kontrast 4,3 — pod hranicí 4,5.
+              className="p-2 rounded-xl bg-amber-500/30 hover:bg-amber-500/50 text-amber-100 border border-amber-500/40 transition active:scale-95"
                 title={stopwatchState.running ? 'Pozastavit' : 'Pokračovat'}
               >
                 {stopwatchState.running ? <Pause size={16} /> : <Play size={16} />}
               </button>
             ) : null}
 
+            {/* podklad: bg-neutral-900 — pruh časovače je tmavý přechod
+                from-amber-950/90 via-neutral-900/95 (viz obal výš). */}
             <button
               type="button"
               onClick={() => setPage(runningCountdown || doneCountdown ? 'timer' : 'stopwatch')}
@@ -2886,7 +2894,8 @@ function BrewKettleTopBanner({
                 jen zabíral místo. Doběhnutý odpočet se u toho vrátí na
                 výchozí dobu (resetCountdown ho NEMAŽE), ať pruh nezmizí a
                 nenechá po sobě viset „HOTOVO!" ve stavu.
-                Zpátky se pruh dá zapnout v nastavení plochy. */}
+                Zpátky se pruh dá zapnout v nastavení plochy.
+                podklad: bg-neutral-900 — viz tmavý přechod obalu výš. */}
             <button
               type="button"
               onClick={() => {

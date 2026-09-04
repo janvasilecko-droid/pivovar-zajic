@@ -357,7 +357,10 @@ Skladové výpočty se tím rovnou přepočítají.`,
               </div>
             </div>
 
+            {/* podklad: bg-amber-900 — hlavička modálu je tmavý přechod
+                from-amber-950 via-amber-900 (viz obal výš). */}
             <div className="flex items-center gap-1.5 shrink-0">
+              {/* podklad: bg-amber-900 */}
               <button
                 onClick={loadAudit}
                 disabled={loading || actionLoading}
@@ -367,6 +370,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
                 <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
                 <span className="hidden sm:inline">Překontrolovat</span>
               </button>
+              {/* podklad: bg-amber-900 */}
               <button
                 onClick={onClose}
                 className="w-10 h-10 grid place-items-center rounded bg-white/10 hover:bg-white/20 active:scale-95 text-white transition border border-white/10"

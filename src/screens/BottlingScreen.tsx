@@ -1068,7 +1068,9 @@ export default function BottlingScreen({
               beer={tileBeer}
               onClose={closeTile}
               headerRight={tileDraft.kegPkgId ? (
-                <span className="text-xs font-bold text-white/90 bg-black/20 rounded-full px-2 py-0.5 shrink-0">
+                // Plná barva: lišta panelu má barvu piva, na světlém pivu
+                // bylo 20% černé pod bílým textem nečitelné.
+                <span className="text-xs font-bold text-white bg-neutral-800 rounded-full px-2 py-0.5 shrink-0">
                   <IkonaSud className="ikona-text" /> zdroj: {kegPackages.find((p) => p.id === tileDraft.kegPkgId)?.label || 'KEG'}
                 </span>
               ) : undefined}
