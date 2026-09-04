@@ -47,12 +47,45 @@ function souboryVeZdroji(dir) {
   return out;
 }
 
-/** Najde `<button …>` i s jeho atributy (bez obsahu). */
+/**
+ * Najde otevírací značku `<button …>` i s atributy (bez obsahu).
+ *
+ * Regulárkou to nejde: `onClick={() => del(r.id)}` obsahuje `>` z tlusté
+ * šipky, takže `<button[\s\S]*?>` skončí uprostřed atributů a className
+ * (a s ní barva) se do porovnání vůbec nedostane. Kvůli tomu první verze
+ * téhle kontroly hlásila 174 tlačítek s vlastní barvou, i když jich je víc.
+ * Značka se proto čte znak po znaku: hlídá se hloubka `{}` a řetězce, a
+ * konec je až `>` mimo ně.
+ */
 function tlacitka(zdroj) {
-  return [...zdroj.matchAll(/<button\b[\s\S]{0,800}?>/g)].map((m) => ({
-    text: m[0],
-    radek: zdroj.slice(0, m.index).split('\n').length,
-  }));
+  const out = [];
+  const re = /<button\b/g;
+  let m;
+  while ((m = re.exec(zdroj)) !== null) {
+    let i = m.index + m[0].length;
+    let hloubka = 0;
+    let uvozovka = null;
+    while (i < zdroj.length) {
+      const z = zdroj[i];
+      if (uvozovka) {
+        if (z === uvozovka) uvozovka = null;
+      } else if (z === '"' || z === "'" || z === '`') {
+        uvozovka = z;
+      } else if (z === '{') {
+        hloubka += 1;
+      } else if (z === '}') {
+        hloubka -= 1;
+      } else if (z === '>' && hloubka === 0) {
+        break;
+      }
+      i += 1;
+    }
+    out.push({
+      text: zdroj.slice(m.index, i + 1),
+      radek: zdroj.slice(0, m.index).split('\n').length,
+    });
+  }
+  return out;
 }
 
 const MA_ROLI = /className="[^"]*\bbtn(-[a-z]+)?\b/;

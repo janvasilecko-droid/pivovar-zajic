@@ -460,22 +460,13 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Header Banner */}
-      <div className="bg-neutral-900 text-white p-5 sm:p-7 rounded border border-amber-500/30 shadow-xl flex flex-wrap items-center justify-between gap-4">
-        <div>
-          {/* Popisný nadpis obrazovky odstraněn — na telefonu zabíral
-              půl displeje a neříkal nic, co by uživatel nevěděl. Ovládací
-              prvky banneru zůstávají. */}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={exportExcel}
-            className="px-3.5 py-2.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs transition shadow-xs flex items-center gap-1.5"
-          >
-            <Download size={16} /> Excel
-          </button>
-        </div>
+      {/* Export je jediná akce téhle obrazovky, takže nemá tmavý panel:
+          byl v něm jeden knoflík a 150 px prázdna vedle. Vedlejší akce =
+          bílé tlačítko s rámečkem (docs/jednotny-styl.md). */}
+      <div className="flex justify-end">
+        <button onClick={exportExcel} className="btn-ghost !flex-none !text-xs">
+          <Download size={16} /> Excel
+        </button>
       </div>
 
       {/* Tabs — přilepené nahoře, ať jde přepínat záložku i uprostřed scrollování. */}

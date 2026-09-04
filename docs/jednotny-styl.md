@@ -19,35 +19,42 @@ jedné obrazovce.
 
 ## Proč to tak je (změřeno)
 
-V aplikaci je **1 044 tlačítek**. Rozpad (přesně, doměřeno 4. 9. 2026):
+V aplikaci je **1 047 tlačítek**. Rozpad (přeměřeno 4. 9. 2026 opraveným
+skriptem — viz „jak jsem to třikrát spočítal špatně" níž):
 
 | Kolik | Jaké | Poznámka |
 | --- | --- | --- |
-| 179 | používají systém `.btn-*` | v pořádku |
-| **174** | **mají vlastní barvu pozadí** | tohle je ten rozjezd |
-| 661 | bez pozadí (ikona nebo text) | většinou v pořádku |
-| 20 | bílé / průhledné | v pořádku |
-| 10 | přechod nebo poloprůhledné | k dořešení |
+| **568** | **mají vlastní barvu pozadí** | tohle je ten rozjezd |
+| 271 | používají systém `.btn-*` | v pořádku |
+| 114 | bez pozadí (ikona nebo text) | většinou v pořádku |
+| 65 | bílé / průhledné | v pořádku |
+| 29 | přechod nebo poloprůhledné | k dořešení |
 
-**Opravuji vlastní číslo:** nejdřív jsem napsal „865 tlačítek namalovaných
-ručně". To bylo špatně — 865 je počet tlačítek, která *nepoužívají* systém,
-ale většina z nich (661) je ikonová nebo textová a žádnou barvu si
-nevymýšlí. Vlastní barvu si maluje **174** z nich, a to jsou ta, kvůli
-kterým to vypadá jako čtyři aplikace. Závěr platí, číslo bylo nadsazené.
-
-Čtrnáct různých barev pozadí u těch 174:
+Nejčastější vlastní barvy:
 
 ```
-bg-amber-500  48×      bg-neutral-100 25×     bg-emerald-700 16×
-bg-emerald-200 11×     bg-rose-100    10×     bg-neutral-200  8×
-bg-neutral-800  8×     bg-rose-600     6×     bg-amber-100    6×
-bg-amber-200    6×     bg-sky-700      5×     bg-neutral-900  5×
-bg-emerald-100  4×     bg-sky-100      4×
+bg-amber-500  182×     bg-neutral-100  96×     bg-emerald-700 41×
+bg-rose-100    35×     bg-amber-100    35×     bg-amber-200   35×
+bg-neutral-200 22×     bg-rose-600     22×
 ```
+
+### Jak jsem to spočítal třikrát a dvakrát špatně
+
+Stojí to za zapsání, ať se to nedělá znovu:
+
+1. **„865"** — počítal jsem tlačítka, která nepoužívají `.btn`, a mezi ně
+   patří i ikonová a textová, která žádnou barvu nemají. Nadsazeno.
+2. **„174"** — oprava, která byla horší než původní chyba. Značka se
+   hledala regulárkou `<button[\s\S]*?>`, jenže `onClick={() => del(x)}`
+   obsahuje `>` z tlusté šipky, takže se čtení zastavilo *před* atributem
+   `className`. U každého tlačítka s obsluhou (tedy u většiny) se barva
+   vůbec neviděla.
+3. **„568"** — značka se teď čte znak po znaku, s hlídáním hloubky `{}`
+   a řetězců. Tohle číslo souhlasí i s ruční kontrolou vzorku.
 
 Systém tedy nechybí — **jen se u barevných tlačítek nepoužívá**. Každá
 obrazovka si to svoje namalovala znovu podle toho, kdy vznikla. Odtud čtyři
-vzhledy. A 174 je dobrá zpráva: je to práce na dny, ne na měsíce.
+vzhledy.
 
 ---
 
@@ -106,7 +113,7 @@ strany na smazání, nebo „⋯" s nabídkou. Barva zůstane jen mazání.
 
 ## Jak se tam dostat, aby se to nerozbilo
 
-Přepsat 174 tlačítek naráz je pořád nejlepší způsob, jak appku na den
+Přepsat 568 tlačítek naráz je nejlepší způsob, jak appku na týden
 položit. Návrh je postup, který už tenhle projekt používá u tříd a
 kontrastu:
 
@@ -114,7 +121,7 @@ kontrastu:
    `.btn-pocet` (šedé −/+), `.lista-akci` (hlavní akce + „⋯"),
    `.pruh-cisel` (tři čísla na 72 px). Zbývá `.zalozky`.
 2. **Kontrola `scripts/zkontroluj-tlacitka.mjs`** — ✅ **hotovo 4. 9. 2026.**
-   Nehlásí dluh, který už existuje (to by znamenalo 167 chyb hned), ale
+   Nehlásí dluh, který už existuje (to by znamenalo 553 chyb hned), ale
    spadne, jakmile dluh NAROSTE. Výchozí stav je v
    `scripts/tlacitka-zaklad.json`, po každém převedené obrazovce se
    zmenší (`--uloz`). Výpis stavu: `--vypis`. Běží v pre-commit i v CI,
@@ -125,8 +132,11 @@ kontrastu:
 4. **Výjimky vypsat, ne mlčet**: Plocha (dlaždice) a barvy piv zůstávají
    vlastní; do kontroly se zapíšou jako povolené výjimky s důvodem.
 
-Body 1 a 2 jsou hotové. Zbývá převod: šest hlavních obrazovek ~2 dny,
-zbytek postupně bez spěchu.
+Body 1 a 2 jsou hotové. **Krok 3 začal 4. 9. 2026:** převedená je Kniha
+jízd (tmavý panel → lišta akcí, tři karty → pruh čísel), Inventura (panel
+→ lišta akcí, měsíc nahoru), Sklo & Etikety (panel s jedním knoflíkem →
+tlačítko) a řádek záznamu ve Stáčení KEG i v Lahvích (pět barev → jedna).
+Zbytek postupně, jedna obrazovka = jeden commit.
 
 ---
 

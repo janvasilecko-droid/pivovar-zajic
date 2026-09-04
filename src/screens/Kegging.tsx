@@ -1304,11 +1304,11 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                         </div>
                         {!isEditing && (
                           <div className="flex items-center gap-1.5 pt-2 border-t border-emerald-100">
-                            <button type="button" onClick={() => setEditingRow(r)} className="flex-1 min-h-[44px] rounded bg-sky-100 hover:bg-sky-200 text-sky-800 font-black text-xs transition"><Pencil className="ikona-text" /> Upravit</button>
-                            <button type="button" onClick={() => increment(r.id, -1)} disabled={Number(r.quantity) <= 0} className="w-11 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-lg transition disabled:opacity-30">−</button>
-                            <button type="button" onClick={() => increment(r.id, 1)} className="w-11 min-h-[44px] grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-lg transition">+</button>
+                            <button type="button" onClick={() => setEditingRow(r)} className="btn-ghost !flex-1 !min-h-[44px] !text-xs"><Pencil className="ikona-text" /> Upravit</button>
+                            <button type="button" onClick={() => increment(r.id, -1)} disabled={Number(r.quantity) <= 0} className="btn-pocet !min-h-[44px]" aria-label="Ubrat sud">−</button>
+                            <button type="button" onClick={() => increment(r.id, 1)} className="btn-pocet !min-h-[44px]" aria-label="Přidat sud">+</button>
                             <select
-                              className="min-h-[44px] rounded bg-white border border-amber-300 text-emerald-950 font-bold text-xs px-1.5 cursor-pointer transition"
+                              className="min-h-[44px] rounded bg-white border border-neutral-200 text-neutral-800 font-bold text-xs px-1.5 cursor-pointer transition"
                               value={QUICK_KEG_QTY.includes(Number(r.quantity)) ? Number(r.quantity) : ''}
                               onChange={(e) => { const v = e.target.value; if (v !== '') setQty(r.id, Number(v)); }}
                               title="Rychlé nastavení počtu sudů"
@@ -1316,10 +1316,14 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                               <option value="" disabled>ks</option>
                               {QUICK_KEG_QTY.map((q) => (<option key={q} value={q}>{q} ks</option>))}
                             </select>
+                            {/* Mazání je jediná barva v řádku a stojí za
+                                mezerou od plusu — na dotyk jsou to sousedi
+                                a záměna maže zápis. */}
                             <button
                               type="button"
                               onClick={() => del(r.id)}
-                              className="w-11 min-h-[44px] grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-lg transition"
+                              className="btn-danger !flex-none !w-11 !px-0 !min-h-[44px] ml-2"
+                              aria-label="Smazat záznam"
                             ><X size={18} /></button>
                           </div>
                         )}
@@ -1639,11 +1643,11 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                       </div>
                       {!isEditing && (
                         <div className="flex items-center gap-1.5 pt-2 border-t border-amber-100">
-                          <button type="button" onClick={() => setEditingRow(r)} className="flex-1 min-h-[44px] rounded bg-sky-100 hover:bg-sky-200 text-sky-800 font-black text-xs transition"><Pencil className="ikona-text" /> Upravit</button>
-                          <button type="button" onClick={() => increment(r.id, -1)} disabled={Number(r.quantity) <= 0} className="w-11 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-lg transition disabled:opacity-30">−</button>
-                          <button type="button" onClick={() => increment(r.id, 1)} className="w-11 min-h-[44px] grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-lg transition">+</button>
+                          <button type="button" onClick={() => setEditingRow(r)} className="btn-ghost !flex-1 !min-h-[44px] !text-xs"><Pencil className="ikona-text" /> Upravit</button>
+                          <button type="button" onClick={() => increment(r.id, -1)} disabled={Number(r.quantity) <= 0} className="btn-pocet !min-h-[44px]" aria-label="Ubrat sud">−</button>
+                          <button type="button" onClick={() => increment(r.id, 1)} className="btn-pocet !min-h-[44px]" aria-label="Přidat sud">+</button>
                           <select
-                            className="min-h-[44px] rounded bg-white border border-amber-300 text-emerald-950 font-bold text-xs px-1.5 cursor-pointer transition"
+                            className="min-h-[44px] rounded bg-white border border-neutral-200 text-neutral-800 font-bold text-xs px-1.5 cursor-pointer transition"
                             value={QUICK_KEG_QTY.includes(Number(r.quantity)) ? Number(r.quantity) : ''}
                             onChange={(e) => { const v = e.target.value; if (v !== '') setQty(r.id, Number(v)); }}
                             title="Rychlé nastavení počtu sudů"
@@ -1654,7 +1658,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                           <button
                             type="button"
                             onClick={() => del(r.id)}
-                            className="w-11 min-h-[44px] grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-lg transition"
+                            className="btn-danger !flex-none !w-11 !px-0 !min-h-[44px] ml-2"
+                            aria-label="Smazat záznam"
                           ><X size={18} /></button>
                         </div>
                       )}

@@ -486,76 +486,78 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
     });
   }
 
+  // Vedlejší akce (ruční jízda, Excel, tisk) jsou schované pod „⋯" —
+  // na telefonu je hlavní akce jediná, která má být hned vidět.
+  const [dalsiAkce, setDalsiAkce] = useState(false);
+
   if (loading) return <Spinner />;
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Banner */}
-      <div className="bg-neutral-900 text-white p-6 rounded border border-amber-500/30 shadow-xl flex flex-wrap items-center justify-between gap-4">
-        <div>
-          {/* Popisný nadpis obrazovky odstraněn — na telefonu zabíral
-              půl displeje a neříkal nic, co by uživatel nevěděl. Ovládací
-              prvky banneru zůstávají. */}
+      {/* Lišta akcí (docs/jednotny-styl.md, kámen K1).
+          Dřív to byl tmavý blok se čtyřmi tlačítky ve třech barvách —
+          na telefonu sežral první obrazovku a vypadal jako druhá appka
+          uvnitř té první. Teď je vidět hlavní akce a měsíc; export,
+          tisk a ruční jízda jsou pod „⋯". */}
+      <div className="space-y-2">
+        <div className="lista-akci">
+          <button onClick={openAutoModal} className="btn-primary !text-xs" title="Automaticky spočítat trasy z objednávek podle dnů s rovnoměrným rozpočítáním tachometru">
+            <Zap size={16} /> Generovat z objednávek
+          </button>
+          <button
+            type="button"
+            onClick={() => setDalsiAkce((v) => !v)}
+            className="btn-ghost jen-ikona"
+            title="Další akce"
+            aria-expanded={dalsiAkce}
+          >
+            ⋯
+          </button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1.5 bg-neutral-800 border border-neutral-700 px-3 py-1.5 rounded text-xs font-bold">
-            <Calendar size={15} className="text-amber-400" />
+        <div className="flex items-center gap-2">
+          <label className="btn-ghost !flex-none !px-3 !gap-2 cursor-pointer">
+            <Calendar size={15} className="text-amber-700" />
             <input
               type="month"
               value={filterMonth}
               onChange={(e) => setFilterMonth(e.target.value)}
-              className="bg-transparent text-amber-300 font-mono font-black border-none focus:outline-none"
+              className="bg-transparent font-mono font-black text-xs border-none focus:outline-none"
+              aria-label="Měsíc"
             />
-          </div>
-
-          <button
-            onClick={openAutoModal}
-            className="px-4 py-2.5 rounded bg-amber-400 hover:bg-amber-300 text-neutral-950 font-black text-xs transition shadow-md flex items-center gap-1.5 animate-pulse"
-            title="Automaticky spočítat trasy z objednávek podle dnů s rovnoměrným rozpočítáním tachometru"
-          >
-            <Zap size={16} className="fill-current text-neutral-950" /> Generovat z objednávek
-          </button>
-
-          <button
-            onClick={openAddModal}
-            className="px-4 py-2.5 rounded bg-neutral-800 hover:bg-neutral-700 text-white font-extrabold text-xs transition shadow-xs flex items-center gap-1.5"
-          >
-            <Plus size={16} /> Ruční jízda
-          </button>
-
-          <button
-            onClick={exportExcelLogbook}
-            className="px-3 py-2.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs transition shadow-xs flex items-center gap-1.5"
-          >
-            <Download size={16} /> Excel
-          </button>
-
-          <button
-            onClick={printLogbook}
-            className="px-3 py-2.5 rounded bg-neutral-800 hover:bg-neutral-700 text-white font-extrabold text-xs transition shadow-xs flex items-center gap-1.5"
-          >
-            <Printer size={16} /> Tisk pro účetní
-          </button>
+          </label>
         </div>
+
+        {dalsiAkce && (
+          <div className="lista-akci">
+            <button onClick={openAddModal} className="btn-ghost !text-xs">
+              <Plus size={16} /> Ruční jízda
+            </button>
+            <button onClick={exportExcelLogbook} className="btn-ghost !text-xs">
+              <Download size={16} /> Excel
+            </button>
+            <button onClick={printLogbook} className="btn-ghost !text-xs">
+              <Printer size={16} /> Tisk
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Stats Header */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="card p-4 bg-white border border-neutral-200 rounded space-y-1">
-          <span className="text-[11px] font-black uppercase text-neutral-500">Ujeté km za měsíc</span>
-          <div className="font-display font-black text-2xl text-amber-600">{totalKmMonth} km</div>
-          <span className="text-[11px] text-neutral-600">Celkový nájezd měsíce {filterMonth}</span>
+      {/* Pruh čísel (kámen K3): tři karty zabíraly 540 px, aby ukázaly
+          tři nuly. Pruh to zvládne na 72 px a zbytek obrazovky patří
+          evidenčnímu listu. */}
+      <div className="pruh-cisel">
+        <div>
+          <div className="nazev">Km</div>
+          <div className="cislo text-amber-700">{totalKmMonth}</div>
         </div>
-        <div className="card p-4 bg-white border border-neutral-200 rounded space-y-1">
-          <span className="text-[11px] font-black uppercase text-neutral-500">Počet služebních jízd</span>
-          <div className="font-display font-black text-2xl text-neutral-900">{mnozne(filteredEntries.length, ['jízda', 'jízdy', 'jízd'])}</div>
-          <span className="text-[11px] text-neutral-600">Rozvozy & Svozy</span>
+        <div>
+          <div className="nazev">Jízdy</div>
+          <div className="cislo">{filteredEntries.length}</div>
         </div>
-        <div className="card p-4 bg-white border border-neutral-200 rounded space-y-1">
-          <span className="text-[11px] font-black uppercase text-neutral-500">Pivovarský vozový park</span>
-          <div className="font-display font-black text-xl text-neutral-900">{mnozne(vehicles.length || 1, ['vozidlo', 'vozidla', 'vozidel'])}</div>
-          <span className="text-[11px] text-neutral-600">Primárně Velké auto (Kynšperk)</span>
+        <div>
+          <div className="nazev">Vozidla</div>
+          <div className="cislo">{vehicles.length || 1}</div>
         </div>
       </div>
 
@@ -563,7 +565,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
       <div className="card p-6 bg-white border border-neutral-200 rounded shadow-xs space-y-4">
         <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
           <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-            <span>Evidenční list jízd ({filteredEntries.length})</span>
+            <span>Evidenční list — {mnozne(filteredEntries.length, ['jízda', 'jízdy', 'jízd'])}</span>
           </h3>
           <button
             onClick={openAutoModal}
