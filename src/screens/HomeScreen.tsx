@@ -1558,7 +1558,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   <div className="hs-tile-icon-box">
                     <MessageCircle />
                   </div>
-                  <div className="hs-lbl">WhatsApp — k parsování</div>
+                  <div className="hs-lbl">WhatsApp — přečíst</div>
                   <span className="hs-badge">{pendingWhatsApp > 99 ? '99+' : pendingWhatsApp}</span>
                 </button>
               )}
@@ -1637,12 +1637,16 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   </span>
                 </button>
               )}
+              {/* Krátký popisek schválně: štítek má 44 px a na 360px
+                  displeji stojí dva vedle sebe, takže „Vozidla —
+                  STK/známka" se odseklo v půlce slova. Ikona a číslo
+                  doříkají, o co jde. */}
               {vehicleAlerts.length > 0 && (
                 <button type="button" className="hs-tile hs-tile-alert vlastni-vyska" onClick={() => setPage('vehicles')}>
                   <div className="hs-tile-icon-box">
                     <TriangleAlert />
                   </div>
-                  <div className="hs-lbl">Vozidla — STK/známka</div>
+                  <div className="hs-lbl">STK a známky</div>
                   <span className="hs-badge">{vehicleAlerts.length}</span>
                 </button>
               )}
@@ -1656,7 +1660,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   <div className="hs-tile-icon-box">
                     <Download />
                   </div>
-                  <div className="hs-lbl">Nová aktualizace v{newVersionInfo.version}</div>
+                  <div className="hs-lbl">Nová verze {newVersionInfo.version}</div>
                 </button>
               )}
               {monthlyCleanupPending && (
@@ -1664,7 +1668,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   <div className="hs-tile-icon-box">
                     <CalendarX2 />
                   </div>
-                  <div className="hs-lbl">Měsíční úklid — checklist</div>
+                  <div className="hs-lbl">Měsíční úklid</div>
                 </button>
               )}
               {/* 💾 Dlouho se nestahovala záloha. Ta v GitHubu je ve stejném

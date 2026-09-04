@@ -67,6 +67,15 @@ jobs:
       - name: Kontrola workflow
         run: npm run zkontroluj-workflow
 
+      # Vzhled tlačítek. Aplikace má pět rolí (.btn-primary, .btn-emerald,
+      # .btn-ghost, .btn-danger, .btn-pocet), ale 174 tlačítek si maluje
+      # vlastní barvu — odtud „vypadá to jako čtyři různé aplikace".
+      # Kontrola stávající dluh NEHLÁSÍ (to by byl výpis 167 chyb u každého
+      # commitu), spadne jen když dluh naroste. Základ je v
+      # scripts/tlacitka-zaklad.json a po každé převedené obrazovce se zmenší.
+      - name: Kontrola tlačítek
+        run: npm run zkontroluj-tlacitka
+
   build-and-deploy:
     runs-on: ubuntu-latest
     needs: test

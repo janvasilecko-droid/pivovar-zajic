@@ -1443,16 +1443,19 @@ export default function BottlingScreen({
                   >
                     <CalendarDays size={13} /> Týden
                   </button>
+                  {/* Šipky jsou bílé, ne žluté: leží na žlutém panelu a
+                      žlutá na žluté není poznat jako tlačítko — na slunci
+                      teprve ne. */}
                   {recordsView === 'week' ? (
                     <>
-                      <button onClick={() => setRecordsWeekKey(shiftWeek(recordsWeekKey, -1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-base transition shrink-0">‹</button>
-                      <button onClick={() => setRecordsWeekKey(shiftWeek(recordsWeekKey, 1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-base transition shrink-0">›</button>
+                      <button onClick={() => setRecordsWeekKey(shiftWeek(recordsWeekKey, -1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-white border border-amber-300 hover:bg-amber-50 text-amber-900 font-black text-base transition shrink-0">‹</button>
+                      <button onClick={() => setRecordsWeekKey(shiftWeek(recordsWeekKey, 1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-white border border-amber-300 hover:bg-amber-50 text-amber-900 font-black text-base transition shrink-0">›</button>
                     </>
                   ) : (
                     <>
-                      <button onClick={() => setRecordsMonthKey(shiftMonth(recordsMonthKey, -1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-base transition shrink-0">‹</button>
+                      <button onClick={() => setRecordsMonthKey(shiftMonth(recordsMonthKey, -1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-white border border-amber-300 hover:bg-amber-50 text-amber-900 font-black text-base transition shrink-0">‹</button>
                       <span className="text-xs font-bold text-amber-950 px-1 whitespace-nowrap">{recordsMonthKey}</span>
-                      <button onClick={() => setRecordsMonthKey(shiftMonth(recordsMonthKey, 1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-base transition shrink-0">›</button>
+                      <button onClick={() => setRecordsMonthKey(shiftMonth(recordsMonthKey, 1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-white border border-amber-300 hover:bg-amber-50 text-amber-900 font-black text-base transition shrink-0">›</button>
                     </>
                   )}
                 </div>

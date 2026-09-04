@@ -594,18 +594,21 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                       <div className="text-xs font-bold uppercase tracking-wider text-amber-700 mb-1.5 flex items-center gap-1"><IkonaSud className="ikona-text" /> Sudy</div>
                       <table className="w-full text-sm font-semibold border-collapse">
                         <thead>
-                          <tr className="text-[11px] font-bold uppercase tracking-wide text-neutral-400">
-                            <th className="text-left pb-1 pr-2" title="Obal"><BeerIcon size={13} className="text-neutral-900" /></th>
-                            <th className="text-center pb-1 px-2" title="Stav"><PackageCheck size={13} className="text-neutral-900 mx-auto" /></th>
-                            <th className="text-center pb-1 px-2" title="Odejde"><AlertTriangle size={13} className="text-neutral-900 mx-auto" /></th>
-                            <th className="text-center pb-1 pl-2" title="Zbude"><Layers size={13} className="text-neutral-900 mx-auto" /></th>
+                          {/* Slova, ne jen ikony: legenda nad kartami se na
+                              telefonu odroluje a tooltip na dotyku neexistuje,
+                              takže ze sloupců zůstaly tři obrázky. */}
+                          <tr className="text-[11px] font-bold uppercase tracking-wide text-neutral-500">
+                            <th className="text-left pb-1 pr-2">Obal</th>
+                            <th className="text-center pb-1 px-2">Stav</th>
+                            <th className="text-center pb-1 px-2">Odejde</th>
+                            <th className="text-center pb-1 pl-2">Zbude</th>
                           </tr>
                         </thead>
                         <tbody>
                           {kegs.map((p) => (
                             <tr key={p.package_id}>
                               <td className="py-1 pr-2 whitespace-nowrap text-neutral-500 text-xs font-bold">{p.label}</td>
-                              <td className="py-1 px-2 text-center font-extrabold text-sky-900 bg-sky-100 rounded-md">{p.quantity}{p.rawQuantity < 0 && <span className="block text-[11px] font-black text-rose-600 font-mono" title="Vydáno víc, než evidence zná — schodek">({p.rawQuantity})</span>}</td>
+                              <td className="py-1 px-2 text-center font-extrabold text-sky-900 bg-sky-100 rounded-md">{p.quantity}{p.rawQuantity < 0 && <span className="block text-[11px] font-black text-rose-600" title="Vydáno víc, než evidence zná — schodek">chybí {Math.abs(p.rawQuantity)}</span>}</td>
                               <td className={`py-1 px-2 text-center font-extrabold rounded-md ${p.orderedRemaining > 0 ? 'bg-rose-50 text-rose-700' : 'bg-neutral-50 text-neutral-600'}`}>{p.orderedRemaining > 0 ? `-${p.orderedRemaining}` : '0'}</td>
                               <td className={`py-1 pl-2 text-center font-extrabold rounded-md ${p.remaining < 0 ? 'bg-rose-50 text-rose-700' : p.remaining === 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>{p.remaining}</td>
                             </tr>
@@ -619,18 +622,21 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                       <div className="text-xs font-bold uppercase tracking-wider text-primary-700 mb-1.5 flex items-center gap-1"><IkonaLahev className="ikona-text" /> Lahve</div>
                       <table className="w-full text-sm font-semibold border-collapse">
                         <thead>
-                          <tr className="text-[11px] font-bold uppercase tracking-wide text-neutral-400">
-                            <th className="text-left pb-1 pr-2" title="Obal"><BeerIcon size={13} className="text-neutral-900" /></th>
-                            <th className="text-center pb-1 px-2" title="Stav"><PackageCheck size={13} className="text-neutral-900 mx-auto" /></th>
-                            <th className="text-center pb-1 px-2" title="Odejde"><AlertTriangle size={13} className="text-neutral-900 mx-auto" /></th>
-                            <th className="text-center pb-1 pl-2" title="Zbude"><Layers size={13} className="text-neutral-900 mx-auto" /></th>
+                          {/* Slova, ne jen ikony: legenda nad kartami se na
+                              telefonu odroluje a tooltip na dotyku neexistuje,
+                              takže ze sloupců zůstaly tři obrázky. */}
+                          <tr className="text-[11px] font-bold uppercase tracking-wide text-neutral-500">
+                            <th className="text-left pb-1 pr-2">Obal</th>
+                            <th className="text-center pb-1 px-2">Stav</th>
+                            <th className="text-center pb-1 px-2">Odejde</th>
+                            <th className="text-center pb-1 pl-2">Zbude</th>
                           </tr>
                         </thead>
                         <tbody>
                           {bottles.map((p) => (
                             <tr key={p.package_id}>
                               <td className="py-1 pr-2 whitespace-nowrap text-neutral-500 text-xs font-bold">{p.label}</td>
-                              <td className="py-1 px-2 text-center font-extrabold text-sky-900 bg-sky-100 rounded-md">{p.quantity}{p.rawQuantity < 0 && <span className="block text-[11px] font-black text-rose-600 font-mono" title="Vydáno víc, než evidence zná — schodek">({p.rawQuantity})</span>}</td>
+                              <td className="py-1 px-2 text-center font-extrabold text-sky-900 bg-sky-100 rounded-md">{p.quantity}{p.rawQuantity < 0 && <span className="block text-[11px] font-black text-rose-600" title="Vydáno víc, než evidence zná — schodek">chybí {Math.abs(p.rawQuantity)}</span>}</td>
                               <td className={`py-1 px-2 text-center font-extrabold rounded-md ${p.orderedRemaining > 0 ? 'bg-rose-50 text-rose-700' : 'bg-neutral-50 text-neutral-600'}`}>{p.orderedRemaining > 0 ? `-${p.orderedRemaining}` : '0'}</td>
                               <td className={`py-1 pl-2 text-center font-extrabold rounded-md ${p.remaining < 0 ? 'bg-rose-50 text-rose-700' : p.remaining === 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>{p.remaining}</td>
                             </tr>

@@ -124,6 +124,15 @@ html, body, #root {
   }
 }
 
+/* 🚫 Vypnuté „tažením dolů obnovit" prohlížeče.
+   Na ploše je tah dolů VLASTNÍ gesto aplikace (otevře hledání, viz
+   lib/gestaPlochy.ts), takže se s ním pull-to-refresh Chromu hádal — a
+   výhra prohlížeče znamená reload appky uprostřed rozdělané práce.
+   Aktualizaci nabízí lišta „nová verze" a data drží realtime, takže
+   ruční obnovování tažením není potřeba. Vnořené rolovací kontejnery
+   (tabulky, seznamy) to nijak neomezuje. */
+html, body { overscroll-behavior-y: contain; }
+
 @layer components {
   .card {
     @apply bg-white rounded-2xl shadow-card border border-neutral-200/80 transition-all duration-200;
@@ -196,6 +205,36 @@ html, body, #root {
     @apply btn bg-gradient-to-r from-emerald-600 to-emerald-700 text-white shadow-sm shadow-emerald-600/30
            hover:from-emerald-500 hover:to-emerald-600 hover:shadow-md hover:shadow-emerald-600/40;
   }
+  /* ─── Chybějící role z návrhu sjednocení (docs/jednotny-styl.md) ───
+     Aplikace má 1044 tlačítek a jen 179 z nich používalo tenhle systém;
+     zbytek si barvu maloval sám, ve čtrnácti odstínech. Tyhle tři role
+     v systému chyběly, takže se musely psát ručně — odtud část toho
+     rozjezdu. Hlídá to scripts/zkontroluj-tlacitka.mjs. */
+
+  /* Počítadlo: −/+ u množství. ŠEDÉ schválně — je to počítadlo, ne
+     rozhodnutí; žluté a zelené plus vedle sebe dělalo z řádku konfetu. */
+  .btn-pocet {
+    @apply btn w-11 px-0 text-xl bg-neutral-100 text-neutral-800 border border-neutral-200
+           hover:bg-neutral-200 hover:border-neutral-300;
+  }
+
+  /* Lišta akcí pod nadpisem: hlavní akce vidět, zbytek pod „⋯".
+     Nahrazuje tmavý panel se čtyřmi pruhy, který sežral celou první
+     obrazovku telefonu (Inventura, Kniha jízd, Sklo). */
+  .lista-akci { @apply flex items-center gap-2; }
+  .lista-akci > .btn, .lista-akci > .btn-primary, .lista-akci > .btn-ghost,
+  .lista-akci > .btn-emerald, .lista-akci > .btn-secondary { @apply flex-1; }
+  .lista-akci > .jen-ikona { @apply flex-none w-11 px-0; }
+
+  /* Pruh čísel místo karet: tři čísla na 72 px místo tří karet na 540. */
+  .pruh-cisel {
+    @apply grid grid-cols-3 rounded-xl border border-neutral-200 bg-white overflow-hidden;
+  }
+  .pruh-cisel > div { @apply px-2 py-2.5 text-center; }
+  .pruh-cisel > div + div { @apply border-l border-neutral-200; }
+  .pruh-cisel .cislo { @apply font-display font-black text-xl tabular-nums text-neutral-900; }
+  .pruh-cisel .nazev { @apply text-[11px] font-bold uppercase tracking-wide text-neutral-500; }
+
   /* Zdrobnělina tlačítka. Musí stát AŽ ZA .btn-ghost a spol., jinak by ji
      jejich vlastní @apply btn přebilo zpátky na plnou velikost. */
   .btn-sm {

@@ -332,8 +332,14 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
 
                     <div className="sm:flex sm:items-center sm:gap-2 sm:pb-3">
                     {/* Řádek 2: odškrtávání. „Mám vše" zabere zbytek šířky,
-                        −1 a +1 jsou čtverce 44×44 — dají se trefit prstem. */}
-                    {canEdit && !isWeek && (
+                        −1 a +1 jsou čtverce 44×44 — dají se trefit prstem.
+                        U hotové položky, kterou nikdo neodškrtával ručně, se
+                        řádek NEKRESLÍ vůbec: −, + i „Hotovo" jsou tam všechny
+                        tři neaktivní a hotovo už říká zelený čtvereček vlevo
+                        a zelená fajfka vpravo. Trojí „hotovo" na jednom řádku
+                        znamená 44 px na položku, u dvaceti stočených položek
+                        téměř celou obrazovku mrtvého místa. */}
+                    {canEdit && !isWeek && !(hotovo && it.checked === 0) && (
                       <div className="flex items-stretch gap-1.5 px-3.5 pb-2.5 sm:pb-0 sm:flex-1 sm:max-w-xs">
                         <button
                           type="button"
@@ -374,11 +380,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                           >
                             Zrušit odškrtnutí
                           </button>
-                        ) : (
-                          <div className="flex-1 min-h-[44px] rounded bg-emerald-50 text-emerald-800 font-black text-xs inline-flex items-center justify-center gap-1.5">
-                            <Check size={15} /> Hotovo
-                          </div>
-                        )}
+                        ) : null}
                       </div>
                     )}
 

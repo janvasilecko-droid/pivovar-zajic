@@ -19,10 +19,23 @@ jedné obrazovce.
 
 ## Proč to tak je (změřeno)
 
-V aplikaci je **1 044 tlačítek**. Připravený systém (`.btn`, `.btn-primary`,
-`.btn-ghost`…, definovaný v `src/index.css`) používá **179** z nich.
-**865 tlačítek je namalovaných ručně** vlastními třídami, a to ve čtrnácti
-různých barvách pozadí:
+V aplikaci je **1 044 tlačítek**. Rozpad (přesně, doměřeno 4. 9. 2026):
+
+| Kolik | Jaké | Poznámka |
+| --- | --- | --- |
+| 179 | používají systém `.btn-*` | v pořádku |
+| **174** | **mají vlastní barvu pozadí** | tohle je ten rozjezd |
+| 661 | bez pozadí (ikona nebo text) | většinou v pořádku |
+| 20 | bílé / průhledné | v pořádku |
+| 10 | přechod nebo poloprůhledné | k dořešení |
+
+**Opravuji vlastní číslo:** nejdřív jsem napsal „865 tlačítek namalovaných
+ručně". To bylo špatně — 865 je počet tlačítek, která *nepoužívají* systém,
+ale většina z nich (661) je ikonová nebo textová a žádnou barvu si
+nevymýšlí. Vlastní barvu si maluje **174** z nich, a to jsou ta, kvůli
+kterým to vypadá jako čtyři aplikace. Závěr platí, číslo bylo nadsazené.
+
+Čtrnáct různých barev pozadí u těch 174:
 
 ```
 bg-amber-500  48×      bg-neutral-100 25×     bg-emerald-700 16×
@@ -32,8 +45,9 @@ bg-amber-200    6×     bg-sky-700      5×     bg-neutral-900  5×
 bg-emerald-100  4×     bg-sky-100      4×
 ```
 
-Systém tedy nechybí — **jen se nepoužívá**. Každá obrazovka si tlačítko
-namalovala znovu, podle toho, kdy vznikla. Odtud čtyři vzhledy.
+Systém tedy nechybí — **jen se u barevných tlačítek nepoužívá**. Každá
+obrazovka si to svoje namalovala znovu podle toho, kdy vznikla. Odtud čtyři
+vzhledy. A 174 je dobrá zpráva: je to práce na dny, ne na měsíce.
 
 ---
 
@@ -92,22 +106,26 @@ strany na smazání, nebo „⋯" s nabídkou. Barva zůstane jen mazání.
 
 ## Jak se tam dostat, aby se to nerozbilo
 
-Přepsat 865 tlačítek naráz je nejlepší způsob, jak appku na týden položit.
-Návrh je postup, který už tenhle projekt používá u tříd a kontrastu:
+Přepsat 174 tlačítek naráz je pořád nejlepší způsob, jak appku na den
+položit. Návrh je postup, který už tenhle projekt používá u tříd a
+kontrastu:
 
-1. **Doplnit chybějící role do `index.css`** (`.btn-pocet`, `.zalozky`,
-   `.lista-akci`, `.pruh-cisel`) — jeden den, nic se nemění.
-2. **Napsat kontrolu `scripts/zkontroluj-tlacitka.mjs`**, která spadne, když
-   nové tlačítko má vlastní `bg-…` místo role. Hlídá to, aby se dluh
-   nezvětšoval, i kdyby se převod táhl měsíc. (Stejný princip jako
-   `zkontroluj-tridy` a `zkontroluj-kontrast`.)
+1. **Doplnit chybějící role do `index.css`** — ✅ **hotovo 4. 9. 2026:**
+   `.btn-pocet` (šedé −/+), `.lista-akci` (hlavní akce + „⋯"),
+   `.pruh-cisel` (tři čísla na 72 px). Zbývá `.zalozky`.
+2. **Kontrola `scripts/zkontroluj-tlacitka.mjs`** — ✅ **hotovo 4. 9. 2026.**
+   Nehlásí dluh, který už existuje (to by znamenalo 167 chyb hned), ale
+   spadne, jakmile dluh NAROSTE. Výchozí stav je v
+   `scripts/tlacitka-zaklad.json`, po každém převedené obrazovce se
+   zmenší (`--uloz`). Výpis stavu: `--vypis`. Běží v pre-commit i v CI,
+   stejně jako `zkontroluj-tridy` a `zkontroluj-kontrast`.
 3. **Převádět po obrazovkách**, v pořadí podle toho, jak často se používají:
    Objednávky → KEG → Lahve → Sklad → Inventura → zbytek. Každá obrazovka
    je jeden commit, jde ji vrátit.
 4. **Výjimky vypsat, ne mlčet**: Plocha (dlaždice) a barvy piv zůstávají
    vlastní; do kontroly se zapíšou jako povolené výjimky s důvodem.
 
-Odhad: bod 1 a 2 do dvou dnů, převod šesti hlavních obrazovek ~3 dny,
+Body 1 a 2 jsou hotové. Zbývá převod: šest hlavních obrazovek ~2 dny,
 zbytek postupně bez spěchu.
 
 ---
@@ -121,17 +139,28 @@ zbytek postupně bez spěchu.
 2. **„0 (−10)" ve Skladu** — velká nula a pod ní červená −10. Skutečná
    informace je ta −10 („chybí deset"), ale oko čte tu nulu. Ukázat rovnou
    „chybí 10 ks".
-3. **Kolečko načítání přes lupu** — v Inventuře se indikátor kreslí přes
-   ikonu hledání v hlavičce (vidět na jednom ze screenů). Patří pod hlavičku.
+3. **Kolečko načítání přes lupu** — tady jsem se spletl: není to prvek
+   aplikace, ale **pull-to-refresh Chromu**. Vážnější je, že se s ním hádá
+   vlastní gesto plochy (tah dolů = hledání) a výhra prohlížeče znamená
+   reload uprostřed rozdělané práce. **Vypnuto 4. 9. 2026**
+   (`overscroll-behavior-y: contain`).
 4. **Skloňování** — stálo tam „2 vozidel" a „1 jízd". **Opraveno**
    4. 9. 2026 (`mnozne()` v `src/lib/cisla.ts` + 5 testů).
 5. **Dvakrát totéž tlačítko** — „Generovat z objednávek" je v Knize jízd
-   v panelu i v prázdném stavu pod ním.
-6. **Trojí „hotovo" v jednom řádku** u stáčení: zelený čtvereček, zelený pruh
-   „Hotovo" a zelená fajfka vpravo. Stačí jedno.
-7. **Žluté šipky ‹ › na žlutém podkladu** (Lahve → Přehled) — nízký
-   kontrast, na slunci nejsou vidět.
+   v panelu i v prázdném stavu pod ním. **Nechávám**: prázdný stav je to
+   správné místo, když nejsou žádné jízdy, a panel je potřeba, jakmile
+   nějaké jsou. Vedle sebe jsou jen ve chvíli, kdy je měsíc prázdný.
+6. **Trojí „hotovo" v jednom řádku** u stáčení. **Opraveno 4. 9. 2026:**
+   u hotové položky, kterou nikdo neodškrtával ručně, se celý řádek
+   s tlačítky nekreslí — −, + i „Hotovo" tam byly všechny tři neaktivní.
+   U dvaceti stočených položek to je 880 px mrtvého místa.
+7. **Žluté šipky ‹ › na žlutém podkladu** (Lahve → Přehled).
+   **Opraveno 4. 9. 2026** — bílé s rámečkem, tedy role „vedlejší akce".
 8. **Prázdná místa v mřížce Plochy** — třetí stránka je přeplněná a má
    v mřížce díru, čtvrtá je z poloviny prázdná. Přerovnat.
-9. **Text „Vozidla — STK/znám…"** v pásku upozornění je odseknutý v půlce
-   slova; štítek má mít kratší text („STK a známky").
+9. **Text „Vozidla — STK/znám…"** v pásku upozornění byl odseknutý v půlce
+   slova. **Opraveno 4. 9. 2026**: „STK a známky", „WhatsApp — přečíst",
+   „Nová verze 2.242", „Měsíční úklid".
+10. **Sklad: ikonové hlavičky sloupců a „0 (−10)"**. **Opraveno
+    4. 9. 2026** — v hlavičce jsou slova (Obal / Stav / Odejde / Zbude) a
+    místo „(−10)" je „chybí 10".

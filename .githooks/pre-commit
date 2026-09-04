@@ -39,4 +39,10 @@ npm run --silent zkontroluj-kontrast
 echo "pre-commit: kontrola workflow…"
 npm run --silent zkontroluj-workflow
 
+# Vzhled tlačítek: nehlásí dluh, který tu je (167 ručně malovaných), ale
+# spadne, jakmile PŘIBUDE nové tlačítko s vlastní barvou místo role.
+# Bez toho by se dluh zvětšoval rychleji, než by se stíhal převádět.
+echo "pre-commit: kontrola tlačítek…"
+npm run --silent zkontroluj-tlacitka
+
 echo "pre-commit: v pořádku"
