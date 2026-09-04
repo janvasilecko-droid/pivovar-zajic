@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { kusy, litry, hektolitry, litryJakoHl, koruny, procenta, objem, rozdilKusy } from './cisla';
+import { kusy, litry, hektolitry, litryJakoHl, koruny, procenta, objem, rozdilKusy, mnozne } from './cisla';
 
 /** Nezlomitelná mezera — v testech se musí porovnávat přesně ona. */
 const NBSP = ' ';
@@ -61,5 +61,34 @@ describe('formát čísel a jednotek', () => {
     expect(rozdilKusy(3)).toBe(`+3${NBSP}ks`);
     expect(rozdilKusy(-3)).toBe(`-3${NBSP}ks`);
     expect(rozdilKusy(0)).toBe(`0${NBSP}ks`);
+  });
+});
+
+describe('mnozne', () => {
+  const VOZIDLA: [string, string, string] = ['vozidlo', 'vozidla', 'vozidel'];
+
+  it('skloňuje 1 / 2–4 / 5+', () => {
+    // V Knize jízd stálo „2 vozidel" a „1 jízd".
+    expect(mnozne(1, VOZIDLA)).toBe('1 vozidlo');
+    expect(mnozne(2, VOZIDLA)).toBe('2 vozidla');
+    expect(mnozne(4, VOZIDLA)).toBe('4 vozidla');
+    expect(mnozne(5, VOZIDLA)).toBe('5 vozidel');
+    expect(mnozne(21, VOZIDLA)).toBe('21 vozidel');
+  });
+
+  it('nula bere tvar pro 5+', () => {
+    expect(mnozne(0, VOZIDLA)).toBe('0 vozidel');
+  });
+
+  it('mínus se řídí velikostí čísla, znaménko zůstává', () => {
+    expect(mnozne(-2, VOZIDLA)).toBe('-2 vozidla');
+  });
+
+  it('nečitelná hodnota se čte jako nula', () => {
+    expect(mnozne('nesmysl', VOZIDLA)).toBe('0 vozidel');
+  });
+
+  it('mezera před slovem je nezlomitelná', () => {
+    expect(mnozne(3, VOZIDLA)).toContain(' ');
   });
 });

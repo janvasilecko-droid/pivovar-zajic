@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { fetchAllRows, supabase, useRealtime } from '../lib/supabase';
+import { mnozne } from '../lib/cisla';
 import { Spinner } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { AlertTriangle, Bird, ChevronLeft, Calendar, Car, CheckCircle2, Download, MapPin, Navigation, Plus, Printer, Scale, ShieldCheck, Sparkles, Trash2, User, X, Zap } from 'lucide-react';
@@ -548,12 +549,12 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
         </div>
         <div className="card p-4 bg-white border border-neutral-200 rounded space-y-1">
           <span className="text-[11px] font-black uppercase text-neutral-500">Počet služebních jízd</span>
-          <div className="font-display font-black text-2xl text-neutral-900">{filteredEntries.length} jízd</div>
+          <div className="font-display font-black text-2xl text-neutral-900">{mnozne(filteredEntries.length, ['jízda', 'jízdy', 'jízd'])}</div>
           <span className="text-[11px] text-neutral-600">Rozvozy & Svozy</span>
         </div>
         <div className="card p-4 bg-white border border-neutral-200 rounded space-y-1">
           <span className="text-[11px] font-black uppercase text-neutral-500">Pivovarský vozový park</span>
-          <div className="font-display font-black text-xl text-neutral-900">{vehicles.length || 1} vozidel</div>
+          <div className="font-display font-black text-xl text-neutral-900">{mnozne(vehicles.length || 1, ['vozidlo', 'vozidla', 'vozidel'])}</div>
           <span className="text-[11px] text-neutral-600">Primárně Velké auto (Kynšperk)</span>
         </div>
       </div>

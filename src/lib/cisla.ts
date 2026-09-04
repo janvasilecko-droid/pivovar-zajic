@@ -83,3 +83,19 @@ export function rozdilKusy(hodnota: unknown): string {
   const n = Math.round(cislo(hodnota));
   return `${n > 0 ? '+' : ''}${kusy(n)}`;
 }
+
+/**
+ * České skloňování počtu: „1 vozidlo", „2 vozidla", „5 vozidel".
+ *
+ * Appka to doteď nedělala vůbec — v Knize jízd stálo „2 vozidel" a „1 jízd",
+ * což je věta, kterou by nikdo v pivovaru nevyslovil. Tvary se předávají
+ * jako trojice, protože v češtině nejde spočítat z čísla samotného, jak se
+ * které slovo chová.
+ *
+ * @param tvary [pro 1, pro 2–4, pro 0 a 5+]
+ */
+export function mnozne(pocet: unknown, tvary: [string, string, string]): string {
+  const n = Math.abs(Math.round(cislo(pocet)));
+  const tvar = n === 1 ? tvary[0] : n >= 2 && n <= 4 ? tvary[1] : tvary[2];
+  return `${Math.round(cislo(pocet)).toLocaleString('cs-CZ')}${MEZERA}${tvar}`;
+}
