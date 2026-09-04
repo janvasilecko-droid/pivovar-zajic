@@ -1,4 +1,10 @@
 {
+<<<<<<< HEAD
   "version": "2.257",
   "date": "2026-09-04 18:40"
 }
+=======
+  "version": "2.258",
+  "date": "2026-09-04 21:05"
+}
+>>>>>>> 29dd68c (Dlaždice piv: vyplněná se zvětší přes celou šířku a ukáže rozpis; tabulární číslice v tabulkách)

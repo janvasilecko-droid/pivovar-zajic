@@ -26,9 +26,16 @@ type BeerTileGridProps = {
  *
  * TŘI SLOUPCE: šest piv se tak vejde na dvě řady a jsou vidět všechna
  * naráz bez rolování — u dvou sloupců byla poslední řada za spodní hranou
- * a muselo se scrollovat pod velkým panelem akcí. Dlaždice jsou nižší
- * (52 px) a název menší, ať se vejde i „Summer Ale" na jeden řádek;
- * rozpis množství u vyplněné dlaždice se může zalomit, roste jen ta.
+ * a muselo se scrollovat pod velkým panelem akcí. Prázdné (nezadané)
+ * dlaždice jsou nízké (52 px) a název menší, ať se vejde i „Summer Ale"
+ * na jeden řádek.
+ *
+ * VYPLNĚNÁ DLAŽDICE SE ZVĚTŠÍ: jakmile se do piva něco zadá, dlaždice
+ * roztáhne přes celou šířku (col-span-3) a ukáže celý rozpis zadaného
+ * množství velkým, čitelným písmem. Tím je na první pohled vidět, co už
+ * je nachystané, aniž by se muselo otevírat detail — a nezadaná piva
+ * zůstávají malá a rychle klikatelná. Rozpis se může zalomit, dlaždice
+ * poroste s ním.
  */
 export function BeerTileGrid({ beers, onSelect, summaryFor }: BeerTileGridProps) {
   return (
@@ -42,14 +49,16 @@ export function BeerTileGrid({ beers, onSelect, summaryFor }: BeerTileGridProps)
             key={b.id}
             type="button"
             onClick={() => onSelect(b)}
-            className={`text-left rounded shadow-sm p-2 min-h-[52px] transition-all hover:brightness-110 active:scale-[0.98] flex flex-col gap-0.5 ${textClass} ${
-              filled ? (isDark ? 'ring-2 ring-white/80' : 'ring-2 ring-primary-900/40') : ''
+            className={`text-left rounded shadow-sm transition-all hover:brightness-110 active:scale-[0.98] ${textClass} ${
+              filled
+                ? `col-span-3 p-3 min-h-[56px] flex items-center justify-between gap-3 ${isDark ? 'ring-2 ring-white/80' : 'ring-2 ring-primary-900/40'}`
+                : 'p-2 min-h-[52px] flex flex-col gap-0.5'
             }`}
             style={{ backgroundColor: beerBg(b) }}
           >
-            <span className="font-black text-[13px] leading-tight">{beerName(b)}</span>
+            <span className={`font-black leading-tight ${filled ? 'text-base shrink-0' : 'text-[13px]'}`}>{beerName(b)}</span>
             {filled && (
-              <span className={`text-[11px] font-bold leading-tight ${isDark ? 'text-white/90' : 'text-primary-900/80'}`}>{label}</span>
+              <span className={`text-right text-sm font-black leading-tight tabular-nums ${isDark ? 'text-white' : 'text-primary-900'}`}>{label}</span>
             )}
           </button>
         );
