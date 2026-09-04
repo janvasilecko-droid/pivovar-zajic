@@ -124,6 +124,7 @@
     "20261227000000_chyby_aplikace.sql",
     "20261227010000_evidence_migraci.sql",
     "20261227020000_tank_uprava_jednou.sql",
-    "20261228000000_nakupy_obalu_a_zavirek.sql"
+    "20261228000000_nakupy_obalu_a_zavirek.sql",
+    "20261228010000_podpis_prevzeti.sql"
   ]
 }

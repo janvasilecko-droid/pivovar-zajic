@@ -38,6 +38,7 @@ import { IkonaVycep } from '../components/ikony';
 import { poctyPolozek } from '../lib/objednavkyStatistika';
 import { kartaOdberatele } from '../lib/kartaOdberatele';
 import { kusy } from '../lib/cisla';
+import { PodpisModal } from '../components/PodpisModal';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -3131,6 +3132,39 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
       .slice(0, 5);
   }, [allOrders, order]);
 
+  // ✍️ Podpis převzetí. Načítá se zvlášť a jen tady, ne se seznamem
+  // objednávek — obrázek podpisu by se jinak posílal do telefonu i tehdy,
+  // když se žádný detail neotevře.
+  const [podpis, setPodpis] = useState<{ podpis_png: string; prevzal: string | null; podepsano_at: string } | null>(null);
+  const [podpisOtevren, setPodpisOtevren] = useState(false);
+  const [podpisChybi, setPodpisChybi] = useState(false);
+  useEffect(() => {
+    let zruseno = false;
+    supabase.from('objednavka_podpisy')
+      .select('podpis_png, prevzal, podepsano_at').eq('order_id', order.id).maybeSingle()
+      .then(({ data, error }) => {
+        if (zruseno) return;
+        // Tabulka nemusí být, dokud se nepustí migrace — obrazovka pak jede
+        // dál a jen řekne, co chybí.
+        setPodpisChybi(!!error && error.code === '42P01');
+        setPodpis((data as any) ?? null);
+      });
+    return () => { zruseno = true; };
+  }, [order.id]);
+
+  async function ulozPodpis(p: { png: string; prevzal: string; sirka: number; vyska: number }) {
+    const { error } = await supabase.from('objednavka_podpisy').upsert({
+      order_id: order.id, podpis_png: p.png, prevzal: p.prevzal || null,
+      sirka: p.sirka, vyska: p.vyska, podepsano_at: new Date().toISOString(),
+    });
+    if (error) { chyba(`Podpis se nepodařilo uložit: ${error.message}`); return; }
+    setPodpis({ podpis_png: p.png, prevzal: p.prevzal || null, podepsano_at: new Date().toISOString() });
+    // Podepsané převzetí znamená zavezeno — jinak by se to muselo
+    // odklepnout ještě jednou a na to se zapomene.
+    if (!order.is_delivered) onToggleFlag(order, 'is_delivered');
+    oznam('Podpis převzetí uložen.');
+  }
+
   const [adding, setAdding] = useState(false);
   const [beerId, setBeerId] = useState('');
   const [pkgId, setPkgId] = useState('');
@@ -3328,7 +3362,38 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
             <label className="flex items-center gap-2 text-sm text-primary-700 cursor-pointer px-3 py-2 rounded hover:bg-primary-50">
               <input type="checkbox" checked={order.is_delivered} onChange={() => onToggleFlag(order, 'is_delivered')} className="w-4 h-4 rounded text-primary-600" /> Závoz
             </label>
+
+            {/* ✍️ Podpis převzetí — místo papíru, který se do pivovaru vrací
+                až za týden (a do té doby není jak doložit, co bylo předáno). */}
+            {!podpisChybi && (
+              <button
+                type="button"
+                onClick={() => setPodpisOtevren(true)}
+                className="px-3 py-2 rounded font-black text-xs transition bg-white text-neutral-800 border border-neutral-300 hover:bg-neutral-100"
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <Pencil size={14} /> {podpis ? 'Podepsat znovu' : 'Podpis převzetí'}
+                </span>
+              </button>
+            )}
           </div>
+
+          {podpis && (
+            <div className="mt-3 rounded-xl border border-neutral-300 bg-white p-3 inline-block">
+              <div className="text-[11px] uppercase tracking-wider text-neutral-500 mb-1">
+                Převzato {new Date(podpis.podepsano_at).toLocaleString('cs-CZ')}
+                {podpis.prevzal ? ` · ${podpis.prevzal}` : ''}
+              </div>
+              <img src={podpis.podpis_png} alt="Podpis převzetí" className="max-h-24" />
+            </div>
+          )}
+
+          <PodpisModal
+            open={podpisOtevren}
+            onClose={() => setPodpisOtevren(false)}
+            nazev={(order.place_name ?? '').trim() || 'Objednávka'}
+            onUlozit={ulozPodpis}
+          />
 
           <div className="grid grid-cols-2 gap-3 mt-4">
             <Field label="Závoz">
