@@ -1,7 +1,7 @@
 // Minimal offline-first service worker for the Minipivovar PWA.
 // Cache version is fetched from version.json at install time so that
 // every deploy automatically invalidates the old cache.
-// SW_VERSION: 1.515 — change this to force SW update in browser
+// SW_VERSION: 1.516 — change this to force SW update in browser
 const CACHE_PREFIX = 'pivovar-';
 const CACHE_META = `${CACHE_PREFIX}meta`;
 const CACHE_META_KEY = new URL('./__installed-cache__', self.registration.scope).href;
@@ -319,4 +319,44 @@ self.addEventListener('fetch', (e) => {
       return new Response('Offline', { status: 503, statusText: 'Offline' });
     })()
   );
+});
+
+// 🔔 Push upozornění — dorazí i se zavřenou aplikací.
+//
+// Dosavadní upozornění (lib/notifications.ts) fungují jen když je appka
+// otevřená; „přišla objednávka na WhatsApp" se tak dozvěděl jen ten, kdo
+// se zrovna koukal. Odesílá to edge funkce `posli-push`.
+self.addEventListener('push', (e) => {
+  let data = {};
+  try { data = e.data ? e.data.json() : {}; } catch { data = { telo: e.data && e.data.text() }; }
+  const titulek = data.titulek || 'Pivovar Zajíc';
+  const moznosti = {
+    body: data.telo || '',
+    icon: './icon-192.png',
+    badge: './icon-192.png',
+    // Stejný tag = nová zpráva přepíše starou místo deseti oznámení pod
+    // sebou. Bez tagu by jeden zaseknutý most vyrobil lavinu.
+    tag: data.tag || 'pivovar',
+    renotify: true,
+    data: { stranka: data.stranka || '' },
+  };
+  e.waitUntil(self.registration.showNotification(titulek, moznosti));
+});
+
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const stranka = (e.notification.data && e.notification.data.stranka) || '';
+  const cil = new URL(stranka ? `./?page=${encodeURIComponent(stranka)}` : './', self.registration.scope).href;
+  e.waitUntil((async () => {
+    const okna = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    // Otevřená appka se jen vytáhne dopředu — druhé okno téže aplikace
+    // znamená dvě rozdělané práce vedle sebe.
+    for (const okno of okna) {
+      if (okno.url.startsWith(self.registration.scope) && 'focus' in okno) {
+        if ('navigate' in okno && stranka) { try { await okno.navigate(cil); } catch {} }
+        return okno.focus();
+      }
+    }
+    if (self.clients.openWindow) return self.clients.openWindow(cil);
+  })());
 });

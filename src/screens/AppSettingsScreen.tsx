@@ -11,6 +11,7 @@ import { NAV, NavItem } from '../components/Layout';
 import { canUserView, getUserPermissions, PAGE_TO_MODULE, ModuleKey } from '../lib/permissions';
 import { Theme, getTheme, setTheme } from '../lib/theme';
 import { getNotificationPermission, requestNotificationPermission, getNotificationSettings, saveNotificationSettings, NotificationSettings } from '../lib/notifications';
+import { jePrihlasen, jePushPodporovan, odhlasPush, prihlasPush, stavPushu, VAPID_KLIC } from '../lib/pushOdber';
 import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
 import { APP_CHANGELOG } from '../lib/changelog';
 import { forceRefresh } from '../lib/versionCheck';
@@ -30,6 +31,21 @@ export default function AppSettingsScreen() {
   const [theme, setThemeState] = useState<Theme>(getTheme());
   const [notifPermission, setNotifPermission] = useState(getNotificationPermission());
   const [notifSettings, setNotifSettings] = useState<NotificationSettings>(getNotificationSettings());
+
+  // 🔔 Push i se zavřenou aplikací — odběr tohohle zařízení.
+  const [pushPrihlasen, setPushPrihlasen] = useState(false);
+  const [pushPracuje, setPushPracuje] = useState(false);
+  const [pushChyba, setPushChyba] = useState<string | null>(null);
+  useEffect(() => { void jePrihlasen().then(setPushPrihlasen); }, []);
+
+  async function prepniPush(zapnout: boolean) {
+    setPushPracuje(true);
+    setPushChyba(null);
+    const problem = zapnout ? await prihlasPush() : await odhlasPush();
+    if (problem) setPushChyba(problem);
+    setPushPrihlasen(await jePrihlasen());
+    setPushPracuje(false);
+  }
   const [showMenuCustomize, setShowMenuCustomize] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
@@ -366,6 +382,42 @@ export default function AppSettingsScreen() {
               </span>
             </span>
           </button>
+
+          {/* 🔔 Push i se zavřenou aplikací. Dosavadní upozornění fungujou
+              jen s otevřenou appkou — „přišla objednávka" se tak dozvěděl
+              jen ten, kdo se zrovna koukal. */}
+          {(() => {
+            const stav = stavPushu({
+              podporovano: jePushPodporovan(),
+              povoleni: notifPermission,
+              klicNastaven: !!VAPID_KLIC,
+              prihlasen: pushPrihlasen,
+            });
+            return (
+              <div className="p-4 rounded bg-neutral-50 border border-neutral-200 space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Bell size={16} className="text-neutral-600" />
+                    <span className="text-sm font-black text-neutral-800">Upozornění i se zavřenou aplikací</span>
+                  </div>
+                  <button
+                    disabled={pushPracuje || (!stav.muzeZapnout && !stav.muzeVypnout)}
+                    onClick={() => { void prepniPush(!pushPrihlasen); }}
+                    className={`relative w-11 h-6 rounded-full transition-colors disabled:opacity-40 ${pushPrihlasen ? 'bg-amber-500' : 'bg-neutral-300'}`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${pushPrihlasen ? 'translate-x-5' : ''}`} />
+                  </button>
+                </div>
+                <p className="text-xs text-neutral-600 font-semibold">{stav.popis}</p>
+                {pushChyba && (
+                  <p className="text-xs text-amber-900 font-bold">{pushChyba}</p>
+                )}
+                <p className="text-xs text-neutral-500">
+                  Platí pro tenhle telefon. Zapnout se to musí na každém zařízení zvlášť.
+                </p>
+              </div>
+            );
+          })()}
 
           {/* In-app banner */}
           <div className="p-4 rounded bg-neutral-50 border border-neutral-200 space-y-1">

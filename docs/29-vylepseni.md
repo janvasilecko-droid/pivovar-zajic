@@ -1,177 +1,109 @@
-# 29 vylepšení — pohodlnější práce, lepší vzhled, nové funkce
+# 29 vylepšení — co je hotové a co zbývá
 
-Seznam z 3. 9. 2026. Nejsou to obecné rady: každý bod je z toho, co v této
-aplikaci opravdu je, a u každého je napsané, **co dnes bolí** a **jak by se to
-mělo chovat**. Řazeno podle poměru přínos/riziko, ne podle abecedy.
+Seznam vznikl 3. 9. 2026. **Přepsáno 4. 9. 2026 podle skutečného stavu
+kódu.** Původní verze byla napsaná zčásti z hledání v kódu a z hlavy — a
+osm bodů popisovalo problém, který už dávno vyřešený byl. Tady je stav
+tak, jak ho ukazuje kód, ne jak jsem si ho pamatoval.
 
-Značky pracnosti: **S** = do půl dne · **M** = den · **L** = víc dní.
-„Migrace" znamená, že to potřebuje spustit SQL v Supabase.
+Zadání od majitele: **udělat všechno kromě bodů 19, 20 a 23.**
 
----
-
-## A. Pohodlnější práce (nejvíc ušetřených klepnutí)
-
-### 1. Spodní lišta má jen 4 místa, palec dosáhne na 5 (S)
-`DOCK_SIZE = 4` v `homeLayout.ts`. Spodní lišta je jediné místo, kam palec
-dosáhne bez přehmátnutí, a přesto v ní chybí Hledat i Poznámky. Povolit 5–6
-míst a nechat volbu na uživateli. Dnes se na páté nejčastější věc musí přes
-plochu.
-
-### 2. „Naposledy použité" jako první nabídka (M)
-Při zápisu stáčení, výdeje i objednávky se vybírá pivo a obal z celého
-číselníku. V pivovaru se přitom 90 % zápisů týká tří piv a dvou obalů.
-Nabízet nahoře posledních 5 kombinací daného uživatele (z jeho vlastních
-zápisů, ne globálně) a zbytek nechat pod nimi.
-
-### 3. Zápis stáčení bez rolování — číselník velkými tlačítky (M)
-Dnešní zápis je formulář s poli. Ve sklepě se dělá v rukavicích a mokrou
-rukou. Velká tlačítka +1 / +5 / −1 vedle počtu (jako v Inventuře) a
-potvrzení palcem dole; klávesnice se nemusí otevřít vůbec.
-
-### 4. Opakovat včerejší závoz jedním klepnutím (M)
-Objednávky se opakují každý týden téměř totožně. „Zkopírovat objednávku
-k novému datu" existuje, ale ne pro celý den. Tlačítko „Zopakovat čtvrteční
-závoz" na Objednávkách udělá z 20 klepnutí jedno + kontrolu.
-
-### 5. Hledání i podle odběratele a čísla (S)
-Rychlé hledání (Ctrl+K, nově i „/" a tah dolů) prohledává obrazovky, ne
-data. Přidat do něj odběratele, piva a obaly, aby se dalo psát „Maneo" a
-skočit rovnou do jeho objednávek.
-
-### 6. Vrátit poslední zápis („Vzít zpět") všude, ne jen v Inventuře (M)
-`toastZpet` v Inventuře je nejlepší věc v celé aplikaci — pojistka proti
-překliknutí. Ve stáčení, výdeji a odpisech chybí, a přitom jsou to zápisy,
-které hýbou skladem.
-
-### 7. Klávesnice na telefonu: číselná tam, kde se píší čísla (S)
-Některá pole nemají `inputMode="numeric"`, takže vyskočí textová klávesnice
-a čísla se hledají přes přeřazovač. Malá věc, dělá se ve dvě odpoledne, a
-poznají to všichni.
-
-### 8. Potvrzení bez modálního okna, když je akce vratná (S)
-Dnes se potvrzuje i to, co se dá vzít zpět. Kde existuje „Vzít zpět", má
-akce proběhnout hned a nabídnout vrácení — modál navíc je klepnutí, které
-nic nechrání.
+Značky: ✅ hotové a nasazené · ⏳ zbývá · ⛔ nedělat (zadání) ·
+🟡 hotové jen část, důvod je uvedený
 
 ---
 
-## B. Lepší a funkčnější vzhled
+## Hotové v této dávce (body 1–29 mimo 19, 20, 23)
 
-### 9. Jedna dlaždice = jeden stav, i barvou (S)
-Barvy dlaždic si dnes volí uživatel, takže „červená" nemá význam. Nechat
-volbu, ale **rezervovat** červenou/žlutou pro upozornění (jako v pásku), ať
-barva něco znamená. Dnes vypadá plná plocha stejně naléhavě jako prázdná.
-
-### 10. Tmavý režim doladit na dlaždicích a v grafech (M)
-Kontrast písma je hlídaný testem, ale poloprůhledné dlaždice a barvy grafů
-v tmavém režimu nikdo neproměřil (kontrolní skript 11 dvojic spočítat
-neumí). Projít je a přebarvit; ve sklepě se svítí málo a appka se v tmavém
-používá víc, než se čeká.
-
-### 11. Prázdné obrazovky mají říct, co udělat (S)
-Většina obrazovek při prázdném seznamu ukáže prázdno. Má tam být jedna věta
-a tlačítko („Zatím žádné stáčení — Zapsat stočení"). Nový člověk v pivovaru
-se to jinak učí od někoho, kdo má práci.
-
-### 12. Čísla zarovnat na jedno místo a jednu jednotku (S)
-V přehledech se mísí `l`, `hl` a kusy a někde chybí zarovnání na desetiny,
-takže se sloupec nedá přeběhnout okem. Sjednotit formát (tabulární číslice
-už v CSS jsou) a jednotku psát vždy, nikdy jen číslo.
-
-### 13. Skutečný ukazatel plnosti tanku (M)
-Sklep říká litry. Tank má `capacity_l`, takže jde nakreslit svislý ukazatel
-plnosti — na první pohled je vidět „skoro plný / na dojezdu", což je to, co
-se z čísla počítá v hlavě.
-
-### 14. Souhrn dne na jednu obrazovku (M)
-„Co se dnes stalo" — stočeno, vydáno, odepsáno, zavezeno, jedním sloupcem
-odshora. Dnes se to skládá z pěti obrazovek a nikdo to nedělá.
-
-### 15. Tisk a PDF, které vypadají jako doklad (M)
-Závozový list se dnes tiskne jako webová stránka. Vlastní tiskové CSS
-(hlavička s pivovarem, bez navigace, jeden odběratel na blok) — řidič to
-má v ruce a zákazník to podepisuje.
-
-### 16. Ikony a popisky sjednotit podle významu, ne podle obrazovky (S)
-Tatáž věc má na různých obrazovkách jinou ikonu (sud, lahev, výčep).
-Sjednotit přes `components/ikony.tsx` a doplnit chybějící; je to den práce
-a appka se tím zklidní.
+| # | Věc | Stav | Kde to je |
+| --- | --- | --- | --- |
+| 1 | Pátá dlaždice ve spodní liště | ✅ | `homeLayout.ts` — `DEFAULT_DOCK` má 5 míst, strop 6 |
+| 2 | Naposledy použitá piva první | ✅ | `naposledyPouzite.ts` |
+| 3 | Zápis stáčení bez rolování | ✅ | dlaždicový číselník `BeerTileGrid` byl už dřív; přidáno +5 a 44px cíle |
+| 4 | Zopakovat celý závoz | ✅ | `Orders.tsx` — „Zopakovat závoz" |
+| 5 | Hledání vede přímo na odběratele | ✅ | `ordersFilter.ts` + `QuickSearchModal` |
+| 6 | „Vzít zpět" i po uložení | ✅ | KEG, Lahve, Fasování, Odpis, Prodejna |
+| 7 | Číselná klávesnice u čísel | ✅ | 16 ze 17 polí ji mělo už dřív, doplněno poslední (minuty u časovače) |
+| 8 | Bez modálu, když je akce vratná | ✅ | mazání přefuku |
+| 9 | Barva na dlaždici zase něco znamená | ✅ | `BARVY_UPOZORNENI` + test |
+| 10 | Tmavý režim a měřitelný kontrast | 🟡 | mechanismus hotový, 3 z 11 dvojic dopočítané, 8 vypsaných v `zkontroluj-kontrast.mjs --vse` |
+| 11 | Prázdné obrazovky říkají, co udělat | ✅ | `EmptyState` s akcí |
+| 12 | Čísla a jednotky v jednom tvaru | 🟡 | `cisla.ts` hotové, nasazené na dlaždicích, Sklepě, Objednávkách a Diagnostice; do zbytku obrazovek se doplňuje postupně |
+| 13 | Ukazatel plnosti tanku | ✅ | `tankPlnost.ts` + `UkazatelPlnosti` |
+| 14 | Souhrn dne | ✅ | `souhrnDne.ts`, na zvětšené dlaždici Sklad |
+| 15 | Tisk jako doklad | ✅ | `safePrint.ts` — hlavička, podpisy, jen tisková oblast |
+| 16 | Ikony podle významu | ✅ | sud sjednocen na 13 místech, hlídá test `jednotneIkony` |
+| 17 | Chytit nesmyslný součet při zápisu | ✅ | `kontrolaZadani.ts` i ve Fasování, Odpisu a Prodejně |
+| 18 | Objednávka telefonem přepsaná z hlasu | ✅ | **bylo hotové už dřív** — `VoiceRecorder` + edge funkce `transcribe-audio` + `parseVoiceOrder` |
+| 19 | Vratné obaly u odběratele | ⛔ | podle zadání nedělat |
+| 20 | Termín sanitace do upozornění | ⛔ | podle zadání nedělat |
+| 21 | Spotřeba a zásoba materiálu | ✅ | `materialSklad.ts` — korunky a PET víčka se konečně odečítají; nákupy přesunuty z telefonu do databáze |
+| 22 | Předpověď, kdy dojde pivo | ✅ | `predpovedDojiti.ts` |
+| 23 | Kalkulace ceny a marže | ⛔ | podle zadání nedělat |
+| 24 | Podpis převzetí na displeji | ✅ | **v Závozu byl už dřív**; přidán do detailu objednávky a sjednocen na jednu komponentu `PodpisModal` |
+| 25 | Fotka k zápisu | ✅ | `fotkyZaznamu.ts` + `FotkyZaznamu.tsx`, u odpisu a u objednávky |
+| 26 | Historie jednoho odběratele | ✅ | `kartaOdberatele.ts`, panel v Objednávkách |
+| 27 | Push i se zavřenou aplikací | 🟡 | kód hotový (odběr, service worker, edge funkce `posli-push`), **čeká na VAPID klíče** — viz `docs/push-upozorneni-navod.md` |
+| 28 | Přístupy podle rolí | ✅ | předvolba „Řidič" + test `predvolbyRoli` |
+| 29 | Nezávislá záloha mimo GitHub | ✅ | připomínka po 7 dnech na ploše (jen admin) |
 
 ---
 
-## C. Nové funkce, které něco ušetří
+## Co ještě čeká na majitele (nejde to udělat z kódu)
 
-### 17. Chytat, když součet nedává smysl, ve chvíli zápisu (M)
-Sklad umí být záporný a to je správně (je to odpověď, ne chyba). Ale
-zápis 500 sudů místo 50 nikdo nezachytí. Při odchylce od obvyklého o víc
-než trojnásobek se zeptat „opravdu 500?" — jednou za měsíc to zachrání
-inventuru.
+### 1. Spustit migrace v Supabase
 
-### 18. Objednávka telefonem: nahrát hlas a nechat přepsat (L)
-Objednávky přes WhatsApp už appka čte. Zákazníci ale volají. Nahrát
-hlasovku, převést na text a poslat stejnou cestou jako WhatsApp zprávu
-(kontrola před schválením zůstává).
+Aplikace je nasazená, ale tyhle migrace nikdo nepustil — dokud se
+nepustí, příslušná funkce v appce **napíše, co chybí**, a nedělá, že
+funguje:
 
-### 19. Vratné obaly u odběratele — kolik jich kde leží (M)
-Kauce za výčepy se hlídají, sudy a přepravky u zákazníků ne. Přehled
-„u koho je co" z rozdílu dodáno/vráceno; je to reálný majetek, který se
-dnes hlídá pamětí.
+```
+20261226070000_tydenni_inventura.sql
+20261226080000_whatsapp_vlastni_zpravy_uz_neobchazi_branu.sql
+20261227000000_chyby_aplikace.sql
+20261227010000_evidence_migraci.sql
+20261227020000_tank_uprava_jednou.sql
+20261228000000_nakupy_obalu_a_zavirek.sql
+20261228020000_fotky_zaznamu.sql
+20261228030000_push_odbery.sql
+```
 
-### 20. Termín sanitace jako upozornění, ne jako deník (S)
-Sanitační deníky evidují, co se udělalo. Neřeknou „u výčepu X je to za
-14 dní". Z data poslední sanitace a intervalu spočítat další termín a
-poslat do pásku upozornění, který už na ploše je.
+Stav se dá zkontrolovat v **Nastavení → Diagnostika** (seznam „migrace
+čekají"). Po spuštění se každá zapíše sama do evidence.
 
-### 21. Spotřeba a zásoba materiálu (etikety, korunky, PET) (M)
-`labelStock` řeší etikety. Korunky, kapsle, PET a přepravky ne — a zastaví
-stáčení stejně spolehlivě. Odečítat je při stáčení podle receptury obalu a
-hlásit, když zbývá na méně než jedno stáčení.
+### 2. VAPID klíče pro push (bod 27)
 
-### 22. Předpověď, kdy dojde pivo (M)
-Ze `stockLedger` a rychlosti prodeje spočítat „desítka v 30l vydrží
-9 dní". Je to to, co se dnes odhaduje z hlavy při plánování stáčení.
+Postup je v `docs/push-upozorneni-navod.md`. Deset minut, dělá se jednou.
+Soukromý klíč nikam neposílej — ani do chatu, ani do repozitáře.
 
-### 23. Kalkulace ceny a marže na objednávku (M)
-Ceník existuje, marže nikde. U objednávky ukázat, kolik je to peněz a
-kolik z toho zůstane — u akcí a výčepů se to počítá v hlavě.
+### 3. Nepovinné: WhatsApp hláška při pádu CI
 
-### 24. Podpis převzetí na displeji (M)
-Řidič dnes veze papír. Zákazník podepíše prstem na telefonu, podpis se
-uloží k objednávce a je konec dohadování, co bylo dovezeno.
-
-### 25. Fotka k zápisu (S, migrace)
-K odpisu, k rozbitému sudu i k závozu se hodí fotka. `obrazek.ts` už
-zvládne zmenšení; chybí úložiště (Supabase Storage) a políčko u zápisu.
-
-### 26. Historie jednoho odběratele na jednom místě (M)
-Dnes se skládá z Objednávek, Závozu a Ceníku. Karta odběratele: co bere,
-jak často, kolik dluží obalů, poslední závoz.
-
-### 27. Upozornění na telefon, i když appka neběží (M, migrace)
-Notifikace jsou v appce (`notifications.ts`), ale jen když je otevřená.
-Skutečný push (WhatsApp objednávka, výčep po termínu) znamená uložit
-zařízení a poslat to ze serveru.
-
-### 28. Přístupy podle rolí, ne podle zaškrtávátek (M)
-Oprávnění jsou dnes po modulech na uživatele. Role „stáčeč", „řidič",
-„vedení" s předvolbami by nového člověka nastavily jedním klepnutím —
-a nezůstalo by mu omylem víc, než má mít.
-
-### 29. Nezávislá záloha mimo GitHub (S)
-Zálohy jdou do GitHubu, kde je i kód. Kdyby se ztratil přístup k účtu,
-zmizí obojí naráz. Přidat druhé místo (třeba měsíční XLSX do e-mailu),
-protože záloha na jednom účtu není záloha.
+GitHub issue se zakládá samo a bez nastavení. Kdo chce navíc zprávu na
+WhatsApp, přidá do repozitáře secret `SEND_TOKEN` a proměnné
+`BRIDGE_URL` a `BRIDGE_CHAT_ID`.
 
 ---
 
-## Kdybych měl vybrat pět, se kterými začít
+## Co jsem v původním seznamu napsal špatně
 
-1. **č. 1** (pátá dlaždice ve spodní liště) — nejmenší práce, denní zisk.
-2. **č. 2** (naposledy použité) — zkracuje každý jednotlivý zápis.
-3. **č. 6** (Vzít zpět všude) — jediná věc, která opravdu chrání sklad.
-4. **č. 20** (termín sanitace do upozornění) — hotová data, chybí výpočet.
-5. **č. 17** (nesmyslný součet při zápisu) — chytí chybu tam, kde vzniká.
+Osm bodů popisovalo problém, který už vyřešený byl. Napsal jsem je z
+hledání v kódu a z paměti, ne z přečtení té části aplikace:
 
-Pravidla, která u všeho platí (viz README): sklad počítá **jen**
-`lib/stockLedger.ts`, `expectedForMonth` zůstává čistá teorie, databáze je
-originál a `localStorage` jen zrcadlo, tanky jsou litry a sklad kusy.
+- **1, 3, 6, 7, 17, 28** — částečně nebo úplně hotové už před tímhle
+  seznamem (u některých jsem dodělal jen zbytek: jedno chybějící číselné
+  pole, jednu předvolbu role).
+- **18** — hlas se nahrával a přepisoval už dávno (edge funkce
+  `transcribe-audio`), včetně kontroly před uložením.
+- **24** — podpis prstem existoval v Závozu (`SignatureModal`). Místo
+  druhé evidence jsem podpis přidal do detailu objednávky a sjednotil ho
+  na jednu komponentu, která píše do stejných sloupců.
+
+---
+
+## Pravidla, která u všeho platí (viz README)
+
+- Sklad počítá **jen** `lib/stockLedger.ts`; minus je platná odpověď.
+- `expectedForMonth` zůstává čistá teorie.
+- Databáze je originál, `localStorage` jen zrcadlo.
+- Tanky jsou litry, sklad kusy.
+- Rostoucí tabulky se čtou přes `fetchAllRows` — Supabase vrátí nejvýš
+  1000 řádků a zbytek zahodí **bez chyby**.

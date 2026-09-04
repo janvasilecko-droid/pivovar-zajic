@@ -125,6 +125,7 @@
     "20261227010000_evidence_migraci.sql",
     "20261227020000_tank_uprava_jednou.sql",
     "20261228000000_nakupy_obalu_a_zavirek.sql",
-    "20261228020000_fotky_zaznamu.sql"
+    "20261228020000_fotky_zaznamu.sql",
+    "20261228030000_push_odbery.sql"
   ]
 }
