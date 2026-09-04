@@ -2,12 +2,15 @@ import { useState, useEffect } from 'react';
 import { fetchAllRows, supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { fetchLabelBalances, LabelBalance } from '../lib/labelStock';
+import { zustatkyZavirek } from '../lib/materialSklad';
 import { Check, CheckCircle2, ShieldAlert, Siren } from 'lucide-react';
 
 type LowItem = {
   name: string;
-  type: 'etiketa' | 'lahev';
+  type: 'etiketa' | 'lahev' | 'zavirka';
   balance: number;
+  /** Proč se to hlásí — u závěrek to není pevných 100 ks. */
+  duvod?: string;
 };
 
 export function CriticalMaterialAlertModal() {
@@ -29,16 +32,16 @@ export function CriticalMaterialAlertModal() {
 
     Promise.all([
       fetchLabelBalances(),
-      supabase.from('packages').select('label,kind'),
-      fetchAllRows('bottling', 'beer_name,package_label,quantity'),
-    ]).then(([labelBalances, pRes, botRes]) => {
+      supabase.from('packages').select('id,label,kind,volume_l'),
+      fetchAllRows('bottling', 'beer_name,package_label,quantity,entry_date,package_id'),
+      // Nákupy obalů a závěrek jsou v databázi (dřív jen v localStorage
+      // tohohle telefonu, takže upozornění vycházelo z jiných dat, než
+      // jaká viděl kdokoliv jiný).
+      supabase.from('obal_nakupy').select('package_label,quantity'),
+    ]).then(([labelBalances, pRes, botRes, onRes]) => {
       const pkgs = (pRes.data as any[]) ?? [];
       const bot = (botRes.data as any[]) ?? [];
-
-      let bottlePurchases: any[] = [];
-      try {
-        bottlePurchases = JSON.parse(localStorage.getItem('bottles_purchases') || '[]');
-      } catch {}
+      const bottlePurchases = ((onRes.data as any[]) ?? []);
 
       setAllLabelBalances(labelBalances.filter((l) => l.purchased > 0));
 
@@ -57,6 +60,25 @@ export function CriticalMaterialAlertModal() {
             items.push({ name: `Prázdné lahve "${p.label}"`, type: 'lahev', balance: bal });
           }
         }
+      });
+
+      // 🧴 Závěrky: korunky a PET víčka zastaví stáčení stejně spolehlivě
+      // jako chybějící lahve. Hranice není pevné číslo, ale obvyklé jedno
+      // stáčení — u petek je 200 kusů pár minut, u třicítek zásoba na měsíc.
+      const objemPodleId = new Map(pkgs.map((p) => [p.id, Number(p.volume_l)]));
+      zustatkyZavirek(
+        bottlePurchases.map((bp) => ({ package_label: bp.package_label, quantity: bp.quantity })),
+        bot.map((bd) => ({
+          entry_date: bd.entry_date ?? null,
+          package_label: bd.package_label ?? null,
+          volume_l: bd.package_id ? objemPodleId.get(bd.package_id) ?? null : null,
+          quantity: bd.quantity,
+        })),
+      ).filter((z) => z.malo).forEach((z) => {
+        items.push({
+          name: z.nazev, type: 'zavirka', balance: z.zustatek,
+          duvod: z.naJednoStaceni !== null ? `nezbývá na jedno stáčení (${z.naJednoStaceni} ks)` : undefined,
+        });
       });
 
       setCriticalItems(items);
@@ -94,7 +116,7 @@ export function CriticalMaterialAlertModal() {
               <span>POVINNÉ UPOZORNĚNÍ PRO ADMINA, ŠÉFA A SLÁDKA</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-display font-black text-neutral-950 leading-tight mt-1">
-              <Siren className="ikona-text" /> KRITICKÝ STAV MATERIÁLU (&lt; 100 ks)!
+              <Siren className="ikona-text" /> KRITICKÝ STAV MATERIÁLU!
             </h2>
             <p className="text-xs font-bold text-neutral-500 mt-0.5">
               Role: <strong className="text-neutral-800 uppercase">{profile?.role || 'Sládek / Admin'}</strong>
@@ -104,12 +126,15 @@ export function CriticalMaterialAlertModal() {
 
         <div className="p-5 rounded bg-rose-50 border-2 border-rose-300 text-rose-950 space-y-3">
           <div className="font-black text-xs uppercase text-rose-900 flex items-center gap-1.5 border-b border-rose-200 pb-2">
-            <span>U následujících položek zbývá méně než 100 ks:</span>
+            <span>U následujících položek materiál dochází:</span>
           </div>
           <div className="space-y-2">
             {criticalItems.map((item, idx) => (
               <div key={idx} className="flex items-center justify-between p-3 rounded bg-white border border-rose-200 shadow-2xs font-mono">
-                <span className="font-black text-xs text-neutral-900">{item.name}</span>
+                <span className="font-black text-xs text-neutral-900">
+                  {item.name}
+                  {item.duvod && <span className="block font-bold text-[11px] text-neutral-600">{item.duvod}</span>}
+                </span>
                 <span className="px-2.5 py-1 rounded bg-rose-600 text-white font-black text-xs">
                   Zbývá JEN {item.balance} ks!
                 </span>
@@ -141,7 +166,7 @@ export function CriticalMaterialAlertModal() {
             className="w-full py-4 px-6 rounded bg-rose-600 hover:bg-rose-700 text-white font-black text-base transition shadow-xl hover:shadow-rose-600/30 active:scale-[0.98] flex items-center justify-center gap-3 ring-4 ring-rose-300"
           >
             <CheckCircle2 size={24} />
-            <span><Check className="ikona-text" /> Potvrzuji, že beru na vědomí kritický stav (&lt; 100 ks)</span>
+            <span><Check className="ikona-text" /> Potvrzuji, že beru na vědomí kritický stav materiálu</span>
           </button>
           <p className="text-center text-[11px] font-bold text-neutral-400">
             Před pokračováním do aplikace musíte výslovně potvrdit přečtení této výstrahy.

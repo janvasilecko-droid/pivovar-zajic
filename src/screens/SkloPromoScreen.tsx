@@ -1,7 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 
 import { Beer, Package, Place, fetchAllRows, supabase, useRealtime } from '../lib/supabase';
 import { LABELS_LOW_STOCK_THRESHOLD } from '../lib/labelStock';
+import { zustatkyZavirek, KORUNKY, UZAVERY_PET } from '../lib/materialSklad';
+import { kusy } from '../lib/cisla';
 import { Spinner, EmptyState } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { PlaceCombobox } from '../components/PlaceCombobox';
@@ -57,14 +59,30 @@ const DEFAULT_BOTTLE_PACKAGES = [
   '1L',
   '0.5L',
   '0.33L',
-  'Víčka',
 ];
 
-// Normalizuje název obalu na standardní velikost lahve (nebo "Víčka").
-// Používá se, aby se v přehledu prázdných lahví zobrazovaly JEN velikosti 1.5L / 1L / 0.5L / 0.33L + víčka.
+// Co se dá zapsat jako nákup. Závěrky jsou zvlášť a rozlišené — v jednom
+// hrnci „Víčka" by pět tisíc PET víček přehlušilo nulu korunek a přehled
+// by hlásil „v pořádku" ve chvíli, kdy sklo nejde stočit.
+const NABIDKA_NAKUPU = [
+  ...DEFAULT_BOTTLE_PACKAGES,
+  KORUNKY,
+  UZAVERY_PET,
+];
+
+// Klíč značky, že se staré nákupy z tohohle telefonu už nahrály do databáze.
+const KLIC_PREVOD_NAKUPU = 'obal_nakupy_prevedeno';
+
+// Normalizuje název obalu na standardní velikost lahve.
+// Používá se, aby se v přehledu prázdných lahví zobrazovaly JEN velikosti
+// 1.5L / 1L / 0.5L / 0.33L. Závěrky se sem už nepočítají: spotřeba se jim
+// hledala mezi stočenými obaly podle názvu „Víčka" a žádný stočený obal se
+// tak nejmenuje, takže vycházela nula a zůstatek vypadal pořád stejně dobře.
+// Mají teď vlastní přehled, kde se spotřeba odečítá doopravdy.
 function normalizeBottleLabel(label: string): string | null {
   const l = label.toLowerCase();
-  if (l.includes('víčk') || l.includes('vick') || l.includes('uzávěr') || l.includes('uzaver') || l.includes('kork')) return 'Víčka';
+  if (l.includes('víčk') || l.includes('vick') || l.includes('uzávěr') || l.includes('uzaver')
+      || l.includes('kork') || l.includes('korunk') || l.includes('kapsl')) return null;
   const m = l.match(/(\d+(?:[.,]\d+)?)\s*(l|litr)/);
   if (!m) return null;
   const vol = parseFloat(m[1].replace(',', '.'));
@@ -89,18 +107,19 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
   // Label purchases (sdílené přes Supabase — vidí je všechna zařízení stejně)
   const [labelPurchases, setLabelPurchases] = useState<LabelPurchase[]>([]);
 
-  // Bottle purchases
-  const [bottlePurchases, setBottlePurchases] = useState<BottlePurchase[]>(() => {
-    try {
-      const saved = localStorage.getItem('bottles_purchases');
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
+  // Nákupy lahví a závěrek — sdílené přes Supabase (tabulka obal_nakupy).
+  // Dřív žily jen v localStorage tohohle telefonu, takže každé zařízení
+  // vidělo jiný stav a po vyčištění dat prohlížeče byla evidence pryč.
+  const [bottlePurchases, setBottlePurchases] = useState<BottlePurchase[]>([]);
+  // Tabulka obal_nakupy nemusí být (nepuštěná migrace) — obrazovka pak
+  // funguje dál a jen řekne, co chybí, místo aby zápis tiše zahodila.
+  const [nakupyChybi, setNakupyChybi] = useState(false);
+  const prevodBezi = useRef(false);
 
   const [places, setPlaces] = useState<Place[]>([]);
   const [beers, setBeers] = useState<Beer[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
-  const [bottlingData, setBottlingData] = useState<{ beer_name: string; package_label: string; quantity: number }[]>([]);
+  const [bottlingData, setBottlingData] = useState<{ beer_name: string; package_label: string; quantity: number; entry_date?: string | null; package_id?: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -137,12 +156,13 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
 
   async function loadData(tiche = false) {
     if (!tiche) setLoading(true);
-    const [pRes, bRes, pkgRes, botRes, lpRes] = await Promise.all([
+    const [pRes, bRes, pkgRes, botRes, lpRes, onRes] = await Promise.all([
       supabase.from('places').select('*').order('name'),
       supabase.from('beers').select('*').eq('is_active', true).order('name'),
       supabase.from('packages').select('*').order('kind'),
-      fetchAllRows('bottling', 'beer_name, package_label, quantity'),
+      fetchAllRows('bottling', 'beer_name, package_label, quantity, entry_date, package_id'),
       supabase.from('label_purchases').select('id, beer_name, entry_date, quantity, note').order('entry_date', { ascending: false }),
+      supabase.from('obal_nakupy').select('id, package_label, entry_date, quantity, note').order('entry_date', { ascending: false }),
     ]);
 
     const loadedBeers = (bRes.data as Beer[]) ?? [];
@@ -151,6 +171,15 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
     setPackages((pkgRes.data as Package[]) ?? []);
     setBottlingData((botRes.data as any[]) ?? []);
     setLabelPurchases(((lpRes.data as any[]) ?? []).map((r) => ({ id: r.id, beer_name: r.beer_name, entry_date: r.entry_date, quantity: Number(r.quantity), note: r.note ?? undefined })));
+    // Tabulka může chybět, dokud se nepustí migrace — obrazovka pak
+    // funguje dál a jen se u nákupů řekne, že evidence není dostupná.
+    setNakupyChybi(!!onRes.error);
+    const nakupyZDb: BottlePurchase[] = ((onRes.data as any[]) ?? []).map((r) => ({
+      id: r.id, package_label: r.package_label, entry_date: r.entry_date,
+      quantity: Number(r.quantity), note: r.note ?? undefined,
+    }));
+    setBottlePurchases(nakupyZDb);
+    if (!onRes.error) void prevedNakupyZTelefonu();
 
     if (loadedBeers.length > 0 && !labelBeerName) {
       setLabelBeerName(loadedBeers[0].name);
@@ -165,16 +194,43 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
   // „když kliknu odečíst, vrací mě to vždycky nahoru." Vlastní zápis stránku
   // srovná kotvou (lib/drzPozici.ts), jenže 400 ms po něm dorazí realtime
   // událost o tomtéž zápisu a celou práci zahodí.
-  useRealtime(['places', 'beers', 'packages', 'bottling', 'label_purchases'], () => loadData(true));
+  useRealtime(['places', 'beers', 'packages', 'bottling', 'label_purchases', 'obal_nakupy'], () => loadData(true));
 
   function saveEntries(newEntries: PromoEntry[]) {
     setEntries(newEntries);
     localStorage.setItem('sklo_promo_entries', JSON.stringify(newEntries));
   }
 
-  function saveBottlePurchases(newP: BottlePurchase[]) {
-    setBottlePurchases(newP);
-    localStorage.setItem('bottles_purchases', JSON.stringify(newP));
+  /**
+   * Jednorázový převod nákupů z telefonu do databáze.
+   *
+   * Staré zápisy jsou v localStorage tohohle zařízení a nikdo jiný je
+   * nevidí. Nechat je tam by znamenalo, že se po nasazení evidence
+   * „vynuluje" — proto se jednou nahrají. Značka se ukládá na zařízení,
+   * takže každý telefon nahraje své a nic se nezdvojí; původní kopie v
+   * telefonu se nemaže (je to jen zrcadlo, ne originál).
+   */
+  async function prevedNakupyZTelefonu() {
+    if (prevodBezi.current) return;
+    let stare: BottlePurchase[] = [];
+    try {
+      if (localStorage.getItem(KLIC_PREVOD_NAKUPU)) return;
+      stare = JSON.parse(localStorage.getItem('bottles_purchases') ?? '[]');
+    } catch { return; }
+    if (!Array.isArray(stare) || stare.length === 0) {
+      try { localStorage.setItem(KLIC_PREVOD_NAKUPU, new Date().toISOString()); } catch { /* zamčené úložiště */ }
+      return;
+    }
+    prevodBezi.current = true;
+    const { error } = await supabase.from('obal_nakupy').insert(stare.map((bp) => ({
+      entry_date: bp.entry_date, package_label: bp.package_label,
+      quantity: Number(bp.quantity) || 0, note: bp.note ?? null, zdroj: 'prevod-z-telefonu',
+    })));
+    if (error) { prevodBezi.current = false; return; }
+    try { localStorage.setItem(KLIC_PREVOD_NAKUPU, new Date().toISOString()); } catch { /* zamčené úložiště */ }
+    oznam(`Přeneseno ${stare.length} starších nákupů z tohoto telefonu do databáze — teď je vidí i ostatní.`);
+    await loadData(true);
+    prevodBezi.current = false;
   }
 
   // --- CALCULATIONS FOR SKLO & PROMO ---
@@ -228,7 +284,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
   const lowLabelsCount = useMemo(() => labelsSummary.filter((l) => l.isLow && l.inLabels > 0).length, [labelsSummary]);
 
   // --- CALCULATIONS FOR LAHVE (EMPTY BOTTLES) ---
-  // Zobrazují se JEN standardní velikosti 1.5L / 1L / 0.5L / 0.33L + Víčka.
+  // Zobrazují se JEN standardní velikosti 1.5L / 1L / 0.5L / 0.33L.
   // Všechny nákupy a stočené lahve se normalizují na tyto velikosti.
   const bottlesSummary = useMemo(() => {
     const pkgLabels = [...DEFAULT_BOTTLE_PACKAGES];
@@ -261,6 +317,24 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
       return { package_label: pLabel, inBottles, usedBottles, balance, isLow };
     }).sort((a, b) => a.balance - b.balance);
   }, [bottlePurchases, bottlingData]);
+
+  /**
+   * 🧴 Závěrky (korunky a PET víčka). Spotřeba se odečítá z nalahvovaných
+   * lahví — každá zavřená lahev spotřebuje jednu závěrku. Dřív se hledala
+   * mezi stočenými obaly podle názvu „Víčka", takže vycházela nula.
+   */
+  const zavirky = useMemo(() => {
+    const objemPodleId = new Map(packages.map((p) => [p.id, Number(p.volume_l)]));
+    return zustatkyZavirek(
+      bottlePurchases.map((bp) => ({ package_label: bp.package_label, quantity: bp.quantity })),
+      bottlingData.map((bd) => ({
+        entry_date: bd.entry_date ?? null,
+        package_label: bd.package_label ?? null,
+        volume_l: bd.package_id ? objemPodleId.get(bd.package_id) ?? null : null,
+        quantity: bd.quantity,
+      })),
+    );
+  }, [bottlePurchases, bottlingData, packages]);
 
   const lowBottlesCount = useMemo(() => bottlesSummary.filter((b) => b.isLow && b.inBottles > 0).length, [bottlesSummary]);
 
@@ -329,22 +403,26 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
   }
 
   // Handlers for Lahve
-  function handleAddBottlePurchase(e: React.FormEvent) {
+  async function handleAddBottlePurchase(e: React.FormEvent) {
     e.preventDefault();
     const qty = Number(bottleQty);
-    if (!qty || qty <= 0 || !bottlePkgLabel) { oznam('Vyplňte platný obal a množství lahví.'); return; }
+    if (!qty || qty <= 0 || !bottlePkgLabel) { oznam('Vyplňte platný obal a množství.'); return; }
 
-    const newBP: BottlePurchase = {
-      id: crypto.randomUUID(), package_label: bottlePkgLabel, entry_date: bottleDate, quantity: qty, note: bottleNote.trim() || undefined,
-    };
-    saveBottlePurchases([newBP, ...bottlePurchases]);
+    const { error } = await supabase.from('obal_nakupy').insert({
+      entry_date: bottleDate, package_label: bottlePkgLabel,
+      quantity: qty, note: bottleNote.trim() || null, zdroj: 'obrazovka',
+    });
+    if (error) { chyba(`Nákup se nepodařilo zapsat: ${error.message}`); return; }
     setBottleQty('1200'); setBottleNote('');
-    oznam(`Zapsán nákup ${qty} ks prázdných lahví "${bottlePkgLabel}"!`);
+    oznam(`Zapsán nákup ${qty} ks „${bottlePkgLabel}".`);
+    await loadData(true);
   }
 
   async function handleDeleteBottlePurchase(id: string) {
-    if (!(await potvrd('Smazat tento nákup lahví?'))) return;
-    saveBottlePurchases(bottlePurchases.filter((bp) => bp.id !== id));
+    if (!(await potvrd('Smazat tento nákup?'))) return;
+    const { error } = await supabase.from('obal_nakupy').delete().eq('id', id);
+    if (error) { chyba(`Nepodařilo se smazat záznam: ${error.message}`); return; }
+    await loadData(true);
   }
 
   const filteredEntries = useMemo(() => {
@@ -824,18 +902,78 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
             </div>
           )}
 
+          {/* 🧴 Závěrky — korunky a PET víčka. Zastaví stáčení stejně
+              spolehlivě jako chybějící lahve, jen se jejich spotřeba
+              doteď nikde neodečítala. */}
+          {nakupyChybi ? (
+            <div className="p-4 rounded bg-amber-50 border-2 border-amber-300 text-amber-900 text-sm font-semibold">
+              <AlertTriangle className="ikona-text" /> Evidence nákupů obalů zatím není v databázi — je potřeba pustit
+              migraci <span className="font-mono text-xs">20261228000000_nakupy_obalu_a_zavirek.sql</span>.
+              Do té doby se nákup nedá zapsat (dřív žil jen v tomhle telefonu a ostatní ho neviděli).
+            </div>
+          ) : zavirky.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="font-display font-black text-lg text-neutral-900">Závěrky (korunky a PET víčka)</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {zavirky.map((z) => (
+                  <div key={z.nazev} className={`p-5 rounded border-2 shadow-sm space-y-3 ${z.malo ? 'bg-rose-50/70 border-rose-300' : 'bg-white border-neutral-200'}`}>
+                    <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
+                      <span className="font-display font-black text-base text-neutral-950">{z.nazev}</span>
+                      {z.malo ? (
+                        <span className="px-2.5 py-0.5 rounded-full bg-rose-600 text-white font-bold text-[11px]">
+                          <AlertTriangle className="ikona-text" /> NEZBÝVÁ NA STÁČENÍ
+                        </span>
+                      ) : z.bezEvidence ? (
+                        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold text-[11px]">
+                          NENÍ ZAPSANÝ NÁKUP
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 font-bold text-[11px]">
+                          <Check className="ikona-text" /> SKLADEM
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-3 gap-1 text-center font-mono">
+                      <div className="p-2 rounded bg-neutral-100">
+                        <div className="text-[11px] font-bold text-neutral-500 uppercase">Nakoupeno</div>
+                        <div className="text-sm font-black text-neutral-900">+{z.nakoupeno}</div>
+                      </div>
+                      <div className="p-2 rounded bg-neutral-100">
+                        <div className="text-[11px] font-bold text-neutral-500 uppercase">Zavřeno lahví</div>
+                        <div className="text-sm font-black text-neutral-900">−{z.spotrebovano}</div>
+                      </div>
+                      <div className={`p-2 rounded ${z.malo ? 'bg-rose-100 text-rose-800' : 'bg-emerald-50 text-emerald-800'}`}>
+                        <div className="text-[11px] font-bold uppercase">Zbývá</div>
+                        <div className="text-sm font-black">{kusy(z.zustatek)}</div>
+                      </div>
+                    </div>
+                    {/* Hranice „málo" není pevné číslo — u petek je 200 kusů pár
+                        minut a u třicítek zásoba na měsíc. */}
+                    <p className="text-[11px] font-semibold text-neutral-600">
+                      {z.bezEvidence
+                        ? 'Spotřeba se počítá, nákup ale zapsaný není — zůstatek proto nic neříká.'
+                        : z.naJednoStaceni === null
+                          ? 'Obvyklé jedno stáčení se ještě nedá spočítat — málo zápisů.'
+                          : `Jedno obvyklé stáčení = ${kusy(z.naJednoStaceni)}${z.malo ? ' — na další už nezbývá.' : `, zásoba na ${Math.floor(z.zustatek / z.naJednoStaceni)}×.`}`}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Form: Nákup prázdných lahví */}
           <div className="card p-6 bg-white border-2 border-emerald-200 rounded shadow-sm space-y-4">
             <h3 className="font-display font-black text-lg text-emerald-950 flex items-center gap-2">
               <Boxes className="text-emerald-600" size={20} />
-              <span><IkonaLahev className="ikona-text" /> Zadání nákupu / příjmu prázdných lahví na sklad</span>
+              <span><IkonaLahev className="ikona-text" /> Zadání nákupu / příjmu lahví a závěrek na sklad</span>
             </h3>
 
             <form onSubmit={handleAddBottlePurchase} className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
               <div>
                 <label className="block text-xs font-black text-neutral-700 mb-1">Druh / Velikost obalu</label>
                 <select value={bottlePkgLabel} onChange={(e) => setBottlePkgLabel(e.target.value)} className="input font-bold text-xs">
-                  {DEFAULT_BOTTLE_PACKAGES.map((pkg) => (
+                  {NABIDKA_NAKUPU.map((pkg) => (
                     <option key={pkg} value={pkg}>{pkg}</option>
                   ))}
                 </select>
@@ -866,7 +1004,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
 
           {/* Cards per bottle package */}
           <div className="space-y-3">
-            <h3 className="font-display font-black text-lg text-neutral-900">Stav prázdných lahví (1.5L / 1L / 0.5L / 0.33L + Víčka)</h3>
+            <h3 className="font-display font-black text-lg text-neutral-900">Stav prázdných lahví (1.5L / 1L / 0.5L / 0.33L)</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {bottlesSummary.map((b) => (
                 <div key={b.package_label} className={`p-5 rounded border-2 transition-all shadow-sm space-y-3 ${b.isLow ? 'bg-rose-50/70 border-rose-300' : 'bg-white border-neutral-200'}`}>

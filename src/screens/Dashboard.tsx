@@ -8,6 +8,7 @@ import SkloPromoScreen from './SkloPromoScreen';
 import { buildMovements, stockAsOf, stockKey } from '../lib/stockLedger';
 import { QuickCountModal } from '../components/QuickCountModal';
 import { fetchLabelBalances } from '../lib/labelStock';
+import { zustatkyZavirek } from '../lib/materialSklad';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import { chyba, oznam } from '../lib/toast';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
@@ -347,22 +348,21 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
 
   const [showAnnouncementManager, setShowAnnouncementManager] = useState(false);
 
-  const [materialAlerts, setMaterialAlerts] = useState<{ name: string; type: 'etiketa' | 'lahev'; balance: number }[]>([]);
+  const [materialAlerts, setMaterialAlerts] = useState<{ name: string; type: 'etiketa' | 'lahev' | 'zavirka'; balance: number }[]>([]);
   useEffect(() => {
     Promise.all([
       fetchLabelBalances(),
-      supabase.from('packages').select('label,kind'),
-      fetchAllRows('bottling', 'beer_name,package_label,quantity'),
-    ]).then(([labelBalances, pRes, botRes]) => {
+      supabase.from('packages').select('id,label,kind,volume_l'),
+      fetchAllRows('bottling', 'beer_name,package_label,quantity,entry_date,package_id'),
+      // Nákupy obalů a závěrek jsou v databázi — v localStorage tohohle
+      // telefonu vídal každý jiný stav.
+      supabase.from('obal_nakupy').select('package_label,quantity'),
+    ]).then(([labelBalances, pRes, botRes, onRes]) => {
       const pkgs = (pRes.data as any[]) ?? [];
       const bot = (botRes.data as any[]) ?? [];
+      const bottlePurchases = ((onRes.data as any[]) ?? []);
 
-      let bottlePurchases: any[] = [];
-      try {
-        bottlePurchases = JSON.parse(localStorage.getItem('bottles_purchases') || '[]');
-      } catch {}
-
-      const alerts: { name: string; type: 'etiketa' | 'lahev'; balance: number }[] = [];
+      const alerts: { name: string; type: 'etiketa' | 'lahev' | 'zavirka'; balance: number }[] = [];
 
       labelBalances.filter((l) => l.isLow).forEach((l) => {
         alerts.push({ name: `Etikety "${l.beer_name}"`, type: 'etiketa', balance: l.balance });
@@ -377,6 +377,22 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
             alerts.push({ name: `Prázdné lahve "${p.label}"`, type: 'lahev', balance: bal });
           }
         }
+      });
+
+      // 🧴 Závěrky (korunky, PET víčka) — dochází stejně jako lahve, jen se
+      // jejich spotřeba doteď nikde neodečítala. Hranice je obvyklé jedno
+      // stáčení, ne pevné číslo.
+      const objemPodleId = new Map(pkgs.map((p) => [p.id, Number(p.volume_l)]));
+      zustatkyZavirek(
+        bottlePurchases.map((bp) => ({ package_label: bp.package_label, quantity: bp.quantity })),
+        bot.map((bd) => ({
+          entry_date: bd.entry_date ?? null,
+          package_label: bd.package_label ?? null,
+          volume_l: bd.package_id ? objemPodleId.get(bd.package_id) ?? null : null,
+          quantity: bd.quantity,
+        })),
+      ).filter((z) => z.malo).forEach((z) => {
+        alerts.push({ name: z.nazev, type: 'zavirka', balance: z.zustatek });
       });
 
       setMaterialAlerts(alerts);
@@ -453,7 +469,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
             </div>
             <div>
               <div className="font-extrabold text-sm text-neutral-900 flex items-center gap-2">
-                <span>VAROVÁNÍ SKLADU: NÍZKÝ STAV ETIKET NEBO PRÁZDNÝCH LAHVÍ (&lt; 200 ks)</span>
+                <span>VAROVÁNÍ SKLADU: DOCHÁZÍ ETIKETY, PRÁZDNÉ LAHVE NEBO ZÁVĚRKY</span>
                 <span className="px-2.5 py-0.5 rounded-full bg-rose-600 text-white font-black text-xs">{materialAlerts.length} Varování</span>
               </div>
               <div className="flex flex-wrap gap-2 mt-1.5">

@@ -123,6 +123,7 @@
     "20261226080000_whatsapp_vlastni_zpravy_uz_neobchazi_branu.sql",
     "20261227000000_chyby_aplikace.sql",
     "20261227010000_evidence_migraci.sql",
-    "20261227020000_tank_uprava_jednou.sql"
+    "20261227020000_tank_uprava_jednou.sql",
+    "20261228000000_nakupy_obalu_a_zavirek.sql"
   ]
 }
