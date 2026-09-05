@@ -199,6 +199,22 @@ přímo ve stránce, „Telefon (390)" jen zúžil rámeček a uvnitř zůstalo
 desktopové rozložení — takže se právě to, kvůli čemu náhled vznikl, nedalo
 vidět. Iframe má vlastní okno, takže zadaná šířka platí.
 
+Na `/prvky.html` je **vzorník**: role tlačítek, štítky stavů, škála písma,
+pole, číselné dlaždice, tabulka se zebrou, záložky, plnost tanku, kostra
+načítání a oba prázdné stavy (prázdno vs. chyba) — všechno na jedné stránce
+a s přepínačem tmavého režimu. Ladit vzhled po obrazovkách znamená projít
+jednačtyřicet obrazovek a stejně přehlédnout stav, který se běžně nezobrazí.
+
+```bash
+node scripts/snimky.mjs pred     # vyfotí vzorník ve 3 šířkách × 2 režimech
+# …úprava vzhledu…
+node scripts/snimky.mjs po       # a znovu, pro porovnání
+```
+
+Snímky jdou do `nahled/snimky/` (mimo git). Prohlížeč se bere ze systému
+(`CHROMIUM_PATH`, jinak obvyklá umístění); když žádný není, skript to řekne
+a skončí bez chyby.
+
 Na `/plocha.html` je druhá stránka: srovnání rozložení domovské plochy na
 telefonu (390 px) ve třech variantách vedle sebe, s přepínačem upozornění.
 Není to obrazovka Domů z aplikace — ta se bez databáze nespustí — ale mřížka

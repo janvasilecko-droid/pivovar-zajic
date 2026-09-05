@@ -692,6 +692,42 @@ html.density-large .btn {
   font-size: 0.95rem !important;
 }
 
+/* 📐 Hustota musí sahat i na to, co doopravdy zabírá místo.
+   Do 5. 9. 2026 měnila jen pole, tlačítka a štítky — tedy prvky, kterých je
+   na obrazovce pár. O tom, kolik se toho vejde, ale rozhodují KARTY a ŘÁDKY
+   TABULEK, a ty zůstávaly stejné ve všech čtyřech stupních. Ve sklepě se
+   kouká z metru a v rukavicích, v kanceláři se chce vidět třicet řádků —
+   a přesně to bylo dvěma nejkrajnějšími stupni nedosažitelné.
+
+   Sahá se jen na odsazení, ne na barvy ani rámečky: hustota nemá měnit
+   vzhled, jen kolik ho je vidět. */
+html.density-xs .card,
+html.density-compact .card {
+  padding: 0.5rem !important;
+}
+html.density-xs .table tbody td,
+html.density-xs .table thead th {
+  padding-top: 0.2rem !important;
+  padding-bottom: 0.2rem !important;
+}
+html.density-compact .table tbody td,
+html.density-compact .table thead th {
+  padding-top: 0.35rem !important;
+  padding-bottom: 0.35rem !important;
+}
+html.density-large .card { padding: 1.15rem !important; }
+html.density-xl .card { padding: 1.4rem !important; }
+html.density-large .table tbody td,
+html.density-large .table thead th {
+  padding-top: 0.7rem !important;
+  padding-bottom: 0.7rem !important;
+}
+html.density-xl .table tbody td,
+html.density-xl .table thead th {
+  padding-top: 0.9rem !important;
+  padding-bottom: 0.9rem !important;
+}
+
 /* HIGH CONTRAST TEXT FIXES - Prevent white-on-white text across the entire application */
 /* color-scheme: light vynutí, aby Chromium/WebView (i v tmavém režimu OS) NEaplikoval
    auto-dark styling (tmavé nativní pozadí) na formulářové prvky. Bez toho mají pole
