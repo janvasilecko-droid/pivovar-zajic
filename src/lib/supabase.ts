@@ -359,7 +359,11 @@ export const BEER_COLOR_PRESETS = [
 ];
 
 export function beerBg(beer: { beer_color?: string | null } | null | undefined): string {
-  return beer?.beer_color ?? '#F3F4F6';
+  // Náhrada pro pivo bez barvy jde z PROMĚNNÉ, ne z napsaného odstínu:
+  // `#F3F4F6` je světle šedá, která v tmavém režimu zůstala světlá a
+  // dělala z řádku svítící pruh. V inline stylu `var()` funguje stejně
+  // jako ve třídě.
+  return beer?.beer_color ?? 'rgb(var(--bg-neutral-100))';
 }
 /** Je barva piva tmavá natolik, že na ní musí být světlé písmo? */
 function beerJeTmave(beer: { beer_color?: string | null } | null | undefined): boolean {
@@ -406,7 +410,7 @@ export function beerInk(beer: { beer_color?: string | null } | null | undefined)
   return beerJeTmave(beer) ? '#ffffff' : '#0f172a';
 }
 export function beerBorder(beer: { beer_color?: string | null } | null | undefined): string {
-  return beer?.beer_color ?? '#E5E7EB';
+  return beer?.beer_color ?? 'rgb(var(--bd-neutral-200))';
 }
 
 /**

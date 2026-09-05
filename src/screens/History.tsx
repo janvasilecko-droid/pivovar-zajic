@@ -1453,7 +1453,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                     <div className="space-y-2">
                       {beerHlList.map((b) => {
                         const beer = beers.find(be => be.id === b.id);
-                        const bg = beer ? beerBg(beer) : '#fef3c7';
+                        const bg = beerBg(beer);
                         const ink = beerInk(beer);
                         return (
                           <div key={b.id} className="flex items-center gap-3">
@@ -1485,7 +1485,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                     <div className="space-y-2">
                       {beerKegHlList.map((b) => {
                         const beer = beers.find(be => be.id === b.id);
-                        const bg = beer ? beerBg(beer) : '#fef3c7';
+                        const bg = beerBg(beer);
                         const ink = beerInk(beer);
                         return (
                           <div key={b.id} className="flex items-center gap-3">
@@ -1517,7 +1517,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                     <div className="space-y-2">
                       {beerBottleHlList.map((b) => {
                         const beer = beers.find(be => be.id === b.id);
-                        const bg = beer ? beerBg(beer) : '#fef3c7';
+                        const bg = beerBg(beer);
                         const ink = beerInk(beer);
                         return (
                           <div key={b.id} className="flex items-center gap-3">
@@ -1679,7 +1679,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                     <div
                       key={`${r.beer_id}__${r.package_id}`}
                       className={`rounded bg-white border-2 p-3 space-y-1.5 ${hasOrders ? 'cursor-pointer' : ''}`}
-                      style={{ borderColor: beer ? beerBorder(beer) : '#e5e7eb' }}
+                      style={{ borderColor: beerBorder(beer) }}
                       onClick={() => { if (hasOrders) openEditOrder([...matchingOrderIds][0]); }}
                     >
                       <div className="flex items-center justify-between gap-2 font-black text-sm text-neutral-950">
@@ -1728,7 +1728,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                         <tr
                           key={`${r.beer_id}__${r.package_id}`}
                           className={`transition-colors bg-white ${hasOrders ? 'cursor-pointer hover:bg-neutral-50' : 'hover:bg-neutral-50/60'}`}
-                          style={{ borderLeft: `4px solid ${beer ? beerBorder(beer) : '#e5e7eb'}` }}
+                          style={{ borderLeft: `4px solid ${beerBorder(beer)}` }}
                           onClick={() => {
                             if (hasOrders) {
                               const firstOrderId = [...matchingOrderIds][0];
@@ -1833,7 +1833,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                   const beer = c.beer_name ? beers.find((b) => b.name === c.beer_name) : null;
                   const highLoss = Number(c.loss_pct) > 3;
                   return (
-                    <div key={c.id} className="rounded bg-white border-2 p-3 space-y-1.5" style={{ borderColor: beer ? beerBorder(beer) : '#e5e7eb' }}>
+                    <div key={c.id} className="rounded bg-white border-2 p-3 space-y-1.5" style={{ borderColor: beerBorder(beer) }}>
                       <div className="flex items-center justify-between gap-2 font-black text-sm text-neutral-950">
                         <span>{c.tank_label} <span className="font-bold opacity-80">· {c.beer_name ?? '—'}</span></span>
                         <span className={`shrink-0 px-2 py-0.5 rounded text-xs font-black ${highLoss ? 'bg-rose-600 text-white' : 'bg-neutral-100 text-neutral-700'}`}>{Number(c.loss_pct).toFixed(1)}% ztráta</span>
@@ -1870,7 +1870,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                     {tankCyclesSorted.map((c) => {
                       const beer = c.beer_name ? beers.find((b) => b.name === c.beer_name) : null;
                       return (
-                        <tr key={c.id} className="hover:bg-neutral-50 transition-colors bg-white" style={{ borderLeft: `4px solid ${beer ? beerBorder(beer) : '#e5e7eb'}` }}>
+                        <tr key={c.id} className="hover:bg-neutral-50 transition-colors bg-white" style={{ borderLeft: `4px solid ${beerBorder(beer)}` }}>
                           <td className="font-black text-udaj text-neutral-950">{c.tank_label}</td>
                           <td className="font-black text-udaj text-neutral-950">{c.beer_name ?? '—'}</td>
                           <td className="text-right font-bold text-neutral-900 text-udaj">{(Number(c.initial_volume_l) / 100).toFixed(2)} hl</td>
