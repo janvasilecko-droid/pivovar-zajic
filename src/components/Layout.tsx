@@ -22,6 +22,15 @@ import { BugReportModal } from './BugReportModal';
 import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
 import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
 import { nastavObrazovkuProChyby } from '../lib/chybyHlaseni';
+// Staticky, ne přes `await import(…)`. Fronta offline zápisů sedí v hlavním
+// kusu tak jako tak — `lib/supabase.ts` si ji importuje staticky a ten
+// importuje každá obrazovka — takže dynamický import nic nešetřil a build
+// to hlásil: „dynamic import will not move module into another chunk".
+// Jediné, co přinášel, byla asynchronní obsluha tam, kde stačí volání.
+import {
+  queueLength, onQueueChange, onConnectivityChange, syncQueue, clearQueue,
+  getQueue, getLastSyncFailures, popisOperace, removeOp,
+} from '../lib/offline';
 import { SCENES, DEFAULT_DOCK, hexToRgba, COLOR_HEX, type Scene, type TileColor } from '../lib/homeLayout';
 import { zavibruj } from '../lib/haptika';
 import { IkonaSud, IkonaLahev, IkonaVycep } from './ikony';
@@ -497,7 +506,6 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const { queueLength, onQueueChange, onConnectivityChange, syncQueue } = await import('../lib/offline');
       if (!mounted) return;
       setPending(queueLength());
       const offQ = onQueueChange((n) => setPending(n));
@@ -759,7 +767,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
               ukazuje, že něco ještě neodešlo do cloudu. Bez něj by se
               neodeslaná data ztratila potichu. */}
           <div className="flex items-center gap-2 shrink-0 ml-auto">
-            <OfflineStatus online={online} pending={pending} syncing={syncing} syncMsg={syncMsg} onSync={async () => { const { syncQueue, queueLength } = await import('../lib/offline'); if (queueLength() === 0) { setSyncMsg('Fronta je prázdná — nic k synchronizaci'); setTimeout(() => setSyncMsg(null), 3000); return; } setSyncing(true); const r = await syncQueue(); setSyncing(false); setSyncMsg(r.remaining === 0 ? `Synchronizováno ${r.ok} změn` : `OK ${r.ok}, selhalo ${r.failed}`); setTimeout(() => setSyncMsg(null), 4000); }} />
+            <OfflineStatus online={online} pending={pending} syncing={syncing} syncMsg={syncMsg} onSync={async () => { if (queueLength() === 0) { setSyncMsg('Fronta je prázdná — nic k synchronizaci'); setTimeout(() => setSyncMsg(null), 3000); return; } setSyncing(true); const r = await syncQueue(); setSyncing(false); setSyncMsg(r.remaining === 0 ? `Synchronizováno ${r.ok} změn` : `OK ${r.ok}, selhalo ${r.failed}`); setTimeout(() => setSyncMsg(null), 4000); }} />
           </div>
         </header>
         )}
@@ -835,7 +843,6 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             <button
               type="button"
               onClick={async () => {
-                const { syncQueue, queueLength } = await import('../lib/offline');
                 if (queueLength() === 0) return;
                 setSyncing(true);
                 const r = await syncQueue();
@@ -917,7 +924,6 @@ function OfflineStatus({ online, pending, syncing, syncMsg, onSync }: { online: 
   const [failures, setFailures] = useState<{ id: string; table: string; op: string; error: string }[]>([]);
 
   async function refreshQueueDetail() {
-    const { getQueue, getLastSyncFailures, popisOperace } = await import('../lib/offline');
     setQueueItems(getQueue().map((o) => ({ id: o.id, popis: popisOperace(o), ts: o.ts })));
     setFailures(getLastSyncFailures());
   }
@@ -927,7 +933,6 @@ function OfflineStatus({ online, pending, syncing, syncMsg, onSync }: { online: 
   }, [showInfo, pending, syncing]);
 
   async function discardOp(id: string) {
-    const { removeOp } = await import('../lib/offline');
     removeOp(id);
     setFailures((prev) => prev.filter((f) => f.id !== id));
     refreshQueueDetail();

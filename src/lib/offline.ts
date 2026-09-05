@@ -126,6 +126,11 @@ export function popisOperace(op: QueuedOp): string {
 }
 
 export async function syncQueue(): Promise<{ ok: number; failed: number; remaining: number }> {
+  // Dynamicky SCHVÁLNĚ: `supabase.ts` si tenhle modul importuje staticky
+  // (odesílání jde přes jeho `fetch`), takže statický import zpátky by byl
+  // kruh. Build kvůli tomu hlásí „dynamic import will not move module into
+  // another chunk" — to je v pořádku, nic se tu rozdělit nemá; jde jen
+  // o rozbití kruhu. Nepřepisovat na statický import.
   const { supabase } = await import('./supabase');
   const q = read();
   let ok = 0, failed = 0;

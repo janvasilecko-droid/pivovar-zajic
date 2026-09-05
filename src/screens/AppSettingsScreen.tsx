@@ -2,6 +2,7 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { AlertCircle, AlertTriangle, Beer as BeerIcon, Bell, BellOff, BookOpen, Brush, CloudDownload, Download, Eraser, Eye, Factory, FolderOpen, CheckCircle2, Lightbulb, Lock, MessageSquare, Monitor, Moon, Palette, Plus, RefreshCw, Settings, Smartphone, Sparkles, Sun, Timer, Trash2, Users, Vibrate, Volume2, VolumeX } from 'lucide-react';
 
 import { DENSITY_OPTIONS, DensityMode, getDensity, setDensity } from '../lib/density';
+import { clearQueue } from '../lib/offline';
 import { haptikaZapnuta, nastavHaptiku, zavibruj } from '../lib/haptika';
 import { MenuCustomizeModal } from '../components/MenuCustomizeModal';
 import AdminDiagnostika from '../components/AdminDiagnostika';
@@ -674,7 +675,6 @@ function AdminVersionSyncSection() {
 
       // 2) Vyčistíme offline frontu
       try {
-        const { clearQueue } = await import('../lib/offline');
         clearQueue();
       } catch {}
 
@@ -735,7 +735,6 @@ function AdminVersionSyncSection() {
 
       // 3. Vyčistíme offline frontu
       try {
-        const { clearQueue } = await import('../lib/offline');
         clearQueue();
       } catch {}
 

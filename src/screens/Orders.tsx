@@ -3431,7 +3431,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                 Převzato{order.delivered_at ? ` ${new Date(order.delivered_at).toLocaleString('cs-CZ')}` : ''}
                 {order.signature_name ? ` · ${order.signature_name}` : ''}
               </div>
-              <img src={order.signature_url} alt="Podpis převzetí" className="max-h-24" />
+              <img src={order.signature_url} alt="Podpis převzetí" loading="lazy" decoding="async" className="max-h-24" />
             </div>
           )}
 
@@ -3778,7 +3778,7 @@ function WhatsAppOriginalBlock({ messageId }: { messageId: string }) {
               )}
               {msg.media_url && (
                 <a href={msg.media_url} target="_blank" rel="noreferrer" className="inline-block">
-                  <img src={msg.media_url} alt="Příloha WhatsApp objednávky" className="max-h-44 rounded-xl border border-neutral-200" />
+                  <img src={msg.media_url} alt="Příloha WhatsApp objednávky" loading="lazy" decoding="async" className="max-h-44 rounded-xl border border-neutral-200" />
                 </a>
               )}
             </>

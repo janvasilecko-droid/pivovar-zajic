@@ -236,7 +236,7 @@ export default function Feedback({ setPage, initialSubTab }: { setPage?: (p: any
                                 }}
                                 title="Kliknutím otevřete v plné velikosti"
                               >
-                                <img src={match[1]} alt="Příloha" className="object-contain max-h-48 w-full" />
+                                <img src={match[1]} alt="Příloha" loading="lazy" decoding="async" className="object-contain max-h-48 w-full" />
                               </div>
                             )}
                           </>

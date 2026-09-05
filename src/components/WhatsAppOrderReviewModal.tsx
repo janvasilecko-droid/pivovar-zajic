@@ -690,6 +690,8 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                         <img
                           src={amendOriginalMsg.media_url}
                           alt="Původní objednávka — příloha"
+                          loading="lazy"
+                          decoding="async"
                           className="max-h-40 rounded border border-violet-200"
                         />
                       </a>

@@ -155,6 +155,11 @@ export function FotkyZaznamu({ typ, zaznamId, kompaktni = false }: {
                 <img
                   src={f.url}
                   alt={f.popis ?? 'Fotka k zápisu'}
+                  // Náhledy se stahují ze storage. `lazy` je tu kvůli
+                  // mobilním datům: u záznamu s deseti fotkami se jinak
+                  // stáhne všech deset, i když je vidět první řádek.
+                  loading="lazy"
+                  decoding="async"
                   onClick={() => setZvetsena(f.url)}
                   className="w-20 h-20 object-cover rounded-xl border border-neutral-300 cursor-zoom-in"
                 />

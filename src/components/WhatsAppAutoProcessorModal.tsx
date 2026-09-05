@@ -564,6 +564,8 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
                           <img
                             src={message.media_url}
                             alt="Příloha"
+                            loading="lazy"
+                            decoding="async"
                             className="h-16 w-16 object-cover rounded border"
                             onClick={(e) => e.stopPropagation()}
                           />

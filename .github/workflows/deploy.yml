@@ -112,6 +112,14 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
+      # Velikost toho, co se stahuje při STARTU aplikace (vstupní skript +
+      # modulepreload z dist/index.html), v gzipu. Chytá případ, kdy se do
+      # hlavního kusu omylem dostane knihovna, která tam nepatří — přesně
+      # tak se do startu dostalo 537 kB grafů a půl roku si toho nikdo
+      # nevšiml, protože build projde a aplikace funguje, jen se načítá déle.
+      - name: Kontrola velikosti startu
+        run: npm run zkontroluj-velikost
+
       # Commitnout zvýšenou verzi zpět do repozitáře PŘED deployem — i když
       # Cloudflare deploy selže, GitHub má vždy nejnovější verzi (a APK job
       # checkoutuje post-bump commit, takže APK nese stejné číslo jako web).

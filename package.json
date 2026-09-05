@@ -14,6 +14,7 @@
     "zkontroluj-kontrast": "node scripts/zkontroluj-kontrast.mjs",
     "zkontroluj-workflow": "node scripts/zkontroluj-workflow.mjs",
     "zkontroluj-tlacitka": "node scripts/zkontroluj-tlacitka.mjs",
+    "zkontroluj-velikost": "node scripts/zkontroluj-velikost.mjs",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
     "test:watch": "vitest --watch"
