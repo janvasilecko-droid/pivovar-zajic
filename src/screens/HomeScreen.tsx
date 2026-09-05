@@ -49,8 +49,9 @@ import {
 import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
 import { vyhodnotGesto, rychlostPosunu } from '../lib/gestaPlochy';
 import { maSeZobrazit, oznacZobrazenou } from '../lib/napovedy';
-import { queueLength, onQueueChange } from '../lib/offline';
+import { queueLength, onQueueChange, syncQueue, isOnline } from '../lib/offline';
 import { litry, litryJakoHl, kusy } from '../lib/cisla';
+import { dnuOdZalohy, isWeeklyBackupDue } from '../lib/backup';
 import { souhrnDne, type SouhrnDne } from '../lib/souhrnDne';
 import { buildMovements } from '../lib/stockLedger';
 import { isMonthlyCleanupPending, MONTHLY_CLEANUP_CHANGED_EVENT } from '../lib/monthlyCleanup';
@@ -726,6 +727,22 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     setPage(id as Page);
   }
 
+  // ☁️ Odeslat čekající offline frontu hned, ne až se appka sama chytne
+  // signálu. Bez signálu nemá cenu to zkoušet — rovnou to řekni.
+  async function odesliFrontuTed() {
+    if (!isOnline()) { oznam('📵 Nejsi online — zápisy se odešlou samy, až bude signál.'); return; }
+    oznam('Odesílám čekající zápisy…');
+    try {
+      const r = await syncQueue();
+      setFrontaCeka(queueLength());
+      if (r.failed > 0) oznam(`Odesláno ${r.ok}, ${r.failed} se nepovedlo (zůstává ${r.remaining}). Zkus to prosím znovu.`);
+      else if (r.ok > 0) oznam(`✅ Odesláno ${r.ok} zápisů.`);
+      else oznam('Fronta je prázdná.');
+    } catch {
+      oznam('Odeslání se nepovedlo — zkus to prosím znovu.');
+    }
+  }
+
   // Modály pro rychlé poznámky a denní checklist
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [showChecklistModal, setShowChecklistModal] = useState(false);
@@ -1149,8 +1166,16 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   }, []);
 
   // 💾 Zálohu si admin stahuje z běžné dlaždice „Stáhnout zálohu" (NAV
-  // 'zaloha' → Uživatelé, kde jsou tlačítka zálohy nahoře). Dřív tu byl
-  // podmíněný štítek „záloha chybí"; teď je to trvalá dlaždice na ploše.
+  // 'zaloha' → Uživatelé, kde jsou tlačítka zálohy nahoře). Když se dlouho
+  // nestahovala, ukáže se na té dlaždici odznak s počtem dní — tichá
+  // pojistka, ať se nezapomene (jen pro admina, jen ten může zálohovat).
+  const [zalohaDnu, setZalohaDnu] = useState<number | null>(null);
+  const [zalohaChybi, setZalohaChybi] = useState(false);
+  useEffect(() => {
+    if (!isAdmin) { setZalohaChybi(false); return; }
+    setZalohaDnu(dnuOdZalohy());
+    setZalohaChybi(isWeeklyBackupDue());
+  }, [isAdmin]);
 
   // Offline fronta — kolik zápisů čeká na odeslání do cloudu. Zápisy bez
   // signálu se ukládají do prohlížeče a odešlou se samy, jen to dosud nikde
@@ -1666,13 +1691,13 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                 <button
                   type="button"
                   className="hs-tile hs-tile-warn vlastni-vyska"
-                  onClick={() => setPage('app_settings')}
-                  title={`${frontaCeka} zápisů čeká na odeslání do cloudu. Odešlou se samy, jakmile bude signál — v Nastavení jdou odeslat ručně.`}
+                  onClick={odesliFrontuTed}
+                  title={`${frontaCeka} zápisů čeká na odeslání do cloudu. Klepni pro okamžité odeslání (jinak se odešlou samy, jakmile bude signál).`}
                 >
                   <div className="hs-tile-icon-box">
                     <CloudUpload />
                   </div>
-                  <div className="hs-lbl">Čeká na odeslání</div>
+                  <div className="hs-lbl">Odeslat teď</div>
                   <span className="hs-badge">{frontaCeka > 99 ? '99+' : frontaCeka}</span>
                 </button>
               )}
@@ -1768,6 +1793,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               : (id === 'timer' || id === 'stopwatch') && runningTimers.length > 1 ? `⏱️ ${runningTimers.length} běží (${formatDurationMs(countdownRemainingMs(shortestRunning!))})`
               : id === 'radio' && radioState.playing ? `📻 ${RADIO_STATIONS.find((s) => s.id === radioState.stationId)?.name || 'Hraje'}`
               : id === 'keg_timer' && kegLastDuration ? kegLastDuration
+              : id === 'zaloha' && zalohaChybi ? (zalohaDnu === null ? '⚠ nikdy' : `⚠ ${zalohaDnu} dní`)
               : undefined;
 
             let customContent: React.ReactNode = undefined;

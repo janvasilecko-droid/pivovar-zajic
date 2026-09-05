@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
-import { Inbox, X, type LucideIcon } from 'lucide-react';
+import { Inbox, X, AlertTriangle, type LucideIcon } from 'lucide-react';
 import { plnostTanku, popisPlnosti } from '../lib/tankPlnost';
 import { litry } from '../lib/cisla';
 
@@ -25,32 +25,42 @@ export function Spinner({ className = '' }: { className?: string }) {
  * řetězec. Řetězec zůstává schválně: dokud se všech 39 volání nepřevede,
  * musí obojí fungovat vedle sebe — a párkrát se hodí napsat rovnou znak.
  */
-export function EmptyState({ text, icon = Inbox, akce }: {
+export function EmptyState({ text, icon, akce, varianta = 'prazdno' }: {
   text: string;
   icon?: string | LucideIcon;
   /**
    * Co se dá udělat, když je prázdno. Prázdná obrazovka bez tlačítka nechává
    * člověka hádat, kde se zapisuje — nový člověk v pivovaru se to jinak učí
    * od někoho, kdo má práci. Nepovinné: kde není zřejmá jedna akce, je lepší
-   * nenabízet žádnou než špatnou.
+   * nenabízet žádnou než špatnou. U chyby to bývá „Zkusit znovu".
    */
   akce?: { popis: string; onClick: () => void };
+  /**
+   * `prazdno` = fakt tu nic není (nemá se nic dělat). `chyba` = načtení
+   * selhalo (dá se zkusit znovu). Dřív obojí vypadalo stejně, takže
+   * „nemáš objednávky" a „nepodařilo se je načíst" nešlo rozeznat — u prvního
+   * se nemá dělat nic, u druhého zkusit znovu.
+   */
+  varianta?: 'prazdno' | 'chyba';
 }) {
+  const jeChyba = varianta === 'chyba';
+  // Výchozí ikona podle varianty: prázdno = schránka, chyba = vykřičník.
+  const skutecnaIkona = icon ?? (jeChyba ? AlertTriangle : Inbox);
   // Dvě proměnné, ne jedna: TypeScript pak ví, že ve větvi bez ikony
   // zbývá řetězec, a nesnaží se vykreslit komponentu jako text.
-  const Ikona = typeof icon === 'string' ? null : icon;
-  const znak = typeof icon === 'string' ? icon : null;
+  const Ikona = typeof skutecnaIkona === 'string' ? null : skutecnaIkona;
+  const znak = typeof skutecnaIkona === 'string' ? skutecnaIkona : null;
   return (
-    <div className="card p-10 text-center animate-fade-in border-dashed border-2 border-neutral-200 bg-neutral-50/50">
-      <div className="w-14 h-14 mx-auto mb-3.5 rounded bg-white shadow-sm border border-neutral-200/80 grid place-items-center text-3xl text-neutral-500">
+    <div className={`card p-10 text-center animate-fade-in border-dashed border-2 ${jeChyba ? 'border-rose-300 bg-rose-50/60' : 'border-neutral-200 bg-neutral-50/50'}`}>
+      <div className={`w-14 h-14 mx-auto mb-3.5 rounded bg-white shadow-sm border grid place-items-center text-3xl ${jeChyba ? 'border-rose-200 text-rose-500' : 'border-neutral-200/80 text-neutral-500'}`}>
         {Ikona ? <Ikona size={26} /> : znak}
       </div>
-      <p className="text-neutral-600 text-sm font-medium">{text}</p>
+      <p className={`text-sm font-medium ${jeChyba ? 'text-rose-800' : 'text-neutral-600'}`}>{text}</p>
       {akce && (
         <button
           type="button"
           onClick={akce.onClick}
-          className="mt-3.5 px-4 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md transition"
+          className={`mt-3.5 px-4 py-2.5 rounded font-black text-xs shadow-md transition ${jeChyba ? 'bg-rose-600 hover:bg-rose-500 text-white' : 'bg-amber-500 hover:bg-amber-400 text-neutral-950'}`}
         >
           {akce.popis}
         </button>
