@@ -54,7 +54,7 @@ Vyloučeno na přání: **#11, #14, #16, #22.**
 
 ## F. Prodejna a fasování
 29. 🔨 „Prodej jako minule" na klik.
-30. 🔨 Denní/týdenní souhrn prodejny.
+30. ✅ Denní/týdenní souhrn prodejny — hotovo (Dnes/Týden/Měsíc + nejprodávanější).
 31. 🔨 🗄️ Fasování personálu s limitem.
 
 ## G. Materiál

@@ -12,7 +12,7 @@ import type { TapReservation } from './VycepyScreen';
 import { BeerTileGrid, BeerTilePanel, TileTotalBar } from '../components/BeerTileGrid';
 import { chyba, potvrd, toastZpet } from '../lib/toast';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
-import { zavibruj } from '../lib/haptika';
+import { zavibruj } from '../lib/haptika';
 import { klicVyberu, nactiNaposled, zapamatujVyber, serazPodleNaposled } from '../lib/naposledyPouzite';
 import { FotkyZaznamu } from '../components/FotkyZaznamu';
 
@@ -687,11 +687,46 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
               });
               const totalCount = sortedRows.reduce((s, r) => s + Number(r.quantity), 0);
 
+              // 📊 Rychlý souhrn: kolik kusů dnes / tento týden (z VŠECH záznamů,
+              // ne jen z filtru měsíce) a co se ve zvoleném období prodalo nejvíc.
+              // Dřív šlo z přehledu vyčíst jen měsíční součet a jednotlivé řádky.
+              const dnesISO = new Date().toISOString().slice(0, 10);
+              const tydenNyni = isoWeekKey(dnesISO);
+              const soucet = (pred: (r: EntryRow) => boolean) =>
+                rows.filter(pred).reduce((s, r) => s + Number(r.quantity || 0), 0);
+              const dnesKs = soucet((r) => r.entry_date === dnesISO);
+              const tydenKs = soucet((r) => !!r.entry_date && isoWeekKey(r.entry_date) === tydenNyni);
+              const podlerPiva = new Map<string, number>();
+              sortedRows.forEach((r) => {
+                const k = r.beer_name ?? beers.find((b) => b.id === r.beer_id)?.name ?? '—';
+                podlerPiva.set(k, (podlerPiva.get(k) || 0) + Number(r.quantity || 0));
+              });
+              const nejvic = [...podlerPiva.entries()].sort((a, b) => b[1] - a[1])[0];
+
               return (
                 <div className="card p-4 border-2 border-amber-300/80 bg-white">
                   <h3 className="font-display font-black text-amber-950 text-sm mb-3">
-                    <ClipboardList className="ikona-text" /> Přehled fasování
+                    <ClipboardList className="ikona-text" /> Přehled výdeje
                   </h3>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    <div className="flex-1 min-w-[70px] rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-2 text-center">
+                      <div className="text-[10px] font-black uppercase tracking-wide text-amber-700">Dnes</div>
+                      <div className="font-mono font-black text-lg text-amber-950 tabular-nums">{dnesKs}</div>
+                    </div>
+                    <div className="flex-1 min-w-[70px] rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-2 text-center">
+                      <div className="text-[10px] font-black uppercase tracking-wide text-amber-700">Tento týden</div>
+                      <div className="font-mono font-black text-lg text-amber-950 tabular-nums">{tydenKs}</div>
+                    </div>
+                    <div className="flex-1 min-w-[70px] rounded-lg bg-amber-100 border border-amber-300 px-2.5 py-2 text-center">
+                      <div className="text-[10px] font-black uppercase tracking-wide text-amber-800">Zvolený měsíc</div>
+                      <div className="font-mono font-black text-lg text-amber-950 tabular-nums">{totalCount}</div>
+                    </div>
+                  </div>
+                  {nejvic && (
+                    <div className="text-[11px] font-bold text-amber-800 mb-3">
+                      Nejvíc ve zvoleném období: <span className="font-black text-amber-950">{nejvic[0]} — {nejvic[1]} ks</span>
+                    </div>
+                  )}
                   <ul className="md:hidden space-y-2">
                     {sortedRows.map((r) => {
                       const beer = beers.find((b) => b.id === r.beer_id);
