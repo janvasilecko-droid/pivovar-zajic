@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
 import { Beer, Package, Place, fetchAllRows, formatPackageLabel, supabase, useRealtime } from '../lib/supabase';
 import { Spinner, EmptyState, Modal } from '../components/ui';
 import { orderWeightKg, fmtKg } from '../lib/weight';
@@ -7,7 +7,6 @@ import { AlertTriangle, ArrowRightCircle, ArrowRightLeft, BarChart3, Bird, Calen
 import { shareDeliveryListToWhatsApp } from '../lib/whatsapp';
 import { exportZavozToExcel } from '../lib/excel';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
-import { EditOrderModal } from '../components/EditOrderModal';
 import { getSecondCarOrderIds, toggleOrderKachna, toggleOrdersKachna, migrateSecondCarDatesToOrders } from '../lib/zavozSecondCar';
 import { PodpisModal } from '../components/PodpisModal';
 import { KegReturnModal } from '../components/KegReturnModal';
@@ -21,6 +20,9 @@ import { UkolyObjednavky, UkolyDne } from '../components/ZavozUkoly';
 import { nactiHotoveUkoly, nastavUkolHotovo, klicUkolu } from '../lib/zavozUkolyDb';
 import type { UkolKlic } from '../lib/zavozUkoly';
 import { IkonaSud } from '../components/ikony';
+
+// Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
+const EditOrderModal = lazy(() => import('../components/EditOrderModal').then((m) => ({ default: m.EditOrderModal })));
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -1160,6 +1162,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
         </>
 
       {editOrder && (
+        <Suspense fallback={null}>
         <EditOrderModal
           order={editOrder as any}
           items={items[editOrder.id] ?? []}
@@ -1170,6 +1173,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
           onSaved={() => { setEditOrder(null); load(); }}
           onPlacesChanged={load}
         />
+        </Suspense>
       )}
 
       {moveDay && (

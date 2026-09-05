@@ -1,5 +1,5 @@
 import { synchronizuj } from '../lib/checklistData';
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef, lazy, Suspense } from 'react';
 import { supabase, Beer, Package, EntryRow, CellarTank, KegPrefuk, useRealtime, beerBg, beerText, beerName, pkgBg, pkgText, formatPackageLabel, fetchAllRows } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { KeggingChecklistModal, KeggingChecklistBody, isStartChecklistCompleteForKeg, isMonthlyChecklistCompleteForKeg } from '../components/KeggingChecklistModal';
@@ -17,7 +17,6 @@ import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
 import { markPlanSeenAt, type BottlingPlan } from '../lib/bottlingPlans';
 import KeggingDayPlan from '../components/KeggingDayPlan';
 import { AlertTriangle, BarChart3, Beer as BeerIcon, Brush, Calendar, CalendarDays, Camera, Check, ClipboardList, Copy, Cylinder, Loader2, Minus, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Scroll, Sparkles, Trash2, X } from 'lucide-react';
-import { ImportKeggingFromImage } from '../components/ImportKeggingFromImage';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { chyba, potvrd, toastZpet } from '../lib/toast';
 import { nejvetsiTank, radkyBezTanku, tankRadku, tankyProPivo } from '../lib/tankUZapisu';
@@ -27,6 +26,9 @@ import { zavibruj } from '../lib/haptika';
 import { consumeKegFixRequest } from '../lib/stockFixSignal';
 import { klicVyberu, nactiNaposled, zapamatujVyber, serazPodleNaposled } from '../lib/naposledyPouzite';
 import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
+
+// Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
+const ImportKeggingFromImage = lazy(() => import('../components/ImportKeggingFromImage').then((m) => ({ default: m.ImportKeggingFromImage })));
 
 
 const ROW_COUNT = 12;
@@ -2099,6 +2101,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
         </Modal>
       )}
       {showImageImport && (
+        <Suspense fallback={null}>
         <ImportKeggingFromImage
           isOpen={showImageImport}
           onClose={() => setShowImageImport(false)}
@@ -2106,6 +2109,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
           packages={packages}
           onImport={handleApplyPhotoRows}
         />
+        </Suspense>
       )}
       <KeggingChecklistModal
         isOpen={showChecklistModal}

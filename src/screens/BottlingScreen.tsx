@@ -1,9 +1,8 @@
 import { BottlingChecklistModal, DEFAULT_ITEMS, isStartChecklistCompleteForDate, isMonthlyChecklistCompleteForDate, MONTHLY_CATEGORY } from '../components/BottlingChecklistModal';
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef, lazy, Suspense } from 'react';
 import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, beerText, formatPackageLabel, fetchAllRows } from '../lib/supabase';
 import { EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
-import { ImportBottlingFromImage } from '../components/ImportBottlingFromImage';
 import { AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Brush, Calendar, CalendarDays, Camera, Check, CheckCircle2, ClipboardList, Copy, Lightbulb, ListChecks, Megaphone, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Sparkles, Trash2, Wine, X } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { BottlingPlan, getPlanSeenAt, markPlanSeenAt, isPlanUnseen, isBottlingManager, setPlanStatus } from '../lib/bottlingPlans';
@@ -29,6 +28,9 @@ import { IkonaLahev, IkonaSud } from '../components/ikony';
 import { consumeBottlingFixRequest } from '../lib/stockFixSignal';
 import { klicVyberu, nactiNaposled, zapamatujVyber, serazPodleNaposled } from '../lib/naposledyPouzite';
 import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
+
+// Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
+const ImportBottlingFromImage = lazy(() => import('../components/ImportBottlingFromImage').then((m) => ({ default: m.ImportBottlingFromImage })));
 
 
 const ROW_COUNT = 12;
@@ -2098,6 +2100,7 @@ export default function BottlingScreen({
         showSkip={isManager}
       />
       {showImageImport && (
+        <Suspense fallback={null}>
         
       <ImportBottlingFromImage
           isOpen={showImageImport}
@@ -2106,6 +2109,7 @@ export default function BottlingScreen({
           packages={packages}
           onImport={handleApplyPhotoRows}
         />
+        </Suspense>
       )}
       {editingRow && (
         <Modal open={true} onClose={() => setEditingRow(null)} title="Upravit záznam stáčení lahví">

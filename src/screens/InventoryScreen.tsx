@@ -1,11 +1,10 @@
-import { Fragment, useState, useEffect, useMemo, useRef } from 'react';
+import { Fragment, useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 
 
 import { Beer, beerBg, beerInk, beerName, beerText, fetchAllRows, formatPackageLabel, Package, supabase, useRealtime } from '../lib/supabase';
 import { Kostra, Spinner } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { AlertCircle, AlertTriangle, Beer as BeerIcon, Calendar, CalendarRange, Camera, ClipboardCheck, ClipboardList, Download, Check, Lock, MinusCircle, Package as PackageIcon, Plus, RefreshCw, RotateCcw, Save, Search, ShieldCheck } from 'lucide-react';
-import { CountFromImage } from '../components/CountFromImage';
 import HloubkovyAuditPanel from '../components/HloubkovyAuditPanel';
 import TydenniInventuraPanel from '../components/TydenniInventuraPanel';
 import { computeInventoryReconciliation } from '../lib/inventoryHelper';
@@ -25,6 +24,9 @@ import { chyba, oznam, potvrd, toastZpet, uspech } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
 import { usePosledniNacteni } from '../lib/nacitani';
 import { IkonaSud } from '../components/ikony';
+
+// Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
+const CountFromImage = lazy(() => import('../components/CountFromImage').then((m) => ({ default: m.CountFromImage })));
 
 type InitialStockMap = Record<string, number>; // key: `${beer_id}__${package_id}`, val: qty
 
@@ -2581,6 +2583,7 @@ function exportInventoryExcel() {
 
 
       {showPhotoCounter && (
+        <Suspense fallback={null}>
         <CountFromImage
           beers={beers}
           packages={packages}
@@ -2595,6 +2598,7 @@ function exportInventoryExcel() {
           }}
           table="inventory"
         />
+        </Suspense>
       )}
     </div>
   );
