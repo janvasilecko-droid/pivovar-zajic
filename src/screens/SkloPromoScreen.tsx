@@ -494,7 +494,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
           <Tag size={16} />
           <span>Sledování etiket piva</span>
           {lowLabelsCount > 0 && (
-            <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white font-mono text-[11px]">
+            <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white font-mono text-udaj">
               <AlertTriangle className="ikona-text" /> {lowLabelsCount}
             </span>
           )}
@@ -511,7 +511,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
           <Boxes size={16} />
           <span>Sledování prázdných lahví (1.5L / 1L / 0.5L / 0.33L + Víčka)</span>
           {lowBottlesCount > 0 && (
-            <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white font-mono text-[11px]">
+            <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white font-mono text-udaj">
               <AlertTriangle className="ikona-text" /> {lowBottlesCount}
             </span>
           )}
@@ -661,14 +661,14 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
           {/* Zásoby karta Sklo */}
           <div className="space-y-4">
             <h2 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-              <Boxes className="text-amber-600" size={20} />
+              <Boxes className="text-amber-600" size={18} />
               <span>Aktuální zásoby skla a promo předmětů na skladě</span>
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {stockSummary.slice(0, 8).map((item) => (
                 <div key={item.name} className={`p-4 rounded border-2 shadow-xs space-y-1 ${item.balance > 0 ? 'bg-white border-neutral-200' : 'bg-rose-50 border-rose-200'}`}>
-                  <span className="text-[11px] font-black uppercase tracking-wider text-neutral-500 block truncate">{item.name}</span>
+                  <span className="text-udaj font-black uppercase tracking-wider text-neutral-500 block truncate">{item.name}</span>
                   <div className="flex items-baseline justify-between">
                     <span className={`font-display font-black text-2xl ${item.balance > 0 ? 'text-neutral-950' : 'text-rose-600'}`}>
                       {item.balance.toLocaleString('cs-CZ')} ks
@@ -703,7 +703,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <div className="font-black text-sm text-neutral-950 truncate">{e.item_name}</div>
-                        <div className="text-[11px] font-bold text-neutral-600">
+                        <div className="text-udaj font-bold text-neutral-600">
                           {new Date(e.entry_date).toLocaleDateString('cs-CZ')}
                           {e.destination ? ` · ${e.destination}` : ''}
                         </div>
@@ -714,16 +714,16 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                           onClick={() => handleDeletePromo(e.id)}
                           aria-label={`Smazat pohyb ${e.item_name}`}
                           className="text-rose-600 hover:text-rose-800 p-1 tap"
-                        ><Trash2 size={15} /></button>
+                        ><Trash2 size={16} /></button>
                       </div>
                     </div>
                     <div className="mt-2 flex items-center gap-2 flex-wrap">
                       {e.entry_type === 'in' ? (
-                        <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 text-[11px] font-bold"><Download className="ikona-text" /> PŘÍJEM</span>
+                        <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 text-udaj font-bold"><Download className="ikona-text" /> PŘÍJEM</span>
                       ) : (
-                        <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-950 text-[11px] font-bold"><Upload className="ikona-text" /> VÝDEJ</span>
+                        <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-950 text-udaj font-bold"><Upload className="ikona-text" /> VÝDEJ</span>
                       )}
-                      {e.note && <span className="text-[11px] text-neutral-600">{e.note}</span>}
+                      {e.note && <span className="text-udaj text-neutral-600">{e.note}</span>}
                     </div>
                   </div>
                 ))}
@@ -744,20 +744,20 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                   <tbody>
                     {filteredEntries.map((e) => (
                       <tr key={e.id}>
-                        <td className="font-bold text-[11px]">{new Date(e.entry_date).toLocaleDateString('cs-CZ')}</td>
+                        <td className="font-bold text-udaj">{new Date(e.entry_date).toLocaleDateString('cs-CZ')}</td>
                         <td>
                           {e.entry_type === 'in' ? (
-                            <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 text-[11px] font-bold"><Download className="ikona-text" /> PŘÍJEM</span>
+                            <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 text-udaj font-bold"><Download className="ikona-text" /> PŘÍJEM</span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-950 text-[11px] font-bold"><Upload className="ikona-text" /> VÝDEJ</span>
+                            <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-950 text-udaj font-bold"><Upload className="ikona-text" /> VÝDEJ</span>
                           )}
                         </td>
-                        <td className="font-black text-[11px]">{e.item_name}</td>
-                        <td className="text-right font-mono font-black text-[11px]">{e.quantity} ks</td>
-                        <td className="font-bold text-[11px]">{e.destination || '—'}</td>
-                        <td className="text-[11px] text-neutral-600">{e.note || '—'}</td>
+                        <td className="font-black text-udaj">{e.item_name}</td>
+                        <td className="text-right font-mono font-black text-udaj">{e.quantity} ks</td>
+                        <td className="font-bold text-udaj">{e.destination || '—'}</td>
+                        <td className="text-udaj text-neutral-600">{e.note || '—'}</td>
                         <td>
-                          <button onClick={() => handleDeletePromo(e.id)} className="text-rose-600 hover:text-rose-800 p-1 tap"><Trash2 size={15} /></button>
+                          <button onClick={() => handleDeletePromo(e.id)} className="text-rose-600 hover:text-rose-800 p-1 tap"><Trash2 size={16} /></button>
                         </td>
                       </tr>
                     ))}
@@ -797,7 +797,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
           {/* Form: Nákup etiket */}
           <div className="card p-6 bg-white border-2 border-amber-200 rounded shadow-sm space-y-4">
             <h3 className="font-display font-black text-lg text-amber-950 flex items-center gap-2">
-              <Tag className="text-amber-600" size={20} />
+              <Tag className="text-amber-600" size={18} />
               <span><Tag className="ikona-text" /> Zadání nákupu / příjmu etiket na sklad</span>
             </h3>
 
@@ -843,12 +843,12 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                   <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
                     <span className="font-display font-black text-base text-neutral-950">{l.beer_name}</span>
                     {l.isLow ? (
-                      <span className="px-2.5 py-0.5 rounded-full bg-rose-600 text-white font-mono font-black text-[11px] animate-pulse">
+                      <span className="px-2.5 py-0.5 rounded-full bg-rose-600 text-white font-mono font-black text-udaj animate-pulse">
                         <AlertTriangle className="ikona-text" /> POZOR {'<'} {LABELS_LOW_STOCK_THRESHOLD} KS!
 
                       </span>
                     ) : (
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 font-bold text-[11px]">
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 font-bold text-udaj">
                         <Check className="ikona-text" /> DOSTATEK
                       </span>
                     )}
@@ -856,15 +856,15 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
 
                   <div className="grid grid-cols-3 gap-1 text-center font-mono">
                     <div className="p-2 rounded bg-neutral-100">
-                      <div className="text-[11px] font-bold text-neutral-500 uppercase">Nakoupeno</div>
+                      <div className="text-udaj font-bold text-neutral-500 uppercase">Nakoupeno</div>
                       <div className="text-sm font-black text-neutral-900">+{l.inLabels}</div>
                     </div>
                     <div className="p-2 rounded bg-neutral-100">
-                      <div className="text-[11px] font-bold text-neutral-500 uppercase">Stočeno</div>
+                      <div className="text-udaj font-bold text-neutral-500 uppercase">Stočeno</div>
                       <div className="text-sm font-black text-neutral-900">−{l.usedLabels}</div>
                     </div>
                     <div className={`p-2 rounded ${l.isLow ? 'bg-rose-600 text-white' : 'bg-amber-500 text-neutral-950'}`}>
-                      <div className="text-[11px] font-bold uppercase">Zbývá</div>
+                      <div className="text-udaj font-bold uppercase">Zbývá</div>
                       <div className="text-sm font-black">{l.balance} ks</div>
                     </div>
                   </div>
@@ -893,11 +893,11 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                 <tbody>
                   {labelPurchases.map((lp) => (
                     <tr key={lp.id}>
-                      <td className="font-bold text-[11px]">{new Date(lp.entry_date).toLocaleDateString('cs-CZ')}</td>
-                      <td className="font-black text-[11px]">{lp.beer_name}</td>
-                      <td className="text-right font-mono font-black text-[11px] text-emerald-700">+{lp.quantity} ks</td>
-                      <td className="text-[11px] text-neutral-600">{lp.note || '—'}</td>
-                      <td className="text-right"><button onClick={() => handleDeleteLabelPurchase(lp.id)} className="text-rose-600 hover:text-rose-800 p-1 tap"><Trash2 size={15} /></button></td>
+                      <td className="font-bold text-udaj">{new Date(lp.entry_date).toLocaleDateString('cs-CZ')}</td>
+                      <td className="font-black text-udaj">{lp.beer_name}</td>
+                      <td className="text-right font-mono font-black text-udaj text-emerald-700">+{lp.quantity} ks</td>
+                      <td className="text-udaj text-neutral-600">{lp.note || '—'}</td>
+                      <td className="text-right"><button onClick={() => handleDeleteLabelPurchase(lp.id)} className="text-rose-600 hover:text-rose-800 p-1 tap"><Trash2 size={16} /></button></td>
                     </tr>
                   ))}
                 </tbody>
@@ -950,36 +950,36 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                     <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
                       <span className="font-display font-black text-base text-neutral-950">{z.nazev}</span>
                       {z.malo ? (
-                        <span className="px-2.5 py-0.5 rounded-full bg-rose-600 text-white font-bold text-[11px]">
+                        <span className="px-2.5 py-0.5 rounded-full bg-rose-600 text-white font-bold text-udaj">
                           <AlertTriangle className="ikona-text" /> NEZBÝVÁ NA STÁČENÍ
                         </span>
                       ) : z.bezEvidence ? (
-                        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold text-[11px]">
+                        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold text-udaj">
                           NENÍ ZAPSANÝ NÁKUP
                         </span>
                       ) : (
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 font-bold text-[11px]">
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 font-bold text-udaj">
                           <Check className="ikona-text" /> SKLADEM
                         </span>
                       )}
                     </div>
                     <div className="grid grid-cols-3 gap-1 text-center font-mono">
                       <div className="p-2 rounded bg-neutral-100">
-                        <div className="text-[11px] font-bold text-neutral-500 uppercase">Nakoupeno</div>
+                        <div className="text-udaj font-bold text-neutral-500 uppercase">Nakoupeno</div>
                         <div className="text-sm font-black text-neutral-900">+{z.nakoupeno}</div>
                       </div>
                       <div className="p-2 rounded bg-neutral-100">
-                        <div className="text-[11px] font-bold text-neutral-500 uppercase">Zavřeno lahví</div>
+                        <div className="text-udaj font-bold text-neutral-500 uppercase">Zavřeno lahví</div>
                         <div className="text-sm font-black text-neutral-900">−{z.spotrebovano}</div>
                       </div>
                       <div className={`p-2 rounded ${z.malo ? 'bg-rose-100 text-rose-800' : 'bg-emerald-50 text-emerald-800'}`}>
-                        <div className="text-[11px] font-bold uppercase">Zbývá</div>
+                        <div className="text-udaj font-bold uppercase">Zbývá</div>
                         <div className="text-sm font-black">{kusy(z.zustatek)}</div>
                       </div>
                     </div>
                     {/* Hranice „málo" není pevné číslo — u petek je 200 kusů pár
                         minut a u třicítek zásoba na měsíc. */}
-                    <p className="text-[11px] font-semibold text-neutral-600">
+                    <p className="text-udaj font-semibold text-neutral-600">
                       {z.bezEvidence
                         ? 'Spotřeba se počítá, nákup ale zapsaný není — zůstatek proto nic neříká.'
                         : z.naJednoStaceni === null
@@ -995,7 +995,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
           {/* Form: Nákup prázdných lahví */}
           <div className="card p-6 bg-white border-2 border-emerald-200 rounded shadow-sm space-y-4">
             <h3 className="font-display font-black text-lg text-emerald-950 flex items-center gap-2">
-              <Boxes className="text-emerald-600" size={20} />
+              <Boxes className="text-emerald-600" size={18} />
               <span><IkonaLahev className="ikona-text" /> Zadání nákupu / příjmu lahví a závěrek na sklad</span>
             </h3>
 
@@ -1041,12 +1041,12 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                   <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
                     <span className="font-display font-black text-base text-neutral-950">{b.package_label}</span>
                     {b.isLow ? (
-                      <span className="px-2.5 py-0.5 rounded-full bg-rose-600 text-white font-mono font-black text-[11px] animate-pulse">
+                      <span className="px-2.5 py-0.5 rounded-full bg-rose-600 text-white font-mono font-black text-udaj animate-pulse">
                         <AlertTriangle className="ikona-text" /> POZOR {'<'} 200 KS!
 
                       </span>
                     ) : (
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 font-bold text-[11px]">
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 font-bold text-udaj">
                         <Check className="ikona-text" /> SKLADEM
                       </span>
                     )}
@@ -1054,15 +1054,15 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
 
                   <div className="grid grid-cols-3 gap-1 text-center font-mono">
                     <div className="p-2 rounded bg-neutral-100">
-                      <div className="text-[11px] font-bold text-neutral-500 uppercase">Nakoupeno</div>
+                      <div className="text-udaj font-bold text-neutral-500 uppercase">Nakoupeno</div>
                       <div className="text-sm font-black text-neutral-900">+{b.inBottles}</div>
                     </div>
                     <div className="p-2 rounded bg-neutral-100">
-                      <div className="text-[11px] font-bold text-neutral-500 uppercase">Stočeno</div>
+                      <div className="text-udaj font-bold text-neutral-500 uppercase">Stočeno</div>
                       <div className="text-sm font-black text-neutral-900">−{b.usedBottles}</div>
                     </div>
                     <div className={`p-2 rounded ${b.isLow ? 'bg-rose-100 text-rose-800' : 'bg-emerald-50 text-emerald-800'}`}>
-                      <div className="text-[11px] font-bold uppercase">Zbývá</div>
+                      <div className="text-udaj font-bold uppercase">Zbývá</div>
                       <div className="text-sm font-black">{b.balance} ks</div>
                     </div>
                   </div>
@@ -1091,11 +1091,11 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                 <tbody>
                   {bottlePurchases.map((bp) => (
                     <tr key={bp.id}>
-                      <td className="font-bold text-[11px]">{new Date(bp.entry_date).toLocaleDateString('cs-CZ')}</td>
-                      <td className="font-black text-[11px]">{bp.package_label}</td>
-                      <td className="text-right font-mono font-black text-[11px] text-emerald-700">+{bp.quantity} ks</td>
-                      <td className="text-[11px] text-neutral-600">{bp.note || '—'}</td>
-                      <td className="text-right"><button onClick={() => handleDeleteBottlePurchase(bp.id)} className="text-rose-600 hover:text-rose-800 p-1 tap"><Trash2 size={15} /></button></td>
+                      <td className="font-bold text-udaj">{new Date(bp.entry_date).toLocaleDateString('cs-CZ')}</td>
+                      <td className="font-black text-udaj">{bp.package_label}</td>
+                      <td className="text-right font-mono font-black text-udaj text-emerald-700">+{bp.quantity} ks</td>
+                      <td className="text-udaj text-neutral-600">{bp.note || '—'}</td>
+                      <td className="text-right"><button onClick={() => handleDeleteBottlePurchase(bp.id)} className="text-rose-600 hover:text-rose-800 p-1 tap"><Trash2 size={16} /></button></td>
                     </tr>
                   ))}
                 </tbody>

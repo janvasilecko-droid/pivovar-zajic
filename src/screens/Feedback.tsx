@@ -213,11 +213,11 @@ export default function Feedback({ setPage, initialSubTab }: { setPage?: (p: any
                         <span className="text-lg leading-none mt-0.5"><cat.icon className="ikona-text" /></span>
                         <div className="flex-1 min-w-0">
                           <div className="font-semibold text-primary-900 break-words">{n.title}</div>
-                          <div className="text-[11px] text-primary-400 mt-0.5">
+                          <div className="text-udaj text-primary-400 mt-0.5">
                             {n.author_name ?? 'neznámý'} · {new Date(n.created_at).toLocaleDateString('cs-CZ')}
                           </div>
                         </div>
-                        <span className={`chip text-[11px] ${cat.chip}`}>{cat.label}</span>
+                        <span className={`chip text-udaj ${cat.chip}`}>{cat.label}</span>
                       </div>
                       {n.body && (() => {
                         const match = n.body.match(/\[FOTO\]:(data:image\/[a-zA-Z0-9+.-]+;base64,[a-zA-Z0-9\+\/=]+)/);

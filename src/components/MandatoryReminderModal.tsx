@@ -28,7 +28,7 @@ export function MandatoryReminderModal({ reminder, currentUserEmail, onDismiss }
             <Bell className="ikona-text" />
           </div>
           <div>
-            <div className="text-[11px] font-black uppercase text-amber-700 tracking-wider">
+            <div className="text-udaj font-black uppercase text-amber-700 tracking-wider">
               DŮLEŽITÁ UPOMÍNKA K ODKLIKNUTÍ
             </div>
             <h2 className="font-display font-black text-xl text-neutral-950 tracking-tight">
@@ -47,11 +47,11 @@ export function MandatoryReminderModal({ reminder, currentUserEmail, onDismiss }
 
           <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-amber-200/60 text-xs font-bold text-neutral-600">
             <span className="flex items-center gap-1.5 text-neutral-900">
-              <Clock size={15} className="text-amber-600" />
+              <Clock size={16} className="text-amber-600" />
               <span>Termín: <strong>{dtFormatted}</strong></span>
             </span>
             <span className="flex items-center gap-1.5 text-neutral-600">
-              <User size={15} className="text-amber-600" />
+              <User size={16} className="text-amber-600" />
               <span>Zadal: <strong>{reminder.created_by}</strong></span>
             </span>
           </div>
@@ -67,7 +67,7 @@ export function MandatoryReminderModal({ reminder, currentUserEmail, onDismiss }
             onClick={handleConfirm}
             className="w-full py-4 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-sm transition shadow-lg flex items-center justify-center gap-2 active:scale-[0.98] cursor-pointer"
           >
-            <CheckCircle2 size={20} />
+            <CheckCircle2 size={18} />
             <span>Rozumím, beru na vědomí (Odkliknout)</span>
           </button>
         </div>

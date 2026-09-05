@@ -426,12 +426,12 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                 className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-rose-100/60 transition"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <AlertTriangle size={20} className="text-rose-600 shrink-0" />
+                  <AlertTriangle size={18} className="text-rose-600 shrink-0" />
                   <div className="min-w-0">
                     <div className="font-display font-black text-rose-900 text-sm">
                       U {nesediRows.length} {nesediRows.length === 1 ? 'položky' : nesediRows.length < 5 ? 'položek' : 'položek'} nesedí evidence
                     </div>
-                    <div className="text-[11px] font-bold text-rose-700 mt-0.5">
+                    <div className="text-udaj font-bold text-rose-700 mt-0.5">
                       Vydalo se víc, než kolik aplikace ví, že se stočilo nebo napočítalo v inventuře. Sklad u nich ukazuje 0.
                     </div>
                   </div>
@@ -446,7 +446,7 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                         {r.beerName} <span className="text-neutral-500">{r.pkgLabel}</span>
                       </span>
                       <span className="flex items-center gap-3 shrink-0 font-mono font-bold text-neutral-600">
-                        <span className="hidden sm:inline text-[11px]">
+                        <span className="hidden sm:inline text-udaj">
                           {r.baselineDate ? `počátek ${r.baselineDate} = ${r.baselineQty}` : 'bez počátku'}
                         </span>
                         <span className="text-rose-700 font-black text-sm tabular-nums">{r.qty} ks</span>
@@ -454,7 +454,7 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                           <button
                             type="button"
                             onClick={() => { requestKegFix(r.beerId); setPage('kegging'); }}
-                            className="px-2 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white font-black text-[11px] shrink-0 tap"
+                            className="px-2 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white font-black text-udaj shrink-0 tap"
                             title="Otevřít Stáčení KEG s tímhle pivem rozbaleným, ať jde chybějící stočení rovnou doplnit"
                           >
                             + Doplnit stočení
@@ -463,7 +463,7 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                           <button
                             type="button"
                             onClick={() => { requestBottlingFix(r.beerId); setPage('bottling'); }}
-                            className="px-2 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white font-black text-[11px] shrink-0 tap"
+                            className="px-2 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white font-black text-udaj shrink-0 tap"
                             title="Otevřít Stáčení lahví s tímhle pivem rozbaleným, ať jde chybějící stočení rovnou doplnit"
                           >
                             + Doplnit stočení
@@ -472,7 +472,7 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                       </span>
                     </div>
                   ))}
-                  <div className="px-4 py-3 text-[11px] font-bold text-neutral-600 bg-rose-50/60">
+                  <div className="px-4 py-3 text-udaj font-bold text-neutral-600 bg-rose-50/60">
                     Nejčastější příčina: v inventuře se položka nenapočítala (chybí v seznamu), nebo se nezapsalo stáčení.
                     Srovná to fyzická inventura — ta stav nastaví napevno a počítá se od ní dál.
                   </div>
@@ -484,15 +484,15 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
           {/* Top summary stats */}
           <div className="grid grid-cols-3 gap-3 text-center mb-4">
             <div className="p-3 rounded bg-white border border-amber-300/80 shadow-xs">
-              <div className="text-[11px] font-black uppercase text-amber-800">Na skladě</div>
+              <div className="text-udaj font-black uppercase text-amber-800">Na skladě</div>
               <div className="text-xl font-display font-black text-neutral-900">{fmtHl(grandLiters)} <span className="text-xs text-neutral-500 font-normal">hl</span></div>
             </div>
             <div className="p-3 rounded bg-white border border-amber-300/80 shadow-xs">
-              <div className="text-[11px] font-black uppercase text-amber-800">Sudů</div>
+              <div className="text-udaj font-black uppercase text-amber-800">Sudů</div>
               <div className="text-xl font-display font-black text-neutral-900">{grandKegs} <span className="text-xs text-neutral-500 font-normal">ks</span></div>
             </div>
             <div className="p-3 rounded bg-white border border-amber-300/80 shadow-xs">
-              <div className="text-[11px] font-black uppercase text-amber-800">Lahví</div>
+              <div className="text-udaj font-black uppercase text-amber-800">Lahví</div>
               <div className="text-xl font-display font-black text-neutral-900">{grandBottles} <span className="text-xs text-neutral-500 font-normal">ks</span></div>
             </div>
           </div>
@@ -501,7 +501,7 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
           <div className="card p-4 shadow-sm border-neutral-200/80 bg-white space-y-3">
             <div className="text-center">
               <div className="font-display font-black text-neutral-900 text-xl sm:text-2xl flex items-center justify-center gap-2">
-                <Calendar size={20} className="text-amber-600 shrink-0" />
+                <Calendar size={18} className="text-amber-600 shrink-0" />
                 <span>Týden {weekKey.split('-')[1]} / {weekKey.split('-')[0]}</span>
               </div>
               <div className="text-sm sm:text-base font-extrabold text-amber-700 mt-1">{weekRangeLabel(weekKey)}</div>
@@ -532,7 +532,7 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
 
             {/* Inventory month selector */}
             <div className="flex items-center justify-center gap-2 pt-2 border-t border-neutral-100">
-              <span className="text-[11px] font-black uppercase text-neutral-500">Inventura měsíc:</span>
+              <span className="text-udaj font-black uppercase text-neutral-500">Inventura měsíc:</span>
               <input
                 type="month"
                 value={invMonth}
@@ -541,7 +541,7 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
               />
               <button
                 onClick={() => setInvMonth(monthKey(todayISO()))}
-                className="px-2.5 py-1 rounded bg-neutral-100 hover:bg-amber-100 text-neutral-600 hover:text-amber-950 text-[11px] font-black border border-neutral-300 hover:border-amber-400 transition tap"
+                className="px-2.5 py-1 rounded bg-neutral-100 hover:bg-amber-100 text-neutral-600 hover:text-amber-950 text-udaj font-black border border-neutral-300 hover:border-amber-400 transition tap"
                 title="Aktuální měsíc"
               >
                 Nyní
@@ -580,11 +580,11 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
 
                     <div className="grid grid-cols-2 gap-2 my-3">
                       <div className="p-2.5 rounded bg-white/70 border border-black/10">
-                        <div className="text-[11px] font-black uppercase text-neutral-500"><IkonaSud className="ikona-text" /> Sudy</div>
+                        <div className="text-udaj font-black uppercase text-neutral-500"><IkonaSud className="ikona-text" /> Sudy</div>
                         <div className={`text-base font-mono font-black ${r.stockKegs < 0 ? 'text-rose-600' : 'text-neutral-900'}`}>{r.stockKegs} ks</div>
                       </div>
                       <div className="p-2.5 rounded bg-white/70 border border-black/10">
-                        <div className="text-[11px] font-black uppercase text-neutral-500"><IkonaLahev className="ikona-text" /> Lahve</div>
+                        <div className="text-udaj font-black uppercase text-neutral-500"><IkonaLahev className="ikona-text" /> Lahve</div>
                         <div className={`text-base font-mono font-black ${r.stockBottles < 0 ? 'text-rose-600' : 'text-neutral-900'}`}>{r.stockBottles} ks</div>
                       </div>
                     </div>
@@ -596,7 +596,7 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                           <div className="text-xs font-bold uppercase tracking-wider text-amber-700 mb-1.5 flex items-center gap-1"><IkonaSud className="ikona-text" /> Sudy</div>
                           <table className="w-full text-xs font-semibold border-collapse">
                             <thead>
-                              <tr className="text-[11px] font-bold uppercase tracking-wide text-neutral-400">
+                              <tr className="text-udaj font-bold uppercase tracking-wide text-neutral-400">
                                 <th scope="col" className="text-left pb-1 pr-1">Obal</th>
                                 <th scope="col" className="text-center pb-1 px-1" title="Aktuální stav">Stav</th>
                                 <th scope="col" className="text-center pb-1 px-1" title="Objednáno tento týden, ještě nezavezeno">Objedn.</th>
@@ -626,14 +626,14 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                                       className="w-full min-h-[36px] py-1 px-1 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md hover:bg-amber-100 active:scale-95 transition underline decoration-dotted decoration-neutral-400 underline-offset-2 tap"
                                     >
                                       {p.currentStock}
-                                      {p.rawStock < 0 && <span className="block text-[11px] font-black text-rose-600 font-mono" title="Vydáno víc, než evidence zná">({p.rawStock})</span>}
+                                      {p.rawStock < 0 && <span className="block text-udaj font-black text-rose-600 font-mono" title="Vydáno víc, než evidence zná">({p.rawStock})</span>}
                                       {/* 📉 Za kolik dní dojde. Píše se jen když
                                           DOCHÁZÍ — u dobře zásobeného piva by to
                                           byl jen šum a to podstatné by se v něm
                                           ztratilo. Když se to spočítat nedá,
                                           nepíše se nic (viz predpovedDojiti). */}
                                       {p.predpoved.stav === 'dochazi' && (
-                                        <span className="block text-[11px] font-black text-amber-700" title={p.predpoved.popis}>
+                                        <span className="block text-udaj font-black text-amber-700" title={p.predpoved.popis}>
                                           {p.predpoved.dni === 0 ? 'dnes' : `${p.predpoved.dni} dní`}
                                         </span>
                                       )}
@@ -652,7 +652,7 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                           <div className="text-xs font-bold uppercase tracking-wider text-primary-700 mb-1.5 flex items-center gap-1"><IkonaLahev className="ikona-text" /> Lahve</div>
                           <table className="w-full text-xs font-semibold border-collapse">
                             <thead>
-                              <tr className="text-[11px] font-bold uppercase tracking-wide text-neutral-400">
+                              <tr className="text-udaj font-bold uppercase tracking-wide text-neutral-400">
                                 <th scope="col" className="text-left pb-1 pr-1">Obal</th>
                                 <th scope="col" className="text-center pb-1 px-1" title="Aktuální stav">Stav</th>
                                 <th scope="col" className="text-center pb-1 px-1" title="Objednáno tento týden, ještě nezavezeno">Objedn.</th>
@@ -682,14 +682,14 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                                       className="w-full min-h-[36px] py-1 px-1 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md hover:bg-amber-100 active:scale-95 transition underline decoration-dotted decoration-neutral-400 underline-offset-2 tap"
                                     >
                                       {p.currentStock}
-                                      {p.rawStock < 0 && <span className="block text-[11px] font-black text-rose-600 font-mono" title="Vydáno víc, než evidence zná">({p.rawStock})</span>}
+                                      {p.rawStock < 0 && <span className="block text-udaj font-black text-rose-600 font-mono" title="Vydáno víc, než evidence zná">({p.rawStock})</span>}
                                       {/* 📉 Za kolik dní dojde. Píše se jen když
                                           DOCHÁZÍ — u dobře zásobeného piva by to
                                           byl jen šum a to podstatné by se v něm
                                           ztratilo. Když se to spočítat nedá,
                                           nepíše se nic (viz predpovedDojiti). */}
                                       {p.predpoved.stav === 'dochazi' && (
-                                        <span className="block text-[11px] font-black text-amber-700" title={p.predpoved.popis}>
+                                        <span className="block text-udaj font-black text-amber-700" title={p.predpoved.popis}>
                                           {p.predpoved.dni === 0 ? 'dnes' : `${p.predpoved.dni} dní`}
                                         </span>
                                       )}
@@ -706,7 +706,7 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                     </div>
 
                     <div className="flex items-center justify-between mt-2 pt-2 border-t border-black/10">
-                      <span className="text-[11px] font-black uppercase text-neutral-500">Zbývá</span>
+                      <span className="text-udaj font-black uppercase text-neutral-500">Zbývá</span>
                       <span className={`text-sm font-mono font-black ${isDeficit ? 'text-rose-600' : isZero ? 'text-amber-600' : 'text-emerald-600'}`}>
                         {r.remaining > 0 ? `+${r.remaining}` : r.remaining} ks
                       </span>
@@ -739,11 +739,11 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-2">
                   <div className="p-3 rounded bg-neutral-50 border border-neutral-200">
-                    <div className="text-[11px] font-black uppercase text-neutral-500">Na skladě</div>
+                    <div className="text-udaj font-black uppercase text-neutral-500">Na skladě</div>
                     <div className="text-lg font-mono font-black text-neutral-900">{fmtHl(detail.stockLiters)} hl</div>
                   </div>
                   <div className="p-3 rounded bg-neutral-50 border border-neutral-200">
-                    <div className="text-[11px] font-black uppercase text-neutral-500">Zbývá</div>
+                    <div className="text-udaj font-black uppercase text-neutral-500">Zbývá</div>
                     <div className={`text-lg font-mono font-black ${detail.remaining < 0 ? 'text-rose-600' : detail.remaining === 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
                       {detail.remaining > 0 ? `+${detail.remaining}` : detail.remaining} ks
                     </div>
@@ -761,50 +761,50 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                         </div>
                         <div className="p-3 grid grid-cols-3 gap-1.5 text-center">
                           <div className="rounded bg-neutral-50 py-1.5">
-                            <div className="text-[11px] font-black uppercase text-neutral-500">Počáteční</div>
+                            <div className="text-udaj font-black uppercase text-neutral-500">Počáteční</div>
                             <div className="text-sm font-black text-neutral-800">{p.fromInv}</div>
                           </div>
                           <div className="rounded bg-emerald-50 py-1.5">
-                            <div className="text-[11px] font-black uppercase text-emerald-700">Stočeno</div>
+                            <div className="text-udaj font-black uppercase text-emerald-700">Stočeno</div>
                             <div className="text-sm font-black text-emerald-800">+{p.brewedW}</div>
                           </div>
                           <div className="rounded bg-sky-50 py-1.5">
-                            <div className="text-[11px] font-black uppercase text-sky-700">Objednáno (týden)</div>
+                            <div className="text-udaj font-black uppercase text-sky-700">Objednáno (týden)</div>
                             <div className="text-sm font-black text-sky-800">{p.orderedW}</div>
                           </div>
                           <div className="rounded bg-rose-50 py-1.5">
-                            <div className="text-[11px] font-black uppercase text-rose-700">Odečteno závozem</div>
+                            <div className="text-udaj font-black uppercase text-rose-700">Odečteno závozem</div>
                             <div className="text-sm font-black text-rose-800">−{p.zdW}</div>
                           </div>
                           <div className="rounded bg-rose-50 py-1.5">
-                            <div className="text-[11px] font-black uppercase text-rose-700">Fasování (personál)</div>
+                            <div className="text-udaj font-black uppercase text-rose-700">Fasování (personál)</div>
                             <div className="text-sm font-black text-rose-800">−{p.fasovaniW}</div>
                           </div>
                           <div className="rounded bg-rose-50 py-1.5">
-                            <div className="text-[11px] font-black uppercase text-rose-700">Prodejna</div>
+                            <div className="text-udaj font-black uppercase text-rose-700">Prodejna</div>
                             <div className="text-sm font-black text-rose-800">−{p.prodejnaW}</div>
                           </div>
                           <div className="rounded bg-rose-50 py-1.5">
-                            <div className="text-[11px] font-black uppercase text-rose-700">Akce</div>
+                            <div className="text-udaj font-black uppercase text-rose-700">Akce</div>
                             <div className="text-sm font-black text-rose-800">−{p.akceWeek}</div>
                           </div>
                           <div className="rounded bg-rose-50 py-1.5">
-                            <div className="text-[11px] font-black uppercase text-rose-700">Odpisy</div>
+                            <div className="text-udaj font-black uppercase text-rose-700">Odpisy</div>
                             <div className="text-sm font-black text-rose-800">−{p.woW}</div>
                           </div>
                           <div className="rounded bg-violet-50 py-1.5">
-                            <div className="text-[11px] font-black uppercase text-violet-700">Sudy na lahve</div>
+                            <div className="text-udaj font-black uppercase text-violet-700">Sudy na lahve</div>
                             <div className="text-sm font-black text-violet-800">−{p.kegsUsedW}</div>
                           </div>
                           {(p.prefukFrom > 0 || p.prefukTo > 0) && (
                             <div className="rounded bg-neutral-50 py-1.5">
-                              <div className="text-[11px] font-black uppercase text-neutral-500">Přefuk ZE/DO</div>
+                              <div className="text-udaj font-black uppercase text-neutral-500">Přefuk ZE/DO</div>
                               <div className="text-sm font-black text-neutral-800">−{p.prefukFrom} / +{p.prefukTo}</div>
                             </div>
                           )}
                           {p.adjW !== 0 && (
                             <div className="rounded bg-amber-50 py-1.5">
-                              <div className="text-[11px] font-black uppercase text-amber-700">Dorovnání inventury</div>
+                              <div className="text-udaj font-black uppercase text-amber-700">Dorovnání inventury</div>
                               <div className="text-sm font-black text-amber-800">{p.adjW > 0 ? '+' : ''}{p.adjW}</div>
                             </div>
                           )}
@@ -814,13 +814,13 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                             jestli aktuální stav sedí, i když se výše ukazuje
                             jen zaokrouhlené (na nulu) číslo. */}
                         <div className="px-3 pb-3 pt-1 border-t border-neutral-100 bg-neutral-50/60">
-                          <div className="text-[11px] font-black uppercase text-neutral-400 mb-1">Kontrolní výpočet</div>
-                          <div className="font-mono text-[11px] text-neutral-700 leading-relaxed break-words">
+                          <div className="text-udaj font-black uppercase text-neutral-400 mb-1">Kontrolní výpočet</div>
+                          <div className="font-mono text-udaj text-neutral-700 leading-relaxed break-words">
                             {p.fromInv} (počáteční) + {p.brewedW} (stočeno) − {p.kegsUsedW} (sudy na lahve) − {p.fasovaniW} (fasování) − {p.prodejnaW} (prodejna) − {p.akceWeek} (akce) − {p.woW} (odpisy) − {p.zdW} (závoz) − {p.prefukFrom} (přefuk ze) + {p.prefukTo} (přefuk do) + {p.adjW} (dorovnání) = {' '}
                             <strong className={p.rawStock < 0 ? 'text-rose-700' : 'text-emerald-700'}>{p.rawStock}</strong>
                           </div>
                           {p.rawStock < 0 && (
-                            <div className="mt-1.5 text-[11px] font-bold text-rose-700 flex items-start gap-1.5">
+                            <div className="mt-1.5 text-udaj font-bold text-rose-700 flex items-start gap-1.5">
                               <AlertTriangle size={12} className="shrink-0 mt-0.5" />
                               <span>Evidence vychází do mínusu o {Math.abs(p.rawStock)} ks — vydalo se víc, než kolik se kdy naskladnilo. Na skladě výše se to ukazuje jako 0, rozdíl je potřeba dohledat (chybějící stočení, špatně zapsaný počáteční stav, nebo duplicitní odpočet).</span>
                             </div>
@@ -884,7 +884,7 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-[11px] font-bold uppercase text-neutral-400 border-b border-neutral-200">
+                  <tr className="text-udaj font-bold uppercase text-neutral-400 border-b border-neutral-200">
                     <th scope="col" className="text-left py-2 pr-2">Pivo</th>
                     <th scope="col" className="text-right py-2 px-2">Sudů</th>
                     <th scope="col" className="text-right py-2 px-2">Lahví</th>
@@ -920,7 +920,7 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                 <input type="date" value={brewTo} onChange={(e) => setBrewTo(e.target.value)} className="input !py-1 !px-2 text-xs font-black text-amber-800 border-amber-300 w-auto" />
                 <div className="flex gap-1">
                   {(['week', 'month', 'year', 'all'] as const).map((t) => (
-                    <button key={t} onClick={() => setQuickRange(t)} className="px-2 py-1 rounded bg-neutral-100 hover:bg-amber-100 text-neutral-600 hover:text-amber-950 text-[11px] font-black border border-neutral-300 hover:border-amber-400 transition tap">
+                    <button key={t} onClick={() => setQuickRange(t)} className="px-2 py-1 rounded bg-neutral-100 hover:bg-amber-100 text-neutral-600 hover:text-amber-950 text-udaj font-black border border-neutral-300 hover:border-amber-400 transition tap">
                       {t === 'week' ? 'Týden' : t === 'month' ? 'Měsíc' : t === 'year' ? 'Rok' : 'Vše'}
                     </button>
                   ))}
@@ -930,15 +930,15 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
 
             <div className="grid grid-cols-3 gap-3 text-center mb-4">
               <div className="p-3 rounded bg-amber-50 border border-amber-200">
-                <div className="text-[11px] font-black uppercase text-amber-800">Sudů</div>
+                <div className="text-udaj font-black uppercase text-amber-800">Sudů</div>
                 <div className="text-xl font-display font-black text-neutral-900">{brewTotalKegs} <span className="text-xs text-neutral-500 font-normal">ks</span></div>
               </div>
               <div className="p-3 rounded bg-primary-50 border border-primary-200">
-                <div className="text-[11px] font-black uppercase text-primary-800">Lahví</div>
+                <div className="text-udaj font-black uppercase text-primary-800">Lahví</div>
                 <div className="text-xl font-display font-black text-neutral-900">{brewTotalBottles} <span className="text-xs text-neutral-500 font-normal">ks</span></div>
               </div>
               <div className="p-3 rounded bg-emerald-50 border border-emerald-200">
-                <div className="text-[11px] font-black uppercase text-emerald-800">Celkem</div>
+                <div className="text-udaj font-black uppercase text-emerald-800">Celkem</div>
                 <div className="text-xl font-display font-black text-neutral-900">{fmtHl(brewTotalLiters)} <span className="text-xs text-neutral-500 font-normal">hl</span></div>
               </div>
             </div>
@@ -953,11 +953,11 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                     </div>
                     <div className="grid grid-cols-2 gap-2 mb-2">
                       <div className="p-2 rounded bg-amber-50 border border-amber-200 text-center">
-                        <div className="text-[11px] font-black uppercase text-amber-800">Sudy</div>
+                        <div className="text-udaj font-black uppercase text-amber-800">Sudy</div>
                         <div className="text-sm font-mono font-black text-neutral-900">{s.totalKegs}</div>
                       </div>
                       <div className="p-2 rounded bg-primary-50 border border-primary-200 text-center">
-                        <div className="text-[11px] font-black uppercase text-primary-800">Lahve</div>
+                        <div className="text-udaj font-black uppercase text-primary-800">Lahve</div>
                         <div className="text-sm font-mono font-black text-neutral-900">{s.totalBottles}</div>
                       </div>
                     </div>

@@ -136,7 +136,7 @@ export function BugReportModal({ isOpen, onClose }: BugReportModalProps) {
       {success ? (
         <div className="text-center py-8 space-y-3 animate-fade-in">
           <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-3xl mx-auto border border-emerald-200">
-            <Check size={28} />
+            <Check size={26} />
           </div>
           <h4 className="font-bold text-emerald-950 text-base">Hlášení odesláno!</h4>
           <p className="text-xs text-neutral-600">Děkujeme, zprávu najdete v přehledu poznámek.</p>

@@ -1353,7 +1353,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   barevné pozadí dalo ztlumit jen tím, že se přepnulo na bílou
                   scénu, čímž se ztratil odstín, který si člověk vybral. */}
               <label className="hs-svetlost" title="Zesvětlit pozadí">
-                <Sun size={13} />
+                <Sun size={14} />
                 <input
                   type="range"
                   min={MIN_SVETLOST}
@@ -1412,13 +1412,13 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                     ))}
                   </select>
                   {layout.dock.length > MIN_DOCK && (
-                    <button type="button" className="hs-dock-remove" title="Odebrat tenhle slot" onClick={() => handleRemoveDockSlot(i)}><X size={13} /></button>
+                    <button type="button" className="hs-dock-remove" title="Odebrat tenhle slot" onClick={() => handleRemoveDockSlot(i)}><X size={14} /></button>
                   )}
                 </span>
               ))}
               {layout.dock.length < MAX_DOCK && (
                 <button type="button" className="hs-dock-add" title="Přidat další slot do spodní lišty" onClick={handleAddDockSlot}>
-                  <Plus size={13} /> Přidat
+                  <Plus size={14} /> Přidat
                 </button>
               )}
             </div>
@@ -1476,7 +1476,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               aria-label="Hledat"
               onClick={() => setShowSearchModal(true)}
             >
-              <Search size={17} />
+              <Search size={16} />
             </button>
             <button
               type="button"
@@ -1485,7 +1485,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               aria-label={editMode ? 'Hotovo' : 'Upravit rozložení'}
               onClick={() => { setEditMode((v) => !v); setSelectedTileId(null); }}
             >
-              {editMode ? <Check size={17} /> : <SlidersHorizontal size={17} />}
+              {editMode ? <Check size={16} /> : <SlidersHorizontal size={16} />}
             </button>
             {/* Nastavení je malá ikona, ne dlaždice — sahá se na ně jednou za
                 měsíc a v mřížce zabíralo místo, které si zaslouží něco, co
@@ -1499,7 +1499,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               aria-label="Aplikace & Nastavení"
               onClick={() => setPage('app_settings')}
             >
-              <Settings size={17} />
+              <Settings size={16} />
             </button>
             <button
               type="button"
@@ -1508,7 +1508,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               aria-label="Odhlásit se"
               onClick={async () => { if (await potvrd('Odhlásit se z aplikace?', { potvrdit: 'Odhlásit' })) signOut(); }}
             >
-              <LogOut size={17} />
+              <LogOut size={16} />
             </button>
             {editMode && (
               <>
@@ -1820,15 +1820,15 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                     </div>
                   )}
                   {done && (
-                    <span className="inline-flex items-center justify-center gap-1 px-2 py-0.5 rounded-full bg-rose-600 text-white text-[11px] font-black shadow-xs animate-bounce">
+                    <span className="inline-flex items-center justify-center gap-1 px-2 py-0.5 rounded-full bg-rose-600 text-white text-udaj font-black shadow-xs animate-bounce">
                       🔔 Hotovo (reset)
                     </span>
                   )}
                   {done && <div className="absolute inset-0 bg-rose-500/15 animate-pulse rounded-xl pointer-events-none" />}
 
                   {/* Horní titulek odpočtu */}
-                  <div className="flex items-center justify-center gap-1 opacity-85 text-[11px] font-black uppercase tracking-wider max-w-full px-1 truncate leading-tight">
-                    <AlarmClock size={11} className={`shrink-0 ${running && !done ? 'text-emerald-700' : done ? 'text-rose-600' : ''}`} />
+                  <div className="flex items-center justify-center gap-1 opacity-85 text-udaj font-black uppercase tracking-wider max-w-full px-1 truncate leading-tight">
+                    <AlarmClock size={12} className={`shrink-0 ${running && !done ? 'text-emerald-700' : done ? 'text-rose-600' : ''}`} />
                     <span className="truncate">{timerLabel}</span>
                   </div>
 
@@ -1840,16 +1840,16 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   {/* Spodní akční tlačítko / stav */}
                   <div className="flex items-center justify-center max-w-full">
                     {done ? (
-                      <span className="inline-flex items-center justify-center gap-1 px-2 py-0.5 rounded-full bg-rose-600 text-white text-[11px] font-black shadow-xs animate-bounce">🔔 Hotovo</span>
+                      <span className="inline-flex items-center justify-center gap-1 px-2 py-0.5 rounded-full bg-rose-600 text-white text-udaj font-black shadow-xs animate-bounce">🔔 Hotovo</span>
 
 
                     ) : running ? (
-                      <span className="inline-flex items-center justify-center gap-1 px-2 py-0.5 rounded-full bg-emerald-700 text-white text-[11px] font-black shadow-xs">
-                        <Pause size={9} className="shrink-0" /> Pauza
+                      <span className="inline-flex items-center justify-center gap-1 px-2 py-0.5 rounded-full bg-emerald-700 text-white text-udaj font-black shadow-xs">
+                        <Pause size={12} className="shrink-0" /> Pauza
                       </span>
                     ) : (
-                      <span className="inline-flex items-center justify-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-700 text-white text-[11px] font-black shadow-xs active:scale-95">
-                        <Play size={10} className="fill-current shrink-0 ml-0.5" /> Spustit
+                      <span className="inline-flex items-center justify-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-700 text-white text-udaj font-black shadow-xs active:scale-95">
+                        <Play size={12} className="fill-current shrink-0 ml-0.5" /> Spustit
                       </span>
                     )}
                   </div>
@@ -1865,7 +1865,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                     <span className="font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 opacity-90">
                       <AlarmClock size={14} /> Časovače & Stopky
                     </span>
-                    <span className="text-[11px] font-bold opacity-75">
+                    <span className="text-udaj font-bold opacity-75">
                       {runningTimers.length > 0 ? `${runningTimers.length} běží` : `${countdowns.length} nastaveno`}
                     </span>
                   </div>
@@ -1891,7 +1891,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                       })
                     )}
                   </div>
-                  <div className="text-[11px] font-bold opacity-60 flex items-center justify-between pt-1 border-t border-black/10">
+                  <div className="text-udaj font-bold opacity-60 flex items-center justify-between pt-1 border-t border-black/10">
                     <span>{runningTimers.length > 0 ? 'Aktivní odpočty' : 'Časovač'}</span>
                     <span>Otevřít ➔</span>
                   </div>
@@ -1909,14 +1909,14 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                       <span className="font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 opacity-90">
                         <Radio size={14} /> Pivovarské Rádio
                       </span>
-                      <span className="text-[11px] font-bold opacity-75">{radioState.playing ? 'Hraje na pozadí' : 'Vypnuto'}</span>
+                      <span className="text-udaj font-bold opacity-75">{radioState.playing ? 'Hraje na pozadí' : 'Vypnuto'}</span>
                     </div>
                     <div className="my-auto py-1 flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="text-2xl shrink-0">{st.icon}</span>
                         <div className="min-w-0">
                           <div className="font-black text-sm truncate">{st.name}</div>
-                          <div className="text-[11px] opacity-75 font-semibold truncate">{st.genre}</div>
+                          <div className="text-udaj opacity-75 font-semibold truncate">{st.genre}</div>
                         </div>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
@@ -1926,7 +1926,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                           className="p-2 rounded-full bg-black/15 hover:bg-black/25 active:scale-95 transition"
                           title={radioState.playing ? 'Pozastavit' : 'Přehrát'}
                         >
-                          {radioState.playing ? <Pause size={15} className="fill-current" /> : <Play size={15} className="fill-current ml-0.5" />}
+                          {radioState.playing ? <Pause size={16} className="fill-current" /> : <Play size={16} className="fill-current ml-0.5" />}
                         </button>
                         <button
                           type="button"
@@ -1934,11 +1934,11 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                           className="p-2 rounded-full bg-black/15 hover:bg-black/25 active:scale-95 transition"
                           title="Další stanice"
                         >
-                          <SkipForward size={15} />
+                          <SkipForward size={16} />
                         </button>
                       </div>
                     </div>
-                    <div className="text-[11px] font-bold opacity-60 flex items-center justify-between pt-1 border-t border-black/10">
+                    <div className="text-udaj font-bold opacity-60 flex items-center justify-between pt-1 border-t border-black/10">
                       <span>{radioState.playing ? 'Přehrává se' : 'Klepnutím spustit'}</span>
                       <span onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent('pivovar:open-radio')); }}>Změnit stanici ➔</span>
                     </div>
@@ -1966,12 +1966,12 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               customContent = (
                 <div className="w-full h-full flex flex-col p-2 gap-1 text-left select-none overflow-hidden">
                   <div className="flex items-center gap-1 shrink-0 opacity-80">
-                    <StickyNote size={11} className="shrink-0" />
-                    <span className="text-[11px] font-black uppercase tracking-wider truncate">Poznámky</span>
+                    <StickyNote size={12} className="shrink-0" />
+                    <span className="text-udaj font-black uppercase tracking-wider truncate">Poznámky</span>
                   </div>
 
                   {kZobrazeni.length === 0 ? (
-                    <div className="flex-1 grid place-items-center text-[11px] font-bold opacity-70 leading-tight px-1 text-center">
+                    <div className="flex-1 grid place-items-center text-udaj font-bold opacity-70 leading-tight px-1 text-center">
                       Klepnutím přidáte poznámku
                     </div>
                   ) : (
@@ -1997,7 +1997,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                           {note.important && !note.completed && (
                             <TriangleAlert className="hs-note-vykricnik" />
                           )}
-                          <span className={`text-[11px] font-bold leading-tight line-clamp-2 min-w-0 ${note.completed ? 'line-through opacity-45' : ''}`}>
+                          <span className={`text-udaj font-bold leading-tight line-clamp-2 min-w-0 ${note.completed ? 'line-through opacity-45' : ''}`}>
                             {note.text}
                           </span>
                         </div>
@@ -2017,7 +2017,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                     <span className="font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 opacity-90">
                       <ClipboardCheck size={14} /> Denní úkoly
                     </span>
-                    <span className={`text-[11px] font-bold ${allDone ? 'text-emerald-950 font-black' : 'opacity-80'}`}>
+                    <span className={`text-udaj font-bold ${allDone ? 'text-emerald-950 font-black' : 'opacity-80'}`}>
                       {doneTasksCount}/{dailyTasks.length} {allDone && '✓'}
                     </span>
                   </div>
@@ -2025,13 +2025,13 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                     {dailyTasks.slice(0, 2).map((t) => (
                       <div key={t.id} className="flex items-center gap-2 text-xs font-bold truncate">
                         <span className={`w-3.5 h-3.5 rounded-sm border border-current grid place-items-center shrink-0 ${t.completed ? 'bg-current text-white font-black' : ''}`}>
-                          {t.completed && <Check size={10} className="stroke-[3]" />}
+                          {t.completed && <Check size={12} className="stroke-[3]" />}
                         </span>
                         <span className={`truncate ${t.completed ? 'line-through opacity-60' : ''}`}>{t.title}</span>
                       </div>
                     ))}
                   </div>
-                  <div className="text-[11px] font-bold opacity-60 flex items-center justify-between pt-1 border-t border-black/10">
+                  <div className="text-udaj font-bold opacity-60 flex items-center justify-between pt-1 border-t border-black/10">
                     <span>{allDone ? 'Vše splněno 🎉' : 'Dnešní rutina'}</span>
                     <span>Odškrtnout ➔</span>
                   </div>
@@ -2051,7 +2051,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                     <span className="font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 opacity-90">
                       <CalendarDays size={14} /> {dayName}
                     </span>
-                    <span className="text-[11px] font-bold opacity-80">{dayNum}. {monthName}</span>
+                    <span className="text-udaj font-bold opacity-80">{dayNum}. {monthName}</span>
                   </div>
                   <div className="my-auto py-1 text-xs font-bold leading-snug">
                     {bottlingTodayCount ? (
@@ -2062,7 +2062,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                       <span className="opacity-80">Plánovač & události</span>
                     )}
                   </div>
-                  <div className="text-[11px] font-bold opacity-60 flex items-center justify-between pt-1 border-t border-black/10">
+                  <div className="text-udaj font-bold opacity-60 flex items-center justify-between pt-1 border-t border-black/10">
                     <span>Plánovač</span>
                     <span>Kalendář ➔</span>
                   </div>
@@ -2085,7 +2085,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                     <span className="font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 opacity-90">
                       <Snowflake size={14} /> Sklep
                     </span>
-                    <span className="text-[11px] font-bold opacity-80">{litryJakoHl(celkemLitru)}</span>
+                    <span className="text-udaj font-bold opacity-80">{litryJakoHl(celkemLitru)}</span>
                   </div>
                   <div className="my-auto py-1 space-y-0.5">
                     {vidno.map((t) => (
@@ -2098,9 +2098,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                         <span className="ml-auto shrink-0 tabular-nums">{litry(t.litry)}</span>
                       </div>
                     ))}
-                    {zbyva > 0 && <div className="text-[11px] font-bold opacity-70">+{zbyva} další</div>}
+                    {zbyva > 0 && <div className="text-udaj font-bold opacity-70">+{zbyva} další</div>}
                   </div>
-                  <div className="text-[11px] font-bold opacity-60 flex items-center justify-between pt-1 border-t border-black/10">
+                  <div className="text-udaj font-bold opacity-60 flex items-center justify-between pt-1 border-t border-black/10">
                     <span>{tankyNaPlochu.some((t) => t.staci) ? 'Stáčí se z 🍺' : 'Nestáčí se'}</span>
                     <span>Sklep ➔</span>
                   </div>
@@ -2120,7 +2120,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                       <BarChart3 size={14} /> Dnes
                     </span>
                     {!souhrn.prazdny && (
-                      <span className="text-[11px] font-bold opacity-80 tabular-nums">
+                      <span className="text-udaj font-bold opacity-80 tabular-nums">
                         +{souhrn.pribyloCelkem} / −{souhrn.ubyloCelkem}
                       </span>
                     )}
@@ -2140,11 +2140,11 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                             <span className="ml-auto shrink-0 tabular-nums">{kusy(r.kusu)}</span>
                           </div>
                         ))}
-                        {zbyva > 0 && <div className="text-[11px] font-bold opacity-70">+{zbyva} další</div>}
+                        {zbyva > 0 && <div className="text-udaj font-bold opacity-70">+{zbyva} další</div>}
                       </>
                     )}
                   </div>
-                  <div className="text-[11px] font-bold opacity-60 flex items-center justify-between pt-1 border-t border-black/10">
+                  <div className="text-udaj font-bold opacity-60 flex items-center justify-between pt-1 border-t border-black/10">
                     <span>{souhrn.prazdny ? 'Souhrn dne' : `${souhrn.radky.reduce((a, r) => a + r.zapisu, 0)} zápisů`}</span>
                     <span>Sklad ➔</span>
                   </div>
@@ -2162,18 +2162,18 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                     <span className="font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 opacity-90">
                       <Truck size={14} /> Dnešní závoz
                     </span>
-                    <span className="text-[11px] font-bold opacity-80">{kusy(dnesniZavoz.kusu)}</span>
+                    <span className="text-udaj font-bold opacity-80">{kusy(dnesniZavoz.kusu)}</span>
                   </div>
                   <div className="my-auto py-1 space-y-0.5">
                     {mista.map((m) => (
                       <div key={m} className="text-xs font-bold leading-snug truncate">• {m}</div>
                     ))}
-                    {dalsi > 0 && <div className="text-[11px] font-bold opacity-70">+{dalsi} další</div>}
+                    {dalsi > 0 && <div className="text-udaj font-bold opacity-70">+{dalsi} další</div>}
                     {mista.length === 0 && (
                       <div className="text-xs font-bold opacity-80">{dnesniZavoz.objednavek} objednávek</div>
                     )}
                   </div>
-                  <div className="text-[11px] font-bold opacity-60 flex items-center justify-between pt-1 border-t border-black/10">
+                  <div className="text-udaj font-bold opacity-60 flex items-center justify-between pt-1 border-t border-black/10">
                     <span>{dnesniZavoz.objednavek} obj.</span>
                     <span>Objednávky ➔</span>
                   </div>
@@ -2373,7 +2373,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               <div className="flex flex-col gap-4 max-h-[60vh] overflow-y-auto">
                 {addableGroups.map(({ category, items }) => (
                   <div key={category} className="flex flex-col gap-1.5">
-                    <span className="text-[11px] font-black uppercase tracking-wide text-neutral-500 px-1">{category}</span>
+                    <span className="text-udaj font-black uppercase tracking-wide text-neutral-500 px-1">{category}</span>
                     {items.map(({ item: n, alreadyPlaced }, i) => (
                       <button
                         key={n.id}
@@ -2384,7 +2384,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                       >
                         <span className="flex items-center gap-3 min-w-0">
                           <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: shadeFor(category, i) }} />
-                          <n.icon size={17} className="text-neutral-600 shrink-0" />
+                          <n.icon size={16} className="text-neutral-600 shrink-0" />
                           <span className="font-bold text-sm text-neutral-800 truncate">{n.label}</span>
                         </span>
                         {alreadyPlaced && (
@@ -2422,7 +2422,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
             <div className="space-y-4 pt-1 pb-1">
               {/* Rychlý start předvolby */}
               <div className="space-y-1.5">
-                <div className="text-[11px] font-black uppercase tracking-wider text-neutral-500 flex items-center justify-between">
+                <div className="text-udaj font-black uppercase tracking-wider text-neutral-500 flex items-center justify-between">
                   <span>⚡ Rychlý start odpočtu</span>
                   <button
                     type="button"
@@ -2449,7 +2449,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                       className="flex items-center justify-between gap-1.5 px-2.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-950 font-bold text-xs shadow-xs transition active:scale-95 text-left"
                     >
                       <span className="truncate">{p.label}</span>
-                      <span className="text-[11px] font-black text-amber-700 bg-amber-200/70 px-1.5 py-0.5 rounded">{p.min}′</span>
+                      <span className="text-udaj font-black text-amber-700 bg-amber-200/70 px-1.5 py-0.5 rounded">{p.min}′</span>
                     </button>
                   ))}
                 </div>
@@ -2497,7 +2497,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
 
               {/* Seznam nastavených odpočtů */}
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-wider text-neutral-500">
+                <div className="flex items-center justify-between text-udaj font-black uppercase tracking-wider text-neutral-500">
                   <span>Moje aktivní a nastavené odpočty ({countdowns.length})</span>
                   {countdowns.length > 0 && (
                     <div className="flex items-center gap-1.5">
@@ -2508,7 +2508,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                           setCountdowns(getCountdowns());
                           oznam('Všechny odpočty spuštěny');
                         }}
-                        className="text-[11px] text-emerald-700 hover:underline font-black"
+                        className="text-udaj text-emerald-700 hover:underline font-black"
                       >
                         Spustit vše
                       </button>
@@ -2520,7 +2520,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                           setCountdowns(getCountdowns());
                           oznam('Všechny odpočty pozastaveny');
                         }}
-                        className="text-[11px] text-amber-700 hover:underline font-black"
+                        className="text-udaj text-amber-700 hover:underline font-black"
                       >
                         Pauza vše
                       </button>
@@ -2563,7 +2563,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                                   toggleCountdown(t.id);
                                   setCountdowns(getCountdowns());
                                 }}
-                                className={`inline-flex items-center justify-center gap-1 rounded-full text-[11px] font-black shadow-xs transition ${
+                                className={`inline-flex items-center justify-center gap-1 rounded-full text-udaj font-black shadow-xs transition ${
                                   isDone
                                     ? 'px-2 py-0.5 bg-rose-600 text-white animate-bounce hover:bg-rose-500'
                                     : isRun
@@ -2589,7 +2589,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                               title="Resetovat čas"
                               className="p-1.5 text-neutral-600 hover:text-neutral-800 bg-neutral-100 hover:bg-neutral-200 rounded-lg"
                             >
-                              <RotateCcw size={13} />
+                              <RotateCcw size={14} />
                             </button>
 
                             <button
@@ -2600,7 +2600,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                                 pinned ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-neutral-50 text-neutral-600 border-neutral-200 hover:bg-neutral-100'
                               }`}
                             >
-                              <Pin size={13} className={pinned ? 'rotate-45 fill-current text-amber-700' : ''} />
+                              <Pin size={14} className={pinned ? 'rotate-45 fill-current text-amber-700' : ''} />
                             </button>
                           </div>
                         </div>
@@ -2620,7 +2620,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   }}
                   className="text-xs font-bold text-neutral-700 hover:text-neutral-950 flex items-center gap-1.5"
                 >
-                  <AlarmClock size={15} /> Otevřít celé nastavení časovačů ➔
+                  <AlarmClock size={16} /> Otevřít celé nastavení časovačů ➔
                 </button>
               </div>
             </div>
@@ -2690,7 +2690,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                     className="w-full flex items-center gap-3.5 p-3 rounded-xl border border-neutral-200/80 bg-neutral-50/70 hover:bg-white hover:border-amber-400/80 hover:shadow-sm active:scale-[0.99] transition text-left"
                   >
                     <span className="w-10 h-10 shrink-0 grid place-items-center rounded-xl bg-amber-50 text-amber-900 border border-amber-200/60 shadow-xs">
-                      <QAIcon size={20} />
+                      <QAIcon size={18} />
                     </span>
                     <span className="flex-1 min-w-0">
                       <span className="block font-bold text-sm text-neutral-900 leading-snug">{qa.label}</span>
@@ -2804,7 +2804,7 @@ function BrewKettleTopBanner({
                   : 'Stopky pozastaveny'}
               </span>
             </div>
-            <div className="text-[11px] text-neutral-300 font-semibold truncate">
+            <div className="text-udaj text-neutral-300 font-semibold truncate">
               {doneCountdown
                 ? 'Čas vypršel, klepnutím otevřít'
                 : runningCountdown

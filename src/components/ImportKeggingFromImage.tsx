@@ -314,7 +314,7 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
                 <span>Oříznout / Otočit fotku před čtením</span>
               </label>
             </div>
-            <span className="text-[11px] text-neutral-500">
+            <span className="text-udaj text-neutral-500">
               <Camera className="ikona-text" /> Obrázek můžete také vložit zkopírovaný stisknutím <strong>Ctrl+V</strong>.
             </span>
           </div>
@@ -383,7 +383,7 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
                   {entryRows.map((r, i) => (
                     <div key={i} className={`p-3 rounded border-2 transition-all ${r._removed ? 'bg-neutral-100/70 border-neutral-200 opacity-60' : 'bg-white border-neutral-200 hover:border-neutral-300'}`}>
                       <div className="flex items-center justify-between gap-2 mb-2 pb-1 border-b border-neutral-100">
-                        <span className="text-[11px] font-black uppercase text-neutral-500">Řádek #{i + 1}</span>
+                        <span className="text-udaj font-black uppercase text-neutral-500">Řádek #{i + 1}</span>
                         {r._removed ? (
                           <button type="button" onClick={() => updateLine(i, { _removed: false })} className="text-xs font-bold text-primary-600 flex items-center gap-1"><RotateCcw size={12} /> Obnovit</button>
                         ) : (
@@ -393,7 +393,7 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
                       {!r._removed && (
                         <div className="space-y-3">
                           <div>
-                            <label className="text-[11px] font-black uppercase text-neutral-500"><BeerIcon className="ikona-text" /> Pivo</label>
+                            <label className="text-udaj font-black uppercase text-neutral-500"><BeerIcon className="ikona-text" /> Pivo</label>
                             <select className="input text-xs font-bold w-full bg-white border border-neutral-200" value={r.beerId} onChange={(e) => updateLine(i, { beerId: e.target.value })}>
                               <option value="">- Vyber pivo -</option>
                               {beers.filter((b) => b.is_active).map((b) => (<option key={b.id} value={b.id}>{b.name}</option>))}
@@ -401,17 +401,17 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
                           </div>
                           <div className="grid grid-cols-2 gap-1.5">
                             <div>
-                              <label className="text-[11px] font-black uppercase text-amber-800"><IkonaSud className="ikona-text" /> Obal (KEG)</label>
+                              <label className="text-udaj font-black uppercase text-amber-800"><IkonaSud className="ikona-text" /> Obal (KEG)</label>
                               <select className="input text-xs font-bold w-full bg-white border border-amber-200" value={r.pkgId} onChange={(e) => updateLine(i, { pkgId: e.target.value })}>
                                 {kegPackages.map((p) => (<option key={p.id} value={p.id}>{p.label}</option>))}
                               </select>
                             </div>
                             <div>
-                              <label className="text-[11px] font-black uppercase text-amber-800">Počet ks</label>
+                              <label className="text-udaj font-black uppercase text-amber-800">Počet ks</label>
                               <input type="text" inputMode="numeric" placeholder="např. 5" className="input text-xs font-bold w-full border border-amber-200 text-center" value={r.qty} onChange={(e) => updateLine(i, { qty: e.target.value.replace(/[^0-9]/g, '') })} />
                             </div>
                           </div>
-                          {!r.pkgId && <span className="text-[11px] text-amber-700"><AlertTriangle className="ikona-text" /> Nenalezen obal KEG — vyber velikost ručně.</span>}
+                          {!r.pkgId && <span className="text-udaj text-amber-700"><AlertTriangle className="ikona-text" /> Nenalezen obal KEG — vyber velikost ručně.</span>}
                         </div>
                       )}
                     </div>

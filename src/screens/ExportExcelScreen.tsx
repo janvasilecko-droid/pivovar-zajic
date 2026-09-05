@@ -302,7 +302,7 @@ export default function ExportExcelScreen() {
           })}
         </div>
 
-        <p className="text-[11px] font-semibold text-neutral-500">
+        <p className="text-udaj font-semibold text-neutral-500">
           Prázdné listy se do sešitu nedávají — sešit s prázdnými kartami jen mate.
           Hektolitry jsou vzorcem, takže se po opravě počtu přepočítají samy.
         </p>

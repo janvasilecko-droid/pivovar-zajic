@@ -1751,7 +1751,7 @@ export default function Orders({
             >
               <MessageCircle size={14} /> WhatsApp
               {newWhatsAppCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-rose-600 text-white text-[11px] font-black rounded-full w-4 h-4 flex items-center justify-center">
+                <span className="absolute -top-1.5 -right-1.5 bg-rose-600 text-white text-udaj font-black rounded-full w-4 h-4 flex items-center justify-center">
                   {newWhatsAppCount}
                 </span>
               )}
@@ -1823,7 +1823,7 @@ export default function Orders({
                           }
                           setBeerRows(newRows);
                         }}
-                        className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[11px] shadow-2xs shrink-0 transition tap"
+                        className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-udaj shadow-2xs shrink-0 transition tap"
                       >
                         <Zap className="ikona-text" /> Zopakovat položky
                       </button>
@@ -1891,7 +1891,7 @@ export default function Orders({
               {/* Bylo `text-black dark:text-black` — černá vynucená i v tmavém
                   režimu, z doby, kdy pozadí karet zůstávalo světlé. Teď je
                   karta tmavá a popisek na ní byl černý na černém. */}
-              <span className="text-[11px] text-neutral-600 font-bold">upřesnění data dodání</span>
+              <span className="text-udaj text-neutral-600 font-bold">upřesnění data dodání</span>
             </div>
 
             {/* Výchozí den závozu je st/čt/pá, ale ke konci měsíce (např.
@@ -1956,7 +1956,7 @@ export default function Orders({
                           type="button"
                           onClick={() => setPkgAbsolute(expandedBeer.id, p.id, q)}
                           title="Rychlá volba množství"
-                          className={`tap h-9 min-w-[1.75rem] px-1.5 rounded text-[11px] font-black transition ${qty === q ? 'bg-emerald-700 text-white' : 'bg-neutral-100 hover:bg-emerald-200 text-neutral-600 hover:text-emerald-950'}`}
+                          className={`tap h-9 min-w-[1.75rem] px-1.5 rounded text-udaj font-black transition ${qty === q ? 'bg-emerald-700 text-white' : 'bg-neutral-100 hover:bg-emerald-200 text-neutral-600 hover:text-emerald-950'}`}
                         >
                           {q}
                         </button>
@@ -2078,7 +2078,7 @@ export default function Orders({
               }}
             />
             {noteDateHint && (
-              <div className="mt-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1">
+              <div className="mt-1.5 text-udaj font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1">
                 <Calendar className="ikona-text" /> Z poznámky nastaveno datum závozu: {new Date(noteDateHint + 'T00:00:00Z').toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric' })}
               </div>
             )}
@@ -2099,7 +2099,7 @@ export default function Orders({
               className="accent-amber-500 w-4 h-4"
             />
             <span className="text-xs font-extrabold text-neutral-800 dark:text-neutral-100"><IkonaVycep className="ikona-text" /> Půjčení výčepu</span>
-            <span className="text-[11px] text-neutral-400 font-medium">(otevře rezervační systém výčepu)</span>
+            <span className="text-udaj text-neutral-400 font-medium">(otevře rezervační systém výčepu)</span>
           </label>
 
           {/* Akční tlačítka */}
@@ -2163,7 +2163,7 @@ export default function Orders({
             </button>
             <button type="button" className="btn-ghost !rounded text-xs font-black" onClick={() => setViewMode('summary')}>← Zpět na dlaždice</button>
           </div>
-          <div className="text-[11px] text-neutral-500 mt-2">
+          <div className="text-udaj text-neutral-500 mt-2">
             Položky se vyplní do dlaždic piv ve formuláři. Pak už jen klikni na „Vytvořit objednávku“.
           </div>
         </div>
@@ -2255,8 +2255,8 @@ export default function Orders({
                 onClick={() => setSelectedMonth(shiftMonth(selectedMonth, -1))}
                 className="btn-ghost !rounded !py-1 !px-2 text-xs font-black hover:bg-amber-100 transition"
                 title="Předchozí měsíc"
-              ><ChevronLeft size={15} /></button>
-              <Calendar size={15} className="text-amber-800" />
+              ><ChevronLeft size={16} /></button>
+              <Calendar size={16} className="text-amber-800" />
               <span className="text-xs font-black text-amber-900">Měsíc:</span>
               <input
                 type="month"
@@ -2269,7 +2269,7 @@ export default function Orders({
                 onClick={() => setSelectedMonth(shiftMonth(selectedMonth, 1))}
                 className="btn-ghost !rounded !py-1 !px-2 text-xs font-black hover:bg-amber-100 transition"
                 title="Další měsíc"
-              ><ChevronRight size={15} /></button>
+              ><ChevronRight size={16} /></button>
             </div>
           )}
         </div>
@@ -2369,7 +2369,7 @@ export default function Orders({
               >
                 <span>{d.label}</span>
                 {hasOrders && (
-                  <span className={`px-1.5 py-0.5 rounded-full text-[11px] ${deliveryDayFilter === d.v ? 'bg-neutral-900/10 text-neutral-900' : 'bg-white/25'}`}>
+                  <span className={`px-1.5 py-0.5 rounded-full text-udaj ${deliveryDayFilter === d.v ? 'bg-neutral-900/10 text-neutral-900' : 'bg-white/25'}`}>
                     {count}
                   </span>
                 )}
@@ -2441,7 +2441,7 @@ export default function Orders({
             <button className="chip bg-white border border-primary-200 text-primary-600 hover:bg-primary-50" onClick={clearSelection}><X className="ikona-text" /> Zrušit výběr</button>
           </div>
         ) : (
-          searchedFiltered.length > 0 && <button className="btn-ghost !rounded !py-1.5 text-xs flex items-center gap-1" onClick={selectAll}><CheckSquare size={13} /> Vybrat vše ({searchedFiltered.length})</button>
+          searchedFiltered.length > 0 && <button className="btn-ghost !rounded !py-1.5 text-xs flex items-center gap-1" onClick={selectAll}><CheckSquare size={14} /> Vybrat vše ({searchedFiltered.length})</button>
         )}
       </div>
         </>
@@ -2878,7 +2878,7 @@ function VariantTotalsPanel({ totals, beers, packages, timeScope, onPick }: {
           <span className="text-lg leading-none mt-0.5"><Calculator className="ikona-text" /></span>
           <div>
             <div className="text-sm font-display font-black text-amber-800">Souhrn objednaného množství podle varianty</div>
-            <div className="text-[11px] font-bold text-neutral-500">
+            <div className="text-udaj font-bold text-neutral-500">
               Rozsah: {scopeLabel} · kliknutí na variantu zobrazí objednávky jen s daným pivem v daném obalu
             </div>
           </div>
@@ -2908,7 +2908,7 @@ function VariantTotalsPanel({ totals, beers, packages, timeScope, onPick }: {
                   {beerName(beer)}
                 </span>
                 <span className="font-black text-xl text-amber-700 shrink-0">
-                  {t.qty} <span className="text-[11px] font-bold text-neutral-500">ks</span>
+                  {t.qty} <span className="text-udaj font-bold text-neutral-500">ks</span>
                 </span>
               </div>
               <div className="flex items-center justify-between gap-2 min-w-0">
@@ -2916,7 +2916,7 @@ function VariantTotalsPanel({ totals, beers, packages, timeScope, onPick }: {
                   <span className="inline-block w-6 h-3.5 rounded-sm shrink-0 border border-black/10" style={{ backgroundColor: pkgBg(pkg) }} />
                   {formatPackageLabel(pkg?.label) || t.packageId}
                 </span>
-                <span className="text-[11px] font-bold text-neutral-400 shrink-0 flex items-center gap-1">
+                <span className="text-udaj font-bold text-neutral-400 shrink-0 flex items-center gap-1">
                   {t.orderCount} {ordersTxt}
                   <ArrowRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" />
                 </span>
@@ -3011,16 +3011,16 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
           <span className={`chip font-black shrink-0 ${STATUS[o.status]?.cls ?? ''}`}>{STATUS[o.status]?.label ?? o.status}</span>
           {o.delivery_date && (
             <span className="chip bg-amber-700 text-white font-black shadow-2xs shrink-0 flex items-center gap-1" title="Datum akce / závozu">
-              <Calendar size={11} /> {new Date(o.delivery_date).toLocaleDateString('cs-CZ')}
+              <Calendar size={12} /> {new Date(o.delivery_date).toLocaleDateString('cs-CZ')}
             </span>
           )}
           {o.delivery_day && (
             <span className={`chip ${dayColor(o.delivery_day)!.chip} shrink-0 flex items-center gap-1`}>
-              <Truck size={11} /> {DAYS.find((d) => d.v === o.delivery_day)?.label ?? o.delivery_day}
+              <Truck size={12} /> {DAYS.find((d) => d.v === o.delivery_day)?.label ?? o.delivery_day}
             </span>
           )}
-          <span className="text-[11px] font-bold text-neutral-500 bg-white/80 border border-neutral-200 rounded-md px-1.5 py-0.5 shadow-2xs shrink-0 flex items-center gap-1" title="Datum zadání">
-            <Calendar size={11} /> {new Date(o.order_date).toLocaleDateString('cs-CZ')}
+          <span className="text-udaj font-bold text-neutral-500 bg-white/80 border border-neutral-200 rounded-md px-1.5 py-0.5 shadow-2xs shrink-0 flex items-center gap-1" title="Datum zadání">
+            <Calendar size={12} /> {new Date(o.order_date).toLocaleDateString('cs-CZ')}
           </span>
           <div className="ml-auto flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
             {/* Připraveno: stejný formát jako akce dole — ikona 32×32,
@@ -3077,7 +3077,7 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
                 return (
                   <span
                     key={i.id}
-                    className={`chip !py-0.5 !px-2 text-[11px] font-black border transition-all ${chipCls}`}
+                    className={`chip !py-0.5 !px-2 text-udaj font-black border transition-all ${chipCls}`}
                   >
                     {beer && (
                       <span
@@ -3091,7 +3091,7 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
                         ({formatPackageLabel(i.package_label)})
                       </span>
                     )}
-                    <strong className={`ml-1.5 px-1.5 py-0 rounded font-black text-[11px] ${qtyCls}`}>
+                    <strong className={`ml-1.5 px-1.5 py-0 rounded font-black text-udaj ${qtyCls}`}>
                       {i.quantity} ks
                     </strong>
                   </span>
@@ -3099,46 +3099,46 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
               })}
             </>
           )}
-          <span className="text-[11px] font-black text-neutral-700 shrink-0">
+          <span className="text-udaj font-black text-neutral-700 shrink-0">
             {items.length} položek · {total} ks
           </span>
-          {o.note && <span className="text-[11px] font-extrabold shrink-0 text-neutral-900 bg-amber-100 border border-amber-300 rounded-md px-1.5 py-0.5"><NotebookPen className="ikona-text" /> {o.note}</span>}
+          {o.note && <span className="text-udaj font-extrabold shrink-0 text-neutral-900 bg-amber-100 border border-amber-300 rounded-md px-1.5 py-0.5"><NotebookPen className="ikona-text" /> {o.note}</span>}
           {o.whatsapp_message_id && (
             <button
               onClick={(e) => { e.stopPropagation(); onOpenWhatsApp && onOpenWhatsApp(o.whatsapp_message_id!); }}
-              className="text-[11px] font-extrabold shrink-0 text-emerald-900 bg-emerald-100 border border-emerald-300 rounded-md px-1.5 py-0.5 hover:bg-emerald-200 flex items-center gap-1 tap"
+              className="text-udaj font-extrabold shrink-0 text-emerald-900 bg-emerald-100 border border-emerald-300 rounded-md px-1.5 py-0.5 hover:bg-emerald-200 flex items-center gap-1 tap"
               title="Otevřít originální WhatsApp zprávu a kontrolu čtení (#18)"
             >
-              <MessageCircle size={11} /> WhatsApp
+              <MessageCircle size={12} /> WhatsApp
             </button>
           )}
           {(() => { const _ph = places.find(p => p.id === o.place_id)?.phone; return _ph ? (
-            <a href={`tel:${_ph}`} className="text-[11px] text-sky-700 font-bold flex items-center gap-0.5 hover:underline shrink-0">
-              <Phone size={11} /> <span>{_ph}</span>
+            <a href={`tel:${_ph}`} className="text-udaj text-sky-700 font-bold flex items-center gap-0.5 hover:underline shrink-0">
+              <Phone size={12} /> <span>{_ph}</span>
             </a>
           ) : null; })()}
-          {o.is_delivered && <span className="chip bg-violet-700 text-white font-black shadow-2xs flex items-center gap-1"><Check size={11} /> Zavez.</span>}
+          {o.is_delivered && <span className="chip bg-violet-700 text-white font-black shadow-2xs flex items-center gap-1"><Check size={12} /> Zavez.</span>}
         </div>
 
         {/* Řádek 3: sklad + připraveno + den + akce */}
         <div className="flex items-center gap-1.5 flex-wrap min-w-0">
           {uniqueDeficits.length > 0 ? (
-            <span className="flex items-center gap-1 text-[11px] font-black text-rose-950 bg-rose-100 border border-rose-300 rounded-lg px-2 py-0.5 shadow-2xs">
+            <span className="flex items-center gap-1 text-udaj font-black text-rose-950 bg-rose-100 border border-rose-300 rounded-lg px-2 py-0.5 shadow-2xs">
               <AlertTriangle size={12} />
               <span>Chybí: {uniqueDeficits.map((d) => `${d.name} ${d.missing} ks`).join(', ')}</span>
             </span>
           ) : items.length > 0 ? (
-            <span className="flex items-center gap-1 text-[11px] font-black text-emerald-950 bg-emerald-100 border border-emerald-300 rounded-lg px-2 py-0.5 shadow-2xs">
+            <span className="flex items-center gap-1 text-udaj font-black text-emerald-950 bg-emerald-100 border border-emerald-300 rounded-lg px-2 py-0.5 shadow-2xs">
               <CheckCircle2 size={12} />
               <span>Vše skladem</span>
             </span>
           ) : null}
-          {o.is_prepared && <span className="chip bg-emerald-700 text-white font-black shadow-2xs flex items-center gap-1"><Check size={11} /> Připr.</span>}
+          {o.is_prepared && <span className="chip bg-emerald-700 text-white font-black shadow-2xs flex items-center gap-1"><Check size={12} /> Připr.</span>}
 
           <div className="flex items-center gap-1 ml-auto flex-wrap justify-end" onClick={(e) => e.stopPropagation()}>
-            <span className="text-[11px] font-extrabold text-neutral-900 shrink-0">Závoz:</span>
+            <span className="text-udaj font-extrabold text-neutral-900 shrink-0">Závoz:</span>
             <select
-              className="input !py-0.5 !px-1.5 text-[11px] font-bold w-20 bg-white border-amber-300 shadow-2xs"
+              className="input !py-0.5 !px-1.5 text-udaj font-bold w-20 bg-white border-amber-300 shadow-2xs"
               value={o.delivery_day ?? ''}
               onClick={(e) => e.stopPropagation()}
               onChange={(e) => onUpdateDeliveryDay(o, e.target.value)}
@@ -3384,7 +3384,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
 
           {placeHistory.length > 0 && (
             <div className="mb-3 rounded-xl bg-primary-50/60 border border-primary-100 p-3">
-              <div className="text-[11px] uppercase tracking-wider text-primary-500 mb-1.5"><Scroll className="ikona-text" /> Historie odběratele — poslední objednávky</div>
+              <div className="text-udaj uppercase tracking-wider text-primary-500 mb-1.5"><Scroll className="ikona-text" /> Historie odběratele — poslední objednávky</div>
               <div className="space-y-1">
                 {placeHistory.map((h) => {
                   const hItems = allItems[h.id] ?? [];
@@ -3428,7 +3428,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
 
           {order.signature_url && (
             <div className="mt-3 rounded-xl border border-neutral-300 bg-white p-3 inline-block">
-              <div className="text-[11px] uppercase tracking-wider text-neutral-500 mb-1">
+              <div className="text-udaj uppercase tracking-wider text-neutral-500 mb-1">
                 Převzato{order.delivered_at ? ` ${new Date(order.delivered_at).toLocaleString('cs-CZ')}` : ''}
                 {order.signature_name ? ` · ${order.signature_name}` : ''}
               </div>
@@ -3741,7 +3741,7 @@ function WhatsAppOriginalBlock({ messageId }: { messageId: string }) {
           <MessageCircle size={18} className="text-emerald-600 shrink-0" />
           Původní WhatsApp zpráva
         </span>
-        <span className="text-[11px] font-bold text-neutral-400">{open ? 'Sbalit ▲' : 'Zobrazit ▼'}</span>
+        <span className="text-udaj font-bold text-neutral-400">{open ? 'Sbalit ▲' : 'Zobrazit ▼'}</span>
       </button>
 
       {open && (
@@ -3761,7 +3761,7 @@ function WhatsAppOriginalBlock({ messageId }: { messageId: string }) {
           )}
           {msg && (
             <>
-              <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-bold text-neutral-500">
+              <div className="flex flex-wrap gap-x-3 gap-y-1 text-udaj font-bold text-neutral-500">
                 <span className="flex items-center gap-1"><User className="ikona-text" /> {msg.sender_name || 'Neznámý odesílatel'}</span>
                 <span><Clock className="ikona-text" /> {formatWATime(msg.message_timestamp || msg.created_at)}</span>
                 {msg.readback_unmatched_count ? (

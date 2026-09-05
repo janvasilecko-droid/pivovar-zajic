@@ -208,7 +208,7 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
 
   return (
     <div
-      className="fixed inset-0 bg-neutral-950/70 backdrop-blur-sm z-[9999] flex items-start justify-center pt-3 sm:pt-24 px-0 sm:px-4"
+      className="fixed inset-0 bg-neutral-950/70 backdrop-blur-sm z-nadmodal flex items-start justify-center pt-3 sm:pt-24 px-0 sm:px-4"
       onClick={onClose}
     >
       <div
@@ -235,7 +235,7 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
           >
             Zavřít
           </button>
-          <kbd className="hidden sm:inline-block px-2 py-1 text-[11px] font-mono font-black text-amber-900 bg-amber-200/80 rounded border border-amber-300 shrink-0">
+          <kbd className="hidden sm:inline-block px-2 py-1 text-udaj font-mono font-black text-amber-900 bg-amber-200/80 rounded border border-amber-300 shrink-0">
             ESC
           </kbd>
         </div>
@@ -283,7 +283,7 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
 
                   <div className="flex items-center gap-2 shrink-0">
                     <span
-                      className={`hidden sm:inline text-[11px] font-black uppercase px-2 py-0.5 rounded border ${
+                      className={`hidden sm:inline text-udaj font-black uppercase px-2 py-0.5 rounded border ${
                         isSelected
                           ? 'bg-amber-500 text-neutral-950 border-amber-700'
                           : 'bg-neutral-100 text-neutral-600 border-neutral-200'
@@ -302,14 +302,14 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
         <div className="hidden sm:flex p-3 bg-neutral-50 border-t border-neutral-100 items-center justify-between text-xs text-neutral-500 font-bold px-4">
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 bg-white border border-neutral-300 rounded-sm text-[11px]">↑</kbd>
-              <kbd className="px-1.5 py-0.5 bg-white border border-neutral-300 rounded-sm text-[11px]">↓</kbd> Navigace
+              <kbd className="px-1.5 py-0.5 bg-white border border-neutral-300 rounded-sm text-udaj">↑</kbd>
+              <kbd className="px-1.5 py-0.5 bg-white border border-neutral-300 rounded-sm text-udaj">↓</kbd> Navigace
             </span>
             <span className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 bg-white border border-neutral-300 rounded-sm text-[11px]">↵</kbd> Otevřít
+              <kbd className="px-1.5 py-0.5 bg-white border border-neutral-300 rounded-sm text-udaj">↵</kbd> Otevřít
             </span>
           </div>
-          <span className="text-[11px] text-amber-700 font-extrabold">Pivovar Zajíc</span>
+          <span className="text-udaj text-amber-700 font-extrabold">Pivovar Zajíc</span>
         </div>
       </div>
     </div>

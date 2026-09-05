@@ -28,7 +28,7 @@ export function BreweryRadioBar({ onOpenModal }: BreweryRadioBarProps) {
 
   return (
     <div
-      className="fixed bottom-16 sm:bottom-4 right-4 z-40 flex items-center gap-2.5 px-3.5 py-2 rounded-full shadow-lg border border-white/20 backdrop-blur-md text-white transition-all animate-slide-up"
+      className="fixed bottom-16 sm:bottom-4 right-4 z-lista flex items-center gap-2.5 px-3.5 py-2 rounded-full shadow-lg border border-white/20 backdrop-blur-md text-white transition-all animate-slide-up"
       style={{
         background: `linear-gradient(135deg, ${currentStation.color || '#e03131'}ee, #1e1b4bee)`,
       }}
@@ -43,7 +43,7 @@ export function BreweryRadioBar({ onOpenModal }: BreweryRadioBarProps) {
           <div className="text-xs font-black tracking-tight leading-tight truncate max-w-[130px] sm:max-w-[180px]">
             {currentStation.name}
           </div>
-          <div className="text-[11px] font-semibold text-white/80 leading-none truncate">
+          <div className="text-udaj font-semibold text-white/80 leading-none truncate">
             {state.loading ? 'Načítám…' : currentStation.genre}
           </div>
         </div>

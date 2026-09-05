@@ -295,7 +295,7 @@ export default function AppSettingsScreen() {
 
       {/* Instalace */}
       <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Smartphone size={20} /> Instalace aplikace</h2>
+        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Smartphone size={18} /> Instalace aplikace</h2>
         {isStandalone ? (
           <p className="text-sm text-emerald-700 font-bold mt-2">Aplikace je již nainstalována na vašem zařízení.</p>
         ) : installPrompt ? (
@@ -310,14 +310,14 @@ export default function AppSettingsScreen() {
 
       {/* Menu */}
       <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Eye size={20} /> Přizpůsobení menu</h2>
+        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Eye size={18} /> Přizpůsobení menu</h2>
         <p className="text-sm text-neutral-600 mt-2">Vyberte si, které položky chcete vidět v hlavním menu pro rychlejší navigaci.</p>
         <button onClick={() => setShowMenuCustomize(true)} className="btn-ghost !rounded mt-3 text-sm font-black">Upravit viditelnost menu</button>
       </div>
 
       {/* Hustota / Velikost */}
       <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Palette size={20} /> Hustota zobrazení</h2>
+        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Palette size={18} /> Hustota zobrazení</h2>
         <p className="text-sm text-neutral-600 mt-2">Zvolte velikost prvků a písma. XS = nejhustší, XL = největší.</p>
         <div className="flex flex-wrap gap-2 mt-4">
           {DENSITY_OPTIONS.map(opt => (
@@ -331,7 +331,7 @@ export default function AppSettingsScreen() {
               }`}
             >
               <span className="text-base">{opt.label}</span>
-              <span className="text-[11px] font-medium mt-0.5 opacity-70">{opt.desc}</span>
+              <span className="text-udaj font-medium mt-0.5 opacity-70">{opt.desc}</span>
             </button>
           ))}
         </div>
@@ -339,7 +339,7 @@ export default function AppSettingsScreen() {
 
       {/* Odezva do prstu */}
       <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Vibrate size={20} /> Odezva při dotyku</h2>
+        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Vibrate size={18} /> Odezva při dotyku</h2>
         <p className="text-sm text-neutral-600 mt-2">
           Krátké zavibrování při odškrtnutí položky nebo zápisu. Na telefonu se
           díky tomu nemusí kontrolovat očima, jestli klepnutí prošlo.
@@ -350,7 +350,7 @@ export default function AppSettingsScreen() {
             haptika ? 'bg-emerald-50 border-emerald-300 text-emerald-900' : 'bg-neutral-50 border-neutral-200 text-neutral-600'
           }`}
         >
-          <Vibrate size={20} />
+          <Vibrate size={18} />
           <span className="flex-1">{haptika ? 'Zapnuto' : 'Vypnuto'}</span>
           <span className={`w-12 h-7 rounded-full transition relative ${haptika ? 'bg-emerald-500' : 'bg-neutral-300'}`}>
             <span className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-all ${haptika ? 'left-6' : 'left-1'}`} />
@@ -360,7 +360,7 @@ export default function AppSettingsScreen() {
 
       {/* Upozornění */}
       <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Bell size={20} /> Upozornění (notifikace)</h2>
+        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Bell size={18} /> Upozornění (notifikace)</h2>
         <p className="text-sm text-neutral-600 mt-2">Nastavte si chování upozornění na nové objednávky.</p>
 
         <div className="mt-5 space-y-4">
@@ -373,7 +373,7 @@ export default function AppSettingsScreen() {
                 : 'bg-rose-50 border-rose-300 text-rose-900'
             }`}
           >
-            {notifPermission === 'granted' ? <Bell size={20} /> : <BellOff size={20} />}
+            {notifPermission === 'granted' ? <Bell size={18} /> : <BellOff size={18} />}
             <span>
               {notifPermission === 'granted' ? 'Systémová upozornění jsou POVOLENA' : 'Systémová upozornění jsou ZAKÁZÁNA'}
               <span className="block text-xs font-medium opacity-75 mt-0.5">
@@ -492,7 +492,7 @@ export default function AppSettingsScreen() {
                 </button>
               ))}
             </div>
-            <p className="text-[11px] text-neutral-500 mt-2">
+            <p className="text-udaj text-neutral-500 mt-2">
               Platí pro in-app banner. Systémové notifikace se řídí nastavením &quot;Vyžadovat potvrzení&quot; výše.
             </p>
           </div>
@@ -501,7 +501,7 @@ export default function AppSettingsScreen() {
 
       {/* Vzhled */}
       <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Palette size={20} /> Vzhled (Světlý/Tmavý)</h2>
+        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Palette size={18} /> Vzhled (Světlý/Tmavý)</h2>
         <p className="text-sm text-neutral-600 mt-2">Vyberte si preferovaný barevný režim.</p>
         <div className="flex gap-2 mt-3 flex-wrap">
           <button onClick={() => { setTheme('light'); setThemeState('light'); }} className={`btn ${theme === 'light' ? 'btn-primary' : 'btn-ghost'} flex items-center gap-2`}>
@@ -519,7 +519,7 @@ export default function AppSettingsScreen() {
       {/* 🔄 ADMIN: Verze & Synchronizace dat */}
       {/* WhatsApp — povolení odesílatelé */}
       <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><MessageSquare size={20} /> WhatsApp — povolení odesílatelé</h2>
+        <h2 className="font-display font-bold text-lg flex items-center gap-2"><MessageSquare size={18} /> WhatsApp — povolení odesílatelé</h2>
         <p className="text-sm text-neutral-600 mt-2">
           Zprávy se načítají automaticky jen od povolených kontaktů.
           {whatsappSenders.length === 0
@@ -579,7 +579,7 @@ export default function AppSettingsScreen() {
 
       {/* 👤 Změna jména */}
       <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Users size={20} /> Změna jména</h2>
+        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Users size={18} /> Změna jména</h2>
         <p className="text-sm text-neutral-600 mt-2">Jméno se používá pro zápisy (např. fasování, stáčení, sanitace). Změní se i v menu u vašeho profilu.</p>
         <form onSubmit={handleChangeName} className="mt-4 space-y-3">
           <div>
@@ -606,7 +606,7 @@ export default function AppSettingsScreen() {
 
       {/* 🔒 Změna hesla */}
       <div className="card p-6">
-        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Lock size={20} /> Změna hesla</h2>
+        <h2 className="font-display font-bold text-lg flex items-center gap-2"><Lock size={18} /> Změna hesla</h2>
         <p className="text-sm text-neutral-600 mt-2">Zadejte nové heslo pro přihlášení do aplikace (min. 6 znaků).</p>
         <form onSubmit={handleChangePassword} className="mt-4 space-y-3">
           <div>
@@ -759,9 +759,9 @@ function AdminVersionSyncSection() {
   return (
     <div className="card p-6 border-2 border-amber-400/60 bg-gradient-to-br from-amber-50/80 to-white rounded shadow-md">
       <h2 className="font-display font-bold text-lg flex items-center gap-2">
-        <RefreshCw size={20} className="text-amber-600" />
+        <RefreshCw size={18} className="text-amber-600" />
         <span><RefreshCw className="ikona-text" /> Verze & Synchronizace dat</span>
-        <span className="ml-auto px-2.5 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-black text-[11px] uppercase tracking-wider">
+        <span className="ml-auto px-2.5 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-black text-udaj uppercase tracking-wider">
           ADMIN
         </span>
       </h2>
@@ -770,11 +770,11 @@ function AdminVersionSyncSection() {
       {/* Verze a datum */}
       <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="p-4 rounded bg-neutral-900 text-white border border-neutral-700 shadow-inner">
-          <div className="text-[11px] font-black uppercase tracking-wider text-amber-400">Verze kódu</div>
+          <div className="text-udaj font-black uppercase tracking-wider text-amber-400">Verze kódu</div>
           <div className="text-2xl font-display font-black mt-1">v{APP_VERSION}</div>
         </div>
         <div className="p-4 rounded bg-neutral-900 text-white border border-neutral-700 shadow-inner">
-          <div className="text-[11px] font-black uppercase tracking-wider text-amber-400">Poslední změna kódu</div>
+          <div className="text-udaj font-black uppercase tracking-wider text-amber-400">Poslední změna kódu</div>
           <div className="text-lg font-display font-black mt-1">{APP_VERSION_DATE}</div>
         </div>
       </div>
@@ -809,7 +809,7 @@ function AdminVersionSyncSection() {
       {/* Tlačítko pro refresh */}
       <div className="mt-5 p-4 rounded bg-amber-100/70 border border-amber-300 space-y-3">
         <div className="flex items-start gap-3">
-          <CloudDownload size={20} className="text-amber-700 shrink-0 mt-0.5" />
+          <CloudDownload size={18} className="text-amber-700 shrink-0 mt-0.5" />
           <div>
             <div className="text-sm font-black text-amber-950">Vynutit obnovení všech dat ze serveru</div>
             <p className="text-xs text-amber-800 font-medium mt-0.5">
@@ -850,7 +850,7 @@ function AdminVersionSyncSection() {
       {/* 🧹 VYČIŠTĚNÍ DAT */}
       <div className="mt-5 p-4 rounded bg-rose-50 border-2 border-rose-300 space-y-3">
         <div className="flex items-start gap-3">
-          <Eraser size={20} className="text-rose-600 shrink-0 mt-0.5" />
+          <Eraser size={18} className="text-rose-600 shrink-0 mt-0.5" />
           <div>
             <div className="text-sm font-black text-rose-900"><Brush className="ikona-text" /> Vyčistit všechna data (příprava na ostrý provoz)</div>
             <p className="text-xs text-rose-800 font-medium mt-0.5">

@@ -160,14 +160,14 @@ export default function ZavozHistory() {
       {/* Filtry historie tras */}
       <div className="card sticky top-0 z-10 p-3 bg-white border border-neutral-200 rounded shadow-xs space-y-2">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[11px] font-black uppercase tracking-wider text-neutral-500 flex items-center gap-1"><Filter size={13} /> Filtry</span>
+          <span className="text-udaj font-black uppercase tracking-wider text-neutral-500 flex items-center gap-1"><Filter size={14} /> Filtry</span>
           {/* Období */}
           <div className="flex items-center gap-1 bg-neutral-100 rounded p-1">
             {([['all', 'Vše'], ['week', 'Týden'], ['month', 'Měsíc'], ['year', 'Rok']] as const).map(([k, lbl]) => (
               <button
                 key={k}
                 onClick={() => setHistPeriod(k)}
-                className={`tap px-3 py-1.5 rounded font-black text-[11px] transition ${
+                className={`tap px-3 py-1.5 rounded font-black text-udaj transition ${
                   histPeriod === k ? 'bg-white text-neutral-900 shadow-xs' : 'text-neutral-600 hover:bg-white'
                 }`}
               >
@@ -234,7 +234,7 @@ export default function ZavozHistory() {
                   onClick={() => printDeliveryListForOrders(hGroup.orders, formattedDate)}
                   className="px-3.5 py-2 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-xs transition flex items-center gap-1.5"
                 >
-                  <Printer size={15} /> Tisk trasovky
+                  <Printer size={16} /> Tisk trasovky
                 </button>
               </div>
 
@@ -246,21 +246,21 @@ export default function ZavozHistory() {
                     <div key={o.id} className="p-3.5 rounded bg-neutral-50 border border-neutral-200/80 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="font-black text-sm text-neutral-900 truncate">{o.place_name}</span>
-                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-black ${o.is_delivered ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' : 'bg-amber-100 text-amber-900'}`}>
+                        <span className={`px-2 py-0.5 rounded-full text-udaj font-black ${o.is_delivered ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' : 'bg-amber-100 text-amber-900'}`}>
                           {o.is_delivered ? <><Check className="ikona-text" /> Zavezeno</> : 'Čeká'}
                         </span>
                       </div>
 
                       <div className="space-y-1 text-xs">
                         {oItems.map((it) => (
-                          <div key={it.id} className="flex justify-between text-[11px] font-medium text-neutral-700">
+                          <div key={it.id} className="flex justify-between text-udaj font-medium text-neutral-700">
                             <span>{it.beer_name}</span>
                             <span className="font-bold font-mono">{it.quantity}x {formatPackageLabel(it.package_label)}</span>
                           </div>
                         ))}
                       </div>
 
-                      <div className="text-[11px] text-neutral-500 font-bold text-right pt-1 border-t border-neutral-200/60">
+                      <div className="text-udaj text-neutral-500 font-bold text-right pt-1 border-t border-neutral-200/60">
                         Váha: {fmtKg(wKg)} kg
                       </div>
                     </div>

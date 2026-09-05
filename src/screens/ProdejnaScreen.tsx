@@ -508,7 +508,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
 
           <TileTotalBar label="Zatím zapsáno" value={`${rowsSummary.totalQty} ks · ${rowsSummary.totalL.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} L`} />
           <div className="mb-2">
-            <span className="text-[11px] text-neutral-400 font-medium">klepni na dlaždici a zadej obaly a množství</span>
+            <span className="text-udaj text-neutral-400 font-medium">klepni na dlaždici a zadej obaly a množství</span>
           </div>
           <div className="mb-4">
             <BeerTileGrid
@@ -576,7 +576,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
           {/* Souhrn zapsaných položek — jen ke čtení, úprava se dělá kliknutím na dlaždici výše. */}
           {entryRows.some((r) => r.pkgId && Number(r.qty) > 0) && (
             <div className="rounded border border-neutral-200 bg-white p-3 space-y-1.5 mb-4">
-              <div className="text-[11px] font-black uppercase tracking-wider text-neutral-500 mb-1">Zapsáno</div>
+              <div className="text-udaj font-black uppercase tracking-wider text-neutral-500 mb-1">Zapsáno</div>
               {entryRows.filter((r) => r.pkgId && Number(r.qty) > 0).map((r, i) => {
                 const beer = beers.find((b) => b.id === r.beerId);
                 const pkg = packages.find((p) => p.id === r.pkgId);
@@ -720,20 +720,20 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                   </h3>
                   <div className="flex flex-wrap gap-2 mb-3">
                     <div className="flex-1 min-w-[70px] rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-2 text-center">
-                      <div className="text-[11px] font-black uppercase tracking-wide text-amber-700">Dnes</div>
+                      <div className="text-udaj font-black uppercase tracking-wide text-amber-700">Dnes</div>
                       <div className="font-mono font-black text-lg text-amber-950 tabular-nums">{dnesKs}</div>
                     </div>
                     <div className="flex-1 min-w-[70px] rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-2 text-center">
-                      <div className="text-[11px] font-black uppercase tracking-wide text-amber-700">Tento týden</div>
+                      <div className="text-udaj font-black uppercase tracking-wide text-amber-700">Tento týden</div>
                       <div className="font-mono font-black text-lg text-amber-950 tabular-nums">{tydenKs}</div>
                     </div>
                     <div className="flex-1 min-w-[70px] rounded-lg bg-amber-100 border border-amber-300 px-2.5 py-2 text-center">
-                      <div className="text-[11px] font-black uppercase tracking-wide text-amber-800">Zvolený měsíc</div>
+                      <div className="text-udaj font-black uppercase tracking-wide text-amber-800">Zvolený měsíc</div>
                       <div className="font-mono font-black text-lg text-amber-950 tabular-nums">{totalCount}</div>
                     </div>
                   </div>
                   {nejvic && (
-                    <div className="text-[11px] font-bold text-amber-800 mb-3">
+                    <div className="text-udaj font-bold text-amber-800 mb-3">
                       Nejvíc ve zvoleném období: <span className="font-black text-amber-950">{nejvic[0]} — {nejvic[1]} ks</span>
                     </div>
                   )}
@@ -751,7 +751,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                                 <span className="truncate">{r.beer_name ?? beer?.name ?? '—'}</span>
                                 <span className="px-1.5 py-0.5 rounded-md bg-amber-200/80 text-amber-950 font-black text-xs shrink-0">{pkg ? `${vol} l` : '—'}</span>
                               </div>
-                              <div className="text-[11px] font-bold text-amber-800 mt-0.5">
+                              <div className="text-udaj font-bold text-amber-800 mt-0.5">
                                 {formatDate(r.entry_date)}
                                 {showWhoColumn && getRowWho(r) ? ` · ${getRowWho(r)}` : ''}
                               </div>

@@ -341,18 +341,18 @@ Skladové výpočty se tím rovnou přepočítají.`,
                   {/* podklad: bg-amber-900 — hlavička modálu je tmavý přechod
                       from-amber-950 via-amber-900 (viz obal výš). */}
                   {totalIssues === 0 && !loading && (
-                    <span className="text-[11px] bg-emerald-500/30 text-emerald-300 border border-emerald-400/40 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
-                      <ShieldCheck size={13} /> 100% V pořádku
+                    <span className="text-udaj bg-emerald-500/30 text-emerald-300 border border-emerald-400/40 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                      <ShieldCheck size={14} /> 100% V pořádku
                     </span>
                   )}
                   {/* podklad: bg-amber-900 */}
                   {totalIssues > 0 && !loading && (
-                    <span className="text-[11px] bg-rose-500/30 text-rose-300 border border-rose-400/40 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                    <span className="text-udaj bg-rose-500/30 text-rose-300 border border-rose-400/40 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
                       <AlertTriangle size={12} /> {totalIssues} k prověření
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] sm:text-xs text-amber-200/80 mt-0.5">
+                <p className="text-udaj sm:text-xs text-amber-200/80 mt-0.5">
                   Detekce zdvojených sudů, duplicit a porovnání s WhatsAppem
                 </p>
               </div>
@@ -377,7 +377,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
                 className="w-10 h-10 grid place-items-center rounded bg-white/10 hover:bg-white/20 active:scale-95 text-white transition border border-white/10 tap"
                 title="Zavřít"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
           </div>
@@ -408,7 +408,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
             </div>
 
             {report && !loading && (
-              <div className="text-[11px] font-medium text-amber-200/90">
+              <div className="text-udaj font-medium text-amber-200/90">
                 Prověřeno <strong>{report.scannedOrdersCount}</strong> obj. a <strong>{report.scannedWhatsAppCount}</strong> zpráv
               </div>
             )}
@@ -438,14 +438,14 @@ Skladové výpočty se tím rovnou přepočítají.`,
               }`}
             >
               <div className="flex items-center justify-between text-rose-800 mb-1">
-                <span className="text-[11px] font-black uppercase tracking-wider">Zdvojené sudy</span>
-                <Layers size={15} />
+                <span className="text-udaj font-black uppercase tracking-wider">Zdvojené sudy</span>
+                <Layers size={16} />
               </div>
               <div className="flex items-baseline gap-1.5">
                 <span className={`text-xl sm:text-2xl font-black ${itemsDupCount > 0 ? 'text-rose-700' : 'text-neutral-500'}`}>
                   {itemsDupCount}
                 </span>
-                <span className="text-[11px] font-bold text-neutral-500">v objednávkách</span>
+                <span className="text-udaj font-bold text-neutral-500">v objednávkách</span>
               </div>
             </button>
 
@@ -461,14 +461,14 @@ Skladové výpočty se tím rovnou přepočítají.`,
               }`}
             >
               <div className="flex items-center justify-between text-amber-800 mb-1">
-                <span className="text-[11px] font-black uppercase tracking-wider">Neshody s WA</span>
-                <MessageSquare size={15} />
+                <span className="text-udaj font-black uppercase tracking-wider">Neshody s WA</span>
+                <MessageSquare size={16} />
               </div>
               <div className="flex items-baseline gap-1.5">
                 <span className={`text-xl sm:text-2xl font-black ${waMismatchCount > 0 ? 'text-amber-700' : 'text-neutral-500'}`}>
                   {waMismatchCount}
                 </span>
-                <span className="text-[11px] font-bold text-neutral-500">rozdílných ks</span>
+                <span className="text-udaj font-bold text-neutral-500">rozdílných ks</span>
               </div>
             </button>
 
@@ -484,14 +484,14 @@ Skladové výpočty se tím rovnou přepočítají.`,
               }`}
             >
               <div className="flex items-center justify-between text-violet-800 mb-1">
-                <span className="text-[11px] font-black uppercase tracking-wider">Duplicitní obj.</span>
-                <Copy size={15} />
+                <span className="text-udaj font-black uppercase tracking-wider">Duplicitní obj.</span>
+                <Copy size={16} />
               </div>
               <div className="flex items-baseline gap-1.5">
                 <span className={`text-xl sm:text-2xl font-black ${orderDupCount > 0 ? 'text-violet-700' : 'text-neutral-500'}`}>
                   {orderDupCount}
                 </span>
-                <span className="text-[11px] font-bold text-neutral-500">stejný zákazník</span>
+                <span className="text-udaj font-bold text-neutral-500">stejný zákazník</span>
               </div>
             </button>
 
@@ -507,14 +507,14 @@ Skladové výpočty se tím rovnou přepočítají.`,
               }`}
             >
               <div className="flex items-center justify-between text-sky-800 mb-1">
-                <span className="text-[11px] font-black uppercase tracking-wider">Čekající zprávy</span>
-                <Sparkles size={15} />
+                <span className="text-udaj font-black uppercase tracking-wider">Čekající zprávy</span>
+                <Sparkles size={16} />
               </div>
               <div className="flex items-baseline gap-1.5">
                 <span className={`text-xl sm:text-2xl font-black ${unprocessedCount > 0 ? 'text-sky-700' : 'text-neutral-500'}`}>
                   {unprocessedCount}
                 </span>
-                <span className="text-[11px] font-bold text-neutral-500">nezadaných</span>
+                <span className="text-udaj font-bold text-neutral-500">nezadaných</span>
               </div>
             </button>
 
@@ -532,14 +532,14 @@ Skladové výpočty se tím rovnou přepočítají.`,
               }`}
             >
               <div className="flex items-center justify-between text-rose-800 mb-1">
-                <span className="text-[11px] font-black uppercase tracking-wider">Sklad vs. objednávka</span>
-                <Layers size={15} />
+                <span className="text-udaj font-black uppercase tracking-wider">Sklad vs. objednávka</span>
+                <Layers size={16} />
               </div>
               <div className="flex items-baseline gap-1.5">
                 <span className={`text-xl sm:text-2xl font-black ${odpoctyCount > 0 ? 'text-rose-700' : 'text-neutral-500'}`}>
                   {odpoctyCount}
                 </span>
-                <span className="text-[11px] font-bold text-neutral-500">rozjetých odpočtů</span>
+                <span className="text-udaj font-bold text-neutral-500">rozjetých odpočtů</span>
               </div>
             </button>
 
@@ -556,14 +556,14 @@ Skladové výpočty se tím rovnou přepočítají.`,
               }`}
             >
               <div className="flex items-center justify-between text-violet-800 mb-1">
-                <span className="text-[11px] font-black uppercase tracking-wider">Přišlo všechno?</span>
-                <Search size={15} />
+                <span className="text-udaj font-black uppercase tracking-wider">Přišlo všechno?</span>
+                <Search size={16} />
               </div>
               <div className="flex items-baseline gap-1.5">
                 <span className={`text-xl sm:text-2xl font-black ${podezreniCelkem > 0 ? 'text-violet-700' : 'text-neutral-500'}`}>
                   {podezreniCelkem}
                 </span>
-                <span className="text-[11px] font-bold text-neutral-500">podezření</span>
+                <span className="text-udaj font-bold text-neutral-500">podezření</span>
               </div>
             </button>
           </div>
@@ -632,7 +632,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
                               {' · '}tep mostu {popisTepu}
                               {most?.poznamka ? ` · ${most.poznamka}` : ''}
                             </p>
-                            <p className={`text-[11px] font-semibold mt-1 ${barvy.text}`}>{s.rada}</p>
+                            <p className={`text-udaj font-semibold mt-1 ${barvy.text}`}>{s.rada}</p>
                           </div>
                           <button
                             type="button"
@@ -640,11 +640,11 @@ Skladové výpočty se tím rovnou přepočítají.`,
                             disabled={srovnavam}
                             className="shrink-0 btn-primary !rounded-xl !min-h-[44px] text-xs disabled:opacity-50"
                           >
-                            <RefreshCw size={15} className={srovnavam ? 'animate-spin' : ''} />
+                            <RefreshCw size={16} className={srovnavam ? 'animate-spin' : ''} />
                             {srovnavam ? 'Zadávám…' : 'Srovnat s WhatsAppem'}
                           </button>
                         </div>
-                        <p className="text-[11px] font-semibold text-neutral-500 mt-2">
+                        <p className="text-udaj font-semibold text-neutral-500 mt-2">
                           Srovnání znovu naváže spojení a nechá si od WhatsAppu poslat historii.
                           Chybějící zprávy projdou stejnou cestou jako živé; co už v aplikaci je, se nezdvojí.
                         </p>
@@ -664,7 +664,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
                       <div className="overflow-x-auto">
                         <table className="w-full text-xs">
                           <thead>
-                            <tr className="text-[11px] font-black uppercase tracking-wider text-neutral-500 border-b border-neutral-200">
+                            <tr className="text-udaj font-black uppercase tracking-wider text-neutral-500 border-b border-neutral-200">
                               <th scope="col" className="text-left py-1.5">Den</th>
                               <th scope="col" className="text-right py-1.5">Došlo</th>
                               <th scope="col" className="text-right py-1.5">Uloženo</th>
@@ -690,7 +690,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
                           </tbody>
                         </table>
                       </div>
-                      <p className="text-[11px] text-neutral-500 font-semibold mt-2">
+                      <p className="text-udaj text-neutral-500 font-semibold mt-2">
                         Deník vidí zprávy od chvíle, kdy dorazí na webhook. Co se ztratí dřív (neběžel most na
                         WhatsApp), pozná až dopočtení historie po jeho restartu — most si při připojení vyžádá
                         poslední dny ze skupiny a chybějící zprávy doplní.
@@ -716,7 +716,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
                         </p>
                         <div className="flex flex-wrap gap-1.5">
                           {pokryti.chybi.map((r) => (
-                            <span key={r.odberatel} className="px-2 py-1 rounded-lg bg-white border border-violet-300 text-[11px] font-black text-violet-950">
+                            <span key={r.odberatel} className="px-2 py-1 rounded-lg bg-white border border-violet-300 text-udaj font-black text-violet-950">
                               {r.odberatel}
                             </span>
                           ))}
@@ -740,12 +740,12 @@ Skladové výpočty se tím rovnou přepočítají.`,
                           <div key={z.id} className="rounded-lg bg-white border border-rose-200 p-2">
                             <div className="flex items-center justify-between gap-2">
                               <span className="text-xs font-black text-rose-950 truncate">{z.sender_name}</span>
-                              <span className="text-[11px] font-bold text-neutral-500 shrink-0">
+                              <span className="text-udaj font-bold text-neutral-500 shrink-0">
                                 {String(z.created_at).slice(0, 16).replace('T', ' ')}
                               </span>
                             </div>
                             {z.message_preview && (
-                              <p className="text-[11px] text-neutral-600 mt-0.5 line-clamp-2">{z.message_preview}</p>
+                              <p className="text-udaj text-neutral-600 mt-0.5 line-clamp-2">{z.message_preview}</p>
                             )}
                           </div>
                         ))}
@@ -798,7 +798,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
 
                   {podezreniCelkem === 0 && (
                     <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50/60 p-4 flex items-center gap-3">
-                      <CheckCircle size={20} className="text-emerald-600 shrink-0" />
+                      <CheckCircle size={18} className="text-emerald-600 shrink-0" />
                       <p className="text-xs font-bold text-emerald-900">
                         Nic nenasvědčuje tomu, že by některá zpráva nedorazila.
                       </p>
@@ -811,10 +811,10 @@ Skladové výpočty se tím rovnou přepočítají.`,
                 <div className="space-y-3">
                   <div className="text-xs font-black uppercase tracking-wider text-rose-900 flex items-center justify-between px-1">
                     <span className="flex items-center gap-1.5">
-                      <AlertTriangle size={15} className="text-rose-600" />
+                      <AlertTriangle size={16} className="text-rose-600" />
                       <span>Zdvojené řádky v rámci jedné objednávky ({itemsDupCount})</span>
                     </span>
-                    <span className="text-[11px] font-normal text-rose-700">Např. omylem zapsáno 2×</span>
+                    <span className="text-udaj font-normal text-rose-700">Např. omylem zapsáno 2×</span>
                   </div>
 
                   {report?.duplicateItemIssues.map((issue, idx) => (
@@ -829,7 +829,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
                             {issue.placeName}
                           </span>
                           {issue.orderNumber && (
-                            <span className="text-[11px] font-bold bg-rose-50 text-rose-900 border border-rose-200 px-2 py-0.5 rounded">
+                            <span className="text-udaj font-bold bg-rose-50 text-rose-900 border border-rose-200 px-2 py-0.5 rounded">
                               Obj. #{issue.orderNumber}
                             </span>
                           )}
@@ -843,7 +843,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
                             onClick={() => { onOpenOrder(issue.orderId); onClose(); }}
                             className="text-xs font-bold text-neutral-700 hover:text-neutral-950 flex items-center gap-1 hover:underline bg-neutral-100 px-2.5 py-1 rounded border border-neutral-200 transition tap"
                           >
-                            <Eye size={13} /> Otevřít detail
+                            <Eye size={14} /> Otevřít detail
                           </button>
                         )}
                       </div>
@@ -881,7 +881,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
                           onClick={() => handleMergeRows(issue, issue.rows[0].quantity)}
                           className="flex-1 py-2.5 px-3 rounded bg-white hover:bg-rose-50 text-rose-900 border-2 border-rose-300 text-xs font-black transition flex items-center justify-center gap-1.5 shadow-2xs active:scale-[0.98]"
                         >
-                          <Trash2 size={15} />
+                          <Trash2 size={16} />
                           <span>Ponechat jen 1× ({issue.rows[0].quantity} ks — smazat duplikát)</span>
                         </button>
 
@@ -891,7 +891,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
                           onClick={() => handleMergeRows(issue, issue.totalQuantity)}
                           className="flex-1 py-2.5 px-3 rounded bg-rose-600 hover:bg-rose-700 text-white text-xs font-black transition flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98]"
                         >
-                          <Layers size={15} />
+                          <Layers size={16} />
                           <span>Sloučit do 1 řádku (sečíst na {issue.totalQuantity} ks)</span>
                         </button>
                       </div>
@@ -905,10 +905,10 @@ Skladové výpočty se tím rovnou přepočítají.`,
                 <div className="space-y-3">
                   <div className="text-xs font-black uppercase tracking-wider text-amber-900 flex items-center justify-between px-1">
                     <span className="flex items-center gap-1.5">
-                      <MessageSquare size={15} className="text-amber-600" />
+                      <MessageSquare size={16} className="text-amber-600" />
                       <span>Neshody s původní WhatsApp zprávou ({waMismatchCount})</span>
                     </span>
-                    <span className="text-[11px] font-normal text-amber-700">Porovnání objednávky s textem</span>
+                    <span className="text-udaj font-normal text-amber-700">Porovnání objednávky s textem</span>
                   </div>
 
                   {report?.whatsappMismatchIssues.map((issue, idx) => {
@@ -925,7 +925,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
                               {issue.placeName}
                             </span>
                             {issue.orderNumber && (
-                              <span className="text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200 px-2 py-0.5 rounded">
+                              <span className="text-udaj font-bold bg-amber-50 text-amber-900 border border-amber-200 px-2 py-0.5 rounded">
                                 Obj. #{issue.orderNumber}
                               </span>
                             )}
@@ -939,7 +939,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
                               onClick={() => { onOpenOrder(issue.orderId); onClose(); }}
                               className="text-xs font-bold text-amber-900 hover:text-amber-950 flex items-center gap-1 hover:underline bg-amber-50 px-2.5 py-1 rounded border border-amber-200 transition tap"
                             >
-                              <Eye size={13} /> Upravit objednávku
+                              <Eye size={14} /> Upravit objednávku
                             </button>
                           )}
                         </div>
@@ -948,13 +948,13 @@ Skladové výpočty se tím rovnou přepočítají.`,
                         <div className="rounded bg-[#EFEAE2] dark:bg-neutral-800 p-2.5 border border-neutral-300/80 space-y-1.5">
                           <div
                             onClick={() => toggleExpandMsg(issue.whatsappMessageId)}
-                            className="flex items-center justify-between cursor-pointer select-none text-[11px] font-bold text-neutral-700 dark:text-neutral-300"
+                            className="flex items-center justify-between cursor-pointer select-none text-udaj font-bold text-neutral-700 dark:text-neutral-300"
                           >
                             <span className="flex items-center gap-1.5 text-emerald-800 dark:text-emerald-400 font-black">
-                              <MessageSquare size={13} />
+                              <MessageSquare size={14} />
                               <span>Původní WhatsApp zpráva</span>
                             </span>
-                            <span className="flex items-center gap-1 text-neutral-500 text-[11px]">
+                            <span className="flex items-center gap-1 text-neutral-500 text-udaj">
                               {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                               {isExpanded ? 'Sbalit' : 'Zobrazit text'}
                             </span>
@@ -973,7 +973,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
 
                         {/* Identified Differences Grid */}
                         <div className="space-y-1.5">
-                          <div className="text-[11px] font-black uppercase tracking-wider text-amber-950">
+                          <div className="text-udaj font-black uppercase tracking-wider text-amber-950">
                             Zjištěné neshody v položkách:
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1002,7 +1002,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
                                     </span>
                                     <span>{m.beerName} ({m.packageLabel})</span>
                                   </div>
-                                  <div className="text-[11px] mt-1 font-medium">
+                                  <div className="text-udaj mt-1 font-medium">
                                     {m.kind === 'qty_diff' && (
                                       <span>Ve zprávě <strong>{m.expectedQty} ks</strong> → v objednávce <strong>{m.actualQty} ks</strong></span>
                                     )}
@@ -1029,10 +1029,10 @@ Skladové výpočty se tím rovnou přepočítají.`,
                 <div className="space-y-3">
                   <div className="text-xs font-black uppercase tracking-wider text-violet-900 flex items-center justify-between px-1">
                     <span className="flex items-center gap-1.5">
-                      <Copy size={15} className="text-violet-600" />
+                      <Copy size={16} className="text-violet-600" />
                       <span>Podezřelé duplicitní objednávky ({orderDupCount})</span>
                     </span>
-                    <span className="text-[11px] font-normal text-violet-700">Stejný zákazník v témže týdnu</span>
+                    <span className="text-udaj font-normal text-violet-700">Stejný zákazník v témže týdnu</span>
                   </div>
 
                   {report?.duplicateOrderIssues.map((issue, idx) => (
@@ -1056,15 +1056,15 @@ Skladové výpočty se tím rovnou přepočítají.`,
                               <span className="font-black text-violet-950">
                                 {o.orderNumber ? `Objednávka #${o.orderNumber}` : 'Objednávka'}
                               </span>
-                              <span className="text-[11px] font-bold text-neutral-500">
+                              <span className="text-udaj font-bold text-neutral-500">
                                 {o.deliveryDate || o.orderDate}
                               </span>
                             </div>
-                            <div className="text-[11px] text-neutral-700">
+                            <div className="text-udaj text-neutral-700">
                               <strong>Položky:</strong> {o.itemsSummary}
                             </div>
                             <div className="flex items-center justify-between pt-1 border-t border-violet-200/50">
-                              <span className="text-[11px] font-bold text-neutral-600">
+                              <span className="text-udaj font-bold text-neutral-600">
                                 Celkem: {o.totalLiters} L
                               </span>
                               <div className="flex items-center gap-1">
@@ -1074,7 +1074,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
                                     className="p-1.5 rounded bg-white hover:bg-violet-100 text-violet-900 border border-violet-200 text-xs font-bold tap"
                                     title="Zobrazit"
                                   >
-                                    <Eye size={13} />
+                                    <Eye size={14} />
                                   </button>
                                 )}
                                 <button
@@ -1100,10 +1100,10 @@ Skladové výpočty se tím rovnou přepočítají.`,
                 <div className="space-y-3">
                   <div className="text-xs font-black uppercase tracking-wider text-sky-900 flex items-center justify-between px-1">
                     <span className="flex items-center gap-1.5">
-                      <Sparkles size={15} className="text-sky-600" />
+                      <Sparkles size={16} className="text-sky-600" />
                       <span>Čekající / Nepropadlé zprávy ({unprocessedCount})</span>
                     </span>
-                    <span className="text-[11px] font-normal text-sky-700">Zprávy s pivem bez objednávky</span>
+                    <span className="text-udaj font-normal text-sky-700">Zprávy s pivem bez objednávky</span>
                   </div>
 
                   {report?.unprocessedWhatsAppIssues.map((issue) => (
@@ -1116,11 +1116,11 @@ Skladové výpočty se tím rovnou přepočítají.`,
                           <span className="font-display font-black text-sm text-neutral-950">
                             {issue.placeName || issue.senderName || 'Neznámý odběratel'}
                           </span>
-                          <span className="text-[11px] font-bold text-sky-900 bg-sky-100 px-2 py-0.5 rounded">
+                          <span className="text-udaj font-bold text-sky-900 bg-sky-100 px-2 py-0.5 rounded">
                             {issue.status}
                           </span>
                         </div>
-                        <span className="text-[11px] text-neutral-500 font-medium">
+                        <span className="text-udaj text-neutral-500 font-medium">
                           {new Date(issue.createdAt).toLocaleDateString('cs-CZ')}
                         </span>
                       </div>
@@ -1161,31 +1161,31 @@ Skladové výpočty se tím rovnou přepočítají.`,
                 <div className="space-y-3">
                   <div className="text-xs font-black uppercase tracking-wider text-rose-900 flex items-center justify-between px-1">
                     <span className="flex items-center gap-1.5">
-                      <AlertTriangle size={15} className="text-rose-600" />
+                      <AlertTriangle size={16} className="text-rose-600" />
                       <span>Sklad odepsaný podle starého zadání ({odpoctyCount})</span>
                     </span>
-                    <span className="text-[11px] font-normal text-rose-700">Objednávka se po zavozu opravila, odpočet ne</span>
+                    <span className="text-udaj font-normal text-rose-700">Objednávka se po zavozu opravila, odpočet ne</span>
                   </div>
 
                   {report?.zavozDeductionIssues.map((issue) => (
                     <div key={`${issue.duvod}__${issue.orderItemId}`} className="p-3.5 sm:p-4 rounded bg-white border-2 border-rose-300 shadow-xs space-y-3">
                       <div className="flex items-center justify-between border-b border-rose-100 pb-2">
                         <span className="font-display font-black text-sm text-neutral-950">{issue.placeName}</span>
-                        <span className="text-[11px] text-neutral-500 font-medium">
+                        <span className="text-udaj text-neutral-500 font-medium">
                           zavezeno {issue.deductDate ? new Date(issue.deductDate).toLocaleDateString('cs-CZ') : '—'}
                         </span>
                       </div>
 
                       <div className="grid grid-cols-2 gap-2 text-xs">
                         <div className="p-2.5 rounded bg-rose-50/70 border border-rose-200">
-                          <div className="text-[11px] font-black uppercase tracking-wider text-rose-900 mb-1">Sklad odepsán</div>
+                          <div className="text-udaj font-black uppercase tracking-wider text-rose-900 mb-1">Sklad odepsán</div>
                           <div className="font-bold text-neutral-900">
                             {issue.odepsano.beerName} · {issue.odepsano.packageLabel}
                           </div>
                           <div className="font-mono font-black text-sm text-rose-900">{issue.odepsano.quantity} ks</div>
                         </div>
                         <div className="p-2.5 rounded bg-emerald-50/70 border border-emerald-200">
-                          <div className="text-[11px] font-black uppercase tracking-wider text-emerald-900 mb-1">
+                          <div className="text-udaj font-black uppercase tracking-wider text-emerald-900 mb-1">
                             {issue.duvod === 'storno' ? 'Skutečně odvezeno' : issue.duvod === 'datum' ? 'Vezlo se' : 'V objednávce'}
                           </div>
                           <div className="font-bold text-neutral-900">
@@ -1247,11 +1247,11 @@ Skladové výpočty se tím rovnou přepočítají.`,
           <div className="text-xs font-bold">
             {totalIssues === 0 ? (
               <span className="text-emerald-700 flex items-center gap-1.5">
-                <CheckCircle size={15} /> Všechny objednávky odpovídají předlohám
+                <CheckCircle size={16} /> Všechny objednávky odpovídají předlohám
               </span>
             ) : (
               <span className="text-amber-900 flex items-center gap-1.5">
-                <AlertTriangle size={15} className="text-amber-600" />
+                <AlertTriangle size={16} className="text-amber-600" />
                 <span>Nalezeno {totalIssues} záležitostí k prověření</span>
               </span>
             )}

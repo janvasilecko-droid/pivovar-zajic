@@ -600,7 +600,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                 {activeNewOrderBanner.kind === 'whatsapp' ? <MessageCircle className="ikona-text" /> : <BeerIcon className="ikona-text" />}
               </div>
               <div>
-                <div className="text-[11px] font-black uppercase tracking-wider text-amber-400">
+                <div className="text-udaj font-black uppercase tracking-wider text-amber-400">
                   {activeNewOrderBanner.kind === 'whatsapp' ? 'NOVÁ WHATSAPP OBJEDNÁVKA K OVĚŘENÍ!' : 'NOVÁ OBJEDNÁVKA PŘIJATA!'}
                 </div>
                 <h4 className="text-base font-extrabold font-display text-white">
@@ -668,9 +668,9 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
 
       {/* Banner: offline → zobrazená data nemusí být aktuální (z mezipaměti). */}
       {showStaleBanner && (
-        <div className="fixed top-4 right-4 z-40 max-w-xs sm:max-w-sm flex items-center gap-2 rounded bg-amber-50 border-2 border-amber-300 text-amber-950 shadow-xl px-3.5 py-2.5 animate-fade-in">
+        <div className="fixed top-4 right-4 z-toast max-w-xs sm:max-w-sm flex items-center gap-2 rounded bg-amber-50 border-2 border-amber-300 text-amber-950 shadow-xl px-3.5 py-2.5 animate-fade-in">
           <span className="text-base shrink-0"><AlertTriangle className="ikona-text" /></span>
-          <p className="text-[11px] font-bold leading-snug flex-1">
+          <p className="text-udaj font-bold leading-snug flex-1">
             Jste offline - zobrazená data nemusí být aktuální (z mezipaměti).
           </p>
           <button
@@ -695,7 +695,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             nereloaduje rozdělaná obrazovka (viz versionCheck.ts). */}
         {novaVerze && novaVerze.version !== zavrenaVerze && (
           <div className="shrink-0 flex items-center gap-2 px-3 sm:px-8 py-1.5 bg-amber-100 border-b border-amber-300 text-amber-950">
-            <Download size={15} className="shrink-0" />
+            <Download size={16} className="shrink-0" />
             <p className="text-[12px] font-bold leading-snug flex-1 min-w-0 truncate">
               Nová verze v{novaVerze.version} je k dispozici
             </p>
@@ -712,7 +712,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
               aria-label="Zavřít upozornění na novou verzi"
               className="shrink-0 p-1 rounded hover:bg-amber-200/70 text-amber-900/80 hover:text-amber-950 transition tap"
             >
-              <X size={15} />
+              <X size={16} />
             </button>
           </div>
         )}
@@ -840,7 +840,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             s kolísavým signálem lidé zapisovali stáčení s tím, že je hotovo.
             Sem nad dok je to vidět na každé stránce včetně mobilu. */}
         {(!online || pending > 0) && (
-          <div className="fixed bottom-[64px] left-0 right-0 z-30 px-2 pointer-events-none sm:max-w-lg sm:mx-auto">
+          <div className="fixed bottom-[64px] left-0 right-0 z-lista px-2 pointer-events-none sm:max-w-lg sm:mx-auto">
             <button
               type="button"
               onClick={async () => {
@@ -870,7 +870,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           </div>
         )}
         <nav
-          className="hs-glass-chrome fixed bottom-0 left-0 right-0 z-30 border-t shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-1 py-1.5 pb-safe flex items-center justify-around gap-1 sm:max-w-lg sm:mx-auto sm:rounded-t-2xl sm:border-x"
+          className="hs-glass-chrome fixed bottom-0 left-0 right-0 z-lista border-t shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-1 py-1.5 pb-safe flex items-center justify-around gap-1 sm:max-w-lg sm:mx-auto sm:rounded-t-2xl sm:border-x"
         >
           {dockPages.map((dockId, i) => {
             const isActive = dockId === 'home' ? navPageFor(page) === 'home' : navPageFor(page) === dockId;
@@ -895,9 +895,9 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                 }`}
               >
                 <div className="relative">
-                  <DockIcon size={20} strokeWidth={isActive ? 2.5 : 2} />
+                  <DockIcon size={18} strokeWidth={isActive ? 2.5 : 2} />
                   {dockId === 'orders' && pendingWhatsAppCount > 0 && (
-                    <span className="absolute -top-1 -right-2 bg-rose-600 text-white text-[11px] font-black rounded-full min-w-[14px] h-3.5 px-0.5 flex items-center justify-center shadow">
+                    <span className="absolute -top-1 -right-2 bg-rose-600 text-white text-udaj font-black rounded-full min-w-[14px] h-3.5 px-0.5 flex items-center justify-center shadow">
                       {pendingWhatsAppCount > 9 ? '9+' : pendingWhatsAppCount}
                     </span>
                   )}
@@ -908,7 +908,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                     („Lahve (Stá…" místo „Lahve (Stáčení)"). `w-full`
                     respektuje skutečnou šířku slotu, ať jsou v liště dva
                     zástupci nebo šest. */}
-                <span className="text-[11px] mt-0.5 tracking-tight truncate w-full text-center">{info.label}</span>
+                <span className="text-udaj mt-0.5 tracking-tight truncate w-full text-center">{info.label}</span>
               </button>
             );
           })}
@@ -948,7 +948,7 @@ function OfflineStatus({ online, pending, syncing, syncMsg, onSync }: { online: 
               <div className="text-2xl">{online ? <Wifi className="ikona-text" /> : <AlertTriangle className="ikona-text" />}</div>
               <div>
                 <div className="font-black text-sm">{online ? 'Jste ONLINE (Připojeno k internetu)' : 'Jste OFFLINE (Bez připojení k síti)'}</div>
-                <p className="text-[11px] mt-0.5 font-bold">
+                <p className="text-udaj mt-0.5 font-bold">
                   {online
                     ? 'Veškeré zápisy se okamžitě ukládají do databáze.'
                     : 'Aplikace v pivovaru plně funguje bez signálu! Zápisy ze sklepa se bezpečně ukládají do telefonu a po připojení se samy synchronizují.'}
@@ -961,7 +961,7 @@ function OfflineStatus({ online, pending, syncing, syncMsg, onSync }: { online: 
                 <span className="text-neutral-400">Čekající offline zápisy ve frontě:</span>
                 <span className="font-black text-amber-400">{pending} operací</span>
               </div>
-              <p className="text-[11px] text-neutral-300 pt-1 font-sans">
+              <p className="text-udaj text-neutral-300 pt-1 font-sans">
                 Po obnovení internetového připojení v pivovaru stiskněte tlačítko pro ruční odeslání všech zápisů ze sklepa.
               </p>
             </div>
@@ -971,11 +971,11 @@ function OfflineStatus({ online, pending, syncing, syncMsg, onSync }: { online: 
                 {queueItems.map((item) => {
                   const failure = failures.find((f) => f.id === item.id);
                   return (
-                    <div key={item.id} className={`flex items-center justify-between gap-2 px-3 py-2 rounded border text-[11px] font-bold ${failure ? 'bg-rose-50 border-rose-300 text-rose-950' : 'bg-neutral-100 border-neutral-200 text-neutral-700'}`}>
+                    <div key={item.id} className={`flex items-center justify-between gap-2 px-3 py-2 rounded border text-udaj font-bold ${failure ? 'bg-rose-50 border-rose-300 text-rose-950' : 'bg-neutral-100 border-neutral-200 text-neutral-700'}`}>
                       <div className="min-w-0">
                         <div className="truncate" title={item.popis}>{item.popis}</div>
-                        <div className="text-[11px] font-semibold text-neutral-500">{new Date(item.ts).toLocaleString('cs-CZ')}</div>
-                        {failure && <div className="text-[11px] font-semibold text-rose-700 truncate" title={failure.error}><XCircle className="ikona-text" /> {failure.error}</div>}
+                        <div className="text-udaj font-semibold text-neutral-500">{new Date(item.ts).toLocaleString('cs-CZ')}</div>
+                        {failure && <div className="text-udaj font-semibold text-rose-700 truncate" title={failure.error}><XCircle className="ikona-text" /> {failure.error}</div>}
                       </div>
                       <button
                         onClick={async () => {
@@ -1013,7 +1013,7 @@ Do databáze se už neuloží.`)) discardOp(item.id);
       )}
 
       {syncMsg && (
-        <span className="text-[11px] font-extrabold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded border border-emerald-300 animate-fade-in">
+        <span className="text-udaj font-extrabold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded border border-emerald-300 animate-fade-in">
           {syncMsg}
         </span>
       )}
@@ -1026,7 +1026,7 @@ Do databáze se už neuloží.`)) discardOp(item.id);
         <button
           onClick={onSync}
           disabled={syncing}
-          className="px-2.5 py-1 rounded bg-sky-700 hover:bg-sky-800 text-white font-black text-[11px] border border-sky-400 transition flex items-center gap-1 shadow-xs animate-pulse tap"
+          className="px-2.5 py-1 rounded bg-sky-700 hover:bg-sky-800 text-white font-black text-udaj border border-sky-400 transition flex items-center gap-1 shadow-xs animate-pulse tap"
         >
           <span>{syncing ? 'Sync…' : `Čeká ${pending} změn`}</span>
         </button>

@@ -232,21 +232,21 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
             ) : (
               <div key={r.id ?? `new-${i}`} className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:items-center p-2.5 sm:p-0 rounded-none border border-neutral-200 sm:border-none bg-neutral-50/60 sm:bg-transparent">
                 <div className="sm:col-span-5">
-                  <label className="sm:hidden text-[11px] font-black uppercase text-neutral-500 mb-1 block">Pivo</label>
+                  <label className="sm:hidden text-udaj font-black uppercase text-neutral-500 mb-1 block">Pivo</label>
                   <select className="input !py-2 text-sm" value={r.beerId} onChange={(e) => setRow(i, 'beerId', e.target.value)}>
                     <option value="">— pivo —</option>
                     {beers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </select>
                 </div>
                 <div className="sm:col-span-3">
-                  <label className="sm:hidden text-[11px] font-black uppercase text-neutral-500 mb-1 block">Obal</label>
+                  <label className="sm:hidden text-udaj font-black uppercase text-neutral-500 mb-1 block">Obal</label>
                   <select className="input !py-2 text-sm" value={r.pkgId} onChange={(e) => setRow(i, 'pkgId', e.target.value)}>
                     <option value="">— obal —</option>
                     {packages.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
                   </select>
                 </div>
                 <div className="sm:col-span-3">
-                  <label className="sm:hidden text-[11px] font-black uppercase text-neutral-500 mb-1 block">Množství</label>
+                  <label className="sm:hidden text-udaj font-black uppercase text-neutral-500 mb-1 block">Množství</label>
                   <div className="flex items-center gap-1.5">
                     <button type="button" onClick={() => setRow(i, 'qty', String(Math.max(0, (Number(r.qty) || 0) - 1)))} className="w-10 h-10 sm:w-7 sm:h-7 shrink-0 grid place-items-center rounded bg-neutral-100 hover:bg-amber-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition tap" title="Odečíst 1">−</button>
                     <span className="flex-1 min-w-[2.5rem] text-center text-base sm:text-sm font-black bg-white border border-neutral-200 rounded py-2 px-1">
@@ -274,32 +274,32 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
             <label className="label">Poznámka k objednávce & Rezervace výčepu</label>
             <input type="text" className="input font-medium" placeholder="např. vratný sud, + výčep jednokohout, podtacky" value={note} onChange={(e) => setNote(e.target.value)} />
             <div className="flex flex-wrap items-center gap-1.5 pt-1">
-              <span className="text-[11px] font-bold text-neutral-500">Rychlé přidání výčepu do poznámky:</span>
+              <span className="text-udaj font-bold text-neutral-500">Rychlé přidání výčepu do poznámky:</span>
               <button
                 type="button"
                 onClick={() => setNote((n) => n ? `${n}, + výčep jednokohout` : '+ výčep jednokohout')}
-                className="px-2.5 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-[11px] border border-amber-300 transition tap"
+                className="px-2.5 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-udaj border border-amber-300 transition tap"
               >
                 <IkonaVycep className="ikona-text" /> + Výčep jednokohout
               </button>
               <button
                 type="button"
                 onClick={() => setNote((n) => n ? `${n}, + výčep dvojkohout` : '+ výčep dvojkohout')}
-                className="px-2.5 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-[11px] border border-amber-300 transition tap"
+                className="px-2.5 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-udaj border border-amber-300 transition tap"
               >
                 <IkonaVycep className="ikona-text" /><IkonaVycep className="ikona-text" /> + Výčep dvojkohout
               </button>
               <button
                 type="button"
                 onClick={() => setNote((n) => n ? `${n}, + výčep trojkohout` : '+ výčep trojkohout')}
-                className="px-2.5 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-[11px] border border-amber-300 transition tap"
+                className="px-2.5 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-udaj border border-amber-300 transition tap"
               >
                 <IkonaVycep className="ikona-text" /><IkonaVycep className="ikona-text" /><IkonaVycep className="ikona-text" /> + Výčep trojkohout
               </button>
               <button
                 type="button"
                 onClick={() => setNote((n) => n ? `${n}, + výčep šestikohout` : '+ výčep šestikohout')}
-                className="px-2.5 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-[11px] border border-amber-300 transition tap"
+                className="px-2.5 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-udaj border border-amber-300 transition tap"
               >
                 <IkonaVycep className="ikona-text" /><IkonaVycep className="ikona-text" /><IkonaVycep className="ikona-text" /><IkonaVycep className="ikona-text" /><IkonaVycep className="ikona-text" /><IkonaVycep className="ikona-text" /> + Výčep šestikohout (akce)
               </button>

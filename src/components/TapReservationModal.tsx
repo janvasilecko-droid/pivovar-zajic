@@ -138,7 +138,7 @@ export function TapReservationModal({ orderDate, customerName, orderId, tapTypeH
           <div>
             <label className="block text-xs font-black text-neutral-700 mb-1.5">Vyberte výčepní zařízení</label>
             {taps.some((t) => !(isTapAvailable(t.id, dateFrom, reservations) && isTapAvailable(t.id, dateTo, reservations))) && (
-              <div className="mb-2 px-3 py-2 rounded bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-800">
+              <div className="mb-2 px-3 py-2 rounded bg-amber-50 border border-amber-200 text-udaj font-bold text-amber-800">
                 <AlertTriangle className="ikona-text" /> Některé výčepy jsou v tomto termínu rezervované — ostatní jsou k dispozici.
               </div>
             )}
@@ -163,11 +163,11 @@ export function TapReservationModal({ orderDate, customerName, orderId, tapTypeH
                     <div className="flex items-center justify-between">
                       <div>
                         <span className="font-black text-sm text-neutral-900">{t.name}</span>
-                        <span className="ml-2 px-2 py-0.5 rounded-full bg-neutral-900 text-amber-300 font-extrabold text-[11px] uppercase">
+                        <span className="ml-2 px-2 py-0.5 rounded-full bg-neutral-900 text-amber-300 font-extrabold text-udaj uppercase">
                           {t.tap_type === 'jednokohout' ? '1K' : t.tap_type === 'dvojkohout' ? '2K' : t.tap_type === 'trojkohout' ? '3K' : '6K'}
                         </span>
                       </div>
-                      {!available && <span className="text-[11px] font-bold text-rose-600"><XCircle className="ikona-text" /> Rezervováno</span>}
+                      {!available && <span className="text-udaj font-bold text-rose-600"><XCircle className="ikona-text" /> Rezervováno</span>}
                       {isSelected && <span className="text-amber-600 font-black text-sm"><Check size={14} /></span>}
                     </div>
                   </button>

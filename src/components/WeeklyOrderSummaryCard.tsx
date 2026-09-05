@@ -125,7 +125,7 @@ export function WeeklyOrderSummaryCard({
                 <Calendar size={14} className="text-amber-600" />
                 <span>Týden {weekNum} / {yearNum}</span>
               </div>
-              <div className="text-[11px] text-amber-800 font-extrabold">{weekLabel}</div>
+              <div className="text-udaj text-amber-800 font-extrabold">{weekLabel}</div>
             </div>
             <button
               onClick={() => onWeekChange(shiftWeek(weekKey, 1))}
@@ -198,7 +198,7 @@ export function WeeklyOrderSummaryCard({
             </div>
             <div>
               <div className="text-xs font-black uppercase tracking-wider text-rose-950">Celkem zbývá ke stočení v týdnu</div>
-              <div className="text-[11px] text-rose-800 font-medium">Součet chybějících kusů podle velikostí obalu</div>
+              <div className="text-udaj text-rose-800 font-medium">Součet chybějících kusů podle velikostí obalu</div>
             </div>
           </div>
 
@@ -276,14 +276,14 @@ export function WeeklyOrderSummaryCard({
             className={`tap p-1.5 rounded text-xs font-bold transition ${viewMode === 'grid' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
             title="Karty / Mřížka"
           >
-            <LayoutGrid size={15} />
+            <LayoutGrid size={16} />
           </button>
           <button
             onClick={() => setViewMode('table')}
             className={`tap p-1.5 rounded text-xs font-bold transition ${viewMode === 'table' ? 'bg-white text-neutral-900 shadow-xs' : 'text-neutral-400 hover:text-neutral-700'}`}
             title="Tabulka"
           >
-            <ListFilter size={15} />
+            <ListFilter size={16} />
           </button>
         </div>
       </div>
@@ -294,7 +294,7 @@ export function WeeklyOrderSummaryCard({
           <div className="overflow-x-auto">
             <table className="w-full text-xs table-fixed">
                 <thead>
-                  <tr className="bg-neutral-900 text-amber-300 uppercase tracking-wider text-[11px] font-black border-b border-neutral-800">
+                  <tr className="bg-neutral-900 text-amber-300 uppercase tracking-wider text-udaj font-black border-b border-neutral-800">
                     <th scope="col" className="py-3 px-4 text-left">Pivo</th>
                     <th scope="col" className="py-3 px-4 text-center">Velikost</th>
                     <th scope="col" className="py-3 px-4 text-right">Sklad (ks)</th>

@@ -48,7 +48,7 @@ export function AuditLogViewer() {
           <div key={log.id} className="p-4 rounded bg-white border border-neutral-200 shadow-2xs flex items-center justify-between gap-4">
             <div className="space-y-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="px-2.5 py-0.5 rounded-md bg-amber-100 text-amber-950 font-black text-[11px] border border-amber-200">
+                <span className="px-2.5 py-0.5 rounded-md bg-amber-100 text-amber-950 font-black text-udaj border border-amber-200">
                   {log.module}
                 </span>
                 <span className="font-display font-black text-xs text-neutral-900">{log.action}</span>
@@ -56,7 +56,7 @@ export function AuditLogViewer() {
               <p className="text-xs text-neutral-600 font-medium">{log.details}</p>
             </div>
 
-            <div className="text-right shrink-0 text-[11px] text-neutral-400 font-mono space-y-0.5">
+            <div className="text-right shrink-0 text-udaj text-neutral-400 font-mono space-y-0.5">
               <div><User className="ikona-text" /> {log.user_name}</div>
               <div>{new Date(log.timestamp).toLocaleString('cs-CZ')}</div>
             </div>

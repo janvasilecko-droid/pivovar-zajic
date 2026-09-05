@@ -76,7 +76,7 @@ type TileTotalBarProps = {
 export function TileTotalBar({ label, value }: TileTotalBarProps) {
   return (
     <div className="flex items-center justify-between gap-2 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/60 px-3 py-2 mb-3">
-      <span className="text-[11px] font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300">{label}</span>
+      <span className="text-udaj font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300">{label}</span>
       <span className="text-sm font-black text-amber-900 dark:text-amber-200">{value}</span>
     </div>
   );
@@ -111,7 +111,7 @@ export function BeerTilePanel({ beer, onClose, children, headerRight, footer }: 
                 type="button"
                 onClick={onClose}
                 className="w-11 h-11 grid place-items-center rounded bg-emerald-700 hover:bg-emerald-400 text-white font-black transition select-none shadow-sm"
-                title="Hotovo — potvrdit a zavřít"><Check size={20} /></button>
+                title="Hotovo — potvrdit a zavřít"><Check size={18} /></button>
               <button
                 type="button"
                 onClick={onClose}

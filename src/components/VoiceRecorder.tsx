@@ -235,17 +235,17 @@ export function VoiceRecorder({
       >
         {busy ? (
           <>
-            <Loader2 size={15} className="animate-spin text-amber-600" />
+            <Loader2 size={16} className="animate-spin text-amber-600" />
             <span>Přepisuji…</span>
           </>
         ) : recording ? (
           <>
-            <Square size={15} className="fill-current text-white" />
+            <Square size={16} className="fill-current text-white" />
             <span>Zastavit</span>
           </>
         ) : (
           <>
-            <Mic size={15} className="text-amber-700" />
+            <Mic size={16} className="text-amber-700" />
             <span>Hlasové zadání</span>
           </>
         )}

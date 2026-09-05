@@ -448,13 +448,13 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
           onClick={() => setShowQuickCount(true)}
           className="btn-primary !rounded !py-2 !px-3.5 text-xs font-black shadow-sm"
         >
-          <Calculator size={15} /> Rychlé sčítadlo skladu
+          <Calculator size={16} /> Rychlé sčítadlo skladu
         </button>
         <button
           onClick={() => setShowAnnouncementManager(true)}
           className="btn !rounded bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 !py-2 !px-3.5 text-xs font-black shadow-sm"
         >
-          <AlertTriangle size={15} /> Spravovat Hlášení
+          <AlertTriangle size={16} /> Spravovat Hlášení
         </button>
       </div>
 
@@ -512,7 +512,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
             className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-rose-100/60 transition"
           >
             <div className="flex items-center gap-3 min-w-0">
-              <AlertTriangle size={20} className="text-rose-600 shrink-0" />
+              <AlertTriangle size={18} className="text-rose-600 shrink-0" />
               <div className="min-w-0">
                 <div className="font-display font-black text-rose-900 text-sm">
                   U {nesedi.length} položek nesedí evidence
@@ -533,7 +533,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                       {r.beerName} <span className="text-neutral-500">{r.pkgLabel}</span>
                     </span>
                     <span className="flex items-center gap-3 shrink-0">
-                      <span className="hidden sm:inline text-[11px] font-bold text-neutral-500">
+                      <span className="hidden sm:inline text-udaj font-bold text-neutral-500">
                         {r.baselineDate ? `inventura ${r.baselineDate} = ${r.baselineQty}` : 'nikdy nebyla inventura'}
                       </span>
                       <span className="text-rose-700 font-black text-sm font-mono tabular-nums">{r.qty} ks</span>
@@ -541,7 +541,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                   </div>
                 ))}
               </div>
-              <div className="px-4 py-3 text-[11px] font-bold text-neutral-600 bg-rose-50/60 border-t border-rose-100">
+              <div className="px-4 py-3 text-udaj font-bold text-neutral-600 bg-rose-50/60 border-t border-rose-100">
                 Nejčastější příčina: položka se v inventuře nenapočítala (chybí v seznamu), nebo se nezapsalo stáčení.
                 Srovná to fyzická inventura — nastaví stav napevno a dál se počítá od ní.
               </div>
@@ -559,10 +559,10 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
       </div>
 
       {/* Legend explaining the stock icons */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] font-semibold text-neutral-500 mb-4 px-1">
-        <span className="flex items-center gap-1.5"><PackageCheck size={13} className="text-neutral-900" /> Stav = aktuální sklad</span>
-        <span className="flex items-center gap-1.5"><AlertTriangle size={13} className="text-neutral-900" /> Odejde = objednáno tento měsíc</span>
-        <span className="flex items-center gap-1.5"><Layers size={13} className="text-neutral-900" /> Zbude = zůstane po odebrání</span>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-udaj font-semibold text-neutral-500 mb-4 px-1">
+        <span className="flex items-center gap-1.5"><PackageCheck size={14} className="text-neutral-900" /> Stav = aktuální sklad</span>
+        <span className="flex items-center gap-1.5"><AlertTriangle size={14} className="text-neutral-900" /> Odejde = objednáno tento měsíc</span>
+        <span className="flex items-center gap-1.5"><Layers size={14} className="text-neutral-900" /> Zbude = zůstane po odebrání</span>
       </div>
 
       {/* Beer cards with package breakdown */}
@@ -604,7 +604,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                           {/* Slova, ne jen ikony: legenda nad kartami se na
                               telefonu odroluje a tooltip na dotyku neexistuje,
                               takže ze sloupců zůstaly tři obrázky. */}
-                          <tr className="text-[11px] font-bold uppercase tracking-wide text-neutral-500">
+                          <tr className="text-udaj font-bold uppercase tracking-wide text-neutral-500">
                             <th scope="col" className="text-left pb-1 pr-2">Obal</th>
                             <th scope="col" className="text-center pb-1 px-2">Stav</th>
                             <th scope="col" className="text-center pb-1 px-2">Odejde</th>
@@ -615,7 +615,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                           {kegs.map((p) => (
                             <tr key={p.package_id}>
                               <td className="py-1 pr-2 whitespace-nowrap text-neutral-500 text-xs font-bold">{p.label}</td>
-                              <td className="py-1 px-2 text-center font-extrabold text-sky-900 bg-sky-100 rounded-md">{p.quantity}{p.rawQuantity < 0 && <span className="block text-[11px] font-black text-rose-600" title="Vydáno víc, než evidence zná — schodek">chybí {Math.abs(p.rawQuantity)}</span>}</td>
+                              <td className="py-1 px-2 text-center font-extrabold text-sky-900 bg-sky-100 rounded-md">{p.quantity}{p.rawQuantity < 0 && <span className="block text-udaj font-black text-rose-600" title="Vydáno víc, než evidence zná — schodek">chybí {Math.abs(p.rawQuantity)}</span>}</td>
                               <td className={`py-1 px-2 text-center font-extrabold rounded-md ${p.orderedRemaining > 0 ? 'bg-rose-50 text-rose-700' : 'bg-neutral-50 text-neutral-600'}`}>{p.orderedRemaining > 0 ? `-${p.orderedRemaining}` : '0'}</td>
                               <td className={`py-1 pl-2 text-center font-extrabold rounded-md ${p.remaining < 0 ? 'bg-rose-50 text-rose-700' : p.remaining === 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>{p.remaining}</td>
                             </tr>
@@ -632,7 +632,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                           {/* Slova, ne jen ikony: legenda nad kartami se na
                               telefonu odroluje a tooltip na dotyku neexistuje,
                               takže ze sloupců zůstaly tři obrázky. */}
-                          <tr className="text-[11px] font-bold uppercase tracking-wide text-neutral-500">
+                          <tr className="text-udaj font-bold uppercase tracking-wide text-neutral-500">
                             <th scope="col" className="text-left pb-1 pr-2">Obal</th>
                             <th scope="col" className="text-center pb-1 px-2">Stav</th>
                             <th scope="col" className="text-center pb-1 px-2">Odejde</th>
@@ -643,7 +643,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                           {bottles.map((p) => (
                             <tr key={p.package_id}>
                               <td className="py-1 pr-2 whitespace-nowrap text-neutral-500 text-xs font-bold">{p.label}</td>
-                              <td className="py-1 px-2 text-center font-extrabold text-sky-900 bg-sky-100 rounded-md">{p.quantity}{p.rawQuantity < 0 && <span className="block text-[11px] font-black text-rose-600" title="Vydáno víc, než evidence zná — schodek">chybí {Math.abs(p.rawQuantity)}</span>}</td>
+                              <td className="py-1 px-2 text-center font-extrabold text-sky-900 bg-sky-100 rounded-md">{p.quantity}{p.rawQuantity < 0 && <span className="block text-udaj font-black text-rose-600" title="Vydáno víc, než evidence zná — schodek">chybí {Math.abs(p.rawQuantity)}</span>}</td>
                               <td className={`py-1 px-2 text-center font-extrabold rounded-md ${p.orderedRemaining > 0 ? 'bg-rose-50 text-rose-700' : 'bg-neutral-50 text-neutral-600'}`}>{p.orderedRemaining > 0 ? `-${p.orderedRemaining}` : '0'}</td>
                               <td className={`py-1 pl-2 text-center font-extrabold rounded-md ${p.remaining < 0 ? 'bg-rose-50 text-rose-700' : p.remaining === 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>{p.remaining}</td>
                             </tr>
@@ -682,23 +682,23 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-center">
                       <div className="rounded-lg bg-sky-100 py-1.5 border border-sky-300">
-                        <div className="text-[11px] font-black uppercase text-sky-700">Sklad (AKT)</div>
+                        <div className="text-udaj font-black uppercase text-sky-700">Sklad (AKT)</div>
                         <div className="text-sm font-black text-sky-900">{p.quantity}</div>
                       </div>
                       <div className="rounded-lg bg-rose-50 py-1.5">
-                        <div className="text-[11px] font-black uppercase text-rose-600">Objednáno celkem</div>
+                        <div className="text-udaj font-black uppercase text-rose-600">Objednáno celkem</div>
                         <div className="text-sm font-black text-rose-700">{p.orderedWeek || 0}</div>
                       </div>
                       <div className="rounded-lg bg-rose-100 py-1.5">
-                        <div className="text-[11px] font-black uppercase text-rose-700">Zbývá zavézt</div>
+                        <div className="text-udaj font-black uppercase text-rose-700">Zbývá zavézt</div>
                         <div className="text-sm font-black text-rose-800">{p.orderedRemaining || 0}</div>
                       </div>
                       <div className="rounded-lg bg-amber-50 py-1.5">
-                        <div className="text-[11px] font-black uppercase text-amber-700">Odpočet celkem</div>
+                        <div className="text-udaj font-black uppercase text-amber-700">Odpočet celkem</div>
                         <div className="text-sm font-black text-amber-800">{p.odpocet || 0}</div>
                       </div>
                     </div>
-                    <div className="text-[11px] text-neutral-500 flex flex-wrap gap-x-3 gap-y-0.5">
+                    <div className="text-udaj text-neutral-500 flex flex-wrap gap-x-3 gap-y-0.5">
                       <span>Poč. {p.fromInventory || 0}</span>
                       <span>Stoč. +{p.brewedWeek || 0}</span>
                       <span>Stáč. lahví −{p.kegsUsedWeek || 0}</span>
@@ -713,7 +713,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
             </div>
 
             <div className="hidden md:block overflow-x-auto scrollbar-thin">
-              <table className="table text-[11px] w-full border-collapse">
+              <table className="table text-udaj w-full border-collapse">
                 <thead>
                   <tr className="bg-neutral-100 border-b border-neutral-200">
                     <th scope="col" className="p-2 text-left">Obal</th>
@@ -759,7 +759,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                 </tbody>
               </table>
             </div>
-            <div className="p-3 rounded-xl bg-neutral-50 border border-neutral-200 text-[11px] text-neutral-600 space-y-1">
+            <div className="p-3 rounded-xl bg-neutral-50 border border-neutral-200 text-udaj text-neutral-600 space-y-1">
               <p className="font-bold text-neutral-800"><Pin className="ikona-text" /> Vysvětlivky výpočtu:</p>
               <p>• <strong>AKT (Sklad)</strong> = Poč. + Stoč. − Odp. celkem (+ dorovnání z inventury)</p>
               <p>• <strong>Odp. celkem</strong> = Zavezeno + Stáč. lahví + Fasování + Prodejna + Akce + Odpisy</p>

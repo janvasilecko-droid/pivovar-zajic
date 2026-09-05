@@ -50,7 +50,7 @@ export function TabBar({
             type="button"
             onClick={() => onSelect(item.id)}
             aria-current={active ? 'page' : undefined}
-            className={`relative px-2.5 py-2 min-h-[44px] sm:min-h-[34px] rounded text-xs sm:text-[11px] font-black transition flex items-center gap-1.5 shrink-0 ${
+            className={`relative px-2.5 py-2 min-h-[44px] sm:min-h-[34px] rounded text-xs sm:text-udaj font-black transition flex items-center gap-1.5 shrink-0 ${
               active ? 'bg-white shadow-sm' : 'text-neutral-700 hover:bg-white/70 hover:text-neutral-900'
             }`}
             style={active && item.color ? { color: item.color } : undefined}
@@ -59,7 +59,7 @@ export function TabBar({
             <span>{item.label}</span>
             {item.badge !== undefined && (
               <span
-                className={`text-[11px] font-black rounded-full px-1 leading-tight ${
+                className={`text-udaj font-black rounded-full px-1 leading-tight ${
                   active && item.color ? '' : 'bg-neutral-200 text-neutral-600'
                 }`}
                 style={active && item.color ? { background: `${item.color}22`, color: item.color } : undefined}

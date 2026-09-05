@@ -161,7 +161,7 @@ export function Stat({ label, value, icon, tone = 'primary' }: {
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">{label}</span>
         <span className={`w-10 h-10 rounded border grid place-items-center text-xl shadow-xs transition-transform group-hover:scale-105 ${t.iconBg}`}>
-          {Ikona ? <Ikona size={20} /> : znak}
+          {Ikona ? <Ikona size={18} /> : znak}
         </span>
       </div>
       <div className={`text-2xl sm:text-3xl font-display font-extrabold tracking-tight ${t.text}`}>{value}</div>
@@ -213,7 +213,7 @@ export function UkazatelPlnosti({ zbyvaLitru, kapacitaLitru, popisek = true }: {
         <div className={`h-full ${barva} transition-all duration-500`} style={{ width: `${p.procent}%` }} />
       </div>
       {popisek && (
-        <div className="mt-1 flex items-center justify-between text-[11px] font-bold text-neutral-600">
+        <div className="mt-1 flex items-center justify-between text-udaj font-bold text-neutral-600">
           <span className="tabular-nums">{litry(zbyvaLitru)} z {litry(kapacitaLitru)}</span>
           <span>{popis}</span>
         </div>

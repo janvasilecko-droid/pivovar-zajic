@@ -55,7 +55,7 @@ export function TimerDoneAlertModal() {
   }
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+    <div className="fixed inset-0 z-nadmodal flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
       <div className="w-full max-w-sm bg-neutral-900 border-2 border-amber-500 rounded-2xl p-5 sm:p-6 text-white shadow-2xl shadow-amber-500/30 flex flex-col items-center text-center relative animate-bounce-short">
         {/* Zavírací křížek */}
         <button
@@ -64,7 +64,7 @@ export function TimerDoneAlertModal() {
           className="absolute top-3 right-3 p-1.5 rounded-full text-neutral-400 hover:text-white hover:bg-neutral-800 transition tap"
           title="Zavřít"
         >
-          <X size={20} />
+          <X size={18} />
         </button>
 
         {/* Animovaná ikona kotle / alarmu.
@@ -99,7 +99,7 @@ export function TimerDoneAlertModal() {
             onClick={replay}
             className="w-full py-2.5 px-4 rounded-xl bg-neutral-800 hover:bg-neutral-700 active:scale-95 text-neutral-300 font-bold text-xs transition flex items-center justify-center gap-2"
           >
-            <Volume2 size={15} /> Přehrát zvuk a vibraci znovu
+            <Volume2 size={16} /> Přehrát zvuk a vibraci znovu
           </button>
         </div>
       </div>

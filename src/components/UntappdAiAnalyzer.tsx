@@ -100,7 +100,7 @@ export function UntappdAiAnalyzer() {
         <div className="space-y-4 animate-in fade-in duration-200">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="card p-5 bg-white border border-amber-200 rounded space-y-1 shadow-xs">
-              <div className="text-[11px] font-black uppercase text-neutral-400">Průměrné Untappd Skóre:</div>
+              <div className="text-udaj font-black uppercase text-neutral-400">Průměrné Untappd Skóre:</div>
               <div className="text-3xl font-display font-black text-amber-600 flex items-baseline gap-1">
                 <span>{analysis.overallRating}</span>
                 <span className="text-xs text-neutral-400 font-bold">/ 5.0 <Star className="ikona-text" /></span>
@@ -108,14 +108,14 @@ export function UntappdAiAnalyzer() {
             </div>
 
             <div className="card p-5 bg-white border border-emerald-200 rounded space-y-1 shadow-xs">
-              <div className="text-[11px] font-black uppercase text-neutral-400">Sentiment hodnocení:</div>
+              <div className="text-udaj font-black uppercase text-neutral-400">Sentiment hodnocení:</div>
               <div className="text-3xl font-display font-black text-emerald-600">
                 {analysis.sentimentScorePct}% <span className="text-xs font-bold text-neutral-500">Pozitivní</span>
               </div>
             </div>
 
             <div className="card p-5 bg-white border border-violet-200 rounded space-y-1 shadow-xs">
-              <div className="text-[11px] font-black uppercase text-neutral-400">Počet recenzí:</div>
+              <div className="text-udaj font-black uppercase text-neutral-400">Počet recenzí:</div>
               <div className="text-3xl font-display font-black text-violet-600">
                 {analysis.totalReviewsAnalyzed} <span className="text-xs font-bold text-neutral-500">záznamů</span>
               </div>
@@ -136,7 +136,7 @@ export function UntappdAiAnalyzer() {
                   className="px-3.5 py-2 rounded bg-amber-100 text-amber-950 font-extrabold text-xs border border-amber-300 flex items-center gap-1.5 shadow-2xs"
                 >
                   <span><Leaf className="ikona-text" /> {note.note}</span>
-                  <span className="bg-amber-500 text-neutral-950 px-2 py-0.5 rounded-full text-[11px] font-black">
+                  <span className="bg-amber-500 text-neutral-950 px-2 py-0.5 rounded-full text-udaj font-black">
                     {note.count}×
                   </span>
                 </span>
@@ -146,7 +146,7 @@ export function UntappdAiAnalyzer() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
               <div className="p-4 rounded bg-emerald-50 border border-emerald-200 space-y-2">
                 <div className="font-black text-xs uppercase text-emerald-950 flex items-center gap-1.5">
-                  <ThumbsUp size={15} className="text-emerald-600" />
+                  <ThumbsUp size={16} className="text-emerald-600" />
                   <span>Hlavní plusy a pochvaly piva:</span>
                 </div>
                 <ul className="text-xs space-y-1 text-emerald-950 font-medium list-disc pl-4">
@@ -158,7 +158,7 @@ export function UntappdAiAnalyzer() {
 
               <div className="p-4 rounded bg-amber-50 border border-amber-200 space-y-2">
                 <div className="font-black text-xs uppercase text-amber-950 flex items-center gap-1.5">
-                  <Award size={15} className="text-amber-600" />
+                  <Award size={16} className="text-amber-600" />
                   <span>Doporučení pro Sládka:</span>
                 </div>
                 <p className="text-xs text-amber-950 font-bold leading-relaxed">{analysis.sladekSummary}</p>

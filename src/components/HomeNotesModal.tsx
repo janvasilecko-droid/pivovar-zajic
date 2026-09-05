@@ -118,7 +118,7 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
                 onChange={(e) => setPinToHome(e.target.checked)}
                 className="rounded text-amber-500 focus:ring-amber-400"
               />
-              <LayoutGrid size={13} className="text-neutral-500" />
+              <LayoutGrid size={14} className="text-neutral-500" />
               <span>Umístit dlaždici na plochu</span>
             </label>
             {/* 📌 Vzkaz pro celou směnu. Barva ani dlaždice se u něj neuplatní —
@@ -132,7 +132,7 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
                 onChange={(e) => setProVsechny(e.target.checked)}
                 className="rounded text-sky-500 focus:ring-sky-400"
               />
-              <Users size={13} />
+              <Users size={14} />
               <span>Poslat všem</span>
             </label>
             <button
@@ -140,7 +140,7 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
               disabled={!newText.trim()}
               className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-bold text-xs px-3.5 py-2 rounded-lg shadow-xs transition ml-auto"
             >
-              <Plus size={15} /> {proVsechny ? 'Poslat všem' : 'Přidat poznámku'}
+              <Plus size={16} /> {proVsechny ? 'Poslat všem' : 'Přidat poznámku'}
             </button>
           </div>
         </form>
@@ -151,8 +151,8 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
             Odškrtnutí tady platí pro všechny, je to společný úkol. */}
         {sdilene.length > 0 && (
           <div className="rounded-xl border-2 border-sky-200 bg-sky-50/60 p-3 space-y-2">
-            <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-sky-800">
-              <Users size={13} /> Pro celou směnu
+            <div className="flex items-center gap-1.5 text-udaj font-black uppercase tracking-wider text-sky-800">
+              <Users size={14} /> Pro celou směnu
             </div>
             {sdilene.map((p) => (
               <div
@@ -172,7 +172,7 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
                     {p.dulezite && <span className="text-rose-600 font-black mr-1">!</span>}
                     {p.text}
                   </p>
-                  <div className="text-[11px] text-neutral-500 font-medium mt-0.5">
+                  <div className="text-udaj text-neutral-500 font-medium mt-0.5">
                     {p.autor || 'Neznámý'}
                     {p.hotovo && p.hotovo_kdo ? ` · odškrtl ${p.hotovo_kdo}` : ''}
                   </div>
@@ -279,7 +279,7 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
                             onClick={() => deleteHomeNote(note.id)}
                             className="text-neutral-400 hover:text-rose-600 p-1 shrink-0 tap"
                           >
-                            <Trash2 size={15} />
+                            <Trash2 size={16} />
                           </button>
                         </div>
                       ))}

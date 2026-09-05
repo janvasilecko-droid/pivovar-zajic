@@ -526,7 +526,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
 
         <div className="flex items-center gap-2">
           <label className="btn-ghost !flex-none !px-3 !gap-2 cursor-pointer">
-            <Calendar size={15} className="text-amber-700" />
+            <Calendar size={16} className="text-amber-700" />
             <input
               type="month"
               value={filterMonth}
@@ -598,7 +598,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                 onClick={openAutoModal}
                 className="px-4 py-2.5 rounded bg-amber-500 text-neutral-950 font-black text-xs shadow-xs flex items-center gap-1.5"
               >
-                <Zap size={15} /> Generovat z objednávek
+                <Zap size={16} /> Generovat z objednávek
               </button>
               <button
                 onClick={openAddModal}
@@ -617,7 +617,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
                     <div className="font-black text-sm text-neutral-950">{e.vehicle_name}</div>
-                    <div className="text-[11px] text-neutral-500 font-bold">{new Date(e.date).toLocaleDateString('cs-CZ')} · {e.driver}</div>
+                    <div className="text-udaj text-neutral-500 font-bold">{new Date(e.date).toLocaleDateString('cs-CZ')} · {e.driver}</div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="font-mono font-black text-sm text-amber-600 whitespace-nowrap">{e.km_driven.toLocaleString('cs-CZ')} km</span>
@@ -633,7 +633,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                 <div className="text-xs text-neutral-700 font-medium">
                   <span className="text-neutral-500">{e.route_from}</span> → <strong className="text-amber-900">{e.route_to}</strong>
                 </div>
-                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-neutral-500 font-mono">
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-udaj text-neutral-500 font-mono">
                   <span>{e.purpose}</span>
                   <span>{e.km_start.toLocaleString('cs-CZ')} → {e.km_end.toLocaleString('cs-CZ')} km</span>
                 </div>
@@ -679,7 +679,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                         className="p-1.5 rounded hover:bg-rose-100 text-rose-600 transition tap"
                         title="Smazat jízdu"
                       >
-                        <Trash2 size={15} />
+                        <Trash2 size={16} />
                       </button>
                     </td>
                   </tr>
@@ -697,7 +697,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
           <div className="bg-white rounded max-w-lg w-full p-6 space-y-4 shadow-2xl border border-neutral-200 animate-in fade-in zoom-in duration-150">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-                <Zap className="text-amber-500 fill-current" size={20} />
+                <Zap className="text-amber-500 fill-current" size={18} />
                 <span>Generovat Knihu jízd z objednávek</span>
               </h3>
               <button onClick={() => setShowAutoModal(false)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít"><X size={18} /></button>
@@ -770,7 +770,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
               </form>
             ) : (
               <div className="space-y-3">
-                <p className="text-[11px] text-neutral-500 font-bold leading-snug">
+                <p className="text-udaj text-neutral-500 font-bold leading-snug">
                   Nalezeno <strong>{previewDays.length}</strong> {previewDays.length === 1 ? 'jízda' : 'jízd'} se závozem v {autoMonth} — vozidlo je předvyplněné podle značení <strong><Bird className="ikona-text" /> Kačena</strong> u jednotlivých objednávek v Závozu (smíšený den = dvě jízdy). Klidně přeškrtni, jinak se použije <strong>{bigVehicleLabel}</strong>. Km jsou předvyplněná reálnou jízdní vzdálenostní trasy pivovar → zastávky → pivovar — klidně uprav podle tachometru, pokud se liší.
                 </p>
 
@@ -780,15 +780,15 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-black text-xs text-neutral-900 flex items-center gap-1.5">
                           {new Date(d.date).toLocaleDateString('cs-CZ')}
-                          <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-black uppercase ${d.isKachna ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                          <span className={`px-1.5 py-0.5 rounded-full text-udaj font-black uppercase ${d.isKachna ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
                             {d.isKachna ? 'Kačena' : 'Velké auto'}
                           </span>
                         </span>
-                        <span className="text-[11px] font-bold text-neutral-500">{d.stopsCount} zastávek</span>
+                        <span className="text-udaj font-bold text-neutral-500">{d.stopsCount} zastávek</span>
                       </div>
-                      <div className="text-[11px] text-neutral-600 font-medium leading-snug">{d.routeTo}</div>
+                      <div className="text-udaj text-neutral-600 font-medium leading-snug">{d.routeTo}</div>
                       {d.missingCoords.length > 0 && (
-                        <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 font-semibold leading-snug">
+                        <div className="text-udaj text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 font-semibold leading-snug">
                           <AlertTriangle className="ikona-text" /> Chybí souřadnice u: {d.missingCoords.join(', ')} — km je jen odhad zbylých zastávek, doplň v Odběratelích nebo uprav ručně.
                         </div>
                       )}
@@ -846,7 +846,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
           <div className="bg-white rounded max-w-lg w-full p-6 space-y-4 shadow-2xl border border-neutral-200 animate-in fade-in zoom-in duration-150">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-                <Car className="text-amber-600" size={20} />
+                <Car className="text-amber-600" size={18} />
                 <span>Zapsat ruční jízdu do Knihy jízd</span>
               </h3>
               <button onClick={() => setShowModal(false)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít"><X size={18} /></button>
@@ -951,7 +951,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                     className="input font-mono font-bold text-xs"
                   />
                   {lastKmEndByVehicle[vehicleName] != null && Number(kmStart) !== lastKmEndByVehicle[vehicleName] && (
-                    <p className="text-[11px] text-amber-700 font-bold mt-1 leading-snug">
+                    <p className="text-udaj text-amber-700 font-bold mt-1 leading-snug">
                       <AlertTriangle className="ikona-text" /> Poslední záznam tohoto vozidla končí na {lastKmEndByVehicle[vehicleName].toLocaleString('cs-CZ')} km — nenavazuje.
                     </p>
                   )}

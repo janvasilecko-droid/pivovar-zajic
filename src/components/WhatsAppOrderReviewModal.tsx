@@ -401,7 +401,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               >
                 {seg.text}
                 {seg.badges.map((b) => (
-                  <sup key={b} className="text-[11px] font-bold text-neutral-700 ml-0.5">#{b}</sup>
+                  <sup key={b} className="text-udaj font-bold text-neutral-700 ml-0.5">#{b}</sup>
                 ))}
               </span>
             ) : (
@@ -661,7 +661,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                   hlášky by z „petky sedí" tiše nevzniklo nic. */}
               {amendPotvrzenoPrazdne.length > 0 && (
                 <div className="mt-2 p-2.5 rounded-xl bg-rose-50 border border-rose-300 text-rose-900 text-xs font-bold flex items-start gap-1.5">
-                  <AlertTriangle size={15} className="shrink-0 mt-0.5" />
+                  <AlertTriangle size={16} className="shrink-0 mt-0.5" />
                   <span>
                     Odběratel píše, že {amendPotvrzenoPrazdne.map((s) => NAZVY_SKUPIN[s].toLowerCase()).join(' a ')} sedí,
                     ale v načtené objednávce k nim není jediná položka — zkontroluj původní objednávku (třeba se z PDF nevytáhly) a případně je doplň ručně.
@@ -676,7 +676,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                 přepsalo to, co se přepsat mělo. */}
             <div className="grid gap-3 sm:grid-cols-2 p-4 pt-0">
               <div>
-                <div className="text-[11px] font-black uppercase tracking-wider text-violet-700 mb-1">
+                <div className="text-udaj font-black uppercase tracking-wider text-violet-700 mb-1">
                   Původní objednávka
                 </div>
                 {amendOriginalMsg ? (
@@ -713,7 +713,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               </div>
 
               <div>
-                <div className="text-[11px] font-black uppercase tracking-wider text-violet-700 mb-1">
+                <div className="text-udaj font-black uppercase tracking-wider text-violet-700 mb-1">
                   Tato odpověď
                 </div>
                 <div className="border border-violet-200 rounded p-2.5 bg-white text-xs font-mono whitespace-pre-wrap max-h-56 overflow-y-auto lze-vybrat">
@@ -818,7 +818,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                     className="mt-1.5 flex items-center gap-1.5 px-2.5 py-1 rounded bg-sky-700 text-white text-xs font-semibold hover:bg-sky-800 disabled:opacity-50 disabled:cursor-not-allowed tap"
                     title="Ručně spustit AI parsování této zprávy"
                   >
-                    {reparsing ? <RefreshCw size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+                    {reparsing ? <RefreshCw size={14} className="animate-spin" /> : <RefreshCw size={14} />}
                     {reparsing ? 'Parsuji...' : 'Parsovat ručně'}
                   </button>
                 )}
@@ -865,7 +865,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             </div>
           ) : isImage ? (
             <div className="text-xs text-neutral-500 mt-2 flex items-center gap-1">
-              <ImageIcon size={13} /> Fotka — médium nebylo doručeno (webhook neposlal mediaUrl).
+              <ImageIcon size={14} /> Fotka — médium nebylo doručeno (webhook neposlal mediaUrl).
             </div>
           ) : null}
         </div>
@@ -914,7 +914,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           {!isImage && (
             <label className="flex items-center gap-2 text-xs text-neutral-600 mb-2 cursor-pointer select-none">
               <input type="checkbox" checked={strictReadback} onChange={toggleStrictReadback} className="accent-amber-600" />
-              {strictReadback ? <ShieldCheck size={13} className="text-emerald-600" /> : <ShieldAlert size={13} className="text-amber-600" />}
+              {strictReadback ? <ShieldCheck size={14} className="text-emerald-600" /> : <ShieldAlert size={14} className="text-amber-600" />}
               Vyžadovat opravu nesouladů před schválením
             </label>
           )}
@@ -952,7 +952,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                   </span>
                 )}
               </div>
-              <div className="text-[11px] text-neutral-400 mt-1">
+              <div className="text-udaj text-neutral-400 mt-1">
                 zeleně = čteno z originálu · červeně = AI přidala (není v originálu) · přeškrtnuto = AI přehlédla
               </div>
             </div>
@@ -967,8 +967,8 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           {prevRawText && message.parsed_raw_text && prevRawText !== message.parsed_raw_text && (
             <details className="mt-2 group">
               <summary className="text-xs text-neutral-600 cursor-pointer hover:text-neutral-800 select-none flex items-center gap-1">
-                <RefreshCw size={13} /> Srovnání s předchozím čtením AI
-                <ChevronDown size={13} className="transition-transform group-open:rotate-180" />
+                <RefreshCw size={14} /> Srovnání s předchozím čtením AI
+                <ChevronDown size={14} className="transition-transform group-open:rotate-180" />
               </summary>
               <div className="mt-2 border rounded p-3 bg-white font-mono text-xs max-h-48 overflow-y-auto">
                 {diffWords(prevRawText, message.parsed_raw_text).map((seg, si) => {
@@ -993,7 +993,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                 className="ml-auto px-2.5 py-1 rounded bg-sky-50 text-sky-700 text-xs font-medium hover:bg-sky-100 disabled:opacity-50 flex items-center gap-1.5 tap"
                 title="Znovu spustit AI čtení zprávy — nový přepis nahradí ten stávající (a porovná se s ním)"
               >
-                {reparsing ? <RefreshCw size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+                {reparsing ? <RefreshCw size={14} className="animate-spin" /> : <RefreshCw size={14} />}
                 {reparsing ? 'Čtu znovu...' : 'Přečíst znovu (AI)'}
               </button>
             </div>
@@ -1124,14 +1124,14 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                               {rbItem.parts.map((p, pi) => (
                                 <span
                                   key={pi}
-                                  className={`px-1.5 py-0.5 rounded text-[11px] flex items-center gap-1 ${
+                                  className={`px-1.5 py-0.5 rounded text-udaj flex items-center gap-1 ${
                                     p.found ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
                                   }`}
                                   title={p.found
                                     ? `${partKindLabel(p.part.kind)} ${p.part.display} se v originálu našlo`
                                     : `${partKindLabel(p.part.kind)} ${p.part.display} se v originálu NENAŠLO`}
                                 >
-                                  {p.found ? <Check size={11} /> : <AlertCircle size={11} />}
+                                  {p.found ? <Check size={12} /> : <AlertCircle size={12} />}
                                   {partKindLabel(p.part.kind)} {p.part.display}
                                 </span>
                               ))}

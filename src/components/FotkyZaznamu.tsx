@@ -96,7 +96,7 @@ export function FotkyZaznamu({ typ, zaznamId, kompaktni = false }: {
 
   if (chybiTabulka) {
     return kompaktni ? null : (
-      <div className="text-[11px] font-semibold text-amber-800">
+      <div className="text-udaj font-semibold text-amber-800">
         Úložiště fotek ještě není nastavené (chybí migrace 20261228020000_fotky_zaznamu.sql).
       </div>
     );
@@ -129,7 +129,7 @@ export function FotkyZaznamu({ typ, zaznamId, kompaktni = false }: {
           </span>
         </button>
         {fotky.length > 0 && (
-          <span className="text-[11px] font-bold text-neutral-600">{fotky.length} fotek u zápisu</span>
+          <span className="text-udaj font-bold text-neutral-600">{fotky.length} fotek u zápisu</span>
         )}
         <input
           ref={vstupRef}
@@ -164,7 +164,7 @@ export function FotkyZaznamu({ typ, zaznamId, kompaktni = false }: {
                   className="w-20 h-20 object-cover rounded-xl border border-neutral-300 cursor-zoom-in"
                 />
               ) : (
-                <div className="w-20 h-20 grid place-items-center rounded-xl border border-neutral-300 bg-neutral-100 text-[11px] font-bold text-neutral-600 text-center px-1">
+                <div className="w-20 h-20 grid place-items-center rounded-xl border border-neutral-300 bg-neutral-100 text-udaj font-bold text-neutral-600 text-center px-1">
                   fotka se nenačetla
                 </div>
               )}
@@ -185,7 +185,7 @@ export function FotkyZaznamu({ typ, zaznamId, kompaktni = false }: {
           nepozná. */}
       {zvetsena && (
         <div
-          className="fixed inset-0 z-[99999] bg-neutral-950/90 flex items-center justify-center p-4"
+          className="fixed inset-0 z-nadmodal bg-neutral-950/90 flex items-center justify-center p-4"
           onClick={() => setZvetsena(null)}
         >
           <img src={zvetsena} alt="Fotka k zápisu" className="max-h-full max-w-full rounded" />
@@ -195,7 +195,7 @@ export function FotkyZaznamu({ typ, zaznamId, kompaktni = false }: {
             className="absolute top-4 right-4 w-10 h-10 grid place-items-center rounded-full bg-white text-neutral-900 shadow-lg tap"
             title="Zavřít"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
       )}

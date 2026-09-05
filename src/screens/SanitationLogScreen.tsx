@@ -341,20 +341,20 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
                 <div className="flex items-center flex-wrap gap-1.5">
                   <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded border font-bold text-xs shadow-xs ${badge.bg} ${badge.text}`}>
                     <span><badge.icon className="ikona-text" /></span><span>{badge.label}</span>
-                    {displayConc !== null && <span className="ml-1 font-black px-1.5 py-0.5 rounded-md bg-black/10 text-[11px]">{displayConc} %</span>}
+                    {displayConc !== null && <span className="ml-1 font-black px-1.5 py-0.5 rounded-md bg-black/10 text-udaj">{displayConc} %</span>}
                   </span>
-                  <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-amber-100/80 text-amber-900 border border-amber-300 font-bold text-[11px]">
+                  <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-amber-100/80 text-amber-900 border border-amber-300 font-bold text-udaj">
                     <Clock size={12} className="text-amber-700" /><span>{displayDuration} min</span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between gap-2 text-xs">
                   <span className="flex items-center gap-1 text-neutral-500 font-bold">
-                    <Calendar size={13} className="text-amber-600 shrink-0" />
+                    <Calendar size={14} className="text-amber-600 shrink-0" />
                     {new Date(log.sanitation_date).toLocaleDateString('cs-CZ')}{displayTime ? ` · ${displayTime}` : ''}
                   </span>
                   {log.performed_by && (
                     <span className="flex items-center gap-1 text-neutral-700 font-semibold">
-                      <User size={13} className="text-neutral-400" />{log.performed_by}
+                      <User size={14} className="text-neutral-400" />{log.performed_by}
                     </span>
                   )}
                 </div>
@@ -402,14 +402,14 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
                           <Calendar size={14} className="text-amber-600 shrink-0" />
                           <span>{new Date(log.sanitation_date).toLocaleDateString('cs-CZ')}</span>
                           {displayTime && (
-                            <span className="text-neutral-600 font-normal text-[11px] bg-neutral-100 px-1.5 py-0.5 rounded-md border border-neutral-200">
+                            <span className="text-neutral-600 font-normal text-udaj bg-neutral-100 px-1.5 py-0.5 rounded-md border border-neutral-200">
                               {displayTime}
                             </span>
                           )}
                         </div>
                       </td>
                       <td className="py-3.5 px-4 whitespace-nowrap">
-                        <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-amber-100/80 text-amber-900 border border-amber-300 font-bold text-[11px]">
+                        <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-amber-100/80 text-amber-900 border border-amber-300 font-bold text-udaj">
                           <Clock size={12} className="text-amber-700" />
                           <span>{displayDuration} min</span>
                         </div>
@@ -424,7 +424,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
                           <span><badge.icon className="ikona-text" /></span>
                           <span>{badge.label}</span>
                           {displayConc !== null && (
-                            <span className="ml-1 font-black px-1.5 py-0.5 rounded-md bg-black/10 text-[11px]">
+                            <span className="ml-1 font-black px-1.5 py-0.5 rounded-md bg-black/10 text-udaj">
                               {displayConc} %
                             </span>
                           )}
@@ -433,7 +433,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         {log.performed_by ? (
                           <span className="flex items-center gap-1 text-neutral-700 font-semibold">
-                            <User size={13} className="text-neutral-400" />
+                            <User size={14} className="text-neutral-400" />
                             {log.performed_by}
                           </span>
                         ) : (
@@ -447,7 +447,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
                             <span className="whitespace-pre-line">{log.note}</span>
                           </div>
                         ) : (
-                          <span className="text-neutral-400 italic text-[11px]">Bez poznámky</span>
+                          <span className="text-neutral-400 italic text-udaj">Bez poznámky</span>
                         )}
                       </td>
                       <td className="py-3.5 px-4 text-right whitespace-nowrap">
@@ -459,9 +459,9 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
                             setEditDurationNum(log.duration_minutes ?? 20);
                             setEditConcentrationPct(log.concentration_pct ?? getDefaultConcentration(log.method));
                           }}
-                          className="px-2.5 py-1 rounded bg-neutral-100 hover:bg-amber-100 text-neutral-700 hover:text-amber-900 text-[11px] font-bold border border-neutral-200 transition flex items-center gap-1 ml-auto tap"
+                          className="px-2.5 py-1 rounded bg-neutral-100 hover:bg-amber-100 text-neutral-700 hover:text-amber-900 text-udaj font-bold border border-neutral-200 transition flex items-center gap-1 ml-auto tap"
                         >
-                          <Edit3 size={13} />
+                          <Edit3 size={14} />
                           <span>Upravit</span>
                         </button>
                       </td>

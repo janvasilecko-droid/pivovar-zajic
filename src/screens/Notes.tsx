@@ -90,7 +90,7 @@ export default function Notes() {
       {/* Header */}
       <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
         <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-          <StickyNote size={20} className="text-amber-500" />
+          <StickyNote size={18} className="text-amber-500" />
           <span><NotebookPen className="ikona-text" /> Poznámky ({notes.length})</span>
         </h3>
       </div>
@@ -200,7 +200,7 @@ export default function Notes() {
                         </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 pt-2 border-t border-neutral-100 mt-2 text-[11px] font-bold text-neutral-400">
+                    <div className="flex items-center gap-2 pt-2 border-t border-neutral-100 mt-2 text-udaj font-bold text-neutral-400">
                       <span>{n.created_by || '—'}</span>
                       <span>•</span>
                       <span>{formatDate(n.created_at)}</span>

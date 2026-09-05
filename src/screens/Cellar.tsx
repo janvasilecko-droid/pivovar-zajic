@@ -556,19 +556,19 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
       {nesediciTanky.length > 0 && (
         <div className="mb-4 rounded border-2 border-amber-400 bg-amber-50 p-4">
           <div className="flex items-start gap-3">
-            <AlertTriangle size={20} className="text-amber-600 shrink-0 mt-0.5" />
+            <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
             <div className="min-w-0 flex-1">
               <div className="font-display font-black text-amber-900 text-sm">
                 {nesediciTanky.length === 1 ? 'U jednoho tanku nesedí objem' : `U ${nesediciTanky.length} tanků nesedí objem`}
               </div>
-              <p className="text-[11px] font-bold text-amber-800 mt-1">
+              <p className="text-udaj font-bold text-amber-800 mt-1">
                 Evidovaný objem se liší od toho, co vychází ze zapsaného stáčení a přečerpávání.
                 Obvyklá příčina: stáčení se uložilo, ale odečet z tanku neprošel.
                 Zkontroluj a sroven objem ručně v úpravě tanku.
               </p>
               <div className="mt-2.5 flex flex-wrap gap-1.5">
                 {nesediciTanky.map((t) => (
-                  <span key={t.id} className="px-2 py-1 rounded bg-white border border-amber-300 text-[11px] font-bold text-neutral-800">
+                  <span key={t.id} className="px-2 py-1 rounded bg-white border border-amber-300 text-udaj font-bold text-neutral-800">
                     {t.label}: <span className="font-mono">{t.evidovanoL} l</span>
                     <span className="text-neutral-500"> místo </span>
                     <span className="font-mono">{t.dopocitanoL} l</span>
@@ -633,7 +633,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
             </button>
             <div className="px-2 text-xs font-bold text-amber-800 text-center min-w-[90px]">
               Týden {weekKey.split('-')[1]}
-              <div className="text-[11px] text-neutral-500 font-normal">
+              <div className="text-udaj text-neutral-500 font-normal">
                 ({weekRange(weekKey).label})
               </div>
             </div>
@@ -686,9 +686,9 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                       <div className="text-xs text-primary-500">Kapacita {t.capacity_l.toLocaleString('cs-CZ')} l</div>
                     </div>
                     <div className="flex flex-col items-end gap-1">
-                      <span className={`chip text-[11px] ${STATUS_COLORS[t.status]}`}>{STATUS_LABELS[t.status]}</span>
+                      <span className={`chip text-udaj ${STATUS_COLORS[t.status]}`}>{STATUS_LABELS[t.status]}</span>
                       {t.kegging_active && (
-                        <span className="chip text-[11px] bg-amber-100 text-amber-800 border border-amber-300"><IkonaSud className="ikona-text" /> Stáčení aktivní</span>
+                        <span className="chip text-udaj bg-amber-100 text-amber-800 border border-amber-300"><IkonaSud className="ikona-text" /> Stáčení aktivní</span>
                       )}
                     </div>
                   </div>
@@ -714,14 +714,14 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                   {inlineEditId === t.id ? (
                     <div className="mt-2 space-y-2">
                       <div>
-                        <div className="text-[11px] font-extrabold uppercase tracking-wider text-primary-400 mb-1">Pivo</div>
+                        <div className="text-udaj font-extrabold uppercase tracking-wider text-primary-400 mb-1">Pivo</div>
                         <select className="input" value={inlineBeerId} onChange={(e) => setInlineBeerId(e.target.value)}>
                           <option value="">— vyber pivo —</option>
                           {beers.map((b) => <option key={b.id} value={b.id}>{b.name}{b.degree ? ` (${b.degree})` : ''}</option>)}
                         </select>
                       </div>
                       <div>
-                        <div className="text-[11px] font-extrabold uppercase tracking-wider text-primary-400 mb-1">Počáteční objem (l)</div>
+                        <div className="text-udaj font-extrabold uppercase tracking-wider text-primary-400 mb-1">Počáteční objem (l)</div>
                         <input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} step="0.1" className="input" value={inlineVolume} onChange={(e) => setInlineVolume(e.target.value)} placeholder={`např. ${t.capacity_l}`} />
                       </div>
                       <div className="flex gap-1.5">
@@ -736,7 +736,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                       <div className="text-sm text-primary-700 min-w-0">
                         {t.current_beer_name ? <span className="font-semibold">{t.current_beer_name}</span> : <span className="text-primary-400">— prázdno —</span>}
                         {t.current_beer_name && (
-                          <div className="text-[11px] text-primary-500 mt-0.5">
+                          <div className="text-udaj text-primary-500 mt-0.5">
                             Počáteční objem: <span className="font-semibold text-primary-700">{(initialVol / 100).toFixed(2)} hl</span>
                             {' · '}Zbývá: <span className={`font-semibold ${remaining <= 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{(remaining / 100).toFixed(2)} hl</span>
                           </div>
@@ -745,18 +745,18 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                             nepočítá z hlavy, na co to ještě stačí. Ukazuje se
                             jen dokud v tanku něco je. */}
                         {t.current_beer_name && remaining > 0 && (
-                          <div className="text-[11px] text-primary-500 mt-0.5 tabular-nums">
+                          <div className="text-udaj text-primary-500 mt-0.5 tabular-nums">
                             Na sudy: <span className="font-semibold text-primary-700">{[50, 30, 20].map((v) => `${Math.floor(remaining / v)}×${v}`).join(' · ')}</span>
                           </div>
                         )}
                         {t.kegging_active && t.kegging_started_at && (
-                          <div className="text-[11px] text-amber-700 mt-0.5">
+                          <div className="text-udaj text-amber-700 mt-0.5">
                             <IkonaSud className="ikona-text" /> Stáčí se od {new Date(t.kegging_started_at).toLocaleDateString('cs-CZ')} {new Date(t.kegging_started_at).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}
                           </div>
                         )}
                       </div>
                       <button
-                        className="text-[11px] px-2 py-1 rounded bg-primary-100 text-primary-800 hover:bg-primary-200 font-bold shrink-0 tap"
+                        className="text-udaj px-2 py-1 rounded bg-primary-100 text-primary-800 hover:bg-primary-200 font-bold shrink-0 tap"
                         onClick={() => {
                           setInlineEditId(t.id);
                           setInlineBeerId(t.current_beer_id ?? '');
@@ -856,7 +856,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                       </svg>
 
                       {/* Percentage Badge */}
-                      <span className={`absolute text-[11px] font-black font-mono px-1.5 py-0.5 rounded border ${remaining === 0 || isEmpty ? 'bg-neutral-800 text-neutral-300 border-neutral-600' : 'bg-neutral-950/90 text-amber-300 border-neutral-700'}`}>
+                      <span className={`absolute text-udaj font-black font-mono px-1.5 py-0.5 rounded border ${remaining === 0 || isEmpty ? 'bg-neutral-800 text-neutral-300 border-neutral-600' : 'bg-neutral-950/90 text-amber-300 border-neutral-700'}`}>
                         {isEmpty ? '0%' : `${Math.round((remaining / initialVol) * 100)}%`}
                       </span>
                     </div>
@@ -876,7 +876,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                           style={{ width: isEmpty ? '0%' : `${Math.max(Math.round((remaining / initialVol) * 100), 2)}%` }}
                         />
                       </div>
-                      <div className="flex items-center justify-between text-[11px] text-neutral-300 font-medium pt-0.5">
+                      <div className="flex items-center justify-between text-udaj text-neutral-300 font-medium pt-0.5">
                         <span>Výstav {t.current_beer_name ? `${(initialVol / 100).toFixed(1)} hl` : `z ${t.capacity_l.toLocaleString('cs-CZ')} l`}</span>
                       </div>
                     </div>
@@ -902,7 +902,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                       {sizeKeys.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1">
                           {sizeKeys.map((sz) => (
-                            <span key={sz} className="chip bg-primary-100 text-primary-700 text-[11px]">{sz}l × {s.bySize[sz]} ks</span>
+                            <span key={sz} className="chip bg-primary-100 text-primary-700 text-udaj">{sz}l × {s.bySize[sz]} ks</span>
                           ))}
                         </div>
                       )}
@@ -913,10 +913,10 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                   {/* Mini historie posledních cyklů */}
                   {recentCycles.length > 0 && (
                     <div className="mt-3 pt-3 border-t border-primary-100">
-                      <div className="text-[11px] uppercase tracking-wider text-primary-400 mb-1">Poslední cykly</div>
+                      <div className="text-udaj uppercase tracking-wider text-primary-400 mb-1">Poslední cykly</div>
                       <div className="space-y-1">
                         {recentCycles.map((c) => (
-                          <div key={c.id} className="flex items-center justify-between text-[11px]">
+                          <div key={c.id} className="flex items-center justify-between text-udaj">
                             <span className="text-primary-600 truncate max-w-[45%]">{c.beer_name ?? '—'}</span>
                             <span className="text-primary-700 font-medium">{(Number(c.kegged_volume_l) / 100).toFixed(1)} hl</span>
                             <span className={`font-medium ${Number(c.loss_pct) > 3 ? 'text-rose-600' : 'text-emerald-600'}`}>{Number(c.loss_pct).toFixed(1)}%</span>
@@ -964,7 +964,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
 
                     {/* Sanitace tanku — postup: oplach → louh → kyselina */}
                     <div className="pt-1">
-                      <div className="text-[11px] font-extrabold uppercase tracking-wider text-neutral-400 mb-1"><SprayCan className="ikona-text" /> Sanitace tanku</div>
+                      <div className="text-udaj font-extrabold uppercase tracking-wider text-neutral-400 mb-1"><SprayCan className="ikona-text" /> Sanitace tanku</div>
                       <div className="grid grid-cols-3 gap-1.5">
                         <button
                           className="min-h-[44px] text-xs px-1.5 py-2 rounded bg-sky-100 text-sky-900 font-bold hover:bg-sky-200 shadow-xs border border-sky-300 flex flex-col items-center justify-center gap-0.5"

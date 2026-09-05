@@ -150,7 +150,7 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
           {(Object.keys(STATUS_LABEL) as WhatsAppIncoming['status'][]).map((s) => (
             <div key={s} className={`rounded border px-2 py-1.5 text-center ${STATUS_STYLE[s]}`}>
               <div className="text-lg font-black leading-none">{counts[s] || 0}</div>
-              <div className="text-[11px] font-bold uppercase leading-tight mt-0.5">{STATUS_LABEL[s]}</div>
+              <div className="text-udaj font-bold uppercase leading-tight mt-0.5">{STATUS_LABEL[s]}</div>
             </div>
           ))}
         </div>
@@ -197,10 +197,10 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-xs font-black text-neutral-900">{m.sender_name}</span>
-                      <span className="text-[11px] text-neutral-400 font-mono">
+                      <span className="text-udaj text-neutral-400 font-mono">
                         {new Date(m.message_timestamp || m.created_at).toLocaleString('cs-CZ')}
                       </span>
-                      <span className={`px-2 py-0.5 rounded-full border text-[11px] font-black ${STATUS_STYLE[m.status]}`}>
+                      <span className={`px-2 py-0.5 rounded-full border text-udaj font-black ${STATUS_STYLE[m.status]}`}>
                         {STATUS_LABEL[m.status]}
                       </span>
                     </div>
@@ -208,10 +208,10 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
                       {m.message_text?.slice(0, 220)}{(m.message_text?.length ?? 0) > 220 ? '…' : ''}
                     </div>
                     {(m.status === 'error' || m.status === 'ignored') && m.error_message && (
-                      <div className="text-[11px] text-rose-700 font-bold mt-1"><AlertTriangle className="ikona-text" /> {m.error_message}</div>
+                      <div className="text-udaj text-rose-700 font-bold mt-1"><AlertTriangle className="ikona-text" /> {m.error_message}</div>
                     )}
                     {m.status === 'imported' && (
-                      <div className="text-[11px] text-emerald-700 font-bold mt-1">
+                      <div className="text-udaj text-emerald-700 font-bold mt-1">
                         <Check className="ikona-text" /> Vytvořeno {m.imported_at ? new Date(m.imported_at).toLocaleString('cs-CZ') : ''}
                       </div>
                     )}
@@ -221,7 +221,7 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
                       type="button"
                       onClick={(e) => { e.stopPropagation(); handleRetry(m.id); }}
                       disabled={retrying === m.id}
-                      className="shrink-0 px-2.5 py-1.5 rounded bg-sky-100 hover:bg-sky-200 text-sky-900 text-[11px] font-black transition disabled:opacity-50 tap"
+                      className="shrink-0 px-2.5 py-1.5 rounded bg-sky-100 hover:bg-sky-200 text-sky-900 text-udaj font-black transition disabled:opacity-50 tap"
                     >
                       {retrying === m.id ? '…' : 'Vrátit do fronty'}
                     </button>

@@ -125,7 +125,7 @@ export function PlaceCombobox({ value, onChange, places, onPlacesChanged, placeh
               onClick={() => pick(p)}
             >
               <span className="text-primary-800">{p.name}</span>
-              {exactDup && exactDup.id === p.id && <span className="chip bg-amber-100 text-amber-700 text-[11px]">existuje</span>}
+              {exactDup && exactDup.id === p.id && <span className="chip bg-amber-100 text-amber-700 text-udaj">existuje</span>}
             </button>
           ))}
           {isNew && (
@@ -154,13 +154,13 @@ export function PlaceCombobox({ value, onChange, places, onPlacesChanged, placeh
       )}
 
       {exactDup && (
-        <div className="text-[11px] text-amber-700 mt-1 flex items-center gap-1">
+        <div className="text-udaj text-amber-700 mt-1 flex items-center gap-1">
           <span><AlertTriangle className="ikona-text" /></span> Odběratel „{exactDup.name}“ už existuje — bude použit stávající záznam.
         </div>
       )}
 
       {msg && (
-        <div className={`text-[11px] mt-1 font-semibold ${msg.type === 'ok' ? 'text-emerald-700' : 'text-rose-600'}`}>
+        <div className={`text-udaj mt-1 font-semibold ${msg.type === 'ok' ? 'text-emerald-700' : 'text-rose-600'}`}>
           {msg.text}
         </div>
       )}

@@ -55,7 +55,7 @@ export default function ToastHost() {
       {/* Oznámení sedí NAD spodní lištou (64 px + bezpečná zóna), ať nezakryjí
           navigaci ani palec, kterým se ovládá. */}
       <div
-        className="fixed left-0 right-0 z-[100] px-3 flex flex-col gap-2 items-center pointer-events-none sm:max-w-lg sm:mx-auto"
+        className="fixed left-0 right-0 z-toast px-3 flex flex-col gap-2 items-center pointer-events-none sm:max-w-lg sm:mx-auto"
         style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 76px)' }}
       >
         {stav.toasty.map((t) => <Radek key={t.id} t={t} />)}
@@ -63,7 +63,7 @@ export default function ToastHost() {
 
       {p && (
         <div
-          className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center bg-neutral-900/50 backdrop-blur-[2px] animate-[sheetFade_120ms_ease-out]"
+          className="fixed inset-0 z-potvrzeni flex items-end sm:items-center justify-center bg-neutral-900/50 backdrop-blur-[2px] animate-[sheetFade_120ms_ease-out]"
           onClick={() => uzavriPotvrzeni(false)}
         >
           {/* Na telefonu vyjede zespoda (palec je dole), na počítači je uprostřed. */}

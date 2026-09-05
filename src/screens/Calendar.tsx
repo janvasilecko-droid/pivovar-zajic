@@ -227,7 +227,7 @@ export default function CalendarScreen() {
                 <div className="font-bold text-sm text-neutral-900 flex items-center gap-1.5 flex-wrap">
                   {e.title}
                   {e.reminder && (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-black text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5">
+                    <span className="inline-flex items-center gap-1 text-udaj font-black text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5">
                       <Bell className="w-3 h-3" /> {e.reminder_time?.slice(0, 5)}
                     </span>
                   )}
@@ -319,7 +319,7 @@ export default function CalendarScreen() {
         <div className="card p-2.5 sm:p-4">
           <div className="grid grid-cols-7 gap-1 mb-1">
             {DNY_ZKRATKY.map((d) => (
-              <div key={d} className="text-center text-[11px] font-black text-neutral-400 py-1">{d}</div>
+              <div key={d} className="text-center text-udaj font-black text-neutral-400 py-1">{d}</div>
             ))}
           </div>
           <div className="grid grid-cols-7 gap-1">
@@ -359,7 +359,7 @@ export default function CalendarScreen() {
       {/* Detail dne — spodní list, stejně jako potvrzovací dialog v celé appce. */}
       {vybranyDen && (
         <div
-          className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center bg-neutral-900/50 backdrop-blur-[2px]"
+          className="fixed inset-0 z-potvrzeni flex items-end sm:items-center justify-center bg-neutral-900/50 backdrop-blur-[2px]"
           onClick={() => setVybranyDen(null)}
         >
           <div

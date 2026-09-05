@@ -102,7 +102,7 @@ export function BeersScreen() {
                   {b.is_active ? 'Skrýt' : 'Aktivovat'}
                 </button>
                 <button className="p-1.5 rounded bg-rose-50 hover:bg-rose-500 dark:bg-rose-900/30 text-rose-700 hover:text-white font-bold text-xs transition tap" onClick={() => del(b.id)}>
-                  <Trash2 size={15} />
+                  <Trash2 size={16} />
                 </button>
               </div>
             </div>
@@ -228,7 +228,7 @@ export function PackagesScreen() {
                   Upravit
                 </button>
                 <button className="p-1.5 rounded bg-rose-50 hover:bg-rose-500 text-rose-700 hover:text-white font-bold text-xs transition tap" onClick={() => del(p.id)}>
-                  <Trash2 size={15} />
+                  <Trash2 size={16} />
                 </button>
               </div>
             </div>
@@ -375,18 +375,18 @@ export function PlacesScreen() {
                 <div className="flex items-start justify-between gap-1">
                   <div className="font-display font-black text-base text-neutral-900">{p.name}</div>
                   {!p.address && (
-                    <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 font-extrabold text-[11px] shrink-0 border border-amber-300">
+                    <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 font-extrabold text-udaj shrink-0 border border-amber-300">
                       <AlertTriangle className="ikona-text" /> Bez adresy
                     </span>
                   )}
                 </div>
                 {p.address ? (
                   <div className="text-xs text-neutral-600 font-medium mt-1 flex items-center gap-1">
-                    <MapPin size={13} className="text-amber-600 shrink-0" />
+                    <MapPin size={14} className="text-amber-600 shrink-0" />
                     <span className="truncate">{p.address}</span>
                   </div>
                 ) : (
-                  <div className="text-[11px] text-neutral-400 font-bold italic mt-1">
+                  <div className="text-udaj text-neutral-400 font-bold italic mt-1">
                     Adresa není zadána
                   </div>
                 )}
@@ -398,7 +398,7 @@ export function PlacesScreen() {
                     <a href={`tel:${p.phone}`} className="hover:underline">{p.phone}</a>
                   </div>
                 ) : (
-                  <div className="text-[11px] text-neutral-400 font-mono mt-0.5 flex items-center gap-1">
+                  <div className="text-udaj text-neutral-400 font-mono mt-0.5 flex items-center gap-1">
                     <Phone size={12} /> bez telefonu
                   </div>
                 )}
@@ -410,7 +410,7 @@ export function PlacesScreen() {
                   Upravit
                 </button>
                 <button className="p-1.5 rounded bg-rose-50 hover:bg-rose-500 text-rose-700 hover:text-white font-bold text-xs transition tap" onClick={() => del(p.id)}>
-                  <Trash2 size={15} />
+                  <Trash2 size={16} />
                 </button>
               </div>
             </div>
@@ -552,13 +552,13 @@ function GpsBackfillModal({ places, onClose, onSaved }: { places: Place[]; onClo
                     />
                     <div className="min-w-0 flex-1">
                       <div className="font-black text-neutral-900 truncate">{p.name}</div>
-                      <div className="text-[11px] text-neutral-500 truncate">{addresses[p.id]}</div>
+                      <div className="text-udaj text-neutral-500 truncate">{addresses[p.id]}</div>
                       {r ? (
-                        <div className="text-[11px] text-emerald-700 font-bold truncate" title={r.displayName}>
+                        <div className="text-udaj text-emerald-700 font-bold truncate" title={r.displayName}>
                           <Check className="ikona-text" /> {r.lat.toFixed(6)}, {r.lng.toFixed(6)} — {r.displayName}
                         </div>
                       ) : (
-                        <div className="text-[11px] text-rose-600 font-bold">Nenalezeno</div>
+                        <div className="text-udaj text-rose-600 font-bold">Nenalezeno</div>
                       )}
                     </div>
                   </label>
@@ -743,7 +743,7 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
                   className="w-full text-left p-2 rounded text-xs hover:bg-amber-50 font-medium text-neutral-800 transition flex items-center justify-between gap-2 border border-transparent hover:border-amber-300"
                 >
                   <span className="truncate">{cand.address}</span>
-                  <span className="text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md shrink-0">
+                  <span className="text-udaj font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md shrink-0">
                     Zvolit
                   </span>
                 </button>
@@ -929,7 +929,7 @@ export function VehiclesScreen() {
                       <span className={`px-3 py-1 rounded text-xs font-black flex items-center gap-1 shadow-xs ${
                         hasExpired ? 'bg-rose-600 text-white animate-pulse' : 'bg-amber-500 text-neutral-950'
                       }`}>
-                        <AlertTriangle size={15} />
+                        <AlertTriangle size={16} />
                         <span>{hasExpired ? 'EXPIROVÁNO' : 'Pozor: Vyprší brzy'}</span>
                       </span>
                     )}
@@ -945,7 +945,7 @@ export function VehiclesScreen() {
                         ? 'bg-amber-500/20 border-amber-500 text-amber-950 font-extrabold'
                         : 'bg-emerald-50 border-emerald-200 text-emerald-950'
                     }`}>
-                      <div className="text-[11px] font-black uppercase tracking-wider text-neutral-500 mb-0.5"><Wrench className="ikona-text" /> Technická (STK)</div>
+                      <div className="text-udaj font-black uppercase tracking-wider text-neutral-500 mb-0.5"><Wrench className="ikona-text" /> Technická (STK)</div>
                       <div className="text-xs font-black flex items-center gap-1.5 mt-1">
                         {stkStatus.status === 'expired' && <ShieldAlert size={16} className="text-rose-600 shrink-0" />}
                         {stkStatus.status === 'warning' && <AlertTriangle size={16} className="text-amber-600 shrink-0" />}
@@ -962,7 +962,7 @@ export function VehiclesScreen() {
                         ? 'bg-amber-500/20 border-amber-500 text-amber-950 font-extrabold'
                         : 'bg-emerald-50 border-emerald-200 text-emerald-950'
                     }`}>
-                      <div className="text-[11px] font-black uppercase tracking-wider text-neutral-500 mb-0.5"><Milestone className="ikona-text" /> Dálniční známka</div>
+                      <div className="text-udaj font-black uppercase tracking-wider text-neutral-500 mb-0.5"><Milestone className="ikona-text" /> Dálniční známka</div>
                       <div className="text-xs font-black flex items-center gap-1.5 mt-1">
                         {tollStatus.status === 'expired' && <ShieldAlert size={16} className="text-rose-600 shrink-0" />}
                         {tollStatus.status === 'warning' && <AlertTriangle size={16} className="text-amber-600 shrink-0" />}

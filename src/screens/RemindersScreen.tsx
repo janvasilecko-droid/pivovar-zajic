@@ -208,7 +208,7 @@ export default function RemindersScreen() {
         <div className="card p-5 sm:p-6 bg-white border border-amber-200 rounded shadow-sm space-y-4 lg:col-span-1">
           <div className="border-b border-amber-100 pb-3">
             <h3 className="font-display font-black text-base sm:text-lg text-neutral-900 flex items-center gap-2">
-              <Plus size={20} className="text-amber-500" />
+              <Plus size={18} className="text-amber-500" />
               <span>Odeslat zprávu / upomínku</span>
             </h3>
           </div>
@@ -250,7 +250,7 @@ export default function RemindersScreen() {
                 />
                 <div className="text-xs">
                   <div className="font-black text-neutral-900"><Upload className="ikona-text" /> Odeslat ihned</div>
-                  <div className="text-[11px] text-neutral-500">Upozornění se vybraným uživatelům zobrazí okamžitě (do ~12 sekund), bez čekání na termín.</div>
+                  <div className="text-udaj text-neutral-500">Upozornění se vybraným uživatelům zobrazí okamžitě (do ~12 sekund), bez čekání na termín.</div>
                 </div>
               </label>
               {!sendNow && (
@@ -303,7 +303,7 @@ export default function RemindersScreen() {
                   />
                   <div className="text-xs">
                     <div className="font-black text-neutral-900"><UsersIcon className="ikona-text" /> Všichni uživatelé pivovaru</div>
-                    <div className="text-[11px] text-neutral-500">Zobrazí se každému, kdo používá aplikaci.</div>
+                    <div className="text-udaj text-neutral-500">Zobrazí se každému, kdo používá aplikaci.</div>
                   </div>
                 </label>
 
@@ -320,7 +320,7 @@ export default function RemindersScreen() {
                   />
                   <div className="text-xs">
                     <div className="font-black text-neutral-900"><Target className="ikona-text" /> Podle role / pracovní pozice</div>
-                    <div className="text-[11px] text-neutral-500">Např. pouze sládek, výroba, obchod…</div>
+                    <div className="text-udaj text-neutral-500">Např. pouze sládek, výroba, obchod…</div>
                   </div>
                 </label>
                 {recipientMode === 'role' && (
@@ -350,15 +350,15 @@ export default function RemindersScreen() {
                   />
                   <div className="text-xs">
                     <div className="font-black text-neutral-900"><User className="ikona-text" /> Konkrétní uživatelé</div>
-                    <div className="text-[11px] text-neutral-500">Vyberte jednoho nebo více kolegů ze seznamu.</div>
+                    <div className="text-udaj text-neutral-500">Vyberte jednoho nebo více kolegů ze seznamu.</div>
                   </div>
                 </label>
                 {recipientMode === 'users' && (
                   <div className="mt-1 space-y-2">
                     {directoryLoading ? (
-                      <div className="text-[11px] font-bold text-neutral-500">Načítám seznam uživatelů…</div>
+                      <div className="text-udaj font-bold text-neutral-500">Načítám seznam uživatelů…</div>
                     ) : userDirectory.length === 0 ? (
-                      <div className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+                      <div className="text-udaj font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
                         Seznam uživatelů není dostupný — použijte „Vlastní e-maily" a napište e-maily kolegů ručně.
                       </div>
                     ) : (
@@ -376,7 +376,7 @@ export default function RemindersScreen() {
                               <UsersIcon size={14} className="text-neutral-400 shrink-0" />
                               <span className="font-black text-neutral-800">{u.display_name || u.email.split('@')[0]}</span>
                               <span className="text-neutral-400 truncate">{u.email}</span>
-                              <span className="ml-auto text-[11px] font-bold uppercase text-neutral-400 shrink-0">{u.role}</span>
+                              <span className="ml-auto text-udaj font-bold uppercase text-neutral-400 shrink-0">{u.role}</span>
                             </label>
                           );
                         })}
@@ -385,7 +385,7 @@ export default function RemindersScreen() {
                     {selectedUsers.length > 0 && (
                       <div className="flex flex-wrap gap-1.5">
                         {selectedUsers.map((em) => (
-                          <span key={em} className="inline-flex items-center gap-1 px-2 py-1 rounded bg-amber-500/15 border border-amber-300 text-[11px] font-bold text-neutral-800">
+                          <span key={em} className="inline-flex items-center gap-1 px-2 py-1 rounded bg-amber-500/15 border border-amber-300 text-udaj font-bold text-neutral-800">
                             {em}
                             <button type="button" onClick={() => toggleUser(em)} className="text-amber-700 hover:text-rose-600 font-black" aria-label={`Odebrat ${em}`}>×</button>
                           </span>
@@ -408,7 +408,7 @@ export default function RemindersScreen() {
                   />
                   <div className="text-xs">
                     <div className="font-black text-neutral-900"><Mail className="ikona-text" /> Vlastní e-maily</div>
-                    <div className="text-[11px] text-neutral-500">Napište e-maily příjemců ručně (více oddělte čárkou).</div>
+                    <div className="text-udaj text-neutral-500">Napište e-maily příjemců ručně (více oddělte čárkou).</div>
                   </div>
                 </label>
                 {recipientMode === 'custom' && (
@@ -440,7 +440,7 @@ export default function RemindersScreen() {
                   />
                   <div className="text-xs">
                     <div className="font-black text-neutral-900"><Bell className="ikona-text" /> Obojí (Vyskočí po přihlášení + Push na ploše)</div>
-                    <div className="text-[11px] text-neutral-500">Nejjistější kombinace. Uživatel musí v aplikaci odkliknout, že o upomínce ví.</div>
+                    <div className="text-udaj text-neutral-500">Nejjistější kombinace. Uživatel musí v aplikaci odkliknout, že o upomínce ví.</div>
                   </div>
                 </label>
 
@@ -457,7 +457,7 @@ export default function RemindersScreen() {
                   />
                   <div className="text-xs">
                     <div className="font-black text-neutral-900"><Lock className="ikona-text" /> Po přihlášení do aplikace (Modální okno)</div>
-                    <div className="text-[11px] text-neutral-500">Po přihlášení vyskočí oknu, které musí daný člověk odkliknout.</div>
+                    <div className="text-udaj text-neutral-500">Po přihlášení vyskočí oknu, které musí daný člověk odkliknout.</div>
                   </div>
                 </label>
 
@@ -474,7 +474,7 @@ export default function RemindersScreen() {
                   />
                   <div className="text-xs">
                     <div className="font-black text-neutral-900"><Smartphone className="ikona-text" /> Na ploše telefonu / počítače (Push alert)</div>
-                    <div className="text-[11px] text-neutral-500">Systémové upozornění na displeji telefonu nebo monitoru PC.</div>
+                    <div className="text-udaj text-neutral-500">Systémové upozornění na displeji telefonu nebo monitoru PC.</div>
                   </div>
                 </label>
               </div>
@@ -553,7 +553,7 @@ export default function RemindersScreen() {
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className={`px-2 py-0.5 rounded text-[11px] font-black uppercase ${
+                          <span className={`px-2 py-0.5 rounded text-udaj font-black uppercase ${
                             r.display_mode === 'desktop_push'
                               ? 'bg-sky-100 text-sky-900 border border-sky-200'
                               : r.display_mode === 'login_modal'
@@ -562,7 +562,7 @@ export default function RemindersScreen() {
                           }`}>
                             {r.display_mode === 'desktop_push' ? 'Push' : r.display_mode === 'login_modal' ? 'Okno po přihlášení' : 'Okno + Push'}
                           </span>
-                          <span className="text-[11px] font-bold text-neutral-500">
+                          <span className="text-udaj font-bold text-neutral-500">
                             Cíl: <strong className="text-neutral-800">{formatRecipients(r)}</strong>
                           </span>
                         </div>
@@ -593,9 +593,9 @@ export default function RemindersScreen() {
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-neutral-100 text-[11px] text-neutral-500 font-bold">
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-neutral-100 text-udaj text-neutral-500 font-bold">
                       <span className="flex items-center gap-1">
-                        <Clock size={13} className="text-amber-600" />
+                        <Clock size={14} className="text-amber-600" />
                         {new Date(r.date_time).toLocaleString('cs-CZ')}
                       </span>
                       <span>Zadal: {r.created_by}</span>

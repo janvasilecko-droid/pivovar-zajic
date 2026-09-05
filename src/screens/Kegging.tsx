@@ -908,7 +908,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             >
               <span className="inline-flex items-center gap-1.5"><CalendarDays size={14} /> Co stočit na který den</span>
               {planMissingTotal > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full bg-amber-300 text-amber-950 text-[11px] font-black">
+                <span className="px-1.5 py-0.5 rounded-full bg-amber-300 text-amber-950 text-udaj font-black">
                   {planMissingTotal}
                 </span>
               )}
@@ -920,7 +920,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             >
               <span className="inline-flex items-center gap-1.5"><RefreshCw size={14} /> Přefuk KEG</span>
               {prefukRows.length > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full bg-sky-200 text-sky-900 text-[11px] font-black">{prefukRows.length}</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-sky-200 text-sky-900 text-udaj font-black">{prefukRows.length}</span>
               )}
             </button>
             <button
@@ -930,7 +930,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             >
               <span className="inline-flex items-center gap-1.5"><ClipboardList size={14} /> Checklist</span>
               {isLastWeekOfMonth() && !isMonthlyChecklistCompleteForKeg(businessDateISO()) && (
-                <span className="px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[11px] font-black animate-pulse">1</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-udaj font-black animate-pulse">1</span>
               )}
             </button>
             <button
@@ -1025,7 +1025,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 [...rowTankPreview.perTank.entries()].map(([tankId, liters]) => {
                   const t = cellarTanks.find((x) => x.id === tankId);
                   return (
-                    <span key={tankId} className="px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-900 text-[11px] font-black whitespace-nowrap">
+                    <span key={tankId} className="px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-900 text-udaj font-black whitespace-nowrap">
                       <IkonaSud className="ikona-text" /> {t?.label ?? 'Tank'} · {liters.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} L
                     </span>
                   );
@@ -1039,12 +1039,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               )}
             </div>
             {rowTankPreview.ambiguousCount > 0 && (
-              <p className="text-[11px] font-black text-amber-700 mt-1">
+              <p className="text-udaj font-black text-amber-700 mt-1">
                 <AlertTriangle className="ikona-text" /> {rowTankPreview.ambiguousCount}× řádek: 2+ aktivní tanky se stejným pivem — vyber správný v řádku
               </p>
             )}
             {rowTankPreview.missingCount > 0 && (
-              <p className="text-[11px] font-semibold text-neutral-500 mt-1">
+              <p className="text-udaj font-semibold text-neutral-500 mt-1">
                 {rowTankPreview.missingCount}× řádek bez aktivního tanku s daným pivem — objem se neodečte
               </p>
             )}
@@ -1052,7 +1052,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
           </div>
 
           <div className="mb-2">
-            <span className="text-[11px] text-neutral-400 font-medium">klepni na dlaždici a zadej obaly a množství sudů</span>
+            <span className="text-udaj text-neutral-400 font-medium">klepni na dlaždici a zadej obaly a množství sudů</span>
           </div>
           <div className="mb-4">
             <BeerTileGrid
@@ -1090,7 +1090,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                             type="button"
                             onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(q) })}
                             title="Rychlá volba množství"
-                            className={`tap h-7 min-w-[1.75rem] px-1.5 rounded text-[11px] font-black transition ${qty === q ? 'bg-emerald-700 text-white' : 'bg-neutral-100 dark:bg-neutral-700 hover:bg-emerald-200 text-neutral-600 dark:text-neutral-200 hover:text-emerald-950'}`}
+                            className={`tap h-7 min-w-[1.75rem] px-1.5 rounded text-udaj font-black transition ${qty === q ? 'bg-emerald-700 text-white' : 'bg-neutral-100 dark:bg-neutral-700 hover:bg-emerald-200 text-neutral-600 dark:text-neutral-200 hover:text-emerald-950'}`}
                           >
                             {q}
                           </button>
@@ -1113,7 +1113,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                     </div>
                     {qty > 0 && rowTanks.length > 1 && (
                       <div>
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 border border-amber-300 text-amber-900 text-[11px] font-black whitespace-nowrap"><AlertTriangle className="ikona-text" /> {rowTanks.length} aktivní tanky — vyber</span>
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 border border-amber-300 text-amber-900 text-udaj font-black whitespace-nowrap"><AlertTriangle className="ikona-text" /> {rowTanks.length} aktivní tanky — vyber</span>
                         <select
                           className="input !py-1 !px-1.5 text-xs font-bold w-full mt-1"
                           value={currentTankId}
@@ -1127,10 +1127,10 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                       </div>
                     )}
                     {qty > 0 && rowTanks.length === 1 && (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-900 text-[11px] font-black whitespace-nowrap"><IkonaSud className="ikona-text" /> {rowTanks[0].label}</span>
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-900 text-udaj font-black whitespace-nowrap"><IkonaSud className="ikona-text" /> {rowTanks[0].label}</span>
                     )}
                     {qty > 0 && rowTanks.length === 0 && (
-                      <span className="text-[11px] text-neutral-400 font-semibold">žádný aktivní tank — objem se neodečte</span>
+                      <span className="text-udaj text-neutral-400 font-semibold">žádný aktivní tank — objem se neodečte</span>
                     )}
                   </div>
                 );
@@ -1195,7 +1195,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 {saving ? 'Ukládám…' : 'Uložit stáčení'}
               </button>
               {!isStartChecklistCompleteForKeg(businessDateISO()) && (
-                <span className="text-[11px] font-bold text-amber-700 animate-pulse bg-amber-50 border border-amber-200 rounded px-2.5 py-1">
+                <span className="text-udaj font-bold text-amber-700 animate-pulse bg-amber-50 border border-amber-200 rounded px-2.5 py-1">
                   <AlertTriangle className="ikona-text" /> Před uložením musíte splnit checklist přípravy!
                 </span>
               )}
@@ -1405,7 +1405,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                                     onClick={() => increment(r.id, 1)}
                                     title="Přidat 1 ks"
                                   >+</button>
-                                  <input type="number" inputMode="numeric" min="0" onWheel={(e) => e.currentTarget.blur()} key={r.quantity} defaultValue={r.quantity} onBlur={(e) => { const v = Math.max(0, Math.round(Number(e.target.value) || 0)); if (v !== Number(r.quantity)) setQty(r.id, v); }} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} className="h-6 rounded bg-white border border-amber-300 text-emerald-950 font-bold text-[11px] px-1 cursor-pointer transition !w-14 text-center tabular-nums" title="Napiš počet ks (libovolné číslo)" />
+                                  <input type="number" inputMode="numeric" min="0" onWheel={(e) => e.currentTarget.blur()} key={r.quantity} defaultValue={r.quantity} onBlur={(e) => { const v = Math.max(0, Math.round(Number(e.target.value) || 0)); if (v !== Number(r.quantity)) setQty(r.id, v); }} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} className="h-6 rounded bg-white border border-amber-300 text-emerald-950 font-bold text-udaj px-1 cursor-pointer transition !w-14 text-center tabular-nums" title="Napiš počet ks (libovolné číslo)" />
                                   <button
                                     type="button"
                                     className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition tap"
@@ -1624,7 +1624,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                       {/* Litry/HL zhuštěné do jednoho řádku (dřív dvě velké
                           dlaždice na záznam) — na telefon se tak vejde víc
                           záznamů a pořád je to čitelné. */}
-                      <div className="text-[11px] font-bold text-amber-700 tabular-nums">
+                      <div className="text-udaj font-bold text-amber-700 tabular-nums">
                         {liters.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} l · {(liters / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 })} hl
                       </div>
                       {!isEditing && (
@@ -1735,7 +1735,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                                   onClick={() => increment(r.id, 1)}
                                   title="Přidat 1 ks"
                                 >+</button>
-                                <input type="number" inputMode="numeric" min="0" onWheel={(e) => e.currentTarget.blur()} key={r.quantity} defaultValue={r.quantity} onBlur={(e) => { const v = Math.max(0, Math.round(Number(e.target.value) || 0)); if (v !== Number(r.quantity)) setQty(r.id, v); }} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} className="h-6 rounded bg-white border border-amber-300 text-emerald-950 font-bold text-[11px] px-1 cursor-pointer transition !w-14 text-center tabular-nums" title="Napiš počet ks (libovolné číslo)" />
+                                <input type="number" inputMode="numeric" min="0" onWheel={(e) => e.currentTarget.blur()} key={r.quantity} defaultValue={r.quantity} onBlur={(e) => { const v = Math.max(0, Math.round(Number(e.target.value) || 0)); if (v !== Number(r.quantity)) setQty(r.id, v); }} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} className="h-6 rounded bg-white border border-amber-300 text-emerald-950 font-bold text-udaj px-1 cursor-pointer transition !w-14 text-center tabular-nums" title="Napiš počet ks (libovolné číslo)" />
                                 <button
                                   type="button"
                                   className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition tap"
@@ -1847,7 +1847,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-4">
               {/* ZE — odečet */}
               <div className="rounded border-2 border-rose-300 bg-white p-3">
-                <div className="text-[11px] font-black text-rose-700 uppercase tracking-wider mb-2">
+                <div className="text-udaj font-black text-rose-700 uppercase tracking-wider mb-2">
                   <Minus className="ikona-text" /> ZE sudů <span className="normal-case font-bold">(odečte se ze skladu)</span>
                 </div>
                 <div className="grid grid-cols-2 gap-3 items-end">
@@ -1878,7 +1878,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               </div>
               {/* DO — příčet */}
               <div className="rounded border-2 border-emerald-300 bg-white p-3">
-                <div className="text-[11px] font-black text-emerald-700 uppercase tracking-wider mb-2">
+                <div className="text-udaj font-black text-emerald-700 uppercase tracking-wider mb-2">
                   <Plus className="ikona-text" /> DO sudů <span className="normal-case font-bold">(přičte se na sklad)</span>
                 </div>
                 <div className="grid grid-cols-2 gap-3 items-end">
@@ -1969,12 +1969,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                             </div>
                           </td>
                           <td className="p-2.5">
-                            <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 font-black text-[11px] border border-rose-200 whitespace-nowrap">
+                            <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 font-black text-udaj border border-rose-200 whitespace-nowrap">
                               − {r.from_count} × {r.from_package_label ?? '?'}
                             </span>
                           </td>
                           <td className="p-2.5">
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-black text-[11px] border border-emerald-200 whitespace-nowrap">
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-black text-udaj border border-emerald-200 whitespace-nowrap">
                               + {r.to_count} × {r.to_package_label ?? '?'}
                             </span>
                           </td>

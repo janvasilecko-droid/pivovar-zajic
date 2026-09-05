@@ -535,7 +535,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 card p-6 bg-white border border-neutral-200 rounded space-y-5 shadow-sm">
             <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-              <IkonaSud className="text-amber-600" size={20} />
+              <IkonaSud className="text-amber-600" size={18} />
               <span>Kalkulačka potřebných sudů na stáčení z tanku</span>
             </h3>
 
@@ -608,16 +608,16 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
             <h3 className="font-display font-black text-lg text-amber-950"><IkonaSud className="ikona-text" /> Varianty v sudování</h3>
             <div className="space-y-3 font-mono text-xs">
               <div className="p-3 rounded bg-white border border-amber-300 space-y-1">
-                <span className="text-[11px] font-black uppercase text-amber-900">1 Typ sudů:</span>
+                <span className="text-udaj font-black uppercase text-amber-900">1 Typ sudů:</span>
                 <div>• {pure50}× 50L (zb. {rem50.toFixed(0)}l)</div>
                 <div>• {pure30}× 30L (zb. {rem30.toFixed(0)}l)</div>
               </div>
               <div className="p-3 rounded bg-neutral-900 text-amber-300 space-y-1">
-                <div className="text-[11px] font-black text-white uppercase">MIX 1 (Max 50L):</div>
+                <div className="text-udaj font-black text-white uppercase">MIX 1 (Max 50L):</div>
                 <div>• {mix1_50}× 50L + {mix1_30}× 30L</div>
               </div>
               <div className="p-3 rounded bg-neutral-900 text-emerald-300 space-y-1">
-                <div className="text-[11px] font-black text-white uppercase">MIX 2 (50% / 50%):</div>
+                <div className="text-udaj font-black text-white uppercase">MIX 2 (50% / 50%):</div>
                 <div>• {mix2_50}× 50L + {mix2_30}× 30L</div>
               </div>
             </div>
@@ -630,11 +630,11 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 card p-6 bg-white border border-neutral-200 rounded space-y-4 shadow-sm">
             <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-              <Wheat className="text-amber-600" size={20} />
+              <Wheat className="text-amber-600" size={18} />
               <span>Plán šrotování — kolik sladu se šrotuje</span>
             </h3>
 
-            <div className="grid grid-cols-[1fr_auto_auto] items-center gap-3 px-1 text-[11px] font-black uppercase tracking-widest text-neutral-500">
+            <div className="grid grid-cols-[1fr_auto_auto] items-center gap-3 px-1 text-udaj font-black uppercase tracking-widest text-neutral-500">
               <span>Pivo</span>
               <span className="w-36 text-center">Slad (kg)</span>
               <span className="w-24 text-center">Pytlů 25 kg</span>
@@ -685,7 +685,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
               </div>
             </div>
 
-            <p className="text-[11px] text-neutral-500 font-medium leading-relaxed">
+            <p className="text-udaj text-neutral-500 font-medium leading-relaxed">
               Kolik sladu se našrotuje pro danou várku. Počet pytlů 25 kg se zaokrouhluje nahoru.
             </p>
           </div>
@@ -756,7 +756,7 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
           <div className="lg:col-span-2 card p-6 bg-white border border-neutral-200 rounded space-y-5 shadow-sm">
             <div>
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-                <Flame className="text-amber-600" size={20} />
+                <Flame className="text-amber-600" size={18} />
                 <span>Kalkulačka energetické náročnosti a médií (Varna & Sklep)</span>
               </h3>
             </div>
@@ -791,11 +791,11 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
             <h3 className="font-display font-black text-lg text-amber-950"><Zap className="ikona-text" /> Výsledné náklady</h3>
             <div className="space-y-3 font-mono">
               <div className="p-4 rounded bg-neutral-900 border border-neutral-800">
-                <div className="text-[11px] text-neutral-400 uppercase">Celkem na 1 várku ({bHl} hl)</div>
+                <div className="text-udaj text-neutral-400 uppercase">Celkem na 1 várku ({bHl} hl)</div>
                 <div className="text-2xl font-black text-amber-400">{totalEnergyCostBatch.toLocaleString('cs-CZ')} Kč</div>
               </div>
               <div className="p-4 rounded bg-amber-500 text-neutral-950">
-                <div className="text-[11px] font-black uppercase">Na 1 PŮLLITR (0.5 l)</div>
+                <div className="text-udaj font-black uppercase">Na 1 PŮLLITR (0.5 l)</div>
                 <div className="text-3xl font-black">{costPerPint.toFixed(2)} Kč</div>
               </div>
             </div>

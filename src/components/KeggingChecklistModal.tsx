@@ -199,7 +199,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
           <div className="p-3.5 rounded border-2 border-rose-300 bg-rose-50 text-rose-900 text-xs leading-relaxed flex items-start gap-3">
             <AlertTriangle size={18} className="shrink-0 text-rose-600 mt-0.5" />
             <div className="space-y-1">
-              <p className="font-black text-rose-700 uppercase tracking-wider text-[11px]"><AlertTriangle className="ikona-text" /> Poslední týden v měsíci — povinná měsíční údržba</p>
+              <p className="font-black text-rose-700 uppercase tracking-wider text-udaj"><AlertTriangle className="ikona-text" /> Poslední týden v měsíci — povinná měsíční údržba</p>
               <p className="font-medium">
                 Je nutné <b>kompletně rozebrat všechny narážeče a rychlospojky</b>, naložit je do louhu NaOH,
                 po 24 hodinách vyčistit kartáčem, důkladně opláchnout čistou vodou a provést vizuální kontrolu čistoty a těsnění.
@@ -222,7 +222,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
                 <button
                   key={cat}
                   onClick={() => setActiveCategory(cat)}
-                  className={`tap px-3 py-1.5 rounded text-[11px] font-black tracking-wide uppercase transition ${
+                  className={`tap px-3 py-1.5 rounded text-udaj font-black tracking-wide uppercase transition ${
                     isSelected
                       ? 'bg-white text-neutral-950 shadow-xs'
                       : isDone
@@ -231,7 +231,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
                   }`}
                 >
                   <span className="flex items-center gap-1.5">
-                    {isDone && <Check size={10} className="stroke-[3]" />}
+                    {isDone && <Check size={12} className="stroke-[3]" />}
                     <span>{cat}</span>
                     <span className="opacity-65">({doneCount}/{totalCount})</span>
                   </span>
@@ -273,14 +273,14 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); if (choiceVal === 'naoh') unpick(); else pick('naoh'); }}
-                          className={`px-3 py-2 rounded border-2 text-[11px] font-black transition flex items-center gap-1.5 ${choiceVal === 'naoh' ? 'bg-amber-500 border-amber-600 text-neutral-950 shadow-sm' : 'bg-white border-neutral-300 hover:border-amber-400 text-neutral-700'}`}
+                          className={`px-3 py-2 rounded border-2 text-udaj font-black transition flex items-center gap-1.5 ${choiceVal === 'naoh' ? 'bg-amber-500 border-amber-600 text-neutral-950 shadow-sm' : 'bg-white border-neutral-300 hover:border-amber-400 text-neutral-700'}`}
                         >
                           <FlaskConical className="ikona-text" /> NaOH 2% (20 minut)
                         </button>
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); if (choiceVal === 'persteril') unpick(); else pick('persteril'); }}
-                          className={`px-3 py-2 rounded border-2 text-[11px] font-black transition flex items-center gap-1.5 ${choiceVal === 'persteril' ? 'bg-amber-500 border-amber-600 text-neutral-950 shadow-sm' : 'bg-white border-neutral-300 hover:border-amber-400 text-neutral-700'}`}
+                          className={`px-3 py-2 rounded border-2 text-udaj font-black transition flex items-center gap-1.5 ${choiceVal === 'persteril' ? 'bg-amber-500 border-amber-600 text-neutral-950 shadow-sm' : 'bg-white border-neutral-300 hover:border-amber-400 text-neutral-700'}`}
                         >
                           Persteril 0.2% (10 minut)
                         </button>
@@ -317,7 +317,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
                     {item.text}
                   </span>
                   {isWeeklySatisfied && (
-                    <span className="block text-[11px] text-emerald-700 font-extrabold mt-1">
+                    <span className="block text-udaj text-emerald-700 font-extrabold mt-1">
                       Splněno v tomto týdnu (není vyžadováno)
                     </span>
                   )}
@@ -332,7 +332,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
           <div className="flex gap-2 items-center flex-wrap">
             <button
               onClick={handleReset}
-              className="btn-ghost !rounded flex items-center justify-center gap-1 text-[11px] font-black text-rose-600 hover:bg-rose-50"
+              className="btn-ghost !rounded flex items-center justify-center gap-1 text-udaj font-black text-rose-600 hover:bg-rose-50"
             >
               <RotateCcw size={12} />
               <span>Resetovat checklist</span>
@@ -347,7 +347,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
                   setChecks(zapis(next));
                   onDone?.();
                 }}
-                className="btn-ghost !rounded flex items-center justify-center gap-1 text-[11px] font-black text-rose-600 hover:bg-rose-50 border border-dashed border-rose-200 px-2.5 py-1.5 rounded"
+                className="btn-ghost !rounded flex items-center justify-center gap-1 text-udaj font-black text-rose-600 hover:bg-rose-50 border border-dashed border-rose-200 px-2.5 py-1.5 rounded"
               >
                 <span><Unlock className="ikona-text" /> Přeskočit (Admin)</span>
               </button>
@@ -357,7 +357,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
           <div className="flex gap-2">
             {blockCloseUntilStartDone && !isOverallStartDone ? (
               <div className="flex items-center gap-1.5 px-4 py-2 rounded bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold shadow-xs">
-                <Lock size={13} className="shrink-0" />
+                <Lock size={14} className="shrink-0" />
                 <span>Splňte checklist pro pokračování</span>
               </div>
             ) : phase !== 'all' && onDone ? (

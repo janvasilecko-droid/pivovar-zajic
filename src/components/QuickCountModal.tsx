@@ -111,7 +111,7 @@ export function QuickCountModal({
                 >
                   <span>{formatPackageLabel(pkg.label)}</span>
                   {c > 0 && (
-                    <span className="px-1.5 py-0.5 rounded-md text-[11px] font-mono font-bold bg-emerald-100 text-emerald-950">
+                    <span className="px-1.5 py-0.5 rounded-md text-udaj font-mono font-bold bg-emerald-100 text-emerald-950">
                       {c} ks
                     </span>
                   )}
@@ -130,7 +130,7 @@ export function QuickCountModal({
             <button
               type="button"
               onClick={() => handleSetExact(0)}
-              className="text-[11px] font-bold text-neutral-400 hover:text-rose-400 flex items-center gap-1"
+              className="text-udaj font-bold text-neutral-400 hover:text-rose-400 flex items-center gap-1"
             >
               <RotateCcw size={12} /> Vynulovat
             </button>

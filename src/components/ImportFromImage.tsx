@@ -755,7 +755,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
           <div className="card !bg-amber-50/50 border border-amber-200 p-3">
             <div className="text-xs font-semibold text-amber-800 mb-1"><NotebookPen className="ikona-text" /> Rozpoznaná poznámka k objednávce</div>
             <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="poznámka (např. bez etikety, podtacky…)" />
-            <div className="text-[11px] text-amber-600 mt-1">Auto-detected z textu — můžeš upravit. Bude uloženo k objednávce.</div>
+            <div className="text-udaj text-amber-600 mt-1">Auto-detected z textu — můžeš upravit. Bude uloženo k objednávce.</div>
             {isTapMentioned(note) && (
               <div className="mt-2.5 text-xs font-bold text-amber-900 bg-amber-100 dark:bg-amber-950/80 dark:text-amber-200 p-2.5 rounded border border-amber-300 dark:border-amber-700 flex items-center gap-2">
                 <span className="text-base"><IkonaVycep className="ikona-text" /></span>
@@ -808,7 +808,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
             </label>
             {queueLeft > 0 && <span className="text-xs text-primary-400">Ve frontě: {queueLeft}</span>}
           </div>
-          <span className="text-[11px] text-neutral-500">
+          <span className="text-udaj text-neutral-500">
             <Lightbulb className="ikona-text" /> Můžeš nahrát více fotek najednou. Obrázek/snímek obrazovky lze také přímo vložit zkopírováním a stisknutím <strong>Ctrl+V</strong> (Vložit).
           </span>
         </div>
@@ -880,7 +880,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                   onClick={() => removePhoto(i)}
                   title="Odstranit fotku"
                 >×</button>
-                <span className="absolute bottom-0 left-0 right-0 bg-primary-900/70 text-white text-[11px] px-1 py-0.5 truncate">{i + 1}</span>
+                <span className="absolute bottom-0 left-0 right-0 bg-primary-900/70 text-white text-udaj px-1 py-0.5 truncate">{i + 1}</span>
               </div>
             ))}
           </div>
@@ -909,7 +909,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
     </Modal>
 
     {parsed && (
-      <div className="fixed inset-0 z-[90] bg-white flex flex-col">
+      <div className="fixed inset-0 z-nadmodal bg-white flex flex-col">
         <div className="h-[42vh] min-h-[220px] shrink-0">
           <PhotoReviewPane
             photos={photos}
@@ -922,7 +922,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
         <div className="flex-1 min-h-0 flex flex-col">
           <div className="flex items-center justify-between px-4 py-3 border-b border-primary-100 shrink-0 bg-primary-50/50">
             <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
-              <span className="text-[11px] uppercase font-black px-1.5 py-0.5 rounded bg-primary-200 text-primary-800 shrink-0">
+              <span className="text-udaj uppercase font-black px-1.5 py-0.5 rounded bg-primary-200 text-primary-800 shrink-0">
                 Položka {activeLineIdx + 1}/{parsed.length}
               </span>
               <span className="text-xs sm:text-sm font-mono font-bold text-primary-950 truncate" title={activeOriginalText}>
@@ -987,7 +987,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-rose-100">
                     <div className="p-3">
-                      <div className="text-[11px] uppercase tracking-wider font-bold text-emerald-700 mb-1.5"><Check className="ikona-text" /> Již importováno (předchozí fotka)</div>
+                      <div className="text-udaj uppercase tracking-wider font-bold text-emerald-700 mb-1.5"><Check className="ikona-text" /> Již importováno (předchozí fotka)</div>
                       {w.prev.items.length > 0 ? (
                         <ul className="space-y-1.5">
                           {w.prev.items.map((it, ii) => (
@@ -1002,7 +1002,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                       ) : <div className="text-xs text-emerald-600 italic">—</div>}
                     </div>
                     <div className="p-3">
-                      <div className="text-[11px] uppercase tracking-wider font-bold text-rose-500 mb-1.5"><Camera className="ikona-text" /> Aktuální fotka</div>
+                      <div className="text-udaj uppercase tracking-wider font-bold text-rose-500 mb-1.5"><Camera className="ikona-text" /> Aktuální fotka</div>
                       {w.curr.items.length > 0 ? (
                         <ul className="space-y-1.5">
                           {w.curr.items.map((it, ii) => (
@@ -1076,8 +1076,8 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
               >
                 <div className="px-4 py-3 bg-primary-900 text-primary-50">
                   <div className="flex items-center gap-3 mb-1.5">
-                    <span className="text-[11px] uppercase tracking-wider text-primary-300 font-semibold shrink-0">Řádek {i + 1}</span>
-                    <span className="text-[11px] uppercase tracking-wider text-primary-400 shrink-0">
+                    <span className="text-udaj uppercase tracking-wider text-primary-300 font-semibold shrink-0">Řádek {i + 1}</span>
+                    <span className="text-udaj uppercase tracking-wider text-primary-400 shrink-0">
                       {p.line._manual ? 'ručně přidáno' : `z fotky ${typeof p.line.photo_index === 'number' ? p.line.photo_index + 1 : ''}`}
                     </span>
                     {(!p.duplicate || userAllowedDups.has(i)) && (
@@ -1139,7 +1139,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                   <div className="p-3 sm:p-4 space-y-2" onClick={(e) => e.stopPropagation()}>
                     {/* Odběratel — každá položka si nese vlastního odběratele (kvůli více objednávkám na jedné fotce) */}
                     <div className="flex flex-col gap-0.5 min-w-0">
-                      <span className="text-[11px] uppercase tracking-wider text-primary-400 font-semibold">Odběratel</span>
+                      <span className="text-udaj uppercase tracking-wider text-primary-400 font-semibold">Odběratel</span>
                       <input
                         type="text"
                         list={`place-list-${i}`}
@@ -1159,7 +1159,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                     <div className="grid grid-cols-[1fr_auto] sm:grid-cols-[1.5fr_1.2fr_80px_auto] gap-3 items-end">
                       {/* Pivo */}
                       <div className="flex flex-col gap-0.5 min-w-0 col-span-2 sm:col-span-1">
-                        <span className="text-[11px] uppercase tracking-wider text-primary-400 font-semibold">Pivo</span>
+                        <span className="text-udaj uppercase tracking-wider text-primary-400 font-semibold">Pivo</span>
                         <select
                           className="input !py-2.5 sm:!py-1.5 text-sm sm:text-xs w-full font-bold"
                           value={p.line.beer_id ?? ''}
@@ -1178,7 +1178,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                       </div>
                       {/* Obal */}
                       <div className="flex flex-col gap-0.5 min-w-0 col-span-2 sm:col-span-1">
-                        <span className="text-[11px] uppercase tracking-wider text-primary-400 font-semibold">Obal</span>
+                        <span className="text-udaj uppercase tracking-wider text-primary-400 font-semibold">Obal</span>
                         <select
                           className="input !py-2.5 sm:!py-1.5 text-sm sm:text-xs w-full font-bold"
                           value={p.line.package_id ?? ''}
@@ -1197,7 +1197,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                       </div>
                       {/* Množství */}
                       <div className="flex flex-col gap-0.5 min-w-0 col-span-1">
-                        <span className="text-[11px] uppercase tracking-wider text-primary-400 font-semibold">Množství</span>
+                        <span className="text-udaj uppercase tracking-wider text-primary-400 font-semibold">Množství</span>
                         <input
                           type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} min={0} className="input !py-2.5 sm:!py-1.5 text-sm font-black w-full"
                           value={p.line.quantity ?? ''}

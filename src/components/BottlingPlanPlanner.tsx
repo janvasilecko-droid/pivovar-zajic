@@ -462,7 +462,7 @@ export function BottlingPlanPlanner({
             není vidět, čí jsou. */}
         <table className="table-drzi-prvni-sloupec w-full text-xs border-collapse min-w-[920px]">
           <thead>
-            <tr className="text-[11px] uppercase tracking-wide text-neutral-500">
+            <tr className="text-udaj uppercase tracking-wide text-neutral-500">
               <th scope="col" className="text-left font-black px-2 py-1.5">Pivo</th>
               <th scope="col" className="text-left font-black px-2 py-1.5">Obal</th>
               <th scope="col" className="text-right font-black px-2 py-1.5"><ShoppingCart className="ikona-text" /> Objednáno</th>
@@ -499,7 +499,7 @@ export function BottlingPlanPlanner({
                       type="button"
                       onClick={() => quickAdd(r, isKeg)}
                       title={r.missing > 0 ? 'Vytvořit úkol na pokrytí chybějícího množství' : 'Vytvořit úkol (pokrytí objednávek)'}
-                      className="px-2 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-900 text-[11px] font-black transition tap"
+                      className="px-2 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-900 text-udaj font-black transition tap"
                     >
                       + Úkol
                     </button>
@@ -531,7 +531,7 @@ export function BottlingPlanPlanner({
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
             <div className="font-display font-black text-amber-950 text-sm"><CalendarDays className="ikona-text" /> Co je potřeba stočit</div>
-            <div className="text-[11px] text-amber-900/70 mt-0.5">
+            <div className="text-udaj text-amber-900/70 mt-0.5">
               Plánování na týden <b>{weekLabel}</b> — stáčeč to vidí zvýrazněné v zápisu stáčení.
             </div>
           </div>
@@ -539,7 +539,7 @@ export function BottlingPlanPlanner({
             <button type="button" onClick={() => setWeekKey(shiftWeek(weekKey, -1))} className="w-7 h-7 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-sm transition tap">‹</button>
             <span className="text-xs font-black text-amber-950 px-2 whitespace-nowrap">{weekLabel}</span>
             <button type="button" onClick={() => setWeekKey(shiftWeek(weekKey, 1))} className="w-7 h-7 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-sm transition tap">›</button>
-            <button type="button" onClick={() => setWeekKey(isoWeekKey(new Date().toISOString().slice(0, 10)))} className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 text-[11px] font-black transition tap">Tento týden</button>
+            <button type="button" onClick={() => setWeekKey(isoWeekKey(new Date().toISOString().slice(0, 10)))} className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 text-udaj font-black transition tap">Tento týden</button>
           </div>
         </div>
       </div>
@@ -549,7 +549,7 @@ export function BottlingPlanPlanner({
         <div className="flex items-center justify-between mb-3">
           <span className="font-display font-black text-amber-950 text-xs">{editingId ? 'Upravit úkol' : 'Zadat nový úkol'}</span>
           {editingId && (
-            <button type="button" onClick={() => { setEditingId(null); setForm(emptyForm()); setErr(null); }} className="text-[11px] font-black text-neutral-500 hover:text-neutral-800 underline">
+            <button type="button" onClick={() => { setEditingId(null); setForm(emptyForm()); setErr(null); }} className="text-udaj font-black text-neutral-500 hover:text-neutral-800 underline">
               zrušit úpravu
             </button>
           )}
@@ -613,7 +613,7 @@ export function BottlingPlanPlanner({
             <input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} min={0} className="input text-right" value={form.kegQty} onChange={(e) => setField('kegQty', e.target.value)} placeholder="0" />
           </div>
         </div>
-        {err && <p className="text-[11px] font-black text-rose-700 mt-2">{err}</p>}
+        {err && <p className="text-udaj font-black text-rose-700 mt-2">{err}</p>}
         <div className="flex items-center justify-end gap-2 mt-3">
           <button type="submit" disabled={saving} className="btn-primary !rounded px-5 py-2.5 text-xs font-black shadow-md">
             {saving ? 'Ukládám…' : editingId ? 'Uložit změny' : 'Přidat úkol'}
@@ -630,7 +630,7 @@ export function BottlingPlanPlanner({
       <div className="card p-3.5">
         <div className="text-xs font-black text-neutral-800 mb-2"><IkonaSud className="ikona-text" /> Potřeba KEG sudů (týden {weekLabel})</div>
         {renderTable(kegRows, true)}
-        <p className="text-[11px] text-neutral-400 mt-1.5">
+        <p className="text-udaj text-neutral-400 mt-1.5">
           Sklad = měsíční model (inventura + stočeno − výdej). „Po odchodu" = po stočení − objednávky − odhad
           fasování do konce týdne (průměr za posledních 30 dní). Tlačítko „+ Úkol" předvyplní formulář
           pro dané pivo a obal (návrh = chybějící množství).
@@ -652,34 +652,34 @@ export function BottlingPlanPlanner({
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-black text-neutral-950">{beer?.name || '—'}</span>
-                      <span className="text-[11px] font-bold text-neutral-600 bg-neutral-100 rounded px-2 py-0.5 whitespace-nowrap"><Calendar className="ikona-text" /> {plan.planned_date}</span>
-                      <span className={`text-[11px] font-black px-2 py-0.5 rounded border ${STATUS_CHIP[plan.status] || ''}`}>{STATUS_TEXT[plan.status] || plan.status}</span>
+                      <span className="text-udaj font-bold text-neutral-600 bg-neutral-100 rounded px-2 py-0.5 whitespace-nowrap"><Calendar className="ikona-text" /> {plan.planned_date}</span>
+                      <span className={`text-udaj font-black px-2 py-0.5 rounded border ${STATUS_CHIP[plan.status] || ''}`}>{STATUS_TEXT[plan.status] || plan.status}</span>
                     </div>
                     <div className="flex items-center gap-1.5 flex-wrap mt-1">
                       {lines.map((l, i) => (
-                        <span key={i} className="text-[11px] font-bold bg-neutral-50 border border-neutral-200 rounded px-1.5 py-0.5 text-neutral-700 whitespace-nowrap">
+                        <span key={i} className="text-udaj font-bold bg-neutral-50 border border-neutral-200 rounded px-1.5 py-0.5 text-neutral-700 whitespace-nowrap">
                           {l.label} × {l.qty}
                         </span>
                       ))}
-                      {plan.note && <span className="text-[11px] text-neutral-500"><MessageCircle className="ikona-text" /> {plan.note}</span>}
+                      {plan.note && <span className="text-udaj text-neutral-500"><MessageCircle className="ikona-text" /> {plan.note}</span>}
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <button type="button" onClick={() => startEdit(plan)} className="px-2.5 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[11px] font-black transition tap">
+                  <button type="button" onClick={() => startEdit(plan)} className="px-2.5 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-udaj font-black transition tap">
                     <Pencil className="ikona-text" /> Upravit
                   </button>
                   {plan.status === 'planned' && (
-                    <button type="button" onClick={() => handleStatus(plan, 'done')} className="px-2.5 py-1.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-black transition tap">
+                    <button type="button" onClick={() => handleStatus(plan, 'done')} className="px-2.5 py-1.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white text-udaj font-black transition tap">
                       <Check className="ikona-text" /> Hotovo
                     </button>
                   )}
                   {plan.status !== 'planned' && (
-                    <button type="button" onClick={() => handleStatus(plan, 'planned')} className="px-2.5 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[11px] font-black transition tap">
+                    <button type="button" onClick={() => handleStatus(plan, 'planned')} className="px-2.5 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-udaj font-black transition tap">
                       <Undo2 className="ikona-text" /> Zpět
                     </button>
                   )}
-                  <button type="button" onClick={() => handleDelete(plan)} className="px-2.5 py-1.5 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 text-[11px] font-black transition tap">
+                  <button type="button" onClick={() => handleDelete(plan)} className="px-2.5 py-1.5 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 text-udaj font-black transition tap">
                     <Trash2 className="ikona-text" />
                   </button>
                 </div>

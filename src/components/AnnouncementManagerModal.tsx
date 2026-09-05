@@ -68,7 +68,7 @@ export function AnnouncementManagerModal({ onClose }: { onClose: () => void }) {
       <div className="bg-white rounded max-w-lg w-full p-6 space-y-4 shadow-2xl border border-neutral-200 animate-in fade-in zoom-in duration-150">
         <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
           <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-            <AlertTriangle className="text-amber-600" size={20} />
+            <AlertTriangle className="text-amber-600" size={18} />
             <span>Spravovat Technická Upozornění & Hlášení</span>
           </h3>
           <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít"><X size={18} /></button>
@@ -134,7 +134,7 @@ export function AnnouncementManagerModal({ onClose }: { onClose: () => void }) {
               onClick={handleClear}
               className="px-3.5 py-2 rounded bg-rose-100 hover:bg-rose-200 text-rose-950 font-bold text-xs transition flex items-center gap-1.5"
             >
-              <Trash2 size={15} /> Smazat hlášení
+              <Trash2 size={16} /> Smazat hlášení
             </button>
 
             <div className="flex items-center gap-2">
@@ -149,7 +149,7 @@ export function AnnouncementManagerModal({ onClose }: { onClose: () => void }) {
                 type="submit"
                 className="px-4 py-2 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-md flex items-center gap-1.5"
               >
-                <Save size={15} /> Publikovat hlášení
+                <Save size={16} /> Publikovat hlášení
               </button>
             </div>
           </div>

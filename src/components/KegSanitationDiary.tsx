@@ -360,7 +360,7 @@ export default function KegSanitationDiary() {
       {/* Monthly Warning Banner */}
       {showMonthlyWarning && (
         <div className="card p-4 bg-rose-50 border-2 border-rose-300 rounded flex items-start gap-3 shadow-sm animate-pulse-subtle">
-          <AlertTriangle className="text-rose-600 shrink-0 mt-0.5" size={20} />
+          <AlertTriangle className="text-rose-600 shrink-0 mt-0.5" size={18} />
           <div>
             <h4 className="font-bold text-xs text-rose-950 uppercase tracking-wide"><AlertTriangle className="ikona-text" /> Upozornění: Poslední týden v měsíci!</h4>
             <p className="text-xs text-rose-900 mt-1 font-semibold">
@@ -375,7 +375,7 @@ export default function KegSanitationDiary() {
                 setProcMonthRinseWater(true);
                 setProcMonthVisualClean(true);
               }}
-              className="mt-2.5 px-3 py-1.5 rounded bg-rose-600 text-white font-black text-[11px] hover:bg-rose-700 transition tap"
+              className="mt-2.5 px-3 py-1.5 rounded bg-rose-600 text-white font-black text-udaj hover:bg-rose-700 transition tap"
             >
               <CheckCircle2 className="ikona-text" /> Zahájit měsíční sanitaci
             </button>
@@ -402,14 +402,14 @@ export default function KegSanitationDiary() {
             disabled={filtered.length === 0}
             className="btn-ghost !rounded flex items-center gap-1.5 text-xs font-bold border border-neutral-200 hover:bg-neutral-50"
           >
-            <FileSpreadsheet size={15} className="text-emerald-600" />
+            <FileSpreadsheet size={16} className="text-emerald-600" />
             <span>Export do Excelu</span>
           </button>
           <button
             onClick={openNew}
             className="btn-primary !rounded flex items-center gap-1.5 text-xs font-black shadow-md bg-amber-500 hover:bg-amber-400 border-none text-neutral-950"
           >
-            <Plus size={15} />
+            <Plus size={16} />
             <span>Zapsat sanitaci KEGů</span>
           </button>
         </div>
@@ -437,12 +437,12 @@ export default function KegSanitationDiary() {
                       <Calendar size={14} className="text-amber-600 shrink-0" />
                       <span>{new Date(e.sanitation_date).toLocaleDateString('cs-CZ')}</span>
                       {e.sanitation_time && (
-                        <span className="text-neutral-600 font-medium flex items-center gap-0.5 text-[11px] bg-neutral-100 px-1.5 py-0.5 rounded">
-                          <Clock size={10} /> {e.sanitation_time}
+                        <span className="text-neutral-600 font-medium flex items-center gap-0.5 text-udaj bg-neutral-100 px-1.5 py-0.5 rounded">
+                          <Clock size={12} /> {e.sanitation_time}
                         </span>
                       )}
                     </div>
-                    <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded border font-bold text-[11px] shadow-xs ${
+                    <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded border font-bold text-udaj shadow-xs ${
                       e.reason === 'mesicni'
                         ? 'bg-rose-100 border-rose-300 text-rose-950'
                         : e.reason === 'po_staceni'
@@ -454,21 +454,21 @@ export default function KegSanitationDiary() {
                   </div>
 
                   <div className="flex items-center gap-1 text-neutral-700 font-semibold text-xs">
-                    <User size={13} className="text-neutral-400 shrink-0" />
+                    <User size={14} className="text-neutral-400 shrink-0" />
                     {e.performed_by ?? '—'}
                     {e.approved_by && (
-                      <span className="flex items-center gap-1 text-emerald-700 text-[11px] font-bold ml-1.5">
-                        <UserCheck size={11} /> Schválil: {e.approved_by}
+                      <span className="flex items-center gap-1 text-emerald-700 text-udaj font-bold ml-1.5">
+                        <UserCheck size={12} /> Schválil: {e.approved_by}
                       </span>
                     )}
                   </div>
 
                   <div className="bg-neutral-50/70 rounded px-2.5 py-2 space-y-1">
                     {stepRows.filter((r) => r.entry.id === e.id).length === 0 ? (
-                      <span className="text-[11px] text-neutral-400 italic">žádné kroky</span>
+                      <span className="text-udaj text-neutral-400 italic">žádné kroky</span>
                     ) : (
                       stepRows.filter((r) => r.entry.id === e.id).map((r, i) => (
-                        <div key={i} className="flex items-center justify-between gap-2 text-[11px] font-semibold text-neutral-700">
+                        <div key={i} className="flex items-center justify-between gap-2 text-udaj font-semibold text-neutral-700">
                           <span className="flex items-center gap-1 min-w-0">
                             {r.time && <span className="font-mono font-black text-amber-800 shrink-0">{r.time}</span>}
                             <span className="truncate">{r.label}</span>
@@ -486,15 +486,15 @@ export default function KegSanitationDiary() {
                   <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-neutral-100">
                     <button
                       onClick={() => openEdit(e)}
-                      className="flex items-center gap-1 px-2.5 py-1.5 rounded bg-neutral-100 hover:bg-amber-100 border border-neutral-200 text-neutral-700 hover:text-amber-900 transition text-[11px] font-bold tap"
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded bg-neutral-100 hover:bg-amber-100 border border-neutral-200 text-neutral-700 hover:text-amber-900 transition text-udaj font-bold tap"
                     >
-                      <Edit3 size={13} /> Upravit
+                      <Edit3 size={14} /> Upravit
                     </button>
                     <button
                       onClick={() => handleDelete(e)}
-                      className="flex items-center gap-1 px-2.5 py-1.5 rounded bg-neutral-100 hover:bg-rose-100 border border-neutral-200 text-neutral-700 hover:text-rose-900 transition text-[11px] font-bold tap"
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded bg-neutral-100 hover:bg-rose-100 border border-neutral-200 text-neutral-700 hover:text-rose-900 transition text-udaj font-bold tap"
                     >
-                      <Trash2 size={13} /> Smazat
+                      <Trash2 size={14} /> Smazat
                     </button>
                   </div>
                 </div>
@@ -541,7 +541,7 @@ export default function KegSanitationDiary() {
                         <td className="py-3 px-4 align-top">
                           <div className="font-bold text-neutral-900">{r.label}</div>
                           {isNewGroup && (
-                            <span className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded border font-bold text-[11px] shadow-xs ${
+                            <span className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded border font-bold text-udaj shadow-xs ${
                               r.entry.reason === 'mesicni'
                                 ? 'bg-rose-100 border-rose-300 text-rose-950'
                                 : r.entry.reason === 'po_staceni'
@@ -563,7 +563,7 @@ export default function KegSanitationDiary() {
                         <td className="py-3 px-4 align-top whitespace-nowrap">
                           {r.time ? (
                             <span className="inline-flex items-center gap-1 text-neutral-700 font-bold">
-                              <Clock size={11} className="text-neutral-400" /> {r.time}
+                              <Clock size={12} className="text-neutral-400" /> {r.time}
                             </span>
                           ) : <span className="text-neutral-400 italic">—</span>}
                         </td>
@@ -573,12 +573,12 @@ export default function KegSanitationDiary() {
                           {isNewGroup && (
                             <div className="space-y-1">
                               <div className="flex items-center gap-1 text-neutral-700 font-semibold">
-                                <User size={13} className="text-neutral-400" />
+                                <User size={14} className="text-neutral-400" />
                                 {r.entry.performed_by ?? '—'}
                               </div>
                               {r.entry.approved_by && (
-                                <div className="flex items-center gap-1 text-emerald-700 text-[11px] font-bold">
-                                  <UserCheck size={11} />
+                                <div className="flex items-center gap-1 text-emerald-700 text-udaj font-bold">
+                                  <UserCheck size={12} />
                                   <span>Schválil: {r.entry.approved_by}</span>
                                 </div>
                               )}
@@ -636,27 +636,27 @@ export default function KegSanitationDiary() {
               <div className="space-y-4">
                 <div className="bg-amber-50/50 p-4 rounded border border-amber-100 space-y-3">
                   <h4 className="font-bold text-xs text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
-                    <FileText size={13} /> 1. Základní identifikace
+                    <FileText size={14} /> 1. Základní identifikace
                   </h4>
                   
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="label !text-[11px] !mb-1">Datum</label>
+                      <label className="label !text-udaj !mb-1">Datum</label>
                       <input type="date" value={sanDate} onChange={(e) => setSanDate(e.target.value)} className="input w-full font-bold text-xs" required />
                     </div>
                     <div>
-                      <label className="label !text-[11px] !mb-1">Čas sanitace</label>
+                      <label className="label !text-udaj !mb-1">Čas sanitace</label>
                       <input type="time" value={sanTime} onChange={(e) => setSanTime(e.target.value)} className="input w-full font-bold text-xs" />
                     </div>
                   </div>
 
                   <div>
-                    <label className="label !text-[11px] !mb-1">Provedl (uživatel)</label>
+                    <label className="label !text-udaj !mb-1">Provedl (uživatel)</label>
                     <input type="text" value={performedBy} onChange={(e) => setPerformedBy(e.target.value)} className="input w-full text-xs font-semibold" required />
                   </div>
 
                   <div>
-                    <label className="label !text-[11px] !mb-1">Typ / Důvod sanitace</label>
+                    <label className="label !text-udaj !mb-1">Typ / Důvod sanitace</label>
                     <select value={reason} onChange={(e) => setReason(e.target.value)} className="input w-full text-xs font-semibold">
                       <option value="pred_stacenim">Před stáčením (Zahájení)</option>
                       <option value="po_staceni">Po stáčení (Po konci)</option>
@@ -668,11 +668,11 @@ export default function KegSanitationDiary() {
                 {/* Approval & Note */}
                 <div className="space-y-3">
                   <div>
-                    <label className="label !text-[11px] !mb-1">Schválil (odpovědná osoba / sládek)</label>
+                    <label className="label !text-udaj !mb-1">Schválil (odpovědná osoba / sládek)</label>
                     <input type="text" value={approvedBy} onChange={(e) => setApprovedBy(e.target.value)} placeholder="Např. Sládek Jan" className="input w-full text-xs font-bold" />
                   </div>
                   <div>
-                    <label className="label !text-[11px] !mb-1">Poznámka / doplňující záznam</label>
+                    <label className="label !text-udaj !mb-1">Poznámka / doplňující záznam</label>
                     <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Jakékoliv doplňující informace..." className="input w-full text-xs" />
                   </div>
                 </div>
@@ -706,7 +706,7 @@ export default function KegSanitationDiary() {
                       **Nebo** proplach **Persteril 0.2%** (10 minut)
                     </SanitationStepRow>
                     <div className="border-t border-neutral-200/80 my-2 pt-2 space-y-1.5">
-                      <span className="block text-[11px] font-bold text-neutral-500 uppercase">Sanitace klapek:</span>
+                      <span className="block text-udaj font-bold text-neutral-500 uppercase">Sanitace klapek:</span>
                       <SanitationStepRow
                         field="proc_spray_valves_persteril_02_10"
                         checked={procSprayValvesPersteril}

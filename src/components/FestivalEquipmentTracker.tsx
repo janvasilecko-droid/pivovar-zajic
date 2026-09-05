@@ -194,7 +194,7 @@ export function FestivalEquipmentTracker() {
             <div>
               <div className="flex items-start justify-between gap-2 border-b border-neutral-100 pb-3">
                 <div>
-                  <span className="text-[11px] font-black uppercase tracking-wider bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded-md border border-neutral-200">
+                  <span className="text-udaj font-black uppercase tracking-wider bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded-md border border-neutral-200">
                     Kód: {item.serialCode}
                   </span>
                   <h4 className="font-display font-black text-base text-neutral-900 mt-1">{item.name}</h4>
@@ -245,7 +245,7 @@ export function FestivalEquipmentTracker() {
                   onClick={() => returnItem(item.id)}
                   className="btn-primary !rounded text-xs font-black py-2 px-4 shadow-2xs flex items-center gap-1.5"
                 >
-                  <CheckCircle2 size={15} />
+                  <CheckCircle2 size={16} />
                   <span><Download className="ikona-text" /> Vracení na sklad</span>
                 </button>
               )}
@@ -256,7 +256,7 @@ export function FestivalEquipmentTracker() {
 
       {/* Loan Modal */}
       {loaningItem && (
-        <div className="fixed inset-0 bg-neutral-950/75 backdrop-blur-xs flex items-center justify-center p-4 z-[999]">
+        <div className="fixed inset-0 bg-neutral-950/75 backdrop-blur-xs flex items-center justify-center p-4 z-modal">
           <div className="bg-white rounded max-w-md w-full p-6 space-y-5 shadow-2xl border border-neutral-200 animate-in fade-in zoom-in duration-150">
             <div className="border-b border-neutral-100 pb-3">
               <h3 className="font-display font-black text-lg text-neutral-900">
@@ -333,7 +333,7 @@ export function FestivalEquipmentTracker() {
 
       {/* Add Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-neutral-950/75 backdrop-blur-xs flex items-center justify-center p-4 z-[999]">
+        <div className="fixed inset-0 bg-neutral-950/75 backdrop-blur-xs flex items-center justify-center p-4 z-modal">
           <div className="bg-white rounded max-w-md w-full p-6 space-y-5 shadow-2xl border border-neutral-200 animate-in fade-in zoom-in duration-150">
             <div className="border-b border-neutral-100 pb-3">
               <h3 className="font-display font-black text-lg text-neutral-900">+ Nové festivalové vybavení</h3>

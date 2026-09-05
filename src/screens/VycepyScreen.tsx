@@ -268,12 +268,12 @@ export default function VycepyScreen() {
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <span className="font-display font-black text-base text-neutral-950 block">{t.name}</span>
-                        <span className="px-2.5 py-0.5 rounded-full bg-neutral-900 text-amber-300 font-extrabold text-[11px] uppercase tracking-wider inline-block mt-1">
+                        <span className="px-2.5 py-0.5 rounded-full bg-neutral-900 text-amber-300 font-extrabold text-udaj uppercase tracking-wider inline-block mt-1">
                           {t.tap_type === 'jednokohout' ? 'Jednokohout' : t.tap_type === 'dvojkohout' ? 'Dvojkohout' : t.tap_type === 'trojkohout' ? 'Trojkohout' : 'Šestikohout'}
                         </span>
                       </div>
                       <button onClick={() => handleDeleteTap(t.id)} className="text-neutral-400 hover:text-rose-600 p-1 tap" title="Smazat výčep">
-                        <Trash2 size={15} />
+                        <Trash2 size={16} />
                       </button>
                     </div>
 
@@ -286,7 +286,7 @@ export default function VycepyScreen() {
                         {needsLouh && <span className="text-amber-800 font-black flex items-center gap-1"><AlertTriangle size={14} /> Nutný louh</span>}
                       </div>
 
-                      <div className="pt-2 border-t border-neutral-100 text-[11px] text-neutral-700 space-y-1 font-mono">
+                      <div className="pt-2 border-t border-neutral-100 text-udaj text-neutral-700 space-y-1 font-mono">
                         <div className="flex justify-between">
                           <span><Droplet className="ikona-text" /> Oplach vodou:</span>
                           <strong>{t.last_water_rinse || 'Zatím neproveden'}</strong>
@@ -318,7 +318,7 @@ export default function VycepyScreen() {
                       className="px-2.5 py-1.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold shadow-2xs flex items-center justify-center gap-1 tap"
                       title="Provést Oplach vodou a zaznamenat čistotu"
                     >
-                      <Droplets size={13} /> Opláchnuto
+                      <Droplets size={14} /> Opláchnuto
                     </button>
 
                     <button
@@ -330,7 +330,7 @@ export default function VycepyScreen() {
                       className="px-2.5 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black shadow-2xs flex items-center justify-center gap-1 tap"
                       title="Provést sanitaci louhem"
                     >
-                      <RefreshCw size={13} /> Louh <FlaskConical className="ikona-text" />
+                      <RefreshCw size={14} /> Louh <FlaskConical className="ikona-text" />
                     </button>
                   </div>
                 </div>
@@ -344,7 +344,7 @@ export default function VycepyScreen() {
       <div className="card p-6 bg-white border border-neutral-200 rounded shadow-xs space-y-4">
         <div className="flex items-center justify-between border-b border-neutral-100 pb-3 flex-wrap gap-2">
           <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-            <Calendar className="text-amber-600" size={20} />
+            <Calendar className="text-amber-600" size={18} />
             <span>Rezervace a výpůjčky výčepů ({reservations.length})</span>
           </h3>
 
@@ -373,11 +373,11 @@ export default function VycepyScreen() {
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-black text-sm text-neutral-950">{r.tap_name}</span>
                     {isReturned ? (
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-950 font-black text-[11px] border border-emerald-300"><Check className="ikona-text" /> Vráceno</span>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-950 font-black text-udaj border border-emerald-300"><Check className="ikona-text" /> Vráceno</span>
                     ) : isOverdue ? (
-                      <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white font-black text-[11px] animate-pulse"><AlertTriangle className="ikona-text" /> Po termínu</span>
+                      <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white font-black text-udaj animate-pulse"><AlertTriangle className="ikona-text" /> Po termínu</span>
                     ) : (
-                      <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-950 font-black text-[11px] border border-amber-300">Půjčeno</span>
+                      <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-950 font-black text-udaj border border-amber-300">Půjčeno</span>
                     )}
                   </div>
                   <div className="font-mono font-bold text-xs text-amber-950">
@@ -432,15 +432,15 @@ export default function VycepyScreen() {
                     <tr key={r.id} className={`hover:bg-neutral-50/80 transition-colors ${isOverdue ? 'bg-rose-50/60' : ''}`}>
                       <td>
                         {isReturned ? (
-                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-950 font-black text-[11px] border border-emerald-300">
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-950 font-black text-udaj border border-emerald-300">
                             <Check className="ikona-text" /> Vráceno
                           </span>
                         ) : isOverdue ? (
-                          <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white font-black text-[11px] animate-pulse">
+                          <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white font-black text-udaj animate-pulse">
                             <AlertTriangle className="ikona-text" /> Po termínu
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-950 font-black text-[11px] border border-amber-300">
+                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-950 font-black text-udaj border border-amber-300">
                             Půjčeno
                           </span>
                         )}
@@ -452,7 +452,7 @@ export default function VycepyScreen() {
                       <td>
                         <div className="font-black text-xs text-neutral-900">{r.customer_name}</div>
                         {r.phone && (
-                          <a href={`tel:${r.phone}`} className="text-[11px] text-sky-700 font-bold hover:underline">
+                          <a href={`tel:${r.phone}`} className="text-udaj text-sky-700 font-bold hover:underline">
                             <Phone className="ikona-text" /> {r.phone}
                           </a>
                         )}
@@ -460,13 +460,13 @@ export default function VycepyScreen() {
                       <td className="font-mono font-bold text-xs text-neutral-700">
                         {r.deposit_czk ? `${r.deposit_czk.toLocaleString('cs-CZ')} Kč` : '—'}
                       </td>
-                      <td className="text-[11px] text-neutral-600 font-medium">{r.note || '—'}</td>
+                      <td className="text-udaj text-neutral-600 font-medium">{r.note || '—'}</td>
                       <td className="text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             type="button"
                             onClick={() => handleToggleReturnReservation(r)}
-                            className={`tap px-2.5 py-1 rounded text-[11px] font-black transition ${
+                            className={`tap px-2.5 py-1 rounded text-udaj font-black transition ${
                               r.is_returned
                                 ? 'bg-neutral-200 text-neutral-800 hover:bg-neutral-300'
                                 : 'bg-emerald-700 text-white hover:bg-emerald-800 shadow-2xs'

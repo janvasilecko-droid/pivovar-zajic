@@ -103,11 +103,11 @@ export function MarketingMerchInventory() {
           <div key={item.id} className="card p-5 bg-white border border-neutral-200 rounded space-y-3 shadow-xs hover:shadow-md transition flex flex-col justify-between">
             <div>
               <div className="flex items-start justify-between gap-2 border-b border-neutral-100 pb-2">
-                <span className="text-[11px] font-black uppercase tracking-wider bg-amber-100 text-amber-950 px-2.5 py-0.5 rounded-full border border-amber-200">
+                <span className="text-udaj font-black uppercase tracking-wider bg-amber-100 text-amber-950 px-2.5 py-0.5 rounded-full border border-amber-200">
                   {item.category === 'sklo' ? 'Sklo' : item.category === 'tacky' ? 'Tácky' : item.category === 'obleceni' ? 'Oblečení' : 'Merch'}
                 </span>
                 {item.stockQty <= item.minAlertQty && (
-                  <span className="chip bg-rose-100 text-rose-950 font-black border border-rose-300 text-[11px]">
+                  <span className="chip bg-rose-100 text-rose-950 font-black border border-rose-300 text-udaj">
                     <AlertTriangle className="ikona-text" /> Dochází
                   </span>
                 )}
@@ -125,7 +125,7 @@ export function MarketingMerchInventory() {
             </div>
 
             <div className="pt-3 border-t border-neutral-100 flex items-center justify-between">
-              <span className="text-[11px] font-bold text-neutral-400">Rychlá úprava:</span>
+              <span className="text-udaj font-bold text-neutral-400">Rychlá úprava:</span>
               <div className="flex gap-1">
                 <button onClick={() => updateQty(item.id, -5)} className="px-2.5 py-1 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-black text-xs tap">
                   -5
@@ -147,7 +147,7 @@ export function MarketingMerchInventory() {
 
       {/* Add Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-neutral-950/75 backdrop-blur-xs flex items-center justify-center p-4 z-[999]">
+        <div className="fixed inset-0 bg-neutral-950/75 backdrop-blur-xs flex items-center justify-center p-4 z-modal">
           <div className="bg-white rounded max-w-md w-full p-6 space-y-5 shadow-2xl border border-neutral-200 animate-in fade-in zoom-in duration-150">
             <div className="border-b border-neutral-100 pb-3">
               <h3 className="font-display font-black text-lg text-neutral-900">+ Nová položka merche / skla</h3>

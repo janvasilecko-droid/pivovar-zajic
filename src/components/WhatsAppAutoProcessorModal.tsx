@@ -417,12 +417,12 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
         {repeatedErrors.length > 0 && (
           <div className="rounded border border-amber-200 bg-amber-50 p-3">
             <div className="text-xs font-medium text-amber-800 mb-1.5 flex items-center gap-1.5">
-              <AlertCircle size={13} />
+              <AlertCircle size={14} />
               Opakované chyby čtení — opravte položku v detailu a AI si to zapamatuje:
             </div>
             <div className="flex flex-wrap gap-1.5">
               {repeatedErrors.slice(0, 5).map((err, i) => (
-                <span key={i} className="px-2 py-0.5 rounded-full bg-white border border-amber-300 text-[11px] text-amber-800">
+                <span key={i} className="px-2 py-0.5 rounded-full bg-white border border-amber-300 text-udaj text-amber-800">
                   „{err.rawLine}" · {err.sender} ({err.count}×)
                 </span>
               ))}
@@ -434,10 +434,10 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
         {similarPairs.length > 0 && (
           <div className="rounded border border-primary-200 bg-primary-50 p-3">
             <div className="text-xs font-medium text-primary-800 mb-1.5 flex items-center gap-1.5">
-              <Copy size={13} />
+              <Copy size={14} />
               Možná duplicitní objednávka — dvě zprávy mají téměř stejný obsah:
             </div>
-            <div className="text-[11px] text-primary-700 space-y-0.5">
+            <div className="text-udaj text-primary-700 space-y-0.5">
               {similarPairs.slice(0, 3).map((p, i) => (
                 <div key={i} className="flex items-center gap-1 flex-wrap">
                   <span className="font-medium">{p.first.sender_name}</span> ⇄ <span className="font-medium">{p.second.sender_name}</span>
@@ -555,7 +555,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
                           }`}
                           title="Čas čekání na zpracování"
                         >
-                          <Clock size={11} /> {formatWaitTime(message.message_timestamp || message.created_at)}
+                          <Clock size={12} /> {formatWaitTime(message.message_timestamp || message.created_at)}
                         </span>
                       </div>
 

@@ -202,14 +202,14 @@ export function MonthlyCleanupWarning({ onOpenMonthlyChecklist, onOpenKegMonthly
   };
 
   return (
-    <div className="fixed inset-0 bg-neutral-950/85 backdrop-blur-md flex items-center justify-center p-4 z-[9999] animate-in fade-in duration-200">
+    <div className="fixed inset-0 bg-neutral-950/85 backdrop-blur-md flex items-center justify-center p-4 z-nadmodal animate-in fade-in duration-200">
       <div className="bg-white rounded max-w-lg w-full p-6 sm:p-8 space-y-6 shadow-2xl border-4 border-rose-500 relative overflow-hidden">
         <div className="h-3 w-full absolute top-0 left-0 right-0 bg-rose-600" />
 
         {done ? (
           <div className="flex flex-col items-center text-center gap-3 py-4">
             <div className="w-14 h-14 rounded-full flex items-center justify-center text-white shrink-0 shadow-lg bg-emerald-700">
-              <PartyPopper size={30} />
+              <PartyPopper size={32} />
             </div>
             <h2 className="text-xl font-display font-black text-neutral-950">Zapsáno do sanitárních deníků</h2>
             <p className="text-sm text-neutral-600">Měsíční údržba je označená jako hotová pro lahve i KEGy.</p>
@@ -268,7 +268,7 @@ export function MonthlyCleanupWarning({ onOpenMonthlyChecklist, onOpenKegMonthly
                 disabled={!vseHotovo}
                 className="w-full py-3.5 px-6 rounded bg-emerald-700 hover:bg-emerald-800 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-base transition flex items-center justify-center gap-3"
               >
-                <PartyPopper size={20} />
+                <PartyPopper size={18} />
                 <span>{vseHotovo ? 'Hotovo — zapsat do deníků' : `Zbývá ${vsechnyPolozky.length - hotovoKusu} položek`}</span>
               </button>
               <button
@@ -315,7 +315,7 @@ export function MonthlyCleanupWarning({ onOpenMonthlyChecklist, onOpenKegMonthly
             onClick={() => setChecklist(true)}
             className="w-full py-3.5 px-6 rounded bg-emerald-700 hover:bg-emerald-800 text-white font-black text-base transition shadow-xl active:scale-[0.98] flex items-center justify-center gap-3 ring-4 ring-emerald-300"
           >
-            <Play size={20} />
+            <Play size={18} />
             <span>Začít{hotovoKusu > 0 ? ` (${hotovoKusu}/${vsechnyPolozky.length} hotovo)` : ''}</span>
           </button>
           <button
@@ -323,7 +323,7 @@ export function MonthlyCleanupWarning({ onOpenMonthlyChecklist, onOpenKegMonthly
             onClick={dismiss}
             className="w-full py-3 px-6 rounded bg-rose-600 hover:bg-rose-700 text-white font-black text-sm transition active:scale-[0.98] flex items-center justify-center gap-3"
           >
-            <CalendarClock size={20} />
+            <CalendarClock size={18} />
             <span>Udělám na konci týdne</span>
           </button>
           <button

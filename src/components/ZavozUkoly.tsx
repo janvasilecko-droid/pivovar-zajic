@@ -62,14 +62,14 @@ export function UkolyObjednavky({ poznamka, orderId, hotove, onPrepni }: UkolyPr
         const Ikona = IKONY[u.klic];
         const splneno = Boolean(orderId && hotove?.has(klicUkolu(orderId, u.klic)));
         // 44 px na výšku — štítek se odškrtává v autě, prstem a v rukavici.
-        const tridy = `inline-flex items-center gap-1.5 px-3 min-h-[44px] rounded border font-black text-[11px] text-left transition ${
+        const tridy = `inline-flex items-center gap-1.5 px-3 min-h-[44px] rounded border font-black text-udaj text-left transition ${
           splneno ? TON_SPLNENO : TONY[u.klic]
         }`;
 
         if (!lzeOdskrtnout) {
           return (
             <span key={u.klic} className={tridy}>
-              <Ikona size={13} className="shrink-0" />
+              <Ikona size={14} className="shrink-0" />
               {u.popis}
             </span>
           );

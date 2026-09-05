@@ -33,7 +33,7 @@ export function SanitationStepRow({
 
   return (
     <div className="flex items-start gap-2">
-      <label className="flex items-start gap-2 text-[11px] cursor-pointer flex-1 min-w-0">
+      <label className="flex items-start gap-2 text-udaj cursor-pointer flex-1 min-w-0">
         <input
           type="checkbox"
           checked={checked}
@@ -63,7 +63,7 @@ export function SanitationStepRow({
                 }
               }
             }}
-            className="input !py-0.5 !px-1.5 text-[11px] font-mono font-bold w-[86px] bg-white"
+            className="input !py-0.5 !px-1.5 text-udaj font-mono font-bold w-[86px] bg-white"
           />
         </div>
       )}

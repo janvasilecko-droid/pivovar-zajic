@@ -92,7 +92,7 @@ export function MenuCustomizeModal({
                   </div>
                   <div>
                     <div className="font-extrabold text-sm text-neutral-900">{item.label}</div>
-                    <div className="text-[11px] text-neutral-500">{item.group}</div>
+                    <div className="text-udaj text-neutral-500">{item.group}</div>
                   </div>
                 </div>
 

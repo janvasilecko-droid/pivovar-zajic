@@ -55,7 +55,7 @@ export default function PohybyModal({
 
   return (
     <div
-      className="fixed inset-0 z-[120] bg-neutral-950/60 backdrop-blur-[2px] flex items-end sm:items-center justify-center"
+      className="fixed inset-0 z-potvrzeni bg-neutral-950/60 backdrop-blur-[2px] flex items-end sm:items-center justify-center"
       onClick={onClose}
     >
       <div

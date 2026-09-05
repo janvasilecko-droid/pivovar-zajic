@@ -366,7 +366,7 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
         {/* Brána — nutné splnit sekci „1. Začátek stáčení" */}
         {gateActive && !startDone && (
           <div className="bg-rose-50 border border-rose-300 rounded px-3.5 py-2.5 text-xs font-bold text-rose-900 flex items-start gap-2">
-            <Lock size={15} className="mt-0.5 shrink-0" />
+            <Lock size={16} className="mt-0.5 shrink-0" />
             <span>
               Před vstupem do zápisu stáčení je nutné odškrtnout <b>celou sekci „1. Začátek stáčení"</b> (příprava pracoviště).
               {startCheckedCount > 0 && <> Zbývá {startItems.length - startCheckedCount} položek.</>}
@@ -411,7 +411,7 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
                 <div key={cat} className="bg-white border border-neutral-200 rounded p-3.5 shadow-2xs space-y-2">
                   <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
                     <h4 className="text-xs font-black text-neutral-900 uppercase tracking-wider">{cat}</h4>
-                    <span className="text-[11px] font-bold text-neutral-500 font-mono">
+                    <span className="text-udaj font-bold text-neutral-500 font-mono">
                       {catChecked} / {catItems.length}
                     </span>
                   </div>
@@ -437,7 +437,7 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
                               {item.text}
                             </span>
                             {item.required && !isChecked && (
-                              <span className="ml-1.5 text-[11px] text-amber-700 font-bold bg-amber-100 px-1.5 py-0.5 rounded">
+                              <span className="ml-1.5 text-udaj text-amber-700 font-bold bg-amber-100 px-1.5 py-0.5 rounded">
                                 Důležité
                               </span>
                             )}
@@ -454,7 +454,7 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
         {/* Footer actions */}
         <div className="flex items-center justify-between pt-3 border-t border-neutral-200 gap-3">
           {gateActive ? (
-            <div className="text-[11px] font-bold text-neutral-500 leading-snug">
+            <div className="text-udaj font-bold text-neutral-500 leading-snug">
               {startDone ? (
                 <span className="text-emerald-700"><Check className="ikona-text" /> Příprava pracoviště splněna — můžete pokračovat.</span>
                ) : (
@@ -477,7 +477,7 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
                     localStorage.setItem(storageKey, JSON.stringify(next));
                     onClose();
                   }}
-                  className="btn-ghost !rounded flex items-center justify-center gap-1 text-[11px] font-black text-rose-600 hover:bg-rose-50 border border-dashed border-rose-200 px-2.5 py-1.5 rounded"
+                  className="btn-ghost !rounded flex items-center justify-center gap-1 text-udaj font-black text-rose-600 hover:bg-rose-50 border border-dashed border-rose-200 px-2.5 py-1.5 rounded"
                 >
                   <span><Unlock className="ikona-text" /> Přeskočit (Admin)</span>
                 </button>
@@ -499,7 +499,7 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
                 localStorage.setItem(storageKey, JSON.stringify(next));
                 onClose();
               }}
-              className="btn-ghost !rounded flex items-center justify-center gap-1 text-[11px] font-black text-rose-600 hover:bg-rose-50 border border-dashed border-rose-200 px-2.5 py-1.5 rounded"
+              className="btn-ghost !rounded flex items-center justify-center gap-1 text-udaj font-black text-rose-600 hover:bg-rose-50 border border-dashed border-rose-200 px-2.5 py-1.5 rounded"
             >
               <span><Unlock className="ikona-text" /> Přeskočit (Admin)</span>
             </button>

@@ -512,7 +512,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
             {/* BOZP a Chemikálie */}
             <div className="p-5 rounded bg-rose-50/80 border-2 border-rose-200 space-y-3">
               <h3 className="font-black text-rose-950 text-base flex items-center gap-2">
-                <AlertTriangle size={20} className="text-rose-600" />
+                <AlertTriangle size={18} className="text-rose-600" />
                 <span>Bezpečnost práce (BOZP) & Používané chemikálie</span>
               </h3>
               <p className="text-xs text-neutral-800 font-medium leading-relaxed">
@@ -542,7 +542,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
             <div className="p-5 rounded bg-neutral-900 text-white space-y-4 shadow-md">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <h3 className="font-display font-black text-base text-amber-400 flex items-center gap-2">
-                  <Calculator size={20} />
+                  <Calculator size={18} />
                   <span>Výpočet „hrubé“ koncentrace sanitačního roztoku</span>
                 </h3>
                 <span className="text-xs font-mono font-bold bg-neutral-800 px-3 py-1 rounded text-amber-300 border border-neutral-700">
@@ -567,7 +567,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
                   <input className="input !py-1.5 text-xs font-mono font-bold text-neutral-900 bg-white mt-1" value={calcC} onChange={(e) => setCalcC(e.target.value)} placeholder="100" />
                 </div>
                 <div className="p-3 rounded bg-amber-500 text-neutral-950 font-mono flex flex-col justify-center">
-                  <span className="text-[11px] uppercase font-black tracking-wider text-amber-950">M — Hmotnost chemikálie</span>
+                  <span className="text-udaj uppercase font-black tracking-wider text-amber-950">M — Hmotnost chemikálie</span>
                   <span className="font-display font-black text-2xl">{calcM ? `${calcM} kg` : '—'}</span>
                 </div>
               </div>
@@ -576,7 +576,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
             {/* Hlavní obecné zásady */}
             <div className="p-5 rounded bg-amber-50/60 border border-amber-200/90 space-y-3">
               <h3 className="font-display font-black text-base text-amber-950 flex items-center gap-2">
-                <CheckCircle2 size={20} className="text-amber-600" />
+                <CheckCircle2 size={18} className="text-amber-600" />
                 <span>Hlavní obecné zásady pro správné provedení sanitace</span>
               </h3>
               <ul className="text-xs text-neutral-800 font-medium space-y-2 list-disc pl-5">
@@ -751,7 +751,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
                         <doc.icon size={18} />
                       </span>
                       <div>
-                        <span className="text-[11px] font-mono font-black uppercase text-amber-600 tracking-wider">Bod {doc.num}</span>
+                        <span className="text-udaj font-mono font-black uppercase text-amber-600 tracking-wider">Bod {doc.num}</span>
                         <h3 className="font-display font-black text-base text-neutral-900 leading-tight">{doc.title}</h3>
                       </div>
                     </div>
@@ -881,19 +881,19 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center font-mono">
               <div className="p-3 rounded bg-white/10 border border-white/20">
-                <div className="text-[11px] text-rose-200 font-bold uppercase">Záchranka (ZZS)</div>
+                <div className="text-udaj text-rose-200 font-bold uppercase">Záchranka (ZZS)</div>
                 <div className="text-2xl font-black text-white">155</div>
               </div>
               <div className="p-3 rounded bg-white/10 border border-white/20">
-                <div className="text-[11px] text-rose-200 font-bold uppercase">Hasiči (HZS)</div>
+                <div className="text-udaj text-rose-200 font-bold uppercase">Hasiči (HZS)</div>
                 <div className="text-2xl font-black text-white">150</div>
               </div>
               <div className="p-3 rounded bg-white/10 border border-white/20">
-                <div className="text-[11px] text-rose-200 font-bold uppercase">Toxikologie (TIS)</div>
+                <div className="text-udaj text-rose-200 font-bold uppercase">Toxikologie (TIS)</div>
                 <div className="text-base font-black text-amber-300">224 919 293</div>
               </div>
               <div className="p-3 rounded bg-white/10 border border-white/20">
-                <div className="text-[11px] text-rose-200 font-bold uppercase">Tísňové volání</div>
+                <div className="text-udaj text-rose-200 font-bold uppercase">Tísňové volání</div>
                 <div className="text-2xl font-black text-white">112</div>
               </div>
             </div>
@@ -909,7 +909,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
                 </div>
                 <div>
                   <h3 className="font-display font-black text-base text-rose-950">1. Zasažení očí chemikálií (Kyselina / Louh)</h3>
-                  <span className="text-[11px] font-bold text-rose-600">NEJNEBEZPEČNĚJŠÍ ÚRAZ – RIZIKO TRVALÉHO OSLEPNUTÍ!</span>
+                  <span className="text-udaj font-bold text-rose-600">NEJNEBEZPEČNĚJŠÍ ÚRAZ – RIZIKO TRVALÉHO OSLEPNUTÍ!</span>
                 </div>
               </div>
               <ul className="space-y-2.5 text-xs text-neutral-800 font-medium">
@@ -931,7 +931,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
                 </div>
                 <div>
                   <h3 className="font-display font-black text-base text-amber-950">2. Poleptání kůže a těla</h3>
-                  <span className="text-[11px] font-bold text-amber-700">Kyselina dusičná / fosforečná / Hydroxid sodný</span>
+                  <span className="text-udaj font-bold text-amber-700">Kyselina dusičná / fosforečná / Hydroxid sodný</span>
                 </div>
               </div>
               <ul className="space-y-2.5 text-xs text-neutral-800 font-medium">
@@ -953,7 +953,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
                 </div>
                 <div>
                   <h3 className="font-display font-black text-base text-sky-950">3. Nadhýchání výparů & Nebezpečí CO₂</h3>
-                  <span className="text-[11px] font-bold text-sky-700">Kvasné tanky, Persteril a desinfekční výpary</span>
+                  <span className="text-udaj font-bold text-sky-700">Kvasné tanky, Persteril a desinfekční výpary</span>
                 </div>
               </div>
               <ul className="space-y-2.5 text-xs text-neutral-800 font-medium">
@@ -974,7 +974,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
                 </div>
                 <div>
                   <h3 className="font-display font-black text-base text-violet-950">4. Požití kyseliny nebo louhu</h3>
-                  <span className="text-[11px] font-bold text-violet-700">Náhodné požití sanitačního roztoku</span>
+                  <span className="text-udaj font-bold text-violet-700">Náhodné požití sanitačního roztoku</span>
                 </div>
               </div>
               <ul className="space-y-2.5 text-xs text-neutral-800 font-medium">

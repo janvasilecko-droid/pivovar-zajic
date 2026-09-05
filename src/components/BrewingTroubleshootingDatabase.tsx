@@ -154,7 +154,7 @@ export function BrewingTroubleshootingDatabase() {
               </div>
 
               <div className="text-right shrink-0">
-                <div className="text-[11px] font-black uppercase text-neutral-400">Prah vnímání:</div>
+                <div className="text-udaj font-black uppercase text-neutral-400">Prah vnímání:</div>
                 <div className="text-xs font-mono font-bold text-neutral-700">{item.threshold}</div>
               </div>
             </div>
@@ -185,7 +185,7 @@ export function BrewingTroubleshootingDatabase() {
                   <span>Náprava & Prevence sládka:</span>
                 </div>
                 <p className="text-neutral-900 font-bold leading-relaxed">{item.solution}</p>
-                <div className="text-[11px] text-neutral-600 font-medium pt-1 border-t border-emerald-200/60 mt-1">
+                <div className="text-udaj text-neutral-600 font-medium pt-1 border-t border-emerald-200/60 mt-1">
                   <strong>Prevence:</strong> {item.prevention}
                 </div>
               </div>

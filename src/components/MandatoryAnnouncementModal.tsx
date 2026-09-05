@@ -74,7 +74,7 @@ export function MandatoryAnnouncementModal() {
   const isImp = currentAnnouncement.type === 'important';
 
   return (
-    <div className="fixed inset-0 bg-neutral-950/85 backdrop-blur-md flex items-center justify-center p-4 z-[9999] animate-in fade-in duration-200">
+    <div className="fixed inset-0 bg-neutral-950/85 backdrop-blur-md flex items-center justify-center p-4 z-nadmodal animate-in fade-in duration-200">
       <div className="bg-white rounded max-w-xl w-full p-6 sm:p-8 space-y-6 shadow-2xl border-4 border-amber-500 relative overflow-hidden">
         {/* Decorative Top Accent Line */}
         <div className={`h-3 w-full absolute top-0 left-0 right-0 ${isTech ? 'bg-amber-500' : isImp ? 'bg-rose-600' : 'bg-sky-600'}`} />
@@ -119,7 +119,7 @@ export function MandatoryAnnouncementModal() {
             <CheckCircle2 size={24} />
             <span><Check className="ikona-text" /> Přečetl jsem a rozumím (Potvrdit přečtení)</span>
           </button>
-          <p className="text-center text-[11px] font-bold text-neutral-400">
+          <p className="text-center text-udaj font-bold text-neutral-400">
             Pro pokračování do aplikace musíte výslovně potvrdit přečtení tohoto pokynu.
           </p>
         </div>

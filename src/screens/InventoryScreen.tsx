@@ -953,7 +953,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
 
     return (
       <div key={klic} className={`rounded border-2 p-3 space-y-2.5 ${barva.ram}`}>
-        <div className={`text-[11px] font-black uppercase tracking-wider ${barva.nadpis}`}>
+        <div className={`text-udaj font-black uppercase tracking-wider ${barva.nadpis}`}>
           {d.beer_name} — vyrovnat {manko ? 'MANKO (odečíst lahve)' : 'PŘEBYTEK (zapsat lahve)'}
         </div>
 
@@ -970,7 +970,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
           </div>
         </div>
 
-        <p className={`text-[11px] font-bold ${barva.text}`}>
+        <p className={`text-udaj font-bold ${barva.text}`}>
           Orientačně + 10 % ztráta ≈ <strong>{d.orientacneSudu}×50 l</strong>. Kolik sudů se toho
           doopravdy týká víš jenom ty — zadej níž, nebo nech prázdné.
           <br />
@@ -982,14 +982,14 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
             tlačítka: vypadala jako akce a čekalo se, že samy něco zapíšou.
             Zapisuje až velké tlačítko dole. */}
         <div className="rounded bg-white/70 border border-neutral-300 p-2">
-          <div className="text-[11px] font-black uppercase text-neutral-600 mb-1">Co se sudy</div>
+          <div className="text-udaj font-black uppercase text-neutral-600 mb-1">Co se sudy</div>
           <div className="flex flex-wrap gap-x-4 gap-y-1">
             {([
               ['nastocit', 'Nastáčely se kvůli těmhle lahvím — zapiš je do Stáčení KEG a hned spotřebuj'],
               ['odecist', 'Byly nastáčené už dřív — jen je odečti ze skladu'],
               ['vratit', 'Nenačaly se — vrať je do skladu'],
             ] as [SmerSudu, string][]).map(([hodnota, popis]) => (
-              <label key={hodnota} className="flex items-start gap-1.5 text-[11px] font-bold text-neutral-800 cursor-pointer w-full">
+              <label key={hodnota} className="flex items-start gap-1.5 text-udaj font-bold text-neutral-800 cursor-pointer w-full">
                 <input
                   type="radio"
                   name={`smer-sudu-${klic}`}
@@ -1020,7 +1020,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
           ))}
         </div>
 
-        <div className={`text-[11px] font-black ${barva.text}`}>
+        <div className={`text-udaj font-black ${barva.text}`}>
           {zadanoL > 0
             ? (smerSudu === 'nastocit'
                 ? `Zapíše se ${zadano.map((z) => `${z.kegQty}×${z.kegVolumeL}`).join(' + ')} = ${zadanoL.toLocaleString('cs-CZ')} l do Stáčení KEG a hned se spotřebuje — stav skladu sudů zůstane stejný`
@@ -1564,7 +1564,7 @@ function exportInventoryExcel() {
             ‹
           </button>
           <label className="btn-ghost !flex-1 !gap-2 cursor-pointer">
-            <Calendar size={15} className="text-amber-700 shrink-0" />
+            <Calendar size={16} className="text-amber-700 shrink-0" />
             <input
               type="month"
               value={currentMonth}
@@ -1691,7 +1691,7 @@ function exportInventoryExcel() {
           <Search size={16} />
           <span>Audit — Inventura vs. Sklad</span>
           {auditNesedi.length > 0 && (
-            <span className="px-1.5 py-0.5 rounded bg-rose-600 text-white text-[11px] font-black">
+            <span className="px-1.5 py-0.5 rounded bg-rose-600 text-white text-udaj font-black">
               {auditNesedi.length}
             </span>
           )}
@@ -1725,12 +1725,12 @@ function exportInventoryExcel() {
         if (!minuly) return null;
         return (
           <div className="rounded border-2 border-sky-400 bg-sky-50 p-4 flex items-start gap-3">
-            <Calendar size={20} className="text-sky-600 shrink-0 mt-0.5" />
+            <Calendar size={18} className="text-sky-600 shrink-0 mt-0.5" />
             <div className="min-w-0 flex-1">
               <div className="font-display font-black text-sky-900 text-sm">
                 Počítáš inventuru za {nazevMesice(currentMonth)} — nechtěl jsi {nazevMesice(minuly)}?
               </div>
-              <p className="text-[11px] font-bold text-sky-800 mt-1">
+              <p className="text-udaj font-bold text-sky-800 mt-1">
                 {nazevMesice(currentMonth)} ještě neskončil. Inventura se obvykle dělá za měsíc,
                 který právě skončil — a doplněné stáčení se připisuje k jeho poslednímu dni.
               </p>
@@ -1776,7 +1776,7 @@ function exportInventoryExcel() {
                 <div className="font-display font-black text-rose-900 text-sm">
                   Rozepsáno {rozepsanychRadku} položek — ale ZATÍM NEULOŽENO
                 </div>
-                <p className="text-[11px] font-bold text-rose-800 mt-1 leading-relaxed">
+                <p className="text-udaj font-bold text-rose-800 mt-1 leading-relaxed">
                   Napočítané stavy zatím leží jen v tomhle prohlížeči. Drží se tam, aby se
                   neztratily, ale do databáze se dostanou <strong>až tlačítkem „Uložit fyzické
                   stavy"</strong> — do té doby je jiné zařízení neuvidí a měsíc nejde uzavřít.
@@ -1811,7 +1811,7 @@ function exportInventoryExcel() {
                   disabled={busy}
                   className="px-3 py-2 rounded bg-rose-600 hover:bg-rose-700 text-white font-black text-xs transition disabled:opacity-50 flex items-center gap-1.5"
                 >
-                  <Save size={15} /> Uložit fyzické stavy
+                  <Save size={16} /> Uložit fyzické stavy
                 </button>
               </div>
             </div>
@@ -1823,7 +1823,7 @@ function exportInventoryExcel() {
                 <div className="font-display font-black text-sky-900 text-sm">
                   Ztráty jsou vyplněné u {dorovnaneRadky} položek
                 </div>
-                <p className="text-[11px] font-bold text-sky-800 mt-1 leading-relaxed">
+                <p className="text-udaj font-bold text-sky-800 mt-1 leading-relaxed">
                   Sloupec ZTRÁTY <strong>se stavem skladu nehne</strong> — je to poznámka na rozbité
                   a ztracené kusy a mění jen sloupec vedle. Když se zboží doopravdy stočilo nebo
                   nestočilo, patří to do <strong>Vyrovnat</strong> (panel pod pivem u lahví, tlačítko
@@ -1843,12 +1843,12 @@ function exportInventoryExcel() {
           {nespocitane.length > 0 && (
             <div className="rounded border-2 border-amber-400 bg-amber-50 p-4">
               <div className="flex items-start gap-3">
-                <AlertTriangle size={20} className="text-amber-600 shrink-0 mt-0.5" />
+                <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
                 <div className="min-w-0 flex-1">
                   <div className="font-display font-black text-amber-900 text-sm">
                     {nespocitane.length} {nespocitane.length === 1 ? 'položka nemá' : nespocitane.length < 5 ? 'položky nemají' : 'položek nemá'} vyplněnou inventuru
                   </div>
-                  <p className="text-[11px] font-bold text-amber-800 mt-1">
+                  <p className="text-udaj font-bold text-amber-800 mt-1">
                     Tyhle položky se tenhle měsíc hýbaly (stáčely nebo vydávaly) a pole INVENTURA u nich
                     zůstalo prázdné. <strong>Prázdné se bere jako nula a jako nula se i uloží</strong> —
                     takže když jich fyzicky nula je, není co dělat. Tenhle seznam je jen připomínka, ať
@@ -1856,12 +1856,12 @@ function exportInventoryExcel() {
                   </p>
                   <div className="mt-2.5 flex flex-wrap gap-1.5">
                     {nespocitane.slice(0, 24).map((r) => (
-                      <span key={`${r.beer_id}__${r.package_id}`} className="px-2 py-1 rounded bg-white border border-amber-300 text-[11px] font-bold text-neutral-700">
+                      <span key={`${r.beer_id}__${r.package_id}`} className="px-2 py-1 rounded bg-white border border-amber-300 text-udaj font-bold text-neutral-700">
                         {r.beer_name} <span className="text-neutral-500">{String(r.package_label).trim()}</span>
                       </span>
                     ))}
                     {nespocitane.length > 24 && (
-                      <span className="px-2 py-1 text-[11px] font-bold text-amber-800">… a dalších {nespocitane.length - 24}</span>
+                      <span className="px-2 py-1 text-udaj font-bold text-amber-800">… a dalších {nespocitane.length - 24}</span>
                     )}
                   </div>
                 </div>
@@ -1871,27 +1871,27 @@ function exportInventoryExcel() {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <div className="card p-3.5 bg-white border border-neutral-200 rounded space-y-1">
-              <span className="text-[11px] font-black uppercase text-neutral-500">Počáteční stav</span>
+              <span className="text-udaj font-black uppercase text-neutral-500">Počáteční stav</span>
               <div className="font-display font-black text-lg text-neutral-900">{totals.initial} ks</div>
-              <span className="text-[11px] text-neutral-500">Převedeno z minulého měsíce</span>
+              <span className="text-udaj text-neutral-500">Převedeno z minulého měsíce</span>
             </div>
             <div className="card p-3.5 bg-white border border-neutral-200 rounded space-y-1">
-              <span className="text-[11px] font-black uppercase text-amber-700">Nově stočeno (+)</span>
+              <span className="text-udaj font-black uppercase text-amber-700">Nově stočeno (+)</span>
               <div className="font-display font-black text-lg text-amber-600">+{totals.staceno} ks</div>
-              <span className="text-[11px] text-neutral-500">Zapsáno ve Stáčení</span>
+              <span className="text-udaj text-neutral-500">Zapsáno ve Stáčení</span>
             </div>
             <div className="card p-3.5 bg-white border border-rose-200 rounded space-y-1">
-              <span className="text-[11px] font-black uppercase text-rose-600">Odpisy (− odpis)</span>
+              <span className="text-udaj font-black uppercase text-rose-600">Odpisy (− odpis)</span>
               <div className="font-display font-black text-lg text-rose-700">-{totals.odpis} ks</div>
-              <span className="text-[11px] text-neutral-500">Zapsáno v Odpisech</span>
+              <span className="text-udaj text-neutral-500">Zapsáno v Odpisech</span>
             </div>
             <div className="card p-3.5 bg-white border border-neutral-200 rounded space-y-1">
-              <span className="text-[11px] font-black uppercase text-amber-800">Vytočeno/Výdej (−)</span>
+              <span className="text-udaj font-black uppercase text-amber-800">Vytočeno/Výdej (−)</span>
               <div className="font-display font-black text-lg text-amber-800">-{totals.vydej} ks</div>
-              <span className="text-[11px] text-neutral-500">Fasování + Prodejna + Objednávky</span>
+              <span className="text-udaj text-neutral-500">Fasování + Prodejna + Objednávky</span>
             </div>
             <div className="card p-3.5 bg-white border border-neutral-200 rounded space-y-1">
-              <span className="text-[11px] font-black uppercase text-neutral-500"><PackageIcon className="ikona-text" /> ZBYDE SKLADEM (Oček.)</span>
+              <span className="text-udaj font-black uppercase text-neutral-500"><PackageIcon className="ikona-text" /> ZBYDE SKLADEM (Oček.)</span>
               <div className="font-display font-black text-xl">
                 {totals.expected < 0 ? (
                   <span className="px-2 py-0.5 rounded bg-rose-600 text-white">{totals.expected} ks</span>
@@ -1899,21 +1899,21 @@ function exportInventoryExcel() {
                   <span className="text-emerald-700">{totals.expected} ks</span>
                 )}
               </div>
-              <span className="text-[11px] text-neutral-500">Teoretický zůstatek</span>
+              <span className="text-udaj text-neutral-500">Teoretický zůstatek</span>
             </div>
             <div className="card p-3.5 bg-white border border-neutral-200 rounded space-y-1">
-              <span className="text-[11px] font-black uppercase text-neutral-500">Celkové Manko/Přebytek</span>
+              <span className="text-udaj font-black uppercase text-neutral-500">Celkové Manko/Přebytek</span>
               <div className={`font-display font-black text-lg ${totals.diffQty < 0 ? 'text-rose-700' : totals.diffQty > 0 ? 'text-emerald-700' : 'text-neutral-900'}`}>
                 {totals.diffQty > 0 ? `+${totals.diffQty}` : totals.diffQty} ks ({totals.diffCzk.toLocaleString('cs-CZ')} Kč)
               </div>
-              <span className="text-[11px] text-neutral-500">Fyzický vs Systémový stav</span>
-              <span className="block pt-1 border-t border-neutral-200 text-[11px] font-bold text-neutral-600">
+              <span className="text-udaj text-neutral-500">Fyzický vs Systémový stav</span>
+              <span className="block pt-1 border-t border-neutral-200 text-udaj font-bold text-neutral-600">
                 Ztráty: {totals.dorovnat > 0 ? `+${totals.dorovnat}` : totals.dorovnat} ks ·
                 <span className={totals.diffAfterQty === 0 ? 'text-emerald-700' : totals.diffAfterQty < 0 ? 'text-rose-700' : 'text-amber-700'}>
                   {' '}po ztrátách: {totals.diffAfterQty > 0 ? `+${totals.diffAfterQty}` : totals.diffAfterQty} ks ({totals.diffAfterCzk.toLocaleString('cs-CZ')} Kč)
                 </span>
               </span>
-              <span className="text-[11px] text-neutral-500">Ztráty se ukládají bokem a nepočítají se do stáčení ani odpočtů.</span>
+              <span className="text-udaj text-neutral-500">Ztráty se ukládají bokem a nepočítají se do stáčení ani odpočtů.</span>
             </div>
           </div>
 
@@ -1934,7 +1934,7 @@ function exportInventoryExcel() {
                   className="px-3 py-2.5 rounded bg-white border-2 border-rose-300 hover:bg-rose-50 text-rose-800 font-black text-xs transition disabled:opacity-50 flex items-center gap-1.5"
                   title="Smaže všechny zápisy, které v tomhle měsíci vznikly tlačítky Vyrovnat. Běžné stáčení, objednávky ani fasování se nedotkne."
                 >
-                  <RotateCcw size={15} /> Vrátit srovnání
+                  <RotateCcw size={16} /> Vrátit srovnání
                 </button>
                 <button
                   onClick={handleSaveActualStock}
@@ -1962,7 +1962,7 @@ function exportInventoryExcel() {
                   s telefonem a projít 99 kombinací pivo × obal bez filtru nejde. */}
               <div className="rounded border border-neutral-200 bg-white p-3 space-y-2.5">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-[11px] font-black uppercase tracking-wide text-neutral-500">Postup inventury</span>
+                  <span className="text-udaj font-black uppercase tracking-wide text-neutral-500">Postup inventury</span>
                   <span className="font-mono font-black text-sm text-neutral-900 tabular-nums">
                     {postup.hotovo} / {postup.celkem}
                   </span>
@@ -1992,7 +1992,7 @@ function exportInventoryExcel() {
                       }`}
                     >
                       {popis}
-                      <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-black ${
+                      <span className={`px-1.5 py-0.5 rounded-full text-udaj font-black ${
                         druhFiltr === id ? 'bg-white/20' : 'bg-white'
                       }`}>{pocet}</span>
                     </button>
@@ -2016,7 +2016,7 @@ function exportInventoryExcel() {
                       }`}
                     >
                       {popis}
-                      <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-black ${
+                      <span className={`px-1.5 py-0.5 rounded-full text-udaj font-black ${
                         pocitaniFiltr === id ? 'bg-neutral-950/15' : 'bg-white'
                       }`}>{pocet}</span>
                     </button>
@@ -2046,7 +2046,7 @@ function exportInventoryExcel() {
 
                         <div className="grid grid-cols-2 gap-2">
                           <label className="block">
-                            <span className="text-[11px] font-black uppercase text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded-md inline-block mb-1">Inventura</span>
+                            <span className="text-udaj font-black uppercase text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded-md inline-block mb-1">Inventura</span>
                             <div className="flex items-stretch gap-1">
                               <button
                                 type="button"
@@ -2074,7 +2074,7 @@ function exportInventoryExcel() {
                             </div>
                           </label>
                           <label className="block">
-                            <span className="text-[11px] font-black uppercase text-sky-800 bg-sky-50 px-1.5 py-0.5 rounded-md inline-block mb-1">Ztráty (±)</span>
+                            <span className="text-udaj font-black uppercase text-sky-800 bg-sky-50 px-1.5 py-0.5 rounded-md inline-block mb-1">Ztráty (±)</span>
                             <div className="flex items-center gap-1">
                               <input
                                 type="number" onWheel={(e) => e.currentTarget.blur()}
@@ -2092,7 +2092,7 @@ function exportInventoryExcel() {
                               nezaloží a sudy neodečte. Bez téhle věty to z
                               obrazovky nikdo nepozná. */}
                           {(dorovnatMap[k] ?? '') !== '' && Number(dorovnatMap[k]) !== 0 && (
-                            <p className="text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-300 rounded px-2 py-1.5 mt-1.5">
+                            <p className="text-udaj font-bold text-amber-800 bg-amber-50 border border-amber-300 rounded px-2 py-1.5 mt-1.5">
                               Ztráty <strong>nezaloží stáčení ani neodečtou sudy</strong> — jsou na rozbité
                               a ztracené kusy. Když se to stočilo a jen se to nezapsalo, smaž tohle pole
                               a vyrovnej to v panelu pod pivem.
@@ -2114,7 +2114,7 @@ function exportInventoryExcel() {
                         {/* Že už se tahle položka srovnávala. Bez toho vypadá
                             srovnaná nula stejně jako nula, která seděla sama. */}
                         {vyrovnaniMap.has(k) && (
-                          <div className="px-2 py-1.5 rounded bg-emerald-700 text-white text-[11px] font-black flex items-center gap-1.5">
+                          <div className="px-2 py-1.5 rounded bg-emerald-700 text-white text-udaj font-black flex items-center gap-1.5">
                             <Check className="ikona-text" />
                             <span>
                               Vyrovnáno {vyrovnaniMap.get(k)! > 0 ? '+' : ''}{vyrovnaniMap.get(k)} ks
@@ -2128,7 +2128,7 @@ function exportInventoryExcel() {
                             tlačítko není: zapsalo by je bez sudů a panel pod
                             pivem, který se na sudy ptá, by tím zmizel. */}
                         {r.diffQty !== 0 && !jeSud(r.package_kind, r.package_label) && (
-                          <div className="text-[11px] font-bold text-neutral-600 text-center py-1">
+                          <div className="text-udaj font-bold text-neutral-600 text-center py-1">
                             Lahve se vyrovnávají <strong>v panelu pod pivem</strong> — tam se zadávají i sudy.
                           </div>
                         )}
@@ -2147,14 +2147,14 @@ function exportInventoryExcel() {
                               : 'Napočítáno míň — odečíst rozdíl ze stáčení'}
                           >
                             {r.diffQty > 0 ? (
-                              <><Plus size={15} /> Zapsat {r.diffQty} ks jako stočení</>
+                              <><Plus size={16} /> Zapsat {r.diffQty} ks jako stočení</>
                             ) : (
-                              <><MinusCircle size={15} /> Odečíst {Math.abs(r.diffQty)} ks ze stáčení</>
+                              <><MinusCircle size={16} /> Odečíst {Math.abs(r.diffQty)} ks ze stáčení</>
                             )}
                           </button>
                         )}
 
-                        <div className="text-[11px] text-neutral-500 flex flex-wrap gap-x-2.5 gap-y-0.5 pt-1 border-t border-black/10">
+                        <div className="text-udaj text-neutral-500 flex flex-wrap gap-x-2.5 gap-y-0.5 pt-1 border-t border-black/10">
                           <span>Poč. {r.initialQty}</span>
                           <span>Stočeno +{r.stacenoQty}</span>
                           <span>Odpis −{r.odpisQty}</span>
@@ -2201,12 +2201,12 @@ function exportInventoryExcel() {
                         <Fragment key={k}>
                         {/* data-inv-radek = kotva, aby obrazovka po zápisu neodskočila (lib/drzPozici.ts) */}
                         <tr data-inv-radek={k} className="plocha-z-dat plocha-z-dat-tlumena hover:brightness-95 transition-colors border-b border-neutral-200/60" style={beer ? { backgroundColor: beerBg(beer), ['--ink-plochy' as any]: beerInk(beer) } : undefined}>
-                          <td className={`font-black text-[11px] px-3 py-2 ${textColor}`}>{r.beer_name}</td>
-                          <td className={`font-extrabold text-[11px] px-3 py-2 ${textColor}`}>{formatPackageLabel(r.package_label)}</td>
-                          <td className={`text-right font-black text-[11px] px-2 py-2 ${textColor}`}>{r.initialQty} ks</td>
-                          <td className={`text-right font-black text-[11px] px-2 py-2 text-amber-900 font-black`}>+{r.stacenoQty}</td>
-                          <td className={`text-right font-black text-[11px] px-2 py-2 text-rose-800 font-black`}>{r.odpisQty > 0 ? `-${r.odpisQty}` : '-0'}</td>
-                          <td className={`text-right font-black text-[11px] px-2 py-2 text-amber-900 font-black`}>-{r.vydejQty}</td>
+                          <td className={`font-black text-udaj px-3 py-2 ${textColor}`}>{r.beer_name}</td>
+                          <td className={`font-extrabold text-udaj px-3 py-2 ${textColor}`}>{formatPackageLabel(r.package_label)}</td>
+                          <td className={`text-right font-black text-udaj px-2 py-2 ${textColor}`}>{r.initialQty} ks</td>
+                          <td className={`text-right font-black text-udaj px-2 py-2 text-amber-900 font-black`}>+{r.stacenoQty}</td>
+                          <td className={`text-right font-black text-udaj px-2 py-2 text-rose-800 font-black`}>{r.odpisQty > 0 ? `-${r.odpisQty}` : '-0'}</td>
+                          <td className={`text-right font-black text-udaj px-2 py-2 text-amber-900 font-black`}>-{r.vydejQty}</td>
                           <td className={`text-right border-x font-mono font-black text-xs px-3 py-2 ${
                             r.expectedQty < 0
                               ? (isDark ? 'bg-rose-950/80 border-rose-700 text-rose-200' : 'bg-rose-100/90 border-rose-300 text-rose-950')
@@ -2248,12 +2248,12 @@ function exportInventoryExcel() {
                               />
                             </div>
                             {r.dorovnatQty !== 0 && (
-                              <div className="mt-0.5 text-[11px] font-black text-sky-800">
+                              <div className="mt-0.5 text-udaj font-black text-sky-800">
                                 Očekáváno po ztrátách: {r.reconciledQty} ks
                               </div>
                             )}
                           </td>
-                          <td className="text-right font-mono font-black text-[11px] px-2 py-2">
+                          <td className="text-right font-mono font-black text-udaj px-2 py-2">
                             {vyrovnaniMap.has(k) ? (
                               <span className="px-1.5 py-0.5 rounded bg-emerald-700 text-white whitespace-nowrap">
                                 <Check className="ikona-text" /> {vyrovnaniMap.get(k)! > 0 ? '+' : ''}{vyrovnaniMap.get(k)} ks
@@ -2262,20 +2262,20 @@ function exportInventoryExcel() {
                               <span className="text-neutral-400">—</span>
                             )}
                           </td>
-                          <td className={`text-right font-mono font-black text-[11px] px-2 py-2 ${
+                          <td className={`text-right font-mono font-black text-udaj px-2 py-2 ${
                             r.diffQty < 0 ? (isDark ? 'text-rose-900' : 'text-rose-800') : r.diffQty > 0 ? (isDark ? 'text-emerald-900' : 'text-emerald-800') : textColor
                           }`}>
                             {r.diffQty > 0 ? `+${r.diffQty}` : r.diffQty} ks
                           </td>
-                          <td className={`text-right font-mono font-black text-[11px] px-2 py-2 ${
+                          <td className={`text-right font-mono font-black text-udaj px-2 py-2 ${
                             r.diffAfterQty < 0 ? (isDark ? 'text-rose-900' : 'text-rose-800') : r.diffAfterQty > 0 ? (isDark ? 'text-emerald-900' : 'text-emerald-800') : textColor
                           }`}>
                             {r.diffAfterQty > 0 ? `+${r.diffAfterQty}` : r.diffAfterQty} ks
                             {r.diffAfterQty === 0 && r.dorovnatQty !== 0 && (
-                              <span className="ml-1 text-[11px] font-black text-emerald-700"><Check className="ikona-text" /> sedí se ztrátami</span>
+                              <span className="ml-1 text-udaj font-black text-emerald-700"><Check className="ikona-text" /> sedí se ztrátami</span>
                             )}
                           </td>
-                          <td className={`text-right font-black text-[11px] px-3 py-2 ${
+                          <td className={`text-right font-black text-udaj px-3 py-2 ${
                             r.diffCzk < 0 ? (isDark ? 'text-rose-900' : 'text-rose-800') : r.diffCzk > 0 ? (isDark ? 'text-emerald-900' : 'text-emerald-800') : textColor
                           }`}>
                             {r.diffCzk.toLocaleString('cs-CZ')} Kč
@@ -2289,7 +2289,7 @@ function exportInventoryExcel() {
                                 zápisů bez jediného sudu. Lahve proto patří
                                 výhradně do panelu, který se na sudy ptá. */}
                             {r.diffQty !== 0 && !jeSud(r.package_kind, r.package_label) && (
-                              <span className="text-[11px] font-bold text-neutral-600 whitespace-nowrap">
+                              <span className="text-udaj font-bold text-neutral-600 whitespace-nowrap">
                                 ↓ v panelu pod pivem
                               </span>
                             )}
@@ -2298,7 +2298,7 @@ function exportInventoryExcel() {
                                 type="button"
                                 onClick={() => srovnatRozdil(r)}
                                 disabled={doplnujeSe !== null}
-                                className={`tap px-2 py-1.5 rounded font-black text-[11px] whitespace-nowrap transition disabled:opacity-50 ${
+                                className={`tap px-2 py-1.5 rounded font-black text-udaj whitespace-nowrap transition disabled:opacity-50 ${
                                   r.diffQty > 0
                                     ? 'bg-emerald-700 hover:bg-emerald-700 text-white'
                                     : 'bg-rose-600 hover:bg-rose-700 text-white'
@@ -2368,7 +2368,7 @@ function exportInventoryExcel() {
           <div className="flex items-center justify-between border-b border-neutral-100 pb-3 flex-wrap gap-2">
             <div>
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
-                <RotateCcw className="text-amber-600" size={20} />
+                <RotateCcw className="text-amber-600" size={18} />
                 <span>Počáteční zásoby piva ve skladu pro měsíc {currentMonth}</span>
               </h3>
               <p className="text-xs text-neutral-500 font-bold mt-0.5">
@@ -2397,7 +2397,7 @@ function exportInventoryExcel() {
                     const k = `${b.id}__${p.id}`;
                     return (
                       <div key={p.id} className="p-3 bg-white rounded border border-neutral-200 space-y-1">
-                        <label className="block text-[11px] font-black uppercase text-neutral-600 truncate">
+                        <label className="block text-udaj font-black uppercase text-neutral-600 truncate">
                           {formatPackageLabel(p.label)}
                         </label>
                         <div className="flex items-center gap-2">
@@ -2460,12 +2460,12 @@ function exportInventoryExcel() {
                 ? `Inventura a Sklad sedí u všech ${auditPolozky.length} položek za ${nazevMesice(currentMonth)}.`
                 : `${auditNesedi.length} z ${auditPolozky.length} položek se rozchází.`}
             </div>
-            <p className="mt-1 text-[11px] font-black text-neutral-900">
+            <p className="mt-1 text-udaj font-black text-neutral-900">
               Kontroluje pohyby od {new Date(`${currentMonth}-01`).toLocaleDateString('cs-CZ')} do{' '}
               {new Date(datumDoplnku(currentMonth)).toLocaleDateString('cs-CZ')} — počátek je stav
               k ránu {new Date(`${currentMonth}-01`).toLocaleDateString('cs-CZ')}.
             </p>
-            <p className="mt-1 text-[11px] font-bold text-neutral-700 leading-relaxed">
+            <p className="mt-1 text-udaj font-bold text-neutral-700 leading-relaxed">
               Obě řady počítají <strong>stejné okno</strong> a stejným vzorcem: počátek k prvnímu dni
               + stáčení za měsíc − objednávky − fasování − prodejna − akce − odpisy − sudy na lahve.
               Liší se jedinou věcí — <strong>odkud berou počátek</strong>: Inventura ze zapsaného
@@ -2474,7 +2474,7 @@ function exportInventoryExcel() {
               Rozdíl v kterémkoli sloupci pohybů je chyba.
             </p>
             {auditChybiZaklad.length > 0 && (
-              <p className="mt-2 p-2.5 rounded bg-amber-100 border border-amber-300 text-[11px] font-bold text-amber-950 leading-relaxed">
+              <p className="mt-2 p-2.5 rounded bg-amber-100 border border-amber-300 text-udaj font-bold text-amber-950 leading-relaxed">
                 <strong>{auditChybiZaklad.length}</strong> {auditChybiZaklad.length === 1 ? 'položce' : 'položkám'} chybí
                 za {nazevMesice(currentMonth)} řádek <strong>„Počáteční stav"</strong> — leží tu jen napočítaná
                 inventura. Tu Inventura záměrně nezapočítává (je to to, s čím se porovnává), takže počítá
@@ -2487,7 +2487,7 @@ function exportInventoryExcel() {
               <button
                 type="button"
                 onClick={() => setAuditJenRozdily((v) => !v)}
-                className="mt-2 px-3 py-1.5 rounded bg-rose-600 hover:bg-rose-700 text-white font-black text-[11px] transition tap"
+                className="mt-2 px-3 py-1.5 rounded bg-rose-600 hover:bg-rose-700 text-white font-black text-udaj transition tap"
               >
                 {auditJenRozdily ? 'Ukázat všechny položky' : `Ukázat jen rozdíly (${auditNesedi.length})`}
               </button>
@@ -2504,7 +2504,7 @@ function exportInventoryExcel() {
           <div className="overflow-auto rounded border border-neutral-200 bg-white max-h-[70vh]">
             <table className="w-full border-collapse min-w-[900px]">
               <thead>
-                <tr className="text-amber-300 text-[11px] font-black uppercase tracking-wider">
+                <tr className="text-amber-300 text-udaj font-black uppercase tracking-wider">
                   {/* Drží i při rolování do stran — tabulka je 900 px široká
                       a na telefonu se bez názvu vlevo čtou čísla, u kterých
                       není vidět, čí jsou. z-20, ať je nad ostatními
@@ -2526,7 +2526,7 @@ function exportInventoryExcel() {
                   const bunka = (sl: AuditSloupec, hodnota: number, radek: 'inventura' | 'sklad') => (
                     <td
                       key={sl}
-                      className={`text-right font-mono font-black text-[11px] px-2 py-2 whitespace-nowrap ${
+                      className={`text-right font-mono font-black text-udaj px-2 py-2 whitespace-nowrap ${
                         porovnani.rozdilne.includes(sl)
                           ? (radek === 'sklad' ? 'bg-rose-200 text-rose-950' : 'bg-amber-200 text-amber-950')
                           : sl === 'konec' ? 'bg-neutral-100 text-neutral-950' : 'text-neutral-800'
@@ -2541,7 +2541,7 @@ function exportInventoryExcel() {
                           style={beer ? { backgroundColor: beerBg(beer), ['--ink-plochy' as any]: beerInk(beer) } : undefined}>
                         <td
                           rowSpan={2}
-                          className="sticky left-0 z-10 px-3 py-2 align-top font-black text-[11px] text-neutral-950 whitespace-nowrap"
+                          className="sticky left-0 z-10 px-3 py-2 align-top font-black text-udaj text-neutral-950 whitespace-nowrap"
                           // Barva piva musí být i na buňce: pozadí ŘÁDKU se pod
                           // přilepenou buňkou nevykreslí a data by přes ni
                           // prosvítala při rolování.
@@ -2550,21 +2550,21 @@ function exportInventoryExcel() {
                           {it.beer_name}
                           <span className="block font-bold opacity-80">{formatPackageLabel(it.package_label)}</span>
                           {nesedi && (
-                            <span className="mt-1 block px-1.5 py-0.5 rounded bg-rose-600 text-white text-[11px] font-black w-fit">
+                            <span className="mt-1 block px-1.5 py-0.5 rounded bg-rose-600 text-white text-udaj font-black w-fit">
                               {porovnani.soucetNesedi ? 'součet nesedí' : `rozdíl ${porovnani.rozdilKonec > 0 ? '+' : ''}${porovnani.rozdilKonec} ks`}
                             </span>
                           )}
                           {porovnani.chybiZaklad && (
-                            <span className="mt-1 block px-1.5 py-0.5 rounded bg-amber-200 text-amber-950 text-[11px] font-black w-fit">
+                            <span className="mt-1 block px-1.5 py-0.5 rounded bg-amber-200 text-amber-950 text-udaj font-black w-fit">
                               chybí počáteční stav
                             </span>
                           )}
                         </td>
-                        <td className="px-3 py-2 font-black text-[11px] text-amber-900 whitespace-nowrap">Inventura</td>
+                        <td className="px-3 py-2 font-black text-udaj text-amber-900 whitespace-nowrap">Inventura</td>
                         {AUDIT_SLOUPCE.map((sl) => bunka(sl, porovnani.inventura[sl], 'inventura'))}
                       </tr>
                       <tr className="border-b border-neutral-200 bg-white/60">
-                        <td className="px-3 py-2 font-black text-[11px] text-sky-900 whitespace-nowrap">Sklad</td>
+                        <td className="px-3 py-2 font-black text-udaj text-sky-900 whitespace-nowrap">Sklad</td>
                         {AUDIT_SLOUPCE.map((sl) => bunka(sl, porovnani.sklad[sl], 'sklad'))}
                       </tr>
                     </Fragment>
@@ -2730,19 +2730,19 @@ function EndStockTab({
       {/* Souhrn */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="card p-4 bg-white border border-neutral-200 rounded space-y-1">
-          <span className="text-[11px] font-black uppercase text-neutral-500">Počáteční stav</span>
+          <span className="text-udaj font-black uppercase text-neutral-500">Počáteční stav</span>
           <div className="font-display font-black text-xl text-neutral-900">{totals.initial} ks</div>
         </div>
         <div className="card p-4 bg-white border border-neutral-200 rounded space-y-1">
-          <span className="text-[11px] font-black uppercase text-neutral-500">Stáčení KEG (+)</span>
+          <span className="text-udaj font-black uppercase text-neutral-500">Stáčení KEG (+)</span>
           <div className="font-display font-black text-xl text-emerald-600">+{totals.stacenoKeg} ks</div>
         </div>
         <div className="card p-4 bg-white border border-neutral-200 rounded space-y-1">
-          <span className="text-[11px] font-black uppercase text-neutral-500">Výdeje (−)</span>
+          <span className="text-udaj font-black uppercase text-neutral-500">Výdeje (−)</span>
           <div className="font-display font-black text-xl text-rose-600">−{totals.objednavky + totals.stacenoLahve + totals.fasovani + totals.prodejna + totals.akce + totals.odpisy} ks</div>
         </div>
         <div className="card p-4 bg-white border border-neutral-200 rounded space-y-1">
-          <span className="text-[11px] font-black uppercase text-neutral-500">Stav na konci měsíce</span>
+          <span className="text-udaj font-black uppercase text-neutral-500">Stav na konci měsíce</span>
           <div className="font-display font-black text-xl">
             {totals.endStock < 0 ? (
               <span className="px-2 py-0.5 rounded bg-rose-600 text-white">{totals.endStock} ks</span>
@@ -2750,7 +2750,7 @@ function EndStockTab({
               <span className="text-neutral-900">{totals.endStock} ks</span>
             )}
           </div>
-          {totals.endStock < 0 && <span className="text-[11px] text-rose-700 font-bold"><AlertTriangle className="ikona-text" /> Chybí {Math.abs(totals.endStock)} sudů!</span>}
+          {totals.endStock < 0 && <span className="text-udaj text-rose-700 font-bold"><AlertTriangle className="ikona-text" /> Chybí {Math.abs(totals.endStock)} sudů!</span>}
         </div>
       </div>
 
@@ -2793,18 +2793,18 @@ function EndStockTab({
                   <div className="grid grid-cols-3 gap-1.5 text-center">
                     {metrics.map((m) => (
                       <div key={m.label} className={`rounded py-1.5 ${m.cls}`}>
-                        <div className="text-[11px] font-black uppercase opacity-80">{m.label}</div>
+                        <div className="text-udaj font-black uppercase opacity-80">{m.label}</div>
                         <div className="text-xs font-black">{m.value} ks</div>
                       </div>
                     ))}
                   </div>
-                  {r.endStockQty < 0 && <div className="text-[11px] text-rose-700 font-black"><AlertTriangle className="ikona-text" /> Chybí {Math.abs(r.endStockQty)} ks!</div>}
+                  {r.endStockQty < 0 && <div className="text-udaj text-rose-700 font-black"><AlertTriangle className="ikona-text" /> Chybí {Math.abs(r.endStockQty)} ks!</div>}
                 </div>
               );
             })}
             <div className="rounded bg-neutral-200 p-3 space-y-2">
               <div className="font-black text-sm text-neutral-900"><PackageIcon className="ikona-text" /> CELKEM</div>
-              <div className="grid grid-cols-3 gap-1.5 text-center text-[11px] font-bold text-neutral-800">
+              <div className="grid grid-cols-3 gap-1.5 text-center text-udaj font-bold text-neutral-800">
                 <div>Počátek {totals.initial}</div>
                 <div className="text-emerald-700">+{totals.stacenoKeg} KEG</div>
                 <div className="text-rose-700">−{totals.objednavky} obj.</div>
@@ -2843,19 +2843,19 @@ function EndStockTab({
 
                   return (
                     <tr key={`${r.beer_id}__${r.package_id}`} className="plocha-z-dat plocha-z-dat-tlumena hover:brightness-95 transition-colors border-b border-neutral-200/60" style={beer ? { backgroundColor: beerBg(beer), ['--ink-plochy' as any]: beerInk(beer) } : undefined}>
-                      <td className={`font-black text-[11px] ${textColor}`}>{r.beer_name}</td>
-                      <td className={`font-extrabold text-[11px] ${textColor}`}>{formatPackageLabel(r.package_label)}</td>
-                      <td className={`text-right font-black text-[11px] ${textColor}`}>{r.initialQty}</td>
-                      <td className={`text-right font-black text-[11px] text-emerald-800 font-black`}>+{r.stacenoKegQty}</td>
-                      <td className={`text-right font-black text-[11px] text-rose-800 font-black`}>−{r.objednavkyQty}</td>
-                      <td className={`text-right font-black text-[11px] text-rose-800 font-black`}>−{r.stacenoLahveQty}</td>
-                      <td className={`text-right font-black text-[11px] text-rose-800 font-black`}>−{r.fasovaniQty}</td>
-                      <td className={`text-right font-black text-[11px] text-rose-800 font-black`}>−{r.prodejnaQty}</td>
-                      <td className={`text-right font-black text-[11px] text-rose-800 font-black`}>−{r.akceQty}</td>
-                      <td className={`text-right font-black text-[11px] text-rose-800 font-black`}>−{r.odpisyQty}</td>
-                      <td className={`text-right font-mono font-black text-[11px] bg-amber-100/90 border-x border-amber-300 ${r.endStockQty < 0 ? 'text-rose-800' : 'text-neutral-950'}`}>
+                      <td className={`font-black text-udaj ${textColor}`}>{r.beer_name}</td>
+                      <td className={`font-extrabold text-udaj ${textColor}`}>{formatPackageLabel(r.package_label)}</td>
+                      <td className={`text-right font-black text-udaj ${textColor}`}>{r.initialQty}</td>
+                      <td className={`text-right font-black text-udaj text-emerald-800 font-black`}>+{r.stacenoKegQty}</td>
+                      <td className={`text-right font-black text-udaj text-rose-800 font-black`}>−{r.objednavkyQty}</td>
+                      <td className={`text-right font-black text-udaj text-rose-800 font-black`}>−{r.stacenoLahveQty}</td>
+                      <td className={`text-right font-black text-udaj text-rose-800 font-black`}>−{r.fasovaniQty}</td>
+                      <td className={`text-right font-black text-udaj text-rose-800 font-black`}>−{r.prodejnaQty}</td>
+                      <td className={`text-right font-black text-udaj text-rose-800 font-black`}>−{r.akceQty}</td>
+                      <td className={`text-right font-black text-udaj text-rose-800 font-black`}>−{r.odpisyQty}</td>
+                      <td className={`text-right font-mono font-black text-udaj bg-amber-100/90 border-x border-amber-300 ${r.endStockQty < 0 ? 'text-rose-800' : 'text-neutral-950'}`}>
                         {r.endStockQty} ks
-                        {r.endStockQty < 0 && <span className="block text-[11px] text-rose-700 font-black"><AlertTriangle className="ikona-text" /> chybí {Math.abs(r.endStockQty)}</span>}
+                        {r.endStockQty < 0 && <span className="block text-udaj text-rose-700 font-black"><AlertTriangle className="ikona-text" /> chybí {Math.abs(r.endStockQty)}</span>}
                       </td>
                     </tr>
                   );

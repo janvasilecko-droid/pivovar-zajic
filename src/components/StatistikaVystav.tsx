@@ -74,13 +74,13 @@ function Dlazdice({ popis, litry, zmena, protiCemu }: {
 }) {
   return (
     <div className="card p-3.5 sm:p-4">
-      <div className="text-[11px] font-black uppercase tracking-wider text-neutral-500">{popis}</div>
+      <div className="text-udaj font-black uppercase tracking-wider text-neutral-500">{popis}</div>
       <div className="font-display font-extrabold text-2xl sm:text-3xl text-neutral-900 tabular-nums mt-1">
         {formatHl(litry)} <span className="text-base font-bold text-neutral-400">hl</span>
       </div>
       <div className="mt-1 flex items-center gap-1.5 min-h-[18px]">
         <Trend zmena={zmena} />
-        {zmena !== null && protiCemu && <span className="text-[11px] font-semibold text-neutral-400">proti {protiCemu}</span>}
+        {zmena !== null && protiCemu && <span className="text-udaj font-semibold text-neutral-400">proti {protiCemu}</span>}
       </div>
     </div>
   );
@@ -91,7 +91,7 @@ function Nadpis({ text, popis }: { text: string; popis?: string }) {
   return (
     <div className="mb-3">
       <h3 className="font-display font-extrabold text-sm text-neutral-900">{text}</h3>
-      {popis && <p className="text-[11px] font-semibold text-neutral-500 mt-0.5">{popis}</p>}
+      {popis && <p className="text-udaj font-semibold text-neutral-500 mt-0.5">{popis}</p>}
     </div>
   );
 }
@@ -372,7 +372,7 @@ export default function StatistikaVystav({
                     <div className="h-1.5 rounded-full bg-neutral-100 mt-1 overflow-hidden">
                       <div className="h-full rounded-full" style={{ width: `${Math.max(2, podil * 100)}%`, backgroundColor: BARVA_LETOS }} />
                     </div>
-                    <div className="text-[11px] font-semibold text-neutral-500 mt-0.5">
+                    <div className="text-udaj font-semibold text-neutral-500 mt-0.5">
                       {o.kusy} ks · {o.objednavek} {o.objednavek === 1 ? 'objednávka' : o.objednavek < 5 ? 'objednávky' : 'objednávek'}
                     </div>
                   </div>
@@ -390,7 +390,7 @@ export default function StatistikaVystav({
           <div className="overflow-x-auto -mx-1 px-1">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-[11px] font-black uppercase tracking-wider text-neutral-500 border-b border-neutral-200">
+                <tr className="text-udaj font-black uppercase tracking-wider text-neutral-500 border-b border-neutral-200">
                   <th scope="col" className="text-left py-2">Pivo</th>
                   <th scope="col" className="text-right py-2">Kusů</th>
                   <th scope="col" className="text-right py-2">Hektolitrů</th>
@@ -424,7 +424,7 @@ export default function StatistikaVystav({
         </section>
       )}
 
-      <p className="text-[11px] text-neutral-400 font-semibold px-1">
+      <p className="text-udaj text-neutral-400 font-semibold px-1">
         Výstav = objem stočených <strong>sudů</strong> (množství × objem obalu). Lahve se do něj nepočítají —
         lahvuje se z už stočených sudů, takže pivo v lahvi do výstavu vstoupilo už jako sud; přičítat ho znovu
         by tentýž objem počítalo dvakrát. Ze skladu se sudy na lahvování odečítají (viz Sklad → „Sud spotřebován

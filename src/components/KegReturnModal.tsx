@@ -98,7 +98,7 @@ export function KegReturnModal({
 
           <div className="flex items-center gap-2">
             <button type="button" onClick={() => setCounts({ ...EMPTY_COUNTS })} className="btn-ghost !rounded text-xs font-bold flex items-center gap-1" title="Vynulovat">
-              <RotateCcw size={13} /> Reset
+              <RotateCcw size={14} /> Reset
             </button>
             <button type="button" onClick={onClose} className="btn-secondary text-xs font-bold">
               Zrušit

@@ -87,14 +87,14 @@ function ChybyBlok() {
         <AlertTriangle className="ikona-text" />
         <span className="text-xs font-black uppercase tracking-wider text-neutral-700">Chyby aplikace</span>
         {stav === 'ok' && (
-          <span className={`ml-auto px-2.5 py-0.5 rounded-full font-black text-[11px] ${nevyrizene.length > 0 ? 'bg-rose-100 text-rose-900' : 'bg-emerald-100 text-emerald-900'}`}>
+          <span className={`ml-auto px-2.5 py-0.5 rounded-full font-black text-udaj ${nevyrizene.length > 0 ? 'bg-rose-100 text-rose-900' : 'bg-emerald-100 text-emerald-900'}`}>
             {nevyrizene.length > 0 ? `${nevyrizene.length} nevyřízených` : 'nic nového'}
           </span>
         )}
         <button
           type="button"
           onClick={() => { void nacti(); }}
-          className="px-2.5 py-1 rounded bg-neutral-100 text-neutral-700 font-black text-[11px] border border-neutral-300 tap"
+          className="px-2.5 py-1 rounded bg-neutral-100 text-neutral-700 font-black text-udaj border border-neutral-300 tap"
         >
           Načíst znovu
         </button>
@@ -204,14 +204,14 @@ function MigraceBlok() {
         <Database className="ikona-text" />
         <span className="text-xs font-black uppercase tracking-wider text-neutral-700">Databázové migrace</span>
         {stav === 'ok' && (
-          <span className={`ml-auto px-2.5 py-0.5 rounded-full font-black text-[11px] ${ceka > 0 ? 'bg-amber-100 text-amber-950' : 'bg-emerald-100 text-emerald-900'}`}>
+          <span className={`ml-auto px-2.5 py-0.5 rounded-full font-black text-udaj ${ceka > 0 ? 'bg-amber-100 text-amber-950' : 'bg-emerald-100 text-emerald-900'}`}>
             {ceka > 0 ? `${ceka} čeká na spuštění` : 'nic nečeká'}
           </span>
         )}
         <button
           type="button"
           onClick={() => { void nacti(); }}
-          className="px-2.5 py-1 rounded bg-neutral-100 text-neutral-700 font-black text-[11px] border border-neutral-300 tap"
+          className="px-2.5 py-1 rounded bg-neutral-100 text-neutral-700 font-black text-udaj border border-neutral-300 tap"
         >
           Načíst znovu
         </button>
@@ -302,7 +302,7 @@ function TankFrontaBlok() {
       <div className="flex items-center gap-2">
         <IkonaSud className="ikona-text" />
         <span className="text-xs font-black uppercase tracking-wider text-neutral-700">Nedokončené odečty z tanků</span>
-        <span className={`ml-auto px-2.5 py-0.5 rounded-full font-black text-[11px] ${fronta.length > 0 ? 'bg-amber-100 text-amber-950' : 'bg-emerald-100 text-emerald-900'}`}>
+        <span className={`ml-auto px-2.5 py-0.5 rounded-full font-black text-udaj ${fronta.length > 0 ? 'bg-amber-100 text-amber-950' : 'bg-emerald-100 text-emerald-900'}`}>
           {fronta.length > 0 ? `${fronta.length} čeká` : 'nic nečeká'}
         </span>
       </div>
@@ -368,9 +368,9 @@ export default function AdminDiagnostika() {
   return (
     <div className="card p-6 border-2 border-neutral-300 bg-white rounded shadow-md">
       <h2 className="font-display font-bold text-lg flex items-center gap-2">
-        <AlertTriangle size={20} className="text-rose-600" />
+        <AlertTriangle size={18} className="text-rose-600" />
         <span>Diagnostika</span>
-        <span className="ml-auto px-2.5 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-black text-[11px] uppercase tracking-wider">
+        <span className="ml-auto px-2.5 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-black text-udaj uppercase tracking-wider">
           ADMIN
         </span>
       </h2>

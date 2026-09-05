@@ -56,6 +56,25 @@ export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
+      /**
+       * 🔠 ŠKÁLA PÍSMA — pět rolí místo náhodných hodnot.
+       *
+       * Změřeno 5. 9. 2026: `text-[11px]` bylo v aplikaci 872×. Tailwind
+       * takovou hodnotu nezná, takže se nedala změnit z jednoho místa —
+       * a „velké písmo do sklepa", kde se kouká přes brýle a v páře, nešlo
+       * udělat vůbec.
+       *
+       * Role, ne velikosti: `text-udaj` je číslo v tabulce, `text-popisek`
+       * je popis pod ním. Kdo potřebuje jinou velikost, má sáhnout po jiné
+       * ROLI — pak se dá celá appka zvětšit změnou téhle tabulky.
+       */
+      fontSize: {
+        udaj: ['11px', { lineHeight: '1.35' }],       // číslo v hustém řádku
+        popisek: ['12px', { lineHeight: '1.4' }],      // popis pod údajem
+        text: ['14px', { lineHeight: '1.5' }],         // běžný text
+        podtitul: ['16px', { lineHeight: '1.4' }],     // nadpis karty
+        titul: ['20px', { lineHeight: '1.25' }],       // nadpis obrazovky
+      },
       fontFamily: {
         // Inter a Sora tu stály jako záloha a v index.html se kvůli nim
         // stahovaly další dva soubory z Googlu — přitom se nikdy nepoužily,
@@ -158,6 +177,33 @@ export default {
         glowGold: '0 0 20px -3px rgba(212, 144, 15, 0.35)',
         sidebar: '6px 0 30px rgba(0, 0, 0, 0.35)',
         glass: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
+      },
+      /**
+       * 🗂️ HLADINY PŘEKRYVU — pojmenované, ne vymyšlené za běhu.
+       *
+       * V aplikaci bylo dvanáct různých hodnot, mezi nimi `z-[999]`,
+       * `z-[9999]` a `z-[99999]`. Taková eskalace je stopa po tom, jak se
+       * překrývání řešilo: něco zmizelo pod něčím jiným, tak se přidala
+       * devítka. Výsledkem je, že se nedá říct, co má být nad čím —
+       * a toast se pod modálem schová.
+       *
+       * Pořadí zdola nahoru:
+       *   obsah    plovoucí prvky uvnitř stránky (přilepené hlavičky)
+       *   lista    navigace, záložky, lišty nad obsahem
+       *   modal    dialogy a jejich ztmavené pozadí
+       *   nadmodal dialog, který smí přebít jiný dialog (povinné hlášení,
+       *            vypršené heslo, kritický materiál, zvětšená fotka)
+       *   toast    hlášky — nad vším, jinak je člověk nevidí
+       *   potvrzeni  plachta „opravdu smazat?" — musí být i nad toasty,
+       *              protože se na ni čeká odpovědí
+       */
+      zIndex: {
+        obsah: '10',
+        lista: '20',
+        modal: '50',
+        nadmodal: '60',
+        toast: '70',
+        potvrzeni: '80',
       },
       borderRadius: {
         // Holé `rounded` je v aplikaci na 1600+ místech a Tailwind mu dává 4 px —
