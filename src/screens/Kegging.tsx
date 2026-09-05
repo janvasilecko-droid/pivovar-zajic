@@ -1217,8 +1217,10 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
         </form>
       )}
 
-      {/* Prehled: objednane kegy na dany tyden & tanky */}
-      {tab === 'prehled' && mode !== 'entry_only' && (
+      {/* „Stočeno KEG za týden" patří POD ZADÁVÁNÍ (záložka Začátek stáčení),
+          ať je při zápisu hned vidět, co už se tento týden stočilo. V Přehledu
+          je jen jeden filtrovatelný seznam „Všechny záznamy" (níž). */}
+      {tab === 'zapis' && mode !== 'entry_only' && (
         <>
 
           {/* Stočeno KEG za týden — jednotlivé záznamy s +/−/✕ */}
