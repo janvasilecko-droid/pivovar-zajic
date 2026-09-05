@@ -11,6 +11,9 @@ udělá realtime, když někdo jiný něco zapíše. Několik věcí jsem si ov�
 proti kódu a **nepotvrdily se** — ty tu nejsou (viz „Co vypadalo jako problém
 a není" na konci).
 
+**Stav plnění je v `docs/50-vylepseni-stav.md`** — 38 bodů hotových,
+3 čekají na majitele, 9 vědomě neuděláno s důvodem.
+
 Značky: ⭐ = nález z tohohle průchodu (v `docs/50-vylepseni-podruhe.md` není) ·
 🔴 hned · 🟠 mělo by se · 🟢 až bude čas ·
 **S** = do půl dne, **M** = den, **L** = víc dní.
@@ -93,8 +96,12 @@ a ve Skladu se pak čtou čísla, u kterých není vidět, čí jsou.
 Nesahá na dlaždice plochy, karty ani řádky tabulek, tedy na to, co určuje,
 kolik se toho na obrazovku vejde.
 
-### 12. 🟢 Tři číselná pole vytáhnou písmenkovou klávesnici (S)
-`type="number"` 74×, `inputMode` u 71 z nich.
+### 12. ❌ ~~Tři číselná pole vytáhnou písmenkovou klávesnici~~ — MŮJ OMYL
+Měřil jsem to greppem s `-A2`, jenže značka `<input>` pokračuje dál a
+`onWheel={(e) => …}` obsahuje `>` z tlusté šipky, takže se čtení zastavilo
+před `inputMode`. Přeměřeno značkovým parserem: **0 polí bez `inputMode`**.
+Je to přesně ta past, před kterou varuje komentář v
+`scripts/zkontroluj-tlacitka.mjs`.
 
 ---
 
@@ -198,9 +205,10 @@ Dokud se nepustí `docs/spustit-vsechny-migrace.sql`, tváří se hotové funkce
 ### 28. 🟠 Push čeká na jeden klíč (S, taky na majiteli)
 Kód hotový, chybí soukromý VAPID klíč v secrets Supabase.
 
-### 29. 🟢 Changelog je prázdná schránka (S)
-`lib/changelog.ts` existuje, obsah nemá. Po aktualizaci člověk nevidí, co se
-změnilo — a při hlášení chyby se nedá říct, co se ten den nasadilo.
+### 29. ❌ ~~Changelog je prázdná schránka~~ — MŮJ DRUHÝ OMYL
+`lib/changelog.ts` má přes 50 kB záznamů. Usoudil jsem to z toho, že soubor
+existuje, místo abych ho otevřel. Co je pravda: chyběly v něm změny z téhle
+dávky — doplněno.
 
 ### 30. 🟢 Chyby, které se odchytí, nikam nedojdou (S)
 `ErrorBoundary` a globální posluchači hlásí pády do `chyby_aplikace` — to
