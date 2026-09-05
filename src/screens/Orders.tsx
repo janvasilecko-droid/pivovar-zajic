@@ -24,6 +24,7 @@ import { QuickQtySelect, orderQuickQtys } from '../components/QuickQtySelect';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { topQuantitiesLastMonth } from '../lib/quickQty';
 import { parseVoiceOrder, parseOrderText, detectOrderNotes, loadAliasMap, loadPlaceAliasMap, emptyAliasMap, getOrCreatePlace, matchBeerFromHints, matchPackage, normalize, type ParserAliasMap } from '../lib/orderParser';
+import { slozNavrh } from '../lib/whatsappAmendment';
 
 import { shareOrderToWhatsApp } from '../lib/whatsapp';
 import { subscribeToWhatsAppMessages, fetchPendingWhatsAppMessages, fetchWhatsAppMessage, WhatsAppIncoming, fetchWhatsAppSenders, isSenderAllowed, triggerAutoParse, type WhatsAppSender } from '../lib/whatsappApi';
@@ -522,12 +523,15 @@ export default function Orders({
       const placeNameFree = message.parsed_place_name || 'Neznámý odběratel';
 
       // ↩️ Odpověď, která UPRAVUJE dřívější objednávku („Bez summera",
-      // „nakonec 9x30", „plus 3x10 11sv"). parsed_items u ní obsahují
-      // VÝSLEDNOU podobu celé objednávky, takže se stávající položky nahradí.
-      // Dřív z takové odpovědi vznikla druhá objednávka pro téhož odběratele,
-      // nebo se zpráva zahodila a obsluha to opravovala ručně.
+      // „nakonec 9x30", „malé sudy budou…, petky sedí"). Odpověď ale často
+      // mluví jen o ČÁSTI objednávky, ne o celé — proto se nesmí brát jako
+      // celý nový obsah. Slož finální podobu přes slozNavrh: jmenované skupiny
+      // se nahradí, o kterých odpověď říká „sedí"/nejmenuje je, zůstávají.
+      // Dřív se objednávka přepsala JEN položkami z odpovědi, takže „petky
+      // sedí" tiše smazalo petky (i třicítky), které měly zůstat.
       if (message.amends_order_id) {
-        const upraveneRadky = (message.parsed_items || []).map((item) => {
+        const nazvyOdpovedi = new Map<string, { beer_name: string | null; package_label: string | null }>();
+        const zOdpovedi = (message.parsed_items || []).map((item) => {
           const beer =
             beers.find((b) => b.id === item.beer_id) ??
             matchBeerFromHints(normalize([item.raw_line, item.degree].filter(Boolean).join(' ')), beers, aliasMap).beer ??
@@ -535,12 +539,51 @@ export default function Orders({
           const pkg =
             packages.find((p) => p.id === item.pkg_id) ??
             matchPackage(normalize([item.package_label, item.raw_line].filter(Boolean).join(' ')), packages, aliasMap);
-          return {
-            beer_id: beer?.id ?? null,
+          const beer_id = beer?.id ?? null;
+          const package_id = pkg?.id ?? null;
+          // Jméno/obal si drž stranou i pro nespárované položky (id = null),
+          // ať se raw text z odpovědi neztratí při skládání zpět.
+          nazvyOdpovedi.set(`${beer_id}|${package_id}`, {
             beer_name: beer?.name || item.beer_name || null,
-            package_id: pkg?.id ?? null,
             package_label: pkg?.label || item.package_label || null,
-            quantity: item.qty || 0,
+          });
+          return { beer_id, package_id, quantity: item.qty || 0 };
+        });
+
+        // ⚠️ replace_order_with_items přepisuje i HLAVIČKU objednávky hodnotami
+        // z p_order — prázdný objekt by objednávce vymazal datum, odběratele
+        // i den závozu. Odpověď mění jen položky, takže se hlavička (a současné
+        // položky kvůli sloučení) načtou a hlavička pošle beze změny.
+        const { data: puvodni, error: ordErr } = await supabase
+          .from('orders')
+          .select('order_date, place_id, place_name, delivery_day, delivery_date, note, items:order_items(beer_id, package_id, quantity)')
+          .eq('id', message.amends_order_id)
+          .single();
+        if (ordErr || !puvodni) throw new Error(ordErr?.message || 'Upravovaná objednávka už neexistuje.');
+
+        const soucasne = ((((puvodni as any).items ?? []) as any[])).map((i) => ({
+          beer_id: i.beer_id ?? null, package_id: i.package_id ?? null, quantity: Number(i.quantity || 0),
+        }));
+
+        // 🔀 Slož finální obsah: co odpověď jmenuje, se nahradí; co potvrzuje
+        // („petky sedí") nebo nejmenuje, zůstává z původní objednávky.
+        const navrh = slozNavrh({
+          soucasne,
+          zOdpovedi,
+          text: message.message_text,
+          obaly: packages.map((p) => ({ id: p.id, label: p.label, kind: (p as any).kind, volume_l: (p as any).volume_l })),
+        });
+
+        const upraveneRadky = navrh.map((it) => {
+          const beer = beers.find((b) => b.id === it.beer_id);
+          const pkg = packages.find((p) => p.id === it.package_id);
+          const fallback = nazvyOdpovedi.get(`${it.beer_id ?? null}|${it.package_id ?? null}`);
+          return {
+            beer_id: it.beer_id ?? null,
+            beer_name: beer?.name ?? fallback?.beer_name ?? null,
+            package_id: it.package_id ?? null,
+            package_label: pkg?.label ?? fallback?.package_label ?? null,
+            quantity: it.quantity || 0,
             is_prepared: false,
           };
         });
@@ -552,22 +595,20 @@ export default function Orders({
           );
         }
 
-        // ⚠️ replace_order_with_items přepisuje i HLAVIČKU objednávky hodnotami
-        // z p_order — prázdný objekt by objednávce vymazal datum, odběratele
-        // i den závozu. Odpověď mění jen položky, takže se hlavička načte
-        // a pošle beze změny.
-        const { data: puvodni, error: ordErr } = await supabase
-          .from('orders')
-          .select('order_date, place_id, place_name, delivery_day, delivery_date, note')
-          .eq('id', message.amends_order_id)
-          .single();
-        if (ordErr || !puvodni) throw new Error(ordErr?.message || 'Upravovaná objednávka už neexistuje.');
+        const hlavicka = {
+          order_date: (puvodni as any).order_date,
+          place_id: (puvodni as any).place_id,
+          place_name: (puvodni as any).place_name,
+          delivery_day: (puvodni as any).delivery_day,
+          delivery_date: (puvodni as any).delivery_date,
+          note: (puvodni as any).note,
+        };
 
         // Stejné RPC jako ruční úprava objednávky — nahradí položky atomicky,
         // takže objednávka nikdy nezůstane rozepsaná napůl.
         const { error: replaceErr } = await supabase.rpc('replace_order_with_items', {
           p_order_id: message.amends_order_id,
-          p_order: puvodni,
+          p_order: hlavicka,
           p_items: upraveneRadky,
         });
         if (replaceErr) throw new Error(replaceErr.message);
