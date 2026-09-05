@@ -145,7 +145,9 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
   // Přehled záznamů: filtr podle období (den/týden/měsíc) + filtr podle piva
 
-  const [recordsView, setRecordsView] = useState<'day' | 'week' | 'month'>('month');
+  // Výchozí je DEN (aktuální) — v přehledu se nejčastěji kouká „co dnes";
+  // týden a měsíc jsou o klik vedle. Dřív se otvíral měsíc a hledalo se v něm.
+  const [recordsView, setRecordsView] = useState<'day' | 'week' | 'month'>('day');
   const [recordsWeekKey, setRecordsWeekKey] = useState(() => isoWeekKey(new Date().toISOString().slice(0, 10)));
   const [recordsMonthKey, setRecordsMonthKey] = useState(() => new Date().toISOString().slice(0, 7));
   const [recordsDay, setRecordsDay] = useState(() => new Date().toISOString().slice(0, 10));
@@ -1599,7 +1601,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
               </h3>
 
               {/* Mobilní karty — čitelné a ovladatelné bez vodorovného scrollování */}
-              <div className="grid grid-cols-1 gap-2.5 md:hidden">
+              <div className="grid grid-cols-1 gap-1.5 md:hidden">
                 {sortedRows.map((r) => {
                   const beer = beers.find((b) => b.id === r.beer_id);
                   const pkg = packages.find((p) => p.id === r.package_id);
@@ -1607,7 +1609,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                   const liters = Number(r.quantity) * vol;
                   const isEditing = editingId === r.id;
                   return (
-                    <div key={r.id} className="rounded border border-amber-300/80 bg-white p-3 space-y-2.5">
+                    <div key={r.id} className="rounded border border-amber-300/80 bg-white p-2 space-y-1.5">
                       <div className="flex items-center gap-2">
                         <span className="shrink-0 font-mono font-bold text-xs text-amber-800">{formatDate(r.entry_date)}</span>
                         <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
@@ -1631,18 +1633,14 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                           )}
                         </span>
                       </div>
-                      <div className="grid grid-cols-2 gap-1.5 text-center">
-                        <div className="rounded bg-amber-100/70 py-1.5">
-                          <div className="text-[11px] font-black uppercase text-amber-700">Litry</div>
-                          <div className="text-sm font-black text-amber-900">{liters.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })}</div>
-                        </div>
-                        <div className="rounded bg-amber-100/70 py-1.5">
-                          <div className="text-[11px] font-black uppercase text-amber-700">HL</div>
-                          <div className="text-sm font-black text-amber-900">{(liters / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 })}</div>
-                        </div>
+                      {/* Litry/HL zhuštěné do jednoho řádku (dřív dvě velké
+                          dlaždice na záznam) — na telefon se tak vejde víc
+                          záznamů a pořád je to čitelné. */}
+                      <div className="text-[11px] font-bold text-amber-700 tabular-nums">
+                        {liters.toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} l · {(liters / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 })} hl
                       </div>
                       {!isEditing && (
-                        <div className="flex items-center gap-1.5 pt-2 border-t border-amber-100">
+                        <div className="flex items-center gap-1.5 pt-1.5 border-t border-amber-100">
                           <button type="button" onClick={() => setEditingRow(r)} className="btn-ghost !flex-none !w-11 !px-0 !min-h-[44px]" title="Upravit záznam" aria-label="Upravit záznam"><Pencil size={16} /></button>
                           <button type="button" onClick={() => increment(r.id, -1)} disabled={Number(r.quantity) <= 0} className="btn-pocet !min-h-[44px]" aria-label="Ubrat sud">−</button>
                           <button type="button" onClick={() => increment(r.id, 1)} className="btn-pocet !min-h-[44px]" aria-label="Přidat sud">+</button>

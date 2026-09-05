@@ -710,15 +710,15 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                   </h3>
                   <div className="flex flex-wrap gap-2 mb-3">
                     <div className="flex-1 min-w-[70px] rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-2 text-center">
-                      <div className="text-[10px] font-black uppercase tracking-wide text-amber-700">Dnes</div>
+                      <div className="text-[11px] font-black uppercase tracking-wide text-amber-700">Dnes</div>
                       <div className="font-mono font-black text-lg text-amber-950 tabular-nums">{dnesKs}</div>
                     </div>
                     <div className="flex-1 min-w-[70px] rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-2 text-center">
-                      <div className="text-[10px] font-black uppercase tracking-wide text-amber-700">Tento týden</div>
+                      <div className="text-[11px] font-black uppercase tracking-wide text-amber-700">Tento týden</div>
                       <div className="font-mono font-black text-lg text-amber-950 tabular-nums">{tydenKs}</div>
                     </div>
                     <div className="flex-1 min-w-[70px] rounded-lg bg-amber-100 border border-amber-300 px-2.5 py-2 text-center">
-                      <div className="text-[10px] font-black uppercase tracking-wide text-amber-800">Zvolený měsíc</div>
+                      <div className="text-[11px] font-black uppercase tracking-wide text-amber-800">Zvolený měsíc</div>
                       <div className="font-mono font-black text-lg text-amber-950 tabular-nums">{totalCount}</div>
                     </div>
                   </div>

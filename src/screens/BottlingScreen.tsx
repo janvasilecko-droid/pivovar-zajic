@@ -284,9 +284,18 @@ export default function BottlingScreen({
   const [reqPkgFilter, setReqPkgFilter] = useState('');
   const [reqOnlyMissing, setReqOnlyMissing] = useState(true);
 
-  const [recordsView, setRecordsView] = useState<'month' | 'week'>('month');
+  // Výchozí je DEN (aktuální) — v přehledu se nejčastěji kouká „co dnes";
+  // týden a měsíc jsou o klik vedle.
+  const [recordsView, setRecordsView] = useState<'day' | 'week' | 'month'>('day');
   const [recordsMonthKey, setRecordsMonthKey] = useState(() => new Date().toISOString().slice(0, 7));
   const [recordsWeekKey, setRecordsWeekKey] = useState(() => isoWeekKey(new Date().toISOString().slice(0, 10)));
+  const [recordsDay, setRecordsDay] = useState(() => new Date().toISOString().slice(0, 10));
+  // Posun dne o delta dní (vrací YYYY-MM-DD)
+  function shiftDay(dayKey: string, delta: number): string {
+    const d = new Date(`${dayKey}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + delta);
+    return d.toISOString().slice(0, 10);
+  }
   // Aktuální týden pro „Potřeba stočit lahve" (objednávky se počítají za týden, ne za měsíc)
   const [weekKey, setWeekKey] = useState(() => isoWeekKey(new Date().toISOString().slice(0, 10)));
   const weekLabel = weekRange(weekKey).label;
@@ -303,7 +312,9 @@ export default function BottlingScreen({
 
   const filteredRows = useMemo(() => {
     let result = rows;
-    if (recordsView === 'month') {
+    if (recordsView === 'day') {
+      result = result.filter((r) => r.entry_date === recordsDay);
+    } else if (recordsView === 'month') {
       result = result.filter((r) => r.entry_date?.startsWith(recordsMonthKey));
     } else {
       result = result.filter((r) => isoWeekKey(r.entry_date) === recordsWeekKey);
@@ -326,17 +337,20 @@ export default function BottlingScreen({
       result = result.filter((r) => r.package_id === recordsPkgFilter);
     }
     return result;
-  }, [rows, recordsView, recordsMonthKey, recordsWeekKey, recordsTab, recordsBeerFilter, recordsPkgFilter, packages]);
+  }, [rows, recordsView, recordsDay, recordsMonthKey, recordsWeekKey, recordsTab, recordsBeerFilter, recordsPkgFilter, packages]);
 
   // Záznamy omezené jen na zvolené období (měsíc/týden) — bez filtru lahve/KEG,
   // piva a obalu. Slouží pro souhrnné karty "Přehled stočených..." nahoře,
   // aby respektovaly stejné období jako výběr týdne/měsíce níže.
   const periodRows = useMemo(() => {
+    if (recordsView === 'day') {
+      return rows.filter((r) => r.entry_date === recordsDay);
+    }
     if (recordsView === 'month') {
       return rows.filter((r) => r.entry_date?.startsWith(recordsMonthKey));
     }
     return rows.filter((r) => isoWeekKey(r.entry_date) === recordsWeekKey);
-  }, [rows, recordsView, recordsMonthKey, recordsWeekKey]);
+  }, [rows, recordsView, recordsDay, recordsMonthKey, recordsWeekKey]);
 
   // Filtrované obaly: pouze lahve povolených velikostí
   const bottlePackages = useMemo(() =>
@@ -1292,7 +1306,7 @@ export default function BottlingScreen({
           <div className="flex items-center justify-between mb-2">
             <span className="font-display font-black text-amber-950 text-xs"><IkonaLahev className="ikona-text" /> Přehled stočených lahví</span>
             <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wide">
-              {recordsView === 'week' ? weekRange(recordsWeekKey).label : recordsMonthKey}
+              {recordsView === 'day' ? recordsDay : recordsView === 'week' ? weekRange(recordsWeekKey).label : recordsMonthKey}
             </span>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -1324,7 +1338,7 @@ export default function BottlingScreen({
           <div className="flex items-center justify-between mb-2">
             <span className="font-display font-black text-amber-950 text-xs"><IkonaSud className="ikona-text" /> Přehled stočených KEG</span>
             <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wide">
-              {recordsView === 'week' ? weekRange(recordsWeekKey).label : recordsMonthKey}
+              {recordsView === 'day' ? recordsDay : recordsView === 'week' ? weekRange(recordsWeekKey).label : recordsMonthKey}
             </span>
           </div>
           <div className="flex items-center gap-2 flex-wrap mb-3">
@@ -1420,6 +1434,26 @@ export default function BottlingScreen({
                 >
                   <PackageIcon size={13} /> Vše
                 </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setRecordsView('day')}
+                    className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded border transition ${
+                      recordsView === 'day'
+                        ? 'bg-amber-200 border-amber-300 text-amber-950'
+                        : 'bg-white border-neutral-200 text-neutral-600'
+                    }`}
+                  >
+                    <CalendarDays size={13} /> Den
+                  </button>
+                  {recordsView === 'day' && (
+                    <>
+                      <button onClick={() => setRecordsDay(shiftDay(recordsDay, -1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-white border border-amber-300 hover:bg-amber-50 text-amber-900 font-black text-base transition shrink-0">‹</button>
+                      <input type="date" value={recordsDay} onChange={(e) => setRecordsDay(e.target.value)} className="input text-xs font-bold px-2 py-1 rounded border border-neutral-200 bg-white text-neutral-700" />
+                      <button onClick={() => setRecordsDay(shiftDay(recordsDay, 1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-white border border-amber-300 hover:bg-amber-50 text-amber-900 font-black text-base transition shrink-0">›</button>
+                    </>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={() => setRecordsView('month')}
@@ -1446,12 +1480,13 @@ export default function BottlingScreen({
                   {/* Šipky jsou bílé, ne žluté: leží na žlutém panelu a
                       žlutá na žluté není poznat jako tlačítko — na slunci
                       teprve ne. */}
-                  {recordsView === 'week' ? (
+                  {recordsView === 'week' && (
                     <>
                       <button onClick={() => setRecordsWeekKey(shiftWeek(recordsWeekKey, -1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-white border border-amber-300 hover:bg-amber-50 text-amber-900 font-black text-base transition shrink-0">‹</button>
                       <button onClick={() => setRecordsWeekKey(shiftWeek(recordsWeekKey, 1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-white border border-amber-300 hover:bg-amber-50 text-amber-900 font-black text-base transition shrink-0">›</button>
                     </>
-                  ) : (
+                  )}
+                  {recordsView === 'month' && (
                     <>
                       <button onClick={() => setRecordsMonthKey(shiftMonth(recordsMonthKey, -1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-white border border-amber-300 hover:bg-amber-50 text-amber-900 font-black text-base transition shrink-0">‹</button>
                       <span className="text-xs font-bold text-amber-950 px-1 whitespace-nowrap">{recordsMonthKey}</span>
@@ -1561,7 +1596,7 @@ export default function BottlingScreen({
               </h3>
 
               {/* Mobilní karty */}
-              <div className="grid grid-cols-1 gap-2.5 md:hidden">
+              <div className="grid grid-cols-1 gap-1.5 md:hidden">
                 {sortedRows.map((r) => {
                   const beer = beers.find((b) => b.id === r.beer_id);
                   const pkg = packages.find((p) => p.id === r.package_id);
@@ -1572,17 +1607,15 @@ export default function BottlingScreen({
                   const isFirstInBatch = !seenKegBatchesMobile.has(bId);
                   if (r.kegs_used && r.kegs_used > 0) seenKegBatchesMobile.add(bId);
                   return (
-                    <div key={r.id} className="rounded border border-amber-300/80 bg-white p-3 space-y-2.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
-                          <span className="font-black text-sm text-amber-950 truncate">{r.beer_name ?? beer?.name ?? '—'}</span>
-                        </div>
+                    <div key={r.id} className="rounded border border-amber-300/80 bg-white p-2 space-y-1.5">
+                      {/* Datum · pivo · obal · ks na JEDNOM řádku — dřív to byly
+                          dva řádky; na telefon se tak vejde víc záznamů. */}
+                      <div className="flex items-center gap-2">
                         <span className="shrink-0 font-mono font-bold text-xs text-amber-800">{formatDate(r.entry_date)}</span>
-                      </div>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-bold text-amber-700">{pkg?.label ?? '—'}</span>
-                        <span className="font-display font-black text-xl text-amber-950">{r.quantity} ks</span>
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/20" style={{ backgroundColor: beerBg(beer) }} />
+                        <span className="font-black text-sm text-amber-950 truncate min-w-0">{r.beer_name ?? beer?.name ?? '—'}</span>
+                        <span className="shrink-0 text-xs font-bold text-amber-700">{pkg?.label ?? '—'}</span>
+                        <span className="ml-auto shrink-0 font-display font-black text-xl text-amber-950">{r.quantity} ks</span>
                       </div>
                       <div className="grid grid-cols-2 gap-1.5 text-center">
                         <div className="rounded bg-amber-100/70 py-1.5">
