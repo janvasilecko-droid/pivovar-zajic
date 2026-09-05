@@ -72,12 +72,24 @@ html, body, #root {
   body {
     @apply bg-neutral-50 text-neutral-900 antialiased font-sans;
     font-feature-settings: 'cv11', 'ss01';
+    /* 🔢 Číslice stejné šířky v CELÉ aplikaci.
+       `tabular-nums` bylo do 5. 9. 2026 jen ve 21 souborech ze 123 — jinde
+       měla „1" jinou šířku než „8", takže se sloupec kusů při každém
+       přepočtu posunul do stran a časovač „tancoval". Vypisovat tu třídu
+       u každého čísla je práce, na kterou se zapomene; appka je navíc
+       skrz naskrz o číslech, takže je správně to mít obráceně: tabulární
+       všude a výjimka tam, kde se čte souvislý text. */
+    font-variant-numeric: tabular-nums;
     background-image:
       radial-gradient(circle at 10% 0%, rgba(200, 95, 30, 0.05), transparent 35%),
       radial-gradient(circle at 90% 100%, rgba(212, 144, 15, 0.05), transparent 35%),
       radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.015), transparent 50%);
     background-attachment: fixed;
   }
+  /* Výjimka: v souvislém textu (changelog, nápovědy, popisy) vypadají
+     proporcionální číslice přirozeněji a nic se v něm neposouvá. */
+  p, .lze-vybrat, .prose { font-variant-numeric: normal; }
+
   * { -webkit-tap-highlight-color: transparent; }
   ::selection { @apply bg-primary-200 text-primary-950; }
 

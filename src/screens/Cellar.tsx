@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../lib/auth';
 import { AlertTriangle, ArrowLeftRight, Beer as BeerIcon, CalendarDays, Check, ChevronLeft, ChevronRight, ClipboardList, Droplet, Factory, FlaskConical, NotebookPen, Play, SprayCan, Square, Warehouse } from 'lucide-react';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
+import { HlavickaStranky } from '../components/HlavickaStranky';
 
 import { nesedici, zkontrolujTanky } from '../lib/tankKontrola';
 import { Beer, CellarTank, CellarTankCycle, CellarTransfer, EntryRow, Package, beerBorder, fetchAllRows, supabase, useRealtime } from '../lib/supabase';
@@ -584,10 +585,11 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
       )}
 
       <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
-        <div>
-          <h1 className="text-2xl font-display font-bold text-primary-900"><Warehouse className="ikona-text" /> Sklep & Spilka — tanky</h1>
-          <p className="text-sm text-primary-500 mt-1">Kvasné tanky na Spilce (Spilka 1–3) & Ležácké tanky (Tanky 1–8).</p>
-        </div>
+        <HlavickaStranky
+          titul="Sklep & Spilka — tanky"
+          podtitul="Kvasné tanky na Spilce (Spilka 1–3) & Ležácké tanky (Tanky 1–8)."
+          ikona={Warehouse}
+        />
 
         <div className="sticky top-0 z-20 bg-neutral-100 py-1 flex flex-wrap items-center gap-2 w-full">
           {/* Tab Selector: Ležácké vs Spilka vs Plánovač — přilepený nahoře. */}

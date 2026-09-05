@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase, useRealtime } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { EmptyState, Spinner } from '../components/ui';
+import { HlavickaStranky } from '../components/HlavickaStranky';
 import { UntappdAiAnalyzer } from '../components/UntappdAiAnalyzer';
 import { Bug, HelpCircle, Lightbulb, MessageCircle, MessageSquare, NotebookPen, Sparkles, type LucideIcon } from 'lucide-react';
 import { potvrd } from '../lib/toast';
@@ -142,10 +143,11 @@ export default function Feedback({ setPage, initialSubTab }: { setPage?: (p: any
       {activeTab === 'notes' && (
         <>
           <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
-            <div>
-              <h1 className="text-2xl font-display font-bold text-primary-900"><MessageCircle className="ikona-text" /> Poznámky a nápady</h1>
-              <p className="text-sm text-primary-500 mt-1">Napiš, co by se mělo vylepšit, opravit nebo upravit. Vidí to všichni kolegové.</p>
-            </div>
+            <HlavickaStranky
+              titul="Poznámky a nápady"
+              podtitul="Napiš, co by se mělo vylepšit, opravit nebo upravit. Vidí to všichni kolegové."
+              ikona={MessageCircle}
+            />
             <button className="btn-primary !rounded" onClick={() => setShowForm((s) => !s)}>
               {showForm ? 'Zavřít' : '+ Napsat poznámku'}
             </button>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { HlavickaStranky } from '../components/HlavickaStranky';
 import { getAllUserVersions } from '../lib/appVersionTracker';
 import { useAuth } from '../lib/auth';
 import { Smartphone, RefreshCw, Clock, User } from 'lucide-react';
@@ -66,10 +67,7 @@ export default function AppVersionsScreen() {
   return (
     <div className="p-4 max-w-3xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold flex items-center gap-2">
-          <Smartphone className="w-5 h-5" />
-          Verze aplikace
-        </h1>
+        <HlavickaStranky titul="Verze aplikace" ikona={Smartphone} />
         <button
           onClick={load}
           disabled={loading}
