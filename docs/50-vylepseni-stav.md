@@ -5,7 +5,7 @@ Průběžný stav k seznamu v `docs/50-vylepseni-telefon-a-stabilita.md`
 pravdu o tom, co z toho opravdu v kódu je, co dělat nejde a co jsem
 vědomě neudělal a proč.
 
-**Hotovo: 38 bodů. Čeká na majitele: 3. Vědomě neuděláno: 9** (u každého
+**Hotovo: 42 bodů. Čeká na majitele: 3. Vědomě neuděláno: 5** (u každého
 je napsaný důvod — ne „nestihl jsem").
 
 Výchozí stav po všech změnách:
@@ -72,6 +72,9 @@ node scripts/e2e.mjs   scénář prošel
 | 38 | Kostra místo zhasnuté obrazovky (6 obrazovek) | `Kostra` + test |
 | 39 | Zmizelo varování buildu o dělení kódu | `Layout`, `AppSettings` |
 | 41 | Fotky ze storage `loading="lazy"` | 6 míst |
+| 36 | Objednávky 273 → 120 kB (6 modálů na vyžádání) | `zkontroluj-velikost.mjs` |
+| 36 | Čtení z fotky mimo kus obrazovky (Inventura, KEG, Lahve) | build |
+| 46 | Evidence skladu má typy místo `any[]` | `stockLedger.ts` |
 
 ### Stabilita
 | # | Co | Doklad |
@@ -84,6 +87,7 @@ node scripts/e2e.mjs   scénář prošel
 | 48 | +7 testů na UI a chování | kostra, dialog, načítání, graf |
 | 49 | E2E scénář zápisu | `scripts/e2e.mjs` |
 | 50 | Vzorník prvků + snímky před/po | `/prvky.html`, `scripts/snimky.mjs` |
+| 49 | Druhý E2E scénář: vzorník v obou režimech | `scripts/e2e.mjs` |
 
 ### Navíc, co v seznamu nebylo
 - **Hooky volané po `return null`** — modal „Přizpůsobení osobního menu"
@@ -120,10 +124,10 @@ Tohle je rozhodnutí, ne úprava kódu.
 | 5 | Mobilní karty pro 4 administrátorské tabulky | Administrátorské a souhrnné obrazovky, na telefonu se skoro neotvírají. Mají vlastní rolovací box a nově přilepený název, takže se čtou. Návrh karet pro každou z nich je práce, jejíž výsledek bych bez provozu neuměl posoudit. |
 | 18 | Zbylých 547 malovaných tlačítek | Projekt sám si zvolil postupný převod („přepsat 865 tlačítek naráz je nejlepší způsob, jak appku položit") a má na to hlídače. Převedeno 4 a základ snížen; zbytek patří k obrazovkám, až se na nich bude dělat. |
 | 35 | 70× `select('*')` na vyjmenované sloupce | Při dnešním objemu (177 objednávek, 209 stáčení za dva měsíce) je úspora neměřitelná, ale riziko reálné: vyjmenovaný sloupec, který v databázi chybí nebo přibude, rozbije dotaz tiše. Až s objemem, a pak s měřením. |
-| 36 | Rozdělit `Orders.tsx` (3 791 řádků) | Nejdůležitější obrazovka aplikace. Audit sám říká „dělit až při další úpravě té které obrazovky, ne plošně" — bez možnosti proklikat objednávky v provozu je to riziko bez užitku. |
-| 37 | `React.memo` a virtualizace | Memoizace naslepo umí výkon i zhoršit; správně se umisťuje podle profilu, a ten se dělá na skutečných datech a skutečném telefonu. Co šlo změřit staticky (mrtvé dotazy, mrtvé `useMemo`, přenačítání do kapsy), uděláno je. |
+| 36 | Rozdělit `Orders.tsx` na soubory | Rozdělení SOUBORU zůstává neudělané — je to nejdůležitější obrazovka a bez možnosti proklikat objednávky v provozu je přeskládání riziko bez užitku. Co ale udělané je: šest těžkých modálů se stahuje až při otevření (**273 → 120 kB**) a sdílené kusy (stavy objednávek, posun měsíce) jsou vytažené do `lib/`. |
+| 37 | `React.memo` a virtualizace | Memoizace naslepo umí výkon i zhoršit; správně se umisťuje podle profilu, a ten se dělá na skutečných datech a skutečném telefonu. Co šlo změřit staticky, uděláno je — mrtvé dotazy, mrtvé `useMemo`, přenačítání do kapsy a hlavně dělení kusů (viz #36 níž). |
 | 40 | CSS do jednoho systému (`HomeScreen.css`) | 243 vlastních tříd plochy, která má záměrně vlastní vizuální jazyk. Převod na utility by byl velký diff bez viditelného přínosu. |
-| 46 | 379× `any` → typy ze Supabase | `supabase gen types` potřebuje přístup k databázi, který tu není. Patří to k migracím, které pouští majitel. |
+| 46 | Zbylých 12 `useState<any[]>` | `supabase gen types` potřebuje přístup k databázi, který tu není. **Hotové je to podstatné**: `StockSources` — vstup do jediného místa, které počítá sklad — měl deset polí `any[]` a má teď tři pojmenované typy. Zbytek drží tvary s vnořenými položkami, na které je potřeba vygenerovaný typ. |
 | 12, 29 | — | Byly to **mé omyly v auditu**: `inputMode` nechybí nikde a changelog není prázdný. Opraveno v textu obou dokumentů. |
 
 ---
