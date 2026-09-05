@@ -5,17 +5,19 @@ Průběžný stav k seznamu v `docs/50-vylepseni-telefon-a-stabilita.md`
 pravdu o tom, co z toho opravdu v kódu je, co dělat nejde a co jsem
 vědomě neudělal a proč.
 
-**Hotovo: 42 bodů. Čeká na majitele: 3. Vědomě neuděláno: 5** (u každého
-je napsaný důvod — ne „nestihl jsem").
+**Hotovo: 42 bodů. Čeká na majitele: 3. Zčásti nebo vůbec: 7** (u každého
+je napsaný důvod — ne „nestihl jsem"). Ze sedmi jsou tři udělané zčásti:
+#36 (kusy rozdělené, soubor ne), #37 (dělení ano, memoizace ne) a #46
+(evidence skladu otypovaná, zbytek ne).
 
 Výchozí stav po všech změnách:
 
 ```
-npx vitest run       1315 testů / 119 souborů — všechny prošly
+npx vitest run       1324 testů / 120 souborů — všechny prošly
 npx tsc --noEmit     bez chyby
 npm run lint         0 chyb (1139 varování = známý dluh, utahuje se)
 zkontroluj-tridy · kontrast · tlacitka · dotyk · popisky · velikost   OK
-node scripts/e2e.mjs   scénář prošel
+node scripts/e2e.mjs   oba scénáře prošly
 ```
 
 ---
@@ -85,9 +87,8 @@ node scripts/e2e.mjs   scénář prošel
 | 45 | Stálý klíč řádku místo indexu | `CountFromImage`, `ImportFromImage` |
 | 47 | ESLint (a hned 2 skutečné chyby) | `eslint.config.js` |
 | 48 | +7 testů na UI a chování | kostra, dialog, načítání, graf |
-| 49 | E2E scénář zápisu | `scripts/e2e.mjs` |
+| 49 | Dva E2E scénáře: zápis inventury a vzorník v obou režimech | `scripts/e2e.mjs` |
 | 50 | Vzorník prvků + snímky před/po | `/prvky.html`, `scripts/snimky.mjs` |
-| 49 | Druhý E2E scénář: vzorník v obou režimech | `scripts/e2e.mjs` |
 
 ### Navíc, co v seznamu nebylo
 - **Hooky volané po `return null`** — modal „Přizpůsobení osobního menu"
@@ -117,7 +118,7 @@ Tohle je rozhodnutí, ne úprava kódu.
 
 ---
 
-## Vědomě neuděláno — a proč
+## Zčásti nebo vůbec — a proč
 
 | # | Co | Proč ne |
 | --- | --- | --- |
@@ -125,7 +126,7 @@ Tohle je rozhodnutí, ne úprava kódu.
 | 18 | Zbylých 547 malovaných tlačítek | Projekt sám si zvolil postupný převod („přepsat 865 tlačítek naráz je nejlepší způsob, jak appku položit") a má na to hlídače. Převedeno 4 a základ snížen; zbytek patří k obrazovkám, až se na nich bude dělat. |
 | 35 | 70× `select('*')` na vyjmenované sloupce | Při dnešním objemu (177 objednávek, 209 stáčení za dva měsíce) je úspora neměřitelná, ale riziko reálné: vyjmenovaný sloupec, který v databázi chybí nebo přibude, rozbije dotaz tiše. Až s objemem, a pak s měřením. |
 | 36 | Rozdělit `Orders.tsx` na soubory | Rozdělení SOUBORU zůstává neudělané — je to nejdůležitější obrazovka a bez možnosti proklikat objednávky v provozu je přeskládání riziko bez užitku. Co ale udělané je: šest těžkých modálů se stahuje až při otevření (**273 → 120 kB**) a sdílené kusy (stavy objednávek, posun měsíce) jsou vytažené do `lib/`. |
-| 37 | `React.memo` a virtualizace | Memoizace naslepo umí výkon i zhoršit; správně se umisťuje podle profilu, a ten se dělá na skutečných datech a skutečném telefonu. Co šlo změřit staticky, uděláno je — mrtvé dotazy, mrtvé `useMemo`, přenačítání do kapsy a hlavně dělení kusů (viz #36 níž). |
+| 37 | `React.memo` a virtualizace | Memoizace naslepo umí výkon i zhoršit; správně se umisťuje podle profilu, a ten se dělá na skutečných datech a skutečném telefonu. Co šlo změřit staticky, uděláno je — mrtvé dotazy, mrtvé `useMemo`, přenačítání do kapsy a hlavně dělení kusů (viz #36 výš). |
 | 40 | CSS do jednoho systému (`HomeScreen.css`) | 243 vlastních tříd plochy, která má záměrně vlastní vizuální jazyk. Převod na utility by byl velký diff bez viditelného přínosu. |
 | 46 | Zbylých 12 `useState<any[]>` | `supabase gen types` potřebuje přístup k databázi, který tu není. **Hotové je to podstatné**: `StockSources` — vstup do jediného místa, které počítá sklad — měl deset polí `any[]` a má teď tři pojmenované typy. Zbytek drží tvary s vnořenými položkami, na které je potřeba vygenerovaný typ. |
 | 12, 29 | — | Byly to **mé omyly v auditu**: `inputMode` nechybí nikde a changelog není prázdný. Opraveno v textu obou dokumentů. |
