@@ -69,7 +69,7 @@ export function BreweryRadioBar({ onOpenModal }: BreweryRadioBarProps) {
         <button
           type="button"
           onClick={pauseRadio}
-          title="Zavřít lištu"
+          title="Zavřít lištu" aria-label="Zavřít lištu"
           className="p-1.5 rounded-full hover:bg-white/20 active:scale-95 transition text-white/70 hover:text-white tap"
         >
           <X size={14} />

@@ -3,6 +3,7 @@ import { Camera, Trash2, X } from 'lucide-react';
 import { potvrd } from '../lib/toast';
 import { type TypZaznamu } from '../lib/fotkyZaznamu';
 import { nactiFotky, nahrajFotku, smazFotku, type FotkaZaznamu } from '../lib/fotkyZaznamuApi';
+import { useChovaniDialogu } from '../lib/zavriNaZpet';
 
 /**
  * 📷 Fotky u jednoho zápisu — tlačítko „Fotka" a náhledy.
@@ -48,6 +49,8 @@ export function FotkyZaznamu({ typ, zaznamId, kompaktni = false }: {
   const [chyba, setChyba] = useState<string | null>(null);
   const [otevreno, setOtevreno] = useState(!kompaktni);
   const [zvetsena, setZvetsena] = useState<string | null>(null);
+  // Zvětšená fotka je taky dialog: Zpět ji má zavřít, ne odejít z obrazovky.
+  useChovaniDialogu(!!zvetsena, () => setZvetsena(null));
   const vstupRef = useRef<HTMLInputElement | null>(null);
 
   async function nacti() {
@@ -108,7 +111,7 @@ export function FotkyZaznamu({ typ, zaznamId, kompaktni = false }: {
         type="button"
         onClick={() => setOtevreno(true)}
         className="min-h-[44px] px-2.5 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-black transition"
-        title="Fotky k zápisu"
+        title="Fotky k zápisu" aria-label="Fotky k zápisu"
       >
         <span className="inline-flex items-center gap-1"><Camera size={16} /></span>
       </button>
@@ -172,7 +175,7 @@ export function FotkyZaznamu({ typ, zaznamId, kompaktni = false }: {
                 type="button"
                 onClick={() => { void smaz(f); }}
                 className="absolute -top-1.5 -right-1.5 w-6 h-6 grid place-items-center rounded-full bg-white border border-neutral-300 text-rose-700 shadow-2xs tap"
-                title="Smazat fotku"
+                title="Smazat fotku" aria-label="Smazat fotku"
               >
                 <Trash2 size={12} />
               </button>
@@ -193,7 +196,7 @@ export function FotkyZaznamu({ typ, zaznamId, kompaktni = false }: {
             type="button"
             onClick={() => setZvetsena(null)}
             className="absolute top-4 right-4 w-10 h-10 grid place-items-center rounded-full bg-white text-neutral-900 shadow-lg tap"
-            title="Zavřít"
+            title="Zavřít" aria-label="Zavřít"
           >
             <X size={18} />
           </button>

@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { Inbox, X, AlertTriangle, type LucideIcon } from 'lucide-react';
 import { plnostTanku, popisPlnosti } from '../lib/tankPlnost';
+import { useChovaniDialogu } from '../lib/zavriNaZpet';
 import { litry } from '../lib/cisla';
 
 export function Spinner({ className = '' }: { className?: string }) {
@@ -82,42 +83,11 @@ export function Field({ label, children, hint }: { label: string; children: Reac
 export function Modal({ open, onClose, title, children, wide, maxWidth }: {
   open: boolean; onClose: () => void; title: string; children: ReactNode; wide?: boolean; maxWidth?: string;
 }) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = ''; };
-  }, [open, onClose]);
-
-  // Tlačítko Zpět (hardwarové na Androidu i v prohlížeči) zavře modal místo
-  // toho, aby vyskočilo o stránku výš — zapíšeme si při otevření dodatečný
-  // krok do historie (se zachováním page/subTab, ať App.tsx při jeho
-  // odpopnutí nepřehodí stránku) a na popstate modal zavřeme.
-  //
-  // modalId: history.back() je asynchronní (popstate přijde až příští tick).
-  // Když se jeden modal zavře a hned v tomtéž renderu se otevře další (např.
-  // potvrzovací dialog → checklist), zpožděný back() z toho prvního by bez
-  // téhle kontroly odpopnul historii AŽ PO tom, co druhý modal stihl
-  // pushnout svůj vlastní záznam — a jeho popstate listener by ho tím pádem
-  // hned zase zavřel. Cleanup proto volá back() jen tehdy, když je na vrcholu
-  // historie pořád jeho VLASTNÍ záznam (podle unikátního id).
-  const onCloseRef = useRef(onClose);
-  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
-  useEffect(() => {
-    if (!open) return;
-    const modalId = Math.random().toString(36).slice(2);
-    window.history.pushState({ ...window.history.state, modalOpen: true, modalId }, '');
-    const onPopState = () => onCloseRef.current();
-    window.addEventListener('popstate', onPopState);
-    return () => {
-      window.removeEventListener('popstate', onPopState);
-      if (window.history.state?.modalOpen && window.history.state?.modalId === modalId) {
-        window.history.back();
-      }
-    };
-     
-  }, [open]);
+  // Zavírání na Escape, zamčené rolování pod dialogem a zavření tlačítkem
+  // Zpět. Vytaženo do lib/zavriNaZpet.ts, aby to samé měly i dialogy, které
+  // si `fixed inset-0` kreslí samy — bylo jich třináct a Zpět v nich odešel
+  // z celé obrazovky i s rozepsanou prací.
+  useChovaniDialogu(open, onClose);
 
   if (!open) return null;
   return (
@@ -129,7 +99,7 @@ export function Modal({ open, onClose, title, children, wide, maxWidth }: {
           <button
             onClick={onClose}
             className="w-8 h-8 grid place-items-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition tap"
-            title="Zavřít"
+            title="Zavřít" aria-label="Zavřít"
           >
             <X size={18} />
           </button>

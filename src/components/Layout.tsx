@@ -985,7 +985,7 @@ ${item.popis}
 
 Do databáze se už neuloží.`)) discardOp(item.id);
                         }}
-                        title="Zahodit tento zápis natrvalo — do databáze se neuloží"
+                        title="Zahodit tento zápis natrvalo — do databáze se neuloží" aria-label="Zahodit tento zápis natrvalo — do databáze se neuloží"
                         className={`shrink-0 min-h-[44px] px-3 rounded font-black ${failure ? 'bg-rose-600 hover:bg-rose-700 text-white' : 'bg-white border border-neutral-300 text-neutral-600 hover:bg-neutral-50'}`}
                       >
                         Zahodit

@@ -1412,12 +1412,12 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                     ))}
                   </select>
                   {layout.dock.length > MIN_DOCK && (
-                    <button type="button" className="hs-dock-remove" title="Odebrat tenhle slot" onClick={() => handleRemoveDockSlot(i)}><X size={14} /></button>
+                    <button type="button" className="hs-dock-remove" title="Odebrat tenhle slot" aria-label="Odebrat tenhle slot" onClick={() => handleRemoveDockSlot(i)}><X size={14} /></button>
                   )}
                 </span>
               ))}
               {layout.dock.length < MAX_DOCK && (
-                <button type="button" className="hs-dock-add" title="Přidat další slot do spodní lišty" onClick={handleAddDockSlot}>
+                <button type="button" className="hs-dock-add" title="Přidat další slot do spodní lišty" aria-label="Přidat další slot do spodní lišty" onClick={handleAddDockSlot}>
                   <Plus size={14} /> Přidat
                 </button>
               )}
@@ -1516,7 +1516,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   <Plus size={16} /> Přidat stránku
                 </button>
                 {layout.pages.length > 1 && (
-                  <button type="button" className="hs-pager-manage vlastni-vyska" title="Smazat tuhle stránku" onClick={handleRemoveCurrentPage}>
+                  <button type="button" className="hs-pager-manage vlastni-vyska" title="Smazat tuhle stránku" aria-label="Smazat tuhle stránku" onClick={handleRemoveCurrentPage}>
                     <Trash2 size={16} />
                   </button>
                 )}
@@ -1932,7 +1932,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                           type="button"
                           onClick={(e) => { e.stopPropagation(); nextStation(); }}
                           className="p-2 rounded-full bg-black/15 hover:bg-black/25 active:scale-95 transition"
-                          title="Další stanice"
+                          title="Další stanice" aria-label="Další stanice"
                         >
                           <SkipForward size={16} />
                         </button>
@@ -2586,7 +2586,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                                 resetCountdown(t.id);
                                 setCountdowns(getCountdowns());
                               }}
-                              title="Resetovat čas"
+                              title="Resetovat čas" aria-label="Resetovat čas"
                               className="p-1.5 text-neutral-600 hover:text-neutral-800 bg-neutral-100 hover:bg-neutral-200 rounded-lg"
                             >
                               <RotateCcw size={14} />
@@ -2845,7 +2845,7 @@ function BrewKettleTopBanner({
               // amber-100, ne amber-200: na 30% amber přes tmavý podklad
               // vycházel kontrast 4,3 — pod hranicí 4,5.
               className="p-2 rounded-xl bg-amber-500/30 hover:bg-amber-500/50 text-amber-100 border border-amber-500/40 transition active:scale-95"
-                title="Pozastavit / Spustit odpočet"
+                title="Pozastavit / Spustit odpočet" aria-label="Pozastavit / Spustit odpočet"
               >
                 <Pause size={16} />
               </button>
@@ -2884,7 +2884,7 @@ function BrewKettleTopBanner({
               type="button"
               onClick={() => setPage(runningCountdown || doneCountdown ? 'timer' : 'stopwatch')}
               className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition active:scale-95"
-              title="Otevřít stopky / časovač"
+              title="Otevřít stopky / časovač" aria-label="Otevřít stopky / časovač"
             >
               <ChevronRight size={16} />
             </button>

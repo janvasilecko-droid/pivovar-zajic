@@ -776,7 +776,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                 type="button"
                 onClick={() => cameraRef.current?.click()}
                 disabled={busy}
-                title="Vyfotit objednávku fotoaparátem"
+                title="Vyfotit objednávku fotoaparátem" aria-label="Vyfotit objednávku fotoaparátem"
                 className="w-11 h-11 grid place-items-center rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xl shadow-md transition active:scale-95 disabled:opacity-50"
               >
                 <Camera className="ikona-text" />
@@ -785,7 +785,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                 type="button"
                 onClick={() => fileRef.current?.click()}
                 disabled={busy}
-                title="Vybrat objednávku z fotogalerie"
+                title="Vybrat objednávku z fotogalerie" aria-label="Vybrat objednávku z fotogalerie"
                 className="w-11 h-11 grid place-items-center rounded bg-amber-700 hover:bg-amber-800 text-white text-xl shadow-md transition active:scale-95 disabled:opacity-50"
               >
                 <ImageIcon className="ikona-text" />
@@ -794,7 +794,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                 type="button"
                 onClick={() => fileRefPdf.current?.click()}
                 disabled={busy}
-                title="Vybrat soubor (např. PDF objednávky)"
+                title="Vybrat soubor (např. PDF objednávky)" aria-label="Vybrat soubor (např. PDF objednávky)"
                 className="h-11 px-2.5 rounded bg-white border border-neutral-300 text-neutral-800 text-xs font-black shadow-sm transition active:scale-95 disabled:opacity-50"
               >
                 <FileText className="ikona-text" /> PDF
@@ -878,7 +878,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                 <button
                   className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-primary-900/80 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity tap"
                   onClick={() => removePhoto(i)}
-                  title="Odstranit fotku"
+                  title="Odstranit fotku" aria-label="Odstranit fotku"
                 >×</button>
                 <span className="absolute bottom-0 left-0 right-0 bg-primary-900/70 text-white text-udaj px-1 py-0.5 truncate">{i + 1}</span>
               </div>
@@ -1083,7 +1083,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                     {(!p.duplicate || userAllowedDups.has(i)) && (
                       <button
                         className="ml-auto text-primary-300 hover:text-rose-400 text-xs px-2 py-0.5 rounded hover:bg-primary-800 transition-colors tap"
-                        title="Odstranit tento řádek z importu"
+                        title="Odstranit tento řádek z importu" aria-label="Odstranit tento řádek z importu"
                         onClick={(e) => { e.stopPropagation(); removeLine(i); }}
                       >× Odstranit</button>
                     )}
@@ -1213,7 +1213,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                         <button
                           type="button"
                           className="w-10 h-10 rounded bg-rose-100 hover:bg-rose-200 text-rose-700 flex items-center justify-center transition text-base font-bold tap"
-                          title="Odstranit řádek"
+                          title="Odstranit řádek" aria-label="Odstranit řádek"
                           onClick={(e) => { e.stopPropagation(); removeLine(i); }}
                         >×</button>
                       </div>

@@ -620,14 +620,14 @@ export default function BottleSanitationDiary() {
                             <div className="inline-flex gap-1.5">
                               <button
                                 onClick={() => openEdit(r.entry)}
-                                title="Upravit záznam"
+                                title="Upravit záznam" aria-label="Upravit záznam"
                                 className="p-2 rounded bg-neutral-100 hover:bg-amber-100 border border-neutral-200 text-neutral-700 hover:text-amber-900 transition"
                               >
                                 <Edit3 size={14} />
                               </button>
                               <button
                                 onClick={() => handleDelete(r.entry)}
-                                title="Smazat záznam"
+                                title="Smazat záznam" aria-label="Smazat záznam"
                                 className="p-2 rounded bg-neutral-100 hover:bg-rose-100 border border-neutral-200 text-neutral-700 hover:text-rose-900 transition"
                               >
                                 <Trash2 size={14} />
@@ -654,7 +654,7 @@ export default function BottleSanitationDiary() {
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
                 <span><SprayCan className="ikona-text" /> {editing ? `Upravit sanitaci — ${editing.sanitation_date}` : 'Záznam sanitace stáčecí linky lahví'}</span>
               </h3>
-              <button type="button" onClick={() => setShowModal(false)} className="text-neutral-400 hover:text-neutral-800 text-lg font-bold" title="Zavřít"><X size={18} /></button>
+              <button type="button" onClick={() => setShowModal(false)} className="text-neutral-400 hover:text-neutral-800 text-lg font-bold" title="Zavřít" aria-label="Zavřít"><X size={18} /></button>
             </div>
 
             {/* Grid layout */}

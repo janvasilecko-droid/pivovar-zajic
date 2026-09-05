@@ -249,14 +249,14 @@ export default function TapSanitationDiary() {
                     <button
                       onClick={() => openEdit(e)}
                       className="p-1.5 rounded bg-neutral-100 hover:bg-amber-100 text-neutral-600 hover:text-amber-800 transition tap"
-                      title="Upravit"
+                      title="Upravit" aria-label="Upravit"
                     >
                       <Edit3 size={14} />
                     </button>
                     <button
                       onClick={() => handleDelete(e.id)}
                       className="p-1.5 rounded bg-neutral-100 hover:bg-rose-100 text-neutral-600 hover:text-rose-700 transition tap"
-                      title="Smazat"
+                      title="Smazat" aria-label="Smazat"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -293,7 +293,7 @@ export default function TapSanitationDiary() {
               <h3 className="font-display font-black text-lg text-neutral-900">
                 {editingId ? 'Upravit záznam sanitace výčepu' : 'Nový záznam sanitace výčepu'}
               </h3>
-              <button onClick={() => setShowModal(false)} className="text-neutral-400 font-bold" title="Zavřít"><X size={18} /></button>
+              <button onClick={() => setShowModal(false)} className="text-neutral-400 font-bold" title="Zavřít" aria-label="Zavřít"><X size={18} /></button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">

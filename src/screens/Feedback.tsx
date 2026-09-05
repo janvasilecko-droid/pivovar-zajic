@@ -253,7 +253,7 @@ export default function Feedback({ setPage, initialSubTab }: { setPage?: (p: any
                           {STATUS_ORDER.map((s) => <option key={s} value={s}>{STATUS_META[s].label}</option>)}
                         </select>
                         {(isAdmin || mine) && (
-                          <button className="text-rose-400 hover:text-rose-600 text-sm px-2" title="Smazat" onClick={() => del(n.id)}>×</button>
+                          <button className="text-rose-400 hover:text-rose-600 text-sm px-2" title="Smazat" aria-label="Smazat" onClick={() => del(n.id)}>×</button>
                         )}
                       </div>
                     </div>

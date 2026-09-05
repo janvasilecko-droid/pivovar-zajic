@@ -374,7 +374,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
                             <button
                               onClick={() => handleApproveAllowedEmail(e.email)}
                               className="btn-primary !rounded !py-1 !px-2.5 text-udaj font-black flex items-center gap-1 cursor-pointer"
-                              title="Schválit přístup"
+                              title="Schválit přístup" aria-label="Schválit přístup"
                             >
                               <CheckCircle2 size={12} />
                               <span>Schválit</span>
@@ -382,7 +382,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
                             <button
                               onClick={() => handleDeleteAllowedEmail(e.email)}
                               className="btn-danger !rounded !py-1 !px-2.5 text-udaj font-black flex items-center gap-1 cursor-pointer"
-                              title="Odebrat e-mail"
+                              title="Odebrat e-mail" aria-label="Odebrat e-mail"
                             >
                               <Trash2 size={12} />
                               <span>Odebrat</span>
@@ -441,7 +441,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
                           <button
                             onClick={() => handleDeleteAllowedEmail(e.email)}
                             className="btn-danger !rounded !py-1 !px-2.5 text-udaj font-black flex items-center gap-1 ml-auto cursor-pointer"
-                            title="Odebrat schválení"
+                            title="Odebrat schválení" aria-label="Odebrat schválení"
                           >
                             <Trash2 size={12} />
                             <span>Odebrat</span>

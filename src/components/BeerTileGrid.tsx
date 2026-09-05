@@ -111,14 +111,14 @@ export function BeerTilePanel({ beer, onClose, children, headerRight, footer }: 
                 type="button"
                 onClick={onClose}
                 className="w-11 h-11 grid place-items-center rounded bg-emerald-700 hover:bg-emerald-400 text-white font-black transition select-none shadow-sm"
-                title="Hotovo — potvrdit a zavřít"><Check size={18} /></button>
+                title="Hotovo — potvrdit a zavřít" aria-label="Hotovo — potvrdit a zavřít"><Check size={18} /></button>
               <button
                 type="button"
                 onClick={onClose}
                 // Plná barva, ne černá s průhledností: lišta má barvu piva a
                 // u světlého ležáku se bílý křížek na 25% černé ztrácel.
                 className="w-11 h-11 grid place-items-center rounded bg-neutral-800 hover:bg-neutral-700 text-white font-black text-xl transition select-none"
-                title="Zavřít a vrátit se k dlaždicím"><X size={18} /></button>
+                title="Zavřít a vrátit se k dlaždicím" aria-label="Zavřít a vrátit se k dlaždicím"><X size={18} /></button>
             </div>
           </div>
           <div className="p-2.5 bg-white dark:bg-neutral-800 space-y-1.5 overflow-y-auto">

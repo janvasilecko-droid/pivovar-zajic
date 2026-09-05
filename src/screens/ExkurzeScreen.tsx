@@ -252,11 +252,11 @@ export default function ExkurzeScreen() {
             <div>
               <label className="block text-xs font-black text-neutral-700 mb-1">Počet lidí (osob)</label>
               <div className="flex items-center gap-1">
-                <button type="button" onClick={() => setPeopleCount(String(Math.max(1, (Number(peopleCount) || 0) - 1)))} className="w-9 h-9 shrink-0 grid place-items-center rounded bg-neutral-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition tap" title="- 1 osoba">−</button>
+                <button type="button" onClick={() => setPeopleCount(String(Math.max(1, (Number(peopleCount) || 0) - 1)))} className="w-9 h-9 shrink-0 grid place-items-center rounded bg-neutral-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition tap" title="- 1 osoba" aria-label="- 1 osoba">−</button>
                 <span className="min-w-[3rem] px-3 text-center font-mono font-black text-lg bg-white border border-neutral-200 rounded py-2 shadow-2xs">
                   {peopleCount || '1'}
                 </span>
-                <button type="button" onClick={() => setPeopleCount(String((Number(peopleCount) || 0) + 1))} className="w-9 h-9 shrink-0 grid place-items-center rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-sm select-none active:scale-95 transition shadow-2xs tap" title="+ 1 osoba">+</button>
+                <button type="button" onClick={() => setPeopleCount(String((Number(peopleCount) || 0) + 1))} className="w-9 h-9 shrink-0 grid place-items-center rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-sm select-none active:scale-95 transition shadow-2xs tap" title="+ 1 osoba" aria-label="+ 1 osoba">+</button>
               </div>
               <div className="flex gap-1.5 mt-2">
                 {[1, 2, 5, 10, 15, 20].map((num) => (
@@ -373,7 +373,7 @@ export default function ExkurzeScreen() {
                       {new Date(e.tour_date).toLocaleDateString('cs-CZ')}
                       <span className="font-mono text-neutral-500 text-xs">({e.tour_time})</span>
                     </span>
-                    <button onClick={() => handleDelete(e.id)} className="w-9 h-9 grid place-items-center rounded hover:bg-rose-100 text-rose-600 transition shrink-0 tap" title="Smazat">
+                    <button onClick={() => handleDelete(e.id)} className="w-9 h-9 grid place-items-center rounded hover:bg-rose-100 text-rose-600 transition shrink-0 tap" title="Smazat" aria-label="Smazat">
                       <Trash2 size={16} />
                     </button>
                   </div>
@@ -426,7 +426,7 @@ export default function ExkurzeScreen() {
                       </td>
                       <td className="text-udaj text-neutral-600 font-medium">{e.note || '—'}</td>
                       <td className="text-right">
-                        <button onClick={() => handleDelete(e.id)} className="p-1.5 rounded hover:bg-rose-100 text-rose-600 transition tap" title="Smazat">
+                        <button onClick={() => handleDelete(e.id)} className="p-1.5 rounded hover:bg-rose-100 text-rose-600 transition tap" title="Smazat" aria-label="Smazat">
                           <Trash2 size={16} />
                         </button>
                       </td>

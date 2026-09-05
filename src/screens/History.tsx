@@ -13,6 +13,7 @@ import { IkonaLahev, IkonaSud } from '../components/ikony';
 import StatistikaVystav from '../components/StatistikaVystav';
 import type { Obdobi, VyrobniRadek } from '../lib/statistika';
 import { usePosledniNacteni } from '../lib/nacitani';
+import { useChovaniDialogu } from '../lib/zavriNaZpet';
 
 type MonthData = {
   month: string;
@@ -179,6 +180,8 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
   const [ordRows, setOrdRows] = useState<OrdRow[]>([]);
   // Modal pro tisk uzávěrky
   const [showPrintModal, setShowPrintModal] = useState(false);
+  // Zpět zavře tiskový náhled místo odchodu z historie.
+  useChovaniDialogu(showPrintModal, () => setShowPrintModal(false));
 
   // ---- Detailní hledání state ----
   const [detailRows, setDetailRows] = useState<DetailRow[]>([]);
@@ -1580,7 +1583,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                 {savedFilters.map((f) => (
                   <span key={f.name} className="px-3 py-1.5 rounded bg-white border border-amber-300 text-amber-950 text-xs font-bold shadow-2xs flex items-center gap-2">
                     <button type="button" className="hover:underline" onClick={() => applyFilter(f)}>{f.name}</button>
-                    <button type="button" className="text-rose-600 hover:text-rose-800 font-bold" onClick={() => deleteFilter(f.name)} title="Smazat filtr"><X size={14} /></button>
+                    <button type="button" className="text-rose-600 hover:text-rose-800 font-bold" onClick={() => deleteFilter(f.name)} title="Smazat filtr" aria-label="Smazat filtr"><X size={14} /></button>
                   </span>
                 ))}
               </div>
@@ -1984,7 +1987,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
               <button
                 onClick={() => setShowPrintModal(false)}
                 className="tisk-skryt w-9 h-9 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-black grid place-items-center tap"
-                title="Zavřít"
+                title="Zavřít" aria-label="Zavřít"
               >
                 <X size={18} />
               </button>

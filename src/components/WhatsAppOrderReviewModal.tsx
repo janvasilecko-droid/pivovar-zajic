@@ -24,6 +24,7 @@ import {
 import { AlertCircle, AlertTriangle, ArrowDown, Check, CheckCircle2, ChevronDown, Download, ExternalLink, Eye, FileText, Image as ImageIcon, MessageSquare, RefreshCw, ShieldAlert, ShieldCheck, ShoppingCart, UserCheck, X } from 'lucide-react';
 import { potvrd } from '../lib/toast';
 import { zalogujANahlas } from '../lib/chybyHlaseni';
+import { useChovaniDialogu } from '../lib/zavriNaZpet';
 
 /** Jak se skupiny obalů pojmenují v přehledu úpravy. */
 const NAZVY_SKUPIN: Record<SkupinaObalu, string> = {
@@ -68,6 +69,10 @@ interface ReviewItem {
 const READBACK_STRICT_KEY = 'whatsapp_readback_require_fix';
 
 export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
+  // Zpět zavře kontrolu objednávky místo odchodu z obrazovky. Tady na tom
+  // záleží nejvíc: v kontrole se opravují rozpoznané položky a odchod
+  // z obrazovky je zahodí.
+  useChovaniDialogu(props.isOpen, props.onClose);
   const [loading, setLoading] = useState(false);
   const [approving, setApproving] = useState(false);
   const [rejecting, setRejecting] = useState(false);
@@ -816,7 +821,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                     onClick={handleReparse}
                     disabled={reparsing || loading}
                     className="mt-1.5 flex items-center gap-1.5 px-2.5 py-1 rounded bg-sky-700 text-white text-xs font-semibold hover:bg-sky-800 disabled:opacity-50 disabled:cursor-not-allowed tap"
-                    title="Ručně spustit AI parsování této zprávy"
+                    title="Ručně spustit AI parsování této zprávy" aria-label="Ručně spustit AI parsování této zprávy"
                   >
                     {reparsing ? <RefreshCw size={14} className="animate-spin" /> : <RefreshCw size={14} />}
                     {reparsing ? 'Parsuji...' : 'Parsovat ručně'}
@@ -1267,7 +1272,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           <button
             onClick={props.onClose}
             className="w-8 h-8 grid place-items-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition tap"
-            title="Zavřít"
+            title="Zavřít" aria-label="Zavřít"
           >
             <X size={18} />
           </button>
@@ -1297,7 +1302,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           <button
             onClick={props.onClose}
             className="w-8 h-8 grid place-items-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition tap"
-            title="Zavřít"
+            title="Zavřít" aria-label="Zavřít"
           >
             <X size={18} />
           </button>

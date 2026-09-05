@@ -713,7 +713,7 @@ function PlaceForm({ place, onClose, onSaved }: { place: Place | null; onClose: 
                 onClick={handleAutoLookupAddress}
                 disabled={searchingAddress || !name.trim()}
                 className="btn-secondary text-xs font-black shrink-0 flex items-center gap-1 shadow-2xs"
-                title="Automaticky načíst adresu z Google / Map"
+                title="Automaticky načíst adresu z Google / Map" aria-label="Automaticky načíst adresu z Google / Map"
               >
                 {searchingAddress ? 'Hledám…' : 'Načíst adresu'}
               </button>

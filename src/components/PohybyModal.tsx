@@ -7,6 +7,7 @@
 import { useMemo } from 'react';
 import { X } from 'lucide-react';
 import { MOVEMENT_LABELS, movementsFor, type Movement, type MovementKind } from '../lib/stockLedger';
+import { useChovaniDialogu } from '../lib/zavriNaZpet';
 
 type Props = {
   open: boolean;
@@ -50,6 +51,9 @@ export default function PohybyModal({
       return { klic: `${m.date}-${m.kind}-${i}`, m, soucet };
     });
   }, [open, movements, beerId, packageId, kDatu, baselineDate, baselineQty]);
+
+  // Zpět zavře dialog místo odchodu z obrazovky — viz lib/zavriNaZpet.ts.
+  useChovaniDialogu(open, onClose);
 
   if (!open) return null;
 

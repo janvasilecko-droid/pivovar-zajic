@@ -517,7 +517,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
             type="button"
             onClick={() => setDalsiAkce((v) => !v)}
             className="btn-ghost jen-ikona"
-            title="Další akce"
+            title="Další akce" aria-label="Další akce"
             aria-expanded={dalsiAkce}
           >
             ⋯
@@ -624,7 +624,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                     <button
                       onClick={() => handleDelete(e.id)}
                       className="w-9 h-9 grid place-items-center rounded hover:bg-rose-100 text-rose-600 transition shrink-0 tap"
-                      title="Smazat jízdu"
+                      title="Smazat jízdu" aria-label="Smazat jízdu"
                     >
                       <Trash2 size={16} />
                     </button>
@@ -677,7 +677,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                       <button
                         onClick={() => handleDelete(e.id)}
                         className="p-1.5 rounded hover:bg-rose-100 text-rose-600 transition tap"
-                        title="Smazat jízdu"
+                        title="Smazat jízdu" aria-label="Smazat jízdu"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -700,7 +700,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                 <Zap className="text-amber-500 fill-current" size={18} />
                 <span>Generovat Knihu jízd z objednávek</span>
               </h3>
-              <button onClick={() => setShowAutoModal(false)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít"><X size={18} /></button>
+              <button onClick={() => setShowAutoModal(false)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít" aria-label="Zavřít"><X size={18} /></button>
             </div>
 
             {autoStep === 'form' ? (
@@ -849,7 +849,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                 <Car className="text-amber-600" size={18} />
                 <span>Zapsat ruční jízdu do Knihy jízd</span>
               </h3>
-              <button onClick={() => setShowModal(false)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít"><X size={18} /></button>
+              <button onClick={() => setShowModal(false)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít" aria-label="Zavřít"><X size={18} /></button>
             </div>
 
             <form onSubmit={handleAddEntry} className="space-y-3">

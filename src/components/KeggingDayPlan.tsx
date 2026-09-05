@@ -244,7 +244,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                     type="button"
                     onClick={() => setHledat('')}
                     className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 grid place-items-center rounded text-neutral-600 hover:bg-neutral-100 tap"
-                    title="Zrušit hledání"
+                    title="Zrušit hledání" aria-label="Zrušit hledání"
                   >
                     <X size={14} />
                   </button>
@@ -258,7 +258,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                     ? 'bg-amber-500 text-neutral-950 border-amber-600'
                     : 'bg-white text-neutral-700 border-neutral-200 hover:bg-neutral-50'
                 }`}
-                title="Schovat položky, které jsou hotové"
+                title="Schovat položky, které jsou hotové" aria-label="Schovat položky, které jsou hotové"
               >
                 Jen co chybí
               </button>
@@ -346,7 +346,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                           disabled={busy === it.key || it.checked === 0}
                           onClick={() => setCheck(it, it.checked - 1)}
                           className="w-11 min-h-[44px] grid place-items-center rounded border border-neutral-200 bg-white text-neutral-700 font-black hover:bg-neutral-50 disabled:opacity-30 shrink-0"
-                          title="Ubrat jeden odškrtnutý kus"
+                          title="Ubrat jeden odškrtnutý kus" aria-label="Ubrat jeden odškrtnutý kus"
                         >
                           −
                         </button>
@@ -355,7 +355,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                           disabled={busy === it.key || hotovo}
                           onClick={() => setCheck(it, it.checked + 1)}
                           className="w-11 min-h-[44px] grid place-items-center rounded border border-neutral-200 bg-white text-neutral-700 font-black hover:bg-neutral-50 disabled:opacity-30 shrink-0"
-                          title="Odškrtnout jeden kus"
+                          title="Odškrtnout jeden kus" aria-label="Odškrtnout jeden kus"
                         >
                           +
                         </button>
@@ -365,7 +365,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                             disabled={busy === it.key}
                             onClick={() => setCheck(it, it.ordered)}
                             className="flex-1 min-h-[44px] rounded bg-emerald-700 text-white font-black text-xs hover:bg-emerald-800 disabled:opacity-40 inline-flex items-center justify-center gap-1.5"
-                            title="Odškrtnout celou položku — nezapisuje se do stáčení"
+                            title="Odškrtnout celou položku — nezapisuje se do stáčení" aria-label="Odškrtnout celou položku — nezapisuje se do stáčení"
                           >
                             <Check size={16} />
                             {busy === it.key ? 'Ukládám…' : `Mám všech ${it.missing}`}
@@ -376,7 +376,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                             disabled={busy === it.key}
                             onClick={() => setCheck(it, 0)}
                             className="flex-1 min-h-[44px] rounded border border-emerald-300 bg-emerald-50 text-emerald-800 font-black text-xs hover:bg-emerald-100 disabled:opacity-40"
-                            title="Zrušit odškrtnutí"
+                            title="Zrušit odškrtnutí" aria-label="Zrušit odškrtnutí"
                           >
                             Zrušit odškrtnutí
                           </button>

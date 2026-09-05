@@ -476,7 +476,7 @@ export default function AkceScreen() {
                         </div>
                       </div>
 
-                      <button onClick={(e) => { e.stopPropagation(); handleDeleteAkce(r.id); }} className="text-neutral-400 hover:text-rose-600 p-1 transition tap" title="Smazat akci">
+                      <button onClick={(e) => { e.stopPropagation(); handleDeleteAkce(r.id); }} className="text-neutral-400 hover:text-rose-600 p-1 transition tap" title="Smazat akci" aria-label="Smazat akci">
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -611,7 +611,7 @@ export default function AkceScreen() {
                 <Sparkles className="text-amber-500 fill-current" size={18} />
                 <span>Zadat novou výjezdní akci / festival</span>
               </h3>
-              <button onClick={() => setShowAddModal(false)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít"><X size={18} /></button>
+              <button onClick={() => setShowAddModal(false)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít" aria-label="Zavřít"><X size={18} /></button>
             </div>
 
             <form onSubmit={handleCreateAkce} className="space-y-4">
@@ -709,8 +709,8 @@ export default function AkceScreen() {
                           className="w-11 h-11 shrink-0 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-lg transition"
                           onClick={() => handleRowChange(i, 'qty', String(Number(r.qty || 0) + 1))}
                         >+</button>
-                        <button type="submit" className="min-h-[44px] px-3 shrink-0 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-black text-lg transition" title="Potvrdit / uložit vše"><Check size={18} /></button>
-                        <button type="button" className="w-11 min-h-[44px] shrink-0 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-lg transition" onClick={() => clearRow(i)} title="Zrušit řádek"><X size={18} /></button>
+                        <button type="submit" className="min-h-[44px] px-3 shrink-0 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-black text-lg transition" title="Potvrdit / uložit vše" aria-label="Potvrdit / uložit vše"><Check size={18} /></button>
+                        <button type="button" className="w-11 min-h-[44px] shrink-0 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-lg transition" onClick={() => clearRow(i)} title="Zrušit řádek" aria-label="Zrušit řádek"><X size={18} /></button>
                       </div>
                     </div>
                   ))}
@@ -770,8 +770,8 @@ export default function AkceScreen() {
                           </td>
                           <td className="py-1">
                             <div className="flex items-center gap-1">
-                              <button type="submit" className="w-7 h-7 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-bold text-sm transition tap" title="Potvrdit / uložit vše"><Check size={18} /></button>
-                              <button type="button" className="w-7 h-7 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-sm transition tap" onClick={() => clearRow(i)} title="Zrušit řádek"><X size={18} /></button>
+                              <button type="submit" className="w-7 h-7 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-bold text-sm transition tap" title="Potvrdit / uložit vše" aria-label="Potvrdit / uložit vše"><Check size={18} /></button>
+                              <button type="button" className="w-7 h-7 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-sm transition tap" onClick={() => clearRow(i)} title="Zrušit řádek" aria-label="Zrušit řádek"><X size={18} /></button>
                             </div>
                           </td>
                         </tr>
@@ -803,7 +803,7 @@ export default function AkceScreen() {
                 <CheckCircle2 className="text-emerald-600" size={22} />
                 <span>Vyhodnocení PO AKCI — {evalRecord.name}</span>
               </h3>
-              <button onClick={() => setEvalRecord(null)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít"><X size={18} /></button>
+              <button onClick={() => setEvalRecord(null)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít" aria-label="Zavřít"><X size={18} /></button>
             </div>
 
             <form onSubmit={handleSaveEval} className="space-y-4">
@@ -931,7 +931,7 @@ export default function AkceScreen() {
                 <ClipboardList className="text-amber-500" size={22} />
                 <span>Vybavení na akci — {equipRecord.name}</span>
               </h3>
-              <button onClick={() => setEquipRecord(null)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít"><X size={18} /></button>
+              <button onClick={() => setEquipRecord(null)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít" aria-label="Zavřít"><X size={18} /></button>
             </div>
 
             <p className="text-xs text-neutral-600 font-medium bg-amber-50 border border-amber-200 p-3 rounded">
@@ -966,7 +966,7 @@ export default function AkceScreen() {
                     type="button"
                     onClick={() => setEquipCustomItems((prev) => prev.filter((_, i) => i !== idx))}
                     className="text-rose-500 hover:text-rose-700 font-bold"
-                    title="Odebrat"
+                    title="Odebrat" aria-label="Odebrat"
                   >
                     <Trash2 size={16} />
                   </button>

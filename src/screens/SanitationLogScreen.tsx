@@ -483,7 +483,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
                 <span><Pencil className="ikona-text" /> Upravit záznam o sanitaci</span>
               </h3>
-              <button type="button" onClick={() => setEditingLog(null)} className="text-neutral-400 hover:text-neutral-800 text-lg font-bold" title="Zavřít"><X size={18} /></button>
+              <button type="button" onClick={() => setEditingLog(null)} className="text-neutral-400 hover:text-neutral-800 text-lg font-bold" title="Zavřít" aria-label="Zavřít"><X size={18} /></button>
             </div>
 
             <div className="bg-neutral-50 p-3 rounded border border-neutral-200 text-xs space-y-1">
@@ -561,7 +561,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
                 <span><SprayCan className="ikona-text" /> Zapsat novou sanitaci</span>
               </h3>
-              <button type="button" onClick={() => setShowAddModal(false)} className="text-neutral-400 hover:text-neutral-800 text-lg font-bold" title="Zavřít"><X size={18} /></button>
+              <button type="button" onClick={() => setShowAddModal(false)} className="text-neutral-400 hover:text-neutral-800 text-lg font-bold" title="Zavřít" aria-label="Zavřít"><X size={18} /></button>
             </div>
 
             <div>

@@ -1559,7 +1559,7 @@ function exportInventoryExcel() {
           <button
             onClick={() => setCurrentMonth(shiftMonth(currentMonth, -1))}
             className="btn-ghost jen-ikona !flex-none"
-            title="Předchozí měsíc"
+            title="Předchozí měsíc" aria-label="Předchozí měsíc"
           >
             ‹
           </button>
@@ -1576,7 +1576,7 @@ function exportInventoryExcel() {
           <button
             onClick={() => setCurrentMonth(shiftMonth(currentMonth, 1))}
             className="btn-ghost jen-ikona !flex-none"
-            title="Následující měsíc"
+            title="Následující měsíc" aria-label="Následující měsíc"
           >
             ›
           </button>
@@ -1590,7 +1590,7 @@ function exportInventoryExcel() {
             type="button"
             onClick={() => setDalsiAkce((v) => !v)}
             className="btn-ghost jen-ikona"
-            title="Další akce"
+            title="Další akce" aria-label="Další akce"
             aria-expanded={dalsiAkce}
           >
             ⋯

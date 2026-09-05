@@ -586,7 +586,7 @@ export default function RemindersScreen() {
                         <button
                           onClick={() => handleDelete(r.id)}
                           className="p-1.5 rounded hover:bg-rose-100 text-rose-600 transition tap"
-                          title="Smazat upomínku"
+                          title="Smazat upomínku" aria-label="Smazat upomínku"
                         >
                           <Trash2 size={16} />
                         </button>

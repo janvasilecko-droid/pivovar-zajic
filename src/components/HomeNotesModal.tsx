@@ -181,7 +181,7 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
                   type="button"
                   onClick={() => void smazSdilenou(p.id)}
                   className="p-1 rounded text-neutral-400 hover:text-rose-600 hover:bg-rose-50 transition shrink-0 tap"
-                  title="Smazat vzkaz pro všechny"
+                  title="Smazat vzkaz pro všechny" aria-label="Smazat vzkaz pro všechny"
                 >
                   <Trash2 size={14} />
                 </button>
@@ -212,7 +212,7 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
                       type="button"
                       onClick={() => toggleHomeNote(note.id)}
                       className="mt-0.5 w-5 h-5 rounded-md border-2 border-neutral-400/80 bg-white/90 grid place-items-center shrink-0 hover:border-amber-600 transition tap"
-                      title="Označit jako hotové / odškrtnout"
+                      title="Označit jako hotové / odškrtnout" aria-label="Označit jako hotové / odškrtnout"
                     >
                       {note.completed && <Check size={14} className="text-emerald-700 font-bold" />}
                     </button>
@@ -231,7 +231,7 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
                       type="button"
                       onClick={() => deleteHomeNote(note.id)}
                       className="text-neutral-400 hover:text-rose-600 p-1 shrink-0 transition tap"
-                      title="Smazat poznámku"
+                      title="Smazat poznámku" aria-label="Smazat poznámku"
                     >
                       <Trash2 size={16} />
                     </button>
@@ -269,7 +269,7 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
                             type="button"
                             onClick={() => toggleHomeNote(note.id)}
                             className="w-5 h-5 rounded-md bg-emerald-700 text-white grid place-items-center shrink-0 tap"
-                            title="Vrátit mezi aktivní"
+                            title="Vrátit mezi aktivní" aria-label="Vrátit mezi aktivní"
                           >
                             <Check size={14} />
                           </button>

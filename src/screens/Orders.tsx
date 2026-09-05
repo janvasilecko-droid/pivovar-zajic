@@ -1746,7 +1746,7 @@ export default function Orders({
                 mezikrok navíc (kontrola je samostatné tlačítko vedle). */}
             <button
               className="btn-ghost !rounded !min-h-[36px] !py-1.5 !bg-[#25D366] !border-[#25D366] !text-[#0f172a] font-black text-xs shadow-xs flex items-center gap-1.5 hover:!bg-[#1da851] relative"
-              title="WhatsApp — čtení a zpracování příchozích zpráv"
+              title="WhatsApp — čtení a zpracování příchozích zpráv" aria-label="WhatsApp — čtení a zpracování příchozích zpráv"
               onClick={() => setShowWhatsAppAutoProcessor(true)}
             >
               <MessageCircle size={14} /> WhatsApp
@@ -1758,7 +1758,7 @@ export default function Orders({
             </button>
             <button className="btn-ghost !rounded !min-h-[36px] !py-1.5 !bg-amber-50 !border-amber-200 !text-amber-900 font-extrabold text-xs shadow-xs flex items-center gap-1.5 hover:!bg-amber-100" title="Kontrola — zobrazí VŠECHNY WhatsApp zprávy za období, i chybové a ignorované" onClick={() => setShowWhatsAppAudit(true)}><ShieldAlert size={14} /> Kontrola zpráv</button>
             <button className="btn-ghost !rounded !min-h-[36px] !py-1.5 !bg-amber-50 !border-amber-200 !text-amber-900 font-extrabold text-xs shadow-xs flex items-center gap-1.5 hover:!bg-amber-100" title="Audit objednávek — najde duplicitní položky, nesrovnalosti proti WhatsAppu a nezpracované zprávy" onClick={() => setShowOrderAudit(true)}><ShieldAlert size={14} /> Audit objednávek</button>
-            <button className="btn-ghost !rounded !min-h-[36px] !py-1.5 !bg-amber-50 !border-amber-200 !text-amber-900 font-extrabold text-xs shadow-xs flex items-center gap-1.5 hover:!bg-amber-100" title="Načíst z fotky/e-mailu" onClick={() => { setImportTarget(null); setShowImport(true); }}><Camera size={14} /> Fotka/AI</button>
+            <button className="btn-ghost !rounded !min-h-[36px] !py-1.5 !bg-amber-50 !border-amber-200 !text-amber-900 font-extrabold text-xs shadow-xs flex items-center gap-1.5 hover:!bg-amber-100" title="Načíst z fotky/e-mailu" aria-label="Načíst z fotky/e-mailu" onClick={() => { setImportTarget(null); setShowImport(true); }}><Camera size={14} /> Fotka/AI</button>
           </div>
           )}
         </div>
@@ -1841,16 +1841,16 @@ export default function Orders({
             {/* Navigace týdnem — šipky, popisek týdne a dny závozu mají teď
                 stejnou výšku (h-10), ať řádek nepůsobí rozeskákaně. */}
             <div className="flex items-center gap-1.5">
-              <button type="button" onClick={() => shiftWeekAndKeepDay(-1)} className="w-10 h-10 shrink-0 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 font-black transition tap" title="Předchozí týden">‹</button>
+              <button type="button" onClick={() => shiftWeekAndKeepDay(-1)} className="w-10 h-10 shrink-0 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 font-black transition tap" title="Předchozí týden" aria-label="Předchozí týden">‹</button>
               <button
                 type="button"
                 onClick={resetToCurrentWeek}
                 className="flex-1 h-10 text-center text-xs font-black bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 rounded transition tap"
-                title="Klikni pro návrat na aktuální týden"
+                title="Klikni pro návrat na aktuální týden" aria-label="Klikni pro návrat na aktuální týden"
               >
                 <Calendar className="ikona-text" /> Týden {weekRange(weekKey).label}
               </button>
-              <button type="button" onClick={() => shiftWeekAndKeepDay(1)} className="w-10 h-10 shrink-0 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 font-black transition tap" title="Další týden">›</button>
+              <button type="button" onClick={() => shiftWeekAndKeepDay(1)} className="w-10 h-10 shrink-0 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 font-black transition tap" title="Další týden" aria-label="Další týden">›</button>
             </div>
 
             {/* Den závozu — barevné (amber, stejně jako tlačítko týdne výš)
@@ -1955,7 +1955,7 @@ export default function Orders({
                           key={q}
                           type="button"
                           onClick={() => setPkgAbsolute(expandedBeer.id, p.id, q)}
-                          title="Rychlá volba množství"
+                          title="Rychlá volba množství" aria-label="Rychlá volba množství"
                           className={`tap h-9 min-w-[1.75rem] px-1.5 rounded text-udaj font-black transition ${qty === q ? 'bg-emerald-700 text-white' : 'bg-neutral-100 hover:bg-emerald-200 text-neutral-600 hover:text-emerald-950'}`}
                         >
                           {q}
@@ -2023,7 +2023,7 @@ export default function Orders({
                         type="button"
                         onClick={() => setExpandedBeerId(expandedBeerId === r.beerId ? null : r.beerId)}
                         className="flex items-center gap-1.5 text-xs font-bold text-neutral-800 dark:text-neutral-100 text-left truncate"
-                        title="Klikni pro úpravu v dlaždici"
+                        title="Klikni pro úpravu v dlaždici" aria-label="Klikni pro úpravu v dlaždici"
                       >
                         <span className="shrink-0">{r.qty}×</span>
                         <span className="truncate">{formatPackageLabel(pkg?.label)} · {beerName(beer)}</span>
@@ -2045,7 +2045,7 @@ export default function Orders({
                           title="Napiš počet ručně"
                         />
                         <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, 1)} className="w-10 h-10 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none tap">+</button>
-                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, -Number(r.qty))} className="w-10 h-10 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-xl transition select-none tap" title="Odebrat položku"><X size={18} /></button>
+                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, -Number(r.qty))} className="w-10 h-10 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-xl transition select-none tap" title="Odebrat položku" aria-label="Odebrat položku"><X size={18} /></button>
                       </div>
                     </li>
                   );
@@ -2114,7 +2114,7 @@ export default function Orders({
                 className="!bg-[#25D366] hover:!bg-[#1da851] !border-[#25D366] !text-[#0f172a] text-xs font-black shadow-md flex items-center gap-1.5 px-3.5 py-2 rounded transition disabled:opacity-40"
                 disabled={saving || (!filledBeerRows.length && !manualText.trim())}
                 onClick={() => addOrder(undefined, true)}
-                title="Vytvoří objednávku a otevře WhatsApp s předvyplněnou zprávou"
+                title="Vytvoří objednávku a otevře WhatsApp s předvyplněnou zprávou" aria-label="Vytvoří objednávku a otevře WhatsApp s předvyplněnou zprávou"
               >
                 <MessageCircle size={14} /> {saving ? 'Ukládám…' : 'Vytvořit a odeslat na WhatsApp'}
               </button>
@@ -2229,7 +2229,7 @@ export default function Orders({
               <button
                 onClick={() => setWeekKey(shiftWeek(weekKey, -1))}
                 className="btn-ghost !rounded !py-1.5 !px-2.5 text-xs font-black hover:bg-amber-100 transition"
-                title="Předchozí týden"
+                title="Předchozí týden" aria-label="Předchozí týden"
               >
                 <ChevronLeft size={16} />
               </button>
@@ -2241,7 +2241,7 @@ export default function Orders({
               <button
                 onClick={() => setWeekKey(shiftWeek(weekKey, 1))}
                 className="btn-ghost !rounded !py-1.5 !px-2.5 text-xs font-black hover:bg-amber-100 transition"
-                title="Další týden"
+                title="Další týden" aria-label="Další týden"
               >
                 <ChevronRight size={16} />
               </button>
@@ -2254,7 +2254,7 @@ export default function Orders({
                 type="button"
                 onClick={() => setSelectedMonth(shiftMonth(selectedMonth, -1))}
                 className="btn-ghost !rounded !py-1 !px-2 text-xs font-black hover:bg-amber-100 transition"
-                title="Předchozí měsíc"
+                title="Předchozí měsíc" aria-label="Předchozí měsíc"
               ><ChevronLeft size={16} /></button>
               <Calendar size={16} className="text-amber-800" />
               <span className="text-xs font-black text-amber-900">Měsíc:</span>
@@ -2268,7 +2268,7 @@ export default function Orders({
                 type="button"
                 onClick={() => setSelectedMonth(shiftMonth(selectedMonth, 1))}
                 className="btn-ghost !rounded !py-1 !px-2 text-xs font-black hover:bg-amber-100 transition"
-                title="Další měsíc"
+                title="Další měsíc" aria-label="Další měsíc"
               ><ChevronRight size={16} /></button>
             </div>
           )}
@@ -3107,7 +3107,7 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
             <button
               onClick={(e) => { e.stopPropagation(); onOpenWhatsApp && onOpenWhatsApp(o.whatsapp_message_id!); }}
               className="text-udaj font-extrabold shrink-0 text-emerald-900 bg-emerald-100 border border-emerald-300 rounded-md px-1.5 py-0.5 hover:bg-emerald-200 flex items-center gap-1 tap"
-              title="Otevřít originální WhatsApp zprávu a kontrolu čtení (#18)"
+              title="Otevřít originální WhatsApp zprávu a kontrolu čtení (#18)" aria-label="Otevřít originální WhatsApp zprávu a kontrolu čtení (#18)"
             >
               <MessageCircle size={12} /> WhatsApp
             </button>
@@ -3338,7 +3338,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
           <button
             onClick={() => setWeekKey(shiftWeek(weekKey, -1))}
             className="btn-ghost !rounded !py-1.5 !px-3 text-xs font-black flex items-center gap-1 hover:bg-amber-100 transition"
-            title="Předchozí týden"
+            title="Předchozí týden" aria-label="Předchozí týden"
           >
             <ChevronLeft size={16} />
           </button>
@@ -3350,7 +3350,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
           <button
             onClick={() => setWeekKey(shiftWeek(weekKey, 1))}
             className="btn-ghost !rounded !py-1.5 !px-3 text-xs font-black flex items-center gap-1 hover:bg-amber-100 transition"
-            title="Další týden"
+            title="Další týden" aria-label="Další týden"
           >
             <ChevronRight size={16} />
           </button>
@@ -3499,7 +3499,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                     <div className="flex items-center gap-1 shrink-0">
                       <button
                         className="text-primary-400 hover:text-primary-700 min-w-[40px] min-h-[40px] flex items-center justify-center text-lg rounded hover:bg-primary-50"
-                        title="Upravit položku"
+                        title="Upravit položku" aria-label="Upravit položku"
                         onClick={() => {
                           if (isEditing) { setEditingItemId(null); return; }
                           setEditingItemId(i.id);
@@ -3548,7 +3548,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                             setEditingItemId(null);
                           }}
                         ><Check size={14} /> Uložit</button>
-                        <button className="btn-ghost !rounded !py-2 !px-3" onClick={() => setEditingItemId(null)} title="Zrušit"><X size={14} /></button>
+                        <button className="btn-ghost !rounded !py-2 !px-3" onClick={() => setEditingItemId(null)} title="Zrušit" aria-label="Zrušit"><X size={14} /></button>
                       </div>
                     </div>
                   )}
@@ -3591,7 +3591,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                       <td className="text-right">
                         <button
                           className="text-primary-400 hover:text-primary-700 px-1"
-                          title="Upravit položku"
+                          title="Upravit položku" aria-label="Upravit položku"
                           onClick={() => {
                             if (isEditing) { setEditingItemId(null); return; }
                             setEditingItemId(i.id);
@@ -3636,7 +3636,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                                   setEditingItemId(null);
                                 }}
                               ><Check size={14} /> Uložit</button>
-                              <button className="btn-ghost !rounded !py-2 !px-3" onClick={() => setEditingItemId(null)} title="Zrušit"><X size={14} /></button>
+                              <button className="btn-ghost !rounded !py-2 !px-3" onClick={() => setEditingItemId(null)} title="Zrušit" aria-label="Zrušit"><X size={14} /></button>
                             </div>
                           </div>
                         </td>
@@ -3674,7 +3674,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
             </div>
             <div className="col-span-2 sm:col-span-1 lg:col-span-2 flex gap-2">
               <button className="btn-primary !rounded flex-1 !py-2 text-sm" onClick={addItem}><Check size={14} /> Přidat</button>
-              <button className="btn-ghost !rounded !py-2 !px-3" onClick={() => setAdding(false)} title="Zrušit"><X size={14} /></button>
+              <button className="btn-ghost !rounded !py-2 !px-3" onClick={() => setAdding(false)} title="Zrušit" aria-label="Zrušit"><X size={14} /></button>
             </div>
           </div>
         ) : (

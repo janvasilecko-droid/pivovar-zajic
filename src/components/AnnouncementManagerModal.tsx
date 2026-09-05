@@ -71,7 +71,7 @@ export function AnnouncementManagerModal({ onClose }: { onClose: () => void }) {
             <AlertTriangle className="text-amber-600" size={18} />
             <span>Spravovat Technická Upozornění & Hlášení</span>
           </h3>
-          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít"><X size={18} /></button>
+          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít" aria-label="Zavřít"><X size={18} /></button>
         </div>
 
         {msg && (

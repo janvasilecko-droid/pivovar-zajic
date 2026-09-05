@@ -767,13 +767,13 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                               className="w-12 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black transition disabled:opacity-40"
                               onClick={() => increment(r.id, -1)}
                               disabled={Number(r.quantity) <= 0}
-                              title="Odebrat 1 ks"
+                              title="Odebrat 1 ks" aria-label="Odebrat 1 ks"
                             >−</button>
                             <button
                               type="button"
                               className="flex-1 min-h-[44px] grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black transition"
                               onClick={() => increment(r.id, 1)}
-                              title="Přidat 1 ks"
+                              title="Přidat 1 ks" aria-label="Přidat 1 ks"
                             >+ 1 ks</button>
                             {/* 📷 Fotka k odpisu — „zkažené, rozbitá láhev" je dnes
                                 jediný doklad a po měsíci si nikdo nevzpomene, jak to
@@ -783,7 +783,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                               type="button"
                               className="w-12 min-h-[44px] ml-2 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black transition"
                               onClick={() => del(r.id)}
-                              title="Smazat záznam"
+                              title="Smazat záznam" aria-label="Smazat záznam"
 ><X size={18} /></button>
                           </div>
                         </li>
@@ -835,20 +835,20 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                                     className="w-6 h-6 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition tap"
                                     onClick={() => increment(r.id, -1)}
                                     disabled={Number(r.quantity) <= 0}
-                                    title="Odebrat 1 ks"
+                                    title="Odebrat 1 ks" aria-label="Odebrat 1 ks"
                                   >−</button>
                                   <button
                                     type="button"
                                     className="w-6 h-6 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-xs transition tap"
                                     onClick={() => increment(r.id, 1)}
-                                    title="Přidat 1 ks"
+                                    title="Přidat 1 ks" aria-label="Přidat 1 ks"
                                   >+</button>
                                   {table === 'writeoffs' && <FotkyZaznamu typ="odpis" zaznamId={r.id} kompaktni />}
                                   <button
                                     type="button"
                                     className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition tap"
                                     onClick={() => del(r.id)}
-                                    title="Smazat záznam"
+                                    title="Smazat záznam" aria-label="Smazat záznam"
 ><X size={18} /></button>
                                 </div>
                               </td>

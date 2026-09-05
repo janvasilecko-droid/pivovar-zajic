@@ -101,7 +101,7 @@ export function HomeChecklistModal({ isOpen, onClose }: { isOpen: boolean; onClo
                     deleteDailyTask(task.id);
                   }}
                   className="text-neutral-400 hover:text-rose-600 p-1 transition tap"
-                  title="Smazat úkol"
+                  title="Smazat úkol" aria-label="Smazat úkol"
                 >
                   <Trash2 size={16} />
                 </button>

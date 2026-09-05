@@ -529,7 +529,7 @@ export function BottlingTasksSettings() {
             type="button"
             onClick={() => setWeekKey(shiftWeek(weekKey, -1))}
             className="w-9 h-9 sm:w-8 sm:h-8 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 active:bg-neutral-300 text-neutral-700 transition tap"
-            title="Předchozí týden"
+            title="Předchozí týden" aria-label="Předchozí týden"
           >
             <ChevronLeft size={16} />
           </button>
@@ -540,7 +540,7 @@ export function BottlingTasksSettings() {
             type="button"
             onClick={() => setWeekKey(shiftWeek(weekKey, 1))}
             className="w-9 h-9 sm:w-8 sm:h-8 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 active:bg-neutral-300 text-neutral-700 transition tap"
-            title="Další týden"
+            title="Další týden" aria-label="Další týden"
           >
             <ChevronRight size={16} />
           </button>

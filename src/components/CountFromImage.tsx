@@ -400,7 +400,7 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
                       ) : (
                         <span className="text-udaj text-neutral-400 italic">AI nepřečetla text</span>
                       )}
-                      <button className="text-rose-400 hover:text-rose-600 text-udaj font-bold leading-none shrink-0 px-1" onClick={() => removeResult(i)} title="Odebrat"><X size={12} /></button>
+                      <button className="text-rose-400 hover:text-rose-600 text-udaj font-bold leading-none shrink-0 px-1" onClick={() => removeResult(i)} title="Odebrat" aria-label="Odebrat"><X size={12} /></button>
                     </div>
                     {/* Zápis jako ručně: název piva / obal / množství */}
                     <div className="flex items-center gap-1.5 flex-wrap">

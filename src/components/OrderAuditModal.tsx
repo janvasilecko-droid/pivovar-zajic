@@ -16,6 +16,7 @@ import { stavPrijmu } from '../lib/stavPrijmu';
 import { fetchLastWhatsAppAt } from '../lib/whatsappApi';
 import { potvrd } from '../lib/toast';
 import { zalogujANahlas } from '../lib/chybyHlaseni';
+import { useChovaniDialogu } from '../lib/zavriNaZpet';
 import {
   tichoUOdberatelu, vypadkyPrijmu, pokrytiTydne,
   type TichoRadek, type VypadekRadek, type PokrytiRadek,
@@ -44,6 +45,8 @@ export function OrderAuditModal({
   onProcessWhatsApp,
   onRefreshOrders,
 }: OrderAuditModalProps) {
+  // Zpět zavře audit místo odchodu z Objednávek — viz lib/zavriNaZpet.ts.
+  useChovaniDialogu(isOpen, onClose);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [report, setReport] = useState<AuditReport | null>(null);
@@ -366,7 +369,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
                 onClick={loadAudit}
                 disabled={loading || actionLoading}
                 className="w-10 h-10 sm:w-auto sm:px-3 rounded bg-white/10 hover:bg-white/20 active:scale-95 text-white transition text-xs font-bold flex items-center justify-center gap-1.5 border border-white/10 tap"
-                title="Překontrolovat znovu"
+                title="Překontrolovat znovu" aria-label="Překontrolovat znovu"
               >
                 <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
                 <span className="hidden sm:inline">Překontrolovat</span>
@@ -375,7 +378,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
               <button
                 onClick={onClose}
                 className="w-10 h-10 grid place-items-center rounded bg-white/10 hover:bg-white/20 active:scale-95 text-white transition border border-white/10 tap"
-                title="Zavřít"
+                title="Zavřít" aria-label="Zavřít"
               >
                 <X size={18} />
               </button>
@@ -419,7 +422,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
         {msgFeedback && (
           <div className="px-4 py-2.5 bg-amber-100 text-amber-950 text-xs font-black border-b border-amber-300 flex items-center justify-between animate-in fade-in">
             <span>{msgFeedback}</span>
-            <button onClick={() => setMsgFeedback(null)} className="text-amber-800 hover:text-amber-950 font-bold p-1 tap" title="Zavřít"><X size={16} /></button>
+            <button onClick={() => setMsgFeedback(null)} className="text-amber-800 hover:text-amber-950 font-bold p-1 tap" title="Zavřít" aria-label="Zavřít"><X size={16} /></button>
           </div>
         )}
 
@@ -1072,7 +1075,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
                                   <button
                                     onClick={() => { onOpenOrder(o.id); onClose(); }}
                                     className="p-1.5 rounded bg-white hover:bg-violet-100 text-violet-900 border border-violet-200 text-xs font-bold tap"
-                                    title="Zobrazit"
+                                    title="Zobrazit" aria-label="Zobrazit"
                                   >
                                     <Eye size={14} />
                                   </button>
@@ -1081,7 +1084,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
                                   disabled={actionLoading}
                                   onClick={() => handleStornoOrder(o.id)}
                                   className="px-2.5 py-1 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 font-black text-xs transition tap"
-                                  title="Stornovat duplikát"
+                                  title="Stornovat duplikát" aria-label="Stornovat duplikát"
                                 >
                                   Stornovat
                                 </button>

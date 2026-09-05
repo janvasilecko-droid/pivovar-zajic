@@ -187,14 +187,14 @@ export default function Notes() {
                         <button
                           onClick={() => startEdit(n)}
                           className="p-1.5 rounded hover:bg-amber-100 text-amber-600 transition tap"
-                          title="Upravit poznámku"
+                          title="Upravit poznámku" aria-label="Upravit poznámku"
                         >
                           <Pencil size={14} />
                         </button>
                         <button
                           onClick={() => del(n.id)}
                           className="p-1.5 rounded hover:bg-rose-100 text-rose-600 transition tap"
-                          title="Smazat poznámku"
+                          title="Smazat poznámku" aria-label="Smazat poznámku"
                         >
                           <Trash2 size={14} />
                         </button>

@@ -21,6 +21,7 @@ import { chyba, toastZpet, uspech } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
 import { businessDateISO } from '../lib/businessDate';
 import { IkonaLahev } from '../components/ikony';
+import { useChovaniDialogu } from '../lib/zavriNaZpet';
 
 const BARVY: Record<string, { tecka: string; pruh: string; popis: string }> = {
   primary: { tecka: 'bg-primary-500', pruh: 'bg-primary-500', popis: 'Modrá' },
@@ -60,6 +61,8 @@ export default function CalendarScreen() {
   const [pohled, setPohled] = useState<'seznam' | 'mesic'>('seznam');
   const [cursor, setCursor] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; });
   const [vybranyDen, setVybranyDen] = useState<string | null>(null);
+  // Zpět zavře detail dne místo odchodu z kalendáře.
+  useChovaniDialogu(!!vybranyDen, () => setVybranyDen(null));
   const [ukladam, setUkladam] = useState(false);
 
   const dnes = businessDateISO();

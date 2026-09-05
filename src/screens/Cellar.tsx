@@ -627,7 +627,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
               type="button"
               onClick={() => setWeekKey(shiftWeek(weekKey, -1))}
               className="p-1.5 rounded text-neutral-600 hover:bg-neutral-100 tap"
-              title="Předchozí týden"
+              title="Předchozí týden" aria-label="Předchozí týden"
             >
               <ChevronLeft size={16} />
             </button>
@@ -641,7 +641,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
               type="button"
               onClick={() => setWeekKey(shiftWeek(weekKey, 1))}
               className="p-1.5 rounded text-neutral-600 hover:bg-neutral-100 tap"
-              title="Následující týden"
+              title="Následující týden" aria-label="Následující týden"
             >
               <ChevronRight size={16} />
             </button>
@@ -934,7 +934,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                         <button
                           className="w-full min-h-[48px] text-sm px-3 py-3 rounded bg-rose-600 text-white hover:bg-rose-700 font-black border border-rose-700 shadow-md flex items-center justify-center gap-2 transition-all"
                           onClick={() => stopKegging(t)}
-                          title="Zastaví odebírání piva z tohoto tanku při stáčení keg"
+                          title="Zastaví odebírání piva z tohoto tanku při stáčení keg" aria-label="Zastaví odebírání piva z tohoto tanku při stáčení keg"
                         >
                           <Square size={16} />
                           <span>Ukončit stáčení</span>
@@ -1029,7 +1029,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                           setSanitationConcentration('');
                           setSanitationModalTank(t);
                         }}
-                        title="Zvolit metodu, čas, dobu trvání a poznámku ručně"
+                        title="Zvolit metodu, čas, dobu trvání a poznámku ručně" aria-label="Zvolit metodu, čas, dobu trvání a poznámku ručně"
                       >
                         <NotebookPen className="ikona-text" /> Podrobný zápis sanitace (čas, doba, chemie)
                       </button>

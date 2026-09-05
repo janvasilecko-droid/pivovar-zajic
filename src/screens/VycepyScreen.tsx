@@ -272,7 +272,7 @@ export default function VycepyScreen() {
                           {t.tap_type === 'jednokohout' ? 'Jednokohout' : t.tap_type === 'dvojkohout' ? 'Dvojkohout' : t.tap_type === 'trojkohout' ? 'Trojkohout' : 'Šestikohout'}
                         </span>
                       </div>
-                      <button onClick={() => handleDeleteTap(t.id)} className="text-neutral-400 hover:text-rose-600 p-1 tap" title="Smazat výčep">
+                      <button onClick={() => handleDeleteTap(t.id)} className="text-neutral-400 hover:text-rose-600 p-1 tap" title="Smazat výčep" aria-label="Smazat výčep">
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -316,7 +316,7 @@ export default function VycepyScreen() {
                         taps_disassembled: true
                       })}
                       className="px-2.5 py-1.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold shadow-2xs flex items-center justify-center gap-1 tap"
-                      title="Provést Oplach vodou a zaznamenat čistotu"
+                      title="Provést Oplach vodou a zaznamenat čistotu" aria-label="Provést Oplach vodou a zaznamenat čistotu"
                     >
                       <Droplets size={14} /> Opláchnuto
                     </button>
@@ -328,7 +328,7 @@ export default function VycepyScreen() {
                         taps_disassembled: true
                       })}
                       className="px-2.5 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black shadow-2xs flex items-center justify-center gap-1 tap"
-                      title="Provést sanitaci louhem"
+                      title="Provést sanitaci louhem" aria-label="Provést sanitaci louhem"
                     >
                       <RefreshCw size={14} /> Louh <FlaskConical className="ikona-text" />
                     </button>
@@ -401,7 +401,7 @@ export default function VycepyScreen() {
                     >
                       {r.is_returned ? 'Zrušit vrácení' : <><Check className="ikona-text" /> Vrátit</>}
                     </button>
-                    <button onClick={() => handleDeleteReservation(r.id)} className="w-10 h-10 grid place-items-center rounded hover:bg-rose-100 text-rose-600 transition shrink-0 tap" title="Smazat rezervaci">
+                    <button onClick={() => handleDeleteReservation(r.id)} className="w-10 h-10 grid place-items-center rounded hover:bg-rose-100 text-rose-600 transition shrink-0 tap" title="Smazat rezervaci" aria-label="Smazat rezervaci">
                       <Trash2 size={16} />
                     </button>
                   </div>
@@ -474,7 +474,7 @@ export default function VycepyScreen() {
                           >
                             {r.is_returned ? 'Zrušit vrácení' : <><Check className="ikona-text" /> Vrátit</>}
                           </button>
-                          <button onClick={() => handleDeleteReservation(r.id)} className="p-1.5 rounded hover:bg-rose-100 text-rose-600 transition tap" title="Smazat rezervaci">
+                          <button onClick={() => handleDeleteReservation(r.id)} className="p-1.5 rounded hover:bg-rose-100 text-rose-600 transition tap" title="Smazat rezervaci" aria-label="Smazat rezervaci">
                             <Trash2 size={14} />
                           </button>
                         </div>
@@ -495,7 +495,7 @@ export default function VycepyScreen() {
           <div className="bg-white rounded max-w-md w-full p-6 space-y-4 shadow-2xl border border-neutral-200">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
               <h3 className="font-display font-black text-lg text-neutral-900">Přidat výčepní zařízení</h3>
-              <button onClick={() => setShowAddTapModal(false)} className="text-neutral-400 font-bold" title="Zavřít"><X size={18} /></button>
+              <button onClick={() => setShowAddTapModal(false)} className="text-neutral-400 font-bold" title="Zavřít" aria-label="Zavřít"><X size={18} /></button>
             </div>
 
             <form onSubmit={handleAddTap} className="space-y-3">
@@ -551,7 +551,7 @@ export default function VycepyScreen() {
           <div className="bg-white rounded max-w-md w-full p-6 space-y-4 shadow-2xl border border-neutral-200">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
               <h3 className="font-display font-black text-lg text-neutral-900">Vytvořit výpůjčku výčepu</h3>
-              <button onClick={() => setShowResModal(false)} className="text-neutral-400 font-bold" title="Zavřít"><X size={18} /></button>
+              <button onClick={() => setShowResModal(false)} className="text-neutral-400 font-bold" title="Zavřít" aria-label="Zavřít"><X size={18} /></button>
             </div>
 
             <form onSubmit={handleAddReservation} className="space-y-3">

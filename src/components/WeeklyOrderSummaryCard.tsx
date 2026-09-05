@@ -116,7 +116,7 @@ export function WeeklyOrderSummaryCard({
             <button
               onClick={() => onWeekChange(shiftWeek(weekKey, -1))}
               className="p-1.5 hover:bg-amber-100 rounded text-amber-900 transition tap"
-              title="Předchozí týden"
+              title="Předchozí týden" aria-label="Předchozí týden"
             >
               <ChevronLeft size={18} />
             </button>
@@ -130,7 +130,7 @@ export function WeeklyOrderSummaryCard({
             <button
               onClick={() => onWeekChange(shiftWeek(weekKey, 1))}
               className="p-1.5 hover:bg-amber-100 rounded text-amber-900 transition tap"
-              title="Následující týden"
+              title="Následující týden" aria-label="Následující týden"
             >
               <ChevronRight size={18} />
             </button>
@@ -274,14 +274,14 @@ export function WeeklyOrderSummaryCard({
           <button
             onClick={() => setViewMode('grid')}
             className={`tap p-1.5 rounded text-xs font-bold transition ${viewMode === 'grid' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
-            title="Karty / Mřížka"
+            title="Karty / Mřížka" aria-label="Karty / Mřížka"
           >
             <LayoutGrid size={16} />
           </button>
           <button
             onClick={() => setViewMode('table')}
             className={`tap p-1.5 rounded text-xs font-bold transition ${viewMode === 'table' ? 'bg-white text-neutral-900 shadow-xs' : 'text-neutral-400 hover:text-neutral-700'}`}
-            title="Tabulka"
+            title="Tabulka" aria-label="Tabulka"
           >
             <ListFilter size={16} />
           </button>

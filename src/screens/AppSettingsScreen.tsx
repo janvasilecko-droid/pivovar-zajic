@@ -537,7 +537,7 @@ export default function AppSettingsScreen() {
               <button
                 onClick={() => handleRemoveSender(s.id)}
                 className="p-2 rounded hover:bg-rose-100 text-rose-500 hover:text-rose-700 transition"
-                title="Odebrat odesílatele"
+                title="Odebrat odesílatele" aria-label="Odebrat odesílatele"
               >
                 <Trash2 size={16} />
               </button>

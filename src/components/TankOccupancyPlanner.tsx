@@ -339,7 +339,7 @@ export function TankOccupancyPlanner({
               <h3 className="font-display font-black text-lg text-neutral-900 flex items-center gap-2">
                 <span><Plus className="ikona-text" /> Naplánovat novou várku na tank</span>
               </h3>
-              <button onClick={() => setShowAddModal(false)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít"><X size={18} /></button>
+              <button onClick={() => setShowAddModal(false)} className="text-neutral-400 hover:text-neutral-600 font-bold text-lg" title="Zavřít" aria-label="Zavřít"><X size={18} /></button>
             </div>
 
             <form onSubmit={handleAddPlannedBatch} className="space-y-3">
