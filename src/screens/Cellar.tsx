@@ -730,6 +730,14 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                             {' · '}Zbývá: <span className={`font-semibold ${remaining <= 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{(remaining / 100).toFixed(2)} hl</span>
                           </div>
                         )}
+                        {/* 🛢️ Na kolik sudů zbývající objem vyjde — ať se
+                            nepočítá z hlavy, na co to ještě stačí. Ukazuje se
+                            jen dokud v tanku něco je. */}
+                        {t.current_beer_name && remaining > 0 && (
+                          <div className="text-[11px] text-primary-500 mt-0.5 tabular-nums">
+                            Na sudy: <span className="font-semibold text-primary-700">{[50, 30, 20].map((v) => `${Math.floor(remaining / v)}×${v}`).join(' · ')}</span>
+                          </div>
+                        )}
                         {t.kegging_active && t.kegging_started_at && (
                           <div className="text-[11px] text-amber-700 mt-0.5">
                             <IkonaSud className="ikona-text" /> Stáčí se od {new Date(t.kegging_started_at).toLocaleDateString('cs-CZ')} {new Date(t.kegging_started_at).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}

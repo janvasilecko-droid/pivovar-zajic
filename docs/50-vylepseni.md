@@ -1,250 +1,109 @@
-# 50 návrhů vylepšení
+# 50 návrhů vylepšení — audit proti kódu
 
-Seznam nápadů, ze kterých se dá vybírat — seřazené do kategorií, ne podle
-priority. U každého je krátce *proč* a odhad velikosti:
+Původní seznam byl nápad „od stolu". Po projití kódu se ukázalo, že **appka
+už umí většinu z toho**. Tady je pravdivý stav u každého bodu:
 
-- **(S)** malé, hodiny práce
-- **(M)** střední, půl dne až den
-- **(L)** velké, víc dní / promyšlení
-- **🗄️ migrace** = potřebuje změnu v databázi (spouští se ručně v Supabase)
+- ✅ **hotovo** — už v appce je
+- 🧩 **částečně** — základ je, dá se dotáhnout
+- 🔨 **chybí** — reálná mezera, má smysl udělat
+- 🗄️ potřebuje migraci (SQL v Supabase)
 
-Není to závazek ani pořadí — je to nabídka. Řekni čísla, která chceš, a ta
-udělám po dávkách (a po každé nasadím).
+Vyloučeno na přání: **#11, #14, #16, #22.**
 
 ---
 
 ## A. Objednávky a WhatsApp
+*(kód se do úterního testu záměrně nemění; tyhle až po testu)*
 
-**1. Náhled celé objednávky po úpravě, ne jen rozdíl (M).**
-U odpovědi „malé sudy budou…, petky sedí" ukázat i finální podobu CELÉ
-objednávky (co zůstává + co se mění), ne jen změněné řádky. Obsluha pak vidí
-naráz, že petky a třicítky opravdu zůstaly.
+1. 🧩 Náhled celé objednávky po úpravě — dnes se ukazuje jen rozdíl, ne celý finální obsah.
+2. 🔨 Ruční doplnění položky přímo v kontrole.
+3. 🧩 Sloučit duplicitní objednávku — detekce duplicit je, sloučení chybí.
+4. 🔨 🗄️ Historie změn objednávky (kdo/kdy co).
+5. ✅ Zopakovat závoz — „Zopakovat závozový den" existuje.
+6. 🧩 Našeptat sortiment — „Poslední závoz" a duplicita v týdnu jsou; „obvykle bere" ne.
+7. 🔨 Zvýraznit hledané slovo ve výsledcích.
+8. 🧩 Stavy objednávky barvou i tvarem — „po termínu" logika je, odstupňování stavů ne.
+9. 🔨 Štítek Dnes/Zítra/Po termínu u data.
+10. ✅ Číslo WhatsAppu k odběrateli natrvalo — aliasy odběratelů fungují.
 
-**2. Ruční doplnění položky přímo v kontrole (M).**
-Když v načtené objednávce něco chybí (třeba se z PDF nevytáhly petky), jít je
-přidat rovnou v okně kontroly, ne až po schválení v úpravě objednávky.
-
-**3. Sloučit duplicitní objednávku místo varování (M).**
-Dnes appka duplicitu jen ohlásí. Nabídnout „sloučit do stávající" — dva lidé
-zapíšou totéž a nevznikne dvojitý závoz.
-
-**4. Historie změn objednávky (M) 🗄️.**
-Kdo a kdy objednávku upravil (přidal sud, změnil den). U reklamace „my jsme
-objednávali jinak" je vidět, co se dělo.
-
-**5. Rychlé „zopakovat minulý závoz" na jeden klik (S).**
-U odběratele předvyplnit poslední objednávku — většina hospod bere pořád to
-samé. Půl práce při zadávání ubude.
-
-**6. Našeptávač obvyklého sortimentu odběratele (M).**
-U zadávání ukázat „obvykle bere: 12° 4×30, petky 12×1" spočítané z historie —
-míň překlepů a zapomenutých položek.
-
-**7. Zvýraznit hledané slovo ve výsledcích (S).**
-V objednávkách/historii podbarvit shodu, ať se u dlouhého názvu hospody
-nemusí luštit, proč řádek vyhověl.
-
-**8. Stavy objednávky rozlišit barvou i tvarem (S).**
-Dnes „expedovaná / vyřízeno / hotová" splývají do jedné zelené. Odstupňovat
-a přidat ikonu (tečka → fajfka → dvojfajfka), ať je na seznamu poznat, co je
-naloženo a co zaplaceno.
-
-**9. Štítek „Dnes / Zítra / Po termínu" u data závozu (S).**
-Datum samo se čte pomalu; slovní štítek u řádku hned řekne, co je akutní.
-
-**10. Odesílatele WhatsAppu spárovat s odběratelem natrvalo (S).**
-Když jednou přiřadíš číslo k hospodě, příště to appka ví sama — míň
-„Neznámý odběratel".
-
----
-
-## B. Stáčení (KEG i lahve)
-
-**11. Rychlé zopakování minulé dávky stáčení (S).**
-„Stočit jako minule" předvyplní piva a obaly — u pravidelného rytmu ušetří
-klikání.
-
-**12. Kontrola součtu proti plánu stáčení (M).**
-Po zápisu ukázat „naplánováno 20, stočeno 18 — chybí 2", ať se nedopatřením
-nezapomene dostočit.
-
-**13. Našeptat spotřebu korunek/PET víček u lahvování (S).**
-U zápisu rovnou ukázat, kolik závěrek to spotřebuje a kolik zbývá — než
-dojdou uprostřed stáčení.
-
-**14. Šarže / datum spotřeby na jedno místo (M) 🗄️.**
-Evidovat šarži lahvování a spočítat datum spotřeby — u reklamace a u kontroly
-se to hledá nejhůř.
-
-**15. Odhad, na kolik závozů vystačí stočené (S).**
-Z průměrné spotřeby ukázat „tohle vydrží ~9 dní" — dřív se pozná, že se má
-stáčet.
-
----
+## B. Stáčení
+11. — (vyloučeno)
+12. ✅ Kontrola proti plánu — plán stáčení („KeggingDayPlan") existuje.
+13. 🧩 Našeptat spotřebu korunek/PET víček u lahvování — materiál se eviduje, našeptat u zápisu ne.
+14. — (vyloučeno)
+15. 🔨 Odhad, na kolik závozů stočené vystačí.
 
 ## C. Sklad a inventura
-
-**16. Inventura z minula předvyplněná (S).**
-Začít s hodnotami z posledního měsíce, jen se přepíšou rozdíly — ruční
-opisování celého skladu je nejotravnější část.
-
-**17. Automatické dopočítání rozdílu (účetní vs. napočítaný) (S).**
-U inventury hned ukázat manko/přebytek po řádcích, ať se hledá jen tam, kde
-sedí čísla špatně.
-
-**18. Upozornění „málo na skladě" jako práh u piva (M) 🗄️.**
-Vlastní hranice u každého piva/obalu, ne jen jedna pro všechno — u petek a
-u třicítek je „málo" jiné číslo.
-
-**19. Fotka k inventuře / odpisu povinná u velkých rozdílů (S).**
-Když se odepisuje moc, chtít fotku — doklad, který po měsíci nikdo nedohledá.
-
-**20. Sklad: sloupec „za jak dlouho dojde" (M).**
-Z rychlosti úbytku odhadnout, kdy dojde — plánuje se podle toho stáčení
-i nákup.
-
----
+16. — (vyloučeno)
+17. ✅ Dopočet rozdílu (manko/přebytek, i v Kč, i dorovnání) — hotové.
+18. 🧩 🗄️ Práh „málo" u každého piva/obalu — u materiálu je medián „obvyklé stáčení", per‑pivo práh ne.
+19. 🧩 Fotka u odpisů — fotky u odpisu jsou, povinné u velkých rozdílů ne.
+20. 🔨 Sklad: „za jak dlouho dojde".
 
 ## D. Sklep a tanky
-
-**21. Časová osa obsazenosti tanků (M).**
-Vidět dopředu, kdy se tank uvolní a co se do něj vejde — plánování kvašení
-bez tužky a papíru.
-
-**22. Upozornění „tank dokvašen / čas přetáčet" (M) 🗄️.**
-Podle data zákvasu a stupně hlásit, kdy je čas — dnes se to hlídá z hlavy.
-
-**23. Historie tanku (co v něm bylo) (S) 🗄️.**
-U tanku vidět předchozí náplně — dohledání při problému s kvalitou.
-
-**24. Výpočet zbývajícího objemu na sudy (S).**
-„V tanku je 480 l = 16×30 nebo 24×20" — hned je vidět, na co to stačí.
-
----
+21. ✅ Časová osa obsazenosti tanků — „TankOccupancyPlanner" existuje.
+22. — (vyloučeno)
+23. 🔨 🗄️ Historie tanku (co v něm bylo) — dnes jen aktuální stav náplně.
+24. ✅ Výpočet zbývajícího objemu na sudy — *doplněno v této dávce* (viz níže).
 
 ## E. Kniha jízd a auta
-
-**25. Připomínka STK / dálniční známky s předstihem (S) 🗄️.**
-Ne až po termínu — 30 dní předem, ať se stihne objednat.
-
-**26. Rychlý zápis jízdy z GPS/naposledy (S).**
-Předvyplnit trasu a km z minulé stejné jízdy — závozy jsou pořád stejné.
-
-**27. Spotřeba a náklad na km přehledně (M).**
-Z tankování a km spočítat l/100 km a Kč/km — vidět, jestli auto nežere víc,
-než má.
-
-**28. Export knihy jízd pro účetní (S).**
-Měsíční přehled jízd a PHM jedním tlačítkem do Excelu — ať to nedělá ručně.
-
----
+25. 🧩 🗄️ STK/známka s předstihem — upozornění existují, jde doladit předstih 30 dní.
+26. 🔨 Rychlý zápis jízdy z minula.
+27. 🔨 Spotřeba l/100 km a Kč/km.
+28. ✅ Export knihy jízd do Excelu — existuje.
 
 ## F. Prodejna a fasování
+29. 🔨 „Prodej jako minule" na klik.
+30. 🔨 Denní/týdenní souhrn prodejny.
+31. 🔨 🗄️ Fasování personálu s limitem.
 
-**29. Rychlé tlačítko „prodej jako minule" (S).**
-Typický denní prodej na jeden klik — večerní zápis je pak otázka vteřin.
+## G. Materiál
+32. 🧩 Předpověď, kdy dojde materiál — medián „obvyklé stáčení" je, dojezd ve dnech ne.
+33. 🔨 Nákupní seznam z aktuálních zásob.
+34. 🔨 🗄️ Evidence dodavatele a ceny materiálu.
 
-**30. Denní/týdenní souhrn prodejny (M).**
-Kolik se prodalo, čeho nejvíc — bez louskání jednotlivých zápisů.
+## H. Mobilní ovládání
+35. 🧩 Kostra místo spinneru — hlavní bolest („vrací mě to nahoru") už vyřešena tichým přenačítáním + kotvou pozice; zbývá jen vzhled prvního načtení.
+36. 🔨 „Táhni pro smazání" (gesto — vyšší riziko kolize se scrollem).
+37. ✅ Fronta „Odeslat teď" — *hotovo (v2.273)*.
+38. ✅ Velká čísla — číselné dlaždice už jsou 2xl/3xl.
+39. ✅ Rychlé akce z dlaždice podržením — existuje.
+40. ✅ Našeptávač u zadávání — dlaždice piv + parser textu + combobox odběratele.
 
-**31. Fasování personálu s limitem (S) 🗄️.**
-Volitelný měsíční strop na osobu a upozornění při překročení.
-
----
-
-## G. Materiál (korunky, PET víčka, etikety)
-
-**32. Předpověď, kdy dojde materiál (S).**
-Z obvyklé spotřeby na stáčení odhadnout, na kolik stáčení zbývá — dřív se
-objedná.
-
-**33. Nákupní seznam z aktuálních zásob (M).**
-Appka navrhne, co dokoupit (a kolik), podle prahů a plánu stáčení.
-
-**34. Evidence dodavatele a ceny materiálu (S) 🗄️.**
-U nákupu i od koho a za kolik — porovnání cen a rychlé doobjednání.
-
----
-
-## H. Mobilní ovládání a UX
-
-**35. Kostra místo spinneru při načítání (M).**
-Nejčastější stížnost „když kliknu, vrací mě to nahoru" — obsah zůstane na
-místě, jen zešedne, ne že zmizí a odroluje se.
-
-**36. Potvrzení nebezpečných akcí „táhni pro smazání" (S).**
-U mazání zápisu gesto místo malého křížku vedle plusu — míň omylů palcem.
-
-**37. Offline fronta viditelnější a s ručním odesláním (S).**
-Kolik zápisů čeká na síť a tlačítko „odeslat teď" přímo na ploše.
-
-**38. Zvětšit klíčová čísla na dotykové obrazovky (S).**
-Součty a stavy velkým písmem — čte se to ve sklepě a za jízdy.
-
-**39. Rychlé akce z dlaždice podržením (S).**
-U KEG/Lahve po podržení rovnou „nové stočení / přehled" — bez mezikroku.
-
-**40. Našeptávač piv/obalů i při ručním zápisu (S).**
-Stejný chytrý výběr jako u WhatsAppu i tam, kde se píše ručně.
-
----
-
-## I. Vzhled a jednotný styl
-
-**41. Dokončit převod tlačítek na role (M).**
-Zbývá ~550 ručně malovaných tlačítek; po dávkách je převést na `.btn-*`, ať
-appka vypadá všude stejně (hlídá to už kontrola).
-
-**42. Tmavý režim dotáhnout i v grafech (M).**
-Grafy zatím tmavý režim neznají — v noci svítí bílým.
-
-**43. Malý graf u čísla (sparkline) (M).**
-U klíčových čísel drobný trend za posledních pár týdnů — kontext bez
-otvírání statistiky.
-
-**44. Prázdno vs. chyba vs. „ještě nevím" rozlišit (S).**
-„Nemáš objednávky" a „nepodařilo se načíst" dnes vypadají stejně — u druhého
-nabídnout „zkusit znovu".
-
-**45. Konzistentní velikosti písma (škála) (M).**
-Sjednotit natvrdo psané velikosti do jedné škály — čitelnější a snáz se
-udržuje.
-
----
+## I. Vzhled
+41. 🧩 Dokončit převod tlačítek na role — ~550 ručně malovaných zbývá.
+42. 🔨 Tmavý režim v grafech — roztroušené v 8 souborech, chce samostatný průchod.
+43. 🔨 Sparkline (malý graf u čísla).
+44. ✅ Prázdno vs. chyba — *mechanismus hotov (v2.273)*, obrazovky ho přebírají.
+45. 🔨 Sjednotit velikosti písma — 512× natvrdo psaných `text-[11px]` ve screenech.
 
 ## J. Spolehlivost, data, notifikace
-
-**46. Připomínka zálohy zpět jako odznak na dlaždici (S).**
-Na dlaždici „Stáhnout zálohu" ukázat „X dní" a zvýraznit, když je po termínu
-— tichá pojistka, ať se nezapomene.
-
-**47. Push „přišla WhatsApp objednávka" i se zavřenou appkou (M) 🗄️.**
-Kód je hotový, chybí jen VAPID klíč a nasazení funkce — dodělat celé.
-
-**48. Denní shrnutí na telefon (M) 🗄️.**
-Ráno push: co se má dnes stočit, kolik závozů, co je po termínu — místo
-otvírání a proklikávání.
-
-**49. Kontrola konzistence dat (audit) (M).**
-Najít nesrovnalosti (záporné zůstatky, objednávka bez položek, osiřelé
-zápisy) a nabídnout opravu — dřív, než se to projeví ve skladu.
-
-**50. Práva podrobněji (kdo co smí) (M) 🗄️.**
-Jemnější role (řidič vidí jen závozy, brigádník jen prodejnu) — míň omylů
-a čistší plocha pro každého.
+46. ✅ Záloha jako odznak na dlaždici — *hotovo (v2.273)*.
+47. 🧩 🗄️ Push „přišla objednávka" — kód je, chybí VAPID klíč + nasazení funkce.
+48. 🧩 🗄️ Denní shrnutí na telefon — souhrn dne existuje v appce, push verze ne.
+49. ✅ Audit konzistence dat — „auditSkladu" a „orderAudit" existují.
+50. ✅ Práva (kdo co smí) — práva na moduly + předvolby rolí existují; jde jen jemnit.
 
 ---
 
-## Kdybych měl vybrat pět, se kterými začít
+## Skutečné mezery (🔨), seřazené podle hodnoty
 
-1. **č. 35** (kostra místo spinneru) — řeší nejčastější stížnost „vrací mě to
-   nahoru".
-2. **č. 1 + 2** (náhled celé objednávky + ruční doplnění) — přímo navazuje na
-   opravu úprav přes WhatsApp, kterou budeme v úterý testovat.
-3. **č. 5 + 6** (zopakovat / našeptat sortiment) — nejvíc ušetří času při
-   denním zadávání.
-4. **č. 47** (push notifikace) — kód je skoro hotový, chce dotáhnout.
-5. **č. 16 + 17** (inventura z minula + rozdíly) — nejotravnější měsíční
-   práce.
+**Mimo objednávky (dají se dělat hned, bez rizika pro úterní test):**
+- **#24** zbývající objem → sudy *(hotovo v této dávce)*
+- **#20** sklad „za jak dlouho dojde" — plánování stáčení i nákupu
+- **#30** souhrn prodejny — kolik se prodalo, čeho nejvíc
+- **#15** odhad, na kolik závozů stočené vystačí
+- **#29** „prodej jako minule"
+- **#33** nákupní seznam materiálu
+- **#26 + #27** jízda z minula, Kč/km
+- **#23** 🗄️ historie tanku
+- **#43** sparkline · **#42** tmavé grafy · **#45** škála písma (větší, vzhledové)
+- **#36** táhni pro smazání (gesto, riziko)
 
-Napiš čísla, která chceš, a jedu po dávkách.
+**Objednávky (až po úterním testu):**
+- **#2** ruční doplnění položky · **#7** zvýraznit hledané · **#9** Dnes/Zítra štítek
+- **#8** odstupňovat stavy · **#1** náhled celé objednávky · **#3** sloučit duplicitu · **#6** našeptat sortiment · **#4** 🗄️ historie změn
+
+**Potřebují migraci (kód teď, SQL v neděli):** #4, 18, 23, 31, 34, 47, 48.
+
+Řekni čísla, nebo nech na mně — jedu odshora po skutečných mezerách.
