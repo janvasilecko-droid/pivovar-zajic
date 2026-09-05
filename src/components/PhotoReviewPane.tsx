@@ -145,7 +145,7 @@ export function PhotoReviewPane({ photos, activeIndex, onChangeIndex, activeBbox
         <div className="flex items-center gap-2">
           <button className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-base tap" onClick={() => zoomBy(1 / 1.3)} title="Oddálit" aria-label="Oddálit">−</button>
           <button className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-base tap" onClick={() => zoomBy(1.3)} title="Přiblížit" aria-label="Přiblížit">+</button>
-          <button className="px-2 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center tap" onClick={resetView} title="Reset" aria-label="Reset">Reset</button>
+          <button className="px-2 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center tap" onClick={resetView} title="Reset">Reset</button>
         </div>
       </div>
 

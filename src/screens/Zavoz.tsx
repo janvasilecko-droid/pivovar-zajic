@@ -872,7 +872,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                           <button
                             onClick={() => openMoveDay(group.dayKey)}
                             className="px-3 py-1.5 rounded bg-white border border-amber-300 hover:bg-amber-100 text-amber-800 font-black text-xs transition shadow-xs flex items-center gap-1.5 tap"
-                            title="Přesunout tento den na jiný den" aria-label="Přesunout tento den na jiný den"
+                            title="Přesunout tento den na jiný den"
                           >
                             <ArrowRightLeft size={14} />
                             <span>Změnit den</span>
@@ -939,7 +939,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                           <div className="flex items-center gap-1.5">
                                             <button
                                               onClick={() => toggleOrderKachnaFor(o.id)}
-                                              title="Tato objednávka pojede druhým autem (Kačena)" aria-label="Tato objednávka pojede druhým autem (Kačena)"
+                                              title="Tato objednávka pojede druhým autem (Kačena)"
                                               className={`tap px-2.5 py-1.5 rounded font-black text-udaj transition shadow-xs flex items-center gap-1 border ${
                                                 secondCarOrderIds.includes(o.id)
                                                   ? 'bg-emerald-700 text-white border-emerald-600'
@@ -1085,7 +1085,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                       openCustomerWhatsApp(o.place_phone || undefined, text);
                                     }}
                                     className="btn-ghost !rounded !py-1.5 !px-2.5 text-xs font-black flex items-center gap-1 bg-emerald-50 text-emerald-950 border border-emerald-300 shadow-2xs hover:bg-emerald-100"
-                                    title="Odeslat avízo o závozu na WhatsApp" aria-label="Odeslat avízo o závozu na WhatsApp"
+                                    title="Odeslat avízo o závozu na WhatsApp"
                                   >
                                     <MessageCircle size={14} className="text-emerald-700" /> WhatsApp
                                   </button>
@@ -1095,7 +1095,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                     type="button"
                                     onClick={() => setKegReturnOrder(o)}
                                     className="btn-ghost !rounded !py-1.5 !px-2.5 text-xs font-black flex items-center gap-1 bg-sky-50 text-sky-950 border border-sky-300 shadow-2xs hover:bg-sky-100"
-                                    title="Zaznamenat vrácené prázdné KEG sudy" aria-label="Zaznamenat vrácené prázdné KEG sudy"
+                                    title="Zaznamenat vrácené prázdné KEG sudy"
                                   >
                                     <IkonaSud size={14} className="text-sky-700" /> Sudy
                                   </button>
@@ -1105,12 +1105,12 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                     type="button"
                                     onClick={() => setSignOrder(o)}
                                     className="btn-ghost !rounded !py-1.5 !px-2.5 text-xs font-black flex items-center gap-1 bg-neutral-100 text-neutral-900 border border-neutral-300 shadow-2xs hover:bg-neutral-200"
-                                    title="Podepsat převzetí na sklo" aria-label="Podepsat převzetí na sklo"
+                                    title="Podepsat převzetí na sklo"
                                   >
                                     <PenTool size={14} /> Podpis
                                   </button>
 
-                                  <button onClick={() => setEditOrder(o)} className="btn-ghost !rounded !py-1.5 !px-2.5 text-xs font-black flex items-center gap-1" title="Upravit objednávku" aria-label="Upravit objednávku">
+                                  <button onClick={() => setEditOrder(o)} className="btn-ghost !rounded !py-1.5 !px-2.5 text-xs font-black flex items-center gap-1" title="Upravit objednávku">
                                     <Pencil size={14} /> Upravit
                                   </button>
 

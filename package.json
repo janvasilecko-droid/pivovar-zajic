@@ -16,6 +16,7 @@
     "zkontroluj-tlacitka": "node scripts/zkontroluj-tlacitka.mjs",
     "zkontroluj-velikost": "node scripts/zkontroluj-velikost.mjs",
     "zkontroluj-dotyk": "node scripts/zkontroluj-dotyk.mjs",
+    "zkontroluj-popisky": "node scripts/zkontroluj-popisky.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test:ui": "vitest --ui",

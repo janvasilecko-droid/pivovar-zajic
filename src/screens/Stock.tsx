@@ -511,7 +511,7 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
               <button
                 onClick={() => setWeekKey(shiftWeek(weekKey, -1))}
                 className="flex items-center gap-1.5 px-4 py-2 rounded bg-neutral-100 hover:bg-amber-100 text-neutral-700 hover:text-amber-950 text-xs font-black border border-neutral-300 hover:border-amber-400 transition"
-                title="Předchozí týden" aria-label="Předchozí týden"
+                title="Předchozí týden"
               >
                 ‹ Předchozí
               </button>
@@ -524,7 +524,7 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
               <button
                 onClick={() => setWeekKey(shiftWeek(weekKey, 1))}
                 className="flex items-center gap-1.5 px-4 py-2 rounded bg-neutral-100 hover:bg-amber-100 text-neutral-700 hover:text-amber-950 text-xs font-black border border-neutral-300 hover:border-amber-400 transition"
-                title="Následující týden" aria-label="Následující týden"
+                title="Následující týden"
               >
                 Následující ›
               </button>
@@ -542,7 +542,7 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
               <button
                 onClick={() => setInvMonth(monthKey(todayISO()))}
                 className="px-2.5 py-1 rounded bg-neutral-100 hover:bg-amber-100 text-neutral-600 hover:text-amber-950 text-udaj font-black border border-neutral-300 hover:border-amber-400 transition tap"
-                title="Aktuální měsíc" aria-label="Aktuální měsíc"
+                title="Aktuální měsíc"
               >
                 Nyní
               </button>
@@ -622,7 +622,7 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                                           vysledek: p.rawStock,
                                         });
                                       }}
-                                      title="Ukázat, z čeho se stav skládá" aria-label="Ukázat, z čeho se stav skládá"
+                                      title="Ukázat, z čeho se stav skládá"
                                       className="w-full min-h-[36px] py-1 px-1 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md hover:bg-amber-100 active:scale-95 transition underline decoration-dotted decoration-neutral-400 underline-offset-2 tap"
                                     >
                                       {p.currentStock}
@@ -678,7 +678,7 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                                           vysledek: p.rawStock,
                                         });
                                       }}
-                                      title="Ukázat, z čeho se stav skládá" aria-label="Ukázat, z čeho se stav skládá"
+                                      title="Ukázat, z čeho se stav skládá"
                                       className="w-full min-h-[36px] py-1 px-1 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md hover:bg-amber-100 active:scale-95 transition underline decoration-dotted decoration-neutral-400 underline-offset-2 tap"
                                     >
                                       {p.currentStock}

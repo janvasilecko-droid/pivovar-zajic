@@ -1417,7 +1417,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                 </span>
               ))}
               {layout.dock.length < MAX_DOCK && (
-                <button type="button" className="hs-dock-add" title="Přidat další slot do spodní lišty" aria-label="Přidat další slot do spodní lišty" onClick={handleAddDockSlot}>
+                <button type="button" className="hs-dock-add" title="Přidat další slot do spodní lišty" onClick={handleAddDockSlot}>
                   <Plus size={14} /> Přidat
                 </button>
               )}

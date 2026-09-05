@@ -316,7 +316,7 @@ export default function VycepyScreen() {
                         taps_disassembled: true
                       })}
                       className="px-2.5 py-1.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold shadow-2xs flex items-center justify-center gap-1 tap"
-                      title="Provést Oplach vodou a zaznamenat čistotu" aria-label="Provést Oplach vodou a zaznamenat čistotu"
+                      title="Provést Oplach vodou a zaznamenat čistotu"
                     >
                       <Droplets size={14} /> Opláchnuto
                     </button>
@@ -328,7 +328,7 @@ export default function VycepyScreen() {
                         taps_disassembled: true
                       })}
                       className="px-2.5 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black shadow-2xs flex items-center justify-center gap-1 tap"
-                      title="Provést sanitaci louhem" aria-label="Provést sanitaci louhem"
+                      title="Provést sanitaci louhem"
                     >
                       <RefreshCw size={14} /> Louh <FlaskConical className="ikona-text" />
                     </button>

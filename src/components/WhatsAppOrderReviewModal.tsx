@@ -821,7 +821,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                     onClick={handleReparse}
                     disabled={reparsing || loading}
                     className="mt-1.5 flex items-center gap-1.5 px-2.5 py-1 rounded bg-sky-700 text-white text-xs font-semibold hover:bg-sky-800 disabled:opacity-50 disabled:cursor-not-allowed tap"
-                    title="Ručně spustit AI parsování této zprávy" aria-label="Ručně spustit AI parsování této zprávy"
+                    title="Ručně spustit AI parsování této zprávy"
                   >
                     {reparsing ? <RefreshCw size={14} className="animate-spin" /> : <RefreshCw size={14} />}
                     {reparsing ? 'Parsuji...' : 'Parsovat ručně'}

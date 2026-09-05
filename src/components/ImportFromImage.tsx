@@ -794,7 +794,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                 type="button"
                 onClick={() => fileRefPdf.current?.click()}
                 disabled={busy}
-                title="Vybrat soubor (např. PDF objednávky)" aria-label="Vybrat soubor (např. PDF objednávky)"
+                title="Vybrat soubor (např. PDF objednávky)"
                 className="h-11 px-2.5 rounded bg-white border border-neutral-300 text-neutral-800 text-xs font-black shadow-sm transition active:scale-95 disabled:opacity-50"
               >
                 <FileText className="ikona-text" /> PDF
@@ -1083,7 +1083,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                     {(!p.duplicate || userAllowedDups.has(i)) && (
                       <button
                         className="ml-auto text-primary-300 hover:text-rose-400 text-xs px-2 py-0.5 rounded hover:bg-primary-800 transition-colors tap"
-                        title="Odstranit tento řádek z importu" aria-label="Odstranit tento řádek z importu"
+                        title="Odstranit tento řádek z importu"
                         onClick={(e) => { e.stopPropagation(); removeLine(i); }}
                       >× Odstranit</button>
                     )}

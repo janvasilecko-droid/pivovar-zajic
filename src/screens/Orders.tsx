@@ -1746,7 +1746,7 @@ export default function Orders({
                 mezikrok navíc (kontrola je samostatné tlačítko vedle). */}
             <button
               className="btn-ghost !rounded !min-h-[36px] !py-1.5 !bg-[#25D366] !border-[#25D366] !text-[#0f172a] font-black text-xs shadow-xs flex items-center gap-1.5 hover:!bg-[#1da851] relative"
-              title="WhatsApp — čtení a zpracování příchozích zpráv" aria-label="WhatsApp — čtení a zpracování příchozích zpráv"
+              title="WhatsApp — čtení a zpracování příchozích zpráv"
               onClick={() => setShowWhatsAppAutoProcessor(true)}
             >
               <MessageCircle size={14} /> WhatsApp
@@ -1758,7 +1758,7 @@ export default function Orders({
             </button>
             <button className="btn-ghost !rounded !min-h-[36px] !py-1.5 !bg-amber-50 !border-amber-200 !text-amber-900 font-extrabold text-xs shadow-xs flex items-center gap-1.5 hover:!bg-amber-100" title="Kontrola — zobrazí VŠECHNY WhatsApp zprávy za období, i chybové a ignorované" onClick={() => setShowWhatsAppAudit(true)}><ShieldAlert size={14} /> Kontrola zpráv</button>
             <button className="btn-ghost !rounded !min-h-[36px] !py-1.5 !bg-amber-50 !border-amber-200 !text-amber-900 font-extrabold text-xs shadow-xs flex items-center gap-1.5 hover:!bg-amber-100" title="Audit objednávek — najde duplicitní položky, nesrovnalosti proti WhatsAppu a nezpracované zprávy" onClick={() => setShowOrderAudit(true)}><ShieldAlert size={14} /> Audit objednávek</button>
-            <button className="btn-ghost !rounded !min-h-[36px] !py-1.5 !bg-amber-50 !border-amber-200 !text-amber-900 font-extrabold text-xs shadow-xs flex items-center gap-1.5 hover:!bg-amber-100" title="Načíst z fotky/e-mailu" aria-label="Načíst z fotky/e-mailu" onClick={() => { setImportTarget(null); setShowImport(true); }}><Camera size={14} /> Fotka/AI</button>
+            <button className="btn-ghost !rounded !min-h-[36px] !py-1.5 !bg-amber-50 !border-amber-200 !text-amber-900 font-extrabold text-xs shadow-xs flex items-center gap-1.5 hover:!bg-amber-100" title="Načíst z fotky/e-mailu" onClick={() => { setImportTarget(null); setShowImport(true); }}><Camera size={14} /> Fotka/AI</button>
           </div>
           )}
         </div>
@@ -1846,7 +1846,7 @@ export default function Orders({
                 type="button"
                 onClick={resetToCurrentWeek}
                 className="flex-1 h-10 text-center text-xs font-black bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 rounded transition tap"
-                title="Klikni pro návrat na aktuální týden" aria-label="Klikni pro návrat na aktuální týden"
+                title="Klikni pro návrat na aktuální týden"
               >
                 <Calendar className="ikona-text" /> Týden {weekRange(weekKey).label}
               </button>
@@ -1955,7 +1955,7 @@ export default function Orders({
                           key={q}
                           type="button"
                           onClick={() => setPkgAbsolute(expandedBeer.id, p.id, q)}
-                          title="Rychlá volba množství" aria-label="Rychlá volba množství"
+                          title="Rychlá volba množství"
                           className={`tap h-9 min-w-[1.75rem] px-1.5 rounded text-udaj font-black transition ${qty === q ? 'bg-emerald-700 text-white' : 'bg-neutral-100 hover:bg-emerald-200 text-neutral-600 hover:text-emerald-950'}`}
                         >
                           {q}
@@ -2023,7 +2023,7 @@ export default function Orders({
                         type="button"
                         onClick={() => setExpandedBeerId(expandedBeerId === r.beerId ? null : r.beerId)}
                         className="flex items-center gap-1.5 text-xs font-bold text-neutral-800 dark:text-neutral-100 text-left truncate"
-                        title="Klikni pro úpravu v dlaždici" aria-label="Klikni pro úpravu v dlaždici"
+                        title="Klikni pro úpravu v dlaždici"
                       >
                         <span className="shrink-0">{r.qty}×</span>
                         <span className="truncate">{formatPackageLabel(pkg?.label)} · {beerName(beer)}</span>
@@ -2114,7 +2114,7 @@ export default function Orders({
                 className="!bg-[#25D366] hover:!bg-[#1da851] !border-[#25D366] !text-[#0f172a] text-xs font-black shadow-md flex items-center gap-1.5 px-3.5 py-2 rounded transition disabled:opacity-40"
                 disabled={saving || (!filledBeerRows.length && !manualText.trim())}
                 onClick={() => addOrder(undefined, true)}
-                title="Vytvoří objednávku a otevře WhatsApp s předvyplněnou zprávou" aria-label="Vytvoří objednávku a otevře WhatsApp s předvyplněnou zprávou"
+                title="Vytvoří objednávku a otevře WhatsApp s předvyplněnou zprávou"
               >
                 <MessageCircle size={14} /> {saving ? 'Ukládám…' : 'Vytvořit a odeslat na WhatsApp'}
               </button>
@@ -3107,7 +3107,7 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
             <button
               onClick={(e) => { e.stopPropagation(); onOpenWhatsApp && onOpenWhatsApp(o.whatsapp_message_id!); }}
               className="text-udaj font-extrabold shrink-0 text-emerald-900 bg-emerald-100 border border-emerald-300 rounded-md px-1.5 py-0.5 hover:bg-emerald-200 flex items-center gap-1 tap"
-              title="Otevřít originální WhatsApp zprávu a kontrolu čtení (#18)" aria-label="Otevřít originální WhatsApp zprávu a kontrolu čtení (#18)"
+              title="Otevřít originální WhatsApp zprávu a kontrolu čtení (#18)"
             >
               <MessageCircle size={12} /> WhatsApp
             </button>

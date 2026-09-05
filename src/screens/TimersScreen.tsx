@@ -178,7 +178,7 @@ function StopwatchTool() {
             <button
               onClick={copyLaps}
               className="flex items-center gap-1.5 text-xs font-bold text-neutral-600 hover:text-neutral-900 transition px-2 py-1 rounded hover:bg-neutral-100 tap"
-              title="Kopírovat mezičasy do schránky" aria-label="Kopírovat mezičasy do schránky"
+              title="Kopírovat mezičasy do schránky"
             >
               {copied ? <><Check size={14} className="text-emerald-600" /> Zkopírováno!</> : <><Copy size={14} /> Kopírovat</>}
             </button>
@@ -431,7 +431,7 @@ function CountdownTimersTool() {
             type="button"
             onClick={handleTestAlert}
             className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-neutral-950 text-xs font-black shadow-xs transition flex items-center gap-1.5 shrink-0 tap"
-            title="Okamžitě přehraje alarm a zavibruje" aria-label="Okamžitě přehraje alarm a zavibruje"
+            title="Okamžitě přehraje alarm a zavibruje"
           >
             <Volume2 size={14} /> Vyzkoušet
           </button>
@@ -616,7 +616,7 @@ function CountdownTimersTool() {
             type="button"
             onClick={handleTestAlert}
             className="px-3 py-1.5 rounded text-xs font-bold bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 flex items-center gap-1 tap"
-            title="Přehraje alarm a zavibruje pro otestování" aria-label="Přehraje alarm a zavibruje pro otestování"
+            title="Přehraje alarm a zavibruje pro otestování"
           >
             🔔 Vyzkoušet zvuk a vibrace
           </button>
@@ -683,7 +683,7 @@ function CountdownTimersTool() {
                 <button
                   type="button"
                   onClick={() => reset(t.id)}
-                  title="Resetovat na původní čas" aria-label="Resetovat na původní čas"
+                  title="Resetovat na původní čas"
                   className="px-3 py-2 rounded text-xs font-bold bg-neutral-100 hover:bg-neutral-200 text-neutral-700 flex items-center gap-1"
                 >
                   <RotateCcw size={14} /> Reset

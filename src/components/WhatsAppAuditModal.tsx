@@ -135,7 +135,7 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
               onClick={handleRunAutoParse}
               disabled={runningAutoParse}
               className="px-3 py-1.5 rounded bg-sky-700 hover:bg-sky-800 text-white text-xs font-black shadow-xs flex items-center gap-1.5 disabled:opacity-50 tap"
-              title="Spustit AI zpracování nevyřízených zpráv" aria-label="Spustit AI zpracování nevyřízených zpráv"
+              title="Spustit AI zpracování nevyřízených zpráv"
             >
               <Zap size={14} /> {runningAutoParse ? 'Zpracovávám…' : 'Zpracovat nevyřízené'}
             </button>

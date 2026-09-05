@@ -261,7 +261,7 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
                   </div>
                 </div>
                 <div className="flex justify-end sm:col-span-1">
-                  <button type="button" className="text-rose-400 hover:text-rose-600 px-2 py-1.5 sm:py-0 tap" onClick={() => removeRow(i)} title="Odstranit položku" aria-label="Odstranit položku"><X className="ikona-text" /> Odstranit</button>
+                  <button type="button" className="text-rose-400 hover:text-rose-600 px-2 py-1.5 sm:py-0 tap" onClick={() => removeRow(i)} title="Odstranit položku"><X className="ikona-text" /> Odstranit</button>
                 </div>
               </div>
             ))}

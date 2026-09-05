@@ -83,6 +83,13 @@ jobs:
       - name: Kontrola dotykových cílů
         run: npm run zkontroluj-dotyk
 
+      # Popisky tlačítek. Ikonové tlačítko musí mít aria-label (title se na
+      # dotyku nezobrazí), ale tlačítko S TEXTEM ho mít NESMÍ — aria-label
+      # přístupné jméno nahrazuje, takže by z „Mám všech 3" bylo něco jiného.
+      # Tuhle chybu jsem udělal při hromadném doplňování na 53 místech.
+      - name: Kontrola popisků
+        run: npm run zkontroluj-popisky
+
       # ESLint. Projekt ho do 5. 9. 2026 neměl a hned v prvním běhu našel
       # dvě skutečné chyby: hook volaný až za `return null` (React na to
       # spadne při otevření modalu) a `let mounted = true`, které se nikdy

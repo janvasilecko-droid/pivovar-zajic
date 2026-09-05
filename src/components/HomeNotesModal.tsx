@@ -212,7 +212,7 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
                       type="button"
                       onClick={() => toggleHomeNote(note.id)}
                       className="mt-0.5 w-5 h-5 rounded-md border-2 border-neutral-400/80 bg-white/90 grid place-items-center shrink-0 hover:border-amber-600 transition tap"
-                      title="Označit jako hotové / odškrtnout" aria-label="Označit jako hotové / odškrtnout"
+                      title="Označit jako hotové / odškrtnout"
                     >
                       {note.completed && <Check size={14} className="text-emerald-700 font-bold" />}
                     </button>

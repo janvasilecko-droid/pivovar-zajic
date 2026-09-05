@@ -773,7 +773,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                               type="button"
                               className="flex-1 min-h-[44px] grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black transition"
                               onClick={() => increment(r.id, 1)}
-                              title="Přidat 1 ks" aria-label="Přidat 1 ks"
+                              title="Přidat 1 ks"
                             >+ 1 ks</button>
                             {/* 📷 Fotka k odpisu — „zkažené, rozbitá láhev" je dnes
                                 jediný doklad a po měsíci si nikdo nevzpomene, jak to

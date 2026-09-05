@@ -369,7 +369,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
                 onClick={loadAudit}
                 disabled={loading || actionLoading}
                 className="w-10 h-10 sm:w-auto sm:px-3 rounded bg-white/10 hover:bg-white/20 active:scale-95 text-white transition text-xs font-bold flex items-center justify-center gap-1.5 border border-white/10 tap"
-                title="Překontrolovat znovu" aria-label="Překontrolovat znovu"
+                title="Překontrolovat znovu"
               >
                 <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
                 <span className="hidden sm:inline">Překontrolovat</span>
@@ -1084,7 +1084,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
                                   disabled={actionLoading}
                                   onClick={() => handleStornoOrder(o.id)}
                                   className="px-2.5 py-1 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 font-black text-xs transition tap"
-                                  title="Stornovat duplikát" aria-label="Stornovat duplikát"
+                                  title="Stornovat duplikát"
                                 >
                                   Stornovat
                                 </button>

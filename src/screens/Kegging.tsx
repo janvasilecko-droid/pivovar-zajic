@@ -1089,7 +1089,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                             key={q}
                             type="button"
                             onClick={() => setTileRow(expandedKegBeer.id, p.id, { qty: String(q) })}
-                            title="Rychlá volba množství" aria-label="Rychlá volba množství"
+                            title="Rychlá volba množství"
                             className={`tap h-7 min-w-[1.75rem] px-1.5 rounded text-udaj font-black transition ${qty === q ? 'bg-emerald-700 text-white' : 'bg-neutral-100 dark:bg-neutral-700 hover:bg-emerald-200 text-neutral-600 dark:text-neutral-200 hover:text-emerald-950'}`}
                           >
                             {q}
@@ -1157,7 +1157,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                           type="button"
                           onClick={() => setExpandedKegBeerId(r.beerId)}
                           className="flex items-center gap-1.5 text-xs font-bold text-neutral-800 dark:text-neutral-100 text-left truncate"
-                          title="Klikni pro úpravu v dlaždici" aria-label="Klikni pro úpravu v dlaždici"
+                          title="Klikni pro úpravu v dlaždici"
                         >
                           <span className="shrink-0">{r.qty}×</span>
                           <span className="truncate">{formatPackageLabel(pkg?.label)} · {beerName(beer)}</span>
