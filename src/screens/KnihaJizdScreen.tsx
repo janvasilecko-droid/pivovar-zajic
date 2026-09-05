@@ -201,6 +201,15 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
     return filteredEntries.reduce((sum, e) => sum + Number(e.km_driven || 0), 0);
   }, [filteredEntries]);
 
+  // ⛽ Průměrná spotřeba za měsíc: součet natankovaných litrů / ujeté km × 100.
+  // Ukáže se jen když je za měsíc zapsané aspoň nějaké tankování — bez litrů
+  // by to bylo dělení nulou a „0,0" by mátlo. (Kč/km zatím ne — cena paliva
+  // se u jízdy neeviduje; to by chtělo sloupec navíc v databázi.)
+  const spotreba100 = useMemo(() => {
+    const litry = filteredEntries.reduce((s, e) => s + Number(e.fuel_liters || 0), 0);
+    return litry > 0 && totalKmMonth > 0 ? (litry / totalKmMonth) * 100 : null;
+  }, [filteredEntries, totalKmMonth]);
+
   // Velké auto — výchozí vozidlo pro vygenerované jízdy z objednávek
   const bigVehicleLabel = useMemo(() => {
     const big =
@@ -559,6 +568,12 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
           <div className="nazev">Vozidla</div>
           <div className="cislo">{vehicles.length || 1}</div>
         </div>
+        {spotreba100 != null && (
+          <div>
+            <div className="nazev">l/100 km</div>
+            <div className="cislo text-amber-700">{spotreba100.toFixed(1)}</div>
+          </div>
+        )}
       </div>
 
       {/* Main Table */}

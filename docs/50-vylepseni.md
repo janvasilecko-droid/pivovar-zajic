@@ -49,7 +49,7 @@ Vyloučeno na přání: **#11, #14, #16, #22.**
 ## E. Kniha jízd a auta
 25. 🧩 🗄️ STK/známka s předstihem — upozornění existují, jde doladit předstih 30 dní.
 26. 🔨 Rychlý zápis jízdy z minula.
-27. 🔨 Spotřeba l/100 km a Kč/km.
+27. 🧩 Spotřeba — *l/100 km doplněno v této dávce*; Kč/km chybí (potřebuje 🗄️ sloupec s cenou paliva).
 28. ✅ Export knihy jízd do Excelu — existuje.
 
 ## F. Prodejna a fasování

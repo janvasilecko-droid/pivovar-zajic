@@ -8,6 +8,7 @@
 // Stručný přehled změn v aktuální verzi (zobrazuje se v admin sekci Nastavení)
 
 export const APP_CHANGELOG: string[] = [
+  '⛽ Kniha jízd ukazuje průměrnou spotřebu. Do pruhu čísel přibylo „l/100 km" spočítané z natankovaných litrů a ujetých km za měsíc — vidět, jestli auto nežere víc, než má. Ukáže se jen když je za měsíc zapsané aspoň nějaké tankování. (Kč/km zatím ne — cena paliva se u jízdy neeviduje, na to by byl potřeba sloupec navíc v databázi.)',
   '🛢️ U tanku ve sklepě je vidět, na kolik sudů zbývající objem vyjde. Pod „Zbývá: X hl" se nově píše „Na sudy: 9×50 · 16×30 · 24×20" — hned je jasné, na co pivo v tanku ještě stačí, bez počítání z hlavy. Ukazuje se jen dokud v tanku něco je.',
   '☁️ Fronta bez signálu se dá odeslat hned. Dlaždice „Čeká na odeslání" je nově „Odeslat teď" — klepnutím se čekající zápisy pošlou do cloudu okamžitě (dřív se muselo do Nastavení, nebo se čekalo, až se appka sama chytne signálu). Když nejsi online, appka to řekne a počká. Po odeslání ukáže, kolik se povedlo.',
   '💾 Záloha připomíná sama sebe. Na dlaždici „Stáhnout zálohu" (1. stránka plochy) se ukáže odznak „⚠ X dní", když se záloha dlouho nestahovala — tichá pojistka, ať se nezapomene (vidí jen admin, jen ten může zálohu stáhnout).',
