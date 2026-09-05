@@ -6,7 +6,6 @@ import { orderWeightKg, fmtKg } from '../lib/weight';
 import { DAYS } from '../lib/shared';
 import { AlertOctagon, AlertTriangle, ArrowDown, ChevronDown, ChevronUp, ArrowDownRight, ArrowUp, ArrowUpRight, BarChart3, Beer as BeerIcon, Boxes, Building, Calendar, CheckCircle2, ChevronsUpDown, Clock, DollarSign, Download, Droplet, Eye, EyeOff, Filter, GitCompare, History as HistoryIcon, Maximize2, Minimize2, Package as PackageIcon, PartyPopper, Percent, PieChart as PieChartIcon, Printer, Receipt, Save, Search, ShieldAlert, ShoppingCart, Smartphone, Star, Store, TrendingDown, TrendingUp, Trophy, Truck, Undo2, X, Zap, type LucideIcon } from 'lucide-react';
 import { WeeklyOrderSummaryCard, WeeklyOrderItem, isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
-import { PieChart as RePieChart, Pie, Cell, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { EditOrderModal } from '../components/EditOrderModal';
 import ZavozHistory from '../components/ZavozHistory';
 import { IkonaLahev, IkonaSud } from '../components/ikony';

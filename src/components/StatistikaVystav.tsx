@@ -28,11 +28,30 @@ import {
 } from '../lib/statistika';
 
 // Pořadí je záměrné — sousední dvojice musí být rozlišitelné i při barvosleposti.
+/**
+ * 🎨 Barvy grafu se berou z PROMĚNNÝCH, ne z napsaných hodnot.
+ *
+ * Recharts kreslí do SVG přes atributy `fill`/`stroke`, takže se na ně
+ * nedají použít třídy — hodnota musí být řetězec. Dřív tu byly napsané
+ * odstíny natvrdo, takže v tmavém režimu zůstala mřížka světlá, popisky
+ * os tmavé (na tmavém pozadí je nebylo vidět) a koláč byl obtažený bílou.
+ *
+ * `barvaZMotivu()` přečte tutéž proměnnou, na které stojí celý
+ * tailwind.config.js — takže graf sleduje motiv sám a nemá druhou sadu
+ * barev, která by se rozešla.
+ *
+ * Čte se až při vykreslení (ne do konstanty), protože motiv se dá přepnout
+ * za běhu v Nastavení.
+ */
+export function barvaZMotivu(promenna: string, zaloha: string): string {
+  if (typeof window === 'undefined') return zaloha;
+  const hodnota = getComputedStyle(document.documentElement).getPropertyValue(promenna).trim();
+  // Proměnné jsou uložené jako „R G B" pro rgb(var(--x) / <alpha>).
+  return hodnota ? `rgb(${hodnota.split(/\s+/).join(' ')})` : zaloha;
+}
+
 const RADA_BAREV = ['#b3730a', '#0369a1', '#15803d', '#7e22ce', '#c85f1e', '#0891b2', '#65a30d', '#be123c'];
 const BARVA_LETOS = '#b3730a';
-const BARVA_LONI = '#94a3b8';
-const INK_TLUMENA = '#64748b';
-const MRIZKA = '#e2e8f0';
 
 const MESICE_ZKR = ['led', 'úno', 'bře', 'dub', 'kvě', 'čvn', 'čvc', 'srp', 'zář', 'říj', 'lis', 'pro'];
 
@@ -96,14 +115,32 @@ function Nadpis({ text, popis }: { text: string; popis?: string }) {
   );
 }
 
-const stylTooltipu = {
-  contentStyle: { borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12, fontWeight: 700 },
-  labelStyle: { color: '#0f172a', fontWeight: 800 },
+const stylTooltipuZaklad = {
+  contentStyle: { borderRadius: 12, fontSize: 12, fontWeight: 700 },
+  labelStyle: { fontWeight: 800 },
 };
 
 export default function StatistikaVystav({
   bottlingRows, keggingRows, obaly, piva, orders, orderItems, dnes, obdobi, onObdobi,
 }: Props) {
+  // Barvy grafu podle motivu. Přepočítají se při každém vykreslení, takže
+  // přepnutí světlý/tmavý v Nastavení se projeví bez znovunačtení stránky.
+  const INK_TLUMENA = barvaZMotivu('--ink-neutral-500', '#64748b');
+  const MRIZKA = barvaZMotivu('--bd-neutral-200', '#e2e8f0');
+  const BARVA_LONI = barvaZMotivu('--ink-neutral-400', '#94a3b8');
+  // Obtažení výsečí koláče musí být barva PODKLADU, ne bílá — v tmavém
+  // režimu z bílé vznikly svítící linky přes celý graf.
+  const OBTAZENI = barvaZMotivu('--bg-white', '#ffffff');
+  const stylTooltipu = {
+    contentStyle: {
+      ...stylTooltipuZaklad.contentStyle,
+      border: `1px solid ${MRIZKA}`,
+      background: OBTAZENI,
+      color: barvaZMotivu('--ink-neutral-900', '#0f172a'),
+    },
+    labelStyle: { ...stylTooltipuZaklad.labelStyle, color: barvaZMotivu('--ink-neutral-900', '#0f172a') },
+  };
+
   const mapaObalu = useMemo(() => new Map(obaly.map((o) => [o.id, o])), [obaly]);
   // Výstav = stočené SUDY. Lahvování se sleduje zvlášť (viz komentář nahoře).
   const vyroba = keggingRows;
@@ -264,7 +301,7 @@ export default function StatistikaVystav({
               <div className="h-[220px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={podlePiv} dataKey="litry" nameKey="nazev" innerRadius="52%" outerRadius="80%" paddingAngle={2} stroke="#fff" strokeWidth={2}>
+                    <Pie data={podlePiv} dataKey="litry" nameKey="nazev" innerRadius="52%" outerRadius="80%" paddingAngle={2} stroke={OBTAZENI} strokeWidth={2}>
                       {podlePiv.map((p) => <Cell key={p.id} fill={barvaPiva.get(p.id) ?? RADA_BAREV[0]} />)}
                     </Pie>
                     <Tooltip {...stylTooltipu} formatter={(v: any, n: any) => [`${(Number(v) / 100).toFixed(1)} hl`, n]} />
@@ -296,7 +333,7 @@ export default function StatistikaVystav({
               <div className="h-[220px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={podleObalu} dataKey="litry" nameKey="nazev" innerRadius="52%" outerRadius="80%" paddingAngle={2} stroke="#fff" strokeWidth={2}>
+                    <Pie data={podleObalu} dataKey="litry" nameKey="nazev" innerRadius="52%" outerRadius="80%" paddingAngle={2} stroke={OBTAZENI} strokeWidth={2}>
                       {podleObalu.map((p) => <Cell key={p.id} fill={barvaObalu.get(p.id) ?? RADA_BAREV[1]} />)}
                     </Pie>
                     <Tooltip {...stylTooltipu} formatter={(v: any, n: any) => [`${(Number(v) / 100).toFixed(1)} hl`, n]} />

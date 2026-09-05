@@ -90,3 +90,20 @@ describe('Statistika — Výstav', () => {
     expect(screen.getByText(/V tomhle období není žádná objednávka/)).toBeTruthy();
   });
 });
+
+describe('barvy grafu podle motivu', () => {
+  it('barvaZMotivu vezme hodnotu proměnné, ne napsaný odstín', async () => {
+    // Graf kreslí do SVG přes atributy fill/stroke, kde třídy nefungují —
+    // hodnota musí být řetězec. Dřív tu byly odstíny natvrdo, takže
+    // v tmavém režimu zůstala mřížka světlá, popisky os tmavé (na tmavém
+    // pozadí neviditelné) a koláč byl obtažený bílou.
+    document.documentElement.style.setProperty('--ink-neutral-500', '10 20 30');
+    const { barvaZMotivu } = await import('./StatistikaVystav');
+    expect(barvaZMotivu('--ink-neutral-500', '#000')).toBe('rgb(10 20 30)');
+  });
+
+  it('bez proměnné vrátí zálohu, takže graf nezmizí', async () => {
+    const { barvaZMotivu } = await import('./StatistikaVystav');
+    expect(barvaZMotivu('--tahle-neexistuje', '#abcdef')).toBe('#abcdef');
+  });
+});
