@@ -1315,15 +1315,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                             <button type="button" onClick={() => setEditingRow(r)} className="btn-ghost !flex-none !w-11 !px-0 !min-h-[44px]" title="Upravit záznam" aria-label="Upravit záznam"><Pencil size={16} /></button>
                             <button type="button" onClick={() => increment(r.id, -1)} disabled={Number(r.quantity) <= 0} className="btn-pocet !min-h-[44px]" aria-label="Ubrat sud">−</button>
                             <button type="button" onClick={() => increment(r.id, 1)} className="btn-pocet !min-h-[44px]" aria-label="Přidat sud">+</button>
-                            <select
-                              className="min-h-[44px] rounded bg-white border border-neutral-200 text-neutral-800 font-bold text-xs px-1.5 cursor-pointer transition"
-                              value={QUICK_KEG_QTY.includes(Number(r.quantity)) ? Number(r.quantity) : ''}
-                              onChange={(e) => { const v = e.target.value; if (v !== '') setQty(r.id, Number(v)); }}
-                              title="Rychlé nastavení počtu sudů"
-                            >
-                              <option value="" disabled>ks</option>
-                              {QUICK_KEG_QTY.map((q) => (<option key={q} value={q}>{q} ks</option>))}
-                            </select>
+                            <input type="number" inputMode="numeric" min="0" onWheel={(e) => e.currentTarget.blur()} key={r.quantity} defaultValue={r.quantity} onBlur={(e) => { const v = Math.max(0, Math.round(Number(e.target.value) || 0)); if (v !== Number(r.quantity)) setQty(r.id, v); }} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} className="min-h-[44px] rounded bg-white border border-neutral-200 text-neutral-800 font-bold text-xs px-1.5 cursor-pointer transition !w-14 text-center tabular-nums" title="Napiš počet ks (libovolné číslo)" />
                             {/* Mazání je jediná barva v řádku a stojí za
                                 mezerou od plusu — na dotyk jsou to sousedi
                                 a záměna maže zápis. */}
@@ -1423,17 +1415,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                                     onClick={() => increment(r.id, 1)}
                                     title="Přidat 1 ks"
                                   >+</button>
-                                  <select
-                                    className="h-6 rounded bg-white border border-amber-300 text-emerald-950 font-bold text-[11px] px-1 cursor-pointer transition"
-                                    value={QUICK_KEG_QTY.includes(Number(r.quantity)) ? Number(r.quantity) : ''}
-                                    onChange={(e) => { const v = e.target.value; if (v !== '') setQty(r.id, Number(v)); }}
-                                    title="Rychlé nastavení počtu sudů (6/12/18/24/30/36)"
-                                  >
-                                    <option value="" disabled>ks</option>
-                                    {QUICK_KEG_QTY.map((q) => (
-                                      <option key={q} value={q}>{q} ks</option>
-                                    ))}
-                                  </select>
+                                  <input type="number" inputMode="numeric" min="0" onWheel={(e) => e.currentTarget.blur()} key={r.quantity} defaultValue={r.quantity} onBlur={(e) => { const v = Math.max(0, Math.round(Number(e.target.value) || 0)); if (v !== Number(r.quantity)) setQty(r.id, v); }} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} className="h-6 rounded bg-white border border-amber-300 text-emerald-950 font-bold text-[11px] px-1 cursor-pointer transition !w-14 text-center tabular-nums" title="Napiš počet ks (libovolné číslo)" />
                                   <button
                                     type="button"
                                     className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition"
@@ -1654,15 +1636,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                           <button type="button" onClick={() => setEditingRow(r)} className="btn-ghost !flex-none !w-11 !px-0 !min-h-[44px]" title="Upravit záznam" aria-label="Upravit záznam"><Pencil size={16} /></button>
                           <button type="button" onClick={() => increment(r.id, -1)} disabled={Number(r.quantity) <= 0} className="btn-pocet !min-h-[44px]" aria-label="Ubrat sud">−</button>
                           <button type="button" onClick={() => increment(r.id, 1)} className="btn-pocet !min-h-[44px]" aria-label="Přidat sud">+</button>
-                          <select
-                            className="min-h-[44px] rounded bg-white border border-neutral-200 text-neutral-800 font-bold text-xs px-1.5 cursor-pointer transition"
-                            value={QUICK_KEG_QTY.includes(Number(r.quantity)) ? Number(r.quantity) : ''}
-                            onChange={(e) => { const v = e.target.value; if (v !== '') setQty(r.id, Number(v)); }}
-                            title="Rychlé nastavení počtu sudů"
-                          >
-                            <option value="" disabled>ks</option>
-                            {QUICK_KEG_QTY.map((q) => (<option key={q} value={q}>{q} ks</option>))}
-                          </select>
+                          <input type="number" inputMode="numeric" min="0" onWheel={(e) => e.currentTarget.blur()} key={r.quantity} defaultValue={r.quantity} onBlur={(e) => { const v = Math.max(0, Math.round(Number(e.target.value) || 0)); if (v !== Number(r.quantity)) setQty(r.id, v); }} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} className="min-h-[44px] rounded bg-white border border-neutral-200 text-neutral-800 font-bold text-xs px-1.5 cursor-pointer transition !w-14 text-center tabular-nums" title="Napiš počet ks (libovolné číslo)" />
                           <button
                             type="button"
                             onClick={() => del(r.id)}
@@ -1765,17 +1739,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                                   onClick={() => increment(r.id, 1)}
                                   title="Přidat 1 ks"
                                 >+</button>
-                                <select
-                                  className="h-6 rounded bg-white border border-amber-300 text-emerald-950 font-bold text-[11px] px-1 cursor-pointer transition"
-                                  value={QUICK_KEG_QTY.includes(Number(r.quantity)) ? Number(r.quantity) : ''}
-                                  onChange={(e) => { const v = e.target.value; if (v !== '') setQty(r.id, Number(v)); }}
-                                  title="Rychlé nastavení počtu sudů (6/12/18/24/30/36)"
-                                >
-                                  <option value="" disabled>ks</option>
-                                  {QUICK_KEG_QTY.map((q) => (
-                                    <option key={q} value={q}>{q} ks</option>
-                                  ))}
-                                </select>
+                                <input type="number" inputMode="numeric" min="0" onWheel={(e) => e.currentTarget.blur()} key={r.quantity} defaultValue={r.quantity} onBlur={(e) => { const v = Math.max(0, Math.round(Number(e.target.value) || 0)); if (v !== Number(r.quantity)) setQty(r.id, v); }} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} className="h-6 rounded bg-white border border-amber-300 text-emerald-950 font-bold text-[11px] px-1 cursor-pointer transition !w-14 text-center tabular-nums" title="Napiš počet ks (libovolné číslo)" />
                                 <button
                                   type="button"
                                   className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition"
