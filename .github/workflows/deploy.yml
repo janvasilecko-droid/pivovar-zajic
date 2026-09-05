@@ -99,6 +99,25 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # E2E: jeden scénář zápisu (týdenní inventura) proti SKUTEČNÉ
+      # komponentě aplikace, jen s paměťovou náhradou Supabase z náhledu.
+      # Testů je přes 1300, ale sto z nich kontroluje výpočty — klikání
+      # nepokrýval žádný, a přitom právě odtud jsou hlášení z provozu.
+      # Náhled se pustí na pozadí, počká se na něj a po testu se zabije.
+      # Bez prohlížeče skript sám sebe přeskočí, takže CI kvůli tomu
+      # nezčervená.
+      - name: E2E scénář
+        run: |
+          npx vite --config vite.nahled.config.ts &
+          for i in $(seq 1 20); do
+            curl -sf http://localhost:5199/panel.html > /dev/null && break
+            sleep 1
+          done
+          npm run e2e
+          kill %1 || true
+        env:
+          CHROMIUM_PATH: /usr/bin/google-chrome
+
   build-and-deploy:
     runs-on: ubuntu-latest
     needs: test

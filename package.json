@@ -18,6 +18,7 @@
     "zkontroluj-dotyk": "node scripts/zkontroluj-dotyk.mjs",
     "zkontroluj-popisky": "node scripts/zkontroluj-popisky.mjs",
     "snimky": "node scripts/snimky.mjs",
+    "e2e": "node scripts/e2e.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test:ui": "vitest --ui",
