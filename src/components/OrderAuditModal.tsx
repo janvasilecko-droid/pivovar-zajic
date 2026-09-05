@@ -15,6 +15,7 @@ import { Spinner } from './ui';
 import { stavPrijmu } from '../lib/stavPrijmu';
 import { fetchLastWhatsAppAt } from '../lib/whatsappApi';
 import { potvrd } from '../lib/toast';
+import { zalogujANahlas } from '../lib/chybyHlaseni';
 import {
   tichoUOdberatelu, vypadkyPrijmu, pokrytiTydne,
   type TichoRadek, type VypadekRadek, type PokrytiRadek,
@@ -144,7 +145,7 @@ export function OrderAuditModal({
       setReport(rep);
       await nactiKontroluPrijmu();
     } catch (e: any) {
-      console.error('Audit failed:', e);
+      zalogujANahlas('Audit failed', e);
       setMsgFeedback('Chyba při spuštění auditu: ' + (e.message || String(e)));
     } finally {
       setLoading(false);

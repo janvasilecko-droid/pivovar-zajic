@@ -2,6 +2,7 @@
 // Ukládá se lokálně a synchronizuje přes Supabase profiles.home_layout napříč zařízeními.
 import { zavibruj } from './haptika';
 import { queueHomeLayoutPatch } from './profileSync';
+import { zalogujANahlas } from './chybyHlaseni';
 
 export type HomeNote = {
   id: string;
@@ -84,7 +85,7 @@ export function saveHomeNotes(notes: HomeNote[]) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
     window.dispatchEvent(new CustomEvent(HOME_NOTES_CHANGED_EVENT, { detail: notes }));
   } catch (e) {
-    console.error('Chyba při ukládání poznámek:', e);
+    zalogujANahlas('Chyba při ukládání poznámek', e);
   }
   // Cloud sync — viz lib/profileSync.ts (sériový zápis, slučuje souběžné
   // změny místo dvou zápisů, co si mohly navzájem přepsat čerstvá data).

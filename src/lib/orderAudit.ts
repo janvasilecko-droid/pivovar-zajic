@@ -2,6 +2,7 @@ import { Beer, Package, fetchAllRows, supabase } from './supabase';
 import { WhatsAppIncoming } from './whatsappApi';
 import { parseFreeTextEntries, emptyAliasMap, loadAliasMap } from './orderParser';
 import { najdiRozjeteOdpocty, najdiRozjetaData, odpoctyStornovanych } from './zavozSync';
+import { zalogujANahlas } from './chybyHlaseni';
 
 export interface OrderItemDuplicateIssue {
   type: 'duplicate_item_rows';
@@ -167,7 +168,7 @@ export async function runOrderAudit({
 
   const { data: ordersData, error: ordersErr } = await ordersQuery;
   if (ordersErr) {
-    console.error('Audit: Chyba při načítání objednávek:', ordersErr);
+    zalogujANahlas('Audit: Chyba při načítání objednávek', ordersErr);
   }
   const orders = ordersData || [];
   const orderIds = orders.map((o: any) => o.id);
@@ -179,7 +180,7 @@ export async function runOrderAudit({
       'id, order_id, beer_id, package_id, quantity, beer_name, package_label, is_prepared',
     ).in('order_id', orderIds);
     if (itemsErr) {
-      console.error('Audit: Chyba při načítání položek objednávek:', itemsErr);
+      zalogujANahlas('Audit: Chyba při načítání položek objednávek', itemsErr);
     }
     orderItems = itemsData || [];
   }
@@ -193,7 +194,7 @@ export async function runOrderAudit({
 
   const { data: waData, error: waErr } = await waQuery;
   if (waErr) {
-    console.error('Audit: Chyba při načítání WhatsApp zpráv:', waErr);
+    zalogujANahlas('Audit: Chyba při načítání WhatsApp zpráv', waErr);
   }
   const waMessages: WhatsAppIncoming[] = waData || [];
   const waMap = new Map<string, WhatsAppIncoming>();
@@ -506,7 +507,7 @@ export async function runOrderAudit({
       'order_id, order_item_id, beer_id, package_id, quantity, deduct_date',
     ).in('order_id', orderIds);
     if (dedErr) {
-      console.error('Audit: Chyba při načítání odpočtů zavozu:', dedErr);
+      zalogujANahlas('Audit: Chyba při načítání odpočtů zavozu', dedErr);
     }
     const odpocty = (dedData || []) as any[];
     const podleItemId = new Map(odpocty.map((d) => [d.order_item_id, d]));

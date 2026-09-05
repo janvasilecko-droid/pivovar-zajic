@@ -8,6 +8,7 @@ import {
 import { Modal, Spinner } from './ui';
 import { AlertTriangle, Check, MessageSquare, RefreshCw, ShieldAlert, Zap } from 'lucide-react';
 import { chyba } from '../lib/toast';
+import { zalogujANahlas } from '../lib/chybyHlaseni';
 
 interface WhatsAppAuditModalProps {
   isOpen: boolean;
@@ -57,7 +58,7 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
       const data = await fetchAllWhatsAppMessagesSince(since.toISOString());
       setMessages(data);
     } catch (e) {
-      console.error('Chyba při načítání kontrolního přehledu WhatsApp zpráv:', e);
+      zalogujANahlas('Chyba při načítání kontrolního přehledu WhatsApp zpráv', e);
     } finally {
       setLoading(false);
     }

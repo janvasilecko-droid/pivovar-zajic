@@ -26,6 +26,7 @@ import { IkonaSud } from '../components/ikony';
 import { zavibruj } from '../lib/haptika';
 import { consumeKegFixRequest } from '../lib/stockFixSignal';
 import { klicVyberu, nactiNaposled, zapamatujVyber, serazPodleNaposled } from '../lib/naposledyPouzite';
+import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
 
 
 const ROW_COUNT = 12;
@@ -47,7 +48,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingRow, setEditingRow] = useState<EntryRow | null>(null);
-  const loadCountRef = useRef(0);
 
   const { profile } = useAuth();
   const isManager = profile?.role === 'admin' || (profile?.role as any) === 'sladek' || (profile?.role as any) === 'sef';
@@ -103,6 +103,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
      
   }, []);
   const [err, setErr] = useState<string | null>(null);
+  /** Nepodařilo se načíst data (na rozdíl od „data jsou, ale žádná"). */
+  const [chybaNacteni, setChybaNacteni] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
   const [showCount, setShowCount] = useState(false);
   const [showImageImport, setShowImageImport] = useState(false);
@@ -315,8 +317,10 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     }
   }
 
+  // Zámek proti zápisu ze zastaralého načtení — viz lib/nacitani.ts.
+  const zacniNacteni = usePosledniNacteni();
   async function load(silent = false) {
-    const loadId = ++loadCountRef.current;
+    const smiZapsat = zacniNacteni();
     if (!silent && !rows.length) setLoading(true);
     const [kg, ct, b, p, ords, oi, inv, fa, fp, wo, pf, zd, bt, adj, ak, pc, ukoly] = await Promise.all([
       fetchAllRows('kegging', '*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
@@ -340,7 +344,13 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       fetchAllRows('kegging_plan_checks', 'week_key,day,beer_id,package_id,qty'),
       supabase.from('bottling_plans').select('*').order('planned_date'),
     ]);
-    if (loadId !== loadCountRef.current) return;
+    // Mezitím mohlo začít novější načtení (realtime po cizím zápisu),
+    // nebo už obrazovka není vidět. Výsledek se pak zahodí.
+    if (!smiZapsat()) return;
+    // Selhaný dotaz se dřív tvářil jako prázdný seznam — `?? []` chybu
+    // spolklo a obrazovka řekla „zatím žádné stočení", i když se jen
+    // nepodařilo načíst. Teď se rozliší.
+    setChybaNacteni(prvniChyba(kg, ct, b, p, ords, oi));
     setRows((kg.data as EntryRow[]) ?? []);
     setPlany((ukoly.data as BottlingPlan[]) ?? []);
     setCellarTanks((ct.data as CellarTank[]) ?? []);
@@ -1543,7 +1553,13 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
         {loading ? (
           <Spinner />
         ) : rows.length === 0 ? (
-          <EmptyState text="Zatím žádné stočení do sudů." icon={PenLine} akce={{ popis: 'Zapsat stočení', onClick: () => setTab('zapis') }} />
+          chybaNacteni ? (
+            <EmptyState
+              varianta="chyba"
+              text={`Stáčení se nepodařilo načíst: ${chybaNacteni}`}
+              akce={{ popis: 'Zkusit znovu', onClick: () => load() }}
+            />
+          ) : <EmptyState text="Zatím žádné stočení do sudů." icon={PenLine} akce={{ popis: 'Zapsat stočení', onClick: () => setTab('zapis') }} />
         ) : filteredRows.length === 0 ? (
           <EmptyState text="Žádné záznamy pro toto období." icon={CalendarDays} />
         ) : (() => {

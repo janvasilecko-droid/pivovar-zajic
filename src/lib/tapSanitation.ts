@@ -3,6 +3,7 @@
 // Ukládá se do localStorage a případně do Supabase
 
 import { supabase } from './supabase';
+import { zalogujANahlas } from './chybyHlaseni';
 
 export type TapSanitationStep = {
   id: string;
@@ -90,7 +91,7 @@ export async function loadTapSanitation(): Promise<TapSanitationEntry[]> {
       .order('created_at', { ascending: false });
     if (data) dbEntries = data as TapSanitationEntry[];
   } catch (err) {
-    console.error('Error fetching tap sanitation logs:', err);
+    zalogujANahlas('Error fetching tap sanitation logs', err);
   }
 
   let local: TapSanitationEntry[] = [];
@@ -173,7 +174,7 @@ export async function saveTapSanEntry(entry: TapSanitationEntry): Promise<boolea
       }
     }
   } catch (err) {
-    console.error('Error saving tap sanitation entry:', err);
+    zalogujANahlas('Error saving tap sanitation entry', err);
   }
 
   // Fallback do localStorage

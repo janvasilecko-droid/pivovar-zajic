@@ -12,6 +12,7 @@ import { checkVersion, forceRefresh, startVersionCheck } from './lib/versionChec
 import { renderFatalError } from './lib/safeDom';
 import { nahlasChybu, zapniHlaseniChyb } from './lib/chybyHlaseni';
 import { zapniFrontuTanku } from './lib/tankFrontaBeh';
+import { zalogujANahlas } from './lib/chybyHlaseni';
 
 
 initDensity();
@@ -158,7 +159,7 @@ try {
 } catch (err: any) {
   const el = document.getElementById('root');
   if (el) renderFatalError(el, 'Chyba při renderu', err?.stack || err, true);
-  console.error('Render error:', err);
+  zalogujANahlas('Render error', err);
 }
 
 // Service worker (offline/PWA) funguje jen na http(s), ne přes file://

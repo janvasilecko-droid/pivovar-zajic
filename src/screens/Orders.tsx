@@ -41,6 +41,7 @@ import { kartaOdberatele } from '../lib/kartaOdberatele';
 import { kusy } from '../lib/cisla';
 import { PodpisModal } from '../components/PodpisModal';
 import { FotkyZaznamu } from '../components/FotkyZaznamu';
+import { zalogujANahlas } from '../lib/chybyHlaseni';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -359,7 +360,7 @@ export default function Orders({
           // Automaticky spustíme parsování, pokud je zpráva v pending stavu
           if (message.status === 'pending') {
             void triggerAutoParse().catch((err) => {
-              console.error('Chyba při automatickém parsování:', err);
+              zalogujANahlas('Chyba při automatickém parsování', err);
             });
           }
 
@@ -370,7 +371,7 @@ export default function Orders({
         }
       });
     } catch (error) {
-      console.error('Chyba při připojení k WhatsApp zprávám:', error);
+      zalogujANahlas('Chyba při připojení k WhatsApp zprávám', error);
     }
     
     return () => {
@@ -411,11 +412,11 @@ export default function Orders({
           try {
             await triggerAutoParse();
           } catch (err) {
-            console.error('Chyba při automatickém parsování (dočtení):', err);
+            zalogujANahlas('Chyba při automatickém parsování (dočtení)', err);
           }
         }
       } catch (error) {
-        console.error('Chyba při dočítání čekajících WhatsApp zpráv:', error);
+        zalogujANahlas('Chyba při dočítání čekajících WhatsApp zpráv', error);
       }
     })();
     return () => { cancelled = true; };
@@ -732,7 +733,7 @@ export default function Orders({
       load();
 
     } catch (error) {
-      console.error('Chyba při schvalování WhatsApp objednávky:', error);
+      zalogujANahlas('Chyba při schvalování WhatsApp objednávky', error);
       throw error;
     }
   }, [beers, packages, aliasMap, load]);
@@ -748,7 +749,7 @@ export default function Orders({
         })
         .eq('id', message.id);
     } catch (error) {
-      console.error('Chyba při zamítnutí WhatsApp objednávky:', error);
+      zalogujANahlas('Chyba při zamítnutí WhatsApp objednávky', error);
       throw error;
     }
   }, []);
@@ -764,7 +765,7 @@ export default function Orders({
         oznam('WhatsApp zpráva k této objednávce nebyla nalezena (byla smazána?).');
       }
     } catch (error) {
-      console.error('Chyba při otevírání WhatsApp zprávy:', error);
+      zalogujANahlas('Chyba při otevírání WhatsApp zprávy', error);
       chyba('Nepodařilo se načíst WhatsApp zprávu: ' + (error as Error).message);
     }
   }, []);
@@ -796,7 +797,7 @@ export default function Orders({
       // zamítnutá zpráva zmizela ze seznamu.
       setWhatsappListRefresh((k) => k + 1);
     } catch (error) {
-      console.error('Chyba při přesunu na další WhatsApp zprávu:', error);
+      zalogujANahlas('Chyba při přesunu na další WhatsApp zprávu', error);
       setAutoWhatsAppModal(false);
       setAutoWhatsAppMessage(null);
       setNewWhatsAppCount(0);

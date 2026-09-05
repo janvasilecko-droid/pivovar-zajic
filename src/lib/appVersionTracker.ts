@@ -7,6 +7,7 @@
 
 import { supabase } from './supabase';
 import { APP_VERSION } from './version';
+import { zalogujANahlas } from './chybyHlaseni';
 
 let lastReportedVersion: string | null = null;
 
@@ -97,7 +98,7 @@ export async function getAllUserVersions(): Promise<{
     .order('last_seen_at', { ascending: false });
 
   if (error) {
-    console.error('Failed to fetch user versions:', error);
+    zalogujANahlas('Failed to fetch user versions', error);
     return [];
   }
 

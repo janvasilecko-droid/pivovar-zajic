@@ -12,6 +12,7 @@ import ZavozHistory from '../components/ZavozHistory';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
 import StatistikaVystav from '../components/StatistikaVystav';
 import type { Obdobi, VyrobniRadek } from '../lib/statistika';
+import { usePosledniNacteni } from '../lib/nacitani';
 
 type MonthData = {
   month: string;
@@ -271,7 +272,10 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
     else { setCycleSortKey(key); setCycleSortDir('desc'); }
   }
 
+  // Zámek proti zápisu ze zastaralého načtení — viz lib/nacitani.ts.
+  const zacniNacteni = usePosledniNacteni();
   async function load(tiche = false) {
+    const smiZapsat = zacniNacteni();
     if (!tiche) setLoading(true);
     const [{ data: bt }, { data: kg }, { data: fa }, { data: wo }, { data: ak }, { data: oi }, { data: ord }, { data: b }, { data: pk }] = await Promise.all([
       fetchAllRows('bottling', 'entry_date,beer_id,package_id,quantity'),
@@ -284,6 +288,8 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
     ]);
+    // Mezitím mohlo začít novější načtení, nebo už obrazovka není vidět.
+    if (!smiZapsat()) return;
     const beerList = (b as Beer[]) ?? [];
     setBeers(beerList);
     setVyrobaLahve((bt as VyrobniRadek[]) ?? []);

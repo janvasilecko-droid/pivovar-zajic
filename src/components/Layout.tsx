@@ -35,6 +35,7 @@ import { SCENES, DEFAULT_DOCK, hexToRgba, COLOR_HEX, type Scene, type TileColor 
 import { zavibruj } from '../lib/haptika';
 import { IkonaSud, IkonaLahev, IkonaVycep } from './ikony';
 import '../screens/HomeScreen.css';
+import { zalogujANahlas } from '../lib/chybyHlaseni';
 
 export type NavItem = { id: Page; label: string; icon: LucideIcon; group: string };
 
@@ -497,7 +498,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
         );
       });
     } catch (error) {
-      console.error('Chyba při připojení k WhatsApp notifikacím:', error);
+      zalogujANahlas('Chyba při připojení k WhatsApp notifikacím', error);
     }
     return () => { if (unsubscribe) unsubscribe(); clearTimeout(countTimer); };
   }, []);

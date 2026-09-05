@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase, Beer, useRealtime } from '../lib/supabase';
+import { usePosledniNacteni } from '../lib/nacitani';
 import { Spinner, EmptyState, Field } from '../components/ui';
 import { BookOpen, Calculator, FileText, Flame, FlaskConical, Check, CheckSquare, NotebookPen, Plus, Scale, Sliders, SprayCan, Truck, User, Wheat, Zap } from 'lucide-react';
 import { IkonaSud } from '../components/ikony';
@@ -84,12 +85,16 @@ export function SrotovaniScreen({ setPage }: { setPage?: (p: any, sec?: string) 
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
 
+  // Zámek proti zápisu ze zastaralého načtení — viz lib/nacitani.ts.
+  const zacniNacteni = usePosledniNacteni();
   async function load() {
+    const smiZapsat = zacniNacteni();
     setLoading(true);
     const [{ data: b }, { data: s }] = await Promise.all([
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('srotovani').select('*').order('entry_date', { ascending: false }),
     ]);
+    if (!smiZapsat()) return;
     setBeers((b as Beer[]) ?? []);
     setRows((s as SrotovaniRow[]) ?? []);
     setLoading(false);

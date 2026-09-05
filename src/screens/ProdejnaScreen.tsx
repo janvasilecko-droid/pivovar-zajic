@@ -14,6 +14,7 @@ import { chyba, potvrd, toastZpet } from '../lib/toast';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { zavibruj } from '../lib/haptika';
 import { klicVyberu, nactiNaposled, zapamatujVyber, serazPodleNaposled } from '../lib/naposledyPouzite';
+import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
 import { FotkyZaznamu } from '../components/FotkyZaznamu';
 
 // Tři podoby jednoho výdeje ze skladu — formulář je pořád stejný, mění se
@@ -111,6 +112,8 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   const expandedProdejnaBeer = beers.find((b) => b.id === expandedProdejnaBeerId) ?? null;
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  /** Nepodařilo se načíst data (na rozdíl od „data jsou, ale žádná"). */
+  const [chybaNacteni, setChybaNacteni] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
   const [aliasMap, setAliasMap] = useState<ParserAliasMap>(emptyAliasMap());
   useEffect(() => { loadAliasMap().then(setAliasMap).catch(() => {}); }, []);
@@ -169,13 +172,20 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
     return [...bottles, ...kegs];
   }, [packages]);
 
+  // Zámek proti zápisu ze zastaralého načtení — viz lib/nacitani.ts.
+  const zacniNacteni = usePosledniNacteni();
   async function load(silent = false) {
+    const smiZapsat = zacniNacteni();
     if (!silent && !rows.length) setLoading(true);
     const [fp, b, p] = await Promise.all([
       supabase.from(table).select('*').order('entry_date', { ascending: false }).order('created_at', { ascending: false }),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
     ]);
+    // Mezitím mohlo začít novější načtení (realtime po cizím zápisu),
+    // nebo už obrazovka není vidět. Výsledek se pak zahodí.
+    if (!smiZapsat()) return;
+    setChybaNacteni(prvniChyba(fp, b, p));
     setRows((fp.data as EntryRow[]) ?? []);
     if (b.data) setBeers(b.data as Beer[]);
     if (p.data) setPackages(p.data as Package[]);
@@ -670,7 +680,13 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
             {loading ? (
               <Spinner />
             ) : rows.length === 0 ? (
-              <EmptyState text="Zatím žádné záznamy. Přidej první v záložce Zápis." icon={PenLine} />
+              chybaNacteni ? (
+                <EmptyState
+                  varianta="chyba"
+                  text={`Záznamy se nepodařilo načíst: ${chybaNacteni}`}
+                  akce={{ popis: 'Zkusit znovu', onClick: () => load() }}
+                />
+              ) : <EmptyState text="Zatím žádné záznamy. Přidej první v záložce Zápis." icon={PenLine} />
             ) : filteredRows.length === 0 ? (
               <EmptyState text="Žádné záznamy pro toto období / filtr." icon={CalendarDays} />
             ) : (() => {

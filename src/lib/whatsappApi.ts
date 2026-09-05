@@ -1,5 +1,6 @@
 import { supabase, fetchAllRows } from './supabase';
 import { authenticatedFunctionHeaders } from './functionAuth';
+import { zalogujANahlas } from './chybyHlaseni';
 
 // Interface for WhatsApp incoming message
 export interface WhatsAppIncoming {
@@ -107,7 +108,7 @@ export async function fetchPendingWhatsAppMessages(): Promise<WhatsAppIncoming[]
     .order('created_at', { ascending: true });
 
   if (error) {
-    console.error('Error fetching WhatsApp messages:', error);
+    zalogujANahlas('Error fetching WhatsApp messages', error);
     throw error;
   }
 
@@ -130,7 +131,7 @@ export async function fetchPendingWhatsAppCount(): Promise<number> {
     .in('status', ['pending', 'parsed', 'error']);
 
   if (error) {
-    console.error('Error counting WhatsApp messages:', error);
+    zalogujANahlas('Error counting WhatsApp messages', error);
     throw error;
   }
 
@@ -151,7 +152,7 @@ export async function fetchAllWhatsAppMessagesSince(sinceISO: string): Promise<W
     .order('created_at', { ascending: false });
 
   if (error) {
-    console.error('Error fetching all WhatsApp messages:', error);
+    zalogujANahlas('Error fetching all WhatsApp messages', error);
     throw error;
   }
   return data || [];
@@ -169,7 +170,7 @@ export async function fetchWhatsAppMessage(id: string): Promise<WhatsAppIncoming
     .single();
   
   if (error) {
-    console.error('Error fetching WhatsApp message:', error);
+    zalogujANahlas('Error fetching WhatsApp message', error);
     throw error;
   }
   
@@ -193,7 +194,7 @@ export async function updateWhatsAppMessageStatus(
     .eq('id', id);
   
   if (error) {
-    console.error('Error updating WhatsApp message:', error);
+    zalogujANahlas('Error updating WhatsApp message', error);
     throw error;
   }
 }
@@ -215,7 +216,7 @@ export async function markWhatsAppMessageAsImported(
     .eq('id', id);
   
   if (error) {
-    console.error('Error marking WhatsApp message as imported:', error);
+    zalogujANahlas('Error marking WhatsApp message as imported', error);
     throw error;
   }
 }
@@ -232,7 +233,7 @@ export async function ignoreWhatsAppMessage(id: string): Promise<void> {
     .eq('id', id);
   
   if (error) {
-    console.error('Error ignoring WhatsApp message:', error);
+    zalogujANahlas('Error ignoring WhatsApp message', error);
     throw error;
   }
 }
@@ -247,7 +248,7 @@ export async function deleteWhatsAppMessage(id: string): Promise<void> {
     .eq('id', id);
   
   if (error) {
-    console.error('Error deleting WhatsApp message:', error);
+    zalogujANahlas('Error deleting WhatsApp message', error);
     throw error;
   }
 }
@@ -312,7 +313,7 @@ export async function fetchWhatsAppSenders(): Promise<WhatsAppSender[]> {
     .order('sender_name', { ascending: true });
 
   if (error) {
-    console.error('Error fetching WhatsApp senders:', error);
+    zalogujANahlas('Error fetching WhatsApp senders', error);
     throw error;
   }
 
@@ -334,7 +335,7 @@ export async function addWhatsAppSender(senderName: string, senderNumber?: strin
     });
 
   if (error) {
-    console.error('Error adding WhatsApp sender:', error);
+    zalogujANahlas('Error adding WhatsApp sender', error);
     throw error;
   }
 }
@@ -349,7 +350,7 @@ export async function removeWhatsAppSender(id: string): Promise<void> {
     .eq('id', id);
 
   if (error) {
-    console.error('Error removing WhatsApp sender:', error);
+    zalogujANahlas('Error removing WhatsApp sender', error);
     throw error;
   }
 }
@@ -447,7 +448,7 @@ export async function updateWhatsAppParsedData(
     .eq('id', id);
 
   if (error) {
-    console.error('Error updating WhatsApp parsed data:', error);
+    zalogujANahlas('Error updating WhatsApp parsed data', error);
     throw error;
   }
 }
@@ -465,7 +466,7 @@ export async function fetchRecentWhatsAppMessages(limit = 100): Promise<WhatsApp
     .limit(limit);
 
   if (error) {
-    console.error('Error fetching recent WhatsApp messages:', error);
+    zalogujANahlas('Error fetching recent WhatsApp messages', error);
     throw error;
   }
   return data || [];
@@ -487,7 +488,7 @@ export async function fetchLastWhatsAppAt(): Promise<string | null> {
     .limit(1);
 
   if (error) {
-    console.error('Error fetching last WhatsApp arrival:', error);
+    zalogujANahlas('Error fetching last WhatsApp arrival', error);
     return null;
   }
   return data?.[0]?.created_at ?? null;

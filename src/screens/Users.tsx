@@ -8,6 +8,7 @@ import { UserPermissionsModal } from '../components/UserPermissionsModal';
 import { AuditLogViewer } from '../components/AuditLogViewer';
 import { isAdminEmail } from '../lib/config';
 import { chyba, potvrd } from '../lib/toast';
+import { usePosledniNacteni } from '../lib/nacitani';
 
 type UserRow = {
   id: string; email: string; display_name: string | null;
@@ -49,7 +50,10 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
     }
   }
 
+  // Zámek proti zápisu ze zastaralého načtení — viz lib/nacitani.ts.
+  const zacniNacteni = usePosledniNacteni();
   async function load() {
+    const smiZapsat = zacniNacteni();
     setLoading(true); setErr(null);
     const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users`;
     const { data: session } = await supabase.auth.getSession();
@@ -58,6 +62,8 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
     // Načíst doplňková nastavení z tabulky profiles
     const { data: profilesData } = await supabase.from('profiles').select('id, receive_vehicle_alerts, role');
     const profileMap = new Map((profilesData ?? []).map((p: any) => [p.id, p]));
+    // Mezitím mohlo začít novější načtení, nebo už obrazovka není vidět.
+    if (!smiZapsat()) return;
 
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));

@@ -23,6 +23,7 @@ import {
 } from '../lib/whatsappReadback';
 import { AlertCircle, AlertTriangle, ArrowDown, Check, CheckCircle2, ChevronDown, Download, ExternalLink, Eye, FileText, Image as ImageIcon, MessageSquare, RefreshCw, ShieldAlert, ShieldCheck, ShoppingCart, UserCheck, X } from 'lucide-react';
 import { potvrd } from '../lib/toast';
+import { zalogujANahlas } from '../lib/chybyHlaseni';
 
 /** Jak se skupiny obalů pojmenují v přehledu úpravy. */
 const NAZVY_SKUPIN: Record<SkupinaObalu, string> = {
@@ -483,7 +484,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         props.onDecision?.();
       }, 1500);
     } catch (error) {
-      console.error('Chyba při schvalování:', error);
+      zalogujANahlas('Chyba při schvalování', error);
       setStatusMessage('Chyba při schvalování: ' + (error as Error).message);
     } finally {
       setApproving(false);
@@ -572,7 +573,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
               : 'Zpráva přečtena znovu — vše sedí s originálem')
       );
     } catch (error) {
-      console.error('Chyba při opakovaném čtení:', error);
+      zalogujANahlas('Chyba při opakovaném čtení', error);
       setStatusMessage((isFirstParse ? 'Chyba při parsování: ' : 'Chyba při opakovaném čtení: ') + (error as Error).message);
     } finally {
       setReparsing(false);
@@ -594,7 +595,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         props.onDecision?.();
       }, 1500);
     } catch (error) {
-      console.error('Chyba při zamítnutí:', error);
+      zalogujANahlas('Chyba při zamítnutí', error);
       setStatusMessage('Chyba při zamítnutí: ' + (error as Error).message);
     } finally {
       setRejecting(false);
@@ -610,7 +611,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       props.onClose();
       props.onDecision?.();
     } catch (error) {
-      console.error('Chyba při ignorování:', error);
+      zalogujANahlas('Chyba při ignorování', error);
       setStatusMessage('Chyba při ignorování: ' + (error as Error).message);
     } finally {
       setLoading(false);

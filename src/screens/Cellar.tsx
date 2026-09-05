@@ -8,6 +8,7 @@ import { Beer, CellarTank, CellarTankCycle, CellarTransfer, EntryRow, Package, b
 import { Modal, Field, Spinner, UkazatelPlnosti } from '../components/ui';
 import { TankOccupancyPlanner } from '../components/TankOccupancyPlanner';
 import { chyba, oznam, potvrd } from '../lib/toast';
+import { usePosledniNacteni } from '../lib/nacitani';
 import { IkonaSud } from '../components/ikony';
 
 const STATUS_LABELS: Record<CellarTank['status'], string> = {
@@ -74,7 +75,10 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
   const [orderItems, setOrderItems] = useState<OrderItemRow[]>([]);
   const [weekKey, setWeekKey] = useState(isoWeekKey(new Date().toISOString().slice(0, 10)));
 
+  // Zámek proti zápisu ze zastaralého načtení — viz lib/nacitani.ts.
+  const zacniNacteni = usePosledniNacteni();
   async function load(silent = false) {
+    const smiZapsat = zacniNacteni();
     if (!silent && !tanks.length) setLoading(true);
     const [t, tr, cy, kg, b, pkg] = await Promise.all([
       supabase.from('cellar_tanks').select('*').order('label'),
@@ -89,6 +93,9 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
     ]);
+    // Mezitím mohlo začít novější načtení (realtime po cizím zápisu),
+    // nebo už obrazovka není vidět. Výsledek se pak zahodí.
+    if (!smiZapsat()) return;
 
     let tankList = (t.data as CellarTank[]) ?? [];
 
@@ -181,12 +188,16 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
   useRealtime(['cellar_tanks', 'cellar_transfers', 'cellar_tank_cycles', 'kegging', 'beers'], () => load(true));
 
   // Objednávky bez storna — pro propojení s aktuálním pivem v tanku
+  const zacniNacteniObjednavek = usePosledniNacteni();
   async function loadOrders() {
+    const smiZapsat = zacniNacteniObjednavek();
     const { data: ords } = await fetchAllRows('orders', 'id,order_date,delivery_date,status').neq('status', 'storno');
+    if (!smiZapsat()) return;
     const list = (ords as OrderRow[]) ?? [];
     setOrders(list);
     if (!list.length) { setOrderItems([]); return; }
     const { data: its } = await fetchAllRows('order_items', 'order_id,beer_id,package_id,quantity').in('order_id', list.map((o) => o.id));
+    if (!smiZapsat()) return;
     setOrderItems((its as OrderItemRow[]) ?? []);
   }
   useEffect(() => { loadOrders(); }, []);

@@ -28,6 +28,7 @@ import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
 import { consumeBottlingFixRequest } from '../lib/stockFixSignal';
 import { klicVyberu, nactiNaposled, zapamatujVyber, serazPodleNaposled } from '../lib/naposledyPouzite';
+import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
 
 
 const ROW_COUNT = 12;
@@ -68,6 +69,8 @@ export default function BottlingScreen({
   const [entryRows, setEntryRows] = useState<RowInput[]>(emptyRows());
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  /** Nepodařilo se načíst data (na rozdíl od „data jsou, ale žádná"). */
+  const [chybaNacteni, setChybaNacteni] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
 
   const [showImageImport, setShowImageImport] = useState(false);
@@ -526,7 +529,10 @@ export default function BottlingScreen({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  // Zámek proti zápisu ze zastaralého načtení — viz lib/nacitani.ts.
+  const zacniNacteni = usePosledniNacteni();
   async function load(silent = false) {
+    const smiZapsat = zacniNacteni();
     const loadId = ++loadCountRef.current;
     if (!silent && !rows.length) setLoading(true);
     const [bt, b, p, ords, oi, inv, fa, fp, wo, kg, pl, zd, adj, ak, checks] = await Promise.all([
@@ -546,7 +552,11 @@ export default function BottlingScreen({
       fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
       fetchAllRows('kegging_plan_checks', 'week_key,day,beer_id,package_id,qty'),
     ]);
+    // Mezitím mohlo začít novější načtení (realtime po cizím zápisu),
+    // nebo už obrazovka není vidět. Výsledek se pak zahodí.
+    if (!smiZapsat()) return;
     if (loadId !== loadCountRef.current) return;
+    setChybaNacteni(prvniChyba(bt, b, p, ords, oi));
     setRows((bt.data as EntryRow[]) ?? []);
     if (b.data) setBeers(b.data as Beer[]);
     if (p.data) setPackages(p.data as Package[]);
@@ -1553,7 +1563,13 @@ export default function BottlingScreen({
         {loading ? (
           <Spinner />
         ) : rows.length === 0 ? (
-          <EmptyState text="Zatím žádné stočení do lahví." icon={PenLine} akce={{ popis: 'Zapsat lahvování', onClick: () => setTab('zapis') }} />
+          chybaNacteni ? (
+            <EmptyState
+              varianta="chyba"
+              text={`Lahvování se nepodařilo načíst: ${chybaNacteni}`}
+              akce={{ popis: 'Zkusit znovu', onClick: () => load() }}
+            />
+          ) : <EmptyState text="Zatím žádné stočení do lahví." icon={PenLine} akce={{ popis: 'Zapsat lahvování', onClick: () => setTab('zapis') }} />
         ) : filteredRows.length === 0 ? (
           <EmptyState text="Žádné záznamy pro toto období." icon={CalendarDays} />
         ) : (() => {

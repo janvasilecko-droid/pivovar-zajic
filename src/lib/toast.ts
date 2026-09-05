@@ -10,6 +10,7 @@
 // bloku, bez hooku a bez předávání contextu. Vykresluje ho <ToastHost />
 // namountovaný jednou v main.tsx.
 import { zavibruj } from './haptika';
+import { zalogujANahlas } from './chybyHlaseni';
 
 export type ToastTon = 'info' | 'uspech' | 'chyba' | 'varovani';
 
@@ -85,7 +86,7 @@ export function toast(text: string, opts: { ton?: ToastTon; akce?: ToastAkce; tr
   if (trvani > 0) casovace.set(id, setTimeout(() => zavriToast(id), trvani));
   if (ton === 'chyba') zavibruj('chyba');
   // Bez hosta by zpráva zmizela beze stopy — chyba musí být aspoň v konzoli.
-  if (odberatele.size === 0 && ton === 'chyba') console.error('[oznámení]', text);
+  if (odberatele.size === 0 && ton === 'chyba') zalogujANahlas('[oznámení]', text);
   return id;
 }
 

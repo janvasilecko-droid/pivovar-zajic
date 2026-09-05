@@ -11,6 +11,7 @@ import { fetchLabelBalances } from '../lib/labelStock';
 import { zustatkyZavirek } from '../lib/materialSklad';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import { chyba, oznam } from '../lib/toast';
+import { usePosledniNacteni } from '../lib/nacitani';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
 
 type Row = {
@@ -111,7 +112,10 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
     }
   }
 
+  // Zámek proti zápisu ze zastaralého načtení — viz lib/nacitani.ts.
+  const zacniNacteni = usePosledniNacteni();
   async function load(silent = false) {
+    const smiZapsat = zacniNacteni();
     if (!silent) setLoading(true);
     const [{ data: b }, { data: pk }, { data: bt }, { data: kg }, { data: wo }, { data: inv }, { data: oi }, { data: ord }, { data: ak }, { data: fa }, { data: fp }, { data: zd }, { data: adj }, { data: pf }] = await Promise.all([
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
@@ -129,6 +133,9 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
       fetchAllRows('inventory_adjustments', 'entry_date,beer_id,package_id,quantity'),
       fetchAllRows('keg_prefuk', 'entry_date,beer_id,from_package_id,from_count,to_package_id,to_count'),
     ]);
+    // Mezitím mohlo začít novější načtení (realtime po cizím zápisu),
+    // nebo už obrazovka není vidět. Výsledek se pak zahodí.
+    if (!smiZapsat()) return;
     const beerList = (b as Beer[]) ?? [];
     const pkgList = (pk as Package[]) ?? [];
     setBeers(beerList); setPackages(pkgList);

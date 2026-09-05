@@ -6,6 +6,7 @@ import ExcelImportModal from '../components/ExcelImportModal';
 import { AlertTriangle, Beer as BeerIcon, Car, Edit, Eye, EyeOff, FileSpreadsheet, Check, Mail, MapPin, Milestone, NotebookPen, Package as PackageIcon, Phone, Plus, Search, ShieldAlert, ShieldCheck, Store, Trash2, Wrench } from 'lucide-react';
 import { lookupPlaceOnline } from '../lib/placeLookup';
 import { chyba, oznam, potvrd } from '../lib/toast';
+import { usePosledniNacteni } from '../lib/nacitani';
 
 /* ===== PIVA ===== */
 export function BeersScreen() {
@@ -16,7 +17,10 @@ export function BeersScreen() {
   const [edit, setEdit] = useState<Beer | null>(null);
   const [search, setSearch] = useState('');
 
+  // Zámek proti zápisu ze zastaralého načtení — viz lib/nacitani.ts.
+  const zacniNacteni = usePosledniNacteni();
   async function load() {
+    const smiZapsat = zacniNacteni();
     setLoading(true);
     // Použijeme explicitní seznam sloupců (bez short_name), aby aplikace fungovala
     // i když sloupec short_name v databázi zatím neexistuje.
@@ -24,6 +28,7 @@ export function BeersScreen() {
       .from('beers')
       .select('id,name,degree,color,beer_color,price_per_liter,is_active,sort_order,created_at')
       .order('sort_order');
+    if (!smiZapsat()) return;
     setRows((data as Beer[]) ?? []); setLoading(false);
   }
 
@@ -176,9 +181,13 @@ export function PackagesScreen() {
   const [show, setShow] = useState(false);
   const [edit, setEdit] = useState<Package | null>(null);
 
+  // Zámek proti zápisu ze zastaralého načtení — viz lib/nacitani.ts.
+  const zacniNacteni = usePosledniNacteni();
   async function load() {
+    const smiZapsat = zacniNacteni();
     setLoading(true);
     const { data } = await supabase.from('packages').select('*').order('sort_order');
+    if (!smiZapsat()) return;
     setRows((data as Package[]) ?? []); setLoading(false);
   }
   useEffect(() => { load(); }, []);
@@ -282,9 +291,13 @@ export function PlacesScreen() {
   const [edit, setEdit] = useState<Place | null>(null);
   const [search, setSearch] = useState('');
 
+  // Zámek proti zápisu ze zastaralého načtení — viz lib/nacitani.ts.
+  const zacniNacteni = usePosledniNacteni();
   async function load() {
+    const smiZapsat = zacniNacteni();
     setLoading(true);
     const { data, error } = await supabase.from('places').select('*').order('name');
+    if (!smiZapsat()) return;
     if (data && !error) {
       // Pre-fill delivery group for specific places
       const toUpdate = data.filter(p => ['sklad', 'BEN', 'JONA'].includes(p.name) && !p.delivery_group);
@@ -824,9 +837,13 @@ export function VehiclesScreen() {
   const [show, setShow] = useState(false);
   const [edit, setEdit] = useState<Vehicle | null>(null);
 
+  // Zámek proti zápisu ze zastaralého načtení — viz lib/nacitani.ts.
+  const zacniNacteni = usePosledniNacteni();
   async function load() {
+    const smiZapsat = zacniNacteni();
     setLoading(true);
     const { data } = await supabase.from('vehicles').select('*').order('name');
+    if (!smiZapsat()) return;
     let vehicleList = (data as Vehicle[]) ?? [];
 
     // Pokud je databáze prázdná, předvytvořit 2 výchozí pivovarská auta: "Velké auto" a "Kachna"

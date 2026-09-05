@@ -23,6 +23,7 @@ import { buildMovements, expectedForMonth, stockAtStartOfDay, stockForMonth, typ
 import { AUDIT_NADPISY, AUDIT_SLOUPCE, bunkaAuditu, maCoUkazat, porovnejPolozku, type AuditSloupec } from '../lib/auditSkladu';
 import { chyba, oznam, potvrd, toastZpet, uspech } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
+import { usePosledniNacteni } from '../lib/nacitani';
 import { IkonaSud } from '../components/ikony';
 
 type InitialStockMap = Record<string, number>; // key: `${beer_id}__${package_id}`, val: qty
@@ -124,7 +125,6 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     if (setPage) setPage('inventory', undefined, t);
     else setActiveTab(t);
   }
-  const loadCountRef = useRef(0);
   const loadedMonthRef = useRef<string | null>(null);
   const forceReloadRef = useRef(false);
   const excelFileRef = useRef<HTMLInputElement>(null);
@@ -207,8 +207,10 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
    * pěti obalů jednoho piva za sebou to bylo pětkrát. Data se přenačíst musí
    * (mění se očekávaný stav), ale rozbourat kvůli tomu celou obrazovku ne.
    */
+  // Zámek proti zápisu ze zastaralého načtení — viz lib/nacitani.ts.
+  const zacniNacteni = usePosledniNacteni();
   async function loadData(tiche = false) {
-    const loadId = ++loadCountRef.current;
+    const smiZapsat = zacniNacteni();
     if (!tiche) setLoading(true);
 
     const [{ data: b }, { data: pk }, { data: bt }, { data: kg }, { data: fa }, { data: fp }, { data: wo }, { data: inv }, { data: adj }, { data: zd }, { data: ak }, { data: pf }, { data: tk }] = await Promise.all([
@@ -230,8 +232,10 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       // sklep nezůstal nafouklý (viz tankRozdeleni.ts).
       supabase.from('cellar_tanks').select('id,label,current_beer_id,current_volume_l,status,started_at,kegging_active'),
     ]);
+    // Mezitím mohlo začít novější načtení (realtime po cizím zápisu),
+    // nebo už obrazovka není vidět. Výsledek se pak zahodí.
+    if (!smiZapsat()) return;
 
-    if (loadId !== loadCountRef.current) return;
 
     setBeers((b as Beer[]) ?? []);
     setPackages((pk as Package[]) ?? []);

@@ -5,6 +5,7 @@ import { parseWhatsAppOrderMessageWithAI } from '../lib/whatsappParser';
 import { analyzeReadback, findRepeatedReadbackErrors, findSimilarMessages, type RepeatedReadbackError } from '../lib/whatsappReadback';
 import { Modal, Spinner } from './ui';
 import { AlertCircle, AlertTriangle, ArrowDownUp, Check, CheckSquare, Clock, Copy, Download, Filter, Image as ImageIcon, MessageSquare, RefreshCw, Square, Trash2, X, XCircle } from 'lucide-react';
+import { zalogujANahlas } from '../lib/chybyHlaseni';
 
 interface WhatsAppAutoProcessorModalProps {
   isOpen: boolean;
@@ -90,7 +91,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
       // chyby (#14) + duplicity (#25).
       fetchRecentWhatsAppMessages(100).then(setRecentMessages).catch(() => {});
     } catch (error) {
-      console.error('Error loading WhatsApp messages:', error);
+      zalogujANahlas('Error loading WhatsApp messages', error);
     } finally {
       setLoading(false);
     }
@@ -200,7 +201,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
       await loadMessages();
       setStatus(`Objednávka od ${message.sender_name} byla úspěšně importována`);
     } catch (error) {
-      console.error('Error importing order:', error);
+      zalogujANahlas('Error importing order', error);
       setStatus(`Chyba při importu: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setImportingIds((prev) => { const next = new Set(prev); next.delete(messageId); return next; });
@@ -212,7 +213,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
       await updateWhatsAppMessageStatus(messageId, 'ignored');
       await loadMessages();
     } catch (error) {
-      console.error('Error ignoring message:', error);
+      zalogujANahlas('Error ignoring message', error);
     }
   }
 
