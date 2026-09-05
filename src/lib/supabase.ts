@@ -299,11 +299,29 @@ export function useRealtime(tables: string[], onChange: () => void) {
     // kompletních přenačtení; a jedno přenačtení Stáčení je 15 dotazů,
     // tedy až 225 požadavků z jednoho uložení. Půlsekundové zdržení je
     // pod hranicí vnímání a sloučí celou dávku do jednoho načtení.
+    //
+    // 👀 A NEPŘENAČÍTAT DO KAPSY. Jedno přenačtení Stáčení KEG je 17 dotazů
+    // a odběr má 17 tabulek — takže když někdo v kanceláři upraví
+    // objednávku, telefonu u stáčecí linky se přenačte všech 17, i když má
+    // člověk appku jen otevřenou v pozadí. Při šesti lidech v provozu to
+    // jsou desítky zbytečných dotazů za minutu, mobilní data a baterka.
+    // Když je stránka schovaná, událost se jen POZNAMENÁ a přenačte se
+    // jednou, až se člověk vrátí — což je přesně ta chvíle, kdy na data
+    // kouká.
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let zmeskano = false;
+    const jeSchovana = () => typeof document !== 'undefined' && document.visibilityState === 'hidden';
     const trigger = () => {
+      if (jeSchovana()) { zmeskano = true; return; }
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => { timer = null; ref.current(); }, 400);
     };
+    const naNavrat = () => {
+      if (jeSchovana() || !zmeskano) return;
+      zmeskano = false;
+      trigger();
+    };
+    document.addEventListener('visibilitychange', naNavrat);
     const channels = tables.map((t) =>
       supabase
         .channel(`rt-${t}-${Math.random().toString(36).slice(2)}`)
@@ -315,6 +333,7 @@ export function useRealtime(tables: string[], onChange: () => void) {
       if (timer) clearTimeout(timer);
       channels.forEach((c) => supabase.removeChannel(c));
       window.removeEventListener('pivovar:online-refetch', trigger);
+      document.removeEventListener('visibilitychange', naNavrat);
     };
   }, [tables.join(',')]);
 }

@@ -106,7 +106,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   /** Nepodařilo se načíst data (na rozdíl od „data jsou, ale žádná"). */
   const [chybaNacteni, setChybaNacteni] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
-  const [showCount, setShowCount] = useState(false);
   const [showImageImport, setShowImageImport] = useState(false);
   const [aliasMap, setAliasMap] = useState<ParserAliasMap>(emptyAliasMap());
   useEffect(() => { loadAliasMap().then(setAliasMap).catch(() => {}); }, []);
@@ -118,7 +117,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // Datové sady pro výpočet potřeb KEG sudů (Objednávky vs. Sklad)
   const [orders, setOrders] = useState<any[]>([]);
   const [orderItems, setOrderItems] = useState<any[]>([]);
-  const [inventoryRows, setInventoryRows] = useState<any[]>([]);
   const [fasovaniRows, setFasovaniRows] = useState<any[]>([]);
   const [prodejnaRows, setProdejnaRows] = useState<any[]>([]);
   const [writeoffsRows, setWriteoffsRows] = useState<any[]>([]);
@@ -126,10 +124,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // Jen kvůli poli kegs_used (KEGy spotřebované jako zdroj stáčení lahví) —
   // viz komentář u KegNeedsInput.bottlingRows v kegNeeds.ts.
   const [bottlingRows, setBottlingRows] = useState<any[]>([]);
-  const [adjustmentRows, setAdjustmentRows] = useState<any[]>([]);
   // Ruční odškrtnutí v plánu stáčení — pracovní pomůcka, ne evidence stáčení.
   const [planCheckRows, setPlanCheckRows] = useState<any[]>([]);
-  const [akceRows, setAkceRows] = useState<any[]>([]);
 
   // Filtry pro "Potřeba stočit KEGy"
 
@@ -322,7 +318,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   async function load(silent = false) {
     const smiZapsat = zacniNacteni();
     if (!silent && !rows.length) setLoading(true);
-    const [kg, ct, b, p, ords, oi, inv, fa, fp, wo, pf, zd, bt, adj, ak, pc, ukoly] = await Promise.all([
+    // 🚚 Co se tady načítá, se musí i používat. Do 5. 9. 2026 se tahaly
+    // navíc `inventory`, `inventory_adjustments` a `akce` — jejich výsledek
+    // se uložil do stavu, který nikdo nikdy nepřečetl. Byly to tři z
+    // sedmnácti dotazů při každém otevření obrazovky A při každém přenačtení
+    // z realtime, tedy i pokaždé, když někdo jiný cokoliv uložil.
+    const [kg, ct, b, p, ords, oi, fa, fp, wo, pf, zd, bt, pc, ukoly] = await Promise.all([
       fetchAllRows('kegging', '*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
       supabase.from('cellar_tanks').select('*').order('label'),
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
@@ -332,15 +333,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       // a ručně přehozený den závozu by se ignoroval.
       fetchAllRows('orders', 'id,order_date,delivery_date,delivery_day,place_name,status,is_delivered'),
       fetchAllRows('order_items', 'id,order_id,beer_id,package_id,quantity'),
-      fetchAllRows('inventory', 'entry_date,beer_id,package_id,quantity'),
       fetchAllRows('fasovani', 'entry_date,beer_id,package_id,quantity'),
       fetchAllRows('fasovani_private', 'entry_date,beer_id,package_id,quantity'),
       fetchAllRows('writeoffs', 'entry_date,beer_id,package_id,quantity'),
       fetchAllRows('keg_prefuk', '*').order('entry_date', { ascending: false }).order('created_at', { ascending: true }).order('id'),
       fetchAllRows('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity,order_item_id'),
       fetchAllRows('bottling', 'entry_date,beer_id,package_id,quantity,kegs_used,kegs_used_package_id,source_volume_l,note,created_at'),
-      fetchAllRows('inventory_adjustments', 'entry_date,beer_id,package_id,quantity'),
-      fetchAllRows('akce', 'entry_date,items:akce_items(beer_id,package_id,quantity_taken,quantity_returned)'),
       fetchAllRows('kegging_plan_checks', 'week_key,day,beer_id,package_id,qty'),
       supabase.from('bottling_plans').select('*').order('planned_date'),
     ]);
@@ -358,20 +356,20 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     if (p.data) setPackages(p.data as Package[]);
     if (ords.data) setOrders(ords.data);
     if (oi.data) setOrderItems(oi.data);
-    if (inv.data) setInventoryRows(inv.data);
     if (fa.data) setFasovaniRows(fa.data);
     if (fp.data) setProdejnaRows(fp.data);
     if (wo.data) setWriteoffsRows(wo.data);
     if (pf.data) setPrefukRows(pf.data as KegPrefuk[]);
     if (zd.data) setZavozDeductionRows(zd.data);
     if (bt.data) setBottlingRows(bt.data);
-    if (adj.data) setAdjustmentRows(adj.data);
-    if (ak.data) setAkceRows(ak.data);
     if (pc.data) setPlanCheckRows(pc.data);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
-  useRealtime(['kegging', 'cellar_tanks', 'beers', 'packages', 'orders', 'order_items', 'inventory', 'fasovani', 'fasovani_private', 'writeoffs', 'keg_prefuk', 'zavoz_deductions', 'bottling', 'inventory_adjustments', 'akce', 'akce_items', 'kegging_plan_checks'], () => load(true));
+  // Odběr musí sedět s tím, co se načítá — jinak přenačítáme kvůli datům,
+  // která obrazovka nikde nepoužije. `inventory`, `inventory_adjustments`,
+  // `akce` a `akce_items` odsud vypadly spolu s dotazy na ně.
+  useRealtime(['kegging', 'cellar_tanks', 'beers', 'packages', 'orders', 'order_items', 'fasovani', 'fasovani_private', 'writeoffs', 'keg_prefuk', 'zavoz_deductions', 'bottling', 'kegging_plan_checks'], () => load(true));
 
 
   // 🗓️ Plán stáčení po dnech — „co stočit na středu". Na rozdíl od
