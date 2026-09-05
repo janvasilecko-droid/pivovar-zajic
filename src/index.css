@@ -492,6 +492,14 @@ input[type='radio'] {
    vysype. Tady je to jisté. */
 .pb-safe { padding-bottom: calc(0.375rem + env(safe-area-inset-bottom, 0px)); }
 
+/* 📏 Plovoucí prvky NAD spodní lištou.
+   Lišta má `pb-safe`, takže na telefonu s gesty je o systémový pruh vyšší.
+   Co nad ní plavalo s pevným odsazením (`bottom-[64px]`, `bottom-16`) —
+   pruh „čekající zápisy" a přehrávač rádia — se pak s ní překrývalo.
+   Tahle třída počítá s toutéž bezpečnou zónou, takže odsazení sedí na
+   telefonu i na počítači. */
+.nad-dokem { bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+
 /* Vodorovné rolování tabulek — okraj musí říct, že vpravo něco je.
    Tabulka širší než displej vypadá na telefonu jen useknutá a lidi pak
    nevědí, že chybí sloupce. Stín se objeví jen tam, kde se dá rolovat,

@@ -840,7 +840,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             s kolísavým signálem lidé zapisovali stáčení s tím, že je hotovo.
             Sem nad dok je to vidět na každé stránce včetně mobilu. */}
         {(!online || pending > 0) && (
-          <div className="fixed bottom-[64px] left-0 right-0 z-lista px-2 pointer-events-none sm:max-w-lg sm:mx-auto">
+          <div className="fixed nad-dokem left-0 right-0 z-lista px-2 pointer-events-none sm:max-w-lg sm:mx-auto">
             <button
               type="button"
               onClick={async () => {

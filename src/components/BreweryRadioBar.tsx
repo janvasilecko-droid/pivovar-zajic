@@ -28,7 +28,7 @@ export function BreweryRadioBar({ onOpenModal }: BreweryRadioBarProps) {
 
   return (
     <div
-      className="fixed bottom-16 sm:bottom-4 right-4 z-lista flex items-center gap-2.5 px-3.5 py-2 rounded-full shadow-lg border border-white/20 backdrop-blur-md text-white transition-all animate-slide-up"
+      className="fixed nad-dokem sm:!bottom-4 right-4 z-lista flex items-center gap-2.5 px-3.5 py-2 rounded-full shadow-lg border border-white/20 backdrop-blur-md text-white transition-all animate-slide-up"
       style={{
         background: `linear-gradient(135deg, ${currentStation.color || '#e03131'}ee, #1e1b4bee)`,
       }}

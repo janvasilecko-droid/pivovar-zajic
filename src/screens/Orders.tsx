@@ -64,16 +64,41 @@ type OrderItem = {
 // ho automaticky Rozvoz objednávek při odbavení) — bez vlastního popisku se
 // zobrazoval syrový název stavu, který svou délkou navíc na užší obrazovce
 // vytlačoval jméno odběratele mimo viditelnou část řádku.
-const STATUS: Record<string, { label: string; cls: string }> = {
-  nova: { label: 'Nová', cls: 'bg-primary-50 text-primary-700' },
-  pripravena: { label: 'Připravená', cls: 'bg-amber-50 text-amber-700' },
-  expedovana: { label: 'Expedovaná', cls: 'bg-emerald-50 text-emerald-700' },
-  vyrizeno_zavoz: { label: 'Zavezeno', cls: 'bg-emerald-50 text-emerald-700' },
-  vyrizeno: { label: 'Vyřízeno', cls: 'bg-emerald-50 text-emerald-700' },
-  vyrizena: { label: 'Vyřízeno', cls: 'bg-emerald-50 text-emerald-700' },
-  hotova: { label: 'Vyřízeno', cls: 'bg-emerald-50 text-emerald-700' },
-  storno: { label: 'Storno', cls: 'bg-rose-50 text-rose-700' },
+/**
+ * Stavy objednávky. Pět z nich mělo do 5. 9. 2026 JEDNU barvu
+ * (`bg-emerald-50 text-emerald-700`) a čtyři z nich stejný popisek, takže
+ * ze seznamu nešlo poznat naloženo od odbaveného — a to jsou v závozu dvě
+ * úplně jiné věci.
+ *
+ * Teď je postup vidět odstupňováním: světlá zelená (naloženo) → sytější
+ * (dovezeno) → tmavá (uzavřeno). A hlavně TVAREM: `znak` nese tutéž
+ * informaci i pro toho, kdo barvy rozlišuje jinak — a ve sklepě v mizerném
+ * světle to je každý. Stejný princip jako popis plnosti tanku slovem.
+ */
+const STATUS: Record<string, { label: string; cls: string; znak: string }> = {
+  nova: { label: 'Nová', cls: 'bg-primary-50 text-primary-700 border-primary-200', znak: '•' },
+  pripravena: { label: 'Připravená', cls: 'bg-amber-50 text-amber-800 border-amber-200', znak: '◐' },
+  // Popisek zůstává „Expedovaná" — je to slovo, které se v pivovaru
+  // používá, a hromadná akce se jmenuje „Expedovat". Rozlišuje odstín a tvar.
+  expedovana: { label: 'Expedovaná', cls: 'bg-emerald-50 text-emerald-800 border-emerald-200', znak: '↑' },
+  vyrizeno_zavoz: { label: 'Zavezeno', cls: 'bg-emerald-100 text-emerald-900 border-emerald-300', znak: '✓' },
+  vyrizeno: { label: 'Vyřízeno', cls: 'bg-emerald-200 text-emerald-950 border-emerald-300', znak: '✓✓' },
+  vyrizena: { label: 'Vyřízeno', cls: 'bg-emerald-200 text-emerald-950 border-emerald-300', znak: '✓✓' },
+  hotova: { label: 'Hotová', cls: 'bg-emerald-200 text-emerald-950 border-emerald-300', znak: '✓✓' },
+  storno: { label: 'Storno', cls: 'bg-rose-50 text-rose-700 border-rose-200', znak: '✕' },
 };
+
+/** Štítek stavu — barva i tvar, ať se pozná i bez barev. */
+function StitekStavu({ status, tridy = '' }: { status: string; tridy?: string }) {
+  const s = STATUS[status];
+  if (!s) return <span className={`chip ${tridy}`}>{status}</span>;
+  return (
+    <span className={`chip ${s.cls} ${tridy}`} title={s.label}>
+      <span aria-hidden="true" className="font-black">{s.znak}</span>
+      {s.label}
+    </span>
+  );
+}
 
 // Per-day color coding for deliveries. Each day has a distinct hue so you can see
 // at a glance which orders go out together and that none was forgotten.
@@ -3008,7 +3033,7 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
               <BeerIcon className="ikona-text" /> {tn}
             </span>
           ) : null; })()}
-          <span className={`chip font-black shrink-0 ${STATUS[o.status]?.cls ?? ''}`}>{STATUS[o.status]?.label ?? o.status}</span>
+          <StitekStavu status={o.status} tridy="font-black shrink-0" />
           {o.delivery_date && (
             <span className="chip bg-amber-700 text-white font-black shadow-2xs shrink-0 flex items-center gap-1" title="Datum akce / závozu">
               <Calendar size={12} /> {new Date(o.delivery_date).toLocaleDateString('cs-CZ')}
@@ -3360,7 +3385,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
           <div className="flex items-center gap-2 text-sm text-primary-500 flex-wrap mb-2">
             <span>{order.order_date}</span>
             <span>·</span>
-            <span className={`chip ${STATUS[order.status]?.cls ?? ''}`}>{STATUS[order.status]?.label}</span>
+            <StitekStavu status={order.status} />
             {order.is_prepared && <span className="chip bg-emerald-100 text-emerald-700"><Check className="ikona-text" /> Připraveno</span>}
             {order.is_packaged && <span className="chip bg-primary-200 text-primary-800"><PackageIcon className="ikona-text" /> Fasování</span>}
             {order.is_delivered && <span className="chip bg-emerald-200 text-emerald-800"><Check className="ikona-text" /> Zavezenné</span>}
@@ -3394,7 +3419,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                   return (
                     <div key={h.id} className="text-xs text-primary-600 flex items-center gap-2">
                       <span className="font-semibold text-primary-800">{h.order_date}</span>
-                      <span className={`chip !py-0.5 ${STATUS[h.status]?.cls ?? ''}`}>{STATUS[h.status]?.label}</span>
+                      <StitekStavu status={h.status} tridy="!py-0.5" />
                       <span className="truncate">{summary}{hItems.length > 3 ? '…' : ''} ({total} ks celkem)</span>
                     </div>
                   );
