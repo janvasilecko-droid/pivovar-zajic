@@ -105,6 +105,44 @@ try {
 
   // 5) Nic nespadlo.
   overit(chybyKonzole.length === 0, `stránka nevyhodila chybu${chybyKonzole.length ? ': ' + chybyKonzole[0] : ''}`);
+  await stranka.close();
+
+  // ── Scénář 2: vzorník prvků v obou režimech ──────────────────────────
+  // Chrání grafiku: kdyby se rozbila třída, proměnná barvy nebo komponenta
+  // ze vzorníku, projeví se to tady a ne až na telefonu ve sklepě.
+  console.log('\nScénář: vzorník prvků — světlý i tmavý režim, bez vodorovného rolování');
+  const vzornik = await b.newPage({ viewport: { width: 390, height: 844 } });
+  const chybyVzorniku = [];
+  vzornik.on('pageerror', (e) => chybyVzorniku.push(String(e)));
+  await vzornik.goto(`${ADRESA}/prvky.html`, { waitUntil: 'networkidle' });
+
+  for (const tmavy of [false, true]) {
+    const rezim = tmavy ? 'tmavý' : 'světlý';
+    await vzornik.evaluate((t) => {
+      document.documentElement.classList.toggle('dark', t);
+      document.documentElement.dataset.theme = t ? 'dark' : 'light';
+    }, tmavy);
+    await vzornik.waitForTimeout(200);
+
+    // Stránka se nesmí rolovat do stran — to je na telefonu ta nejčastější
+    // závada rozvržení a okem se přehlédne.
+    const sirka = await vzornik.evaluate(() => ({
+      doc: document.documentElement.scrollWidth,
+      okno: window.innerWidth,
+    }));
+    overit(sirka.doc <= sirka.okno + 1, `${rezim} režim: stránka se neroluje do stran (${sirka.doc} ≤ ${sirka.okno})`);
+
+    // Pozadí musí být vidět — průhledné body v tmavém režimu znamená, že
+    // se motiv nepropsal a text zůstane na světlém podkladu.
+    const pozadi = await vzornik.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    overit(/rgba?\(/.test(pozadi) && pozadi !== 'rgba(0, 0, 0, 0)', `${rezim} režim: body má vlastní pozadí (${pozadi})`);
+
+    // Všechny role tlačítek se vykreslily.
+    const tlacitek = await vzornik.locator('button').count();
+    overit(tlacitek >= 10, `${rezim} režim: vykreslilo se ${tlacitek} tlačítek`);
+  }
+  overit(chybyVzorniku.length === 0, `vzorník nevyhodil chybu${chybyVzorniku.length ? ': ' + chybyVzorniku[0] : ''}`);
+  await vzornik.close();
 } finally {
   await b.close();
 }
