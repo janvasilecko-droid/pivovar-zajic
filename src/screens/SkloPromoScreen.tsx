@@ -4,7 +4,7 @@ import { Beer, Package, Place, fetchAllRows, supabase, useRealtime } from '../li
 import { LABELS_LOW_STOCK_THRESHOLD } from '../lib/labelStock';
 import { zustatkyZavirek, KORUNKY, UZAVERY_PET } from '../lib/materialSklad';
 import { kusy } from '../lib/cisla';
-import { Spinner, EmptyState } from '../components/ui';
+import { EmptyState, Kostra, Spinner } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { PlaceCombobox } from '../components/PlaceCombobox';
 import { AlertTriangle, ArrowDownCircle, ArrowUpCircle, Boxes, Download, Check, CheckCircle2, Plus, Printer, Search, Tag, Trash2, Upload, Wine } from 'lucide-react';
@@ -456,7 +456,9 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
     );
   }
 
-  if (loading) return <Spinner />;
+  // Kostra místo kolečka: obsah se neodmountuje do prázdna, takže se
+  // stránka po načtení neposkočí. Viz Kostra v components/ui.tsx.
+  if (loading) return <Kostra radku={6} />;
 
   return (
     <div className="space-y-6 pb-12">

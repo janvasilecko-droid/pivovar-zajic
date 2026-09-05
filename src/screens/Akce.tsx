@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Beer, Package, beerBg, beerText, fetchAllRows, formatPackageLabel, pkgBg, pkgText, supabase, useRealtime } from '../lib/supabase';
-import { Spinner, EmptyState } from '../components/ui';
+import { EmptyState, Kostra, Spinner } from '../components/ui';
 import { createReminder } from '../lib/reminders';
 import { AlertTriangle, Beer as BeerIcon, Bell, Calendar, Check, CheckCircle2, ClipboardList, Clock, DollarSign, MapPin, PartyPopper, Plus, RotateCcw, Sparkles, Star, Tent, ThumbsDown, ThumbsUp, Trash2, User, X } from 'lucide-react';
 import { oznam, potvrd } from '../lib/toast';
@@ -403,7 +403,9 @@ export default function AkceScreen() {
     await deleteRecord(id);
   }
 
-  if (loading) return <Spinner />;
+  // Kostra místo kolečka: obsah se neodmountuje do prázdna, takže se
+  // stránka po načtení neposkočí. Viz Kostra v components/ui.tsx.
+  if (loading) return <Kostra radku={5} />;
 
   return (
     <div className="space-y-6 pb-12">

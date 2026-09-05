@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase, useRealtime } from '../lib/supabase';
-import { Spinner, EmptyState } from '../components/ui';
+import { EmptyState } from '../components/ui';
 import { Archive, BarChart3, Calendar, Castle, Clock, Download, CheckCircle2, ChevronDown, ChevronUp, Landmark, Plus, Trash2, User, UserCheck, UserRound, Users } from 'lucide-react';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { chyba as chybaOznam, oznam, potvrd } from '../lib/toast';

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase, useRealtime } from '../lib/supabase';
-import { Spinner, EmptyState } from '../components/ui';
+import { EmptyState } from '../components/ui';
 import { PlaceCombobox } from '../components/PlaceCombobox';
 import { AlertTriangle, Calendar, CalendarDays, Check, CheckCircle2, Droplet, Droplets, Flame, FlaskConical, Phone, Plus, RefreshCw, ShieldAlert, Sparkles, Tag, Trash2, User, Wrench, X } from 'lucide-react';
 import { chyba as chybaOznam, oznam, potvrd } from '../lib/toast';

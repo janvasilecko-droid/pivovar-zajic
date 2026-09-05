@@ -20,6 +20,45 @@ export function Spinner({ className = '' }: { className?: string }) {
 }
 
 /**
+ * 🦴 KOSTRA — šedé pruhy v rozměrech skutečného obsahu, místo aby obrazovka
+ * při načítání zhasla.
+ *
+ * Proč: jedenáct obrazovek dělalo `if (loading) return <Spinner />`. To
+ * ODMOUNTUJE obsah, prohlížeč u prázdné stránky srazí odrolování na nulu
+ * a člověk se po načtení ocitne úplně nahoře. Aplikace to na přenačtení
+ * řeší tichou variantou (`load(true)`) a kotvou pozice
+ * (`lib/drzPozici.ts`) — kostra řeší zbytek, tedy PRVNÍ načtení a přepnutí
+ * obrazovky: místo prázdna a kolečka je vidět rozvržení, které se za
+ * chvíli naplní, takže se stránka pod rukama neposkočí.
+ *
+ * `radku` = kolik řádků seznamu naznačit. `karta` = obalit do karty
+ * (seznamy záznamů), jinak holé pruhy (dlaždice, tabulky).
+ */
+export function Kostra({ radku = 5, karta = true, className = '' }: {
+  radku?: number;
+  karta?: boolean;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`space-y-2.5 ${className}`}
+      aria-busy="true"
+      aria-live="polite"
+      aria-label="Načítá se"
+    >
+      {Array.from({ length: radku }).map((_, i) => (
+        <div key={i} className={karta ? 'card p-3.5' : ''}>
+          <div className="animate-pulse space-y-2">
+            <div className="h-3.5 rounded bg-neutral-200" style={{ width: `${60 - (i % 3) * 12}%` }} />
+            <div className="h-3 rounded bg-neutral-100" style={{ width: `${40 - (i % 2) * 10}%` }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
  * Prázdný stav — „tady zatím nic není" s ikonou a vysvětlením.
  *
  * `icon` bere kreslenou ikonu (lucide nebo z components/ikony.tsx) i obyčejný

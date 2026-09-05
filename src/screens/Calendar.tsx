@@ -16,7 +16,7 @@ import {
   Bell, CalendarDays, ChevronLeft, ChevronRight, List, Plus, Trash2, Truck, X,
 } from 'lucide-react';
 import { CalendarEvent, fetchAllRows, supabase, useRealtime } from '../lib/supabase';
-import { Spinner } from '../components/ui';
+import { Kostra } from '../components/ui';
 import { chyba, toastZpet, uspech } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
 import { businessDateISO } from '../lib/businessDate';
@@ -185,7 +185,9 @@ export default function CalendarScreen() {
     return out;
   }, [cursor]);
 
-  if (loading) return <Spinner />;
+  // Kostra místo kolečka: obsah se neodmountuje do prázdna, takže se
+  // stránka po načtení neposkočí. Viz Kostra v components/ui.tsx.
+  if (loading) return <Kostra radku={5} />;
 
   const denniKarta = (datum: string) => {
     const udalosti = udalostiKDatu.get(datum) ?? [];

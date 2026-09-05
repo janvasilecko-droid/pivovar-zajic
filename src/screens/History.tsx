@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Beer, beerBg, beerBorder, beerInk, beerName, fetchAllRows, formatPackageLabel, Package, Place, supabase, useRealtime } from '../lib/supabase';
-import { Spinner, EmptyState } from '../components/ui';
+import { EmptyState, Kostra, Spinner } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { orderWeightKg, fmtKg } from '../lib/weight';
 import { DAYS } from '../lib/shared';
@@ -765,7 +765,9 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
     return { totalInitial, totalKegged, totalLoss, avgLossPct, avgDuration, cycleCount: tankCycles.length };
   }, [tankCycles]);
 
-  if (loading) return <Spinner />;
+  // Kostra místo kolečka: obsah se neodmountuje do prázdna, takže se
+  // stránka po načtení neposkočí. Viz Kostra v components/ui.tsx.
+  if (loading) return <Kostra radku={6} />;
 
   return (
     <div className="space-y-6 pb-12">

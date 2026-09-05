@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { fetchAllRows, supabase, useRealtime } from '../lib/supabase';
 import { mnozne } from '../lib/cisla';
-import { Spinner } from '../components/ui';
+import { Kostra } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { AlertTriangle, Bird, ChevronLeft, Calendar, Car, CheckCircle2, Download, MapPin, Navigation, Plus, Printer, Scale, ShieldCheck, Sparkles, Trash2, User, X, Zap } from 'lucide-react';
 import { isOrderKachna } from '../lib/zavozSecondCar';
@@ -499,7 +499,9 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
   // na telefonu je hlavní akce jediná, která má být hned vidět.
   const [dalsiAkce, setDalsiAkce] = useState(false);
 
-  if (loading) return <Spinner />;
+  // Kostra místo kolečka: obsah se neodmountuje do prázdna, takže se
+  // stránka po načtení neposkočí. Viz Kostra v components/ui.tsx.
+  if (loading) return <Kostra radku={6} />;
 
   return (
     <div className="space-y-6 pb-12">

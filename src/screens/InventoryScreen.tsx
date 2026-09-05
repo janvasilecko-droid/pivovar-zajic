@@ -2,7 +2,7 @@ import { Fragment, useState, useEffect, useMemo, useRef } from 'react';
 
 
 import { Beer, beerBg, beerInk, beerName, beerText, fetchAllRows, formatPackageLabel, Package, supabase, useRealtime } from '../lib/supabase';
-import { Spinner } from '../components/ui';
+import { Kostra, Spinner } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { AlertCircle, AlertTriangle, Beer as BeerIcon, Calendar, CalendarRange, Camera, ClipboardCheck, ClipboardList, Download, Check, Lock, MinusCircle, Package as PackageIcon, Plus, RefreshCw, RotateCcw, Save, Search, ShieldCheck } from 'lucide-react';
 import { CountFromImage } from '../components/CountFromImage';
@@ -1540,7 +1540,9 @@ function exportInventoryExcel() {
   // má být hned vidět měsíc a hlavní akce, ne čtyři pruhy.
   const [dalsiAkce, setDalsiAkce] = useState(false);
 
-  if (loading) return <Spinner />;
+  // Kostra místo kolečka: obsah se neodmountuje do prázdna, takže se
+  // stránka po načtení neposkočí. Viz Kostra v components/ui.tsx.
+  if (loading) return <Kostra radku={8} />;
 
   return (
     <div className="space-y-6 pb-12">
