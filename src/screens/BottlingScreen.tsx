@@ -1498,7 +1498,11 @@ export default function BottlingScreen({
                 </div>
               </>
             )}
-            {rows.length > 0 && <span className="chip bg-amber-100/60 text-amber-900/70 text-xs font-bold">{filteredRows.length} záznamů</span>}
+            {rows.length > 0 && (
+              <span className="chip bg-amber-100/60 text-amber-900/70 text-xs font-bold">
+                {filteredRows.length} záznamů · <span className="text-amber-950 font-black tabular-nums">{filteredRows.reduce((s, r) => s + Number(r.quantity || 0), 0)} ks</span>
+              </span>
+            )}
           </div>
         </div>
 
