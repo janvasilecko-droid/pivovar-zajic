@@ -1,4 +1,4 @@
 // Verze aplikace — zvyšuje se při každé provedené úpravě, aby šlo v UI poznat,
 // jestli je načtená nejnovější nasazená verze (řeší problémy s cachí prohlížeče/PWA).
-export const APP_VERSION = '2.269';
-export const APP_VERSION_DATE = '5.9.2026 07:45';
+export const APP_VERSION = '2.270';
+export const APP_VERSION_DATE = '5.9.2026 07:41';
