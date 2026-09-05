@@ -65,17 +65,58 @@ export type Movement = {
   note?: string | null;
 };
 
+/**
+ * Řádek pohybu tak, jak přijde z databáze.
+ *
+ * Byl tu `any[]`, a to zrovna v místě, kde se počítá SKLAD — tedy tam, kde
+ * překlep ve jménu sloupce znamená tiše chybějící pohyb, ne pád. (Kdyby se
+ * `entry_date` přejmenovalo, `r.entry_date` by bylo `undefined`, `push()` by
+ * řádek zahodilo a sklad by prostě vyšel jinak.)
+ *
+ * Typ je schválně mírný: pole mohou chybět nebo být `null`, protože obrazovky
+ * si z tabulek vybírají jen sloupce, které potřebují, a starší záznamy nemají
+ * všechno vyplněné. Nejde o to zakázat neúplná data — jde o to, aby se
+ * NEEXISTUJÍCÍ jméno sloupce nedalo napsat.
+ */
+export type RadekPohybu = {
+  entry_date?: string | null;
+  beer_id?: string | null;
+  package_id?: string | null;
+  quantity?: number | string | null;
+  note?: string | null;
+  /** Rozlišuje dva zápisy se stejným datem, pivem a počtem (viz `seen` níž). */
+  created_at?: string | null;
+  /** Stáčení lahví: kolik sudů se na ně spotřebovalo a jakých. */
+  kegs_used?: number | string | null;
+  kegs_used_package_id?: string | null;
+  source_volume_l?: number | string | null;
+};
+
+/** Odpočet ze závozu má vlastní jméno sloupce s datem. */
+export type RadekZavozu = Omit<RadekPohybu, 'entry_date'> & {
+  deduct_date?: string | null;
+  order_item_id?: string | null;
+};
+
+/** Přefuk sudů: ze kterého obalu do kterého. */
+export type RadekPrefuku = RadekPohybu & {
+  from_package_id?: string | null;
+  to_package_id?: string | null;
+  from_count?: number | string | null;
+  to_count?: number | string | null;
+};
+
 export type StockSources = {
-  inventoryRows?: any[];
-  bottlingRows?: any[];
-  keggingRows?: any[];
-  fasovaniRows?: any[];
-  prodejnaRows?: any[];
-  writeoffsRows?: any[];
-  zavozDeductionRows?: any[];
+  inventoryRows?: RadekPohybu[];
+  bottlingRows?: RadekPohybu[];
+  keggingRows?: RadekPohybu[];
+  fasovaniRows?: RadekPohybu[];
+  prodejnaRows?: RadekPohybu[];
+  writeoffsRows?: RadekPohybu[];
+  zavozDeductionRows?: RadekZavozu[];
   akceRows?: AkceRow[];
-  prefukRows?: any[];
-  adjustmentRows?: any[];
+  prefukRows?: RadekPrefuku[];
+  adjustmentRows?: RadekPohybu[];
   /** Katalog obalů — potřebný jen pro dohledání sudu spotřebovaného na lahve. */
   packages?: { id: string; kind: string; volume_l: number }[];
 };

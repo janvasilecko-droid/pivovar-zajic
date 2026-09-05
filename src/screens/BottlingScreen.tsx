@@ -28,6 +28,7 @@ import { IkonaLahev, IkonaSud } from '../components/ikony';
 import { consumeBottlingFixRequest } from '../lib/stockFixSignal';
 import { klicVyberu, nactiNaposled, zapamatujVyber, serazPodleNaposled } from '../lib/naposledyPouzite';
 import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
+import type { RadekPohybu, RadekZavozu } from '../lib/stockLedger';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const ImportBottlingFromImage = lazy(() => import('../components/ImportBottlingFromImage').then((m) => ({ default: m.ImportBottlingFromImage })));
@@ -274,14 +275,14 @@ export default function BottlingScreen({
   // Datové sady pro výpočet potřeb stáčení (Objednávky vs. Sklad)
   const [orders, setOrders] = useState<any[]>([]);
   const [orderItems, setOrderItems] = useState<any[]>([]);
-  const [inventoryRows, setInventoryRows] = useState<any[]>([]);
+  const [inventoryRows, setInventoryRows] = useState<RadekPohybu[]>([]);
   const [planCheckRows, setPlanCheckRows] = useState<any[]>([]);
-  const [keggingRows, setKeggingRows] = useState<any[]>([]);
-  const [fasovaniRows, setFasovaniRows] = useState<any[]>([]);
-  const [prodejnaRows, setProdejnaRows] = useState<any[]>([]);
-  const [writeoffsRows, setWriteoffsRows] = useState<any[]>([]);
-  const [zavozDeductionRows, setZavozDeductionRows] = useState<any[]>([]);
-  const [adjustmentRows, setAdjustmentRows] = useState<any[]>([]);
+  const [keggingRows, setKeggingRows] = useState<RadekPohybu[]>([]);
+  const [fasovaniRows, setFasovaniRows] = useState<RadekPohybu[]>([]);
+  const [prodejnaRows, setProdejnaRows] = useState<RadekPohybu[]>([]);
+  const [writeoffsRows, setWriteoffsRows] = useState<RadekPohybu[]>([]);
+  const [zavozDeductionRows, setZavozDeductionRows] = useState<RadekZavozu[]>([]);
+  const [adjustmentRows, setAdjustmentRows] = useState<RadekPohybu[]>([]);
   const [akceRows, setAkceRows] = useState<any[]>([]);
 
   // Filtry pro "Potřeba stočit lahve"

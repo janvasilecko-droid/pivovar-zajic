@@ -26,6 +26,7 @@ import { zavibruj } from '../lib/haptika';
 import { consumeKegFixRequest } from '../lib/stockFixSignal';
 import { klicVyberu, nactiNaposled, zapamatujVyber, serazPodleNaposled } from '../lib/naposledyPouzite';
 import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
+import type { RadekPohybu, RadekZavozu } from '../lib/stockLedger';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const ImportKeggingFromImage = lazy(() => import('../components/ImportKeggingFromImage').then((m) => ({ default: m.ImportKeggingFromImage })));
@@ -119,13 +120,13 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // Datové sady pro výpočet potřeb KEG sudů (Objednávky vs. Sklad)
   const [orders, setOrders] = useState<any[]>([]);
   const [orderItems, setOrderItems] = useState<any[]>([]);
-  const [fasovaniRows, setFasovaniRows] = useState<any[]>([]);
-  const [prodejnaRows, setProdejnaRows] = useState<any[]>([]);
-  const [writeoffsRows, setWriteoffsRows] = useState<any[]>([]);
-  const [zavozDeductionRows, setZavozDeductionRows] = useState<any[]>([]);
+  const [fasovaniRows, setFasovaniRows] = useState<RadekPohybu[]>([]);
+  const [prodejnaRows, setProdejnaRows] = useState<RadekPohybu[]>([]);
+  const [writeoffsRows, setWriteoffsRows] = useState<RadekPohybu[]>([]);
+  const [zavozDeductionRows, setZavozDeductionRows] = useState<RadekZavozu[]>([]);
   // Jen kvůli poli kegs_used (KEGy spotřebované jako zdroj stáčení lahví) —
   // viz komentář u KegNeedsInput.bottlingRows v kegNeeds.ts.
-  const [bottlingRows, setBottlingRows] = useState<any[]>([]);
+  const [bottlingRows, setBottlingRows] = useState<RadekPohybu[]>([]);
   // Ruční odškrtnutí v plánu stáčení — pracovní pomůcka, ne evidence stáčení.
   const [planCheckRows, setPlanCheckRows] = useState<any[]>([]);
 
