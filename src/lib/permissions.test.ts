@@ -12,11 +12,12 @@ describe('PAGE_TO_MODULE — mapa obrazovka → modul', () => {
       .map((n) => n.id)
       // Záměrně bez modulu (chybějící klíč = dostupné všem):
       //  • users    — řešeno zvlášť, jen admin
+      //  • zaloha   — řešeno zvlášť, jen admin (otevírá Uživatele, nemá vlastní modul)
       //  • signout  — odhlášení, ne obrazovka
       //  • home     — úvodní plocha
       //  • stopwatch/timer/keg_timer/radio — pomůcky (stopky, časovač, stočení sudu, rádio),
       //    nepracují s žádnými daty, takže je nemá smysl zamykat
-      .filter((id) => !['users', 'signout', 'home', 'stopwatch', 'timer', 'keg_timer', 'radio'].includes(id))
+      .filter((id) => !['users', 'zaloha', 'signout', 'home', 'stopwatch', 'timer', 'keg_timer', 'radio'].includes(id))
       .filter((id) => !PAGE_TO_MODULE[id]);
     expect(chybi).toEqual([]);
   });

@@ -240,27 +240,30 @@ const DEFAULT_SIZE: Partial<Record<Page, { w: number; h: number }>> = {};
  */
 export const STRANKY_PLOCHY: Array<{ nazev: string; ids: Page[] }> = [
   {
-    // Všechno počítání a nástroje: kalkulačky, časovač, kalendář, statistika,
-    // export, sanitační deníky, auta.
-    nazev: 'Nástroje a výpočty',
-    ids: ['concentration', 'timer', 'calendar', 'history', 'export_excel', 'haccp', 'vehicles'],
-  },
-  {
-    // ÚVODNÍ stránka — schválně KRÁTKÁ. Je to to, na co člověk sahá každý
-    // den: stočit, zapsat vzkaz, kouknout na sklad a inventuru. Čím víc se
-    // sem přidá, tím hůř se to hledá; zbytek je na sousedních stránkách,
-    // jedno přejetí prstem daleko.
-    //
-    // Objednávky tu nejsou schválně: sedí ve spodní liště (DEFAULT_DOCK),
-    // takže jsou po ruce z každé obrazovky, ne jen z plochy.
-    nazev: 'Úvod',
-    ids: ['kegging', 'bottling', 'notes', 'dashboard', 'inventory'],
-  },
-  {
-    nazev: 'Zbytek',
+    // VLEVO — výpočty a přehledy: kalkulačky, inventura, kalendář a nástroje
+    // (časovač, statistika, export, sanitační deníky, auta, sklad) + stažení
+    // zálohy. Sem se sahá spíš občas, ne každý den.
+    nazev: 'Výpočty a přehledy',
     ids: [
-      'orders', 'cellar', 'bottling_needs', 'fasovani', 'prodejna', 'writeoffs',
-      'akce', 'sklo_promo', 'depozitar', 'users', 'app_settings', 'signout',
+      'concentration', 'inventory', 'calendar', 'timer', 'history',
+      'export_excel', 'haccp', 'vehicles', 'dashboard', 'zaloha',
+    ],
+  },
+  {
+    // ÚVODNÍ stránka (otevírá se jako první) — schválně KRÁTKÁ. To, na co se
+    // sahá každý den: stočit (KEG, Lahve), objednávky, fasování a vzkazy.
+    // Čím víc se sem přidá, tím hůř se to hledá; zbytek je jedno přejetí
+    // prstem daleko.
+    nazev: 'Stáčení a objednávky',
+    ids: ['kegging', 'bottling', 'orders', 'fasovani', 'notes'],
+  },
+  {
+    // VPRAVO — ostatní: prodejna, potřeby stáčení, odpisy, akce, sklep, sklo,
+    // číselníky a nastavení/uživatelé.
+    nazev: 'Ostatní',
+    ids: [
+      'bottling_needs', 'prodejna', 'writeoffs', 'akce', 'cellar', 'sklo_promo',
+      'depozitar', 'users', 'app_settings', 'signout',
     ],
   },
 ];
@@ -310,7 +313,7 @@ export function idsKRozmisteni(visibleIds: Page[], extraIds: Page[] = []): Page[
  * Použij to jen tehdy, když se rozdělení mění pro VŠECHNY schválně. Cizí
  * rozmístění se tím zahazuje a nejde vzít zpět.
  */
-export const ROZLOZENI_VERZE = 2;
+export const ROZLOZENI_VERZE = 3;
 
 /** Stránka, na které se plocha otevírá — prostřední, tedy výroba. */
 export const VYCHOZI_STRANKA = 1;
@@ -448,7 +451,7 @@ export const PAGE_CATEGORY: Partial<Record<Page, Category>> = {
   // Číselníky
   depozitar: 'Číselníky', places: 'Číselníky', beers: 'Číselníky', packages: 'Číselníky', pricelist: 'Číselníky',
   // Nastavení
-  users: 'Nastavení', app_settings: 'Nastavení', app_versions: 'Nastavení', signout: 'Nastavení',
+  users: 'Nastavení', app_settings: 'Nastavení', app_versions: 'Nastavení', signout: 'Nastavení', zaloha: 'Nastavení',
 };
 const FALLBACK_CYCLE: TileColor[] = ['indigo', 'orchid', 'forest', 'plum', 'citrus'];
 

@@ -52,7 +52,6 @@ import { maSeZobrazit, oznacZobrazenou } from '../lib/napovedy';
 import { queueLength, onQueueChange } from '../lib/offline';
 import { litry, litryJakoHl, kusy } from '../lib/cisla';
 import { souhrnDne, type SouhrnDne } from '../lib/souhrnDne';
-import { dnuOdZalohy, isWeeklyBackupDue } from '../lib/backup';
 import { buildMovements } from '../lib/stockLedger';
 import { isMonthlyCleanupPending, MONTHLY_CLEANUP_CHANGED_EVENT } from '../lib/monthlyCleanup';
 import { potvrd, oznam } from '../lib/toast';
@@ -1149,20 +1148,9 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     return () => window.removeEventListener(MONTHLY_CLEANUP_CHANGED_EVENT, recheck);
   }, []);
 
-  // 💾 Připomínka zálohy. Denní záloha jde do GITHUBU, tedy tam, kde je
-  // i kód — se ztrátou přístupu k účtu by zmizelo obojí naráz. Jediná
-  // kopie mimo něj je ta, kterou si někdo stáhne (Uživatelé → Záloha), a
-  // appka si datum zapisovala, ale nikomu ho neřekla.
-  //
-  // Jen pro admina: stahovat zálohu může jen on, tak nemá cenu strašit
-  // ostatní něčím, co nespraví.
-  const [zalohaDnu, setZalohaDnu] = useState<number | null>(null);
-  const [zalohaChybi, setZalohaChybi] = useState(false);
-  useEffect(() => {
-    if (!isAdmin) return;
-    setZalohaDnu(dnuOdZalohy());
-    setZalohaChybi(isWeeklyBackupDue());
-  }, [isAdmin]);
+  // 💾 Zálohu si admin stahuje z běžné dlaždice „Stáhnout zálohu" (NAV
+  // 'zaloha' → Uživatelé, kde jsou tlačítka zálohy nahoře). Dřív tu byl
+  // podmíněný štítek „záloha chybí"; teď je to trvalá dlaždice na ploše.
 
   // Offline fronta — kolik zápisů čeká na odeslání do cloudu. Zápisy bez
   // signálu se ukládají do prohlížeče a odešlou se samy, jen to dosud nikde
@@ -1690,33 +1678,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               )}
         </div>
 
-        {/* 💾 Připomínka zálohy jako PLNÁ dlaždice, ne tenký štítek v pásku:
-            stáhnout kopii je akce, kterou má admin opravdu udělat (denní
-            záloha jde do GitHubu, tedy tam, kde je i kód — kopie u sebe je
-            jediná pojistka), a v pruhu drobných upozornění zanikala. Vlastní
-            řádek pod pásem, ikona vlevo, popisek a „kdy naposledy" vpravo. */}
-        {zalohaChybi && (
-          <button
-            type="button"
-            className="hs-tile hs-tile-warn hs-zaloha-tile"
-            style={{ ['--hs-tile-alpha' as any]: layout.tileOpacity }}
-            onClick={() => setPage('users')}
-            title={zalohaDnu === null
-              ? 'Záloha se do tohohle zařízení ještě nikdy nestahovala. Denní záloha v GitHubu je ve stejném účtu jako kód — kopie u sebe je jediná pojistka pro případ, že by se přístup k účtu ztratil.'
-              : `Poslední stažená záloha byla před ${zalohaDnu} dny.`}
-          >
-            <div className="hs-tile-icon-box">
-              <Download />
-            </div>
-            <div className="hs-zaloha-text">
-              <div className="hs-lbl">Stáhnout zálohu</div>
-              <div className="hs-zaloha-sub">
-                {zalohaDnu === null ? 'ještě nikdy nestažená — stáhni si kopii' : `naposledy před ${zalohaDnu} dny`}
-              </div>
-            </div>
-            <span className="hs-badge">{zalohaDnu === null ? 'nikdy' : `${zalohaDnu} dní`}</span>
-          </button>
-        )}
 
         {/* 💡 Jednorázová nápověda. Ukáže se jednou v životě plochy a po
             odklepnutí zmizí navždy — trvalý pruh s tipem je po druhém dni

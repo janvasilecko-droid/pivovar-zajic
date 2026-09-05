@@ -132,6 +132,7 @@ describe('oprávnění obrazovek', () => {
     home: 'plocha (launcher), ne modul s daty',
     signout: 'odhlášení, ne obrazovka',
     users: 'hlídá se přímo rolí admina (HomeScreen.tsx a Layout.tsx: if (n.id === "users") return isAdmin)',
+    zaloha: 'hlídá se přímo rolí admina (Layout.tsx: if (n.id === "zaloha") return isAdmin); otevírá Uživatele, nemá vlastní modul',
     timer: 'časovač — nástroj bez dat pivovaru',
     stopwatch: 'stopky — nástroj bez dat pivovaru',
     keg_timer: 'odpočet ke stáčení — nástroj bez dat pivovaru',

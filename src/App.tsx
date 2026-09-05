@@ -268,7 +268,7 @@ export default function App() {
           setPage={setPage}
         />
       )}
-      {page === 'users' && <Users setPage={setPage} initialSubTab={pageSubTab} />}
+      {(page === 'users' || page === 'zaloha') && <Users setPage={setPage} initialSubTab={pageSubTab} />}
       {(page === 'stopwatch' || page === 'timer' || page === 'keg_timer') && (
         <TimersScreen
           initialTab={page === 'timer' ? 'timer' : page === 'keg_timer' ? 'keg' : 'stopwatch'}

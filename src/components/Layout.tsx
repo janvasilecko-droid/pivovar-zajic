@@ -29,7 +29,7 @@ import '../screens/HomeScreen.css';
 
 export type NavItem = { id: Page; label: string; icon: LucideIcon; group: string };
 
-export type Page = 'export_excel' | 'home' | 'sanitace' | 'marketing' | 'planning' | 'depozitar' | 'dashboard' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'sanitace_lahve' | 'sanitace_kegy' | 'sanitace_vycepy' | 'history' | 'orders_entry' | 'orders' | 'orders_detail' | 'orders_celkem' | 'orders_zavoz' | 'zavoz' | 'kniha_jizd' | 'stock' | 'bottling' | 'kegging' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'notes' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs' | 'stopwatch' | 'timer' | 'keg_timer' | 'radio' | 'signout';
+export type Page = 'export_excel' | 'home' | 'sanitace' | 'marketing' | 'planning' | 'depozitar' | 'dashboard' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'sanitace_lahve' | 'sanitace_kegy' | 'sanitace_vycepy' | 'history' | 'orders_entry' | 'orders' | 'orders_detail' | 'orders_celkem' | 'orders_zavoz' | 'zavoz' | 'kniha_jizd' | 'stock' | 'bottling' | 'kegging' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'notes' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs' | 'stopwatch' | 'timer' | 'keg_timer' | 'radio' | 'zaloha' | 'signout';
 
 export const NAV: NavItem[] = [
   // --- VÝROBA ---
@@ -64,6 +64,10 @@ export const NAV: NavItem[] = [
   { id: 'users', label: 'Uživatelé', icon: ShieldCheck, group: 'Nastavení' },
 
   { id: 'app_settings', label: 'Aplikace & Nastavení', icon: Settings, group: 'Nastavení' },
+
+  // Stažení zálohy jako běžná dlaždice (dřív jen štítek upozornění na ploše).
+  // Otevírá obrazovku Uživatelé, kde jsou tlačítka zálohy hned nahoře.
+  { id: 'zaloha', label: 'Stáhnout zálohu', icon: Download, group: 'Nastavení' },
 
   // 'signout' není skutečná routovaná stránka (App.tsx pro ni nemá větev) —
   // je to jen dlaždice v NAV, ať se dá přesouvat/měnit barvu/velikost stejně
@@ -317,6 +321,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
 
   const permittedNav = NAV.filter((n) => {
     if (n.id === 'users') return isAdmin;
+    if (n.id === 'zaloha') return isAdmin;
     if (n.id === 'bottling_needs') return isAdmin;
     const modKey = pageToModuleMap[n.id];
     if (!modKey) return true;
