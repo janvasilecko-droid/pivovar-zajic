@@ -4,7 +4,7 @@ import { WhatsAppIncoming, ignoreWhatsAppMessage, updateWhatsAppParsedData } fro
 import { parseWhatsAppOrderMessageWithAI } from '../lib/whatsappParser';
 import { loadAliasMap, saveAlias, canLearnBeerAlias, matchBeerFromHints, matchPackage, matchPlaceFromText, savePlaceAlias, normalize, type ParserAliasMap } from '../lib/orderParser';
 import {
-  diffOrderItems, rozsahOdpovedi, slozNavrh,
+  diffOrderItems, rozsahOdpovedi, slozNavrh, potvrzeneBezPolozek,
   type DiffRow, type RozsahOdpovedi, type SkupinaObalu,
 } from '../lib/whatsappAmendment';
 import { PlaceCombobox } from './PlaceCombobox';
@@ -102,6 +102,10 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   >(null);
   // Které skupiny obalů odpověď diktuje znovu a které jen potvrzuje.
   const [amendRozsah, setAmendRozsah] = useState<RozsahOdpovedi>({ nahradit: [], potvrzeno: [] });
+  // Skupiny, které odpověď potvrdila („petky sedí"), ale v načtené objednávce
+  // k nim není jediná položka — obsluha to musí vidět, jinak z „sedí" tiše
+  // nevznikne nic (např. petky z PDF se do objednávky nedostaly).
+  const [amendPotvrzenoPrazdne, setAmendPotvrzenoPrazdne] = useState<SkupinaObalu[]>([]);
 
   // Synchronizace s prop (otevření nové zprávy).
   useEffect(() => {
@@ -194,6 +198,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     if (!props.isOpen || !msg?.amends_order_id) {
       setAmendDiff([]); setAmendPlace(null); setAmendOriginalMsg(null);
       setAmendRozsah({ nahradit: [], potvrzeno: [] });
+      setAmendPotvrzenoPrazdne([]);
       return;
     }
     let zruseno = false;
@@ -232,16 +237,13 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       //    spadly 2 třicítky a 24 petek, o kterých odběratel napsal, že sedí.
       const rozsah = rozsahOdpovedi(msg.message_text);
       setAmendRozsah(rozsah);
-      const navrh = slozNavrh({
-        soucasne,
-        zOdpovedi,
-        text: msg.message_text,
-        obaly: props.packages.map((p) => ({
-          id: p.id, label: p.label, kind: (p as any).kind, volume_l: (p as any).volume_l,
-        })),
-      });
+      const obaly = props.packages.map((p) => ({
+        id: p.id, label: p.label, kind: (p as any).kind, volume_l: (p as any).volume_l,
+      }));
+      const navrh = slozNavrh({ soucasne, zOdpovedi, text: msg.message_text, obaly });
 
       setAmendDiff(diffOrderItems(soucasne, navrh));
+      setAmendPotvrzenoPrazdne(potvrzeneBezPolozek({ soucasne, potvrzeno: rozsah.potvrzeno, obaly }));
       setAmendLoading(false);
     })();
     return () => { zruseno = true; };
@@ -648,6 +650,21 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                       {NAZVY_SKUPIN[s]} — zůstávají
                     </span>
                   ))}
+                </div>
+              )}
+
+              {/* ⚠️ „Petky sedí", ale v načtené objednávce žádné petky nejsou.
+                  „Sedí" = nech to být — jenže není co nechat: buď se původní
+                  objednávka načetla neúplná (třeba se z PDF petky nevytáhly),
+                  nebo odběratel mluví o něčem, co v objednávce není. Bez téhle
+                  hlášky by z „petky sedí" tiše nevzniklo nic. */}
+              {amendPotvrzenoPrazdne.length > 0 && (
+                <div className="mt-2 p-2.5 rounded-xl bg-rose-50 border border-rose-300 text-rose-900 text-xs font-bold flex items-start gap-1.5">
+                  <AlertTriangle size={15} className="shrink-0 mt-0.5" />
+                  <span>
+                    Odběratel píše, že {amendPotvrzenoPrazdne.map((s) => NAZVY_SKUPIN[s].toLowerCase()).join(' a ')} sedí,
+                    ale v načtené objednávce k nim není jediná položka — zkontroluj původní objednávku (třeba se z PDF nevytáhly) a případně je doplň ručně.
+                  </span>
                 </div>
               )}
             </div>

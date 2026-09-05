@@ -330,3 +330,30 @@ export function slozNavrh(opts: {
 
   return vysledek;
 }
+
+/**
+ * Skupiny, které odpověď potvrdila („petky sedí"), ale v načtené původní
+ * objednávce k nim NENÍ jediná položka.
+ *
+ * „Sedí" znamená „nech to, jak to je" — jenže když v objednávce ta skupina
+ * vůbec není, není co nechat: buď se původní objednávka načetla neúplná
+ * (z PDF se třeba petky nevytáhly), nebo odběratel mluví o něčem, co appka
+ * nevidí. Tiše by pak z „petky sedí" nevzniklo nic a obsluha by netušila
+ * proč. Tohle vrátí takové skupiny, ať to kontrola může nahlas říct.
+ */
+export function potvrzeneBezPolozek(opts: {
+  soucasne: ItemRef[];
+  potvrzeno: SkupinaObalu[];
+  obaly: ObalInfo[];
+}): SkupinaObalu[] {
+  const { soucasne, potvrzeno, obaly } = opts;
+  if (potvrzeno.length === 0) return [];
+  const podleId = new Map(obaly.map((p) => [p.id, p]));
+  const skupinyVObjednavce = new Set<SkupinaObalu>();
+  for (const i of soucasne) {
+    if (Number(i.quantity || 0) <= 0) continue;
+    const obal = i.package_id ? podleId.get(i.package_id) : undefined;
+    if (obal) skupinyVObjednavce.add(skupinaObalu(obal));
+  }
+  return potvrzeno.filter((s) => !skupinyVObjednavce.has(s));
+}

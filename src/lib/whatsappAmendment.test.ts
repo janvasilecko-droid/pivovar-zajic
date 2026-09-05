@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { findQuotedMessage, findAmendedOrderId, diffOrderItems, maZmeny, rozsahOdpovedi, skupinaObalu, slozNavrh, type WhatsAppMsgRef } from './whatsappAmendment';
+import { findQuotedMessage, findAmendedOrderId, diffOrderItems, maZmeny, rozsahOdpovedi, skupinaObalu, slozNavrh, potvrzeneBezPolozek, type WhatsAppMsgRef } from './whatsappAmendment';
 
 const m = (id: string, created_at: string, message_text: string, extra: Partial<WhatsAppMsgRef> = {}): WhatsAppMsgRef =>
   ({ id, created_at, message_text, ...extra });
@@ -182,6 +182,32 @@ describe('rozsahOdpovedi / slozNavrh — odpověď mluví o části objednávky'
     expect(odebrane).toEqual(['11sv/keg10', 'des/keg10', 'des/keg15']);
     expect(odebrane.some((k) => k.endsWith('/pet1'))).toBe(false);
     expect(odebrane.some((k) => k.endsWith('/keg30'))).toBe(false);
+  });
+
+  it('potvrzeneBezPolozek: „petky sedí" u objednávky BEZ petek to nahlásí', () => {
+    // Reálný případ Maneo: odběratel napsal „petky sedí", ale do načtené
+    // objednávky se petky (12x1l Summer) nedostaly (z PDF se nevytáhly).
+    // „Sedí" = nech to být — jenže není co nechat, tak to musí zaznít.
+    const bezPetek = [
+      { beer_id: 'des', package_id: 'keg10', quantity: 3 },
+      { beer_id: 'des', package_id: 'keg30', quantity: 2 },
+    ];
+    const chybi = potvrzeneBezPolozek({
+      soucasne: bezPetek,
+      potvrzeno: ['petka', 'tricitka'],
+      obaly: OBALY,
+    });
+    // Třicítky v objednávce jsou (keg30), petky ne → hlásí se jen petky.
+    expect(chybi).toEqual(['petka']);
+  });
+
+  it('potvrzeneBezPolozek: když petky v objednávce jsou, nic nehlásí', () => {
+    const chybi = potvrzeneBezPolozek({
+      soucasne: MANEO_PDF,
+      potvrzeno: ['petka', 'tricitka'],
+      obaly: OBALY,
+    });
+    expect(chybi).toEqual([]);
   });
 
   it('bez jmenované skupiny se chová jako dřív (odpověď = celá objednávka)', () => {
