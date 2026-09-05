@@ -14,9 +14,21 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-/** lucide ikona → čím se má nahradit (aplikace pro to má vlastní). */
+/**
+ * lucide ikona → čím se má nahradit.
+ *
+ * Dva důvody, proč tu něco je:
+ *  1. Aplikace pro tu věc má VLASTNÍ ikonu (sud, lahev) — lucide je nezná
+ *     a náhražky vypadaly jinak, než co znamenají.
+ *  2. Dvě lucide ikony znamenají TOTÉŽ a používaly se obě. Změřeno
+ *     5. 9. 2026: „upravit" se kreslilo třemi ikonami — Pencil 15×,
+ *     Edit3 7×, PenLine 2×. Člověk se pak nemůže naučit „takhle vypadá
+ *     upravit" a musí každou obrazovku číst od začátku. Vítězí ta
+ *     nejpoužívanější, ne ta „hezčí".
+ */
 const NAHRADIT: Record<string, string> = {
   Cylinder: 'IkonaSud',
+  Edit3: 'Pencil',
 };
 
 /**

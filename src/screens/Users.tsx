@@ -6,6 +6,7 @@ import { createFullBackup, downloadBackupJSON, downloadGoogleSheetsExcelBackup }
 import { Car, CheckCircle2, Crown, Download, History, Hourglass, Mail, Plus, Search, Shield, Table, Trash2, Users as UsersIcon } from 'lucide-react';
 import { UserPermissionsModal } from '../components/UserPermissionsModal';
 import { AuditLogViewer } from '../components/AuditLogViewer';
+import { TabBar } from '../components/TabBar';
 import { isAdminEmail } from '../lib/config';
 import { chyba, potvrd } from '../lib/toast';
 import { usePosledniNacteni } from '../lib/nacitani';
@@ -15,6 +16,13 @@ type UserRow = {
   role: 'admin' | 'user'; created_at: string; last_sign_in_at: string | null;
   receive_vehicle_alerts?: boolean | null;
 };
+
+/** Záložky obrazovky. Barvy jsou stejný jazyk jako u ostatních „Tabbed" stránek. */
+const ZALOZKY = [
+  { id: 'users', label: 'Uživatelé & Práva', icon: Shield, color: '#d4a017' },
+  { id: 'emails', label: 'Schválené e-maily', icon: Mail, color: '#2f9e64' },
+  { id: 'audit', label: 'Auditní stopa', icon: History, color: '#4dabf7' },
+];
 
 export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, sec?: string, sub?: string) => void; initialSubTab?: string } = {}) {
   const { profile, user } = useAuth();
@@ -201,44 +209,15 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
         />
       )}
 
-      {/* Navigation tabs — přilepené nahoře, ať jde přepínat záložku i uprostřed scrollování. */}
-      <div className="sticky top-0 z-20 bg-neutral-100 pt-1 flex items-center gap-2 border-b border-neutral-200 pb-2">
-        <button
-          onClick={() => selectTab('users')}
-          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 ${
-            activeTab === 'users'
-              ? 'bg-amber-500 text-neutral-950 shadow-md'
-              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
-          }`}
-        >
-          <Shield size={16} />
-          <span>Uživatelé & Práva</span>
-        </button>
-
-        <button
-          onClick={() => selectTab('emails')}
-          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 ${
-            activeTab === 'emails'
-              ? 'bg-amber-500 text-neutral-950 shadow-md'
-              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
-          }`}
-        >
-          <Mail size={16} />
-          <span>Schválené e-maily</span>
-        </button>
-
-        <button
-          onClick={() => selectTab('audit')}
-          className={`px-4 py-2.5 rounded font-black text-xs transition flex items-center gap-2 ${
-            activeTab === 'audit'
-              ? 'bg-amber-500 text-neutral-950 shadow-md'
-              : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
-          }`}
-        >
-          <History size={16} />
-          <span>Auditní stopa (History Log)</span>
-        </button>
-      </div>
+      {/* Záložky přes společnou komponentu. Byly tu tři ručně malovaná
+          tlačítka se stejným ambrovým stylem, jaký měla každá „Tabbed"
+          obrazovka po svém — TabBar to sjednocuje a hlavně drží 44px
+          dotykový cíl, který ruční verze neměla. */}
+      <TabBar
+        items={ZALOZKY}
+        activeId={activeTab}
+        onSelect={(id) => selectTab(id as 'users' | 'audit' | 'emails')}
+      />
 
       {activeTab === 'audit' && <AuditLogViewer />}
 
@@ -294,10 +273,10 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
               <div className="space-y-2 pt-2 border-t border-neutral-100">
                 <button
                   onClick={() => setPermissionsUser(u)}
-                  className="w-full py-2 px-3 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs shadow-xs transition flex items-center justify-center gap-1.5"
+                  className="btn-amber w-full"
                 >
                   <Shield size={14} />
-                  <span><Shield className="ikona-text" /> Nastavit práva (Vidět / Upravit)</span>
+                  <span>Nastavit práva (Vidět / Upravit)</span>
                 </button>
 
                 <div className="flex gap-2">

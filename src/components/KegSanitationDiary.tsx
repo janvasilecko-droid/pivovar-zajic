@@ -10,7 +10,7 @@ import {
 } from '../lib/kegSanitation';
 import { SanitationStepRow, currentTimeStr } from './SanitationStepRow';
 import { Spinner } from './ui';
-import { AlertTriangle, Calendar, CalendarDays, Clock, Edit3, FileSpreadsheet, FileText, Check, CheckCircle2, Moon, Plus, Settings, ShieldAlert, SprayCan, Sun, Trash2, User, UserCheck, X } from 'lucide-react';
+import { AlertTriangle, Calendar, CalendarDays, Clock, Pencil, FileSpreadsheet, FileText, Check, CheckCircle2, Moon, Plus, Settings, ShieldAlert, SprayCan, Sun, Trash2, User, UserCheck, X } from 'lucide-react';
 import { potvrd } from '../lib/toast';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -488,7 +488,7 @@ export default function KegSanitationDiary() {
                       onClick={() => openEdit(e)}
                       className="flex items-center gap-1 px-2.5 py-1.5 rounded bg-neutral-100 hover:bg-amber-100 border border-neutral-200 text-neutral-700 hover:text-amber-900 transition text-udaj font-bold tap"
                     >
-                      <Edit3 size={14} /> Upravit
+                      <Pencil size={14} /> Upravit
                     </button>
                     <button
                       onClick={() => handleDelete(e)}
@@ -595,7 +595,7 @@ export default function KegSanitationDiary() {
                                 title="Upravit záznam" aria-label="Upravit záznam"
                                 className="p-2 rounded bg-neutral-100 hover:bg-amber-100 border border-neutral-200 text-neutral-700 hover:text-amber-900 transition"
                               >
-                                <Edit3 size={14} />
+                                <Pencil size={14} />
                               </button>
                               <button
                                 onClick={() => handleDelete(r.entry)}

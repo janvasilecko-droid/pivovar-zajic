@@ -12,7 +12,7 @@ import {
 } from '../lib/tapSanitation';
 import { SanitationStepRow, currentTimeStr } from './SanitationStepRow';
 import { Spinner } from './ui';
-import { Clock, Edit3, FileSpreadsheet, CheckCircle2, ChevronLeft, ChevronRight, Plus, Timer, Trash2, X } from 'lucide-react';
+import { Clock, Pencil, FileSpreadsheet, CheckCircle2, ChevronLeft, ChevronRight, Plus, Timer, Trash2, X } from 'lucide-react';
 import { potvrd } from '../lib/toast';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -251,7 +251,7 @@ export default function TapSanitationDiary() {
                       className="p-1.5 rounded bg-neutral-100 hover:bg-amber-100 text-neutral-600 hover:text-amber-800 transition tap"
                       title="Upravit" aria-label="Upravit"
                     >
-                      <Edit3 size={14} />
+                      <Pencil size={14} />
                     </button>
                     <button
                       onClick={() => handleDelete(e.id)}

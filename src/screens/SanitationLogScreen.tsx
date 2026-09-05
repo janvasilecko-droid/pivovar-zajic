@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase, SanitationLog } from '../lib/supabase';
 import { Spinner, EmptyState } from '../components/ui';
-import { BookOpen, Calendar, Clock, Droplets, Edit3, FileSpreadsheet, FlaskConical, MessageSquare, Pencil, Plus, Search, ShieldCheck, Sparkles, SprayCan, User, X, type LucideIcon } from 'lucide-react';
+import { BookOpen, Calendar, Clock, Droplets, Pencil, FileSpreadsheet, FlaskConical, MessageSquare, Plus, Search, ShieldCheck, Sparkles, SprayCan, User, X, type LucideIcon } from 'lucide-react';
 
 import { useAuth } from '../lib/auth';
 
@@ -334,7 +334,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
                     }}
                     className="min-h-[44px] px-3 py-1.5 rounded bg-neutral-100 hover:bg-amber-100 text-neutral-700 hover:text-amber-900 text-xs font-bold border border-neutral-200 transition flex items-center gap-1"
                   >
-                    <Edit3 size={14} />
+                    <Pencil size={14} />
                     <span>Upravit</span>
                   </button>
                 </div>
@@ -461,7 +461,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
                           }}
                           className="px-2.5 py-1 rounded bg-neutral-100 hover:bg-amber-100 text-neutral-700 hover:text-amber-900 text-udaj font-bold border border-neutral-200 transition flex items-center gap-1 ml-auto tap"
                         >
-                          <Edit3 size={14} />
+                          <Pencil size={14} />
                           <span>Upravit</span>
                         </button>
                       </td>
