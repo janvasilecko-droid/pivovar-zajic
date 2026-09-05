@@ -161,7 +161,7 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
         // Pokud AI rozpoznala i pivo (z etikety/štítku sudu či lahve), zkus ho
         // přiřadit k reálnému pivu v katalogu (fuzzy shoda podle názvu).
         let beerId = item.beer_id ?? '';
-        let beerNameRaw = item.beer_name ?? null;
+        const beerNameRaw = item.beer_name ?? null;
         if (!beerId && beerNameRaw && beers.length) {
           const t = _norm(String(beerNameRaw));
           const match = beers.find((b) => _norm(b.name) === t)

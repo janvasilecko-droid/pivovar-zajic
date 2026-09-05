@@ -130,7 +130,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     if (!props.isOpen || !msg) return;
     placeTouchedRef.current = false;
     let pid = msg.parsed_place_id || '';
-    let pname = msg.parsed_place_name || '';
+    const pname = msg.parsed_place_name || '';
     if (!pid && pname) {
       const matched = matchPlaceFromText(pname, props.places);
       if (matched.placeId && matched.placeName) pid = matched.placeId;
@@ -247,7 +247,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       setAmendLoading(false);
     })();
     return () => { zruseno = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [props.isOpen, msg?.amends_order_id, msg?.message_text, items, props.packages]);
 
   const beerNameById = (id: string | null) => props.beers.find((b) => b.id === id)?.name ?? '(neurčené pivo)';

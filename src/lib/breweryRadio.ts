@@ -115,7 +115,7 @@ function saveState(state: { stationId: string; volume: number }) {
 
 const initialConfig = loadSavedState();
 
-let currentRadioState: RadioState = {
+const currentRadioState: RadioState = {
   playing: false,
   loading: false,
   stationId: initialConfig.stationId,

@@ -59,11 +59,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    let mounted = true;
+    // `zruseno` se musí v úklidu OPRAVDU přepnout. Stálo tu `let mounted =
+    // true`, které nikdo nikdy nezměnil, takže `if (!mounted) return` nikdy
+    // nic nezastavilo — ESLint to při prvním běhu ohlásil jako proměnnou,
+    // která se nikdy nemění. Bez toho může odpověď z `getSession()` dorazit
+    // po přepnutí účtu a přepsat novější přihlášení tím starším.
+    let zruseno = false;
     supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return;
+      if (zruseno) return;
       setSession(data.session);
-      if (data.session?.user) loadProfile(data.session.user).finally(() => mounted && setLoading(false));
+      if (data.session?.user) loadProfile(data.session.user).finally(() => { if (!zruseno) setLoading(false); });
       else setLoading(false);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
@@ -77,7 +82,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      zruseno = true;
+      sub.subscription.unsubscribe();
+    };
   }, [session?.user?.id]); // Dependency array matches sessions
 
   // Realtime synchronizace profilu (plocha, lišta, poznámky, odpočty) mezi zařízeními

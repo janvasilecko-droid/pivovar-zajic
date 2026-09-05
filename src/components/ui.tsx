@@ -116,7 +116,7 @@ export function Modal({ open, onClose, title, children, wide, maxWidth }: {
         window.history.back();
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [open]);
 
   if (!open) return null;

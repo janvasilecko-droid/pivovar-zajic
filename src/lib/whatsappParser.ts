@@ -618,7 +618,7 @@ export async function parseWhatsAppOrderMessageWithAI(
     if (foundPlace.placeId && !isMatchGrounded(foundPlace.placeName)) foundPlace = { placeId: null, placeName: null };
   }
 
-  let placeId = foundPlace.placeId;
+  const placeId = foundPlace.placeId;
   let placeName = foundPlace.placeName;
   if (!placeId && !placeName) {
     // AI rozpoznala jméno, ale neodpovídá žádnému známému odběrateli

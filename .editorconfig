@@ -1,0 +1,15 @@
+# Odsazení a konce řádků. Prettier v projektu schválně není (přeformátovat
+# 96 tisíc řádků by pohřbilo historii gitu i komentáře, které vysvětlují, PROČ
+# je něco tak, jak je) — tohle je to minimum, na kterém se editory shodnou.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+indent_style = space
+indent_size = 2
+trim_trailing_whitespace = true
+
+[*.md]
+trim_trailing_whitespace = false

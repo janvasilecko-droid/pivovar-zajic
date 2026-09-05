@@ -68,7 +68,7 @@ export function ProdejnaFromImage({ isOpen, onClose, beers, packages, onTextExtr
   const loadMultipleFiles = (files: File[]) => {
     if (!files.length) return;
     setBusy(true);
-    let loaded: PhotoEntry[] = [];
+    const loaded: PhotoEntry[] = [];
     let count = 0;
     files.forEach((f, idx) => {
       const reader = new FileReader();

@@ -151,7 +151,7 @@ export function isWeeklyItemDoneForWeek(dateKey: string, itemId: string): boolea
       const raw = localStorage.getItem('bottling_checklist_' + dateKeyOf(d));
       if (!raw) continue;
       const map = JSON.parse(raw) as Record<string, boolean>;
-      if (!!map[itemId]) return true;
+      if (map[itemId]) return true;
     }
   } catch {
     return false;

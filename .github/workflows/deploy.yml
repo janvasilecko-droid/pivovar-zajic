@@ -83,6 +83,15 @@ jobs:
       - name: Kontrola dotykových cílů
         run: npm run zkontroluj-dotyk
 
+      # ESLint. Projekt ho do 5. 9. 2026 neměl a hned v prvním běhu našel
+      # dvě skutečné chyby: hook volaný až za `return null` (React na to
+      # spadne při otevření modalu) a `let mounted = true`, které se nikdy
+      # nepřepnulo, takže zrušení běžícího načtení nikdy nefungovalo.
+      # Nastavení je mírné: varování se tolerují (je jich 1139 a utahují se
+      # po částech), padá se jen na chybách.
+      - name: Lint
+        run: npm run lint
+
   build-and-deploy:
     runs-on: ubuntu-latest
     needs: test

@@ -89,7 +89,7 @@ export default function BottlingScreen({
 
   useEffect(() => {
     setTab((initialSubTab as any) || initialTab || defaultTab);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [initialSubTab, initialTab]);
 
   // Přepnutí záložky zapíšeme do historie stránek (setPage), ne jen do

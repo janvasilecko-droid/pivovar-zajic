@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Check, Save } from 'lucide-react';
 import { Modal } from './ui';
 import type { NavItem } from './Layout';
@@ -15,9 +16,24 @@ export function MenuCustomizeModal({
   onSave: (hidden: string[]) => void;
   onClose: () => void;
 }) {
-  if (!open) return null;
-
+  // POZOR NA POŘADÍ: `useState` musí stát PŘED `if (!open) return null`.
+  // Bylo to naopak, takže zavřený modal nezavolal žádný hook a otevřený
+  // jeden — a React na změnu počtu hooků mezi dvěma vykresleními téže
+  // komponenty spadne („Rendered more hooks than during the previous
+  // render"). Modal je v Nastavení pořád připojený a řídí se jen `open`,
+  // takže se to spouštělo pokaždé, když někdo otevřel „Přizpůsobení
+  // osobního menu". Našel to ESLint (react-hooks/rules-of-hooks) hned
+  // v prvním běhu.
   const [currentHidden, setCurrentHidden] = useState<string[]>(hiddenModules);
+
+  // Při otevření se výběr srovná s tím, co je uložené. Dřív se hodnota
+  // brala jen při prvním vykreslení; po fixu pořadí by se modal otevřel
+  // s tím, co platilo při načtení obrazovky, ne s aktuálním stavem.
+  useEffect(() => {
+    if (open) setCurrentHidden(hiddenModules);
+  }, [open, hiddenModules]);
+
+  if (!open) return null;
 
   function toggle(id: string) {
     if (currentHidden.includes(id)) {
@@ -113,4 +129,3 @@ export function MenuCustomizeModal({
     </Modal>
   );
 }
-import { useState } from 'react';

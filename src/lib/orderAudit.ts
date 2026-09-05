@@ -185,7 +185,7 @@ export async function runOrderAudit({
   }
 
   // 2. Načíst WhatsApp zprávy
-  let waQuery = supabase
+  const waQuery = supabase
     .from('whatsapp_incoming')
     .select('*')
     .order('created_at', { ascending: false })

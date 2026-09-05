@@ -801,7 +801,7 @@ export function parseGeminiItems(
   // 🧠 NAUČENÉ ALIASY ODBĚRATELŮ: načti z localStorage a použij je k opravě
   // place_name z AI. Pokud AI rozpoznala "Seeberg" ale uživatel dříve opravil
   // na "Seeberg 2", automaticky použijeme správný název.
-  let placeAliasMap = new Map<string, string>();
+  const placeAliasMap = new Map<string, string>();
   try {
     const localSaved = localStorage.getItem('user_learned_place_aliases');
     if (localSaved) {

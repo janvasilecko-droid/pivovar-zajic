@@ -100,7 +100,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   useEffect(() => {
     const beerId = consumeKegFixRequest();
     if (beerId) setExpandedKegBeerId(beerId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
   const [err, setErr] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
@@ -427,31 +427,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
 
 
-  // Souhrn stáčení z tanku (kegging) — sjednoceno s Cellar.tsx: % stočeno se počítá
-  // ze skutečně zapsaných záznamů (source_volume_l), ne z current_volume_l tanku.
-  // Omezeno na AKTUÁLNÍ cyklus tanku (od started_at) — jinak se po opakovaném
-  // použití tanku sčítalo i stočené z předchozích cyklů (viz stejná oprava
-  // v Cellar.tsx).
-  const cycleStartByTank = useMemo(() => {
-    const m = new Map<string, string>();
-    cellarTanks.forEach((t) => {
-      if (t.started_at) m.set(t.id, t.started_at.slice(0, 10));
-    });
-    return m;
-  }, [cellarTanks]);
-  const tankSummary = useMemo(() => {
-    const m = new Map<string, { kegCount: number; sourceL: number }>();
-    rows.forEach((r) => {
-      const id = r.cellar_tank_id ?? '_none';
-      const cycleStart = cycleStartByTank.get(id);
-      if (cycleStart && r.entry_date < cycleStart) return;
-      if (!m.has(id)) m.set(id, { kegCount: 0, sourceL: 0 });
-      const s = m.get(id)!;
-      s.kegCount += Number(r.quantity) ?? 0;
-      s.sourceL += Number(r.source_volume_l ?? 0);
-    });
-    return m;
-  }, [rows, cycleStartByTank]);
+  // POZNÁMKA: tady stál `cycleStartByTank` + `tankSummary` — dva useMemo, které
+  // při každém překreslení projely všechny řádky stáčení, ale jejich výsledek
+  // se nikde nevykresloval. Odstraněno 5. 9. 2026; ESLint u nich zároveň našel
+  // `Number(r.quantity) ?? 0`, což je vždycky `Number(...)` — u chybějícího
+  // množství by z toho vyšlo NaN a celý součet tanku by zmizel. Kdyby se
+  // souhrn stáčení z tanku někdy hodil, počítá totéž Cellar.tsx.
 
   function setRowField(i: number, field: keyof RowInput, value: string) {
     setEntryRows((rs) => rs.map((r, idx) => idx === i ? { ...r, [field]: value } : r));
@@ -461,7 +442,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // Pro KEG režim preferujeme obaly druhu 'keg'
   function handleVoiceResult(text: string) {
     // Nejprv zkusíme normální parser
-    let parsed = parseFreeTextEntries(text, beers, packages, aliasMap);
+    const parsed = parseFreeTextEntries(text, beers, packages, aliasMap);
 
     // Pokud parser nenašel nic, zkusíme jednodušší přístup pro kegy
     if (!parsed.length) {

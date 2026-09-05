@@ -901,7 +901,7 @@ export default function Orders({
     setStatusFilter('');
     setDeliveryDayFilter('all');
     window.scrollTo({ top: 0 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   // 🔀 Řádek „Dnešek" → „X nevyřízených objednávek po termínu" dřív jen
@@ -919,7 +919,7 @@ export default function Orders({
     setItemFilterBeerId(null);
     setItemFilterPackageId(null);
     window.scrollTo({ top: 0 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   // 🔀 Odznak s počtem na dlaždici „Objednávky" na Domů (nevyřízené tento
@@ -935,7 +935,7 @@ export default function Orders({
     setItemFilterBeerId(null);
     setItemFilterPackageId(null);
     window.scrollTo({ top: 0 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   const [timeScope, setTimeScope] = useState<'week' | 'month' | 'all'>('week');
@@ -1288,7 +1288,7 @@ export default function Orders({
   useEffect(() => {
     const text = consumeOrdersHledani();
     if (text) nastavHledani(text);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
   // Pro případ, že obrazovka UŽ je otevřená (hledání spuštěné z Objednávek) —
   // mount efekt výše se znovu nespustí.
@@ -1300,7 +1300,7 @@ export default function Orders({
     };
     window.addEventListener(ORDERS_HLEDANI_EVENT, naHledani);
     return () => window.removeEventListener(ORDERS_HLEDANI_EVENT, naHledani);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
   const [groupByDay, setGroupByDay] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -2677,8 +2677,8 @@ export default function Orders({
 
 
           onImport={async (items, meta) => {
-            let orderId = importTarget?.id;
-            let targetDate = importTarget?.order_date ?? meta.date;
+            const orderId = importTarget?.id;
+            const targetDate = importTarget?.order_date ?? meta.date;
             if (!orderId) {
               const groups = new Map<string, typeof items>();
               for (const it of items) {
@@ -2688,7 +2688,7 @@ export default function Orders({
               const created: string[] = [];
               for (const [recipient, rows] of groups) {
                 const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-                let place = recipient ? places.find((p) => norm(p.name) === norm(recipient)) : undefined;
+                const place = recipient ? places.find((p) => norm(p.name) === norm(recipient)) : undefined;
                 let placeId = place?.id ?? null;
                 const placeName = recipient || meta.placeName || null;
                 if (!placeId && placeName) {
@@ -2805,7 +2805,7 @@ function detectDeliveryDateFromNote(text: string, wk: string): string | null {
     if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
       const now = new Date();
       now.setHours(0, 0, 0, 0);
-      let year = m[3] ? (parseInt(m[3], 10) < 100 ? 2000 + parseInt(m[3], 10) : parseInt(m[3], 10)) : now.getFullYear();
+      const year = m[3] ? (parseInt(m[3], 10) < 100 ? 2000 + parseInt(m[3], 10) : parseInt(m[3], 10)) : now.getFullYear();
       const check = new Date(year, month - 1, day);
       if (check.getMonth() !== month - 1 || check.getDate() !== day) return null; // neplatné datum (např. 31.2.)
       if (!m[3] && check < now) check.setFullYear(check.getFullYear() + 1); // bez roku a už uplynulo → příští rok
