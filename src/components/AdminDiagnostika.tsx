@@ -114,7 +114,7 @@ function ChybyBlok() {
       )}
       {stav === 'ok' && radky.length > 0 && (
         <div className="mt-2 overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="table-drzi-prvni-sloupec w-full text-left text-xs">
             <thead>
               <tr className="text-neutral-700">
                 <th scope="col" className="py-1 pr-2 font-black">Kdy</th>
@@ -317,7 +317,7 @@ function TankFrontaBlok() {
       {fronta.length > 0 && (
         <>
           <div className="mt-2 overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="table-drzi-prvni-sloupec w-full text-left text-xs">
               <thead>
                 <tr className="text-neutral-700">
                   <th scope="col" className="py-1 pr-2 font-black">Tank</th>

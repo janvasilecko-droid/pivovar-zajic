@@ -665,7 +665,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
                         nemusí se hádat, kde se zpráva ztratila.
                       </p>
                       <div className="overflow-x-auto">
-                        <table className="w-full text-xs">
+                        <table className="table-drzi-prvni-sloupec w-full text-xs">
                           <thead>
                             <tr className="text-udaj font-black uppercase tracking-wider text-neutral-500 border-b border-neutral-200">
                               <th scope="col" className="text-left py-1.5">Den</th>

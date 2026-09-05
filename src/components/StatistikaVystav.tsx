@@ -425,7 +425,7 @@ export default function StatistikaVystav({
         <section className="card p-3.5 sm:p-5">
           <Nadpis text="Piva v číslech" popis={`${POPIS_OBDOBI[obdobi]}${predchozi ? ` · srovnání s obdobím ${POPIS_PREDCHOZI[obdobi]}` : ''}`} />
           <div className="overflow-x-auto -mx-1 px-1">
-            <table className="w-full text-sm">
+            <table className="table-drzi-prvni-sloupec w-full text-sm">
               <thead>
                 <tr className="text-udaj font-black uppercase tracking-wider text-neutral-500 border-b border-neutral-200">
                   <th scope="col" className="text-left py-2">Pivo</th>

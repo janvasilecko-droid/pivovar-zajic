@@ -292,7 +292,7 @@ export function WeeklyOrderSummaryCard({
       {displayedItems.length > 0 ? (
         <div className="overflow-hidden rounded border border-neutral-200 shadow-md">
           <div className="overflow-x-auto">
-            <table className="w-full text-xs table-fixed">
+            <table className="table-drzi-prvni-sloupec w-full text-xs table-fixed">
                 <thead>
                   <tr className="bg-neutral-900 text-amber-300 uppercase tracking-wider text-udaj font-black border-b border-neutral-800">
                     <th scope="col" className="py-3 px-4 text-left">Pivo</th>
