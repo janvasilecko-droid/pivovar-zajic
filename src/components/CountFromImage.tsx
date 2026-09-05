@@ -302,19 +302,19 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
             <span>Rychlý kalkulátor (přepravky/kartony)</span>
           </div>
           <div className="flex flex-wrap gap-1">
-            <button type="button" onClick={() => addPresetCrate(20, '1 přepravka (20 ks)')} className="px-2 py-1 rounded bg-amber-200 hover:bg-amber-300 text-amber-950 text-[11px] font-black border border-amber-300 transition">
+            <button type="button" onClick={() => addPresetCrate(20, '1 přepravka (20 ks)')} className="px-2 py-1 rounded bg-amber-200 hover:bg-amber-300 text-amber-950 text-[11px] font-black border border-amber-300 transition tap">
               +20
             </button>
-            <button type="button" onClick={() => addPresetCrate(40, '2 přepravky (40 ks)')} className="px-2 py-1 rounded bg-amber-200 hover:bg-amber-300 text-amber-950 text-[11px] font-black border border-amber-300 transition">
+            <button type="button" onClick={() => addPresetCrate(40, '2 přepravky (40 ks)')} className="px-2 py-1 rounded bg-amber-200 hover:bg-amber-300 text-amber-950 text-[11px] font-black border border-amber-300 transition tap">
               +40
             </button>
-            <button type="button" onClick={() => addPresetCrate(100, '5 přepravek (100 ks)')} className="px-2 py-1 rounded bg-amber-200 hover:bg-amber-300 text-amber-950 text-[11px] font-black border border-amber-300 transition">
+            <button type="button" onClick={() => addPresetCrate(100, '5 přepravek (100 ks)')} className="px-2 py-1 rounded bg-amber-200 hover:bg-amber-300 text-amber-950 text-[11px] font-black border border-amber-300 transition tap">
               +100
             </button>
-            <button type="button" onClick={() => addPresetCrate(12, '1 karton (12 ks)')} className="px-2 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-900 text-[11px] font-black border border-amber-200 transition">
+            <button type="button" onClick={() => addPresetCrate(12, '1 karton (12 ks)')} className="px-2 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-900 text-[11px] font-black border border-amber-200 transition tap">
               +12
             </button>
-            <button type="button" onClick={() => addPresetCrate(6, '1 karton (6 ks)')} className="px-2 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-900 text-[11px] font-black border border-amber-200 transition">
+            <button type="button" onClick={() => addPresetCrate(6, '1 karton (6 ks)')} className="px-2 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-900 text-[11px] font-black border border-amber-200 transition tap">
               +6
             </button>
           </div>
@@ -323,7 +323,7 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
 
         <div className="flex items-center gap-2">
           <input ref={fileRef} type="file" accept="image/*" multiple onChange={onFile} className="hidden" />
-          <button className="px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[11px] transition shadow-xs flex items-center gap-1.5" onClick={() => fileRef.current?.click()} disabled={busyAny}>
+          <button className="px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[11px] transition shadow-xs flex items-center gap-1.5 tap" onClick={() => fileRef.current?.click()} disabled={busyAny}>
             <Camera size={14} /> {isKegMode ? 'Přidat fotky' : 'Přidat fotky'}
           </button>
           <span className="text-[11px] text-neutral-500 font-medium">lze i více najednou</span>
@@ -370,7 +370,7 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
                   <div className="px-2 py-1 bg-rose-50 text-[11px] text-rose-700 font-bold leading-tight">{p.err}</div>
                 )}
                 {!p.busy && p.preview && (
-                  <button className="w-full text-[11px] py-1 bg-neutral-800 text-amber-300 hover:bg-neutral-700 font-bold transition" onClick={() => retakePhoto(p.id)}><RefreshCw className="ikona-text" /></button>
+                  <button className="w-full text-[11px] py-1 bg-neutral-800 text-amber-300 hover:bg-neutral-700 font-bold transition tap" onClick={() => retakePhoto(p.id)}><RefreshCw className="ikona-text" /></button>
                 )}
               </div>
             ))}
@@ -450,8 +450,8 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
         )}
 
         <div className="flex justify-end gap-1.5 pt-1.5 border-t border-neutral-100">
-          <button className="px-3 py-1.5 rounded text-neutral-600 hover:bg-neutral-100 font-bold text-[11px] transition" onClick={onClose}>Zrušit</button>
-          <button className="px-3.5 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[11px] transition shadow-xs" disabled={busyAny || saving || readyCount === 0} onClick={save}>
+          <button className="px-3 py-1.5 rounded text-neutral-600 hover:bg-neutral-100 font-bold text-[11px] transition tap" onClick={onClose}>Zrušit</button>
+          <button className="px-3.5 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[11px] transition shadow-xs tap" disabled={busyAny || saving || readyCount === 0} onClick={save}>
             {saving ? 'Ukládám…' : isKegMode ? `Uložit (${readyCount})` : `Přičíst (${readyCount})`}
           </button>
         </div>

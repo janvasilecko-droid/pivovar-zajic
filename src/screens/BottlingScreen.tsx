@@ -1013,7 +1013,7 @@ export default function BottlingScreen({
             <button
               type="button"
               onClick={() => { markPlanSeenAt(); setPlanSeenAt(Date.now()); }}
-              className="px-3 py-1.5 rounded bg-rose-600 hover:bg-rose-700 text-white text-xs font-black transition"
+              className="px-3 py-1.5 rounded bg-rose-600 hover:bg-rose-700 text-white text-xs font-black transition tap"
             >
               <Check className="ikona-text" /> Vím
             </button>
@@ -1119,12 +1119,12 @@ export default function BottlingScreen({
                               type="button"
                               onClick={() => setTile(slot.qty, String(q))}
                               title="Rychlá volba množství"
-                              className={`h-7 min-w-[1.75rem] px-1.5 rounded text-[11px] font-black transition ${Number(qtyStr) === q ? 'bg-emerald-700 text-white' : 'bg-neutral-100 dark:bg-neutral-700 hover:bg-emerald-200 text-neutral-600 dark:text-neutral-200 hover:text-emerald-950'}`}
+                              className={`tap h-7 min-w-[1.75rem] px-1.5 rounded text-[11px] font-black transition ${Number(qtyStr) === q ? 'bg-emerald-700 text-white' : 'bg-neutral-100 dark:bg-neutral-700 hover:bg-emerald-200 text-neutral-600 dark:text-neutral-200 hover:text-emerald-950'}`}
                             >
                               {q}
                             </button>
                           ))}
-                          <button type="button" onClick={() => bumpTile(slot.qty, -1)} className="w-9 h-9 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition select-none">−</button>
+                          <button type="button" onClick={() => bumpTile(slot.qty, -1)} className="w-9 h-9 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition select-none tap">−</button>
                           <input
                             type="number" onWheel={(e) => e.currentTarget.blur()}
                             min={0}
@@ -1134,7 +1134,7 @@ export default function BottlingScreen({
                             onChange={(e) => setTile(slot.qty, e.target.value.replace(/[^0-9]/g, ''))}
                             placeholder="0"
                           />
-                          <button type="button" onClick={() => bumpTile(slot.qty, 1)} className="w-9 h-9 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-black text-xl transition select-none">+</button>
+                          <button type="button" onClick={() => bumpTile(slot.qty, 1)} className="w-9 h-9 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-black text-xl transition select-none tap">+</button>
                         </div>
                       </div>
                     );
@@ -1158,7 +1158,7 @@ export default function BottlingScreen({
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[11px] font-extrabold uppercase text-neutral-500">Počet sudů</span>
                   <div className="flex items-center gap-1">
-                    <button type="button" onClick={() => bumpTile('kegQty', -1)} className="w-9 h-9 grid place-items-center rounded bg-sky-100 hover:bg-sky-200 text-sky-800 font-black text-xl transition select-none">−</button>
+                    <button type="button" onClick={() => bumpTile('kegQty', -1)} className="w-9 h-9 grid place-items-center rounded bg-sky-100 hover:bg-sky-200 text-sky-800 font-black text-xl transition select-none tap">−</button>
                     <input
                       type="number" onWheel={(e) => e.currentTarget.blur()}
                       min={0}
@@ -1168,7 +1168,7 @@ export default function BottlingScreen({
                       onChange={(e) => setTile('kegQty', e.target.value.replace(/[^0-9]/g, ''))}
                       placeholder="0"
                     />
-                    <button type="button" onClick={() => bumpTile('kegQty', 1)} className="w-9 h-9 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-black text-xl transition select-none">+</button>
+                    <button type="button" onClick={() => bumpTile('kegQty', 1)} className="w-9 h-9 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-black text-xl transition select-none tap">+</button>
                   </div>
                 </div>
 
@@ -1253,7 +1253,7 @@ export default function BottlingScreen({
                         {/* +5: po jednom se přidává jen zbytek, celé pády sudů
                             jdou po pěti. Dvě klepnutí místo deseti. */}
                         <button type="button" onClick={() => updateQty(l.rowIndex, l.field, String(l.qty + 5))} className="w-11 h-11 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-950 font-black text-sm transition select-none">+5</button>
-                        <button type="button" onClick={() => updateQty(l.rowIndex, l.field, '0')} className="w-10 h-10 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-xl transition select-none" title="Odebrat položku"><X size={18} /></button>
+                        <button type="button" onClick={() => updateQty(l.rowIndex, l.field, '0')} className="w-10 h-10 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-xl transition select-none tap" title="Odebrat položku"><X size={18} /></button>
                       </div>
                     </li>
                   ))}
@@ -1402,7 +1402,7 @@ export default function BottlingScreen({
                 <button
                   type="button"
                   onClick={() => setRecordsTab('lahve')}
-                  className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded border transition ${
+                  className={`tap inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded border transition ${
                     recordsTab === 'lahve'
                       ? 'bg-emerald-200 border-emerald-300 text-emerald-950'
                       : 'bg-white border-neutral-200 text-neutral-600'
@@ -1413,7 +1413,7 @@ export default function BottlingScreen({
                 <button
                   type="button"
                   onClick={() => setRecordsTab('keg')}
-                  className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded border transition ${
+                  className={`tap inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded border transition ${
                     recordsTab === 'keg'
                       ? 'bg-amber-200 border-amber-300 text-amber-950'
                       : 'bg-white border-neutral-200 text-neutral-600'
@@ -1424,7 +1424,7 @@ export default function BottlingScreen({
                 <button
                   type="button"
                   onClick={() => setRecordsTab('vse')}
-                  className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded border transition ${
+                  className={`tap inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded border transition ${
                     recordsTab === 'vse'
                       ? 'bg-amber-200 border-amber-300 text-amber-950'
                       : 'bg-white border-neutral-200 text-neutral-600'
@@ -1436,7 +1436,7 @@ export default function BottlingScreen({
                   <button
                     type="button"
                     onClick={() => setRecordsView('day')}
-                    className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded border transition ${
+                    className={`tap inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded border transition ${
                       recordsView === 'day'
                         ? 'bg-amber-200 border-amber-300 text-amber-950'
                         : 'bg-white border-neutral-200 text-neutral-600'
@@ -1455,7 +1455,7 @@ export default function BottlingScreen({
                 <button
                   type="button"
                   onClick={() => setRecordsView('month')}
-                  className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded border transition ${
+                  className={`tap inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded border transition ${
                     recordsView === 'month'
                       ? 'bg-amber-200 border-amber-300 text-amber-950'
                       : 'bg-white border-neutral-200 text-neutral-600'
@@ -1467,7 +1467,7 @@ export default function BottlingScreen({
                   <button
                     type="button"
                     onClick={() => setRecordsView('week')}
-                    className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded border transition ${
+                    className={`tap inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded border transition ${
                       recordsView === 'week'
                         ? 'bg-amber-200 border-amber-300 text-amber-950'
                         : 'bg-white border-neutral-200 text-neutral-600'
@@ -1542,7 +1542,7 @@ export default function BottlingScreen({
               <button
                 type="button"
                 onClick={() => { setRecordsBeerFilter(''); setRecordsPkgFilter(''); }}
-                className="text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2.5 py-1 rounded transition shrink-0 ml-auto whitespace-nowrap"
+                className="text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2.5 py-1 rounded transition shrink-0 ml-auto whitespace-nowrap tap"
               >
                 <X className="ikona-text" /> Vymazat filtry
               </button>
@@ -1627,9 +1627,9 @@ export default function BottlingScreen({
                         <div className="rounded bg-amber-100/70 py-1.5 flex items-center justify-center gap-1">
                           {isFirstInBatch ? (
                             <>
-                              <button type="button" onClick={() => incrementKegs(r.id, -1)} className="w-7 h-7 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-800 font-black text-sm transition">−</button>
+                              <button type="button" onClick={() => incrementKegs(r.id, -1)} className="w-7 h-7 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-800 font-black text-sm transition tap">−</button>
                               <span className="text-sm font-black text-amber-900">{r.kegs_used && r.kegs_used > 0 ? r.kegs_used : 0} <IkonaSud className="ikona-text" /></span>
-                              <button type="button" onClick={() => incrementKegs(r.id, 1)} className="w-7 h-7 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-900 font-black text-sm transition">+</button>
+                              <button type="button" onClick={() => incrementKegs(r.id, 1)} className="w-7 h-7 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-900 font-black text-sm transition tap">+</button>
                             </>
                           ) : (
                             <span className="text-[11px] font-bold text-amber-600">〃 stejná dávka</span>
@@ -1745,7 +1745,7 @@ export default function BottlingScreen({
                                 <button
                                   type="button"
                                   onClick={() => incrementKegs(r.id, -1)}
-                                  className="w-6 h-6 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold text-xs transition"
+                                  className="w-6 h-6 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold text-xs transition tap"
                                   title="Snížit počet sudů"
                                 >−</button>
                                 <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-950 border border-amber-400/60 text-xs font-black shadow-2xs min-w-[24px] justify-center">
@@ -1754,7 +1754,7 @@ export default function BottlingScreen({
                                 <button
                                   type="button"
                                   onClick={() => incrementKegs(r.id, 1)}
-                                  className="w-6 h-6 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-900 font-bold text-xs transition"
+                                  className="w-6 h-6 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-900 font-bold text-xs transition tap"
                                   title="Zvýšit počet sudů"
                                 >+</button>
                               </div>
@@ -1767,10 +1767,10 @@ export default function BottlingScreen({
                           <td className="py-1.5 px-2 text-right font-bold text-amber-950">{liters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })}</td>
                           <td className="py-1.5 px-2 text-right">
                             <div className="flex items-center gap-1 justify-end">
-                              <button type="button" onClick={() => increment(r.id, -1)} className="w-6 h-6 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold text-xs transition">−</button>
-                              <button type="button" onClick={() => increment(r.id, 1)} className="w-6 h-6 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-900 font-bold text-xs transition">+</button>
-                              <button type="button" onClick={() => setEditingRow(r)} className="w-6 h-6 grid place-items-center rounded bg-sky-100 hover:bg-sky-200 text-sky-700 font-bold text-xs transition" title="Upravit detail"><Pencil size={11} /></button>
-                              <button type="button" onClick={() => del(r.id)} className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition"><X size={14} /></button>
+                              <button type="button" onClick={() => increment(r.id, -1)} className="w-6 h-6 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold text-xs transition tap">−</button>
+                              <button type="button" onClick={() => increment(r.id, 1)} className="w-6 h-6 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-900 font-bold text-xs transition tap">+</button>
+                              <button type="button" onClick={() => setEditingRow(r)} className="w-6 h-6 grid place-items-center rounded bg-sky-100 hover:bg-sky-200 text-sky-700 font-bold text-xs transition tap" title="Upravit detail"><Pencil size={11} /></button>
+                              <button type="button" onClick={() => del(r.id)} className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition tap"><X size={14} /></button>
                             </div>
                           </td>
                         </tr>
@@ -1881,7 +1881,7 @@ export default function BottlingScreen({
                 <button
                   type="button"
                   onClick={() => setReqOnlyMissing(!reqOnlyMissing)}
-                  className={`px-3 py-1.5 rounded text-xs font-black transition border shrink-0 whitespace-nowrap ${
+                  className={`tap px-3 py-1.5 rounded text-xs font-black transition border shrink-0 whitespace-nowrap ${
                     reqOnlyMissing
                       ? 'bg-rose-600 text-white border-rose-700 shadow-xs'
                       : 'bg-neutral-100 text-neutral-700 border-neutral-200 hover:bg-neutral-200'
@@ -2001,7 +2001,7 @@ export default function BottlingScreen({
                                   setPage?.('orders');
                                 }}
                                 title={`Zobrazit v přehledu objednávek objednávky s ${r.beer_name} (${r.package_label})`}
-                                className="px-2.5 py-1 rounded bg-rose-100 text-rose-800 font-black text-[11px] border border-rose-300 whitespace-nowrap transition cursor-pointer hover:bg-rose-200 active:bg-rose-300"
+                                className="px-2.5 py-1 rounded bg-rose-100 text-rose-800 font-black text-[11px] border border-rose-300 whitespace-nowrap transition cursor-pointer hover:bg-rose-200 active:bg-rose-300 tap"
                               >
                                 <AlertTriangle className="ikona-text" /> Chybí {r.neededQty} ks →
                               </button>

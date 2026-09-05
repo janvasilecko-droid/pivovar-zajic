@@ -272,7 +272,7 @@ export default function VycepyScreen() {
                           {t.tap_type === 'jednokohout' ? 'Jednokohout' : t.tap_type === 'dvojkohout' ? 'Dvojkohout' : t.tap_type === 'trojkohout' ? 'Trojkohout' : 'Šestikohout'}
                         </span>
                       </div>
-                      <button onClick={() => handleDeleteTap(t.id)} className="text-neutral-400 hover:text-rose-600 p-1" title="Smazat výčep">
+                      <button onClick={() => handleDeleteTap(t.id)} className="text-neutral-400 hover:text-rose-600 p-1 tap" title="Smazat výčep">
                         <Trash2 size={15} />
                       </button>
                     </div>
@@ -315,7 +315,7 @@ export default function VycepyScreen() {
                         last_water_rinse: new Date().toLocaleDateString('cs-CZ') + ' ' + new Date().toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' }),
                         taps_disassembled: true
                       })}
-                      className="px-2.5 py-1.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold shadow-2xs flex items-center justify-center gap-1"
+                      className="px-2.5 py-1.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold shadow-2xs flex items-center justify-center gap-1 tap"
                       title="Provést Oplach vodou a zaznamenat čistotu"
                     >
                       <Droplets size={13} /> Opláchnuto
@@ -327,7 +327,7 @@ export default function VycepyScreen() {
                         last_louh_sanitation: new Date().toLocaleDateString('cs-CZ') + ' ' + new Date().toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' }),
                         taps_disassembled: true
                       })}
-                      className="px-2.5 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black shadow-2xs flex items-center justify-center gap-1"
+                      className="px-2.5 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black shadow-2xs flex items-center justify-center gap-1 tap"
                       title="Provést sanitaci louhem"
                     >
                       <RefreshCw size={13} /> Louh <FlaskConical className="ikona-text" />
@@ -401,7 +401,7 @@ export default function VycepyScreen() {
                     >
                       {r.is_returned ? 'Zrušit vrácení' : <><Check className="ikona-text" /> Vrátit</>}
                     </button>
-                    <button onClick={() => handleDeleteReservation(r.id)} className="w-10 h-10 grid place-items-center rounded hover:bg-rose-100 text-rose-600 transition shrink-0" title="Smazat rezervaci">
+                    <button onClick={() => handleDeleteReservation(r.id)} className="w-10 h-10 grid place-items-center rounded hover:bg-rose-100 text-rose-600 transition shrink-0 tap" title="Smazat rezervaci">
                       <Trash2 size={16} />
                     </button>
                   </div>
@@ -466,7 +466,7 @@ export default function VycepyScreen() {
                           <button
                             type="button"
                             onClick={() => handleToggleReturnReservation(r)}
-                            className={`px-2.5 py-1 rounded text-[11px] font-black transition ${
+                            className={`tap px-2.5 py-1 rounded text-[11px] font-black transition ${
                               r.is_returned
                                 ? 'bg-neutral-200 text-neutral-800 hover:bg-neutral-300'
                                 : 'bg-emerald-700 text-white hover:bg-emerald-800 shadow-2xs'
@@ -474,7 +474,7 @@ export default function VycepyScreen() {
                           >
                             {r.is_returned ? 'Zrušit vrácení' : <><Check className="ikona-text" /> Vrátit</>}
                           </button>
-                          <button onClick={() => handleDeleteReservation(r.id)} className="p-1.5 rounded hover:bg-rose-100 text-rose-600 transition" title="Smazat rezervaci">
+                          <button onClick={() => handleDeleteReservation(r.id)} className="p-1.5 rounded hover:bg-rose-100 text-rose-600 transition tap" title="Smazat rezervaci">
                             <Trash2 size={14} />
                           </button>
                         </div>

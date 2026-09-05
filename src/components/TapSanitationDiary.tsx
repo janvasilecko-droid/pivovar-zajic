@@ -204,11 +204,11 @@ export default function TapSanitationDiary() {
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 bg-white border border-neutral-200 rounded px-2 py-1.5 shadow-sm">
-            <button onClick={() => shiftMonth(-1)} className="w-6 h-6 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition">
+            <button onClick={() => shiftMonth(-1)} className="w-6 h-6 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition tap">
               <ChevronLeft size={14} />
             </button>
             <span className="text-xs font-bold text-amber-950 px-1 whitespace-nowrap">{filterMonth}</span>
-            <button onClick={() => shiftMonth(1)} disabled={filterMonth >= todayStr().slice(0, 7)} className="w-6 h-6 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition disabled:opacity-40">
+            <button onClick={() => shiftMonth(1)} disabled={filterMonth >= todayStr().slice(0, 7)} className="w-6 h-6 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition disabled:opacity-40 tap">
               <ChevronRight size={14} />
             </button>
           </div>
@@ -248,14 +248,14 @@ export default function TapSanitationDiary() {
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => openEdit(e)}
-                      className="p-1.5 rounded bg-neutral-100 hover:bg-amber-100 text-neutral-600 hover:text-amber-800 transition"
+                      className="p-1.5 rounded bg-neutral-100 hover:bg-amber-100 text-neutral-600 hover:text-amber-800 transition tap"
                       title="Upravit"
                     >
                       <Edit3 size={13} />
                     </button>
                     <button
                       onClick={() => handleDelete(e.id)}
-                      className="p-1.5 rounded bg-neutral-100 hover:bg-rose-100 text-neutral-600 hover:text-rose-700 transition"
+                      className="p-1.5 rounded bg-neutral-100 hover:bg-rose-100 text-neutral-600 hover:text-rose-700 transition tap"
                       title="Smazat"
                     >
                       <Trash2 size={13} />

@@ -454,7 +454,7 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                           <button
                             type="button"
                             onClick={() => { requestKegFix(r.beerId); setPage('kegging'); }}
-                            className="px-2 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white font-black text-[11px] shrink-0"
+                            className="px-2 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white font-black text-[11px] shrink-0 tap"
                             title="Otevřít Stáčení KEG s tímhle pivem rozbaleným, ať jde chybějící stočení rovnou doplnit"
                           >
                             + Doplnit stočení
@@ -463,7 +463,7 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                           <button
                             type="button"
                             onClick={() => { requestBottlingFix(r.beerId); setPage('bottling'); }}
-                            className="px-2 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white font-black text-[11px] shrink-0"
+                            className="px-2 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white font-black text-[11px] shrink-0 tap"
                             title="Otevřít Stáčení lahví s tímhle pivem rozbaleným, ať jde chybějící stočení rovnou doplnit"
                           >
                             + Doplnit stočení
@@ -541,7 +541,7 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
               />
               <button
                 onClick={() => setInvMonth(monthKey(todayISO()))}
-                className="px-2.5 py-1 rounded bg-neutral-100 hover:bg-amber-100 text-neutral-600 hover:text-amber-950 text-[11px] font-black border border-neutral-300 hover:border-amber-400 transition"
+                className="px-2.5 py-1 rounded bg-neutral-100 hover:bg-amber-100 text-neutral-600 hover:text-amber-950 text-[11px] font-black border border-neutral-300 hover:border-amber-400 transition tap"
                 title="Aktuální měsíc"
               >
                 Nyní
@@ -623,7 +623,7 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                                         });
                                       }}
                                       title="Ukázat, z čeho se stav skládá"
-                                      className="w-full min-h-[36px] py-1 px-1 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md hover:bg-amber-100 active:scale-95 transition underline decoration-dotted decoration-neutral-400 underline-offset-2"
+                                      className="w-full min-h-[36px] py-1 px-1 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md hover:bg-amber-100 active:scale-95 transition underline decoration-dotted decoration-neutral-400 underline-offset-2 tap"
                                     >
                                       {p.currentStock}
                                       {p.rawStock < 0 && <span className="block text-[11px] font-black text-rose-600 font-mono" title="Vydáno víc, než evidence zná">({p.rawStock})</span>}
@@ -679,7 +679,7 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                                         });
                                       }}
                                       title="Ukázat, z čeho se stav skládá"
-                                      className="w-full min-h-[36px] py-1 px-1 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md hover:bg-amber-100 active:scale-95 transition underline decoration-dotted decoration-neutral-400 underline-offset-2"
+                                      className="w-full min-h-[36px] py-1 px-1 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md hover:bg-amber-100 active:scale-95 transition underline decoration-dotted decoration-neutral-400 underline-offset-2 tap"
                                     >
                                       {p.currentStock}
                                       {p.rawStock < 0 && <span className="block text-[11px] font-black text-rose-600 font-mono" title="Vydáno víc, než evidence zná">({p.rawStock})</span>}
@@ -920,7 +920,7 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                 <input type="date" value={brewTo} onChange={(e) => setBrewTo(e.target.value)} className="input !py-1 !px-2 text-xs font-black text-amber-800 border-amber-300 w-auto" />
                 <div className="flex gap-1">
                   {(['week', 'month', 'year', 'all'] as const).map((t) => (
-                    <button key={t} onClick={() => setQuickRange(t)} className="px-2 py-1 rounded bg-neutral-100 hover:bg-amber-100 text-neutral-600 hover:text-amber-950 text-[11px] font-black border border-neutral-300 hover:border-amber-400 transition">
+                    <button key={t} onClick={() => setQuickRange(t)} className="px-2 py-1 rounded bg-neutral-100 hover:bg-amber-100 text-neutral-600 hover:text-amber-950 text-[11px] font-black border border-neutral-300 hover:border-amber-400 transition tap">
                       {t === 'week' ? 'Týden' : t === 'month' ? 'Měsíc' : t === 'year' ? 'Rok' : 'Vše'}
                     </button>
                   ))}

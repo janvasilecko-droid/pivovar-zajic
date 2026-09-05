@@ -966,7 +966,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
               <button
                 key={d.month}
                 onClick={() => toggleMonth(d.month)}
-                className={`px-3.5 py-1.5 rounded text-xs font-black transition-all ${
+                className={`tap px-3.5 py-1.5 rounded text-xs font-black transition-all ${
                   selectedMonths.includes(d.month)
                     ? 'bg-white text-neutral-900 shadow-md scale-105'
                     : 'bg-white text-neutral-700 border border-neutral-200 hover:bg-amber-50'
@@ -1222,7 +1222,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                   <button
                     key={p}
                     onClick={() => setProdPeriod(p)}
-                    className={`px-3 py-1.5 rounded text-xs font-black transition ${
+                    className={`tap px-3 py-1.5 rounded text-xs font-black transition ${
                       prodPeriod === p ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
                     }`}
                   >
@@ -1580,7 +1580,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
               </div>
               <div className="flex gap-2">
                 <input className="input !py-1.5 text-xs font-semibold flex-1" placeholder="Název filtru (např. 12° lahve za tento měsíc)" value={newFilterName} onChange={(e) => setNewFilterName(e.target.value)} />
-                <button type="button" className="px-3.5 py-1.5 rounded bg-neutral-900 hover:bg-neutral-800 text-amber-300 font-black text-xs shadow-xs" onClick={saveCurrentFilter}><Save className="ikona-text" /> Uložit aktuální</button>
+                <button type="button" className="px-3.5 py-1.5 rounded bg-neutral-900 hover:bg-neutral-800 text-amber-300 font-black text-xs shadow-xs tap" onClick={saveCurrentFilter}><Save className="ikona-text" /> Uložit aktuální</button>
               </div>
             </div>
 
@@ -1597,7 +1597,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                         key={s.key}
                         type="button"
                         onClick={() => setSelSources((set) => toggleSet(set, s.key))}
-                        className={`px-3 py-1.5 rounded text-xs font-black transition ${active ? 'bg-amber-500 text-neutral-950 shadow-md' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
+                        className={`tap px-3 py-1.5 rounded text-xs font-black transition ${active ? 'bg-amber-500 text-neutral-950 shadow-md' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
                       >
                         <s.icon className="ikona-text" /> {s.label}
                       </button>
@@ -1617,10 +1617,10 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                   <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="input !py-1.5 text-xs font-mono font-bold" />
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  <button className="px-2.5 py-1.5 rounded bg-white border border-neutral-300 text-xs font-bold" onClick={() => setQuickRange('week')}>Týden</button>
-                  <button className="px-2.5 py-1.5 rounded bg-white border border-neutral-300 text-xs font-bold" onClick={() => setQuickRange('month')}>Měsíc</button>
-                  <button className="px-2.5 py-1.5 rounded bg-white border border-neutral-300 text-xs font-bold" onClick={() => setQuickRange('year')}>Rok</button>
-                  <button className="px-2.5 py-1.5 rounded bg-white border border-neutral-300 text-xs font-bold" onClick={() => setQuickRange('all')}>Vše</button>
+                  <button className="px-2.5 py-1.5 rounded bg-white border border-neutral-300 text-xs font-bold tap" onClick={() => setQuickRange('week')}>Týden</button>
+                  <button className="px-2.5 py-1.5 rounded bg-white border border-neutral-300 text-xs font-bold tap" onClick={() => setQuickRange('month')}>Měsíc</button>
+                  <button className="px-2.5 py-1.5 rounded bg-white border border-neutral-300 text-xs font-bold tap" onClick={() => setQuickRange('year')}>Rok</button>
+                  <button className="px-2.5 py-1.5 rounded bg-white border border-neutral-300 text-xs font-bold tap" onClick={() => setQuickRange('all')}>Vše</button>
                 </div>
               </div>
             </div>
@@ -1977,7 +1977,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
               </div>
               <button
                 onClick={() => setShowPrintModal(false)}
-                className="tisk-skryt w-9 h-9 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-black grid place-items-center"
+                className="tisk-skryt w-9 h-9 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-black grid place-items-center tap"
                 title="Zavřít"
               >
                 <X size={18} />

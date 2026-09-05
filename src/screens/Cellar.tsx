@@ -615,7 +615,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
             <button
               type="button"
               onClick={() => setWeekKey(shiftWeek(weekKey, -1))}
-              className="p-1.5 rounded text-neutral-600 hover:bg-neutral-100"
+              className="p-1.5 rounded text-neutral-600 hover:bg-neutral-100 tap"
               title="Předchozí týden"
             >
               <ChevronLeft size={16} />
@@ -629,7 +629,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
             <button
               type="button"
               onClick={() => setWeekKey(shiftWeek(weekKey, 1))}
-              className="p-1.5 rounded text-neutral-600 hover:bg-neutral-100"
+              className="p-1.5 rounded text-neutral-600 hover:bg-neutral-100 tap"
               title="Následující týden"
             >
               <ChevronRight size={16} />
@@ -714,10 +714,10 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                         <input type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()} step="0.1" className="input" value={inlineVolume} onChange={(e) => setInlineVolume(e.target.value)} placeholder={`např. ${t.capacity_l}`} />
                       </div>
                       <div className="flex gap-1.5">
-                        <button className="text-xs px-2.5 py-1 rounded bg-emerald-700 text-white font-bold hover:bg-emerald-800 disabled:opacity-50" disabled={inlineBusy} onClick={() => saveInlineTank(t)}>
+                        <button className="text-xs px-2.5 py-1 rounded bg-emerald-700 text-white font-bold hover:bg-emerald-800 disabled:opacity-50 tap" disabled={inlineBusy} onClick={() => saveInlineTank(t)}>
                           {inlineBusy ? 'Ukládám…' : 'Uložit pivo'}
                         </button>
-                        <button className="text-xs px-2.5 py-1 rounded bg-neutral-200 text-neutral-700 hover:bg-neutral-300 font-medium" onClick={() => setInlineEditId(null)}>Zrušit</button>
+                        <button className="text-xs px-2.5 py-1 rounded bg-neutral-200 text-neutral-700 hover:bg-neutral-300 font-medium tap" onClick={() => setInlineEditId(null)}>Zrušit</button>
                       </div>
                     </div>
                   ) : (
@@ -745,7 +745,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                         )}
                       </div>
                       <button
-                        className="text-[11px] px-2 py-1 rounded bg-primary-100 text-primary-800 hover:bg-primary-200 font-bold shrink-0"
+                        className="text-[11px] px-2 py-1 rounded bg-primary-100 text-primary-800 hover:bg-primary-200 font-bold shrink-0 tap"
                         onClick={() => {
                           setInlineEditId(t.id);
                           setInlineBeerId(t.current_beer_id ?? '');

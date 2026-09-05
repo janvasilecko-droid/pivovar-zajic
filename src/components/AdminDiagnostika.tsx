@@ -94,7 +94,7 @@ function ChybyBlok() {
         <button
           type="button"
           onClick={() => { void nacti(); }}
-          className="px-2.5 py-1 rounded bg-neutral-100 text-neutral-700 font-black text-[11px] border border-neutral-300"
+          className="px-2.5 py-1 rounded bg-neutral-100 text-neutral-700 font-black text-[11px] border border-neutral-300 tap"
         >
           Načíst znovu
         </button>
@@ -140,7 +140,7 @@ function ChybyBlok() {
                         <button
                           type="button"
                           onClick={() => { void vyrid(r.id); }}
-                          className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 font-black border border-emerald-300"
+                          className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 font-black border border-emerald-300 tap"
                         >
                           <Check className="ikona-text" /> vyřídit
                         </button>
@@ -211,7 +211,7 @@ function MigraceBlok() {
         <button
           type="button"
           onClick={() => { void nacti(); }}
-          className="px-2.5 py-1 rounded bg-neutral-100 text-neutral-700 font-black text-[11px] border border-neutral-300"
+          className="px-2.5 py-1 rounded bg-neutral-100 text-neutral-700 font-black text-[11px] border border-neutral-300 tap"
         >
           Načíst znovu
         </button>
@@ -340,7 +340,7 @@ function TankFrontaBlok() {
                       <button
                         type="button"
                         onClick={() => { void zahod(p); }}
-                        className="px-2 py-0.5 rounded bg-neutral-100 text-neutral-700 font-black border border-neutral-300"
+                        className="px-2 py-0.5 rounded bg-neutral-100 text-neutral-700 font-black border border-neutral-300 tap"
                       >
                         zahodit
                       </button>

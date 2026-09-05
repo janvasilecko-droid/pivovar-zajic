@@ -164,13 +164,13 @@ export default function Notes() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => saveEdit(n.id)}
-                        className="px-3 py-1.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs flex items-center gap-1 transition"
+                        className="px-3 py-1.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs flex items-center gap-1 transition tap"
                       >
                         <Check size={14} /> Uložit
                       </button>
                       <button
                         onClick={() => setEditingId(null)}
-                        className="px-3 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-black text-xs flex items-center gap-1 transition"
+                        className="px-3 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-black text-xs flex items-center gap-1 transition tap"
                       >
                         <X size={14} /> Zrušit
                       </button>
@@ -186,14 +186,14 @@ export default function Notes() {
                       <div className="flex items-center gap-1 shrink-0">
                         <button
                           onClick={() => startEdit(n)}
-                          className="p-1.5 rounded hover:bg-amber-100 text-amber-600 transition"
+                          className="p-1.5 rounded hover:bg-amber-100 text-amber-600 transition tap"
                           title="Upravit poznámku"
                         >
                           <Pencil size={14} />
                         </button>
                         <button
                           onClick={() => del(n.id)}
-                          className="p-1.5 rounded hover:bg-rose-100 text-rose-600 transition"
+                          className="p-1.5 rounded hover:bg-rose-100 text-rose-600 transition tap"
                           title="Smazat poznámku"
                         >
                           <Trash2 size={14} />

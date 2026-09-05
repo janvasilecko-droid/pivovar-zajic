@@ -2294,7 +2294,7 @@ function exportInventoryExcel() {
                                 type="button"
                                 onClick={() => srovnatRozdil(r)}
                                 disabled={doplnujeSe !== null}
-                                className={`px-2 py-1.5 rounded font-black text-[11px] whitespace-nowrap transition disabled:opacity-50 ${
+                                className={`tap px-2 py-1.5 rounded font-black text-[11px] whitespace-nowrap transition disabled:opacity-50 ${
                                   r.diffQty > 0
                                     ? 'bg-emerald-700 hover:bg-emerald-700 text-white'
                                     : 'bg-rose-600 hover:bg-rose-700 text-white'
@@ -2483,7 +2483,7 @@ function exportInventoryExcel() {
               <button
                 type="button"
                 onClick={() => setAuditJenRozdily((v) => !v)}
-                className="mt-2 px-3 py-1.5 rounded bg-rose-600 hover:bg-rose-700 text-white font-black text-[11px] transition"
+                className="mt-2 px-3 py-1.5 rounded bg-rose-600 hover:bg-rose-700 text-white font-black text-[11px] transition tap"
               >
                 {auditJenRozdily ? 'Ukázat všechny položky' : `Ukázat jen rozdíly (${auditNesedi.length})`}
               </button>

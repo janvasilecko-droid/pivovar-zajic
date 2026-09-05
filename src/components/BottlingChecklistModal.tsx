@@ -378,7 +378,7 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
           <button
             type="button"
-            className={'px-3 py-1.5 rounded font-bold transition shrink-0 ' + (activeCategory === 'ALL' ? 'bg-amber-500 text-amber-950 shadow-xs' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200')}
+            className={'tap px-3 py-1.5 rounded font-bold transition shrink-0 ' + (activeCategory === 'ALL' ? 'bg-amber-500 text-amber-950 shadow-xs' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200')}
             onClick={() => setActiveCategory('ALL')}
           >
             Vše ({items.length})
@@ -390,7 +390,7 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
               <button
                 key={cat}
                 type="button"
-                className={'px-3 py-1.5 rounded font-bold transition shrink-0 ' + (activeCategory === cat ? 'bg-amber-500 text-amber-950 shadow-xs' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200')}
+                className={'tap px-3 py-1.5 rounded font-bold transition shrink-0 ' + (activeCategory === cat ? 'bg-amber-500 text-amber-950 shadow-xs' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200')}
                 onClick={() => setActiveCategory(cat)}
               >
                 {(cat.split(' ')[1] || cat) + ' (' + checked + '/' + count + ')'}

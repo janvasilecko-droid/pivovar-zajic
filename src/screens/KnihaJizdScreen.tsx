@@ -584,7 +584,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
           </h3>
           <button
             onClick={openAutoModal}
-            className="text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3 py-1.5 rounded transition flex items-center gap-1"
+            className="text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3 py-1.5 rounded transition flex items-center gap-1 tap"
           >
             <Sparkles size={14} /> Automatické dopočítání z tachometru
           </button>
@@ -623,7 +623,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                     <span className="font-mono font-black text-sm text-amber-600 whitespace-nowrap">{e.km_driven.toLocaleString('cs-CZ')} km</span>
                     <button
                       onClick={() => handleDelete(e.id)}
-                      className="w-9 h-9 grid place-items-center rounded hover:bg-rose-100 text-rose-600 transition shrink-0"
+                      className="w-9 h-9 grid place-items-center rounded hover:bg-rose-100 text-rose-600 transition shrink-0 tap"
                       title="Smazat jízdu"
                     >
                       <Trash2 size={16} />
@@ -676,7 +676,7 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
                     <td className="text-right">
                       <button
                         onClick={() => handleDelete(e.id)}
-                        className="p-1.5 rounded hover:bg-rose-100 text-rose-600 transition"
+                        className="p-1.5 rounded hover:bg-rose-100 text-rose-600 transition tap"
                         title="Smazat jízdu"
                       >
                         <Trash2 size={15} />

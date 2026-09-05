@@ -143,9 +143,9 @@ export function PhotoReviewPane({ photos, activeIndex, onChangeIndex, activeBbox
       <div className="flex items-center justify-between px-3 py-2 bg-primary-900/80 text-white text-xs shrink-0 z-10">
         <span className="text-white/60">Přibliž kolečkem myši / prsty, táhni pro posun</span>
         <div className="flex items-center gap-2">
-          <button className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-base" onClick={() => zoomBy(1 / 1.3)} title="Oddálit">−</button>
-          <button className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-base" onClick={() => zoomBy(1.3)} title="Přiblížit">+</button>
-          <button className="px-2 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center" onClick={resetView} title="Reset">Reset</button>
+          <button className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-base tap" onClick={() => zoomBy(1 / 1.3)} title="Oddálit">−</button>
+          <button className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-base tap" onClick={() => zoomBy(1.3)} title="Přiblížit">+</button>
+          <button className="px-2 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center tap" onClick={resetView} title="Reset">Reset</button>
         </div>
       </div>
 
@@ -212,7 +212,7 @@ export function PhotoReviewPane({ photos, activeIndex, onChangeIndex, activeBbox
       {photos.length > 1 && (
         <div className="flex items-center justify-center gap-3 py-2 bg-primary-900/80 shrink-0 z-10">
           <button
-            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center disabled:opacity-30"
+            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center disabled:opacity-30 tap"
             onClick={() => goTo(activeIndex - 1)}
             disabled={activeIndex === 0}
             title="Předchozí fotka"
@@ -229,7 +229,7 @@ export function PhotoReviewPane({ photos, activeIndex, onChangeIndex, activeBbox
           </div>
           {/* podklad: bg-primary-900 — lišta pod fotkou. */}
           <button
-            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center disabled:opacity-30"
+            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center disabled:opacity-30 tap"
             onClick={() => goTo(activeIndex + 1)}
             disabled={activeIndex === photos.length - 1}
             title="Další fotka"

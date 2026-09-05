@@ -473,7 +473,7 @@ export function BottlingTasksSettings() {
                       type="button"
                       onClick={() => openStocit(r)}
                       title={r.missing > 0 ? 'Stočit chybějící množství' : 'Stočit (pokrytí objednávek)'}
-                      className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 text-[11px] font-black transition shadow-xs"
+                      className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 text-[11px] font-black transition shadow-xs tap"
                     >
                       <IkonaLahev className="ikona-text" /> Stočit
                     </button>
@@ -528,7 +528,7 @@ export function BottlingTasksSettings() {
           <button
             type="button"
             onClick={() => setWeekKey(shiftWeek(weekKey, -1))}
-            className="w-9 h-9 sm:w-8 sm:h-8 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 active:bg-neutral-300 text-neutral-700 transition"
+            className="w-9 h-9 sm:w-8 sm:h-8 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 active:bg-neutral-300 text-neutral-700 transition tap"
             title="Předchozí týden"
           >
             <ChevronLeft size={16} />
@@ -539,7 +539,7 @@ export function BottlingTasksSettings() {
           <button
             type="button"
             onClick={() => setWeekKey(shiftWeek(weekKey, 1))}
-            className="w-9 h-9 sm:w-8 sm:h-8 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 active:bg-neutral-300 text-neutral-700 transition"
+            className="w-9 h-9 sm:w-8 sm:h-8 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 active:bg-neutral-300 text-neutral-700 transition tap"
             title="Další týden"
           >
             <ChevronRight size={16} />
@@ -612,20 +612,20 @@ export function BottlingTasksSettings() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <button type="button" onClick={() => openEdit(plan)} className="px-2.5 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[11px] font-black transition">
+                  <button type="button" onClick={() => openEdit(plan)} className="px-2.5 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[11px] font-black transition tap">
                     <Pencil className="ikona-text" /> Upravit
                   </button>
                   {plan.status === 'planned' && (
-                    <button type="button" onClick={() => handleStatus(plan, 'done')} className="px-2.5 py-1.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-black transition">
+                    <button type="button" onClick={() => handleStatus(plan, 'done')} className="px-2.5 py-1.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-black transition tap">
                       <Check className="ikona-text" /> Hotovo
                     </button>
                   )}
                   {plan.status !== 'planned' && (
-                    <button type="button" onClick={() => handleStatus(plan, 'planned')} className="px-2.5 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[11px] font-black transition">
+                    <button type="button" onClick={() => handleStatus(plan, 'planned')} className="px-2.5 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[11px] font-black transition tap">
                       <Undo2 className="ikona-text" /> Zpět
                     </button>
                   )}
-                  <button type="button" onClick={() => handleDelete(plan)} className="px-2.5 py-1.5 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 text-[11px] font-black transition">
+                  <button type="button" onClick={() => handleDelete(plan)} className="px-2.5 py-1.5 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 text-[11px] font-black transition tap">
                     <Trash2 className="ikona-text" />
                   </button>
                 </div>

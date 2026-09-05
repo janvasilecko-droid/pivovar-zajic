@@ -180,7 +180,7 @@ export function PodpisModal({ open, onClose, nazev, predvolenyPodpis, onUlozit }
           <button
             type="button"
             onClick={smaz}
-            className="px-3 py-1.5 rounded font-black text-xs bg-white text-neutral-800 border border-neutral-300 hover:bg-neutral-100"
+            className="px-3 py-1.5 rounded font-black text-xs bg-white text-neutral-800 border border-neutral-300 hover:bg-neutral-100 tap"
           >
             <span className="inline-flex items-center gap-1.5"><Eraser size={14} /> Smazat a podepsat znovu</span>
           </button>

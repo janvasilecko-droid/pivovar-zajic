@@ -1822,7 +1822,7 @@ export default function Orders({
                           }
                           setBeerRows(newRows);
                         }}
-                        className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[11px] shadow-2xs shrink-0 transition"
+                        className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[11px] shadow-2xs shrink-0 transition tap"
                       >
                         <Zap className="ikona-text" /> Zopakovat položky
                       </button>
@@ -1840,16 +1840,16 @@ export default function Orders({
             {/* Navigace týdnem — šipky, popisek týdne a dny závozu mají teď
                 stejnou výšku (h-10), ať řádek nepůsobí rozeskákaně. */}
             <div className="flex items-center gap-1.5">
-              <button type="button" onClick={() => shiftWeekAndKeepDay(-1)} className="w-10 h-10 shrink-0 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 font-black transition" title="Předchozí týden">‹</button>
+              <button type="button" onClick={() => shiftWeekAndKeepDay(-1)} className="w-10 h-10 shrink-0 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 font-black transition tap" title="Předchozí týden">‹</button>
               <button
                 type="button"
                 onClick={resetToCurrentWeek}
-                className="flex-1 h-10 text-center text-xs font-black bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 rounded transition"
+                className="flex-1 h-10 text-center text-xs font-black bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 rounded transition tap"
                 title="Klikni pro návrat na aktuální týden"
               >
                 <Calendar className="ikona-text" /> Týden {weekRange(weekKey).label}
               </button>
-              <button type="button" onClick={() => shiftWeekAndKeepDay(1)} className="w-10 h-10 shrink-0 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 font-black transition" title="Další týden">›</button>
+              <button type="button" onClick={() => shiftWeekAndKeepDay(1)} className="w-10 h-10 shrink-0 grid place-items-center rounded bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 font-black transition tap" title="Další týden">›</button>
             </div>
 
             {/* Den závozu — barevné (amber, stejně jako tlačítko týdne výš)
@@ -1861,7 +1861,7 @@ export default function Orders({
                   key={d.v}
                   type="button"
                   onClick={() => pickDeliveryDay(d.v)}
-                  className={`flex-1 min-w-0 h-10 px-1 rounded font-black text-xs transition ${
+                  className={`tap flex-1 min-w-0 h-10 px-1 rounded font-black text-xs transition ${
                     deliveryDay === d.v
                       ? 'bg-amber-500 text-neutral-950 shadow-md'
                       : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
@@ -1955,7 +1955,7 @@ export default function Orders({
                           type="button"
                           onClick={() => setPkgAbsolute(expandedBeer.id, p.id, q)}
                           title="Rychlá volba množství"
-                          className={`h-9 min-w-[1.75rem] px-1.5 rounded text-[11px] font-black transition ${qty === q ? 'bg-emerald-700 text-white' : 'bg-neutral-100 hover:bg-emerald-200 text-neutral-600 hover:text-emerald-950'}`}
+                          className={`tap h-9 min-w-[1.75rem] px-1.5 rounded text-[11px] font-black transition ${qty === q ? 'bg-emerald-700 text-white' : 'bg-neutral-100 hover:bg-emerald-200 text-neutral-600 hover:text-emerald-950'}`}
                         >
                           {q}
                         </button>
@@ -1976,7 +1976,7 @@ export default function Orders({
                       <button
                         type="button"
                         onClick={() => setPkgQty(expandedBeer.id, p.id, -1)}
-                        className="w-10 h-10 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none"
+                        className="w-10 h-10 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none tap"
                         disabled={qty <= 0}
                       >−</button>
                       <input
@@ -1996,7 +1996,7 @@ export default function Orders({
                       <button
                         type="button"
                         onClick={() => setPkgQty(expandedBeer.id, p.id, 1)}
-                        className="w-10 h-10 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none"
+                        className="w-10 h-10 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none tap"
                       >+</button>
                     </div>
                   </div>
@@ -2028,7 +2028,7 @@ export default function Orders({
                         <span className="truncate">{formatPackageLabel(pkg?.label)} · {beerName(beer)}</span>
                       </button>
                       <div className="flex items-center gap-1 shrink-0">
-                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, -1)} className="w-10 h-10 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={Number(r.qty) <= 1}>−</button>
+                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, -1)} className="w-10 h-10 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none tap" disabled={Number(r.qty) <= 1}>−</button>
                         <input
                           type="number" onWheel={(e) => e.currentTarget.blur()}
                           min={0}
@@ -2043,8 +2043,8 @@ export default function Orders({
                           className="w-14 h-10 text-center text-base font-black text-neutral-800 dark:text-neutral-100 bg-white dark:bg-neutral-900/60 border-2 border-amber-200 dark:border-neutral-700 rounded-xl"
                           title="Napiš počet ručně"
                         />
-                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, 1)} className="w-10 h-10 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none">+</button>
-                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, -Number(r.qty))} className="w-10 h-10 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-xl transition select-none" title="Odebrat položku"><X size={18} /></button>
+                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, 1)} className="w-10 h-10 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none tap">+</button>
+                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, -Number(r.qty))} className="w-10 h-10 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-xl transition select-none tap" title="Odebrat položku"><X size={18} /></button>
                       </div>
                     </li>
                   );
@@ -2181,7 +2181,7 @@ export default function Orders({
             <button
               type="button"
               onClick={() => setTimeScope('week')}
-              className={`px-3 py-1.5 rounded font-black text-xs transition ${
+              className={`tap px-3 py-1.5 rounded font-black text-xs transition ${
                 timeScope === 'week' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
               }`}
             >
@@ -2190,7 +2190,7 @@ export default function Orders({
             <button
               type="button"
               onClick={() => setTimeScope('month')}
-              className={`px-3 py-1.5 rounded font-black text-xs transition ${
+              className={`tap px-3 py-1.5 rounded font-black text-xs transition ${
                 timeScope === 'month' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
               }`}
             >
@@ -2199,7 +2199,7 @@ export default function Orders({
             <button
               type="button"
               onClick={() => setTimeScope('all')}
-              className={`px-3 py-1.5 rounded font-black text-xs transition ${
+              className={`tap px-3 py-1.5 rounded font-black text-xs transition ${
                 timeScope === 'all' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
               }`}
             >
@@ -2214,7 +2214,7 @@ export default function Orders({
               type="button"
               onClick={() => { void zopakujDen(); }}
               disabled={kopirujiDen || searchedFiltered.length === 0}
-              className="px-3 py-1.5 rounded font-black text-xs transition bg-white text-neutral-800 border border-neutral-300 hover:bg-neutral-100 disabled:opacity-40"
+              className="px-3 py-1.5 rounded font-black text-xs transition bg-white text-neutral-800 border border-neutral-300 hover:bg-neutral-100 disabled:opacity-40 tap"
               title="Založí kopie všech právě zobrazených objednávek k dnešnímu dni"
             >
               <span className="inline-flex items-center gap-1.5">
@@ -2345,7 +2345,7 @@ export default function Orders({
         <div className="sticky top-0 z-20 mb-2.5 bg-neutral-100 pt-1 flex items-center gap-1.5 overflow-x-auto scrollbar-thin pb-1">
           <button
             onClick={() => setDeliveryDayFilter('all')}
-            className={`px-3.5 py-1.5 rounded font-extrabold text-xs shrink-0 transition-all ${
+            className={`tap px-3.5 py-1.5 rounded font-extrabold text-xs shrink-0 transition-all ${
               deliveryDayFilter === 'all' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
             }`}
           >
@@ -2358,7 +2358,7 @@ export default function Orders({
               <button
                 key={d.v}
                 onClick={() => setDeliveryDayFilter(d.v)}
-                className={`px-3 py-1.5 rounded font-black text-xs shrink-0 transition-all flex items-center gap-1.5 ${
+                className={`tap px-3 py-1.5 rounded font-black text-xs shrink-0 transition-all flex items-center gap-1.5 ${
                   deliveryDayFilter === d.v
                     ? 'bg-amber-500 text-neutral-950 shadow-xs'
                     : hasOrders
@@ -2377,7 +2377,7 @@ export default function Orders({
           })}
           <button
             onClick={() => setDeliveryDayFilter('_none')}
-            className={`px-3 py-1.5 rounded font-bold text-xs shrink-0 transition-all ${
+            className={`tap px-3 py-1.5 rounded font-bold text-xs shrink-0 transition-all ${
               deliveryDayFilter === '_none' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
             }`}
           >
@@ -2490,7 +2490,7 @@ export default function Orders({
               <button
                 type="button"
                 onClick={() => { void duplicateOrder(karta.posledniRadek!); }}
-                className="px-3 py-1.5 rounded font-black text-xs transition bg-amber-500 text-neutral-950 hover:bg-amber-400"
+                className="px-3 py-1.5 rounded font-black text-xs transition bg-amber-500 text-neutral-950 hover:bg-amber-400 tap"
                 title="Založí k dnešnímu dni novou objednávku se stejnými položkami jako posledně"
               >
                 <span className="inline-flex items-center gap-1.5"><Copy size={14} /> To co posledně</span>
@@ -3105,7 +3105,7 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
           {o.whatsapp_message_id && (
             <button
               onClick={(e) => { e.stopPropagation(); onOpenWhatsApp && onOpenWhatsApp(o.whatsapp_message_id!); }}
-              className="text-[11px] font-extrabold shrink-0 text-emerald-900 bg-emerald-100 border border-emerald-300 rounded-md px-1.5 py-0.5 hover:bg-emerald-200 flex items-center gap-1"
+              className="text-[11px] font-extrabold shrink-0 text-emerald-900 bg-emerald-100 border border-emerald-300 rounded-md px-1.5 py-0.5 hover:bg-emerald-200 flex items-center gap-1 tap"
               title="Otevřít originální WhatsApp zprávu a kontrolu čtení (#18)"
             >
               <MessageCircle size={11} /> WhatsApp

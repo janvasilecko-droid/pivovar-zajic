@@ -569,9 +569,9 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                   <div>
                     <label className="block text-xs font-black text-neutral-700 mb-1">Přivezeno kusů (ks)</label>
                     <div className="flex items-center gap-1">
-                      <button type="button" onClick={() => setInQty(String(Math.max(0, (Number(inQty) || 0) - 50)))} className="w-8 h-8 shrink-0 grid place-items-center rounded bg-neutral-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition">−</button>
+                      <button type="button" onClick={() => setInQty(String(Math.max(0, (Number(inQty) || 0) - 50)))} className="w-8 h-8 shrink-0 grid place-items-center rounded bg-neutral-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition tap">−</button>
                       <span className="w-20 px-2 text-center font-mono font-black text-sm bg-white border border-neutral-200 rounded py-2 shadow-2xs">{inQty || '0'}</span>
-                      <button type="button" onClick={() => setInQty(String((Number(inQty) || 0) + 50))} className="w-8 h-8 shrink-0 grid place-items-center rounded bg-emerald-700 text-white font-bold text-sm select-none active:scale-95 transition">+</button>
+                      <button type="button" onClick={() => setInQty(String((Number(inQty) || 0) + 50))} className="w-8 h-8 shrink-0 grid place-items-center rounded bg-emerald-700 text-white font-bold text-sm select-none active:scale-95 transition tap">+</button>
                     </div>
                   </div>
                   <div>
@@ -638,11 +638,11 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                   <div>
                     <label className="block text-xs font-black text-neutral-700 mb-1">Vydáno kusů (ks)</label>
                     <div className="flex items-center gap-1">
-                      <button type="button" onClick={() => setOutQty(String(Math.max(0, (Number(outQty) || 0) - 10)))} className="w-8 h-8 shrink-0 grid place-items-center rounded bg-neutral-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition">−</button>
+                      <button type="button" onClick={() => setOutQty(String(Math.max(0, (Number(outQty) || 0) - 10)))} className="w-8 h-8 shrink-0 grid place-items-center rounded bg-neutral-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition tap">−</button>
                       <span className="w-16 min-w-[3.5rem] px-2 text-center font-mono font-black text-sm bg-white border border-neutral-200 rounded py-2 shadow-2xs">
                         {outQty || '0'}
                       </span>
-                      <button type="button" onClick={() => setOutQty(String((Number(outQty) || 0) + 10))} className="w-8 h-8 shrink-0 grid place-items-center rounded bg-amber-950 text-white font-bold text-sm select-none active:scale-95 transition">+</button>
+                      <button type="button" onClick={() => setOutQty(String((Number(outQty) || 0) + 10))} className="w-8 h-8 shrink-0 grid place-items-center rounded bg-amber-950 text-white font-bold text-sm select-none active:scale-95 transition tap">+</button>
                     </div>
                   </div>
                   <div>
@@ -721,7 +721,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                         <td className="font-bold text-[11px]">{e.destination || '—'}</td>
                         <td className="text-[11px] text-neutral-600">{e.note || '—'}</td>
                         <td>
-                          <button onClick={() => handleDeletePromo(e.id)} className="text-rose-600 hover:text-rose-800 p-1"><Trash2 size={15} /></button>
+                          <button onClick={() => handleDeletePromo(e.id)} className="text-rose-600 hover:text-rose-800 p-1 tap"><Trash2 size={15} /></button>
                         </td>
                       </tr>
                     ))}
@@ -782,9 +782,9 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
               <div>
                 <label className="block text-xs font-black text-neutral-700 mb-1">Nakoupeno etiket (ks)</label>
                 <div className="flex items-center gap-1">
-                  <button type="button" onClick={() => setLabelQty(String(Math.max(0, (Number(labelQty) || 0) - 500)))} className="w-8 h-8 shrink-0 grid place-items-center rounded bg-neutral-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition">−</button>
+                  <button type="button" onClick={() => setLabelQty(String(Math.max(0, (Number(labelQty) || 0) - 500)))} className="w-8 h-8 shrink-0 grid place-items-center rounded bg-neutral-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition tap">−</button>
                   <span className="w-20 px-2 text-center font-mono font-black text-sm bg-white border border-neutral-200 rounded py-2 shadow-2xs">{labelQty || '0'}</span>
-                  <button type="button" onClick={() => setLabelQty(String((Number(labelQty) || 0) + 500))} className="w-8 h-8 shrink-0 grid place-items-center rounded bg-amber-950 text-white font-bold text-sm select-none active:scale-95 transition">+</button>
+                  <button type="button" onClick={() => setLabelQty(String((Number(labelQty) || 0) + 500))} className="w-8 h-8 shrink-0 grid place-items-center rounded bg-amber-950 text-white font-bold text-sm select-none active:scale-95 transition tap">+</button>
                 </div>
               </div>
 
@@ -859,7 +859,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                       <td className="font-black text-[11px]">{lp.beer_name}</td>
                       <td className="text-right font-mono font-black text-[11px] text-emerald-700">+{lp.quantity} ks</td>
                       <td className="text-[11px] text-neutral-600">{lp.note || '—'}</td>
-                      <td className="text-right"><button onClick={() => handleDeleteLabelPurchase(lp.id)} className="text-rose-600 hover:text-rose-800 p-1"><Trash2 size={15} /></button></td>
+                      <td className="text-right"><button onClick={() => handleDeleteLabelPurchase(lp.id)} className="text-rose-600 hover:text-rose-800 p-1 tap"><Trash2 size={15} /></button></td>
                     </tr>
                   ))}
                 </tbody>
@@ -978,9 +978,9 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
               <div>
                 <label className="block text-xs font-black text-neutral-700 mb-1">Nakoupeno lahví (ks)</label>
                 <div className="flex items-center gap-1">
-                  <button type="button" onClick={() => setBottleQty(String(Math.max(0, (Number(bottleQty) || 0) - 600)))} className="w-8 h-8 shrink-0 grid place-items-center rounded bg-neutral-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition">−</button>
+                  <button type="button" onClick={() => setBottleQty(String(Math.max(0, (Number(bottleQty) || 0) - 600)))} className="w-8 h-8 shrink-0 grid place-items-center rounded bg-neutral-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition tap">−</button>
                   <span className="w-20 px-2 text-center font-mono font-black text-sm bg-white border border-neutral-200 rounded py-2 shadow-2xs">{bottleQty || '0'}</span>
-                  <button type="button" onClick={() => setBottleQty(String((Number(bottleQty) || 0) + 600))} className="w-8 h-8 shrink-0 grid place-items-center rounded bg-emerald-700 text-white font-bold text-sm select-none active:scale-95 transition">+</button>
+                  <button type="button" onClick={() => setBottleQty(String((Number(bottleQty) || 0) + 600))} className="w-8 h-8 shrink-0 grid place-items-center rounded bg-emerald-700 text-white font-bold text-sm select-none active:scale-95 transition tap">+</button>
                 </div>
               </div>
 
@@ -1055,7 +1055,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                       <td className="font-black text-[11px]">{bp.package_label}</td>
                       <td className="text-right font-mono font-black text-[11px] text-emerald-700">+{bp.quantity} ks</td>
                       <td className="text-[11px] text-neutral-600">{bp.note || '—'}</td>
-                      <td className="text-right"><button onClick={() => handleDeleteBottlePurchase(bp.id)} className="text-rose-600 hover:text-rose-800 p-1"><Trash2 size={15} /></button></td>
+                      <td className="text-right"><button onClick={() => handleDeleteBottlePurchase(bp.id)} className="text-rose-600 hover:text-rose-800 p-1 tap"><Trash2 size={15} /></button></td>
                     </tr>
                   ))}
                 </tbody>

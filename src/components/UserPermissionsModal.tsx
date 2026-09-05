@@ -177,7 +177,7 @@ export function UserPermissionsModal({
                     <button
                       type="button"
                       onClick={() => toggleView(mod.id)}
-                      className={`px-3 py-1.5 rounded text-xs font-black border transition flex items-center gap-1 ${
+                      className={`tap px-3 py-1.5 rounded text-xs font-black border transition flex items-center gap-1 ${
                         access.view
                           ? 'bg-emerald-100 text-emerald-950 border-emerald-300'
                           : 'bg-neutral-200 text-neutral-600 border-neutral-300'
@@ -192,7 +192,7 @@ export function UserPermissionsModal({
                       type="button"
                       onClick={() => toggleEdit(mod.id)}
                       disabled={!access.view}
-                      className={`px-3 py-1.5 rounded text-xs font-black border transition flex items-center gap-1 ${
+                      className={`tap px-3 py-1.5 rounded text-xs font-black border transition flex items-center gap-1 ${
                         !access.view
                           ? 'opacity-40 cursor-not-allowed bg-neutral-100 text-neutral-600 border-neutral-200'
                           : access.edit

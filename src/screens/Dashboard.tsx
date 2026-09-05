@@ -649,7 +649,7 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
 
                 {s.stockByPkg.length === 0 && <p className="text-xs text-neutral-400 py-3 italic">Žádné volné obaly na skladě.</p>}
 
-                <button className="w-full text-sm text-neutral-950 font-extrabold mt-2 py-1.5 rounded bg-amber-500 hover:bg-amber-400 flex items-center justify-center gap-1.5 transition" onClick={() => setDetail(s)}>
+                <button className="w-full text-sm text-neutral-950 font-extrabold mt-2 py-1.5 rounded bg-amber-500 hover:bg-amber-400 flex items-center justify-center gap-1.5 transition tap" onClick={() => setDetail(s)}>
                   <ClipboardList size={16} /> Detailní přehled
                 </button>
               </div>

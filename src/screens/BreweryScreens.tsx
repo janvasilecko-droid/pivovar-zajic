@@ -32,7 +32,7 @@ function NumberStepper({
       <button
         type="button"
         onClick={() => onChange(String(Math.max(min, Number((numVal - step).toFixed(2)))))}
-        className="w-8 h-8 shrink-0 grid place-items-center rounded bg-neutral-200 hover:bg-amber-200 text-neutral-900 font-black text-sm select-none active:scale-95 transition"
+        className="w-8 h-8 shrink-0 grid place-items-center rounded bg-neutral-200 hover:bg-amber-200 text-neutral-900 font-black text-sm select-none active:scale-95 transition tap"
         title={`- ${step}`}
       >
         −
@@ -43,7 +43,7 @@ function NumberStepper({
       <button
         type="button"
         onClick={() => onChange(String(Number((numVal + step).toFixed(2))))}
-        className="w-8 h-8 shrink-0 grid place-items-center rounded bg-amber-950 hover:bg-amber-900 text-white font-black text-sm select-none active:scale-95 transition"
+        className="w-8 h-8 shrink-0 grid place-items-center rounded bg-amber-950 hover:bg-amber-900 text-white font-black text-sm select-none active:scale-95 transition tap"
         title={`+ ${step}`}
       >
         +
@@ -560,8 +560,8 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
               <div className="flex items-center justify-between border-b border-amber-200 pb-2">
                 <h4 className="font-display font-black text-base text-amber-950"><Sliders className="ikona-text" /> Ruční volba sudů (30L vs 50L)</h4>
                 <div className="flex items-center gap-1 bg-white p-1 rounded border border-amber-300">
-                  <button type="button" onClick={() => setCalcMode('fix30')} className={`px-3 py-1 rounded text-xs font-black ${calcMode === 'fix30' ? 'bg-white text-amber-900 ring-2 ring-amber-300' : 'text-neutral-600'}`}>Zadám 30L</button>
-                  <button type="button" onClick={() => setCalcMode('fix50')} className={`px-3 py-1 rounded text-xs font-black ${calcMode === 'fix50' ? 'bg-white text-amber-900 ring-2 ring-amber-300' : 'text-neutral-600'}`}>Zadám 50L</button>
+                  <button type="button" onClick={() => setCalcMode('fix30')} className={`tap px-3 py-1 rounded text-xs font-black ${calcMode === 'fix30' ? 'bg-white text-amber-900 ring-2 ring-amber-300' : 'text-neutral-600'}`}>Zadám 30L</button>
+                  <button type="button" onClick={() => setCalcMode('fix50')} className={`tap px-3 py-1 rounded text-xs font-black ${calcMode === 'fix50' ? 'bg-white text-amber-900 ring-2 ring-amber-300' : 'text-neutral-600'}`}>Zadám 50L</button>
                 </div>
               </div>
 

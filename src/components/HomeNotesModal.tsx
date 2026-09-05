@@ -107,7 +107,7 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
                   key={c}
                   type="button"
                   onClick={() => setSelectedColor(c)}
-                  className={`w-6 h-6 rounded-full transition-transform ${COLOR_STYLES[c].badge} ${selectedColor === c ? 'scale-125 ring-2 ring-neutral-800' : 'opacity-70 hover:opacity-100'}`}
+                  className={`tap w-6 h-6 rounded-full transition-transform ${COLOR_STYLES[c].badge} ${selectedColor === c ? 'scale-125 ring-2 ring-neutral-800' : 'opacity-70 hover:opacity-100'}`}
                 />
               ))}
             </div>
@@ -162,7 +162,7 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
                 <button
                   type="button"
                   onClick={() => void prepniHotovo(p, jmeno)}
-                  className="w-5 h-5 shrink-0 mt-0.5 rounded-md border-2 border-sky-400 grid place-items-center hover:bg-sky-100 transition"
+                  className="w-5 h-5 shrink-0 mt-0.5 rounded-md border-2 border-sky-400 grid place-items-center hover:bg-sky-100 transition tap"
                   title={p.hotovo ? 'Vrátit jako nesplněné' : 'Odškrtnout pro všechny'}
                 >
                   {p.hotovo && <Check size={12} className="text-emerald-700 stroke-[3]" />}
@@ -180,7 +180,7 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
                 <button
                   type="button"
                   onClick={() => void smazSdilenou(p.id)}
-                  className="p-1 rounded text-neutral-400 hover:text-rose-600 hover:bg-rose-50 transition shrink-0"
+                  className="p-1 rounded text-neutral-400 hover:text-rose-600 hover:bg-rose-50 transition shrink-0 tap"
                   title="Smazat vzkaz pro všechny"
                 >
                   <Trash2 size={14} />
@@ -211,7 +211,7 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
                     <button
                       type="button"
                       onClick={() => toggleHomeNote(note.id)}
-                      className="mt-0.5 w-5 h-5 rounded-md border-2 border-neutral-400/80 bg-white/90 grid place-items-center shrink-0 hover:border-amber-600 transition"
+                      className="mt-0.5 w-5 h-5 rounded-md border-2 border-neutral-400/80 bg-white/90 grid place-items-center shrink-0 hover:border-amber-600 transition tap"
                       title="Označit jako hotové / odškrtnout"
                     >
                       {note.completed && <Check size={14} className="text-emerald-700 font-bold" />}
@@ -222,7 +222,7 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
                     <button
                       type="button"
                       onClick={() => toggleHomeNoteImportant(note.id)}
-                      className={`p-1 shrink-0 transition rounded ${note.important ? 'text-rose-600' : 'text-neutral-300 hover:text-rose-500'}`}
+                      className={`tap p-1 shrink-0 transition rounded ${note.important ? 'text-rose-600' : 'text-neutral-300 hover:text-rose-500'}`}
                       title={note.important ? 'Zrušit důležitost' : 'Označit jako důležité'}
                     >
                       <AlertTriangle size={16} className={note.important ? 'fill-rose-200' : ''} />
@@ -230,7 +230,7 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
                     <button
                       type="button"
                       onClick={() => deleteHomeNote(note.id)}
-                      className="text-neutral-400 hover:text-rose-600 p-1 shrink-0 transition"
+                      className="text-neutral-400 hover:text-rose-600 p-1 shrink-0 transition tap"
                       title="Smazat poznámku"
                     >
                       <Trash2 size={16} />
@@ -268,7 +268,7 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
                           <button
                             type="button"
                             onClick={() => toggleHomeNote(note.id)}
-                            className="w-5 h-5 rounded-md bg-emerald-700 text-white grid place-items-center shrink-0"
+                            className="w-5 h-5 rounded-md bg-emerald-700 text-white grid place-items-center shrink-0 tap"
                             title="Vrátit mezi aktivní"
                           >
                             <Check size={14} />
@@ -277,7 +277,7 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
                           <button
                             type="button"
                             onClick={() => deleteHomeNote(note.id)}
-                            className="text-neutral-400 hover:text-rose-600 p-1 shrink-0"
+                            className="text-neutral-400 hover:text-rose-600 p-1 shrink-0 tap"
                           >
                             <Trash2 size={15} />
                           </button>

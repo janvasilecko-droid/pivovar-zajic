@@ -103,7 +103,7 @@ export default function AuthScreen() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 text-neutral-400 hover:text-amber-700 transition-colors p-1 rounded-lg"
+                    className="absolute right-3.5 text-neutral-400 hover:text-amber-700 transition-colors p-1 rounded-lg tap"
                     title={showPassword ? 'Skrýt heslo' : 'Zobrazit heslo'}
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}

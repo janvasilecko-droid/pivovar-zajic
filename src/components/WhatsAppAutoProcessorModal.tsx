@@ -333,14 +333,14 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
             <button
               onClick={() => processMessages()}
               disabled={processing || messages.length === 0}
-              className="px-3 py-1.5 rounded bg-sky-700 text-white text-sm font-medium hover:bg-sky-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 rounded bg-sky-700 text-white text-sm font-medium hover:bg-sky-800 disabled:opacity-50 disabled:cursor-not-allowed tap"
             >
               {processing ? 'Zpracovává se...' : 'Zpracovat automaticky'}
             </button>
             <button
               onClick={() => processMessages(messages.filter((m) => selectedIds.has(m.id)))}
               disabled={processing || selectedIds.size === 0}
-              className="px-3 py-1.5 rounded bg-emerald-700 text-white text-sm font-medium hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 rounded bg-emerald-700 text-white text-sm font-medium hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed tap"
             >
               Načíst vybrané ({selectedIds.size})
             </button>
@@ -349,7 +349,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
                 onClick={() => processMessages(errorMessages)}
                 disabled={processing}
                 title="Znovu zkusí AI parsování jen u zpráv se stavem Chyba"
-                className="px-3 py-1.5 rounded bg-rose-600 text-white text-sm font-medium hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 rounded bg-rose-600 text-white text-sm font-medium hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed tap"
               >
                 <XCircle className="ikona-text" /> Zkusit znovu vše ({errorMessages.length})
               </button>
@@ -361,7 +361,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
         <div className="flex items-center gap-3 flex-wrap text-sm">
           <button
             onClick={() => setFilterMismatchOnly((v) => !v)}
-            className={`px-3 py-1.5 rounded border text-sm font-medium flex items-center gap-1.5 ${
+            className={`tap px-3 py-1.5 rounded border text-sm font-medium flex items-center gap-1.5 ${
               filterMismatchOnly
                 ? 'bg-amber-100 border-amber-300 text-amber-800'
                 : 'border-neutral-300 text-neutral-600 hover:bg-neutral-50'
@@ -500,7 +500,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
                   <div className="flex items-start gap-2">
                     <button
                       onClick={(e) => { e.stopPropagation(); toggleSelected(message.id); }}
-                      className="mt-0.5 p-1 rounded text-neutral-400 hover:bg-neutral-100 hover:text-sky-600 shrink-0"
+                      className="mt-0.5 p-1 rounded text-neutral-400 hover:bg-neutral-100 hover:text-sky-600 shrink-0 tap"
                       title="Označit zprávu k načtení"
                     >
                       {selectedIds.has(message.id)
@@ -601,7 +601,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
                           <button
                             onClick={(e) => { e.stopPropagation(); importOrder(message.id); }}
                             disabled={importingIds.has(message.id) || hasUnmatchedItems}
-                            className={`p-1.5 rounded disabled:opacity-40 disabled:cursor-not-allowed ${hasUnmatchedItems ? 'text-amber-600' : 'text-emerald-600 hover:bg-emerald-50'}`}
+                            className={`tap p-1.5 rounded disabled:opacity-40 disabled:cursor-not-allowed ${hasUnmatchedItems ? 'text-amber-600' : 'text-emerald-600 hover:bg-emerald-50'}`}
                             title={
                               importingIds.has(message.id)
                                 ? 'Importuje se…'
@@ -617,14 +617,14 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
                       <button
                         onClick={(e) => { e.stopPropagation(); processMessages([message]); }}
                         disabled={processing}
-                        className="p-1.5 rounded text-sky-600 hover:bg-sky-50 disabled:opacity-50"
+                        className="p-1.5 rounded text-sky-600 hover:bg-sky-50 disabled:opacity-50 tap"
                         title="Přečíst / rozparsovat přes AI"
                       >
                         <RefreshCw size={16} className={processing ? "animate-spin" : ""} />
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); ignoreMessage(message.id); }}
-                        className="p-1.5 rounded text-neutral-600 hover:bg-neutral-100"
+                        className="p-1.5 rounded text-neutral-600 hover:bg-neutral-100 tap"
                         title="Ignorovat zprávu"
                       >
                         <Trash2 size={16} />

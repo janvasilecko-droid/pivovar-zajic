@@ -243,7 +243,7 @@ export default function KeggingDayPlan({ plans, weekLabel, todayISO, onCheck, ca
                   <button
                     type="button"
                     onClick={() => setHledat('')}
-                    className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 grid place-items-center rounded text-neutral-600 hover:bg-neutral-100"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 grid place-items-center rounded text-neutral-600 hover:bg-neutral-100 tap"
                     title="Zrušit hledání"
                   >
                     <X size={14} />

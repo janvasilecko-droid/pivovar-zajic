@@ -235,7 +235,7 @@ export default function AppSettingsScreen() {
           <h2 className="font-display font-black text-lg text-amber-950 flex items-center gap-2">
             <BookOpen className="ikona-text" /> Návod k použití & Přehled funkcí
           </h2>
-          <button className="text-xs font-bold text-amber-800 bg-amber-100 hover:bg-amber-200 px-3 py-1.5 rounded transition">
+          <button className="text-xs font-bold text-amber-800 bg-amber-100 hover:bg-amber-200 px-3 py-1.5 rounded transition tap">
             {showGuide ? 'Skrýt návod ▲' : 'Zobrazit návod ▼'}
           </button>
         </div>
@@ -404,7 +404,7 @@ export default function AppSettingsScreen() {
                   <button
                     disabled={pushPracuje || (!stav.muzeZapnout && !stav.muzeVypnout)}
                     onClick={() => { void prepniPush(!pushPrihlasen); }}
-                    className={`relative w-11 h-6 rounded-full transition-colors disabled:opacity-40 ${pushPrihlasen ? 'bg-amber-500' : 'bg-neutral-300'}`}
+                    className={`tap relative w-11 h-6 rounded-full transition-colors disabled:opacity-40 ${pushPrihlasen ? 'bg-amber-500' : 'bg-neutral-300'}`}
                   >
                     <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${pushPrihlasen ? 'translate-x-5' : ''}`} />
                   </button>
@@ -429,7 +429,7 @@ export default function AppSettingsScreen() {
               </div>
               <button
                 onClick={() => handleNotifSettingsChange({ showInAppBanner: !notifSettings.showInAppBanner })}
-                className={`relative w-11 h-6 rounded-full transition-colors ${notifSettings.showInAppBanner ? 'bg-amber-500' : 'bg-neutral-300'}`}
+                className={`tap relative w-11 h-6 rounded-full transition-colors ${notifSettings.showInAppBanner ? 'bg-amber-500' : 'bg-neutral-300'}`}
               >
                 <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${notifSettings.showInAppBanner ? 'translate-x-5' : ''}`} />
               </button>
@@ -446,7 +446,7 @@ export default function AppSettingsScreen() {
               </div>
               <button
                 onClick={() => handleNotifSettingsChange({ playSound: !notifSettings.playSound })}
-                className={`relative w-11 h-6 rounded-full transition-colors ${notifSettings.playSound ? 'bg-amber-500' : 'bg-neutral-300'}`}
+                className={`tap relative w-11 h-6 rounded-full transition-colors ${notifSettings.playSound ? 'bg-amber-500' : 'bg-neutral-300'}`}
               >
                 <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${notifSettings.playSound ? 'translate-x-5' : ''}`} />
               </button>
@@ -463,7 +463,7 @@ export default function AppSettingsScreen() {
               </div>
               <button
                 onClick={() => handleNotifSettingsChange({ requireInteraction: !notifSettings.requireInteraction })}
-                className={`relative w-11 h-6 rounded-full transition-colors ${notifSettings.requireInteraction ? 'bg-amber-500' : 'bg-neutral-300'}`}
+                className={`tap relative w-11 h-6 rounded-full transition-colors ${notifSettings.requireInteraction ? 'bg-amber-500' : 'bg-neutral-300'}`}
               >
                 <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${notifSettings.requireInteraction ? 'translate-x-5' : ''}`} />
               </button>
@@ -482,7 +482,7 @@ export default function AppSettingsScreen() {
                 <button
                   key={secs}
                   onClick={() => handleNotifSettingsChange({ autoHideSeconds: secs })}
-                  className={`px-3 py-1.5 rounded border-2 font-bold text-sm transition-all ${
+                  className={`tap px-3 py-1.5 rounded border-2 font-bold text-sm transition-all ${
                     notifSettings.autoHideSeconds === secs
                       ? 'bg-amber-500 border-amber-400 text-neutral-950 shadow-sm'
                       : 'bg-white border-neutral-200 text-neutral-700 hover:border-amber-300'

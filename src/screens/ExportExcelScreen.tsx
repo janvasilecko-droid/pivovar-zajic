@@ -291,7 +291,7 @@ export default function ExportExcelScreen() {
                       onClick={(e) => { e.preventDefault(); kopirujList(p.nazev); }}
                       title="Zkopírovat jen tenhle list"
                       aria-label={`Zkopírovat list ${p.nazev}`}
-                      className="w-10 h-10 grid place-items-center rounded-xl text-neutral-400 hover:text-primary-700 hover:bg-primary-50 active:scale-95 transition"
+                      className="w-10 h-10 grid place-items-center rounded-xl text-neutral-400 hover:text-primary-700 hover:bg-primary-50 active:scale-95 transition tap"
                     >
                       <Copy className="w-4 h-4" />
                     </button>

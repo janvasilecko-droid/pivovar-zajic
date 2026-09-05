@@ -876,7 +876,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
               <div key={ph.fingerprint} className="relative w-20 h-20 rounded overflow-hidden border-2 border-primary-200 group">
                 <img src={ph.dataUrl} alt={ph.name} className="w-full h-full object-cover" />
                 <button
-                  className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-primary-900/80 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-primary-900/80 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity tap"
                   onClick={() => removePhoto(i)}
                   title="Odstranit fotku"
                 >×</button>
@@ -1082,7 +1082,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                     </span>
                     {(!p.duplicate || userAllowedDups.has(i)) && (
                       <button
-                        className="ml-auto text-primary-300 hover:text-rose-400 text-xs px-2 py-0.5 rounded hover:bg-primary-800 transition-colors"
+                        className="ml-auto text-primary-300 hover:text-rose-400 text-xs px-2 py-0.5 rounded hover:bg-primary-800 transition-colors tap"
                         title="Odstranit tento řádek z importu"
                         onClick={(e) => { e.stopPropagation(); removeLine(i); }}
                       >× Odstranit</button>
@@ -1212,7 +1212,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                       <div className="flex items-end col-span-1 justify-end">
                         <button
                           type="button"
-                          className="w-10 h-10 rounded bg-rose-100 hover:bg-rose-200 text-rose-700 flex items-center justify-center transition text-base font-bold"
+                          className="w-10 h-10 rounded bg-rose-100 hover:bg-rose-200 text-rose-700 flex items-center justify-center transition text-base font-bold tap"
                           title="Odstranit řádek"
                           onClick={(e) => { e.stopPropagation(); removeLine(i); }}
                         >×</button>

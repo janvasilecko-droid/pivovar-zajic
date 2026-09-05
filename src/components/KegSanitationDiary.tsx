@@ -375,7 +375,7 @@ export default function KegSanitationDiary() {
                 setProcMonthRinseWater(true);
                 setProcMonthVisualClean(true);
               }}
-              className="mt-2.5 px-3 py-1.5 rounded bg-rose-600 text-white font-black text-[11px] hover:bg-rose-700 transition"
+              className="mt-2.5 px-3 py-1.5 rounded bg-rose-600 text-white font-black text-[11px] hover:bg-rose-700 transition tap"
             >
               <CheckCircle2 className="ikona-text" /> Zahájit měsíční sanitaci
             </button>
@@ -486,13 +486,13 @@ export default function KegSanitationDiary() {
                   <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-neutral-100">
                     <button
                       onClick={() => openEdit(e)}
-                      className="flex items-center gap-1 px-2.5 py-1.5 rounded bg-neutral-100 hover:bg-amber-100 border border-neutral-200 text-neutral-700 hover:text-amber-900 transition text-[11px] font-bold"
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded bg-neutral-100 hover:bg-amber-100 border border-neutral-200 text-neutral-700 hover:text-amber-900 transition text-[11px] font-bold tap"
                     >
                       <Edit3 size={13} /> Upravit
                     </button>
                     <button
                       onClick={() => handleDelete(e)}
-                      className="flex items-center gap-1 px-2.5 py-1.5 rounded bg-neutral-100 hover:bg-rose-100 border border-neutral-200 text-neutral-700 hover:text-rose-900 transition text-[11px] font-bold"
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded bg-neutral-100 hover:bg-rose-100 border border-neutral-200 text-neutral-700 hover:text-rose-900 transition text-[11px] font-bold tap"
                     >
                       <Trash2 size={13} /> Smazat
                     </button>

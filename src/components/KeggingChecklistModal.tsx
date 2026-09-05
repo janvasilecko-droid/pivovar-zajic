@@ -222,7 +222,7 @@ export function KeggingChecklistBody({ dateStr, onApplyNote, onDone, blockCloseU
                 <button
                   key={cat}
                   onClick={() => setActiveCategory(cat)}
-                  className={`px-3 py-1.5 rounded text-[11px] font-black tracking-wide uppercase transition ${
+                  className={`tap px-3 py-1.5 rounded text-[11px] font-black tracking-wide uppercase transition ${
                     isSelected
                       ? 'bg-white text-neutral-950 shadow-xs'
                       : isDone

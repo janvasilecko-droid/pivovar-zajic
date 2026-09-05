@@ -106,14 +106,14 @@ function PlanItem({
             <button
               type="button"
               onClick={() => onFill(plan)}
-              className="px-3 py-1.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-black transition shadow-sm"
+              className="px-3 py-1.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-black transition shadow-sm tap"
             >
               <Plus className="ikona-text" /> Naplnit do zápisu
             </button>
             <button
               type="button"
               onClick={handleDone}
-              className="px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 text-[11px] font-black transition shadow-sm"
+              className="px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 text-[11px] font-black transition shadow-sm tap"
             >
               <Check className="ikona-text" /> Hotovo
             </button>
@@ -123,7 +123,7 @@ function PlanItem({
           <button
             type="button"
             onClick={() => setPlanStatus(plan.id, 'planned').then(({ error }) => { if (error) chyba(error.message); else onChanged(); })}
-            className="px-3 py-1.5 rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 text-[11px] font-black transition"
+            className="px-3 py-1.5 rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 text-[11px] font-black transition tap"
           >
             <Undo2 className="ikona-text" /> Zpět
           </button>

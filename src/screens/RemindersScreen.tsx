@@ -504,7 +504,7 @@ export default function RemindersScreen() {
             <div className="flex items-center gap-1.5 bg-neutral-100 p-1 rounded text-xs font-bold">
               <button
                 onClick={() => setFilter('pending')}
-                className={`px-3 py-1 rounded transition ${
+                className={`tap px-3 py-1 rounded transition ${
                   filter === 'pending' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
                 }`}
               >
@@ -512,7 +512,7 @@ export default function RemindersScreen() {
               </button>
               <button
                 onClick={() => setFilter('my')}
-                className={`px-3 py-1 rounded transition ${
+                className={`tap px-3 py-1 rounded transition ${
                   filter === 'my' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
                 }`}
               >
@@ -520,7 +520,7 @@ export default function RemindersScreen() {
               </button>
               <button
                 onClick={() => setFilter('all')}
-                className={`px-3 py-1 rounded transition ${
+                className={`tap px-3 py-1 rounded transition ${
                   filter === 'all' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
                 }`}
               >
@@ -578,14 +578,14 @@ export default function RemindersScreen() {
                         {!isAcked && (
                           <button
                             onClick={() => handleAck(r.id)}
-                            className="px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-2xs flex items-center gap-1"
+                            className="px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs transition shadow-2xs flex items-center gap-1 tap"
                           >
                             <CheckCircle2 size={14} /> Odkliknout
                           </button>
                         )}
                         <button
                           onClick={() => handleDelete(r.id)}
-                          className="p-1.5 rounded hover:bg-rose-100 text-rose-600 transition"
+                          className="p-1.5 rounded hover:bg-rose-100 text-rose-600 transition tap"
                           title="Smazat upomínku"
                         >
                           <Trash2 size={16} />

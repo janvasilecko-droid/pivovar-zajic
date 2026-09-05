@@ -722,7 +722,7 @@ export default function HaccpScreen({ initialSection, initialTab = 'sanitacni_ra
                 <button
                   key={cat.id}
                   onClick={() => setActiveCategory(cat.id)}
-                  className={`px-3.5 py-1.5 rounded text-xs font-black transition flex items-center gap-1.5 shrink-0 ${
+                  className={`tap px-3.5 py-1.5 rounded text-xs font-black transition flex items-center gap-1.5 shrink-0 ${
                     activeCategory === cat.id
                       ? 'bg-amber-500 text-neutral-950 shadow-xs'
                       : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'

@@ -364,7 +364,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
               <button
                 onClick={loadAudit}
                 disabled={loading || actionLoading}
-                className="w-10 h-10 sm:w-auto sm:px-3 rounded bg-white/10 hover:bg-white/20 active:scale-95 text-white transition text-xs font-bold flex items-center justify-center gap-1.5 border border-white/10"
+                className="w-10 h-10 sm:w-auto sm:px-3 rounded bg-white/10 hover:bg-white/20 active:scale-95 text-white transition text-xs font-bold flex items-center justify-center gap-1.5 border border-white/10 tap"
                 title="Překontrolovat znovu"
               >
                 <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
@@ -373,7 +373,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
               {/* podklad: bg-amber-900 */}
               <button
                 onClick={onClose}
-                className="w-10 h-10 grid place-items-center rounded bg-white/10 hover:bg-white/20 active:scale-95 text-white transition border border-white/10"
+                className="w-10 h-10 grid place-items-center rounded bg-white/10 hover:bg-white/20 active:scale-95 text-white transition border border-white/10 tap"
                 title="Zavřít"
               >
                 <X size={20} />
@@ -386,7 +386,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
             <div className="flex items-center gap-1.5 bg-black/25 p-1 rounded border border-white/10">
               <button
                 onClick={() => setFilterScope('week')}
-                className={`px-3 py-1 rounded text-xs font-bold transition ${
+                className={`tap px-3 py-1 rounded text-xs font-bold transition ${
                   filterScope === 'week'
                     ? 'bg-amber-500 text-amber-950 font-black shadow-xs'
                     : 'text-amber-200 hover:text-white'
@@ -396,7 +396,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
               </button>
               <button
                 onClick={() => setFilterScope('all')}
-                className={`px-3 py-1 rounded text-xs font-bold transition ${
+                className={`tap px-3 py-1 rounded text-xs font-bold transition ${
                   filterScope === 'all'
                     ? 'bg-amber-500 text-amber-950 font-black shadow-xs'
                     : 'text-amber-200 hover:text-white'
@@ -418,7 +418,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
         {msgFeedback && (
           <div className="px-4 py-2.5 bg-amber-100 text-amber-950 text-xs font-black border-b border-amber-300 flex items-center justify-between animate-in fade-in">
             <span>{msgFeedback}</span>
-            <button onClick={() => setMsgFeedback(null)} className="text-amber-800 hover:text-amber-950 font-bold p-1" title="Zavřít"><X size={16} /></button>
+            <button onClick={() => setMsgFeedback(null)} className="text-amber-800 hover:text-amber-950 font-bold p-1 tap" title="Zavřít"><X size={16} /></button>
           </div>
         )}
 
@@ -840,7 +840,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
                         {onOpenOrder && (
                           <button
                             onClick={() => { onOpenOrder(issue.orderId); onClose(); }}
-                            className="text-xs font-bold text-neutral-700 hover:text-neutral-950 flex items-center gap-1 hover:underline bg-neutral-100 px-2.5 py-1 rounded border border-neutral-200 transition"
+                            className="text-xs font-bold text-neutral-700 hover:text-neutral-950 flex items-center gap-1 hover:underline bg-neutral-100 px-2.5 py-1 rounded border border-neutral-200 transition tap"
                           >
                             <Eye size={13} /> Otevřít detail
                           </button>
@@ -936,7 +936,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
                           {onOpenOrder && (
                             <button
                               onClick={() => { onOpenOrder(issue.orderId); onClose(); }}
-                              className="text-xs font-bold text-amber-900 hover:text-amber-950 flex items-center gap-1 hover:underline bg-amber-50 px-2.5 py-1 rounded border border-amber-200 transition"
+                              className="text-xs font-bold text-amber-900 hover:text-amber-950 flex items-center gap-1 hover:underline bg-amber-50 px-2.5 py-1 rounded border border-amber-200 transition tap"
                             >
                               <Eye size={13} /> Upravit objednávku
                             </button>
@@ -1070,7 +1070,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
                                 {onOpenOrder && (
                                   <button
                                     onClick={() => { onOpenOrder(o.id); onClose(); }}
-                                    className="p-1.5 rounded bg-white hover:bg-violet-100 text-violet-900 border border-violet-200 text-xs font-bold"
+                                    className="p-1.5 rounded bg-white hover:bg-violet-100 text-violet-900 border border-violet-200 text-xs font-bold tap"
                                     title="Zobrazit"
                                   >
                                     <Eye size={13} />
@@ -1079,7 +1079,7 @@ Skladové výpočty se tím rovnou přepočítají.`,
                                 <button
                                   disabled={actionLoading}
                                   onClick={() => handleStornoOrder(o.id)}
-                                  className="px-2.5 py-1 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 font-black text-xs transition"
+                                  className="px-2.5 py-1 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 font-black text-xs transition tap"
                                   title="Stornovat duplikát"
                                 >
                                   Stornovat

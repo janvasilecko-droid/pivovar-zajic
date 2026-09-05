@@ -100,7 +100,7 @@ export function HomeChecklistModal({ isOpen, onClose }: { isOpen: boolean; onClo
                     e.stopPropagation();
                     deleteDailyTask(task.id);
                   }}
-                  className="text-neutral-400 hover:text-rose-600 p-1 transition"
+                  className="text-neutral-400 hover:text-rose-600 p-1 transition tap"
                   title="Smazat úkol"
                 >
                   <Trash2 size={15} />
@@ -122,7 +122,7 @@ export function HomeChecklistModal({ isOpen, onClose }: { isOpen: boolean; onClo
           <button
             type="button"
             onClick={onClose}
-            className="text-xs font-bold bg-neutral-200 hover:bg-neutral-300 text-neutral-800 px-3.5 py-1.5 rounded-lg transition"
+            className="text-xs font-bold bg-neutral-200 hover:bg-neutral-300 text-neutral-800 px-3.5 py-1.5 rounded-lg transition tap"
           >
             Hotovo
           </button>

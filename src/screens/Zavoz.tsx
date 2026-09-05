@@ -408,7 +408,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
           {setPage && (
             <button
               onClick={() => setPage('orders_entry')}
-              className="flex-1 px-2 py-1.5 rounded font-black text-[11px] leading-tight transition flex items-center justify-center gap-1 bg-white hover:bg-neutral-100 text-neutral-700 border border-neutral-200 shadow-xs whitespace-nowrap"
+              className="flex-1 px-2 py-1.5 rounded font-black text-[11px] leading-tight transition flex items-center justify-center gap-1 bg-white hover:bg-neutral-100 text-neutral-700 border border-neutral-200 shadow-xs whitespace-nowrap tap"
             >
               <Plus size={14} />
               <span>Nové</span>
@@ -417,14 +417,14 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
           {setPage && (
             <button
               onClick={() => setPage('orders')}
-              className="flex-1 px-2 py-1.5 rounded font-black text-[11px] leading-tight transition flex items-center justify-center gap-1 bg-white hover:bg-neutral-100 text-neutral-700 border border-neutral-200 shadow-xs whitespace-nowrap"
+              className="flex-1 px-2 py-1.5 rounded font-black text-[11px] leading-tight transition flex items-center justify-center gap-1 bg-white hover:bg-neutral-100 text-neutral-700 border border-neutral-200 shadow-xs whitespace-nowrap tap"
             >
               <FileText size={14} />
               <span>Přehled</span>
             </button>
           )}
           <button
-            className="flex-1 px-2 py-1.5 rounded font-black text-[11px] leading-tight transition flex items-center justify-center gap-1 bg-white text-neutral-900 shadow-md whitespace-nowrap"
+            className="flex-1 px-2 py-1.5 rounded font-black text-[11px] leading-tight transition flex items-center justify-center gap-1 bg-white text-neutral-900 shadow-md whitespace-nowrap tap"
           >
             <Truck size={14} />
             <span>Závoz</span>
@@ -443,14 +443,14 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
             <button className="btn-ghost !rounded !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs" disabled={!activeOrders.length}><BarChart3 className="ikona-text" /> Export Excel ▾</button>
             {activeOrders.length > 0 && (
               <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-neutral-200 rounded shadow-lg py-1 min-w-[180px] hidden group-hover:block group-focus-within:block">
-                <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
+                <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition tap" onClick={() => {
                   const rows = weekOrders.flatMap((o) => (items[o.id] ?? []).map((i) => ({
                     order_date: o.order_date, place_name: o.place_name, delivery_day: o.delivery_day,
                     beer_name: i.beer_name, package_label: i.package_label, quantity: i.quantity, is_delivered: o.is_delivered,
                   })));
                   exportZavozToExcel(rows, `tyden-${weekKey}`);
                 }}><Calendar className="ikona-text" /> Tento týden</button>
-                <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition" onClick={() => {
+                <button className="w-full text-left px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-amber-50 hover:text-amber-950 transition tap" onClick={() => {
                   const rows = orders.filter((o) => o.status !== 'storno').flatMap((o) => (items[o.id] ?? []).map((i) => ({
                     order_date: o.order_date, place_name: o.place_name, delivery_day: o.delivery_day,
                     beer_name: i.beer_name, package_label: i.package_label, quantity: i.quantity, is_delivered: o.is_delivered,
@@ -573,7 +573,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                     <button
                       key={d.v}
                       onClick={() => setSelectedDayFilter(selectedDayFilter === d.v ? 'all' : d.v)}
-                      className={`flex items-center gap-1 bg-amber-100/80 rounded px-2.5 py-1.5 border shadow-2xs transition ${
+                      className={`tap flex items-center gap-1 bg-amber-100/80 rounded px-2.5 py-1.5 border shadow-2xs transition ${
                         selectedDayFilter === d.v ? 'border-amber-500 bg-amber-200' : 'border-amber-300/60 hover:bg-amber-200'
                       }`}
                     >
@@ -588,7 +588,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                   return (
                     <button
                       onClick={() => setSelectedDayFilter(selectedDayFilter === '_none' ? 'all' : '_none')}
-                      className={`flex items-center gap-1 bg-neutral-200/80 rounded px-2.5 py-1.5 border shadow-2xs transition ${
+                      className={`tap flex items-center gap-1 bg-neutral-200/80 rounded px-2.5 py-1.5 border shadow-2xs transition ${
                         selectedDayFilter === '_none' ? 'border-neutral-500 bg-neutral-300' : 'border-neutral-300/60 hover:bg-neutral-300'
                       }`}
                     >
@@ -638,7 +638,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                     <button
                       onClick={() => openMoveDay(d.v)}
                       title={`Přesunout ${d.label} na jiný den`}
-                      className="w-8 h-8 grid place-items-center rounded border border-neutral-200 bg-white text-neutral-500 hover:text-amber-700 hover:border-amber-300 hover:bg-amber-50 transition shadow-xs"
+                      className="w-8 h-8 grid place-items-center rounded border border-neutral-200 bg-white text-neutral-500 hover:text-amber-700 hover:border-amber-300 hover:bg-amber-50 transition shadow-xs tap"
                     >
                       <ArrowRightLeft size={13} />
                     </button>
@@ -854,7 +854,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                             onClick={() => toggleSecondCarForDay(gOrderIds)}
                             disabled={!gOrderIds.length}
                             title="Označit/odznačit Kačenu pro VŠECHNY objednávky tohoto dne najednou (jednotlivé objednávky lze pak doladit zvlášť u každé karty)"
-                            className={`px-3 py-1.5 rounded font-black text-xs transition shadow-xs flex items-center gap-1.5 border disabled:opacity-40 disabled:cursor-not-allowed ${
+                            className={`tap px-3 py-1.5 rounded font-black text-xs transition shadow-xs flex items-center gap-1.5 border disabled:opacity-40 disabled:cursor-not-allowed ${
                               gOrderIds.some((id) => secondCarOrderIds.includes(id))
                                 ? 'bg-emerald-700 text-white border-emerald-600'
                                 : 'bg-white border-neutral-300 text-neutral-700 hover:bg-emerald-50'
@@ -871,7 +871,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                           </button>
                           <button
                             onClick={() => openMoveDay(group.dayKey)}
-                            className="px-3 py-1.5 rounded bg-white border border-amber-300 hover:bg-amber-100 text-amber-800 font-black text-xs transition shadow-xs flex items-center gap-1.5"
+                            className="px-3 py-1.5 rounded bg-white border border-amber-300 hover:bg-amber-100 text-amber-800 font-black text-xs transition shadow-xs flex items-center gap-1.5 tap"
                             title="Přesunout tento den na jiný den"
                           >
                             <ArrowRightLeft size={14} />
@@ -940,7 +940,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                             <button
                                               onClick={() => toggleOrderKachnaFor(o.id)}
                                               title="Tato objednávka pojede druhým autem (Kačena)"
-                                              className={`px-2.5 py-1.5 rounded font-black text-[11px] transition shadow-xs flex items-center gap-1 border ${
+                                              className={`tap px-2.5 py-1.5 rounded font-black text-[11px] transition shadow-xs flex items-center gap-1 border ${
                                                 secondCarOrderIds.includes(o.id)
                                                   ? 'bg-emerald-700 text-white border-emerald-600'
                                                   : 'bg-white border-neutral-300 text-neutral-500 hover:bg-emerald-50'
@@ -951,7 +951,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                                   tlačítko. Vybráno/nevybráno nese barva, ne text. */}
                                               <Bird className="ikona-text" /> Kačena
                                             </button>
-                                            <button onClick={() => toggleDelivered(o)} className={`px-3 py-1.5 rounded font-black text-xs transition shadow-xs flex items-center gap-1.5 ${o.is_delivered ? 'bg-emerald-700 text-white' : 'bg-amber-500 text-neutral-950 hover:bg-amber-400'}`}>
+                                            <button onClick={() => toggleDelivered(o)} className={`tap px-3 py-1.5 rounded font-black text-xs transition shadow-xs flex items-center gap-1.5 ${o.is_delivered ? 'bg-emerald-700 text-white' : 'bg-amber-500 text-neutral-950 hover:bg-amber-400'}`}>
                                               {o.is_delivered ? <><Check className="ikona-text" /> Zavezeno</> : 'Označit'}
                                             </button>
                                           </div>
@@ -1136,7 +1136,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                       });
                                       if (hasKegs) setKegReturnOrder(o);
                                     })}
-                                    className={`px-3.5 py-1.5 rounded font-black text-xs transition shadow-xs flex items-center gap-1.5 ${
+                                    className={`tap px-3.5 py-1.5 rounded font-black text-xs transition shadow-xs flex items-center gap-1.5 ${
                                       o.is_delivered
                                         ? 'bg-emerald-700 text-white hover:bg-emerald-800'
                                         : 'bg-amber-500 text-neutral-950 hover:bg-amber-400'

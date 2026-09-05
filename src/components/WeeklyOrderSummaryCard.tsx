@@ -115,7 +115,7 @@ export function WeeklyOrderSummaryCard({
           <div className="flex items-center bg-white border border-amber-300/80 rounded p-1 shadow-xs">
             <button
               onClick={() => onWeekChange(shiftWeek(weekKey, -1))}
-              className="p-1.5 hover:bg-amber-100 rounded text-amber-900 transition"
+              className="p-1.5 hover:bg-amber-100 rounded text-amber-900 transition tap"
               title="Předchozí týden"
             >
               <ChevronLeft size={18} />
@@ -129,7 +129,7 @@ export function WeeklyOrderSummaryCard({
             </div>
             <button
               onClick={() => onWeekChange(shiftWeek(weekKey, 1))}
-              className="p-1.5 hover:bg-amber-100 rounded text-amber-900 transition"
+              className="p-1.5 hover:bg-amber-100 rounded text-amber-900 transition tap"
               title="Následující týden"
             >
               <ChevronRight size={18} />
@@ -207,7 +207,7 @@ export function WeeklyOrderSummaryCard({
               <button
                 key={s.volume}
                 onClick={() => setSelectedVolume(selectedVolume === s.volume ? 'all' : s.volume)}
-                className={`px-3.5 py-1.5 rounded font-extrabold text-xs transition-all shadow-xs flex items-center gap-1.5 ${
+                className={`tap px-3.5 py-1.5 rounded font-extrabold text-xs transition-all shadow-xs flex items-center gap-1.5 ${
                   selectedVolume === s.volume
                     ? 'bg-amber-500 text-neutral-950 ring-2 ring-amber-400 scale-105 font-black'
                     : 'bg-rose-600 hover:bg-rose-700 text-white'
@@ -231,7 +231,7 @@ export function WeeklyOrderSummaryCard({
         <div className="flex flex-wrap items-center gap-1.5">
           <button
             onClick={() => { setFilterMode('all'); setSelectedVolume('all'); }}
-            className={`px-3 py-1.5 rounded text-xs font-extrabold transition ${
+            className={`tap px-3 py-1.5 rounded text-xs font-extrabold transition ${
               filterMode === 'all' && selectedVolume === 'all'
                 ? 'bg-amber-500 text-neutral-950 shadow-sm'
                 : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
@@ -242,7 +242,7 @@ export function WeeklyOrderSummaryCard({
 
           <button
             onClick={() => setFilterMode('remaining')}
-            className={`px-3 py-1.5 rounded text-xs font-extrabold transition ${
+            className={`tap px-3 py-1.5 rounded text-xs font-extrabold transition ${
               filterMode === 'remaining' && selectedVolume === 'all'
                 ? 'bg-amber-500 text-neutral-950 shadow-sm'
                 : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
@@ -259,7 +259,7 @@ export function WeeklyOrderSummaryCard({
             <button
               key={vol}
               onClick={() => setSelectedVolume(selectedVolume === vol ? 'all' : vol)}
-              className={`px-3 py-1 rounded text-xs font-bold transition ${
+              className={`tap px-3 py-1 rounded text-xs font-bold transition ${
                 selectedVolume === vol
                   ? 'bg-amber-500 text-neutral-950 font-black shadow-xs'
                   : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
@@ -273,14 +273,14 @@ export function WeeklyOrderSummaryCard({
         <div className="flex items-center gap-1 bg-white p-1 rounded border border-neutral-200 shadow-xs">
           <button
             onClick={() => setViewMode('grid')}
-            className={`p-1.5 rounded text-xs font-bold transition ${viewMode === 'grid' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
+            className={`tap p-1.5 rounded text-xs font-bold transition ${viewMode === 'grid' ? 'bg-amber-500 text-neutral-950 shadow-xs' : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'}`}
             title="Karty / Mřížka"
           >
             <LayoutGrid size={15} />
           </button>
           <button
             onClick={() => setViewMode('table')}
-            className={`p-1.5 rounded text-xs font-bold transition ${viewMode === 'table' ? 'bg-white text-neutral-900 shadow-xs' : 'text-neutral-400 hover:text-neutral-700'}`}
+            className={`tap p-1.5 rounded text-xs font-bold transition ${viewMode === 'table' ? 'bg-white text-neutral-900 shadow-xs' : 'text-neutral-400 hover:text-neutral-700'}`}
             title="Tabulka"
           >
             <ListFilter size={15} />

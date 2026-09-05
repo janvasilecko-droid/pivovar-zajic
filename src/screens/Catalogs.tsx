@@ -90,13 +90,13 @@ export function BeersScreen() {
               </div>
 
               <div className="flex items-center gap-2 mt-5 pt-3 border-t border-neutral-200 dark:border-neutral-700">
-                <button className="flex-1 px-3 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-900 dark:text-neutral-100 font-extrabold text-xs shadow-xs transition" onClick={() => { setEdit(b); setShow(true); }}>
+                <button className="flex-1 px-3 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-900 dark:text-neutral-100 font-extrabold text-xs shadow-xs transition tap" onClick={() => { setEdit(b); setShow(true); }}>
                   Upravit
                 </button>
-                <button className="px-3 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 font-bold text-xs shadow-xs transition" onClick={() => toggleActive(b)}>
+                <button className="px-3 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 font-bold text-xs shadow-xs transition tap" onClick={() => toggleActive(b)}>
                   {b.is_active ? 'Skrýt' : 'Aktivovat'}
                 </button>
-                <button className="p-1.5 rounded bg-rose-50 hover:bg-rose-500 dark:bg-rose-900/30 text-rose-700 hover:text-white font-bold text-xs transition" onClick={() => del(b.id)}>
+                <button className="p-1.5 rounded bg-rose-50 hover:bg-rose-500 dark:bg-rose-900/30 text-rose-700 hover:text-white font-bold text-xs transition tap" onClick={() => del(b.id)}>
                   <Trash2 size={15} />
                 </button>
               </div>
@@ -153,7 +153,7 @@ function BeerForm({ beer, onClose, onSaved }: { beer: Beer | null; onClose: () =
           <div className="flex flex-wrap gap-2 items-center">
             {BEER_COLOR_PRESETS.map((c) => (
               <button key={c} type="button" onClick={() => setBeerColor(c)}
-                className={`w-8 h-8 rounded border-2 transition ${beerColor === c ? 'ring-2 ring-amber-500 border-amber-500 scale-110' : 'border-neutral-200'}`}
+                className={`tap w-8 h-8 rounded border-2 transition ${beerColor === c ? 'ring-2 ring-amber-500 border-amber-500 scale-110' : 'border-neutral-200'}`}
                 style={{ backgroundColor: c }} title={c} />
             ))}
             <input type="color" value={beerColor} onChange={(e) => setBeerColor(e.target.value)} className="w-8 h-8 rounded cursor-pointer border border-neutral-200" />
@@ -215,10 +215,10 @@ export function PackagesScreen() {
               </div>
 
               <div className="flex items-center gap-2 mt-5 pt-3 border-t border-neutral-100">
-                <button className="flex-1 px-3 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-900 font-extrabold text-xs transition" onClick={() => { setEdit(p); setShow(true); }}>
+                <button className="flex-1 px-3 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-900 font-extrabold text-xs transition tap" onClick={() => { setEdit(p); setShow(true); }}>
                   Upravit
                 </button>
-                <button className="p-1.5 rounded bg-rose-50 hover:bg-rose-500 text-rose-700 hover:text-white font-bold text-xs transition" onClick={() => del(p.id)}>
+                <button className="p-1.5 rounded bg-rose-50 hover:bg-rose-500 text-rose-700 hover:text-white font-bold text-xs transition tap" onClick={() => del(p.id)}>
                   <Trash2 size={15} />
                 </button>
               </div>
@@ -393,10 +393,10 @@ export function PlacesScreen() {
               </div>
 
               <div className="flex items-center gap-2 mt-5 pt-3 border-t border-neutral-100">
-                <button className="flex-1 px-3 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-900 font-extrabold text-xs transition" onClick={() => { setEdit(p); setShow(true); }}>
+                <button className="flex-1 px-3 py-1.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-900 font-extrabold text-xs transition tap" onClick={() => { setEdit(p); setShow(true); }}>
                   Upravit
                 </button>
-                <button className="p-1.5 rounded bg-rose-50 hover:bg-rose-500 text-rose-700 hover:text-white font-bold text-xs transition" onClick={() => del(p.id)}>
+                <button className="p-1.5 rounded bg-rose-50 hover:bg-rose-500 text-rose-700 hover:text-white font-bold text-xs transition tap" onClick={() => del(p.id)}>
                   <Trash2 size={15} />
                 </button>
               </div>

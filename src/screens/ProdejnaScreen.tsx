@@ -407,14 +407,14 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
         <button
           type="button"
           onClick={() => setTab('zapis')}
-          className={`px-4 py-1.5 rounded text-xs font-black transition ${tab === 'zapis' ? 'bg-neutral-700 text-white shadow-xs' : 'bg-white text-neutral-900 hover:bg-neutral-100'}`}
+          className={`tap px-4 py-1.5 rounded text-xs font-black transition ${tab === 'zapis' ? 'bg-neutral-700 text-white shadow-xs' : 'bg-white text-neutral-900 hover:bg-neutral-100'}`}
         >
           <PenLine className="ikona-text" /> Zápis
         </button>
         <button
           type="button"
           onClick={() => setTab('prehled')}
-          className={`px-4 py-1.5 rounded text-xs font-black transition ${tab === 'prehled' ? 'bg-neutral-700 text-white shadow-xs' : 'bg-white text-neutral-900 hover:bg-neutral-100'}`}
+          className={`tap px-4 py-1.5 rounded text-xs font-black transition ${tab === 'prehled' ? 'bg-neutral-700 text-white shadow-xs' : 'bg-white text-neutral-900 hover:bg-neutral-100'}`}
         >
           <BarChart3 className="ikona-text" /> Přehled
         </button>
@@ -816,21 +816,21 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                                 <div className="flex items-center justify-end gap-1">
                                   <button
                                     type="button"
-                                    className="w-6 h-6 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition"
+                                    className="w-6 h-6 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs transition tap"
                                     onClick={() => increment(r.id, -1)}
                                     disabled={Number(r.quantity) <= 0}
                                     title="Odebrat 1 ks"
                                   >−</button>
                                   <button
                                     type="button"
-                                    className="w-6 h-6 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-xs transition"
+                                    className="w-6 h-6 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-xs transition tap"
                                     onClick={() => increment(r.id, 1)}
                                     title="Přidat 1 ks"
                                   >+</button>
                                   {table === 'writeoffs' && <FotkyZaznamu typ="odpis" zaznamId={r.id} kompaktni />}
                                   <button
                                     type="button"
-                                    className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition"
+                                    className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition tap"
                                     onClick={() => del(r.id)}
                                     title="Smazat záznam"
 ><X size={18} /></button>

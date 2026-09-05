@@ -61,7 +61,7 @@ export function TimerDoneAlertModal() {
         <button
           type="button"
           onClick={dismiss}
-          className="absolute top-3 right-3 p-1.5 rounded-full text-neutral-400 hover:text-white hover:bg-neutral-800 transition"
+          className="absolute top-3 right-3 p-1.5 rounded-full text-neutral-400 hover:text-white hover:bg-neutral-800 transition tap"
           title="Zavřít"
         >
           <X size={20} />

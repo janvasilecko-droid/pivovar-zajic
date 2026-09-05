@@ -76,6 +76,13 @@ jobs:
       - name: Kontrola tlačítek
         run: npm run zkontroluj-tlacitka
 
+      # Velikost dotykových cílů. Aplikace se ovládá na telefonu, ale
+      # `min-h-[44px]` platí jen pro .btn a pro pole — holá <button> tudy
+      # propadala, a bylo jich 312 s odsazením py-1 a menším. Lék je třída
+      # .tap (zvětší plochu, nezmění rozložení). Hlásí jen zhoršení.
+      - name: Kontrola dotykových cílů
+        run: npm run zkontroluj-dotyk
+
   build-and-deploy:
     runs-on: ubuntu-latest
     needs: test

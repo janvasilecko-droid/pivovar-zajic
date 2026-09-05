@@ -611,7 +611,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             </div>
             <button
               onClick={() => setActiveNewOrderBanner(null)}
-              className="p-1 rounded hover:bg-neutral-800 text-neutral-400 hover:text-white transition"
+              className="p-1 rounded hover:bg-neutral-800 text-neutral-400 hover:text-white transition tap"
             >
               <X size={18} />
             </button>
@@ -634,7 +634,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           <div className="flex items-center justify-end gap-2 pt-1 border-t border-neutral-800/80">
             <button
               onClick={() => setActiveNewOrderBanner(null)}
-              className="px-3 py-1.5 rounded text-xs font-bold text-neutral-400 hover:text-white"
+              className="px-3 py-1.5 rounded text-xs font-bold text-neutral-400 hover:text-white tap"
             >
               Zavřít
             </button>
@@ -675,7 +675,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           <button
             onClick={() => setShowStaleBanner(false)}
             aria-label="Zavřít upozornění"
-            className="p-1 rounded hover:bg-amber-200/70 text-amber-900/70 hover:text-amber-950 transition shrink-0"
+            className="p-1 rounded hover:bg-amber-200/70 text-amber-900/70 hover:text-amber-950 transition shrink-0 tap"
           >
             <X size={16} />
           </button>
@@ -701,7 +701,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             <button
               type="button"
               onClick={() => { void forceRefresh(); }}
-              className="shrink-0 px-3 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[12px] transition"
+              className="shrink-0 px-3 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-[12px] transition tap"
             >
               Aktualizovat
             </button>
@@ -709,7 +709,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
               type="button"
               onClick={() => setZavrenaVerze(novaVerze.version)}
               aria-label="Zavřít upozornění na novou verzi"
-              className="shrink-0 p-1 rounded hover:bg-amber-200/70 text-amber-900/80 hover:text-amber-950 transition"
+              className="shrink-0 p-1 rounded hover:bg-amber-200/70 text-amber-900/80 hover:text-amber-950 transition tap"
             >
               <X size={15} />
             </button>
@@ -889,7 +889,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                 onContextMenu={(e) => e.preventDefault()}
                 title={predchoziStranka.current ? 'Podržením se vrátíte na předchozí obrazovku' : undefined}
                 style={isActive ? { color: accent } : undefined}
-                className={`flex flex-col items-center justify-center py-1 px-1 sm:px-2.5 rounded transition-all relative flex-1 font-bold ${
+                className={`tap flex flex-col items-center justify-center py-1 px-1 sm:px-2.5 rounded transition-all relative flex-1 font-bold ${
                   isActive ? 'bg-white/60 shadow-sm scale-105' : 'text-neutral-700 hover:text-neutral-900'
                 }`}
               >
@@ -1025,7 +1025,7 @@ Do databáze se už neuloží.`)) discardOp(item.id);
         <button
           onClick={onSync}
           disabled={syncing}
-          className="px-2.5 py-1 rounded bg-sky-700 hover:bg-sky-800 text-white font-black text-[11px] border border-sky-400 transition flex items-center gap-1 shadow-xs animate-pulse"
+          className="px-2.5 py-1 rounded bg-sky-700 hover:bg-sky-800 text-white font-black text-[11px] border border-sky-400 transition flex items-center gap-1 shadow-xs animate-pulse tap"
         >
           <span>{syncing ? 'Sync…' : `Čeká ${pending} změn`}</span>
         </button>

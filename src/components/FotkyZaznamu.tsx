@@ -122,7 +122,7 @@ export function FotkyZaznamu({ typ, zaznamId, kompaktni = false }: {
           type="button"
           onClick={() => vstupRef.current?.click()}
           disabled={nahravam}
-          className="px-3 py-1.5 rounded font-black text-xs transition bg-white text-neutral-800 border border-neutral-300 hover:bg-neutral-100 disabled:opacity-40"
+          className="px-3 py-1.5 rounded font-black text-xs transition bg-white text-neutral-800 border border-neutral-300 hover:bg-neutral-100 disabled:opacity-40 tap"
         >
           <span className="inline-flex items-center gap-1.5">
             <Camera size={14} /> {nahravam ? 'Nahrávám…' : 'Přidat fotku'}
@@ -171,7 +171,7 @@ export function FotkyZaznamu({ typ, zaznamId, kompaktni = false }: {
               <button
                 type="button"
                 onClick={() => { void smaz(f); }}
-                className="absolute -top-1.5 -right-1.5 w-6 h-6 grid place-items-center rounded-full bg-white border border-neutral-300 text-rose-700 shadow-2xs"
+                className="absolute -top-1.5 -right-1.5 w-6 h-6 grid place-items-center rounded-full bg-white border border-neutral-300 text-rose-700 shadow-2xs tap"
                 title="Smazat fotku"
               >
                 <Trash2 size={12} />
@@ -192,7 +192,7 @@ export function FotkyZaznamu({ typ, zaznamId, kompaktni = false }: {
           <button
             type="button"
             onClick={() => setZvetsena(null)}
-            className="absolute top-4 right-4 w-10 h-10 grid place-items-center rounded-full bg-white text-neutral-900 shadow-lg"
+            className="absolute top-4 right-4 w-10 h-10 grid place-items-center rounded-full bg-white text-neutral-900 shadow-lg tap"
             title="Zavřít"
           >
             <X size={20} />

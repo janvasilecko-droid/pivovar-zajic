@@ -177,7 +177,7 @@ function StopwatchTool() {
             <span className="text-xs font-bold text-neutral-400 uppercase tracking-wide">Mezičasy ({state.laps.length})</span>
             <button
               onClick={copyLaps}
-              className="flex items-center gap-1.5 text-xs font-bold text-neutral-600 hover:text-neutral-900 transition px-2 py-1 rounded hover:bg-neutral-100"
+              className="flex items-center gap-1.5 text-xs font-bold text-neutral-600 hover:text-neutral-900 transition px-2 py-1 rounded hover:bg-neutral-100 tap"
               title="Kopírovat mezičasy do schránky"
             >
               {copied ? <><Check size={13} className="text-emerald-600" /> Zkopírováno!</> : <><Copy size={13} /> Kopírovat</>}
@@ -202,7 +202,7 @@ function StopwatchTool() {
                 <span className="tabular-nums text-neutral-400 shrink-0 text-xs">{formatDurationMs(lapEntry.ms, true)}</span>
                 <button
                   onClick={() => deleteLap(realIdx)}
-                  className="p-1 text-neutral-300 hover:text-rose-600 rounded transition shrink-0"
+                  className="p-1 text-neutral-300 hover:text-rose-600 rounded transition shrink-0 tap"
                   title="Smazat mezičas"
                 >
                   <Trash2 size={13} />
@@ -430,7 +430,7 @@ function CountdownTimersTool() {
           <button
             type="button"
             onClick={handleTestAlert}
-            className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-neutral-950 text-xs font-black shadow-xs transition flex items-center gap-1.5 shrink-0"
+            className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-neutral-950 text-xs font-black shadow-xs transition flex items-center gap-1.5 shrink-0 tap"
             title="Okamžitě přehraje alarm a zavibruje"
           >
             <Volume2 size={14} /> Vyzkoušet
@@ -599,7 +599,7 @@ function CountdownTimersTool() {
               <button
                 type="button"
                 onClick={handlePauseAll}
-                className="px-3 py-1.5 rounded text-xs font-bold bg-amber-500 hover:bg-amber-400 text-neutral-950 flex items-center gap-1"
+                className="px-3 py-1.5 rounded text-xs font-bold bg-amber-500 hover:bg-amber-400 text-neutral-950 flex items-center gap-1 tap"
               >
                 <Pause size={13} /> Pozastavit všechny
               </button>
@@ -607,7 +607,7 @@ function CountdownTimersTool() {
             <button
               type="button"
               onClick={handleResetAll}
-              className="px-3 py-1.5 rounded text-xs font-bold bg-white hover:bg-neutral-100 border border-neutral-200 text-neutral-700 flex items-center gap-1"
+              className="px-3 py-1.5 rounded text-xs font-bold bg-white hover:bg-neutral-100 border border-neutral-200 text-neutral-700 flex items-center gap-1 tap"
             >
               <RotateCcw size={13} /> Resetovat vše
             </button>
@@ -615,7 +615,7 @@ function CountdownTimersTool() {
           <button
             type="button"
             onClick={handleTestAlert}
-            className="px-3 py-1.5 rounded text-xs font-bold bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 flex items-center gap-1"
+            className="px-3 py-1.5 rounded text-xs font-bold bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 flex items-center gap-1 tap"
             title="Přehraje alarm a zavibruje pro otestování"
           >
             🔔 Vyzkoušet zvuk a vibrace
@@ -646,14 +646,14 @@ function CountdownTimersTool() {
                     type="button"
                     onClick={() => togglePin(t)}
                     title={pinned ? 'Odebrat z domovské plochy' : 'Přidat na domovskou plochu jako dlaždici'}
-                    className={`p-1.5 rounded-lg border text-xs font-bold flex items-center gap-1 transition ${
+                    className={`tap p-1.5 rounded-lg border text-xs font-bold flex items-center gap-1 transition ${
                       pinned ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-neutral-50 text-neutral-600 border-neutral-200 hover:bg-neutral-100'
                     }`}
                   >
                     <Pin size={13} className={pinned ? 'rotate-45 fill-current' : ''} />
                     <span>{pinned ? 'Na ploše' : 'Plocha'}</span>
                   </button>
-                  <button onClick={() => remove(t.id)} className="p-1.5 text-neutral-400 hover:text-rose-600 rounded-lg shrink-0">
+                  <button onClick={() => remove(t.id)} className="p-1.5 text-neutral-400 hover:text-rose-600 rounded-lg shrink-0 tap">
                     <Trash2 size={15} />
                   </button>
                 </div>

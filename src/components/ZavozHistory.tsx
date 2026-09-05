@@ -167,7 +167,7 @@ export default function ZavozHistory() {
               <button
                 key={k}
                 onClick={() => setHistPeriod(k)}
-                className={`px-3 py-1.5 rounded font-black text-[11px] transition ${
+                className={`tap px-3 py-1.5 rounded font-black text-[11px] transition ${
                   histPeriod === k ? 'bg-white text-neutral-900 shadow-xs' : 'text-neutral-600 hover:bg-white'
                 }`}
               >

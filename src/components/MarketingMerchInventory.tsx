@@ -127,16 +127,16 @@ export function MarketingMerchInventory() {
             <div className="pt-3 border-t border-neutral-100 flex items-center justify-between">
               <span className="text-[11px] font-bold text-neutral-400">Rychlá úprava:</span>
               <div className="flex gap-1">
-                <button onClick={() => updateQty(item.id, -5)} className="px-2.5 py-1 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-black text-xs">
+                <button onClick={() => updateQty(item.id, -5)} className="px-2.5 py-1 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-black text-xs tap">
                   -5
                 </button>
-                <button onClick={() => updateQty(item.id, -1)} className="px-2.5 py-1 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-black text-xs">
+                <button onClick={() => updateQty(item.id, -1)} className="px-2.5 py-1 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-black text-xs tap">
                   -1
                 </button>
-                <button onClick={() => updateQty(item.id, 1)} className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs">
+                <button onClick={() => updateQty(item.id, 1)} className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs tap">
                   +1
                 </button>
-                <button onClick={() => updateQty(item.id, 10)} className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs">
+                <button onClick={() => updateQty(item.id, 10)} className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs tap">
                   +10
                 </button>
               </div>

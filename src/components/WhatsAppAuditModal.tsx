@@ -120,7 +120,7 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
                 key={d}
                 type="button"
                 onClick={() => setDays(d)}
-                className={`px-3 py-1.5 rounded text-xs font-black transition ${
+                className={`tap px-3 py-1.5 rounded text-xs font-black transition ${
                   days === d ? 'bg-white text-neutral-900 shadow-xs' : 'bg-neutral-100 text-neutral-700 hover:bg-amber-50'
                 }`}
               >
@@ -133,12 +133,12 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
               type="button"
               onClick={handleRunAutoParse}
               disabled={runningAutoParse}
-              className="px-3 py-1.5 rounded bg-sky-700 hover:bg-sky-800 text-white text-xs font-black shadow-xs flex items-center gap-1.5 disabled:opacity-50"
+              className="px-3 py-1.5 rounded bg-sky-700 hover:bg-sky-800 text-white text-xs font-black shadow-xs flex items-center gap-1.5 disabled:opacity-50 tap"
               title="Spustit AI zpracování nevyřízených zpráv"
             >
               <Zap size={14} /> {runningAutoParse ? 'Zpracovávám…' : 'Zpracovat nevyřízené'}
             </button>
-            <button type="button" onClick={load} className="p-1.5 rounded text-neutral-600 hover:bg-neutral-100" title="Obnovit">
+            <button type="button" onClick={load} className="p-1.5 rounded text-neutral-600 hover:bg-neutral-100 tap" title="Obnovit">
               <RefreshCw size={16} />
             </button>
           </div>
@@ -220,7 +220,7 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
                       type="button"
                       onClick={(e) => { e.stopPropagation(); handleRetry(m.id); }}
                       disabled={retrying === m.id}
-                      className="shrink-0 px-2.5 py-1.5 rounded bg-sky-100 hover:bg-sky-200 text-sky-900 text-[11px] font-black transition disabled:opacity-50"
+                      className="shrink-0 px-2.5 py-1.5 rounded bg-sky-100 hover:bg-sky-200 text-sky-900 text-[11px] font-black transition disabled:opacity-50 tap"
                     >
                       {retrying === m.id ? '…' : 'Vrátit do fronty'}
                     </button>

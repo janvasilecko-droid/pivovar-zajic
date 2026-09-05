@@ -128,7 +128,7 @@ export function Modal({ open, onClose, title, children, wide, maxWidth }: {
           <h3 className="font-display font-bold text-lg text-neutral-900 tracking-tight">{title}</h3>
           <button
             onClick={onClose}
-            className="w-8 h-8 grid place-items-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition"
+            className="w-8 h-8 grid place-items-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition tap"
             title="Zavřít"
           >
             <X size={18} />

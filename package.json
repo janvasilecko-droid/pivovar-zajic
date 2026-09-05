@@ -15,6 +15,7 @@
     "zkontroluj-workflow": "node scripts/zkontroluj-workflow.mjs",
     "zkontroluj-tlacitka": "node scripts/zkontroluj-tlacitka.mjs",
     "zkontroluj-velikost": "node scripts/zkontroluj-velikost.mjs",
+    "zkontroluj-dotyk": "node scripts/zkontroluj-dotyk.mjs",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
     "test:watch": "vitest --watch"

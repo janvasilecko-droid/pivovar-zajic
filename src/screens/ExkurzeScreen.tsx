@@ -252,11 +252,11 @@ export default function ExkurzeScreen() {
             <div>
               <label className="block text-xs font-black text-neutral-700 mb-1">Počet lidí (osob)</label>
               <div className="flex items-center gap-1">
-                <button type="button" onClick={() => setPeopleCount(String(Math.max(1, (Number(peopleCount) || 0) - 1)))} className="w-9 h-9 shrink-0 grid place-items-center rounded bg-neutral-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition" title="- 1 osoba">−</button>
+                <button type="button" onClick={() => setPeopleCount(String(Math.max(1, (Number(peopleCount) || 0) - 1)))} className="w-9 h-9 shrink-0 grid place-items-center rounded bg-neutral-200 text-neutral-800 font-bold text-sm select-none active:scale-95 transition tap" title="- 1 osoba">−</button>
                 <span className="min-w-[3rem] px-3 text-center font-mono font-black text-lg bg-white border border-neutral-200 rounded py-2 shadow-2xs">
                   {peopleCount || '1'}
                 </span>
-                <button type="button" onClick={() => setPeopleCount(String((Number(peopleCount) || 0) + 1))} className="w-9 h-9 shrink-0 grid place-items-center rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-sm select-none active:scale-95 transition shadow-2xs" title="+ 1 osoba">+</button>
+                <button type="button" onClick={() => setPeopleCount(String((Number(peopleCount) || 0) + 1))} className="w-9 h-9 shrink-0 grid place-items-center rounded bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-sm select-none active:scale-95 transition shadow-2xs tap" title="+ 1 osoba">+</button>
               </div>
               <div className="flex gap-1.5 mt-2">
                 {[1, 2, 5, 10, 15, 20].map((num) => (
@@ -264,7 +264,7 @@ export default function ExkurzeScreen() {
                     key={num}
                     type="button"
                     onClick={() => setPeopleCount(String((Number(peopleCount) || 0) + num))}
-                    className="px-2 py-1 rounded text-xs font-black bg-amber-100 text-amber-950 hover:bg-amber-200 border border-amber-300 transition"
+                    className="px-2 py-1 rounded text-xs font-black bg-amber-100 text-amber-950 hover:bg-amber-200 border border-amber-300 transition tap"
                   >
                     +{num}
                   </button>
@@ -291,7 +291,7 @@ export default function ExkurzeScreen() {
                     key={name}
                     type="button"
                     onClick={() => setGuideName(name)}
-                    className={`px-2 py-1 rounded text-[11px] font-black border transition ${
+                    className={`tap px-2 py-1 rounded text-[11px] font-black border transition ${
                       guideName === name
                         ? 'bg-white text-amber-900 border-amber-400 ring-2 ring-amber-300 shadow-2xs'
                         : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200 border-neutral-300'
@@ -373,7 +373,7 @@ export default function ExkurzeScreen() {
                       {new Date(e.tour_date).toLocaleDateString('cs-CZ')}
                       <span className="font-mono text-neutral-500 text-xs">({e.tour_time})</span>
                     </span>
-                    <button onClick={() => handleDelete(e.id)} className="w-9 h-9 grid place-items-center rounded hover:bg-rose-100 text-rose-600 transition shrink-0" title="Smazat">
+                    <button onClick={() => handleDelete(e.id)} className="w-9 h-9 grid place-items-center rounded hover:bg-rose-100 text-rose-600 transition shrink-0 tap" title="Smazat">
                       <Trash2 size={16} />
                     </button>
                   </div>
@@ -426,7 +426,7 @@ export default function ExkurzeScreen() {
                       </td>
                       <td className="text-[11px] text-neutral-600 font-medium">{e.note || '—'}</td>
                       <td className="text-right">
-                        <button onClick={() => handleDelete(e.id)} className="p-1.5 rounded hover:bg-rose-100 text-rose-600 transition" title="Smazat">
+                        <button onClick={() => handleDelete(e.id)} className="p-1.5 rounded hover:bg-rose-100 text-rose-600 transition tap" title="Smazat">
                           <Trash2 size={15} />
                         </button>
                       </td>

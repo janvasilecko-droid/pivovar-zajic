@@ -476,7 +476,7 @@ export default function AkceScreen() {
                         </div>
                       </div>
 
-                      <button onClick={(e) => { e.stopPropagation(); handleDeleteAkce(r.id); }} className="text-neutral-400 hover:text-rose-600 p-1 transition" title="Smazat akci">
+                      <button onClick={(e) => { e.stopPropagation(); handleDeleteAkce(r.id); }} className="text-neutral-400 hover:text-rose-600 p-1 transition tap" title="Smazat akci">
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -486,7 +486,7 @@ export default function AkceScreen() {
                       {!isDone && (
                         <button
                           onClick={(e) => { e.stopPropagation(); toggleReady(r); }}
-                          className={`px-3 py-1.5 rounded font-black text-xs transition shadow-sm flex items-center gap-1.5 ${
+                          className={`tap px-3 py-1.5 rounded font-black text-xs transition shadow-sm flex items-center gap-1.5 ${
                             r.ready ? 'bg-emerald-700 text-white' : 'bg-neutral-100 text-neutral-700 hover:bg-emerald-100'
                           }`}
                         >
@@ -496,7 +496,7 @@ export default function AkceScreen() {
                       )}
                       <button
                         onClick={(e) => { e.stopPropagation(); openEquipModal(r); }}
-                        className={`px-3 py-1.5 rounded font-black text-xs transition shadow-sm flex items-center gap-1.5 ${
+                        className={`tap px-3 py-1.5 rounded font-black text-xs transition shadow-sm flex items-center gap-1.5 ${
                           (r.equipment || []).length ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-100 text-neutral-700 hover:bg-amber-100'
                         }`}
                       >
@@ -754,7 +754,7 @@ export default function AkceScreen() {
                             <div className="flex items-center justify-center gap-1">
                               <button
                                 type="button"
-                                className="w-7 h-7 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-sm transition disabled:opacity-30"
+                                className="w-7 h-7 grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-sm transition disabled:opacity-30 tap"
                                 disabled={!r.qty || Number(r.qty) <= 0}
                                 onClick={() => handleRowChange(i, 'qty', String(Math.max(0, Number(r.qty) - 1)))}
                               >−</button>
@@ -763,15 +763,15 @@ export default function AkceScreen() {
                               </span>
                               <button
                                 type="button"
-                                className="w-7 h-7 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-sm transition"
+                                className="w-7 h-7 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-sm transition tap"
                                 onClick={() => handleRowChange(i, 'qty', String(Number(r.qty || 0) + 1))}
                               >+</button>
                             </div>
                           </td>
                           <td className="py-1">
                             <div className="flex items-center gap-1">
-                              <button type="submit" className="w-7 h-7 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-bold text-sm transition" title="Potvrdit / uložit vše"><Check size={18} /></button>
-                              <button type="button" className="w-7 h-7 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-sm transition" onClick={() => clearRow(i)} title="Zrušit řádek"><X size={18} /></button>
+                              <button type="submit" className="w-7 h-7 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-bold text-sm transition tap" title="Potvrdit / uložit vše"><Check size={18} /></button>
+                              <button type="button" className="w-7 h-7 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-sm transition tap" onClick={() => clearRow(i)} title="Zrušit řádek"><X size={18} /></button>
                             </div>
                           </td>
                         </tr>
@@ -865,7 +865,7 @@ export default function AkceScreen() {
                         type="button"
                         key={star}
                         onClick={() => setEvalRating(star)}
-                        className="p-1 hover:scale-125 transition"
+                        className="p-1 hover:scale-125 transition tap"
                       >
                         <Star size={20} className={star <= evalRating ? 'fill-amber-400 text-amber-500' : 'text-neutral-400'} />
                       </button>
