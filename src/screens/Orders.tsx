@@ -1,6 +1,6 @@
 
 
-import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef, lazy, Suspense } from 'react';
 
 import { AlertTriangle, ArrowRight, Ban, ChevronLeft, ChevronRight, Beer as BeerIcon, Bell, Bot, Building2, Calculator, Calendar, CalendarDays, Camera, Check, CheckCircle2, CheckSquare, ClipboardList, Clock, Copy, FilePlus, Globe, Hourglass, ListOrdered, Mail, MessageCircle, NotebookPen, Package as PackageIcon, PackageCheck, Pencil, Phone, Plus, Receipt, RotateCcw, Scroll, Search, ShieldAlert, Trash2, Truck, User, X, Zap } from 'lucide-react';
 import { Beer, EntryRow, Package, Place, beerBg, beerName, beerText, fetchAllRows, formatPackageLabel, pkgBg, supabase, useRealtime } from '../lib/supabase';
@@ -11,12 +11,12 @@ import type { StockSources } from '../lib/stockLedger';
 import { consumeOrdersItemFilter, consumeOrdersAutoImportRequest, consumeOrdersOverdueFilter, consumeOrdersPendingFilter, consumeOrdersHledani, ORDERS_AUTO_IMPORT_EVENT, ORDERS_HLEDANI_EVENT } from '../lib/ordersFilter';
 import { businessDateISO, posunMesic } from '../lib/businessDate';
 import { computeVariantTotals, type VariantTotalsResult } from '../lib/variantTotals';
-import { ImportFromImage } from '../components/ImportFromImage';
-import { WhatsAppOrderReviewModal } from '../components/WhatsAppOrderReviewModal';
-import { WhatsAppAutoProcessorModal } from '../components/WhatsAppAutoProcessorModal';
-import { WhatsAppAuditModal } from '../components/WhatsAppAuditModal';
-import { OrderAuditModal } from '../components/OrderAuditModal';
-import { EditOrderModal } from '../components/EditOrderModal';
+
+
+
+
+
+
 import { PlaceCombobox } from '../components/PlaceCombobox'; // Assuming this is needed
 import { DAYS } from '../lib/shared';
 import { VoiceRecorder } from '../components/VoiceRecorder';
@@ -44,6 +44,28 @@ import { FotkyZaznamu } from '../components/FotkyZaznamu';
 import { StitekStavu } from '../components/StitekStavu';
 import { STAVY_OBJEDNAVKY } from '../lib/stavyObjednavek';
 import { zalogujANahlas } from '../lib/chybyHlaseni';
+
+/**
+ * 🐢 Těžké modály se stahují AŽ při otevření.
+ *
+ * Kus Objednávek měl 273 kB (75 kB gzip) a bylo v něm zapečené i to, co
+ * většina lidí za den neotevře: čtení objednávky z fotky (1 324 řádků),
+ * kontrola objednávky z WhatsAppu (1 328), audit objednávek (1 274),
+ * automatické zpracování zpráv (645) a deník příjmu (237). Všechny se
+ * vykreslují podmíněně (`{showImport && …}`), takže z nich `lazy()` udělá
+ * samostatné kusy, které se stáhnou, až když na tlačítko někdo klikne.
+ *
+ * Fallback je `null`: modál se otevírá na klik, takže se ukáže o zlomek
+ * vteřiny později — kolečko uprostřed obrazovky by na tu chvíli jen
+ * bliklo. Vlastní obsah modálu si načítání řeší sám.
+ */
+const ImportFromImage = lazy(() => import('../components/ImportFromImage').then((m) => ({ default: m.ImportFromImage })));
+const WhatsAppOrderReviewModal = lazy(() => import('../components/WhatsAppOrderReviewModal').then((m) => ({ default: m.WhatsAppOrderReviewModal })));
+const WhatsAppAutoProcessorModal = lazy(() => import('../components/WhatsAppAutoProcessorModal').then((m) => ({ default: m.WhatsAppAutoProcessorModal })));
+const WhatsAppAuditModal = lazy(() => import('../components/WhatsAppAuditModal').then((m) => ({ default: m.WhatsAppAuditModal })));
+const OrderAuditModal = lazy(() => import('../components/OrderAuditModal').then((m) => ({ default: m.OrderAuditModal })));
+const EditOrderModal = lazy(() => import('../components/EditOrderModal').then((m) => ({ default: m.EditOrderModal })));
+
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -2576,6 +2598,7 @@ export default function Orders({
       ))}
 
       {editOrder && (
+        <Suspense fallback={null}>
         <EditOrderModal
           order={editOrder}
           items={items[editOrder.id] ?? []}
@@ -2586,11 +2609,13 @@ export default function Orders({
           onSaved={() => { setEditOrder(null); setWeekKey(isoWeekKey(editOrder.order_date)); load(); }}
           onPlacesChanged={load}
         />
+        </Suspense>
       )}
 
 
 
       {showWhatsAppAutoProcessor && (
+        <Suspense fallback={null}>
         <WhatsAppAutoProcessorModal
           isOpen={showWhatsAppAutoProcessor}
           onClose={() => setShowWhatsAppAutoProcessor(false)}
@@ -2604,9 +2629,11 @@ export default function Orders({
             setAutoWhatsAppModal(true);
           }}
         />
+        </Suspense>
       )}
 
       {showWhatsAppAudit && (
+        <Suspense fallback={null}>
         <WhatsAppAuditModal
           isOpen={showWhatsAppAudit}
           onClose={() => setShowWhatsAppAudit(false)}
@@ -2616,9 +2643,11 @@ export default function Orders({
             setAutoWhatsAppModal(true);
           }}
         />
+        </Suspense>
       )}
 
       {showOrderAudit && (
+        <Suspense fallback={null}>
         <OrderAuditModal
           isOpen={showOrderAudit}
           onClose={() => setShowOrderAudit(false)}
@@ -2627,9 +2656,11 @@ export default function Orders({
           selectedWeekKey={weekRange(weekKey).start.toISOString().slice(0, 10)}
           onRefreshOrders={() => load(true)}
         />
+        </Suspense>
       )}
 
       {autoWhatsAppModal && autoWhatsAppMessage && (
+        <Suspense fallback={null}>
         <WhatsAppOrderReviewModal
           isOpen={autoWhatsAppModal}
           onClose={() => {
@@ -2645,9 +2676,11 @@ export default function Orders({
           onReject={handleRejectWhatsAppOrder}
           onDecision={advanceWhatsAppReview}
         />
+        </Suspense>
       )}
 
       {showImport && (
+        <Suspense fallback={null}>
         <ImportFromImage
           beers={beers} packages={packages} places={places}
           existing={(importTarget ? items[importTarget.id] ?? [] : []).map((i) => ({ beer_id: i.beer_id, package_id: i.package_id, quantity: i.quantity }))}
@@ -2739,6 +2772,7 @@ export default function Orders({
           }}
 
         />
+        </Suspense>
       )}
 
       {/* 🚰 Modální okno pro výběr výčepu k rezervaci */}
