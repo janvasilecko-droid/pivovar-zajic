@@ -10,7 +10,7 @@ import { BottlingPlan, getPlanSeenAt, markPlanSeenAt, isPlanUnseen, isBottlingMa
 import { BottlingPlanPlanner } from '../components/BottlingPlanPlanner';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
 import { isLastWeekOfMonth, getMonthKey, writeMonthlyCleanupStage, isMonthlyLineDone, markMonthlyLineDone } from '../lib/monthlyCleanup';
-import { businessDateISO } from '../lib/businessDate';
+import { businessDateISO, posunMesic } from '../lib/businessDate';
 import { autoLogBottleSanitationFromChecklist } from '../lib/bottleSanitation';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
 import { VoiceRecorder } from '../components/VoiceRecorder';
@@ -303,11 +303,6 @@ export default function BottlingScreen({
   const [weekKey, setWeekKey] = useState(() => isoWeekKey(new Date().toISOString().slice(0, 10)));
   const weekLabel = weekRange(weekKey).label;
   // Posun měsíce o delta měsíců (vrací YYYY-MM)
-  function shiftMonth(monthKey: string, delta: number): string {
-    const [y, m] = monthKey.split('-').map(Number);
-    const d = new Date(Date.UTC(y, m - 1 + delta, 1));
-    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
-  }
   // Záložka záznamů: lahve / KEG / vše
   const [recordsTab, setRecordsTab] = useState<'lahve' | 'keg' | 'vse'>('lahve');
   const [recordsBeerFilter, setRecordsBeerFilter] = useState('');
@@ -1496,9 +1491,9 @@ export default function BottlingScreen({
                   )}
                   {recordsView === 'month' && (
                     <>
-                      <button onClick={() => setRecordsMonthKey(shiftMonth(recordsMonthKey, -1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-white border border-amber-300 hover:bg-amber-50 text-amber-900 font-black text-base transition shrink-0">‹</button>
+                      <button onClick={() => setRecordsMonthKey(posunMesic(recordsMonthKey, -1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-white border border-amber-300 hover:bg-amber-50 text-amber-900 font-black text-base transition shrink-0">‹</button>
                       <span className="text-xs font-bold text-amber-950 px-1 whitespace-nowrap">{recordsMonthKey}</span>
-                      <button onClick={() => setRecordsMonthKey(shiftMonth(recordsMonthKey, 1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-white border border-amber-300 hover:bg-amber-50 text-amber-900 font-black text-base transition shrink-0">›</button>
+                      <button onClick={() => setRecordsMonthKey(posunMesic(recordsMonthKey, 1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-white border border-amber-300 hover:bg-amber-50 text-amber-900 font-black text-base transition shrink-0">›</button>
                     </>
                   )}
                 </div>

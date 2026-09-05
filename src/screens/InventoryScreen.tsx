@@ -18,7 +18,7 @@ import { normalizujCislo } from '../lib/cisloVstup';
 import { popisRozdeleni, rozdelSudyDoTanku, zmenaOtevreni, type RozdeleniSudu, type TankProRozdeleni } from '../lib/tankRozdeleni';
 import { odectiZTanku as odectiZTankuDB, vratDoTanku } from '../lib/tankZapis';
 import { saveBottlingPlan } from '../lib/bottlingPlans';
-import { businessDateISO } from '../lib/businessDate';
+import { businessDateISO, posunMesic } from '../lib/businessDate';
 import { buildMovements, expectedForMonth, stockAtStartOfDay, stockForMonth, type StockLine } from '../lib/stockLedger';
 import { AUDIT_NADPISY, AUDIT_SLOUPCE, bunkaAuditu, maCoUkazat, porovnejPolozku, type AuditSloupec } from '../lib/auditSkladu';
 import { chyba, oznam, potvrd, toastZpet, uspech } from '../lib/toast';
@@ -29,11 +29,6 @@ import { IkonaSud } from '../components/ikony';
 type InitialStockMap = Record<string, number>; // key: `${beer_id}__${package_id}`, val: qty
 
 // Posun měsíce o delta (např. -1 = předchozí měsíc, +1 = následující)
-function shiftMonth(month: string, delta: number): string {
-  const [y, m] = month.split('-').map(Number);
-  const d = new Date(y, m - 1 + delta, 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
 
 
 type InventoryRow = {
@@ -1559,7 +1554,7 @@ function exportInventoryExcel() {
               21 px šířky — na svislou pilulku vysokou 44 px se prstem
               mířilo jako na nit. */}
           <button
-            onClick={() => setCurrentMonth(shiftMonth(currentMonth, -1))}
+            onClick={() => setCurrentMonth(posunMesic(currentMonth, -1))}
             className="btn-ghost jen-ikona !flex-none"
             title="Předchozí měsíc" aria-label="Předchozí měsíc"
           >
@@ -1576,7 +1571,7 @@ function exportInventoryExcel() {
             />
           </label>
           <button
-            onClick={() => setCurrentMonth(shiftMonth(currentMonth, 1))}
+            onClick={() => setCurrentMonth(posunMesic(currentMonth, 1))}
             className="btn-ghost jen-ikona !flex-none"
             title="Následující měsíc" aria-label="Následující měsíc"
           >

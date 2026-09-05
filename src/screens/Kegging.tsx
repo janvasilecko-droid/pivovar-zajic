@@ -5,7 +5,7 @@ import { useAuth } from '../lib/auth';
 import { KeggingChecklistModal, KeggingChecklistBody, isStartChecklistCompleteForKeg, isMonthlyChecklistCompleteForKeg } from '../components/KeggingChecklistModal';
 import { autoLogKegSanitationFromChecklist, isLastWeekOfMonth } from '../lib/kegSanitation';
 import { getMonthKey, writeMonthlyCleanupStage, isMonthlyLineDone, markMonthlyLineDone } from '../lib/monthlyCleanup';
-import { businessDateISO } from '../lib/businessDate';
+import { businessDateISO, posunMesic } from '../lib/businessDate';
 import { EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { exportKeggingToExcel } from '../lib/excel';
@@ -156,11 +156,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   const [weekPkgFilter, setWeekPkgFilter] = useState('');
 
   // Posun měsíce o delta měsíců (vrací YYYY-MM)
-  function shiftMonth(monthKey: string, delta: number): string {
-    const [y, m] = monthKey.split('-').map(Number);
-    const d = new Date(Date.UTC(y, m - 1 + delta, 1));
-    return d.toISOString().slice(0, 7);
-  }
 
   // Posun dne o delta dní (vrací YYYY-MM-DD)
   function shiftDay(day: string, delta: number): string {
@@ -1532,9 +1527,9 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 )}
                 {recordsView === 'month' && (
                   <div className="flex items-center gap-1">
-                    <button onClick={() => setRecordsMonthKey(shiftMonth(recordsMonthKey, -1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-base transition shrink-0">‹</button>
+                    <button onClick={() => setRecordsMonthKey(posunMesic(recordsMonthKey, -1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-base transition shrink-0">‹</button>
                     <span className="text-xs font-bold text-amber-950 px-1 whitespace-nowrap">{recordsMonthKey}</span>
-                    <button onClick={() => setRecordsMonthKey(shiftMonth(recordsMonthKey, 1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-base transition shrink-0">›</button>
+                    <button onClick={() => setRecordsMonthKey(posunMesic(recordsMonthKey, 1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-base transition shrink-0">›</button>
                   </div>
                 )}
               </>

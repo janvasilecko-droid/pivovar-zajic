@@ -13,6 +13,7 @@ import { Search, ArrowRight, MapPin, Beer as BeerIcon, ClipboardList, Package as
 import { fetchAllRows, supabase } from '../lib/supabase';
 import { NAV, EXTRA_NAV, Page } from './Layout';
 import { requestOrdersHledani } from '../lib/ordersFilter';
+import { popisStavu } from '../lib/stavyObjednavek';
 
 interface QuickSearchModalProps {
   isOpen: boolean;
@@ -171,10 +172,11 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
     .map((o) => {
       const den = o.delivery_date || o.order_date;
       const datum = den ? new Date(den + 'T00:00:00Z').toLocaleDateString('cs-CZ') : '—';
-      const stav =
-        o.status === 'vyrizeno_zavoz' ? 'zavezeno'
-        : o.status === 'storno' ? 'storno'
-        : 'nevyřízená';
+      // Popisek ze společné tabulky (lib/stavyObjednavek.ts). Dřív tu byl
+      // TŘETÍ vlastní překlad stavů, který znal jen „zavezeno / storno /
+      // nevyřízená" — takže hledání říkalo o téže objednávce něco jiného
+      // než její karta.
+      const stav = popisStavu(o.status);
       return {
         id: `order-${o.id}`,
         title: o.place_name || 'Objednávka bez odběratele',

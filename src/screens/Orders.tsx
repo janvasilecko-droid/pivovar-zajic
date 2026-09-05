@@ -9,7 +9,7 @@ import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSumma
 import { schodkyObjednavky, zbytekKeKonciTydne } from '../lib/tydenniZbytek';
 import type { StockSources } from '../lib/stockLedger';
 import { consumeOrdersItemFilter, consumeOrdersAutoImportRequest, consumeOrdersOverdueFilter, consumeOrdersPendingFilter, consumeOrdersHledani, ORDERS_AUTO_IMPORT_EVENT, ORDERS_HLEDANI_EVENT } from '../lib/ordersFilter';
-import { businessDateISO } from '../lib/businessDate';
+import { businessDateISO, posunMesic } from '../lib/businessDate';
 import { computeVariantTotals, type VariantTotalsResult } from '../lib/variantTotals';
 import { ImportFromImage } from '../components/ImportFromImage';
 import { WhatsAppOrderReviewModal } from '../components/WhatsAppOrderReviewModal';
@@ -41,6 +41,8 @@ import { kartaOdberatele } from '../lib/kartaOdberatele';
 import { kusy } from '../lib/cisla';
 import { PodpisModal } from '../components/PodpisModal';
 import { FotkyZaznamu } from '../components/FotkyZaznamu';
+import { StitekStavu } from '../components/StitekStavu';
+import { STAVY_OBJEDNAVKY } from '../lib/stavyObjednavek';
 import { zalogujANahlas } from '../lib/chybyHlaseni';
 
 type Order = {
@@ -64,47 +66,6 @@ type OrderItem = {
 // ho automaticky Rozvoz objednávek při odbavení) — bez vlastního popisku se
 // zobrazoval syrový název stavu, který svou délkou navíc na užší obrazovce
 // vytlačoval jméno odběratele mimo viditelnou část řádku.
-/**
- * Stavy objednávky. Pět z nich mělo do 5. 9. 2026 JEDNU barvu
- * (`bg-emerald-50 text-emerald-700`) a čtyři z nich stejný popisek, takže
- * ze seznamu nešlo poznat naloženo od odbaveného — a to jsou v závozu dvě
- * úplně jiné věci.
- *
- * Teď je postup vidět odstupňováním: světlá zelená (naloženo) → sytější
- * (dovezeno) → tmavá (uzavřeno). A hlavně TVAREM: `znak` nese tutéž
- * informaci i pro toho, kdo barvy rozlišuje jinak — a ve sklepě v mizerném
- * světle to je každý. Stejný princip jako popis plnosti tanku slovem.
- */
-const STATUS: Record<string, { label: string; cls: string; znak: string }> = {
-  nova: { label: 'Nová', cls: 'bg-primary-50 text-primary-700 border-primary-200', znak: '•' },
-  pripravena: { label: 'Připravená', cls: 'bg-amber-50 text-amber-800 border-amber-200', znak: '◐' },
-  // Popisek zůstává „Expedovaná" — je to slovo, které se v pivovaru
-  // používá, a hromadná akce se jmenuje „Expedovat". Rozlišuje odstín a tvar.
-  expedovana: { label: 'Expedovaná', cls: 'bg-emerald-50 text-emerald-800 border-emerald-200', znak: '↑' },
-  vyrizeno_zavoz: { label: 'Zavezeno', cls: 'bg-emerald-100 text-emerald-900 border-emerald-300', znak: '✓' },
-  vyrizeno: { label: 'Vyřízeno', cls: 'bg-emerald-200 text-emerald-950 border-emerald-300', znak: '✓✓' },
-  vyrizena: { label: 'Vyřízeno', cls: 'bg-emerald-200 text-emerald-950 border-emerald-300', znak: '✓✓' },
-  hotova: { label: 'Hotová', cls: 'bg-emerald-200 text-emerald-950 border-emerald-300', znak: '✓✓' },
-  storno: { label: 'Storno', cls: 'bg-rose-50 text-rose-700 border-rose-200', znak: '✕' },
-};
-
-/** Štítek stavu — barva i tvar, ať se pozná i bez barev. */
-function StitekStavu({ status, tridy = '' }: { status: string; tridy?: string }) {
-  const s = STATUS[status];
-  if (!s) return <span className={`chip ${tridy}`}>{status}</span>;
-  return (
-    <span className={`chip ${s.cls} ${tridy}`} title={s.label}>
-      <span aria-hidden="true" className="font-black">{s.znak}</span>
-      {s.label}
-    </span>
-  );
-}
-
-// Per-day color coding for deliveries. Each day has a distinct hue so you can see
-// at a glance which orders go out together and that none was forgotten.
-// `border` se musí psát celé, ne skládat z `bar` řetězcovou náhradou — Tailwind
-// čte zdrojáky jako text a třídu, která v nich nikde celá nestojí, negeneruje.
-// Rámeček detailu objednávky proto vycházel v šedé místo v barvě dne.
 const DAY_COLORS: Record<string, { bg: string; bar: string; border: string; chip: string; text: string; dot: string }> = {
   po: { bg: 'bg-sky-50/70', bar: 'bg-sky-700', border: 'border-sky-600/40', chip: 'bg-sky-700 text-white font-black shadow-2xs', text: 'text-sky-950 font-bold', dot: 'bg-sky-700' },
   ut: { bg: 'bg-emerald-50/70', bar: 'bg-emerald-700', border: 'border-emerald-600/40', chip: 'bg-emerald-700 text-white font-black shadow-2xs', text: 'text-emerald-950 font-bold', dot: 'bg-emerald-700' },
@@ -115,12 +76,6 @@ const DAY_COLORS: Record<string, { bg: string; bar: string; border: string; chip
   ne: { bg: 'bg-neutral-100', bar: 'bg-neutral-600', border: 'border-neutral-600/40', chip: 'bg-neutral-700 text-white font-black shadow-2xs', text: 'text-neutral-800 font-bold', dot: 'bg-neutral-600' },
 };
 function dayColor(d: string | null | undefined) { return d ? DAY_COLORS[d] : null; }
-// Posun měsíce o delta měsíců (YYYY-MM) — pro šipky ‹ › v přehledu objednávek
-function shiftMonth(month: string, delta: number): string {
-  const [y, m] = month.split('-').map(Number);
-  const d = new Date(Date.UTC(y, (m - 1) + delta, 1));
-  return d.toISOString().slice(0, 7);
-}
 // Pořadí obalů v plnoobrazovkovém panelu zadávání (dle požadavku):
 // 50l keg → 30l → 1,5l keg → 1l keg → 20l → 15l → 10l → 0,5l → 0,33l
 const PKG_PANEL_ORDER = [50, 30, 1.5, 1, 20, 15, 10, 0.5, 0.33];
@@ -2277,7 +2232,7 @@ export default function Orders({
             <div className="flex items-center gap-2 bg-amber-50 border border-amber-300 px-3 py-1.5 rounded-xl">
               <button
                 type="button"
-                onClick={() => setSelectedMonth(shiftMonth(selectedMonth, -1))}
+                onClick={() => setSelectedMonth(posunMesic(selectedMonth, -1))}
                 className="btn-ghost !rounded !py-1 !px-2 text-xs font-black hover:bg-amber-100 transition"
                 title="Předchozí měsíc" aria-label="Předchozí měsíc"
               ><ChevronLeft size={16} /></button>
@@ -2291,7 +2246,7 @@ export default function Orders({
               />
               <button
                 type="button"
-                onClick={() => setSelectedMonth(shiftMonth(selectedMonth, 1))}
+                onClick={() => setSelectedMonth(posunMesic(selectedMonth, 1))}
                 className="btn-ghost !rounded !py-1 !px-2 text-xs font-black hover:bg-amber-100 transition"
                 title="Další měsíc" aria-label="Další měsíc"
               ><ChevronRight size={16} /></button>
@@ -2426,7 +2381,7 @@ export default function Orders({
           />
           <select className="input w-auto font-bold text-xs" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             <option value="">Všechny statusy</option>
-            {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+            {Object.entries(STAVY_OBJEDNAVKY).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
           <select className="input w-auto font-bold text-xs" value={packageKindFilter} onChange={(e) => setPackageKindFilter(e.target.value as any)}>
             <option value="all">Všechny druhy obalů</option>
