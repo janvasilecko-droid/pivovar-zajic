@@ -142,7 +142,12 @@ describe('rozsahOdpovedi / slozNavrh — odpověď mluví o části objednávky'
     // špatnou skupinu a malé sudy by se nenahradily. Appka to samé pravidlo
     // hlídá i na vstupu (viz parse-order-image).
     expect(skupinaObalu({ id: 'pet1', label: 'PET 1l', kind: 'pet', volume_l: 1 })).toBe('petka');
+    // Pravidlo od sládka: malé sudy jsou 10/15/20 l, 30 l je „velký" (třicítka)
+    // a ten většinou zůstává. Hranice musí sedět, jinak „malé sudy budou…"
+    // omylem přepíše i třicítky (nebo je nechá jako malé).
+    expect(skupinaObalu({ id: 'keg10', label: 'KEG 10l', kind: 'keg', volume_l: 10 })).toBe('maly_sud');
     expect(skupinaObalu({ id: 'keg15', label: 'KEG 15l', kind: 'keg', volume_l: 15 })).toBe('maly_sud');
+    expect(skupinaObalu({ id: 'keg20', label: 'KEG 20l', kind: 'keg', volume_l: 20 })).toBe('maly_sud');
     expect(skupinaObalu({ id: 'keg30', label: 'KEG 30l', kind: 'keg', volume_l: 30 })).toBe('tricitka');
     expect(skupinaObalu({ id: 'keg50', label: 'KEG 50l', kind: 'keg', volume_l: 50 })).toBe('padesatka');
   });
