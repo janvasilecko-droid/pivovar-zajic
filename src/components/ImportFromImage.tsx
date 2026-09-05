@@ -870,7 +870,10 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
         {photos.length > 0 && (
           <div className="flex gap-2 flex-wrap">
             {photos.map((ph, i) => (
-              <div key={i} className="relative w-20 h-20 rounded overflow-hidden border-2 border-primary-200 group">
+              // Klíčem je otisk fotky, ne index: fotky se dají odebírat
+              // zprostředka (`removePhoto`) a s indexem by React posunul
+              // náhledy o jeden a ukazoval u fotky cizí křížek.
+              <div key={ph.fingerprint} className="relative w-20 h-20 rounded overflow-hidden border-2 border-primary-200 group">
                 <img src={ph.dataUrl} alt={ph.name} className="w-full h-full object-cover" />
                 <button
                   className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-primary-900/80 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"

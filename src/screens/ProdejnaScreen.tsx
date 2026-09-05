@@ -270,7 +270,9 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
       };
     });
 
-    let { error } = await supabase.from(table).insert(payloads);
+    // `.select('id')` kvůli vrácení zpět níž — bez id se řádek musel
+    // dohledávat podle hodnot a to umí sáhnout na cizí zápis.
+    let { data: vlozeneRadky, error } = await supabase.from(table).insert(payloads).select('id');
     if (error && (error.message?.includes("'who'") || error.message?.includes("who"))) {
       const fallbackPayloads = filled.map((r) => {
         const beer = beers.find((b) => b.id === r.beerId);
@@ -285,8 +287,9 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
           ...(isWriteoffs ? {} : { note: combinedNote || null }),
         };
       });
-      const res = await supabase.from(table).insert(fallbackPayloads);
+      const res = await supabase.from(table).insert(fallbackPayloads).select('id');
       error = res.error;
+      vlozeneRadky = res.data;
     }
 
     setSaving(false);
@@ -299,29 +302,20 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
 
     // ↩️ Vrátit zpět i po ULOŽENÍ, ne jen po smazání. Nebezpečný překlep je
     // ten, který něco PŘIDÁ — omylem uložený výdej odečte pivo ze skladu a
-    // najde se to až u inventury. Maže se přesně to, co se právě vložilo
-    // (podle data, piva, obalu a množství), vždy nejnovější řádek a nejvýš
-    // jeden na položku — kdyby někdo mezitím zapsal totéž znovu, jeho
-    // řádek zůstane.
+    // najde se to až u inventury.
+    //
+    // Maže se přesně to, co se právě vložilo — podle id z `.select('id')`
+    // výš, jedním dotazem. Dřív se řádek dohledával podle data, piva, obalu
+    // a množství; když někdo zapsal totéž ve stejný den, vrácení sáhlo na
+    // JEHO řádek.
     const kusuCelkem = filled.reduce((a, r) => a + Number(r.qty), 0);
+    const vlozenaIds = ((vlozeneRadky as { id: string }[] | null) ?? []).map((r) => r.id);
     toastZpet(
       `Uloženo ${filled.length} ${filled.length === 1 ? 'řádek' : 'řádky'} — ${kusuCelkem} ks.`,
       async () => {
-        for (const r of filled) {
-          const { data: nalezene } = await supabase
-            .from(table)
-            .select('id')
-            .eq('entry_date', date)
-            .eq('beer_id', r.beerId)
-            .eq('package_id', r.pkgId)
-            .eq('quantity', Number(r.qty))
-            .order('created_at', { ascending: false })
-            .limit(1);
-          const id = ((nalezene as any[]) ?? [])[0]?.id;
-          if (id) {
-            const { error: chybaMazani } = await supabase.from(table).delete().eq('id', id);
-            if (chybaMazani) throw chybaMazani;
-          }
+        if (vlozenaIds.length) {
+          const { error: chybaMazani } = await supabase.from(table).delete().in('id', vlozenaIds);
+          if (chybaMazani) throw chybaMazani;
         }
         load(true);
       },
@@ -773,7 +767,8 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                               type="button"
                               className="w-12 min-h-[44px] ml-2 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black transition"
                               onClick={() => del(r.id)}
-                              title="Smazat záznam"><X size={18} /></button>
+                              title="Smazat záznam"
+><X size={18} /></button>
                           </div>
                         </li>
                       );
@@ -837,7 +832,8 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                                     type="button"
                                     className="w-6 h-6 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition"
                                     onClick={() => del(r.id)}
-                                    title="Smazat záznam"><X size={18} /></button>
+                                    title="Smazat záznam"
+><X size={18} /></button>
                                 </div>
                               </td>
                             </tr>

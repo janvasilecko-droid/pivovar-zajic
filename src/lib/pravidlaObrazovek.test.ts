@@ -167,3 +167,40 @@ describe('oprávnění obrazovek', () => {
     expect(rozbite).toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 4) „Vrátit zpět" nesmí hledat řádek podle hodnot
+// ---------------------------------------------------------------------------
+describe('vrácení zpět po uložení', () => {
+  // Skutečná past: po uložení stáčení nabídne appka „Vrátit zpět" a ta
+  // dohledávala řádek ke smazání podle data, piva, obalu a počtu — vždy
+  // ten nejnovější. Když ten den stočili dva lidé stejné pivo ve stejném
+  // obalu ve stejném počtu (u desítky v 50l KEGu běžné), vrácení smazalo
+  // CIZÍ zápis a u KEGů vrátilo objem do tanku, ze kterého se nebral.
+  //
+  // Správně je vzít id z `.insert(...).select('id')` a mazat podle něj.
+  // Test hlídá, aby se ten vzorec nevrátil — nesnaží se spustit obrazovku,
+  // ale čte, čím se maže, protože právě SLOŽENÍ dotazu byla ta chyba.
+  const ZAPISOVE_OBRAZOVKY = [
+    'src/screens/Kegging.tsx',
+    'src/screens/BottlingScreen.tsx',
+    'src/screens/ProdejnaScreen.tsx',
+  ];
+
+  it('zápisové obrazovky získávají id vloženého řádku', () => {
+    const bezIdcka = ZAPISOVE_OBRAZOVKY.filter((cesta) => {
+      const zdroj = readFileSync(cesta, 'utf8');
+      // Vložení řádků k zápisu se pozná podle toho, že se hned nabízí
+      // vrácení zpět; takové vložení musí id vrátit.
+      return zdroj.includes('toastZpet(') && !zdroj.includes(".select('id')");
+    });
+    expect(bezIdcka).toEqual([]);
+  });
+
+  it('nikde se řádek ke smazání nedohledává podle množství', () => {
+    const podezrele = ZAPISOVE_OBRAZOVKY.filter((cesta) =>
+      readFileSync(cesta, 'utf8').includes(".eq('quantity',"),
+    );
+    expect(podezrele).toEqual([]);
+  });
+});

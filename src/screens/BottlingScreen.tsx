@@ -652,9 +652,14 @@ export default function BottlingScreen({
 
     if (payloads.length === 0) { setErr('Vyplň alespoň jeden řádek (obal a množství).'); setSaving(false); return; }
 
-    const { error } = await supabase.from('bottling').insert(payloads);
+    // `.select('id')` kvůli vrácení zpět níž — viz komentář u něj.
+    const { data: vlozeneRadky, error } = await supabase
+      .from('bottling')
+      .insert(payloads)
+      .select('id');
     setSaving(false);
     if (error) { setErr(error.message); return; }
+    const vlozenaIds = ((vlozeneRadky as { id: string }[]) ?? []).map((r) => r.id);
 
     // Auto-označení naplněného úkolu za hotový (pokud se stočilo skutečně vše, co bylo naplánované)
     const fp = filledPlanRef.current;
@@ -684,27 +689,18 @@ export default function BottlingScreen({
 
     // ↩️ Vrátit zpět i po ULOŽENÍ, ne jen po smazání — omylem uložené
     // lahvování přičte lahve do skladu a odečte sudy, které se „spotřebovaly".
-    // Maže se přesně to, co se právě vložilo, vždy nejnovější řádek.
+    //
+    // Maže se přesně to, co se právě vložilo — podle id z `.select('id')`
+    // výš. Dřív se řádek dohledával podle hodnot (datum + pivo + obal +
+    // počet, nejnovější); když ten den lahvovali dva lidé totéž, vrácení
+    // sáhlo na cizí zápis.
     const kusuCelkem = payloads.reduce((a, p) => a + Number(p.quantity), 0);
-    const vlozene = payloads;
     toastZpet(
-      `Uloženo ${vlozene.length} ${vlozene.length === 1 ? 'řádek' : 'řádky'} — ${kusuCelkem} ks.`,
+      `Uloženo ${payloads.length} ${payloads.length === 1 ? 'řádek' : 'řádky'} — ${kusuCelkem} ks.`,
       async () => {
-        for (const p of vlozene) {
-          const { data: nalezene } = await supabase
-            .from('bottling')
-            .select('id')
-            .eq('entry_date', p.entry_date)
-            .eq('beer_id', p.beer_id)
-            .eq('package_id', p.package_id)
-            .eq('quantity', p.quantity)
-            .order('created_at', { ascending: false })
-            .limit(1);
-          const id = ((nalezene as any[]) ?? [])[0]?.id;
-          if (id) {
-            const { error: chybaMazani } = await supabase.from('bottling').delete().eq('id', id);
-            if (chybaMazani) throw chybaMazani;
-          }
+        if (vlozenaIds.length) {
+          const { error: chybaMazani } = await supabase.from('bottling').delete().in('id', vlozenaIds);
+          if (chybaMazani) throw chybaMazani;
         }
         load(true);
       },

@@ -15,7 +15,19 @@ type CountItem = {
   beer_id: string;
   package_id: string;
   photo_id: string; // which photo produced this item
+  /**
+   * Stálý klíč řádku pro React. Řádky se dají odebírat zprostředka
+   * (`removeResult`), takže index není identita: po smazání druhého řádku
+   * se třetí posune na index 2 a React by mu podstrčil rozepsaný obsah
+   * toho smazaného — vypsané množství by skočilo k jinému pivu.
+   */
+  _key: string;
 };
+
+/** Klíč nového řádku. `randomUUID` není ve starších WebView, proto záloha. */
+function novyKlic(): string {
+  try { return crypto.randomUUID(); } catch { return `r-${Date.now()}-${Math.random().toString(36).slice(2)}`; }
+}
 
 type PhotoSlot = {
   id: string;
@@ -171,6 +183,7 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
           beer_id: beerId,
           package_id: pkg?.id ?? '',
           photo_id: photoId,
+          _key: novyKlic(),
         };
       });
       setResults((rs) => [...rs, ...items]);
@@ -209,6 +222,7 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
       beer_id: defaultBeer?.id ?? '',
       package_id: lahvePkg?.id ?? '',
       photo_id: 'preset',
+      _key: novyKlic(),
     };
     setResults((rs) => [...rs, newItem]);
   }
@@ -376,7 +390,7 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
               {results.map((r, i) => {
                 const photo = photos.find((p) => p.id === r.photo_id);
                 return (
-                  <div key={i} className="rounded border border-amber-200 bg-amber-50/40 p-2.5 space-y-1.5">
+                  <div key={r._key} className="rounded border border-amber-200 bg-amber-50/40 p-2.5 space-y-1.5">
                     {/* Řádek: co AI přečetlo + smazat */}
                     <div className="flex items-center justify-between gap-1">
                       {photo?.rawText ? (

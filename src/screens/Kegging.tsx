@@ -620,8 +620,16 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
       }
     });
 
-    const { error } = await supabase.from('kegging').insert(payloads);
+    // `.select('id')` je tu kvůli vrácení zpět níž. Bez něj se id právě
+    // vložených řádků zahodilo a vracení je muselo dohledávat podle hodnot
+    // (datum + pivo + obal + počet, nejnovější) — což při dvou lidech, kteří
+    // týž den stočí totéž, smazalo CIZÍ zápis a vrátilo objem do jiného tanku.
+    const { data: vlozeneRadky, error } = await supabase
+      .from('kegging')
+      .insert(payloads)
+      .select('id');
     if (error) { setSaving(false); setErr(error.message); return; }
+    const vlozenaIds = ((vlozeneRadky as { id: string }[]) ?? []).map((r) => r.id);
 
     // Odečti stočený objem z každého dotčeného tanku. RELATIVNĚ přes RPC —
     // dřív se počítala absolutní hodnota z React state, takže když stáčeli
@@ -662,21 +670,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     toastZpet(
       `Uloženo ${payloads.length} ${payloads.length === 1 ? 'řádek' : 'řádky'} — ${kusuCelkem} ks.`,
       async () => {
-        for (const p of payloads) {
-          const { data: nalezene } = await supabase
-            .from('kegging')
-            .select('id')
-            .eq('entry_date', p.entry_date)
-            .eq('beer_id', p.beer_id)
-            .eq('package_id', p.package_id)
-            .eq('quantity', p.quantity)
-            .order('created_at', { ascending: false })
-            .limit(1);
-          const id = ((nalezene as any[]) ?? [])[0]?.id;
-          if (id) {
-            const { error: chybaMazani } = await supabase.from('kegging').delete().eq('id', id);
-            if (chybaMazani) throw chybaMazani;
-          }
+        // Maže se PŘESNĚ to, co se vložilo — podle id z `.select('id')` výš,
+        // jedním dotazem. Dohledávání podle hodnot tu bylo dřív a umělo
+        // sáhnout na cizí řádek se stejným datem, pivem, obalem a počtem.
+        if (vlozenaIds.length) {
+          const { error: chybaMazani } = await supabase.from('kegging').delete().in('id', vlozenaIds);
+          if (chybaMazani) throw chybaMazani;
         }
         for (const [tankId, odectenoL] of vraceniTanku) {
           await adjustTankVolume(tankId, odectenoL);

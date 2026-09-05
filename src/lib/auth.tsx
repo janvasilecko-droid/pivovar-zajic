@@ -107,7 +107,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .subscribe();
 
     return () => {
-      void channel.unsubscribe();
+      // `removeChannel`, ne `unsubscribe`: to druhé kanál sice odhlásí, ale
+      // nechá ho v seznamu klienta, takže se při každém přepnutí účtu jeden
+      // přidá. Zbytek aplikace (Layout, whatsappApi, useRealtime) používá
+      // `removeChannel` — tohle bylo jediné místo, které se lišilo.
+      void supabase.removeChannel(channel);
     };
   }, [session?.user?.id]);
 
