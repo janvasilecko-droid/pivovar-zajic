@@ -395,12 +395,12 @@ export default function ExkurzeScreen() {
               <table className="table text-xs">
                 <thead>
                   <tr>
-                    <th>Datum & Čas</th>
-                    <th className="text-right">Osob</th>
-                    <th>Průvodce</th>
-                    <th className="text-right">Tržba</th>
-                    <th>Poznámka</th>
-                    <th className="w-10"></th>
+                    <th scope="col">Datum & Čas</th>
+                    <th scope="col" className="text-right">Osob</th>
+                    <th scope="col">Průvodce</th>
+                    <th scope="col" className="text-right">Tržba</th>
+                    <th scope="col">Poznámka</th>
+                    <th scope="col" className="w-10"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -513,11 +513,11 @@ export default function ExkurzeScreen() {
                         <table className="table text-xs">
                           <thead>
                             <tr>
-                              <th>Datum & Čas</th>
-                              <th className="text-right">Počet navštívených lidí</th>
-                              <th className="text-right">Tržba (Kč)</th>
-                              <th>Poznámka / Skupina</th>
-                              <th>Stav</th>
+                              <th scope="col">Datum & Čas</th>
+                              <th scope="col" className="text-right">Počet navštívených lidí</th>
+                              <th scope="col" className="text-right">Tržba (Kč)</th>
+                              <th scope="col">Poznámka / Skupina</th>
+                              <th scope="col">Stav</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -594,11 +594,11 @@ export default function ExkurzeScreen() {
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Měsíc</th>
-                    <th className="text-right">Počet exkurzí</th>
-                    <th className="text-right">Celkem lidí</th>
-                    <th>Průvodci</th>
-                    <th className="text-right">Tržba (Kč)</th>
+                    <th scope="col">Měsíc</th>
+                    <th scope="col" className="text-right">Počet exkurzí</th>
+                    <th scope="col" className="text-right">Celkem lidí</th>
+                    <th scope="col">Průvodci</th>
+                    <th scope="col" className="text-right">Tržba (Kč)</th>
                   </tr>
                 </thead>
                 <tbody>

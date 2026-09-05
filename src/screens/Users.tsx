@@ -357,9 +357,9 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-neutral-50 text-neutral-500 text-[11px] font-black uppercase tracking-wider border-b border-neutral-100">
-                      <th className="p-4">E-mailová adresa</th>
-                      <th className="p-4">Datum přidání</th>
-                      <th className="p-4 text-right">Akce</th>
+                      <th scope="col" className="p-4">E-mailová adresa</th>
+                      <th scope="col" className="p-4">Datum přidání</th>
+                      <th scope="col" className="p-4 text-right">Akce</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-100 text-xs font-medium text-neutral-700">
@@ -425,9 +425,9 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-neutral-50 text-neutral-500 text-[11px] font-black uppercase tracking-wider border-b border-neutral-100">
-                      <th className="p-4">E-mailová adresa</th>
-                      <th className="p-4">Datum schválení</th>
-                      <th className="p-4 text-right">Akce</th>
+                      <th scope="col" className="p-4">E-mailová adresa</th>
+                      <th scope="col" className="p-4">Datum schválení</th>
+                      <th scope="col" className="p-4 text-right">Akce</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-100 text-xs font-medium text-neutral-700">

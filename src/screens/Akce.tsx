@@ -721,10 +721,10 @@ export default function AkceScreen() {
                   <table className="w-full text-xs whitespace-nowrap">
                     <thead>
                       <tr className="bg-neutral-100">
-                        <th className="text-left py-1.5 px-1 font-black text-neutral-700">Pivo</th>
-                        <th className="text-left py-1.5 px-1 font-black text-neutral-700">Obal</th>
-                        <th className="text-center py-1.5 px-1 font-black text-neutral-700">KS</th>
-                        <th className="w-20"></th>
+                        <th scope="col" className="text-left py-1.5 px-1 font-black text-neutral-700">Pivo</th>
+                        <th scope="col" className="text-left py-1.5 px-1 font-black text-neutral-700">Obal</th>
+                        <th scope="col" className="text-center py-1.5 px-1 font-black text-neutral-700">KS</th>
+                        <th scope="col" className="w-20"></th>
                       </tr>
                     </thead>
                     <tbody>

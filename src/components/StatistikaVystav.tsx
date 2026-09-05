@@ -391,11 +391,11 @@ export default function StatistikaVystav({
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-[11px] font-black uppercase tracking-wider text-neutral-500 border-b border-neutral-200">
-                  <th className="text-left py-2">Pivo</th>
-                  <th className="text-right py-2">Kusů</th>
-                  <th className="text-right py-2">Hektolitrů</th>
-                  <th className="text-right py-2">Podíl</th>
-                  {predchozi && <th className="text-right py-2">Změna</th>}
+                  <th scope="col" className="text-left py-2">Pivo</th>
+                  <th scope="col" className="text-right py-2">Kusů</th>
+                  <th scope="col" className="text-right py-2">Hektolitrů</th>
+                  <th scope="col" className="text-right py-2">Podíl</th>
+                  {predchozi && <th scope="col" className="text-right py-2">Změna</th>}
                 </tr>
               </thead>
               <tbody>

@@ -2172,20 +2172,20 @@ function exportInventoryExcel() {
                 <table className="table text-xs w-full">
                   <thead>
                     <tr className="bg-neutral-100 text-neutral-800 border-b border-neutral-200">
-                      <th className="py-2.5 px-3 text-left">Pivo</th>
-                      <th className="py-2.5 px-3 text-left">Obal</th>
-                      <th className="py-2.5 px-2 text-right">Počáteční (Poč.)</th>
-                      <th className="py-2.5 px-2 text-right text-amber-700">Stočeno (+)</th>
-                      <th className="py-2.5 px-2 text-right text-rose-700">Odpis (−)</th>
-                      <th className="py-2.5 px-2 text-right text-amber-800">Výdej (−)</th>
-                      <th className="py-2.5 px-3 text-right bg-emerald-700 !text-white font-black rounded-t-lg">ZBYDE (Oček.)</th>
-                      <th className="py-2.5 px-3 text-right bg-amber-500 text-neutral-950 font-black rounded-t-lg">INVENTURA</th>
-                      <th className="py-2.5 px-3 text-right bg-sky-700 !text-white font-black rounded-t-lg" title="Ztráty a rozbité kusy (±). Poznámka bokem — NEZAKLÁDÁ stáčení, neodečítá sudy a se stavem skladu nehne. Na to je sloupec VYROVNAT.">ZTRÁTY (±)</th>
-                      <th className="py-2.5 px-2 text-right font-black" title="Kolik kusů se u téhle položky už srovnalo z inventury tohoto měsíce. Prázdné = nesrovnávalo se.">VYROVNÁNO</th>
-                      <th className="py-2.5 px-2 text-right font-black">MANKO</th>
-                      <th className="py-2.5 px-2 text-right font-black" title="Manko po započtení ztrát (INVENTURA − očekávaný stav se ztrátami)">PO ZTRÁTÁCH</th>
-                      <th className="py-2.5 px-3 text-right font-black">ROZDÍL (Kč)</th>
-                      <th className="py-2.5 px-2 text-center font-black" title="Srovnat rozdíl tam, kam patří: přebytek = chybějící zápis stočení, manko = odečet ze stáčení.">SROVNAT</th>
+                      <th scope="col" className="py-2.5 px-3 text-left">Pivo</th>
+                      <th scope="col" className="py-2.5 px-3 text-left">Obal</th>
+                      <th scope="col" className="py-2.5 px-2 text-right">Počáteční (Poč.)</th>
+                      <th scope="col" className="py-2.5 px-2 text-right text-amber-700">Stočeno (+)</th>
+                      <th scope="col" className="py-2.5 px-2 text-right text-rose-700">Odpis (−)</th>
+                      <th scope="col" className="py-2.5 px-2 text-right text-amber-800">Výdej (−)</th>
+                      <th scope="col" className="py-2.5 px-3 text-right bg-emerald-700 !text-white font-black rounded-t-lg">ZBYDE (Oček.)</th>
+                      <th scope="col" className="py-2.5 px-3 text-right bg-amber-500 text-neutral-950 font-black rounded-t-lg">INVENTURA</th>
+                      <th scope="col" className="py-2.5 px-3 text-right bg-sky-700 !text-white font-black rounded-t-lg" title="Ztráty a rozbité kusy (±). Poznámka bokem — NEZAKLÁDÁ stáčení, neodečítá sudy a se stavem skladu nehne. Na to je sloupec VYROVNAT.">ZTRÁTY (±)</th>
+                      <th scope="col" className="py-2.5 px-2 text-right font-black" title="Kolik kusů se u téhle položky už srovnalo z inventury tohoto měsíce. Prázdné = nesrovnávalo se.">VYROVNÁNO</th>
+                      <th scope="col" className="py-2.5 px-2 text-right font-black">MANKO</th>
+                      <th scope="col" className="py-2.5 px-2 text-right font-black" title="Manko po započtení ztrát (INVENTURA − očekávaný stav se ztrátami)">PO ZTRÁTÁCH</th>
+                      <th scope="col" className="py-2.5 px-3 text-right font-black">ROZDÍL (Kč)</th>
+                      <th scope="col" className="py-2.5 px-2 text-center font-black" title="Srovnat rozdíl tam, kam patří: přebytek = chybějící zápis stočení, manko = odečet ze stáčení.">SROVNAT</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2499,16 +2499,20 @@ function exportInventoryExcel() {
               divu (kterému prohlížeč dopočítá overflow-y: auto) by to byl
               právě on, jenže ten se svisle neroluje, takže by se hlavička
               nepřilepila vůbec. S vlastní výškou se lepí přesně tady.
-              Barva pozadí musí být na <th>, ne na <tr> — pozadí řádku se pod
+              Barva pozadí musí být na <th scope="col">, ne na <tr> — pozadí řádku se pod
               přilepenou buňkou nevykreslí a text by prosvítal přes data. */}
           <div className="overflow-auto rounded border border-neutral-200 bg-white max-h-[70vh]">
             <table className="w-full border-collapse min-w-[900px]">
               <thead>
                 <tr className="text-amber-300 text-[11px] font-black uppercase tracking-wider">
-                  <th className="sticky top-0 z-10 bg-neutral-900 text-left px-3 py-2.5">Pivo · obal</th>
-                  <th className="sticky top-0 z-10 bg-neutral-900 text-left px-3 py-2.5">Zdroj</th>
+                  {/* Drží i při rolování do stran — tabulka je 900 px široká
+                      a na telefonu se bez názvu vlevo čtou čísla, u kterých
+                      není vidět, čí jsou. z-20, ať je nad ostatními
+                      přilepenými buňkami hlavičky. */}
+                  <th scope="col" className="sticky top-0 left-0 z-20 bg-neutral-900 text-left px-3 py-2.5">Pivo · obal</th>
+                  <th scope="col" className="sticky top-0 z-10 bg-neutral-900 text-left px-3 py-2.5">Zdroj</th>
                   {AUDIT_SLOUPCE.map((sl) => (
-                    <th key={sl} className={`sticky top-0 z-10 text-right px-2 py-2.5 whitespace-nowrap ${sl === 'konec' ? 'bg-neutral-800' : 'bg-neutral-900'}`}>
+                    <th scope="col" key={sl} className={`sticky top-0 z-10 text-right px-2 py-2.5 whitespace-nowrap ${sl === 'konec' ? 'bg-neutral-800' : 'bg-neutral-900'}`}>
                       {AUDIT_NADPISY[sl]}
                     </th>
                   ))}
@@ -2535,7 +2539,14 @@ function exportInventoryExcel() {
                     <Fragment key={`${it.beer_id}__${it.package_id}`}>
                       <tr className={`plocha-z-dat plocha-z-dat-tlumena border-t-2 ${nesedi ? 'border-rose-300' : 'border-neutral-200'}`}
                           style={beer ? { backgroundColor: beerBg(beer), ['--ink-plochy' as any]: beerInk(beer) } : undefined}>
-                        <td rowSpan={2} className="px-3 py-2 align-top font-black text-[11px] text-neutral-950 whitespace-nowrap">
+                        <td
+                          rowSpan={2}
+                          className="sticky left-0 z-10 px-3 py-2 align-top font-black text-[11px] text-neutral-950 whitespace-nowrap"
+                          // Barva piva musí být i na buňce: pozadí ŘÁDKU se pod
+                          // přilepenou buňkou nevykreslí a data by přes ni
+                          // prosvítala při rolování.
+                          style={beer ? { backgroundColor: beerBg(beer) } : { backgroundColor: 'rgb(var(--bg-white))' }}
+                        >
                           {it.beer_name}
                           <span className="block font-bold opacity-80">{formatPackageLabel(it.package_label)}</span>
                           {nesedi && (
@@ -2811,17 +2822,17 @@ function EndStockTab({
             <table className="table text-xs">
               <thead>
                 <tr>
-                  <th>Pivo</th>
-                  <th>Obal</th>
-                  <th className="text-right">Poč. stav</th>
-                  <th className="text-right text-emerald-700">Stáčení KEG</th>
-                  <th className="text-right text-rose-700">Objednávky</th>
-                  <th className="text-right text-rose-700">Stáč. lahví</th>
-                  <th className="text-right text-rose-700">Fasování</th>
-                  <th className="text-right text-rose-700">Prodejna</th>
-                  <th className="text-right text-rose-700">Akce</th>
-                  <th className="text-right text-rose-700">Odpisy</th>
-                  <th className="text-right bg-amber-50 border-x border-amber-200 text-amber-950 font-black">Stav konec měsíce</th>
+                  <th scope="col">Pivo</th>
+                  <th scope="col">Obal</th>
+                  <th scope="col" className="text-right">Poč. stav</th>
+                  <th scope="col" className="text-right text-emerald-700">Stáčení KEG</th>
+                  <th scope="col" className="text-right text-rose-700">Objednávky</th>
+                  <th scope="col" className="text-right text-rose-700">Stáč. lahví</th>
+                  <th scope="col" className="text-right text-rose-700">Fasování</th>
+                  <th scope="col" className="text-right text-rose-700">Prodejna</th>
+                  <th scope="col" className="text-right text-rose-700">Akce</th>
+                  <th scope="col" className="text-right text-rose-700">Odpisy</th>
+                  <th scope="col" className="text-right bg-amber-50 border-x border-amber-200 text-amber-950 font-black">Stav konec měsíce</th>
                 </tr>
               </thead>
               <tbody>

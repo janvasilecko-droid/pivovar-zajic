@@ -1685,14 +1685,14 @@ export default function BottlingScreen({
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b border-amber-300/80 bg-amber-100/80">
-                      <th className="text-left py-1.5 px-2 font-black text-amber-950">Datum</th>
-                      <th className="text-left py-1.5 px-2 font-black text-amber-950">Pivo</th>
-                      <th className="text-right py-1.5 px-2 font-black text-amber-950">Lahve</th>
-                      <th className="text-right py-1.5 px-2 font-black text-amber-950">Ks</th>
-                      <th className="text-right py-1.5 px-2 font-black text-amber-950">KEG</th>
-                      <th className="text-right py-1.5 px-2 font-black text-amber-950"><IkonaSud className="ikona-text" /> Sudů</th>
-                      <th className="text-right py-1.5 px-2 font-black text-amber-950">Litry</th>
-                      <th className="text-right py-1.5 px-2 font-black text-amber-950"></th>
+                      <th scope="col" className="text-left py-1.5 px-2 font-black text-amber-950">Datum</th>
+                      <th scope="col" className="text-left py-1.5 px-2 font-black text-amber-950">Pivo</th>
+                      <th scope="col" className="text-right py-1.5 px-2 font-black text-amber-950">Lahve</th>
+                      <th scope="col" className="text-right py-1.5 px-2 font-black text-amber-950">Ks</th>
+                      <th scope="col" className="text-right py-1.5 px-2 font-black text-amber-950">KEG</th>
+                      <th scope="col" className="text-right py-1.5 px-2 font-black text-amber-950"><IkonaSud className="ikona-text" /> Sudů</th>
+                      <th scope="col" className="text-right py-1.5 px-2 font-black text-amber-950">Litry</th>
+                      <th scope="col" className="text-right py-1.5 px-2 font-black text-amber-950"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1969,14 +1969,14 @@ export default function BottlingScreen({
                 <table className="table text-xs w-full">
                   <thead>
                     <tr className="bg-neutral-100 border-b border-neutral-200 shadow-xs">
-                      <th className="p-2.5 text-left">Pivo (obal)</th>
-                      <th className="p-2.5 text-right font-bold text-neutral-600">Poč. stav</th>
-                      <th className="p-2.5 text-right font-bold text-emerald-800">Stočeno (+)</th>
-                      <th className="p-2.5 text-right font-bold text-amber-800">Výdeje (−)</th>
-                      <th className="p-2.5 text-right font-bold text-emerald-900 bg-emerald-50">Skladem (=)</th>
-                      <th className="p-2.5 text-right font-bold text-sky-800">Objednáno (týden)</th>
-                      <th className="p-2.5 text-right font-black text-rose-800 bg-rose-50">Potřeba stočit</th>
-                      <th className="p-2.5 text-center font-bold">Stav</th>
+                      <th scope="col" className="p-2.5 text-left">Pivo (obal)</th>
+                      <th scope="col" className="p-2.5 text-right font-bold text-neutral-600">Poč. stav</th>
+                      <th scope="col" className="p-2.5 text-right font-bold text-emerald-800">Stočeno (+)</th>
+                      <th scope="col" className="p-2.5 text-right font-bold text-amber-800">Výdeje (−)</th>
+                      <th scope="col" className="p-2.5 text-right font-bold text-emerald-900 bg-emerald-50">Skladem (=)</th>
+                      <th scope="col" className="p-2.5 text-right font-bold text-sky-800">Objednáno (týden)</th>
+                      <th scope="col" className="p-2.5 text-right font-black text-rose-800 bg-rose-50">Potřeba stočit</th>
+                      <th scope="col" className="p-2.5 text-center font-bold">Stav</th>
                     </tr>
                   </thead>
                   <tbody>

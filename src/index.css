@@ -269,8 +269,34 @@ html, body { overscroll-behavior-y: contain; }
      každém přepočtu neposouvá a „1" je stejně široká jako „8". */
   .table tbody td { @apply px-3 sm:px-4 py-2.5 sm:py-3 border-b border-neutral-100 text-neutral-800 font-medium tabular-nums; }
   .table tbody tr:last-child td { @apply border-b-0; }
+  /* 🦓 Zebra. Tabulky měly jen spodní linku, takže se u dvaceti řádků závozu
+     snadno čte o řádek vedle — a to se pak zapíše do skladu. Podklad je
+     schválně velmi slabý (bg-neutral-50/60): má vést oko po řádku, ne
+     rozdělit tabulku na proužky. Bere se z proměnné, takže se v tmavém
+     režimu otočí sám. */
+  .table tbody tr:nth-child(even) td {
+    @apply bg-neutral-50/60;
+  }
+  /* Řádek pod prstem/myší přebíjí zebru — musí stát AŽ ZA ní. */
   .table tbody tr:hover td {
-    @apply bg-neutral-50/90;
+    @apply bg-neutral-100/90;
+  }
+
+  /* 📌 První sloupec drží při rolování do stran.
+     Zapíná se třídou na `<table>`, ne plošně: aby text pod ním neprosvítal,
+     musí mít buňka vlastní neprůhledné pozadí, a to u tabulek s barevnými
+     řádky (dny závozu) není zadarmo. Používá se tam, kde se tabulka
+     nevejde na šířku telefonu a bez názvu vlevo se čtou čísla, u kterých
+     není vidět, čí jsou. */
+  .table-drzi-prvni-sloupec thead th:first-child,
+  .table-drzi-prvni-sloupec tbody td:first-child {
+    @apply sticky left-0 z-10 bg-white;
+  }
+  .table-drzi-prvni-sloupec tbody tr:nth-child(even) td:first-child {
+    @apply bg-neutral-50;
+  }
+  .table-drzi-prvni-sloupec thead th:first-child {
+    @apply bg-neutral-100;
   }
   .table tfoot tr {
     @apply bg-neutral-900 text-white font-black text-xs border-t-2 border-neutral-800;

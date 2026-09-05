@@ -665,12 +665,12 @@ Skladové výpočty se tím rovnou přepočítají.`,
                         <table className="w-full text-xs">
                           <thead>
                             <tr className="text-[11px] font-black uppercase tracking-wider text-neutral-500 border-b border-neutral-200">
-                              <th className="text-left py-1.5">Den</th>
-                              <th className="text-right py-1.5">Došlo</th>
-                              <th className="text-right py-1.5">Uloženo</th>
-                              <th className="text-right py-1.5">Duplicita</th>
-                              <th className="text-right py-1.5">Zahozeno</th>
-                              <th className="text-right py-1.5">Chyba</th>
+                              <th scope="col" className="text-left py-1.5">Den</th>
+                              <th scope="col" className="text-right py-1.5">Došlo</th>
+                              <th scope="col" className="text-right py-1.5">Uloženo</th>
+                              <th scope="col" className="text-right py-1.5">Duplicita</th>
+                              <th scope="col" className="text-right py-1.5">Zahozeno</th>
+                              <th scope="col" className="text-right py-1.5">Chyba</th>
                             </tr>
                           </thead>
                           <tbody>

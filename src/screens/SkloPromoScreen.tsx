@@ -692,17 +692,53 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
             {filteredEntries.length === 0 ? (
               <EmptyState text="Žádné zapsané pohyby skla." icon={Wine} />
             ) : (
-              <div className="overflow-x-auto">
+              <>
+              {/* 📱 Na telefonu karty, na počítači tabulka. Sedm sloupců se na
+                  390px displej nevejde a rolování do stran u seznamu pohybů
+                  znamená, že se čte datum bez počtu a počet bez předmětu.
+                  Stejný vzor používá Kniha jízd a Historie. */}
+              <div className="grid grid-cols-1 gap-2.5 md:hidden">
+                {filteredEntries.map((e) => (
+                  <div key={e.id} className="card p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-black text-sm text-neutral-950 truncate">{e.item_name}</div>
+                        <div className="text-[11px] font-bold text-neutral-600">
+                          {new Date(e.entry_date).toLocaleDateString('cs-CZ')}
+                          {e.destination ? ` · ${e.destination}` : ''}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="font-mono font-black text-sm tabular-nums text-neutral-900">{e.quantity} ks</span>
+                        <button
+                          onClick={() => handleDeletePromo(e.id)}
+                          aria-label={`Smazat pohyb ${e.item_name}`}
+                          className="text-rose-600 hover:text-rose-800 p-1 tap"
+                        ><Trash2 size={15} /></button>
+                      </div>
+                    </div>
+                    <div className="mt-2 flex items-center gap-2 flex-wrap">
+                      {e.entry_type === 'in' ? (
+                        <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 text-[11px] font-bold"><Download className="ikona-text" /> PŘÍJEM</span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-950 text-[11px] font-bold"><Upload className="ikona-text" /> VÝDEJ</span>
+                      )}
+                      {e.note && <span className="text-[11px] text-neutral-600">{e.note}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="hidden md:block overflow-x-auto">
                 <table className="table text-xs">
                   <thead>
                     <tr>
-                      <th>Datum</th>
-                      <th>Pohyb</th>
-                      <th>Předmět</th>
-                      <th className="text-right">Ks</th>
-                      <th>Odběratel</th>
-                      <th>Poznámka</th>
-                      <th></th>
+                      <th scope="col">Datum</th>
+                      <th scope="col">Pohyb</th>
+                      <th scope="col">Předmět</th>
+                      <th scope="col" className="text-right">Ks</th>
+                      <th scope="col">Odběratel</th>
+                      <th scope="col">Poznámka</th>
+                      <th scope="col"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -728,6 +764,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                   </tbody>
                 </table>
               </div>
+              </>
             )}
           </div>
         </div>
@@ -842,14 +879,15 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
             {labelPurchases.length === 0 ? (
               <EmptyState text="Zatiaľ nebol zadaný žiadny nákup etiket." icon={Tag} />
             ) : (
+              <div className="overflow-x-auto scrollbar-thin">
               <table className="table text-xs">
                 <thead>
                   <tr>
-                    <th>Datum</th>
-                    <th>Pivo</th>
-                    <th className="text-right">Ks</th>
-                    <th>Poznámka</th>
-                    <th></th>
+                    <th scope="col">Datum</th>
+                    <th scope="col">Pivo</th>
+                    <th scope="col" className="text-right">Ks</th>
+                    <th scope="col">Poznámka</th>
+                    <th scope="col"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -864,6 +902,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         </div>
@@ -1038,14 +1077,15 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
             {bottlePurchases.length === 0 ? (
               <EmptyState text="Zatiaľ nebol zadaný žiadny nákup prázdných lahví." icon={IkonaLahev} />
             ) : (
+              <div className="overflow-x-auto scrollbar-thin">
               <table className="table text-xs">
                 <thead>
                   <tr>
-                    <th>Datum</th>
-                    <th>Obal</th>
-                    <th className="text-right">Ks</th>
-                    <th>Poznámka</th>
-                    <th></th>
+                    <th scope="col">Datum</th>
+                    <th scope="col">Obal</th>
+                    <th scope="col" className="text-right">Ks</th>
+                    <th scope="col">Poznámka</th>
+                    <th scope="col"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1060,6 +1100,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         </div>

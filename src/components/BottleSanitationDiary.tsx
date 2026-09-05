@@ -518,14 +518,14 @@ export default function BottleSanitationDiary() {
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-neutral-50/70 border-b border-neutral-100 text-neutral-500 font-bold uppercase tracking-wider">
-                  <th className="py-3 px-4">Datum</th>
-                  <th className="py-3 px-4">Co bylo provedeno</th>
-                  <th className="py-3 px-4">Čím</th>
-                  <th className="py-3 px-4">Koncentrace</th>
-                  <th className="py-3 px-4">Čas</th>
-                  <th className="py-3 px-4">Provedl / Schválil</th>
-                  <th className="py-3 px-4">Stav</th>
-                  <th className="py-3 px-4 text-right">Akce</th>
+                  <th scope="col" className="py-3 px-4">Datum</th>
+                  <th scope="col" className="py-3 px-4">Co bylo provedeno</th>
+                  <th scope="col" className="py-3 px-4">Čím</th>
+                  <th scope="col" className="py-3 px-4">Koncentrace</th>
+                  <th scope="col" className="py-3 px-4">Čas</th>
+                  <th scope="col" className="py-3 px-4">Provedl / Schválil</th>
+                  <th scope="col" className="py-3 px-4">Stav</th>
+                  <th scope="col" className="py-3 px-4 text-right">Akce</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100 font-medium text-neutral-800">

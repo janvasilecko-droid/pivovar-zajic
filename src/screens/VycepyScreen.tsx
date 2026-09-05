@@ -414,13 +414,13 @@ export default function VycepyScreen() {
             <table className="table text-xs">
               <thead>
                 <tr>
-                  <th>Stav</th>
-                  <th>Výčep</th>
-                  <th>Od – Do</th>
-                  <th>Zákazník</th>
-                  <th>Kauce</th>
-                  <th>Poznámka</th>
-                  <th className="text-right">Akce</th>
+                  <th scope="col">Stav</th>
+                  <th scope="col">Výčep</th>
+                  <th scope="col">Od – Do</th>
+                  <th scope="col">Zákazník</th>
+                  <th scope="col">Kauce</th>
+                  <th scope="col">Poznámka</th>
+                  <th scope="col" className="text-right">Akce</th>
                 </tr>
               </thead>
               <tbody>

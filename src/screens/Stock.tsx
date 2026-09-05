@@ -597,10 +597,10 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                           <table className="w-full text-xs font-semibold border-collapse">
                             <thead>
                               <tr className="text-[11px] font-bold uppercase tracking-wide text-neutral-400">
-                                <th className="text-left pb-1 pr-1">Obal</th>
-                                <th className="text-center pb-1 px-1" title="Aktuální stav">Stav</th>
-                                <th className="text-center pb-1 px-1" title="Objednáno tento týden, ještě nezavezeno">Objedn.</th>
-                                <th className="text-center pb-1 pl-1" title="Rozdíl">Rozdíl</th>
+                                <th scope="col" className="text-left pb-1 pr-1">Obal</th>
+                                <th scope="col" className="text-center pb-1 px-1" title="Aktuální stav">Stav</th>
+                                <th scope="col" className="text-center pb-1 px-1" title="Objednáno tento týden, ještě nezavezeno">Objedn.</th>
+                                <th scope="col" className="text-center pb-1 pl-1" title="Rozdíl">Rozdíl</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -653,10 +653,10 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                           <table className="w-full text-xs font-semibold border-collapse">
                             <thead>
                               <tr className="text-[11px] font-bold uppercase tracking-wide text-neutral-400">
-                                <th className="text-left pb-1 pr-1">Obal</th>
-                                <th className="text-center pb-1 px-1" title="Aktuální stav">Stav</th>
-                                <th className="text-center pb-1 px-1" title="Objednáno tento týden, ještě nezavezeno">Objedn.</th>
-                                <th className="text-center pb-1 pl-1" title="Rozdíl">Rozdíl</th>
+                                <th scope="col" className="text-left pb-1 pr-1">Obal</th>
+                                <th scope="col" className="text-center pb-1 px-1" title="Aktuální stav">Stav</th>
+                                <th scope="col" className="text-center pb-1 px-1" title="Objednáno tento týden, ještě nezavezeno">Objedn.</th>
+                                <th scope="col" className="text-center pb-1 pl-1" title="Rozdíl">Rozdíl</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -885,11 +885,11 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
               <table className="w-full text-xs">
                 <thead>
                   <tr className="text-[11px] font-bold uppercase text-neutral-400 border-b border-neutral-200">
-                    <th className="text-left py-2 pr-2">Pivo</th>
-                    <th className="text-right py-2 px-2">Sudů</th>
-                    <th className="text-right py-2 px-2">Lahví</th>
-                    <th className="text-right py-2 px-2">Celkem ks</th>
-                    <th className="text-right py-2 pl-2">hl</th>
+                    <th scope="col" className="text-left py-2 pr-2">Pivo</th>
+                    <th scope="col" className="text-right py-2 px-2">Sudů</th>
+                    <th scope="col" className="text-right py-2 px-2">Lahví</th>
+                    <th scope="col" className="text-right py-2 px-2">Celkem ks</th>
+                    <th scope="col" className="text-right py-2 pl-2">hl</th>
                   </tr>
                 </thead>
                 <tbody>

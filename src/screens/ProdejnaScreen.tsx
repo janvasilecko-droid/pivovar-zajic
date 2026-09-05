@@ -799,16 +799,16 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="border-b border-amber-300/80 bg-amber-100/80">
-                          <th className="text-left py-1.5 px-2 font-black text-amber-950">Datum</th>
+                          <th scope="col" className="text-left py-1.5 px-2 font-black text-amber-950">Datum</th>
                           {showWhoColumn && (
-                            <th className="text-left py-1.5 px-2 font-black text-amber-950">
+                            <th scope="col" className="text-left py-1.5 px-2 font-black text-amber-950">
                               {druh.popisek}
                             </th>
                           )}
-                          <th className="text-left py-1.5 px-2 font-black text-amber-950">Pivo</th>
-                          <th className="text-right py-1.5 px-2 font-black text-amber-950">Obal</th>
-                          <th className="text-right py-1.5 px-2 font-black text-amber-950">Ks</th>
-                          <th className="text-right py-1.5 px-2 font-black text-amber-950">Akce</th>
+                          <th scope="col" className="text-left py-1.5 px-2 font-black text-amber-950">Pivo</th>
+                          <th scope="col" className="text-right py-1.5 px-2 font-black text-amber-950">Obal</th>
+                          <th scope="col" className="text-right py-1.5 px-2 font-black text-amber-950">Ks</th>
+                          <th scope="col" className="text-right py-1.5 px-2 font-black text-amber-950">Akce</th>
                         </tr>
                       </thead>
                       <tbody>

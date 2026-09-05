@@ -147,10 +147,10 @@ export default function PriceListScreen() {
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="bg-neutral-900 text-amber-300 uppercase tracking-wider text-[11px] font-black">
-                      <th className="py-3.5 px-4 text-left">Pivo</th>
-                      <th className="py-3.5 px-4 text-right">Cena za 1 litr (Kč)</th>
+                      <th scope="col" className="py-3.5 px-4 text-left">Pivo</th>
+                      <th scope="col" className="py-3.5 px-4 text-right">Cena za 1 litr (Kč)</th>
                       {kegPackages.map((p) => (
-                        <th key={p.id} className="py-3.5 px-4 text-right">
+                        <th scope="col" key={p.id} className="py-3.5 px-4 text-right">
                           <span className="inline-block rounded-md px-2 py-0.5 text-xs font-extrabold shadow-2xs" style={{ backgroundColor: pkgBg(p), color: pkgText(p) === 'text-white' ? '#fff' : '#111' }}>
                             {formatPackageLabel(p.label)}
                           </span>
@@ -260,9 +260,9 @@ export default function PriceListScreen() {
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="bg-neutral-900 text-amber-300 uppercase tracking-wider text-[11px] font-black">
-                      <th className="py-3.5 px-4 text-left">Pivo</th>
+                      <th scope="col" className="py-3.5 px-4 text-left">Pivo</th>
                       {bottlePackages.map((p) => (
-                        <th key={p.id} className="py-3.5 px-4 text-right">
+                        <th scope="col" key={p.id} className="py-3.5 px-4 text-right">
                           <span className="inline-block rounded-md px-2 py-0.5 text-xs font-extrabold shadow-2xs" style={{ backgroundColor: pkgBg(p), color: pkgText(p) === 'text-white' ? '#fff' : '#111' }}>
                             {formatPackageLabel(p.label)}
                           </span>

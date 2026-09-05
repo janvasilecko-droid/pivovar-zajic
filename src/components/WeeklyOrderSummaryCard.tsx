@@ -295,11 +295,11 @@ export function WeeklyOrderSummaryCard({
             <table className="w-full text-xs table-fixed">
                 <thead>
                   <tr className="bg-neutral-900 text-amber-300 uppercase tracking-wider text-[11px] font-black border-b border-neutral-800">
-                    <th className="py-3 px-4 text-left">Pivo</th>
-                    <th className="py-3 px-4 text-center">Velikost</th>
-                    <th className="py-3 px-4 text-right">Sklad (ks)</th>
-                    <th className="py-3 px-4 text-right">Objednáno (ks)</th>
-                    <th className="py-3 px-4 text-center">Stav</th>
+                    <th scope="col" className="py-3 px-4 text-left">Pivo</th>
+                    <th scope="col" className="py-3 px-4 text-center">Velikost</th>
+                    <th scope="col" className="py-3 px-4 text-right">Sklad (ks)</th>
+                    <th scope="col" className="py-3 px-4 text-right">Objednáno (ks)</th>
+                    <th scope="col" className="py-3 px-4 text-center">Stav</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-200/60">

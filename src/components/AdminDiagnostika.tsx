@@ -117,12 +117,12 @@ function ChybyBlok() {
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="text-neutral-700">
-                <th className="py-1 pr-2 font-black">Kdy</th>
-                <th className="py-1 pr-2 font-black">Verze</th>
-                <th className="py-1 pr-2 font-black">Obrazovka</th>
-                <th className="py-1 pr-2 font-black">Chyba</th>
-                <th className="py-1 pr-2 font-black">Kdo</th>
-                <th className="py-1 font-black" />
+                <th scope="col" className="py-1 pr-2 font-black">Kdy</th>
+                <th scope="col" className="py-1 pr-2 font-black">Verze</th>
+                <th scope="col" className="py-1 pr-2 font-black">Obrazovka</th>
+                <th scope="col" className="py-1 pr-2 font-black">Chyba</th>
+                <th scope="col" className="py-1 pr-2 font-black">Kdo</th>
+                <th scope="col" className="py-1 font-black" />
               </tr>
             </thead>
             <tbody>
@@ -320,12 +320,12 @@ function TankFrontaBlok() {
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="text-neutral-700">
-                  <th className="py-1 pr-2 font-black">Tank</th>
-                  <th className="py-1 pr-2 font-black">Litry</th>
-                  <th className="py-1 pr-2 font-black">Pokusů</th>
-                  <th className="py-1 pr-2 font-black">Naposled</th>
-                  <th className="py-1 pr-2 font-black">Důvod</th>
-                  <th className="py-1 font-black" />
+                  <th scope="col" className="py-1 pr-2 font-black">Tank</th>
+                  <th scope="col" className="py-1 pr-2 font-black">Litry</th>
+                  <th scope="col" className="py-1 pr-2 font-black">Pokusů</th>
+                  <th scope="col" className="py-1 pr-2 font-black">Naposled</th>
+                  <th scope="col" className="py-1 pr-2 font-black">Důvod</th>
+                  <th scope="col" className="py-1 font-black" />
                 </tr>
               </thead>
               <tbody>

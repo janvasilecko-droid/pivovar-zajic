@@ -3560,7 +3560,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
           {/* Desktop tabulka */}
           <div className="hidden md:block card overflow-hidden">
             <table className="table text-xs">
-              <thead><tr><th className="w-8"></th><th>Pivo</th><th>Obal</th><th className="text-right">Množství</th><th></th><th></th><th></th></tr></thead>
+              <thead><tr><th scope="col" className="w-8"></th><th scope="col">Pivo</th><th scope="col">Obal</th><th scope="col" className="text-right">Množství</th><th scope="col"></th><th scope="col"></th><th scope="col"></th></tr></thead>
               <tbody>
                 {items.map((i) => {
                   const rem = i.beer_id ? (remaining.get(i.beer_id) ?? 0) : 0;

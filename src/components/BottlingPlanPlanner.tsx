@@ -457,18 +457,21 @@ export function BottlingPlanPlanner({
     }
     return (
       <div className="overflow-x-auto">
-        <table className="w-full text-xs border-collapse min-w-[920px]">
+        {/* `table-drzi-prvni-sloupec`: tabulka je 920 px široká, na telefonu
+            se roluje do stran a bez názvu piva vlevo se čtou čísla, u kterých
+            není vidět, čí jsou. */}
+        <table className="table-drzi-prvni-sloupec w-full text-xs border-collapse min-w-[920px]">
           <thead>
             <tr className="text-[11px] uppercase tracking-wide text-neutral-500">
-              <th className="text-left font-black px-2 py-1.5">Pivo</th>
-              <th className="text-left font-black px-2 py-1.5">Obal</th>
-              <th className="text-right font-black px-2 py-1.5"><ShoppingCart className="ikona-text" /> Objednáno</th>
-              <th className="text-right font-black px-2 py-1.5"><PackageIcon className="ikona-text" /> Sklad</th>
-              <th className="text-right font-black px-2 py-1.5"><ClipboardList className="ikona-text" /> Naplánováno</th>
-              <th className="text-right font-black px-2 py-1.5"><IkonaLahev className="ikona-text" /> Po stočení</th>
-              <th className="text-right font-black px-2 py-1.5"><AlertTriangle className="ikona-text" /> Chybí</th>
-              <th className="text-right font-black px-2 py-1.5"><Calculator className="ikona-text" /> Po odchodu</th>
-              <th className="text-right font-black px-2 py-1.5"><CalendarDays className="ikona-text" /> Úkol</th>
+              <th scope="col" className="text-left font-black px-2 py-1.5">Pivo</th>
+              <th scope="col" className="text-left font-black px-2 py-1.5">Obal</th>
+              <th scope="col" className="text-right font-black px-2 py-1.5"><ShoppingCart className="ikona-text" /> Objednáno</th>
+              <th scope="col" className="text-right font-black px-2 py-1.5"><PackageIcon className="ikona-text" /> Sklad</th>
+              <th scope="col" className="text-right font-black px-2 py-1.5"><ClipboardList className="ikona-text" /> Naplánováno</th>
+              <th scope="col" className="text-right font-black px-2 py-1.5"><IkonaLahev className="ikona-text" /> Po stočení</th>
+              <th scope="col" className="text-right font-black px-2 py-1.5"><AlertTriangle className="ikona-text" /> Chybí</th>
+              <th scope="col" className="text-right font-black px-2 py-1.5"><Calculator className="ikona-text" /> Po odchodu</th>
+              <th scope="col" className="text-right font-black px-2 py-1.5"><CalendarDays className="ikona-text" /> Úkol</th>
             </tr>
           </thead>
           <tbody>

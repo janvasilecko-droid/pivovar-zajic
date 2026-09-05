@@ -435,15 +435,15 @@ export function BottlingTasksSettings() {
         <table className="w-full text-xs border-collapse">
           <thead>
             <tr className="text-[11px] uppercase tracking-wide text-neutral-500">
-              <th className="text-left font-black px-2 py-1.5">Pivo</th>
-              <th className="text-left font-black px-2 py-1.5">Obal</th>
-              <th className="text-right font-black px-2 py-1.5"><ShoppingCart className="ikona-text" /> Objednávky</th>
-              <th className="text-right font-black px-2 py-1.5"><PackageIcon className="ikona-text" /> Fasování</th>
-              <th className="text-right font-black px-2 py-1.5"><ClipboardList className="ikona-text" /> Naplánováno</th>
-              <th className="text-right font-black px-2 py-1.5">{isKeg ? 'Sudy na skladě' : 'Lahve na skladě'}</th>
-              <th className="text-right font-black px-2 py-1.5"><AlertTriangle className="ikona-text" /> Chybí stočit</th>
-              <th className="text-right font-black px-2 py-1.5"><Calendar className="ikona-text" /> Konec týdne</th>
-              <th className="text-right font-black px-2 py-1.5"><IkonaLahev className="ikona-text" /> Stočit</th>
+              <th scope="col" className="text-left font-black px-2 py-1.5">Pivo</th>
+              <th scope="col" className="text-left font-black px-2 py-1.5">Obal</th>
+              <th scope="col" className="text-right font-black px-2 py-1.5"><ShoppingCart className="ikona-text" /> Objednávky</th>
+              <th scope="col" className="text-right font-black px-2 py-1.5"><PackageIcon className="ikona-text" /> Fasování</th>
+              <th scope="col" className="text-right font-black px-2 py-1.5"><ClipboardList className="ikona-text" /> Naplánováno</th>
+              <th scope="col" className="text-right font-black px-2 py-1.5">{isKeg ? 'Sudy na skladě' : 'Lahve na skladě'}</th>
+              <th scope="col" className="text-right font-black px-2 py-1.5"><AlertTriangle className="ikona-text" /> Chybí stočit</th>
+              <th scope="col" className="text-right font-black px-2 py-1.5"><Calendar className="ikona-text" /> Konec týdne</th>
+              <th scope="col" className="text-right font-black px-2 py-1.5"><IkonaLahev className="ikona-text" /> Stočit</th>
             </tr>
           </thead>
           <tbody>

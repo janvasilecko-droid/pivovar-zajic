@@ -1697,13 +1697,13 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                 <table className="table text-xs">
                   <thead>
                     <tr>
-                      <th className="cursor-pointer select-none" onClick={() => onSortDetail('beer_name')}>Pivo<SortIcon active={detailSortKey === 'beer_name'} dir={detailSortDir} /></th>
-                      <th className="cursor-pointer select-none" onClick={() => onSortDetail('package_label')}>Obal<SortIcon active={detailSortKey === 'package_label'} dir={detailSortDir} /></th>
+                      <th scope="col" className="cursor-pointer select-none" onClick={() => onSortDetail('beer_name')}>Pivo<SortIcon active={detailSortKey === 'beer_name'} dir={detailSortDir} /></th>
+                      <th scope="col" className="cursor-pointer select-none" onClick={() => onSortDetail('package_label')}>Obal<SortIcon active={detailSortKey === 'package_label'} dir={detailSortDir} /></th>
                       {ACTIVITY_SOURCES.filter((s) => selSources.has(s.key)).map((s) => (
-                        <th key={s.key} className="text-right"><s.icon className="ikona-text" /> {s.label}</th>
+                        <th scope="col" key={s.key} className="text-right"><s.icon className="ikona-text" /> {s.label}</th>
                       ))}
-                      <th className="text-right cursor-pointer select-none" onClick={() => onSortDetail('totalQty')}>Celkem<SortIcon active={detailSortKey === 'totalQty'} dir={detailSortDir} /></th>
-                      <th className="text-right cursor-pointer select-none" onClick={() => onSortDetail('totalLiters')}>Litrů<SortIcon active={detailSortKey === 'totalLiters'} dir={detailSortDir} /></th>
+                      <th scope="col" className="text-right cursor-pointer select-none" onClick={() => onSortDetail('totalQty')}>Celkem<SortIcon active={detailSortKey === 'totalQty'} dir={detailSortDir} /></th>
+                      <th scope="col" className="text-right cursor-pointer select-none" onClick={() => onSortDetail('totalLiters')}>Litrů<SortIcon active={detailSortKey === 'totalLiters'} dir={detailSortDir} /></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1851,15 +1851,15 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                 <table className="table text-xs">
                   <thead>
                     <tr>
-                      <th className="cursor-pointer select-none" onClick={() => onSortCycle('tank_label')}>Tank<SortIcon active={cycleSortKey === 'tank_label'} dir={cycleSortDir} /></th>
-                      <th className="cursor-pointer select-none" onClick={() => onSortCycle('beer_name')}>Pivo<SortIcon active={cycleSortKey === 'beer_name'} dir={cycleSortDir} /></th>
-                      <th className="text-right cursor-pointer select-none" onClick={() => onSortCycle('initial_volume_l')}>Poč.<SortIcon active={cycleSortKey === 'initial_volume_l'} dir={cycleSortDir} /></th>
-                      <th className="text-right cursor-pointer select-none" onClick={() => onSortCycle('kegged_volume_l')}>Stoč.<SortIcon active={cycleSortKey === 'kegged_volume_l'} dir={cycleSortDir} /></th>
-                      <th className="text-right cursor-pointer select-none" onClick={() => onSortCycle('keg_count')}>Sudů<SortIcon active={cycleSortKey === 'keg_count'} dir={cycleSortDir} /></th>
-                      <th className="text-right cursor-pointer select-none" onClick={() => onSortCycle('loss_l')}>Ztr.<SortIcon active={cycleSortKey === 'loss_l'} dir={cycleSortDir} /></th>
-                      <th className="text-right cursor-pointer select-none" onClick={() => onSortCycle('loss_pct')}>Ztr.%<SortIcon active={cycleSortKey === 'loss_pct'} dir={cycleSortDir} /></th>
-                      <th className="text-right cursor-pointer select-none" onClick={() => onSortCycle('duration_hours')}>Doba<SortIcon active={cycleSortKey === 'duration_hours'} dir={cycleSortDir} /></th>
-                      <th className="cursor-pointer select-none" onClick={() => onSortCycle('ended_at')}>Konec<SortIcon active={cycleSortKey === 'ended_at'} dir={cycleSortDir} /></th>
+                      <th scope="col" className="cursor-pointer select-none" onClick={() => onSortCycle('tank_label')}>Tank<SortIcon active={cycleSortKey === 'tank_label'} dir={cycleSortDir} /></th>
+                      <th scope="col" className="cursor-pointer select-none" onClick={() => onSortCycle('beer_name')}>Pivo<SortIcon active={cycleSortKey === 'beer_name'} dir={cycleSortDir} /></th>
+                      <th scope="col" className="text-right cursor-pointer select-none" onClick={() => onSortCycle('initial_volume_l')}>Poč.<SortIcon active={cycleSortKey === 'initial_volume_l'} dir={cycleSortDir} /></th>
+                      <th scope="col" className="text-right cursor-pointer select-none" onClick={() => onSortCycle('kegged_volume_l')}>Stoč.<SortIcon active={cycleSortKey === 'kegged_volume_l'} dir={cycleSortDir} /></th>
+                      <th scope="col" className="text-right cursor-pointer select-none" onClick={() => onSortCycle('keg_count')}>Sudů<SortIcon active={cycleSortKey === 'keg_count'} dir={cycleSortDir} /></th>
+                      <th scope="col" className="text-right cursor-pointer select-none" onClick={() => onSortCycle('loss_l')}>Ztr.<SortIcon active={cycleSortKey === 'loss_l'} dir={cycleSortDir} /></th>
+                      <th scope="col" className="text-right cursor-pointer select-none" onClick={() => onSortCycle('loss_pct')}>Ztr.%<SortIcon active={cycleSortKey === 'loss_pct'} dir={cycleSortDir} /></th>
+                      <th scope="col" className="text-right cursor-pointer select-none" onClick={() => onSortCycle('duration_hours')}>Doba<SortIcon active={cycleSortKey === 'duration_hours'} dir={cycleSortDir} /></th>
+                      <th scope="col" className="cursor-pointer select-none" onClick={() => onSortCycle('ended_at')}>Konec<SortIcon active={cycleSortKey === 'ended_at'} dir={cycleSortDir} /></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2015,11 +2015,11 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
                 <table className="w-full border-collapse text-left border border-neutral-200">
                   <thead>
                     <tr className="bg-neutral-100 border-b border-neutral-200">
-                      <th className="p-2 font-black">Měsíc</th>
-                      <th className="p-2 font-black text-right">Stočeno celkem</th>
-                      <th className="p-2 font-black text-right">Stočeno Sudy</th>
-                      <th className="p-2 font-black text-right">Stočeno Lahve</th>
-                      <th className="p-2 font-black text-right">Fasováno</th>
+                      <th scope="col" className="p-2 font-black">Měsíc</th>
+                      <th scope="col" className="p-2 font-black text-right">Stočeno celkem</th>
+                      <th scope="col" className="p-2 font-black text-right">Stočeno Sudy</th>
+                      <th scope="col" className="p-2 font-black text-right">Stočeno Lahve</th>
+                      <th scope="col" className="p-2 font-black text-right">Fasováno</th>
                     </tr>
                   </thead>
                   <tbody>

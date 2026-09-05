@@ -605,10 +605,10 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                               telefonu odroluje a tooltip na dotyku neexistuje,
                               takže ze sloupců zůstaly tři obrázky. */}
                           <tr className="text-[11px] font-bold uppercase tracking-wide text-neutral-500">
-                            <th className="text-left pb-1 pr-2">Obal</th>
-                            <th className="text-center pb-1 px-2">Stav</th>
-                            <th className="text-center pb-1 px-2">Odejde</th>
-                            <th className="text-center pb-1 pl-2">Zbude</th>
+                            <th scope="col" className="text-left pb-1 pr-2">Obal</th>
+                            <th scope="col" className="text-center pb-1 px-2">Stav</th>
+                            <th scope="col" className="text-center pb-1 px-2">Odejde</th>
+                            <th scope="col" className="text-center pb-1 pl-2">Zbude</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -633,10 +633,10 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
                               telefonu odroluje a tooltip na dotyku neexistuje,
                               takže ze sloupců zůstaly tři obrázky. */}
                           <tr className="text-[11px] font-bold uppercase tracking-wide text-neutral-500">
-                            <th className="text-left pb-1 pr-2">Obal</th>
-                            <th className="text-center pb-1 px-2">Stav</th>
-                            <th className="text-center pb-1 px-2">Odejde</th>
-                            <th className="text-center pb-1 pl-2">Zbude</th>
+                            <th scope="col" className="text-left pb-1 pr-2">Obal</th>
+                            <th scope="col" className="text-center pb-1 px-2">Stav</th>
+                            <th scope="col" className="text-center pb-1 px-2">Odejde</th>
+                            <th scope="col" className="text-center pb-1 pl-2">Zbude</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -716,20 +716,20 @@ export default function Dashboard({ setPage, initialTab = 'sklad' }: { setPage?:
               <table className="table text-[11px] w-full border-collapse">
                 <thead>
                   <tr className="bg-neutral-100 border-b border-neutral-200">
-                    <th className="p-2 text-left">Obal</th>
-                    <th className="p-2 text-right text-sky-800" title="Počáteční stav k 1. dni v měsíci">Poč.</th>
-                    <th className="p-2 text-right text-emerald-700" title="Stáčení (příjem)">Stoč.</th>
-                    <th className="p-2 text-right text-sky-900 font-black" title="Aktuální fyzický stav na skladě (Poč. + Stoč. − vše, co už fyzicky odešlo)">AKT</th>
-                    <th className="p-2 text-right text-rose-700 font-bold" title="Objednávky celkem tento měsíc">OBJ</th>
-                    <th className="p-2 text-right text-rose-800 font-bold" title="Objednáno − co už fyzicky odjelo (zavoz) = ještě čeká na odvoz">ZBÝVÁ ZAVÉZT</th>
-                    <th className="p-2 text-right text-rose-700 font-bold" title="Už fyzicky odvezeno k odběrateli (automatický odpočet závozu). Bývá to největší část sloupce „Odp. celkem“.">Zavezeno</th>
-                    <th className="p-2 text-right text-violet-700 font-bold" title="Sudy spotřebované na plnění lahví">Stáč. lahví</th>
-                    <th className="p-2 text-right text-rose-600" title="Fasování zaměstnanců / privátní">Fasování</th>
-                    <th className="p-2 text-right text-rose-600" title="Prodejna (výdej prodejny)">Prodejna</th>
-                    <th className="p-2 text-right text-rose-600" title="Čisté vyfasování na akce (odvezeno - vráceno)">Akce</th>
-                    <th className="p-2 text-right text-rose-600" title="Odpisy (vylití/zkažené)">Odpis</th>
-                    <th className="p-2 text-right text-amber-800 font-bold" title="Součet všech odpočtů mimo objednávky">Odp. celkem</th>
-                    <th className="p-2 text-right bg-amber-50 text-amber-950 font-black">ZBYDE</th>
+                    <th scope="col" className="p-2 text-left">Obal</th>
+                    <th scope="col" className="p-2 text-right text-sky-800" title="Počáteční stav k 1. dni v měsíci">Poč.</th>
+                    <th scope="col" className="p-2 text-right text-emerald-700" title="Stáčení (příjem)">Stoč.</th>
+                    <th scope="col" className="p-2 text-right text-sky-900 font-black" title="Aktuální fyzický stav na skladě (Poč. + Stoč. − vše, co už fyzicky odešlo)">AKT</th>
+                    <th scope="col" className="p-2 text-right text-rose-700 font-bold" title="Objednávky celkem tento měsíc">OBJ</th>
+                    <th scope="col" className="p-2 text-right text-rose-800 font-bold" title="Objednáno − co už fyzicky odjelo (zavoz) = ještě čeká na odvoz">ZBÝVÁ ZAVÉZT</th>
+                    <th scope="col" className="p-2 text-right text-rose-700 font-bold" title="Už fyzicky odvezeno k odběrateli (automatický odpočet závozu). Bývá to největší část sloupce „Odp. celkem“.">Zavezeno</th>
+                    <th scope="col" className="p-2 text-right text-violet-700 font-bold" title="Sudy spotřebované na plnění lahví">Stáč. lahví</th>
+                    <th scope="col" className="p-2 text-right text-rose-600" title="Fasování zaměstnanců / privátní">Fasování</th>
+                    <th scope="col" className="p-2 text-right text-rose-600" title="Prodejna (výdej prodejny)">Prodejna</th>
+                    <th scope="col" className="p-2 text-right text-rose-600" title="Čisté vyfasování na akce (odvezeno - vráceno)">Akce</th>
+                    <th scope="col" className="p-2 text-right text-rose-600" title="Odpisy (vylití/zkažené)">Odpis</th>
+                    <th scope="col" className="p-2 text-right text-amber-800 font-bold" title="Součet všech odpočtů mimo objednávky">Odp. celkem</th>
+                    <th scope="col" className="p-2 text-right bg-amber-50 text-amber-950 font-black">ZBYDE</th>
                   </tr>
                 </thead>
                 <tbody>

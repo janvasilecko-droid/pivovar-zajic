@@ -1330,11 +1330,11 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-emerald-300/80 bg-emerald-100/80">
-                        <th className="text-left py-1.5 px-2 font-black text-emerald-950">Datum</th>
-                        <th className="text-left py-1.5 px-2 font-black text-emerald-950">Pivo</th>
-                        <th className="text-right py-1.5 px-2 font-black text-emerald-950">KEG</th>
-                        <th className="text-right py-1.5 px-2 font-black text-emerald-950">Ks</th>
-                        <th className="text-right py-1.5 px-2 font-black text-emerald-950">Akce</th>
+                        <th scope="col" className="text-left py-1.5 px-2 font-black text-emerald-950">Datum</th>
+                        <th scope="col" className="text-left py-1.5 px-2 font-black text-emerald-950">Pivo</th>
+                        <th scope="col" className="text-right py-1.5 px-2 font-black text-emerald-950">KEG</th>
+                        <th scope="col" className="text-right py-1.5 px-2 font-black text-emerald-950">Ks</th>
+                        <th scope="col" className="text-right py-1.5 px-2 font-black text-emerald-950">Akce</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1657,13 +1657,13 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b border-amber-300/80 bg-amber-100/80">
-                      <th className="text-left py-1.5 px-2 font-black text-amber-950">Datum</th>
-                      <th className="text-left py-1.5 px-2 font-black text-amber-950">Pivo</th>
-                      <th className="text-right py-1.5 px-2 font-black text-amber-950">KEG</th>
-                      <th className="text-right py-1.5 px-2 font-black text-amber-950">Ks</th>
-                      <th className="text-right py-1.5 px-2 font-black text-amber-950">Litry</th>
-                      <th className="text-right py-1.5 px-2 font-black text-amber-950">HL</th>
-                      <th className="text-right py-1.5 px-2 font-black text-amber-950">Akce</th>
+                      <th scope="col" className="text-left py-1.5 px-2 font-black text-amber-950">Datum</th>
+                      <th scope="col" className="text-left py-1.5 px-2 font-black text-amber-950">Pivo</th>
+                      <th scope="col" className="text-right py-1.5 px-2 font-black text-amber-950">KEG</th>
+                      <th scope="col" className="text-right py-1.5 px-2 font-black text-amber-950">Ks</th>
+                      <th scope="col" className="text-right py-1.5 px-2 font-black text-amber-950">Litry</th>
+                      <th scope="col" className="text-right py-1.5 px-2 font-black text-amber-950">HL</th>
+                      <th scope="col" className="text-right py-1.5 px-2 font-black text-amber-950">Akce</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1948,12 +1948,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                 <table className="table text-xs w-full">
                   <thead>
                     <tr className="bg-neutral-100 border-b border-neutral-200">
-                      <th className="p-2.5 text-left">Datum</th>
-                      <th className="p-2.5 text-left">Pivo</th>
-                      <th className="p-2.5 text-left">ZE sudů (odečet)</th>
-                      <th className="p-2.5 text-left">DO sudů (přičet)</th>
-                      <th className="p-2.5 text-left">Poznámka</th>
-                      <th className="p-2.5 text-center">Smazat</th>
+                      <th scope="col" className="p-2.5 text-left">Datum</th>
+                      <th scope="col" className="p-2.5 text-left">Pivo</th>
+                      <th scope="col" className="p-2.5 text-left">ZE sudů (odečet)</th>
+                      <th scope="col" className="p-2.5 text-left">DO sudů (přičet)</th>
+                      <th scope="col" className="p-2.5 text-left">Poznámka</th>
+                      <th scope="col" className="p-2.5 text-center">Smazat</th>
                     </tr>
                   </thead>
                   <tbody>

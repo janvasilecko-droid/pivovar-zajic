@@ -374,13 +374,13 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
             <table className="w-full text-left text-xs">
               <thead className="bg-neutral-100/80 border-b border-neutral-200/80 text-neutral-600 font-extrabold uppercase tracking-wider">
                 <tr>
-                  <th className="py-3 px-4">Datum a čas sanitace</th>
-                  <th className="py-3 px-4">Trvání</th>
-                  <th className="py-3 px-4">Nádoba / Tank</th>
-                  <th className="py-3 px-4">Metoda & Koncentrace</th>
-                  <th className="py-3 px-4">Provedl</th>
-                  <th className="py-3 px-4">Poznámka sládka / Detaily</th>
-                  <th className="py-3 px-4 text-right">Akce</th>
+                  <th scope="col" className="py-3 px-4">Datum a čas sanitace</th>
+                  <th scope="col" className="py-3 px-4">Trvání</th>
+                  <th scope="col" className="py-3 px-4">Nádoba / Tank</th>
+                  <th scope="col" className="py-3 px-4">Metoda & Koncentrace</th>
+                  <th scope="col" className="py-3 px-4">Provedl</th>
+                  <th scope="col" className="py-3 px-4">Poznámka sládka / Detaily</th>
+                  <th scope="col" className="py-3 px-4 text-right">Akce</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100 font-medium text-neutral-800">

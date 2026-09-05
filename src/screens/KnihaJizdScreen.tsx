@@ -645,15 +645,15 @@ export default function KnihaJizdScreen({ setPage }: { setPage?: (p: any) => voi
             <table className="table">
               <thead>
                 <tr>
-                  <th>Datum</th>
-                  <th>Vozidlo</th>
-                  <th>Řidič</th>
-                  <th>Trasa (Odkud → Kam)</th>
-                  <th>Účel jízdy</th>
-                  <th className="text-right">Tachometr Start</th>
-                  <th className="text-right">Tachometr Konec</th>
-                  <th className="text-right font-black text-amber-950">Ujeté km</th>
-                  <th className="w-10"></th>
+                  <th scope="col">Datum</th>
+                  <th scope="col">Vozidlo</th>
+                  <th scope="col">Řidič</th>
+                  <th scope="col">Trasa (Odkud → Kam)</th>
+                  <th scope="col">Účel jízdy</th>
+                  <th scope="col" className="text-right">Tachometr Start</th>
+                  <th scope="col" className="text-right">Tachometr Konec</th>
+                  <th scope="col" className="text-right font-black text-amber-950">Ujeté km</th>
+                  <th scope="col" className="w-10"></th>
                 </tr>
               </thead>
               <tbody>
