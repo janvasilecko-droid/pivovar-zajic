@@ -284,9 +284,9 @@ export default function BottlingScreen({
   const [reqPkgFilter, setReqPkgFilter] = useState('');
   const [reqOnlyMissing, setReqOnlyMissing] = useState(true);
 
-  // Výchozí je DEN (aktuální) — v přehledu se nejčastěji kouká „co dnes";
-  // týden a měsíc jsou o klik vedle.
-  const [recordsView, setRecordsView] = useState<'day' | 'week' | 'month'>('day');
+  // Výchozí je TÝDEN — v jednom dni často není nic stočené (stáčí se v cyklech),
+  // takže „den" by se otvíral prázdný. Den a měsíc jsou o klik vedle.
+  const [recordsView, setRecordsView] = useState<'day' | 'week' | 'month'>('week');
   const [recordsMonthKey, setRecordsMonthKey] = useState(() => new Date().toISOString().slice(0, 7));
   const [recordsWeekKey, setRecordsWeekKey] = useState(() => isoWeekKey(new Date().toISOString().slice(0, 10)));
   const [recordsDay, setRecordsDay] = useState(() => new Date().toISOString().slice(0, 10));
@@ -311,7 +311,9 @@ export default function BottlingScreen({
   const [recordsPkgFilter, setRecordsPkgFilter] = useState('');
 
   const filteredRows = useMemo(() => {
-    let result = rows;
+    // Minusové položky (ruční opravy přepočtu) se v přehledu stáčení
+    // nezobrazují — je to seznam toho, co se stočilo, ne deník oprav.
+    let result = rows.filter((r) => Number(r.quantity) > 0);
     if (recordsView === 'day') {
       result = result.filter((r) => r.entry_date === recordsDay);
     } else if (recordsView === 'month') {

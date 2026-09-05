@@ -145,9 +145,9 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
   // Přehled záznamů: filtr podle období (den/týden/měsíc) + filtr podle piva
 
-  // Výchozí je DEN (aktuální) — v přehledu se nejčastěji kouká „co dnes";
-  // týden a měsíc jsou o klik vedle. Dřív se otvíral měsíc a hledalo se v něm.
-  const [recordsView, setRecordsView] = useState<'day' | 'week' | 'month'>('day');
+  // Výchozí je TÝDEN — v jednom dni často není nic stočené (stáčí se v cyklech),
+  // takže „den" by se otvíral prázdný. Den a měsíc jsou o klik vedle.
+  const [recordsView, setRecordsView] = useState<'day' | 'week' | 'month'>('week');
   const [recordsWeekKey, setRecordsWeekKey] = useState(() => isoWeekKey(new Date().toISOString().slice(0, 10)));
   const [recordsMonthKey, setRecordsMonthKey] = useState(() => new Date().toISOString().slice(0, 7));
   const [recordsDay, setRecordsDay] = useState(() => new Date().toISOString().slice(0, 10));
@@ -172,7 +172,9 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   }
 
   const filteredRows = useMemo(() => {
-    let result = rows;
+    // Minusové položky (ruční opravy přepočtu) se v přehledu stáčení
+    // nezobrazují — je to seznam toho, co se stočilo, ne účetní deník oprav.
+    let result = rows.filter((r) => Number(r.quantity) > 0);
     if (recordsView === 'month') {
       result = result.filter((r) => r.entry_date?.startsWith(recordsMonthKey));
     } else if (recordsView === 'week') {
@@ -1221,7 +1223,9 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
           {/* Stočeno KEG za týden — jednotlivé záznamy s +/−/✕ */}
           {rows.length > 0 && (() => {
-            const weekRowsAll = rows.filter((r) => isoWeekKey(r.entry_date) === weekKey);
+            // Minusové položky (ruční opravy) se nezobrazují — je to seznam
+            // stočeného, ne účetní deník oprav.
+            const weekRowsAll = rows.filter((r) => isoWeekKey(r.entry_date) === weekKey && Number(r.quantity) > 0);
             if (weekRowsAll.length === 0) return null;
             const weekRows = weekRowsAll.filter((r) =>
               (!weekBeerFilter || r.beer_id === weekBeerFilter) &&
