@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Settings, Zap } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Settings } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import type { NavItem } from './Layout';
 import { hexToRgba, tileTextColor, COLOR_HEX, UNIT_COLS, defaultTileColor, type TileColor, type TileId, type TileOverride } from '../lib/homeLayout';

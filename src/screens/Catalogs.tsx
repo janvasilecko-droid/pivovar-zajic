@@ -3,7 +3,7 @@ import { supabase, Beer, Package, Place, Vehicle, useRealtime, BEER_COLOR_PRESET
 import { getVehicleExpiryStatus } from '../lib/vozidla';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import ExcelImportModal from '../components/ExcelImportModal';
-import { AlertTriangle, Beer as BeerIcon, Car, Edit, Eye, EyeOff, FileSpreadsheet, Check, Mail, MapPin, Milestone, NotebookPen, Package as PackageIcon, Phone, Plus, Search, ShieldAlert, ShieldCheck, Store, Trash2, Wrench } from 'lucide-react';
+import { AlertTriangle, Beer as BeerIcon, Car, FileSpreadsheet, Check, Mail, MapPin, Milestone, NotebookPen, Package as PackageIcon, Phone, Plus, Search, ShieldAlert, ShieldCheck, Store, Trash2, Wrench } from 'lucide-react';
 import { lookupPlaceOnline } from '../lib/placeLookup';
 import { chyba, oznam, potvrd } from '../lib/toast';
 import { usePosledniNacteni } from '../lib/nacitani';
@@ -142,8 +142,6 @@ function BeerForm({ beer, onClose, onSaved }: { beer: Beer | null; onClose: () =
     }
     onSaved();
   }
-
-
 
   return (
     <Modal open onClose={onClose} title={beer ? 'Upravit pivo' : 'Nové pivo'}>

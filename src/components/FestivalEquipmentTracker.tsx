@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertCircle, Calendar, ClipboardList, DollarSign, Download, CheckCircle2, Package, Phone, Plus, Search, Shield, Tent, Truck, User } from 'lucide-react';
+import { Calendar, ClipboardList, DollarSign, Download, CheckCircle2, Phone, Plus, Search, Tent, Truck, User } from 'lucide-react';
 import { potvrd } from '../lib/toast';
 
 type EquipmentItem = {

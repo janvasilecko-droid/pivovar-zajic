@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useRef, useState } from 'react';
+import { ReactNode } from 'react';
 import { Inbox, X, AlertTriangle, type LucideIcon } from 'lucide-react';
 import { plnostTanku, popisPlnosti } from '../lib/tankPlnost';
 import { useChovaniDialogu } from '../lib/zavriNaZpet';

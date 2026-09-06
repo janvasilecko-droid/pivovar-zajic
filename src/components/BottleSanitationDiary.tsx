@@ -1,17 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../lib/auth';
-import {
-  BottleSanField,
-  BottleSanitationEntry,
-  BOTTLE_SAN_FIELDS,
-  loadBottleSanitation,
-  saveBottleSanEntry,
-  removeBottleSanEntry,
-  newBottleSanEntry,
-} from '../lib/bottleSanitation';
+import { BottleSanitationEntry, loadBottleSanitation, saveBottleSanEntry, removeBottleSanEntry, newBottleSanEntry } from '../lib/bottleSanitation';
 import { Spinner } from './ui';
 import { SanitationStepRow, currentTimeStr } from './SanitationStepRow';
-import { Beaker, Calendar, CalendarDays, ClipboardCheck, Clock, Pencil, FileSpreadsheet, FileText, Check, CheckCircle2, Plus, Settings, ShieldAlert, SprayCan, Trash2, User, UserCheck, X } from 'lucide-react';
+import { Beaker, Calendar, CalendarDays, Clock, Pencil, FileSpreadsheet, FileText, Check, CheckCircle2, Plus, Settings, ShieldAlert, SprayCan, Trash2, User, UserCheck, X } from 'lucide-react';
 import { potvrd } from '../lib/toast';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);

@@ -9,7 +9,7 @@ import AdminDiagnostika from '../components/AdminDiagnostika';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import { NAV, NavItem } from '../components/Layout';
-import { canUserView, getUserPermissions, PAGE_TO_MODULE, ModuleKey } from '../lib/permissions';
+import { canUserView, getUserPermissions, PAGE_TO_MODULE } from '../lib/permissions';
 import { Theme, getTheme, setTheme } from '../lib/theme';
 import { getNotificationPermission, requestNotificationPermission, getNotificationSettings, saveNotificationSettings, NotificationSettings } from '../lib/notifications';
 import { jePrihlasen, jePushPodporovan, odhlasPush, prihlasPush, stavPushu, VAPID_KLIC } from '../lib/pushOdber';
@@ -645,7 +645,6 @@ export default function AppSettingsScreen() {
   );
 }
 
-
 /** Text, který musí uživatel zadat pro potvrzení vyčištění všech dat. */
 const CLEAN_CONFIRM_TEXT = 'SMAZAT';
 
@@ -700,7 +699,6 @@ function AdminVersionSyncSection() {
       setCleaning(false);
     }
   }
-
 
   async function handleRefreshData() {
 

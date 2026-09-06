@@ -5,7 +5,7 @@ import { ImageEditor } from './ImageEditor';
 import type { Beer, Package } from '../lib/supabase';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
 import { typObrazku } from '../lib/obrazek';
-import { AlertCircle, Camera, Check, ChevronLeft, ChevronRight, FilePlus, Lightbulb, Plus, RotateCcw, Sparkles, Trash2, Upload } from 'lucide-react';
+import { AlertCircle, Camera, ChevronLeft, ChevronRight, Lightbulb, Plus, RotateCcw, Trash2, Upload } from 'lucide-react';
 
 type RowInput = { beerId: string; pkgId: string; pkg2Id: string; pkg3Id: string; kegPkgId: string; kegQty: string; qty: string; qty2: string; qty3: string; _removed?: boolean; _manual?: boolean };
 type PhotoEntry = { dataUrl: string; name: string };
@@ -37,7 +37,6 @@ export function ImportBottlingFromImage({ isOpen, onClose, beers, packages, onIm
     }, 50);
     return () => clearTimeout(timer);
   }, []);
-
 
   const [editingImage, setEditingImage] = useState<string | null>(null);
   // Fotky, které už prošly (nebo vědomě neprošly) editorem — ať se ořez

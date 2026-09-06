@@ -9,7 +9,7 @@ import {
   saveUserPermissions,
   ModuleKey,
 } from '../lib/permissions';
-import { CheckCircle2, Lock, Save, Shield, Unlock, X, Zap } from 'lucide-react';
+import { CheckCircle2, Lock, Save, Unlock, X, Zap } from 'lucide-react';
 
 export function UserPermissionsModal({
   user,

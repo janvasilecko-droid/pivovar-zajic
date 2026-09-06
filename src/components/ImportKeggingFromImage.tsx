@@ -5,7 +5,7 @@ import { ImageEditor } from './ImageEditor';
 import type { Beer, Package } from '../lib/supabase';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
 import { typObrazku } from '../lib/obrazek';
-import { AlertCircle, AlertTriangle, Beer as BeerIcon, Camera, Check, Plus, RotateCcw, Sparkles, Trash2, Upload } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Beer as BeerIcon, Camera, Plus, RotateCcw, Sparkles, Trash2, Upload } from 'lucide-react';
 import { IkonaSud } from '../components/ikony';
 
 type KegRow = { beerId: string; pkgId: string; qty: string; _removed?: boolean; _manual?: boolean };
@@ -40,7 +40,6 @@ export function ImportKeggingFromImage({ isOpen, onClose, beers, packages, onImp
     }, 50);
     return () => clearTimeout(timer);
   }, []);
-
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [rowsMap, setRowsMap] = useState<Record<number, KegRow[]>>({});

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { ReminderItem, ReminderTarget, ReminderDisplayMode, fetchReminders, createReminder, deleteReminder, acknowledgeReminder, isReminderForUser, normalizeTargetEmails } from '../lib/reminders';
-import { isNotificationSupported, requestNotificationPermission, playOrderChime } from '../lib/notifications';
-import { AlertCircle, Bell, Calendar, Clock, Filter, CheckCircle2, Lock, Mail, Monitor, PhoneCall, Plus, Send, Shield, Smartphone, Target, Trash2, Upload, User, Users as UsersIcon } from 'lucide-react';
+import { isNotificationSupported, requestNotificationPermission } from '../lib/notifications';
+import { Bell, Clock, CheckCircle2, Lock, Mail, Monitor, Plus, Send, Smartphone, Target, Trash2, Upload, User, Users as UsersIcon } from 'lucide-react';
 import { EmptyState, Spinner } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { getAdminEmail, DEFAULT_ROLE } from '../lib/config';

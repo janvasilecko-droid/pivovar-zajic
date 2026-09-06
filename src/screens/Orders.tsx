@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState, useCallback, useRef, lazy, Suspense } from 'react';
 
-import { AlertTriangle, ArrowRight, Ban, ChevronLeft, ChevronRight, Beer as BeerIcon, Bell, Bot, Building2, Calculator, Calendar, CalendarDays, Camera, Check, CheckCircle2, CheckSquare, ClipboardList, Clock, Copy, FilePlus, Globe, Hourglass, ListOrdered, Mail, MessageCircle, NotebookPen, Package as PackageIcon, PackageCheck, Pencil, Phone, Plus, Receipt, RotateCcw, Scroll, Search, ShieldAlert, Trash2, Truck, User, X, Zap } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Ban, ChevronLeft, ChevronRight, Beer as BeerIcon, Bell, Bot, Building2, Calculator, Calendar, CalendarDays, Camera, Check, CheckCircle2, CheckSquare, ClipboardList, Clock, Copy, FilePlus, Globe, Hourglass, Mail, MessageCircle, NotebookPen, Package as PackageIcon, PackageCheck, Pencil, Phone, Plus, Receipt, RotateCcw, Scroll, Search, ShieldAlert, Trash2, Truck, User, X, Zap } from 'lucide-react';
 import { Beer, EntryRow, Package, Place, beerBg, beerName, beerText, fetchAllRows, formatPackageLabel, pkgBg, supabase, useRealtime } from '../lib/supabase';
-import { Modal, Field, EmptyState, Spinner } from '../components/ui';
+import { Field, EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
 import { schodkyObjednavky, zbytekKeKonciTydne } from '../lib/tydenniZbytek';
 import type { StockSources } from '../lib/stockLedger';
@@ -12,15 +12,10 @@ import { consumeOrdersItemFilter, consumeOrdersAutoImportRequest, consumeOrdersO
 import { businessDateISO, posunMesic } from '../lib/businessDate';
 import { computeVariantTotals, type VariantTotalsResult } from '../lib/variantTotals';
 
-
-
-
-
-
 import { PlaceCombobox } from '../components/PlaceCombobox'; // Assuming this is needed
 import { DAYS } from '../lib/shared';
 import { VoiceRecorder } from '../components/VoiceRecorder';
-import { QuickQtySelect, orderQuickQtys } from '../components/QuickQtySelect';
+import { orderQuickQtys } from '../components/QuickQtySelect';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { topQuantitiesLastMonth } from '../lib/quickQty';
 import { parseVoiceOrder, parseOrderText, detectOrderNotes, loadAliasMap, loadPlaceAliasMap, emptyAliasMap, getOrCreatePlace, matchBeerFromHints, matchPackage, normalize, type ParserAliasMap } from '../lib/orderParser';
@@ -32,7 +27,7 @@ import { autoReserveTapIfNeeded, isTapMentioned, detectTapType } from '../lib/ta
 import { findDuplicateOrders, formatDuplicateMessage } from '../lib/orderDuplicates';
 import { TapReservationModal } from '../components/TapReservationModal';
 import { createReminder, getLocalReminders } from '../lib/reminders';
-import { flattenAkceNet, type AkceRow } from '../lib/inventoryHelper';
+import { type AkceRow } from '../lib/inventoryHelper';
 import { chyba, oznam, potvrd, toastZpet } from '../lib/toast';
 import { srovnaniPoUprave, type UpravaPolozky } from '../lib/zavozSync';
 import { IkonaVycep } from '../components/ikony';
@@ -65,7 +60,6 @@ const WhatsAppAutoProcessorModal = lazy(() => import('../components/WhatsAppAuto
 const WhatsAppAuditModal = lazy(() => import('../components/WhatsAppAuditModal').then((m) => ({ default: m.WhatsAppAuditModal })));
 const OrderAuditModal = lazy(() => import('../components/OrderAuditModal').then((m) => ({ default: m.OrderAuditModal })));
 const EditOrderModal = lazy(() => import('../components/EditOrderModal').then((m) => ({ default: m.EditOrderModal })));
-
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -772,10 +766,6 @@ export default function Orders({
     }
   }, []);
 
-
-
-
-
   // Po potvrzení/zamítnutí/ignorování objednávky přeskočíme na další čekající
   // zprávu — aby šlo kontrolovat zprávy jednu po druhé, bez ručního otvírání.
   const advanceWhatsAppReview = useCallback(async () => {
@@ -826,7 +816,6 @@ export default function Orders({
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoOpenShareImport]);
-
 
   async function load(silent = false) {
     if (!silent && !orders.length) setLoading(true);
@@ -1024,7 +1013,6 @@ export default function Orders({
     if (deliveryInFutureMonth && !confirmNextMonth) { setErr('Potvrď zaškrtnutím výše, že závoz spadá do jiného měsíce, nebo uprav datum závozu.'); return; }
     setSaving(true);
 
-
     const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 
     // Group items by target place (if item specifies custom place, use it; otherwise use global form place)
@@ -1174,7 +1162,6 @@ export default function Orders({
           console.warn('Nepodařilo se vytvořit týdenní upomínku:', weekReminderErr);
         }
       }
-
 
       // 🚰 Výčep — zaškrtnuto „Půjčení výčepu" nebo zmínka v poznámce
       const trimmedNote = note.trim();
@@ -1468,7 +1455,6 @@ export default function Orders({
     setFlash(true); setTimeout(() => setFlash(false), 800);
     load();
   }
-
 
   /**
    * ↻ Zopakovat celý závozový den. Objednávky se týden po týdnu opakují
@@ -1767,8 +1753,6 @@ export default function Orders({
       </div>
       )}
 
-
-
       {/* 1. ZADÁVÁNÍ OBJEDNÁVEK (jen v záložce Zadání objednávek) — bez bílé
           "karty" kolem, ať dlaždice piv i zbytek formuláře sedí přímo na
           pozadí stránky, ne uvnitř dalšího ohraničeného panelu navíc. */}
@@ -2007,7 +1991,6 @@ export default function Orders({
               })}
             </BeerTilePanel>
           )}
-
 
           {/* 📋 Souhrn objednávky — pod dlaždicemi, editovatelný jako dlaždice */}
           {filledBeerRows.length > 0 && (
@@ -2612,8 +2595,6 @@ export default function Orders({
         </Suspense>
       )}
 
-
-
       {showWhatsAppAutoProcessor && (
         <Suspense fallback={null}>
         <WhatsAppAutoProcessorModal
@@ -2688,7 +2669,6 @@ export default function Orders({
           initialFiles={shareInitialFiles}
           onPlacesChanged={load}
           onClose={() => { setShowImport(false); setShareInitialFiles(undefined); }}
-
 
           onImport={async (items, meta) => {
             const orderId = importTarget?.id;
@@ -2792,7 +2772,6 @@ export default function Orders({
     </div>
   );
 }
-
 
 // 🍺 Ikona rezervovaného výčepu u objednávky: najde v lokálním úložišti rezervaci
 // výčepu navázanou na danou objednávku (order_id) a vrátí jméno výčepu (nebo null).
@@ -3664,7 +3643,6 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
           </div>
           </>
         )}
-
 
         {adding ? (
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-12 gap-2 items-end">

@@ -1,5 +1,5 @@
 import { ReactNode, useState, useEffect, useRef, lazy, Suspense } from 'react';
-import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Bell, BellOff, BookOpen, Calculator, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Cylinder, Download, FilePlus, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Hourglass, LogOut, MapPin, MessageCircle, Package as PackageIcon, PlusCircle, Radio, Receipt, Search, Settings, Shield, ShieldCheck, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Timer, TrendingDown, Truck, Users, Wheat, Wifi, WifiOff, Wine, X, XCircle, type LucideIcon } from 'lucide-react';
+import { AlarmClock, AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Bell, BookOpen, CalendarDays, Car, ClipboardCheck, ClipboardList, Compass, Download, FileSpreadsheet, FileText, FlaskConical, GlassWater, History as HistoryIcon, Home, Hourglass, LogOut, MapPin, MessageCircle, Package as PackageIcon, Radio, Receipt, Search, Settings, Shield, ShieldCheck, Smartphone, Snowflake, Sparkles, StickyNote, Store, Tag, Timer, TrendingDown, Truck, Users, Wifi, WifiOff, X, XCircle, type LucideIcon } from 'lucide-react';
 import { BreweryRadioBar } from './BreweryRadioBar';
 import { BreweryRadioModal } from './BreweryRadioModal';
 
@@ -7,19 +7,18 @@ import { useAuth } from '../lib/auth';
 import { potvrd } from '../lib/toast';
 import { Modal } from './ui';
 import { supabase, Beer, Package, Place } from '../lib/supabase';
-import { autoReserveTapIfNeeded } from '../lib/tapReservations';
 
 // Načte se až při otevření — viz komentář u <EditOrderModal /> níž.
 const EditOrderModal = lazy(() => import('./EditOrderModal').then((m) => ({ default: m.EditOrderModal })));
 import { requestNotificationPermission, getNotificationPermission, notifyNewOrder, notifyNewWhatsAppMessage, NewOrderNotifyData } from '../lib/notifications';
 import { subscribeToWhatsAppMessages, fetchWhatsAppSenders, fetchPendingWhatsAppCount, isSenderAllowed, triggerAutoParse, type WhatsAppSender, type WhatsAppIncoming } from '../lib/whatsappApi';
 import { requestOrdersAutoImport } from '../lib/ordersFilter';
-import { getDensity, setDensity, DensityMode } from '../lib/density';
-import { canUserView, getUserPermissions, PAGE_TO_MODULE, ModuleKey } from '../lib/permissions';
+import { getDensity, DensityMode } from '../lib/density';
+import { canUserView, getUserPermissions, PAGE_TO_MODULE } from '../lib/permissions';
 import { QuickSearchModal } from './QuickSearchModal';
 import { isAdminEmail } from '../lib/config';
 import { BugReportModal } from './BugReportModal';
-import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
+
 import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
 import { nastavObrazovkuProChyby } from '../lib/chybyHlaseni';
 // Staticky, ne přes `await import(…)`. Fronta offline zápisů sedí v hlavním

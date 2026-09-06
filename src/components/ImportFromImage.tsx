@@ -5,11 +5,9 @@ import { PlaceCombobox } from './PlaceCombobox';
 import { ImageEditor } from './ImageEditor';
 import { PhotoReviewPane } from './PhotoReviewPane';
 
-
-
 import { isTapMentioned } from '../lib/tapReservations';
 import type { Beer, Package, Place } from '../lib/supabase';
-import { supabase } from '../lib/supabase';
+
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
 import { IkonaVycep } from '../components/ikony';
 import {
@@ -18,7 +16,6 @@ import {
   detectOrderDupWarnings,
   type ParsedLine, type ParserAliasMap, type GeminiItem, type ImportedOrder, type OrderDupWarning,
 } from '../lib/orderParser';
-
 
 type ExistingItem = { beer_id: string | null; package_id: string | null; quantity: number };
 type PhotoEntry = { dataUrl: string; name: string; fingerprint: string };
@@ -172,7 +169,6 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
   // ze ktere rozpoznane polozky pochazeji, a zobrazili ji odshora.
   const reviewWasOpenRef = useRef(false);
 
-
   // Detekce duplicitního nahrání toho samého snímku obrazovky / souboru.
   // Otisk souboru = název + velikost + čas uložení. Dva stejné soubory mají
   // stejný otisk, takže poznáme, že uživatel nahrál stejný screen 2x.
@@ -200,7 +196,6 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
       return saved.includes(fp);
     } catch { return false; }
   }
-
 
   // Resetovat historii rozpoznaných textů při otevření nové relace
   useEffect(() => {
@@ -434,7 +429,6 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
         setDate(data.order_date);
       }
 
-
       // 🧠 AUTO-DETEKCE ODBĚRATELE z fotky.
       // AI vrací top-level "place_name" (hlavní odběratel na fotce) i place_name
       // u každé položky. Zkusíme je spárovat se známými odběrateli (places).
@@ -476,8 +470,6 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
         // → použij ho jako nového odběratele
         setPlaceName(firstItemPlaceName);
       }
-
-
 
       const newLines = parseGeminiItems(geminiItems, beers, packages, aliasMap, photoIndex, places);
       setParsed((prev) => {
@@ -563,10 +555,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
       } catch {}
     }
 
-
-
   }
-
 
   async function importSelected() {
     if (!parsed) return;
@@ -649,7 +638,6 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
     // pro detekci duplicit napříč celou relací
   }
 
-
   function addLine() {
     const newLine: ParsedLine = {
       raw: '', originalLine: '', quantity: 1, beer_id: '', beer_name: null,
@@ -673,7 +661,6 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
       return [...arr, { line: newLine, duplicate: false }];
     });
   }
-
 
   function removeLine(i: number) {
     if (!parsed) return;
@@ -856,7 +843,6 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
             </div>
           </div>
         )}
-
 
         {busy && !editingImage && (
           <div className="flex items-center gap-3">
@@ -1101,7 +1087,6 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
                     <code className="text-base font-mono leading-snug break-words block">{p.line.originalLine || p.line.raw}</code>
                   )}
                 </div>
-
 
                 <div className="px-4 pt-2 flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
                   {(p.duplicate && !userAllowedDups.has(i)) ? (

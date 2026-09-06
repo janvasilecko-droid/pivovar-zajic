@@ -1,5 +1,4 @@
 import { supabase } from './supabase';
-import { isNotificationSupported, playOrderChime } from './notifications';
 
 export type ReminderDisplayMode = 'desktop_push' | 'login_modal' | 'both';
 

@@ -10,7 +10,7 @@ import {
 } from '../lib/kegSanitation';
 import { SanitationStepRow, currentTimeStr } from './SanitationStepRow';
 import { Spinner } from './ui';
-import { AlertTriangle, Calendar, CalendarDays, Clock, Pencil, FileSpreadsheet, FileText, Check, CheckCircle2, Moon, Plus, Settings, ShieldAlert, SprayCan, Sun, Trash2, User, UserCheck, X } from 'lucide-react';
+import { AlertTriangle, Calendar, CalendarDays, Clock, Pencil, FileSpreadsheet, FileText, CheckCircle2, Moon, Plus, SprayCan, Sun, Trash2, User, UserCheck, X } from 'lucide-react';
 import { potvrd } from '../lib/toast';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);

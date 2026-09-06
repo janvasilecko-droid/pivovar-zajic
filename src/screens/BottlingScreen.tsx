@@ -1,9 +1,9 @@
 import { BottlingChecklistModal, DEFAULT_ITEMS, isStartChecklistCompleteForDate, isMonthlyChecklistCompleteForDate, MONTHLY_CATEGORY } from '../components/BottlingChecklistModal';
 import { useEffect, useMemo, useState, useRef, lazy, Suspense } from 'react';
-import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, beerText, formatPackageLabel, fetchAllRows } from '../lib/supabase';
+import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, formatPackageLabel, fetchAllRows } from '../lib/supabase';
 import { EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
-import { AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Brush, Calendar, CalendarDays, Camera, Check, CheckCircle2, ClipboardList, Copy, Lightbulb, ListChecks, Megaphone, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Sparkles, Trash2, Wine, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Brush, CalendarDays, Camera, Check, CheckCircle2, ClipboardList, Lightbulb, ListChecks, Megaphone, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Sparkles, Trash2, Wine, X } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { BottlingPlan, getPlanSeenAt, markPlanSeenAt, isPlanUnseen, isBottlingManager, setPlanStatus } from '../lib/bottlingPlans';
 import { BottlingPlanPlanner } from '../components/BottlingPlanPlanner';
@@ -34,18 +34,15 @@ import type { RadekPohybu, RadekZavozu } from '../lib/stockLedger';
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const ImportBottlingFromImage = lazy(() => import('../components/ImportBottlingFromImage').then((m) => ({ default: m.ImportBottlingFromImage })));
 
-
 const ROW_COUNT = 12;
 type RowInput = { beerId: string; pkgId: string; pkg2Id: string; pkg3Id: string; kegPkgId: string; kegQty: string; qty: string; qty2: string; qty3: string };
 const emptyItem = (): RowInput => ({ beerId: '', pkgId: '', pkg2Id: '', pkg3Id: '', kegPkgId: '', kegQty: '', qty: '', qty2: '', qty3: '' });
 const emptyRows = (): RowInput[] => Array.from({ length: ROW_COUNT }, emptyItem);
 
-
 // Povolené velikosti lahví v dropdownu
 const ALLOWED_BOTTLE_VOLUMES = [1.5, 1, 0.5, 0.33];
 // Velikosti KEG sudů
 const KEG_SIZES = [50, 30, 20, 15, 10];
-
 
 export default function BottlingScreen({
   setPage,
@@ -712,9 +709,6 @@ export default function BottlingScreen({
     setShowEndConfirm(true);
   }
 
-
-
-
   async function del(id: string) {
     // Křížek sousedí s „+" a tužkou, takže jedno chybné klepnutí smaže zápis.
     // Dřív se proto před smazáním ptalo. Ptát se pokaždé je ale otrava —
@@ -817,8 +811,6 @@ export default function BottlingScreen({
     setRows((rs) => rs.map((r) => batchIds.includes(r.id) ? { ...r, kegs_used_package_id: packageId, source_volume_l: sourceL } : r));
   }
 
-
-
   // Přehled podle velikosti lahví
 
   const BOTTLE_SIZES = [1.5, 1, 0.5, 0.33];
@@ -884,8 +876,6 @@ export default function BottlingScreen({
     return { totalKegCount, totalKegLiters, totalSourceL, totalBottledL, lossL, lossPct };
   }, [periodRows, packages]);
 
-
-
   const otherRows = periodRows.filter((r) => {
     const pkg = packages.find((p) => p.id === r.package_id);
     return !pkg || (!BOTTLE_SIZES.some((s) => Math.abs(Number(pkg.volume_l) - s) < 0.01) && !KEG_SIZES.includes(Number(pkg.volume_l)));
@@ -908,7 +898,6 @@ export default function BottlingScreen({
       return s;
     }, 0);
   })();
-
 
   return (
     <div className="space-y-6 pb-12">
@@ -1728,7 +1717,6 @@ export default function BottlingScreen({
                               <span className="text-neutral-400 font-normal">—</span>
                             )}
                           </td>
-
 
                           <td className="py-1.5 px-2 text-right font-bold text-amber-950">{liters.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })}</td>
                           <td className="py-1.5 px-2 text-right">

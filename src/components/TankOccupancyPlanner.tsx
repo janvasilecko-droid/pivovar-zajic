@@ -3,7 +3,7 @@ import { CellarTank, Beer, CellarTankCycle, useRealtime } from '../lib/supabase'
 import { KLIC_VARKY, nactiVarky, prenesZProhlizece, smazVarku, ulozVarku } from '../lib/varkyData';
 import { rozdilProUlozeni } from '../lib/vycepyData';
 import { chyba as chybaOznam } from '../lib/toast';
-import { AlertTriangle, BarChart3, Calendar, Circle, Clock, Check, CheckCircle2, Plus, ShieldAlert, Sparkles, X } from 'lucide-react';
+import { AlertTriangle, BarChart3, Calendar, Circle, Clock, Check, Plus, ShieldAlert, X } from 'lucide-react';
 
 export type PlannedBatch = {
   id: string;

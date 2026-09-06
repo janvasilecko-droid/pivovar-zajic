@@ -5,7 +5,7 @@ import { ChecklistsScreen } from './BreweryScreens';
 import BottleSanitationDiary from '../components/BottleSanitationDiary';
 import KegSanitationDiary from '../components/KegSanitationDiary';
 import TapSanitationDiary from '../components/TapSanitationDiary';
-import { FlaskConical, Shield, CheckSquare, Wine, SlidersHorizontal } from 'lucide-react';
+import { FlaskConical, Shield, CheckSquare, SlidersHorizontal } from 'lucide-react';
 import { TabBar, type TabBarItem } from '../components/TabBar';
 import { IkonaSud, IkonaLahev } from '../components/ikony';
 

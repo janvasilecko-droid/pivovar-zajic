@@ -16,7 +16,7 @@ import LauncherTile, { tileGridStyle } from '../components/LauncherTile';
 import { QuickSearchModal } from '../components/QuickSearchModal';
 import { Modal } from '../components/ui';
 import { useAuth } from '../lib/auth';
-import { canUserView, getUserPermissions, PAGE_TO_MODULE, ModuleKey } from '../lib/permissions';
+import { canUserView, getUserPermissions, PAGE_TO_MODULE } from '../lib/permissions';
 import { isAdminEmail } from '../lib/config';
 import { supabase, Vehicle, fetchAllRows } from '../lib/supabase';
 import { getVehicleExpiryStatus } from '../lib/vozidla';
@@ -24,23 +24,12 @@ import { businessDateISO } from '../lib/businessDate';
 import { IkonaSud, IkonaLahev, IkonaVycep } from '../components/ikony';
 import { HomeNotesModal } from '../components/HomeNotesModal';
 import { HomeChecklistModal } from '../components/HomeChecklistModal';
-import { getHomeNotes, toggleHomeNote, toggleHomeNoteImportant, HOME_NOTES_CHANGED_EVENT, OPEN_HOME_NOTES_EVENT, consumeOpenHomeNotesRequest, type HomeNote } from '../lib/homeNotes';
+import { getHomeNotes, toggleHomeNote, HOME_NOTES_CHANGED_EVENT, OPEN_HOME_NOTES_EVENT, consumeOpenHomeNotesRequest, type HomeNote } from '../lib/homeNotes';
 import { getDailyTasks, DAILY_CHECKLIST_CHANGED_EVENT, type DailyTask } from '../lib/homeChecklist';
 import {
   getRadioState, toggleRadio, nextStation, RADIO_STATIONS, RADIO_STATE_EVENT, type RadioState,
 } from '../lib/breweryRadio';
-import {
-  getHomeLayout, saveHomeLayout, addPage, removePage, moveTileToPage, hideTile, addTile,
-  mergeTiles, addToGroup, removeFromGroup, deleteGroup, isGroupId, isCountdownId, ensurePositions, ensureTrailingEmptyPage, unifyColorsByCategory, moveTileToCell, stepTileCell,
-  addDockSlot, removeDockSlot,
-  hexToRgba,
-  PAGE_CATEGORY, CATEGORY_ORDER, CATEGORY_SHADES, type Category,
-  moveTileToPageCell, okrajProPrepnuti, dalsiStranka, rozdelVseDoStranek, idsKRozmisteni, vyrovnejStranku, VYCHOZI_STRANKA, type OkrajTazeni,
-  MIN_SVETLOST, MAX_SVETLOST,
-  SCENES, MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX, defaultTileColor,
-  GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK,
-  type HomeLayout, type TileColor, type TileId, type GroupId, type CountdownTileId,
-} from '../lib/homeLayout';
+import { getHomeLayout, saveHomeLayout, addPage, removePage, moveTileToPage, hideTile, addTile, mergeTiles, addToGroup, removeFromGroup, deleteGroup, isGroupId, isCountdownId, ensurePositions, ensureTrailingEmptyPage, unifyColorsByCategory, moveTileToCell, stepTileCell, addDockSlot, removeDockSlot, PAGE_CATEGORY, CATEGORY_ORDER, CATEGORY_SHADES, type Category, moveTileToPageCell, okrajProPrepnuti, dalsiStranka, rozdelVseDoStranek, idsKRozmisteni, vyrovnejStranku, VYCHOZI_STRANKA, type OkrajTazeni, MIN_SVETLOST, MAX_SVETLOST, SCENES, MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX, defaultTileColor, GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK, type HomeLayout, type TileColor, type TileId, type GroupId, type CountdownTileId } from '../lib/homeLayout';
 import {
   getKegTimerState, formatDurationMs, getCountdowns, saveCountdowns, countdownRemainingMs, toggleCountdown, resetCountdown,
   startAllCountdowns, pauseAllCountdowns, resetAllCountdowns, COUNTDOWN_CHANGED_EVENT, type CountdownTimer,
@@ -916,7 +905,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     });
   }, [visibleIds]);
 
-
   // ---- Živá dlaždice Sklep: jednotlivé tanky s objemem ----
   // Odznak výš říká jen „6 tanků, 84 hl". Když je dlaždice zvětšená, vejde
   // se to, na co se člověk ve sklepě opravdu dívá: KTERÝ tank, JAKÉ pivo a
@@ -1703,7 +1691,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               )}
         </div>
 
-
         {/* 💡 Jednorázová nápověda. Ukáže se jednou v životě plochy a po
             odklepnutí zmizí navždy — trvalý pruh s tipem je po druhém dni
             šum a zabíral by místo přesně tam, kde ho je nejmíň. */}
@@ -1841,7 +1828,6 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   <div className="flex items-center justify-center max-w-full">
                     {done ? (
                       <span className="inline-flex items-center justify-center gap-1 px-2 py-0.5 rounded-full bg-rose-600 text-white text-udaj font-black shadow-xs animate-bounce">🔔 Hotovo</span>
-
 
                     ) : running ? (
                       <span className="inline-flex items-center justify-center gap-1 px-2 py-0.5 rounded-full bg-emerald-700 text-white text-udaj font-black shadow-xs">

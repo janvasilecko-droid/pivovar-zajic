@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { getAuditLogs, AuditLogEntry } from '../lib/audit';
-import { Clock, History, Scroll, Search, Shield, User } from 'lucide-react';
+import { Scroll, Search, User } from 'lucide-react';
 
 export function AuditLogViewer() {
   const [logs] = useState<AuditLogEntry[]>(() => getAuditLogs());

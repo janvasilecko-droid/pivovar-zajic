@@ -1,22 +1,21 @@
 import { Fragment, useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 
-
-import { Beer, beerBg, beerInk, beerName, beerText, fetchAllRows, formatPackageLabel, Package, supabase, useRealtime } from '../lib/supabase';
-import { Kostra, Spinner } from '../components/ui';
+import { Beer, beerBg, beerInk, beerText, fetchAllRows, formatPackageLabel, Package, supabase, useRealtime } from '../lib/supabase';
+import { Kostra } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
-import { AlertCircle, AlertTriangle, Beer as BeerIcon, Calendar, CalendarRange, Camera, ClipboardCheck, ClipboardList, Download, Check, Lock, MinusCircle, Package as PackageIcon, Plus, RefreshCw, RotateCcw, Save, Search, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, Beer as BeerIcon, Calendar, CalendarRange, Camera, ClipboardCheck, Download, Check, Lock, MinusCircle, Package as PackageIcon, Plus, RotateCcw, Save, Search, ShieldCheck } from 'lucide-react';
 import HloubkovyAuditPanel from '../components/HloubkovyAuditPanel';
 import TydenniInventuraPanel from '../components/TydenniInventuraPanel';
 import { computeInventoryReconciliation } from '../lib/inventoryHelper';
-import { akceProRozdil, datumDoplnku, doplnekVBudoucnu, jeSud, kegovaniZapisy, lahvoveZapisy, nabidnoutMinulyMesic, nazevMesice, odectiZeStoceni, vychoziMesicInventury, stoceniZapis } from '../lib/inventoryFix';
+import { akceProRozdil, datumDoplnku, doplnekVBudoucnu, jeSud, kegovaniZapisy, lahvoveZapisy, nabidnoutMinulyMesic, nazevMesice, odectiZeStoceni, vychoziMesicInventury } from '../lib/inventoryFix';
 import { davkySrovnani, zapisyDavky, type DavkaPiva, type SmerSudu, type ZdrojovaSkupina } from '../lib/srovnaniDavka';
 import { zapamatujPozici } from '../lib/drzPozici';
 import { vyrovnaniZaMesic } from '../lib/vyrovnani';
 import { lzeUlozitKoncept, slucInventuru } from '../lib/rozepsanaInventura';
 import { normalizujCislo } from '../lib/cisloVstup';
-import { popisRozdeleni, rozdelSudyDoTanku, zmenaOtevreni, type RozdeleniSudu, type TankProRozdeleni } from '../lib/tankRozdeleni';
+import { rozdelSudyDoTanku, zmenaOtevreni, type RozdeleniSudu, type TankProRozdeleni } from '../lib/tankRozdeleni';
 import { odectiZTanku as odectiZTankuDB, vratDoTanku } from '../lib/tankZapis';
-import { saveBottlingPlan } from '../lib/bottlingPlans';
+
 import { businessDateISO, posunMesic } from '../lib/businessDate';
 import { buildMovements, expectedForMonth, stockAtStartOfDay, stockForMonth, type StockLine } from '../lib/stockLedger';
 import { AUDIT_NADPISY, AUDIT_SLOUPCE, bunkaAuditu, maCoUkazat, porovnejPolozku, type AuditSloupec } from '../lib/auditSkladu';
@@ -31,7 +30,6 @@ const CountFromImage = lazy(() => import('../components/CountFromImage').then((m
 type InitialStockMap = Record<string, number>; // key: `${beer_id}__${package_id}`, val: qty
 
 // Posun měsíce o delta (např. -1 = předchozí měsíc, +1 = následující)
-
 
 type InventoryRow = {
   beer_id: string;
@@ -126,7 +124,6 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   const forceReloadRef = useRef(false);
   const excelFileRef = useRef<HTMLInputElement>(null);
 
-
   // Otevírá se na měsíci, který se uzavírá — prvních deset dní tedy na tom
   // předchozím (viz vychoziMesicInventury). Dřív to byl vždycky dnešní měsíc
   // a doplněné stáčení padalo do budoucnosti.
@@ -134,7 +131,6 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
 
   // Počáteční stavy zadané ručně sládkem na začátku měsíce (načítané z inventory tabulky)
   const [initialStock, setInitialStock] = useState<InitialStockMap>({});
-
 
   // Skutečně fyzicky spočítané stavy při inventuře
   const [actualStock, setActualStock] = useState<Record<string, string>>(() => {
@@ -232,7 +228,6 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     // Mezitím mohlo začít novější načtení (realtime po cizím zápisu),
     // nebo už obrazovka není vidět. Výsledek se pak zahodí.
     if (!smiZapsat()) return;
-
 
     setBeers((b as Beer[]) ?? []);
     setPackages((pk as Package[]) ?? []);
@@ -534,8 +529,6 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
 
   useRealtime(['beers', 'packages', 'bottling', 'kegging', 'fasovani', 'fasovani_private', 'writeoffs', 'inventory', 'inventory_adjustments', 'zavoz_deductions', 'akce', 'akce_items', 'keg_prefuk'], () => loadData(true));
 
-
-
   // Uložení počátečního stavu z rozjetého měsíce do databáze (inventory tabulka)
   async function handleSaveInitialStock() {
     const vratPozici = zapamatujPozici('[data-inv-kotva="pocatecni"]');
@@ -579,7 +572,6 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     }
     setBusy(false);
   }
-
 
   // Uložení fyzické inventury do Supabase i localStorage
   /** Byla tahle položka při inventuře skutečně spočítaná? (i „0" je výsledek) */
@@ -741,7 +733,6 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     }
     setBusy(false);
   }
-
 
   // Výpočet tabulky inventury
   const rows: InventoryRow[] = useMemo(() => {
@@ -1337,7 +1328,6 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
     vratPozici();
   }
 
-
   /**
    * 🔍 Podklad karty Audit: pro každé pivo × obal dvojice řádků
    * (Inventura / Sklad) rozložená na sloupce.
@@ -1744,9 +1734,6 @@ function exportInventoryExcel() {
           </div>
         );
       })()}
-
-
-
 
       {/* TAB 1: FYZICKÁ INVENTURA & ROZDÍLY */}
       {activeTab === 'inventory' && (
@@ -2581,7 +2568,6 @@ function exportInventoryExcel() {
         </div>
       )}
 
-
       {showPhotoCounter && (
         <Suspense fallback={null}>
         <CountFromImage
@@ -2726,7 +2712,6 @@ function EndStockTab({
           Pokud vyjde <strong className="text-rose-700">záporné číslo</strong>, znamená to, že bylo vydáno více sudů, než bylo stočeno a naskladněno — chybí sudy!
         </p>
       </div>
-
 
       {/* Souhrn */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

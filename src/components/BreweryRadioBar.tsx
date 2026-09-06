@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Radio, Play, Pause, Volume2, X } from 'lucide-react';
+import { Play, Pause, X } from 'lucide-react';
 import {
   RADIO_STATIONS,
   getRadioState,

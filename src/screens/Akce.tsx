@@ -1,8 +1,8 @@
 import { useEffect, useState, useMemo } from 'react';
-import { Beer, Package, beerBg, beerText, fetchAllRows, formatPackageLabel, pkgBg, pkgText, supabase, useRealtime } from '../lib/supabase';
-import { EmptyState, Kostra, Spinner } from '../components/ui';
+import { Beer, Package, beerBg, fetchAllRows, formatPackageLabel, pkgBg, supabase, useRealtime } from '../lib/supabase';
+import { EmptyState, Kostra } from '../components/ui';
 import { createReminder } from '../lib/reminders';
-import { AlertTriangle, Beer as BeerIcon, Bell, Calendar, Check, CheckCircle2, ClipboardList, Clock, DollarSign, MapPin, PartyPopper, Plus, RotateCcw, Sparkles, Star, Tent, ThumbsDown, ThumbsUp, Trash2, User, X } from 'lucide-react';
+import { AlertTriangle, Beer as BeerIcon, Bell, Calendar, Check, CheckCircle2, ClipboardList, Clock, DollarSign, PartyPopper, Plus, Sparkles, Star, ThumbsDown, ThumbsUp, Trash2, User, X } from 'lucide-react';
 import { oznam, potvrd } from '../lib/toast';
 
 /** Řádky z DB (akce + vnořené akce_items) → tvar, se kterým pracuje obrazovka. */

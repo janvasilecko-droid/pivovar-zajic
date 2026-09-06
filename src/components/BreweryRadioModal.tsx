@@ -1,18 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Radio, Play, Pause, SkipForward, SkipBack, Volume2, VolumeX, Sparkles, Music2, X } from 'lucide-react';
-import {
-  RADIO_STATIONS,
-  getRadioState,
-  playRadio,
-  pauseRadio,
-  toggleRadio,
-  setRadioStation,
-  setRadioVolume,
-  nextStation,
-  prevStation,
-  RADIO_STATE_EVENT,
-  type RadioState,
-} from '../lib/breweryRadio';
+import { Play, Pause, SkipForward, SkipBack, Volume2, VolumeX, Sparkles } from 'lucide-react';
+import { RADIO_STATIONS, getRadioState, toggleRadio, setRadioStation, setRadioVolume, nextStation, prevStation, RADIO_STATE_EVENT, type RadioState } from '../lib/breweryRadio';
 import { Modal } from './ui';
 
 interface BreweryRadioModalProps {

@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
-import { supabase, useRealtime } from '../lib/supabase';
+import { useState, useEffect } from 'react';
+import { useRealtime } from '../lib/supabase';
 import { EmptyState } from '../components/ui';
-import { PlaceCombobox } from '../components/PlaceCombobox';
-import { AlertTriangle, Calendar, CalendarDays, Check, CheckCircle2, Droplet, Droplets, Flame, FlaskConical, Phone, Plus, RefreshCw, ShieldAlert, Sparkles, Tag, Trash2, User, Wrench, X } from 'lucide-react';
+
+import { AlertTriangle, Calendar, CalendarDays, Check, CheckCircle2, Droplet, Droplets, FlaskConical, Phone, Plus, RefreshCw, ShieldAlert, Trash2, Wrench, X } from 'lucide-react';
 import { chyba as chybaOznam, oznam, potvrd } from '../lib/toast';
 import { KLIC_REZERVACE, KLIC_VYCEPY, nactiRezervace, nactiVycepy, prenesZProhlizece, rozdilProUlozeni, smazRezervaci, smazVycep, ulozRezervaci, ulozVycep } from '../lib/vycepyData';
 import { IkonaVycep } from '../components/ikony';

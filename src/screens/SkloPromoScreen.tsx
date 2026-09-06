@@ -4,10 +4,10 @@ import { Beer, Package, Place, fetchAllRows, supabase, useRealtime } from '../li
 import { LABELS_LOW_STOCK_THRESHOLD } from '../lib/labelStock';
 import { zustatkyZavirek, KORUNKY, UZAVERY_PET } from '../lib/materialSklad';
 import { kusy } from '../lib/cisla';
-import { EmptyState, Kostra, Spinner } from '../components/ui';
+import { EmptyState, Kostra } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { PlaceCombobox } from '../components/PlaceCombobox';
-import { AlertTriangle, ArrowDownCircle, ArrowUpCircle, Boxes, Download, Check, CheckCircle2, Plus, Printer, Search, Tag, Trash2, Upload, Wine } from 'lucide-react';
+import { AlertTriangle, ArrowDownCircle, ArrowUpCircle, Boxes, Download, Check, Plus, Tag, Trash2, Upload, Wine } from 'lucide-react';
 import { chyba, oznam, potvrd } from '../lib/toast';
 import { IkonaLahev } from '../components/ikony';
 

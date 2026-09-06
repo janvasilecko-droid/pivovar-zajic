@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../lib/auth';
-import { AlertTriangle, ArrowRight, Beer, Beer as BeerIcon, Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Beer as BeerIcon, Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react';
 import { getAdminEmail } from '../lib/config';
 
 export default function AuthScreen() {

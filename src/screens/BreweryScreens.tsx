@@ -53,7 +53,6 @@ function NumberStepper({
   );
 }
 
-
 type SrotovaniRow = {
   id?: string;
   entry_date: string;
@@ -308,7 +307,6 @@ export function ConcentrationScreen({ setPage, initialSubTab }: { setPage?: (p: 
     if (setPage) setPage('concentration', undefined, t);
     else setActiveTab(t);
   }
-
 
   // --- 1. KEG Kalkulačka dotáčení z tanku ---
   const [tankVolumeHl, setTankVolumeHl] = useState<string>('15');

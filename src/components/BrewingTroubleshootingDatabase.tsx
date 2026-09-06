@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, BookOpen, CheckCircle2, Search, ShieldAlert, Siren, Sparkles } from 'lucide-react';
+import { AlertTriangle, BookOpen, CheckCircle2, Search, Siren } from 'lucide-react';
 
 type OffFlavorDef = {
   id: string;

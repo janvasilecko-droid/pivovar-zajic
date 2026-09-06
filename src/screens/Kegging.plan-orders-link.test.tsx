@@ -6,7 +6,7 @@
 // odstraněna: počítala z měsíčního skladového modelu, a když ten spadl do
 // mínusu (v srpnu 2026 devět druhů sudů), ořízl se na nulu a čerstvé stáčení
 // se v čísle „chybí stočit" ztratilo. Plán počítá jen z dat aktuálního týdne.
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import KeggingScreen from './Kegging';
 import { consumeOrdersItemFilter } from '../lib/ordersFilter';

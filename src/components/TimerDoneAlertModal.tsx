@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AlarmClock, Bell, BellRing, Volume2, X, Check, Flame } from 'lucide-react';
+import { BellRing, Volume2, X, Check } from 'lucide-react';
 import { playAlarmSound } from '../lib/notifications';
 import { zavibruj } from '../lib/haptika';
 

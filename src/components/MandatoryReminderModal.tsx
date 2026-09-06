@@ -1,5 +1,5 @@
 import { ReminderItem, acknowledgeReminder } from '../lib/reminders';
-import { AlertTriangle, Bell, CheckCircle2, Clock, User } from 'lucide-react';
+import { Bell, CheckCircle2, Clock, User } from 'lucide-react';
 
 export function MandatoryReminderModal({ reminder, currentUserEmail, onDismiss }: {
   reminder: ReminderItem;

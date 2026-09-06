@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase, Beer, Package, PriceListItem, useRealtime, beerBg, beerText, pkgBg, pkgText, formatPackageLabel } from '../lib/supabase';
 import { EmptyState, Spinner } from '../components/ui';
-import { Beer as BeerIcon, Calendar, CheckCircle2, DollarSign, Info, Package as PackageIcon, Tag } from 'lucide-react';
+import { Beer as BeerIcon, Calendar, Package as PackageIcon } from 'lucide-react';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
 
 export default function PriceListScreen() {

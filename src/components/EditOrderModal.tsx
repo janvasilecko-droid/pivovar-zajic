@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Modal } from './ui';
 import { X } from 'lucide-react';
 import { PlaceCombobox } from './PlaceCombobox';
 import { supabase, Beer, Package, Place } from '../lib/supabase';
-import { saveAlias, canLearnBeerAlias, savePlaceAlias, getOrCreatePlace } from '../lib/orderParser';
+import { saveAlias, canLearnBeerAlias, getOrCreatePlace } from '../lib/orderParser';
 import { autoReserveTapIfNeeded, isTapMentioned, detectTapType } from '../lib/tapReservations';
 import { TapReservationModal } from './TapReservationModal';
 import { QuickQtySelect } from './QuickQtySelect';
@@ -142,8 +142,6 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
           }
         }
       }
-
-
 
       // 🚰 Automatická rezervace výčepu, pokud je v poznámce zmínka (včetně synonym)
       const trimmedNote = note.trim();

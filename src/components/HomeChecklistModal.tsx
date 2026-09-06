@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Modal } from './ui';
-import { Plus, Check, Trash2, ClipboardCheck, RotateCcw, Sparkles } from 'lucide-react';
-import { getDailyTasks, toggleDailyTask, addDailyTask, deleteDailyTask, resetAllDailyTasks, DAILY_CHECKLIST_CHANGED_EVENT, type DailyTask } from '../lib/homeChecklist';
+import { Plus, Check, Trash2, ClipboardCheck, RotateCcw } from 'lucide-react';
+import { getDailyTasks, toggleDailyTask, addDailyTask, deleteDailyTask, resetAllDailyTasks, DAILY_CHECKLIST_CHANGED_EVENT } from '../lib/homeChecklist';
 
 export function HomeChecklistModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const [{ tasks }, setState] = useState(() => getDailyTasks());

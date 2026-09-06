@@ -10,7 +10,7 @@
 //    „11" nenašlo „11°". Teď se porovnává bez diakritiky.
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { Search, ArrowRight, MapPin, Beer as BeerIcon, ClipboardList, Package as PackageIcon } from 'lucide-react';
-import { fetchAllRows, supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { NAV, EXTRA_NAV, Page } from './Layout';
 import { requestOrdersHledani } from '../lib/ordersFilter';
 import { popisStavu } from '../lib/stavyObjednavek';

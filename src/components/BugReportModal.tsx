@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { Modal } from './ui';
-import { Bug, Camera, Check, Image as ImageIcon, Lightbulb, Loader2 } from 'lucide-react';
+import { Bug, Check, Image as ImageIcon, Lightbulb, Loader2 } from 'lucide-react';
 
 type Category = 'bug' | 'feature' | 'question' | 'other';
 

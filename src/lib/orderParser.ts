@@ -1,9 +1,7 @@
 const KEG_ONLY_VOLS = new Set(['50', '30', '20', '15', '10']);
 const BEER_DEGREES = new Set(['8', '10', '11', '12', '13', '14', '15', '16']);
 
-import type { Beer, Package, Place, ParserAlias } from './supabase';
-
-
+import type { Beer, Package, Place } from './supabase';
 
 export type ParsedVoiceOrder = {
   items: ParsedLine[];
@@ -29,7 +27,6 @@ export type ParsedLine = {
   date?: string | null;
   photo_index?: number;
 };
-
 
 export type ParserAliasMap = {
   beer: Map<string, string>;
@@ -381,7 +378,6 @@ function ocrNormalizeLine(line: string): string {
     .trim();
 }
 
-
 function ocrCleanupQuantities(text: string): string {
   return text
     .replace(/\btox\b/gi, '10x')
@@ -479,8 +475,6 @@ function extractDegreeFromRaw(text: string): string | null {
   return null;
 }
 
-
-
 export function parseOrderText(
   rawText: string,
   beers: Beer[],
@@ -502,7 +496,6 @@ export function parseOrderText(
 
   for (const line of flatLines) {
     const flat = ocrCleanupQuantities(line);
-
 
     const tokenRe = /(\d{1,4})\s*x\s*(\d{1,2}(?:[,.]\d)?)\s*(°|l|L)?|(\d{1,4})\s*(?:x|ks)\b/g;
     const tokens: Token[] = [];
@@ -589,7 +582,6 @@ export function parseOrderText(
       if (degMatch) t.degree = degMatch[1];
     }
 
-
     for (const t of tokens) {
       if (t.volStr) continue;
       const ctxStart = Math.max(0, t.start - 80);
@@ -640,7 +632,6 @@ export function parseOrderText(
         ({ beer, alias } = matchBeerFromHints(normalize(gd), beers, aliases));
       }
 
-
       const dispNorm = normalize(dispContext);
       let pkg: Package | null = t.volStr ? volToPackage(t.volStr, packages, dispNorm) : null;
       if (!pkg) pkg = matchPackage(dispNorm, packages, aliases);
@@ -688,7 +679,6 @@ export function parseOrderText(
   return results;
 }
 
-
 export type GeminiItem = {
   quantity: number | null;
   degree: string | null;
@@ -699,7 +689,6 @@ export type GeminiItem = {
   date?: string | null;
   bbox?: { x0: number; y0: number; x1: number; y1: number } | null;
 };
-
 
 // Rozdělí položku, která obsahuje VÍCE objednávek na jednom řádku oddělených
 // slovem "a" (např. "2x50 12sv a 2x50 vosma"). Vrací pole položek.
@@ -796,8 +785,6 @@ export function parseGeminiItems(
     }
   }
 
-
-
   // 🧠 NAUČENÉ ALIASY ODBĚRATELŮ: načti z localStorage a použij je k opravě
   // place_name z AI. Pokud AI rozpoznala "Seeberg" ale uživatel dříve opravil
   // na "Seeberg 2", automaticky použijeme správný název.
@@ -879,7 +866,6 @@ export function parseGeminiItems(
     items.splice(i, 1);
     i--; // po odstranění se posuneme zpět
   }
-
 
   for (const item of items) {
     const raw = item.raw_line || [item.quantity, item.degree, item.beer_name, item.package_label].filter(Boolean).join(' ');
@@ -1088,8 +1074,6 @@ export function parseGeminiItems(
       }
     }
 
-
-
     const qty = item.quantity ?? null;
 
     const issues: string[] = [];
@@ -1174,9 +1158,7 @@ export function parseGeminiItems(
       photo_index: photoIndex,
     } as ParsedLine);
 
-
   }
-
 
   return results;
 }
@@ -1555,7 +1537,6 @@ export function matchPlaceFromText(
     return { placeId: bestFuzzy.id, placeName: bestFuzzy.name };
   }
 
-
   return { placeId: null, placeName: null };
 }
 
@@ -1616,7 +1597,6 @@ export function parseFreeTextEntries(
     .map((s) => ocrNormalizeLine(s.trim()))
     .filter((s) => s.length > 0);
 
-
   segments = segments.flatMap((seg) => splitByQtyBoundaries(seg));
 
   // 🧠 "VŠE [stupeň]" NA KONCI OBJEDNÁVKY — aplikuj na všechny položky
@@ -1655,7 +1635,6 @@ function splitByQtyBoundaries(seg: string): string[] {
   return parts;
 }
 
-
 function parseSegments(
   segments: string[],
   beers: Beer[],
@@ -1688,14 +1667,12 @@ function parseSegments(
 
     let { beer, alias } = matchBeerFromHints(norm, beers, aliases);
 
-
     // 🧠 "VŠE [stupeň]" NA KONCI OBJEDNÁVKY — pokud položka nemá pivo,
     // zkus ho najít podle globálního stupně z konce objednávky
     if (!beer && globalDegree?.degree) {
       const gd = globalDegree.degree + '°';
       ({ beer, alias } = matchBeerFromHints(normalize(gd), beers, aliases));
     }
-
 
     let pkg: Package | null = null;
     // Volume match — ordered from most specific to least: 1,5 before 1 before 0,5
@@ -1730,7 +1707,6 @@ function parseSegments(
     // Pokud je objem (obal) ale žádné explicitní množství, předpokládej 1 ks
     if (qty === null && pkg) qty = 1;
 
-
     const issues: string[] = [];
     if (!qty) issues.push('množství');
     if (!beer) issues.push('pivo');
@@ -1757,7 +1733,6 @@ function parseSegments(
       matched_alias: alias,
     });
   }
-
 
   return results;
 }

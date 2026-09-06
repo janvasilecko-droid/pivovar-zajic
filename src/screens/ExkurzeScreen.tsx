@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { supabase, useRealtime } from '../lib/supabase';
+import { useRealtime } from '../lib/supabase';
 import { EmptyState } from '../components/ui';
-import { Archive, BarChart3, Calendar, Castle, Clock, Download, CheckCircle2, ChevronDown, ChevronUp, Landmark, Plus, Trash2, User, UserCheck, UserRound, Users } from 'lucide-react';
+import { Archive, BarChart3, Calendar, Download, ChevronDown, ChevronUp, Landmark, Plus, Trash2, User, UserCheck, UserRound } from 'lucide-react';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { chyba as chybaOznam, oznam, potvrd } from '../lib/toast';
 import { KLIC_EXKURZE, nactiExkurze, prenesZProhlizece, smazExkurzi, ulozExkurzi } from '../lib/exkurzeData';

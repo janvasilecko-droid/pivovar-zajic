@@ -1,16 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Beer, Package, beerBg, beerText, fetchAllRows, supabase } from '../lib/supabase';
-import {
-  AuditReport,
-  runOrderAudit,
-  mergeDuplicateItemRows,
-  OrderItemDuplicateIssue,
-  WhatsAppMismatchIssue,
-  DuplicateOrderIssue,
-  UnprocessedWhatsAppIssue,
-  ZavozDeductionIssue,
-} from '../lib/orderAudit';
-import { AlertTriangle, ArrowRight, Beer as BeerIcon, Calendar, Check, CheckCircle, ChevronDown, ChevronUp, Copy, Eye, FileCheck, Globe, Layers, MessageSquare, MinusCircle, Phone, PlusCircle, RefreshCw, Search, ShieldCheck, Sparkles, Trash2, X } from 'lucide-react';
+import { Beer, Package, fetchAllRows, supabase } from '../lib/supabase';
+import { AuditReport, runOrderAudit, mergeDuplicateItemRows, OrderItemDuplicateIssue, ZavozDeductionIssue } from '../lib/orderAudit';
+import { AlertTriangle, ArrowRight, Beer as BeerIcon, Calendar, Check, CheckCircle, ChevronDown, ChevronUp, Copy, Eye, Globe, Layers, MessageSquare, MinusCircle, PlusCircle, RefreshCw, Search, ShieldCheck, Sparkles, Trash2, X } from 'lucide-react';
 import { Spinner } from './ui';
 import { stavPrijmu } from '../lib/stavPrijmu';
 import { fetchLastWhatsAppAt } from '../lib/whatsappApi';

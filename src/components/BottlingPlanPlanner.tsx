@@ -4,9 +4,9 @@ import { AlertTriangle, Calculator, Calendar, CalendarDays, Check, ClipboardList
 // naplánovaných úkolů v týdnu a tabulky potřeby (objednávky týdne vs. sklad
 // vs. naplánováno vs. odhad fasování).
 import { useEffect, useMemo, useState } from 'react';
-import { Beer, Package, beerBg, fetchAllRows, supabase, useRealtime } from '../lib/supabase';
+import { Beer, Package, beerBg, fetchAllRows, useRealtime } from '../lib/supabase';
 import { isoWeekKey, weekRange, shiftWeek } from './WeeklyOrderSummaryCard';
-import { flattenAkceNet } from '../lib/inventoryHelper';
+
 import { buildMovements, stockAsOf } from '../lib/stockLedger';
 import { chyba, potvrd } from '../lib/toast';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
@@ -275,7 +275,6 @@ export function BottlingPlanPlanner({
     return map;
   }, [plans, weekKey]);
 
-
   const allRows = useMemo(() => {
     const list: PlanRow[] = [];
     beers.forEach((b) => {
@@ -322,7 +321,6 @@ export function BottlingPlanPlanner({
         .sort((a, b) => a.planned_date.localeCompare(b.planned_date)),
     [plans, weekKey]
   );
-
 
   function setField<K extends keyof FormState>(field: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -431,7 +429,6 @@ export function BottlingPlanPlanner({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-
   function renderTable(rows: PlanRow[], isKeg: boolean) {
     const totals = rows.reduce(
       (a, r) => {
@@ -522,7 +519,6 @@ export function BottlingPlanPlanner({
       </div>
     );
   }
-
 
   return (
     <div className="space-y-5">
@@ -620,7 +616,6 @@ export function BottlingPlanPlanner({
           </button>
         </div>
       </form>
-
 
       {/* Tabulky potřeby */}
       <div className="card p-3.5">

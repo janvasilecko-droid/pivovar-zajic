@@ -1,6 +1,6 @@
 import { synchronizuj } from '../lib/checklistData';
-import { useEffect, useMemo, useState, useRef, lazy, Suspense } from 'react';
-import { supabase, Beer, Package, EntryRow, CellarTank, KegPrefuk, useRealtime, beerBg, beerText, beerName, pkgBg, pkgText, formatPackageLabel, fetchAllRows } from '../lib/supabase';
+import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
+import { supabase, Beer, Package, EntryRow, CellarTank, KegPrefuk, useRealtime, beerBg, beerName, formatPackageLabel, fetchAllRows } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { KeggingChecklistModal, KeggingChecklistBody, isStartChecklistCompleteForKeg, isMonthlyChecklistCompleteForKeg } from '../components/KeggingChecklistModal';
 import { autoLogKegSanitationFromChecklist, isLastWeekOfMonth } from '../lib/kegSanitation';
@@ -8,7 +8,7 @@ import { getMonthKey, writeMonthlyCleanupStage, isMonthlyLineDone, markMonthlyLi
 import { businessDateISO } from '../lib/businessDate';
 import { EmptyState, Spinner, Modal } from '../components/ui';
 import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
-import { exportKeggingToExcel } from '../lib/excel';
+
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
@@ -16,7 +16,7 @@ import { computeKeggingPlan } from '../lib/keggingPlan';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
 import { markPlanSeenAt, type BottlingPlan } from '../lib/bottlingPlans';
 import KeggingDayPlan from '../components/KeggingDayPlan';
-import { AlertTriangle, BarChart3, Beer as BeerIcon, Brush, Calendar, CalendarDays, Camera, Check, ClipboardList, Copy, Cylinder, Loader2, Minus, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Scroll, Sparkles, Trash2, X } from 'lucide-react';
+import { AlertTriangle, BarChart3, Beer as BeerIcon, Brush, CalendarDays, Camera, Check, ClipboardList, Minus, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Scroll, Sparkles, Trash2, X } from 'lucide-react';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
 import { chyba, potvrd, toastZpet } from '../lib/toast';
 import { nejvetsiTank, radkyBezTanku, tankRadku, tankyProPivo } from '../lib/tankUZapisu';
@@ -31,7 +31,6 @@ import type { RadekPohybu, RadekZavozu } from '../lib/stockLedger';
 
 // Stahuje se až při otevření — viz komentář u lazy() v Orders.tsx.
 const ImportKeggingFromImage = lazy(() => import('../components/ImportKeggingFromImage').then((m) => ({ default: m.ImportKeggingFromImage })));
-
 
 const ROW_COUNT = 12;
 type RowInput = { beerId: string; pkgId: string; qty: string; tankId: string };
@@ -60,7 +59,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // se pivo, které naposledy nepoužil, hledá tam, kde ho vždycky měl.
   const klicPiv = klicVyberu('kegging', profile?.id);
   const [naposledPiva, setNaposledPiva] = useState<string[]>(() => nactiNaposled(klicPiv));
-
 
   // Zápis / Přehled / Potřeba stočit KEGy / Přefuk KEG / Checklist záložky
   const [tab, setTab] = useState<'zapis' | 'prehled' | 'plan' | 'prefuk' | 'checklist'>((initialSubTab as any) || 'zapis');
@@ -116,8 +114,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editQty, setEditQty] = useState('');
 
-
-
   // Datové sady pro výpočet potřeb KEG sudů (Objednávky vs. Sklad)
   const [orders, setOrders] = useState<any[]>([]);
   const [orderItems, setOrderItems] = useState<any[]>([]);
@@ -161,7 +157,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
   // Posun měsíce o delta měsíců (vrací YYYY-MM)
 
-
   const filteredRows = useMemo(() => {
     // Minusové položky (ruční opravy přepočtu) se v přehledu stáčení
     // nezobrazují — je to seznam toho, co se stočilo, ne účetní deník oprav.
@@ -182,10 +177,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     return result;
   }, [rows, recordsView, recordsMonthKey, recordsWeekKey, recordsDay, beerFilter, recordPkgFilter]);
 
-
   const [weekKey, setWeekKey] = useState(isoWeekKey(new Date().toISOString().slice(0, 10)));
   const weekLabel = weekRange(weekKey).label;
-
 
   const kegPackages = useMemo(() => packages.filter((p) => p.kind === 'keg').sort((a, b) => b.volume_l - a.volume_l), [packages]);
 
@@ -364,7 +357,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
   // `akce` a `akce_items` odsud vypadly spolu s dotazy na ně.
   useRealtime(['kegging', 'cellar_tanks', 'beers', 'packages', 'orders', 'order_items', 'fasovani', 'fasovani_private', 'writeoffs', 'keg_prefuk', 'zavoz_deductions', 'bottling', 'kegging_plan_checks'], () => load(true));
 
-
   // 🗓️ Plán stáčení po dnech — „co stočit na středu". Na rozdíl od
   // kegRequirements výše nestojí na měsíčním skladovém modelu, takže se do něj
   // nepromítne schodek z minulých měsíců a čerstvé stáčení se odečte přesně
@@ -421,12 +413,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     await load(true);
   }
 
-
-
   // (zrušeno — pivo se nevyplňuje automaticky z tanku)
-
-
-
 
   // POZNÁMKA: tady stál `cycleStartByTank` + `tankSummary` — dva useMemo, které
   // při každém překreslení projely všechny řádky stáčení, ale jejich výsledek
@@ -499,7 +486,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     });
     setErr(null);
   }
-
 
   // Zpracování položek načtených z fotky — naplní prvních volných 12 řádků.
   function handleApplyPhotoRows(photoRows: { beerId: string; pkgId: string; qty: string }[], dateVal?: string, photoNote?: string) {
@@ -776,7 +762,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     setEditQty('');
     setErr(null);
   }
-
 
   // Prehled podle velikosti kegu (50/30/20/15/10 l + ostatni)
   const KEG_SIZES = [50, 30, 20, 15, 10];
@@ -2136,7 +2121,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
     </div>
   );
 }
-
 
 function Field2({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (

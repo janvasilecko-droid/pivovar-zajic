@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Modal } from './ui';
-import { Plus, Check, Trash2, StickyNote, CheckSquare, Sparkles, LayoutGrid, AlertTriangle, Users } from 'lucide-react';
+import { Plus, Check, Trash2, StickyNote, LayoutGrid, AlertTriangle, Users } from 'lucide-react';
 import { getHomeNotes, addHomeNote, toggleHomeNote, toggleHomeNoteImportant, deleteHomeNote, clearCompletedNotes, HOME_NOTES_CHANGED_EVENT, type HomeNote } from '../lib/homeNotes';
 import { useAuth } from '../lib/auth';
 import { useRealtime } from '../lib/supabase';

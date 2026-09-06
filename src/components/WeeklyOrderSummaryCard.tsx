@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Beer, beerBg, beerBorder, beerInk, beerText, formatPackageLabel, Package, pkgBg, pkgText } from '../lib/supabase';
+import { Beer, beerBg, beerInk, beerText, formatPackageLabel } from '../lib/supabase';
 import { AlertCircle, Beer as BeerIcon, Calendar, CheckCircle2, ChevronLeft, ChevronRight, Hourglass, LayoutGrid, ListFilter, Package as PackageIcon } from 'lucide-react';
 
 export type WeeklyOrderItem = {

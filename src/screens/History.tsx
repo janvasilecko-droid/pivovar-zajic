@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Beer, beerBg, beerBorder, beerInk, beerName, fetchAllRows, formatPackageLabel, Package, Place, supabase, useRealtime } from '../lib/supabase';
-import { EmptyState, Kostra, Spinner } from '../components/ui';
+import { Beer, beerBg, beerBorder, beerInk, fetchAllRows, formatPackageLabel, Package, Place, supabase, useRealtime } from '../lib/supabase';
+import { Kostra, Spinner } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
-import { orderWeightKg, fmtKg } from '../lib/weight';
-import { DAYS } from '../lib/shared';
-import { AlertOctagon, AlertTriangle, ArrowDown, ChevronDown, ChevronUp, ArrowDownRight, ArrowUp, ArrowUpRight, BarChart3, Beer as BeerIcon, Boxes, Building, Calendar, CheckCircle2, ChevronsUpDown, Clock, DollarSign, Download, Droplet, Eye, EyeOff, Filter, GitCompare, History as HistoryIcon, Maximize2, Minimize2, Package as PackageIcon, PartyPopper, Percent, PieChart as PieChartIcon, Printer, Receipt, Save, Search, ShieldAlert, ShoppingCart, Smartphone, Star, Store, TrendingDown, TrendingUp, Trophy, Truck, Undo2, X, Zap, type LucideIcon } from 'lucide-react';
-import { WeeklyOrderSummaryCard, WeeklyOrderItem, isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
+import { orderWeightKg } from '../lib/weight';
+
+import { AlertTriangle, ChevronDown, ChevronUp, ArrowDownRight, ArrowUpRight, BarChart3, Beer as BeerIcon, Calendar, ChevronsUpDown, DollarSign, Download, Droplet, History as HistoryIcon, Package as PackageIcon, PartyPopper, PieChart as PieChartIcon, Printer, Receipt, Save, Search, ShieldAlert, ShoppingCart, Star, Store, TrendingDown, TrendingUp, Trophy, Truck, Undo2, X, Zap, type LucideIcon } from 'lucide-react';
+import { WeeklyOrderSummaryCard, WeeklyOrderItem, isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import { EditOrderModal } from '../components/EditOrderModal';
 import ZavozHistory from '../components/ZavozHistory';
 import { IkonaLahev, IkonaSud } from '../components/ikony';

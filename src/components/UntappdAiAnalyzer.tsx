@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Award, Leaf, MessageSquare, RefreshCw, Sparkles, Star, Tag, ThumbsUp } from 'lucide-react';
+import { Award, Leaf, Sparkles, Star, Tag, ThumbsUp } from 'lucide-react';
 
 type ReviewAnalysisResult = {
   overallRating: number;

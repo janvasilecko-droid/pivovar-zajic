@@ -1,6 +1,6 @@
 import { AlertTriangle } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { supabase, Place } from '../lib/supabase';
+import { Place } from '../lib/supabase';
 import { getOrCreatePlace } from '../lib/orderParser';
 
 /**

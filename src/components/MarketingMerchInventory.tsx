@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, Box, Plus, Search, ShoppingBag, Tag } from 'lucide-react';
+import { AlertTriangle, Plus, Search, ShoppingBag } from 'lucide-react';
 
 type MerchItem = {
   id: string;

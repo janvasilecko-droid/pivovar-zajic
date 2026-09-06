@@ -3,7 +3,7 @@ import { fetchAllRows, supabase, useRealtime } from '../lib/supabase';
 import { mnozne } from '../lib/cisla';
 import { Kostra } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
-import { AlertTriangle, Bird, ChevronLeft, Calendar, Car, CheckCircle2, Download, MapPin, Navigation, Plus, Printer, Scale, ShieldCheck, Sparkles, Trash2, User, X, Zap } from 'lucide-react';
+import { AlertTriangle, Bird, ChevronLeft, Calendar, Car, CheckCircle2, Download, Plus, Printer, Sparkles, Trash2, X, Zap } from 'lucide-react';
 import { isOrderKachna } from '../lib/zavozSecondCar';
 import { printTable } from '../lib/safePrint';
 import { computeRouteDistanceKm } from '../lib/routeDistance';

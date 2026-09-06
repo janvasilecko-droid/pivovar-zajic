@@ -1,10 +1,10 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef } from 'react';
 import { Modal, Spinner } from './ui';
 import { ImageEditor } from './ImageEditor';
 import type { Beer, Package } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
-import { AlertCircle, Bot, Calendar, Camera, ClipboardList, Hourglass, CheckCircle2, ChevronDown, ChevronUp, NotebookPen, Package as PackageIcon, Plus, RefreshCw, Trash2, X } from 'lucide-react';
+import { Bot, Calendar, Camera, ClipboardList, Hourglass, NotebookPen, Package as PackageIcon, RefreshCw, X } from 'lucide-react';
 
 type CountItem = {
   package_label: string | null;
