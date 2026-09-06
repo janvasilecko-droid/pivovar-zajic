@@ -4,6 +4,11 @@ import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
 import { useAuth } from './lib/auth';
 import { requestOpenHomeNotes } from './lib/homeNotes';
+// Obrazovky se načítají až při otevření. POZOR: co se sem přidá, se musí
+// i vykreslit — 5. 9. 2026 tu leželo jedenáct deklarací obrazovek, které
+// mezitím převzaly „Tabbed" obaly (Objednávky, katalogy, Akce, Ceník,
+// Check-listy, Kniha jízd, Sklo, Exkurze). Kdo četl App.tsx, myslel si,
+// že se odsud routují — přitom je vykresluje někdo jiný.
 const AppSettingsScreen = lazy(() => import('./screens/AppSettingsScreen'));
 const AppVersionsScreen = lazy(() => import('./screens/AppVersionsScreen'));
 
@@ -11,30 +16,19 @@ import Layout, { Page } from './components/Layout';
 import AuthScreen from './screens/AuthScreen';
 const Dashboard = lazy(() => import('./screens/Dashboard'));
 import HomeScreen from './screens/HomeScreen';
-const Orders = lazy(() => import('./screens/Orders'));
 const Zavoz = lazy(() => import('./screens/Zavoz'));
 const Stock = lazy(() => import('./screens/Stock'));
-const BeersScreen = lazy(() => import('./screens/Catalogs').then((m) => ({ default: m.BeersScreen })));
-const PackagesScreen = lazy(() => import('./screens/Catalogs').then((m) => ({ default: m.PackagesScreen })));
-const PlacesScreen = lazy(() => import('./screens/Catalogs').then((m) => ({ default: m.PlacesScreen })));
-const VehiclesScreen = lazy(() => import('./screens/Catalogs').then((m) => ({ default: m.VehiclesScreen })));
 const Users = lazy(() => import('./screens/Users'));
 const KeggingScreen = lazy(() => import('./screens/Kegging'));
 const BottlingScreen = lazy(() => import('./screens/BottlingScreen'));
 const ProdejnaScreen = lazy(() => import('./screens/ProdejnaScreen'));
-const AkceScreen = lazy(() => import('./screens/Akce'));
 const Statistika = lazy(() => import('./screens/Statistika'));
 const ExportExcelScreen = lazy(() => import('./screens/ExportExcelScreen'));
-const PriceListScreen = lazy(() => import('./screens/PriceList'));
 const CellarScreen = lazy(() => import('./screens/Cellar'));
 const SrotovaniScreen = lazy(() => import('./screens/BreweryScreens').then((m) => ({ default: m.SrotovaniScreen })));
-const ChecklistsScreen = lazy(() => import('./screens/BreweryScreens').then((m) => ({ default: m.ChecklistsScreen })));
 const ConcentrationScreen = lazy(() => import('./screens/BreweryScreens').then((m) => ({ default: m.ConcentrationScreen })));
 const InventoryScreen = lazy(() => import('./screens/InventoryScreen'));
-const KnihaJizdScreen = lazy(() => import('./screens/KnihaJizdScreen'));
-const SkloPromoScreen = lazy(() => import('./screens/SkloPromoScreen'));
 const VycepyScreen = lazy(() => import('./screens/VycepyScreen'));
-const ExkurzeScreen = lazy(() => import('./screens/ExkurzeScreen'));
 const VehiclesTabbed = lazy(() => import('./screens/VehiclesTabbed'));
 const DepozitarTabbed = lazy(() => import('./screens/DepozitarTabbed'));
 const SanitaceTabbed = lazy(() => import('./screens/SanitaceTabbed'));
