@@ -15,7 +15,7 @@ Výchozí stav po všech změnách:
 ```
 npx vitest run       1324 testů / 120 souborů — všechny prošly
 npx tsc --noEmit     bez chyby
-npm run lint         0 chyb (1139 varování = známý dluh, utahuje se)
+npm run lint         0 chyb (910 varování — bylo 1139, utahuje se)
 zkontroluj-tridy · kontrast · tlacitka · dotyk · popisky · velikost   OK
 node scripts/e2e.mjs   oba scénáře prošly
 ```
@@ -89,6 +89,19 @@ node scripts/e2e.mjs   oba scénáře prošly
 | 48 | +7 testů na UI a chování | kostra, dialog, načítání, graf |
 | 49 | Dva E2E scénáře: zápis inventury a vzorník v obou režimech | `scripts/e2e.mjs` |
 | 50 | Vzorník prvků + snímky před/po | `/prvky.html`, `scripts/snimky.mjs` |
+
+### Druhá vlna (po „pokračuj")
+| Co | Doklad |
+| --- | --- |
+| Objednávky 273 → 120 kB, čtení z fotky mimo kus obrazovky | build |
+| Stavy objednávek a posun měsíce do `lib/` (byly 3× a 4× zvlášť) | `stavyObjednavek.ts`, `businessDate.ts` |
+| Evidence skladu má typy místo `any[]` | `stockLedger.ts` |
+| Přepínač období jako komponenta (byl 2× a jinak) | `PrepinacObdobi.tsx` |
+| Počítadla −/+ mají roli (byla v 5 barvách a 3 velikostech) | dluh 547 → 519 |
+| Sklad a Sklep rozliší selhání od prázdna | `prvniChyba()` |
+| Druhý E2E scénář: vzorník v obou režimech | `scripts/e2e.mjs` |
+| 11 mrtvých deklarací obrazovek v `App.tsx` | — |
+| 194 nepoužitých importů (1139 → 910 varování) | `npm run lint` |
 
 ### Navíc, co v seznamu nebylo
 - **Hooky volané po `return null`** — modal „Přizpůsobení osobního menu"
