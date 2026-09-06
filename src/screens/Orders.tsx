@@ -1979,7 +1979,7 @@ export default function Orders({
                       <button
                         type="button"
                         onClick={() => setPkgQty(expandedBeer.id, p.id, -1)}
-                        className="w-10 h-10 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none tap"
+                        className="btn-pocet disabled:opacity-30"
                         disabled={qty <= 0}
                       >−</button>
                       <input
@@ -1999,7 +1999,7 @@ export default function Orders({
                       <button
                         type="button"
                         onClick={() => setPkgQty(expandedBeer.id, p.id, 1)}
-                        className="w-10 h-10 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none tap"
+                        className="btn-pocet"
                       >+</button>
                     </div>
                   </div>
@@ -2031,7 +2031,7 @@ export default function Orders({
                         <span className="truncate">{formatPackageLabel(pkg?.label)} · {beerName(beer)}</span>
                       </button>
                       <div className="flex items-center gap-1 shrink-0">
-                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, -1)} className="w-10 h-10 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none tap" disabled={Number(r.qty) <= 1}>−</button>
+                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, -1)} className="btn-pocet disabled:opacity-30" disabled={Number(r.qty) <= 1}>−</button>
                         <input
                           type="number" onWheel={(e) => e.currentTarget.blur()}
                           min={0}
@@ -2046,7 +2046,7 @@ export default function Orders({
                           className="w-14 h-10 text-center text-base font-black text-neutral-800 dark:text-neutral-100 bg-white dark:bg-neutral-900/60 border-2 border-amber-200 dark:border-neutral-700 rounded-xl"
                           title="Napiš počet ručně"
                         />
-                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, 1)} className="w-10 h-10 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none tap">+</button>
+                        <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, 1)} className="btn-pocet">+</button>
                         <button type="button" onClick={() => setPkgQty(r.beerId, r.pkgId, -Number(r.qty))} className="w-10 h-10 grid place-items-center rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-black text-xl transition select-none tap" title="Odebrat položku" aria-label="Odebrat položku"><X size={18} /></button>
                       </div>
                     </li>

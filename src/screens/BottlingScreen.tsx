@@ -1127,7 +1127,7 @@ export default function BottlingScreen({
                               {q}
                             </button>
                           ))}
-                          <button type="button" onClick={() => bumpTile(slot.qty, -1)} className="w-9 h-9 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition select-none tap">−</button>
+                          <button type="button" onClick={() => bumpTile(slot.qty, -1)} className="btn-pocet">−</button>
                           <input
                             type="number" onWheel={(e) => e.currentTarget.blur()}
                             min={0}
@@ -1137,7 +1137,7 @@ export default function BottlingScreen({
                             onChange={(e) => setTile(slot.qty, e.target.value.replace(/[^0-9]/g, ''))}
                             placeholder="0"
                           />
-                          <button type="button" onClick={() => bumpTile(slot.qty, 1)} className="w-9 h-9 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-black text-xl transition select-none tap">+</button>
+                          <button type="button" onClick={() => bumpTile(slot.qty, 1)} className="btn-pocet">+</button>
                         </div>
                       </div>
                     );
@@ -1161,7 +1161,7 @@ export default function BottlingScreen({
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-udaj font-extrabold uppercase text-neutral-500">Počet sudů</span>
                   <div className="flex items-center gap-1">
-                    <button type="button" onClick={() => bumpTile('kegQty', -1)} className="w-9 h-9 grid place-items-center rounded bg-sky-100 hover:bg-sky-200 text-sky-800 font-black text-xl transition select-none tap">−</button>
+                    <button type="button" onClick={() => bumpTile('kegQty', -1)} className="btn-pocet">−</button>
                     <input
                       type="number" onWheel={(e) => e.currentTarget.blur()}
                       min={0}
@@ -1171,7 +1171,7 @@ export default function BottlingScreen({
                       onChange={(e) => setTile('kegQty', e.target.value.replace(/[^0-9]/g, ''))}
                       placeholder="0"
                     />
-                    <button type="button" onClick={() => bumpTile('kegQty', 1)} className="w-9 h-9 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-black text-xl transition select-none tap">+</button>
+                    <button type="button" onClick={() => bumpTile('kegQty', 1)} className="btn-pocet">+</button>
                   </div>
                 </div>
 
@@ -1241,7 +1241,7 @@ export default function BottlingScreen({
                         <span className="truncate">{l.label}</span>
                       </button>
                       <div className="flex items-center gap-1 shrink-0">
-                        <button type="button" onClick={() => updateQty(l.rowIndex, l.field, String(Math.max(0, l.qty - 1)))} className="w-11 h-11 grid place-items-center rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-black text-xl transition disabled:opacity-30 select-none" disabled={l.qty <= 1}>−</button>
+                        <button type="button" onClick={() => updateQty(l.rowIndex, l.field, String(Math.max(0, l.qty - 1)))} className="btn-pocet disabled:opacity-30" disabled={l.qty <= 1}>−</button>
                         <input
                           type="number" onWheel={(e) => e.currentTarget.blur()}
                           min={0}
@@ -1252,7 +1252,7 @@ export default function BottlingScreen({
                           className="w-14 h-10 text-center text-base font-black text-neutral-800 dark:text-neutral-100 bg-white dark:bg-neutral-900/60 border-2 border-amber-200 dark:border-neutral-700 rounded"
                           title="Napiš počet ručně"
                         />
-                        <button type="button" onClick={() => updateQty(l.rowIndex, l.field, String(l.qty + 1))} className="w-11 h-11 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xl transition select-none">+</button>
+                        <button type="button" onClick={() => updateQty(l.rowIndex, l.field, String(l.qty + 1))} className="btn-pocet">+</button>
                         {/* +5: po jednom se přidává jen zbytek, celé pády sudů
                             jdou po pěti. Dvě klepnutí místo deseti. */}
                         <button type="button" onClick={() => updateQty(l.rowIndex, l.field, String(l.qty + 5))} className="w-11 h-11 grid place-items-center rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-950 font-black text-sm transition select-none">+5</button>
