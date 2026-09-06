@@ -6,10 +6,10 @@ import { HlavickaStranky } from '../components/HlavickaStranky';
 
 import { nesedici, zkontrolujTanky } from '../lib/tankKontrola';
 import { Beer, CellarTank, CellarTankCycle, CellarTransfer, EntryRow, Package, beerBorder, fetchAllRows, supabase, useRealtime } from '../lib/supabase';
-import { Modal, Field, Spinner, UkazatelPlnosti } from '../components/ui';
+import { EmptyState, Field, Kostra, Modal, UkazatelPlnosti } from '../components/ui';
 import { TankOccupancyPlanner } from '../components/TankOccupancyPlanner';
 import { chyba, oznam, potvrd } from '../lib/toast';
-import { usePosledniNacteni } from '../lib/nacitani';
+import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
 import { IkonaSud } from '../components/ikony';
 
 const STATUS_LABELS: Record<CellarTank['status'], string> = {
@@ -75,6 +75,8 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [orderItems, setOrderItems] = useState<OrderItemRow[]>([]);
   const [weekKey, setWeekKey] = useState(isoWeekKey(new Date().toISOString().slice(0, 10)));
+  /** Nepodařilo se načíst data (na rozdíl od „ve sklepě nic není"). */
+  const [chybaNacteni, setChybaNacteni] = useState<string | null>(null);
 
   // Zámek proti zápisu ze zastaralého načtení — viz lib/nacitani.ts.
   const zacniNacteni = usePosledniNacteni();
@@ -97,6 +99,8 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
     // Mezitím mohlo začít novější načtení (realtime po cizím zápisu),
     // nebo už obrazovka není vidět. Výsledek se pak zahodí.
     if (!smiZapsat()) return;
+    // Selhaný dotaz se dřív tvářil jako prázdný sklep.
+    setChybaNacteni(prvniChyba(t, tr, cy, kg, b, pkg));
 
     let tankList = (t.data as CellarTank[]) ?? [];
 
@@ -653,7 +657,13 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
         </div>
       </div>
 
-      {loading ? <Spinner /> : activeTab === 'planovac' ? (
+      {loading ? <Kostra radku={4} /> : chybaNacteni && tanks.length === 0 ? (
+        <EmptyState
+          varianta="chyba"
+          text={`Sklep se nepodařilo načíst: ${chybaNacteni}`}
+          akce={{ popis: 'Zkusit znovu', onClick: () => load() }}
+        />
+      ) : activeTab === 'planovac' ? (
         <TankOccupancyPlanner tanks={tanks} beers={beers} cycles={cycles} />
       ) : (
         <>

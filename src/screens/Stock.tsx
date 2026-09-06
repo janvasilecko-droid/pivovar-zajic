@@ -13,6 +13,7 @@ import { FestivalEquipmentTracker } from '../components/FestivalEquipmentTracker
 import { MarketingMerchInventory } from '../components/MarketingMerchInventory';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
 import { requestKegFix, requestBottlingFix } from '../lib/stockFixSignal';
+import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
 import type { Page } from '../components/Layout';
 
 type StockByPkg = {
@@ -110,18 +111,29 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
     { beerId: string; packageId: string; nazev: string; baselineDate: string | null; baselineQty: number; vysledek: number } | null
   >(null);
   const [showNesedi, setShowNesedi] = useState(false);
+  /** Nepodařilo se načíst data (na rozdíl od „sklad je prázdný"). */
+  const [chybaNacteni, setChybaNacteni] = useState<string | null>(null);
 
   const [brewFrom, setBrewFrom] = useState<string>(startOfMonthISO(todayISO()));
   const [brewTo, setBrewTo] = useState<string>(todayISO());
   const [brewStats, setBrewStats] = useState<BrewStat[]>([]);
   const [brewLoading, setBrewLoading] = useState(true);
 
+  // Zámek proti zápisu ze zastaralého načtení — viz lib/nacitani.ts.
+  const zacniNacteni = usePosledniNacteni();
   async function load(silent = false) {
+    const smiZapsat = zacniNacteni();
     if (!silent) setLoading(true);
-    const [{ data: b }, { data: pk }] = await Promise.all([
+    const [vysledekPiv, vysledekObalu] = await Promise.all([
       supabase.from('beers').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('packages').select('*').order('sort_order'),
     ]);
+    if (!smiZapsat()) return;
+    // Selhaný dotaz se dřív tvářil jako prázdný sklad — a to je zrovna
+    // v přehledu skladu ta nejhorší možná záměna.
+    setChybaNacteni(prvniChyba(vysledekPiv, vysledekObalu));
+    const b = vysledekPiv.data;
+    const pk = vysledekObalu.data;
     const beerList = (b as Beer[]) ?? [];
     const pkgList = (pk as Package[]) ?? [];
     setBeers(beerList);
@@ -550,7 +562,15 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
           </div>
 
           {/* Stock Cards Grid */}
-          {loading ? <Spinner /> : rows.length === 0 ? <EmptyState text="Žádná piva na skladě." icon={PackageIcon} /> : (
+          {loading ? <Spinner /> : rows.length === 0 ? (
+            chybaNacteni ? (
+              <EmptyState
+                varianta="chyba"
+                text={`Sklad se nepodařilo načíst: ${chybaNacteni}`}
+                akce={{ popis: 'Zkusit znovu', onClick: () => load() }}
+              />
+            ) : <EmptyState text="Žádná piva na skladě." icon={PackageIcon} />
+          ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {rows.map((r) => {
                 const isDeficit = r.remaining < 0;
