@@ -2,14 +2,14 @@ import { BottlingChecklistModal, DEFAULT_ITEMS, isStartChecklistCompleteForDate,
 import { useEffect, useMemo, useState, useRef, lazy, Suspense } from 'react';
 import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, beerText, formatPackageLabel, fetchAllRows } from '../lib/supabase';
 import { EmptyState, Spinner, Modal } from '../components/ui';
-import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
+import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import { AlertTriangle, ArrowRight, BarChart3, Beer as BeerIcon, Brush, Calendar, CalendarDays, Camera, Check, CheckCircle2, ClipboardList, Copy, Lightbulb, ListChecks, Megaphone, Package as PackageIcon, PenLine, Pencil, Play, Plus, RefreshCw, Sparkles, Trash2, Wine, X } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { BottlingPlan, getPlanSeenAt, markPlanSeenAt, isPlanUnseen, isBottlingManager, setPlanStatus } from '../lib/bottlingPlans';
 import { BottlingPlanPlanner } from '../components/BottlingPlanPlanner';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
 import { isLastWeekOfMonth, getMonthKey, writeMonthlyCleanupStage, isMonthlyLineDone, markMonthlyLineDone } from '../lib/monthlyCleanup';
-import { businessDateISO, posunMesic } from '../lib/businessDate';
+import { businessDateISO } from '../lib/businessDate';
 import { autoLogBottleSanitationFromChecklist } from '../lib/bottleSanitation';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
 import { VoiceRecorder } from '../components/VoiceRecorder';
@@ -25,6 +25,7 @@ import { chyba, potvrd, toastZpet } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
+import { PrepinacObdobi } from '../components/PrepinacObdobi';
 import { consumeBottlingFixRequest } from '../lib/stockFixSignal';
 import { klicVyberu, nactiNaposled, zapamatujVyber, serazPodleNaposled } from '../lib/naposledyPouzite';
 import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
@@ -296,12 +297,6 @@ export default function BottlingScreen({
   const [recordsMonthKey, setRecordsMonthKey] = useState(() => new Date().toISOString().slice(0, 7));
   const [recordsWeekKey, setRecordsWeekKey] = useState(() => isoWeekKey(new Date().toISOString().slice(0, 10)));
   const [recordsDay, setRecordsDay] = useState(() => new Date().toISOString().slice(0, 10));
-  // Posun dne o delta dní (vrací YYYY-MM-DD)
-  function shiftDay(dayKey: string, delta: number): string {
-    const d = new Date(`${dayKey}T00:00:00Z`);
-    d.setUTCDate(d.getUTCDate() + delta);
-    return d.toISOString().slice(0, 10);
-  }
   // Aktuální týden pro „Potřeba stočit lahve" (objednávky se počítají za týden, ne za měsíc)
   const [weekKey, setWeekKey] = useState(() => isoWeekKey(new Date().toISOString().slice(0, 10)));
   const weekLabel = weekRange(weekKey).label;
@@ -1440,66 +1435,23 @@ export default function BottlingScreen({
                 >
                   <PackageIcon size={14} /> Vše
                 </button>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setRecordsView('day')}
-                    className={`tap inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded border transition ${
-                      recordsView === 'day'
-                        ? 'bg-amber-200 border-amber-300 text-amber-950'
-                        : 'bg-white border-neutral-200 text-neutral-600'
-                    }`}
-                  >
-                    <CalendarDays size={14} /> Den
-                  </button>
-                  {recordsView === 'day' && (
-                    <>
-                      <button onClick={() => setRecordsDay(shiftDay(recordsDay, -1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-white border border-amber-300 hover:bg-amber-50 text-amber-900 font-black text-base transition shrink-0">‹</button>
-                      <input type="date" value={recordsDay} onChange={(e) => setRecordsDay(e.target.value)} className="input text-xs font-bold px-2 py-1 rounded border border-neutral-200 bg-white text-neutral-700" />
-                      <button onClick={() => setRecordsDay(shiftDay(recordsDay, 1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-white border border-amber-300 hover:bg-amber-50 text-amber-900 font-black text-base transition shrink-0">›</button>
-                    </>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setRecordsView('month')}
-                  className={`tap inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded border transition ${
-                    recordsView === 'month'
-                      ? 'bg-amber-200 border-amber-300 text-amber-950'
-                      : 'bg-white border-neutral-200 text-neutral-600'
-                  }`}
-                >
-                  <CalendarDays size={14} /> Měsíc
-                </button>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setRecordsView('week')}
-                    className={`tap inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded border transition ${
-                      recordsView === 'week'
-                        ? 'bg-amber-200 border-amber-300 text-amber-950'
-                        : 'bg-white border-neutral-200 text-neutral-600'
-                    }`}
-                  >
-                    <CalendarDays size={14} /> Týden
-                  </button>
-                  {/* Šipky jsou bílé, ne žluté: leží na žlutém panelu a
-                      žlutá na žluté není poznat jako tlačítko — na slunci
-                      teprve ne. */}
-                  {recordsView === 'week' && (
-                    <>
-                      <button onClick={() => setRecordsWeekKey(shiftWeek(recordsWeekKey, -1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-white border border-amber-300 hover:bg-amber-50 text-amber-900 font-black text-base transition shrink-0">‹</button>
-                      <button onClick={() => setRecordsWeekKey(shiftWeek(recordsWeekKey, 1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-white border border-amber-300 hover:bg-amber-50 text-amber-900 font-black text-base transition shrink-0">›</button>
-                    </>
-                  )}
-                  {recordsView === 'month' && (
-                    <>
-                      <button onClick={() => setRecordsMonthKey(posunMesic(recordsMonthKey, -1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-white border border-amber-300 hover:bg-amber-50 text-amber-900 font-black text-base transition shrink-0">‹</button>
-                      <span className="text-xs font-bold text-amber-950 px-1 whitespace-nowrap">{recordsMonthKey}</span>
-                      <button onClick={() => setRecordsMonthKey(posunMesic(recordsMonthKey, 1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-white border border-amber-300 hover:bg-amber-50 text-amber-900 font-black text-base transition shrink-0">›</button>
-                    </>
-                  )}
-                </div>
+                {/* Přepínač období — společná komponenta (viz KEG, kde
+                    stálo totéž). Tady byly pilulky a šipky promíchané
+                    a v pořadí Den → Měsíc → Týden.
+                    Poznámka, která platí dál: šipky NEJSOU žluté. Leží na
+                    žlutém panelu a žlutá na žluté není poznat jako tlačítko
+                    — na slunci teprve ne. Role btn-secondary je světle šedá,
+                    takže se od panelu odlišuje. */}
+                <PrepinacObdobi
+                  obdobi={recordsView}
+                  onObdobi={setRecordsView}
+                  den={recordsDay}
+                  onDen={setRecordsDay}
+                  tyden={recordsWeekKey}
+                  onTyden={setRecordsWeekKey}
+                  mesic={recordsMonthKey}
+                  onMesic={setRecordsMonthKey}
+                />
               </>
             )}
             {rows.length > 0 && (

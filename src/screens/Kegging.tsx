@@ -5,9 +5,9 @@ import { useAuth } from '../lib/auth';
 import { KeggingChecklistModal, KeggingChecklistBody, isStartChecklistCompleteForKeg, isMonthlyChecklistCompleteForKeg } from '../components/KeggingChecklistModal';
 import { autoLogKegSanitationFromChecklist, isLastWeekOfMonth } from '../lib/kegSanitation';
 import { getMonthKey, writeMonthlyCleanupStage, isMonthlyLineDone, markMonthlyLineDone } from '../lib/monthlyCleanup';
-import { businessDateISO, posunMesic } from '../lib/businessDate';
+import { businessDateISO } from '../lib/businessDate';
 import { EmptyState, Spinner, Modal } from '../components/ui';
-import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
+import { isoWeekKey, weekRange } from '../components/WeeklyOrderSummaryCard';
 import { exportKeggingToExcel } from '../lib/excel';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { parseFreeTextEntries, loadAliasMap, emptyAliasMap, type ParserAliasMap } from '../lib/orderParser';
@@ -22,6 +22,7 @@ import { chyba, potvrd, toastZpet } from '../lib/toast';
 import { nejvetsiTank, radkyBezTanku, tankRadku, tankyProPivo } from '../lib/tankUZapisu';
 import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { IkonaSud } from '../components/ikony';
+import { PrepinacObdobi } from '../components/PrepinacObdobi';
 import { zavibruj } from '../lib/haptika';
 import { consumeKegFixRequest } from '../lib/stockFixSignal';
 import { klicVyberu, nactiNaposled, zapamatujVyber, serazPodleNaposled } from '../lib/naposledyPouzite';
@@ -160,12 +161,6 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
   // Posun měsíce o delta měsíců (vrací YYYY-MM)
 
-  // Posun dne o delta dní (vrací YYYY-MM-DD)
-  function shiftDay(day: string, delta: number): string {
-    const d = new Date(day + 'T00:00:00Z');
-    d.setUTCDate(d.getUTCDate() + delta);
-    return d.toISOString().slice(0, 10);
-  }
 
   const filteredRows = useMemo(() => {
     // Minusové položky (ruční opravy přepočtu) se v přehledu stáčení
@@ -1471,70 +1466,19 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                   ))}
                 </select>
 
-                {/* Přepínač období: Den / Týden / Měsíc */}
-                <div className="flex items-center gap-1 bg-white border border-neutral-200 rounded p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setRecordsView('day')}
-                    className={`tap text-xs font-bold px-2.5 py-1 rounded-md border transition ${
-                      recordsView === 'day'
-                        ? 'bg-amber-200 border-amber-300 text-amber-950'
-                        : 'bg-white border-transparent text-neutral-600'
-                    }`}
-                  >
-                    <Calendar className="ikona-text" /> Den
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRecordsView('week')}
-                    className={`tap text-xs font-bold px-2.5 py-1 rounded-md border transition ${
-                      recordsView === 'week'
-                        ? 'bg-amber-200 border-amber-300 text-amber-950'
-                        : 'bg-white border-transparent text-neutral-600'
-                    }`}
-                  >
-                    <Calendar className="ikona-text" /> Týden
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRecordsView('month')}
-                    className={`tap text-xs font-bold px-2.5 py-1 rounded-md border transition ${
-                      recordsView === 'month'
-                        ? 'bg-amber-200 border-amber-300 text-amber-950'
-                        : 'bg-white border-transparent text-neutral-600'
-                    }`}
-                  >
-                    <Calendar className="ikona-text" /> Měsíc
-                  </button>
-                </div>
-
-                {/* Navigace podle zvoleného období */}
-                {recordsView === 'day' && (
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => setRecordsDay(shiftDay(recordsDay, -1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-base transition shrink-0">‹</button>
-                    <input
-                      type="date"
-                      value={recordsDay}
-                      onChange={(e) => setRecordsDay(e.target.value)}
-                      className="input text-xs font-bold px-2 py-1 rounded border border-neutral-200 bg-white text-neutral-700"
-                    />
-                    <button onClick={() => setRecordsDay(shiftDay(recordsDay, 1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-base transition shrink-0">›</button>
-                  </div>
-                )}
-                {recordsView === 'week' && (
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => setRecordsWeekKey(shiftWeek(recordsWeekKey, -1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-base transition shrink-0">‹</button>
-                    <span className="text-xs font-bold text-amber-950 px-1 whitespace-nowrap">{weekRange(recordsWeekKey).label}</span>
-                    <button onClick={() => setRecordsWeekKey(shiftWeek(recordsWeekKey, 1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-base transition shrink-0">›</button>
-                  </div>
-                )}
-                {recordsView === 'month' && (
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => setRecordsMonthKey(posunMesic(recordsMonthKey, -1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-base transition shrink-0">‹</button>
-                    <span className="text-xs font-bold text-amber-950 px-1 whitespace-nowrap">{recordsMonthKey}</span>
-                    <button onClick={() => setRecordsMonthKey(posunMesic(recordsMonthKey, 1))} className="w-11 min-h-[44px] grid place-items-center rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-black text-base transition shrink-0">›</button>
-                  </div>
-                )}
+                {/* Přepínač období — společná komponenta. Bylo to poskládané
+                    z devíti ručně malovaných tlačítek a stálo to skoro
+                    stejně i ve Stáčení lahví. */}
+                <PrepinacObdobi
+                  obdobi={recordsView}
+                  onObdobi={setRecordsView}
+                  den={recordsDay}
+                  onDen={setRecordsDay}
+                  tyden={recordsWeekKey}
+                  onTyden={setRecordsWeekKey}
+                  mesic={recordsMonthKey}
+                  onMesic={setRecordsMonthKey}
+                />
               </>
             )}
             {rows.length > 0 && (
