@@ -1127,7 +1127,7 @@ export default function BottlingScreen({
                               {q}
                             </button>
                           ))}
-                          <button type="button" onClick={() => bumpTile(slot.qty, -1)} className="btn-pocet">−</button>
+                          <button type="button" onClick={() => bumpTile(slot.qty, -1)} className="btn-pocet !h-9 !min-h-[36px] !w-9 tap">−</button>
                           <input
                             type="number" onWheel={(e) => e.currentTarget.blur()}
                             min={0}
@@ -1137,7 +1137,7 @@ export default function BottlingScreen({
                             onChange={(e) => setTile(slot.qty, e.target.value.replace(/[^0-9]/g, ''))}
                             placeholder="0"
                           />
-                          <button type="button" onClick={() => bumpTile(slot.qty, 1)} className="btn-pocet">+</button>
+                          <button type="button" onClick={() => bumpTile(slot.qty, 1)} className="btn-pocet !h-9 !min-h-[36px] !w-9 tap">+</button>
                         </div>
                       </div>
                     );
@@ -1161,7 +1161,7 @@ export default function BottlingScreen({
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-udaj font-extrabold uppercase text-neutral-500">Počet sudů</span>
                   <div className="flex items-center gap-1">
-                    <button type="button" onClick={() => bumpTile('kegQty', -1)} className="btn-pocet">−</button>
+                    <button type="button" onClick={() => bumpTile('kegQty', -1)} className="btn-pocet !h-9 !min-h-[36px] !w-9 tap">−</button>
                     <input
                       type="number" onWheel={(e) => e.currentTarget.blur()}
                       min={0}
@@ -1171,7 +1171,7 @@ export default function BottlingScreen({
                       onChange={(e) => setTile('kegQty', e.target.value.replace(/[^0-9]/g, ''))}
                       placeholder="0"
                     />
-                    <button type="button" onClick={() => bumpTile('kegQty', 1)} className="btn-pocet">+</button>
+                    <button type="button" onClick={() => bumpTile('kegQty', 1)} className="btn-pocet !h-9 !min-h-[36px] !w-9 tap">+</button>
                   </div>
                 </div>
 
