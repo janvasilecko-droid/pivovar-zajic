@@ -94,7 +94,26 @@ export async function nactiPodkladyAuditu(rezim: RezimAuditu, dnesISO: string): 
     },
 
     inventurniRadky: kniha.inventura.map((r) => ({ entry_date: r.entry_date, note: r.note })),
+
+    // Zpětné zásahy do už napočítaného měsíce (viz lib/zpetneZmeny.ts).
+    // Bere se jen fyzická inventura, ne poznámkové řádky typu „napočítaný
+    // stav" — teprve fyzická inventura měsíc uzavírá.
+    napocitaneInventury: kniha.inventura.map((r) => ({ entry_date: r.entry_date, created_at: r.created_at })),
+    pohybySCasem: [
+      ...kniha.kegging.map((r: any) => ({ datum: r.entry_date, created_at: r.created_at, zdroj: 'stáčení KEG', popis: popisRadku(r, jmenoPiva, jmenoObalu) })),
+      ...kniha.bottling.map((r: any) => ({ datum: r.entry_date, created_at: r.created_at, zdroj: 'stáčení lahví', popis: popisRadku(r, jmenoPiva, jmenoObalu) })),
+      ...kniha.fasovani.map((r: any) => ({ datum: r.entry_date, created_at: r.created_at, zdroj: 'fasování', popis: popisRadku(r, jmenoPiva, jmenoObalu) })),
+      ...kniha.odpisy.map((r: any) => ({ datum: r.entry_date, created_at: r.created_at, zdroj: 'odpis', popis: popisRadku(r, jmenoPiva, jmenoObalu) })),
+      ...kniha.zavozy.map((r: any) => ({ datum: r.deduct_date, created_at: r.created_at, zdroj: 'závoz', popis: popisRadku(r, jmenoPiva, jmenoObalu) })),
+    ],
   };
+}
+
+/** „2× 10° Desítka 20l" — popis řádku do nálezu auditu. */
+function popisRadku(r: any, jmenoPiva: Map<string, string>, jmenoObalu: Map<string, string>): string {
+  const pivo = jmenoPiva.get(r.beer_id) ?? 'neznámé pivo';
+  const obal = jmenoObalu.get(r.package_id) ?? '';
+  return `${r.quantity} ks ${pivo}${obal ? ` ${obal.trim()}` : ''}`;
 }
 
 /** Posun data o N měsíců (záporné = zpět), zůstává YYYY-MM-DD. */

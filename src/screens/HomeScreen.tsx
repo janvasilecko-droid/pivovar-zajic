@@ -42,7 +42,7 @@ import {
   CO2_TILE_ID,
   type HomeLayout, type TileColor, type TileId, type GroupId, type CountdownTileId,
 } from '../lib/homeLayout';
-import { co2Bezi, co2Zbyva, prepniCo2 } from '../lib/co2Foukani';
+import { co2Bezi, co2Zbyva, prepniCo2, CO2_ID } from '../lib/co2Foukani';
 import { zavibruj } from '../lib/haptika';
 import {
   getKegTimerState, formatDurationMs, getCountdowns, saveCountdowns, countdownRemainingMs, toggleCountdown, resetCountdown,
@@ -1715,7 +1715,12 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   <button
                     key={`odpocet-${c.id}`}
                     type="button"
-                    className={`hs-tile ${dobehl ? 'hs-tile-alert' : 'hs-tile-warn'} vlastni-vyska`}
+                    // Foukání CO2 bliká červeně po celou dobu, ne až po
+                    // doběhnutí: dokud se fouká, má to být vidět přes celou
+                    // dílnu, ne se to hledat mezi dlaždicemi.
+                    className={`hs-tile ${dobehl || c.id === CO2_ID ? 'hs-tile-alert' : 'hs-tile-warn'} vlastni-vyska ${
+                      c.id === CO2_ID || dobehl ? 'animate-pulse' : ''
+                    }`}
                     onClick={() => setPage('timer')}
                     title={dobehl ? `Odpočet „${c.label}" doběhl` : `Odpočet „${c.label}" — zbývá ${formatDurationMs(zbyva)}`}
                   >
@@ -1870,19 +1875,23 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               const bezi = co2Bezi(countdowns);
               const zbyva = co2Zbyva(countdowns);
               const dobehlo = bezi && zbyva === 0;
+              // Na dlaždici je jen „CO2" a čas. Celé „Foukání CO2" se do
+              // dlaždice na telefonu nevešlo a zbyla z něj nečitelná drť;
+              // co to je, řekne ikona a hlavně pásek upozornění nahoře,
+              // který za běhu červeně bliká.
               customContent = (
-                <div className={`w-full h-full flex flex-col items-center justify-center gap-0.5 p-1.5 text-center select-none overflow-hidden ${
-                  dobehlo ? 'bg-rose-600 text-white animate-pulse' : bezi ? 'bg-rose-600 text-white' : 'bg-neutral-500 text-white'
+                <div className={`absolute inset-0 flex flex-col items-center justify-center gap-0.5 select-none overflow-hidden ${
+                  bezi ? 'bg-rose-600 text-white' : 'bg-neutral-500 text-white'
                 }`}>
-                  <Wind size={20} className="shrink-0" />
-                  <div className="text-[11px] font-black uppercase tracking-wider leading-tight">Foukání CO2</div>
+                  <Wind size={22} className="shrink-0" />
+                  <div className="text-lg font-black tracking-wide leading-none">CO2</div>
                   {bezi ? (
                     <>
-                      <div className="text-lg font-mono font-black tabular-nums leading-none">{formatDurationMs(zbyva)}</div>
-                      <span className="px-2 py-0.5 rounded-full bg-white/90 text-rose-700 text-[11px] font-black">STOP</span>
+                      <div className="text-base font-mono font-black tabular-nums leading-none">{formatDurationMs(zbyva)}</div>
+                      <span className="px-2 py-0.5 rounded-full bg-white text-rose-700 text-[11px] font-black">STOP</span>
                     </>
                   ) : (
-                    <div className="text-[11px] font-bold opacity-90 leading-tight">2 min · klepni</div>
+                    <div className="text-[11px] font-bold opacity-90 leading-none">2 min</div>
                   )}
                 </div>
               );
