@@ -15,6 +15,7 @@ import { zapamatujPozici } from '../lib/drzPozici';
 import { vyrovnaniZaMesic } from '../lib/vyrovnani';
 import { lzeUlozitKoncept, slucInventuru } from '../lib/rozepsanaInventura';
 import { normalizujCislo } from '../lib/cisloVstup';
+import { stavPolicka, tridyPolicka } from '../lib/polickoInventury';
 import { popisRozdeleni, rozdelSudyDoTanku, zmenaOtevreni, type RozdeleniSudu, type TankProRozdeleni } from '../lib/tankRozdeleni';
 import { odectiZTanku as odectiZTankuDB, vratDoTanku } from '../lib/tankZapis';
 import { saveBottlingPlan } from '../lib/bottlingPlans';
@@ -2055,7 +2056,10 @@ function exportInventoryExcel() {
                                 type="number" onWheel={(e) => e.currentTarget.blur()}
                                 min="0"
                                 inputMode="numeric"
-                                className="input !py-2 text-center font-mono font-black text-base text-neutral-950 border-amber-400 bg-amber-100/80 w-full min-w-0 rounded shadow-inner focus:ring-2 focus:ring-amber-500"
+                                /* Barva políčka podle shody se skladem (lib/polickoInventury.ts):
+                                   šedá = ve skladu něco je a nespočítalo se, zelená = sedí,
+                                   červená = nesedí. */
+                                className={`input !py-2 text-center font-mono font-black text-base w-full min-w-0 rounded shadow-inner focus:ring-2 focus:ring-amber-500 ${tridyPolicka(stavPolicka(actualStock[k], r.expectedQty))}`}
                                 value={actualStock[k] !== undefined ? actualStock[k] : ''}
                                 onFocus={(e) => e.currentTarget.select()}
                                 onChange={(e) => setActualStock((prev) => ({ ...prev, [k]: e.target.value }))}
@@ -2224,7 +2228,7 @@ function exportInventoryExcel() {
                               <input
                                 type="number" inputMode="numeric" onWheel={(e) => e.currentTarget.blur()}
                                 min="0"
-                                className="input !py-1 text-center font-mono font-black text-xs text-neutral-950 border-amber-400 bg-amber-100/80 w-16 rounded shadow-inner focus:ring-2 focus:ring-amber-500"
+                                className={`input !py-1 text-center font-mono font-black text-xs w-16 rounded shadow-inner focus:ring-2 focus:ring-amber-500 ${tridyPolicka(stavPolicka(actualStock[k], r.expectedQty))}`}
                                 value={actualStock[k] !== undefined ? actualStock[k] : ''}
                                 onFocus={(e) => e.currentTarget.select()}
                                 onChange={(e) => setActualStock((prev) => ({ ...prev, [k]: e.target.value }))}
