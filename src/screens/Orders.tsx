@@ -3005,7 +3005,17 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
     // Uvnitř stejného druhu seřadit podle názvu obalu
     const labelA = a.package_label ?? '';
     const labelB = b.package_label ?? '';
-    return labelA.localeCompare(labelB, 'cs');
+    const podleObalu = labelA.localeCompare(labelB, 'cs');
+    if (podleObalu !== 0) return podleObalu;
+
+    // A při shodném obalu podle piva, nakonec podle id.
+    //
+    // PROČ AŽ TAK DOPODROBNA: bez toho rozhodovalo pořadí z databáze —
+    // a to se u upraveného řádku mění (Postgres ho po UPDATE vrátí jinde).
+    // Odškrtnutí „stočeno" tedy řádek přehodilo na konec seznamu, takže
+    // se pod prstem hýbaly položky, které se nikdo nechystal měnit.
+    const podlePiva = (a.beer_name ?? '').localeCompare(b.beer_name ?? '', 'cs');
+    return podlePiva !== 0 ? podlePiva : a.id.localeCompare(b.id);
   });
   
   return (

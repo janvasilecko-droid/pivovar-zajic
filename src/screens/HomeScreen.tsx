@@ -24,7 +24,7 @@ import { businessDateISO } from '../lib/businessDate';
 import { IkonaSud, IkonaLahev, IkonaVycep } from '../components/ikony';
 import { HomeNotesModal } from '../components/HomeNotesModal';
 import { HomeChecklistModal } from '../components/HomeChecklistModal';
-import { getHomeNotes, toggleHomeNote, toggleHomeNoteImportant, HOME_NOTES_CHANGED_EVENT, OPEN_HOME_NOTES_EVENT, consumeOpenHomeNotesRequest, type HomeNote } from '../lib/homeNotes';
+import { getHomeNotes, toggleHomeNote, toggleHomeNoteImportant, HOME_NOTES_CHANGED_EVENT, OPEN_HOME_NOTES_EVENT, consumeOpenHomeNotesRequest, rozvrhniPoznamky, kolikPoznamekZobrazit, type HomeNote } from '../lib/homeNotes';
 import { getDailyTasks, DAILY_CHECKLIST_CHANGED_EVENT, type DailyTask } from '../lib/homeChecklist';
 import {
   getRadioState, toggleRadio, nextStation, RADIO_STATIONS, RADIO_STATE_EVENT, type RadioState,
@@ -47,6 +47,7 @@ import {
   getStopwatchState, saveStopwatchState, stopwatchElapsedMs, STOPWATCH_CHANGED_EVENT, type StopwatchState,
 } from '../lib/stopwatchTimers';
 import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
+import { zavrenaVerzeListy, VERZE_LISTA_EVENT } from '../lib/verzeLista';
 import { vyhodnotGesto, rychlostPosunu } from '../lib/gestaPlochy';
 import { maSeZobrazit, oznacZobrazenou } from '../lib/napovedy';
 import { queueLength, onQueueChange, syncQueue, isOnline } from '../lib/offline';
@@ -1152,6 +1153,16 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // ho k tomu nenutí uprostřed rozdělané práce.
   const [newVersionInfo, setNewVersionInfo] = useState<VersionInfo | null>(null);
   useEffect(() => onNewVersion((info) => setNewVersionInfo(info)), []);
+  // Lišta „Nová verze" visí nad KAŽDOU obrazovkou (Layout.tsx). Dokud je
+  // vidět, dlaždice se nekreslí — jinak stojí na ploše dvakrát totéž vedle
+  // sebe. Po zavření lišty ji dlaždice vystřídá, aby aktualizace nezmizela.
+  const [listaVerzeZavrena, setListaVerzeZavrena] = useState<string | null>(() => zavrenaVerzeListy());
+  useEffect(() => {
+    const obnov = () => setListaVerzeZavrena(zavrenaVerzeListy());
+    window.addEventListener(VERZE_LISTA_EVENT, obnov);
+    return () => window.removeEventListener(VERZE_LISTA_EVENT, obnov);
+  }, []);
+  const ukazatDlazdiciVerze = !!newVersionInfo && listaVerzeZavrena === newVersionInfo.version;
 
   // Připomínková dlaždice na měsíční úklid — zůstává vidět, dokud ho uživatel
   // buď neudělá (tlačítko "Už je to provedeno" v modálu MonthlyCleanupWarning,
@@ -1433,6 +1444,16 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
         )}
 
         <div className="hs-pager">
+            {/* Značka pivovaru vlevo nahoře — jen zajíc s půllitrem, celý
+                nápis by se do lišty nevešel. Je to obrázek, ne tlačítko:
+                klepnutí sem nesmí nic udělat, prst si na horním okraji
+                odpočívá. */}
+            <img
+              src="/logo-zajic-znak.svg"
+              alt=""
+              aria-hidden="true"
+              className="hs-pager-znak vlastni-vyska"
+            />
             {(layout.pages.length > 1 || editMode) && (
             <>
             <button
@@ -1663,7 +1684,31 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   <span className="hs-badge">{vehicleAlerts.length}</span>
                 </button>
               )}
-              {newVersionInfo && (
+              {/* ⏱️ Běžící odpočty. Ukazují se SAMY, dokud běží — dřív se
+                  musely ručně připínat na plochu špendlíkem a po doběhnutí
+                  tam zůstaly viset. Zbývající čas se přepisuje s tikem
+                  obrazovky (forceTick výš); doběhnutý odpočet zčervená,
+                  ať je ho vidět přes celou dílnu. */}
+              {countdowns.filter((c) => c.targetAt !== null).map((c) => {
+                const zbyva = countdownRemainingMs(c);
+                const dobehl = zbyva === 0;
+                return (
+                  <button
+                    key={`odpocet-${c.id}`}
+                    type="button"
+                    className={`hs-tile ${dobehl ? 'hs-tile-alert' : 'hs-tile-warn'} vlastni-vyska`}
+                    onClick={() => setPage('timer')}
+                    title={dobehl ? `Odpočet „${c.label}" doběhl` : `Odpočet „${c.label}" — zbývá ${formatDurationMs(zbyva)}`}
+                  >
+                    <div className="hs-tile-icon-box">
+                      <AlarmClock />
+                    </div>
+                    <div className="hs-lbl">{c.label}</div>
+                    <span className="hs-badge">{dobehl ? 'hotovo' : formatDurationMs(zbyva)}</span>
+                  </button>
+                );
+              })}
+              {ukazatDlazdiciVerze && (
                 <button
                   type="button"
                   className="hs-tile hs-tile-alert vlastni-vyska"
@@ -1961,23 +2006,39 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               // něco přineslo. Na nejmenší se vejde jedna, ale ta se ukáže
               // VŽDYCKY: dřív se na velikosti 1×1 nezobrazila žádná a
               // vypadalo to, jako by se poznámka neuložila.
-              const kolikSeVejde = Math.max(1, (override.w ?? 1) * (override.h ?? 1) * 2);
-              const kZobrazeni = notesTileList.slice(0, kolikSeVejde);
+              const sirkaDlazdice = override.w ?? 1;
+              const sloupcu = sirkaDlazdice >= 2 ? 2 : 1;
+              const kolikSeVejde = kolikPoznamekZobrazit(sirkaDlazdice, override.h ?? 1);
+              const kZobrazeni = rozvrhniPoznamky(notesTileList.slice(0, kolikSeVejde), sloupcu);
               customContent = (
                 <div className="w-full h-full flex flex-col p-2 gap-1 text-left select-none overflow-hidden">
-                  <div className="flex items-center gap-1 shrink-0 opacity-80">
-                    <StickyNote size={11} className="shrink-0" />
-                    <span className="text-[11px] font-black uppercase tracking-wider truncate">Poznámky</span>
-                  </div>
-
+                  {/* Hlavička „Poznámky" jen na prázdném lístečku. Jakmile
+                      na něm něco je, je zbytečná — ukradla by řádek textu,
+                      a co to je, se pozná podle poznámek samotných. */}
                   {kZobrazeni.length === 0 ? (
-                    <div className="flex-1 grid place-items-center text-[11px] font-bold opacity-70 leading-tight px-1 text-center">
-                      Klepnutím přidáte poznámku
-                    </div>
+                    <>
+                      <div className="flex items-center gap-1 shrink-0 opacity-80">
+                        <StickyNote size={11} className="shrink-0" />
+                        <span className="text-[11px] font-black uppercase tracking-wider truncate">Poznámky</span>
+                      </div>
+                      <div className="flex-1 grid place-items-center text-[11px] font-bold opacity-70 leading-tight px-1 text-center">
+                        Klepnutím přidáte poznámku
+                      </div>
+                    </>
                   ) : (
-                    <div className="flex-1 flex flex-col gap-1 overflow-hidden">
-                      {kZobrazeni.map((note) => (
-                        <div key={note.id} className="flex items-start gap-1.5 min-w-0">
+                    /* Dva sloupce: krátká poznámka zabere půl řádku, delší
+                       celý (viz rozvrhniPoznamky) — vejde se jich víc a
+                       přitom se žádná neořízne v půlce slova. */
+                    <div
+                      className="flex-1 grid gap-x-2 gap-y-1 content-start overflow-hidden"
+                      style={{ gridTemplateColumns: `repeat(${sloupcu}, minmax(0, 1fr))` }}
+                    >
+                      {kZobrazeni.map(({ poznamka: note, pres2Sloupce }) => (
+                        <div
+                          key={note.id}
+                          className="flex items-start gap-1 min-w-0"
+                          style={pres2Sloupce && sloupcu > 1 ? { gridColumn: 'span 2' } : undefined}
+                        >
                           {/* Odškrtnutí přímo z plochy — kvůli tomu se nesmí
                               probublat klepnutí na dlaždici, které otevírá okno. */}
                           {/* Vlastní třídy místo velikostí z Tailwindu: v
@@ -1988,7 +2049,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                             type="button"
                             onClick={(e) => { e.stopPropagation(); toggleHomeNote(note.id); }}
                             onPointerDown={(e) => e.stopPropagation()}
-                            className="hs-note-check"
+                            className="hs-note-check vlastni-vyska"
                             title={note.completed ? 'Vrátit jako nesplněné' : 'Odškrtnout'}
                             aria-label={note.completed ? 'Vrátit jako nesplněné' : 'Odškrtnout'}
                           >
@@ -2212,21 +2273,27 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
 
       {(editingItem || editingGroup) && editingOverride && editingTileId && (
         <Modal open onClose={() => setEditingTileId(null)} title={editingOverride.label || editingItem?.label || 'Skupina'}>
-          <div className="flex flex-col gap-5">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500 mb-1.5">Popisek</label>
-              <input
-                type="text"
-                className="w-full border border-neutral-300 rounded px-3 py-2 text-sm"
-                value={editingOverride.label ?? ''}
-                onChange={(e) => handleRenameTile(editingTileId, e.target.value)}
-                placeholder={editingItem?.label ?? 'Skupina'}
-              />
-            </div>
+          {/* Nastavení dlaždice se vejde na jednu obrazovku telefonu:
+              menší mezery, popisek a velikost vedle sebe — a hlavně lišta
+              s „Hotovo" je přilepená dole. Dřív se pro potvrzení muselo
+              rolovat až pod barvy a skupiny, takže se změna udělala a
+              nepotvrdila. */}
+          <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500 mb-1">Popisek</label>
+                <input
+                  type="text"
+                  className="w-full border border-neutral-300 rounded px-3 py-2 text-sm min-h-[44px]"
+                  value={editingOverride.label ?? ''}
+                  onChange={(e) => handleRenameTile(editingTileId, e.target.value)}
+                  placeholder={editingItem?.label ?? 'Skupina'}
+                />
+              </div>
 
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500 mb-1.5">Velikost</label>
-              <div className="flex items-center gap-6">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500 mb-1">Velikost</label>
+                <div className="flex items-center gap-4 flex-wrap">
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-neutral-600">Šířka</span>
                   <button type="button" className="hs-modal-stepper-btn" disabled={(editingOverride.w ?? 1) <= MIN_W} onClick={() => handleResizeStep(editingTileId, 'w', -1)}>−</button>
@@ -2239,11 +2306,12 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   <span className="w-5 text-center font-bold tabular-nums">{editingOverride.h ?? 1}</span>
                   <button type="button" className="hs-modal-stepper-btn" disabled={(editingOverride.h ?? 1) >= MAX_H} onClick={() => handleResizeStep(editingTileId, 'h', 1)}>+</button>
                 </div>
+                </div>
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500 mb-1.5">Barva</label>
+              <label className="block text-xs font-bold uppercase tracking-wide text-neutral-500 mb-1">Barva</label>
               <div className="flex flex-wrap gap-2.5">
                 {TILE_COLORS.map((c) => (
                   <button
@@ -2330,13 +2398,13 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               </div>
             )}
 
-            <div className="flex justify-between items-center pt-2 border-t border-neutral-100">
+            <div className="sticky bottom-0 -mb-1 flex justify-between items-center gap-3 pt-2 pb-1 border-t border-neutral-200 bg-white">
               {editingGroup ? (
-                <button type="button" className="text-sm font-semibold text-rose-600" onClick={() => handleDeleteGroup(editingTileId as GroupId)}>Zrušit skupinu</button>
+                <button type="button" className="text-sm font-semibold text-rose-600 min-h-[44px]" onClick={() => handleDeleteGroup(editingTileId as GroupId)}>Zrušit skupinu</button>
               ) : (
-                <button type="button" className="text-sm font-semibold text-rose-600" onClick={() => handleHideTile(editingTileId)}>Skrýt dlaždici</button>
+                <button type="button" className="text-sm font-semibold text-rose-600 min-h-[44px]" onClick={() => handleHideTile(editingTileId)}>Skrýt dlaždici</button>
               )}
-              <button type="button" className="text-sm font-bold bg-amber-500 hover:bg-amber-400 text-neutral-950 rounded px-4 py-2" onClick={() => setEditingTileId(null)}>Hotovo</button>
+              <button type="button" className="text-sm font-black bg-amber-500 hover:bg-amber-400 text-neutral-950 rounded px-5 py-2 min-h-[44px]" onClick={() => setEditingTileId(null)}>Hotovo</button>
             </div>
           </div>
         </Modal>

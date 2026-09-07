@@ -12,25 +12,41 @@ export type Announcement = {
   active: boolean;
 };
 
-const DEFAULT_ANNOUNCEMENT: Announcement = {
-  id: 'announcement_2026_07_27_01',
-  title: 'Technické upozornění: Odstávka sanity a údržba stáčecí linky',
-  body: 'V úterý 28. 7. od 8:00 do 12:00 proběhne plánovaná profilaktická sanitace a výměna těsnění na stáčecí lince KEG sudů. V této době nestáčet a dodržovat BOZP pokyny sládka!',
-  type: 'technical',
-  author: 'Ing. Petr Bednář (Sládek)',
-  date: '27. 7. 2026 17:35',
-  active: true,
-};
+/**
+ * ŽÁDNÉ VÝCHOZÍ HLÁŠENÍ.
+ *
+ * Do 7. 9. 2026 tu bylo natvrdo napsané „Technické upozornění: Odstávka
+ * sanity a údržba stáčecí linky" z 27. 7. 2026 — ukázkový text, který tu
+ * zůstal z rozjezdu aplikace. Protože se hlášení odklepává do localStorage
+ * jednoho prohlížeče, vyskakovalo pořád dokola: na každém novém telefonu,
+ * po vyčištění dat, po přihlášení v jiném prohlížeči. A vyskakovalo přes
+ * celou obrazovku, takže dokud ho člověk neodklepl, s appkou nešlo dělat nic
+ * — kvůli odstávce, která proběhla (nebo neproběhla) před šesti týdny.
+ *
+ * Hlášení se proto ukazuje jen tehdy, když ho někdo opravdu vyhlásí
+ * (Nastavení → Pivovarské hlášení, viz AnnouncementManagerModal). Když
+ * žádné není, appka mlčí.
+ */
 
 export function MandatoryAnnouncementModal() {
   const [currentAnnouncement, setCurrentAnnouncement] = useState<Announcement | null>(null);
   const [acknowledged, setAcknowledged] = useState<boolean>(true);
 
   useEffect(() => {
-    // Načtení aktivního hlášení (z localStorage nebo výchozího)
+    // Načtení vyhlášeného hlášení. Nic uloženého = nic k zobrazení.
     try {
       const saved = localStorage.getItem('pivovar_active_announcement');
-      const announcement: Announcement = saved ? JSON.parse(saved) : DEFAULT_ANNOUNCEMENT;
+      if (!saved) { setAcknowledged(true); return; }
+      const announcement: Announcement = JSON.parse(saved);
+
+      // Úklid po ukázkovém hlášení: na zařízeních, kde se stihlo uložit,
+      // by jinak viselo dál — a mazat ho ručně přes vývojářské nástroje
+      // v telefonu nikdo nebude.
+      if (announcement?.id === 'announcement_2026_07_27_01') {
+        localStorage.removeItem('pivovar_active_announcement');
+        setAcknowledged(true);
+        return;
+      }
 
       if (announcement && announcement.active) {
         setCurrentAnnouncement(announcement);

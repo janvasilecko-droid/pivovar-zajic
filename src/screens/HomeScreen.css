@@ -1133,3 +1133,20 @@
   color: #fff;
   border-color: #2b2438;
 }
+
+/* Značka pivovaru v liště nad plochou (zajíc s půllitrem).
+   Sedí vlevo, šipky a tečky zůstávají uprostřed — `margin-right: auto`
+   odsune zbytek lišty od loga a `.hs-pager` má justify-content: center,
+   takže se ovládání drží ve středu jako dřív. Na úzkém displeji se logo
+   zmenší, ať nesebere místo tečkám. */
+.hs-pager-znak {
+  height: 28px;
+  width: auto;
+  margin-right: auto;
+  flex-shrink: 0;
+  pointer-events: none;
+  user-select: none;
+}
+@media (max-width: 400px) {
+  .hs-pager-znak { height: 22px; }
+}

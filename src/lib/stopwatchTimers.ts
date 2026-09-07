@@ -258,3 +258,48 @@ export function formatDurationMs(ms: number, withTenths = false): string {
   const tenths = Math.floor((totalMs % 1000) / 100);
   return `${base}.${tenths}`;
 }
+
+// ---- Čtyři tlačítka odpočtu: Start / Pauza / Stop / Reset ----
+//
+// Čisté funkce, ať je pravidlo na jednom místě a dá se otestovat: obrazovka
+// Časovače i dlaždice upozornění na ploše musí odpočet ovládat stejně.
+// Rozdíl mezi Stop a Reset je schválně tenhle:
+//   • STOP  — zastaví a vrátí na původní čas (odpočet skončil),
+//   • RESET — vrátí na původní čas a nechá ho běžet dál, pokud běžel
+//             (tedy „spustit znovu od začátku", což se u chmelení dělá
+//             častěji než zastavení).
+
+/** Původní nastavený čas odpočtu. Dvě minuty jsou poslední záchrana pro starý záznam bez údaje. */
+export function puvodniDelka(t: CountdownTimer): number {
+  return t.initialDurationMs || t.durationMs || 120000;
+}
+
+/** START / POKRAČOVAT — běží od zbývajícího času; z doběhnutého začne znovu. */
+export function spustOdpocet(t: CountdownTimer, ted: number = Date.now()): CountdownTimer {
+  const zbyva = countdownRemainingMs(t);
+  const delka = zbyva > 0 ? zbyva : puvodniDelka(t);
+  return { ...t, durationMs: delka, targetAt: ted + delka, notifiedAt: null };
+}
+
+/** PAUZA — zastaví, zbývající čas zůstane. Z nespuštěného odpočtu nedělá nic. */
+export function pozastavOdpocet(t: CountdownTimer, ted: number = Date.now()): CountdownTimer {
+  if (t.targetAt === null) return t;
+  return { ...t, durationMs: Math.max(0, t.targetAt - ted), targetAt: null };
+}
+
+/** STOP — zastaví a vrátí na původní čas. */
+export function zastavOdpocet(t: CountdownTimer): CountdownTimer {
+  return { ...t, durationMs: puvodniDelka(t), targetAt: null, notifiedAt: null };
+}
+
+/** RESET — na původní čas; když odpočet běžel, běží dál od začátku. */
+export function resetujOdpocet(t: CountdownTimer, ted: number = Date.now()): CountdownTimer {
+  const delka = puvodniDelka(t);
+  const bezel = t.targetAt !== null;
+  return { ...t, durationMs: delka, targetAt: bezel ? ted + delka : null, notifiedAt: null };
+}
+
+/** Běžící odpočty — ty se samy ukazují mezi upozorněními na ploše. */
+export function bezici(list: CountdownTimer[]): CountdownTimer[] {
+  return list.filter((t) => t.targetAt !== null);
+}

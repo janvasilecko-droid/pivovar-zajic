@@ -155,8 +155,20 @@ export default function App() {
 
   if (loading) {
     return (
+      /* Načítání ukazuje značku pivovaru, ne jen kolečko. Než se appka
+         přihlásí a stáhne data, je tahle obrazovka jediné, co je vidět —
+         a dřív to bylo kolečko na prázdné ploše. Logo je vektor
+         (public/logo-zajic.svg, vyrobené z firemního PDF), takže je ostré
+         na telefonu i na monitoru a nemá kolem sebe žádný rámeček. */
       <div className="min-h-screen grid place-items-center bg-primary-50">
-        <Spinner />
+        <div className="flex flex-col items-center gap-4">
+          <img
+            src="/logo-zajic.svg"
+            alt="Kynšperský pivovar"
+            className="w-36 h-36 sm:w-44 sm:h-44 object-contain"
+          />
+          <Spinner />
+        </div>
       </div>
     );
   }

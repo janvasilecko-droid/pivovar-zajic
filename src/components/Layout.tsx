@@ -21,6 +21,7 @@ import { isAdminEmail } from '../lib/config';
 import { BugReportModal } from './BugReportModal';
 import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
 import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
+import { zavrenaVerzeListy, zavriVerziListy } from '../lib/verzeLista';
 import { nastavObrazovkuProChyby } from '../lib/chybyHlaseni';
 import { SCENES, DEFAULT_DOCK, hexToRgba, COLOR_HEX, type Scene, type TileColor } from '../lib/homeLayout';
 import { zavibruj } from '../lib/haptika';
@@ -198,7 +199,9 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   // `zavrenaVerze` si pamatuje, kterou verzi uživatel odklepl: až přijde
   // další, lišta se ozve znovu.
   const [novaVerze, setNovaVerze] = useState<VersionInfo | null>(null);
-  const [zavrenaVerze, setZavrenaVerze] = useState<string | null>(null);
+  // Zavření si drží lib/verzeLista.ts — čte ho i dlaždice upozornění na
+  // Domů, aby lišta a dlaždice nesvítily obě naráz.
+  const [zavrenaVerze, setZavrenaVerze] = useState<string | null>(() => zavrenaVerzeListy());
   useEffect(() => onNewVersion((info) => setNovaVerze(info)), []);
   // Předchozí navštívená obrazovka — dlouhý stisk na spodní liště se na ni
   // vrátí. Přeskakování mezi dvěma místy (třeba Závoz ↔ Objednávky) je
@@ -699,7 +702,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             </button>
             <button
               type="button"
-              onClick={() => setZavrenaVerze(novaVerze.version)}
+              onClick={() => { setZavrenaVerze(novaVerze.version); zavriVerziListy(novaVerze.version); }}
               aria-label="Zavřít upozornění na novou verzi"
               className="shrink-0 p-1 rounded hover:bg-amber-200/70 text-amber-900/80 hover:text-amber-950 transition"
             >

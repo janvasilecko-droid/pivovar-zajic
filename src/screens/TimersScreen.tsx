@@ -5,12 +5,13 @@
 // pomůcku na jednom zařízení, ne o data ke sdílení mezi uživateli.
 import { useState, useEffect, useMemo, useRef } from 'react';
 import {
-  Timer, AlarmClock, Hourglass, Play, Pause, RotateCcw, Flag, Plus, Trash2, Square, CheckCircle2, Pin,
+  Timer, AlarmClock, Hourglass, Play, Pause, RotateCcw, Flag, Plus, Trash2, Square, CheckCircle2,
   Volume2, VolumeX, Smartphone, Bell, BellRing, Settings2, Sparkles, Copy, Check,
 } from 'lucide-react';
 import {
   getStopwatchState, saveStopwatchState, stopwatchElapsedMs, type StopwatchState, type LapEntry,
   getCountdowns, saveCountdowns, countdownRemainingMs, type CountdownTimer,
+  spustOdpocet, pozastavOdpocet, zastavOdpocet, resetujOdpocet,
   startAllCountdowns, pauseAllCountdowns, resetAllCountdowns,
   getKegTimerState, startKegTimer, finishKegTimer, cancelKegTimer, removeKegHistoryEntry, getKegEstimateMs,
   formatDurationMs,
@@ -248,7 +249,7 @@ function CountdownTimersTool() {
   const [, forceTick] = useState(0);
   const [newLabel, setNewLabel] = useState('Kotel');
   const [newMin, setNewMin] = useState('2');
-  const [pinToHome, setPinToHome] = useState(true);
+
 
   useEffect(() => {
     setLayout(getHomeLayout(profile?.home_layout, allNavIds, []));
@@ -264,24 +265,26 @@ function CountdownTimersTool() {
     saveCountdowns(next);
   }
 
-  function isPinned(timerId: string) {
+  /**
+   * Připínání odpočtů na plochu skončilo — běžící odpočet se ukazuje sám
+   * mezi upozorněními na Domů. Tohle zůstává jen na úklid: kdo si dlaždici
+   * připnul dřív, nemá ji po smazání odpočtu za co nechat viset.
+   */
+  function jeNaPlose(timerId: string) {
     const cid: CountdownTileId = `cd_${timerId}`;
     return layout.pages.some((page) => page.includes(cid));
   }
 
-  function togglePin(t: CountdownTimer) {
-    const cid: CountdownTileId = `cd_${t.id}`;
-    let nextLayout: ReturnType<typeof addTile>;
-    if (isPinned(t.id)) {
-      nextLayout = hideTile(layout, cid);
-      oznam(`Odpočet "${t.label}" byl odebrán z plochy`);
-    } else {
-      nextLayout = addTile(layout, cid, 0);
-      oznam(`Odpočet "${t.label}" byl přidán na plochu (Domů)`);
-    }
-    setLayout(nextLayout);
-    patchProfile({ home_layout: nextLayout as any });
-    if (user?.id) saveHomeLayout(user.id, nextLayout);
+  /**
+   * Přidá/odebere minuty klepáním. Půlminuty se zachovají (12,5 + 5 = 17,5),
+   * pod čtvrt minuty se nejde — nulový odpočet by se tvářil jako doběhnutý.
+   */
+  function zmenMinuty(o: number) {
+    setNewMin((stare) => {
+      const ted = Number(String(stare).replace(',', '.')) || 0;
+      const nove = Math.max(0.25, Math.round((ted + o) * 100) / 100);
+      return String(nove);
+    });
   }
 
   function addTimer(e: React.FormEvent) {
@@ -300,38 +303,34 @@ function CountdownTimersTool() {
     };
     persist([...list, t]);
 
-    if (pinToHome) {
-      const cid: CountdownTileId = `cd_${newId}`;
-      const nextLayout = addTile(layout, cid, 0);
-      setLayout(nextLayout);
-      patchProfile({ home_layout: nextLayout as any });
-      if (user?.id) saveHomeLayout(user.id, nextLayout);
-      oznam(`⏱️ „${t.label}" ${autoStart ? 'spuštěn a ' : ''}přidán na plochu`);
-    } else {
-      oznam(`⏱️ „${t.label}" ${autoStart ? 'spuštěn' : 'vytvořen'}`);
-    }
+    // Špendlík na plochu zmizel: běžící odpočet se ukazuje sám mezi
+    // upozorněními na Domů (viz HomeScreen). Připínat ručně něco, co
+    // stejně trvá deset minut, byl krok navíc k ničemu.
+    oznam(`⏱️ „${t.label}" ${autoStart ? 'spuštěn' : 'vytvořen'}`);
 
     setNewLabel('');
     setNewMin('2');
   }
 
+  // Vlastní pravidla odpočtu leží v lib/stopwatchTimers.ts (spustOdpocet,
+  // pozastavOdpocet, zastavOdpocet, resetujOdpocet) — jsou otestovaná a
+  // sahá na ně i dlaždice upozornění na ploše. Druhá kopie tady by se
+  // rozešla hned, jak by se u jednoho z těch dvou míst něco doladilo.
   function start(id: string) {
-    persist(list.map((t) => {
-      if (t.id !== id) return t;
-      const rem = countdownRemainingMs(t);
-      const dur = rem > 0 ? rem : (t.initialDurationMs || t.durationMs || 120000);
-      return { ...t, durationMs: dur, targetAt: Date.now() + dur, notifiedAt: null };
-    }));
+    persist(list.map((t) => (t.id === id ? spustOdpocet(t) : t)));
   }
   function pause(id: string) {
-    persist(list.map((t) => (t.id === id ? { ...t, durationMs: countdownRemainingMs(t), targetAt: null } : t)));
+    persist(list.map((t) => (t.id === id ? pozastavOdpocet(t) : t)));
+  }
+  function stop(id: string) {
+    persist(list.map((t) => (t.id === id ? zastavOdpocet(t) : t)));
   }
   function reset(id: string) {
-    persist(list.map((t) => (t.id === id ? { ...t, durationMs: t.initialDurationMs || t.durationMs, targetAt: null, notifiedAt: null } : t)));
+    persist(list.map((t) => (t.id === id ? resetujOdpocet(t) : t)));
   }
   function remove(id: string) {
     persist(list.filter((t) => t.id !== id));
-    if (isPinned(id)) {
+    if (jeNaPlose(id)) {
       const cid: CountdownTileId = `cd_${id}`;
       const nextLayout = hideTile(layout, cid);
       setLayout(nextLayout);
@@ -537,50 +536,80 @@ function CountdownTimersTool() {
         <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide">
           ＋ Vlastní odpočet
         </div>
-        <form onSubmit={addTimer} className="flex flex-wrap items-end gap-3">
-          <div className="flex-1 min-w-[140px]">
-            <label className="block text-[11px] font-bold text-neutral-500 mb-1">Název odpočtu</label>
-            <input
-              value={newLabel}
-              onChange={(e) => setNewLabel(e.target.value)}
-              placeholder="např. Kotel, Chmelení…"
-              className="w-full border border-neutral-300 rounded px-3 py-2 text-sm font-semibold"
-            />
-          </div>
-          <div>
-            <label className="block text-[11px] font-bold text-neutral-500 mb-1">Délka (minuty)</label>
-            <input
-              type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
-              min={0.1}
-              step={0.5}
-              value={newMin}
-              onChange={(e) => setNewMin(e.target.value)}
-              className="w-24 border border-neutral-300 rounded px-3 py-2 text-sm font-bold"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5 pb-1">
-            <label className="flex items-center gap-2 text-xs font-bold text-neutral-700 select-none cursor-pointer">
+        {/* Vlastní odpočet na telefon: velká čísla, žádné psaní.
+            Dřív to bylo číselné políčko šířky 96 px a dvě zaškrtávátka —
+            ve sklepě, v rukavicích a v páře se do toho nedalo trefit
+            a klávesnice zakryla půl obrazovky. Minuty se teď nastavují
+            klepáním; psát jde pořád, když někdo chce přesnou hodnotu. */}
+        <form onSubmit={addTimer} className="space-y-3">
+          <input
+            value={newLabel}
+            onChange={(e) => setNewLabel(e.target.value)}
+            placeholder="Název (nepovinné) — např. Kotel, Chmelení…"
+            className="input w-full text-sm font-bold min-h-[44px]"
+          />
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => zmenMinuty(-1)}
+              aria-label="O minutu méně"
+              className="w-14 h-14 shrink-0 grid place-items-center rounded-xl bg-neutral-200 hover:bg-neutral-300 text-neutral-900 font-black text-2xl vlastni-vyska"
+            >
+              −
+            </button>
+            <div className="flex-1 min-w-0 text-center">
               <input
-                type="checkbox"
-                checked={pinToHome}
-                onChange={(e) => setPinToHome(e.target.checked)}
-                className="rounded text-amber-500 focus:ring-amber-400"
+                type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
+                min={0.1}
+                step={0.5}
+                value={newMin}
+                onChange={(e) => setNewMin(e.target.value)}
+                aria-label="Délka odpočtu v minutách"
+                className="w-full text-center text-4xl font-black tabular-nums border-2 border-neutral-300 rounded-xl py-2 min-h-[64px]"
               />
-              <span>📌 Na plochu</span>
-            </label>
-            <label className="flex items-center gap-2 text-xs font-bold text-neutral-700 select-none cursor-pointer">
-              <input
-                type="checkbox"
-                checked={autoStart}
-                onChange={(e) => setAutoStart(e.target.checked)}
-                className="rounded text-emerald-500 focus:ring-emerald-400"
-              />
-              <span>▶ Hned spustit</span>
-            </label>
+              <div className="text-[11px] font-black uppercase tracking-wider text-neutral-500 mt-0.5">minut</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => zmenMinuty(1)}
+              aria-label="O minutu víc"
+              className="w-14 h-14 shrink-0 grid place-items-center rounded-xl bg-neutral-200 hover:bg-neutral-300 text-neutral-900 font-black text-2xl vlastni-vyska"
+            >
+              +
+            </button>
           </div>
-          <button type="submit" className="btn-primary !rounded px-4 py-2 rounded font-black flex items-center gap-1.5">
-            <Plus size={16} /> Přidat
-          </button>
+
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+            {[1, 5, 10, 15, 30, 60].map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => zmenMinuty(m)}
+                className="px-2 py-2 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-950 font-black text-sm min-h-[44px]"
+              >
+                +{m}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button type="submit" className="btn-primary !rounded flex-1 px-4 py-3 font-black flex items-center justify-center gap-2 min-h-[52px] text-base">
+              {autoStart ? <><Play size={18} /> Spustit odpočet</> : <><Plus size={18} /> Přidat odpočet</>}
+            </button>
+            <button
+              type="button"
+              onClick={() => setAutoStart((v) => !v)}
+              title={autoStart ? 'Teď se odpočet po přidání rovnou spustí' : 'Teď se odpočet jen přidá, spustíš ho sám'}
+              className={`px-3 py-3 rounded font-black text-xs min-h-[52px] border-2 transition ${
+                autoStart
+                  ? 'bg-emerald-700 border-emerald-800 text-white'
+                  : 'bg-white border-neutral-300 text-neutral-600'
+              }`}
+            >
+              {autoStart ? 'hned běží' : 'jen přidat'}
+            </button>
+          </div>
         </form>
       </div>
 
@@ -632,7 +661,6 @@ function CountdownTimersTool() {
           const remaining = countdownRemainingMs(t);
           const running = t.targetAt !== null;
           const done = running && remaining === 0;
-          const pinned = isPinned(t.id);
 
           return (
             <div key={t.id} className={`p-4 rounded-xl border-2 transition ${done ? 'bg-rose-50 border-rose-300 shadow-sm' : 'bg-white border-neutral-200'}`}>
@@ -641,50 +669,51 @@ function CountdownTimersTool() {
                   <AlarmClock size={16} className={running && !done ? 'animate-pulse text-amber-600' : 'text-neutral-500'} />
                   <span className="truncate">{t.label}</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => togglePin(t)}
-                    title={pinned ? 'Odebrat z domovské plochy' : 'Přidat na domovskou plochu jako dlaždici'}
-                    className={`p-1.5 rounded-lg border text-xs font-bold flex items-center gap-1 transition ${
-                      pinned ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-neutral-50 text-neutral-600 border-neutral-200 hover:bg-neutral-100'
-                    }`}
-                  >
-                    <Pin size={13} className={pinned ? 'rotate-45 fill-current' : ''} />
-                    <span>{pinned ? 'Na ploše' : 'Plocha'}</span>
-                  </button>
-                  <button onClick={() => remove(t.id)} className="p-1.5 text-neutral-400 hover:text-rose-600 rounded-lg shrink-0">
-                    <Trash2 size={15} />
-                  </button>
-                </div>
+                <button onClick={() => remove(t.id)} title="Smazat odpočet" aria-label="Smazat odpočet" className="p-1.5 text-neutral-400 hover:text-rose-600 rounded-lg shrink-0">
+                  <Trash2 size={15} />
+                </button>
               </div>
 
               <div className={`text-4xl font-black tabular-nums my-3 ${done ? 'text-rose-600 animate-pulse' : 'text-neutral-900'}`}>
                 {formatDurationMs(remaining)}
               </div>
 
-              <div className="flex items-center gap-2 pt-2 border-t border-neutral-100">
-                    {done ? (
-                      <button
-                        onClick={() => start(t.id)}
-                        className="px-4 py-2 rounded text-xs font-black bg-rose-600 hover:bg-rose-500 text-white flex items-center gap-1.5 animate-pulse shadow-sm"
-                      >
-                        <RotateCcw size={14} /> Spustit znovu
-                      </button>
-                    ) : !running ? (
-                      <button onClick={() => start(t.id)} className="btn-primary !rounded px-4 py-2 rounded text-xs font-black flex items-center gap-1.5">
-                        <Play size={14} /> Start
-                      </button>
-                    ) : (
-                      <button onClick={() => pause(t.id)} className="px-4 py-2 rounded text-xs font-black bg-amber-500 hover:bg-amber-400 text-neutral-950 flex items-center gap-1.5">
-                        <Pause size={14} /> Pauza
-                      </button>
-                    )}
+              {/* Čtyři tlačítka, každé dělá jednu věc — dřív tu byly dvě
+                  a „stop" se musel skládat z pauzy a resetu:
+                    Start  — běží dál od zbývajícího času,
+                    Pauza  — zastaví, čas zůstane,
+                    Stop   — zastaví A vrátí na původní čas (odpočet skončil),
+                    Reset  — vrátí na začátek; když běžel, běží dál. */}
+              <div className="flex items-center gap-2 pt-2 border-t border-neutral-100 flex-wrap">
+                {done ? (
+                  <button
+                    onClick={() => start(t.id)}
+                    className="px-4 py-2 rounded text-xs font-black bg-rose-600 hover:bg-rose-500 text-white flex items-center gap-1.5 animate-pulse shadow-sm min-h-[44px]"
+                  >
+                    <RotateCcw size={14} /> Spustit znovu
+                  </button>
+                ) : !running ? (
+                  <button onClick={() => start(t.id)} className="btn-primary !rounded px-4 py-2 text-xs font-black flex items-center gap-1.5 min-h-[44px]">
+                    <Play size={14} /> Start
+                  </button>
+                ) : (
+                  <button onClick={() => pause(t.id)} className="px-4 py-2 rounded text-xs font-black bg-amber-500 hover:bg-amber-400 text-neutral-950 flex items-center gap-1.5 min-h-[44px]">
+                    <Pause size={14} /> Pauza
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => stop(t.id)}
+                  title="Zastavit a vrátit na původní čas"
+                  className="px-3 py-2 rounded text-xs font-black bg-neutral-800 hover:bg-neutral-700 text-white flex items-center gap-1.5 min-h-[44px]"
+                >
+                  <Square size={13} /> Stop
+                </button>
                 <button
                   type="button"
                   onClick={() => reset(t.id)}
-                  title="Resetovat na původní čas"
-                  className="px-3 py-2 rounded text-xs font-bold bg-neutral-100 hover:bg-neutral-200 text-neutral-700 flex items-center gap-1"
+                  title="Zpátky na původní čas (běžící odpočet běží dál od začátku)"
+                  className="px-3 py-2 rounded text-xs font-bold bg-neutral-100 hover:bg-neutral-200 text-neutral-700 flex items-center gap-1 min-h-[44px]"
                 >
                   <RotateCcw size={13} /> Reset
                 </button>

@@ -12,10 +12,14 @@ export function AnnouncementManagerModal({ onClose }: { onClose: () => void }) {
     } catch { return []; }
   });
 
-  const [title, setTitle] = useState('Technické upozornění: Odstávka a sanitace varny');
-  const [body, setBody] = useState('V úterý od 8:00 do 12:00 proběhne plánovaná údržba. V této době nestáčet!');
+  // Formulář začíná prázdný. Dřív byl předvyplněný ukázkovým textem
+  // o odstávce varny — a hlášení se vyhlašuje jedním tlačítkem, takže
+  // stačilo ho omylem odeslat a všem naskočila přes celou obrazovku
+  // vymyšlená odstávka, kterou musel každý odklepnout.
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
   const [type, setType] = useState<'technical' | 'important' | 'info'>('technical');
-  const [author, setAuthor] = useState('Ing. Petr Bednář (Sládek)');
+  const [author, setAuthor] = useState('');
   const [msg, setMsg] = useState<string | null>(null);
 
   function handlePublish(e: React.FormEvent) {

@@ -178,3 +178,46 @@ export function consumeOpenHomeNotesRequest(): boolean {
   pendingOpen = false;
   return req;
 }
+
+// ---- Rozvržení poznámek na lístečku (dlaždice Poznámky na ploše) ----
+//
+// Lísteček je malý a poznámek bývá víc než míst. Vejít se jich má co nejvíc,
+// ale pořád musí zůstat čitelné — proto se sázejí do dvou sloupců a šířku
+// dostanou podle délky textu: krátká („Víčka", „Zavolat Petrovi") zabere
+// půl řádku, delší celý. Jinak by dvousloupcová sazba dlouhý text ořezala
+// v půlce slova a lísteček by byl k ničemu.
+
+/** Do kolika znaků se poznámka vejde do půlky řádku, aby zůstala celá. */
+export const KRATKA_POZNAMKA_ZNAKU = 18;
+
+export type RozvrzenaPoznamka<T> = { poznamka: T; pres2Sloupce: boolean };
+
+/**
+ * Rozhodne u každé poznámky, jestli zabere půl řádku, nebo celý.
+ *
+ * `sloupce === 1` (nejužší dlaždice) znamená, že všechno je přes celou
+ * šířku — půlka řádku by tam byla 60 px a nevešlo by se do ní nic.
+ */
+export function rozvrhniPoznamky<T extends { text: string }>(
+  poznamky: T[],
+  sloupce: number,
+): RozvrzenaPoznamka<T>[] {
+  return poznamky.map((poznamka) => ({
+    poznamka,
+    pres2Sloupce: sloupce < 2 || poznamka.text.trim().length > KRATKA_POZNAMKA_ZNAKU,
+  }));
+}
+
+/**
+ * Kolik poznámek se na dlaždici o daném počtu polí ukáže.
+ *
+ * Vychází z plochy dlaždice (šířka × výška v polích mřížky) a z toho, že
+ * ve dvou sloupcích se do stejné výšky vejde dvakrát tolik krátkých
+ * poznámek. Vždycky aspoň jedna: na nejmenší dlaždici se dřív neukázala
+ * žádná a vypadalo to, že se poznámka neuložila.
+ */
+export function kolikPoznamekZobrazit(sirka: number, vyska: number): number {
+  const radku = Math.max(1, vyska * 3);
+  const sloupcu = sirka >= 2 ? 2 : 1;
+  return Math.max(1, radku * sloupcu);
+}

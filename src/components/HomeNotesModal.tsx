@@ -87,8 +87,16 @@ export function HomeNotesModal({ isOpen, onClose }: { isOpen: boolean; onClose: 
       <div className="space-y-4">
         {/* Formular pro pridani nove poznamky */}
         <form onSubmit={handleAdd} className="space-y-2 bg-neutral-50 p-3 rounded-xl border border-neutral-200">
+          {/* Klávesnice telefonu tu NESMÍ opravovat slova. Pivovarské názvy
+              (tanky, kegy, spilka, zákys) ve slovníku nejsou, takže je Gboard
+              přepisoval na nejbližší známé slovo — „víčka na tanky" se uložila
+              jako „víčka na zanky" a vzkaz pak neznamenal nic. Velké písmeno
+              na začátku věty zůstává, opravy slov ne. */}
           <textarea
             rows={2}
+            autoCorrect="off"
+            autoCapitalize="sentences"
+            spellCheck={false}
             className="w-full text-sm font-medium border border-neutral-300 rounded-lg p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
             placeholder="Napište novou poznámku či vzkaz..."
             value={newText}
