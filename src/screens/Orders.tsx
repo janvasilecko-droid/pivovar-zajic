@@ -2986,11 +2986,12 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
         <div className={`absolute left-0 top-0 bottom-0 w-1 ${dayColor(o.delivery_day)!.bar}`} />
       )}
       <div className="flex flex-col gap-1.5 pl-1.5">
-        {/* Řádek 1: checkbox + název + status + datum akce (závoz) + akce */}
-        <div className="flex items-center gap-1.5 min-w-0">
+        {/* Řádek 1: checkbox + název odběratele. Nic jiného — jméno se nesmí
+            zkracovat, je to první věc, podle které se objednávka pozná. */}
+        <div className="flex items-start gap-1.5 min-w-0">
           <input type="checkbox" checked={selected} onClick={(e) => e.stopPropagation()} onChange={onToggleSelect}
-            className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 accent-amber-500 shrink-0" />
-          <span className="font-display font-black text-sm sm:text-base text-neutral-800 break-words truncate min-w-0 flex-1">
+            className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 accent-amber-500 shrink-0 mt-0.5" />
+          <span className="font-display font-black text-sm sm:text-base text-neutral-800 break-words min-w-0 flex-1">
             {/* o.place_name je denormalizovaná kopie jména odběratele — u pár
                 objednávek (podle zdroje vzniku) zůstala prázdná i když
                 place_id na skutečného odběratele ukazuje. Dřív se v takovém
@@ -3002,6 +3003,12 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
               || (o.place_id && places.find((p) => p.id === o.place_id)?.name)
               || '—'}
           </span>
+        </div>
+
+        {/* Řádek 2: štítky (výčep, stav, termíny) a akce. Dřív stály na jedné
+            řádce s názvem odběratele — všechny mají shrink-0, takže na telefonu
+            ukrojily celou šířku a z „Louka" zbylo „L…". */}
+        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
           {(() => { const tn = getTapNameForOrder(o.id); return tn ? (
             <span title={`Rezervace výčepu: ${tn}`} className="chip bg-violet-600 text-white font-black shrink-0 flex items-center gap-1">
               <BeerIcon className="ikona-text" /> {tn}
