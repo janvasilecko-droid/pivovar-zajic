@@ -62,3 +62,16 @@ export function zastavCo2(list: CountdownTimer[]): CountdownTimer[] {
 export function prepniCo2(list: CountdownTimer[], ted: number = Date.now()): CountdownTimer[] {
   return co2Bezi(list) ? zastavCo2(list) : spustCo2(list, ted);
 }
+
+/**
+ * Zastaví JEDEN odpočet ze seznamu — podle toho, co to je.
+ *
+ * Foukání CO2 z plochy zmizí úplně (dlaždice znamená „teď se fouká, nebo
+ * ne"; pozastavené foukání by tvrdilo něco mezi tím). Běžný odpočet se
+ * jen zastaví a vrátí na původní čas, ať se dá spustit znovu — smazat
+ * někomu odpočet, který si pojmenoval, by bylo o dost horší než ho zastavit.
+ */
+export function zastavOdpocetVSeznamu(list: CountdownTimer[], id: string): CountdownTimer[] {
+  if (id === CO2_ID) return zastavCo2(list);
+  return list.map((t) => (t.id === id ? { ...t, targetAt: null, durationMs: t.initialDurationMs || t.durationMs, notifiedAt: null } : t));
+}

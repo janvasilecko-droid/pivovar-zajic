@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   spustCo2, zastavCo2, prepniCo2, co2Bezi, co2Zbyva, najdiCo2,
-  CO2_ID, CO2_DELKA_MS, CO2_POPIS,
+  zastavOdpocetVSeznamu, CO2_ID, CO2_DELKA_MS, CO2_POPIS,
 } from './co2Foukani';
 import type { CountdownTimer } from './stopwatchTimers';
 
@@ -76,5 +76,28 @@ describe('co2Zbyva', () => {
     vi.setSystemTime(new Date(TED + CO2_DELKA_MS + 5000));
     expect(co2Zbyva(list)).toBe(0);
     expect(co2Bezi(list)).toBe(true);
+  });
+});
+
+describe('zastavOdpocetVSeznamu', () => {
+  it('foukání CO2 zmizí ze seznamu úplně', () => {
+    const list = spustCo2([jinyOdpocet], TED);
+    const po = zastavOdpocetVSeznamu(list, CO2_ID);
+    expect(najdiCo2(po)).toBeNull();
+    expect(po).toHaveLength(1);
+  });
+
+  it('běžný odpočet se jen zastaví a vrátí na původní čas', () => {
+    // Smazat někomu pojmenovaný odpočet je horší než ho zastavit.
+    const bezici: CountdownTimer = { ...jinyOdpocet, targetAt: TED + 60_000, durationMs: 60_000 };
+    const po = zastavOdpocetVSeznamu([bezici], 'chmeleni');
+    expect(po).toHaveLength(1);
+    expect(po[0].targetAt).toBeNull();
+    expect(po[0].durationMs).toBe(600_000);
+  });
+
+  it('cizí id nechá seznam beze změny', () => {
+    const list = spustCo2([jinyOdpocet], TED);
+    expect(zastavOdpocetVSeznamu(list, 'neexistuje')).toEqual(list);
   });
 });

@@ -42,7 +42,7 @@ import {
   CO2_TILE_ID,
   type HomeLayout, type TileColor, type TileId, type GroupId, type CountdownTileId,
 } from '../lib/homeLayout';
-import { co2Bezi, co2Zbyva, prepniCo2, CO2_ID } from '../lib/co2Foukani';
+import { co2Bezi, co2Zbyva, prepniCo2, zastavOdpocetVSeznamu, CO2_ID } from '../lib/co2Foukani';
 import { zavibruj } from '../lib/haptika';
 import {
   getKegTimerState, formatDurationMs, getCountdowns, saveCountdowns, countdownRemainingMs, toggleCountdown, resetCountdown,
@@ -1721,14 +1721,24 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                     className={`hs-tile ${dobehl || c.id === CO2_ID ? 'hs-tile-alert' : 'hs-tile-warn'} vlastni-vyska ${
                       c.id === CO2_ID || dobehl ? 'animate-pulse' : ''
                     }`}
-                    onClick={() => setPage('timer')}
-                    title={dobehl ? `Odpočet „${c.label}" doběhl` : `Odpočet „${c.label}" — zbývá ${formatDurationMs(zbyva)}`}
+                    // Klepnutí na upozornění odpočet ROVNOU ZASTAVÍ a smaže
+                    // — u foukání CO2 je klepnutí to samé jako „přestal jsem
+                    // foukat". Otevírat kvůli tomu Časovač a hledat v něm
+                    // položku bylo o tři klepnutí navíc, přesně ve chvíli,
+                    // kdy má člověk ruce plné. Ostatní odpočty se chovají
+                    // stejně: doběhlý se odklepne, běžící zastaví.
+                    onClick={() => {
+                      zavibruj('odskrtnuto');
+                      saveCountdowns(zastavOdpocetVSeznamu(getCountdowns(), c.id));
+                      setCountdowns(getCountdowns());
+                    }}
+                    title={dobehl ? `Odpočet „${c.label}" doběhl — klepnutím zavřeš` : `Odpočet „${c.label}" — zbývá ${formatDurationMs(zbyva)}, klepnutím zastavíš`}
                   >
                     <div className="hs-tile-icon-box">
-                      <AlarmClock />
+                      {c.id === CO2_ID ? <Wind /> : <AlarmClock />}
                     </div>
-                    <div className="hs-lbl">{c.label}</div>
-                    <span className="hs-badge">{dobehl ? 'hotovo' : formatDurationMs(zbyva)}</span>
+                    <div className="hs-lbl">{c.id === CO2_ID ? 'CO2' : c.label}</div>
+                    <span className="hs-badge">{dobehl ? 'STOP' : `${formatDurationMs(zbyva)} · STOP`}</span>
                   </button>
                 );
               })}
