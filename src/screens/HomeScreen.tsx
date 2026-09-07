@@ -51,7 +51,7 @@ import {
 } from '../lib/stopwatchTimers';
 import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
 import { zavrenaVerzeListy, VERZE_LISTA_EVENT } from '../lib/verzeLista';
-import { vyhodnotGesto, rychlostPosunu } from '../lib/gestaPlochy';
+import { vyhodnotGesto, rychlostPosunu, jeVeVodorovnemPasku } from '../lib/gestaPlochy';
 import { maSeZobrazit, oznacZobrazenou } from '../lib/napovedy';
 import { queueLength, onQueueChange, syncQueue, isOnline } from '../lib/offline';
 import { litry, litryJakoHl, kusy } from '../lib/cisla';
@@ -547,6 +547,17 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
   function handleSwipePointerDown(e: React.PointerEvent) {
     if (editMode) return;
+    // Gesto, které začalo uvnitř vodorovného pásku (záložky, řada
+    // upozornění), patří tomu pásku — dřív se jím místo posunutí pásku
+    // přetočila celá stránka launcheru. Viz jeVeVodorovnemPasku.
+    if (jeVeVodorovnemPasku(
+      e.target as Element | null,
+      e.currentTarget as Element,
+      (el) => getComputedStyle(el).overflowX,
+    )) {
+      swipeStart.current = null;
+      return;
+    }
     swipeStart.current = { x: e.clientX, y: e.clientY };
   }
   function handleSwipePointerUp(e: React.PointerEvent) {

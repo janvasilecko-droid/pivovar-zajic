@@ -43,6 +43,7 @@ import { kusy } from '../lib/cisla';
 import { PodpisModal } from '../components/PodpisModal';
 import { FotkyZaznamu } from '../components/FotkyZaznamu';
 import { uloz } from '../lib/uloziste';
+import { najdiZdvojene, popisZdvojeni } from '../lib/zdvojenePolozky';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -244,6 +245,13 @@ export default function Orders({
   }
 
   const filledBeerRows = beerRows.filter((r) => r.beerId && r.pkgId && Number(r.qty) > 0);
+
+  // Dvakrát totéž pivo ve stejném obalu pro TÉHOŽ odběratele (lib/zdvojenePolozky.ts).
+  // Do jedné mřížky se píše i pro víc hospod naráz, proto se seskupuje i podle
+  // odběratele — stejné pivo pro Louku a pro Maneo duplicita samozřejmě není.
+  const zdvojeneRadky = najdiZdvojene(
+    beerRows.map((r) => ({ beerId: r.beerId, pkgId: r.pkgId, qty: r.qty, skupina: r.placeId || r.placeNameFree || '' })),
+  );
   // Pozn.: nativní window.confirm() je v nainstalované PWA (standalone mód na
   // telefonu) nespolehlivý — občas se vůbec nezobrazí a webview ho tiše sám
   // za uživatele "odklikne". U mazání objednávky to vypadalo jako "klikni
@@ -2152,6 +2160,23 @@ export default function Orders({
             </div>
             {err && <span className="text-xs font-bold text-rose-700">{err}</span>}
           </div>
+
+          {zdvojeneRadky.length > 0 && (
+            <div className="mt-3 rounded-lg border-2 border-amber-400 bg-amber-50 px-3 py-2.5">
+              <div className="text-xs font-black text-amber-950 mb-1">Pozor, tohle máte v mřížce vícekrát:</div>
+              <ul className="text-xs font-semibold text-amber-900 space-y-0.5">
+                {zdvojeneRadky.map((z) => (
+                  <li key={`${z.beerId}__${z.pkgId}__${z.indexy[0]}`}>
+                    • {popisZdvojeni(
+                      z,
+                      beers.find((b) => b.id === z.beerId)?.name ?? 'Pivo',
+                      packages.find((p) => p.id === z.pkgId)?.label ?? 'obal',
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {err && <div className="text-sm text-rose-700 mt-3 bg-rose-500/10 rounded-lg px-3 py-2 font-bold">{err}</div>}
           

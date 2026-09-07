@@ -43,6 +43,34 @@ export function vyhodnotGesto(
   return null;
 }
 
+/**
+ * Začíná gesto uvnitř něčeho, co se samo posouvá do stran?
+ *
+ * Na ploše jsou vodorovné pásky (záložky, řada upozornění) a jejich
+ * odrolování prstem vypadá úplně stejně jako přejetí přes plochu — takže
+ * se místo posunutí pásku přetočila celá stránka launcheru. Tady se od
+ * místa dotyku jde nahoru po rodičích a hledá se prvek, který má obsah
+ * širší než sebe a smí se v něm rolovat. Když se najde, plocha gesto
+ * pouští.
+ *
+ * `zjistiOverflow` je vstřícnost k testům — v prohlížeči se dosadí
+ * `getComputedStyle`.
+ */
+export function jeVeVodorovnemPasku(
+  start: Element | null,
+  konec: Element | null,
+  zjistiOverflow: (el: Element) => string,
+): boolean {
+  let el: Element | null = start;
+  while (el) {
+    const siroky = el.scrollWidth > el.clientWidth + 4;
+    if (siroky && /auto|scroll/.test(zjistiOverflow(el))) return true;
+    if (el === konec) break;
+    el = el.parentElement;
+  }
+  return false;
+}
+
 /** Jak vysoký je u vodorovné hrany pruh, ve kterém se plocha sama posouvá (px). */
 export const VYSKA_OKRAJE_PX = 72;
 /** Nejvyšší rychlost samoposunu (px na snímek, tedy ~60× za sekundu). */
