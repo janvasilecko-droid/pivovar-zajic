@@ -11,6 +11,7 @@ import { BottlingPlanPlanner } from '../components/BottlingPlanPlanner';
 import { BottlingPlanBottler } from '../components/BottlingPlanBottler';
 import { isLastWeekOfMonth, getMonthKey, writeMonthlyCleanupStage, isMonthlyLineDone, markMonthlyLineDone } from '../lib/monthlyCleanup';
 import { businessDateISO } from '../lib/businessDate';
+import { vychoziZdrojovySud } from '../lib/zdrojovySud';
 import { autoLogBottleSanitationFromChecklist } from '../lib/bottleSanitation';
 import { requestOrdersItemFilter } from '../lib/ordersFilter';
 import { VoiceRecorder } from '../components/VoiceRecorder';
@@ -139,10 +140,19 @@ export default function BottlingScreen({
   const openTile = (b: Beer) => {
     // Předvyplnění z řádku, který už tohle pivo má (snadné doladění počtu).
     const existing = entryRows.find((r) => r.beerId === b.id && (r.qty || r.qty2 || r.qty3 || r.kegQty));
+    // Zdrojový sud se předvolí na padesátku (viz lib/zdrojovySud.ts) —
+    // stáčí se z ní skoro vždycky a políčko dřív začínalo na „— žádný —",
+    // takže se dalo zapsat stáčení bez odečtu sudů. Rozepsaný řádek si
+    // svoji volbu nechává, ať se nikomu nepřepíše, co už zadal.
     setTileDraft(existing ? {
       pkgId: existing.pkgId, qty: existing.qty, pkg2Id: existing.pkg2Id, qty2: existing.qty2,
-      pkg3Id: existing.pkg3Id, qty3: existing.qty3, kegPkgId: existing.kegPkgId, kegQty: existing.kegQty,
-    } : { pkgId: '', qty: '', pkg2Id: '', qty2: '', pkg3Id: '', qty3: '', kegPkgId: '', kegQty: '' });
+      pkg3Id: existing.pkg3Id, qty3: existing.qty3,
+      kegPkgId: existing.kegPkgId || vychoziZdrojovySud(kegPackages),
+      kegQty: existing.kegQty,
+    } : {
+      pkgId: '', qty: '', pkg2Id: '', qty2: '', pkg3Id: '', qty3: '',
+      kegPkgId: vychoziZdrojovySud(kegPackages), kegQty: '',
+    });
     setTileBeer(b);
   };
   const closeTile = () => setTileBeer(null);

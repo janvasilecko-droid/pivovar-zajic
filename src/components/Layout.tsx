@@ -30,7 +30,7 @@ import '../screens/HomeScreen.css';
 
 export type NavItem = { id: Page; label: string; icon: LucideIcon; group: string };
 
-export type Page = 'export_excel' | 'home' | 'sanitace' | 'marketing' | 'planning' | 'depozitar' | 'dashboard' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'sanitace_lahve' | 'sanitace_kegy' | 'sanitace_vycepy' | 'history' | 'orders_entry' | 'orders' | 'orders_detail' | 'orders_celkem' | 'orders_zavoz' | 'zavoz' | 'kniha_jizd' | 'stock' | 'bottling' | 'kegging' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'notes' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs' | 'stopwatch' | 'timer' | 'keg_timer' | 'radio' | 'zaloha' | 'signout';
+export type Page = 'export_excel' | 'home' | 'sanitace' | 'marketing' | 'planning' | 'depozitar' | 'dashboard' | 'concentration' | 'srotovani' | 'checklists' | 'haccp' | 'sanitation_log' | 'sanitace_lahve' | 'sanitace_kegy' | 'sanitace_vycepy' | 'history' | 'orders_entry' | 'orders' | 'orders_detail' | 'orders_celkem' | 'orders_zavoz' | 'zavoz' | 'kniha_jizd' | 'stock' | 'bottling' | 'kegging' | 'fasovani' | 'prodejna' | 'akce' | 'sklo_promo' | 'vycepy' | 'exkurze' | 'reminders' | 'notes' | 'writeoffs' | 'inventory' | 'calendar' | 'feedback' | 'places' | 'beers' | 'packages' | 'pricelist' | 'vehicles' | 'cellar' | 'users' | 'app_settings' | 'app_versions' | 'bottling_needs' | 'stopwatch' | 'timer' | 'keg_timer' | 'radio' | 'zaloha' | 'co2' | 'signout';
 
 export const NAV: NavItem[] = [
   // --- VÝROBA ---

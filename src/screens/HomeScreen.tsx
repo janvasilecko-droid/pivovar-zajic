@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import {
   CalendarX2, CloudUpload, Download, Check, ChevronLeft, ChevronRight, Lightbulb, LogOut, Palette, Plus, Search, SlidersHorizontal, Trash2, TriangleAlert, X,
   Truck, ClipboardList, MessageCircle, PlusCircle, Snowflake, FlaskConical, CalendarDays, BarChart3, Package as PackageIcon, TrendingDown, GlassWater, BookOpen, Droplet, Car, FileText, ClipboardCheck, Shield, Store, Receipt, MapPin, Beer as BeerIcon, Tag, Sparkles, Compass, Wheat, Zap, ArrowLeftRight, StickyNote,
-  AlarmClock, Play, Pause, RotateCcw, Pin, Radio, SkipForward, Flame, Sun, Settings, LayoutGrid,
+  AlarmClock, Play, Pause, RotateCcw, Pin, Radio, SkipForward, Flame, Sun, Settings, LayoutGrid, Wind,
 } from 'lucide-react';
 import { NAV, EXTRA_NAV, type Page, type NavItem } from '../components/Layout';
 import LauncherTile, { tileGridStyle } from '../components/LauncherTile';
@@ -39,8 +39,11 @@ import {
   MIN_SVETLOST, MAX_SVETLOST,
   SCENES, MIN_OPACITY, MAX_OPACITY, MIN_TILE_GAP, MAX_TILE_GAP, MIN_W, MAX_W, MIN_H, MAX_H, TILE_COLORS, COLOR_HEX, defaultTileColor,
   GRID_COLS_DESKTOP, GRID_COLS_MOBILE, MOBILE_BREAKPOINT_PX, ROW_HEIGHT_DESKTOP, ROW_HEIGHT_MOBILE, MIN_DOCK, MAX_DOCK,
+  CO2_TILE_ID,
   type HomeLayout, type TileColor, type TileId, type GroupId, type CountdownTileId,
 } from '../lib/homeLayout';
+import { co2Bezi, co2Zbyva, prepniCo2 } from '../lib/co2Foukani';
+import { zavibruj } from '../lib/haptika';
 import {
   getKegTimerState, formatDurationMs, getCountdowns, saveCountdowns, countdownRemainingMs, toggleCountdown, resetCountdown,
   startAllCountdowns, pauseAllCountdowns, resetAllCountdowns, COUNTDOWN_CHANGED_EVENT, type CountdownTimer,
@@ -111,7 +114,14 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
     return canUserView(profile?.role, user?.id, modKey, userPerms);
   }), [isAdmin, profile?.role, user?.id, userPerms]);
 
-  const visibleIds = useMemo(() => visible.map((n) => n.id), [visible]);
+  // Dlaždice „Foukání CO2" jede s běžnými dlaždicemi, i když za ní není
+  // žádná obrazovka — proto se přidává až sem a ne do NAV (v menu by byla
+  // položka, která nikam nevede). Díky tomu se sama objeví na ploše a dá
+  // se přesouvat, přebarvit i schovat jako každá jiná.
+  const visibleIds = useMemo(() => [...visible.map((n) => n.id), CO2_TILE_ID as Page], [visible]);
+
+  /** Popis dlaždice CO2 — obrazovka to není, takže si ho plocha nese sama. */
+  const CO2_ITEM: NavItem = { id: CO2_TILE_ID as Page, label: 'Foukání CO2', icon: Wind, group: 'Výroba' };
 
   // Rozšiřující dlaždice (EXTRA_NAV, viz Layout.tsx) — stránky/záložky, co
   // dnes nejdou přidat jinak než ručně přes "+ Přidat dlaždici". Na rozdíl
@@ -698,6 +708,15 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
   // co se dá stejně jako ostatní přesouvat/přebarvit/dát do skupiny; klik
   // na ni se tu zvlášť odchytí a spustí odhlášení místo setPage.
   async function handleTileClick(id: TileId) {
+    // 💨 Foukání CO2 — přepínač, ne obrazovka. Klepnutí spustí dvě minuty,
+    // druhé klepnutí („STOP") je ukončí. Alarm po doběhnutí obstará
+    // KegTimerNotificationManager, protože je to obyčejný odpočet.
+    if (id === CO2_TILE_ID) {
+      zavibruj('odskrtnuto');
+      saveCountdowns(prepniCo2(getCountdowns()));
+      setCountdowns(getCountdowns());
+      return;
+    }
     if (isCountdownId(id)) {
       const timerId = id.slice(3);
       const timer = countdowns.find((c) => c.id === timerId);
@@ -1812,7 +1831,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                 />
               );
             }
-            const item = navById.get(id as Page) ?? (isCountdownId(id) ? ({ id: id as any, label: countdowns.find((c) => c.id === id.slice(3))?.label ?? 'Odpočet', icon: AlarmClock, group: 'Nástroje' as const } as NavItem) : null);
+            const item = navById.get(id as Page) ?? (id === CO2_TILE_ID ? CO2_ITEM : isCountdownId(id) ? ({ id: id as any, label: countdowns.find((c) => c.id === id.slice(3))?.label ?? 'Odpočet', icon: AlarmClock, group: 'Nástroje' as const } as NavItem) : null);
             if (!item) return null;
 
             const activeNotesList = homeNotes.filter((n) => !n.completed).sort((a, b) => (b.important ? 1 : 0) - (a.important ? 1 : 0));
@@ -1842,6 +1861,32 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
               : undefined;
 
             let customContent: React.ReactNode = undefined;
+
+            // 💨 Foukání CO2: v klidu šedá dlaždice, za běhu červená s odpočtem
+            // a nápisem STOP („už se přestalo foukat"). Po dvou minutách se
+            // ozve alarm a dlaždice zůstane na 0:00, dokud ji někdo nezaklepne
+            // — jinak by z plochy zmizel důvod, proč se to rozeznělo.
+            if (id === CO2_TILE_ID) {
+              const bezi = co2Bezi(countdowns);
+              const zbyva = co2Zbyva(countdowns);
+              const dobehlo = bezi && zbyva === 0;
+              customContent = (
+                <div className={`w-full h-full flex flex-col items-center justify-center gap-0.5 p-1.5 text-center select-none overflow-hidden ${
+                  dobehlo ? 'bg-rose-600 text-white animate-pulse' : bezi ? 'bg-rose-600 text-white' : 'bg-neutral-500 text-white'
+                }`}>
+                  <Wind size={20} className="shrink-0" />
+                  <div className="text-[11px] font-black uppercase tracking-wider leading-tight">Foukání CO2</div>
+                  {bezi ? (
+                    <>
+                      <div className="text-lg font-mono font-black tabular-nums leading-none">{formatDurationMs(zbyva)}</div>
+                      <span className="px-2 py-0.5 rounded-full bg-white/90 text-rose-700 text-[11px] font-black">STOP</span>
+                    </>
+                  ) : (
+                    <div className="text-[11px] font-bold opacity-90 leading-tight">2 min · klepni</div>
+                  )}
+                </div>
+              );
+            }
 
             // Vlastní widget Odpočtu (cd_*):
             if (isCountdownId(id)) {
