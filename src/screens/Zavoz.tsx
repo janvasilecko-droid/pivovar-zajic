@@ -984,7 +984,7 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
                                                 aria-label={it.is_bottled ? 'Stočeno' : 'Označit jako stočené'}
                                                 aria-pressed={!!it.is_bottled}
                                                 className={`w-6 h-6 shrink-0 mr-2 grid place-items-center rounded border-2 transition ${
-                                                  it.is_bottled ? 'bg-amber-500 border-amber-600 text-neutral-950' : 'bg-white border-neutral-300 text-neutral-300'
+                                                  it.is_bottled ? 'bg-amber-500 border-amber-600 text-neutral-950' : 'bg-white border-neutral-400 text-neutral-600'
                                                 }`}
                                               >
                                                 <Droplet size={13} />

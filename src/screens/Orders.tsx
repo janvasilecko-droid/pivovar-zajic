@@ -3120,7 +3120,7 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
                     className={`w-6 h-6 shrink-0 grid place-items-center rounded border-2 transition ${
                       i.is_bottled
                         ? 'bg-amber-500 border-amber-600 text-neutral-950'
-                        : 'bg-white border-neutral-300 text-neutral-300'
+                        : 'bg-white border-neutral-400 text-neutral-600'
                     }`}
                   >
                     <Droplet size={13} />
@@ -3134,7 +3134,7 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
                     className={`w-6 h-6 shrink-0 grid place-items-center rounded border-2 transition ${
                       i.is_prepared
                         ? 'bg-emerald-700 border-emerald-800 text-white'
-                        : 'bg-white border-neutral-300 text-neutral-300'
+                        : 'bg-white border-neutral-400 text-neutral-600'
                     }`}
                   >
                     <Check size={13} />

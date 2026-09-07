@@ -1249,7 +1249,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                 <button
                   type="button"
                   onClick={() => setPrisnyPrekonan(true)}
-                  className="mt-2 px-3 py-2 rounded bg-amber-600 hover:bg-amber-500 text-white font-black text-xs transition min-h-[44px]"
+                  className="mt-2 px-3 py-2 rounded bg-amber-700 hover:bg-amber-600 text-white font-black text-xs transition min-h-[44px]"
                 >
                   Zkontroloval jsem to — odemknout schválení
                 </button>

@@ -296,7 +296,7 @@ function MigraceBlok() {
                 type="button"
                 onClick={() => { void spustVse(); }}
                 disabled={!!bezi}
-                className="mt-2 px-3 py-2 rounded bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-black text-xs transition min-h-[44px] flex items-center gap-2"
+                className="mt-2 px-3 py-2 rounded bg-amber-700 hover:bg-amber-600 disabled:opacity-50 text-white font-black text-xs transition min-h-[44px] flex items-center gap-2"
               >
                 {bezi ? <RefreshCw size={14} className="animate-spin" /> : <Database size={14} />}
                 {bezi ? `Pouštím ${bezi}…` : cekajici.length === 1 ? 'Spustit tuhle migraci' : `Spustit všech ${cekajici.length} po řadě`}

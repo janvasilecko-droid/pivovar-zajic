@@ -26,12 +26,21 @@ export function stavPolicka(napocitano: string | number | undefined | null, skla
   return cislo === sklad ? 'sedi' : 'nesedi';
 }
 
-/** Třídy pro `<input>` podle stavu. Rámeček i podklad, ať je to vidět i koutkem oka. */
+/**
+ * Třídy pro `<input>` podle stavu — barví se CELÉ POZADÍ, ne jen rámeček.
+ *
+ * Rámeček je na telefonu za světla k nepoznání a v tabulce o sedmi sloupcích
+ * ho oko přehlédne úplně. Plná zelená a plná červená se poznají i koutkem
+ * oka, takže se v seznamu hledají jen červené řádky.
+ *
+ * Odstín 600 s bílým písmem schválně: světlejší zelená s tmavým textem
+ * neprojde měřením kontrastu (viz scripts/zkontroluj-kontrast.mjs).
+ */
 export function tridyPolicka(stav: StavPolicka): string {
   switch (stav) {
-    case 'nespocitano': return 'border-neutral-400 bg-neutral-200 text-neutral-600';
-    case 'sedi': return 'border-emerald-500 bg-emerald-100 text-emerald-950';
-    case 'nesedi': return 'border-rose-500 bg-rose-100 text-rose-950';
+    case 'nespocitano': return 'border-neutral-800 bg-neutral-600 text-white';
+    case 'sedi': return 'border-emerald-900 bg-emerald-700 text-white';
+    case 'nesedi': return 'border-rose-900 bg-rose-700 text-white';
     default: return 'border-amber-400 bg-amber-100/80 text-neutral-950';
   }
 }
