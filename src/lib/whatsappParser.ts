@@ -329,8 +329,16 @@ function dayRegex(...alts: string[]): RegExp {
   return new RegExp(alts.map((a) => `${WB_BEFORE}${a}${WB_AFTER}`).join('|'), 'iu');
 }
 
+// „po" a „ne" jsou zkratky dnů, ale taky úplně běžná česká slova: „po Normě",
+// „po 30 litrech", „ne, tenhle týden ne". Zkratka se proto bere jen tam, kde
+// nemůže být ničím jiným — po předložce („v po") nebo jako popisek řádku
+// („Po: 5x30"). Bez toho se z „na příští týden úterý PO Normě" stalo
+// pondělí a objednávka spadla o den (a o týden) vedle.
+const ZKRATKA_PO = '(?:(?:v|na)\\s+po|(?:^|\\n)\\s*po\\s*(?=[:\\-–]))';
+const ZKRATKA_NE = '(?:(?:v|na)\\s+ne|(?:^|\\n)\\s*ne\\s*(?=[:\\-–]))';
+
 const DAY_MAP: { regex: RegExp; code: string }[] = [
-  { regex: dayRegex('(?:v\\s+|na\\s+)?pond[eě]l[ií]', 'po'), code: 'po' },
+  { regex: dayRegex('(?:v\\s+|na\\s+)?pond[eě]l[ií]', ZKRATKA_PO), code: 'po' },
   { regex: dayRegex('(?:v\\s+|na\\s+)?[uú]ter[yý]', '[uú]t'), code: 'ut' },
   { regex: dayRegex('(?:ve\\s+|na\\s+)?st[rř]ed[uuy]', 'st'), code: 'st' },
   { regex: dayRegex('(?:ve\\s+|na\\s+)?[cč]tvrtek', '[cč]t'), code: 'ct' },
@@ -338,6 +346,21 @@ const DAY_MAP: { regex: RegExp; code: string }[] = [
   { regex: dayRegex('(?:v\\s+|na\\s+)?sobot[uu]', 'sobota', 'so'), code: 'so' },
   { regex: dayRegex('(?:v\\s+|na\\s+)?ned[eě]li', 'ned[eě]le', 'ne'), code: 'ne' },
 ];
+
+/**
+ * „Na příští týden úterý" — zákazník myslí úterý NÁSLEDUJÍCÍHO týdne, ne
+ * nejbližší úterý. Bez tohohle rozlišení se objednávka napsaná v pondělí
+ * zavezla hned druhý den, tedy o týden dřív.
+ */
+const PRISTI_TYDEN_RE = /\b(p[řr][íi][šs]t[íi]|dal[šs][íi]|nadch[áa]zej[íi]c[íi])\s+t[ýy]den\b|\bza\s+t[ýy]den\b/i;
+
+/** Pondělí týdne, ve kterém den leží — pro porovnání „je to ještě tenhle týden?". */
+function tydenOd(d: Date): string {
+  const kopie = new Date(d);
+  const posun = (kopie.getDay() + 6) % 7; // 0 = pondělí
+  kopie.setDate(kopie.getDate() - posun);
+  return `${kopie.getFullYear()}-${kopie.getMonth() + 1}-${kopie.getDate()}`;
+}
 
 export function detectDeliveryDay(text: string): { day: string | null; dateStr: string | null; cleanText: string } {
   let dayCode: string | null = null;
@@ -389,7 +412,17 @@ export function detectDeliveryDay(text: string): { day: string | null; dateStr: 
       const fromIdx = now.getDay();
       const diff = (targetIdx - fromIdx + 7) % 7;
       const target = new Date(now);
-      target.setDate(now.getDate() + diff);
+      // „na PŘÍŠTÍ TÝDEN úterý" = úterý toho týdne, co přijde po tomhle —
+      // ne nejbližší úterý. Napsáno v pondělí by se jinak objednávka
+      // zavezla hned zítra, tedy o týden dřív, než zákazník chtěl. Posun
+      // se počítá od nejbližšího výskytu dne: když ten padne ještě do
+      // tohoto týdne, přidá se sedm dní; když už je v příštím (např.
+      // „v pátek na příští týden úterý"), je správně a nepřidává se nic.
+      const target0 = new Date(now);
+      target0.setDate(now.getDate() + diff);
+      const pristiTyden = PRISTI_TYDEN_RE.test(text);
+      const jeVTomtoTydnu = tydenOd(now) === tydenOd(target0);
+      target.setDate(now.getDate() + diff + (pristiTyden && jeVTomtoTydnu ? 7 : 0));
       dateStr = target.toISOString().slice(0, 10);
     }
   }
