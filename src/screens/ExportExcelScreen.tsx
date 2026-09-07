@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Copy, Download, FileSpreadsheet } from 'lucide-react';
 import { fetchAllRows, Package } from '../lib/supabase';
-import { Spinner } from '../components/ui';
+import { Kostra } from '../components/ui';
 import { chyba, uspech, varovani } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
 import { nazevSouboru, poctyRadku, stahniSesit, type ListExportu } from '../lib/mesicniExport';
@@ -200,7 +200,7 @@ export default function ExportExcelScreen() {
     }
   }
 
-  if (nacitam) return <Spinner />;
+  if (nacitam) return <Kostra />;
 
   return (
     <div className="space-y-4 max-w-3xl">

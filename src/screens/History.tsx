@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Beer, beerBg, beerBorder, beerInk, beerName, fetchAllRows, formatPackageLabel, Package, Place, supabase, useRealtime } from '../lib/supabase';
-import { Spinner, EmptyState } from '../components/ui';
+import { Spinner, Kostra, EmptyState } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { orderWeightKg, fmtKg } from '../lib/weight';
 import { DAYS } from '../lib/shared';
@@ -490,7 +490,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
 
   useEffect(() => { load(); loadTankCycles(); }, []);
   // 🔇 Realtime přenačítá TIŠE. Bez toho zavolá loadData() bez parametru,
-  // rozsvítí se spinner přes celou obrazovku (`if (loading) return <Spinner/>`),
+  // rozsvítí se spinner přes celou obrazovku (`if (loading) return <Kostra/>`),
   // obsah se odmountuje — a s ním spadne odrolování na nulu. Z provozu:
   // „když kliknu odečíst, vrací mě to vždycky nahoru." Vlastní zápis stránku
   // srovná kotvou (lib/drzPozici.ts), jenže 400 ms po něm dorazí realtime
@@ -756,7 +756,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
     return { totalInitial, totalKegged, totalLoss, avgLossPct, avgDuration, cycleCount: tankCycles.length };
   }, [tankCycles]);
 
-  if (loading) return <Spinner />;
+  if (loading) return <Kostra />;
 
   return (
     <div className="space-y-6 pb-12">

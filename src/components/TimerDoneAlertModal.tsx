@@ -73,7 +73,7 @@ export function TimerDoneAlertModal() {
           onClick={dismiss}
           className="absolute top-3 right-3 p-1.5 rounded-full text-neutral-400 hover:text-white hover:bg-neutral-800 transition"
           title="Zavřít"
-        >
+         aria-label="Zavřít">
           <X size={20} />
         </button>
 

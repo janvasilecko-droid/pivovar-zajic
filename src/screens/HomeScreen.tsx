@@ -1562,7 +1562,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                   <Plus size={16} /> Přidat stránku
                 </button>
                 {layout.pages.length > 1 && (
-                  <button type="button" className="hs-pager-manage vlastni-vyska" title="Smazat tuhle stránku" onClick={handleRemoveCurrentPage}>
+                  <button type="button" className="hs-pager-manage vlastni-vyska" title="Smazat tuhle stránku" onClick={handleRemoveCurrentPage} aria-label="Smazat tuhle stránku">
                     <Trash2 size={16} />
                   </button>
                 )}

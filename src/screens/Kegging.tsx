@@ -1307,8 +1307,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                                   onChange={(e) => setEditQty(e.target.value)}
                                   onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') { setEditingId(null); setEditQty(''); } }}
                                 />
-                                <button type="button" onClick={saveEdit} className="px-3 h-10 rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xs transition"><Check size={14} /></button>
-                                <button type="button" onClick={() => { setEditingId(null); setEditQty(''); }} className="px-3 h-10 rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-black text-xs transition"><X size={14} /></button>
+                                <button type="button" onClick={saveEdit} aria-label="Uložit množství" title="Uložit množství" className="px-3 h-10 rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xs transition"><Check size={14} /></button>
+                                <button type="button" onClick={() => { setEditingId(null); setEditQty(''); }} aria-label="Zrušit úpravu" title="Zrušit úpravu" className="px-3 h-10 rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-black text-xs transition"><X size={14} /></button>
                               </div>
                             ) : (
                               <span className="font-display font-black text-xl text-emerald-950">{r.quantity} ks</span>
@@ -1391,7 +1391,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                                     className="px-2 h-6 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-xs transition"
                                     onClick={saveEdit}
                                     title="Uložit"
-                                  ><Check size={14} /></button>
+                                   aria-label="Uložit"><Check size={14} /></button>
                                   <button
                                     type="button"
                                     className="px-2 h-6 grid place-items-center rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-bold text-xs transition"
@@ -1622,8 +1622,8 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                                 onChange={(e) => setEditQty(e.target.value)}
                                 onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') { setEditingId(null); setEditQty(''); } }}
                               />
-                              <button type="button" onClick={saveEdit} className="px-3 h-10 rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xs transition"><Check size={14} /></button>
-                              <button type="button" onClick={() => { setEditingId(null); setEditQty(''); }} className="px-3 h-10 rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-black text-xs transition"><X size={14} /></button>
+                              <button type="button" onClick={saveEdit} aria-label="Uložit množství" title="Uložit množství" className="px-3 h-10 rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-black text-xs transition"><Check size={14} /></button>
+                              <button type="button" onClick={() => { setEditingId(null); setEditQty(''); }} aria-label="Zrušit úpravu" title="Zrušit úpravu" className="px-3 h-10 rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-black text-xs transition"><X size={14} /></button>
                             </div>
                           ) : (
                             <span className="font-display font-black text-xl text-amber-950">{r.quantity} ks</span>
@@ -1715,7 +1715,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
                                   className="px-2 h-6 grid place-items-center rounded bg-emerald-200 hover:bg-emerald-300 text-emerald-950 font-bold text-xs transition"
                                   onClick={saveEdit}
                                   title="Uložit"
-                                ><Check size={14} /></button>
+                                 aria-label="Uložit"><Check size={14} /></button>
                                 <button
                                   type="button"
                                   className="px-2 h-6 grid place-items-center rounded bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-bold text-xs transition"

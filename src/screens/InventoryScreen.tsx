@@ -2,7 +2,7 @@ import { Fragment, useState, useEffect, useMemo, useRef } from 'react';
 
 
 import { Beer, beerBg, beerInk, beerName, beerText, fetchAllRows, formatPackageLabel, Package, supabase, useRealtime } from '../lib/supabase';
-import { Spinner } from '../components/ui';
+import { Kostra } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { AlertCircle, AlertTriangle, Beer as BeerIcon, Calendar, CalendarRange, Camera, ClipboardCheck, ClipboardList, Download, Check, Lock, MinusCircle, Package as PackageIcon, Plus, RefreshCw, RotateCcw, Save, Search, ShieldCheck } from 'lucide-react';
 import { CountFromImage } from '../components/CountFromImage';
@@ -513,7 +513,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   }, [currentMonth]);
 
   // 🔇 Realtime přenačítá TIŠE. Bez toho zavolá loadData() bez parametru,
-  // rozsvítí se spinner přes celou obrazovku (`if (loading) return <Spinner/>`),
+  // rozsvítí se spinner přes celou obrazovku (`if (loading) return <Kostra/>`),
   // obsah se odmountuje — a s ním spadne odrolování na nulu. Z provozu:
   // „když kliknu odečíst, vrací mě to vždycky nahoru." Vlastní zápis stránku
   // srovná kotvou (lib/drzPozici.ts), jenže 400 ms po něm dorazí realtime
@@ -1538,7 +1538,7 @@ function exportInventoryExcel() {
   // má být hned vidět měsíc a hlavní akce, ne čtyři pruhy.
   const [dalsiAkce, setDalsiAkce] = useState(false);
 
-  if (loading) return <Spinner />;
+  if (loading) return <Kostra />;
 
   return (
     <div className="space-y-6 pb-12">

@@ -135,10 +135,10 @@ export function WhatsAppAuditModal({ isOpen, onClose, onOpenMessage }: WhatsAppA
               disabled={runningAutoParse}
               className="px-3 py-1.5 rounded bg-sky-700 hover:bg-sky-800 text-white text-xs font-black shadow-xs flex items-center gap-1.5 disabled:opacity-50"
               title="Spustit AI zpracování nevyřízených zpráv"
-            >
+             aria-label="Spustit AI zpracování nevyřízených zpráv">
               <Zap size={14} /> {runningAutoParse ? 'Zpracovávám…' : 'Zpracovat nevyřízené'}
             </button>
-            <button type="button" onClick={load} className="p-1.5 rounded text-neutral-600 hover:bg-neutral-100" title="Obnovit">
+            <button type="button" onClick={load} className="p-1.5 rounded text-neutral-600 hover:bg-neutral-100" title="Obnovit" aria-label="Obnovit">
               <RefreshCw size={16} />
             </button>
           </div>

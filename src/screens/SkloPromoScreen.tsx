@@ -4,7 +4,7 @@ import { Beer, Package, Place, fetchAllRows, supabase, useRealtime } from '../li
 import { LABELS_LOW_STOCK_THRESHOLD } from '../lib/labelStock';
 import { zustatkyZavirek, KORUNKY, UZAVERY_PET } from '../lib/materialSklad';
 import { kusy } from '../lib/cisla';
-import { Spinner, EmptyState } from '../components/ui';
+import { Kostra, EmptyState } from '../components/ui';
 import { exportHistoryDetailToExcel } from '../lib/excel';
 import { PlaceCombobox } from '../components/PlaceCombobox';
 import { AlertTriangle, ArrowDownCircle, ArrowUpCircle, Boxes, Download, Check, CheckCircle2, Plus, Printer, Search, Tag, Trash2, Upload, Wine } from 'lucide-react';
@@ -189,7 +189,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
 
   useEffect(() => { loadData(); }, []);
   // 🔇 Realtime přenačítá TIŠE. Bez toho zavolá loadData() bez parametru,
-  // rozsvítí se spinner přes celou obrazovku (`if (loading) return <Spinner/>`),
+  // rozsvítí se spinner přes celou obrazovku (`if (loading) return <Kostra/>`),
   // obsah se odmountuje — a s ním spadne odrolování na nulu. Z provozu:
   // „když kliknu odečíst, vrací mě to vždycky nahoru." Vlastní zápis stránku
   // srovná kotvou (lib/drzPozici.ts), jenže 400 ms po něm dorazí realtime
@@ -456,7 +456,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
     );
   }
 
-  if (loading) return <Spinner />;
+  if (loading) return <Kostra />;
 
   return (
     <div className="space-y-6 pb-12">

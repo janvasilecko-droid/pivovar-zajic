@@ -79,7 +79,7 @@ export function BreweryRadioModal({ open, onClose }: BreweryRadioModalProps) {
               // (inline přechod) a na světlejší stanici se bílá ikona na
               // 15% bílé neztrácela jen trochu — nebyla vidět vůbec.
               className="p-2.5 rounded-full bg-neutral-900 hover:bg-neutral-800 active:scale-95 transition text-white"
-            >
+             aria-label="Předchozí stanice">
               <SkipBack size={20} />
             </button>
 
@@ -103,7 +103,7 @@ export function BreweryRadioModal({ open, onClose }: BreweryRadioModalProps) {
               onClick={nextStation}
               title="Další stanice"
               className="p-2.5 rounded-full bg-neutral-900 hover:bg-neutral-800 active:scale-95 transition text-white"
-            >
+             aria-label="Další stanice">
               <SkipForward size={20} />
             </button>
           </div>

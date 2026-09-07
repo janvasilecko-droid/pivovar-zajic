@@ -180,7 +180,7 @@ function StopwatchTool() {
               onClick={copyLaps}
               className="flex items-center gap-1.5 text-xs font-bold text-neutral-600 hover:text-neutral-900 transition px-2 py-1 rounded hover:bg-neutral-100"
               title="Kopírovat mezičasy do schránky"
-            >
+             aria-label="Kopírovat mezičasy do schránky">
               {copied ? <><Check size={13} className="text-emerald-600" /> Zkopírováno!</> : <><Copy size={13} /> Kopírovat</>}
             </button>
           </div>

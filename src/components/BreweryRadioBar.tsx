@@ -62,6 +62,7 @@ export function BreweryRadioBar({ onOpenModal }: BreweryRadioBarProps) {
           type="button"
           onClick={toggleRadio}
           title={state.playing ? 'Pozastavit' : 'Spustit'}
+          aria-label={state.playing ? 'Pozastavit rádio' : 'Spustit rádio'}
           className="p-1.5 rounded-full bg-white/20 hover:bg-white/30 active:scale-95 transition"
         >
           {state.playing ? <Pause size={14} className="fill-current" /> : <Play size={14} className="fill-current ml-0.5" />}
@@ -71,7 +72,7 @@ export function BreweryRadioBar({ onOpenModal }: BreweryRadioBarProps) {
           onClick={pauseRadio}
           title="Zavřít lištu"
           className="p-1.5 rounded-full hover:bg-white/20 active:scale-95 transition text-white/70 hover:text-white"
-        >
+         aria-label="Zavřít lištu">
           <X size={14} />
         </button>
       </div>

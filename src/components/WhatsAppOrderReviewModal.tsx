@@ -850,7 +850,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                     disabled={reparsing || loading}
                     className="mt-1.5 flex items-center gap-1.5 px-2.5 py-1 rounded bg-sky-700 text-white text-xs font-semibold hover:bg-sky-800 disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Ručně spustit AI parsování této zprávy"
-                  >
+                   aria-label="Ručně spustit AI parsování této zprávy">
                     {reparsing ? <RefreshCw size={13} className="animate-spin" /> : <RefreshCw size={13} />}
                     {reparsing ? 'Parsuji...' : 'Parsovat ručně'}
                   </button>
@@ -1025,7 +1025,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                 disabled={reparsing || loading}
                 className="ml-auto px-2.5 py-1 rounded bg-sky-50 text-sky-700 text-xs font-medium hover:bg-sky-100 disabled:opacity-50 flex items-center gap-1.5"
                 title="Znovu spustit AI čtení zprávy — nový přepis nahradí ten stávající (a porovná se s ním)"
-              >
+               aria-label="Znovu spustit AI čtení zprávy — nový přepis nahradí ten stávající (a porovná se s ním)">
                 {reparsing ? <RefreshCw size={13} className="animate-spin" /> : <RefreshCw size={13} />}
                 {reparsing ? 'Čtu znovu...' : 'Přečíst znovu (AI)'}
               </button>
@@ -1336,7 +1336,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             onClick={props.onClose}
             className="w-8 h-8 grid place-items-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition"
             title="Zavřít"
-          >
+           aria-label="Zavřít">
             <X size={18} />
           </button>
         </div>
@@ -1366,7 +1366,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
             onClick={props.onClose}
             className="w-8 h-8 grid place-items-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition"
             title="Zavřít"
-          >
+           aria-label="Zavřít">
             <X size={18} />
           </button>
         </div>

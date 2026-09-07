@@ -19,6 +19,43 @@ export function Spinner({ className = '' }: { className?: string }) {
 }
 
 /**
+ * Kostra obrazovky — místo točícího se kolečka.
+ *
+ * Kolečko říká jen „něco se děje" a stránka pod ním zůstává prázdná, takže
+ * při každém přepnutí obrazovky obsah poskočí odjinud. Kostra drží zhruba
+ * tvar toho, co se načítá (pruh nadpisu, filtry, řádky), takže oko ví, kam
+ * se dívat, a přechod je klidný. Na pomalé mobilní síti je to ten rozdíl
+ * mezi „appka se seká" a „appka se načítá".
+ *
+ * `radku` je počet naznačených řádků seznamu, `hlavicka` zapíná pruh nadpisu
+ * a filtrů (uvnitř karty s tabulkou se nehodí).
+ */
+export function Kostra({ radku = 6, hlavicka = true, className = '' }: { radku?: number; hlavicka?: boolean; className?: string }) {
+  const dlazdice = 'rounded-lg bg-neutral-200/80 dark:bg-neutral-700/60';
+  return (
+    <div className={`animate-pulse space-y-3 py-3 ${className}`} aria-busy="true" aria-label="Načítám">
+      {hlavicka && (
+        <div className="space-y-3">
+          <div className={`h-7 w-2/5 ${dlazdice}`} />
+          <div className="flex gap-2">
+            <div className={`h-9 w-24 ${dlazdice}`} />
+            <div className={`h-9 w-20 ${dlazdice}`} />
+            <div className={`h-9 w-16 ${dlazdice}`} />
+          </div>
+        </div>
+      )}
+      <div className="space-y-2">
+        {Array.from({ length: radku }).map((_, i) => (
+          // Šířky se střídají a řádky slábnou dolů, ať kostra nevypadá jako
+          // mřížka — skutečný seznam taky nemá všechny řádky stejně dlouhé.
+          <div key={i} className={`h-14 ${dlazdice}`} style={{ width: `${100 - (i % 3) * 6}%`, opacity: 1 - i * 0.08 }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
  * Prázdný stav — „tady zatím nic není" s ikonou a vysvětlením.
  *
  * `icon` bere kreslenou ikonu (lucide nebo z components/ikony.tsx) i obyčejný
@@ -130,7 +167,7 @@ export function Modal({ open, onClose, title, children, wide, maxWidth }: {
             onClick={onClose}
             className="w-8 h-8 grid place-items-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition"
             title="Zavřít"
-          >
+           aria-label="Zavřít">
             <X size={18} />
           </button>
         </div>

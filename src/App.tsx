@@ -54,7 +54,7 @@ import { CriticalMaterialAlertModal } from './components/CriticalMaterialAlertMo
 import { MonthlyCleanupWarning } from './components/MonthlyCleanupWarning';
 import { SetPasswordModal } from './components/SetPasswordModal';
 const BottlingTasksSettings = lazyStranka(() => import('./components/BottlingTasksSettings').then((m) => ({ default: m.BottlingTasksSettings })));
-import { Spinner } from './components/ui';
+import { Spinner, Kostra } from './components/ui';
 import { scheduleNightlyCheck } from './lib/zavozDeduction';
 
 const DEFAULT_PAGE: Page = 'home';
@@ -196,8 +196,9 @@ export default function App() {
       />
       {/* Obrazovky se stahuji az pri prvnim otevreni (React.lazy). Drive se
           vsech ~40 nacetlo najednou pri startu — 2,9 MB, i kdyz uzivatel
-          otevrel jen Domu. Fallback je stejny spinner jako jinde v appce. */}
-      <Suspense fallback={<Spinner />}>
+          otevrel jen Domu. Nez se stahne, drzi misto kostra obrazovky (ui.tsx) — kolecko
+          nechavalo stranku prazdnou a obsah pak poskocil. */}
+      <Suspense fallback={<Kostra className="px-3" />}>
       {page === 'home' && <HomeScreen setPage={setPage} />}
       {(page === 'dashboard' || page === 'sklo_promo') && (
         <Dashboard setPage={setPage} initialTab={page === 'sklo_promo' ? 'sklo_promo' : 'sklad'} />

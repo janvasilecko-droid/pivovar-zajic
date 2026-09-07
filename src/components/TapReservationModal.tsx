@@ -107,7 +107,7 @@ export function TapReservationModal({ orderDate, customerName, orderId, tapTypeH
         <div className="bg-white rounded max-w-md w-full p-6 space-y-4 shadow-2xl border border-neutral-200">
           <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
             <h3 className="font-display font-black text-lg text-neutral-900"><IkonaVycep className="ikona-text" /> Rezervace výčepu</h3>
-            <button onClick={onSkip} className="text-neutral-400 font-bold" title="Zavřít"><X size={18} /></button>
+            <button onClick={onSkip} className="text-neutral-400 font-bold" title="Zavřít" aria-label="Zavřít"><X size={18} /></button>
           </div>
           <p className="text-sm text-neutral-600">Nemáte vytvořené žádné výčepy. Nejprve je přidejte v sekci Výčepy.</p>
           <div className="flex justify-end gap-2 pt-2">
@@ -126,7 +126,7 @@ export function TapReservationModal({ orderDate, customerName, orderId, tapTypeH
             <span><IkonaVycep className="ikona-text" /></span>
             <span>Rezervace výčepu k objednávce</span>
           </h3>
-          <button onClick={onSkip} className="text-neutral-400 font-bold" title="Zavřít"><X size={18} /></button>
+          <button onClick={onSkip} className="text-neutral-400 font-bold" title="Zavřít" aria-label="Zavřít"><X size={18} /></button>
         </div>
 
         <p className="text-xs text-neutral-500 font-medium">
