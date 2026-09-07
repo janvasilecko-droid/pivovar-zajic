@@ -1019,11 +1019,17 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
       // v souhrnu chybí kusy a nikdo neví proč (hlídá test strankovaniDotazu).
       const [bot, keg, fa, fp, wo, zd] = await Promise.all([
         fetchAllRows<any>('bottling', 'entry_date,beer_id,package_id,quantity').eq('entry_date', dnes),
-        fetchAllRows<any>('kegging', 'entry_date,beer_id,package_id,quantity,kegs_used,kegs_used_package_id').eq('entry_date', dnes),
+        // POZOR: kegs_used/kegs_used_package_id jsou sloupce BOTTLING (sudy
+        // spotřebované na stáčení lahví), ne kegging. Když se vyžádaly tady,
+        // celý dotaz spadl na 'column kegging.kegs_used does not exist' —
+        // a souhrn dne tiše ukazoval nulu stáčení KEG.
+        fetchAllRows<any>('kegging', 'entry_date,beer_id,package_id,quantity').eq('entry_date', dnes),
         fetchAllRows<any>('fasovani', 'entry_date,beer_id,package_id,quantity').eq('entry_date', dnes),
         fetchAllRows<any>('fasovani_private', 'entry_date,beer_id,package_id,quantity').eq('entry_date', dnes),
         fetchAllRows<any>('writeoffs', 'entry_date,beer_id,package_id,quantity').eq('entry_date', dnes),
-        fetchAllRows<any>('zavoz_deductions', 'deducted_date,beer_id,package_id,quantity').eq('deducted_date', dnes),
+        // Sloupec se jmenuje deduct_date, ne deducted_date — dotaz proto vždy
+        // spadl a v souhrnu dne nebyl vidět ani jeden závoz.
+        fetchAllRows<any>('zavoz_deductions', 'deduct_date,beer_id,package_id,quantity').eq('deduct_date', dnes),
       ]);
       if (zruseno) return;
       const pohyby = buildMovements({
