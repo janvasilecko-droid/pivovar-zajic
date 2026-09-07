@@ -4,6 +4,7 @@ import { KLIC_VARKY, nactiVarky, prenesZProhlizece, smazVarku, ulozVarku } from 
 import { rozdilProUlozeni } from '../lib/vycepyData';
 import { chyba as chybaOznam } from '../lib/toast';
 import { AlertTriangle, BarChart3, Calendar, Circle, Clock, Check, CheckCircle2, Plus, ShieldAlert, Sparkles, X } from 'lucide-react';
+import { uloz } from '../lib/uloziste';
 
 export type PlannedBatch = {
   id: string;
@@ -55,7 +56,7 @@ export function TankOccupancyPlanner({
   function ulozVse(updated: PlannedBatch[]) {
     const stare = plannedBatches;
     setPlannedBatches(updated);
-    localStorage.setItem(KLIC_VARKY, JSON.stringify(updated));
+    uloz(KLIC_VARKY, JSON.stringify(updated));
     void (async () => {
       const { kUlozeni, kSmazani } = rozdilProUlozeni(stare, updated);
       for (const id of kSmazani) await smazVarku(id);

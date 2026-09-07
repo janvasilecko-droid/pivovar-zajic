@@ -1,3 +1,4 @@
+import { uloz } from './uloziste';
 // Offline queue + sync for the PWA.
 // Stores pending mutations in localStorage and replays them when online.
 // Each entry is a Supabase operation: { table, op: 'insert'|'update'|'delete', match?: Record<string,any>, row?: Record<string,any> }.
@@ -26,7 +27,7 @@ function read(): QueuedOp[] {
 }
 function write(q: QueuedOp[]) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(q));
+    uloz(KEY, JSON.stringify(q));
   } catch (e: any) {
     // Telefon má plnou paměť pro aplikaci. Bez téhle hlášky by se zobrazila
     // holá „QuotaExceededError", ze které nikdo nepozná, co s tím dělat.
@@ -75,7 +76,7 @@ function zapisChyby(chyby: SyncFailure[]) {
     // Chyby k zápisům, které už ve frontě nejsou, se nedrží — jinak by se
     // v seznamu hromadily řádky bez protějšku.
     const ve_fronte = new Set(read().map((o) => o.id));
-    localStorage.setItem(KEY_CHYBY, JSON.stringify(chyby.filter((c) => ve_fronte.has(c.id))));
+    uloz(KEY_CHYBY, JSON.stringify(chyby.filter((c) => ve_fronte.has(c.id))));
   } catch { /* na chybách o chybách nestojí nic zásadního */ }
 }
 

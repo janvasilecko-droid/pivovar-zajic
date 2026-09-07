@@ -6,6 +6,7 @@ import { AlertTriangle, Calendar, CalendarDays, Check, CheckCircle2, Droplet, Dr
 import { chyba as chybaOznam, oznam, potvrd } from '../lib/toast';
 import { KLIC_REZERVACE, KLIC_VYCEPY, nactiRezervace, nactiVycepy, prenesZProhlizece, rozdilProUlozeni, smazRezervaci, smazVycep, ulozRezervaci, ulozVycep } from '../lib/vycepyData';
 import { IkonaVycep } from '../components/ikony';
+import { uloz } from '../lib/uloziste';
 
 export type TapSanitationStatus = 'clean' | 'dirty_beer' | 'needs_louh';
 
@@ -93,7 +94,7 @@ export default function VycepyScreen() {
   function saveTaps(newTaps: TapEquipment[]) {
     const stare = taps;
     setTaps(newTaps);
-    localStorage.setItem(KLIC_VYCEPY, JSON.stringify(newTaps));
+    uloz(KLIC_VYCEPY, JSON.stringify(newTaps));
     void (async () => {
       const { kUlozeni, kSmazani } = rozdilProUlozeni(stare, newTaps);
       for (const id of kSmazani) await smazVycep(id);
@@ -107,7 +108,7 @@ export default function VycepyScreen() {
   function saveReservations(newRes: TapReservation[]) {
     const stare = reservations;
     setReservations(newRes);
-    localStorage.setItem(KLIC_REZERVACE, JSON.stringify(newRes));
+    uloz(KLIC_REZERVACE, JSON.stringify(newRes));
     void (async () => {
       const { kUlozeni, kSmazani } = rozdilProUlozeni(stare, newRes);
       for (const id of kSmazani) await smazRezervaci(id);

@@ -3,6 +3,7 @@ import { Announcement } from './MandatoryAnnouncementModal';
 import { AlertTriangle, CheckCircle2, Save, Trash2, X } from 'lucide-react';
 import { isNotificationSupported, playOrderChime } from '../lib/notifications';
 import { potvrd } from '../lib/toast';
+import { uloz, smaz } from '../lib/uloziste';
 
 export function AnnouncementManagerModal({ onClose }: { onClose: () => void }) {
   const [announcements, setAnnouncements] = useState<Announcement[]>(() => {
@@ -34,9 +35,9 @@ export function AnnouncementManagerModal({ onClose }: { onClose: () => void }) {
       active: true,
     };
 
-    localStorage.setItem('pivovar_active_announcement', JSON.stringify(newAnn));
+    uloz('pivovar_active_announcement', JSON.stringify(newAnn));
     // Reset confirmation status to force all users to re-confirm
-    localStorage.removeItem(`acknowledged_announcement_${newAnn.id}`);
+    smaz(`acknowledged_announcement_${newAnn.id}`);
 
     // Trigger test chime & browser push notification
     playOrderChime();
@@ -59,7 +60,7 @@ export function AnnouncementManagerModal({ onClose }: { onClose: () => void }) {
 
   async function handleClear() {
     if (!(await potvrd('Opravdu smazat a deaktivovat aktuální hlášení?'))) return;
-    localStorage.removeItem('pivovar_active_announcement');
+    smaz('pivovar_active_announcement');
     setMsg('Hlášení bylo deaktivováno.');
     setTimeout(() => {
       setMsg(null);

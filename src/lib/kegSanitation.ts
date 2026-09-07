@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { uloz } from './uloziste';
 
 export type KegSanitationEntry = {
   id: string;
@@ -166,7 +167,7 @@ export async function saveKegSanEntry(entry: KegSanitationEntry): Promise<boolea
   const idx = arr.findIndex((x) => x.id === entry.id);
   if (idx >= 0) arr[idx] = entry;
   else arr.push(entry);
-  localStorage.setItem(KEG_SAN_STORAGE_KEY, JSON.stringify(arr));
+  uloz(KEG_SAN_STORAGE_KEY, JSON.stringify(arr));
   return false;
 }
 
@@ -180,7 +181,7 @@ export async function removeKegSanEntry(id: string): Promise<void> {
   if (raw) {
     try {
       const arr = JSON.parse(raw);
-      localStorage.setItem(
+      uloz(
         KEG_SAN_STORAGE_KEY,
         JSON.stringify(arr.filter((x: KegSanitationEntry) => x.id !== id))
       );

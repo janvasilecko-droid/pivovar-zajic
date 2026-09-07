@@ -2,6 +2,7 @@
 // Ukládá se lokálně a synchronizuje přes Supabase profiles.home_layout napříč zařízeními.
 import { zavibruj } from './haptika';
 import { queueHomeLayoutPatch } from './profileSync';
+import { uloz } from './uloziste';
 
 export type HomeNote = {
   id: string;
@@ -62,7 +63,7 @@ export function getHomeNotes(): HomeNote[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_NOTES));
+      uloz(STORAGE_KEY, JSON.stringify(DEFAULT_NOTES));
       return DEFAULT_NOTES;
     }
     const parsed = JSON.parse(raw);
@@ -81,7 +82,7 @@ export function getHomeNotes(): HomeNote[] {
 
 export function saveHomeNotes(notes: HomeNote[]) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+    uloz(STORAGE_KEY, JSON.stringify(notes));
     window.dispatchEvent(new CustomEvent(HOME_NOTES_CHANGED_EVENT, { detail: notes }));
   } catch (e) {
     console.error('Chyba při ukládání poznámek:', e);

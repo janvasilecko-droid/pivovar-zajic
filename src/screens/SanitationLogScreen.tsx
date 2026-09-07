@@ -4,6 +4,7 @@ import { Spinner, EmptyState } from '../components/ui';
 import { BookOpen, Calendar, Clock, Droplets, Edit3, FileSpreadsheet, FlaskConical, MessageSquare, Pencil, Plus, Search, ShieldCheck, Sparkles, SprayCan, User, X, type LucideIcon } from 'lucide-react';
 
 import { useAuth } from '../lib/auth';
+import { uloz } from '../lib/uloziste';
 
 
 const METHOD_BADGES: Record<string, { label: string; bg: string; text: string; icon: LucideIcon }> = {
@@ -136,13 +137,13 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
         const item: SanitationLog = { id: String(Date.now()), ...newLog } as SanitationLog;
         const updated = [item, ...logs];
         setLogs(updated);
-        localStorage.setItem('sanitation_logs_data', JSON.stringify(updated));
+        uloz('sanitation_logs_data', JSON.stringify(updated));
       }
     } catch {
       const item: SanitationLog = { id: String(Date.now()), ...newLog } as SanitationLog;
       const updated = [item, ...logs];
       setLogs(updated);
-      localStorage.setItem('sanitation_logs_data', JSON.stringify(updated));
+      uloz('sanitation_logs_data', JSON.stringify(updated));
     }
 
     setSaving(false);
@@ -179,7 +180,7 @@ export default function SanitationLogScreen({ setPage }: { setPage?: (p: any) =>
         const updatedArr = arr.map((item: any) =>
           item.id === editingLog.id ? { ...item, ...payload } : item
         );
-        localStorage.setItem('sanitation_logs_data', JSON.stringify(updatedArr));
+        uloz('sanitation_logs_data', JSON.stringify(updatedArr));
       } catch {}
     }
 

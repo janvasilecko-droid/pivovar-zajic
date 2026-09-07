@@ -4,6 +4,7 @@ import { Kostra, EmptyState } from '../components/ui';
 import { createReminder } from '../lib/reminders';
 import { AlertTriangle, Beer as BeerIcon, Bell, Calendar, Check, CheckCircle2, ClipboardList, Clock, DollarSign, MapPin, PartyPopper, Plus, RotateCcw, Sparkles, Star, Tent, ThumbsDown, ThumbsUp, Trash2, User, X } from 'lucide-react';
 import { oznam, potvrd } from '../lib/toast';
+import { uloz, smaz } from '../lib/uloziste';
 
 /** Řádky z DB (akce + vnořené akce_items) → tvar, se kterým pracuje obrazovka. */
 function rowsToRecords(rows: any[]): AkceRecord[] {
@@ -164,8 +165,8 @@ export default function AkceScreen() {
       }
       if (cancelled) return;
       try {
-        localStorage.setItem('akce_records_v2__prevedeno', localStorage.getItem('akce_records_v2') || '');
-        localStorage.removeItem('akce_records_v2');
+        uloz('akce_records_v2__prevedeno', localStorage.getItem('akce_records_v2') || '');
+        smaz('akce_records_v2');
       } catch {}
       loadData();
     })();

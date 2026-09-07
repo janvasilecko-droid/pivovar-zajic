@@ -5,6 +5,7 @@ import type { Beer, Package } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
 import { AlertCircle, Bot, Calendar, Camera, ClipboardList, Hourglass, CheckCircle2, ChevronDown, ChevronUp, NotebookPen, Package as PackageIcon, Plus, RefreshCw, Trash2, X } from 'lucide-react';
+import { uloz } from '../lib/uloziste';
 
 type CountItem = {
   package_label: string | null;
@@ -250,7 +251,7 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
           actualMap[key] = String(prevQty + Number(r.quantity || 0));
         });
 
-        localStorage.setItem(`actual_inventory_${currentMonth}`, JSON.stringify(actualMap));
+        uloz(`actual_inventory_${currentMonth}`, JSON.stringify(actualMap));
       } catch {}
 
       onSaved();

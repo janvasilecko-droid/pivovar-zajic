@@ -12,6 +12,7 @@ import ZavozHistory from '../components/ZavozHistory';
 import { IkonaLahev, IkonaSud } from '../components/ikony';
 import StatistikaVystav from '../components/StatistikaVystav';
 import type { Obdobi, VyrobniRadek } from '../lib/statistika';
+import { uloz } from '../lib/uloziste';
 
 type MonthData = {
   month: string;
@@ -668,7 +669,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
     };
     const next = [...savedFilters.filter((x) => x.name !== name), f];
     setSavedFilters(next);
-    localStorage.setItem('history_saved_filters', JSON.stringify(next));
+    uloz('history_saved_filters', JSON.stringify(next));
     setNewFilterName('');
   }
   function applyFilter(f: SavedFilter) {
@@ -681,7 +682,7 @@ export default function History({ setPage, initialSubTab }: { setPage?: (p: any,
   function deleteFilter(name: string) {
     const next = savedFilters.filter((x) => x.name !== name);
     setSavedFilters(next);
-    localStorage.setItem('history_saved_filters', JSON.stringify(next));
+    uloz('history_saved_filters', JSON.stringify(next));
   }
 
   const detailTotals = useMemo(() => {

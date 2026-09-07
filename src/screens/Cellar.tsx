@@ -9,6 +9,7 @@ import { Modal, Field, Spinner, UkazatelPlnosti } from '../components/ui';
 import { TankOccupancyPlanner } from '../components/TankOccupancyPlanner';
 import { chyba, oznam, potvrd } from '../lib/toast';
 import { IkonaSud } from '../components/ikony';
+import { uloz } from '../lib/uloziste';
 
 const STATUS_LABELS: Record<CellarTank['status'], string> = {
   empty: 'Prázdný', filling: 'Plní se', active: 'Aktivní', emptying: 'Stáčí se',
@@ -444,7 +445,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
     const arr = local ? JSON.parse(local) : [];
     const itemWithId = { id: String(Date.now()), ...logItem };
     arr.unshift(itemWithId);
-    localStorage.setItem('sanitation_logs_data', JSON.stringify(arr));
+    uloz('sanitation_logs_data', JSON.stringify(arr));
 
     try {
       await supabase.from('sanitation_logs').insert([logItem]);

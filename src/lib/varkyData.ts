@@ -8,6 +8,7 @@
 // localStorage zůstává jako offline kopie; ve sklepě bývá signál slabý.
 import { supabase } from './supabase';
 import type { PlannedBatch } from '../components/TankOccupancyPlanner';
+import { uloz } from './uloziste';
 
 export const KLIC_VARKY = 'cellar_planned_brews_data';
 
@@ -49,7 +50,7 @@ function nactiKopii(): PlannedBatch[] {
 }
 
 function ulozKopii(data: PlannedBatch[]): void {
-  try { localStorage.setItem(KLIC_VARKY, JSON.stringify(data)); } catch { /* plná paměť */ }
+  try { uloz(KLIC_VARKY, JSON.stringify(data)); } catch { /* plná paměť */ }
 }
 
 /** Načte plánované várky; bez sítě vrátí poslední známou kopii. */

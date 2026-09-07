@@ -28,8 +28,12 @@ export function BreweryRadioBar({ onOpenModal }: BreweryRadioBarProps) {
 
   return (
     <div
-      className="fixed bottom-16 sm:bottom-4 right-4 z-40 flex items-center gap-2.5 px-3.5 py-2 rounded-full shadow-lg border border-white/20 backdrop-blur-md text-white transition-all animate-slide-up"
+      className="fixed right-4 z-40 flex items-center gap-2.5 px-3.5 py-2 rounded-full shadow-lg border border-white/20 backdrop-blur-md text-white transition-all animate-slide-up"
       style={{
+        // Nad spodní lištou — její výšku měří Layout a zapisuje do
+        // --vyska-doku. Napevno napsané bottom-16 sedělo jen na telefonu
+        // bez bezpečné zóny; na iPhonu lišta pásek rádia překrývala.
+        bottom: 'calc(var(--vyska-doku, 4rem) + 8px)',
         background: `linear-gradient(135deg, ${currentStation.color || '#e03131'}ee, #1e1b4bee)`,
       }}
     >

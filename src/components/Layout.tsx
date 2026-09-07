@@ -27,6 +27,7 @@ import { SCENES, DEFAULT_DOCK, hexToRgba, COLOR_HEX, type Scene, type TileColor 
 import { zavibruj } from '../lib/haptika';
 import { IkonaSud, IkonaLahev, IkonaVycep } from './ikony';
 import '../screens/HomeScreen.css';
+import { uloz } from '../lib/uloziste';
 
 export type NavItem = { id: Page; label: string; icon: LucideIcon; group: string };
 
@@ -206,6 +207,34 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   // Předchozí navštívená obrazovka — dlouhý stisk na spodní liště se na ni
   // vrátí. Přeskakování mezi dvěma místy (třeba Závoz ↔ Objednávky) je
   // v provozu nejčastější pohyb a přes menu je to pokaždé tři klepnutí.
+  // Skutečná výška spodní lišty. Odsazení obsahu bylo napevno pb-24 (96 px),
+  // jenže lišta má pod sebou ještě bezpečnou zónu telefonu (na iPhonu 34 px)
+  // a nad sebou se občas vysune pásek „jste offline". Pak se poslední řádek
+  // seznamu — a s ním i tlačítko, na které se klepe — schoval pod lištu.
+  // Naměřená výška jde do CSS proměnné, takže odsazení sedí na každém
+  // telefonu i po otočení displeje.
+  const dokRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const el = dokRef.current;
+    if (!el) return;
+    const zmer = () => {
+      const v = Math.round(el.getBoundingClientRect().height);
+      if (v > 0) document.documentElement.style.setProperty('--vyska-doku', `${v}px`);
+    };
+    zmer();
+    // ResizeObserver nemusí být (starší WebView) — pak stačí přeměření při
+    // otočení displeje, výška se jinak nemění.
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(zmer) : null;
+    ro?.observe(el);
+    window.addEventListener('orientationchange', zmer);
+    window.addEventListener('resize', zmer);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener('orientationchange', zmer);
+      window.removeEventListener('resize', zmer);
+    };
+  }, []);
+
   const predchoziStranka = useRef<Page | null>(null);
   const aktualniStranka = useRef<Page>(page);
   const dlouhyStiskRef = useRef(false);
@@ -318,7 +347,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
     setHiddenModules(newHidden);
     try {
       const key = `user_hidden_modules_${user?.id || 'guest'}`;
-      localStorage.setItem(key, JSON.stringify(newHidden));
+      uloz(key, JSON.stringify(newHidden));
     } catch {}
   }
 
@@ -816,7 +845,10 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             Na Domů a na stránkách s vlastní TabBar bez horního odsazení, ať
             dlaždice/záložky začínají úplně nahoře (hlavička tam navíc není
             vůbec vykreslená). */}
-        <div className={`flex-1 overflow-y-auto px-3.5 sm:px-8 pb-24 ${hideHeader ? 'pt-2' : 'pt-3.5 sm:pt-8'}`}>
+        <div
+          className={`flex-1 overflow-y-auto px-3.5 sm:px-8 ${hideHeader ? 'pt-2' : 'pt-3.5 sm:pt-8'}`}
+          style={{ paddingBottom: 'calc(var(--vyska-doku, 4rem) + 1.5rem)' }}
+        >
           {children}
         </div>
 
@@ -834,7 +866,10 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             s kolísavým signálem lidé zapisovali stáčení s tím, že je hotovo.
             Sem nad dok je to vidět na každé stránce včetně mobilu. */}
         {(!online || pending > 0) && (
-          <div className="fixed bottom-[64px] left-0 right-0 z-30 px-2 pointer-events-none sm:max-w-lg sm:mx-auto">
+          <div
+            className="fixed left-0 right-0 z-30 px-2 pointer-events-none sm:max-w-lg sm:mx-auto"
+            style={{ bottom: 'calc(var(--vyska-doku, 64px) + 6px)' }}
+          >
             <button
               type="button"
               onClick={async () => {
@@ -865,6 +900,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           </div>
         )}
         <nav
+          ref={dokRef}
           className="hs-glass-chrome fixed bottom-0 left-0 right-0 z-30 border-t shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-1 py-1.5 pb-safe flex items-center justify-around gap-1 sm:max-w-lg sm:mx-auto sm:rounded-t-2xl sm:border-x"
         >
           {dockPages.map((dockId, i) => {

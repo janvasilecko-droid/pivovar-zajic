@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import type { TapEquipment, TapReservation } from '../screens/VycepyScreen';
 import type { TapTypeHint } from '../lib/tapReservations';
 import { IkonaVycep } from '../components/ikony';
+import { uloz } from '../lib/uloziste';
 
 type Props = {
   /** Date from the order (YYYY-MM-DD) */
@@ -93,7 +94,7 @@ export function TapReservationModal({ orderDate, customerName, orderId, tapTypeH
     try {
       const existing = loadReservations();
       const next = [reservation, ...existing];
-      localStorage.setItem('vycepy_reservations_v1', JSON.stringify(next));
+      uloz('vycepy_reservations_v1', JSON.stringify(next));
     } catch (e) {
       console.warn('Failed to save reservation:', e);
     }

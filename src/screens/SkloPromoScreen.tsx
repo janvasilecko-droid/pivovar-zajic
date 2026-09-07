@@ -10,6 +10,7 @@ import { PlaceCombobox } from '../components/PlaceCombobox';
 import { AlertTriangle, ArrowDownCircle, ArrowUpCircle, Boxes, Download, Check, CheckCircle2, Plus, Printer, Search, Tag, Trash2, Upload, Wine } from 'lucide-react';
 import { chyba, oznam, potvrd } from '../lib/toast';
 import { IkonaLahev } from '../components/ikony';
+import { uloz } from '../lib/uloziste';
 
 export type PromoEntry = {
   id: string;
@@ -198,7 +199,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
 
   function saveEntries(newEntries: PromoEntry[]) {
     setEntries(newEntries);
-    localStorage.setItem('sklo_promo_entries', JSON.stringify(newEntries));
+    uloz('sklo_promo_entries', JSON.stringify(newEntries));
   }
 
   /**
@@ -218,7 +219,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
       stare = JSON.parse(localStorage.getItem('bottles_purchases') ?? '[]');
     } catch { return; }
     if (!Array.isArray(stare) || stare.length === 0) {
-      try { localStorage.setItem(KLIC_PREVOD_NAKUPU, new Date().toISOString()); } catch { /* zamčené úložiště */ }
+      try { uloz(KLIC_PREVOD_NAKUPU, new Date().toISOString()); } catch { /* zamčené úložiště */ }
       return;
     }
     prevodBezi.current = true;
@@ -227,7 +228,7 @@ export default function SkloPromoScreen({ setPage }: { setPage?: (p: any) => voi
       quantity: Number(bp.quantity) || 0, note: bp.note ?? null, zdroj: 'prevod-z-telefonu',
     })));
     if (error) { prevodBezi.current = false; return; }
-    try { localStorage.setItem(KLIC_PREVOD_NAKUPU, new Date().toISOString()); } catch { /* zamčené úložiště */ }
+    try { uloz(KLIC_PREVOD_NAKUPU, new Date().toISOString()); } catch { /* zamčené úložiště */ }
     oznam(`Přeneseno ${stare.length} starších nákupů z tohoto telefonu do databáze — teď je vidí i ostatní.`);
     await loadData(true);
     prevodBezi.current = false;

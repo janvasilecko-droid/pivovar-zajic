@@ -22,6 +22,7 @@ import {
 } from '../lib/whatsappReadback';
 import { AlertCircle, AlertTriangle, ArrowDown, Check, CheckCircle2, ChevronDown, Download, ExternalLink, Eye, FileText, Image as ImageIcon, MessageSquare, RefreshCw, ShieldAlert, ShieldCheck, ShoppingCart, Plus, UserCheck, X } from 'lucide-react';
 import { potvrd } from '../lib/toast';
+import { uloz } from '../lib/uloziste';
 
 /** Jak se skupiny obalů pojmenují v přehledu úpravy. */
 const NAZVY_SKUPIN: Record<SkupinaObalu, string> = {
@@ -343,7 +344,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   function toggleStrictReadback() {
     const next = !strictReadback;
     setStrictReadback(next);
-    try { localStorage.setItem(READBACK_STRICT_KEY, next ? '1' : '0'); } catch { /* */ }
+    try { uloz(READBACK_STRICT_KEY, next ? '1' : '0'); } catch { /* */ }
   }
 
   // Auto-posun na první nesoulad (⚠/≈) při otevření modálu. Musí být před

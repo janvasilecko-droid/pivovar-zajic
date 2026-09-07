@@ -1,3 +1,4 @@
+import { uloz } from './uloziste';
 /**
  * Zaškrtávací políčko „Druhé auto (Kačena)“ v Závozu.
  *
@@ -24,7 +25,7 @@ export function getSecondCarDates(): string[] {
 
 function saveSecondCarDates(dates: string[]) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(dates));
+    uloz(STORAGE_KEY, JSON.stringify(dates));
   } catch {
     // offline / plná kvóta — ignorujeme, aplikace funguje i bez uložení
   }
@@ -113,7 +114,7 @@ export function getSecondCarOrderIds(): string[] {
 
 function saveSecondCarOrderIds(ids: string[]) {
   try {
-    localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(ids));
+    uloz(ORDER_STORAGE_KEY, JSON.stringify(ids));
   } catch {
     // offline / plná kvóta — ignorujeme, aplikace funguje i bez uložení
   }

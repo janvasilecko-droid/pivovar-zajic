@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AlertTriangle, BellRing, Check, CheckCircle2, Megaphone, ShieldAlert } from 'lucide-react';
 import { isNotificationSupported, playOrderChime } from '../lib/notifications';
+import { uloz, smaz } from '../lib/uloziste';
 
 export type Announcement = {
   id: string;
@@ -43,7 +44,7 @@ export function MandatoryAnnouncementModal() {
       // by jinak viselo dál — a mazat ho ručně přes vývojářské nástroje
       // v telefonu nikdo nebude.
       if (announcement?.id === 'announcement_2026_07_27_01') {
-        localStorage.removeItem('pivovar_active_announcement');
+        smaz('pivovar_active_announcement');
         setAcknowledged(true);
         return;
       }
@@ -78,7 +79,7 @@ export function MandatoryAnnouncementModal() {
   function handleConfirmRead() {
     if (!currentAnnouncement) return;
     const ackKey = `acknowledged_announcement_${currentAnnouncement.id}`;
-    localStorage.setItem(ackKey, 'true');
+    uloz(ackKey, 'true');
     setAcknowledged(true);
   }
 

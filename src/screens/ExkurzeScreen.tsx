@@ -6,6 +6,7 @@ import { exportHistoryDetailToExcel } from '../lib/excel';
 import { chyba as chybaOznam, oznam, potvrd } from '../lib/toast';
 import { KLIC_EXKURZE, nactiExkurze, prenesZProhlizece, smazExkurzi, ulozExkurzi } from '../lib/exkurzeData';
 import { rozdilProUlozeni } from '../lib/vycepyData';
+import { uloz } from '../lib/uloziste';
 
 export type ExkurzeEntry = {
   id: string;
@@ -56,7 +57,7 @@ export default function ExkurzeScreen() {
   function saveEntries(newEntries: ExkurzeEntry[]) {
     const stare = entries;
     setEntries(newEntries);
-    localStorage.setItem(KLIC_EXKURZE, JSON.stringify(newEntries));
+    uloz(KLIC_EXKURZE, JSON.stringify(newEntries));
     void (async () => {
       const { kUlozeni, kSmazani } = rozdilProUlozeni(stare, newEntries);
       for (const id of kSmazani) await smazExkurzi(id);

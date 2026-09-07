@@ -1,4 +1,5 @@
 import { getAdminEmail, getAdminName } from './config';
+import { uloz } from './uloziste';
 
 export type AuditLogEntry = {
   id: string;
@@ -34,7 +35,7 @@ export function logAuditEvent(userEmail: string, userName: string, module: strin
     details,
   };
   const updated = [newEntry, ...logs].slice(0, 200); // keep max 200 logs
-  localStorage.setItem(AUDIT_STORAGE_KEY, JSON.stringify(updated));
+  uloz(AUDIT_STORAGE_KEY, JSON.stringify(updated));
 }
 
 function getDefaultSeedLogs(): AuditLogEntry[] {

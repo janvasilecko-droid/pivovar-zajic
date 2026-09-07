@@ -26,6 +26,7 @@ import { AUDIT_NADPISY, AUDIT_SLOUPCE, bunkaAuditu, maCoUkazat, porovnejPolozku,
 import { chyba, oznam, potvrd, toastZpet, uspech } from '../lib/toast';
 import { zavibruj } from '../lib/haptika';
 import { IkonaSud } from '../components/ikony';
+import { uloz } from '../lib/uloziste';
 
 type InitialStockMap = Record<string, number>; // key: `${beer_id}__${package_id}`, val: qty
 
@@ -309,7 +310,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
         dbActualMap[k] = String(r.quantity || 0);
       });
       curActual = dbActualMap;
-      try { localStorage.setItem(`actual_inventory_${currentMonth}`, JSON.stringify(dbActualMap)); } catch {}
+      try { uloz(`actual_inventory_${currentMonth}`, JSON.stringify(dbActualMap)); } catch {}
     }
     if (shouldReloadState) {
       setActualStock((prev) => slucInventuru(curActual, prev, zmenaMesice));
@@ -333,7 +334,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
         if (v !== 0) dbAdjMap[k] = String(v);
       });
       curAdj = dbAdjMap;
-      try { localStorage.setItem(`inventory_adjustments_${currentMonth}`, JSON.stringify(dbAdjMap)); } catch {}
+      try { uloz(`inventory_adjustments_${currentMonth}`, JSON.stringify(dbAdjMap)); } catch {}
     }
     if (shouldReloadState) {
       setDorovnatMap((prev) => slucInventuru(curAdj, prev, zmenaMesice));
@@ -525,12 +526,12 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
   // otevírání přepsal uložený koncept dřív, než se stihne načíst.
   useEffect(() => {
     if (!lzeUlozitKoncept(loadedMonthRef.current, currentMonth)) return;
-    try { localStorage.setItem(`actual_inventory_${currentMonth}`, JSON.stringify(actualStock)); } catch {}
+    try { uloz(`actual_inventory_${currentMonth}`, JSON.stringify(actualStock)); } catch {}
   }, [actualStock, currentMonth]);
 
   useEffect(() => {
     if (!lzeUlozitKoncept(loadedMonthRef.current, currentMonth)) return;
-    try { localStorage.setItem(`inventory_adjustments_${currentMonth}`, JSON.stringify(dorovnatMap)); } catch {}
+    try { uloz(`inventory_adjustments_${currentMonth}`, JSON.stringify(dorovnatMap)); } catch {}
   }, [dorovnatMap, currentMonth]);
 
   useRealtime(['beers', 'packages', 'bottling', 'kegging', 'fasovani', 'fasovani_private', 'writeoffs', 'inventory', 'inventory_adjustments', 'zavoz_deductions', 'akce', 'akce_items', 'keg_prefuk'], () => loadData(true));
@@ -568,7 +569,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       try {
         const lsMap: Record<string, number> = {};
         Object.entries(initialStock).forEach(([key, qty]) => { if (Number(qty) > 0) lsMap[key] = Number(qty); });
-        localStorage.setItem(`initial_stock_${currentMonth}`, JSON.stringify(lsMap));
+        uloz(`initial_stock_${currentMonth}`, JSON.stringify(lsMap));
       } catch {}
       uspech('Počáteční stavy skladu byly v pořádku uloženy!');
       forceReloadRef.current = true;
@@ -676,8 +677,8 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
       if (error) throw new Error(error.message);
 
       // Lokální kopii aktualizujeme až po úspěšném potvrzení celé DB transakce.
-      localStorage.setItem(`actual_inventory_${currentMonth}`, JSON.stringify(actualStock));
-      localStorage.setItem(`inventory_adjustments_${currentMonth}`, JSON.stringify(dorovnatMap));
+      uloz(`actual_inventory_${currentMonth}`, JSON.stringify(actualStock));
+      uloz(`inventory_adjustments_${currentMonth}`, JSON.stringify(dorovnatMap));
 
       uspech('Fyzická inventura i dorovnání byla v pořádku uložena do databáze!');
       forceReloadRef.current = true;
@@ -727,8 +728,8 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
           actualLs[k] = String(q);
           if (q > 0) nextInitialLs[k] = q;
         });
-        localStorage.setItem(`actual_inventory_${currentMonth}`, JSON.stringify(actualLs));
-        localStorage.setItem(`initial_stock_${nextMonthKey}`, JSON.stringify(nextInitialLs));
+        uloz(`actual_inventory_${currentMonth}`, JSON.stringify(actualLs));
+        uloz(`initial_stock_${nextMonthKey}`, JSON.stringify(nextInitialLs));
       } catch {}
 
       oznam(`Inventura za ${currentMonth} byla schválena a stavy byly převedeny jako počáteční stav (Poč.) do měsíce ${nextMonthKey}.`);
@@ -1494,7 +1495,7 @@ export default function InventoryScreen({ setPage, initialSubTab }: { setPage?: 
 
       if (matchCount > 0) {
         setActualStock(importedActual);
-        localStorage.setItem(`actual_inventory_${currentMonth}`, JSON.stringify(importedActual));
+        uloz(`actual_inventory_${currentMonth}`, JSON.stringify(importedActual));
         oznam(`Úspěšně naimportováno ${matchCount} položek z Excelu/Google Tabulky pro měsíc ${currentMonth}!`);
       } else {
         oznam('V souboru nebyly nalezeny žádné odpovídající položky piva a obalu. Zkontrolujte strukturu tabulky.');

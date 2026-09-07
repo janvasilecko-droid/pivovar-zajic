@@ -9,6 +9,7 @@
 // prázdný kalendář prohlídek je horší než trochu starý.
 import { supabase } from './supabase';
 import type { ExkurzeEntry } from '../screens/ExkurzeScreen';
+import { uloz } from './uloziste';
 
 export const KLIC_EXKURZE = 'exkurze_entries_v1';
 
@@ -54,7 +55,7 @@ function nactiKopii(): ExkurzeEntry[] {
 }
 
 function ulozKopii(data: ExkurzeEntry[]): void {
-  try { localStorage.setItem(KLIC_EXKURZE, JSON.stringify(data)); } catch { /* plná paměť */ }
+  try { uloz(KLIC_EXKURZE, JSON.stringify(data)); } catch { /* plná paměť */ }
 }
 
 /** Načte exkurze; bez sítě vrátí poslední známou kopii. */

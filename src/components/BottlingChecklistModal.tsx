@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { Modal } from './ui';
 import { Check, CheckSquare, Lock, RotateCcw, ShieldCheck, Square, Unlock } from 'lucide-react';
 import { zavibruj } from '../lib/haptika';
+import { uloz } from '../lib/uloziste';
 
 type ChecklistItem = {
   id: string;
@@ -474,7 +475,7 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
                       next[it.id] = true;
                     });
                     setCheckedMap(next);
-                    localStorage.setItem(storageKey, JSON.stringify(next));
+                    uloz(storageKey, JSON.stringify(next));
                     onClose();
                   }}
                   className="btn-ghost !rounded flex items-center justify-center gap-1 text-[11px] font-black text-rose-600 hover:bg-rose-50 border border-dashed border-rose-200 px-2.5 py-1.5 rounded"
@@ -496,7 +497,7 @@ export function BottlingChecklistModal({ isOpen, onClose, dateStr, onApplyNote, 
                   next[it.id] = true;
                 });
                 setCheckedMap(next);
-                localStorage.setItem(storageKey, JSON.stringify(next));
+                uloz(storageKey, JSON.stringify(next));
                 onClose();
               }}
               className="btn-ghost !rounded flex items-center justify-center gap-1 text-[11px] font-black text-rose-600 hover:bg-rose-50 border border-dashed border-rose-200 px-2.5 py-1.5 rounded"

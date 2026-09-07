@@ -15,6 +15,7 @@ import { podezreleMnozstvi } from '../lib/kontrolaZadani';
 import { zavibruj } from '../lib/haptika';
 import { klicVyberu, nactiNaposled, zapamatujVyber, serazPodleNaposled } from '../lib/naposledyPouzite';
 import { FotkyZaznamu } from '../components/FotkyZaznamu';
+import { uloz, smaz } from '../lib/uloziste';
 
 // Tři podoby jednoho výdeje ze skladu — formulář je pořád stejný, mění se
 // jen tabulka, do které se zapisuje, a jedno pole navíc. Podle toho se pak
@@ -103,8 +104,8 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
     if (!obnovenoRef.current) return;
     try {
       const jeCo = entryRows.some((r) => r.pkgId && Number(r.qty) > 0) || who.trim() || note.trim();
-      if (jeCo) localStorage.setItem(klicRozdelane, JSON.stringify({ entryRows, who, note, date }));
-      else localStorage.removeItem(klicRozdelane);
+      if (jeCo) uloz(klicRozdelane, JSON.stringify({ entryRows, who, note, date }));
+      else smaz(klicRozdelane);
     } catch { /* plné úložiště nesmí shodit zápis */ }
   }, [entryRows, who, note, date, klicRozdelane]);
   // Vrácení na sklad (odfasování) — zapisuje se záporným množstvím.
@@ -301,7 +302,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
     // Po uložení zpátky na výdej — vrácení je výjimka, ne režim, ve kterém
     // se pracuje. Jinak by další zápis nenápadně odečetl místo přičetl.
     setVraceni(false);
-    try { localStorage.removeItem(klicRozdelane); } catch { /* uklizeno i tak */ }
+    try { smaz(klicRozdelane); } catch { /* uklizeno i tak */ }
     setFlash(true); setTimeout(() => setFlash(false), 800);
     load(true);
 

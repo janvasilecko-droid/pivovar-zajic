@@ -12,6 +12,7 @@ import { checkVersion, forceRefresh, startVersionCheck } from './lib/versionChec
 import { renderFatalError } from './lib/safeDom';
 import { nahlasChybu, zapniHlaseniChyb } from './lib/chybyHlaseni';
 import { zapniFrontuTanku } from './lib/tankFrontaBeh';
+import { zapniPosunNadKlavesnici } from './lib/nadKlavesnici';
 
 
 initDensity();
@@ -26,6 +27,10 @@ zapniHlaseniChyb();
 // sítě (viz lib/tankFronta.ts). Opakování je bezpečné díky klíči
 // idempotence — relativní odečet by se jinak mohl provést dvakrát.
 zapniFrontuTanku();
+
+// Klávesnice na telefonu překryje spodní polovinu displeje a políčko, do
+// kterého se píše, pod ní často zůstane schované (viz lib/nadKlavesnici.ts).
+zapniPosunNadKlavesnici();
 
 class DebugErrorBoundary extends React.Component<{ children: React.ReactNode }, { error: any }> {
   constructor(props: { children: React.ReactNode }) {

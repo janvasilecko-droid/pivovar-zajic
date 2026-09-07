@@ -15,6 +15,7 @@
 // nepřijde, až se připojí. Odškrtnutí se ruší jen výslovně (resetAll), a to
 // se propíše i do databáze.
 import { supabase } from './supabase';
+import { uloz } from './uloziste';
 
 /** Které pracoviště — odpovídá sloupci `pracoviste` v tabulce. */
 export type Pracoviste = 'lahve' | 'kegy';
@@ -47,7 +48,7 @@ function nactiZrcadlo(pracoviste: Pracoviste, datum: string): Mapa {
 
 function ulozZrcadlo(pracoviste: Pracoviste, datum: string, mapa: Mapa): void {
   try {
-    localStorage.setItem(klicZrcadla(pracoviste, datum), JSON.stringify(mapa));
+    uloz(klicZrcadla(pracoviste, datum), JSON.stringify(mapa));
   } catch { /* plná paměť — sdílený stav je stejně v databázi */ }
 }
 

@@ -7,6 +7,7 @@
 // nebo „Měsíční údržba" se do deníku automaticky zapíše/aktualizuje daný den.
 
 import { supabase } from './supabase';
+import { uloz } from './uloziste';
 
 export type BottleSanField = 'louh' | 'proplach_vodou' | 'cela_cesta_na_louhu' | 'prostory';
 
@@ -192,7 +193,7 @@ export async function saveBottleSanEntry(entry: BottleSanitationEntry): Promise<
   const idx = arr.findIndex((x) => x.id === entry.id);
   if (idx >= 0) arr[idx] = entry;
   else arr.push(entry);
-  localStorage.setItem(BOTTLE_SAN_STORAGE_KEY, JSON.stringify(arr));
+  uloz(BOTTLE_SAN_STORAGE_KEY, JSON.stringify(arr));
   return false;
 }
 
@@ -206,7 +207,7 @@ export async function removeBottleSanEntry(id: string): Promise<void> {
   if (raw) {
     try {
       const arr = JSON.parse(raw);
-      localStorage.setItem(
+      uloz(
         BOTTLE_SAN_STORAGE_KEY,
         JSON.stringify(arr.filter((x: BottleSanitationEntry) => x.id !== id))
       );

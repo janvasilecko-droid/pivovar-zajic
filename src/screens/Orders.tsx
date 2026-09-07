@@ -42,6 +42,7 @@ import { kartaOdberatele } from '../lib/kartaOdberatele';
 import { kusy } from '../lib/cisla';
 import { PodpisModal } from '../components/PodpisModal';
 import { FotkyZaznamu } from '../components/FotkyZaznamu';
+import { uloz } from '../lib/uloziste';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -2867,7 +2868,7 @@ function linkLatestReservationToOrder(orderId: string): void {
     if (idx === -1) return;
     const realIdx = list.length - 1 - idx;
     list[realIdx] = { ...list[realIdx], order_id: orderId };
-    localStorage.setItem('vycepy_reservations_v1', JSON.stringify(list));
+    uloz('vycepy_reservations_v1', JSON.stringify(list));
   } catch { /* tichá chyba */ }
 }
 

@@ -18,6 +18,7 @@ import {
   detectOrderDupWarnings,
   type ParsedLine, type ParserAliasMap, type GeminiItem, type ImportedOrder, type OrderDupWarning,
 } from '../lib/orderParser';
+import { uloz } from '../lib/uloziste';
 
 
 type ExistingItem = { beer_id: string | null; package_id: string | null; quantity: number };
@@ -187,7 +188,7 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
       const saved = JSON.parse(localStorage.getItem(FREAD_FP_KEY) || '[]') as string[];
       if (!saved.includes(fp)) {
         saved.push(fp);
-        localStorage.setItem(FREAD_FP_KEY, JSON.stringify(saved.slice(-600)));
+        uloz(FREAD_FP_KEY, JSON.stringify(saved.slice(-600)));
       }
     } catch {}
   }

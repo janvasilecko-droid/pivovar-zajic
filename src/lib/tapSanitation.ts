@@ -3,6 +3,7 @@
 // Ukládá se do localStorage a případně do Supabase
 
 import { supabase } from './supabase';
+import { uloz } from './uloziste';
 
 export type TapSanitationStep = {
   id: string;
@@ -162,7 +163,7 @@ export async function saveTapSanEntry(entry: TapSanitationEntry): Promise<boolea
           if (raw0) {
             try {
               const arr0: TapSanitationEntry[] = JSON.parse(raw0);
-              localStorage.setItem(
+              uloz(
                 TAP_SAN_STORAGE_KEY,
                 JSON.stringify(arr0.filter((x) => x.id !== oldId))
               );
@@ -185,7 +186,7 @@ export async function saveTapSanEntry(entry: TapSanitationEntry): Promise<boolea
   const idx = arr.findIndex((x) => x.id === entry.id);
   if (idx >= 0) arr[idx] = entry;
   else arr.push(entry);
-  localStorage.setItem(TAP_SAN_STORAGE_KEY, JSON.stringify(arr));
+  uloz(TAP_SAN_STORAGE_KEY, JSON.stringify(arr));
   return false;
 }
 
@@ -199,7 +200,7 @@ export async function removeTapSanEntry(id: string): Promise<void> {
   if (raw) {
     try {
       const arr = JSON.parse(raw);
-      localStorage.setItem(
+      uloz(
         TAP_SAN_STORAGE_KEY,
         JSON.stringify(arr.filter((x: TapSanitationEntry) => x.id !== id))
       );

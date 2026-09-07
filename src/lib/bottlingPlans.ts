@@ -5,6 +5,7 @@
 // zvýrazněné v zápisu stáčení a přepíná je na „hotovo".
 import { supabase } from './supabase';
 import type { Package } from './supabase';
+import { uloz } from './uloziste';
 
 export type BottlingPlanStatus = 'planned' | 'done' | 'cancelled';
 
@@ -112,7 +113,7 @@ export function getPlanSeenAt(): number {
 
 export function markPlanSeenAt(): void {
   try {
-    localStorage.setItem(SEEN_KEY, String(Date.now()));
+    uloz(SEEN_KEY, String(Date.now()));
   } catch {
     /* ignore */
   }

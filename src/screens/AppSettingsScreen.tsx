@@ -18,6 +18,7 @@ import { forceRefresh } from '../lib/versionCheck';
 import { isAdminEmail } from '../lib/config';
 import { fetchWhatsAppSenders, addWhatsAppSender, removeWhatsAppSender, type WhatsAppSender } from '../lib/whatsappApi';
 import { oznam } from '../lib/toast';
+import { uloz, smaz } from '../lib/uloziste';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -201,7 +202,7 @@ export default function AppSettingsScreen() {
     setHiddenModules(newHidden);
     try {
       const key = `user_hidden_modules_${user?.id || 'guest'}`;
-      localStorage.setItem(key, JSON.stringify(newHidden));
+      uloz(key, JSON.stringify(newHidden));
     } catch {}
   }
 
@@ -729,7 +730,7 @@ function AdminVersionSyncSection() {
           for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
             if (key && key.startsWith(k)) {
-              localStorage.removeItem(key);
+              smaz(key);
             }
           }
         }

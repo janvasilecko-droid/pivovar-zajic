@@ -73,6 +73,7 @@ const MESICE_KRATCE = ['leden', 'únor', 'březen', 'duben', 'květen', 'červen
   'červenec', 'srpen', 'září', 'říjen', 'listopad', 'prosinec'];
 import { kauceVenku, vycepyVenku, type VycepVenku } from '../lib/vycepyVenku';
 import './HomeScreen.css';
+import { uloz } from '../lib/uloziste';
 
 /** true = jméno přednastaveného odstínu (CSS třída c-*); false = vlastní hex barva (inline styl). */
 function isPresetColor(c: string): c is TileColor {
@@ -2885,7 +2886,7 @@ function BrewKettleTopBanner({
     () => { try { return localStorage.getItem(KLIC_PRUH_CASOVACE) === '1'; } catch { return false; } },
   );
   function skryjPruh() {
-    try { localStorage.setItem(KLIC_PRUH_CASOVACE, '1'); } catch { /* plná paměť */ }
+    try { uloz(KLIC_PRUH_CASOVACE, '1'); } catch { /* plná paměť */ }
     setPruhCasovaceSkryt(true);
     try { navigator.vibrate?.(10); } catch {}
   }

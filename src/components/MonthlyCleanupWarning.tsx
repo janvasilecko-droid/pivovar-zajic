@@ -10,6 +10,7 @@ import { DEFAULT_ITEMS, MONTHLY_CATEGORY_PREFIX } from './BottlingChecklistModal
 import { KEG_DEFAULT_ITEMS, KEG_MONTHLY_CATEGORY_PREFIX } from './KeggingChecklistModal';
 import { autoLogBottleSanitationFromChecklist } from '../lib/bottleSanitation';
 import { autoLogKegSanitationFromChecklist } from '../lib/kegSanitation';
+import { uloz } from '../lib/uloziste';
 
 type Props = {
   // Volitelné: tlačítko, které rovnou otevře stáčení lahví (a tam se po splnění
@@ -97,7 +98,7 @@ function ulozOdskrtnuti(klicPrefix: string, dateStr: string, id: string, hodnota
       const mapa = raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
       if (hodnota) mapa[id] = true;
       else delete mapa[id];
-      localStorage.setItem(klic, JSON.stringify(mapa));
+      uloz(klic, JSON.stringify(mapa));
     } catch {}
   }
 }
@@ -121,7 +122,7 @@ function markMonthlyDone<T extends { id: string; text: string; category: string 
     if (it.category.startsWith(monthlyPrefix)) map[it.id] = true;
   });
   try {
-    localStorage.setItem(storageKeyPrefix + dateStr, JSON.stringify(map));
+    uloz(storageKeyPrefix + dateStr, JSON.stringify(map));
   } catch {}
   return { map, checkedItems: items.filter((it) => map[it.id]).map((it) => ({ id: it.id, text: it.text })) };
 }
