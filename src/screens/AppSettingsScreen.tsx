@@ -230,14 +230,22 @@ export default function AppSettingsScreen() {
 
       {/* Návod k použití */}
       <div className="card p-6 border-2 border-amber-400/60 bg-gradient-to-br from-amber-50/50 to-white rounded shadow-sm">
-        <div className="flex items-center justify-between cursor-pointer" onClick={() => setShowGuide(!showGuide)}>
+        {/* Celý pruh je jedno tlačítko. Dřív visel `onClick` na `div`u a uvnitř
+            bylo ještě druhé tlačítko — klávesnicí se to ovládat nedalo a
+            čtečka obrazovky o rozbalování nevěděla. */}
+        <button
+          type="button"
+          onClick={() => setShowGuide(!showGuide)}
+          aria-expanded={showGuide}
+          className="w-full flex items-center justify-between gap-2 text-left min-h-[44px]"
+        >
           <h2 className="font-display font-black text-lg text-amber-950 flex items-center gap-2">
             <BookOpen className="ikona-text" /> Návod k použití & Přehled funkcí
           </h2>
-          <button className="text-xs font-bold text-amber-800 bg-amber-100 hover:bg-amber-200 px-3 py-1.5 rounded transition">
+          <span className="text-xs font-bold text-amber-800 bg-amber-100 px-3 py-1.5 rounded transition shrink-0">
             {showGuide ? 'Skrýt návod ▲' : 'Zobrazit návod ▼'}
-          </button>
-        </div>
+          </span>
+        </button>
 
         {showGuide && (
           <div className="mt-5 space-y-6 text-sm text-neutral-700 leading-relaxed border-t border-amber-200 pt-5">

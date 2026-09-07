@@ -304,16 +304,23 @@ export function useRealtime(tables: string[], onChange: () => void) {
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => { timer = null; ref.current(); }, 400);
     };
-    const channels = tables.map((t) =>
-      supabase
-        .channel(`rt-${t}-${Math.random().toString(36).slice(2)}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: t }, trigger)
-        .subscribe()
-    );
+    // JEDEN kanál na celou obrazovku, ne jeden na tabulku.
+    //
+    // Dřív se otevíral samostatný WebSocket kanál pro každou tabulku:
+    // Stáčení KEG jich má v seznamu 18, Lahve 17, Objednávky 15 — a při
+    // přepínání obrazovek se to celé zavíralo a otevíralo znovu. Supabase
+    // přitom umí navěsit víc odběrů na jeden kanál, takže z osmnácti
+    // spojení je jedno a odhlášení je jedno volání místo osmnácti.
+    const kanal = supabase.channel(`rt-${Math.random().toString(36).slice(2)}`);
+    tables.forEach((t) => {
+      kanal.on('postgres_changes' as any, { event: '*', schema: 'public', table: t }, trigger);
+    });
+    kanal.subscribe();
+
     window.addEventListener('pivovar:online-refetch', trigger);
     return () => {
       if (timer) clearTimeout(timer);
-      channels.forEach((c) => supabase.removeChannel(c));
+      supabase.removeChannel(kanal);
       window.removeEventListener('pivovar:online-refetch', trigger);
     };
   }, [tables.join(',')]);

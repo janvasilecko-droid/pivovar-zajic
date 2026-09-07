@@ -2518,7 +2518,7 @@ function exportInventoryExcel() {
               nepřilepila vůbec. S vlastní výškou se lepí přesně tady.
               Barva pozadí musí být na <th>, ne na <tr> — pozadí řádku se pod
               přilepenou buňkou nevykreslí a text by prosvítal přes data. */}
-          <div className="overflow-auto rounded border border-neutral-200 bg-white max-h-[70vh]">
+          <div className="overflow-auto roluje-vodorovne rounded border border-neutral-200 bg-white max-h-[70vh]">
             <table className="w-full border-collapse min-w-[900px]">
               <thead>
                 <tr className="text-amber-300 text-[11px] font-black uppercase tracking-wider">

@@ -1103,3 +1103,23 @@ html.density-large .btn {
   .tisk-oblast .tisk-blok { page-break-inside: avoid; break-inside: avoid; }
   .tisk-oblast thead { display: table-header-group; }
 }
+
+/* ────────────────────────────────────────────────────────────────────
+   VODOROVNÉ ROLOVÁNÍ — ať je vidět, že tabulka pokračuje za okrajem.
+
+   Široké tabulky (plán stáčení 920 px, audit inventury 900 px) v rámečku
+   s `overflow-x-auto` odrolovat jdou, ale na telefonu to nic nenaznačuje:
+   vypadají jako oříznuté a zbytek sloupců nikdo nehledá.
+
+   Stín se kreslí čistě v CSS, bez jediného řádku JavaScriptu: dvě bílé
+   „krycí" vrstvy jsou přichycené k OBSAHU (`local`), dva stíny k RÁMEČKU
+   (`scroll`). Když je obsah odrolovaný, krycí vrstva odjede a stín se
+   odkryje — takže vlevo svítí jen když je co vlevo, a vpravo jen dokud
+   něco vpravo zbývá. Nescrollovatelný obsah nekreslí nic. */
+.roluje-vodorovne {
+  background:
+    linear-gradient(to right, var(--barva-povrch, #fff) 30%, rgba(255, 255, 255, 0)) left center / 28px 100% no-repeat local,
+    linear-gradient(to left, var(--barva-povrch, #fff) 30%, rgba(255, 255, 255, 0)) right center / 28px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0)) left center / 14px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0)) right center / 14px 100% no-repeat scroll;
+}

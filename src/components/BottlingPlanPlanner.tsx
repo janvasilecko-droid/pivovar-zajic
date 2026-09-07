@@ -456,7 +456,8 @@ export function BottlingPlanPlanner({
       );
     }
     return (
-      <div className="overflow-x-auto">
+      // roluje-vodorovne: stín na kraji řekne, že tabulka pokračuje (index.css)
+      <div className="overflow-x-auto roluje-vodorovne">
         <table className="w-full text-xs border-collapse min-w-[920px]">
           <thead>
             <tr className="text-[11px] uppercase tracking-wide text-neutral-500">
