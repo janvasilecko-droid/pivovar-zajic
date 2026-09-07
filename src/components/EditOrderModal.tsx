@@ -291,7 +291,7 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
               <button
                 type="button"
                 onClick={() => setRows((rs) => slucZdvojene(rs))}
-                className="btn-primary !rounded !py-2 !px-3 text-xs min-h-[40px]"
+                className="btn-primary !rounded !py-2 !px-3 text-xs min-h-[44px]"
               >
                 Sloučit do jednoho řádku
               </button>

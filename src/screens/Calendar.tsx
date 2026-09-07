@@ -199,7 +199,7 @@ export default function CalendarScreen() {
           </h3>
           <button
             onClick={() => { setVybranyDen(datum); zavibruj('klik'); }}
-            className="shrink-0 min-h-[40px] px-3 rounded-xl text-xs font-black text-primary-700 hover:bg-primary-50 active:scale-95 transition inline-flex items-center gap-1"
+            className="shrink-0 min-h-[44px] px-3 rounded-xl text-xs font-black text-primary-700 hover:bg-primary-50 active:scale-95 transition inline-flex items-center gap-1"
           >
             <Plus className="w-4 h-4" /> Přidat
           </button>
@@ -261,7 +261,7 @@ export default function CalendarScreen() {
             <button
               key={id}
               onClick={() => { setPohled(id); zavibruj('klik'); }}
-              className={`min-h-[40px] px-3 rounded-xl text-xs font-black transition inline-flex items-center gap-1.5 ${
+              className={`min-h-[44px] px-3 rounded-xl text-xs font-black transition inline-flex items-center gap-1.5 ${
                 pohled === id ? 'bg-primary-600 text-white shadow-sm' : 'text-neutral-600 hover:bg-neutral-100'
               }`}
             >
@@ -295,7 +295,7 @@ export default function CalendarScreen() {
         {pohled === 'seznam' && (
           <button
             onClick={() => { setVybranyDen(dnes); zavibruj('klik'); }}
-            className="ml-auto btn-primary !rounded-xl !min-h-[40px] !px-3 text-xs"
+            className="ml-auto btn-primary !rounded-xl !min-h-[44px] !px-3 text-xs"
           >
             <Plus className="w-4 h-4" /> Nová událost
           </button>

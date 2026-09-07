@@ -623,7 +623,7 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                                         });
                                       }}
                                       title="Ukázat, z čeho se stav skládá"
-                                      className="w-full min-h-[36px] py-1 px-1 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md hover:bg-amber-100 active:scale-95 transition underline decoration-dotted decoration-neutral-400 underline-offset-2"
+                                      className="w-full min-h-[44px] py-1 px-1 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md hover:bg-amber-100 active:scale-95 transition underline decoration-dotted decoration-neutral-400 underline-offset-2"
                                     >
                                       {p.currentStock}
                                       {p.rawStock < 0 && <span className="block text-[11px] font-black text-rose-600 font-mono" title="Vydáno víc, než evidence zná">({p.rawStock})</span>}
@@ -679,7 +679,7 @@ export default function Stock({ setPage }: { setPage?: (p: Page, sec?: string, s
                                         });
                                       }}
                                       title="Ukázat, z čeho se stav skládá"
-                                      className="w-full min-h-[36px] py-1 px-1 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md hover:bg-amber-100 active:scale-95 transition underline decoration-dotted decoration-neutral-400 underline-offset-2"
+                                      className="w-full min-h-[44px] py-1 px-1 text-center font-extrabold text-neutral-900 bg-neutral-100 rounded-md hover:bg-amber-100 active:scale-95 transition underline decoration-dotted decoration-neutral-400 underline-offset-2"
                                     >
                                       {p.currentStock}
                                       {p.rawStock < 0 && <span className="block text-[11px] font-black text-rose-600 font-mono" title="Vydáno víc, než evidence zná">({p.rawStock})</span>}

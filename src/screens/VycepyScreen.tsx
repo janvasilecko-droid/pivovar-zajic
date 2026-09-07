@@ -396,7 +396,7 @@ export default function VycepyScreen() {
                     <button
                       type="button"
                       onClick={() => handleToggleReturnReservation(r)}
-                      className={`flex-1 min-h-[40px] px-3 py-2 rounded text-xs font-black transition ${
+                      className={`flex-1 min-h-[44px] px-3 py-2 rounded text-xs font-black transition ${
                         r.is_returned ? 'bg-neutral-200 text-neutral-800 hover:bg-neutral-300' : 'bg-emerald-700 text-white hover:bg-emerald-800 shadow-2xs'
                       }`}
                     >

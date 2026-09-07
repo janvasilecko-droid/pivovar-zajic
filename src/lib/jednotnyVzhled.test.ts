@@ -75,3 +75,32 @@ describe('velikost písma', () => {
     expect(nalezy).toEqual([]);
   });
 });
+
+// 👆 Nejmenší cíl pro prst.
+//
+// Ve sklepě se aplikace ovládá palcem, často v rukavici. Pravidlo appky je
+// 44 px — jenže dvacet jedna tlačítek si velikost zadávalo samo přes
+// `min-h-[36px]` / `min-h-[40px]` a pravidlo je minulo (nejvíc v Kalendáři
+// a v Objednávkách). Test hlídá, že se menší číslo nevrátí.
+describe('cíle pro prst', () => {
+  it('žádné tlačítko si nezadává výšku ani šířku pod 44 px', () => {
+    const re = /min-[hw]-\[(\d+)px\]/g;
+    const nalezy: string[] = [];
+    for (const p of zdrojoveSoubory('src')) {
+      const s = readFileSync(p, 'utf8');
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(s))) {
+        if (Number(m[1]) >= 44) continue;
+        // Pravidlo platí pro to, na co se klepe. Odznáček s počtem zpráv
+        // ani řádek s trendem prstem nikdo netrefuje.
+        const okoli = s.slice(Math.max(0, m.index - 400), m.index);
+        const zacatek = Math.max(okoli.lastIndexOf(String.fromCharCode(60)), 0);
+        const znacka = okoli.slice(zacatek);
+        if (!/^<button|onClick=/.test(znacka) && !/<button[^>]*$/.test(okoli)) continue;
+        const radek = s.slice(0, m.index).split('\n').length;
+        nalezy.push(`${p.split(/[\/]/).join('/').replace(/.*\/src\//, 'src/')}:${radek} — ${m[0]}`);
+      }
+    }
+    expect(nalezy, `Cíle menší než 44 px:\n${nalezy.join('\n')}`).toEqual([]);
+  });
+});

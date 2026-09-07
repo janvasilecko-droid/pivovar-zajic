@@ -1756,7 +1756,7 @@ export default function Orders({
           <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2 sm:items-center sm:flex-wrap sm:justify-end [&>*]:w-full sm:[&>*]:w-auto">
             {mode !== 'entry_only' && (
               <button
-                className={`btn-ghost !rounded !min-h-[36px] !py-1.5 font-black text-xs shadow-xs flex items-center gap-1.5 ${viewMode === 'summary' ? '!bg-amber-500 !border-amber-500 !text-[#0f172a]' : '!bg-amber-50 !border-amber-200 !text-amber-900 hover:!bg-amber-100'}`}
+                className={`btn-ghost !rounded !min-h-[44px] !py-1.5 font-black text-xs shadow-xs flex items-center gap-1.5 ${viewMode === 'summary' ? '!bg-amber-500 !border-amber-500 !text-[#0f172a]' : '!bg-amber-50 !border-amber-200 !text-amber-900 hover:!bg-amber-100'}`}
                 onClick={() => setViewMode('summary')}
               >
                 <Plus size={14} /> Nové
@@ -1771,7 +1771,7 @@ export default function Orders({
             />
             {mode !== 'entry_only' && (
               <button
-                className={`btn-ghost !rounded !min-h-[36px] !py-1.5 font-black text-xs shadow-xs flex items-center gap-1.5 ${viewMode === 'text' ? '!bg-amber-500 !border-amber-500 !text-[#0f172a]' : '!bg-amber-50 !border-amber-200 !text-amber-900 hover:!bg-amber-100'}`}
+                className={`btn-ghost !rounded !min-h-[44px] !py-1.5 font-black text-xs shadow-xs flex items-center gap-1.5 ${viewMode === 'text' ? '!bg-amber-500 !border-amber-500 !text-[#0f172a]' : '!bg-amber-50 !border-amber-200 !text-amber-900 hover:!bg-amber-100'}`}
                 onClick={() => setViewMode('text')}
               >
                 <Mail size={14} /> Text
@@ -1780,7 +1780,7 @@ export default function Orders({
             {/* Klik rovnou otevře čtení/zpracování příchozích zpráv — ne
                 mezikrok navíc (kontrola je samostatné tlačítko vedle). */}
             <button
-              className="btn-ghost !rounded !min-h-[36px] !py-1.5 !bg-[#25D366] !border-[#25D366] !text-[#0f172a] font-black text-xs shadow-xs flex items-center gap-1.5 hover:!bg-[#1da851] relative"
+              className="btn-ghost !rounded !min-h-[44px] !py-1.5 !bg-[#25D366] !border-[#25D366] !text-[#0f172a] font-black text-xs shadow-xs flex items-center gap-1.5 hover:!bg-[#1da851] relative"
               title="WhatsApp — čtení a zpracování příchozích zpráv"
               onClick={() => setShowWhatsAppAutoProcessor(true)}
             >
@@ -1791,9 +1791,9 @@ export default function Orders({
                 </span>
               )}
             </button>
-            <button className="btn-ghost !rounded !min-h-[36px] !py-1.5 !bg-amber-50 !border-amber-200 !text-amber-900 font-extrabold text-xs shadow-xs flex items-center gap-1.5 hover:!bg-amber-100" title="Kontrola — zobrazí VŠECHNY WhatsApp zprávy za období, i chybové a ignorované" onClick={() => setShowWhatsAppAudit(true)}><ShieldAlert size={14} /> Kontrola zpráv</button>
-            <button className="btn-ghost !rounded !min-h-[36px] !py-1.5 !bg-amber-50 !border-amber-200 !text-amber-900 font-extrabold text-xs shadow-xs flex items-center gap-1.5 hover:!bg-amber-100" title="Audit objednávek — najde duplicitní položky, nesrovnalosti proti WhatsAppu a nezpracované zprávy" onClick={() => setShowOrderAudit(true)}><ShieldAlert size={14} /> Audit objednávek</button>
-            <button className="btn-ghost !rounded !min-h-[36px] !py-1.5 !bg-amber-50 !border-amber-200 !text-amber-900 font-extrabold text-xs shadow-xs flex items-center gap-1.5 hover:!bg-amber-100" title="Načíst z fotky/e-mailu" onClick={() => { setImportTarget(null); setShowImport(true); }}><Camera size={14} /> Fotka/AI</button>
+            <button className="btn-ghost !rounded !min-h-[44px] !py-1.5 !bg-amber-50 !border-amber-200 !text-amber-900 font-extrabold text-xs shadow-xs flex items-center gap-1.5 hover:!bg-amber-100" title="Kontrola — zobrazí VŠECHNY WhatsApp zprávy za období, i chybové a ignorované" onClick={() => setShowWhatsAppAudit(true)}><ShieldAlert size={14} /> Kontrola zpráv</button>
+            <button className="btn-ghost !rounded !min-h-[44px] !py-1.5 !bg-amber-50 !border-amber-200 !text-amber-900 font-extrabold text-xs shadow-xs flex items-center gap-1.5 hover:!bg-amber-100" title="Audit objednávek — najde duplicitní položky, nesrovnalosti proti WhatsAppu a nezpracované zprávy" onClick={() => setShowOrderAudit(true)}><ShieldAlert size={14} /> Audit objednávek</button>
+            <button className="btn-ghost !rounded !min-h-[44px] !py-1.5 !bg-amber-50 !border-amber-200 !text-amber-900 font-extrabold text-xs shadow-xs flex items-center gap-1.5 hover:!bg-amber-100" title="Načíst z fotky/e-mailu" onClick={() => { setImportTarget(null); setShowImport(true); }}><Camera size={14} /> Fotka/AI</button>
           </div>
           )}
         </div>
@@ -3584,7 +3584,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                     </label>
                     <div className="flex items-center gap-1 shrink-0">
                       <button
-                        className="text-primary-400 hover:text-primary-700 min-w-[40px] min-h-[40px] flex items-center justify-center text-lg rounded hover:bg-primary-50"
+                        className="text-primary-400 hover:text-primary-700 min-w-[44px] min-h-[44px] flex items-center justify-center text-lg rounded hover:bg-primary-50"
                         title="Upravit položku"
                         onClick={() => {
                           if (isEditing) { setEditingItemId(null); return; }
@@ -3594,7 +3594,7 @@ function OrderDetail({ order, items, beers, packages, places, remaining, onClose
                           setEditQty(String(i.quantity));
                         }}
                       ><Pencil size={14} /></button>
-                      <button className="text-rose-400 hover:text-rose-600 min-w-[40px] min-h-[40px] flex items-center justify-center text-xl rounded hover:bg-rose-50" onClick={() => rmItem(i.id)}>×</button>
+                      <button className="text-rose-400 hover:text-rose-600 min-w-[44px] min-h-[44px] flex items-center justify-center text-xl rounded hover:bg-rose-50" onClick={() => rmItem(i.id)}>×</button>
                     </div>
                   </div>
                   <div className="flex items-center justify-between text-xs">

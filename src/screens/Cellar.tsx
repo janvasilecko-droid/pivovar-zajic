@@ -1012,7 +1012,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                       </div>
                       <button
                         type="button"
-                        className="mt-1.5 w-full min-h-[40px] text-xs px-3 py-2 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-bold border border-neutral-200 flex items-center justify-center gap-1.5"
+                        className="mt-1.5 w-full min-h-[44px] text-xs px-3 py-2 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-bold border border-neutral-200 flex items-center justify-center gap-1.5"
                         onClick={() => {
                           setSanitationMethod('louh');
                           setSanitationTime(getCurrentTimeStr());
@@ -1029,10 +1029,10 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
 
                     {/* Vedlejší akce */}
                     <div className="pt-1 flex flex-wrap gap-1.5">
-                      <button className="min-h-[40px] text-xs px-3 py-2 rounded bg-neutral-200/80 text-neutral-800 hover:bg-neutral-300 font-medium" onClick={() => setEditTank(t)}>Upravit</button>
+                      <button className="min-h-[44px] text-xs px-3 py-2 rounded bg-neutral-200/80 text-neutral-800 hover:bg-neutral-300 font-medium" onClick={() => setEditTank(t)}>Upravit</button>
                       {t.label.toLowerCase().includes('spilka') && (t.status === 'active' || t.status === 'filling' || Number(t.current_volume_l) > 0) && (
                         <button
-                          className="min-h-[40px] text-xs px-3 py-2 rounded bg-sky-700 text-white font-black hover:bg-sky-800 shadow-xs flex items-center gap-1"
+                          className="min-h-[44px] text-xs px-3 py-2 rounded bg-sky-700 text-white font-black hover:bg-sky-800 shadow-xs flex items-center gap-1"
                           onClick={() => {
                             setTransferFromId(t.id);
                             if (t.current_beer_id) setTransferBeerId(t.current_beer_id);

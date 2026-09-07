@@ -46,10 +46,37 @@ export function getQueue(): QueuedOp[] { return read(); }
 
 export function queueLength() { return read().length; }
 
+/**
+ * Kdy naposledy šel zápis do fronty místo do databáze.
+ *
+ * Offline zápis se tváří jako povedený (viz synthesizeWrite v supabase.ts) —
+ * a obrazovka pak ukáže zelené „Uloženo" úplně stejné jako při odeslání.
+ * Ve sklepě s kolísavým signálem se kvůli tomu zapisovalo stáčení s tím, že
+ * je hotovo. Podle téhle značky umí oznámení doříct, že zápis zatím leží
+ * v telefonu (viz `zapisSelDoFronty`).
+ */
+let poslednizapisDoFronty = 0;
+
 export function enqueue(op: Omit<QueuedOp, 'id' | 'ts'>) {
   const q = read();
   q.push({ ...op, id: crypto.randomUUID(), ts: Date.now() });
   write(q);
+  poslednizapisDoFronty = Date.now();
+}
+
+/**
+ * Šel poslední zápis do fronty (a je to tak čerstvé, že se to týká právě
+ * zobrazovaného oznámení)?
+ *
+ * `ted` je kvůli testům — v provozu se dosadí aktuální čas.
+ */
+export function zapisSelDoFronty(oknoMs = 4000, ted = Date.now()): boolean {
+  return poslednizapisDoFronty > 0 && ted - poslednizapisDoFronty <= oknoMs;
+}
+
+/** Jen pro testy — vrátí značku do výchozího stavu. */
+export function zapomenZapisDoFronty() {
+  poslednizapisDoFronty = 0;
 }
 
 export function clearQueue() {
