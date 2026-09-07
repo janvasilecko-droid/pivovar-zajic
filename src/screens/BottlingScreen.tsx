@@ -915,7 +915,7 @@ export default function BottlingScreen({
     <div className="space-y-6 pb-12">
       {/* Top Action Bar — přilepený nahoře, ať jde přepínat záložku i uprostřed scrollování. */}
       <div className="sticky top-0 z-20 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3.5 rounded border border-neutral-200/90 shadow-2xs">
-        <div className="hidden sm:flex items-center justify-between gap-2">
+        <div className="hidden sm:flex items-center justify-between gap-2 shrink-0">
           <span className="text-sm sm:text-base font-display font-black text-amber-950 flex items-center gap-1.5 shrink-0">
             <span><IkonaLahev className="ikona-text" /></span>
             <span>Lahve</span>
@@ -924,7 +924,7 @@ export default function BottlingScreen({
 
         {/* Záložky: Stáčení / Přehled / Potřeba stočit lahve / Potřeba stočit KEGy */}
         {(
-          <div className="flex items-center gap-1.5 p-1 rounded w-full sm:w-fit overflow-x-auto scrollbar-none flex-nowrap shrink-0">
+          <div className="flex items-center gap-1.5 p-1 rounded w-full sm:w-auto sm:flex-1 min-w-0 overflow-x-auto scrollbar-thin flex-nowrap">
             <button
               type="button"
               onClick={() => selectTab('zapis')}

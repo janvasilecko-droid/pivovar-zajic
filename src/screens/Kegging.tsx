@@ -887,7 +887,12 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
           Export Excel a foto/hlas jsou schválně MIMO tuhle sticky listu (viz níže) - jinak by
           na mobilu (kde se lišta zalamuje na víc řádků) nesedel top offset dalších sticky lišt pod ní. */}
       <div className="sticky top-0 z-20 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3.5 rounded border border-neutral-200/90 shadow-2xs">
-        <div className="hidden sm:flex items-center justify-between gap-2">
+        {/* Nadpis si drží místo (shrink-0), lišta tlačítek vedle něj se roluje
+            ve svém rámečku. Dřív byla lišta shrink-0 taky — při užším okně na
+            počítači tedy přetekla a tlačítka se vykreslila PŘES nadpis, takže
+            z „KEG (Stáčení & Přehled)" zbylo „KEG (Stáče…" schované pod
+            ikonami. Stejný vzor je v Lahvích a ve Sklepě. */}
+        <div className="hidden sm:flex items-center justify-between gap-2 shrink-0">
           <span className="text-sm sm:text-base font-display font-black text-amber-950 flex items-center gap-1.5 shrink-0">
             <span><IkonaSud className="ikona-text" /></span>
             <span>{mode === 'entry_only' ? 'KEG (Stáčení)' : mode === 'overviews_only' ? 'KEG (Přehled)' : 'KEG (Stáčení & Přehled)'}</span>
@@ -896,7 +901,7 @@ export default function KeggingScreen({ setPage, mode = 'all', initialSubTab }: 
 
         {/* Záložky: Zápis / Přehled / Potřeba stočit KEGy */}
         {mode === 'all' && (
-          <div className="flex items-center gap-1.5 p-1 rounded w-full sm:w-fit overflow-x-auto scrollbar-none flex-nowrap shrink-0">
+          <div className="flex items-center gap-1.5 p-1 rounded w-full sm:w-auto sm:flex-1 min-w-0 overflow-x-auto scrollbar-thin flex-nowrap">
             <button
               type="button"
               onClick={() => selectTab('zapis')}

@@ -580,7 +580,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
 
         <div className="sticky top-0 z-20 bg-neutral-100 py-1 flex flex-wrap items-center gap-2 w-full">
           {/* Tab Selector: Ležácké vs Spilka vs Plánovač — přilepený nahoře. */}
-          <div className="flex items-center gap-1.5 p-1 rounded w-full sm:w-fit overflow-x-auto scrollbar-none flex-nowrap shrink-0">
+          <div className="flex items-center gap-1.5 p-1 rounded w-full sm:w-auto sm:flex-1 min-w-0 overflow-x-auto scrollbar-thin flex-nowrap">
             <button
               type="button"
               onClick={() => selectTab('lezacke')}
