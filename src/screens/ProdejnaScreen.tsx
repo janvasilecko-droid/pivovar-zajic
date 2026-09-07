@@ -406,15 +406,10 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Top Action Bar — bez ukotvení (žádný prvek na téhle obrazovce nezůstává přilepený). */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded border border-neutral-200 shadow-2xs">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-display font-black text-amber-950 flex items-center gap-1.5">
-            <Ikona className="ikona-text" />
-            <span>{setPage && mode === 'all' ? 'Fasování' : title}</span>
-          </span>
-        </div>
-      </div>
+      {/* Nadpis obrazovky tu ZÁMĚRNĚ NENÍ. Byl v samostatném rámečku pod
+          horní lištou, takže „Fasování" stálo na obrazovce dvakrát pod sebou
+          a rámeček navíc sebral řádek. Jméno obrazovky nese horní lišta
+          (s hledáním a zelenou tečkou připojení) — stejně jako u KEG a Lahví. */}
 
       {/* Záložky: Zápis / Přehled */}
       <div className="flex items-center gap-1 bg-white p-1 rounded border border-neutral-200 shadow-2xs w-fit">

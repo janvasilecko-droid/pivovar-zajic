@@ -450,11 +450,9 @@ export default function Zavoz({ setPage, embedded = false }: { setPage?: (p: any
 
       {/* Top Action Bar — styl jako Stáčení KEG / Lahve */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded border border-neutral-200 shadow-2xs">
+        {/* Bez nadpisu „Závoz" — jméno obrazovky nese horní lišta. Lišta tady
+            zůstává kvůli akcím (Export Excel), ne kvůli titulku. */}
         <div className="flex items-center gap-2">
-          <span className="text-sm font-display font-black text-amber-950 flex items-center gap-1.5">
-            <span><Truck className="ikona-text" /></span>
-            <span>Závoz</span>
-          </span>
           <div className="relative group">
             <button className="btn-ghost !rounded !bg-white border-amber-300 text-amber-950 font-extrabold text-xs shadow-xs" disabled={!activeOrders.length}><BarChart3 className="ikona-text" /> Export Excel ▾</button>
             {activeOrders.length > 0 && (

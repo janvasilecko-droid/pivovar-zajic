@@ -573,7 +573,9 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
       )}
 
       <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
-        <div>
+        {/* Na telefonu se nadpis nekreslí — jméno obrazovky nese horní lišta
+            (stejně jako u KEG a Lahví). Na počítači zůstává i s popiskem. */}
+        <div className="hidden sm:block">
           <h1 className="text-2xl font-display font-bold text-primary-900"><Warehouse className="ikona-text" /> Sklep & Spilka — tanky</h1>
           <p className="text-sm text-primary-500 mt-1">Kvasné tanky na Spilce (Spilka 1–3) & Ležácké tanky (Tanky 1–8).</p>
         </div>

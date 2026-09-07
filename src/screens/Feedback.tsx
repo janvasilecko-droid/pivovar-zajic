@@ -142,7 +142,8 @@ export default function Feedback({ setPage, initialSubTab }: { setPage?: (p: any
       {activeTab === 'notes' && (
         <>
           <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
-            <div>
+            {/* Nadpis jen na počítači — na telefonu ho nese horní lišta. */}
+            <div className="hidden sm:block">
               <h1 className="text-2xl font-display font-bold text-primary-900"><MessageCircle className="ikona-text" /> Poznámky a nápady</h1>
               <p className="text-sm text-primary-500 mt-1">Napiš, co by se mělo vylepšit, opravit nebo upravit. Vidí to všichni kolegové.</p>
             </div>
