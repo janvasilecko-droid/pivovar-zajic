@@ -8,7 +8,6 @@ import {
   type DiffRow, type RozsahOdpovedi, type SkupinaObalu,
 } from '../lib/whatsappAmendment';
 import { PlaceCombobox } from './PlaceCombobox';
-import { QuickQtySelect } from './QuickQtySelect';
 import { Modal } from './ui';
 import { PhotoReviewPane } from './PhotoReviewPane';
 import {
@@ -21,7 +20,7 @@ import {
   type ReadbackMatch,
   type ReadbackStatus,
 } from '../lib/whatsappReadback';
-import { AlertCircle, AlertTriangle, ArrowDown, Check, CheckCircle2, ChevronDown, Download, ExternalLink, Eye, FileText, Image as ImageIcon, MessageSquare, RefreshCw, ShieldAlert, ShieldCheck, ShoppingCart, UserCheck, X } from 'lucide-react';
+import { AlertCircle, AlertTriangle, ArrowDown, Check, CheckCircle2, ChevronDown, Download, ExternalLink, Eye, FileText, Image as ImageIcon, MessageSquare, RefreshCw, ShieldAlert, ShieldCheck, ShoppingCart, Plus, UserCheck, X } from 'lucide-react';
 import { potvrd } from '../lib/toast';
 
 /** Jak se skupiny obalů pojmenují v přehledu úpravy. */
@@ -292,6 +291,32 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     const next = [...items];
     next[index] = { ...next[index], qty };
     setItems(next);
+  }
+
+  /**
+   * Ruční přidání položky. AI občas řádek přehlédne (rozmazaná fotka,
+   * dopsaná poznámka pod čarou) a do teď se s tím nedalo dělat nic jiného,
+   * než objednávku schválit a doplnit ji potom v Objednávkách — tedy na
+   * druhé obrazovce a se ztrátou souvislosti s původní zprávou.
+   *
+   * Nový řádek nemá `rawLine`: kontrola čtení porovnává s originálem, a
+   * ručně dopsaná položka v originále z podstaty není. Tvářit se, že ji AI
+   * přečetla, by udělalo z kontroly lež.
+   */
+  function addItem() {
+    setItems((prev) => [
+      ...prev,
+      {
+        key: `item-rucne-${Date.now()}-${prev.length}`,
+        beerId: '',
+        pkgId: '',
+        qty: '1',
+        degree: null,
+        beerName: null,
+        packageLabel: null,
+        rawLine: null,
+      } as ReviewItem,
+    ]);
   }
 
   function deleteItem(index: number) {
@@ -1047,38 +1072,14 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                             isMismatch ? 'border-amber-300 ring-2 ring-amber-200' : ''
                           }`}
                         >
+                          {/* Pořadí je pořadí, ve kterém se objednávka čte:
+                              PIVO — OBAL — POČET. Počet je jednou; dřív tu
+                              stálo políčko s číslem a hned vedle rozbalovátko
+                              s přednastavenými počty, takže na řádku byla dvě
+                              místa s množstvím a nebylo poznat, které platí.
+                              Všechna tři pole mají stejnou velikost písma
+                              i výšku na dotek. */}
                           <div className="flex items-center gap-2 flex-wrap">
-                            <input
-                              type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
-                              min={1}
-                              value={item.qty}
-                              onChange={(e) => updateItemQty(index, e.target.value)}
-                              className="input !py-1 !px-2 text-sm font-black w-16 text-center shrink-0 min-h-[44px]"
-                              title="Množství (ks)"
-                            />
-                            <QuickQtySelect
-                              pkg={props.packages.find((p) => p.id === item.pkgId)}
-                              qty={item.qty}
-                              onSelect={(q) => updateItemQty(index, String(q))}
-                              className="rounded bg-white border border-amber-300 text-emerald-950 font-black text-sm px-1.5 min-h-[44px] shrink-0 cursor-pointer transition"
-                            />
-                            {/* Obal (30 l, 1 l…) stojí hned vedle množství —
-                                „5" samo o sobě neznamená nic, teprve „5 × 30 l"
-                                je objednávka. Dřív byl obal až za pivem, na
-                                telefonu se tedy zalomil pod něj a při kontrole
-                                se musel dohledávat. Všechna tři pole mají
-                                stejnou velikost písma i výšku na dotek. */}
-                            <select
-                              value={item.pkgId}
-                              onChange={(e) => updateItemPkg(index, e.target.value)}
-                              className="select !py-1 text-sm font-black min-h-[44px] flex-1 min-w-[120px]"
-                              title="Obal / objem"
-                            >
-                              <option value="">(Vyber obal)</option>
-                              {props.packages.map((p) => (
-                                <option key={p.id} value={p.id}>{p.label}</option>
-                              ))}
-                            </select>
                             <select
                               value={item.beerId}
                               onChange={(e) => updateItemBeer(index, e.target.value)}
@@ -1090,6 +1091,25 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                                 <option key={b.id} value={b.id}>{b.name}</option>
                               ))}
                             </select>
+                            <select
+                              value={item.pkgId}
+                              onChange={(e) => updateItemPkg(index, e.target.value)}
+                              className="select !py-1 text-sm font-black min-h-[44px] flex-1 min-w-[120px]"
+                              title="Obal / objem"
+                            >
+                              <option value="">(Vyber obal)</option>
+                              {props.packages.map((p) => (
+                                <option key={p.id} value={p.id}>{p.label}</option>
+                              ))}
+                            </select>
+                            <input
+                              type="number" inputMode="decimal" onWheel={(e) => e.currentTarget.blur()}
+                              min={1}
+                              value={item.qty}
+                              onChange={(e) => updateItemQty(index, e.target.value)}
+                              className="input !py-1 !px-2 text-sm font-black w-20 text-center shrink-0 min-h-[44px]"
+                              title="Počet kusů"
+                            />
                             <button
                               type="button"
                               onClick={() => deleteItem(index)}
@@ -1163,6 +1183,16 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                         </div>
                       );
                     })}
+                    {/* Ruční doplnění položky. AI občas řádek přehlédne
+                        a do teď se dal dopsat až po schválení, na jiné
+                        obrazovce a bez původní zprávy před očima. */}
+                    <button
+                      type="button"
+                      onClick={addItem}
+                      className="w-full px-3 py-2 rounded border-2 border-dashed border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 font-black text-xs transition min-h-[44px] flex items-center justify-center gap-1.5"
+                    >
+                      <Plus size={14} /> Přidat řádek
+                    </button>
                   </div>
                 </div>
               )}

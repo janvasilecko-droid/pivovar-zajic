@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 
-import { AlertTriangle, ArrowRight, Ban, ChevronLeft, ChevronRight, Beer as BeerIcon, Bell, Bot, Building2, Calculator, Calendar, CalendarDays, Camera, Check, CheckCircle2, CheckSquare, ClipboardList, Clock, Copy, FilePlus, Globe, Hourglass, ListOrdered, Mail, MessageCircle, NotebookPen, Package as PackageIcon, PackageCheck, Pencil, Phone, Plus, Receipt, RotateCcw, Scroll, Search, ShieldAlert, Trash2, Truck, User, X, Zap } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Ban, ChevronLeft, ChevronRight, Beer as BeerIcon, Bell, Bot, Building2, Calculator, Calendar, CalendarDays, Camera, Check, CheckCircle2, CheckSquare, ClipboardList, Clock, Copy, Droplet, FilePlus, Globe, Hourglass, ListOrdered, Mail, MessageCircle, NotebookPen, Package as PackageIcon, PackageCheck, Pencil, Phone, Plus, Receipt, RotateCcw, Scroll, Search, ShieldAlert, Trash2, Truck, User, X, Zap } from 'lucide-react';
 import { Beer, EntryRow, Package, Place, beerBg, beerName, beerText, fetchAllRows, formatPackageLabel, pkgBg, supabase, useRealtime } from '../lib/supabase';
 import { Modal, Field, EmptyState, Spinner } from '../components/ui';
 import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSummaryCard';
@@ -19,6 +19,7 @@ import { OrderAuditModal } from '../components/OrderAuditModal';
 import { EditOrderModal } from '../components/EditOrderModal';
 import { PlaceCombobox } from '../components/PlaceCombobox'; // Assuming this is needed
 import { DAYS } from '../lib/shared';
+import { vseHotovo } from '../lib/polozkyObjednavky';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { QuickQtySelect, orderQuickQtys } from '../components/QuickQtySelect';
 import { BeerTileGrid, BeerTilePanel } from '../components/BeerTileGrid';
@@ -56,7 +57,7 @@ type Order = {
 type OrderItem = {
   id: string; order_id: string; beer_id: string | null; beer_name: string | null;
   package_id: string | null; package_label: string | null; quantity: number;
-  is_prepared: boolean;
+  is_prepared: boolean; is_bottled: boolean;
 };
 
 // U reálných dat má naprostá většina objednávek stav 'vyrizeno_zavoz' (nastaví
@@ -1250,6 +1251,35 @@ export default function Orders({
     await supabase.from('orders').update(patch).eq('id', o.id);
     setOrders((arr) => arr.map((x) => x.id === o.id ? { ...x, ...patch } as Order : x));
   }
+  /**
+   * Odškrtnutí položky — „stočeno" a „připraveno" přímo v přehledu.
+   *
+   * Zapisuje do TÝCHŽ sloupců, které odškrtává Závoz
+   * (`order_items.is_bottled` / `is_prepared`), takže se to propíše na obě
+   * strany: co se odškrtne u sklepa, vidí řidič, a co odškrtne řidič, zmizí
+   * z práce ve sklepě. Vlastní příznak jen pro tuhle obrazovku by znamenal
+   * dvě pravdy o jedné bedně piva.
+   *
+   * U „připraveno" se navíc dopočítá příznak celé objednávky — stejně jako
+   * to dělá Závoz, protože podle něj se objednávka tváří jako nachystaná.
+   */
+  async function toggleItemFlag(o: Order, it: OrderItem, key: 'is_bottled' | 'is_prepared') {
+    const nova = !it[key];
+    const { error } = await supabase.from('order_items').update({ [key]: nova }).eq('id', it.id);
+    if (error) { chyba('Nepovedlo se uložit: ' + error.message); return; }
+
+    const dalsi = (items[o.id] ?? []).map((x) => (x.id === it.id ? { ...x, [key]: nova } : x));
+    setItems((m) => ({ ...m, [o.id]: dalsi }));
+
+    if (key === 'is_prepared') {
+      const hotovo = vseHotovo(dalsi, 'is_prepared');
+      if (hotovo !== o.is_prepared) {
+        await supabase.from('orders').update({ is_prepared: hotovo }).eq('id', o.id);
+        setOrders((arr) => arr.map((x) => (x.id === o.id ? { ...x, is_prepared: hotovo } : x)));
+      }
+    }
+  }
+
   async function del(id: string) {
     if (!(await potvrd('Smazat objednávku?'))) return;
     // Objednávka už mohla mít proběhlý automatický odpočet závozu
@@ -2525,7 +2555,7 @@ export default function Orders({
                   <div key={o.id} className="space-y-3">
                     <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForWeek={stockRemainingForWeek}
                       selected={selectedIds.has(o.id)} onToggleSelect={() => toggleSelect(o.id)}
-                      onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onUpdateDeliveryDay={updateDeliveryDay}
+                      onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onToggleItemFlag={toggleItemFlag} onUpdateDeliveryDay={updateDeliveryDay}
                       onSetStatus={setStatus} onDelete={del} onDuplicate={duplicateOrder} onEdit={setEditOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
                       activeBeerId={itemFilterBeerId} activePackageId={itemFilterPackageId} />
                     {detail?.id === o.id && (
@@ -2563,7 +2593,7 @@ export default function Orders({
             <div key={o.id} className="space-y-3">
               <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForWeek={stockRemainingForWeek}
                 selected={selectedIds.has(o.id)} onToggleSelect={() => toggleSelect(o.id)}
-                onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onUpdateDeliveryDay={updateDeliveryDay}
+                onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onToggleItemFlag={toggleItemFlag} onUpdateDeliveryDay={updateDeliveryDay}
                 onSetStatus={setStatus} onDelete={del} onDuplicate={duplicateOrder} onEdit={setEditOrder} onOpenWhatsApp={handleOpenWhatsAppMessage} beers={beers} packages={packages} places={places}
                 activeBeerId={itemFilterBeerId} activePackageId={itemFilterPackageId} />
               {detail?.id === o.id && (
@@ -2928,11 +2958,12 @@ function VariantTotalsPanel({ totals, beers, packages, timeScope, onPick }: {
   );
 }
 
-function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, onClick, onToggleFlag, onUpdateDeliveryDay, onSetStatus, onDelete, onDuplicate, onEdit, onOpenWhatsApp, beers, packages, places, activeBeerId, activePackageId }: {
+function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, onClick, onToggleFlag, onToggleItemFlag, onUpdateDeliveryDay, onSetStatus, onDelete, onDuplicate, onEdit, onOpenWhatsApp, beers, packages, places, activeBeerId, activePackageId }: {
   o: Order; items: OrderItem[];
   stockRemainingForWeek: (wk: string) => Map<string, number>;
   selected: boolean; onToggleSelect: () => void; onClick: () => void;
   onToggleFlag: (o: Order, key: 'is_prepared' | 'is_packaged' | 'is_delivered') => void;
+  onToggleItemFlag: (o: Order, it: OrderItem, key: 'is_bottled' | 'is_prepared') => void;
   onUpdateDeliveryDay: (o: Order, day: string) => void;
   onSetStatus: (o: Order, status: string) => void;
   onDelete: (id: string) => void;
@@ -3046,65 +3077,81 @@ function OrderCard({ o, items, stockRemainingForWeek, selected, onToggleSelect, 
           </div>
         </div>
 
-        {/* Řádek 2: položky + souhrn + stav skladu */}
-        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-          {items.length > 0 && (
-            <>
-              {sortedItems.map((i) => {
-                const beer = i.beer_id ? beers.find((b) => b.id === i.beer_id) : null;
-                // Shoda s aktivním filtrem — pivo a obal se zvýrazňují RŮZNOU barvou,
-                // aby bylo na první pohled vidět, podle čeho se daná položka shodla.
-                const isBeerMatch = !!(activeBeerId && i.beer_id === activeBeerId);
-                const isPkgMatch = !!(activePackageId && i.package_id === activePackageId);
-                // Aktivní celá kombinace pivo+obal (klik na „Chybí“ v Potřebě stočení)
-                // → zvýrazní se JEN položky přesně odpovídající kombinaci; částečná
-                // shoda (jen pivo, jen obal) se nezvýrazňuje.
-                const bothActive = !!(activeBeerId && activePackageId);
-                const matchKind: 'beer' | 'pkg' | 'both' | null =
-                  bothActive
-                    ? isBeerMatch && isPkgMatch ? 'both' : null
-                    : isBeerMatch && isPkgMatch ? 'both' : isBeerMatch ? 'beer' : isPkgMatch ? 'pkg' : null;
-                const chipCls =
-                  matchKind === 'beer'
-                    ? 'bg-sky-400 text-neutral-900 border-sky-600 ring-2 ring-sky-500 shadow-md scale-105'
-                    : matchKind === 'pkg'
-                      ? 'bg-emerald-400 text-neutral-900 border-emerald-600 ring-2 ring-emerald-500 shadow-md scale-105'
-                      : matchKind === 'both'
-                        ? 'bg-violet-400 text-neutral-900 border-violet-600 ring-2 ring-violet-500 shadow-md scale-105'
-                        : 'bg-white text-neutral-800 border-neutral-200 shadow-xs';
-                const qtyCls =
-                  matchKind === 'beer'
-                    ? 'bg-neutral-950 text-sky-300'
-                    : matchKind === 'pkg'
-                      ? 'bg-neutral-950 text-emerald-300'
-                      : matchKind === 'both'
-                        ? 'bg-neutral-950 text-violet-300'
-                        : 'bg-amber-100 text-amber-800';
-                return (
-                  <span
-                    key={i.id}
-                    className={`chip !py-0.5 !px-2 text-[11px] font-black border transition-all ${chipCls}`}
+        {/* Řádek 2: položky jako SEZNAM, ne jako rámečky.
+            Rámečky (chipy) se na telefonu lámaly doprostřed řádku a čtyři
+            piva vypadala jako jedna dlouhá věta. Seznam se čte shora dolů
+            a hlavně: je v něm místo na odškrtnutí.
+
+            Dvě zaškrtávátka u každé položky — stočeno (kapka) a připraveno
+            (fajfka). Jsou to tytéž sloupce, které odškrtává Závoz, takže se
+            to propíše na obě strany a jde to odškrtnout i zpátky. Schválně
+            bez popisků: v přehledu jde o rychlé přejetí očima, ne o čtení. */}
+        {items.length > 0 && (
+          <div className="space-y-0.5" onClick={(e) => e.stopPropagation()}>
+            {sortedItems.map((i) => {
+              const beer = i.beer_id ? beers.find((b) => b.id === i.beer_id) : null;
+              const isBeerMatch = !!(activeBeerId && i.beer_id === activeBeerId);
+              const isPkgMatch = !!(activePackageId && i.package_id === activePackageId);
+              const bothActive = !!(activeBeerId && activePackageId);
+              const zvyrazneno = bothActive ? (isBeerMatch && isPkgMatch) : (isBeerMatch || isPkgMatch);
+              return (
+                <div
+                  key={i.id}
+                  className={`flex items-center gap-2 rounded px-1.5 py-1 min-w-0 ${
+                    zvyrazneno ? 'bg-violet-100 ring-1 ring-violet-400' : ''
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => onToggleItemFlag(o, i, 'is_bottled')}
+                    title={i.is_bottled ? 'Stočeno — klepnutím zrušit' : 'Označit jako stočené'}
+                    aria-label={i.is_bottled ? 'Stočeno' : 'Označit jako stočené'}
+                    aria-pressed={!!i.is_bottled}
+                    className={`w-6 h-6 shrink-0 grid place-items-center rounded border-2 transition ${
+                      i.is_bottled
+                        ? 'bg-amber-500 border-amber-600 text-neutral-950'
+                        : 'bg-white border-neutral-300 text-neutral-300'
+                    }`}
                   >
-                    {beer && (
-                      <span
-                        className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs border border-black/20"
-                        style={{ backgroundColor: beerBg(beer) }}
-                      />
-                    )}
-                    <span className="font-black tracking-tight">{i.beer_name ?? '?'}</span>
-                    {i.package_label && (
-                      <span className="ml-1 font-extrabold text-neutral-700">
-                        ({formatPackageLabel(i.package_label)})
-                      </span>
-                    )}
-                    <strong className={`ml-1.5 px-1.5 py-0 rounded font-black text-[11px] ${qtyCls}`}>
-                      {i.quantity} ks
-                    </strong>
+                    <Droplet size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onToggleItemFlag(o, i, 'is_prepared')}
+                    title={i.is_prepared ? 'Připraveno — klepnutím zrušit' : 'Označit jako připravené'}
+                    aria-label={i.is_prepared ? 'Připraveno' : 'Označit jako připravené'}
+                    aria-pressed={!!i.is_prepared}
+                    className={`w-6 h-6 shrink-0 grid place-items-center rounded border-2 transition ${
+                      i.is_prepared
+                        ? 'bg-emerald-700 border-emerald-800 text-white'
+                        : 'bg-white border-neutral-300 text-neutral-300'
+                    }`}
+                  >
+                    <Check size={13} />
+                  </button>
+                  {beer && (
+                    <span
+                      className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs border border-black/20 vlastni-vyska"
+                      style={{ backgroundColor: beerBg(beer) }}
+                    />
+                  )}
+                  <span className={`font-black text-xs min-w-0 flex-1 break-words ${i.is_prepared ? 'text-neutral-500 line-through' : 'text-neutral-900'}`}>
+                    {i.beer_name ?? '?'}
                   </span>
-                );
-              })}
-            </>
-          )}
+                  <span className="text-xs font-bold text-neutral-700 shrink-0">
+                    {formatPackageLabel(i.package_label)}
+                  </span>
+                  <span className="text-xs font-black text-amber-900 bg-amber-100 rounded px-1.5 py-0.5 shrink-0 tabular-nums">
+                    {i.quantity} ks
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Řádek 3: souhrn + stav skladu */}
+        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
           <span className="text-[11px] font-black text-neutral-700 shrink-0">
             {items.length} položek · {total} ks
           </span>
