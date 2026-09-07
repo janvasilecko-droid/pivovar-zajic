@@ -107,6 +107,8 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
       else localStorage.removeItem(klicRozdelane);
     } catch { /* plné úložiště nesmí shodit zápis */ }
   }, [entryRows, who, note, date, klicRozdelane]);
+  // Vrácení na sklad (odfasování) — zapisuje se záporným množstvím.
+  const [vraceni, setVraceni] = useState(false);
   const [expandedProdejnaBeerId, setExpandedProdejnaBeerId] = useState<string | null>(null);
   const expandedProdejnaBeer = beers.find((b) => b.id === expandedProdejnaBeerId) ?? null;
   const [saving, setSaving] = useState(false);
@@ -265,8 +267,11 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
         entry_date: date,
         who: person || null,
         beer_id: r.beerId || null, beer_name: beer?.name ?? null,
-        package_id: r.pkgId, package_label: pkg?.label ?? null, quantity: n,
-        ...(isWriteoffs ? {} : { note: note || null }),
+        // Vrácení na sklad = ZÁPORNÝ řádek do téže tabulky. Původní výdej se
+        // nemaže: co se vydalo, se doopravdy vydalo, a smazáním by se ztratila
+        // stopa (a rozházel měsíc, který už může být napočítaný).
+        package_id: r.pkgId, package_label: pkg?.label ?? null, quantity: vraceni ? -n : n,
+        ...(isWriteoffs ? {} : { note: (vraceni ? (note ? `Vráceno na sklad — ${note}` : 'Vráceno na sklad') : note) || null }),
       };
     });
 
@@ -281,8 +286,8 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
         return {
           entry_date: date,
           beer_id: r.beerId || null, beer_name: beer?.name ?? null,
-          package_id: r.pkgId, package_label: pkg?.label ?? null, quantity: n,
-          ...(isWriteoffs ? {} : { note: combinedNote || null }),
+          package_id: r.pkgId, package_label: pkg?.label ?? null, quantity: vraceni ? -n : n,
+          ...(isWriteoffs ? {} : { note: (vraceni ? (combinedNote ? `Vráceno na sklad — ${combinedNote}` : 'Vráceno na sklad') : combinedNote) || null }),
         };
       });
       const res = await supabase.from(table).insert(fallbackPayloads);
@@ -293,6 +298,9 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
     if (error) { setErr(error.message); return; }
 
     setEntryRows(emptyRows(table === 'fasovani' ? FASOVANI_ROW_COUNT : ROW_COUNT)); setWho(''); setNote(''); setErr(null);
+    // Po uložení zpátky na výdej — vrácení je výjimka, ne režim, ve kterém
+    // se pracuje. Jinak by další zápis nenápadně odečetl místo přičetl.
+    setVraceni(false);
     try { localStorage.removeItem(klicRozdelane); } catch { /* uklizeno i tak */ }
     setFlash(true); setTimeout(() => setFlash(false), 800);
     load(true);
@@ -596,10 +604,50 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
             <input className="input text-xs" value={note} onChange={(e) => setNote(e.target.value)} placeholder="nepovinná poznámka" />
           </div>
 
+          {/* ↩️ Odfasovat — vrácení už vydaného zboží na sklad.
+              Vrácení se zapisuje jako ZÁPORNÝ řádek do stejné tabulky, ne
+              mazáním původního zápisu: co se vydalo, se doopravdy vydalo,
+              a smazat to znamená ztratit stopu (a rozbít měsíc, který je
+              možná už napočítaný). Přepínač je vidět nahlas a tlačítko
+              změní barvu i text, ať se vrácení neuloží omylem místo výdeje. */}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setVraceni(false)}
+              className={`px-3 py-2 rounded font-black text-xs min-h-[44px] border-2 transition ${
+                !vraceni ? 'bg-emerald-700 border-emerald-800 text-white' : 'bg-white border-neutral-300 text-neutral-600'
+              }`}
+            >
+              Vydat ze skladu
+            </button>
+            <button
+              type="button"
+              onClick={() => setVraceni(true)}
+              className={`px-3 py-2 rounded font-black text-xs min-h-[44px] border-2 transition ${
+                vraceni ? 'bg-sky-700 border-sky-800 text-white' : 'bg-white border-neutral-300 text-neutral-600'
+              }`}
+            >
+              ↩ Odfasovat (vrátit na sklad)
+            </button>
+            {vraceni && (
+              <span className="text-[11px] font-bold text-sky-900 bg-sky-50 border border-sky-300 rounded px-2 py-1">
+                Zapíše se záporný řádek — kusy se vrátí na sklad.
+              </span>
+            )}
+          </div>
+
           <div className="flex items-center justify-between mt-4">
             <div className="flex items-center gap-2">
-              <button type="submit" disabled={saving} className="btn-primary !rounded !from-emerald-600 !to-emerald-700 hover:!from-emerald-500 hover:!to-emerald-600 !shadow-emerald-600/30 text-xs font-black shadow-md">
-                {saving ? 'Ukládám…' : 'Uložit fasování'}
+              <button
+                type="submit"
+                disabled={saving}
+                className={`!rounded text-xs font-black shadow-md ${
+                  vraceni
+                    ? 'px-4 py-2.5 min-h-[44px] rounded bg-sky-700 hover:bg-sky-600 text-white'
+                    : 'btn-primary !from-emerald-600 !to-emerald-700 hover:!from-emerald-500 hover:!to-emerald-600 !shadow-emerald-600/30'
+                }`}
+              >
+                {saving ? 'Ukládám…' : vraceni ? '↩ Vrátit na sklad' : 'Uložit fasování'}
               </button>
               <button type="button" className="btn-ghost !rounded text-xs" onClick={() => setEntryRows(emptyRows(table === 'fasovani' ? FASOVANI_ROW_COUNT : ROW_COUNT))}><Trash2 className="ikona-text" /> Vymazat vše</button>
             </div>
