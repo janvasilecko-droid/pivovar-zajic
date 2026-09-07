@@ -1,11 +1,11 @@
 # Zálohy
 
-Poslední záloha: **2026-09-06**
+Poslední záloha: **2026-09-07**
 
 | Tabulka | Řádků |
 | --- | ---: |
-| orders | 177 |
-| order_items | 530 |
+| orders | 186 |
+| order_items | 560 |
 | kegging | 209 |
 | bottling | 109 |
 
