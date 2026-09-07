@@ -349,10 +349,8 @@ export default function Orders({
           // Whitelist odesílatelů — zprávy od nepovolených se automaticky nenačítají
           // (zůstanou v seznamu pro ruční zpracování).
           if (!isSenderAllowed(allowedSendersRef.current, message.sender_name)) {
-            console.log('Zpráva od nepovoleného odesílatele přeskočena:', message.sender_name);
             return;
           }
-          console.log('Nová WhatsApp zpráva přijata:', message.id);
           
           // Aktualizovat počítadlo
           setNewWhatsAppCount(prev => prev + 1);
@@ -403,7 +401,6 @@ export default function Orders({
         const allowed = pending.filter((m) => isSenderAllowed(allowedSendersRef.current, m.sender_name));
         if (allowed.length === 0) return;
 
-        console.log('Dočteno', allowed.length, 'čekajících WhatsApp zpráv');
         setNewWhatsAppCount((prev) => prev + allowed.length);
 
         // Pokud je mezi nimi nějaká 'pending', spustíme serverové parsování.

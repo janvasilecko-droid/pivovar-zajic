@@ -406,7 +406,6 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
         const isDuplicate = isDuplicateRawText(rawTextFromGemini, seenRawTextsRef.current);
         if (isDuplicate && rawTextFromGemini.trim().length > 30) {
           // Text je příliš podobný předchozímu -> pravděpodobně odpověď s kopií objednávky
-          console.log('Duplicitní text detekován (pravděpodobně odpověď s kopií objednávky):', rawTextFromGemini.substring(0, 100));
           setSkipReason(`Fotka může obsahovat odpověď s kopií původní objednávky. Zkontrolujte, jestli neobsahuje víckrát stejné položky.`);
           
           // Pokud jde o přidání dalších fotek (append), quietly skip

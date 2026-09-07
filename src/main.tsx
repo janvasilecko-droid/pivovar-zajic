@@ -132,7 +132,6 @@ startVersionCheck();
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', (event) => {
     if (event.data?.type === 'SW_ACTIVATED' || event.data?.type === 'NEW_VERSION_AVAILABLE') {
-      console.log('Service worker hlásí novou verzi — kontroluji dostupnou verzi');
       void checkVersion();
     }
   });

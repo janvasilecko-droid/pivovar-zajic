@@ -56,8 +56,8 @@ function bezDiakritiky(s: string): string {
 
 export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchModalProps) {
   const [query, setQuery] = useState('');
-  const [places, setPlaces] = useState<{ id: string; name: string; city: string | null }[]>([]);
-  const [beers, setBeers] = useState<{ id: string; name: string; category: string | null }[]>([]);
+  const [places, setPlaces] = useState<{ id: string; name: string; address: string | null }[]>([]);
+  const [beers, setBeers] = useState<{ id: string; name: string; degree: string | number | null }[]>([]);
   const [packages, setPackages] = useState<{ id: string; label: string; volume_l: number | null }[]>([]);
   const [orders, setOrders] = useState<
     { id: string; place_name: string | null; delivery_date: string | null; order_date: string; status: string }[]
@@ -79,8 +79,11 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
   async function loadSearchData() {
     try {
       const [{ data: pData }, { data: bData }, { data: obData }, { data: oData }] = await Promise.all([
-        supabase.from('places').select('id, name, city').order('name'),
-        supabase.from('beers').select('id, name, category').eq('is_active', true).order('name'),
+        // 'city' ani 'category' v katalozích nejsou (tabulka má address,
+        // beers mají degree/color) — dotaz s nimi vždycky spadl a rychlé
+        // hledání pak neznalo ani odběratele, ani piva.
+        supabase.from('places').select('id, name, address').order('name'),
+        supabase.from('beers').select('id, name, degree').eq('is_active', true).order('name'),
         supabase.from('packages').select('id, label, volume_l').order('sort_order'),
         // Jen posledních 300 — starší objednávka se hledá přes odběratele.
         supabase.from('orders').select('id, place_name, delivery_date, order_date, status')
@@ -127,12 +130,12 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
   const dostDlouhy = dotaz.length >= 2;
 
   const filteredPlaces: SearchItem[] = !dostDlouhy ? [] : places
-    .filter((p) => sedi(p.name, p.city))
+    .filter((p) => sedi(p.name, p.address))
     .slice(0, 8)
     .map((p) => ({
       id: `place-${p.id}`,
       title: p.name,
-      subtitle: p.city ? `Město: ${p.city}` : 'Odběratel / hospoda',
+      subtitle: p.address ? `Adresa: ${p.address}` : 'Odběratel / hospoda',
       category: 'Odběratel',
       icon: MapPin,
       // Klepnutí jde na JEHO OBJEDNÁVKY, ne do číselníku odběratelů. Dřív
@@ -154,12 +157,12 @@ export function QuickSearchModal({ isOpen, onClose, onSelectPage }: QuickSearchM
     }));
 
   const filteredBeers: SearchItem[] = !dostDlouhy ? [] : beers
-    .filter((b) => sedi(b.name, b.category))
+    .filter((b) => sedi(b.name, b.degree != null ? String(b.degree) : null))
     .slice(0, 8)
     .map((b) => ({
       id: `beer-${b.id}`,
       title: b.name,
-      subtitle: b.category ? `Kategorie: ${b.category}` : 'Pivo pivovaru Zajíc',
+      subtitle: b.degree ? `${b.degree}° — pivo pivovaru Zajíc` : 'Pivo pivovaru Zajíc',
       category: 'Pivo',
       icon: BeerIcon,
       action: () => { onSelectPage('beers'); onClose(); },
